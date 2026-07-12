@@ -256,9 +256,9 @@ type RegisterRequest struct {
 	AgentId    string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`           // agent unique id
 	Version    string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                          // agent version
 	Functions  []*FunctionDescriptor  `protobuf:"bytes,3,rep,name=functions,proto3" json:"functions,omitempty"`                      // summarized function list
-	RpcAddr    string                 `protobuf:"bytes,4,opt,name=rpc_addr,json=rpcAddr,proto3" json:"rpc_addr,omitempty"`           // agent's reachable gRPC address (DEV ONLY)
+	RpcAddr    string                 `protobuf:"bytes,4,opt,name=rpc_addr,json=rpcAddr,proto3" json:"rpc_addr,omitempty"`           // DEPRECATED: legacy gRPC callback addr. Do NOT use for routing — Server calls Agents over the established TCP session. Kept only so older Agents can still register; removal is gated on all deployed Agents dropping this field.
 	GameId     string                 `protobuf:"bytes,5,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`              // game scope (required for multi-game routing)
-	Env        string                 `protobuf:"bytes,6,opt,name=env,proto3" json:"env,omitempty"`                                  // environment (optional: prod/stage/test)
+	Env        string                 `protobuf:"bytes,6,opt,name=env,proto3" json:"env,omitempty"`                                  // logical environment scope (optional: prod/stage/test)
 	Processes  []*AgentProcess        `protobuf:"bytes,7,rep,name=processes,proto3" json:"processes,omitempty"`                      // registered processes (sdk->agent)
 	TtlSeconds uint32                 `protobuf:"varint,8,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"` // session TTL (default 300s = 5min)
 	// Location and labels

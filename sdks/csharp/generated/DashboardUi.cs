@@ -26,25 +26,25 @@ namespace Croupier.Component.V1 {
           string.Concat(
             "Cihjcm91cGllci9jb21wb25lbnQvdjEvZGFzaGJvYXJkX3VpLnByb3RvEhVj",
             "cm91cGllci5jb21wb25lbnQudjEiKgoISTE4blRleHQSDgoCZW4YASABKAlS",
-            "AmVuEg4KAnpoGAIgASgJUgJ6aCKiAQoETWVudRIYCgdzZWN0aW9uGAEgASgJ",
-            "UgdzZWN0aW9uEhQKBWdyb3VwGAIgASgJUgVncm91cBISCgRwYXRoGAMgASgJ",
-            "UgRwYXRoEhQKBW9yZGVyGAQgASgFUgVvcmRlchISCgRpY29uGAUgASgJUgRp",
-            "Y29uEhQKBWJhZGdlGAYgASgJUgViYWRnZRIWCgZoaWRkZW4YByABKAhSBmhp",
-            "ZGRlbiI3CgtSb2xlQmluZGluZxISCgRyb2xlGAEgASgJUgRyb2xlEhQKBXZl",
-            "cmJzGAIgAygJUgV2ZXJicyKFAgoOUGVybWlzc2lvblNwZWMSFAoFdmVyYnMY",
-            "ASADKAlSBXZlcmJzEhYKBnNjb3BlcxgCIAMoCVIGc2NvcGVzEj4KCGRlZmF1",
-            "bHRzGAMgAygLMiIuY3JvdXBpZXIuY29tcG9uZW50LnYxLlJvbGVCaW5kaW5n",
-            "UghkZWZhdWx0cxJKCgdpMThuX3poGAQgAygLMjEuY3JvdXBpZXIuY29tcG9u",
-            "ZW50LnYxLlBlcm1pc3Npb25TcGVjLkkxOG5aaEVudHJ5UgZpMThuWmgaOQoL",
-            "STE4blpoRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlS",
-            "BXZhbHVlOgI4AUJzCihpby5naXRodWIuY3VpaGFpcnUuY3JvdXBpZXIuY29t",
-            "cG9uZW50LnYxUAFaRWdpdGh1Yi5jb20vY3VpaGFpcnUvY3JvdXBpZXIvcGtn",
-            "L3BiL2Nyb3VwaWVyL2NvbXBvbmVudC92MTtjb21wb25lbnR2MWIGcHJvdG8z"));
+            "AmVuEg4KAnpoGAIgASgJUgJ6aCKIAQoETWVudRIUCgVub2RlcxgBIAMoCVIF",
+            "bm9kZXMSEgoEcGF0aBgCIAEoCVIEcGF0aBIUCgVvcmRlchgDIAEoBVIFb3Jk",
+            "ZXISEgoEaWNvbhgEIAEoCVIEaWNvbhIUCgViYWRnZRgFIAEoCVIFYmFkZ2US",
+            "FgoGaGlkZGVuGAYgASgIUgZoaWRkZW4iNwoLUm9sZUJpbmRpbmcSEgoEcm9s",
+            "ZRgBIAEoCVIEcm9sZRIUCgV2ZXJicxgCIAMoCVIFdmVyYnMihQIKDlBlcm1p",
+            "c3Npb25TcGVjEhQKBXZlcmJzGAEgAygJUgV2ZXJicxIWCgZzY29wZXMYAiAD",
+            "KAlSBnNjb3BlcxI+CghkZWZhdWx0cxgDIAMoCzIiLmNyb3VwaWVyLmNvbXBv",
+            "bmVudC52MS5Sb2xlQmluZGluZ1IIZGVmYXVsdHMSSgoHaTE4bl96aBgEIAMo",
+            "CzIxLmNyb3VwaWVyLmNvbXBvbmVudC52MS5QZXJtaXNzaW9uU3BlYy5JMThu",
+            "WmhFbnRyeVIGaTE4blpoGjkKC0kxOG5aaEVudHJ5EhAKA2tleRgBIAEoCVID",
+            "a2V5EhQKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAFCcwooaW8uZ2l0aHViLmN1",
+            "aWhhaXJ1LmNyb3VwaWVyLmNvbXBvbmVudC52MVABWkVnaXRodWIuY29tL2N1",
+            "aWhhaXJ1L2Nyb3VwaWVyL3BrZy9wYi9jcm91cGllci9jb21wb25lbnQvdjE7",
+            "Y29tcG9uZW50djFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Component.V1.I18nText), global::Croupier.Component.V1.I18nText.Parser, new[]{ "En", "Zh" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Component.V1.Menu), global::Croupier.Component.V1.Menu.Parser, new[]{ "Section", "Group", "Path", "Order", "Icon", "Badge", "Hidden" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Component.V1.Menu), global::Croupier.Component.V1.Menu.Parser, new[]{ "Nodes", "Path", "Order", "Icon", "Badge", "Hidden" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Component.V1.RoleBinding), global::Croupier.Component.V1.RoleBinding.Parser, new[]{ "Role", "Verbs" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Component.V1.PermissionSpec), global::Croupier.Component.V1.PermissionSpec.Parser, new[]{ "Verbs", "Scopes", "Defaults", "I18NZh" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, })
           }));
@@ -324,8 +324,7 @@ namespace Croupier.Component.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public Menu(Menu other) : this() {
-      section_ = other.section_;
-      group_ = other.group_;
+      nodes_ = other.nodes_.Clone();
       path_ = other.path_;
       order_ = other.order_;
       icon_ = other.icon_;
@@ -340,41 +339,26 @@ namespace Croupier.Component.V1 {
       return new Menu(this);
     }
 
-    /// <summary>Field number for the "section" field.</summary>
-    public const int SectionFieldNumber = 1;
-    private string section_ = "";
+    /// <summary>Field number for the "nodes" field.</summary>
+    public const int NodesFieldNumber = 1;
+    private static readonly pb::FieldCodec<string> _repeated_nodes_codec
+        = pb::FieldCodec.ForString(10);
+    private readonly pbc::RepeatedField<string> nodes_ = new pbc::RepeatedField<string>();
     /// <summary>
-    /// Top-level section: e.g. "Function Management" | "Operations" | "Analytics"
+    /// Dynamic menu tree nodes (english keys only), e.g. ["game","player"].
+    /// Optional: server may infer from category/entity/function_id when empty.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Section {
-      get { return section_; }
-      set {
-        section_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "group" field.</summary>
-    public const int GroupFieldNumber = 2;
-    private string group_ = "";
-    /// <summary>
-    /// Group within section: e.g. "Moderation" | "Player"
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Group {
-      get { return group_; }
-      set {
-        group_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
+    public pbc::RepeatedField<string> Nodes {
+      get { return nodes_; }
     }
 
     /// <summary>Field number for the "path" field.</summary>
-    public const int PathFieldNumber = 3;
+    public const int PathFieldNumber = 2;
     private string path_ = "";
     /// <summary>
-    /// Preferred landing path: e.g. "/functions/invoke"
+    /// Optional landing path. If empty, server generates default path by entity/function id.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -386,7 +370,7 @@ namespace Croupier.Component.V1 {
     }
 
     /// <summary>Field number for the "order" field.</summary>
-    public const int OrderFieldNumber = 4;
+    public const int OrderFieldNumber = 3;
     private int order_;
     /// <summary>
     /// Ordering weight (ascending)
@@ -401,7 +385,7 @@ namespace Croupier.Component.V1 {
     }
 
     /// <summary>Field number for the "icon" field.</summary>
-    public const int IconFieldNumber = 5;
+    public const int IconFieldNumber = 4;
     private string icon_ = "";
     /// <summary>
     /// Icon id (frontend mapping)
@@ -416,7 +400,7 @@ namespace Croupier.Component.V1 {
     }
 
     /// <summary>Field number for the "badge" field.</summary>
-    public const int BadgeFieldNumber = 6;
+    public const int BadgeFieldNumber = 5;
     private string badge_ = "";
     /// <summary>
     /// "beta" | "new" | custom
@@ -431,7 +415,7 @@ namespace Croupier.Component.V1 {
     }
 
     /// <summary>Field number for the "hidden" field.</summary>
-    public const int HiddenFieldNumber = 7;
+    public const int HiddenFieldNumber = 6;
     private bool hidden_;
     /// <summary>
     /// true → do not show in menu
@@ -460,8 +444,7 @@ namespace Croupier.Component.V1 {
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (Section != other.Section) return false;
-      if (Group != other.Group) return false;
+      if(!nodes_.Equals(other.nodes_)) return false;
       if (Path != other.Path) return false;
       if (Order != other.Order) return false;
       if (Icon != other.Icon) return false;
@@ -474,8 +457,7 @@ namespace Croupier.Component.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (Section.Length != 0) hash ^= Section.GetHashCode();
-      if (Group.Length != 0) hash ^= Group.GetHashCode();
+      hash ^= nodes_.GetHashCode();
       if (Path.Length != 0) hash ^= Path.GetHashCode();
       if (Order != 0) hash ^= Order.GetHashCode();
       if (Icon.Length != 0) hash ^= Icon.GetHashCode();
@@ -499,32 +481,25 @@ namespace Croupier.Component.V1 {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (Section.Length != 0) {
-        output.WriteRawTag(10);
-        output.WriteString(Section);
-      }
-      if (Group.Length != 0) {
-        output.WriteRawTag(18);
-        output.WriteString(Group);
-      }
+      nodes_.WriteTo(output, _repeated_nodes_codec);
       if (Path.Length != 0) {
-        output.WriteRawTag(26);
+        output.WriteRawTag(18);
         output.WriteString(Path);
       }
       if (Order != 0) {
-        output.WriteRawTag(32);
+        output.WriteRawTag(24);
         output.WriteInt32(Order);
       }
       if (Icon.Length != 0) {
-        output.WriteRawTag(42);
+        output.WriteRawTag(34);
         output.WriteString(Icon);
       }
       if (Badge.Length != 0) {
-        output.WriteRawTag(50);
+        output.WriteRawTag(42);
         output.WriteString(Badge);
       }
       if (Hidden != false) {
-        output.WriteRawTag(56);
+        output.WriteRawTag(48);
         output.WriteBool(Hidden);
       }
       if (_unknownFields != null) {
@@ -537,32 +512,25 @@ namespace Croupier.Component.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (Section.Length != 0) {
-        output.WriteRawTag(10);
-        output.WriteString(Section);
-      }
-      if (Group.Length != 0) {
-        output.WriteRawTag(18);
-        output.WriteString(Group);
-      }
+      nodes_.WriteTo(ref output, _repeated_nodes_codec);
       if (Path.Length != 0) {
-        output.WriteRawTag(26);
+        output.WriteRawTag(18);
         output.WriteString(Path);
       }
       if (Order != 0) {
-        output.WriteRawTag(32);
+        output.WriteRawTag(24);
         output.WriteInt32(Order);
       }
       if (Icon.Length != 0) {
-        output.WriteRawTag(42);
+        output.WriteRawTag(34);
         output.WriteString(Icon);
       }
       if (Badge.Length != 0) {
-        output.WriteRawTag(50);
+        output.WriteRawTag(42);
         output.WriteString(Badge);
       }
       if (Hidden != false) {
-        output.WriteRawTag(56);
+        output.WriteRawTag(48);
         output.WriteBool(Hidden);
       }
       if (_unknownFields != null) {
@@ -575,12 +543,7 @@ namespace Croupier.Component.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (Section.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Section);
-      }
-      if (Group.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Group);
-      }
+      size += nodes_.CalculateSize(_repeated_nodes_codec);
       if (Path.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Path);
       }
@@ -608,12 +571,7 @@ namespace Croupier.Component.V1 {
       if (other == null) {
         return;
       }
-      if (other.Section.Length != 0) {
-        Section = other.Section;
-      }
-      if (other.Group.Length != 0) {
-        Group = other.Group;
-      }
+      nodes_.Add(other.nodes_);
       if (other.Path.Length != 0) {
         Path = other.Path;
       }
@@ -645,30 +603,26 @@ namespace Croupier.Component.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            Section = input.ReadString();
+            nodes_.AddEntriesFrom(input, _repeated_nodes_codec);
             break;
           }
           case 18: {
-            Group = input.ReadString();
-            break;
-          }
-          case 26: {
             Path = input.ReadString();
             break;
           }
-          case 32: {
+          case 24: {
             Order = input.ReadInt32();
             break;
           }
-          case 42: {
+          case 34: {
             Icon = input.ReadString();
             break;
           }
-          case 50: {
+          case 42: {
             Badge = input.ReadString();
             break;
           }
-          case 56: {
+          case 48: {
             Hidden = input.ReadBool();
             break;
           }
@@ -688,30 +642,26 @@ namespace Croupier.Component.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            Section = input.ReadString();
+            nodes_.AddEntriesFrom(ref input, _repeated_nodes_codec);
             break;
           }
           case 18: {
-            Group = input.ReadString();
-            break;
-          }
-          case 26: {
             Path = input.ReadString();
             break;
           }
-          case 32: {
+          case 24: {
             Order = input.ReadInt32();
             break;
           }
-          case 42: {
+          case 34: {
             Icon = input.ReadString();
             break;
           }
-          case 50: {
+          case 42: {
             Badge = input.ReadString();
             break;
           }
-          case 56: {
+          case 48: {
             Hidden = input.ReadBool();
             break;
           }

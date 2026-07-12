@@ -1264,7 +1264,7 @@ namespace Croupier.Agent.V1 {
     public const int RpcAddrFieldNumber = 4;
     private string rpcAddr_ = "";
     /// <summary>
-    /// agent's reachable gRPC address (DEV ONLY)
+    /// DEPRECATED: legacy gRPC callback addr. Do NOT use for routing — Server calls Agents over the established TCP session. Kept only so older Agents can still register; removal is gated on all deployed Agents dropping this field.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1294,7 +1294,7 @@ namespace Croupier.Agent.V1 {
     public const int EnvFieldNumber = 6;
     private string env_ = "";
     /// <summary>
-    /// environment (optional: prod/stage/test)
+    /// logical environment scope (optional: prod/stage/test)
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]

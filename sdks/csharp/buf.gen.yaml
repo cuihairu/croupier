@@ -2,6 +2,6 @@ version: v2
 plugins:
   # C# plugins (使用固定版本 v25.1 对应 protobuf 4.25.x)
   - remote: buf.build/protocolbuffers/csharp:v25.1
-    out: ../generated
+    out: sdks/csharp/generated
   - remote: buf.build/grpc/csharp:v1.71.0
-    out: ../generated
+    out: sdks/csharp/generated

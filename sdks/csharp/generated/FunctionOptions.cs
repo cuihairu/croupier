@@ -157,7 +157,7 @@ namespace Croupier.Component.V1 {
     public const int FunctionIdFieldNumber = 1;
     private string functionId_ = "";
     /// <summary>
-    /// 全局唯一函数ID（默认：&lt;package>.&lt;service>.&lt;method> 转小写）
+    /// 全局唯一函数ID（规范：&lt;domain>.&lt;entity>.&lt;action>，小写，允许 [a-z0-9._-]）
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -172,7 +172,7 @@ namespace Croupier.Component.V1 {
     public const int VersionFieldNumber = 2;
     private string version_ = "";
     /// <summary>
-    /// 版本（默认 1.0.0）
+    /// 版本（规范：SemVer，如 1.0.0 / 1.2.3-beta.1）
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]

@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(croupier/component/v1/dashboard_ui.proto\x12\x15\x63roupier.component.v1\"*\n\x08I18nText\x12\x0e\n\x02\x65n\x18\x01 \x01(\tR\x02\x65n\x12\x0e\n\x02zh\x18\x02 \x01(\tR\x02zh\"\xa2\x01\n\x04Menu\x12\x18\n\x07section\x18\x01 \x01(\tR\x07section\x12\x14\n\x05group\x18\x02 \x01(\tR\x05group\x12\x12\n\x04path\x18\x03 \x01(\tR\x04path\x12\x14\n\x05order\x18\x04 \x01(\x05R\x05order\x12\x12\n\x04icon\x18\x05 \x01(\tR\x04icon\x12\x14\n\x05\x62\x61\x64ge\x18\x06 \x01(\tR\x05\x62\x61\x64ge\x12\x16\n\x06hidden\x18\x07 \x01(\x08R\x06hidden\"7\n\x0bRoleBinding\x12\x12\n\x04role\x18\x01 \x01(\tR\x04role\x12\x14\n\x05verbs\x18\x02 \x03(\tR\x05verbs\"\x85\x02\n\x0ePermissionSpec\x12\x14\n\x05verbs\x18\x01 \x03(\tR\x05verbs\x12\x16\n\x06scopes\x18\x02 \x03(\tR\x06scopes\x12>\n\x08\x64\x65\x66\x61ults\x18\x03 \x03(\x0b\x32\".croupier.component.v1.RoleBindingR\x08\x64\x65\x66\x61ults\x12J\n\x07i18n_zh\x18\x04 \x03(\x0b\x32\x31.croupier.component.v1.PermissionSpec.I18nZhEntryR\x06i18nZh\x1a\x39\n\x0bI18nZhEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42s\n(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/pkg/pb/croupier/component/v1;componentv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(croupier/component/v1/dashboard_ui.proto\x12\x15\x63roupier.component.v1\"*\n\x08I18nText\x12\x0e\n\x02\x65n\x18\x01 \x01(\tR\x02\x65n\x12\x0e\n\x02zh\x18\x02 \x01(\tR\x02zh\"\x88\x01\n\x04Menu\x12\x14\n\x05nodes\x18\x01 \x03(\tR\x05nodes\x12\x12\n\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n\x05order\x18\x03 \x01(\x05R\x05order\x12\x12\n\x04icon\x18\x04 \x01(\tR\x04icon\x12\x14\n\x05\x62\x61\x64ge\x18\x05 \x01(\tR\x05\x62\x61\x64ge\x12\x16\n\x06hidden\x18\x06 \x01(\x08R\x06hidden\"7\n\x0bRoleBinding\x12\x12\n\x04role\x18\x01 \x01(\tR\x04role\x12\x14\n\x05verbs\x18\x02 \x03(\tR\x05verbs\"\x85\x02\n\x0ePermissionSpec\x12\x14\n\x05verbs\x18\x01 \x03(\tR\x05verbs\x12\x16\n\x06scopes\x18\x02 \x03(\tR\x06scopes\x12>\n\x08\x64\x65\x66\x61ults\x18\x03 \x03(\x0b\x32\".croupier.component.v1.RoleBindingR\x08\x64\x65\x66\x61ults\x12J\n\x07i18n_zh\x18\x04 \x03(\x0b\x32\x31.croupier.component.v1.PermissionSpec.I18nZhEntryR\x06i18nZh\x1a\x39\n\x0bI18nZhEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42s\n(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/pkg/pb/croupier/component/v1;componentv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -27,11 +27,11 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_I18NTEXT']._serialized_start=67
   _globals['_I18NTEXT']._serialized_end=109
   _globals['_MENU']._serialized_start=112
-  _globals['_MENU']._serialized_end=274
-  _globals['_ROLEBINDING']._serialized_start=276
-  _globals['_ROLEBINDING']._serialized_end=331
-  _globals['_PERMISSIONSPEC']._serialized_start=334
-  _globals['_PERMISSIONSPEC']._serialized_end=595
-  _globals['_PERMISSIONSPEC_I18NZHENTRY']._serialized_start=538
-  _globals['_PERMISSIONSPEC_I18NZHENTRY']._serialized_end=595
+  _globals['_MENU']._serialized_end=248
+  _globals['_ROLEBINDING']._serialized_start=250
+  _globals['_ROLEBINDING']._serialized_end=305
+  _globals['_PERMISSIONSPEC']._serialized_start=308
+  _globals['_PERMISSIONSPEC']._serialized_end=569
+  _globals['_PERMISSIONSPEC_I18NZHENTRY']._serialized_start=512
+  _globals['_PERMISSIONSPEC_I18NZHENTRY']._serialized_end=569
 # @@protoc_insertion_point(module_scope)

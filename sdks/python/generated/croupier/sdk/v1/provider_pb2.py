@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x63roupier/sdk/v1/provider.proto\x12\x0f\x63roupier.sdk.v1\"\x84\x03\n\x17LocalFunctionDescriptor\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x12\n\x04tags\x18\x03 \x03(\tR\x04tags\x12\x18\n\x07summary\x18\x04 \x01(\tR\x07summary\x12 \n\x0b\x64\x65scription\x18\x05 \x01(\tR\x0b\x64\x65scription\x12!\n\x0coperation_id\x18\x06 \x01(\tR\x0boperationId\x12\x1e\n\ndeprecated\x18\x07 \x01(\x08R\ndeprecated\x12!\n\x0cinput_schema\x18\x08 \x01(\tR\x0binputSchema\x12#\n\routput_schema\x18\t \x01(\tR\x0coutputSchema\x12\x1a\n\x08\x63\x61tegory\x18\n \x01(\tR\x08\x63\x61tegory\x12\x12\n\x04risk\x18\x0b \x01(\tR\x04risk\x12\x16\n\x06\x65ntity\x18\x0c \x01(\tR\x06\x65ntity\x12\x1c\n\toperation\x18\r \x01(\tR\toperation\"\xb2\x01\n\x14RegisterLocalRequest\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x19\n\x08rpc_addr\x18\x03 \x01(\tR\x07rpcAddr\x12\x46\n\tfunctions\x18\x04 \x03(\x0b\x32(.croupier.sdk.v1.LocalFunctionDescriptorR\tfunctions\"6\n\x15RegisterLocalResponse\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\"P\n\x10HeartbeatRequest\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\"\x13\n\x11HeartbeatResponse\"y\n\rLocalInstance\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x12\n\x04\x61\x64\x64r\x18\x02 \x01(\tR\x04\x61\x64\x64r\x12\x18\n\x07version\x18\x03 \x01(\tR\x07version\x12\x1b\n\tlast_seen\x18\x04 \x01(\tR\x08lastSeen\"]\n\rLocalFunction\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12<\n\tinstances\x18\x02 \x03(\x0b\x32\x1e.croupier.sdk.v1.LocalInstanceR\tinstances\"\x12\n\x10ListLocalRequest\"Q\n\x11ListLocalResponse\x12<\n\tfunctions\x18\x01 \x03(\x0b\x32\x1e.croupier.sdk.v1.LocalFunctionR\tfunctions\",\n\x13GetJobResultRequest\x12\x15\n\x06job_id\x18\x01 \x01(\tR\x05jobId\"\\\n\x14GetJobResultResponse\x12\x14\n\x05state\x18\x01 \x01(\tR\x05state\x12\x18\n\x07payload\x18\x02 \x01(\x0cR\x07payload\x12\x14\n\x05\x65rror\x18\x03 \x01(\tR\x05\x65rrorBa\n\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x63roupier/sdk/v1/provider.proto\x12\x0f\x63roupier.sdk.v1\"\x84\x03\n\x17LocalFunctionDescriptor\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x12\n\x04tags\x18\x03 \x03(\tR\x04tags\x12\x18\n\x07summary\x18\x04 \x01(\tR\x07summary\x12 \n\x0b\x64\x65scription\x18\x05 \x01(\tR\x0b\x64\x65scription\x12!\n\x0coperation_id\x18\x06 \x01(\tR\x0boperationId\x12\x1e\n\ndeprecated\x18\x07 \x01(\x08R\ndeprecated\x12!\n\x0cinput_schema\x18\x08 \x01(\tR\x0binputSchema\x12#\n\routput_schema\x18\t \x01(\tR\x0coutputSchema\x12\x1a\n\x08\x63\x61tegory\x18\n \x01(\tR\x08\x63\x61tegory\x12\x12\n\x04risk\x18\x0b \x01(\tR\x04risk\x12\x16\n\x06\x65ntity\x18\x0c \x01(\tR\x06\x65ntity\x12\x1c\n\toperation\x18\r \x01(\tR\toperation\"\xaa\x03\n\x16ProviderConnectRequest\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x46\n\tfunctions\x18\x03 \x03(\x0b\x32(.croupier.sdk.v1.LocalFunctionDescriptorR\tfunctions\x12!\n\x0csdk_language\x18\x04 \x01(\tR\x0bsdkLanguage\x12\x1f\n\x0bsdk_version\x18\x05 \x01(\tR\nsdkVersion\x12)\n\x10protocol_version\x18\x06 \x01(\tR\x0fprotocolVersion\x12\x35\n\x16supported_capabilities\x18\x07 \x03(\tR\x15supportedCapabilities\x12\x36\n\x17transport_security_mode\x18\x08 \x01(\tR\x15transportSecurityMode\x12\x31\n\x14supported_transports\x18\t \x03(\tR\x13supportedTransports\"\x89\x01\n\x17ProviderConnectResponse\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x33\n\x15\x61\x63\x63\x65pted_capabilities\x18\x02 \x03(\tR\x14\x61\x63\x63\x65ptedCapabilities\x12\x1a\n\x08warnings\x18\x03 \x03(\tR\x08warnings\"X\n\x18ProviderHeartbeatRequest\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\"\x1b\n\x19ProviderHeartbeatResponse\"s\n\x14ProviderDrainRequest\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n\x06reason\x18\x02 \x01(\tR\x06reason\x12$\n\x0eretry_after_ms\x18\x03 \x01(\rR\x0cretryAfterMs\"\x17\n\x15ProviderDrainResponse\"/\n\x14GetTaskResultRequest\x12\x17\n\x07task_id\x18\x01 \x01(\tR\x06taskId\"]\n\x15GetTaskResultResponse\x12\x14\n\x05state\x18\x01 \x01(\tR\x05state\x12\x18\n\x07payload\x18\x02 \x01(\x0cR\x07payload\x12\x14\n\x05\x65rror\x18\x03 \x01(\tR\x05\x65rrorBa\n\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -24,24 +24,20 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['DESCRIPTOR']._serialized_options = b'\n\"io.github.cuihairu.croupier.sdk.v1P\001Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1'
   _globals['_LOCALFUNCTIONDESCRIPTOR']._serialized_start=52
   _globals['_LOCALFUNCTIONDESCRIPTOR']._serialized_end=440
-  _globals['_REGISTERLOCALREQUEST']._serialized_start=443
-  _globals['_REGISTERLOCALREQUEST']._serialized_end=621
-  _globals['_REGISTERLOCALRESPONSE']._serialized_start=623
-  _globals['_REGISTERLOCALRESPONSE']._serialized_end=677
-  _globals['_HEARTBEATREQUEST']._serialized_start=679
-  _globals['_HEARTBEATREQUEST']._serialized_end=759
-  _globals['_HEARTBEATRESPONSE']._serialized_start=761
-  _globals['_HEARTBEATRESPONSE']._serialized_end=780
-  _globals['_LOCALINSTANCE']._serialized_start=782
-  _globals['_LOCALINSTANCE']._serialized_end=903
-  _globals['_LOCALFUNCTION']._serialized_start=905
-  _globals['_LOCALFUNCTION']._serialized_end=998
-  _globals['_LISTLOCALREQUEST']._serialized_start=1000
-  _globals['_LISTLOCALREQUEST']._serialized_end=1018
-  _globals['_LISTLOCALRESPONSE']._serialized_start=1020
-  _globals['_LISTLOCALRESPONSE']._serialized_end=1101
-  _globals['_GETJOBRESULTREQUEST']._serialized_start=1103
-  _globals['_GETJOBRESULTREQUEST']._serialized_end=1147
-  _globals['_GETJOBRESULTRESPONSE']._serialized_start=1149
-  _globals['_GETJOBRESULTRESPONSE']._serialized_end=1241
+  _globals['_PROVIDERCONNECTREQUEST']._serialized_start=443
+  _globals['_PROVIDERCONNECTREQUEST']._serialized_end=869
+  _globals['_PROVIDERCONNECTRESPONSE']._serialized_start=872
+  _globals['_PROVIDERCONNECTRESPONSE']._serialized_end=1009
+  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_start=1011
+  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_end=1099
+  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_start=1101
+  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_end=1128
+  _globals['_PROVIDERDRAINREQUEST']._serialized_start=1130
+  _globals['_PROVIDERDRAINREQUEST']._serialized_end=1245
+  _globals['_PROVIDERDRAINRESPONSE']._serialized_start=1247
+  _globals['_PROVIDERDRAINRESPONSE']._serialized_end=1270
+  _globals['_GETTASKRESULTREQUEST']._serialized_start=1272
+  _globals['_GETTASKRESULTREQUEST']._serialized_end=1319
+  _globals['_GETTASKRESULTRESPONSE']._serialized_start=1321
+  _globals['_GETTASKRESULTRESPONSE']._serialized_end=1414
 # @@protoc_insertion_point(module_scope)

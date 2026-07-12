@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n croupier/sdk/v1/invocation.proto\x12\x0f\x63roupier.sdk.v1\"\xfa\x01\n\rInvokeRequest\x12\x1f\n\x0b\x66unction_id\x18\x01 \x01(\tR\nfunctionId\x12\'\n\x0fidempotency_key\x18\x02 \x01(\tR\x0eidempotencyKey\x12\x18\n\x07payload\x18\x03 \x01(\x0cR\x07payload\x12H\n\x08metadata\x18\x04 \x03(\x0b\x32,.croupier.sdk.v1.InvokeRequest.MetadataEntryR\x08metadata\x1a;\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"*\n\x0eInvokeResponse\x12\x18\n\x07payload\x18\x01 \x01(\x0cR\x07payload\")\n\x10StartJobResponse\x12\x15\n\x06job_id\x18\x01 \x01(\tR\x05jobId\")\n\x10JobStreamRequest\x12\x15\n\x06job_id\x18\x01 \x01(\tR\x05jobId\"n\n\x08JobEvent\x12\x12\n\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12\x1a\n\x08progress\x18\x03 \x01(\x05R\x08progress\x12\x18\n\x07payload\x18\x04 \x01(\x0cR\x07payload\")\n\x10\x43\x61ncelJobRequest\x12\x15\n\x06job_id\x18\x01 \x01(\tR\x05jobIdBa\n\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n croupier/sdk/v1/invocation.proto\x12\x0f\x63roupier.sdk.v1\"\xfa\x01\n\rInvokeRequest\x12\x1f\n\x0b\x66unction_id\x18\x01 \x01(\tR\nfunctionId\x12\'\n\x0fidempotency_key\x18\x02 \x01(\tR\x0eidempotencyKey\x12\x18\n\x07payload\x18\x03 \x01(\x0cR\x07payload\x12H\n\x08metadata\x18\x04 \x03(\x0b\x32,.croupier.sdk.v1.InvokeRequest.MetadataEntryR\x08metadata\x1a;\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"*\n\x0eInvokeResponse\x12\x18\n\x07payload\x18\x01 \x01(\x0cR\x07payload\",\n\x11StartTaskResponse\x12\x17\n\x07task_id\x18\x01 \x01(\tR\x06taskId\",\n\x11TaskStreamRequest\x12\x17\n\x07task_id\x18\x01 \x01(\tR\x06taskId\"\x88\x01\n\tTaskEvent\x12\x17\n\x07task_id\x18\x01 \x01(\tR\x06taskId\x12\x12\n\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n\x07message\x18\x03 \x01(\tR\x07message\x12\x1a\n\x08progress\x18\x04 \x01(\x05R\x08progress\x12\x18\n\x07payload\x18\x05 \x01(\x0cR\x07payload\",\n\x11\x43\x61ncelTaskRequest\x12\x17\n\x07task_id\x18\x01 \x01(\tR\x06taskIdBa\n\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -30,12 +30,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_INVOKEREQUEST_METADATAENTRY']._serialized_end=304
   _globals['_INVOKERESPONSE']._serialized_start=306
   _globals['_INVOKERESPONSE']._serialized_end=348
-  _globals['_STARTJOBRESPONSE']._serialized_start=350
-  _globals['_STARTJOBRESPONSE']._serialized_end=391
-  _globals['_JOBSTREAMREQUEST']._serialized_start=393
-  _globals['_JOBSTREAMREQUEST']._serialized_end=434
-  _globals['_JOBEVENT']._serialized_start=436
-  _globals['_JOBEVENT']._serialized_end=546
-  _globals['_CANCELJOBREQUEST']._serialized_start=548
-  _globals['_CANCELJOBREQUEST']._serialized_end=589
+  _globals['_STARTTASKRESPONSE']._serialized_start=350
+  _globals['_STARTTASKRESPONSE']._serialized_end=394
+  _globals['_TASKSTREAMREQUEST']._serialized_start=396
+  _globals['_TASKSTREAMREQUEST']._serialized_end=440
+  _globals['_TASKEVENT']._serialized_start=443
+  _globals['_TASKEVENT']._serialized_end=579
+  _globals['_CANCELTASKREQUEST']._serialized_start=581
+  _globals['_CANCELTASKREQUEST']._serialized_end=625
 # @@protoc_insertion_point(module_scope)

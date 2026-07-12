@@ -31,24 +31,25 @@ namespace Croupier.Sdk.V1 {
             "YRgEIAMoCzIsLmNyb3VwaWVyLnNkay52MS5JbnZva2VSZXF1ZXN0Lk1ldGFk",
             "YXRhRW50cnlSCG1ldGFkYXRhGjsKDU1ldGFkYXRhRW50cnkSEAoDa2V5GAEg",
             "ASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4ASIqCg5JbnZva2VS",
-            "ZXNwb25zZRIYCgdwYXlsb2FkGAEgASgMUgdwYXlsb2FkIikKEFN0YXJ0Sm9i",
-            "UmVzcG9uc2USFQoGam9iX2lkGAEgASgJUgVqb2JJZCIpChBKb2JTdHJlYW1S",
-            "ZXF1ZXN0EhUKBmpvYl9pZBgBIAEoCVIFam9iSWQibgoISm9iRXZlbnQSEgoE",
-            "dHlwZRgBIAEoCVIEdHlwZRIYCgdtZXNzYWdlGAIgASgJUgdtZXNzYWdlEhoK",
-            "CHByb2dyZXNzGAMgASgFUghwcm9ncmVzcxIYCgdwYXlsb2FkGAQgASgMUgdw",
-            "YXlsb2FkIikKEENhbmNlbEpvYlJlcXVlc3QSFQoGam9iX2lkGAEgASgJUgVq",
-            "b2JJZEJhCiJpby5naXRodWIuY3VpaGFpcnUuY3JvdXBpZXIuc2RrLnYxUAFa",
-            "OWdpdGh1Yi5jb20vY3VpaGFpcnUvY3JvdXBpZXIvcGtnL3BiL2Nyb3VwaWVy",
-            "L3Nkay92MTtzZGt2MWIGcHJvdG8z"));
+            "ZXNwb25zZRIYCgdwYXlsb2FkGAEgASgMUgdwYXlsb2FkIiwKEVN0YXJ0VGFz",
+            "a1Jlc3BvbnNlEhcKB3Rhc2tfaWQYASABKAlSBnRhc2tJZCIsChFUYXNrU3Ry",
+            "ZWFtUmVxdWVzdBIXCgd0YXNrX2lkGAEgASgJUgZ0YXNrSWQiiAEKCVRhc2tF",
+            "dmVudBIXCgd0YXNrX2lkGAEgASgJUgZ0YXNrSWQSEgoEdHlwZRgCIAEoCVIE",
+            "dHlwZRIYCgdtZXNzYWdlGAMgASgJUgdtZXNzYWdlEhoKCHByb2dyZXNzGAQg",
+            "ASgFUghwcm9ncmVzcxIYCgdwYXlsb2FkGAUgASgMUgdwYXlsb2FkIiwKEUNh",
+            "bmNlbFRhc2tSZXF1ZXN0EhcKB3Rhc2tfaWQYASABKAlSBnRhc2tJZEJhCiJp",
+            "by5naXRodWIuY3VpaGFpcnUuY3JvdXBpZXIuc2RrLnYxUAFaOWdpdGh1Yi5j",
+            "b20vY3VpaGFpcnUvY3JvdXBpZXIvcGtnL3BiL2Nyb3VwaWVyL3Nkay92MTtz",
+            "ZGt2MWIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.InvokeRequest), global::Croupier.Sdk.V1.InvokeRequest.Parser, new[]{ "FunctionId", "IdempotencyKey", "Payload", "Metadata" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.InvokeResponse), global::Croupier.Sdk.V1.InvokeResponse.Parser, new[]{ "Payload" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.StartJobResponse), global::Croupier.Sdk.V1.StartJobResponse.Parser, new[]{ "JobId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.JobStreamRequest), global::Croupier.Sdk.V1.JobStreamRequest.Parser, new[]{ "JobId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.JobEvent), global::Croupier.Sdk.V1.JobEvent.Parser, new[]{ "Type", "Message", "Progress", "Payload" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.CancelJobRequest), global::Croupier.Sdk.V1.CancelJobRequest.Parser, new[]{ "JobId" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.StartTaskResponse), global::Croupier.Sdk.V1.StartTaskResponse.Parser, new[]{ "TaskId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.TaskStreamRequest), global::Croupier.Sdk.V1.TaskStreamRequest.Parser, new[]{ "TaskId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.TaskEvent), global::Croupier.Sdk.V1.TaskEvent.Parser, new[]{ "TaskId", "Type", "Message", "Progress", "Payload" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.CancelTaskRequest), global::Croupier.Sdk.V1.CancelTaskRequest.Parser, new[]{ "TaskId" }, null, null, null, null)
           }));
     }
     #endregion
@@ -56,7 +57,8 @@ namespace Croupier.Sdk.V1 {
   }
   #region Messages
   /// <summary>
-  /// SDK Function Invocation Request
+  /// SDK Function Invocation Request.
+  /// payload is always UTF-8 JSON in protocol v1.
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class InvokeRequest : pb::IMessage<InvokeRequest>
@@ -140,7 +142,7 @@ namespace Croupier.Sdk.V1 {
     public const int PayloadFieldNumber = 3;
     private pb::ByteString payload_ = pb::ByteString.Empty;
     /// <summary>
-    /// serialized request (JSON/Proto)
+    /// serialized request JSON bytes
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -361,7 +363,8 @@ namespace Croupier.Sdk.V1 {
   }
 
   /// <summary>
-  /// SDK Function Invocation Response
+  /// SDK Function Invocation Response.
+  /// payload is always UTF-8 JSON in protocol v1.
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class InvokeResponse : pb::IMessage<InvokeResponse>
@@ -412,7 +415,7 @@ namespace Croupier.Sdk.V1 {
     public const int PayloadFieldNumber = 1;
     private pb::ByteString payload_ = pb::ByteString.Empty;
     /// <summary>
-    /// serialized response body
+    /// serialized response JSON bytes
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -557,19 +560,19 @@ namespace Croupier.Sdk.V1 {
   }
 
   /// <summary>
-  /// SDK Job Start Response
+  /// SDK Task Start Response
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class StartJobResponse : pb::IMessage<StartJobResponse>
+  public sealed partial class StartTaskResponse : pb::IMessage<StartTaskResponse>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<StartJobResponse> _parser = new pb::MessageParser<StartJobResponse>(() => new StartJobResponse());
+    private static readonly pb::MessageParser<StartTaskResponse> _parser = new pb::MessageParser<StartTaskResponse>(() => new StartTaskResponse());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<StartJobResponse> Parser { get { return _parser; } }
+    public static pb::MessageParser<StartTaskResponse> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -585,7 +588,7 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public StartJobResponse() {
+    public StartTaskResponse() {
       OnConstruction();
     }
 
@@ -593,45 +596,45 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public StartJobResponse(StartJobResponse other) : this() {
-      jobId_ = other.jobId_;
+    public StartTaskResponse(StartTaskResponse other) : this() {
+      taskId_ = other.taskId_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public StartJobResponse Clone() {
-      return new StartJobResponse(this);
+    public StartTaskResponse Clone() {
+      return new StartTaskResponse(this);
     }
 
-    /// <summary>Field number for the "job_id" field.</summary>
-    public const int JobIdFieldNumber = 1;
-    private string jobId_ = "";
+    /// <summary>Field number for the "task_id" field.</summary>
+    public const int TaskIdFieldNumber = 1;
+    private string taskId_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string JobId {
-      get { return jobId_; }
+    public string TaskId {
+      get { return taskId_; }
       set {
-        jobId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        taskId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as StartJobResponse);
+      return Equals(other as StartTaskResponse);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(StartJobResponse other) {
+    public bool Equals(StartTaskResponse other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (JobId != other.JobId) return false;
+      if (TaskId != other.TaskId) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -639,7 +642,7 @@ namespace Croupier.Sdk.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (JobId.Length != 0) hash ^= JobId.GetHashCode();
+      if (TaskId.Length != 0) hash ^= TaskId.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -658,9 +661,9 @@ namespace Croupier.Sdk.V1 {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (JobId.Length != 0) {
+      if (TaskId.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(JobId);
+        output.WriteString(TaskId);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -672,9 +675,9 @@ namespace Croupier.Sdk.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (JobId.Length != 0) {
+      if (TaskId.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(JobId);
+        output.WriteString(TaskId);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -686,8 +689,8 @@ namespace Croupier.Sdk.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (JobId.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(JobId);
+      if (TaskId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TaskId);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -697,12 +700,12 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(StartJobResponse other) {
+    public void MergeFrom(StartTaskResponse other) {
       if (other == null) {
         return;
       }
-      if (other.JobId.Length != 0) {
-        JobId = other.JobId;
+      if (other.TaskId.Length != 0) {
+        TaskId = other.TaskId;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -720,7 +723,7 @@ namespace Croupier.Sdk.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            JobId = input.ReadString();
+            TaskId = input.ReadString();
             break;
           }
         }
@@ -739,7 +742,7 @@ namespace Croupier.Sdk.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            JobId = input.ReadString();
+            TaskId = input.ReadString();
             break;
           }
         }
@@ -750,19 +753,19 @@ namespace Croupier.Sdk.V1 {
   }
 
   /// <summary>
-  /// SDK Job Stream Request
+  /// SDK Task Stream Request
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class JobStreamRequest : pb::IMessage<JobStreamRequest>
+  public sealed partial class TaskStreamRequest : pb::IMessage<TaskStreamRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<JobStreamRequest> _parser = new pb::MessageParser<JobStreamRequest>(() => new JobStreamRequest());
+    private static readonly pb::MessageParser<TaskStreamRequest> _parser = new pb::MessageParser<TaskStreamRequest>(() => new TaskStreamRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<JobStreamRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<TaskStreamRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -778,7 +781,7 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public JobStreamRequest() {
+    public TaskStreamRequest() {
       OnConstruction();
     }
 
@@ -786,45 +789,45 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public JobStreamRequest(JobStreamRequest other) : this() {
-      jobId_ = other.jobId_;
+    public TaskStreamRequest(TaskStreamRequest other) : this() {
+      taskId_ = other.taskId_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public JobStreamRequest Clone() {
-      return new JobStreamRequest(this);
+    public TaskStreamRequest Clone() {
+      return new TaskStreamRequest(this);
     }
 
-    /// <summary>Field number for the "job_id" field.</summary>
-    public const int JobIdFieldNumber = 1;
-    private string jobId_ = "";
+    /// <summary>Field number for the "task_id" field.</summary>
+    public const int TaskIdFieldNumber = 1;
+    private string taskId_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string JobId {
-      get { return jobId_; }
+    public string TaskId {
+      get { return taskId_; }
       set {
-        jobId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        taskId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as JobStreamRequest);
+      return Equals(other as TaskStreamRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(JobStreamRequest other) {
+    public bool Equals(TaskStreamRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (JobId != other.JobId) return false;
+      if (TaskId != other.TaskId) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -832,7 +835,7 @@ namespace Croupier.Sdk.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (JobId.Length != 0) hash ^= JobId.GetHashCode();
+      if (TaskId.Length != 0) hash ^= TaskId.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -851,9 +854,9 @@ namespace Croupier.Sdk.V1 {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (JobId.Length != 0) {
+      if (TaskId.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(JobId);
+        output.WriteString(TaskId);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -865,9 +868,9 @@ namespace Croupier.Sdk.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (JobId.Length != 0) {
+      if (TaskId.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(JobId);
+        output.WriteString(TaskId);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -879,8 +882,8 @@ namespace Croupier.Sdk.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (JobId.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(JobId);
+      if (TaskId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TaskId);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -890,12 +893,12 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(JobStreamRequest other) {
+    public void MergeFrom(TaskStreamRequest other) {
       if (other == null) {
         return;
       }
-      if (other.JobId.Length != 0) {
-        JobId = other.JobId;
+      if (other.TaskId.Length != 0) {
+        TaskId = other.TaskId;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -913,7 +916,7 @@ namespace Croupier.Sdk.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            JobId = input.ReadString();
+            TaskId = input.ReadString();
             break;
           }
         }
@@ -932,7 +935,7 @@ namespace Croupier.Sdk.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            JobId = input.ReadString();
+            TaskId = input.ReadString();
             break;
           }
         }
@@ -943,19 +946,20 @@ namespace Croupier.Sdk.V1 {
   }
 
   /// <summary>
-  /// SDK Job Event
+  /// SDK Task Event.
+  /// payload is always UTF-8 JSON in protocol v1.
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class JobEvent : pb::IMessage<JobEvent>
+  public sealed partial class TaskEvent : pb::IMessage<TaskEvent>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<JobEvent> _parser = new pb::MessageParser<JobEvent>(() => new JobEvent());
+    private static readonly pb::MessageParser<TaskEvent> _parser = new pb::MessageParser<TaskEvent>(() => new TaskEvent());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<JobEvent> Parser { get { return _parser; } }
+    public static pb::MessageParser<TaskEvent> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -971,7 +975,7 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public JobEvent() {
+    public TaskEvent() {
       OnConstruction();
     }
 
@@ -979,7 +983,8 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public JobEvent(JobEvent other) : this() {
+    public TaskEvent(TaskEvent other) : this() {
+      taskId_ = other.taskId_;
       type_ = other.type_;
       message_ = other.message_;
       progress_ = other.progress_;
@@ -989,15 +994,27 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public JobEvent Clone() {
-      return new JobEvent(this);
+    public TaskEvent Clone() {
+      return new TaskEvent(this);
+    }
+
+    /// <summary>Field number for the "task_id" field.</summary>
+    public const int TaskIdFieldNumber = 1;
+    private string taskId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string TaskId {
+      get { return taskId_; }
+      set {
+        taskId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
     }
 
     /// <summary>Field number for the "type" field.</summary>
-    public const int TypeFieldNumber = 1;
+    public const int TypeFieldNumber = 2;
     private string type_ = "";
     /// <summary>
-    /// "progress" | "log" | "done" | "error"
+    /// "queued" | "started" | "progress" | "log" | "completed" | "failed" | "cancel_requested" | "cancelled"
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1009,7 +1026,7 @@ namespace Croupier.Sdk.V1 {
     }
 
     /// <summary>Field number for the "message" field.</summary>
-    public const int MessageFieldNumber = 2;
+    public const int MessageFieldNumber = 3;
     private string message_ = "";
     /// <summary>
     /// free text for log/error
@@ -1024,7 +1041,7 @@ namespace Croupier.Sdk.V1 {
     }
 
     /// <summary>Field number for the "progress" field.</summary>
-    public const int ProgressFieldNumber = 3;
+    public const int ProgressFieldNumber = 4;
     private int progress_;
     /// <summary>
     /// 0..100 when type == progress
@@ -1039,10 +1056,10 @@ namespace Croupier.Sdk.V1 {
     }
 
     /// <summary>Field number for the "payload" field.</summary>
-    public const int PayloadFieldNumber = 4;
+    public const int PayloadFieldNumber = 5;
     private pb::ByteString payload_ = pb::ByteString.Empty;
     /// <summary>
-    /// optional final result
+    /// optional JSON bytes
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1056,18 +1073,19 @@ namespace Croupier.Sdk.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as JobEvent);
+      return Equals(other as TaskEvent);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(JobEvent other) {
+    public bool Equals(TaskEvent other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
       if (ReferenceEquals(other, this)) {
         return true;
       }
+      if (TaskId != other.TaskId) return false;
       if (Type != other.Type) return false;
       if (Message != other.Message) return false;
       if (Progress != other.Progress) return false;
@@ -1079,6 +1097,7 @@ namespace Croupier.Sdk.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
+      if (TaskId.Length != 0) hash ^= TaskId.GetHashCode();
       if (Type.Length != 0) hash ^= Type.GetHashCode();
       if (Message.Length != 0) hash ^= Message.GetHashCode();
       if (Progress != 0) hash ^= Progress.GetHashCode();
@@ -1101,20 +1120,24 @@ namespace Croupier.Sdk.V1 {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (Type.Length != 0) {
+      if (TaskId.Length != 0) {
         output.WriteRawTag(10);
+        output.WriteString(TaskId);
+      }
+      if (Type.Length != 0) {
+        output.WriteRawTag(18);
         output.WriteString(Type);
       }
       if (Message.Length != 0) {
-        output.WriteRawTag(18);
+        output.WriteRawTag(26);
         output.WriteString(Message);
       }
       if (Progress != 0) {
-        output.WriteRawTag(24);
+        output.WriteRawTag(32);
         output.WriteInt32(Progress);
       }
       if (Payload.Length != 0) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(42);
         output.WriteBytes(Payload);
       }
       if (_unknownFields != null) {
@@ -1127,20 +1150,24 @@ namespace Croupier.Sdk.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (Type.Length != 0) {
+      if (TaskId.Length != 0) {
         output.WriteRawTag(10);
+        output.WriteString(TaskId);
+      }
+      if (Type.Length != 0) {
+        output.WriteRawTag(18);
         output.WriteString(Type);
       }
       if (Message.Length != 0) {
-        output.WriteRawTag(18);
+        output.WriteRawTag(26);
         output.WriteString(Message);
       }
       if (Progress != 0) {
-        output.WriteRawTag(24);
+        output.WriteRawTag(32);
         output.WriteInt32(Progress);
       }
       if (Payload.Length != 0) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(42);
         output.WriteBytes(Payload);
       }
       if (_unknownFields != null) {
@@ -1153,6 +1180,9 @@ namespace Croupier.Sdk.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
+      if (TaskId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TaskId);
+      }
       if (Type.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Type);
       }
@@ -1173,9 +1203,12 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(JobEvent other) {
+    public void MergeFrom(TaskEvent other) {
       if (other == null) {
         return;
+      }
+      if (other.TaskId.Length != 0) {
+        TaskId = other.TaskId;
       }
       if (other.Type.Length != 0) {
         Type = other.Type;
@@ -1205,18 +1238,22 @@ namespace Croupier.Sdk.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            Type = input.ReadString();
+            TaskId = input.ReadString();
             break;
           }
           case 18: {
+            Type = input.ReadString();
+            break;
+          }
+          case 26: {
             Message = input.ReadString();
             break;
           }
-          case 24: {
+          case 32: {
             Progress = input.ReadInt32();
             break;
           }
-          case 34: {
+          case 42: {
             Payload = input.ReadBytes();
             break;
           }
@@ -1236,18 +1273,22 @@ namespace Croupier.Sdk.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            Type = input.ReadString();
+            TaskId = input.ReadString();
             break;
           }
           case 18: {
+            Type = input.ReadString();
+            break;
+          }
+          case 26: {
             Message = input.ReadString();
             break;
           }
-          case 24: {
+          case 32: {
             Progress = input.ReadInt32();
             break;
           }
-          case 34: {
+          case 42: {
             Payload = input.ReadBytes();
             break;
           }
@@ -1259,19 +1300,19 @@ namespace Croupier.Sdk.V1 {
   }
 
   /// <summary>
-  /// SDK Job Cancellation Request
+  /// SDK Task Cancellation Request
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class CancelJobRequest : pb::IMessage<CancelJobRequest>
+  public sealed partial class CancelTaskRequest : pb::IMessage<CancelTaskRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<CancelJobRequest> _parser = new pb::MessageParser<CancelJobRequest>(() => new CancelJobRequest());
+    private static readonly pb::MessageParser<CancelTaskRequest> _parser = new pb::MessageParser<CancelTaskRequest>(() => new CancelTaskRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<CancelJobRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<CancelTaskRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1287,7 +1328,7 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CancelJobRequest() {
+    public CancelTaskRequest() {
       OnConstruction();
     }
 
@@ -1295,45 +1336,45 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CancelJobRequest(CancelJobRequest other) : this() {
-      jobId_ = other.jobId_;
+    public CancelTaskRequest(CancelTaskRequest other) : this() {
+      taskId_ = other.taskId_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CancelJobRequest Clone() {
-      return new CancelJobRequest(this);
+    public CancelTaskRequest Clone() {
+      return new CancelTaskRequest(this);
     }
 
-    /// <summary>Field number for the "job_id" field.</summary>
-    public const int JobIdFieldNumber = 1;
-    private string jobId_ = "";
+    /// <summary>Field number for the "task_id" field.</summary>
+    public const int TaskIdFieldNumber = 1;
+    private string taskId_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string JobId {
-      get { return jobId_; }
+    public string TaskId {
+      get { return taskId_; }
       set {
-        jobId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        taskId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as CancelJobRequest);
+      return Equals(other as CancelTaskRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(CancelJobRequest other) {
+    public bool Equals(CancelTaskRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (JobId != other.JobId) return false;
+      if (TaskId != other.TaskId) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1341,7 +1382,7 @@ namespace Croupier.Sdk.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (JobId.Length != 0) hash ^= JobId.GetHashCode();
+      if (TaskId.Length != 0) hash ^= TaskId.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1360,9 +1401,9 @@ namespace Croupier.Sdk.V1 {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (JobId.Length != 0) {
+      if (TaskId.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(JobId);
+        output.WriteString(TaskId);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -1374,9 +1415,9 @@ namespace Croupier.Sdk.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (JobId.Length != 0) {
+      if (TaskId.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(JobId);
+        output.WriteString(TaskId);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -1388,8 +1429,8 @@ namespace Croupier.Sdk.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (JobId.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(JobId);
+      if (TaskId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TaskId);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1399,12 +1440,12 @@ namespace Croupier.Sdk.V1 {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(CancelJobRequest other) {
+    public void MergeFrom(CancelTaskRequest other) {
       if (other == null) {
         return;
       }
-      if (other.JobId.Length != 0) {
-        JobId = other.JobId;
+      if (other.TaskId.Length != 0) {
+        TaskId = other.TaskId;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1422,7 +1463,7 @@ namespace Croupier.Sdk.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            JobId = input.ReadString();
+            TaskId = input.ReadString();
             break;
           }
         }
@@ -1441,7 +1482,7 @@ namespace Croupier.Sdk.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            JobId = input.ReadString();
+            TaskId = input.ReadString();
             break;
           }
         }

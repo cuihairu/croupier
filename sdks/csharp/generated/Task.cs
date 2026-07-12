@@ -29,33 +29,33 @@ namespace Croupier.Agent.V1 {
             "Cgd2ZXJzaW9uGAIgASgJUgd2ZXJzaW9uEhoKCGNhdGVnb3J5GAMgASgJUghj",
             "YXRlZ29yeRISCgRyaXNrGAQgASgJUgRyaXNrEhYKBmVudGl0eRgFIAEoCVIG",
             "ZW50aXR5EhwKCW9wZXJhdGlvbhgGIAEoCVIJb3BlcmF0aW9uEhgKB2VuYWJs",
-            "ZWQYByABKAhSB2VuYWJsZWQiuwEKDVNlcnZpY2VDb25maWcSHQoKc2Vydmlj",
+            "ZWQYByABKAhSB2VuYWJsZWQinAEKDVNlcnZpY2VDb25maWcSHQoKc2Vydmlj",
             "ZV9pZBgBIAEoCVIJc2VydmljZUlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNp",
             "b24SFwoHZ2FtZV9pZBgDIAEoCVIGZ2FtZUlkEhAKA2VudhgEIAEoCVIDZW52",
-            "Eh0KCmxvY2FsX2FkZHIYBSABKAlSCWxvY2FsQWRkchInCg90aW1lb3V0X3Nl",
-            "Y29uZHMYBiABKAVSDnRpbWVvdXRTZWNvbmRzIusBCghUYXNrSW5mbxIXCgd0",
-            "YXNrX2lkGAEgASgJUgZ0YXNrSWQSHwoLZnVuY3Rpb25faWQYAiABKAlSCmZ1",
-            "bmN0aW9uSWQSNQoGc3RhdHVzGAMgASgOMh0uY3JvdXBpZXIuYWdlbnQudjEu",
-            "VGFza1N0YXR1c1IGc3RhdHVzEh0KCmNyZWF0ZWRfYXQYBCABKANSCWNyZWF0",
-            "ZWRBdBIdCgp1cGRhdGVkX2F0GAUgASgDUgl1cGRhdGVkQXQSFAoFZXJyb3IY",
-            "BiABKAlSBWVycm9yEhoKCHByb2dyZXNzGAcgASgFUghwcm9ncmVzcyK6AQoJ",
-            "RXJyb3JJbmZvEhIKBGNvZGUYASABKAlSBGNvZGUSGAoHbWVzc2FnZRgCIAEo",
-            "CVIHbWVzc2FnZRJDCgdkZXRhaWxzGAMgAygLMikuY3JvdXBpZXIuYWdlbnQu",
-            "djEuRXJyb3JJbmZvLkRldGFpbHNFbnRyeVIHZGV0YWlscxo6CgxEZXRhaWxz",
-            "RW50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVl",
-            "OgI4ASrlAQoKVGFza1N0YXR1cxIbChdUQVNLX1NUQVRVU19VTlNQRUNJRklF",
-            "RBAAEhYKElRBU0tfU1RBVFVTX1FVRVVFRBABEhcKE1RBU0tfU1RBVFVTX1JV",
-            "Tk5JTkcQAhIZChVUQVNLX1NUQVRVU19TVUNDRUVERUQQAxIWChJUQVNLX1NU",
-            "QVRVU19GQUlMRUQQBBIZChVUQVNLX1NUQVRVU19DQU5DRUxMRUQQBRIgChxU",
-            "QVNLX1NUQVRVU19DQU5DRUxfUkVRVUVTVEVEEAYSGQoVVEFTS19TVEFUVVNf",
-            "VElNRURfT1VUEAdCZwokaW8uZ2l0aHViLmN1aWhhaXJ1LmNyb3VwaWVyLmFn",
-            "ZW50LnYxUAFaPWdpdGh1Yi5jb20vY3VpaGFpcnUvY3JvdXBpZXIvcGtnL3Bi",
-            "L2Nyb3VwaWVyL2FnZW50L3YxO2FnZW50djFiBnByb3RvMw=="));
+            "EicKD3RpbWVvdXRfc2Vjb25kcxgFIAEoBVIOdGltZW91dFNlY29uZHMi6wEK",
+            "CFRhc2tJbmZvEhcKB3Rhc2tfaWQYASABKAlSBnRhc2tJZBIfCgtmdW5jdGlv",
+            "bl9pZBgCIAEoCVIKZnVuY3Rpb25JZBI1CgZzdGF0dXMYAyABKA4yHS5jcm91",
+            "cGllci5hZ2VudC52MS5UYXNrU3RhdHVzUgZzdGF0dXMSHQoKY3JlYXRlZF9h",
+            "dBgEIAEoA1IJY3JlYXRlZEF0Eh0KCnVwZGF0ZWRfYXQYBSABKANSCXVwZGF0",
+            "ZWRBdBIUCgVlcnJvchgGIAEoCVIFZXJyb3ISGgoIcHJvZ3Jlc3MYByABKAVS",
+            "CHByb2dyZXNzIroBCglFcnJvckluZm8SEgoEY29kZRgBIAEoCVIEY29kZRIY",
+            "CgdtZXNzYWdlGAIgASgJUgdtZXNzYWdlEkMKB2RldGFpbHMYAyADKAsyKS5j",
+            "cm91cGllci5hZ2VudC52MS5FcnJvckluZm8uRGV0YWlsc0VudHJ5UgdkZXRh",
+            "aWxzGjoKDERldGFpbHNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1",
+            "ZRgCIAEoCVIFdmFsdWU6AjgBKuUBCgpUYXNrU3RhdHVzEhsKF1RBU0tfU1RB",
+            "VFVTX1VOU1BFQ0lGSUVEEAASFgoSVEFTS19TVEFUVVNfUVVFVUVEEAESFwoT",
+            "VEFTS19TVEFUVVNfUlVOTklORxACEhkKFVRBU0tfU1RBVFVTX1NVQ0NFRURF",
+            "RBADEhYKElRBU0tfU1RBVFVTX0ZBSUxFRBAEEhkKFVRBU0tfU1RBVFVTX0NB",
+            "TkNFTExFRBAFEiAKHFRBU0tfU1RBVFVTX0NBTkNFTF9SRVFVRVNURUQQBhIZ",
+            "ChVUQVNLX1NUQVRVU19USU1FRF9PVVQQB0JnCiRpby5naXRodWIuY3VpaGFp",
+            "cnUuY3JvdXBpZXIuYWdlbnQudjFQAVo9Z2l0aHViLmNvbS9jdWloYWlydS9j",
+            "cm91cGllci9wa2cvcGIvY3JvdXBpZXIvYWdlbnQvdjE7YWdlbnR2MWIGcHJv",
+            "dG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Croupier.Agent.V1.TaskStatus), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.FunctionDefinition), global::Croupier.Agent.V1.FunctionDefinition.Parser, new[]{ "Id", "Version", "Category", "Risk", "Entity", "Operation", "Enabled" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.ServiceConfig), global::Croupier.Agent.V1.ServiceConfig.Parser, new[]{ "ServiceId", "Version", "GameId", "Env", "LocalAddr", "TimeoutSeconds" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.ServiceConfig), global::Croupier.Agent.V1.ServiceConfig.Parser, new[]{ "ServiceId", "Version", "GameId", "Env", "TimeoutSeconds" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.TaskInfo), global::Croupier.Agent.V1.TaskInfo.Parser, new[]{ "TaskId", "FunctionId", "Status", "CreatedAt", "UpdatedAt", "Error", "Progress" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.ErrorInfo), global::Croupier.Agent.V1.ErrorInfo.Parser, new[]{ "Code", "Message", "Details" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, })
           }));
@@ -559,7 +559,6 @@ namespace Croupier.Agent.V1 {
       version_ = other.version_;
       gameId_ = other.gameId_;
       env_ = other.env_;
-      localAddr_ = other.localAddr_;
       timeoutSeconds_ = other.timeoutSeconds_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
@@ -621,23 +620,8 @@ namespace Croupier.Agent.V1 {
       }
     }
 
-    /// <summary>Field number for the "local_addr" field.</summary>
-    public const int LocalAddrFieldNumber = 5;
-    private string localAddr_ = "";
-    /// <summary>
-    /// local listening address
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string LocalAddr {
-      get { return localAddr_; }
-      set {
-        localAddr_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
     /// <summary>Field number for the "timeout_seconds" field.</summary>
-    public const int TimeoutSecondsFieldNumber = 6;
+    public const int TimeoutSecondsFieldNumber = 5;
     private int timeoutSeconds_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -667,7 +651,6 @@ namespace Croupier.Agent.V1 {
       if (Version != other.Version) return false;
       if (GameId != other.GameId) return false;
       if (Env != other.Env) return false;
-      if (LocalAddr != other.LocalAddr) return false;
       if (TimeoutSeconds != other.TimeoutSeconds) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -680,7 +663,6 @@ namespace Croupier.Agent.V1 {
       if (Version.Length != 0) hash ^= Version.GetHashCode();
       if (GameId.Length != 0) hash ^= GameId.GetHashCode();
       if (Env.Length != 0) hash ^= Env.GetHashCode();
-      if (LocalAddr.Length != 0) hash ^= LocalAddr.GetHashCode();
       if (TimeoutSeconds != 0) hash ^= TimeoutSeconds.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -716,12 +698,8 @@ namespace Croupier.Agent.V1 {
         output.WriteRawTag(34);
         output.WriteString(Env);
       }
-      if (LocalAddr.Length != 0) {
-        output.WriteRawTag(42);
-        output.WriteString(LocalAddr);
-      }
       if (TimeoutSeconds != 0) {
-        output.WriteRawTag(48);
+        output.WriteRawTag(40);
         output.WriteInt32(TimeoutSeconds);
       }
       if (_unknownFields != null) {
@@ -750,12 +728,8 @@ namespace Croupier.Agent.V1 {
         output.WriteRawTag(34);
         output.WriteString(Env);
       }
-      if (LocalAddr.Length != 0) {
-        output.WriteRawTag(42);
-        output.WriteString(LocalAddr);
-      }
       if (TimeoutSeconds != 0) {
-        output.WriteRawTag(48);
+        output.WriteRawTag(40);
         output.WriteInt32(TimeoutSeconds);
       }
       if (_unknownFields != null) {
@@ -779,9 +753,6 @@ namespace Croupier.Agent.V1 {
       }
       if (Env.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Env);
-      }
-      if (LocalAddr.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(LocalAddr);
       }
       if (TimeoutSeconds != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(TimeoutSeconds);
@@ -809,9 +780,6 @@ namespace Croupier.Agent.V1 {
       }
       if (other.Env.Length != 0) {
         Env = other.Env;
-      }
-      if (other.LocalAddr.Length != 0) {
-        LocalAddr = other.LocalAddr;
       }
       if (other.TimeoutSeconds != 0) {
         TimeoutSeconds = other.TimeoutSeconds;
@@ -847,11 +815,7 @@ namespace Croupier.Agent.V1 {
             Env = input.ReadString();
             break;
           }
-          case 42: {
-            LocalAddr = input.ReadString();
-            break;
-          }
-          case 48: {
+          case 40: {
             TimeoutSeconds = input.ReadInt32();
             break;
           }
@@ -886,11 +850,7 @@ namespace Croupier.Agent.V1 {
             Env = input.ReadString();
             break;
           }
-          case 42: {
-            LocalAddr = input.ReadString();
-            break;
-          }
-          case 48: {
+          case 40: {
             TimeoutSeconds = input.ReadInt32();
             break;
           }

@@ -84,7 +84,6 @@ line-length = 100
 target-version = ["py312", "py313"]
 skip-string-normalization = true
 extend-exclude = '''
-^/croupier/pb/|
 ^/__pycache__/|
 ^/.pytest_cache/|
 ^/tests/test_data_validation\.py|
@@ -99,13 +98,11 @@ python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 exclude = [
-    "croupier/pb/",
     "generated/",
 ]
 
 [tool.coverage.run]
 omit = [
-    "croupier/pb/*",
     "generated/*",
     "tests/*",
 ]
@@ -121,7 +118,6 @@ exclude_also = [
 ignore = ["F841", "W391"]
 max-line-length = 100
 extend-exclude = [
-    "croupier/pb/",
     "generated/",
 ]
 
