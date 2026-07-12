@@ -119,7 +119,26 @@ if ! kill -0 $WORKER_PID 2>/dev/null; then
 fi
 ok "worker started (pid=$WORKER_PID)"
 
-# --- 5. Write test events via Redis Streams (bypassing ingest HMAC) ---
+# --- 5. Wait for worker's Redis consumer group to be created ---
+# worker creates the group in Run() goroutine (XGROUP CREATE MKSTREAM).
+# XReadGroup starts from "$" — only messages added AFTER group creation
+# are consumed. Wait for the group before writing events.
+echo "Waiting for worker consumer group..."
+GROUP_READY=0
+for i in $(seq 1 20); do
+  if docker exec croupier-redis redis-cli XINFO GROUPS analytics:events 2>/dev/null | grep -q "analytics-worker"; then
+    GROUP_READY=1; break
+  fi
+  sleep 0.5
+done
+if [ "$GROUP_READY" -ne 1 ]; then
+  fail "worker consumer group not created"
+  kill $WORKER_PID 2>/dev/null
+  docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
+fi
+ok "worker consumer group ready"
+
+# --- 6. Write test events via Redis Streams (bypassing ingest HMAC) ---
 echo "Writing test events..."
 EVENT_ID_1=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())")
 EVENT_ID_2=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())")
@@ -140,7 +159,15 @@ docker exec croupier-redis redis-cli XADD analytics:payments '*' \
   status=paid channel=direct platform=linux country=US region=us-west \
   city=SF product_id=sword reason= >/dev/null
 
-ok "events + payment written"
+# Verify events are in Redis stream (XADD succeeded)
+EVENTS_LEN=$(docker exec croupier-redis redis-cli XLEN analytics:events 2>/dev/null || echo "0")
+if [ "$EVENTS_LEN" -ge 2 ]; then
+  ok "events in Redis stream (count=$EVENTS_LEN)"
+else
+  fail "events NOT in Redis stream (count=$EVENTS_LEN, expected >= 2)"
+  kill $WORKER_PID 2>/dev/null
+  docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
+fi
 
 # --- 6. Wait for worker to consume events and flush to ClickHouse ---
 # Worker XReadGroup blocks up to 2s per poll, then batches inserts to
