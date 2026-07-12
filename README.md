@@ -16,6 +16,16 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 - `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
 - 两条链路共享同一套 session 传输基座，只在首条握手消息和业务语义上区分子协议
 
+## 在线演示
+
+地址：https://croupier.cuihairu.site/
+
+| 账号 | 密码 |
+|------|------|
+| `admin` | `admin123` |
+
+> 📌 演示环境，全部为假数据，会不定期重置。请勿填写任何真实信息。
+
 ## Highlights
 
 - 单公司、多游戏、多环境作用域模型：标准业务边界是 `game_id + env`
