@@ -89,7 +89,7 @@
 
 ## P1：重构候选，先讨论边界再动代码
 
-- [ ] **继续拆 `ServiceContext`。**
+- [~] **继续拆 `ServiceContext`。** TaskRuntime 试点完成（`internal/api/task/runtime.go`：`TaskRuntime` 接口 + `taskRuntime` adapter，task service 依赖接口替代 `*ServiceContext`；auth/scope 暂留）。扩展 GameScope/Storage/Ops 待后续。
   - 问题：`internal/svc/service_context.go` 聚合 DB、Router、Dispatcher、Cache、Audit、Policy、ObjectStore、Ops、Model、Extension services，组合根过大。
   - 建议：按领域拆窄接口/模块 provider，而不是一次性“大重构”。
   - 优先拆分：
@@ -100,7 +100,7 @@
   - 判断标准：只有当消费者能从 `*svc.ServiceContext` 缩小到领域接口时才算有效重构。
   - 边界讨论结论（2026-07-12）：探查 ~44 指针字段（~20 Model + Dispatcher/Router/Cache/Audit/Policy/ObjectStore/Ops/Extensions），所有 handler/service 依赖全量。先拆 **TaskRuntime** 试点（task lifecycle E2E + server test 覆盖，有测试保护）：定义 `TaskRuntime` 接口（Dispatcher + TaskModel + AgentSessionResolver），task handler/service 依赖该接口而非 `*ServiceContext`。验证模式后扩展 GameScope/Storage/Ops。收益：测试隔离（mock 领域接口）+ 依赖面缩小；风险：大重构，分步。
 
-- [ ] **收敛 API handler/service 模式。**
+- [~] **收敛 API handler/service 模式。** pagination helper 完成（`model.NewPagination`，10 处替换）；scope 校验 `RequireGameEnvScope` 只 1 处调用，暂不够抽 helper。
   - 问题：API 包数量多，handler/service/model 组合方式不完全统一，新增测试成本偏高。
   - 建议：抽取通用 response、binding、pagination、scope 校验模式；避免每个包重复样板。
   - 约束：只抽真实重复，不为了“框架化”引入额外复杂度。
