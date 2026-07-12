@@ -277,12 +277,10 @@ public class CroupierInvoker : IDisposable
             requestData);
 
         // Parse response
-        // NOTE: generated Invocation.cs still names this StartJobResponse; rename awaits
-        // regeneration of the C# protobuf code from proto/croupier/sdk/v1/.
-        var response = StartJobResponse.Parser.ParseFrom(responseData);
-        _logger.LogInfo("CroupierInvoker", $"Task started: {response.JobId}");
+        var response = StartTaskResponse.Parser.ParseFrom(responseData);
+        _logger.LogInfo("CroupierInvoker", $"Task started: {response.TaskId}");
 
-        return response.JobId;
+        return response.TaskId;
     }
 
     /// <summary>
@@ -303,11 +301,9 @@ public class CroupierInvoker : IDisposable
         EnsureTransportConnected();
 
         // Build protobuf request
-        // NOTE: generated Invocation.cs still names this CancelJobRequest with a JobId
-        // field; rename awaits regeneration of the C# protobuf code from proto/.
-        var request = new CancelJobRequest
+        var request = new CancelTaskRequest
         {
-            JobId = taskId
+            TaskId = taskId
         };
 
         // Send via TCP
@@ -337,11 +333,9 @@ public class CroupierInvoker : IDisposable
         EnsureTransportConnected();
 
         // Build protobuf request
-        // NOTE: generated Invocation.cs still names this JobStreamRequest with a JobId
-        // field and the event JobEvent; rename awaits regeneration from proto/.
-        var request = new JobStreamRequest
+        var request = new TaskStreamRequest
         {
-            JobId = taskId
+            TaskId = taskId
         };
 
         // Send via TCP
@@ -352,7 +346,7 @@ public class CroupierInvoker : IDisposable
             cancellationToken);
 
         // Parse response
-        var taskEvent = JobEvent.Parser.ParseFrom(responseData);
+        var taskEvent = TaskEvent.Parser.ParseFrom(responseData);
         var normalizedStatus = NormalizeTaskEventType(taskEvent.Type, taskEvent.Message);
 
         return new TaskStatus
