@@ -1,0 +1,39 @@
+name: CI - Analytics E2E
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'internal/analytics/**'
+      - 'cmd/analytics-worker/**'
+      - 'cmd/ingest/**'
+      - 'docker/**'
+      - 'scripts/e2e/analytics.sh'
+      - '.github/workflows/ci-analytics.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'internal/analytics/**'
+      - 'cmd/analytics-worker/**'
+      - 'cmd/ingest/**'
+      - 'docker/**'
+      - 'scripts/e2e/analytics.sh'
+      - '.github/workflows/ci-analytics.yml'
+jobs:
+  analytics-e2e:
+    name: Analytics E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+      - name: Normalize Go toolchain env
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          go version
+      - name: Run Analytics E2E
+        run: bash scripts/e2e/analytics.sh
