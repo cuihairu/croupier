@@ -22,19 +22,18 @@ import (
 
 // UpstreamClient manages the connection to the central Croupier Server.
 type UpstreamClient struct {
-	serverAddr    string
-	agentID       string
-	store         *agentlocal.LocalStore
-	client        controlClient
-	updateCh      chan struct{}
-	gameID        string
-	env           string
-	version       string
-	legacyRPCAddr string
-	region        string
-	zone          string
-	labels        map[string]string
-	tlsCfg        *tlsutil.ClientTLSConfig
+	serverAddr string
+	agentID    string
+	store      *agentlocal.LocalStore
+	client     controlClient
+	updateCh   chan struct{}
+	gameID     string
+	env        string
+	version    string
+	region     string
+	zone       string
+	labels     map[string]string
+	tlsCfg     *tlsutil.ClientTLSConfig
 
 	// Timeouts (from config, with defaults)
 	dialTimeout       time.Duration
@@ -88,7 +87,6 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 			GameID:  firstNonEmpty(os.Getenv("CROUPIER_GAME_ID"), os.Getenv("GAME_ID")),
 			Env:     firstNonEmpty(os.Getenv("CROUPIER_ENV"), os.Getenv("ENV")),
 			Version: firstNonEmpty(os.Getenv("CROUPIER_AGENT_VERSION"), os.Getenv("AGENT_VERSION")),
-			Addr:    os.Getenv("CROUPIER_AGENT_RPC_ADDR"),
 		}
 	}
 	client := &UpstreamClient{
@@ -101,7 +99,6 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		client.gameID = meta.GameID
 		client.env = meta.Env
 		client.version = meta.Version
-		client.legacyRPCAddr = meta.Addr
 		client.region = meta.Region
 		client.zone = meta.Zone
 		if meta.Labels != nil {
@@ -146,7 +143,6 @@ type UpstreamMetadata struct {
 	GameID            string
 	Env               string
 	Version           string
-	Addr              string            // agent's advertised address (legacy; proto rpc_addr removal is gated)
 	Region            string            // region/zone info (e.g. "us-west-1")
 	Zone              string            // availability zone (e.g. "us-west-1a")
 	Labels            map[string]string // system metadata (os, arch, hostname, etc.)
@@ -160,7 +156,6 @@ func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
 	c.gameID = meta.GameID
 	c.env = meta.Env
 	c.version = meta.Version
-	c.legacyRPCAddr = meta.Addr
 	c.region = meta.Region
 	c.zone = meta.Zone
 	if meta.Labels != nil {
@@ -533,7 +528,6 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	req := &agentv1.RegisterRequest{
 		AgentId:   c.agentID,
 		Version:   c.version,
-		RpcAddr:   c.legacyRPCAddr,
 		GameId:    c.gameID,
 		Env:       c.env,
 		Region:    c.region,

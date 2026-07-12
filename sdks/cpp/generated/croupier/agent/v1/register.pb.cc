@@ -353,9 +353,6 @@ inline constexpr RegisterRequest::Impl_::Impl_(
         version_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
-        rpc_addr_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
         game_id_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
@@ -461,11 +458,10 @@ const ::uint32_t
         1,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterRequest, _impl_._has_bits_),
-        14, // hasbit index offset
+        13, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterRequest, _impl_.agent_id_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterRequest, _impl_.version_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterRequest, _impl_.functions_),
-        PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterRequest, _impl_.rpc_addr_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterRequest, _impl_.game_id_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterRequest, _impl_.env_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterRequest, _impl_.processes_),
@@ -478,12 +474,11 @@ const ::uint32_t
         0,
         4,
         5,
-        6,
         1,
-        9,
-        7,
         8,
-        10,
+        6,
+        7,
+        9,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterResponse, _impl_._has_bits_),
         6, // hasbit index offset
@@ -528,12 +523,12 @@ static const ::_pbi::MigrationSchema
         {31, sizeof(::croupier::agent::v1::AgentProcess)},
         {44, sizeof(::croupier::agent::v1::RegisterRequest_LabelsEntry_DoNotUse)},
         {51, sizeof(::croupier::agent::v1::RegisterRequest)},
-        {76, sizeof(::croupier::agent::v1::RegisterResponse)},
-        {85, sizeof(::croupier::agent::v1::HeartbeatRequest)},
-        {92, sizeof(::croupier::agent::v1::HeartbeatResponse)},
-        {93, sizeof(::croupier::agent::v1::ProviderMeta)},
-        {104, sizeof(::croupier::agent::v1::RegisterCapabilitiesRequest)},
-        {111, sizeof(::croupier::agent::v1::RegisterCapabilitiesResponse)},
+        {74, sizeof(::croupier::agent::v1::RegisterResponse)},
+        {83, sizeof(::croupier::agent::v1::HeartbeatRequest)},
+        {90, sizeof(::croupier::agent::v1::HeartbeatResponse)},
+        {91, sizeof(::croupier::agent::v1::ProviderMeta)},
+        {102, sizeof(::croupier::agent::v1::RegisterCapabilitiesRequest)},
+        {109, sizeof(::croupier::agent::v1::RegisterCapabilitiesResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::agent::v1::_FunctionDescriptor_default_instance_._instance,
@@ -568,34 +563,34 @@ const char descriptor_table_protodef_croupier_2fagent_2fv1_2fregister_2eproto[] 
     "rocess\022\035\n\nservice_id\030\001 \001(\tR\tserviceId\022\022\n"
     "\004addr\030\002 \001(\tR\004addr\022\030\n\007version\030\003 \001(\tR\007vers"
     "ion\022$\n\016last_seen_unix\030\004 \001(\003R\014lastSeenUni"
-    "x\022!\n\014function_ids\030\005 \003(\tR\013functionIds\"\340\003\n"
+    "x\022!\n\014function_ids\030\005 \003(\tR\013functionIds\"\325\003\n"
     "\017RegisterRequest\022\031\n\010agent_id\030\001 \001(\tR\007agen"
     "tId\022\030\n\007version\030\002 \001(\tR\007version\022C\n\tfunctio"
     "ns\030\003 \003(\0132%.croupier.agent.v1.FunctionDes"
-    "criptorR\tfunctions\022\031\n\010rpc_addr\030\004 \001(\tR\007rp"
-    "cAddr\022\027\n\007game_id\030\005 \001(\tR\006gameId\022\020\n\003env\030\006 "
-    "\001(\tR\003env\022=\n\tprocesses\030\007 \003(\0132\037.croupier.a"
-    "gent.v1.AgentProcessR\tprocesses\022\037\n\013ttl_s"
-    "econds\030\010 \001(\rR\nttlSeconds\022\026\n\006region\030\n \001(\t"
-    "R\006region\022\022\n\004zone\030\013 \001(\tR\004zone\022F\n\006labels\030\014"
-    " \003(\0132..croupier.agent.v1.RegisterRequest"
-    ".LabelsEntryR\006labels\0329\n\013LabelsEntry\022\020\n\003k"
-    "ey\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005value:\0028\001\""
-    "j\n\020RegisterResponse\022\035\n\nsession_id\030\001 \001(\tR"
-    "\tsessionId\022\033\n\texpire_at\030\002 \001(\003R\010expireAt\022"
-    "\032\n\010warnings\030\003 \003(\tR\010warnings\"L\n\020Heartbeat"
-    "Request\022\031\n\010agent_id\030\001 \001(\tR\007agentId\022\035\n\nse"
-    "ssion_id\030\002 \001(\tR\tsessionId\"\023\n\021HeartbeatRe"
-    "sponse\"^\n\014ProviderMeta\022\016\n\002id\030\001 \001(\tR\002id\022\030"
-    "\n\007version\030\002 \001(\tR\007version\022\022\n\004lang\030\003 \001(\tR\004"
-    "lang\022\020\n\003sdk\030\004 \001(\tR\003sdk\"\204\001\n\033RegisterCapab"
-    "ilitiesRequest\022;\n\010provider\030\001 \001(\0132\037.croup"
-    "ier.agent.v1.ProviderMetaR\010provider\022(\n\020m"
-    "anifest_json_gz\030\002 \001(\014R\016manifestJsonGz\"\036\n"
-    "\034RegisterCapabilitiesResponseBg\n$io.gith"
-    "ub.cuihairu.croupier.agent.v1P\001Z=github."
-    "com/cuihairu/croupier/pkg/pb/croupier/ag"
-    "ent/v1;agentv1b\006proto3"
+    "criptorR\tfunctions\022\027\n\007game_id\030\005 \001(\tR\006gam"
+    "eId\022\020\n\003env\030\006 \001(\tR\003env\022=\n\tprocesses\030\007 \003(\013"
+    "2\037.croupier.agent.v1.AgentProcessR\tproce"
+    "sses\022\037\n\013ttl_seconds\030\010 \001(\rR\nttlSeconds\022\026\n"
+    "\006region\030\n \001(\tR\006region\022\022\n\004zone\030\013 \001(\tR\004zon"
+    "e\022F\n\006labels\030\014 \003(\0132..croupier.agent.v1.Re"
+    "gisterRequest.LabelsEntryR\006labels\0329\n\013Lab"
+    "elsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001("
+    "\tR\005value:\0028\001J\004\010\004\020\005R\010rpc_addr\"j\n\020Register"
+    "Response\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022"
+    "\033\n\texpire_at\030\002 \001(\003R\010expireAt\022\032\n\010warnings"
+    "\030\003 \003(\tR\010warnings\"L\n\020HeartbeatRequest\022\031\n\010"
+    "agent_id\030\001 \001(\tR\007agentId\022\035\n\nsession_id\030\002 "
+    "\001(\tR\tsessionId\"\023\n\021HeartbeatResponse\"^\n\014P"
+    "roviderMeta\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002"
+    " \001(\tR\007version\022\022\n\004lang\030\003 \001(\tR\004lang\022\020\n\003sdk"
+    "\030\004 \001(\tR\003sdk\"\204\001\n\033RegisterCapabilitiesRequ"
+    "est\022;\n\010provider\030\001 \001(\0132\037.croupier.agent.v"
+    "1.ProviderMetaR\010provider\022(\n\020manifest_jso"
+    "n_gz\030\002 \001(\014R\016manifestJsonGz\"\036\n\034RegisterCa"
+    "pabilitiesResponseBg\n$io.github.cuihairu"
+    ".croupier.agent.v1P\001Z=github.com/cuihair"
+    "u/croupier/pkg/pb/croupier/agent/v1;agen"
+    "tv1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fagent_2fv1_2fregister_2eproto_deps[1] = {
@@ -605,7 +600,7 @@ static ::absl::once_flag descriptor_table_croupier_2fagent_2fv1_2fregister_2epro
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fagent_2fv1_2fregister_2eproto = {
     false,
     false,
-    1862,
+    1851,
     descriptor_table_protodef_croupier_2fagent_2fv1_2fregister_2eproto,
     "croupier/agent/v1/register.proto",
     &descriptor_table_croupier_2fagent_2fv1_2fregister_2eproto_once,
@@ -2065,7 +2060,6 @@ PROTOBUF_NDEBUG_INLINE RegisterRequest::Impl_::Impl_(
         ,
         agent_id_(arena, from.agent_id_),
         version_(arena, from.version_),
-        rpc_addr_(arena, from.rpc_addr_),
         game_id_(arena, from.game_id_),
         env_(arena, from.env_),
         region_(arena, from.region_),
@@ -2121,7 +2115,6 @@ PROTOBUF_NDEBUG_INLINE RegisterRequest::Impl_::Impl_(
         ,
         agent_id_(arena),
         version_(arena),
-        rpc_addr_(arena),
         game_id_(arena),
         env_(arena),
         region_(arena),
@@ -2153,7 +2146,6 @@ inline void RegisterRequest::SharedDtor(MessageLite& self) {
   ABSL_DCHECK(this_.GetArena() == nullptr);
   this_._impl_.agent_id_.Destroy();
   this_._impl_.version_.Destroy();
-  this_._impl_.rpc_addr_.Destroy();
   this_._impl_.game_id_.Destroy();
   this_._impl_.env_.Destroy();
   this_._impl_.region_.Destroy();
@@ -2230,16 +2222,16 @@ RegisterRequest::GetClassData() const {
   return RegisterRequest_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 11, 3, 99, 2>
+const ::_pbi::TcParseTable<4, 10, 3, 91, 2>
 RegisterRequest::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_._has_bits_),
     0, // no _extensions_
     12, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294963456,  // skipmap
+    4294963464,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    11,  // num_field_entries
+    10,  // num_field_entries
     3,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     RegisterRequest_class_data_.base(),
@@ -2262,34 +2254,31 @@ RegisterRequest::_table_ = {
     {::_pbi::TcParser::FastMtR1,
      {26, 0, 0,
       PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.functions_)}},
-    // string rpc_addr = 4 [json_name = "rpcAddr"];
-    {::_pbi::TcParser::FastUS1,
-     {34, 4, 0,
-      PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.rpc_addr_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string game_id = 5 [json_name = "gameId"];
     {::_pbi::TcParser::FastUS1,
-     {42, 5, 0,
+     {42, 4, 0,
       PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.game_id_)}},
     // string env = 6 [json_name = "env"];
     {::_pbi::TcParser::FastUS1,
-     {50, 6, 0,
+     {50, 5, 0,
       PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.env_)}},
     // repeated .croupier.agent.v1.AgentProcess processes = 7 [json_name = "processes"];
     {::_pbi::TcParser::FastMtR1,
      {58, 1, 1,
       PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.processes_)}},
     // uint32 ttl_seconds = 8 [json_name = "ttlSeconds"];
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(RegisterRequest, _impl_.ttl_seconds_), 9>(),
-     {64, 9, 0,
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(RegisterRequest, _impl_.ttl_seconds_), 8>(),
+     {64, 8, 0,
       PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.ttl_seconds_)}},
     {::_pbi::TcParser::MiniParse, {}},
     // string region = 10 [json_name = "region"];
     {::_pbi::TcParser::FastUS1,
-     {82, 7, 0,
+     {82, 6, 0,
       PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.region_)}},
     // string zone = 11 [json_name = "zone"];
     {::_pbi::TcParser::FastUS1,
-     {90, 8, 0,
+     {90, 7, 0,
       PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.zone_)}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
@@ -2304,22 +2293,20 @@ RegisterRequest::_table_ = {
     {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.version_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // repeated .croupier.agent.v1.FunctionDescriptor functions = 3 [json_name = "functions"];
     {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.functions_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
-    // string rpc_addr = 4 [json_name = "rpcAddr"];
-    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.rpc_addr_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string game_id = 5 [json_name = "gameId"];
-    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.game_id_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.game_id_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string env = 6 [json_name = "env"];
-    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.env_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.env_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // repeated .croupier.agent.v1.AgentProcess processes = 7 [json_name = "processes"];
     {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.processes_), _Internal::kHasBitsOffset + 1, 1, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
     // uint32 ttl_seconds = 8 [json_name = "ttlSeconds"];
-    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.ttl_seconds_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
+    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.ttl_seconds_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
     // string region = 10 [json_name = "region"];
-    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.region_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.region_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string zone = 11 [json_name = "zone"];
-    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.zone_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.zone_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // map<string, string> labels = 12 [json_name = "labels"];
-    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.labels_), _Internal::kHasBitsOffset + 10, 2, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
+    {PROTOBUF_FIELD_OFFSET(RegisterRequest, _impl_.labels_), _Internal::kHasBitsOffset + 9, 2, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
   }},
   {{
       {::_pbi::TcParser::GetTable<::croupier::agent::v1::FunctionDescriptor>()},
@@ -2328,11 +2315,10 @@ RegisterRequest::_table_ = {
           1, 0, 9, 9, 0)},
   }},
   {{
-    "\41\10\7\0\10\7\3\0\0\6\4\6\0\0\0\0"
+    "\41\10\7\0\7\3\0\0\6\4\6\0\0\0\0\0"
     "croupier.agent.v1.RegisterRequest"
     "agent_id"
     "version"
-    "rpc_addr"
     "game_id"
     "env"
     "region"
@@ -2362,24 +2348,21 @@ PROTOBUF_NOINLINE void RegisterRequest::Clear() {
       _impl_.version_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000010U)) {
-      _impl_.rpc_addr_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
       _impl_.game_id_.ClearNonDefaultToEmpty();
     }
-    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
       _impl_.env_.ClearNonDefaultToEmpty();
     }
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
       _impl_.region_.ClearNonDefaultToEmpty();
     }
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      _impl_.zone_.ClearNonDefaultToEmpty();
+    }
   }
-  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
-    _impl_.zone_.ClearNonDefaultToEmpty();
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000600U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00000300U)) {
     _impl_.ttl_seconds_ = 0u;
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000200U)) {
       _impl_.labels_.Clear();
     }
   }
@@ -2439,18 +2422,8 @@ PROTOBUF_NOINLINE void RegisterRequest::Clear() {
     }
   }
 
-  // string rpc_addr = 4 [json_name = "rpcAddr"];
-  if (CheckHasBit(cached_has_bits, 0x00000010U)) {
-    if (!this_._internal_rpc_addr().empty()) {
-      const ::std::string& _s = this_._internal_rpc_addr();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.agent.v1.RegisterRequest.rpc_addr");
-      target = stream->WriteStringMaybeAliased(4, _s, target);
-    }
-  }
-
   // string game_id = 5 [json_name = "gameId"];
-  if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000010U)) {
     if (!this_._internal_game_id().empty()) {
       const ::std::string& _s = this_._internal_game_id();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -2460,7 +2433,7 @@ PROTOBUF_NOINLINE void RegisterRequest::Clear() {
   }
 
   // string env = 6 [json_name = "env"];
-  if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000020U)) {
     if (!this_._internal_env().empty()) {
       const ::std::string& _s = this_._internal_env();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -2483,7 +2456,7 @@ PROTOBUF_NOINLINE void RegisterRequest::Clear() {
   }
 
   // uint32 ttl_seconds = 8 [json_name = "ttlSeconds"];
-  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
     if (this_._internal_ttl_seconds() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
@@ -2492,7 +2465,7 @@ PROTOBUF_NOINLINE void RegisterRequest::Clear() {
   }
 
   // string region = 10 [json_name = "region"];
-  if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000040U)) {
     if (!this_._internal_region().empty()) {
       const ::std::string& _s = this_._internal_region();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -2502,7 +2475,7 @@ PROTOBUF_NOINLINE void RegisterRequest::Clear() {
   }
 
   // string zone = 11 [json_name = "zone"];
-  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000080U)) {
     if (!this_._internal_zone().empty()) {
       const ::std::string& _s = this_._internal_zone();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -2512,7 +2485,7 @@ PROTOBUF_NOINLINE void RegisterRequest::Clear() {
   }
 
   // map<string, string> labels = 12 [json_name = "labels"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00000400U)) {
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00000200U)) {
     if (!this_._internal_labels().empty()) {
       using MapType = ::google::protobuf::Map<::std::string, ::std::string>;
       using WireHelper = _pbi::MapEntryFuncs<::std::string, ::std::string,
@@ -2600,52 +2573,45 @@ PROTOBUF_NOINLINE void RegisterRequest::Clear() {
                                         this_._internal_version());
       }
     }
-    // string rpc_addr = 4 [json_name = "rpcAddr"];
-    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
-      if (!this_._internal_rpc_addr().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_rpc_addr());
-      }
-    }
     // string game_id = 5 [json_name = "gameId"];
-    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
       if (!this_._internal_game_id().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_game_id());
       }
     }
     // string env = 6 [json_name = "env"];
-    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
       if (!this_._internal_env().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_env());
       }
     }
     // string region = 10 [json_name = "region"];
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
       if (!this_._internal_region().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_region());
       }
     }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
     // string zone = 11 [json_name = "zone"];
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
       if (!this_._internal_zone().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_zone());
       }
     }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000300U)) {
     // uint32 ttl_seconds = 8 [json_name = "ttlSeconds"];
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (this_._internal_ttl_seconds() != 0) {
         total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(
             this_._internal_ttl_seconds());
       }
     }
     // map<string, string> labels = 12 [json_name = "labels"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000200U)) {
       total_size +=
           1 * ::google::protobuf::internal::FromIntSize(this_._internal_labels_size());
       for (const auto& entry : this_._internal_labels()) {
@@ -2704,15 +2670,6 @@ void RegisterRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000010U)) {
-      if (!from._internal_rpc_addr().empty()) {
-        _this->_internal_set_rpc_addr(from._internal_rpc_addr());
-      } else {
-        if (_this->_impl_.rpc_addr_.IsDefault()) {
-          _this->_internal_set_rpc_addr("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
       if (!from._internal_game_id().empty()) {
         _this->_internal_set_game_id(from._internal_game_id());
       } else {
@@ -2721,7 +2678,7 @@ void RegisterRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
       if (!from._internal_env().empty()) {
         _this->_internal_set_env(from._internal_env());
       } else {
@@ -2730,7 +2687,7 @@ void RegisterRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
       if (!from._internal_region().empty()) {
         _this->_internal_set_region(from._internal_region());
       } else {
@@ -2739,9 +2696,7 @@ void RegisterRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
       if (!from._internal_zone().empty()) {
         _this->_internal_set_zone(from._internal_zone());
       } else {
@@ -2750,12 +2705,14 @@ void RegisterRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000300U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (from._internal_ttl_seconds() != 0) {
         _this->_impl_.ttl_seconds_ = from._impl_.ttl_seconds_;
       }
     }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000200U)) {
       _this->_impl_.labels_.MergeFrom(from._impl_.labels_);
     }
   }
@@ -2782,7 +2739,6 @@ void RegisterRequest::InternalSwap(RegisterRequest* PROTOBUF_RESTRICT PROTOBUF_N
   _impl_.processes_.InternalSwap(&other->_impl_.processes_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.agent_id_, &other->_impl_.agent_id_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.rpc_addr_, &other->_impl_.rpc_addr_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.game_id_, &other->_impl_.game_id_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.env_, &other->_impl_.env_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.region_, &other->_impl_.region_, arena);

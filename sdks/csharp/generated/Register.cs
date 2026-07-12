@@ -41,37 +41,37 @@ namespace Croupier.Agent.V1 {
             "pAEKDEFnZW50UHJvY2VzcxIdCgpzZXJ2aWNlX2lkGAEgASgJUglzZXJ2aWNl",
             "SWQSEgoEYWRkchgCIAEoCVIEYWRkchIYCgd2ZXJzaW9uGAMgASgJUgd2ZXJz",
             "aW9uEiQKDmxhc3Rfc2Vlbl91bml4GAQgASgDUgxsYXN0U2VlblVuaXgSIQoM",
-            "ZnVuY3Rpb25faWRzGAUgAygJUgtmdW5jdGlvbklkcyLgAwoPUmVnaXN0ZXJS",
+            "ZnVuY3Rpb25faWRzGAUgAygJUgtmdW5jdGlvbklkcyLVAwoPUmVnaXN0ZXJS",
             "ZXF1ZXN0EhkKCGFnZW50X2lkGAEgASgJUgdhZ2VudElkEhgKB3ZlcnNpb24Y",
             "AiABKAlSB3ZlcnNpb24SQwoJZnVuY3Rpb25zGAMgAygLMiUuY3JvdXBpZXIu",
-            "YWdlbnQudjEuRnVuY3Rpb25EZXNjcmlwdG9yUglmdW5jdGlvbnMSGQoIcnBj",
-            "X2FkZHIYBCABKAlSB3JwY0FkZHISFwoHZ2FtZV9pZBgFIAEoCVIGZ2FtZUlk",
-            "EhAKA2VudhgGIAEoCVIDZW52Ej0KCXByb2Nlc3NlcxgHIAMoCzIfLmNyb3Vw",
-            "aWVyLmFnZW50LnYxLkFnZW50UHJvY2Vzc1IJcHJvY2Vzc2VzEh8KC3R0bF9z",
-            "ZWNvbmRzGAggASgNUgp0dGxTZWNvbmRzEhYKBnJlZ2lvbhgKIAEoCVIGcmVn",
-            "aW9uEhIKBHpvbmUYCyABKAlSBHpvbmUSRgoGbGFiZWxzGAwgAygLMi4uY3Jv",
-            "dXBpZXIuYWdlbnQudjEuUmVnaXN0ZXJSZXF1ZXN0LkxhYmVsc0VudHJ5UgZs",
-            "YWJlbHMaOQoLTGFiZWxzRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFs",
-            "dWUYAiABKAlSBXZhbHVlOgI4ASJqChBSZWdpc3RlclJlc3BvbnNlEh0KCnNl",
-            "c3Npb25faWQYASABKAlSCXNlc3Npb25JZBIbCglleHBpcmVfYXQYAiABKANS",
-            "CGV4cGlyZUF0EhoKCHdhcm5pbmdzGAMgAygJUgh3YXJuaW5ncyJMChBIZWFy",
-            "dGJlYXRSZXF1ZXN0EhkKCGFnZW50X2lkGAEgASgJUgdhZ2VudElkEh0KCnNl",
-            "c3Npb25faWQYAiABKAlSCXNlc3Npb25JZCITChFIZWFydGJlYXRSZXNwb25z",
-            "ZSJeCgxQcm92aWRlck1ldGESDgoCaWQYASABKAlSAmlkEhgKB3ZlcnNpb24Y",
-            "AiABKAlSB3ZlcnNpb24SEgoEbGFuZxgDIAEoCVIEbGFuZxIQCgNzZGsYBCAB",
-            "KAlSA3NkayKEAQobUmVnaXN0ZXJDYXBhYmlsaXRpZXNSZXF1ZXN0EjsKCHBy",
-            "b3ZpZGVyGAEgASgLMh8uY3JvdXBpZXIuYWdlbnQudjEuUHJvdmlkZXJNZXRh",
-            "Ughwcm92aWRlchIoChBtYW5pZmVzdF9qc29uX2d6GAIgASgMUg5tYW5pZmVz",
-            "dEpzb25HeiIeChxSZWdpc3RlckNhcGFiaWxpdGllc1Jlc3BvbnNlQmcKJGlv",
-            "LmdpdGh1Yi5jdWloYWlydS5jcm91cGllci5hZ2VudC52MVABWj1naXRodWIu",
-            "Y29tL2N1aWhhaXJ1L2Nyb3VwaWVyL3BrZy9wYi9jcm91cGllci9hZ2VudC92",
-            "MTthZ2VudHYxYgZwcm90bzM="));
+            "YWdlbnQudjEuRnVuY3Rpb25EZXNjcmlwdG9yUglmdW5jdGlvbnMSFwoHZ2Ft",
+            "ZV9pZBgFIAEoCVIGZ2FtZUlkEhAKA2VudhgGIAEoCVIDZW52Ej0KCXByb2Nl",
+            "c3NlcxgHIAMoCzIfLmNyb3VwaWVyLmFnZW50LnYxLkFnZW50UHJvY2Vzc1IJ",
+            "cHJvY2Vzc2VzEh8KC3R0bF9zZWNvbmRzGAggASgNUgp0dGxTZWNvbmRzEhYK",
+            "BnJlZ2lvbhgKIAEoCVIGcmVnaW9uEhIKBHpvbmUYCyABKAlSBHpvbmUSRgoG",
+            "bGFiZWxzGAwgAygLMi4uY3JvdXBpZXIuYWdlbnQudjEuUmVnaXN0ZXJSZXF1",
+            "ZXN0LkxhYmVsc0VudHJ5UgZsYWJlbHMaOQoLTGFiZWxzRW50cnkSEAoDa2V5",
+            "GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AUoECAQQBVII",
+            "cnBjX2FkZHIiagoQUmVnaXN0ZXJSZXNwb25zZRIdCgpzZXNzaW9uX2lkGAEg",
+            "ASgJUglzZXNzaW9uSWQSGwoJZXhwaXJlX2F0GAIgASgDUghleHBpcmVBdBIa",
+            "Cgh3YXJuaW5ncxgDIAMoCVIId2FybmluZ3MiTAoQSGVhcnRiZWF0UmVxdWVz",
+            "dBIZCghhZ2VudF9pZBgBIAEoCVIHYWdlbnRJZBIdCgpzZXNzaW9uX2lkGAIg",
+            "ASgJUglzZXNzaW9uSWQiEwoRSGVhcnRiZWF0UmVzcG9uc2UiXgoMUHJvdmlk",
+            "ZXJNZXRhEg4KAmlkGAEgASgJUgJpZBIYCgd2ZXJzaW9uGAIgASgJUgd2ZXJz",
+            "aW9uEhIKBGxhbmcYAyABKAlSBGxhbmcSEAoDc2RrGAQgASgJUgNzZGsihAEK",
+            "G1JlZ2lzdGVyQ2FwYWJpbGl0aWVzUmVxdWVzdBI7Cghwcm92aWRlchgBIAEo",
+            "CzIfLmNyb3VwaWVyLmFnZW50LnYxLlByb3ZpZGVyTWV0YVIIcHJvdmlkZXIS",
+            "KAoQbWFuaWZlc3RfanNvbl9nehgCIAEoDFIObWFuaWZlc3RKc29uR3oiHgoc",
+            "UmVnaXN0ZXJDYXBhYmlsaXRpZXNSZXNwb25zZUJnCiRpby5naXRodWIuY3Vp",
+            "aGFpcnUuY3JvdXBpZXIuYWdlbnQudjFQAVo9Z2l0aHViLmNvbS9jdWloYWly",
+            "dS9jcm91cGllci9wa2cvcGIvY3JvdXBpZXIvYWdlbnQvdjE7YWdlbnR2MWIG",
+            "cHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Croupier.Component.V1.DashboardUiReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.FunctionDescriptor), global::Croupier.Agent.V1.FunctionDescriptor.Parser, new[]{ "Id", "Version", "Category", "Risk", "Entity", "Operation", "Enabled", "DisplayName", "Summary", "Tags", "Menu", "Permissions", "InputSchema", "OutputSchema" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.AgentProcess), global::Croupier.Agent.V1.AgentProcess.Parser, new[]{ "ServiceId", "Addr", "Version", "LastSeenUnix", "FunctionIds" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.RegisterRequest), global::Croupier.Agent.V1.RegisterRequest.Parser, new[]{ "AgentId", "Version", "Functions", "RpcAddr", "GameId", "Env", "Processes", "TtlSeconds", "Region", "Zone", "Labels" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.RegisterRequest), global::Croupier.Agent.V1.RegisterRequest.Parser, new[]{ "AgentId", "Version", "Functions", "GameId", "Env", "Processes", "TtlSeconds", "Region", "Zone", "Labels" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.RegisterResponse), global::Croupier.Agent.V1.RegisterResponse.Parser, new[]{ "SessionId", "ExpireAt", "Warnings" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.HeartbeatRequest), global::Croupier.Agent.V1.HeartbeatRequest.Parser, new[]{ "AgentId", "SessionId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.HeartbeatResponse), global::Croupier.Agent.V1.HeartbeatResponse.Parser, null, null, null, null, null),
@@ -1199,7 +1199,6 @@ namespace Croupier.Agent.V1 {
       agentId_ = other.agentId_;
       version_ = other.version_;
       functions_ = other.functions_.Clone();
-      rpcAddr_ = other.rpcAddr_;
       gameId_ = other.gameId_;
       env_ = other.env_;
       processes_ = other.processes_.Clone();
@@ -1258,21 +1257,6 @@ namespace Croupier.Agent.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Croupier.Agent.V1.FunctionDescriptor> Functions {
       get { return functions_; }
-    }
-
-    /// <summary>Field number for the "rpc_addr" field.</summary>
-    public const int RpcAddrFieldNumber = 4;
-    private string rpcAddr_ = "";
-    /// <summary>
-    /// DEPRECATED: legacy gRPC callback addr. Do NOT use for routing — Server calls Agents over the established TCP session. Kept only so older Agents can still register; removal is gated on all deployed Agents dropping this field.
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string RpcAddr {
-      get { return rpcAddr_; }
-      set {
-        rpcAddr_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
     }
 
     /// <summary>Field number for the "game_id" field.</summary>
@@ -1396,7 +1380,6 @@ namespace Croupier.Agent.V1 {
       if (AgentId != other.AgentId) return false;
       if (Version != other.Version) return false;
       if(!functions_.Equals(other.functions_)) return false;
-      if (RpcAddr != other.RpcAddr) return false;
       if (GameId != other.GameId) return false;
       if (Env != other.Env) return false;
       if(!processes_.Equals(other.processes_)) return false;
@@ -1414,7 +1397,6 @@ namespace Croupier.Agent.V1 {
       if (AgentId.Length != 0) hash ^= AgentId.GetHashCode();
       if (Version.Length != 0) hash ^= Version.GetHashCode();
       hash ^= functions_.GetHashCode();
-      if (RpcAddr.Length != 0) hash ^= RpcAddr.GetHashCode();
       if (GameId.Length != 0) hash ^= GameId.GetHashCode();
       if (Env.Length != 0) hash ^= Env.GetHashCode();
       hash ^= processes_.GetHashCode();
@@ -1449,10 +1431,6 @@ namespace Croupier.Agent.V1 {
         output.WriteString(Version);
       }
       functions_.WriteTo(output, _repeated_functions_codec);
-      if (RpcAddr.Length != 0) {
-        output.WriteRawTag(34);
-        output.WriteString(RpcAddr);
-      }
       if (GameId.Length != 0) {
         output.WriteRawTag(42);
         output.WriteString(GameId);
@@ -1494,10 +1472,6 @@ namespace Croupier.Agent.V1 {
         output.WriteString(Version);
       }
       functions_.WriteTo(ref output, _repeated_functions_codec);
-      if (RpcAddr.Length != 0) {
-        output.WriteRawTag(34);
-        output.WriteString(RpcAddr);
-      }
       if (GameId.Length != 0) {
         output.WriteRawTag(42);
         output.WriteString(GameId);
@@ -1537,9 +1511,6 @@ namespace Croupier.Agent.V1 {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Version);
       }
       size += functions_.CalculateSize(_repeated_functions_codec);
-      if (RpcAddr.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(RpcAddr);
-      }
       if (GameId.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(GameId);
       }
@@ -1576,9 +1547,6 @@ namespace Croupier.Agent.V1 {
         Version = other.Version;
       }
       functions_.Add(other.functions_);
-      if (other.RpcAddr.Length != 0) {
-        RpcAddr = other.RpcAddr;
-      }
       if (other.GameId.Length != 0) {
         GameId = other.GameId;
       }
@@ -1621,10 +1589,6 @@ namespace Croupier.Agent.V1 {
           }
           case 26: {
             functions_.AddEntriesFrom(input, _repeated_functions_codec);
-            break;
-          }
-          case 34: {
-            RpcAddr = input.ReadString();
             break;
           }
           case 42: {
@@ -1680,10 +1644,6 @@ namespace Croupier.Agent.V1 {
           }
           case 26: {
             functions_.AddEntriesFrom(ref input, _repeated_functions_codec);
-            break;
-          }
-          case 34: {
-            RpcAddr = input.ReadString();
             break;
           }
           case 42: {

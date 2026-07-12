@@ -256,7 +256,6 @@ type RegisterRequest struct {
 	AgentId    string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`           // agent unique id
 	Version    string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                          // agent version
 	Functions  []*FunctionDescriptor  `protobuf:"bytes,3,rep,name=functions,proto3" json:"functions,omitempty"`                      // summarized function list
-	RpcAddr    string                 `protobuf:"bytes,4,opt,name=rpc_addr,json=rpcAddr,proto3" json:"rpc_addr,omitempty"`           // DEPRECATED: legacy gRPC callback addr. Do NOT use for routing — Server calls Agents over the established TCP session. Kept only so older Agents can still register; removal is gated on all deployed Agents dropping this field.
 	GameId     string                 `protobuf:"bytes,5,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`              // game scope (required for multi-game routing)
 	Env        string                 `protobuf:"bytes,6,opt,name=env,proto3" json:"env,omitempty"`                                  // logical environment scope (optional: prod/stage/test)
 	Processes  []*AgentProcess        `protobuf:"bytes,7,rep,name=processes,proto3" json:"processes,omitempty"`                      // registered processes (sdk->agent)
@@ -318,13 +317,6 @@ func (x *RegisterRequest) GetFunctions() []*FunctionDescriptor {
 		return x.Functions
 	}
 	return nil
-}
-
-func (x *RegisterRequest) GetRpcAddr() string {
-	if x != nil {
-		return x.RpcAddr
-	}
-	return ""
 }
 
 func (x *RegisterRequest) GetGameId() string {
@@ -712,12 +704,11 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\x04addr\x18\x02 \x01(\tR\x04addr\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12$\n" +
 	"\x0elast_seen_unix\x18\x04 \x01(\x03R\flastSeenUnix\x12!\n" +
-	"\ffunction_ids\x18\x05 \x03(\tR\vfunctionIds\"\xe0\x03\n" +
+	"\ffunction_ids\x18\x05 \x03(\tR\vfunctionIds\"\xd5\x03\n" +
 	"\x0fRegisterRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12C\n" +
-	"\tfunctions\x18\x03 \x03(\v2%.croupier.agent.v1.FunctionDescriptorR\tfunctions\x12\x19\n" +
-	"\brpc_addr\x18\x04 \x01(\tR\arpcAddr\x12\x17\n" +
+	"\tfunctions\x18\x03 \x03(\v2%.croupier.agent.v1.FunctionDescriptorR\tfunctions\x12\x17\n" +
 	"\agame_id\x18\x05 \x01(\tR\x06gameId\x12\x10\n" +
 	"\x03env\x18\x06 \x01(\tR\x03env\x12=\n" +
 	"\tprocesses\x18\a \x03(\v2\x1f.croupier.agent.v1.AgentProcessR\tprocesses\x12\x1f\n" +
@@ -729,7 +720,7 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\x06labels\x18\f \x03(\v2..croupier.agent.v1.RegisterRequest.LabelsEntryR\x06labels\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"j\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x04\x10\x05R\brpc_addr\"j\n" +
 	"\x10RegisterResponse\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1b\n" +

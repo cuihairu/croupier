@@ -22,7 +22,6 @@ func TestUpstreamClient_NewUpstreamClient(t *testing.T) {
 		GameID:  "game-1",
 		Env:     "staging",
 		Version: "agent-ver",
-		Addr:    "127.0.0.1:19090",
 		Region:  "us-west-1",
 		Zone:    "us-west-1a",
 	})
@@ -41,9 +40,6 @@ func TestUpstreamClient_NewUpstreamClient(t *testing.T) {
 	}
 	if client.version != "agent-ver" {
 		t.Errorf("expected version 'agent-ver', got '%s'", client.version)
-	}
-	if client.legacyRPCAddr != "127.0.0.1:19090" {
-		t.Errorf("expected legacyRPCAddr '127.0.0.1:19090', got '%s'", client.legacyRPCAddr)
 	}
 	if client.region != "us-west-1" {
 		t.Errorf("expected region 'us-west-1', got '%s'", client.region)
@@ -85,7 +81,6 @@ func TestUpstreamClient_WithMetadata(t *testing.T) {
 		GameID:  "game-2",
 		Env:     "production",
 		Version: "v2.0.0",
-		Addr:    "127.0.0.1:19091",
 	})
 
 	if client.gameID != "game-2" {
@@ -96,9 +91,6 @@ func TestUpstreamClient_WithMetadata(t *testing.T) {
 	}
 	if client.version != "v2.0.0" {
 		t.Errorf("expected version 'v2.0.0', got '%s'", client.version)
-	}
-	if client.legacyRPCAddr != "127.0.0.1:19091" {
-		t.Errorf("expected legacyRPCAddr '127.0.0.1:19091', got '%s'", client.legacyRPCAddr)
 	}
 }
 

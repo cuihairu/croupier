@@ -2216,7 +2216,6 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED RegisterRequest final : public ::go
     kProcessesFieldNumber = 7,
     kAgentIdFieldNumber = 1,
     kVersionFieldNumber = 2,
-    kRpcAddrFieldNumber = 4,
     kGameIdFieldNumber = 5,
     kEnvFieldNumber = 6,
     kRegionFieldNumber = 10,
@@ -2292,21 +2291,6 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED RegisterRequest final : public ::go
   const ::std::string& _internal_version() const;
   PROTOBUF_ALWAYS_INLINE void _internal_set_version(const ::std::string& value);
   ::std::string* PROTOBUF_NONNULL _internal_mutable_version();
-
-  public:
-  // string rpc_addr = 4 [json_name = "rpcAddr"];
-  void clear_rpc_addr() ;
-  [[nodiscard]] const ::std::string& rpc_addr() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_rpc_addr(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_rpc_addr();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_rpc_addr();
-  void set_allocated_rpc_addr(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_rpc_addr() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_rpc_addr(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_rpc_addr();
 
   public:
   // string game_id = 5 [json_name = "gameId"];
@@ -2399,8 +2383,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED RegisterRequest final : public ::go
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 11,
-                                   3, 99,
+  static const ::google::protobuf::internal::TcParseTable<4, 10,
+                                   3, 91,
                                    2>
       _table_;
 
@@ -2427,7 +2411,6 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED RegisterRequest final : public ::go
     ::google::protobuf::RepeatedPtrField< ::croupier::agent::v1::AgentProcess > processes_;
     ::google::protobuf::internal::ArenaStringPtr agent_id_;
     ::google::protobuf::internal::ArenaStringPtr version_;
-    ::google::protobuf::internal::ArenaStringPtr rpc_addr_;
     ::google::protobuf::internal::ArenaStringPtr game_id_;
     ::google::protobuf::internal::ArenaStringPtr env_;
     ::google::protobuf::internal::ArenaStringPtr region_;
@@ -3935,77 +3918,12 @@ RegisterRequest::_internal_mutable_functions() {
   return &_impl_.functions_;
 }
 
-// string rpc_addr = 4 [json_name = "rpcAddr"];
-inline void RegisterRequest::clear_rpc_addr() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.rpc_addr_.ClearToEmpty();
-  ClearHasBit(_impl_._has_bits_[0],
-                  0x00000010U);
-}
-inline const ::std::string& RegisterRequest::rpc_addr() const
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.agent.v1.RegisterRequest.rpc_addr)
-  return _internal_rpc_addr();
-}
-template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void RegisterRequest::set_rpc_addr(Arg_&& arg, Args_... args) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
-  _impl_.rpc_addr_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.agent.v1.RegisterRequest.rpc_addr)
-}
-inline ::std::string* PROTOBUF_NONNULL RegisterRequest::mutable_rpc_addr()
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
-  ::std::string* _s = _internal_mutable_rpc_addr();
-  // @@protoc_insertion_point(field_mutable:croupier.agent.v1.RegisterRequest.rpc_addr)
-  return _s;
-}
-inline const ::std::string& RegisterRequest::_internal_rpc_addr() const {
-  ::google::protobuf::internal::TSanRead(&_impl_);
-  return _impl_.rpc_addr_.Get();
-}
-inline void RegisterRequest::_internal_set_rpc_addr(const ::std::string& value) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.rpc_addr_.Set(value, GetArena());
-}
-inline ::std::string* PROTOBUF_NONNULL RegisterRequest::_internal_mutable_rpc_addr() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  return _impl_.rpc_addr_.Mutable( GetArena());
-}
-inline ::std::string* PROTOBUF_NULLABLE RegisterRequest::release_rpc_addr() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.agent.v1.RegisterRequest.rpc_addr)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000010U)) {
-    return nullptr;
-  }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
-  auto* released = _impl_.rpc_addr_.Release();
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
-    _impl_.rpc_addr_.Set("", GetArena());
-  }
-  return released;
-}
-inline void RegisterRequest::set_allocated_rpc_addr(::std::string* PROTOBUF_NULLABLE value) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
-  } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
-  }
-  _impl_.rpc_addr_.SetAllocated(value, GetArena());
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.rpc_addr_.IsDefault()) {
-    _impl_.rpc_addr_.Set("", GetArena());
-  }
-  // @@protoc_insertion_point(field_set_allocated:croupier.agent.v1.RegisterRequest.rpc_addr)
-}
-
 // string game_id = 5 [json_name = "gameId"];
 inline void RegisterRequest::clear_game_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.game_id_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000020U);
+                  0x00000010U);
 }
 inline const ::std::string& RegisterRequest::game_id() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -4015,13 +3933,13 @@ inline const ::std::string& RegisterRequest::game_id() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void RegisterRequest::set_game_id(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   _impl_.game_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.agent.v1.RegisterRequest.game_id)
 }
 inline ::std::string* PROTOBUF_NONNULL RegisterRequest::mutable_game_id()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   ::std::string* _s = _internal_mutable_game_id();
   // @@protoc_insertion_point(field_mutable:croupier.agent.v1.RegisterRequest.game_id)
   return _s;
@@ -4041,10 +3959,10 @@ inline ::std::string* PROTOBUF_NONNULL RegisterRequest::_internal_mutable_game_i
 inline ::std::string* PROTOBUF_NULLABLE RegisterRequest::release_game_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.agent.v1.RegisterRequest.game_id)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000020U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000010U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   auto* released = _impl_.game_id_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.game_id_.Set("", GetArena());
@@ -4054,9 +3972,9 @@ inline ::std::string* PROTOBUF_NULLABLE RegisterRequest::release_game_id() {
 inline void RegisterRequest::set_allocated_game_id(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   }
   _impl_.game_id_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.game_id_.IsDefault()) {
@@ -4070,7 +3988,7 @@ inline void RegisterRequest::clear_env() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.env_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000040U);
+                  0x00000020U);
 }
 inline const ::std::string& RegisterRequest::env() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -4080,13 +3998,13 @@ inline const ::std::string& RegisterRequest::env() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void RegisterRequest::set_env(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   _impl_.env_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.agent.v1.RegisterRequest.env)
 }
 inline ::std::string* PROTOBUF_NONNULL RegisterRequest::mutable_env()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   ::std::string* _s = _internal_mutable_env();
   // @@protoc_insertion_point(field_mutable:croupier.agent.v1.RegisterRequest.env)
   return _s;
@@ -4106,10 +4024,10 @@ inline ::std::string* PROTOBUF_NONNULL RegisterRequest::_internal_mutable_env() 
 inline ::std::string* PROTOBUF_NULLABLE RegisterRequest::release_env() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.agent.v1.RegisterRequest.env)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000020U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   auto* released = _impl_.env_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.env_.Set("", GetArena());
@@ -4119,9 +4037,9 @@ inline ::std::string* PROTOBUF_NULLABLE RegisterRequest::release_env() {
 inline void RegisterRequest::set_allocated_env(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   }
   _impl_.env_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.env_.IsDefault()) {
@@ -4191,7 +4109,7 @@ inline void RegisterRequest::clear_ttl_seconds() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.ttl_seconds_ = 0u;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000200U);
+                  0x00000100U);
 }
 inline ::uint32_t RegisterRequest::ttl_seconds() const {
   // @@protoc_insertion_point(field_get:croupier.agent.v1.RegisterRequest.ttl_seconds)
@@ -4199,7 +4117,7 @@ inline ::uint32_t RegisterRequest::ttl_seconds() const {
 }
 inline void RegisterRequest::set_ttl_seconds(::uint32_t value) {
   _internal_set_ttl_seconds(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   // @@protoc_insertion_point(field_set:croupier.agent.v1.RegisterRequest.ttl_seconds)
 }
 inline ::uint32_t RegisterRequest::_internal_ttl_seconds() const {
@@ -4216,7 +4134,7 @@ inline void RegisterRequest::clear_region() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.region_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000080U);
+                  0x00000040U);
 }
 inline const ::std::string& RegisterRequest::region() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -4226,13 +4144,13 @@ inline const ::std::string& RegisterRequest::region() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void RegisterRequest::set_region(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   _impl_.region_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.agent.v1.RegisterRequest.region)
 }
 inline ::std::string* PROTOBUF_NONNULL RegisterRequest::mutable_region()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   ::std::string* _s = _internal_mutable_region();
   // @@protoc_insertion_point(field_mutable:croupier.agent.v1.RegisterRequest.region)
   return _s;
@@ -4252,10 +4170,10 @@ inline ::std::string* PROTOBUF_NONNULL RegisterRequest::_internal_mutable_region
 inline ::std::string* PROTOBUF_NULLABLE RegisterRequest::release_region() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.agent.v1.RegisterRequest.region)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000080U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   auto* released = _impl_.region_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.region_.Set("", GetArena());
@@ -4265,9 +4183,9 @@ inline ::std::string* PROTOBUF_NULLABLE RegisterRequest::release_region() {
 inline void RegisterRequest::set_allocated_region(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   }
   _impl_.region_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.region_.IsDefault()) {
@@ -4281,7 +4199,7 @@ inline void RegisterRequest::clear_zone() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.zone_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00000080U);
 }
 inline const ::std::string& RegisterRequest::zone() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -4291,13 +4209,13 @@ inline const ::std::string& RegisterRequest::zone() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void RegisterRequest::set_zone(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   _impl_.zone_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.agent.v1.RegisterRequest.zone)
 }
 inline ::std::string* PROTOBUF_NONNULL RegisterRequest::mutable_zone()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::std::string* _s = _internal_mutable_zone();
   // @@protoc_insertion_point(field_mutable:croupier.agent.v1.RegisterRequest.zone)
   return _s;
@@ -4317,10 +4235,10 @@ inline ::std::string* PROTOBUF_NONNULL RegisterRequest::_internal_mutable_zone()
 inline ::std::string* PROTOBUF_NULLABLE RegisterRequest::release_zone() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.agent.v1.RegisterRequest.zone)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000100U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000080U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   auto* released = _impl_.zone_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.zone_.Set("", GetArena());
@@ -4330,9 +4248,9 @@ inline ::std::string* PROTOBUF_NULLABLE RegisterRequest::release_zone() {
 inline void RegisterRequest::set_allocated_zone(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   }
   _impl_.zone_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.zone_.IsDefault()) {
@@ -4352,7 +4270,7 @@ inline void RegisterRequest::clear_labels() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.labels_.Clear();
   ClearHasBitForRepeated(_impl_._has_bits_[0],
-                  0x00000400U);
+                  0x00000200U);
 }
 inline const ::google::protobuf::Map<::std::string, ::std::string>& RegisterRequest::_internal_labels() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -4368,7 +4286,7 @@ inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL R
 }
 inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL RegisterRequest::mutable_labels()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000400U);
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000200U);
   // @@protoc_insertion_point(field_mutable_map:croupier.agent.v1.RegisterRequest.labels)
   return _internal_mutable_labels();
 }
