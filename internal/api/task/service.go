@@ -14,22 +14,19 @@ import (
 )
 
 type Service struct {
-	svcCtx *svc.ServiceContext
-	store  *tasks.Store
+	svcCtx  *svc.ServiceContext
+	runtime TaskRuntime
 }
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{
-		svcCtx: svcCtx,
-		store: tasks.NewStore(
-			model.NewTaskRunModel(svcCtx.DB),
-			model.NewTaskEventModel(svcCtx.DB),
-		),
+		svcCtx:  svcCtx,
+		runtime: NewTaskRuntime(svcCtx),
 	}
 }
 
 func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, error) {
-	items, total, err := s.store.ListRuns(ctx, model.ListTasksOptions{
+	items, total, err := s.runtime.ListRuns(ctx, model.ListTasksOptions{
 		PaginationOptions: model.PaginationOptions{
 			Page:     req.Page,
 			PageSize: req.Size,
@@ -54,7 +51,7 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.svcCtx.FunctionModel.FindByFunctionID(ctx, functionID); err != nil {
+	if _, err := s.runtime.FindFunction(ctx, functionID); err != nil {
 		return nil, err
 	}
 
@@ -100,7 +97,7 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	// dispatcher generates the task ID, creates the task_runs row, and forwards
 	// to the agent. This unifies the async entry points so /tasks no longer
 	// leaves rows stranded in "queued".
-	resp, err := s.svcCtx.Dispatcher.StartTaskRequest(ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
+	resp, err := s.runtime.StartTask(ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +109,7 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*DetailRespon
 	if taskID == "" {
 		return nil, errorx.NewBadRequest("任务ID不能为空")
 	}
-	run, err := s.store.GetRun(ctx, taskID)
+	run, err := s.runtime.GetRun(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -124,11 +121,11 @@ func (s *Service) Events(ctx context.Context, req *EventsRequest) (*EventsRespon
 	if taskID == "" {
 		return nil, errorx.NewBadRequest("任务ID不能为空")
 	}
-	run, err := s.store.GetRun(ctx, taskID)
+	run, err := s.runtime.GetRun(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
-	events, err := s.store.ListEvents(ctx, taskID, req.AfterSeq)
+	events, err := s.runtime.ListEvents(ctx, taskID, req.AfterSeq)
 	if err != nil {
 		return nil, err
 	}
@@ -158,14 +155,14 @@ func (s *Service) Cancel(ctx context.Context, req *CancelRequest) error {
 		return errorx.NewBadRequest("任务ID不能为空")
 	}
 	now := time.Now()
-	if err := s.store.UpdateRun(ctx, taskID, map[string]interface{}{
+	if err := s.runtime.UpdateRun(ctx, taskID, map[string]interface{}{
 		"status":              tasks.StatusCancelRequested,
 		"message":             "已请求取消任务",
 		"cancel_requested_at": &now,
 	}); err != nil {
 		return err
 	}
-	if err := s.store.AppendEvent(ctx, taskID, tasks.EventCancelRequested, 0, "已请求取消任务", []byte("null")); err != nil {
+	if err := s.runtime.AppendEvent(ctx, taskID, tasks.EventCancelRequested, 0, "已请求取消任务", []byte("null")); err != nil {
 		return err
 	}
 
@@ -175,9 +172,7 @@ func (s *Service) Cancel(ctx context.Context, req *CancelRequest) error {
 	// live task. Best-effort: if the agent is unreachable the row still
 	// reflects the requested-cancel state so operators and the SSE stream
 	// see the intent.
-	if s.svcCtx != nil && s.svcCtx.Dispatcher != nil {
-		_ = s.svcCtx.Dispatcher.CancelTask(ctx, taskID)
-	}
+	_ = s.runtime.CancelTask(ctx, taskID)
 	return nil
 }
 
