@@ -227,10 +227,7 @@ func TestServiceOpsNodeCommands(t *testing.T) {
 
 	resp, err := s.OpsNodeCommands(ctx, &OpsNodeCommandsRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.([]NodeCommand)
-	require.True(t, ok)
-	assert.Len(t, data, 3) // drain, undrain, restart
+	assert.Len(t, resp.Commands, 3) // drain, undrain, restart
 }
 
 func TestServiceOpsNodeDrain(t *testing.T) {
@@ -265,10 +262,7 @@ func TestServiceOpsNodeMeta(t *testing.T) {
 
 	resp, err := s.OpsNodeMeta(ctx, &OpsNodeMetaRequest{NodeID: "node-1"})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.(map[string]string)
-	require.True(t, ok)
-	assert.Equal(t, "us-east-1", data["zone"])
+	assert.Equal(t, "us-east-1", resp.Labels["zone"])
 }
 
 func TestServiceOpsNodeMetaNotFound(t *testing.T) {
@@ -523,9 +517,7 @@ func TestServiceOpsBackupDelete(t *testing.T) {
 
 	resp, err := s.OpsBackupDelete(ctx, &OpsBackupDeleteRequest{})
 	require.NoError(t, err)
-	data, ok := resp.Data.(bool)
-	require.True(t, ok)
-	assert.True(t, data)
+	assert.True(t, resp.Deleted)
 }
 
 func TestServiceOpsBackupDownload(t *testing.T) {
@@ -537,9 +529,7 @@ func TestServiceOpsBackupDownload(t *testing.T) {
 
 	resp, err := s.OpsBackupDownload(ctx, &OpsBackupDownloadRequest{})
 	require.NoError(t, err)
-	data, ok := resp.Data.(string)
-	require.True(t, ok)
-	assert.Contains(t, data, "/backups/")
+	assert.Contains(t, resp.Url, "/backups/")
 }
 
 // Alert silence delete test - safe path
@@ -551,9 +541,8 @@ func TestServiceOpsSilenceDelete(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsSilenceDelete(ctx, &OpsAlertSilenceRequest{AlertID: "invalid"})
-	require.NoError(t, err)
-	assert.Equal(t, 1, resp.Code)
+	_, err := s.OpsSilenceDelete(ctx, &OpsAlertSilenceRequest{AlertID: "invalid"})
+	require.Error(t, err)
 }
 
 // Sub-service tests
@@ -953,7 +942,7 @@ func TestOpsNodeCommandsHandler(t *testing.T) {
 	h.OpsNodeCommands(ctx)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Success")
+	assert.Contains(t, rec.Body.String(), "commands")
 }
 
 func TestOpsHealthRunHandler(t *testing.T) {

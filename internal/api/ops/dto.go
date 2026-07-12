@@ -98,9 +98,7 @@ type OpsAlertSilenceRequest struct {
 }
 
 type OpsAlertSilenceResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	SilenceID string `json:"silenceId"`
 }
 
 type OpsAlertsRequest struct {
@@ -156,9 +154,7 @@ type OpsBackupCreateRequest struct {
 }
 
 type OpsBackupCreateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	BackupID string `json:"backupId"`
 }
 
 type OpsBackupDeleteRequest struct {
@@ -166,9 +162,7 @@ type OpsBackupDeleteRequest struct {
 }
 
 type OpsBackupDeleteResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Deleted bool `json:"deleted"`
 }
 
 type OpsBackupDownloadRequest struct {
@@ -176,9 +170,7 @@ type OpsBackupDownloadRequest struct {
 }
 
 type OpsBackupDownloadResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Url string `json:"url"`
 }
 
 type OpsBackupsListRequest struct {
@@ -391,15 +383,12 @@ type OpsNodeCommandsQuery struct {
 }
 
 type OpsNodeCommandsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Commands []NodeCommand `json:"commands"`
 }
 
 type OpsNodeDrainResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	NodeId string `json:"nodeId"`
+	Status string `json:"status"`
 }
 
 type OpsNodeMetaRequest struct {
@@ -407,21 +396,17 @@ type OpsNodeMetaRequest struct {
 }
 
 type OpsNodeMetaResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Labels map[string]string `json:"labels"`
 }
 
 type OpsNodeRestartResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	NodeId string `json:"nodeId"`
+	Status string `json:"status"`
 }
 
 type OpsNodeUndrainResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	NodeId string `json:"nodeId"`
+	Status string `json:"status"`
 }
 
 type OpsNodesRequest struct {
@@ -565,9 +550,7 @@ type SilencesListResponse struct {
 }
 
 type OpsSilenceDeleteResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Deleted bool `json:"deleted"`
 }
 
 type OpsSilencesRequest struct {

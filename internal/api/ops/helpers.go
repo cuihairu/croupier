@@ -233,9 +233,7 @@ func opsBackupCreate(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBa
 	}
 
 	return &OpsBackupCreateResponse{
-		Code:    0,
-		Message: "Backup created successfully",
-		Data:    backup.BackupID,
+		BackupID: backup.BackupID,
 	}, nil
 }
 
@@ -247,7 +245,7 @@ func opsBackupDelete(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBa
 		}
 	}
 	return &OpsBackupDeleteResponse{
-		Data: true,
+		Deleted: true,
 	}, nil
 }
 
@@ -259,11 +257,11 @@ func opsBackupDownload(ctx context.Context, svcCtx *svc.ServiceContext, req *Ops
 			return nil, err
 		}
 		return &OpsBackupDownloadResponse{
-			Data: url,
+			Url: url,
 		}, nil
 	}
 	return &OpsBackupDownloadResponse{
-		Data: fmt.Sprintf("/backups/%s/download", req.ID),
+		Url: fmt.Sprintf("/backups/%s/download", req.ID),
 	}, nil
 }
 
@@ -314,9 +312,7 @@ func opsAlertSilence(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAl
 	}
 
 	return &OpsAlertSilenceResponse{
-		Code:    0,
-		Message: "Alert silenced successfully",
-		Data:    fmt.Sprintf("%d", silence.ID),
+		SilenceID: fmt.Sprintf("%d", silence.ID),
 	}, nil
 }
 
@@ -324,22 +320,14 @@ func opsSilenceDelete(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsA
 	// Parse the silence ID as uint
 	var silenceID uint
 	if _, err := fmt.Sscanf(req.AlertID, "%d", &silenceID); err != nil {
-		return &OpsSilenceDeleteResponse{
-			Code:    1,
-			Message: "Invalid silence ID",
-		}, nil
+		return nil, errorx.NewBadRequest("Invalid silence ID")
 	}
-	err := svcCtx.AlertModel.DeleteSilence(ctx, silenceID)
-	if err != nil {
-		return &OpsSilenceDeleteResponse{
-			Code:    1,
-			Message: "Failed to delete silence",
-		}, nil
+	if err := svcCtx.AlertModel.DeleteSilence(ctx, silenceID); err != nil {
+		return nil, err
 	}
 
 	return &OpsSilenceDeleteResponse{
-		Code:    0,
-		Message: "Silence deleted successfully",
+		Deleted: true,
 	}, nil
 }
 
@@ -410,9 +398,7 @@ func opsNodeCommands(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNo
 	}
 
 	return &OpsNodeCommandsResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    commands,
+		Commands: commands,
 	}, nil
 }
 
@@ -456,9 +442,8 @@ func opsNodeDrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeC
 	}
 
 	return &OpsNodeDrainResponse{
-		Code:    0,
-		Message: "Node drain initiated",
-		Data:    map[string]string{"nodeId": nodeID, "status": "draining"},
+		NodeId: nodeID,
+		Status: "draining",
 	}, nil
 }
 
@@ -474,9 +459,7 @@ func opsNodeMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeMe
 	for _, sess := range store.AgentsUnsafe() {
 		if sess != nil && sess.AgentID == req.NodeID {
 			return &OpsNodeMetaResponse{
-				Code:    0,
-				Message: "Success",
-				Data:    sess.Labels,
+				Labels: sess.Labels,
 			}, nil
 		}
 	}
@@ -523,9 +506,8 @@ func opsNodeRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 	}
 
 	return &OpsNodeRestartResponse{
-		Code:    0,
-		Message: "Node restart initiated",
-		Data:    map[string]string{"nodeId": nodeID, "status": "restarting"},
+		NodeId: nodeID,
+		Status: "restarting",
 	}, nil
 }
 
@@ -568,9 +550,8 @@ func opsNodeUndrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 	}
 
 	return &OpsNodeUndrainResponse{
-		Code:    0,
-		Message: "Node undrained successfully",
-		Data:    map[string]string{"nodeId": nodeID, "status": "active"},
+		NodeId: nodeID,
+		Status: "active",
 	}, nil
 }
 

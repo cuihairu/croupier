@@ -61,8 +61,7 @@ func TestOpsBackupCreateWithRealModel(t *testing.T) {
 
 	resp, err := opsBackupCreate(ctx, svcCtx, &OpsBackupCreateRequest{Name: "new-backup"})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.NotEmpty(t, resp.Data)
+	assert.NotEmpty(t, resp.BackupID)
 }
 
 func TestBackupServiceListWithRealModel(t *testing.T) {
@@ -241,8 +240,7 @@ func TestOpsAlertSilenceWithRealModel(t *testing.T) {
 
 	resp, err := opsAlertSilence(ctx, svcCtx, &OpsAlertSilenceRequest{AlertID: "123", Duration: 60})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.NotEmpty(t, resp.Data)
+	assert.NotEmpty(t, resp.SilenceID)
 }
 
 func TestOpsSilencesWithRealModel(t *testing.T) {
@@ -789,8 +787,7 @@ func TestOpsSilenceDeleteSuccess(t *testing.T) {
 
 	resp, err := s.OpsSilenceDelete(ctx, &OpsAlertSilenceRequest{AlertID: fmt.Sprintf("%d", silence.ID)})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "deleted")
+	assert.True(t, resp.Deleted)
 }
 
 // Tests for opsFunctions with nil svcCtx
@@ -1157,10 +1154,8 @@ func TestOpsNodeMetaWithRegistry(t *testing.T) {
 
 	resp, err := opsNodeMeta(ctx, svcCtx, &OpsNodeMetaRequest{NodeID: "node-1"})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data := resp.Data.(map[string]string)
-	assert.Equal(t, "us-west-2", data["zone"])
-	assert.Equal(t, "dc1", data["datacenter"])
+	assert.Equal(t, "us-west-2", resp.Labels["zone"])
+	assert.Equal(t, "dc1", resp.Labels["datacenter"])
 }
 
 // Tests for loadNotificationsFromExtensionInstallation with various configs
@@ -1335,7 +1330,8 @@ func TestOpsSilenceDeleteHandler(t *testing.T) {
 
 	h.OpsSilenceDelete(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	// invalid (non-numeric) id now returns 400 instead of envelope Code:1 with HTTP 200
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 // Test for OpsAgentSystemInfo handler with found agent
@@ -1721,8 +1717,7 @@ func TestOpsAlertSilenceWithValidNumericID(t *testing.T) {
 	// Use a valid numeric ID
 	resp, err := opsAlertSilence(ctx, svcCtx, &OpsAlertSilenceRequest{AlertID: "123", Duration: 60})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.NotEmpty(t, resp.Data)
+	assert.NotEmpty(t, resp.SilenceID)
 }
 
 // Test for OpsSilenceDelete with real model and valid numeric ID
@@ -1750,8 +1745,7 @@ func TestOpsSilenceDeleteWithValidNumericID(t *testing.T) {
 	// Use a valid numeric ID that exists
 	resp, err := opsSilenceDelete(ctx, svcCtx, &OpsAlertSilenceRequest{AlertID: fmt.Sprintf("%d", silence.ID)})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "deleted")
+	assert.True(t, resp.Deleted)
 }
 
 // Test for OpsBackupsList with real model and empty list
