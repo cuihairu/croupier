@@ -36,10 +36,7 @@ func (s *Service) List(ctx context.Context, req *AlertsListRequest) (*AlertsList
 	}
 
 	opts := model.ListAlertsOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     req.Page,
-			PageSize: req.PageSize,
-		},
+		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
 		Level:  strings.TrimSpace(req.Level),
 		Status: strings.TrimSpace(req.Status),
 	}

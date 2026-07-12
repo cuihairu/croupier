@@ -28,10 +28,7 @@ func behaviorAnalytics(ctx context.Context, svcCtx *svc.ServiceContext, req *Beh
 	}
 
 	opts := model.BehaviorEventOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 3000,
-		},
+		PaginationOptions: model.NewPagination(1, 3000),
 		GameID:    strings.TrimSpace(req.GameId),
 		Env:       strings.TrimSpace(req.Env),
 		StartTime: start,
@@ -80,10 +77,7 @@ func behaviorEvents(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavi
 	}
 
 	opts := model.BehaviorEventOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: limit,
-		},
+		PaginationOptions: model.NewPagination(1, limit),
 		GameID:    strings.TrimSpace(req.GameId),
 		Env:       strings.TrimSpace(req.Env),
 		EventType: strings.TrimSpace(req.EventType),
@@ -171,10 +165,7 @@ func behaviorAdoptionBreakdown(ctx context.Context, svcCtx *svc.ServiceContext, 
 	}
 
 	opts := model.BehaviorEventOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 5000,
-		},
+		PaginationOptions: model.NewPagination(1, 5000),
 		GameID:    gameID,
 		Env:       env,
 		EventType: feature,
@@ -241,10 +232,7 @@ func behaviorFunnel(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavi
 	}
 
 	opts := model.BehaviorEventOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 5000,
-		},
+		PaginationOptions: model.NewPagination(1, 5000),
 		GameID:    strings.TrimSpace(req.GameId),
 		Env:       strings.TrimSpace(req.Env),
 		StartTime: start,
@@ -332,10 +320,7 @@ func behaviorPaths(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavio
 	}
 
 	opts := model.BehaviorEventOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 5000,
-		},
+		PaginationOptions: model.NewPagination(1, 5000),
 		GameID:    strings.TrimSpace(req.GameId),
 		Env:       strings.TrimSpace(req.Env),
 		StartTime: start,

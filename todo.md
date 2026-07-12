@@ -105,6 +105,7 @@
   - 建议：抽取通用 response、binding、pagination、scope 校验模式；避免每个包重复样板。
   - 约束：只抽真实重复，不为了“框架化”引入额外复杂度。
   - 边界讨论结论（2026-07-12）：探查 32 处 `response.Error(c, err)` + 37 处 `ShouldBindJSON/BindQuery` 重复；已有 `internal/common/response` + `requestbind.BindQueryCompat`，但 pagination/scope 校验仍各包重复。先审计 `PaginationOptions` + `RequireGameEnvScope` 调用，抽 1-2 个 helper（`Paginate(req)` + `ResolveScope(c, svcCtx)`），不引框架。收益：新增 handler 成本降 + 一致性；风险：过度抽象。
+  - 已完成 pagination helper（`model.NewPagination`）：10 处 `PaginationOptions{Page,PageSize}` 替换为 `model.NewPagination(req.Page, req.PageSize)`。scope 校验 `RequireGameEnvScope` 只 1 处调用（task/service.go），暂不够抽 helper。
 
 - [ ] **收敛 Analytics 链路的生产 readiness。**
   - 现状：已有 `cmd/ingest`、`cmd/analytics-worker`、ClickHouse/Redis/Flink 文档和 compose 配置，但需要专项确认端到端与部署成熟度。

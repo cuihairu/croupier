@@ -26,10 +26,7 @@ func (s *AlertService) List(ctx context.Context, gameId, env, status string) ([]
 	}
 
 	alerts, _, err := s.svcCtx.AlertModel.List(ctx, model.ListAlertsOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 100,
-		},
+		PaginationOptions: model.NewPagination(1, 100),
 		Status: status,
 	})
 	if err != nil {

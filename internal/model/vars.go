@@ -65,6 +65,14 @@ func (opts *PaginationOptions) Offset() int {
 	return (opts.Page - 1) * opts.PageSize
 }
 
+// NewPagination returns normalized PaginationOptions. It clamps page >= 1,
+// 1 <= pageSize <= 100 (default 20), and is the recommended constructor.
+func NewPagination(page, pageSize int) PaginationOptions {
+	opts := PaginationOptions{Page: page, PageSize: pageSize}
+	opts.Normalize()
+	return opts
+}
+
 // 通用更新时间跟踪
 type TimestampMixin struct {
 	CreatedAt time.Time `gorm:"autoCreateTime"`

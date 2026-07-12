@@ -212,10 +212,7 @@ func loadBehaviorEvents(ctx context.Context, svcCtx *svc.ServiceContext, gameID,
 	}
 	appendEvents := func(eventType string) ([]model.BehaviorEvent, error) {
 		opts := model.BehaviorEventOptions{
-			PaginationOptions: model.PaginationOptions{
-				Page:     1,
-				PageSize: pageSize,
-			},
+			PaginationOptions: model.NewPagination(1, pageSize),
 			GameID:    trimString(gameID),
 			Env:       trimString(env),
 			EventType: trimString(eventType),

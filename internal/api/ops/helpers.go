@@ -193,10 +193,7 @@ func opsAgentProcessRestart(ctx context.Context, svcCtx *svc.ServiceContext, req
 
 func opsBackupsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBackupsListRequest) (*OpsBackupsListResponse, error) {
 	opts := model.ListBackupsOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 1000,
-		},
+		PaginationOptions: model.NewPagination(1, 1000),
 	}
 	backups, _, err := svcCtx.BackupModel.List(ctx, opts)
 	if err != nil {
@@ -268,10 +265,7 @@ func opsBackupDownload(ctx context.Context, svcCtx *svc.ServiceContext, req *Ops
 
 func opsAlerts(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAlertsRequest) (*OpsAlertsResponse, error) {
 	opts := model.ListAlertsOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 1000,
-		},
+		PaginationOptions: model.NewPagination(1, 1000),
 	}
 	alerts, _, err := svcCtx.AlertModel.List(ctx, opts)
 	if err != nil {

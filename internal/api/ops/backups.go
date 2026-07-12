@@ -30,10 +30,7 @@ func (s *BackupService) List(ctx context.Context, gameId, env string) ([]Backup,
 	}
 
 	opts := model.ListBackupsOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 1000,
-		},
+		PaginationOptions: model.NewPagination(1, 1000),
 	}
 	backups, _, err := s.svcCtx.BackupModel.List(ctx, opts)
 	if err != nil {

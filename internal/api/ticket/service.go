@@ -21,10 +21,7 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 // List returns a list of tickets
 func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, error) {
 	opts := model.TicketQueryOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     req.Page,
-			PageSize: req.PageSize,
-		},
+		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
 		Status:   strings.TrimSpace(req.Status),
 		Category: strings.TrimSpace(req.Category),
 		Priority: strings.TrimSpace(req.Priority),
