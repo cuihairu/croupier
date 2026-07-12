@@ -49,10 +49,8 @@ func TestServiceOpsAgentsList(t *testing.T) {
 
 	resp, err := s.OpsAgentsList(ctx, &OpsAgentsListRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Equal(t, "Success", resp.Message)
-	assert.Len(t, resp.Data, 1)
-	assert.Equal(t, "agent-1", resp.Data[0].AgentID)
+	assert.Len(t, resp.Agents, 1)
+	assert.Equal(t, "agent-1", resp.Agents[0].AgentID)
 }
 
 func TestServiceOpsAgentsListEmptyRegistry(t *testing.T) {
@@ -64,8 +62,7 @@ func TestServiceOpsAgentsListEmptyRegistry(t *testing.T) {
 
 	resp, err := s.OpsAgentsList(ctx, &OpsAgentsListRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data)
+	assert.Empty(t, resp.Agents)
 }
 
 func TestServiceOpsAgentMeta(t *testing.T) {
@@ -88,8 +85,7 @@ func TestServiceOpsAgentMeta(t *testing.T) {
 
 	resp, err := s.OpsAgentMeta(ctx, &OpsAgentMetaRequest{AgentId: "agent-1"})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.(OpsAgentSystemInfo)
+	data, ok := resp.Meta.(OpsAgentSystemInfo)
 	require.True(t, ok)
 	assert.Equal(t, "linux", data.OS)
 }
@@ -125,8 +121,7 @@ func TestServiceOpsAgentSystemInfo(t *testing.T) {
 
 	resp, err := s.OpsAgentSystemInfo(ctx, &OpsAgentSystemInfoRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Equal(t, "linux", resp.Data.OS)
+	assert.Equal(t, "linux", resp.SystemInfo.OS)
 }
 
 func TestServiceOpsAgentMetrics(t *testing.T) {
@@ -138,8 +133,7 @@ func TestServiceOpsAgentMetrics(t *testing.T) {
 
 	resp, err := s.OpsAgentMetrics(ctx, &OpsAgentMetricsRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data)
+	assert.Empty(t, resp.Metrics)
 }
 
 func TestServiceOpsAgentProcesses(t *testing.T) {
@@ -151,8 +145,7 @@ func TestServiceOpsAgentProcesses(t *testing.T) {
 
 	resp, err := s.OpsAgentProcesses(ctx, &OpsAgentProcessesRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data)
+	assert.Empty(t, resp.Processes)
 }
 
 func TestServiceOpsAgentProcessStart(t *testing.T) {
@@ -786,7 +779,7 @@ func TestOpsAgentsListHandler(t *testing.T) {
 	h.OpsAgentsList(ctx)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Success")
+	assert.Contains(t, rec.Body.String(), "agents")
 }
 
 func TestOpsNodesHandler(t *testing.T) {

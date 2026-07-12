@@ -31,17 +31,13 @@ const (
 func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentsListRequest) (*OpsAgentsListResponse, error) {
 	if svcCtx == nil {
 		return &OpsAgentsListResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    []OpsAgentInfo{},
+			Agents: []OpsAgentInfo{},
 		}, nil
 	}
 	store := svcCtx.RegistryStore
 	if store == nil {
 		return &OpsAgentsListResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    []OpsAgentInfo{},
+			Agents: []OpsAgentInfo{},
 		}, nil
 	}
 
@@ -74,9 +70,7 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 	}
 
 	return &OpsAgentsListResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    agents,
+		Agents: agents,
 	}, nil
 }
 
@@ -92,9 +86,7 @@ func opsAgentMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgent
 	for _, sess := range store.AgentsUnsafe() {
 		if sess != nil && sess.AgentID == req.AgentId {
 			return &OpsAgentMetaResponse{
-				Code:    0,
-				Message: "Success",
-				Data: OpsAgentSystemInfo{
+				Meta: OpsAgentSystemInfo{
 					OS:       sess.Labels["os"],
 					Arch:     sess.Labels["arch"],
 					Hostname: sess.Labels["hostname"],
@@ -109,18 +101,14 @@ func opsAgentMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgent
 func opsAgentMetrics(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentMetricsRequest) (*OpsAgentMetricsResponse, error) {
 	// Implementation would query metrics from the agent
 	return &OpsAgentMetricsResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    []OpsMetricsData{},
+		Metrics: []OpsMetricsData{},
 	}, nil
 }
 
 func opsAgentProcesses(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentProcessesRequest) (*OpsAgentProcessesResponse, error) {
 	// Implementation would query processes from the agent
 	return &OpsAgentProcessesResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    []OpsManagedProcess{},
+		Processes: []OpsManagedProcess{},
 	}, nil
 }
 
@@ -136,9 +124,7 @@ func opsAgentSystemInfo(ctx context.Context, svcCtx *svc.ServiceContext, req *Op
 	for _, sess := range store.AgentsUnsafe() {
 		if sess != nil && sess.AgentID == req.AgentID {
 			return &OpsAgentSystemInfoResponse{
-				Code:    0,
-				Message: "Success",
-				Data: OpsAgentSystemInfo{
+				SystemInfo: OpsAgentSystemInfo{
 					OS:       sess.Labels["os"],
 					Arch:     sess.Labels["arch"],
 					Hostname: sess.Labels["hostname"],
@@ -158,9 +144,7 @@ func opsAgentExecCommand(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 	}
 
 	return &OpsExecCommandResponse{
-		Code:    0,
-		Message: "Success",
-		Data: OpsExecCommandResult{
+		Result: OpsExecCommandResult{
 			ExitCode: result.ExitCode,
 			Stdout:   result.Stdout,
 			Stderr:   result.Stderr,
@@ -178,9 +162,7 @@ func opsAgentProcessStart(ctx context.Context, svcCtx *svc.ServiceContext, req *
 		return nil, err
 	}
 	return &OpsProcessStartResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    int32(pid),
+		Pid: int32(pid),
 	}, nil
 }
 
@@ -193,10 +175,7 @@ func opsAgentProcessStop(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 	if err := agentSvc.StopProcess(ctx, req.AgentID, processName); err != nil {
 		return nil, err
 	}
-	return &OpsProcessActionResponse{
-		Code:    0,
-		Message: "Success",
-	}, nil
+	return &OpsProcessActionResponse{}, nil
 }
 
 func opsAgentProcessRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessActionRequest) (*OpsProcessActionResponse, error) {
@@ -208,10 +187,7 @@ func opsAgentProcessRestart(ctx context.Context, svcCtx *svc.ServiceContext, req
 	if err := agentSvc.RestartProcess(ctx, req.AgentID, processName); err != nil {
 		return nil, err
 	}
-	return &OpsProcessActionResponse{
-		Code:    0,
-		Message: "Success",
-	}, nil
+	return &OpsProcessActionResponse{}, nil
 }
 
 // Backup operations implementations

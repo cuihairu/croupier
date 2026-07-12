@@ -1131,8 +1131,7 @@ func TestOpsAgentMetaWithRegistry(t *testing.T) {
 
 	resp, err := opsAgentMeta(ctx, svcCtx, &OpsAgentMetaRequest{AgentId: "agent-1"})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data := resp.Data.(OpsAgentSystemInfo)
+	data := resp.Meta.(OpsAgentSystemInfo)
 	assert.Equal(t, "linux", data.OS)
 	assert.Equal(t, "amd64", data.Arch)
 	assert.Equal(t, "host1", data.Hostname)
@@ -1247,10 +1246,9 @@ func TestOpsAgentSystemInfoResponseStructure(t *testing.T) {
 
 	resp, err := opsAgentSystemInfo(ctx, svcCtx, &OpsAgentSystemInfoRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Equal(t, "windows", resp.Data.OS)
-	assert.Equal(t, "arm64", resp.Data.Arch)
-	assert.Equal(t, "win-host", resp.Data.Hostname)
+	assert.Equal(t, "windows", resp.SystemInfo.OS)
+	assert.Equal(t, "arm64", resp.SystemInfo.Arch)
+	assert.Equal(t, "win-host", resp.SystemInfo.Hostname)
 }
 
 // Tests for opsAgentSystemInfo empty labels
@@ -1273,9 +1271,8 @@ func TestOpsAgentSystemInfoEmptyLabels(t *testing.T) {
 
 	resp, err := opsAgentSystemInfo(ctx, svcCtx, &OpsAgentSystemInfoRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data.OS)
-	assert.Empty(t, resp.Data.Arch)
+	assert.Empty(t, resp.SystemInfo.OS)
+	assert.Empty(t, resp.SystemInfo.Arch)
 }
 
 // Additional handler POST tests for backup and alert operations
@@ -1500,8 +1497,7 @@ func TestOpsAgentsListMultiple(t *testing.T) {
 
 	resp, err := opsAgentsList(ctx, svcCtx, &OpsAgentsListRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Len(t, resp.Data, 3)
+	assert.Len(t, resp.Agents, 3)
 }
 
 // Test for opsNodes with multiple nodes

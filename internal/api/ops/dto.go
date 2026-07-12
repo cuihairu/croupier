@@ -20,9 +20,7 @@ type OpsAgentInfo struct {
 }
 
 type OpsAgentMetaResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Meta interface{} `json:"meta"`
 }
 
 type OpsAgentMetaUpdateRequest struct {
@@ -37,9 +35,7 @@ type OpsAgentMetricsRequest struct {
 }
 
 type OpsAgentMetricsResponse struct {
-	Code    int              `json:"code"`
-	Message string           `json:"message"`
-	Data    []OpsMetricsData `json:"data,omitempty"`
+	Metrics []OpsMetricsData `json:"metrics"`
 }
 
 type OpsAgentProcessesRequest struct {
@@ -47,9 +43,7 @@ type OpsAgentProcessesRequest struct {
 }
 
 type OpsAgentProcessesResponse struct {
-	Code    int                 `json:"code"`
-	Message string              `json:"message"`
-	Data    []OpsManagedProcess `json:"data,omitempty"`
+	Processes []OpsManagedProcess `json:"processes"`
 }
 
 type OpsAgentSystemInfo struct {
@@ -69,18 +63,14 @@ type OpsAgentSystemInfoRequest struct {
 }
 
 type OpsAgentSystemInfoResponse struct {
-	Code    int                `json:"code"`
-	Message string             `json:"message"`
-	Data    OpsAgentSystemInfo `json:"data,omitempty"`
+	SystemInfo OpsAgentSystemInfo `json:"systemInfo"`
 }
 
 type OpsAgentsListRequest struct {
 }
 
 type OpsAgentsListResponse struct {
-	Code    int            `json:"code"`
-	Message string         `json:"message"`
-	Data    []OpsAgentInfo `json:"data,omitempty"`
+	Agents []OpsAgentInfo `json:"agents"`
 }
 
 // Alert operations DTOs
@@ -279,9 +269,7 @@ type OpsExecCommandRequest struct {
 }
 
 type OpsExecCommandResponse struct {
-	Code    int                  `json:"code"`
-	Message string               `json:"message"`
-	Data    OpsExecCommandResult `json:"data,omitempty"`
+	Result OpsExecCommandResult `json:"result"`
 }
 
 type OpsExecCommandResult struct {
@@ -498,9 +486,7 @@ type OpsProcessActionRequest struct {
 }
 
 type OpsProcessActionResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    int32  `json:"pid,omitempty"`
+	Pid int32 `json:"pid,omitempty"`
 }
 
 type OpsProcessStartRequest struct {
@@ -509,9 +495,7 @@ type OpsProcessStartRequest struct {
 }
 
 type OpsProcessStartResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    int32  `json:"pid,omitempty"`
+	Pid int32 `json:"pid,omitempty"`
 }
 
 // Service operations DTOs
