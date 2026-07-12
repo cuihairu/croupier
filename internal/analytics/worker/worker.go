@@ -163,11 +163,15 @@ func (w *Worker) Run(ctx context.Context) error {
 		}
 	}()
 	for {
-		sel := []string{w.streamEvents, w.streamPayments}
+		streams := []string{w.streamEvents, w.streamPayments}
+		streamIDs := make([]string, len(streams))
+		for i := range streamIDs {
+			streamIDs[i] = "$"
+		}
 		res, err := w.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
 			Group:    w.group,
 			Consumer: w.consumer,
-			Streams:  append([]string{}, sel...),
+			Streams:  append(streams, streamIDs...),
 			Count:    200,
 			Block:    2 * time.Second,
 		}).Result()
