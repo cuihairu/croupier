@@ -168,8 +168,6 @@ func (w *Worker) Run(ctx context.Context) error {
 		for i := range streamIDs {
 			streamIDs[i] = ">" // only new (unacknowledged) messages
 		}
-		slog.Info("xreadgroup start", "group", w.group, "consumer", w.consumer,
-			"streams", streams, "stream_ids", streamIDs)
 		res, err := w.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
 			Group:    w.group,
 			Consumer: w.consumer,
@@ -184,7 +182,6 @@ func (w *Worker) Run(ctx context.Context) error {
 		if err == redis.Nil {
 			continue
 		}
-		slog.Info("xreadgroup got", "streams", len(res))
 		for _, str := range res {
 			slog.Info("stream", "name", str.Stream, "msgs", len(str.Messages))
 			for _, msg := range str.Messages {
@@ -587,7 +584,7 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 
 	// Add retry count if not present
 	if m["retry_count"] == nil {
-		m["retry_count"] = 0
+		m["retry_count"] = float64(0) // JSON numbers are float64
 	}
 
 	var err error
