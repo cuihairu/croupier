@@ -35,11 +35,13 @@
   - ✅ 已收尾：用 `buf generate` 重新生成入库 stub，使仓库码 == proto 当前态。`sdks/python/generated` 刷新到 Task/ProviderConnect schema；`sdks/csharp/generated` regen（JobEvent→TaskEvent，清 ~2500 行旧码）+ 修 `csharp/buf.gen.yaml` out 路径（`../generated`→`sdks/csharp/generated`）；`sdks/csharp/src/Croupier.Sdk/CroupierInvoker.cs` 的 Job→Task 引用同步更新（StartJobResponse→StartTaskResponse 等）；删除废弃的 `sdks/python/croupier/pb`（手选旧集，含已删 proto，运行时不使用——`__init__.py` 经 `_load_proto_module` 从 `generated/` 加载）+ 清 `pyproject.toml` 引用。CI - Python SDK / C# SDK / Core / Docker / CodeQL 全绿。
   - 验证（主链路）：`rg "StartJob|StreamJob|CancelJob|JobEvent|GetJobResult|job_id" --glob '!**/generated/**' --glob '!**/pb/**' --glob '!*.md' sdks/ proto/ internal/` 零命中。
 
-- [~] **清理 `rpc_addr` / LocalControl / gRPC callback 兼容字段（主链路已完成，schema 级残留待专项）。**
-  - ✅ 已完成：主链路路由零依赖 rpc_addr（`internal/platform/dispatch/` 无引用）；运行时无 gRPC 反向回拨代码（无 `grpc.Dial`）；LocalControl 概念清理（Java Protocol.java 注释改 ProviderService）；Python SDK 手写层去掉 `ProviderConnectRequest(rpc_addr="")` 与对应断言（Python SDK CI `success`）。
-  - 🟡 待专项（schema 级，需协调 migration，不强行删以免破坏 ops）：`rpc_addr` 仍是 ops 展示用的 agent 地址镜像（`Addr`/`RPCAddr` 重复字段，前端 Nodes/Jobs/RateLimits 页面消费 `rpcAddr`）；DB 列 `agent_sessions.rpc_addr`（`internal/model/agent_session_model.go`）；proto 字段 `RegisterRequest.rpc_addr`（删需 SDK 重新生成）；已提交的 `sdks/python/croupier/pb/**/*_pb2.py` 仍含 rpc_addr（见 Job→Task 收尾项的 generated 滞后）。
-  - 删除门控：需同步 (1) ops 改用 TCP session `RemoteAddr` 取代 legacy rpc_addr 镜像；(2) Server 删 `RPCAddr` 响应字段 + 前端改读 `addr`；(3) DB migration 删列；(4) proto 删字段 + SDK 重生成。
-  - 验证（主链路）：`rg "rpc_addr|RPCAddr" internal/platform/dispatch/ internal/logic/ops/agent_ops_client.go` 无路由用途引用。
+- [x] **清理 `rpc_addr` / LocalControl / gRPC callback 兼容字段。**
+  - ✅ 已完成：主链路路由零依赖 rpc_addr；运行时无 gRPC 反向回拨；LocalControl 概念清理；Python SDK 手写层清理。
+  - ✅ schema 级清理（三波，全 CI 绿）：
+    - 批1后端：`server.AgentSession` 删 RPCAddr + 加 `Addr()`（conn.RemoteAddr）；`reg.AgentSession` RPCAddr→Addr（runtime RemoteAddr）；`handleRegisterRequest` 加 remoteAddr 参数（不再 req.RpcAddr）；DB 两个 AgentSessionDB 删 RPCAddr not null 列 + `MigrateAgentSessions` DropColumn；Addr 不持久化（重连重新建立）。
+    - 批2 proto+SDK：`register.proto` 删 rpc_addr 字段 4 + reserved；buf regen go/cpp/csharp/python；agent upstream 删 UpstreamMetadata.Addr/legacyRPCAddr/RpcAddr 注册。
+    - 批3 DTO+前端：ops/registry/logic DTO 删 RPCAddr/RpcAddr compatibility（留 Addr）；前端 rpcAddr→addr（Ops pages + services）；rate_limit 删 raw.rpc_addr（后端从未暴露）。
+  - 验证：`rg "rpc_addr|RPCAddr|RpcAddr" internal/ proto/ web/src --glob '!**/.umi/**'` 仅注释/归档（SDK generated 已无 rpc_addr）。
 
 ## P0：恢复发布级 E2E
 
