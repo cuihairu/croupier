@@ -32,10 +32,7 @@
 
 - [~] **清理 `Job` 命名，统一为 `Task`（主链路 + SDK 手写层完成；generated 滞后待收尾）。**
   - ✅ 已完成：Go/Python/JS/C++/C# 的手写层、proto、`internal/`、文档、示例已统一 `Task`；C# 测试 `TaskStatus` 与 `System.Threading.Tasks.TaskStatus` 碰撞已全限定修复。
-  - 🟡 待收尾（已提交 generated 滞后于 proto，CI 因各自 regen 不报错但仓库码陈旧）：
-    - `sdks/csharp/generated/Invocation.cs` 仍含 `StartJobResponse` / `JobEvent` / `CancelJobRequest` / `JobId`（源自旧版 Invocation.proto，C# CI 自带 regen 故编译过）。
-    - `sdks/python/croupier/pb/**/*_pb2.py` 仍含 `RegisterLocalRequest.rpc_addr` / `RegisterClientRequest.rpc_addr` / `RegisterRequest.rpc_addr` / `GetJobResultRequest.job_id`（Python CI 已加 `buf generate` 故过，但提交的 pb2 是旧的）。
-  - 收尾动作：各 SDK 按自身工具链重新生成 generated 并提交，使仓库码 == proto 当前态。
+  - ✅ 已收尾：用 `buf generate` 重新生成入库 stub，使仓库码 == proto 当前态。`sdks/python/generated` 刷新到 Task/ProviderConnect schema；`sdks/csharp/generated` regen（JobEvent→TaskEvent，清 ~2500 行旧码）+ 修 `csharp/buf.gen.yaml` out 路径（`../generated`→`sdks/csharp/generated`）；`sdks/csharp/src/Croupier.Sdk/CroupierInvoker.cs` 的 Job→Task 引用同步更新（StartJobResponse→StartTaskResponse 等）；删除废弃的 `sdks/python/croupier/pb`（手选旧集，含已删 proto，运行时不使用——`__init__.py` 经 `_load_proto_module` 从 `generated/` 加载）+ 清 `pyproject.toml` 引用。CI - Python SDK / C# SDK / Core / Docker / CodeQL 全绿。
   - 验证（主链路）：`rg "StartJob|StreamJob|CancelJob|JobEvent|GetJobResult|job_id" --glob '!**/generated/**' --glob '!**/pb/**' --glob '!*.md' sdks/ proto/ internal/` 零命中。
 
 - [~] **清理 `rpc_addr` / LocalControl / gRPC callback 兼容字段（主链路已完成，schema 级残留待专项）。**
