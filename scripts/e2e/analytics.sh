@@ -25,28 +25,27 @@ echo ""
 
 # --- 1. Docker-compose up (Redis + ClickHouse) ---
 echo "Starting Redis + ClickHouse..."
-docker compose -f "$COMPOSE_FILE" up -d redis clickhouse 2>&1 || { fail "docker-compose up"; exit 1; }
+docker compose -f "$COMPOSE_FILE" up -d --wait redis clickhouse 2>&1 || { fail "docker-compose up"; exit 1; }
 
-# Wait for ClickHouse
-for i in $(seq 1 300); do
-  docker exec croupier-clickhouse clickhouse-client --query "SELECT 1" >/dev/null 2>&1 && break
-  sleep 1
+# Verify ClickHouse is responding (HTTP port 8123 is more reliable than
+# clickhouse-client which may not be in PATH in some image variants).
+for i in $(seq 1 60); do
+  if docker exec croupier-clickhouse wget -qO- "http://localhost:8123/?query=SELECT%201" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
 done
-if ! docker exec croupier-clickhouse clickhouse-client --query "SELECT 1" >/dev/null 2>&1; then
-  fail "ClickHouse not ready"; docker compose -f "$COMPOSE_FILE" down; exit 1
+if ! docker exec croupier-clickhouse wget -qO- "http://localhost:8123/?query=SELECT%201" >/dev/null 2>&1; then
+  fail "ClickHouse not ready"
+  echo "--- ClickHouse container logs (last 20 lines) ---"
+  docker logs croupier-clickhouse 2>&1 | tail -20
+  docker compose -f "$COMPOSE_FILE" down; exit 1
 fi
 ok "ClickHouse ready"
 
 # Wait for ClickHouse system tables to fully initialize after readiness.
-# Immediately after readiness the system tables may still be loading,
-# causing ATTEMPT_TO_READ_AFTER_EOF on CREATE DATABASE/DATA statements.
-sleep 5
+sleep 3
 
-# Wait for Redis
-for i in $(seq 1 15); do
-  docker exec croupier-redis redis-cli ping 2>/dev/null | grep -q PONG && break
-  sleep 1
-done
 ok "Redis ready"
 
 # --- 2. Create analytics tables ---
