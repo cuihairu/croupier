@@ -168,6 +168,8 @@ func (w *Worker) Run(ctx context.Context) error {
 		for i := range streamIDs {
 			streamIDs[i] = ">" // only new (unacknowledged) messages
 		}
+		slog.Info("xreadgroup start", "group", w.group, "consumer", w.consumer,
+			"streams", streams, "stream_ids", streamIDs)
 		res, err := w.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
 			Group:    w.group,
 			Consumer: w.consumer,
@@ -179,7 +181,12 @@ func (w *Worker) Run(ctx context.Context) error {
 			slog.Warn("xreadgroup", "err", err)
 			continue
 		}
+		if err == redis.Nil {
+			continue
+		}
+		slog.Info("xreadgroup got", "streams", len(res))
 		for _, str := range res {
+			slog.Info("stream", "name", str.Stream, "msgs", len(str.Messages))
 			for _, msg := range str.Messages {
 				if err := w.processMessage(ctx, str.Stream, msg); err != nil {
 					slog.Warn("process message", "stream", str.Stream, "id", msg.ID, "err", err)

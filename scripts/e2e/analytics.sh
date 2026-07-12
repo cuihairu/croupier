@@ -189,7 +189,7 @@ else
   echo "--- worker log (last 20 lines) ---"
   tail -20 /tmp/e2e-analytics-worker.log 2>/dev/null || echo "(no worker log)"
   # XReadGROUP direct test
-  XREADGROUP_OUT=$(docker exec croupier-redis redis-cli XREADGROUP GROUP analytics-worker c1 STREAMS analytics:events 0 COUNT 2 2>&1)
+  XREADGROUP_OUT=$(docker exec croupier-redis redis-cli XREADGROUP GROUP analytics-worker c1 STREAMS analytics:events ">" COUNT 2 2>&1)
   echo "--- XReadGROUP direct result ---"
   echo "$XREADGROUP_OUT"
   echo "--- Redis stream analytics:events (XLEN) ---"
