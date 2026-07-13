@@ -22,6 +22,7 @@ import {
   Progress,
   Select,
   Space,
+  Tag,
   Tooltip,
   Typography,
   message,
@@ -43,10 +44,12 @@ import {
   listWorkspaceConfigs,
   listWorkspaceVersions,
   publishWorkspaceConfig,
+  saveWorkspaceConfig,
   unpublishWorkspaceConfig,
 } from '@/services/workspaceConfig';
 import type { WorkspaceConfig } from '@/types/workspace';
 import { listDescriptors } from '@/services/api/functions';
+import { generateInitialWorkspaceConfig } from '@/pages/WorkspaceEditor/utils/initialWorkspaceGenerator';
 import { trackWorkspaceEvent } from '@/services/workspace/telemetry';
 import { buildWorkspaceQualityReport } from '@/services/workspace/quality';
 import {
@@ -677,10 +680,32 @@ export default function WorkspacesIndexPage() {
         message.info('该 objectKey 已存在，已直接打开现有工作台');
         return;
       }
-      trackWorkspaceEvent('workspace_create_entry', { objectKey, source: 'workspaces_index' });
+
+      // 确保已有 descriptor 列表；若列表页状态还未准备好，则主动加载一次。
+      const descriptors = availableFunctions.length > 0 ? availableFunctions : await listDescriptors();
+      const { config, matchedFunctions } = generateInitialWorkspaceConfig(objectKey, descriptors);
+      const fallbackConfig: WorkspaceConfig = {
+        objectKey,
+        title: objectKey,
+        layout: { type: 'tabs', tabs: [] },
+        menuOrder: 0,
+        status: 'draft',
+      };
+      const finalConfig = matchedFunctions.length > 0 ? config : fallbackConfig;
+
+      await saveWorkspaceConfig(finalConfig);
+      trackWorkspaceEvent('workspace_create_entry', {
+        objectKey,
+        source: 'workspaces_index',
+        generated: matchedFunctions.length > 0,
+        matchedFunctions: matchedFunctions.length,
+      });
       setCreateVisible(false);
+      await load();
       history.push(`/system/functions/workspace-editor/${encodeURIComponent(objectKey)}`);
-      message.success('已进入工作台编辑器');
+      message.success(matchedFunctions.length > 0 ? '已生成默认页面骨架并进入编辑器' : '已进入工作台编辑器');
+    } catch (err: any) {
+      message.error(getWorkspaceErrorMessage(err, '创建工作台失败'));
     } finally {
       setCreateSubmitting(false);
     }
@@ -910,13 +935,10 @@ export default function WorkspacesIndexPage() {
                       </Typography.Text>
                       <Button
                         type={index === 0 ? 'primary' : 'default'}
-                        onClick={() =>
-                          history.push(
-                            `/system/functions/workspace-editor/${encodeURIComponent(
-                              item.objectKey,
-                            )}`,
-                          )
-                        }
+                        onClick={async () => {
+                          createForm.setFieldsValue({ objectKey: item.objectKey });
+                          await handleCreate().catch(() => {});
+                        }}
                       >
                         {`去做 ${item.label} 的首个工作台页面`}
                       </Button>
