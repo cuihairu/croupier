@@ -1625,6 +1625,17 @@ export default function WorkspaceEditor() {
         };
 
   const tabReadiness = buildTabReadinessSummary(config, availableFunctions);
+  const skeletonSuggestions = React.useMemo(() => {
+    const raw = (config?.meta as any)?.suggestions;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item: any) => ({
+        functionId: String(item?.functionId || '').trim(),
+        attachTo: item?.attachTo ? String(item.attachTo) : undefined,
+        reason: String(item?.reason || ''),
+      }))
+      .filter((item: any) => item.functionId);
+  }, [config]);
   const publishCheck = React.useMemo(() => {
     if (!config) {
       return {
@@ -2138,6 +2149,27 @@ export default function WorkspaceEditor() {
                           {`${item.title}: ${item.summary}`}
                         </Tag>
                       ))}
+                    </Space>
+                  }
+                />
+              ) : null}
+              {skeletonSuggestions.length > 0 ? (
+                <Alert
+                  type="info"
+                  showIcon
+                  message={`自动生成建议 · 发现 ${skeletonSuggestions.length} 个适合作为次级动作的函数`}
+                  description={
+                    <Space wrap size={[8, 8]}>
+                      {skeletonSuggestions.map((item) => (
+                        <Tag key={`${item.functionId}-${item.reason}`} color={item.reason === 'dangerous-action' ? 'error' : 'processing'}>
+                          {item.attachTo
+                            ? `${item.functionId} → 建议挂到 ${item.attachTo}`
+                            : item.functionId}
+                        </Tag>
+                      ))}
+                      <Typography.Text type="secondary">
+                        这些函数没有自动生成主页面，但建议在对应详情页或列表页中作为按钮动作接入。
+                      </Typography.Text>
                     </Space>
                   }
                 />
