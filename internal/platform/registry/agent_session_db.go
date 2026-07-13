@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"time"
 
 	"gorm.io/datatypes"
