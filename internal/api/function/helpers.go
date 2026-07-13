@@ -35,11 +35,8 @@ func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Functio
 	}
 
 	dbItems, _, err := svcCtx.FunctionModel.List(ctx, model.ListFunctionsOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 10000,
-		},
-		GameID: strings.TrimSpace(req.GameId),
+		PaginationOptions: model.NewPagination(1, 10000),
+		GameID:            strings.TrimSpace(req.GameId),
 	})
 	if err != nil {
 		return nil, err
