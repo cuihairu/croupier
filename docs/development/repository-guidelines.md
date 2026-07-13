@@ -80,4 +80,11 @@ title: 仓库规范
 - ❌ 新增 `startJob` 作为 `startTask` 的别名"方便迁移"。
 - ❌ 在 README 中把 `rpc_addr` / gRPC 回拨描述为当前链路。
 - ❌ 删除旧字段时不写删除条件、不登记 todo。
-- ✅ 直接把 `startJob` 改名为 `startTask`，更新所有调用点和测试。
+- ✅ 直接把 `startJob` 改名为 `startTask`,更新所有调用点和测试。
+
+## 传输层决策(不使用 gRPC)
+
+- 内部 RPC(Server ↔ Agent ↔ SDK)**不使用 gRPC**,用自研 TCP transport + protobuf。这是从 gRPC 的坑里重构出来的结论,不可逆。
+- 理由:gRPC debug 版约 1.7GB、依赖链一周未搞定、游戏后端不需要这么重。详见 [传输层决策 — 不使用 gRPC](../architecture/transport-no-grpc.md)。
+- 硬约束:**不得新增 gRPC 直接用法**;`go.mod` 残留的 `google.golang.org/grpc` 仅为间接依赖,需定期评估移除。
+- 新增 RPC 需求走自研 TCP+proto;如需统一 error 协议等能力,在自研 RPC 层补齐(proto `Status`/`RpcError`),不引入 gRPC。

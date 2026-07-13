@@ -96,6 +96,7 @@ const config = defineConfig({
           text: '决策与边界',
           collapsed: true,
           items: [
+            { text: '传输层决策(不使用 gRPC)', link: '/architecture/transport-no-grpc' },
             { text: '扩展安装模型', link: '/architecture/extension-installation-model' },
             { text: '核心扩展映射', link: '/architecture/core-extension-mapping' },
             { text: '扩展 API 契约基线', link: '/architecture/extensions-api-contract-baseline' },
