@@ -187,5 +187,13 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 	}
 	dbSess.Providers = datatypes.JSON(providersJSON)
 
+	// TEMP DIAG: log actual JSON to diagnose "invalid input syntax for type json"
+	slog.Info("diag toDBSession",
+		"agent_id", sess.AgentID,
+		"labels", string(labelsJSON),
+		"functions", string(functionsJSON),
+		"providers", string(providersJSON),
+	)
+
 	return dbSess, nil
 }
