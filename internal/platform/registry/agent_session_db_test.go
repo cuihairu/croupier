@@ -8,6 +8,7 @@ import (
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -249,7 +250,8 @@ func TestToDBSession(t *testing.T) {
 
 		dbSess, err := toDBSession(sess)
 		require.NoError(t, err)
-		assert.Nil(t, dbSess.Labels)
-		assert.Nil(t, dbSess.Functions)
+		assert.Equal(t, datatypes.JSON([]byte("null")), dbSess.Labels)
+		assert.Equal(t, datatypes.JSON([]byte("null")), dbSess.Functions)
+		assert.Equal(t, datatypes.JSON([]byte("null")), dbSess.Providers)
 	})
 }

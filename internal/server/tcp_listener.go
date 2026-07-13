@@ -245,7 +245,7 @@ func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID ui
 			return nil, fmt.Errorf("protocol violation: re-register agent_id=%q does not match registered %q",
 				req.AgentId, h.agentID)
 		}
-		return h.handleRegister(ctx, body)
+		// Same agent: allow — fall through to handleRegister via the switch below.
 	}
 
 	// 3. After registration, Heartbeat must carry the same agent_id as the
@@ -327,9 +327,14 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 	// function table that pickAgentWithRouting consults. Without this, the
 	// registry's Functions map stays empty and every dispatch fails with
 	// "no live agent for function".
+	remoteAddr := ""
+	if h.conn != nil {
+		remoteAddr = h.conn.RemoteAddr()
+	}
+
 	var regWarnings []string
 	if h.listener.handler != nil {
-		if rr, err := h.listener.handler.handleRegisterRequest(ctx, req, h.conn.RemoteAddr()); err == nil {
+		if rr, err := h.listener.handler.handleRegisterRequest(ctx, req, remoteAddr); err == nil {
 			regWarnings = rr.GetWarnings()
 		} else {
 			h.listener.logger.Warn("register functions to dispatcher registry failed",
@@ -342,7 +347,7 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 		"game_id", req.GameId,
 		"session_id", sess.SessionID,
 		"functions", len(req.GetFunctions()),
-		"remote", h.conn.RemoteAddr(),
+		"remote", remoteAddr,
 	)
 
 	// Build response

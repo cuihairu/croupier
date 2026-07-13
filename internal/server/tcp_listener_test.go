@@ -542,7 +542,7 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		assert.Contains(t, err.Error(), "does not match registered agent_id")
 	})
 
-	t.Run("duplicate register is rejected", func(t *testing.T) {
+	t.Run("same-agent re-register is allowed", func(t *testing.T) {
 		config := &TCPListenerConfig{
 			Address:  ":0",
 			Insecure: true,
@@ -568,9 +568,40 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		}
 		data, _ := proto.Marshal(req)
 
+		resp, err := handler.Handle(context.Background(), protocol.MsgRegisterRequest, 1, data)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+	})
+
+	t.Run("cross-agent re-register is rejected", func(t *testing.T) {
+		config := &TCPListenerConfig{
+			Address:  ":0",
+			Insecure: true,
+		}
+
+		listener, err := NewTCPListener(config, nil, nil, nil)
+		require.NoError(t, err)
+		defer listener.Close()
+
+		svc := newTestControlService()
+		listener.SetHandler(svc)
+
+		handler := &agentSessionHandler{
+			listener:   listener,
+			conn:       nil,
+			registered: true,
+			agentID:    "agent-1",
+		}
+
+		req := &agentv1.RegisterRequest{
+			AgentId: "agent-2",
+			GameId:  "game-1",
+		}
+		data, _ := proto.Marshal(req)
+
 		_, err = handler.Handle(context.Background(), protocol.MsgRegisterRequest, 1, data)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "already registered")
+		assert.Contains(t, err.Error(), "does not match registered")
 	})
 
 	t.Run("delegates to control service for other messages", func(t *testing.T) {
