@@ -164,32 +164,28 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		LastSeen: sess.LastSeen,
 	}
 
-	// Marshal Labels to JSON
-	if sess.Labels != nil {
-		labelsJSON, err := json.Marshal(sess.Labels)
-		if err != nil {
-			return nil, err
-		}
-		dbSess.Labels = datatypes.JSON(labelsJSON)
+	// Marshal Labels/Functions/Providers to JSON. A nil value marshals to
+	// `null` (valid JSON), which the jsonb column accepts. Previously nil was
+	// skipped, leaving a zero datatypes.JSON that gorm wrote as '' — postgres
+	// rejected it with "invalid input syntax for type json" (this surfaced as
+	// "failed to write agent session to database" on every agent register).
+	labelsJSON, err := json.Marshal(sess.Labels)
+	if err != nil {
+		return nil, err
 	}
+	dbSess.Labels = datatypes.JSON(labelsJSON)
 
-	// Marshal Functions to JSON
-	if sess.Functions != nil {
-		functionsJSON, err := json.Marshal(sess.Functions)
-		if err != nil {
-			return nil, err
-		}
-		dbSess.Functions = datatypes.JSON(functionsJSON)
+	functionsJSON, err := json.Marshal(sess.Functions)
+	if err != nil {
+		return nil, err
 	}
+	dbSess.Functions = datatypes.JSON(functionsJSON)
 
-	// Marshal Providers to JSON
-	if sess.Providers != nil {
-		providersJSON, err := json.Marshal(sess.Providers)
-		if err != nil {
-			return nil, err
-		}
-		dbSess.Providers = datatypes.JSON(providersJSON)
+	providersJSON, err := json.Marshal(sess.Providers)
+	if err != nil {
+		return nil, err
 	}
+	dbSess.Providers = datatypes.JSON(providersJSON)
 
 	return dbSess, nil
 }
