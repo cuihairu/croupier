@@ -800,6 +800,128 @@ export default function WorkspaceEditor() {
     );
   }, [config, handleConfigChange]);
 
+  const handleApplySkeletonSuggestion = useCallback(
+    (suggestion: { functionId: string; attachTo?: string; reason: string }) => {
+      if (!config || config.layout?.type !== 'tabs' || !config.layout.tabs?.length) {
+        message.warning('当前还没有可挂载动作的页面，请先创建页面骨架');
+        return;
+      }
+
+      const descriptor = (availableFunctions || []).find(
+        (item: any) => String(item?.id || '') === suggestion.functionId,
+      );
+      if (!descriptor) {
+        message.error(`找不到函数描述符: ${suggestion.functionId}`);
+        return;
+      }
+
+      const inferActionFields = (fn: any) => {
+        try {
+          const schema = fn?.inputSchema
+            ? typeof fn.inputSchema === 'string'
+              ? JSON.parse(fn.inputSchema)
+              : fn.inputSchema
+            : fn?.params || {};
+          const props = schema?.properties || {};
+          const required = Array.isArray(schema?.required) ? schema.required : [];
+          return Object.entries(props)
+            .slice(0, 12)
+            .map(([key, value]: [string, any]) => ({
+              key,
+              label: value?.title || value?.description || key,
+              type:
+                value?.type === 'integer' || value?.type === 'number'
+                  ? 'number'
+                  : value?.type === 'boolean'
+                  ? 'switch'
+                  : value?.enum
+                  ? 'select'
+                  : 'input',
+              required: required.includes(key),
+              placeholder: `请输入${value?.title || key}`,
+              options: value?.enum
+                ? value.enum.map((v: any) => ({ label: String(v), value: v }))
+                : undefined,
+            }));
+        } catch {
+          return [];
+        }
+      };
+
+      const actionLabel =
+        descriptor?.displayName?.zh ||
+        descriptor?.displayName?.en ||
+        suggestion.functionId.split('.').slice(-1)[0] ||
+        suggestion.functionId;
+
+      const nextTabs = [...config.layout.tabs];
+      const targetIndex =
+        nextTabs.findIndex((tab) => tab.key === suggestion.attachTo) >= 0
+          ? nextTabs.findIndex((tab) => tab.key === suggestion.attachTo)
+          : nextTabs.findIndex((tab) => tab.layout?.type === 'detail') >= 0
+          ? nextTabs.findIndex((tab) => tab.layout?.type === 'detail')
+          : nextTabs.findIndex((tab) => tab.layout?.type === 'list') >= 0
+          ? nextTabs.findIndex((tab) => tab.layout?.type === 'list')
+          : 0;
+
+      const targetTab = nextTabs[targetIndex];
+      if (!targetTab) {
+        message.warning('未找到可挂载动作的目标页面');
+        return;
+      }
+
+      const actionKey = `action_${suggestion.functionId.replace(/[^a-zA-Z0-9_]+/g, '_')}`;
+      const baseAction = {
+        key: actionKey,
+        label: actionLabel,
+        function: suggestion.functionId,
+        type: 'modal' as const,
+        buttonType: suggestion.reason === 'dangerous-action' ? ('default' as const) : ('primary' as const),
+        danger: suggestion.reason === 'dangerous-action',
+        fields: inferActionFields(descriptor),
+        confirmMessage:
+          suggestion.reason === 'dangerous-action' ? `确认执行 ${actionLabel} ?` : undefined,
+      };
+
+      if (targetTab.functions?.includes(suggestion.functionId)) {
+        message.info(`${suggestion.functionId} 已经在当前页面中`);
+        return;
+      }
+
+      const nextTargetTab = { ...targetTab, functions: [...(targetTab.functions || []), suggestion.functionId] } as any;
+      const layoutType = nextTargetTab.layout?.type;
+
+      if (layoutType === 'detail' || layoutType === 'form-detail') {
+        nextTargetTab.layout = {
+          ...nextTargetTab.layout,
+          actions: [...(nextTargetTab.layout.actions || []), baseAction],
+        };
+      } else if (layoutType === 'list') {
+        nextTargetTab.layout = {
+          ...nextTargetTab.layout,
+          toolbarActions: [...(nextTargetTab.layout.toolbarActions || []), baseAction],
+        };
+      } else {
+        message.warning(`当前页面类型 ${layoutType} 暂不支持自动挂载动作`);
+        return;
+      }
+
+      nextTabs[targetIndex] = nextTargetTab;
+      handleConfigChange(
+        {
+          ...config,
+          layout: {
+            ...config.layout,
+            tabs: nextTabs,
+          },
+        },
+        `挂载建议动作 ${suggestion.functionId}`,
+      );
+      message.success(`已将 ${suggestion.functionId} 挂到页面 ${targetTab.title}`);
+    },
+    [availableFunctions, config, handleConfigChange],
+  );
+
   // 保存
   const handleSave = async () => {
     if (!config) return;
@@ -2159,14 +2281,29 @@ export default function WorkspaceEditor() {
                   showIcon
                   message={`自动生成建议 · 发现 ${skeletonSuggestions.length} 个适合作为次级动作的函数`}
                   description={
-                    <Space wrap size={[8, 8]}>
-                      {skeletonSuggestions.map((item) => (
-                        <Tag key={`${item.functionId}-${item.reason}`} color={item.reason === 'dangerous-action' ? 'error' : 'processing'}>
-                          {item.attachTo
-                            ? `${item.functionId} → 建议挂到 ${item.attachTo}`
-                            : item.functionId}
-                        </Tag>
-                      ))}
+                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                      <Space wrap size={[8, 8]}>
+                        {skeletonSuggestions.map((item) => (
+                          <Tag key={`${item.functionId}-${item.reason}`} color={item.reason === 'dangerous-action' ? 'error' : 'processing'}>
+                            {item.attachTo
+                              ? `${item.functionId} → 建议挂到 ${item.attachTo}`
+                              : item.functionId}
+                          </Tag>
+                        ))}
+                      </Space>
+                      <Space wrap size={[8, 8]}>
+                        {skeletonSuggestions.map((item) => (
+                          <Button
+                            key={`apply-${item.functionId}`}
+                            size="small"
+                            type={item.reason === 'dangerous-action' ? 'default' : 'primary'}
+                            danger={item.reason === 'dangerous-action'}
+                            onClick={() => handleApplySkeletonSuggestion(item)}
+                          >
+                            {`接入 ${item.functionId}`}
+                          </Button>
+                        ))}
+                      </Space>
                       <Typography.Text type="secondary">
                         这些函数没有自动生成主页面，但建议在对应详情页或列表页中作为按钮动作接入。
                       </Typography.Text>
