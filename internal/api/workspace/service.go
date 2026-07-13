@@ -74,27 +74,29 @@ func (s *Service) GetConfig(ctx context.Context, req *GetConfigRequest) (*GetCon
 // createDefaultConfig creates a minimal default workspace config (empty tabs
 // layout) and persists it, so subsequent accesses find an existing record.
 func (s *Service) createDefaultConfig(ctx context.Context, objectKey string) (*GetConfigResponse, error) {
-	defaultDTO := WorkspaceConfig{
-		ObjectKey: objectKey,
-		Title:     objectKey,
-		Layout: map[string]any{
-			"type": "tabs",
-			"tabs": []any{},
-		},
+	defaultLayout := map[string]any{
+		"type": "tabs",
+		"tabs": []any{},
 	}
-	configJSON, err := json.Marshal(defaultDTO)
+	// Config field stores ONLY the layout JSON (toDTO unmarshals it into
+	// cfg.Layout). Do NOT marshal the entire WorkspaceConfig DTO here.
+	layoutJSON, err := json.Marshal(defaultLayout)
 	if err != nil {
-		return nil, errorx.NewInternalError("failed to marshal default workspace config")
+		return nil, errorx.NewInternalError("failed to marshal default workspace layout")
 	}
 	record := &model.WorkspaceConfig{
 		ObjectKey: objectKey,
 		Title:     objectKey,
-		Config:    string(configJSON),
+		Config:    string(layoutJSON),
 	}
 	if err := s.svcCtx.WorkspaceConfigModel.Upsert(ctx, record); err != nil {
 		return nil, err
 	}
-	return &GetConfigResponse{WorkspaceConfig: defaultDTO}, nil
+	return &GetConfigResponse{WorkspaceConfig: WorkspaceConfig{
+		ObjectKey: objectKey,
+		Title:     objectKey,
+		Layout:    defaultLayout,
+	}}, nil
 }
 
 // SaveConfig saves (creates or updates) a workspace configuration
