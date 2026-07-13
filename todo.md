@@ -1,18 +1,26 @@
 # Croupier 当前待办
 
-更新时间：2026-07-12
+更新时间：2026-07-13
 
 本清单只记录当前仍需推进的事项。已完成的历史迁移压缩到末尾，避免干扰优先级判断。
 
 ## 当前判断
 
-项目主干的 Server/Agent session、分库路由、任务调度已有基础闭环；当前明显滞后的是“发布级闭环”：
+项目主干的 Server/Agent session、分库路由、任务调度已有基础闭环。截至 2026-07-13：
 
-1. 跨语言 SDK 一致性没有收尾。
-2. CI 缺少可执行的最小 E2E。
-3. API 面铺得较宽，但部分包没有测试。
-4. 文档和协议里仍有历史 `gRPC` / `rpc_addr` / `Job` 命名残留。
-5. `ServiceContext` 仍承担过多组合根职责，需要按领域继续收敛。
+1. ✅ 跨语言 SDK 一致性已收尾（Job→Task、rpc_addr 清理、generated stub regen、CI SDK matrix 升级为 failure）。
+2. ✅ CI E2E 已恢复（happy-path 6/6 + task lifecycle 8/8 + analytics E2E 10/10）。
+3. ✅ API 测试补齐（15 包 161 测试 + contract guard）。
+4. ✅ 旧命名/协议/文档已清理，`gRPC` 决策文档已落地（`docs/architecture/transport-no-grpc.md`）。
+5. [~] `ServiceContext` 拆分进行中（TaskRuntime 试点完成，扩展待后续）。
+6. ✅ **demo 站点完全可用**（2026-07-13 修复 6 个独立 bug：心跳清空 / server JSON error / MuxConn JSON error / server 拒绝 duplicate Register / DB json gorm driver bug / 前端节点异常）。
+
+当前剩余工作：
+- `ServiceContext` 按领域继续拆分。
+- `tlsutil` gRPC 残留清理（go.mod direct grpc 依赖来源）。
+- Analytics 完整链路（ingest/export/API 查询层）。
+- `model/agent_session_model.go` 有同样的 `datatypes.JSON` nil bug（registry 层已修，model 层待清理）。
+- `workspace_configs` seed 缺失（demo 未初始化 workspace configs）。
 
 本阶段不以向后兼容为约束。历史协议、旧命名、旧文档可以直接删除或重命名；如必须暂留，必须写清删除条件和负责人。
 
@@ -159,7 +167,30 @@
 - [x] 新增 Task lifecycle E2E：`task-lifecycle.sh` + probe serve 模式（MuxConn mock agent）+ `e2e-function-seed`，CI 接入本地 8/8 PASS。
 - [x] 修复 server regression：`tcp_listener.handleRegister` 把 agent 声明的 functions 写入 dispatcher registry（之前丢失，dispatcher 无法路由 function）。
 
+- [x] **修复 demo 站点 6 个独立 bug（2026-07-13）。** demo 登录后所有页面空白——"什么都没有"。根因是 6 个独立 bug 叠加：
+  1. 心跳 `Register(nil)` 清空 agent functions：`handleProviderHeartbeat` 错误调用 `store.Register(nil)` 清空了 SDK provider 注册的全部 functions。修：改用 `store.Heartbeat()`（正确 API，已在 store 中实现但未被调用）+ `store.Register` 空列表不再清空（改为 no-op）+ 新增 `store.RemoveProvider` 显式清空。
+  2. `transport/tcp/server.go` JSON error：handler 出错时发 `json.Marshal({"error":...})` 而非 proto body，agent `proto.Unmarshal` 失败。修：记 `slog.Error` + 非 InvokeRequest 发空 body。
+  3. `MuxConn.handleInboundRequest` JSON error：同上 bug 但在 control 19090 的真实路径（`tcp_listener.go` 用 MuxConn 不用 server.go）。修同上。
+  4. server 拒绝 duplicate RegisterRequest（`tcp_listener.go:236` 握手状态机）。agent 的 sync 设计是"每次 function 变化重发完整 RegisterRequest"（upsert 语义），server 视为一次性握手。修：允许同 agent re-register（校验 agent_id 匹配，防篡改），跨 agent 拒绝。
+  5. DB json `invalid input syntax for type json`：gorm/pgx driver 对 `datatypes.JSON([]byte)` 参数化为 bytea，postgres json 列拒绝。修：`AgentSessionDB` Labels/Functions/Providers 从 `datatypes.JSON` 改 `string`（driver 当 text 传）。
+  6. 前端 Ops/Nodes 节点"异常"：`Nodes/index.tsx` 判断 `node.status === 'healthy'`，后端返回 `status: 'active'`。修：接受 `active`。
+  - 位置：`internal/platform/agentlocal/store.go`、`internal/transport/tcp/{server.go,mux_conn.go}`、`internal/server/tcp_listener.go`、`internal/platform/registry/agent_session_db.go`、`web/src/pages/Ops/Nodes/index.tsx`
+  - 验证：demo 完全可用（19 functions 注册、session 持久化正常、前端节点正常、server 无 ERROR）。
+
+- [x] **CI `go mod download` 加重试（抗 GCS 瞬时重置）。** Security Scan job 在 `go mod download` 时偶发 `connection reset by peer`（`modernc.org/sqlite` 大包）。`ci.yml` 的 `GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}` 设在 `setup-go` 之后，导致 module cache 失效，每 run 全量重下。修：`go mod download` 包 3 次重试（5s 退避），不改 cache 配置（保持 per-run 隔离）。
+  - 位置：`.github/workflows/ci.yml`（3 处 `go mod download`）
+  - 验证：CI 重跑 Security Scan 成功。
+
+- [x] **落地「不使用 gRPC」决策文档。** `docs/architecture/transport-no-grpc.md`（ADR）记录了从 gRPC 的坑里重构出来的历史（`gRPC → NNG → TCP-only`）、不推荐 gRPC 的理由（debug 版 1.7GB、依赖一周未搞定、游戏后端不需要这么重）、约束（不得新增 gRPC 直接用法）。`docs/development/repository-guidelines.md` 加交叉引用 + 硬规则。vitepress sidebar 加条目。
+  - 位置：`docs/architecture/transport-no-grpc.md`、`docs/development/repository-guidelines.md`、`docs/.vitepress/config.mjs`
+  - 验证：规则文档含「不使用 gRPC」决策；`rg "google.golang.org/grpc" internal/` 发现 `tlsutil.go` 残留（已在 P2 todo）。
+
+- [x] **gitignore 运行时 `analytics_filters.json`。** 文件 `internal/api/analytics/analytics_filters.json` 是 analytics 过滤器的运行时状态（per-game filters + `updated_at`），每次服务运行就改写 `updated_at`，反复制造无意义的 timestamp commit。`git rm --cached` + `.gitignore`，文件仍本地可用但不再 track。
+  - 位置：`internal/api/analytics/analytics_filters.json`、`.gitignore`
+
 ## 最近验证
+
+- [x] 2026-07-13：demo 站点完全可用（6 个独立 bug 全部修复 + 验证）。`go build ./...` 通过、`scripts/check-sdk-matrix.sh` exit 0、`go test ./internal/server/... ./internal/transport/tcp/... ./internal/platform/registry/...` 全绿。server 日志无 ERROR、DB json error 消失、19 functions 注册成功（player/order/leaderboard/inventory/mail）。
 
 - [x] 2026-07-12：Analytics E2E 修复推送后 CI 验证通过（run 29199144520，10/10 PASS：events count=2、event types login,purchase、payments count=1 全绿）。此前 main 连续 15 次 failure 的根因是 E2E 缺 `event_id` UUID（非时序问题）。`go build ./...` 通过、`scripts/check-sdk-matrix.sh` exit 0。
 - [x] 2026-07-11：`/usr/local/go/bin/go test ./...` 通过；所有 CI workflow `success`（CI - Core / Python / C# / C++ / Java / JavaScript SDK / CodeQL / Docker / Nightly / Release）。
