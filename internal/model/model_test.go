@@ -5112,7 +5112,7 @@ func TestWorkspaceConfigModel_Upsert(t *testing.T) {
 	cfg := &WorkspaceConfig{
 		ObjectKey: "test-object",
 		Title:     "Test Config",
-		Config:    datatypes.JSON([]byte(`{"key":"value"}`)),
+		Config:    `{"key":"value"}`,
 	}
 
 	// Create new
@@ -5141,7 +5141,7 @@ func TestWorkspaceConfigModel_FindByObjectKey(t *testing.T) {
 	cfg := &WorkspaceConfig{
 		ObjectKey: "find-test",
 		Title:     "Find Test",
-		Config:    datatypes.JSON([]byte(`{}`)),
+		Config:    `{}`,
 	}
 	err := model.Upsert(ctx, cfg)
 	require.NoError(t, err)
@@ -5164,7 +5164,7 @@ func TestWorkspaceConfigModel_Delete(t *testing.T) {
 	cfg := &WorkspaceConfig{
 		ObjectKey: "delete-test",
 		Title:     "Delete Test",
-		Config:    datatypes.JSON([]byte(`{}`)),
+		Config:    `{}`,
 	}
 	err := model.Upsert(ctx, cfg)
 	require.NoError(t, err)
@@ -5184,9 +5184,9 @@ func TestWorkspaceConfigModel_ListAll(t *testing.T) {
 	ctx := context.Background()
 
 	configs := []*WorkspaceConfig{
-		{ObjectKey: "list-obj-1", Title: "Config 1", MenuOrder: 2, Config: datatypes.JSON([]byte(`{}`))},
-		{ObjectKey: "list-obj-2", Title: "Config 2", MenuOrder: 1, Config: datatypes.JSON([]byte(`{}`))},
-		{ObjectKey: "list-obj-3", Title: "Config 3", MenuOrder: 3, Config: datatypes.JSON([]byte(`{}`))},
+		{ObjectKey: "list-obj-1", Title: "Config 1", MenuOrder: 2, Config: `{}`},
+		{ObjectKey: "list-obj-2", Title: "Config 2", MenuOrder: 1, Config: `{}`},
+		{ObjectKey: "list-obj-3", Title: "Config 3", MenuOrder: 3, Config: `{}`},
 	}
 	for _, cfg := range configs {
 		err := model.Upsert(ctx, cfg)
@@ -5216,9 +5216,9 @@ func TestWorkspaceConfigModel_ListPublished(t *testing.T) {
 
 	now := time.Now()
 	configs := []*WorkspaceConfig{
-		{ObjectKey: "pub1", Title: "Published 1", Published: true, PublishedAt: &now, PublishedBy: "admin", MenuOrder: 1, Config: datatypes.JSON([]byte(`{}`))},
-		{ObjectKey: "pub2", Title: "Published 2", Published: true, PublishedAt: &now, PublishedBy: "admin", MenuOrder: 2, Config: datatypes.JSON([]byte(`{}`))},
-		{ObjectKey: "unpub", Title: "Unpublished", Published: false, MenuOrder: 3, Config: datatypes.JSON([]byte(`{}`))},
+		{ObjectKey: "pub1", Title: "Published 1", Published: true, PublishedAt: &now, PublishedBy: "admin", MenuOrder: 1, Config: `{}`},
+		{ObjectKey: "pub2", Title: "Published 2", Published: true, PublishedAt: &now, PublishedBy: "admin", MenuOrder: 2, Config: `{}`},
+		{ObjectKey: "unpub", Title: "Unpublished", Published: false, MenuOrder: 3, Config: `{}`},
 	}
 	for _, cfg := range configs {
 		err := model.Upsert(ctx, cfg)
@@ -5243,7 +5243,7 @@ func TestWorkspaceConfigModel_SetPublished(t *testing.T) {
 		ObjectKey: "setpub-test",
 		Title:     "Set Published Test",
 		Published: false,
-		Config:    datatypes.JSON([]byte(`{}`)),
+		Config:    `{}`,
 	}
 	err := model.Upsert(ctx, cfg)
 	require.NoError(t, err)

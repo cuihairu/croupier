@@ -78,9 +78,9 @@ func toDTO(m *model.WorkspaceConfig) WorkspaceConfig {
 	}
 
 	// Unmarshal the JSON config into Layout
-	if len(m.Config) > 0 {
+	if m.Config != "" {
 		var layout interface{}
-		if err := json.Unmarshal(m.Config, &layout); err == nil {
+		if err := json.Unmarshal([]byte(m.Config), &layout); err == nil {
 			cfg.Layout = layout
 		}
 	}

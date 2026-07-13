@@ -100,14 +100,16 @@ func TestHandler_SaveConfig_InvalidJSON_Returns400(t *testing.T) {
 	assertErrorShape(t, rec)
 }
 
-func TestHandler_GetConfig_NotFound_Returns404(t *testing.T) {
+func TestHandler_GetConfig_NotFound_AutoCreatesDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler := setupHandler(t)
 	router := newRouter(handler)
 
 	rec := doReq(t, router, http.MethodGet, "/configs/ghost", "")
-	assertStatus(t, rec, http.StatusNotFound)
-	assertErrorShape(t, rec)
+	assertStatus(t, rec, http.StatusOK)
+	// auto-created default config with empty tabs layout
+	assert.Contains(t, rec.Body.String(), `"ghost"`)
+	assert.Contains(t, rec.Body.String(), `"tabs"`)
 }
 
 func TestHandler_DeleteConfig_NotFound_Returns404(t *testing.T) {

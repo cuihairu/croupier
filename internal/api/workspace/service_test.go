@@ -106,16 +106,15 @@ func TestService_GetConfig_EmptyObjectKey(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, codeErr.Code)
 }
 
-func TestService_GetConfig_NotFound(t *testing.T) {
+func TestService_GetConfig_NotFound_AutoCreatesDefault(t *testing.T) {
 	svcCtx := setupSvcCtx(t)
 	svc := NewService(svcCtx)
 
 	resp, err := svc.GetConfig(context.Background(), &GetConfigRequest{ObjectKey: "missing"})
-	require.Error(t, err)
-	assert.Nil(t, resp)
-	var codeErr *errorx.CodeError
-	require.ErrorAs(t, err, &codeErr)
-	assert.Equal(t, http.StatusNotFound, codeErr.Code)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, "missing", resp.WorkspaceConfig.ObjectKey)
+	assert.NotNil(t, resp.WorkspaceConfig.Layout)
 }
 
 func TestService_SaveConfig_MissingTitle(t *testing.T) {

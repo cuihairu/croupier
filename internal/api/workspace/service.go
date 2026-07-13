@@ -11,7 +11,6 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -53,7 +52,9 @@ func (s *Service) ListPublished(ctx context.Context, req *ListPublishedRequest) 
 	return &ListPublishedResponse{Items: dtos}, nil
 }
 
-// GetConfig returns a workspace configuration by object key
+// GetConfig returns a workspace configuration by object key.
+// If the config does not exist, a minimal default is auto-created so the UI
+// editor has a starting point instead of returning 404.
 func (s *Service) GetConfig(ctx context.Context, req *GetConfigRequest) (*GetConfigResponse, error) {
 	if req.ObjectKey == "" {
 		return nil, errorx.NewBadRequest("objectKey is required")
@@ -61,13 +62,39 @@ func (s *Service) GetConfig(ctx context.Context, req *GetConfigRequest) (*GetCon
 	cfg, err := s.svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, req.ObjectKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errorx.NewNotFound("workspace config not found")
+			return s.createDefaultConfig(ctx, req.ObjectKey)
 		}
 		return nil, err
 	}
 	dto := toDTO(cfg)
 	_ = enrichWorkspaceVersion(ctx, s.svcCtx, &dto)
 	return &GetConfigResponse{WorkspaceConfig: dto}, nil
+}
+
+// createDefaultConfig creates a minimal default workspace config (empty tabs
+// layout) and persists it, so subsequent accesses find an existing record.
+func (s *Service) createDefaultConfig(ctx context.Context, objectKey string) (*GetConfigResponse, error) {
+	defaultDTO := WorkspaceConfig{
+		ObjectKey: objectKey,
+		Title:     objectKey,
+		Layout: map[string]any{
+			"type": "tabs",
+			"tabs": []any{},
+		},
+	}
+	configJSON, err := json.Marshal(defaultDTO)
+	if err != nil {
+		return nil, errorx.NewInternalError("failed to marshal default workspace config")
+	}
+	record := &model.WorkspaceConfig{
+		ObjectKey: objectKey,
+		Title:     objectKey,
+		Config:    string(configJSON),
+	}
+	if err := s.svcCtx.WorkspaceConfigModel.Upsert(ctx, record); err != nil {
+		return nil, err
+	}
+	return &GetConfigResponse{WorkspaceConfig: defaultDTO}, nil
 }
 
 // SaveConfig saves (creates or updates) a workspace configuration
@@ -171,7 +198,7 @@ func (s *Service) SaveConfig(ctx context.Context, req *SaveConfigRequest) (*Save
 		PublishedAt: publishedAt,
 		PublishedBy: publishedBy,
 		MenuOrder:   dto.MenuOrder,
-		Config:      configJSON,
+		Config:      string(configJSON),
 	}
 
 	if err := s.svcCtx.WorkspaceConfigModel.Upsert(ctx, record); err != nil {
@@ -376,7 +403,7 @@ func (s *Service) Rollback(ctx context.Context, req *RollbackRequest) (*Rollback
 	update := &model.WorkspaceConfig{
 		ObjectKey: objectKey,
 		Title:     workspaceCfg.Title,
-		Config:    datatypes.JSON(layoutJSON),
+		Config:    string(layoutJSON),
 	}
 
 	if err := cfgModel.Upsert(ctx, update); err != nil {

@@ -5,20 +5,19 @@ import (
 	"errors"
 	"time"
 
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 // WorkspaceConfig stores workspace UI configuration as a JSON blob.
 type WorkspaceConfig struct {
 	gorm.Model
-	ObjectKey   string         `gorm:"size:128;uniqueIndex"`
-	Title       string         `gorm:"size:256"`
-	Published   bool           `gorm:"default:false"`
-	PublishedAt *time.Time     `gorm:"index"`
-	PublishedBy string         `gorm:"size:128"`
-	MenuOrder   int            `gorm:"default:0"`
-	Config      datatypes.JSON `gorm:"type:json"` // full JSON blob
+	ObjectKey   string     `gorm:"size:128;uniqueIndex"`
+	Title       string     `gorm:"size:256"`
+	Published   bool       `gorm:"default:false"`
+	PublishedAt *time.Time `gorm:"index"`
+	PublishedBy string     `gorm:"size:128"`
+	MenuOrder   int        `gorm:"default:0"`
+	Config      string     `gorm:"type:json"` // full JSON blob
 }
 
 func (WorkspaceConfig) TableName() string {

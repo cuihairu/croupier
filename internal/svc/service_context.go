@@ -1055,7 +1055,7 @@ func seedBootstrapWorkspaces(ctx *ServiceContext) error {
 			Title:     title,
 			Published: false,
 			MenuOrder: menuOrder,
-			Config:    configJSON,
+			Config:    string(configJSON),
 		}
 
 		if err := ctx.WorkspaceConfigModel.Upsert(bg, workspace); err != nil {
