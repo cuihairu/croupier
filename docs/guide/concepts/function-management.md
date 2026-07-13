@@ -161,6 +161,7 @@ stateDiagram-v2
 ## 相关文档
 
 - [核心概念总览](./overview.md)
+- [对象工作台](./object-workspace.md)
 - [OpenAPI 函数注册](../integrations/openapi-registration.md)
 - [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)
 - [SDK 文档](../../sdks/)

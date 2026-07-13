@@ -55,6 +55,7 @@ const config = defineConfig({
           items: [
             { text: '系统概述', link: '/guide/concepts/overview' },
             { text: '函数管理', link: '/guide/concepts/function-management' },
+            { text: '对象工作台', link: '/guide/concepts/object-workspace' },
             { text: '权限控制', link: '/guide/concepts/permissions' },
             { text: '虚拟对象', link: '/guide/concepts/virtual-objects' },
           ],
