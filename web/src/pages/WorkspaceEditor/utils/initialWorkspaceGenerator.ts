@@ -1,7 +1,15 @@
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { WorkspaceConfig, TabConfig, FieldConfig, ColumnConfig } from '@/types/workspace';
 
-type ActionKind = 'list' | 'detail' | 'create' | 'update' | 'delete' | 'custom';
+type ActionKind =
+  | 'list'
+  | 'detail'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'form-action'
+  | 'secondary-action'
+  | 'custom';
 type ObjectMatchConfidence = 'entity' | 'prefix' | 'none';
 
 type FunctionBuckets = {
@@ -10,6 +18,7 @@ type FunctionBuckets = {
   create?: FunctionDescriptor;
   update?: FunctionDescriptor;
   delete?: FunctionDescriptor;
+  formAction?: FunctionDescriptor;
   customs: FunctionDescriptor[];
 };
 
@@ -74,7 +83,15 @@ function detectActionKind(descriptor: FunctionDescriptor): ActionKind {
   if (id.endsWith('.get') || id.endsWith('.detail') || id.endsWith('.read')) return 'detail';
   if (id.endsWith('.create') || id.endsWith('.add')) return 'create';
   if (id.endsWith('.update') || id.endsWith('.edit')) return 'update';
-  if (id.endsWith('.delete') || id.endsWith('.remove')) return 'delete';
+  if (id.endsWith('.delete') || id.endsWith('.remove') || id.endsWith('.reset')) return 'delete';
+
+  if (id.endsWith('.send') || id.endsWith('.grant') || id.endsWith('.upsert')) {
+    return 'form-action';
+  }
+
+  if (id.endsWith('.consume') || id.endsWith('.claim')) {
+    return 'secondary-action';
+  }
 
   return 'custom';
 }
@@ -130,6 +147,12 @@ function bucketFunctions(
         break;
       case 'delete':
         buckets.delete = pickBetter(buckets.delete, d);
+        break;
+      case 'form-action':
+        buckets.formAction = pickBetter(buckets.formAction, d);
+        break;
+      case 'secondary-action':
+        buckets.customs.push(d);
         break;
       default:
         buckets.customs.push(d);
@@ -284,6 +307,40 @@ function buildFormTab(
   } as TabConfig;
 }
 
+function resolveActionLabel(fn: FunctionDescriptor): string {
+  const id = normalizeText(fn.id);
+  if (id.endsWith('.send')) return '发送';
+  if (id.endsWith('.grant')) return '发放';
+  if (id.endsWith('.upsert')) return '更新';
+  if (id.endsWith('.create')) return '新建';
+  if (id.endsWith('.update')) return '编辑';
+  return '操作';
+}
+
+function resolveSubmitText(fn: FunctionDescriptor): string {
+  const id = normalizeText(fn.id);
+  if (id.endsWith('.send')) return '发送';
+  if (id.endsWith('.grant')) return '发放';
+  if (id.endsWith('.upsert')) return '更新';
+  if (id.endsWith('.create')) return '创建';
+  return '保存';
+}
+
+function buildFormActionTab(objectKey: string, label: string, fn: FunctionDescriptor): TabConfig {
+  return {
+    key: `${objectKey}_action`,
+    title: `${label}${resolveActionLabel(fn)}`,
+    functions: [fn.id],
+    layout: {
+      type: 'form',
+      submitFunction: fn.id,
+      fields: inferFormFields(fn),
+      submitText: resolveSubmitText(fn),
+      showReset: true,
+    },
+  } as TabConfig;
+}
+
 function buildFallbackCustomTab(objectKey: string, label: string, fn: FunctionDescriptor): TabConfig {
   return {
     key: `${objectKey}_action`,
@@ -313,14 +370,7 @@ function buildSecondarySuggestions(objectKey: string, buckets: FunctionBuckets):
 
   for (const fn of buckets.customs) {
     const id = normalizeText(fn.id);
-    if (
-      id.endsWith('.reset') ||
-      id.endsWith('.grant') ||
-      id.endsWith('.consume') ||
-      id.endsWith('.claim') ||
-      id.endsWith('.send') ||
-      id.endsWith('.upsert')
-    ) {
+    if (id.endsWith('.consume') || id.endsWith('.claim')) {
       actions.push({
         functionId: fn.id,
         attachTo: `${objectKey}_detail`,
@@ -357,6 +407,8 @@ export function generateInitialWorkspaceConfig(
           : buckets.create
         : undefined;
     tabs.push(buildFormTab(objectKey, label, primary, secondary));
+  } else if (buckets.formAction) {
+    tabs.push(buildFormActionTab(objectKey, label, buckets.formAction));
   }
 
   if (tabs.length === 0 && buckets.customs.length > 0) {
