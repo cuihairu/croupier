@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -13,18 +12,18 @@ import (
 // AgentSessionDB represents the database model for agent sessions.
 // RPCAddr is retained as a legacy compatibility column until a schema migration removes it.
 type AgentSessionDB struct {
-	ID        uint           `gorm:"primaryKey"`
-	AgentID   string         `gorm:"size:64;uniqueIndex;not null"`
-	GameID    string         `gorm:"size:64;index"`
-	Env       string         `gorm:"size:32;index"`
-	Version   string         `gorm:"size:32"`
-	Region    string         `gorm:"size:64;index"`
-	Zone      string         `gorm:"size:64;index"`
-	Labels    datatypes.JSON `gorm:"type:json"`
-	Functions datatypes.JSON `gorm:"type:json"`
-	Providers datatypes.JSON `gorm:"type:json"`
-	ExpireAt  time.Time      `gorm:"index;not null"`
-	LastSeen  time.Time      `gorm:"index;not null"`
+	ID        uint      `gorm:"primaryKey"`
+	AgentID   string    `gorm:"size:64;uniqueIndex;not null"`
+	GameID    string    `gorm:"size:64;index"`
+	Env       string    `gorm:"size:32;index"`
+	Version   string    `gorm:"size:32"`
+	Region    string    `gorm:"size:64;index"`
+	Zone      string    `gorm:"size:64;index"`
+	Labels    string    `gorm:"type:json"`
+	Functions string    `gorm:"type:json"`
+	Providers string    `gorm:"type:json"`
+	ExpireAt  time.Time `gorm:"index;not null"`
+	LastSeen  time.Time `gorm:"index;not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
@@ -129,21 +128,21 @@ func toDomainSession(dbSess *AgentSessionDB) (*AgentSession, error) {
 
 	// Parse Labels JSON
 	if len(dbSess.Labels) > 0 {
-		if err := json.Unmarshal(dbSess.Labels, &sess.Labels); err != nil {
+		if err := json.Unmarshal([]byte(dbSess.Labels), &sess.Labels); err != nil {
 			return nil, err
 		}
 	}
 
 	// Parse Functions JSON
 	if len(dbSess.Functions) > 0 {
-		if err := json.Unmarshal(dbSess.Functions, &sess.Functions); err != nil {
+		if err := json.Unmarshal([]byte(dbSess.Functions), &sess.Functions); err != nil {
 			return nil, err
 		}
 	}
 
 	// Parse Providers JSON
 	if len(dbSess.Providers) > 0 {
-		if err := json.Unmarshal(dbSess.Providers, &sess.Providers); err != nil {
+		if err := json.Unmarshal([]byte(dbSess.Providers), &sess.Providers); err != nil {
 			return nil, err
 		}
 	}
@@ -167,7 +166,7 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 
 	// Marshal Labels/Functions/Providers to JSON. Nil maps/slices marshal to
 	// `null` via json.Marshal, but gorm's postgres driver upsert path
-	// mishandles datatypes.JSON([]byte("null")) — postgres rejects with
+	// mishandles string([]byte("null")) — postgres rejects with
 	// "invalid input syntax for type json" even though the same value passes
 	// a direct psql INSERT. Use explicit empty JSON instead: {} for maps
 	// (nil Labels/Functions), [] for slices (nil Providers).
@@ -176,9 +175,9 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbSess.Labels = datatypes.JSON(labelsJSON)
+		dbSess.Labels = string(labelsJSON)
 	} else {
-		dbSess.Labels = datatypes.JSON([]byte("{}"))
+		dbSess.Labels = string([]byte("{}"))
 	}
 
 	if sess.Functions != nil {
@@ -186,9 +185,9 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbSess.Functions = datatypes.JSON(functionsJSON)
+		dbSess.Functions = string(functionsJSON)
 	} else {
-		dbSess.Functions = datatypes.JSON([]byte("{}"))
+		dbSess.Functions = string([]byte("{}"))
 	}
 
 	if sess.Providers != nil {
@@ -196,9 +195,9 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbSess.Providers = datatypes.JSON(providersJSON)
+		dbSess.Providers = string(providersJSON)
 	} else {
-		dbSess.Providers = datatypes.JSON([]byte("[]"))
+		dbSess.Providers = string([]byte("[]"))
 	}
 
 	return dbSess, nil

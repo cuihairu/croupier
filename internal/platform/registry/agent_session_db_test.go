@@ -8,7 +8,6 @@ import (
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -158,8 +157,8 @@ func TestAgentSessionModel_DeleteExpired(t *testing.T) {
 
 func TestToDomainSession(t *testing.T) {
 	t.Run("full session", func(t *testing.T) {
-		labelsJSON := []byte(`{"tier":"premium"}`)
-		funcsJSON := []byte(`{"player.get":{"description":"Get player"}}`)
+		labelsJSON := `{"tier":"premium"}`
+		funcsJSON := `{"player.get":{"description":"Get player"}}`
 
 		dbSess := &AgentSessionDB{
 			AgentID:   "agent-1",
@@ -197,7 +196,7 @@ func TestToDomainSession(t *testing.T) {
 	t.Run("invalid labels JSON", func(t *testing.T) {
 		dbSess := &AgentSessionDB{
 			AgentID: "agent-3",
-			Labels:  []byte("invalid"),
+			Labels:  "invalid",
 		}
 
 		_, err := toDomainSession(dbSess)
@@ -207,7 +206,7 @@ func TestToDomainSession(t *testing.T) {
 	t.Run("invalid functions JSON", func(t *testing.T) {
 		dbSess := &AgentSessionDB{
 			AgentID:   "agent-4",
-			Functions: []byte("invalid"),
+			Functions: "invalid",
 		}
 
 		_, err := toDomainSession(dbSess)
@@ -235,8 +234,8 @@ func TestToDBSession(t *testing.T) {
 		dbSess, err := toDBSession(sess)
 		require.NoError(t, err)
 		assert.Equal(t, "agent-1", dbSess.AgentID)
-		assert.NotNil(t, dbSess.Labels)
-		assert.NotNil(t, dbSess.Functions)
+		assert.NotEmpty(t, dbSess.Labels)
+		assert.NotEmpty(t, dbSess.Functions)
 	})
 
 	t.Run("nil maps", func(t *testing.T) {
@@ -250,8 +249,8 @@ func TestToDBSession(t *testing.T) {
 
 		dbSess, err := toDBSession(sess)
 		require.NoError(t, err)
-		assert.Equal(t, datatypes.JSON([]byte("null")), dbSess.Labels)
-		assert.Equal(t, datatypes.JSON([]byte("null")), dbSess.Functions)
-		assert.Equal(t, datatypes.JSON([]byte("null")), dbSess.Providers)
+		assert.Equal(t, "{}", dbSess.Labels)
+		assert.Equal(t, "{}", dbSess.Functions)
+		assert.Equal(t, "[]", dbSess.Providers)
 	})
 }
