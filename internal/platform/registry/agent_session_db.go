@@ -166,36 +166,41 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		LastSeen: sess.LastSeen,
 	}
 
-	// Marshal Labels/Functions/Providers to JSON. A nil value marshals to
-	// `null` (valid JSON), which the jsonb column accepts. Previously nil was
-	// skipped, leaving a zero datatypes.JSON that gorm wrote as '' — postgres
-	// rejected it with "invalid input syntax for type json" (this surfaced as
-	// "failed to write agent session to database" on every agent register).
-	labelsJSON, err := json.Marshal(sess.Labels)
-	if err != nil {
-		return nil, err
+	// Marshal Labels/Functions/Providers to JSON. Nil maps/slices marshal to
+	// `null` via json.Marshal, but gorm's postgres driver upsert path
+	// mishandles datatypes.JSON([]byte("null")) — postgres rejects with
+	// "invalid input syntax for type json" even though the same value passes
+	// a direct psql INSERT. Use explicit empty JSON instead: {} for maps
+	// (nil Labels/Functions), [] for slices (nil Providers).
+	if sess.Labels != nil {
+		labelsJSON, err := json.Marshal(sess.Labels)
+		if err != nil {
+			return nil, err
+		}
+		dbSess.Labels = datatypes.JSON(labelsJSON)
+	} else {
+		dbSess.Labels = datatypes.JSON([]byte("{}"))
 	}
-	dbSess.Labels = datatypes.JSON(labelsJSON)
 
-	functionsJSON, err := json.Marshal(sess.Functions)
-	if err != nil {
-		return nil, err
+	if sess.Functions != nil {
+		functionsJSON, err := json.Marshal(sess.Functions)
+		if err != nil {
+			return nil, err
+		}
+		dbSess.Functions = datatypes.JSON(functionsJSON)
+	} else {
+		dbSess.Functions = datatypes.JSON([]byte("{}"))
 	}
-	dbSess.Functions = datatypes.JSON(functionsJSON)
 
-	providersJSON, err := json.Marshal(sess.Providers)
-	if err != nil {
-		return nil, err
+	if sess.Providers != nil {
+		providersJSON, err := json.Marshal(sess.Providers)
+		if err != nil {
+			return nil, err
+		}
+		dbSess.Providers = datatypes.JSON(providersJSON)
+	} else {
+		dbSess.Providers = datatypes.JSON([]byte("[]"))
 	}
-	dbSess.Providers = datatypes.JSON(providersJSON)
-
-	// TEMP DIAG: log actual JSON to diagnose "invalid input syntax for type json"
-	slog.Info("diag toDBSession",
-		"agent_id", sess.AgentID,
-		"labels", string(labelsJSON),
-		"functions", string(functionsJSON),
-		"providers", string(providersJSON),
-	)
 
 	return dbSess, nil
 }
