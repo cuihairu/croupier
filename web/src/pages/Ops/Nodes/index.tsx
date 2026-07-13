@@ -26,7 +26,7 @@ function normalizeOpsNode(node: OpsNode): NodeRow {
     env: node.env || '',
     addr: node.addr || '',
     functions: 0,
-    healthy: node.status === 'healthy',
+    healthy: node.status === 'active' || node.status === 'healthy',
     expiresInSec: 0,
   };
 }

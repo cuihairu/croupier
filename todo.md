@@ -132,6 +132,11 @@
     - 是否有残留 warning
   - 已完成事项应移动到“已完成摘要”，不要长期占据 P0/P1。
 
+- [ ] **清理 `tlsutil` 的 gRPC 残留依赖。** `internal/platform/tlsutil/tlsutil.go` 仍 `import google.golang.org/grpc` + `grpc/credentials`,返回 `credentials.TransportCredentials` / `grpc.ServerOption`——是 gRPC 时代残留(项目已 TCP-only,无 gRPC server/client,注释还写"gRPC server")。这是 `go.mod` 里 `google.golang.org/grpc v1.80.0` 为 direct 依赖的来源,违反「不使用 gRPC」决策(`docs/architecture/transport-no-grpc.md`)。
+  - 位置:`internal/platform/tlsutil/tlsutil.go`(`ClientTLSFromConfig`/`ServerTLS`/`EnsureServerTLSCredentials` 三个函数)
+  - 建议:三个函数改返回标准库 `*tls.Config`(TCP transport 本就用 `*tls.Config`),移除 grpc import → `go.mod` 移除 direct grpc 依赖。先确认调用方(agent/server TLS 配置)已用 `*tls.Config`。
+  - 验证:`rg "google.golang.org/grpc" internal/ pkg/ cmd/` 零命中;`go mod tidy` 后 go.mod 无 grpc direct。
+
 ## 已完成摘要（保留索引，不再作为待办）
 
 - [x] 限制游戏数据库解析与创建：未知 `(game_id, env)` 不再触发建库。

@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"sync"
@@ -119,14 +119,19 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 
 		respBody, handleErr := s.handler.Handle(ctx, msgID, reqID, body)
 		if handleErr != nil {
-			// For InvokeRequest, return a proper InvokeResponse with error payload
-			// instead of plain JSON error
-			if msgID == 0x030101 { // MsgInvokeRequest
-				errorJSON := []byte(`{"error":"` + handleErr.Error() + `"}`)
-				resp := &sdkv1.InvokeResponse{Payload: errorJSON}
+			// Log the real error so it is diagnosable. Previously this was
+			// silently JSON-encoded and sent back; a JSON body is not valid
+			// proto, so the client failed with "proto: cannot parse invalid
+			// wire-format data", masking the actual error.
+			slog.Error("rpc handler error", "msg_id", protocol.MsgIDString(msgID), "error", handleErr)
+			if msgID == protocol.MsgInvokeRequest {
+				// InvokeRequest: return InvokeResponse with error payload (proto).
+				resp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":"` + handleErr.Error() + `"}`)}
 				respBody, _ = proto.Marshal(resp)
 			} else {
-				respBody, _ = json.Marshal(map[string]string{"error": handleErr.Error()})
+				// Other RPCs: send an empty body (valid proto; unmarshals to the
+				// zero value of the expected response). The real error is logged.
+				respBody = nil
 			}
 		}
 
