@@ -232,9 +232,20 @@ func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID ui
 		return nil, fmt.Errorf("protocol violation: must register first before sending %s", protocol.MsgIDString(msgID))
 	}
 
-	// 2. After registration, reject duplicate RegisterRequest.
+	// 2. After initial registration, allow re-register to update functions.
+	// Agent sends a full RegisterRequest on every function change (e.g. 0 then
+	// 19 as SDK providers register). Treat same-agent re-register as an
+	// idempotent upsert; reject if agent_id changes (anti-spoofing).
 	if h.registered && msgID == protocol.MsgRegisterRequest {
-		return nil, fmt.Errorf("protocol violation: session already registered as %s", h.agentID)
+		req := &agentv1.RegisterRequest{}
+		if err := proto.Unmarshal(body, req); err != nil {
+			return nil, fmt.Errorf("unmarshal RegisterRequest: %w", err)
+		}
+		if req.AgentId != h.agentID {
+			return nil, fmt.Errorf("protocol violation: re-register agent_id=%q does not match registered %q",
+				req.AgentId, h.agentID)
+		}
+		return h.handleRegister(ctx, body)
 	}
 
 	// 3. After registration, Heartbeat must carry the same agent_id as the
