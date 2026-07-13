@@ -3,6 +3,7 @@ import type { WorkspaceConfig, TabConfig, FieldConfig, ColumnConfig } from '@/ty
 
 type ActionKind =
   | 'list'
+  | 'query'
   | 'detail'
   | 'create'
   | 'update'
@@ -14,6 +15,7 @@ type ObjectMatchConfidence = 'entity' | 'prefix' | 'none';
 
 type FunctionBuckets = {
   list?: FunctionDescriptor;
+  query?: FunctionDescriptor;
   detail?: FunctionDescriptor;
   create?: FunctionDescriptor;
   update?: FunctionDescriptor;
@@ -73,13 +75,15 @@ function detectActionKind(descriptor: FunctionDescriptor): ActionKind {
   const op = normalizeText(descriptor.operation);
   const id = normalizeText(descriptor.id);
 
-  if (['list', 'query', 'search'].includes(op)) return 'list';
+  if (['list'].includes(op)) return 'list';
+  if (['query', 'search'].includes(op)) return 'query';
   if (['get', 'detail', 'read'].includes(op)) return 'detail';
   if (['create', 'add'].includes(op)) return 'create';
   if (['update', 'edit'].includes(op)) return 'update';
   if (['delete', 'remove'].includes(op)) return 'delete';
 
-  if (id.endsWith('.list') || id.endsWith('.query') || id.endsWith('.search')) return 'list';
+  if (id.endsWith('.list')) return 'list';
+  if (id.endsWith('.query') || id.endsWith('.search')) return 'query';
   if (id.endsWith('.get') || id.endsWith('.detail') || id.endsWith('.read')) return 'detail';
   if (id.endsWith('.create') || id.endsWith('.add')) return 'create';
   if (id.endsWith('.update') || id.endsWith('.edit')) return 'update';
@@ -135,6 +139,9 @@ function bucketFunctions(
     switch (kind) {
       case 'list':
         buckets.list = pickBetter(buckets.list, d);
+        break;
+      case 'query':
+        buckets.query = pickBetter(buckets.query, d);
         break;
       case 'detail':
         buckets.detail = pickBetter(buckets.detail, d);
@@ -271,6 +278,27 @@ function buildListTab(objectKey: string, label: string, fn: FunctionDescriptor):
   } as TabConfig;
 }
 
+function buildFormDetailTab(
+  objectKey: string,
+  label: string,
+  queryFn: FunctionDescriptor,
+  detailFn: FunctionDescriptor,
+): TabConfig {
+  return {
+    key: `${objectKey}_query_detail`,
+    title: `${label}查询详情`,
+    defaultActive: true,
+    functions: [queryFn.id, detailFn.id],
+    layout: {
+      type: 'form-detail',
+      queryFunction: queryFn.id,
+      queryFields: inferFormFields(queryFn).slice(0, 6),
+      detailSections: inferDetailSections(detailFn),
+      actions: [],
+    },
+  } as TabConfig;
+}
+
 function buildDetailTab(objectKey: string, label: string, fn: FunctionDescriptor): TabConfig {
   return {
     key: `${objectKey}_detail`,
@@ -392,9 +420,11 @@ export function generateInitialWorkspaceConfig(
 
   if (buckets.list) {
     tabs.push(buildListTab(objectKey, label, buckets.list));
+  } else if (buckets.query && buckets.detail) {
+    tabs.push(buildFormDetailTab(objectKey, label, buckets.query, buckets.detail));
   }
 
-  if (buckets.detail) {
+  if (buckets.detail && !buckets.query) {
     tabs.push(buildDetailTab(objectKey, label, buckets.detail));
   }
 
