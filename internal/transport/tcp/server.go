@@ -116,12 +116,6 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 		if err != nil {
 			return
 		}
-		// TEMP DIAG: trace RegisterRequest to locate why 19-function sync
-		// reaches the agent as an invalid-proto response while server logs
-		// show no processing. Remove after root cause is fixed.
-		if msgID == protocol.MsgRegisterRequest {
-			slog.Info("diag recv RegisterRequest", "req_id", reqID, "body_size", len(body))
-		}
 
 		respBody, handleErr := s.handler.Handle(ctx, msgID, reqID, body)
 		if handleErr != nil {

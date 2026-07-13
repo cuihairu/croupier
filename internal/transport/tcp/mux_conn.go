@@ -2,8 +2,8 @@ package tcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -277,17 +277,23 @@ func (c *MuxConn) handleInboundRequest(ctx context.Context, msgID uint32, reqID 
 		if isProtocolError(err) {
 			return err
 		}
-		// For InvokeRequest, return a proper InvokeResponse with error payload
+		// Log the real error so it is diagnosable. Previously this was
+		// silently JSON-encoded and sent back; a JSON body is not valid
+		// proto, so the client failed with "proto: cannot parse invalid
+		// wire-format data", masking the actual error (this was the demo's
+		// 19-function sync failure root cause).
+		slog.Error("rpc handler error", "msg_id", protocol.MsgIDString(msgID), "error", err)
 		if msgID == protocol.MsgInvokeRequest {
-			errorJSON := []byte(`{"error":"` + err.Error() + `"}`)
-			resp := &sdkv1.InvokeResponse{Payload: errorJSON}
+			// InvokeRequest: return InvokeResponse with error payload (proto).
+			resp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":"` + err.Error() + `"}`)}
 			respBody, err = proto.Marshal(resp)
 			if err != nil {
 				return err
 			}
 		} else {
-			// For other message types, return JSON error
-			respBody, _ = json.Marshal(map[string]string{"error": err.Error()})
+			// Other RPCs: send an empty body (valid proto; unmarshals to the
+			// zero value of the expected response). The real error is logged.
+			respBody = nil
 		}
 	}
 
