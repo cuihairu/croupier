@@ -209,6 +209,77 @@ func TestLocalStore_Register_ReplaceProvider(t *testing.T) {
 	}
 }
 
+func TestLocalStore_Register_EmptyDoesNotClear(t *testing.T) {
+	t.Parallel()
+
+	store := NewLocalStore()
+	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+		{Id: "f1", Version: "1.0.0"},
+		{Id: "f2", Version: "1.0.0"},
+	})
+
+	// Registering an empty/nil function list must NOT clear existing
+	// registrations — regression guard for the demo-site bug where
+	// handleProviderHeartbeat used Register(nil) to "update LastSeen" and
+	// wiped every function.
+	store.Register("svc-1", "127.0.0.1:19090", "v1", nil)
+	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{})
+
+	list := store.List()
+	if len(list) != 2 {
+		t.Fatalf("empty Register cleared functions: have %d, want 2", len(list))
+	}
+	if _, ok := list["f1"]; !ok {
+		t.Error("f1 should still be registered after empty Register")
+	}
+	if _, ok := list["f2"]; !ok {
+		t.Error("f2 should still be registered after empty Register")
+	}
+}
+
+func TestLocalStore_RemoveProvider(t *testing.T) {
+	t.Parallel()
+
+	store := NewLocalStore()
+	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+		{Id: "f1", Version: "1.0.0"},
+		{Id: "f2", Version: "1.0.0"},
+	})
+	store.Register("svc-2", "127.0.0.1:19091", "v1", []*sdkv1.LocalFunctionDescriptor{
+		{Id: "f3", Version: "1.0.0"},
+	})
+
+	store.RemoveProvider("svc-1")
+
+	list := store.List()
+	if _, ok := list["f1"]; ok {
+		t.Error("f1 should be removed")
+	}
+	if _, ok := list["f2"]; ok {
+		t.Error("f2 should be removed")
+	}
+	if _, ok := list["f3"]; !ok {
+		t.Error("f3 from another provider should remain")
+	}
+}
+
+func TestLocalStore_RemoveProvider_Unknown(t *testing.T) {
+	t.Parallel()
+
+	store := NewLocalStore()
+	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+		{Id: "f1", Version: "1.0.0"},
+	})
+
+	// Should not panic for an unknown provider.
+	store.RemoveProvider("unknown-svc")
+
+	list := store.List()
+	if _, ok := list["f1"]; !ok {
+		t.Error("f1 should remain after removing unknown provider")
+	}
+}
+
 func TestLocalStore_FunctionVersions_Empty(t *testing.T) {
 	t.Parallel()
 

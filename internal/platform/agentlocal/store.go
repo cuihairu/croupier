@@ -95,30 +95,18 @@ func (s *LocalStore) OnUpdate(fn func()) {
 
 // Register replaces instances for the provided function ids for a provider.
 func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.LocalFunctionDescriptor) {
+	// An empty function list is a no-op, NOT a clear. Registering nothing
+	// must never silently wipe a provider's existing functions — that was the
+	// demo-site "nothing works" root cause (heartbeat called Register(nil) to
+	// "update LastSeen" and cleared everything). Use RemoveProvider to clear.
+	if len(funcs) == 0 {
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	slog.Debug("[agentlocal] Register called", "provider_id", providerID, "function_count", len(funcs))
 	now := time.Now()
-	// remove prior instances from this providerID for all functions
-	for fid, arr := range s.data {
-		next := arr[:0]
-		for _, it := range arr {
-			if it.ProviderID != providerID {
-				next = append(next, it)
-			}
-		}
-		if len(next) == 0 {
-			delete(s.data, fid)
-		} else {
-			s.data[fid] = next
-		}
-	}
-	for fid, svc := range s.funcVersions {
-		delete(svc, providerID)
-		if len(svc) == 0 {
-			delete(s.funcVersions, fid)
-		}
-	}
+	s.removeProviderLocked(providerID)
 	inst := Instance{ProviderID: providerID, Addr: addr, Version: version, LastSeen: now}
 	for _, fn := range funcs {
 		if fn == nil || fn.GetId() == "" {
@@ -172,6 +160,46 @@ func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.L
 		s.funcMeta[fid] = meta
 	}
 	slog.Info("[agentlocal] Registered functions", "provider_id", providerID, "count", len(funcs), "store_size", len(s.data))
+	if s.onUpdate != nil {
+		slog.Debug("[agentlocal] Triggering OnUpdate callback")
+		go s.onUpdate()
+	} else {
+		slog.Debug("[agentlocal] OnUpdate callback is nil, skipping")
+	}
+}
+
+// removeProviderLocked deletes all function instances and version entries
+// for providerID. Caller must hold s.mu.
+func (s *LocalStore) removeProviderLocked(providerID string) {
+	for fid, arr := range s.data {
+		next := arr[:0]
+		for _, it := range arr {
+			if it.ProviderID != providerID {
+				next = append(next, it)
+			}
+		}
+		if len(next) == 0 {
+			delete(s.data, fid)
+		} else {
+			s.data[fid] = next
+		}
+	}
+	for fid, svc := range s.funcVersions {
+		delete(svc, providerID)
+		if len(svc) == 0 {
+			delete(s.funcVersions, fid)
+		}
+	}
+}
+
+// RemoveProvider explicitly removes all functions registered by providerID.
+// This is the only way to clear a provider's functions — Register treats an
+// empty function list as a no-op (see Register doc comment).
+func (s *LocalStore) RemoveProvider(providerID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.removeProviderLocked(providerID)
+	slog.Info("[agentlocal] Removed provider", "provider_id", providerID, "store_size", len(s.data))
 	if s.onUpdate != nil {
 		slog.Debug("[agentlocal] Triggering OnUpdate callback")
 		go s.onUpdate()

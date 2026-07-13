@@ -622,17 +622,12 @@ func (h *LocalHandler) handleProviderHeartbeat(ctx context.Context, data []byte)
 		return nil, fmt.Errorf("session_id is required")
 	}
 
-	// Re-register to update LastSeen timestamp
+	// Update LastSeen for this provider's instances without touching the
+	// registered functions. Must NOT use Register(nil) here — Register has
+	// replace semantics, so a nil func list silently clears all of the
+	// provider's functions (this was the demo-site "nothing works" root cause).
 	if h.store != nil {
-		snap := h.store.List()
-		for _, instances := range snap {
-			for _, inst := range instances {
-				if inst.ProviderID == req.SessionId {
-					// Re-register with current timestamp to update LastSeen
-					h.store.Register(inst.ProviderID, inst.Addr, inst.Version, nil)
-				}
-			}
-		}
+		h.store.Heartbeat(req.SessionId)
 	}
 
 	resp := &sdkv1.ProviderHeartbeatResponse{}
@@ -650,9 +645,9 @@ func (h *LocalHandler) handleProviderDrain(ctx context.Context, data []byte) ([]
 		return nil, fmt.Errorf("session_id is required")
 	}
 
-	// Drain by registering empty function list (removes all instances for this provider)
+	// Drain by removing all of this provider's function instances.
 	if h.store != nil {
-		h.store.Register(req.SessionId, "", "", nil)
+		h.store.RemoveProvider(req.SessionId)
 		h.logger.Info("Provider drained",
 			"session_id", req.SessionId,
 		)

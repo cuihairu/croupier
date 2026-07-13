@@ -213,7 +213,7 @@ func (m *ProviderManager) SyncExtensionProviders(ctx context.Context, entries ma
 		serviceID := "provider:" + name
 		delete(m.providerIDs, serviceID)
 		// Cleanup previous function registrations for this provider.
-		m.store.Register(serviceID, "", "", []*sdkv1.LocalFunctionDescriptor{})
+		m.store.RemoveProvider(serviceID)
 		delete(m.extensionNames, name)
 	}
 

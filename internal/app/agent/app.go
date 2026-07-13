@@ -483,7 +483,11 @@ func (a *App) syncExtensionFunctionsFromRuntime() {
 	for _, item := range snap.Installations {
 		providerID := "extension:" + strconv.FormatUint(uint64(item.InstallationID), 10)
 		funcs := discoverExtensionFunctions(item)
-		a.store.Register(providerID, "", item.ReleaseVersion, funcs)
+		if len(funcs) > 0 {
+			a.store.Register(providerID, "", item.ReleaseVersion, funcs)
+		} else {
+			a.store.RemoveProvider(providerID)
+		}
 		for _, fn := range funcs {
 			if fn == nil || strings.TrimSpace(fn.GetId()) == "" {
 				continue
