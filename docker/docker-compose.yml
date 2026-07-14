@@ -143,15 +143,15 @@ services:
   # ================================
 
   # Go SDK - 游戏演示（完整模拟游戏场景：玩家、订单、排行榜、道具、邮件）
-  sdk-example-demo:
+  sdk-demo-go:
     build:
-      context: ..
-      dockerfile: sdks/go/examples/Dockerfile
+      context: ../sdks/go
+      dockerfile: examples/Dockerfile
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.26}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
         EXAMPLE_DIR: demo
-    container_name: croupier-sdk-demo
+    container_name: croupier-sdk-demo-go
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
@@ -203,6 +203,101 @@ services:
       CROUPIER_AGENT_ADDR: agent:19091
       CROUPIER_GAME_ID: comprehensive-game
       CROUPIER_SERVICE_ID: comprehensive-service
+      CROUPIER_ENV: development
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+    profiles:
+      - examples
+
+  # Python SDK - 游戏演示（19个函数，与 Go demo 对齐）
+  sdk-demo-python:
+    build:
+      context: ..
+      dockerfile: sdks/python/examples/Dockerfile
+    container_name: croupier-sdk-demo-python
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: agent:19091
+      CROUPIER_GAME_ID: demo-game
+      CROUPIER_SERVICE_ID: game-demo-python
+      CROUPIER_ENV: development
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+    profiles:
+      - examples
+
+  # Java SDK - 游戏演示（19个函数，与 Go demo 对齐）
+  sdk-demo-java:
+    build:
+      context: ..
+      dockerfile: sdks/java/examples/Dockerfile
+    container_name: croupier-sdk-demo-java
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: agent:19091
+      CROUPIER_GAME_ID: demo-game
+      CROUPIER_SERVICE_ID: game-demo-java
+      CROUPIER_ENV: development
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+    profiles:
+      - examples
+
+  # JS/TS SDK - 游戏演示（19个函数，与 Go demo 对齐）
+  sdk-demo-js:
+    build:
+      context: ..
+      dockerfile: sdks/js/examples/Dockerfile
+    container_name: croupier-sdk-demo-js
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: agent:19091
+      CROUPIER_GAME_ID: demo-game
+      CROUPIER_SERVICE_ID: game-demo-js
+      CROUPIER_ENV: development
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+    profiles:
+      - examples
+
+  # C++ SDK - 游戏演示（19个函数，与 Go demo 对齐）
+  sdk-demo-cpp:
+    build:
+      context: ..
+      dockerfile: sdks/cpp/examples/Dockerfile
+    container_name: croupier-sdk-demo-cpp
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: agent:19091
+      CROUPIER_GAME_ID: demo-game
+      CROUPIER_SERVICE_ID: game-demo-cpp
+      CROUPIER_ENV: development
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+    profiles:
+      - examples
+
+  # C# SDK - 游戏演示（19个函数，与 Go demo 对齐）
+  sdk-demo-csharp:
+    build:
+      context: ..
+      dockerfile: sdks/csharp/examples/Dockerfile
+    container_name: croupier-sdk-demo-csharp
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: agent:19091
+      CROUPIER_GAME_ID: demo-game
+      CROUPIER_SERVICE_ID: game-demo-csharp
       CROUPIER_ENV: development
     depends_on:
       - agent

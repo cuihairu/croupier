@@ -269,6 +269,7 @@ SDK 包含多个完整的示例程序，展示各种使用场景：
 | `plugin_demo.cpp` | 动态插件系统 | `./build/bin/croupier-plugin-demo` |
 | `comprehensive_demo.cpp` | 完整 API 演示 | `./build/bin/croupier-comprehensive-demo` |
 | `production_example.cpp` | 生产环境最佳实践 | `./build/bin/croupier-production-example` |
+| `game_demo.cpp` | 完整游戏后台 19 个函数 | `./build/bin/croupier-game-demo` |
 
 ## 完整文档
 

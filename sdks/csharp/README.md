@@ -200,6 +200,14 @@ else
 }
 ```
 
+### 完整游戏后台 Demo
+
+`examples/GameDemo/` 包含19个函数（player/order/leaderboard/inventory/mail 完整 CRUD），与 Go SDK demo 功能对齐：
+
+```bash
+dotnet run --project examples/GameDemo
+```
+
 ### 启动服务
 
 ```csharp

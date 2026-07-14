@@ -62,7 +62,8 @@ Documentation = "https://docs.croupier.io/sdk/python"
 croupier-client = "croupier.cli:main"
 
 [tool.setuptools]
-packages = ["croupier"]
+[tool.setuptools.packages.find]
+include = ["croupier*"]
 
 [tool.setuptools.package-data]
 "croupier" = ["py.typed"]

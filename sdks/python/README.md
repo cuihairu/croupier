@@ -132,6 +132,17 @@ client.connect()
 print("Connected — handling invocations from agent")
 ```
 
+### 完整游戏后台 Demo
+
+`examples/game_demo.py` 包含19个函数（player/order/leaderboard/inventory/mail 完整 CRUD），与 Go SDK demo 功能对齐：
+
+```bash
+cd sdks/python
+uv run python examples/game_demo.py
+```
+
+环境变量：`CROUPIER_AGENT_ADDR`（默认 `127.0.0.1:19091`）、`CROUPIER_GAME_ID`、`CROUPIER_ENV`。
+
 ## 架构设计
 
 SDK 是 `sdk-agent subprotocol` 上的 Provider session 客户端，单条 TCP 连接上完成：

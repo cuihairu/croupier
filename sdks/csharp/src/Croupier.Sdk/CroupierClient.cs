@@ -542,7 +542,7 @@ public partial class CroupierClient : IDisposable
         {
             request.Functions.Add(new LocalFunctionDescriptor
             {
-                Id = descriptor.GetFullName(),
+                Id = descriptor.Id,
                 Version = descriptor.Version,
                 Summary = descriptor.DisplayName ?? string.Empty,
                 Description = descriptor.Description ?? string.Empty,

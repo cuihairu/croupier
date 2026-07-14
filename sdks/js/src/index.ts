@@ -50,8 +50,10 @@ message LocalFunctionDescriptor {
 message ProviderConnectRequest {
   string service_id = 1;
   string version = 2;
-  string rpc_addr = 3;
-  repeated LocalFunctionDescriptor functions = 4;
+  repeated LocalFunctionDescriptor functions = 3;
+  string sdk_language = 4;
+  string sdk_version = 5;
+  string protocol_version = 6;
 }
 
 message ProviderConnectResponse {
@@ -1361,7 +1363,6 @@ export class BasicClient implements CroupierClient {
     const payload = ProviderConnectRequestMessage.create({
       serviceId: request.serviceId,
       version: request.version,
-      rpcAddr: "",
       functions: request.functions.map((fn) => ({
         id: fn.id,
         version: fn.version,
@@ -1374,6 +1375,9 @@ export class BasicClient implements CroupierClient {
         entity: fn.entity,
         operation: fn.operation,
       })),
+      sdkLanguage: this.config.providerLang || "javascript",
+      sdkVersion: this.config.providerSdk || "1.0.0",
+      protocolVersion: "1.0.0",
     });
 
     return Buffer.from(ProviderConnectRequestMessage.encode(payload).finish());
@@ -1393,31 +1397,7 @@ export class BasicClient implements CroupierClient {
   private serializeProviderConnectRequest(
     request: ReturnType<BasicClient["getRegisterRequest"]>,
   ): Buffer {
-    // Use JSON encoding for ProviderConnect (simpler for now)
-    return Buffer.from(
-      JSON.stringify({
-        service_id: request.serviceId,
-        version: request.version,
-        functions: request.functions.map((fn) => ({
-          id: fn.id,
-          version: fn.version,
-          summary: fn.summary,
-          description: fn.description,
-          input_schema: fn.input_schema,
-          output_schema: fn.output_schema,
-          category: fn.category,
-          risk: fn.risk,
-          entity: fn.entity,
-          operation: fn.operation,
-        })),
-        sdk_language: this.config.providerLang,
-        sdk_version: this.config.providerSdk,
-        protocol_version: "1.0.0",
-        supported_capabilities: [],
-        transport_security_mode: this.config.insecure ? "plaintext" : "tls",
-        supported_transports: ["tcp"],
-      }),
-    );
+    return this.serializeProviderConnectProtobufRequest(request);
   }
 
   private parseProviderConnectResponse(data: Buffer): { sessionId: string } {

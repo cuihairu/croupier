@@ -194,10 +194,12 @@ public final class SdkWireMessages {
         return encode(out -> {
             writeString(out, 1, message.serviceId);
             writeString(out, 2, message.version);
-            writeString(out, 3, message.rpcAddr);
             for (LocalFunctionDescriptor function : message.functions) {
-                writeMessage(out, 4, encodeLocalFunctionDescriptor(function));
+                writeMessage(out, 3, encodeLocalFunctionDescriptor(function));
             }
+            writeString(out, 4, message.sdkLanguage);
+            writeString(out, 5, message.sdkVersion);
+            writeString(out, 6, message.protocolVersion);
         });
     }
 
@@ -206,6 +208,9 @@ public final class SdkWireMessages {
         String version = "";
         String rpcAddr = "";
         java.util.List<LocalFunctionDescriptor> functions = new java.util.ArrayList<>();
+        String sdkLanguage = "";
+        String sdkVersion = "";
+        String protocolVersion = "";
         CodedInputStream input = newInput(data);
         try {
             while (!input.isAtEnd()) {
@@ -216,15 +221,17 @@ public final class SdkWireMessages {
                 switch (WireFormat.getTagFieldNumber(tag)) {
                     case 1 -> serviceId = input.readString();
                     case 2 -> version = input.readString();
-                    case 3 -> rpcAddr = input.readString();
-                    case 4 -> functions.add(decodeLocalFunctionDescriptor(input.readByteArray()));
+                    case 3 -> functions.add(decodeLocalFunctionDescriptor(input.readByteArray()));
+                    case 4 -> sdkLanguage = input.readString();
+                    case 5 -> sdkVersion = input.readString();
+                    case 6 -> protocolVersion = input.readString();
                     default -> input.skipField(tag);
                 }
             }
         } catch (IOException e) {
             throw new IllegalArgumentException("Failed to decode ProviderConnectRequest", e);
         }
-        return new ProviderConnectRequest(serviceId, version, rpcAddr, functions);
+        return new ProviderConnectRequest(serviceId, version, rpcAddr, functions, sdkLanguage, sdkVersion, protocolVersion);
     }
 
     public static byte[] encodeProviderConnectResponse(ProviderConnectResponse message) {
@@ -518,13 +525,25 @@ public final class SdkWireMessages {
         public final String version;
         public final String rpcAddr;
         public final java.util.List<LocalFunctionDescriptor> functions;
+        public final String sdkLanguage;
+        public final String sdkVersion;
+        public final String protocolVersion;
 
         public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
                                     java.util.List<LocalFunctionDescriptor> functions) {
+            this(serviceId, version, rpcAddr, functions, "java", "1.0.0", "1.0.0");
+        }
+
+        public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
+                                    java.util.List<LocalFunctionDescriptor> functions,
+                                    String sdkLanguage, String sdkVersion, String protocolVersion) {
             this.serviceId = serviceId == null ? "" : serviceId;
             this.version = version == null ? "" : version;
             this.rpcAddr = rpcAddr == null ? "" : rpcAddr;
             this.functions = functions == null ? java.util.List.of() : java.util.List.copyOf(functions);
+            this.sdkLanguage = sdkLanguage == null ? "" : sdkLanguage;
+            this.sdkVersion = sdkVersion == null ? "" : sdkVersion;
+            this.protocolVersion = protocolVersion == null ? "" : protocolVersion;
         }
     }
 

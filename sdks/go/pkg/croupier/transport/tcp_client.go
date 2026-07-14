@@ -29,6 +29,7 @@ type TCPClient struct {
 	closing    chan struct{}
 	once       sync.Once
 	readLoopWg sync.WaitGroup
+	onClose    func(err error)
 }
 
 type responseTuple struct {
@@ -181,9 +182,18 @@ func (c *TCPClient) Call(ctx context.Context, msgID uint32, reqBody []byte) (res
 	}
 }
 
+// SetOnClose sets a callback that is invoked when the connection is lost.
+// The callback receives the error that caused the connection to close.
+func (c *TCPClient) SetOnClose(fn func(err error)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onClose = fn
+}
+
 // receiveLoop receives frames from the connection and routes them to pending requests.
 func (c *TCPClient) receiveLoop() {
 	defer c.readLoopWg.Done()
+	defer c.notifyClose()
 
 	frameHeader := make([]byte, frameHeaderBytes)
 
@@ -198,7 +208,7 @@ func (c *TCPClient) receiveLoop() {
 		_, err := io.ReadFull(c.conn, frameHeader)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				// Connection error
+				// Connection error — will be notified via onClose
 			}
 			return
 		}
@@ -268,5 +278,25 @@ func (c *TCPClient) IsClosed() bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// notifyClose calls the onClose callback if set and the client was not
+// intentionally closed. It is called as a deferred function in receiveLoop.
+//
+// The callback runs in its own goroutine because the caller (receiveLoop)
+// is still alive when this runs — invoking Close() synchronously from the
+// callback would deadlock on readLoopWg.Wait() since readLoopWg.Done()
+// hasn't executed yet.
+func (c *TCPClient) notifyClose() {
+	// Skip notification if client was intentionally closed
+	if c.IsClosed() {
+		return
+	}
+	c.mu.RLock()
+	fn := c.onClose
+	c.mu.RUnlock()
+	if fn != nil {
+		go fn(errors.New("connection lost"))
 	}
 }

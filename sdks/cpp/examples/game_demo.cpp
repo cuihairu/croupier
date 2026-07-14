@@ -1,0 +1,583 @@
+/**
+ * Game Demo - 19 functions matching the Go SDK demo.
+ *
+ * Covers: player CRUD, order CRUD, leaderboard, inventory, mail.
+ * Build: cd sdks/cpp && cmake --build build --target croupier-game-demo
+ * Run:   ./build/bin/croupier-game-demo
+ */
+
+#include "croupier/sdk/croupier_client.h"
+
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <csignal>
+#include <iostream>
+#include <map>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <vector>
+
+using namespace croupier::sdk;
+
+static std::atomic<bool> g_shutdown(false);
+
+void signalHandler(int) { g_shutdown = true; }
+
+// ==================== Helpers ====================
+
+static std::string now_str() {
+    auto now = std::chrono::system_clock::now();
+    auto t = std::chrono::system_clock::to_time_t(now);
+    char buf[64];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&t));
+    return buf;
+}
+
+static std::string json_str(const std::string& key, const std::string& val) {
+    return "\"" + key + "\":\"" + val + "\"";
+}
+static std::string json_int(const std::string& key, long long val) {
+    return "\"" + key + "\":" + std::to_string(val);
+}
+
+// Minimal JSON value extraction (no external deps)
+static std::string extract_str(const std::string& json, const std::string& key) {
+    auto pos = json.find("\"" + key + "\"");
+    if (pos == std::string::npos) return "";
+    pos = json.find(':', pos);
+    if (pos == std::string::npos) return "";
+    pos = json.find('"', pos + 1);
+    if (pos == std::string::npos) return "";
+    auto end = json.find('"', pos + 1);
+    if (end == std::string::npos) return "";
+    return json.substr(pos + 1, end - pos - 1);
+}
+
+static long long extract_int(const std::string& json, const std::string& key, long long def = 0) {
+    auto pos = json.find("\"" + key + "\"");
+    if (pos == std::string::npos) return def;
+    pos = json.find(':', pos);
+    if (pos == std::string::npos) return def;
+    pos++;
+    while (pos < json.size() && json[pos] == ' ') pos++;
+    std::string num;
+    while (pos < json.size() && (json[pos] >= '0' && json[pos] <= '9')) {
+        num += json[pos++];
+    }
+    if (num.empty()) return def;
+    return std::stoll(num);
+}
+
+static std::string resp(std::initializer_list<std::string> fields) {
+    std::string r = "{";
+    bool first = true;
+    for (auto& f : fields) {
+        if (!first) r += ",";
+        first = false;
+        r += f;
+    }
+    r += ",\"timestamp\":\"" + now_str() + "\"}";
+    return r;
+}
+
+// ==================== Data Models ====================
+
+struct PlayerRecord {
+    std::string id, name, status, server, created_at, updated_at, last_login_at;
+    int level = 1, vip = 0;
+    long long gold = 0;
+    std::string profile; // raw JSON
+
+    std::string toJson() const {
+        return "{" + json_str("id", id) + "," + json_str("name", name) +
+               "," + json_int("level", level) + "," + json_int("vip", vip) +
+               "," + json_int("gold", gold) + "," + json_str("status", status) +
+               "," + json_str("server", server) + "," + json_str("created_at", created_at) +
+               "," + json_str("updated_at", updated_at) + "," + json_str("last_login_at", last_login_at) +
+               (profile.empty() ? "" : ",\"profile\":" + profile) + "}";
+    }
+};
+
+struct OrderRecord {
+    std::string id, player_id, product_id, currency, status, channel, created_at, updated_at;
+    long long amount = 0;
+    std::string attributes;
+
+    std::string toJson() const {
+        return "{" + json_str("id", id) + "," + json_str("player_id", player_id) +
+               "," + json_str("product_id", product_id) + "," + json_int("amount", amount) +
+               "," + json_str("currency", currency) + "," + json_str("status", status) +
+               "," + json_str("channel", channel) + "," + json_str("created_at", created_at) +
+               "," + json_str("updated_at", updated_at) +
+               (attributes.empty() ? "" : ",\"attributes\":" + attributes) + "}";
+    }
+};
+
+struct LBEntry {
+    std::string player_id, player_name, updated_at;
+    long long score = 0;
+    int rank = 0;
+
+    std::string toJson() const {
+        return "{" + json_str("player_id", player_id) + "," + json_str("player_name", player_name) +
+               "," + json_int("score", score) + "," + json_int("rank", rank) +
+               "," + json_str("updated_at", updated_at) + "}";
+    }
+};
+
+struct ItemRecord {
+    std::string id, template_id, name, rarity, updated_at;
+    long long quantity = 0;
+
+    std::string toJson() const {
+        return "{" + json_str("id", id) + "," + json_str("template_id", template_id) +
+               "," + json_str("name", name) + "," + json_int("quantity", quantity) +
+               "," + json_str("rarity", rarity) + "," + json_str("updated_at", updated_at) + "}";
+    }
+};
+
+struct MailRecord {
+    std::string id, player_id, title, content, status, sent_at, updated_at, expire_at;
+    std::string reward;
+
+    std::string toJson() const {
+        return "{" + json_str("id", id) + "," + json_str("player_id", player_id) +
+               "," + json_str("title", title) + "," + json_str("content", content) +
+               "," + json_str("status", status) +
+               (reward.empty() ? "" : ",\"reward\":" + reward) +
+               "," + json_str("sent_at", sent_at) + "," + json_str("updated_at", updated_at) +
+               (expire_at.empty() ? "" : "," + json_str("expire_at", expire_at)) + "}";
+    }
+};
+
+// ==================== Store ====================
+
+struct DemoStore {
+    std::mutex mu;
+    long long player_seq = 1002, order_seq = 3002, mail_seq = 5002;
+    std::map<std::string, PlayerRecord> players;
+    std::map<std::string, OrderRecord> orders;
+    std::map<std::string, LBEntry> leaderboard;
+    std::map<std::string, std::map<std::string, ItemRecord>> inventories;
+    std::map<std::string, std::vector<MailRecord>> mails;
+
+    DemoStore() {
+        auto now = now_str();
+        players["player_1001"] = {"player_1001", "Alice", "active", "s1", now, now, now, 35, 3, 128800,
+            "{\"guild\":\"星海旅团\",\"country\":\"CN\",\"platform\":\"ios\"}"};
+        players["player_1002"] = {"player_1002", "Bob", "active", "s2", now, now, now, 42, 5, 256000,
+            "{\"guild\":\"苍穹守卫\",\"country\":\"US\",\"platform\":\"android\"}"};
+
+        orders["order_3001"] = {"order_3001", "player_1001", "com.croupier.gems.648", "CNY", "paid", "appstore", now, now, 6480, "{\"region\":\"cn\"}"};
+        orders["order_3002"] = {"order_3002", "player_1002", "battle.pass.s2", "USD", "pending", "googleplay", now, now, 68, ""};
+
+        leaderboard["player_1002"] = {"player_1002", "Bob", now, 98500, 1};
+        leaderboard["player_1001"] = {"player_1001", "Alice", now, 91200, 2};
+
+        inventories["player_1001"]["gold_coin"] = {"item_gold_coin", "gold_coin", "金币", "common", now, 128800};
+        inventories["player_1001"]["hero_ticket"] = {"item_hero_ticket", "hero_ticket", "英雄招募券", "rare", now, 12};
+
+        mails["player_1001"] = {{"mail_5001", "player_1001", "开服奖励", "欢迎来到 Croupier Demo World", "unread",
+            "{\"gold\":10000,\"item\":\"hero_ticket\"}", now, now, ""}};
+    }
+};
+
+// ==================== Array JSON helper ====================
+
+template<typename T>
+static std::string arr_json(const std::map<std::string, T>& m) {
+    std::string r = "[";
+    bool first = true;
+    for (auto& [k, v] : m) { if (!first) r += ","; first = false; r += v.toJson(); }
+    return r + "]";
+}
+
+template<typename T>
+static std::string arr_json_vec(const std::vector<T>& v) {
+    std::string r = "[";
+    bool first = true;
+    for (auto& item : v) { if (!first) r += ","; first = false; r += item.toJson(); }
+    return r + "]";
+}
+
+// ==================== Handler Registration ====================
+
+static void registerAll(CroupierClient& client, DemoStore& store) {
+    auto reg = [&](const std::string& id, const std::string& cat, const std::string& risk,
+                   const std::string& entity, const std::string& op, FunctionHandler handler) {
+        FunctionDescriptor desc;
+        desc.id = id; desc.version = "1.0.0"; desc.category = cat;
+        desc.risk = risk; desc.entity = entity; desc.operation = op; desc.enabled = true;
+        client.RegisterFunction(desc, handler);
+        std::cout << "  registered: " << id << std::endl;
+    };
+
+    // player.create
+    reg("player.create", "player", "medium", "player", "create",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string id = extract_str(payload, "id");
+            if (id.empty()) id = extract_str(payload, "player_id");
+            if (id.empty()) id = "player_" + std::to_string(++store.player_seq);
+            auto now = now_str();
+            std::string name = extract_str(payload, "name");
+            if (name.empty()) name = "Player-" + id;
+            PlayerRecord r{id, name, "active", "s1", now, now, now,
+                (int)extract_int(payload, "level", 1), (int)extract_int(payload, "vip", 0),
+                extract_int(payload, "gold", 0), ""};
+            store.players[id] = r;
+            return resp({json_str("status", "success"), json_str("action", "player.create"),
+                         "\"player\":" + r.toJson()});
+        });
+
+    // player.get
+    reg("player.get", "player", "low", "player", "read",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string id = extract_str(payload, "player_id");
+            if (id.empty()) id = extract_str(payload, "id");
+            auto it = store.players.find(id);
+            if (it == store.players.end())
+                return resp({json_str("status", "not_found"), json_str("message", "player not found")});
+            return resp({json_str("status", "success"), json_str("action", "player.get"),
+                         "\"player\":" + it->second.toJson()});
+        });
+
+    // player.update
+    reg("player.update", "player", "medium", "player", "update",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string id = extract_str(payload, "player_id");
+            if (id.empty()) id = extract_str(payload, "id");
+            auto it = store.players.find(id);
+            if (it == store.players.end())
+                return resp({json_str("status", "not_found"), json_str("message", "player not found")});
+            auto& r = it->second;
+            auto n = extract_str(payload, "name"); if (!n.empty()) r.name = n;
+            auto s = extract_str(payload, "status"); if (!s.empty()) r.status = s;
+            auto sv = extract_str(payload, "server"); if (!sv.empty()) r.server = sv;
+            if (payload.find("\"level\"") != std::string::npos) r.level = (int)extract_int(payload, "level", r.level);
+            if (payload.find("\"vip\"") != std::string::npos) r.vip = (int)extract_int(payload, "vip", r.vip);
+            if (payload.find("\"gold\"") != std::string::npos) r.gold = extract_int(payload, "gold", r.gold);
+            r.updated_at = now_str();
+            return resp({json_str("status", "success"), json_str("action", "player.update"),
+                         "\"player\":" + r.toJson()});
+        });
+
+    // player.delete
+    reg("player.delete", "player", "high", "player", "delete",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string id = extract_str(payload, "player_id");
+            if (id.empty()) id = extract_str(payload, "id");
+            store.players.erase(id); store.inventories.erase(id);
+            store.mails.erase(id); store.leaderboard.erase(id);
+            return resp({json_str("status", "success"), json_str("action", "player.delete"),
+                         json_str("player_id", id)});
+        });
+
+    // player.list
+    reg("player.list", "player", "low", "player", "read",
+        [&store](const std::string&, const std::string&) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            return resp({json_str("status", "success"), json_str("action", "player.list"),
+                         "\"items\":" + arr_json(store.players),
+                         json_int("total", store.players.size())});
+        });
+
+    // order.create
+    reg("order.create", "commerce", "medium", "order", "create",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string id = extract_str(payload, "order_id");
+            if (id.empty()) id = extract_str(payload, "id");
+            if (id.empty()) id = "order_" + std::to_string(++store.order_seq);
+            auto now = now_str();
+            OrderRecord r{id, extract_str(payload, "player_id"),
+                extract_str(payload, "product_id").empty() ? "product.demo" : extract_str(payload, "product_id"),
+                extract_str(payload, "currency").empty() ? "CNY" : extract_str(payload, "currency"),
+                extract_str(payload, "status").empty() ? "created" : extract_str(payload, "status"),
+                extract_str(payload, "channel").empty() ? "gm" : extract_str(payload, "channel"),
+                now, now, extract_int(payload, "amount", 0), ""};
+            store.orders[id] = r;
+            return resp({json_str("status", "success"), json_str("action", "order.create"),
+                         "\"order\":" + r.toJson()});
+        });
+
+    // order.get
+    reg("order.get", "commerce", "low", "order", "read",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string id = extract_str(payload, "order_id");
+            if (id.empty()) id = extract_str(payload, "id");
+            auto it = store.orders.find(id);
+            if (it == store.orders.end())
+                return resp({json_str("status", "not_found"), json_str("message", "order not found")});
+            return resp({json_str("status", "success"), json_str("action", "order.get"),
+                         "\"order\":" + it->second.toJson()});
+        });
+
+    // order.update
+    reg("order.update", "commerce", "medium", "order", "update",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string id = extract_str(payload, "order_id");
+            if (id.empty()) id = extract_str(payload, "id");
+            auto it = store.orders.find(id);
+            if (it == store.orders.end())
+                return resp({json_str("status", "not_found"), json_str("message", "order not found")});
+            auto& r = it->second;
+            auto s = extract_str(payload, "status"); if (!s.empty()) r.status = s;
+            auto c = extract_str(payload, "channel"); if (!c.empty()) r.channel = c;
+            if (payload.find("\"amount\"") != std::string::npos) r.amount = extract_int(payload, "amount", r.amount);
+            r.updated_at = now_str();
+            return resp({json_str("status", "success"), json_str("action", "order.update"),
+                         "\"order\":" + r.toJson()});
+        });
+
+    // order.delete
+    reg("order.delete", "commerce", "high", "order", "delete",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string id = extract_str(payload, "order_id");
+            if (id.empty()) id = extract_str(payload, "id");
+            store.orders.erase(id);
+            return resp({json_str("status", "success"), json_str("action", "order.delete"),
+                         json_str("order_id", id)});
+        });
+
+    // order.list
+    reg("order.list", "commerce", "low", "order", "read",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string pid = extract_str(payload, "player_id");
+            if (pid.empty()) {
+                return resp({json_str("status", "success"), json_str("action", "order.list"),
+                             "\"items\":" + arr_json(store.orders),
+                             json_int("total", store.orders.size())});
+            }
+            std::map<std::string, OrderRecord> filtered;
+            for (auto& [k, v] : store.orders) if (v.player_id == pid) filtered[k] = v;
+            return resp({json_str("status", "success"), json_str("action", "order.list"),
+                         "\"items\":" + arr_json(filtered),
+                         json_int("total", filtered.size())});
+        });
+
+    // leaderboard.list
+    reg("leaderboard.list", "leaderboard", "low", "leaderboard", "read",
+        [&store](const std::string&, const std::string&) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            // Sort by score descending
+            std::vector<std::pair<std::string, LBEntry>> sorted(store.leaderboard.begin(), store.leaderboard.end());
+            std::sort(sorted.begin(), sorted.end(), [](auto& a, auto& b) { return a.second.score > b.second.score; });
+            std::string arr = "[";
+            bool first = true;
+            for (size_t i = 0; i < sorted.size(); i++) {
+                auto e = sorted[i].second; e.rank = (int)(i + 1);
+                if (!first) arr += ",";
+                first = false;
+                arr += e.toJson();
+            }
+            arr += "]";
+            return resp({json_str("status", "success"), json_str("action", "leaderboard.list"),
+                         "\"items\":" + arr, json_int("total", sorted.size())});
+        });
+
+    // leaderboard.upsert
+    reg("leaderboard.upsert", "leaderboard", "medium", "leaderboard", "update",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string pid = extract_str(payload, "player_id");
+            if (pid.empty()) return resp({json_str("status", "error"), json_str("message", "player_id is required")});
+            std::string pname = pid;
+            auto pit = store.players.find(pid);
+            if (pit != store.players.end() && !pit->second.name.empty()) pname = pit->second.name;
+            LBEntry e{pid, pname, now_str(), extract_int(payload, "score", 0), 0};
+            store.leaderboard[pid] = e;
+            return resp({json_str("status", "success"), json_str("action", "leaderboard.upsert"),
+                         "\"entry\":" + e.toJson()});
+        });
+
+    // leaderboard.reset
+    reg("leaderboard.reset", "leaderboard", "high", "leaderboard", "delete",
+        [&store](const std::string&, const std::string&) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            store.leaderboard.clear();
+            return resp({json_str("status", "success"), json_str("action", "leaderboard.reset")});
+        });
+
+    // inventory.list
+    reg("inventory.list", "inventory", "low", "inventory", "read",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string pid = extract_str(payload, "player_id");
+            auto it = store.inventories.find(pid);
+            if (it == store.inventories.end())
+                return resp({json_str("status", "success"), json_str("action", "inventory.list"),
+                             json_str("player_id", pid), "\"items\":[]"});
+            return resp({json_str("status", "success"), json_str("action", "inventory.list"),
+                         json_str("player_id", pid), "\"items\":" + arr_json(it->second)});
+        });
+
+    // inventory.grant
+    reg("inventory.grant", "inventory", "medium", "inventory", "create",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string pid = extract_str(payload, "player_id");
+            std::string tid = extract_str(payload, "template_id");
+            if (tid.empty()) tid = extract_str(payload, "item_id");
+            auto& inv = store.inventories[pid];
+            auto it = inv.find(tid);
+            if (it == inv.end()) {
+                std::string name = extract_str(payload, "name");
+                if (name.empty()) name = tid;
+                std::string rarity = extract_str(payload, "rarity");
+                if (rarity.empty()) rarity = "common";
+                inv[tid] = {"item_" + tid, tid, name, rarity, "", 0};
+                it = inv.find(tid);
+            }
+            it->second.quantity += extract_int(payload, "quantity", 1);
+            it->second.updated_at = now_str();
+            return resp({json_str("status", "success"), json_str("action", "inventory.grant"),
+                         json_str("player_id", pid), "\"item\":" + it->second.toJson()});
+        });
+
+    // inventory.consume
+    reg("inventory.consume", "inventory", "medium", "inventory", "delete",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string pid = extract_str(payload, "player_id");
+            std::string tid = extract_str(payload, "template_id");
+            if (tid.empty()) tid = extract_str(payload, "item_id");
+            long long qty = extract_int(payload, "quantity", 1);
+            auto iit = store.inventories.find(pid);
+            if (iit == store.inventories.end())
+                return resp({json_str("status", "not_found"), json_str("message", "item not found")});
+            auto it = iit->second.find(tid);
+            if (it == iit->second.end())
+                return resp({json_str("status", "not_found"), json_str("message", "item not found")});
+            if (it->second.quantity < qty)
+                return resp({json_str("status", "failed"), json_str("message", "insufficient quantity")});
+            it->second.quantity -= qty;
+            it->second.updated_at = now_str();
+            return resp({json_str("status", "success"), json_str("action", "inventory.consume"),
+                         json_str("player_id", pid), "\"item\":" + it->second.toJson()});
+        });
+
+    // mail.send
+    reg("mail.send", "mail", "medium", "mail", "create",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string pid = extract_str(payload, "player_id");
+            if (pid.empty()) return resp({json_str("status", "error"), json_str("message", "player_id is required")});
+            auto now = now_str();
+            std::string title = extract_str(payload, "title");
+            if (title.empty()) title = "系统邮件";
+            std::string content = extract_str(payload, "content");
+            if (content.empty()) content = "请查收奖励";
+            std::string mid = "mail_" + std::to_string(++store.mail_seq);
+            MailRecord r{mid, pid, title, content, "unread", "", now, now, ""};
+            // Extract reward as raw JSON substring
+            auto rp = payload.find("\"reward\"");
+            if (rp != std::string::npos) {
+                auto start = payload.find('{', rp);
+                if (start != std::string::npos) {
+                    int depth = 0; size_t end = start;
+                    for (size_t i = start; i < payload.size(); i++) {
+                        if (payload[i] == '{') depth++;
+                        if (payload[i] == '}') { depth--; if (depth == 0) { end = i; break; } }
+                    }
+                    r.reward = payload.substr(start, end - start + 1);
+                }
+            }
+            store.mails[pid].push_back(r);
+            return resp({json_str("status", "success"), json_str("action", "mail.send"),
+                         "\"mail\":" + r.toJson()});
+        });
+
+    // mail.list
+    reg("mail.list", "mail", "low", "mail", "read",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string pid = extract_str(payload, "player_id");
+            auto it = store.mails.find(pid);
+            if (it == store.mails.end())
+                return resp({json_str("status", "success"), json_str("action", "mail.list"),
+                             json_str("player_id", pid), "\"items\":[]", "\"total\":0"});
+            return resp({json_str("status", "success"), json_str("action", "mail.list"),
+                         json_str("player_id", pid), "\"items\":" + arr_json_vec(it->second),
+                         json_int("total", it->second.size())});
+        });
+
+    // mail.claim
+    reg("mail.claim", "mail", "medium", "mail", "update",
+        [&store](const std::string&, const std::string& payload) -> std::string {
+            std::lock_guard<std::mutex> lk(store.mu);
+            std::string pid = extract_str(payload, "player_id");
+            std::string mid = extract_str(payload, "mail_id");
+            if (mid.empty()) mid = extract_str(payload, "id");
+            auto it = store.mails.find(pid);
+            if (it != store.mails.end()) {
+                for (auto& m : it->second) {
+                    if (m.id == mid) {
+                        m.status = "claimed"; m.updated_at = now_str();
+                        return resp({json_str("status", "success"), json_str("action", "mail.claim"),
+                                     "\"mail\":" + m.toJson()});
+                    }
+                }
+            }
+            return resp({json_str("status", "not_found"), json_str("message", "mail not found")});
+        });
+}
+
+// ==================== Main ====================
+
+int main() {
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
+
+    std::string agentAddr = "127.0.0.1:19091";
+    std::string gameId = "demo-game";
+    std::string serviceId = "game-demo-service";
+    std::string envName = "development";
+
+    if (auto v = std::getenv("CROUPIER_AGENT_ADDR")) agentAddr = v;
+    if (auto v = std::getenv("CROUPIER_GAME_ID")) gameId = v;
+    if (auto v = std::getenv("CROUPIER_SERVICE_ID")) serviceId = v;
+    if (auto v = std::getenv("CROUPIER_ENV")) envName = v;
+
+    std::cout << "starting game demo: agent=" << agentAddr
+              << " game=" << gameId << " env=" << envName
+              << " service=" << serviceId << std::endl;
+
+    ClientConfig config;
+    config.agent_addr = agentAddr;
+    config.game_id = gameId;
+    config.env = envName;
+    config.service_id = serviceId;
+    config.service_version = "1.0.0";
+    config.insecure = true;
+    config.auto_reconnect = true;
+
+    CroupierClient client(config);
+    DemoStore store;
+    registerAll(client, store);
+
+    std::cout << "connecting to agent..." << std::endl;
+    if (client.Connect()) {
+        std::cout << "connected, service started. press Ctrl+C to stop." << std::endl;
+        while (!g_shutdown) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+    } else {
+        std::cerr << "connection failed" << std::endl;
+        return 1;
+    }
+
+    std::cout << "shutting down..." << std::endl;
+    client.Close();
+    return 0;
+}

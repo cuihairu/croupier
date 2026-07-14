@@ -374,6 +374,10 @@ cd examples/comprehensive
 ../gradlew --no-daemon execute
 ```
 
+### 完整游戏后台 Demo
+
+`examples/game-demo/` 包含19个函数（player/order/leaderboard/inventory/mail 完整 CRUD），与 Go SDK demo 功能对齐。
+
 ## 贡献指南
 
 1. 确保所有类型与 proto 定义对齐

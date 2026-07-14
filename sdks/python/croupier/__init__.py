@@ -232,6 +232,9 @@ class CroupierClient:
             service_id=self._config.service_id,
             version=self._config.service_version,
             functions=[self.get_function_descriptor(fid) for fid in self._handlers.keys()],  # type: ignore[misc]
+            sdk_language="python",
+            sdk_version="1.0.0",
+            protocol_version="1.0.0",
         )
 
     def invoke(
@@ -618,7 +621,7 @@ class CroupierClient:
             if not self._transport or not self._session_id:
                 raise RuntimeError("Client is not registered")
             transport = self._transport
-            request = provider_pb2.HeartbeatRequest(
+            request = provider_pb2.ProviderHeartbeatRequest(
                 service_id=self._config.service_id,
                 session_id=self._session_id,
             )

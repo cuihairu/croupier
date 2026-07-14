@@ -33,6 +33,9 @@ type TCPManager struct {
 	serviceVersion string
 	heartbeatStop  context.CancelFunc
 
+	// Stored function descriptors for re-registration after reconnect
+	functions []*sdkv1.LocalFunctionDescriptor
+
 	// Server for handling incoming RPC calls
 	rpcHandler *tcpRPCHandler
 
@@ -40,6 +43,9 @@ type TCPManager struct {
 	tasks      map[string]*Task
 	tasksMutex sync.RWMutex
 	tasksSeq   uint64
+
+	// Reconnection callback — called when connection is lost
+	onDisconnect func()
 }
 
 // Task represents an async task execution
@@ -204,8 +210,15 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 	m.sessionID = resp.SessionId
 	m.serviceID = serviceID
 	m.serviceVersion = serviceVersion
+	m.functions = descriptors // Store for reconnect
 
 	logInfof("Registered successfully, session ID: %s", m.sessionID)
+
+	// Set onClose callback so we get notified when TCP connection drops
+	m.client.SetOnClose(func(err error) {
+		logErrorf("Connection lost: %v", err)
+		m.handleDisconnect()
+	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	m.heartbeatStop = cancel
@@ -220,9 +233,24 @@ func (m *TCPManager) IsConnected() bool {
 	return m.connected
 }
 
+// SetOnDisconnect sets a callback that is invoked when the connection is lost.
+// The callback is called from the heartbeat goroutine or the TCP onClose handler.
+func (m *TCPManager) SetOnDisconnect(fn func()) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.onDisconnect = fn
+}
+
 func (m *TCPManager) heartbeatLoop(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second)
+	interval := m.config.HeartbeatInterval
+	if interval <= 0 {
+		interval = 10
+	}
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
+
+	consecutiveFailures := 0
+	maxFailures := 2
 
 	for {
 		select {
@@ -230,10 +258,125 @@ func (m *TCPManager) heartbeatLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := m.sendHeartbeat(ctx); err != nil {
-				logErrorf("Heartbeat failed: %v", err)
+				consecutiveFailures++
+				logErrorf("Heartbeat failed (%d/%d): %v", consecutiveFailures, maxFailures, err)
+				if consecutiveFailures >= maxFailures {
+					logErrorf("Heartbeat failed %d times, triggering reconnect", maxFailures)
+					m.handleDisconnect()
+					return
+				}
+			} else {
+				consecutiveFailures = 0
 			}
 		}
 	}
+}
+
+// handleDisconnect sets the connection state to false and notifies the onDisconnect callback.
+// It is safe to call multiple times (idempotent).
+func (m *TCPManager) handleDisconnect() {
+	m.mu.Lock()
+	if !m.connected {
+		m.mu.Unlock()
+		return
+	}
+	m.connected = false
+	m.sessionID = ""
+	fn := m.onDisconnect
+	// Stop heartbeat if running
+	if m.heartbeatStop != nil {
+		m.heartbeatStop()
+		m.heartbeatStop = nil
+	}
+	// Close transport
+	if m.client != nil {
+		_ = m.client.Close()
+		m.client = nil
+	}
+	m.mu.Unlock()
+
+	logInfof("Connection lost, notifying reconnect handler")
+	if fn != nil {
+		fn()
+	}
+}
+
+// Reconnect establishes a new connection to the agent and re-registers.
+// It is called by the client after handleDisconnect signals via onDisconnect.
+func (m *TCPManager) Reconnect(ctx context.Context) error {
+	m.mu.Lock()
+	if m.connected {
+		m.mu.Unlock()
+		return nil
+	}
+	m.mu.Unlock()
+
+	logInfof("Reconnecting to Croupier Agent: %s", m.config.AgentAddr)
+
+	// Create new TCP client
+	client, err := transport.NewTCPClient(&transport.Config{
+		Address:     m.config.AgentAddr,
+		Insecure:    m.config.Insecure,
+		DialTimeout: 30 * time.Second,
+	})
+	if err != nil {
+		return fmt.Errorf("reconnect dial: %w", err)
+	}
+
+	// Re-register with agent using stored function descriptors
+	req := &sdkv1.ProviderConnectRequest{
+		ServiceId:   m.serviceID,
+		Version:     m.serviceVersion,
+		Functions:   m.functions,
+		SdkLanguage: "go",
+		SdkVersion:  "1.0.0",
+	}
+	reqBody, err := proto.Marshal(req)
+	if err != nil {
+		client.Close()
+		return fmt.Errorf("marshal connect request: %w", err)
+	}
+
+	respMsgID, respBody, err := client.Call(ctx, protocol.MsgProviderConnectRequest, reqBody)
+	if err != nil {
+		client.Close()
+		return fmt.Errorf("reconnect register: %w", err)
+	}
+	if respMsgID != protocol.MsgProviderConnectResponse {
+		client.Close()
+		return fmt.Errorf("unexpected response: %s", protocol.MsgIDString(respMsgID))
+	}
+
+	resp := &sdkv1.ProviderConnectResponse{}
+	if err := proto.Unmarshal(respBody, resp); err != nil {
+		client.Close()
+		return fmt.Errorf("unmarshal response: %w", err)
+	}
+	if resp.SessionId == "" {
+		client.Close()
+		return fmt.Errorf("reconnect failed: no session ID")
+	}
+
+	// Set onClose on new client
+	client.SetOnClose(func(err error) {
+		logErrorf("Connection lost: %v", err)
+		m.handleDisconnect()
+	})
+
+	// Commit
+	m.mu.Lock()
+	m.client = client
+	m.sessionID = resp.SessionId
+	m.connected = true
+	m.mu.Unlock()
+
+	// Resume heartbeat
+	hbCtx, cancel := context.WithCancel(context.Background())
+	m.heartbeatStop = cancel
+	go m.heartbeatLoop(hbCtx)
+
+	logInfof("Reconnected successfully, session ID: %s", resp.SessionId)
+	return nil
 }
 
 func (m *TCPManager) sendHeartbeat(ctx context.Context) error {

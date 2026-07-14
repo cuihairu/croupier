@@ -18,6 +18,9 @@ type Manager interface {
 
 	// IsConnected returns true if connected to agent
 	IsConnected() bool
+
+	// SetOnDisconnect sets a callback invoked when connection is lost.
+	SetOnDisconnect(fn func())
 }
 
 // ManagerConfig holds configuration for creating a Manager

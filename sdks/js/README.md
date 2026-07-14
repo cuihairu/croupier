@@ -292,6 +292,9 @@ pnpm test
 
 # 运行示例
 pnpm ts-node examples/main.ts
+
+# 运行完整游戏后台 Demo (19个函数)
+pnpm ts-node examples/game_demo.ts
 ```
 
 ### 路线图

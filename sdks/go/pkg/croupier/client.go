@@ -4,9 +4,11 @@ package croupier
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Client represents a Croupier client for function registration and execution
@@ -67,6 +69,9 @@ type client struct {
 	running   atomic.Bool
 	stopCh    chan struct{}
 
+	// Reconnection
+	disconnectCh chan struct{}
+
 	// Logging
 	logger Logger
 }
@@ -75,6 +80,13 @@ type client struct {
 func NewClient(config *ClientConfig) Client {
 	if config == nil {
 		config = DefaultClientConfig()
+	}
+
+	// Default reconnection config so direct ClientConfig construction still
+	// benefits from automatic reconnection (DefaultClientConfig sets this,
+	// but callers that build ClientConfig literals skip it).
+	if config.Reconnect == nil {
+		config.Reconnect = DefaultReconnectConfig()
 	}
 
 	// Set up logger based on config
@@ -86,11 +98,12 @@ func NewClient(config *ClientConfig) Client {
 	}
 
 	return &client{
-		config:      config,
-		handlers:    make(map[string]FunctionHandler),
-		descriptors: make(map[string]FunctionDescriptor),
-		stopCh:      make(chan struct{}),
-		logger:      l,
+		config:       config,
+		handlers:     make(map[string]FunctionHandler),
+		descriptors:  make(map[string]FunctionDescriptor),
+		stopCh:       make(chan struct{}),
+		disconnectCh: make(chan struct{}, 1),
+		logger:       l,
 	}
 }
 
@@ -170,6 +183,15 @@ func (c *client) Connect(ctx context.Context) error {
 	c.sessionID = sessionID
 	c.connected.Store(true)
 
+	// Set up disconnect notification for automatic reconnection
+	c.manager.SetOnDisconnect(func() {
+		c.connected.Store(false)
+		select {
+		case c.disconnectCh <- struct{}{}:
+		default:
+		}
+	})
+
 	c.logger.Infof("Successfully connected and registered with Agent")
 	c.logger.Infof("Session ID: %s", c.sessionID)
 
@@ -190,17 +212,138 @@ func (c *client) Serve(ctx context.Context) error {
 	c.logger.Infof("Use Stop() to stop the service")
 	c.logger.Infof("===============================================")
 
-	// Wait for stop signal or context cancellation
-	select {
-	case <-c.stopCh:
-		c.logger.Infof("Service stopped by Stop() call")
-	case <-ctx.Done():
-		c.logger.Infof("Service stopped by context cancellation")
+	for {
+		select {
+		case <-c.stopCh:
+			c.logger.Infof("Service stopped by Stop() call")
+			c.running.Store(false)
+			return nil
+		case <-ctx.Done():
+			c.logger.Infof("Service stopped by context cancellation")
+			c.running.Store(false)
+			return nil
+		case <-c.disconnectCh:
+			if !c.running.Load() {
+				return nil
+			}
+			c.logger.Warnf("Connection lost, attempting reconnection...")
+			if err := c.reconnectWithBackoff(ctx); err != nil {
+				c.logger.Errorf("Reconnection failed: %v", err)
+				c.running.Store(false)
+				return fmt.Errorf("reconnection failed: %w", err)
+			}
+			c.logger.Infof("Reconnection successful, resuming service")
+		}
+	}
+}
+
+// reconnectWithBackoff attempts to reconnect using exponential backoff.
+func (c *client) reconnectWithBackoff(ctx context.Context) error {
+	rc := c.config.Reconnect
+	if rc == nil || !rc.Enabled {
+		return fmt.Errorf("reconnection is disabled")
 	}
 
-	c.running.Store(false)
-	c.logger.Infof("Service has stopped")
-	return nil
+	delay := time.Duration(rc.InitialDelayMs) * time.Millisecond
+	maxDelay := time.Duration(rc.MaxDelayMs) * time.Millisecond
+	attempt := 0
+
+	for {
+		attempt++
+		if rc.MaxAttempts > 0 && attempt > rc.MaxAttempts {
+			return fmt.Errorf("max reconnection attempts (%d) exceeded", rc.MaxAttempts)
+		}
+
+		select {
+		case <-c.stopCh:
+			return fmt.Errorf("stopped during reconnection")
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+
+		c.logger.Infof("Reconnection attempt %d...", attempt)
+
+		// Disconnect old manager cleanly
+		c.manager.Disconnect()
+
+		// Create new manager and connect
+		managerConfig := ManagerConfig{
+			AgentAddr:          c.config.AgentAddr,
+			ControlAddr:        c.config.ControlAddr,
+			TimeoutSeconds:     c.config.TimeoutSeconds,
+			Insecure:           c.config.Insecure,
+			CAFile:             c.config.CAFile,
+			CertFile:           c.config.CertFile,
+			KeyFile:            c.config.KeyFile,
+			ServerName:         c.config.ServerName,
+			ProviderLang:       c.config.ProviderLang,
+			ProviderSDK:        c.config.ProviderSDK,
+			InsecureSkipVerify: c.config.InsecureSkipVerify,
+		}
+
+		var err error
+		c.manager, err = NewManager(managerConfig, c.handlers)
+		if err != nil {
+			c.logger.Warnf("Reconnect create manager failed: %v", err)
+			delay = c.nextBackoffDelay(delay, maxDelay, rc)
+			continue
+		}
+
+		connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
+		err = c.manager.Connect(connectCtx)
+		connectCancel()
+		if err != nil {
+			c.logger.Warnf("Reconnect dial failed: %v", err)
+			delay = c.nextBackoffDelay(delay, maxDelay, rc)
+			continue
+		}
+
+		// Re-register functions
+		localFunctions := c.convertToLocalFunctions()
+		registerCtx, registerCancel := context.WithTimeout(ctx, 30*time.Second)
+		sessionID, err := c.manager.RegisterWithAgent(registerCtx, c.config.ServiceID, c.config.ServiceVersion, localFunctions)
+		registerCancel()
+		if err != nil {
+			c.logger.Warnf("Reconnect register failed: %v", err)
+			c.manager.Disconnect()
+			delay = c.nextBackoffDelay(delay, maxDelay, rc)
+			continue
+		}
+
+		c.sessionID = sessionID
+		c.connected.Store(true)
+
+		// Re-set disconnect callback
+		c.manager.SetOnDisconnect(func() {
+			c.connected.Store(false)
+			select {
+			case c.disconnectCh <- struct{}{}:
+			default:
+			}
+		})
+
+		return nil
+	}
+}
+
+// nextBackoffDelay calculates the next delay with exponential backoff and jitter.
+func (c *client) nextBackoffDelay(current, max time.Duration, rc *ReconnectConfig) time.Duration {
+	next := time.Duration(float64(current) * rc.BackoffMultiplier)
+	if next > max {
+		next = max
+	}
+	if rc.JitterFactor > 0 {
+		jitter := time.Duration(float64(next) * rc.JitterFactor)
+		// Simple jitter: add random [0, 2*jitter) - jitter
+		if span := int64(2 * jitter); span > 0 {
+			next = next + time.Duration(rand.Int63n(span)) - jitter
+		}
+	}
+	if next < time.Millisecond {
+		next = time.Millisecond
+	}
+	return next
 }
 
 // Stop implements Client.Stop

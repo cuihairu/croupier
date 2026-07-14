@@ -1,0 +1,3 @@
+game-demo/target/
+game-demo/lib/*.jar
+!game-demo/lib/.gitkeep

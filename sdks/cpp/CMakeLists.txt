@@ -607,6 +607,14 @@ if(BUILD_EXAMPLES)
     )
     add_dependencies(croupier-plugin-demo ${_CROUPIER_SDK_TARGET})
 
+    # Game Demo (19 functions, matching Go SDK demo)
+    add_executable(croupier-game-demo examples/game_demo.cpp)
+    target_link_libraries(croupier-game-demo
+        PRIVATE
+            ${_CROUPIER_SDK_TARGET}
+    )
+    add_dependencies(croupier-game-demo ${_CROUPIER_SDK_TARGET})
+
     # Comprehensive Demo - Shows ALL SDK interfaces
     add_executable(croupier-comprehensive-demo examples/comprehensive_demo.cpp)
     target_link_libraries(croupier-comprehensive-demo

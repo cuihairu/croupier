@@ -173,7 +173,9 @@ func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
 		return nil
 	}
 
-	// Convert to database model
+	// Convert to database model — initialise JSON columns to valid empty
+	// JSON so nil maps/slices don't produce empty strings that PostgreSQL's
+	// json type rejects.
 	dbSess := struct {
 		AgentID   string
 		GameID    string
@@ -181,20 +183,23 @@ func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
 		Version   string
 		Region    string
 		Zone      string
-		Labels    string
-		Functions string
-		Providers string
+		Labels    string `gorm:"type:json"`
+		Functions string `gorm:"type:json"`
+		Providers string `gorm:"type:json"`
 		ExpireAt  time.Time
 		LastSeen  time.Time
 	}{
-		AgentID:  a.AgentID,
-		GameID:   a.GameID,
-		Env:      a.Env,
-		Version:  a.Version,
-		Region:   a.Region,
-		Zone:     a.Zone,
-		ExpireAt: a.ExpireAt,
-		LastSeen: a.LastSeen,
+		AgentID:   a.AgentID,
+		GameID:    a.GameID,
+		Env:       a.Env,
+		Version:   a.Version,
+		Region:    a.Region,
+		Zone:      a.Zone,
+		ExpireAt:  a.ExpireAt,
+		LastSeen:  a.LastSeen,
+		Labels:    "{}",
+		Functions: "{}",
+		Providers: "[]",
 	}
 
 	// Marshal Labels to JSON

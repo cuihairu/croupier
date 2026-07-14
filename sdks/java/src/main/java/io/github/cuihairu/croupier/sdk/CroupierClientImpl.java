@@ -48,6 +48,7 @@ public class CroupierClientImpl implements CroupierClient {
 
     private final AtomicBoolean connected = new AtomicBoolean(false);
     private final AtomicBoolean serving = new AtomicBoolean(false);
+    private final AtomicBoolean reconnecting = new AtomicBoolean(false);
 
     private volatile TransportClient transport;
     private String sessionId = "";
@@ -333,17 +334,27 @@ public class CroupierClientImpl implements CroupierClient {
         stopHeartbeat = false;
         heartbeatThread = new Thread(() -> {
             long intervalMillis = Math.max(config.getHeartbeatInterval(), 1) * 1000L;
+            int consecutiveFailures = 0;
+            final int maxFailures = 2;
             while (!stopHeartbeat) {
                 try {
                     Thread.sleep(intervalMillis);
                     if (!stopHeartbeat && connected.get() && transport != null && !sessionId.isEmpty()) {
                         sendHeartbeat();
+                        consecutiveFailures = 0;
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 } catch (Exception e) {
-                    logger.warn("Heartbeat failed: {}", e.getMessage());
+                    consecutiveFailures++;
+                    logger.warn("Heartbeat failed ({}/{}): {}", consecutiveFailures, maxFailures, e.getMessage());
+                    if (consecutiveFailures >= maxFailures && serving.get()) {
+                        logger.error("Heartbeat failed {} times, triggering reconnect", maxFailures);
+                        connected.set(false);
+                        recoverConnection();
+                        consecutiveFailures = 0;
+                    }
                 }
             }
         }, "croupier-java-client-heartbeat");
@@ -373,6 +384,109 @@ public class CroupierClientImpl implements CroupierClient {
                 sessionId
             ))
         );
+    }
+
+    /**
+     * Attempts to reconnect to the agent with exponential backoff.
+     * Called when heartbeat fails or the connection is lost.
+     * Uses the ReconnectConfig from ClientConfig for backoff parameters.
+     */
+    private void recoverConnection() {
+        // Ensure only one recovery attempt runs at a time
+        if (!reconnecting.compareAndSet(false, true)) {
+            return;
+        }
+
+        Thread recoveryThread = new Thread(() -> {
+            try {
+                stopHeartbeatLoop();
+                closeTransport();
+                sessionId = "";
+
+                ReconnectConfig rc = config.getReconnect();
+                if (rc == null || !rc.isEnabled()) {
+                    logger.warn("Reconnection is disabled; service will remain disconnected");
+                    return;
+                }
+
+                long delayMs = rc.getInitialDelayMs();
+                long maxDelayMs = rc.getMaxDelayMs();
+                int attempt = 0;
+
+                while (serving.get() && !Thread.currentThread().isInterrupted()) {
+                    attempt++;
+                    if (rc.getMaxAttempts() > 0 && attempt > rc.getMaxAttempts()) {
+                        logger.error("Max reconnection attempts ({}) exceeded", rc.getMaxAttempts());
+                        return;
+                    }
+
+                    logger.info("Reconnection attempt {}...", attempt);
+                    try {
+                        reconnectOnce();
+                        connected.set(true);
+                        startHeartbeatLoop();
+                        logger.info("Reconnected successfully after {} attempts", attempt);
+                        return;
+                    } catch (Exception e) {
+                        logger.warn("Reconnection attempt {} failed: {}", attempt, e.getMessage());
+                    }
+
+                    // Backoff with jitter
+                    long jitter = (long) (delayMs * rc.getJitterFactor());
+                    long actualDelay = delayMs + (long) (Math.random() * (2 * jitter + 1)) - jitter;
+                    try {
+                        Thread.sleep(Math.max(actualDelay, 1));
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+
+                    delayMs = (long) (delayMs * rc.getBackoffMultiplier());
+                    if (delayMs > maxDelayMs) {
+                        delayMs = maxDelayMs;
+                    }
+                }
+            } finally {
+                reconnecting.set(false);
+            }
+        }, "croupier-java-client-reconnect");
+        recoveryThread.setDaemon(true);
+        recoveryThread.start();
+    }
+
+    /**
+     * Performs a single reconnection attempt: dial + provider connect.
+     * Throws on any failure so the caller can backoff and retry.
+     */
+    private void reconnectOnce() throws Exception {
+        if (handlers.isEmpty()) {
+            throw new CroupierException("No functions registered");
+        }
+
+        TransportClient nextTransport = transportFactory.apply(
+            config.getAgentAddr(),
+            config.getTimeoutSeconds() * 1000
+        );
+        try {
+            nextTransport.connect();
+            SdkWireMessages.ProviderConnectResponse response = providerConnect(nextTransport);
+            if (response.sessionId.isEmpty()) {
+                nextTransport.close();
+                throw new CroupierException("ProviderConnect returned empty session_id");
+            }
+
+            TransportClient old = transport;
+            transport = nextTransport;
+            sessionId = response.sessionId;
+            if (old != null) {
+                old.close();
+            }
+
+            logger.info("Reconnected and re-registered service {}", config.getServiceId());
+        } catch (Exception e) {
+            nextTransport.close();
+            throw e;
+        }
     }
 
     private byte[] handleLocalRequest(int msgType, int requestId, byte[] body) throws Exception {
