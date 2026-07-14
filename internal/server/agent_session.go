@@ -106,10 +106,13 @@ func (store *AgentSessionStore) Upsert(sess *AgentSession) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
-	// Close existing connection if replacing
+	// Close existing connection if replacing with a DIFFERENT connection.
+	// If the connection is the same (re-register on same TCP session),
+	// do NOT close it — that would kill the current request's transport.
 	if existing, exists := store.sessions[sess.AgentID]; exists && existing.conn != nil {
-		// Best-effort close; the old connection is stale
-		_ = existing.conn.Close()
+		if existing.conn != sess.conn {
+			_ = existing.conn.Close()
+		}
 	}
 
 	sess.UpdateLastSeen()
