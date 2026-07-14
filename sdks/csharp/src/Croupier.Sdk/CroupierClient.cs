@@ -198,17 +198,17 @@ public partial class CroupierClient : IDisposable
         if (!descriptor.IsValid())
             throw new ArgumentException("Invalid function descriptor", nameof(descriptor));
 
-        var fullName = descriptor.GetFullName();
+        var functionId = descriptor.Id;
 
-        if (!_handlers.TryAdd(fullName, handler))
+        if (!_handlers.TryAdd(functionId, handler))
         {
-            _logger.LogWarning("CroupierClient", $"Function {fullName} already registered, replacing");
-            _handlers[fullName] = handler;
+            _logger.LogWarning("CroupierClient", $"Function {functionId} already registered, replacing");
+            _handlers[functionId] = handler;
         }
 
-        _descriptors[fullName] = descriptor;
+        _descriptors[functionId] = descriptor;
 
-        _logger.LogInfo("CroupierClient", $"Registered function: {fullName} (version: {descriptor.Version})");
+        _logger.LogInfo("CroupierClient", $"Registered function: {functionId} (version: {descriptor.Version})");
     }
 
     /// <summary>
@@ -638,7 +638,7 @@ public partial class CroupierClient : IDisposable
             },
             functions = _descriptors.Values.Select(descriptor => new
             {
-                id = descriptor.GetFullName(),
+                id = descriptor.Id,
                 version = descriptor.Version,
                 category = descriptor.Category,
                 description = descriptor.Description,

@@ -6,6 +6,7 @@ RUN pip install --no-cache-dir /src/sdks/python \
     && cp -r /src/sdks/python/generated /usr/local/lib/python3.12/site-packages/generated
 
 FROM python:3.12-slim
+ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=build /usr/local/bin /usr/local/bin
