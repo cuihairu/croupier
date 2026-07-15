@@ -134,7 +134,7 @@ src/pages/WorkspaceEditor/components/
 - [重构总结](../docs/archive/releases/v0.1.6/web/docs/TABEDITOR_REFACTOR_SUMMARY.md)
 - [完成报告](../docs/archive/releases/v0.1.6/web/docs/PHASE1_FINAL_REPORT.md)
 - [测试指南](../docs/archive/releases/v0.1.6/web/docs/TABEDITOR_TEST_GUIDE.md)
-- [V2 TODO](./TODO_V2_UI_ENTERPRISE.md)
+- [V2 TODO](../docs/archive/TODO_V2_UI_ENTERPRISE.md)
 
 ---
 
