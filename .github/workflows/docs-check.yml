@@ -11,6 +11,7 @@ on:
     paths:
       - 'docs/**'
       - 'README.md'
+      - 'sdks/**/README.md'
       - 'scripts/check-docs-links.sh'
       - 'scripts/check-docs-terms.sh'
       - 'scripts/docs-terms-baseline.txt'
@@ -20,6 +21,7 @@ on:
     paths:
       - 'docs/**'
       - 'README.md'
+      - 'sdks/**/README.md'
       - 'scripts/check-docs-links.sh'
       - 'scripts/check-docs-terms.sh'
       - 'scripts/docs-terms-baseline.txt'

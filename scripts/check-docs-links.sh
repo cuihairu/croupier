@@ -26,9 +26,8 @@ set -u
 cd "$(dirname "$0")/.." || exit 2
 
 DOCS_DIR="docs"
-# Files to scan: docs markdown (no archive/node_modules/dist) + root README.
-# sdks/<lang>/README.md are SDK source-of-truth entries, governed separately
-# (see documentation-governance.md §信息架构), so they are out of scope here.
+# Files to scan: docs markdown (no archive/node_modules/dist), root README,
+# and SDK READMEs.
 mapfile -t FILES < <(
   {
     find "$DOCS_DIR" -name "*.md" \
@@ -36,6 +35,7 @@ mapfile -t FILES < <(
       -not -path "*/.vitepress/dist/*" \
       -not -path "*/archive/*" 2>/dev/null
     [ -f README.md ] && echo "README.md"
+    find sdks -name "README.md" -not -path "*/node_modules/*" 2>/dev/null
   }
 )
 

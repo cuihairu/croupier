@@ -67,11 +67,11 @@ Croupier C++ SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 | 语言 | 目录 | CI | Docs |
 | --- | --- | --- | --- |
-| Go | [sdks/go/](https://github.com/cuihairu/croupier/tree/main/sdks/go) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml) | [README](sdks/go/README.md) |
-| Java | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml) | [README](sdks/java/README.md) |
-| JS/TS | [sdks/js/](https://github.com/cuihairu/croupier/tree/main/sdks/js) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml) | [README](sdks/js/README.md) |
-| Python | [sdks/python/](https://github.com/cuihairu/croupier/tree/main/sdks/python) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [README](sdks/python/README.md) |
-| C# | [sdks/csharp/](https://github.com/cuihairu/croupier/tree/main/sdks/csharp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [README](sdks/csharp/README.md) |
+| Go | [sdks/go/](https://github.com/cuihairu/croupier/tree/main/sdks/go) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml) | [README](../go/README.md) |
+| Java | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml) | [README](../java/README.md) |
+| JS/TS | [sdks/js/](https://github.com/cuihairu/croupier/tree/main/sdks/js) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml) | [README](../js/README.md) |
+| Python | [sdks/python/](https://github.com/cuihairu/croupier/tree/main/sdks/python) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [README](../python/README.md) |
+| C# | [sdks/csharp/](https://github.com/cuihairu/croupier/tree/main/sdks/csharp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [README](../csharp/README.md) |
 
 ## 支持平台
 
@@ -130,7 +130,7 @@ Croupier C++ SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 > **⚠️ 重要提示**：Protobuf 版本已固定为 **4.25.x** 系列，确保生成的消息代码与运行时 ABI 一致。请勿擅自升级到 5.x 版本，否则可能导致 ABI 不兼容问题。
 >
-> 📖 **详细版本管理策略**：查看 [`proto/README.md`](proto/README.md) 了解完整的版本固定策略和升级流程。版本在三个层面保持一致：
+> 📖 **详细版本管理策略**：查看 [`proto/README.md`](../../proto/README.md) 了解完整的版本固定策略和升级流程。版本在三个层面保持一致：
 > - `vcpkg.json` - C++ 编译库版本
 > - `proto/buf.yaml` - Buf 依赖管理版本
 > - `buf.gen.yaml` - 代码生成插件版本
@@ -275,10 +275,10 @@ SDK 包含多个完整的示例程序，展示各种使用场景：
 
 详细的集成指南和 API 文档请参考：
 
-- 📖 [集成指南](docs/guides/integration.md) - 快速开始、配置说明、生产部署
-- 📚 [API 参考](docs/api/) - 完整的类和接口文档
-- 🚀 [生产部署指南](docs/guides/integration.md#生产部署) - Docker/Kubernetes 配置
-- 🔧 [故障排查](docs/guides/integration.md#故障排查) - 常见问题解决方案
+- 📖 [集成指南](../../docs/sdks/cpp/integration.md) - 快速开始、配置说明、生产部署
+- 📚 [API 参考](../../docs/api/) - 完整的类和接口文档
+- 🚀 [生产部署指南](../../docs/sdks/cpp/integration.md#生产部署) - Docker/Kubernetes 配置
+- 🔧 [故障排查](../../docs/sdks/cpp/integration.md#故障排查) - 常见问题解决方案
 
 ## 架构设计
 

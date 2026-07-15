@@ -339,7 +339,7 @@ end)
 
 - [Skynet 官方文档](https://github.com/cloudwu/skynet/wiki)
 - [Croupier SDK C++ 文档](../../README.md)
-- [Lua 绑定 API 参考](../../lua/README.md)
+- Lua 绑定 API 参考：参见本目录下 `main.lua` / `simple_example.lua` 示例
 
 ## 贡献
 
