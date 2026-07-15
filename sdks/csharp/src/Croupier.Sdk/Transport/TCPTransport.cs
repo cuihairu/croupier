@@ -338,12 +338,23 @@ public sealed class TCPTransport : IClientTransport
             {
                 break;
             }
+            catch (EndOfStreamException)
+            {
+                // Connection closed by remote side — not an error, just log and break.
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning("TCPTransport", "Connection closed by remote");
+                }
+                _connected = false;
+                break;
+            }
             catch (Exception ex)
             {
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogError("TCPTransport", $"Read loop error: {ex.Message}");
                 }
+                _connected = false;
                 break;
             }
         }
@@ -358,6 +369,8 @@ public sealed class TCPTransport : IClientTransport
 
     /// <summary>
     /// Read exactly n bytes from the stream.
+    /// Uses a short per-read timeout (1s) so the caller can detect connection
+    /// drops promptly instead of blocking indefinitely on ReadAsync.
     /// </summary>
     private async Task<byte[]> ReadExactAsync(int n, CancellationToken cancellationToken)
     {
@@ -366,7 +379,23 @@ public sealed class TCPTransport : IClientTransport
 
         while (offset < n)
         {
-            var read = await _stream!.ReadAsync(data.AsMemory(offset, n - offset), cancellationToken).ConfigureAwait(false);
+            // Use a short per-read timeout so we can detect connection drops.
+            // CancellationTokenSource.CreateLinkedTokenSource is lightweight.
+            using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            readCts.CancelAfter(TimeSpan.FromSeconds(1));
+
+            int read;
+            try
+            {
+                read = await _stream!.ReadAsync(data.AsMemory(offset, n - offset), readCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Short read timeout — connection is still alive, just no data yet.
+                // Continue the outer loop to retry.
+                continue;
+            }
+
             if (read == 0)
             {
                 throw new EndOfStreamException("Connection closed");

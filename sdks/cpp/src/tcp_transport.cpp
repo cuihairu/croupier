@@ -257,15 +257,17 @@ void TCPTransport::Connect() {
     // Use connect with timeout
     ConnectWithTimeout(connect_timeout_ms_);
 
-    // Set receive timeout on the connected socket to prevent blocking in ReadLoop
+    // Set receive timeout on the connected socket to prevent blocking in ReadLoop.
+    // Use a short timeout (1s) so the read loop can check the closing_ flag frequently.
+    // This prevents heartbeat timeouts from killing the connection.
 #ifdef _WIN32
-    DWORD recv_timeout = timeout_ms_;
+    DWORD recv_timeout = 1000; // 1 second
     setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO,
                reinterpret_cast<const char*>(&recv_timeout), sizeof(recv_timeout));
 #else
     struct timeval tv;
-    tv.tv_sec = timeout_ms_ / 1000;
-    tv.tv_usec = (timeout_ms_ % 1000) * 1000;
+    tv.tv_sec = 1;  // 1 second
+    tv.tv_usec = 0;
     setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
 
@@ -442,6 +444,10 @@ void TCPTransport::ReadLoop() {
     while (!closing_ && socket_ != INVALID_SOCKET_VALUE) {
         // Read frame header
         int n = ReadFully(header_buf, FRAME_HEADER_BYTES);
+        if (n == -2) {
+            // Timeout (EAGAIN/EWOULDBLOCK) — check closing flag and retry
+            continue;
+        }
         if (n < static_cast<int>(FRAME_HEADER_BYTES)) {
             break;
         }
@@ -459,6 +465,10 @@ void TCPTransport::ReadLoop() {
         // Read frame payload
         std::vector<uint8_t> payload(frame_size);
         n = ReadFully(payload.data(), frame_size);
+        if (n == -2) {
+            // Timeout reading payload — connection is likely broken
+            break;
+        }
         if (n < static_cast<int>(frame_size)) {
             break;
         }
@@ -517,7 +527,22 @@ int TCPTransport::ReadFully(void* buf, size_t count) {
 
     while (offset < count) {
         ssize_t n = recv(socket_, buffer + offset, count - offset, 0);
-        if (n <= 0) {
+        if (n < 0) {
+            // Check for timeout (EAGAIN/EWOULDBLOCK)
+#ifdef _WIN32
+            int err = WSAGetLastError();
+            if (err == WSAEWOULDBLOCK || err == WSAETIMEDOUT) {
+                return (offset == 0) ? -2 : static_cast<int>(offset);
+            }
+#else
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return (offset == 0) ? -2 : static_cast<int>(offset);
+            }
+#endif
+            return static_cast<int>(offset);
+        }
+        if (n == 0) {
+            // Connection closed
             return static_cast<int>(offset);
         }
         offset += n;

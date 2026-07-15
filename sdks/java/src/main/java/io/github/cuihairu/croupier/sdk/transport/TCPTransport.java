@@ -17,6 +17,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Map;
@@ -171,14 +172,34 @@ public class TCPTransport implements TransportClient {
 
     /**
      * Read loop for incoming frames.
+     *
+     * <p>Uses a short socket timeout (1s) so the loop can check the closing flag
+     * periodically. SocketTimeoutException is caught and the loop continues;
+     * other IOExceptions break the loop.</p>
      */
     private void readLoop() {
         byte[] headerBuf = new byte[FRAME_HEADER_BYTES];
+        final int readLoopTimeoutMs = 1000; // 1 second — keeps the loop responsive to close()
+
+        // Temporarily set a short read timeout for the read loop so that
+        // recv() does not block for the full request timeout (30s).
+        int originalTimeout = timeoutMs;
+        try {
+            socket.setSoTimeout(readLoopTimeoutMs);
+        } catch (Exception e) {
+            LOG.debug("Failed to set read-loop timeout", e);
+        }
 
         try {
             while (!closing && socket != null && !socket.isClosed()) {
                 // Read frame header
-                int n = readFully(inputStream, headerBuf);
+                int n;
+                try {
+                    n = readFully(inputStream, headerBuf);
+                } catch (SocketTimeoutException e) {
+                    // No data within 1s — check closing flag and retry
+                    continue;
+                }
                 if (n < FRAME_HEADER_BYTES) {
                     break;
                 }
@@ -192,7 +213,13 @@ public class TCPTransport implements TransportClient {
 
                 // Read frame payload
                 byte[] payload = new byte[frameSize];
-                n = readFully(inputStream, payload);
+                try {
+                    n = readFully(inputStream, payload);
+                } catch (SocketTimeoutException e) {
+                    // Payload read timed out — connection is likely broken
+                    LOG.warn("Timeout reading frame payload");
+                    break;
+                }
                 if (n < frameSize) {
                     break;
                 }
@@ -226,6 +253,14 @@ public class TCPTransport implements TransportClient {
                 LOG.error("Read loop error", e);
             }
         } finally {
+            // Restore original socket timeout
+            try {
+                if (socket != null && !socket.isClosed()) {
+                    socket.setSoTimeout(originalTimeout);
+                }
+            } catch (Exception e) {
+                LOG.debug("Failed to restore socket timeout", e);
+            }
             if (!closing) {
                 close();
             }
