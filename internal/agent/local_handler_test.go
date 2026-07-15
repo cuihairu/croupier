@@ -1010,9 +1010,9 @@ func TestLocalHandler_PickInstance_WithInstances(t *testing.T) {
 	}
 
 	// Register an instance
-	store.Register("provider-1", "localhost:8080", "1.0.0", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("provider-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "game.player.get", Version: "1.0.0"},
-	})
+	}, nil)
 
 	addr, err := handler.pickInstance("game.player.get", nil)
 	assert.NoError(t, err)
@@ -1428,9 +1428,9 @@ func TestLocalHandler_HandleProviderHeartbeat_WithRegisteredProvider(t *testing.
 	handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
 
 	// Register a provider first
-	store.Register("session-1", "localhost:8080", "1.0.0", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("session-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "func-1", Version: "1.0.0"},
-	})
+	}, nil)
 
 	req := &sdkv1.ProviderHeartbeatRequest{
 		SessionId: "session-1",
@@ -1470,9 +1470,9 @@ func TestLocalHandler_PickInstance_WithMetadata(t *testing.T) {
 	}
 
 	// Register an instance
-	store.Register("provider-1", "localhost:8080", "1.0.0", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("provider-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "game.player.get", Version: "1.0.0"},
-	})
+	}, nil)
 
 	metadata := map[string]string{"key": "value"}
 	addr, err := handler.pickInstance("game.player.get", metadata)

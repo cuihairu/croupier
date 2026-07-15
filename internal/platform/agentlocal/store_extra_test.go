@@ -16,9 +16,9 @@ func TestLocalStore_OnUpdate(t *testing.T) {
 		called <- struct{}{}
 	})
 
-	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
-	})
+	}, nil)
 
 	select {
 	case <-called:
@@ -32,9 +32,9 @@ func TestLocalStore_Heartbeat(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
-	})
+	}, nil)
 
 	// Record initial last seen
 	list1 := store.List()
@@ -53,9 +53,9 @@ func TestLocalStore_Heartbeat_UnknownProvider(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
-	})
+	}, nil)
 
 	// Should not panic for unknown provider
 	store.Heartbeat("unknown-svc")
@@ -175,11 +175,11 @@ func TestLocalStore_Register_NilFunction(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
 		nil,
 		{Id: "", Version: "1.0.0"},
 		{Id: "f1", Version: "1.0.0"},
-	})
+	}, nil)
 
 	list := store.List()
 	if _, ok := list["f1"]; !ok {
@@ -191,14 +191,14 @@ func TestLocalStore_Register_ReplaceProvider(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
-	})
+	}, nil)
 
-	store.Register("svc-1", "127.0.0.1:19090", "v2", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v2", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f1", Version: "2.0.0"},
 		{Id: "f2", Version: "1.0.0"},
-	})
+	}, nil)
 
 	list := store.List()
 	if len(list["f1"]) != 1 {
@@ -213,17 +213,17 @@ func TestLocalStore_Register_EmptyDoesNotClear(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 		{Id: "f2", Version: "1.0.0"},
-	})
+	}, nil)
 
 	// Registering an empty/nil function list must NOT clear existing
 	// registrations — regression guard for the demo-site bug where
 	// handleProviderHeartbeat used Register(nil) to "update LastSeen" and
 	// wiped every function.
-	store.Register("svc-1", "127.0.0.1:19090", "v1", nil)
-	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{})
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", nil, nil)
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{}, nil)
 
 	list := store.List()
 	if len(list) != 2 {
@@ -241,13 +241,13 @@ func TestLocalStore_RemoveProvider(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 		{Id: "f2", Version: "1.0.0"},
-	})
-	store.Register("svc-2", "127.0.0.1:19091", "v1", []*sdkv1.LocalFunctionDescriptor{
+	}, nil)
+	store.Register("svc-2", "service-2", "127.0.0.1:19091", "v1", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f3", Version: "1.0.0"},
-	})
+	}, nil)
 
 	store.RemoveProvider("svc-1")
 
@@ -267,9 +267,9 @@ func TestLocalStore_RemoveProvider_Unknown(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
-	})
+	}, nil)
 
 	// Should not panic for an unknown provider.
 	store.RemoveProvider("unknown-svc")

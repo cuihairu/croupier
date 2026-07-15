@@ -244,7 +244,8 @@ func (h *LocalHandler) invokePlatform(ctx context.Context, functionID string, re
 	return proto.Marshal(resp)
 }
 
-// pickInstance selects a game server instance for the function
+// pickInstance selects a game server instance for the function.
+// Uses double-index routing: function_id -> service_id -> instances (Nacos style)
 func (h *LocalHandler) pickInstance(functionID string, metadata map[string]string) (string, error) {
 	if h.store == nil {
 		return "", fmt.Errorf("instance store not initialized")
@@ -253,22 +254,46 @@ func (h *LocalHandler) pickInstance(functionID string, metadata map[string]strin
 		return "", fmt.Errorf("function ID is required")
 	}
 
-	snap := h.store.List()
-	arr := snap[functionID]
-	if len(arr) == 0 {
+	// 使用双层索引获取实例
+	snap := h.store.ListByService()
+	serviceMap := snap[functionID]
+	if len(serviceMap) == 0 {
 		return "", fmt.Errorf("function '%s' is not registered", functionID)
 	}
 
-	// Check if instances are healthy (not too old)
-	now := time.Now()
-	for _, inst := range arr {
-		if now.Sub(inst.LastSeen) < 30*time.Second {
-			return inst.Addr, nil
+	// 按 service_id 路由（一级过滤）
+	targetService := metadata["service_id"]
+	var arr []agentlocal.Instance
+	if targetService != "" {
+		arr = serviceMap[targetService]
+		if len(arr) == 0 {
+			return "", fmt.Errorf("no instance for service '%s'", targetService)
+		}
+	} else {
+		// 无 service_id，合并所有实例
+		for _, instances := range serviceMap {
+			arr = append(arr, instances...)
 		}
 	}
 
-	// All instances are stale but return the first one
-	h.logger.Warn("function instances are stale, routing to first instance anyway", "function_id", functionID, "addr", arr[0].Addr)
+	// 优先选择健康实例（30秒内有心跳）
+	now := time.Now()
+	var healthy []agentlocal.Instance
+	for _, inst := range arr {
+		if now.Sub(inst.LastSeen) < 30*time.Second {
+			healthy = append(healthy, inst)
+		}
+	}
+
+	if len(healthy) > 0 {
+		// 使用 fnvIndex 做负载均衡（round-robin风格）
+		idx := fnvIndex(functionID, len(healthy))
+		return healthy[idx].Addr, nil
+	}
+
+	// 降级：返回第一个实例
+	h.logger.Warn("function instances are stale, routing to first instance anyway",
+		"function_id", functionID, "service_id", targetService, "addr", arr[0].Addr)
 	return arr[0].Addr, nil
 }
 
@@ -593,7 +618,14 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 				OutputSchema: fn.OutputSchema,
 			}
 		}
-		h.store.Register(sessionID, req.ServiceId, req.Version, funcs)
+		// 提取元数据（参考 Nacos metadata）
+		metadata := map[string]string{
+			"sdk_language":     req.SdkLanguage,
+			"sdk_version":      req.SdkVersion,
+			"protocol_version": req.ProtocolVersion,
+		}
+		// 注册：providerID=sessionID, serviceID=req.ServiceId, addr=req.ServiceId（临时）
+		h.store.Register(sessionID, req.ServiceId, req.ServiceId, req.Version, funcs, metadata)
 	}
 
 	h.logger.Info("Provider connected via TCP session",

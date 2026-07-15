@@ -181,7 +181,8 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 		"env", entry.Env,
 		"functions", len(functionIDs))
 
-	m.store.Register(serviceID, "", "1.0.0", funcs)
+	// 注册：providerID=serviceID, serviceID=serviceID, addr=""（临时）
+	m.store.Register(serviceID, serviceID, "", "1.0.0", funcs, nil)
 
 	m.logger.Info("provider loaded", "name", name, "methods", len(methods))
 	return nil

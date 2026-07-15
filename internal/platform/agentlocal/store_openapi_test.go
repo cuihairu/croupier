@@ -27,7 +27,7 @@ func TestFunctionMetaOpenAPIFields(t *testing.T) {
 	}
 
 	// Register the function
-	store.Register("service-1", "localhost:18780", "1.0.0", funcs)
+	store.Register("service-1", "service-1", "localhost:18780", "1.0.0", funcs, nil)
 
 	// Retrieve metadata
 	meta := store.FunctionMetadata()
@@ -90,7 +90,7 @@ func TestFunctionMetaOpenAPIOperationInvalidSchemaFallback(t *testing.T) {
 			InputSchema: `{"type":"object","properties":{"x":{"type":"string"}`,
 		},
 	}
-	store.Register("service-1", "localhost:18780", "1.0.0", funcs)
+	store.Register("service-1", "service-1", "localhost:18780", "1.0.0", funcs, nil)
 	meta := store.FunctionMetadata()
 	if meta["bad.schema.func"] == nil {
 		t.Fatal("function metadata not found")
@@ -113,7 +113,7 @@ func TestFunctionMetadataImmutability(t *testing.T) {
 		},
 	}
 
-	store.Register("service-1", "localhost:18780", "1.0.0", funcs)
+	store.Register("service-1", "service-1", "localhost:18780", "1.0.0", funcs, nil)
 
 	// Get metadata
 	meta1 := store.FunctionMetadata()
@@ -156,7 +156,7 @@ func TestMultipleFunctionsMetadata(t *testing.T) {
 		},
 	}
 
-	store.Register("service-1", "localhost:18780", "1.0.0", funcs)
+	store.Register("service-1", "service-1", "localhost:18780", "1.0.0", funcs, nil)
 
 	meta := store.FunctionMetadata()
 
@@ -211,7 +211,7 @@ func TestFunctionMetadataUpdate(t *testing.T) {
 		},
 	}
 
-	store.Register("service-1", "localhost:18780", "1.0.0", funcs1)
+	store.Register("service-1", "service-1", "localhost:18780", "1.0.0", funcs1, nil)
 
 	// Update with new version
 	funcs2 := []*sdkv1.LocalFunctionDescriptor{
@@ -223,7 +223,7 @@ func TestFunctionMetadataUpdate(t *testing.T) {
 		},
 	}
 
-	store.Register("service-1", "localhost:18780", "2.0.0", funcs2)
+	store.Register("service-1", "service-1", "localhost:18780", "2.0.0", funcs2, nil)
 
 	// Verify metadata was updated
 	meta := store.FunctionMetadata()

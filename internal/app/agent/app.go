@@ -484,7 +484,8 @@ func (a *App) syncExtensionFunctionsFromRuntime() {
 		providerID := "extension:" + strconv.FormatUint(uint64(item.InstallationID), 10)
 		funcs := discoverExtensionFunctions(item)
 		if len(funcs) > 0 {
-			a.store.Register(providerID, "", item.ReleaseVersion, funcs)
+			// 扩展没有 serviceID，传空字符串
+			a.store.Register(providerID, "", "", item.ReleaseVersion, funcs, nil)
 		} else {
 			a.store.RemoveProvider(providerID)
 		}

@@ -14,6 +14,7 @@ type Instance struct {
 	ProviderID string
 	Addr       string
 	Version    string
+	Metadata   map[string]string // 元数据（sdk_language, sdk_version 等，参考 Nacos）
 	LastSeen   time.Time
 }
 
@@ -54,8 +55,8 @@ type FunctionMeta struct {
 
 type LocalStore struct {
 	mu sync.RWMutex
-	// function_id -> instances
-	data map[string][]Instance
+	// function_id -> service_id -> instances (双层索引，参考 Nacos)
+	data map[string]map[string][]Instance
 	// function_id -> service_id -> function version
 	funcVersions map[string]map[string]string
 	// function_id -> FunctionMeta (stores the latest metadata for each function)
@@ -78,7 +79,7 @@ type TaskResult struct {
 
 func NewLocalStore() *LocalStore {
 	return &LocalStore{
-		data:         map[string][]Instance{},
+		data:         map[string]map[string][]Instance{},
 		funcVersions: map[string]map[string]string{},
 		funcMeta:     map[string]*FunctionMeta{},
 		taskResults:  map[string]*TaskResult{},
@@ -94,7 +95,8 @@ func (s *LocalStore) OnUpdate(fn func()) {
 }
 
 // Register replaces instances for the provided function ids for a provider.
-func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.LocalFunctionDescriptor) {
+// Uses double-index: function_id -> service_id -> instances (Nacos style)
+func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs []*sdkv1.LocalFunctionDescriptor, metadata map[string]string) {
 	// An empty function list is a no-op, NOT a clear. Registering nothing
 	// must never silently wipe a provider's existing functions — that was the
 	// demo-site "nothing works" root cause (heartbeat called Register(nil) to
@@ -102,18 +104,30 @@ func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.L
 	if len(funcs) == 0 {
 		return
 	}
+	if serviceID == "" {
+		serviceID = "__default__" // 默认服务ID，类似 Nacos 的 DEFAULT_GROUP
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	slog.Debug("[agentlocal] Register called", "provider_id", providerID, "function_count", len(funcs))
+	slog.Debug("[agentlocal] Register called", "provider_id", providerID, "service_id", serviceID, "function_count", len(funcs))
 	now := time.Now()
 	s.removeProviderLocked(providerID)
-	inst := Instance{ProviderID: providerID, Addr: addr, Version: version, LastSeen: now}
+	// 复制 metadata 避免外部修改影响内部状态
+	metaCopy := make(map[string]string, len(metadata))
+	for k, v := range metadata {
+		metaCopy[k] = v
+	}
+	inst := Instance{ProviderID: providerID, Addr: addr, Version: version, Metadata: metaCopy, LastSeen: now}
 	for _, fn := range funcs {
 		if fn == nil || fn.GetId() == "" {
 			continue
 		}
 		fid := fn.GetId()
-		s.data[fid] = append(s.data[fid], inst)
+		// 双层索引：function_id -> service_id -> instances
+		if s.data[fid] == nil {
+			s.data[fid] = map[string][]Instance{}
+		}
+		s.data[fid][serviceID] = append(s.data[fid][serviceID], inst)
 		if fn.GetVersion() != "" {
 			if s.funcVersions[fid] == nil {
 				s.funcVersions[fid] = map[string]string{}
@@ -171,17 +185,22 @@ func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.L
 // removeProviderLocked deletes all function instances and version entries
 // for providerID. Caller must hold s.mu.
 func (s *LocalStore) removeProviderLocked(providerID string) {
-	for fid, arr := range s.data {
-		next := arr[:0]
-		for _, it := range arr {
-			if it.ProviderID != providerID {
-				next = append(next, it)
+	for fid, serviceMap := range s.data {
+		for sid, arr := range serviceMap {
+			next := arr[:0]
+			for _, it := range arr {
+				if it.ProviderID != providerID {
+					next = append(next, it)
+				}
+			}
+			if len(next) == 0 {
+				delete(serviceMap, sid)
+			} else {
+				serviceMap[sid] = next
 			}
 		}
-		if len(next) == 0 {
+		if len(serviceMap) == 0 {
 			delete(s.data, fid)
-		} else {
-			s.data[fid] = next
 		}
 	}
 	for fid, svc := range s.funcVersions {
@@ -213,25 +232,49 @@ func (s *LocalStore) Heartbeat(providerID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
-	for fid, arr := range s.data {
-		for i := range arr {
-			if arr[i].ProviderID == providerID {
-				arr[i].LastSeen = now
+	for _, serviceMap := range s.data {
+		for _, arr := range serviceMap {
+			for i := range arr {
+				if arr[i].ProviderID == providerID {
+					arr[i].LastSeen = now
+				}
 			}
 		}
-		s.data[fid] = arr
 	}
 }
 
-// List snapshot of functions and instances.
+// List snapshot of functions and instances (flattened for compatibility).
 func (s *LocalStore) List() map[string][]Instance {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make(map[string][]Instance, len(s.data))
-	for fid, arr := range s.data {
-		cp := make([]Instance, len(arr))
-		copy(cp, arr)
-		out[fid] = cp
+	for fid, serviceMap := range s.data {
+		var all []Instance
+		for _, arr := range serviceMap {
+			cp := make([]Instance, len(arr))
+			copy(cp, arr)
+			all = append(all, cp...)
+		}
+		if len(all) > 0 {
+			out[fid] = all
+		}
+	}
+	return out
+}
+
+// ListByService returns double-index snapshot for routing (Nacos style).
+func (s *LocalStore) ListByService() map[string]map[string][]Instance {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string]map[string][]Instance, len(s.data))
+	for fid, serviceMap := range s.data {
+		sm := make(map[string][]Instance, len(serviceMap))
+		for sid, arr := range serviceMap {
+			cp := make([]Instance, len(arr))
+			copy(cp, arr)
+			sm[sid] = cp
+		}
+		out[fid] = sm
 	}
 	return out
 }
@@ -242,19 +285,24 @@ func (s *LocalStore) Prune(maxAge time.Duration) int {
 	defer s.mu.Unlock()
 	now := time.Now()
 	removed := 0
-	for fid, arr := range s.data {
-		next := arr[:0]
-		for _, it := range arr {
-			if now.Sub(it.LastSeen) <= maxAge {
-				next = append(next, it)
+	for fid, serviceMap := range s.data {
+		for sid, arr := range serviceMap {
+			next := arr[:0]
+			for _, it := range arr {
+				if now.Sub(it.LastSeen) <= maxAge {
+					next = append(next, it)
+				} else {
+					removed++
+				}
+			}
+			if len(next) == 0 {
+				delete(serviceMap, sid)
 			} else {
-				removed++
+				serviceMap[sid] = next
 			}
 		}
-		if len(next) == 0 {
+		if len(serviceMap) == 0 {
 			delete(s.data, fid)
-		} else {
-			s.data[fid] = next
 		}
 	}
 	if removed > 0 && s.onUpdate != nil {
