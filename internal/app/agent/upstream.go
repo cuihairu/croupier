@@ -572,6 +572,13 @@ func buildProviders(localData map[string][]agentlocal.Instance, versionSnapshot 
 					Addr:      strings.TrimSpace(inst.Addr),
 					Version:   strings.TrimSpace(inst.Version),
 				}
+				// 从 Instance.Metadata 填充 SDK 信息（参考 Nacos metadata）
+				if inst.Metadata != nil {
+					p.SdkLanguage = strings.TrimSpace(inst.Metadata["sdk_language"])
+					p.SdkVersion = strings.TrimSpace(inst.Metadata["sdk_version"])
+					p.GameId = strings.TrimSpace(inst.Metadata["game_id"])
+					p.Env = strings.TrimSpace(inst.Metadata["env"])
+				}
 				byServiceID[sid] = p
 				fnSeen[sid] = map[string]struct{}{}
 			}

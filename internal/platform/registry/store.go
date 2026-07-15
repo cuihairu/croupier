@@ -27,6 +27,8 @@ type ProviderSession struct {
 	Env          string
 	Addr         string
 	Version      string
+	SDKLanguage  string // SDK 语言（go, java, python, cpp, csharp, custom）
+	SDKVersion   string // SDK 版本
 	LastSeenUnix int64
 	FunctionIDs  []string
 	OpenAPIDoc   json.RawMessage

@@ -37,6 +37,10 @@ message AgentProcess {
   string version = 3;             // process/service version
   int64 last_seen_unix = 4;       // unix seconds
   repeated string function_ids = 5; // functions exposed by this process
+  string sdk_language = 6;        // SDK language: go/java/python/cpp/csharp/node/custom
+  string sdk_version = 7;         // SDK version
+  string game_id = 8;             // game scope the provider belongs to
+  string env = 9;                 // logical environment (prod/stage/dev)
 }
 
 // Agent Registration Request

@@ -48,16 +48,18 @@ type OpsServerWrapper interface {
 // LocalHandler contains the business logic for handling agent requests
 // without any transport-specific dependencies.
 type LocalHandler struct {
-	store     *agentlocal.LocalStore
-	tasks     *TaskRunner
-	pm        ProviderManager // Use field name `pm` to avoid conflict with existing providerManager in app.go
-	opsServer OpsServerWrapper
-	reporter  TaskEventReporter
-	tlsCfg    *tlsutil.ClientTLSConfig
-	logger    *slog.Logger
-	configDir string
-	agentID   string
-	mu        sync.RWMutex
+	store          *agentlocal.LocalStore
+	tasks          *TaskRunner
+	pm             ProviderManager // Use field name `pm` to avoid conflict with existing providerManager in app.go
+	opsServer      OpsServerWrapper
+	reporter       TaskEventReporter
+	tlsCfg         *tlsutil.ClientTLSConfig
+	logger         *slog.Logger
+	configDir      string
+	agentID        string
+	expectedGameID string // Agent 配置的 gameId，用于校验 SDK 注册
+	expectedEnv    string // Agent 配置的 env，用于校验 SDK 注册
+	mu             sync.RWMutex
 }
 
 // NewLocalHandler creates a new LocalHandler instance
@@ -104,6 +106,16 @@ func (h *LocalHandler) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.tlsCfg = cfg
+}
+
+// SetExpectedGameEnv sets the agent's expected gameId/env, used to validate
+// SDK provider registrations. When set (non-empty), a provider registering with
+// a mismatched game_id/env triggers a warning.
+func (h *LocalHandler) SetExpectedGameEnv(gameID, env string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.expectedGameID = gameID
+	h.expectedEnv = env
 }
 
 // Handle implements transportcore.Handler interface
@@ -598,6 +610,32 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		return nil, fmt.Errorf("service_id is required")
 	}
 
+	// 校验 SDK 的 game_id/env 是否与 Agent 配置一致。
+	// 向后兼容：SDK 未传（空）或 Agent 未配置（空）时不触发警告。
+	h.mu.RLock()
+	expectedGameID := h.expectedGameID
+	expectedEnv := h.expectedEnv
+	h.mu.RUnlock()
+	var warnings []string
+	if expectedGameID != "" && req.GameId != "" && req.GameId != expectedGameID {
+		msg := fmt.Sprintf("game_id mismatch: provider=%q agent=%q", req.GameId, expectedGameID)
+		warnings = append(warnings, msg)
+		h.logger.Warn("provider game_id mismatch",
+			"service_id", req.ServiceId,
+			"provider_game_id", req.GameId,
+			"agent_game_id", expectedGameID,
+		)
+	}
+	if expectedEnv != "" && req.Env != "" && req.Env != expectedEnv {
+		msg := fmt.Sprintf("env mismatch: provider=%q agent=%q", req.Env, expectedEnv)
+		warnings = append(warnings, msg)
+		h.logger.Warn("provider env mismatch",
+			"service_id", req.ServiceId,
+			"provider_env", req.Env,
+			"agent_env", expectedEnv,
+		)
+	}
+
 	sessionID := fmt.Sprintf("ps-%d", time.Now().UnixNano())
 
 	// Use sessionID as providerID for tracking
@@ -623,6 +661,8 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 			"sdk_language":     req.SdkLanguage,
 			"sdk_version":      req.SdkVersion,
 			"protocol_version": req.ProtocolVersion,
+			"game_id":          req.GameId,
+			"env":              req.Env,
 		}
 		// 注册：providerID=sessionID, serviceID=req.ServiceId, addr=req.ServiceId（临时）
 		h.store.Register(sessionID, req.ServiceId, req.ServiceId, req.Version, funcs, metadata)
@@ -634,11 +674,15 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		"session_id", sessionID,
 		"sdk_language", req.SdkLanguage,
 		"sdk_version", req.SdkVersion,
+		"game_id", req.GameId,
+		"env", req.Env,
 		"functions", len(req.Functions),
+		"warnings", len(warnings),
 	)
 
 	resp := &sdkv1.ProviderConnectResponse{
 		SessionId: sessionID,
+		Warnings:  warnings,
 	}
 	return proto.Marshal(resp)
 }

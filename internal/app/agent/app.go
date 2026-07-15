@@ -261,6 +261,10 @@ func (a *App) WithUpstreamMetadata(meta UpstreamMetadata) {
 		return
 	}
 	a.upstream.WithMetadata(meta)
+	// 同步 agent 期望的 game_id/env 给 LocalHandler，用于校验 SDK 注册
+	if a.localHandler != nil {
+		a.localHandler.SetExpectedGameEnv(meta.GameID, meta.Env)
+	}
 }
 
 func (a *App) WithUpstreamTLSConfig(cfg *tlsutil.ClientTLSConfig) {

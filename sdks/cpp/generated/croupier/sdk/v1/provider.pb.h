@@ -2088,6 +2088,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
     kSdkVersionFieldNumber = 5,
     kProtocolVersionFieldNumber = 6,
     kTransportSecurityModeFieldNumber = 8,
+    kGameIdFieldNumber = 10,
+    kEnvFieldNumber = 11,
   };
   // repeated .croupier.sdk.v1.LocalFunctionDescriptor functions = 3 [json_name = "functions"];
   [[nodiscard]] int functions_size()
@@ -2249,12 +2251,42 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
   ::std::string* PROTOBUF_NONNULL _internal_mutable_transport_security_mode();
 
   public:
+  // string game_id = 10 [json_name = "gameId"];
+  void clear_game_id() ;
+  [[nodiscard]] const ::std::string& game_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_game_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_game_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_game_id();
+  void set_allocated_game_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_game_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_game_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_game_id();
+
+  public:
+  // string env = 11 [json_name = "env"];
+  void clear_env() ;
+  [[nodiscard]] const ::std::string& env() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_env(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_env();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_env();
+  void set_allocated_env(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_env() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_env(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_env();
+
+  public:
   // @@protoc_insertion_point(class_scope:croupier.sdk.v1.ProviderConnectRequest)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 9,
-                                   1, 176,
+  static const ::google::protobuf::internal::TcParseTable<4, 11,
+                                   1, 186,
                                    2>
       _table_;
 
@@ -2286,6 +2318,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
     ::google::protobuf::internal::ArenaStringPtr sdk_version_;
     ::google::protobuf::internal::ArenaStringPtr protocol_version_;
     ::google::protobuf::internal::ArenaStringPtr transport_security_mode_;
+    ::google::protobuf::internal::ArenaStringPtr game_id_;
+    ::google::protobuf::internal::ArenaStringPtr env_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -3714,6 +3748,136 @@ inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
 ProviderConnectRequest::_internal_mutable_supported_transports() {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return &_impl_.supported_transports_;
+}
+
+// string game_id = 10 [json_name = "gameId"];
+inline void ProviderConnectRequest::clear_game_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.game_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000200U);
+}
+inline const ::std::string& ProviderConnectRequest::game_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderConnectRequest.game_id)
+  return _internal_game_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProviderConnectRequest::set_game_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  _impl_.game_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderConnectRequest.game_id)
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::mutable_game_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  ::std::string* _s = _internal_mutable_game_id();
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderConnectRequest.game_id)
+  return _s;
+}
+inline const ::std::string& ProviderConnectRequest::_internal_game_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.game_id_.Get();
+}
+inline void ProviderConnectRequest::_internal_set_game_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.game_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::_internal_mutable_game_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.game_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_game_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderConnectRequest.game_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000200U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  auto* released = _impl_.game_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.game_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProviderConnectRequest::set_allocated_game_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  }
+  _impl_.game_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.game_id_.IsDefault()) {
+    _impl_.game_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderConnectRequest.game_id)
+}
+
+// string env = 11 [json_name = "env"];
+inline void ProviderConnectRequest::clear_env() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.env_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000400U);
+}
+inline const ::std::string& ProviderConnectRequest::env() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderConnectRequest.env)
+  return _internal_env();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProviderConnectRequest::set_env(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  _impl_.env_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderConnectRequest.env)
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::mutable_env()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  ::std::string* _s = _internal_mutable_env();
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderConnectRequest.env)
+  return _s;
+}
+inline const ::std::string& ProviderConnectRequest::_internal_env() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.env_.Get();
+}
+inline void ProviderConnectRequest::_internal_set_env(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.env_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::_internal_mutable_env() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.env_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_env() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderConnectRequest.env)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000400U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+  auto* released = _impl_.env_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.env_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProviderConnectRequest::set_allocated_env(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+  }
+  _impl_.env_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.env_.IsDefault()) {
+    _impl_.env_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderConnectRequest.env)
 }
 
 // -------------------------------------------------------------------

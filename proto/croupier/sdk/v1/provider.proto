@@ -41,6 +41,8 @@ message ProviderConnectRequest {
   repeated string supported_capabilities = 7;
   string transport_security_mode = 8;        // "plaintext" | "tls"
   repeated string supported_transports = 9;  // currently fixed to "tcp"
+  string game_id = 10;                       // game scope the provider belongs to (validated against agent)
+  string env = 11;                            // logical environment (prod/stage/dev)
 }
 
 message ProviderConnectResponse {

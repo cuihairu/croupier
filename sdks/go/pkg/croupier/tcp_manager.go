@@ -182,6 +182,8 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 		Functions:   descriptors,
 		SdkLanguage: "go",
 		SdkVersion:  "1.0.0",
+		GameId:      m.config.GameID,
+		Env:         m.config.Env,
 	}
 
 	reqBody, err := proto.Marshal(req)
@@ -330,6 +332,8 @@ func (m *TCPManager) Reconnect(ctx context.Context) error {
 		Functions:   m.functions,
 		SdkLanguage: "go",
 		SdkVersion:  "1.0.0",
+		GameId:      m.config.GameID,
+		Env:         m.config.Env,
 	}
 	reqBody, err := proto.Marshal(req)
 	if err != nil {

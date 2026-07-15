@@ -181,6 +181,10 @@ type AgentProcess struct {
 	Version       string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`                                  // process/service version
 	LastSeenUnix  int64                  `protobuf:"varint,4,opt,name=last_seen_unix,json=lastSeenUnix,proto3" json:"last_seen_unix,omitempty"` // unix seconds
 	FunctionIds   []string               `protobuf:"bytes,5,rep,name=function_ids,json=functionIds,proto3" json:"function_ids,omitempty"`       // functions exposed by this process
+	SdkLanguage   string                 `protobuf:"bytes,6,opt,name=sdk_language,json=sdkLanguage,proto3" json:"sdk_language,omitempty"`       // SDK language: go/java/python/cpp/csharp/node/custom
+	SdkVersion    string                 `protobuf:"bytes,7,opt,name=sdk_version,json=sdkVersion,proto3" json:"sdk_version,omitempty"`          // SDK version
+	GameId        string                 `protobuf:"bytes,8,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                      // game scope the provider belongs to
+	Env           string                 `protobuf:"bytes,9,opt,name=env,proto3" json:"env,omitempty"`                                          // logical environment (prod/stage/dev)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -248,6 +252,34 @@ func (x *AgentProcess) GetFunctionIds() []string {
 		return x.FunctionIds
 	}
 	return nil
+}
+
+func (x *AgentProcess) GetSdkLanguage() string {
+	if x != nil {
+		return x.SdkLanguage
+	}
+	return ""
+}
+
+func (x *AgentProcess) GetSdkVersion() string {
+	if x != nil {
+		return x.SdkVersion
+	}
+	return ""
+}
+
+func (x *AgentProcess) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *AgentProcess) GetEnv() string {
+	if x != nil {
+		return x.Env
+	}
+	return ""
 }
 
 // Agent Registration Request
@@ -697,14 +729,19 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\x04menu\x18\x17 \x01(\v2\x1b.croupier.component.v1.MenuR\x04menu\x12G\n" +
 	"\vpermissions\x18\x18 \x01(\v2%.croupier.component.v1.PermissionSpecR\vpermissions\x12!\n" +
 	"\finput_schema\x18\x1e \x01(\tR\vinputSchema\x12#\n" +
-	"\routput_schema\x18\x1f \x01(\tR\foutputSchema\"\xa4\x01\n" +
+	"\routput_schema\x18\x1f \x01(\tR\foutputSchema\"\x93\x02\n" +
 	"\fAgentProcess\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x12\n" +
 	"\x04addr\x18\x02 \x01(\tR\x04addr\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12$\n" +
 	"\x0elast_seen_unix\x18\x04 \x01(\x03R\flastSeenUnix\x12!\n" +
-	"\ffunction_ids\x18\x05 \x03(\tR\vfunctionIds\"\xd5\x03\n" +
+	"\ffunction_ids\x18\x05 \x03(\tR\vfunctionIds\x12!\n" +
+	"\fsdk_language\x18\x06 \x01(\tR\vsdkLanguage\x12\x1f\n" +
+	"\vsdk_version\x18\a \x01(\tR\n" +
+	"sdkVersion\x12\x17\n" +
+	"\agame_id\x18\b \x01(\tR\x06gameId\x12\x10\n" +
+	"\x03env\x18\t \x01(\tR\x03env\"\xd5\x03\n" +
 	"\x0fRegisterRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12C\n" +
