@@ -1521,14 +1521,6 @@ export default function WorkspaceEditor() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleSave, handleUndo, handleRedo, viewMode]);
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '100px 0' }}>
-        <Spin size="large" />
-      </div>
-    );
-  }
-
   const tabCount = config?.layout?.type === 'tabs' ? config.layout.tabs?.length || 0 : 0;
   const singleAvailableFunction = availableFunctions.length === 1 ? availableFunctions[0] : null;
   const currentStatus = resolveWorkspaceStatus(config);
@@ -1874,6 +1866,17 @@ export default function WorkspaceEditor() {
     },
     [],
   );
+
+  // 必须放在所有 Hook 调用之后。
+  // 若在此 return 之前还有 useMemo/useEffect/useCallback，loading 切换会导致
+  // 渲染期间 Hook 数量不一致，触发 React #300（"Something went wrong"）。
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '100px 0' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   return (
     <>
