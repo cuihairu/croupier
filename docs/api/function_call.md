@@ -1,5 +1,7 @@
 # 函数调用兼容 API
 
+> **状态**：Compatibility — 兼容历史调用，不是 canonical。当前函数管理请用 [函数 API](./function.md)，任务与调用请用 [任务 API](./task.md)。
+
 本页描述 Dashboard 兼容使用的 `/api/v1/function-calls*` 接口。
 
 这些接口当前复用 `tasks` 能力构建兼容视图，目标是消除 refactor 后的前端 404，并保持基础查询与取消能力可用。

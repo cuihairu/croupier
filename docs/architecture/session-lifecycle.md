@@ -116,6 +116,7 @@ handshaking
 - 握手成功
 - 获得有效 `session_id`
 - 本端运行时完成 in-flight 表初始化
+- provider 的 `game_id` / `env` 与 Agent 配置一致（仅当双方都非空时才校验；不一致不阻断连接，但写入 `ProviderConnectResponse.warnings`，便于控制台定位多服务共享 Agent 时的作用域漂移）
 
 ### active
 

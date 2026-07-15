@@ -29,6 +29,21 @@ type NodesListRequest struct {
 type NodesListResponse struct {
 	Items []Node `json:"items"`
 }
+
+// Node 描述一个接入的 Agent 节点。SDKLanguage / SDKVersion 来自该 Agent 上 provider 的元数据
+// （Instance.Metadata → AgentProcess → ProviderSession 端到端透传）。
+type Node struct {
+	Id          string            `json:"id"`
+	Hostname    string            `json:"hostname"`
+	Addr        string            `json:"addr"`
+	GameId      string            `json:"gameId"`                // 作用域：游戏
+	Env         string            `json:"env"`                   // 作用域：环境
+	Status      string            `json:"status"`                // active / inactive
+	Labels      map[string]string `json:"labels"`
+	LastSeen    string            `json:"lastSeen"`              // RFC3339
+	SDKLanguage string            `json:"sdkLanguage,omitempty"` // go/java/python/cpp/csharp/node/custom
+	SDKVersion  string            `json:"sdkVersion,omitempty"`
+}
 ```
 
 ### 2. "排空节点"

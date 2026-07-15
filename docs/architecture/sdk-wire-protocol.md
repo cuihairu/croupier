@@ -1,5 +1,7 @@
 # SDK Wire Protocol
 
+> **状态**：Current — 当前线协议权威规范，主仓库/Agent/各 SDK 共同遵循。
+
 本文档定义 Croupier 当前 `shared session runtime` 之上的线协议约定，供主仓库、Agent 与各语言 SDK 共同遵循。
 
 ## 文档定位
@@ -192,11 +194,17 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 | MsgID | 名称 | 说明 |
 | ---: | --- | --- |
 | `0x050101` | `ProviderConnectRequest` | 建立 provider session |
-| `0x050102` | `ProviderConnectResponse` | 返回 `session_id` 与协商结果 |
+| `0x050102` | `ProviderConnectResponse` | 返回 `session_id`、协商结果与 `warnings` |
 | `0x050103` | `ProviderHeartbeatRequest` | provider 心跳 |
 | `0x050104` | `ProviderHeartbeatResponse` | 心跳响应 |
 | `0x050105` | `ProviderDrainRequest` | Agent 将 provider session 置为 `draining` |
 | `0x050106` | `ProviderDrainResponse` | provider 确认进入 drain 状态 |
+
+`ProviderConnectResponse` 字段语义：
+
+- `session_id`：provider session 标识，后续心跳与 invoke 复用
+- `accepted_capabilities`：Agent 接受的能力列表
+- `warnings`：非阻断告警字符串列表。当前用于作用域漂移检测——provider 上报的 `game_id` / `env` 与 Agent 配置不一致时（仅双方都非空才校验），写入 `game_id mismatch` / `env mismatch`，便于控制台定位多服务共享 Agent 时的作用域错配。空值兼容：任一侧为空则跳过该项校验
 
 历史别名如 `RegisterLocalRequest`、`RegisterLocalResponse`、`HeartbeatLocalRequest` 只属于兼容语义，不应再出现在新设计文档里。
 

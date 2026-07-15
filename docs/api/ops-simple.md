@@ -1,5 +1,7 @@
 # 运维简化 API
 
+> **状态**：Compatibility — 拆分/兼容参考，不是 canonical。运维域当前主入口请用 [运维 API](./ops.md)，本页不能新增独立语义。
+
 ### 1. "更新代理元数据"
 
 1. route definition

@@ -127,7 +127,6 @@ Croupier 不采用 SaaS 多租户抽象。标准业务作用域为：
 - Wire 协议：[docs/architecture/sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
 - 统一 SDK 文档：[docs/sdks/index.md](docs/sdks/index.md)
 - SDK 能力矩阵：[docs/sdks/sdk-parity-matrix.md](docs/sdks/sdk-parity-matrix.md)
-- SDK 规范：[docs/sdk/specification.md](docs/sdk/specification.md)
 - SDK 代码入口：[sdks/README.md](sdks/README.md)
 
 ## 发布约定
