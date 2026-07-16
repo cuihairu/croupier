@@ -1382,7 +1382,7 @@ export class BasicClient implements CroupierClient {
         operation: fn.operation,
       })),
       sdkLanguage: this.config.providerLang || "javascript",
-      sdkVersion: this.config.providerSdk || "1.0.0",
+      sdkVersion: "1.0.0",
       sdkName: "croupier-js-sdk",
       protocolVersion: "1.0.0",
     });
