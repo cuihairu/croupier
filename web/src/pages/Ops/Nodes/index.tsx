@@ -16,7 +16,18 @@ type NodeRow = RegistryAgent & {
   type?: string;
   ip?: string;
   version?: string;
+  sdkName?: string;
+  sdkLanguage?: string;
+  sdkVersion?: string;
+  lastSeen?: string;
 };
+
+// 从 "host:port" 提取 host 部分作为 IP 展示。
+function addrHost(addr?: string): string {
+  if (!addr) return '';
+  const idx = addr.lastIndexOf(':');
+  return idx > 0 ? addr.slice(0, idx) : addr;
+}
 
 function normalizeOpsNode(node: OpsNode): NodeRow {
   return {
@@ -25,9 +36,15 @@ function normalizeOpsNode(node: OpsNode): NodeRow {
     gameId: node.gameId || '',
     env: node.env || '',
     addr: node.addr || '',
+    ip: addrHost(node.addr),
     functions: 0,
     healthy: node.status === 'active' || node.status === 'healthy',
     expiresInSec: 0,
+    sdkName: node.sdkName || '',
+    sdkLanguage: node.sdkLanguage || '',
+    sdkVersion: node.sdkVersion || '',
+    version: node.sdkVersion || '',
+    lastSeen: node.lastSeen || '',
   };
 }
 
@@ -70,7 +87,7 @@ export default function OpsNodesPage() {
       if (q) {
         const s = `${a.agentId} ${a.ip || ''} ${a.addr || ''} ${a.type || ''} ${
           a.version || ''
-        }`.toLowerCase();
+        } ${a.sdkName || ''} ${a.sdkLanguage || ''}`.toLowerCase();
         if (!s.includes(q.toLowerCase())) return false;
       }
       return true;
@@ -138,7 +155,9 @@ export default function OpsNodesPage() {
     { title: '游戏', dataIndex: 'gameId', width: 100 },
     { title: '环境', dataIndex: 'env', width: 80 },
     { title: 'IP', dataIndex: 'ip', width: 130, ellipsis: true },
-    { title: '版本', dataIndex: 'version', width: 110, ellipsis: true },
+    { title: 'SDK', dataIndex: 'sdkName', width: 150, ellipsis: true, render: (v) => v || '-' },
+    { title: '语言', dataIndex: 'sdkLanguage', width: 90, render: (v) => v || '-' },
+    { title: '版本', dataIndex: 'version', width: 110, ellipsis: true, render: (v) => v || '-' },
     { title: '函数数', dataIndex: 'functions', width: 100 },
     {
       title: '健康状态',
@@ -237,7 +256,7 @@ export default function OpsNodesPage() {
                 <Space.Compact style={{ width: 320 }}>
                   <Input
                     allowClear
-                    placeholder="搜索 id/ip/version/addr"
+                    placeholder="搜索 id/ip/sdk/version/addr"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     onPressEnter={load}
@@ -276,7 +295,7 @@ export default function OpsNodesPage() {
             loading={loading}
             columns={cols}
             size="small"
-            scroll={{ x: 1200 }}
+            scroll={{ x: 1500 }}
             tableLayout="fixed"
             pagination={{ pageSize: 10 }}
             locale={{

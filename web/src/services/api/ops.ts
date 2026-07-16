@@ -203,6 +203,9 @@ export type OpsNode = {
   status?: string;
   labels?: Record<string, string>;
   lastSeen?: string;
+  sdkLanguage?: string;
+  sdkVersion?: string;
+  sdkName?: string;
 };
 export type OpsAlert = {
   severity?: string;
