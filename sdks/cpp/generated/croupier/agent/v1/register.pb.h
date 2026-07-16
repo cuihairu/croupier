@@ -1294,8 +1294,9 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED AgentProcess final : public ::googl
     kVersionFieldNumber = 3,
     kSdkLanguageFieldNumber = 6,
     kSdkVersionFieldNumber = 7,
-    kGameIdFieldNumber = 8,
-    kEnvFieldNumber = 9,
+    kSdkNameFieldNumber = 8,
+    kGameIdFieldNumber = 9,
+    kEnvFieldNumber = 10,
     kLastSeenUnixFieldNumber = 4,
   };
   // repeated string function_ids = 5 [json_name = "functionIds"];
@@ -1398,7 +1399,22 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED AgentProcess final : public ::googl
   ::std::string* PROTOBUF_NONNULL _internal_mutable_sdk_version();
 
   public:
-  // string game_id = 8 [json_name = "gameId"];
+  // string sdk_name = 8 [json_name = "sdkName"];
+  void clear_sdk_name() ;
+  [[nodiscard]] const ::std::string& sdk_name() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_sdk_name(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_sdk_name();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_sdk_name();
+  void set_allocated_sdk_name(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_sdk_name() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_sdk_name(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_sdk_name();
+
+  public:
+  // string game_id = 9 [json_name = "gameId"];
   void clear_game_id() ;
   [[nodiscard]] const ::std::string& game_id() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -1413,7 +1429,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED AgentProcess final : public ::googl
   ::std::string* PROTOBUF_NONNULL _internal_mutable_game_id();
 
   public:
-  // string env = 9 [json_name = "env"];
+  // string env = 10 [json_name = "env"];
   void clear_env() ;
   [[nodiscard]] const ::std::string& env() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -1442,8 +1458,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED AgentProcess final : public ::googl
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 9,
-                                   0, 113,
+  static const ::google::protobuf::internal::TcParseTable<4, 10,
+                                   0, 121,
                                    2>
       _table_;
 
@@ -1472,6 +1488,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED AgentProcess final : public ::googl
     ::google::protobuf::internal::ArenaStringPtr version_;
     ::google::protobuf::internal::ArenaStringPtr sdk_language_;
     ::google::protobuf::internal::ArenaStringPtr sdk_version_;
+    ::google::protobuf::internal::ArenaStringPtr sdk_name_;
     ::google::protobuf::internal::ArenaStringPtr game_id_;
     ::google::protobuf::internal::ArenaStringPtr env_;
     ::int64_t last_seen_unix_;
@@ -3702,7 +3719,7 @@ inline void AgentProcess::clear_last_seen_unix() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.last_seen_unix_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00000200U);
 }
 inline ::int64_t AgentProcess::last_seen_unix() const {
   // @@protoc_insertion_point(field_get:croupier.agent.v1.AgentProcess.last_seen_unix)
@@ -3710,7 +3727,7 @@ inline ::int64_t AgentProcess::last_seen_unix() const {
 }
 inline void AgentProcess::set_last_seen_unix(::int64_t value) {
   _internal_set_last_seen_unix(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   // @@protoc_insertion_point(field_set:croupier.agent.v1.AgentProcess.last_seen_unix)
 }
 inline ::int64_t AgentProcess::_internal_last_seen_unix() const {
@@ -3924,12 +3941,77 @@ inline void AgentProcess::set_allocated_sdk_version(::std::string* PROTOBUF_NULL
   // @@protoc_insertion_point(field_set_allocated:croupier.agent.v1.AgentProcess.sdk_version)
 }
 
-// string game_id = 8 [json_name = "gameId"];
+// string sdk_name = 8 [json_name = "sdkName"];
+inline void AgentProcess::clear_sdk_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sdk_name_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+inline const ::std::string& AgentProcess::sdk_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.agent.v1.AgentProcess.sdk_name)
+  return _internal_sdk_name();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void AgentProcess::set_sdk_name(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  _impl_.sdk_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.agent.v1.AgentProcess.sdk_name)
+}
+inline ::std::string* PROTOBUF_NONNULL AgentProcess::mutable_sdk_name()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ::std::string* _s = _internal_mutable_sdk_name();
+  // @@protoc_insertion_point(field_mutable:croupier.agent.v1.AgentProcess.sdk_name)
+  return _s;
+}
+inline const ::std::string& AgentProcess::_internal_sdk_name() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.sdk_name_.Get();
+}
+inline void AgentProcess::_internal_set_sdk_name(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sdk_name_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL AgentProcess::_internal_mutable_sdk_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.sdk_name_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE AgentProcess::release_sdk_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.agent.v1.AgentProcess.sdk_name)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  auto* released = _impl_.sdk_name_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.sdk_name_.Set("", GetArena());
+  }
+  return released;
+}
+inline void AgentProcess::set_allocated_sdk_name(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  }
+  _impl_.sdk_name_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.sdk_name_.IsDefault()) {
+    _impl_.sdk_name_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.agent.v1.AgentProcess.sdk_name)
+}
+
+// string game_id = 9 [json_name = "gameId"];
 inline void AgentProcess::clear_game_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.game_id_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000040U);
+                  0x00000080U);
 }
 inline const ::std::string& AgentProcess::game_id() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -3939,13 +4021,13 @@ inline const ::std::string& AgentProcess::game_id() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void AgentProcess::set_game_id(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   _impl_.game_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.agent.v1.AgentProcess.game_id)
 }
 inline ::std::string* PROTOBUF_NONNULL AgentProcess::mutable_game_id()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::std::string* _s = _internal_mutable_game_id();
   // @@protoc_insertion_point(field_mutable:croupier.agent.v1.AgentProcess.game_id)
   return _s;
@@ -3965,10 +4047,10 @@ inline ::std::string* PROTOBUF_NONNULL AgentProcess::_internal_mutable_game_id()
 inline ::std::string* PROTOBUF_NULLABLE AgentProcess::release_game_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.agent.v1.AgentProcess.game_id)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000080U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   auto* released = _impl_.game_id_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.game_id_.Set("", GetArena());
@@ -3978,9 +4060,9 @@ inline ::std::string* PROTOBUF_NULLABLE AgentProcess::release_game_id() {
 inline void AgentProcess::set_allocated_game_id(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   }
   _impl_.game_id_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.game_id_.IsDefault()) {
@@ -3989,12 +4071,12 @@ inline void AgentProcess::set_allocated_game_id(::std::string* PROTOBUF_NULLABLE
   // @@protoc_insertion_point(field_set_allocated:croupier.agent.v1.AgentProcess.game_id)
 }
 
-// string env = 9 [json_name = "env"];
+// string env = 10 [json_name = "env"];
 inline void AgentProcess::clear_env() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.env_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000080U);
+                  0x00000100U);
 }
 inline const ::std::string& AgentProcess::env() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -4004,13 +4086,13 @@ inline const ::std::string& AgentProcess::env() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void AgentProcess::set_env(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   _impl_.env_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.agent.v1.AgentProcess.env)
 }
 inline ::std::string* PROTOBUF_NONNULL AgentProcess::mutable_env()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::std::string* _s = _internal_mutable_env();
   // @@protoc_insertion_point(field_mutable:croupier.agent.v1.AgentProcess.env)
   return _s;
@@ -4030,10 +4112,10 @@ inline ::std::string* PROTOBUF_NONNULL AgentProcess::_internal_mutable_env() {
 inline ::std::string* PROTOBUF_NULLABLE AgentProcess::release_env() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.agent.v1.AgentProcess.env)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000080U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000100U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   auto* released = _impl_.env_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.env_.Set("", GetArena());
@@ -4043,9 +4125,9 @@ inline ::std::string* PROTOBUF_NULLABLE AgentProcess::release_env() {
 inline void AgentProcess::set_allocated_env(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   }
   _impl_.env_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.env_.IsDefault()) {

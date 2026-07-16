@@ -38,39 +38,42 @@ namespace Croupier.Agent.V1 {
             "aW9ucxgYIAEoCzIlLmNyb3VwaWVyLmNvbXBvbmVudC52MS5QZXJtaXNzaW9u",
             "U3BlY1ILcGVybWlzc2lvbnMSIQoMaW5wdXRfc2NoZW1hGB4gASgJUgtpbnB1",
             "dFNjaGVtYRIjCg1vdXRwdXRfc2NoZW1hGB8gASgJUgxvdXRwdXRTY2hlbWEi",
-            "pAEKDEFnZW50UHJvY2VzcxIdCgpzZXJ2aWNlX2lkGAEgASgJUglzZXJ2aWNl",
+            "rgIKDEFnZW50UHJvY2VzcxIdCgpzZXJ2aWNlX2lkGAEgASgJUglzZXJ2aWNl",
             "SWQSEgoEYWRkchgCIAEoCVIEYWRkchIYCgd2ZXJzaW9uGAMgASgJUgd2ZXJz",
             "aW9uEiQKDmxhc3Rfc2Vlbl91bml4GAQgASgDUgxsYXN0U2VlblVuaXgSIQoM",
-            "ZnVuY3Rpb25faWRzGAUgAygJUgtmdW5jdGlvbklkcyLVAwoPUmVnaXN0ZXJS",
-            "ZXF1ZXN0EhkKCGFnZW50X2lkGAEgASgJUgdhZ2VudElkEhgKB3ZlcnNpb24Y",
-            "AiABKAlSB3ZlcnNpb24SQwoJZnVuY3Rpb25zGAMgAygLMiUuY3JvdXBpZXIu",
-            "YWdlbnQudjEuRnVuY3Rpb25EZXNjcmlwdG9yUglmdW5jdGlvbnMSFwoHZ2Ft",
-            "ZV9pZBgFIAEoCVIGZ2FtZUlkEhAKA2VudhgGIAEoCVIDZW52Ej0KCXByb2Nl",
-            "c3NlcxgHIAMoCzIfLmNyb3VwaWVyLmFnZW50LnYxLkFnZW50UHJvY2Vzc1IJ",
-            "cHJvY2Vzc2VzEh8KC3R0bF9zZWNvbmRzGAggASgNUgp0dGxTZWNvbmRzEhYK",
-            "BnJlZ2lvbhgKIAEoCVIGcmVnaW9uEhIKBHpvbmUYCyABKAlSBHpvbmUSRgoG",
-            "bGFiZWxzGAwgAygLMi4uY3JvdXBpZXIuYWdlbnQudjEuUmVnaXN0ZXJSZXF1",
-            "ZXN0LkxhYmVsc0VudHJ5UgZsYWJlbHMaOQoLTGFiZWxzRW50cnkSEAoDa2V5",
-            "GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AUoECAQQBVII",
-            "cnBjX2FkZHIiagoQUmVnaXN0ZXJSZXNwb25zZRIdCgpzZXNzaW9uX2lkGAEg",
-            "ASgJUglzZXNzaW9uSWQSGwoJZXhwaXJlX2F0GAIgASgDUghleHBpcmVBdBIa",
-            "Cgh3YXJuaW5ncxgDIAMoCVIId2FybmluZ3MiTAoQSGVhcnRiZWF0UmVxdWVz",
-            "dBIZCghhZ2VudF9pZBgBIAEoCVIHYWdlbnRJZBIdCgpzZXNzaW9uX2lkGAIg",
-            "ASgJUglzZXNzaW9uSWQiEwoRSGVhcnRiZWF0UmVzcG9uc2UiXgoMUHJvdmlk",
-            "ZXJNZXRhEg4KAmlkGAEgASgJUgJpZBIYCgd2ZXJzaW9uGAIgASgJUgd2ZXJz",
-            "aW9uEhIKBGxhbmcYAyABKAlSBGxhbmcSEAoDc2RrGAQgASgJUgNzZGsihAEK",
-            "G1JlZ2lzdGVyQ2FwYWJpbGl0aWVzUmVxdWVzdBI7Cghwcm92aWRlchgBIAEo",
-            "CzIfLmNyb3VwaWVyLmFnZW50LnYxLlByb3ZpZGVyTWV0YVIIcHJvdmlkZXIS",
-            "KAoQbWFuaWZlc3RfanNvbl9nehgCIAEoDFIObWFuaWZlc3RKc29uR3oiHgoc",
-            "UmVnaXN0ZXJDYXBhYmlsaXRpZXNSZXNwb25zZUJnCiRpby5naXRodWIuY3Vp",
-            "aGFpcnUuY3JvdXBpZXIuYWdlbnQudjFQAVo9Z2l0aHViLmNvbS9jdWloYWly",
-            "dS9jcm91cGllci9wa2cvcGIvY3JvdXBpZXIvYWdlbnQvdjE7YWdlbnR2MWIG",
-            "cHJvdG8z"));
+            "ZnVuY3Rpb25faWRzGAUgAygJUgtmdW5jdGlvbklkcxIhCgxzZGtfbGFuZ3Vh",
+            "Z2UYBiABKAlSC3Nka0xhbmd1YWdlEh8KC3Nka192ZXJzaW9uGAcgASgJUgpz",
+            "ZGtWZXJzaW9uEhkKCHNka19uYW1lGAggASgJUgdzZGtOYW1lEhcKB2dhbWVf",
+            "aWQYCSABKAlSBmdhbWVJZBIQCgNlbnYYCiABKAlSA2VudiLVAwoPUmVnaXN0",
+            "ZXJSZXF1ZXN0EhkKCGFnZW50X2lkGAEgASgJUgdhZ2VudElkEhgKB3ZlcnNp",
+            "b24YAiABKAlSB3ZlcnNpb24SQwoJZnVuY3Rpb25zGAMgAygLMiUuY3JvdXBp",
+            "ZXIuYWdlbnQudjEuRnVuY3Rpb25EZXNjcmlwdG9yUglmdW5jdGlvbnMSFwoH",
+            "Z2FtZV9pZBgFIAEoCVIGZ2FtZUlkEhAKA2VudhgGIAEoCVIDZW52Ej0KCXBy",
+            "b2Nlc3NlcxgHIAMoCzIfLmNyb3VwaWVyLmFnZW50LnYxLkFnZW50UHJvY2Vz",
+            "c1IJcHJvY2Vzc2VzEh8KC3R0bF9zZWNvbmRzGAggASgNUgp0dGxTZWNvbmRz",
+            "EhYKBnJlZ2lvbhgKIAEoCVIGcmVnaW9uEhIKBHpvbmUYCyABKAlSBHpvbmUS",
+            "RgoGbGFiZWxzGAwgAygLMi4uY3JvdXBpZXIuYWdlbnQudjEuUmVnaXN0ZXJS",
+            "ZXF1ZXN0LkxhYmVsc0VudHJ5UgZsYWJlbHMaOQoLTGFiZWxzRW50cnkSEAoD",
+            "a2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AUoECAQQ",
+            "BVIIcnBjX2FkZHIiagoQUmVnaXN0ZXJSZXNwb25zZRIdCgpzZXNzaW9uX2lk",
+            "GAEgASgJUglzZXNzaW9uSWQSGwoJZXhwaXJlX2F0GAIgASgDUghleHBpcmVB",
+            "dBIaCgh3YXJuaW5ncxgDIAMoCVIId2FybmluZ3MiTAoQSGVhcnRiZWF0UmVx",
+            "dWVzdBIZCghhZ2VudF9pZBgBIAEoCVIHYWdlbnRJZBIdCgpzZXNzaW9uX2lk",
+            "GAIgASgJUglzZXNzaW9uSWQiEwoRSGVhcnRiZWF0UmVzcG9uc2UiXgoMUHJv",
+            "dmlkZXJNZXRhEg4KAmlkGAEgASgJUgJpZBIYCgd2ZXJzaW9uGAIgASgJUgd2",
+            "ZXJzaW9uEhIKBGxhbmcYAyABKAlSBGxhbmcSEAoDc2RrGAQgASgJUgNzZGsi",
+            "hAEKG1JlZ2lzdGVyQ2FwYWJpbGl0aWVzUmVxdWVzdBI7Cghwcm92aWRlchgB",
+            "IAEoCzIfLmNyb3VwaWVyLmFnZW50LnYxLlByb3ZpZGVyTWV0YVIIcHJvdmlk",
+            "ZXISKAoQbWFuaWZlc3RfanNvbl9nehgCIAEoDFIObWFuaWZlc3RKc29uR3oi",
+            "HgocUmVnaXN0ZXJDYXBhYmlsaXRpZXNSZXNwb25zZUJnCiRpby5naXRodWIu",
+            "Y3VpaGFpcnUuY3JvdXBpZXIuYWdlbnQudjFQAVo9Z2l0aHViLmNvbS9jdWlo",
+            "YWlydS9jcm91cGllci9wa2cvcGIvY3JvdXBpZXIvYWdlbnQvdjE7YWdlbnR2",
+            "MWIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Croupier.Component.V1.DashboardUiReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.FunctionDescriptor), global::Croupier.Agent.V1.FunctionDescriptor.Parser, new[]{ "Id", "Version", "Category", "Risk", "Entity", "Operation", "Enabled", "DisplayName", "Summary", "Tags", "Menu", "Permissions", "InputSchema", "OutputSchema" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.AgentProcess), global::Croupier.Agent.V1.AgentProcess.Parser, new[]{ "ServiceId", "Addr", "Version", "LastSeenUnix", "FunctionIds" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.AgentProcess), global::Croupier.Agent.V1.AgentProcess.Parser, new[]{ "ServiceId", "Addr", "Version", "LastSeenUnix", "FunctionIds", "SdkLanguage", "SdkVersion", "SdkName", "GameId", "Env" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.RegisterRequest), global::Croupier.Agent.V1.RegisterRequest.Parser, new[]{ "AgentId", "Version", "Functions", "GameId", "Env", "Processes", "TtlSeconds", "Region", "Zone", "Labels" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.RegisterResponse), global::Croupier.Agent.V1.RegisterResponse.Parser, new[]{ "SessionId", "ExpireAt", "Warnings" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.HeartbeatRequest), global::Croupier.Agent.V1.HeartbeatRequest.Parser, new[]{ "AgentId", "SessionId" }, null, null, null, null),
@@ -856,6 +859,11 @@ namespace Croupier.Agent.V1 {
       version_ = other.version_;
       lastSeenUnix_ = other.lastSeenUnix_;
       functionIds_ = other.functionIds_.Clone();
+      sdkLanguage_ = other.sdkLanguage_;
+      sdkVersion_ = other.sdkVersion_;
+      sdkName_ = other.sdkName_;
+      gameId_ = other.gameId_;
+      env_ = other.env_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -939,6 +947,81 @@ namespace Croupier.Agent.V1 {
       get { return functionIds_; }
     }
 
+    /// <summary>Field number for the "sdk_language" field.</summary>
+    public const int SdkLanguageFieldNumber = 6;
+    private string sdkLanguage_ = "";
+    /// <summary>
+    /// SDK language: go/java/python/cpp/csharp/node/custom
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string SdkLanguage {
+      get { return sdkLanguage_; }
+      set {
+        sdkLanguage_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "sdk_version" field.</summary>
+    public const int SdkVersionFieldNumber = 7;
+    private string sdkVersion_ = "";
+    /// <summary>
+    /// SDK version
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string SdkVersion {
+      get { return sdkVersion_; }
+      set {
+        sdkVersion_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "sdk_name" field.</summary>
+    public const int SdkNameFieldNumber = 8;
+    private string sdkName_ = "";
+    /// <summary>
+    /// SDK display name, e.g. "croupier-js-sdk"; user-overridable
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string SdkName {
+      get { return sdkName_; }
+      set {
+        sdkName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "game_id" field.</summary>
+    public const int GameIdFieldNumber = 9;
+    private string gameId_ = "";
+    /// <summary>
+    /// game scope the provider belongs to
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GameId {
+      get { return gameId_; }
+      set {
+        gameId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "env" field.</summary>
+    public const int EnvFieldNumber = 10;
+    private string env_ = "";
+    /// <summary>
+    /// logical environment (prod/stage/dev)
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Env {
+      get { return env_; }
+      set {
+        env_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -959,6 +1042,11 @@ namespace Croupier.Agent.V1 {
       if (Version != other.Version) return false;
       if (LastSeenUnix != other.LastSeenUnix) return false;
       if(!functionIds_.Equals(other.functionIds_)) return false;
+      if (SdkLanguage != other.SdkLanguage) return false;
+      if (SdkVersion != other.SdkVersion) return false;
+      if (SdkName != other.SdkName) return false;
+      if (GameId != other.GameId) return false;
+      if (Env != other.Env) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -971,6 +1059,11 @@ namespace Croupier.Agent.V1 {
       if (Version.Length != 0) hash ^= Version.GetHashCode();
       if (LastSeenUnix != 0L) hash ^= LastSeenUnix.GetHashCode();
       hash ^= functionIds_.GetHashCode();
+      if (SdkLanguage.Length != 0) hash ^= SdkLanguage.GetHashCode();
+      if (SdkVersion.Length != 0) hash ^= SdkVersion.GetHashCode();
+      if (SdkName.Length != 0) hash ^= SdkName.GetHashCode();
+      if (GameId.Length != 0) hash ^= GameId.GetHashCode();
+      if (Env.Length != 0) hash ^= Env.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1006,6 +1099,26 @@ namespace Croupier.Agent.V1 {
         output.WriteInt64(LastSeenUnix);
       }
       functionIds_.WriteTo(output, _repeated_functionIds_codec);
+      if (SdkLanguage.Length != 0) {
+        output.WriteRawTag(50);
+        output.WriteString(SdkLanguage);
+      }
+      if (SdkVersion.Length != 0) {
+        output.WriteRawTag(58);
+        output.WriteString(SdkVersion);
+      }
+      if (SdkName.Length != 0) {
+        output.WriteRawTag(66);
+        output.WriteString(SdkName);
+      }
+      if (GameId.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(GameId);
+      }
+      if (Env.Length != 0) {
+        output.WriteRawTag(82);
+        output.WriteString(Env);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1033,6 +1146,26 @@ namespace Croupier.Agent.V1 {
         output.WriteInt64(LastSeenUnix);
       }
       functionIds_.WriteTo(ref output, _repeated_functionIds_codec);
+      if (SdkLanguage.Length != 0) {
+        output.WriteRawTag(50);
+        output.WriteString(SdkLanguage);
+      }
+      if (SdkVersion.Length != 0) {
+        output.WriteRawTag(58);
+        output.WriteString(SdkVersion);
+      }
+      if (SdkName.Length != 0) {
+        output.WriteRawTag(66);
+        output.WriteString(SdkName);
+      }
+      if (GameId.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(GameId);
+      }
+      if (Env.Length != 0) {
+        output.WriteRawTag(82);
+        output.WriteString(Env);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1056,6 +1189,21 @@ namespace Croupier.Agent.V1 {
         size += 1 + pb::CodedOutputStream.ComputeInt64Size(LastSeenUnix);
       }
       size += functionIds_.CalculateSize(_repeated_functionIds_codec);
+      if (SdkLanguage.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(SdkLanguage);
+      }
+      if (SdkVersion.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(SdkVersion);
+      }
+      if (SdkName.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(SdkName);
+      }
+      if (GameId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(GameId);
+      }
+      if (Env.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Env);
+      }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -1081,6 +1229,21 @@ namespace Croupier.Agent.V1 {
         LastSeenUnix = other.LastSeenUnix;
       }
       functionIds_.Add(other.functionIds_);
+      if (other.SdkLanguage.Length != 0) {
+        SdkLanguage = other.SdkLanguage;
+      }
+      if (other.SdkVersion.Length != 0) {
+        SdkVersion = other.SdkVersion;
+      }
+      if (other.SdkName.Length != 0) {
+        SdkName = other.SdkName;
+      }
+      if (other.GameId.Length != 0) {
+        GameId = other.GameId;
+      }
+      if (other.Env.Length != 0) {
+        Env = other.Env;
+      }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -1116,6 +1279,26 @@ namespace Croupier.Agent.V1 {
             functionIds_.AddEntriesFrom(input, _repeated_functionIds_codec);
             break;
           }
+          case 50: {
+            SdkLanguage = input.ReadString();
+            break;
+          }
+          case 58: {
+            SdkVersion = input.ReadString();
+            break;
+          }
+          case 66: {
+            SdkName = input.ReadString();
+            break;
+          }
+          case 74: {
+            GameId = input.ReadString();
+            break;
+          }
+          case 82: {
+            Env = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -1149,6 +1332,26 @@ namespace Croupier.Agent.V1 {
           }
           case 42: {
             functionIds_.AddEntriesFrom(ref input, _repeated_functionIds_codec);
+            break;
+          }
+          case 50: {
+            SdkLanguage = input.ReadString();
+            break;
+          }
+          case 58: {
+            SdkVersion = input.ReadString();
+            break;
+          }
+          case 66: {
+            SdkName = input.ReadString();
+            break;
+          }
+          case 74: {
+            GameId = input.ReadString();
+            break;
+          }
+          case 82: {
+            Env = input.ReadString();
             break;
           }
         }

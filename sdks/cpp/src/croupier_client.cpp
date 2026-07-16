@@ -703,7 +703,8 @@ public:
         request.set_service_id(config_.service_id);
         request.set_version(config_.service_version);
         request.set_sdk_language("cpp");
-        request.set_sdk_version("croupier-cpp-sdk");
+        request.set_sdk_version("1.0.0");
+        request.set_sdk_name("croupier-cpp-sdk");
         request.set_protocol_version("1.0.0");
         request.set_transport_security_mode(config_.insecure ? "plaintext" : "tls");
         request.add_supported_transports("tcp");

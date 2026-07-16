@@ -182,6 +182,7 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 		Functions:   descriptors,
 		SdkLanguage: "go",
 		SdkVersion:  "1.0.0",
+		SdkName:     "croupier-go-sdk",
 		GameId:      m.config.GameID,
 		Env:         m.config.Env,
 	}
@@ -332,6 +333,7 @@ func (m *TCPManager) Reconnect(ctx context.Context) error {
 		Functions:   m.functions,
 		SdkLanguage: "go",
 		SdkVersion:  "1.0.0",
+		SdkName:     "croupier-go-sdk",
 		GameId:      m.config.GameID,
 		Env:         m.config.Env,
 	}

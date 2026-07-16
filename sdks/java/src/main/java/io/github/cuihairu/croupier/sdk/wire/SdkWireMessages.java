@@ -199,7 +199,8 @@ public final class SdkWireMessages {
             }
             writeString(out, 4, message.sdkLanguage);
             writeString(out, 5, message.sdkVersion);
-            writeString(out, 6, message.protocolVersion);
+            writeString(out, 6, message.sdkName);
+            writeString(out, 7, message.protocolVersion);
         });
     }
 
@@ -210,6 +211,7 @@ public final class SdkWireMessages {
         java.util.List<LocalFunctionDescriptor> functions = new java.util.ArrayList<>();
         String sdkLanguage = "";
         String sdkVersion = "";
+        String sdkName = "";
         String protocolVersion = "";
         CodedInputStream input = newInput(data);
         try {
@@ -224,14 +226,15 @@ public final class SdkWireMessages {
                     case 3 -> functions.add(decodeLocalFunctionDescriptor(input.readByteArray()));
                     case 4 -> sdkLanguage = input.readString();
                     case 5 -> sdkVersion = input.readString();
-                    case 6 -> protocolVersion = input.readString();
+                    case 6 -> sdkName = input.readString();
+                    case 7 -> protocolVersion = input.readString();
                     default -> input.skipField(tag);
                 }
             }
         } catch (IOException e) {
             throw new IllegalArgumentException("Failed to decode ProviderConnectRequest", e);
         }
-        return new ProviderConnectRequest(serviceId, version, rpcAddr, functions, sdkLanguage, sdkVersion, protocolVersion);
+        return new ProviderConnectRequest(serviceId, version, rpcAddr, functions, sdkLanguage, sdkVersion, sdkName, protocolVersion);
     }
 
     public static byte[] encodeProviderConnectResponse(ProviderConnectResponse message) {
@@ -527,22 +530,24 @@ public final class SdkWireMessages {
         public final java.util.List<LocalFunctionDescriptor> functions;
         public final String sdkLanguage;
         public final String sdkVersion;
+        public final String sdkName;
         public final String protocolVersion;
 
         public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
                                     java.util.List<LocalFunctionDescriptor> functions) {
-            this(serviceId, version, rpcAddr, functions, "java", "1.0.0", "1.0.0");
+            this(serviceId, version, rpcAddr, functions, "java", "1.0.0", "croupier-java-sdk", "1.0.0");
         }
 
         public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
                                     java.util.List<LocalFunctionDescriptor> functions,
-                                    String sdkLanguage, String sdkVersion, String protocolVersion) {
+                                    String sdkLanguage, String sdkVersion, String sdkName, String protocolVersion) {
             this.serviceId = serviceId == null ? "" : serviceId;
             this.version = version == null ? "" : version;
             this.rpcAddr = rpcAddr == null ? "" : rpcAddr;
             this.functions = functions == null ? java.util.List.of() : java.util.List.copyOf(functions);
             this.sdkLanguage = sdkLanguage == null ? "" : sdkLanguage;
             this.sdkVersion = sdkVersion == null ? "" : sdkVersion;
+            this.sdkName = sdkName == null ? "" : sdkName;
             this.protocolVersion = protocolVersion == null ? "" : protocolVersion;
         }
     }

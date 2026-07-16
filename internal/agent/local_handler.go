@@ -660,6 +660,7 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		metadata := map[string]string{
 			"sdk_language":     req.SdkLanguage,
 			"sdk_version":      req.SdkVersion,
+			"sdk_name":         req.SdkName,
 			"protocol_version": req.ProtocolVersion,
 			"game_id":          req.GameId,
 			"env":              req.Env,
@@ -674,6 +675,7 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		"session_id", sessionID,
 		"sdk_language", req.SdkLanguage,
 		"sdk_version", req.SdkVersion,
+		"sdk_name", req.SdkName,
 		"game_id", req.GameId,
 		"env", req.Env,
 		"functions", len(req.Functions),

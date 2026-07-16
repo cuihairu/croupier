@@ -580,6 +580,7 @@ type Node struct {
 	LastSeen    string            `json:"lastSeen"`
 	SDKLanguage string            `json:"sdkLanguage,omitempty"`
 	SDKVersion  string            `json:"sdkVersion,omitempty"`
+	SDKName     string            `json:"sdkName,omitempty"`
 }
 
 // NodeCommand represents a command that can be executed on a node

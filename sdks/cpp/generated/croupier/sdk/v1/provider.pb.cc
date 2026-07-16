@@ -347,6 +347,9 @@ inline constexpr ProviderConnectRequest::Impl_::Impl_(
         sdk_version_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        sdk_name_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         protocol_version_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
@@ -420,12 +423,13 @@ const ::uint32_t
         11,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_._has_bits_),
-        14, // hasbit index offset
+        15, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_.service_id_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_.version_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_.functions_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_.sdk_language_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_.sdk_version_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_.sdk_name_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_.protocol_version_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_.supported_capabilities_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_.transport_security_mode_),
@@ -438,11 +442,12 @@ const ::uint32_t
         5,
         6,
         7,
-        1,
         8,
-        2,
+        1,
         9,
+        2,
         10,
+        11,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectResponse, _impl_._has_bits_),
         6, // hasbit index offset
@@ -490,13 +495,13 @@ static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, sizeof(::croupier::sdk::v1::LocalFunctionDescriptor)},
         {29, sizeof(::croupier::sdk::v1::ProviderConnectRequest)},
-        {54, sizeof(::croupier::sdk::v1::ProviderConnectResponse)},
-        {63, sizeof(::croupier::sdk::v1::ProviderHeartbeatRequest)},
-        {70, sizeof(::croupier::sdk::v1::ProviderHeartbeatResponse)},
-        {71, sizeof(::croupier::sdk::v1::ProviderDrainRequest)},
-        {80, sizeof(::croupier::sdk::v1::ProviderDrainResponse)},
-        {81, sizeof(::croupier::sdk::v1::GetTaskResultRequest)},
-        {86, sizeof(::croupier::sdk::v1::GetTaskResultResponse)},
+        {56, sizeof(::croupier::sdk::v1::ProviderConnectResponse)},
+        {65, sizeof(::croupier::sdk::v1::ProviderHeartbeatRequest)},
+        {72, sizeof(::croupier::sdk::v1::ProviderHeartbeatResponse)},
+        {73, sizeof(::croupier::sdk::v1::ProviderDrainRequest)},
+        {82, sizeof(::croupier::sdk::v1::ProviderDrainResponse)},
+        {83, sizeof(::croupier::sdk::v1::GetTaskResultRequest)},
+        {88, sizeof(::croupier::sdk::v1::GetTaskResultResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::sdk::v1::_LocalFunctionDescriptor_default_instance_._instance,
@@ -522,41 +527,41 @@ const char descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto[] AB
     " \001(\tR\014outputSchema\022\032\n\010category\030\n \001(\tR\010ca"
     "tegory\022\022\n\004risk\030\013 \001(\tR\004risk\022\026\n\006entity\030\014 \001"
     "(\tR\006entity\022\034\n\toperation\030\r \001(\tR\toperation"
-    "\"\325\003\n\026ProviderConnectRequest\022\035\n\nservice_i"
+    "\"\360\003\n\026ProviderConnectRequest\022\035\n\nservice_i"
     "d\030\001 \001(\tR\tserviceId\022\030\n\007version\030\002 \001(\tR\007ver"
     "sion\022F\n\tfunctions\030\003 \003(\0132(.croupier.sdk.v"
     "1.LocalFunctionDescriptorR\tfunctions\022!\n\014"
     "sdk_language\030\004 \001(\tR\013sdkLanguage\022\037\n\013sdk_v"
-    "ersion\030\005 \001(\tR\nsdkVersion\022)\n\020protocol_ver"
-    "sion\030\006 \001(\tR\017protocolVersion\0225\n\026supported"
-    "_capabilities\030\007 \003(\tR\025supportedCapabiliti"
-    "es\0226\n\027transport_security_mode\030\010 \001(\tR\025tra"
-    "nsportSecurityMode\0221\n\024supported_transpor"
-    "ts\030\t \003(\tR\023supportedTransports\022\027\n\007game_id"
-    "\030\n \001(\tR\006gameId\022\020\n\003env\030\013 \001(\tR\003env\"\211\001\n\027Pro"
-    "viderConnectResponse\022\035\n\nsession_id\030\001 \001(\t"
-    "R\tsessionId\0223\n\025accepted_capabilities\030\002 \003"
-    "(\tR\024acceptedCapabilities\022\032\n\010warnings\030\003 \003"
-    "(\tR\010warnings\"X\n\030ProviderHeartbeatRequest"
-    "\022\035\n\nservice_id\030\001 \001(\tR\tserviceId\022\035\n\nsessi"
-    "on_id\030\002 \001(\tR\tsessionId\"\033\n\031ProviderHeartb"
-    "eatResponse\"s\n\024ProviderDrainRequest\022\035\n\ns"
-    "ession_id\030\001 \001(\tR\tsessionId\022\026\n\006reason\030\002 \001"
-    "(\tR\006reason\022$\n\016retry_after_ms\030\003 \001(\rR\014retr"
-    "yAfterMs\"\027\n\025ProviderDrainResponse\"/\n\024Get"
-    "TaskResultRequest\022\027\n\007task_id\030\001 \001(\tR\006task"
-    "Id\"]\n\025GetTaskResultResponse\022\024\n\005state\030\001 \001"
-    "(\tR\005state\022\030\n\007payload\030\002 \001(\014R\007payload\022\024\n\005e"
-    "rror\030\003 \001(\tR\005errorBa\n\"io.github.cuihairu."
-    "croupier.sdk.v1P\001Z9github.com/cuihairu/c"
-    "roupier/pkg/pb/croupier/sdk/v1;sdkv1b\006pr"
-    "oto3"
+    "ersion\030\005 \001(\tR\nsdkVersion\022\031\n\010sdk_name\030\006 \001"
+    "(\tR\007sdkName\022)\n\020protocol_version\030\007 \001(\tR\017p"
+    "rotocolVersion\0225\n\026supported_capabilities"
+    "\030\010 \003(\tR\025supportedCapabilities\0226\n\027transpo"
+    "rt_security_mode\030\t \001(\tR\025transportSecurit"
+    "yMode\0221\n\024supported_transports\030\n \003(\tR\023sup"
+    "portedTransports\022\027\n\007game_id\030\013 \001(\tR\006gameI"
+    "d\022\020\n\003env\030\014 \001(\tR\003env\"\211\001\n\027ProviderConnectR"
+    "esponse\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\0223"
+    "\n\025accepted_capabilities\030\002 \003(\tR\024acceptedC"
+    "apabilities\022\032\n\010warnings\030\003 \003(\tR\010warnings\""
+    "X\n\030ProviderHeartbeatRequest\022\035\n\nservice_i"
+    "d\030\001 \001(\tR\tserviceId\022\035\n\nsession_id\030\002 \001(\tR\t"
+    "sessionId\"\033\n\031ProviderHeartbeatResponse\"s"
+    "\n\024ProviderDrainRequest\022\035\n\nsession_id\030\001 \001"
+    "(\tR\tsessionId\022\026\n\006reason\030\002 \001(\tR\006reason\022$\n"
+    "\016retry_after_ms\030\003 \001(\rR\014retryAfterMs\"\027\n\025P"
+    "roviderDrainResponse\"/\n\024GetTaskResultReq"
+    "uest\022\027\n\007task_id\030\001 \001(\tR\006taskId\"]\n\025GetTask"
+    "ResultResponse\022\024\n\005state\030\001 \001(\tR\005state\022\030\n\007"
+    "payload\030\002 \001(\014R\007payload\022\024\n\005error\030\003 \001(\tR\005e"
+    "rrorBa\n\"io.github.cuihairu.croupier.sdk."
+    "v1P\001Z9github.com/cuihairu/croupier/pkg/p"
+    "b/croupier/sdk/v1;sdkv1b\006proto3"
 };
 static ::absl::once_flag descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto = {
     false,
     false,
-    1564,
+    1591,
     descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto,
     "croupier/sdk/v1/provider.proto",
     &descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto_once,
@@ -1419,6 +1424,7 @@ PROTOBUF_NDEBUG_INLINE ProviderConnectRequest::Impl_::Impl_(
         version_(arena, from.version_),
         sdk_language_(arena, from.sdk_language_),
         sdk_version_(arena, from.sdk_version_),
+        sdk_name_(arena, from.sdk_name_),
         protocol_version_(arena, from.protocol_version_),
         transport_security_mode_(arena, from.transport_security_mode_),
         game_id_(arena, from.game_id_),
@@ -1475,6 +1481,7 @@ PROTOBUF_NDEBUG_INLINE ProviderConnectRequest::Impl_::Impl_(
         version_(arena),
         sdk_language_(arena),
         sdk_version_(arena),
+        sdk_name_(arena),
         protocol_version_(arena),
         transport_security_mode_(arena),
         game_id_(arena),
@@ -1498,6 +1505,7 @@ inline void ProviderConnectRequest::SharedDtor(MessageLite& self) {
   this_._impl_.version_.Destroy();
   this_._impl_.sdk_language_.Destroy();
   this_._impl_.sdk_version_.Destroy();
+  this_._impl_.sdk_name_.Destroy();
   this_._impl_.protocol_version_.Destroy();
   this_._impl_.transport_security_mode_.Destroy();
   this_._impl_.game_id_.Destroy();
@@ -1574,16 +1582,16 @@ ProviderConnectRequest::GetClassData() const {
   return ProviderConnectRequest_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 11, 1, 186, 2>
+const ::_pbi::TcParseTable<4, 12, 1, 194, 2>
 ProviderConnectRequest::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_._has_bits_),
     0, // no _extensions_
-    11, 120,  // max_field_number, fast_idx_mask
+    12, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294965248,  // skipmap
+    4294963200,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    11,  // num_field_entries
+    12,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     ProviderConnectRequest_class_data_.base(),
@@ -1614,31 +1622,34 @@ ProviderConnectRequest::_table_ = {
     {::_pbi::TcParser::FastUS1,
      {42, 6, 0,
       PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.sdk_version_)}},
-    // string protocol_version = 6 [json_name = "protocolVersion"];
+    // string sdk_name = 6 [json_name = "sdkName"];
     {::_pbi::TcParser::FastUS1,
      {50, 7, 0,
+      PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.sdk_name_)}},
+    // string protocol_version = 7 [json_name = "protocolVersion"];
+    {::_pbi::TcParser::FastUS1,
+     {58, 8, 0,
       PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.protocol_version_)}},
-    // repeated string supported_capabilities = 7 [json_name = "supportedCapabilities"];
+    // repeated string supported_capabilities = 8 [json_name = "supportedCapabilities"];
     {::_pbi::TcParser::FastUR1,
-     {58, 1, 0,
+     {66, 1, 0,
       PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.supported_capabilities_)}},
-    // string transport_security_mode = 8 [json_name = "transportSecurityMode"];
+    // string transport_security_mode = 9 [json_name = "transportSecurityMode"];
     {::_pbi::TcParser::FastUS1,
-     {66, 8, 0,
+     {74, 9, 0,
       PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.transport_security_mode_)}},
-    // repeated string supported_transports = 9 [json_name = "supportedTransports"];
+    // repeated string supported_transports = 10 [json_name = "supportedTransports"];
     {::_pbi::TcParser::FastUR1,
-     {74, 2, 0,
+     {82, 2, 0,
       PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.supported_transports_)}},
-    // string game_id = 10 [json_name = "gameId"];
-    {::_pbi::TcParser::FastUS1,
-     {82, 9, 0,
-      PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.game_id_)}},
-    // string env = 11 [json_name = "env"];
+    // string game_id = 11 [json_name = "gameId"];
     {::_pbi::TcParser::FastUS1,
      {90, 10, 0,
+      PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.game_id_)}},
+    // string env = 12 [json_name = "env"];
+    {::_pbi::TcParser::FastUS1,
+     {98, 11, 0,
       PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.env_)}},
-    {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
@@ -1655,29 +1666,32 @@ ProviderConnectRequest::_table_ = {
     {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.sdk_language_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string sdk_version = 5 [json_name = "sdkVersion"];
     {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.sdk_version_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string protocol_version = 6 [json_name = "protocolVersion"];
-    {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.protocol_version_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // repeated string supported_capabilities = 7 [json_name = "supportedCapabilities"];
+    // string sdk_name = 6 [json_name = "sdkName"];
+    {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.sdk_name_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string protocol_version = 7 [json_name = "protocolVersion"];
+    {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.protocol_version_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // repeated string supported_capabilities = 8 [json_name = "supportedCapabilities"];
     {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.supported_capabilities_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // string transport_security_mode = 8 [json_name = "transportSecurityMode"];
-    {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.transport_security_mode_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // repeated string supported_transports = 9 [json_name = "supportedTransports"];
+    // string transport_security_mode = 9 [json_name = "transportSecurityMode"];
+    {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.transport_security_mode_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // repeated string supported_transports = 10 [json_name = "supportedTransports"];
     {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.supported_transports_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // string game_id = 10 [json_name = "gameId"];
-    {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.game_id_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string env = 11 [json_name = "env"];
-    {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.env_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string game_id = 11 [json_name = "gameId"];
+    {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.game_id_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string env = 12 [json_name = "env"];
+    {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.env_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   {{
       {::_pbi::TcParser::GetTable<::croupier::sdk::v1::LocalFunctionDescriptor>()},
   }},
   {{
-    "\46\12\7\0\14\13\20\26\27\24\7\3\0\0\0\0"
+    "\46\12\7\0\14\13\10\20\26\27\24\7\3\0\0\0"
     "croupier.sdk.v1.ProviderConnectRequest"
     "service_id"
     "version"
     "sdk_language"
     "sdk_version"
+    "sdk_name"
     "protocol_version"
     "supported_capabilities"
     "transport_security_mode"
@@ -1717,17 +1731,20 @@ PROTOBUF_NOINLINE void ProviderConnectRequest::Clear() {
       _impl_.sdk_version_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-      _impl_.protocol_version_.ClearNonDefaultToEmpty();
+      _impl_.sdk_name_.ClearNonDefaultToEmpty();
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
-      _impl_.transport_security_mode_.ClearNonDefaultToEmpty();
+      _impl_.protocol_version_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000200U)) {
-      _impl_.game_id_.ClearNonDefaultToEmpty();
+      _impl_.transport_security_mode_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      _impl_.game_id_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       _impl_.env_.ClearNonDefaultToEmpty();
     }
   }
@@ -1807,63 +1824,73 @@ PROTOBUF_NOINLINE void ProviderConnectRequest::Clear() {
     }
   }
 
-  // string protocol_version = 6 [json_name = "protocolVersion"];
+  // string sdk_name = 6 [json_name = "sdkName"];
   if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-    if (!this_._internal_protocol_version().empty()) {
-      const ::std::string& _s = this_._internal_protocol_version();
+    if (!this_._internal_sdk_name().empty()) {
+      const ::std::string& _s = this_._internal_sdk_name();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderConnectRequest.protocol_version");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderConnectRequest.sdk_name");
       target = stream->WriteStringMaybeAliased(6, _s, target);
     }
   }
 
-  // repeated string supported_capabilities = 7 [json_name = "supportedCapabilities"];
+  // string protocol_version = 7 [json_name = "protocolVersion"];
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (!this_._internal_protocol_version().empty()) {
+      const ::std::string& _s = this_._internal_protocol_version();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderConnectRequest.protocol_version");
+      target = stream->WriteStringMaybeAliased(7, _s, target);
+    }
+  }
+
+  // repeated string supported_capabilities = 8 [json_name = "supportedCapabilities"];
   if (CheckHasBitForRepeated(cached_has_bits, 0x00000002U)) {
     for (int i = 0, n = this_._internal_supported_capabilities_size(); i < n; ++i) {
       const auto& s = this_._internal_supported_capabilities().Get(i);
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderConnectRequest.supported_capabilities");
-      target = stream->WriteString(7, s, target);
+      target = stream->WriteString(8, s, target);
     }
   }
 
-  // string transport_security_mode = 8 [json_name = "transportSecurityMode"];
-  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+  // string transport_security_mode = 9 [json_name = "transportSecurityMode"];
+  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
     if (!this_._internal_transport_security_mode().empty()) {
       const ::std::string& _s = this_._internal_transport_security_mode();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderConnectRequest.transport_security_mode");
-      target = stream->WriteStringMaybeAliased(8, _s, target);
+      target = stream->WriteStringMaybeAliased(9, _s, target);
     }
   }
 
-  // repeated string supported_transports = 9 [json_name = "supportedTransports"];
+  // repeated string supported_transports = 10 [json_name = "supportedTransports"];
   if (CheckHasBitForRepeated(cached_has_bits, 0x00000004U)) {
     for (int i = 0, n = this_._internal_supported_transports_size(); i < n; ++i) {
       const auto& s = this_._internal_supported_transports().Get(i);
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderConnectRequest.supported_transports");
-      target = stream->WriteString(9, s, target);
+      target = stream->WriteString(10, s, target);
     }
   }
 
-  // string game_id = 10 [json_name = "gameId"];
-  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+  // string game_id = 11 [json_name = "gameId"];
+  if (CheckHasBit(cached_has_bits, 0x00000400U)) {
     if (!this_._internal_game_id().empty()) {
       const ::std::string& _s = this_._internal_game_id();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderConnectRequest.game_id");
-      target = stream->WriteStringMaybeAliased(10, _s, target);
+      target = stream->WriteStringMaybeAliased(11, _s, target);
     }
   }
 
-  // string env = 11 [json_name = "env"];
-  if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+  // string env = 12 [json_name = "env"];
+  if (CheckHasBit(cached_has_bits, 0x00000800U)) {
     if (!this_._internal_env().empty()) {
       const ::std::string& _s = this_._internal_env();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderConnectRequest.env");
-      target = stream->WriteStringMaybeAliased(11, _s, target);
+      target = stream->WriteStringMaybeAliased(12, _s, target);
     }
   }
 
@@ -1900,7 +1927,7 @@ PROTOBUF_NOINLINE void ProviderConnectRequest::Clear() {
         total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
       }
     }
-    // repeated string supported_capabilities = 7 [json_name = "supportedCapabilities"];
+    // repeated string supported_capabilities = 8 [json_name = "supportedCapabilities"];
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000002U)) {
       total_size +=
           1 * ::google::protobuf::internal::FromIntSize(this_._internal_supported_capabilities().size());
@@ -1909,7 +1936,7 @@ PROTOBUF_NOINLINE void ProviderConnectRequest::Clear() {
             this_._internal_supported_capabilities().Get(i));
       }
     }
-    // repeated string supported_transports = 9 [json_name = "supportedTransports"];
+    // repeated string supported_transports = 10 [json_name = "supportedTransports"];
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000004U)) {
       total_size +=
           1 * ::google::protobuf::internal::FromIntSize(this_._internal_supported_transports().size());
@@ -1946,31 +1973,38 @@ PROTOBUF_NOINLINE void ProviderConnectRequest::Clear() {
                                         this_._internal_sdk_version());
       }
     }
-    // string protocol_version = 6 [json_name = "protocolVersion"];
+    // string sdk_name = 6 [json_name = "sdkName"];
     if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      if (!this_._internal_sdk_name().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_sdk_name());
+      }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
+    // string protocol_version = 7 [json_name = "protocolVersion"];
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!this_._internal_protocol_version().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_protocol_version());
       }
     }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
-    // string transport_security_mode = 8 [json_name = "transportSecurityMode"];
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    // string transport_security_mode = 9 [json_name = "transportSecurityMode"];
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
       if (!this_._internal_transport_security_mode().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_transport_security_mode());
       }
     }
-    // string game_id = 10 [json_name = "gameId"];
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    // string game_id = 11 [json_name = "gameId"];
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
       if (!this_._internal_game_id().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_game_id());
       }
     }
-    // string env = 11 [json_name = "env"];
-    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+    // string env = 12 [json_name = "env"];
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       if (!this_._internal_env().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_env());
@@ -2049,6 +2083,17 @@ void ProviderConnectRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      if (!from._internal_sdk_name().empty()) {
+        _this->_internal_set_sdk_name(from._internal_sdk_name());
+      } else {
+        if (_this->_impl_.sdk_name_.IsDefault()) {
+          _this->_internal_set_sdk_name("");
+        }
+      }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!from._internal_protocol_version().empty()) {
         _this->_internal_set_protocol_version(from._internal_protocol_version());
       } else {
@@ -2057,9 +2102,7 @@ void ProviderConnectRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
       if (!from._internal_transport_security_mode().empty()) {
         _this->_internal_set_transport_security_mode(from._internal_transport_security_mode());
       } else {
@@ -2068,7 +2111,7 @@ void ProviderConnectRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
       if (!from._internal_game_id().empty()) {
         _this->_internal_set_game_id(from._internal_game_id());
       } else {
@@ -2077,7 +2120,7 @@ void ProviderConnectRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       if (!from._internal_env().empty()) {
         _this->_internal_set_env(from._internal_env());
       } else {
@@ -2113,6 +2156,7 @@ void ProviderConnectRequest::InternalSwap(ProviderConnectRequest* PROTOBUF_RESTR
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.sdk_language_, &other->_impl_.sdk_language_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.sdk_version_, &other->_impl_.sdk_version_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.sdk_name_, &other->_impl_.sdk_name_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.protocol_version_, &other->_impl_.protocol_version_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.transport_security_mode_, &other->_impl_.transport_security_mode_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.game_id_, &other->_impl_.game_id_, arena);

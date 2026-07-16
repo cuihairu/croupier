@@ -33,36 +33,38 @@ namespace Croupier.Sdk.V1 {
             "aW5wdXRfc2NoZW1hGAggASgJUgtpbnB1dFNjaGVtYRIjCg1vdXRwdXRfc2No",
             "ZW1hGAkgASgJUgxvdXRwdXRTY2hlbWESGgoIY2F0ZWdvcnkYCiABKAlSCGNh",
             "dGVnb3J5EhIKBHJpc2sYCyABKAlSBHJpc2sSFgoGZW50aXR5GAwgASgJUgZl",
-            "bnRpdHkSHAoJb3BlcmF0aW9uGA0gASgJUglvcGVyYXRpb24iqgMKFlByb3Zp",
+            "bnRpdHkSHAoJb3BlcmF0aW9uGA0gASgJUglvcGVyYXRpb24i8AMKFlByb3Zp",
             "ZGVyQ29ubmVjdFJlcXVlc3QSHQoKc2VydmljZV9pZBgBIAEoCVIJc2Vydmlj",
             "ZUlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24SRgoJZnVuY3Rpb25zGAMg",
             "AygLMiguY3JvdXBpZXIuc2RrLnYxLkxvY2FsRnVuY3Rpb25EZXNjcmlwdG9y",
             "UglmdW5jdGlvbnMSIQoMc2RrX2xhbmd1YWdlGAQgASgJUgtzZGtMYW5ndWFn",
-            "ZRIfCgtzZGtfdmVyc2lvbhgFIAEoCVIKc2RrVmVyc2lvbhIpChBwcm90b2Nv",
-            "bF92ZXJzaW9uGAYgASgJUg9wcm90b2NvbFZlcnNpb24SNQoWc3VwcG9ydGVk",
-            "X2NhcGFiaWxpdGllcxgHIAMoCVIVc3VwcG9ydGVkQ2FwYWJpbGl0aWVzEjYK",
-            "F3RyYW5zcG9ydF9zZWN1cml0eV9tb2RlGAggASgJUhV0cmFuc3BvcnRTZWN1",
-            "cml0eU1vZGUSMQoUc3VwcG9ydGVkX3RyYW5zcG9ydHMYCSADKAlSE3N1cHBv",
-            "cnRlZFRyYW5zcG9ydHMiiQEKF1Byb3ZpZGVyQ29ubmVjdFJlc3BvbnNlEh0K",
-            "CnNlc3Npb25faWQYASABKAlSCXNlc3Npb25JZBIzChVhY2NlcHRlZF9jYXBh",
-            "YmlsaXRpZXMYAiADKAlSFGFjY2VwdGVkQ2FwYWJpbGl0aWVzEhoKCHdhcm5p",
-            "bmdzGAMgAygJUgh3YXJuaW5ncyJYChhQcm92aWRlckhlYXJ0YmVhdFJlcXVl",
-            "c3QSHQoKc2VydmljZV9pZBgBIAEoCVIJc2VydmljZUlkEh0KCnNlc3Npb25f",
-            "aWQYAiABKAlSCXNlc3Npb25JZCIbChlQcm92aWRlckhlYXJ0YmVhdFJlc3Bv",
-            "bnNlInMKFFByb3ZpZGVyRHJhaW5SZXF1ZXN0Eh0KCnNlc3Npb25faWQYASAB",
-            "KAlSCXNlc3Npb25JZBIWCgZyZWFzb24YAiABKAlSBnJlYXNvbhIkCg5yZXRy",
-            "eV9hZnRlcl9tcxgDIAEoDVIMcmV0cnlBZnRlck1zIhcKFVByb3ZpZGVyRHJh",
-            "aW5SZXNwb25zZSIvChRHZXRUYXNrUmVzdWx0UmVxdWVzdBIXCgd0YXNrX2lk",
-            "GAEgASgJUgZ0YXNrSWQiXQoVR2V0VGFza1Jlc3VsdFJlc3BvbnNlEhQKBXN0",
-            "YXRlGAEgASgJUgVzdGF0ZRIYCgdwYXlsb2FkGAIgASgMUgdwYXlsb2FkEhQK",
-            "BWVycm9yGAMgASgJUgVlcnJvckJhCiJpby5naXRodWIuY3VpaGFpcnUuY3Jv",
-            "dXBpZXIuc2RrLnYxUAFaOWdpdGh1Yi5jb20vY3VpaGFpcnUvY3JvdXBpZXIv",
-            "cGtnL3BiL2Nyb3VwaWVyL3Nkay92MTtzZGt2MWIGcHJvdG8z"));
+            "ZRIfCgtzZGtfdmVyc2lvbhgFIAEoCVIKc2RrVmVyc2lvbhIZCghzZGtfbmFt",
+            "ZRgGIAEoCVIHc2RrTmFtZRIpChBwcm90b2NvbF92ZXJzaW9uGAcgASgJUg9w",
+            "cm90b2NvbFZlcnNpb24SNQoWc3VwcG9ydGVkX2NhcGFiaWxpdGllcxgIIAMo",
+            "CVIVc3VwcG9ydGVkQ2FwYWJpbGl0aWVzEjYKF3RyYW5zcG9ydF9zZWN1cml0",
+            "eV9tb2RlGAkgASgJUhV0cmFuc3BvcnRTZWN1cml0eU1vZGUSMQoUc3VwcG9y",
+            "dGVkX3RyYW5zcG9ydHMYCiADKAlSE3N1cHBvcnRlZFRyYW5zcG9ydHMSFwoH",
+            "Z2FtZV9pZBgLIAEoCVIGZ2FtZUlkEhAKA2VudhgMIAEoCVIDZW52IokBChdQ",
+            "cm92aWRlckNvbm5lY3RSZXNwb25zZRIdCgpzZXNzaW9uX2lkGAEgASgJUglz",
+            "ZXNzaW9uSWQSMwoVYWNjZXB0ZWRfY2FwYWJpbGl0aWVzGAIgAygJUhRhY2Nl",
+            "cHRlZENhcGFiaWxpdGllcxIaCgh3YXJuaW5ncxgDIAMoCVIId2FybmluZ3Mi",
+            "WAoYUHJvdmlkZXJIZWFydGJlYXRSZXF1ZXN0Eh0KCnNlcnZpY2VfaWQYASAB",
+            "KAlSCXNlcnZpY2VJZBIdCgpzZXNzaW9uX2lkGAIgASgJUglzZXNzaW9uSWQi",
+            "GwoZUHJvdmlkZXJIZWFydGJlYXRSZXNwb25zZSJzChRQcm92aWRlckRyYWlu",
+            "UmVxdWVzdBIdCgpzZXNzaW9uX2lkGAEgASgJUglzZXNzaW9uSWQSFgoGcmVh",
+            "c29uGAIgASgJUgZyZWFzb24SJAoOcmV0cnlfYWZ0ZXJfbXMYAyABKA1SDHJl",
+            "dHJ5QWZ0ZXJNcyIXChVQcm92aWRlckRyYWluUmVzcG9uc2UiLwoUR2V0VGFz",
+            "a1Jlc3VsdFJlcXVlc3QSFwoHdGFza19pZBgBIAEoCVIGdGFza0lkIl0KFUdl",
+            "dFRhc2tSZXN1bHRSZXNwb25zZRIUCgVzdGF0ZRgBIAEoCVIFc3RhdGUSGAoH",
+            "cGF5bG9hZBgCIAEoDFIHcGF5bG9hZBIUCgVlcnJvchgDIAEoCVIFZXJyb3JC",
+            "YQoiaW8uZ2l0aHViLmN1aWhhaXJ1LmNyb3VwaWVyLnNkay52MVABWjlnaXRo",
+            "dWIuY29tL2N1aWhhaXJ1L2Nyb3VwaWVyL3BrZy9wYi9jcm91cGllci9zZGsv",
+            "djE7c2RrdjFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.LocalFunctionDescriptor), global::Croupier.Sdk.V1.LocalFunctionDescriptor.Parser, new[]{ "Id", "Version", "Tags", "Summary", "Description", "OperationId", "Deprecated", "InputSchema", "OutputSchema", "Category", "Risk", "Entity", "Operation" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderConnectRequest), global::Croupier.Sdk.V1.ProviderConnectRequest.Parser, new[]{ "ServiceId", "Version", "Functions", "SdkLanguage", "SdkVersion", "ProtocolVersion", "SupportedCapabilities", "TransportSecurityMode", "SupportedTransports" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderConnectRequest), global::Croupier.Sdk.V1.ProviderConnectRequest.Parser, new[]{ "ServiceId", "Version", "Functions", "SdkLanguage", "SdkVersion", "SdkName", "ProtocolVersion", "SupportedCapabilities", "TransportSecurityMode", "SupportedTransports", "GameId", "Env" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderConnectResponse), global::Croupier.Sdk.V1.ProviderConnectResponse.Parser, new[]{ "SessionId", "AcceptedCapabilities", "Warnings" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderHeartbeatRequest), global::Croupier.Sdk.V1.ProviderHeartbeatRequest.Parser, new[]{ "ServiceId", "SessionId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderHeartbeatResponse), global::Croupier.Sdk.V1.ProviderHeartbeatResponse.Parser, null, null, null, null, null),
@@ -785,10 +787,13 @@ namespace Croupier.Sdk.V1 {
       functions_ = other.functions_.Clone();
       sdkLanguage_ = other.sdkLanguage_;
       sdkVersion_ = other.sdkVersion_;
+      sdkName_ = other.sdkName_;
       protocolVersion_ = other.protocolVersion_;
       supportedCapabilities_ = other.supportedCapabilities_.Clone();
       transportSecurityMode_ = other.transportSecurityMode_;
       supportedTransports_ = other.supportedTransports_.Clone();
+      gameId_ = other.gameId_;
+      env_ = other.env_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -869,8 +874,23 @@ namespace Croupier.Sdk.V1 {
       }
     }
 
+    /// <summary>Field number for the "sdk_name" field.</summary>
+    public const int SdkNameFieldNumber = 6;
+    private string sdkName_ = "";
+    /// <summary>
+    /// SDK display name, e.g. "croupier-js-sdk"; user-overridable
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string SdkName {
+      get { return sdkName_; }
+      set {
+        sdkName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     /// <summary>Field number for the "protocol_version" field.</summary>
-    public const int ProtocolVersionFieldNumber = 6;
+    public const int ProtocolVersionFieldNumber = 7;
     private string protocolVersion_ = "";
     /// <summary>
     /// Wire protocol semantic version string
@@ -885,9 +905,9 @@ namespace Croupier.Sdk.V1 {
     }
 
     /// <summary>Field number for the "supported_capabilities" field.</summary>
-    public const int SupportedCapabilitiesFieldNumber = 7;
+    public const int SupportedCapabilitiesFieldNumber = 8;
     private static readonly pb::FieldCodec<string> _repeated_supportedCapabilities_codec
-        = pb::FieldCodec.ForString(58);
+        = pb::FieldCodec.ForString(66);
     private readonly pbc::RepeatedField<string> supportedCapabilities_ = new pbc::RepeatedField<string>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -896,7 +916,7 @@ namespace Croupier.Sdk.V1 {
     }
 
     /// <summary>Field number for the "transport_security_mode" field.</summary>
-    public const int TransportSecurityModeFieldNumber = 8;
+    public const int TransportSecurityModeFieldNumber = 9;
     private string transportSecurityMode_ = "";
     /// <summary>
     /// "plaintext" | "tls"
@@ -911,9 +931,9 @@ namespace Croupier.Sdk.V1 {
     }
 
     /// <summary>Field number for the "supported_transports" field.</summary>
-    public const int SupportedTransportsFieldNumber = 9;
+    public const int SupportedTransportsFieldNumber = 10;
     private static readonly pb::FieldCodec<string> _repeated_supportedTransports_codec
-        = pb::FieldCodec.ForString(74);
+        = pb::FieldCodec.ForString(82);
     private readonly pbc::RepeatedField<string> supportedTransports_ = new pbc::RepeatedField<string>();
     /// <summary>
     /// currently fixed to "tcp"
@@ -922,6 +942,36 @@ namespace Croupier.Sdk.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<string> SupportedTransports {
       get { return supportedTransports_; }
+    }
+
+    /// <summary>Field number for the "game_id" field.</summary>
+    public const int GameIdFieldNumber = 11;
+    private string gameId_ = "";
+    /// <summary>
+    /// game scope the provider belongs to (validated against agent)
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GameId {
+      get { return gameId_; }
+      set {
+        gameId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "env" field.</summary>
+    public const int EnvFieldNumber = 12;
+    private string env_ = "";
+    /// <summary>
+    /// logical environment (prod/stage/dev)
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Env {
+      get { return env_; }
+      set {
+        env_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -944,10 +994,13 @@ namespace Croupier.Sdk.V1 {
       if(!functions_.Equals(other.functions_)) return false;
       if (SdkLanguage != other.SdkLanguage) return false;
       if (SdkVersion != other.SdkVersion) return false;
+      if (SdkName != other.SdkName) return false;
       if (ProtocolVersion != other.ProtocolVersion) return false;
       if(!supportedCapabilities_.Equals(other.supportedCapabilities_)) return false;
       if (TransportSecurityMode != other.TransportSecurityMode) return false;
       if(!supportedTransports_.Equals(other.supportedTransports_)) return false;
+      if (GameId != other.GameId) return false;
+      if (Env != other.Env) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -960,10 +1013,13 @@ namespace Croupier.Sdk.V1 {
       hash ^= functions_.GetHashCode();
       if (SdkLanguage.Length != 0) hash ^= SdkLanguage.GetHashCode();
       if (SdkVersion.Length != 0) hash ^= SdkVersion.GetHashCode();
+      if (SdkName.Length != 0) hash ^= SdkName.GetHashCode();
       if (ProtocolVersion.Length != 0) hash ^= ProtocolVersion.GetHashCode();
       hash ^= supportedCapabilities_.GetHashCode();
       if (TransportSecurityMode.Length != 0) hash ^= TransportSecurityMode.GetHashCode();
       hash ^= supportedTransports_.GetHashCode();
+      if (GameId.Length != 0) hash ^= GameId.GetHashCode();
+      if (Env.Length != 0) hash ^= Env.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -999,16 +1055,28 @@ namespace Croupier.Sdk.V1 {
         output.WriteRawTag(42);
         output.WriteString(SdkVersion);
       }
-      if (ProtocolVersion.Length != 0) {
+      if (SdkName.Length != 0) {
         output.WriteRawTag(50);
+        output.WriteString(SdkName);
+      }
+      if (ProtocolVersion.Length != 0) {
+        output.WriteRawTag(58);
         output.WriteString(ProtocolVersion);
       }
       supportedCapabilities_.WriteTo(output, _repeated_supportedCapabilities_codec);
       if (TransportSecurityMode.Length != 0) {
-        output.WriteRawTag(66);
+        output.WriteRawTag(74);
         output.WriteString(TransportSecurityMode);
       }
       supportedTransports_.WriteTo(output, _repeated_supportedTransports_codec);
+      if (GameId.Length != 0) {
+        output.WriteRawTag(90);
+        output.WriteString(GameId);
+      }
+      if (Env.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(Env);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1036,16 +1104,28 @@ namespace Croupier.Sdk.V1 {
         output.WriteRawTag(42);
         output.WriteString(SdkVersion);
       }
-      if (ProtocolVersion.Length != 0) {
+      if (SdkName.Length != 0) {
         output.WriteRawTag(50);
+        output.WriteString(SdkName);
+      }
+      if (ProtocolVersion.Length != 0) {
+        output.WriteRawTag(58);
         output.WriteString(ProtocolVersion);
       }
       supportedCapabilities_.WriteTo(ref output, _repeated_supportedCapabilities_codec);
       if (TransportSecurityMode.Length != 0) {
-        output.WriteRawTag(66);
+        output.WriteRawTag(74);
         output.WriteString(TransportSecurityMode);
       }
       supportedTransports_.WriteTo(ref output, _repeated_supportedTransports_codec);
+      if (GameId.Length != 0) {
+        output.WriteRawTag(90);
+        output.WriteString(GameId);
+      }
+      if (Env.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(Env);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1069,6 +1149,9 @@ namespace Croupier.Sdk.V1 {
       if (SdkVersion.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(SdkVersion);
       }
+      if (SdkName.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(SdkName);
+      }
       if (ProtocolVersion.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(ProtocolVersion);
       }
@@ -1077,6 +1160,12 @@ namespace Croupier.Sdk.V1 {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(TransportSecurityMode);
       }
       size += supportedTransports_.CalculateSize(_repeated_supportedTransports_codec);
+      if (GameId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(GameId);
+      }
+      if (Env.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Env);
+      }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -1102,6 +1191,9 @@ namespace Croupier.Sdk.V1 {
       if (other.SdkVersion.Length != 0) {
         SdkVersion = other.SdkVersion;
       }
+      if (other.SdkName.Length != 0) {
+        SdkName = other.SdkName;
+      }
       if (other.ProtocolVersion.Length != 0) {
         ProtocolVersion = other.ProtocolVersion;
       }
@@ -1110,6 +1202,12 @@ namespace Croupier.Sdk.V1 {
         TransportSecurityMode = other.TransportSecurityMode;
       }
       supportedTransports_.Add(other.supportedTransports_);
+      if (other.GameId.Length != 0) {
+        GameId = other.GameId;
+      }
+      if (other.Env.Length != 0) {
+        Env = other.Env;
+      }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -1146,19 +1244,31 @@ namespace Croupier.Sdk.V1 {
             break;
           }
           case 50: {
-            ProtocolVersion = input.ReadString();
+            SdkName = input.ReadString();
             break;
           }
           case 58: {
-            supportedCapabilities_.AddEntriesFrom(input, _repeated_supportedCapabilities_codec);
+            ProtocolVersion = input.ReadString();
             break;
           }
           case 66: {
-            TransportSecurityMode = input.ReadString();
+            supportedCapabilities_.AddEntriesFrom(input, _repeated_supportedCapabilities_codec);
             break;
           }
           case 74: {
+            TransportSecurityMode = input.ReadString();
+            break;
+          }
+          case 82: {
             supportedTransports_.AddEntriesFrom(input, _repeated_supportedTransports_codec);
+            break;
+          }
+          case 90: {
+            GameId = input.ReadString();
+            break;
+          }
+          case 98: {
+            Env = input.ReadString();
             break;
           }
         }
@@ -1197,19 +1307,31 @@ namespace Croupier.Sdk.V1 {
             break;
           }
           case 50: {
-            ProtocolVersion = input.ReadString();
+            SdkName = input.ReadString();
             break;
           }
           case 58: {
-            supportedCapabilities_.AddEntriesFrom(ref input, _repeated_supportedCapabilities_codec);
+            ProtocolVersion = input.ReadString();
             break;
           }
           case 66: {
-            TransportSecurityMode = input.ReadString();
+            supportedCapabilities_.AddEntriesFrom(ref input, _repeated_supportedCapabilities_codec);
             break;
           }
           case 74: {
+            TransportSecurityMode = input.ReadString();
+            break;
+          }
+          case 82: {
             supportedTransports_.AddEntriesFrom(ref input, _repeated_supportedTransports_codec);
+            break;
+          }
+          case 90: {
+            GameId = input.ReadString();
+            break;
+          }
+          case 98: {
+            Env = input.ReadString();
             break;
           }
         }

@@ -2080,16 +2080,17 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
   // accessors -------------------------------------------------------
   enum : int {
     kFunctionsFieldNumber = 3,
-    kSupportedCapabilitiesFieldNumber = 7,
-    kSupportedTransportsFieldNumber = 9,
+    kSupportedCapabilitiesFieldNumber = 8,
+    kSupportedTransportsFieldNumber = 10,
     kServiceIdFieldNumber = 1,
     kVersionFieldNumber = 2,
     kSdkLanguageFieldNumber = 4,
     kSdkVersionFieldNumber = 5,
-    kProtocolVersionFieldNumber = 6,
-    kTransportSecurityModeFieldNumber = 8,
-    kGameIdFieldNumber = 10,
-    kEnvFieldNumber = 11,
+    kSdkNameFieldNumber = 6,
+    kProtocolVersionFieldNumber = 7,
+    kTransportSecurityModeFieldNumber = 9,
+    kGameIdFieldNumber = 11,
+    kEnvFieldNumber = 12,
   };
   // repeated .croupier.sdk.v1.LocalFunctionDescriptor functions = 3 [json_name = "functions"];
   [[nodiscard]] int functions_size()
@@ -2111,7 +2112,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
   ::croupier::sdk::v1::LocalFunctionDescriptor* PROTOBUF_NONNULL add_functions();
   [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::LocalFunctionDescriptor>& functions()
       const;
-  // repeated string supported_capabilities = 7 [json_name = "supportedCapabilities"];
+  // repeated string supported_capabilities = 8 [json_name = "supportedCapabilities"];
   [[nodiscard]] int supported_capabilities_size()
       const;
   private:
@@ -2136,7 +2137,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
   ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL _internal_mutable_supported_capabilities();
 
   public:
-  // repeated string supported_transports = 9 [json_name = "supportedTransports"];
+  // repeated string supported_transports = 10 [json_name = "supportedTransports"];
   [[nodiscard]] int supported_transports_size()
       const;
   private:
@@ -2221,7 +2222,22 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
   ::std::string* PROTOBUF_NONNULL _internal_mutable_sdk_version();
 
   public:
-  // string protocol_version = 6 [json_name = "protocolVersion"];
+  // string sdk_name = 6 [json_name = "sdkName"];
+  void clear_sdk_name() ;
+  [[nodiscard]] const ::std::string& sdk_name() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_sdk_name(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_sdk_name();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_sdk_name();
+  void set_allocated_sdk_name(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_sdk_name() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_sdk_name(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_sdk_name();
+
+  public:
+  // string protocol_version = 7 [json_name = "protocolVersion"];
   void clear_protocol_version() ;
   [[nodiscard]] const ::std::string& protocol_version() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -2236,7 +2252,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
   ::std::string* PROTOBUF_NONNULL _internal_mutable_protocol_version();
 
   public:
-  // string transport_security_mode = 8 [json_name = "transportSecurityMode"];
+  // string transport_security_mode = 9 [json_name = "transportSecurityMode"];
   void clear_transport_security_mode() ;
   [[nodiscard]] const ::std::string& transport_security_mode() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -2251,7 +2267,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
   ::std::string* PROTOBUF_NONNULL _internal_mutable_transport_security_mode();
 
   public:
-  // string game_id = 10 [json_name = "gameId"];
+  // string game_id = 11 [json_name = "gameId"];
   void clear_game_id() ;
   [[nodiscard]] const ::std::string& game_id() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -2266,7 +2282,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
   ::std::string* PROTOBUF_NONNULL _internal_mutable_game_id();
 
   public:
-  // string env = 11 [json_name = "env"];
+  // string env = 12 [json_name = "env"];
   void clear_env() ;
   [[nodiscard]] const ::std::string& env() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -2285,8 +2301,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 11,
-                                   1, 186,
+  static const ::google::protobuf::internal::TcParseTable<4, 12,
+                                   1, 194,
                                    2>
       _table_;
 
@@ -2316,6 +2332,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
     ::google::protobuf::internal::ArenaStringPtr version_;
     ::google::protobuf::internal::ArenaStringPtr sdk_language_;
     ::google::protobuf::internal::ArenaStringPtr sdk_version_;
+    ::google::protobuf::internal::ArenaStringPtr sdk_name_;
     ::google::protobuf::internal::ArenaStringPtr protocol_version_;
     ::google::protobuf::internal::ArenaStringPtr transport_security_mode_;
     ::google::protobuf::internal::ArenaStringPtr game_id_;
@@ -3476,12 +3493,77 @@ inline void ProviderConnectRequest::set_allocated_sdk_version(::std::string* PRO
   // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderConnectRequest.sdk_version)
 }
 
-// string protocol_version = 6 [json_name = "protocolVersion"];
+// string sdk_name = 6 [json_name = "sdkName"];
+inline void ProviderConnectRequest::clear_sdk_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sdk_name_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000080U);
+}
+inline const ::std::string& ProviderConnectRequest::sdk_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderConnectRequest.sdk_name)
+  return _internal_sdk_name();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProviderConnectRequest::set_sdk_name(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  _impl_.sdk_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderConnectRequest.sdk_name)
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::mutable_sdk_name()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  ::std::string* _s = _internal_mutable_sdk_name();
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderConnectRequest.sdk_name)
+  return _s;
+}
+inline const ::std::string& ProviderConnectRequest::_internal_sdk_name() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.sdk_name_.Get();
+}
+inline void ProviderConnectRequest::_internal_set_sdk_name(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sdk_name_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::_internal_mutable_sdk_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.sdk_name_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_sdk_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderConnectRequest.sdk_name)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000080U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  auto* released = _impl_.sdk_name_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.sdk_name_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProviderConnectRequest::set_allocated_sdk_name(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  }
+  _impl_.sdk_name_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.sdk_name_.IsDefault()) {
+    _impl_.sdk_name_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderConnectRequest.sdk_name)
+}
+
+// string protocol_version = 7 [json_name = "protocolVersion"];
 inline void ProviderConnectRequest::clear_protocol_version() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.protocol_version_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000080U);
+                  0x00000100U);
 }
 inline const ::std::string& ProviderConnectRequest::protocol_version() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -3491,13 +3573,13 @@ inline const ::std::string& ProviderConnectRequest::protocol_version() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void ProviderConnectRequest::set_protocol_version(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   _impl_.protocol_version_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderConnectRequest.protocol_version)
 }
 inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::mutable_protocol_version()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::std::string* _s = _internal_mutable_protocol_version();
   // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderConnectRequest.protocol_version)
   return _s;
@@ -3517,10 +3599,10 @@ inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::_internal_mutable
 inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_protocol_version() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderConnectRequest.protocol_version)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000080U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000100U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   auto* released = _impl_.protocol_version_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.protocol_version_.Set("", GetArena());
@@ -3530,9 +3612,9 @@ inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_protocol
 inline void ProviderConnectRequest::set_allocated_protocol_version(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   }
   _impl_.protocol_version_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.protocol_version_.IsDefault()) {
@@ -3541,7 +3623,7 @@ inline void ProviderConnectRequest::set_allocated_protocol_version(::std::string
   // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderConnectRequest.protocol_version)
 }
 
-// repeated string supported_capabilities = 7 [json_name = "supportedCapabilities"];
+// repeated string supported_capabilities = 8 [json_name = "supportedCapabilities"];
 inline int ProviderConnectRequest::_internal_supported_capabilities_size() const {
   return _internal_supported_capabilities().size();
 }
@@ -3613,12 +3695,12 @@ ProviderConnectRequest::_internal_mutable_supported_capabilities() {
   return &_impl_.supported_capabilities_;
 }
 
-// string transport_security_mode = 8 [json_name = "transportSecurityMode"];
+// string transport_security_mode = 9 [json_name = "transportSecurityMode"];
 inline void ProviderConnectRequest::clear_transport_security_mode() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.transport_security_mode_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00000200U);
 }
 inline const ::std::string& ProviderConnectRequest::transport_security_mode() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -3628,13 +3710,13 @@ inline const ::std::string& ProviderConnectRequest::transport_security_mode() co
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void ProviderConnectRequest::set_transport_security_mode(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   _impl_.transport_security_mode_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderConnectRequest.transport_security_mode)
 }
 inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::mutable_transport_security_mode()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   ::std::string* _s = _internal_mutable_transport_security_mode();
   // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderConnectRequest.transport_security_mode)
   return _s;
@@ -3654,10 +3736,10 @@ inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::_internal_mutable
 inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_transport_security_mode() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderConnectRequest.transport_security_mode)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000100U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000200U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
   auto* released = _impl_.transport_security_mode_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.transport_security_mode_.Set("", GetArena());
@@ -3667,9 +3749,9 @@ inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_transpor
 inline void ProviderConnectRequest::set_allocated_transport_security_mode(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
   }
   _impl_.transport_security_mode_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.transport_security_mode_.IsDefault()) {
@@ -3678,7 +3760,7 @@ inline void ProviderConnectRequest::set_allocated_transport_security_mode(::std:
   // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderConnectRequest.transport_security_mode)
 }
 
-// repeated string supported_transports = 9 [json_name = "supportedTransports"];
+// repeated string supported_transports = 10 [json_name = "supportedTransports"];
 inline int ProviderConnectRequest::_internal_supported_transports_size() const {
   return _internal_supported_transports().size();
 }
@@ -3750,12 +3832,12 @@ ProviderConnectRequest::_internal_mutable_supported_transports() {
   return &_impl_.supported_transports_;
 }
 
-// string game_id = 10 [json_name = "gameId"];
+// string game_id = 11 [json_name = "gameId"];
 inline void ProviderConnectRequest::clear_game_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.game_id_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000200U);
+                  0x00000400U);
 }
 inline const ::std::string& ProviderConnectRequest::game_id() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -3765,13 +3847,13 @@ inline const ::std::string& ProviderConnectRequest::game_id() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void ProviderConnectRequest::set_game_id(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
   _impl_.game_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderConnectRequest.game_id)
 }
 inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::mutable_game_id()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
   ::std::string* _s = _internal_mutable_game_id();
   // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderConnectRequest.game_id)
   return _s;
@@ -3791,10 +3873,10 @@ inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::_internal_mutable
 inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_game_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderConnectRequest.game_id)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000200U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000400U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
   auto* released = _impl_.game_id_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.game_id_.Set("", GetArena());
@@ -3804,9 +3886,9 @@ inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_game_id(
 inline void ProviderConnectRequest::set_allocated_game_id(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000400U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
   }
   _impl_.game_id_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.game_id_.IsDefault()) {
@@ -3815,12 +3897,12 @@ inline void ProviderConnectRequest::set_allocated_game_id(::std::string* PROTOBU
   // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderConnectRequest.game_id)
 }
 
-// string env = 11 [json_name = "env"];
+// string env = 12 [json_name = "env"];
 inline void ProviderConnectRequest::clear_env() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.env_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000400U);
+                  0x00000800U);
 }
 inline const ::std::string& ProviderConnectRequest::env() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -3830,13 +3912,13 @@ inline const ::std::string& ProviderConnectRequest::env() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void ProviderConnectRequest::set_env(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000800U);
   _impl_.env_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderConnectRequest.env)
 }
 inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::mutable_env()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000800U);
   ::std::string* _s = _internal_mutable_env();
   // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderConnectRequest.env)
   return _s;
@@ -3856,10 +3938,10 @@ inline ::std::string* PROTOBUF_NONNULL ProviderConnectRequest::_internal_mutable
 inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_env() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderConnectRequest.env)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000400U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000800U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
   auto* released = _impl_.env_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.env_.Set("", GetArena());
@@ -3869,9 +3951,9 @@ inline ::std::string* PROTOBUF_NULLABLE ProviderConnectRequest::release_env() {
 inline void ProviderConnectRequest::set_allocated_env(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000800U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
   }
   _impl_.env_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.env_.IsDefault()) {

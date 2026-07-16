@@ -37,12 +37,13 @@ message ProviderConnectRequest {
   repeated LocalFunctionDescriptor functions = 3;
   string sdk_language = 4;                   // e.g. "go", "java", "csharp"
   string sdk_version = 5;                    // SDK release version
-  string protocol_version = 6;               // Wire protocol semantic version string
-  repeated string supported_capabilities = 7;
-  string transport_security_mode = 8;        // "plaintext" | "tls"
-  repeated string supported_transports = 9;  // currently fixed to "tcp"
-  string game_id = 10;                       // game scope the provider belongs to (validated against agent)
-  string env = 11;                            // logical environment (prod/stage/dev)
+  string sdk_name = 6;                       // SDK display name, e.g. "croupier-js-sdk"; user-overridable
+  string protocol_version = 7;               // Wire protocol semantic version string
+  repeated string supported_capabilities = 8;
+  string transport_security_mode = 9;        // "plaintext" | "tls"
+  repeated string supported_transports = 10; // currently fixed to "tcp"
+  string game_id = 11;                       // game scope the provider belongs to (validated against agent)
+  string env = 12;                           // logical environment (prod/stage/dev)
 }
 
 message ProviderConnectResponse {

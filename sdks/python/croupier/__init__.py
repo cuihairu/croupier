@@ -234,6 +234,7 @@ class CroupierClient:
             functions=[self.get_function_descriptor(fid) for fid in self._handlers.keys()],  # type: ignore[misc]
             sdk_language="python",
             sdk_version="1.0.0",
+            sdk_name="croupier-python-sdk",
             protocol_version="1.0.0",
         )
 

@@ -279,6 +279,7 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 		ConnectedAt: time.Now(),
 		SDKLanguage: req.SdkLanguage,
 		SDKVersion:  req.SdkVersion,
+		SDKName:     req.SdkName,
 	}
 	sess.UpdateLastSeen()
 
@@ -293,6 +294,7 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 		"session_id", sessionID,
 		"sdk_language", req.SdkLanguage,
 		"sdk_version", req.SdkVersion,
+		"sdk_name", req.SdkName,
 		"functions", len(req.Functions),
 		"remote", h.conn.RemoteAddr(),
 	)

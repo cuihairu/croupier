@@ -40,6 +40,9 @@ type ProviderSession struct {
 
 	// SDKVersion is the SDK release version.
 	SDKVersion string
+
+	// SDKName is the SDK display name (e.g., "croupier-js-sdk"); user-overridable.
+	SDKName string
 }
 
 // Conn returns the underlying MuxConn for sending requests to this Provider.

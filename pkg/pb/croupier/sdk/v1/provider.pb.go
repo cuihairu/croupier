@@ -174,12 +174,13 @@ type ProviderConnectRequest struct {
 	Functions             []*LocalFunctionDescriptor `protobuf:"bytes,3,rep,name=functions,proto3" json:"functions,omitempty"`
 	SdkLanguage           string                     `protobuf:"bytes,4,opt,name=sdk_language,json=sdkLanguage,proto3" json:"sdk_language,omitempty"`             // e.g. "go", "java", "csharp"
 	SdkVersion            string                     `protobuf:"bytes,5,opt,name=sdk_version,json=sdkVersion,proto3" json:"sdk_version,omitempty"`                // SDK release version
-	ProtocolVersion       string                     `protobuf:"bytes,6,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"` // Wire protocol semantic version string
-	SupportedCapabilities []string                   `protobuf:"bytes,7,rep,name=supported_capabilities,json=supportedCapabilities,proto3" json:"supported_capabilities,omitempty"`
-	TransportSecurityMode string                     `protobuf:"bytes,8,opt,name=transport_security_mode,json=transportSecurityMode,proto3" json:"transport_security_mode,omitempty"` // "plaintext" | "tls"
-	SupportedTransports   []string                   `protobuf:"bytes,9,rep,name=supported_transports,json=supportedTransports,proto3" json:"supported_transports,omitempty"`         // currently fixed to "tcp"
-	GameId                string                     `protobuf:"bytes,10,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                                               // game scope the provider belongs to (validated against agent)
-	Env                   string                     `protobuf:"bytes,11,opt,name=env,proto3" json:"env,omitempty"`                                                                   // logical environment (prod/stage/dev)
+	SdkName               string                     `protobuf:"bytes,6,opt,name=sdk_name,json=sdkName,proto3" json:"sdk_name,omitempty"`                         // SDK display name, e.g. "croupier-js-sdk"; user-overridable
+	ProtocolVersion       string                     `protobuf:"bytes,7,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"` // Wire protocol semantic version string
+	SupportedCapabilities []string                   `protobuf:"bytes,8,rep,name=supported_capabilities,json=supportedCapabilities,proto3" json:"supported_capabilities,omitempty"`
+	TransportSecurityMode string                     `protobuf:"bytes,9,opt,name=transport_security_mode,json=transportSecurityMode,proto3" json:"transport_security_mode,omitempty"` // "plaintext" | "tls"
+	SupportedTransports   []string                   `protobuf:"bytes,10,rep,name=supported_transports,json=supportedTransports,proto3" json:"supported_transports,omitempty"`        // currently fixed to "tcp"
+	GameId                string                     `protobuf:"bytes,11,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                                               // game scope the provider belongs to (validated against agent)
+	Env                   string                     `protobuf:"bytes,12,opt,name=env,proto3" json:"env,omitempty"`                                                                   // logical environment (prod/stage/dev)
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -245,6 +246,13 @@ func (x *ProviderConnectRequest) GetSdkLanguage() string {
 func (x *ProviderConnectRequest) GetSdkVersion() string {
 	if x != nil {
 		return x.SdkVersion
+	}
+	return ""
+}
+
+func (x *ProviderConnectRequest) GetSdkName() string {
+	if x != nil {
+		return x.SdkName
 	}
 	return ""
 }
@@ -662,7 +670,7 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	" \x01(\tR\bcategory\x12\x12\n" +
 	"\x04risk\x18\v \x01(\tR\x04risk\x12\x16\n" +
 	"\x06entity\x18\f \x01(\tR\x06entity\x12\x1c\n" +
-	"\toperation\x18\r \x01(\tR\toperation\"\xd5\x03\n" +
+	"\toperation\x18\r \x01(\tR\toperation\"\xf0\x03\n" +
 	"\x16ProviderConnectRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +
@@ -670,14 +678,15 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\tfunctions\x18\x03 \x03(\v2(.croupier.sdk.v1.LocalFunctionDescriptorR\tfunctions\x12!\n" +
 	"\fsdk_language\x18\x04 \x01(\tR\vsdkLanguage\x12\x1f\n" +
 	"\vsdk_version\x18\x05 \x01(\tR\n" +
-	"sdkVersion\x12)\n" +
-	"\x10protocol_version\x18\x06 \x01(\tR\x0fprotocolVersion\x125\n" +
-	"\x16supported_capabilities\x18\a \x03(\tR\x15supportedCapabilities\x126\n" +
-	"\x17transport_security_mode\x18\b \x01(\tR\x15transportSecurityMode\x121\n" +
-	"\x14supported_transports\x18\t \x03(\tR\x13supportedTransports\x12\x17\n" +
-	"\agame_id\x18\n" +
-	" \x01(\tR\x06gameId\x12\x10\n" +
-	"\x03env\x18\v \x01(\tR\x03env\"\x89\x01\n" +
+	"sdkVersion\x12\x19\n" +
+	"\bsdk_name\x18\x06 \x01(\tR\asdkName\x12)\n" +
+	"\x10protocol_version\x18\a \x01(\tR\x0fprotocolVersion\x125\n" +
+	"\x16supported_capabilities\x18\b \x03(\tR\x15supportedCapabilities\x126\n" +
+	"\x17transport_security_mode\x18\t \x01(\tR\x15transportSecurityMode\x121\n" +
+	"\x14supported_transports\x18\n" +
+	" \x03(\tR\x13supportedTransports\x12\x17\n" +
+	"\agame_id\x18\v \x01(\tR\x06gameId\x12\x10\n" +
+	"\x03env\x18\f \x01(\tR\x03env\"\x89\x01\n" +
 	"\x17ProviderConnectResponse\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x123\n" +

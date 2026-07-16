@@ -53,7 +53,13 @@ message ProviderConnectRequest {
   repeated LocalFunctionDescriptor functions = 3;
   string sdk_language = 4;
   string sdk_version = 5;
-  string protocol_version = 6;
+  string sdk_name = 6;
+  string protocol_version = 7;
+  repeated string supported_capabilities = 8;
+  string transport_security_mode = 9;
+  repeated string supported_transports = 10;
+  string game_id = 11;
+  string env = 12;
 }
 
 message ProviderConnectResponse {
@@ -1377,6 +1383,7 @@ export class BasicClient implements CroupierClient {
       })),
       sdkLanguage: this.config.providerLang || "javascript",
       sdkVersion: this.config.providerSdk || "1.0.0",
+      sdkName: "croupier-js-sdk",
       protocolVersion: "1.0.0",
     });
 

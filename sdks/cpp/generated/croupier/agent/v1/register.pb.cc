@@ -217,6 +217,9 @@ inline constexpr AgentProcess::Impl_::Impl_(
         sdk_version_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        sdk_name_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         game_id_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
@@ -450,7 +453,7 @@ const ::uint32_t
         7,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_._has_bits_),
-        12, // hasbit index offset
+        13, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_.service_id_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_.addr_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_.version_),
@@ -458,17 +461,19 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_.function_ids_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_.sdk_language_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_.sdk_version_),
+        PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_.sdk_name_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_.game_id_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess, _impl_.env_),
         1,
         2,
         3,
-        8,
+        9,
         0,
         4,
         5,
         6,
         7,
+        8,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::RegisterRequest_LabelsEntry_DoNotUse, _impl_._has_bits_),
         5, // hasbit index offset
@@ -541,14 +546,14 @@ static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, sizeof(::croupier::agent::v1::FunctionDescriptor)},
         {31, sizeof(::croupier::agent::v1::AgentProcess)},
-        {52, sizeof(::croupier::agent::v1::RegisterRequest_LabelsEntry_DoNotUse)},
-        {59, sizeof(::croupier::agent::v1::RegisterRequest)},
-        {82, sizeof(::croupier::agent::v1::RegisterResponse)},
-        {91, sizeof(::croupier::agent::v1::HeartbeatRequest)},
-        {98, sizeof(::croupier::agent::v1::HeartbeatResponse)},
-        {99, sizeof(::croupier::agent::v1::ProviderMeta)},
-        {110, sizeof(::croupier::agent::v1::RegisterCapabilitiesRequest)},
-        {117, sizeof(::croupier::agent::v1::RegisterCapabilitiesResponse)},
+        {54, sizeof(::croupier::agent::v1::RegisterRequest_LabelsEntry_DoNotUse)},
+        {61, sizeof(::croupier::agent::v1::RegisterRequest)},
+        {84, sizeof(::croupier::agent::v1::RegisterResponse)},
+        {93, sizeof(::croupier::agent::v1::HeartbeatRequest)},
+        {100, sizeof(::croupier::agent::v1::HeartbeatResponse)},
+        {101, sizeof(::croupier::agent::v1::ProviderMeta)},
+        {112, sizeof(::croupier::agent::v1::RegisterCapabilitiesRequest)},
+        {119, sizeof(::croupier::agent::v1::RegisterCapabilitiesResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::agent::v1::_FunctionDescriptor_default_instance_._instance,
@@ -579,41 +584,41 @@ const char descriptor_table_protodef_croupier_2fagent_2fv1_2fregister_2eproto[] 
     "menu\022G\n\013permissions\030\030 \001(\0132%.croupier.com"
     "ponent.v1.PermissionSpecR\013permissions\022!\n"
     "\014input_schema\030\036 \001(\tR\013inputSchema\022#\n\routp"
-    "ut_schema\030\037 \001(\tR\014outputSchema\"\223\002\n\014AgentP"
+    "ut_schema\030\037 \001(\tR\014outputSchema\"\256\002\n\014AgentP"
     "rocess\022\035\n\nservice_id\030\001 \001(\tR\tserviceId\022\022\n"
     "\004addr\030\002 \001(\tR\004addr\022\030\n\007version\030\003 \001(\tR\007vers"
     "ion\022$\n\016last_seen_unix\030\004 \001(\003R\014lastSeenUni"
     "x\022!\n\014function_ids\030\005 \003(\tR\013functionIds\022!\n\014"
     "sdk_language\030\006 \001(\tR\013sdkLanguage\022\037\n\013sdk_v"
-    "ersion\030\007 \001(\tR\nsdkVersion\022\027\n\007game_id\030\010 \001("
-    "\tR\006gameId\022\020\n\003env\030\t \001(\tR\003env\"\325\003\n\017Register"
-    "Request\022\031\n\010agent_id\030\001 \001(\tR\007agentId\022\030\n\007ve"
-    "rsion\030\002 \001(\tR\007version\022C\n\tfunctions\030\003 \003(\0132"
-    "%.croupier.agent.v1.FunctionDescriptorR\t"
-    "functions\022\027\n\007game_id\030\005 \001(\tR\006gameId\022\020\n\003en"
-    "v\030\006 \001(\tR\003env\022=\n\tprocesses\030\007 \003(\0132\037.croupi"
-    "er.agent.v1.AgentProcessR\tprocesses\022\037\n\013t"
-    "tl_seconds\030\010 \001(\rR\nttlSeconds\022\026\n\006region\030\n"
-    " \001(\tR\006region\022\022\n\004zone\030\013 \001(\tR\004zone\022F\n\006labe"
-    "ls\030\014 \003(\0132..croupier.agent.v1.RegisterReq"
-    "uest.LabelsEntryR\006labels\0329\n\013LabelsEntry\022"
-    "\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005value:"
-    "\0028\001J\004\010\004\020\005R\010rpc_addr\"j\n\020RegisterResponse\022"
-    "\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\033\n\texpire"
-    "_at\030\002 \001(\003R\010expireAt\022\032\n\010warnings\030\003 \003(\tR\010w"
-    "arnings\"L\n\020HeartbeatRequest\022\031\n\010agent_id\030"
-    "\001 \001(\tR\007agentId\022\035\n\nsession_id\030\002 \001(\tR\tsess"
-    "ionId\"\023\n\021HeartbeatResponse\"^\n\014ProviderMe"
-    "ta\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 \001(\tR\007ver"
-    "sion\022\022\n\004lang\030\003 \001(\tR\004lang\022\020\n\003sdk\030\004 \001(\tR\003s"
-    "dk\"\204\001\n\033RegisterCapabilitiesRequest\022;\n\010pr"
-    "ovider\030\001 \001(\0132\037.croupier.agent.v1.Provide"
-    "rMetaR\010provider\022(\n\020manifest_json_gz\030\002 \001("
-    "\014R\016manifestJsonGz\"\036\n\034RegisterCapabilitie"
-    "sResponseBg\n$io.github.cuihairu.croupier"
-    ".agent.v1P\001Z=github.com/cuihairu/croupie"
-    "r/pkg/pb/croupier/agent/v1;agentv1b\006prot"
-    "o3"
+    "ersion\030\007 \001(\tR\nsdkVersion\022\031\n\010sdk_name\030\010 \001"
+    "(\tR\007sdkName\022\027\n\007game_id\030\t \001(\tR\006gameId\022\020\n\003"
+    "env\030\n \001(\tR\003env\"\325\003\n\017RegisterRequest\022\031\n\010ag"
+    "ent_id\030\001 \001(\tR\007agentId\022\030\n\007version\030\002 \001(\tR\007"
+    "version\022C\n\tfunctions\030\003 \003(\0132%.croupier.ag"
+    "ent.v1.FunctionDescriptorR\tfunctions\022\027\n\007"
+    "game_id\030\005 \001(\tR\006gameId\022\020\n\003env\030\006 \001(\tR\003env\022"
+    "=\n\tprocesses\030\007 \003(\0132\037.croupier.agent.v1.A"
+    "gentProcessR\tprocesses\022\037\n\013ttl_seconds\030\010 "
+    "\001(\rR\nttlSeconds\022\026\n\006region\030\n \001(\tR\006region\022"
+    "\022\n\004zone\030\013 \001(\tR\004zone\022F\n\006labels\030\014 \003(\0132..cr"
+    "oupier.agent.v1.RegisterRequest.LabelsEn"
+    "tryR\006labels\0329\n\013LabelsEntry\022\020\n\003key\030\001 \001(\tR"
+    "\003key\022\024\n\005value\030\002 \001(\tR\005value:\0028\001J\004\010\004\020\005R\010rp"
+    "c_addr\"j\n\020RegisterResponse\022\035\n\nsession_id"
+    "\030\001 \001(\tR\tsessionId\022\033\n\texpire_at\030\002 \001(\003R\010ex"
+    "pireAt\022\032\n\010warnings\030\003 \003(\tR\010warnings\"L\n\020He"
+    "artbeatRequest\022\031\n\010agent_id\030\001 \001(\tR\007agentI"
+    "d\022\035\n\nsession_id\030\002 \001(\tR\tsessionId\"\023\n\021Hear"
+    "tbeatResponse\"^\n\014ProviderMeta\022\016\n\002id\030\001 \001("
+    "\tR\002id\022\030\n\007version\030\002 \001(\tR\007version\022\022\n\004lang\030"
+    "\003 \001(\tR\004lang\022\020\n\003sdk\030\004 \001(\tR\003sdk\"\204\001\n\033Regist"
+    "erCapabilitiesRequest\022;\n\010provider\030\001 \001(\0132"
+    "\037.croupier.agent.v1.ProviderMetaR\010provid"
+    "er\022(\n\020manifest_json_gz\030\002 \001(\014R\016manifestJs"
+    "onGz\"\036\n\034RegisterCapabilitiesResponseBg\n$"
+    "io.github.cuihairu.croupier.agent.v1P\001Z="
+    "github.com/cuihairu/croupier/pkg/pb/crou"
+    "pier/agent/v1;agentv1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fagent_2fv1_2fregister_2eproto_deps[1] = {
@@ -623,7 +628,7 @@ static ::absl::once_flag descriptor_table_croupier_2fagent_2fv1_2fregister_2epro
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fagent_2fv1_2fregister_2eproto = {
     false,
     false,
-    1962,
+    1989,
     descriptor_table_protodef_croupier_2fagent_2fv1_2fregister_2eproto,
     "croupier/agent/v1/register.proto",
     &descriptor_table_croupier_2fagent_2fv1_2fregister_2eproto_once,
@@ -1514,6 +1519,7 @@ PROTOBUF_NDEBUG_INLINE AgentProcess::Impl_::Impl_(
         version_(arena, from.version_),
         sdk_language_(arena, from.sdk_language_),
         sdk_version_(arena, from.sdk_version_),
+        sdk_name_(arena, from.sdk_name_),
         game_id_(arena, from.game_id_),
         env_(arena, from.env_) {}
 
@@ -1552,6 +1558,7 @@ PROTOBUF_NDEBUG_INLINE AgentProcess::Impl_::Impl_(
         version_(arena),
         sdk_language_(arena),
         sdk_version_(arena),
+        sdk_name_(arena),
         game_id_(arena),
         env_(arena) {}
 
@@ -1575,6 +1582,7 @@ inline void AgentProcess::SharedDtor(MessageLite& self) {
   this_._impl_.version_.Destroy();
   this_._impl_.sdk_language_.Destroy();
   this_._impl_.sdk_version_.Destroy();
+  this_._impl_.sdk_name_.Destroy();
   this_._impl_.game_id_.Destroy();
   this_._impl_.env_.Destroy();
   this_._impl_.~Impl_();
@@ -1641,16 +1649,16 @@ AgentProcess::GetClassData() const {
   return AgentProcess_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 9, 0, 113, 2>
+const ::_pbi::TcParseTable<4, 10, 0, 121, 2>
 AgentProcess::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_._has_bits_),
     0, // no _extensions_
-    9, 120,  // max_field_number, fast_idx_mask
+    10, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294966784,  // skipmap
+    4294966272,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    9,  // num_field_entries
+    10,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     AgentProcess_class_data_.base(),
@@ -1674,8 +1682,8 @@ AgentProcess::_table_ = {
      {26, 3, 0,
       PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.version_)}},
     // int64 last_seen_unix = 4 [json_name = "lastSeenUnix"];
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(AgentProcess, _impl_.last_seen_unix_), 8>(),
-     {32, 8, 0,
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(AgentProcess, _impl_.last_seen_unix_), 9>(),
+     {32, 9, 0,
       PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.last_seen_unix_)}},
     // repeated string function_ids = 5 [json_name = "functionIds"];
     {::_pbi::TcParser::FastUR1,
@@ -1689,15 +1697,18 @@ AgentProcess::_table_ = {
     {::_pbi::TcParser::FastUS1,
      {58, 5, 0,
       PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.sdk_version_)}},
-    // string game_id = 8 [json_name = "gameId"];
+    // string sdk_name = 8 [json_name = "sdkName"];
     {::_pbi::TcParser::FastUS1,
      {66, 6, 0,
-      PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.game_id_)}},
-    // string env = 9 [json_name = "env"];
+      PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.sdk_name_)}},
+    // string game_id = 9 [json_name = "gameId"];
     {::_pbi::TcParser::FastUS1,
      {74, 7, 0,
+      PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.game_id_)}},
+    // string env = 10 [json_name = "env"];
+    {::_pbi::TcParser::FastUS1,
+     {82, 8, 0,
       PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.env_)}},
-    {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
@@ -1713,21 +1724,23 @@ AgentProcess::_table_ = {
     // string version = 3 [json_name = "version"];
     {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.version_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // int64 last_seen_unix = 4 [json_name = "lastSeenUnix"];
-    {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.last_seen_unix_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+    {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.last_seen_unix_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
     // repeated string function_ids = 5 [json_name = "functionIds"];
     {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.function_ids_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
     // string sdk_language = 6 [json_name = "sdkLanguage"];
     {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.sdk_language_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string sdk_version = 7 [json_name = "sdkVersion"];
     {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.sdk_version_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string game_id = 8 [json_name = "gameId"];
-    {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.game_id_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string env = 9 [json_name = "env"];
-    {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.env_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string sdk_name = 8 [json_name = "sdkName"];
+    {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.sdk_name_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string game_id = 9 [json_name = "gameId"];
+    {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.game_id_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string env = 10 [json_name = "env"];
+    {PROTOBUF_FIELD_OFFSET(AgentProcess, _impl_.env_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
   {{
-    "\36\12\4\7\0\14\14\13\7\3\0\0\0\0\0\0"
+    "\36\12\4\7\0\14\14\13\10\7\3\0\0\0\0\0"
     "croupier.agent.v1.AgentProcess"
     "service_id"
     "addr"
@@ -1735,6 +1748,7 @@ AgentProcess::_table_ = {
     "function_ids"
     "sdk_language"
     "sdk_version"
+    "sdk_name"
     "game_id"
     "env"
   }},
@@ -1767,11 +1781,14 @@ PROTOBUF_NOINLINE void AgentProcess::Clear() {
       _impl_.sdk_version_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000040U)) {
-      _impl_.game_id_.ClearNonDefaultToEmpty();
+      _impl_.sdk_name_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-      _impl_.env_.ClearNonDefaultToEmpty();
+      _impl_.game_id_.ClearNonDefaultToEmpty();
     }
+  }
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    _impl_.env_.ClearNonDefaultToEmpty();
   }
   _impl_.last_seen_unix_ = ::int64_t{0};
   _impl_._has_bits_.Clear();
@@ -1828,7 +1845,7 @@ PROTOBUF_NOINLINE void AgentProcess::Clear() {
   }
 
   // int64 last_seen_unix = 4 [json_name = "lastSeenUnix"];
-  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
     if (this_._internal_last_seen_unix() != 0) {
       target =
           ::google::protobuf::internal::WireFormatLite::WriteInt64ToArrayWithField<4>(
@@ -1866,23 +1883,33 @@ PROTOBUF_NOINLINE void AgentProcess::Clear() {
     }
   }
 
-  // string game_id = 8 [json_name = "gameId"];
+  // string sdk_name = 8 [json_name = "sdkName"];
   if (CheckHasBit(cached_has_bits, 0x00000040U)) {
-    if (!this_._internal_game_id().empty()) {
-      const ::std::string& _s = this_._internal_game_id();
+    if (!this_._internal_sdk_name().empty()) {
+      const ::std::string& _s = this_._internal_sdk_name();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.agent.v1.AgentProcess.game_id");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.agent.v1.AgentProcess.sdk_name");
       target = stream->WriteStringMaybeAliased(8, _s, target);
     }
   }
 
-  // string env = 9 [json_name = "env"];
+  // string game_id = 9 [json_name = "gameId"];
   if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    if (!this_._internal_game_id().empty()) {
+      const ::std::string& _s = this_._internal_game_id();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.agent.v1.AgentProcess.game_id");
+      target = stream->WriteStringMaybeAliased(9, _s, target);
+    }
+  }
+
+  // string env = 10 [json_name = "env"];
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
     if (!this_._internal_env().empty()) {
       const ::std::string& _s = this_._internal_env();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.agent.v1.AgentProcess.env");
-      target = stream->WriteStringMaybeAliased(9, _s, target);
+      target = stream->WriteStringMaybeAliased(10, _s, target);
     }
   }
 
@@ -1956,24 +1983,31 @@ PROTOBUF_NOINLINE void AgentProcess::Clear() {
                                         this_._internal_sdk_version());
       }
     }
-    // string game_id = 8 [json_name = "gameId"];
+    // string sdk_name = 8 [json_name = "sdkName"];
     if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      if (!this_._internal_sdk_name().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_sdk_name());
+      }
+    }
+    // string game_id = 9 [json_name = "gameId"];
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
       if (!this_._internal_game_id().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_game_id());
       }
     }
-    // string env = 9 [json_name = "env"];
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000300U)) {
+    // string env = 10 [json_name = "env"];
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!this_._internal_env().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_env());
       }
     }
-  }
-   {
     // int64 last_seen_unix = 4 [json_name = "lastSeenUnix"];
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
       if (this_._internal_last_seen_unix() != 0) {
         total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
             this_._internal_last_seen_unix());
@@ -2051,6 +2085,15 @@ void AgentProcess::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      if (!from._internal_sdk_name().empty()) {
+        _this->_internal_set_sdk_name(from._internal_sdk_name());
+      } else {
+        if (_this->_impl_.sdk_name_.IsDefault()) {
+          _this->_internal_set_sdk_name("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
       if (!from._internal_game_id().empty()) {
         _this->_internal_set_game_id(from._internal_game_id());
       } else {
@@ -2059,7 +2102,9 @@ void AgentProcess::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000300U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!from._internal_env().empty()) {
         _this->_internal_set_env(from._internal_env());
       } else {
@@ -2068,10 +2113,10 @@ void AgentProcess::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-  }
-  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
-    if (from._internal_last_seen_unix() != 0) {
-      _this->_impl_.last_seen_unix_ = from._impl_.last_seen_unix_;
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      if (from._internal_last_seen_unix() != 0) {
+        _this->_impl_.last_seen_unix_ = from._impl_.last_seen_unix_;
+      }
     }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
@@ -2099,6 +2144,7 @@ void AgentProcess::InternalSwap(AgentProcess* PROTOBUF_RESTRICT PROTOBUF_NONNULL
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.sdk_language_, &other->_impl_.sdk_language_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.sdk_version_, &other->_impl_.sdk_version_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.sdk_name_, &other->_impl_.sdk_name_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.game_id_, &other->_impl_.game_id_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.env_, &other->_impl_.env_, arena);
   swap(_impl_.last_seen_unix_, other->_impl_.last_seen_unix_);

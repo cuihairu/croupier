@@ -39,8 +39,9 @@ message AgentProcess {
   repeated string function_ids = 5; // functions exposed by this process
   string sdk_language = 6;        // SDK language: go/java/python/cpp/csharp/node/custom
   string sdk_version = 7;         // SDK version
-  string game_id = 8;             // game scope the provider belongs to
-  string env = 9;                 // logical environment (prod/stage/dev)
+  string sdk_name = 8;            // SDK display name, e.g. "croupier-js-sdk"; user-overridable
+  string game_id = 9;             // game scope the provider belongs to
+  string env = 10;                // logical environment (prod/stage/dev)
 }
 
 // Agent Registration Request

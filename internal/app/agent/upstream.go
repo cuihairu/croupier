@@ -576,6 +576,7 @@ func buildProviders(localData map[string][]agentlocal.Instance, versionSnapshot 
 				if inst.Metadata != nil {
 					p.SdkLanguage = strings.TrimSpace(inst.Metadata["sdk_language"])
 					p.SdkVersion = strings.TrimSpace(inst.Metadata["sdk_version"])
+					p.SdkName = strings.TrimSpace(inst.Metadata["sdk_name"])
 					p.GameId = strings.TrimSpace(inst.Metadata["game_id"])
 					p.Env = strings.TrimSpace(inst.Metadata["env"])
 				}

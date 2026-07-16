@@ -368,10 +368,12 @@ func opsNodes(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodesRequ
 		// 从 Providers 中获取 SDK 信息
 		sdkLanguage := ""
 		sdkVersion := ""
+		sdkName := ""
 		if len(sess.Providers) > 0 {
 			// 使用第一个 Provider 的 SDK 信息
 			sdkLanguage = sess.Providers[0].SDKLanguage
 			sdkVersion = sess.Providers[0].SDKVersion
+			sdkName = sess.Providers[0].SDKName
 		}
 
 		nodes = append(nodes, Node{
@@ -385,6 +387,7 @@ func opsNodes(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodesRequ
 			LastSeen:    utils.FormatTimestamp(sess.LastSeen),
 			SDKLanguage: sdkLanguage,
 			SDKVersion:  sdkVersion,
+			SDKName:     sdkName,
 		})
 	}
 

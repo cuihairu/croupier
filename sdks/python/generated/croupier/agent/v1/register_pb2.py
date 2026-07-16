@@ -15,7 +15,7 @@ _sym_db = _symbol_database.Default()
 from croupier.component.v1 import dashboard_ui_pb2 as croupier_dot_component_dot_v1_dot_dashboard__ui__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n croupier/agent/v1/register.proto\x12\x11\x63roupier.agent.v1\x1a(croupier/component/v1/dashboard_ui.proto\"\x93\x04\n\x12\x46unctionDescriptor\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x1a\n\x08\x63\x61tegory\x18\x03 \x01(\tR\x08\x63\x61tegory\x12\x12\n\x04risk\x18\x04 \x01(\tR\x04risk\x12\x16\n\x06\x65ntity\x18\x05 \x01(\tR\x06\x65ntity\x12\x1c\n\toperation\x18\x06 \x01(\tR\toperation\x12\x18\n\x07\x65nabled\x18\x07 \x01(\x08R\x07\x65nabled\x12\x42\n\x0c\x64isplay_name\x18\x14 \x01(\x0b\x32\x1f.croupier.component.v1.I18nTextR\x0b\x64isplayName\x12\x39\n\x07summary\x18\x15 \x01(\x0b\x32\x1f.croupier.component.v1.I18nTextR\x07summary\x12\x12\n\x04tags\x18\x16 \x03(\tR\x04tags\x12/\n\x04menu\x18\x17 \x01(\x0b\x32\x1b.croupier.component.v1.MenuR\x04menu\x12G\n\x0bpermissions\x18\x18 \x01(\x0b\x32%.croupier.component.v1.PermissionSpecR\x0bpermissions\x12!\n\x0cinput_schema\x18\x1e \x01(\tR\x0binputSchema\x12#\n\routput_schema\x18\x1f \x01(\tR\x0coutputSchema\"\x93\x02\n\x0c\x41gentProcess\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x12\n\x04\x61\x64\x64r\x18\x02 \x01(\tR\x04\x61\x64\x64r\x12\x18\n\x07version\x18\x03 \x01(\tR\x07version\x12$\n\x0elast_seen_unix\x18\x04 \x01(\x03R\x0clastSeenUnix\x12!\n\x0c\x66unction_ids\x18\x05 \x03(\tR\x0b\x66unctionIds\x12!\n\x0csdk_language\x18\x06 \x01(\tR\x0bsdkLanguage\x12\x1f\n\x0bsdk_version\x18\x07 \x01(\tR\nsdkVersion\x12\x17\n\x07game_id\x18\x08 \x01(\tR\x06gameId\x12\x10\n\x03\x65nv\x18\t \x01(\tR\x03\x65nv\"\xd5\x03\n\x0fRegisterRequest\x12\x19\n\x08\x61gent_id\x18\x01 \x01(\tR\x07\x61gentId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x43\n\tfunctions\x18\x03 \x03(\x0b\x32%.croupier.agent.v1.FunctionDescriptorR\tfunctions\x12\x17\n\x07game_id\x18\x05 \x01(\tR\x06gameId\x12\x10\n\x03\x65nv\x18\x06 \x01(\tR\x03\x65nv\x12=\n\tprocesses\x18\x07 \x03(\x0b\x32\x1f.croupier.agent.v1.AgentProcessR\tprocesses\x12\x1f\n\x0bttl_seconds\x18\x08 \x01(\rR\nttlSeconds\x12\x16\n\x06region\x18\n \x01(\tR\x06region\x12\x12\n\x04zone\x18\x0b \x01(\tR\x04zone\x12\x46\n\x06labels\x18\x0c \x03(\x0b\x32..croupier.agent.v1.RegisterRequest.LabelsEntryR\x06labels\x1a\x39\n\x0bLabelsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01J\x04\x08\x04\x10\x05R\x08rpc_addr\"j\n\x10RegisterResponse\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x1b\n\texpire_at\x18\x02 \x01(\x03R\x08\x65xpireAt\x12\x1a\n\x08warnings\x18\x03 \x03(\tR\x08warnings\"L\n\x10HeartbeatRequest\x12\x19\n\x08\x61gent_id\x18\x01 \x01(\tR\x07\x61gentId\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\"\x13\n\x11HeartbeatResponse\"^\n\x0cProviderMeta\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x12\n\x04lang\x18\x03 \x01(\tR\x04lang\x12\x10\n\x03sdk\x18\x04 \x01(\tR\x03sdk\"\x84\x01\n\x1bRegisterCapabilitiesRequest\x12;\n\x08provider\x18\x01 \x01(\x0b\x32\x1f.croupier.agent.v1.ProviderMetaR\x08provider\x12(\n\x10manifest_json_gz\x18\x02 \x01(\x0cR\x0emanifestJsonGz\"\x1e\n\x1cRegisterCapabilitiesResponseBg\n$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n croupier/agent/v1/register.proto\x12\x11\x63roupier.agent.v1\x1a(croupier/component/v1/dashboard_ui.proto\"\x93\x04\n\x12\x46unctionDescriptor\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x1a\n\x08\x63\x61tegory\x18\x03 \x01(\tR\x08\x63\x61tegory\x12\x12\n\x04risk\x18\x04 \x01(\tR\x04risk\x12\x16\n\x06\x65ntity\x18\x05 \x01(\tR\x06\x65ntity\x12\x1c\n\toperation\x18\x06 \x01(\tR\toperation\x12\x18\n\x07\x65nabled\x18\x07 \x01(\x08R\x07\x65nabled\x12\x42\n\x0c\x64isplay_name\x18\x14 \x01(\x0b\x32\x1f.croupier.component.v1.I18nTextR\x0b\x64isplayName\x12\x39\n\x07summary\x18\x15 \x01(\x0b\x32\x1f.croupier.component.v1.I18nTextR\x07summary\x12\x12\n\x04tags\x18\x16 \x03(\tR\x04tags\x12/\n\x04menu\x18\x17 \x01(\x0b\x32\x1b.croupier.component.v1.MenuR\x04menu\x12G\n\x0bpermissions\x18\x18 \x01(\x0b\x32%.croupier.component.v1.PermissionSpecR\x0bpermissions\x12!\n\x0cinput_schema\x18\x1e \x01(\tR\x0binputSchema\x12#\n\routput_schema\x18\x1f \x01(\tR\x0coutputSchema\"\xae\x02\n\x0c\x41gentProcess\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x12\n\x04\x61\x64\x64r\x18\x02 \x01(\tR\x04\x61\x64\x64r\x12\x18\n\x07version\x18\x03 \x01(\tR\x07version\x12$\n\x0elast_seen_unix\x18\x04 \x01(\x03R\x0clastSeenUnix\x12!\n\x0c\x66unction_ids\x18\x05 \x03(\tR\x0b\x66unctionIds\x12!\n\x0csdk_language\x18\x06 \x01(\tR\x0bsdkLanguage\x12\x1f\n\x0bsdk_version\x18\x07 \x01(\tR\nsdkVersion\x12\x19\n\x08sdk_name\x18\x08 \x01(\tR\x07sdkName\x12\x17\n\x07game_id\x18\t \x01(\tR\x06gameId\x12\x10\n\x03\x65nv\x18\n \x01(\tR\x03\x65nv\"\xd5\x03\n\x0fRegisterRequest\x12\x19\n\x08\x61gent_id\x18\x01 \x01(\tR\x07\x61gentId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x43\n\tfunctions\x18\x03 \x03(\x0b\x32%.croupier.agent.v1.FunctionDescriptorR\tfunctions\x12\x17\n\x07game_id\x18\x05 \x01(\tR\x06gameId\x12\x10\n\x03\x65nv\x18\x06 \x01(\tR\x03\x65nv\x12=\n\tprocesses\x18\x07 \x03(\x0b\x32\x1f.croupier.agent.v1.AgentProcessR\tprocesses\x12\x1f\n\x0bttl_seconds\x18\x08 \x01(\rR\nttlSeconds\x12\x16\n\x06region\x18\n \x01(\tR\x06region\x12\x12\n\x04zone\x18\x0b \x01(\tR\x04zone\x12\x46\n\x06labels\x18\x0c \x03(\x0b\x32..croupier.agent.v1.RegisterRequest.LabelsEntryR\x06labels\x1a\x39\n\x0bLabelsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01J\x04\x08\x04\x10\x05R\x08rpc_addr\"j\n\x10RegisterResponse\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x1b\n\texpire_at\x18\x02 \x01(\x03R\x08\x65xpireAt\x12\x1a\n\x08warnings\x18\x03 \x03(\tR\x08warnings\"L\n\x10HeartbeatRequest\x12\x19\n\x08\x61gent_id\x18\x01 \x01(\tR\x07\x61gentId\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\"\x13\n\x11HeartbeatResponse\"^\n\x0cProviderMeta\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x12\n\x04lang\x18\x03 \x01(\tR\x04lang\x12\x10\n\x03sdk\x18\x04 \x01(\tR\x03sdk\"\x84\x01\n\x1bRegisterCapabilitiesRequest\x12;\n\x08provider\x18\x01 \x01(\x0b\x32\x1f.croupier.agent.v1.ProviderMetaR\x08provider\x12(\n\x10manifest_json_gz\x18\x02 \x01(\x0cR\x0emanifestJsonGz\"\x1e\n\x1cRegisterCapabilitiesResponseBg\n$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -28,21 +28,21 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_FUNCTIONDESCRIPTOR']._serialized_start=98
   _globals['_FUNCTIONDESCRIPTOR']._serialized_end=629
   _globals['_AGENTPROCESS']._serialized_start=632
-  _globals['_AGENTPROCESS']._serialized_end=907
-  _globals['_REGISTERREQUEST']._serialized_start=910
-  _globals['_REGISTERREQUEST']._serialized_end=1379
-  _globals['_REGISTERREQUEST_LABELSENTRY']._serialized_start=1306
-  _globals['_REGISTERREQUEST_LABELSENTRY']._serialized_end=1363
-  _globals['_REGISTERRESPONSE']._serialized_start=1381
-  _globals['_REGISTERRESPONSE']._serialized_end=1487
-  _globals['_HEARTBEATREQUEST']._serialized_start=1489
-  _globals['_HEARTBEATREQUEST']._serialized_end=1565
-  _globals['_HEARTBEATRESPONSE']._serialized_start=1567
-  _globals['_HEARTBEATRESPONSE']._serialized_end=1586
-  _globals['_PROVIDERMETA']._serialized_start=1588
-  _globals['_PROVIDERMETA']._serialized_end=1682
-  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_start=1685
-  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_end=1817
-  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_start=1819
-  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_end=1849
+  _globals['_AGENTPROCESS']._serialized_end=934
+  _globals['_REGISTERREQUEST']._serialized_start=937
+  _globals['_REGISTERREQUEST']._serialized_end=1406
+  _globals['_REGISTERREQUEST_LABELSENTRY']._serialized_start=1333
+  _globals['_REGISTERREQUEST_LABELSENTRY']._serialized_end=1390
+  _globals['_REGISTERRESPONSE']._serialized_start=1408
+  _globals['_REGISTERRESPONSE']._serialized_end=1514
+  _globals['_HEARTBEATREQUEST']._serialized_start=1516
+  _globals['_HEARTBEATREQUEST']._serialized_end=1592
+  _globals['_HEARTBEATRESPONSE']._serialized_start=1594
+  _globals['_HEARTBEATRESPONSE']._serialized_end=1613
+  _globals['_PROVIDERMETA']._serialized_start=1615
+  _globals['_PROVIDERMETA']._serialized_end=1709
+  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_start=1712
+  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_end=1844
+  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_start=1846
+  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_end=1876
 # @@protoc_insertion_point(module_scope)

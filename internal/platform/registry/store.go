@@ -29,6 +29,7 @@ type ProviderSession struct {
 	Version      string
 	SDKLanguage  string // SDK 语言（go, java, python, cpp, csharp, custom）
 	SDKVersion   string // SDK 版本
+	SDKName      string // SDK 显示名（如 croupier-js-sdk），用户可自定义
 	LastSeenUnix int64
 	FunctionIDs  []string
 	OpenAPIDoc   json.RawMessage

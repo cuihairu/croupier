@@ -183,8 +183,9 @@ type AgentProcess struct {
 	FunctionIds   []string               `protobuf:"bytes,5,rep,name=function_ids,json=functionIds,proto3" json:"function_ids,omitempty"`       // functions exposed by this process
 	SdkLanguage   string                 `protobuf:"bytes,6,opt,name=sdk_language,json=sdkLanguage,proto3" json:"sdk_language,omitempty"`       // SDK language: go/java/python/cpp/csharp/node/custom
 	SdkVersion    string                 `protobuf:"bytes,7,opt,name=sdk_version,json=sdkVersion,proto3" json:"sdk_version,omitempty"`          // SDK version
-	GameId        string                 `protobuf:"bytes,8,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                      // game scope the provider belongs to
-	Env           string                 `protobuf:"bytes,9,opt,name=env,proto3" json:"env,omitempty"`                                          // logical environment (prod/stage/dev)
+	SdkName       string                 `protobuf:"bytes,8,opt,name=sdk_name,json=sdkName,proto3" json:"sdk_name,omitempty"`                   // SDK display name, e.g. "croupier-js-sdk"; user-overridable
+	GameId        string                 `protobuf:"bytes,9,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                      // game scope the provider belongs to
+	Env           string                 `protobuf:"bytes,10,opt,name=env,proto3" json:"env,omitempty"`                                         // logical environment (prod/stage/dev)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -264,6 +265,13 @@ func (x *AgentProcess) GetSdkLanguage() string {
 func (x *AgentProcess) GetSdkVersion() string {
 	if x != nil {
 		return x.SdkVersion
+	}
+	return ""
+}
+
+func (x *AgentProcess) GetSdkName() string {
+	if x != nil {
+		return x.SdkName
 	}
 	return ""
 }
@@ -729,7 +737,7 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\x04menu\x18\x17 \x01(\v2\x1b.croupier.component.v1.MenuR\x04menu\x12G\n" +
 	"\vpermissions\x18\x18 \x01(\v2%.croupier.component.v1.PermissionSpecR\vpermissions\x12!\n" +
 	"\finput_schema\x18\x1e \x01(\tR\vinputSchema\x12#\n" +
-	"\routput_schema\x18\x1f \x01(\tR\foutputSchema\"\x93\x02\n" +
+	"\routput_schema\x18\x1f \x01(\tR\foutputSchema\"\xae\x02\n" +
 	"\fAgentProcess\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x12\n" +
@@ -739,9 +747,11 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\ffunction_ids\x18\x05 \x03(\tR\vfunctionIds\x12!\n" +
 	"\fsdk_language\x18\x06 \x01(\tR\vsdkLanguage\x12\x1f\n" +
 	"\vsdk_version\x18\a \x01(\tR\n" +
-	"sdkVersion\x12\x17\n" +
-	"\agame_id\x18\b \x01(\tR\x06gameId\x12\x10\n" +
-	"\x03env\x18\t \x01(\tR\x03env\"\xd5\x03\n" +
+	"sdkVersion\x12\x19\n" +
+	"\bsdk_name\x18\b \x01(\tR\asdkName\x12\x17\n" +
+	"\agame_id\x18\t \x01(\tR\x06gameId\x12\x10\n" +
+	"\x03env\x18\n" +
+	" \x01(\tR\x03env\"\xd5\x03\n" +
 	"\x0fRegisterRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12C\n" +
