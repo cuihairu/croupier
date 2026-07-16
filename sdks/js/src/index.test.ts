@@ -23,10 +23,34 @@ syntax = "proto3";
 package croupier.sdk.v1;
 message ProviderConnectResponse { string session_id = 1; }
 message HeartbeatResponse {}
+message LocalFunctionDescriptor {
+  string id = 1;
+  string version = 2;
+  repeated string tags = 3;
+  string summary = 4;
+  string description = 5;
+  string operation_id = 6;
+  bool deprecated = 7;
+  string input_schema = 8;
+  string output_schema = 9;
+  string category = 10;
+  string risk = 11;
+  string entity = 12;
+  string operation = 13;
+}
 message ProviderConnectRequest {
   string service_id = 1;
   string version = 2;
-  string rpc_addr = 3;
+  repeated LocalFunctionDescriptor functions = 3;
+  string sdk_language = 4;
+  string sdk_version = 5;
+  string sdk_name = 6;
+  string protocol_version = 7;
+  repeated string supported_capabilities = 8;
+  string transport_security_mode = 9;
+  repeated string supported_transports = 10;
+  string game_id = 11;
+  string env = 12;
 }
 message HeartbeatRequest {
   string service_id = 1;
@@ -646,10 +670,10 @@ describe("BasicClient", () => {
 
     await client.connect();
 
-    const request = JSON.parse(decoder.decode(registerCalls[0]));
-    expect(request.service_id).toBe("test-service");
-    expect(request.sdk_language).toBe("node");
-    expect(request.transport_security_mode).toBe("plaintext");
+    const request = ProviderConnectRequestMessage.decode(registerCalls[0]) as any;
+    expect(request.serviceId).toBe("test-service");
+    expect(request.sdkLanguage).toBe("node");
+    expect(request.transportSecurityMode).toBe("plaintext");
     expect((client as any).sessionId).toBe("session-1");
 
     await client.disconnect();

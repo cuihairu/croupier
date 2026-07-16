@@ -198,7 +198,7 @@ public partial class CroupierClient : IDisposable
         if (!descriptor.IsValid())
             throw new ArgumentException("Invalid function descriptor", nameof(descriptor));
 
-        var functionId = descriptor.Id;
+        var functionId = descriptor.GetFullName();
 
         if (!_handlers.TryAdd(functionId, handler))
         {

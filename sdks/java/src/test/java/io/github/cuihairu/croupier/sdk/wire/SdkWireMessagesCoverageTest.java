@@ -199,7 +199,7 @@ class SdkWireMessagesCoverageTest {
 
         assertEquals("svc-1", decoded.serviceId);
         assertEquals("2.0.0", decoded.version);
-        assertEquals("localhost:9090", decoded.rpcAddr);
+        assertEquals("", decoded.rpcAddr); // rpcAddr is not part of the wire protocol
         assertEquals(1, decoded.functions.size());
 
         SdkWireMessages.LocalFunctionDescriptor decodedFunc = decoded.functions.get(0);

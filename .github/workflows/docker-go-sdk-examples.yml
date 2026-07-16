@@ -58,7 +58,7 @@ jobs:
           context: sdks/go
           file: sdks/go/examples/Dockerfile
           build-args: |
-            EXAMPLE_DIR=examples/demo
+            EXAMPLE_DIR=demo
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

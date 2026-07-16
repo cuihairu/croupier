@@ -207,7 +207,6 @@ public final class SdkWireMessages {
     public static ProviderConnectRequest decodeProviderConnectRequest(byte[] data) {
         String serviceId = "";
         String version = "";
-        String rpcAddr = "";
         java.util.List<LocalFunctionDescriptor> functions = new java.util.ArrayList<>();
         String sdkLanguage = "";
         String sdkVersion = "";
@@ -234,7 +233,7 @@ public final class SdkWireMessages {
         } catch (IOException e) {
             throw new IllegalArgumentException("Failed to decode ProviderConnectRequest", e);
         }
-        return new ProviderConnectRequest(serviceId, version, rpcAddr, functions, sdkLanguage, sdkVersion, sdkName, protocolVersion);
+        return new ProviderConnectRequest(serviceId, version, "", functions, sdkLanguage, sdkVersion, sdkName, protocolVersion);
     }
 
     public static byte[] encodeProviderConnectResponse(ProviderConnectResponse message) {
