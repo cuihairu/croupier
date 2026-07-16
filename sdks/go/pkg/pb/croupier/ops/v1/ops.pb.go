@@ -2108,7 +2108,7 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x14PROCESS_STATE_FAILED\x10\x03\x12\x1a\n" +
 	"\x16PROCESS_STATE_STARTING\x10\x04\x12\x1a\n" +
 	"\x16PROCESS_STATE_STOPPING\x10\x05Bj\n" +
-	"\"io.github.cuihairu.croupier.ops.v1P\x01Z0github.com/cuihairu/croupier/pkg/pb/ops/v1;opsv1\xaa\x02\x0fCroupier.Ops.V1b\x06proto3"
+	"\"io.github.cuihairu.croupier.ops.v1P\x01Z0github.com/cuihairu/croupier/sdks/go/pkg/pb/ops/v1;opsv1\xaa\x02\x0fCroupier.Ops.V1b\x06proto3"
 
 var (
 	file_croupier_ops_v1_ops_proto_rawDescOnce sync.Once

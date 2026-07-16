@@ -185,9 +185,8 @@ type ServiceConfig struct {
 	ServiceId      string                 `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
 	Version        string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
 	GameId         string                 `protobuf:"bytes,3,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
-	Env            string                 `protobuf:"bytes,4,opt,name=env,proto3" json:"env,omitempty"`                              // environment: dev, staging, prod
-	LocalAddr      string                 `protobuf:"bytes,5,opt,name=local_addr,json=localAddr,proto3" json:"local_addr,omitempty"` // local listening address
-	TimeoutSeconds int32                  `protobuf:"varint,6,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
+	Env            string                 `protobuf:"bytes,4,opt,name=env,proto3" json:"env,omitempty"` // environment: dev, staging, prod
+	TimeoutSeconds int32                  `protobuf:"varint,5,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -246,13 +245,6 @@ func (x *ServiceConfig) GetGameId() string {
 func (x *ServiceConfig) GetEnv() string {
 	if x != nil {
 		return x.Env
-	}
-	return ""
-}
-
-func (x *ServiceConfig) GetLocalAddr() string {
-	if x != nil {
-		return x.LocalAddr
 	}
 	return ""
 }
@@ -430,16 +422,14 @@ const file_croupier_agent_v1_task_proto_rawDesc = "" +
 	"\x04risk\x18\x04 \x01(\tR\x04risk\x12\x16\n" +
 	"\x06entity\x18\x05 \x01(\tR\x06entity\x12\x1c\n" +
 	"\toperation\x18\x06 \x01(\tR\toperation\x12\x18\n" +
-	"\aenabled\x18\a \x01(\bR\aenabled\"\xbb\x01\n" +
+	"\aenabled\x18\a \x01(\bR\aenabled\"\x9c\x01\n" +
 	"\rServiceConfig\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x17\n" +
 	"\agame_id\x18\x03 \x01(\tR\x06gameId\x12\x10\n" +
-	"\x03env\x18\x04 \x01(\tR\x03env\x12\x1d\n" +
-	"\n" +
-	"local_addr\x18\x05 \x01(\tR\tlocalAddr\x12'\n" +
-	"\x0ftimeout_seconds\x18\x06 \x01(\x05R\x0etimeoutSeconds\"\xeb\x01\n" +
+	"\x03env\x18\x04 \x01(\tR\x03env\x12'\n" +
+	"\x0ftimeout_seconds\x18\x05 \x01(\x05R\x0etimeoutSeconds\"\xeb\x01\n" +
 	"\bTaskInfo\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1f\n" +
 	"\vfunction_id\x18\x02 \x01(\tR\n" +
@@ -468,7 +458,7 @@ const file_croupier_agent_v1_task_proto_rawDesc = "" +
 	"\x15TASK_STATUS_CANCELLED\x10\x05\x12 \n" +
 	"\x1cTASK_STATUS_CANCEL_REQUESTED\x10\x06\x12\x19\n" +
 	"\x15TASK_STATUS_TIMED_OUT\x10\aBg\n" +
-	"$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1b\x06proto3"
+	"$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_croupier_agent_v1_task_proto_rawDescOnce sync.Once

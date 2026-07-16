@@ -314,7 +314,7 @@ const file_croupier_component_v1_dashboard_ui_proto_rawDesc = "" +
 	"\vI18nZhEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01Bs\n" +
-	"(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/pkg/pb/croupier/component/v1;componentv1b\x06proto3"
+	"(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/component/v1;componentv1b\x06proto3"
 
 var (
 	file_croupier_component_v1_dashboard_ui_proto_rawDescOnce sync.Once

@@ -156,7 +156,7 @@ const file_croupier_component_v1_ui_options_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:V\n" +
 	"\x02ui\x12\x1d.google.protobuf.FieldOptions\x18\xa1\x96\x03 \x01(\v2%.croupier.component.v1.UIFieldOptionsR\x02uiBs\n" +
-	"(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/pkg/pb/croupier/component/v1;componentv1b\x06proto3"
+	"(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/component/v1;componentv1b\x06proto3"
 
 var (
 	file_croupier_component_v1_ui_options_proto_rawDescOnce sync.Once
