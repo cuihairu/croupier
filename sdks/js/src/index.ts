@@ -1385,6 +1385,7 @@ export class BasicClient implements CroupierClient {
       sdkVersion: "1.0.0",
       sdkName: "croupier-js-sdk",
       protocolVersion: "1.0.0",
+      transportSecurityMode: this.config.insecure ? "plaintext" : "tls",
     });
 
     return Buffer.from(ProviderConnectRequestMessage.encode(payload).finish());
