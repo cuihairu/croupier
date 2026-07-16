@@ -278,6 +278,9 @@ type RawOpsNode = {
   labels?: Record<string, string>;
   lastSeen?: string;
   last_seen?: string;
+  sdkLanguage?: string;
+  sdkVersion?: string;
+  sdkName?: string;
 };
 type RawOpsAlert = {
   severity?: string;
@@ -372,6 +375,9 @@ function normalizeOpsNode(raw: RawOpsNode): OpsNode {
     status: raw?.status,
     labels: raw?.labels,
     lastSeen: raw?.lastSeen ?? raw?.last_seen,
+    sdkLanguage: raw?.sdkLanguage,
+    sdkVersion: raw?.sdkVersion,
+    sdkName: raw?.sdkName,
   };
 }
 function normalizeOpsAlert(raw: RawOpsAlert): OpsAlert {
