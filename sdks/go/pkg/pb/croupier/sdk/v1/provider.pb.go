@@ -709,8 +709,8 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\x15GetTaskResultResponse\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x18\n" +
 	"\apayload\x18\x02 \x01(\fR\apayload\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05errorBa\n" +
-	"\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3"
+	"\x05error\x18\x03 \x01(\tR\x05errorB\xc5\x01\n" +
+	"\x13com.croupier.sdk.v1B\rProviderProtoP\x01ZAgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1;sdkv1\xa2\x02\x03CSX\xaa\x02\x0fCroupier.Sdk.V1\xca\x02\x0fCroupier\\Sdk\\V1\xe2\x02\x1bCroupier\\Sdk\\V1\\GPBMetadata\xea\x02\x11Croupier::Sdk::V1b\x06proto3"
 
 var (
 	file_croupier_sdk_v1_provider_proto_rawDescOnce sync.Once

@@ -262,8 +262,8 @@ const file_examples_integrations_prom_v1_prom_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"W\n" +
 	"\x12QueryRangeResponse\x12A\n" +
-	"\x06series\x18\x01 \x03(\v2).examples.integrations.prom.v1.TimeseriesR\x06seriesB\x87\x01\n" +
-	"9io.github.cuihairu.croupier.examples.integrations.prom.v1P\x01ZHgithub.com/cuihairu/croupier/sdks/go/pkg/pb/examples/integrations/prom/v1;promv1b\x06proto3"
+	"\x06series\x18\x01 \x03(\v2).examples.integrations.prom.v1.TimeseriesR\x06seriesB\x97\x02\n" +
+	"!com.examples.integrations.prom.v1B\tPromProtoP\x01ZPgithub.com/cuihairu/croupier/sdks/go/pkg/pb/examples/integrations/prom/v1;promv1\xa2\x02\x03EIP\xaa\x02\x1dExamples.Integrations.Prom.V1\xca\x02\x1dExamples\\Integrations\\Prom\\V1\xe2\x02)Examples\\Integrations\\Prom\\V1\\GPBMetadata\xea\x02 Examples::Integrations::Prom::V1b\x06proto3"
 
 var (
 	file_examples_integrations_prom_v1_prom_proto_rawDescOnce sync.Once

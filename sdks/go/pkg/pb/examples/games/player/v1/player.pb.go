@@ -130,8 +130,8 @@ const file_examples_games_player_v1_player_proto_rawDesc = "" +
 	"\x06reason\x18\x02 \x01(\tB\x16\x8a\xb2\x19\x12\n" +
 	"\btextarea\x1a\x06原因R\x06reason\"%\n" +
 	"\vBanResponse\x12\x16\n" +
-	"\x06result\x18\x01 \x01(\tR\x06resultB\x7f\n" +
-	"4io.github.cuihairu.croupier.examples.games.player.v1P\x01ZEgithub.com/cuihairu/croupier/sdks/go/pkg/pb/examples/games/player/v1;playerv1b\x06proto3"
+	"\x06result\x18\x01 \x01(\tR\x06resultB\xfd\x01\n" +
+	"\x1ccom.examples.games.player.v1B\vPlayerProtoP\x01ZMgithub.com/cuihairu/croupier/sdks/go/pkg/pb/examples/games/player/v1;playerv1\xa2\x02\x03EGP\xaa\x02\x18Examples.Games.Player.V1\xca\x02\x18Examples\\Games\\Player\\V1\xe2\x02$Examples\\Games\\Player\\V1\\GPBMetadata\xea\x02\x1bExamples::Games::Player::V1b\x06proto3"
 
 var (
 	file_examples_games_player_v1_player_proto_rawDescOnce sync.Once

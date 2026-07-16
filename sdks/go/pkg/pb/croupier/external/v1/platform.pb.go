@@ -446,8 +446,8 @@ const file_croupier_external_v1_platform_proto_rawDesc = "" +
 	"\amethods\x18\x01 \x03(\tR\amethods\"R\n" +
 	"\x1cReloadPlatformConfigResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessageB\x87\x01\n" +
-	"'io.github.cuihairu.croupier.external.v1P\x01ZCgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/external/v1;externalv1\xaa\x02\x14Croupier.External.V1b\x06proto3"
+	"\amessage\x18\x02 \x01(\tR\amessageB\xe8\x01\n" +
+	"\x18com.croupier.external.v1B\rPlatformProtoP\x01ZKgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/external/v1;externalv1\xa2\x02\x03CEX\xaa\x02\x14Croupier.External.V1\xca\x02\x14Croupier\\External\\V1\xe2\x02 Croupier\\External\\V1\\GPBMetadata\xea\x02\x16Croupier::External::V1b\x06proto3"
 
 var (
 	file_croupier_external_v1_platform_proto_rawDescOnce sync.Once

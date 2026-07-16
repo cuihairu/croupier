@@ -505,8 +505,8 @@ const file_croupier_component_v1_function_options_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:d\n" +
 	"\bfunction\x12\x1e.google.protobuf.MethodOptions\x18\xb9\x8e\x03 \x01(\v2&.croupier.component.v1.FunctionOptionsR\bfunction:_\n" +
-	"\x06entity\x12\x1f.google.protobuf.MessageOptions\x18\xba\x8e\x03 \x01(\v2$.croupier.component.v1.EntityOptionsR\x06entityBs\n" +
-	"(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/component/v1;componentv1b\x06proto3"
+	"\x06entity\x12\x1f.google.protobuf.MessageOptions\x18\xba\x8e\x03 \x01(\v2$.croupier.component.v1.EntityOptionsR\x06entityB\xf6\x01\n" +
+	"\x19com.croupier.component.v1B\x14FunctionOptionsProtoP\x01ZMgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/component/v1;componentv1\xa2\x02\x03CCX\xaa\x02\x15Croupier.Component.V1\xca\x02\x15Croupier\\Component\\V1\xe2\x02!Croupier\\Component\\V1\\GPBMetadata\xea\x02\x17Croupier::Component::V1b\x06proto3"
 
 var (
 	file_croupier_component_v1_function_options_proto_rawDescOnce sync.Once

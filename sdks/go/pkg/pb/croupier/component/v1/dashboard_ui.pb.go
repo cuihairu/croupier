@@ -313,8 +313,8 @@ const file_croupier_component_v1_dashboard_ui_proto_rawDesc = "" +
 	"\ai18n_zh\x18\x04 \x03(\v21.croupier.component.v1.PermissionSpec.I18nZhEntryR\x06i18nZh\x1a9\n" +
 	"\vI18nZhEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01Bs\n" +
-	"(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/component/v1;componentv1b\x06proto3"
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\xf2\x01\n" +
+	"\x19com.croupier.component.v1B\x10DashboardUiProtoP\x01ZMgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/component/v1;componentv1\xa2\x02\x03CCX\xaa\x02\x15Croupier.Component.V1\xca\x02\x15Croupier\\Component\\V1\xe2\x02!Croupier\\Component\\V1\\GPBMetadata\xea\x02\x17Croupier::Component::V1b\x06proto3"
 
 var (
 	file_croupier_component_v1_dashboard_ui_proto_rawDescOnce sync.Once
