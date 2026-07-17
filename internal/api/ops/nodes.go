@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
-	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -22,53 +21,7 @@ func NewNodeService(svcCtx *svc.ServiceContext) *NodeService {
 }
 
 func (s *NodeService) List(ctx context.Context, gameId, env, status string) ([]Node, error) {
-	store := s.svcCtx.RegistryStore
-	if store == nil {
-		return []Node{}, nil
-	}
-
-	store.Mu().RLock()
-	defer store.Mu().RUnlock()
-
-	// Get drained nodes from OpsStateStore
-	drainedNodes := make(map[string]bool)
-	if s.svcCtx.OpsStateStore != nil {
-		opsState := s.svcCtx.OpsStateStore.Snapshot()
-		for nodeID := range opsState.Nodes.Drained {
-			drainedNodes[nodeID] = true
-		}
-	}
-
-	nodes := make([]Node, 0)
-	for _, sess := range store.AgentsUnsafe() {
-		if sess == nil {
-			continue
-		}
-		if gameId != "" && sess.GameID != gameId {
-			continue
-		}
-
-		// Determine node status based on drain state
-		nodeStatus := "active"
-		if drainedNodes[sess.AgentID] {
-			nodeStatus = "drained"
-		}
-
-		nodes = append(nodes, Node{
-			Id:           sess.AgentID,
-			Hostname:     sess.Labels["hostname"],
-			Addr:         sess.Addr,
-			GameId:       sess.GameID,
-			Env:          sess.Env,
-			Status:       nodeStatus,
-			Labels:       sess.Labels,
-			LastSeen:     utils.FormatTimestamp(sess.LastSeen),
-			Functions:    len(sess.Functions),
-			ExpiresInSec: int64(time.Until(sess.ExpireAt).Seconds()),
-		})
-	}
-
-	return nodes, nil
+	return listNodes(s.svcCtx, gameId, env, status), nil
 }
 
 func (s *NodeService) GetCommands(ctx context.Context, nodeId string) ([]NodeCommand, error) {

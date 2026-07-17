@@ -188,22 +188,57 @@ func TestServiceOpsNodes(t *testing.T) {
 
 	ctx := context.Background()
 	store := registry.NewStore()
-	svcCtx := &svc.ServiceContext{RegistryStore: store}
+	opsStateStore := svc.NewOpsStateStore(t.TempDir())
+	svcCtx := &svc.ServiceContext{RegistryStore: store, OpsStateStore: opsStateStore}
 	s := NewService(svcCtx)
 
+	now := time.Now()
 	store.UpsertAgent(&registry.AgentSession{
-		AgentID:   "node-1",
+		AgentID:   "node-active",
 		Addr:      "localhost:2001",
 		GameID:    "game1",
 		Env:       "prod",
-		Labels:    map[string]string{"hostname": "node1"},
+		Labels:    map[string]string{"hostname": "node-active"},
 		Functions: map[string]registry.FunctionMeta{},
-		LastSeen:  time.Now(),
+		LastSeen:  now,
+		ExpireAt:  now.Add(time.Hour),
 	})
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:   "node-drained",
+		Addr:      "localhost:2002",
+		GameID:    "game1",
+		Env:       "prod",
+		Labels:    map[string]string{"hostname": "node-drained"},
+		Functions: map[string]registry.FunctionMeta{},
+		LastSeen:  now.Add(-time.Minute),
+		ExpireAt:  now.Add(time.Hour),
+	})
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:   "node-stale",
+		GameID:    "game1",
+		Env:       "prod",
+		Labels:    map[string]string{"hostname": "node-stale"},
+		Functions: map[string]registry.FunctionMeta{},
+		LastSeen:  now.Add(-2 * time.Hour),
+		ExpireAt:  now.Add(time.Hour),
+	})
+	_, err := opsStateStore.Update(func(state *svc.OpsState) {
+		if state.Nodes.Drained == nil {
+			state.Nodes.Drained = make(map[string]time.Time)
+		}
+		state.Nodes.Drained["node-drained"] = now
+	})
+	require.NoError(t, err)
 
 	resp, err := s.OpsNodes(ctx, &OpsNodesRequest{})
 	require.NoError(t, err)
-	assert.Len(t, resp.Nodes, 1)
+	require.Len(t, resp.Nodes, 3)
+	assert.Equal(t, "node-active", resp.Nodes[0].Id)
+	assert.Equal(t, "active", resp.Nodes[0].Status)
+	assert.Equal(t, "node-drained", resp.Nodes[1].Id)
+	assert.Equal(t, "drained", resp.Nodes[1].Status)
+	assert.Equal(t, "node-stale", resp.Nodes[2].Id)
+	assert.Equal(t, "stale", resp.Nodes[2].Status)
 }
 
 func TestServiceOpsNodesEmptyRegistry(t *testing.T) {

@@ -165,7 +165,14 @@ export default function OpsNodesPage() {
       title: '健康状态',
       dataIndex: 'healthy',
       width: 90,
-      render: (v) => (v ? <Tag color="green">健康</Tag> : <Tag color="default">异常</Tag>),
+      render: (v, record) =>
+        record.nodeStatus === 'stale' ? (
+          <Tag color="red">离线</Tag>
+        ) : v ? (
+          <Tag color="green">健康</Tag>
+        ) : (
+          <Tag color="default">异常</Tag>
+        ),
     },
     {
       title: '运维状态',
@@ -175,6 +182,8 @@ export default function OpsNodesPage() {
         const statusMap: Record<string, { color: string; text: string }> = {
           active: { color: 'green', text: '运行中' },
           drained: { color: 'orange', text: '已下线' },
+          stale: { color: 'red', text: '离线' },
+          offline: { color: 'red', text: '离线' },
           restarting: { color: 'blue', text: '重启中' },
         };
         const s = statusMap[v] || { color: 'default', text: v || '未知' };

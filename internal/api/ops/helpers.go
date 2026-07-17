@@ -349,50 +349,8 @@ func opsSilences(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsSilenc
 // Node operations implementations
 
 func opsNodes(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodesRequest) (*OpsNodesResponse, error) {
-	store := svcCtx.RegistryStore
-	if store == nil {
-		return &OpsNodesResponse{
-			Nodes: []Node{},
-		}, nil
-	}
-
-	store.Mu().RLock()
-	defer store.Mu().RUnlock()
-
-	nodes := make([]Node, 0, len(store.AgentsUnsafe()))
-	for _, sess := range store.AgentsUnsafe() {
-		if sess == nil {
-			continue
-		}
-
-		// 从 Providers 中获取 SDK 信息
-		sdkLanguage := ""
-		sdkVersion := ""
-		sdkName := ""
-		if len(sess.Providers) > 0 {
-			// 使用第一个 Provider 的 SDK 信息
-			sdkLanguage = sess.Providers[0].SDKLanguage
-			sdkVersion = sess.Providers[0].SDKVersion
-			sdkName = sess.Providers[0].SDKName
-		}
-
-		nodes = append(nodes, Node{
-			Id:          sess.AgentID,
-			Hostname:    sess.Labels["hostname"],
-			Addr:        sess.Addr,
-			GameId:      sess.GameID,
-			Env:         sess.Env,
-			Status:      "active",
-			Labels:      sess.Labels,
-			LastSeen:    utils.FormatTimestamp(sess.LastSeen),
-			SDKLanguage: sdkLanguage,
-			SDKVersion:  sdkVersion,
-			SDKName:     sdkName,
-		})
-	}
-
 	return &OpsNodesResponse{
-		Nodes: nodes,
+		Nodes: listNodes(svcCtx, "", "", ""),
 	}, nil
 }
 
