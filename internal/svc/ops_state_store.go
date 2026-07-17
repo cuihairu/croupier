@@ -24,6 +24,14 @@ type OpsState struct {
 	MQ            OpsMQState            `json:"mq"`
 	Alerts        OpsAlertState         `json:"alerts"`
 	Audit         OpsAuditState         `json:"audit"`
+	Nodes         OpsNodesState         `json:"nodes"`
+}
+
+// OpsNodesState tracks operational state of nodes (drained, restarting, etc.)
+type OpsNodesState struct {
+	Drained    map[string]time.Time `json:"drained,omitempty"`    // nodeId -> drainedAt
+	Restarting map[string]time.Time `json:"restarting,omitempty"` // nodeId -> restartingAt
+	UpdatedAt  time.Time            `json:"updated_at,omitempty"`
 }
 
 type OpsConfigState struct {

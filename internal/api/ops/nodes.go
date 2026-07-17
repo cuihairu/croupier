@@ -30,6 +30,15 @@ func (s *NodeService) List(ctx context.Context, gameId, env, status string) ([]N
 	store.Mu().RLock()
 	defer store.Mu().RUnlock()
 
+	// Get drained nodes from OpsStateStore
+	drainedNodes := make(map[string]bool)
+	if s.svcCtx.OpsStateStore != nil {
+		opsState := s.svcCtx.OpsStateStore.Snapshot()
+		for nodeID := range opsState.Nodes.Drained {
+			drainedNodes[nodeID] = true
+		}
+	}
+
 	nodes := make([]Node, 0)
 	for _, sess := range store.AgentsUnsafe() {
 		if sess == nil {
@@ -39,15 +48,23 @@ func (s *NodeService) List(ctx context.Context, gameId, env, status string) ([]N
 			continue
 		}
 
+		// Determine node status based on drain state
+		nodeStatus := "active"
+		if drainedNodes[sess.AgentID] {
+			nodeStatus = "drained"
+		}
+
 		nodes = append(nodes, Node{
-			Id:       sess.AgentID,
-			Hostname: sess.Labels["hostname"],
-			Addr:     sess.Addr,
-			GameId:   sess.GameID,
-			Env:      sess.Env,
-			Status:   "active",
-			Labels:   sess.Labels,
-			LastSeen: utils.FormatTimestamp(sess.LastSeen),
+			Id:           sess.AgentID,
+			Hostname:     sess.Labels["hostname"],
+			Addr:         sess.Addr,
+			GameId:       sess.GameID,
+			Env:          sess.Env,
+			Status:       nodeStatus,
+			Labels:       sess.Labels,
+			LastSeen:     utils.FormatTimestamp(sess.LastSeen),
+			Functions:    len(sess.Functions),
+			ExpiresInSec: int64(time.Until(sess.ExpireAt).Seconds()),
 		})
 	}
 
@@ -85,7 +102,7 @@ func (s *NodeService) Drain(ctx context.Context, nodeId string) error {
 		return errorx.NewNotFound("node not found: " + nodeId)
 	}
 
-	// Record drain in audit trail
+	// Record drain in audit trail and update node state
 	if s.svcCtx.OpsStateStore != nil {
 		_, _ = s.svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
 			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
@@ -96,6 +113,13 @@ func (s *NodeService) Drain(ctx context.Context, nodeId string) error {
 				CreatedAt: time.Now(),
 			})
 			state.Audit.UpdatedAt = time.Now()
+
+			// Mark node as drained
+			if state.Nodes.Drained == nil {
+				state.Nodes.Drained = make(map[string]time.Time)
+			}
+			state.Nodes.Drained[nodeId] = time.Now()
+			state.Nodes.UpdatedAt = time.Now()
 		})
 	}
 
@@ -177,7 +201,7 @@ func (s *NodeService) Undrain(ctx context.Context, nodeId string) error {
 		return errorx.NewNotFound("node not found: " + nodeId)
 	}
 
-	// Record undrain in audit trail
+	// Record undrain in audit trail and update node state
 	if s.svcCtx.OpsStateStore != nil {
 		_, _ = s.svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
 			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
@@ -188,6 +212,12 @@ func (s *NodeService) Undrain(ctx context.Context, nodeId string) error {
 				CreatedAt: time.Now(),
 			})
 			state.Audit.UpdatedAt = time.Now()
+
+			// Remove node from drained state
+			if state.Nodes.Drained != nil {
+				delete(state.Nodes.Drained, nodeId)
+			}
+			state.Nodes.UpdatedAt = time.Now()
 		})
 	}
 

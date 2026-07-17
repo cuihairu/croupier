@@ -570,17 +570,19 @@ type OpsNodeCommandsRequest struct {
 
 // Node represents a node in the system
 type Node struct {
-	Id          string            `json:"id"`
-	Hostname    string            `json:"hostname"`
-	Addr        string            `json:"addr"`
-	GameId      string            `json:"gameId"`
-	Env         string            `json:"env"`
-	Status      string            `json:"status"`
-	Labels      map[string]string `json:"labels"`
-	LastSeen    string            `json:"lastSeen"`
-	SDKLanguage string            `json:"sdkLanguage,omitempty"`
-	SDKVersion  string            `json:"sdkVersion,omitempty"`
-	SDKName     string            `json:"sdkName,omitempty"`
+	Id            string            `json:"id"`
+	Hostname      string            `json:"hostname"`
+	Addr          string            `json:"addr"`
+	GameId        string            `json:"gameId"`
+	Env           string            `json:"env"`
+	Status        string            `json:"status"`
+	Labels        map[string]string `json:"labels"`
+	LastSeen      string            `json:"lastSeen"`
+	SDKLanguage   string            `json:"sdkLanguage,omitempty"`
+	SDKVersion    string            `json:"sdkVersion,omitempty"`
+	SDKName       string            `json:"sdkName,omitempty"`
+	Functions     int               `json:"functions"`
+	ExpiresInSec  int64             `json:"expiresInSec"`
 }
 
 // NodeCommand represents a command that can be executed on a node

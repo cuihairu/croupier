@@ -206,6 +206,8 @@ export type OpsNode = {
   sdkLanguage?: string;
   sdkVersion?: string;
   sdkName?: string;
+  functions?: number;
+  expiresInSec?: number;
 };
 export type OpsAlert = {
   severity?: string;
@@ -626,13 +628,22 @@ export async function listOpsNodes() {
 }
 
 export async function drainOpsNode(id: string) {
-  return request<void>(`/api/v1/ops/nodes/${encodeURIComponent(id)}/drain`, { method: 'POST' });
+  return request<void>(`/api/v1/ops/nodes/${encodeURIComponent(id)}/drain`, {
+    method: 'POST',
+    data: { nodeId: id },
+  });
 }
 
 export async function undrainOpsNode(id: string) {
-  return request<void>(`/api/v1/ops/nodes/${encodeURIComponent(id)}/undrain`, { method: 'POST' });
+  return request<void>(`/api/v1/ops/nodes/${encodeURIComponent(id)}/undrain`, {
+    method: 'POST',
+    data: { nodeId: id },
+  });
 }
 
 export async function restartOpsNode(id: string) {
-  return request<void>(`/api/v1/ops/nodes/${encodeURIComponent(id)}/restart`, { method: 'POST' });
+  return request<void>(`/api/v1/ops/nodes/${encodeURIComponent(id)}/restart`, {
+    method: 'POST',
+    data: { nodeId: id },
+  });
 }

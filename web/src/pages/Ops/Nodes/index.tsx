@@ -20,6 +20,7 @@ type NodeRow = RegistryAgent & {
   sdkLanguage?: string;
   sdkVersion?: string;
   lastSeen?: string;
+  nodeStatus?: string;
 };
 
 // 从 "host:port" 提取 host 部分作为 IP 展示。
@@ -37,14 +38,15 @@ function normalizeOpsNode(node: OpsNode): NodeRow {
     env: node.env || '',
     addr: node.addr || '',
     ip: addrHost(node.addr),
-    functions: 0,
+    functions: node.functions || 0,
     healthy: node.status === 'active' || node.status === 'healthy',
-    expiresInSec: 0,
+    expiresInSec: node.expiresInSec || 0,
     sdkName: node.sdkName || '',
     sdkLanguage: node.sdkLanguage || '',
     sdkVersion: node.sdkVersion || '',
     version: node.sdkVersion || '',
     lastSeen: node.lastSeen || '',
+    nodeStatus: node.status || 'active',
   };
 }
 
@@ -164,6 +166,20 @@ export default function OpsNodesPage() {
       dataIndex: 'healthy',
       width: 90,
       render: (v) => (v ? <Tag color="green">健康</Tag> : <Tag color="default">异常</Tag>),
+    },
+    {
+      title: '运维状态',
+      dataIndex: 'nodeStatus',
+      width: 100,
+      render: (v: string) => {
+        const statusMap: Record<string, { color: string; text: string }> = {
+          active: { color: 'green', text: '运行中' },
+          drained: { color: 'orange', text: '已下线' },
+          restarting: { color: 'blue', text: '重启中' },
+        };
+        const s = statusMap[v] || { color: 'default', text: v || '未知' };
+        return <Tag color={s.color}>{s.text}</Tag>;
+      },
     },
     { title: 'TTL', dataIndex: 'expiresInSec', width: 80 },
     { title: 'RPC 地址', dataIndex: 'addr', width: 220, ellipsis: true },
