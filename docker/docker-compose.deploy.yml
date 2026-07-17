@@ -117,14 +117,89 @@ services:
 
   sdk-example-demo:
     image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-go-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
-    container_name: croupier-sdk-example-demo
+    container_name: croupier-sdk-demo-go
     restart: unless-stopped
     profiles: ["sdk-examples"]
     environment:
       CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
       CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
-      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_EXAMPLE_SERVICE_ID:-game-demo-service}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_GO_EXAMPLE_SERVICE_ID:-game-demo-go}
       CROUPIER_LOCAL_LISTEN: ${CROUPIER_SDK_EXAMPLE_LOCAL_LISTEN:-0.0.0.0:19103}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+
+  sdk-demo-python:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-python-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-sdk-demo-python
+    restart: unless-stopped
+    profiles: ["sdk-examples"]
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_PYTHON_EXAMPLE_SERVICE_ID:-game-demo-python}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+
+  sdk-demo-java:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-java-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-sdk-demo-java
+    restart: unless-stopped
+    profiles: ["sdk-examples"]
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_JAVA_EXAMPLE_SERVICE_ID:-game-demo-java}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+
+  sdk-demo-js:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-js-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-sdk-demo-js
+    restart: unless-stopped
+    profiles: ["sdk-examples"]
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_JS_EXAMPLE_SERVICE_ID:-game-demo-js}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+
+  sdk-demo-cpp:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-cpp-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-sdk-demo-cpp
+    restart: unless-stopped
+    profiles: ["sdk-examples"]
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_CPP_EXAMPLE_SERVICE_ID:-game-demo-cpp}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+    depends_on:
+      - agent
+    networks:
+      - croupier-network
+
+  sdk-demo-csharp:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-csharp-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-sdk-demo-csharp
+    restart: unless-stopped
+    profiles: ["sdk-examples"]
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_CSHARP_EXAMPLE_SERVICE_ID:-game-demo-csharp}
       CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
     depends_on:
       - agent

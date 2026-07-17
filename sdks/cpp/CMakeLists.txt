@@ -667,7 +667,7 @@ if(BUILD_EXAMPLES)
     )
 
     # Set output directory for examples
-    set_target_properties(croupier-example croupier-virtual-object-demo croupier-complete-example croupier-config-example croupier-plugin-demo croupier-comprehensive-demo PROPERTIES
+    set_target_properties(croupier-example croupier-virtual-object-demo croupier-complete-example croupier-config-example croupier-plugin-demo croupier-game-demo croupier-comprehensive-demo PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     )
 endif()

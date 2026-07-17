@@ -1,4 +1,4 @@
-name: Build and Push Go SDK Example Image
+name: Build and Push SDK Example Images
 
 on:
   push:
@@ -6,13 +6,17 @@ on:
     paths:
       - ".github/workflows/docker-go-sdk-examples.yml"
       - "sdks/go/**"
+      - "sdks/python/**"
+      - "sdks/java/**"
+      - "sdks/js/**"
+      - "sdks/cpp/**"
+      - "sdks/csharp/**"
       - "proto/**"
   workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/cuihairu/croupier-sdk-go-example-demo
 
 permissions:
   contents: read
@@ -20,9 +24,44 @@ permissions:
 
 jobs:
   build-and-push:
-    name: Build game demo image
+    name: Build ${{ matrix.language }} game demo image
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: go
+            image: ghcr.io/cuihairu/croupier-sdk-go-example-demo
+            context: sdks/go
+            dockerfile: sdks/go/examples/Dockerfile
+            build_args: |
+              EXAMPLE_DIR=demo
+          - language: python
+            image: ghcr.io/cuihairu/croupier-sdk-python-example-demo
+            context: .
+            dockerfile: sdks/python/examples/Dockerfile
+            build_args: ""
+          - language: java
+            image: ghcr.io/cuihairu/croupier-sdk-java-example-demo
+            context: .
+            dockerfile: sdks/java/examples/Dockerfile
+            build_args: ""
+          - language: js
+            image: ghcr.io/cuihairu/croupier-sdk-js-example-demo
+            context: .
+            dockerfile: sdks/js/examples/Dockerfile
+            build_args: ""
+          - language: cpp
+            image: ghcr.io/cuihairu/croupier-sdk-cpp-example-demo
+            context: .
+            dockerfile: sdks/cpp/examples/Dockerfile
+            build_args: ""
+          - language: csharp
+            image: ghcr.io/cuihairu/croupier-sdk-csharp-example-demo
+            context: .
+            dockerfile: sdks/csharp/examples/Dockerfile
+            build_args: ""
     steps:
       - name: Checkout repository
         timeout-minutes: 3
@@ -45,23 +84,22 @@ jobs:
         timeout-minutes: 3
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ matrix.image }}
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
-        timeout-minutes: 20
+        timeout-minutes: 45
         uses: docker/build-push-action@v6
         with:
-          context: sdks/go
-          file: sdks/go/examples/Dockerfile
-          build-args: |
-            EXAMPLE_DIR=demo
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          build-args: ${{ matrix.build_args }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=sdk-demo-${{ matrix.language }}
+          cache-to: type=gha,mode=max,scope=sdk-demo-${{ matrix.language }}
           provenance: false
