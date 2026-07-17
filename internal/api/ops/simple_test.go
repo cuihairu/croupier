@@ -6,11 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // This file contains focused tests for the ops module that avoid panics
@@ -251,6 +255,90 @@ func TestServiceOpsNodesEmptyRegistry(t *testing.T) {
 	resp, err := s.OpsNodes(ctx, &OpsNodesRequest{})
 	require.NoError(t, err)
 	assert.Empty(t, resp.Nodes)
+}
+
+func TestServiceOpsNodesDatabaseOnlyNodeIsOffline(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Node{}))
+
+	nodeModel := model.NewNodeModel(db)
+	require.NoError(t, nodeModel.Upsert(ctx, &model.Node{
+		NodeID: "node-db-only",
+		Name:   "DB Only",
+		Type:   "agent",
+		Status: "active",
+		IP:     "127.0.0.1",
+		Port:   2001,
+		Meta: datatypes.JSONMap{
+			"gameId":   "game1",
+			"env":      "prod",
+			"hostname": "db-only-host",
+		},
+	}))
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+		NodeModel:     nodeModel,
+	}
+	s := NewService(svcCtx)
+
+	resp, err := s.OpsNodes(ctx, &OpsNodesRequest{})
+	require.NoError(t, err)
+	require.Len(t, resp.Nodes, 1)
+	assert.Equal(t, "node-db-only", resp.Nodes[0].Id)
+	assert.Equal(t, "offline", resp.Nodes[0].Status)
+	assert.Equal(t, "127.0.0.1:2001", resp.Nodes[0].Addr)
+	assert.Equal(t, "game1", resp.Nodes[0].GameId)
+	assert.Equal(t, "prod", resp.Nodes[0].Env)
+}
+
+func TestServiceOpsNodesRegistryOverridesDatabaseStatus(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Node{}))
+
+	nodeModel := model.NewNodeModel(db)
+	require.NoError(t, nodeModel.Upsert(ctx, &model.Node{
+		NodeID: "node-registered",
+		Name:   "Registered",
+		Type:   "agent",
+		Status: "offline",
+		IP:     "127.0.0.1",
+		Port:   2001,
+	}))
+
+	store := registry.NewStore()
+	now := time.Now()
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:   "node-registered",
+		Addr:      "localhost:2001",
+		GameID:    "game1",
+		Env:       "prod",
+		Labels:    map[string]string{"hostname": "runtime-host"},
+		Functions: map[string]registry.FunctionMeta{},
+		LastSeen:  now,
+		ExpireAt:  now.Add(time.Hour),
+	})
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: store,
+		NodeModel:     nodeModel,
+	}
+	s := NewService(svcCtx)
+
+	resp, err := s.OpsNodes(ctx, &OpsNodesRequest{})
+	require.NoError(t, err)
+	require.Len(t, resp.Nodes, 1)
+	assert.Equal(t, "node-registered", resp.Nodes[0].Id)
+	assert.Equal(t, "active", resp.Nodes[0].Status)
+	assert.Equal(t, "runtime-host", resp.Nodes[0].Hostname)
 }
 
 func TestServiceOpsNodeCommands(t *testing.T) {

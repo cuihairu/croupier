@@ -350,7 +350,7 @@ func opsSilences(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsSilenc
 
 func opsNodes(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodesRequest) (*OpsNodesResponse, error) {
 	return &OpsNodesResponse{
-		Nodes: listNodes(svcCtx, "", "", ""),
+		Nodes: listNodes(ctx, svcCtx, "", "", ""),
 	}, nil
 }
 

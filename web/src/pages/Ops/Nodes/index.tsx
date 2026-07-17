@@ -87,9 +87,9 @@ export default function OpsNodesPage() {
       if (healthy === 'healthy' && !a.healthy) return false;
       if (healthy === 'unhealthy' && a.healthy) return false;
       if (q) {
-        const s = `${a.agentId} ${a.ip || ''} ${a.addr || ''} ${a.type || ''} ${
-          a.version || ''
-        } ${a.sdkName || ''} ${a.sdkLanguage || ''}`.toLowerCase();
+        const s = `${a.agentId} ${a.ip || ''} ${a.addr || ''} ${a.type || ''} ${a.version || ''} ${
+          a.sdkName || ''
+        } ${a.sdkLanguage || ''}`.toLowerCase();
         if (!s.includes(q.toLowerCase())) return false;
       }
       return true;
@@ -166,7 +166,7 @@ export default function OpsNodesPage() {
       dataIndex: 'healthy',
       width: 90,
       render: (v, record) =>
-        record.nodeStatus === 'stale' ? (
+        record.nodeStatus === 'stale' || record.nodeStatus === 'offline' ? (
           <Tag color="red">离线</Tag>
         ) : v ? (
           <Tag color="green">健康</Tag>

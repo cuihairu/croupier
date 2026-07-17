@@ -1,11 +1,14 @@
 package ops
 
 import (
+	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -16,14 +19,13 @@ type nodeListItem struct {
 	rank     int
 }
 
-func listNodes(svcCtx *svc.ServiceContext, gameID, env, status string) []Node {
-	if svcCtx == nil || svcCtx.RegistryStore == nil {
+func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, status string) []Node {
+	if svcCtx == nil {
 		return []Node{}
 	}
-
-	store := svcCtx.RegistryStore
-	store.Mu().RLock()
-	defer store.Mu().RUnlock()
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	drainedNodes := make(map[string]bool)
 	if svcCtx.OpsStateStore != nil {
@@ -35,55 +37,35 @@ func listNodes(svcCtx *svc.ServiceContext, gameID, env, status string) []Node {
 
 	now := time.Now()
 	statusFilter := normalizeNodeStatusFilter(status)
-	items := make([]nodeListItem, 0, len(store.AgentsUnsafe()))
-	for _, sess := range store.AgentsUnsafe() {
-		if sess == nil {
-			continue
-		}
-		if gameID != "" && sess.GameID != gameID {
-			continue
-		}
-		if env != "" && sess.Env != env {
-			continue
-		}
+	items := make([]nodeListItem, 0)
+	registered := make(map[string]bool)
 
-		nodeStatus := resolveNodeStatus(sess, drainedNodes[sess.AgentID], now)
-		if statusFilter != "" && nodeStatus != statusFilter {
-			continue
-		}
+	if svcCtx.RegistryStore != nil {
+		store := svcCtx.RegistryStore
+		store.Mu().RLock()
+		for _, sess := range store.AgentsUnsafe() {
+			if sess == nil {
+				continue
+			}
+			registered[sess.AgentID] = true
+			if gameID != "" && sess.GameID != gameID {
+				continue
+			}
+			if env != "" && sess.Env != env {
+				continue
+			}
 
-		sdkLanguage, sdkVersion, sdkName := "", "", ""
-		if len(sess.Providers) > 0 {
-			sdkLanguage = sess.Providers[0].SDKLanguage
-			sdkVersion = sess.Providers[0].SDKVersion
-			sdkName = sess.Providers[0].SDKName
-		}
+			nodeStatus := resolveNodeStatus(sess, drainedNodes[sess.AgentID], now)
+			if !nodeStatusMatches(statusFilter, nodeStatus) {
+				continue
+			}
 
-		expiresInSec := int64(time.Until(sess.ExpireAt).Seconds())
-		if expiresInSec < 0 {
-			expiresInSec = 0
+			items = append(items, runtimeNodeListItem(sess, nodeStatus))
 		}
-
-		items = append(items, nodeListItem{
-			node: Node{
-				Id:           sess.AgentID,
-				Hostname:     sess.Labels["hostname"],
-				Addr:         sess.Addr,
-				GameId:       sess.GameID,
-				Env:          sess.Env,
-				Status:       nodeStatus,
-				Labels:       sess.Labels,
-				LastSeen:     utils.FormatTimestamp(sess.LastSeen),
-				SDKLanguage:  sdkLanguage,
-				SDKVersion:   sdkVersion,
-				SDKName:      sdkName,
-				Functions:    len(sess.Functions),
-				ExpiresInSec: expiresInSec,
-			},
-			lastSeen: sess.LastSeen,
-			rank:     nodeStatusRank(nodeStatus),
-		})
+		store.Mu().RUnlock()
 	}
+
+	items = append(items, offlineDatabaseNodeItems(ctx, svcCtx, registered, gameID, env, statusFilter)...)
 
 	sort.SliceStable(items, func(i, j int) bool {
 		if items[i].rank != items[j].rank {
@@ -100,6 +82,132 @@ func listNodes(svcCtx *svc.ServiceContext, gameID, env, status string) []Node {
 		nodes = append(nodes, item.node)
 	}
 	return nodes
+}
+
+func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string) nodeListItem {
+	sdkLanguage, sdkVersion, sdkName := "", "", ""
+	if len(sess.Providers) > 0 {
+		sdkLanguage = sess.Providers[0].SDKLanguage
+		sdkVersion = sess.Providers[0].SDKVersion
+		sdkName = sess.Providers[0].SDKName
+	}
+
+	expiresInSec := int64(time.Until(sess.ExpireAt).Seconds())
+	if expiresInSec < 0 {
+		expiresInSec = 0
+	}
+
+	return nodeListItem{
+		node: Node{
+			Id:           sess.AgentID,
+			Hostname:     sess.Labels["hostname"],
+			Addr:         sess.Addr,
+			GameId:       sess.GameID,
+			Env:          sess.Env,
+			Status:       nodeStatus,
+			Labels:       sess.Labels,
+			LastSeen:     utils.FormatTimestamp(sess.LastSeen),
+			SDKLanguage:  sdkLanguage,
+			SDKVersion:   sdkVersion,
+			SDKName:      sdkName,
+			Functions:    len(sess.Functions),
+			ExpiresInSec: expiresInSec,
+		},
+		lastSeen: sess.LastSeen,
+		rank:     nodeStatusRank(nodeStatus),
+	}
+}
+
+func offlineDatabaseNodeItems(ctx context.Context, svcCtx *svc.ServiceContext, registered map[string]bool, gameID, env, statusFilter string) []nodeListItem {
+	if svcCtx.NodeModel == nil {
+		return []nodeListItem{}
+	}
+
+	dbNodes, err := svcCtx.NodeModel.List(ctx, model.ListNodesOptions{})
+	if err != nil {
+		return []nodeListItem{}
+	}
+
+	items := make([]nodeListItem, 0, len(dbNodes))
+	for i := range dbNodes {
+		dbNode := dbNodes[i]
+		nodeID := strings.TrimSpace(dbNode.NodeID)
+		if nodeID == "" || registered[nodeID] {
+			continue
+		}
+		if dbNode.Type != "" && !strings.EqualFold(dbNode.Type, "agent") {
+			continue
+		}
+
+		node := offlineDatabaseNode(dbNode)
+		if gameID != "" && node.GameId != gameID {
+			continue
+		}
+		if env != "" && node.Env != env {
+			continue
+		}
+		if !nodeStatusMatches(statusFilter, node.Status) {
+			continue
+		}
+
+		items = append(items, nodeListItem{
+			node:     node,
+			lastSeen: dbNode.UpdatedAt,
+			rank:     nodeStatusRank(node.Status),
+		})
+	}
+	return items
+}
+
+func offlineDatabaseNode(dbNode model.Node) Node {
+	labels := map[string]string{}
+	hostname := firstNonEmpty(databaseNodeString(dbNode, "hostname"), dbNode.Name, dbNode.NodeID)
+	if hostname != "" {
+		labels["hostname"] = hostname
+	}
+	if dbNode.Type != "" {
+		labels["type"] = dbNode.Type
+	}
+	gameID := firstNonEmpty(databaseNodeString(dbNode, "gameId"), databaseNodeString(dbNode, "game_id"))
+	env := databaseNodeString(dbNode, "env")
+
+	return Node{
+		Id:           dbNode.NodeID,
+		Hostname:     hostname,
+		Addr:         databaseNodeAddr(dbNode),
+		GameId:       gameID,
+		Env:          env,
+		Status:       "offline",
+		Labels:       labels,
+		LastSeen:     firstNonEmpty(databaseNodeString(dbNode, "lastSeen"), databaseNodeString(dbNode, "last_seen")),
+		Functions:    0,
+		ExpiresInSec: 0,
+	}
+}
+
+func databaseNodeString(dbNode model.Node, key string) string {
+	if dbNode.Meta == nil {
+		return ""
+	}
+	value, ok := dbNode.Meta[key]
+	if !ok {
+		return ""
+	}
+	if s, ok := value.(string); ok {
+		return strings.TrimSpace(s)
+	}
+	return ""
+}
+
+func databaseNodeAddr(dbNode model.Node) string {
+	ip := strings.TrimSpace(dbNode.IP)
+	if ip == "" {
+		return ""
+	}
+	if dbNode.Port <= 0 {
+		return ip
+	}
+	return fmt.Sprintf("%s:%d", ip, dbNode.Port)
 }
 
 func resolveNodeStatus(sess *registry.AgentSession, drained bool, now time.Time) string {
@@ -125,11 +233,19 @@ func normalizeNodeStatusFilter(status string) string {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "", "*":
 		return ""
-	case "offline":
-		return "stale"
 	default:
 		return strings.ToLower(strings.TrimSpace(status))
 	}
+}
+
+func nodeStatusMatches(statusFilter, nodeStatus string) bool {
+	if statusFilter == "" {
+		return true
+	}
+	if statusFilter == "offline" {
+		return nodeStatus == "offline" || nodeStatus == "stale"
+	}
+	return nodeStatus == statusFilter
 }
 
 func nodeStatusRank(status string) int {
@@ -140,7 +256,18 @@ func nodeStatusRank(status string) int {
 		return 1
 	case "stale":
 		return 2
-	default:
+	case "offline":
 		return 3
+	default:
+		return 4
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }

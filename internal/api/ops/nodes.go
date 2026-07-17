@@ -21,7 +21,7 @@ func NewNodeService(svcCtx *svc.ServiceContext) *NodeService {
 }
 
 func (s *NodeService) List(ctx context.Context, gameId, env, status string) ([]Node, error) {
-	return listNodes(s.svcCtx, gameId, env, status), nil
+	return listNodes(ctx, s.svcCtx, gameId, env, status), nil
 }
 
 func (s *NodeService) GetCommands(ctx context.Context, nodeId string) ([]NodeCommand, error) {
