@@ -127,7 +127,10 @@ jobs:
 
       - name: Build dist
         timeout-minutes: 10
-        run: pnpm run build
+        run: |
+          pnpm run build
+          test -s dist/index.html
+          test "$(find dist -maxdepth 1 -name 'umi.*.js' -type f -size +100k | wc -l)" -ge 1
 
       - name: Build and push Docker image
         timeout-minutes: 15
