@@ -34,6 +34,10 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Keep the historical project name used by the first self-hosted deployment.
+  # The existing persistent volumes are docker_* and fixed container_name values
+  # conflict if Compose silently derives a new project name from deploy_dir.
+  CROUPIER_COMPOSE_PROJECT: docker
 
 permissions:
   contents: read
@@ -80,31 +84,56 @@ jobs:
       - name: Pull latest images
         timeout-minutes: 40
         run: |
-          COMPOSE_ARGS='--env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml"'
+          COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
           if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
-            eval docker compose $COMPOSE_ARGS --profile sdk-examples pull
+            docker compose "${COMPOSE_ARGS[@]}" --profile sdk-examples pull
           else
-            eval docker compose $COMPOSE_ARGS pull
+            docker compose "${COMPOSE_ARGS[@]}" pull
           fi
+
+      - name: Validate compose ownership
+        timeout-minutes: 1
+        run: |
+          for name in \
+            croupier-postgres \
+            croupier-redis \
+            croupier-clickhouse \
+            croupier-server \
+            croupier-agent \
+            croupier-dashboard \
+            croupier-sdk-example-demo
+          do
+            if ! docker container inspect "${name}" >/dev/null 2>&1; then
+              continue
+            fi
+
+            project="$(docker container inspect "${name}" --format '{{ index .Config.Labels "com.docker.compose.project" }}')"
+            service="$(docker container inspect "${name}" --format '{{ index .Config.Labels "com.docker.compose.service" }}')"
+            if [ "${project}" != "${CROUPIER_COMPOSE_PROJECT}" ]; then
+              echo "::error::Container ${name} belongs to Compose project '${project}', expected '${CROUPIER_COMPOSE_PROJECT}'. Resolve the ownership mismatch before deploying."
+              exit 1
+            fi
+            echo "Container ${name}: project=${project}, service=${service}"
+          done
 
       - name: Deploy containers
         timeout-minutes: 10
         run: |
-          COMPOSE_ARGS='--env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml"'
+          COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
           if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
-            eval docker compose $COMPOSE_ARGS --profile sdk-examples up -d --remove-orphans
+            docker compose "${COMPOSE_ARGS[@]}" --profile sdk-examples up -d --remove-orphans
           else
-            eval docker compose $COMPOSE_ARGS up -d --remove-orphans
+            docker compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans
           fi
 
       - name: Show running services
         timeout-minutes: 2
         run: |
-          COMPOSE_ARGS='--env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml"'
+          COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
           if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
-            eval docker compose $COMPOSE_ARGS --profile sdk-examples ps
+            docker compose "${COMPOSE_ARGS[@]}" --profile sdk-examples ps
           else
-            eval docker compose $COMPOSE_ARGS ps
+            docker compose "${COMPOSE_ARGS[@]}" ps
           fi
 
       - name: Cleanup dangling images
