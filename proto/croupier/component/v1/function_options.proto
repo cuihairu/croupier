@@ -10,30 +10,7 @@ option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1;c
 
 // 方法级元信息（可选）。插件未识别时将使用默认推断。
 message FunctionOptions {
-  // 全局唯一函数ID（规范：<domain>.<entity>.<action>，小写，允许 [a-z0-9._-]）
-  string function_id = 1;
-  // 版本（规范：SemVer，如 1.0.0 / 1.2.3-beta.1）
-  string version = 2;
-  // 类目（默认取 package 里的第二级，如 games.player.v1 → player）
-  string category = 3;
-  // 风险级别：low/medium/high（默认 medium）
-  string risk = 4;
-  // 路由策略：lb/broadcast/targeted/hash（默认 lb）
-  string route = 5;
-  // 超时（默认 30s）
-  string timeout = 6;
-  // 两人审批（默认 false）
-  bool two_person_rule = 7;
-  // 放置位置：core/agent（默认 agent）
-  string placement = 8;
-  // 额外标签
-  map<string,string> labels = 9;
-  // 调用模式：query/command（默认 query）
-  string mode = 10;
-  // 是否启用幂等键（默认 false）
-  bool idempotency_key = 11;
-
-  // ========== 行为定义（API 契约，仍在使用） ==========
+  // ========== 行为定义（API 契约） ==========
 
   // 全局唯一函数ID（规范：<domain>.<entity>.<action>，小写，允许 [a-z0-9._-]）
   string function_id = 1;
@@ -110,9 +87,6 @@ message EntityOptions {
   repeated string delete_functions = 14;
   // 列表操作的函数ID列表
   repeated string list_functions = 15;
-  // 自定义操作（key: 操作名, value: 函数ID列表）
-  map<string, string> custom_operations = 16;
-
   // 自定义操作（key: 操作名, value: 函数ID列表）
   map<string, string> custom_operations = 16;
 

@@ -206,50 +206,6 @@ export const FunctionFormRenderer: React.FC<FunctionFormRendererProps> = ({
     setRawJsonError('');
   }, [form, initialValues]);
 
-  const validateField = useCallback((rule: any, value: any, property: JSONSchemaProperty) => {
-    // String validation
-    if (property.type === 'string') {
-      if (property.minLength !== undefined && value && value.length < property.minLength) {
-        return Promise.reject(new Error(`最小长度为 ${property.minLength}`));
-      }
-      if (property.maxLength !== undefined && value && value.length > property.maxLength) {
-        return Promise.reject(new Error(`最大长度为 ${property.maxLength}`));
-      }
-      if (property.pattern && value && !new RegExp(property.pattern).test(value)) {
-        return Promise.reject(new Error(`格式不正确`));
-      }
-    }
-
-    // Number validation
-    if (property.type === 'number' || property.type === 'integer') {
-      if (property.minimum !== undefined && value !== undefined && value < property.minimum) {
-        return Promise.reject(new Error(`最小值为 ${property.minimum}`));
-      }
-      if (property.maximum !== undefined && value !== undefined && value > property.maximum) {
-        return Promise.reject(new Error(`最大值为 ${property.maximum}`));
-      }
-      if (property.type === 'integer' && value !== undefined && !Number.isInteger(value)) {
-        return Promise.reject(new Error(`必须为整数`));
-      }
-    }
-
-    // Array validation
-    if (property.type === 'array' && value) {
-      if (!Array.isArray(value)) {
-        return Promise.reject(new Error(`必须为数组`));
-      }
-    }
-
-    // Object validation
-    if (property.type === 'object' && value) {
-      if (typeof value !== 'object' || Array.isArray(value)) {
-        return Promise.reject(new Error(`必须为对象`));
-      }
-    }
-
-    return Promise.resolve();
-  }, []);
-
   const renderFormItems = useCallback(() => {
     const items = [];
     const props = schema.properties || {};
@@ -293,7 +249,6 @@ export const FunctionFormRenderer: React.FC<FunctionFormRendererProps> = ({
                   form,
                   [fieldName],
                   required.includes(fieldName),
-                  validateField,
                 ),
               );
             }
@@ -324,7 +279,6 @@ export const FunctionFormRenderer: React.FC<FunctionFormRendererProps> = ({
                   form,
                   [fieldName],
                   required.includes(fieldName),
-                  validateField,
                 ),
               );
             }
@@ -369,7 +323,6 @@ export const FunctionFormRenderer: React.FC<FunctionFormRendererProps> = ({
                   form,
                   [fieldName],
                   required.includes(fieldName),
-                  validateField,
                 ),
               );
             }
@@ -397,7 +350,6 @@ export const FunctionFormRenderer: React.FC<FunctionFormRendererProps> = ({
                   form,
                   [fieldName],
                   required.includes(fieldName),
-                  validateField,
                 ),
               );
             }
@@ -417,7 +369,6 @@ export const FunctionFormRenderer: React.FC<FunctionFormRendererProps> = ({
               form,
               [fieldName],
               required.includes(fieldName),
-              validateField,
             ),
           );
         }
@@ -425,7 +376,7 @@ export const FunctionFormRenderer: React.FC<FunctionFormRendererProps> = ({
     }
 
     return items;
-  }, [schema, uiSchema, formData, form, validateField]);
+  }, [schema, uiSchema, formData, form]);
 
   return (
     <Card size={compact ? 'small' : 'default'}>
