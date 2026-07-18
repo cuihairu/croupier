@@ -60,13 +60,17 @@ Formily Schema
     │
     ├── 存储：functions.metadata.ui (Formily Schema)
     ├── API：GET/PUT /api/v1/functions/:id/ui (Formily Schema)
-    ├── 编辑器：UISchemaEditor 直接编辑 Formily Schema
-    ├── 渲染器：SchemaRenderer 直接渲染 Formily Schema（无转换）
-    ├── 函数调用页：复用 SchemaRenderer 渲染调用表单
-    └── 版本管理：config_versions 表存储 Formily Schema 快照
+    ├── SchemaRenderer：直接渲染 Formily Schema（无转换）
+    └── UISchemaEditor：Formily ↔ FieldConfig 双向转换（编辑器内部）
 ```
 
-**没有转换层。** 后端生成、前端编辑、渲染器消费，全链路同一格式。
+> **注意**：`UISchemaEditor` 内部使用 FieldConfig 格式（widget/placeholder）驱动编辑 UI，
+> 读写时与 Formily Schema 双向转换。转换会保留核心字段（type/title/x-component/x-component-props），
+> 但复杂的 Formily 扩展（x-reactions 联动、x-decorator-props、x-data-source、嵌套 properties/items）
+> 需要通过代码编辑器 Tab 直接编辑 JSON 来配置。
+>
+> `Functions/Invoke` 页面仍使用 `FunctionFormRenderer`（antd Form）渲染调用表单，
+> 通过 JSON Schema type 推断 widget，不消费 Formily 扩展字段。
 
 ### Formily Schema 规范
 
@@ -177,14 +181,16 @@ UI 配置的加载优先级（不变）：
 | 后端 `ui_resolver.go` | 加载/生成 UI 配置 | 函数记录 | Formily Schema |
 | 后端 `fallback.go` | 兜底生成 | function ID | Formily Schema |
 | API `/functions/:id/ui` | 读写 UI 配置 | HTTP | Formily Schema |
-| `SchemaRenderer` | 渲染表单 | Formily Schema | React 组件 |
-| `UISchemaEditor` | 编辑 UI 配置 | Formily Schema | Formily Schema |
+| `SchemaRenderer` | 渲染表单（管理页预览） | Formily Schema | React 组件 |
+| `UISchemaEditor` | 编辑 UI 配置 | Formily Schema ↔ FieldConfig | Formily Schema |
+| `FunctionFormRenderer` | 渲染调用表单（执行页） | JSON Schema | antd Form |
 | `FunctionUIManager` | UI 管理面板 | functionId | 管理界面 |
 
-**废弃的组件**：
-- `FunctionFormRenderer` → 被 `SchemaRenderer` 替代
-- `function-ui-generator.ts` → 前端不再需要独立的 UI 生成逻辑
-- `functionUi.ts` 的 `toEditorUISchema`/`toRenderableUISchema` → 不再需要格式转换
+**已删除的组件**：
+- `FunctionFormRenderer` 的 legacy 预览分支（`featureFlags.formilyDesigner=false`）
+- `function-ui-generator.ts`（前端默认 UI 生成，已由后端承担）
+- `functionUi.ts`（旧格式转换工具，已无引用）
+- `FunctionComponents/`（旧 barrel 导出，已无引用）
 
 ---
 
