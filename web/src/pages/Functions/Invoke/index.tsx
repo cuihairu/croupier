@@ -1,389 +1,150 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Form as FormilyForm } from '@formily/core';
 import { PageContainer } from '@ant-design/pro-components';
-import {
-  Alert,
-  App,
-  Button,
-  Card,
-  Drawer,
-  Empty,
-  Space,
-  Tag,
-  Typography,
-} from 'antd';
+import { Alert, App, Button, Card, Drawer, Empty, Space, Tag, Typography } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { history, useLocation, getLocale } from '@umijs/max';
-import {
-  FunctionFormRenderer,
-  type JSONSchema,
-} from '@/components/FunctionFormRenderer';
+import { history, useLocation, getLocale, useModel } from '@umijs/max';
+import SchemaRenderer from '@/components/formily/SchemaRenderer';
+import type { FormilySchema } from '@/components/formily/schema/types';
 import {
   fetchFunctionUiSchema,
-  getFunctionOpenAPI,
   invokeFunction,
   listDescriptors,
   startTask,
   type FunctionDescriptor,
 } from '@/services/api';
-import { buildUISchemaFromJSONSchema, parseInputSchema } from '@/utils/json';
+import { fetchOptions } from '@/services/schema/async';
+import { validateFormilySchema } from '@/services/schema/validateSchema';
+import { extractErrorMessage } from '@/utils/errors';
+import type { FormilyValues } from '@/components/formily/schema/types';
 
 const { Text } = Typography;
 
-type OpenAPIOperation = {
-  requestBody?: any;
-  parameters?: any[];
-  extensions?: Record<string, any>;
-  ['x-ui']?: any;
-};
+type SchemaSource =
+  | 'custom_metadata'
+  | 'config_file_override'
+  | 'openapi_x_ui'
+  | 'generated_default'
+  | 'none'
+  | string;
 
-type JSONSchemaFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
-
-const isObject = (v: any): v is Record<string, any> =>
-  !!v && typeof v === 'object' && !Array.isArray(v);
-
-const isFormUISchema = (v: any): v is Record<string, any> => isObject(v);
-const isLegacyUISchema = (v: any): v is Record<string, any> =>
-  isObject(v) &&
-  (Object.prototype.hasOwnProperty.call(v, 'fields') ||
-    Object.prototype.hasOwnProperty.call(v, 'ui:layout') ||
-    Object.prototype.hasOwnProperty.call(v, 'ui:groups') ||
-    Object.prototype.hasOwnProperty.call(v, 'ui:order'));
-const isJSONSchemaLike = (v: any): v is JSONSchema =>
-  isObject(v) &&
-  (v.type === 'object' || Object.prototype.hasOwnProperty.call(v, 'properties')) &&
-  !Object.prototype.hasOwnProperty.call(v, 'x-component') &&
-  !Object.prototype.hasOwnProperty.call(v, 'x-decorator') &&
-  !Object.prototype.hasOwnProperty.call(v, 'fields');
-const isFormilySchema = (v: any): boolean =>
-  isObject(v) &&
-  (Object.prototype.hasOwnProperty.call(v, 'properties') ||
-    Object.prototype.hasOwnProperty.call(v, 'x-component') ||
-    Object.prototype.hasOwnProperty.call(v, 'x-decorator'));
-const hasFormilyComponent = (v: any): boolean => {
-  if (!isObject(v)) return false;
-  if (typeof v['x-component'] === 'string' && v['x-component']) return true;
-  if (isObject(v.properties)) {
-    return Object.values(v.properties).some((child) => hasFormilyComponent(child));
-  }
-  if (isObject(v.items)) return hasFormilyComponent(v.items);
-  return false;
-};
-const mapFormilyComponentToType = (component?: string): JSONSchemaFieldType => {
-  const key = String(component || '').toLowerCase();
-  if (key.includes('number') || key.includes('slider') || key.includes('rate')) return 'number';
-  if (key.includes('switch') || key.includes('checkbox')) return 'boolean';
-  if (key.includes('array')) return 'array';
-  if (key.includes('select')) return 'string';
-  if (key.includes('date') || key.includes('time')) return 'string';
-  if (key.includes('input') || key.includes('textarea')) return 'string';
-  return 'string';
-};
-const buildJSONSchemaFromFormily = (raw: any): JSONSchema | undefined => {
-  if (!isObject(raw)) return undefined;
-  const propertiesNode = isObject(raw.properties) ? raw.properties : undefined;
-  if (!propertiesNode) return undefined;
-  const properties: Record<string, any> = {};
-  const required: string[] = Array.isArray(raw.required) ? raw.required.filter(Boolean) : [];
-  Object.entries(propertiesNode).forEach(([key, node]) => {
-    if (!isObject(node)) return;
-    const propType =
-      typeof node.type === 'string' && node.type
-        ? node.type
-        : mapFormilyComponentToType(String(node['x-component'] || ''));
-    properties[key] = {
-      type: propType,
-      title: node.title || key,
-      description: node.description,
-      enum: Array.isArray(node.enum) ? node.enum : undefined,
-      items: isObject(node.items) ? node.items : undefined,
-      properties: isObject(node.properties) ? node.properties : undefined,
-    };
-  });
-  return { type: 'object', properties, required };
-};
-
-const getRequestSchemaFromOpenAPI = (operation?: OpenAPIOperation): JSONSchema | undefined => {
-  const bodySchema = operation?.requestBody?.content?.['application/json']?.schema;
-  if (isObject(bodySchema)) return bodySchema as JSONSchema;
-  const parameters = Array.isArray(operation?.parameters) ? operation?.parameters : [];
-  if (parameters.length === 0) return undefined;
-  const properties: Record<string, any> = {};
-  const required: string[] = [];
-  parameters.forEach((p: any) => {
-    if (!isObject(p)) return;
-    const name = String(p.name || '').trim();
-    if (!name) return;
-    const schema = isObject(p.schema) ? p.schema : {};
-    properties[name] = {
-      type: schema.type || 'string',
-      title: p.title || p.description || name,
-      description: p.description,
-      enum: Array.isArray(schema.enum) ? schema.enum : undefined,
-      default: schema.default,
-    };
-    if (p.required || p.in === 'path') required.push(name);
-  });
-  if (Object.keys(properties).length === 0) return undefined;
-  return { type: 'object', properties, required };
-};
-
-const getUISchemaFromOpenAPI = (operation?: OpenAPIOperation): Record<string, any> | undefined => {
-  const ui = operation?.['x-ui'] || operation?.extensions?.['x-ui'];
-  return isFormUISchema(ui) ? ui : undefined;
-};
-
-const buildSchemaFromUISchema = (ui?: Record<string, any>): JSONSchema | undefined => {
-  const fields = ui?.fields || {};
-  const keys = Object.keys(fields);
-  if (!keys.length) return undefined;
-  const properties: Record<string, any> = {};
-  keys.forEach((key) => {
-    const f: any = fields[key] || {};
-    const widget = String(f.widget || '').toLowerCase();
-    let type: any = 'string';
-    if (widget === 'switch' || widget === 'checkbox') type = 'boolean';
-    if (widget === 'number' || widget === 'slider' || widget === 'rate') type = 'number';
-    if (widget === 'multiselect' || widget === 'checkboxgroup') type = 'array';
-    if (widget === 'json' || widget === 'object') type = 'object';
-    properties[key] = {
-      type,
-      title: f.label || key,
-      description: f.description,
-    };
-  });
-  return { type: 'object', properties };
-};
-
-const normalizeCustomUISchema = (
-  raw: any,
-): {
-  kind: 'none' | 'legacy' | 'json-schema' | 'formily' | 'invalid';
-  legacy?: Record<string, any>;
-  jsonSchema?: JSONSchema;
-  formily?: any;
-} => {
-  if (raw == null) return { kind: 'none' };
-  let parsed: any = raw;
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (!text) return { kind: 'none' };
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      return { kind: 'invalid' };
+type UISchemaState =
+  | {
+      status: 'idle' | 'loading';
+      schema?: undefined;
+      source?: undefined;
+      detail?: undefined;
+      error?: undefined;
     }
+  | {
+      status: 'ready';
+      schema: FormilySchema;
+      source: SchemaSource;
+      detail?: string;
+      error?: undefined;
+    }
+  | {
+      status: 'error';
+      schema?: undefined;
+      source?: SchemaSource;
+      detail?: string;
+      error: string;
+    };
+
+const EMPTY_UI_STATE: UISchemaState = { status: 'idle' };
+
+const resolveName = (descriptor: FunctionDescriptor, locale: string) => {
+  const zh = descriptor.displayName?.zh || descriptor.summary?.zh;
+  const en = descriptor.displayName?.en || descriptor.summary?.en;
+  if (locale.toLowerCase().startsWith('zh')) return zh || en || descriptor.id;
+  return en || zh || descriptor.id;
+};
+
+const resolveSummary = (descriptor: FunctionDescriptor, locale: string) => {
+  const zh = descriptor.summary?.zh || descriptor.displayName?.zh;
+  const en = descriptor.summary?.en || descriptor.displayName?.en;
+  if (locale.toLowerCase().startsWith('zh')) {
+    return zh || en || descriptor.description || descriptor.id;
   }
-  if (!isObject(parsed)) return { kind: 'invalid' };
-  const keys = Object.keys(parsed);
-  if (keys.length === 0) return { kind: 'none' };
-  if (isLegacyUISchema(parsed)) return { kind: 'legacy', legacy: parsed as Record<string, any> };
-  if (isJSONSchemaLike(parsed)) return { kind: 'json-schema', jsonSchema: parsed as JSONSchema };
-  if (isFormilySchema(parsed) && hasFormilyComponent(parsed))
-    return { kind: 'formily', formily: parsed };
-  if (isFormilySchema(parsed) && !hasFormilyComponent(parsed)) {
-    return { kind: 'json-schema', jsonSchema: parsed as JSONSchema };
+  return en || zh || descriptor.description || descriptor.id;
+};
+
+function validateRuntimeUISchema(schema: unknown): FormilySchema {
+  const validation = validateFormilySchema(schema);
+  if (!validation.ok) {
+    throw new Error(validation.error || '函数 UI Schema 不是有效 Formily Schema');
   }
-  return { kind: 'legacy', legacy: parsed as Record<string, any> };
-};
+  return schema as FormilySchema;
+}
 
-const resolveName = (d: FunctionDescriptor, locale: string) => {
-  const zh = d.displayName?.zh || d.summary?.zh;
-  const en = d.displayName?.en || d.summary?.en;
-  if (locale.toLowerCase().startsWith('zh')) return zh || en || d.id;
-  return en || zh || d.id;
-};
-
-const resolveSummary = (d: FunctionDescriptor, locale: string) => {
-  const zh = d.summary?.zh || d.displayName?.zh;
-  const en = d.summary?.en || d.displayName?.en;
-  if (locale.toLowerCase().startsWith('zh')) return zh || en || d.description || d.id;
-  return en || zh || d.description || d.id;
-};
-
-const inferTokenFromID = (id: string) =>
-  String(id || '')
-    .split(/[./_-]+/)
-    .map((x) => x.trim().toLowerCase())
+function getRuntimeContext(functionId: string, access?: string) {
+  const permissions = String(access || '')
+    .split(',')
+    .map((item) => item.trim())
     .filter(Boolean);
+  return {
+    gameId:
+      typeof window !== 'undefined' ? localStorage.getItem('game_id') || undefined : undefined,
+    env: typeof window !== 'undefined' ? localStorage.getItem('env') || undefined : undefined,
+    functionId,
+    permissions,
+  };
+}
 
-const inferEntityOperation = (
-  descriptor: FunctionDescriptor | undefined,
-  tokens: string[],
-  knownOps: Set<string>,
-) => {
-  const declaredEntity = String((descriptor as any)?.entity || '')
-    .trim()
-    .toLowerCase();
-  const declaredOperation = String((descriptor as any)?.operation || '')
-    .trim()
-    .toLowerCase();
-  if (tokens.length >= 3) {
-    return {
-      entity: declaredEntity || tokens[tokens.length - 2],
-      operation: declaredOperation || tokens[tokens.length - 1],
-    };
-  }
-  if (tokens.length >= 2) {
-    return {
-      entity: declaredEntity || tokens[0],
-      operation: declaredOperation || tokens[1],
-    };
-  }
-  return { entity: declaredEntity || tokens[0] || 'object', operation: declaredOperation };
-};
-
-const buildGeneratedSchema = (d?: FunctionDescriptor): JSONSchema => {
-  const tokens = inferTokenFromID(d?.id || '');
-  const knownOps = new Set([
-    'create',
-    'add',
-    'new',
-    'read',
-    'get',
-    'list',
-    'query',
-    'search',
-    'detail',
-    'update',
-    'edit',
-    'patch',
-    'modify',
-    'delete',
-    'remove',
-  ]);
-  const { entity, operation } = inferEntityOperation(d, tokens, knownOps);
-  const idKey = `${entity}_id`;
-  const objectLabel = (d?.displayName?.zh || d?.displayName?.en || entity || '对象').toString();
-
-  const schema: JSONSchema = { type: 'object', properties: {}, required: [] };
-  const props: Record<string, any> = schema.properties || {};
-  const required = new Set<string>();
-  if (operation === 'create' || operation === 'add' || operation === 'new') {
-    props[idKey] = { type: 'string', title: `${objectLabel}ID（可选）` };
-    props.data = { type: 'object', title: `${objectLabel}数据` };
-    required.add('data');
-  } else if (
-    operation === 'read' ||
-    operation === 'get' ||
-    operation === 'query' ||
-    operation === 'search' ||
-    operation === 'detail'
-  ) {
-    props[idKey] = { type: 'string', title: `${objectLabel}ID` };
-    required.add(idKey);
-  } else if (operation === 'update' || operation === 'edit' || operation === 'patch') {
-    props[idKey] = { type: 'string', title: `${objectLabel}ID` };
-    props.patch = { type: 'object', title: '更新内容' };
-    required.add(idKey);
-    required.add('patch');
-  } else if (operation === 'delete' || operation === 'remove') {
-    props[idKey] = { type: 'string', title: `${objectLabel}ID` };
-    required.add(idKey);
-  } else {
-    props.payload = { type: 'object', title: '请求参数' };
-  }
-  schema.required = Array.from(required);
-  return schema;
-};
-const extractErrorMessage = (e: any, fallback: string) => {
-  const candidates = [
-    e?.data?.message,
-    e?.info?.data?.message,
-    e?.response?.data?.message,
-    e?.response?.data?.error,
-    e?.message,
-  ].filter((x) => typeof x === 'string' && x.trim());
-  return (candidates[0] as string) || fallback;
+type InitialStateWithAccess = {
+  currentUser?: {
+    access?: string;
+  };
 };
 
 export default function FunctionRuntimeUIPage() {
   const { message } = App.useApp();
   const location = useLocation();
   const locale = getLocale();
+  const { initialState } = useModel('@@initialState');
+  const formRef = useRef<FormilyForm | null>(null);
   const searchParams = new URLSearchParams(location.search);
   const fid = searchParams.get('fid') || searchParams.get('id') || '';
 
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
-  const [openapiOperation, setOpenapiOperation] = useState<OpenAPIOperation | undefined>(undefined);
-  const [uiSchema, setUISchema] = useState<Record<string, any> | undefined>(undefined);
-  const [customUISchema, setCustomUISchema] = useState<Record<string, any> | undefined>(undefined);
-  const [customJSONSchema, setCustomJSONSchema] = useState<JSONSchema | undefined>(undefined);
-  const [uiSource, setUISource] = useState<'custom' | 'openapi' | 'generated'>('generated');
-  const [uiResolving, setUIResolving] = useState(false);
-  const [invalidCustomUI, setInvalidCustomUI] = useState(false);
+  const [uiState, setUIState] = useState<UISchemaState>(EMPTY_UI_STATE);
+  const [formValues, setFormValues] = useState<FormilyValues>({});
   const [infoOpen, setInfoOpen] = useState(false);
-  const [result, setResult] = useState<any>(undefined);
+  const [result, setResult] = useState<unknown>(undefined);
   const [error, setError] = useState<string>('');
 
   const selected = useMemo(
-    () => descriptors.find((d) => d.id === fid) || descriptors[0],
+    () => descriptors.find((descriptor) => descriptor.id === fid) || descriptors[0],
     [descriptors, fid],
   );
 
-  const schemaMeta = useMemo<{
-    schema: JSONSchema;
-    source: 'input' | 'openapi' | 'custom-ui' | 'generated';
-  }>(() => {
-    if (!selected) return { schema: { type: 'object', properties: {} }, source: 'generated' };
-    const parsed = parseInputSchema(selected.inputSchema, selected.params);
-    if (parsed && parsed.type === 'object' && Object.keys(parsed.properties || {}).length > 0) {
-      return { schema: parsed as JSONSchema, source: 'input' };
-    }
-    const fromOpenAPI = getRequestSchemaFromOpenAPI(openapiOperation);
-    if (fromOpenAPI && Object.keys(fromOpenAPI.properties || {}).length > 0) {
-      return { schema: fromOpenAPI, source: 'openapi' };
-    }
-    const fromCustomUI = buildSchemaFromUISchema(customUISchema);
-    if (fromCustomUI && Object.keys(fromCustomUI.properties || {}).length > 0) {
-      return { schema: fromCustomUI, source: 'custom-ui' };
-    }
-    if (customJSONSchema && Object.keys(customJSONSchema.properties || {}).length > 0) {
-      return { schema: customJSONSchema, source: 'custom-ui' };
-    }
-    return { schema: buildGeneratedSchema(selected), source: 'generated' };
-  }, [selected, openapiOperation, customUISchema, customJSONSchema]);
-  const schema = schemaMeta.schema;
-  const hasStructuredSchema = useMemo(() => {
-    const props = schema?.properties || {};
-    return Object.keys(props).length > 0;
-  }, [schema]);
-  const sourceNotice = useMemo(() => {
-    if (uiResolving) return null;
-    if (invalidCustomUI) {
-      return {
-        type: 'warning' as const,
-        message: '检测到无效 UI 配置，已自动回退',
-        description: '当前函数的 UI 配置为空或格式错误，系统使用可用 Schema 自动渲染。',
-      };
-    }
-    if (uiSource === 'custom') {
-      return {
-        type: 'success' as const,
-        message: '已加载你保存的 UI 配置',
-        description: '当前页面优先使用自定义 UI，并据此渲染表单。',
-      };
-    }
-    if (!hasStructuredSchema || schemaMeta.source === 'generated') {
-      return {
-        type: 'warning' as const,
-        message: '使用默认参数模板',
-        description:
-          '该函数未提供可用 Schema，已按函数 ID、实体和操作自动生成可调用表单。建议在注册描述符中补齐 summary、description 和 input_schema。',
-      };
-    }
-    return null;
-  }, [uiResolving, invalidCustomUI, uiSource, hasStructuredSchema, schemaMeta.source]);
+  const runtimeContext = useMemo(
+    () =>
+      getRuntimeContext(
+        selected?.id || '',
+        (initialState as InitialStateWithAccess | undefined)?.currentUser?.access,
+      ),
+    [initialState, selected?.id],
+  );
+
+  const rendererScope = useMemo(
+    () => ({
+      hasPerm: (perm: string) => runtimeContext.permissions.includes(perm),
+      fetchOptions,
+    }),
+    [runtimeContext.permissions],
+  );
 
   useEffect(() => {
     const loadDescriptors = async () => {
       setLoading(true);
       try {
-        const res = await listDescriptors();
-        setDescriptors(Array.isArray(res) ? res : []);
-      } catch (e: any) {
-        message.error(e?.message || '加载函数列表失败');
+        const response = await listDescriptors();
+        setDescriptors(Array.isArray(response) ? response : []);
+      } catch (err: unknown) {
+        message.error(extractErrorMessage(err, '加载函数列表失败'));
       } finally {
         setLoading(false);
       }
@@ -393,123 +154,69 @@ export default function FunctionRuntimeUIPage() {
 
   useEffect(() => {
     let active = true;
-    const loadUI = async () => {
-      if (!selected?.id) return;
-      setUIResolving(true);
-      setInvalidCustomUI(false);
-      setUISchema(undefined);
-      setCustomUISchema(undefined);
-      setCustomJSONSchema(undefined);
-      setOpenapiOperation(undefined);
-      setUISource('generated');
-      try {
-        const baseSchema = (() => {
-          const parsed = parseInputSchema(selected.inputSchema, selected.params);
-          if (parsed && parsed.type === 'object') return parsed as JSONSchema;
-          return buildGeneratedSchema(selected);
-        })();
-        // 1) Prefer user-saved custom UI schema
-        try {
-          const customUI = await fetchFunctionUiSchema(selected.id);
-          const normalized = normalizeCustomUISchema(customUI?.schema);
-          if (normalized.kind === 'invalid' && active) {
-            setInvalidCustomUI(true);
-          }
-          if (active && normalized.kind === 'legacy' && normalized.legacy) {
-            const parsedCustom = normalized.legacy;
-            setUISchema(parsedCustom);
-            setCustomUISchema(parsedCustom);
-            setUISource('custom');
-            return;
-          }
-          if (active && normalized.kind === 'json-schema' && normalized.jsonSchema) {
-            setCustomJSONSchema(normalized.jsonSchema);
-            setUISchema(buildUISchemaFromJSONSchema(normalized.jsonSchema) as Record<string, any>);
-            setUISource('custom');
-            return;
-          }
-          if (active && normalized.kind === 'formily' && normalized.formily) {
-            const converted = buildJSONSchemaFromFormily(normalized.formily);
-            if (converted && Object.keys(converted.properties || {}).length > 0) {
-              setCustomJSONSchema(converted);
-              setUISchema(buildUISchemaFromJSONSchema(converted) as Record<string, any>);
-              setUISource('custom');
-              return;
-            }
-            setInvalidCustomUI(true);
-          }
-        } catch {
-          // ignore and fallback
-        }
 
-        // 2) Fallback to OpenAPI x-ui / request schema generated UI
-        const operation = (await getFunctionOpenAPI(selected.id)) as OpenAPIOperation;
+    const loadUISchema = async () => {
+      if (!selected?.id) {
+        setUIState(EMPTY_UI_STATE);
+        return;
+      }
+
+      formRef.current = null;
+      setFormValues({});
+      setResult(undefined);
+      setError('');
+      setUIState({ status: 'loading' });
+
+      try {
+        const response = await fetchFunctionUiSchema(selected.id);
         if (!active) return;
-        setOpenapiOperation(operation);
-        const openapiSchema = getRequestSchemaFromOpenAPI(operation);
-        const openapiUI = getUISchemaFromOpenAPI(operation);
-        if (openapiUI) {
-          setUISchema(openapiUI);
-          setUISource('openapi');
-          return;
-        }
-        setUISchema(buildUISchemaFromJSONSchema(openapiSchema || baseSchema) as Record<string, any>);
-        setUISource(openapiSchema ? 'openapi' : 'generated');
-      } catch {
+        const schema = validateRuntimeUISchema(response?.schema);
+        setUIState({
+          status: 'ready',
+          schema,
+          source: response?.uiSource || 'none',
+          detail: response?.uiSourceDetail,
+        });
+      } catch (err: unknown) {
         if (!active) return;
-        setOpenapiOperation(undefined);
-        const parsed = parseInputSchema(selected.inputSchema, selected.params);
-        const fallbackSchema =
-          parsed && parsed.type === 'object'
-            ? (parsed as JSONSchema)
-            : buildGeneratedSchema(selected);
-        setUISchema(buildUISchemaFromJSONSchema(fallbackSchema) as Record<string, any>);
-        setUISource('generated');
-      } finally {
-        if (active) setUIResolving(false);
+        setUIState({
+          status: 'error',
+          error: extractErrorMessage(err, '函数 UI Schema 加载失败'),
+        });
       }
     };
-    loadUI();
+
+    loadUISchema();
     return () => {
       active = false;
     };
   }, [selected?.id]);
 
-  const handleInvoke = async (values: any) => {
-    if (!selected?.id) return;
-    setExecuting(true);
-    setError('');
-    setResult(undefined);
-    try {
-      const res = await invokeFunction(selected.id, values);
-      setResult(res);
-      message.success('执行成功');
-    } catch (e: any) {
-      const msg = extractErrorMessage(e, '执行失败');
-      setError(msg);
-      message.error(msg);
-    } finally {
-      setExecuting(false);
-    }
-  };
-
-  const handleStartTask = async (values: any) => {
-    if (!selected?.id) return;
-    setExecuting(true);
-    setError('');
-    setResult(undefined);
-    try {
-      const res = await startTask(selected.id, values);
-      setResult(res);
-      message.success('任务已创建');
-    } catch (e: any) {
-      const msg = extractErrorMessage(e, '创建任务失败');
-      setError(msg);
-      message.error(msg);
-    } finally {
-      setExecuting(false);
-    }
-  };
+  const submitWithValues = useCallback(
+    async (mode: 'invoke' | 'task') => {
+      if (!selected?.id || uiState.status !== 'ready') return;
+      setExecuting(true);
+      setError('');
+      setResult(undefined);
+      try {
+        await formRef.current?.validate();
+        const values = (formRef.current?.values || formValues) as FormilyValues;
+        const response =
+          mode === 'invoke'
+            ? await invokeFunction(selected.id, values)
+            : await startTask(selected.id, values);
+        setResult(response);
+        message.success(mode === 'invoke' ? '执行成功' : '任务已创建');
+      } catch (err: unknown) {
+        const msg = extractErrorMessage(err, mode === 'invoke' ? '执行失败' : '创建任务失败');
+        setError(msg);
+        message.error(msg);
+      } finally {
+        setExecuting(false);
+      }
+    },
+    [formValues, message, selected?.id, uiState],
+  );
 
   if (!loading && descriptors.length === 0) {
     return (
@@ -540,39 +247,73 @@ export default function FunctionRuntimeUIPage() {
         </Button>,
       ]}
     >
-      <Card title="参数配置">
-        {sourceNotice && (
+      <Card
+        title="参数配置"
+        loading={uiState.status === 'loading'}
+        extra={
+          <Space>
+            <Button
+              type="primary"
+              loading={executing}
+              disabled={uiState.status !== 'ready'}
+              onClick={() => submitWithValues('invoke')}
+            >
+              执行
+            </Button>
+            <Button
+              loading={executing}
+              disabled={uiState.status !== 'ready'}
+              onClick={() => submitWithValues('task')}
+            >
+              创建任务
+            </Button>
+          </Space>
+        }
+      >
+        {uiState.status === 'ready' && (
           <Alert
             style={{ marginBottom: 12 }}
-            type={sourceNotice.type}
+            type="success"
             showIcon
-            message={sourceNotice.message}
-            description={sourceNotice.description}
+            message="已加载 Formily UI Schema"
+            description={uiState.detail || `来源：${uiState.source}`}
           />
         )}
-        <FunctionFormRenderer
-          schema={schema}
-          uiSchema={uiSchema}
-          onSubmit={handleInvoke}
-          onSecondarySubmit={handleStartTask}
-          loading={executing}
-          secondaryLoading={executing}
-          submitText="执行"
-          secondarySubmitText="创建任务"
-          resetText="重置"
-          enableRawJson
-        />
+        {uiState.status === 'error' && (
+          <Alert
+            type="error"
+            showIcon
+            message="函数 UI Schema 无法渲染"
+            description={`${uiState.error}。当前函数调用页只接受 Formily Schema，请在注册描述或函数表单设计器中修正 schema。`}
+          />
+        )}
+        {uiState.status === 'ready' ? (
+          <SchemaRenderer
+            schema={uiState.schema}
+            value={formValues}
+            onChange={setFormValues}
+            onFormReady={(form) => {
+              formRef.current = form;
+            }}
+            context={runtimeContext}
+            scope={rendererScope}
+          />
+        ) : uiState.status === 'idle' ? (
+          <Empty description="请选择函数" />
+        ) : null}
       </Card>
-      {(error || result) && (
+
+      {(error || result !== undefined) && (
         <Card title="执行结果" style={{ marginTop: 16 }}>
           {error && <Alert type="error" showIcon message="执行失败" description={error} />}
-          {result && (
+          {result !== undefined && (
             <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {JSON.stringify(result, null, 2)}
             </pre>
           )}
         </Card>
       )}
+
       <Drawer
         title="函数信息"
         placement="right"
@@ -584,6 +325,11 @@ export default function FunctionRuntimeUIPage() {
           <Text code>{selected.id}</Text>
           {selected.category && <Tag color="blue">{selected.category}</Tag>}
           {selected.version && <Tag>v{selected.version}</Tag>}
+          {uiState.status !== 'idle' && (
+            <Tag color={uiState.status === 'ready' ? 'green' : 'red'}>
+              UI: {uiState.status === 'ready' ? uiState.source : 'invalid'}
+            </Tag>
+          )}
           {resolveSummary(selected, locale) && (
             <Alert
               type="info"

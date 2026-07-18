@@ -1,145 +1,254 @@
-# UI 生成架构决策
+# Dashboard UI 架构边界
 
 ## 状态
 
-已采纳（2026-07-18），更新（2026-07-18）
+Current（2026-07-18）
 
 ## 决策概要
 
-1. **Proto 层废弃 UI 扩展**：UI 生成完全由 Server 端负责
-2. **Formily Schema 为唯一 UI Schema 格式**：全系统只用一种格式，无转换层
+Croupier Dashboard 不把 OpenAPI、函数表单、对象管理页和页面编排混为一个模型。
+
+当前统一采用以下边界：
+
+1. **OpenAPI 是函数能力契约**：描述函数如何调用、输入输出结构、错误和文档信息。
+2. **Function 是可执行能力**：函数可以是查询、命令、任务、审批动作或对象操作。
+3. **Entity 是业务对象模型**：只用于确实围绕某个对象生命周期展开的管理界面。
+4. **Function UI 是单函数输入表单**：唯一格式是 Formily Schema。
+5. **Page 是业务页面编排**：组合查询区、分页表格、详情、弹窗表单、批量操作和结果视图。
+
+运行时只消费一种 UI Schema：**Formily Schema**。非 Formily Schema 必须报错，不能转换、猜测或静默降级。
 
 ---
 
-## 一、Proto 层职责分离
+## 一、OpenAPI 的职责
 
-### 背景
+OpenAPI 在 Croupier 中是成熟的函数契约来源，适合承载：
 
-Proto 层曾经定义了 UI 元数据扩展（`FunctionOptions.menu`/`permissions`、`UIFieldOptions` 全部字段）。这些已废弃。
+- `operationId` / 函数 ID
+- `summary` / `description` / `tags`
+- request schema
+- response schema
+- error response
+- 安全和治理扩展
 
-### 保留的 Proto 字段（API 契约 + 文档）
+OpenAPI 不直接等于 Dashboard Page。它可以生成默认函数表单初稿，也可以帮助推断页面候选能力，但不能直接决定页面布局。
 
-| 字段 | 性质 |
-|------|------|
-| `function_id`、`version`、`category`、`risk`、`route`、`timeout` | API 契约 |
-| `two_person_rule`、`placement`、`mode`、`idempotency_key`、`labels` | API 契约 |
-| `display_name`、`summary`、`tags` | API 文档（流入 OpenAPI summary） |
+正确的数据流是：
 
-### 废弃的 Proto 字段
+```text
+OpenAPI / SDK descriptor
+    -> FunctionDescriptor
+    -> input_schema / output_schema
+    -> Formily Schema 初稿
+    -> Function UI / Page 使用
+```
 
-- `FunctionOptions.menu`/`permissions` → Server RBAC 管理
-- `EntityOptions.menu` → Server descriptors_logic 生成
-- `UIFieldOptions` 全部字段 → Server 从 JSON Schema 推导
+错误的数据流是：
+
+```text
+OpenAPI
+    -> Dashboard Page
+    -> 页面运行时临时猜组件
+```
 
 ---
 
-## 二、统一 UI Schema：Formily Schema
+## 二、Function 的职责
 
-### 为什么选 Formily Schema
+Function 表示一个可执行能力，不等同于 CRUD。
 
-Formily 是蚂蚁金服开源的表单方案，其 JSON Schema 规范通过 `x-` 前缀字段（`x-component`、`x-decorator`、`x-component-props`、`x-reactions`）表达 UI 元信息。这些是 [Formily 官方规范](https://react.formilyjs.org/api/shared/schema) 定义的标准字段，不是 Croupier 自定义扩展。
+函数可以属于以下类型：
 
-| 能力 | Formily Schema | fields 格式 | JSON Schema |
-|------|---------------|-------------|-------------|
-| 指定组件 | `x-component` | `widget` | ❌ |
-| 组件属性 | `x-component-props` | 混在字段里 | `minimum` 等 |
-| 条件显示 | `x-reactions` | `show_if` | ❌ |
-| 嵌套/数组 | `properties`/`ArrayTable` | ❌ | `properties`/`items` |
-| 布局 | `FormGrid`/`Space` | `ui:layout` | ❌ |
-| 渲染器 | `SchemaRenderer` 直接渲染 | 需要转换 | 需要转换 |
+| 类型 | 示例 | 推荐 UI |
+|------|------|---------|
+| 对象查询 | `player.list`、`order.get` | Entity Page / Page 查询区 |
+| 对象变更 | `player.update`、`item.grant` | Entity Page 行操作或弹窗表单 |
+| 全局命令 | `broadcast.send`、`cache.refresh` | Operation Page / Tool Page |
+| 异步任务 | `report.generate`、`reward.batchGrant` | Task Page / Wizard Page |
+| 分析查询 | `analytics.retention` | Report Page / Chart Page |
+| 审批动作 | `approval.approve`、`approval.reject` | Approval Page |
 
-Formily Schema 是唯一能**直接被渲染器消费**的格式，不需要任何转换层。
+函数注册必须尽量提供：
 
-### 统一后的数据流
+- `id`
+- `version`
+- `summary`
+- `description`
+- `category`
+- `entity`
+- `operation`
+- `risk`
+- `input_schema`
+- `output_schema`
 
-```
-JSON Schema (input_schema，来自 SDK 注册)
-    │
-    ▼ 后端 deriveFormilySchema() — 一次生成
-Formily Schema
-    │
-    ├── 存储：functions.metadata.ui (Formily Schema)
-    ├── API：GET/PUT /api/v1/functions/:id/ui (Formily Schema)
-    ├── SchemaRenderer：直接渲染 Formily Schema（无转换）
-    └── UISchemaEditor：Formily ↔ FieldConfig 双向转换（编辑器内部）
-```
+缺少 `input_schema` 时，后端可以生成最小 Formily Schema 初稿，但该初稿仍必须是 Formily Schema，不能在前端运行时再生成第二套格式。
 
-> **注意**：`UISchemaEditor` 内部使用 FieldConfig 格式（widget/placeholder）驱动编辑 UI，
-> 读写时与 Formily Schema 双向转换。转换会保留核心字段（type/title/x-component/x-component-props），
-> 但复杂的 Formily 扩展（x-reactions 联动、x-decorator-props、x-data-source、嵌套 properties/items）
-> 需要通过代码编辑器 Tab 直接编辑 JSON 来配置。
->
-> `Functions/Invoke` 页面仍使用 `FunctionFormRenderer`（antd Form）渲染调用表单，
-> 通过 JSON Schema type 推断 widget，不消费 Formily 扩展字段。
+---
 
-### Formily Schema 规范
+## 三、Entity 的职责
 
-#### 顶层结构
+Entity 表示稳定业务对象，例如：
+
+- `player`
+- `order`
+- `item`
+- `mail`
+- `activity`
+
+只有满足以下条件的函数才应该进入对象管理页：
+
+- 有明确 `entity`
+- 操作围绕该对象生命周期展开
+- 存在稳定对象标识或列表查询
+- 返回结构可映射到表格、详情或对象状态
+- 操作可以自然挂载到查询区、行操作、详情页或批量操作
+
+不应进入对象管理页的函数：
+
+- 全局命令：`cache.refresh`
+- 批处理任务：`reward.batchGrant`
+- 分析报表：`analytics.retention`
+- 平台运维：`maintenance.rollback`
+- 无主对象的工具动作：`broadcast.send`
+
+这些函数仍然有函数表单，但应该由 Operation Page、Task Page、Report Page 或 Tool Page 承载。
+
+---
+
+## 四、Function UI 的职责
+
+Function UI 只描述**单个函数的输入表单**。
+
+唯一合法格式是 Formily Schema：
 
 ```json
 {
   "type": "object",
   "properties": {
-    "fieldName": { /* 字段定义 */ }
+    "player_id": {
+      "type": "string",
+      "title": "玩家 ID",
+      "x-component": "Input",
+      "x-decorator": "FormItem",
+      "x-component-props": {
+        "placeholder": "请输入玩家 ID"
+      }
+    }
+  },
+  "required": ["player_id"]
+}
+```
+
+Function UI 的加载优先级：
+
+```text
+1. functions.metadata.ui
+2. configs/ui/functions.override/{function-id}.yaml|json
+3. configs/ui/functions/{function-id}.yaml|json
+4. OpenAPI operation["x-ui"]
+5. input_schema / OpenAPI request schema 生成的 Formily Schema
+6. function id / entity / operation 生成的最小 Formily Schema
+```
+
+所有来源的输出都必须是 Formily Schema。任一来源输出非 Formily Schema 时，应在保存或渲染阶段报错。
+
+Function UI 不负责：
+
+- 分页状态
+- 表格列
+- 页面路由
+- 多函数组合
+- 对象详情布局
+- 审批流编排
+
+这些属于 Page。
+
+---
+
+## 五、Page 的职责
+
+Page 是用户完成业务任务的页面编排模型。Page 可以组合多个函数和多个 UI 区块。
+
+典型对象管理 Page：
+
+```text
+player.manage
+    查询区 -> player.list
+    分页表格 -> player.list.response.items
+    行详情 -> player.get
+    行操作 -> player.ban / player.update
+    批量操作 -> reward.batchGrant
+```
+
+典型报表 Page：
+
+```text
+analytics.retention
+    筛选区 -> analytics.retention.query
+    图表区 -> analytics.retention.response.series
+    导出动作 -> analytics.retention.export
+```
+
+典型任务 Page：
+
+```text
+reward.batchGrant
+    参数表单 -> reward.batchGrant
+    提交后 -> task.detail / task.events
+    结果区 -> task.result
+```
+
+Page 可以支持分页查询。分页属于 Page 的列表组件状态，通常绑定到某个 list/search/query 函数的参数：
+
+```json
+{
+  "queryAction": "player.list",
+  "pagination": {
+    "pageField": "page",
+    "pageSizeField": "pageSize",
+    "totalField": "total",
+    "itemsField": "items"
+  }
+}
+```
+
+Page 不应把所有函数都强行套成 CRUD。CRUD 只是对象管理 Page 的一种模板，不是函数系统的总模型。
+
+---
+
+## 六、Formily Schema 规范
+
+### 顶层结构
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "fieldName": { "type": "string", "x-component": "Input" }
   },
   "required": ["fieldName"]
 }
 ```
 
-#### 字段定义
+### 常用组件映射
 
-```json
-{
-  "type": "string",
-  "title": "玩家ID",
-  "description": "Player identifier",
-  "default": null,
+| JSON Schema type | 条件 | Formily component |
+|------------------|------|-------------------|
+| `string` | 默认 | `Input` |
+| `string` | `format: date` | `DatePicker` |
+| `string` | `format: date-time` | `DatePicker` + `showTime` |
+| `string` | `format: time` | `TimePicker` |
+| `string` | `format: textarea` | `Input.TextArea` |
+| `string` | `enum` | `Select` |
+| `number` / `integer` | 默认 | `NumberPicker` |
+| `boolean` | 默认 | `Switch` |
+| `array` | `items.enum` | `Select` + `mode: multiple` |
+| `array` | `items.object` | `ArrayTable` / `ArrayItems` |
+| `object` | 嵌套对象 | `Card` + `properties` |
 
-  "x-component": "Input",
-  "x-decorator": "FormItem",
-  "x-component-props": {
-    "placeholder": "请输入玩家ID",
-    "maxLength": 64
-  },
+### 布局
 
-  "x-reactions": {
-    "fulfill": {
-      "state": {
-        "visible": "{{$values.mode !== 'readonly'}}"
-      }
-    }
-  }
-}
-```
-
-#### 类型 → 组件映射表
-
-| JSON Schema type | 格式/枚举 | x-component | 说明 |
-|-----------------|----------|-------------|------|
-| `string` | — | `Input` | 普通文本 |
-| `string` | `format: date` | `DatePicker` | 日期 |
-| `string` | `format: date-time` | `DatePicker` + `showTime` | 日期时间 |
-| `string` | `format: textarea` | `Input.TextArea` | 多行文本 |
-| `string` | `enum` | `Select` | 下拉选择 |
-| `integer` / `number` | — | `NumberPicker` | 数字输入 |
-| `boolean` | — | `Switch` | 开关 |
-| `array` | `items.enum` | `Select` + `mode: multiple` | 多选 |
-| `array` | `items.object` | `ArrayTable` | 数组表格 |
-| `object` | — | `Card` + 递归 | 嵌套对象 |
-
-#### 约束映射
-
-| JSON Schema 约束 | Formily 位置 |
-|-----------------|-------------|
-| `minimum` | `x-component-props.min` |
-| `maximum` | `x-component-props.max` |
-| `minLength` | `x-component-props.minLength` |
-| `maxLength` | `x-component-props.maxLength` |
-| `pattern` | `x-component-props.pattern` |
-| `enum` | `enum`（顶层） |
-| `required` | `required`（顶层数组） |
-
-#### 布局
+布局使用 Formily 组件表达：
 
 ```json
 {
@@ -150,106 +259,36 @@ Formily Schema
     "maxColumns": 3
   },
   "properties": {
-    "playerId": { ... },
-    "amount": { ... }
+    "player_id": {
+      "type": "string",
+      "title": "玩家 ID",
+      "x-component": "Input",
+      "x-decorator": "FormItem"
+    }
   }
 }
 ```
 
 ---
 
-## 三、优先级链
+## 七、实现职责
 
-UI 配置的加载优先级（不变）：
-
-```
-1. metadata.ui (custom)         → 用户通过编辑器保存的 Formily Schema
-2. configs/ui/functions/{id}.yaml → 文件级覆盖（也是 Formily Schema）
-3. open_api_spec["x-ui"]         → SDK 注册时携带的 x-ui 扩展
-4. deriveFormilySchema()         → 从 input_schema 自动生成 Formily Schema
-5. BuildFallbackFormilySchema()  → 从 function ID 推断的兜底 Formily Schema
-```
-
-所有层级输出的都是 **Formily Schema**，渲染器直接消费。
-
----
-
-## 四、组件职责
-
-| 组件 | 职责 | 输入 | 输出 |
+| 模块 | 职责 | 输入 | 输出 |
 |------|------|------|------|
-| 后端 `ui_resolver.go` | 加载/生成 UI 配置 | 函数记录 | Formily Schema |
-| 后端 `fallback.go` | 兜底生成 | function ID | Formily Schema |
-| API `/functions/:id/ui` | 读写 UI 配置 | HTTP | Formily Schema |
-| `SchemaRenderer` | 渲染表单（管理页预览） | Formily Schema | React 组件 |
-| `UISchemaEditor` | 编辑 UI 配置 | Formily Schema ↔ FieldConfig | Formily Schema |
-| `FunctionFormRenderer` | 渲染调用表单（执行页） | JSON Schema | antd Form |
-| `FunctionUIManager` | UI 管理面板 | functionId | 管理界面 |
+| SDK / Provider | 注册函数能力 | 代码声明 / OpenAPI | FunctionDescriptor |
+| Server descriptor | 归一化函数元信息 | FunctionDescriptor | API 契约 |
+| Server UI resolver | 解析或生成函数表单 | 函数记录 | Formily Schema |
+| `/api/v1/functions/:id/ui` | 读写函数表单 | Formily Schema | Formily Schema |
+| `SchemaRenderer` | 渲染函数表单 | Formily Schema | React Form |
+| Function Invoke Page | 调用单个函数 | Formily values | invoke/task |
+| Entity Page | 对象管理 | Entity + Actions | 查询/表格/详情/动作 |
+| Page Schema | 页面编排 | 多个函数和布局 | Dashboard Page |
 
-**已删除的组件**：
-- `FunctionFormRenderer` 的 legacy 预览分支（`featureFlags.formilyDesigner=false`）
-- `function-ui-generator.ts`（前端默认 UI 生成，已由后端承担）
-- `functionUi.ts`（旧格式转换工具，已无引用）
-- `FunctionComponents/`（旧 barrel 导出，已无引用）
+验收规则：
 
----
-
-## 五、API 契约
-
-### GET /api/v1/functions/:id/ui
-
-```json
-{
-  "schema": { /* Formily Schema */ },
-  "layout": { "type": "grid", "cols": 2 },
-  "components": {},
-  "custom": true,
-  "hasDefault": true,
-  "uiSource": "custom_metadata",
-  "uiSourceDetail": "metadata.ui (custom override)"
-}
-```
-
-### PUT /api/v1/functions/:id/ui
-
-```json
-{
-  "schema": { /* Formily Schema */ },
-  "layout": { "type": "grid", "cols": 2 },
-  "components": {}
-}
-```
-
-清除自定义 UI：
-```json
-{
-  "schema": { "__clear_custom_ui": true }
-}
-```
-
----
-
-## 六、迁移指南
-
-### Proto 文件
-
-```protobuf
-// 保留
-option (croupier.options.v1.function) = {
-  function_id: "player.ban"
-  category: "player"
-  risk: "high"
-  display_name { zh: "封禁玩家" en: "Ban Player" }
-  summary { zh: "封禁指定玩家" en: "Ban a player" }
-  tags: ["player", "moderation"]
-  // menu 和 permissions 已废弃，由 Server 端管理
-};
-```
-
-### 自定义 UI
-
-不再需要手动编写 JSON Schema 或 fields 格式。使用以下方式之一：
-
-1. **Dashboard 编辑器**：函数详情页 → 函数表单 Tab → 编辑
-2. **API**：`PUT /api/v1/functions/:id/ui`（直接传 Formily Schema）
-3. **文件配置**：`configs/ui/functions/{id}.yaml`（Formily Schema 格式）
+- 执行页只使用 `SchemaRenderer`。
+- 保存接口只接受 Formily Schema。
+- 编辑器只编辑 Formily Schema。
+- OpenAPI 只参与契约归一化和初稿生成。
+- Entity Page 只承载明确属于同一 Entity 的动作。
+- Page 负责分页、表格、详情、弹窗和多函数组合。

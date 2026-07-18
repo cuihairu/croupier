@@ -54,6 +54,20 @@ func setupFunctionTestContext(t *testing.T) (*svc.ServiceContext, context.Contex
 	return svcCtx, ctx
 }
 
+func testFunctionFormilySchema(fieldName, component string) map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			fieldName: map[string]interface{}{
+				"type":        "string",
+				"title":       fieldName,
+				"x-component": component,
+				"x-decorator": "FormItem",
+			},
+		},
+	}
+}
+
 func TestInferCategory(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -988,7 +1002,7 @@ func TestResolveFunctionUI(t *testing.T) {
 	cfg := config.Config{}
 
 	t.Run("function with custom UI", func(t *testing.T) {
-		customUI := map[string]interface{}{"type": "custom"}
+		customUI := testFunctionFormilySchema("name", "Input")
 		fn := &model.Function{
 			FunctionID: "test",
 			Metadata: map[string]interface{}{
@@ -1002,7 +1016,7 @@ func TestResolveFunctionUI(t *testing.T) {
 	})
 
 	t.Run("function with x-ui only", func(t *testing.T) {
-		xui := map[string]interface{}{"type": "xui"}
+		xui := testFunctionFormilySchema("name", "Input")
 		fn := &model.Function{
 			FunctionID:  "test",
 			Metadata:    nil,
@@ -1110,9 +1124,7 @@ func TestPickFunctionUIConfig(t *testing.T) {
 func TestUnwrapUIConfig(t *testing.T) {
 	t.Run("extracts x-ui", func(t *testing.T) {
 		v := map[string]interface{}{
-			"x-ui": map[string]interface{}{
-				"type": "object",
-			},
+			"x-ui": testFunctionFormilySchema("name", "Input"),
 		}
 		result := unwrapUIConfig(v)
 		assert.NotNil(t, result)
@@ -2041,7 +2053,7 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 		}
 		customComponents := map[string]interface{}{
 			"field1": map[string]interface{}{
-				"widget": "input",
+				"component": "Input",
 			},
 		}
 
@@ -2083,20 +2095,35 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 			"type": "object",
 			"properties": map[string]interface{}{
 				"player": map[string]interface{}{
-					"type": "object",
+					"type":        "object",
+					"title":       "Player",
+					"x-component": "Card",
+					"x-decorator": "FormItem",
 					"properties": map[string]interface{}{
 						"id": map[string]interface{}{
-							"type": "string",
+							"type":        "string",
+							"title":       "ID",
+							"x-component": "Input",
+							"x-decorator": "FormItem",
 						},
 						"name": map[string]interface{}{
-							"type": "string",
+							"type":        "string",
+							"title":       "Name",
+							"x-component": "Input",
+							"x-decorator": "FormItem",
 						},
 					},
 				},
 				"actions": map[string]interface{}{
-					"type": "array",
+					"type":        "array",
+					"title":       "Actions",
+					"x-component": "ArrayItems",
+					"x-decorator": "FormItem",
 					"items": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
+						"title":       "Action",
+						"x-component": "Input",
+						"x-decorator": "FormItem",
 					},
 				},
 			},

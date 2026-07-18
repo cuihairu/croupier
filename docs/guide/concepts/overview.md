@@ -31,7 +31,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
 | --- | --- |
 | 统一 session 传输 | 双向请求、重连、heartbeat、drain、背压 |
 | 函数注册驱动 | SDK / Agent 上报 function/provider/process 能力 |
-| Schema 驱动 UI | JSON Schema + Formily |
+| Schema 驱动 UI | OpenAPI / JSON Schema 作为契约输入，运行时 UI 统一使用 Formily Schema |
 | JSON payload | 用户业务数据默认 JSON |
 | protobuf 信封 | 平台控制字段与消息路由统一 protobuf |
 

@@ -13,6 +13,21 @@ import (
 	"gorm.io/gorm"
 )
 
+func testFormilySchema(component string) map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"reason": map[string]interface{}{
+				"type":        "string",
+				"title":       "Reason",
+				"x-component": component,
+				"x-decorator": "FormItem",
+			},
+		},
+		"required": []interface{}{"reason"},
+	}
+}
+
 func TestFunctionUI_EndToEndOverride(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
@@ -27,11 +42,7 @@ func TestFunctionUI_EndToEndOverride(t *testing.T) {
 		Name:       "player.ban",
 		SpecFormat: "openapi3.0.3",
 		OpenAPISpec: datatypes.JSONMap{
-			"x-ui": map[string]interface{}{
-				"fields": map[string]interface{}{
-					"reason": map[string]interface{}{"widget": "textarea"},
-				},
-			},
+			"x-ui": testFormilySchema("Input.TextArea"),
 		},
 	}
 	if err := db.Create(fn).Error; err != nil {
@@ -56,12 +67,8 @@ func TestFunctionUI_EndToEndOverride(t *testing.T) {
 	// Step 2: apply custom override.
 	updateLogic := NewFunctionUIUpdateLogic(context.Background(), svcCtx)
 	updateResp, err := updateLogic.FunctionUIUpdate(&FunctionUIUpdateRequest{
-		ID: "player.ban",
-		Schema: map[string]interface{}{
-			"fields": map[string]interface{}{
-				"reason": map[string]interface{}{"widget": "select"},
-			},
-		},
+		ID:     "player.ban",
+		Schema: testFormilySchema("Select"),
 	})
 	if err != nil {
 		t.Fatalf("FunctionUIUpdate failed: %v", err)

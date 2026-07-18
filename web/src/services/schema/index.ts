@@ -1,6 +1,10 @@
-import type { FormilySchemaDoc, FormilySchemaVersion } from '@/components/formily/schema/types';
+import type {
+  FormilySchema,
+  FormilySchemaDoc,
+  FormilySchemaVersion,
+} from '@/components/formily/schema/types';
 import { fetchFunctionUiSchema, saveFunctionUiSchema } from '@/services/api/functions';
-import { convertLegacySchemaToFormily } from './convertLegacySchemaToFormily';
+import { validateFormilySchema } from './validateSchema';
 
 const VERSION: FormilySchemaVersion = 'formily:1';
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -24,7 +28,7 @@ export type LocalDraftDoc = FormilySchemaDoc & {
 export type UnifiedFormilySchemaState = {
   functionId: string;
   version: FormilySchemaVersion;
-  schema: any;
+  schema: FormilySchema;
   source: 'draft' | 'published' | 'empty';
   updatedAt?: string;
   publishedUpdatedAt?: string;
@@ -34,14 +38,21 @@ export type UnifiedFormilySchemaState = {
 };
 
 export type FunctionUiSchemaDocument = {
-  schema?: any;
-  layout?: any;
-  components?: any;
+  schema?: FormilySchema;
+  layout?: Record<string, unknown>;
+  components?: Record<string, unknown>;
   custom?: boolean;
   hasDefault?: boolean;
-  uiSource?: 'custom_metadata' | 'config_file_override' | 'openapi_x_ui' | 'none' | string;
+  uiSource?:
+    | 'custom_metadata'
+    | 'config_file_override'
+    | 'openapi_x_ui'
+    | 'generated_default'
+    | 'none'
+    | string;
   uiSourceDetail?: string;
   updated_at?: string;
+  updatedAt?: string;
 };
 
 function isExpiredISO(iso?: string): boolean {
@@ -51,18 +62,17 @@ function isExpiredISO(iso?: string): boolean {
   return Date.now() - ts > DRAFT_TTL_MS;
 }
 
-function normalizeToFormily(schema: any): any {
-  return convertLegacySchemaToFormily(schema);
-}
-
 export async function fetchFormilySchema(functionId: string): Promise<FormilySchemaDoc | null> {
   const res = await fetchFunctionUISchemaDocument(functionId);
   if (!res?.schema) return null;
-  const normalized = normalizeToFormily(res.schema);
+  const validation = validateFormilySchema(res.schema);
+  if (!validation.ok) {
+    throw new Error(validation.error || '函数 UI Schema 不是有效 Formily Schema');
+  }
   return {
     functionId,
     version: VERSION,
-    schema: normalized,
+    schema: res.schema,
     updatedAt: res.updated_at || undefined,
     status: 'published',
   } as FormilySchemaDoc;
@@ -124,7 +134,7 @@ export async function fetchUnifiedFormilySchemaState(
   };
 }
 
-export async function saveFormilySchema(functionId: string, schema: any): Promise<void> {
+export async function saveFormilySchema(functionId: string, schema: FormilySchema): Promise<void> {
   await saveFunctionUiSchema(functionId, { schema });
 }
 
@@ -156,12 +166,16 @@ export function loadDraft(
   }
 }
 
-export function saveDraft(functionId: string, schema: any, options?: { baseUpdatedAt?: string }) {
+export function saveDraft(
+  functionId: string,
+  schema: FormilySchema,
+  options?: { baseUpdatedAt?: string },
+) {
   if (typeof window === 'undefined') return;
   const doc: LocalDraftDoc = {
     functionId,
     version: VERSION,
-    schema: normalizeToFormily(schema),
+    schema,
     updatedAt: nowISO(),
     baseUpdatedAt: options?.baseUpdatedAt,
     status: 'draft',

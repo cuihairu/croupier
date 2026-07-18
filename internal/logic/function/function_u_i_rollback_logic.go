@@ -47,6 +47,11 @@ func (l *FunctionUIRollbackLogic) FunctionUIRollback(req *FunctionUIRollbackRequ
 	if err := json.Unmarshal([]byte(record.Value), &cfg); err != nil {
 		return nil, err
 	}
+	if schema, ok := cfg["schema"]; ok && schema != nil {
+		if err := validateFormilySchema(schema); err != nil {
+			return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+		}
+	}
 
 	meta := applyUICustomConfig(fn.Metadata, cfg)
 	if err := l.svcCtx.FunctionModel.Update(l.ctx, fn.ID, map[string]interface{}{"metadata": meta}); err != nil {
@@ -58,6 +63,9 @@ func (l *FunctionUIRollbackLogic) FunctionUIRollback(req *FunctionUIRollbackRequ
 	}
 
 	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
+	if err := validateFormilySchema(resolved.Schema); err != nil {
+		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+	}
 	return &FunctionUIRollbackResponse{
 		AppliedVersion: req.Version,
 		Current: &FunctionUIResponse{

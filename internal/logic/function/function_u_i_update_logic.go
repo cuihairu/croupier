@@ -41,17 +41,14 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 		meta = map[string]interface{}{}
 	}
 
-	// 更新 Schema（支持三种来源）
 	if req.Schema != nil {
-		if m, ok := req.Schema.(map[string]interface{}); ok {
-			// 保留一个显式清理标记，解决 interface{} 无法区分 null 与未传字段的问题。
-			if clearFlag, ok := m["__clear_custom_ui"].(bool); ok && clearFlag {
-				delete(meta, "ui")
-			} else {
-				meta["ui"] = req.Schema
-			}
+		if isClearCustomUISchema(req.Schema) {
+			// 保留显式清理标记，解决 interface{} 无法区分 null 与未传字段的问题。
+			delete(meta, "ui")
 		} else {
-			// 存储到 Metadata["ui"] 作为自定义 UI
+			if err := validateFormilySchema(req.Schema); err != nil {
+				return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+			}
 			meta["ui"] = req.Schema
 		}
 		updates["metadata"] = meta
@@ -80,6 +77,9 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 	}
 
 	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
+	if err := validateFormilySchema(resolved.Schema); err != nil {
+		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+	}
 
 	return &FunctionUIResponse{
 		Schema:         resolved.Schema,

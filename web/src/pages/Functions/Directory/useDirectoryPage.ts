@@ -77,13 +77,7 @@ export default function useDirectoryPage() {
   }, [reload]);
 
   const processedData = useMemo(
-    () =>
-      rows.map((row) => ({
-        ...row,
-        status: row.enabled ? 'active' : 'inactive',
-        displayName: row.displayName?.zh || row.displayName?.en || row.id,
-        categoryName: row.category || '未分类',
-      })),
+    () => rows,
     [rows],
   );
 

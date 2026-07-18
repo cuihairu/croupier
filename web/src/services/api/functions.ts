@@ -9,6 +9,7 @@ import {
   type OpenAPIImportResponse,
   type OpenAPIOperation,
 } from './openapi';
+import type { FormilySchema } from '@/components/formily/schema/types';
 
 // Source: backend function descriptor endpoints and registry-derived descriptors.
 // Primary backend references: croupier/internal/api/function/dto.go and internal/logic/function/descriptors logic.
@@ -119,13 +120,13 @@ type RawFunctionRegistrationWarning = {
 };
 
 function buildFunctionUiPayload(uiConfig: {
-  schema?: any;
-  layout?: any;
-  components?: any;
+  schema?: FormilySchema;
+  layout?: Record<string, unknown>;
+  components?: Record<string, unknown>;
   clearCustom?: boolean;
 }) {
   if (uiConfig.clearCustom) {
-    const clearSchema = { __clear_custom_ui: true };
+    const clearSchema = { __clear_custom_ui: true } as unknown as FormilySchema;
     return {
       ui: clearSchema,
       schema: clearSchema,
@@ -190,12 +191,18 @@ export type FunctionInvokeResponse = {
 };
 
 export type FunctionUiSchemaDocument = {
-  schema?: any;
-  layout?: any;
-  components?: any;
+  schema?: FormilySchema;
+  layout?: Record<string, unknown>;
+  components?: Record<string, unknown>;
   custom?: boolean;
   hasDefault?: boolean;
-  uiSource?: 'custom_metadata' | 'config_file_override' | 'openapi_x_ui' | 'none' | string;
+  uiSource?:
+    | 'custom_metadata'
+    | 'config_file_override'
+    | 'openapi_x_ui'
+    | 'generated_default'
+    | 'none'
+    | string;
   uiSourceDetail?: string;
   updatedAt?: string;
 };
@@ -318,12 +325,12 @@ export async function listFunctionInstances(params: {
 
 export async function fetchFunctionUiSchema(functionId: string): Promise<FunctionUiSchemaDocument> {
   const response = await request<{
-    schema?: any;
-    layout?: any;
-    components?: any;
+    schema?: FormilySchema;
+    layout?: Record<string, unknown>;
+    components?: Record<string, unknown>;
     custom?: boolean;
     hasDefault?: boolean;
-    uiSource?: 'custom_metadata' | 'config_file_override' | 'openapi_x_ui' | 'none' | string;
+    uiSource?: FunctionUiSchemaDocument['uiSource'];
     uiSourceDetail?: string;
     updated_at?: string;
     updatedAt?: string;
@@ -338,9 +345,9 @@ export async function fetchFunctionUiSchema(functionId: string): Promise<Functio
 export async function saveFunctionUiSchema(
   functionId: string,
   uiConfig: {
-    schema?: any;
-    layout?: any;
-    components?: any;
+    schema?: FormilySchema;
+    layout?: Record<string, unknown>;
+    components?: Record<string, unknown>;
     clearCustom?: boolean;
   },
 ) {
@@ -355,9 +362,9 @@ export async function saveFunctionUiSchema(
 
 export type FunctionUIHistoryItem = {
   version: number;
-  schema?: any;
-  layout?: any;
-  components?: any;
+  schema?: FormilySchema;
+  layout?: Record<string, unknown>;
+  components?: Record<string, unknown>;
   message?: string;
   createdBy?: string;
   createdAt?: string;
@@ -374,9 +381,9 @@ export async function rollbackFunctionUiSchema(functionId: string, version: numb
   return request<{
     appliedVersion: number;
     current?: {
-      schema?: any;
-      layout?: any;
-      components?: any;
+      schema?: FormilySchema;
+      layout?: Record<string, unknown>;
+      components?: Record<string, unknown>;
       custom?: boolean;
       hasDefault?: boolean;
       uiSource?: string;

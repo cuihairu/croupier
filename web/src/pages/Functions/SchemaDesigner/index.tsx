@@ -28,11 +28,13 @@ import { trackSchemaEvent } from '@/services/schema/telemetry';
 import { getFunctionDetail } from '@/services/api/functions';
 import { generateFormilyFromJsonSchema } from '@/services/schema/generateFormilyFromJsonSchema';
 import { parseInputSchema } from '@/utils/json';
+import { extractErrorMessage } from '@/utils/errors';
+import type { FormilySchema, FormilyValues } from '@/components/formily/schema/types';
 
 const { Text } = Typography;
 
-const DEFAULT_SCHEMA = { type: 'object', properties: {} };
-const SCHEMA_TEMPLATES: Array<{ key: string; label: string; schema: any }> = [
+const DEFAULT_SCHEMA: FormilySchema = { type: 'object', properties: {} };
+const SCHEMA_TEMPLATES: Array<{ key: string; label: string; schema: FormilySchema }> = [
   { key: 'empty', label: '空对象', schema: DEFAULT_SCHEMA },
   {
     key: 'basicForm',
@@ -71,22 +73,22 @@ const SCHEMA_TEMPLATES: Array<{ key: string; label: string; schema: any }> = [
   },
 ];
 
-type ParsedResult = { parsed?: any; error?: string };
+type ParsedResult = { ok: true; parsed: FormilySchema } | { ok: false; error: string };
 
 function parseAndValidate(raw: string): ParsedResult {
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as unknown;
     const validation = validateFormilySchema(parsed);
     if (!validation.ok) {
-      return { error: validation.error };
+      return { ok: false, error: validation.error || 'Formily Schema 校验失败' };
     }
-    return { parsed };
-  } catch (err: any) {
-    return { error: err?.message || 'JSON 解析失败' };
+    return { ok: true, parsed: parsed as FormilySchema };
+  } catch (err: unknown) {
+    return { ok: false, error: extractErrorMessage(err, 'JSON 解析失败') };
   }
 }
 
-function countTopLevelFields(schema: any): number {
+function countTopLevelFields(schema?: FormilySchema): number {
   const props = schema?.properties;
   if (!props || typeof props !== 'object') return 0;
   return Object.keys(props).length;
@@ -97,13 +99,13 @@ export default function SchemaDesigner() {
   const params = useParams<{ id: string }>();
   const functionId = params.id || '';
   const [raw, setRaw] = useState<string>('{}');
-  const [schema, setSchema] = useState<any>({});
+  const [schema, setSchema] = useState<FormilySchema>(DEFAULT_SCHEMA);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [parseError, setParseError] = useState<string | undefined>(undefined);
   const [dirty, setDirty] = useState(false);
   const [autoApply, setAutoApply] = useState(true);
-  const [previewData, setPreviewData] = useState<Record<string, any>>({});
+  const [previewData, setPreviewData] = useState<FormilyValues>({});
   const [draftUpdatedAt, setDraftUpdatedAt] = useState<string | undefined>(undefined);
   const [publishedUpdatedAt, setPublishedUpdatedAt] = useState<string | undefined>(undefined);
   const [draftConflict, setDraftConflict] = useState(false);
@@ -113,35 +115,31 @@ export default function SchemaDesigner() {
     (nextRaw?: string) => {
       const target = typeof nextRaw === 'string' ? nextRaw : raw;
       const result = parseAndValidate(target);
-      if (result.error) {
+      if (!result.ok) {
         setParseError(result.error);
         return;
       }
-      if (result.parsed) {
-        setSchema(result.parsed);
-        setParseError(undefined);
-      }
+      setSchema(result.parsed);
+      setParseError(undefined);
     },
     [raw],
   );
 
   const formatRaw = useCallback(() => {
     const result = parseAndValidate(raw);
-    if (result.error) {
+    if (!result.ok) {
       setParseError(result.error);
       return;
     }
-    if (result.parsed) {
-      setRaw(JSON.stringify(result.parsed, null, 2));
-      setSchema(result.parsed);
-      setParseError(undefined);
-      setDirty(true);
-      message.success('格式化完成');
-    }
+    setRaw(JSON.stringify(result.parsed, null, 2));
+    setSchema(result.parsed);
+    setParseError(undefined);
+    setDirty(true);
+    message.success('格式化完成');
   }, [message, raw]);
 
   const replaceWithTemplate = useCallback(
-    (templateSchema: any, label: string) => {
+    (templateSchema: FormilySchema, label: string) => {
       const next = JSON.stringify(templateSchema, null, 2);
       setRaw(next);
       setSchema(templateSchema);
@@ -156,7 +154,7 @@ export default function SchemaDesigner() {
 
   const validateOnly = useCallback(() => {
     const result = parseAndValidate(raw);
-    if (result.error) {
+    if (!result.ok) {
       setParseError(result.error);
       message.error(result.error);
       return;
@@ -188,7 +186,7 @@ export default function SchemaDesigner() {
     setLoading(true);
     try {
       const state = await fetchUnifiedFormilySchemaState(functionId);
-      let initial = state.schema as any;
+      let initial = state.schema;
       let generated = false;
 
       if (!initial || Object.keys(initial || {}).length === 0) {
@@ -215,9 +213,10 @@ export default function SchemaDesigner() {
         functionId,
         source: generated ? 'generated' : state.source,
       });
-    } catch (e: any) {
-      message.error(e?.message || '加载 schema 失败');
-      trackSchemaEvent('schema_load_error', { functionId, error: e?.message || String(e) });
+    } catch (e: unknown) {
+      const errorMessage = extractErrorMessage(e, '加载 schema 失败');
+      message.error(errorMessage);
+      trackSchemaEvent('schema_load_error', { functionId, error: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -249,8 +248,22 @@ export default function SchemaDesigner() {
         <Button
           key="draft"
           onClick={() => {
-            const result = parseAndValidate(raw);
-            if (result.error) {
+            const result = (() => {
+              try {
+                const parsed = JSON.parse(raw);
+                const validation = validateFormilySchema(parsed, { allowEmpty: true });
+                if (!validation.ok) {
+                  return {
+                    ok: false as const,
+                    error: validation.error || 'Formily Schema 校验失败',
+                  };
+                }
+                return { ok: true as const, parsed: parsed as FormilySchema };
+              } catch (err: unknown) {
+                return { ok: false as const, error: extractErrorMessage(err, 'JSON 解析失败') };
+              }
+            })();
+            if (!result.ok) {
               message.error(result.error);
               return;
             }
@@ -281,7 +294,7 @@ export default function SchemaDesigner() {
           loading={saving}
           onClick={async () => {
             const result = parseAndValidate(raw);
-            if (result.error) {
+            if (!result.ok) {
               message.error(result.error);
               setParseError(result.error);
               return;
@@ -292,11 +305,12 @@ export default function SchemaDesigner() {
               setDirty(false);
               message.success('已发布');
               trackSchemaEvent('schema_publish', { functionId });
-            } catch (e: any) {
-              message.error(e?.message || '发布失败');
+            } catch (e: unknown) {
+              const errorMessage = extractErrorMessage(e, '发布失败');
+              message.error(errorMessage);
               trackSchemaEvent('schema_publish_error', {
                 functionId,
-                error: e?.message || String(e),
+                error: errorMessage,
               });
             } finally {
               setSaving(false);
@@ -411,7 +425,7 @@ export default function SchemaDesigner() {
               schema={schema}
               readOnly={false}
               value={previewData}
-              onChange={(next) => setPreviewData((next || {}) as Record<string, any>)}
+              onChange={setPreviewData}
             />
             <Divider />
             <Descriptions size="small" column={1} bordered>

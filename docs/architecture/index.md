@@ -192,6 +192,7 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [游戏与环境作用域](./game-environment-scope.md)
 - [术语与分层](./terms-and-layering.md)
 - [数据流](./data-flow.md)
+- [Dashboard Page 模型](./dashboard-page-model.md)
 - [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
 - [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
 - [Session 生命周期](./session-lifecycle.md)

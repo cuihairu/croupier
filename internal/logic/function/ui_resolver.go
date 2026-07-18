@@ -319,54 +319,7 @@ func deriveUISchemaFromJSONSchema(schema map[string]interface{}) map[string]inte
 		if !ok {
 			continue
 		}
-
-		title := firstNonEmptyString(prop["title"], prop["description"], name)
-		component, decorator := formilyComponent(prop)
-
-		uiProp := map[string]interface{}{
-			"type":        prop["type"],
-			"title":       title,
-			"x-component": component,
-			"x-decorator": decorator,
-		}
-
-		// Build x-component-props from JSON Schema constraints
-		componentProps := map[string]interface{}{}
-		if desc, ok := prop["description"].(string); ok && desc != "" && desc != title {
-			uiProp["description"] = desc
-		}
-		if ph := buildFormilyPlaceholder(prop); ph != "" {
-			componentProps["placeholder"] = ph
-		}
-		if min := prop["minimum"]; min != nil {
-			componentProps["min"] = min
-		}
-		if max := prop["maximum"]; max != nil {
-			componentProps["max"] = max
-		}
-		if minLen := prop["minLength"]; minLen != nil {
-			componentProps["minLength"] = minLen
-		}
-		if maxLen := prop["maxLength"]; maxLen != nil {
-			componentProps["maxLength"] = maxLen
-		}
-		if pat := prop["pattern"]; pat != nil {
-			componentProps["pattern"] = pat
-		}
-		if def := prop["default"]; def != nil {
-			uiProp["default"] = def
-		}
-		if enum := prop["enum"]; enum != nil {
-			uiProp["enum"] = enum
-		}
-		if f := prop["format"]; f != nil {
-			uiProp["format"] = f
-		}
-		if len(componentProps) > 0 {
-			uiProp["x-component-props"] = componentProps
-		}
-
-		uiProperties[name] = uiProp
+		uiProperties[name] = buildFormilyProperty(name, prop)
 		if requiredSet[name] {
 			required = append(required, name)
 		}
@@ -380,6 +333,87 @@ func deriveUISchemaFromJSONSchema(schema map[string]interface{}) map[string]inte
 		result["required"] = required
 	}
 	return result
+}
+
+func buildFormilyProperty(name string, prop map[string]interface{}) map[string]interface{} {
+	title := firstNonEmptyString(prop["title"], prop["description"], name)
+	component, decorator := formilyComponent(prop)
+	uiProp := map[string]interface{}{
+		"type":        firstNonEmptyString(prop["type"], "string"),
+		"title":       title,
+		"x-component": component,
+	}
+	if decorator != "" {
+		uiProp["x-decorator"] = decorator
+	}
+
+	if desc, ok := prop["description"].(string); ok && desc != "" && desc != title {
+		uiProp["description"] = desc
+	}
+	if def := prop["default"]; def != nil {
+		uiProp["default"] = def
+	}
+	if enum := prop["enum"]; enum != nil {
+		uiProp["enum"] = enum
+	}
+	if f := prop["format"]; f != nil {
+		uiProp["format"] = f
+	}
+
+	componentProps := buildFormilyComponentProps(prop)
+	if len(componentProps) > 0 {
+		uiProp["x-component-props"] = componentProps
+	}
+
+	if nested := buildNestedFormilyProperties(prop); len(nested) > 0 {
+		uiProp["properties"] = nested
+	}
+	if items, ok := prop["items"].(map[string]interface{}); ok {
+		uiProp["items"] = buildFormilyProperty(name+"Item", items)
+	}
+	return uiProp
+}
+
+func buildFormilyComponentProps(prop map[string]interface{}) map[string]interface{} {
+	componentProps := map[string]interface{}{}
+	if ph := buildFormilyPlaceholder(prop); ph != "" {
+		componentProps["placeholder"] = ph
+	}
+	if min := prop["minimum"]; min != nil {
+		componentProps["min"] = min
+	}
+	if max := prop["maximum"]; max != nil {
+		componentProps["max"] = max
+	}
+	if minLen := prop["minLength"]; minLen != nil {
+		componentProps["minLength"] = minLen
+	}
+	if maxLen := prop["maxLength"]; maxLen != nil {
+		componentProps["maxLength"] = maxLen
+	}
+	if pat := prop["pattern"]; pat != nil {
+		componentProps["pattern"] = pat
+	}
+	if mode := formilySelectMode(prop); mode != "" {
+		componentProps["mode"] = mode
+	}
+	return componentProps
+}
+
+func buildNestedFormilyProperties(prop map[string]interface{}) map[string]interface{} {
+	props, ok := prop["properties"].(map[string]interface{})
+	if !ok || len(props) == 0 {
+		return nil
+	}
+	nested := map[string]interface{}{}
+	for name, raw := range props {
+		child, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		nested[name] = buildFormilyProperty(name, child)
+	}
+	return nested
 }
 
 // formilyComponent maps a JSON Schema property to a Formily component name
@@ -405,12 +439,29 @@ func formilyComponent(prop map[string]interface{}) (component, decorator string)
 	case format == "textarea":
 		return "Input.TextArea", "FormItem"
 	case typ == "array":
-		return "Select", "FormItem" // default to multi-select
+		if formilySelectMode(prop) != "" {
+			return "Select", "FormItem"
+		}
+		return "ArrayItems", "FormItem"
 	case typ == "object":
-		return "Card", ""
+		return "Card", "FormItem"
 	default:
 		return "Input", "FormItem"
 	}
+}
+
+func formilySelectMode(prop map[string]interface{}) string {
+	if typ, _ := prop["type"].(string); typ != "array" {
+		return ""
+	}
+	items, _ := prop["items"].(map[string]interface{})
+	if items == nil {
+		return ""
+	}
+	if _, ok := items["enum"]; ok {
+		return "multiple"
+	}
+	return ""
 }
 
 // buildFormilyPlaceholder generates a placeholder string from JSON Schema metadata.

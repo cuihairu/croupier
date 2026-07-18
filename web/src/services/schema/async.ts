@@ -1,6 +1,6 @@
 import { request } from '@umijs/max';
 
-export async function fetchOptions(url: string, params?: Record<string, any>) {
+export async function fetchOptions(url: string, params?: Record<string, unknown>) {
   const res = await request(url, { params });
   if (Array.isArray(res)) return res;
   if (res?.options) return res.options;

@@ -12,6 +12,20 @@ import (
 	"gorm.io/gorm"
 )
 
+func historyTestFormilySchema(component string) map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"reason": map[string]interface{}{
+				"type":        "string",
+				"title":       "Reason",
+				"x-component": component,
+				"x-decorator": "FormItem",
+			},
+		},
+	}
+}
+
 func TestFunctionUI_HistoryAndRollback(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
@@ -38,14 +52,14 @@ func TestFunctionUI_HistoryAndRollback(t *testing.T) {
 	updateLogic := NewFunctionUIUpdateLogic(context.Background(), svcCtx)
 	_, err = updateLogic.FunctionUIUpdate(&FunctionUIUpdateRequest{
 		ID:     "player.ban",
-		Schema: map[string]interface{}{"fields": map[string]interface{}{"reason": map[string]interface{}{"widget": "textarea"}}},
+		Schema: historyTestFormilySchema("Input.TextArea"),
 	})
 	if err != nil {
 		t.Fatalf("first update failed: %v", err)
 	}
 	_, err = updateLogic.FunctionUIUpdate(&FunctionUIUpdateRequest{
 		ID:     "player.ban",
-		Schema: map[string]interface{}{"fields": map[string]interface{}{"reason": map[string]interface{}{"widget": "select"}}},
+		Schema: historyTestFormilySchema("Select"),
 	})
 	if err != nil {
 		t.Fatalf("second update failed: %v", err)
@@ -76,9 +90,9 @@ func TestFunctionUI_HistoryAndRollback(t *testing.T) {
 	if !ok {
 		t.Fatalf("current schema should be map, got %T", currentUI.Schema)
 	}
-	fields, _ := currentSchema["fields"].(map[string]interface{})
-	reason, _ := fields["reason"].(map[string]interface{})
-	if reason["widget"] != "textarea" {
-		t.Fatalf("expected rolled back widget=textarea, got %#v", reason["widget"])
+	props, _ := currentSchema["properties"].(map[string]interface{})
+	reason, _ := props["reason"].(map[string]interface{})
+	if reason["x-component"] != "Input.TextArea" {
+		t.Fatalf("expected rolled back x-component=Input.TextArea, got %#v", reason["x-component"])
 	}
 }

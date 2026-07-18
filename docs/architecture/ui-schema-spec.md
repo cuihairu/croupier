@@ -4,6 +4,8 @@
 
 Croupier 全系统使用 **Formily Schema** 作为唯一的 UI Schema 格式。后端生成、前端编辑、渲染器消费，全链路同一格式，无转换层。
 
+任何非 Formily UI Schema 都是错误输入。保存、加载或渲染阶段必须直接报错，不能转换、猜测或静默降级。
+
 ## 关于 `x-` 前缀
 
 Schema 中的 `x-component`、`x-decorator`、`x-component-props`、`x-reactions` 等字段**不是 Croupier 自定义扩展**，而是 [Formily JSON Schema 官方规范](https://react.formilyjs.org/api/shared/schema) 定义的标准字段。
@@ -35,6 +37,14 @@ Croupier 的 `SchemaRenderer` 组件通过 Formily 的 `createSchemaField` API �
   "required": ["fieldName"]
 }
 ```
+
+顶层约束：
+
+- `type` 必须是 `object`。
+- `properties` 必须是对象。
+- `required` 如果存在，必须是字符串数组。
+- 字段树中必须存在 `x-component` 或 `x-decorator`。
+- 不允许使用 `fields`、`ui:layout`、`ui:groups`、`ui:order`、`widget`、`ui:widget` 作为函数 UI 协议字段。
 
 ### 字段定义
 
@@ -136,16 +146,3 @@ Croupier 的 `SchemaRenderer` 组件通过 Formily 的 `createSchemaField` API �
   }
 }
 ```
-
----
-
-## 历史格式（已废弃）
-
-以下格式曾存在于系统中，现已统一为 Formily Schema：
-
-| 格式 | 位置 | 状态 |
-|------|------|------|
-| JSON Schema 格式 `{type, properties}` | 后端 `deriveUISchemaFromJSONSchema` | 已废弃，改为输出 Formily Schema |
-| fields 格式 `{fields, ui:layout}` | 前端 `buildUISchemaFromJSONSchema` | 已废弃，改为输出 Formily Schema |
-| fields 格式 `{fields, ui:groups}` | `UISchemaEditor` | 已废弃，改为编辑 Formily Schema |
-| 分离格式 JSON Schema + UISchema | `FunctionFormRenderer` | 已废弃，改用 `SchemaRenderer` |

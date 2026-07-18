@@ -122,7 +122,15 @@ export default function DirectoryPage() {
                       >
                         去对象工作台
                       </Button>
-                      <Button onClick={() => history.push('/system/functions/console')}>
+                      <Button
+                        onClick={() =>
+                          history.push(
+                            selectedFunction
+                              ? buildInvokePath(undefined, selectedFunction.id)
+                              : '/system/functions/invoke',
+                          )
+                        }
+                      >
                         去运行控制台
                       </Button>
                     </Space>

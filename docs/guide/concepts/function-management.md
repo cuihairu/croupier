@@ -100,15 +100,16 @@ sequenceDiagram
 
 ## OpenAPI 与 JSON Schema
 
-函数描述符可以吸收 OpenAPI 常见字段，但默认业务 payload 边界仍然是 JSON：
+函数描述符可以吸收 OpenAPI 常见字段。OpenAPI 在这里是函数能力契约，不是 Dashboard 页面模型：
 
 - 平台协议层：protobuf
 - 业务 payload 层：UTF-8 JSON
-- schema：JSON Schema，可选
+- 参数和响应契约：JSON Schema / OpenAPI Schema
+- 运行时函数表单：Formily Schema
 
 这意味着 SDK 用户不需要先定义自己的 `.proto` 才能接入。
 
-Dashboard 会优先根据 `input_schema`、OpenAPI request schema 和 `x-ui` 自动生成函数调用界面；当这些信息缺失时，会根据 `id/entity/operation` 推断一个可调用的默认界面。详见[函数注册与默认界面](./function-registration-ui.md)。
+Server 根据 `input_schema`、OpenAPI request schema 或函数元信息生成 Formily Schema 初稿。Dashboard 调用页只消费 `/api/v1/functions/:id/ui` 返回的 Formily Schema，不在运行时根据 JSON Schema 推断组件。详见[函数注册与默认界面](./function-registration-ui.md)。
 
 ## 调用模型
 

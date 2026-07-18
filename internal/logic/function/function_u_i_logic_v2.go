@@ -3,6 +3,7 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -31,6 +32,9 @@ func (l *FunctionUILogicV2) FunctionUI(req *FunctionUIRequest) (*FunctionUIRespo
 		return nil, err
 	}
 	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
+	if err := validateFormilySchema(resolved.Schema); err != nil {
+		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+	}
 
 	return &FunctionUIResponse{
 		Schema:         resolved.Schema,

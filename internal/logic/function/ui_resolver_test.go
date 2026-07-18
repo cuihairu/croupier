@@ -23,13 +23,13 @@ func TestLoadUIConfigFromFiles(t *testing.T) {
 	}
 
 	basePath := filepath.Join(baseDir, "player.ban.yaml")
-	baseContent := "player.ban:\n  x-ui:\n    layout:\n      type: grid\n    fields:\n      reason:\n        widget: textarea\n"
+	baseContent := "player.ban:\n  x-ui:\n    type: object\n    properties:\n      reason:\n        type: string\n        title: Reason\n        x-component: Input.TextArea\n        x-decorator: FormItem\n"
 	if err := os.WriteFile(basePath, []byte(baseContent), 0o644); err != nil {
 		t.Fatalf("write base config: %v", err)
 	}
 
 	overridePath := filepath.Join(overrideDir, "player.ban.yaml")
-	overrideContent := "player.ban:\n  x-ui:\n    layout:\n      type: vertical\n    fields:\n      reason:\n        widget: select\n"
+	overrideContent := "player.ban:\n  x-ui:\n    type: object\n    properties:\n      reason:\n        type: string\n        title: Reason\n        x-component: Select\n        x-decorator: FormItem\n"
 	if err := os.WriteFile(overridePath, []byte(overrideContent), 0o644); err != nil {
 		t.Fatalf("write override config: %v", err)
 	}
@@ -42,9 +42,13 @@ func TestLoadUIConfigFromFiles(t *testing.T) {
 		t.Fatalf("expected map ui config, got %T", got)
 	}
 
-	layout, ok := m["layout"].(map[string]interface{})
-	if !ok || layout["type"] != "vertical" {
-		t.Fatalf("expected override layout.type=vertical, got %#v", m["layout"])
+	props, ok := m["properties"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected properties, got %#v", m)
+	}
+	reason, ok := props["reason"].(map[string]interface{})
+	if !ok || reason["x-component"] != "Select" {
+		t.Fatalf("expected override reason.x-component=Select, got %#v", props["reason"])
 	}
 }
 
@@ -55,7 +59,7 @@ func TestResolveFunctionUI_SourcePriority(t *testing.T) {
 		t.Fatalf("mkdir base dir: %v", err)
 	}
 	basePath := filepath.Join(baseDir, "player.ban.yaml")
-	baseContent := "player.ban:\n  x-ui:\n    from: file\n"
+	baseContent := "player.ban:\n  x-ui:\n    type: object\n    properties:\n      reason:\n        type: string\n        title: Reason\n        x-component: Input\n        x-decorator: FormItem\n"
 	if err := os.WriteFile(basePath, []byte(baseContent), 0o644); err != nil {
 		t.Fatalf("write base config: %v", err)
 	}
@@ -64,9 +68,9 @@ func TestResolveFunctionUI_SourcePriority(t *testing.T) {
 	cfg := config.Config{}
 	fn := &model.Function{
 		FunctionID: "player.ban",
-		Metadata:   datatypes.JSONMap{"ui": map[string]interface{}{"from": "custom"}},
+		Metadata:   datatypes.JSONMap{"ui": testFunctionFormilySchema("reason", "Input.TextArea")},
 		OpenAPISpec: datatypes.JSONMap{
-			"x-ui": map[string]interface{}{"from": "openapi"},
+			"x-ui": testFunctionFormilySchema("reason", "Input"),
 		},
 		Schema: datatypes.JSONMap{"from": "historical"},
 	}
@@ -76,7 +80,9 @@ func TestResolveFunctionUI_SourcePriority(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected resolved schema map, got %T", resolved.Schema)
 	}
-	if schema["from"] != "custom" {
+	props, _ := schema["properties"].(map[string]interface{})
+	reason, _ := props["reason"].(map[string]interface{})
+	if reason["x-component"] != "Input.TextArea" {
 		t.Fatalf("expected custom metadata ui first, got %#v", schema)
 	}
 	if resolved.UISource != "custom_metadata" {

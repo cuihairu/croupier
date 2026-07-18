@@ -69,7 +69,9 @@ func BuildFallbackUISchema(functionID string) map[string]interface{} {
 			"title":       field.Name,
 			"description": field.Description,
 			"x-component": component,
-			"x-decorator": decorator,
+		}
+		if decorator != "" {
+			prop["x-decorator"] = decorator
 		}
 		if ph := fallbackPlaceholder(field); ph != "" {
 			prop["x-component-props"] = map[string]interface{}{
@@ -97,7 +99,7 @@ func fallbackFormilyComponent(typ string) (component, decorator string) {
 	case "integer", "number":
 		return "NumberPicker", "FormItem"
 	case "object":
-		return "Card", ""
+		return "Card", "FormItem"
 	default:
 		return "Input", "FormItem"
 	}

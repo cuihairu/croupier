@@ -66,6 +66,20 @@ func createTestFunction(t *testing.T, db *gorm.DB, functionID, name string) *mod
 	return fn
 }
 
+func testAPIFormilySchema(fieldName, component string) map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			fieldName: map[string]interface{}{
+				"type":        "string",
+				"title":       fieldName,
+				"x-component": component,
+				"x-decorator": "FormItem",
+			},
+		},
+	}
+}
+
 // Test functionsList
 
 func TestFunctionsList_Empty(t *testing.T) {
@@ -721,7 +735,7 @@ func TestFunctionUIUpdate(t *testing.T) {
 
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
-	schema := map[string]interface{}{"type": "object"}
+	schema := testAPIFormilySchema("name", "Input")
 	layout := map[string]interface{}{"type": "form"}
 	components := map[string]interface{}{"fields": []string{}}
 
@@ -754,7 +768,7 @@ func TestFunctionUIUpdate_NotFound(t *testing.T) {
 
 	req := &FunctionUIUpdateRequest{
 		ID:     "nonexistent",
-		Schema: map[string]interface{}{},
+		Schema: testAPIFormilySchema("name", "Input"),
 	}
 
 	resp, err := functionUIUpdate(ctx, svcCtx, req)
@@ -1360,7 +1374,7 @@ func TestService_FunctionUIUpdate(t *testing.T) {
 
 	req := &FunctionUIUpdateRequest{
 		ID:         "func1",
-		Schema:     map[string]interface{}{},
+		Schema:     testAPIFormilySchema("name", "Input"),
 		Layout:     map[string]interface{}{},
 		Components: map[string]interface{}{},
 	}
@@ -1902,7 +1916,7 @@ func TestFunctionUIUpdate_EmptyValues(t *testing.T) {
 
 	req := &FunctionUIUpdateRequest{
 		ID:         "func1",
-		Schema:     map[string]interface{}{},
+		Schema:     testAPIFormilySchema("name", "Input"),
 		Layout:     map[string]interface{}{},
 		Components: map[string]interface{}{},
 	}
@@ -2381,7 +2395,7 @@ func TestHandlers_WithBody_Success(t *testing.T) {
 		{"FunctionDelete", nil, `{"functionId":"func1"}`},
 		{"FunctionDisable", nil, `{"functionId":"func1"}`},
 		{"FunctionEnable", nil, `{"functionId":"func1"}`},
-		{"FunctionUIUpdate", nil, `{"id":"func1","schema":{},"layout":{},"components":{}}`},
+		{"FunctionUIUpdate", nil, `{"id":"func1","schema":{"type":"object","properties":{"name":{"type":"string","title":"name","x-component":"Input","x-decorator":"FormItem"}}},"layout":{},"components":{}}`},
 		{"FunctionUIRollback", nil, `{"id":"func1","version":1}`},
 		{"FunctionPermissionsUpdate", nil, `{"id":"func1","permissions":[]}`},
 	}
