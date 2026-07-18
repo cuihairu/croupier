@@ -38,7 +38,10 @@ public class FunctionDescriptorTests
             Entity = "profile",
             Operation = "get",
             DisplayName = "Get Player Profile",
+            Summary = "Get player profile",
             Description = "Retrieves the player's profile information",
+            OperationId = "getPlayerProfile",
+            Deprecated = true,
             Risk = "low",
             Enabled = true,
             InputSchema = "{\"type\":\"object\"}",
@@ -57,7 +60,10 @@ public class FunctionDescriptorTests
         descriptor.Entity.Should().Be("profile");
         descriptor.Operation.Should().Be("get");
         descriptor.DisplayName.Should().Be("Get Player Profile");
+        descriptor.Summary.Should().Be("Get player profile");
         descriptor.Description.Should().Be("Retrieves the player's profile information");
+        descriptor.OperationId.Should().Be("getPlayerProfile");
+        descriptor.Deprecated.Should().BeTrue();
         descriptor.Risk.Should().Be("low");
         descriptor.Enabled.Should().BeTrue();
         descriptor.InputSchema.Should().Be("{\"type\":\"object\"}");

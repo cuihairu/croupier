@@ -270,6 +270,50 @@ func TestClient_convertToLocalFunctions(t *testing.T) {
 	}
 }
 
+func TestClient_ConvertToLocalFunctions_PreservesOpenAPIMetadata(t *testing.T) {
+	t.Parallel()
+
+	cli := NewClient(&ClientConfig{ServiceID: "test-service"})
+	c := cli.(*client)
+	handler := func(ctx context.Context, payload []byte) ([]byte, error) {
+		return payload, nil
+	}
+
+	c.descriptors["player.ban"] = FunctionDescriptor{
+		ID:           "player.ban",
+		Version:      "1.0.0",
+		Tags:         []string{"player", "moderation"},
+		Summary:      "Ban player",
+		Description:  "Ban a player account",
+		OperationID:  "banPlayer",
+		InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+		Category:     "moderation",
+		Risk:         "high",
+		Entity:       "player",
+		Operation:    "update",
+	}
+	c.handlers["player.ban"] = handler
+
+	funcs := c.convertToLocalFunctions()
+	if len(funcs) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(funcs))
+	}
+	got := funcs[0]
+	if got.Summary != "Ban player" || got.Description != "Ban a player account" {
+		t.Fatalf("unexpected text metadata: summary=%q description=%q", got.Summary, got.Description)
+	}
+	if got.OperationID != "banPlayer" {
+		t.Fatalf("unexpected operation id: %q", got.OperationID)
+	}
+	if got.InputSchema == "" || got.OutputSchema == "" {
+		t.Fatalf("expected schemas to be preserved")
+	}
+	if got.Category != "moderation" || got.Risk != "high" || got.Entity != "player" || got.Operation != "update" {
+		t.Fatalf("unexpected governance metadata: %#v", got)
+	}
+}
+
 // Test DefaultClientConfig
 func TestDefaultClientConfig(t *testing.T) {
 	t.Parallel()

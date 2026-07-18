@@ -10,13 +10,20 @@ import (
 
 // FunctionDescriptor defines a game function descriptor aligned with control.proto
 type FunctionDescriptor struct {
-	ID        string `json:"id"`        // function id, e.g. "player.ban"
-	Version   string `json:"version"`   // semver, e.g. "1.2.0"
-	Category  string `json:"category"`  // grouping category
-	Risk      string `json:"risk"`      // "low"|"medium"|"high"
-	Entity    string `json:"entity"`    // entity type, e.g. "item", "player"
-	Operation string `json:"operation"` // operation type, e.g. "create", "read", "update", "delete"
-	Enabled   bool   `json:"enabled"`   // whether this function is currently enabled
+	ID           string   `json:"id"`            // function id, e.g. "player.ban"
+	Version      string   `json:"version"`       // semver, e.g. "1.2.0"
+	Tags         []string `json:"tags"`          // tags for grouping and search
+	Summary      string   `json:"summary"`       // short summary for catalogs and default UI
+	Description  string   `json:"description"`   // detailed description, supports Markdown
+	OperationID  string   `json:"operation_id"`  // stable operation identifier
+	Deprecated   bool     `json:"deprecated"`    // whether this function is deprecated
+	InputSchema  string   `json:"input_schema"`  // JSON Schema for request body validation
+	OutputSchema string   `json:"output_schema"` // JSON Schema for response body validation
+	Category     string   `json:"category"`      // grouping category
+	Risk         string   `json:"risk"`          // "low"|"medium"|"high"
+	Entity       string   `json:"entity"`        // entity type, e.g. "item", "player"
+	Operation    string   `json:"operation"`     // operation type, e.g. "create", "read", "update", "delete"
+	Enabled      bool     `json:"enabled"`       // whether this function is currently enabled
 }
 
 // LocalFunctionDescriptor defines a local function descriptor for SDK->Agent registration

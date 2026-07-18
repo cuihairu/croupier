@@ -149,6 +149,55 @@ public class CroupierClientTests
     }
 
     [Fact]
+    public void CroupierClient_BuildProviderConnectRequest_PreservesDescriptorMetadata()
+    {
+        // Arrange
+        var client = new CroupierClient(CreateTestConfig());
+        var descriptor = new FunctionDescriptor
+        {
+            Id = "player.ban",
+            Version = "1.0.0",
+            Category = "moderation",
+            Risk = "high",
+            Entity = "player",
+            Operation = "update",
+            DisplayName = "封禁玩家",
+            Summary = "Ban player",
+            Description = "封禁指定玩家账号",
+            OperationId = "banPlayer",
+            Deprecated = true,
+            Tags = new Dictionary<string, string>
+            {
+                ["owner"] = "team-player",
+                ["kind"] = "moderation"
+            },
+            InputSchema = "{\"type\":\"object\",\"properties\":{\"player_id\":{\"type\":\"string\"}}}",
+            OutputSchema = "{\"type\":\"object\",\"properties\":{\"success\":{\"type\":\"boolean\"}}}"
+        };
+        client.RegisterFunction(descriptor, (ctx, payload) => Task.FromResult("{}"));
+
+        // Act
+        var method = typeof(CroupierClient).GetMethod("BuildProviderConnectRequest", BindingFlags.Instance | BindingFlags.NonPublic);
+        var request = method!.Invoke(client, null) as ProviderConnectRequest;
+
+        // Assert
+        request.Should().NotBeNull();
+        var function = request!.Functions.Single();
+        function.Id.Should().Be("player.ban");
+        function.Summary.Should().Be("Ban player");
+        function.Description.Should().Be("封禁指定玩家账号");
+        function.OperationId.Should().Be("banPlayer");
+        function.Deprecated.Should().BeTrue();
+        function.Tags.Should().Contain(new[] { "moderation", "player", "update", "owner", "team-player", "kind" });
+        function.InputSchema.Should().Contain("player_id");
+        function.OutputSchema.Should().Contain("success");
+        function.Category.Should().Be("moderation");
+        function.Risk.Should().Be("high");
+        function.Entity.Should().Be("player");
+        function.Operation.Should().Be("update");
+    }
+
+    [Fact]
     public void CroupierClient_RegisterFunction_WithSyncHandler()
     {
         // Arrange

@@ -273,8 +273,12 @@ export interface InvokeOptions {
 export interface FunctionDescriptor {
   id: string;
   version: string;
+  tags?: string[];
   name?: string;
+  summary?: string;
   description?: string;
+  operation_id?: string;
+  deprecated?: boolean;
   input_schema?: Record<string, unknown>;
   output_schema?: Record<string, unknown>;
   category?: string;
@@ -346,6 +350,13 @@ export interface ClientConfig {
 interface LocalFunctionDescriptor {
   id: string;
   version: string;
+  tags?: string[];
+  summary?: string;
+  description?: string;
+  operation_id?: string;
+  deprecated?: boolean;
+  input_schema?: string;
+  output_schema?: string;
   category?: string;
   risk?: string;
   entity?: string;
@@ -673,6 +684,17 @@ export class BasicClient implements CroupierClient {
     return {
       id: desc.id,
       version: desc.version,
+      tags: desc.tags,
+      summary: desc.summary || desc.name,
+      description: desc.description,
+      operation_id: desc.operation_id || desc.id,
+      deprecated: desc.deprecated,
+      input_schema: desc.input_schema
+        ? JSON.stringify(desc.input_schema)
+        : undefined,
+      output_schema: desc.output_schema
+        ? JSON.stringify(desc.output_schema)
+        : undefined,
       category: desc.category,
       risk: desc.risk,
       entity: desc.entity,
@@ -687,8 +709,11 @@ export class BasicClient implements CroupierClient {
       functions: Array.from(this.descriptors.values()).map((desc) => ({
         id: desc.id,
         version: desc.version,
-        summary: desc.name || "",
+        tags: desc.tags || [],
+        summary: desc.summary || desc.name || "",
         description: desc.description || "",
+        operation_id: desc.operation_id || desc.id,
+        deprecated: desc.deprecated || false,
         input_schema: desc.input_schema
           ? JSON.stringify(desc.input_schema)
           : "",

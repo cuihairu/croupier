@@ -653,7 +653,20 @@ def test_get_function_descriptor():
     """Test get_function_descriptor returns correct descriptor."""
     client = croupier.CroupierClient()
     client.register_function(
-        croupier.FunctionDescriptor(id="test.fn", version="2.0.0", category="cat"),
+        croupier.FunctionDescriptor(
+            id="test.fn",
+            version="2.0.0",
+            tags=["test"],
+            summary="Test function",
+            description="Detailed test function description",
+            operation_id="testFn",
+            input_schema={"type": "object", "properties": {"id": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"ok": {"type": "boolean"}}},
+            category="cat",
+            risk="safe",
+            entity="test",
+            operation="read",
+        ),
         lambda ctx, payload: "ok",  # noqa: E731
     )
 
@@ -661,7 +674,16 @@ def test_get_function_descriptor():
     assert desc is not None
     assert desc.id == "test.fn"
     assert desc.version == "2.0.0"
+    assert list(desc.tags) == ["test"]
+    assert desc.summary == "Test function"
+    assert desc.description == "Detailed test function description"
+    assert desc.operation_id == "testFn"
+    assert '"id"' in desc.input_schema
+    assert '"ok"' in desc.output_schema
     assert desc.category == "cat"
+    assert desc.risk == "safe"
+    assert desc.entity == "test"
+    assert desc.operation == "read"
 
 
 def test_get_function_descriptor_unknown():

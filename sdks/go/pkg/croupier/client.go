@@ -392,23 +392,40 @@ func (c *client) convertToLocalFunctions() []LocalFunctionDescriptor {
 
 		// Convert FunctionDescriptor to LocalFunctionDescriptor with OpenAPI 3.0.3 fields
 		localDesc := LocalFunctionDescriptor{
-			ID:        funcID,
-			Version:   version,
-			Category:  desc.Category,
-			Risk:      desc.Risk,
-			Entity:    desc.Entity,
-			Operation: desc.Operation,
-			// Generate basic JSON Schemas (can be overridden by users via custom descriptors)
-			Tags:         []string{desc.Category},
-			Summary:      funcID,
-			Description:  fmt.Sprintf("Function: %s", funcID),
-			InputSchema:  generateBasicInputSchema(),
-			OutputSchema: generateBasicOutputSchema(),
+			ID:           funcID,
+			Version:      version,
+			Tags:         firstNonEmptySlice(desc.Tags, []string{desc.Category}),
+			Summary:      firstNonEmpty(desc.Summary, funcID),
+			Description:  firstNonEmpty(desc.Description, fmt.Sprintf("Function: %s", funcID)),
+			OperationID:  firstNonEmpty(desc.OperationID, funcID),
+			Deprecated:   desc.Deprecated,
+			InputSchema:  firstNonEmpty(desc.InputSchema, generateBasicInputSchema()),
+			OutputSchema: firstNonEmpty(desc.OutputSchema, generateBasicOutputSchema()),
+			Category:     desc.Category,
+			Risk:         desc.Risk,
+			Entity:       desc.Entity,
+			Operation:    desc.Operation,
 		}
 
 		localFuncs = append(localFuncs, localDesc)
 	}
 	return localFuncs
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func firstNonEmptySlice(values []string, fallback []string) []string {
+	if len(values) > 0 {
+		return values
+	}
+	return fallback
 }
 
 // generateBasicInputSchema creates a basic JSON Schema for request validation

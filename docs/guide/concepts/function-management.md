@@ -108,6 +108,8 @@ sequenceDiagram
 
 这意味着 SDK 用户不需要先定义自己的 `.proto` 才能接入。
 
+Dashboard 会优先根据 `input_schema`、OpenAPI request schema 和 `x-ui` 自动生成函数调用界面；当这些信息缺失时，会根据 `id/entity/operation` 推断一个可调用的默认界面。详见[函数注册与默认界面](./function-registration-ui.md)。
+
 ## 调用模型
 
 函数注册完成后，调用同样复用既有 session：
@@ -162,6 +164,7 @@ stateDiagram-v2
 
 - [核心概念总览](./overview.md)
 - [对象工作台](./object-workspace.md)
+- [函数注册与默认界面](./function-registration-ui.md)
 - [OpenAPI 函数注册](../integrations/openapi-registration.md)
 - [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)
 - [SDK 文档](../../sdks/)

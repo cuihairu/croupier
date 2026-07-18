@@ -814,11 +814,48 @@ func firstNonEmpty(values ...string) string {
 }
 
 func registerFunction(client croupier.Client, desc croupier.FunctionDescriptor, handler func(context.Context, []byte) ([]byte, error)) error {
+	desc = enrichDescriptor(desc)
 	if err := client.RegisterFunction(desc, handler); err != nil {
 		return fmt.Errorf("register %s failed: %w", desc.ID, err)
 	}
 	log.Printf("registered function: %s", desc.ID)
 	return nil
+}
+
+func enrichDescriptor(desc croupier.FunctionDescriptor) croupier.FunctionDescriptor {
+	if desc.Tags == nil {
+		desc.Tags = []string{desc.Category, desc.Entity, desc.Operation}
+	}
+	if desc.Summary == "" {
+		desc.Summary = fmt.Sprintf("%s %s", desc.Entity, desc.Operation)
+	}
+	if desc.Description == "" {
+		desc.Description = fmt.Sprintf("Demo function %s for %s %s operations.", desc.ID, desc.Entity, desc.Operation)
+	}
+	if desc.InputSchema == "" {
+		desc.InputSchema = inputSchemaFor(desc.Entity, desc.Operation)
+	}
+	if desc.OutputSchema == "" {
+		desc.OutputSchema = `{"type":"object","properties":{"status":{"type":"string"},"action":{"type":"string"}}}`
+	}
+	return desc
+}
+
+func inputSchemaFor(entity, operation string) string {
+	idKey := entity + "_id"
+	if entity == "inventory" {
+		idKey = "player_id"
+	}
+	switch operation {
+	case "create":
+		return fmt.Sprintf(`{"type":"object","properties":{"%s":{"type":"string"},"data":{"type":"object"}}}`, idKey)
+	case "update":
+		return fmt.Sprintf(`{"type":"object","properties":{"%s":{"type":"string"},"patch":{"type":"object"}},"required":["%s"]}`, idKey, idKey)
+	case "delete":
+		return fmt.Sprintf(`{"type":"object","properties":{"%s":{"type":"string"}},"required":["%s"]}`, idKey, idKey)
+	default:
+		return fmt.Sprintf(`{"type":"object","properties":{"%s":{"type":"string"}}}`, idKey)
+	}
 }
 
 func registerGameDemoFunctions(client croupier.Client, store *demoStore) error {

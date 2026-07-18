@@ -47,9 +47,10 @@ func BuildFallbackOpenAPIOperation(functionID string) *openapi3.Operation {
 			}),
 		),
 		Extensions: map[string]interface{}{
-			"x-entity": entity,
-			"x-action": action,
-			"x-ui":     BuildFallbackUISchema(functionID),
+			"x-entity":    entity,
+			"x-operation": action,
+			"x-action":    action,
+			"x-ui":        BuildFallbackUISchema(functionID),
 		},
 	}
 	return op
@@ -104,8 +105,16 @@ func buildFallbackRequestSchema(fields []fallbackField) *openapi3.Schema {
 }
 
 func inferFallbackEntityAction(functionID string) (string, string) {
-	parts := strings.Split(strings.TrimSpace(strings.ToLower(functionID)), ".")
-	if len(parts) >= 2 {
+	parts := strings.FieldsFunc(strings.TrimSpace(strings.ToLower(functionID)), func(r rune) bool {
+		return r == '.' || r == '_' || r == '-' || r == '/'
+	})
+	if len(parts) == 0 {
+		return "", "invoke"
+	}
+	if len(parts) >= 3 {
+		return sanitizeFallbackToken(parts[len(parts)-2]), sanitizeFallbackToken(parts[len(parts)-1])
+	}
+	if len(parts) == 2 {
 		return sanitizeFallbackToken(parts[0]), sanitizeFallbackToken(parts[1])
 	}
 	if len(parts) == 1 {

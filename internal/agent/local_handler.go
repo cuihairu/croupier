@@ -654,6 +654,10 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 				Deprecated:   fn.Deprecated,
 				InputSchema:  fn.InputSchema,
 				OutputSchema: fn.OutputSchema,
+				Category:     fn.Category,
+				Risk:         fn.Risk,
+				Entity:       fn.Entity,
+				Operation:    fn.Operation,
 			}
 		}
 		// 提取元数据（参考 Nacos metadata）

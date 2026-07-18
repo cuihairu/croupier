@@ -941,7 +941,17 @@ describe("BasicClient", () => {
   test("getFunctionDescriptor returns correct descriptor", () => {
     const client = new BasicClient();
     client.registerFunction(
-      { id: "test.fn", version: "2.0.0", category: "cat", risk: "low" },
+      {
+        id: "test.fn",
+        version: "2.0.0",
+        tags: ["test"],
+        summary: "Test function",
+        description: "Detailed test function description",
+        input_schema: { type: "object", properties: { id: { type: "string" } } },
+        output_schema: { type: "object", properties: { ok: { type: "boolean" } } },
+        category: "cat",
+        risk: "low",
+      },
       async () => "ok",
     );
 
@@ -950,6 +960,13 @@ describe("BasicClient", () => {
     expect(desc).toEqual({
       id: "test.fn",
       version: "2.0.0",
+      tags: ["test"],
+      summary: "Test function",
+      description: "Detailed test function description",
+      operation_id: "test.fn",
+      deprecated: undefined,
+      input_schema: JSON.stringify({ type: "object", properties: { id: { type: "string" } } }),
+      output_schema: JSON.stringify({ type: "object", properties: { ok: { type: "boolean" } } }),
       category: "cat",
       risk: "low",
       entity: undefined,
@@ -1119,6 +1136,8 @@ describe("BasicClient", () => {
     expect(desc?.risk).toBe("low");
     expect(desc?.entity).toBe("system");
     expect(desc?.operation).toBe("read");
+    expect(desc?.input_schema).toBe(JSON.stringify({ type: "object" }));
+    expect(desc?.output_schema).toBe(JSON.stringify({ type: "string" }));
   });
 
   test("invoke handler that returns Uint8Array", async () => {

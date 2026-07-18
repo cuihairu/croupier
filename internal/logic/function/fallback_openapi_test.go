@@ -13,6 +13,9 @@ func TestBuildFallbackOpenAPIOperation(t *testing.T) {
 		if op.OperationID != "player.get" {
 			t.Errorf("OperationID = %q", op.OperationID)
 		}
+		if op.Extensions["x-operation"] != "get" {
+			t.Errorf("x-operation = %q", op.Extensions["x-operation"])
+		}
 		if op.RequestBody == nil {
 			t.Fatal("expected request body")
 		}
@@ -73,6 +76,16 @@ func TestBuildFallbackOpenAPIOperation(t *testing.T) {
 			t.Fatal("expected non-nil operation")
 		}
 	})
+
+	t.Run("underscore separated", func(t *testing.T) {
+		op := BuildFallbackOpenAPIOperation("game_player_ban")
+		if op == nil {
+			t.Fatal("expected non-nil operation")
+		}
+		if op.Extensions["x-entity"] != "player" || op.Extensions["x-operation"] != "ban" {
+			t.Fatalf("unexpected extensions: %#v", op.Extensions)
+		}
+	})
 }
 
 func TestBuildFallbackUISchema(t *testing.T) {
@@ -101,6 +114,20 @@ func TestBuildFallbackUISchema(t *testing.T) {
 		schema := BuildFallbackUISchema("mail.claim")
 		if schema == nil {
 			t.Fatal("expected non-nil schema")
+		}
+	})
+
+	t.Run("domain.entity.operation", func(t *testing.T) {
+		schema := BuildFallbackUISchema("game.player.ban")
+		if schema == nil {
+			t.Fatal("expected non-nil schema")
+		}
+		props, ok := schema["properties"].(map[string]interface{})
+		if !ok {
+			t.Fatal("expected properties map")
+		}
+		if _, exists := props["playerId"]; !exists {
+			t.Fatalf("expected playerId property, got %#v", props)
 		}
 	})
 }
@@ -179,6 +206,8 @@ func TestInferFallbackEntityAction(t *testing.T) {
 	}{
 		{"player.get", "player", "get"},
 		{"order.list", "order", "list"},
+		{"game.player.ban", "player", "ban"},
+		{"game_player_ban", "player", "ban"},
 		{"standalone", "standalone", "invoke"},
 		{"", "", "invoke"},
 		{"Player.Get", "player", "get"},

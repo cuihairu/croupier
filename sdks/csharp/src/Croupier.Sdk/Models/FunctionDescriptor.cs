@@ -60,9 +60,24 @@ public class FunctionDescriptor
     public string? DisplayName { get; set; }
 
     /// <summary>
+    /// 简短摘要，用于函数目录和默认界面
+    /// </summary>
+    public string? Summary { get; set; }
+
+    /// <summary>
     /// 函数描述
     /// </summary>
     public string? Description { get; set; }
+
+    /// <summary>
+    /// 稳定操作 ID，默认可使用函数 ID
+    /// </summary>
+    public string? OperationId { get; set; }
+
+    /// <summary>
+    /// 是否已废弃
+    /// </summary>
+    public bool Deprecated { get; set; }
 
     /// <summary>
     /// 输入参数 JSON Schema

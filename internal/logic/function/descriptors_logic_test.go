@@ -2,6 +2,7 @@ package function
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -25,8 +26,12 @@ func TestDescriptors_OpenAPIOperationProvidesParams(t *testing.T) {
 	store := reg.NewStore()
 	objectType := openapi3.Types{"object"}
 	stringType := openapi3.Types{"string"}
+	boolType := openapi3.Types{"boolean"}
+	responseDesc := "Ban response"
 	err = store.UpsertOpenAPI("player.ban", &openapi3.Operation{
-		Summary: "Ban Player",
+		Summary:     "Ban Player",
+		Description: "Ban a player account",
+		Tags:        []string{"player", "moderation"},
 		RequestBody: &openapi3.RequestBodyRef{
 			Value: &openapi3.RequestBody{
 				Content: map[string]*openapi3.MediaType{
@@ -44,9 +49,28 @@ func TestDescriptors_OpenAPIOperationProvidesParams(t *testing.T) {
 				},
 			},
 		},
+		Responses: openapi3.NewResponses(
+			openapi3.WithName("200", &openapi3.Response{
+				Description: &responseDesc,
+				Content: openapi3.Content{
+					"application/json": {
+						Schema: &openapi3.SchemaRef{
+							Value: &openapi3.Schema{
+								Type: &objectType,
+								Properties: map[string]*openapi3.SchemaRef{
+									"success": {Value: &openapi3.Schema{Type: &boolType}},
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
 		Extensions: map[string]interface{}{
-			"x-category": "player",
-			"x-risk":     "high",
+			"x-category":  "player",
+			"x-risk":      "high",
+			"x-entity":    "player",
+			"x-operation": "ban",
 		},
 	})
 	if err != nil {
@@ -77,6 +101,21 @@ func TestDescriptors_OpenAPIOperationProvidesParams(t *testing.T) {
 	if item["risk"] != "high" {
 		t.Fatalf("unexpected risk: %v", item["risk"])
 	}
+	if item["entity"] != "player" {
+		t.Fatalf("unexpected entity: %v", item["entity"])
+	}
+	if item["operation"] != "ban" {
+		t.Fatalf("unexpected operation: %v", item["operation"])
+	}
+	if item["description"] != "Ban a player account" {
+		t.Fatalf("unexpected description: %v", item["description"])
+	}
+	if summary, ok := item["summary"].(map[string]string); !ok || summary["en"] != "Ban a player account" {
+		t.Fatalf("unexpected summary: %#v", item["summary"])
+	}
+	if displayName, ok := item["displayName"].(map[string]string); !ok || displayName["en"] != "Ban Player" {
+		t.Fatalf("unexpected displayName: %#v", item["displayName"])
+	}
 	params, ok := item["params"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("params should be object, got %T", item["params"])
@@ -84,5 +123,19 @@ func TestDescriptors_OpenAPIOperationProvidesParams(t *testing.T) {
 	props, ok := params["properties"].(map[string]interface{})
 	if !ok || props["player_id"] == nil {
 		t.Fatalf("expected params.properties.player_id, got %#v", params["properties"])
+	}
+	if inputSchema, _ := item["inputSchema"].(string); !strings.Contains(inputSchema, "player_id") {
+		t.Fatalf("expected inputSchema to include player_id, got %q", inputSchema)
+	}
+	outputs, ok := item["outputs"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("outputs should be object, got %T", item["outputs"])
+	}
+	outputProps, ok := outputs["properties"].(map[string]interface{})
+	if !ok || outputProps["success"] == nil {
+		t.Fatalf("expected outputs.properties.success, got %#v", outputs["properties"])
+	}
+	if outputSchema, _ := item["outputSchema"].(string); !strings.Contains(outputSchema, "success") {
+		t.Fatalf("expected outputSchema to include success, got %q", outputSchema)
 	}
 }

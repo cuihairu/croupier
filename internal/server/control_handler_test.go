@@ -13,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	componentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -453,9 +454,23 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			GameId:  "game-1",
 			Functions: []*agentv1.FunctionDescriptor{
 				{
-					Id:      "game.player.get",
-					Version: "1.0.0",
-					Enabled: true,
+					Id:        "game.player.get",
+					Version:   "1.0.0",
+					Enabled:   true,
+					Category:  "game",
+					Risk:      "safe",
+					Entity:    "player",
+					Operation: "read",
+					DisplayName: &componentv1.I18NText{
+						En: "Get player",
+						Zh: "查询玩家",
+					},
+					Summary: &componentv1.I18NText{
+						En: "Read a player profile",
+						Zh: "读取玩家档案",
+					},
+					InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
+					OutputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
 				},
 			},
 		}
@@ -463,6 +478,17 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
+
+		op, err := svc.registry.GetOpenAPI("game.player.get")
+		require.NoError(t, err)
+		assert.Equal(t, "Get player", op.Summary)
+		assert.Equal(t, "Read a player profile", op.Description)
+		assert.Equal(t, "game", op.Extensions["x-category"])
+		assert.Equal(t, "safe", op.Extensions["x-risk"])
+		assert.Equal(t, "player", op.Extensions["x-entity"])
+		assert.Equal(t, "read", op.Extensions["x-operation"])
+		require.NotNil(t, op.RequestBody)
+		require.NotNil(t, op.Responses)
 	})
 
 	t.Run("with nil process in processes list", func(t *testing.T) {

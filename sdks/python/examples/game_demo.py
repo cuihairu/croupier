@@ -549,6 +549,50 @@ def make_mail_claim(store: DemoStore) -> Callable:
     return handler
 
 
+def enrich_descriptor(desc: FunctionDescriptor) -> FunctionDescriptor:
+    if not desc.tags:
+        desc.tags = [value for value in (desc.category, desc.entity, desc.operation) if value]
+    if not desc.summary:
+        desc.summary = f"{desc.entity} {desc.operation}"
+    if not desc.description:
+        desc.description = (
+            f"Demo function {desc.id} for {desc.entity} {desc.operation} operations."
+        )
+    if not desc.input_schema:
+        desc.input_schema = input_schema_for(desc.entity or "object", desc.operation or "custom")
+    if not desc.output_schema:
+        desc.output_schema = {
+            "type": "object",
+            "properties": {
+                "status": {"type": "string"},
+                "action": {"type": "string"},
+            },
+        }
+    return desc
+
+
+def input_schema_for(entity: str, operation: str) -> dict[str, Any]:
+    id_key = "player_id" if entity == "inventory" else f"{entity}_id"
+    if operation == "create":
+        return {
+            "type": "object",
+            "properties": {id_key: {"type": "string"}, "data": {"type": "object"}},
+        }
+    if operation == "update":
+        return {
+            "type": "object",
+            "properties": {id_key: {"type": "string"}, "patch": {"type": "object"}},
+            "required": [id_key],
+        }
+    if operation == "delete":
+        return {
+            "type": "object",
+            "properties": {id_key: {"type": "string"}},
+            "required": [id_key],
+        }
+    return {"type": "object", "properties": {id_key: {"type": "string"}}}
+
+
 # ==================== Main ====================
 
 def main() -> None:
@@ -590,10 +634,10 @@ def main() -> None:
     ]
 
     for fid, cat, risk, entity, op, handler in fns:
-        desc = FunctionDescriptor(
+        desc = enrich_descriptor(FunctionDescriptor(
             id=fid, version="1.0.0", category=cat, risk=risk,
             entity=entity, operation=op,
-        )
+        ))
         client.register_function(desc, handler)
         print(f"  registered: {fid}")
 

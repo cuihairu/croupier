@@ -91,6 +91,8 @@ func (l *DescriptorsLogic) Descriptors(req *DescriptorsRequest) ([]map[string]in
 			"version":     "",
 			"category":    firstNonEmpty(strings.TrimSpace(t.Category), inferCategory(fid)),
 			"description": strings.TrimSpace(t.Description),
+			"displayName": localizedText(firstNonEmpty(strings.TrimSpace(t.Name), fid)),
+			"summary":     localizedText(strings.TrimSpace(t.Description)),
 			"params":      params,
 			"outputs":     nil,
 			"menuSource":  "default",
@@ -156,7 +158,19 @@ func (l *DescriptorsLogic) Descriptors(req *DescriptorsRequest) ([]map[string]in
 			}
 			if schema := extractOperationRequestSchema(op); schema != nil {
 				d["params"] = schema
+				if inputSchema := schemaToJSONString(schema); inputSchema != "" {
+					d["inputSchema"] = inputSchema
+					d["input_schema"] = inputSchema
+				}
 			}
+			if schema := extractOperationResponseSchema(op); schema != nil {
+				d["outputs"] = schema
+				if outputSchema := schemaToJSONString(schema); outputSchema != "" {
+					d["outputSchema"] = outputSchema
+					d["output_schema"] = outputSchema
+				}
+			}
+			applyOperationText(d, op, fid)
 			if op.Extensions != nil {
 				if cat, exists := op.Extensions["x-category"]; exists {
 					if catStr, ok := cat.(string); ok && catStr != "" {
@@ -203,12 +217,6 @@ func (l *DescriptorsLogic) Descriptors(req *DescriptorsRequest) ([]map[string]in
 						d["operation_display"] = disp
 					}
 				}
-			}
-			if op.Summary != "" {
-				d["description"] = op.Summary
-			}
-			if op.Description != "" {
-				d["description"] = op.Description
 			}
 		}
 	}
@@ -332,9 +340,60 @@ func extractOperationRequestSchema(op *openapi3.Operation) map[string]interface{
 	if media == nil || media.Schema == nil {
 		return nil
 	}
-	if media.Schema.Value != nil {
+	return schemaRefToMap(media.Schema)
+}
+
+func extractOperationResponseSchema(op *openapi3.Operation) map[string]interface{} {
+	if op == nil || op.Responses == nil {
+		return nil
+	}
+	var response *openapi3.ResponseRef
+	for _, code := range []string{"200", "201", "default"} {
+		if ref := op.Responses.Value(code); ref != nil {
+			response = ref
+			break
+		}
+	}
+	if response == nil {
+		for _, ref := range op.Responses.Map() {
+			if ref != nil {
+				response = ref
+				break
+			}
+		}
+	}
+	if response == nil || response.Value == nil {
+		return nil
+	}
+	content := response.Value.Content
+	if len(content) == 0 {
+		return nil
+	}
+
+	var media *openapi3.MediaType
+	if mt, ok := content["application/json"]; ok && mt != nil {
+		media = mt
+	} else {
+		for _, mt := range content {
+			if mt != nil {
+				media = mt
+				break
+			}
+		}
+	}
+	if media == nil || media.Schema == nil {
+		return nil
+	}
+	return schemaRefToMap(media.Schema)
+}
+
+func schemaRefToMap(ref *openapi3.SchemaRef) map[string]interface{} {
+	if ref == nil {
+		return nil
+	}
+	if ref.Value != nil {
 		var out map[string]interface{}
-		b, err := json.Marshal(media.Schema.Value)
+		b, err := json.Marshal(ref.Value)
 		if err != nil {
 			return nil
 		}
@@ -343,10 +402,46 @@ func extractOperationRequestSchema(op *openapi3.Operation) map[string]interface{
 		}
 		return out
 	}
-	if strings.TrimSpace(media.Schema.Ref) != "" {
-		return map[string]interface{}{"$ref": media.Schema.Ref}
+	if strings.TrimSpace(ref.Ref) != "" {
+		return map[string]interface{}{"$ref": ref.Ref}
 	}
 	return nil
+}
+
+func schemaToJSONString(schema map[string]interface{}) string {
+	if len(schema) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(schema)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func localizedText(text string) map[string]string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	return map[string]string{"zh": text, "en": text}
+}
+
+func applyOperationText(d map[string]interface{}, op *openapi3.Operation, fid string) {
+	if d == nil || op == nil {
+		return
+	}
+	summary := strings.TrimSpace(op.Summary)
+	description := strings.TrimSpace(op.Description)
+	displayName := firstNonEmpty(summary, description, fid)
+	if displayName != "" {
+		d["displayName"] = localizedText(displayName)
+		d["display_name"] = localizedText(displayName)
+	}
+	if text := firstNonEmpty(description, summary); text != "" {
+		d["summary"] = localizedText(text)
+		d["description"] = text
+	}
 }
 
 func firstNonEmpty(values ...string) string {

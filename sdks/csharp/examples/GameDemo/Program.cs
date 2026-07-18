@@ -367,6 +367,7 @@ class Program
                 Id = id, Version = "1.0.0", Category = cat, Risk = risk,
                 Entity = entity, Operation = op, Enabled = true,
             };
+            EnrichDescriptor(desc);
             client.RegisterFunction(desc, handler);
             Console.WriteLine($"  registered: {id}");
         }
@@ -399,5 +400,33 @@ class Program
 
         Console.WriteLine("Service stopped.");
         return 0;
+    }
+
+    static void EnrichDescriptor(FunctionDescriptor desc)
+    {
+        desc.DisplayName ??= $"{desc.Entity} {desc.Operation}";
+        desc.Summary ??= $"{desc.Entity} {desc.Operation}";
+        desc.Description ??= $"Demo function {desc.Id} for {desc.Entity} {desc.Operation} operations.";
+        desc.OperationId ??= desc.Id;
+        desc.Tags ??= new Dictionary<string, string>
+        {
+            ["category"] = desc.Category,
+            ["entity"] = desc.Entity ?? "",
+            ["operation"] = desc.Operation ?? "",
+        };
+        desc.InputSchema ??= InputSchemaFor(desc.Entity ?? "object", desc.Operation ?? "custom");
+        desc.OutputSchema ??= "{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}";
+    }
+
+    static string InputSchemaFor(string entity, string operation)
+    {
+        var idKey = entity == "inventory" ? "player_id" : $"{entity}_id";
+        return operation switch
+        {
+            "create" => $"{{\"type\":\"object\",\"properties\":{{\"{idKey}\":{{\"type\":\"string\"}},\"data\":{{\"type\":\"object\"}}}}}}",
+            "update" => $"{{\"type\":\"object\",\"properties\":{{\"{idKey}\":{{\"type\":\"string\"}},\"patch\":{{\"type\":\"object\"}}}},\"required\":[\"{idKey}\"]}}",
+            "delete" => $"{{\"type\":\"object\",\"properties\":{{\"{idKey}\":{{\"type\":\"string\"}}}},\"required\":[\"{idKey}\"]}}",
+            _ => $"{{\"type\":\"object\",\"properties\":{{\"{idKey}\":{{\"type\":\"string\"}}}}}}",
+        };
     }
 }

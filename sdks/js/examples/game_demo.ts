@@ -373,6 +373,52 @@ function mailClaim(store: DemoStore): FunctionHandler {
   };
 }
 
+function enrichDescriptor(desc: FunctionDescriptor): FunctionDescriptor {
+  const tags = desc.tags || ([desc.category, desc.entity, desc.operation].filter(Boolean) as string[]);
+  return {
+    ...desc,
+    tags,
+    summary: desc.summary || `${desc.entity} ${desc.operation}`,
+    description:
+      desc.description ||
+      `Demo function ${desc.id} for ${desc.entity} ${desc.operation} operations.`,
+    operation_id: desc.operation_id || desc.id,
+    input_schema: desc.input_schema || inputSchemaFor(desc.entity || "object", desc.operation || "custom"),
+    output_schema: desc.output_schema || {
+      type: "object",
+      properties: {
+        status: { type: "string" },
+        action: { type: "string" },
+      },
+    },
+  };
+}
+
+function inputSchemaFor(entity: string, operation: string): Record<string, unknown> {
+  const idKey = entity === "inventory" ? "player_id" : `${entity}_id`;
+  if (operation === "create") {
+    return {
+      type: "object",
+      properties: { [idKey]: { type: "string" }, data: { type: "object" } },
+    };
+  }
+  if (operation === "update") {
+    return {
+      type: "object",
+      properties: { [idKey]: { type: "string" }, patch: { type: "object" } },
+      required: [idKey],
+    };
+  }
+  if (operation === "delete") {
+    return {
+      type: "object",
+      properties: { [idKey]: { type: "string" } },
+      required: [idKey],
+    };
+  }
+  return { type: "object", properties: { [idKey]: { type: "string" } } };
+}
+
 // ==================== Main ====================
 
 async function main(): Promise<void> {
@@ -416,9 +462,9 @@ async function main(): Promise<void> {
   ];
 
   for (const [id, cat, risk, entity, op, handler] of fns) {
-    const desc: FunctionDescriptor = {
+    const desc = enrichDescriptor({
       id, version: "1.0.0", category: cat, risk, entity, operation: op,
-    };
+    });
     client.registerFunction(desc, handler);
     console.log(`  registered: ${id}`);
   }

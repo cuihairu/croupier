@@ -85,6 +85,13 @@ class FunctionDescriptor:
 
     id: str
     version: str = "1.0.0"
+    tags: list[str] = field(default_factory=list)
+    summary: Optional[str] = None
+    description: Optional[str] = None
+    operation_id: Optional[str] = None
+    deprecated: bool = False
+    input_schema: Optional[Dict[str, object] | str] = None
+    output_schema: Optional[Dict[str, object] | str] = None
     category: Optional[str] = None
     risk: Optional[str] = None
     entity: Optional[str] = None
@@ -217,9 +224,26 @@ class CroupierClient:
         desc = self._descriptors.get(function_id)
         if desc is None:
             return None
+        input_schema = (
+            json.dumps(desc.input_schema)
+            if isinstance(desc.input_schema, dict)
+            else (desc.input_schema or "")
+        )
+        output_schema = (
+            json.dumps(desc.output_schema)
+            if isinstance(desc.output_schema, dict)
+            else (desc.output_schema or "")
+        )
         return provider_pb2.LocalFunctionDescriptor(
             id=desc.id,
             version=desc.version,
+            tags=desc.tags,
+            summary=desc.summary or "",
+            description=desc.description or "",
+            operation_id=desc.operation_id or desc.id,
+            deprecated=desc.deprecated,
+            input_schema=input_schema,
+            output_schema=output_schema,
             category=desc.category or "",
             risk=desc.risk or "",
             entity=desc.entity or "",
@@ -370,6 +394,20 @@ class CroupierClient:
                 "id": descriptor.id,
                 "version": descriptor.version or "1.0.0",
             }
+            if descriptor.tags:
+                entry["tags"] = descriptor.tags
+            if descriptor.summary:
+                entry["summary"] = descriptor.summary
+            if descriptor.description:
+                entry["description"] = descriptor.description
+            if descriptor.operation_id:
+                entry["operation_id"] = descriptor.operation_id
+            if descriptor.deprecated:
+                entry["deprecated"] = True  # type: ignore[assignment]
+            if descriptor.input_schema:
+                entry["input_schema"] = descriptor.input_schema
+            if descriptor.output_schema:
+                entry["output_schema"] = descriptor.output_schema
             if descriptor.category:
                 entry["category"] = descriptor.category
             if descriptor.risk:

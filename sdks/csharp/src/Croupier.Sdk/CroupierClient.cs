@@ -541,15 +541,23 @@ public partial class CroupierClient : IDisposable
 
         foreach (var descriptor in _descriptors.Values)
         {
-            request.Functions.Add(new LocalFunctionDescriptor
+            var function = new LocalFunctionDescriptor
             {
                 Id = descriptor.Id,
                 Version = descriptor.Version,
-                Summary = descriptor.DisplayName ?? string.Empty,
+                Summary = descriptor.Summary ?? descriptor.DisplayName ?? string.Empty,
                 Description = descriptor.Description ?? string.Empty,
+                OperationId = descriptor.OperationId ?? descriptor.Id,
+                Deprecated = descriptor.Deprecated,
                 InputSchema = descriptor.InputSchema ?? string.Empty,
-                OutputSchema = descriptor.OutputSchema ?? string.Empty
-            });
+                OutputSchema = descriptor.OutputSchema ?? string.Empty,
+                Category = descriptor.Category,
+                Risk = descriptor.Risk,
+                Entity = descriptor.Entity ?? string.Empty,
+                Operation = descriptor.Operation ?? string.Empty
+            };
+            function.Tags.AddRange(DescriptorTags(descriptor));
+            request.Functions.Add(function);
         }
 
         return request;
@@ -626,6 +634,23 @@ public partial class CroupierClient : IDisposable
         output.WriteString(value);
     }
 
+    private static IEnumerable<string> DescriptorTags(FunctionDescriptor descriptor)
+    {
+        IEnumerable<string?> baseTags = new[]
+            {
+                descriptor.Category,
+                descriptor.Entity,
+                descriptor.Operation,
+            };
+
+        return baseTags
+            .Concat(descriptor.Tags?.Keys ?? Enumerable.Empty<string>())
+            .Concat(descriptor.Tags?.Values ?? Enumerable.Empty<string>())
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(tag => tag!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
     private byte[] GetManifestGzipped()
     {
         var manifest = new
@@ -641,7 +666,15 @@ public partial class CroupierClient : IDisposable
             {
                 id = descriptor.Id,
                 version = descriptor.Version,
+                display_name = descriptor.DisplayName,
+                summary = descriptor.Summary,
+                tags = DescriptorTags(descriptor),
+                operation_id = descriptor.OperationId,
+                deprecated = descriptor.Deprecated,
                 category = descriptor.Category,
+                risk = descriptor.Risk,
+                entity = descriptor.Entity,
+                operation = descriptor.Operation,
                 description = descriptor.Description,
                 input_schema = descriptor.InputSchema,
                 output_schema = descriptor.OutputSchema

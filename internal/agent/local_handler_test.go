@@ -1256,6 +1256,47 @@ func TestLocalHandler_HandleProviderConnect_WithFunctions(t *testing.T) {
 	assert.NotEmpty(t, snap["func-2"])
 }
 
+func TestLocalHandler_HandleProviderConnect_PreservesDescriptorMetadata(t *testing.T) {
+	store := agentlocal.NewLocalStore()
+	handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
+
+	req := &sdkv1.ProviderConnectRequest{
+		ServiceId: "svc-1",
+		Version:   "1.0.0",
+		Functions: []*sdkv1.LocalFunctionDescriptor{
+			{
+				Id:          "game.player.ban",
+				Version:     "1.2.3",
+				Summary:     "Ban player",
+				Description: "Ban a player account",
+				Category:    "game",
+				Risk:        "danger",
+				Entity:      "player",
+				Operation:   "ban",
+			},
+		},
+	}
+	data, _ := proto.Marshal(req)
+
+	resp, err := handler.handleProviderConnect(context.Background(), data)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	meta := store.FunctionMetadata()["game.player.ban"]
+	if assert.NotNil(t, meta) {
+		assert.Equal(t, "Ban player", meta.Summary)
+		assert.Equal(t, "Ban a player account", meta.Description)
+		assert.Equal(t, "game", meta.Category)
+		assert.Equal(t, "danger", meta.Risk)
+		assert.Equal(t, "player", meta.Entity)
+		assert.Equal(t, "ban", meta.Operation)
+		assert.Contains(t, meta.OpenAPIOperation, `"x-category":"game"`)
+		assert.Contains(t, meta.OpenAPIOperation, `"x-risk":"danger"`)
+		assert.Contains(t, meta.OpenAPIOperation, `"x-entity":"player"`)
+		assert.Contains(t, meta.OpenAPIOperation, `"x-operation":"ban"`)
+	}
+}
+
 // --- Tests for handleProviderHeartbeat with empty session ID ---
 
 func TestLocalHandler_HandleProviderHeartbeat_EmptySessionID(t *testing.T) {

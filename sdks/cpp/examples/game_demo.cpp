@@ -43,6 +43,29 @@ static std::string json_int(const std::string& key, long long val) {
     return "\"" + key + "\":" + std::to_string(val);
 }
 
+static std::string input_schema_for(const std::string& entity, const std::string& operation) {
+    const std::string id_key = entity == "inventory" ? "player_id" : entity + "_id";
+    if (operation == "create") {
+        return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"},\"data\":{\"type\":\"object\"}}}";
+    }
+    if (operation == "update") {
+        return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"},\"patch\":{\"type\":\"object\"}},\"required\":[\"" + id_key + "\"]}";
+    }
+    if (operation == "delete") {
+        return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"}},\"required\":[\"" + id_key + "\"]}";
+    }
+    return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"}}}";
+}
+
+static void enrich_descriptor(FunctionDescriptor& desc) {
+    desc.tags = {desc.category, desc.entity, desc.operation};
+    desc.summary = desc.entity + " " + desc.operation;
+    desc.description = "Demo function " + desc.id + " for " + desc.entity + " " + desc.operation + " operations.";
+    desc.operation_id = desc.id;
+    desc.input_schema = input_schema_for(desc.entity, desc.operation);
+    desc.output_schema = R"({"type":"object","properties":{"status":{"type":"string"},"action":{"type":"string"}}})";
+}
+
 // Minimal JSON value extraction (no external deps)
 static std::string extract_str(const std::string& json, const std::string& key) {
     auto pos = json.find("\"" + key + "\"");
@@ -211,6 +234,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         FunctionDescriptor desc;
         desc.id = id; desc.version = "1.0.0"; desc.category = cat;
         desc.risk = risk; desc.entity = entity; desc.operation = op; desc.enabled = true;
+        enrich_descriptor(desc);
         client.RegisterFunction(desc, handler);
         std::cout << "  registered: " << id << std::endl;
     };

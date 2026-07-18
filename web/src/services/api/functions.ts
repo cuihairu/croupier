@@ -46,10 +46,17 @@ export type FunctionDescriptor = {
   outputSchema?: string; // JSON Schema for response body (from proto)
 };
 
-type RawFunctionDescriptor = FunctionDescriptor & {
-  display_name?: LocalizedText;
-  entity_display?: LocalizedText;
-  operation_display?: LocalizedText;
+type RawFunctionDescriptor = Omit<
+  FunctionDescriptor,
+  'displayName' | 'summary' | 'entityDisplay' | 'operationDisplay'
+> & {
+  displayName?: LocalizedText | string;
+  display_name?: LocalizedText | string;
+  summary?: LocalizedText | string;
+  entityDisplay?: LocalizedText | string;
+  operationDisplay?: LocalizedText | string;
+  entity_display?: LocalizedText | string;
+  operation_display?: LocalizedText | string;
   input_schema?: string;
   output_schema?: string;
 };
@@ -151,13 +158,19 @@ function normalizeFunctionRegistrationWarning(
   };
 }
 
+function normalizeLocalizedText(value?: LocalizedText | string): LocalizedText | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'string') return { zh: value, en: value };
+  return value;
+}
+
 function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): FunctionDescriptor {
   return {
     ...raw,
-    displayName: raw.displayName || raw.display_name,
-    summary: raw.summary,
-    entityDisplay: raw.entityDisplay || raw.entity_display,
-    operationDisplay: raw.operationDisplay || raw.operation_display,
+    displayName: normalizeLocalizedText(raw.displayName || raw.display_name),
+    summary: normalizeLocalizedText(raw.summary),
+    entityDisplay: normalizeLocalizedText(raw.entityDisplay || raw.entity_display),
+    operationDisplay: normalizeLocalizedText(raw.operationDisplay || raw.operation_display),
     inputSchema: raw.inputSchema || raw.input_schema,
     outputSchema: raw.outputSchema || raw.output_schema,
   };

@@ -732,6 +732,18 @@ public:
             if (!desc.output_schema.empty()) {
                 fn->set_output_schema(desc.output_schema);
             }
+            if (!desc.category.empty()) {
+                fn->set_category(desc.category);
+            }
+            if (!desc.risk.empty()) {
+                fn->set_risk(desc.risk);
+            }
+            if (!desc.entity.empty()) {
+                fn->set_entity(desc.entity);
+            }
+            if (!desc.operation.empty()) {
+                fn->set_operation(desc.operation);
+            }
         }
 
         auto [msg_id, response_body] = transport.Call(protocol::MSG_PROVIDER_CONNECT_REQUEST, SerializeMessage(request));

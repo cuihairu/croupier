@@ -508,9 +508,44 @@ public class GameDemo {
             FunctionDescriptor desc = new FunctionDescriptor(f.id, "1.0.0");
             desc.setCategory(f.cat); desc.setRisk(f.risk);
             desc.setEntity(f.entity); desc.setOperation(f.op); desc.setEnabled(true);
+            enrichDescriptor(desc);
             client.registerFunction(desc, f.handler);
             log.info("registered: {}", f.id);
         }
+    }
+
+    private static void enrichDescriptor(FunctionDescriptor desc) {
+        desc.setTags(List.of(desc.getCategory(), desc.getEntity(), desc.getOperation()));
+        desc.setSummary(desc.getEntity() + " " + desc.getOperation());
+        desc.setDescription(String.format(
+            "Demo function %s for %s %s operations.",
+            desc.getId(), desc.getEntity(), desc.getOperation()
+        ));
+        desc.setOperationId(desc.getId());
+        desc.setInputSchema(inputSchemaFor(desc.getEntity(), desc.getOperation()));
+        desc.setOutputSchema("{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}");
+    }
+
+    private static String inputSchemaFor(String entity, String operation) {
+        String idKey = "inventory".equals(entity) ? "player_id" : entity + "_id";
+        return switch (operation) {
+            case "create" -> String.format(
+                "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"},\"data\":{\"type\":\"object\"}}}",
+                idKey
+            );
+            case "update" -> String.format(
+                "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"},\"patch\":{\"type\":\"object\"}},\"required\":[\"%s\"]}",
+                idKey, idKey
+            );
+            case "delete" -> String.format(
+                "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"}},\"required\":[\"%s\"]}",
+                idKey, idKey
+            );
+            default -> String.format(
+                "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"}}}",
+                idKey
+            );
+        };
     }
 
     // ==================== Main ====================

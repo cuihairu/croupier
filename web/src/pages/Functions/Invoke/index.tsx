@@ -7,10 +7,7 @@ import {
   Card,
   Drawer,
   Empty,
-  Input,
-  Select,
   Space,
-  Switch,
   Tag,
   Typography,
 } from 'antd';
@@ -26,7 +23,6 @@ import {
   getFunctionOpenAPI,
   invokeFunction,
   listDescriptors,
-  saveFunctionUiSchema,
   startTask,
   type FunctionDescriptor,
 } from '@/services/api';
@@ -40,6 +36,8 @@ type OpenAPIOperation = {
   extensions?: Record<string, any>;
   ['x-ui']?: any;
 };
+
+type JSONSchemaFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
 
 const isObject = (v: any): v is Record<string, any> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
@@ -71,7 +69,7 @@ const hasFormilyComponent = (v: any): boolean => {
   if (isObject(v.items)) return hasFormilyComponent(v.items);
   return false;
 };
-const mapFormilyComponentToType = (component?: string): JSONSchema['type'] => {
+const mapFormilyComponentToType = (component?: string): JSONSchemaFieldType => {
   const key = String(component || '').toLowerCase();
   if (key.includes('number') || key.includes('slider') || key.includes('rate')) return 'number';
   if (key.includes('switch') || key.includes('checkbox')) return 'boolean';
@@ -196,11 +194,44 @@ const resolveName = (d: FunctionDescriptor, locale: string) => {
   return en || zh || d.id;
 };
 
+const resolveSummary = (d: FunctionDescriptor, locale: string) => {
+  const zh = d.summary?.zh || d.displayName?.zh;
+  const en = d.summary?.en || d.displayName?.en;
+  if (locale.toLowerCase().startsWith('zh')) return zh || en || d.description || d.id;
+  return en || zh || d.description || d.id;
+};
+
 const inferTokenFromID = (id: string) =>
   String(id || '')
     .split(/[./_-]+/)
     .map((x) => x.trim().toLowerCase())
     .filter(Boolean);
+
+const inferEntityOperation = (
+  descriptor: FunctionDescriptor | undefined,
+  tokens: string[],
+  knownOps: Set<string>,
+) => {
+  const declaredEntity = String((descriptor as any)?.entity || '')
+    .trim()
+    .toLowerCase();
+  const declaredOperation = String((descriptor as any)?.operation || '')
+    .trim()
+    .toLowerCase();
+  if (tokens.length >= 3) {
+    return {
+      entity: declaredEntity || tokens[tokens.length - 2],
+      operation: declaredOperation || tokens[tokens.length - 1],
+    };
+  }
+  if (tokens.length >= 2) {
+    return {
+      entity: declaredEntity || tokens[0],
+      operation: declaredOperation || tokens[1],
+    };
+  }
+  return { entity: declaredEntity || tokens[0] || 'object', operation: declaredOperation };
+};
 
 const buildGeneratedSchema = (d?: FunctionDescriptor): JSONSchema => {
   const tokens = inferTokenFromID(d?.id || '');
@@ -221,23 +252,7 @@ const buildGeneratedSchema = (d?: FunctionDescriptor): JSONSchema => {
     'delete',
     'remove',
   ]);
-  let operation = String((d as any)?.operation || '')
-    .trim()
-    .toLowerCase();
-  if (!operation) {
-    for (let i = tokens.length - 1; i >= 0; i -= 1) {
-      if (knownOps.has(tokens[i])) {
-        operation = tokens[i];
-        break;
-      }
-    }
-  }
-  const entity =
-    String((d as any)?.entity || '')
-      .trim()
-      .toLowerCase() ||
-    tokens.find((t) => !knownOps.has(t)) ||
-    'object';
+  const { entity, operation } = inferEntityOperation(d, tokens, knownOps);
   const idKey = `${entity}_id`;
   const objectLabel = (d?.displayName?.zh || d?.displayName?.en || entity || '对象').toString();
 
@@ -271,27 +286,6 @@ const buildGeneratedSchema = (d?: FunctionDescriptor): JSONSchema => {
   schema.required = Array.from(required);
   return schema;
 };
-type ManualField = {
-  name: string;
-  type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
-  required: boolean;
-  description?: string;
-};
-const suggestFirstParamName = (fid?: string) => {
-  const text = String(fid || '').toLowerCase();
-  if (text.includes('player')) return 'player_id';
-  if (text.includes('user')) return 'user_id';
-  return 'id';
-};
-const widgetByType: Record<ManualField['type'], string> = {
-  string: 'input',
-  number: 'number',
-  integer: 'number',
-  boolean: 'switch',
-  array: 'multiselect',
-  object: 'json',
-};
-
 const extractErrorMessage = (e: any, fallback: string) => {
   const candidates = [
     e?.data?.message,
@@ -321,12 +315,6 @@ export default function FunctionRuntimeUIPage() {
   const [uiResolving, setUIResolving] = useState(false);
   const [invalidCustomUI, setInvalidCustomUI] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
-  const [manualFields, setManualFields] = useState<ManualField[]>([]);
-  const [newFieldName, setNewFieldName] = useState('');
-  const [newFieldType, setNewFieldType] = useState<ManualField['type']>('string');
-  const [newFieldRequired, setNewFieldRequired] = useState(true);
-  const [newFieldDescription, setNewFieldDescription] = useState('');
   const [result, setResult] = useState<any>(undefined);
   const [error, setError] = useState<string>('');
 
@@ -362,10 +350,6 @@ export default function FunctionRuntimeUIPage() {
     const props = schema?.properties || {};
     return Object.keys(props).length > 0;
   }, [schema]);
-  const blockInvokeForIncompleteSchema = useMemo(
-    () => !uiResolving && schemaMeta.source === 'generated',
-    [uiResolving, schemaMeta.source],
-  );
   const sourceNotice = useMemo(() => {
     if (uiResolving) return null;
     if (invalidCustomUI) {
@@ -386,7 +370,8 @@ export default function FunctionRuntimeUIPage() {
       return {
         type: 'warning' as const,
         message: '使用默认参数模板',
-        description: '该函数未提供可用 Schema，已按对象/操作自动生成默认参数。',
+        description:
+          '该函数未提供可用 Schema，已按函数 ID、实体和操作自动生成可调用表单。建议在注册描述符中补齐 summary、description 和 input_schema。',
       };
     }
     return null;
@@ -418,11 +403,6 @@ export default function FunctionRuntimeUIPage() {
       setCustomJSONSchema(undefined);
       setOpenapiOperation(undefined);
       setUISource('generated');
-      setManualFields([]);
-      setNewFieldName(suggestFirstParamName(selected.id));
-      setNewFieldType('string');
-      setNewFieldRequired(true);
-      setNewFieldDescription('');
       try {
         const baseSchema = (() => {
           const parsed = parseInputSchema(selected.inputSchema, selected.params);
@@ -494,74 +474,7 @@ export default function FunctionRuntimeUIPage() {
     return () => {
       active = false;
     };
-  }, [selected?.id, reloadToken]);
-  useEffect(() => {
-    if (!selected?.id) return;
-    setNewFieldName(suggestFirstParamName(selected.id));
   }, [selected?.id]);
-  const buildManualUISchema = (fields: ManualField[]): FormUISchema => {
-    const outFields: Record<string, any> = {};
-    const order: string[] = [];
-    fields.forEach((f) => {
-      outFields[f.name] = {
-        label: f.name,
-        description: f.description,
-        widget: widgetByType[f.type] || 'input',
-      };
-      order.push(f.name);
-    });
-    return {
-      fields: outFields,
-      'ui:order': order,
-      'ui:layout': { type: 'grid', cols: 2 },
-    };
-  };
-
-  const addManualField = () => {
-    const name = String(newFieldName || '').trim();
-    if (!name) {
-      message.warning('请先填写参数名');
-      return;
-    }
-    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
-      message.warning('参数名需为字母/数字/下划线，且不能数字开头');
-      return;
-    }
-    if (manualFields.some((f) => f.name === name)) {
-      message.warning('参数名重复');
-      return;
-    }
-    setManualFields((prev) => [
-      ...prev,
-      {
-        name,
-        type: newFieldType,
-        required: newFieldRequired,
-        description: newFieldDescription.trim() || undefined,
-      },
-    ]);
-    setNewFieldName('');
-    setNewFieldType('string');
-    setNewFieldRequired(true);
-    setNewFieldDescription('');
-  };
-
-  const saveManualSchema = async () => {
-    if (!selected?.id) return;
-    if (manualFields.length === 0) {
-      message.warning('请至少添加一个参数');
-      return;
-    }
-    const ui = buildManualUISchema(manualFields);
-    try {
-      await saveFunctionUiSchema(selected.id, { schema: ui });
-      message.success('已保存参数模型，现可调用');
-      setReloadToken((x) => x + 1);
-      window.dispatchEvent(new Event('function-route:changed'));
-    } catch (e: any) {
-      message.error(extractErrorMessage(e, '保存参数模型失败'));
-    }
-  };
 
   const handleInvoke = async (values: any) => {
     if (!selected?.id) return;
@@ -618,7 +531,7 @@ export default function FunctionRuntimeUIPage() {
   return (
     <PageContainer
       title={resolveName(selected, locale)}
-      subTitle={selected.summary?.zh || selected.summary?.en || selected.id}
+      subTitle={resolveSummary(selected, locale)}
       extra={[
         <Button key="info" icon={<InfoCircleOutlined />} onClick={() => setInfoOpen(true)}>
           函数信息
@@ -638,85 +551,18 @@ export default function FunctionRuntimeUIPage() {
             description={sourceNotice.description}
           />
         )}
-        {blockInvokeForIncompleteSchema ? (
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <Alert
-              type="warning"
-              showIcon
-              message="该函数缺少可用 Schema，暂不允许调用"
-              description="请先补全参数定义（第一个参数名/类型），保存后再调用。"
-            />
-            <Card size="small" title="参数补全向导">
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Space wrap>
-                  <Input
-                    style={{ width: 220 }}
-                    placeholder="第一个参数名（如 player_id）"
-                    value={newFieldName}
-                    onChange={(e) => setNewFieldName(e.target.value)}
-                  />
-                  <Select
-                    style={{ width: 160 }}
-                    value={newFieldType}
-                    onChange={(v) => setNewFieldType(v)}
-                    options={[
-                      { label: 'string', value: 'string' },
-                      { label: 'number', value: 'number' },
-                      { label: 'integer', value: 'integer' },
-                      { label: 'boolean', value: 'boolean' },
-                      { label: 'array', value: 'array' },
-                      { label: 'object', value: 'object' },
-                    ]}
-                  />
-                  <Space>
-                    <span>必填</span>
-                    <Switch checked={newFieldRequired} onChange={setNewFieldRequired} />
-                  </Space>
-                </Space>
-                <Input
-                  placeholder="参数说明（可选）"
-                  value={newFieldDescription}
-                  onChange={(e) => setNewFieldDescription(e.target.value)}
-                />
-                <Space>
-                  <Button onClick={addManualField}>添加参数</Button>
-                  <Button type="primary" onClick={saveManualSchema}>
-                    保存并启用调用
-                  </Button>
-                </Space>
-                {manualFields.length > 0 && (
-                  <Space direction="vertical" size="small">
-                    {manualFields.map((f) => (
-                      <Tag
-                        key={f.name}
-                        closable
-                        onClose={(e) => {
-                          e.preventDefault();
-                          setManualFields((prev) => prev.filter((x) => x.name !== f.name));
-                        }}
-                      >
-                        {`${f.name}: ${f.type}${f.required ? ' (required)' : ''}`}
-                      </Tag>
-                    ))}
-                  </Space>
-                )}
-              </Space>
-            </Card>
-          </Space>
-        ) : (
-          <FunctionFormRenderer
-            schema={schema}
-            uiSchema={uiSchema}
-            onSubmit={handleInvoke}
-            onSecondarySubmit={handleStartTask}
-            loading={executing}
-            secondaryLoading={executing}
-            submitText="执行"
-            secondarySubmitText="创建任务"
-            resetText="重置"
-            enableRawJson
-          />
-        )}
+        <FunctionFormRenderer
+          schema={schema}
+          uiSchema={uiSchema}
+          onSubmit={handleInvoke}
+          onSecondarySubmit={handleStartTask}
+          loading={executing}
+          secondaryLoading={executing}
+          submitText="执行"
+          secondarySubmitText="创建任务"
+          resetText="重置"
+          enableRawJson
+        />
       </Card>
       {(error || result) && (
         <Card title="执行结果" style={{ marginTop: 16 }}>
@@ -739,12 +585,12 @@ export default function FunctionRuntimeUIPage() {
           <Text code>{selected.id}</Text>
           {selected.category && <Tag color="blue">{selected.category}</Tag>}
           {selected.version && <Tag>v{selected.version}</Tag>}
-          {(selected.summary?.zh || selected.summary?.en) && (
+          {resolveSummary(selected, locale) && (
             <Alert
               type="info"
               showIcon
               message="说明"
-              description={selected.summary?.zh || selected.summary?.en}
+              description={resolveSummary(selected, locale)}
             />
           )}
         </Space>
