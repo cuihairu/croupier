@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
-    paths: [ 'sdks/cpp/**' ]
+    paths: [ 'sdks/cpp/**', '.github/workflows/ci-sdk-cpp.yml' ]
   pull_request:
     branches: [ main ]
-    paths: [ 'sdks/cpp/**' ]
+    paths: [ 'sdks/cpp/**', '.github/workflows/ci-sdk-cpp.yml' ]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -23,11 +23,15 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ ninja-build
+          sudo apt-get install -y cmake g++ lcov ninja-build
 
       - name: Configure CMake
         working-directory: sdks/cpp
-        run: cmake --preset linux-x64-debug-tests-vcpkg
+        run: >
+          cmake --preset linux-x64-debug-tests-vcpkg
+          -DCMAKE_CXX_FLAGS="--coverage"
+          -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+          -DCMAKE_SHARED_LINKER_FLAGS="--coverage"
 
       - name: Build
         working-directory: sdks/cpp
@@ -37,8 +41,24 @@ jobs:
         working-directory: sdks/cpp
         run: ctest --test-dir build/linux-x64-debug-tests-vcpkg --output-on-failure
 
+      - name: Generate coverage
+        working-directory: sdks/cpp
+        run: |
+          lcov --capture \
+            --directory build/linux-x64-debug-tests-vcpkg \
+            --output-file build/linux-x64-debug-tests-vcpkg/coverage.raw.info \
+            --ignore-errors mismatch,source,gcov
+          lcov --remove build/linux-x64-debug-tests-vcpkg/coverage.raw.info \
+            '/usr/*' \
+            '*/vcpkg_installed/*' \
+            '*/build/*' \
+            '*/tests/*' \
+            '*/generated/*' \
+            --output-file build/linux-x64-debug-tests-vcpkg/coverage.info \
+            --ignore-errors unused
+          lcov --list build/linux-x64-debug-tests-vcpkg/coverage.info
+
       - name: Upload coverage
-        if: ${{ hashFiles('sdks/cpp/build/linux-x64-debug-tests-vcpkg/coverage.info') != '' }}
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
