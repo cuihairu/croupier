@@ -26,8 +26,7 @@ import {
 } from '@/services/api/functions';
 import SchemaRenderer from '@/components/formily/SchemaRenderer';
 import UISchemaEditor from '@/components/UISchemaEditor';
-import { FunctionFormRenderer, type JSONSchema } from '@/components/FunctionFormRenderer';
-import { featureFlags } from '@/config/featureFlags';
+import type { JSONSchema } from '@/components/FunctionFormRenderer';
 import { fetchOptions } from '@/services/schema/async';
 import { fetchFunctionUISchemaDocument } from '@/services/schema';
 import { validateUiSchema } from '@/services/schema/validateSchema';
@@ -123,7 +122,7 @@ export default function FunctionUIManager({
         res?.uiSource || (custom ? 'custom_metadata' : hasDefault ? 'openapi_x_ui' : 'none'),
       );
       setUISourceDetail(res?.uiSourceDetail || '');
-      setUpdatedAt(res?.updatedAt || '');
+      setUpdatedAt((res as any)?.updated_at || (res as any)?.updatedAt || '');
     } catch (e: any) {
       if (e?.response?.status === 404) {
         const generated = jsonSchema ? buildUISchemaFromJSONSchema(jsonSchema) : undefined;
@@ -415,16 +414,14 @@ export default function FunctionUIManager({
               回滚
             </Button>
           </Popconfirm>
-          {featureFlags.formilyDesigner && (
-            <Button
-              type="primary"
-              onClick={() =>
-                history.push(`/system/functions/${encodeURIComponent(functionId)}/ui-designer`)
-              }
-            >
-              打开函数表单设计器
-            </Button>
-          )}
+          <Button
+            type="primary"
+            onClick={() =>
+              history.push(`/system/functions/${encodeURIComponent(functionId)}/ui-designer`)
+            }
+          >
+            打开函数表单设计器
+          </Button>
           {(hasDefaultUI || useCustomUI) && (
             <Space>
               <span>自定义 UI:</span>
@@ -449,7 +446,7 @@ export default function FunctionUIManager({
       />
       {!hasDefaultUI && !uiConfig.schema ? (
         <Empty description="该函数没有配置 UI Schema" />
-      ) : featureFlags.formilyDesigner ? (
+      ) : (
         <>
           {(descriptor?.entity || descriptor?.operation) && (
             <Card size="small" style={{ marginBottom: 16 }} title="实体化 UI 优化">
@@ -581,178 +578,6 @@ export default function FunctionUIManager({
               fetchOptions,
             }}
           />
-        </>
-      ) : (
-        <>
-          {(descriptor?.entity || descriptor?.operation) && (
-            <Card size="small" style={{ marginBottom: 16 }} title="实体化 UI 优化">
-              <Row gutter={12}>
-                <Col span={24}>
-                  <Space wrap>
-                    <Tag color="blue">Entity: {String(descriptor?.entity || '-')}</Tag>
-                    <Tag color="purple">Operation: {String(descriptor?.operation || 'custom')}</Tag>
-                  </Space>
-                </Col>
-                <Col span={24}>
-                  <Space wrap style={{ marginTop: 8 }}>
-                    <Select
-                      size="small"
-                      value={presetOperation}
-                      style={{ width: 140 }}
-                      onChange={(v) => setPresetOperation(v)}
-                      options={[
-                        { label: 'Create', value: 'create' },
-                        { label: 'Read', value: 'read' },
-                        { label: 'Update', value: 'update' },
-                        { label: 'Delete', value: 'delete' },
-                        { label: 'Custom', value: 'custom' },
-                      ]}
-                    />
-                    <Button size="small" onClick={applyCrudPreset}>
-                      应用 CRUD 预设
-                    </Button>
-                    <Button size="small" onClick={() => handleSave(uiConfig.schema)}>
-                      保存到当前函数
-                    </Button>
-                    <Select
-                      size="small"
-                      mode="multiple"
-                      maxTagCount={2}
-                      style={{ minWidth: 320 }}
-                      placeholder="选择同实体函数进行批量同步"
-                      value={batchTargets}
-                      onChange={setBatchTargets}
-                      options={relatedFunctions.map((f) => ({ label: f.name, value: f.id }))}
-                    />
-                    <Button
-                      size="small"
-                      type="primary"
-                      loading={batchSaving}
-                      onClick={handleBatchApply}
-                    >
-                      批量同步 UI
-                    </Button>
-                  </Space>
-                </Col>
-                {relatedFunctions.length === 0 && (
-                  <Col span={24} style={{ marginTop: 8 }}>
-                    <Text type="secondary">当前实体暂无其他函数可同步。</Text>
-                  </Col>
-                )}
-              </Row>
-            </Card>
-          )}
-          <Alert
-            message="UI 预览（Legacy）"
-            description="当前使用旧版 UI Schema 预览与编辑"
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-          {autoGenerated && (
-            <Alert
-              message="已自动生成默认 UI"
-              description="当前函数无已配置 UI，系统根据 JSON Schema 生成了默认表单。可直接保存为自定义 UI。"
-              type="warning"
-              showIcon
-              action={
-                <Button size="small" type="primary" onClick={() => handleSave(uiConfig.schema)}>
-                  保存默认 UI
-                </Button>
-              }
-              style={{ marginBottom: 16 }}
-            />
-          )}
-
-          {jsonSchema ? (
-            <FunctionFormRenderer
-              schema={jsonSchema}
-              uiSchema={uiConfig.schema}
-              compact
-              submitText="预览提交"
-              showReset={false}
-            />
-          ) : (
-            <Alert
-              message="无法预览"
-              description="缺少函数的 JSON Schema，无法渲染表单预览"
-              type="warning"
-              showIcon
-            />
-          )}
-
-          <Divider />
-
-          {!useCustomUI && hasDefaultUI ? (
-            <Alert
-              message="启用自定义编辑"
-              description="请先启用自定义 UI 开关，才能编辑 UI 配置"
-              type="warning"
-              showIcon
-              action={
-                <Button type="primary" size="small" onClick={() => handleToggleCustomUI(true)}>
-                  启用自定义 UI
-                </Button>
-              }
-            />
-          ) : (
-            <>
-              {isDirty && (
-                <Alert
-                  message="有未保存修改"
-                  description="请点击“保存更改”提交，或“重置更改/取消”放弃本次编辑。"
-                  type="warning"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-              )}
-              <UISchemaEditor
-                value={uiConfig.schema}
-                jsonSchema={jsonSchema}
-                onChange={(newSchema) => {
-                  const changed =
-                    JSON.stringify(newSchema ?? null) !== JSON.stringify(originalSchema ?? null);
-                  setUiConfig((prev) => ({
-                    ...prev,
-                    schema: newSchema,
-                  }));
-                  setIsDirty(changed);
-                }}
-              />
-
-              <Divider />
-
-              <Space>
-                <Button
-                  type="primary"
-                  onClick={() => handleSave(uiConfig.schema)}
-                  loading={saving}
-                  disabled={!isDirty}
-                >
-                  保存更改
-                </Button>
-                <Button
-                  disabled={!isDirty}
-                  onClick={() => {
-                    setUiConfig((prev) => ({
-                      ...prev,
-                      schema: originalSchema,
-                    }));
-                    setIsDirty(false);
-                  }}
-                >
-                  重置更改
-                </Button>
-                <Button
-                  onClick={() => {
-                    loadUIConfig();
-                  }}
-                >
-                  取消
-                </Button>
-              </Space>
-            </>
-          )}
         </>
       )}
     </Card>
