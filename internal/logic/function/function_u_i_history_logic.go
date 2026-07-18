@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -33,8 +34,22 @@ func (l *FunctionUIHistoryLogic) FunctionUIHistory(req *FunctionUIHistoryRequest
 	if err != nil {
 		return nil, err
 	}
-	items := make([]FunctionUIHistoryItem, 0, len(versions))
+
+	// Filter by game scope for multi-game isolation.
+	gameID, env := svc.GameScopeFromContext(l.ctx)
+	scopeFiltered := make([]model.ConfigVersion, 0, len(versions))
 	for _, v := range versions {
+		if gameID != "" && v.GameID != gameID {
+			continue
+		}
+		if env != "" && v.Env != env {
+			continue
+		}
+		scopeFiltered = append(scopeFiltered, v)
+	}
+
+	items := make([]FunctionUIHistoryItem, 0, len(scopeFiltered))
+	for _, v := range scopeFiltered {
 		entry := FunctionUIHistoryItem{
 			Version:   v.Version,
 			Message:   v.Message,

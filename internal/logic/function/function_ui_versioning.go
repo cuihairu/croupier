@@ -71,10 +71,16 @@ func persistFunctionUIVersion(ctx context.Context, svcCtx *svc.ServiceContext, f
 	if strings.TrimSpace(username) == "" {
 		username = "system"
 	}
+
+	// Extract game scope from context for multi-game isolation.
+	gameID, env := svc.GameScopeFromContext(ctx)
+
 	_, err = svcCtx.ConfigVersionModel.CreateWithMeta(ctx, model.ConfigVersionPayload{
 		Key:     functionUIHistoryKey(fn.FunctionID),
 		Content: string(payload),
 		Format:  "json",
+		GameID:  gameID,
+		Env:     env,
 		Message: strings.TrimSpace(message),
 	}, username)
 	return err
