@@ -2,172 +2,246 @@
 
 ## 状态
 
-已采纳（2026-07-18）
+已采纳（2026-07-18），更新（2026-07-18）
 
-## 背景
+## 决策概要
 
-Croupier 的函数注册体系中，proto 层曾经定义了一套 UI 元数据扩展：
+1. **Proto 层废弃 UI 扩展**：UI 生成完全由 Server 端负责
+2. **Formily Schema 为唯一 UI Schema 格式**：全系统只用一种格式，无转换层
 
-- `FunctionOptions` 中的 `display_name`、`summary`、`tags`、`menu`、`permissions`
-- `EntityOptions` 中的 `display_name`、`summary`、`tags`、`menu`
-- `UIFieldOptions` 中的 `widget`、`label`、`placeholder`、`enum_map`、`show_if`、`required_if`
+---
 
-这些扩展通过 `protoc-gen-croupier` 插件提取，意图是让函数定义者在 proto 源码中声明 UI 如何展示。
+## 一、Proto 层职责分离
 
-## 决策
+### 背景
 
-**废弃 proto 层的全部 UI 元数据扩展，UI 生成完全由 Server 端负责。**
+Proto 层曾经定义了 UI 元数据扩展（`FunctionOptions.menu`/`permissions`、`UIFieldOptions` 全部字段）。这些已废弃。
 
-Proto 层只定义函数的 **API 契约**（行为语义），不定义 **展示细节**（UI 元素）。
+### 保留的 Proto 字段（API 契约 + 文档）
 
-## 原因
+| 字段 | 性质 |
+|------|------|
+| `function_id`、`version`、`category`、`risk`、`route`、`timeout` | API 契约 |
+| `two_person_rule`、`placement`、`mode`、`idempotency_key`、`labels` | API 契约 |
+| `display_name`、`summary`、`tags` | API 文档（流入 OpenAPI summary） |
 
-### 1. 静态定义 vs 动态需求
+### 废弃的 Proto 字段
 
-Proto 是编译时固定的。UI 需要根据运行时上下文动态调整：
+- `FunctionOptions.menu`/`permissions` → Server RBAC 管理
+- `EntityOptions.menu` → Server descriptors_logic 生成
+- `UIFieldOptions` 全部字段 → Server 从 JSON Schema 推导
 
-- 用户角色不同（管理员 vs 运营 vs 客服），看到的界面不同
-- 函数是否在线、有多少实例，影响展示方式
-- 游戏环境（dev/staging/prod）可能需要不同的 UI 配置
+---
 
-### 2. 耦合代价
+## 二、统一 UI Schema：Formily Schema
 
-如果 UI 定义在 proto 中：
+### 为什么选 Formily Schema
 
-- UI 变更需要重新生成 proto 代码、重新发布 SDK
-- 不同语言的 SDK 都需要重新编译
-- 运营人员无法自行调整界面，必须找开发改 proto
+| 能力 | Formily Schema | fields 格式 | JSON Schema |
+|------|---------------|-------------|-------------|
+| 指定组件 | `x-component` | `widget` | ❌ |
+| 组件属性 | `x-component-props` | 混在字段里 | `minimum` 等 |
+| 条件显示 | `x-reactions` | `show_if` | ❌ |
+| 嵌套/数组 | `properties`/`ArrayTable` | ❌ | `properties`/`items` |
+| 布局 | `FormGrid`/`Space` | `ui:layout` | ❌ |
+| 渲染器 | `SchemaRenderer` 直接渲染 | 需要转换 | 需要转换 |
 
-### 3. 已有完整的替代方案
+Formily Schema 是唯一能**直接被渲染器消费**的格式，不需要任何转换层。
 
-Server 端已有完整的 UI 生成和覆盖机制：
+### 统一后的数据流
 
-| 层级 | 机制 | 说明 |
-|------|------|------|
-| 自动生成 | `ui_resolver.go` | 从 `input_schema`（JSON Schema）自动推导 widget、label、验证规则 |
-| 兜底生成 | `fallback_openapi.go` | 根据 function ID 的 entity/action 推导默认字段集 |
-| 文件覆盖 | `configs/ui/functions/{id}.yaml` | 支持 YAML/JSON，运维可直接编辑 |
-| 运行时编辑 | Dashboard UI 编辑器 | 通过 `PUT /api/v1/functions/:id/ui` 持久化到数据库 |
-| 版本管理 | `config_versions` 表 | 支持历史查询和回滚 |
+```
+JSON Schema (input_schema，来自 SDK 注册)
+    │
+    ▼ 后端 deriveFormilySchema() — 一次生成
+Formily Schema
+    │
+    ├── 存储：functions.metadata.ui (Formily Schema)
+    ├── API：GET/PUT /api/v1/functions/:id/ui (Formily Schema)
+    ├── 编辑器：UISchemaEditor 直接编辑 Formily Schema
+    ├── 渲染器：SchemaRenderer 直接渲染 Formily Schema（无转换）
+    ├── 函数调用页：复用 SchemaRenderer 渲染调用表单
+    └── 版本管理：config_versions 表存储 Formily Schema 快照
+```
 
-优先级链：`自定义(metadata.ui)` → `文件覆盖(configs/ui/)` → `OpenAPI x-ui` → `兜底生成`
+**没有转换层。** 后端生成、前端编辑、渲染器消费，全链路同一格式。
 
-### 4. 分离关注点
+### Formily Schema 规范
 
-| 关注点 | 负责层 | 示例 |
-|--------|--------|------|
-| 函数身份 | Proto | `function_id`、`version` |
-| 行为语义 | Proto | `mode`(query/command)、`risk`、`idempotent`、`timeout` |
-| 路由策略 | Proto | `route`(lb/broadcast/targeted) |
-| 输入/输出契约 | Proto | `input_schema`、`output_schema`（JSON Schema） |
-| UI 展示 | Server + Dashboard | widget、label、菜单、权限、条件显示 |
+#### 顶层结构
 
-## Proto 层保留的字段
-
-以下字段属于 **API 契约或文档元数据**，保留在 `FunctionOptions` 中：
-
-| 字段 | 性质 | 说明 |
-|------|------|------|
-| `function_id` | API 契约 | 函数唯一标识 |
-| `version` | API 契约 | 版本号 |
-| `category` | API 契约 | 业务分类（影响路由和分组） |
-| `risk` | API 契约 | 风险等级（影响审批策略和审计） |
-| `route` | API 契约 | 路由策略 |
-| `timeout` | API 契约 | 超时设置 |
-| `two_person_rule` | API 契约 | 两人审批 |
-| `placement` | API 契约 | 部署位置 |
-| `mode` | API 契约 | 调用模式 |
-| `idempotency_key` | API 契约 | 幂等支持 |
-| `labels` | API 契约 | 元数据标签 |
-| `display_name` | API 文档 | 函数展示名称（i18n），流入 OpenAPI summary |
-| `summary` | API 文档 | 函数简介（i18n），流入 OpenAPI summary |
-| `tags` | API 文档 | 分类标签，用于分组和过滤 |
-
-## Proto 层废弃的字段
-
-以下字段已标记 `deprecated = true`，不再被插件或 Server 消费：
-
-### FunctionOptions（字段 15-16）
-
-- `menu` → Server 的 `descriptors_logic` 和 `ui_resolver` 生成
-- `permissions` → Server 的 `FunctionPolicy` 和 RBAC 系统管理
-
-### EntityOptions（字段 20）
-
-- `menu` → 同上
-
-### UIFieldOptions（全部字段）
-
-- `widget` → Server 从 JSON Schema type/format 自动推导
-- `label` → Server 从字段名推导，或通过 configs/ui/ 覆盖
-- `placeholder` → Server 从 description 推导
-- `sensitive` → Server 端审计脱敏配置
-- `enum_map` → Server 从 JSON Schema enum 推导
-- `show_if` / `required_if` → Dashboard UI 编辑器配置
-
-## 对现有代码的影响
-
-### protoc-gen-croupier 插件
-
-已清理的代码：
-
-- `parseFunctionOptions()` 不再提取 display_name、summary、tags、menu、permissions
-- 移除 `i18nToMap()`、`menuToMap()`、`permissionToMap()`
-- 移除 `collectUIFieldHints()`、`UIFieldHints` 类型
-
-保留的代码：
-
-- `parseFunctionOptions()` 仍提取 function_id、category、risk 等行为字段
-- `parseEntityOptions()` 仍提取 entity_id、primary_key 等实体定义字段
-- `buildJSONSchema()` 仍从 proto 消息生成 JSON Schema
-
-### Server 端
-
-无变更。`ui_resolver.go`、`fallback_openapi.go`、`descriptors_logic.go` 的逻辑不受影响。
-
-### 前端
-
-无变更。`function-ui-generator.ts`、`UISchemaEditor`、`FunctionUIManager` 的逻辑不受影响。
-
-## 迁移指南
-
-如果你的 proto 文件中使用了已废弃的 UI option：
-
-```protobuf
-// 旧写法（已废弃的字段）
-service PlayerService {
-  rpc Ban(BanRequest) returns (BanResponse) {
-    option (croupier.options.v1.function) = {
-      function_id: "player.ban"
-      category: "player"
-      risk: "high"
-      display_name { zh: "封禁玩家" en: "Ban Player" }  // ✅ 保留
-      summary { zh: "封禁指定玩家" en: "Ban a player" }  // ✅ 保留
-      tags: ["player", "moderation"]                      // ✅ 保留
-      menu { nodes: ["Player"] path: "/functions/invoke" }  // ← 删除
-      permissions { verbs: ["invoke"] }                     // ← 删除
-    };
-  }
+```json
+{
+  "type": "object",
+  "properties": {
+    "fieldName": { /* 字段定义 */ }
+  },
+  "required": ["fieldName"]
 }
+```
 
-// 新写法
-service PlayerService {
-  rpc Ban(BanRequest) returns (BanResponse) {
-    option (croupier.options.v1.function) = {
-      function_id: "player.ban"
-      category: "player"
-      risk: "high"
-      display_name { zh: "封禁玩家" en: "Ban Player" }
-      summary { zh: "封禁指定玩家" en: "Ban a player" }
-      tags: ["player", "moderation"]
-      // menu 和 permissions 由 Server 端管理
-    };
+#### 字段定义
+
+```json
+{
+  "type": "string",
+  "title": "玩家ID",
+  "description": "Player identifier",
+  "default": null,
+
+  "x-component": "Input",
+  "x-decorator": "FormItem",
+  "x-component-props": {
+    "placeholder": "请输入玩家ID",
+    "maxLength": 64
+  },
+
+  "x-reactions": {
+    "fulfill": {
+      "state": {
+        "visible": "{{$values.mode !== 'readonly'}}"
+      }
+    }
   }
 }
 ```
 
-如果需要自定义 UI，使用以下方式之一：
+#### 类型 → 组件映射表
 
-1. **文件配置**：创建 `configs/ui/functions/player.ban.yaml`
-2. **Dashboard 编辑器**：在函数详情页的"函数表单" Tab 中编辑
-3. **API**：`PUT /api/v1/functions/player.ban/ui`
+| JSON Schema type | 格式/枚举 | x-component | 说明 |
+|-----------------|----------|-------------|------|
+| `string` | — | `Input` | 普通文本 |
+| `string` | `format: date` | `DatePicker` | 日期 |
+| `string` | `format: date-time` | `DatePicker` + `showTime` | 日期时间 |
+| `string` | `format: textarea` | `Input.TextArea` | 多行文本 |
+| `string` | `enum` | `Select` | 下拉选择 |
+| `integer` / `number` | — | `NumberPicker` | 数字输入 |
+| `boolean` | — | `Switch` | 开关 |
+| `array` | `items.enum` | `Select` + `mode: multiple` | 多选 |
+| `array` | `items.object` | `ArrayTable` | 数组表格 |
+| `object` | — | `Card` + 递归 | 嵌套对象 |
+
+#### 约束映射
+
+| JSON Schema 约束 | Formily 位置 |
+|-----------------|-------------|
+| `minimum` | `x-component-props.min` |
+| `maximum` | `x-component-props.max` |
+| `minLength` | `x-component-props.minLength` |
+| `maxLength` | `x-component-props.maxLength` |
+| `pattern` | `x-component-props.pattern` |
+| `enum` | `enum`（顶层） |
+| `required` | `required`（顶层数组） |
+
+#### 布局
+
+```json
+{
+  "type": "void",
+  "x-component": "FormGrid",
+  "x-component-props": {
+    "minColumns": 2,
+    "maxColumns": 3
+  },
+  "properties": {
+    "playerId": { ... },
+    "amount": { ... }
+  }
+}
+```
+
+---
+
+## 三、优先级链
+
+UI 配置的加载优先级（不变）：
+
+```
+1. metadata.ui (custom)         → 用户通过编辑器保存的 Formily Schema
+2. configs/ui/functions/{id}.yaml → 文件级覆盖（也是 Formily Schema）
+3. open_api_spec["x-ui"]         → SDK 注册时携带的 x-ui 扩展
+4. deriveFormilySchema()         → 从 input_schema 自动生成 Formily Schema
+5. BuildFallbackFormilySchema()  → 从 function ID 推断的兜底 Formily Schema
+```
+
+所有层级输出的都是 **Formily Schema**，渲染器直接消费。
+
+---
+
+## 四、组件职责
+
+| 组件 | 职责 | 输入 | 输出 |
+|------|------|------|------|
+| 后端 `ui_resolver.go` | 加载/生成 UI 配置 | 函数记录 | Formily Schema |
+| 后端 `fallback.go` | 兜底生成 | function ID | Formily Schema |
+| API `/functions/:id/ui` | 读写 UI 配置 | HTTP | Formily Schema |
+| `SchemaRenderer` | 渲染表单 | Formily Schema | React 组件 |
+| `UISchemaEditor` | 编辑 UI 配置 | Formily Schema | Formily Schema |
+| `FunctionUIManager` | UI 管理面板 | functionId | 管理界面 |
+
+**废弃的组件**：
+- `FunctionFormRenderer` → 被 `SchemaRenderer` 替代
+- `function-ui-generator.ts` → 前端不再需要独立的 UI 生成逻辑
+- `functionUi.ts` 的 `toEditorUISchema`/`toRenderableUISchema` → 不再需要格式转换
+
+---
+
+## 五、API 契约
+
+### GET /api/v1/functions/:id/ui
+
+```json
+{
+  "schema": { /* Formily Schema */ },
+  "layout": { "type": "grid", "cols": 2 },
+  "components": {},
+  "custom": true,
+  "hasDefault": true,
+  "uiSource": "custom_metadata",
+  "uiSourceDetail": "metadata.ui (custom override)"
+}
+```
+
+### PUT /api/v1/functions/:id/ui
+
+```json
+{
+  "schema": { /* Formily Schema */ },
+  "layout": { "type": "grid", "cols": 2 },
+  "components": {}
+}
+```
+
+清除自定义 UI：
+```json
+{
+  "schema": { "__clear_custom_ui": true }
+}
+```
+
+---
+
+## 六、迁移指南
+
+### Proto 文件
+
+```protobuf
+// 保留
+option (croupier.options.v1.function) = {
+  function_id: "player.ban"
+  category: "player"
+  risk: "high"
+  display_name { zh: "封禁玩家" en: "Ban Player" }
+  summary { zh: "封禁指定玩家" en: "Ban a player" }
+  tags: ["player", "moderation"]
+  // menu 和 permissions 已废弃，由 Server 端管理
+};
+```
+
+### 自定义 UI
+
+不再需要手动编写 JSON Schema 或 fields 格式。使用以下方式之一：
+
+1. **Dashboard 编辑器**：函数详情页 → 函数表单 Tab → 编辑
+2. **API**：`PUT /api/v1/functions/:id/ui`（直接传 Formily Schema）
+3. **文件配置**：`configs/ui/functions/{id}.yaml`（Formily Schema 格式）
