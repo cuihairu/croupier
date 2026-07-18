@@ -188,30 +188,45 @@ export function renderXUIField(
   namePath: (string | number)[] = [fieldName],
   required: boolean = false,
 ): React.ReactNode {
+  // Merge Formily x-component-props into uiField when uiField is sparse
+  const compProps = schema?.['x-component-props'] || {};
+  const effectiveField: XUISchemaField = {
+    ...uiField,
+    placeholder: uiField.placeholder || compProps.placeholder,
+    min: uiField.min ?? compProps.min,
+    max: uiField.max ?? compProps.max,
+    minLength: uiField.minLength ?? compProps.minLength,
+    maxLength: uiField.maxLength ?? compProps.maxLength,
+    rows: uiField.rows ?? compProps.rows,
+    step: uiField.step ?? compProps.step,
+  };
+
   // Evaluate conditional rendering
-  const shouldShow = !uiField.show_if || evaluateCondition(uiField.show_if, formData, namePath);
+  const shouldShow = !effectiveField.show_if || evaluateCondition(effectiveField.show_if, formData, namePath);
   const shouldRequire =
-    required || (uiField.required_if && evaluateCondition(uiField.required_if, formData, namePath));
+    required || (effectiveField.required_if && evaluateCondition(effectiveField.required_if, formData, namePath));
   const shouldDisable =
-    uiField.disabled ||
-    (uiField.disabled_if && evaluateCondition(uiField.disabled_if, formData, namePath));
+    effectiveField.disabled ||
+    (effectiveField.disabled_if && evaluateCondition(effectiveField.disabled_if, formData, namePath));
 
   if (!shouldShow) return null;
 
   // Build validation rules
   const rules: any[] = [];
   if (shouldRequire) {
-    const message = uiField.errorMessages?.required || `${uiField.label || fieldName} is required`;
+    const message = effectiveField.errorMessages?.required || `${effectiveField.label || fieldName} is required`;
     rules.push({ required: true, message });
   }
 
   // Add schema-based validation
   if (schema) {
-    if (typeof schema.minLength === 'number') {
-      rules.push({ min: schema.minLength, message: `Minimum length is ${schema.minLength}` });
+    const minLen = effectiveField.minLength ?? schema.minLength;
+    const maxLen = effectiveField.maxLength ?? schema.maxLength;
+    if (typeof minLen === 'number') {
+      rules.push({ min: minLen, message: `Minimum length is ${minLen}` });
     }
-    if (typeof schema.maxLength === 'number') {
-      rules.push({ max: schema.maxLength, message: `Maximum length is ${schema.maxLength}` });
+    if (typeof maxLen === 'number') {
+      rules.push({ max: maxLen, message: `Maximum length is ${maxLen}` });
     }
     if (typeof schema.pattern === 'string') {
       try {
@@ -221,16 +236,16 @@ export function renderXUIField(
   }
 
   // Determine widget type
-  const widget = uiField.widget || getDefaultWidget(schema);
+  const widget = effectiveField.widget || getDefaultWidget(schema);
 
   // Build form item props
   const label = shouldRequire ? (
     <span>
-      {uiField.label || fieldName}
+      {effectiveField.label || schema?.title || fieldName}
       <span style={{ color: 'red' }}>*</span>
     </span>
   ) : (
-    uiField.label || fieldName
+    effectiveField.label || schema?.title || fieldName
   );
 
   const formItemProps = {
@@ -238,12 +253,12 @@ export function renderXUIField(
     label,
     rules,
     hidden: !shouldShow,
-    tooltip: uiField.description,
+    tooltip: effectiveField.description || schema?.description,
   };
   const formItemKey = namePath.join('.');
 
   // Render appropriate widget
-  const inputComponent = renderWidget(widget, schema, uiField, shouldDisable, formData);
+  const inputComponent = renderWidget(widget, schema, effectiveField, shouldDisable, formData);
 
   return (
     <Form.Item key={formItemKey} {...formItemProps}>
@@ -254,6 +269,24 @@ export function renderXUIField(
 
 function getDefaultWidget(schema: any): string {
   if (!schema) return 'input';
+
+  // Formily Schema: infer widget from x-component
+  const comp = schema['x-component'];
+  if (comp) {
+    const key = String(comp).toLowerCase();
+    if (key.includes('numberpicker') || key === 'number') return 'number';
+    if (key === 'switch') return 'switch';
+    if (key === 'datepicker') return schema.format === 'date-time' ? 'datetime' : 'date';
+    if (key === 'timepicker') return 'time';
+    if (key === 'select') return schema.enum ? 'select' : 'input';
+    if (key.includes('textarea')) return 'textarea';
+    if (key === 'checkbox') return 'checkbox';
+    if (key === 'radio') return 'radio';
+    if (key === 'rate') return 'rate';
+    if (key === 'slider') return 'slider';
+    if (key.includes('arraytable') || key === 'arrayitems') return 'array';
+    if (key === 'input' || key.includes('input.')) return 'input';
+  }
 
   switch (schema.type) {
     case 'boolean':

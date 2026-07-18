@@ -42,9 +42,19 @@ const { Text, Paragraph } = Typography;
 // Render form items from JSON Schema subset
 type UISchema = {
   fields?: Record<string, any>;
+  properties?: Record<string, any>;
   'ui:layout'?: { type?: 'grid'; cols?: number };
   'ui:groups'?: Array<{ title?: string; fields: string[] }>;
 };
+
+// Extract fields from UISchema, supporting both old fields format and Formily Schema properties
+function resolveFields(ui: UISchema | undefined): Record<string, any> {
+  if (!ui) return {};
+  if (ui.fields && Object.keys(ui.fields).length > 0) return ui.fields;
+  // Formily Schema: properties with x-component are the field definitions
+  if (ui.properties && Object.keys(ui.properties).length > 0) return ui.properties;
+  return {};
+}
 
 function extractOpenAPIRequestSchema(operation: any): any | null {
   const schema = operation?.requestBody?.content?.['application/json']?.schema;
@@ -71,7 +81,7 @@ function renderXFormItems(
   const required: string[] = (desc?.params && desc.params.required) || [];
   const values = formValues;
 
-  const uiFields = ui?.fields || {};
+  const uiFields = resolveFields(ui);
 
   // Enhanced group rendering with XUISchema
   const groups: Array<{ title?: string; fields: string[] }> =
@@ -207,7 +217,7 @@ export default function GmFunctionsPage() {
     if (effectiveSchema) {
       return buildUISchemaFromJSONSchema(effectiveSchema);
     }
-    return { fields: {} };
+    return { properties: {} };
   }, [uiSchema, openapiOperation, effectiveSchema]);
 
   useEffect(() => {
@@ -511,7 +521,7 @@ export default function GmFunctionsPage() {
             return (
               <FormRender
                 schema={effectiveSchema as any}
-                uiSchema={effectiveUISchema?.fields || {}}
+                uiSchema={resolveFields(effectiveUISchema)}
                 formData={formData}
                 onChange={setFormData}
                 displayType="row"

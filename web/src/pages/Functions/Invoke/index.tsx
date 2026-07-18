@@ -15,7 +15,6 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import { history, useLocation, getLocale } from '@umijs/max';
 import {
   FunctionFormRenderer,
-  type FormUISchema,
   type JSONSchema,
 } from '@/components/FunctionFormRenderer';
 import {
@@ -42,8 +41,8 @@ type JSONSchemaFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'array'
 const isObject = (v: any): v is Record<string, any> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
 
-const isFormUISchema = (v: any): v is FormUISchema => isObject(v);
-const isLegacyUISchema = (v: any): v is FormUISchema =>
+const isFormUISchema = (v: any): v is Record<string, any> => isObject(v);
+const isLegacyUISchema = (v: any): v is Record<string, any> =>
   isObject(v) &&
   (Object.prototype.hasOwnProperty.call(v, 'fields') ||
     Object.prototype.hasOwnProperty.call(v, 'ui:layout') ||
@@ -128,12 +127,12 @@ const getRequestSchemaFromOpenAPI = (operation?: OpenAPIOperation): JSONSchema |
   return { type: 'object', properties, required };
 };
 
-const getUISchemaFromOpenAPI = (operation?: OpenAPIOperation): FormUISchema | undefined => {
+const getUISchemaFromOpenAPI = (operation?: OpenAPIOperation): Record<string, any> | undefined => {
   const ui = operation?.['x-ui'] || operation?.extensions?.['x-ui'];
   return isFormUISchema(ui) ? ui : undefined;
 };
 
-const buildSchemaFromUISchema = (ui?: FormUISchema): JSONSchema | undefined => {
+const buildSchemaFromUISchema = (ui?: Record<string, any>): JSONSchema | undefined => {
   const fields = ui?.fields || {};
   const keys = Object.keys(fields);
   if (!keys.length) return undefined;
@@ -159,7 +158,7 @@ const normalizeCustomUISchema = (
   raw: any,
 ): {
   kind: 'none' | 'legacy' | 'json-schema' | 'formily' | 'invalid';
-  legacy?: FormUISchema;
+  legacy?: Record<string, any>;
   jsonSchema?: JSONSchema;
   formily?: any;
 } => {
@@ -177,14 +176,14 @@ const normalizeCustomUISchema = (
   if (!isObject(parsed)) return { kind: 'invalid' };
   const keys = Object.keys(parsed);
   if (keys.length === 0) return { kind: 'none' };
-  if (isLegacyUISchema(parsed)) return { kind: 'legacy', legacy: parsed as FormUISchema };
+  if (isLegacyUISchema(parsed)) return { kind: 'legacy', legacy: parsed as Record<string, any> };
   if (isJSONSchemaLike(parsed)) return { kind: 'json-schema', jsonSchema: parsed as JSONSchema };
   if (isFormilySchema(parsed) && hasFormilyComponent(parsed))
     return { kind: 'formily', formily: parsed };
   if (isFormilySchema(parsed) && !hasFormilyComponent(parsed)) {
     return { kind: 'json-schema', jsonSchema: parsed as JSONSchema };
   }
-  return { kind: 'legacy', legacy: parsed as FormUISchema };
+  return { kind: 'legacy', legacy: parsed as Record<string, any> };
 };
 
 const resolveName = (d: FunctionDescriptor, locale: string) => {
@@ -308,8 +307,8 @@ export default function FunctionRuntimeUIPage() {
   const [executing, setExecuting] = useState(false);
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
   const [openapiOperation, setOpenapiOperation] = useState<OpenAPIOperation | undefined>(undefined);
-  const [uiSchema, setUISchema] = useState<FormUISchema | undefined>(undefined);
-  const [customUISchema, setCustomUISchema] = useState<FormUISchema | undefined>(undefined);
+  const [uiSchema, setUISchema] = useState<Record<string, any> | undefined>(undefined);
+  const [customUISchema, setCustomUISchema] = useState<Record<string, any> | undefined>(undefined);
   const [customJSONSchema, setCustomJSONSchema] = useState<JSONSchema | undefined>(undefined);
   const [uiSource, setUISource] = useState<'custom' | 'openapi' | 'generated'>('generated');
   const [uiResolving, setUIResolving] = useState(false);
@@ -425,7 +424,7 @@ export default function FunctionRuntimeUIPage() {
           }
           if (active && normalized.kind === 'json-schema' && normalized.jsonSchema) {
             setCustomJSONSchema(normalized.jsonSchema);
-            setUISchema(buildUISchemaFromJSONSchema(normalized.jsonSchema) as FormUISchema);
+            setUISchema(buildUISchemaFromJSONSchema(normalized.jsonSchema) as Record<string, any>);
             setUISource('custom');
             return;
           }
@@ -433,7 +432,7 @@ export default function FunctionRuntimeUIPage() {
             const converted = buildJSONSchemaFromFormily(normalized.formily);
             if (converted && Object.keys(converted.properties || {}).length > 0) {
               setCustomJSONSchema(converted);
-              setUISchema(buildUISchemaFromJSONSchema(converted) as FormUISchema);
+              setUISchema(buildUISchemaFromJSONSchema(converted) as Record<string, any>);
               setUISource('custom');
               return;
             }
@@ -454,7 +453,7 @@ export default function FunctionRuntimeUIPage() {
           setUISource('openapi');
           return;
         }
-        setUISchema(buildUISchemaFromJSONSchema(openapiSchema || baseSchema) as FormUISchema);
+        setUISchema(buildUISchemaFromJSONSchema(openapiSchema || baseSchema) as Record<string, any>);
         setUISource(openapiSchema ? 'openapi' : 'generated');
       } catch {
         if (!active) return;
@@ -464,7 +463,7 @@ export default function FunctionRuntimeUIPage() {
           parsed && parsed.type === 'object'
             ? (parsed as JSONSchema)
             : buildGeneratedSchema(selected);
-        setUISchema(buildUISchemaFromJSONSchema(fallbackSchema) as FormUISchema);
+        setUISchema(buildUISchemaFromJSONSchema(fallbackSchema) as Record<string, any>);
         setUISource('generated');
       } finally {
         if (active) setUIResolving(false);
