@@ -64,9 +64,9 @@ jobs:
           pnpm exec eslint \
             src/components/index.ts \
             src/pages/Console/index.tsx \
-            src/pages/DynamicPage/index.tsx \
             src/pages/Functions/Detail.tsx \
             src/pages/Functions/Directory/index.tsx \
+            src/pages/Functions/Invoke/index.tsx \
             src/pages/WorkspaceEditor/components/ConfigPreview.tsx \
             src/pages/WorkspaceEditor/components/TemplateManager.tsx \
             src/pages/WorkspaceEditor/index.tsx \
