@@ -59,6 +59,125 @@ import { CodeEditor } from '@/components/MonacoDynamic';
 const { TextArea } = Input;
 const { Option } = Select;
 
+// ========== Formily Schema <-> FieldConfig conversion ==========
+
+const FORMILY_COMPONENT_TO_WIDGET: Record<string, string> = {
+  Input: 'input',
+  'Input.TextArea': 'textarea',
+  NumberPicker: 'number',
+  Switch: 'switch',
+  Select: 'select',
+  DatePicker: 'date',
+  TimePicker: 'time',
+  Checkbox: 'checkbox',
+  Radio: 'radio',
+  Rate: 'rate',
+  Slider: 'slider',
+  ArrayTable: 'arrayTable',
+  ArrayItems: 'arrayItems',
+};
+
+const WIDGET_TO_FORMILY_COMPONENT: Record<string, string> = {
+  input: 'Input',
+  textarea: 'Input.TextArea',
+  number: 'NumberPicker',
+  switch: 'Switch',
+  select: 'Select',
+  multiselect: 'Select',
+  date: 'DatePicker',
+  datetime: 'DatePicker',
+  time: 'TimePicker',
+  checkbox: 'Checkbox',
+  radio: 'Radio',
+  rate: 'Rate',
+  slider: 'Slider',
+  arrayTable: 'ArrayTable',
+  arrayItems: 'ArrayItems',
+};
+
+function formilyToFieldConfig(prop: Record<string, any>): FieldConfig {
+  if (!prop || typeof prop !== 'object') return {};
+  const comp = prop['x-component'] || '';
+  const compProps = prop['x-component-props'] || {};
+  const widget =
+    FORMILY_COMPONENT_TO_WIDGET[comp] ||
+    (comp.toLowerCase().includes('input') ? 'input' : undefined);
+
+  return {
+    type: prop.type,
+    title: prop.title,
+    description: prop.description,
+    placeholder: compProps.placeholder,
+    widget,
+    default: prop.default,
+    enum: prop.enum,
+    enumNames: prop['x-component-props']?.enumNames || prop.enumNames,
+    format: prop.format,
+    minimum: compProps.min ?? prop.minimum,
+    maximum: compProps.max ?? prop.maximum,
+    minLength: compProps.minLength ?? prop.minLength,
+    maxLength: compProps.maxLength ?? prop.maxLength,
+    pattern: compProps.pattern ?? prop.pattern,
+    readOnly: prop.readOnly,
+    disabled: compProps.disabled,
+    hidden: prop['x-visible'] === false,
+    span: compProps.span,
+    rows: compProps.rows,
+    step: compProps.step,
+    show_if: prop['x-reactions']?.fulfill?.state?.visible,
+  };
+}
+
+function fieldConfigToFormily(name: string, config: FieldConfig): Record<string, any> {
+  const comp = config.widget
+    ? WIDGET_TO_FORMILY_COMPONENT[config.widget] || 'Input'
+    : 'Input';
+
+  const prop: Record<string, any> = {
+    type: config.type || 'string',
+    title: config.title || name,
+  };
+
+  if (config.description) prop.description = config.description;
+  if (config.default !== undefined) prop.default = config.default;
+  if (config.enum) prop.enum = config.enum;
+  if (config.format) prop.format = config.format;
+  if (config.readOnly) prop.readOnly = true;
+
+  prop['x-component'] = comp;
+  prop['x-decorator'] = 'FormItem';
+
+  // Build x-component-props
+  const compProps: Record<string, any> = {};
+  if (config.placeholder) compProps.placeholder = config.placeholder;
+  if (config.minimum != null) compProps.min = config.minimum;
+  if (config.maximum != null) compProps.max = config.maximum;
+  if (config.minLength != null) compProps.minLength = config.minLength;
+  if (config.maxLength != null) compProps.maxLength = config.maxLength;
+  if (config.pattern) compProps.pattern = config.pattern;
+  if (config.disabled) compProps.disabled = true;
+  if (config.span) compProps.span = config.span;
+  if (config.rows) compProps.rows = config.rows;
+  if (config.step) compProps.step = config.step;
+  if (config.enumNames) compProps.enumNames = config.enumNames;
+  if (Object.keys(compProps).length > 0) {
+    prop['x-component-props'] = compProps;
+  }
+
+  return prop;
+}
+
+function fieldConfigsToFormily(schema: any): any {
+  if (!schema || typeof schema !== 'object') return schema;
+  if (!schema.properties || typeof schema.properties !== 'object') return schema;
+
+  const converted: Record<string, any> = {};
+  for (const [key, config] of Object.entries(schema.properties)) {
+    converted[key] = fieldConfigToFormily(key, config as FieldConfig);
+  }
+  return { ...schema, properties: converted };
+}
+
 function buildPreviewSeed(fields: Array<[string, FieldConfig]>) {
   const data: Record<string, any> = {};
   fields.forEach(([field, config]) => {
@@ -123,8 +242,13 @@ interface FieldConfig {
   readOnly?: boolean;
   disabled?: boolean;
   hidden?: boolean;
+  show_if?: string;
+  required_if?: string;
+  disabled_if?: string;
   width?: string | number;
   span?: number;
+  rows?: number;
+  step?: number;
   dependencies?: string[];
   colon?: boolean;
   rules?: any[];
@@ -613,6 +737,14 @@ export default function UISchemaEditor({ value, onChange, jsonSchema }: UISchema
         properties: {},
       };
     }
+    // Normalize Formily Schema properties to FieldConfig format for editing
+    if (input.properties && typeof input.properties === 'object') {
+      const normalized: Record<string, any> = {};
+      for (const [key, prop] of Object.entries(input.properties)) {
+        normalized[key] = formilyToFieldConfig(prop as Record<string, any>);
+      }
+      return { ...input, properties: normalized };
+    }
     return input;
   };
   const [uiSchemaData, setUiSchemaData] = useState<any>(buildUISchema(value));
@@ -670,7 +802,14 @@ export default function UISchemaEditor({ value, onChange, jsonSchema }: UISchema
       setJsonError('');
       setJsonErrorLine(null);
       setMonacoMarker();
-      onChange?.(nextSchema);
+
+      // Convert FieldConfig properties back to Formily Schema before emitting.
+      // Skip if already in Formily format (code editor path).
+      const isAlreadyFormily = nextSchema.properties && Object.values(nextSchema.properties).some(
+        (p: any) => p && typeof p === 'object' && typeof p['x-component'] === 'string',
+      );
+      const emitted = isAlreadyFormily ? nextSchema : fieldConfigsToFormily(nextSchema);
+      onChange?.(emitted);
     },
     [uiSchemaData, onChange, setMonacoMarker],
   );
