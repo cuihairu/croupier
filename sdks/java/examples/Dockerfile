@@ -6,15 +6,15 @@ COPY sdks/java /src/sdks/java
 
 WORKDIR /src/sdks/java
 RUN chmod +x gradlew || true \
-    && ./gradlew --no-daemon jar
+    && ./gradlew --no-daemon jar copyRuntimeDependencies
 
 RUN mkdir -p /out/classes \
     && javac \
-      -cp "build/libs/croupier-java-sdk-0.1.1-SNAPSHOT.jar:examples/game-demo/lib/*" \
+      -cp "build/libs/croupier-java-sdk-0.1.1-SNAPSHOT.jar:build/runtime-deps/*" \
       -d /out/classes \
       examples/game-demo/src/main/java/com/croupier/sdk/examples/GameDemo.java \
     && cp build/libs/croupier-java-sdk-0.1.1-SNAPSHOT.jar /out/croupier-java-sdk.jar \
-    && cp -r examples/game-demo/lib /out/lib
+    && cp -r build/runtime-deps /out/lib
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app

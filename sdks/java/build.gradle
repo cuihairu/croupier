@@ -98,6 +98,11 @@ tasks.named("sourcesJar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+tasks.register('copyRuntimeDependencies', Copy) {
+    from configurations.runtimeClasspath
+    into layout.buildDirectory.dir('runtime-deps')
+}
+
 
 // Determine if this is a release build
 boolean isRelease = System.getenv('GITHUB_REF_TYPE') == 'tag'
