@@ -119,6 +119,12 @@ func main() {
 				if fo.Risk != "" {
 					op.Risk = strings.ToLower(fo.Risk)
 				}
+				if len(fo.DisplayName) > 0 {
+					op.Summary = fo.DisplayName
+				}
+				if len(fo.Summary) > 0 {
+					op.Summary = fo.Summary
+				}
 				if len(fo.Labels) > 0 {
 					op.Labels = fo.Labels
 				}
@@ -629,6 +635,9 @@ type funcOpts struct {
 	IdempotencyKey    bool
 	IdempotencyKeySet bool
 	Labels            map[string]string
+	DisplayName       map[string]string
+	Summary           map[string]string
+	Tags              []string
 }
 
 func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
@@ -659,9 +668,17 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 					out.Labels[k] = v
 				}
 			}
-			// Note: UI fields (display_name, summary, tags, menu, permissions)
-			// are deprecated in proto and no longer extracted. UI generation is
-			// handled entirely by the Server side. See docs/architecture/ui-generation.md.
+			if dn := i18nToMap(fn.GetDisplayName()); len(dn) > 0 {
+				out.DisplayName = dn
+			}
+			if sm := i18nToMap(fn.GetSummary()); len(sm) > 0 {
+				out.Summary = sm
+			}
+			if len(fn.GetTags()) > 0 {
+				out.Tags = append([]string{}, fn.GetTags()...)
+			}
+			// Note: UI fields (menu, permissions) are deprecated in proto
+			// and no longer extracted. See docs/architecture/ui-generation.md.
 			return out
 		}
 	}
@@ -696,9 +713,23 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 	return out
 }
 
-// i18nToMap, menuToMap, permissionToMap were removed.
-// These extracted UI metadata from proto options which are now deprecated.
-// UI generation is handled entirely by the Server side.
+func i18nToMap(t *ui.I18NText) map[string]string {
+	if t == nil {
+		return nil
+	}
+	out := map[string]string{}
+	if v := strings.TrimSpace(t.GetEn()); v != "" {
+		out["en"] = v
+	}
+	if v := strings.TrimSpace(t.GetZh()); v != "" {
+		out["zh"] = v
+	}
+	return out
+}
+
+// menuToMap, permissionToMap were removed.
+// Menu and permissions are deprecated UI concerns.
+// See docs/architecture/ui-generation.md.
 
 func parseAggregateKV(s string) map[string]string {
 	// very small tolerant parser for key: value pairs inside {...}

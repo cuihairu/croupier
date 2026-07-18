@@ -64,35 +64,37 @@ Server 端已有完整的 UI 生成和覆盖机制：
 
 ## Proto 层保留的字段
 
-以下字段属于 **API 契约**，保留在 `FunctionOptions` 中：
+以下字段属于 **API 契约或文档元数据**，保留在 `FunctionOptions` 中：
 
-- `function_id` — 函数唯一标识
-- `version` — 版本号
-- `category` — 业务分类（影响路由和分组）
-- `risk` — 风险等级（影响审批策略和审计）
-- `route` — 路由策略
-- `timeout` — 超时设置
-- `two_person_rule` — 两人审批
-- `placement` — 部署位置
-- `mode` — 调用模式
-- `idempotency_key` — 幂等支持
-- `labels` — 元数据标签
+| 字段 | 性质 | 说明 |
+|------|------|------|
+| `function_id` | API 契约 | 函数唯一标识 |
+| `version` | API 契约 | 版本号 |
+| `category` | API 契约 | 业务分类（影响路由和分组） |
+| `risk` | API 契约 | 风险等级（影响审批策略和审计） |
+| `route` | API 契约 | 路由策略 |
+| `timeout` | API 契约 | 超时设置 |
+| `two_person_rule` | API 契约 | 两人审批 |
+| `placement` | API 契约 | 部署位置 |
+| `mode` | API 契约 | 调用模式 |
+| `idempotency_key` | API 契约 | 幂等支持 |
+| `labels` | API 契约 | 元数据标签 |
+| `display_name` | API 文档 | 函数展示名称（i18n），流入 OpenAPI summary |
+| `summary` | API 文档 | 函数简介（i18n），流入 OpenAPI summary |
+| `tags` | API 文档 | 分类标签，用于分组和过滤 |
 
 ## Proto 层废弃的字段
 
 以下字段已标记 `deprecated = true`，不再被插件或 Server 消费：
 
-### FunctionOptions（字段 12-16）
+### FunctionOptions（字段 15-16）
 
-- `display_name` → Server 从 function ID 和 category 推导
-- `summary` → Server 从 description 推导
-- `tags` → Server 从 category 和 function ID 推导
-- `menu` → Server 的 `descriptors_logic` 生成
+- `menu` → Server 的 `descriptors_logic` 和 `ui_resolver` 生成
 - `permissions` → Server 的 `FunctionPolicy` 和 RBAC 系统管理
 
-### EntityOptions（字段 17-20）
+### EntityOptions（字段 20）
 
-- `display_name`、`summary`、`tags`、`menu` → 同上
+- `menu` → 同上
 
 ### UIFieldOptions（全部字段）
 
@@ -132,15 +134,18 @@ Server 端已有完整的 UI 生成和覆盖机制：
 如果你的 proto 文件中使用了已废弃的 UI option：
 
 ```protobuf
-// 旧写法（已废弃）
+// 旧写法（已废弃的字段）
 service PlayerService {
   rpc Ban(BanRequest) returns (BanResponse) {
     option (croupier.options.v1.function) = {
       function_id: "player.ban"
       category: "player"
       risk: "high"
-      display_name { zh: "封禁玩家" en: "Ban Player" }  // ← 删除
+      display_name { zh: "封禁玩家" en: "Ban Player" }  // ✅ 保留
+      summary { zh: "封禁指定玩家" en: "Ban a player" }  // ✅ 保留
+      tags: ["player", "moderation"]                      // ✅ 保留
       menu { nodes: ["Player"] path: "/functions/invoke" }  // ← 删除
+      permissions { verbs: ["invoke"] }                     // ← 删除
     };
   }
 }
@@ -152,7 +157,10 @@ service PlayerService {
       function_id: "player.ban"
       category: "player"
       risk: "high"
-      // UI 由 Server 端自动生成，或通过 Dashboard 编辑器自定义
+      display_name { zh: "封禁玩家" en: "Ban Player" }
+      summary { zh: "封禁指定玩家" en: "Ban a player" }
+      tags: ["player", "moderation"]
+      // menu 和 permissions 由 Server 端管理
     };
   }
 }

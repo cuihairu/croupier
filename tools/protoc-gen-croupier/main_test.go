@@ -23,8 +23,10 @@ func TestParseFunctionOptions_Extension(t *testing.T) {
 		Mode:           "command",
 		IdempotencyKey: true,
 		Labels:         map[string]string{"team": "gm"},
-		// UI fields (display_name, summary, tags, menu, permissions) are
-		// deprecated and no longer extracted by the plugin.
+		DisplayName:    &componentv1.I18NText{Zh: "封禁玩家", En: "Ban Player"},
+		Summary:        &componentv1.I18NText{Zh: "封禁指定玩家", En: "Ban a player"},
+		Tags:           []string{"player", "moderation"},
+		// UI fields (menu, permissions) are deprecated and no longer extracted.
 	})
 
 	out := parseFunctionOptions(mo)
@@ -41,6 +43,9 @@ func TestParseFunctionOptions_Extension(t *testing.T) {
 	require.True(t, out.IdempotencyKeySet)
 	require.True(t, out.IdempotencyKey)
 	require.Equal(t, map[string]string{"team": "gm"}, out.Labels)
+	require.Equal(t, map[string]string{"zh": "封禁玩家", "en": "Ban Player"}, out.DisplayName)
+	require.Equal(t, map[string]string{"zh": "封禁指定玩家", "en": "Ban a player"}, out.Summary)
+	require.Equal(t, []string{"player", "moderation"}, out.Tags)
 }
 
 func TestFieldToJSONSchema_RepeatedString(t *testing.T) {

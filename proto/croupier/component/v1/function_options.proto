@@ -58,17 +58,18 @@ message FunctionOptions {
   // 是否启用幂等键（默认 false）
   bool idempotency_key = 11;
 
+  // ========== 展示元数据（API 文档，仍在使用） ==========
+  // 展示名称与摘要（i18n）
+  croupier.component.v1.I18nText display_name = 12;
+  croupier.component.v1.I18nText summary      = 13;
+  // 标签
+  repeated string tags = 14;
+
   // ========== 废弃：UI/菜单/权限元数据 ==========
   // 以下字段已被废弃，不再被 protoc-gen-croupier 或 Server 消费。
   // UI 生成完全由 Server 端负责，见 docs/architecture/ui-generation.md。
   // 保留字段编号以维持 wire 兼容性，新代码不应设置这些字段。
 
-  // 已废弃：展示名称。由 Server 端 ui_resolver 从函数 ID 和 category 推导。
-  croupier.component.v1.I18nText display_name = 12 [deprecated = true];
-  // 已废弃：摘要。由 Server 端从 description 或 input_schema 推导。
-  croupier.component.v1.I18nText summary      = 13 [deprecated = true];
-  // 已废弃：标签。由 Server 端从 category 和 function ID 推导。
-  repeated string tags = 14 [deprecated = true];
   // 已废弃：菜单元数据。由 Server 端 descriptors_logic 和 ui_resolver 生成。
   croupier.component.v1.Menu menu = 15 [deprecated = true];
   // 已废弃：权限规范。由 Server 端 FunctionPolicy 和 RBAC 系统管理。
@@ -115,16 +116,12 @@ message EntityOptions {
   // 自定义操作（key: 操作名, value: 函数ID列表）
   map<string, string> custom_operations = 16;
 
-  // ========== 废弃：UI 元数据 ==========
-  // 以下字段已被废弃，UI 生成完全由 Server 端负责。
-  // 保留字段编号以维持 wire 兼容性，新代码不应设置这些字段。
+  // ========== 展示元数据（API 文档，仍在使用） ==========
+  croupier.component.v1.I18nText display_name = 17;
+  croupier.component.v1.I18nText summary = 18;
+  repeated string tags = 19;
 
-  // 已废弃：展示名称。由 Server 端从 entity_id 和 category 推导。
-  croupier.component.v1.I18nText display_name = 17 [deprecated = true];
-  // 已废弃：摘要。由 Server 端从 description 推导。
-  croupier.component.v1.I18nText summary = 18 [deprecated = true];
-  // 已废弃：标签。由 Server 端从 category 推导。
-  repeated string tags = 19 [deprecated = true];
+  // ========== 废弃：UI 菜单元数据 ==========
   // 已废弃：菜单元数据。由 Server 端 descriptors_logic 生成。
   croupier.component.v1.Menu menu = 20 [deprecated = true];
 }
