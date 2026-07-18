@@ -31,6 +31,14 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 		defaultUI = fn.OpenAPISpec["x-ui"]
 	}
 	if defaultUI == nil {
+		// Try to derive UI from input_schema (JSON Schema) stored in OpenAPISpec.
+		// This produces a much better UI than the hardcoded fallback fields.
+		inputSchema := extractInputSchema(fn)
+		if inputSchema != nil {
+			defaultUI = deriveUISchemaFromJSONSchema(inputSchema)
+		}
+	}
+	if defaultUI == nil {
 		defaultUI = BuildFallbackUISchema(fn.FunctionID)
 	}
 
@@ -55,8 +63,10 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 		uiSource = "generated_default"
 		uiSourceDetail = "generated default ui schema"
 		if fn.OpenAPISpec != nil {
-			uiSource = "openapi_x_ui"
-			uiSourceDetail = "openapi_spec.x-ui (provider default)"
+			if _, hasXUI := fn.OpenAPISpec["x-ui"]; hasXUI {
+				uiSource = "openapi_x_ui"
+				uiSourceDetail = "openapi_spec.x-ui (provider default)"
+			}
 		}
 	}
 
@@ -206,4 +216,162 @@ func mergeAny(base, override interface{}) interface{} {
 		}
 	}
 	return merged
+}
+
+// extractInputSchema extracts the input JSON Schema from a function's stored data.
+// It checks multiple locations in OpenAPISpec and Metadata.
+func extractInputSchema(fn *model.Function) map[string]interface{} {
+	if fn == nil {
+		return nil
+	}
+
+	// Check OpenAPISpec for embedded request body schema
+	if fn.OpenAPISpec != nil {
+		if schema := extractSchemaFromOpenAPISpec(fn.OpenAPISpec); schema != nil {
+			return schema
+		}
+	}
+
+	// Check Metadata for input_schema (stored by SDK registration)
+	if fn.Metadata != nil {
+		if raw, ok := fn.Metadata["input_schema"]; ok {
+			if schema, ok := raw.(map[string]interface{}); ok {
+				return schema
+			}
+			if str, ok := raw.(string); ok && str != "" {
+				var schema map[string]interface{}
+				if json.Unmarshal([]byte(str), &schema) == nil {
+					return schema
+				}
+			}
+		}
+		if raw, ok := fn.Metadata["inputSchema"]; ok {
+			if schema, ok := raw.(map[string]interface{}); ok {
+				return schema
+			}
+			if str, ok := raw.(string); ok && str != "" {
+				var schema map[string]interface{}
+				if json.Unmarshal([]byte(str), &schema) == nil {
+					return schema
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// extractSchemaFromOpenAPISpec extracts the request body JSON Schema from an
+// OpenAPI 3.0.3 Operation object stored as a map.
+func extractSchemaFromOpenAPISpec(spec map[string]interface{}) map[string]interface{} {
+	// Try requestBody.content.application/json.schema
+	rb, ok := spec["requestBody"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	content, ok := rb["content"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	jsonMedia, ok := content["application/json"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	schema, ok := jsonMedia["schema"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return schema
+}
+
+// deriveUISchemaFromJSONSchema converts a JSON Schema into a UI schema suitable
+// for the Dashboard form renderer. It maps JSON Schema types and constraints
+// to widget types and validation rules.
+func deriveUISchemaFromJSONSchema(schema map[string]interface{}) map[string]interface{} {
+	if schema == nil {
+		return nil
+	}
+
+	schemaType, _ := schema["type"].(string)
+	if schemaType != "object" {
+		return nil
+	}
+
+	props, ok := schema["properties"].(map[string]interface{})
+	if !ok || len(props) == 0 {
+		return nil
+	}
+
+	requiredSet := map[string]bool{}
+	if reqArr, ok := schema["required"].([]interface{}); ok {
+		for _, r := range reqArr {
+			if s, ok := r.(string); ok {
+				requiredSet[s] = true
+			}
+		}
+	}
+
+	uiProperties := map[string]interface{}{}
+	required := make([]string, 0)
+
+	for name, raw := range props {
+		prop, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		uiProp := map[string]interface{}{
+			"type":  prop["type"],
+			"title": firstNonEmptyString(prop["title"], prop["description"], name),
+		}
+		if desc, ok := prop["description"].(string); ok && desc != "" {
+			uiProp["description"] = desc
+		}
+		if def := prop["default"]; def != nil {
+			uiProp["default"] = def
+		}
+		if enum := prop["enum"]; enum != nil {
+			uiProp["enum"] = enum
+		}
+		if f := prop["format"]; f != nil {
+			uiProp["format"] = f
+		}
+		if min := prop["minimum"]; min != nil {
+			uiProp["minimum"] = min
+		}
+		if max := prop["maximum"]; max != nil {
+			uiProp["maximum"] = max
+		}
+		if minLen := prop["minLength"]; minLen != nil {
+			uiProp["minLength"] = minLen
+		}
+		if maxLen := prop["maxLength"]; maxLen != nil {
+			uiProp["maxLength"] = maxLen
+		}
+		if pat := prop["pattern"]; pat != nil {
+			uiProp["pattern"] = pat
+		}
+
+		uiProperties[name] = uiProp
+		if requiredSet[name] {
+			required = append(required, name)
+		}
+	}
+
+	result := map[string]interface{}{
+		"type":       "object",
+		"properties": uiProperties,
+	}
+	if len(required) > 0 {
+		result["required"] = required
+	}
+	return result
+}
+
+func firstNonEmptyString(values ...interface{}) string {
+	for _, v := range values {
+		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+			return s
+		}
+	}
+	return ""
 }
