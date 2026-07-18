@@ -202,74 +202,112 @@ export function inferWidget(schema: any): string {
 }
 
 /**
- * 从 JSON Schema 自动生成 UI Schema
+ * 从 JSON Schema 自动生成 Formily Schema
  * @param schema JSON Schema 对象
- * @returns 生成的 UI Schema
+ * @returns Formily Schema（可直接传给 SchemaRenderer）
  */
 export function buildUISchemaFromJSONSchema(schema: JSONSchemaType | null): Record<string, any> {
   if (!schema || !schema.properties) {
-    return { fields: {} };
+    return { type: 'object', properties: {} };
   }
 
-  const fields: Record<string, any> = {};
-  const order: string[] = [];
+  const properties: Record<string, any> = {};
+  const requiredArr: string[] = [];
   const requiredSet = new Set(schema.required || []);
 
   for (const [fieldName, fieldSchema] of Object.entries(schema.properties)) {
-    const widget = inferWidget(fieldSchema);
-    const field: Record<string, any> = {
-      label: fieldSchema.title || formatFieldLabel(fieldName),
+    const title = fieldSchema.title || formatFieldLabel(fieldName);
+    const [component, componentProps] = inferFormilyComponent(fieldSchema);
+
+    const prop: Record<string, any> = {
+      type: fieldSchema.type || 'string',
+      title,
+      'x-component': component,
+      'x-decorator': 'FormItem',
     };
 
-    // 设置 widget（非默认 input 时）
-    if (widget !== 'input') {
-      field.widget = widget;
+    if (fieldSchema.description && fieldSchema.description !== title) {
+      prop.description = fieldSchema.description;
+    }
+    if (fieldSchema.default !== undefined) {
+      prop.default = fieldSchema.default;
+    }
+    if (fieldSchema.enum) {
+      prop.enum = fieldSchema.enum;
+    }
+    if (fieldSchema.format) {
+      prop.format = fieldSchema.format;
+    }
+    if (Object.keys(componentProps).length > 0) {
+      prop['x-component-props'] = componentProps;
     }
 
-    // 添加描述
-    if (fieldSchema.description) {
-      field.description = fieldSchema.description;
-    }
-
-    // 添加占位符
-    const placeholder = buildPlaceholder(fieldSchema);
-    if (placeholder) {
-      field.placeholder = placeholder;
-    }
-
-    // 必填标记
+    properties[fieldName] = prop;
     if (requiredSet.has(fieldName)) {
-      field.required = true;
+      requiredArr.push(fieldName);
     }
-
-    // 数字范围
-    if (typeof fieldSchema.minimum === 'number') {
-      field.min = fieldSchema.minimum;
-    }
-    if (typeof fieldSchema.maximum === 'number') {
-      field.max = fieldSchema.maximum;
-    }
-
-    fields[fieldName] = field;
-    order.push(fieldName);
   }
 
-  // 根据字段数量推断布局列数
-  let layoutCols = 1;
-  if (order.length >= 6) {
-    layoutCols = 3;
-  } else if (order.length >= 3) {
-    layoutCols = 2;
-  }
-
-  return {
-    fields,
-    'ui:order': order,
-    'ui:layout': {
-      type: 'grid',
-      cols: layoutCols,
-    },
+  const result: Record<string, any> = {
+    type: 'object',
+    properties,
   };
+  if (requiredArr.length > 0) {
+    result.required = requiredArr;
+  }
+  return result;
+}
+
+/**
+ * 推断 Formily 组件名和组件属性
+ * @returns [componentName, componentProps]
+ */
+function inferFormilyComponent(schema: any): [string, Record<string, any>] {
+  if (!schema) return ['Input', {}];
+
+  const type = schema.type;
+  const format = schema.format;
+  const props: Record<string, any> = {};
+
+  // format 优先
+  if (format === 'date') return ['DatePicker', { format: 'YYYY-MM-DD' }];
+  if (format === 'date-time') return ['DatePicker', { showTime: true }];
+  if (format === 'time') return ['TimePicker', { format: 'HH:mm:ss' }];
+  if (format === 'textarea') {
+    if (schema.maxLength) props.maxLength = schema.maxLength;
+    return ['Input.TextArea', props];
+  }
+
+  // enum → Select
+  if (Array.isArray(schema.enum) && schema.enum.length > 0) {
+    return ['Select', props];
+  }
+
+  // type 推断
+  switch (type) {
+    case 'boolean':
+      return ['Switch', {}];
+    case 'integer':
+    case 'number':
+      if (typeof schema.minimum === 'number') props.min = schema.minimum;
+      if (typeof schema.maximum === 'number') props.max = schema.maximum;
+      return ['NumberPicker', props];
+    case 'string':
+      if (typeof schema.maxLength === 'number' && schema.maxLength > 120) {
+        props.rows = 3;
+        return ['Input.TextArea', props];
+      }
+      if (schema.minLength) props.minLength = schema.minLength;
+      if (schema.maxLength) props.maxLength = schema.maxLength;
+      return ['Input', props];
+    case 'array':
+      if (schema.items?.enum) return ['Select', { mode: 'multiple' }];
+      return ['ArrayTable', {}];
+    case 'object':
+      return ['Card', {}];
+    default:
+      return ['Input', props];
+  }
 }
 
 /**
