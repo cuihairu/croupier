@@ -162,10 +162,20 @@ func TestResolveFunctionUI_DerivesFromInputSchema(t *testing.T) {
 		t.Fatalf("expected amount property from input_schema")
 	}
 
-	// Check that amount has minimum constraint
+	// Check that amount has min constraint in x-component-props
 	amount, _ := props["amount"].(map[string]interface{})
-	if amount["minimum"] != 1 {
-		t.Fatalf("expected amount.minimum=1, got %v", amount["minimum"])
+	compProps, _ := amount["x-component-props"].(map[string]interface{})
+	if compProps["min"] != 1 {
+		t.Fatalf("expected amount.x-component-props.min=1, got %v", compProps["min"])
+	}
+
+	// Check that fields have x-component
+	if amount["x-component"] != "NumberPicker" {
+		t.Fatalf("expected amount.x-component=NumberPicker, got %v", amount["x-component"])
+	}
+	playerId, _ := props["playerId"].(map[string]interface{})
+	if playerId["x-component"] != "Input" {
+		t.Fatalf("expected playerId.x-component=Input, got %v", playerId["x-component"])
 	}
 
 	// Check required fields

@@ -284,9 +284,9 @@ func extractSchemaFromOpenAPISpec(spec map[string]interface{}) map[string]interf
 	return schema
 }
 
-// deriveUISchemaFromJSONSchema converts a JSON Schema into a UI schema suitable
+// deriveUISchemaFromJSONSchema converts a JSON Schema into a Formily Schema
 // for the Dashboard form renderer. It maps JSON Schema types and constraints
-// to widget types and validation rules.
+// to Formily x-component and x-component-props.
 func deriveUISchemaFromJSONSchema(schema map[string]interface{}) map[string]interface{} {
 	if schema == nil {
 		return nil
@@ -319,12 +319,39 @@ func deriveUISchemaFromJSONSchema(schema map[string]interface{}) map[string]inte
 		if !ok {
 			continue
 		}
+
+		title := firstNonEmptyString(prop["title"], prop["description"], name)
+		component, decorator := formilyComponent(prop)
+
 		uiProp := map[string]interface{}{
-			"type":  prop["type"],
-			"title": firstNonEmptyString(prop["title"], prop["description"], name),
+			"type":        prop["type"],
+			"title":       title,
+			"x-component": component,
+			"x-decorator": decorator,
 		}
-		if desc, ok := prop["description"].(string); ok && desc != "" {
+
+		// Build x-component-props from JSON Schema constraints
+		componentProps := map[string]interface{}{}
+		if desc, ok := prop["description"].(string); ok && desc != "" && desc != title {
 			uiProp["description"] = desc
+		}
+		if ph := buildFormilyPlaceholder(prop); ph != "" {
+			componentProps["placeholder"] = ph
+		}
+		if min := prop["minimum"]; min != nil {
+			componentProps["min"] = min
+		}
+		if max := prop["maximum"]; max != nil {
+			componentProps["max"] = max
+		}
+		if minLen := prop["minLength"]; minLen != nil {
+			componentProps["minLength"] = minLen
+		}
+		if maxLen := prop["maxLength"]; maxLen != nil {
+			componentProps["maxLength"] = maxLen
+		}
+		if pat := prop["pattern"]; pat != nil {
+			componentProps["pattern"] = pat
 		}
 		if def := prop["default"]; def != nil {
 			uiProp["default"] = def
@@ -335,20 +362,8 @@ func deriveUISchemaFromJSONSchema(schema map[string]interface{}) map[string]inte
 		if f := prop["format"]; f != nil {
 			uiProp["format"] = f
 		}
-		if min := prop["minimum"]; min != nil {
-			uiProp["minimum"] = min
-		}
-		if max := prop["maximum"]; max != nil {
-			uiProp["maximum"] = max
-		}
-		if minLen := prop["minLength"]; minLen != nil {
-			uiProp["minLength"] = minLen
-		}
-		if maxLen := prop["maxLength"]; maxLen != nil {
-			uiProp["maxLength"] = maxLen
-		}
-		if pat := prop["pattern"]; pat != nil {
-			uiProp["pattern"] = pat
+		if len(componentProps) > 0 {
+			uiProp["x-component-props"] = componentProps
 		}
 
 		uiProperties[name] = uiProp
@@ -365,6 +380,57 @@ func deriveUISchemaFromJSONSchema(schema map[string]interface{}) map[string]inte
 		result["required"] = required
 	}
 	return result
+}
+
+// formilyComponent maps a JSON Schema property to a Formily component name
+// and decorator name.
+func formilyComponent(prop map[string]interface{}) (component, decorator string) {
+	typ, _ := prop["type"].(string)
+	format, _ := prop["format"].(string)
+	_, hasEnum := prop["enum"]
+
+	switch {
+	case typ == "boolean":
+		return "Switch", "FormItem"
+	case typ == "integer" || typ == "number":
+		return "NumberPicker", "FormItem"
+	case hasEnum:
+		return "Select", "FormItem"
+	case format == "date":
+		return "DatePicker", "FormItem"
+	case format == "date-time":
+		return "DatePicker", "FormItem"
+	case format == "time":
+		return "TimePicker", "FormItem"
+	case format == "textarea":
+		return "Input.TextArea", "FormItem"
+	case typ == "array":
+		return "Select", "FormItem" // default to multi-select
+	case typ == "object":
+		return "Card", ""
+	default:
+		return "Input", "FormItem"
+	}
+}
+
+// buildFormilyPlaceholder generates a placeholder string from JSON Schema metadata.
+func buildFormilyPlaceholder(prop map[string]interface{}) string {
+	if ph, ok := prop["placeholder"].(string); ok && ph != "" {
+		return ph
+	}
+	if desc, ok := prop["description"].(string); ok && desc != "" {
+		return desc
+	}
+	format, _ := prop["format"].(string)
+	switch format {
+	case "date":
+		return "请选择日期"
+	case "date-time":
+		return "请选择日期时间"
+	case "email":
+		return "请输入邮箱地址"
+	}
+	return ""
 }
 
 func firstNonEmptyString(values ...interface{}) string {
