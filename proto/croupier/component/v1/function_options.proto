@@ -33,16 +33,46 @@ message FunctionOptions {
   // 是否启用幂等键（默认 false）
   bool idempotency_key = 11;
 
-  // ========== 展示 & 权限（UI/菜单/权限，强类型定义） ==========
-  // 展示名称与摘要（i18n）
-  croupier.component.v1.I18nText display_name = 12;
-  croupier.component.v1.I18nText summary      = 13;
-  // 标签
-  repeated string tags = 14;
-  // 菜单元数据（用于构建前端菜单）
-  croupier.component.v1.Menu menu = 15;
-  // 权限规范（verbs/scopes/default role grants/i18n）
-  croupier.component.v1.PermissionSpec permissions = 16;
+  // ========== 行为定义（API 契约，仍在使用） ==========
+
+  // 全局唯一函数ID（规范：<domain>.<entity>.<action>，小写，允许 [a-z0-9._-]）
+  string function_id = 1;
+  // 版本（规范：SemVer，如 1.0.0 / 1.2.3-beta.1）
+  string version = 2;
+  // 类目（默认取 package 里的第二级，如 games.player.v1 → player）
+  string category = 3;
+  // 风险级别：low/medium/high（默认 medium）
+  string risk = 4;
+  // 路由策略：lb/broadcast/targeted/hash（默认 lb）
+  string route = 5;
+  // 超时（默认 30s）
+  string timeout = 6;
+  // 两人审批（默认 false）
+  bool two_person_rule = 7;
+  // 放置位置：core/agent（默认 agent）
+  string placement = 8;
+  // 额外标签
+  map<string,string> labels = 9;
+  // 调用模式：query/command（默认 query）
+  string mode = 10;
+  // 是否启用幂等键（默认 false）
+  bool idempotency_key = 11;
+
+  // ========== 废弃：UI/菜单/权限元数据 ==========
+  // 以下字段已被废弃，不再被 protoc-gen-croupier 或 Server 消费。
+  // UI 生成完全由 Server 端负责，见 docs/architecture/ui-generation.md。
+  // 保留字段编号以维持 wire 兼容性，新代码不应设置这些字段。
+
+  // 已废弃：展示名称。由 Server 端 ui_resolver 从函数 ID 和 category 推导。
+  croupier.component.v1.I18nText display_name = 12 [deprecated = true];
+  // 已废弃：摘要。由 Server 端从 description 或 input_schema 推导。
+  croupier.component.v1.I18nText summary      = 13 [deprecated = true];
+  // 已废弃：标签。由 Server 端从 category 和 function ID 推导。
+  repeated string tags = 14 [deprecated = true];
+  // 已废弃：菜单元数据。由 Server 端 descriptors_logic 和 ui_resolver 生成。
+  croupier.component.v1.Menu menu = 15 [deprecated = true];
+  // 已废弃：权限规范。由 Server 端 FunctionPolicy 和 RBAC 系统管理。
+  croupier.component.v1.PermissionSpec permissions = 16 [deprecated = true];
 }
 
 // 消息级元信息，用于标记实体类型并生成 entity 描述符
@@ -82,13 +112,21 @@ message EntityOptions {
   // 自定义操作（key: 操作名, value: 函数ID列表）
   map<string, string> custom_operations = 16;
 
-  // 实体展示配置（i18n）
-  croupier.component.v1.I18nText display_name = 17;
-  croupier.component.v1.I18nText summary = 18;
-  // 标签
-  repeated string tags = 19;
-  // 菜单元数据（用于构建前端菜单）
-  croupier.component.v1.Menu menu = 20;
+  // 自定义操作（key: 操作名, value: 函数ID列表）
+  map<string, string> custom_operations = 16;
+
+  // ========== 废弃：UI 元数据 ==========
+  // 以下字段已被废弃，UI 生成完全由 Server 端负责。
+  // 保留字段编号以维持 wire 兼容性，新代码不应设置这些字段。
+
+  // 已废弃：展示名称。由 Server 端从 entity_id 和 category 推导。
+  croupier.component.v1.I18nText display_name = 17 [deprecated = true];
+  // 已废弃：摘要。由 Server 端从 description 推导。
+  croupier.component.v1.I18nText summary = 18 [deprecated = true];
+  // 已废弃：标签。由 Server 端从 category 推导。
+  repeated string tags = 19 [deprecated = true];
+  // 已废弃：菜单元数据。由 Server 端 descriptors_logic 生成。
+  croupier.component.v1.Menu menu = 20 [deprecated = true];
 }
 
 extend google.protobuf.MethodOptions {

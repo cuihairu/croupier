@@ -119,12 +119,6 @@ func main() {
 				if fo.Risk != "" {
 					op.Risk = strings.ToLower(fo.Risk)
 				}
-				if len(fo.DisplayName) > 0 {
-					op.Summary = fo.DisplayName
-				}
-				if len(fo.Summary) > 0 {
-					op.Summary = fo.Summary
-				}
 				if len(fo.Labels) > 0 {
 					op.Labels = fo.Labels
 				}
@@ -635,11 +629,6 @@ type funcOpts struct {
 	IdempotencyKey    bool
 	IdempotencyKeySet bool
 	Labels            map[string]string
-	DisplayName       map[string]string
-	Summary           map[string]string
-	Tags              []string
-	Menu              map[string]any
-	Permissions       map[string]any
 }
 
 func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
@@ -670,21 +659,9 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 					out.Labels[k] = v
 				}
 			}
-			if dn := i18nToMap(fn.GetDisplayName()); len(dn) > 0 {
-				out.DisplayName = dn
-			}
-			if sm := i18nToMap(fn.GetSummary()); len(sm) > 0 {
-				out.Summary = sm
-			}
-			if len(fn.GetTags()) > 0 {
-				out.Tags = append([]string{}, fn.GetTags()...)
-			}
-			if menu := menuToMap(fn.GetMenu()); len(menu) > 0 {
-				out.Menu = menu
-			}
-			if perms := permissionToMap(fn.GetPermissions()); len(perms) > 0 {
-				out.Permissions = perms
-			}
+			// Note: UI fields (display_name, summary, tags, menu, permissions)
+			// are deprecated in proto and no longer extracted. UI generation is
+			// handled entirely by the Server side. See docs/architecture/ui-generation.md.
 			return out
 		}
 	}
@@ -719,86 +696,9 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 	return out
 }
 
-func i18nToMap(t *ui.I18NText) map[string]string {
-	if t == nil {
-		return nil
-	}
-	out := map[string]string{}
-	if v := strings.TrimSpace(t.GetEn()); v != "" {
-		out["en"] = v
-	}
-	if v := strings.TrimSpace(t.GetZh()); v != "" {
-		out["zh"] = v
-	}
-	return out
-}
-
-func menuToMap(m *ui.Menu) map[string]any {
-	if m == nil {
-		return nil
-	}
-	out := map[string]any{}
-	if nodes := m.GetNodes(); len(nodes) > 0 {
-		copied := make([]string, 0, len(nodes))
-		for _, node := range nodes {
-			if v := strings.TrimSpace(node); v != "" {
-				copied = append(copied, v)
-			}
-		}
-		if len(copied) > 0 {
-			out["nodes"] = copied
-		}
-	}
-	if v := strings.TrimSpace(m.GetPath()); v != "" {
-		out["path"] = v
-	}
-	if m.GetOrder() != 0 {
-		out["order"] = int(m.GetOrder())
-	}
-	if v := strings.TrimSpace(m.GetIcon()); v != "" {
-		out["icon"] = v
-	}
-	if v := strings.TrimSpace(m.GetBadge()); v != "" {
-		out["badge"] = v
-	}
-	if m.GetHidden() {
-		out["hidden"] = true
-	}
-	return out
-}
-
-func permissionToMap(p *ui.PermissionSpec) map[string]any {
-	if p == nil {
-		return nil
-	}
-	out := map[string]any{}
-	if len(p.GetVerbs()) > 0 {
-		out["verbs"] = append([]string{}, p.GetVerbs()...)
-	}
-	if len(p.GetScopes()) > 0 {
-		out["scopes"] = append([]string{}, p.GetScopes()...)
-	}
-	if len(p.GetDefaults()) > 0 {
-		defs := make([]map[string]any, 0, len(p.GetDefaults()))
-		for _, rb := range p.GetDefaults() {
-			if rb == nil || rb.GetRole() == "" || len(rb.GetVerbs()) == 0 {
-				continue
-			}
-			defs = append(defs, map[string]any{"role": rb.GetRole(), "verbs": append([]string{}, rb.GetVerbs()...)})
-		}
-		if len(defs) > 0 {
-			out["defaults"] = defs
-		}
-	}
-	if len(p.GetI18NZh()) > 0 {
-		m := map[string]string{}
-		for k, v := range p.GetI18NZh() {
-			m[k] = v
-		}
-		out["i18n_zh"] = m
-	}
-	return out
-}
+// i18nToMap, menuToMap, permissionToMap were removed.
+// These extracted UI metadata from proto options which are now deprecated.
+// UI generation is handled entirely by the Server side.
 
 func parseAggregateKV(s string) map[string]string {
 	// very small tolerant parser for key: value pairs inside {...}
@@ -1148,80 +1048,9 @@ func addEntityHintsToSchema(schema map[string]any, msg *descriptorpb.DescriptorP
 	}
 }
 
-// UIFieldHints collects UI field configuration hints from a DescriptorProto
-type UIFieldHints struct {
-	Fields map[string]map[string]any `json:"fields"`
-}
-
-// collectUIFieldHints extracts UI field options from all fields in a message descriptor
-func collectUIFieldHints(msg *descriptorpb.DescriptorProto) *UIFieldHints {
-	hints := &UIFieldHints{
-		Fields: make(map[string]map[string]any),
-	}
-
-	if msg == nil || len(msg.Field) == 0 {
-		return hints
-	}
-
-	for _, field := range msg.Field {
-		if field.Options == nil {
-			continue
-		}
-
-		// Try to get the UI extension
-		var uiOpts *ui.UIFieldOptions
-		if proto.HasExtension(field.Options, ui.E_Ui) {
-			ext := proto.GetExtension(field.Options, ui.E_Ui)
-			if opt, ok := ext.(*ui.UIFieldOptions); ok && opt != nil {
-				uiOpts = opt
-			}
-		}
-
-		if uiOpts == nil {
-			continue
-		}
-
-		// Build field config map
-		fieldName := field.GetName()
-		jsonName := field.GetJsonName()
-		if jsonName != "" {
-			fieldName = jsonName
-		}
-		fieldCfg := make(map[string]any)
-
-		if uiOpts.Widget != "" {
-			fieldCfg["widget"] = uiOpts.Widget
-		}
-		if uiOpts.Label != "" {
-			fieldCfg["label"] = uiOpts.Label
-		}
-		if uiOpts.Placeholder != "" {
-			fieldCfg["placeholder"] = uiOpts.Placeholder
-		}
-		if uiOpts.Sensitive {
-			fieldCfg["sensitive"] = true
-		}
-		if uiOpts.ShowIf != "" {
-			fieldCfg["show_if"] = uiOpts.ShowIf
-		}
-		if uiOpts.RequiredIf != "" {
-			fieldCfg["required_if"] = uiOpts.RequiredIf
-		}
-		if len(uiOpts.EnumMap) > 0 {
-			// EnumMap keys are the enum values, values are display labels
-			// For JSON schema, we need the enum values (keys)
-			enumValues := make([]string, 0, len(uiOpts.EnumMap))
-			for k := range uiOpts.EnumMap {
-				enumValues = append(enumValues, k)
-			}
-			fieldCfg["enum"] = enumValues
-		}
-
-		hints.Fields[fieldName] = fieldCfg
-	}
-
-	return hints
-}
+// UIFieldHints and collectUIFieldHints were removed.
+// Field-level UI hints (widget, label, placeholder, show_if) are no longer
+// extracted from proto. UI generation is handled entirely by the Server side.
 
 func fatalf(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", a...)

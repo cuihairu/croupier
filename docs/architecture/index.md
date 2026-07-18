@@ -198,3 +198,4 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [SDK Wire Protocol](./sdk-wire-protocol.md)
 - [Session Runtime 参考实现](./session-runtime-landscape.md)
 - [核心与扩展边界映射](./core-extension-mapping.md)
+- [UI 生成架构决策](./ui-generation.md) — Proto 只管 API 契约，UI 完全由 Server + Dashboard 闭环
