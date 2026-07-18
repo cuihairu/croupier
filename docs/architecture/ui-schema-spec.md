@@ -4,6 +4,24 @@
 
 Croupier 全系统使用 **Formily Schema** 作为唯一的 UI Schema 格式。后端生成、前端编辑、渲染器消费，全链路同一格式，无转换层。
 
+## 关于 `x-` 前缀
+
+Schema 中的 `x-component`、`x-decorator`、`x-component-props`、`x-reactions` 等字段**不是 Croupier 自定义扩展**，而是 [Formily JSON Schema 官方规范](https://react.formilyjs.org/api/shared/schema) 定义的标准字段。
+
+Formily 采用 JSON Schema 的扩展机制（`x-` 前缀约定）来表达 UI 元信息，这是 JSON Schema 规范允许的标准做法（RFC 中 `x-` 前缀保留给实现自行扩展）。
+
+| 字段 | 来源 | 说明 |
+|------|------|------|
+| `x-component` | Formily 官方 | 指定渲染组件（`Input`、`Select`、`DatePicker` 等） |
+| `x-decorator` | Formily 官方 | 指定装饰器组件（通常为 `FormItem`） |
+| `x-component-props` | Formily 官方 | 传递给组件的属性（`placeholder`、`min`、`max` 等） |
+| `x-reactions` | Formily 官方 | 字段联动逻辑（条件显示、值联动等） |
+| `x-data-source` | Formily 官方 | 异步数据源配置 |
+
+Croupier 的 `SchemaRenderer` 组件通过 Formily 的 `createSchemaField` API 注册可用组件，渲染时 Formily 引擎根据 `x-component` 自动选择对应组件，无需任何转换。
+
+---
+
 ## 格式规范
 
 ### 顶层结构
@@ -17,8 +35,6 @@ Croupier 全系统使用 **Formily Schema** 作为唯一的 UI Schema 格式。�
   "required": ["fieldName"]
 }
 ```
-
-符合 [Formily JSON Schema 规范](https://react.formilyjs.org/api/shared/schema)。
 
 ### 字段定义
 

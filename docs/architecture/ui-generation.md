@@ -37,6 +37,8 @@ Proto 层曾经定义了 UI 元数据扩展（`FunctionOptions.menu`/`permission
 
 ### 为什么选 Formily Schema
 
+Formily 是蚂蚁金服开源的表单方案，其 JSON Schema 规范通过 `x-` 前缀字段（`x-component`、`x-decorator`、`x-component-props`、`x-reactions`）表达 UI 元信息。这些是 [Formily 官方规范](https://react.formilyjs.org/api/shared/schema) 定义的标准字段，不是 Croupier 自定义扩展。
+
 | 能力 | Formily Schema | fields 格式 | JSON Schema |
 |------|---------------|-------------|-------------|
 | 指定组件 | `x-component` | `widget` | ❌ |
