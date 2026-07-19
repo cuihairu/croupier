@@ -141,6 +141,60 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     actionsRender: () => [<HeaderActions key="header-actions" />] as any,
     splitMenus: false,
     suppressSiderWhenMenuEmpty: true,
+    menuDataRender: (menuData: any[]) => {
+      // 动态注入运行控制台的工作台菜单
+      if (!_wsLoaded || _wsConfigs.length === 0) return menuData;
+
+      // 权限过滤
+      const userRoles: string[] = initialState?.currentUser?.roles || [];
+      const isAdmin = userRoles.some(
+        (r: string) => r.toLowerCase() === 'admin' || r.toLowerCase() === 'super_admin',
+      );
+      const filtered = isAdmin
+        ? _wsConfigs
+        : _wsConfigs.filter((c) => {
+            if (!c.permissions?.roles?.length) return true;
+            return c.permissions.roles.some((role) =>
+              userRoles.some((ur) => ur.toLowerCase() === role.toLowerCase()),
+            );
+          });
+
+      if (filtered.length === 0) return menuData;
+
+      // 按分类分组
+      const grouped = new Map<string, WorkspaceConfig[]>();
+      filtered.forEach((c) => {
+        const cat = c.category || 'other';
+        if (!grouped.has(cat)) grouped.set(cat, []);
+        grouped.get(cat)!.push(c);
+      });
+
+      // 排序
+      const sorted = Array.from(grouped.entries()).sort(
+        ([a], [b]) => (CATEGORIES[a]?.order || 99) - (CATEGORIES[b]?.order || 99),
+      );
+
+      // 构建动态菜单
+      const dynamicChildren = sorted.map(([cat, configs]) => ({
+        path: `/console/${cat}`,
+        name: CATEGORIES[cat]?.name || cat,
+        children: configs.map((c) => ({
+          path: `/console/${c.objectKey}`,
+          name: c.title,
+        })),
+      }));
+
+      // 找到运行控制台菜单并添加子菜单
+      return menuData.map((item) => {
+        if (item.path === '/console' || item.key === '/console') {
+          return {
+            ...item,
+            children: [...(item.children || []), ...dynamicChildren],
+          };
+        }
+        return item;
+      });
+    },
     avatarProps: {
       src: initialState?.currentUser?.avatar,
       icon: initialState?.currentUser?.avatar ? undefined : <UserOutlined />,
