@@ -891,20 +891,6 @@ func stringFromAny(value interface{}) string {
 // based on the effective policy for that function.
 // Returns the effective policy for auditing purposes.
 func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, userRoles []string) (*policy.Policy, error) {
-	// Admin role bypasses all policy checks
-	if utils.HasAdminRole(userRoles) {
-		riskLevel := policy.RiskMedium
-		if svcCtx.RegistryStore != nil {
-			if op, err := svcCtx.RegistryStore.GetOpenAPI(functionID); err == nil {
-				if riskVal, ok := op.Extensions["x-risk-level"].(string); ok {
-					riskLevel = policy.RiskLevel(riskVal)
-				}
-			}
-		}
-		p, _ := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)
-		return p, nil
-	}
-
 	// Get function's risk level from registry
 	riskLevel := policy.RiskMedium // default
 	if svcCtx.RegistryStore != nil {
@@ -922,21 +908,12 @@ func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, func
 		return nil, nil
 	}
 
-	// If no roles restriction, allow
-	if len(functionPolicy.AllowedRoles) == 0 {
-		return functionPolicy, nil
+	// Use unified permission check - admin role bypasses all checks
+	if err := utils.EnforceFunctionInvokePermission(userRoles, functionPolicy.AllowedRoles); err != nil {
+		return nil, err
 	}
 
-	// Check if user has any of the allowed roles
-	for _, allowedRole := range functionPolicy.AllowedRoles {
-		for _, userRole := range userRoles {
-			if strings.EqualFold(userRole, allowedRole) {
-				return functionPolicy, nil // user has permission
-			}
-		}
-	}
-
-	return nil, errorx.NewForbidden("insufficient permissions to invoke this function")
+	return functionPolicy, nil
 }
 
 // buildBroadcastResponse aggregates per-agent outcomes from a broadcast
