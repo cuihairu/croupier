@@ -26,6 +26,16 @@ type InitialCurrentUser = {
   avatar?: string;
 };
 
+/** 分类配置 */
+const CATEGORIES: Record<string, { name: string; order: number }> = {
+  player: { name: '玩家管理', order: 1 },
+  inventory: { name: '物品管理', order: 2 },
+  order: { name: '订单管理', order: 3 },
+  economy: { name: '经济系统', order: 4 },
+  social: { name: '社交系统', order: 5 },
+  other: { name: '其他工具', order: 99 },
+};
+
 /**
  * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
  * */
@@ -34,6 +44,7 @@ export async function getInitialState(): Promise<{
   currentUser?: InitialCurrentUser;
   loading?: boolean;
   fetchUserInfo?: () => Promise<InitialCurrentUser | undefined>;
+  workspaceConfigs?: any[];
 }> {
   const fetchUserInfo = async () => {
     try {
@@ -82,9 +93,28 @@ export async function getInitialState(): Promise<{
     if (currentUser) {
       hydrateScope();
     }
+
+    // 加载已发布的工作台配置
+    let workspaceConfigs: any[] = [];
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const res = await fetch('/api/v1/workspaces/published', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          workspaceConfigs = Array.isArray(data?.items) ? data.items : [];
+        }
+      }
+    } catch {
+      workspaceConfigs = [];
+    }
+
     return {
       fetchUserInfo,
       currentUser,
+      workspaceConfigs,
       settings: defaultSettings as Partial<LayoutSettings>,
     };
   }
@@ -141,6 +171,61 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     actionsRender: () => [<HeaderActions key="header-actions" />] as any,
     splitMenus: false,
     suppressSiderWhenMenuEmpty: true,
+    menuDataRender: (menuData: any[]) => {
+      // 动态注入运行控制台的工作台菜单
+      const wsConfigs = (initialState as any)?.workspaceConfigs;
+      if (!Array.isArray(wsConfigs) || wsConfigs.length === 0) return menuData;
+
+      // 权限过滤
+      const userRoles: string[] = initialState?.currentUser?.roles || [];
+      const isAdmin = userRoles.some(
+        (r: string) => r.toLowerCase() === 'admin' || r.toLowerCase() === 'super_admin',
+      );
+      const filtered = isAdmin
+        ? wsConfigs
+        : wsConfigs.filter((c: any) => {
+            if (!c.permissions?.roles?.length) return true;
+            return c.permissions.roles.some((role: string) =>
+              userRoles.some((ur: string) => ur.toLowerCase() === role.toLowerCase()),
+            );
+          });
+
+      if (filtered.length === 0) return menuData;
+
+      // 按分类分组
+      const grouped = new Map<string, any[]>();
+      filtered.forEach((c: any) => {
+        const cat = c.category || 'other';
+        if (!grouped.has(cat)) grouped.set(cat, []);
+        grouped.get(cat)!.push(c);
+      });
+
+      // 排序
+      const sorted = Array.from(grouped.entries()).sort(
+        ([a], [b]) => (CATEGORIES[a]?.order || 99) - (CATEGORIES[b]?.order || 99),
+      );
+
+      // 构建动态菜单
+      const dynamicChildren = sorted.map(([cat, configs]) => ({
+        path: `/console/${cat}`,
+        name: CATEGORIES[cat]?.name || cat,
+        children: configs.map((c: any) => ({
+          path: `/console/${c.objectKey}`,
+          name: c.title,
+        })),
+      }));
+
+      // 找到运行控制台菜单并添加子菜单
+      return menuData.map((item) => {
+        if (item.path === '/console' || item.key === '/console') {
+          return {
+            ...item,
+            children: [...(item.children || []), ...dynamicChildren],
+          };
+        }
+        return item;
+      });
+    },
     avatarProps: {
       src: initialState?.currentUser?.avatar,
       icon: initialState?.currentUser?.avatar ? undefined : <UserOutlined />,
