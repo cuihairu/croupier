@@ -205,26 +205,34 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         ([a], [b]) => (CATEGORIES[a]?.order || 99) - (CATEGORIES[b]?.order || 99),
       );
 
-      // 构建动态菜单
-      const dynamicChildren = sorted.map(([cat, configs]) => ({
-        path: `/console/${cat}`,
-        name: CATEGORIES[cat]?.name || cat,
-        children: configs.map((c: any) => ({
-          path: `/console/${c.objectKey}`,
-          name: c.title,
-        })),
-      }));
+      // 构建动态子菜单（直接添加到"运行控制台"下面）
+      const dynamicChildren: any[] = [];
+      sorted.forEach(([cat, configs]) => {
+        configs.forEach((c: any) => {
+          dynamicChildren.push({
+            path: `/console/${c.objectKey}`,
+            name: c.title,
+          });
+        });
+      });
 
       // 找到运行控制台菜单并添加子菜单
-      return menuData.map((item) => {
-        if (item.path === '/console' || item.key === '/console') {
-          return {
-            ...item,
-            children: [...(item.children || []), ...dynamicChildren],
-          };
-        }
-        return item;
-      });
+      const addChildren = (items: any[]): any[] => {
+        return items.map((item) => {
+          if (item.path === '/console' || item.key === '/console') {
+            return {
+              ...item,
+              children: [...(item.children || []), ...dynamicChildren],
+            };
+          }
+          if (item.children) {
+            return { ...item, children: addChildren(item.children) };
+          }
+          return item;
+        });
+      };
+
+      return addChildren(menuData);
     },
     avatarProps: {
       src: initialState?.currentUser?.avatar,
