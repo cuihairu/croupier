@@ -283,6 +283,8 @@ type RawOpsNode = {
   sdkLanguage?: string;
   sdkVersion?: string;
   sdkName?: string;
+  functions?: number;
+  expiresInSec?: number;
 };
 type RawOpsAlert = {
   severity?: string;
@@ -380,6 +382,8 @@ function normalizeOpsNode(raw: RawOpsNode): OpsNode {
     sdkLanguage: raw?.sdkLanguage,
     sdkVersion: raw?.sdkVersion,
     sdkName: raw?.sdkName,
+    functions: raw?.functions ?? 0,
+    expiresInSec: raw?.expiresInSec ?? 0,
   };
 }
 function normalizeOpsAlert(raw: RawOpsAlert): OpsAlert {
