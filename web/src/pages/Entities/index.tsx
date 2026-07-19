@@ -4,6 +4,7 @@ import { ProColumns, PageContainer } from '@ant-design/pro-components';
 import GameSelector from '@/components/GameSelector';
 import XResourceTable from '@/components/XResourceTable';
 import XEntityForm from '@/components/XEntityForm';
+import { getScope, subscribeScope } from '@/stores/scope';
 import {
   listEntities,
   createEntity,
@@ -32,8 +33,7 @@ export default function EntitiesPage() {
   const loadEntities = async () => {
     setLoading(true);
     try {
-      const gameId = localStorage.getItem('game_id') || undefined;
-      const env = localStorage.getItem('env') || undefined;
+      const { gameId, env } = getScope();
       const result = await listEntities({ gameId, env });
       setEntities(result);
     } finally {
@@ -41,8 +41,10 @@ export default function EntitiesPage() {
     }
   };
 
+  // Reload when global scope changes
   useEffect(() => {
     loadEntities();
+    return subscribeScope(() => loadEntities());
   }, []);
 
   const handleCreate = () => {
@@ -56,16 +58,14 @@ export default function EntitiesPage() {
   };
 
   const handleDelete = async (entity: EntityDefinition) => {
-    const gameId = localStorage.getItem('game_id') || undefined;
-    const env = localStorage.getItem('env') || undefined;
+    const { gameId, env } = getScope();
     await deleteEntity(entity.id, { gameId, env });
     loadEntities();
   };
 
   const handlePreview = async (entity: EntityDefinition) => {
     try {
-      const gameId = localStorage.getItem('game_id') || undefined;
-      const env = localStorage.getItem('env') || undefined;
+      const { gameId, env } = getScope();
       const result = await previewEntity(entity.id, { gameId, env });
       setPreviewEntity(entity);
       setPreviewContent(result.previewHtml || 'No preview available');
@@ -80,8 +80,7 @@ export default function EntitiesPage() {
     setFunctionsVisible(true);
     setFunctionsLoading(true);
     try {
-      const gameId = localStorage.getItem('game_id') || undefined;
-      const env = localStorage.getItem('env') || undefined;
+      const { gameId, env } = getScope();
       const result = await listEntityFunctions(entity.id, { gameId, env });
       setEntityFunctions(result || []);
     } finally {
@@ -90,8 +89,7 @@ export default function EntitiesPage() {
   };
 
   const handleSubmit = async (data: any) => {
-    const gameId = localStorage.getItem('game_id') || undefined;
-    const env = localStorage.getItem('env') || undefined;
+    const { gameId, env } = getScope();
 
     const entityData = {
       name: data.name,
@@ -116,8 +114,7 @@ export default function EntitiesPage() {
   };
 
   const handleValidate = async (data: any) => {
-    const gameId = localStorage.getItem('game_id') || undefined;
-    const env = localStorage.getItem('env') || undefined;
+    const { gameId, env } = getScope();
 
     const entityData = {
       name: data.name,
