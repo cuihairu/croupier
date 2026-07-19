@@ -185,6 +185,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     menuDataRender: (menuData: any[]) => {
       // 动态注入运行控制台的工作台菜单
       const wsConfigs = (initialState as any)?.workspaceConfigs;
+      console.log('[menuDataRender] wsConfigs:', wsConfigs?.length, wsConfigs);
       if (!Array.isArray(wsConfigs) || wsConfigs.length === 0) return menuData;
 
       // 权限过滤
