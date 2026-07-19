@@ -185,7 +185,8 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     menuDataRender: (menuData: any[]) => {
       // 动态注入运行控制台的工作台菜单
       const wsConfigs = (initialState as any)?.workspaceConfigs;
-      console.log('[menuDataRender] wsConfigs:', wsConfigs?.length, wsConfigs);
+      console.log('[menuDataRender] wsConfigs:', wsConfigs?.length);
+      console.log('[menuDataRender] menuData paths:', menuData.map((m: any) => m.path || m.key));
       if (!Array.isArray(wsConfigs) || wsConfigs.length === 0) return menuData;
 
       // 权限过滤
@@ -229,9 +230,11 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
       });
 
       // 找到运行控制台菜单并添加子菜单
+      console.log('[menuDataRender] dynamicChildren:', dynamicChildren);
       const addChildren = (items: any[]): any[] => {
         return items.map((item) => {
           if (item.path === '/console' || item.key === '/console') {
+            console.log('[menuDataRender] Found console menu, adding children');
             return {
               ...item,
               children: [...(item.children || []), ...dynamicChildren],
