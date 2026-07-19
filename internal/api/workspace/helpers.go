@@ -103,6 +103,18 @@ func toDTO(m *model.WorkspaceConfig) WorkspaceConfig {
 						cfg.Status = status
 					}
 				}
+				if categoryRaw, ok := raw["category"]; ok {
+					var category string
+					if err := json.Unmarshal(categoryRaw, &category); err == nil && category != "" {
+						cfg.Category = category
+					}
+				}
+				if permsRaw, ok := raw["permissions"]; ok {
+					var perms WorkspacePermissions
+					if err := json.Unmarshal(permsRaw, &perms); err == nil {
+						cfg.Permissions = &perms
+					}
+				}
 				if metaRaw, ok := raw["meta"]; ok {
 					var meta WorkspaceConfigMeta
 					if err := json.Unmarshal(metaRaw, &meta); err == nil {

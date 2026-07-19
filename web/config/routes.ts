@@ -188,11 +188,13 @@ export default [
         component: './Console',
         hideInMenu: true,
       },
+      // 动态路由会通过 patchClientRoutes 注入
+      // 格式：/console/:category/:objectKey
       {
         path: '/console/:objectKey',
         name: 'ConsoleWorkspace',
         access: 'canFunctionsRead',
-        component: './Console/Detail',
+        component: './Console/Workspace',
         hideInMenu: true,
       },
     ],

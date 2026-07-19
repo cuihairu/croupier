@@ -48,11 +48,29 @@ export interface WorkspaceConfig {
   /** 配置版本号 */
   version?: number;
 
+  /** 工作台分类 */
+  category?: WorkspaceCategory;
+
+  /** 权限配置 */
+  permissions?: {
+    roles?: string[];       // 允许的角色
+    permissions?: string[]; // 允许的权限ID
+  };
+
   /** 元数据 */
   meta?: WorkspaceMeta;
 }
 
 export type WorkspaceStatus = 'draft' | 'published' | 'archived';
+
+/** 工作台分类 */
+export type WorkspaceCategory =
+  | 'player'     // 玩家管理
+  | 'inventory'  // 物品管理
+  | 'order'      // 订单管理
+  | 'economy'    // 经济系统
+  | 'social'     // 社交系统
+  | 'other';     // 其他
 
 export interface WorkspaceVersionRecord {
   id: string;

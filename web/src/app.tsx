@@ -14,6 +14,9 @@ import React, { useEffect } from 'react';
 import { App as AntdApp, Grid } from 'antd';
 import { setAppApi } from './utils/antdApp';
 import { initWorkspaceAlerting } from './services/workspace/alerts';
+import { listPublishedWorkspaceConfigs } from '@/services/workspaceConfig';
+import { WORKSPACE_CATEGORIES } from '@/config/workspaceCategories';
+import type { WorkspaceConfig, WorkspaceCategory } from '@/types/workspace';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -197,3 +200,79 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
 export const request = {
   ...errorConfig,
 };
+
+/**
+ * 动态注入运行控制台路由
+ * 根据已发布的工作台配置，按分类生成菜单
+ */
+export async function patchClientRoutes({ routes }: { routes: any[] }) {
+  try {
+    // 获取已发布的工作台
+    const configs = await listPublishedWorkspaceConfigs();
+    if (!Array.isArray(configs) || configs.length === 0) {
+      return;
+    }
+
+    // 按分类分组
+    const grouped = new Map<WorkspaceCategory, WorkspaceConfig[]>();
+    configs.forEach((config) => {
+      const category = config.category || 'other';
+      if (!grouped.has(category)) {
+        grouped.set(category, []);
+      }
+      grouped.get(category)!.push(config);
+    });
+
+    // 按分类排序
+    const sortedCategories = Array.from(grouped.entries()).sort(
+      ([a], [b]) =>
+        (WORKSPACE_CATEGORIES[a]?.order || 99) - (WORKSPACE_CATEGORIES[b]?.order || 99),
+    );
+
+    // 构建动态子路由
+    const dynamicRoutes = sortedCategories.map(([category, categoryConfigs]) => {
+      const categoryConfig = WORKSPACE_CATEGORIES[category] || WORKSPACE_CATEGORIES.other;
+      return {
+        path: `/console/${category}`,
+        name: categoryConfig.name,
+        icon: categoryConfig.icon,
+        routes: categoryConfigs.map((config) => ({
+          path: `/console/${config.objectKey}`,
+          name: config.title,
+          component: './Console/Workspace',
+        })),
+      };
+    });
+
+    // 找到 console 路由，添加动态子路由
+    const consoleRoute = findRoute(routes, '/console');
+    if (consoleRoute) {
+      // 保留原有的静态路由
+      const existingRoutes = consoleRoute.routes || [];
+      // 添加分类分隔符
+      consoleRoute.routes = [
+        ...existingRoutes,
+        { type: 'divider' },
+        ...dynamicRoutes,
+      ];
+    }
+  } catch (error) {
+    console.error('Failed to load workspace routes:', error);
+  }
+}
+
+/**
+ * 递归查找路由
+ */
+function findRoute(routes: any[], path: string): any {
+  for (const route of routes) {
+    if (route.path === path) {
+      return route;
+    }
+    if (route.routes) {
+      const found = findRoute(route.routes, path);
+      if (found) return found;
+    }
+  }
+  return null;
+}

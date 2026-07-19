@@ -2,19 +2,27 @@ package workspace
 
 // WorkspaceConfig represents a workspace configuration
 type WorkspaceConfig struct {
-	ObjectKey   string              `json:"objectKey"`
-	Title       string              `json:"title"`
-	Description string              `json:"description,omitempty"`
-	Layout      interface{}         `json:"layout"`
-	Published   bool                `json:"published"`
-	PublishedAt string              `json:"publishedAt,omitempty"`
-	PublishedBy string              `json:"publishedBy,omitempty"`
-	MenuOrder   int                 `json:"menuOrder"`
-	Status      string              `json:"status"`
-	Version     int                 `json:"version,omitempty"`
-	CreatedAt   string              `json:"createdAt,omitempty"`
-	UpdatedAt   string              `json:"updatedAt,omitempty"`
-	Meta        WorkspaceConfigMeta `json:"meta,omitempty"`
+	ObjectKey   string                `json:"objectKey"`
+	Title       string                `json:"title"`
+	Description string                `json:"description,omitempty"`
+	Layout      interface{}           `json:"layout"`
+	Published   bool                  `json:"published"`
+	PublishedAt string                `json:"publishedAt,omitempty"`
+	PublishedBy string                `json:"publishedBy,omitempty"`
+	MenuOrder   int                   `json:"menuOrder"`
+	Status      string                `json:"status"`
+	Version     int                   `json:"version,omitempty"`
+	Category    string                `json:"category,omitempty"`
+	Permissions *WorkspacePermissions `json:"permissions,omitempty"`
+	CreatedAt   string                `json:"createdAt,omitempty"`
+	UpdatedAt   string                `json:"updatedAt,omitempty"`
+	Meta        WorkspaceConfigMeta   `json:"meta,omitempty"`
+}
+
+// WorkspacePermissions represents workspace access permissions
+type WorkspacePermissions struct {
+	Roles       []string `json:"roles,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
 }
 
 // ListConfigsRequest is the request to list all workspace configs
