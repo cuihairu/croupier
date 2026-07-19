@@ -61,6 +61,30 @@ func (h *Handler) EntityFunctions(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// EntityIndex handles the request to list all entities derived from function registrations
+func (h *Handler) EntityIndex(c *gin.Context) {
+	var req EntityIndexRequest
+	_ = c.ShouldBindQuery(&req)
+
+	resp, err := h.service.EntityIndex(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// EntityFunctionsByName handles the request to get functions for an entity by name
+func (h *Handler) EntityFunctionsByName(c *gin.Context) {
+	name := c.Param("name")
+	resp, err := h.service.EntityFunctionsByName(c.Request.Context(), name)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // GetDocument handles the request to get aggregated OpenAPI document
 func (h *Handler) GetDocument(c *gin.Context) {
 	var req GetDocumentRequest

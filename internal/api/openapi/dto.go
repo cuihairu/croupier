@@ -82,6 +82,27 @@ type EntityFunctionsResponse struct {
 	Items []EntityFunction `json:"items"`
 }
 
+// EntityIndexItem represents an entity derived from function registrations
+type EntityIndexItem struct {
+	Name          string   `json:"name"`
+	DisplayName   string   `json:"displayName,omitempty"`
+	Category      string   `json:"category,omitempty"`
+	Operations    []string `json:"operations"`
+	Functions     []string `json:"functions"`
+	FunctionCount int      `json:"functionCount"`
+}
+
+// EntityIndexRequest is the request to list entities
+type EntityIndexRequest struct {
+	Category string `form:"category"`
+}
+
+// EntityIndexResponse is the response with entity list
+type EntityIndexResponse struct {
+	Items []EntityIndexItem `json:"items"`
+	Total int               `json:"total"`
+}
+
 type BatchGetSpecRequest struct {
 	FunctionIDs []string `json:"function_ids" binding:"required"`
 }

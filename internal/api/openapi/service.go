@@ -176,6 +176,158 @@ func matchesEntity(raw interface{}, entityType, entityID string) bool {
 	return strings.EqualFold(value, strings.TrimSpace(entityType)) || strings.EqualFold(value, strings.TrimSpace(entityID))
 }
 
+// EntityIndex returns all entities derived from function registrations.
+// Entities are grouped by x-entity extension (or inferred from function ID).
+func (s *Service) EntityIndex(ctx context.Context, req *EntityIndexRequest) (*EntityIndexResponse, error) {
+	type entityAcc struct {
+		name       string
+		category   string
+		operations map[string]struct{}
+		functions  []string
+	}
+
+	entities := map[string]*entityAcc{}
+
+	// Scan all OpenAPI operations
+	if s.svcCtx != nil && s.svcCtx.RegistryStore != nil {
+		operations := s.svcCtx.RegistryStore.ListOpenAPIOperations()
+		for funcID, op := range operations {
+			if op == nil {
+				continue
+			}
+
+			// Derive entity name
+			entityName := ""
+			if ext, ok := op.Extensions["x-entity"].(string); ok {
+				entityName = strings.TrimSpace(ext)
+			}
+			if entityName == "" {
+				parts := strings.FieldsFunc(strings.ToLower(funcID), func(r rune) bool {
+					return r == '.' || r == '_' || r == '-'
+				})
+				if len(parts) >= 2 {
+					entityName = parts[len(parts)-2]
+				} else if len(parts) == 1 {
+					entityName = parts[0]
+				}
+			}
+			if entityName == "" {
+				continue
+			}
+
+			acc := entities[entityName]
+			if acc == nil {
+				acc = &entityAcc{
+					name:       entityName,
+					operations: map[string]struct{}{},
+				}
+				entities[entityName] = acc
+			}
+
+			// Category
+			if cat, ok := op.Extensions["x-category"].(string); ok && acc.category == "" {
+				acc.category = strings.TrimSpace(cat)
+			}
+
+			// Operation
+			opType := "custom"
+			if ext, ok := op.Extensions["x-operation"].(string); ok && strings.TrimSpace(ext) != "" {
+				opType = strings.TrimSpace(ext)
+			}
+			acc.operations[opType] = struct{}{}
+			acc.functions = append(acc.functions, funcID)
+		}
+	}
+
+	// Filter by category
+	categoryFilter := strings.TrimSpace(req.Category)
+
+	// Build response
+	items := make([]EntityIndexItem, 0, len(entities))
+	for _, acc := range entities {
+		if categoryFilter != "" && !strings.EqualFold(acc.category, categoryFilter) {
+			continue
+		}
+
+		ops := make([]string, 0, len(acc.operations))
+		for op := range acc.operations {
+			ops = append(ops, op)
+		}
+		sort.Strings(ops)
+		sort.Strings(acc.functions)
+
+		items = append(items, EntityIndexItem{
+			Name:          acc.name,
+			DisplayName:   strings.Title(acc.name),
+			Category:      acc.category,
+			Operations:    ops,
+			Functions:     acc.functions,
+			FunctionCount: len(acc.functions),
+		})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Name < items[j].Name
+	})
+
+	return &EntityIndexResponse{
+		Items: items,
+		Total: len(items),
+	}, nil
+}
+
+// EntityFunctionsByName returns functions for an entity by name (from entity index).
+func (s *Service) EntityFunctionsByName(ctx context.Context, entityName string) (*EntityFunctionsResponse, error) {
+	if entityName == "" {
+		return nil, errorx.NewBadRequest("entity name is required")
+	}
+
+	items := make([]EntityFunction, 0)
+	if s.svcCtx != nil && s.svcCtx.RegistryStore != nil {
+		operations := s.svcCtx.RegistryStore.ListOpenAPIOperations()
+		for funcID, op := range operations {
+			if op == nil {
+				continue
+			}
+			if !matchesEntity(op.Extensions["x-entity"], entityName, entityName) {
+				// Also try inferred entity
+				parts := strings.FieldsFunc(strings.ToLower(funcID), func(r rune) bool {
+					return r == '.' || r == '_' || r == '-'
+				})
+				inferred := ""
+				if len(parts) >= 2 {
+					inferred = parts[len(parts)-2]
+				}
+				if !strings.EqualFold(inferred, entityName) {
+					continue
+				}
+			}
+
+			operation := "custom"
+			if opType, ok := op.Extensions["x-operation"].(string); ok && strings.TrimSpace(opType) != "" {
+				operation = opType
+			}
+			name := strings.TrimSpace(op.Summary)
+			if name == "" {
+				name = funcID
+			}
+			items = append(items, EntityFunction{
+				ID:        funcID,
+				Operation: operation,
+				Name:      name,
+			})
+		}
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].ID < items[j].ID
+	})
+
+	return &EntityFunctionsResponse{
+		Items: items,
+	}, nil
+}
+
 // GetDocument returns aggregated OpenAPI document
 func (s *Service) GetDocument(ctx context.Context, req *GetDocumentRequest) (*GetDocumentResponse, error) {
 	spec, err := s.svcCtx.RegistryStore.BuildOpenAPISpec()

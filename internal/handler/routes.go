@@ -432,6 +432,8 @@ func registerOpenAPIRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/functions/_openapi-batch", openapiHandler.BatchGetSpec)
 	g.POST("/functions/_import", openapiHandler.Import)
 	g.GET("/entities/:id/functions", openapiHandler.EntityFunctions)
+	g.GET("/entities/index", openapiHandler.EntityIndex)
+	g.GET("/entities/by-name/:name/functions", openapiHandler.EntityFunctionsByName)
 	g.GET("/openapi/spec", openapiHandler.GetDocument)
 }
 
