@@ -908,18 +908,36 @@ func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, func
 		return nil, nil
 	}
 
-	// Use unified Casbin permission check instead of separate AllowedRoles check
-	// Casbin already handles admin bypass via "p, role:admin, *, *" policy
-	if len(functionPolicy.AllowedRoles) > 0 {
-		// Build required permissions from allowed roles
-		// e.g., ["operator"] -> check if user has "function:invoke" or role matches
+	// If no role restriction, allow
+	if len(functionPolicy.AllowedRoles) == 0 {
+		return functionPolicy, nil
+	}
+
+	// Admin role bypasses all policy checks
+	if utils.HasAdminRole(userRoles) {
+		return functionPolicy, nil
+	}
+
+	// Use unified Casbin permission check
+	// Try RequireAnyPermission first (requires AdminModel)
+	if svcCtx.AdminModel != nil {
 		requiredPerms := []string{"function:invoke"}
 		if _, _, err := utils.RequireAnyPermission(ctx, svcCtx, "无权调用该函数", requiredPerms...); err != nil {
 			return nil, err
 		}
+		return functionPolicy, nil
 	}
 
-	return functionPolicy, nil
+	// Fallback: simple role matching (for tests or when AdminModel not available)
+	for _, allowed := range functionPolicy.AllowedRoles {
+		for _, role := range userRoles {
+			if strings.EqualFold(strings.TrimSpace(role), strings.TrimSpace(allowed)) {
+				return functionPolicy, nil
+			}
+		}
+	}
+
+	return nil, errorx.NewForbidden("无权调用该函数")
 }
 
 // buildBroadcastResponse aggregates per-agent outcomes from a broadcast
