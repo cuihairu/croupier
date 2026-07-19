@@ -44,15 +44,22 @@ export interface FieldEditorModalProps {
 }
 
 const FIELD_TYPES = [
-  { value: 'input', label: '文本输入' },
-  { value: 'number', label: '数字输入' },
-  { value: 'select', label: '下拉选择' },
-  { value: 'radio', label: '单选框' },
-  { value: 'checkbox', label: '多选框' },
-  { value: 'date', label: '日期' },
-  { value: 'datetime', label: '日期时间' },
-  { value: 'textarea', label: '多行文本' },
-  { value: 'switch', label: '开关' },
+  { value: 'string', label: '字符串' },
+  { value: 'number', label: '数字' },
+  { value: 'boolean', label: '布尔值' },
+  { value: 'object', label: '对象' },
+  { value: 'array', label: '数组' },
+];
+
+const FIELD_COMPONENTS = [
+  { value: 'Input', label: '单行文本' },
+  { value: 'Input.TextArea', label: '多行文本' },
+  { value: 'NumberPicker', label: '数字输入' },
+  { value: 'Select', label: '下拉选择' },
+  { value: 'Radio', label: '单选框' },
+  { value: 'Checkbox', label: '多选框' },
+  { value: 'DatePicker', label: '日期选择' },
+  { value: 'Switch', label: '开关' },
 ];
 
 const RULE_TYPES: Array<{ value: NonNullable<FieldRule['type']>; label: string }> = [
@@ -63,8 +70,8 @@ const RULE_TYPES: Array<{ value: NonNullable<FieldRule['type']>; label: string }
   { value: 'pattern', label: '正则表达式' },
 ];
 
-const TYPES_WITH_OPTIONS = ['select', 'radio', 'checkbox'];
-const TYPES_WITH_PLACEHOLDER = ['input', 'number', 'select', 'date', 'datetime', 'textarea'];
+const TYPES_WITH_OPTIONS = ['Select', 'Radio', 'Checkbox'];
+const TYPES_WITH_PLACEHOLDER = ['Input', 'Input.TextArea', 'NumberPicker', 'Select', 'DatePicker'];
 
 /** 内置表达式函数 */
 const EXPRESSION_FUNCTIONS = [
