@@ -125,6 +125,12 @@ public class CroupierInvoker : IDisposable
     {
         ThrowIfDisposed();
 
+        if (string.IsNullOrWhiteSpace(functionId))
+            throw new ArgumentException("Function ID cannot be empty", nameof(functionId));
+
+        if (payload == null)
+            throw new ArgumentNullException(nameof(payload));
+
         options ??= new InvokeOptions
         {
             GameId = _gameId,
@@ -221,6 +227,12 @@ public class CroupierInvoker : IDisposable
     {
         ThrowIfDisposed();
 
+        if (requests == null)
+            throw new ArgumentNullException(nameof(requests));
+
+        if (requests.Count == 0)
+            throw new ArgumentException("Requests list cannot be empty", nameof(requests));
+
         _logger.LogDebug("CroupierInvoker", $"Batch invoking {requests.Count} functions");
 
         var results = new List<InvokeResult>();
@@ -246,6 +258,12 @@ public class CroupierInvoker : IDisposable
         InvokeOptions? options = null)
     {
         ThrowIfDisposed();
+
+        if (string.IsNullOrWhiteSpace(functionId))
+            throw new ArgumentException("Function ID cannot be empty", nameof(functionId));
+
+        if (payload == null)
+            throw new ArgumentNullException(nameof(payload));
 
         options ??= new InvokeOptions
         {
@@ -295,6 +313,9 @@ public class CroupierInvoker : IDisposable
     {
         ThrowIfDisposed();
 
+        if (string.IsNullOrWhiteSpace(taskId))
+            throw new ArgumentException("Task ID cannot be empty", nameof(taskId));
+
         _logger.LogDebug("CroupierInvoker", $"Canceling task: {taskId}");
 
         // Ensure transport is connected
@@ -328,6 +349,9 @@ public class CroupierInvoker : IDisposable
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
+
+        if (string.IsNullOrWhiteSpace(taskId))
+            throw new ArgumentException("Task ID cannot be empty", nameof(taskId));
 
         // Ensure transport is connected
         EnsureTransportConnected();
