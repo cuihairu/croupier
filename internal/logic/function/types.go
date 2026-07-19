@@ -14,6 +14,8 @@ type Function struct {
 	Category    string      `json:"category"`
 	SpecFormat  string      `json:"specFormat"`
 	OpenAPISpec interface{} `json:"openapiSpec"`
+	CreatedAt   string      `json:"createdAt"`
+	UpdatedAt   string      `json:"updatedAt"`
 }
 
 // FunctionsListRequest represents a request to list functions

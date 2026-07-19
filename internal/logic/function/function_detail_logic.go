@@ -2,14 +2,11 @@ package function
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
-
-	"gorm.io/gorm"
 )
 
 type FunctionDetailLogic struct {
@@ -31,25 +28,9 @@ func (l *FunctionDetailLogic) FunctionDetail(req *FunctionDetailRequest) (*Funct
 		return nil, err
 	}
 
-	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
+	// Ensure function record exists in DB (creates with real timestamps if missing)
+	fn, err := getOrCreateFunctionRecord(l.ctx, l.svcCtx, functionID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			rt := loadRuntimeFunctionDetail(l.svcCtx.RegistryStore, functionID)
-			if rt != nil {
-				return &FunctionDetailResponse{
-					Function: Function{
-						ID:        functionID,
-						Name:      functionID,
-						Category:  "",
-						GameId:    rt.gameID,
-						Status:    1,
-						Version:   rt.version,
-						Instances: rt.instances,
-					},
-					Descriptor: rt.descriptor,
-				}, nil
-			}
-		}
 		return nil, err
 	}
 
@@ -95,6 +76,8 @@ func (l *FunctionDetailLogic) FunctionDetail(req *FunctionDetailRequest) (*Funct
 			Instances:   instances,
 			SpecFormat:  fn.SpecFormat,
 			OpenAPISpec: fn.OpenAPISpec,
+			CreatedAt:   utils.FormatTimestamp(fn.CreatedAt),
+			UpdatedAt:   utils.FormatTimestamp(fn.UpdatedAt),
 		},
 		Descriptor: desc,
 	}, nil

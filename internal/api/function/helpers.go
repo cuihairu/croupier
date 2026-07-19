@@ -126,6 +126,8 @@ func functionDetail(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 			Instances:   logicResp.Function.Instances,
 			SpecFormat:  logicResp.Function.SpecFormat,
 			OpenAPISpec: logicResp.Function.OpenAPISpec,
+			CreatedAt:   logicResp.Function.CreatedAt,
+			UpdatedAt:   logicResp.Function.UpdatedAt,
 		},
 		Descriptor: FunctionDescriptor{
 			Input:  logicResp.Descriptor.Input,
