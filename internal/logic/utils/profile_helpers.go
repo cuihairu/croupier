@@ -84,35 +84,3 @@ func HasAdminRole(roles []string) bool {
 	}
 	return false
 }
-
-// EnforcePermission checks if the user has the required permission.
-// Admin and super_admin roles bypass all permission checks.
-// Returns nil if allowed, error if denied.
-func EnforcePermission(roleNames []string, check func() bool) error {
-	// Admin role bypasses all permission checks
-	if HasAdminRole(roleNames) {
-		return nil
-	}
-	if check() {
-		return nil
-	}
-	return errorx.NewForbidden("权限不足")
-}
-
-// EnforceFunctionInvokePermission checks if user can invoke a function.
-// Admin role always allowed. Otherwise checks allowedRoles.
-func EnforceFunctionInvokePermission(roleNames []string, allowedRoles []string) error {
-	return EnforcePermission(roleNames, func() bool {
-		if len(allowedRoles) == 0 {
-			return true // No restriction
-		}
-		for _, allowed := range allowedRoles {
-			for _, role := range roleNames {
-				if strings.EqualFold(strings.TrimSpace(role), strings.TrimSpace(allowed)) {
-					return true
-				}
-			}
-		}
-		return false
-	})
-}

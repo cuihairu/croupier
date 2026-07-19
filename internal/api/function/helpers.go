@@ -901,16 +901,22 @@ func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, func
 		}
 	}
 
-	// Get effective policy
+	// Get effective policy (for approval/audit settings, not for role check)
 	functionPolicy, err := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)
 	if err != nil {
 		// Log error but don't block invocation if policy check fails
 		return nil, nil
 	}
 
-	// Use unified permission check - admin role bypasses all checks
-	if err := utils.EnforceFunctionInvokePermission(userRoles, functionPolicy.AllowedRoles); err != nil {
-		return nil, err
+	// Use unified Casbin permission check instead of separate AllowedRoles check
+	// Casbin already handles admin bypass via "p, role:admin, *, *" policy
+	if len(functionPolicy.AllowedRoles) > 0 {
+		// Build required permissions from allowed roles
+		// e.g., ["operator"] -> check if user has "function:invoke" or role matches
+		requiredPerms := []string{"function:invoke"}
+		if _, _, err := utils.RequireAnyPermission(ctx, svcCtx, "无权调用该函数", requiredPerms...); err != nil {
+			return nil, err
+		}
 	}
 
 	return functionPolicy, nil
