@@ -1975,6 +1975,29 @@ export default function WorkspaceEditor() {
                 {typeof config?.version === 'number' ? (
                   <Tag>{`版本 v${config.version}`}</Tag>
                 ) : null}
+                <Select
+                  size="small"
+                  style={{ minWidth: 120 }}
+                  placeholder="选择分类"
+                  allowClear
+                  value={config?.category}
+                  onChange={(value) => {
+                    if (config) {
+                      handleConfigChange(
+                        { ...config, category: value || undefined },
+                        '更新分类',
+                      );
+                    }
+                  }}
+                  options={[
+                    { label: '玩家管理', value: 'player' },
+                    { label: '物品管理', value: 'inventory' },
+                    { label: '订单管理', value: 'order' },
+                    { label: '经济系统', value: 'economy' },
+                    { label: '社交系统', value: 'social' },
+                    { label: '其他工具', value: 'other' },
+                  ]}
+                />
               </Space>
               <Space direction="vertical" size={6} style={{ width: '100%' }}>
                 <Typography.Title level={4} style={{ margin: 0 }}>

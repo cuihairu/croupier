@@ -213,9 +213,17 @@ export async function patchClientRoutes({ routes }: { routes: any[] }) {
       return;
     }
 
+    // 获取当前用户信息
+    const initialState = (window as any).__INITIAL_STATE__?.currentUser;
+    const userRoles = initialState?.roles || [];
+    const userAccess = initialState?.access || '';
+
+    // 根据权限过滤
+    const filteredConfigs = filterByPermission(configs, userRoles, userAccess);
+
     // 按分类分组
     const grouped = new Map<WorkspaceCategory, WorkspaceConfig[]>();
-    configs.forEach((config) => {
+    filteredConfigs.forEach((config) => {
       const category = config.category || 'other';
       if (!grouped.has(category)) {
         grouped.set(category, []);
@@ -259,6 +267,54 @@ export async function patchClientRoutes({ routes }: { routes: any[] }) {
   } catch (error) {
     console.error('Failed to load workspace routes:', error);
   }
+}
+
+/**
+ * 根据权限过滤工作台配置
+ */
+function filterByPermission(
+  configs: WorkspaceConfig[],
+  userRoles: string[],
+  userAccess: string,
+): WorkspaceConfig[] {
+  // admin 角色可以看到所有工作台
+  const isAdmin = userRoles.some(
+    (role) => role.toLowerCase() === 'admin' || role.toLowerCase() === 'super_admin',
+  );
+  if (isAdmin) {
+    return configs;
+  }
+
+  return configs.filter((config) => {
+    // 检查显式配置的权限
+    if (config.permissions) {
+      const { roles, permissions } = config.permissions;
+
+      // 检查角色权限
+      if (roles && roles.length > 0) {
+        const hasRole = roles.some((role) =>
+          userRoles.some((userRole) => userRole.toLowerCase() === role.toLowerCase()),
+        );
+        if (hasRole) return true;
+      }
+
+      // 检查权限ID
+      if (permissions && permissions.length > 0) {
+        const hasPermission = permissions.some((perm) =>
+          userAccess.toLowerCase().includes(perm.toLowerCase()),
+        );
+        if (hasPermission) return true;
+      }
+
+      // 有权限配置但不匹配，则不显示
+      if ((roles && roles.length > 0) || (permissions && permissions.length > 0)) {
+        return false;
+      }
+    }
+
+    // 无权限配置则显示
+    return true;
+  });
 }
 
 /**
