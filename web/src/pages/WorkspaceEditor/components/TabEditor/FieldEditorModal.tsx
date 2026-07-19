@@ -607,11 +607,6 @@ export default function FieldEditorModal({
             placeholder={"如: [{\"when\": \"status === 'active'\", \"target\": \"field\", \"fulfill\": {\"state\": {\"visible\": true}}}]"}
           />
         </Form.Item>
-          <Input.TextArea
-            rows={3}
-            placeholder={"如: [{\"when\": \"status === 'active'\", \"target\": \"field\", \"fulfill\": {\"state\": {\"visible\": true}}}]"}
-          />
-        </Form.Item>
       </Form>
     </Modal>
   );

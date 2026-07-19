@@ -105,13 +105,6 @@ const BUILTIN_FIELD_TEMPLATES: FieldTemplate[] = [
       ['x-validator']: [{ pattern: '^1[3-9]\\d{9}$', message: '请输入有效的手机号' }],
     },
   },
-      label: '手机号',
-      type: 'input',
-      placeholder: '请输入手机号',
-      required: false,
-      rules: [{ type: 'pattern', pattern: '^1[3-9]\\d{9}$', message: '请输入有效的手机号' }],
-    },
-  },
   {
     key: 'url',
     name: '链接',
