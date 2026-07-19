@@ -177,7 +177,7 @@ func matchesEntity(raw interface{}, entityType, entityID string) bool {
 }
 
 // EntityIndex returns all entities derived from function registrations.
-// Entities are grouped by x-entity extension (or inferred from function ID).
+// Entities are grouped by x-entity extension, descriptor metadata, or inferred from function ID.
 func (s *Service) EntityIndex(ctx context.Context, req *EntityIndexRequest) (*EntityIndexResponse, error) {
 	type entityAcc struct {
 		name       string
@@ -187,68 +187,83 @@ func (s *Service) EntityIndex(ctx context.Context, req *EntityIndexRequest) (*En
 	}
 
 	entities := map[string]*entityAcc{}
+	seen := map[string]bool{}
 
-	// Scan all OpenAPI operations
+	addFunction := func(funcID, entityName, category, operation string) {
+		if entityName == "" {
+			entityName = inferEntityFromID(funcID)
+		}
+		if entityName == "" {
+			return
+		}
+		entityName = strings.ToLower(strings.TrimSpace(entityName))
+		if operation == "" {
+			operation = "custom"
+		}
+
+		acc := entities[entityName]
+		if acc == nil {
+			acc = &entityAcc{
+				name:       entityName,
+				operations: map[string]struct{}{},
+			}
+			entities[entityName] = acc
+		}
+		if category != "" && acc.category == "" {
+			acc.category = category
+		}
+		acc.operations[operation] = struct{}{}
+		acc.functions = append(acc.functions, funcID)
+		seen[funcID] = true
+	}
+
+	// 1) Scan OpenAPI operations (runtime registry)
 	if s.svcCtx != nil && s.svcCtx.RegistryStore != nil {
 		operations := s.svcCtx.RegistryStore.ListOpenAPIOperations()
 		for funcID, op := range operations {
 			if op == nil {
 				continue
 			}
-
-			// Derive entity name
 			entityName := ""
 			if ext, ok := op.Extensions["x-entity"].(string); ok {
 				entityName = strings.TrimSpace(ext)
 			}
-			if entityName == "" {
-				parts := strings.FieldsFunc(strings.ToLower(funcID), func(r rune) bool {
-					return r == '.' || r == '_' || r == '-'
-				})
-				if len(parts) >= 2 {
-					entityName = parts[len(parts)-2]
-				} else if len(parts) == 1 {
-					entityName = parts[0]
-				}
+			category := ""
+			if ext, ok := op.Extensions["x-category"].(string); ok {
+				category = strings.TrimSpace(ext)
 			}
-			if entityName == "" {
+			operation := ""
+			if ext, ok := op.Extensions["x-operation"].(string); ok {
+				operation = strings.TrimSpace(ext)
+			}
+			addFunction(funcID, entityName, category, operation)
+		}
+	}
+
+	// 2) Scan descriptors from logic layer (DB + pack files)
+	descLogic := logicfunction.NewDescriptorsLogic(ctx, s.svcCtx)
+	descs, err := descLogic.Descriptors(&logicfunction.DescriptorsRequest{})
+	if err == nil {
+		for _, d := range descs {
+			fid, _ := d["id"].(string)
+			if fid == "" || seen[fid] {
 				continue
 			}
-
-			acc := entities[entityName]
-			if acc == nil {
-				acc = &entityAcc{
-					name:       entityName,
-					operations: map[string]struct{}{},
-				}
-				entities[entityName] = acc
-			}
-
-			// Category
-			if cat, ok := op.Extensions["x-category"].(string); ok && acc.category == "" {
-				acc.category = strings.TrimSpace(cat)
-			}
-
-			// Operation
-			opType := "custom"
-			if ext, ok := op.Extensions["x-operation"].(string); ok && strings.TrimSpace(ext) != "" {
-				opType = strings.TrimSpace(ext)
-			}
-			acc.operations[opType] = struct{}{}
-			acc.functions = append(acc.functions, funcID)
+			entityName, _ := d["entity"].(string)
+			category, _ := d["category"].(string)
+			operation, _ := d["operation"].(string)
+			addFunction(fid, entityName, category, operation)
 		}
 	}
 
 	// Filter by category
 	categoryFilter := strings.TrimSpace(req.Category)
 
-	// Build response
 	items := make([]EntityIndexItem, 0, len(entities))
 	for _, acc := range entities {
 		if categoryFilter != "" && !strings.EqualFold(acc.category, categoryFilter) {
 			continue
 		}
-
 		ops := make([]string, 0, len(acc.operations))
 		for op := range acc.operations {
 			ops = append(ops, op)
@@ -256,9 +271,14 @@ func (s *Service) EntityIndex(ctx context.Context, req *EntityIndexRequest) (*En
 		sort.Strings(ops)
 		sort.Strings(acc.functions)
 
+		displayName := acc.name
+		if len(displayName) > 0 {
+			displayName = strings.ToUpper(displayName[:1]) + displayName[1:]
+		}
+
 		items = append(items, EntityIndexItem{
 			Name:          acc.name,
-			DisplayName:   strings.Title(acc.name),
+			DisplayName:   displayName,
 			Category:      acc.category,
 			Operations:    ops,
 			Functions:     acc.functions,
@@ -276,33 +296,43 @@ func (s *Service) EntityIndex(ctx context.Context, req *EntityIndexRequest) (*En
 	}, nil
 }
 
+func inferEntityFromID(funcID string) string {
+	parts := strings.FieldsFunc(strings.ToLower(funcID), func(r rune) bool {
+		return r == '.' || r == '_' || r == '-'
+	})
+	if len(parts) >= 2 {
+		return parts[len(parts)-2]
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return ""
+}
+
 // EntityFunctionsByName returns functions for an entity by name (from entity index).
 func (s *Service) EntityFunctionsByName(ctx context.Context, entityName string) (*EntityFunctionsResponse, error) {
 	if entityName == "" {
 		return nil, errorx.NewBadRequest("entity name is required")
 	}
 
+	entityName = strings.ToLower(strings.TrimSpace(entityName))
 	items := make([]EntityFunction, 0)
+	seen := map[string]bool{}
+
+	// 1) Scan OpenAPI operations
 	if s.svcCtx != nil && s.svcCtx.RegistryStore != nil {
 		operations := s.svcCtx.RegistryStore.ListOpenAPIOperations()
 		for funcID, op := range operations {
 			if op == nil {
 				continue
 			}
-			if !matchesEntity(op.Extensions["x-entity"], entityName, entityName) {
-				// Also try inferred entity
-				parts := strings.FieldsFunc(strings.ToLower(funcID), func(r rune) bool {
-					return r == '.' || r == '_' || r == '-'
-				})
-				inferred := ""
-				if len(parts) >= 2 {
-					inferred = parts[len(parts)-2]
-				}
-				if !strings.EqualFold(inferred, entityName) {
-					continue
-				}
+			matched := matchesEntity(op.Extensions["x-entity"], entityName, entityName)
+			if !matched {
+				matched = strings.EqualFold(inferEntityFromID(funcID), entityName)
 			}
-
+			if !matched {
+				continue
+			}
 			operation := "custom"
 			if opType, ok := op.Extensions["x-operation"].(string); ok && strings.TrimSpace(opType) != "" {
 				operation = opType
@@ -311,11 +341,34 @@ func (s *Service) EntityFunctionsByName(ctx context.Context, entityName string) 
 			if name == "" {
 				name = funcID
 			}
-			items = append(items, EntityFunction{
-				ID:        funcID,
-				Operation: operation,
-				Name:      name,
-			})
+			items = append(items, EntityFunction{ID: funcID, Operation: operation, Name: name})
+			seen[funcID] = true
+		}
+	}
+
+	// 2) Scan descriptors from logic layer
+	descLogic := logicfunction.NewDescriptorsLogic(ctx, s.svcCtx)
+	descs, err := descLogic.Descriptors(&logicfunction.DescriptorsRequest{})
+	if err == nil {
+		for _, d := range descs {
+			fid, _ := d["id"].(string)
+			if fid == "" || seen[fid] {
+				continue
+			}
+			ent, _ := d["entity"].(string)
+			if !strings.EqualFold(strings.TrimSpace(ent), entityName) &&
+				!strings.EqualFold(inferEntityFromID(fid), entityName) {
+				continue
+			}
+			operation, _ := d["operation"].(string)
+			if operation == "" {
+				operation = "custom"
+			}
+			name, _ := d["name"].(string)
+			if name == "" {
+				name = fid
+			}
+			items = append(items, EntityFunction{ID: fid, Operation: operation, Name: name})
 		}
 	}
 

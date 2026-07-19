@@ -33,7 +33,7 @@ export default function EntitiesPage() {
     setLoading(true);
     try {
       const res = await request<{ items: EntityIndexItem[]; total: number }>(
-        '/api/v1/entities/index',
+        '/api/v1/entity-index',
         { method: 'GET' },
       );
       setEntities(Array.isArray(res?.items) ? res.items : []);
@@ -54,7 +54,7 @@ export default function EntitiesPage() {
     setFunctionsLoading(true);
     try {
       const res = await request<{ items: EntityFunctionItem[] }>(
-        `/api/v1/entities/by-name/${encodeURIComponent(entity.name)}/functions`,
+        `/api/v1/entity-index/${encodeURIComponent(entity.name)}/functions`,
         { method: 'GET' },
       );
       setEntityFunctions(Array.isArray(res?.items) ? res.items : []);
