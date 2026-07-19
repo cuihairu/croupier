@@ -40,13 +40,6 @@ export default [
             component: './Entities',
           },
           {
-            path: '/system/foundation/entities/:id',
-            name: 'EntityFunctions',
-            access: 'canFunctionsRead',
-            component: './Functions/Invoke',
-            hideInMenu: true,
-          },
-          {
             path: '/system/foundation/entities/create',
             name: 'CreateVirtualObject',
             access: 'canFunctionsRead',
@@ -58,6 +51,13 @@ export default [
             name: 'EditVirtualObject',
             access: 'canFunctionsRead',
             component: './ComponentManagement/components/EntityComposer',
+            hideInMenu: true,
+          },
+          {
+            path: '/system/foundation/entities/:id',
+            name: 'EntityFunctions',
+            access: 'canFunctionsRead',
+            component: './Functions/Invoke',
             hideInMenu: true,
           },
         ],
@@ -100,20 +100,6 @@ export default [
             component: './Functions/Directory',
           },
           {
-            path: '/system/functions/:id',
-            name: 'FunctionDetail',
-            access: 'canFunctionsRead',
-            component: './Functions/Detail',
-            hideInMenu: true,
-          },
-          {
-            path: '/system/functions/:id/ui-designer',
-            name: 'FunctionUIDesigner',
-            access: 'canFunctionsRead',
-            component: './Functions/SchemaDesigner',
-            hideInMenu: true,
-          },
-          {
             path: '/system/functions/invoke',
             name: 'FunctionInvoke',
             access: 'canFunctionsRead',
@@ -140,6 +126,20 @@ export default [
             access: 'canAssignmentsRead',
             component: './Assignments',
             icon: 'safety',
+          },
+          {
+            path: '/system/functions/:id/ui-designer',
+            name: 'FunctionUIDesigner',
+            access: 'canFunctionsRead',
+            component: './Functions/SchemaDesigner',
+            hideInMenu: true,
+          },
+          {
+            path: '/system/functions/:id',
+            name: 'FunctionDetail',
+            access: 'canFunctionsRead',
+            component: './Functions/Detail',
+            hideInMenu: true,
           },
         ],
       },
@@ -188,8 +188,6 @@ export default [
         component: './Console',
         hideInMenu: true,
       },
-      // 动态路由会通过 patchClientRoutes 注入
-      // 格式：/console/:category/:objectKey
       {
         path: '/console/:objectKey',
         name: 'ConsoleWorkspace',
