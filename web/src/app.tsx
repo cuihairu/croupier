@@ -14,9 +14,6 @@ import React, { useEffect } from 'react';
 import { App as AntdApp, Grid } from 'antd';
 import { setAppApi } from './utils/antdApp';
 import { initWorkspaceAlerting } from './services/workspace/alerts';
-import { listPublishedWorkspaceConfigs } from '@/services/workspaceConfig';
-import { WORKSPACE_CATEGORIES } from '@/config/workspaceCategories';
-import type { WorkspaceConfig, WorkspaceCategory } from '@/types/workspace';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -201,155 +198,122 @@ export const request = {
   ...errorConfig,
 };
 
-/**
- * 存储已加载的工作台配置
- */
-let loadedWorkspaceConfigs: WorkspaceConfig[] = [];
+// ============================================================
+// 动态路由注入（运行控制台左侧菜单）
+// 使用 fetch 而非 import 以避免 tree-shaking 问题
+// ============================================================
+
+type WorkspaceConfig = {
+  objectKey: string;
+  title: string;
+  category?: string;
+  permissions?: { roles?: string[] };
+};
+
+/** 分类配置（内联，避免 import 被 tree-shake） */
+const CATEGORIES: Record<string, { name: string; order: number }> = {
+  player: { name: '玩家管理', order: 1 },
+  inventory: { name: '物品管理', order: 2 },
+  order: { name: '订单管理', order: 3 },
+  economy: { name: '经济系统', order: 4 },
+  social: { name: '社交系统', order: 5 },
+  other: { name: '其他工具', order: 99 },
+};
+
+/** 缓存已加载的工作台配置 */
+let _wsConfigs: WorkspaceConfig[] = [];
+let _wsLoaded = false;
 
 /**
  * 在渲染前加载工作台配置
  */
 export function render(oldRender: () => void) {
-  // 尝试加载已发布的工作台配置
-  listPublishedWorkspaceConfigs()
-    .then((configs) => {
-      loadedWorkspaceConfigs = Array.isArray(configs) ? configs : [];
+  const token = localStorage.getItem('token');
+  if (!token) {
+    _wsLoaded = true;
+    oldRender();
+    return;
+  }
+
+  fetch('/api/v1/workspaces/published', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then((res) => (res.ok ? res.json() : { items: [] }))
+    .then((data) => {
+      _wsConfigs = Array.isArray(data?.items) ? data.items : [];
     })
-    .catch((error) => {
-      console.error('Failed to load workspace configs:', error);
-      loadedWorkspaceConfigs = [];
+    .catch(() => {
+      _wsConfigs = [];
     })
     .finally(() => {
+      _wsLoaded = true;
       oldRender();
     });
 }
 
 /**
  * 动态注入运行控制台路由
- * 根据已发布的工作台配置，按分类生成菜单
  */
 export function patchClientRoutes({ routes }: { routes: any[] }) {
-  try {
-    if (loadedWorkspaceConfigs.length === 0) {
-      return;
-    }
-
-    // 获取当前用户信息
-    const initialState = (window as any).__INITIAL_STATE__?.currentUser;
-    const userRoles = initialState?.roles || [];
-    const userAccess = initialState?.access || '';
-
-    // 根据权限过滤
-    const filteredConfigs = filterByPermission(loadedWorkspaceConfigs, userRoles, userAccess);
-
-    // 按分类分组
-    const grouped = new Map<WorkspaceCategory, WorkspaceConfig[]>();
-    filteredConfigs.forEach((config) => {
-      const category = config.category || 'other';
-      if (!grouped.has(category)) {
-        grouped.set(category, []);
-      }
-      grouped.get(category)!.push(config);
-    });
-
-    // 按分类排序
-    const sortedCategories = Array.from(grouped.entries()).sort(
-      ([a], [b]) =>
-        (WORKSPACE_CATEGORIES[a]?.order || 99) - (WORKSPACE_CATEGORIES[b]?.order || 99),
-    );
-
-    // 构建动态子路由
-    const dynamicRoutes = sortedCategories.map(([category, categoryConfigs]) => {
-      const categoryConfig = WORKSPACE_CATEGORIES[category] || WORKSPACE_CATEGORIES.other;
-      return {
-        path: `/console/${category}`,
-        name: categoryConfig.name,
-        icon: categoryConfig.icon,
-        routes: categoryConfigs.map((config) => ({
-          path: `/console/${config.objectKey}`,
-          name: config.title,
-          component: './Console/Workspace',
-        })),
-      };
-    });
-
-    // 找到 console 路由，添加动态子路由
-    const consoleRoute = findRoute(routes, '/console');
-    if (consoleRoute) {
-      // 保留原有的静态路由
-      const existingRoutes = consoleRoute.routes || [];
-      // 添加分类分隔符
-      consoleRoute.routes = [
-        ...existingRoutes,
-        { type: 'divider' },
-        ...dynamicRoutes,
-      ];
-    }
-  } catch (error) {
-    console.error('Failed to load workspace routes:', error);
+  if (!_wsLoaded || _wsConfigs.length === 0) {
+    return;
   }
-}
 
-/**
- * 根据权限过滤工作台配置
- */
-function filterByPermission(
-  configs: WorkspaceConfig[],
-  userRoles: string[],
-  userAccess: string,
-): WorkspaceConfig[] {
-  // admin 角色可以看到所有工作台
+  // 权限过滤
+  const initialState = (window as any).__INITIAL_STATE__?.currentUser;
+  const userRoles: string[] = initialState?.roles || [];
   const isAdmin = userRoles.some(
-    (role) => role.toLowerCase() === 'admin' || role.toLowerCase() === 'super_admin',
+    (r: string) => r.toLowerCase() === 'admin' || r.toLowerCase() === 'super_admin',
   );
-  if (isAdmin) {
-    return configs;
-  }
 
-  return configs.filter((config) => {
-    // 检查显式配置的权限
-    if (config.permissions) {
-      const { roles, permissions } = config.permissions;
-
-      // 检查角色权限
-      if (roles && roles.length > 0) {
-        const hasRole = roles.some((role) =>
-          userRoles.some((userRole) => userRole.toLowerCase() === role.toLowerCase()),
+  const filtered = isAdmin
+    ? _wsConfigs
+    : _wsConfigs.filter((c) => {
+        if (!c.permissions?.roles?.length) return true;
+        return c.permissions.roles.some((role) =>
+          userRoles.some((ur) => ur.toLowerCase() === role.toLowerCase()),
         );
-        if (hasRole) return true;
-      }
+      });
 
-      // 检查权限ID
-      if (permissions && permissions.length > 0) {
-        const hasPermission = permissions.some((perm) =>
-          userAccess.toLowerCase().includes(perm.toLowerCase()),
-        );
-        if (hasPermission) return true;
-      }
+  if (filtered.length === 0) return;
 
-      // 有权限配置但不匹配，则不显示
-      if ((roles && roles.length > 0) || (permissions && permissions.length > 0)) {
-        return false;
-      }
-    }
-
-    // 无权限配置则显示
-    return true;
+  // 按分类分组
+  const grouped = new Map<string, WorkspaceConfig[]>();
+  filtered.forEach((c) => {
+    const cat = c.category || 'other';
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat)!.push(c);
   });
+
+  // 排序
+  const sorted = Array.from(grouped.entries()).sort(
+    ([a], [b]) => (CATEGORIES[a]?.order || 99) - (CATEGORIES[b]?.order || 99),
+  );
+
+  // 构建动态路由
+  const dynamicRoutes = sorted.map(([cat, configs]) => ({
+    path: `/console/${cat}`,
+    name: CATEGORIES[cat]?.name || cat,
+    routes: configs.map((c) => ({
+      path: `/console/${c.objectKey}`,
+      name: c.title,
+      component: './Console/Workspace',
+    })),
+  }));
+
+  // 找到 console 路由并注入
+  const findAndPatch = (routeList: any[]): boolean => {
+    for (const route of routeList) {
+      if (route.path === '/console') {
+        const existing = route.routes || [];
+        route.routes = [...existing, { type: 'divider' }, ...dynamicRoutes];
+        return true;
+      }
+      if (route.routes && findAndPatch(route.routes)) return true;
+    }
+    return false;
+  };
+
+  findAndPatch(routes);
 }
 
-/**
- * 递归查找路由
- */
-function findRoute(routes: any[], path: string): any {
-  for (const route of routes) {
-    if (route.path === path) {
-      return route;
-    }
-    if (route.routes) {
-      const found = findRoute(route.routes, path);
-      if (found) return found;
-    }
-  }
-  return null;
-}
