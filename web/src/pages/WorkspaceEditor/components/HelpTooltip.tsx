@@ -103,54 +103,50 @@ const HELP_DOCS: Record<string, { title: string; content: string; example?: stri
   },
 
   // 字段配置
-  'field.key': {
-    title: '字段名',
-    content: '字段的唯一标识符，对应函数输入参数的属性名。',
-  },
-  'field.label': {
-    title: '字段标签',
+  'field.title': {
+    title: '字段标题',
     content: '表单中字段显示的标签名称。',
   },
   'field.type': {
     title: '字段类型',
     content:
-      '选择表单控件的类型：\n• input - 单行文本输入\n• number - 数字输入\n• select - 下拉选择\n• radio - 单选框\n• checkbox - 多选框\n• date - 日期选择\n• datetime - 日期时间选择\n• textarea - 多行文本\n• switch - 开关',
+      '选择字段的数据类型：\n• string - 字符串\n• number - 数字\n• boolean - 布尔值\n• object - 对象\n• array - 数组',
+  },
+  'field.x-component': {
+    title: '组件',
+    content:
+      '选择表单控件的组件：\n• Input - 单行文本输入\n• NumberPicker - 数字输入\n• Select - 下拉选择\n• Radio - 单选框\n• Checkbox - 多选框\n• DatePicker - 日期选择\n• Input.TextArea - 多行文本\n• Switch - 开关',
   },
   'field.required': {
     title: '必填',
     content: '开启后，用户必须填写此字段才能提交表单。',
   },
-  'field.placeholder': {
+  'field.x-component-props.placeholder': {
     title: '占位符',
     content: '输入框为空时显示的提示文本，用于引导用户输入。',
   },
-  'field.defaultValue': {
+  'field.default': {
     title: '默认值',
     content:
-      '字段的默认值，用户未填写时使用的预设值。可以设置静态值或使用表达式。点击"表达式"按钮可切换到表达式模式，支持动态值如当前时间、用户信息等。\n\n可用表达式：\n• $now() - 当前日期时间\n• $today() - 当前日期\n• $user.id - 当前用户ID\n• $user.name - 当前用户名\n• $query.key - URL查询参数\n• $localStorage.key - 本地存储\n• $uuid() - 生成UUID\n• $timestamp() - 当前时间戳',
+      '字段的默认值，用户未填写时使用的预设值。',
   },
-  'field.tooltip': {
+  'field.x-component-props.tooltip': {
     title: '帮助提示',
     content: '在字段标签旁显示的提示图标，鼠标悬停时展示的帮助文本，用于解释字段用途。',
   },
-  'field.options': {
+  'field.enum': {
     title: '选项列表',
-    content: 'select、radio、checkbox 类型字段的选项配置。每个选项包含显示标签和实际值。',
+    content: 'Select、Radio、Checkbox 类型字段的选项配置。每个选项包含显示标签和实际值。',
   },
-  'field.rules': {
+  'field.x-validator': {
     title: '校验规则',
     content:
-      '字段值的验证规则：\n• string - 字符串类型校验\n• number - 数字类型校验\n• email - 邮箱格式校验\n• url - URL 格式校验\n• pattern - 正则表达式校验\n可配置 min/max 值范围和错误提示信息。',
+      '字段值的验证规则：\n• required - 必填校验\n• format - 格式校验 (email/url/pattern)\n• min/max - 最小/大值\n• minLength/maxLength - 最小/大长度',
   },
-  'field.visibleWhen': {
-    title: '显隐条件',
+  'field.x-reactions': {
+    title: '联动规则',
     content:
-      "填写 JS 表达式，运行时根据其他字段值判断是否显示此字段。表达式返回 false 时隐藏。如: status === 'active'",
-  },
-  'field.disabledWhen': {
-    title: '禁用条件',
-    content:
-      "填写 JS 表达式，运行时根据其他字段值判断是否禁用此字段。表达式返回 true 时禁用。如: type === 'readonly'",
+      '字段之间的联动规则，可以根据其他字段的值来控制当前字段的显示、隐藏、禁用等。',
   },
 
   // 分组配置

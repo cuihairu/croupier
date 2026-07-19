@@ -498,7 +498,7 @@ export default function TabEditor({ tab, onChange, descriptors = [] }: TabEditor
         layout: {
           ...layout,
           [fieldsKey]: fields.map((f) =>
-            f.key === uiState.editingField!.key ? { ...f, ...values } : f,
+            f.title === uiState.editingField!.title ? { ...f, ...values } : f,
           ),
         },
       });

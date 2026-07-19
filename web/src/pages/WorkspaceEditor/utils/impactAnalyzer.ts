@@ -217,16 +217,16 @@ function analyzeTabImpact(
     const oldFields = oldLayout?.fields || oldLayout?.queryFields || [];
     const newFields = newLayout?.fields || newLayout?.queryFields || [];
 
-    const oldFieldMap = new Map(oldFields.map((f: FieldConfig) => [f.key, f]));
-    const newFieldMap = new Map(newFields.map((f: FieldConfig) => [f.key, f]));
+    const oldFieldMap = new Map(oldFields.map((f: FieldConfig) => [f.title, f]));
+    const newFieldMap = new Map(newFields.map((f: FieldConfig) => [f.title, f]));
 
     // 新增字段
     newFields.forEach((field: FieldConfig) => {
-      if (!oldFieldMap.has(field.key)) {
+      if (!oldFieldMap.has(field.title)) {
         impacts.push({
           type: 'field-added',
           level: 'low',
-          description: `Tab "${newTab.title}" 新增字段: ${field.label || field.key}`,
+          description: `Tab "${newTab.title}" 新增字段: ${field.title}`,
           affectedWorkspaces: [workspaceKey],
         });
       }
@@ -234,12 +234,12 @@ function analyzeTabImpact(
 
     // 删除字段
     oldFields.forEach((field: FieldConfig) => {
-      if (!newFieldMap.has(field.key)) {
+      if (!newFieldMap.has(field.title)) {
         const level = field.required ? 'high' : 'low';
         impacts.push({
           type: 'field-removed',
           level,
-          description: `Tab "${newTab.title}" 删除字段: ${field.label || field.key}`,
+          description: `Tab "${newTab.title}" 删除字段: ${field.title}`,
           affectedWorkspaces: [workspaceKey],
           recommendation: field.required ? '删除必填字段可能导致表单提交失败' : undefined,
         });
@@ -248,14 +248,14 @@ function analyzeTabImpact(
 
     // 修改字段
     newFields.forEach((field: FieldConfig) => {
-      const oldField = oldFieldMap.get(field.key);
+      const oldField = oldFieldMap.get(field.title);
       if (!oldField) return;
 
       if (field.type !== oldField.type) {
         impacts.push({
           type: 'field-modified',
           level: 'medium',
-          description: `Tab "${newTab.title}" 字段 "${field.label || field.key}" 类型从 ${
+          description: `Tab "${newTab.title}" 字段 "${field.title}" 类型从 ${
             oldField.type
           } 变更为 ${field.type}`,
           affectedWorkspaces: [workspaceKey],
@@ -267,7 +267,7 @@ function analyzeTabImpact(
         impacts.push({
           type: 'field-modified',
           level: 'medium',
-          description: `Tab "${newTab.title}" 字段 "${field.label || field.key}" 变更为必填`,
+          description: `Tab "${newTab.title}" 字段 "${field.title}" 变更为必填`,
           affectedWorkspaces: [workspaceKey],
           recommendation: '新增必填要求可能导致现有数据校验失败',
         });
@@ -277,7 +277,7 @@ function analyzeTabImpact(
         impacts.push({
           type: 'field-modified',
           level: 'low',
-          description: `Tab "${newTab.title}" 字段 "${field.label || field.key}" 变更为非必填`,
+          description: `Tab "${newTab.title}" 字段 "${field.title}" 变更为非必填`,
           affectedWorkspaces: [workspaceKey],
         });
       }

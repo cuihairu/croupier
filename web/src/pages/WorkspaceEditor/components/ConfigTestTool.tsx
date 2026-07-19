@@ -104,8 +104,8 @@ function generateListMockData(columns: ColumnConfig[], count: number = 5): any[]
 function generateFormMockData(fields: FieldConfig[]): Record<string, any> {
   const data: Record<string, any> = {};
   fields.forEach((field) => {
-    if (!field.key) return;
-    data[field.key] = generateMockData(field.type, field);
+    if (!field.title) return;
+    data[field.title] = generateMockData(field.type, field);
   });
   return data;
 }
@@ -115,8 +115,8 @@ function generateDetailMockData(sections: DetailSection[]): Record<string, any> 
   const data: Record<string, any> = { id: 'mock_001' };
   sections.forEach((section) => {
     section.fields.forEach((field) => {
-      if (!field.key) return;
-      data[field.key] = generateMockData('string');
+      if (!field.title) return;
+      data[field.title] = generateMockData('string');
     });
   });
   return data;
@@ -151,32 +151,30 @@ function FormTestPanel({
   };
 
   const renderField = (field: FieldConfig) => {
-    const commonProps = {
-      placeholder: field.placeholder,
-      disabled: field.disabled,
-    };
+    const component = field['x-component'] || 'Input';
+    const props = field['x-component-props'] || {};
 
-    switch (field.type) {
-      case 'input':
-        return <Input {...commonProps} />;
-      case 'number':
-        return <InputNumber {...commonProps} style={{ width: '100%' }} />;
-      case 'textarea':
-        return <Input.TextArea rows={3} {...commonProps} />;
-      case 'select':
+    switch (component) {
+      case 'Input':
+        return <Input {...props} />;
+      case 'NumberPicker':
+        return <InputNumber {...props} style={{ width: '100%' }} />;
+      case 'Input.TextArea':
+        return <Input.TextArea rows={3} {...props} />;
+      case 'Select':
         return (
-          <select className="ant-input" {...commonProps}>
-            {field.options?.map((opt) => (
+          <select className="ant-input" {...props}>
+            {field.enum?.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}
           </select>
         );
-      case 'switch':
+      case 'Switch':
         return <Switch />;
       default:
-        return <Input {...commonProps} />;
+        return <Input {...props} />;
     }
   };
 
@@ -192,15 +190,15 @@ function FormTestPanel({
       <Form form={form} layout={layout.formLayout || 'vertical'} initialValues={mockData}>
         {fields.map((field) => (
           <Form.Item
-            key={field.key}
-            name={field.key}
-            label={field.label}
+            key={field.title}
+            name={field.title}
+            label={field.title}
             required={field.required}
-            rules={field.rules?.map((r) => ({
+            rules={field['x-validator']?.map((r) => ({
               required: r.type === 'required',
               message: r.message,
             }))}
-            tooltip={field.tooltip}
+            tooltip={field['x-component-props']?.tooltip}
           >
             {renderField(field)}
           </Form.Item>
@@ -305,8 +303,8 @@ function DetailTestPanel({ tab }: { tab: TabConfig }) {
         <Card key={idx} title={section.title} size="small" style={{ marginBottom: 12 }}>
           <Descriptions column={section.column || 2} size="small" bordered>
             {section.fields.map((field) => (
-              <Descriptions.Item key={field.key} label={field.label} span={field.span || 1}>
-                {mockData[field.key] || '-'}
+              <Descriptions.Item key={field.title} label={field.title} span={field['x-component-props']?.span || 1}>
+                {mockData[field.title] || '-'}
               </Descriptions.Item>
             ))}
           </Descriptions>
@@ -340,8 +338,8 @@ function FormDetailTestPanel({ tab }: { tab: TabConfig }) {
       <Card title="查询表单" size="small" style={{ marginBottom: 12 }}>
         <Form layout="inline" initialValues={mockQueryData}>
           {queryFields.map((field: FieldConfig) => (
-            <Form.Item key={field.key} name={field.key} label={field.label}>
-              <Input placeholder={field.placeholder} style={{ width: 150 }} />
+            <Form.Item key={field.title} name={field.title} label={field.title}>
+              <Input placeholder={field['x-component-props']?.placeholder} style={{ width: 150 }} />
             </Form.Item>
           ))}
           <Form.Item>
@@ -353,8 +351,8 @@ function FormDetailTestPanel({ tab }: { tab: TabConfig }) {
         <Card key={idx} title={section.title} size="small" style={{ marginBottom: 12 }}>
           <Descriptions column={section.column || 2} size="small" bordered>
             {section.fields.map((field) => (
-              <Descriptions.Item key={field.key} label={field.label} span={field.span || 1}>
-                {mockDetailData[field.key] || '-'}
+              <Descriptions.Item key={field.title} label={field.title} span={field['x-component-props']?.span || 1}>
+                {mockDetailData[field.title] || '-'}
               </Descriptions.Item>
             ))}
           </Descriptions>

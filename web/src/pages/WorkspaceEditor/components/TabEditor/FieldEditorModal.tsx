@@ -93,20 +93,18 @@ const ExpressionHelpContent = () => (
 );
 
 /** 根据字段类型和标签生成推荐占位符 */
-function suggestPlaceholder(type?: string, label?: string): string {
+function suggestPlaceholder(component?: string, label?: string): string {
   const name = label || '内容';
-  switch (type) {
-    case 'input':
-    case 'textarea':
+  switch (component) {
+    case 'Input':
+    case 'Input.TextArea':
       return `请输入${name}`;
-    case 'number':
+    case 'NumberPicker':
       return `请输入${name}`;
-    case 'select':
+    case 'Select':
       return `请选择${name}`;
-    case 'date':
+    case 'DatePicker':
       return '请选择日期';
-    case 'datetime':
-      return '请选择日期时间';
     default:
       return '';
   }
@@ -147,8 +145,8 @@ export default function FieldEditorModal({
 }: FieldEditorModalProps) {
   const [form] = Form.useForm();
   const [useExpression, setUseExpression] = React.useState(false);
-  const fieldType = Form.useWatch('type', form);
-  const fieldLabel = Form.useWatch('label', form);
+  const fieldComponent = Form.useWatch('x-component', form);
+  const fieldTitle = Form.useWatch('title', form);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor),
@@ -158,20 +156,20 @@ export default function FieldEditorModal({
   const handleOptionDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const options: any[] = form.getFieldValue('options') || [];
+    const options: any[] = form.getFieldValue('enum') || [];
     const oldIdx = options.findIndex((_: any, i: number) => `opt-${i}` === active.id);
     const newIdx = options.findIndex((_: any, i: number) => `opt-${i}` === over.id);
     if (oldIdx === -1 || newIdx === -1) return;
     const reordered = [...options];
     const [moved] = reordered.splice(oldIdx, 1);
     reordered.splice(newIdx, 0, moved);
-    form.setFieldValue('options', reordered);
+    form.setFieldValue('enum', reordered);
   };
 
   React.useEffect(() => {
     if (open && editingField) {
       form.setFieldsValue(editingField);
-      setUseExpression(!!editingField.defaultValueExpression);
+      setUseExpression(!!editingField['x-component-props']?.defaultValueExpression);
     } else if (open) {
       form.resetFields();
       setUseExpression(false);
@@ -181,17 +179,17 @@ export default function FieldEditorModal({
   const handleOk = async () => {
     const values = await form.validateFields();
     // 清理不适用的字段
-    if (!TYPES_WITH_OPTIONS.includes(values.type)) {
-      delete values.options;
+    if (!TYPES_WITH_OPTIONS.includes(values['x-component'])) {
+      delete values.enum;
     }
-    if (!TYPES_WITH_PLACEHOLDER.includes(values.type)) {
-      delete values.placeholder;
+    if (!TYPES_WITH_PLACEHOLDER.includes(values['x-component'])) {
+      delete values['x-component-props']?.placeholder;
     }
     // 处理默认值表达式互斥
     if (useExpression) {
-      delete values.defaultValue;
+      delete values.default;
     } else {
-      delete values.defaultValueExpression;
+      delete values['x-component-props']?.defaultValueExpression;
     }
     onOk(values);
     form.resetFields();
@@ -203,14 +201,14 @@ export default function FieldEditorModal({
   };
 
   const applyPlaceholderSuggestion = () => {
-    const suggestion = suggestPlaceholder(fieldType, fieldLabel);
+    const suggestion = suggestPlaceholder(fieldComponent, fieldTitle);
     if (suggestion) {
-      form.setFieldValue('placeholder', suggestion);
+      form.setFieldValue(['x-component-props', 'placeholder'], suggestion);
     }
   };
 
-  const showOptions = TYPES_WITH_OPTIONS.includes(fieldType);
-  const showPlaceholder = TYPES_WITH_PLACEHOLDER.includes(fieldType);
+  const showOptions = TYPES_WITH_OPTIONS.includes(fieldComponent);
+  const showPlaceholder = TYPES_WITH_PLACEHOLDER.includes(fieldComponent);
 
   return (
     <Modal
@@ -223,26 +221,14 @@ export default function FieldEditorModal({
       <Form form={form} layout="vertical" size="small">
         {/* 基础信息 */}
         <Form.Item
-          name="key"
+          name="title"
           label={
             <Space size={4}>
-              <span>字段名</span>
-              <HelpTooltip helpKey="field.key" />
+              <span>字段标题</span>
+              <HelpTooltip helpKey="field.title" />
             </Space>
           }
-          rules={[{ required: true, message: '请输入字段名' }]}
-        >
-          <Input placeholder="如: playerId" />
-        </Form.Item>
-        <Form.Item
-          name="label"
-          label={
-            <Space size={4}>
-              <span>字段标签</span>
-              <HelpTooltip helpKey="field.label" />
-            </Space>
-          }
-          rules={[{ required: true, message: '请输入字段标签' }]}
+          rules={[{ required: true, message: '请输入字段标题' }]}
         >
           <Input placeholder="如: 玩家ID" />
         </Form.Item>
@@ -259,6 +245,19 @@ export default function FieldEditorModal({
           <Select options={FIELD_TYPES} />
         </Form.Item>
 
+        <Form.Item
+          name="x-component"
+          label={
+            <Space size={4}>
+              <span>组件</span>
+              <HelpTooltip helpKey="field.x-component" />
+            </Space>
+          }
+          rules={[{ required: true, message: '请选择组件' }]}
+        >
+          <Select options={FIELD_COMPONENTS} />
+        </Form.Item>
+
         <Space style={{ width: '100%' }} size={16}>
           <Form.Item
             name="required"
@@ -273,14 +272,6 @@ export default function FieldEditorModal({
           >
             <Switch />
           </Form.Item>
-          <Form.Item
-            name="disabled"
-            label="禁用"
-            valuePropName="checked"
-            style={{ marginBottom: 8 }}
-          >
-            <Switch />
-          </Form.Item>
         </Space>
 
         {/* 占位符 - 带智能推荐 */}
@@ -289,16 +280,16 @@ export default function FieldEditorModal({
             label={
               <Space size={4}>
                 <span>占位符</span>
-                <HelpTooltip helpKey="field.placeholder" />
+                <HelpTooltip helpKey="field.x-component-props.placeholder" />
               </Space>
             }
             style={{ marginBottom: 8 }}
           >
             <Space.Compact style={{ width: '100%' }}>
-              <Form.Item name="placeholder" noStyle>
+              <Form.Item name={['x-component-props', 'placeholder']} noStyle>
                 <Input
                   style={{ width: 'calc(100% - 70px)' }}
-                  placeholder={suggestPlaceholder(fieldType, fieldLabel) || '请输入占位符'}
+                  placeholder={suggestPlaceholder(fieldComponent, fieldTitle) || '请输入占位符'}
                 />
               </Form.Item>
               <Tooltip title="自动生成推荐占位符">
@@ -313,19 +304,19 @@ export default function FieldEditorModal({
           label={
             <Space size={4}>
               <span>默认值</span>
-              <HelpTooltip helpKey="field.defaultValue" />
+              <HelpTooltip helpKey="field.default" />
             </Space>
           }
         >
           <Space.Compact style={{ width: '100%' }}>
-            <Form.Item name="defaultValue" noStyle>
-              {fieldType === 'number' ? (
+            <Form.Item name="default" noStyle>
+              {fieldComponent === 'NumberPicker' ? (
                 <InputNumber
                   style={{ width: '100%' }}
                   placeholder="默认数值"
                   disabled={useExpression}
                 />
-              ) : fieldType === 'switch' ? (
+              ) : fieldComponent === 'Switch' ? (
                 <Switch disabled={useExpression} />
               ) : (
                 <Input placeholder="默认值" disabled={useExpression} />
@@ -345,7 +336,71 @@ export default function FieldEditorModal({
         {/* 默认值表达式 */}
         {useExpression && (
           <Form.Item
-            name="defaultValueExpression"
+            name={['x-component-props', 'defaultValueExpression']}
+            label={
+              <Space size={4}>
+                <span>表达式</span>
+                <Tooltip title={<ExpressionHelpContent />}>
+                  <QuestionCircleOutlined style={{ color: '#999' }} />
+                </Tooltip>
+              </Space>
+            }
+            rules={[{ required: useExpression, message: '请输入表达式' }]}
+          >
+            <Select
+              mode="tags"
+              placeholder="输入表达式，如 $now()、$user.id"
+              options={EXPRESSION_FUNCTIONS.map((fn) => ({
+                label: `${fn.key} - ${fn.desc}`,
+                value: fn.key,
+              }))}
+              tokenSeparators={[' ']}
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+        )}
+
+        {/* 默认值 */}
+        <Form.Item
+          name="default"
+          label={
+            <Space size={4}>
+              <span>默认值</span>
+              <HelpTooltip helpKey="field.default" />
+            </Space>
+          }
+        >
+          <Space.Compact style={{ width: '100%' }}>
+            <Form.Item name="default" noStyle>
+              {fieldComponent === 'NumberPicker' ? (
+                <InputNumber
+                  style={{ width: '100%' }}
+                  placeholder="默认数值"
+                  disabled={useExpression}
+                />
+              ) : fieldComponent === 'Switch' ? (
+                <Switch disabled={useExpression} />
+              ) : (
+                <Input placeholder="默认值" disabled={useExpression} />
+              )}
+            </Form.Item>
+            <Tooltip title={<ExpressionHelpContent />}>
+              <Button
+                type={useExpression ? 'primary' : 'default'}
+                onClick={() => setUseExpression(!useExpression)}
+              >
+                表达式
+              </Button>
+            </Tooltip>
+          </Space.Compact>
+        </Form.Item>
+
+        {/* 默认值表达式 */}
+        {useExpression && (
+          <Form.Item
+            name={['x-component-props', 'defaultValueExpression']}
             label={
               <Space size={4}>
                 <span>表达式</span>
@@ -373,11 +428,11 @@ export default function FieldEditorModal({
 
         {/* 帮助提示 */}
         <Form.Item
-          name="tooltip"
+          name={['x-component-props', 'tooltip']}
           label={
             <Space size={4}>
               <span>帮助提示</span>
-              <HelpTooltip helpKey="field.tooltip" />
+              <HelpTooltip helpKey="field.x-component-props.tooltip" />
             </Space>
           }
         >
@@ -393,10 +448,10 @@ export default function FieldEditorModal({
             <Divider plain style={{ margin: '8px 0' }}>
               <Space size={4}>
                 <span>选项列表（可拖拽排序）</span>
-                <HelpTooltip helpKey="field.options" />
+                <HelpTooltip helpKey="field.enum" />
               </Space>
             </Divider>
-            <Form.List name="options">
+            <Form.List name="enum">
               {(fields, { add, remove }) => (
                 <DndContext
                   sensors={dndSensors}
@@ -455,10 +510,10 @@ export default function FieldEditorModal({
         <Divider plain style={{ margin: '8px 0' }}>
           <Space size={4}>
             <span>校验规则</span>
-            <HelpTooltip helpKey="field.rules" />
+            <HelpTooltip helpKey="field.x-validator" />
           </Space>
         </Divider>
-        <Form.List name="rules">
+        <Form.List name="x-validator">
           {(fields, { add, remove }) => (
             <>
               {fields.map(({ key, name, ...restField }) => (
@@ -477,11 +532,11 @@ export default function FieldEditorModal({
                   <Form.Item
                     noStyle
                     shouldUpdate={(prev, cur) =>
-                      prev?.rules?.[name]?.type !== cur?.rules?.[name]?.type
+                      prev?.['x-validator']?.[name]?.type !== cur?.['x-validator']?.[name]?.type
                     }
                   >
                     {({ getFieldValue }) => {
-                      const ruleType = getFieldValue(['rules', name, 'type']);
+                      const ruleType = getFieldValue(['x-validator', name, 'type']);
                       return (
                         <>
                           {ruleType === 'pattern' && (
@@ -523,7 +578,7 @@ export default function FieldEditorModal({
               ))}
               <Button
                 type="dashed"
-                onClick={() => add({ type: 'string' })}
+                onClick={() => add({ format: 'required' })}
                 block
                 icon={<PlusOutlined />}
                 style={{ marginBottom: 8 }}
@@ -539,26 +594,23 @@ export default function FieldEditorModal({
           联动规则
         </Divider>
         <Form.Item
-          name="visibleWhen"
+          name="x-reactions"
           label={
             <Space size={4}>
-              <span>显隐条件</span>
-              <HelpTooltip helpKey="field.visibleWhen" />
+              <span>联动规则</span>
+              <HelpTooltip helpKey="field.x-reactions" />
             </Space>
           }
         >
-          <Input placeholder={"如: status === 'active'（留空表示始终显示）"} />
+          <Input.TextArea
+            rows={3}
+            placeholder={"如: [{\"when\": \"status === 'active'\", \"target\": \"field\", \"fulfill\": {\"state\": {\"visible\": true}}}]"}
+          />
         </Form.Item>
-        <Form.Item
-          name="disabledWhen"
-          label={
-            <Space size={4}>
-              <span>禁用条件</span>
-              <HelpTooltip helpKey="field.disabledWhen" />
-            </Space>
-          }
-        >
-          <Input placeholder={"如: type === 'readonly'（留空表示不联动禁用）"} />
+          <Input.TextArea
+            rows={3}
+            placeholder={"如: [{\"when\": \"status === 'active'\", \"target\": \"field\", \"fulfill\": {\"state\": {\"visible\": true}}}]"}
+          />
         </Form.Item>
       </Form>
     </Modal>

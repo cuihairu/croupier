@@ -424,59 +424,60 @@ export interface SplitPanel {
 }
 
 /**
- * 字段配置
+ * Formily 字段配置
  *
- * 定义表单字段或查询字段的配置。
+ * 使用 Formily 标准格式定义表单字段。
+ * @see https://formilyjs.org/zh-CN/guide
  */
-export interface FieldConfig {
-  /** 字段名 */
-  key: string;
+export interface FormilyFieldConfig {
+  /** 字段类型 (JSON Schema 类型) */
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'void';
 
-  /** 字段标签 */
-  label: string;
+  /** 字段标题 */
+  title?: string;
 
-  /** 字段类型 */
-  type:
-    | 'input'
-    | 'number'
-    | 'select'
-    | 'date'
-    | 'datetime'
-    | 'textarea'
-    | 'switch'
-    | 'radio'
-    | 'checkbox';
+  /** 字段描述 */
+  description?: string;
 
   /** 是否必填 */
   required?: boolean;
 
-  /** 占位符 */
-  placeholder?: string;
-
   /** 默认值 */
-  defaultValue?: any;
+  default?: string | number | boolean | null;
 
-  /** 默认值表达式（如 "$now()", "$user.id", "$query.key"）*/
-  defaultValueExpression?: string;
+  /** 枚举选项 (用于 select、radio、checkbox) */
+  enum?: Array<{ label: string; value: string | number | boolean }>;
 
-  /** 选项列表（用于 select、radio、checkbox） */
-  options?: Array<{ label: string; value: any }>;
+  /** Formily 组件 */
+  ['x-component']: string;
 
-  /** 验证规则 */
-  rules?: FieldRule[];
+  /** Formily 装饰器 */
+  ['x-decorator']?: string;
 
-  /** 是否禁用 */
-  disabled?: boolean;
+  /** 组件属性 */
+  ['x-component-props']?: Record<string, string | number | boolean | null | undefined>;
 
-  /** 提示信息 */
-  tooltip?: string;
+  /** 装饰器属性 */
+  ['x-decorator-props']?: Record<string, string | number | boolean | null | undefined>;
 
-  /** 显隐联动条件（如 "status === 'active'"，为 false 时隐藏该字段） */
-  visibleWhen?: string;
+  /** 校验规则 */
+  ['x-validator']?: string | Array<string | { format?: string; message?: string }>;
 
-  /** 禁用联动条件（如 "type === 'readonly'"，为 true 时禁用该字段） */
-  disabledWhen?: string;
+  /** 联动规则 */
+  ['x-reactions']?: Array<{
+    dependencies?: Array<string | { name?: string; type?: string }>;
+    when?: string | boolean;
+    target?: string;
+    fulfill?: { state?: Record<string, string>; schema?: Partial<FormilyFieldConfig> };
+    otherwise?: { state?: Record<string, string>; schema?: Partial<FormilyFieldConfig> };
+  }>;
+
+  /** 扩展属性 */
+  [key: `x-${string}`]: string | number | boolean | null | undefined;
 }
+
+/** @deprecated 使用 FormilyFieldConfig 代替 */
+export type FieldConfig = FormilyFieldConfig;
 
 /**
  * 字段验证规则

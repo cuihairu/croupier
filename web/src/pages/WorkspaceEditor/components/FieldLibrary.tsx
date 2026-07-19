@@ -54,10 +54,10 @@ const BUILTIN_FIELD_TEMPLATES: FieldTemplate[] = [
     description: '基础文本输入框',
     tags: ['常用', '基础'],
     template: {
-      key: '',
-      label: '文本字段',
-      type: 'input',
-      placeholder: '请输入',
+      type: 'string',
+      title: '文本字段',
+      ['x-component']: 'Input',
+      ['x-component-props']: { placeholder: '请输入' },
       required: false,
     },
   },
@@ -68,10 +68,10 @@ const BUILTIN_FIELD_TEMPLATES: FieldTemplate[] = [
     description: '多行文本输入，适合长内容',
     tags: ['常用'],
     template: {
-      key: '',
-      label: '备注',
-      type: 'textarea',
-      placeholder: '请输入',
+      type: 'string',
+      title: '备注',
+      ['x-component']: 'Input.TextArea',
+      ['x-component-props']: { placeholder: '请输入' },
       required: false,
     },
   },
@@ -82,12 +82,12 @@ const BUILTIN_FIELD_TEMPLATES: FieldTemplate[] = [
     description: '邮箱格式输入，带格式验证',
     tags: ['验证'],
     template: {
-      key: '',
-      label: '邮箱',
-      type: 'input',
-      placeholder: 'example@mail.com',
+      type: 'string',
+      title: '邮箱',
+      ['x-component']: 'Input',
+      ['x-component-props']: { placeholder: 'example@mail.com' },
       required: false,
-      rules: [{ type: 'email', pattern: '^[^@]+@[^@]+$', message: '请输入有效的邮箱地址' }],
+      ['x-validator']: [{ format: 'email', message: '请输入有效的邮箱地址' }],
     },
   },
   {
@@ -97,7 +97,14 @@ const BUILTIN_FIELD_TEMPLATES: FieldTemplate[] = [
     description: '手机号输入，11位数字验证',
     tags: ['验证'],
     template: {
-      key: '',
+      type: 'string',
+      title: '手机号',
+      ['x-component']: 'Input',
+      ['x-component-props']: { placeholder: '请输入手机号' },
+      required: false,
+      ['x-validator']: [{ pattern: '^1[3-9]\\d{9}$', message: '请输入有效的手机号' }],
+    },
+  },
       label: '手机号',
       type: 'input',
       placeholder: '请输入手机号',
@@ -623,22 +630,21 @@ export default function FieldLibrary({
  */
 export function createFieldFromTemplate(
   template: FieldTemplate,
-  existingKeys: string[],
+  existingTitles: string[],
 ): FieldConfig {
-  // 生成唯一 key
-  let baseKey = template.template.key || template.key;
-  let uniqueKey = baseKey;
+  // 生成唯一标题
+  let baseTitle = template.template.title || template.name;
+  let uniqueTitle = baseTitle;
   let counter = 1;
 
-  while (existingKeys.includes(uniqueKey)) {
-    uniqueKey = `${baseKey}_${counter}`;
+  while (existingTitles.includes(uniqueTitle)) {
+    uniqueTitle = `${baseTitle}_${counter}`;
     counter++;
   }
 
   return {
     ...template.template,
-    key: uniqueKey,
-    label: template.template.label || template.name,
+    title: uniqueTitle,
   } as FieldConfig;
 }
 

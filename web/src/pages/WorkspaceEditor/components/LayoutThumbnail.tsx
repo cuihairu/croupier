@@ -161,7 +161,7 @@ function renderFormThumbnail(layout: any) {
               textAlign: 'center',
             }}
           >
-            {field.label || field.key}
+            {field.title}
             {field.required && <span style={{ color: '#ff4d4f' }}>*</span>}
           </div>
         ))}

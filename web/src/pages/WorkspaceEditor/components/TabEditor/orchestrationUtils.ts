@@ -33,8 +33,8 @@ export function createDefaultLayout(
     { key: 'updatedAt', title: '更新时间', render: 'datetime' },
   ];
   const fallbackFields = [
-    { key: 'name', label: '名称', type: 'input', required: true },
-    { key: 'status', label: '状态', type: 'select' },
+    { type: 'string', title: '名称', ['x-component']: 'Input', required: true },
+    { type: 'string', title: '状态', ['x-component']: 'Select' },
   ];
   const fallbackSections = [
     {

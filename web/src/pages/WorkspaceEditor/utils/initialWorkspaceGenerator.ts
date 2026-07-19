@@ -194,24 +194,24 @@ function inferFormFields(descriptor: FunctionDescriptor): FieldConfig[] {
   return Object.entries(props)
     .slice(0, 12)
     .map(([key, value]: [string, any]) => ({
-      key,
-      label: value?.title || value?.description || key,
-      type: inferFieldType(key, value),
+      type: value?.type === 'integer' || value?.type === 'number' ? 'number' : 'string',
+      title: value?.title || value?.description || key,
+      ['x-component']: inferFieldComponent(key, value),
+      ['x-component-props']: { placeholder: `请输入${value?.title || key}` },
       required: required.includes(key),
-      placeholder: `请输入${value?.title || key}`,
-      options: value?.enum ? value.enum.map((v: any) => ({ label: String(v), value: v })) : undefined,
+      enum: value?.enum ? value.enum.map((v: any) => ({ label: String(v), value: v })) : undefined,
     })) as FieldConfig[];
 }
 
-function inferFieldType(key: string, prop: any): FieldConfig['type'] {
+function inferFieldComponent(key: string, prop: any): string {
   const type = prop?.type;
   const lk = key.toLowerCase();
-  if (type === 'integer' || type === 'number') return 'number';
-  if (type === 'boolean') return 'switch';
-  if (prop?.enum) return 'select';
-  if (lk.includes('date') || lk.includes('_at') || lk.endsWith('at')) return 'datetime';
-  if (lk.includes('desc') || lk.includes('remark') || lk.includes('note')) return 'textarea';
-  return 'input';
+  if (type === 'integer' || type === 'number') return 'NumberPicker';
+  if (type === 'boolean') return 'Switch';
+  if (prop?.enum) return 'Select';
+  if (lk.includes('date') || lk.includes('_at') || lk.endsWith('at')) return 'DatePicker';
+  if (lk.includes('desc') || lk.includes('remark') || lk.includes('note')) return 'Input.TextArea';
+  return 'Input';
 }
 
 function inferRender(key: string, prop: any): ColumnConfig['render'] {

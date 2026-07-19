@@ -321,38 +321,38 @@ function validateFormDetailLayout(
 function validateFieldConfig(field: FieldConfig, path: string): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  if (!field.key) {
-    errors.push({ path: `${path}.key`, message: '字段名不能为空', type: 'required' });
-  }
-
-  if (!field.label) {
-    errors.push({ path: `${path}.label`, message: '字段标签不能为空', type: 'required' });
-  }
-
   if (!field.type) {
     errors.push({ path: `${path}.type`, message: '字段类型不能为空', type: 'required' });
   }
 
+  if (!field['x-component']) {
+    errors.push({ path: `${path}.x-component`, message: '组件不能为空', type: 'required' });
+  }
+
+  if (!field.title) {
+    errors.push({ path: `${path}.title`, message: '字段标题不能为空', type: 'required' });
+  }
+
   // 校验选项列表
-  if (['select', 'radio', 'checkbox'].includes(field.type)) {
-    if (!field.options || field.options.length === 0) {
+  if (['Select', 'Radio', 'Checkbox'].includes(field['x-component'] || '')) {
+    if (!field.enum || field.enum.length === 0) {
       errors.push({
-        path: `${path}.options`,
-        message: `${field.type} 类型字段需要配置选项列表`,
+        path: `${path}.enum`,
+        message: `${field['x-component']} 类型字段需要配置选项列表`,
         type: 'required',
       });
     } else {
-      field.options?.forEach((opt, index) => {
+      field.enum?.forEach((opt, index) => {
         if (opt.value === undefined || opt.value === null) {
           errors.push({
-            path: `${path}.options[${index}].value`,
+            path: `${path}.enum[${index}].value`,
             message: '选项值不能为空',
             type: 'required',
           });
         }
         if (!opt.label) {
           errors.push({
-            path: `${path}.options[${index}].label`,
+            path: `${path}.enum[${index}].label`,
             message: '选项标签不能为空',
             type: 'required',
           });

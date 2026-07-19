@@ -133,12 +133,11 @@ function analyzeLayoutComplexity(layout: TabLayout): {
       // 分析字段配置复杂度
       let formComplexity = 0;
       fields.forEach((field: FieldConfig) => {
-        if (field.rules && field.rules.length > 0) formComplexity += field.rules.length;
-        if (field.visibleWhen) formComplexity += 2;
-        if (field.disabledWhen) formComplexity += 2;
-        if (field.defaultValueExpression) formComplexity += 2;
-        if (['select', 'radio', 'checkbox'].includes(field.type)) {
-          formComplexity += (field.options?.length || 0) * 0.5;
+        if (field['x-validator']) formComplexity += Array.isArray(field['x-validator']) ? field['x-validator'].length : 1;
+        if (field['x-reactions']) formComplexity += 2;
+        if (field['x-component-props']?.disabled) formComplexity += 2;
+        if (['Select', 'Radio', 'Checkbox'].includes(field['x-component'] || '')) {
+          formComplexity += (field.enum?.length || 0) * 0.5;
         }
       });
       metrics.push({

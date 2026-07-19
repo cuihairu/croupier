@@ -682,10 +682,10 @@ function FormDetailLayoutConfig({
     message.success(`已自动生成 ${fields.length} 个查询字段`);
   };
 
-  const removeField = (key: string) => {
+  const removeField = (title: string) => {
     onTabChange({
       ...tab,
-      layout: { ...layout, queryFields: queryFields.filter((f) => f.key !== key) },
+      layout: { ...layout, queryFields: queryFields.filter((f) => f.title !== title) },
     });
   };
 
@@ -791,7 +791,7 @@ function FormDetailLayoutConfig({
                     icon={<EditOutlined />}
                     onClick={() => onOpenFieldEditor(field)}
                   />
-                  <Popconfirm title="确认删除？" onConfirm={() => removeField(field.key)}>
+                  <Popconfirm title="确认删除？" onConfirm={() => removeField(field.title)}>
                     <Button type="link" danger size="small" icon={<DeleteOutlined />} />
                   </Popconfirm>
                 </Space>
@@ -834,10 +834,10 @@ function FormLayoutConfig({
     message.success(`已自动生成 ${generatedFields.length} 个字段`);
   };
 
-  const removeField = (key: string) => {
+  const removeField = (title: string) => {
     onTabChange({
       ...tab,
-      layout: { ...layout, fields: fields.filter((f) => f.key !== key) },
+      layout: { ...layout, fields: fields.filter((f) => f.title !== title) },
     });
   };
 
@@ -847,13 +847,13 @@ function FormLayoutConfig({
 
   // 从字段库添加字段
   const handleAddFieldFromTemplate = (template: FieldTemplate) => {
-    const existingKeys = fields.map((f) => f.key);
-    const newField = createFieldFromTemplate(template, existingKeys);
+    const existingTitles = fields.map((f) => f.title);
+    const newField = createFieldFromTemplate(template, existingTitles);
     onTabChange({
       ...tab,
       layout: { ...layout, fields: [...fields, newField] },
     });
-    message.success(`已添加字段: ${newField.label}`);
+    message.success(`已添加字段: ${newField.title}`);
   };
 
   return (
@@ -968,7 +968,7 @@ function FormLayoutConfig({
                     icon={<EditOutlined />}
                     onClick={() => onOpenFieldEditor(field)}
                   />
-                  <Popconfirm title="确认删除？" onConfirm={() => removeField(field.key)}>
+                  <Popconfirm title="确认删除？" onConfirm={() => removeField(field.title)}>
                     <Button type="link" danger size="small" icon={<DeleteOutlined />} />
                   </Popconfirm>
                 </Space>

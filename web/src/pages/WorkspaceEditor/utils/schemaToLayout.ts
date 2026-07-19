@@ -47,18 +47,18 @@ function inferRender(key: string, prop: any): ColumnConfig['render'] {
 }
 
 /**
- * 根据字段类型推断表单字段类型
+ * 根据字段类型推断表单字段组件
  */
-function inferFieldType(key: string, prop: any): FieldConfig['type'] {
+function inferFieldComponent(key: string, prop: any): string {
   const type = prop?.type;
   const lk = key.toLowerCase();
 
-  if (type === 'integer' || type === 'number') return 'number';
-  if (type === 'boolean') return 'switch';
-  if (prop?.enum) return 'select';
-  if (lk.includes('date') || lk.includes('_at') || lk.endsWith('at')) return 'datetime';
-  if (lk.includes('desc') || lk.includes('remark') || lk.includes('note')) return 'textarea';
-  return 'input';
+  if (type === 'integer' || type === 'number') return 'NumberPicker';
+  if (type === 'boolean') return 'Switch';
+  if (prop?.enum) return 'Select';
+  if (lk.includes('date') || lk.includes('_at') || lk.endsWith('at')) return 'DatePicker';
+  if (lk.includes('desc') || lk.includes('remark') || lk.includes('note')) return 'Input.TextArea';
+  return 'Input';
 }
 
 /**
@@ -103,12 +103,12 @@ export function schemaToFields(descriptor: FunctionDescriptor): FieldConfig[] {
   if (Object.keys(props).length === 0) return [];
 
   return Object.entries(props).map(([key, prop]: [string, any]) => ({
-    key,
-    label: prop?.title || prop?.description || key,
-    type: inferFieldType(key, prop),
+    type: prop?.type === 'integer' || prop?.type === 'number' ? 'number' : 'string',
+    title: prop?.title || prop?.description || key,
+    ['x-component']: inferFieldComponent(key, prop),
+    ['x-component-props']: { placeholder: `请输入${prop?.title || key}` },
     required: required.includes(key),
-    placeholder: `请输入${prop?.title || key}`,
-    options: prop?.enum ? prop.enum.map((v: any) => ({ label: String(v), value: v })) : undefined,
+    enum: prop?.enum ? prop.enum.map((v: any) => ({ label: String(v), value: v })) : undefined,
   }));
 }
 
