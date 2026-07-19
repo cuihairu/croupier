@@ -891,6 +891,20 @@ func stringFromAny(value interface{}) string {
 // based on the effective policy for that function.
 // Returns the effective policy for auditing purposes.
 func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, userRoles []string) (*policy.Policy, error) {
+	// Admin role bypasses all policy checks
+	if utils.HasAdminRole(userRoles) {
+		riskLevel := policy.RiskMedium
+		if svcCtx.RegistryStore != nil {
+			if op, err := svcCtx.RegistryStore.GetOpenAPI(functionID); err == nil {
+				if riskVal, ok := op.Extensions["x-risk-level"].(string); ok {
+					riskLevel = policy.RiskLevel(riskVal)
+				}
+			}
+		}
+		p, _ := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)
+		return p, nil
+	}
+
 	// Get function's risk level from registry
 	riskLevel := policy.RiskMedium // default
 	if svcCtx.RegistryStore != nil {
