@@ -77,11 +77,32 @@ func toDTO(m *model.WorkspaceConfig) WorkspaceConfig {
 		cfg.PublishedAt = m.PublishedAt.Format(time.RFC3339)
 	}
 
-	// Unmarshal the JSON config into Layout
+	// Unmarshal the JSON config - 支持两种格式：
+	// 1. 完整的 WorkspaceConfig JSON（包含 layout, description, status 等）
+	// 2. 仅 Layout JSON（向后兼容）
 	if m.Config != "" {
-		var layout interface{}
-		if err := json.Unmarshal([]byte(m.Config), &layout); err == nil {
-			cfg.Layout = layout
+		// 先尝试解析为完整的 WorkspaceConfig
+		var fullConfig WorkspaceConfig
+		if err := json.Unmarshal([]byte(m.Config), &fullConfig); err == nil && fullConfig.Layout != nil {
+			cfg.Layout = fullConfig.Layout
+			if fullConfig.Description != "" {
+				cfg.Description = fullConfig.Description
+			}
+			if fullConfig.Status != "" {
+				cfg.Status = fullConfig.Status
+			}
+			if fullConfig.Meta.CreatedAt != "" {
+				cfg.CreatedAt = fullConfig.Meta.CreatedAt
+			}
+			if fullConfig.Meta.UpdatedAt != "" {
+				cfg.UpdatedAt = fullConfig.Meta.UpdatedAt
+			}
+		} else {
+			// 回退：解析为仅 Layout
+			var layout interface{}
+			if err := json.Unmarshal([]byte(m.Config), &layout); err == nil {
+				cfg.Layout = layout
+			}
 		}
 	}
 
