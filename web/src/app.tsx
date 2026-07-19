@@ -202,14 +202,35 @@ export const request = {
 };
 
 /**
+ * 存储已加载的工作台配置
+ */
+let loadedWorkspaceConfigs: WorkspaceConfig[] = [];
+
+/**
+ * 在渲染前加载工作台配置
+ */
+export function render(oldRender: () => void) {
+  // 尝试加载已发布的工作台配置
+  listPublishedWorkspaceConfigs()
+    .then((configs) => {
+      loadedWorkspaceConfigs = Array.isArray(configs) ? configs : [];
+    })
+    .catch((error) => {
+      console.error('Failed to load workspace configs:', error);
+      loadedWorkspaceConfigs = [];
+    })
+    .finally(() => {
+      oldRender();
+    });
+}
+
+/**
  * 动态注入运行控制台路由
  * 根据已发布的工作台配置，按分类生成菜单
  */
-export async function patchClientRoutes({ routes }: { routes: any[] }) {
+export function patchClientRoutes({ routes }: { routes: any[] }) {
   try {
-    // 获取已发布的工作台
-    const configs = await listPublishedWorkspaceConfigs();
-    if (!Array.isArray(configs) || configs.length === 0) {
+    if (loadedWorkspaceConfigs.length === 0) {
       return;
     }
 
@@ -219,7 +240,7 @@ export async function patchClientRoutes({ routes }: { routes: any[] }) {
     const userAccess = initialState?.access || '';
 
     // 根据权限过滤
-    const filteredConfigs = filterByPermission(configs, userRoles, userAccess);
+    const filteredConfigs = filterByPermission(loadedWorkspaceConfigs, userRoles, userAccess);
 
     // 按分类分组
     const grouped = new Map<WorkspaceCategory, WorkspaceConfig[]>();
