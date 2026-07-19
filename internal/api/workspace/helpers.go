@@ -79,29 +79,47 @@ func toDTO(m *model.WorkspaceConfig) WorkspaceConfig {
 
 	// Unmarshal the JSON config - 支持两种格式：
 	// 1. 完整的 WorkspaceConfig JSON（包含 layout, description, status 等）
-	// 2. 仅 Layout JSON（向后兼容）
+	// 2. 仅 Layout JSON（向后兼容，由 createDefaultConfig 创建的旧记录）
 	if m.Config != "" {
-		// 先尝试解析为完整的 WorkspaceConfig
-		var fullConfig WorkspaceConfig
-		if err := json.Unmarshal([]byte(m.Config), &fullConfig); err == nil && fullConfig.Layout != nil {
-			cfg.Layout = fullConfig.Layout
-			if fullConfig.Description != "" {
-				cfg.Description = fullConfig.Description
-			}
-			if fullConfig.Status != "" {
-				cfg.Status = fullConfig.Status
-			}
-			if fullConfig.Meta.CreatedAt != "" {
-				cfg.CreatedAt = fullConfig.Meta.CreatedAt
-			}
-			if fullConfig.Meta.UpdatedAt != "" {
-				cfg.UpdatedAt = fullConfig.Meta.UpdatedAt
-			}
-		} else {
-			// 回退：解析为仅 Layout
-			var layout interface{}
-			if err := json.Unmarshal([]byte(m.Config), &layout); err == nil {
-				cfg.Layout = layout
+		// 先检查 JSON 是否包含 "layout" 键（完整 config 格式）
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(m.Config), &raw); err == nil {
+			if layoutRaw, ok := raw["layout"]; ok {
+				// 完整 config 格式：提取 layout 字段
+				var layout interface{}
+				if err := json.Unmarshal(layoutRaw, &layout); err == nil {
+					cfg.Layout = layout
+				}
+				// 提取其他可选字段
+				if descRaw, ok := raw["description"]; ok {
+					var desc string
+					if err := json.Unmarshal(descRaw, &desc); err == nil && desc != "" {
+						cfg.Description = desc
+					}
+				}
+				if statusRaw, ok := raw["status"]; ok {
+					var status string
+					if err := json.Unmarshal(statusRaw, &status); err == nil && status != "" {
+						cfg.Status = status
+					}
+				}
+				if metaRaw, ok := raw["meta"]; ok {
+					var meta WorkspaceConfigMeta
+					if err := json.Unmarshal(metaRaw, &meta); err == nil {
+						if meta.CreatedAt != "" {
+							cfg.CreatedAt = meta.CreatedAt
+						}
+						if meta.UpdatedAt != "" {
+							cfg.UpdatedAt = meta.UpdatedAt
+						}
+					}
+				}
+			} else {
+				// 向后兼容：整个 JSON 就是 layout（createDefaultConfig 旧格式）
+				var layout interface{}
+				if err := json.Unmarshal([]byte(m.Config), &layout); err == nil {
+					cfg.Layout = layout
+				}
 			}
 		}
 	}

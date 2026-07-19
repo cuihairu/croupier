@@ -78,25 +78,33 @@ func (s *Service) createDefaultConfig(ctx context.Context, objectKey string) (*G
 		"type": "tabs",
 		"tabs": []any{},
 	}
-	// Config field stores ONLY the layout JSON (toDTO unmarshals it into
-	// cfg.Layout). Do NOT marshal the entire WorkspaceConfig DTO here.
-	layoutJSON, err := json.Marshal(defaultLayout)
+	now := time.Now().UTC().Format(time.RFC3339)
+	// Store the full WorkspaceConfig JSON so toDTO can parse it uniformly.
+	defaultCfg := WorkspaceConfig{
+		ObjectKey: objectKey,
+		Title:     objectKey,
+		Layout:    defaultLayout,
+		Status:    workspaceStatusDraft,
+		Meta: WorkspaceConfigMeta{
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+	}
+	configJSON, err := json.Marshal(defaultCfg)
 	if err != nil {
-		return nil, errorx.NewInternalError("failed to marshal default workspace layout")
+		return nil, errorx.NewInternalError("failed to marshal default workspace config")
 	}
 	record := &model.WorkspaceConfig{
 		ObjectKey: objectKey,
 		Title:     objectKey,
-		Config:    string(layoutJSON),
+		Config:    string(configJSON),
 	}
 	if err := s.svcCtx.WorkspaceConfigModel.Upsert(ctx, record); err != nil {
 		return nil, err
 	}
-	return &GetConfigResponse{WorkspaceConfig: WorkspaceConfig{
-		ObjectKey: objectKey,
-		Title:     objectKey,
-		Layout:    defaultLayout,
-	}}, nil
+	defaultCfg.CreatedAt = now
+	defaultCfg.UpdatedAt = now
+	return &GetConfigResponse{WorkspaceConfig: defaultCfg}, nil
 }
 
 // SaveConfig saves (creates or updates) a workspace configuration
