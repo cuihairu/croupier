@@ -77,6 +77,7 @@ import AuditLogPanel, { AuditLogDetailModal } from './components/AuditLogPanel';
 import CollaborationPanel from './components/CollaborationPanel';
 import DraftPanel from './components/DraftPanel';
 import EditorEmptyState from './components/EditorEmptyState';
+import PermissionsDrawer from './components/PermissionsDrawer';
 import { getCollaborationManager } from './utils/collaborationManager';
 import { AutoSaveDraft } from './utils/draftManager';
 import { useSimpleHistory } from './hooks/useHistory';
@@ -622,6 +623,7 @@ export default function WorkspaceEditor() {
   const [configTestVisible, setConfigTestVisible] = useState(false);
   const [auditLogVisible, setAuditLogVisible] = useState(false);
   const [activeTabKey, setActiveTabKey] = useState<string | undefined>(undefined);
+  const [permissionsDrawerVisible, setPermissionsDrawerVisible] = useState(false);
 
   // 新手引导
   const [guideTourVisible, setGuideTourVisible] = useState(false);
@@ -1998,6 +2000,18 @@ export default function WorkspaceEditor() {
                     { label: '其他工具', value: 'other' },
                   ]}
                 />
+                <Button
+                  size="small"
+                  icon={<TeamOutlined />}
+                  onClick={() => setPermissionsDrawerVisible(true)}
+                >
+                  权限设置
+                  {config?.permissions?.roles?.length ? (
+                    <Tag color="blue" style={{ marginLeft: 4 }}>
+                      {config.permissions.roles.length}
+                    </Tag>
+                  ) : null}
+                </Button>
               </Space>
               <Space direction="vertical" size={6} style={{ width: '100%' }}>
                 <Typography.Title level={4} style={{ margin: 0 }}>
@@ -3135,6 +3149,19 @@ export default function WorkspaceEditor() {
           currentStep={guideStep}
           onStepChange={setGuideStep}
           onClose={() => setGuideTourVisible(false)}
+        />
+
+        {/* 权限设置 */}
+        <PermissionsDrawer
+          open={permissionsDrawerVisible}
+          config={config}
+          onClose={() => setPermissionsDrawerVisible(false)}
+          onSave={(permissions) => {
+            if (config) {
+              handleConfigChange({ ...config, permissions }, '更新权限配置');
+              message.success('权限配置已更新');
+            }
+          }}
         />
       </PageContainer>
     </>
