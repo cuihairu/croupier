@@ -109,14 +109,17 @@ func (s *Service) SaveConfig(ctx context.Context, req *SaveConfigRequest) (*Save
 
 	// Load existing and merge (partial update semantics): keep untouched fields as-is.
 	existing, err := s.svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, req.ObjectKey)
-	published := false
+	published := req.Published
+	publishedBy := req.PublishedBy
 	var publishedAt *time.Time
-	publishedBy := ""
 	exists := err == nil
 	if exists {
-		published = existing.Published
+		// 如果是更新，保留已发布的状态（除非请求中明确指定了）
+		if !req.Published {
+			published = existing.Published
+			publishedBy = existing.PublishedBy
+		}
 		publishedAt = existing.PublishedAt
-		publishedBy = existing.PublishedBy
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// New record
 	} else {

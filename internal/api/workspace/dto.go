@@ -51,6 +51,8 @@ type SaveConfigRequest struct {
 	Layout      interface{} `json:"layout"`
 	MenuOrder   int         `json:"menuOrder"`
 	Status      string      `json:"status"`
+	Published   bool        `json:"published"`
+	PublishedBy string      `json:"publishedBy,omitempty"`
 }
 
 // SaveConfigResponse is the response from saving workspace config
