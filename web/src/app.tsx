@@ -33,8 +33,19 @@ const CATEGORIES: Record<string, { name: string; order: number }> = {
   order: { name: '订单管理', order: 3 },
   economy: { name: '经济系统', order: 4 },
   social: { name: '社交系统', order: 5 },
+  mail: { name: '邮件系统', order: 6 },
+  leaderboard: { name: '排行榜', order: 7 },
   other: { name: '其他工具', order: 99 },
 };
+
+/**
+ * 从 objectKey 自动推导分类
+ * 例如: "player.list" → "player", "inventory.grant" → "inventory"
+ */
+function inferCategory(objectKey: string): string {
+  const prefix = objectKey.split('.')[0].toLowerCase();
+  return CATEGORIES[prefix] ? prefix : 'other';
+}
 
 /**
  * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
@@ -192,10 +203,10 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
 
       if (filtered.length === 0) return menuData;
 
-      // 按分类分组
+      // 按分类分组（从 objectKey 自动推导分类）
       const grouped = new Map<string, any[]>();
       filtered.forEach((c: any) => {
-        const cat = c.category || 'other';
+        const cat = c.category || inferCategory(c.objectKey);
         if (!grouped.has(cat)) grouped.set(cat, []);
         grouped.get(cat)!.push(c);
       });
