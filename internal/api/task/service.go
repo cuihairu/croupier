@@ -89,6 +89,8 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	if env != "" {
 		metadata["env"] = env
 	}
+	// 记录操作者
+	metadata["actor"] = admin.Username
 
 	// Dispatch through the same path as mode=task function invocation: the
 	// dispatcher generates the task ID, creates the task_runs row, and forwards
@@ -183,6 +185,9 @@ func buildItem(run *model.TaskRun) Item {
 		GameID:     run.GameID,
 		Env:        run.Env,
 		AgentID:    run.AgentID,
+		Actor:      run.Actor,
+		Addr:       run.Addr,
+		TraceID:    run.TraceID,
 		CreatedAt:  utils.FormatTimestamp(run.CreatedAt),
 		Error:      run.ErrorMessage,
 	}
@@ -191,6 +196,10 @@ func buildItem(run *model.TaskRun) Item {
 	}
 	if run.FinishedAt != nil {
 		item.FinishedAt = utils.FormatTimestamp(*run.FinishedAt)
+	}
+	// 计算耗时
+	if run.StartedAt != nil && run.FinishedAt != nil {
+		item.DurationMs = run.FinishedAt.Sub(*run.StartedAt).Milliseconds()
 	}
 	return item
 }
@@ -205,6 +214,9 @@ func buildDetail(run *model.TaskRun) *DetailResponse {
 		GameID:     run.GameID,
 		Env:        run.Env,
 		AgentID:    run.AgentID,
+		Actor:      run.Actor,
+		Addr:       run.Addr,
+		TraceID:    run.TraceID,
 		Error:      run.ErrorMessage,
 		CreatedAt:  utils.FormatTimestamp(run.CreatedAt),
 		UpdatedAt:  utils.FormatTimestamp(run.UpdatedAt),
@@ -215,6 +227,10 @@ func buildDetail(run *model.TaskRun) *DetailResponse {
 	}
 	if run.FinishedAt != nil {
 		resp.FinishedAt = utils.FormatTimestamp(*run.FinishedAt)
+	}
+	// 计算耗时
+	if run.StartedAt != nil && run.FinishedAt != nil {
+		resp.DurationMs = run.FinishedAt.Sub(*run.StartedAt).Milliseconds()
 	}
 	return resp
 }

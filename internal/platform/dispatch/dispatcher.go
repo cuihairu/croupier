@@ -61,6 +61,7 @@ type TaskEventQuery interface {
 // the correct row.
 type TaskRunWriter interface {
 	CreateRun(ctx context.Context, taskID, functionID, agentID, gameID, env, status string, inputPayload []byte) error
+	CreateRunWithMeta(ctx context.Context, taskID, functionID, agentID, gameID, env, status, actor, addr string, inputPayload []byte) error
 }
 
 // TaskRoutingInfo is a minimal DTO for task routing records.
@@ -444,10 +445,12 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 		req.Metadata["task_id"] = taskID
 		gameID := req.Metadata["game_id"]
 		env := req.Metadata["env"]
+		actor := req.Metadata["actor"]
+		addr := agent.Addr
 		// Best-effort: create the run row. If this fails the task still
 		// dispatches — the agent will use the provided task_id and events
 		// will be orphaned but not lost (they land in task_events).
-		_ = writer.CreateRun(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", req.GetPayload())
+		_ = writer.CreateRunWithMeta(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", actor, addr, req.GetPayload())
 	}
 
 	reqBytes, err := proto.Marshal(req)

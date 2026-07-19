@@ -17,6 +17,10 @@ type Item struct {
 	GameID     string `json:"game_id,omitempty"`
 	Env        string `json:"env,omitempty"`
 	AgentID    string `json:"agent_id,omitempty"`
+	Actor      string `json:"actor,omitempty"`       // 操作者
+	Addr       string `json:"addr,omitempty"`        // Agent 服务地址
+	TraceID    string `json:"trace_id,omitempty"`    // 链路追踪 ID
+	DurationMs int64  `json:"duration_ms,omitempty"` // 耗时（毫秒）
 	StartedAt  string `json:"started_at,omitempty"`
 	FinishedAt string `json:"finished_at,omitempty"`
 	CreatedAt  string `json:"created_at,omitempty"`
@@ -59,6 +63,10 @@ type DetailResponse struct {
 	GameID     string      `json:"game_id,omitempty"`
 	Env        string      `json:"env,omitempty"`
 	AgentID    string      `json:"agent_id,omitempty"`
+	Actor      string      `json:"actor,omitempty"`
+	Addr       string      `json:"addr,omitempty"`
+	TraceID    string      `json:"trace_id,omitempty"`
+	DurationMs int64       `json:"duration_ms,omitempty"`
 	Result     interface{} `json:"result,omitempty"`
 	Error      string      `json:"error,omitempty"`
 	StartedAt  string      `json:"started_at,omitempty"`

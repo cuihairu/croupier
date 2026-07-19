@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -28,10 +29,20 @@ func (l *FunctionDetailLogic) FunctionDetail(req *FunctionDetailRequest) (*Funct
 		return nil, err
 	}
 
-	// Ensure function record exists in DB (creates with real timestamps if missing)
-	fn, err := getOrCreateFunctionRecord(l.ctx, l.svcCtx, functionID)
+	// 检查函数是否存在于数据库或运行时注册表
+	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
 	if err != nil {
-		return nil, err
+		// 数据库中不存在，检查运行时注册表
+		rt := loadRuntimeFunctionDetail(l.svcCtx.RegistryStore, functionID)
+		if rt == nil {
+			// 运行时也不存在，返回错误
+			return nil, errorx.NewNotFound("函数不存在: " + functionID)
+		}
+		// 运行时存在，创建数据库记录
+		fn, err = getOrCreateFunctionRecord(l.ctx, l.svcCtx, functionID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	rt := loadRuntimeFunctionDetail(l.svcCtx.RegistryStore, functionID)

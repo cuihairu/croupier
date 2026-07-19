@@ -113,3 +113,22 @@ func (w *TaskRunWriterAdapter) CreateRun(ctx context.Context, taskID, functionID
 	}
 	return w.runs.Create(ctx, run)
 }
+
+// CreateRunWithMeta persists a task_runs row with actor and addr metadata.
+func (w *TaskRunWriterAdapter) CreateRunWithMeta(ctx context.Context, taskID, functionID, agentID, gameID, env, status, actor, addr string, inputPayload []byte) error {
+	if w.runs == nil {
+		return nil
+	}
+	run := &model.TaskRun{
+		TaskID:       taskID,
+		FunctionID:   functionID,
+		AgentID:      agentID,
+		GameID:       gameID,
+		Env:          env,
+		Status:       status,
+		Actor:        actor,
+		Addr:         addr,
+		InputPayload: model.MustJSON(string(inputPayload)),
+	}
+	return w.runs.Create(ctx, run)
+}

@@ -21,6 +21,8 @@ type TaskRun struct {
 	InputPayload      datatypes.JSON `gorm:"type:json"`
 	ResultPayload     datatypes.JSON `gorm:"type:json"`
 	ErrorMessage      string         `gorm:"type:text"`
+	Actor             string         `gorm:"size:128;index"` // 操作者（admin username）
+	Addr              string         `gorm:"size:255"`       // Agent 服务地址
 	StartedAt         *time.Time
 	FinishedAt        *time.Time
 	CancelRequestedAt *time.Time

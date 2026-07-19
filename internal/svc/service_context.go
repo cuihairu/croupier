@@ -321,6 +321,11 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		}
 		ctx.Dispatcher = dispatch.NewDispatcherWithTaskStore(ctx.RegistryStore, taskStore, nil)
 
+		// 设置 TaskRunWriter 以便在调度任务时持久化 task_runs 记录
+		taskRunModel := model.NewTaskRunModel(ctx.DB)
+		taskRunWriter := dispatch.NewTaskRunWriterAdapter(taskRunModel)
+		ctx.Dispatcher.SetTaskRunWriter(taskRunWriter)
+
 		if ttlStr := strings.TrimSpace(ctx.Config.AgentDispatch.TaskRoutingTTL); ttlStr != "" {
 			if ttl, err := time.ParseDuration(ttlStr); err != nil {
 				slog.Default().Error("invalid dispatch.task_routing_ttl", "value", ttlStr, "error", err)

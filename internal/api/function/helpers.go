@@ -233,6 +233,11 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		metadata["async"] = "true"
 	}
 
+	// 记录操作者
+	if admin != nil {
+		metadata["actor"] = admin.Username
+	}
+
 	var result *FunctionInvokeResponse
 	var invokeErr error
 

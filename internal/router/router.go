@@ -118,6 +118,12 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 			Sync:         extensionsync.NewService(extensionRepos.Installation, extensionRepos.Binding),
 		},
 	}
+
+	// 设置 TaskRunWriter 以便在调度任务时持久化 task_runs 记录
+	taskRunModel := model.NewTaskRunModel(db)
+	taskRunWriter := dispatch.NewTaskRunWriterAdapter(taskRunModel)
+	svcCtx.Dispatcher.SetTaskRunWriter(taskRunWriter)
+
 	if cfg != nil {
 		svcCtx.Config = *cfg
 	}
