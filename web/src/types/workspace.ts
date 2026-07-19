@@ -48,12 +48,12 @@ export interface WorkspaceConfig {
   /** 配置版本号 */
   version?: number;
 
-  /** 工作台分类 */
-  category?: WorkspaceCategory;
+  /** 可选业务域标签；默认展示和分组以 objectKey 为准 */
+  category?: string;
 
   /** 权限配置 */
   permissions?: {
-    roles?: string[];       // 允许的角色
+    roles?: string[]; // 允许的角色
     permissions?: string[]; // 允许的权限ID
   };
 
@@ -62,15 +62,6 @@ export interface WorkspaceConfig {
 }
 
 export type WorkspaceStatus = 'draft' | 'published' | 'archived';
-
-/** 工作台分类 */
-export type WorkspaceCategory =
-  | 'player'     // 玩家管理
-  | 'inventory'  // 物品管理
-  | 'order'      // 订单管理
-  | 'economy'    // 经济系统
-  | 'social'     // 社交系统
-  | 'other';     // 其他
 
 export interface WorkspaceVersionRecord {
   id: string;
@@ -696,6 +687,9 @@ export interface WorkspaceMeta {
 
   /** 版本号 */
   version?: number;
+
+  /** 对象显示名；默认来自函数注册的 entityDisplay */
+  objectLabel?: string;
 
   /** 标签 */
   tags?: string[];

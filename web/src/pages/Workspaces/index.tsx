@@ -57,6 +57,10 @@ import {
   parseWorkspaceError,
   type WorkspaceErrorCode,
 } from '@/services/workspace/errors';
+import {
+  resolveWorkspaceCategoryLabel,
+  resolveWorkspaceObjectLabel,
+} from '@/services/workspace/presentation';
 
 function resolveWorkspaceStatus(config: WorkspaceConfig): 'draft' | 'published' | 'archived' {
   if (config.status) return config.status;
@@ -112,7 +116,10 @@ function buildSuggestedCloneKey(sourceKey: string, existingKeys: string[]): stri
   return `${baseKey}-${index}`;
 }
 
-function summarizeWorkspaceReadiness(config: WorkspaceConfig, availableFunctions: any[] = []): {
+function summarizeWorkspaceReadiness(
+  config: WorkspaceConfig,
+  availableFunctions: any[] = [],
+): {
   readyCount: number;
   pendingCount: number;
   summary: string;
@@ -423,8 +430,10 @@ export default function WorkspacesIndexPage() {
 
   const starterContextMeta = useMemo(() => {
     if (!starterContext.objectKey) return null;
-    const existingConfig = configs.find((item) => item.objectKey === starterContext.objectKey) || null;
-    const starter = workspaceStarters.find((item) => item.objectKey === starterContext.objectKey) || null;
+    const existingConfig =
+      configs.find((item) => item.objectKey === starterContext.objectKey) || null;
+    const starter =
+      workspaceStarters.find((item) => item.objectKey === starterContext.objectKey) || null;
     return {
       ...starterContext,
       existingConfig,
@@ -682,7 +691,8 @@ export default function WorkspacesIndexPage() {
       }
 
       // 确保已有 descriptor 列表；若列表页状态还未准备好，则主动加载一次。
-      const descriptors = availableFunctions.length > 0 ? availableFunctions : await listDescriptors();
+      const descriptors =
+        availableFunctions.length > 0 ? availableFunctions : await listDescriptors();
       const { config, matchedFunctions } = generateInitialWorkspaceConfig(objectKey, descriptors);
       const fallbackConfig: WorkspaceConfig = {
         objectKey,
@@ -703,7 +713,9 @@ export default function WorkspacesIndexPage() {
       setCreateVisible(false);
       await load();
       history.push(`/system/functions/workspace-editor/${encodeURIComponent(objectKey)}`);
-      message.success(matchedFunctions.length > 0 ? '已生成默认页面骨架并进入编辑器' : '已进入工作台编辑器');
+      message.success(
+        matchedFunctions.length > 0 ? '已生成默认页面骨架并进入编辑器' : '已进入工作台编辑器',
+      );
     } catch (err: any) {
       message.error(getWorkspaceErrorMessage(err, '创建工作台失败'));
     } finally {
@@ -847,7 +859,9 @@ export default function WorkspacesIndexPage() {
             />
             <Badge
               color={
-                configs.some((item) => summarizeWorkspaceReadiness(item, availableFunctions).readyCount > 0)
+                configs.some(
+                  (item) => summarizeWorkspaceReadiness(item, availableFunctions).readyCount > 0,
+                )
                   ? 'green'
                   : 'default'
               }
@@ -865,7 +879,9 @@ export default function WorkspacesIndexPage() {
         <Alert
           type="info"
           showIcon
-          message={`已带入函数上下文${starterContextMeta.functionId ? ` · ${starterContextMeta.functionId}` : ''}`}
+          message={`已带入函数上下文${
+            starterContextMeta.functionId ? ` · ${starterContextMeta.functionId}` : ''
+          }`}
           description={
             starterContextMeta.existingConfig
               ? `当前函数建议落到对象 ${starterContextMeta.objectKey}。这个对象已有工作台草稿，可以直接继续补页面骨架、预览和发布。`
@@ -1041,6 +1057,8 @@ export default function WorkspacesIndexPage() {
                 const quality = buildWorkspaceQualityReport(config, availableFunctions);
                 const completion = getWorkspaceCompletion(readiness);
                 const statusMeta = getWorkspaceStatusMeta(status);
+                const objectLabel = resolveWorkspaceObjectLabel(config);
+                const categoryLabel = resolveWorkspaceCategoryLabel(config.category);
                 const priorityHint = getWorkspacePriorityHint({
                   status,
                   readiness,
@@ -1123,6 +1141,8 @@ export default function WorkspacesIndexPage() {
                             </Space>
                             <Space wrap size={[8, 6]}>
                               <Typography.Text code>{config.objectKey}</Typography.Text>
+                              <Tag color="blue">{`对象: ${objectLabel}`}</Tag>
+                              {categoryLabel ? <Tag>{`业务域: ${categoryLabel}`}</Tag> : null}
                               {typeof config.version === 'number' ? (
                                 <Badge color="blue" text={`v${config.version}`} />
                               ) : null}
@@ -1269,7 +1289,9 @@ export default function WorkspacesIndexPage() {
       <Modal
         title={
           qualityInspectTarget
-            ? `质量检查 · ${qualityInspectTarget.config.title || qualityInspectTarget.config.objectKey}`
+            ? `质量检查 · ${
+                qualityInspectTarget.config.title || qualityInspectTarget.config.objectKey
+              }`
             : '质量检查'
         }
         open={Boolean(qualityInspectTarget)}
@@ -1329,7 +1351,9 @@ export default function WorkspacesIndexPage() {
                     text={qualityInspectTarget.report.headline}
                   />
                 </Space>
-                <Typography.Text strong>{`当前评分 ${qualityInspectTarget.report.score}/100`}</Typography.Text>
+                <Typography.Text
+                  strong
+                >{`当前评分 ${qualityInspectTarget.report.score}/100`}</Typography.Text>
                 <Typography.Text type="secondary">
                   {qualityInspectTarget.report.summary}
                 </Typography.Text>
@@ -1448,7 +1472,9 @@ export default function WorkspacesIndexPage() {
                   <Typography.Text code>{publishReview.objectKey}</Typography.Text>
                   <Badge
                     status={publishReview.warningCount > 0 ? 'warning' : 'success'}
-                    text={publishReview.warningCount > 0 ? '可发布，但有风险提示' : '已具备发布条件'}
+                    text={
+                      publishReview.warningCount > 0 ? '可发布，但有风险提示' : '已具备发布条件'
+                    }
                   />
                 </Space>
                 <Typography.Text strong>{`当前评分 ${publishReview.score}/100`}</Typography.Text>

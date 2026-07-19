@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import {
   Alert,
+  AutoComplete,
   Badge,
   Button,
   Card,
@@ -85,7 +86,14 @@ import { useSimpleHistory } from './hooks/useHistory';
 /** 两种模式：2=函数+设计器（默认），3=函数+设计器+预览 */
 type ViewMode = 2 | 3;
 const STABLE_TAB_LAYOUT_TYPES = new Set(['form-detail', 'list', 'form', 'detail']);
-const BETA_TAB_LAYOUT_TYPES = new Set(['kanban', 'timeline', 'split', 'wizard', 'dashboard', 'grid']);
+const BETA_TAB_LAYOUT_TYPES = new Set([
+  'kanban',
+  'timeline',
+  'split',
+  'wizard',
+  'dashboard',
+  'grid',
+]);
 type VersionTimeRange = 'all' | '7d' | '30d' | '90d';
 
 function resolveWorkspaceStatus(config?: WorkspaceConfig | null): string {
@@ -571,7 +579,10 @@ function buildAppliedTemplateSummary(
     templateName: template.name,
     showcase: Boolean(template.showcase),
     tabCount: tabs.length,
-    tabTitles: tabs.map((tab) => tab.title || tab.key).filter(Boolean).slice(0, 4),
+    tabTitles: tabs
+      .map((tab) => tab.title || tab.key)
+      .filter(Boolean)
+      .slice(0, 4),
     score: report.score,
     headline: template.showcase ? '官方样板已接入当前草稿' : '模板已接入当前草稿',
     checklist: (template.applyChecklist || []).slice(0, 3),
@@ -878,7 +889,8 @@ export default function WorkspaceEditor() {
         label: actionLabel,
         function: suggestion.functionId,
         type: 'modal' as const,
-        buttonType: suggestion.reason === 'dangerous-action' ? ('default' as const) : ('primary' as const),
+        buttonType:
+          suggestion.reason === 'dangerous-action' ? ('default' as const) : ('primary' as const),
         danger: suggestion.reason === 'dangerous-action',
         fields: inferActionFields(descriptor),
         confirmMessage:
@@ -890,7 +902,10 @@ export default function WorkspaceEditor() {
         return;
       }
 
-      const nextTargetTab = { ...targetTab, functions: [...(targetTab.functions || []), suggestion.functionId] } as any;
+      const nextTargetTab = {
+        ...targetTab,
+        functions: [...(targetTab.functions || []), suggestion.functionId],
+      } as any;
       const layoutType = nextTargetTab.layout?.type;
 
       if (layoutType === 'detail' || layoutType === 'form-detail') {
@@ -1861,13 +1876,10 @@ export default function WorkspaceEditor() {
       </Button>
     );
 
-  const openTemplateGallery = useCallback(
-    (mode: 'all' | 'showcase' = 'all') => {
-      setTemplateBrowseMode(mode);
-      setTemplateModalVisible(true);
-    },
-    [],
-  );
+  const openTemplateGallery = useCallback((mode: 'all' | 'showcase' = 'all') => {
+    setTemplateBrowseMode(mode);
+    setTemplateModalVisible(true);
+  }, []);
 
   // 必须放在所有 Hook 调用之后。
   // 若在此 return 之前还有 useMemo/useEffect/useCallback，loading 切换会导致
@@ -1977,27 +1989,26 @@ export default function WorkspaceEditor() {
                 {typeof config?.version === 'number' ? (
                   <Tag>{`版本 v${config.version}`}</Tag>
                 ) : null}
-                <Select
+                <AutoComplete
                   size="small"
-                  style={{ minWidth: 120 }}
-                  placeholder="选择分类"
+                  style={{ minWidth: 160 }}
+                  placeholder="业务域标签（可选）"
                   allowClear
                   value={config?.category}
                   onChange={(value) => {
                     if (config) {
                       handleConfigChange(
-                        { ...config, category: value || undefined },
-                        '更新分类',
+                        { ...config, category: value?.trim() || undefined },
+                        '更新业务域标签',
                       );
                     }
                   }}
                   options={[
-                    { label: '玩家管理', value: 'player' },
-                    { label: '物品管理', value: 'inventory' },
-                    { label: '订单管理', value: 'order' },
-                    { label: '经济系统', value: 'economy' },
-                    { label: '社交系统', value: 'social' },
-                    { label: '其他工具', value: 'other' },
+                    { label: 'gameplay', value: 'gameplay' },
+                    { label: 'economy', value: 'economy' },
+                    { label: 'social', value: 'social' },
+                    { label: 'support', value: 'support' },
+                    { label: 'ops', value: 'ops' },
                   ]}
                 />
                 <Button
@@ -2025,7 +2036,10 @@ export default function WorkspaceEditor() {
               </Space>
               <Row gutter={[12, 12]}>
                 <Col xs={24} sm={12} xl={6}>
-                  <Card size="small" style={{ height: '100%', background: 'rgba(255,255,255,0.8)' }}>
+                  <Card
+                    size="small"
+                    style={{ height: '100%', background: 'rgba(255,255,255,0.8)' }}
+                  >
                     <Space direction="vertical" size={4}>
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                         当前对象
@@ -2038,20 +2052,28 @@ export default function WorkspaceEditor() {
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} xl={6}>
-                  <Card size="small" style={{ height: '100%', background: 'rgba(255,255,255,0.8)' }}>
+                  <Card
+                    size="small"
+                    style={{ height: '100%', background: 'rgba(255,255,255,0.8)' }}
+                  >
                     <Space direction="vertical" size={4}>
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                         页面规模
                       </Typography.Text>
                       <Typography.Text strong>{`${tabCount} 个 Tab`}</Typography.Text>
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                        {tabCount > 0 ? '先把当前页面做完整，再继续扩更多页面。' : '先形成首个可运行页面骨架。'}
+                        {tabCount > 0
+                          ? '先把当前页面做完整，再继续扩更多页面。'
+                          : '先形成首个可运行页面骨架。'}
                       </Typography.Text>
                     </Space>
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} xl={6}>
-                  <Card size="small" style={{ height: '100%', background: 'rgba(255,255,255,0.8)' }}>
+                  <Card
+                    size="small"
+                    style={{ height: '100%', background: 'rgba(255,255,255,0.8)' }}
+                  >
                     <Space direction="vertical" size={4}>
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                         可用函数
@@ -2064,7 +2086,10 @@ export default function WorkspaceEditor() {
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} xl={6}>
-                  <Card size="small" style={{ height: '100%', background: 'rgba(255,255,255,0.8)' }}>
+                  <Card
+                    size="small"
+                    style={{ height: '100%', background: 'rgba(255,255,255,0.8)' }}
+                  >
                     <Space direction="vertical" size={4}>
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                         发布评分
@@ -2103,11 +2128,17 @@ export default function WorkspaceEditor() {
                   </Space>
                   <Space wrap size={[8, 8]}>
                     {config && tabCount === 0 ? firstPageAction : null}
-                    <Button icon={<FolderOpenOutlined />} onClick={() => openTemplateGallery('showcase')}>
+                    <Button
+                      icon={<FolderOpenOutlined />}
+                      onClick={() => openTemplateGallery('showcase')}
+                    >
                       {config && tabCount === 0 ? '官方演示样板' : '查看官方样板'}
                     </Button>
                     {isCompactScreen ? (
-                      <Button icon={<BarsOutlined />} onClick={() => setFunctionLibraryVisible(true)}>
+                      <Button
+                        icon={<BarsOutlined />}
+                        onClick={() => setFunctionLibraryVisible(true)}
+                      >
                         {config && tabCount === 0 ? '2. 打开函数面板' : '1. 打开函数面板'}
                       </Button>
                     ) : null}
@@ -2258,7 +2289,11 @@ export default function WorkspaceEditor() {
                       <Button size="small" icon={<EyeOutlined />} onClick={() => setViewMode(3)}>
                         检查预览
                       </Button>
-                      <Button size="small" icon={<CheckCircleOutlined />} onClick={() => setPublishCheckVisible(true)}>
+                      <Button
+                        size="small"
+                        icon={<CheckCircleOutlined />}
+                        onClick={() => setPublishCheckVisible(true)}
+                      >
                         继续检查
                       </Button>
                     </Space>
@@ -2324,7 +2359,10 @@ export default function WorkspaceEditor() {
                     <Space direction="vertical" size={8} style={{ width: '100%' }}>
                       <Space wrap size={[8, 8]}>
                         {skeletonSuggestions.map((item) => (
-                          <Tag key={`${item.functionId}-${item.reason}`} color={item.reason === 'dangerous-action' ? 'error' : 'processing'}>
+                          <Tag
+                            key={`${item.functionId}-${item.reason}`}
+                            color={item.reason === 'dangerous-action' ? 'error' : 'processing'}
+                          >
                             {item.attachTo
                               ? `${item.functionId} → 建议挂到 ${item.attachTo}`
                               : item.functionId}
@@ -2362,7 +2400,11 @@ export default function WorkspaceEditor() {
                 showIcon
                 message={`发布前检查 · ${publishCheck.headline}`}
                 action={
-                  <Button size="small" icon={<CheckCircleOutlined />} onClick={() => setPublishCheckVisible(true)}>
+                  <Button
+                    size="small"
+                    icon={<CheckCircleOutlined />}
+                    onClick={() => setPublishCheckVisible(true)}
+                  >
                     查看详情
                   </Button>
                 }
@@ -2942,7 +2984,15 @@ export default function WorkspaceEditor() {
               <Space direction="vertical" size={8} style={{ width: '100%' }}>
                 <Space wrap size={[8, 8]}>
                   <Tag color="blue">{objectKey}</Tag>
-                  <Tag color={publishCheck.blockingCount > 0 ? 'error' : publishCheck.warningCount > 0 ? 'warning' : 'success'}>
+                  <Tag
+                    color={
+                      publishCheck.blockingCount > 0
+                        ? 'error'
+                        : publishCheck.warningCount > 0
+                        ? 'warning'
+                        : 'success'
+                    }
+                  >
                     {publishCheck.headline}
                   </Tag>
                 </Space>
@@ -2951,8 +3001,14 @@ export default function WorkspaceEditor() {
                 </Typography.Title>
                 <Typography.Text type="secondary">{publishCheck.summary}</Typography.Text>
                 <Space wrap size={[8, 8]}>
-                  <Badge status={publishCheck.blockingCount > 0 ? 'error' : 'success'} text={`阻塞项 ${publishCheck.blockingCount}`} />
-                  <Badge status={publishCheck.warningCount > 0 ? 'warning' : 'default'} text={`风险项 ${publishCheck.warningCount}`} />
+                  <Badge
+                    status={publishCheck.blockingCount > 0 ? 'error' : 'success'}
+                    text={`阻塞项 ${publishCheck.blockingCount}`}
+                  />
+                  <Badge
+                    status={publishCheck.warningCount > 0 ? 'warning' : 'default'}
+                    text={`风险项 ${publishCheck.warningCount}`}
+                  />
                   <Badge status="processing" text={`通过项 ${publishCheck.readyCount}`} />
                 </Space>
               </Space>

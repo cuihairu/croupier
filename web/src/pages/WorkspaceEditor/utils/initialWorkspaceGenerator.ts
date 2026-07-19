@@ -38,7 +38,9 @@ export type InitialWorkspaceGeneratorResult = {
 };
 
 function normalizeText(value?: string | null) {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '')
+    .trim()
+    .toLowerCase();
 }
 
 function safeParseSchema(raw: any): any | null {
@@ -54,10 +56,7 @@ function safeParseSchema(raw: any): any | null {
   return null;
 }
 
-function matchObjectKey(
-  descriptor: FunctionDescriptor,
-  objectKey: string,
-): ObjectMatchConfidence {
+function matchObjectKey(descriptor: FunctionDescriptor, objectKey: string): ObjectMatchConfidence {
   const normalizedObjectKey = normalizeText(objectKey);
   const entity = normalizeText(descriptor.entity);
   const prefix = normalizeText(descriptor.id).split('.')[0] || '';
@@ -176,10 +175,7 @@ function resolveObjectLabel(objectKey: string, descriptors: FunctionDescriptor[]
     if (entity !== normalizeText(objectKey)) continue;
 
     const label =
-      d.entityDisplay?.zh ||
-      d.entityDisplay?.en ||
-      d.displayName?.zh ||
-      d.displayName?.en;
+      d.entityDisplay?.zh || d.entityDisplay?.en || d.displayName?.zh || d.displayName?.en;
 
     if (label) return String(label).trim();
   }
@@ -217,10 +213,12 @@ function inferFieldComponent(key: string, prop: any): string {
 function inferRender(key: string, prop: any): ColumnConfig['render'] {
   const format = prop?.format;
   const lk = key.toLowerCase();
-  if (format === 'date-time' || lk.endsWith('_at') || lk.endsWith('at') || lk.includes('time')) return 'datetime';
+  if (format === 'date-time' || lk.endsWith('_at') || lk.endsWith('at') || lk.includes('time'))
+    return 'datetime';
   if (format === 'date') return 'date';
   if (lk.includes('status') || lk.includes('state')) return 'status';
-  if (lk.includes('amount') || lk.includes('price') || lk.includes('gold') || lk.includes('money')) return 'money';
+  if (lk.includes('amount') || lk.includes('price') || lk.includes('gold') || lk.includes('money'))
+    return 'money';
   if (lk.includes('url') || lk.includes('link') || lk.includes('href')) return 'link';
   if (lk.includes('avatar') || lk.includes('image') || lk.includes('icon')) return 'image';
   if (lk.includes('tag') || lk.includes('label')) return 'tag';
@@ -369,7 +367,11 @@ function buildFormActionTab(objectKey: string, label: string, fn: FunctionDescri
   } as TabConfig;
 }
 
-function buildFallbackCustomTab(objectKey: string, label: string, fn: FunctionDescriptor): TabConfig {
+function buildFallbackCustomTab(
+  objectKey: string,
+  label: string,
+  fn: FunctionDescriptor,
+): TabConfig {
   return {
     key: `${objectKey}_action`,
     title: `${label}操作`,
@@ -385,7 +387,10 @@ function buildFallbackCustomTab(objectKey: string, label: string, fn: FunctionDe
   } as TabConfig;
 }
 
-function buildSecondarySuggestions(objectKey: string, buckets: FunctionBuckets): InitialWorkspaceSuggestion[] {
+function buildSecondarySuggestions(
+  objectKey: string,
+  buckets: FunctionBuckets,
+): InitialWorkspaceSuggestion[] {
   const actions: InitialWorkspaceSuggestion[] = [];
 
   if (buckets.delete) {
@@ -464,6 +469,7 @@ export function generateInitialWorkspaceConfig(
       meta: {
         generatedBy: 'auto-skeleton-v1',
         generatedAt: new Date().toISOString(),
+        objectLabel: label,
         generatedFromFunctions: matched.map((d) => d.id),
         matchConfidence: confidence,
         suggestions,

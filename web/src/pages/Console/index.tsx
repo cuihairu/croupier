@@ -37,6 +37,11 @@ import {
   parseWorkspaceError,
   type WorkspaceErrorCode,
 } from '@/services/workspace/errors';
+import {
+  groupWorkspacesByObject,
+  resolveWorkspaceCategoryLabel,
+  resolveWorkspaceObjectLabel,
+} from '@/services/workspace/presentation';
 
 export default function ConsolePage() {
   const access = useAccess() as any;
@@ -124,15 +129,21 @@ export default function ConsolePage() {
   }, [configs]);
 
   const highlightedConfig = visibleConfigs[0];
-  const visibleConfigGroups = useMemo(() => {
+  const visibleObjectGroups = useMemo(() => {
     const entries = visibleConfigs.map((config) => ({
       config,
       report: buildWorkspaceQualityReport(config),
     }));
-    return {
-      needsAttention: entries.filter((entry) => entry.report.warningCount > 0),
-      stable: entries.filter((entry) => entry.report.warningCount === 0),
-    };
+    const reportByObjectKey = new Map(
+      entries.map((entry) => [entry.config.objectKey, entry.report]),
+    );
+    return groupWorkspacesByObject(visibleConfigs).map((group) => ({
+      ...group,
+      entries: group.configs.map((config) => ({
+        config,
+        report: reportByObjectKey.get(config.objectKey) || buildWorkspaceQualityReport(config),
+      })),
+    }));
   }, [visibleConfigs]);
 
   if (!access?.canWorkspaceRead) {
@@ -358,44 +369,32 @@ export default function ConsolePage() {
             )}
 
             <Space direction="vertical" size={16} style={{ width: '100%' }}>
-              {visibleConfigGroups.needsAttention.length > 0 ? (
+              {visibleObjectGroups.map((group) => (
                 <Card
+                  key={group.key}
                   size="small"
-                  title="优先核查"
-                  extra={<Typography.Text type="secondary">这些入口已发布，但仍建议先走一轮真实验证</Typography.Text>}
-                  styles={{
-                    body: {
-                      padding: DASHBOARD_PAGE_TOKENS.cardPadding,
-                      background: 'rgba(250,173,20,0.06)',
-                    },
-                  }}
-                >
-                  <List
-                    grid={{ gutter: 16, xs: 1, sm: 2, md: 2, lg: 3, xl: 3, xxl: 4 }}
-                    dataSource={visibleConfigGroups.needsAttention}
-                    renderItem={({ config, report }) => (
-                      <WorkspaceEntryCard config={config} report={report} />
-                    )}
-                  />
-                </Card>
-              ) : null}
-
-              {visibleConfigGroups.stable.length > 0 ? (
-                <Card
-                  size="small"
-                  title="稳定入口"
-                  extra={<Typography.Text type="secondary">这些入口当前质量更稳定，适合作为默认演示和回归起点</Typography.Text>}
+                  title={
+                    <Space wrap size={[8, 8]}>
+                      <span>{group.label}</span>
+                      <Typography.Text code>{group.key}</Typography.Text>
+                    </Space>
+                  }
+                  extra={
+                    <Typography.Text type="secondary">
+                      {`对象默认分组 · ${group.entries.length} 个发布入口`}
+                    </Typography.Text>
+                  }
                   styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
                 >
                   <List
                     grid={{ gutter: 16, xs: 1, sm: 2, md: 2, lg: 3, xl: 3, xxl: 4 }}
-                    dataSource={visibleConfigGroups.stable}
+                    dataSource={group.entries}
                     renderItem={({ config, report }) => (
                       <WorkspaceEntryCard config={config} report={report} />
                     )}
                   />
                 </Card>
-              ) : null}
+              ))}
             </Space>
           </>
         )}
@@ -411,6 +410,8 @@ function WorkspaceEntryCard({
   config: WorkspaceConfig;
   report: ReturnType<typeof buildWorkspaceQualityReport>;
 }) {
+  const categoryLabel = resolveWorkspaceCategoryLabel(config.category);
+  const objectLabel = resolveWorkspaceObjectLabel(config);
   return (
     <List.Item>
       <Card
@@ -446,8 +447,12 @@ function WorkspaceEntryCard({
               </Space>
               <Space wrap size={[8, 6]}>
                 <Typography.Text code>{config.objectKey}</Typography.Text>
+                <Tag color="blue">{`对象: ${objectLabel}`}</Tag>
+                {categoryLabel ? <Tag>{`大类: ${categoryLabel}`}</Tag> : null}
                 {typeof config.version === 'number' ? <Tag>{`v${config.version}`}</Tag> : null}
-                {config.layout?.tabs?.length ? <Tag>{`${config.layout.tabs.length} 个标签页`}</Tag> : null}
+                {config.layout?.tabs?.length ? (
+                  <Tag>{`${config.layout.tabs.length} 个标签页`}</Tag>
+                ) : null}
               </Space>
             </Space>
           }
