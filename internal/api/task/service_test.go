@@ -312,3 +312,135 @@ func TestStart_DispatchesAndPersists_HappyPath(t *testing.T) {
 	assert.Equal(t, "test-game", run.GameID)
 	assert.Equal(t, "prod", run.Env)
 }
+
+// --- DurationMs calculation and Actor/Addr fields ---
+
+func TestBuildItem_CalculatesDurationMs(t *testing.T) {
+	t.Parallel()
+	startedAt := time.Now().Add(-5 * time.Second)
+	finishedAt := time.Now()
+
+	run := &model.TaskRun{
+		TaskID:     "t-dur",
+		FunctionID: "player.ban",
+		Status:     tasks.StatusSucceeded,
+		Actor:      "admin",
+		Addr:       "192.168.1.100:9090",
+		TraceID:    "trace-123",
+		StartedAt:  &startedAt,
+		FinishedAt: &finishedAt,
+	}
+
+	item := buildItem(run)
+
+	assert.Equal(t, "t-dur", item.ID)
+	assert.Equal(t, "admin", item.Actor)
+	assert.Equal(t, "192.168.1.100:9090", item.Addr)
+	assert.Equal(t, "trace-123", item.TraceID)
+	assert.NotEmpty(t, item.StartedAt)
+	assert.NotEmpty(t, item.FinishedAt)
+	assert.Greater(t, item.DurationMs, int64(0), "DurationMs should be positive")
+	assert.Less(t, item.DurationMs, int64(10000), "DurationMs should be less than 10s")
+}
+
+func TestBuildItem_ZeroDurationMsWhenNoTimes(t *testing.T) {
+	t.Parallel()
+
+	run := &model.TaskRun{
+		TaskID:     "t-no-time",
+		FunctionID: "player.ban",
+		Status:     tasks.StatusRunning,
+		Actor:      "admin",
+	}
+
+	item := buildItem(run)
+
+	assert.Equal(t, "admin", item.Actor)
+	assert.Empty(t, item.StartedAt)
+	assert.Empty(t, item.FinishedAt)
+	assert.Equal(t, int64(0), item.DurationMs, "DurationMs should be 0 when no start/finish times")
+}
+
+func TestBuildDetail_IncludesAllFields(t *testing.T) {
+	t.Parallel()
+	startedAt := time.Now().Add(-3 * time.Second)
+	finishedAt := time.Now()
+
+	run := &model.TaskRun{
+		TaskID:     "t-detail",
+		FunctionID: "player.kick",
+		Status:     tasks.StatusSucceeded,
+		Actor:      "root",
+		Addr:       "10.0.0.1:19090",
+		TraceID:    "trace-456",
+		StartedAt:  &startedAt,
+		FinishedAt: &finishedAt,
+	}
+
+	detail := buildDetail(run)
+
+	assert.Equal(t, "t-detail", detail.ID)
+	assert.Equal(t, "root", detail.Actor)
+	assert.Equal(t, "10.0.0.1:19090", detail.Addr)
+	assert.Equal(t, "trace-456", detail.TraceID)
+	assert.NotEmpty(t, detail.StartedAt)
+	assert.NotEmpty(t, detail.FinishedAt)
+	assert.Greater(t, detail.DurationMs, int64(0))
+}
+
+func TestList_ReturnsActorAndAddr(t *testing.T) {
+	t.Parallel()
+	svcCtx := setupSvcCtx(t)
+
+	// Create a task run with Actor and Addr
+	startedAt := time.Now().Add(-2 * time.Second)
+	finishedAt := time.Now()
+	run := &model.TaskRun{
+		TaskID:       "t-actor",
+		FunctionID:   "player.ban",
+		Status:       tasks.StatusSucceeded,
+		Actor:        "testuser",
+		Addr:         "192.168.1.200:9090",
+		TraceID:      "trace-789",
+		InputPayload: datatypes.JSON([]byte("{}")),
+		StartedAt:    &startedAt,
+		FinishedAt:   &finishedAt,
+	}
+	require.NoError(t, svcCtx.DB.Create(run).Error)
+
+	svc := NewService(svcCtx)
+	resp, err := svc.List(context.Background(), &ListRequest{FunctionID: "player.ban", Page: 1, Size: 10})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(resp.Items))
+
+	item := resp.Items[0]
+	assert.Equal(t, "testuser", item.Actor)
+	assert.Equal(t, "192.168.1.200:9090", item.Addr)
+	assert.Equal(t, "trace-789", item.TraceID)
+	assert.Greater(t, item.DurationMs, int64(0))
+}
+
+func TestDetail_ReturnsActorAndAddr(t *testing.T) {
+	t.Parallel()
+	svcCtx := setupSvcCtx(t)
+
+	// Create a task run with Actor and Addr
+	run := &model.TaskRun{
+		TaskID:       "t-detail-actor",
+		FunctionID:   "player.ban",
+		Status:       tasks.StatusRunning,
+		Actor:        "admin",
+		Addr:         "10.0.0.50:19090",
+		TraceID:      "trace-abc",
+		InputPayload: datatypes.JSON([]byte("{}")),
+	}
+	require.NoError(t, svcCtx.DB.Create(run).Error)
+
+	svc := NewService(svcCtx)
+	detail, err := svc.Detail(context.Background(), &DetailRequest{ID: "t-detail-actor"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "admin", detail.Actor)
+	assert.Equal(t, "10.0.0.50:19090", detail.Addr)
+	assert.Equal(t, "trace-abc", detail.TraceID)
+}
