@@ -901,7 +901,7 @@ func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, func
 		}
 	}
 
-	// Get effective policy (for approval/audit settings, not for role check)
+	// Get effective policy (for approval/audit settings)
 	functionPolicy, err := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)
 	if err != nil {
 		// Log error but don't block invocation if policy check fails
@@ -918,26 +918,46 @@ func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, func
 		return functionPolicy, nil
 	}
 
-	// Use unified Casbin permission check
-	// Try RequireAnyPermission first (requires AdminModel)
+	// Use Casbin for unified permission check if AdminModel available
 	if svcCtx.AdminModel != nil {
-		requiredPerms := []string{"function:invoke"}
-		if _, _, err := utils.RequireAnyPermission(ctx, svcCtx, "无权调用该函数", requiredPerms...); err != nil {
+		// Check function:invoke permission via Casbin
+		_, _, err := utils.RequireAnyPermission(ctx, svcCtx, "无权调用该函数", "function:invoke")
+		if err != nil {
 			return nil, err
+		}
+		// Casbin allows, but also verify against AllowedRoles for function-specific restriction
+		// This ensures function-level policies are respected
+		admin, _, loadErr := utils.LoadCurrentAdmin(ctx, svcCtx)
+		if loadErr == nil {
+			adminRoles, roleErr := svcCtx.GetAdminRolesCached(ctx, admin.ID)
+			if roleErr == nil {
+				roleNames := utils.RoleNamesFromModels(adminRoles)
+				if !matchAnyRole(roleNames, functionPolicy.AllowedRoles) {
+					return nil, errorx.NewForbidden("无权调用该函数（需要角色: " + strings.Join(functionPolicy.AllowedRoles, ", ") + "）")
+				}
+			}
 		}
 		return functionPolicy, nil
 	}
 
 	// Fallback: simple role matching (for tests or when AdminModel not available)
-	for _, allowed := range functionPolicy.AllowedRoles {
-		for _, role := range userRoles {
-			if strings.EqualFold(strings.TrimSpace(role), strings.TrimSpace(allowed)) {
-				return functionPolicy, nil
-			}
-		}
+	if matchAnyRole(userRoles, functionPolicy.AllowedRoles) {
+		return functionPolicy, nil
 	}
 
 	return nil, errorx.NewForbidden("无权调用该函数")
+}
+
+// matchAnyRole checks if userRoles contains any of the allowedRoles (case-insensitive)
+func matchAnyRole(userRoles []string, allowedRoles []string) bool {
+	for _, allowed := range allowedRoles {
+		for _, role := range userRoles {
+			if strings.EqualFold(strings.TrimSpace(role), strings.TrimSpace(allowed)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // buildBroadcastResponse aggregates per-agent outcomes from a broadcast
