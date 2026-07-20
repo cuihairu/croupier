@@ -3,19 +3,22 @@ import { Spin, Button, Result } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import WorkspaceRenderer, { useWorkspaceConfig } from '@/components/WorkspaceRenderer';
 import { trackWorkspaceEvent } from '@/services/workspace/telemetry';
-import { buildWorkspaceQualityReport } from '@/services/workspace/quality';
 import { useEffect } from 'react';
+import {
+  getConsoleWorkspacePath,
+  resolveWorkspaceConsoleCategory,
+} from '@/services/workspace/navigation';
 
 /**
  * 运行控制台 - 工作台页面
  * 用于渲染单个工作台配置
  */
 export default function ConsoleWorkspace() {
-  const params = useParams<{ objectKey: string }>();
+  const params = useParams<{ categoryKey?: string; objectKey: string }>();
+  const categoryKey = decodeURIComponent(params?.categoryKey || '');
   const objectKey = decodeURIComponent(params?.objectKey || '');
 
   const { config, loading, error, errorCode, reload } = useWorkspaceConfig(objectKey);
-  const quality = config ? buildWorkspaceQualityReport(config) : null;
 
   useEffect(() => {
     if (objectKey) {
@@ -26,6 +29,14 @@ export default function ConsoleWorkspace() {
     }
   }, [objectKey]);
 
+  useEffect(() => {
+    if (!config || !categoryKey) return;
+    const resolvedCategory = resolveWorkspaceConsoleCategory(config);
+    if (resolvedCategory && resolvedCategory.key !== categoryKey) {
+      history.replace(getConsoleWorkspacePath(config));
+    }
+  }, [categoryKey, config]);
+
   if (!objectKey) {
     return (
       <PageContainer title="运行控制台">
@@ -33,6 +44,23 @@ export default function ConsoleWorkspace() {
           status="404"
           title="未找到工作台"
           subTitle="请从左侧菜单选择一个工作台"
+          extra={
+            <Button type="primary" onClick={() => history.push('/console')}>
+              返回控制台
+            </Button>
+          }
+        />
+      </PageContainer>
+    );
+  }
+
+  if (!categoryKey) {
+    return (
+      <PageContainer title="运行控制台">
+        <Result
+          status="404"
+          title="缺少分类路径"
+          subTitle="请从左侧菜单选择一个分类下的工作台"
           extra={
             <Button type="primary" onClick={() => history.push('/console')}>
               返回控制台
@@ -108,14 +136,8 @@ export default function ConsoleWorkspace() {
   }
 
   return (
-    <PageContainer
-      title={config?.title || objectKey}
-      subTitle={config?.description}
-    >
-      <WorkspaceRenderer
-        objectKey={objectKey}
-        runtimeMode="console"
-      />
+    <PageContainer title={config?.title || objectKey} subTitle={config?.description}>
+      <WorkspaceRenderer config={config} context={{ runtimeMode: 'console' }} />
     </PageContainer>
   );
 }

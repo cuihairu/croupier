@@ -333,12 +333,15 @@ export async function unpublishWorkspaceConfig(objectKey: string): Promise<Works
 /**
  * 获取已发布的 Workspace 列表（控制台用）
  */
-export async function listPublishedWorkspaceConfigs(): Promise<WorkspaceConfig[]> {
+export async function listPublishedWorkspaceConfigs(options?: {
+  skipErrorHandler?: boolean;
+}): Promise<WorkspaceConfig[]> {
   if (USE_MOCK) {
     return mockListPublishedWorkspaceConfigs();
   }
   const response = await request<{ items: WorkspaceConfig[] }>('/api/v1/workspaces/published', {
     method: 'GET',
+    skipErrorHandler: options?.skipErrorHandler,
   });
   return Array.isArray(response?.items) ? response.items : [];
 }
@@ -491,20 +494,6 @@ export function validateWorkspaceConfig(config: WorkspaceConfig): {
             (tab.layout as any).panels.length === 0
           ) {
             errors.push(`tabs[${index}].panels 至少需要一个面板`);
-          }
-        }
-        if (tab.layout?.type === 'wizard') {
-          if (!Array.isArray((tab.layout as any).steps) || (tab.layout as any).steps.length === 0) {
-            errors.push(`tabs[${index}].steps 至少需要一个步骤`);
-          }
-        }
-        if (tab.layout?.type === 'dashboard') {
-          const hasStats =
-            Array.isArray((tab.layout as any).stats) && (tab.layout as any).stats.length > 0;
-          const hasPanels =
-            Array.isArray((tab.layout as any).panels) && (tab.layout as any).panels.length > 0;
-          if (!hasStats && !hasPanels) {
-            errors.push(`tabs[${index}] dashboard 至少需要 stats 或 panels`);
           }
         }
         if (tab.layout?.type === 'grid') {

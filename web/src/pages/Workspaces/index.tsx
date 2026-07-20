@@ -61,6 +61,7 @@ import {
   resolveWorkspaceCategoryLabel,
   resolveWorkspaceObjectLabel,
 } from '@/services/workspace/presentation';
+import { getConsoleWorkspacePath } from '@/services/workspace/navigation';
 
 function resolveWorkspaceStatus(config: WorkspaceConfig): 'draft' | 'published' | 'archived' {
   if (config.status) return config.status;
@@ -1260,11 +1261,7 @@ export default function WorkspacesIndexPage() {
                                 <span>
                                   <Button
                                     disabled={!config.published}
-                                    onClick={() =>
-                                      history.push(
-                                        `/console/${encodeURIComponent(config.objectKey)}`,
-                                      )
-                                    }
+                                    onClick={() => history.push(getConsoleWorkspacePath(config))}
                                   >
                                     查看控制台
                                   </Button>

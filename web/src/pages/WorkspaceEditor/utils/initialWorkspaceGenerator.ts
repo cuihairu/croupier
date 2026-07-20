@@ -182,7 +182,7 @@ function resolveObjectLabel(objectKey: string, descriptors: FunctionDescriptor[]
   return objectKey;
 }
 
-function inferFormFields(descriptor: FunctionDescriptor): FieldConfig[] {
+export function inferFormFields(descriptor: FunctionDescriptor): FieldConfig[] {
   const schema = safeParseSchema(descriptor.inputSchema) || safeParseSchema(descriptor.params);
   const props = schema?.properties || {};
   const required = Array.isArray(schema?.required) ? schema.required : [];

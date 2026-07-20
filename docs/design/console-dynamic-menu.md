@@ -1,60 +1,65 @@
-# 运行控制台对象分组方案
+# 运行控制台动态分类路由
 
 ## 结论
 
-运行控制台不再按固定分类动态注入左侧菜单，也不再使用统一兜底分类承载未知对象。
+运行控制台按分类动态生成菜单和访问路径。
 
-默认分组规则：
+分类确定规则只有一套：
 
-1. 函数注册声明 `entity`。
-2. 对象工作台使用 `entity` 作为 `objectKey`。
-3. 运行控制台按 `objectKey` 分组展示已发布工作台。
+1. 工作台配置显式声明 `category` 时，使用 `category` 作为分类。
+2. 未声明 `category` 时，使用 `objectKey` 的第一个 `.` 前缀作为分类。
+3. `objectKey` 没有 `.` 时，整个 `objectKey` 就是分类。
 
-例如：
+示例：
 
-| 函数注册 `entity` | 工作台 `objectKey` | 控制台默认分组 |
-| ----------------- | ------------------ | -------------- |
-| `player`          | `player`           | 玩家           |
-| `mail`            | `mail`             | 邮件           |
-| `player_mail`     | `player_mail`      | 玩家邮件       |
-| `guild`           | `guild`            | 公会           |
-| `activity`        | `activity`         | 活动           |
+| `category` | `objectKey`       | 最终分类 |
+| ---------- | ----------------- | -------- |
+| `support`  | `player.ban`      | support  |
+| -          | `player.ban`      | player   |
+| -          | `mail.send`       | mail     |
+| -          | `mail`            | mail     |
+| `ops`      | `server.restart`  | ops      |
 
-## 概念边界
+## 确定时机
 
-`entity` 是函数注册里的业务对象键，表示函数归属的稳定业务对象。它决定默认对象工作台和控制台对象分组。
+分类可以在工作台配置保存时由用户显式填写 `category`。
 
-`objectKey` 是对象工作台的主键，默认来自 `entity`。没有 `entity` 时，系统可以从函数 ID 前缀推断，但这只是兜底。
+运行态加载已发布工作台后，再按同一套规则解析最终分类。菜单、分类页和工作台跳转都必须使用同一个解析函数，不能在页面里各自推断。
 
-`category` 是可选业务域标签，例如 `gameplay`、`economy`、`support`、`ops`。它只用于辅助展示或筛选，不决定默认分组。
+## 路由
 
-## 菜单策略
+运行控制台保留固定的参数路由承载动态菜单：
 
-左侧系统菜单保持静态，只提供“运行控制台”入口。已发布工作台列表由 `/console/home` 页面加载。
+```text
+/console/home
+/console/:categoryKey
+/console/:categoryKey/:objectKey
+```
 
-这样可以避免 `/api/v1/workspaces/published` 这类业务接口阻塞应用启动，也避免动态路由注入导致菜单和路由状态不一致。
-
-## 页面展示
-
-控制台首页按对象分组展示已发布工作台：
+菜单结构：
 
 ```text
 运行控制台
-├── 玩家 player
-│   └── 玩家工作台
-├── 邮件 mail
-│   └── 邮件工作台
-├── 玩家邮件 player_mail
-│   └── 玩家邮件工作台
-└── 公会 guild
-    └── 公会工作台
+├── player
+│   └── player.ban
+├── mail
+│   └── mail.send
+└── support
+    └── player.ban
 ```
 
-卡片内可以额外显示业务域标签：
+`/console/:categoryKey` 展示该分类下的已发布工作台。
 
-```text
-对象: 邮件
-业务域: support
-```
+`/console/:categoryKey/:objectKey` 渲染具体工作台。如果地址中的分类和工作台配置解析出的分类不一致，前端应跳转到规范路径。
 
-对象是第一层业务边界，业务域标签只是辅助信息。
+## 边界
+
+不维护硬编码分类表。
+
+不使用未知分类兜底。
+
+不从前端页面里重复实现分类推断。
+
+不把工作台列表塞进全局初始状态阻塞应用启动。
+
+运行控制台只展示已发布工作台。页面装配、保存、发布仍在对象工作台完成。

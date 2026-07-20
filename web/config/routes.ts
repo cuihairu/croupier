@@ -189,10 +189,17 @@ export default [
         hideInMenu: true,
       },
       {
-        path: '/console/:objectKey',
+        path: '/console/:categoryKey/:objectKey',
         name: 'ConsoleWorkspace',
         access: 'canFunctionsRead',
         component: './Console/Workspace',
+        hideInMenu: true,
+      },
+      {
+        path: '/console/:categoryKey',
+        name: 'ConsoleCategory',
+        access: 'canFunctionsRead',
+        component: './Console',
         hideInMenu: true,
       },
     ],

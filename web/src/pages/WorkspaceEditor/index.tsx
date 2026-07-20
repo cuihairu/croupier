@@ -45,7 +45,11 @@ import {
   FolderOpenOutlined,
 } from '@ant-design/icons';
 import { useAccess, useParams } from '@umijs/max';
-import type { WorkspaceConfig, WorkspaceVersionRecord } from '@/types/workspace';
+import type {
+  WorkspaceConfig,
+  WorkspacePermissions,
+  WorkspaceVersionRecord,
+} from '@/types/workspace';
 import {
   getWorkspaceVersionDetail,
   exportWorkspaceBackupBundle,
@@ -65,6 +69,7 @@ import { trackWorkspaceEvent } from '@/services/workspace/telemetry';
 import { getWorkspaceErrorMessage } from '@/services/workspace/errors';
 import { listDescriptors } from '@/services/api/functions';
 import { buildWorkspaceQualityReport } from '@/services/workspace/quality';
+import { inferFormFields } from './utils/initialWorkspaceGenerator';
 import FunctionList from './components/FunctionList';
 import LayoutDesigner from './components/LayoutDesigner';
 import ConfigPreview from './components/ConfigPreview';
@@ -100,6 +105,11 @@ function resolveWorkspaceStatus(config?: WorkspaceConfig | null): string {
   if (!config) return 'unknown';
   if (config.status) return config.status;
   return config.published ? 'published' : 'draft';
+}
+
+function getWorkspaceRoleCount(permissions?: WorkspacePermissions): number {
+  if (!permissions || Array.isArray(permissions)) return 0;
+  return Array.isArray(permissions.roles) ? permissions.roles.length : 0;
 }
 
 function summarizeVersion(version: WorkspaceVersionRecord): string {
@@ -1856,6 +1866,10 @@ export default function WorkspaceEditor() {
                     defaultActive: true,
                     layout: {
                       type: 'form',
+                      submitFunction: singleAvailableFunction.id,
+                      fields: inferFormFields(singleAvailableFunction),
+                      submitText: '提交',
+                      showReset: true,
                     },
                   },
                 ],
@@ -2017,9 +2031,9 @@ export default function WorkspaceEditor() {
                   onClick={() => setPermissionsDrawerVisible(true)}
                 >
                   权限设置
-                  {config?.permissions?.roles?.length ? (
+                  {getWorkspaceRoleCount(config?.permissions) ? (
                     <Tag color="blue" style={{ marginLeft: 4 }}>
-                      {config.permissions.roles.length}
+                      {getWorkspaceRoleCount(config?.permissions)}
                     </Tag>
                   ) : null}
                 </Button>

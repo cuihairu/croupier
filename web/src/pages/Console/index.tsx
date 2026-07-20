@@ -1,4 +1,4 @@
-import { history, useAccess } from '@umijs/max';
+import { history, useAccess, useParams } from '@umijs/max';
 import {
   DASHBOARD_PAGE_TOKENS,
   PageStatePanel,
@@ -38,13 +38,23 @@ import {
   type WorkspaceErrorCode,
 } from '@/services/workspace/errors';
 import {
-  groupWorkspacesByObject,
-  resolveWorkspaceCategoryLabel,
+  groupWorkspacesByCategory,
+  resolveWorkspaceConsoleCategoryLabel,
   resolveWorkspaceObjectLabel,
 } from '@/services/workspace/presentation';
+import {
+  filterWorkspacesByConsoleCategory,
+  getConsoleWorkspacePath,
+} from '@/services/workspace/navigation';
+
+type ConsoleAccess = {
+  canWorkspaceRead?: boolean;
+};
 
 export default function ConsolePage() {
-  const access = useAccess() as any;
+  const access = useAccess() as ConsoleAccess;
+  const params = useParams<{ categoryKey?: string }>();
+  const categoryKey = decodeURIComponent(String(params?.categoryKey || ''));
   const [loading, setLoading] = useState(false);
   const [configs, setConfigs] = useState<WorkspaceConfig[]>([]);
   const [error, setError] = useState('');
@@ -69,10 +79,10 @@ export default function ConsolePage() {
         });
         if (!mounted) return;
         setConfigs(Array.isArray(rows) ? rows : []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         trackWorkspaceEvent('workspace_load_error', {
           scope: 'console_index',
-          error: err?.message || String(err),
+          error: err instanceof Error ? err.message : String(err),
         });
         if (!mounted) return;
         const parsedError = parseWorkspaceError(err);
@@ -89,8 +99,11 @@ export default function ConsolePage() {
   }, []);
 
   const visibleConfigs = useMemo(() => {
+    const categoryConfigs = categoryKey
+      ? filterWorkspacesByConsoleCategory(configs, categoryKey)
+      : configs;
     const normalizedKeyword = keyword.trim().toLowerCase();
-    const filtered = configs.filter((config) => {
+    const filtered = categoryConfigs.filter((config) => {
       if (!normalizedKeyword) return true;
       return (
         (config.title || '').toLowerCase().includes(normalizedKeyword) ||
@@ -111,7 +124,7 @@ export default function ConsolePage() {
       return bTime - aTime;
     });
     return sortable;
-  }, [configs, keyword, sortBy]);
+  }, [categoryKey, configs, keyword, sortBy]);
 
   const latestUpdatedAt = useMemo(() => {
     const timestamps = configs
@@ -129,7 +142,7 @@ export default function ConsolePage() {
   }, [configs]);
 
   const highlightedConfig = visibleConfigs[0];
-  const visibleObjectGroups = useMemo(() => {
+  const visibleCategoryGroups = useMemo(() => {
     const entries = visibleConfigs.map((config) => ({
       config,
       report: buildWorkspaceQualityReport(config),
@@ -137,7 +150,7 @@ export default function ConsolePage() {
     const reportByObjectKey = new Map(
       entries.map((entry) => [entry.config.objectKey, entry.report]),
     );
-    return groupWorkspacesByObject(visibleConfigs).map((group) => ({
+    return groupWorkspacesByCategory(visibleConfigs).map((group) => ({
       ...group,
       entries: group.configs.map((config) => ({
         config,
@@ -145,6 +158,8 @@ export default function ConsolePage() {
       })),
     }));
   }, [visibleConfigs]);
+
+  const pageTitle = categoryKey ? `运行控制台 / ${categoryKey}` : '运行控制台';
 
   if (!access?.canWorkspaceRead) {
     return (
@@ -181,12 +196,12 @@ export default function ConsolePage() {
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <SummaryOverview
-        title="运行控制台"
-        description="这里只展示已经发布的对象工作台。函数绑定与页面装配在对象工作台完成，控制台负责发布后的访问与验证。"
+        title={pageTitle}
+        description="运行控制台按分类动态展示已发布工作台。显式配置 category 时按配置分类，否则按 objectKey 的第一个段归类。"
         items={[
           { color: '#1677ff', text: `已发布 ${configs.length}` },
           {
-            color: visibleConfigs.length === configs.length ? '#52c41a' : '#faad14',
+            color: visibleConfigs.length === configs.length && !categoryKey ? '#52c41a' : '#faad14',
             text: `当前结果 ${visibleConfigs.length}`,
           },
           ...(qualitySummary.riskyCount > 0
@@ -196,7 +211,7 @@ export default function ConsolePage() {
             ? [{ color: '#722ed1', text: `最近发布视图 ${latestUpdatedAt}` }]
             : []),
         ]}
-        hint="产品主路径是：函数目录确认能力，对象工作台完成装配，控制台验证发布结果。"
+        hint="分类确定规则：category 优先；未配置 category 时，player.ban 归入 player。"
       />
 
       {configs.length > 0 ? (
@@ -257,9 +272,7 @@ export default function ConsolePage() {
                           <Button
                             type="primary"
                             onClick={() =>
-                              history.push(
-                                `/console/${encodeURIComponent(highlightedConfig.objectKey)}`,
-                              )
+                              history.push(getConsoleWorkspacePath(highlightedConfig))
                             }
                           >
                             进入最新运行页
@@ -360,16 +373,16 @@ export default function ConsolePage() {
         ) : (
           <>
             {visibleConfigs.length === 0 && (
-              <Alert
+             <Alert
                 type="info"
                 showIcon
-                message="没有匹配的已发布工作台"
+                message={categoryKey ? '当前分类没有匹配的已发布工作台' : '没有匹配的已发布工作台'}
                 description="请调整搜索关键字，或回对象工作台继续发布更多页面。"
               />
             )}
 
             <Space direction="vertical" size={16} style={{ width: '100%' }}>
-              {visibleObjectGroups.map((group) => (
+              {visibleCategoryGroups.map((group) => (
                 <Card
                   key={group.key}
                   size="small"
@@ -381,7 +394,7 @@ export default function ConsolePage() {
                   }
                   extra={
                     <Typography.Text type="secondary">
-                      {`对象默认分组 · ${group.entries.length} 个发布入口`}
+                      {`分类动态分组 · ${group.entries.length} 个发布入口`}
                     </Typography.Text>
                   }
                   styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
@@ -410,14 +423,14 @@ function WorkspaceEntryCard({
   config: WorkspaceConfig;
   report: ReturnType<typeof buildWorkspaceQualityReport>;
 }) {
-  const categoryLabel = resolveWorkspaceCategoryLabel(config.category);
+  const categoryLabel = resolveWorkspaceConsoleCategoryLabel(config);
   const objectLabel = resolveWorkspaceObjectLabel(config);
   return (
     <List.Item>
       <Card
         hoverable
         styles={{ body: { padding: 18 } }}
-        onClick={() => history.push(`/console/${encodeURIComponent(config.objectKey)}`)}
+        onClick={() => history.push(getConsoleWorkspacePath(config))}
       >
         <Card.Meta
           avatar={
@@ -448,7 +461,7 @@ function WorkspaceEntryCard({
               <Space wrap size={[8, 6]}>
                 <Typography.Text code>{config.objectKey}</Typography.Text>
                 <Tag color="blue">{`对象: ${objectLabel}`}</Tag>
-                {categoryLabel ? <Tag>{`大类: ${categoryLabel}`}</Tag> : null}
+                {categoryLabel ? <Tag>{`分类: ${categoryLabel}`}</Tag> : null}
                 {typeof config.version === 'number' ? <Tag>{`v${config.version}`}</Tag> : null}
                 {config.layout?.tabs?.length ? (
                   <Tag>{`${config.layout.tabs.length} 个标签页`}</Tag>
@@ -504,7 +517,7 @@ function WorkspaceEntryCard({
                   type="primary"
                   onClick={(e) => {
                     e.stopPropagation();
-                    history.push(`/console/${encodeURIComponent(config.objectKey)}`);
+                    history.push(getConsoleWorkspacePath(config));
                   }}
                 >
                   进入运行页

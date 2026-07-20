@@ -27,6 +27,12 @@ const AVAILABLE_ROLES = [
   { label: '观察者', value: 'viewer' },
 ];
 
+function getSelectedRoles(config: WorkspaceConfig | null): string[] {
+  const permissions = config?.permissions;
+  if (!permissions || Array.isArray(permissions)) return [];
+  return Array.isArray(permissions.roles) ? permissions.roles : [];
+}
+
 export interface PermissionsDrawerProps {
   open: boolean;
   config: WorkspaceConfig | null;
@@ -46,11 +52,7 @@ export default function PermissionsDrawer({
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
 
   useEffect(() => {
-    if (config?.permissions?.roles) {
-      setSelectedRoles(config.permissions.roles);
-    } else {
-      setSelectedRoles([]);
-    }
+    setSelectedRoles(getSelectedRoles(config));
   }, [config]);
 
   const handleSave = () => {

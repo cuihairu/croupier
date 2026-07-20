@@ -1,4 +1,8 @@
 import type { WorkspaceConfig } from '@/types/workspace';
+import {
+  groupWorkspacesByConsoleCategory,
+  resolveWorkspaceConsoleCategory,
+} from '@/services/workspace/navigation';
 
 const BUILTIN_CATEGORY_LABELS: Record<string, string> = {
   gameplay: '玩法域',
@@ -24,6 +28,14 @@ export function resolveWorkspaceCategoryLabel(category?: string): string {
   return BUILTIN_CATEGORY_LABELS[normalized] || normalized;
 }
 
+export function resolveWorkspaceConsoleCategoryLabel(config: WorkspaceConfig): string {
+  const category = resolveWorkspaceConsoleCategory(config);
+  if (!category) return '';
+  return category.source === 'configured'
+    ? resolveWorkspaceCategoryLabel(category.key)
+    : category.label;
+}
+
 export function groupWorkspacesByObject(configs: WorkspaceConfig[]): WorkspaceObjectGroup[] {
   const grouped = new Map<string, WorkspaceObjectGroup>();
 
@@ -47,4 +59,12 @@ export function groupWorkspacesByObject(configs: WorkspaceConfig[]): WorkspaceOb
   });
 
   return Array.from(grouped.values()).sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'));
+}
+
+export function groupWorkspacesByCategory(configs: WorkspaceConfig[]): WorkspaceObjectGroup[] {
+  return groupWorkspacesByConsoleCategory(configs).map((group) => ({
+    key: group.key,
+    label: group.source === 'configured' ? resolveWorkspaceCategoryLabel(group.key) : group.label,
+    configs: group.configs,
+  }));
 }

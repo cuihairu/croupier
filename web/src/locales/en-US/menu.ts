@@ -38,6 +38,7 @@ export default {
   'menu.RegisteredFunctions': 'Registered Functions',
   'menu.ControlConsole': 'Runtime Console',
   'menu.ControlConsole.ConsoleHome': 'Runtime Entry',
+  'menu.ControlConsole.ConsoleCategory': 'Runtime Category',
   'menu.ControlConsole.ConsoleWorkspace': 'Runtime Workspace',
   'menu.SystemConfig.Terms': 'Terminology',
   'menu.SystemConfig.Extensions': 'Extensions',

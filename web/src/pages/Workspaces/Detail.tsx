@@ -22,6 +22,7 @@ import { deleteWorkspaceConfig } from '@/services/workspaceConfig';
 import { trackWorkspaceEvent } from '@/services/workspace/telemetry';
 import { getWorkspaceErrorMessage } from '@/services/workspace/errors';
 import { buildWorkspaceQualityReport } from '@/services/workspace/quality';
+import { getConsoleWorkspacePath } from '@/services/workspace/navigation';
 
 export default function WorkspaceDetailPage() {
   const access = useAccess() as any;
@@ -304,7 +305,7 @@ export default function WorkspaceDetailPage() {
               <Button
                 icon={<PlayCircleOutlined />}
                 disabled={!config?.published}
-                onClick={() => history.push(`/console/${encodeURIComponent(objectKey)}`)}
+                onClick={() => history.push(getConsoleWorkspacePath(config || objectKey))}
               >
                 去运行控制台
               </Button>

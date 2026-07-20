@@ -14,6 +14,12 @@ import React, { useEffect } from 'react';
 import { App as AntdApp, Grid } from 'antd';
 import { setAppApi } from './utils/antdApp';
 import { initWorkspaceAlerting } from './services/workspace/alerts';
+import { listPublishedWorkspaceConfigs } from './services/workspaceConfig';
+import {
+  buildConsoleWorkspaceMenuItems,
+  canAccessWorkspaceMenu,
+  type ConsoleWorkspaceMenuItem,
+} from './services/workspace/navigation';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -22,9 +28,52 @@ type InitialCurrentUser = {
   name?: string;
   userid?: string;
   access?: string;
-  roles?: any[];
+  roles?: string[];
   avatar?: string;
 };
+
+type PermissionResponse = {
+  permissionIDs?: string[];
+  permissionIds?: string[];
+  permission_ids?: string[];
+};
+
+type AppMenuItem = {
+  key?: string;
+  path?: string;
+  name?: string;
+  children?: AppMenuItem[];
+  routes?: AppMenuItem[];
+  [key: string]: unknown;
+};
+
+function normalizePermissionIDs(perms: PermissionResponse | undefined): string[] {
+  const ids = perms?.permissionIDs || perms?.permissionIds || perms?.permission_ids || [];
+  return Array.isArray(ids) ? ids : [];
+}
+
+function injectConsoleWorkspaceMenus(
+  menuData: AppMenuItem[],
+  workspaceMenuItems: ConsoleWorkspaceMenuItem[],
+): AppMenuItem[] {
+  if (workspaceMenuItems.length === 0) return menuData;
+  return menuData.map((item) => {
+    if (item.path === '/console' || item.key === '/console') {
+      const staticChildren = (item.children || []).filter((child) => child.path === '/console/home');
+      return {
+        ...item,
+        children: [...staticChildren, ...workspaceMenuItems],
+      };
+    }
+    if (item.children) {
+      return {
+        ...item,
+        children: injectConsoleWorkspaceMenus(item.children, workspaceMenuItems),
+      };
+    }
+    return item;
+  });
+}
 
 /**
  * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
@@ -45,12 +94,8 @@ export async function getInitialState(): Promise<{
       );
       let permissionIDs: string[] = [];
       try {
-        const perms = await getMyPermissions();
-        permissionIDs =
-          (perms as any)?.permissionIDs ||
-          (perms as any)?.permissionIds ||
-          (perms as any)?.permission_ids ||
-          [];
+        const perms = (await getMyPermissions()) as PermissionResponse;
+        permissionIDs = normalizePermissionIDs(perms);
       } catch {
         permissionIDs = [];
       }
@@ -66,9 +111,10 @@ export async function getInitialState(): Promise<{
         userid: currentUser.username,
         access: accessTokens.join(','),
         roles: roleNames,
-      } as any;
-    } catch (error: any) {
-      if (error?.response?.status === 401 || error?.response?.status === 400) {
+      };
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 401 || status === 400) {
         localStorage.removeItem('token');
       }
       history.push(loginPath);
@@ -139,9 +185,26 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     return null;
   };
   return {
-    actionsRender: () => [<HeaderActions key="header-actions" />] as any,
+    actionsRender: () => [<HeaderActions key="header-actions" />],
     splitMenus: false,
     suppressSiderWhenMenuEmpty: true,
+    menu: {
+      request: async (_params, defaultMenuData) => {
+        if (!initialState?.currentUser) return defaultMenuData;
+        try {
+          const configs = await listPublishedWorkspaceConfigs({ skipErrorHandler: true });
+          const visibleConfigs = configs.filter((config) =>
+            canAccessWorkspaceMenu(config, initialState.currentUser),
+          );
+          return injectConsoleWorkspaceMenus(
+            defaultMenuData as AppMenuItem[],
+            buildConsoleWorkspaceMenuItems(visibleConfigs),
+          );
+        } catch {
+          return defaultMenuData;
+        }
+      },
+    },
     avatarProps: {
       src: initialState?.currentUser?.avatar,
       icon: initialState?.currentUser?.avatar ? undefined : <UserOutlined />,

@@ -40,6 +40,7 @@ export default {
   'menu.RegisteredFunctions': '注册函数',
   'menu.ControlConsole': '运行控制台',
   'menu.ControlConsole.ConsoleHome': '运行入口',
+  'menu.ControlConsole.ConsoleCategory': '运行分类',
   'menu.ControlConsole.ConsoleWorkspace': '运行工作台',
   'menu.SystemConfig.Terms': '术语字典',
   'menu.SystemConfig.Extensions': '扩展中心',

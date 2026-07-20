@@ -27,9 +27,6 @@ export interface WorkspaceConfig {
   /** 布局配置 */
   layout: WorkspaceLayout;
 
-  /** 权限列表 */
-  permissions?: string[];
-
   /** 是否已发布（发布后出现在控制台菜单） */
   published?: boolean;
 
@@ -48,18 +45,22 @@ export interface WorkspaceConfig {
   /** 配置版本号 */
   version?: number;
 
-  /** 可选业务域标签；默认展示和分组以 objectKey 为准 */
+  /** 运行控制台分类；未配置时使用 objectKey 的第一个段 */
   category?: string;
 
   /** 权限配置 */
-  permissions?: {
-    roles?: string[]; // 允许的角色
-    permissions?: string[]; // 允许的权限ID
-  };
+  permissions?: WorkspacePermissions;
 
   /** 元数据 */
   meta?: WorkspaceMeta;
 }
+
+export type WorkspacePermissions =
+  | string[]
+  | {
+      roles?: string[];
+      permissions?: string[];
+    };
 
 export type WorkspaceStatus = 'draft' | 'published' | 'archived';
 
@@ -432,6 +433,14 @@ export interface SplitPanel {
   collapsible?: boolean;
 }
 
+export type FormilyJSONValue =
+  | string
+  | number
+  | boolean
+  | null
+  | FormilyJSONValue[]
+  | { [key: string]: FormilyJSONValue | undefined };
+
 /**
  * Formily 字段配置
  *
@@ -452,10 +461,10 @@ export interface FormilyFieldConfig {
   required?: boolean;
 
   /** 默认值 */
-  default?: string | number | boolean | null;
+  default?: FormilyJSONValue;
 
   /** 枚举选项 (用于 select、radio、checkbox) */
-  enum?: Array<{ label: string; value: string | number | boolean }>;
+  enum?: Array<FormilyJSONValue>;
 
   /** Formily 组件 */
   ['x-component']: string;
@@ -464,25 +473,19 @@ export interface FormilyFieldConfig {
   ['x-decorator']?: string;
 
   /** 组件属性 */
-  ['x-component-props']?: Record<string, string | number | boolean | null | undefined>;
+  ['x-component-props']?: Record<string, FormilyJSONValue | undefined>;
 
   /** 装饰器属性 */
-  ['x-decorator-props']?: Record<string, string | number | boolean | null | undefined>;
+  ['x-decorator-props']?: Record<string, FormilyJSONValue | undefined>;
 
   /** 校验规则 */
-  ['x-validator']?: string | Array<string | { format?: string; message?: string }>;
+  ['x-validator']?: FormilyJSONValue;
 
   /** 联动规则 */
-  ['x-reactions']?: Array<{
-    dependencies?: Array<string | { name?: string; type?: string }>;
-    when?: string | boolean;
-    target?: string;
-    fulfill?: { state?: Record<string, string>; schema?: Partial<FormilyFieldConfig> };
-    otherwise?: { state?: Record<string, string>; schema?: Partial<FormilyFieldConfig> };
-  }>;
+  ['x-reactions']?: FormilyJSONValue;
 
   /** 扩展属性 */
-  [key: `x-${string}`]: string | number | boolean | null | undefined;
+  [key: `x-${string}`]: FormilyJSONValue | undefined;
 }
 
 /** @deprecated 使用 FormilyFieldConfig 代替 */
