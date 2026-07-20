@@ -19,12 +19,39 @@ type Config struct {
 	Cache         CacheConfig              `json:"cache" yaml:"cache"`
 	Logging       common.LogConfig         `json:"log,omitempty" yaml:"log"`
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
+	Telemetry     TelemetryConfig          `json:"telemetry" yaml:"telemetry"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
 	SSE           SSEConfig                `json:"sse" yaml:"sse"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+}
+
+type TelemetryConfig struct {
+	Enabled        bool                   `json:"enabled" yaml:"enabled"`
+	ServiceName    string                 `json:"service_name" yaml:"service_name"`
+	ServiceVersion string                 `json:"service_version" yaml:"service_version"`
+	Environment    string                 `json:"environment" yaml:"environment"`
+	CollectorURL   string                 `json:"collector_url" yaml:"collector_url"`
+	GameID         string                 `json:"game_id" yaml:"game_id"`
+	EnableTracing  bool                   `json:"enable_tracing" yaml:"enable_tracing"`
+	EnableMetrics  bool                   `json:"enable_metrics" yaml:"enable_metrics"`
+	SamplingRatio  float64                `json:"sampling_ratio" yaml:"sampling_ratio"`
+	UseTLS         bool                   `json:"use_tls" yaml:"use_tls"`
+	Headers        string                 `json:"headers" yaml:"headers"`
+	Analytics      TelemetryAnalyticsConf `json:"analytics" yaml:"analytics"`
+}
+
+type TelemetryAnalyticsConf struct {
+	Enabled        bool   `json:"enabled" yaml:"enabled"`
+	RedisAddr      string `json:"redis_addr" yaml:"redis_addr"`
+	RedisPassword  string `json:"redis_password" yaml:"redis_password"`
+	RedisDB        int    `json:"redis_db" yaml:"redis_db"`
+	TopicPrefix    string `json:"topic_prefix" yaml:"topic_prefix"`
+	RetentionHours int    `json:"retention_hours" yaml:"retention_hours"`
+	BatchSize      int    `json:"batch_size" yaml:"batch_size"`
+	FlushInterval  string `json:"flush_interval" yaml:"flush_interval"`
 }
 
 func (c *Config) UnmarshalYAML(value *yaml.Node) error {

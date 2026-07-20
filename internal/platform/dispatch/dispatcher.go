@@ -12,14 +12,23 @@ import (
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 )
 
 var ErrTaskRunNotFound = errors.New("task run not found")
+
+func dispatchTracer() trace.Tracer {
+	return otel.Tracer("croupier.dispatch")
+}
 
 // generateTaskID creates a server-side unique task identifier.
 func generateTaskID() string {
@@ -61,7 +70,7 @@ type TaskEventQuery interface {
 // the correct row.
 type TaskRunWriter interface {
 	CreateRun(ctx context.Context, taskID, functionID, agentID, gameID, env, status string, inputPayload []byte) error
-	CreateRunWithMeta(ctx context.Context, taskID, functionID, agentID, gameID, env, status, actor, addr string, inputPayload []byte) error
+	CreateRunWithMeta(ctx context.Context, taskID, functionID, agentID, gameID, env, status, actor, addr, traceID string, inputPayload []byte) error
 }
 
 // TaskRoutingInfo is a minimal DTO for task routing records.
@@ -239,10 +248,20 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
 	}
+	ctx = telemetry.ExtractContext(ctx, req.Metadata)
+	ctx, span := dispatchTracer().Start(ctx, "function.dispatch.invoke",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(attribute.String("function.id", req.GetFunctionId())),
+	)
+	defer span.End()
+
 	agent, err := d.pickAgentWithRouting(req.GetFunctionId(), req.Metadata)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
+	span.SetAttributes(attribute.String("agent.id", agent.AgentID))
 
 	// Track connection start
 	if d.healthTracker != nil {
@@ -254,13 +273,17 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 		req.Metadata = map[string]string{}
 	}
 	req.Metadata["agent_id"] = agent.AgentID
+	req.Metadata = telemetry.InjectContext(ctx, req.Metadata)
 
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
 		}
-		return nil, fmt.Errorf("marshal request: %w", err)
+		err = fmt.Errorf("marshal request: %w", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
 	}
 
 	respBytes, err := d.callAgent(ctx, agent.AgentID, protocol.MsgInvokeRequest, reqBytes)
@@ -268,6 +291,8 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
 		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 
@@ -276,13 +301,17 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
 		}
-		return nil, fmt.Errorf("unmarshal response: %w", err)
+		err = fmt.Errorf("unmarshal response: %w", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
 	}
 
 	if d.healthTracker != nil {
 		d.healthTracker.RecordSuccess(agent.AgentID)
 	}
 
+	span.SetStatus(codes.Ok, "")
 	return resp, nil
 }
 
@@ -310,11 +339,21 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
 	}
+	ctx = telemetry.ExtractContext(ctx, req.Metadata)
+	ctx, span := dispatchTracer().Start(ctx, "function.dispatch.broadcast",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(attribute.String("function.id", req.GetFunctionId())),
+	)
+	defer span.End()
 
 	agents := d.listAgentsForFunction(req.GetFunctionId())
 	if len(agents) == 0 {
-		return nil, fmt.Errorf("no live agent for function %s", req.GetFunctionId())
+		err := fmt.Errorf("no live agent for function %s", req.GetFunctionId())
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
 	}
+	span.SetAttributes(attribute.Int("agent.count", len(agents)))
 
 	result := &BroadcastInvocation{Total: len(agents)}
 
@@ -334,6 +373,7 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 				localReq.Metadata = map[string]string{}
 			}
 			localReq.Metadata["agent_id"] = agent.AgentID
+			localReq.Metadata = telemetry.InjectContext(ctx, localReq.Metadata)
 
 			if d.healthTracker != nil {
 				d.healthTracker.IncrementConnections(agent.AgentID)
@@ -378,6 +418,12 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 	}
 
 	wg.Wait()
+	span.SetAttributes(attribute.Int("function.broadcast.success", len(result.Successes)), attribute.Int("function.broadcast.failure", len(result.Failures)))
+	if len(result.Failures) > 0 {
+		span.SetStatus(codes.Error, "broadcast had failed agent calls")
+	} else {
+		span.SetStatus(codes.Ok, "")
+	}
 	return result, nil
 }
 
@@ -419,10 +465,20 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
 	}
+	ctx = telemetry.ExtractContext(ctx, req.Metadata)
+	ctx, span := dispatchTracer().Start(ctx, "function.dispatch.task",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(attribute.String("function.id", req.GetFunctionId())),
+	)
+	defer span.End()
+
 	agent, err := d.pickAgentWithRouting(req.GetFunctionId(), req.Metadata)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
+	span.SetAttributes(attribute.String("agent.id", agent.AgentID))
 
 	if d.healthTracker != nil {
 		d.healthTracker.IncrementConnections(agent.AgentID)
@@ -433,6 +489,7 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 		req.Metadata = map[string]string{}
 	}
 	req.Metadata["agent_id"] = agent.AgentID
+	req.Metadata = telemetry.InjectContext(ctx, req.Metadata)
 
 	// Generate a server-side task ID so events flowing back from the agent
 	// can be matched to a task_runs row. This closes the feedback loop.
@@ -443,14 +500,16 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 	if writer != nil {
 		taskID := generateTaskID()
 		req.Metadata["task_id"] = taskID
+		span.SetAttributes(attribute.String("task.id", taskID))
 		gameID := req.Metadata["game_id"]
 		env := req.Metadata["env"]
 		actor := req.Metadata["actor"]
 		addr := agent.Addr
+		traceID := telemetry.TraceIDFromMetadata(req.Metadata)
 		// Best-effort: create the run row. If this fails the task still
 		// dispatches — the agent will use the provided task_id and events
 		// will be orphaned but not lost (they land in task_events).
-		_ = writer.CreateRunWithMeta(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", actor, addr, req.GetPayload())
+		_ = writer.CreateRunWithMeta(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", actor, addr, traceID, req.GetPayload())
 	}
 
 	reqBytes, err := proto.Marshal(req)
@@ -458,7 +517,10 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
 		}
-		return nil, fmt.Errorf("marshal request: %w", err)
+		err = fmt.Errorf("marshal request: %w", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
 	}
 
 	respBytes, err := d.callAgent(ctx, agent.AgentID, protocol.MsgStartTaskRequest, reqBytes)
@@ -466,6 +528,8 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
 		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 
@@ -474,7 +538,10 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
 		}
-		return nil, fmt.Errorf("unmarshal response: %w", err)
+		err = fmt.Errorf("unmarshal response: %w", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
 	}
 
 	if d.healthTracker != nil {
@@ -482,9 +549,11 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 	}
 
 	if taskID := resp.GetTaskId(); taskID != "" {
+		span.SetAttributes(attribute.String("task.id", taskID))
 		d.registerTask(taskID, agent.AgentID)
 	}
 
+	span.SetStatus(codes.Ok, "")
 	return resp, nil
 }
 

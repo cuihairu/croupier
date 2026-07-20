@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -31,6 +33,38 @@ func NewGameTelemetryService(config TelemetryConfig, logger *slog.Logger) (*Game
 		provider: provider,
 		logger:   logger,
 	}, nil
+}
+
+// StartSpan creates a service span with common attributes.
+func (s *GameTelemetryService) StartSpan(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
+	if s == nil || s.provider == nil || s.provider.GameTracer == nil {
+		return ctx, trace.SpanFromContext(ctx)
+	}
+	return s.provider.GameTracer.tracer.Start(ctx, name, trace.WithAttributes(attrs...))
+}
+
+// EndSpan marks span success/failure and records duration.
+func (s *GameTelemetryService) EndSpan(span trace.Span, startedAt time.Time, err error, attrs ...attribute.KeyValue) {
+	if span == nil {
+		return
+	}
+	if !startedAt.IsZero() {
+		attrs = append(attrs, attribute.Int64("duration_ms", time.Since(startedAt).Milliseconds()))
+	}
+	if len(attrs) > 0 {
+		span.SetAttributes(attrs...)
+	}
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	} else {
+		span.SetStatus(codes.Ok, "")
+	}
+	span.End()
+}
+
+func (s *GameTelemetryService) TraceID(ctx context.Context) string {
+	return TraceIDFromContext(ctx)
 }
 
 // === Croupier Function调用追踪 ===

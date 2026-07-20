@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -20,6 +21,7 @@ import (
 
 // TelemetryConfig OpenTelemetry配置
 type TelemetryConfig struct {
+	Enabled        bool    `yaml:"enabled"`
 	ServiceName    string  `yaml:"service_name"`
 	ServiceVersion string  `yaml:"service_version"`
 	Environment    string  `yaml:"environment"`
@@ -49,6 +51,8 @@ type Provider struct {
 
 // NewProvider 创建OpenTelemetry提供者
 func NewProvider(ctx context.Context, config TelemetryConfig, logger *slog.Logger) (*Provider, error) {
+	normalizeConfig(&config)
+
 	// 创建资源标识
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
@@ -108,9 +112,14 @@ func NewProvider(ctx context.Context, config TelemetryConfig, logger *slog.Logge
 // initTracing 初始化链路追踪
 func initTracing(ctx context.Context, res *resource.Resource, config TelemetryConfig) (*trace.TracerProvider, error) {
 	// 构建OTLP HTTP导出器选项
-	opts := []otlptracehttp.Option{
-		otlptracehttp.WithEndpoint(config.CollectorURL),
-		otlptracehttp.WithURLPath("/v1/traces"),
+	opts := []otlptracehttp.Option{}
+	if strings.Contains(config.CollectorURL, "://") {
+		opts = append(opts, otlptracehttp.WithEndpointURL(trimOTLPEndpoint(config.CollectorURL, "/v1/traces")))
+	} else {
+		opts = append(opts,
+			otlptracehttp.WithEndpoint(config.CollectorURL),
+			otlptracehttp.WithURLPath("/v1/traces"),
+		)
 	}
 
 	// 根据配置决定是否使用TLS
@@ -143,9 +152,14 @@ func initTracing(ctx context.Context, res *resource.Resource, config TelemetryCo
 // initMetrics 初始化指标收集
 func initMetrics(ctx context.Context, res *resource.Resource, config TelemetryConfig) (*metric.MeterProvider, error) {
 	// 构建OTLP HTTP导出器选项
-	opts := []otlpmetrichttp.Option{
-		otlpmetrichttp.WithEndpoint(config.CollectorURL),
-		otlpmetrichttp.WithURLPath("/v1/metrics"),
+	opts := []otlpmetrichttp.Option{}
+	if strings.Contains(config.CollectorURL, "://") {
+		opts = append(opts, otlpmetrichttp.WithEndpointURL(trimOTLPEndpoint(config.CollectorURL, "/v1/metrics")))
+	} else {
+		opts = append(opts,
+			otlpmetrichttp.WithEndpoint(config.CollectorURL),
+			otlpmetrichttp.WithURLPath("/v1/metrics"),
+		)
 	}
 
 	// 根据配置决定是否使用TLS
@@ -209,17 +223,23 @@ func (p *Provider) Shutdown(ctx context.Context) error {
 
 // LoadConfigFromEnv 从环境变量加载配置
 func LoadConfigFromEnv() TelemetryConfig {
+	enabled := envBool("OTEL_ENABLED", false) || envBool("CROUPIER_TELEMETRY_ENABLED", false)
+	tracing := envBool("OTEL_ENABLE_TRACING", false)
+	metrics := envBool("OTEL_ENABLE_METRICS", false)
+	analytics := envBool("ANALYTICS_BRIDGE_ENABLED", false)
+	enabled = enabled || tracing || metrics || analytics
 	return TelemetryConfig{
+		Enabled:        enabled,
 		ServiceName:    getEnvOrDefault("OTEL_SERVICE_NAME", "croupier-server"),
 		ServiceVersion: getEnvOrDefault("OTEL_SERVICE_VERSION", "1.0.0"),
 		Environment:    getEnvOrDefault("OTEL_ENVIRONMENT", "development"),
 		CollectorURL:   getEnvOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
 		GameID:         getEnvOrDefault("GAME_ID", "default"),
-		EnableTracing:  getEnvOrDefault("OTEL_ENABLE_TRACING", "true") == "true",
-		EnableMetrics:  getEnvOrDefault("OTEL_ENABLE_METRICS", "true") == "true",
+		EnableTracing:  tracing,
+		EnableMetrics:  metrics,
 		SamplingRatio:  parseFloatOrDefault(getEnvOrDefault("OTEL_SAMPLING_RATIO", "1.0")),
 		Analytics: AnalyticsBridgeConfig{
-			Enabled:        getEnvOrDefault("ANALYTICS_BRIDGE_ENABLED", "true") == "true",
+			Enabled:        analytics,
 			RedisAddr:      getEnvOrDefault("ANALYTICS_REDIS_ADDR", "localhost:6379"),
 			RedisPassword:  getEnvOrDefault("ANALYTICS_REDIS_PASSWORD", ""),
 			RedisDB:        parseIntOrDefault(getEnvOrDefault("ANALYTICS_REDIS_DB", "0")),
@@ -236,6 +256,49 @@ func getEnvOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func envBool(key string, defaultValue bool) bool {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultValue
+	}
+	return strings.EqualFold(value, "true") || value == "1" || strings.EqualFold(value, "yes") || strings.EqualFold(value, "on")
+}
+
+func normalizeConfig(config *TelemetryConfig) {
+	if config == nil {
+		return
+	}
+	if strings.TrimSpace(config.ServiceName) == "" {
+		config.ServiceName = "croupier-server"
+	}
+	if strings.TrimSpace(config.ServiceVersion) == "" {
+		config.ServiceVersion = "1.0.0"
+	}
+	if strings.TrimSpace(config.Environment) == "" {
+		config.Environment = "development"
+	}
+	if strings.TrimSpace(config.CollectorURL) == "" {
+		config.CollectorURL = "http://localhost:4318"
+	}
+	if strings.TrimSpace(config.GameID) == "" {
+		config.GameID = "default"
+	}
+	if config.SamplingRatio <= 0 || config.SamplingRatio > 1 {
+		config.SamplingRatio = 1.0
+	}
+}
+
+func trimOTLPEndpoint(endpoint string, defaultPath string) string {
+	endpoint = strings.TrimRight(strings.TrimSpace(endpoint), "/")
+	if strings.HasSuffix(endpoint, "/v1/traces") {
+		endpoint = strings.TrimSuffix(endpoint, "/v1/traces")
+	}
+	if strings.HasSuffix(endpoint, "/v1/metrics") {
+		endpoint = strings.TrimSuffix(endpoint, "/v1/metrics")
+	}
+	return endpoint + defaultPath
 }
 
 func parseFloatOrDefault(s string) float64 {

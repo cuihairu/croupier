@@ -13,11 +13,16 @@ import (
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/telemetry"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -178,6 +183,17 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 	}
 
 	functionID := req.GetFunctionId()
+	ctx = telemetry.ExtractContext(ctx, req.GetMetadata())
+	ctx, span := agentTracer().Start(ctx, "agent.invoke",
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			attribute.String("function.id", functionID),
+			attribute.String("agent.id", h.agentID),
+			attribute.String("service.id", req.GetMetadata()["service_id"]),
+			attribute.String("task.id", req.GetMetadata()["task_id"]),
+		),
+	)
+	defer span.End()
 
 	// Check if this is a provider function call
 	h.mu.RLock()
@@ -185,34 +201,46 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 	h.mu.RUnlock()
 
 	if pm != nil && pm.IsPlatformFunction(functionID) {
-		return h.invokePlatform(ctx, functionID, req)
+		resp, err := h.invokePlatform(ctx, functionID, req)
+		recordSpanResult(span, err)
+		return resp, err
 	}
 
 	// Regular function forwarding - need to dial game server
 	addr, err := h.pickInstance(functionID, req.GetMetadata())
 	if err != nil {
+		recordSpanResult(span, err)
 		return nil, err
 	}
+	span.SetAttributes(attribute.String("provider.addr", addr))
 
 	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("marshal InvokeRequest: %w", err)
+		err = fmt.Errorf("marshal InvokeRequest: %w", err)
+		recordSpanResult(span, err)
+		return nil, err
 	}
 
 	respBytes, err := h.callLocalProvider(callCtx, addr, protocol.MsgInvokeRequest, reqBytes)
 	if err != nil {
-		return nil, fmt.Errorf("invoke local provider at %s: %w", addr, err)
+		err = fmt.Errorf("invoke local provider at %s: %w", addr, err)
+		recordSpanResult(span, err)
+		return nil, err
 	}
 
 	resp := &sdkv1.InvokeResponse{}
 	if err := proto.Unmarshal(respBytes, resp); err != nil {
-		return nil, fmt.Errorf("unmarshal InvokeResponse: %w", err)
+		err = fmt.Errorf("unmarshal InvokeResponse: %w", err)
+		recordSpanResult(span, err)
+		return nil, err
 	}
 
-	return proto.Marshal(resp)
+	out, err := proto.Marshal(resp)
+	recordSpanResult(span, err)
+	return out, err
 }
 
 // callLocalProvider calls a local provider using TCP transport only
@@ -315,6 +343,7 @@ func (h *LocalHandler) handleStartTask(ctx context.Context, data []byte) ([]byte
 	if err := proto.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("unmarshal InvokeRequest for StartTask: %w", err)
 	}
+	req.Metadata = telemetry.InjectContext(telemetry.ExtractContext(ctx, req.GetMetadata()), req.Metadata)
 
 	taskID := h.tasks.Start(req)
 
@@ -344,18 +373,50 @@ func (h *LocalHandler) handleCancelTask(ctx context.Context, data []byte) ([]byt
 // executeTask is the TaskExecutor seam: it routes a task invocation through
 // the same provider-call path as a synchronous invoke. Used by TaskRunner.
 func (h *LocalHandler) executeTask(ctx context.Context, req *sdkv1.InvokeRequest) ([]byte, error) {
+	ctx = telemetry.ExtractContext(ctx, req.GetMetadata())
+	ctx, span := agentTracer().Start(ctx, "agent.task.execute",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(
+			attribute.String("function.id", req.GetFunctionId()),
+			attribute.String("agent.id", h.agentID),
+			attribute.String("task.id", req.GetMetadata()["task_id"]),
+		),
+	)
+	defer span.End()
+
 	respBytes, err := h.handleInvoke(ctx, mustMarshal(req))
 	if err != nil {
+		recordSpanResult(span, err)
 		return nil, err
 	}
 	resp := &sdkv1.InvokeResponse{}
 	if err := proto.Unmarshal(respBytes, resp); err != nil {
-		return nil, fmt.Errorf("unmarshal task invoke response: %w", err)
+		err = fmt.Errorf("unmarshal task invoke response: %w", err)
+		recordSpanResult(span, err)
+		return nil, err
 	}
 	if len(resp.GetPayload()) == 0 {
+		recordSpanResult(span, nil)
 		return []byte("null"), nil
 	}
+	recordSpanResult(span, nil)
 	return resp.GetPayload(), nil
+}
+
+func agentTracer() trace.Tracer {
+	return otel.Tracer("croupier.agent")
+}
+
+func recordSpanResult(span trace.Span, err error) {
+	if span == nil {
+		return
+	}
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return
+	}
+	span.SetStatus(codes.Ok, "")
 }
 
 func mustMarshal(msg proto.Message) []byte {

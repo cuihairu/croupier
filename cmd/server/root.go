@@ -185,6 +185,18 @@ func runServer() error {
 
 	// 创建服务上下文
 	svcCtx := svc.NewServiceContext(c)
+	if telemetrySvc, err := svc.NewTelemetryService(c, "croupier-server", slog.Default()); err != nil {
+		return fmt.Errorf("初始化遥测服务失败: %w", err)
+	} else if telemetrySvc != nil {
+		svcCtx.Telemetry = telemetrySvc
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := telemetrySvc.Shutdown(shutdownCtx); err != nil {
+				slog.Default().Warn("telemetry shutdown failed", "error", err)
+			}
+		}()
+	}
 
 	// 创建 AgentSessionStore 用于管理 Agent TCP session
 	sessionStore := server.NewAgentSessionStore()
@@ -262,7 +274,7 @@ func runServer() error {
 	// 配置 HTTP 服务器（支持 SSE 长连接）
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      r,
+		Handler:      wrapHTTPHandler(svcCtx, r),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Minute,
 		IdleTimeout:  120 * time.Second,
@@ -442,6 +454,13 @@ func applyRuntimeDefaults(c *config.Config) {
 			c.Storage.BaseDir = filepath.Join("data", "uploads")
 		}
 	}
+}
+
+func wrapHTTPHandler(svcCtx *svc.ServiceContext, handler http.Handler) http.Handler {
+	if svcCtx == nil || svcCtx.Telemetry == nil {
+		return handler
+	}
+	return svcCtx.Telemetry.HTTPMiddleware(handler)
 }
 
 // validateAndAdjustTimeout 确保 Timeout > SSE intervals

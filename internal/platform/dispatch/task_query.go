@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/telemetry"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"gorm.io/gorm"
 )
@@ -110,14 +111,18 @@ func (w *TaskRunWriterAdapter) CreateRun(ctx context.Context, taskID, functionID
 		Env:          env,
 		Status:       status,
 		InputPayload: model.MustJSON(string(inputPayload)),
+		TraceID:      telemetry.TraceIDFromContext(ctx),
 	}
 	return w.runs.Create(ctx, run)
 }
 
 // CreateRunWithMeta persists a task_runs row with actor and addr metadata.
-func (w *TaskRunWriterAdapter) CreateRunWithMeta(ctx context.Context, taskID, functionID, agentID, gameID, env, status, actor, addr string, inputPayload []byte) error {
+func (w *TaskRunWriterAdapter) CreateRunWithMeta(ctx context.Context, taskID, functionID, agentID, gameID, env, status, actor, addr, traceID string, inputPayload []byte) error {
 	if w.runs == nil {
 		return nil
+	}
+	if strings.TrimSpace(traceID) == "" {
+		traceID = telemetry.TraceIDFromContext(ctx)
 	}
 	run := &model.TaskRun{
 		TaskID:       taskID,
@@ -129,6 +134,7 @@ func (w *TaskRunWriterAdapter) CreateRunWithMeta(ctx context.Context, taskID, fu
 		Actor:        actor,
 		Addr:         addr,
 		InputPayload: model.MustJSON(string(inputPayload)),
+		TraceID:      traceID,
 	}
 	return w.runs.Create(ctx, run)
 }

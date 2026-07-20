@@ -17,6 +17,7 @@ import (
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/telemetry"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -36,6 +37,7 @@ type App struct {
 	extensionPuller  *ExtensionSyncPuller
 	outTLS           *tlsutil.ClientTLSConfig
 	providerManager  *ProviderManager
+	telemetry        *telemetry.GameTelemetryService
 	configDir        string
 
 	// TCP local server
@@ -48,6 +50,13 @@ type App struct {
 	opsServer *OpsServer
 	agentID   string
 	version   string
+}
+
+func (a *App) WithTelemetry(service *telemetry.GameTelemetryService) {
+	if a == nil {
+		return
+	}
+	a.telemetry = service
 }
 
 func New(serverAddr, agentID string) *App {
@@ -252,6 +261,13 @@ func (a *App) Stop() {
 	// Stop upstream connection
 	if a.upstream != nil {
 		a.upstream.Stop()
+	}
+	if a.telemetry != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := a.telemetry.Shutdown(ctx); err != nil {
+			slog.Warn("agent telemetry shutdown failed", "error", err)
+		}
 	}
 }
 

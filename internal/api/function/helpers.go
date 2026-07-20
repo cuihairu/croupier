@@ -18,6 +18,8 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/internal/telemetry"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // Function management implementations
@@ -179,12 +181,30 @@ func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 }
 
 func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) (*FunctionInvokeResponse, error) {
+	startedAt := time.Now()
+	var spanErr error
+	if svcCtx != nil && svcCtx.Telemetry != nil {
+		nextCtx, span := svcCtx.Telemetry.StartSpan(ctx, "function.invoke",
+			attribute.String("function.id", req.ID),
+			attribute.String("function.mode", strings.TrimSpace(req.Mode)),
+			attribute.String("function.route", strings.TrimSpace(req.Route)),
+			attribute.String("game.id", strings.TrimSpace(req.GameID)),
+			attribute.String("game.env", strings.TrimSpace(req.Env)),
+		)
+		defer func() {
+			svcCtx.Telemetry.EndSpan(span, startedAt, spanErr)
+		}()
+		ctx = nextCtx
+	}
+
 	admin, roles, err := utils.LoadCurrentAdmin(ctx, svcCtx)
 	if err != nil {
+		spanErr = err
 		return nil, err
 	}
 	_, err = utils.PermissionIDsFromRoles(ctx, svcCtx, roles)
 	if err != nil {
+		spanErr = err
 		return nil, err
 	}
 
@@ -194,12 +214,14 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		roleNames := utils.RoleNamesFromModels(roles)
 		functionPolicy, err = enforceFunctionPolicy(ctx, svcCtx, req.ID, roleNames)
 		if err != nil {
+			spanErr = err
 			return nil, err
 		}
 	}
 
 	payload, err := json.Marshal(req.Payload)
 	if err != nil {
+		spanErr = err
 		return nil, err
 	}
 
@@ -208,7 +230,8 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		// Create approval request instead of executing directly
 		approvalID, err := createFunctionApproval(ctx, svcCtx, req.ID, payload, req.Mode, admin, functionPolicy)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create approval request: %w", err)
+			spanErr = fmt.Errorf("failed to create approval request: %w", err)
+			return nil, spanErr
 		}
 
 		// Log approval creation if audit is enabled
@@ -232,11 +255,24 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	if req.Mode == "async" {
 		metadata["async"] = "true"
 	}
+	if gameID := strings.TrimSpace(req.GameID); gameID != "" {
+		metadata["game_id"] = gameID
+	}
+	if env := strings.TrimSpace(req.Env); env != "" {
+		metadata["env"] = env
+	}
+	if targetServiceID := strings.TrimSpace(req.TargetServiceID); targetServiceID != "" {
+		metadata["target_service_id"] = targetServiceID
+	}
+	if hashKey := strings.TrimSpace(req.HashKey); hashKey != "" {
+		metadata["hash_key"] = hashKey
+	}
 
 	// 记录操作者
 	if admin != nil {
 		metadata["actor"] = admin.Username
 	}
+	metadata = telemetry.InjectContext(ctx, metadata)
 
 	var result *FunctionInvokeResponse
 	var invokeErr error
@@ -280,6 +316,7 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	}
 
 	if invokeErr != nil {
+		spanErr = invokeErr
 		return &FunctionInvokeResponse{
 			TaskId: "",
 			Result: nil,
