@@ -158,12 +158,15 @@ func persistWorkspaceVersion(
 	typesCfg := WorkspaceConfig{
 		ObjectKey:   cfg.ObjectKey,
 		Title:       cfg.Title,
+		Description: cfg.Description,
 		Layout:      cfg.Layout,
 		Published:   cfg.Published,
 		MenuOrder:   cfg.MenuOrder,
 		Status:      cfg.Status,
 		PublishedBy: cfg.PublishedBy,
 		PublishedAt: cfg.PublishedAt,
+		Category:    cfg.Category,
+		Permissions: cfg.Permissions,
 		Meta: WorkspaceConfigMeta{
 			CreatedAt: cfg.CreatedAt,
 			UpdatedAt: cfg.UpdatedAt,

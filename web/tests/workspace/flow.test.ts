@@ -39,7 +39,7 @@ describe('workspace flow integration (service-level)', () => {
 
   it('核心成功链路：保存草稿 -> 发布 -> 控制台可读 -> 回滚', async () => {
     requestMock
-      .mockResolvedValueOnce(draftConfig)
+      .mockResolvedValueOnce({ workspaceConfig: draftConfig })
       .mockResolvedValueOnce({ published: true, objectKey: 'player' })
       .mockResolvedValueOnce({ items: [{ ...draftConfig, published: true }] })
       .mockResolvedValueOnce({ objectKey: 'player', version: 2 });
@@ -81,9 +81,9 @@ describe('workspace flow integration (service-level)', () => {
 
   it('关键失败链路：发布失败后保留草稿可读', async () => {
     requestMock
-      .mockResolvedValueOnce(draftConfig)
+      .mockResolvedValueOnce({ workspaceConfig: draftConfig })
       .mockRejectedValueOnce(new Error('publish failed'))
-      .mockResolvedValueOnce(draftConfig);
+      .mockResolvedValueOnce({ workspaceConfig: draftConfig });
 
     await saveWorkspaceConfig(draftConfig);
     await expect(publishWorkspaceConfig('player')).rejects.toThrow('publish failed');

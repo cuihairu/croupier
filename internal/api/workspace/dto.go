@@ -53,14 +53,16 @@ type GetConfigResponse struct {
 
 // SaveConfigRequest is the request to save a workspace config
 type SaveConfigRequest struct {
-	ObjectKey   string      `uri:"objectKey" binding:"required"`
-	Title       string      `json:"title"`
-	Description string      `json:"description"`
-	Layout      interface{} `json:"layout"`
-	MenuOrder   int         `json:"menuOrder"`
-	Status      string      `json:"status"`
-	Published   bool        `json:"published"`
-	PublishedBy string      `json:"publishedBy,omitempty"`
+	ObjectKey   string                `uri:"objectKey" binding:"required"`
+	Title       string                `json:"title"`
+	Description string                `json:"description"`
+	Layout      interface{}           `json:"layout"`
+	MenuOrder   int                   `json:"menuOrder"`
+	Status      string                `json:"status"`
+	Published   bool                  `json:"published"`
+	PublishedBy string                `json:"publishedBy,omitempty"`
+	Category    string                `json:"category,omitempty"`
+	Permissions *WorkspacePermissions `json:"permissions,omitempty"`
 }
 
 // SaveConfigResponse is the response from saving workspace config

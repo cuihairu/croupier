@@ -48,7 +48,7 @@ import {
 } from '@/services/workspace/navigation';
 
 type ConsoleAccess = {
-  canWorkspaceRead?: boolean;
+  canFunctionsRead?: boolean;
 };
 
 export default function ConsolePage() {
@@ -161,13 +161,13 @@ export default function ConsolePage() {
 
   const pageTitle = categoryKey ? `运行控制台 / ${categoryKey}` : '运行控制台';
 
-  if (!access?.canWorkspaceRead) {
+  if (!access?.canFunctionsRead) {
     return (
       <PageStatePanel
         tone="error"
         badgeText="权限受限"
         title="无法进入运行控制台"
-        description="你没有查看控制台工作台的权限，需要先具备读取权限后才能查看已发布页面。"
+        description="你没有查看函数运行控制台的权限，需要先具备函数读取权限后才能查看已发布页面。"
       />
     );
   }
@@ -271,9 +271,7 @@ export default function ConsolePage() {
                         <Space wrap size={[8, 8]}>
                           <Button
                             type="primary"
-                            onClick={() =>
-                              history.push(getConsoleWorkspacePath(highlightedConfig))
-                            }
+                            onClick={() => history.push(getConsoleWorkspacePath(highlightedConfig))}
                           >
                             进入最新运行页
                           </Button>
@@ -373,7 +371,7 @@ export default function ConsolePage() {
         ) : (
           <>
             {visibleConfigs.length === 0 && (
-             <Alert
+              <Alert
                 type="info"
                 showIcon
                 message={categoryKey ? '当前分类没有匹配的已发布工作台' : '没有匹配的已发布工作台'}

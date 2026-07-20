@@ -2,7 +2,9 @@
  * Workspace 配置服务测试
  */
 
+import { request } from '@umijs/max';
 import {
+  clearAllCache,
   loadWorkspaceConfig,
   saveWorkspaceConfig,
   listWorkspaceConfigs,
@@ -14,7 +16,29 @@ import {
 } from '@/services/workspaceConfig';
 import type { WorkspaceConfig } from '@/types/workspace';
 
+const requestMock = request as jest.Mock;
+
 describe('Workspace Config Service', () => {
+  const playerConfig: WorkspaceConfig = {
+    objectKey: 'player',
+    title: '玩家 Workspace',
+    layout: {
+      type: 'tabs',
+      tabs: [
+        {
+          key: 'list',
+          title: '玩家列表',
+          functions: ['player.list'],
+          layout: {
+            type: 'list',
+            listFunction: 'player.list',
+            columns: [{ key: 'id', title: 'ID' }],
+          },
+        },
+      ],
+    },
+  };
+
   const mockConfig: WorkspaceConfig = {
     objectKey: 'test',
     title: '测试 Workspace',
@@ -38,25 +62,35 @@ describe('Workspace Config Service', () => {
     },
   };
 
+  beforeEach(() => {
+    requestMock.mockReset();
+    clearAllCache();
+  });
+
   describe('loadWorkspaceConfig', () => {
     it('should load config successfully', async () => {
+      requestMock.mockResolvedValueOnce({ workspaceConfig: playerConfig });
       const config = await loadWorkspaceConfig('player');
       expect(config).toBeDefined();
       expect(config?.objectKey).toBe('player');
     });
 
     it('should return null for non-existent config', async () => {
+      requestMock.mockRejectedValueOnce({ response: { status: 404 } });
       const config = await loadWorkspaceConfig('non-existent');
       expect(config).toBeNull();
     });
 
     it('should use cache on second load', async () => {
+      requestMock.mockResolvedValueOnce({ workspaceConfig: playerConfig });
       const config1 = await loadWorkspaceConfig('player');
       const config2 = await loadWorkspaceConfig('player');
       expect(config1).toEqual(config2);
+      expect(requestMock).toHaveBeenCalledTimes(1);
     });
 
     it('should force refresh when specified', async () => {
+      requestMock.mockResolvedValueOnce({ workspaceConfig: playerConfig });
       const config = await loadWorkspaceConfig('player', { forceRefresh: true });
       expect(config).toBeDefined();
     });
@@ -64,12 +98,14 @@ describe('Workspace Config Service', () => {
 
   describe('saveWorkspaceConfig', () => {
     it('should save config successfully', async () => {
+      requestMock.mockResolvedValueOnce({ workspaceConfig: mockConfig });
       const savedConfig = await saveWorkspaceConfig(mockConfig);
       expect(savedConfig).toBeDefined();
       expect(savedConfig.objectKey).toBe('test');
     });
 
     it('should update cache after save', async () => {
+      requestMock.mockResolvedValueOnce({ workspaceConfig: mockConfig });
       await saveWorkspaceConfig(mockConfig);
       const config = await loadWorkspaceConfig('test');
       expect(config).toEqual(mockConfig);
@@ -78,12 +114,14 @@ describe('Workspace Config Service', () => {
 
   describe('listWorkspaceConfigs', () => {
     it('should list all configs', async () => {
+      requestMock.mockResolvedValueOnce({ items: [playerConfig] });
       const configs = await listWorkspaceConfigs();
       expect(Array.isArray(configs)).toBe(true);
       expect(configs.length).toBeGreaterThan(0);
     });
 
     it('should update cache for all configs', async () => {
+      requestMock.mockResolvedValueOnce({ items: [playerConfig] });
       const configs = await listWorkspaceConfigs();
       for (const config of configs) {
         const cached = await loadWorkspaceConfig(config.objectKey);
@@ -94,12 +132,19 @@ describe('Workspace Config Service', () => {
 
   describe('deleteWorkspaceConfig', () => {
     it('should delete config successfully', async () => {
+      requestMock
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce({ response: { status: 404 } });
       await deleteWorkspaceConfig('test');
       const config = await loadWorkspaceConfig('test');
       expect(config).toBeNull();
     });
 
     it('should clear cache after delete', async () => {
+      requestMock
+        .mockResolvedValueOnce({ workspaceConfig: mockConfig })
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce({ response: { status: 404 } });
       await saveWorkspaceConfig(mockConfig);
       await deleteWorkspaceConfig('test');
       const config = await loadWorkspaceConfig('test', { useCache: true });
@@ -141,6 +186,13 @@ describe('Workspace Config Service', () => {
 
   describe('cloneWorkspaceConfig', () => {
     it('should clone config successfully', async () => {
+      requestMock.mockResolvedValueOnce({ workspaceConfig: mockConfig }).mockResolvedValueOnce({
+        workspaceConfig: {
+          ...mockConfig,
+          objectKey: 'test-clone',
+          title: '测试克隆',
+        },
+      });
       await saveWorkspaceConfig(mockConfig);
       const cloned = await cloneWorkspaceConfig('test', 'test-clone', '测试克隆');
       expect(cloned.objectKey).toBe('test-clone');
@@ -149,6 +201,7 @@ describe('Workspace Config Service', () => {
     });
 
     it('should throw error for non-existent source', async () => {
+      requestMock.mockRejectedValueOnce({ response: { status: 404 } });
       await expect(cloneWorkspaceConfig('non-existent', 'clone', '克隆')).rejects.toThrow(
         '配置不存在',
       );
@@ -157,6 +210,7 @@ describe('Workspace Config Service', () => {
 
   describe('exportWorkspaceConfig', () => {
     it('should export config as JSON', async () => {
+      requestMock.mockResolvedValueOnce({ workspaceConfig: mockConfig });
       await saveWorkspaceConfig(mockConfig);
       const json = await exportWorkspaceConfig('test');
       expect(json).toBeDefined();
@@ -165,12 +219,14 @@ describe('Workspace Config Service', () => {
     });
 
     it('should throw error for non-existent config', async () => {
+      requestMock.mockRejectedValueOnce({ response: { status: 404 } });
       await expect(exportWorkspaceConfig('non-existent')).rejects.toThrow('配置不存在');
     });
   });
 
   describe('importWorkspaceConfig', () => {
     it('should import valid config', async () => {
+      requestMock.mockResolvedValueOnce({ workspaceConfig: mockConfig });
       const json = JSON.stringify(mockConfig);
       const imported = await importWorkspaceConfig(json);
       expect(imported.objectKey).toBe('test');

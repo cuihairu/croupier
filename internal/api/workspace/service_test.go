@@ -176,6 +176,71 @@ func TestService_PublishUnpublish_RoundTrip(t *testing.T) {
 	assert.False(t, unpubResp.Published)
 }
 
+func TestService_SaveConfig_PreservesCategoryPermissionsInPublishedList(t *testing.T) {
+	svcCtx := setupSvcCtx(t)
+	svc := NewService(svcCtx)
+
+	saveResp, err := svc.SaveConfig(context.Background(), &SaveConfigRequest{
+		ObjectKey:   "player.ban",
+		Title:       "封禁玩家",
+		Description: "玩家封禁操作",
+		Layout:      map[string]interface{}{"type": "tabs", "tabs": []interface{}{}},
+		Category:    "support",
+		Permissions: &WorkspacePermissions{
+			Roles:       []string{"operator"},
+			Permissions: []string{"player.ban"},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, saveResp)
+	assert.Equal(t, "support", saveResp.WorkspaceConfig.Category)
+	require.NotNil(t, saveResp.WorkspaceConfig.Permissions)
+	assert.Equal(t, []string{"operator"}, saveResp.WorkspaceConfig.Permissions.Roles)
+
+	pubResp, err := svc.Publish(context.Background(), &PublishRequest{
+		ObjectKey:   "player.ban",
+		PublishedBy: "tester",
+	})
+	require.NoError(t, err)
+	assert.True(t, pubResp.Published)
+
+	publishedResp, err := svc.ListPublished(context.Background(), &ListPublishedRequest{})
+	require.NoError(t, err)
+	require.Len(t, publishedResp.Items, 1)
+	item := publishedResp.Items[0]
+	assert.Equal(t, "player.ban", item.ObjectKey)
+	assert.Equal(t, "support", item.Category)
+	assert.Equal(t, "玩家封禁操作", item.Description)
+	require.NotNil(t, item.Permissions)
+	assert.Equal(t, []string{"operator"}, item.Permissions.Roles)
+	assert.Equal(t, []string{"player.ban"}, item.Permissions.Permissions)
+}
+
+func TestService_SaveConfig_ClearsCategoryForObjectKeyFallback(t *testing.T) {
+	svcCtx := setupSvcCtx(t)
+	svc := NewService(svcCtx)
+
+	_, err := svc.SaveConfig(context.Background(), &SaveConfigRequest{
+		ObjectKey: "mail.send",
+		Title:     "发送邮件",
+		Layout:    map[string]interface{}{"type": "tabs", "tabs": []interface{}{}},
+		Category:  "support",
+	})
+	require.NoError(t, err)
+
+	_, err = svc.SaveConfig(context.Background(), &SaveConfigRequest{
+		ObjectKey: "mail.send",
+		Title:     "发送邮件",
+		Layout:    map[string]interface{}{"type": "tabs", "tabs": []interface{}{}},
+		Category:  "",
+	})
+	require.NoError(t, err)
+
+	getResp, err := svc.GetConfig(context.Background(), &GetConfigRequest{ObjectKey: "mail.send"})
+	require.NoError(t, err)
+	assert.Empty(t, getResp.WorkspaceConfig.Category)
+}
+
 func TestService_Publish_NotFound(t *testing.T) {
 	svcCtx := setupSvcCtx(t)
 	svc := NewService(svcCtx)

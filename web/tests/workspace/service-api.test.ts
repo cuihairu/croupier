@@ -102,7 +102,7 @@ describe('workspace service api branches', () => {
 
   it('rollbackWorkspaceVersion 成功并触发缓存清理', async () => {
     requestMock
-      .mockResolvedValueOnce(baseConfig)
+      .mockResolvedValueOnce({ workspaceConfig: baseConfig })
       .mockResolvedValueOnce({ objectKey: 'player', version: 3 })
       .mockResolvedValueOnce(null);
 
@@ -124,10 +124,12 @@ describe('workspace service api branches', () => {
 
   it('importWorkspaceConfig 支持冲突 key 重写并强制生成草稿', async () => {
     requestMock.mockResolvedValueOnce({
-      ...baseConfig,
-      objectKey: 'player',
-      status: 'draft',
-      published: false,
+      workspaceConfig: {
+        ...baseConfig,
+        objectKey: 'player',
+        status: 'draft',
+        published: false,
+      },
     });
     const raw = JSON.stringify({
       ...baseConfig,
@@ -160,10 +162,12 @@ describe('workspace service api branches', () => {
   it('exportWorkspaceBackupBundle 返回草稿/发布版/版本快照', async () => {
     requestMock
       .mockResolvedValueOnce({
-        ...baseConfig,
-        objectKey: 'player',
-        status: 'draft',
-        published: false,
+        workspaceConfig: {
+          ...baseConfig,
+          objectKey: 'player',
+          status: 'draft',
+          published: false,
+        },
       })
       .mockResolvedValueOnce({
         items: [

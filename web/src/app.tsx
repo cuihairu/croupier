@@ -15,11 +15,8 @@ import { App as AntdApp, Grid } from 'antd';
 import { setAppApi } from './utils/antdApp';
 import { initWorkspaceAlerting } from './services/workspace/alerts';
 import { listPublishedWorkspaceConfigs } from './services/workspaceConfig';
-import {
-  buildConsoleWorkspaceMenuItems,
-  canAccessWorkspaceMenu,
-  type ConsoleWorkspaceMenuItem,
-} from './services/workspace/navigation';
+import { buildConsoleMenuData, type AppMenuItem } from './services/workspace/menu';
+import type { WorkspaceConfig } from './types/workspace';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -38,41 +35,9 @@ type PermissionResponse = {
   permission_ids?: string[];
 };
 
-type AppMenuItem = {
-  key?: string;
-  path?: string;
-  name?: string;
-  children?: AppMenuItem[];
-  routes?: AppMenuItem[];
-  [key: string]: unknown;
-};
-
 function normalizePermissionIDs(perms: PermissionResponse | undefined): string[] {
   const ids = perms?.permissionIDs || perms?.permissionIds || perms?.permission_ids || [];
   return Array.isArray(ids) ? ids : [];
-}
-
-function injectConsoleWorkspaceMenus(
-  menuData: AppMenuItem[],
-  workspaceMenuItems: ConsoleWorkspaceMenuItem[],
-): AppMenuItem[] {
-  if (workspaceMenuItems.length === 0) return menuData;
-  return menuData.map((item) => {
-    if (item.path === '/console' || item.key === '/console') {
-      const staticChildren = (item.children || []).filter((child) => child.path === '/console/home');
-      return {
-        ...item,
-        children: [...staticChildren, ...workspaceMenuItems],
-      };
-    }
-    if (item.children) {
-      return {
-        ...item,
-        children: injectConsoleWorkspaceMenus(item.children, workspaceMenuItems),
-      };
-    }
-    return item;
-  });
 }
 
 /**
@@ -83,6 +48,7 @@ export async function getInitialState(): Promise<{
   currentUser?: InitialCurrentUser;
   loading?: boolean;
   fetchUserInfo?: () => Promise<InitialCurrentUser | undefined>;
+  workspaceConfigs?: WorkspaceConfig[];
 }> {
   const fetchUserInfo = async () => {
     try {
@@ -128,10 +94,19 @@ export async function getInitialState(): Promise<{
     if (currentUser) {
       hydrateScope();
     }
+    let workspaceConfigs: WorkspaceConfig[] = [];
+    if (currentUser) {
+      try {
+        workspaceConfigs = await listPublishedWorkspaceConfigs({ skipErrorHandler: true });
+      } catch {
+        workspaceConfigs = [];
+      }
+    }
 
     return {
       fetchUserInfo,
       currentUser,
+      workspaceConfigs,
       settings: defaultSettings as Partial<LayoutSettings>,
     };
   }
@@ -188,22 +163,9 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     actionsRender: () => [<HeaderActions key="header-actions" />],
     splitMenus: false,
     suppressSiderWhenMenuEmpty: true,
-    menu: {
-      request: async (_params, defaultMenuData) => {
-        if (!initialState?.currentUser) return defaultMenuData;
-        try {
-          const configs = await listPublishedWorkspaceConfigs({ skipErrorHandler: true });
-          const visibleConfigs = configs.filter((config) =>
-            canAccessWorkspaceMenu(config, initialState.currentUser),
-          );
-          return injectConsoleWorkspaceMenus(
-            defaultMenuData as AppMenuItem[],
-            buildConsoleWorkspaceMenuItems(visibleConfigs),
-          );
-        } catch {
-          return defaultMenuData;
-        }
-      },
+    menuDataRender: (menuData) => {
+      if (!initialState?.currentUser) return menuData;
+      return buildConsoleMenuData(menuData as AppMenuItem[], initialState.workspaceConfigs);
     },
     avatarProps: {
       src: initialState?.currentUser?.avatar,

@@ -22,6 +22,11 @@ jest.mock('@/components/WorkspaceRenderer/renderers/DetailRenderer', () => ({
   default: () => <div data-testid="renderer-detail">DetailRenderer</div>,
 }));
 
+jest.mock('@/components/WorkspaceRenderer/renderers/KanbanRenderer', () => ({
+  __esModule: true,
+  default: () => <div data-testid="renderer-kanban">KanbanRenderer</div>,
+}));
+
 function createTab(layoutType: string): any {
   return {
     key: `tab-${layoutType}`,
@@ -54,9 +59,8 @@ describe('TabContentRenderer', () => {
     expect(screen.getByTestId('renderer-detail')).toBeInTheDocument();
   });
 
-  it('tabs: 非 V1 类型返回错误提示', () => {
+  it('tabs: kanban 分发正确', () => {
     render(<TabContentRenderer tab={createTab('kanban')} objectKey="player" />);
-    expect(screen.getByText('当前 Tab 布局不在 V1 支持范围')).toBeInTheDocument();
-    expect(screen.getByText(/当前类型: kanban/)).toBeInTheDocument();
+    expect(screen.getByTestId('renderer-kanban')).toBeInTheDocument();
   });
 });

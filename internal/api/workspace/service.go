@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
-	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
@@ -45,73 +44,13 @@ func (s *Service) ListPublished(ctx context.Context, req *ListPublishedRequest) 
 		return nil, err
 	}
 
-	// 获取当前用户角色
-	userRoles := s.getCurrentUserRoles(ctx)
-	isAdmin := utils.HasAdminRole(userRoles)
-
 	dtos := make([]WorkspaceConfig, 0, len(items))
 	for i := range items {
 		dto := toDTO(&items[i])
 		_ = enrichWorkspaceVersion(ctx, s.svcCtx, &dto)
-
-		// 权限过滤：admin 可以看到所有工作台
-		if !isAdmin && !s.canAccessWorkspace(dto, userRoles) {
-			continue
-		}
-
 		dtos = append(dtos, dto)
 	}
 	return &ListPublishedResponse{Items: dtos}, nil
-}
-
-// getCurrentUserRoles 从上下文获取当前用户角色
-func (s *Service) getCurrentUserRoles(ctx context.Context) []string {
-	// 从上下文获取用户名
-	username, _ := ctx.Value("username").(string)
-	if username == "" {
-		return nil
-	}
-
-	// 加载用户角色
-	admin, err := s.svcCtx.GetAdminByUsernameCached(ctx, username)
-	if err != nil || admin == nil {
-		return nil
-	}
-
-	roles, err := s.svcCtx.GetAdminRolesCached(ctx, admin.ID)
-	if err != nil {
-		return nil
-	}
-
-	roleNames := make([]string, 0, len(roles))
-	for _, role := range roles {
-		roleNames = append(roleNames, role.Name)
-	}
-	return roleNames
-}
-
-// canAccessWorkspace 检查用户是否可以访问工作台
-func (s *Service) canAccessWorkspace(config WorkspaceConfig, userRoles []string) bool {
-	// 无权限配置则允许访问
-	if config.Permissions == nil {
-		return true
-	}
-
-	// 检查角色权限
-	if len(config.Permissions.Roles) > 0 {
-		for _, allowedRole := range config.Permissions.Roles {
-			for _, userRole := range userRoles {
-				if strings.EqualFold(strings.TrimSpace(userRole), strings.TrimSpace(allowedRole)) {
-					return true
-				}
-			}
-		}
-		// 有角色配置但不匹配
-		return false
-	}
-
-	// 无角色限制则允许访问
-	return true
 }
 
 // GetConfig returns a workspace configuration by object key.
@@ -225,6 +164,8 @@ func (s *Service) SaveConfig(ctx context.Context, req *SaveConfigRequest) (*Save
 	if status := strings.TrimSpace(req.Status); status != "" {
 		dto.Status = status
 	}
+	dto.Category = strings.TrimSpace(req.Category)
+	dto.Permissions = req.Permissions
 
 	// Validate minimal required fields after merge.
 	if strings.TrimSpace(dto.Title) == "" {
@@ -252,6 +193,8 @@ func (s *Service) SaveConfig(ctx context.Context, req *SaveConfigRequest) (*Save
 		PublishedBy: dto.PublishedBy,
 		MenuOrder:   dto.MenuOrder,
 		Status:      dto.Status,
+		Category:    dto.Category,
+		Permissions: dto.Permissions,
 		Meta: WorkspaceConfigMeta{
 			CreatedAt: dto.CreatedAt,
 			UpdatedAt: dto.UpdatedAt,
