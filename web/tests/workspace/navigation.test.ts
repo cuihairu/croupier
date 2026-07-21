@@ -1,5 +1,5 @@
 import type { WorkspaceConfig } from '@/types/workspace';
-import { buildConsoleMenuData, type AppMenuItem } from '@/services/workspace/menu';
+import { buildConsoleMenuData, type AppRouteMenuItem } from '@/services/workspace/menu';
 import {
   buildConsoleWorkspaceMenuItems,
   filterWorkspacesByConsoleCategory,
@@ -52,11 +52,13 @@ describe('workspace console navigation', () => {
         key: '/console/mail',
         path: '/console/mail',
         name: 'mail',
+        locale: false,
         children: [
           {
             key: '/console/mail/mail.send',
             path: '/console/mail/mail.send',
             name: '发送邮件',
+            locale: false,
           },
         ],
       },
@@ -64,11 +66,13 @@ describe('workspace console navigation', () => {
         key: '/console/support',
         path: '/console/support',
         name: 'support',
+        locale: false,
         children: [
           {
             key: '/console/support/player.ban',
             path: '/console/support/player.ban',
             name: '封禁玩家',
+            locale: false,
           },
         ],
       },
@@ -76,7 +80,7 @@ describe('workspace console navigation', () => {
   });
 
   it('把动态分类菜单注入运行控制台节点', () => {
-    const menuData: AppMenuItem[] = [
+    const menuData: AppRouteMenuItem[] = [
       { path: '/system', name: '系统配置' },
       {
         path: '/console',
@@ -97,14 +101,51 @@ describe('workspace console navigation', () => {
         key: '/console/player',
         path: '/console/player',
         name: 'player',
+        locale: false,
         children: [
           {
             key: '/console/player/player.ban',
             path: '/console/player/player.ban',
             name: '封禁玩家',
+            locale: false,
           },
         ],
       },
     ]);
+  });
+
+  it('支持 Umi 路由树使用 routes 字段时注入动态分类菜单', () => {
+    const menuData: AppRouteMenuItem[] = [
+      {
+        path: '/console',
+        name: '运行控制台',
+        routes: [
+          { path: '/console/home', name: '总览' },
+          { path: '/console/:categoryKey/:objectKey', name: '隐藏详情', hideInMenu: true },
+        ],
+      },
+    ];
+    const result = buildConsoleMenuData(menuData, [
+      workspace({ objectKey: 'mail.send', title: '发送邮件' }),
+    ]);
+
+    expect(result[0].children).toEqual([
+      { path: '/console/home', name: '总览' },
+      {
+        key: '/console/mail',
+        path: '/console/mail',
+        name: 'mail',
+        locale: false,
+        children: [
+          {
+            key: '/console/mail/mail.send',
+            path: '/console/mail/mail.send',
+            name: '发送邮件',
+            locale: false,
+          },
+        ],
+      },
+    ]);
+    expect(result[0]).not.toHaveProperty('routes');
   });
 });

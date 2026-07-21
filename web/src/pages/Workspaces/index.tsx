@@ -1,4 +1,4 @@
-import { history, useAccess, useLocation } from '@umijs/max';
+import { history, useAccess, useLocation, useModel } from '@umijs/max';
 import {
   DASHBOARD_PAGE_TOKENS,
   PageStatePanel,
@@ -47,6 +47,7 @@ import {
   saveWorkspaceConfig,
   unpublishWorkspaceConfig,
 } from '@/services/workspaceConfig';
+import { loadConsoleWorkspaceConfigs } from '@/services/initialState';
 import type { WorkspaceConfig } from '@/types/workspace';
 import { listDescriptors } from '@/services/api/functions';
 import { generateInitialWorkspaceConfig } from '@/pages/WorkspaceEditor/utils/initialWorkspaceGenerator';
@@ -308,6 +309,7 @@ function buildWorkspaceStepSummary(params: {
 export default function WorkspacesIndexPage() {
   const access = useAccess() as any;
   const location = useLocation();
+  const { setInitialState } = useModel('@@initialState');
   const [loading, setLoading] = useState(false);
   const [configs, setConfigs] = useState<WorkspaceConfig[]>([]);
   const [error, setError] = useState('');
@@ -365,6 +367,14 @@ export default function WorkspacesIndexPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshConsoleMenus = async () => {
+    const workspaceConfigs = await loadConsoleWorkspaceConfigs();
+    setInitialState((state) => ({
+      ...state,
+      workspaceConfigs,
+    }));
   };
 
   useEffect(() => {
@@ -574,6 +584,7 @@ export default function WorkspacesIndexPage() {
       trackWorkspaceEvent('workspace_publish', { objectKey });
       setPublishReview(null);
       await load();
+      await refreshConsoleMenus();
       message.success('发布成功，已出现在控制台菜单');
     } catch (err: any) {
       trackWorkspaceEvent('workspace_publish_error', {
@@ -607,6 +618,7 @@ export default function WorkspacesIndexPage() {
           await unpublishWorkspaceConfig(objectKey);
           trackWorkspaceEvent('workspace_unpublish', { objectKey });
           await load();
+          await refreshConsoleMenus();
           message.success('已取消发布');
         } catch (err: any) {
           trackWorkspaceEvent('workspace_unpublish_error', {
@@ -647,6 +659,7 @@ export default function WorkspacesIndexPage() {
           await deleteWorkspaceConfig(objectKey);
           trackWorkspaceEvent('workspace_delete', { objectKey });
           await load();
+          await refreshConsoleMenus();
           message.success('删除成功');
         } catch (err: any) {
           trackWorkspaceEvent('workspace_delete_error', {

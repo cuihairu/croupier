@@ -80,8 +80,29 @@ jest.mock(
       if (typeof url === 'string' && url.includes('/api/v1/profile')) {
         return { username: 'admin', roles: ['admin'] };
       }
+      if (typeof url === 'string' && url.includes('/api/v1/workspaces/published')) {
+        return {
+          items: [
+            {
+              objectKey: 'player.ban',
+              title: '封禁玩家',
+              published: true,
+              layout: { type: 'tabs', tabs: [] },
+            },
+          ],
+        };
+      }
       return {};
     });
+    const setInitialState = jest.fn((updater) => {
+      if (typeof updater === 'function') {
+        return updater({
+          fetchUserInfo: async () => ({ name: 'admin', roles: ['admin'] }),
+        });
+      }
+      return updater;
+    });
+    global.__UMI_SET_INITIAL_STATE__ = setInitialState;
 
     return {
       __esModule: true,
@@ -99,9 +120,9 @@ jest.mock(
       Helmet: ({ children }) => React.createElement(React.Fragment, null, children),
       useModel: () => ({
         initialState: {
-          fetchUserInfo: async () => ({ username: 'admin', roles: ['admin'] }),
+          fetchUserInfo: async () => ({ name: 'admin', roles: ['admin'] }),
         },
-        setInitialState: jest.fn(),
+        setInitialState,
       }),
     };
   },

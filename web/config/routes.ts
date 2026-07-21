@@ -174,7 +174,7 @@ export default [
     path: '/console',
     name: 'ControlConsole',
     icon: 'appstore',
-    access: 'canFunctionsRead',
+    access: 'canConsoleRead',
     hideInMenu: false,
     routes: [
       {
@@ -184,21 +184,21 @@ export default [
       {
         path: '/console/home',
         name: 'ConsoleHome',
-        access: 'canFunctionsRead',
+        access: 'canConsoleRead',
         component: './Console',
         hideInMenu: true,
       },
       {
         path: '/console/:categoryKey/:objectKey',
         name: 'ConsoleWorkspace',
-        access: 'canFunctionsRead',
+        access: 'canConsoleRead',
         component: './Console/Workspace',
         hideInMenu: true,
       },
       {
         path: '/console/:categoryKey',
         name: 'ConsoleCategory',
-        access: 'canFunctionsRead',
+        access: 'canConsoleRead',
         component: './Console',
         hideInMenu: true,
       },

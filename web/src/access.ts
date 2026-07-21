@@ -3,61 +3,70 @@
  * */
 type AccessCurrentUser = {
   access?: string;
+  roles?: string[];
 };
 
 export default function access(initialState: { currentUser?: AccessCurrentUser } | undefined) {
-  const acc = ((initialState?.currentUser as any)?.access as string | undefined) || '';
+  const currentUser = initialState?.currentUser;
+  const acc = currentUser?.access || '';
   const perms = new Set(
     acc
       .split(',')
       .map((token) => token.trim().toLowerCase())
       .filter(Boolean),
   );
+  (currentUser?.roles || [])
+    .map((role) => String(role || '').trim().toLowerCase())
+    .filter(Boolean)
+    .forEach((role) => perms.add(role));
+
   const has = (p: string) => {
     const key = (p || '').toLowerCase();
     return perms.has('*') || perms.has(key);
   };
+  const isAdmin = has('admin') || has('admin:all') || has('super_admin');
+  const hasAny = (...keys: string[]) => keys.some((key) => has(key)) || isAdmin;
+
   const canWorkspaceRead =
-    has('workspaces:read') || has('workspaces:manage') || has('functions:manage') || has('admin');
+    hasAny('workspace:read', 'workspaces:read', 'workspaces:manage', 'functions:manage');
   const canWorkspaceEdit =
-    has('workspaces:edit') || has('workspaces:manage') || has('functions:manage') || has('admin');
+    hasAny('workspace:edit', 'workspaces:edit', 'workspaces:manage', 'functions:manage');
   const canWorkspacePublish =
-    has('workspaces:publish') ||
-    has('workspaces:manage') ||
-    has('functions:manage') ||
-    has('admin');
+    hasAny('workspace:publish', 'workspaces:publish', 'workspaces:manage', 'functions:manage');
   const canWorkspaceRollback =
-    has('workspaces:rollback') ||
-    has('workspaces:manage') ||
-    has('functions:manage') ||
-    has('admin');
+    hasAny('workspace:rollback', 'workspaces:rollback', 'workspaces:manage', 'functions:manage');
   const canWorkspaceDelete =
-    has('workspaces:delete') || has('workspaces:manage') || has('functions:manage') || has('admin');
+    hasAny('workspace:delete', 'workspaces:delete', 'workspaces:manage', 'functions:manage');
+  const canConsoleRead =
+    canWorkspaceRead || hasAny('function:invoke', 'functions:read', 'functions:manage');
   const canSystemConfigRead =
-    has('games:read') ||
-    has('games:manage') ||
-    has('functions:read') ||
-    has('functions:manage') ||
-    has('ops:read') ||
-    has('ops:manage') ||
-    has('extension:read') ||
-    has('extensions:read') ||
-    has('extension:manage') ||
-    has('extensions:manage') ||
-    has('admin');
+    hasAny(
+      'games:read',
+      'games:manage',
+      'functions:read',
+      'functions:manage',
+      'ops:read',
+      'ops:manage',
+      'extension:read',
+      'extensions:read',
+      'extension:manage',
+      'extensions:manage',
+    );
   return {
     canSystemConfigRead,
-    canAdmin: has('admin'),
+    canAdmin: isAdmin,
     // Game meta management
-    canGamesManage: has('games:manage') || has('admin'),
-    canGamesRead: has('games:read') || has('games:manage') || has('admin'),
-    canRegistryRead: has('registry:read') || has('admin'),
-    canAssignmentsRead: has('assignments:read') || has('admin'),
-    canAssignmentsWrite: has('assignments:write') || has('admin'),
-    canAuditRead: has('audit:read') || has('admin'),
+    canGamesManage: hasAny('games:manage'),
+    canGamesRead: hasAny('games:read', 'games:manage'),
+    canRegistryRead: hasAny('registry:read'),
+    canAssignmentsRead: hasAny('assignments:read'),
+    canAssignmentsWrite: hasAny('assignments:write'),
+    canAuditRead: hasAny('audit:read'),
     // Functions management
-    canFunctionsRead: has('functions:read') || has('functions:manage') || has('admin'),
-    canFunctionsManage: has('functions:manage') || has('admin'),
+    canFunctionsRead: hasAny('functions:read', 'functions:manage'),
+    canFunctionsManage: hasAny('functions:manage'),
+    // Runtime console reads published workspaces; it is not the workspace editor.
+    canConsoleRead,
     // Workspace management (design/publish) - admin only
     canWorkspaceManage:
       canWorkspaceEdit || canWorkspacePublish || canWorkspaceRollback || canWorkspaceDelete,
@@ -66,48 +75,43 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
     canWorkspacePublish,
     canWorkspaceRollback,
     canWorkspaceDelete,
-    canEntitiesRead: has('entities:read') || has('entities:manage') || has('admin'),
+    canEntitiesRead: hasAny('entities:read', 'entities:manage'),
     // 运维管理（Ops）
-    canOpsRead:
-      has('ops:read') ||
-      has('admin') ||
-      has('registry:read') ||
-      has('extension:read') ||
-      has('extensions:read') ||
-      has('extension:manage') ||
-      has('extensions:manage'),
-    canOpsManage: has('ops:manage') || has('admin'),
+    canOpsRead: hasAny(
+      'ops:read',
+      'registry:read',
+      'extension:read',
+      'extensions:read',
+      'extension:manage',
+      'extensions:manage',
+    ),
+    canOpsManage: hasAny('ops:manage'),
     // Support (客服系统)
-    canSupportRead: has('support:read') || has('admin'),
-    canSupportManage: has('support:manage') || has('admin'),
+    canSupportRead: hasAny('support:read'),
+    canSupportManage: hasAny('support:manage'),
     // 数据分析
-    canAnalyticsRead: has('analytics:read') || has('admin'),
-    canAnalyticsManage: has('analytics:manage') || has('admin'),
-    canAnalyticsExport: has('analytics:export') || has('admin'),
+    canAnalyticsRead: hasAny('analytics:read'),
+    canAnalyticsManage: hasAny('analytics:manage'),
+    canAnalyticsExport: hasAny('analytics:export'),
     // 扩展商店与安装管理
-    canExtensionsRead:
-      has('extension:read') ||
-      has('extensions:read') ||
-      has('extension:manage') ||
-      has('extensions:manage') ||
-      has('ops:read') ||
-      has('ops:manage') ||
-      has('admin'),
-    canExtensionsManage:
-      has('extension:write') ||
-      has('extensions:write') ||
-      has('extension:manage') ||
-      has('extensions:manage') ||
-      has('admin'),
+    canExtensionsRead: hasAny(
+      'extension:read',
+      'extensions:read',
+      'extension:manage',
+      'extensions:manage',
+      'ops:read',
+      'ops:manage',
+    ),
+    canExtensionsManage: hasAny(
+      'extension:write',
+      'extensions:write',
+      'extension:manage',
+      'extensions:manage',
+    ),
     // 权限管理相关权限（与后端的 RBAC key 对齐）
-    canPermissionManage:
-      has('roles:read') ||
-      has('roles:manage') ||
-      has('users:read') ||
-      has('users:manage') ||
-      has('admin'),
-    canRoleManage: has('roles:read') || has('roles:manage') || has('admin'),
-    canUserManage: has('users:read') || has('users:manage') || has('admin'),
-    canPermissionConfig: has('system:config') || has('admin'),
+    canPermissionManage: hasAny('roles:read', 'roles:manage', 'users:read', 'users:manage'),
+    canRoleManage: hasAny('roles:read', 'roles:manage'),
+    canUserManage: hasAny('users:read', 'users:manage'),
+    canPermissionConfig: hasAny('system:config'),
   };
 }

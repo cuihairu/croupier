@@ -9,30 +9,29 @@ import GameSelector from '@/components/GameSelector';
 import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
 import { fetchCurrentUser, getMyPermissions } from '@/services/api';
-import { hydrateScope } from '@/stores/scope';
 import React, { useEffect } from 'react';
 import { App as AntdApp, Grid } from 'antd';
 import { setAppApi } from './utils/antdApp';
 import { initWorkspaceAlerting } from './services/workspace/alerts';
-import { listPublishedWorkspaceConfigs } from './services/workspaceConfig';
-import { buildConsoleMenuData, type AppMenuItem } from './services/workspace/menu';
+import { buildConsoleMenuData, type AppRouteMenuItem } from './services/workspace/menu';
 import type { WorkspaceConfig } from './types/workspace';
+import { loadAuthedInitialState, type InitialCurrentUser } from './services/initialState';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
-
-type InitialCurrentUser = {
-  name?: string;
-  userid?: string;
-  access?: string;
-  roles?: string[];
-  avatar?: string;
-};
 
 type PermissionResponse = {
   permissionIDs?: string[];
   permissionIds?: string[];
   permission_ids?: string[];
+};
+
+type InitialState = {
+  settings?: Partial<LayoutSettings>;
+  currentUser?: InitialCurrentUser;
+  loading?: boolean;
+  fetchUserInfo?: () => Promise<InitialCurrentUser | undefined>;
+  workspaceConfigs?: WorkspaceConfig[];
 };
 
 function normalizePermissionIDs(perms: PermissionResponse | undefined): string[] {
@@ -43,13 +42,7 @@ function normalizePermissionIDs(perms: PermissionResponse | undefined): string[]
 /**
  * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
  * */
-export async function getInitialState(): Promise<{
-  settings?: Partial<LayoutSettings>;
-  currentUser?: InitialCurrentUser;
-  loading?: boolean;
-  fetchUserInfo?: () => Promise<InitialCurrentUser | undefined>;
-  workspaceConfigs?: WorkspaceConfig[];
-}> {
+export async function getInitialState(): Promise<InitialState> {
   const fetchUserInfo = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -90,23 +83,11 @@ export async function getInitialState(): Promise<{
 
   const { location } = history;
   if (location.pathname !== loginPath) {
-    const currentUser = await fetchUserInfo();
-    if (currentUser) {
-      hydrateScope();
-    }
-    let workspaceConfigs: WorkspaceConfig[] = [];
-    if (currentUser) {
-      try {
-        workspaceConfigs = await listPublishedWorkspaceConfigs({ skipErrorHandler: true });
-      } catch {
-        workspaceConfigs = [];
-      }
-    }
+    const authedState = await loadAuthedInitialState(fetchUserInfo);
 
     return {
       fetchUserInfo,
-      currentUser,
-      workspaceConfigs,
+      ...authedState,
       settings: defaultSettings as Partial<LayoutSettings>,
     };
   }
@@ -163,9 +144,19 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     actionsRender: () => [<HeaderActions key="header-actions" />],
     splitMenus: false,
     suppressSiderWhenMenuEmpty: true,
-    menuDataRender: (menuData) => {
-      if (!initialState?.currentUser) return menuData;
-      return buildConsoleMenuData(menuData as AppMenuItem[], initialState.workspaceConfigs);
+    menu: {
+      locale: true,
+      params: {
+        workspaceConfigs: initialState?.workspaceConfigs || [],
+        authed: isAuthed,
+      },
+      request: async (params, defaultMenuData) => {
+        if (!params.authed) return defaultMenuData;
+        return buildConsoleMenuData(
+          defaultMenuData as AppRouteMenuItem[],
+          params.workspaceConfigs as WorkspaceConfig[],
+        );
+      },
     },
     avatarProps: {
       src: initialState?.currentUser?.avatar,

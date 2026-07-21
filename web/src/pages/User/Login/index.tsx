@@ -8,6 +8,7 @@ import { Alert, Modal } from 'antd';
 import { getMessage } from '@/utils/antdApp';
 import Settings from '../../../../config/defaultSettings';
 import { BRAND } from '@/config/branding';
+import { loadAuthedInitialState } from '@/services/initialState';
 import React, { useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createStyles } from 'antd-style';
@@ -84,12 +85,14 @@ const Login: React.FC = () => {
   const intl = useIntl();
 
   const fetchUserInfo = async () => {
-    const userInfo = await initialState?.fetchUserInfo?.();
-    if (userInfo) {
+    const fetcher = initialState?.fetchUserInfo;
+    if (!fetcher) return;
+    const authedState = await loadAuthedInitialState(fetcher);
+    if (authedState.currentUser) {
       flushSync(() => {
         setInitialState((s) => ({
           ...s,
-          currentUser: userInfo,
+          ...authedState,
         }));
       });
     }
@@ -104,11 +107,8 @@ const Login: React.FC = () => {
         const gamesResp = await fetchCurrentUserGames();
         const games = Array.isArray(gamesResp?.games) ? gamesResp.games : [];
         const firstGame = games[0];
-        const gameId = firstGame?.gameId || firstGame?.name;
-        const env =
-          (Array.isArray(firstGame?.envs) && firstGame.envs[0]) ||
-          (Array.isArray(firstGame?.envMeta) && firstGame.envMeta[0]?.env) ||
-          undefined;
+        const gameId = firstGame?.gameId;
+        const env = firstGame?.envs?.[0];
         if (gameId || env) {
           setScope(
             {

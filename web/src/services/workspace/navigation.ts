@@ -16,6 +16,7 @@ export type ConsoleWorkspaceMenuItem = {
   key: string;
   path: string;
   name: string;
+  locale: false;
   children?: ConsoleWorkspaceMenuItem[];
 };
 
@@ -87,7 +88,8 @@ export function getConsoleCategoryPath(categoryKey: string): string {
 }
 
 export function getConsoleWorkspacePath(config: WorkspaceConfig | string): string {
-  const objectKey = typeof config === 'string' ? normalizeText(config) : normalizeText(config.objectKey);
+  const objectKey =
+    typeof config === 'string' ? normalizeText(config) : normalizeText(config.objectKey);
   const category =
     typeof config === 'string'
       ? resolveWorkspaceConsoleCategory({ objectKey })
@@ -100,10 +102,7 @@ export function getConsoleWorkspacePath(config: WorkspaceConfig | string): strin
 export function canAccessWorkspaceMenu(config: WorkspaceConfig, user?: ConsoleAccessUser): boolean {
   const userRoles = new Set((user?.roles || []).map(normalizeToken).filter(Boolean));
   const userPermissions = new Set(
-    normalizeText(user?.access)
-      .split(',')
-      .map(normalizeToken)
-      .filter(Boolean),
+    normalizeText(user?.access).split(',').map(normalizeToken).filter(Boolean),
   );
   const isAdmin =
     userRoles.has('admin') ||
@@ -183,14 +182,21 @@ export function filterWorkspacesByConsoleCategory(
 export function buildConsoleWorkspaceMenuItems(
   configs: WorkspaceConfig[],
 ): ConsoleWorkspaceMenuItem[] {
-  return groupWorkspacesByConsoleCategory(configs).map((group) => ({
-    key: `/console/${group.key}`,
-    path: getConsoleCategoryPath(group.key),
-    name: group.label,
-    children: group.configs.map((config) => ({
+  return groupWorkspacesByConsoleCategory(configs).map((group) => {
+    const categoryPath = getConsoleCategoryPath(group.key);
+    const children = group.configs.map((config) => ({
       key: getConsoleWorkspacePath(config),
       path: getConsoleWorkspacePath(config),
       name: config.title || config.objectKey,
-    })),
-  }));
+      locale: false as const,
+    }));
+
+    return {
+      key: categoryPath,
+      path: categoryPath,
+      name: group.label,
+      locale: false,
+      children,
+    };
+  });
 }

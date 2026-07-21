@@ -48,7 +48,7 @@ import {
 } from '@/services/workspace/navigation';
 
 type ConsoleAccess = {
-  canFunctionsRead?: boolean;
+  canConsoleRead?: boolean;
 };
 
 export default function ConsolePage() {
@@ -161,13 +161,13 @@ export default function ConsolePage() {
 
   const pageTitle = categoryKey ? `运行控制台 / ${categoryKey}` : '运行控制台';
 
-  if (!access?.canFunctionsRead) {
+  if (!access?.canConsoleRead) {
     return (
       <PageStatePanel
         tone="error"
         badgeText="权限受限"
         title="无法进入运行控制台"
-        description="你没有查看函数运行控制台的权限，需要先具备函数读取权限后才能查看已发布页面。"
+        description="你没有查看运行控制台的权限，需要先具备已发布工作台查看权限或函数调用权限。"
       />
     );
   }
