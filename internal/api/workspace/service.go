@@ -108,6 +108,57 @@ func (s *Service) createDefaultConfig(ctx context.Context, objectKey string) (*G
 	return &GetConfigResponse{WorkspaceConfig: defaultCfg}, nil
 }
 
+func (s *Service) saveWorkspaceDTO(ctx context.Context, dto WorkspaceConfig) error {
+	if strings.TrimSpace(dto.ObjectKey) == "" {
+		return errorx.NewBadRequest("objectKey is required")
+	}
+	var publishedAt *time.Time
+	if dto.Published {
+		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(dto.PublishedAt))
+		if err != nil {
+			return errorx.NewBadRequest("publishedAt must be RFC3339 when workspace is published")
+		}
+		publishedAt = &parsed
+	}
+	stored := WorkspaceConfig{
+		ObjectKey:   dto.ObjectKey,
+		Title:       dto.Title,
+		Description: dto.Description,
+		Layout:      dto.Layout,
+		Published:   dto.Published,
+		PublishedBy: dto.PublishedBy,
+		MenuOrder:   dto.MenuOrder,
+		Status:      resolveWorkspaceStatus(&dto),
+		Category:    dto.Category,
+		Permissions: dto.Permissions,
+		Meta: WorkspaceConfigMeta{
+			CreatedAt: dto.CreatedAt,
+			UpdatedAt: dto.UpdatedAt,
+		},
+		Version: dto.Version,
+	}
+	if dto.PublishedAt != "" {
+		stored.PublishedAt = dto.PublishedAt
+	}
+
+	configJSON, err := json.Marshal(stored)
+	if err != nil {
+		return errorx.NewInternalError("failed to marshal workspace config")
+	}
+
+	record := &model.WorkspaceConfig{
+		ObjectKey:   dto.ObjectKey,
+		Title:       dto.Title,
+		Published:   dto.Published,
+		PublishedAt: publishedAt,
+		PublishedBy: dto.PublishedBy,
+		MenuOrder:   dto.MenuOrder,
+		Config:      string(configJSON),
+	}
+
+	return s.svcCtx.WorkspaceConfigModel.Upsert(ctx, record)
+}
+
 // SaveConfig saves (creates or updates) a workspace configuration
 func (s *Service) SaveConfig(ctx context.Context, req *SaveConfigRequest) (*SaveConfigResponse, error) {
 	if req.ObjectKey == "" {
@@ -183,43 +234,7 @@ func (s *Service) SaveConfig(ctx context.Context, req *SaveConfigRequest) (*Save
 	dto.PublishedBy = publishedBy
 	dto.Status = resolveWorkspaceStatus(&dto)
 
-	// Convert to WorkspaceConfig for storage
-	typesCfg := WorkspaceConfig{
-		ObjectKey:   dto.ObjectKey,
-		Title:       dto.Title,
-		Description: dto.Description,
-		Layout:      dto.Layout,
-		Published:   dto.Published,
-		PublishedBy: dto.PublishedBy,
-		MenuOrder:   dto.MenuOrder,
-		Status:      dto.Status,
-		Category:    dto.Category,
-		Permissions: dto.Permissions,
-		Meta: WorkspaceConfigMeta{
-			CreatedAt: dto.CreatedAt,
-			UpdatedAt: dto.UpdatedAt,
-		},
-	}
-	if dto.PublishedAt != "" {
-		typesCfg.PublishedAt = dto.PublishedAt
-	}
-
-	configJSON, err := json.Marshal(typesCfg)
-	if err != nil {
-		return nil, errorx.NewInternalError("failed to marshal workspace config")
-	}
-
-	record := &model.WorkspaceConfig{
-		ObjectKey:   req.ObjectKey,
-		Title:       dto.Title,
-		Published:   published,
-		PublishedAt: publishedAt,
-		PublishedBy: publishedBy,
-		MenuOrder:   dto.MenuOrder,
-		Config:      string(configJSON),
-	}
-
-	if err := s.svcCtx.WorkspaceConfigModel.Upsert(ctx, record); err != nil {
+	if err := s.saveWorkspaceDTO(ctx, dto); err != nil {
 		return nil, err
 	}
 
@@ -271,19 +286,21 @@ func (s *Service) Publish(ctx context.Context, req *PublishRequest) (*PublishRes
 	if err := validateWorkspaceForPublish(dto); err != nil {
 		return nil, err
 	}
-	if err := s.svcCtx.WorkspaceConfigModel.SetPublished(ctx, req.ObjectKey, true, req.PublishedBy); err != nil {
-		return nil, err
-	}
-
 	actor := strings.TrimSpace(req.PublishedBy)
 	if actor == "" {
 		actor = workspaceActorFromCtx(ctx)
 	}
+	publishedAt := time.Now()
+	dto.Published = true
+	dto.PublishedAt = publishedAt.UTC().Format(time.RFC3339)
+	dto.PublishedBy = actor
+	dto.Status = workspaceStatusPublished
+	dto.UpdatedAt = publishedAt.UTC().Format(time.RFC3339)
 
-	if current, findErr := s.svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, req.ObjectKey); findErr == nil {
-		dto := toDTO(current)
-		_, _ = persistWorkspaceVersion(ctx, s.svcCtx, dto, actor, "publish workspace config")
+	if err := s.saveWorkspaceDTO(ctx, dto); err != nil {
+		return nil, err
 	}
+	_, _ = persistWorkspaceVersion(ctx, s.svcCtx, dto, actor, "publish workspace config")
 	return &PublishResponse{Published: true, ObjectKey: req.ObjectKey}, nil
 }
 
@@ -292,22 +309,27 @@ func (s *Service) Unpublish(ctx context.Context, req *UnpublishRequest) (*Unpubl
 	if req.ObjectKey == "" {
 		return nil, errorx.NewBadRequest("objectKey is required")
 	}
-	_, err := s.svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, req.ObjectKey)
+	current, err := s.svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, req.ObjectKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.NewNotFound("workspace config not found")
 		}
 		return nil, err
 	}
-	if err := s.svcCtx.WorkspaceConfigModel.SetPublished(ctx, req.ObjectKey, false, ""); err != nil {
+	dto := toDTO(current)
+	now := time.Now()
+	dto.Published = false
+	dto.PublishedAt = ""
+	dto.PublishedBy = ""
+	dto.Status = workspaceStatusDraft
+	dto.UpdatedAt = now.UTC().Format(time.RFC3339)
+
+	if err := s.saveWorkspaceDTO(ctx, dto); err != nil {
 		return nil, err
 	}
 
 	actor := workspaceActorFromCtx(ctx)
-	if current, findErr := s.svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, req.ObjectKey); findErr == nil {
-		dto := toDTO(current)
-		_, _ = persistWorkspaceVersion(ctx, s.svcCtx, dto, actor, "unpublish workspace config")
-	}
+	_, _ = persistWorkspaceVersion(ctx, s.svcCtx, dto, actor, "unpublish workspace config")
 	return &UnpublishResponse{Published: false, ObjectKey: req.ObjectKey}, nil
 }
 
@@ -405,35 +427,27 @@ func (s *Service) Rollback(ctx context.Context, req *RollbackRequest) (*Rollback
 		return nil, errorx.NewInternalError("failed to parse workspace config from version")
 	}
 
-	// Apply the rollback: update the workspace config with the version data
-	cfgModel := s.svcCtx.WorkspaceConfigModel
-	if cfgModel == nil {
+	if s.svcCtx.WorkspaceConfigModel == nil {
 		return nil, errorx.NewInternalError("workspace config model not available")
 	}
-
-	// Marshal just the layout part to store in Config field
-	layoutJSON, err := json.Marshal(workspaceCfg.Layout)
-	if err != nil {
-		return nil, errorx.NewInternalError("failed to marshal layout: " + err.Error())
+	now := time.Now()
+	workspaceCfg.ObjectKey = objectKey
+	if strings.TrimSpace(workspaceCfg.Title) == "" {
+		workspaceCfg.Title = objectKey
 	}
-
-	// Update the workspace config with the rolled-back data
-	update := &model.WorkspaceConfig{
-		ObjectKey: objectKey,
-		Title:     workspaceCfg.Title,
-		Config:    string(layoutJSON),
-	}
-
-	if err := cfgModel.Upsert(ctx, update); err != nil {
-		return nil, err
-	}
-
-	// If the rolled-back version was published, also mark it as published
+	workspaceCfg.UpdatedAt = now.UTC().Format(time.RFC3339)
+	workspaceCfg.Status = resolveWorkspaceStatus(&workspaceCfg)
 	if workspaceCfg.Published {
-		actor := workspaceActorFromCtx(ctx)
-		if err := cfgModel.SetPublished(ctx, objectKey, true, actor); err != nil {
-			return nil, err
+		if workspaceCfg.PublishedAt == "" {
+			workspaceCfg.PublishedAt = now.UTC().Format(time.RFC3339)
 		}
+		if workspaceCfg.PublishedBy == "" {
+			workspaceCfg.PublishedBy = workspaceActorFromCtx(ctx)
+		}
+	}
+
+	if err := s.saveWorkspaceDTO(ctx, workspaceCfg); err != nil {
+		return nil, err
 	}
 
 	return &RollbackResponse{

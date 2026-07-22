@@ -1,16 +1,8 @@
 import React from 'react';
 import { Alert, Empty, Spin } from 'antd';
 
-export type RendererRuntimeMode = 'console' | 'workspace';
-
 export function isTemplatePreviewContext(context?: Record<string, any>) {
   return Boolean(context?.templatePreview);
-}
-
-export function getRendererRuntimeMode(context?: Record<string, any>): RendererRuntimeMode | null {
-  if (context?.runtimeMode === 'console') return 'console';
-  if (context?.runtimeMode === 'workspace') return 'workspace';
-  return null;
 }
 
 export function RendererLoading({ tip = '加载中...' }: { tip?: string }) {
@@ -55,19 +47,7 @@ export function RendererModeNotice({
   sampleDescription?: string;
 }) {
   if (isTemplatePreviewContext(context)) {
-    return (
-      <RendererNotice type="info" title={sampleTitle} description={sampleDescription} />
-    );
-  }
-
-  if (getRendererRuntimeMode(context) === 'console') {
-    return (
-      <RendererNotice
-        type="warning"
-        title="正式运行态"
-        description="控制台展示的是正式运行结果。没有真实函数、真实绑定或真实数据时，这里不会自动补示例内容。"
-      />
-    );
+    return <RendererNotice type="info" title={sampleTitle} description={sampleDescription} />;
   }
 
   return null;

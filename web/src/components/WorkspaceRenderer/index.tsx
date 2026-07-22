@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Spin, Empty, Alert, Space, Tag, Typography } from 'antd';
+import { Spin, Empty, Alert } from 'antd';
 import type { WorkspaceConfig } from '@/types/workspace';
 import { trackWorkspaceEvent } from '@/services/workspace/telemetry';
 import {
@@ -42,7 +42,6 @@ export default function WorkspaceRenderer({
   error,
   context,
 }: WorkspaceRendererProps) {
-  const runtimeMode = context?.runtimeMode;
   React.useEffect(() => {
     if (error) {
       trackWorkspaceEvent('workspace_render_error', {
@@ -89,31 +88,7 @@ export default function WorkspaceRenderer({
   }
 
   // 根据布局类型渲染
-  return (
-    <div className="workspace-renderer">
-      {runtimeMode ? (
-        <Alert
-          type={runtimeMode === 'console' ? 'warning' : 'info'}
-          showIcon
-          style={{ marginBottom: 16 }}
-          message={runtimeMode === 'console' ? '正式运行态' : '装配结果视图'}
-          description={
-            <Space wrap size={[8, 8]}>
-              <Tag color={runtimeMode === 'console' ? 'warning' : 'blue'}>
-                {runtimeMode === 'console' ? 'console' : 'workspace'}
-              </Tag>
-              <Typography.Text type="secondary">
-                {runtimeMode === 'console'
-                  ? '这里默认按正式运行结果解释页面。没有真实函数、真实绑定或真实数据时，会明确显示缺项，不再默默回落示例内容。'
-                  : '这里主要用于检查当前装配结果和结构完整度。真实发布表现请进入运行控制台确认。'}
-              </Typography.Text>
-            </Space>
-          }
-        />
-      ) : null}
-      {renderLayout(config, context)}
-    </div>
-  );
+  return <div className="workspace-renderer">{renderLayout(config, context)}</div>;
 }
 
 /**

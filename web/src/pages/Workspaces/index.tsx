@@ -1,4 +1,4 @@
-import { history, useAccess, useLocation, useModel } from '@umijs/max';
+import { history, useAccess, useIntl, useLocation, useModel } from '@umijs/max';
 import {
   DASHBOARD_PAGE_TOKENS,
   PageStatePanel,
@@ -59,6 +59,7 @@ import {
   type WorkspaceErrorCode,
 } from '@/services/workspace/errors';
 import {
+  type WorkspaceLabelDescriptor,
   resolveWorkspaceCategoryLabel,
   resolveWorkspaceObjectLabel,
 } from '@/services/workspace/presentation';
@@ -105,6 +106,14 @@ type CloneWorkspaceFormValues = {
   targetKey: string;
   targetTitle: string;
 };
+
+function formatWorkspaceLabel(
+  intl: ReturnType<typeof useIntl>,
+  label: WorkspaceLabelDescriptor,
+): string {
+  if (!label.id) return label.defaultMessage;
+  return intl.formatMessage({ id: label.id, defaultMessage: label.defaultMessage });
+}
 
 function buildSuggestedCloneKey(sourceKey: string, existingKeys: string[]): string {
   if (!sourceKey) return '';
@@ -308,6 +317,7 @@ function buildWorkspaceStepSummary(params: {
 
 export default function WorkspacesIndexPage() {
   const access = useAccess() as any;
+  const intl = useIntl();
   const location = useLocation();
   const { setInitialState } = useModel('@@initialState');
   const [loading, setLoading] = useState(false);
@@ -1072,7 +1082,10 @@ export default function WorkspacesIndexPage() {
                 const completion = getWorkspaceCompletion(readiness);
                 const statusMeta = getWorkspaceStatusMeta(status);
                 const objectLabel = resolveWorkspaceObjectLabel(config);
-                const categoryLabel = resolveWorkspaceCategoryLabel(config.category);
+                const categoryLabel = formatWorkspaceLabel(
+                  intl,
+                  resolveWorkspaceCategoryLabel(config.category),
+                );
                 const priorityHint = getWorkspacePriorityHint({
                   status,
                   readiness,

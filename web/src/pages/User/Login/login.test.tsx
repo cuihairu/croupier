@@ -112,7 +112,7 @@ describe('Login Page', () => {
         key: '/console/player',
         path: '/console/player',
         name: 'player',
-        locale: false,
+        locale: 'menu.ControlConsole.category.player',
         children: [
           {
             key: '/console/player/player.ban',

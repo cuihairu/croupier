@@ -16,7 +16,7 @@ export type ConsoleWorkspaceMenuItem = {
   key: string;
   path: string;
   name: string;
-  locale: false;
+  locale?: string | false;
   children?: ConsoleWorkspaceMenuItem[];
 };
 
@@ -85,6 +85,10 @@ export function resolveWorkspaceConsoleCategory(
 
 export function getConsoleCategoryPath(categoryKey: string): string {
   return `/console/${encodePathSegment(categoryKey)}`;
+}
+
+export function getConsoleCategoryLocaleId(categoryKey: string): string {
+  return `menu.ControlConsole.category.${normalizeText(categoryKey)}`;
 }
 
 export function getConsoleWorkspacePath(config: WorkspaceConfig | string): string {
@@ -191,11 +195,22 @@ export function buildConsoleWorkspaceMenuItems(
       locale: false as const,
     }));
 
+    if (
+      group.source === 'objectKey' &&
+      group.configs.length === 1 &&
+      normalizeText(group.configs[0].objectKey) === group.key
+    ) {
+      return {
+        ...children[0],
+        name: group.configs[0].title || group.label,
+      };
+    }
+
     return {
       key: categoryPath,
       path: categoryPath,
       name: group.label,
-      locale: false,
+      locale: getConsoleCategoryLocaleId(group.key),
       children,
     };
   });

@@ -118,6 +118,7 @@ func toDTO(m *model.WorkspaceConfig) WorkspaceConfig {
 				if metaRaw, ok := raw["meta"]; ok {
 					var meta WorkspaceConfigMeta
 					if err := json.Unmarshal(metaRaw, &meta); err == nil {
+						cfg.Meta = meta
 						if meta.CreatedAt != "" {
 							cfg.CreatedAt = meta.CreatedAt
 						}

@@ -1,4 +1,4 @@
-import { history, useAccess, useParams } from '@umijs/max';
+import { history, useAccess, useIntl, useParams } from '@umijs/max';
 import {
   DASHBOARD_PAGE_TOKENS,
   PageStatePanel,
@@ -39,6 +39,7 @@ import {
 } from '@/services/workspace/errors';
 import {
   groupWorkspacesByCategory,
+  type WorkspaceLabelDescriptor,
   resolveWorkspaceConsoleCategoryLabel,
   resolveWorkspaceObjectLabel,
 } from '@/services/workspace/presentation';
@@ -51,8 +52,17 @@ type ConsoleAccess = {
   canConsoleRead?: boolean;
 };
 
+function formatWorkspaceLabel(
+  intl: ReturnType<typeof useIntl>,
+  label: WorkspaceLabelDescriptor,
+): string {
+  if (!label.id) return label.defaultMessage;
+  return intl.formatMessage({ id: label.id, defaultMessage: label.defaultMessage });
+}
+
 export default function ConsolePage() {
   const access = useAccess() as ConsoleAccess;
+  const intl = useIntl();
   const params = useParams<{ categoryKey?: string }>();
   const categoryKey = decodeURIComponent(String(params?.categoryKey || ''));
   const [loading, setLoading] = useState(false);
@@ -126,6 +136,11 @@ export default function ConsolePage() {
     return sortable;
   }, [categoryKey, configs, keyword, sortBy]);
 
+  useEffect(() => {
+    if (!categoryKey || loading || error || visibleConfigs.length !== 1) return;
+    history.replace(getConsoleWorkspacePath(visibleConfigs[0]));
+  }, [categoryKey, error, loading, visibleConfigs]);
+
   const latestUpdatedAt = useMemo(() => {
     const timestamps = configs
       .map((item) => new Date(item.meta?.updatedAt || 0).getTime())
@@ -159,7 +174,12 @@ export default function ConsolePage() {
     }));
   }, [visibleConfigs]);
 
-  const pageTitle = categoryKey ? `运行控制台 / ${categoryKey}` : '运行控制台';
+  const pageTitle = categoryKey
+    ? `运行控制台 / ${formatWorkspaceLabel(intl, {
+        id: `menu.ControlConsole.category.${categoryKey}`,
+        defaultMessage: categoryKey,
+      })}`
+    : '运行控制台';
 
   if (!access?.canConsoleRead) {
     return (
@@ -386,7 +406,12 @@ export default function ConsolePage() {
                   size="small"
                   title={
                     <Space wrap size={[8, 8]}>
-                      <span>{group.label}</span>
+                      <span>
+                        {formatWorkspaceLabel(intl, {
+                          id: group.locale,
+                          defaultMessage: group.label,
+                        })}
+                      </span>
                       <Typography.Text code>{group.key}</Typography.Text>
                     </Space>
                   }
@@ -421,8 +446,10 @@ function WorkspaceEntryCard({
   config: WorkspaceConfig;
   report: ReturnType<typeof buildWorkspaceQualityReport>;
 }) {
+  const intl = useIntl();
   const categoryLabel = resolveWorkspaceConsoleCategoryLabel(config);
   const objectLabel = resolveWorkspaceObjectLabel(config);
+  const categoryLabelText = formatWorkspaceLabel(intl, categoryLabel);
   return (
     <List.Item>
       <Card
@@ -459,7 +486,7 @@ function WorkspaceEntryCard({
               <Space wrap size={[8, 6]}>
                 <Typography.Text code>{config.objectKey}</Typography.Text>
                 <Tag color="blue">{`对象: ${objectLabel}`}</Tag>
-                {categoryLabel ? <Tag>{`分类: ${categoryLabel}`}</Tag> : null}
+                {categoryLabelText ? <Tag>{`分类: ${categoryLabelText}`}</Tag> : null}
                 {typeof config.version === 'number' ? <Tag>{`v${config.version}`}</Tag> : null}
                 {config.layout?.tabs?.length ? (
                   <Tag>{`${config.layout.tabs.length} 个标签页`}</Tag>

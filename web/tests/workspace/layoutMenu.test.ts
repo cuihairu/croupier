@@ -51,7 +51,7 @@ describe('global console layout menu', () => {
         key: '/console/player',
         path: '/console/player',
         name: 'player',
-        locale: false,
+        locale: 'menu.ControlConsole.category.player',
         children: [
           {
             key: '/console/player/player.ban',
@@ -97,6 +97,7 @@ describe('global console layout menu', () => {
     );
     const { menuData } = transformRoute(requestedMenu || [], true, (message) => {
       if (message.id === 'menu.ControlConsole') return '运行控制台';
+      if (message.id === 'menu.ControlConsole.category.mail') return '邮件';
       return message.defaultMessage || '';
     });
     const finalMenu = clearMenuItem(menuData);
@@ -110,7 +111,7 @@ describe('global console layout menu', () => {
     );
 
     expect(consoleMenu?.name).toBe('运行控制台');
-    expect(mailMenu?.name).toBe('mail');
+    expect(mailMenu?.name).toBe('邮件');
     expect(sendMailMenu?.name).toBe('发送邮件');
     expect(sendMailMenu?.locale).toBe(false);
   });

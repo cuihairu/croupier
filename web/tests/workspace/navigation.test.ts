@@ -3,6 +3,7 @@ import { buildConsoleMenuData, type AppRouteMenuItem } from '@/services/workspac
 import {
   buildConsoleWorkspaceMenuItems,
   filterWorkspacesByConsoleCategory,
+  getConsoleCategoryLocaleId,
   getConsoleWorkspacePath,
   resolveWorkspaceConsoleCategory,
 } from '@/services/workspace/navigation';
@@ -52,7 +53,7 @@ describe('workspace console navigation', () => {
         key: '/console/mail',
         path: '/console/mail',
         name: 'mail',
-        locale: false,
+        locale: 'menu.ControlConsole.category.mail',
         children: [
           {
             key: '/console/mail/mail.send',
@@ -66,7 +67,7 @@ describe('workspace console navigation', () => {
         key: '/console/support',
         path: '/console/support',
         name: 'support',
-        locale: false,
+        locale: 'menu.ControlConsole.category.support',
         children: [
           {
             key: '/console/support/player.ban',
@@ -77,6 +78,23 @@ describe('workspace console navigation', () => {
         ],
       },
     ]);
+  });
+
+  it('单对象工作台直接折叠成运行页入口', () => {
+    expect(
+      buildConsoleWorkspaceMenuItems([workspace({ objectKey: 'claim', title: '发放' })]),
+    ).toEqual([
+      {
+        key: '/console/claim/claim',
+        path: '/console/claim/claim',
+        name: '发放',
+        locale: false,
+      },
+    ]);
+  });
+
+  it('分类节点提供稳定国际化 key', () => {
+    expect(getConsoleCategoryLocaleId('player')).toBe('menu.ControlConsole.category.player');
   });
 
   it('把动态分类菜单注入运行控制台节点', () => {
@@ -101,7 +119,7 @@ describe('workspace console navigation', () => {
         key: '/console/player',
         path: '/console/player',
         name: 'player',
-        locale: false,
+        locale: 'menu.ControlConsole.category.player',
         children: [
           {
             key: '/console/player/player.ban',
@@ -135,7 +153,7 @@ describe('workspace console navigation', () => {
         key: '/console/mail',
         path: '/console/mail',
         name: 'mail',
-        locale: false,
+        locale: 'menu.ControlConsole.category.mail',
         children: [
           {
             key: '/console/mail/mail.send',

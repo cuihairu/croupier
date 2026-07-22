@@ -209,11 +209,22 @@ func TestService_SaveConfig_PreservesCategoryPermissionsInPublishedList(t *testi
 	require.Len(t, publishedResp.Items, 1)
 	item := publishedResp.Items[0]
 	assert.Equal(t, "player.ban", item.ObjectKey)
+	assert.True(t, item.Published)
+	assert.Equal(t, workspaceStatusPublished, item.Status)
+	assert.Equal(t, "tester", item.PublishedBy)
+	assert.NotEmpty(t, item.PublishedAt)
 	assert.Equal(t, "support", item.Category)
 	assert.Equal(t, "玩家封禁操作", item.Description)
 	require.NotNil(t, item.Permissions)
 	assert.Equal(t, []string{"operator"}, item.Permissions.Roles)
 	assert.Equal(t, []string{"player.ban"}, item.Permissions.Permissions)
+
+	getResp, err := svc.GetConfig(context.Background(), &GetConfigRequest{ObjectKey: "player.ban"})
+	require.NoError(t, err)
+	assert.True(t, getResp.WorkspaceConfig.Published)
+	assert.Equal(t, workspaceStatusPublished, getResp.WorkspaceConfig.Status)
+	assert.Equal(t, "tester", getResp.WorkspaceConfig.PublishedBy)
+	assert.NotEmpty(t, getResp.WorkspaceConfig.PublishedAt)
 }
 
 func TestService_SaveConfig_ClearsCategoryForObjectKeyFallback(t *testing.T) {

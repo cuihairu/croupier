@@ -1,39 +1,46 @@
 import type { WorkspaceConfig } from '@/types/workspace';
 import {
+  getConsoleCategoryLocaleId,
   groupWorkspacesByConsoleCategory,
   resolveWorkspaceConsoleCategory,
 } from '@/services/workspace/navigation';
 
-const BUILTIN_CATEGORY_LABELS: Record<string, string> = {
-  gameplay: '玩法域',
-  economy: '经济域',
-  social: '社交域',
-  support: '客服域',
-  ops: '运维域',
-};
-
 export type WorkspaceObjectGroup = {
   key: string;
   label: string;
+  locale?: string;
   configs: WorkspaceConfig[];
+};
+
+export type WorkspaceLabelDescriptor = {
+  id?: string;
+  defaultMessage: string;
 };
 
 export function resolveWorkspaceObjectLabel(config: WorkspaceConfig): string {
   return String(config.meta?.objectLabel || config.objectKey || '未命名对象').trim();
 }
 
-export function resolveWorkspaceCategoryLabel(category?: string): string {
+export function resolveWorkspaceCategoryLabel(category?: string): WorkspaceLabelDescriptor {
   const normalized = String(category || '').trim();
-  if (!normalized) return '';
-  return BUILTIN_CATEGORY_LABELS[normalized] || normalized;
+  if (!normalized) return { defaultMessage: '' };
+  return {
+    id: getConsoleCategoryLocaleId(normalized),
+    defaultMessage: normalized,
+  };
 }
 
-export function resolveWorkspaceConsoleCategoryLabel(config: WorkspaceConfig): string {
+export function resolveWorkspaceConsoleCategoryLabel(
+  config: WorkspaceConfig,
+): WorkspaceLabelDescriptor {
   const category = resolveWorkspaceConsoleCategory(config);
-  if (!category) return '';
+  if (!category) return { defaultMessage: '' };
   return category.source === 'configured'
     ? resolveWorkspaceCategoryLabel(category.key)
-    : category.label;
+    : {
+        id: getConsoleCategoryLocaleId(category.key),
+        defaultMessage: category.label,
+      };
 }
 
 export function groupWorkspacesByObject(configs: WorkspaceConfig[]): WorkspaceObjectGroup[] {
@@ -64,7 +71,8 @@ export function groupWorkspacesByObject(configs: WorkspaceConfig[]): WorkspaceOb
 export function groupWorkspacesByCategory(configs: WorkspaceConfig[]): WorkspaceObjectGroup[] {
   return groupWorkspacesByConsoleCategory(configs).map((group) => ({
     key: group.key,
-    label: group.source === 'configured' ? resolveWorkspaceCategoryLabel(group.key) : group.label,
+    label: group.label,
+    locale: getConsoleCategoryLocaleId(group.key),
     configs: group.configs,
   }));
 }

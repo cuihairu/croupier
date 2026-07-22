@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Tabs, Badge, Space, Typography } from 'antd';
+import { Tabs } from 'antd';
 import type { TabsProps } from 'antd';
 import type { WorkspaceConfig, TabConfig } from '@/types/workspace';
 import TabContentRenderer from './TabContentRenderer';
@@ -60,25 +60,7 @@ export default function TabsLayout({ config, context }: TabsLayoutProps) {
   }
 
   return (
-    <div
-      className="workspace-tabs-layout"
-      style={{
-        padding: 16,
-        borderRadius: 16,
-        background: 'linear-gradient(180deg, rgba(22,119,255,0.03) 0%, rgba(255,255,255,0.9) 100%)',
-      }}
-    >
-      <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 8 }}>
-        <Space wrap size={[8, 8]}>
-          <Typography.Title level={5} style={{ margin: 0 }}>
-            页面标签
-          </Typography.Title>
-          <Badge color="blue" text={`${tabs.length} 个页面`} />
-        </Space>
-        <Typography.Text type="secondary">
-          当前对象页面按标签页组织。切换标签可检查不同页面骨架的结构和运行内容。
-        </Typography.Text>
-      </Space>
+    <div className="workspace-tabs-layout">
       <Tabs
         activeKey={activeKey}
         onChange={handleTabChange}
