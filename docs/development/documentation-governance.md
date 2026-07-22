@@ -47,7 +47,7 @@ title: 文档治理
 1. 修复首页、导航和总入口，清理明显过时的默认表述。
 2. 将 Architecture 按当前规范、决策边界、提案、参考资料分组。
 3. 合并 API 重复入口，明确 `function_call`、`ops_core`、`ops-simple` 的兼容定位。
-4. 收敛 C++ SDK 双份文档，消除 `CONFIG_GUIDE`、`PLUGIN_GUIDE`、`VIRTUAL_OBJECT_REGISTRATION` 的重复来源。
+4. 保持 C++ SDK 文档只从 `docs/sdks/cpp/` 的指南、API、配置和示例目录进入，不再新增根目录兼容跳转页。
 5. 将 `web/` 下 v0.1.6 发布资料和阶段报告归档到 `docs/archive/`。
 6. 增加文档 CI：VitePress build、内部链接检查、过时术语检查。
 

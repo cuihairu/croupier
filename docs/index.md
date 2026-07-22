@@ -18,7 +18,7 @@ features:
   - title: 控制面与 Agent 协同
     details: Server 负责权限、审批、审计、配置和函数路由，Agent 通过统一 session 链路接入游戏服务与节点能力。
   - title: 函数注册驱动
-    details: OpenAPI/JSON Schema 作为函数契约输入，Server 生成 Formily 函数表单，Dashboard Page 负责业务页面编排。
+    details: OpenAPI/JSON Schema 作为函数契约输入，Server 生成 Formily 函数表单，并通过 Resource/PageSpec 生成可覆盖的默认业务页面。
   - title: 双层政策架构
     details: YAML 默认政策与数据库覆盖策略结合，支持低/中/高/危险四级风险控制。
   - title: 完整的审计链
@@ -73,7 +73,7 @@ graph TB
 
 - **OpenAPI 驱动注册**：通过 OpenAPI 规范快速注册函数
 - **Formily 函数表单**：根据函数契约生成 Formily Schema，调用页只消费这一种 UI 协议
-- **Dashboard Page 编排**：对象管理、分页表格、报表和任务页由 Page 模型组合多个函数
+- **Resource/PageSpec 编排**：Entity Page、独立操作、分页表格、报表和任务页由 Formily PageSpec 组合多个函数
 - **统一调用链路**：控制面通过 Agent session 路由调用，本地接入通过 Agent gateway 完成
 
 ### 权限与安全

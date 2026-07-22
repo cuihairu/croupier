@@ -174,39 +174,39 @@ POST /api/v1/tasks/{task_id}/cancel
 ### 获取函数列表
 
 ```http
-GET /api/functions?game_id={game_id}&env={env}
+GET /api/v1/functions/descriptors?category={category}
 ```
 
 **查询参数**：
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `game_id` | string | 游戏 ID |
-| `env` | string | 环境 |
-| `category` | string | 函数分类 |
-| `page` | int | 页码 |
-| `size` | int | 每页数量 |
+| `category` | string | 可选，函数分类 key |
 
 **响应**：
 ```json
-{
-  "functions": [
-    {
-      "id": "player.ban",
-      "name": "封禁玩家",
-      "category": "player",
-      "risk_level": "high"
-    }
-  ],
-  "total": 100,
-  "page": 1,
-  "size": 20
-}
+[
+  {
+    "id": "player.ban",
+    "version": "1.0.0",
+    "displayName": { "zh-CN": "封禁玩家", "en-US": "Ban Player" },
+    "summary": { "zh-CN": "封禁玩家", "en-US": "Ban player" },
+    "category": "support",
+    "categoryDisplay": { "zh-CN": "客服", "en-US": "Support" },
+    "entity": "player",
+    "entityDisplay": { "zh-CN": "玩家", "en-US": "Player" },
+    "operation": "ban",
+    "operationDisplay": { "zh-CN": "封禁", "en-US": "Ban" },
+    "operationKind": "action",
+    "placement": "rowAction",
+    "risk": "danger"
+  }
+]
 ```
 
 ### 获取函数详情
 
 ```http
-GET /api/functions/{function_id}?game_id={game_id}&env={env}
+GET /api/v1/functions/{function_id}
 ```
 
 **响应**：
@@ -215,6 +215,7 @@ GET /api/functions/{function_id}?game_id={game_id}&env={env}
   "id": "player.ban",
   "name": "封禁玩家",
   "description": "封禁指定玩家账号",
+  "category": "support",
   "params_schema": {...},
   "result_schema": {...},
   "auth": {...},
@@ -225,23 +226,37 @@ GET /api/functions/{function_id}?game_id={game_id}&env={env}
 ### 注册函数
 
 ```http
-POST /api/functions
+POST /api/v1/metadata/functions
 ```
 
 **请求体**：
 ```json
 {
-  "game_id": "my-game",
-  "env": "prod",
-  "descriptor": {...}
+  "id": "player.ban",
+  "version": "1.0.0",
+  "category": "support",
+  "name": "封禁玩家",
+  "description": "封禁指定玩家账号",
+  "inputSchema": "{...}",
+  "outputSchema": "{...}",
+  "extensions": {
+    "x-entity": "player",
+    "x-operation": "ban",
+    "x-operation-kind": "action",
+    "x-placement": "rowAction"
+  }
 }
 ```
+
+函数注册字段以 [OpenAPI / SDK Descriptor v2](../architecture/openapi-sdk-descriptor-v2.md) 为准。
 
 ### 注销函数
 
 ```http
-DELETE /api/functions/{function_id}?game_id={game_id}&env={env}
+DELETE /api/v1/functions/{function_id}
 ```
+
+`game_id` 和 `env` 应由统一请求头、登录上下文或显式作用域字段确定，不在路径外再定义一套查询参数语义。
 
 ## Agent 管理
 

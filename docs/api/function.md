@@ -1,5 +1,22 @@
 # 函数 API
 
+## 通用类型
+
+```go
+type JSONValue = json.RawMessage
+type JSONSchema = json.RawMessage
+type FormilySchema = json.RawMessage
+type OpenAPIOperation = json.RawMessage
+```
+
+说明：
+
+- `JSONValue` 仅表示业务 payload 或函数返回值，结构必须由函数 `input_schema` / `output_schema` 约束。
+- `JSONSchema` 仅表示 JSON Schema / OpenAPI Schema。
+- `FormilySchema` 仅表示 Formily JSON Schema，不能混入自定义 `layout` / `components` 协议。
+- `OpenAPIOperation` 只用于契约查看，不用于运行控制台直接生成页面。
+- `json.RawMessage` 只是 HTTP 边界上的 JSON 承载类型，服务端必须在保存或执行前完成结构校验。
+
 ### 1. "获取函数列表"
 
 1. route definition
@@ -90,9 +107,9 @@ type Function struct {
 }
 
 type FunctionDescriptor struct {
-	Input interface{} `json:"input"`
-	Output interface{} `json:"output"`
-	Schema interface{} `json:"schema"`
+	Input JSONSchema `json:"input"`
+	Output JSONSchema `json:"output"`
+	Schema JSONSchema `json:"schema"`
 }
 ```
 
@@ -242,8 +259,8 @@ type FunctionInstancesResponse struct {
 ```go
 type FunctionInvokeRequest struct {
 	ID string `path:"id"`
-	Params interface{} `json:"params,optional"`
-	Payload interface{} `json:"payload,optional"`
+	Params JSONValue `json:"params,optional"`
+	Payload JSONValue `json:"payload,optional"`
 	GameID string `json:"gameId,optional"`
 	Env string `json:"env,optional"`
 	Mode string `json:"mode,optional"`
@@ -262,7 +279,7 @@ type FunctionInvokeRequest struct {
 type FunctionInvokeResponse struct {
 	TaskId           string      `json:"taskId"`
 	TaskID           string      `json:"taskID,omitempty"`
-	Result           interface{} `json:"result,omitempty"`
+	Result           JSONValue   `json:"result,omitempty"`
 	ApprovalID       string      `json:"approval_id,omitempty"`       // 审批请求 ID（当需要审批时返回）
 	ApprovalRequired bool        `json:"approval_required,omitempty"` // 是否需要审批
 	ApprovalWorkflow string      `json:"approval_workflow,omitempty"` // 审批流程类型（single_admin/two_person）
@@ -394,9 +411,9 @@ type FunctionUIRequest struct {
 
 ```go
 type FunctionUIResponse struct {
-	Schema interface{} `json:"schema"`
-	Layout interface{} `json:"layout"`
-	Components interface{} `json:"components"`
+	Schema FormilySchema `json:"schema"`
+	Version int `json:"version,omitempty"`
+	Source string `json:"source,omitempty"` // metadata / override / file / openapi / generated
 }
 ```
 
@@ -416,9 +433,7 @@ type FunctionUIResponse struct {
 ```go
 type FunctionUIUpdateRequest struct {
 	ID string `path:"id"`
-	Schema interface{} `json:"schema,optional"`
-	Layout interface{} `json:"layout,optional"`
-	Components interface{} `json:"components,optional"`
+	Schema FormilySchema `json:"schema"`
 }
 ```
 
@@ -429,11 +444,18 @@ type FunctionUIUpdateRequest struct {
 
 ```go
 type FunctionUIResponse struct {
-	Schema interface{} `json:"schema"`
-	Layout interface{} `json:"layout"`
-	Components interface{} `json:"components"`
+	Schema FormilySchema `json:"schema"`
+	Version int `json:"version,omitempty"`
+	Source string `json:"source,omitempty"`
 }
 ```
+
+**说明：**
+
+- 函数 UI 只读写单函数 Formily JSON Schema。
+- 不再维护独立的 `layout` / `components` 协议字段。
+- 非 Formily Schema 必须返回校验错误，不能转换、猜测或静默降级。
+- Page 级布局、分页、表格、详情和动作编排属于 Page 工作台 API，不属于函数 UI API。
 
 ### 14. "获取函数UI配置历史"
 
@@ -649,7 +671,7 @@ type FunctionsPendingResponse struct {
 - Url: /api/v1/functions/_openapi-batch
 - Method: POST
 - Request: `BatchGetSpecRequest`
-- Response: `map[string]interface{}`
+- Response: `map[string]OpenAPIOperation`
 
 2. request definition
 
@@ -663,7 +685,7 @@ type BatchGetSpecRequest struct {
 
 ```go
 // key 为 function id，value 为对应的 OpenAPI Operation；未找到时返回 null
-map[string]interface{}
+map[string]OpenAPIOperation
 ```
 
 ### 说明

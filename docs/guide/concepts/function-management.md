@@ -21,6 +21,9 @@ Croupier 的核心模型仍然是“函数注册驱动”，但注册与调用�
 - 唯一 `id`
 - 版本 `version`
 - 分类 `category`
+- 资源 `entity`
+- 操作语义 `operation` / `operationKind`
+- 页面放置建议 `placement`
 - 风险等级 `risk`
 - 输入 `input_schema`
 - 输出 `output_schema`
@@ -64,7 +67,9 @@ sequenceDiagram
   "category": "player",
   "risk": "high",
   "entity": "Player",
-  "operation": "custom",
+  "operation": "ban",
+  "operationKind": "action",
+  "placement": "rowAction",
   "tags": ["player", "moderation"],
   "summary": "封禁玩家",
   "description": "封禁指定玩家账号",
@@ -109,7 +114,11 @@ sequenceDiagram
 
 这意味着 SDK 用户不需要先定义自己的 `.proto` 才能接入。
 
-Server 根据 `input_schema`、OpenAPI request schema 或函数元信息生成 Formily Schema 初稿。Dashboard 调用页只消费 `/api/v1/functions/:id/ui` 返回的 Formily Schema，不在运行时根据 JSON Schema 推断组件。详见[函数注册与默认界面](./function-registration-ui.md)。
+Server 根据 `input_schema`、OpenAPI request schema 或函数元信息生成单函数 Formily Schema 初稿。Dashboard 调用页只消费 `/api/v1/functions/:id/ui` 返回的 Formily Schema，不在运行时根据 JSON Schema 推断组件。
+
+完整业务页面由 Page 工作台管理。Server 会先把函数归一化为 FunctionSpec / ResourceSpec / OperationSpec，再生成 PageSpec 建议。PageSpec 也是 Formily JSON Schema，负责分页、表格、详情、弹窗、任务状态和图表等页面级能力。
+
+详见[函数注册与默认界面](./function-registration-ui.md)和[Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)。
 
 ## 调用模型
 
@@ -156,16 +165,19 @@ stateDiagram-v2
 ## 最佳实践
 
 1. 函数 ID 应稳定且可读，例如 `player.ban`
-2. `input_schema` / `output_schema` 建议补齐，但不是接入前置条件
-3. 需要平台理解的字段必须放在协议层
-4. 只属于具体业务的参数放到 JSON payload
-5. 处理器应具备幂等与超时意识
+2. `summary`、`description`、`input_schema`、`output_schema` 建议补齐
+3. 需要自动生成页面时必须补齐 `entity`、`operationKind` 和 `placement`
+4. 需要动态菜单多语言时必须补齐分类、资源和页面 labels
+5. 需要平台理解的字段必须放在协议层
+6. 只属于具体业务的参数放到 JSON payload
+7. 处理器应具备幂等与超时意识
 
 ## 相关文档
 
 - [核心概念总览](./overview.md)
-- [对象工作台](./object-workspace.md)
+- [Page 工作台](./object-workspace.md)
 - [函数注册与默认界面](./function-registration-ui.md)
+- [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)
 - [OpenAPI 函数注册](../integrations/openapi-registration.md)
 - [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)
 - [SDK 文档](../../sdks/)

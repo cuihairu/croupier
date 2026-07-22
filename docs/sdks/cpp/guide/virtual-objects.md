@@ -1,15 +1,8 @@
 # 虚拟对象
 
-本文是 C++ SDK 虚拟对象注册机制的 canonical 入口。虚拟对象用于把相关 CRUD 和业务操作组织成实体管理单元，适合钱包、背包、订单、玩家资料等复杂业务域。
+本文说明 C++ SDK 如何通过 descriptor v2 表达资源页面生成语义。当前目标模型是 `ResourceSpec + OperationSpec + PageSpec`。
 
-## 四层模型
-
-```text
-Function Level    单个原子操作，例如 wallet.transfer
-Entity Level      业务对象模型，例如 wallet.entity
-Resource Level    UI 资源组织，例如钱包管理面板
-Component Level   可分发模块，例如 economy-system
-```
+“虚拟对象”在当前文档中只表示一组函数围绕同一业务资源组织出的页面候选能力，例如钱包、背包、订单、玩家资料。实现上不需要单独的虚拟对象运行时协议，直接在函数 descriptor 中提供 `entity`、`operation_kind`、`placement` 和动态 labels。
 
 ## ID 引用模式
 
@@ -26,27 +19,30 @@ invoke("wallet.transfer", {
 
 这种方式能保持函数无状态，便于水平扩展、权限审计和 Dashboard 自动生成。
 
-## 描述符要素
+## Descriptor v2 要素
 
 | 字段 | 说明 |
 | --- | --- |
-| `id` | 虚拟对象唯一标识，例如 `wallet.entity` |
-| `version` | 描述符版本 |
-| `name` | 展示名称 |
-| `description` | 业务说明 |
-| `schema` | JSON Schema 对象结构 |
-| `operations` | 操作到函数 ID 的映射 |
-| `relationships` | 与其他实体的关系 |
+| `id` | 函数唯一标识，例如 `wallet.transfer` |
+| `version` | 函数版本 |
+| `summary` / `description` | 函数简介和详细说明 |
+| `input_schema` / `output_schema` | JSON payload 输入输出契约 |
+| `entity` / `entity_display` | 资源 key 和动态多语言标题 |
+| `operation` / `operation_display` | 业务操作 key 和动态多语言标题 |
+| `operation_kind` | 页面生成语义，例如 `list`、`get`、`action`、`task`、`report` |
+| `placement` | 页面放置位置，例如 `tableData`、`rowAction`、`standalone` |
+| `category` / `category_display` | 动态菜单分类 key 和多语言标题 |
 
 ## 建议
 
-- CRUD 操作尽量完整，避免 Dashboard 只能生成半成品页面。
-- 关系定义保持清晰，避免 UI 和权限侧猜测对象关系。
+- 默认页面生成必须依赖明确的 `operation_kind` 和 `placement`，不能让前端根据函数名猜测。
+- 动态分类、资源和操作标题必须随 descriptor 或 PageSpec 提供，不写入前端静态 locale 文件。
 - 使用 ID 引用，不传递笨重对象实例。
 - 函数保持无状态，通过 Repository 或业务服务查找对象。
 - 描述符 ID 和 operation key 应保持稳定。
 
 ## 相关页面
 
-- [虚拟对象 API](/sdks/cpp/api/virtual-objects)
-- [虚拟对象示例](/sdks/cpp/examples/virtual-object)
+- [虚拟对象与 Resource/Page 模型](/guide/concepts/virtual-objects)
+- [OpenAPI / SDK Descriptor v2](/architecture/openapi-sdk-descriptor-v2)
+- [Dashboard Resource/Page 模型](/architecture/dashboard-page-model)

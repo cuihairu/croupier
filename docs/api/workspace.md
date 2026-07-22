@@ -1,129 +1,310 @@
 ---
-title: Workspace API
+title: Page 工作台 API
 icon: appstore
 order: 99
 category:
   - API 参考
 tag:
   - workspace
-  - 编排
+  - PageSpec
+  - Formily
 ---
 
-# Workspace API
+# Page 工作台 API
 
-## 接口列表
+Page 工作台负责管理 Dashboard 业务页面的草稿、预览、校验、发布、版本和回滚。
 
-- `GET /api/v1/workspaces/configs`：工作台配置列表
-- `GET /api/v1/workspaces/published`：已发布工作台列表
-- `GET /api/v1/workspaces/:objectKey/config`：读取工作台配置
-- `PUT /api/v1/workspaces/:objectKey/config`：保存工作台配置
-- `DELETE /api/v1/workspaces/:objectKey/config`：删除工作台配置
-- `POST /api/v1/workspaces/:objectKey/publish`：发布工作台
-- `POST /api/v1/workspaces/:objectKey/unpublish`：取消发布
-- `GET /api/v1/workspaces/:objectKey/versions`：版本列表（支持 `from` / `to` RFC3339 时间过滤）
-- `GET /api/v1/workspaces/:objectKey/versions/:versionId`：单版本详情
-- `POST /api/v1/workspaces/:objectKey/rollback`：版本回滚
+本文只记录目标模型 API。页面配置统一使用 `PageSpec`，页面运行时 UI 统一使用 Formily JSON Schema。
 
-版本列表响应补充语义字段：
+## 模型边界
 
-- `currentDraftVersion`：当前草稿对应的版本号（最新版本）
-- `currentPublishedVersion`：最近一次发布版本号（若尚未发布则为 `0`）
-- `items[].isCurrentDraft`：当前记录是否为当前草稿
-- `items[].isCurrentPublished`：当前记录是否为当前发布版本
+| 模型 | 职责 |
+| --- | --- |
+| `GeneratedPageSpec` | Server 根据 FunctionSpec / ResourceSpec / OperationSpec 生成的默认页面建议 |
+| `PageSpecDraft` | 用户在 Page 工作台编辑中的页面草稿 |
+| `PublishedPageSpec` | 已校验、已发布、运行控制台可消费的页面快照 |
+| `ConsoleMenuSpec` | 由 PublishedPageSpec 生成的运行控制台左侧菜单 |
 
-## 状态机约定（V1）
+Page 工作台不负责函数语义归一化，也不负责运行控制台菜单推断。
 
-状态枚举：`draft` / `published` / `archived`
+## PageSpec
 
-- `PUT /:objectKey/config`（保存草稿）
-  - `published=false` 时，状态归一为 `draft` 或 `archived`
-  - 非法状态值会自动归一为 `draft`
-- `POST /:objectKey/publish`
-  - 状态强制归一为 `published`
-- `POST /:objectKey/unpublish`
-  - 状态归一为 `draft`
-- `POST /:objectKey/rollback`
-  - 按目标版本恢复配置后再次归一状态，随后创建新版本快照
-- `DELETE /:objectKey/config`
-  - V1 语义为物理删除；删除后不再返回配置记录
+```go
+type FormilySchema = json.RawMessage
+type PageMetadata = json.RawMessage
 
-草稿与发布版并行策略：
+type PageSpec struct {
+	PageKey     string                 `json:"pageKey"`
+	Type        string                 `json:"type"` // entity / operation / task / report
+	ResourceKey string                 `json:"resourceKey,omitempty"`
+	Title       map[string]string      `json:"title"`
+	Description map[string]string      `json:"description,omitempty"`
+	Category    PageCategorySpec       `json:"category"`
+	Order       int                    `json:"order,omitempty"`
+	Icon        string                 `json:"icon,omitempty"`
+	Schema      FormilySchema          `json:"schema"`
+	Bindings    []PageFunctionBinding  `json:"bindings"`
+	Metadata    PageMetadata           `json:"metadata,omitempty"`
+}
 
-- 同一 `objectKey` 仅维护一份当前配置记录（含 `published` 标记）
-- 每次保存/发布/取消发布/回滚都会落版本快照，用于回溯
+type PageCategorySpec struct {
+	Key    string            `json:"key"`
+	Labels map[string]string `json:"labels"`
+	Order  int               `json:"order,omitempty"`
+}
 
-## 版本存储结构（V1）
-
-`workspace` 版本快照统一存储在 `config_versions`，采用如下语义：
-
-- `key`：`workspace:{objectKey}`
-- `version`：同一 `key` 下单调递增
-- `value`：`WorkspaceConfig` JSON 快照
-- `message`：动作摘要（如 `save workspace config` / `publish workspace config` / `rollback to vN`）
-- `created_by` / `created_at`：操作者与时间
-
-状态定位规则：
-
-- 当前草稿版本：`config_versions` 中该 `key` 的最新版本（`MAX(version)`）
-- 当前发布版本：按 `version DESC` 扫描首个 `config.published=true`（或归一状态为 `published`）的版本
-- 历史版本：除当前草稿/发布外的其余快照
-
-接口映射：
-
-- `GET /workspaces/:objectKey/versions` 返回
-  - `currentDraftVersion`
-  - `currentPublishedVersion`
-  - `items[].isCurrentDraft`
-  - `items[].isCurrentPublished`
-
-## 能力边界（V1）
-
-以下能力在后端 `workspace` API 中尚未提供独立接口：
-
-- `clone workspace`
-- `import workspace`
-- `export workspace`
-
-前端应避免暴露“需要独立后端接口”的入口，避免形成伪能力。
-
-## 统一错误结构
-
-`workspace` 接口统一返回：
-
-```json
-{
-  "code": "workspace_not_found",
-  "error": "workspace_not_found",
-  "message": "workspace config not found",
-  "request_id": "1741331289799108000"
+type PageFunctionBinding struct {
+	FunctionID string `json:"functionId"`
+	Role       string `json:"role"` // query / tableData / detailData / rowAction / toolbarAction / batchAction / standalone
 }
 ```
 
-字段说明：
+约束：
 
-- `code`：前后端约定的稳定错误码（前端优先基于此处理）
-- `error`：兼容旧错误处理链路，值与 `code` 保持一致
-- `message`：可直接展示给用户/运维的错误信息
-- `request_id`：请求追踪 ID（用于日志与审计定位）
+- `schema` 必须是 Formily JSON Schema。
+- `title`、`category.labels` 必须包含系统默认语言。
+- `bindings` 必须引用已注册函数。
+- `type`、`category.key`、`pageKey` 发布后必须保持稳定。
+- 分页、表格数据、详情数据和操作位置必须显式写在 `schema` 或 `bindings` 中，不由前端运行时推断。
 
-## 错误码约定（V1）
+## 获取默认页面建议
 
-- `unauthorized`：401，未登录或令牌失效
-- `forbidden`：403，无权限执行操作
-- `workspace_not_found`：404，配置不存在
-- `workspace_invalid_config`：400/422，配置参数或结构非法
-- `workspace_publish_failed`：发布/取消发布失败
-- `workspace_version_not_found`：回滚版本不存在或版本号无效
-- `internal_error`：服务端内部错误
+```http
+GET /api/v1/pages/generated?resourceKey={resourceKey}
+```
+
+返回 Server 基于当前函数注册生成的 PageSpec 建议。建议可预览和复制到草稿，但不是发布产物。
+
+```go
+type GeneratedPagesResponse struct {
+	Items       []GeneratedPageSpec `json:"items"`
+	Diagnostics []PageDiagnostic   `json:"diagnostics,omitempty"`
+}
+
+type GeneratedPageSpec struct {
+	PageSpec
+	Quality     string           `json:"quality"` // ready / needs_review / blocked
+	Diagnostics []PageDiagnostic `json:"diagnostics,omitempty"`
+}
+
+type PageDiagnostic struct {
+	Code       string `json:"code"`
+	Severity   string `json:"severity"` // error / warning / info
+	Message    string `json:"message"`
+	FunctionID string `json:"functionId,omitempty"`
+	Field      string `json:"field,omitempty"`
+}
+```
+
+## 获取页面草稿列表
+
+```http
+GET /api/v1/workspaces/pages
+```
+
+```go
+type PageDraftListResponse struct {
+	Items []PageSpecDraftSummary `json:"items"`
+}
+
+type PageSpecDraftSummary struct {
+	PageKey     string            `json:"pageKey"`
+	Type        string            `json:"type"`
+	ResourceKey string            `json:"resourceKey,omitempty"`
+	Title       map[string]string `json:"title"`
+	Category    PageCategorySpec  `json:"category"`
+	Status      string            `json:"status"` // draft / published / archived
+	DraftVersion int              `json:"draftVersion"`
+	PublishedVersion int          `json:"publishedVersion,omitempty"`
+	UpdatedAt   string            `json:"updatedAt"`
+	UpdatedBy   string            `json:"updatedBy,omitempty"`
+}
+```
+
+## 获取页面草稿
+
+```http
+GET /api/v1/workspaces/pages/{pageKey}
+```
+
+```go
+type PageDraftResponse struct {
+	PageSpec
+	Status          string           `json:"status"`
+	DraftVersion    int              `json:"draftVersion"`
+	PublishedVersion int             `json:"publishedVersion,omitempty"`
+	Diagnostics     []PageDiagnostic `json:"diagnostics,omitempty"`
+	UpdatedAt       string           `json:"updatedAt"`
+	UpdatedBy       string           `json:"updatedBy,omitempty"`
+}
+```
+
+## 保存页面草稿
+
+```http
+PUT /api/v1/workspaces/pages/{pageKey}
+```
+
+请求体为完整 `PageSpec`。
+
+保存规则：
+
+- 保存时校验 `pageKey` 与路径一致。
+- 保存时校验 `schema` 是否为 Formily JSON Schema。
+- 保存时可以存在 warning 诊断，但 error 诊断必须阻止保存。
+- 保存草稿不会影响运行控制台。
+
+## 校验页面草稿
+
+```http
+POST /api/v1/workspaces/pages/{pageKey}/validate
+```
+
+```go
+type PageValidateResponse struct {
+	Valid       bool             `json:"valid"`
+	Diagnostics []PageDiagnostic `json:"diagnostics"`
+}
+```
+
+发布前必须通过校验。
+
+## 预览页面草稿
+
+```http
+POST /api/v1/workspaces/pages/{pageKey}/preview
+```
+
+预览只渲染当前草稿，不写入运行控制台菜单。
+
+```go
+type PagePreviewResponse struct {
+	Page PageSpec `json:"page"`
+}
+```
+
+## 发布页面
+
+```http
+POST /api/v1/workspaces/pages/{pageKey}/publish
+```
+
+发布成功后生成 `PublishedPageSpec` 快照，并使运行控制台菜单在下一次加载时可见。
+
+```go
+type PagePublishResponse struct {
+	PageKey          string `json:"pageKey"`
+	Published       bool   `json:"published"`
+	PublishedVersion int   `json:"publishedVersion"`
+}
+```
+
+发布必须满足：
+
+- `schema` 是 Formily JSON Schema。
+- `title` 和 `category.labels` 覆盖系统启用语言。
+- `category.key` 已确定。
+- `bindings` 引用的函数存在且可调用。
+- 需要表格、详情或报表时，响应结构有明确字段映射。
+
+## 取消发布
+
+```http
+POST /api/v1/workspaces/pages/{pageKey}/unpublish
+```
+
+取消发布只影响运行控制台可见性，不删除草稿。
+
+## 页面版本
+
+```http
+GET /api/v1/workspaces/pages/{pageKey}/versions
+GET /api/v1/workspaces/pages/{pageKey}/versions/{versionId}
+POST /api/v1/workspaces/pages/{pageKey}/rollback
+```
+
+```go
+type PageVersionListResponse struct {
+	CurrentDraftVersion     int               `json:"currentDraftVersion"`
+	CurrentPublishedVersion int               `json:"currentPublishedVersion,omitempty"`
+	Items                   []PageVersionItem `json:"items"`
+}
+
+type PageVersionItem struct {
+	Version            int    `json:"version"`
+	Status             string `json:"status"`
+	Message            string `json:"message,omitempty"`
+	IsCurrentDraft     bool   `json:"isCurrentDraft"`
+	IsCurrentPublished bool   `json:"isCurrentPublished"`
+	CreatedAt          string `json:"createdAt"`
+	CreatedBy          string `json:"createdBy,omitempty"`
+}
+```
+
+回滚只恢复草稿。需要进入运行控制台时，必须再次发布。
+
+## 运行控制台读取接口
+
+```http
+GET /api/v1/console/pages
+GET /api/v1/console/pages/{pageKey}
+GET /api/v1/console/menu
+```
+
+运行控制台只读取已发布页面和菜单，不读取草稿。
+
+`ConsoleMenuSpec` 由 `PublishedPageSpec[]` 生成：
+
+```go
+type ConsoleMenuSpec struct {
+	Items []ConsoleMenuItem `json:"items"`
+}
+
+type ConsoleMenuItem struct {
+	Key      string            `json:"key"`
+	Path     string            `json:"path"`
+	Name     string            `json:"name"`
+	Labels   map[string]string `json:"labels"`
+	Locale   bool              `json:"locale"` // 动态菜单固定为 false
+	Icon     string            `json:"icon,omitempty"`
+	Order    int               `json:"order,omitempty"`
+	Children []ConsoleMenuItem `json:"children,omitempty"`
+}
+```
+
+动态分类和页面标题必须来自 `PublishedPageSpec` metadata，不写入前端静态 locale 文件。
+
+## 错误结构
+
+```json
+{
+  "code": "page_spec_invalid",
+  "error": "page_spec_invalid",
+  "message": "page spec is invalid",
+  "request_id": "1741331289799108000",
+  "details": {
+    "diagnostics": []
+  }
+}
+```
+
+常见错误码：
+
+- `page_spec_not_found`
+- `page_spec_invalid`
+- `page_spec_publish_failed`
+- `page_spec_version_not_found`
+- `function_binding_invalid`
+- `formily_schema_invalid`
+- `localized_text_missing`
 
 ## 审计覆盖
 
-以下动作会写入审计日志：
+以下动作必须写入审计日志：
 
-- `workspace.save`
-- `workspace.publish`
-- `workspace.unpublish`
-- `workspace.rollback`
-- `workspace.delete`
-
-审计日志包含：`action/userId/target/result/traceId(created request_id)/metadata/createdAt`。
+- `page.save`
+- `page.validate`
+- `page.preview`
+- `page.publish`
+- `page.unpublish`
+- `page.rollback`

@@ -6,17 +6,22 @@ Current（2026-07-18）
 
 ## 决策概要
 
-Croupier Dashboard 不把 OpenAPI、函数表单、对象管理页和页面编排混为一个模型。
+Croupier Dashboard 不把 OpenAPI、函数表单、Entity Page 和页面编排混为一个模型。
 
 当前统一采用以下边界：
 
 1. **OpenAPI 是函数能力契约**：描述函数如何调用、输入输出结构、错误和文档信息。
 2. **Function 是可执行能力**：函数可以是查询、命令、任务、审批动作或对象操作。
-3. **Entity 是业务对象模型**：只用于确实围绕某个对象生命周期展开的管理界面。
+3. **Resource 是页面组织资源**：只用于确实围绕某个资源或能力域展开的页面候选。
 4. **Function UI 是单函数输入表单**：唯一格式是 Formily Schema。
 5. **Page 是业务页面编排**：组合查询区、分页表格、详情、弹窗表单、批量操作和结果视图。
 
-运行时只消费一种 UI Schema：**Formily Schema**。非 Formily Schema 必须报错，不能转换、猜测或静默降级。
+运行时只消费一种 UI Schema：**Formily JSON Schema**。非 Formily Schema 必须报错，不能转换、猜测或静默降级。
+
+这条规则同时适用于：
+
+- 单函数输入表单。
+- Dashboard Page 页面编排。
 
 ---
 
@@ -40,7 +45,7 @@ OpenAPI / SDK descriptor
     -> FunctionDescriptor
     -> input_schema / output_schema
     -> Formily Schema 初稿
-    -> Function UI / Page 使用
+    -> Function UI / PageSpec 使用
 ```
 
 错误的数据流是：
@@ -85,9 +90,9 @@ Function 表示一个可执行能力，不等同于 CRUD。
 
 ---
 
-## 三、Entity 的职责
+## 三、Resource 与 Entity Page 的职责
 
-Entity 表示稳定业务对象，例如：
+Resource 表示 Dashboard 页面组织用的稳定业务资源或能力域，例如：
 
 - `player`
 - `order`
@@ -95,7 +100,9 @@ Entity 表示稳定业务对象，例如：
 - `mail`
 - `activity`
 
-只有满足以下条件的函数才应该进入对象管理页：
+Entity Page 是 Page 的一种类型，只适合围绕同一 Resource 生命周期展开的页面。
+
+只有满足以下条件的函数才应该进入 Entity Page：
 
 - 有明确 `entity`
 - 操作围绕该对象生命周期展开
@@ -103,7 +110,7 @@ Entity 表示稳定业务对象，例如：
 - 返回结构可映射到表格、详情或对象状态
 - 操作可以自然挂载到查询区、行操作、详情页或批量操作
 
-不应进入对象管理页的函数：
+不应进入 Entity Page 的函数：
 
 - 全局命令：`cache.refresh`
 - 批处理任务：`reward.batchGrant`
@@ -147,7 +154,7 @@ Function UI 的加载优先级：
 3. configs/ui/functions/{function-id}.yaml|json
 4. OpenAPI operation["x-ui"]
 5. input_schema / OpenAPI request schema 生成的 Formily Schema
-6. function id / entity / operation 生成的最小 Formily Schema
+6. 无可用 schema 时生成仅包含 `payload` 对象字段的最小 Formily Schema
 ```
 
 所有来源的输出都必须是 Formily Schema。任一来源输出非 Formily Schema 时，应在保存或渲染阶段报错。
@@ -169,7 +176,7 @@ Function UI 不负责：
 
 Page 是用户完成业务任务的页面编排模型。Page 可以组合多个函数和多个 UI 区块。
 
-典型对象管理 Page：
+典型 Entity Page：
 
 ```text
 player.manage
@@ -198,6 +205,8 @@ reward.batchGrant
     结果区 -> task.result
 ```
 
+PageSpec 必须使用 Formily JSON Schema 表达。页面级组件通过 `x-component` 表达，例如 `ConsolePage`、`QueryForm`、`DataTable`、`DetailPanel`、`ActionButton`、`TaskTimeline`、`ChartPanel`。
+
 Page 可以支持分页查询。分页属于 Page 的列表组件状态，通常绑定到某个 list/search/query 函数的参数：
 
 ```json
@@ -212,7 +221,9 @@ Page 可以支持分页查询。分页属于 Page 的列表组件状态，通常
 }
 ```
 
-Page 不应把所有函数都强行套成 CRUD。CRUD 只是对象管理 Page 的一种模板，不是函数系统的总模型。
+Page 不应把所有函数都强行套成 CRUD。CRUD 只是 Entity Page 的一种模板，不是函数系统的总模型。
+
+完整 Page 模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。
 
 ---
 
@@ -281,8 +292,32 @@ Page 不应把所有函数都强行套成 CRUD。CRUD 只是对象管理 Page �
 | `/api/v1/functions/:id/ui` | 读写函数表单 | Formily Schema | Formily Schema |
 | `SchemaRenderer` | 渲染函数表单 | Formily Schema | React Form |
 | Function Invoke Page | 调用单个函数 | Formily values | invoke/task |
-| Entity Page | 对象管理 | Entity + Actions | 查询/表格/详情/动作 |
-| Page Schema | 页面编排 | 多个函数和布局 | Dashboard Page |
+| Server Page generator | 生成默认页面建议 | ResourceSpec + OperationSpec | Formily PageSpec |
+| Page 工作台 | 编辑页面草稿 | Formily PageSpec | PageSpec Draft |
+| Runtime Page renderer | 运行控制台渲染页面 | PublishedPageSpec | Dashboard Page |
+
+## 八、前端技术栈边界
+
+Croupier Dashboard 保留 Ant Design / Ant Design Pro / Umi / React / Formily 技术栈。
+
+API Platform Admin 的价值是“内省、默认生成、局部覆盖”的模式，不是框架替换目标。Croupier 的资源归一化和 PageSpec 生成必须由 Server 自己实现。
+
+| 技术 | 在 UI 生成中的职责 |
+| --- | --- |
+| Umi | 固定参数路由和运行时 layout |
+| ProLayout | 承载已发布 ConsoleMenuSpec 生成的左侧菜单 |
+| ProTable | 实现 Formily PageSpec 中的 `DataTable` |
+| ProDescriptions / Antd Descriptions | 实现 `DetailPanel` |
+| Antd Modal / Drawer / Popconfirm | 实现操作确认和弹窗表单 |
+| Formily | 渲染单函数表单和页面级 PageSpec |
+
+前端不负责从函数目录推断页面结构。运行控制台只消费：
+
+```text
+PublishedPageSpec + ConsoleMenuSpec
+```
+
+动态菜单项必须直接使用 PageSpec/ConsoleMenuSpec 中的多语言 labels，并设置 `locale: false`。
 
 验收规则：
 
@@ -292,3 +327,6 @@ Page 不应把所有函数都强行套成 CRUD。CRUD 只是对象管理 Page �
 - OpenAPI 只参与契约归一化和初稿生成。
 - Entity Page 只承载明确属于同一 Entity 的动作。
 - Page 负责分页、表格、详情、弹窗和多函数组合。
+- Page Schema 也是 Formily JSON Schema。
+- 动态菜单只来自 PublishedPageSpec，不来自静态 i18n 文件。
+- 不引入 React Admin / API Platform Admin 替换现有前端框架。

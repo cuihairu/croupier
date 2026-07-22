@@ -79,27 +79,85 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
 
 它不是“配置模板”，而是“不同边界上的应用层协议变体”。
 
-## 界面分层：函数目录 vs 对象工作台 vs 运行控制台
+## 界面分层：函数目录 vs Page 工作台 vs 运行控制台
 
 Croupier 的管理界面在“函数”这一模块下分为三个层次，各自职责不同，不重复：
 
 | 层次 | 定位 | 数据来源 | 典型操作 |
 | --- | --- | --- | --- |
-| **函数目录** | 能力供给层 | `listDescriptors()` + `getFunctionSummary()` | 确认函数是否注册成功、Schema 是否正确、有没有可调用实例、单函数 invoke |
-| **对象工作台** | 页面装配层 | `workspace_configs` + `listDescriptors()` | 以对象（objectKey）为维度，把多个函数组织成 Tabs、表单、仪表盘等页面 |
-| **运行控制台** | 发布验证层 | 已发布 workspace configs | 面向最终用户/运营，验证页面表现、权限和运行结果 |
+| **函数目录** | 能力供给层 | FunctionSpec / 函数注册目录 | 确认函数是否注册成功、Schema 是否正确、有没有可调用实例、单函数 invoke |
+| **Page 工作台** | 页面装配层 | ResourceSpec / OperationSpec / PageSpec 草稿 | 生成默认页面、编辑 Formily Page Schema、预览、发布、回滚 |
+| **运行控制台** | 执行层 | PublishedPageSpec / ConsoleMenuSpec | 面向最终用户/运营执行业务操作 |
 
 三者串成一条主流程：
 
 ```
-函数目录（确认能力） → 对象工作台（装配页面） → 运行控制台（发布验证）
+函数注册 → 函数目录（确认能力） → Page 工作台（装配页面） → 运行控制台（执行）
 ```
 
 - 函数目录只负责单个函数的元数据、Schema、实例和单函数调用，不负责最终业务页面。
-- 对象工作台把多个函数组合成面向业务对象（如 `player`、`claim`、`order`）的完整界面，管理草稿、发布版本和回滚。
-- 首次访问对象工作台时自动创建默认配置（空 Tabs），不会 404。
+- Page 工作台把多个函数组合成 Entity Page、Operation Page、Task Page 或 Report Page，管理草稿、发布版本和回滚。
+- 不是所有函数都进入 Entity Page。只有明确围绕同一资源生命周期展开的函数才进入 Entity Page。
+- 默认页面由 Server 根据 FunctionSpec / ResourceSpec / OperationSpec 生成建议，用户确认后再编辑和发布。
+- 运行控制台只展示已发布 PageSpec，动态菜单不依赖静态国际化文件。
 
-详见 [对象工作台](./object-workspace.md) 和 [函数管理](./function-management.md)。
+详见 [Page 工作台](./object-workspace.md)、[函数管理](./function-management.md) 和 [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)。
+
+## Dashboard 核心概念
+
+当前 Dashboard 只有一套目标模型：
+
+```text
+FunctionSpec -> ResourceSpec + OperationSpec -> PageSpec -> PublishedPageSpec -> ConsoleMenuSpec
+```
+
+### FunctionSpec
+
+`FunctionSpec` 是函数注册后的归一化能力描述。它说明“有什么函数、怎么调用、输入输出是什么、风险是什么”。
+
+它不等于页面，也不决定左侧菜单。
+
+### ResourceSpec
+
+`ResourceSpec` 是 Dashboard 组织页面用的资源或能力域，例如 `player`、`mail`、`inventory`、`analytics`。
+
+它不是数据库表，也不是传统 CRUD Entity。一个 Resource 可以承载 CRUD 操作，也可以承载游戏运营里的封禁、发奖、发邮件、补单等动作。
+
+### OperationSpec
+
+`OperationSpec` 描述函数在资源或页面中的语义。
+
+必须区分：
+
+| 字段 | 含义 | 示例 |
+| --- | --- | --- |
+| `operation` | 业务动作 key | `ban`、`grant`、`send`、`list` |
+| `operationKind` | 页面生成语义 | `list`、`get`、`action`、`task`、`report` |
+| `placement` | 页面放置位置 | `tableData`、`rowAction`、`toolbarAction`、`standalone` |
+
+`operation` 只能表示业务动作 key，页面类型必须由 `operationKind` 和 PageSpec 表达。
+
+### PageSpec
+
+`PageSpec` 是业务页面编排，必须是 Formily JSON Schema。它负责查询区、分页、表格、详情、弹窗、批量操作、任务状态和报表图表。
+
+Page 可以组合多个函数。分页查询属于 Page 的状态和字段映射，不属于单函数输入表单。
+
+### Page 工作台
+
+Page 工作台管理 PageSpec 草稿。它可以展示 Server 生成的默认页面建议，也允许用户编辑、预览、校验、发布和回滚。
+
+Page 工作台不是运行控制台。未发布草稿不能出现在运行控制台左侧菜单里。
+
+### 运行控制台
+
+运行控制台只消费已发布页面：
+
+```text
+PublishedPageSpec[] -> ConsoleMenuSpec
+```
+
+动态分类、页面标题和菜单多语言来自 PageSpec metadata。前端静态 locale 文件只用于固定系统菜单。
 
 ## 不再推荐的理解
 
@@ -109,3 +167,6 @@ Croupier 的管理界面在“函数”这一模块下分为三个层次，各�
 - `Server -> Agent` 直接回拨
 - `rpc_addr` 作为长期运行时入口
 - SDK 开本地监听端口给 `Agent`
+- Resource API 直接修改业务对象数据
+- 自定义 `layout` 枚举作为运行时 UI 协议
+- 动态菜单分类写入静态国际化文件

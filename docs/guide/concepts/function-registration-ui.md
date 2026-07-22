@@ -11,17 +11,20 @@ tag:
 
 # 函数注册与默认界面
 
-Croupier 采用函数注册驱动的默认界面模型：业务服务注册函数能力，Server 根据函数契约生成 Formily 表单初稿，Dashboard 直接渲染 Formily Schema。
+Croupier 采用函数注册驱动的默认界面模型：业务服务注册函数能力，Server 根据函数契约生成单函数 Formily 表单初稿，并进一步生成 PageSpec 建议。Dashboard 直接渲染 Formily Schema。
 
-运行时只有一种函数 UI 协议：**Formily Schema**。非 Formily Schema 必须报错，不能转换、猜测或静默降级。
+函数注册字段以 [OpenAPI / SDK Descriptor v2](../../architecture/openapi-sdk-descriptor-v2.md) 为准。本文只说明这些字段如何影响默认 UI。
+
+运行时只有一种 UI 协议：**Formily JSON Schema**。单函数输入表单和页面级 PageSpec 都必须使用 Formily。非 Formily Schema 必须报错，不能转换、猜测或静默降级。
 
 ## 目标
 
 - 函数注册后能在 Dashboard 中被发现、理解和调用。
 - SDK 只声明能力契约，不绑定具体前端实现。
 - 默认函数表单由 Server 生成，生成结果必须是 Formily Schema。
+- 默认业务页面由 Server 基于 FunctionSpec / ResourceSpec / OperationSpec 生成 PageSpec 建议。
 - 用户可以编辑 Formily Schema，但保存内容仍必须是完整 Formily Schema。
-- 函数表单和 Dashboard Page 分离，避免把所有函数强行塞进对象管理页。
+- 函数表单和 Dashboard Page 分离，避免把所有函数强行塞进 Entity Page。
 
 ## 注册元信息
 
@@ -35,8 +38,12 @@ Croupier 采用函数注册驱动的默认界面模型：业务服务注册函�
 | `description` | 推荐 | Markdown 详细说明，用于函数信息抽屉和帮助文案 |
 | `tags` | 推荐 | 目录聚合和搜索过滤 |
 | `category` | 推荐 | 顶层分类，如 `game`、`player`、`order`、`system` |
+| `category_display` | 推荐 | 分类多语言显示名，用于动态菜单 |
 | `entity` | 推荐 | 业务实体，如 `player`、`order`、`mail` |
-| `operation` | 推荐 | 操作类型，如 `list`、`read`、`create`、`update`、`delete`、`ban`、`grant`、`custom` |
+| `entity_display` | 推荐 | 资源多语言显示名 |
+| `operation` | 推荐 | 业务操作 key，如 `list`、`get`、`create`、`update`、`delete`、`ban`、`grant`、`send` |
+| `operation_kind` | 推荐 | 页面生成语义，如 `list`、`get`、`action`、`task`、`report` |
+| `placement` | 推荐 | 页面放置位置，如 `query`、`tableData`、`rowAction`、`toolbarAction`、`standalone` |
 | `risk` | 推荐 | 治理等级，如 `safe`、`warning`、`danger` |
 | `input_schema` | 推荐 | 请求体 JSON Schema，用于生成 Formily 表单初稿 |
 | `output_schema` | 推荐 | 响应 JSON Schema，用于结果视图、表格和页面编排 |
@@ -60,8 +67,12 @@ client.registerFunction(
     description: '封禁指定玩家账号，可设置封禁原因和时长。',
     tags: ['player', 'moderation'],
     category: 'player',
+    category_display: { zh: '玩家', en: 'Players' },
     entity: 'player',
+    entity_display: { zh: '玩家', en: 'Player' },
     operation: 'ban',
+    operation_kind: 'action',
+    placement: 'rowAction',
     risk: 'danger',
     input_schema: {
       type: 'object',
@@ -90,7 +101,8 @@ client.registerFunction(
 - `description` 用于帮助说明、OpenAPI description 和函数信息抽屉。
 - `input_schema` 是生成 Formily 表单初稿的事实来源。
 - `output_schema` 用于结果视图、表格列和 Page 编排。
-- `category/entity/operation/risk/tags` 用于菜单归类、权限治理、页面候选能力和搜索。
+- `category/entity/operation/operation_kind/placement/risk/tags` 用于资源归一化、权限治理、页面候选能力和搜索。
+- `category_display/entity_display/displayName/summary` 用于动态菜单、资源标题、页面标题和帮助文案。
 
 ## OpenAPI 与 Formily 的关系
 
@@ -114,6 +126,22 @@ OpenAPI / JSON Schema
 ```
 
 OpenAPI operation 的 `x-ui` 如果存在，也必须直接是 Formily Schema。
+
+OpenAPI 扩展字段建议：
+
+| OpenAPI 扩展 | 平台字段 |
+| --- | --- |
+| `x-category` | `category` |
+| `x-category-display` | `category_display` |
+| `x-entity` | `entity` |
+| `x-entity-display` | `entity_display` |
+| `x-operation` | `operation` |
+| `x-operation-kind` | `operation_kind` |
+| `x-placement` | `placement` |
+| `x-risk` | `risk` |
+| `x-ui` | 单函数 Formily Schema |
+
+`x-operation` 是业务操作 key，例如 `ban`、`grant`、`send`。页面生成语义必须使用 `x-operation-kind`，不能继续把 `x-operation` 当成页面类型。
 
 ## 默认 UI 解析顺序
 
@@ -144,15 +172,45 @@ Server 按以下优先级解析函数 UI：
 | `array` + `items.object` | `ArrayTable` / `ArrayItems` |
 | `object` | `Card` + nested `properties` |
 
-当没有可用 schema 时，Server 生成最小 Formily Schema：
+当没有可用 `input_schema` 时，Server 只能生成最小 Formily Schema：
 
-- `create/add/new`：`data` 对象字段。
-- `read/get/query/search/detail`：对象 ID 或查询字段。
-- `update/edit/patch`：对象 ID 和 patch 字段。
-- `delete/remove`：对象 ID 字段。
-- 其他操作：`payload` 对象字段。
+- 使用单个 `payload` 对象字段承载业务入参。
+- 不根据函数名推断对象 ID、查询字段、CRUD 字段或组件类型。
+- 用户需要自定义字段时，必须补充 `input_schema` 或在 UI 编辑器里保存完整 Formily Schema。
 
-这只是 Formily 初稿，不是第二套 UI 协议。
+这只是单函数 Formily 初稿，不是 PageSpec，也不是第二套 UI 协议。非 Formily UI 输入必须直接报错。
+
+## 默认字段与自定义字段
+
+函数注册只有 `id` 和 `version` 时，平台不知道业务字段。此时默认函数表单只能是：
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "payload": {
+      "type": "object",
+      "title": "Payload",
+      "x-component": "Input.TextArea",
+      "x-decorator": "FormItem"
+    }
+  }
+}
+```
+
+如果用户希望界面展示 `player_id`、`reason`、`duration_seconds` 这类字段，必须通过以下任一方式明确声明：
+
+- 在函数 descriptor 的 `input_schema.properties` 中声明字段。
+- 在 `/api/v1/functions/:id/ui` 保存完整 Formily Schema。
+- 在 OpenAPI operation 的 `requestBody` 或 `x-ui` 中声明。
+
+规则：
+
+- Server 可以从 `input_schema` 生成 Formily 字段。
+- Server 不能根据 `player.ban` 这种函数名猜出 `player_id` 字段。
+- UI Schema 中新增字段必须仍然是 Formily Schema。
+- UI Schema 与 `input_schema` 明显冲突时必须报错或要求同步更新契约，不能静默丢字段。
+- PageSpec 可以复用函数表单，但不能改变函数 payload 契约。
 
 ## Function UI 与 Page 的边界
 
@@ -180,13 +238,23 @@ Page 负责完整业务页面编排，包括：
 批量操作 -> reward.batchGrant
 ```
 
-因此，不是所有函数都应该进入对象管理页。只有明确属于某个 `entity` 生命周期的函数，才进入 Entity Page。全局命令、报表、任务、运维动作应进入 Operation Page、Report Page、Task Page 或 Tool Page。
+因此，不是所有函数都应该进入 Entity Page。只有明确属于某个 `entity` 生命周期的函数，才进入 Entity Page。全局命令、报表、任务、运维动作应进入 Operation Page、Report Page、Task Page 或 Tool Page。
+
+Page Schema 也必须是 Formily JSON Schema。页面级组件通过 `x-component` 表达，例如 `ConsolePage`、`QueryForm`、`DataTable`、`DetailPanel`、`ActionButton`、`TaskTimeline`、`ChartPanel`。
 
 ## 实施边界
 
 - SDK demo 必须注册 `summary`、`description`、`input_schema` 和 `output_schema`。
+- SDK demo 如需参与默认页面生成，必须注册 `entity`、`operation_kind`、`placement` 和动态 labels。
 - 后端 descriptor 必须透出 `displayName`、`summary`、`inputSchema`、`outputSchema` 和治理字段。
+- 后端归一化层必须输出 FunctionSpec / ResourceSpec / OperationSpec / PageSpec 建议。
 - `/api/v1/functions/:id/ui` 只读写 Formily Schema。
 - 前端调用页只使用 `SchemaRenderer` 渲染 Formily Schema。
 - UI 编辑器只编辑 Formily Schema。
 - Page 生成和 Entity Page 生成必须基于明确的 `entity + actions`，不能把全部函数套进 CRUD 模板。
+- 运行控制台菜单只来自已发布 PageSpec，不来自静态 locale 文件或函数目录。
+
+## 相关文档
+
+- [OpenAPI / SDK Descriptor v2](../../architecture/openapi-sdk-descriptor-v2.md)
+- [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)

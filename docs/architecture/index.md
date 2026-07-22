@@ -192,7 +192,8 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [游戏与环境作用域](./game-environment-scope.md)
 - [术语与分层](./terms-and-layering.md)
 - [数据流](./data-flow.md)
-- [Dashboard Page 模型](./dashboard-page-model.md)
+- [Dashboard Resource/Page 模型](./dashboard-page-model.md) — 函数注册、资源归一化、默认页面生成、PageSpec、动态菜单的权威模型
+- [OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md) — OpenAPI 扩展字段、SDK descriptor 与 PageSpec 生成之间的统一契约
 - [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
 - [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
 - [Session 生命周期](./session-lifecycle.md)
