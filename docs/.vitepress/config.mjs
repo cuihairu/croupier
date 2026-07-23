@@ -371,7 +371,7 @@ const config = defineConfig({
 
     lastUpdated: { text: '最后更新' },
 
-    social: [
+    socialLinks: [
       { icon: 'github', link: 'https://github.com/cuihairu/croupier' }
     ],
 
