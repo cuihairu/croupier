@@ -22,12 +22,6 @@ func snapshotUICustomConfig(meta map[string]interface{}) map[string]interface{} 
 	if v, ok := meta["ui"]; ok {
 		out["schema"] = v
 	}
-	if v, ok := meta["layout"]; ok {
-		out["layout"] = v
-	}
-	if v, ok := meta["components"]; ok {
-		out["components"] = v
-	}
 	return out
 }
 
@@ -44,16 +38,8 @@ func applyUICustomConfig(meta map[string]interface{}, cfg map[string]interface{}
 	} else {
 		delete(meta, "ui")
 	}
-	if layout, ok := cfg["layout"]; ok {
-		meta["layout"] = layout
-	} else {
-		delete(meta, "layout")
-	}
-	if components, ok := cfg["components"]; ok {
-		meta["components"] = components
-	} else {
-		delete(meta, "components")
-	}
+	delete(meta, "layout")
+	delete(meta, "components")
 	return meta
 }
 

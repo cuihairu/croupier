@@ -279,14 +279,14 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED UIFieldOptions final : public ::goo
     kSensitiveFieldNumber = 4,
     kEnumMapFieldNumber = 5,
   };
-  // string widget = 1 [json_name = "widget"];
-  void clear_widget() ;
-  [[nodiscard]] const ::std::string& widget() const;
+  // string widget = 1 [json_name = "widget", deprecated = true];
+  [[deprecated]]  void clear_widget() ;
+  [[nodiscard]] [[deprecated]] const ::std::string& widget() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_widget(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_widget();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_widget();
-  void set_allocated_widget(::std::string* PROTOBUF_NULLABLE value);
+  [[deprecated]] void set_widget(Arg_&& arg, Args_... args);
+  [[deprecated]] ::std::string* PROTOBUF_NONNULL mutable_widget();
+  [[deprecated]] [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_widget();
+  [[deprecated]] void set_allocated_widget(::std::string* PROTOBUF_NULLABLE value);
 
   private:
   const ::std::string& _internal_widget() const;
@@ -294,14 +294,14 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED UIFieldOptions final : public ::goo
   ::std::string* PROTOBUF_NONNULL _internal_mutable_widget();
 
   public:
-  // string label = 2 [json_name = "label"];
-  void clear_label() ;
-  [[nodiscard]] const ::std::string& label() const;
+  // string label = 2 [json_name = "label", deprecated = true];
+  [[deprecated]]  void clear_label() ;
+  [[nodiscard]] [[deprecated]] const ::std::string& label() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_label(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_label();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_label();
-  void set_allocated_label(::std::string* PROTOBUF_NULLABLE value);
+  [[deprecated]] void set_label(Arg_&& arg, Args_... args);
+  [[deprecated]] ::std::string* PROTOBUF_NONNULL mutable_label();
+  [[deprecated]] [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_label();
+  [[deprecated]] void set_allocated_label(::std::string* PROTOBUF_NULLABLE value);
 
   private:
   const ::std::string& _internal_label() const;
@@ -309,14 +309,14 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED UIFieldOptions final : public ::goo
   ::std::string* PROTOBUF_NONNULL _internal_mutable_label();
 
   public:
-  // string placeholder = 3 [json_name = "placeholder"];
-  void clear_placeholder() ;
-  [[nodiscard]] const ::std::string& placeholder() const;
+  // string placeholder = 3 [json_name = "placeholder", deprecated = true];
+  [[deprecated]]  void clear_placeholder() ;
+  [[nodiscard]] [[deprecated]] const ::std::string& placeholder() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_placeholder(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_placeholder();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_placeholder();
-  void set_allocated_placeholder(::std::string* PROTOBUF_NULLABLE value);
+  [[deprecated]] void set_placeholder(Arg_&& arg, Args_... args);
+  [[deprecated]] ::std::string* PROTOBUF_NONNULL mutable_placeholder();
+  [[deprecated]] [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_placeholder();
+  [[deprecated]] void set_allocated_placeholder(::std::string* PROTOBUF_NULLABLE value);
 
   private:
   const ::std::string& _internal_placeholder() const;
@@ -324,14 +324,14 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED UIFieldOptions final : public ::goo
   ::std::string* PROTOBUF_NONNULL _internal_mutable_placeholder();
 
   public:
-  // string show_if = 6 [json_name = "showIf"];
-  void clear_show_if() ;
-  [[nodiscard]] const ::std::string& show_if() const;
+  // string show_if = 6 [json_name = "showIf", deprecated = true];
+  [[deprecated]]  void clear_show_if() ;
+  [[nodiscard]] [[deprecated]] const ::std::string& show_if() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_show_if(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_show_if();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_show_if();
-  void set_allocated_show_if(::std::string* PROTOBUF_NULLABLE value);
+  [[deprecated]] void set_show_if(Arg_&& arg, Args_... args);
+  [[deprecated]] ::std::string* PROTOBUF_NONNULL mutable_show_if();
+  [[deprecated]] [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_show_if();
+  [[deprecated]] void set_allocated_show_if(::std::string* PROTOBUF_NULLABLE value);
 
   private:
   const ::std::string& _internal_show_if() const;
@@ -339,14 +339,14 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED UIFieldOptions final : public ::goo
   ::std::string* PROTOBUF_NONNULL _internal_mutable_show_if();
 
   public:
-  // string required_if = 7 [json_name = "requiredIf"];
-  void clear_required_if() ;
-  [[nodiscard]] const ::std::string& required_if() const;
+  // string required_if = 7 [json_name = "requiredIf", deprecated = true];
+  [[deprecated]]  void clear_required_if() ;
+  [[nodiscard]] [[deprecated]] const ::std::string& required_if() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_required_if(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_required_if();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_required_if();
-  void set_allocated_required_if(::std::string* PROTOBUF_NULLABLE value);
+  [[deprecated]] void set_required_if(Arg_&& arg, Args_... args);
+  [[deprecated]] ::std::string* PROTOBUF_NONNULL mutable_required_if();
+  [[deprecated]] [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_required_if();
+  [[deprecated]] void set_allocated_required_if(::std::string* PROTOBUF_NULLABLE value);
 
   private:
   const ::std::string& _internal_required_if() const;
@@ -354,26 +354,26 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED UIFieldOptions final : public ::goo
   ::std::string* PROTOBUF_NONNULL _internal_mutable_required_if();
 
   public:
-  // bool sensitive = 4 [json_name = "sensitive"];
-  void clear_sensitive() ;
-  [[nodiscard]] bool sensitive() const;
-  void set_sensitive(bool value);
+  // bool sensitive = 4 [json_name = "sensitive", deprecated = true];
+  [[deprecated]]  void clear_sensitive() ;
+  [[nodiscard]] [[deprecated]] bool sensitive() const;
+  [[deprecated]] void set_sensitive(bool value);
 
   private:
   bool _internal_sensitive() const;
   void _internal_set_sensitive(bool value);
 
   public:
-  // map<string, string> enum_map = 5 [json_name = "enumMap"];
-  [[nodiscard]] int enum_map_size()
+  // map<string, string> enum_map = 5 [json_name = "enumMap", deprecated = true];
+  [[nodiscard]] [[deprecated]]  int enum_map_size()
       const;
   private:
   int _internal_enum_map_size() const;
 
   public:
-  void clear_enum_map() ;
-  [[nodiscard]] const ::google::protobuf::Map<::std::string, ::std::string>& enum_map() const;
-  [[nodiscard]] ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL mutable_enum_map();
+  [[deprecated]]  void clear_enum_map() ;
+  [[nodiscard]] [[deprecated]] const ::google::protobuf::Map<::std::string, ::std::string>& enum_map() const;
+  [[nodiscard]] [[deprecated]] ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL mutable_enum_map();
 
   private:
   const ::google::protobuf::Map<::std::string, ::std::string>& _internal_enum_map() const;
@@ -445,7 +445,7 @@ extern ::google::protobuf::internal::ExtensionIdentifier<
 
 // UIFieldOptions
 
-// string widget = 1 [json_name = "widget"];
+// string widget = 1 [json_name = "widget", deprecated = true];
 inline void UIFieldOptions::clear_widget() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.widget_.ClearToEmpty();
@@ -510,7 +510,7 @@ inline void UIFieldOptions::set_allocated_widget(::std::string* PROTOBUF_NULLABL
   // @@protoc_insertion_point(field_set_allocated:croupier.component.v1.UIFieldOptions.widget)
 }
 
-// string label = 2 [json_name = "label"];
+// string label = 2 [json_name = "label", deprecated = true];
 inline void UIFieldOptions::clear_label() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.label_.ClearToEmpty();
@@ -575,7 +575,7 @@ inline void UIFieldOptions::set_allocated_label(::std::string* PROTOBUF_NULLABLE
   // @@protoc_insertion_point(field_set_allocated:croupier.component.v1.UIFieldOptions.label)
 }
 
-// string placeholder = 3 [json_name = "placeholder"];
+// string placeholder = 3 [json_name = "placeholder", deprecated = true];
 inline void UIFieldOptions::clear_placeholder() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.placeholder_.ClearToEmpty();
@@ -640,7 +640,7 @@ inline void UIFieldOptions::set_allocated_placeholder(::std::string* PROTOBUF_NU
   // @@protoc_insertion_point(field_set_allocated:croupier.component.v1.UIFieldOptions.placeholder)
 }
 
-// bool sensitive = 4 [json_name = "sensitive"];
+// bool sensitive = 4 [json_name = "sensitive", deprecated = true];
 inline void UIFieldOptions::clear_sensitive() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.sensitive_ = false;
@@ -665,7 +665,7 @@ inline void UIFieldOptions::_internal_set_sensitive(bool value) {
   _impl_.sensitive_ = value;
 }
 
-// map<string, string> enum_map = 5 [json_name = "enumMap"];
+// map<string, string> enum_map = 5 [json_name = "enumMap", deprecated = true];
 inline int UIFieldOptions::_internal_enum_map_size() const {
   return _internal_enum_map().size();
 }
@@ -697,7 +697,7 @@ inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL U
   return _internal_mutable_enum_map();
 }
 
-// string show_if = 6 [json_name = "showIf"];
+// string show_if = 6 [json_name = "showIf", deprecated = true];
 inline void UIFieldOptions::clear_show_if() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.show_if_.ClearToEmpty();
@@ -762,7 +762,7 @@ inline void UIFieldOptions::set_allocated_show_if(::std::string* PROTOBUF_NULLAB
   // @@protoc_insertion_point(field_set_allocated:croupier.component.v1.UIFieldOptions.show_if)
 }
 
-// string required_if = 7 [json_name = "requiredIf"];
+// string required_if = 7 [json_name = "requiredIf", deprecated = true];
 inline void UIFieldOptions::clear_required_if() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.required_if_.ClearToEmpty();

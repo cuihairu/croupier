@@ -1,6 +1,6 @@
 # Dashboard Resource/Page 重构 TODO
 
-更新时间：2026-07-22
+更新时间：2026-07-23（P0复审部分阻断已修复，P0仍未整体通过）
 
 本文是 Dashboard 动态页面、函数注册描述符、Page 工作台和运行控制台菜单的重构交接清单。执行 AI 必须按本文推进；审核 AI 以本文和权威设计文档为验收依据。
 
@@ -11,6 +11,24 @@
 - `docs/design/console-dynamic-menu.md`
 - `docs/api/workspace.md`
 - `docs/api/entity.md`
+
+## 执行进度
+
+| 阶段 | 状态 | 完成日期 | 备注 |
+|---|---|---|---|
+| P0-1 冻结强类型模型和命名 | ⏳ 进行中 | | 强类型已新增，但旧 Workspace/Entity/layout 主链路仍存在 |
+| P0-2 升级 SDK/OpenAPI Descriptor v2 | ⏳ 进行中 | | proto 已有 v2，SDK/registry/Resource 采集链路未验收 |
+| P0-3 建立 Descriptor Normalizer | ⏳ 进行中 | | normalizer 已新增，但旧 descriptor 推断仍未完全收敛 |
+| P0-4 Function UI 收敛为单一 Formily | ⏳ 进行中 | | UI 读写主链路已只返回/保存 schema，旧 ui/layout/components 更新请求返回 400；Function 旧 DTO 仍需继续强类型收敛 |
+| P0-5 Resource API 替换旧 Entity API | ⏳ 进行中 | | Resource API 已接 generator，但 SDK v2 语义采集断裂 |
+| P0-6 Page 工作台 API | ⏳ 进行中 | | PageSpec model 已接入 migration；保存/发布/取消发布/回滚已事务化并保存完整 PageSpec；仍需补单测和 scope 字段设计 |
+| P0-7 Console API 和动态菜单 | ⏳ 进行中 | | Console API/frontend unwrap/locale 已修；运行菜单不再推断分类；仍需端到端部署验证 |
+| P0-8 前端 PageSpec Formily Renderer | ❌ 未通过 | | renderer 仍是 TODO 空壳，没有函数执行链路 |
+| P0-9 PageSpec Generator | ⏳ 进行中 | | generator 已接入，但四类端到端和 blocked 语义未验收 |
+| P1-1 WorkspaceEditor 改为 Page 工作台 | ⏳ 待开始 | | |
+| P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 菜单部分迁移，系统菜单仍有旧 Workspace/Object 入口 |
+| P1-3 权限和审计模型迁移 | ⏳ 进行中 | | 权限/审计需按 Page/Resource 重新核验 |
+| P1-4 数据表和迁移脚本 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 到 PageSpec 的一次性迁移未实现 |
 
 ## 0. 硬约束
 
@@ -63,7 +81,7 @@ SDK / OpenAPI / DB Template
 - `internal/logic/function/descriptors_logic.go` 返回 `[]map[string]interface{}`，没有强类型 `FunctionSpec`。
 - descriptor 解析只覆盖 `x-category/x-risk/x-entity/x-operation`，缺 `x-operation-kind/x-placement/x-*-display/page_hint`。
 - `descriptors_logic.go` 中仍存在 `defaultMenu`、`menuSource`、`metadata.menu`、`inferCategory`、`applyEntityMenuDefaults` 等旧推断。
-- `internal/api/function/dto.go` 仍有 `interface{}` DTO，Function UI response 仍可能暴露 `Layout/Components` 旧字段。
+- `internal/api/function/dto.go` 仍有历史 `interface{}` DTO；Function UI response 已不再暴露 `Layout/Components`，旧 `ui/layout/components` 更新请求已在 API 边界拒绝。
 
 目标：
 

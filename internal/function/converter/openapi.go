@@ -282,25 +282,77 @@ func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Opera
 		}
 		op.Extensions["x-operation"] = descriptor.Operation
 	}
+	if len(descriptor.CategoryDisplay) > 0 {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-category-display"] = descriptor.CategoryDisplay
+	}
+	if len(descriptor.EntityDisplay) > 0 {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-entity-display"] = descriptor.EntityDisplay
+	}
+	if len(descriptor.OperationDisplay) > 0 {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-operation-display"] = descriptor.OperationDisplay
+	}
+	if descriptor.OperationKind != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-operation-kind"] = descriptor.OperationKind
+	}
+	if descriptor.Placement != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-placement"] = descriptor.Placement
+	}
+	if descriptor.PageHint != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-page-hint"] = descriptor.PageHint
+	}
+	for key, value := range descriptor.Extensions {
+		if key == "" || value == "" {
+			continue
+		}
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions[key] = value
+	}
 
 	return op, nil
 }
 
 // LocalFunctionDescriptorDesc represents a LocalFunctionDescriptor for conversion
 type LocalFunctionDescriptorDesc struct {
-	ID           string
-	Version      string
-	Tags         []string
-	Summary      string
-	Description  string
-	OperationID  string
-	Deprecated   bool
-	InputSchema  string
-	OutputSchema string
-	Category     string
-	Risk         string
-	Entity       string
-	Operation    string
+	ID               string
+	Version          string
+	Tags             []string
+	Summary          string
+	Description      string
+	OperationID      string
+	Deprecated       bool
+	InputSchema      string
+	OutputSchema     string
+	Category         string
+	Risk             string
+	Entity           string
+	Operation        string
+	CategoryDisplay  map[string]string
+	EntityDisplay    map[string]string
+	OperationDisplay map[string]string
+	OperationKind    string
+	Placement        string
+	PageHint         string
+	Extensions       map[string]string
 }
 
 // ExtractExtension extracts an extension value without the x- prefix

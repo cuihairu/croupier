@@ -30,6 +30,8 @@ func (l *FunctionRouteUpdateLogic) FunctionRouteUpdate(req *FunctionRouteUpdateR
 	if err != nil {
 		return nil, err
 	}
+
+	// Build menu from request
 	nodes := make([]string, 0, len(req.Nodes))
 	for _, n := range req.Nodes {
 		if normalized := sanitizeNodeKey(n); normalized != "" {
@@ -43,24 +45,27 @@ func (l *FunctionRouteUpdateLogic) FunctionRouteUpdate(req *FunctionRouteUpdateR
 		"order":  req.Order,
 		"hidden": req.Hidden,
 	}
-	base := defaultMenu()
-	mergeShallow(base, menu)
-	applyEntityMenuDefaults(base, "", "", functionID)
 
+	// Update metadata
 	meta := fn.Metadata
 	if meta == nil {
 		meta = map[string]interface{}{}
 	}
-	meta["menu"] = base
+	meta["menu"] = menu
 	if err := l.svcCtx.FunctionModel.Update(l.ctx, fn.ID, map[string]interface{}{"metadata": meta}); err != nil {
 		return nil, err
 	}
-	if err := persistFunctionRouteVersion(l.ctx, l.svcCtx, fn.FunctionID, base, "update route config"); err != nil {
+	if err := persistFunctionRouteVersion(l.ctx, l.svcCtx, fn.FunctionID, menu, "update route config"); err != nil {
 		return nil, err
 	}
 
 	return &FunctionRouteResponse{
-		Menu:   normalizeMenuConfig(base),
+		Menu: FunctionRouteConfig{
+			Nodes:  nodes,
+			Path:   strings.TrimSpace(req.Path),
+			Order:  req.Order,
+			Hidden: req.Hidden,
+		},
 		Source: "metadata",
 	}, nil
 }

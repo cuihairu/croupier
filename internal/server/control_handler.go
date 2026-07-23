@@ -17,7 +17,6 @@ import (
 
 	"github.com/cuihairu/croupier/internal/function/converter"
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/platform/registry"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
@@ -392,10 +391,6 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		if f == nil || f.Id == "" {
 			continue
 		}
-		sess.Functions[f.Id] = reg.FunctionMeta{
-			Enabled: f.Enabled,
-			Version: f.Version,
-		}
 		displayName := ""
 		if v := f.GetDisplayName(); v != nil {
 			displayName = v.GetEn()
@@ -404,20 +399,48 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		if v := f.GetSummary(); v != nil {
 			description = v.GetEn()
 		}
+		sess.Functions[f.Id] = reg.FunctionMeta{
+			Enabled:          f.Enabled,
+			Version:          f.Version,
+			Tags:             append([]string(nil), f.Tags...),
+			Summary:          displayName,
+			Description:      description,
+			OperationID:      f.Id,
+			InputSchema:      f.GetInputSchema(),
+			OutputSchema:     f.GetOutputSchema(),
+			Category:         f.GetCategory(),
+			Risk:             f.GetRisk(),
+			Entity:           f.GetEntity(),
+			Operation:        f.GetOperation(),
+			CategoryDisplay:  cloneStringMap(f.GetCategoryDisplay()),
+			EntityDisplay:    cloneStringMap(f.GetEntityDisplay()),
+			OperationDisplay: cloneStringMap(f.GetOperationDisplay()),
+			OperationKind:    f.GetOperationKind(),
+			Placement:        f.GetPlacement(),
+			PageHint:         f.GetPageHint(),
+			Extensions:       cloneStringMap(f.GetExtensions()),
+		}
 		if op, err := converter.ToOpenAPIOperation(converter.LocalFunctionDescriptorDesc{
-			ID:           f.Id,
-			Version:      f.Version,
-			Tags:         f.Tags,
-			Summary:      displayName,
-			Description:  description,
-			OperationID:  f.Id,
-			Deprecated:   false,
-			InputSchema:  f.GetInputSchema(),
-			OutputSchema: f.GetOutputSchema(),
-			Category:     f.GetCategory(),
-			Risk:         f.GetRisk(),
-			Entity:       f.GetEntity(),
-			Operation:    f.GetOperation(),
+			ID:               f.Id,
+			Version:          f.Version,
+			Tags:             f.Tags,
+			Summary:          displayName,
+			Description:      description,
+			OperationID:      f.Id,
+			Deprecated:       false,
+			InputSchema:      f.GetInputSchema(),
+			OutputSchema:     f.GetOutputSchema(),
+			Category:         f.GetCategory(),
+			Risk:             f.GetRisk(),
+			Entity:           f.GetEntity(),
+			Operation:        f.GetOperation(),
+			CategoryDisplay:  f.GetCategoryDisplay(),
+			EntityDisplay:    f.GetEntityDisplay(),
+			OperationDisplay: f.GetOperationDisplay(),
+			OperationKind:    f.GetOperationKind(),
+			Placement:        f.GetPlacement(),
+			PageHint:         f.GetPageHint(),
+			Extensions:       f.GetExtensions(),
 		}); err == nil {
 			if err := s.registry.UpsertOpenAPI(f.Id, op); err != nil {
 				s.logger.Warn("failed to upsert openapi operation from register request", "function_id", f.Id, "error", err)
@@ -506,7 +529,7 @@ func (s *ControlService) handleRegisterCapabilitiesRequest(ctx context.Context, 
 		return nil, fmt.Errorf("invalid manifest (gzip): %w", err)
 	}
 
-	providerCaps := registry.OpenAPIProviderCaps{
+	providerCaps := reg.OpenAPIProviderCaps{
 		ID:         req.Provider.Id,
 		Version:    req.Provider.Version,
 		Lang:       req.Provider.Lang,
@@ -658,6 +681,17 @@ func decompressManifest(data []byte) ([]byte, error) {
 	}
 	defer reader.Close()
 	return io.ReadAll(reader)
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(input))
+	for key, value := range input {
+		out[key] = value
+	}
+	return out
 }
 
 // ControlHandler wraps ControlService to implement the Handler interface.

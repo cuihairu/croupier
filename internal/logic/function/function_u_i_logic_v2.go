@@ -38,8 +38,6 @@ func (l *FunctionUILogicV2) FunctionUI(req *FunctionUIRequest) (*FunctionUIRespo
 
 	return &FunctionUIResponse{
 		Schema:         resolved.Schema,
-		Layout:         resolved.Layout,
-		Components:     resolved.Components,
 		Custom:         resolved.Custom,
 		HasDefault:     resolved.HasDefault,
 		UISource:       resolved.UISource,

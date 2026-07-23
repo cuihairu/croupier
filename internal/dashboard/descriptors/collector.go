@@ -1,0 +1,446 @@
+// Package descriptors collects raw function descriptor data from runtime,
+// OpenAPI, and persisted DB records before normalization.
+package descriptors
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
+	"github.com/cuihairu/croupier/internal/model"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/getkin/kin-openapi/openapi3"
+)
+
+// Collect gathers descriptor inputs for the dashboard Resource/Page model.
+func Collect(ctx context.Context, svcCtx *svc.ServiceContext) []normalizer.DescriptorInput {
+	if svcCtx == nil {
+		return nil
+	}
+
+	byID := map[string]*normalizer.DescriptorInput{}
+	ensure := func(fid string) *normalizer.DescriptorInput {
+		fid = strings.TrimSpace(fid)
+		if fid == "" {
+			return nil
+		}
+		if existing := byID[fid]; existing != nil {
+			return existing
+		}
+		input := &normalizer.DescriptorInput{
+			ID:      fid,
+			Enabled: true,
+		}
+		byID[fid] = input
+		return input
+	}
+
+	if store := svcCtx.RegistryStore; store != nil {
+		store.Mu().RLock()
+		for _, sess := range store.AgentsUnsafe() {
+			if sess == nil {
+				continue
+			}
+			for fid, meta := range sess.Functions {
+				input := ensure(fid)
+				if input == nil {
+					continue
+				}
+				if meta.Version != "" {
+					input.Version = meta.Version
+				}
+				input.Enabled = meta.Enabled
+				mergeRuntimeFunctionMetaInput(input, meta)
+			}
+		}
+		store.Mu().RUnlock()
+
+		for fid, op := range store.ListOpenAPIOperations() {
+			input := ensure(fid)
+			if input != nil {
+				mergeOpenAPIOperationInput(input, op)
+			}
+		}
+	}
+
+	if svcCtx.FunctionModel != nil {
+		templates, err := svcCtx.FunctionModel.ListDescriptorTemplates(ctx, "")
+		if err == nil {
+			for _, template := range templates {
+				input := ensure(template.DescriptorID)
+				if input == nil {
+					continue
+				}
+				mergeDescriptorTemplateInput(input, template)
+			}
+		}
+
+		functions, _, err := svcCtx.FunctionModel.List(ctx, modelListAllFunctions())
+		if err == nil {
+			for _, fn := range functions {
+				input := ensure(fn.FunctionID)
+				if input == nil {
+					continue
+				}
+				mergeFunctionRecordInput(input, fn)
+			}
+		}
+	}
+
+	inputs := make([]normalizer.DescriptorInput, 0, len(byID))
+	for _, input := range byID {
+		if input != nil {
+			inputs = append(inputs, *input)
+		}
+	}
+	sort.Slice(inputs, func(i, j int) bool {
+		return inputs[i].ID < inputs[j].ID
+	})
+	return inputs
+}
+
+func mergeDescriptorTemplateInput(input *normalizer.DescriptorInput, template model.Descriptor) {
+	if input == nil {
+		return
+	}
+	if input.Summary == "" {
+		input.Summary = strings.TrimSpace(firstNonEmpty(template.Name, template.Description))
+	}
+	if input.Description == "" {
+		input.Description = strings.TrimSpace(template.Description)
+	}
+	if input.Category == "" {
+		input.Category = strings.TrimSpace(template.Category)
+	}
+	if input.InputSchema == "" && len(template.Schema) > 0 {
+		if raw, err := json.Marshal(template.Schema); err == nil {
+			input.InputSchema = string(raw)
+		}
+	}
+}
+
+func mergeRuntimeFunctionMetaInput(input *normalizer.DescriptorInput, meta reg.FunctionMeta) {
+	if input == nil {
+		return
+	}
+	if input.Summary == "" {
+		input.Summary = strings.TrimSpace(meta.Summary)
+	}
+	if input.Description == "" {
+		input.Description = strings.TrimSpace(meta.Description)
+	}
+	if input.InputSchema == "" {
+		input.InputSchema = strings.TrimSpace(meta.InputSchema)
+	}
+	if input.OutputSchema == "" {
+		input.OutputSchema = strings.TrimSpace(meta.OutputSchema)
+	}
+	if input.Category == "" {
+		input.Category = strings.TrimSpace(meta.Category)
+	}
+	if input.Entity == "" {
+		input.Entity = strings.TrimSpace(meta.Entity)
+	}
+	if input.Operation == "" {
+		input.Operation = strings.TrimSpace(meta.Operation)
+	}
+	if input.OperationKind == "" {
+		input.OperationKind = strings.TrimSpace(meta.OperationKind)
+	}
+	if input.Placement == "" {
+		input.Placement = strings.TrimSpace(meta.Placement)
+	}
+	if input.PageHint == "" {
+		input.PageHint = strings.TrimSpace(meta.PageHint)
+	}
+	if input.Risk == "" {
+		input.Risk = strings.TrimSpace(meta.Risk)
+	}
+	if input.CategoryDisplay == nil {
+		input.CategoryDisplay = cloneStringMap(meta.CategoryDisplay)
+	}
+	if input.EntityDisplay == nil {
+		input.EntityDisplay = cloneStringMap(meta.EntityDisplay)
+	}
+	if input.OperationDisplay == nil {
+		input.OperationDisplay = cloneStringMap(meta.OperationDisplay)
+	}
+	if input.Tags == nil {
+		input.Tags = append([]string(nil), meta.Tags...)
+	}
+}
+
+func modelListAllFunctions() model.ListFunctionsOptions {
+	return model.ListFunctionsOptions{
+		PaginationOptions: model.PaginationOptions{Page: 1, PageSize: 10000},
+	}
+}
+
+func mergeFunctionRecordInput(input *normalizer.DescriptorInput, fn model.Function) {
+	input.Enabled = fn.Status != 0
+	if fn.Version != "" && input.Version == "" {
+		input.Version = fn.Version
+	}
+	if fn.Category != "" && input.Category == "" {
+		input.Category = fn.Category
+	}
+	if fn.Description != "" {
+		if input.Summary == "" {
+			input.Summary = fn.Description
+		}
+		if input.Description == "" {
+			input.Description = fn.Description
+		}
+	}
+	if len(fn.OpenAPISpec) > 0 {
+		var op openapi3.Operation
+		if raw, err := json.Marshal(fn.OpenAPISpec); err == nil && op.UnmarshalJSON(raw) == nil {
+			mergeOpenAPIOperationInput(input, &op)
+		}
+	}
+	if len(fn.Metadata) > 0 {
+		mergeMetadataInput(input, fn.Metadata)
+	}
+}
+
+func mergeOpenAPIOperationInput(input *normalizer.DescriptorInput, op *openapi3.Operation) {
+	if input == nil || op == nil {
+		return
+	}
+	if input.Summary == "" {
+		input.Summary = strings.TrimSpace(op.Summary)
+	}
+	if input.Description == "" {
+		input.Description = strings.TrimSpace(op.Description)
+	}
+	if schema := openAPIRequestSchema(op); schema != "" && input.InputSchema == "" {
+		input.InputSchema = schema
+	}
+	if schema := openAPIResponseSchema(op); schema != "" && input.OutputSchema == "" {
+		input.OutputSchema = schema
+	}
+	ext := op.Extensions
+	if input.Category == "" {
+		input.Category = stringExtension(ext, "x-category")
+	}
+	if input.Entity == "" {
+		input.Entity = stringExtension(ext, "x-entity")
+	}
+	if input.Operation == "" {
+		input.Operation = stringExtension(ext, "x-operation")
+	}
+	if input.OperationKind == "" {
+		input.OperationKind = stringExtension(ext, "x-operation-kind")
+	}
+	if input.Placement == "" {
+		input.Placement = stringExtension(ext, "x-placement")
+	}
+	if input.PageHint == "" {
+		input.PageHint = stringExtension(ext, "x-page-hint")
+	}
+	if input.Risk == "" {
+		input.Risk = stringExtension(ext, "x-risk")
+	}
+	if input.CategoryDisplay == nil {
+		input.CategoryDisplay = localizedMapExtension(ext, "x-category-display")
+	}
+	if input.EntityDisplay == nil {
+		input.EntityDisplay = localizedMapExtension(ext, "x-entity-display")
+	}
+	if input.OperationDisplay == nil {
+		input.OperationDisplay = localizedMapExtension(ext, "x-operation-display")
+	}
+}
+
+func mergeMetadataInput(input *normalizer.DescriptorInput, metadata map[string]interface{}) {
+	if input == nil || len(metadata) == 0 {
+		return
+	}
+	if input.Category == "" {
+		input.Category = stringExtension(metadata, "category")
+	}
+	if input.Entity == "" {
+		input.Entity = stringExtension(metadata, "entity")
+	}
+	if input.Operation == "" {
+		input.Operation = stringExtension(metadata, "operation")
+	}
+	if input.OperationKind == "" {
+		input.OperationKind = firstNonEmpty(
+			stringExtension(metadata, "operationKind"),
+			stringExtension(metadata, "operation_kind"),
+		)
+	}
+	if input.Placement == "" {
+		input.Placement = stringExtension(metadata, "placement")
+	}
+	if input.PageHint == "" {
+		input.PageHint = firstNonEmpty(
+			stringExtension(metadata, "pageHint"),
+			stringExtension(metadata, "page_hint"),
+		)
+	}
+	if input.CategoryDisplay == nil {
+		input.CategoryDisplay = localizedMapExtension(metadata, "categoryDisplay")
+	}
+	if input.EntityDisplay == nil {
+		input.EntityDisplay = localizedMapExtension(metadata, "entityDisplay")
+	}
+	if input.OperationDisplay == nil {
+		input.OperationDisplay = localizedMapExtension(metadata, "operationDisplay")
+	}
+}
+
+func openAPIRequestSchema(op *openapi3.Operation) string {
+	if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
+		return ""
+	}
+	return mediaSchemaJSON(op.RequestBody.Value.Content)
+}
+
+func openAPIResponseSchema(op *openapi3.Operation) string {
+	if op == nil || op.Responses == nil {
+		return ""
+	}
+	for _, code := range []string{"200", "201", "default"} {
+		if ref := op.Responses.Value(code); ref != nil && ref.Value != nil {
+			if schema := mediaSchemaJSON(ref.Value.Content); schema != "" {
+				return schema
+			}
+		}
+	}
+	for _, ref := range op.Responses.Map() {
+		if ref != nil && ref.Value != nil {
+			if schema := mediaSchemaJSON(ref.Value.Content); schema != "" {
+				return schema
+			}
+		}
+	}
+	return ""
+}
+
+func mediaSchemaJSON(content openapi3.Content) string {
+	if len(content) == 0 {
+		return ""
+	}
+	if media := content.Get("application/json"); media != nil && media.Schema != nil {
+		return schemaRefJSON(media.Schema)
+	}
+	for _, media := range content {
+		if media != nil && media.Schema != nil {
+			return schemaRefJSON(media.Schema)
+		}
+	}
+	return ""
+}
+
+func schemaRefJSON(ref *openapi3.SchemaRef) string {
+	if ref == nil {
+		return ""
+	}
+	var raw []byte
+	var err error
+	if ref.Value != nil {
+		raw, err = json.Marshal(ref.Value)
+	} else if strings.TrimSpace(ref.Ref) != "" {
+		raw, err = json.Marshal(map[string]string{"$ref": ref.Ref})
+	} else {
+		return ""
+	}
+	if err != nil {
+		return ""
+	}
+	return string(raw)
+}
+
+func stringExtension(extensions map[string]interface{}, key string) string {
+	if len(extensions) == 0 || key == "" {
+		return ""
+	}
+	candidates := []string{key}
+	if strings.HasPrefix(key, "x-") {
+		candidates = append(candidates, strings.TrimPrefix(key, "x-"))
+	} else {
+		candidates = append(candidates, "x-"+key)
+	}
+	for _, candidate := range candidates {
+		if raw, ok := extensions[candidate]; ok {
+			switch v := raw.(type) {
+			case string:
+				return strings.TrimSpace(v)
+			case fmt.Stringer:
+				return strings.TrimSpace(v.String())
+			}
+		}
+	}
+	return ""
+}
+
+func localizedMapExtension(extensions map[string]interface{}, key string) map[string]string {
+	if len(extensions) == 0 || key == "" {
+		return nil
+	}
+	candidates := []string{key}
+	if strings.HasPrefix(key, "x-") {
+		candidates = append(candidates, strings.TrimPrefix(key, "x-"))
+	} else {
+		candidates = append(candidates, "x-"+key)
+	}
+	for _, candidate := range candidates {
+		if raw, ok := extensions[candidate]; ok {
+			if result := toStringMap(raw); len(result) > 0 {
+				return result
+			}
+		}
+	}
+	return nil
+}
+
+func toStringMap(raw interface{}) map[string]string {
+	switch v := raw.(type) {
+	case map[string]string:
+		out := make(map[string]string, len(v))
+		for key, value := range v {
+			if strings.TrimSpace(value) != "" {
+				out[key] = strings.TrimSpace(value)
+			}
+		}
+		return out
+	case map[string]interface{}:
+		out := make(map[string]string, len(v))
+		for key, value := range v {
+			if s, ok := value.(string); ok && strings.TrimSpace(s) != "" {
+				out[key] = strings.TrimSpace(s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if v := strings.TrimSpace(value); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(input))
+	for key, value := range input {
+		if strings.TrimSpace(value) != "" {
+			out[key] = strings.TrimSpace(value)
+		}
+	}
+	return out
+}

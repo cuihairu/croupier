@@ -280,18 +280,25 @@ func TestClient_ConvertToLocalFunctions_PreservesOpenAPIMetadata(t *testing.T) {
 	}
 
 	c.descriptors["player.ban"] = FunctionDescriptor{
-		ID:           "player.ban",
-		Version:      "1.0.0",
-		Tags:         []string{"player", "moderation"},
-		Summary:      "Ban player",
-		Description:  "Ban a player account",
-		OperationID:  "banPlayer",
-		InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
-		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
-		Category:     "moderation",
-		Risk:         "high",
-		Entity:       "player",
-		Operation:    "update",
+		ID:               "player.ban",
+		Version:          "1.0.0",
+		Tags:             []string{"player", "moderation"},
+		Summary:          "Ban player",
+		Description:      "Ban a player account",
+		OperationID:      "banPlayer",
+		InputSchema:      `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
+		OutputSchema:     `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+		Category:         "moderation",
+		Risk:             "high",
+		Entity:           "player",
+		Operation:        "ban",
+		CategoryDisplay:  map[string]string{"zh-CN": "运营", "en-US": "Operations"},
+		EntityDisplay:    map[string]string{"zh-CN": "玩家", "en-US": "Player"},
+		OperationDisplay: map[string]string{"zh-CN": "封禁", "en-US": "Ban"},
+		OperationKind:    "action",
+		Placement:        "rowAction",
+		PageHint:         "player.manage",
+		Extensions:       map[string]string{"x-owner": "gm"},
 	}
 	c.handlers["player.ban"] = handler
 
@@ -309,8 +316,17 @@ func TestClient_ConvertToLocalFunctions_PreservesOpenAPIMetadata(t *testing.T) {
 	if got.InputSchema == "" || got.OutputSchema == "" {
 		t.Fatalf("expected schemas to be preserved")
 	}
-	if got.Category != "moderation" || got.Risk != "high" || got.Entity != "player" || got.Operation != "update" {
+	if got.Category != "moderation" || got.Risk != "high" || got.Entity != "player" || got.Operation != "ban" {
 		t.Fatalf("unexpected governance metadata: %#v", got)
+	}
+	if got.OperationKind != "action" || got.Placement != "rowAction" || got.PageHint != "player.manage" {
+		t.Fatalf("unexpected page metadata: %#v", got)
+	}
+	if got.CategoryDisplay["zh-CN"] != "运营" || got.EntityDisplay["zh-CN"] != "玩家" || got.OperationDisplay["zh-CN"] != "封禁" {
+		t.Fatalf("unexpected display metadata: %#v", got)
+	}
+	if got.Extensions["x-owner"] != "gm" {
+		t.Fatalf("unexpected extensions: %#v", got.Extensions)
 	}
 }
 

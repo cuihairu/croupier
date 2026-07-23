@@ -162,21 +162,6 @@ type WorkspaceConfigMeta struct {
 	UpdatedAt string `json:"updatedAt,omitempty"`
 }
 
-// WorkspaceConfig represents a workspace configuration (canonical type from types.go)
-type WorkspaceConfigCanonical struct {
-	ObjectKey   string              `json:"objectKey"`
-	Title       string              `json:"title,omitempty"`
-	Description string              `json:"description,omitempty"`
-	Layout      interface{}         `json:"layout,omitempty"`
-	Published   bool                `json:"published"`
-	Status      string              `json:"status,omitempty"`
-	PublishedAt string              `json:"publishedAt,omitempty"`
-	PublishedBy string              `json:"publishedBy,omitempty"`
-	MenuOrder   int                 `json:"menuOrder"`
-	Version     int                 `json:"version,omitempty"`
-	Meta        WorkspaceConfigMeta `json:"meta,omitempty"`
-}
-
 // WorkspaceConfigDeleteRequest is the request to delete a workspace config
 type WorkspaceConfigDeleteRequest struct {
 	ObjectKey string `uri:"objectKey"`
@@ -194,22 +179,39 @@ type WorkspaceConfigGetRequest struct {
 
 // WorkspaceConfigGetResponse is the response with workspace config
 type WorkspaceConfigGetResponse struct {
-	WorkspaceConfigCanonical
+	ObjectKey   string              `json:"objectKey"`
+	Title       string              `json:"title,omitempty"`
+	Description string              `json:"description,omitempty"`
+	Published   bool                `json:"published"`
+	Status      string              `json:"status,omitempty"`
+	PublishedAt string              `json:"publishedAt,omitempty"`
+	PublishedBy string              `json:"publishedBy,omitempty"`
+	MenuOrder   int                 `json:"menuOrder"`
+	Version     int                 `json:"version,omitempty"`
+	Meta        WorkspaceConfigMeta `json:"meta,omitempty"`
 }
 
 // WorkspaceConfigSaveRequest is the request to save a workspace config
 type WorkspaceConfigSaveRequest struct {
-	ObjectKey   string      `uri:"objectKey"`
-	Title       string      `json:"title"`
-	Description string      `json:"description"`
-	Layout      interface{} `json:"layout,omitempty"`
-	Status      string      `json:"status"`
-	MenuOrder   int         `json:"menuOrder"`
+	ObjectKey   string `uri:"objectKey"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Status      string `json:"status"`
+	MenuOrder   int    `json:"menuOrder"`
 }
 
 // WorkspaceConfigSaveResponse is the response from saving workspace config
 type WorkspaceConfigSaveResponse struct {
-	WorkspaceConfigCanonical
+	ObjectKey   string              `json:"objectKey"`
+	Title       string              `json:"title,omitempty"`
+	Description string              `json:"description,omitempty"`
+	Published   bool                `json:"published"`
+	Status      string              `json:"status,omitempty"`
+	PublishedAt string              `json:"publishedAt,omitempty"`
+	PublishedBy string              `json:"publishedBy,omitempty"`
+	MenuOrder   int                 `json:"menuOrder"`
+	Version     int                 `json:"version,omitempty"`
+	Meta        WorkspaceConfigMeta `json:"meta,omitempty"`
 }
 
 // WorkspaceConfigsListRequest is the request to list all workspace configs
@@ -218,7 +220,7 @@ type WorkspaceConfigsListRequest struct {
 
 // WorkspaceConfigsListResponse is the response with workspace configs list
 type WorkspaceConfigsListResponse struct {
-	Items []WorkspaceConfigCanonical `json:"items"`
+	Items []WorkspaceConfigGetResponse `json:"items"`
 }
 
 // WorkspacePublishRequest is the request to publish a workspace
@@ -239,7 +241,7 @@ type WorkspacePublishedListRequest struct {
 
 // WorkspacePublishedListResponse is the response with published workspaces
 type WorkspacePublishedListResponse struct {
-	Items []WorkspaceConfigCanonical `json:"items"`
+	Items []WorkspaceConfigGetResponse `json:"items"`
 }
 
 // WorkspaceRollbackRequest is the request to rollback a workspace
@@ -308,39 +310,5 @@ type WorkspaceVersionsResponse struct {
 // These map the canonical types to existing service code
 // ============================================================
 
-// Aliases for WorkspaceConfig variants
-const (
-// Using WorkspaceConfig as-is since it's already defined
-)
-
-// Aliases for requests
-type (
-	// Config operations
-	SaveConfigRequestAlias    = WorkspaceConfigSaveRequest
-	GetConfigRequestAlias     = WorkspaceConfigGetRequest
-	DeleteConfigRequestAlias  = WorkspaceConfigDeleteRequest
-	ListConfigsRequestAlias   = WorkspaceConfigsListRequest
-	SaveConfigResponseAlias   = WorkspaceConfigSaveResponse
-	GetConfigResponseAlias    = WorkspaceConfigGetResponse
-	DeleteConfigResponseAlias = WorkspaceConfigDeleteResponse
-	ListConfigsResponseAlias  = WorkspaceConfigsListResponse
-
-	// Publish operations
-	PublishRequestAlias        = WorkspacePublishRequest
-	PublishResponseAlias       = WorkspacePublishResponse
-	UnpublishRequestAlias      = WorkspaceUnpublishRequest
-	UnpublishResponseAlias     = WorkspaceUnpublishResponse
-	ListPublishedRequestAlias  = WorkspacePublishedListRequest
-	ListPublishedResponseAlias = WorkspacePublishedListResponse
-
-	// Version operations
-	VersionsRequestAlias       = WorkspaceVersionsRequest
-	VersionsResponseAlias      = WorkspaceVersionsResponse
-	VersionDetailRequestAlias  = WorkspaceVersionDetailRequest
-	VersionDetailResponseAlias = WorkspaceVersionDetailResponse
-	RollbackRequestAlias       = WorkspaceRollbackRequest
-	RollbackResponseAlias      = WorkspaceRollbackResponse
-)
-
-// Aliases for WorkspaceVersionRecord
-type WorkspaceVersionRecordAlias = WorkspaceVersionRecordCanonical
+// Note: Alias types removed as part of P0-1 cleanup.
+// Use the canonical types directly.

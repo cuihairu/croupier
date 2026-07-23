@@ -1265,14 +1265,21 @@ func TestLocalHandler_HandleProviderConnect_PreservesDescriptorMetadata(t *testi
 		Version:   "1.0.0",
 		Functions: []*sdkv1.LocalFunctionDescriptor{
 			{
-				Id:          "game.player.ban",
-				Version:     "1.2.3",
-				Summary:     "Ban player",
-				Description: "Ban a player account",
-				Category:    "game",
-				Risk:        "danger",
-				Entity:      "player",
-				Operation:   "ban",
+				Id:               "game.player.ban",
+				Version:          "1.2.3",
+				Summary:          "Ban player",
+				Description:      "Ban a player account",
+				Category:         "game",
+				Risk:             "danger",
+				Entity:           "player",
+				Operation:        "ban",
+				CategoryDisplay:  map[string]string{"zh-CN": "运营", "en-US": "Operations"},
+				EntityDisplay:    map[string]string{"zh-CN": "玩家", "en-US": "Player"},
+				OperationDisplay: map[string]string{"zh-CN": "封禁", "en-US": "Ban"},
+				OperationKind:    "action",
+				Placement:        "rowAction",
+				PageHint:         "player.manage",
+				Extensions:       map[string]string{"x-owner": "gm"},
 			},
 		},
 	}
@@ -1290,10 +1297,19 @@ func TestLocalHandler_HandleProviderConnect_PreservesDescriptorMetadata(t *testi
 		assert.Equal(t, "danger", meta.Risk)
 		assert.Equal(t, "player", meta.Entity)
 		assert.Equal(t, "ban", meta.Operation)
+		assert.Equal(t, "action", meta.OperationKind)
+		assert.Equal(t, "rowAction", meta.Placement)
+		assert.Equal(t, "player.manage", meta.PageHint)
+		assert.Equal(t, "运营", meta.CategoryDisplay["zh-CN"])
+		assert.Equal(t, "玩家", meta.EntityDisplay["zh-CN"])
+		assert.Equal(t, "封禁", meta.OperationDisplay["zh-CN"])
+		assert.Equal(t, "gm", meta.Extensions["x-owner"])
 		assert.Contains(t, meta.OpenAPIOperation, `"x-category":"game"`)
 		assert.Contains(t, meta.OpenAPIOperation, `"x-risk":"danger"`)
 		assert.Contains(t, meta.OpenAPIOperation, `"x-entity":"player"`)
 		assert.Contains(t, meta.OpenAPIOperation, `"x-operation":"ban"`)
+		assert.Contains(t, meta.OpenAPIOperation, `"x-operation-kind":"action"`)
+		assert.Contains(t, meta.OpenAPIOperation, `"x-placement":"rowAction"`)
 	}
 }
 

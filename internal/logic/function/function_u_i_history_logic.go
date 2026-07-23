@@ -59,8 +59,6 @@ func (l *FunctionUIHistoryLogic) FunctionUIHistory(req *FunctionUIHistoryRequest
 		var cfg map[string]interface{}
 		if err := json.Unmarshal([]byte(v.Value), &cfg); err == nil {
 			entry.Schema = cfg["schema"]
-			entry.Layout = cfg["layout"]
-			entry.Components = cfg["components"]
 		}
 		items = append(items, entry)
 	}

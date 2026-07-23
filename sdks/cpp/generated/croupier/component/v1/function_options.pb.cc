@@ -380,7 +380,7 @@ const char descriptor_table_protodef_croupier_2fcomponent_2fv1_2ffunction_5fopti
     "\n,croupier/component/v1/function_options"
     ".proto\022\025croupier.component.v1\032 google/pr"
     "otobuf/descriptor.proto\032(croupier/compon"
-    "ent/v1/dashboard_ui.proto\"\303\005\n\017FunctionOp"
+    "ent/v1/dashboard_ui.proto\"\313\005\n\017FunctionOp"
     "tions\022\037\n\013function_id\030\001 \001(\tR\nfunctionId\022\030"
     "\n\007version\030\002 \001(\tR\007version\022\032\n\010category\030\003 \001"
     "(\tR\010category\022\022\n\004risk\030\004 \001(\tR\004risk\022\024\n\005rout"
@@ -393,43 +393,43 @@ const char descriptor_table_protodef_croupier_2fcomponent_2fv1_2ffunction_5fopti
     "encyKey\022B\n\014display_name\030\014 \001(\0132\037.croupier"
     ".component.v1.I18nTextR\013displayName\0229\n\007s"
     "ummary\030\r \001(\0132\037.croupier.component.v1.I18"
-    "nTextR\007summary\022\022\n\004tags\030\016 \003(\tR\004tags\022/\n\004me"
-    "nu\030\017 \001(\0132\033.croupier.component.v1.MenuR\004m"
-    "enu\022G\n\013permissions\030\020 \001(\0132%.croupier.comp"
-    "onent.v1.PermissionSpecR\013permissions\0329\n\013"
-    "LabelsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002"
-    " \001(\tR\005value:\0028\001\"\214\007\n\rEntityOptions\022\033\n\tent"
-    "ity_id\030\001 \001(\tR\010entityId\022\030\n\007version\030\002 \001(\tR"
-    "\007version\022\022\n\004name\030\003 \001(\tR\004name\022 \n\013descript"
-    "ion\030\004 \001(\tR\013description\022\032\n\010category\030\005 \001(\t"
-    "R\010category\022\037\n\013primary_key\030\006 \001(\tR\nprimary"
-    "Key\022#\n\rdisplay_field\030\007 \001(\tR\014displayField"
-    "\022%\n\016title_template\030\010 \001(\tR\rtitleTemplate\022"
-    "!\n\014avatar_field\030\t \001(\tR\013avatarField\022!\n\014st"
-    "atus_field\030\n \001(\tR\013statusField\022)\n\020create_"
-    "functions\030\013 \003(\tR\017createFunctions\022%\n\016read"
-    "_functions\030\014 \003(\tR\rreadFunctions\022)\n\020updat"
-    "e_functions\030\r \003(\tR\017updateFunctions\022)\n\020de"
-    "lete_functions\030\016 \003(\tR\017deleteFunctions\022%\n"
-    "\016list_functions\030\017 \003(\tR\rlistFunctions\022g\n\021"
-    "custom_operations\030\020 \003(\0132:.croupier.compo"
-    "nent.v1.EntityOptions.CustomOperationsEn"
-    "tryR\020customOperations\022B\n\014display_name\030\021 "
-    "\001(\0132\037.croupier.component.v1.I18nTextR\013di"
-    "splayName\0229\n\007summary\030\022 \001(\0132\037.croupier.co"
-    "mponent.v1.I18nTextR\007summary\022\022\n\004tags\030\023 \003"
-    "(\tR\004tags\022/\n\004menu\030\024 \001(\0132\033.croupier.compon"
-    "ent.v1.MenuR\004menu\032C\n\025CustomOperationsEnt"
-    "ry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005val"
-    "ue:\0028\001:d\n\010function\022\036.google.protobuf.Met"
-    "hodOptions\030\271\216\003 \001(\0132&.croupier.component."
-    "v1.FunctionOptionsR\010function:_\n\006entity\022\037"
-    ".google.protobuf.MessageOptions\030\272\216\003 \001(\0132"
-    "$.croupier.component.v1.EntityOptionsR\006e"
-    "ntityBs\n(io.github.cuihairu.croupier.com"
-    "ponent.v1P\001ZEgithub.com/cuihairu/croupie"
-    "r/pkg/pb/croupier/component/v1;component"
-    "v1b\006proto3"
+    "nTextR\007summary\022\022\n\004tags\030\016 \003(\tR\004tags\0223\n\004me"
+    "nu\030\017 \001(\0132\033.croupier.component.v1.MenuB\002\030"
+    "\001R\004menu\022K\n\013permissions\030\020 \001(\0132%.croupier."
+    "component.v1.PermissionSpecB\002\030\001R\013permiss"
+    "ions\0329\n\013LabelsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n"
+    "\005value\030\002 \001(\tR\005value:\0028\001\"\220\007\n\rEntityOption"
+    "s\022\033\n\tentity_id\030\001 \001(\tR\010entityId\022\030\n\007versio"
+    "n\030\002 \001(\tR\007version\022\022\n\004name\030\003 \001(\tR\004name\022 \n\013"
+    "description\030\004 \001(\tR\013description\022\032\n\010catego"
+    "ry\030\005 \001(\tR\010category\022\037\n\013primary_key\030\006 \001(\tR"
+    "\nprimaryKey\022#\n\rdisplay_field\030\007 \001(\tR\014disp"
+    "layField\022%\n\016title_template\030\010 \001(\tR\rtitleT"
+    "emplate\022!\n\014avatar_field\030\t \001(\tR\013avatarFie"
+    "ld\022!\n\014status_field\030\n \001(\tR\013statusField\022)\n"
+    "\020create_functions\030\013 \003(\tR\017createFunctions"
+    "\022%\n\016read_functions\030\014 \003(\tR\rreadFunctions\022"
+    ")\n\020update_functions\030\r \003(\tR\017updateFunctio"
+    "ns\022)\n\020delete_functions\030\016 \003(\tR\017deleteFunc"
+    "tions\022%\n\016list_functions\030\017 \003(\tR\rlistFunct"
+    "ions\022g\n\021custom_operations\030\020 \003(\0132:.croupi"
+    "er.component.v1.EntityOptions.CustomOper"
+    "ationsEntryR\020customOperations\022B\n\014display"
+    "_name\030\021 \001(\0132\037.croupier.component.v1.I18n"
+    "TextR\013displayName\0229\n\007summary\030\022 \001(\0132\037.cro"
+    "upier.component.v1.I18nTextR\007summary\022\022\n\004"
+    "tags\030\023 \003(\tR\004tags\0223\n\004menu\030\024 \001(\0132\033.croupie"
+    "r.component.v1.MenuB\002\030\001R\004menu\032C\n\025CustomO"
+    "perationsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005valu"
+    "e\030\002 \001(\tR\005value:\0028\001:d\n\010function\022\036.google."
+    "protobuf.MethodOptions\030\271\216\003 \001(\0132&.croupie"
+    "r.component.v1.FunctionOptionsR\010function"
+    ":_\n\006entity\022\037.google.protobuf.MessageOpti"
+    "ons\030\272\216\003 \001(\0132$.croupier.component.v1.Enti"
+    "tyOptionsR\006entityBs\n(io.github.cuihairu."
+    "croupier.component.v1P\001ZEgithub.com/cuih"
+    "airu/croupier/pkg/pb/croupier/component/"
+    "v1;componentv1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto_deps[2] = {
@@ -440,7 +440,7 @@ static ::absl::once_flag descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto = {
     false,
     false,
-    2090,
+    2102,
     descriptor_table_protodef_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto,
     "croupier/component/v1/function_options.proto",
     &descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto_once,
@@ -815,7 +815,7 @@ FunctionOptions::_table_ = {
     ::_pbi::TcParser::GetTable<::croupier::component::v1::FunctionOptions>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions"];
+    // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
     {::_pbi::TcParser::FastMtS2,
      {386, 12, 3,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.permissions_)}},
@@ -872,7 +872,7 @@ FunctionOptions::_table_ = {
     {::_pbi::TcParser::FastUR1,
      {114, 0, 0,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.tags_)}},
-    // .croupier.component.v1.Menu menu = 15 [json_name = "menu"];
+    // .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
     {::_pbi::TcParser::FastMtS1,
      {122, 11, 2,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.menu_)}},
@@ -907,9 +907,9 @@ FunctionOptions::_table_ = {
     {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.summary_), _Internal::kHasBitsOffset + 10, 1, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
     // repeated string tags = 14 [json_name = "tags"];
     {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.tags_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // .croupier.component.v1.Menu menu = 15 [json_name = "menu"];
+    // .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.menu_), _Internal::kHasBitsOffset + 11, 2, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
-    // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions"];
+    // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.permissions_), _Internal::kHasBitsOffset + 12, 3, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
   }},
   {{
@@ -1176,14 +1176,14 @@ PROTOBUF_NOINLINE void FunctionOptions::Clear() {
     }
   }
 
-  // .croupier.component.v1.Menu menu = 15 [json_name = "menu"];
+  // .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
   if (CheckHasBit(cached_has_bits, 0x00000800U)) {
     target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
         15, *this_._impl_.menu_, this_._impl_.menu_->GetCachedSize(), target,
         stream);
   }
 
-  // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions"];
+  // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
   if (CheckHasBit(cached_has_bits, 0x00001000U)) {
     target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
         16, *this_._impl_.permissions_, this_._impl_.permissions_->GetCachedSize(), target,
@@ -1293,12 +1293,12 @@ PROTOBUF_NOINLINE void FunctionOptions::Clear() {
       total_size += 1 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.summary_);
     }
-    // .croupier.component.v1.Menu menu = 15 [json_name = "menu"];
+    // .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
     if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       total_size += 1 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.menu_);
     }
-    // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions"];
+    // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
     if (CheckHasBit(cached_has_bits, 0x00001000U)) {
       total_size += 2 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.permissions_);
@@ -2043,7 +2043,7 @@ EntityOptions::_table_ = {
     {::_pbi::TcParser::FastUR2,
      {410, 5, 0,
       PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.tags_)}},
-    // .croupier.component.v1.Menu menu = 20 [json_name = "menu"];
+    // .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
     {::_pbi::TcParser::FastMtS2,
      {418, 18, 2,
       PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.menu_)}},
@@ -2099,7 +2099,7 @@ EntityOptions::_table_ = {
     {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.summary_), _Internal::kHasBitsOffset + 17, 1, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
     // repeated string tags = 19 [json_name = "tags"];
     {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.tags_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // .croupier.component.v1.Menu menu = 20 [json_name = "menu"];
+    // .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.menu_), _Internal::kHasBitsOffset + 18, 2, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
   }},
   {{
@@ -2440,7 +2440,7 @@ PROTOBUF_NOINLINE void EntityOptions::Clear() {
     }
   }
 
-  // .croupier.component.v1.Menu menu = 20 [json_name = "menu"];
+  // .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
   if (CheckHasBit(cached_has_bits, 0x00040000U)) {
     target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
         20, *this_._impl_.menu_, this_._impl_.menu_->GetCachedSize(), target,
@@ -2611,7 +2611,7 @@ PROTOBUF_NOINLINE void EntityOptions::Clear() {
       total_size += 2 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.summary_);
     }
-    // .croupier.component.v1.Menu menu = 20 [json_name = "menu"];
+    // .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
     if (CheckHasBit(cached_has_bits, 0x00040000U)) {
       total_size += 2 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.menu_);

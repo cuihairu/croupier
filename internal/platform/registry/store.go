@@ -18,6 +18,27 @@ import (
 type FunctionMeta struct {
 	Enabled bool
 	Version string
+
+	Tags        []string
+	Summary     string
+	Description string
+	OperationID string
+	Deprecated  bool
+
+	InputSchema  string
+	OutputSchema string
+
+	Category         string
+	Risk             string
+	Entity           string
+	Operation        string
+	CategoryDisplay  map[string]string
+	EntityDisplay    map[string]string
+	OperationDisplay map[string]string
+	OperationKind    string
+	Placement        string
+	PageHint         string
+	Extensions       map[string]string
 }
 
 // ProviderSession represents a single provider registered to an agent (via SDK->Agent local registry).

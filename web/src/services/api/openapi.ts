@@ -13,9 +13,15 @@ import { request } from '@umijs/max';
 // Source: croupier/internal/api/openapi/dto.go OpenAPISpecResponse.Spec
 export type OpenAPIExtensions = {
   'x-category'?: string;
-  'x-risk'?: 'safe' | 'warning' | 'danger';
+  'x-risk'?: 'safe' | 'warning' | 'high' | 'danger';
   'x-entity'?: string;
-  'x-operation'?: 'create' | 'read' | 'update' | 'delete' | 'custom';
+  'x-operation'?: string; // business action key, e.g. "ban", "send", "list"
+  'x-category-display'?: Record<string, string>;
+  'x-entity-display'?: Record<string, string>;
+  'x-operation-display'?: Record<string, string>;
+  'x-operation-kind'?: 'list' | 'get' | 'create' | 'update' | 'delete' | 'action' | 'task' | 'report';
+  'x-placement'?: 'query' | 'tableData' | 'detailData' | 'rowAction' | 'detailAction' | 'toolbarAction' | 'batchAction' | 'standalone';
+  'x-page-hint'?: string;
 };
 
 /**
@@ -64,7 +70,7 @@ export type OpenAPIImportResponse = {
 export type EntityFunctionsResponse = {
   items: Array<{
     id: string;
-    operation: 'create' | 'read' | 'update' | 'delete' | 'custom';
+    operation: string; // business action key, e.g. "ban", "send", "list"
     name: string;
     summary?: string;
   }>;

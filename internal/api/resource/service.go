@@ -1,0 +1,137 @@
+package resource
+
+import (
+	"context"
+	"sort"
+	"strings"
+
+	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
+	"github.com/cuihairu/croupier/internal/dashboard/generator"
+	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/svc"
+)
+
+// Service provides Resource API operations.
+type Service struct {
+	svcCtx *svc.ServiceContext
+}
+
+// NewService creates a new Resource Service.
+func NewService(svcCtx *svc.ServiceContext) *Service {
+	return &Service{svcCtx: svcCtx}
+}
+
+// List returns normalized ResourceSpec list from registered functions.
+func (s *Service) List(ctx context.Context, req *ResourceListRequest) (*ResourceListResponse, error) {
+	// Get all function descriptors and normalize them
+	inputs := descriptors.Collect(ctx, s.svcCtx)
+	_, resources := normalizer.NormalizeBatch(inputs)
+
+	// Convert map to slice
+	items := make([]spec.ResourceSpec, 0, len(resources))
+	for _, r := range resources {
+		if r == nil {
+			continue
+		}
+		// Apply category filter
+		if req.Category != "" && r.Category.Key != req.Category {
+			continue
+		}
+		// Apply search filter
+		if req.Query != "" {
+			q := strings.ToLower(req.Query)
+			if !strings.Contains(strings.ToLower(r.Key), q) &&
+				!matchesLocalizedText(r.Labels, q) {
+				continue
+			}
+		}
+		items = append(items, *r)
+	}
+
+	// Sort by category order, then key
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Category.Order != items[j].Category.Order {
+			return items[i].Category.Order < items[j].Category.Order
+		}
+		return items[i].Key < items[j].Key
+	})
+
+	return &ResourceListResponse{Items: items}, nil
+}
+
+// Detail returns a single ResourceSpec by key.
+func (s *Service) Detail(ctx context.Context, req *ResourceDetailRequest) (*ResourceDetailResponse, error) {
+	inputs := descriptors.Collect(ctx, s.svcCtx)
+	_, resources := normalizer.NormalizeBatch(inputs)
+
+	r, ok := resources[req.ResourceKey]
+	if !ok || r == nil {
+		return nil, ErrResourceNotFound(req.ResourceKey)
+	}
+
+	return &ResourceDetailResponse{Resource: *r}, nil
+}
+
+// Operations returns OperationSpec list for a resource.
+func (s *Service) Operations(ctx context.Context, req *ResourceOperationsRequest) (*ResourceOperationsResponse, error) {
+	inputs := descriptors.Collect(ctx, s.svcCtx)
+	_, resources := normalizer.NormalizeBatch(inputs)
+
+	r, ok := resources[req.ResourceKey]
+	if !ok || r == nil {
+		return nil, ErrResourceNotFound(req.ResourceKey)
+	}
+
+	return &ResourceOperationsResponse{Items: r.Operations}, nil
+}
+
+// GeneratedPages returns generated PageSpec suggestions for a resource.
+func (s *Service) GeneratedPages(ctx context.Context, req *ResourceGeneratedPagesRequest) (*ResourceGeneratedPagesResponse, error) {
+	inputs := descriptors.Collect(ctx, s.svcCtx)
+	_, resources := normalizer.NormalizeBatch(inputs)
+
+	r, ok := resources[req.ResourceKey]
+	if !ok || r == nil {
+		return nil, ErrResourceNotFound(req.ResourceKey)
+	}
+
+	// Use generator to create page suggestions
+	opts := generator.DefaultGenerateOptions()
+	pages := generator.GenerateForResource(*r, opts)
+
+	// Collect all diagnostics
+	var diags []spec.Diagnostic
+	for _, page := range pages {
+		diags = append(diags, page.Diagnostics...)
+	}
+
+	return &ResourceGeneratedPagesResponse{
+		Items:       pages,
+		Diagnostics: diags,
+	}, nil
+}
+
+// matchesLocalizedText checks if any localized text value matches the query.
+func matchesLocalizedText(labels spec.LocalizedText, query string) bool {
+	for _, v := range labels {
+		if strings.Contains(strings.ToLower(v), query) {
+			return true
+		}
+	}
+	return false
+}
+
+// ErrResourceNotFound returns a not-found error for a resource key.
+func ErrResourceNotFound(key string) error {
+	return &ResourceNotFoundError{Key: key}
+}
+
+// ResourceNotFoundError indicates a resource was not found.
+type ResourceNotFoundError struct {
+	Key string
+}
+
+func (e *ResourceNotFoundError) Error() string {
+	return "resource not found: " + e.Key
+}

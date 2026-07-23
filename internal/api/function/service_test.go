@@ -2,6 +2,7 @@ package function
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -66,8 +67,8 @@ func createTestFunction(t *testing.T, db *gorm.DB, functionID, name string) *mod
 	return fn
 }
 
-func testAPIFormilySchema(fieldName, component string) map[string]interface{} {
-	return map[string]interface{}{
+func testAPIFormilySchema(fieldName, component string) json.RawMessage {
+	schema := map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
 			fieldName: map[string]interface{}{
@@ -78,6 +79,11 @@ func testAPIFormilySchema(fieldName, component string) map[string]interface{} {
 			},
 		},
 	}
+	raw, err := json.Marshal(schema)
+	if err != nil {
+		panic(err)
+	}
+	return raw
 }
 
 // Test functionsList
@@ -722,8 +728,6 @@ func TestFunctionUI_RuntimeOnly(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "generated_default", resp.UISource)
 	assert.NotNil(t, resp.Schema)
-	assert.NotNil(t, resp.Layout)
-	assert.NotNil(t, resp.Components)
 }
 
 // Test functionUIUpdate
@@ -736,29 +740,23 @@ func TestFunctionUIUpdate(t *testing.T) {
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
 	schema := testAPIFormilySchema("name", "Input")
-	layout := map[string]interface{}{"type": "form"}
-	components := map[string]interface{}{"fields": []string{}}
 
 	req := &FunctionUIUpdateRequest{
-		ID:         "func1",
-		Schema:     schema,
-		Layout:     layout,
-		Components: components,
+		ID:     "func1",
+		Schema: schema,
 	}
 
 	resp, err := functionUIUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.NotNil(t, resp.Schema)
-	assert.NotNil(t, resp.Layout)
-	assert.NotNil(t, resp.Components)
 
 	// Verify metadata was updated
 	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, "func1")
 	require.NoError(t, err)
 	assert.NotNil(t, fn.Metadata["ui"])
-	assert.NotNil(t, fn.Metadata["layout"])
-	assert.NotNil(t, fn.Metadata["components"])
+	assert.Nil(t, fn.Metadata["layout"])
+	assert.Nil(t, fn.Metadata["components"])
 }
 
 func TestFunctionUIUpdate_NotFound(t *testing.T) {
@@ -1373,10 +1371,8 @@ func TestService_FunctionUIUpdate(t *testing.T) {
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
 	req := &FunctionUIUpdateRequest{
-		ID:         "func1",
-		Schema:     testAPIFormilySchema("name", "Input"),
-		Layout:     map[string]interface{}{},
-		Components: map[string]interface{}{},
+		ID:     "func1",
+		Schema: testAPIFormilySchema("name", "Input"),
 	}
 
 	resp, err := svc.FunctionUIUpdate(ctx, req)
@@ -1758,8 +1754,8 @@ func TestFunctionRoute_NilMetadata(t *testing.T) {
 	resp, err := functionRoute(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.Equal(t, "default", resp.Source)
-	assert.Equal(t, []string{"func1"}, resp.Menu.Nodes)
-	assert.Equal(t, "/game/entities/func1", resp.Menu.Path)
+	assert.Empty(t, resp.Menu.Nodes)
+	assert.Empty(t, resp.Menu.Path)
 }
 
 // Test functionRouteUpdate with nil metadata initially
@@ -1894,10 +1890,8 @@ func TestFunctionUIUpdate_NilValues(t *testing.T) {
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
 	req := &FunctionUIUpdateRequest{
-		ID:         "func1",
-		Schema:     nil,
-		Layout:     nil,
-		Components: nil,
+		ID:     "func1",
+		Schema: nil,
 	}
 
 	resp, err := functionUIUpdate(ctx, svcCtx, req)
@@ -1915,10 +1909,8 @@ func TestFunctionUIUpdate_EmptyValues(t *testing.T) {
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
 	req := &FunctionUIUpdateRequest{
-		ID:         "func1",
-		Schema:     testAPIFormilySchema("name", "Input"),
-		Layout:     map[string]interface{}{},
-		Components: map[string]interface{}{},
+		ID:     "func1",
+		Schema: testAPIFormilySchema("name", "Input"),
 	}
 
 	resp, err := functionUIUpdate(ctx, svcCtx, req)
@@ -2395,7 +2387,7 @@ func TestHandlers_WithBody_Success(t *testing.T) {
 		{"FunctionDelete", nil, `{"functionId":"func1"}`},
 		{"FunctionDisable", nil, `{"functionId":"func1"}`},
 		{"FunctionEnable", nil, `{"functionId":"func1"}`},
-		{"FunctionUIUpdate", nil, `{"id":"func1","schema":{"type":"object","properties":{"name":{"type":"string","title":"name","x-component":"Input","x-decorator":"FormItem"}}},"layout":{},"components":{}}`},
+		{"FunctionUIUpdate", nil, `{"id":"func1","schema":{"type":"object","properties":{"name":{"type":"string","title":"name","x-component":"Input","x-decorator":"FormItem"}}}}`},
 		{"FunctionUIRollback", nil, `{"id":"func1","version":1}`},
 		{"FunctionPermissionsUpdate", nil, `{"id":"func1","permissions":[]}`},
 	}
@@ -2429,6 +2421,10 @@ func TestHandlers_WithBody_Success(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/test", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
 			ctx.Request = req
+			switch tt.name {
+			case "FunctionUIUpdate", "FunctionUIRollback", "FunctionPermissionsUpdate":
+				ctx.Params = gin.Params{{Key: "id", Value: "func1"}}
+			}
 
 			handler(ctx)
 

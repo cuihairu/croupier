@@ -145,20 +145,21 @@ const char descriptor_table_protodef_croupier_2fcomponent_2fv1_2fui_5foptions_2e
     protodesc_cold) = {
     "\n&croupier/component/v1/ui_options.proto"
     "\022\025croupier.component.v1\032 google/protobuf"
-    "/descriptor.proto\"\303\002\n\016UIFieldOptions\022\026\n\006"
-    "widget\030\001 \001(\tR\006widget\022\024\n\005label\030\002 \001(\tR\005lab"
-    "el\022 \n\013placeholder\030\003 \001(\tR\013placeholder\022\034\n\t"
-    "sensitive\030\004 \001(\010R\tsensitive\022M\n\010enum_map\030\005"
-    " \003(\01322.croupier.component.v1.UIFieldOpti"
-    "ons.EnumMapEntryR\007enumMap\022\027\n\007show_if\030\006 \001"
-    "(\tR\006showIf\022\037\n\013required_if\030\007 \001(\tR\nrequire"
-    "dIf\032:\n\014EnumMapEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n"
-    "\005value\030\002 \001(\tR\005value:\0028\001:V\n\002ui\022\035.google.p"
-    "rotobuf.FieldOptions\030\241\226\003 \001(\0132%.croupier."
-    "component.v1.UIFieldOptionsR\002uiBs\n(io.gi"
-    "thub.cuihairu.croupier.component.v1P\001ZEg"
-    "ithub.com/cuihairu/croupier/pkg/pb/croup"
-    "ier/component/v1;componentv1b\006proto3"
+    "/descriptor.proto\"\343\002\n\016UIFieldOptions\022\032\n\006"
+    "widget\030\001 \001(\tB\002\030\001R\006widget\022\030\n\005label\030\002 \001(\tB"
+    "\002\030\001R\005label\022$\n\013placeholder\030\003 \001(\tB\002\030\001R\013pla"
+    "ceholder\022 \n\tsensitive\030\004 \001(\010B\002\030\001R\tsensiti"
+    "ve\022Q\n\010enum_map\030\005 \003(\01322.croupier.componen"
+    "t.v1.UIFieldOptions.EnumMapEntryB\002\030\001R\007en"
+    "umMap\022\033\n\007show_if\030\006 \001(\tB\002\030\001R\006showIf\022#\n\013re"
+    "quired_if\030\007 \001(\tB\002\030\001R\nrequiredIf\032:\n\014EnumM"
+    "apEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\t"
+    "R\005value:\0028\001:\002\030\001:Z\n\002ui\022\035.google.protobuf."
+    "FieldOptions\030\241\226\003 \001(\0132%.croupier.componen"
+    "t.v1.UIFieldOptionsB\002\030\001R\002uiBs\n(io.github"
+    ".cuihairu.croupier.component.v1P\001ZEgithu"
+    "b.com/cuihairu/croupier/pkg/pb/croupier/"
+    "component/v1;componentv1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fcomponent_2fv1_2fui_5foptions_2eproto_deps[1] = {
@@ -168,7 +169,7 @@ static ::absl::once_flag descriptor_table_croupier_2fcomponent_2fv1_2fui_5foptio
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fcomponent_2fv1_2fui_5foptions_2eproto = {
     false,
     false,
-    636,
+    672,
     descriptor_table_protodef_croupier_2fcomponent_2fv1_2fui_5foptions_2eproto,
     "croupier/component/v1/ui_options.proto",
     &descriptor_table_croupier_2fcomponent_2fv1_2fui_5foptions_2eproto_once,
@@ -461,47 +462,47 @@ UIFieldOptions::_table_ = {
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
     {::_pbi::TcParser::MiniParse, {}},
-    // string widget = 1 [json_name = "widget"];
+    // string widget = 1 [json_name = "widget", deprecated = true];
     {::_pbi::TcParser::FastUS1,
      {10, 0, 0,
       PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.widget_)}},
-    // string label = 2 [json_name = "label"];
+    // string label = 2 [json_name = "label", deprecated = true];
     {::_pbi::TcParser::FastUS1,
      {18, 1, 0,
       PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.label_)}},
-    // string placeholder = 3 [json_name = "placeholder"];
+    // string placeholder = 3 [json_name = "placeholder", deprecated = true];
     {::_pbi::TcParser::FastUS1,
      {26, 2, 0,
       PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.placeholder_)}},
-    // bool sensitive = 4 [json_name = "sensitive"];
+    // bool sensitive = 4 [json_name = "sensitive", deprecated = true];
     {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(UIFieldOptions, _impl_.sensitive_), 5>(),
      {32, 5, 0,
       PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.sensitive_)}},
     {::_pbi::TcParser::MiniParse, {}},
-    // string show_if = 6 [json_name = "showIf"];
+    // string show_if = 6 [json_name = "showIf", deprecated = true];
     {::_pbi::TcParser::FastUS1,
      {50, 3, 0,
       PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.show_if_)}},
-    // string required_if = 7 [json_name = "requiredIf"];
+    // string required_if = 7 [json_name = "requiredIf", deprecated = true];
     {::_pbi::TcParser::FastUS1,
      {58, 4, 0,
       PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.required_if_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // string widget = 1 [json_name = "widget"];
+    // string widget = 1 [json_name = "widget", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.widget_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string label = 2 [json_name = "label"];
+    // string label = 2 [json_name = "label", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.label_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string placeholder = 3 [json_name = "placeholder"];
+    // string placeholder = 3 [json_name = "placeholder", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.placeholder_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // bool sensitive = 4 [json_name = "sensitive"];
+    // bool sensitive = 4 [json_name = "sensitive", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.sensitive_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
-    // map<string, string> enum_map = 5 [json_name = "enumMap"];
+    // map<string, string> enum_map = 5 [json_name = "enumMap", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.enum_map_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
-    // string show_if = 6 [json_name = "showIf"];
+    // string show_if = 6 [json_name = "showIf", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.show_if_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string required_if = 7 [json_name = "requiredIf"];
+    // string required_if = 7 [json_name = "requiredIf", deprecated = true];
     {PROTOBUF_FIELD_OFFSET(UIFieldOptions, _impl_.required_if_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   {{
@@ -573,7 +574,7 @@ PROTOBUF_NOINLINE void UIFieldOptions::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string widget = 1 [json_name = "widget"];
+  // string widget = 1 [json_name = "widget", deprecated = true];
   if (CheckHasBit(cached_has_bits, 0x00000001U)) {
     if (!this_._internal_widget().empty()) {
       const ::std::string& _s = this_._internal_widget();
@@ -583,7 +584,7 @@ PROTOBUF_NOINLINE void UIFieldOptions::Clear() {
     }
   }
 
-  // string label = 2 [json_name = "label"];
+  // string label = 2 [json_name = "label", deprecated = true];
   if (CheckHasBit(cached_has_bits, 0x00000002U)) {
     if (!this_._internal_label().empty()) {
       const ::std::string& _s = this_._internal_label();
@@ -593,7 +594,7 @@ PROTOBUF_NOINLINE void UIFieldOptions::Clear() {
     }
   }
 
-  // string placeholder = 3 [json_name = "placeholder"];
+  // string placeholder = 3 [json_name = "placeholder", deprecated = true];
   if (CheckHasBit(cached_has_bits, 0x00000004U)) {
     if (!this_._internal_placeholder().empty()) {
       const ::std::string& _s = this_._internal_placeholder();
@@ -603,7 +604,7 @@ PROTOBUF_NOINLINE void UIFieldOptions::Clear() {
     }
   }
 
-  // bool sensitive = 4 [json_name = "sensitive"];
+  // bool sensitive = 4 [json_name = "sensitive", deprecated = true];
   if (CheckHasBit(cached_has_bits, 0x00000020U)) {
     if (this_._internal_sensitive() != 0) {
       target = stream->EnsureSpace(target);
@@ -612,7 +613,7 @@ PROTOBUF_NOINLINE void UIFieldOptions::Clear() {
     }
   }
 
-  // map<string, string> enum_map = 5 [json_name = "enumMap"];
+  // map<string, string> enum_map = 5 [json_name = "enumMap", deprecated = true];
   if (CheckHasBitForRepeated(cached_has_bits, 0x00000040U)) {
     if (!this_._internal_enum_map().empty()) {
       using MapType = ::google::protobuf::Map<::std::string, ::std::string>;
@@ -647,7 +648,7 @@ PROTOBUF_NOINLINE void UIFieldOptions::Clear() {
     }
   }
 
-  // string show_if = 6 [json_name = "showIf"];
+  // string show_if = 6 [json_name = "showIf", deprecated = true];
   if (CheckHasBit(cached_has_bits, 0x00000008U)) {
     if (!this_._internal_show_if().empty()) {
       const ::std::string& _s = this_._internal_show_if();
@@ -657,7 +658,7 @@ PROTOBUF_NOINLINE void UIFieldOptions::Clear() {
     }
   }
 
-  // string required_if = 7 [json_name = "requiredIf"];
+  // string required_if = 7 [json_name = "requiredIf", deprecated = true];
   if (CheckHasBit(cached_has_bits, 0x00000010U)) {
     if (!this_._internal_required_if().empty()) {
       const ::std::string& _s = this_._internal_required_if();
@@ -693,48 +694,48 @@ PROTOBUF_NOINLINE void UIFieldOptions::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x0000007fU)) {
-    // string widget = 1 [json_name = "widget"];
+    // string widget = 1 [json_name = "widget", deprecated = true];
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_widget().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_widget());
       }
     }
-    // string label = 2 [json_name = "label"];
+    // string label = 2 [json_name = "label", deprecated = true];
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
       if (!this_._internal_label().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_label());
       }
     }
-    // string placeholder = 3 [json_name = "placeholder"];
+    // string placeholder = 3 [json_name = "placeholder", deprecated = true];
     if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       if (!this_._internal_placeholder().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_placeholder());
       }
     }
-    // string show_if = 6 [json_name = "showIf"];
+    // string show_if = 6 [json_name = "showIf", deprecated = true];
     if (CheckHasBit(cached_has_bits, 0x00000008U)) {
       if (!this_._internal_show_if().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_show_if());
       }
     }
-    // string required_if = 7 [json_name = "requiredIf"];
+    // string required_if = 7 [json_name = "requiredIf", deprecated = true];
     if (CheckHasBit(cached_has_bits, 0x00000010U)) {
       if (!this_._internal_required_if().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_required_if());
       }
     }
-    // bool sensitive = 4 [json_name = "sensitive"];
+    // bool sensitive = 4 [json_name = "sensitive", deprecated = true];
     if (CheckHasBit(cached_has_bits, 0x00000020U)) {
       if (this_._internal_sensitive() != 0) {
         total_size += 2;
       }
     }
-    // map<string, string> enum_map = 5 [json_name = "enumMap"];
+    // map<string, string> enum_map = 5 [json_name = "enumMap", deprecated = true];
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000040U)) {
       total_size +=
           1 * ::google::protobuf::internal::FromIntSize(this_._internal_enum_map_size());

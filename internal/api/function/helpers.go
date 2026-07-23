@@ -597,10 +597,14 @@ func functionUI(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUI
 	if err != nil {
 		return nil, err
 	}
+
+	schema, err := rawSchemaFromAny(logicResp.Schema)
+	if err != nil {
+		return nil, err
+	}
+
 	return &FunctionUIResponse{
-		Schema:         logicResp.Schema,
-		Layout:         logicResp.Layout,
-		Components:     logicResp.Components,
+		Schema:         schema,
 		Custom:         boolFromAny(logicResp.Custom),
 		HasDefault:     logicResp.HasDefault,
 		UISource:       logicResp.UISource,
@@ -609,19 +613,23 @@ func functionUI(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUI
 }
 
 func functionUIUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIUpdateRequest) (*FunctionUIResponse, error) {
+	schemaInput, err := schemaInputFromRaw(req.Schema)
+	if err != nil {
+		return nil, err
+	}
 	logicResp, err := logicfunction.NewFunctionUIUpdateLogic(ctx, svcCtx).FunctionUIUpdate(&logicfunction.FunctionUIUpdateRequest{
-		ID:         req.ID,
-		Schema:     req.Schema,
-		Layout:     req.Layout,
-		Components: req.Components,
+		ID:     req.ID,
+		Schema: schemaInput,
 	})
 	if err != nil {
 		return nil, err
 	}
+	schema, err := rawSchemaFromAny(logicResp.Schema)
+	if err != nil {
+		return nil, err
+	}
 	return &FunctionUIResponse{
-		Schema:         logicResp.Schema,
-		Layout:         logicResp.Layout,
-		Components:     logicResp.Components,
+		Schema:         schema,
 		Custom:         boolFromAny(logicResp.Custom),
 		HasDefault:     logicResp.HasDefault,
 		UISource:       stringFromAny(logicResp.UISource),
@@ -638,14 +646,16 @@ func functionUIHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 	}
 	items := make([]FunctionUIHistoryItem, 0, len(logicResp.Items))
 	for _, item := range logicResp.Items {
+		schema, err := rawSchemaFromAny(item.Schema)
+		if err != nil {
+			return nil, err
+		}
 		items = append(items, FunctionUIHistoryItem{
-			Version:    item.Version,
-			Schema:     item.Schema,
-			Layout:     item.Layout,
-			Components: item.Components,
-			Message:    item.Message,
-			CreatedBy:  item.CreatedBy,
-			CreatedAt:  item.CreatedAt,
+			Version:   item.Version,
+			Schema:    schema,
+			Message:   item.Message,
+			CreatedBy: item.CreatedBy,
+			CreatedAt: item.CreatedAt,
 		})
 	}
 	return &FunctionUIHistoryResponse{Items: items}, nil
@@ -661,10 +671,12 @@ func functionUIRollback(ctx context.Context, svcCtx *svc.ServiceContext, req *Fu
 	}
 	current := (*FunctionUIResponse)(nil)
 	if resp, ok := logicResp.Current.(*logicfunction.FunctionUIResponse); ok && resp != nil {
+		schema, err := rawSchemaFromAny(resp.Schema)
+		if err != nil {
+			return nil, err
+		}
 		current = &FunctionUIResponse{
-			Schema:         resp.Schema,
-			Layout:         resp.Layout,
-			Components:     resp.Components,
+			Schema:         schema,
 			Custom:         boolFromAny(resp.Custom),
 			HasDefault:     resp.HasDefault,
 			UISource:       stringFromAny(resp.UISource),
@@ -915,6 +927,45 @@ func boolFromAny(value interface{}) bool {
 		return v
 	}
 	return false
+}
+
+func rawSchemaFromAny(value interface{}) (json.RawMessage, error) {
+	if value == nil {
+		return nil, nil
+	}
+	var raw json.RawMessage
+	switch v := value.(type) {
+	case json.RawMessage:
+		raw = append(json.RawMessage(nil), v...)
+	case []byte:
+		raw = append(json.RawMessage(nil), v...)
+	case string:
+		raw = json.RawMessage(strings.TrimSpace(v))
+	default:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, errorx.NewBadRequest("function UI schema must be JSON serializable")
+		}
+		raw = b
+	}
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	if !json.Valid(raw) {
+		return nil, errorx.NewBadRequest("function UI schema must be valid JSON")
+	}
+	return raw, nil
+}
+
+func schemaInputFromRaw(raw json.RawMessage) (interface{}, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var value interface{}
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, errorx.NewBadRequest("function UI schema must be valid JSON")
+	}
+	return value, nil
 }
 
 func stringFromAny(value interface{}) string {

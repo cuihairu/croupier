@@ -20,10 +20,19 @@ type FunctionDescriptor struct {
 	InputSchema  string   `json:"input_schema"`  // JSON Schema for request body validation
 	OutputSchema string   `json:"output_schema"` // JSON Schema for response body validation
 	Category     string   `json:"category"`      // grouping category
-	Risk         string   `json:"risk"`          // "low"|"medium"|"high"
-	Entity       string   `json:"entity"`        // entity type, e.g. "item", "player"
-	Operation    string   `json:"operation"`     // operation type, e.g. "create", "read", "update", "delete"
+	Risk         string   `json:"risk"`          // "safe"|"warning"|"high"|"danger"
+	Entity       string   `json:"entity"`        // resource key, e.g. "player", "mail"
+	Operation    string   `json:"operation"`     // business action key, e.g. "ban", "send", "list"
 	Enabled      bool     `json:"enabled"`       // whether this function is currently enabled
+
+	// v2 fields for Page generation
+	CategoryDisplay  map[string]string `json:"category_display,omitempty"`  // category multi-language labels
+	EntityDisplay    map[string]string `json:"entity_display,omitempty"`    // entity multi-language labels
+	OperationDisplay map[string]string `json:"operation_display,omitempty"` // operation multi-language labels
+	OperationKind    string            `json:"operation_kind,omitempty"`    // page generation semantic
+	Placement        string            `json:"placement,omitempty"`         // recommended page placement
+	PageHint         string            `json:"page_hint,omitempty"`         // suggested page key
+	Extensions       map[string]string `json:"extensions,omitempty"`        // third-party extensions
 }
 
 // LocalFunctionDescriptor defines a local function descriptor for SDK->Agent registration
@@ -46,10 +55,19 @@ type LocalFunctionDescriptor struct {
 	OutputSchema string `json:"output_schema"` // JSON Schema for response body validation
 
 	// OpenAPI 3.0.3 Extension fields (x-* prefix)
-	Category  string `json:"category"`  // x-category: function category (e.g., "game", "system", "player", "monitoring")
-	Risk      string `json:"risk"`      // x-risk: risk level ("safe", "warning", "danger")
-	Entity    string `json:"entity"`    // x-entity: associated entity type (e.g., "Player", "Item", "Guild")
-	Operation string `json:"operation"` // x-operation: CRUD operation type ("create", "read", "update", "delete", "custom")
+	Category  string `json:"category"`  // x-category: navigation category key
+	Risk      string `json:"risk"`      // x-risk: risk level ("safe", "warning", "high", "danger")
+	Entity    string `json:"entity"`    // x-entity: resource key (e.g., "player", "mail")
+	Operation string `json:"operation"` // x-operation: business action key (e.g., "ban", "send", "list")
+
+	// v2 extension fields for Page generation
+	CategoryDisplay  map[string]string `json:"category_display,omitempty"`  // x-category-display
+	EntityDisplay    map[string]string `json:"entity_display,omitempty"`    // x-entity-display
+	OperationDisplay map[string]string `json:"operation_display,omitempty"` // x-operation-display
+	OperationKind    string            `json:"operation_kind,omitempty"`    // x-operation-kind
+	Placement        string            `json:"placement,omitempty"`         // x-placement
+	PageHint         string            `json:"page_hint,omitempty"`         // x-page-hint
+	Extensions       map[string]string `json:"extensions,omitempty"`        // third-party extensions
 }
 
 // FunctionHandler defines the signature for game function handlers

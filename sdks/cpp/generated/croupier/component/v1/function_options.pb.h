@@ -672,16 +672,16 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED EntityOptions final : public ::goog
   ::croupier::component::v1::I18nText* PROTOBUF_NONNULL _internal_mutable_summary();
 
   public:
-  // .croupier.component.v1.Menu menu = 20 [json_name = "menu"];
-  [[nodiscard]] bool has_menu()
+  // .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
+  [[nodiscard]] [[deprecated]]  bool has_menu()
       const;
-  void clear_menu() ;
-  [[nodiscard]] const ::croupier::component::v1::Menu& menu() const;
-  [[nodiscard]] ::croupier::component::v1::Menu* PROTOBUF_NULLABLE release_menu();
-  ::croupier::component::v1::Menu* PROTOBUF_NONNULL mutable_menu();
-  void set_allocated_menu(::croupier::component::v1::Menu* PROTOBUF_NULLABLE value);
-  void unsafe_arena_set_allocated_menu(::croupier::component::v1::Menu* PROTOBUF_NULLABLE value);
-  ::croupier::component::v1::Menu* PROTOBUF_NULLABLE unsafe_arena_release_menu();
+  [[deprecated]]  void clear_menu() ;
+  [[deprecated]] [[nodiscard]] const ::croupier::component::v1::Menu& menu() const;
+  [[deprecated]] [[nodiscard]] ::croupier::component::v1::Menu* PROTOBUF_NULLABLE release_menu();
+  [[deprecated]] ::croupier::component::v1::Menu* PROTOBUF_NONNULL mutable_menu();
+  [[deprecated]] void set_allocated_menu(::croupier::component::v1::Menu* PROTOBUF_NULLABLE value);
+  [[deprecated]] void unsafe_arena_set_allocated_menu(::croupier::component::v1::Menu* PROTOBUF_NULLABLE value);
+  [[deprecated]] ::croupier::component::v1::Menu* PROTOBUF_NULLABLE unsafe_arena_release_menu();
 
   private:
   const ::croupier::component::v1::Menu& _internal_menu() const;
@@ -1101,32 +1101,32 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionOptions final : public ::go
   ::croupier::component::v1::I18nText* PROTOBUF_NONNULL _internal_mutable_summary();
 
   public:
-  // .croupier.component.v1.Menu menu = 15 [json_name = "menu"];
-  [[nodiscard]] bool has_menu()
+  // .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
+  [[nodiscard]] [[deprecated]]  bool has_menu()
       const;
-  void clear_menu() ;
-  [[nodiscard]] const ::croupier::component::v1::Menu& menu() const;
-  [[nodiscard]] ::croupier::component::v1::Menu* PROTOBUF_NULLABLE release_menu();
-  ::croupier::component::v1::Menu* PROTOBUF_NONNULL mutable_menu();
-  void set_allocated_menu(::croupier::component::v1::Menu* PROTOBUF_NULLABLE value);
-  void unsafe_arena_set_allocated_menu(::croupier::component::v1::Menu* PROTOBUF_NULLABLE value);
-  ::croupier::component::v1::Menu* PROTOBUF_NULLABLE unsafe_arena_release_menu();
+  [[deprecated]]  void clear_menu() ;
+  [[deprecated]] [[nodiscard]] const ::croupier::component::v1::Menu& menu() const;
+  [[deprecated]] [[nodiscard]] ::croupier::component::v1::Menu* PROTOBUF_NULLABLE release_menu();
+  [[deprecated]] ::croupier::component::v1::Menu* PROTOBUF_NONNULL mutable_menu();
+  [[deprecated]] void set_allocated_menu(::croupier::component::v1::Menu* PROTOBUF_NULLABLE value);
+  [[deprecated]] void unsafe_arena_set_allocated_menu(::croupier::component::v1::Menu* PROTOBUF_NULLABLE value);
+  [[deprecated]] ::croupier::component::v1::Menu* PROTOBUF_NULLABLE unsafe_arena_release_menu();
 
   private:
   const ::croupier::component::v1::Menu& _internal_menu() const;
   ::croupier::component::v1::Menu* PROTOBUF_NONNULL _internal_mutable_menu();
 
   public:
-  // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions"];
-  [[nodiscard]] bool has_permissions()
+  // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
+  [[nodiscard]] [[deprecated]]  bool has_permissions()
       const;
-  void clear_permissions() ;
-  [[nodiscard]] const ::croupier::component::v1::PermissionSpec& permissions() const;
-  [[nodiscard]] ::croupier::component::v1::PermissionSpec* PROTOBUF_NULLABLE release_permissions();
-  ::croupier::component::v1::PermissionSpec* PROTOBUF_NONNULL mutable_permissions();
-  void set_allocated_permissions(::croupier::component::v1::PermissionSpec* PROTOBUF_NULLABLE value);
-  void unsafe_arena_set_allocated_permissions(::croupier::component::v1::PermissionSpec* PROTOBUF_NULLABLE value);
-  ::croupier::component::v1::PermissionSpec* PROTOBUF_NULLABLE unsafe_arena_release_permissions();
+  [[deprecated]]  void clear_permissions() ;
+  [[deprecated]] [[nodiscard]] const ::croupier::component::v1::PermissionSpec& permissions() const;
+  [[deprecated]] [[nodiscard]] ::croupier::component::v1::PermissionSpec* PROTOBUF_NULLABLE release_permissions();
+  [[deprecated]] ::croupier::component::v1::PermissionSpec* PROTOBUF_NONNULL mutable_permissions();
+  [[deprecated]] void set_allocated_permissions(::croupier::component::v1::PermissionSpec* PROTOBUF_NULLABLE value);
+  [[deprecated]] void unsafe_arena_set_allocated_permissions(::croupier::component::v1::PermissionSpec* PROTOBUF_NULLABLE value);
+  [[deprecated]] ::croupier::component::v1::PermissionSpec* PROTOBUF_NULLABLE unsafe_arena_release_permissions();
 
   private:
   const ::croupier::component::v1::PermissionSpec& _internal_permissions() const;
@@ -2107,7 +2107,7 @@ FunctionOptions::_internal_mutable_tags() {
   return &_impl_.tags_;
 }
 
-// .croupier.component.v1.Menu menu = 15 [json_name = "menu"];
+// .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
 inline bool FunctionOptions::has_menu() const {
   bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000800U);
   PROTOBUF_ASSUME(!value || _impl_.menu_ != nullptr);
@@ -2200,7 +2200,7 @@ inline void FunctionOptions::set_allocated_menu(::croupier::component::v1::Menu*
   // @@protoc_insertion_point(field_set_allocated:croupier.component.v1.FunctionOptions.menu)
 }
 
-// .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions"];
+// .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
 inline bool FunctionOptions::has_permissions() const {
   bool value = CheckHasBit(_impl_._has_bits_[0], 0x00001000U);
   PROTOBUF_ASSUME(!value || _impl_.permissions_ != nullptr);
@@ -3599,7 +3599,7 @@ EntityOptions::_internal_mutable_tags() {
   return &_impl_.tags_;
 }
 
-// .croupier.component.v1.Menu menu = 20 [json_name = "menu"];
+// .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
 inline bool EntityOptions::has_menu() const {
   bool value = CheckHasBit(_impl_._has_bits_[0], 0x00040000U);
   PROTOBUF_ASSUME(!value || _impl_.menu_ != nullptr);

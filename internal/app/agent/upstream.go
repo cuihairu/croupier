@@ -478,6 +478,13 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 			desc.InputSchema = meta.InputSchema
 			desc.OutputSchema = meta.OutputSchema
 			desc.Tags = meta.Tags
+			desc.CategoryDisplay = meta.CategoryDisplay
+			desc.EntityDisplay = meta.EntityDisplay
+			desc.OperationDisplay = meta.OperationDisplay
+			desc.OperationKind = meta.OperationKind
+			desc.Placement = meta.Placement
+			desc.PageHint = meta.PageHint
+			desc.Extensions = meta.Extensions
 
 			// Set display_name and summary from metadata
 			if meta.Summary != "" {

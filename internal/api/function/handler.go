@@ -1,6 +1,7 @@
 package function
 
 import (
+	"encoding/json"
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
@@ -301,9 +302,23 @@ func (h *Handler) FunctionUI(c *gin.Context) {
 
 func (h *Handler) FunctionUIUpdate(c *gin.Context) {
 	var req FunctionUIUpdateRequest
-	if err := bindFunctionRequest(c, &req); err != nil {
+	if err := c.ShouldBindUri(&req); err != nil {
 		response.Error(c, err)
 		return
+	}
+	var body map[string]json.RawMessage
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Error(c, err)
+		return
+	}
+	for _, field := range []string{"ui", "layout", "components"} {
+		if _, ok := body[field]; ok {
+			response.BadRequest(c, "function UI only accepts Formily schema; field "+field+" is not supported")
+			return
+		}
+	}
+	if raw, ok := body["schema"]; ok {
+		req.Schema = raw
 	}
 
 	resp, err := h.service.FunctionUIUpdate(c.Request.Context(), &req)
@@ -369,7 +384,7 @@ func (h *Handler) Descriptors(c *gin.Context) {
 	}
 
 	logic := logicfunction.NewDescriptorsLogic(c.Request.Context(), h.service.svcCtx)
-	resp, err := logic.Descriptors(&logicfunction.DescriptorsRequest{
+	resp, err := logic.DescriptorsV2(&logicfunction.DescriptorsRequest{
 		GameId: req.GameId,
 	})
 	if err != nil {

@@ -68,74 +68,6 @@ func testFunctionFormilySchema(fieldName, component string) map[string]interface
 	}
 }
 
-func TestInferCategory(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"dot separator", "player.ban", "player"},
-		{"multiple parts", "player.account.get", "player"},
-		{"single part", "player", ""},
-		{"no separator", "getall", ""},
-		{"leading dot", ".player", ""},
-		{"trailing dot", "player.", "player"},
-		{"empty string", "", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := inferCategory(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestDefaultParamsSchema(t *testing.T) {
-	result := defaultParamsSchema()
-	assert.NotNil(t, result)
-	assert.Equal(t, "object", result["type"])
-	assert.NotNil(t, result["properties"])
-}
-
-func TestDefaultMenu(t *testing.T) {
-	result := defaultMenu()
-	assert.NotNil(t, result)
-	assert.Equal(t, []string{}, result["nodes"])
-	assert.Equal(t, "", result["path"])
-	assert.Equal(t, 100, result["order"])
-	assert.Equal(t, false, result["hidden"])
-}
-
-func TestMergeShallow(t *testing.T) {
-	dst := map[string]interface{}{
-		"a": 1,
-		"b": 2,
-	}
-	src := map[string]interface{}{
-		"b": 20,
-		"c": 30,
-	}
-
-	mergeShallow(dst, src)
-
-	assert.Equal(t, 1, dst["a"])
-	assert.Equal(t, 20, dst["b"])
-	assert.Equal(t, 30, dst["c"])
-}
-
-func TestMergeShallowNil(t *testing.T) {
-	dst := map[string]interface{}{"a": 1}
-	src := map[string]interface{}{"b": 2}
-
-	// Nil src should not panic
-	mergeShallow(dst, nil)
-	assert.Equal(t, 1, dst["a"])
-
-	// Nil dst should not panic
-	mergeShallow(nil, src)
-}
-
 func TestFirstNonEmpty(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -180,194 +112,6 @@ func TestSanitizeNodeKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := sanitizeNodeKey(tt.input)
 			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestInferMenuNodes(t *testing.T) {
-	tests := []struct {
-		name     string
-		category string
-		entity   string
-		fid      string
-		wantLen  int
-		contains []string
-	}{
-		{
-			name:     "category and entity",
-			category: "player",
-			entity:   "account",
-			fid:      "player.ban",
-			wantLen:  2,
-			contains: []string{"player", "account"},
-		},
-		{
-			name:     "only category",
-			category: "player",
-			entity:   "",
-			fid:      "",
-			wantLen:  1,
-			contains: []string{"player"},
-		},
-		{
-			name:     "infer from fid",
-			category: "",
-			entity:   "",
-			fid:      "player.ban",
-			wantLen:  2,
-			contains: []string{"player", "player"}, // Both category and entity inferred as "player"
-		},
-		{
-			name:     "fallback to fid",
-			category: "",
-			entity:   "",
-			fid:      "unknown",
-			wantLen:  1,
-			contains: []string{"unknown"},
-		},
-		{
-			name:     "empty all",
-			category: "",
-			entity:   "",
-			fid:      "",
-			wantLen:  1,
-			contains: []string{"general"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := inferMenuNodes(tt.category, tt.entity, tt.fid)
-			assert.Len(t, result, tt.wantLen)
-			for _, c := range tt.contains {
-				assert.Contains(t, result, c)
-			}
-		})
-	}
-}
-
-func TestDefaultFunctionPath(t *testing.T) {
-	tests := []struct {
-		name     string
-		entity   string
-		fid      string
-		expected string
-	}{
-		{
-			name:     "with entity",
-			entity:   "player",
-			fid:      "",
-			expected: "/game/entities/player",
-		},
-		{
-			name:     "infer entity from fid",
-			entity:   "",
-			fid:      "player.ban",
-			expected: "/game/entities/player",
-		},
-		{
-			name:     "no entity - inferEntityOperationFromID finds entity 'unknown'",
-			entity:   "",
-			fid:      "unknown.function",
-			expected: "/game/entities/unknown",
-		},
-		{
-			name:     "no entity - single word fid uses fallback",
-			entity:   "",
-			fid:      "justfunction",
-			expected: "/game/entities/justfunction",
-		},
-		{
-			name:     "no entity - fid with only stopwords uses invoke",
-			entity:   "",
-			fid:      "functions.get",
-			expected: "/game/functions/invoke?fid=functions.get",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := defaultFunctionPath(tt.entity, tt.fid)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestApplyEntityMenuDefaults(t *testing.T) {
-	tests := []struct {
-		name          string
-		initialMenu   map[string]interface{}
-		category      string
-		entity        string
-		fid           string
-		expectNodes   bool
-		expectPath    bool
-		expectedNodes []string
-	}{
-		{
-			name:          "empty menu gets defaults",
-			initialMenu:   map[string]interface{}{},
-			category:      "player",
-			entity:        "account",
-			fid:           "player.ban",
-			expectNodes:   true,
-			expectPath:    true,
-			expectedNodes: []string{"player", "account"},
-		},
-		{
-			name: "existing nodes preserved",
-			initialMenu: map[string]interface{}{
-				"nodes": []string{"custom", "menu"},
-				"path":  "/custom/path",
-			},
-			category:      "player",
-			entity:        "account",
-			fid:           "player.ban",
-			expectNodes:   true,
-			expectPath:    false, // Path already exists
-			expectedNodes: []string{"custom", "menu"},
-		},
-		{
-			name:        "nil menu does not panic and returns unchanged",
-			initialMenu: nil,
-			category:    "player",
-			entity:      "",
-			fid:         "player.ban",
-			expectNodes: false, // Nil menu returns without modification
-			expectPath:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			menu := tt.initialMenu
-			applyEntityMenuDefaults(menu, tt.category, tt.entity, tt.fid)
-
-			if tt.initialMenu == nil {
-				// Nil menu should remain nil (function returns without modification)
-				assert.Nil(t, menu, "nil menu should remain nil")
-				return
-			}
-
-			if menu == nil {
-				t.Fatal("menu should not be nil for non-nil initialMenu")
-			}
-
-			nodes, ok := menu["nodes"].([]string)
-			if tt.expectNodes {
-				assert.True(t, ok, "nodes should be []string")
-				if tt.expectedNodes != nil {
-					assert.Equal(t, tt.expectedNodes, nodes)
-				}
-			}
-
-			path, ok := menu["path"].(string)
-			if tt.expectPath {
-				assert.True(t, ok)
-				assert.NotEmpty(t, path)
-			} else if tt.initialMenu["path"] != nil {
-				assert.Equal(t, tt.initialMenu["path"], path)
-			}
 		})
 	}
 }
@@ -432,78 +176,6 @@ func TestNormalizeTerm(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := normalizeTerm(aliasMap, tt.domain, tt.raw)
 			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestInferEntityOperationFromID(t *testing.T) {
-	tests := []struct {
-		name           string
-		fid            string
-		expectedEntity string
-		expectedOp     string
-	}{
-		{
-			name:           "player.ban",
-			fid:            "player.ban",
-			expectedEntity: "player",
-			expectedOp:     "ban",
-		},
-		{
-			name:           "player.account.get",
-			fid:            "player.account.get",
-			expectedEntity: "account",
-			expectedOp:     "get",
-		},
-		{
-			name:           "create_player",
-			fid:            "create_player",
-			expectedEntity: "player",
-			expectedOp:     "create",
-		},
-		{
-			name:           "prom-query",
-			fid:            "prom-query",
-			expectedEntity: "prom",
-			expectedOp:     "query",
-		},
-		{
-			name:           "just operation",
-			fid:            "get",
-			expectedEntity: "",
-			expectedOp:     "get",
-		},
-		{
-			name:           "just entity",
-			fid:            "player",
-			expectedEntity: "player",
-			expectedOp:     "",
-		},
-		{
-			name:           "unknown",
-			fid:            "unknown",
-			expectedEntity: "unknown",
-			expectedOp:     "",
-		},
-		{
-			name:           "empty",
-			fid:            "",
-			expectedEntity: "",
-			expectedOp:     "",
-		},
-		{
-			name:           "with stopwords",
-			fid:            "functions.player.ban",
-			expectedEntity: "player",
-			expectedOp:     "ban",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			entity, op := inferEntityOperationFromID(tt.fid)
-			assert.Equal(t, tt.expectedEntity, entity)
-			assert.Equal(t, tt.expectedOp, op)
 		})
 	}
 }
@@ -702,6 +374,47 @@ func TestExtractRoleNamesEmpty(t *testing.T) {
 	assert.Empty(t, result)
 }
 
+func TestFunctionsList_RuntimeCategoryUsesRegisteredMetadataOnly(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, model.AutoMigrate(db))
+
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID: "agent-1",
+		GameID:  "game-1",
+		Functions: map[string]reg.FunctionMeta{
+			"player.ban": {
+				Enabled: true,
+				Version: "1.0.0",
+			},
+			"mail.send": {
+				Enabled:  true,
+				Version:  "1.0.0",
+				Category: "ops",
+			},
+		},
+	})
+
+	logic := NewFunctionsListLogic(context.Background(), &svc.ServiceContext{
+		DB:            db,
+		FunctionModel: model.NewFunctionModel(db),
+		RegistryStore: store,
+	})
+
+	resp, err := logic.FunctionsList(&FunctionsListRequest{Page: 1, PageSize: 20})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	byID := map[string]Function{}
+	for _, item := range resp.Items {
+		byID[item.ID] = item
+	}
+
+	assert.Equal(t, "", byID["player.ban"].Category)
+	assert.Equal(t, "ops", byID["mail.send"].Category)
+}
+
 // Tests for FunctionRouteLogic
 func TestFunctionRouteLogic_Constructor(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
@@ -790,67 +503,6 @@ func TestFunctionRouteLogic_FunctionRoute_WithMetadata(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, "metadata", resp.Source)
 	assert.NotNil(t, resp.Menu)
-}
-
-func TestNormalizeMenuConfig(t *testing.T) {
-	tests := []struct {
-		name     string
-		menu     map[string]interface{}
-		expected FunctionRouteConfig
-	}{
-		{
-			name:     "nil menu",
-			menu:     nil,
-			expected: FunctionRouteConfig{Nodes: []string{}, Path: "", Order: 100, Hidden: false},
-		},
-		{
-			name: "full config",
-			menu: map[string]interface{}{
-				"nodes":  []string{"a", "b"},
-				"path":   "/path",
-				"order":  50,
-				"hidden": true,
-			},
-			expected: FunctionRouteConfig{
-				Nodes:  []string{"a", "b"},
-				Path:   "/path",
-				Order:  50,
-				Hidden: true,
-			},
-		},
-		{
-			name: "interface array nodes",
-			menu: map[string]interface{}{
-				"nodes": []interface{}{"a", "b", "c"},
-			},
-			expected: FunctionRouteConfig{
-				Nodes: []string{"a", "b", "c"},
-				Order: 100,
-			},
-		},
-		{
-			name: "float64 order",
-			menu: map[string]interface{}{
-				"order": 42.7,
-			},
-			expected: FunctionRouteConfig{
-				Order: 42,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := normalizeMenuConfig(tt.menu)
-			assert.Equal(t, tt.expected.Order, result.Order)
-			assert.Equal(t, tt.expected.Path, result.Path)
-			assert.Equal(t, tt.expected.Hidden, result.Hidden)
-			// Nodes may be inferred from function ID context
-			if tt.expected.Nodes != nil && len(tt.expected.Nodes) > 0 {
-				assert.Equal(t, tt.expected.Nodes, result.Nodes)
-			}
-		})
-	}
 }
 
 // Tests for FunctionRouteUpdateLogic
@@ -1196,17 +848,6 @@ func TestGetOrCreateFunctionRecord(t *testing.T) {
 	assert.Equal(t, fn1.ID, fn2.ID)
 }
 
-// Tests for normalizeMenuConfig with dirty nodes
-func TestNormalizeMenuConfig_DirtyNodes(t *testing.T) {
-	menu := map[string]interface{}{
-		"nodes": []interface{}{"Dirty Node!", "Another/One", 123, true},
-	}
-	result := normalizeMenuConfig(menu)
-
-	// Should sanitize and filter out non-strings
-	assert.Equal(t, []string{"dirty_node", "another_one"}, result.Nodes)
-}
-
 // Tests for firstNonEmpty edge cases
 func TestFirstNonEmpty_EdgeCases(t *testing.T) {
 	t.Run("all whitespace", func(t *testing.T) {
@@ -1217,21 +858,6 @@ func TestFirstNonEmpty_EdgeCases(t *testing.T) {
 	t.Run("nil slice", func(t *testing.T) {
 		result := firstNonEmpty()
 		assert.Equal(t, "", result)
-	})
-}
-
-// Tests for inferEntityOperationFromID edge cases
-func TestInferEntityOperationFromID_EdgeCases(t *testing.T) {
-	t.Run("with multiple stopwords", func(t *testing.T) {
-		entity, op := inferEntityOperationFromID("packs.functions.player.create")
-		assert.Equal(t, "player", entity)
-		assert.Equal(t, "create", op)
-	})
-
-	t.Run("all stopwords", func(t *testing.T) {
-		entity, op := inferEntityOperationFromID("packs.functions.api")
-		assert.Equal(t, "", entity)
-		assert.Equal(t, "", op)
 	})
 }
 
@@ -1250,33 +876,6 @@ func TestSanitizeNodeKey_EdgeCases(t *testing.T) {
 	t.Run("special chars removed", func(t *testing.T) {
 		result := sanitizeNodeKey("a!@#$b%^&c")
 		assert.Equal(t, "abc", result)
-	})
-}
-
-// Tests for inferMenuNodes edge cases
-func TestInferMenuNodes_EdgeCases(t *testing.T) {
-	t.Run("category and entity need sanitization", func(t *testing.T) {
-		result := inferMenuNodes("Player Category!", "Entity@Name", "")
-		assert.Contains(t, result, "player_category")
-		assert.Contains(t, result, "entityname")
-	})
-
-	t.Run("empty all uses fallback", func(t *testing.T) {
-		result := inferMenuNodes("", "", "")
-		assert.Contains(t, result, "general")
-	})
-}
-
-// Tests for defaultFunctionPath edge cases
-func TestDefaultFunctionPath_EdgeCases(t *testing.T) {
-	t.Run("entity needs sanitization", func(t *testing.T) {
-		result := defaultFunctionPath("Player_Account", "")
-		assert.Equal(t, "/game/entities/player_account", result)
-	})
-
-	t.Run("empty entity and fid", func(t *testing.T) {
-		result := defaultFunctionPath("", "")
-		assert.Equal(t, "/game/functions/invoke?fid=", result)
 	})
 }
 
@@ -1457,92 +1056,6 @@ func TestExtractOperationRequestSchema(t *testing.T) {
 		}
 		result := extractOperationRequestSchema(op)
 		assert.NotNil(t, result)
-	})
-}
-
-// Tests for loadTermDisplayMap
-func TestLoadTermDisplayMap(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	err = db.AutoMigrate(&model.TermDictionary{})
-	require.NoError(t, err)
-
-	// Create test terms (use unique aliases to avoid UNIQUE constraint violations)
-	terms := []model.TermDictionary{
-		{Domain: "entity", TermKey: "player", Alias: "player_alias", DisplayZh: "玩家", DisplayEn: "Player"},
-		{Domain: "entity", TermKey: "game", Alias: "game_alias", DisplayZh: "游戏", DisplayEn: "Game"},
-		{Domain: "operation", TermKey: "ban", Alias: "ban_alias", DisplayZh: "封禁", DisplayEn: "Ban"},
-	}
-	for _, term := range terms {
-		err = db.Create(&term).Error
-		require.NoError(t, err)
-	}
-
-	termModel := model.NewTermDictionaryModel(db)
-	result, err := loadTermDisplayMap(context.Background(), termModel)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, "玩家", result["entity"]["player"]["zh"])
-	assert.Equal(t, "Player", result["entity"]["player"]["en"])
-	assert.Equal(t, "封禁", result["operation"]["ban"]["zh"])
-	assert.Equal(t, "Ban", result["operation"]["ban"]["en"])
-}
-
-// Tests for loadTermDisplayMap with edge cases
-func TestLoadTermDisplayMap_EdgeCases(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	err = db.AutoMigrate(&model.TermDictionary{})
-	require.NoError(t, err)
-
-	t.Run("empty database", func(t *testing.T) {
-		termModel := model.NewTermDictionaryModel(db)
-		result, err := loadTermDisplayMap(context.Background(), termModel)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, result)
-		assert.Empty(t, result)
-	})
-
-	t.Run("with empty values that should be skipped", func(t *testing.T) {
-		// Create terms with empty keys that should be skipped
-		term := model.TermDictionary{
-			Domain:    "",
-			TermKey:   "player",
-			DisplayZh: "玩家",
-		}
-		err = db.Create(&term).Error
-		require.NoError(t, err)
-
-		termModel := model.NewTermDictionaryModel(db)
-		result, err := loadTermDisplayMap(context.Background(), termModel)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, result)
-		// Empty domain should be skipped
-		assert.Empty(t, result)
-	})
-
-	t.Run("with empty display values", func(t *testing.T) {
-		term := model.TermDictionary{
-			Domain:    "entity",
-			TermKey:   "test",
-			DisplayZh: "",
-			DisplayEn: "",
-		}
-		err = db.Create(&term).Error
-		require.NoError(t, err)
-
-		termModel := model.NewTermDictionaryModel(db)
-		result, err := loadTermDisplayMap(context.Background(), termModel)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, result)
-		// Empty values should still create the entry
-		assert.NotNil(t, result["entity"]["test"])
-		assert.Empty(t, result["entity"]["test"]["zh"])
-		assert.Empty(t, result["entity"]["test"]["en"])
 	})
 }
 
@@ -2042,11 +1555,9 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 		assert.True(t, resp.HasDefault)
 		assert.Equal(t, "generated_default", resp.UISource)
 		assert.NotNil(t, resp.Schema)
-		assert.NotNil(t, resp.Layout)
-		assert.NotNil(t, resp.Components)
 	})
 
-	t.Run("with only layout and components in metadata", func(t *testing.T) {
+	t.Run("ignores legacy layout and components in metadata", func(t *testing.T) {
 		customLayout := map[string]interface{}{
 			"type": "vertical",
 			"cols": 1,
@@ -2080,14 +1591,11 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-
-		layout, ok := resp.Layout.(map[string]interface{})
+		assert.NotNil(t, resp.Schema)
+		custom, ok := resp.Custom.(bool)
 		assert.True(t, ok)
-		assert.Equal(t, "vertical", layout["type"])
-
-		components, ok := resp.Components.(map[string]interface{})
-		assert.True(t, ok)
-		assert.NotNil(t, components["field1"])
+		assert.False(t, custom)
+		assert.Equal(t, "generated_default", resp.UISource)
 	})
 
 	t.Run("with complex nested schema", func(t *testing.T) {
@@ -2285,122 +1793,5 @@ func TestUIConfigBaseDirs_EdgeCases(t *testing.T) {
 			}
 		}
 		assert.Equal(t, 1, count, "should have exactly one occurrence")
-	})
-}
-
-// Tests for DescriptorsLogic.Descriptors with more edge cases
-func TestDescriptorsLogic_Descriptors_MoreEdgeCases(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	err = model.AutoMigrate(db)
-	require.NoError(t, err)
-
-	t.Run("with function menu that has empty nodes", func(t *testing.T) {
-		// Create function with empty nodes in menu
-		fn := &model.Function{
-			FunctionID: "test.emptynodes",
-			Name:       "Test",
-			Status:     1,
-			Metadata: map[string]interface{}{
-				"menu": map[string]interface{}{
-					"nodes": []string{},
-				},
-			},
-		}
-		err = db.Create(fn).Error
-		require.NoError(t, err)
-
-		svcCtx := &svc.ServiceContext{
-			DB:              db,
-			FunctionModel:   model.NewFunctionModel(db),
-			RegistryStore:   nil,
-			PermissionModel: nil,
-			TermDictModel:   nil,
-		}
-
-		logic := NewDescriptorsLogic(context.Background(), svcCtx)
-		items, err := logic.Descriptors(&DescriptorsRequest{})
-
-		assert.NoError(t, err)
-		// Should have at least one descriptor
-		assert.GreaterOrEqual(t, len(items), 1)
-	})
-
-	t.Run("with function menu that has nil nodes", func(t *testing.T) {
-		fn := &model.Function{
-			FunctionID: "test.nilnodes",
-			Name:       "Test",
-			Status:     1,
-			Metadata: map[string]interface{}{
-				"menu": map[string]interface{}{
-					"nodes": nil,
-				},
-			},
-		}
-		err = db.Create(fn).Error
-		require.NoError(t, err)
-
-		svcCtx := &svc.ServiceContext{
-			DB:              db,
-			FunctionModel:   model.NewFunctionModel(db),
-			RegistryStore:   nil,
-			PermissionModel: nil,
-			TermDictModel:   nil,
-		}
-
-		logic := NewDescriptorsLogic(context.Background(), svcCtx)
-		items, err := logic.Descriptors(&DescriptorsRequest{})
-
-		assert.NoError(t, err)
-		// Should infer default nodes for nil
-		for _, item := range items {
-			if item["id"] == "test.nilnodes" {
-				menu, ok := item["menu"].(map[string]interface{})
-				assert.True(t, ok)
-				nodes, ok := menu["nodes"].([]string)
-				assert.True(t, ok)
-				assert.NotEmpty(t, nodes, "should infer default nodes for nil")
-			}
-		}
-	})
-}
-
-// Tests for applyEntityMenuDefaults more edge cases
-func TestApplyEntityMenuDefaults_MoreEdgeCases(t *testing.T) {
-	t.Run("interface slice nodes with all invalid entries", func(t *testing.T) {
-		menu := map[string]interface{}{
-			"nodes": []interface{}{123, true, nil},
-		}
-		applyEntityMenuDefaults(menu, "", "", "test.function")
-		nodes, ok := menu["nodes"].([]string)
-		assert.True(t, ok)
-		// Should infer from function ID when all are invalid
-		assert.NotEmpty(t, nodes)
-	})
-
-	t.Run("nodes as interface slice with some valid strings", func(t *testing.T) {
-		menu := map[string]interface{}{
-			"nodes": []interface{}{"valid", 123, "also-valid", true},
-		}
-		applyEntityMenuDefaults(menu, "", "", "test.function")
-		nodes, ok := menu["nodes"].([]string)
-		assert.True(t, ok)
-		assert.Equal(t, []string{"valid", "also-valid"}, nodes)
-	})
-
-	t.Run("preserves custom path", func(t *testing.T) {
-		menu := map[string]interface{}{
-			"path": "/custom/path",
-		}
-		applyEntityMenuDefaults(menu, "", "", "test.function")
-		assert.Equal(t, "/custom/path", menu["path"])
-	})
-
-	t.Run("applies default path when empty", func(t *testing.T) {
-		menu := map[string]interface{}{
-			"path": "",
-		}
-		applyEntityMenuDefaults(menu, "", "", "test.function")
-		assert.NotEmpty(t, menu["path"])
 	})
 }

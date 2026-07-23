@@ -30,42 +30,48 @@ footer: Apache-2.0 License | Copyright © 2024-present Croupier
 
 ## 什么是 Croupier
 
-Croupier 是一个**分布式游戏运营控制面系统**，为单一游戏公司内部的多游戏、多环境运营提供统一的管理能力。通过控制面（Server）、代理（Agent）与多语言 SDK 的协同，实现跨多游戏服务的管理、函数调用、权限控制、审计追踪和数据分析。
+Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，默认服务于单一游戏公司内部的多个游戏与多个环境。当前架构已经收敛到“统一 session 传输”方向：
 
-当前权威架构以统一 TCP session 为默认链路：
-
-- `Dashboard <-> Server`：HTTP REST
-- `Agent <-> Server`：TCP session，默认启用 TLS
-- `SDK / GameServer / 第三方本地应用 <-> Agent`：Agent 本地 gateway，默认 TCP session
+- `Agent <-> Server`：默认采用 `TCP session`，默认启用 `TLS`
+- `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
+- 两条链路共享同一套 session 传输基座，只在首条握手消息和业务语义上区分子协议
 
 ## 系统架构
 
 ```mermaid
 graph TB
   subgraph "展示层"
-    Dashboard[Web Dashboard]
+    UI[Dashboard<br/>React + Ant Design + Formily]
   end
 
   subgraph "控制层"
-    Server[Server<br/>权限/审批/审计/路由]
+    Server[Server<br/>Registry / Dispatch / RBAC / Audit]
   end
 
   subgraph "代理层"
-    Agent1[Agent 1]
-    Agent2[Agent 2]
+    Agent1[Agent 1<br/>Session Client + Local Gateway]
+    Agent2[Agent 2<br/>Session Client + Local Gateway]
   end
 
-  subgraph "游戏服务"
-    GS1[Game Server A]
-    GS2[Game Server B]
+  subgraph "业务层"
+    GS1[Game Server A<br/>SDK / Third-party App]
+    GS2[Game Server B<br/>SDK / Third-party App]
+    GS3[Game Server C<br/>SDK / Third-party App]
   end
 
-  Dashboard -->|HTTP REST| Server
-  Agent1 -->|TCP + TLS| Server
-  Agent2 -->|TCP + TLS| Server
-  GS1 -->|TCP| Agent1
-  GS2 -->|TCP| Agent2
+  UI -->|HTTP REST| Server
+  Agent1 -->|TCP Session + TLS| Server
+  Agent2 -->|TCP Session + TLS| Server
+  GS1 -->|TCP Session| Agent1
+  GS2 -->|TCP Session| Agent2
+  GS3 -->|TCP Session| Agent1
 ```
+
+关键边界说明：
+
+- `Server` 不再依赖反向直连 `Agent` 暴露的 `rpc_addr`
+- `Agent` 本地监听只服务 `GameServer / SDK / 第三方应用`
+- `Server -> Agent` 的 `Invoke / StartTask / CancelTask / Ops` 都应复用既有 `Agent-Server` session
 
 ## 核心能力
 

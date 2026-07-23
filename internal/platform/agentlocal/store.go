@@ -44,10 +44,17 @@ type FunctionMeta struct {
 	OutputSchema string // JSON Schema for response body (OpenAPI 3.0.3)
 
 	// Additional OpenAPI fields
-	Category  string // x-category extension
-	Risk      string // x-risk extension
-	Entity    string // x-entity extension
-	Operation string // x-operation extension (create/read/update/delete/custom)
+	Category         string // x-category extension
+	Risk             string // x-risk extension
+	Entity           string // x-entity extension
+	Operation        string // x-operation extension (business action key)
+	CategoryDisplay  map[string]string
+	EntityDisplay    map[string]string
+	OperationDisplay map[string]string
+	OperationKind    string
+	Placement        string
+	PageHint         string
+	Extensions       map[string]string
 
 	// Full OpenAPI operation as JSON (optional, for advanced use cases)
 	OpenAPIOperation string // Complete OpenAPI 3.0.3 Operation object as JSON string
@@ -136,34 +143,48 @@ func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs
 		}
 		// Store function metadata including OpenAPI schema
 		meta := &FunctionMeta{
-			ID:           fid,
-			Version:      fn.GetVersion(),
-			Tags:         fn.GetTags(),
-			Summary:      fn.GetSummary(),
-			Description:  fn.GetDescription(),
-			OperationID:  fn.GetOperationId(),
-			Deprecated:   fn.GetDeprecated(),
-			InputSchema:  fn.GetInputSchema(),
-			OutputSchema: fn.GetOutputSchema(),
-			Category:     fn.GetCategory(),
-			Risk:         fn.GetRisk(),
-			Entity:       fn.GetEntity(),
-			Operation:    fn.GetOperation(),
+			ID:               fid,
+			Version:          fn.GetVersion(),
+			Tags:             fn.GetTags(),
+			Summary:          fn.GetSummary(),
+			Description:      fn.GetDescription(),
+			OperationID:      fn.GetOperationId(),
+			Deprecated:       fn.GetDeprecated(),
+			InputSchema:      fn.GetInputSchema(),
+			OutputSchema:     fn.GetOutputSchema(),
+			Category:         fn.GetCategory(),
+			Risk:             fn.GetRisk(),
+			Entity:           fn.GetEntity(),
+			Operation:        fn.GetOperation(),
+			CategoryDisplay:  fn.GetCategoryDisplay(),
+			EntityDisplay:    fn.GetEntityDisplay(),
+			OperationDisplay: fn.GetOperationDisplay(),
+			OperationKind:    fn.GetOperationKind(),
+			Placement:        fn.GetPlacement(),
+			PageHint:         fn.GetPageHint(),
+			Extensions:       fn.GetExtensions(),
 		}
 		if op, err := converter.ToOpenAPIOperation(converter.LocalFunctionDescriptorDesc{
-			ID:           meta.ID,
-			Version:      meta.Version,
-			Tags:         meta.Tags,
-			Summary:      meta.Summary,
-			Description:  meta.Description,
-			OperationID:  meta.OperationID,
-			Deprecated:   meta.Deprecated,
-			InputSchema:  meta.InputSchema,
-			OutputSchema: meta.OutputSchema,
-			Category:     meta.Category,
-			Risk:         meta.Risk,
-			Entity:       meta.Entity,
-			Operation:    meta.Operation,
+			ID:               meta.ID,
+			Version:          meta.Version,
+			Tags:             meta.Tags,
+			Summary:          meta.Summary,
+			Description:      meta.Description,
+			OperationID:      meta.OperationID,
+			Deprecated:       meta.Deprecated,
+			InputSchema:      meta.InputSchema,
+			OutputSchema:     meta.OutputSchema,
+			Category:         meta.Category,
+			Risk:             meta.Risk,
+			Entity:           meta.Entity,
+			Operation:        meta.Operation,
+			CategoryDisplay:  meta.CategoryDisplay,
+			EntityDisplay:    meta.EntityDisplay,
+			OperationDisplay: meta.OperationDisplay,
+			OperationKind:    meta.OperationKind,
+			Placement:        meta.Placement,
+			PageHint:         meta.PageHint,
+			Extensions:       meta.Extensions,
 		}); err == nil {
 			if opJSON, marshalErr := json.Marshal(op); marshalErr == nil {
 				meta.OpenAPIOperation = string(opJSON)
@@ -350,9 +371,27 @@ func (s *LocalStore) FunctionMetadata() map[string]*FunctionMeta {
 			Risk:             meta.Risk,
 			Entity:           meta.Entity,
 			Operation:        meta.Operation,
+			CategoryDisplay:  cloneStringMap(meta.CategoryDisplay),
+			EntityDisplay:    cloneStringMap(meta.EntityDisplay),
+			OperationDisplay: cloneStringMap(meta.OperationDisplay),
+			OperationKind:    meta.OperationKind,
+			Placement:        meta.Placement,
+			PageHint:         meta.PageHint,
+			Extensions:       cloneStringMap(meta.Extensions),
 			OpenAPIOperation: meta.OpenAPIOperation,
 		}
 		out[fid] = cp
+	}
+	return out
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(input))
+	for key, value := range input {
+		out[key] = value
 	}
 	return out
 }

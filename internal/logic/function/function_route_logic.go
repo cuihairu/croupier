@@ -31,68 +31,52 @@ func (l *FunctionRouteLogic) FunctionRoute(req *FunctionRouteRequest) (*Function
 	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			base := defaultMenu()
-			applyEntityMenuDefaults(base, "", "", functionID)
-			cfg := normalizeMenuConfig(base)
 			return &FunctionRouteResponse{
-				Menu:   cfg,
+				Menu: FunctionRouteConfig{
+					Nodes:  []string{},
+					Path:   "",
+					Order:  100,
+					Hidden: false,
+				},
 				Source: "default",
 			}, nil
 		}
 		return nil, err
 	}
 
-	menu := defaultMenu()
-	source := "default"
-	if fn.Metadata != nil {
-		if mm, ok := fn.Metadata["menu"].(map[string]interface{}); ok && mm != nil {
-			mergeShallow(menu, mm)
-			source = "metadata"
-		}
-	}
-	applyEntityMenuDefaults(menu, "", "", functionID)
-	return &FunctionRouteResponse{
-		Menu:   normalizeMenuConfig(menu),
-		Source: source,
-	}, nil
-}
-
-func normalizeMenuConfig(menu map[string]interface{}) FunctionRouteConfig {
-	cfg := FunctionRouteConfig{
+	// Extract menu from metadata if exists
+	menu := FunctionRouteConfig{
 		Nodes:  []string{},
 		Path:   "",
 		Order:  100,
 		Hidden: false,
 	}
-	if menu == nil {
-		return cfg
-	}
-	if nodes, ok := menu["nodes"].([]string); ok {
-		cfg.Nodes = append(cfg.Nodes, nodes...)
-	}
-	if arr, ok := menu["nodes"].([]interface{}); ok {
-		for _, item := range arr {
-			if s, ok := item.(string); ok {
-				if normalized := sanitizeNodeKey(s); normalized != "" {
-					cfg.Nodes = append(cfg.Nodes, normalized)
+	source := "default"
+
+	if fn.Metadata != nil {
+		if mm, ok := fn.Metadata["menu"].(map[string]interface{}); ok && mm != nil {
+			if nodes, ok := mm["nodes"].([]interface{}); ok {
+				for _, n := range nodes {
+					if s, ok := n.(string); ok && s != "" {
+						menu.Nodes = append(menu.Nodes, s)
+					}
 				}
 			}
+			if path, ok := mm["path"].(string); ok {
+				menu.Path = path
+			}
+			if order, ok := mm["order"].(float64); ok {
+				menu.Order = int(order)
+			}
+			if hidden, ok := mm["hidden"].(bool); ok {
+				menu.Hidden = hidden
+			}
+			source = "metadata"
 		}
 	}
-	if v, ok := menu["path"].(string); ok {
-		cfg.Path = v
-	}
-	if v, ok := menu["order"].(int); ok {
-		cfg.Order = v
-	}
-	if v, ok := menu["order"].(float64); ok {
-		cfg.Order = int(v)
-	}
-	if v, ok := menu["hidden"].(bool); ok {
-		cfg.Hidden = v
-	}
-	if len(cfg.Nodes) == 0 {
-		cfg.Nodes = inferMenuNodes("", "", "")
-	}
-	return cfg
+
+	return &FunctionRouteResponse{
+		Menu:   menu,
+		Source: source,
+	}, nil
 }

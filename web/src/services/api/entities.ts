@@ -51,7 +51,7 @@ export type EntityPreviewResult = {
 // Source: croupier/internal/api/openapi/dto.go EntityFunctionsResponse.Item.
 export type EntityFunction = {
   id: string;
-  operation?: 'create' | 'read' | 'update' | 'delete' | 'custom' | string;
+  operation?: string; // business action key, e.g. "ban", "send", "list"
   name?: string;
   summary?: string;
 };

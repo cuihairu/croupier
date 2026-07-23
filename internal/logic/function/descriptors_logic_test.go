@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestDescriptors_OpenAPIOperationProvidesParams(t *testing.T) {
+func TestDescriptorsV2_OpenAPIOperationProvidesParams(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
@@ -67,10 +67,15 @@ func TestDescriptors_OpenAPIOperationProvidesParams(t *testing.T) {
 			}),
 		),
 		Extensions: map[string]interface{}{
-			"x-category":  "player",
-			"x-risk":      "high",
-			"x-entity":    "player",
-			"x-operation": "ban",
+			"x-category":          "ops",
+			"x-risk":              "high",
+			"x-entity":            "player",
+			"x-operation":         "ban",
+			"x-operation-kind":    "action",
+			"x-placement":         "rowAction",
+			"x-category-display":  map[string]interface{}{"zh-CN": "运营", "en-US": "Operations"},
+			"x-entity-display":    map[string]interface{}{"zh-CN": "玩家", "en-US": "Player"},
+			"x-operation-display": map[string]interface{}{"zh-CN": "封禁", "en-US": "Ban"},
 		},
 	})
 	if err != nil {
@@ -84,58 +89,99 @@ func TestDescriptors_OpenAPIOperationProvidesParams(t *testing.T) {
 	}
 
 	logic := NewDescriptorsLogic(context.Background(), svcCtx)
-	items, err := logic.Descriptors(&DescriptorsRequest{})
+	result, err := logic.DescriptorsV2(&DescriptorsRequest{})
 	if err != nil {
-		t.Fatalf("descriptors failed: %v", err)
+		t.Fatalf("descriptors v2 failed: %v", err)
 	}
-	if len(items) != 1 {
-		t.Fatalf("expected 1 descriptor, got %d", len(items))
+	if len(result.Functions) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(result.Functions))
 	}
-	item := items[0]
-	if item["id"] != "player.ban" {
-		t.Fatalf("unexpected id: %v", item["id"])
+	fn := result.Functions[0]
+	if fn.ID != "player.ban" {
+		t.Fatalf("unexpected id: %v", fn.ID)
 	}
-	if item["category"] != "player" {
-		t.Fatalf("unexpected category: %v", item["category"])
+	if fn.Category != "ops" {
+		t.Fatalf("unexpected category: %v", fn.Category)
 	}
-	if item["risk"] != "high" {
-		t.Fatalf("unexpected risk: %v", item["risk"])
+	if fn.Risk != "high" {
+		t.Fatalf("unexpected risk: %v", fn.Risk)
 	}
-	if item["entity"] != "player" {
-		t.Fatalf("unexpected entity: %v", item["entity"])
+	if fn.Entity != "player" {
+		t.Fatalf("unexpected entity: %v", fn.Entity)
 	}
-	if item["operation"] != "ban" {
-		t.Fatalf("unexpected operation: %v", item["operation"])
+	if fn.Operation != "ban" {
+		t.Fatalf("unexpected operation: %v", fn.Operation)
 	}
-	if item["description"] != "Ban a player account" {
-		t.Fatalf("unexpected description: %v", item["description"])
+	if fn.OperationKind != "action" {
+		t.Fatalf("unexpected operationKind: %v", fn.OperationKind)
 	}
-	if summary, ok := item["summary"].(map[string]string); !ok || summary["en"] != "Ban a player account" {
-		t.Fatalf("unexpected summary: %#v", item["summary"])
+	if fn.Placement != "rowAction" {
+		t.Fatalf("unexpected placement: %v", fn.Placement)
 	}
-	if displayName, ok := item["displayName"].(map[string]string); !ok || displayName["en"] != "Ban Player" {
-		t.Fatalf("unexpected displayName: %#v", item["displayName"])
+	if fn.CategoryDisplay["zh-CN"] != "运营" || fn.EntityDisplay["zh-CN"] != "玩家" || fn.OperationDisplay["zh-CN"] != "封禁" {
+		t.Fatalf("unexpected localized labels: category=%v entity=%v operation=%v", fn.CategoryDisplay, fn.EntityDisplay, fn.OperationDisplay)
 	}
-	params, ok := item["params"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("params should be object, got %T", item["params"])
+	if fn.Description == nil || !strings.Contains(fn.Description["en-US"], "Ban a player account") {
+		t.Fatalf("unexpected description: %v", fn.Description)
 	}
-	props, ok := params["properties"].(map[string]interface{})
-	if !ok || props["player_id"] == nil {
-		t.Fatalf("expected params.properties.player_id, got %#v", params["properties"])
+	if fn.Summary == nil || !strings.Contains(fn.Summary["en-US"], "Ban") {
+		t.Fatalf("unexpected summary: %v", fn.Summary)
 	}
-	if inputSchema, _ := item["inputSchema"].(string); !strings.Contains(inputSchema, "player_id") {
-		t.Fatalf("expected inputSchema to include player_id, got %q", inputSchema)
+	if fn.DisplayName == nil || !strings.Contains(fn.DisplayName["en-US"], "Ban") {
+		t.Fatalf("unexpected displayName: %v", fn.DisplayName)
 	}
-	outputs, ok := item["outputs"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("outputs should be object, got %T", item["outputs"])
+	if fn.InputSchema == nil {
+		t.Fatalf("inputSchema should not be nil")
 	}
-	outputProps, ok := outputs["properties"].(map[string]interface{})
-	if !ok || outputProps["success"] == nil {
-		t.Fatalf("expected outputs.properties.success, got %#v", outputs["properties"])
+	if !strings.Contains(string(fn.InputSchema), "player_id") {
+		t.Fatalf("expected inputSchema to include player_id, got %q", string(fn.InputSchema))
 	}
-	if outputSchema, _ := item["outputSchema"].(string); !strings.Contains(outputSchema, "success") {
-		t.Fatalf("expected outputSchema to include success, got %q", outputSchema)
+	if fn.OutputSchema == nil {
+		t.Fatalf("outputSchema should not be nil")
+	}
+	if !strings.Contains(string(fn.OutputSchema), "success") {
+		t.Fatalf("expected outputSchema to include success, got %q", string(fn.OutputSchema))
+	}
+}
+
+func TestDescriptorsV2_DoesNotInferPageSemanticsFromFunctionID(t *testing.T) {
+	store := reg.NewStore()
+	if err := store.UpsertOpenAPI("player.ban", &openapi3.Operation{
+		Summary:     "Ban Player",
+		Description: "Ban a player account",
+		Extensions: map[string]interface{}{
+			"x-category":  "ops",
+			"x-risk":      "high",
+			"x-operation": "ban",
+		},
+	}); err != nil {
+		t.Fatalf("upsert openapi failed: %v", err)
+	}
+
+	logic := NewDescriptorsLogic(context.Background(), &svc.ServiceContext{RegistryStore: store})
+	result, err := logic.DescriptorsV2(&DescriptorsRequest{})
+	if err != nil {
+		t.Fatalf("descriptors v2 failed: %v", err)
+	}
+	if len(result.Functions) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(result.Functions))
+	}
+
+	fn := result.Functions[0]
+	if fn.Entity != "" {
+		t.Fatalf("entity must not be inferred from function id, got %q", fn.Entity)
+	}
+	if fn.OperationKind != "" || fn.Placement != "" {
+		t.Fatalf("page semantics must not be inferred, got kind=%q placement=%q", fn.OperationKind, fn.Placement)
+	}
+	if len(fn.Diagnostics) == 0 {
+		t.Fatalf("expected diagnostics for missing v2 page semantics")
+	}
+	codes := map[string]bool{}
+	for _, diag := range fn.Diagnostics {
+		codes[diag.Code] = true
+	}
+	if !codes["operation_kind_missing"] || !codes["placement_missing"] {
+		t.Fatalf("expected missing kind/placement diagnostics, got %#v", fn.Diagnostics)
 	}
 }

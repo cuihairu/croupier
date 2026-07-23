@@ -47,15 +47,19 @@ type FunctionOptions struct {
 	Mode string `protobuf:"bytes,10,opt,name=mode,proto3" json:"mode,omitempty"`
 	// 是否启用幂等键（默认 false）
 	IdempotencyKey bool `protobuf:"varint,11,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
-	// ========== 展示 & 权限（UI/菜单/权限，强类型定义） ==========
+	// ========== 展示元数据（API 文档，仍在使用） ==========
 	// 展示名称与摘要（i18n）
 	DisplayName *I18NText `protobuf:"bytes,12,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	Summary     *I18NText `protobuf:"bytes,13,opt,name=summary,proto3" json:"summary,omitempty"`
 	// 标签
 	Tags []string `protobuf:"bytes,14,rep,name=tags,proto3" json:"tags,omitempty"`
-	// 菜单元数据（用于构建前端菜单）
+	// 已废弃：菜单元数据。由 Server 端 descriptors_logic 和 ui_resolver 生成。
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
 	Menu *Menu `protobuf:"bytes,15,opt,name=menu,proto3" json:"menu,omitempty"`
-	// 权限规范（verbs/scopes/default role grants/i18n）
+	// 已废弃：权限规范。由 Server 端 FunctionPolicy 和 RBAC 系统管理。
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
 	Permissions   *PermissionSpec `protobuf:"bytes,16,opt,name=permissions,proto3" json:"permissions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -189,6 +193,7 @@ func (x *FunctionOptions) GetTags() []string {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
 func (x *FunctionOptions) GetMenu() *Menu {
 	if x != nil {
 		return x.Menu
@@ -196,6 +201,7 @@ func (x *FunctionOptions) GetMenu() *Menu {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
 func (x *FunctionOptions) GetPermissions() *PermissionSpec {
 	if x != nil {
 		return x.Permissions
@@ -239,12 +245,14 @@ type EntityOptions struct {
 	ListFunctions []string `protobuf:"bytes,15,rep,name=list_functions,json=listFunctions,proto3" json:"list_functions,omitempty"`
 	// 自定义操作（key: 操作名, value: 函数ID列表）
 	CustomOperations map[string]string `protobuf:"bytes,16,rep,name=custom_operations,json=customOperations,proto3" json:"custom_operations,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// 实体展示配置（i18n）
+	// ========== 展示元数据（API 文档，仍在使用） ==========
 	DisplayName *I18NText `protobuf:"bytes,17,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	Summary     *I18NText `protobuf:"bytes,18,opt,name=summary,proto3" json:"summary,omitempty"`
-	// 标签
-	Tags []string `protobuf:"bytes,19,rep,name=tags,proto3" json:"tags,omitempty"`
-	// 菜单元数据（用于构建前端菜单）
+	Tags        []string  `protobuf:"bytes,19,rep,name=tags,proto3" json:"tags,omitempty"`
+	// ========== 废弃：UI 菜单元数据 ==========
+	// 已废弃：菜单元数据。由 Server 端 descriptors_logic 生成。
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
 	Menu          *Menu `protobuf:"bytes,20,opt,name=menu,proto3" json:"menu,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -413,6 +421,7 @@ func (x *EntityOptions) GetTags() []string {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
 func (x *EntityOptions) GetMenu() *Menu {
 	if x != nil {
 		return x.Menu
@@ -455,7 +464,7 @@ var File_croupier_component_v1_function_options_proto protoreflect.FileDescripto
 
 const file_croupier_component_v1_function_options_proto_rawDesc = "" +
 	"\n" +
-	",croupier/component/v1/function_options.proto\x12\x15croupier.component.v1\x1a google/protobuf/descriptor.proto\x1a(croupier/component/v1/dashboard_ui.proto\"\xc3\x05\n" +
+	",croupier/component/v1/function_options.proto\x12\x15croupier.component.v1\x1a google/protobuf/descriptor.proto\x1a(croupier/component/v1/dashboard_ui.proto\"\xcb\x05\n" +
 	"\x0fFunctionOptions\x12\x1f\n" +
 	"\vfunction_id\x18\x01 \x01(\tR\n" +
 	"functionId\x12\x18\n" +
@@ -472,12 +481,12 @@ const file_croupier_component_v1_function_options_proto_rawDesc = "" +
 	"\x0fidempotency_key\x18\v \x01(\bR\x0eidempotencyKey\x12B\n" +
 	"\fdisplay_name\x18\f \x01(\v2\x1f.croupier.component.v1.I18nTextR\vdisplayName\x129\n" +
 	"\asummary\x18\r \x01(\v2\x1f.croupier.component.v1.I18nTextR\asummary\x12\x12\n" +
-	"\x04tags\x18\x0e \x03(\tR\x04tags\x12/\n" +
-	"\x04menu\x18\x0f \x01(\v2\x1b.croupier.component.v1.MenuR\x04menu\x12G\n" +
-	"\vpermissions\x18\x10 \x01(\v2%.croupier.component.v1.PermissionSpecR\vpermissions\x1a9\n" +
+	"\x04tags\x18\x0e \x03(\tR\x04tags\x123\n" +
+	"\x04menu\x18\x0f \x01(\v2\x1b.croupier.component.v1.MenuB\x02\x18\x01R\x04menu\x12K\n" +
+	"\vpermissions\x18\x10 \x01(\v2%.croupier.component.v1.PermissionSpecB\x02\x18\x01R\vpermissions\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8c\a\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x90\a\n" +
 	"\rEntityOptions\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
@@ -499,8 +508,8 @@ const file_croupier_component_v1_function_options_proto_rawDesc = "" +
 	"\x11custom_operations\x18\x10 \x03(\v2:.croupier.component.v1.EntityOptions.CustomOperationsEntryR\x10customOperations\x12B\n" +
 	"\fdisplay_name\x18\x11 \x01(\v2\x1f.croupier.component.v1.I18nTextR\vdisplayName\x129\n" +
 	"\asummary\x18\x12 \x01(\v2\x1f.croupier.component.v1.I18nTextR\asummary\x12\x12\n" +
-	"\x04tags\x18\x13 \x03(\tR\x04tags\x12/\n" +
-	"\x04menu\x18\x14 \x01(\v2\x1b.croupier.component.v1.MenuR\x04menu\x1aC\n" +
+	"\x04tags\x18\x13 \x03(\tR\x04tags\x123\n" +
+	"\x04menu\x18\x14 \x01(\v2\x1b.croupier.component.v1.MenuB\x02\x18\x01R\x04menu\x1aC\n" +
 	"\x15CustomOperationsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:d\n" +

@@ -242,17 +242,13 @@ func (s *Service) EntityIndex(ctx context.Context, req *EntityIndexRequest) (*En
 
 	// 2) Scan descriptors from logic layer (DB + pack files)
 	descLogic := logicfunction.NewDescriptorsLogic(ctx, s.svcCtx)
-	descs, err := descLogic.Descriptors(&logicfunction.DescriptorsRequest{})
+	descResult, err := descLogic.DescriptorsV2(&logicfunction.DescriptorsRequest{})
 	if err == nil {
-		for _, d := range descs {
-			fid, _ := d["id"].(string)
-			if fid == "" || seen[fid] {
+		for _, fn := range descResult.Functions {
+			if fn.ID == "" || seen[fn.ID] {
 				continue
 			}
-			entityName, _ := d["entity"].(string)
-			category, _ := d["category"].(string)
-			operation, _ := d["operation"].(string)
-			addFunction(fid, entityName, category, operation)
+			addFunction(fn.ID, fn.Entity, fn.Category, fn.Operation)
 		}
 	}
 
@@ -348,27 +344,29 @@ func (s *Service) EntityFunctionsByName(ctx context.Context, entityName string) 
 
 	// 2) Scan descriptors from logic layer
 	descLogic := logicfunction.NewDescriptorsLogic(ctx, s.svcCtx)
-	descs, err := descLogic.Descriptors(&logicfunction.DescriptorsRequest{})
+	descResult, err := descLogic.DescriptorsV2(&logicfunction.DescriptorsRequest{})
 	if err == nil {
-		for _, d := range descs {
-			fid, _ := d["id"].(string)
-			if fid == "" || seen[fid] {
+		for _, fn := range descResult.Functions {
+			if fn.ID == "" || seen[fn.ID] {
 				continue
 			}
-			ent, _ := d["entity"].(string)
-			if !strings.EqualFold(strings.TrimSpace(ent), entityName) &&
-				!strings.EqualFold(inferEntityFromID(fid), entityName) {
+			if !strings.EqualFold(strings.TrimSpace(fn.Entity), entityName) &&
+				!strings.EqualFold(inferEntityFromID(fn.ID), entityName) {
 				continue
 			}
-			operation, _ := d["operation"].(string)
+			operation := fn.Operation
 			if operation == "" {
 				operation = "custom"
 			}
-			name, _ := d["name"].(string)
-			if name == "" {
-				name = fid
+			name := fn.ID
+			if fn.DisplayName != nil {
+				if n, ok := fn.DisplayName["zh"]; ok && n != "" {
+					name = n
+				} else if n, ok := fn.DisplayName["en"]; ok && n != "" {
+					name = n
+				}
 			}
-			items = append(items, EntityFunction{ID: fid, Operation: operation, Name: name})
+			items = append(items, EntityFunction{ID: fn.ID, Operation: operation, Name: name})
 		}
 	}
 

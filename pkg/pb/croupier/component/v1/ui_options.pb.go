@@ -22,21 +22,45 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// 字段级 UI 元信息（可选）。插件未识别时仅用于 UI，协议不受影响。
+// 已废弃：字段级 UI 元信息。
+//
+// UI 生成完全由 Server 端负责（见 docs/architecture/ui-generation.md）。
+// Proto 层只定义 API 契约（类型、约束、语义），不定义展示细节。
+// 字段的 widget、label、placeholder、条件显示等应由以下方式提供：
+//  1. Server 端从 JSON Schema 自动推导
+//  2. configs/ui/ 文件级配置覆盖
+//  3. Dashboard UI 编辑器持久化
+//
+// 保留此消息定义以维持 wire 兼容性，新代码不应使用。
+//
+// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 type UIFieldOptions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 组件：input/textarea/number/select/checkbox/radio/switch/date/time/json-editor/file
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 	Widget string `protobuf:"bytes,1,opt,name=widget,proto3" json:"widget,omitempty"`
 	// 标签文本/i18n key
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
 	// 占位符
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 	Placeholder string `protobuf:"bytes,3,opt,name=placeholder,proto3" json:"placeholder,omitempty"`
 	// 敏感字段（审计脱敏）
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 	Sensitive bool `protobuf:"varint,4,opt,name=sensitive,proto3" json:"sensitive,omitempty"`
 	// 静态枚举：value→label
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 	EnumMap map[string]string `protobuf:"bytes,5,rep,name=enum_map,json=enumMap,proto3" json:"enum_map,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// 显隐/必填（表达式，CEL 语义，基于请求体字段）
-	ShowIf        string `protobuf:"bytes,6,opt,name=show_if,json=showIf,proto3" json:"show_if,omitempty"`
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
+	ShowIf string `protobuf:"bytes,6,opt,name=show_if,json=showIf,proto3" json:"show_if,omitempty"`
+	// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 	RequiredIf    string `protobuf:"bytes,7,opt,name=required_if,json=requiredIf,proto3" json:"required_if,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -72,6 +96,7 @@ func (*UIFieldOptions) Descriptor() ([]byte, []int) {
 	return file_croupier_component_v1_ui_options_proto_rawDescGZIP(), []int{0}
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 func (x *UIFieldOptions) GetWidget() string {
 	if x != nil {
 		return x.Widget
@@ -79,6 +104,7 @@ func (x *UIFieldOptions) GetWidget() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 func (x *UIFieldOptions) GetLabel() string {
 	if x != nil {
 		return x.Label
@@ -86,6 +112,7 @@ func (x *UIFieldOptions) GetLabel() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 func (x *UIFieldOptions) GetPlaceholder() string {
 	if x != nil {
 		return x.Placeholder
@@ -93,6 +120,7 @@ func (x *UIFieldOptions) GetPlaceholder() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 func (x *UIFieldOptions) GetSensitive() bool {
 	if x != nil {
 		return x.Sensitive
@@ -100,6 +128,7 @@ func (x *UIFieldOptions) GetSensitive() bool {
 	return false
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 func (x *UIFieldOptions) GetEnumMap() map[string]string {
 	if x != nil {
 		return x.EnumMap
@@ -107,6 +136,7 @@ func (x *UIFieldOptions) GetEnumMap() map[string]string {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 func (x *UIFieldOptions) GetShowIf() string {
 	if x != nil {
 		return x.ShowIf
@@ -114,6 +144,7 @@ func (x *UIFieldOptions) GetShowIf() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 func (x *UIFieldOptions) GetRequiredIf() string {
 	if x != nil {
 		return x.RequiredIf
@@ -135,6 +166,8 @@ var file_croupier_component_v1_ui_options_proto_extTypes = []protoimpl.Extension
 // Extension fields to descriptorpb.FieldOptions.
 var (
 	// optional croupier.component.v1.UIFieldOptions ui = 52001;
+	//
+	// Deprecated: Marked as deprecated in croupier/component/v1/ui_options.proto.
 	E_Ui = &file_croupier_component_v1_ui_options_proto_extTypes[0]
 )
 
@@ -142,20 +175,20 @@ var File_croupier_component_v1_ui_options_proto protoreflect.FileDescriptor
 
 const file_croupier_component_v1_ui_options_proto_rawDesc = "" +
 	"\n" +
-	"&croupier/component/v1/ui_options.proto\x12\x15croupier.component.v1\x1a google/protobuf/descriptor.proto\"\xc3\x02\n" +
-	"\x0eUIFieldOptions\x12\x16\n" +
-	"\x06widget\x18\x01 \x01(\tR\x06widget\x12\x14\n" +
-	"\x05label\x18\x02 \x01(\tR\x05label\x12 \n" +
-	"\vplaceholder\x18\x03 \x01(\tR\vplaceholder\x12\x1c\n" +
-	"\tsensitive\x18\x04 \x01(\bR\tsensitive\x12M\n" +
-	"\benum_map\x18\x05 \x03(\v22.croupier.component.v1.UIFieldOptions.EnumMapEntryR\aenumMap\x12\x17\n" +
-	"\ashow_if\x18\x06 \x01(\tR\x06showIf\x12\x1f\n" +
-	"\vrequired_if\x18\a \x01(\tR\n" +
+	"&croupier/component/v1/ui_options.proto\x12\x15croupier.component.v1\x1a google/protobuf/descriptor.proto\"\xe3\x02\n" +
+	"\x0eUIFieldOptions\x12\x1a\n" +
+	"\x06widget\x18\x01 \x01(\tB\x02\x18\x01R\x06widget\x12\x18\n" +
+	"\x05label\x18\x02 \x01(\tB\x02\x18\x01R\x05label\x12$\n" +
+	"\vplaceholder\x18\x03 \x01(\tB\x02\x18\x01R\vplaceholder\x12 \n" +
+	"\tsensitive\x18\x04 \x01(\bB\x02\x18\x01R\tsensitive\x12Q\n" +
+	"\benum_map\x18\x05 \x03(\v22.croupier.component.v1.UIFieldOptions.EnumMapEntryB\x02\x18\x01R\aenumMap\x12\x1b\n" +
+	"\ashow_if\x18\x06 \x01(\tB\x02\x18\x01R\x06showIf\x12#\n" +
+	"\vrequired_if\x18\a \x01(\tB\x02\x18\x01R\n" +
 	"requiredIf\x1a:\n" +
 	"\fEnumMapEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:V\n" +
-	"\x02ui\x12\x1d.google.protobuf.FieldOptions\x18\xa1\x96\x03 \x01(\v2%.croupier.component.v1.UIFieldOptionsR\x02uiBs\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:\x02\x18\x01:Z\n" +
+	"\x02ui\x12\x1d.google.protobuf.FieldOptions\x18\xa1\x96\x03 \x01(\v2%.croupier.component.v1.UIFieldOptionsB\x02\x18\x01R\x02uiBs\n" +
 	"(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/pkg/pb/croupier/component/v1;componentv1b\x06proto3"
 
 var (

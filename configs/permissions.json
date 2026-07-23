@@ -1,1 +1,338 @@
-[   {     "code": "admin:all",     "name": "全部管理权限",     "description": "超级管理员权限，包含所有功能",     "category": "admin",     "module": "system"   },   {     "code": "*",     "name": "通配符权限",     "description": "所有权限的通配符",     "category": "admin",     "module": "system"   },   {     "code": "user:read",     "name": "用户查看",     "description": "查看用户信息",     "category": "user",     "module": "account"   },   {     "code": "user:write",     "name": "用户管理",     "description": "创建、编辑、删除用户",     "category": "user",     "module": "account"   },   {     "code": "role:read",     "name": "角色查看",     "description": "查看角色信息",     "category": "role",     "module": "account"   },   {     "code": "roles:read",     "name": "角色查看",     "description": "查看角色信息（复数形式）",     "category": "role",     "module": "account"   },   {     "code": "role:write",     "name": "角色管理",     "description": "创建、编辑、删除角色",     "category": "role",     "module": "account"   },   {     "code": "roles:manage",     "name": "角色管理",     "description": "创建、编辑、删除角色（复数形式）",     "category": "role",     "module": "account"   },   {     "code": "permission:read",     "name": "权限查看",     "description": "查看权限配置",     "category": "permission",     "module": "account"   },   {     "code": "permission:write",     "name": "权限管理",     "description": "分配权限给角色",     "category": "permission",     "module": "account"   },   {     "code": "function:invoke",     "name": "函数调用",     "description": "调用游戏管理函数",     "category": "function",     "module": "gm"   },   {     "code": "assignments:read",     "name": "分配查看",     "description": "查看函数分配配置",     "category": "assignments",     "module": "gm"   },   {     "code": "assignments:write",     "name": "分配管理",     "description": "管理函数分配配置",     "category": "assignments",     "module": "gm"   },   {     "code": "games:read",     "name": "游戏查看",     "description": "查看游戏信息",     "category": "games",     "module": "game"   },   {     "code": "games:manage",     "name": "游戏管理",     "description": "管理游戏配置",     "category": "games",     "module": "game"   },   {     "code": "uploads:write",     "name": "文件上传",     "description": "上传文件权限",     "category": "upload",     "module": "system"   },   {     "code": "entities:read",     "name": "实体查看",     "description": "查看实体定义",     "category": "entity",     "module": "schema"   },   {     "code": "entities:create",     "name": "实体创建",     "description": "创建实体定义",     "category": "entity",     "module": "schema"   },   {     "code": "entities:update",     "name": "实体编辑",     "description": "编辑实体定义",     "category": "entity",     "module": "schema"   },   {     "code": "entities:delete",     "name": "实体删除",     "description": "删除实体定义",     "category": "entity",     "module": "schema"   },   {     "code": "entity:read",     "name": "实体查看",     "description": "查看实体定义（单数形式）",     "category": "entity",     "module": "schema"   },   {     "code": "entity:write",     "name": "实体管理",     "description": "创建、编辑实体定义（单数形式）",     "category": "entity",     "module": "schema"   },   {     "code": "certificates:manage",     "name": "证书管理",     "description": "管理SSL证书监控",     "category": "certificates",     "module": "system"   },   {     "code": "item:create",     "name": "道具创建",     "description": "创建游戏道具",     "category": "item",     "module": "game"   },   {     "code": "item:read",     "name": "道具查看",     "description": "查看游戏道具信息",     "category": "item",     "module": "game"   },   {     "code": "item:update",     "name": "道具编辑",     "description": "编辑游戏道具",     "category": "item",     "module": "game"   },   {     "code": "item:delete",     "name": "道具删除",     "description": "删除游戏道具",     "category": "item",     "module": "game"   },   {     "code": "currency:create",     "name": "货币创建",     "description": "创建虚拟货币",     "category": "currency",     "module": "economy"   },   {     "code": "currency:read",     "name": "货币查看",     "description": "查看货币信息",     "category": "currency",     "module": "economy"   },   {     "code": "wallet:read",     "name": "钱包查看",     "description": "查看玩家钱包",     "category": "wallet",     "module": "economy"   },   {     "code": "wallet:transfer",     "name": "货币转账",     "description": "执行货币转账操作",     "category": "wallet",     "module": "economy"   },   {     "code": "registry:read",     "name": "注册表查看",     "description": "查看 Agent/服务注册信息",     "category": "registry",     "module": "ops"   },   {     "code": "registry:manage",     "name": "注册表管理",     "description": "管理注册表数据",     "category": "registry",     "module": "ops"   },   {     "code": "entities:list",     "name": "实体列表",     "description": "查看实体列表",     "category": "entity",     "module": "schema"   },   {     "code": "functions:read",     "name": "函数查看",     "description": "读取函数描述符",     "category": "function",     "module": "gm"   },   {     "code": "workspace:read",     "name": "工作台查看",     "description": "查看对象工作台配置与版本",     "category": "workspace",     "module": "workspace"   },   {     "code": "workspace:edit",     "name": "工作台编辑",     "description": "保存对象工作台草稿",     "category": "workspace",     "module": "workspace"   },   {     "code": "workspace:publish",     "name": "工作台发布",     "description": "发布或取消发布对象工作台",     "category": "workspace",     "module": "workspace"   },   {     "code": "workspace:rollback",     "name": "工作台回滚",     "description": "回滚对象工作台到历史版本",     "category": "workspace",     "module": "workspace"   },   {     "code": "workspace:delete",     "name": "工作台删除",     "description": "删除对象工作台配置",     "category": "workspace",     "module": "workspace"   } ]
+[
+  {
+    "code": "admin:all",
+    "name": "全部管理权限",
+    "description": "超级管理员权限，包含所有功能",
+    "category": "admin",
+    "module": "system"
+  },
+  {
+    "code": "*",
+    "name": "通配符权限",
+    "description": "所有权限的通配符",
+    "category": "admin",
+    "module": "system"
+  },
+  {
+    "code": "user:read",
+    "name": "用户查看",
+    "description": "查看用户信息",
+    "category": "user",
+    "module": "account"
+  },
+  {
+    "code": "user:write",
+    "name": "用户管理",
+    "description": "创建、编辑、删除用户",
+    "category": "user",
+    "module": "account"
+  },
+  {
+    "code": "role:read",
+    "name": "角色查看",
+    "description": "查看角色信息",
+    "category": "role",
+    "module": "account"
+  },
+  {
+    "code": "roles:read",
+    "name": "角色查看",
+    "description": "查看角色信息（复数形式）",
+    "category": "role",
+    "module": "account"
+  },
+  {
+    "code": "role:write",
+    "name": "角色管理",
+    "description": "创建、编辑、删除角色",
+    "category": "role",
+    "module": "account"
+  },
+  {
+    "code": "roles:manage",
+    "name": "角色管理",
+    "description": "创建、编辑、删除角色（复数形式）",
+    "category": "role",
+    "module": "account"
+  },
+  {
+    "code": "permission:read",
+    "name": "权限查看",
+    "description": "查看权限配置",
+    "category": "permission",
+    "module": "account"
+  },
+  {
+    "code": "permission:write",
+    "name": "权限管理",
+    "description": "分配权限给角色",
+    "category": "permission",
+    "module": "account"
+  },
+  {
+    "code": "function:invoke",
+    "name": "函数调用",
+    "description": "调用游戏管理函数",
+    "category": "function",
+    "module": "gm"
+  },
+  {
+    "code": "assignments:read",
+    "name": "分配查看",
+    "description": "查看函数分配配置",
+    "category": "assignments",
+    "module": "gm"
+  },
+  {
+    "code": "assignments:write",
+    "name": "分配管理",
+    "description": "管理函数分配配置",
+    "category": "assignments",
+    "module": "gm"
+  },
+  {
+    "code": "games:read",
+    "name": "游戏查看",
+    "description": "查看游戏信息",
+    "category": "games",
+    "module": "game"
+  },
+  {
+    "code": "games:manage",
+    "name": "游戏管理",
+    "description": "管理游戏配置",
+    "category": "games",
+    "module": "game"
+  },
+  {
+    "code": "uploads:write",
+    "name": "文件上传",
+    "description": "上传文件权限",
+    "category": "upload",
+    "module": "system"
+  },
+  {
+    "code": "entities:read",
+    "name": "实体查看",
+    "description": "查看实体定义",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "entities:create",
+    "name": "实体创建",
+    "description": "创建实体定义",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "entities:update",
+    "name": "实体编辑",
+    "description": "编辑实体定义",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "entities:delete",
+    "name": "实体删除",
+    "description": "删除实体定义",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "entity:read",
+    "name": "实体查看",
+    "description": "查看实体定义（单数形式）",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "entity:write",
+    "name": "实体管理",
+    "description": "创建、编辑实体定义（单数形式）",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "certificates:manage",
+    "name": "证书管理",
+    "description": "管理SSL证书监控",
+    "category": "certificates",
+    "module": "system"
+  },
+  {
+    "code": "item:create",
+    "name": "道具创建",
+    "description": "创建游戏道具",
+    "category": "item",
+    "module": "game"
+  },
+  {
+    "code": "item:read",
+    "name": "道具查看",
+    "description": "查看游戏道具信息",
+    "category": "item",
+    "module": "game"
+  },
+  {
+    "code": "item:update",
+    "name": "道具编辑",
+    "description": "编辑游戏道具",
+    "category": "item",
+    "module": "game"
+  },
+  {
+    "code": "item:delete",
+    "name": "道具删除",
+    "description": "删除游戏道具",
+    "category": "item",
+    "module": "game"
+  },
+  {
+    "code": "currency:create",
+    "name": "货币创建",
+    "description": "创建虚拟货币",
+    "category": "currency",
+    "module": "economy"
+  },
+  {
+    "code": "currency:read",
+    "name": "货币查看",
+    "description": "查看货币信息",
+    "category": "currency",
+    "module": "economy"
+  },
+  {
+    "code": "wallet:read",
+    "name": "钱包查看",
+    "description": "查看玩家钱包",
+    "category": "wallet",
+    "module": "economy"
+  },
+  {
+    "code": "wallet:transfer",
+    "name": "货币转账",
+    "description": "执行货币转账操作",
+    "category": "wallet",
+    "module": "economy"
+  },
+  {
+    "code": "registry:read",
+    "name": "注册表查看",
+    "description": "查看 Agent/服务注册信息",
+    "category": "registry",
+    "module": "ops"
+  },
+  {
+    "code": "registry:manage",
+    "name": "注册表管理",
+    "description": "管理注册表数据",
+    "category": "registry",
+    "module": "ops"
+  },
+  {
+    "code": "entities:list",
+    "name": "实体列表",
+    "description": "查看实体列表",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "functions:read",
+    "name": "函数查看",
+    "description": "读取函数描述符",
+    "category": "function",
+    "module": "gm"
+  },
+  {
+    "code": "workspace:read",
+    "name": "工作台查看",
+    "description": "查看对象工作台配置与版本",
+    "category": "workspace",
+    "module": "workspace"
+  },
+  {
+    "code": "workspace:edit",
+    "name": "工作台编辑",
+    "description": "保存对象工作台草稿",
+    "category": "workspace",
+    "module": "workspace"
+  },
+  {
+    "code": "workspace:publish",
+    "name": "工作台发布",
+    "description": "发布或取消发布对象工作台",
+    "category": "workspace",
+    "module": "workspace"
+  },
+  {
+    "code": "workspace:rollback",
+    "name": "工作台回滚",
+    "description": "回滚对象工作台到历史版本",
+    "category": "workspace",
+    "module": "workspace"
+  },
+  {
+    "code": "workspace:delete",
+    "name": "工作台删除",
+    "description": "删除对象工作台配置",
+    "category": "workspace",
+    "module": "workspace"
+  },
+  {
+    "code": "resources:read",
+    "name": "资源查看",
+    "description": "查看资源规格和操作",
+    "category": "resource",
+    "module": "dashboard"
+  },
+  {
+    "code": "resources:diagnose",
+    "name": "资源诊断",
+    "description": "查看资源诊断信息",
+    "category": "resource",
+    "module": "dashboard"
+  },
+  {
+    "code": "pages:read",
+    "name": "页面查看",
+    "description": "查看页面草稿和已发布页面",
+    "category": "page",
+    "module": "dashboard"
+  },
+  {
+    "code": "pages:edit",
+    "name": "页面编辑",
+    "description": "编辑和保存页面草稿",
+    "category": "page",
+    "module": "dashboard"
+  },
+  {
+    "code": "pages:publish",
+    "name": "页面发布",
+    "description": "发布或取消发布页面",
+    "category": "page",
+    "module": "dashboard"
+  },
+  {
+    "code": "pages:rollback",
+    "name": "页面回滚",
+    "description": "回滚页面到历史版本",
+    "category": "page",
+    "module": "dashboard"
+  },
+  {
+    "code": "pages:delete",
+    "name": "页面删除",
+    "description": "删除页面草稿",
+    "category": "page",
+    "module": "dashboard"
+  },
+  {
+    "code": "console:read",
+    "name": "控制台查看",
+    "description": "查看运行控制台菜单和页面",
+    "category": "console",
+    "module": "dashboard"
+  }
+]

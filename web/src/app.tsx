@@ -4,7 +4,7 @@ import { LinkOutlined, UserOutlined } from '@ant-design/icons';
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 import { SettingDrawer } from '@ant-design/pro-components';
 import type { RunTimeLayoutConfig } from '@umijs/max';
-import { history, Link } from '@umijs/max';
+import { getLocale, history, Link } from '@umijs/max';
 import GameSelector from '@/components/GameSelector';
 import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
@@ -13,8 +13,8 @@ import React, { useEffect } from 'react';
 import { App as AntdApp, Grid } from 'antd';
 import { setAppApi } from './utils/antdApp';
 import { initWorkspaceAlerting } from './services/workspace/alerts';
-import { buildConsoleMenuData, type AppRouteMenuItem } from './services/workspace/menu';
-import type { WorkspaceConfig } from './types/workspace';
+import { getConsoleMenu } from './services/console';
+import type { ConsoleMenuSpec, LocalizedText } from './types/dashboard';
 import { loadAuthedInitialState, type InitialCurrentUser } from './services/initialState';
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -31,8 +31,85 @@ type InitialState = {
   currentUser?: InitialCurrentUser;
   loading?: boolean;
   fetchUserInfo?: () => Promise<InitialCurrentUser | undefined>;
-  workspaceConfigs?: WorkspaceConfig[];
 };
+
+type RuntimeMenuItem = {
+  key?: string;
+  path?: string;
+  name?: string;
+  locale?: boolean;
+  icon?: unknown;
+  children?: RuntimeMenuItem[];
+  [key: string]: unknown;
+};
+
+function resolveLocalizedText(text: LocalizedText | undefined, locale: string, fallback: string): string {
+  if (!text) return fallback;
+  const normalizedLocale = locale.replace('_', '-');
+  return (
+    text[normalizedLocale] ||
+    text[normalizedLocale.toLowerCase()] ||
+    text['zh-CN'] ||
+    text['en-US'] ||
+    Object.values(text).find((value) => value.trim() !== '') ||
+    fallback
+  );
+}
+
+/**
+ * Build menu items from ConsoleMenuSpec.
+ * Merges dynamic console menu with static default menu.
+ */
+function buildMenuFromConsoleSpec(
+  defaultMenuData: RuntimeMenuItem[],
+  consoleMenu: ConsoleMenuSpec,
+  locale: string,
+): RuntimeMenuItem[] {
+  if (!consoleMenu?.items || consoleMenu.items.length === 0) {
+    return defaultMenuData;
+  }
+
+  // Find the console menu item in default menu
+  return defaultMenuData.map((item) => {
+    if (item.path === '/console' || item.key === '/console') {
+      // Keep the home item and add dynamic items
+      const homeChild = (item.children || []).find(
+        (child) => child.path === '/console/home',
+      );
+      const dynamicChildren = consoleMenu.items.map((category) => ({
+        key: category.path,
+        path: category.path,
+        name: resolveLocalizedText(category.title, locale, category.key),
+        locale: false,
+        icon: category.icon,
+        children: (category.children || []).map((page) => ({
+          key: page.path,
+          path: page.path,
+          name: resolveLocalizedText(page.title, locale, page.key),
+          locale: false,
+        })),
+      }));
+
+      return {
+        ...item,
+        children: [
+          ...(homeChild ? [homeChild] : []),
+          ...dynamicChildren,
+        ],
+      };
+    }
+
+    // Recursively process children
+    if (item.children && item.children.length > 0) {
+      return {
+        ...item,
+        children: buildMenuFromConsoleSpec(item.children, consoleMenu, locale),
+      };
+    }
+
+    return item;
+  });
+}
 
 function normalizePermissionIDs(perms: PermissionResponse | undefined): string[] {
   const ids = perms?.permissionIDs || perms?.permissionIds || perms?.permission_ids || [];
@@ -147,15 +224,20 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     menu: {
       locale: true,
       params: {
-        workspaceConfigs: initialState?.workspaceConfigs || [],
         authed: isAuthed,
       },
       request: async (params, defaultMenuData) => {
         if (!params.authed) return defaultMenuData;
-        return buildConsoleMenuData(
-          defaultMenuData as AppRouteMenuItem[],
-          params.workspaceConfigs as WorkspaceConfig[],
-        );
+
+        // Load menu from Console API
+        try {
+          const locale = getLocale();
+          const consoleMenu = await getConsoleMenu(locale);
+          return buildMenuFromConsoleSpec(defaultMenuData as RuntimeMenuItem[], consoleMenu, locale);
+        } catch (error) {
+          console.error('[console-menu] failed to load dynamic runtime menu', error);
+          throw error;
+        }
       },
     },
     avatarProps: {

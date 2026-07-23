@@ -491,6 +491,76 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		require.NotNil(t, op.Responses)
 	})
 
+	t.Run("preserves descriptor v2 metadata in registry and openapi", func(t *testing.T) {
+		svc := newTestControlService()
+
+		req := &agentv1.RegisterRequest{
+			AgentId: "agent-1",
+			GameId:  "game-1",
+			Env:     "prod",
+			Version: "1.0.0",
+			Functions: []*agentv1.FunctionDescriptor{
+				{
+					Id:               "player.ban",
+					Version:          "1.2.3",
+					Enabled:          true,
+					Tags:             []string{"player", "moderation"},
+					Category:         "ops",
+					Risk:             "danger",
+					Entity:           "player",
+					Operation:        "ban",
+					InputSchema:      `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
+					OutputSchema:     `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+					CategoryDisplay:  map[string]string{"zh-CN": "运营", "en-US": "Operations"},
+					EntityDisplay:    map[string]string{"zh-CN": "玩家", "en-US": "Player"},
+					OperationDisplay: map[string]string{"zh-CN": "封禁", "en-US": "Ban"},
+					OperationKind:    "action",
+					Placement:        "rowAction",
+					PageHint:         "player.manage",
+					Extensions:       map[string]string{"x-owner": "gm"},
+				},
+			},
+		}
+
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
+		require.NoError(t, err)
+		require.Empty(t, resp.Warnings)
+
+		svc.registry.Mu().RLock()
+		agent := svc.registry.AgentsUnsafe()["agent-1"]
+		require.NotNil(t, agent)
+		meta := agent.Functions["player.ban"]
+		svc.registry.Mu().RUnlock()
+
+		assert.True(t, meta.Enabled)
+		assert.Equal(t, "1.2.3", meta.Version)
+		assert.Equal(t, []string{"player", "moderation"}, meta.Tags)
+		assert.Equal(t, "ops", meta.Category)
+		assert.Equal(t, "danger", meta.Risk)
+		assert.Equal(t, "player", meta.Entity)
+		assert.Equal(t, "ban", meta.Operation)
+		assert.Equal(t, "action", meta.OperationKind)
+		assert.Equal(t, "rowAction", meta.Placement)
+		assert.Equal(t, "player.manage", meta.PageHint)
+		assert.Equal(t, "运营", meta.CategoryDisplay["zh-CN"])
+		assert.Equal(t, "玩家", meta.EntityDisplay["zh-CN"])
+		assert.Equal(t, "封禁", meta.OperationDisplay["zh-CN"])
+		assert.Equal(t, "gm", meta.Extensions["x-owner"])
+		assert.Contains(t, meta.InputSchema, "player_id")
+		assert.Contains(t, meta.OutputSchema, "success")
+
+		op, err := svc.registry.GetOpenAPI("player.ban")
+		require.NoError(t, err)
+		assert.Equal(t, "ban", op.Extensions["x-operation"])
+		assert.Equal(t, "action", op.Extensions["x-operation-kind"])
+		assert.Equal(t, "rowAction", op.Extensions["x-placement"])
+		assert.Equal(t, "player.manage", op.Extensions["x-page-hint"])
+		assert.Equal(t, "gm", op.Extensions["x-owner"])
+		assert.Equal(t, map[string]interface{}{"zh-CN": "运营", "en-US": "Operations"}, op.Extensions["x-category-display"])
+		assert.Equal(t, map[string]interface{}{"zh-CN": "玩家", "en-US": "Player"}, op.Extensions["x-entity-display"])
+		assert.Equal(t, map[string]interface{}{"zh-CN": "封禁", "en-US": "Ban"}, op.Extensions["x-operation-display"])
+	})
+
 	t.Run("with nil process in processes list", func(t *testing.T) {
 		svc := newTestControlService()
 

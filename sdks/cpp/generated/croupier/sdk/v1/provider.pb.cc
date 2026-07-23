@@ -173,74 +173,78 @@ struct ProviderConnectResponseDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ProviderConnectResponseDefaultTypeInternal _ProviderConnectResponse_default_instance_;
-
-inline constexpr LocalFunctionDescriptor::Impl_::Impl_(
-    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
-    ::_pbi::ConstantInitialized) noexcept
-      : _cached_size_{0},
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        tags_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::sdk::v1::LocalFunctionDescriptor,
-            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.tags_)>()
-        }
-        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        tags_ {}
-        #endif
-        ,
-        id_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        version_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        summary_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        description_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        operation_id_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        input_schema_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        output_schema_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        category_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        risk_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        entity_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        operation_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        deprecated_{false} {}
-
 template <typename>
-constexpr LocalFunctionDescriptor::LocalFunctionDescriptor(::_pbi::ConstantInitialized)
+constexpr LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse(::_pbi::ConstantInitialized)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::Message(LocalFunctionDescriptor_class_data_.base()),
+    : LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::MapEntry(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_class_data_.base()){}
 #else   // PROTOBUF_CUSTOM_VTABLE
-    : ::google::protobuf::Message(),
-#endif  // PROTOBUF_CUSTOM_VTABLE
-      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+    : LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::MapEntry() {
 }
-struct LocalFunctionDescriptorDefaultTypeInternal {
-  constexpr LocalFunctionDescriptorDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~LocalFunctionDescriptorDefaultTypeInternal() {}
+#endif  // PROTOBUF_CUSTOM_VTABLE
+struct LocalFunctionDescriptor_OperationDisplayEntry_DoNotUseDefaultTypeInternal {
+  constexpr LocalFunctionDescriptor_OperationDisplayEntry_DoNotUseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~LocalFunctionDescriptor_OperationDisplayEntry_DoNotUseDefaultTypeInternal() {}
   union {
-    LocalFunctionDescriptor _instance;
+    LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse _instance;
   };
 };
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 LocalFunctionDescriptorDefaultTypeInternal _LocalFunctionDescriptor_default_instance_;
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 LocalFunctionDescriptor_OperationDisplayEntry_DoNotUseDefaultTypeInternal _LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_default_instance_;
+template <typename>
+constexpr LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::MapEntry(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_class_data_.base()){}
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::MapEntry() {
+}
+#endif  // PROTOBUF_CUSTOM_VTABLE
+struct LocalFunctionDescriptor_ExtensionsEntry_DoNotUseDefaultTypeInternal {
+  constexpr LocalFunctionDescriptor_ExtensionsEntry_DoNotUseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~LocalFunctionDescriptor_ExtensionsEntry_DoNotUseDefaultTypeInternal() {}
+  union {
+    LocalFunctionDescriptor_ExtensionsEntry_DoNotUse _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 LocalFunctionDescriptor_ExtensionsEntry_DoNotUseDefaultTypeInternal _LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_default_instance_;
+template <typename>
+constexpr LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::MapEntry(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_class_data_.base()){}
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::MapEntry() {
+}
+#endif  // PROTOBUF_CUSTOM_VTABLE
+struct LocalFunctionDescriptor_EntityDisplayEntry_DoNotUseDefaultTypeInternal {
+  constexpr LocalFunctionDescriptor_EntityDisplayEntry_DoNotUseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~LocalFunctionDescriptor_EntityDisplayEntry_DoNotUseDefaultTypeInternal() {}
+  union {
+    LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 LocalFunctionDescriptor_EntityDisplayEntry_DoNotUseDefaultTypeInternal _LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_default_instance_;
+template <typename>
+constexpr LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::MapEntry(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_class_data_.base()){}
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::MapEntry() {
+}
+#endif  // PROTOBUF_CUSTOM_VTABLE
+struct LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUseDefaultTypeInternal {
+  constexpr LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUseDefaultTypeInternal() {}
+  union {
+    LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUseDefaultTypeInternal _LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_default_instance_;
 
 inline constexpr GetTaskResultResponse::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
@@ -303,6 +307,119 @@ struct GetTaskResultRequestDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 GetTaskResultRequestDefaultTypeInternal _GetTaskResultRequest_default_instance_;
+
+inline constexpr LocalFunctionDescriptor::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
+        tags_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.tags_)>()
+        }
+        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
+        tags_ {}
+        #endif
+        ,
+        id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        version_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        summary_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        description_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        operation_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        input_schema_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        output_schema_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        category_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        risk_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        entity_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        operation_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        operation_kind_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        placement_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        page_hint_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        deprecated_{false},
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        category_display_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.category_display_)>()
+        }
+        #else
+        category_display_ {}
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        entity_display_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.entity_display_)>()
+        }
+        #else
+        entity_display_ {}
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        operation_display_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.operation_display_)>()
+        }
+        #else
+        operation_display_ {}
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        extensions_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.extensions_)>()
+        }
+        #else
+        extensions_ {}
+        #endif
+     {}
+
+template <typename>
+constexpr LocalFunctionDescriptor::LocalFunctionDescriptor(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(LocalFunctionDescriptor_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct LocalFunctionDescriptorDefaultTypeInternal {
+  constexpr LocalFunctionDescriptorDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~LocalFunctionDescriptorDefaultTypeInternal() {}
+  union {
+    LocalFunctionDescriptor _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 LocalFunctionDescriptorDefaultTypeInternal _LocalFunctionDescriptor_default_instance_;
 
 inline constexpr ProviderConnectRequest::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
@@ -393,8 +510,36 @@ const ::uint32_t
     TableStruct_croupier_2fsdk_2fv1_2fprovider_2eproto::offsets[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
         protodesc_cold) = {
         0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse, _impl_._has_bits_),
+        5, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse, _impl_.key_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse, _impl_.value_),
+        0,
+        1,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse, _impl_._has_bits_),
+        5, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse, _impl_.key_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse, _impl_.value_),
+        0,
+        1,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse, _impl_._has_bits_),
+        5, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse, _impl_.key_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse, _impl_.value_),
+        0,
+        1,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse, _impl_._has_bits_),
+        5, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse, _impl_.key_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse, _impl_.value_),
+        0,
+        1,
+        0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_._has_bits_),
-        16, // hasbit index offset
+        23, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.id_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.version_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.tags_),
@@ -408,19 +553,33 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.risk_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.entity_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.operation_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.category_display_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.entity_display_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.operation_display_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.operation_kind_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.placement_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.page_hint_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.extensions_),
         1,
         2,
         0,
         3,
         4,
         5,
-        12,
+        15,
         6,
         7,
         8,
         9,
         10,
         11,
+        16,
+        17,
+        18,
+        12,
+        13,
+        14,
+        19,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_._has_bits_),
         15, // hasbit index offset
@@ -493,17 +652,25 @@ const ::uint32_t
 
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
-        {0, sizeof(::croupier::sdk::v1::LocalFunctionDescriptor)},
-        {29, sizeof(::croupier::sdk::v1::ProviderConnectRequest)},
-        {56, sizeof(::croupier::sdk::v1::ProviderConnectResponse)},
-        {65, sizeof(::croupier::sdk::v1::ProviderHeartbeatRequest)},
-        {72, sizeof(::croupier::sdk::v1::ProviderHeartbeatResponse)},
-        {73, sizeof(::croupier::sdk::v1::ProviderDrainRequest)},
-        {82, sizeof(::croupier::sdk::v1::ProviderDrainResponse)},
-        {83, sizeof(::croupier::sdk::v1::GetTaskResultRequest)},
-        {88, sizeof(::croupier::sdk::v1::GetTaskResultResponse)},
+        {0, sizeof(::croupier::sdk::v1::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse)},
+        {7, sizeof(::croupier::sdk::v1::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse)},
+        {14, sizeof(::croupier::sdk::v1::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse)},
+        {21, sizeof(::croupier::sdk::v1::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse)},
+        {28, sizeof(::croupier::sdk::v1::LocalFunctionDescriptor)},
+        {71, sizeof(::croupier::sdk::v1::ProviderConnectRequest)},
+        {98, sizeof(::croupier::sdk::v1::ProviderConnectResponse)},
+        {107, sizeof(::croupier::sdk::v1::ProviderHeartbeatRequest)},
+        {114, sizeof(::croupier::sdk::v1::ProviderHeartbeatResponse)},
+        {115, sizeof(::croupier::sdk::v1::ProviderDrainRequest)},
+        {124, sizeof(::croupier::sdk::v1::ProviderDrainResponse)},
+        {125, sizeof(::croupier::sdk::v1::GetTaskResultRequest)},
+        {130, sizeof(::croupier::sdk::v1::GetTaskResultResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
+    &::croupier::sdk::v1::_LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_default_instance_._instance,
+    &::croupier::sdk::v1::_LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_default_instance_._instance,
+    &::croupier::sdk::v1::_LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_default_instance_._instance,
+    &::croupier::sdk::v1::_LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_default_instance_._instance,
     &::croupier::sdk::v1::_LocalFunctionDescriptor_default_instance_._instance,
     &::croupier::sdk::v1::_ProviderConnectRequest_default_instance_._instance,
     &::croupier::sdk::v1::_ProviderConnectResponse_default_instance_._instance,
@@ -517,7 +684,7 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 const char descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n\036croupier/sdk/v1/provider.proto\022\017croupi"
-    "er.sdk.v1\"\204\003\n\027LocalFunctionDescriptor\022\016\n"
+    "er.sdk.v1\"\205\t\n\027LocalFunctionDescriptor\022\016\n"
     "\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 \001(\tR\007version\022"
     "\022\n\004tags\030\003 \003(\tR\004tags\022\030\n\007summary\030\004 \001(\tR\007su"
     "mmary\022 \n\013description\030\005 \001(\tR\013description\022"
@@ -527,47 +694,66 @@ const char descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto[] AB
     " \001(\tR\014outputSchema\022\032\n\010category\030\n \001(\tR\010ca"
     "tegory\022\022\n\004risk\030\013 \001(\tR\004risk\022\026\n\006entity\030\014 \001"
     "(\tR\006entity\022\034\n\toperation\030\r \001(\tR\toperation"
-    "\"\360\003\n\026ProviderConnectRequest\022\035\n\nservice_i"
-    "d\030\001 \001(\tR\tserviceId\022\030\n\007version\030\002 \001(\tR\007ver"
-    "sion\022F\n\tfunctions\030\003 \003(\0132(.croupier.sdk.v"
-    "1.LocalFunctionDescriptorR\tfunctions\022!\n\014"
-    "sdk_language\030\004 \001(\tR\013sdkLanguage\022\037\n\013sdk_v"
-    "ersion\030\005 \001(\tR\nsdkVersion\022\031\n\010sdk_name\030\006 \001"
-    "(\tR\007sdkName\022)\n\020protocol_version\030\007 \001(\tR\017p"
-    "rotocolVersion\0225\n\026supported_capabilities"
-    "\030\010 \003(\tR\025supportedCapabilities\0226\n\027transpo"
-    "rt_security_mode\030\t \001(\tR\025transportSecurit"
-    "yMode\0221\n\024supported_transports\030\n \003(\tR\023sup"
-    "portedTransports\022\027\n\007game_id\030\013 \001(\tR\006gameI"
-    "d\022\020\n\003env\030\014 \001(\tR\003env\"\211\001\n\027ProviderConnectR"
-    "esponse\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\0223"
-    "\n\025accepted_capabilities\030\002 \003(\tR\024acceptedC"
-    "apabilities\022\032\n\010warnings\030\003 \003(\tR\010warnings\""
-    "X\n\030ProviderHeartbeatRequest\022\035\n\nservice_i"
-    "d\030\001 \001(\tR\tserviceId\022\035\n\nsession_id\030\002 \001(\tR\t"
-    "sessionId\"\033\n\031ProviderHeartbeatResponse\"s"
-    "\n\024ProviderDrainRequest\022\035\n\nsession_id\030\001 \001"
-    "(\tR\tsessionId\022\026\n\006reason\030\002 \001(\tR\006reason\022$\n"
-    "\016retry_after_ms\030\003 \001(\rR\014retryAfterMs\"\027\n\025P"
-    "roviderDrainResponse\"/\n\024GetTaskResultReq"
-    "uest\022\027\n\007task_id\030\001 \001(\tR\006taskId\"]\n\025GetTask"
-    "ResultResponse\022\024\n\005state\030\001 \001(\tR\005state\022\030\n\007"
-    "payload\030\002 \001(\014R\007payload\022\024\n\005error\030\003 \001(\tR\005e"
-    "rrorBa\n\"io.github.cuihairu.croupier.sdk."
-    "v1P\001Z9github.com/cuihairu/croupier/pkg/p"
-    "b/croupier/sdk/v1;sdkv1b\006proto3"
+    "\022h\n\020category_display\030\016 \003(\0132=.croupier.sd"
+    "k.v1.LocalFunctionDescriptor.CategoryDis"
+    "playEntryR\017categoryDisplay\022b\n\016entity_dis"
+    "play\030\017 \003(\0132;.croupier.sdk.v1.LocalFuncti"
+    "onDescriptor.EntityDisplayEntryR\rentityD"
+    "isplay\022k\n\021operation_display\030\020 \003(\0132>.crou"
+    "pier.sdk.v1.LocalFunctionDescriptor.Oper"
+    "ationDisplayEntryR\020operationDisplay\022%\n\016o"
+    "peration_kind\030\021 \001(\tR\roperationKind\022\034\n\tpl"
+    "acement\030\022 \001(\tR\tplacement\022\033\n\tpage_hint\030\023 "
+    "\001(\tR\010pageHint\022X\n\nextensions\030\024 \003(\01328.crou"
+    "pier.sdk.v1.LocalFunctionDescriptor.Exte"
+    "nsionsEntryR\nextensions\032B\n\024CategoryDispl"
+    "ayEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\t"
+    "R\005value:\0028\001\032@\n\022EntityDisplayEntry\022\020\n\003key"
+    "\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005value:\0028\001\032C\n"
+    "\025OperationDisplayEntry\022\020\n\003key\030\001 \001(\tR\003key"
+    "\022\024\n\005value\030\002 \001(\tR\005value:\0028\001\032=\n\017Extensions"
+    "Entry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005"
+    "value:\0028\001\"\360\003\n\026ProviderConnectRequest\022\035\n\n"
+    "service_id\030\001 \001(\tR\tserviceId\022\030\n\007version\030\002"
+    " \001(\tR\007version\022F\n\tfunctions\030\003 \003(\0132(.croup"
+    "ier.sdk.v1.LocalFunctionDescriptorR\tfunc"
+    "tions\022!\n\014sdk_language\030\004 \001(\tR\013sdkLanguage"
+    "\022\037\n\013sdk_version\030\005 \001(\tR\nsdkVersion\022\031\n\010sdk"
+    "_name\030\006 \001(\tR\007sdkName\022)\n\020protocol_version"
+    "\030\007 \001(\tR\017protocolVersion\0225\n\026supported_cap"
+    "abilities\030\010 \003(\tR\025supportedCapabilities\0226"
+    "\n\027transport_security_mode\030\t \001(\tR\025transpo"
+    "rtSecurityMode\0221\n\024supported_transports\030\n"
+    " \003(\tR\023supportedTransports\022\027\n\007game_id\030\013 \001"
+    "(\tR\006gameId\022\020\n\003env\030\014 \001(\tR\003env\"\211\001\n\027Provide"
+    "rConnectResponse\022\035\n\nsession_id\030\001 \001(\tR\tse"
+    "ssionId\0223\n\025accepted_capabilities\030\002 \003(\tR\024"
+    "acceptedCapabilities\022\032\n\010warnings\030\003 \003(\tR\010"
+    "warnings\"X\n\030ProviderHeartbeatRequest\022\035\n\n"
+    "service_id\030\001 \001(\tR\tserviceId\022\035\n\nsession_i"
+    "d\030\002 \001(\tR\tsessionId\"\033\n\031ProviderHeartbeatR"
+    "esponse\"s\n\024ProviderDrainRequest\022\035\n\nsessi"
+    "on_id\030\001 \001(\tR\tsessionId\022\026\n\006reason\030\002 \001(\tR\006"
+    "reason\022$\n\016retry_after_ms\030\003 \001(\rR\014retryAft"
+    "erMs\"\027\n\025ProviderDrainResponse\"/\n\024GetTask"
+    "ResultRequest\022\027\n\007task_id\030\001 \001(\tR\006taskId\"]"
+    "\n\025GetTaskResultResponse\022\024\n\005state\030\001 \001(\tR\005"
+    "state\022\030\n\007payload\030\002 \001(\014R\007payload\022\024\n\005error"
+    "\030\003 \001(\tR\005errorBa\n\"io.github.cuihairu.crou"
+    "pier.sdk.v1P\001Z9github.com/cuihairu/croup"
+    "ier/pkg/pb/croupier/sdk/v1;sdkv1b\006proto3"
 };
 static ::absl::once_flag descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto = {
     false,
     false,
-    1591,
+    2360,
     descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto,
     "croupier/sdk/v1/provider.proto",
     &descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto_once,
     nullptr,
     0,
-    9,
+    13,
     schemas,
     file_default_instances,
     TableStruct_croupier_2fsdk_2fv1_2fprovider_2eproto::offsets,
@@ -577,6 +763,394 @@ PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fsdk
 namespace croupier {
 namespace sdk {
 namespace v1 {
+// ===================================================================
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse()
+    : SuperType(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_class_data_.base()) {}
+LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+    : SuperType(arena, LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_class_data_.base()) {}
+#else   // PROTOBUF_CUSTOM_VTABLE
+LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse() : SuperType() {}
+LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena) : SuperType(arena) {}
+#endif  // PROTOBUF_CUSTOM_VTABLE
+inline void* PROTOBUF_NONNULL LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse(arena);
+}
+constexpr auto LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse),
+                                            alignof(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse));
+}
+constexpr auto LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::SharedDtor,
+          static_cast<void (::google::protobuf::MessageLite::*)()>(&LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::ClearImpl),
+              ::google::protobuf::Message::ByteSizeLongImpl, ::google::protobuf::Message::_InternalSerializeImpl
+              ,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse, _impl_._cached_size_),
+          false,
+      },
+      &LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::kDescriptorMethods,
+      &descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_class_data_ =
+        LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_class_data_.tc_table);
+  return LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 77, 2>
+LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::DiscardEverythingFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::sdk::v1::LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string value = 2 [json_name = "value"];
+    {::_pbi::TcParser::FastUS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse, _impl_.value_)}},
+    // string key = 1 [json_name = "key"];
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse, _impl_.key_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string key = 1 [json_name = "key"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse, _impl_.key_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string value = 2 [json_name = "value"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_CategoryDisplayEntry_DoNotUse, _impl_.value_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\74\3\5\0\0\0\0\0"
+    "croupier.sdk.v1.LocalFunctionDescriptor.CategoryDisplayEntry"
+    "key"
+    "value"
+  }},
+};
+// ===================================================================
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse()
+    : SuperType(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_class_data_.base()) {}
+LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+    : SuperType(arena, LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_class_data_.base()) {}
+#else   // PROTOBUF_CUSTOM_VTABLE
+LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse() : SuperType() {}
+LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena) : SuperType(arena) {}
+#endif  // PROTOBUF_CUSTOM_VTABLE
+inline void* PROTOBUF_NONNULL LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse(arena);
+}
+constexpr auto LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse),
+                                            alignof(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse));
+}
+constexpr auto LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::SharedDtor,
+          static_cast<void (::google::protobuf::MessageLite::*)()>(&LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::ClearImpl),
+              ::google::protobuf::Message::ByteSizeLongImpl, ::google::protobuf::Message::_InternalSerializeImpl
+              ,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse, _impl_._cached_size_),
+          false,
+      },
+      &LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::kDescriptorMethods,
+      &descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_class_data_ =
+        LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_class_data_.tc_table);
+  return LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 75, 2>
+LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::DiscardEverythingFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::sdk::v1::LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string value = 2 [json_name = "value"];
+    {::_pbi::TcParser::FastUS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse, _impl_.value_)}},
+    // string key = 1 [json_name = "key"];
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse, _impl_.key_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string key = 1 [json_name = "key"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse, _impl_.key_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string value = 2 [json_name = "value"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_EntityDisplayEntry_DoNotUse, _impl_.value_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\72\3\5\0\0\0\0\0"
+    "croupier.sdk.v1.LocalFunctionDescriptor.EntityDisplayEntry"
+    "key"
+    "value"
+  }},
+};
+// ===================================================================
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse()
+    : SuperType(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_class_data_.base()) {}
+LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+    : SuperType(arena, LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_class_data_.base()) {}
+#else   // PROTOBUF_CUSTOM_VTABLE
+LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse() : SuperType() {}
+LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena) : SuperType(arena) {}
+#endif  // PROTOBUF_CUSTOM_VTABLE
+inline void* PROTOBUF_NONNULL LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse(arena);
+}
+constexpr auto LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse),
+                                            alignof(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse));
+}
+constexpr auto LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::SharedDtor,
+          static_cast<void (::google::protobuf::MessageLite::*)()>(&LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::ClearImpl),
+              ::google::protobuf::Message::ByteSizeLongImpl, ::google::protobuf::Message::_InternalSerializeImpl
+              ,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse, _impl_._cached_size_),
+          false,
+      },
+      &LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::kDescriptorMethods,
+      &descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_class_data_ =
+        LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_class_data_.tc_table);
+  return LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 78, 2>
+LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::DiscardEverythingFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::sdk::v1::LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string value = 2 [json_name = "value"];
+    {::_pbi::TcParser::FastUS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse, _impl_.value_)}},
+    // string key = 1 [json_name = "key"];
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse, _impl_.key_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string key = 1 [json_name = "key"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse, _impl_.key_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string value = 2 [json_name = "value"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_OperationDisplayEntry_DoNotUse, _impl_.value_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\75\3\5\0\0\0\0\0"
+    "croupier.sdk.v1.LocalFunctionDescriptor.OperationDisplayEntry"
+    "key"
+    "value"
+  }},
+};
+// ===================================================================
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse()
+    : SuperType(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_class_data_.base()) {}
+LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+    : SuperType(arena, LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_class_data_.base()) {}
+#else   // PROTOBUF_CUSTOM_VTABLE
+LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse() : SuperType() {}
+LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena) : SuperType(arena) {}
+#endif  // PROTOBUF_CUSTOM_VTABLE
+inline void* PROTOBUF_NONNULL LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) LocalFunctionDescriptor_ExtensionsEntry_DoNotUse(arena);
+}
+constexpr auto LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse),
+                                            alignof(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse));
+}
+constexpr auto LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<LocalFunctionDescriptor_ExtensionsEntry_DoNotUse>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::SharedDtor,
+          static_cast<void (::google::protobuf::MessageLite::*)()>(&LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::ClearImpl),
+              ::google::protobuf::Message::ByteSizeLongImpl, ::google::protobuf::Message::_InternalSerializeImpl
+              ,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse, _impl_._cached_size_),
+          false,
+      },
+      &LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::kDescriptorMethods,
+      &descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_class_data_ =
+        LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_class_data_.tc_table);
+  return LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 72, 2>
+LocalFunctionDescriptor_ExtensionsEntry_DoNotUse::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    LocalFunctionDescriptor_ExtensionsEntry_DoNotUse_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::DiscardEverythingFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::sdk::v1::LocalFunctionDescriptor_ExtensionsEntry_DoNotUse>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string value = 2 [json_name = "value"];
+    {::_pbi::TcParser::FastUS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse, _impl_.value_)}},
+    // string key = 1 [json_name = "key"];
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse, _impl_.key_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string key = 1 [json_name = "key"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse, _impl_.key_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string value = 2 [json_name = "value"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor_ExtensionsEntry_DoNotUse, _impl_.value_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\67\3\5\0\0\0\0\0"
+    "croupier.sdk.v1.LocalFunctionDescriptor.ExtensionsEntry"
+    "key"
+    "value"
+  }},
+};
 // ===================================================================
 
 class LocalFunctionDescriptor::_Internal {
@@ -621,7 +1195,46 @@ PROTOBUF_NDEBUG_INLINE LocalFunctionDescriptor::Impl_::Impl_(
         category_(arena, from.category_),
         risk_(arena, from.risk_),
         entity_(arena, from.entity_),
-        operation_(arena, from.operation_) {}
+        operation_(arena, from.operation_),
+        operation_kind_(arena, from.operation_kind_),
+        placement_(arena, from.placement_),
+        page_hint_(arena, from.page_hint_),
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        category_display_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.category_display_)>()
+        , from.category_display_}
+        #else
+        category_display_ { visibility, arena, from.category_display_ }
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        entity_display_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.entity_display_)>()
+        , from.entity_display_}
+        #else
+        entity_display_ { visibility, arena, from.entity_display_ }
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        operation_display_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.operation_display_)>()
+        , from.operation_display_}
+        #else
+        operation_display_ { visibility, arena, from.operation_display_ }
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        extensions_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.extensions_)>()
+        , from.extensions_}
+        #else
+        extensions_ { visibility, arena, from.extensions_ }
+        #endif
+     {}
 
 LocalFunctionDescriptor::LocalFunctionDescriptor(
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
@@ -663,7 +1276,46 @@ PROTOBUF_NDEBUG_INLINE LocalFunctionDescriptor::Impl_::Impl_(
         category_(arena),
         risk_(arena),
         entity_(arena),
-        operation_(arena) {}
+        operation_(arena),
+        operation_kind_(arena),
+        placement_(arena),
+        page_hint_(arena),
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        category_display_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.category_display_)>()
+        }
+        #else
+        category_display_ { visibility, arena }
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        entity_display_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.entity_display_)>()
+        }
+        #else
+        entity_display_ { visibility, arena }
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        operation_display_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.operation_display_)>()
+        }
+        #else
+        operation_display_ { visibility, arena }
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
+        extensions_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::LocalFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.extensions_)>()
+        }
+        #else
+        extensions_ { visibility, arena }
+        #endif
+     {}
 
 inline void LocalFunctionDescriptor::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
@@ -691,6 +1343,9 @@ inline void LocalFunctionDescriptor::SharedDtor(MessageLite& self) {
   this_._impl_.risk_.Destroy();
   this_._impl_.entity_.Destroy();
   this_._impl_.operation_.Destroy();
+  this_._impl_.operation_kind_.Destroy();
+  this_._impl_.placement_.Destroy();
+  this_._impl_.page_hint_.Destroy();
   this_._impl_.~Impl_();
 }
 
@@ -709,6 +1364,22 @@ constexpr auto LocalFunctionDescriptor::InternalNewImpl_() {
   constexpr auto arena_bits = ::google::protobuf::internal::EncodePlacementArenaOffsets({
       PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.tags_) +
           decltype(LocalFunctionDescriptor::_impl_.tags_)::
+              InternalGetArenaOffset(
+                  ::google::protobuf::Message::internal_visibility()),
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.category_display_) +
+          decltype(LocalFunctionDescriptor::_impl_.category_display_)::
+              InternalGetArenaOffset(
+                  ::google::protobuf::Message::internal_visibility()),
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.entity_display_) +
+          decltype(LocalFunctionDescriptor::_impl_.entity_display_)::
+              InternalGetArenaOffset(
+                  ::google::protobuf::Message::internal_visibility()),
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_display_) +
+          decltype(LocalFunctionDescriptor::_impl_.operation_display_)::
+              InternalGetArenaOffset(
+                  ::google::protobuf::Message::internal_visibility()),
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.extensions_) +
+          decltype(LocalFunctionDescriptor::_impl_.extensions_)::
               InternalGetArenaOffset(
                   ::google::protobuf::Message::internal_visibility()),
   });
@@ -755,18 +1426,18 @@ LocalFunctionDescriptor::GetClassData() const {
   return LocalFunctionDescriptor_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 13, 0, 151, 2>
+const ::_pbi::TcParseTable<5, 20, 4, 248, 2>
 LocalFunctionDescriptor::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_._has_bits_),
     0, // no _extensions_
-    13, 120,  // max_field_number, fast_idx_mask
+    20, 248,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294959104,  // skipmap
+    4293918720,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    13,  // num_field_entries
-    0,  // num_aux_entries
-    offsetof(decltype(_table_), field_names),  // no aux_entries
+    20,  // num_field_entries
+    4,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
     LocalFunctionDescriptor_class_data_.base(),
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -800,8 +1471,8 @@ LocalFunctionDescriptor::_table_ = {
      {50, 5, 0,
       PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_id_)}},
     // bool deprecated = 7 [json_name = "deprecated"];
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(LocalFunctionDescriptor, _impl_.deprecated_), 12>(),
-     {56, 12, 0,
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(LocalFunctionDescriptor, _impl_.deprecated_), 15>(),
+     {56, 15, 0,
       PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.deprecated_)}},
     // string input_schema = 8 [json_name = "inputSchema"];
     {::_pbi::TcParser::FastUS1,
@@ -829,6 +1500,31 @@ LocalFunctionDescriptor::_table_ = {
       PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_)}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    // string operation_kind = 17 [json_name = "operationKind"];
+    {::_pbi::TcParser::FastUS2,
+     {394, 12, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_kind_)}},
+    // string placement = 18 [json_name = "placement"];
+    {::_pbi::TcParser::FastUS2,
+     {402, 13, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.placement_)}},
+    // string page_hint = 19 [json_name = "pageHint"];
+    {::_pbi::TcParser::FastUS2,
+     {410, 14, 0,
+      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.page_hint_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -845,7 +1541,7 @@ LocalFunctionDescriptor::_table_ = {
     // string operation_id = 6 [json_name = "operationId"];
     {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_id_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // bool deprecated = 7 [json_name = "deprecated"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.deprecated_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.deprecated_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // string input_schema = 8 [json_name = "inputSchema"];
     {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.input_schema_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string output_schema = 9 [json_name = "outputSchema"];
@@ -858,10 +1554,33 @@ LocalFunctionDescriptor::_table_ = {
     {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.entity_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string operation = 13 [json_name = "operation"];
     {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // map<string, string> category_display = 14 [json_name = "categoryDisplay"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.category_display_), _Internal::kHasBitsOffset + 16, 0, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
+    // map<string, string> entity_display = 15 [json_name = "entityDisplay"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.entity_display_), _Internal::kHasBitsOffset + 17, 1, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
+    // map<string, string> operation_display = 16 [json_name = "operationDisplay"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_display_), _Internal::kHasBitsOffset + 18, 2, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
+    // string operation_kind = 17 [json_name = "operationKind"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_kind_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string placement = 18 [json_name = "placement"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.placement_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string page_hint = 19 [json_name = "pageHint"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.page_hint_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // map<string, string> extensions = 20 [json_name = "extensions"];
+    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.extensions_), _Internal::kHasBitsOffset + 19, 3, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
   }},
-  // no aux_entries
   {{
-    "\47\2\7\4\7\13\14\0\14\15\10\4\6\11\0\0"
+      {::_pbi::TcParser::GetMapAuxInfo(
+          1, 0, 9, 9, 0)},
+      {::_pbi::TcParser::GetMapAuxInfo(
+          1, 0, 9, 9, 0)},
+      {::_pbi::TcParser::GetMapAuxInfo(
+          1, 0, 9, 9, 0)},
+      {::_pbi::TcParser::GetMapAuxInfo(
+          1, 0, 9, 9, 0)},
+  }},
+  {{
+    "\47\2\7\4\7\13\14\0\14\15\10\4\6\11\20\16\21\16\11\11\12\0\0\0"
     "croupier.sdk.v1.LocalFunctionDescriptor"
     "id"
     "version"
@@ -875,6 +1594,13 @@ LocalFunctionDescriptor::_table_ = {
     "risk"
     "entity"
     "operation"
+    "category_display"
+    "entity_display"
+    "operation_display"
+    "operation_kind"
+    "placement"
+    "page_hint"
+    "extensions"
   }},
 };
 PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
@@ -911,7 +1637,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
       _impl_.output_schema_.ClearNonDefaultToEmpty();
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00007f00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       _impl_.category_.ClearNonDefaultToEmpty();
     }
@@ -924,8 +1650,31 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       _impl_.operation_.ClearNonDefaultToEmpty();
     }
+    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+      _impl_.operation_kind_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+      _impl_.placement_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+      _impl_.page_hint_.ClearNonDefaultToEmpty();
+    }
   }
   _impl_.deprecated_ = false;
+  if (BatchCheckHasBit(cached_has_bits, 0x000f0000U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00010000U)) {
+      _impl_.category_display_.Clear();
+    }
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00020000U)) {
+      _impl_.entity_display_.Clear();
+    }
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00040000U)) {
+      _impl_.operation_display_.Clear();
+    }
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00080000U)) {
+      _impl_.extensions_.Clear();
+    }
+  }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -1010,7 +1759,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
   }
 
   // bool deprecated = 7 [json_name = "deprecated"];
-  if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+  if (CheckHasBit(cached_has_bits, 0x00008000U)) {
     if (this_._internal_deprecated() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteBoolToArray(
@@ -1075,6 +1824,176 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.operation");
       target = stream->WriteStringMaybeAliased(13, _s, target);
+    }
+  }
+
+  // map<string, string> category_display = 14 [json_name = "categoryDisplay"];
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00010000U)) {
+    if (!this_._internal_category_display().empty()) {
+      using MapType = ::google::protobuf::Map<::std::string, ::std::string>;
+      using WireHelper = _pbi::MapEntryFuncs<::std::string, ::std::string,
+                                     _pbi::WireFormatLite::TYPE_STRING,
+                                     _pbi::WireFormatLite::TYPE_STRING>;
+      const auto& field = this_._internal_category_display();
+
+      if (stream->IsSerializationDeterministic() && field.size() > 1) {
+        for (const auto& entry : ::google::protobuf::internal::MapSorterPtr<MapType>(field)) {
+          target = WireHelper::InternalSerialize(
+              14, entry.first, entry.second, target, stream);
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.first.data(), static_cast<int>(entry.first.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.category_display");
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.second.data(), static_cast<int>(entry.second.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.category_display");
+        }
+      } else {
+        for (const auto& entry : field) {
+          target = WireHelper::InternalSerialize(
+              14, entry.first, entry.second, target, stream);
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.first.data(), static_cast<int>(entry.first.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.category_display");
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.second.data(), static_cast<int>(entry.second.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.category_display");
+        }
+      }
+    }
+  }
+
+  // map<string, string> entity_display = 15 [json_name = "entityDisplay"];
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00020000U)) {
+    if (!this_._internal_entity_display().empty()) {
+      using MapType = ::google::protobuf::Map<::std::string, ::std::string>;
+      using WireHelper = _pbi::MapEntryFuncs<::std::string, ::std::string,
+                                     _pbi::WireFormatLite::TYPE_STRING,
+                                     _pbi::WireFormatLite::TYPE_STRING>;
+      const auto& field = this_._internal_entity_display();
+
+      if (stream->IsSerializationDeterministic() && field.size() > 1) {
+        for (const auto& entry : ::google::protobuf::internal::MapSorterPtr<MapType>(field)) {
+          target = WireHelper::InternalSerialize(
+              15, entry.first, entry.second, target, stream);
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.first.data(), static_cast<int>(entry.first.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.entity_display");
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.second.data(), static_cast<int>(entry.second.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.entity_display");
+        }
+      } else {
+        for (const auto& entry : field) {
+          target = WireHelper::InternalSerialize(
+              15, entry.first, entry.second, target, stream);
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.first.data(), static_cast<int>(entry.first.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.entity_display");
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.second.data(), static_cast<int>(entry.second.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.entity_display");
+        }
+      }
+    }
+  }
+
+  // map<string, string> operation_display = 16 [json_name = "operationDisplay"];
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00040000U)) {
+    if (!this_._internal_operation_display().empty()) {
+      using MapType = ::google::protobuf::Map<::std::string, ::std::string>;
+      using WireHelper = _pbi::MapEntryFuncs<::std::string, ::std::string,
+                                     _pbi::WireFormatLite::TYPE_STRING,
+                                     _pbi::WireFormatLite::TYPE_STRING>;
+      const auto& field = this_._internal_operation_display();
+
+      if (stream->IsSerializationDeterministic() && field.size() > 1) {
+        for (const auto& entry : ::google::protobuf::internal::MapSorterPtr<MapType>(field)) {
+          target = WireHelper::InternalSerialize(
+              16, entry.first, entry.second, target, stream);
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.first.data(), static_cast<int>(entry.first.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.operation_display");
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.second.data(), static_cast<int>(entry.second.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.operation_display");
+        }
+      } else {
+        for (const auto& entry : field) {
+          target = WireHelper::InternalSerialize(
+              16, entry.first, entry.second, target, stream);
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.first.data(), static_cast<int>(entry.first.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.operation_display");
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.second.data(), static_cast<int>(entry.second.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.operation_display");
+        }
+      }
+    }
+  }
+
+  // string operation_kind = 17 [json_name = "operationKind"];
+  if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+    if (!this_._internal_operation_kind().empty()) {
+      const ::std::string& _s = this_._internal_operation_kind();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.operation_kind");
+      target = stream->WriteStringMaybeAliased(17, _s, target);
+    }
+  }
+
+  // string placement = 18 [json_name = "placement"];
+  if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+    if (!this_._internal_placement().empty()) {
+      const ::std::string& _s = this_._internal_placement();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.placement");
+      target = stream->WriteStringMaybeAliased(18, _s, target);
+    }
+  }
+
+  // string page_hint = 19 [json_name = "pageHint"];
+  if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+    if (!this_._internal_page_hint().empty()) {
+      const ::std::string& _s = this_._internal_page_hint();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.page_hint");
+      target = stream->WriteStringMaybeAliased(19, _s, target);
+    }
+  }
+
+  // map<string, string> extensions = 20 [json_name = "extensions"];
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00080000U)) {
+    if (!this_._internal_extensions().empty()) {
+      using MapType = ::google::protobuf::Map<::std::string, ::std::string>;
+      using WireHelper = _pbi::MapEntryFuncs<::std::string, ::std::string,
+                                     _pbi::WireFormatLite::TYPE_STRING,
+                                     _pbi::WireFormatLite::TYPE_STRING>;
+      const auto& field = this_._internal_extensions();
+
+      if (stream->IsSerializationDeterministic() && field.size() > 1) {
+        for (const auto& entry : ::google::protobuf::internal::MapSorterPtr<MapType>(field)) {
+          target = WireHelper::InternalSerialize(
+              20, entry.first, entry.second, target, stream);
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.first.data(), static_cast<int>(entry.first.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.extensions");
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.second.data(), static_cast<int>(entry.second.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.extensions");
+        }
+      } else {
+        for (const auto& entry : field) {
+          target = WireHelper::InternalSerialize(
+              20, entry.first, entry.second, target, stream);
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.first.data(), static_cast<int>(entry.first.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.extensions");
+          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+              entry.second.data(), static_cast<int>(entry.second.length()),
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.extensions");
+        }
+      }
     }
   }
 
@@ -1163,7 +2082,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
       }
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00001f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
     // string category = 10 [json_name = "category"];
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!this_._internal_category().empty()) {
@@ -1192,10 +2111,73 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
                                         this_._internal_operation());
       }
     }
-    // bool deprecated = 7 [json_name = "deprecated"];
+    // string operation_kind = 17 [json_name = "operationKind"];
     if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+      if (!this_._internal_operation_kind().empty()) {
+        total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_operation_kind());
+      }
+    }
+    // string placement = 18 [json_name = "placement"];
+    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+      if (!this_._internal_placement().empty()) {
+        total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_placement());
+      }
+    }
+    // string page_hint = 19 [json_name = "pageHint"];
+    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+      if (!this_._internal_page_hint().empty()) {
+        total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_page_hint());
+      }
+    }
+    // bool deprecated = 7 [json_name = "deprecated"];
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
       if (this_._internal_deprecated() != 0) {
         total_size += 2;
+      }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x000f0000U)) {
+    // map<string, string> category_display = 14 [json_name = "categoryDisplay"];
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00010000U)) {
+      total_size +=
+          1 * ::google::protobuf::internal::FromIntSize(this_._internal_category_display_size());
+      for (const auto& entry : this_._internal_category_display()) {
+        total_size += _pbi::MapEntryFuncs<::std::string, ::std::string,
+                                       _pbi::WireFormatLite::TYPE_STRING,
+                                       _pbi::WireFormatLite::TYPE_STRING>::ByteSizeLong(entry.first, entry.second);
+      }
+    }
+    // map<string, string> entity_display = 15 [json_name = "entityDisplay"];
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00020000U)) {
+      total_size +=
+          1 * ::google::protobuf::internal::FromIntSize(this_._internal_entity_display_size());
+      for (const auto& entry : this_._internal_entity_display()) {
+        total_size += _pbi::MapEntryFuncs<::std::string, ::std::string,
+                                       _pbi::WireFormatLite::TYPE_STRING,
+                                       _pbi::WireFormatLite::TYPE_STRING>::ByteSizeLong(entry.first, entry.second);
+      }
+    }
+    // map<string, string> operation_display = 16 [json_name = "operationDisplay"];
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00040000U)) {
+      total_size +=
+          2 * ::google::protobuf::internal::FromIntSize(this_._internal_operation_display_size());
+      for (const auto& entry : this_._internal_operation_display()) {
+        total_size += _pbi::MapEntryFuncs<::std::string, ::std::string,
+                                       _pbi::WireFormatLite::TYPE_STRING,
+                                       _pbi::WireFormatLite::TYPE_STRING>::ByteSizeLong(entry.first, entry.second);
+      }
+    }
+    // map<string, string> extensions = 20 [json_name = "extensions"];
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00080000U)) {
+      total_size +=
+          2 * ::google::protobuf::internal::FromIntSize(this_._internal_extensions_size());
+      for (const auto& entry : this_._internal_extensions()) {
+        total_size += _pbi::MapEntryFuncs<::std::string, ::std::string,
+                                       _pbi::WireFormatLite::TYPE_STRING,
+                                       _pbi::WireFormatLite::TYPE_STRING>::ByteSizeLong(entry.first, entry.second);
       }
     }
   }
@@ -1288,7 +2270,7 @@ void LocalFunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00001f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!from._internal_category().empty()) {
         _this->_internal_set_category(from._internal_category());
@@ -1326,9 +2308,50 @@ void LocalFunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+      if (!from._internal_operation_kind().empty()) {
+        _this->_internal_set_operation_kind(from._internal_operation_kind());
+      } else {
+        if (_this->_impl_.operation_kind_.IsDefault()) {
+          _this->_internal_set_operation_kind("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+      if (!from._internal_placement().empty()) {
+        _this->_internal_set_placement(from._internal_placement());
+      } else {
+        if (_this->_impl_.placement_.IsDefault()) {
+          _this->_internal_set_placement("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+      if (!from._internal_page_hint().empty()) {
+        _this->_internal_set_page_hint(from._internal_page_hint());
+      } else {
+        if (_this->_impl_.page_hint_.IsDefault()) {
+          _this->_internal_set_page_hint("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
       if (from._internal_deprecated() != 0) {
         _this->_impl_.deprecated_ = from._impl_.deprecated_;
       }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x000f0000U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00010000U)) {
+      _this->_impl_.category_display_.MergeFrom(from._impl_.category_display_);
+    }
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00020000U)) {
+      _this->_impl_.entity_display_.MergeFrom(from._impl_.entity_display_);
+    }
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00040000U)) {
+      _this->_impl_.operation_display_.MergeFrom(from._impl_.operation_display_);
+    }
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00080000U)) {
+      _this->_impl_.extensions_.MergeFrom(from._impl_.extensions_);
     }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
@@ -1362,7 +2385,14 @@ void LocalFunctionDescriptor::InternalSwap(LocalFunctionDescriptor* PROTOBUF_RES
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.risk_, &other->_impl_.risk_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.entity_, &other->_impl_.entity_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.operation_, &other->_impl_.operation_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.operation_kind_, &other->_impl_.operation_kind_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.placement_, &other->_impl_.placement_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.page_hint_, &other->_impl_.page_hint_, arena);
   swap(_impl_.deprecated_, other->_impl_.deprecated_);
+  _impl_.category_display_.InternalSwap(&other->_impl_.category_display_);
+  _impl_.entity_display_.InternalSwap(&other->_impl_.entity_display_);
+  _impl_.operation_display_.InternalSwap(&other->_impl_.operation_display_);
+  _impl_.extensions_.InternalSwap(&other->_impl_.extensions_);
 }
 
 ::google::protobuf::Metadata LocalFunctionDescriptor::GetMetadata() const {

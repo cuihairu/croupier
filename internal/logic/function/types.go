@@ -1,5 +1,9 @@
 package function
 
+import (
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
+)
+
 // Local types for function logic - previously from internal/types
 
 // Function represents a function in the system
@@ -264,11 +268,7 @@ type FunctionUIRequest struct {
 
 // FunctionUIResponse represents the response for function UI
 type FunctionUIResponse struct {
-	UI             interface{} `json:"ui"`
-	Active         bool        `json:"active"`
 	Schema         interface{} `json:"schema"`
-	Layout         interface{} `json:"layout"`
-	Components     interface{} `json:"components"`
 	Custom         interface{} `json:"custom"`
 	HasDefault     bool        `json:"hasDefault"`
 	UISource       string      `json:"uiSource"`
@@ -277,12 +277,8 @@ type FunctionUIResponse struct {
 
 // FunctionUIUpdateRequest represents a request to update function UI
 type FunctionUIUpdateRequest struct {
-	ID         string      `json:"id" binding:"required"`
-	UI         interface{} `json:"ui" binding:"required"`
-	Active     bool        `json:"active"`
-	Schema     interface{} `json:"schema"`
-	Layout     interface{} `json:"layout"`
-	Components interface{} `json:"components"`
+	ID     string      `json:"id" binding:"required"`
+	Schema interface{} `json:"schema" binding:"required"`
 }
 
 // FunctionUIHistoryRequest represents a request for function UI history
@@ -300,18 +296,16 @@ type FunctionUIHistoryResponse struct {
 
 // FunctionUIHistoryItem represents a single function UI history item
 type FunctionUIHistoryItem struct {
-	ID         string      `json:"id"`
-	Timestamp  string      `json:"timestamp"`
-	User       string      `json:"user"`
-	UI         interface{} `json:"ui"`
-	Active     bool        `json:"active"`
-	Version    int         `json:"version"`
-	Message    string      `json:"message"`
-	CreatedBy  string      `json:"createdBy"`
-	CreatedAt  string      `json:"createdAt"`
-	Schema     interface{} `json:"schema"`
-	Layout     interface{} `json:"layout"`
-	Components interface{} `json:"components"`
+	ID        string      `json:"id"`
+	Timestamp string      `json:"timestamp"`
+	User      string      `json:"user"`
+	UI        interface{} `json:"ui"`
+	Active    bool        `json:"active"`
+	Version   int         `json:"version"`
+	Message   string      `json:"message"`
+	CreatedBy string      `json:"createdBy"`
+	CreatedAt string      `json:"createdAt"`
+	Schema    interface{} `json:"schema"`
 }
 
 // FunctionUIRollbackRequest represents a request to rollback function UI
@@ -426,3 +420,8 @@ type BatchDeleteFunctionsResponse struct {
 
 // JSONMap represents a generic JSON map
 type JSONMap map[string]interface{}
+
+// DescriptorsV2Result represents the result of DescriptorsV2
+type DescriptorsV2Result struct {
+	Functions []spec.FunctionSpec `json:"functions"`
+}

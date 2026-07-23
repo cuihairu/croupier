@@ -26,8 +26,8 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 	if err != nil {
 		return nil, err
 	}
-	if req.Schema == nil && req.Layout == nil && req.Components == nil {
-		return nil, errorx.NewBadRequest("empty ui payload: schema/layout/components are all missing")
+	if req.Schema == nil {
+		return nil, errorx.NewBadRequest("empty ui payload: schema is required")
 	}
 
 	fn, err := getOrCreateFunctionRecord(l.ctx, l.svcCtx, functionID)
@@ -55,18 +55,6 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 		fn.Metadata = meta
 	}
 
-	// 更新 Layout 和 Components
-	if req.Layout != nil || req.Components != nil {
-		if req.Layout != nil {
-			meta["layout"] = req.Layout
-		}
-		if req.Components != nil {
-			meta["components"] = req.Components
-		}
-		updates["metadata"] = meta
-		fn.Metadata = meta
-	}
-
 	if len(updates) > 0 {
 		if err := l.svcCtx.FunctionModel.Update(l.ctx, fn.ID, updates); err != nil {
 			return nil, err
@@ -83,8 +71,6 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 
 	return &FunctionUIResponse{
 		Schema:         resolved.Schema,
-		Layout:         resolved.Layout,
-		Components:     resolved.Components,
 		Custom:         resolved.Custom,
 		HasDefault:     resolved.HasDefault,
 		UISource:       resolved.UISource,

@@ -93,6 +93,11 @@ type ServiceContext struct {
 	ConfigVersionModel   *model.ConfigVersionModel
 	WorkspaceConfigModel *model.WorkspaceConfigModel
 
+	// Page Spec models (new dashboard model)
+	PageSpecModel          *model.PageSpecModel
+	PublishedPageSpecModel *model.PublishedPageSpecModel
+	PageVersionModel       *model.PageVersionModel
+
 	// Agent Session 持久化
 	AgentSessionModel *reg.AgentSessionModel
 
@@ -174,6 +179,11 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	configVersionModel := model.NewConfigVersionModel(db)
 	workspaceConfigModel := model.NewWorkspaceConfigModel(db)
 
+	// Page Spec models (new dashboard model)
+	pageSpecModel := model.NewPageSpecModel(db)
+	publishedPageSpecModel := model.NewPublishedPageSpecModel(db)
+	pageVersionModel := model.NewPageVersionModel(db)
+
 	// Agent Session Model for database persistence
 	agentSessionModel := reg.NewAgentSessionModel(db)
 
@@ -252,31 +262,34 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		Cache:             cacheStore,
 		CacheHelper:       cacheHelper,
 
-		AdminModel:           adminModel,
-		AlertModel:           alertModel,
-		BehaviorModel:        behaviorModel,
-		RetentionModel:       retentionModel,
-		PaymentsModel:        paymentsModel,
-		BackupModel:          backupModel,
-		FAQModel:             faqModel,
-		FeedbackModel:        feedbackModel,
-		EntityModel:          entityModel,
-		GameModel:            gameModel,
-		PlayerModel:          playerModel,
-		ProfileModel:         profileModel,
-		FunctionModel:        functionModel,
-		TermDictModel:        termDictModel,
-		RoleModel:            roleModel,
-		NodeModel:            nodeModel,
-		PermissionModel:      permissionModel,
-		RateLimitModel:       rateLimitModel,
-		SupportModel:         supportModel,
-		TicketModel:          ticketModel,
-		MessageModel:         messageModel,
-		CertificateModel:     certificateModel,
-		ConfigVersionModel:   configVersionModel,
-		WorkspaceConfigModel: workspaceConfigModel,
-		AgentSessionModel:    agentSessionModel,
+		AdminModel:             adminModel,
+		AlertModel:             alertModel,
+		BehaviorModel:          behaviorModel,
+		RetentionModel:         retentionModel,
+		PaymentsModel:          paymentsModel,
+		BackupModel:            backupModel,
+		FAQModel:               faqModel,
+		FeedbackModel:          feedbackModel,
+		EntityModel:            entityModel,
+		GameModel:              gameModel,
+		PlayerModel:            playerModel,
+		ProfileModel:           profileModel,
+		FunctionModel:          functionModel,
+		TermDictModel:          termDictModel,
+		RoleModel:              roleModel,
+		NodeModel:              nodeModel,
+		PermissionModel:        permissionModel,
+		RateLimitModel:         rateLimitModel,
+		SupportModel:           supportModel,
+		TicketModel:            ticketModel,
+		MessageModel:           messageModel,
+		CertificateModel:       certificateModel,
+		ConfigVersionModel:     configVersionModel,
+		WorkspaceConfigModel:   workspaceConfigModel,
+		PageSpecModel:          pageSpecModel,
+		PublishedPageSpecModel: publishedPageSpecModel,
+		PageVersionModel:       pageVersionModel,
+		AgentSessionModel:      agentSessionModel,
 
 		// 版本信息（从 version.go 读取，ldflags 注入后会更新）
 		ServerVersion:   ServerVersion,

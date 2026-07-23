@@ -15,9 +15,9 @@ tag:
 
 Croupier 当前的目标架构已经从"多条回拨链路 + 历史 旧传输/gRPC 混合模型"收敛到"统一 session 传输"：
 
-- `SDK <-> Agent`：`sdk-agent subprotocol`
-- `Agent <-> Server`：`agent-server subprotocol`
-- 两者共享同一套 `shared session runtime`
+- `Agent <-> Server`：默认采用 `TCP session`，默认启用 `TLS`
+- `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
+- 两条链路共享同一套 session 传输基座，只在首条握手消息和业务语义上区分子协议
 
 在业务建模上，Croupier 同时采用单公司、多游戏、多环境的作用域模型：
 
@@ -32,7 +32,7 @@ Croupier 当前的目标架构已经从"多条回拨链路 + 历史 旧传输/gR
 ```mermaid
 graph TB
   subgraph "展示层"
-    Dashboard[Web Dashboard<br/>React + Formily]
+    UI[Dashboard<br/>React + Ant Design + Formily]
   end
 
   subgraph "控制层"
@@ -45,32 +45,24 @@ graph TB
   end
 
   subgraph "业务层"
-    GS1[Game Server A]
-    GS2[Game Server B]
-    SDK1[Embedded SDK / Third-party App]
-    SDK2[Embedded SDK / Third-party App]
+    GS1[Game Server A<br/>SDK / Third-party App]
+    GS2[Game Server B<br/>SDK / Third-party App]
+    GS3[Game Server C<br/>SDK / Third-party App]
   end
 
-  subgraph "存储层"
-    MetaDB[(croupier_meta<br/>元数据)]
-    GameDB1[(game_demo_prod<br/>游戏A生产)]
-    GameDB2[(game_demo_staging<br/>游戏A测试)]
-    GameDB3[(game_rpg_prod<br/>游戏B生产)]
-  end
-
-  Dashboard -->|HTTP REST| Server
+  UI -->|HTTP REST| Server
   Agent1 -->|TCP Session + TLS| Server
   Agent2 -->|TCP Session + TLS| Server
   GS1 -->|TCP Session| Agent1
-  SDK1 -->|TCP Session| Agent1
   GS2 -->|TCP Session| Agent2
-  SDK2 -->|TCP Session| Agent2
-
-  Server --> MetaDB
-  Server --> GameDB1
-  Server --> GameDB2
-  Server --> GameDB3
+  GS3 -->|TCP Session| Agent1
 ```
+
+关键边界说明：
+
+- `Server` 不再依赖反向直连 `Agent` 暴露的 `rpc_addr`
+- `Agent` 本地监听只服务 `GameServer / SDK / 第三方应用`
+- `Server -> Agent` 的 `Invoke / StartTask / CancelTask / Ops` 都应复用既有 `Agent-Server` session
 
 ## 核心结论
 

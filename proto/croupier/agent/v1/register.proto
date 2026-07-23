@@ -28,6 +28,15 @@ message FunctionDescriptor {
   // OpenAPI 3.0.3 Schema fields (JSON Schema format)
   string input_schema = 30;               // JSON Schema for request body
   string output_schema = 31;              // JSON Schema for response body
+
+  // v2 extension fields for Page generation. These mirror sdk.v1.LocalFunctionDescriptor.
+  map<string, string> category_display = 40;   // x-category-display: category multi-language labels
+  map<string, string> entity_display = 41;     // x-entity-display: resource multi-language labels
+  map<string, string> operation_display = 42;  // x-operation-display: operation multi-language labels
+  string operation_kind = 43;                  // x-operation-kind: page generation semantic
+  string placement = 44;                       // x-placement: recommended page placement
+  string page_hint = 45;                       // x-page-hint: suggested page key
+  map<string, string> extensions = 46;         // third-party extensions, never used for core semantics
 }
 
 // Process/service instance registered to an agent (e.g. a game server process)

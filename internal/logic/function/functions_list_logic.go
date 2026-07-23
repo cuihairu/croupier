@@ -148,7 +148,7 @@ func (l *FunctionsListLogic) runtimeFunctions(req *FunctionsListRequest) []Funct
 					GameId:   sess.GameID,
 					Status:   1,
 					Version:  meta.Version,
-					Category: inferCategory(fid),
+					Category: strings.TrimSpace(meta.Category),
 				}
 			}
 			if req.Status != 0 && item.Status != req.Status {

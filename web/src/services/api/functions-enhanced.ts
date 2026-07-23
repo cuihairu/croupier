@@ -564,9 +564,11 @@ export async function getFunctionOpenAPIDetail(functionId: string): Promise<{
   // OpenAPI 扩展字段
   extensions?: {
     'x-category'?: string;
-    'x-risk'?: 'safe' | 'warning' | 'danger';
+    'x-risk'?: 'safe' | 'warning' | 'high' | 'danger';
     'x-entity'?: string;
-    'x-operation'?: 'create' | 'read' | 'update' | 'delete' | 'custom';
+    'x-operation'?: string; // business action key
+    'x-operation-kind'?: 'list' | 'get' | 'create' | 'update' | 'delete' | 'action' | 'task' | 'report';
+    'x-placement'?: 'query' | 'tableData' | 'detailData' | 'rowAction' | 'detailAction' | 'toolbarAction' | 'batchAction' | 'standalone';
   };
   // 请求/响应 schema
   requestBody?: any;
@@ -596,7 +598,7 @@ export async function batchGetFunctionOpenAPI(functionIds: string[]): Promise<Re
 export async function getEntityFunctions(entityId: string): Promise<{
   items: Array<{
     id: string;
-    operation: 'create' | 'read' | 'update' | 'delete' | 'custom';
+    operation: string; // business action key
     name: string;
   }>;
 }> {

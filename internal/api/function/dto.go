@@ -1,5 +1,7 @@
 package function
 
+import "encoding/json"
+
 // Function management DTOs
 // Extracted from internal/types/types.go
 
@@ -219,13 +221,11 @@ type FunctionRouteUpdateRequest struct {
 
 // FunctionUIHistoryItem represents an item in the function UI history
 type FunctionUIHistoryItem struct {
-	Version    int         `json:"version"`
-	Schema     interface{} `json:"schema"`
-	Layout     interface{} `json:"layout"`
-	Components interface{} `json:"components"`
-	Message    string      `json:"message"`
-	CreatedBy  string      `json:"createdBy"`
-	CreatedAt  string      `json:"createdAt"`
+	Version   int             `json:"version"`
+	Schema    json.RawMessage `json:"schema,omitempty"`
+	Message   string          `json:"message"`
+	CreatedBy string          `json:"createdBy"`
+	CreatedAt string          `json:"createdAt"`
 }
 
 // FunctionUIHistoryRequest represents a request for function UI history
@@ -245,13 +245,11 @@ type FunctionUIRequest struct {
 
 // FunctionUIResponse represents the response containing function UI configuration
 type FunctionUIResponse struct {
-	Schema         interface{} `json:"schema"`
-	Layout         interface{} `json:"layout"`
-	Components     interface{} `json:"components"`
-	Custom         bool        `json:"custom"`
-	HasDefault     bool        `json:"hasDefault"`
-	UISource       string      `json:"uiSource"`       // custom_metadata/config_file_override/openapi_x_ui/none
-	UISourceDetail string      `json:"uiSourceDetail"` // human-readable source description
+	Schema         json.RawMessage `json:"schema,omitempty"`
+	Custom         bool            `json:"custom"`
+	HasDefault     bool            `json:"hasDefault"`
+	UISource       string          `json:"uiSource"`       // custom_metadata/config_file_override/openapi_x_ui/none
+	UISourceDetail string          `json:"uiSourceDetail"` // human-readable source description
 }
 
 // FunctionUIRollbackRequest represents a request to rollback function UI
@@ -268,10 +266,8 @@ type FunctionUIRollbackResponse struct {
 
 // FunctionUIUpdateRequest represents a request to update function UI
 type FunctionUIUpdateRequest struct {
-	ID         string      `uri:"id"`
-	Schema     interface{} `json:"schema"`
-	Layout     interface{} `json:"layout"`
-	Components interface{} `json:"components"`
+	ID     string          `uri:"id"`
+	Schema json.RawMessage `json:"schema"`
 }
 
 // FunctionWarningItem represents a warning for a function

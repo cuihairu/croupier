@@ -42,6 +42,38 @@ func (b *MetadataBuilder) SetCategory(category string) *MetadataBuilder {
 	return b
 }
 
+// SetEntity sets the resource key (e.g., "player", "mail").
+func (b *MetadataBuilder) SetEntity(entity string) *MetadataBuilder {
+	b.metadata.Entity = entity
+	return b
+}
+
+// SetOperation sets the business action key (e.g., "ban", "send", "list").
+func (b *MetadataBuilder) SetOperation(operation string) *MetadataBuilder {
+	b.metadata.Operation = operation
+	return b
+}
+
+// SetOperationKind sets the page generation semantic.
+// Valid values: "list", "get", "create", "update", "delete", "action", "task", "report"
+func (b *MetadataBuilder) SetOperationKind(kind string) *MetadataBuilder {
+	b.metadata.OperationKind = kind
+	return b
+}
+
+// SetPlacement sets the recommended page placement.
+// Valid values: "query", "tableData", "detailData", "rowAction", "detailAction", "toolbarAction", "batchAction", "standalone"
+func (b *MetadataBuilder) SetPlacement(placement string) *MetadataBuilder {
+	b.metadata.Placement = placement
+	return b
+}
+
+// SetPageHint sets the suggested page key.
+func (b *MetadataBuilder) SetPageHint(hint string) *MetadataBuilder {
+	b.metadata.PageHint = hint
+	return b
+}
+
 // SetTags sets the function tags.
 func (b *MetadataBuilder) SetTags(tags ...string) *MetadataBuilder {
 	b.metadata.Tags = tags
@@ -63,6 +95,66 @@ func (b *MetadataBuilder) SetName(name string) *MetadataBuilder {
 // SetDescription sets the function description.
 func (b *MetadataBuilder) SetDescription(description string) *MetadataBuilder {
 	b.metadata.Description = description
+	return b
+}
+
+// SetSummary sets the one-line summary.
+func (b *MetadataBuilder) SetSummary(summary string) *MetadataBuilder {
+	b.metadata.Summary = summary
+	return b
+}
+
+// SetDisplayNameLocale sets the display name for a specific locale.
+func (b *MetadataBuilder) SetDisplayNameLocale(locale, name string) *MetadataBuilder {
+	if b.metadata.DisplayNameMap == nil {
+		b.metadata.DisplayNameMap = make(map[string]string)
+	}
+	b.metadata.DisplayNameMap[locale] = name
+	return b
+}
+
+// SetSummaryLocale sets the summary for a specific locale.
+func (b *MetadataBuilder) SetSummaryLocale(locale, summary string) *MetadataBuilder {
+	if b.metadata.SummaryMap == nil {
+		b.metadata.SummaryMap = make(map[string]string)
+	}
+	b.metadata.SummaryMap[locale] = summary
+	return b
+}
+
+// SetDescriptionLocale sets the description for a specific locale.
+func (b *MetadataBuilder) SetDescriptionLocale(locale, description string) *MetadataBuilder {
+	if b.metadata.DescriptionMap == nil {
+		b.metadata.DescriptionMap = make(map[string]string)
+	}
+	b.metadata.DescriptionMap[locale] = description
+	return b
+}
+
+// SetCategoryDisplay sets the category display label for a specific locale.
+func (b *MetadataBuilder) SetCategoryDisplay(locale, label string) *MetadataBuilder {
+	if b.metadata.CategoryDisplay == nil {
+		b.metadata.CategoryDisplay = make(map[string]string)
+	}
+	b.metadata.CategoryDisplay[locale] = label
+	return b
+}
+
+// SetEntityDisplay sets the entity display label for a specific locale.
+func (b *MetadataBuilder) SetEntityDisplay(locale, label string) *MetadataBuilder {
+	if b.metadata.EntityDisplay == nil {
+		b.metadata.EntityDisplay = make(map[string]string)
+	}
+	b.metadata.EntityDisplay[locale] = label
+	return b
+}
+
+// SetOperationDisplay sets the operation display label for a specific locale.
+func (b *MetadataBuilder) SetOperationDisplay(locale, label string) *MetadataBuilder {
+	if b.metadata.OperationDisplay == nil {
+		b.metadata.OperationDisplay = make(map[string]string)
+	}
+	b.metadata.OperationDisplay[locale] = label
 	return b
 }
 

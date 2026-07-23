@@ -11,19 +11,20 @@ import (
 )
 
 // FunctionMetadata defines the core function registration contract.
-// This matches the proto definition in proto/croupier/function/v1/metadata.proto
+// This matches the proto definition in proto/croupier/sdk/v1/provider.proto
 type FunctionMetadata struct {
 	// Identity fields
 	ID      string `json:"id"`      // Unique identifier, format: <domain>.<entity>.<action>
 	Version string `json:"version"` // Semantic version (semver)
 
 	// Classification fields
-	Category string   `json:"category"` // Function category
+	Category string   `json:"category"` // Navigation category key
 	Tags     []string `json:"tags"`     // Tags for grouping and filtering
 
 	// Documentation fields
 	Name        string `json:"name"`        // Short display name
 	Description string `json:"description"` // Detailed description
+	Summary     string `json:"summary"`     // One-line summary
 
 	// Parameter definitions (JSON Schema)
 	InputSchema  string `json:"input_schema"`  // JSON Schema for request
@@ -35,7 +36,22 @@ type FunctionMetadata struct {
 	// Risk definition (function's inherent risk level)
 	Risk *FunctionRisk `json:"risk"`
 
-	// Extension fields
+	// v2 Resource/Page semantic fields
+	Entity        string `json:"entity,omitempty"`         // Resource key (e.g., "player", "mail")
+	Operation     string `json:"operation,omitempty"`      // Business action key (e.g., "ban", "send", "list")
+	OperationKind string `json:"operation_kind,omitempty"` // Page generation semantic (list/get/action/task/report)
+	Placement     string `json:"placement,omitempty"`      // Recommended page placement (tableData/rowAction/standalone)
+	PageHint      string `json:"page_hint,omitempty"`      // Suggested page key
+
+	// v2 Multi-language display fields
+	DisplayNameMap   map[string]string `json:"display_name,omitempty"`      // Display name by locale
+	SummaryMap       map[string]string `json:"summary_map,omitempty"`       // Summary by locale
+	DescriptionMap   map[string]string `json:"description_map,omitempty"`   // Description by locale
+	CategoryDisplay  map[string]string `json:"category_display,omitempty"`  // Category labels by locale
+	EntityDisplay    map[string]string `json:"entity_display,omitempty"`    // Entity labels by locale
+	OperationDisplay map[string]string `json:"operation_display,omitempty"` // Operation labels by locale
+
+	// Extension fields (third-party only, never for core semantics)
 	Extensions map[string]string `json:"extensions"`
 }
 
@@ -364,14 +380,31 @@ func (r *Registry) cloneMetadata(metadata *FunctionMetadata) *FunctionMetadata {
 // toFunctionDescriptor converts FunctionMetadata to FunctionDescriptor for client registration.
 func (r *Registry) toFunctionDescriptor(metadata *FunctionMetadata) croupier.FunctionDescriptor {
 	desc := croupier.FunctionDescriptor{
-		ID:       metadata.ID,
-		Version:  metadata.Version,
-		Category: metadata.Category,
-		Enabled:  true,
+		ID:            metadata.ID,
+		Version:       metadata.Version,
+		Category:      metadata.Category,
+		Enabled:       true,
+		Entity:        metadata.Entity,
+		Operation:     metadata.Operation,
+		OperationKind: metadata.OperationKind,
+		Placement:     metadata.Placement,
+		PageHint:      metadata.PageHint,
 	}
 
+	// Safely get risk level
 	if metadata.Risk != nil {
 		desc.Risk = metadata.Risk.Level.String()
+	}
+
+	// Map multi-language fields
+	if metadata.CategoryDisplay != nil {
+		desc.CategoryDisplay = metadata.CategoryDisplay
+	}
+	if metadata.EntityDisplay != nil {
+		desc.EntityDisplay = metadata.EntityDisplay
+	}
+	if metadata.OperationDisplay != nil {
+		desc.OperationDisplay = metadata.OperationDisplay
 	}
 
 	return desc

@@ -13,8 +13,6 @@ import (
 
 type uiResolveResult struct {
 	Schema         interface{}
-	Layout         interface{}
-	Components     interface{}
 	Custom         bool
 	HasDefault     bool
 	UISource       string
@@ -70,26 +68,8 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 		}
 	}
 
-	var layout interface{}
-	var components interface{}
-	if fn.Metadata != nil {
-		layout = fn.Metadata["layout"]
-		components = fn.Metadata["components"]
-	}
-	if layout == nil {
-		layout = map[string]interface{}{
-			"type": "grid",
-			"cols": 2,
-		}
-	}
-	if components == nil {
-		components = map[string]interface{}{}
-	}
-
 	return uiResolveResult{
 		Schema:         resultUI,
-		Layout:         layout,
-		Components:     components,
 		Custom:         customUI != nil,
 		HasDefault:     fileUI != nil || defaultUI != nil,
 		UISource:       uiSource,

@@ -189,10 +189,10 @@ export default [
         hideInMenu: true,
       },
       {
-        path: '/console/:categoryKey/:objectKey',
-        name: 'ConsoleWorkspace',
+        path: '/console/:categoryKey/:pageKey',
+        name: 'ConsolePage',
         access: 'canConsoleRead',
-        component: './Console/Workspace',
+        component: './Console/Page',
         hideInMenu: true,
       },
       {

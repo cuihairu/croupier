@@ -39,10 +39,18 @@ type FunctionDescriptor struct {
 	Menu        *v1.Menu           `protobuf:"bytes,23,opt,name=menu,proto3" json:"menu,omitempty"`
 	Permissions *v1.PermissionSpec `protobuf:"bytes,24,opt,name=permissions,proto3" json:"permissions,omitempty"`
 	// OpenAPI 3.0.3 Schema fields (JSON Schema format)
-	InputSchema   string `protobuf:"bytes,30,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body
-	OutputSchema  string `protobuf:"bytes,31,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	InputSchema  string `protobuf:"bytes,30,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body
+	OutputSchema string `protobuf:"bytes,31,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body
+	// v2 extension fields for Page generation. These mirror sdk.v1.LocalFunctionDescriptor.
+	CategoryDisplay  map[string]string `protobuf:"bytes,40,rep,name=category_display,json=categoryDisplay,proto3" json:"category_display,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`    // x-category-display: category multi-language labels
+	EntityDisplay    map[string]string `protobuf:"bytes,41,rep,name=entity_display,json=entityDisplay,proto3" json:"entity_display,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`          // x-entity-display: resource multi-language labels
+	OperationDisplay map[string]string `protobuf:"bytes,42,rep,name=operation_display,json=operationDisplay,proto3" json:"operation_display,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // x-operation-display: operation multi-language labels
+	OperationKind    string            `protobuf:"bytes,43,opt,name=operation_kind,json=operationKind,proto3" json:"operation_kind,omitempty"`                                                                                    // x-operation-kind: page generation semantic
+	Placement        string            `protobuf:"bytes,44,opt,name=placement,proto3" json:"placement,omitempty"`                                                                                                                 // x-placement: recommended page placement
+	PageHint         string            `protobuf:"bytes,45,opt,name=page_hint,json=pageHint,proto3" json:"page_hint,omitempty"`                                                                                                   // x-page-hint: suggested page key
+	Extensions       map[string]string `protobuf:"bytes,46,rep,name=extensions,proto3" json:"extensions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`                                     // third-party extensions, never used for core semantics
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *FunctionDescriptor) Reset() {
@@ -171,6 +179,55 @@ func (x *FunctionDescriptor) GetOutputSchema() string {
 		return x.OutputSchema
 	}
 	return ""
+}
+
+func (x *FunctionDescriptor) GetCategoryDisplay() map[string]string {
+	if x != nil {
+		return x.CategoryDisplay
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetEntityDisplay() map[string]string {
+	if x != nil {
+		return x.EntityDisplay
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetOperationDisplay() map[string]string {
+	if x != nil {
+		return x.OperationDisplay
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetOperationKind() string {
+	if x != nil {
+		return x.OperationKind
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetPlacement() string {
+	if x != nil {
+		return x.Placement
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetPageHint() string {
+	if x != nil {
+		return x.PageHint
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetExtensions() map[string]string {
+	if x != nil {
+		return x.Extensions
+	}
+	return nil
 }
 
 // Process/service instance registered to an agent (e.g. a game server process)
@@ -722,7 +779,8 @@ var File_croupier_agent_v1_register_proto protoreflect.FileDescriptor
 
 const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\n" +
-	" croupier/agent/v1/register.proto\x12\x11croupier.agent.v1\x1a(croupier/component/v1/dashboard_ui.proto\"\x93\x04\n" +
+	" croupier/agent/v1/register.proto\x12\x11croupier.agent.v1\x1a(croupier/component/v1/dashboard_ui.proto\"\x88\n" +
+	"\n" +
 	"\x12FunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
@@ -737,7 +795,28 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\x04menu\x18\x17 \x01(\v2\x1b.croupier.component.v1.MenuR\x04menu\x12G\n" +
 	"\vpermissions\x18\x18 \x01(\v2%.croupier.component.v1.PermissionSpecR\vpermissions\x12!\n" +
 	"\finput_schema\x18\x1e \x01(\tR\vinputSchema\x12#\n" +
-	"\routput_schema\x18\x1f \x01(\tR\foutputSchema\"\xae\x02\n" +
+	"\routput_schema\x18\x1f \x01(\tR\foutputSchema\x12e\n" +
+	"\x10category_display\x18( \x03(\v2:.croupier.agent.v1.FunctionDescriptor.CategoryDisplayEntryR\x0fcategoryDisplay\x12_\n" +
+	"\x0eentity_display\x18) \x03(\v28.croupier.agent.v1.FunctionDescriptor.EntityDisplayEntryR\rentityDisplay\x12h\n" +
+	"\x11operation_display\x18* \x03(\v2;.croupier.agent.v1.FunctionDescriptor.OperationDisplayEntryR\x10operationDisplay\x12%\n" +
+	"\x0eoperation_kind\x18+ \x01(\tR\roperationKind\x12\x1c\n" +
+	"\tplacement\x18, \x01(\tR\tplacement\x12\x1b\n" +
+	"\tpage_hint\x18- \x01(\tR\bpageHint\x12U\n" +
+	"\n" +
+	"extensions\x18. \x03(\v25.croupier.agent.v1.FunctionDescriptor.ExtensionsEntryR\n" +
+	"extensions\x1aB\n" +
+	"\x14CategoryDisplayEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
+	"\x12EntityDisplayEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aC\n" +
+	"\x15OperationDisplayEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a=\n" +
+	"\x0fExtensionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xae\x02\n" +
 	"\fAgentProcess\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x12\n" +
@@ -801,7 +880,7 @@ func file_croupier_agent_v1_register_proto_rawDescGZIP() []byte {
 	return file_croupier_agent_v1_register_proto_rawDescData
 }
 
-var file_croupier_agent_v1_register_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_croupier_agent_v1_register_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_croupier_agent_v1_register_proto_goTypes = []any{
 	(*FunctionDescriptor)(nil),           // 0: croupier.agent.v1.FunctionDescriptor
 	(*AgentProcess)(nil),                 // 1: croupier.agent.v1.AgentProcess
@@ -812,25 +891,33 @@ var file_croupier_agent_v1_register_proto_goTypes = []any{
 	(*ProviderMeta)(nil),                 // 6: croupier.agent.v1.ProviderMeta
 	(*RegisterCapabilitiesRequest)(nil),  // 7: croupier.agent.v1.RegisterCapabilitiesRequest
 	(*RegisterCapabilitiesResponse)(nil), // 8: croupier.agent.v1.RegisterCapabilitiesResponse
-	nil,                                  // 9: croupier.agent.v1.RegisterRequest.LabelsEntry
-	(*v1.I18NText)(nil),                  // 10: croupier.component.v1.I18nText
-	(*v1.Menu)(nil),                      // 11: croupier.component.v1.Menu
-	(*v1.PermissionSpec)(nil),            // 12: croupier.component.v1.PermissionSpec
+	nil,                                  // 9: croupier.agent.v1.FunctionDescriptor.CategoryDisplayEntry
+	nil,                                  // 10: croupier.agent.v1.FunctionDescriptor.EntityDisplayEntry
+	nil,                                  // 11: croupier.agent.v1.FunctionDescriptor.OperationDisplayEntry
+	nil,                                  // 12: croupier.agent.v1.FunctionDescriptor.ExtensionsEntry
+	nil,                                  // 13: croupier.agent.v1.RegisterRequest.LabelsEntry
+	(*v1.I18NText)(nil),                  // 14: croupier.component.v1.I18nText
+	(*v1.Menu)(nil),                      // 15: croupier.component.v1.Menu
+	(*v1.PermissionSpec)(nil),            // 16: croupier.component.v1.PermissionSpec
 }
 var file_croupier_agent_v1_register_proto_depIdxs = []int32{
-	10, // 0: croupier.agent.v1.FunctionDescriptor.display_name:type_name -> croupier.component.v1.I18nText
-	10, // 1: croupier.agent.v1.FunctionDescriptor.summary:type_name -> croupier.component.v1.I18nText
-	11, // 2: croupier.agent.v1.FunctionDescriptor.menu:type_name -> croupier.component.v1.Menu
-	12, // 3: croupier.agent.v1.FunctionDescriptor.permissions:type_name -> croupier.component.v1.PermissionSpec
-	0,  // 4: croupier.agent.v1.RegisterRequest.functions:type_name -> croupier.agent.v1.FunctionDescriptor
-	1,  // 5: croupier.agent.v1.RegisterRequest.processes:type_name -> croupier.agent.v1.AgentProcess
-	9,  // 6: croupier.agent.v1.RegisterRequest.labels:type_name -> croupier.agent.v1.RegisterRequest.LabelsEntry
-	6,  // 7: croupier.agent.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.agent.v1.ProviderMeta
-	8,  // [8:8] is the sub-list for method output_type
-	8,  // [8:8] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	14, // 0: croupier.agent.v1.FunctionDescriptor.display_name:type_name -> croupier.component.v1.I18nText
+	14, // 1: croupier.agent.v1.FunctionDescriptor.summary:type_name -> croupier.component.v1.I18nText
+	15, // 2: croupier.agent.v1.FunctionDescriptor.menu:type_name -> croupier.component.v1.Menu
+	16, // 3: croupier.agent.v1.FunctionDescriptor.permissions:type_name -> croupier.component.v1.PermissionSpec
+	9,  // 4: croupier.agent.v1.FunctionDescriptor.category_display:type_name -> croupier.agent.v1.FunctionDescriptor.CategoryDisplayEntry
+	10, // 5: croupier.agent.v1.FunctionDescriptor.entity_display:type_name -> croupier.agent.v1.FunctionDescriptor.EntityDisplayEntry
+	11, // 6: croupier.agent.v1.FunctionDescriptor.operation_display:type_name -> croupier.agent.v1.FunctionDescriptor.OperationDisplayEntry
+	12, // 7: croupier.agent.v1.FunctionDescriptor.extensions:type_name -> croupier.agent.v1.FunctionDescriptor.ExtensionsEntry
+	0,  // 8: croupier.agent.v1.RegisterRequest.functions:type_name -> croupier.agent.v1.FunctionDescriptor
+	1,  // 9: croupier.agent.v1.RegisterRequest.processes:type_name -> croupier.agent.v1.AgentProcess
+	13, // 10: croupier.agent.v1.RegisterRequest.labels:type_name -> croupier.agent.v1.RegisterRequest.LabelsEntry
+	6,  // 11: croupier.agent.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.agent.v1.ProviderMeta
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_croupier_agent_v1_register_proto_init() }
@@ -844,7 +931,7 @@ func file_croupier_agent_v1_register_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_agent_v1_register_proto_rawDesc), len(file_croupier_agent_v1_register_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

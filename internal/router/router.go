@@ -4,18 +4,21 @@ import (
 	adminapi "github.com/cuihairu/croupier/internal/api/admin"
 	"github.com/cuihairu/croupier/internal/api/auth"
 	configapi "github.com/cuihairu/croupier/internal/api/config"
+	consoleapi "github.com/cuihairu/croupier/internal/api/console"
 	extensionapi "github.com/cuihairu/croupier/internal/api/extension"
 	functionapi "github.com/cuihairu/croupier/internal/api/function"
 	gameapi "github.com/cuihairu/croupier/internal/api/game"
 	monitoringapi "github.com/cuihairu/croupier/internal/api/monitoring"
 	openapiapi "github.com/cuihairu/croupier/internal/api/openapi"
 	opsapi "github.com/cuihairu/croupier/internal/api/ops"
+	pageapi "github.com/cuihairu/croupier/internal/api/page"
 	permissionapi "github.com/cuihairu/croupier/internal/api/permission"
 	playerapi "github.com/cuihairu/croupier/internal/api/player"
 	policyapi "github.com/cuihairu/croupier/internal/api/policy"
 	"github.com/cuihairu/croupier/internal/api/profile"
 	providerapi "github.com/cuihairu/croupier/internal/api/provider"
 	registryapi "github.com/cuihairu/croupier/internal/api/registry"
+	resourceapi "github.com/cuihairu/croupier/internal/api/resource"
 	roleapi "github.com/cuihairu/croupier/internal/api/role"
 	taskapi "github.com/cuihairu/croupier/internal/api/task"
 	"github.com/cuihairu/croupier/internal/config"
@@ -98,18 +101,21 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	extensionRepos := extensiongorm.NewBundle(db)
 
 	svcCtx := &svc.ServiceContext{
-		DB:                   db,
-		RegistryStore:        registryStore,
-		Dispatcher:           dispatch.NewDispatcherWithTaskStore(registryStore, nil, nil),
-		OpsStateStore:        svc.NewOpsStateStore("."),
-		AdminModel:           model.NewAdminModel(db),
-		GameModel:            model.NewGameModel(db),
-		PlayerModel:          model.NewPlayerModel(db),
-		FunctionModel:        model.NewFunctionModel(db),
-		RoleModel:            model.NewRoleModel(db),
-		PermissionModel:      model.NewPermissionModel(db),
-		ConfigVersionModel:   model.NewConfigVersionModel(db),
-		WorkspaceConfigModel: model.NewWorkspaceConfigModel(db),
+		DB:                     db,
+		RegistryStore:          registryStore,
+		Dispatcher:             dispatch.NewDispatcherWithTaskStore(registryStore, nil, nil),
+		OpsStateStore:          svc.NewOpsStateStore("."),
+		AdminModel:             model.NewAdminModel(db),
+		GameModel:              model.NewGameModel(db),
+		PlayerModel:            model.NewPlayerModel(db),
+		FunctionModel:          model.NewFunctionModel(db),
+		RoleModel:              model.NewRoleModel(db),
+		PermissionModel:        model.NewPermissionModel(db),
+		ConfigVersionModel:     model.NewConfigVersionModel(db),
+		WorkspaceConfigModel:   model.NewWorkspaceConfigModel(db),
+		PageSpecModel:          model.NewPageSpecModel(db),
+		PublishedPageSpecModel: model.NewPublishedPageSpecModel(db),
+		PageVersionModel:       model.NewPageVersionModel(db),
 		Extensions: &svc.ExtensionServices{
 			Catalog:      extensioncatalog.NewService(extensionRepos.Catalog, extensionRepos.Release),
 			Manifest:     extensionmanifest.NewService(),
@@ -157,6 +163,9 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	registerMonitoringRoutes(authenticated, svcCtx)
 	registerOpenAPIRoutes(authenticated, svcCtx)
 	registerProviderRoutes(authenticated, svcCtx)
+	registerResourceRoutes(authenticated, svcCtx)
+	registerConsoleRoutes(authenticated, svcCtx)
+	registerPageRoutes(authenticated, svcCtx)
 }
 
 func registerRoleRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
@@ -384,6 +393,44 @@ func registerProviderRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 		group.GET("/:id/entities", handler.Entities)
 		group.DELETE("/:id", handler.Delete)
 		group.POST("/:id/reload", handler.Reload)
+	}
+}
+
+func registerResourceRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
+	handler := resourceapi.NewHandler(resourceapi.NewService(svcCtx))
+	group := authenticated.Group("/resources")
+	{
+		group.GET("", handler.List)
+		group.GET("/:resourceKey", handler.Detail)
+		group.GET("/:resourceKey/operations", handler.Operations)
+		group.GET("/:resourceKey/pages/generated", handler.GeneratedPages)
+	}
+}
+
+func registerConsoleRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
+	handler := consoleapi.NewHandler(consoleapi.NewService(svcCtx))
+	group := authenticated.Group("/console")
+	{
+		group.GET("/menu", handler.Menu)
+		group.GET("/pages", handler.Pages)
+		group.GET("/pages/:pageKey", handler.Page)
+	}
+}
+
+func registerPageRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
+	handler := pageapi.NewHandler(pageapi.NewService(svcCtx))
+	group := authenticated.Group("/workspaces/pages")
+	{
+		group.GET("", handler.ListDrafts)
+		group.GET("/:pageKey", handler.GetDraft)
+		group.PUT("/:pageKey", handler.SaveDraft)
+		group.POST("/:pageKey/validate", handler.Validate)
+		group.POST("/:pageKey/preview", handler.Preview)
+		group.POST("/:pageKey/publish", handler.Publish)
+		group.POST("/:pageKey/unpublish", handler.Unpublish)
+		group.GET("/:pageKey/versions", handler.Versions)
+		group.GET("/:pageKey/versions/:versionId", handler.VersionDetail)
+		group.POST("/:pageKey/rollback", handler.Rollback)
 	}
 }
 
