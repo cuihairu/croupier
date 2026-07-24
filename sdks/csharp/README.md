@@ -15,8 +15,8 @@
   <a href="https://www.apache.org/licenses/LICENSE-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License">
   </a>
-  <a href="https://dotnet.microsoft.com/download/dotnet/9.0">
-    <img src="https://img.shields.io/badge/.NET-9.0%2B-purple.svg" alt=".NET Version">
+  <a href="https://dotnet.microsoft.com/download/dotnet/10.0">
+    <img src="https://img.shields.io/badge/.NET-10.0%2B-purple.svg" alt=".NET Version">
   </a>
 </p>
 
@@ -47,7 +47,7 @@
 
 ## 简介
 
-Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 .NET 客户端实现。支持 .NET 8+，提供两类能力：
+Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 .NET 客户端实现。支持 .NET 10+，提供两类能力：
 
 - **Provider 端（`CroupierClient`）**：注册函数、被平台调用（核心能力）
 - **Invoker 端（`CroupierInvoker`）**：作为调用方发起同步 / 异步调用（独立能力）
@@ -120,7 +120,7 @@ Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ### 系统要求
 
-- **.NET 9.0 SDK** 或更高版本
+- **.NET 10.0 SDK** 或更高版本
 
 ### 安装
 

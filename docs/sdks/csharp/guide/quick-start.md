@@ -2,7 +2,7 @@
 
 ## 系统要求
 
-- .NET 8.0 SDK 或更高版本
+- .NET 10.0 SDK 或更高版本
 - 可访问的 Croupier Agent
 
 ## 最小示例
