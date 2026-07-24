@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Croupier.Sdk</RootNamespace>
     <Version>0.1.0</Version>
     <Authors>Croupier Project</Authors>
-    <Description>Croupier SDK for .NET 8+ with TCP Transport</Description>
+    <Description>Croupier SDK for .NET 10+ with TCP Transport</Description>
     <RepositoryUrl>https://github.com/cuihairu/croupier-sdk-csharp</RepositoryUrl>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>CS1591</NoWarn>
