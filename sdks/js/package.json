@@ -41,7 +41,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "protobufjs": "^7.6.3"
+    "protobufjs": "^7.6.5"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

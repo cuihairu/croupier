@@ -15,8 +15,8 @@ importers:
   .:
     dependencies:
       protobufjs:
-        specifier: ^7.6.3
-        version: 7.6.3
+        specifier: ^7.6.5
+        version: 7.6.5
     devDependencies:
       '@types/jest':
         specifier: ^29.5.14
@@ -415,17 +415,14 @@ packages:
   '@protobufjs/float@1.0.2':
     resolution: {integrity: sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==}
 
-  '@protobufjs/inquire@1.1.2':
-    resolution: {integrity: sha512-pa0vFRuws4wkvaXKK1uXZMAwAX4/t8ANaJo45iw/oQHNQ9q5xUzwgFmVJGXiga2BeN+zpX7Vf9vmsiIa2J+MUw==}
-
   '@protobufjs/path@1.1.2':
     resolution: {integrity: sha512-6JOcJ5Tm08dOHAbdR3GrvP+yUUfkjG5ePsHYczMFLq3ZmMkAD98cDgcT2iA1lJ9NVwFd4tH/iSSoe44YWkltEA==}
 
   '@protobufjs/pool@1.1.0':
     resolution: {integrity: sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw==}
 
-  '@protobufjs/utf8@1.1.1':
-    resolution: {integrity: sha512-oOAWABowe8EAbMyWKM0tYDKi8Yaox52D+HWZhAIJqQXbqe0xI/GV7FhLWqlEKreMkfDjshR5FKgi3mnle0h6Eg==}
+  '@protobufjs/utf8@1.1.2':
+    resolution: {integrity: sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==}
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
@@ -1809,8 +1806,8 @@ packages:
     resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
     engines: {node: '>= 6'}
 
-  protobufjs@7.6.3:
-    resolution: {integrity: sha512-+k0vdJKNdW+Vu+dYe8tZA/VvQb6XKNWexC6URwBFXxNnjLJz9nQJCemGyNgRAWD+B7+nGNc9qMPGwcD7s4nzUw==}
+  protobufjs@7.6.5:
+    resolution: {integrity: sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==}
     engines: {node: '>=12.0.0'}
 
   punycode@2.3.1:
@@ -2733,13 +2730,11 @@ snapshots:
 
   '@protobufjs/float@1.0.2': {}
 
-  '@protobufjs/inquire@1.1.2': {}
-
   '@protobufjs/path@1.1.2': {}
 
   '@protobufjs/pool@1.1.0': {}
 
-  '@protobufjs/utf8@1.1.1': {}
+  '@protobufjs/utf8@1.1.2': {}
 
   '@rtsao/scc@1.1.0': {}
 
@@ -4458,7 +4453,7 @@ snapshots:
       kleur: 3.0.3
       sisteransi: 1.0.5
 
-  protobufjs@7.6.3:
+  protobufjs@7.6.5:
     dependencies:
       '@protobufjs/aspromise': 1.1.2
       '@protobufjs/base64': 1.1.2
@@ -4466,10 +4461,9 @@ snapshots:
       '@protobufjs/eventemitter': 1.1.1
       '@protobufjs/fetch': 1.1.1
       '@protobufjs/float': 1.0.2
-      '@protobufjs/inquire': 1.1.2
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
-      '@protobufjs/utf8': 1.1.1
+      '@protobufjs/utf8': 1.1.2
       '@types/node': 22.19.17
       long: 5.3.2
 
