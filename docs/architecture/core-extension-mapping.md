@@ -79,7 +79,7 @@ internal/
 | `internal/api/node` | `internal/core/node` | 节点管理 |
 | `internal/api/function` | `internal/core/function` | 函数注册与编排核心 |
 | `internal/api/functioncall` | `internal/core/function` | 调用记录与控制属于函数域 |
-| `internal/api/workspace` | `internal/core/workspace` | 工作区基础模型 |
+| `internal/api/workspace` | 删除；迁移至 `internal/api/page` | 历史 WorkspaceConfig，不能作为 Dashboard 核心模型 |
 | `internal/api/game` | `internal/core/game` | 游戏主体模型 |
 | `internal/api/meta` | `internal/core/config` | 元信息接口可收敛到核心 |
 | `internal/api/ops` | `internal/core/ops` | 仅保留基础 ops 能力 |

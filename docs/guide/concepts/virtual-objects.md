@@ -179,5 +179,5 @@ SDK descriptor 需要参与默认页面生成时，应提供：
 ## 相关文档
 
 - [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)
-- [Page 工作台](./object-workspace.md)
+- [Page Studio](./object-workspace.md)
 - [函数注册与默认界面](./function-registration-ui.md)

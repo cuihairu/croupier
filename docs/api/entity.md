@@ -111,7 +111,7 @@ type OperationSpec struct {
 GET /api/v1/resources/{resourceKey}/pages/generated
 ```
 
-该接口返回基于当前 ResourceSpec / OperationSpec 生成的 PageSpec 建议。建议不是发布产物，必须进入 Page 工作台确认、编辑和发布。
+该接口返回基于当前 ResourceSpec / OperationSpec 生成的 PageSpec 建议。建议不是发布产物，必须进入 Page Studio 确认、编辑和发布。
 
 ```go
 type ResourceGeneratedPagesResponse struct {
@@ -149,5 +149,5 @@ type ResourceDiagnostic struct {
 ## 相关文档
 
 - [Dashboard Resource/Page 模型](../architecture/dashboard-page-model.md)
-- [Page 工作台 API](./workspace.md)
+- [Page Studio API](./workspace.md)
 - [函数 API](./function.md)

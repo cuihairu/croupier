@@ -12,7 +12,7 @@
 PublishedPageSpec[] -> ConsoleMenuSpec
 ```
 
-前端不得为动态分类修改 `web/src/locales/*/menu.ts`。动态分类、资源和页面标题必须来自已发布 PageSpec 的多语言 metadata。
+前端不得为动态分类修改 `web/src/locales/*/menu.ts`。动态分类和页面标题必须分别来自已发布 PageSpec 的 `category.labels` 与 `title`，而不是不受约束的 metadata。
 
 ## 分类规则
 
@@ -41,7 +41,7 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 ## 多语言
 
-动态菜单显示名从 PageSpec metadata 中取值：
+动态菜单显示名从 PageSpec 的强类型字段中取值：
 
 ```json
 {
@@ -79,7 +79,7 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 `/console/:categoryKey` 展示该分类下的已发布页面。
 
-`/console/:categoryKey/:pageKey` 渲染具体 PageSpec。如果地址中的分类和 PageSpec 发布分类不一致，前端应跳转到规范路径。
+`/console/:categoryKey/:pageKey` 渲染具体 PageSpec。如果地址中的分类和 PageSpec 发布分类不一致，前端应跳转到规范路径。URL 不是 scope：页面、菜单和执行都按全局 `game_id + env` context 查询；同一个 `pageKey` 可以存在于不同 scope。
 
 ## 边界
 
@@ -96,7 +96,7 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 - PageSpec 保存时根据规则生成分类 key。
 - Server 根据函数注册信息生成 PageSpec 建议。
-- 用户在 Workspace 中覆盖分类、标题、图标和排序。
+- 用户在 Page Studio 中覆盖分类、标题、图标和排序。
 
 ## 验收规则
 
@@ -104,4 +104,5 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 - 切换语言后，动态分类和页面标题来自 PageSpec labels。
 - 没有 PageSpec 发布时，运行控制台不展示对应菜单。
 - 没有 `category.labels` 默认语言时发布失败。
-- 函数目录、Page 工作台草稿和运行控制台菜单之间不存在第二套分类逻辑。
+- 函数目录、Page Studio 草稿和运行控制台菜单之间不存在第二套分类逻辑。
+- 切换全局 game/env 后，菜单只显示新 scope 的 active PublishedPageSpec。

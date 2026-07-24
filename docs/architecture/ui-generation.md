@@ -293,7 +293,7 @@ Page 不应把所有函数都强行套成 CRUD。CRUD 只是 Entity Page 的一�
 | `SchemaRenderer` | 渲染函数表单 | Formily Schema | React Form |
 | Function Invoke Page | 调用单个函数 | Formily values | invoke/task |
 | Server Page generator | 生成默认页面建议 | ResourceSpec + OperationSpec | Formily PageSpec |
-| Page 工作台 | 编辑页面草稿 | Formily PageSpec | PageSpec Draft |
+| Page Studio | 编辑页面草稿 | Formily PageSpec | PageSpec Draft |
 | Runtime Page renderer | 运行控制台渲染页面 | PublishedPageSpec | Dashboard Page |
 
 ## 八、前端技术栈边界

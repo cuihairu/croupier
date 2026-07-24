@@ -116,7 +116,7 @@ sequenceDiagram
 
 Server 根据 `input_schema`、OpenAPI request schema 或函数元信息生成单函数 Formily Schema 初稿。Dashboard 调用页只消费 `/api/v1/functions/:id/ui` 返回的 Formily Schema，不在运行时根据 JSON Schema 推断组件。
 
-完整业务页面由 Page 工作台管理。Server 会先把函数归一化为 FunctionSpec / ResourceSpec / OperationSpec，再生成 PageSpec 建议。PageSpec 也是 Formily JSON Schema，负责分页、表格、详情、弹窗、任务状态和图表等页面级能力。
+完整业务页面由 Page Studio 管理。Server 会先把函数归一化为 FunctionSpec / ResourceSpec / OperationSpec，再生成 PageSpec 建议。PageSpec 也是 Formily JSON Schema，负责分页、表格、详情、弹窗、任务状态和图表等页面级能力。
 
 详见[函数注册与默认界面](./function-registration-ui.md)和[Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)。
 
@@ -175,7 +175,7 @@ stateDiagram-v2
 ## 相关文档
 
 - [核心概念总览](./overview.md)
-- [Page 工作台](./object-workspace.md)
+- [Page Studio](./object-workspace.md)
 - [函数注册与默认界面](./function-registration-ui.md)
 - [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)
 - [OpenAPI 函数注册](../integrations/openapi-registration.md)

@@ -85,7 +85,6 @@ OpenAPI 在这里提供函数契约和元数据来源，不定义单独的注册
 | `operation_kind` | `x-operation-kind` | 页面生成语义，例如 `list`、`action`、`task` |
 | `placement` | `x-placement` | 页面放置位置，例如 `tableData`、`rowAction` |
 | `page_hint` | `x-page-hint` | 可选页面生成建议 |
-| `ui` | `x-ui` | 单函数 Formily Schema |
 
 `x-operation` 不再表示页面类型。CRUD、命令、任务、报表等页面语义由 `x-operation-kind` 表达。
 
@@ -161,7 +160,7 @@ FunctionSpec(player.ban)
 
 ## 与 PageSpec 的关系
 
-OpenAPI operation 只能生成 PageSpec 建议，不是 PageSpec 本身。
+OpenAPI operation 只能提供函数契约并触发 PageSpec 候选生成，不是 PageSpec 本身，也不是 Function Form 或页面 UI 配置。
 
 正确链路：
 
@@ -170,7 +169,7 @@ OpenAPI Operation
   -> RawFunctionDescriptor
   -> FunctionSpec / ResourceSpec / OperationSpec
   -> Generated PageSpec
-  -> Page 工作台编辑
+  -> Page Studio 编辑
   -> PublishedPageSpec
   -> 运行控制台菜单
 ```
@@ -203,15 +202,24 @@ OpenAPI Operation
 
 ## 推荐接入方式
 
+OpenAPI 有两种入口，先选定执行模型：
+
+| 入口 | 适用场景 | 如何变为可执行函数 | UI 责任 |
+| --- | --- | --- | --- |
+| SDK 本地解析 | OpenAPI 和业务 Handler 在同一服务进程 | SDK 将 `operationId` 显式映射到本地 Handler，再走普通 Provider 注册 | Server 自动派生 Function Form，Page Studio 确定页面 |
+| Dashboard 上传（P0-11 目标） | 已有第三方/存量 OpenAPI 文档 | 先保存为契约 Source，再绑定 Provider 或受控 HTTP Connector | 同上；上传文件不含 UI |
+
+目标上传模型中，OpenAPI 不等于开放任意外部 HTTP 调用。未绑定执行器的文档只用于函数目录和页面候选；需要执行时必须显式绑定当前 scope 的 Provider，或由管理员配置受控 HTTP Connector。Connector 的地址和 SecretRef 是平台配置，不在 OpenAPI、PageSpec 或浏览器中传递。当前 `POST /api/v1/openapi/import` 只支持 JSON body 并写入 registry，不是这个目标上传能力。
+
 如果已有 OpenAPI 文档：
 
 1. 为每个 Operation 补齐 `operationId`、`summary`、`description`。
 2. 把 request/response schema 写完整。
 3. 使用 `x-category`、`x-entity`、`x-operation`、`x-risk` 表达治理和资源归属。
-4. 使用 `x-operation-kind` 和 `x-placement` 表达 PageSpec 生成语义。
-5. 使用 `x-category-display`、`x-entity-display`、`x-operation-display` 提供动态多语言文案。
-6. 导入 OpenAPI 后，由 Server 生成 FunctionSpec / ResourceSpec / OperationSpec。
-7. 在 Page 工作台确认 PageSpec 建议后发布。
+4. 可选地使用 `x-operation-kind` 和 `x-placement` 提高 PageSpec 候选质量；不写不影响函数导入。
+5. 可选地使用 `x-category-display`、`x-entity-display`、`x-operation-display` 提供动态多语言文案。
+6. 导入 OpenAPI 后，由 Server 生成 FunctionSpec / ResourceSpec / OperationSpec，并从 request schema 派生 Function Form。
+7. 在 Page Studio 确认、补齐或编辑 PageSpec 候选后发布。
 
 ## 发布限制
 
@@ -220,7 +228,6 @@ OpenAPI Operation
 - 缺少 `operation_kind`。
 - 缺少 `placement`。
 - 缺少动态 labels。
-- `x-ui` 不是 Formily Schema。
 - `output_schema` 无法支持声明的表格、详情或报表组件。
 
 ## 明确废弃的旧模型
@@ -234,6 +241,7 @@ OpenAPI Operation
 - `Agent -> SDK` 回拨模型。
 - 用 `x-operation` 表示 CRUD 或非 CRUD 类型。
 - 前端根据 OpenAPI 或函数 ID 后缀生成正式 Page。
+- 在 OpenAPI 中保存 `x-ui`、Formily、菜单、路由或页面组件配置。
 
 ## 相关文档
 

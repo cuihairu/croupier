@@ -45,7 +45,7 @@ API 文档当前处于收敛期。新增或修改接口时按以下规则维护�
 | 审批与审计 | [审批 API](./approval.md)、[审计 API](./audit.md) |
 | 运维与平台 | [运维 API](./ops.md)、[Agent API](./agent.md)、[节点 API](./node.md)、[注册表 API](./registry.md)、[平台 API](./platform.md)、[Provider API](./provider.md) |
 | 数据分析 | [数据分析 API](./analytics.md)、[分析概览 API](./analytics_overview.md)、[行为分析 API](./analytics_behavior.md)、[留存分析 API](./analytics_retention.md)、[支付分析 API](./analytics_payments.md) |
-| 控制台域 | [管理员 API](./admin.md)、[Page 工作台 API](./workspace.md)、[Resource API](./entity.md)、[Profile API](./profile.md) |
+| 控制台域 | [管理员 API](./admin.md)、[Page Studio API](./workspace.md)、[Resource API](./entity.md)、[Profile API](./profile.md) |
 | 运营支持 | [分配 API](./assignment.md)、[工单 API](./ticket.md)、[反馈 API](./feedback.md)、[支持 API](./support.md)、[FAQ](./faq.md) |
 | 系统能力 | [存储 API](./storage.md)、[备份 API](./backup.md)、[迁移 API](./migrate.md)、[监控 API](./monitoring.md)、[证书 API](./certificate.md)、[限流 API](./rate_limit.md)、[告警 API](./alert.md) |
 

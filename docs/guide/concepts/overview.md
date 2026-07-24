@@ -79,29 +79,29 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
 
 它不是“配置模板”，而是“不同边界上的应用层协议变体”。
 
-## 界面分层：函数目录 vs Page 工作台 vs 运行控制台
+## 界面分层：函数目录 vs Page Studio vs 运行控制台
 
 Croupier 的管理界面在“函数”这一模块下分为三个层次，各自职责不同，不重复：
 
 | 层次 | 定位 | 数据来源 | 典型操作 |
 | --- | --- | --- | --- |
 | **函数目录** | 能力供给层 | FunctionSpec / 函数注册目录 | 确认函数是否注册成功、Schema 是否正确、有没有可调用实例、单函数 invoke |
-| **Page 工作台** | 页面装配层 | ResourceSpec / OperationSpec / PageSpec 草稿 | 生成默认页面、编辑 Formily Page Schema、预览、发布、回滚 |
+| **Page Studio** | 页面装配层 | ResourceSpec / OperationSpec / PageSpec 草稿 | 生成默认页面、编辑 Formily Page Schema、预览、发布、回滚 |
 | **运行控制台** | 执行层 | PublishedPageSpec / ConsoleMenuSpec | 面向最终用户/运营执行业务操作 |
 
 三者串成一条主流程：
 
 ```
-函数注册 → 函数目录（确认能力） → Page 工作台（装配页面） → 运行控制台（执行）
+函数注册 → 函数目录（确认能力） → Page Studio（装配页面） → 运行控制台（执行）
 ```
 
 - 函数目录只负责单个函数的元数据、Schema、实例和单函数调用，不负责最终业务页面。
-- Page 工作台把多个函数组合成 Entity Page、Operation Page、Task Page 或 Report Page，管理草稿、发布版本和回滚。
+- Page Studio 把多个函数组合成 Entity Page、Operation Page、Task Page 或 Report Page，管理草稿、发布版本和回滚。
 - 不是所有函数都进入 Entity Page。只有明确围绕同一资源生命周期展开的函数才进入 Entity Page。
 - 默认页面由 Server 根据 FunctionSpec / ResourceSpec / OperationSpec 生成建议，用户确认后再编辑和发布。
 - 运行控制台只展示已发布 PageSpec，动态菜单不依赖静态国际化文件。
 
-详见 [Page 工作台](./object-workspace.md)、[函数管理](./function-management.md) 和 [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)。
+详见 [Page Studio](./object-workspace.md)、[函数管理](./function-management.md) 和 [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)。
 
 ## Dashboard 核心概念
 
@@ -143,11 +143,11 @@ FunctionSpec -> ResourceSpec + OperationSpec -> PageSpec -> PublishedPageSpec ->
 
 Page 可以组合多个函数。分页查询属于 Page 的状态和字段映射，不属于单函数输入表单。
 
-### Page 工作台
+### Page Studio
 
-Page 工作台管理 PageSpec 草稿。它可以展示 Server 生成的默认页面建议，也允许用户编辑、预览、校验、发布和回滚。
+Page Studio 管理 PageSpec 草稿。它可以展示 Server 生成的默认页面建议，也允许用户编辑、预览、校验、发布和回滚。
 
-Page 工作台不是运行控制台。未发布草稿不能出现在运行控制台左侧菜单里。
+Page Studio 不是运行控制台。未发布草稿不能出现在运行控制台左侧菜单里。
 
 ### 运行控制台
 

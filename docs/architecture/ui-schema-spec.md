@@ -4,6 +4,15 @@
 
 Croupier 全系统使用 **Formily Schema** 作为唯一的 UI Schema 格式。后端生成、前端编辑、渲染器消费，全链路同一格式，无转换层。
 
+Formily Schema 有两种明确用途，不能用同一套顶层约束混淆：
+
+| 用途 | 根节点 | 允许组件 | 负责内容 |
+| --- | --- | --- | --- |
+| Function Form Schema | `type: object` | 输入字段组件 | 单个函数的输入字段和校验 |
+| Page UI Schema | `type: void`，`x-component: ConsolePage` | 运行控制台页面组件和输入字段组件 | 页面编排、数据映射和已发布 binding 引用 |
+
+两者都是 Formily JSON Schema，不存在第二套 `layout` 协议。但 Page UI Schema 的组件 props 是 Croupier 平台 ABI，必须使用独立的 PageSpec validator 校验；不能因为 Formily 接受任意 props 就接受任意运行行为。
+
 任何非 Formily UI Schema 都是错误输入。保存、加载或渲染阶段必须直接报错，不能转换、猜测或静默降级。
 
 ## 关于 `x-` 前缀
@@ -26,7 +35,7 @@ Croupier 的 `SchemaRenderer` 组件通过 Formily 的 `createSchemaField` API �
 
 ## 格式规范
 
-### 顶层结构
+### Function Form Schema 顶层结构
 
 ```json
 {
@@ -38,13 +47,44 @@ Croupier 的 `SchemaRenderer` 组件通过 Formily 的 `createSchemaField` API �
 }
 ```
 
-顶层约束：
+Function Form Schema 顶层约束：
 
 - `type` 必须是 `object`。
 - `properties` 必须是对象。
 - `required` 如果存在，必须是字符串数组。
 - 字段树中必须存在 `x-component` 或 `x-decorator`。
-- 不允许使用 `fields`、`ui:layout`、`ui:groups`、`ui:order`、`widget`、`ui:widget` 作为函数 UI 协议字段。
+- 不允许使用 `fields`、`ui:layout`、`ui:groups`、`ui:order`、`widget`、`ui:widget` 作为函数表单协议字段。
+
+### Page UI Schema 顶层结构
+
+Page UI Schema 的根节点固定为运行控制台容器：
+
+```json
+{
+  "schemaVersion": "v1",
+  "type": "void",
+  "x-component": "ConsolePage",
+  "properties": {
+    "query": {
+      "type": "void",
+      "x-component": "QueryForm",
+      "x-component-props": {
+        "bindingId": "player.list.query",
+        "resultStateKey": "players"
+      }
+    }
+  }
+}
+```
+
+Page UI Schema 约束：
+
+- `schemaVersion` 必须是受支持的页面组件协议版本；未知版本直接拒绝保存、预览、发布和渲染。
+- 根节点必须是 `type: void` 且 `x-component: ConsolePage`。
+- 页面组件只能来自注册表：`ConsolePage`、`QueryForm`、`DataTable`、`DetailPanel`、`ActionButton`、`ActionGroup`、`ResultPanel`、`TaskTimeline`、`ChartPanel`。
+- 页面组件中的函数引用只能使用 `bindingId`；裸 `functionId` 只允许在 Function Form 和函数目录调用 API 中出现。
+- 每种页面组件的 `x-component-props` 必须通过对应的 JSON Schema 校验；未知关键字段、未知组件和缺少必填映射都必须报错。
+- `metadata` 不能承载执行逻辑、scope、权限或未建模的组件 props。
 
 ### 字段定义
 

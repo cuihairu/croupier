@@ -1,5 +1,5 @@
 ---
-title: Page 工作台
+title: Page Studio
 icon: dashboard
 order: 4
 category:
@@ -10,18 +10,18 @@ tag:
   - 工作台
 ---
 
-# Page 工作台
+# Page Studio（页面工作台）
 
-Page 工作台是 Croupier 将函数能力编排成运营页面的地方。它面向产品、运营和开发人员，负责 PageSpec 草稿编辑、预览、校验、发布和回滚。
+Page Studio 是 Croupier 将函数能力编排成运营页面的地方。它面向产品、运营和开发人员，负责 PageSpec 草稿编辑、预览、校验、发布和回滚。
 
-Page 工作台不是“对象管理页编辑器”。Entity Page 只是 Page 类型之一，独立操作、任务和报表同样通过 PageSpec 管理。
+Page Studio 不是“对象管理页编辑器”。Entity Page 只是 Page 类型之一，独立操作、任务和报表同样通过 PageSpec 管理。历史 WorkspaceConfig/对象工作台不是当前模型。
 
 ## 在产品链路中的位置
 
 | 层次 | 定位 | 数据来源 | 典型操作 |
 | --- | --- | --- | --- |
 | 函数目录 | 能力供给层 | FunctionSpec / 函数注册目录 | 查看函数是否注册成功、Schema 是否正确、是否有可调用实例、单函数 invoke |
-| Page 工作台 | 页面装配层 | ResourceSpec / OperationSpec / PageSpec 草稿 | 生成默认页面、编辑 Formily Page Schema、预览、发布、回滚 |
+| Page Studio | 页面装配层 | ResourceSpec / OperationSpec / PageSpec 草稿 | 生成默认页面、编辑 Formily Page Schema、预览、发布、回滚 |
 | 运行控制台 | 执行层 | PublishedPageSpec / ConsoleMenuSpec | 面向运营人员执行业务操作 |
 
 推荐工作流：
@@ -29,30 +29,33 @@ Page 工作台不是“对象管理页编辑器”。Entity Page 只是 Page 类
 ```text
 函数注册
   -> Server 归一化 FunctionSpec / ResourceSpec / OperationSpec
-  -> 生成 PageSpec 建议
-  -> Page 工作台编辑和确认
+  -> 生成 PageSpec 候选
+  -> Page Studio 编辑和确认
   -> 发布 PublishedPageSpec
   -> 运行控制台动态菜单展示
 ```
 
-## Page 工作台负责什么
+## Page Studio 负责什么
 
 - 管理 PageSpec 草稿。
 - 基于 Server 生成的建议创建默认页面。
 - 编辑页面级 Formily Schema。
-- 绑定多个函数到一个业务页面。
+- 绑定多个函数到一个业务页面，并显式声明输入/输出映射。
 - 配置查询区、分页、表格、详情、弹窗、批量操作、任务状态和图表。
 - 校验 PageSpec 是否可发布。
 - 发布和回滚页面版本。
 - 管理页面级权限、排序、分类和多语言标题。
+- 在全局 `game_id + env` scope 内编辑；页面内不重复选择 scope。
+- 用草稿 revision 防止多人静默覆盖，并提示 binding 契约失效。
 
-Page 工作台不负责：
+Page Studio 不负责：
 
 - 从函数 ID 后缀猜测操作语义。
 - 从 JSON Schema 在前端运行时生成第二套 UI。
 - 把所有函数强行塞入 Entity Page。
 - 维护运行控制台动态分类字典。
 - 修改前端静态国际化文件。
+- 通过裸 `functionId`、页面 payload 或 URL 覆盖作用域、路由目标和函数风险策略。
 
 ## Page 类型
 
@@ -109,8 +112,8 @@ Server 可以根据 `ResourceSpec + OperationSpec` 生成默认 PageSpec。
 
 默认页面只是初稿：
 
-- 元信息完整时，可以生成可预览草稿。
-- 缺少 `operationKind`、`placement`、`outputSchema` 或动态 labels 时，只能生成待编排建议。
+- 输入、输出映射和元信息完整时，可以生成可预览草稿。
+- 缺少 `operationKind`、`placement`、`outputSchema`、分页/图表映射或动态 labels 时，只能生成待编排建议。
 - 用户确认后，可以编辑 PageSpec 覆盖默认布局。
 - 发布前必须通过校验。
 
@@ -118,12 +121,13 @@ Server 可以根据 `ResourceSpec + OperationSpec` 生成默认 PageSpec。
 
 ## Formily Page Schema
 
-Page 工作台编辑的页面也是 Formily JSON Schema。
+Page Studio 编辑的页面也是 Formily JSON Schema。
 
 示例结构：
 
 ```json
 {
+  "schemaVersion": "v1",
   "type": "void",
   "x-component": "ConsolePage",
   "properties": {
@@ -131,15 +135,17 @@ Page 工作台编辑的页面也是 Formily JSON Schema。
       "type": "void",
       "x-component": "QueryForm",
       "x-component-props": {
-        "functionId": "player.list",
-        "formSchemaRef": "function://player.list/ui"
+        "bindingId": "player.list.query",
+        "formSchemaRef": "binding://player.list.query/input",
+        "resultStateKey": "players"
       }
     },
     "table": {
       "type": "void",
       "x-component": "DataTable",
       "x-component-props": {
-        "dataSource": "$.query.response.items",
+        "bindingId": "player.list.query",
+        "stateKey": "players",
         "pagination": {
           "pageField": "page",
           "pageSizeField": "pageSize",
@@ -151,7 +157,7 @@ Page 工作台编辑的页面也是 Formily JSON Schema。
 }
 ```
 
-活跃设计不定义 `layout` 枚举、实体 CRUD 配置或动态分类字典。Page 工作台保存和发布的唯一页面协议是 PageSpec。
+活跃设计不定义 `layout` 枚举、实体 CRUD 配置或动态分类字典。Page Studio 保存和发布的唯一页面协议是 PageSpec；Page UI Schema 的页面组件 props 必须满足版本化 ABI，不允许把执行逻辑塞进 metadata。
 
 ## 与运行控制台的关系
 
@@ -163,7 +169,7 @@ Page 工作台编辑的页面也是 Formily JSON Schema。
 PublishedPageSpec[] -> ConsoleMenuSpec -> 左侧菜单
 ```
 
-分类、页面标题、多语言显示名、排序和图标都来自 PublishedPageSpec metadata。
+分类、页面标题、多语言显示名、排序和图标都来自 PublishedPageSpec 的强类型字段。
 
 动态分类不写入 `web/src/locales/*/menu.ts`。静态 locale 只用于固定系统菜单，例如“运行控制台”“系统配置”“权限管理”。
 

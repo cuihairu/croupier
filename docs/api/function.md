@@ -455,7 +455,7 @@ type FunctionUIResponse struct {
 - 函数 UI 只读写单函数 Formily JSON Schema。
 - 不再维护独立的 `layout` / `components` 协议字段。
 - 非 Formily Schema 必须返回校验错误，不能转换、猜测或静默降级。
-- Page 级布局、分页、表格、详情和动作编排属于 Page 工作台 API，不属于函数 UI API。
+- Page 级布局、分页、表格、详情和动作编排属于 Page Studio API，不属于函数 UI API。
 
 ### 14. "获取函数UI配置历史"
 
