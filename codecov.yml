@@ -116,6 +116,7 @@ ignore:
   - "sdks/cpp/vcpkg_installed/**"
   - "sdks/cpp/build/**"
   - "sdks/python/croupier/pb/**"
+  - "sdks/python/generated/**"
   - "sdks/java/build/**"
   - "sdks/csharp/**/obj/**"
   - "sdks/csharp/generated/**"
