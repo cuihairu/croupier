@@ -118,6 +118,7 @@ ignore:
   - "sdks/python/croupier/pb/**"
   - "sdks/java/build/**"
   - "sdks/csharp/**/obj/**"
+  - "sdks/csharp/generated/**"
 
   # Non-SDK code
   - "dashboard/**"
