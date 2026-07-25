@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -157,6 +158,9 @@ func mergeRuntimeFunctionMetaInput(input *normalizer.DescriptorInput, meta reg.F
 	if input.PageHint == "" {
 		input.PageHint = strings.TrimSpace(meta.PageHint)
 	}
+	if input.PageContract == nil {
+		input.PageContract = pageContractFromStringMap(meta.Extensions)
+	}
 	if input.Risk == "" {
 		input.Risk = strings.TrimSpace(meta.Risk)
 	}
@@ -242,6 +246,9 @@ func mergeOpenAPIOperationInput(input *normalizer.DescriptorInput, op *openapi3.
 	if input.PageHint == "" {
 		input.PageHint = stringExtension(ext, "x-page-hint")
 	}
+	if input.PageContract == nil {
+		input.PageContract = pageContractExtension(ext, "x-page-contract")
+	}
 	if input.Risk == "" {
 		input.Risk = stringExtension(ext, "x-risk")
 	}
@@ -282,6 +289,13 @@ func mergeMetadataInput(input *normalizer.DescriptorInput, metadata map[string]i
 		input.PageHint = firstNonEmpty(
 			stringExtension(metadata, "pageHint"),
 			stringExtension(metadata, "page_hint"),
+		)
+	}
+	if input.PageContract == nil {
+		input.PageContract = firstPageContract(
+			pageContractExtension(metadata, "pageContract"),
+			pageContractExtension(metadata, "page_contract"),
+			pageContractExtension(metadata, "x-page-contract"),
 		)
 	}
 	if input.CategoryDisplay == nil {
@@ -395,6 +409,78 @@ func localizedMapExtension(extensions map[string]interface{}, key string) map[st
 			if result := toStringMap(raw); len(result) > 0 {
 				return result
 			}
+		}
+	}
+	return nil
+}
+
+func pageContractExtension(extensions map[string]interface{}, key string) *spec.PageContract {
+	if len(extensions) == 0 || key == "" {
+		return nil
+	}
+	candidates := []string{key}
+	if strings.HasPrefix(key, "x-") {
+		candidates = append(candidates, strings.TrimPrefix(key, "x-"))
+	} else {
+		candidates = append(candidates, "x-"+key)
+	}
+	for _, candidate := range candidates {
+		raw, ok := extensions[candidate]
+		if !ok {
+			continue
+		}
+		contract := decodePageContract(raw)
+		if contract != nil {
+			return contract
+		}
+	}
+	return nil
+}
+
+func pageContractFromStringMap(extensions map[string]string) *spec.PageContract {
+	if len(extensions) == 0 {
+		return nil
+	}
+	for _, key := range []string{"x-page-contract", "page_contract", "pageContract"} {
+		if raw := strings.TrimSpace(extensions[key]); raw != "" {
+			return decodePageContract(raw)
+		}
+	}
+	return nil
+}
+
+func decodePageContract(raw interface{}) *spec.PageContract {
+	switch value := raw.(type) {
+	case spec.PageContract:
+		return &value
+	case *spec.PageContract:
+		return value
+	case string:
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return nil
+		}
+		var contract spec.PageContract
+		if err := json.Unmarshal([]byte(value), &contract); err == nil && strings.TrimSpace(contract.Version) != "" {
+			return &contract
+		}
+	case map[string]interface{}:
+		data, err := json.Marshal(value)
+		if err != nil {
+			return nil
+		}
+		var contract spec.PageContract
+		if err := json.Unmarshal(data, &contract); err == nil && strings.TrimSpace(contract.Version) != "" {
+			return &contract
+		}
+	}
+	return nil
+}
+
+func firstPageContract(values ...*spec.PageContract) *spec.PageContract {
+	for _, value := range values {
+		if value != nil {
+			return value
 		}
 	}
 	return nil

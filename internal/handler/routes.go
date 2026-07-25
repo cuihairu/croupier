@@ -12,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/backup"
 	"github.com/cuihairu/croupier/internal/api/certificate"
 	"github.com/cuihairu/croupier/internal/api/config"
+	"github.com/cuihairu/croupier/internal/api/console"
 	"github.com/cuihairu/croupier/internal/api/entity"
 	"github.com/cuihairu/croupier/internal/api/extension"
 	"github.com/cuihairu/croupier/internal/api/faq"
@@ -25,6 +26,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/node"
 	"github.com/cuihairu/croupier/internal/api/openapi"
 	"github.com/cuihairu/croupier/internal/api/ops"
+	"github.com/cuihairu/croupier/internal/api/page"
 	"github.com/cuihairu/croupier/internal/api/permission"
 	"github.com/cuihairu/croupier/internal/api/platform"
 	"github.com/cuihairu/croupier/internal/api/player"
@@ -32,6 +34,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/provider"
 	"github.com/cuihairu/croupier/internal/api/rate_limit"
 	apiregistry "github.com/cuihairu/croupier/internal/api/registry"
+	"github.com/cuihairu/croupier/internal/api/resource"
 	"github.com/cuihairu/croupier/internal/api/role"
 	"github.com/cuihairu/croupier/internal/api/routes"
 	"github.com/cuihairu/croupier/internal/api/schema"
@@ -39,7 +42,6 @@ import (
 	"github.com/cuihairu/croupier/internal/api/task"
 	"github.com/cuihairu/croupier/internal/api/terms"
 	"github.com/cuihairu/croupier/internal/api/ticket"
-	"github.com/cuihairu/croupier/internal/api/workspace"
 	functionapi "github.com/cuihairu/croupier/internal/function/api"
 	"github.com/cuihairu/croupier/internal/function/registry"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
@@ -59,7 +61,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerMonitoringPublicRoutes(r, v1.Group("/monitoring"), serverCtx)
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
 	registerAuditRoutes(v1, serverCtx)                       // 审计日志在 v1 根路径
-	registerOpenAPIRoutes(v1, serverCtx)                     // OpenAPI 在 v1 根路径
+	registerOpenAPIReadRoutes(v1, serverCtx)                 // OpenAPI 只保留契约查看公开路由
 
 	// 需要认证的路由（使用 Authority 中间件）
 	protected := v1.Group("/")
@@ -72,6 +74,9 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerGameRoutes(protected.Group("/games"), serverCtx)
 		registerNodeRoutes(protected.Group("/nodes"), serverCtx)
 		registerOpsRoutes(protected.Group("/ops"), serverCtx)
+		registerPageRoutes(protected.Group("/pages"), serverCtx)
+		registerConsoleRoutes(protected.Group("/console"), serverCtx)
+		registerOpenAPISourceRoutes(protected.Group("/openapi"), serverCtx)
 		registerStorageRoutes(protected.Group("/storage"), serverCtx)
 		registerTaskRoutes(protected.Group("/tasks"), serverCtx)
 
@@ -85,6 +90,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
 		registerConfigRoutes(protected.Group("/configs"), serverCtx)
 		registerEntityRoutes(protected.Group("/entities"), serverCtx)
+		registerResourceRoutes(protected.Group("/resources"), serverCtx)
 		registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
 		registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
 		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
@@ -101,9 +107,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerSchemaRoutes(protected.Group("/schemas"), serverCtx)
 		registerTermsRoutes(protected.Group("/terms"), serverCtx)
 		registerTicketRoutes(protected.Group("/tickets"), serverCtx)
-		registerWorkspaceRoutes(protected.Group("/workspaces"), serverCtx)
-
-		// 兼容前端的快捷路由
+		// 非 Dashboard 内部模块快捷路由
 		registerRegistryShortcutRoutes(protected, serverCtx)
 	}
 }
@@ -425,16 +429,23 @@ func registerAuditRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 // ============================================================================
 // OpenAPI 路由注册（公开访问，在 v1 根路径）
 // ============================================================================
-func registerOpenAPIRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+func registerOpenAPIReadRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	openapiSvc := openapi.NewService(ctx)
 	openapiHandler := openapi.NewHandler(openapiSvc)
 	g.GET("/functions/:id/openapi", openapiHandler.GetSpec)
 	g.POST("/functions/_openapi-batch", openapiHandler.BatchGetSpec)
-	g.POST("/functions/_import", openapiHandler.Import)
-	g.GET("/entities/:id/functions", openapiHandler.EntityFunctions)
-	g.GET("/entity-index", openapiHandler.EntityIndex)
-	g.GET("/entity-index/:name/functions", openapiHandler.EntityFunctionsByName)
 	g.GET("/openapi/spec", openapiHandler.GetDocument)
+}
+
+func registerOpenAPISourceRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	openapiSvc := openapi.NewService(ctx)
+	openapiHandler := openapi.NewHandler(openapiSvc)
+	g.GET("/sources", openapiHandler.ListSources)
+	g.POST("/sources", openapiHandler.CreateSource)
+	g.GET("/sources/:sourceId", openapiHandler.GetSource)
+	g.GET("/sources/:sourceId/diagnostics", openapiHandler.SourceDiagnostics)
+	g.POST("/sources/:sourceId/bindings", openapiHandler.CreateBinding)
+	g.DELETE("/sources/:sourceId/bindings/:bindingId", openapiHandler.DeleteBinding)
 }
 
 // ============================================================================
@@ -712,6 +723,50 @@ func registerProviderRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/reload", providerHandler.Reload)
 }
 
+// ============================================================================
+// Resource 路由注册
+// ============================================================================
+func registerResourceRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	resourceSvc := resource.NewService(ctx)
+	resourceHandler := resource.NewHandler(resourceSvc)
+	g.GET("", resourceHandler.List)
+	g.GET("/", resourceHandler.List)
+	g.GET("/:resourceKey", resourceHandler.Detail)
+	g.GET("/:resourceKey/operations", resourceHandler.Operations)
+	g.GET("/:resourceKey/pages/generated", resourceHandler.GeneratedPages)
+}
+
+// ============================================================================
+// Page 路由注册
+// ============================================================================
+func registerPageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	pageSvc := page.NewService(ctx)
+	pageHandler := page.NewHandler(pageSvc)
+	g.GET("", pageHandler.ListDrafts)
+	g.GET("/", pageHandler.ListDrafts)
+	g.GET("/:pageKey", pageHandler.GetDraft)
+	g.PUT("/:pageKey", pageHandler.SaveDraft)
+	g.POST("/:pageKey/validate", pageHandler.Validate)
+	g.POST("/:pageKey/preview", pageHandler.Preview)
+	g.POST("/:pageKey/publish", pageHandler.Publish)
+	g.POST("/:pageKey/unpublish", pageHandler.Unpublish)
+	g.GET("/:pageKey/versions", pageHandler.Versions)
+	g.GET("/:pageKey/versions/:versionId", pageHandler.VersionDetail)
+	g.POST("/:pageKey/rollback", pageHandler.Rollback)
+}
+
+// ============================================================================
+// Console 路由注册
+// ============================================================================
+func registerConsoleRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	consoleSvc := console.NewService(ctx)
+	consoleHandler := console.NewHandler(consoleSvc)
+	g.GET("/menu", consoleHandler.Menu)
+	g.GET("/pages", consoleHandler.Pages)
+	g.GET("/pages/:pageKey", consoleHandler.Page)
+	g.POST("/pages/:pageKey/bindings/:bindingId/execute", consoleHandler.ExecuteBinding)
+}
+
 func registerRoleRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	roleSvc := role.NewService(ctx)
 	roleHandler := role.NewHandler(roleSvc)
@@ -792,24 +847,6 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 }
 
 // ============================================================================
-// Workspace 路由注册
-// ============================================================================
-func registerWorkspaceRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	workspaceSvc := workspace.NewService(ctx)
-	workspaceHandler := workspace.NewHandler(workspaceSvc)
-	g.GET("/configs", workspaceHandler.ListConfigs)
-	g.GET("/published", workspaceHandler.ListPublished)
-	g.GET("/:objectKey/config", workspaceHandler.GetConfig)
-	g.PUT("/:objectKey/config", workspaceHandler.SaveConfig)
-	g.DELETE("/:objectKey/config", workspaceHandler.DeleteConfig)
-	g.POST("/:objectKey/publish", workspaceHandler.Publish)
-	g.POST("/:objectKey/unpublish", workspaceHandler.Unpublish)
-	g.GET("/:objectKey/versions", workspaceHandler.Versions)
-	g.GET("/:objectKey/versions/:versionId", workspaceHandler.VersionDetail)
-	g.POST("/:objectKey/rollback", workspaceHandler.Rollback)
-}
-
-// ============================================================================
 // 兼容前端的快捷路由
 // ============================================================================
 func registerRegistryShortcutRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
@@ -834,7 +871,6 @@ func registerFunctionMetadataRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext)
 		functions.GET("/:id", handler.GetFunction)
 		functions.PUT("/:id", handler.UpdateFunction)
 		functions.DELETE("/:id", handler.DeleteFunction)
-		functions.POST("/import/openapi", handler.ImportFromOpenAPI)
 		functions.GET("/categories", handler.GetCategories)
 		functions.GET("/tags", handler.GetTags)
 	}

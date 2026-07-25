@@ -101,21 +101,23 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	extensionRepos := extensiongorm.NewBundle(db)
 
 	svcCtx := &svc.ServiceContext{
-		DB:                     db,
-		RegistryStore:          registryStore,
-		Dispatcher:             dispatch.NewDispatcherWithTaskStore(registryStore, nil, nil),
-		OpsStateStore:          svc.NewOpsStateStore("."),
-		AdminModel:             model.NewAdminModel(db),
-		GameModel:              model.NewGameModel(db),
-		PlayerModel:            model.NewPlayerModel(db),
-		FunctionModel:          model.NewFunctionModel(db),
-		RoleModel:              model.NewRoleModel(db),
-		PermissionModel:        model.NewPermissionModel(db),
-		ConfigVersionModel:     model.NewConfigVersionModel(db),
-		WorkspaceConfigModel:   model.NewWorkspaceConfigModel(db),
-		PageSpecModel:          model.NewPageSpecModel(db),
-		PublishedPageSpecModel: model.NewPublishedPageSpecModel(db),
-		PageVersionModel:       model.NewPageVersionModel(db),
+		DB:                        db,
+		RegistryStore:             registryStore,
+		Dispatcher:                dispatch.NewDispatcherWithTaskStore(registryStore, nil, nil),
+		OpsStateStore:             svc.NewOpsStateStore("."),
+		AdminModel:                model.NewAdminModel(db),
+		GameModel:                 model.NewGameModel(db),
+		PlayerModel:               model.NewPlayerModel(db),
+		FunctionModel:             model.NewFunctionModel(db),
+		RoleModel:                 model.NewRoleModel(db),
+		PermissionModel:           model.NewPermissionModel(db),
+		ConfigVersionModel:        model.NewConfigVersionModel(db),
+		WorkspaceConfigModel:      model.NewWorkspaceConfigModel(db),
+		PageSpecModel:             model.NewPageSpecModel(db),
+		PublishedPageSpecModel:    model.NewPublishedPageSpecModel(db),
+		PageVersionModel:          model.NewPageVersionModel(db),
+		OpenAPISourceModel:        model.NewOpenAPISourceModel(db),
+		OpenAPISourceBindingModel: model.NewOpenAPISourceBindingModel(db),
 		Extensions: &svc.ExtensionServices{
 			Catalog:      extensioncatalog.NewService(extensionRepos.Catalog, extensionRepos.Release),
 			Manifest:     extensionmanifest.NewService(),
@@ -375,10 +377,14 @@ func registerOpenAPIRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceCo
 	group := authenticated.Group("/openapi")
 	{
 		group.GET("/document", handler.GetDocument)
-		group.POST("/import", handler.Import)
 		group.POST("/batch/spec", handler.BatchGetSpec)
 		group.GET("/functions/:id/spec", handler.GetSpec)
-		group.GET("/entities/:id/functions", handler.EntityFunctions)
+		group.GET("/sources", handler.ListSources)
+		group.POST("/sources", handler.CreateSource)
+		group.GET("/sources/:sourceId", handler.GetSource)
+		group.GET("/sources/:sourceId/diagnostics", handler.SourceDiagnostics)
+		group.POST("/sources/:sourceId/bindings", handler.CreateBinding)
+		group.DELETE("/sources/:sourceId/bindings/:bindingId", handler.DeleteBinding)
 	}
 }
 
@@ -414,12 +420,13 @@ func registerConsoleRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceCo
 		group.GET("/menu", handler.Menu)
 		group.GET("/pages", handler.Pages)
 		group.GET("/pages/:pageKey", handler.Page)
+		group.POST("/pages/:pageKey/bindings/:bindingId/execute", handler.ExecuteBinding)
 	}
 }
 
 func registerPageRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
 	handler := pageapi.NewHandler(pageapi.NewService(svcCtx))
-	group := authenticated.Group("/workspaces/pages")
+	group := authenticated.Group("/pages")
 	{
 		group.GET("", handler.ListDrafts)
 		group.GET("/:pageKey", handler.GetDraft)

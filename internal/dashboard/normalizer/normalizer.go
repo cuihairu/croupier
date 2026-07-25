@@ -57,6 +57,9 @@ type DescriptorInput struct {
 
 	// Tags
 	Tags []string `json:"tags,omitempty"`
+
+	// Optional data contract for generator quality. This is not UI.
+	PageContract *spec.PageContract `json:"page_contract,omitempty"`
 }
 
 // NormalizerResult holds the normalized specs and diagnostics.
@@ -209,14 +212,15 @@ func Normalize(input DescriptorInput) NormalizerResult {
 	var operation *spec.OperationSpec
 	if fn.Entity != "" || fn.Operation != "" {
 		operation = &spec.OperationSpec{
-			FunctionID:  fn.ID,
-			ResourceKey: fn.Entity,
-			Operation:   fn.Operation,
-			Kind:        operationKind,
-			Placement:   placement,
-			Labels:      operationDisplay,
-			Risk:        fn.Risk,
-			Enabled:     fn.Enabled,
+			FunctionID:   fn.ID,
+			ResourceKey:  fn.Entity,
+			Operation:    fn.Operation,
+			Kind:         operationKind,
+			Placement:    placement,
+			Labels:       operationDisplay,
+			Risk:         fn.Risk,
+			Enabled:      fn.Enabled,
+			PageContract: input.PageContract,
 		}
 		// Add diagnostics to operation if fields missing
 		if operationKind == "" {

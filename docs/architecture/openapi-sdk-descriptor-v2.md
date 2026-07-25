@@ -79,9 +79,9 @@ OpenAPI bytes + operationId -> local Handler map
 - 当前实现只有 Go SDK 提供 `RegisterFromOpenAPI`；JS、Python、Java、C#、C++ 尚未提供等价 API，不能宣称跨语言 SDK 已支持。
 - SDK helper 不上传 UI、不生成 PageSpec、不自动发布页面。
 
-### 用户上传 OpenAPI 契约源（目标，P0-11 未实现）
+### 用户上传 OpenAPI 契约源（已落地基础闭环）
 
-目标是让用户在 Dashboard 上传 JSON 或 YAML 的 OpenAPI 3.x 文档。上传创建 `OpenAPISource`，保留来源、hash、校验 diagnostics、scope 和操作清单，而不是直接伪造可执行 Function。
+用户可以在 Dashboard 上传 JSON 或 YAML 的 OpenAPI 3.x 文档。上传创建 `OpenAPISource`，保留来源、hash、校验 diagnostics、scope 和操作清单，而不是直接伪造可执行 Function。
 
 ```text
 OpenAPI file / pasted document
@@ -98,17 +98,18 @@ OpenAPI file / pasted document
 
 未绑定执行器的 Source 只能作为契约目录和页面候选输入，不能发布包含可执行 binding 的页面；绑定后才形成可调用 FunctionSpec。HTTP Connector 的凭据和目标地址不允许写进 OpenAPI 文件、PageSpec 或前端请求。
 
-目标 API：
+当前 API：
 
 ```text
-POST   /api/v1/openapi/sources                 # multipart file 或 raw JSON/YAML
+GET    /api/v1/openapi/sources
+POST   /api/v1/openapi/sources                 # multipart file、raw JSON/YAML 或 { name, spec }
 GET    /api/v1/openapi/sources/:sourceId
 POST   /api/v1/openapi/sources/:sourceId/bindings
 DELETE /api/v1/openapi/sources/:sourceId/bindings/:bindingId
 GET    /api/v1/openapi/sources/:sourceId/diagnostics
 ```
 
-历史 `POST /api/v1/openapi/import` 只接受 JSON object，并把 operation 存到 registry；它没有 Handler/Connector binding、scope、source version 或执行安全策略，不能作为目标上传 API。
+当前实现已切断历史 `POST /api/v1/openapi/import` 路由。Source 上传不会写入 runtime registry；`provider` binding 可以显式绑定当前 scope 内已注册函数。`httpConnector` 仍未启用，必须等 allowlist、SecretRef、超时/重试和审计策略完整后才能开放。
 
 ## 为什么需要 v2
 

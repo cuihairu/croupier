@@ -69,3 +69,28 @@ func (h *Handler) Page(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// ExecuteBinding handles POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute
+func (h *Handler) ExecuteBinding(c *gin.Context) {
+	var req ConsoleExecuteBindingRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	resp, err := h.service.ExecuteBinding(c.Request.Context(), &req)
+	if err != nil {
+		var notFound *PageNotFoundError
+		if errors.As(err, &notFound) {
+			response.NotFound(c, err.Error())
+			return
+		}
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

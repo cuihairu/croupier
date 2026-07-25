@@ -3,6 +3,7 @@
  */
 
 import { isPlainObject } from 'lodash';
+import type { FormilyJSONValue, FormilySchema } from '@/components/formily/schema/types';
 
 /**
  * 安全地解析 JSON 字符串
@@ -112,31 +113,28 @@ export function cloneDeep<T = any>(obj: T): T {
 
 export type JSONSchemaType = {
   type?: string;
-  properties?: Record<string, any>;
+  properties?: Record<string, JSONSchemaType>;
   required?: string[];
   title?: string;
   description?: string;
   format?: string;
-  enum?: any[];
-  items?: any;
+  enum?: FormilyJSONValue[];
+  items?: JSONSchemaType;
   minimum?: number;
   maximum?: number;
   minLength?: number;
   maxLength?: number;
   pattern?: string;
-  default?: any;
+  default?: FormilyJSONValue;
+  example?: FormilyJSONValue;
 };
 
 /**
  * 解析 input_schema 字符串为 JSON Schema 对象
  * @param inputSchema JSON Schema 字符串（来自 proto）
- * @param fallbackParams 回退的 params 对象（旧版兼容）
  * @returns 解析后的 JSON Schema 对象
  */
-export function parseInputSchema(
-  inputSchema?: string,
-  fallbackParams?: any,
-): JSONSchemaType | null {
+export function parseInputSchema(inputSchema?: string): JSONSchemaType | null {
   // 优先使用 input_schema
   if (inputSchema && typeof inputSchema === 'string' && inputSchema.trim()) {
     const parsed = jsonParse<JSONSchemaType | null>(inputSchema, undefined);
@@ -149,11 +147,6 @@ export function parseInputSchema(
     }
   }
 
-  // 回退到 params（旧版兼容）
-  if (fallbackParams && typeof fallbackParams === 'object') {
-    return fallbackParams;
-  }
-
   return null;
 }
 
@@ -162,7 +155,7 @@ export function parseInputSchema(
  * @param schema 字段的 JSON Schema
  * @returns Widget 类型字符串
  */
-export function inferWidget(schema: any): string {
+export function inferWidget(schema?: JSONSchemaType | null): string {
   if (!schema) return 'input';
 
   const type = schema.type;
@@ -206,12 +199,12 @@ export function inferWidget(schema: any): string {
  * @param schema JSON Schema 对象
  * @returns Formily Schema（可直接传给 SchemaRenderer）
  */
-export function buildUISchemaFromJSONSchema(schema: JSONSchemaType | null): Record<string, any> {
+export function buildUISchemaFromJSONSchema(schema: JSONSchemaType | null): FormilySchema {
   if (!schema || !schema.properties) {
     return { type: 'object', properties: {} };
   }
 
-  const properties: Record<string, any> = {};
+  const properties: NonNullable<FormilySchema['properties']> = {};
   const requiredArr: string[] = [];
   const requiredSet = new Set(schema.required || []);
 
@@ -219,7 +212,7 @@ export function buildUISchemaFromJSONSchema(schema: JSONSchemaType | null): Reco
     const title = fieldSchema.title || formatFieldLabel(fieldName);
     const [component, componentProps] = inferFormilyComponent(fieldSchema);
 
-    const prop: Record<string, any> = {
+    const prop: FormilySchema = {
       type: fieldSchema.type || 'string',
       title,
       'x-component': component,
@@ -248,7 +241,7 @@ export function buildUISchemaFromJSONSchema(schema: JSONSchemaType | null): Reco
     }
   }
 
-  const result: Record<string, any> = {
+  const result: FormilySchema = {
     type: 'object',
     properties,
   };
@@ -262,12 +255,14 @@ export function buildUISchemaFromJSONSchema(schema: JSONSchemaType | null): Reco
  * 推断 Formily 组件名和组件属性
  * @returns [componentName, componentProps]
  */
-function inferFormilyComponent(schema: any): [string, Record<string, any>] {
+function inferFormilyComponent(
+  schema?: JSONSchemaType | null,
+): [string, Record<string, FormilyJSONValue | undefined>] {
   if (!schema) return ['Input', {}];
 
   const type = schema.type;
   const format = schema.format;
-  const props: Record<string, any> = {};
+  const props: Record<string, FormilyJSONValue | undefined> = {};
 
   // format 优先
   if (format === 'date') return ['DatePicker', { format: 'YYYY-MM-DD' }];
@@ -331,7 +326,7 @@ function formatFieldLabel(fieldName: string): string {
  * @param schema 字段 schema
  * @returns 占位符字符串
  */
-function buildPlaceholder(schema: any): string {
+function buildPlaceholder(schema?: JSONSchemaType | null): string {
   if (!schema) return '';
 
   const format = schema.format;

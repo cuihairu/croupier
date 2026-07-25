@@ -50,7 +50,6 @@ func BuildFallbackOpenAPIOperation(functionID string) *openapi3.Operation {
 			"x-entity":    entity,
 			"x-operation": action,
 			"x-action":    action,
-			"x-ui":        BuildFallbackUISchema(functionID),
 		},
 	}
 	return op

@@ -10,8 +10,7 @@ import { Button, Result, Spin } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useEffect, useState } from 'react';
 import FormilyPageRenderer from '@/components/FormilyPageRenderer';
-import { getPublishedPage } from '@/services/console';
-import { invokeFunction, startTask } from '@/services/api/functions';
+import { executePageBinding, getPublishedPage } from '@/services/console';
 import type { PublishedPageSpec } from '@/types/dashboard';
 
 export default function ConsolePage() {
@@ -154,9 +153,7 @@ export default function ConsolePage() {
     >
       <FormilyPageRenderer
         page={page!}
-        onQuery={(functionId, values) => invokeFunction(functionId, values)}
-        onAction={(functionId, payload) => invokeFunction(functionId, payload)}
-        onTaskStart={(functionId, payload) => startTask(functionId, payload)}
+        onExecute={(bindingId, payload) => executePageBinding(page!.pageKey, bindingId, payload)}
       />
     </PageContainer>
   );

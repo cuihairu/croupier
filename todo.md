@@ -1,6 +1,6 @@
 # Dashboard Resource/Page 重构 TODO
 
-更新时间：2026-07-23（重新设计复审：P0 仍未通过；已补齐 scope、发布快照、页面 ABI 与受控执行的前置设计）
+更新时间：2026-07-25（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；旧 Workspace/Entity 物理清理仍在 P1/P2）
 
 本文是 Dashboard 动态页面、函数注册描述符、Page Studio 和运行控制台菜单的重构交接清单。执行 AI 必须按本文推进；审核 AI 以本文和权威设计文档为验收依据。
 
@@ -20,13 +20,14 @@
 | P0-1 冻结强类型模型和命名 | ⏳ 进行中 | | 强类型已新增，但旧 Workspace/Entity/layout 主链路仍存在 |
 | P0-2 升级 SDK/OpenAPI Descriptor v2 | ⏳ 进行中 | | proto 已有 v2，SDK/registry/Resource 采集链路未验收 |
 | P0-3 建立 Descriptor Normalizer | ⏳ 进行中 | | normalizer 已新增，但旧 descriptor 推断仍未完全收敛 |
-| P0-4 Function Form 收敛为单一 Formily | ❌ 需重构 | | 当前 API 仍把 UI 当注册链路的一部分；目标改为 Server 派生 + 注册后管理员 override，旧 ui/layout/components/x-ui 必须收敛 |
+| P0-4 Function Form 收敛为单一 Formily | ✅ 核心完成 | 2026-07-24 | 注册/OpenAPI 导入拒绝 UI 字段；Function UI API/前端只传 Formily schema；旧 params 推断已停止 |
 | P0-5 Resource API 替换旧 Entity API | ⏳ 进行中 | | Resource API 已接 generator，但 SDK v2 语义采集断裂 |
-| P0-6 Page Studio API | ❌ 需重构 | | 当前 PageSpec 缺 scope、草稿并发版本、binding ID/映射/契约快照；旧 `/workspaces/pages` 仍是迁移期路径 |
-| P0-7 Console API 和动态菜单 | ⏳ 进行中 | | Console API/frontend unwrap/locale 已修；运行菜单不再推断分类；仍需端到端部署验证 |
-| P0-8 前端 PageSpec Formily Renderer | ❌ 需重构 | | 最小组件已有，但仍使用裸 functionId、动态列与 lastResult，未遵守 binding/page-state ABI |
-| P0-9 PageSpec Generator | ❌ 需重构 | | generator 只基于 OperationSpec，未验证输入/输出映射和 `x-page-contract`，不能产生可靠 ready 页面 |
-| P0-10 受控 Page 执行与契约失效 | ❌ 未开始 | | 必须先于运行态 Page 宣称可用：执行、审批、审计、OTel、task 和 binding snapshot 需要闭环 |
+| P0-6 Page Studio API | ✅ 核心完成 | 2026-07-25 | PageSpec 已包含 scope、draftRevision、binding、mapping、发布 contract snapshot；旧 Workspace 物理删除放 P2 |
+| P0-7 Console API 和动态菜单 | ✅ 核心完成 | 2026-07-25 | ConsoleMenuSpec 已作为运行控制台菜单来源；前端不再从 workspaceConfigs 注入菜单 |
+| P0-8 前端 PageSpec Formily Renderer | ✅ 核心完成 | 2026-07-25 | Renderer 只使用 bindingId 和受控 execute API；旧 queryFunctionId/lastResult/onQuery/onAction 已切断 |
+| P0-9 PageSpec Generator | ✅ 核心完成 | 2026-07-25 | generator 已接 `PageContract/x-page-contract`，无可验证 mapping/分页/列/任务/报表契约时只产出 diagnostics，不标 ready |
+| P0-10 受控 Page 执行与契约失效 | ✅ 核心完成 | 2026-07-25 | Page binding execute 已接 active PublishedPageSpec、contract digest stale 检查、traceId 返回；task/approval UI 细节仍在 P1 |
+| P0-11 OpenAPI Source 上传与执行绑定 | ✅ 基础完成 | 2026-07-25 | Source API、diagnostics、provider binding、旧 import 路由删除已完成；httpConnector/Source revision 后续实现 |
 | P1-1 Page Studio 前端 | ⏳ 待开始 | | |
 | P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 菜单部分迁移，系统菜单仍有旧 Workspace/Object 入口 |
 | P1-3 权限和审计模型迁移 | ⏳ 进行中 | | 权限/审计需按 Page/Resource 重新核验 |
@@ -519,6 +520,18 @@ rg -n "\\[\\]map\\[string\\]interface\\{|map\\[string\\]interface\\{\\}" "intern
 
 ### P0-4. Function Form 收敛为单一 Formily
 
+状态：2026-07-24 核心链路已完成。
+
+已落地：
+
+- SDK 注册 descriptor extensions 中出现 `ui/x-ui/x_formily/layout/components` 等 UI 字段时，注册函数被跳过并产生 `function_ui_not_allowed` warning。
+- OpenAPI import 的 Operation extensions 中出现 UI 字段时，该 operation 不导入并返回失败诊断。
+- Function UI resolver 不再读取 `openapi_spec.x-ui`，默认表单只从 `input_schema` 派生；缺少 `input_schema` 时只生成保守 fallback。
+- HTTP Function UI update 只接受 `schema`；`ui/layout/components/x-ui` 等字段直接返回 400。
+- 前端 Function UI Manager 和 API service 只读取/提交 `schema`，不再传播 `layout/components/openapi_x_ui`。
+- SchemaDesigner 不再从旧 `params` 推断字段；没有 `input_schema` 时使用单个 `payload` 默认字段。
+- `web/src/utils/json.ts` 中 JSON Schema -> Formily 推断核心路径已使用递归 JSON Schema 类型和 `FormilySchema` 返回类型。
+
 目标：
 
 - 单函数调用和 PageSpec binding 弹窗都使用 Server 派生或管理员 override 的 Function Form；SDK/OpenAPI 注册不包含 UI。
@@ -552,9 +565,15 @@ rg -n "\\[\\]map\\[string\\]interface\\{|map\\[string\\]interface\\{\\}" "intern
 
 ```bash
 go test ./internal/logic/function/... ./internal/api/function/...
-pnpm --dir "web" exec eslint "src/components/FunctionFormRenderer/index.tsx" "src/components/FunctionUIManager/index.tsx" "src/pages/Functions/SchemaDesigner"
-rg -n "layout|components|FieldConfig" "internal/api/function" "web/src/components/FunctionUIManager" "web/src/components/FunctionFormRenderer"
+./web/node_modules/.bin/eslint "src/components/FunctionFormRenderer/index.tsx" "src/components/FunctionUIManager/index.tsx" "src/pages/Functions/SchemaDesigner/index.tsx" "src/services/api/functions.ts" "src/services/schema/index.ts" "src/utils/json.ts"
+rg -n "openapi_x_ui|uiConfig\\.layout|uiConfig\\.components|layout\\?: Record<string, unknown>|components\\?: Record<string, unknown>|parseInputSchema\\([^\\)]*,|generatedFromParams" "web/src/components/FunctionUIManager/index.tsx" "web/src/services/api/functions.ts" "web/src/services/schema/index.ts" "web/src/pages/Functions/SchemaDesigner/index.tsx" "web/src/utils/json.ts"
 ```
+
+当前环境备注：
+
+- `./web/node_modules/.bin/eslint ...` 已通过。
+- `git diff --check` 已通过。
+- Go 定向测试在复用已有模块缓存时通过；切换空 `GOMODCACHE` 会因 sandbox 禁止访问 `proxy.golang.org` 失败，不是代码失败。
 
 禁止事项：
 
@@ -792,6 +811,21 @@ rg -n "\\bany\\b" "web/src/components/FormilyPageRenderer" "web/src/components/c
 
 ### P0-9. PageSpec Generator
 
+状态：2026-07-25 核心链路已完成。
+
+已落地：
+
+- `OperationSpec` 增加 `pageContract`，`OpenAPI Source` 支持读取 `x-page-contract`，runtime descriptor extensions 可用 JSON 字符串携带同一契约。
+- Generator 不再写死 `page/pageSize/itemsPath/totalPath/columnsPath`，只有 `PageContract.pagination + table.columns/columnsPath + input/outputMapping` 可验证时才生成 `DataTable`。
+- 缺少 `pageContract`、分页字段、列定义、输入/输出 mapping、task tracking 或 report chart contract 时，候选只标为 `needs_review` 或 `blocked`，并返回结构化 diagnostics。
+- 生成的 `PageFunctionBinding` 会复制 `pageContract.inputMapping/outputMapping/executionMode`，schema 仍只引用 `bindingId`。
+- 单测覆盖“无 pageContract 不猜 DataTable”和“有 pageContract 才生成 DataTable/rowAction binding”。
+
+未完成：
+
+- 示例 `mail.send`、`reward.batchGrant`、`analytics.retention` 的端到端 fixture 尚未补全。
+- Page Studio 前端尚未消费 GeneratedPageSpec 并提供 mapping 补齐交互。
+
 目标：
 
 - 根据归一化后的 Resource/Operation 生成默认 PageSpec 建议，让函数注册后有可预览的默认界面。
@@ -836,7 +870,7 @@ rg -n "\\bany\\b" "web/src/components/FormilyPageRenderer" "web/src/components/c
 验证命令：
 
 ```bash
-go test ./internal/dashboard/... ./internal/api/page/... ./internal/api/entity/...
+GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/dashboard/... ./internal/api/resource ./internal/api/openapi ./internal/api/page ./internal/api/console
 rg -n "strings\\.HasSuffix|strings\\.Contains|split.*function|function.*split|player_id|reason" "internal/dashboard" "web/src/pages/Console"
 ```
 
@@ -903,6 +937,14 @@ rg -n "/functions/.*/invoke|invokeFunction\(" "web/src/components/FormilyPageRen
 
 - 让用户可以上传 OpenAPI 3.x JSON/YAML 作为契约 Source，同时把“文档可解析”和“函数可执行”严格分开；不要求上传者提供 UI。
 
+当前状态：
+
+- 已完成：`GET/POST /api/v1/openapi/sources`、`GET /api/v1/openapi/sources/:sourceId`、`GET /api/v1/openapi/sources/:sourceId/diagnostics`、`POST/DELETE /api/v1/openapi/sources/:sourceId/bindings`。
+- 已完成：Source 按 `game_id + env` 保存，支持 multipart file、raw JSON/YAML 和 `{ name, spec }`，保存 content hash、operation 清单和 diagnostics。
+- 已完成：上传拒绝外部 `$ref`、缺失/重复 `operationId`、无效 OpenAPI 版本、`x-ui/ui/Formily/layout/components/menu/routes/table columns` 等 UI 字段。
+- 已完成：Source 上传不会写入 runtime registry；Provider binding 必须显式绑定当前已注册函数。
+- 未完成：受控 `httpConnector`、Source 更新 revision、Source/FunctionSpec 候选接入 PageCandidate 端到端 UI、绑定审计/OTel 完整字段。
+
 受影响路径：
 
 - `internal/api/openapi/*`
@@ -920,7 +962,7 @@ rg -n "/functions/.*/invoke|invokeFunction\(" "web/src/components/FormilyPageRen
 - 将历史 `POST /api/v1/openapi/import` 替换为 Source API：`POST/GET /api/v1/openapi/sources`、`GET /api/v1/openapi/sources/:sourceId`、`POST/DELETE .../bindings`、`GET .../diagnostics`；不保留旧 import 兼容路由。
 - 上传支持 multipart file 和 raw JSON/YAML；服务端限制大小、禁用远程 `$ref`、解析前后校验 OpenAPI 版本、规范化 operationId 并保存内容 hash、source version、scope、diagnostics 和操作清单。
 - Source 只产生 RawFunctionDescriptor / FunctionSpec 候选，不能直接注册为可调度 Function，更不能自动发布 Page。
-- `ExecutionBinding` 必须显式选择 `provider`（当前 scope 的 operationId -> SDK Handler）或受控 `httpConnector`；Connector 使用 allowlist base URL、SecretRef、超时/重试/请求策略，敏感配置不进入 OpenAPI、PageSpec 或浏览器。
+- `ExecutionBinding` 必须显式选择 `provider`（当前 scope 的 operationId -> SDK Handler）或受控 `httpConnector`；当前仅启用 `provider`，`httpConnector` 必须等 allowlist base URL、SecretRef、超时/重试/请求策略落地后开放。
 - Source 更新创建新 revision；已发布 Page 的 binding snapshot 比较 source/contract digest，发生不兼容变更后标记 stale。
 - Go SDK 的 `RegisterFromOpenAPI(spec, handlers)` 继续作为本地 Provider 注册 helper；其他语言在提供等价 helper 前明确标为未支持，不能伪造 parity。
 - 上传、绑定、解绑、Source 更新都要权限、审计和 OTel；不记录文档中的凭据或业务敏感示例 payload。
@@ -936,8 +978,8 @@ rg -n "/functions/.*/invoke|invokeFunction\(" "web/src/components/FormilyPageRen
 验证命令：
 
 ```bash
-go test ./internal/api/openapi/... ./internal/dashboard/descriptors/... ./internal/dashboard/normalizer/... ./internal/platform/registry/...
-pnpm --dir "web" exec eslint "src/pages/Functions" "src/services/api/openapi.ts"
+GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/api/openapi ./internal/api/page ./internal/api/console ./internal/api/resource ./internal/dashboard/...
+./web/node_modules/.bin/eslint "web/src/services/api/openapi.ts" "web/src/services/api/functions.ts" "web/src/services/api/functions-enhanced.ts" "web/src/services/api/entities.ts"
 rg -n "x-ui|\"ui\"|/api/v1/openapi/import" "internal/api/openapi" "web/src/services/api/openapi.ts" "docs/guide/integrations"
 ```
 

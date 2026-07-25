@@ -33,7 +33,17 @@ import type { FormilySchema, FormilyValues } from '@/components/formily/schema/t
 
 const { Text } = Typography;
 
-const DEFAULT_SCHEMA: FormilySchema = { type: 'object', properties: {} };
+const DEFAULT_SCHEMA: FormilySchema = {
+  type: 'object',
+  properties: {
+    payload: {
+      type: 'object',
+      title: 'payload',
+      'x-component': 'Card',
+      'x-decorator': 'FormItem',
+    },
+  },
+};
 const SCHEMA_TEMPLATES: Array<{ key: string; label: string; schema: FormilySchema }> = [
   { key: 'empty', label: '空对象', schema: DEFAULT_SCHEMA },
   {
@@ -109,7 +119,7 @@ export default function SchemaDesigner() {
   const [draftUpdatedAt, setDraftUpdatedAt] = useState<string | undefined>(undefined);
   const [publishedUpdatedAt, setPublishedUpdatedAt] = useState<string | undefined>(undefined);
   const [draftConflict, setDraftConflict] = useState(false);
-  const [generatedFromParams, setGeneratedFromParams] = useState(false);
+  const [generatedFromInputSchema, setGeneratedFromInputSchema] = useState(false);
 
   const applyRaw = useCallback(
     (nextRaw?: string) => {
@@ -191,9 +201,9 @@ export default function SchemaDesigner() {
 
       if (!initial || Object.keys(initial || {}).length === 0) {
         const detail = await getFunctionDetail(functionId);
-        const inputSchema = parseInputSchema(detail?.inputSchema, detail?.params);
-        initial = generateFormilyFromJsonSchema(inputSchema);
-        generated = true;
+        const inputSchema = parseInputSchema(detail?.inputSchema);
+        initial = inputSchema ? generateFormilyFromJsonSchema(inputSchema) : DEFAULT_SCHEMA;
+        generated = Boolean(inputSchema);
       }
       if (!initial) {
         initial = DEFAULT_SCHEMA;
@@ -206,7 +216,7 @@ export default function SchemaDesigner() {
       setDraftUpdatedAt(state.draftUpdatedAt);
       setPublishedUpdatedAt(state.publishedUpdatedAt);
       setDraftConflict(state.draftConflict);
-      setGeneratedFromParams(generated);
+      setGeneratedFromInputSchema(generated);
       setParseError(undefined);
       setDirty(false);
       trackSchemaEvent('schema_load', {
@@ -374,17 +384,17 @@ export default function SchemaDesigner() {
               </Tag>
               <Tag>顶层字段: {topLevelFields}</Tag>
               <Tag>必填字段: {requiredCount}</Tag>
-              {generatedFromParams && <Tag color="gold">自动生成初稿</Tag>}
+              {generatedFromInputSchema && <Tag color="gold">根据 input_schema 生成初稿</Tag>}
               {draftUpdatedAt && (
                 <Tag color="blue">草稿: {new Date(draftUpdatedAt).toLocaleString('zh-CN')}</Tag>
               )}
             </Space>
-            {generatedFromParams && (
+            {generatedFromInputSchema && (
               <Alert
                 style={{ marginTop: 12 }}
                 type="info"
                 showIcon
-                message="已根据函数参数自动生成 UI 初稿"
+                message="已根据函数 input_schema 自动生成 UI 初稿"
                 description="当前函数还没有已发布 UI Schema；这份初稿可直接编辑并发布。"
               />
             )}

@@ -2,8 +2,10 @@ package function
 
 import (
 	"encoding/json"
+
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/function/uicontract"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/gin-gonic/gin"
 )
@@ -311,9 +313,9 @@ func (h *Handler) FunctionUIUpdate(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	for _, field := range []string{"ui", "layout", "components"} {
-		if _, ok := body[field]; ok {
-			response.BadRequest(c, "function UI only accepts Formily schema; field "+field+" is not supported")
+	for field := range body {
+		if forbiddenKey, ok := uicontract.ForbiddenRegistrationKey(field); ok {
+			response.BadRequest(c, "function UI only accepts Formily schema; field "+forbiddenKey+" is not supported")
 			return
 		}
 	}

@@ -48,14 +48,6 @@ export type EntityPreviewResult = {
   previewData?: unknown;
 };
 
-// Source: croupier/internal/api/openapi/dto.go EntityFunctionsResponse.Item.
-export type EntityFunction = {
-  id: string;
-  operation?: string; // business action key, e.g. "ban", "send", "list"
-  name?: string;
-  summary?: string;
-};
-
 // Compatibility projection for current dashboard entity-definition pages.
 // This is not the backend canonical DTO. New code should prefer EntityRecord.
 export type EntityDefinition = {
@@ -63,8 +55,8 @@ export type EntityDefinition = {
   type?: string;
   name?: string;
   description?: string;
-  schema?: any;
-  uiSchema?: any;
+  schema?: unknown;
+  uiSchema?: unknown;
   operations?: string[];
   data?: unknown;
   providerId?: string;
@@ -95,10 +87,6 @@ type RawEntityRecordsListResponse = {
 
 type RawEntityPreviewResponse = {
   data?: unknown;
-};
-
-type RawEntityFunctionsResponse = {
-  items?: EntityFunction[];
 };
 
 function normalizeEntityRecord(raw: RawEntityRecord): EntityRecord {
@@ -183,7 +171,7 @@ function buildEntityScopeParams(params?: EntityScopeParams) {
   };
 }
 
-function isRecord(value: unknown): value is Record<string, any> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
@@ -278,15 +266,4 @@ export async function previewEntity(id: string, params?: EntityScopeParams) {
     },
   );
   return normalizeEntityPreviewResult(response);
-}
-
-// Entity-related function discovery is owned by the OpenAPI layer on the backend.
-export async function listEntityFunctions(id: string, params?: EntityScopeParams) {
-  const response = await request<RawEntityFunctionsResponse>(
-    `/api/v1/entities/${encodeURIComponent(id)}/functions`,
-    {
-      params: buildEntityScopeParams(params),
-    },
-  );
-  return Array.isArray(response?.items) ? response.items : [];
 }

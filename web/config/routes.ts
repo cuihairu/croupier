@@ -20,7 +20,7 @@ export default [
     routes: [
       {
         path: '/system',
-        redirect: '/system/functions/workspaces',
+        redirect: '/system/functions/catalog',
       },
       {
         path: '/system/foundation',
@@ -32,33 +32,11 @@ export default [
             access: 'canGamesRead',
             component: './GamesEnvs',
           },
-          // 虚拟对象编辑器（独立页面）
           {
-            path: '/system/foundation/entities',
-            name: 'GameEntities',
+            path: '/system/foundation/resources',
+            name: 'Resources',
             access: 'canFunctionsRead',
             component: './Entities',
-          },
-          {
-            path: '/system/foundation/entities/create',
-            name: 'CreateVirtualObject',
-            access: 'canFunctionsRead',
-            component: './ComponentManagement/components/EntityComposer',
-            hideInMenu: true,
-          },
-          {
-            path: '/system/foundation/entities/:id/edit',
-            name: 'EditVirtualObject',
-            access: 'canFunctionsRead',
-            component: './ComponentManagement/components/EntityComposer',
-            hideInMenu: true,
-          },
-          {
-            path: '/system/foundation/entities/:id',
-            name: 'EntityFunctions',
-            access: 'canFunctionsRead',
-            component: './Functions/Invoke',
-            hideInMenu: true,
           },
         ],
       },
@@ -70,34 +48,20 @@ export default [
         routes: [
           {
             path: '/system/functions',
-            redirect: '/system/functions/workspaces',
-          },
-          {
-            path: '/system/functions/workspaces',
-            name: 'ObjectWorkspaces',
-            access: 'canWorkspaceManage',
-            component: './Workspaces',
-            icon: 'tool',
-          },
-          {
-            path: '/system/functions/workspaces/:objectKey',
-            name: 'ObjectWorkspaceDetail',
-            access: 'canWorkspaceManage',
-            component: './Workspaces/Detail',
-            hideInMenu: true,
-          },
-          {
-            path: '/system/functions/workspace-editor/:objectKey',
-            name: 'WorkspaceEditor',
-            access: 'canWorkspaceManage',
-            component: './WorkspaceEditor',
-            hideInMenu: true,
+            redirect: '/system/functions/catalog',
           },
           {
             path: '/system/functions/catalog',
             name: 'FunctionCatalog',
             access: 'canFunctionsRead',
             component: './Functions/Directory',
+          },
+          {
+            path: '/system/functions/resources',
+            name: 'Resources',
+            access: 'canFunctionsRead',
+            component: './Entities',
+            icon: 'apartment',
           },
           {
             path: '/system/functions/invoke',

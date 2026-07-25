@@ -667,7 +667,7 @@ func TestResolveFunctionUI(t *testing.T) {
 		assert.True(t, result.Custom)
 	})
 
-	t.Run("function with x-ui only", func(t *testing.T) {
+	t.Run("ignores openapi x-ui", func(t *testing.T) {
 		xui := testFunctionFormilySchema("name", "Input")
 		fn := &model.Function{
 			FunctionID:  "test",
@@ -675,8 +675,8 @@ func TestResolveFunctionUI(t *testing.T) {
 			OpenAPISpec: map[string]interface{}{"x-ui": xui},
 		}
 		result := resolveFunctionUI(cfg, fn)
-		assert.Equal(t, "openapi_x_ui", result.UISource)
-		assert.Equal(t, xui, result.Schema)
+		assert.Equal(t, "generated_default", result.UISource)
+		assert.NotEqual(t, xui, result.Schema)
 		assert.False(t, result.Custom)
 		assert.True(t, result.HasDefault)
 	})
@@ -774,7 +774,7 @@ func TestPickFunctionUIConfig(t *testing.T) {
 
 // Tests for unwrapUIConfig
 func TestUnwrapUIConfig(t *testing.T) {
-	t.Run("extracts x-ui", func(t *testing.T) {
+	t.Run("keeps x-ui wrapper as invalid legacy payload", func(t *testing.T) {
 		v := map[string]interface{}{
 			"x-ui": testFunctionFormilySchema("name", "Input"),
 		}
@@ -782,7 +782,7 @@ func TestUnwrapUIConfig(t *testing.T) {
 		assert.NotNil(t, result)
 		resultMap, ok := result.(map[string]interface{})
 		assert.True(t, ok)
-		assert.Equal(t, "object", resultMap["type"])
+		assert.Contains(t, resultMap, "x-ui")
 	})
 
 	t.Run("no x-ui key", func(t *testing.T) {
@@ -1737,29 +1737,29 @@ func TestPickFunctionUIConfig_EdgeCases(t *testing.T) {
 
 // Tests for unwrapUIConfig edge cases
 func TestUnwrapUIConfig_EdgeCases(t *testing.T) {
-	t.Run("x-ui with null", func(t *testing.T) {
+	t.Run("x-ui with null stays wrapped", func(t *testing.T) {
 		v := map[string]interface{}{
 			"x-ui": nil,
 		}
 		result := unwrapUIConfig(v)
-		assert.Nil(t, result)
+		assert.Equal(t, v, result)
 	})
 
-	t.Run("x-ui with string", func(t *testing.T) {
+	t.Run("x-ui with string stays wrapped", func(t *testing.T) {
 		v := map[string]interface{}{
 			"x-ui": "string value",
 		}
 		result := unwrapUIConfig(v)
-		assert.Equal(t, "string value", result)
+		assert.Equal(t, v, result)
 	})
 
-	t.Run("x-ui with array", func(t *testing.T) {
+	t.Run("x-ui with array stays wrapped", func(t *testing.T) {
 		arr := []interface{}{"a", "b"}
 		v := map[string]interface{}{
 			"x-ui": arr,
 		}
 		result := unwrapUIConfig(v)
-		assert.Equal(t, arr, result)
+		assert.Equal(t, v, result)
 	})
 }
 

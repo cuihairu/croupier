@@ -1,4 +1,4 @@
-import { history, useAccess, useIntl, useLocation, useModel } from '@umijs/max';
+import { history, useAccess, useIntl, useLocation } from '@umijs/max';
 import {
   DASHBOARD_PAGE_TOKENS,
   PageStatePanel,
@@ -47,7 +47,6 @@ import {
   saveWorkspaceConfig,
   unpublishWorkspaceConfig,
 } from '@/services/workspaceConfig';
-import { loadConsoleWorkspaceConfigs } from '@/services/initialState';
 import type { WorkspaceConfig } from '@/types/workspace';
 import { listDescriptors } from '@/services/api/functions';
 import { generateInitialWorkspaceConfig } from '@/pages/WorkspaceEditor/utils/initialWorkspaceGenerator';
@@ -319,7 +318,6 @@ export default function WorkspacesIndexPage() {
   const access = useAccess() as any;
   const intl = useIntl();
   const location = useLocation();
-  const { setInitialState } = useModel('@@initialState');
   const [loading, setLoading] = useState(false);
   const [configs, setConfigs] = useState<WorkspaceConfig[]>([]);
   const [error, setError] = useState('');
@@ -379,13 +377,7 @@ export default function WorkspacesIndexPage() {
     }
   };
 
-  const refreshConsoleMenus = async () => {
-    const workspaceConfigs = await loadConsoleWorkspaceConfigs();
-    setInitialState((state) => ({
-      ...state,
-      workspaceConfigs,
-    }));
-  };
+  const refreshConsoleMenus = async () => {};
 
   useEffect(() => {
     trackWorkspaceEvent('workspace_page_open', {

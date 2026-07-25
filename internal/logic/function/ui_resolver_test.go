@@ -23,13 +23,13 @@ func TestLoadUIConfigFromFiles(t *testing.T) {
 	}
 
 	basePath := filepath.Join(baseDir, "player.ban.yaml")
-	baseContent := "player.ban:\n  x-ui:\n    type: object\n    properties:\n      reason:\n        type: string\n        title: Reason\n        x-component: Input.TextArea\n        x-decorator: FormItem\n"
+	baseContent := "player.ban:\n  type: object\n  properties:\n    reason:\n      type: string\n      title: Reason\n      x-component: Input.TextArea\n      x-decorator: FormItem\n"
 	if err := os.WriteFile(basePath, []byte(baseContent), 0o644); err != nil {
 		t.Fatalf("write base config: %v", err)
 	}
 
 	overridePath := filepath.Join(overrideDir, "player.ban.yaml")
-	overrideContent := "player.ban:\n  x-ui:\n    type: object\n    properties:\n      reason:\n        type: string\n        title: Reason\n        x-component: Select\n        x-decorator: FormItem\n"
+	overrideContent := "player.ban:\n  type: object\n  properties:\n    reason:\n      type: string\n      title: Reason\n      x-component: Select\n      x-decorator: FormItem\n"
 	if err := os.WriteFile(overridePath, []byte(overrideContent), 0o644); err != nil {
 		t.Fatalf("write override config: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestResolveFunctionUI_SourcePriority(t *testing.T) {
 		t.Fatalf("mkdir base dir: %v", err)
 	}
 	basePath := filepath.Join(baseDir, "player.ban.yaml")
-	baseContent := "player.ban:\n  x-ui:\n    type: object\n    properties:\n      reason:\n        type: string\n        title: Reason\n        x-component: Input\n        x-decorator: FormItem\n"
+	baseContent := "player.ban:\n  type: object\n  properties:\n    reason:\n      type: string\n      title: Reason\n      x-component: Input\n      x-decorator: FormItem\n"
 	if err := os.WriteFile(basePath, []byte(baseContent), 0o644); err != nil {
 		t.Fatalf("write base config: %v", err)
 	}

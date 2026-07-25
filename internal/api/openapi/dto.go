@@ -1,12 +1,18 @@
 package openapi
 
+import (
+	"encoding/json"
+
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
+)
+
 // Descriptor represents a function descriptor
 type Descriptor struct {
-	Id          string      `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	Category    string      `json:"category"`
-	Schema      interface{} `json:"schema"`
+	Id          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Category    string          `json:"category"`
+	Schema      json.RawMessage `json:"schema"`
 }
 
 // DescriptorsRequest is the request to get descriptors
@@ -25,18 +31,7 @@ type OpenAPIDocumentRequest struct{}
 
 // OpenAPIDocumentResponse is the response with aggregated OpenAPI document
 type OpenAPIDocumentResponse struct {
-	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Document
-}
-
-// OpenAPIImportRequest is the request to import OpenAPI spec
-type OpenAPIImportRequest struct {
-	Spec interface{} `json:"spec" binding:"required"` // OpenAPI 3.0.3 Document
-}
-
-// OpenAPIImportResponse is the response from OpenAPI import
-type OpenAPIImportResponse struct {
-	Imported int      `json:"imported"`
-	Failed   []string `json:"failed"`
+	Spec json.RawMessage `json:"spec"` // OpenAPI 3.x Document
 }
 
 // OpenAPISpecRequest is the request to get function OpenAPI spec
@@ -46,7 +41,7 @@ type OpenAPISpecRequest struct {
 
 // OpenAPISpecResponse is the response with function OpenAPI spec
 type OpenAPISpecResponse struct {
-	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Operation Object
+	Spec json.RawMessage `json:"spec"` // OpenAPI 3.x Operation Object
 }
 
 // GetSpecRequest is the request to get function OpenAPI spec
@@ -57,57 +52,111 @@ type GetSpecRequest = OpenAPISpecRequest
 // Deprecated: Use OpenAPISpecResponse instead
 type GetSpecResponse = OpenAPISpecResponse
 
-// ImportRequest is the request to import OpenAPI spec
-// Deprecated: Use OpenAPIImportRequest instead
-type ImportRequest = OpenAPIImportRequest
-
-// ImportResponse is the response from OpenAPI import
-// Deprecated: Use OpenAPIImportResponse instead
-type ImportResponse = OpenAPIImportResponse
-
-// EntityFunctionsRequest is the request to get entity functions
-type EntityFunctionsRequest struct {
-	ID string `uri:"id" binding:"required"`
-}
-
-// EntityFunction represents a function associated with an entity
-type EntityFunction struct {
-	ID        string `json:"id"`
-	Operation string `json:"operation"`
-	Name      string `json:"name"`
-}
-
-// EntityFunctionsResponse is the response with entity functions
-type EntityFunctionsResponse struct {
-	Items []EntityFunction `json:"items"`
-}
-
-// EntityIndexItem represents an entity derived from function registrations
-type EntityIndexItem struct {
-	Name          string   `json:"name"`
-	DisplayName   string   `json:"displayName,omitempty"`
-	Category      string   `json:"category,omitempty"`
-	Operations    []string `json:"operations"`
-	Functions     []string `json:"functions"`
-	FunctionCount int      `json:"functionCount"`
-}
-
-// EntityIndexRequest is the request to list entities
-type EntityIndexRequest struct {
-	Category string `form:"category"`
-}
-
-// EntityIndexResponse is the response with entity list
-type EntityIndexResponse struct {
-	Items []EntityIndexItem `json:"items"`
-	Total int               `json:"total"`
-}
-
 type BatchGetSpecRequest struct {
 	FunctionIDs []string `json:"function_ids" binding:"required"`
 }
 
-type BatchGetSpecResponse map[string]interface{}
+type BatchGetSpecResponse map[string]json.RawMessage
+
+type OpenAPISourceCreateRequest struct {
+	Name string          `json:"name,omitempty"`
+	Spec json.RawMessage `json:"spec" binding:"required"`
+}
+
+type OpenAPISourceSummary struct {
+	SourceID        string            `json:"sourceId"`
+	GameID          string            `json:"gameId,omitempty"`
+	Env             string            `json:"env,omitempty"`
+	Name            string            `json:"name"`
+	Revision        int               `json:"revision"`
+	Format          string            `json:"format"`
+	OpenAPIVersion  string            `json:"openapiVersion"`
+	InfoTitle       string            `json:"infoTitle,omitempty"`
+	InfoVersion     string            `json:"infoVersion,omitempty"`
+	ContentHash     string            `json:"contentHash"`
+	OperationCount  int               `json:"operationCount"`
+	DiagnosticCount int               `json:"diagnosticCount"`
+	CreatedAt       string            `json:"createdAt"`
+	UpdatedAt       string            `json:"updatedAt"`
+	Diagnostics     []spec.Diagnostic `json:"diagnostics,omitempty"`
+}
+
+type OpenAPISourceOperation struct {
+	OperationID      string                  `json:"operationId"`
+	Method           string                  `json:"method"`
+	Path             string                  `json:"path"`
+	Summary          string                  `json:"summary,omitempty"`
+	Description      string                  `json:"description,omitempty"`
+	Tags             []string                `json:"tags,omitempty"`
+	Category         string                  `json:"category,omitempty"`
+	CategoryDisplay  spec.LocalizedText      `json:"categoryDisplay,omitempty"`
+	Entity           string                  `json:"entity,omitempty"`
+	EntityDisplay    spec.LocalizedText      `json:"entityDisplay,omitempty"`
+	Operation        string                  `json:"operation,omitempty"`
+	OperationDisplay spec.LocalizedText      `json:"operationDisplay,omitempty"`
+	OperationKind    spec.OperationKind      `json:"operationKind,omitempty"`
+	Placement        spec.OperationPlacement `json:"placement,omitempty"`
+	PageHint         string                  `json:"pageHint,omitempty"`
+	PageContract     *spec.PageContract      `json:"pageContract,omitempty"`
+	Risk             spec.RiskLevel          `json:"risk,omitempty"`
+	Bound            bool                    `json:"bound"`
+	BindingID        string                  `json:"bindingId,omitempty"`
+	FunctionID       string                  `json:"functionId,omitempty"`
+}
+
+type OpenAPISourceDetail struct {
+	OpenAPISourceSummary
+	Spec       json.RawMessage           `json:"spec,omitempty"`
+	Operations []OpenAPISourceOperation  `json:"operations"`
+	Bindings   []OpenAPISourceBindingDTO `json:"bindings,omitempty"`
+}
+
+type OpenAPISourceListRequest struct{}
+
+type OpenAPISourceListResponse struct {
+	Items []OpenAPISourceSummary `json:"items"`
+}
+
+type OpenAPISourceGetRequest struct {
+	SourceID string `uri:"sourceId" binding:"required"`
+}
+
+type OpenAPISourceGetResponse struct {
+	Source OpenAPISourceDetail `json:"source"`
+}
+
+type OpenAPISourceDiagnosticsResponse struct {
+	SourceID    string            `json:"sourceId"`
+	Diagnostics []spec.Diagnostic `json:"diagnostics"`
+}
+
+type OpenAPISourceBindingCreateRequest struct {
+	SourceID    string `uri:"sourceId" binding:"required"`
+	BindingID   string `json:"bindingId,omitempty"`
+	OperationID string `json:"operationId" binding:"required"`
+	Kind        string `json:"kind" binding:"required"`
+	FunctionID  string `json:"functionId,omitempty"`
+	ProviderID  string `json:"providerId,omitempty"`
+}
+
+type OpenAPISourceBindingDeleteRequest struct {
+	SourceID  string `uri:"sourceId" binding:"required"`
+	BindingID string `uri:"bindingId" binding:"required"`
+}
+
+type OpenAPISourceBindingDTO struct {
+	BindingID   string `json:"bindingId"`
+	OperationID string `json:"operationId"`
+	Kind        string `json:"kind"`
+	FunctionID  string `json:"functionId,omitempty"`
+	ProviderID  string `json:"providerId,omitempty"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+type OpenAPISourceBindingResponse struct {
+	Binding OpenAPISourceBindingDTO `json:"binding"`
+}
 
 // GetDocumentRequest is the request to get aggregated OpenAPI document
 // Deprecated: Use OpenAPIDocumentRequest instead

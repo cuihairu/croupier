@@ -3,12 +3,16 @@ import {
   normalizeFunctionInstance,
   type FunctionInstance,
   type LocalizedText,
+  type RawFunctionInstance,
 } from './functions-enhanced';
 import {
+  createOpenAPISource,
   normalizeFunctionOpenAPIResponse,
-  type OpenAPIImportResponse,
+  type OpenAPIDocument,
+  type OpenAPISourceGetResponse,
   type OpenAPIOperation,
 } from './openapi';
+import type { JSONValue } from '@/types/dashboard';
 import type { FormilySchema } from '@/components/formily/schema/types';
 
 // Source: backend function descriptor endpoints and registry-derived descriptors.
@@ -34,14 +38,14 @@ export type FunctionDescriptor = {
     badge?: string;
     hidden?: boolean;
   };
-  params?: any;
-  auth?: Record<string, any>;
+  params?: unknown;
+  auth?: Record<string, unknown>;
   // Optional outputs schema for UI rendering (views/layout); present in generated descriptors
-  outputs?: any;
+  outputs?: unknown;
   // Entity-specific fields
-  schema?: any;
-  operations?: any;
-  ui?: any;
+  schema?: unknown;
+  operations?: unknown;
+  ui?: unknown;
   // OpenAPI 3.0.3 Schema fields (JSON Schema format, stringified)
   inputSchema?: string; // JSON Schema for request body (from proto)
   outputSchema?: string; // JSON Schema for response body (from proto)
@@ -98,7 +102,7 @@ export type InvokeFunctionOptions = {
 // JSON request body sent to POST /api/v1/functions/:id/invoke.
 // Source: croupier/internal/api/function/dto.go FunctionInvokeRequest
 type FunctionInvokeRequestDTO = {
-  payload: any;
+  payload: JSONValue;
   gameId?: string;
   env?: string;
   route?: 'lb' | 'broadcast' | 'targeted' | 'hash';
@@ -121,25 +125,17 @@ type RawFunctionRegistrationWarning = {
 
 function buildFunctionUiPayload(uiConfig: {
   schema?: FormilySchema;
-  layout?: Record<string, unknown>;
-  components?: Record<string, unknown>;
   clearCustom?: boolean;
 }) {
   if (uiConfig.clearCustom) {
     const clearSchema = { __clear_custom_ui: true } as unknown as FormilySchema;
     return {
-      ui: clearSchema,
       schema: clearSchema,
-      layout: uiConfig.layout,
-      components: uiConfig.components,
     };
   }
 
   return {
-    ui: uiConfig.schema,
     schema: uiConfig.schema,
-    layout: uiConfig.layout,
-    components: uiConfig.components,
   };
 }
 
@@ -182,7 +178,7 @@ function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): FunctionDescri
 // - croupier/internal/api/function/dto.go FunctionInvokeResponse
 // - croupier/internal/api/function/helpers.go functionInvoke(...)
 export type FunctionInvokeResponse = {
-  result?: any;
+  result?: JSONValue;
   error?: string;
   duration?: number;
   timestamp?: string;
@@ -192,14 +188,11 @@ export type FunctionInvokeResponse = {
 
 export type FunctionUiSchemaDocument = {
   schema?: FormilySchema;
-  layout?: Record<string, unknown>;
-  components?: Record<string, unknown>;
   custom?: boolean;
   hasDefault?: boolean;
   uiSource?:
     | 'custom_metadata'
     | 'config_file_override'
-    | 'openapi_x_ui'
     | 'generated_default'
     | 'none'
     | string;
@@ -239,7 +232,7 @@ export async function listFunctionWarnings(params?: {
 
 export async function invokeFunction(
   functionId: string,
-  payload: any,
+  payload: JSONValue,
   opts?: InvokeFunctionOptions,
 ): Promise<FunctionInvokeResponse> {
   const data: FunctionInvokeRequestDTO = { payload };
@@ -265,7 +258,7 @@ export async function invokeFunction(
 
 export async function startTask(
   functionId: string,
-  payload: any,
+  payload: JSONValue,
   opts?: InvokeFunctionOptions,
 ): Promise<FunctionInvokeResponse> {
   const data: FunctionInvokeRequestDTO = { payload, mode: 'async' };
@@ -300,7 +293,7 @@ export async function cancelTask(taskId: string) {
 // final `result` and `error`, so we project it into the {state, payload, error}
 // shape that callers consume.
 export async function fetchTaskResult(taskId: string) {
-  const detail = await request<{ status?: string; result?: any; error?: string }>(
+  const detail = await request<{ status?: string; result?: JSONValue; error?: string }>(
     `/api/v1/tasks/${encodeURIComponent(taskId)}`,
     { method: 'GET' },
   );
@@ -311,7 +304,7 @@ export async function listFunctionInstances(params: {
   gameId?: string;
   functionId: string;
 }): Promise<{ instances: FunctionInstance[] }> {
-  const res = await request<{ items?: any[]; instances?: any[] }>(
+  const res = await request<{ items?: RawFunctionInstance[]; instances?: RawFunctionInstance[] }>(
     `/api/v1/functions/${encodeURIComponent(params.functionId)}/instances`,
     {
       params: {
@@ -326,8 +319,6 @@ export async function listFunctionInstances(params: {
 export async function fetchFunctionUiSchema(functionId: string): Promise<FunctionUiSchemaDocument> {
   const response = await request<{
     schema?: FormilySchema;
-    layout?: Record<string, unknown>;
-    components?: Record<string, unknown>;
     custom?: boolean;
     hasDefault?: boolean;
     uiSource?: FunctionUiSchemaDocument['uiSource'];
@@ -346,8 +337,6 @@ export async function saveFunctionUiSchema(
   functionId: string,
   uiConfig: {
     schema?: FormilySchema;
-    layout?: Record<string, unknown>;
-    components?: Record<string, unknown>;
     clearCustom?: boolean;
   },
 ) {
@@ -363,8 +352,6 @@ export async function saveFunctionUiSchema(
 export type FunctionUIHistoryItem = {
   version: number;
   schema?: FormilySchema;
-  layout?: Record<string, unknown>;
-  components?: Record<string, unknown>;
   message?: string;
   createdBy?: string;
   createdAt?: string;
@@ -382,8 +369,6 @@ export async function rollbackFunctionUiSchema(functionId: string, version: numb
     appliedVersion: number;
     current?: {
       schema?: FormilySchema;
-      layout?: Record<string, unknown>;
-      components?: Record<string, unknown>;
       custom?: boolean;
       hasDefault?: boolean;
       uiSource?: string;
@@ -448,7 +433,7 @@ export type TaskEvent = {
   type: string;
   progress: number;
   message: string;
-  payload: any;
+  payload: JSONValue;
   createdAt: string;
 };
 
@@ -582,7 +567,7 @@ export async function getFunctionHistory(functionId: string) {
       action: string;
       operator?: string;
       timestamp: string;
-      details?: any;
+      details?: unknown;
     }>
   >(`/api/v1/functions/${encodeURIComponent(functionId)}/history`);
 }
@@ -631,9 +616,6 @@ export async function getFunctionOpenAPI(functionId: string) {
  * @param spec OpenAPI 3.0.3 Document
  * @returns 导入结果
  */
-export async function importOpenAPISpec(spec: any) {
-  return request<OpenAPIImportResponse>('/api/v1/functions/_import', {
-    method: 'POST',
-    data: { spec },
-  });
+export async function importOpenAPISpec(spec: OpenAPIDocument): Promise<OpenAPISourceGetResponse> {
+  return createOpenAPISource(spec);
 }

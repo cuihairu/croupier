@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -115,6 +116,28 @@ func TestServiceGeneratedPagesUsesOperationKindAndPlacement(t *testing.T) {
 				OperationDisplay: map[string]string{"zh-CN": "查询"},
 				OperationKind:    "list",
 				Placement:        "tableData",
+				Extensions: map[string]string{
+					"x-page-contract": mustJSON(t, spec.PageContract{
+						Version: "v1",
+						InputMapping: json.RawMessage(
+							`{"page":"$.pagination.page","pageSize":"$.pagination.pageSize"}`,
+						),
+						OutputMapping: json.RawMessage(
+							`{"stateKey":"players","itemsPath":"$.response.items","totalPath":"$.response.total"}`,
+						),
+						Pagination: &spec.PagePaginationContract{
+							PageField:     "page",
+							PageSizeField: "pageSize",
+							ItemsPath:     "$.response.items",
+							TotalPath:     "$.response.total",
+						},
+						Table: &spec.PageTableContract{
+							Columns: []spec.PageTableColumnContract{
+								{Key: "id", Title: spec.LocalizedText{"zh-CN": "玩家 ID"}, ValuePath: "id"},
+							},
+						},
+					}),
+				},
 			},
 			"player.ban": {
 				Enabled:          true,
@@ -128,6 +151,12 @@ func TestServiceGeneratedPagesUsesOperationKindAndPlacement(t *testing.T) {
 				OperationDisplay: map[string]string{"zh-CN": "封禁"},
 				OperationKind:    "action",
 				Placement:        "rowAction",
+				Extensions: map[string]string{
+					"x-page-contract": mustJSON(t, spec.PageContract{
+						Version:      "v1",
+						InputMapping: json.RawMessage(`{"playerId":"$.row.id"}`),
+					}),
+				},
 			},
 		},
 	})
@@ -142,7 +171,53 @@ func TestServiceGeneratedPagesUsesOperationKindAndPlacement(t *testing.T) {
 	assert.Equal(t, "player.manage", page.PageKey)
 	assert.Equal(t, "ops", page.Category.Key)
 	assert.Contains(t, string(page.Schema), `"x-component":"DataTable"`)
-	assert.Contains(t, string(page.Schema), `"functionId":"player.list"`)
-	assert.Contains(t, string(page.Schema), `"functionId":"player.ban"`)
+	assert.Contains(t, string(page.Schema), `"bindingId":"player.list"`)
+	assert.Contains(t, string(page.Schema), `"bindingId":"player.ban"`)
+	assert.Equal(t, "needs_review", page.Quality)
+	assert.NotContains(t, string(page.Schema), `"functionId"`)
 	assert.NotContains(t, string(page.Schema), `"operation":"update"`)
+}
+
+func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.list": {
+				Enabled:          true,
+				Version:          "1.0.0",
+				InputSchema:      `{"type":"object"}`,
+				Category:         "ops",
+				Entity:           "player",
+				Operation:        "list",
+				CategoryDisplay:  map[string]string{"zh-CN": "运营"},
+				EntityDisplay:    map[string]string{"zh-CN": "玩家"},
+				OperationDisplay: map[string]string{"zh-CN": "查询"},
+				OperationKind:    "list",
+				Placement:        "tableData",
+			},
+		},
+	})
+
+	service := NewService(&svc.ServiceContext{RegistryStore: store})
+	resp, err := service.GeneratedPages(context.Background(), &ResourceGeneratedPagesRequest{ResourceKey: "player"})
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.Items)
+
+	page := resp.Items[0]
+	assert.Equal(t, spec.PageTypeEntity, page.Type)
+	assert.Equal(t, "needs_review", page.Quality)
+	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
+	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
+	require.NotEmpty(t, page.Diagnostics)
+	assert.Equal(t, "page_contract_missing", page.Diagnostics[0].Code)
+}
+
+func mustJSON[T any](t *testing.T, value T) string {
+	t.Helper()
+	data, err := json.Marshal(value)
+	require.NoError(t, err)
+	return string(data)
 }

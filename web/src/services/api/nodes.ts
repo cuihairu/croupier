@@ -11,7 +11,7 @@ export interface Node {
   status: string;
   ip: string;
   port: number;
-  resources?: any;
+  resources?: unknown;
   updatedAt: string;
 }
 
@@ -54,7 +54,7 @@ export async function listNodes(params?: NodesListParams) {
  */
 export async function getNodeMeta(id: string) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  return request<{ meta: any }>(`/api/v1/nodes/${id}/meta`, {
+  return request<{ meta: unknown }>(`/api/v1/nodes/${id}/meta`, {
     method: 'GET',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
@@ -63,9 +63,9 @@ export async function getNodeMeta(id: string) {
 /**
  * 更新节点元数据
  */
-export async function updateNodeMeta(id: string, meta: any) {
+export async function updateNodeMeta(id: string, meta: unknown) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  return request<{ meta: any }>(`/api/v1/nodes/${id}/meta`, {
+  return request<{ meta: unknown }>(`/api/v1/nodes/${id}/meta`, {
     method: 'PUT',
     data: { meta },
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,

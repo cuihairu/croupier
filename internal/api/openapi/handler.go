@@ -1,6 +1,10 @@
 package openapi
 
 import (
+	"encoding/json"
+	"io"
+	"strings"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -29,62 +33,6 @@ func (h *Handler) GetSpec(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Import handles the request to import OpenAPI spec
-func (h *Handler) Import(c *gin.Context) {
-	var req ImportRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.Import(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
-// EntityFunctions handles the request to get entity functions
-func (h *Handler) EntityFunctions(c *gin.Context) {
-	var req EntityFunctionsRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.EntityFunctions(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
-// EntityIndex handles the request to list all entities derived from function registrations
-func (h *Handler) EntityIndex(c *gin.Context) {
-	var req EntityIndexRequest
-	_ = c.ShouldBindQuery(&req)
-
-	resp, err := h.service.EntityIndex(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
-// EntityFunctionsByName handles the request to get functions for an entity by name
-func (h *Handler) EntityFunctionsByName(c *gin.Context) {
-	name := c.Param("name")
-	resp, err := h.service.EntityFunctionsByName(c.Request.Context(), name)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
 // GetDocument handles the request to get aggregated OpenAPI document
 func (h *Handler) GetDocument(c *gin.Context) {
 	var req GetDocumentRequest
@@ -104,6 +52,120 @@ func (h *Handler) BatchGetSpec(c *gin.Context) {
 	}
 
 	resp, err := h.service.BatchGetSpec(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) CreateSource(c *gin.Context) {
+	if strings.HasPrefix(strings.ToLower(c.GetHeader("Content-Type")), "multipart/form-data") {
+		file, header, err := c.Request.FormFile("file")
+		if err != nil {
+			response.Error(c, err)
+			return
+		}
+		defer file.Close()
+		name := strings.TrimSpace(c.PostForm("name"))
+		if name == "" && header != nil {
+			name = header.Filename
+		}
+		resp, err := h.service.CreateSourceFromMultipart(c.Request.Context(), name, file)
+		if err != nil {
+			response.Error(c, err)
+			return
+		}
+		response.Created(c, resp)
+		return
+	}
+
+	data, err := io.ReadAll(io.LimitReader(c.Request.Body, maxOpenAPISourceBytes+1))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	if len(data) > maxOpenAPISourceBytes {
+		response.BadRequest(c, "OpenAPI source exceeds 2 MiB limit")
+		return
+	}
+	req := OpenAPISourceCreateRequest{Spec: json.RawMessage(data)}
+	if json.Valid(data) {
+		var envelope OpenAPISourceCreateRequest
+		if err := json.Unmarshal(data, &envelope); err == nil && len(envelope.Spec) > 0 {
+			req = envelope
+		}
+	}
+	resp, err := h.service.CreateSource(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Created(c, resp)
+}
+
+func (h *Handler) ListSources(c *gin.Context) {
+	resp, err := h.service.ListSources(c.Request.Context(), &OpenAPISourceListRequest{})
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) GetSource(c *gin.Context) {
+	var req OpenAPISourceGetRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.GetSource(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) SourceDiagnostics(c *gin.Context) {
+	var req OpenAPISourceGetRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.SourceDiagnostics(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) CreateBinding(c *gin.Context) {
+	var req OpenAPISourceBindingCreateRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.CreateBinding(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) DeleteBinding(c *gin.Context) {
+	var req OpenAPISourceBindingDeleteRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.DeleteBinding(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return

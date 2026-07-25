@@ -105,6 +105,36 @@ const (
 	PageTypeReport    PageType = "report"
 )
 
+// PageBindingUsage is the runtime meaning of a page binding. It is separate
+// from OperationPlacement: placement is a generator hint from registration,
+// usage is how a published page consumes the function.
+type PageBindingUsage string
+
+const (
+	BindingUsageQuery  PageBindingUsage = "query"
+	BindingUsageDetail PageBindingUsage = "detail"
+	BindingUsageAction PageBindingUsage = "action"
+	BindingUsageTask   PageBindingUsage = "task"
+	BindingUsageReport PageBindingUsage = "report"
+)
+
+// PageExecutionMode describes how a binding is executed.
+type PageExecutionMode string
+
+const (
+	PageExecutionModeSync PageExecutionMode = "sync"
+	PageExecutionModeTask PageExecutionMode = "task"
+)
+
+// PageExecutionKind is the normalized result kind returned to the renderer.
+type PageExecutionKind string
+
+const (
+	PageExecutionKindSync     PageExecutionKind = "sync"
+	PageExecutionKindTask     PageExecutionKind = "task"
+	PageExecutionKindApproval PageExecutionKind = "approval"
+)
+
 // Diagnostic severity levels.
 type DiagnosticSeverity string
 
@@ -211,7 +241,61 @@ type OperationSpec struct {
 	Risk        RiskLevel          `json:"risk,omitempty"`
 	Enabled     bool               `json:"enabled"`
 
-	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
+	PageContract *PageContract `json:"pageContract,omitempty"`
+	Diagnostics  []Diagnostic  `json:"diagnostics,omitempty"`
+}
+
+// PageContract is an optional, machine-readable data contract used only by
+// the generator to create higher-quality PageSpec candidates. It is not a UI
+// schema and must not contain Formily components, routes, menus, or layouts.
+type PageContract struct {
+	Version       string                  `json:"version"`
+	ExecutionMode PageExecutionMode       `json:"executionMode,omitempty"`
+	InputMapping  json.RawMessage         `json:"inputMapping,omitempty"`
+	OutputMapping json.RawMessage         `json:"outputMapping,omitempty"`
+	Pagination    *PagePaginationContract `json:"pagination,omitempty"`
+	Table         *PageTableContract      `json:"table,omitempty"`
+	Task          *PageTaskContract       `json:"task,omitempty"`
+	Report        *PageReportContract     `json:"report,omitempty"`
+}
+
+// PagePaginationContract describes stable request and response paths for a
+// paginated data source.
+type PagePaginationContract struct {
+	PageField     string `json:"pageField"`
+	PageSizeField string `json:"pageSizeField"`
+	ItemsPath     string `json:"itemsPath"`
+	TotalPath     string `json:"totalPath"`
+}
+
+// PageTableContract describes stable columns for a DataTable. Either Columns
+// or ColumnsPath must be present for a generated table to be publishable.
+type PageTableContract struct {
+	Columns     []PageTableColumnContract `json:"columns,omitempty"`
+	ColumnsPath string                    `json:"columnsPath,omitempty"`
+}
+
+type PageTableColumnContract struct {
+	Key       string        `json:"key"`
+	Title     LocalizedText `json:"title"`
+	ValuePath string        `json:"valuePath"`
+}
+
+// PageTaskContract describes external task tracking data needed by TaskPage.
+type PageTaskContract struct {
+	TaskIDPath string `json:"taskIdPath,omitempty"`
+	StatusPath string `json:"statusPath,omitempty"`
+	EventsPath string `json:"eventsPath,omitempty"`
+	ResultPath string `json:"resultPath,omitempty"`
+}
+
+// PageReportContract describes report/chart data mappings. Without this
+// contract the generator must not produce a ready ChartPanel.
+type PageReportContract struct {
+	ChartType    string `json:"chartType,omitempty"`
+	CategoryPath string `json:"categoryPath,omitempty"`
+	SeriesPath   string `json:"seriesPath,omitempty"`
+	ValuePath    string `json:"valuePath,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -234,7 +318,9 @@ type PageSpec struct {
 	// Schema is the page-level Formily component tree.
 	Schema FormilySchema `json:"schema"`
 
-	// Bindings lists the functions this page uses and their roles.
+	// Bindings lists the functions this page uses. Schema components must
+	// reference these bindings by bindingId; direct functionId references are
+	// invalid in published PageSpec.
 	Bindings []PageFunctionBinding `json:"bindings"`
 
 	// Metadata holds arbitrary extension data for the page.
@@ -248,10 +334,34 @@ type PageCategorySpec struct {
 	Order  int           `json:"order,omitempty"`
 }
 
-// PageFunctionBinding ties a function to a specific role in a page.
+// PageFunctionBinding ties a function to a stable runtime binding in a page.
 type PageFunctionBinding struct {
-	FunctionID string             `json:"functionId"`
-	Role       OperationPlacement `json:"role"`
+	ID            string               `json:"id"`
+	FunctionID    string               `json:"functionId"`
+	Usage         PageBindingUsage     `json:"usage"`
+	InputMapping  json.RawMessage      `json:"inputMapping,omitempty"`
+	OutputMapping json.RawMessage      `json:"outputMapping,omitempty"`
+	Execution     PageBindingExecution `json:"execution"`
+}
+
+// PageBindingExecution is the execution policy selected by Page Studio.
+type PageBindingExecution struct {
+	Mode           PageExecutionMode `json:"mode"`
+	RequireConfirm bool              `json:"requireConfirm,omitempty"`
+}
+
+// BindingContractSnapshot freezes the executable contract used by a published
+// binding. Runtime execution compares the latest FunctionSpec against this
+// snapshot and refuses stale bindings by default.
+type BindingContractSnapshot struct {
+	BindingID             string            `json:"bindingId"`
+	FunctionID            string            `json:"functionId"`
+	FunctionVersion       string            `json:"functionVersion,omitempty"`
+	InputSchemaDigest     string            `json:"inputSchemaDigest,omitempty"`
+	OutputSchemaDigest    string            `json:"outputSchemaDigest,omitempty"`
+	Risk                  RiskLevel         `json:"risk,omitempty"`
+	ExecutionMode         PageExecutionMode `json:"executionMode"`
+	RendererSchemaVersion string            `json:"rendererSchemaVersion"`
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +374,10 @@ type PageFunctionBinding struct {
 type PublishedPageSpec struct {
 	PageSpec
 
+	// GameID and Env are the scope part of PageIdentity.
+	GameID string `json:"gameId,omitempty"`
+	Env    string `json:"env,omitempty"`
+
 	// Version is the monotonic publish version number.
 	Version int `json:"version"`
 
@@ -272,6 +386,24 @@ type PublishedPageSpec struct {
 
 	// PublishedBy identifies the user or system that published.
 	PublishedBy string `json:"publishedBy,omitempty"`
+
+	// RendererSchemaVersion identifies the server-validated page renderer ABI.
+	RendererSchemaVersion string `json:"rendererSchemaVersion"`
+
+	// BindingContracts freezes the function contract for every binding.
+	BindingContracts []BindingContractSnapshot `json:"bindingContracts"`
+}
+
+// PageExecutionResult is the only response shape exposed to Page renderer
+// execution. Raw function responses are wrapped in Data for sync calls.
+type PageExecutionResult struct {
+	Kind        PageExecutionKind `json:"kind"`
+	RequestID   string            `json:"requestId"`
+	TraceID     string            `json:"traceId,omitempty"`
+	Data        json.RawMessage   `json:"data,omitempty"`
+	TaskID      string            `json:"taskId,omitempty"`
+	ApprovalID  string            `json:"approvalId,omitempty"`
+	Diagnostics []Diagnostic      `json:"diagnostics,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -326,13 +458,15 @@ const (
 
 // PageSpecDraftSummary is a summary of a page draft for list views.
 type PageSpecDraftSummary struct {
+	GameID           string           `json:"gameId,omitempty"`
+	Env              string           `json:"env,omitempty"`
 	PageKey          string           `json:"pageKey"`
 	Type             PageType         `json:"type"`
 	ResourceKey      string           `json:"resourceKey,omitempty"`
 	Title            LocalizedText    `json:"title"`
 	Category         PageCategorySpec `json:"category"`
 	Status           PageDraftStatus  `json:"status"`
-	DraftVersion     int              `json:"draftVersion"`
+	DraftRevision    int              `json:"draftRevision"`
 	PublishedVersion int              `json:"publishedVersion,omitempty"`
 	UpdatedAt        string           `json:"updatedAt"`
 	UpdatedBy        string           `json:"updatedBy,omitempty"`

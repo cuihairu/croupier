@@ -39,14 +39,11 @@ export type UnifiedFormilySchemaState = {
 
 export type FunctionUiSchemaDocument = {
   schema?: FormilySchema;
-  layout?: Record<string, unknown>;
-  components?: Record<string, unknown>;
   custom?: boolean;
   hasDefault?: boolean;
   uiSource?:
     | 'custom_metadata'
     | 'config_file_override'
-    | 'openapi_x_ui'
     | 'generated_default'
     | 'none'
     | string;

@@ -207,9 +207,9 @@ OpenAPI 有两种入口，先选定执行模型：
 | 入口 | 适用场景 | 如何变为可执行函数 | UI 责任 |
 | --- | --- | --- | --- |
 | SDK 本地解析 | OpenAPI 和业务 Handler 在同一服务进程 | SDK 将 `operationId` 显式映射到本地 Handler，再走普通 Provider 注册 | Server 自动派生 Function Form，Page Studio 确定页面 |
-| Dashboard 上传（P0-11 目标） | 已有第三方/存量 OpenAPI 文档 | 先保存为契约 Source，再绑定 Provider 或受控 HTTP Connector | 同上；上传文件不含 UI |
+| Dashboard 上传 | 已有第三方/存量 OpenAPI 文档 | 先保存为契约 Source，再绑定 Provider；受控 HTTP Connector 待安全策略落地后开放 | 同上；上传文件不含 UI |
 
-目标上传模型中，OpenAPI 不等于开放任意外部 HTTP 调用。未绑定执行器的文档只用于函数目录和页面候选；需要执行时必须显式绑定当前 scope 的 Provider，或由管理员配置受控 HTTP Connector。Connector 的地址和 SecretRef 是平台配置，不在 OpenAPI、PageSpec 或浏览器中传递。当前 `POST /api/v1/openapi/import` 只支持 JSON body 并写入 registry，不是这个目标上传能力。
+上传模型中，OpenAPI 不等于开放任意外部 HTTP 调用。未绑定执行器的文档只用于契约目录和页面候选；需要执行时必须显式绑定当前 scope 的 Provider。受控 HTTP Connector 的地址和 SecretRef 必须是平台配置，不允许放进 OpenAPI、PageSpec 或浏览器请求。历史 `POST /api/v1/openapi/import` 已删除，上传 Source 不会写入 runtime registry。
 
 如果已有 OpenAPI 文档：
 

@@ -1,6 +1,10 @@
 package console
 
-import "github.com/cuihairu/croupier/internal/dashboard/spec"
+import (
+	"encoding/json"
+
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
+)
 
 // ConsoleMenuRequest is the request for console menu.
 type ConsoleMenuRequest struct {
@@ -32,4 +36,14 @@ type ConsolePageRequest struct {
 // ConsolePageResponse is the response with a published page.
 type ConsolePageResponse struct {
 	Page spec.PublishedPageSpec `json:"page"`
+}
+
+type ConsoleExecuteBindingRequest struct {
+	PageKey   string          `uri:"pageKey" binding:"required"`
+	BindingID string          `uri:"bindingId" binding:"required"`
+	Payload   json.RawMessage `json:"payload"`
+}
+
+type ConsoleExecuteBindingResponse struct {
+	Result spec.PageExecutionResult `json:"result"`
 }

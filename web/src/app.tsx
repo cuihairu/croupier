@@ -1,7 +1,7 @@
 import { Footer, Question, SelectLang, AvatarDropdown, AvatarName } from '@/components';
 import MessagesBell from '@/components/MessagesBell';
 import { LinkOutlined, UserOutlined } from '@ant-design/icons';
-import type { Settings as LayoutSettings } from '@ant-design/pro-components';
+import type { MenuDataItem, Settings as LayoutSettings } from '@ant-design/pro-components';
 import { SettingDrawer } from '@ant-design/pro-components';
 import type { RunTimeLayoutConfig } from '@umijs/max';
 import { getLocale, history, Link } from '@umijs/max';
@@ -37,8 +37,8 @@ type RuntimeMenuItem = {
   key?: string;
   path?: string;
   name?: string;
-  locale?: boolean;
-  icon?: unknown;
+  locale?: string | false;
+  icon?: React.ReactNode;
   children?: RuntimeMenuItem[];
   [key: string]: unknown;
 };
@@ -64,13 +64,13 @@ function buildMenuFromConsoleSpec(
   defaultMenuData: RuntimeMenuItem[],
   consoleMenu: ConsoleMenuSpec,
   locale: string,
-): RuntimeMenuItem[] {
+): MenuDataItem[] {
   if (!consoleMenu?.items || consoleMenu.items.length === 0) {
-    return defaultMenuData;
+    return defaultMenuData as MenuDataItem[];
   }
 
   // Find the console menu item in default menu
-  return defaultMenuData.map((item) => {
+  return defaultMenuData.map((item): RuntimeMenuItem => {
     if (item.path === '/console' || item.key === '/console') {
       // Keep the home item and add dynamic items
       const homeChild = (item.children || []).find(
@@ -80,13 +80,13 @@ function buildMenuFromConsoleSpec(
         key: category.path,
         path: category.path,
         name: resolveLocalizedText(category.title, locale, category.key),
-        locale: false,
+        locale: false as const,
         icon: category.icon,
         children: (category.children || []).map((page) => ({
           key: page.path,
           path: page.path,
           name: resolveLocalizedText(page.title, locale, page.key),
-          locale: false,
+          locale: false as const,
         })),
       }));
 
@@ -108,7 +108,7 @@ function buildMenuFromConsoleSpec(
     }
 
     return item;
-  });
+  }) as MenuDataItem[];
 }
 
 function normalizePermissionIDs(perms: PermissionResponse | undefined): string[] {

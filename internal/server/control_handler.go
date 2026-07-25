@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/function/converter"
+	"github.com/cuihairu/croupier/internal/function/uicontract"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
@@ -618,6 +619,10 @@ func validateAndNormalizeFunctions(items []*agentv1.FunctionDescriptor) ([]*agen
 			warnings = append(warnings, registerWarning{Code: "invalid_version", FunctionID: fid, Version: version, Message: fmt.Sprintf("function_id=%s version=%s invalid semver and skipped", fid, version)})
 			continue
 		}
+		if forbiddenKey, ok := descriptorUIRegistrationKey(f); ok {
+			warnings = append(warnings, registerWarning{Code: "function_ui_not_allowed", FunctionID: fid, Version: version, Message: fmt.Sprintf("function_id=%s registers UI key %q; function registration only accepts executable capability contract and is skipped", fid, forbiddenKey)})
+			continue
+		}
 		f.Id = fid
 		if prev, ok := byID[fid]; ok {
 			compare := compareSemver(f.GetVersion(), prev.GetVersion())
@@ -636,6 +641,18 @@ func validateAndNormalizeFunctions(items []*agentv1.FunctionDescriptor) ([]*agen
 		out = append(out, f)
 	}
 	return out, warnings
+}
+
+func descriptorUIRegistrationKey(f *agentv1.FunctionDescriptor) (string, bool) {
+	if f == nil {
+		return "", false
+	}
+	for key := range f.GetExtensions() {
+		if forbiddenKey, ok := uicontract.ForbiddenRegistrationKey(key); ok {
+			return forbiddenKey, true
+		}
+	}
+	return "", false
 }
 
 func isValidSemver(v string) bool {

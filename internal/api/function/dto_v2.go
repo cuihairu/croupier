@@ -9,7 +9,7 @@ type FunctionUIV2Response struct {
 	Schema json.RawMessage `json:"schema"`
 
 	// UISource indicates where the schema came from.
-	UISource string `json:"uiSource"` // custom_metadata/config_file_override/openapi_x_ui/derived/none
+	UISource string `json:"uiSource"` // custom_metadata/config_file_override/generated_default/none
 
 	// UISourceDetail provides a human-readable description of the source.
 	UISourceDetail string `json:"uiSourceDetail,omitempty"`

@@ -1,6 +1,4 @@
-import type { WorkspaceConfig } from '@/types/workspace';
 import { hydrateScope } from '@/stores/scope';
-import { listPublishedWorkspaceConfigs } from '@/services/workspaceConfig';
 
 export type InitialCurrentUser = {
   name?: string;
@@ -12,12 +10,7 @@ export type InitialCurrentUser = {
 
 export type RuntimeInitialState = {
   currentUser?: InitialCurrentUser;
-  workspaceConfigs?: WorkspaceConfig[];
 };
-
-export async function loadConsoleWorkspaceConfigs(): Promise<WorkspaceConfig[]> {
-  return listPublishedWorkspaceConfigs({ skipErrorHandler: true });
-}
 
 export async function loadAuthedInitialState(
   fetchUserInfo: () => Promise<InitialCurrentUser | undefined>,
@@ -26,12 +19,10 @@ export async function loadAuthedInitialState(
   if (!currentUser) {
     return {
       currentUser: undefined,
-      workspaceConfigs: [],
     };
   }
   hydrateScope();
   return {
     currentUser,
-    workspaceConfigs: await loadConsoleWorkspaceConfigs(),
   };
 }

@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -34,7 +35,7 @@ func TestService_GetSpec_ErrorPath(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestService_Import_WithServers(t *testing.T) {
+func TestService_CreateSource_WithServers(t *testing.T) {
 	t.Parallel()
 
 	service := setupOpenAPITestService(t)
@@ -58,51 +59,9 @@ func TestService_Import_WithServers(t *testing.T) {
 		},
 	}
 
-	resp, err := service.Import(context.Background(), &ImportRequest{Spec: spec})
+	resp, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
 	require.NoError(t, err)
-	assert.Equal(t, 1, resp.Imported)
-}
-
-func TestService_EntityFunctions_MultipleOperations(t *testing.T) {
-	t.Parallel()
-
-	service := setupOpenAPITestService(t)
-
-	// Add multiple operations for same entity
-	operations := []*openapi3.Operation{
-		{OperationID: "getUser", Summary: "Get user", Extensions: map[string]interface{}{"x-entity": "User", "x-operation": "read"}},
-		{OperationID: "listUsers", Summary: "List users", Extensions: map[string]interface{}{"x-entity": "User", "x-operation": "list"}},
-		{OperationID: "createUser", Summary: "Create user", Extensions: map[string]interface{}{"x-entity": "User", "x-operation": "create"}},
-	}
-
-	for _, op := range operations {
-		service.svcCtx.RegistryStore.UpsertOpenAPI(op.OperationID, op)
-	}
-
-	resp, err := service.EntityFunctions(context.Background(), &EntityFunctionsRequest{ID: "User"})
-	require.NoError(t, err)
-	assert.Len(t, resp.Items, 3)
-}
-
-func TestService_EntityFunctions_CaseInsensitiveMatch(t *testing.T) {
-	t.Parallel()
-
-	service := setupOpenAPITestService(t)
-
-	// Test case sensitivity
-	op := &openapi3.Operation{
-		OperationID: "getProduct",
-		Summary:     "Get product",
-		Extensions: map[string]interface{}{
-			"x-entity": "product", // lowercase
-		},
-	}
-	service.svcCtx.RegistryStore.UpsertOpenAPI("getProduct", op)
-
-	resp, err := service.EntityFunctions(context.Background(), &EntityFunctionsRequest{ID: "Product"})
-	require.NoError(t, err)
-	// Should match case-insensitively based on implementation
-	assert.NotEmpty(t, resp.Items)
+	assert.Len(t, resp.Source.Operations, 1)
 }
 
 func TestService_GetDocument_WithMultipleOperations(t *testing.T) {
@@ -123,8 +82,8 @@ func TestService_GetDocument_WithMultipleOperations(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, resp.Spec)
 
-	doc, ok := resp.Spec.(*openapi3.T)
-	require.True(t, ok)
+	var doc openapi3.T
+	require.NoError(t, json.Unmarshal(resp.Spec, &doc))
 	assert.NotNil(t, doc.Paths)
 }
 
@@ -189,32 +148,6 @@ func TestHandler_Import_EmptySpec(t *testing.T) {
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 
-func TestHandler_Import_InvalidJSON(t *testing.T) {
-	t.Parallel()
-
-	_, router := setupOpenAPITestHandler(t)
-
-	req, _ := http.NewRequest("POST", "/import", strings.NewReader("{invalid json"))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestHandler_EntityFunctions_NotFound(t *testing.T) {
-	t.Parallel()
-
-	_, router := setupOpenAPITestHandler(t)
-
-	req, _ := http.NewRequest("GET", "/entity/NonExistentEntity/functions", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	// Body should contain empty items list
-}
-
 func TestHandler_BatchGetSpec_InvalidJSON(t *testing.T) {
 	t.Parallel()
 
@@ -226,27 +159,6 @@ func TestHandler_BatchGetSpec_InvalidJSON(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestMatchesEntity_NoExtension(t *testing.T) {
-	t.Parallel()
-
-	result := matchesEntity(nil, "TestEntity", "test-entity")
-	assert.False(t, result)
-}
-
-func TestMatchesEntity_NilValue(t *testing.T) {
-	t.Parallel()
-
-	result := matchesEntity("User", "", "user")
-	assert.True(t, result)
-}
-
-func TestMatchesEntity_DifferentEntity(t *testing.T) {
-	t.Parallel()
-
-	result := matchesEntity("Product", "User", "user")
-	assert.False(t, result)
 }
 
 func TestHasRegisteredFunction_ErrorCases(t *testing.T) {
@@ -278,16 +190,14 @@ func TestImportServiceError_MarshalFailure(t *testing.T) {
 		"unmarshalable": make(chan int),
 	}
 
-	service := setupOpenAPITestService(t)
-	_, err := service.Import(context.Background(), &ImportRequest{Spec: spec})
-	// Should return an error due to marshal failure
+	_, err := json.Marshal(spec)
 	assert.Error(t, err)
 }
 
 func TestNormalizeOpenAPIDoc_ComplexDoc(t *testing.T) {
 	t.Parallel()
 
-	// Use Import to test normalizeOpenAPIDoc indirectly
+	// Use Source upload to test normalizeOpenAPIDoc indirectly
 	service := setupOpenAPITestService(t)
 
 	spec := map[string]interface{}{
@@ -310,12 +220,12 @@ func TestNormalizeOpenAPIDoc_ComplexDoc(t *testing.T) {
 		},
 	}
 
-	resp, err := service.Import(context.Background(), &ImportRequest{Spec: spec})
+	resp, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
 	require.NoError(t, err)
-	assert.Equal(t, 1, resp.Imported)
+	assert.Len(t, resp.Source.Operations, 1)
 }
 
-func TestService_Import_WithQueryParams(t *testing.T) {
+func TestService_CreateSource_WithQueryParams(t *testing.T) {
 	t.Parallel()
 
 	service := setupOpenAPITestService(t)
@@ -346,9 +256,9 @@ func TestService_Import_WithQueryParams(t *testing.T) {
 		},
 	}
 
-	resp, err := service.Import(context.Background(), &ImportRequest{Spec: spec})
+	resp, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
 	require.NoError(t, err)
-	assert.Equal(t, 1, resp.Imported)
+	assert.Len(t, resp.Source.Operations, 1)
 }
 
 func TestService_GetSpec_ErrorResponse(t *testing.T) {

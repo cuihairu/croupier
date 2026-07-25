@@ -43,14 +43,11 @@ interface FunctionUIManagerProps {
 
 type UIConfig = {
   schema?: FormilySchema;
-  layout?: Record<string, unknown>;
-  components?: Record<string, unknown>;
 };
 
 const sourceMeta: Record<string, { label: string; color: string }> = {
   custom_metadata: { label: '自定义元数据', color: 'blue' },
   config_file_override: { label: '配置文件覆盖', color: 'purple' },
-  openapi_x_ui: { label: 'OpenAPI x-ui', color: 'green' },
   generated_default: { label: '生成默认值', color: 'gold' },
   none: { label: '未配置', color: 'default' },
 };
@@ -154,8 +151,6 @@ export default function FunctionUIManager({
       }
       setUiConfig({
         schema,
-        layout: response?.layout,
-        components: response?.components,
       });
       setUseCustomUI(!!response?.custom);
       setHasDefaultUI(
@@ -277,8 +272,6 @@ export default function FunctionUIManager({
         batchTargets.map((targetId) =>
           saveFunctionUiSchema(targetId, {
             schema: uiConfig.schema,
-            layout: uiConfig.layout,
-            components: uiConfig.components,
           }),
         ),
       );
@@ -497,7 +490,7 @@ export default function FunctionUIManager({
           </Col>
         </Row>
       ) : (
-        <Empty description="该函数没有可用 Formily UI Schema，请先在注册契约或表单设计器中补齐。" />
+        <Empty description="该函数没有可用 Formily UI Schema；请先补齐 input_schema，或在函数表单设计器中创建 override。" />
       )}
     </Card>
   );

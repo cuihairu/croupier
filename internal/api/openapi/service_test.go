@@ -46,10 +46,26 @@ func setupOpenAPITestService(t *testing.T) *Service {
 	})
 
 	return NewService(&svc.ServiceContext{
-		DB:            db,
-		FunctionModel: model.NewFunctionModel(db),
-		RegistryStore: store,
+		DB:                        db,
+		FunctionModel:             model.NewFunctionModel(db),
+		RegistryStore:             store,
+		OpenAPISourceModel:        model.NewOpenAPISourceModel(db),
+		OpenAPISourceBindingModel: model.NewOpenAPISourceBindingModel(db),
 	})
+}
+
+func openAPITestContext() context.Context {
+	return svc.WithGameScope(context.Background(), svc.GameScope{
+		GameID: "demo-game",
+		Env:    "development",
+	})
+}
+
+func rawSpec(t *testing.T, spec map[string]interface{}) json.RawMessage {
+	t.Helper()
+	data, err := json.Marshal(spec)
+	require.NoError(t, err)
+	return json.RawMessage(data)
 }
 
 func setupOpenAPITestHandler(t *testing.T) (*Handler, *gin.Engine) {
@@ -60,11 +76,18 @@ func setupOpenAPITestHandler(t *testing.T) (*Handler, *gin.Engine) {
 	handler := NewHandler(service)
 
 	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(openAPITestContext())
+		c.Next()
+	})
 	router.GET("/spec/:id", handler.GetSpec)
-	router.POST("/import", handler.Import)
-	router.GET("/entity/:id/functions", handler.EntityFunctions)
 	router.GET("/document", handler.GetDocument)
 	router.POST("/batch/spec", handler.BatchGetSpec)
+	router.GET("/sources", handler.ListSources)
+	router.POST("/sources", handler.CreateSource)
+	router.GET("/sources/:sourceId", handler.GetSource)
+	router.GET("/sources/:sourceId/diagnostics", handler.SourceDiagnostics)
+	router.POST("/sources/:sourceId/bindings", handler.CreateBinding)
 
 	return handler, router
 }
@@ -80,11 +103,9 @@ func TestService_GetSpec_RegisteredFunction(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.NotNil(t, resp.Spec)
 
-	op, ok := resp.Spec.(*openapi3.Operation)
-	assert.True(t, ok, "expected *openapi3.Operation")
-	if ok {
-		assert.Equal(t, "player.list", op.OperationID)
-	}
+	var op openapi3.Operation
+	require.NoError(t, json.Unmarshal(resp.Spec, &op))
+	assert.Equal(t, "player.list", op.OperationID)
 }
 
 func TestService_GetSpec_UnregisteredFunction(t *testing.T) {
@@ -103,7 +124,7 @@ func TestService_GetSpec_EmptyID(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestService_Import_ValidSpec(t *testing.T) {
+func TestService_CreateSource_ValidSpec(t *testing.T) {
 	t.Parallel()
 
 	service := setupOpenAPITestService(t)
@@ -129,25 +150,22 @@ func TestService_Import_ValidSpec(t *testing.T) {
 		},
 	}
 
-	resp, err := service.Import(context.Background(), &ImportRequest{Spec: spec})
+	resp, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{
+		Name: "Test API",
+		Spec: rawSpec(t, spec),
+	})
 	require.NoError(t, err)
-	assert.Equal(t, 1, resp.Imported)
-	assert.Empty(t, resp.Failed)
+	assert.NotEmpty(t, resp.Source.SourceID)
+	assert.Equal(t, "Test API", resp.Source.Name)
+	assert.Len(t, resp.Source.Operations, 1)
+	assert.Equal(t, "getUsers", resp.Source.Operations[0].OperationID)
+	assert.Empty(t, resp.Source.Diagnostics)
+
+	_, err = service.svcCtx.RegistryStore.GetOpenAPI("getUsers")
+	assert.Error(t, err, "source upload must not register executable functions")
 }
 
-func TestService_Import_NilSpec(t *testing.T) {
-	t.Parallel()
-
-	service := setupOpenAPITestService(t)
-
-	_, err := service.Import(context.Background(), &ImportRequest{Spec: nil})
-	assert.Error(t, err)
-	var codeErr *errorx.CodeError
-	assert.True(t, errors.As(err, &codeErr))
-	assert.Equal(t, http.StatusBadRequest, codeErr.Code)
-}
-
-func TestService_Import_InvalidSpec(t *testing.T) {
+func TestService_CreateSource_InvalidSpec(t *testing.T) {
 	t.Parallel()
 
 	service := setupOpenAPITestService(t)
@@ -157,13 +175,47 @@ func TestService_Import_InvalidSpec(t *testing.T) {
 		// Missing required info field
 	}
 
-	resp, err := service.Import(context.Background(), &ImportRequest{Spec: spec})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Imported)
-	assert.NotEmpty(t, resp.Failed)
+	_, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
+	require.Error(t, err)
+	var codeErr *errorx.CodeError
+	require.True(t, errors.As(err, &codeErr))
+	assert.Equal(t, http.StatusBadRequest, codeErr.Code)
 }
 
-func TestService_Import_MultipleOperations(t *testing.T) {
+func TestService_CreateSource_RejectsUIExtensions(t *testing.T) {
+	t.Parallel()
+
+	service := setupOpenAPITestService(t)
+
+	spec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Test API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/users": map[string]interface{}{
+				"post": map[string]interface{}{
+					"operationId": "createUser",
+					"x-ui": map[string]interface{}{
+						"type": "object",
+					},
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{
+							"description": "Success",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid")
+}
+
+func TestService_CreateSource_MultipleOperations(t *testing.T) {
 	t.Parallel()
 
 	service := setupOpenAPITestService(t)
@@ -198,64 +250,60 @@ func TestService_Import_MultipleOperations(t *testing.T) {
 		},
 	}
 
-	resp, err := service.Import(context.Background(), &ImportRequest{Spec: spec})
+	resp, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
 	require.NoError(t, err)
-	assert.Equal(t, 2, resp.Imported)
-	assert.Empty(t, resp.Failed)
+	assert.Len(t, resp.Source.Operations, 2)
 }
 
-func TestService_EntityFunctions_ValidEntity(t *testing.T) {
+func TestService_OpenAPISourceListDiagnosticsAndBinding(t *testing.T) {
 	t.Parallel()
 
 	service := setupOpenAPITestService(t)
-
-	// Add an operation with x-entity extension
-	op := &openapi3.Operation{
-		OperationID: "getUser",
-		Summary:     "Get user by ID",
-		Extensions: map[string]interface{}{
-			"x-entity":    "User",
-			"x-operation": "read",
+	spec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Player API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/players": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "playerList",
+					"x-entity":    "player",
+					"x-operation": "list",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
 		},
 	}
-	service.svcCtx.RegistryStore.UpsertOpenAPI("getUser", op)
-
-	resp, err := service.EntityFunctions(context.Background(), &EntityFunctionsRequest{ID: "User"})
+	created, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
 	require.NoError(t, err)
-	assert.NotEmpty(t, resp.Items)
 
-	// Check if the function is in the response
-	found := false
-	for _, item := range resp.Items {
-		if item.ID == "getUser" {
-			found = true
-			assert.Equal(t, "read", item.Operation)
-			assert.Equal(t, "Get user by ID", item.Name)
-		}
-	}
-	assert.True(t, found, "getUser should be in response")
-}
-
-func TestService_EntityFunctions_EmptyID(t *testing.T) {
-	t.Parallel()
-
-	service := setupOpenAPITestService(t)
-
-	_, err := service.EntityFunctions(context.Background(), &EntityFunctionsRequest{ID: ""})
-	assert.Error(t, err)
-	var codeErr *errorx.CodeError
-	assert.True(t, errors.As(err, &codeErr))
-	assert.Equal(t, http.StatusBadRequest, codeErr.Code)
-}
-
-func TestService_EntityFunctions_NoMatchingEntity(t *testing.T) {
-	t.Parallel()
-
-	service := setupOpenAPITestService(t)
-
-	resp, err := service.EntityFunctions(context.Background(), &EntityFunctionsRequest{ID: "NonExistent"})
+	list, err := service.ListSources(openAPITestContext(), &OpenAPISourceListRequest{})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Items)
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, created.Source.SourceID, list.Items[0].SourceID)
+	assert.Equal(t, 1, list.Items[0].OperationCount)
+
+	diags, err := service.SourceDiagnostics(openAPITestContext(), &OpenAPISourceGetRequest{SourceID: created.Source.SourceID})
+	require.NoError(t, err)
+	assert.Empty(t, diags.Diagnostics)
+
+	binding, err := service.CreateBinding(openAPITestContext(), &OpenAPISourceBindingCreateRequest{
+		SourceID:    created.Source.SourceID,
+		OperationID: "playerList",
+		Kind:        "provider",
+		FunctionID:  "player.list",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "playerList", binding.Binding.OperationID)
+	assert.Equal(t, "player.list", binding.Binding.FunctionID)
+
+	detail, err := service.GetSource(openAPITestContext(), &OpenAPISourceGetRequest{SourceID: created.Source.SourceID})
+	require.NoError(t, err)
+	require.Len(t, detail.Source.Operations, 1)
+	assert.True(t, detail.Source.Operations[0].Bound)
+	assert.Equal(t, "player.list", detail.Source.Operations[0].FunctionID)
 }
 
 func TestService_GetDocument(t *testing.T) {
@@ -360,7 +408,7 @@ func TestHandler_GetSpec_NotFound(t *testing.T) {
 	assert.True(t, w.Code == http.StatusNotFound || w.Code == http.StatusInternalServerError)
 }
 
-func TestHandler_Import_Success(t *testing.T) {
+func TestHandler_CreateSource_Success(t *testing.T) {
 	t.Parallel()
 
 	_, router := setupOpenAPITestHandler(t)
@@ -382,69 +430,16 @@ func TestHandler_Import_Success(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(spec)
-	req, _ := http.NewRequest("POST", "/import", strings.NewReader(string(body)))
+	req, _ := http.NewRequest("POST", "/sources", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Check response - could be 200 or 400 if there's validation issue
-	if w.Code == http.StatusOK {
-		var resp ImportResponse
-		err := json.Unmarshal(w.Body.Bytes(), &resp)
-		require.NoError(t, err)
-		assert.GreaterOrEqual(t, resp.Imported, 0)
-	} else {
-		// If not 200, check if it's a validation error we can accept
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	}
-}
-
-func TestHandler_Import_MissingSpec(t *testing.T) {
-	t.Parallel()
-
-	_, router := setupOpenAPITestHandler(t)
-
-	req, _ := http.NewRequest("POST", "/import", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	// Handler might return 500 for nil body
-	assert.True(t, w.Code == http.StatusBadRequest || w.Code == http.StatusInternalServerError)
-}
-
-func TestHandler_EntityFunctions_Success(t *testing.T) {
-	t.Parallel()
-
-	handler, router := setupOpenAPITestHandler(t)
-
-	// Add operation with entity extension
-	op := &openapi3.Operation{
-		OperationID: "getUser",
-		Summary:     "Get user",
-		Extensions: map[string]interface{}{
-			"x-entity": "User",
-		},
-	}
-	handler.service.svcCtx.RegistryStore.UpsertOpenAPI("getUser", op)
-
-	req, _ := http.NewRequest("GET", "/entity/User/functions", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestHandler_EntityFunctions_MissingID(t *testing.T) {
-	t.Parallel()
-
-	_, router := setupOpenAPITestHandler(t)
-
-	req, _ := http.NewRequest("GET", "/entity//functions", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	// Gin returns 404 for empty URI params, but 400 for invalid binding
-	assert.True(t, w.Code == http.StatusNotFound || w.Code == http.StatusBadRequest)
+	assert.Equal(t, http.StatusCreated, w.Code)
+	var resp OpenAPISourceGetResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Len(t, resp.Source.Operations, 1)
 }
 
 func TestHandler_GetDocument_Success(t *testing.T) {
@@ -553,7 +548,7 @@ func TestNormalizeOpenAPIDoc_NilPaths(t *testing.T) {
 func TestNormalizeOpenAPIDoc_MissingResponseDescription(t *testing.T) {
 	t.Parallel()
 
-	// Test normalization through Import which calls normalizeOpenAPIDoc
+	// Test normalization through Source upload which calls normalizeOpenAPIDoc
 	service := setupOpenAPITestService(t)
 
 	// Spec with missing response descriptions
@@ -576,9 +571,7 @@ func TestNormalizeOpenAPIDoc_MissingResponseDescription(t *testing.T) {
 		},
 	}
 
-	// Import should not fail even with missing descriptions
-	resp, err := service.Import(context.Background(), &ImportRequest{Spec: spec})
+	resp, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
 	require.NoError(t, err)
-	assert.Equal(t, 1, resp.Imported)
-	assert.Empty(t, resp.Failed)
+	assert.Len(t, resp.Source.Operations, 1)
 }

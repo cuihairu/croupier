@@ -88,7 +88,9 @@ export function getConsoleCategoryPath(categoryKey: string): string {
 }
 
 export function getConsoleCategoryLocaleId(categoryKey: string): string {
-  return `menu.ControlConsole.category.${normalizeText(categoryKey)}`;
+  throw new Error(
+    `旧 WorkspaceConfig 分类 locale 已删除：${normalizeText(categoryKey)}；动态标题必须来自 ConsoleMenuSpec.title。`,
+  );
 }
 
 export function getConsoleWorkspacePath(config: WorkspaceConfig | string): string {
@@ -210,7 +212,7 @@ export function buildConsoleWorkspaceMenuItems(
       key: categoryPath,
       path: categoryPath,
       name: group.label,
-      locale: getConsoleCategoryLocaleId(group.key),
+      locale: false as const,
       children,
     };
   });

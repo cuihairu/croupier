@@ -1,8 +1,8 @@
 /**
  * FormilyPageRenderer - PageSpec Formily 渲染器
  *
- * 运行控制台唯一页面渲染入口。页面结构来自 PageSpec.schema，函数执行由运行时
- * context 提供，不读取旧 layout 协议。
+ * 运行控制台唯一页面渲染入口。组件只能通过 bindingId 执行已发布页面 binding，
+ * 不能直接引用 functionId 或旧 layout 协议。
  */
 
 import React, { createContext, useContext, useMemo, useState } from 'react';
@@ -10,37 +10,42 @@ import { createForm } from '@formily/core';
 import { createSchemaField, FormProvider, useForm } from '@formily/react';
 import { Alert, App, Button, Card, Space, Spin, Table, Timeline, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import type { PageSpec, PublishedPageSpec } from '@/types/dashboard';
+import type {
+  JSONValue,
+  PageExecutionResult,
+  PageFunctionBinding,
+  PageSpec,
+  PublishedPageSpec,
+} from '@/types/dashboard';
 
-type JSONRecord = Record<string, unknown>;
+type JSONRecord = { [key: string]: JSONValue };
 
-type RuntimeResult = {
-  functionId: string;
-  role: 'query' | 'action' | 'task';
-  data: unknown;
-};
+type PageStateValue = PageExecutionResult | JSONValue;
+
+type PageState = Record<string, PageStateValue>;
 
 type RuntimeContextValue = {
   page: PageSpec | PublishedPageSpec;
-  lastResult?: RuntimeResult;
-  setLastResult: (result: RuntimeResult) => void;
-  onQuery?: (functionId: string, values: JSONRecord) => Promise<unknown> | unknown;
-  onAction?: (functionId: string, payload?: unknown) => Promise<unknown> | unknown;
-  onTaskStart?: (functionId: string, payload?: unknown) => Promise<unknown> | unknown;
+  bindings: Map<string, PageFunctionBinding>;
+  state: PageState;
+  execute: (bindingId: string, payload: JSONValue) => Promise<PageExecutionResult>;
+  setStateValue: (key: string, value: PageStateValue) => void;
 };
 
-type PaginationConfig = {
-  pageField?: string;
-  pageSizeField?: string;
-  totalField?: string;
-  itemsField?: string;
+type PageColumn = {
+  title: string;
+  dataIndex: string;
+  key?: string;
 };
 
 type RowAction = {
-  functionId: string;
-  label: string;
+  bindingId: string;
+  label?: string;
   risk?: string;
+  inputMapping?: JSONValue;
 };
+
+const DEFAULT_RESULT_STATE_KEY = 'lastExecution';
 
 const RuntimeContext = createContext<RuntimeContextValue | null>(null);
 
@@ -52,12 +57,26 @@ function useRuntimeContext() {
   return value;
 }
 
-function isRecord(value: unknown): value is JSONRecord {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function recordFromUnknown(value: unknown): JSONRecord {
-  return isRecord(value) ? value : {};
+function isJSONValue(value: unknown): value is JSONValue {
+  if (value === null) return true;
+  if (['boolean', 'number', 'string'].includes(typeof value)) return true;
+  if (Array.isArray(value)) return value.every(isJSONValue);
+  if (!isRecord(value)) return false;
+  return Object.values(value).every(isJSONValue);
+}
+
+function toJSONValue(value: unknown): JSONValue {
+  return isJSONValue(value) ? value : JSON.parse(JSON.stringify(value)) as JSONValue;
+}
+
+function toJSONRecord(value: unknown): JSONRecord {
+  return isRecord(value) ? Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, toJSONValue(item)]),
+  ) : {};
 }
 
 function normalizePath(path?: string): string[] {
@@ -80,38 +99,44 @@ function readPath(source: unknown, path?: string): unknown {
   return current;
 }
 
-function wrapFunctionResponse(response: unknown) {
-  const record = recordFromUnknown(response);
-  const result = record.result ?? response;
-  return {
-    response: result,
-    result,
-    raw: response,
-  };
+function resolveBinding(runtime: RuntimeContextValue, bindingId?: string): PageFunctionBinding | undefined {
+  if (!bindingId) return undefined;
+  return runtime.bindings.get(bindingId);
+}
+
+function stateKeyForBinding(binding: PageFunctionBinding): string {
+  const output = binding.outputMapping;
+  if (isRecord(output) && typeof output.stateKey === 'string' && output.stateKey.trim()) {
+    return output.stateKey.trim();
+  }
+  return binding.id;
+}
+
+function resultData(result: PageExecutionResult): unknown {
+  return result.data ?? null;
+}
+
+function sourceForBinding(runtime: RuntimeContextValue, bindingId?: string): unknown {
+  if (!bindingId) return undefined;
+  return runtime.state[bindingId] ?? runtime.state[DEFAULT_RESULT_STATE_KEY];
 }
 
 function toTableRows(items: unknown): JSONRecord[] {
   if (!Array.isArray(items)) return [];
   return items.map((item, index) => {
     if (isRecord(item)) {
-      return { __rowIndex: index, ...item };
+      return { __rowIndex: index, ...toJSONRecord(item) };
     }
-    return { __rowIndex: index, value: item };
+    return { __rowIndex: index, value: toJSONValue(item) } as JSONRecord;
   });
 }
 
-function buildColumns(rows: JSONRecord[], rowActions: RowAction[] | undefined, runAction: (action: RowAction, row: JSONRecord) => void): ColumnsType<JSONRecord> {
-  const keys = new Set<string>();
-  rows.slice(0, 10).forEach((row) => {
-    Object.keys(row).forEach((key) => {
-      if (!key.startsWith('__')) keys.add(key);
-    });
-  });
-
-  const columns: ColumnsType<JSONRecord> = Array.from(keys).map((key) => ({
-    title: key,
-    dataIndex: key,
-    key,
+function normalizeColumns(columns?: PageColumn[]): ColumnsType<JSONRecord> {
+  if (!columns || columns.length === 0) return [];
+  return columns.map((column) => ({
+    title: column.title || column.dataIndex,
+    dataIndex: column.dataIndex,
+    key: column.key || column.dataIndex,
     render: (value: unknown) => {
       if (isRecord(value) || Array.isArray(value)) {
         return <Typography.Text code>{JSON.stringify(value)}</Typography.Text>;
@@ -119,28 +144,65 @@ function buildColumns(rows: JSONRecord[], rowActions: RowAction[] | undefined, r
       return value == null ? '-' : String(value);
     },
   }));
+}
 
-  if (rowActions && rowActions.length > 0) {
-    columns.push({
-      title: '操作',
-      key: '__actions',
-      render: (_, row) => (
-        <Space>
-          {rowActions.map((action) => (
-            <Button key={action.functionId} size="small" onClick={() => runAction(action, row)}>
-              {action.label || action.functionId}
-            </Button>
-          ))}
-        </Space>
-      ),
-    });
+function normalizeColumnsFromPath(value: unknown): ColumnsType<JSONRecord> {
+  if (!Array.isArray(value)) return [];
+  const columns: PageColumn[] = value
+    .map((item): PageColumn | null => isRecord(item) ? {
+      title: String(item.title || item.dataIndex || item.key || ''),
+      dataIndex: String(item.dataIndex || item.key || ''),
+      key: String(item.key || item.dataIndex || ''),
+    } : null)
+    .filter((item): item is PageColumn => item !== null && item.dataIndex !== '');
+  return normalizeColumns(columns);
+}
+
+function applyInputMapping(mapping: JSONValue | undefined, sources: Record<string, unknown>): JSONValue {
+  if (mapping === undefined || mapping === null) {
+    return toJSONValue(sources.values ?? {});
   }
-
-  return columns.length > 0 ? columns : [{ title: '结果', dataIndex: 'value', key: 'value' }];
+  if (!isRecord(mapping)) {
+    throw new Error('inputMapping 必须是对象');
+  }
+  const payload: JSONRecord = {};
+  for (const [targetKey, sourcePath] of Object.entries(mapping)) {
+    if (typeof sourcePath !== 'string' || sourcePath.trim() === '') {
+      throw new Error(`inputMapping.${targetKey} 必须是路径字符串`);
+    }
+    const [root, ...rest] = normalizePath(sourcePath);
+    const rootValue = sources[root];
+    payload[targetKey] = toJSONValue(readPath(rootValue, rest.join('.')));
+  }
+  return payload;
 }
 
 function isDangerousRisk(risk?: string) {
   return risk === 'high' || risk === 'danger';
+}
+
+function storeExecutionResult(
+  runtime: RuntimeContextValue,
+  binding: PageFunctionBinding,
+  result: PageExecutionResult,
+) {
+  runtime.setStateValue(binding.id, result);
+  runtime.setStateValue(stateKeyForBinding(binding), result);
+  runtime.setStateValue(DEFAULT_RESULT_STATE_KEY, result);
+}
+
+async function executeBinding(
+  runtime: RuntimeContextValue,
+  bindingId: string | undefined,
+  payload: JSONValue,
+): Promise<PageExecutionResult> {
+  const binding = resolveBinding(runtime, bindingId);
+  if (!binding) {
+    throw new Error(`页面 binding 不存在：${bindingId || '-'}`);
+  }
+  const result = await runtime.execute(binding.id, payload);
+  storeExecutionResult(runtime, binding, result);
+  return result;
 }
 
 /** ConsolePage - 页面根容器 */
@@ -156,34 +218,26 @@ const ConsolePage: React.FC<{
 
 /** QueryForm - 查询/独立表单区域 */
 const QueryForm: React.FC<{
-  functionId?: string;
-  formSchemaRef?: string;
+  bindingId?: string;
+  inputMapping?: JSONValue;
+  resultStateKey?: string;
   children?: React.ReactNode;
-}> = ({ functionId, children }) => {
+}> = ({ bindingId, inputMapping, resultStateKey, children }) => {
   const form = useForm();
   const runtime = useRuntimeContext();
   const { message } = App.useApp();
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
-    if (!functionId) {
-      message.error('QueryForm 缺少 functionId');
-      return;
-    }
     setSubmitting(true);
     try {
       await form.submit();
-      const values = recordFromUnknown(form.values);
-      const isTaskPage = runtime.page.type === 'task';
-      const result = isTaskPage
-        ? await runtime.onTaskStart?.(functionId, values)
-        : await runtime.onQuery?.(functionId, values);
-      runtime.setLastResult({
-        functionId,
-        role: isTaskPage ? 'task' : 'query',
-        data: result,
-      });
-      message.success(isTaskPage ? '任务已启动' : '查询完成');
+      const payload = applyInputMapping(inputMapping, { values: form.values });
+      const result = await executeBinding(runtime, bindingId, payload);
+      if (resultStateKey) {
+        runtime.setStateValue(resultStateKey, result);
+      }
+      message.success(result.kind === 'task' ? '任务已启动' : '执行完成');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '执行失败');
     } finally {
@@ -196,7 +250,7 @@ const QueryForm: React.FC<{
       <Space direction="vertical" style={{ width: '100%' }}>
         {children}
         <Button type="primary" loading={submitting} onClick={submit}>
-          {runtime.page.type === 'task' ? '启动任务' : '执行'}
+          执行
         </Button>
       </Space>
     </Card>
@@ -205,10 +259,15 @@ const QueryForm: React.FC<{
 
 /** DataTable - 数据表格区域 */
 const DataTable: React.FC<{
-  queryFunctionId?: string;
-  pagination?: PaginationConfig;
+  bindingId?: string;
+  itemsPath?: string;
+  totalPath?: string;
+  pageField?: string;
+  pageSizeField?: string;
+  columns?: PageColumn[];
+  columnsPath?: string;
   rowActions?: RowAction[];
-}> = ({ queryFunctionId, pagination, rowActions }) => {
+}> = ({ bindingId, itemsPath, totalPath, pageField, pageSizeField, columns, columnsPath, rowActions }) => {
   const runtime = useRuntimeContext();
   const { message, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
@@ -216,32 +275,38 @@ const DataTable: React.FC<{
   const [total, setTotal] = useState(0);
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [tableColumns, setTableColumns] = useState<ColumnsType<JSONRecord>>(normalizeColumns(columns));
   const [error, setError] = useState<string>();
 
   const runQuery = async (page = current, size = pageSize) => {
-    if (!queryFunctionId) {
-      setError('DataTable 缺少 queryFunctionId');
+    if (!bindingId || !itemsPath || !totalPath || !pageField || !pageSizeField) {
+      setError('DataTable 必须显式配置 bindingId/itemsPath/totalPath/pageField/pageSizeField');
       return;
     }
-    if (!pagination?.itemsField || !pagination?.totalField) {
-      setError('DataTable 必须显式配置 pagination.itemsField 和 pagination.totalField');
+    if (!columns?.length && !columnsPath) {
+      setError('DataTable 必须显式配置 columns 或 columnsPath');
       return;
     }
     setLoading(true);
     setError(undefined);
     try {
-      const payload: JSONRecord = {};
-      if (pagination.pageField) payload[pagination.pageField] = page;
-      if (pagination.pageSizeField) payload[pagination.pageSizeField] = size;
-      const result = await runtime.onQuery?.(queryFunctionId, payload);
-      const wrapped = wrapFunctionResponse(result);
-      const nextRows = toTableRows(readPath(wrapped, pagination.itemsField));
-      const nextTotal = readPath(wrapped, pagination.totalField);
+      const payload: JSONRecord = {
+        [pageField]: page,
+        [pageSizeField]: size,
+      };
+      const result = await executeBinding(runtime, bindingId, payload);
+      const data = resultData(result);
+      const nextRows = toTableRows(readPath(data, itemsPath));
+      const nextTotal = readPath(data, totalPath);
+      const columnsFromSpec = normalizeColumns(columns);
+      const nextColumns = columnsFromSpec.length > 0
+        ? columnsFromSpec
+        : normalizeColumnsFromPath(readPath(data, columnsPath));
       setRows(nextRows);
       setTotal(typeof nextTotal === 'number' ? nextTotal : nextRows.length);
       setCurrent(page);
       setPageSize(size);
-      runtime.setLastResult({ functionId: queryFunctionId, role: 'query', data: result });
+      setTableColumns(nextColumns);
     } catch (err) {
       setError(err instanceof Error ? err.message : '查询失败');
     } finally {
@@ -252,9 +317,13 @@ const DataTable: React.FC<{
   const runAction = (action: RowAction, row: JSONRecord) => {
     const execute = async () => {
       try {
-        const result = await runtime.onAction?.(action.functionId, row);
-        runtime.setLastResult({ functionId: action.functionId, role: 'action', data: result });
-        message.success('操作完成');
+        const payload = applyInputMapping(action.inputMapping, { row, selection: [] });
+        const result = await executeBinding(runtime, action.bindingId, payload);
+        if (result.kind === 'approval') {
+          message.info(`已进入审批：${result.approvalId || result.requestId}`);
+        } else {
+          message.success(result.kind === 'task' ? '任务已启动' : '操作完成');
+        }
         await runQuery(current, pageSize);
       } catch (err) {
         message.error(err instanceof Error ? err.message : '操作失败');
@@ -264,7 +333,7 @@ const DataTable: React.FC<{
     if (isDangerousRisk(action.risk)) {
       modal.confirm({
         title: '确认执行高风险操作',
-        content: `函数 ${action.functionId} 风险等级为 ${action.risk}`,
+        content: `binding ${action.bindingId} 风险等级为 ${action.risk}`,
         okText: '确认执行',
         okButtonProps: { danger: true },
         onOk: execute,
@@ -274,7 +343,22 @@ const DataTable: React.FC<{
     execute();
   };
 
-  const columns = useMemo(() => buildColumns(rows, rowActions, runAction), [rows, rowActions]);
+  const mergedColumns = useMemo(() => {
+    const actionColumn: ColumnsType<JSONRecord> = rowActions && rowActions.length > 0 ? [{
+      title: '操作',
+      key: '__actions',
+      render: (_, row) => (
+        <Space>
+          {rowActions.map((action) => (
+            <Button key={action.bindingId} size="small" onClick={() => runAction(action, row)}>
+              {action.label || action.bindingId}
+            </Button>
+          ))}
+        </Space>
+      ),
+    }] : [];
+    return [...tableColumns, ...actionColumn];
+  }, [rowActions, tableColumns]);
 
   return (
     <Card
@@ -290,7 +374,7 @@ const DataTable: React.FC<{
       <Table<JSONRecord>
         rowKey={(row) => String(row.id ?? row.key ?? row.__rowIndex)}
         loading={loading}
-        columns={columns}
+        columns={mergedColumns}
         dataSource={rows}
         pagination={{
           current,
@@ -305,26 +389,28 @@ const DataTable: React.FC<{
 };
 
 /** DetailPanel - 详情面板 */
-const DetailPanel: React.FC<{ functionId?: string }> = ({ functionId }) => {
+const DetailPanel: React.FC<{
+  bindingId?: string;
+  stateKey?: string;
+  dataPath?: string;
+}> = ({ bindingId, stateKey, dataPath }) => {
   const runtime = useRuntimeContext();
-  const matched = runtime.lastResult?.functionId === functionId ? runtime.lastResult.data : runtime.lastResult?.data;
+  const source = stateKey ? runtime.state[stateKey] : sourceForBinding(runtime, bindingId);
+  const value = dataPath ? readPath(resultData(source as PageExecutionResult), dataPath) : source;
   return (
     <Card size="small" title="详情" className="console-detail-panel">
-      <Typography.Paragraph>
-        <Typography.Text type="secondary">functionId: {functionId || '-'}</Typography.Text>
-      </Typography.Paragraph>
-      <Typography.Text code>{JSON.stringify(matched ?? {}, null, 2)}</Typography.Text>
+      <Typography.Text code>{JSON.stringify(value ?? {}, null, 2)}</Typography.Text>
     </Card>
   );
 };
 
 /** ActionButton - 操作按钮 */
 const ActionButton: React.FC<{
-  functionId: string;
+  bindingId: string;
   label?: string;
   risk?: string;
-  placement?: string;
-}> = ({ functionId, label, risk }) => {
+  inputMapping?: JSONValue;
+}> = ({ bindingId, label, risk, inputMapping }) => {
   const runtime = useRuntimeContext();
   const { message, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
@@ -332,9 +418,13 @@ const ActionButton: React.FC<{
   const execute = async () => {
     setLoading(true);
     try {
-      const result = await runtime.onAction?.(functionId);
-      runtime.setLastResult({ functionId, role: 'action', data: result });
-      message.success('操作完成');
+      const payload = applyInputMapping(inputMapping, { values: {} });
+      const result = await executeBinding(runtime, bindingId, payload);
+      if (result.kind === 'approval') {
+        message.info(`已进入审批：${result.approvalId || result.requestId}`);
+      } else {
+        message.success(result.kind === 'task' ? '任务已启动' : '操作完成');
+      }
     } catch (err) {
       message.error(err instanceof Error ? err.message : '操作失败');
     } finally {
@@ -346,7 +436,7 @@ const ActionButton: React.FC<{
     if (isDangerousRisk(risk)) {
       modal.confirm({
         title: '确认执行高风险操作',
-        content: `函数 ${functionId} 风险等级为 ${risk}`,
+        content: `binding ${bindingId} 风险等级为 ${risk}`,
         okText: '确认执行',
         okButtonProps: { danger: true },
         onOk: execute,
@@ -358,7 +448,7 @@ const ActionButton: React.FC<{
 
   return (
     <Button danger={isDangerousRisk(risk)} loading={loading} onClick={click}>
-      {label || functionId}
+      {label || bindingId}
     </Button>
   );
 };
@@ -370,50 +460,73 @@ const ActionGroup: React.FC<{
 }> = ({ actions, children }) => (
   <Space className="console-action-group">
     {actions?.map((action) => (
-      <ActionButton key={action.functionId} {...action} />
+      <ActionButton key={action.bindingId} {...action} />
     ))}
     {children}
   </Space>
 );
 
 /** ResultPanel - 结果面板 */
-const ResultPanel: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
+const ResultPanel: React.FC<{
+  bindingId?: string;
+  stateKey?: string;
+  dataPath?: string;
+  children?: React.ReactNode;
+}> = ({ bindingId, stateKey, dataPath, children }) => {
   const runtime = useRuntimeContext();
+  const source = stateKey ? runtime.state[stateKey] : sourceForBinding(runtime, bindingId);
+  const value = dataPath ? readPath(resultData(source as PageExecutionResult), dataPath) : source;
   return (
     <Card size="small" title="执行结果" className="console-result-panel">
       {children}
-      <Typography.Text code>{JSON.stringify(runtime.lastResult?.data ?? {}, null, 2)}</Typography.Text>
+      <Typography.Text code>{JSON.stringify(value ?? {}, null, 2)}</Typography.Text>
     </Card>
   );
 };
 
 /** TaskTimeline - 任务时间线 */
-const TaskTimeline: React.FC<{ taskId?: string }> = ({ taskId }) => {
+const TaskTimeline: React.FC<{
+  bindingId?: string;
+  stateKey?: string;
+}> = ({ bindingId, stateKey }) => {
   const runtime = useRuntimeContext();
-  const result = recordFromUnknown(runtime.lastResult?.data);
-  const currentTaskId = taskId || String(result.taskId || result.taskID || '');
+  const source = stateKey ? runtime.state[stateKey] : sourceForBinding(runtime, bindingId);
+  const taskId = isRecord(source) && typeof source.taskId === 'string' ? source.taskId : '';
+  const approvalId = isRecord(source) && typeof source.approvalId === 'string' ? source.approvalId : '';
   return (
     <Card size="small" title="任务状态" className="console-task-timeline">
       <Timeline
         items={[
-          { color: currentTaskId ? 'green' : 'gray', children: currentTaskId ? `任务已创建：${currentTaskId}` : '等待任务启动' },
+          {
+            color: taskId || approvalId ? 'green' : 'gray',
+            children: taskId
+              ? `任务已创建：${taskId}`
+              : approvalId
+                ? `等待审批：${approvalId}`
+                : '等待任务启动',
+          },
         ]}
       />
     </Card>
   );
 };
 
-/** ChartPanel - 图表面板 */
-const ChartPanel: React.FC<{ dataSource?: string }> = ({ dataSource }) => {
+/** ChartPanel - 报表数据面板 */
+const ChartPanel: React.FC<{
+  bindingId?: string;
+  stateKey?: string;
+  dataPath?: string;
+}> = ({ bindingId, stateKey, dataPath }) => {
   const runtime = useRuntimeContext();
-  const value = dataSource ? readPath(wrapFunctionResponse(runtime.lastResult?.data), dataSource) : runtime.lastResult?.data;
+  const source = stateKey ? runtime.state[stateKey] : sourceForBinding(runtime, bindingId);
+  const value = dataPath ? readPath(resultData(source as PageExecutionResult), dataPath) : source;
   return (
     <Card size="small" title="报表数据" className="console-chart-panel">
       <Alert
         type="info"
         showIcon
         message="ChartPanel 最小实现"
-        description="当前仅展示 PageSpec 明确 dataSource 指向的数据；图表类型需要后续在 PageSpec 中显式配置。"
+        description="当前仅展示 PageSpec 明确 dataPath 指向的数据；图表类型需要在 PageSpec 中显式配置。"
         style={{ marginBottom: 12 }}
       />
       <Typography.Text code>{JSON.stringify(value ?? {}, null, 2)}</Typography.Text>
@@ -425,9 +538,7 @@ export interface FormilyPageRendererProps {
   page: PageSpec | PublishedPageSpec;
   loading?: boolean;
   error?: string;
-  onQuery?: (functionId: string, values: JSONRecord) => Promise<unknown> | unknown;
-  onAction?: (functionId: string, payload?: unknown) => Promise<unknown> | unknown;
-  onTaskStart?: (functionId: string, payload?: unknown) => Promise<unknown> | unknown;
+  onExecute: (bindingId: string, payload: JSONValue) => Promise<PageExecutionResult> | PageExecutionResult;
 }
 
 const SchemaField = createSchemaField({
@@ -448,18 +559,16 @@ const FormilyPageRenderer: React.FC<FormilyPageRendererProps> = ({
   page,
   loading = false,
   error,
-  onQuery,
-  onAction,
-  onTaskStart,
+  onExecute,
 }) => {
   const form = useMemo(() => createForm(), []);
-  const [lastResult, setLastResult] = useState<RuntimeResult>();
+  const [state, setState] = useState<PageState>({});
 
   const schema = useMemo(() => {
     if (!page?.schema) return null;
     if (typeof page.schema === 'string') {
       try {
-        return JSON.parse(page.schema) as JSONRecord;
+        return JSON.parse(page.schema) as Record<string, unknown>;
       } catch {
         return null;
       }
@@ -467,9 +576,25 @@ const FormilyPageRenderer: React.FC<FormilyPageRendererProps> = ({
     return page.schema;
   }, [page?.schema]);
 
+  const bindings = useMemo(() => {
+    const map = new Map<string, PageFunctionBinding>();
+    page.bindings?.forEach((binding) => {
+      map.set(binding.id, binding);
+    });
+    return map;
+  }, [page.bindings]);
+
   const runtime = useMemo<RuntimeContextValue>(
-    () => ({ page, lastResult, setLastResult, onQuery, onAction, onTaskStart }),
-    [page, lastResult, onQuery, onAction, onTaskStart],
+    () => ({
+      page,
+      bindings,
+      state,
+      execute: (bindingId, payload) => Promise.resolve(onExecute(bindingId, payload)),
+      setStateValue: (key, value) => {
+        setState((prev) => ({ ...prev, [key]: value }));
+      },
+    }),
+    [bindings, onExecute, page, state],
   );
 
   if (loading) {

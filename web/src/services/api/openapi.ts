@@ -1,4 +1,12 @@
 import { request } from '@umijs/max';
+import type {
+  Diagnostic,
+  JSONValue,
+  LocalizedText,
+  OperationKind,
+  OperationPlacement,
+  RiskLevel,
+} from '@/types/dashboard';
 
 /**
  * ============================================================================
@@ -13,14 +21,14 @@ import { request } from '@umijs/max';
 // Source: croupier/internal/api/openapi/dto.go OpenAPISpecResponse.Spec
 export type OpenAPIExtensions = {
   'x-category'?: string;
-  'x-risk'?: 'safe' | 'warning' | 'high' | 'danger';
+  'x-risk'?: RiskLevel;
   'x-entity'?: string;
   'x-operation'?: string; // business action key, e.g. "ban", "send", "list"
-  'x-category-display'?: Record<string, string>;
-  'x-entity-display'?: Record<string, string>;
-  'x-operation-display'?: Record<string, string>;
-  'x-operation-kind'?: 'list' | 'get' | 'create' | 'update' | 'delete' | 'action' | 'task' | 'report';
-  'x-placement'?: 'query' | 'tableData' | 'detailData' | 'rowAction' | 'detailAction' | 'toolbarAction' | 'batchAction' | 'standalone';
+  'x-category-display'?: LocalizedText;
+  'x-entity-display'?: LocalizedText;
+  'x-operation-display'?: LocalizedText;
+  'x-operation-kind'?: OperationKind;
+  'x-placement'?: OperationPlacement;
   'x-page-hint'?: string;
 };
 
@@ -34,16 +42,16 @@ export type OpenAPIOperation = {
   summary?: string;
   description?: string;
   tags?: string[];
-  parameters?: any[];
-  requestBody?: any;
-  responses?: any;
+  parameters?: JSONValue[];
+  requestBody?: JSONValue;
+  responses?: JSONValue;
   extensions?: OpenAPIExtensions;
 };
 
 /**
  * OpenAPI 3.0.3 Document
  */
-// Source: croupier/internal/api/openapi/dto.go OpenAPIDocumentResponse.Spec / OpenAPIImportRequest.Spec
+// Source: croupier/internal/api/openapi/dto.go OpenAPIDocumentResponse.Spec / OpenAPISourceCreateRequest.Spec
 export type OpenAPIDocument = {
   openapi: string;
   info: {
@@ -51,8 +59,8 @@ export type OpenAPIDocument = {
     version?: string;
     description?: string;
   };
-  paths?: Record<string, any>;
-  components?: any;
+  paths?: Record<string, JSONValue>;
+  components?: JSONValue;
 };
 
 // Source: croupier/internal/api/openapi/dto.go OpenAPISpecResponse
@@ -60,20 +68,77 @@ export type GetFunctionOpenAPIResponse = {
   spec: OpenAPIOperation;
 };
 
-// Source: croupier/internal/api/openapi/dto.go OpenAPIImportResponse
-export type OpenAPIImportResponse = {
-  imported: number;
-  failed: string[];
+export interface OpenAPISourceSummary {
+  sourceId: string;
+  gameId?: string;
+  env?: string;
+  name: string;
+  revision: number;
+  format: string;
+  openapiVersion: string;
+  infoTitle?: string;
+  infoVersion?: string;
+  contentHash: string;
+  operationCount: number;
+  diagnosticCount: number;
+  createdAt: string;
+  updatedAt: string;
+  diagnostics?: Diagnostic[];
+}
+
+export interface OpenAPISourceOperation {
+  operationId: string;
+  method: string;
+  path: string;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  category?: string;
+  categoryDisplay?: LocalizedText;
+  entity?: string;
+  entityDisplay?: LocalizedText;
+  operation?: string;
+  operationDisplay?: LocalizedText;
+  operationKind?: OperationKind;
+  placement?: OperationPlacement;
+  pageHint?: string;
+  risk?: RiskLevel;
+  bound: boolean;
+  bindingId?: string;
+  functionId?: string;
+}
+
+export interface OpenAPISourceBinding {
+  bindingId: string;
+  operationId: string;
+  kind: 'provider';
+  functionId?: string;
+  providerId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OpenAPISourceDetail extends OpenAPISourceSummary {
+  spec?: OpenAPIDocument;
+  operations: OpenAPISourceOperation[];
+  bindings?: OpenAPISourceBinding[];
+}
+
+export type OpenAPISourceListResponse = {
+  items: OpenAPISourceSummary[];
 };
 
-// Source: croupier/internal/api/openapi/dto.go EntityFunctionsResponse
-export type EntityFunctionsResponse = {
-  items: Array<{
-    id: string;
-    operation: string; // business action key, e.g. "ban", "send", "list"
-    name: string;
-    summary?: string;
-  }>;
+export type OpenAPISourceGetResponse = {
+  source: OpenAPISourceDetail;
+};
+
+export type OpenAPISourceDiagnosticsResponse = {
+  sourceId: string;
+  diagnostics: Diagnostic[];
+};
+
+export type OpenAPISourceBindingResponse = {
+  binding: OpenAPISourceBinding;
 };
 
 export function normalizeFunctionOpenAPIResponse(
@@ -95,25 +160,68 @@ export async function getFunctionOpenAPI(functionId: string) {
   return normalizeFunctionOpenAPIResponse(resp);
 }
 
-/**
- * 导入 OpenAPI 规范
- * @param spec OpenAPI 3.0.3 Document
- * @returns 导入结果
- */
-export async function importOpenAPISpec(spec: OpenAPIDocument) {
-  return request<OpenAPIImportResponse>('/api/v1/functions/_import', {
+export async function createOpenAPISource(spec: OpenAPIDocument, name?: string) {
+  return request<OpenAPISourceGetResponse>('/api/v1/openapi/sources', {
     method: 'POST',
-    data: { spec },
+    data: { name, spec },
   });
 }
 
-/**
- * 获取 Entity 关联的函数列表
- * @param entityId Entity ID
- * @returns Entity 函数列表
- */
-export async function getEntityFunctions(entityId: string) {
-  return request<EntityFunctionsResponse>(`/api/v1/entities/${entityId}/functions`);
+export async function uploadOpenAPISourceFile(file: File, name?: string) {
+  const data = new FormData();
+  data.append('file', file);
+  if (name) {
+    data.append('name', name);
+  }
+  return request<OpenAPISourceGetResponse>('/api/v1/openapi/sources', {
+    method: 'POST',
+    data,
+    requestType: 'form',
+  });
+}
+
+export async function listOpenAPISources() {
+  return request<OpenAPISourceListResponse>('/api/v1/openapi/sources');
+}
+
+export async function getOpenAPISource(sourceId: string) {
+  return request<OpenAPISourceGetResponse>(`/api/v1/openapi/sources/${encodeURIComponent(sourceId)}`);
+}
+
+export async function getOpenAPISourceDiagnostics(sourceId: string) {
+  return request<OpenAPISourceDiagnosticsResponse>(
+    `/api/v1/openapi/sources/${encodeURIComponent(sourceId)}/diagnostics`,
+  );
+}
+
+export async function bindOpenAPISourceProvider(
+  sourceId: string,
+  payload: {
+    operationId: string;
+    functionId: string;
+    bindingId?: string;
+    providerId?: string;
+  },
+) {
+  return request<OpenAPISourceBindingResponse>(
+    `/api/v1/openapi/sources/${encodeURIComponent(sourceId)}/bindings`,
+    {
+      method: 'POST',
+      data: {
+        ...payload,
+        kind: 'provider',
+      },
+    },
+  );
+}
+
+export async function deleteOpenAPISourceBinding(sourceId: string, bindingId: string) {
+  return request<OpenAPISourceBindingResponse>(
+    `/api/v1/openapi/sources/${encodeURIComponent(sourceId)}/bindings/${encodeURIComponent(bindingId)}`,
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
 /**
@@ -121,7 +229,7 @@ export async function getEntityFunctions(entityId: string) {
  * @param spec OpenAPI Document
  * @returns 验证结果
  */
-export async function validateOpenAPISpec(spec: any) {
+export async function validateOpenAPISpec(spec: OpenAPIDocument) {
   return request<{
     valid: boolean;
     errors: string[];
@@ -137,7 +245,17 @@ export async function validateOpenAPISpec(spec: any) {
  * @param descriptor 函数描述符
  * @returns OpenAPI Operation Object
  */
-export function descriptorToOpenAPI(descriptor: any): OpenAPIOperation {
+export function descriptorToOpenAPI(descriptor: {
+  id: string;
+  display_name?: LocalizedText;
+  description?: string;
+  summary?: LocalizedText;
+  tags?: string[];
+  category?: string;
+  risk?: RiskLevel;
+  entity?: string;
+  operation?: string;
+}): OpenAPIOperation {
   const operation: OpenAPIOperation = {
     operationId: descriptor.id,
     summary: descriptor.display_name?.zh || descriptor.display_name?.en || descriptor.id,
@@ -184,14 +302,18 @@ export function descriptorToOpenAPI(descriptor: any): OpenAPIOperation {
  */
 export function extractOpenAPIMetadata(operation: OpenAPIOperation): {
   category?: string;
-  risk?: 'safe' | 'warning' | 'danger';
+  risk?: RiskLevel;
   entity?: string;
-  operationType?: 'create' | 'read' | 'update' | 'delete' | 'custom';
+  operation?: string;
+  operationKind?: OperationKind;
+  placement?: OperationPlacement;
 } {
   return {
     category: operation.extensions?.['x-category'],
     risk: operation.extensions?.['x-risk'],
     entity: operation.extensions?.['x-entity'],
-    operationType: operation.extensions?.['x-operation'],
+    operation: operation.extensions?.['x-operation'],
+    operationKind: operation.extensions?.['x-operation-kind'],
+    placement: operation.extensions?.['x-placement'],
   };
 }

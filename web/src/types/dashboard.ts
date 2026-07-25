@@ -16,6 +16,15 @@
 /** 多语言文本，locale code -> display text */
 export type LocalizedText = Record<string, string>;
 
+/** JSON 基础值，避免核心 DTO 使用 any */
+export type JSONValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JSONValue[]
+  | { [key: string]: JSONValue };
+
 /** JSON Schema 对象 (draft-07 / 2020-12) */
 export type JSONSchema = Record<string, unknown>;
 
@@ -53,6 +62,15 @@ export type RiskLevel = 'safe' | 'warning' | 'high' | 'danger';
 
 /** 页面类型 */
 export type PageType = 'entity' | 'operation' | 'task' | 'report';
+
+/** 页面 binding 在运行期的用途 */
+export type PageBindingUsage = 'query' | 'detail' | 'action' | 'task' | 'report';
+
+/** 页面 binding 执行模式 */
+export type PageExecutionMode = 'sync' | 'task';
+
+/** 页面执行返回类型 */
+export type PageExecutionKind = 'sync' | 'task' | 'approval';
 
 /** 诊断严重级别 */
 export type DiagnosticSeverity = 'error' | 'warning' | 'info';
@@ -145,7 +163,56 @@ export interface OperationSpec {
   labels: LocalizedText;
   risk?: RiskLevel;
   enabled: boolean;
+  pageContract?: PageContract;
   diagnostics?: Diagnostic[];
+}
+
+/** 可选页面生成数据契约，不是 UI schema */
+export interface PageContract {
+  version: string;
+  executionMode?: PageExecutionMode;
+  inputMapping?: JSONValue;
+  outputMapping?: JSONValue;
+  pagination?: PagePaginationContract;
+  table?: PageTableContract;
+  task?: PageTaskContract;
+  report?: PageReportContract;
+}
+
+/** 分页请求/响应路径契约 */
+export interface PagePaginationContract {
+  pageField: string;
+  pageSizeField: string;
+  itemsPath: string;
+  totalPath: string;
+}
+
+/** 表格列契约 */
+export interface PageTableContract {
+  columns?: PageTableColumnContract[];
+  columnsPath?: string;
+}
+
+export interface PageTableColumnContract {
+  key: string;
+  title: LocalizedText;
+  valuePath: string;
+}
+
+/** 异步任务跟踪契约 */
+export interface PageTaskContract {
+  taskIdPath?: string;
+  statusPath?: string;
+  eventsPath?: string;
+  resultPath?: string;
+}
+
+/** 报表图表数据契约 */
+export interface PageReportContract {
+  chartType?: string;
+  categoryPath?: string;
+  seriesPath?: string;
+  valuePath?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,8 +228,18 @@ export interface PageCategorySpec {
 
 /** 页面函数绑定 */
 export interface PageFunctionBinding {
+  id: string;
   functionId: string;
-  role: OperationPlacement;
+  usage: PageBindingUsage;
+  inputMapping?: JSONValue;
+  outputMapping?: JSONValue;
+  execution: PageBindingExecution;
+}
+
+/** 页面 binding 执行策略 */
+export interface PageBindingExecution {
+  mode: PageExecutionMode;
+  requireConfirm?: boolean;
 }
 
 /** 完整页面编排规格 */
@@ -186,9 +263,36 @@ export interface PageSpec {
 
 /** 已发布的不可变页面快照 */
 export interface PublishedPageSpec extends PageSpec {
+  gameId?: string;
+  env?: string;
   version: number;
   publishedAt: string;
   publishedBy?: string;
+  rendererSchemaVersion: string;
+  bindingContracts: BindingContractSnapshot[];
+}
+
+/** 已发布页面 binding 的函数契约快照 */
+export interface BindingContractSnapshot {
+  bindingId: string;
+  functionId: string;
+  functionVersion?: string;
+  inputSchemaDigest?: string;
+  outputSchemaDigest?: string;
+  risk?: RiskLevel;
+  executionMode: PageExecutionMode;
+  rendererSchemaVersion: string;
+}
+
+/** Page renderer 只消费该执行返回结构，不直接消费函数原始响应 */
+export interface PageExecutionResult {
+  kind: PageExecutionKind;
+  requestId: string;
+  traceId?: string;
+  data?: JSONValue;
+  taskId?: string;
+  approvalId?: string;
+  diagnostics?: Diagnostic[];
 }
 
 // ---------------------------------------------------------------------------
@@ -233,13 +337,15 @@ export type PageDraftStatus = 'draft' | 'published' | 'archived';
 
 /** 页面草稿摘要（列表用） */
 export interface PageSpecDraftSummary {
+  gameId?: string;
+  env?: string;
   pageKey: string;
   type: PageType;
   resourceKey?: string;
   title: LocalizedText;
   category: PageCategorySpec;
   status: PageDraftStatus;
-  draftVersion: number;
+  draftRevision: number;
   publishedVersion?: number;
   updatedAt: string;
   updatedBy?: string;
@@ -247,8 +353,10 @@ export interface PageSpecDraftSummary {
 
 /** 页面草稿详情 */
 export interface PageSpecDraft extends PageSpec {
+  gameId?: string;
+  env?: string;
   status: PageDraftStatus;
-  draftVersion: number;
+  draftRevision: number;
   publishedVersion?: number;
   diagnostics?: Diagnostic[];
   updatedAt: string;

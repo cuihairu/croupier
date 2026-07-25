@@ -1,5 +1,6 @@
 import { request } from '@umijs/max';
-import { FunctionDescriptor } from './functions';
+import type { JSONValue } from '@/types/dashboard';
+import type { FunctionDescriptor } from './functions';
 
 export interface LocalizedText {
   zh?: string;
@@ -33,8 +34,8 @@ export interface FunctionCallRecord {
   startedAt: string;
   completedAt?: string;
   duration?: number;
-  payload?: any;
-  result?: any;
+  payload?: JSONValue;
+  result?: JSONValue;
   error?: string;
   agentId?: string;
   serviceId?: string;
@@ -63,7 +64,7 @@ export interface FunctionInstance {
   lastSeen?: string;
   gameId?: string;
   env?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Raw backend payload observed from function instance endpoints.
@@ -94,7 +95,7 @@ export interface RawFunctionInstance {
   game_id?: string;
   gameId?: string;
   env?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Normalize backend instance payloads into the canonical frontend DTO.
@@ -133,14 +134,93 @@ export interface RegistryService {
   gameId?: string;
   env?: string;
   version?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface FunctionMetrics {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
-function normalizeFunctionSummary(item: any): FunctionSummary {
+type RawFunctionSummary = {
+  id?: string;
+  function_id?: string;
+  version?: string;
+  status?: number;
+  enabled?: boolean;
+  display_name?: LocalizedText;
+  displayName?: LocalizedText;
+  summary?: LocalizedText;
+  tags?: string[];
+  category?: string;
+  menu?: FunctionSummary['menu'];
+};
+
+type FunctionSummaryListResponse = {
+  functions?: RawFunctionSummary[];
+  items?: RawFunctionSummary[];
+};
+
+type RawFunctionDescriptor = FunctionDescriptor & {
+  display_name?: LocalizedText;
+  displayName?: LocalizedText;
+};
+
+type RawFunctionCallRecord = {
+  id?: string;
+  function_id?: string;
+  functionId?: string;
+  user?: string;
+  status?: FunctionCallRecord['status'];
+  started_at?: string;
+  startedAt?: string;
+  completed_at?: string;
+  completedAt?: string;
+  duration?: number;
+  payload?: JSONValue;
+  result?: JSONValue;
+  error?: string;
+  agent_id?: string;
+  agentId?: string;
+  service_id?: string;
+  serviceId?: string;
+  game_id?: string;
+  gameId?: string;
+  env?: string;
+  task_id?: string;
+  taskId?: string;
+  retry_count?: number;
+  retryCount?: number;
+};
+
+type FunctionCallsResponse = {
+  calls?: RawFunctionCallRecord[];
+  total?: number;
+  has_more?: boolean;
+  hasMore?: boolean;
+};
+
+type RawRegistryService = {
+  service_id?: string;
+  serviceId?: string;
+  addr?: string;
+  status?: RegistryService['status'];
+  last_seen?: string;
+  lastSeen?: string;
+  functions_count?: number;
+  functionsCount?: number;
+  game_id?: string;
+  gameId?: string;
+  env?: string;
+  version?: string;
+  metadata?: Record<string, unknown>;
+};
+
+type RegistryServicesResponse = {
+  services?: RawRegistryService[];
+  total?: number;
+};
+
+function normalizeFunctionSummary(item: RawFunctionSummary): FunctionSummary {
   return {
     id: item.id || item.function_id || '',
     version: item.version,
@@ -150,6 +230,41 @@ function normalizeFunctionSummary(item: any): FunctionSummary {
     tags: item.tags || [],
     category: item.category,
     menu: item.menu,
+  };
+}
+
+function normalizeFunctionCallRecord(item: RawFunctionCallRecord): FunctionCallRecord {
+  return {
+    id: item.id || '',
+    functionId: item.function_id || item.functionId || '',
+    user: item.user,
+    status: item.status || 'failed',
+    startedAt: item.started_at || item.startedAt || '',
+    completedAt: item.completed_at || item.completedAt,
+    duration: item.duration,
+    payload: item.payload,
+    result: item.result,
+    error: item.error,
+    agentId: item.agent_id || item.agentId,
+    serviceId: item.service_id || item.serviceId,
+    gameId: item.game_id || item.gameId,
+    env: item.env,
+    taskId: item.task_id || item.taskId,
+    retryCount: item.retry_count || item.retryCount,
+  };
+}
+
+function normalizeRegistryService(item: RawRegistryService): RegistryService {
+  return {
+    serviceId: item.service_id || item.serviceId || '',
+    addr: item.addr || '',
+    status: item.status || 'unknown',
+    lastSeen: item.last_seen || item.lastSeen || '',
+    functionsCount: item.functions_count || item.functionsCount || 0,
+    gameId: item.game_id || item.gameId,
+    env: item.env,
+    version: item.version,
+    metadata: item.metadata,
   };
 }
 
@@ -164,7 +279,7 @@ export async function getFunctionSummary(params?: {
   enabled?: boolean;
 }): Promise<FunctionSummary[]> {
   try {
-    const res = await request('/api/v1/functions', {
+    const res = await request<FunctionSummaryListResponse | RawFunctionSummary[]>('/api/v1/functions', {
       params: {
         game_id: params?.gameId,
         env: params?.env,
@@ -183,12 +298,12 @@ export async function getFunctionSummary(params?: {
     throw new Error('No functions found, fallback to descriptors');
   } catch (error) {
     console.warn('Failed to fetch function summary, falling back to descriptors', error);
-    const descriptors = await request('/api/v1/functions/descriptors');
-    return descriptors.map((desc: FunctionDescriptor) => ({
+    const descriptors = await request<RawFunctionDescriptor[]>('/api/v1/functions/descriptors');
+    return descriptors.map((desc) => ({
       id: desc.id,
       version: desc.version,
       enabled: true,
-      displayName: (desc as any).display_name || (desc as any).displayName,
+      displayName: desc.display_name || desc.displayName,
       summary: desc.summary,
       tags: desc.tags || [],
       category: desc.category,
@@ -206,7 +321,10 @@ export async function getFunctionDetail(
     env?: string;
   },
 ): Promise<FunctionDescriptor & { instances?: FunctionInstance[]; metrics?: FunctionMetrics }> {
-  const res = await request(`/api/v1/functions/${functionId}`, { method: 'GET' });
+  const res = await request<FunctionDescriptor & { instances?: FunctionInstance[]; metrics?: FunctionMetrics }>(
+    `/api/v1/functions/${functionId}`,
+    { method: 'GET' },
+  );
   return res;
 }
 
@@ -224,7 +342,7 @@ export async function getFunctionCalls(params?: {
   limit?: number;
   offset?: number;
 }): Promise<{ calls: FunctionCallRecord[]; total: number; hasMore: boolean }> {
-  const res = await request('/api/v1/function-calls', {
+  const res = await request<FunctionCallsResponse>('/api/v1/function-calls', {
     params: {
       function_id: params?.functionId,
       user_id: params?.userId,
@@ -238,24 +356,7 @@ export async function getFunctionCalls(params?: {
     },
   });
   return {
-    calls: (res.calls || []).map((item: any) => ({
-      id: item.id,
-      functionId: item.function_id || item.functionId || '',
-      user: item.user,
-      status: item.status,
-      startedAt: item.started_at || item.startedAt || '',
-      completedAt: item.completed_at || item.completedAt,
-      duration: item.duration,
-      payload: item.payload,
-      result: item.result,
-      error: item.error,
-      agentId: item.agent_id || item.agentId,
-      serviceId: item.service_id || item.serviceId,
-      gameId: item.game_id || item.gameId,
-      env: item.env,
-      taskId: item.task_id || item.taskId,
-      retryCount: item.retry_count || item.retryCount,
-    })),
+    calls: (res.calls || []).map(normalizeFunctionCallRecord),
     total: res.total || 0,
     hasMore: res.has_more || res.hasMore || false,
   };
@@ -265,25 +366,8 @@ export async function getFunctionCalls(params?: {
  * 获取单个调用详情
  */
 export async function getFunctionCall(callId: string): Promise<FunctionCallRecord> {
-  const item = await request<any>(`/api/v1/function-calls/${callId}`, { method: 'GET' });
-  return {
-    id: item.id,
-    functionId: item.function_id || item.functionId || '',
-    user: item.user,
-    status: item.status,
-    startedAt: item.started_at || item.startedAt || '',
-    completedAt: item.completed_at || item.completedAt,
-    duration: item.duration,
-    payload: item.payload,
-    result: item.result,
-    error: item.error,
-    agentId: item.agent_id || item.agentId,
-    serviceId: item.service_id || item.serviceId,
-    gameId: item.game_id || item.gameId,
-    env: item.env,
-    taskId: item.task_id || item.taskId,
-    retryCount: item.retry_count || item.retryCount,
-  };
+  const item = await request<RawFunctionCallRecord>(`/api/v1/function-calls/${callId}`, { method: 'GET' });
+  return normalizeFunctionCallRecord(item);
 }
 
 /**
@@ -345,7 +429,7 @@ export async function getRegistryServices(params?: {
   env?: string;
   status?: string;
 }): Promise<{ services: RegistryService[]; total: number }> {
-  const res = await request('/api/v1/registry/services', {
+  const res = await request<RegistryServicesResponse>('/api/v1/registry/services', {
     params: {
       game_id: params?.gameId,
       env: params?.env,
@@ -353,17 +437,7 @@ export async function getRegistryServices(params?: {
     },
   });
   return {
-    services: (res.services || []).map((item: any) => ({
-      serviceId: item.service_id || item.serviceId || '',
-      addr: item.addr || '',
-      status: item.status || 'unknown',
-      lastSeen: item.last_seen || item.lastSeen || '',
-      functionsCount: item.functions_count || item.functionsCount || 0,
-      gameId: item.game_id || item.gameId,
-      env: item.env,
-      version: item.version,
-      metadata: item.metadata,
-    })),
+    services: (res.services || []).map(normalizeRegistryService),
     total: res.total || 0,
   };
 }
@@ -502,7 +576,7 @@ export async function importFunctions(params: {
  * 验证函数配置
  */
 export async function validateFunctionConfig(params: {
-  functionConfig: any;
+  functionConfig: unknown;
   strict?: boolean;
 }): Promise<{ valid: boolean; errors: string[]; warnings: string[] }> {
   console.warn('API /api/functions/validate 在后端未提供，返回基础校验结果');
@@ -526,12 +600,12 @@ export async function getFunctionDependencies(functionId: string): Promise<{
  */
 export async function testFunction(params: {
   functionId: string;
-  payload: any;
+  payload: JSONValue;
   dryRun?: boolean;
   gameId?: string;
   env?: string;
-}): Promise<{ valid: boolean; result?: any; error?: string; duration?: number }> {
-  const result = await request(
+}): Promise<{ valid: boolean; result?: JSONValue; error?: string; duration?: number }> {
+  const result = await request<JSONValue>(
     `/api/v1/functions/${encodeURIComponent(params.functionId)}/invoke`,
     {
       method: 'POST',
@@ -571,9 +645,9 @@ export async function getFunctionOpenAPIDetail(functionId: string): Promise<{
     'x-placement'?: 'query' | 'tableData' | 'detailData' | 'rowAction' | 'detailAction' | 'toolbarAction' | 'batchAction' | 'standalone';
   };
   // 请求/响应 schema
-  requestBody?: any;
-  responses?: any;
-  parameters?: any[];
+  requestBody?: JSONValue;
+  responses?: JSONValue;
+  parameters?: JSONValue[];
 }> {
   return request(`/api/v1/functions/${functionId}/openapi`);
 }
@@ -583,24 +657,9 @@ export async function getFunctionOpenAPIDetail(functionId: string): Promise<{
  * @param functionIds 函数 ID 列表
  * @returns OpenAPI Operation Object 映射
  */
-export async function batchGetFunctionOpenAPI(functionIds: string[]): Promise<Record<string, any>> {
+export async function batchGetFunctionOpenAPI(functionIds: string[]): Promise<Record<string, JSONValue>> {
   return request('/api/v1/functions/_openapi-batch', {
     method: 'POST',
     data: { function_ids: functionIds },
   });
-}
-
-/**
- * 根据 Entity 类型获取相关函数的 OpenAPI 列表
- * @param entityId Entity ID
- * @returns Entity 关联的函数列表
- */
-export async function getEntityFunctions(entityId: string): Promise<{
-  items: Array<{
-    id: string;
-    operation: string; // business action key
-    name: string;
-  }>;
-}> {
-  return request(`/api/v1/entities/${entityId}/functions`);
 }

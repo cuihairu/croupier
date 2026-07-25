@@ -25,16 +25,11 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 		customUI = fn.Metadata["ui"]
 	}
 	fileUI = loadUIConfigFromFiles(c, fn.FunctionID)
-	if fn.OpenAPISpec != nil {
-		defaultUI = fn.OpenAPISpec["x-ui"]
-	}
-	if defaultUI == nil {
-		// Try to derive UI from input_schema (JSON Schema) stored in OpenAPISpec.
-		// This produces a much better UI than the hardcoded fallback fields.
-		inputSchema := extractInputSchema(fn)
-		if inputSchema != nil {
-			defaultUI = deriveUISchemaFromJSONSchema(inputSchema)
-		}
+	// Function registration never supplies UI. The default Function Form is
+	// derived from the executable input schema after registration.
+	inputSchema := extractInputSchema(fn)
+	if inputSchema != nil {
+		defaultUI = deriveUISchemaFromJSONSchema(inputSchema)
 	}
 	if defaultUI == nil {
 		defaultUI = BuildFallbackUISchema(fn.FunctionID)
@@ -60,12 +55,6 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 	case defaultUI != nil:
 		uiSource = "generated_default"
 		uiSourceDetail = "generated default ui schema"
-		if fn.OpenAPISpec != nil {
-			if _, hasXUI := fn.OpenAPISpec["x-ui"]; hasXUI {
-				uiSource = "openapi_x_ui"
-				uiSourceDetail = "openapi_spec.x-ui (provider default)"
-			}
-		}
 	}
 
 	return uiResolveResult{
@@ -168,14 +157,7 @@ func pickFunctionUIConfig(raw interface{}, functionID string) interface{} {
 }
 
 func unwrapUIConfig(v interface{}) interface{} {
-	m, ok := v.(map[string]interface{})
-	if !ok {
-		return v
-	}
-	if ui, ok := m["x-ui"]; ok {
-		return ui
-	}
-	return m
+	return v
 }
 
 func mergeAny(base, override interface{}) interface{} {

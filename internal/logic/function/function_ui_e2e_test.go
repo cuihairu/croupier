@@ -54,14 +54,14 @@ func TestFunctionUI_EndToEndOverride(t *testing.T) {
 		FunctionModel: model.NewFunctionModel(db),
 	}
 
-	// Step 1: default source should come from OpenAPI x-ui.
+	// Step 1: OpenAPI x-ui is not a valid function registration source.
 	getLogic := NewFunctionUILogicV2(context.Background(), svcCtx)
 	getResp, err := getLogic.FunctionUI(&FunctionUIRequest{ID: "player.ban"})
 	if err != nil {
 		t.Fatalf("FunctionUI failed: %v", err)
 	}
-	if getResp.UISource != "openapi_x_ui" {
-		t.Fatalf("expected uiSource=openapi_x_ui, got %s", getResp.UISource)
+	if getResp.UISource != "generated_default" {
+		t.Fatalf("expected uiSource=generated_default, got %s", getResp.UISource)
 	}
 
 	// Step 2: apply custom override.

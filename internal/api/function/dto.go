@@ -248,7 +248,7 @@ type FunctionUIResponse struct {
 	Schema         json.RawMessage `json:"schema,omitempty"`
 	Custom         bool            `json:"custom"`
 	HasDefault     bool            `json:"hasDefault"`
-	UISource       string          `json:"uiSource"`       // custom_metadata/config_file_override/openapi_x_ui/none
+	UISource       string          `json:"uiSource"`       // custom_metadata/config_file_override/generated_default/none
 	UISourceDetail string          `json:"uiSourceDetail"` // human-readable source description
 }
 

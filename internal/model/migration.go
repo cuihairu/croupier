@@ -18,6 +18,9 @@ func AutoMigrate(db *gorm.DB) error {
 	if err := renameLegacyTables(db); err != nil {
 		return err
 	}
+	if err := dropLegacyPageUniqueIndexes(db); err != nil {
+		return err
+	}
 
 	// For postgres, auto-migration can get stuck on legacy unique constraint names.
 	// Attempt a few self-healing iterations before giving up.
@@ -55,6 +58,9 @@ func AutoMigrate(db *gorm.DB) error {
 // in croupier_meta under the database-per-game architecture).
 func AutoMigrateMeta(db *gorm.DB) error {
 	if err := renameLegacyTables(db); err != nil {
+		return err
+	}
+	if err := dropLegacyPageUniqueIndexes(db); err != nil {
 		return err
 	}
 	return migrateModels(db, MetaModels())
@@ -97,6 +103,8 @@ func MetaModels() []interface{} {
 		&PageSpec{},
 		&PublishedPageSpec{},
 		&PageVersion{},
+		&OpenAPISource{},
+		&OpenAPISourceBinding{},
 		&ExtensionCatalog{},
 		&ExtensionRelease{},
 		&ExtensionInstallation{},
@@ -306,6 +314,35 @@ func renameLegacyTables(db *gorm.DB) error {
 		if migrator.HasTable(entry.oldName) && !migrator.HasTable(entry.newName) {
 			if err := migrator.RenameTable(entry.oldName, entry.newName); err != nil {
 				return fmt.Errorf("rename table %s -> %s: %w", entry.oldName, entry.newName, err)
+			}
+		}
+	}
+	return nil
+}
+
+func dropLegacyPageUniqueIndexes(db *gorm.DB) error {
+	if db == nil || db.Dialector == nil {
+		return nil
+	}
+	switch db.Dialector.Name() {
+	case "postgres":
+		for _, stmt := range []string{
+			`ALTER TABLE "page_specs" DROP CONSTRAINT IF EXISTS "uni_page_specs_page_key"`,
+			`ALTER TABLE "page_specs" DROP CONSTRAINT IF EXISTS "page_specs_page_key_key"`,
+			`DROP INDEX IF EXISTS "uni_page_specs_page_key"`,
+			`DROP INDEX IF EXISTS "page_specs_page_key_key"`,
+		} {
+			if err := db.Exec(stmt).Error; err != nil {
+				return fmt.Errorf("drop legacy page unique index: %w", err)
+			}
+		}
+	default:
+		migrator := db.Migrator()
+		for _, name := range []string{"uni_page_specs_page_key", "page_specs_page_key_key"} {
+			if migrator.HasIndex(&PageSpec{}, name) {
+				if err := migrator.DropIndex(&PageSpec{}, name); err != nil {
+					return fmt.Errorf("drop legacy page index %s: %w", name, err)
+				}
 			}
 		}
 	}

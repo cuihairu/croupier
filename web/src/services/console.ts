@@ -5,7 +5,7 @@
  */
 
 import { request } from '@umijs/max';
-import type { ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
+import type { ConsoleMenuSpec, JSONValue, PageExecutionResult, PublishedPageSpec } from '@/types/dashboard';
 
 const BASE = '/api/v1/console';
 
@@ -15,6 +15,10 @@ type ConsolePagesResponse = {
 
 type ConsolePageResponse = {
   page?: PublishedPageSpec;
+};
+
+type ConsoleExecuteBindingResponse = {
+  result?: PageExecutionResult;
 };
 
 /** 获取运行控制台菜单 */
@@ -42,4 +46,23 @@ export async function getPublishedPage(pageKey: string): Promise<PublishedPageSp
     throw new Error(`published page not found: ${pageKey}`);
   }
   return response.page;
+}
+
+/** 受控执行已发布页面 binding，浏览器不传 functionId/route/scope */
+export async function executePageBinding(
+  pageKey: string,
+  bindingId: string,
+  payload: JSONValue = {},
+): Promise<PageExecutionResult> {
+  const response = await request<ConsoleExecuteBindingResponse>(
+    `${BASE}/pages/${encodeURIComponent(pageKey)}/bindings/${encodeURIComponent(bindingId)}/execute`,
+    {
+      method: 'POST',
+      data: { payload },
+    },
+  );
+  if (!response?.result) {
+    throw new Error(`page binding execution returned empty result: ${bindingId}`);
+  }
+  return response.result;
 }

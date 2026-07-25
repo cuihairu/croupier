@@ -1218,6 +1218,24 @@ func TestValidateAndNormalizeFunctions(t *testing.T) {
 		assert.Equal(t, "invalid_version", warnings[0].Code)
 	})
 
+	t.Run("rejects ui extension", func(t *testing.T) {
+		items := []*agentv1.FunctionDescriptor{
+			{
+				Id:      "game.player.ban",
+				Version: "1.0.0",
+				Extensions: map[string]string{
+					"x-ui": `{"type":"object"}`,
+				},
+			},
+		}
+
+		functions, warnings := validateAndNormalizeFunctions(items)
+		assert.Empty(t, functions)
+		require.Len(t, warnings, 1)
+		assert.Equal(t, "function_ui_not_allowed", warnings[0].Code)
+		assert.Contains(t, warnings[0].Message, "x-ui")
+	})
+
 	t.Run("duplicate function IDs - keep higher version", func(t *testing.T) {
 		items := []*agentv1.FunctionDescriptor{
 			{
