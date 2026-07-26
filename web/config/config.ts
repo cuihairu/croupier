@@ -170,5 +170,5 @@ export default defineConfig({
       // Auto-fallback without breaking build
       return { '@monaco-editor/react': join(__dirname, '../src/shims/monacoReactShim') };
     }
-  })(),
+  })() as Record<string, string>,
 });

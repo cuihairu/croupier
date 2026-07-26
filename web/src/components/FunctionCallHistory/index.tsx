@@ -36,6 +36,8 @@ type FunctionCallView = FunctionCallItem & {
   durationText: string;
   startedText: string;
   completedText: string;
+  actorText: string;
+  errorText?: string;
 };
 
 export interface FunctionCallHistoryProps {
@@ -168,6 +170,8 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
     durationText: formatDuration(call.durationMs),
     startedText: formatDate(call.startedAt || call.createdAt),
     completedText: call.finishedAt ? formatDate(call.finishedAt) : '-',
+    actorText: call.actorId || '-',
+    errorText: call.errorMessage,
   });
 
   const processedCalls = useMemo(() => {
@@ -225,7 +229,7 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
                     <Space>
                       {getStatusBadge(call.status)}
                       <Text code>{call.functionId}</Text>
-                      {call.user && <Text type="secondary">by {call.user}</Text>}
+                      {call.actorId && <Text type="secondary">by {call.actorId}</Text>}
                     </Space>
                     <Space>
                       {call.durationMs && <Tag color="blue">{call.durationText}</Tag>}
@@ -254,9 +258,9 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
                   <Text type="secondary" style={{ fontSize: '12px' }}>
                     {call.startedText}
                   </Text>
-                  {call.error && (
+                  {call.errorText && (
                     <Text type="danger" style={{ fontSize: '12px' }}>
-                      {call.error}
+                      {call.errorText}
                     </Text>
                   )}
                   {(call.gameId || call.env || call.agentId) && (
@@ -293,7 +297,7 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
                 <Descriptions.Item label="状态">
                   {getStatusBadge(selectedCall.status)}
                 </Descriptions.Item>
-                <Descriptions.Item label="用户">{selectedCall.user || '-'}</Descriptions.Item>
+                <Descriptions.Item label="用户">{selectedCall.actorText}</Descriptions.Item>
                 <Descriptions.Item label="开始时间">{selectedCall.startedText}</Descriptions.Item>
                 <Descriptions.Item label="结束时间">{selectedCall.completedText}</Descriptions.Item>
                 <Descriptions.Item label="执行时长">{selectedCall.durationText}</Descriptions.Item>
@@ -357,9 +361,9 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
             )}
 
             {/* Error Information */}
-            {selectedCall.error && (
+            {selectedCall.errorText && (
               <Card title="错误信息" size="small">
-                <Text type="danger">{selectedCall.error}</Text>
+                <Text type="danger">{selectedCall.errorText}</Text>
               </Card>
             )}
 

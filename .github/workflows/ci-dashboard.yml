@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/ci-dashboard.yml"
+      - ".github/scripts/dashboard_guard.sh"
       - "web/**"
   push:
     branches: [main]
     tags: ["v*"]
     paths:
       - ".github/workflows/ci-dashboard.yml"
+      - ".github/scripts/dashboard_guard.sh"
       - "web/**"
   workflow_dispatch:
     inputs:
@@ -58,20 +60,31 @@ jobs:
           test -f src/services/contracts/extensions.ts || (echo "missing generated contracts" && exit 1)
           test -f src/services/errors/codes.ts || (echo "missing error code mapping" && exit 1)
 
+      - name: Dashboard model guard
+        timeout-minutes: 2
+        working-directory: .
+        run: bash .github/scripts/dashboard_guard.sh
+
       - name: Lint dashboard product path
         timeout-minutes: 5
         run: |
           pnpm exec eslint \
             src/components/index.ts \
+            src/components/FormilyPageRenderer/index.tsx \
             src/pages/Console/index.tsx \
+            src/pages/Console/Page.tsx \
             src/pages/Functions/Detail.tsx \
             src/pages/Functions/Directory/index.tsx \
             src/pages/Functions/Invoke/index.tsx \
-            src/pages/WorkspaceEditor/components/ConfigPreview.tsx \
-            src/pages/WorkspaceEditor/components/TemplateManager.tsx \
-            src/pages/WorkspaceEditor/index.tsx \
-            src/pages/Workspaces/Detail.tsx \
-            src/pages/Workspaces/index.tsx
+            src/pages/PageStudio/index.tsx \
+            src/pages/Resources/index.tsx \
+            src/services/api/pages.ts \
+            src/services/console.ts \
+            src/types/dashboard.ts
+
+      - name: Type check dashboard
+        timeout-minutes: 5
+        run: pnpm exec tsc --noEmit
 
   docker-dashboard:
     if: |

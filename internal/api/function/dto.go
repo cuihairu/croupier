@@ -5,7 +5,7 @@ import "encoding/json"
 // Function management DTOs
 // Extracted from internal/types/types.go
 
-// Function represents a function entity
+// Function represents a registered executable capability record.
 type Function struct {
 	Id          string          `json:"id"`
 	Name        string          `json:"name"`
@@ -127,15 +127,16 @@ type FunctionInstancesResponse struct {
 
 // FunctionInvokeRequest represents a request to invoke a function
 type FunctionInvokeRequest struct {
-	ID              string          `uri:"id"`
-	Params          json.RawMessage `json:"params,omitempty"`
-	Payload         json.RawMessage `json:"payload,omitempty"`
-	GameID          string          `json:"gameId"`
-	Env             string          `json:"env"`
-	Mode            string          `json:"mode"`
-	Route           string          `json:"route"`
-	TargetServiceID string          `json:"target_service_id"`
-	HashKey         string          `json:"hash_key"`
+	ID              string            `uri:"id"`
+	Params          json.RawMessage   `json:"params,omitempty"`
+	Payload         json.RawMessage   `json:"payload,omitempty"`
+	GameID          string            `json:"gameId"`
+	Env             string            `json:"env"`
+	Mode            string            `json:"mode"`
+	Route           string            `json:"route"`
+	TargetServiceID string            `json:"target_service_id"`
+	HashKey         string            `json:"hash_key"`
+	Metadata        map[string]string `json:"-"`
 }
 
 // FunctionInvokeResponse represents the response of a function invocation

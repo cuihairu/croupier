@@ -11,7 +11,7 @@ import type { FormilyJSONValue, FormilySchema } from '@/components/formily/schem
  * @param defaultValue 默认值
  * @returns 解析后的对象或默认值
  */
-export function jsonParse<T = any>(jsonString: string, defaultValue?: T): T {
+export function jsonParse<T = unknown>(jsonString: string, defaultValue?: T): T {
   try {
     return JSON.parse(jsonString);
   } catch (error) {
@@ -26,7 +26,7 @@ export function jsonParse<T = any>(jsonString: string, defaultValue?: T): T {
  * @param space 缩进空格数
  * @returns JSON 字符串
  */
-export function jsonStringify(obj: any, space?: number): string {
+export function jsonStringify(obj: unknown, space?: number): string {
   try {
     return JSON.stringify(obj, null, space);
   } catch (error) {
@@ -41,25 +41,27 @@ export function jsonStringify(obj: any, space?: number): string {
  * @param source 源对象
  * @returns 合并后的对象
  */
-export function deepMerge<T = any>(target: T, source: Partial<T>): T {
+type JsonRecord = Record<string, unknown>;
+
+export function deepMerge<T extends JsonRecord>(target: T, source: Partial<T>): T {
   if (!isPlainObject(target) || !isPlainObject(source)) {
     return source as T;
   }
 
-  const result = { ...target };
+  const result: JsonRecord = { ...target };
 
   for (const key in source) {
     if (source.hasOwnProperty(key)) {
       const value = source[key];
       if (isPlainObject(value) && isPlainObject(result[key])) {
-        result[key] = deepMerge(result[key], value);
+        result[key] = deepMerge(result[key] as JsonRecord, value as JsonRecord);
       } else {
-        result[key] = value as any;
+        result[key] = value;
       }
     }
   }
 
-  return result;
+  return result as T;
 }
 
 /**
@@ -81,27 +83,28 @@ export function isValidJSON(str: string): boolean {
  * @param obj 要克隆的对象
  * @returns 克隆后的对象
  */
-export function cloneDeep<T = any>(obj: T): T {
+export function cloneDeep<T = unknown>(obj: T): T {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
 
   if (obj instanceof Date) {
-    return new Date(obj.getTime()) as any;
+    return new Date(obj.getTime()) as T;
   }
 
   if (obj instanceof Array) {
-    return obj.map((item) => cloneDeep(item)) as any;
+    return obj.map((item) => cloneDeep(item)) as T;
   }
 
   if (isPlainObject(obj)) {
-    const cloned = {} as any;
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        cloned[key] = cloneDeep(obj[key]);
+    const source = obj as JsonRecord;
+    const cloned: JsonRecord = {};
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        cloned[key] = cloneDeep(source[key]);
       }
     }
-    return cloned;
+    return cloned as T;
   }
 
   return obj;

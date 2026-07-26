@@ -17,29 +17,27 @@ import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/antdApp';
 import {
-  listUsers,
-  createUser,
-  updateUser,
-  deleteUser,
-  setUserPassword,
-  listUserGames,
-  setUserGames,
-  listUserGameEnvs,
-  setUserGameEnvs,
-  type UserRecord,
-} from '@/services/api/users';
-import { listRoles } from '@/services/api/roles';
+  createAdmin,
+  deleteAdmin,
+  getAdminGames,
+  listAdmins,
+  listRoles,
+  resetAdminPassword,
+  updateAdmin,
+  updateAdminGames,
+  type AdminRecord,
+} from '@/services/api/permissions';
 import { listGamesMeta, type Game as GameMeta } from '@/services/api/games';
 import { listGameEnvs } from '@/services/api/envs';
 
 export default function UsersV2() {
-  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [users, setUsers] = useState<AdminRecord[]>([]);
   const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
   const [scopeOpen, setScopeOpen] = useState(false);
-  const [editing, setEditing] = useState<UserRecord | null>(null);
+  const [editing, setEditing] = useState<AdminRecord | null>(null);
   const [form] = Form.useForm();
   const [pwdForm] = Form.useForm();
   const [scopeForm] = Form.useForm();
@@ -53,9 +51,9 @@ export default function UsersV2() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const [u, r, g] = await Promise.all([listUsers(), listRoles(), listGamesMeta()]);
-      setUsers(u.users || []);
-      setRoles((r.roles || []).map((x: any) => ({ id: x.id, name: x.name })));
+      const [u, r, g] = await Promise.all([listAdmins(), listRoles(), listGamesMeta()]);
+      setUsers(u.items || []);
+      setRoles((r.items || []).map((x) => ({ id: x.id, name: x.name })));
       setGames(g.games || []);
     } finally {
       setLoading(false);
@@ -69,35 +67,37 @@ export default function UsersV2() {
     setEditing(null);
     setModalOpen(true);
   };
-  const openEdit = (rec: UserRecord) => {
+  const openEdit = (rec: AdminRecord) => {
     setEditing(rec);
     setModalOpen(true);
   };
-  const openPwd = (rec: UserRecord) => {
+  const openPwd = (rec: AdminRecord) => {
     setEditing(rec);
     setPwdOpen(true);
   };
-  const openScope = async (rec: UserRecord) => {
+  const openScope = async (rec: AdminRecord) => {
     setEditing(rec);
     setScopeOpen(true);
     try {
       // choose initial game: user's first assigned, else first game
-      const cur = await listUserGames(rec.id);
-      const userGids: number[] = cur.game_ids || [];
-      const initId = userGids[0] ?? (games[0] as any)?.id;
-      if (initId) {
+      const cur = await getAdminGames(rec.id);
+      const userGameIds = (cur.games || []).map((game) => game.gameId);
+      const fallbackId = games[0]?.id;
+      const matchedGame = games.find((game) => userGameIds.includes(String(game.id)));
+      const initId = matchedGame?.id ?? fallbackId;
+      if (typeof initId === 'number') {
         setSelectedGid(initId);
         // load env options and current env scope
         try {
           const r = await listGameEnvs(initId);
-          const opts = (r.envs || []).map((e: any) => e.env).filter(Boolean);
+          const opts = (r.envs || []).map((e) => e.env).filter(Boolean);
           setEnvOptions(opts);
         } catch {
           setEnvOptions([]);
         }
         try {
-          const r2 = await listUserGameEnvs(rec.id, initId);
-          setEnvSel(r2.envs || []);
+          const assignedGame = (cur.games || []).find((game) => game.gameId === String(initId));
+          setEnvSel(assignedGame?.envs || []);
         } catch {
           setEnvSel([]);
         }
@@ -113,22 +113,21 @@ export default function UsersV2() {
     const v = await form.validateFields();
     try {
       if (editing) {
-        await updateUser(editing.id, {
-          display_name: v.display_name,
+        await updateAdmin(editing.id, {
+          nickname: v.nickname,
           email: v.email,
           phone: v.phone,
-          active: v.active,
+          status: v.active ? 1 : 0,
           roles: v.roles,
         });
         getMessage()?.success('已更新');
       } else {
-        const resp = await createUser({
+        const resp = await createAdmin({
           username: v.username,
-          display_name: v.display_name,
+          nickname: v.nickname,
           email: v.email,
           phone: v.phone,
           password: v.password,
-          active: v.active,
           roles: v.roles,
         });
         getMessage()?.success(`已创建 #${resp.id}`);
@@ -140,13 +139,13 @@ export default function UsersV2() {
   const submitPwd = async () => {
     const v = await pwdForm.validateFields();
     if (!editing) return;
-    await setUserPassword(editing.id, v.password);
+    await resetAdminPassword(editing.id, v.password);
     getMessage()?.success('密码已设置');
     setPwdOpen(false);
   };
 
   const submitScope = async () => {
-    const v = await scopeForm.validateFields();
+    await scopeForm.validateFields();
     if (!editing) return;
     const gid = selectedGid;
     if (!gid) {
@@ -154,10 +153,12 @@ export default function UsersV2() {
       return;
     }
     // merge selected game into user's game list
-    const cur = await listUserGames(editing.id);
-    const uniq = new Set<number>([...(cur.game_ids || []), gid]);
-    await setUserGames(editing.id, Array.from(uniq));
-    await setUserGameEnvs(editing.id, gid, envSel || []);
+    const cur = await getAdminGames(editing.id);
+    const current = cur.games || [];
+    const gameName = games.find((game) => game.id === gid)?.displayName || String(gid);
+    const next = current.filter((game) => game.gameId !== String(gid));
+    next.push({ gameId: String(gid), gameName, envs: envSel || [] });
+    await updateAdminGames(editing.id, next);
     getMessage()?.success('已保存');
     setScopeOpen(false);
   };
@@ -168,10 +169,10 @@ export default function UsersV2() {
     if (editing) {
       form.setFieldsValue({
         username: editing.username,
-        display_name: editing.display_name,
+        nickname: editing.nickname,
         email: editing.email,
-        phone: (editing as any).phone,
-        active: (editing as any).active,
+        phone: editing.phone,
+        active: editing.status === 1,
         roles: editing.roles || [],
       });
     } else {
@@ -186,22 +187,22 @@ export default function UsersV2() {
     }
   }, [pwdOpen]);
 
-  const remove = async (rec: UserRecord) => {
-    await deleteUser(rec.id);
+  const remove = async (rec: AdminRecord) => {
+    await deleteAdmin(rec.id);
     getMessage()?.success('已删除');
     refresh();
   };
 
-  const columns: ColumnsType<UserRecord> = [
+  const columns: ColumnsType<AdminRecord> = [
     { title: '用户名', dataIndex: 'username', key: 'username' },
-    { title: '显示名', dataIndex: 'display_name', key: 'display_name' },
+    { title: '显示名', dataIndex: 'nickname', key: 'nickname' },
     { title: '邮箱', dataIndex: 'email', key: 'email' },
     { title: '手机', dataIndex: 'phone', key: 'phone' },
     {
       title: '启用',
-      dataIndex: 'active',
+      dataIndex: 'status',
       key: 'active',
-      render: (v: boolean) => (v ? '是' : '否'),
+      render: (v: number) => (v === 1 ? '是' : '否'),
     },
     {
       title: '角色',
@@ -212,7 +213,7 @@ export default function UsersV2() {
     {
       title: '操作',
       key: 'ops',
-      render: (_: any, rec) => (
+      render: (_value, rec) => (
         <Space>
           <Button size="small" onClick={() => openEdit(rec)}>
             编辑
@@ -289,7 +290,7 @@ export default function UsersV2() {
               <Input />{' '}
             </Form.Item>
           )}
-          <Form.Item label="显示名" name="display_name">
+          <Form.Item label="显示名" name="nickname">
             {' '}
             <Input />{' '}
           </Form.Item>
@@ -355,7 +356,7 @@ export default function UsersV2() {
           <Form.Item label="选择游戏" name="game_id">
             <Select
               placeholder="选择一个游戏"
-              options={(games || []).map((g) => ({
+              options={(games || []).filter((g) => typeof g.id === 'number').map((g) => ({
                 label: g.displayName || g.aliasName || g.name,
                 value: g.id,
               }))}
@@ -364,15 +365,18 @@ export default function UsersV2() {
                 setSelectedGid(gid);
                 try {
                   const r = await listGameEnvs(gid);
-                  const opts = (r.envs || []).map((e: any) => e.env).filter(Boolean);
+                  const opts = (r.envs || []).map((e) => e.env).filter(Boolean);
                   setEnvOptions(opts);
                 } catch {
                   setEnvOptions([]);
                 }
                 if (editing) {
                   try {
-                    const r2 = await listUserGameEnvs(editing.id, gid);
-                    setEnvSel(r2.envs || []);
+                    const current = await getAdminGames(editing.id);
+                    const assignedGame = (current.games || []).find(
+                      (game) => game.gameId === String(gid),
+                    );
+                    setEnvSel(assignedGame?.envs || []);
                   } catch {
                     setEnvSel([]);
                   }

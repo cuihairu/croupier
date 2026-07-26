@@ -236,9 +236,6 @@ export async function updateRolePermissions(id: number, permissions: string[]) {
   });
 }
 
-// 向后兼容的别名
-export const setRolePerms = updateRolePermissions;
-
 // === 权限检查 API ===
 
 export async function getUserPermissions(params?: { gameId?: string; env?: string }) {

@@ -60,6 +60,13 @@ const (
 	EventFunctionUnregister AuditEventType = "function.unregister"
 	EventFunctionUpdate     AuditEventType = "function.update"
 
+	// Dashboard page events
+	EventPageDraftSave AuditEventType = "page.draft_save"
+	EventPagePublish   AuditEventType = "page.publish"
+	EventPageUnpublish AuditEventType = "page.unpublish"
+	EventPageRollback  AuditEventType = "page.rollback"
+	EventPageExecute   AuditEventType = "page.execute"
+
 	// Configuration events
 	EventConfigCreate AuditEventType = "config.create"
 	EventConfigUpdate AuditEventType = "config.update"
@@ -437,7 +444,10 @@ func (s *AuditService) inferCategory(eventType AuditEventType) AuditCategory {
 		return CategorySecurity
 	case eventType == EventUserCreate || eventType == EventUserUpdate || eventType == EventUserDelete:
 		return CategoryAdmin
-	case eventType == EventFunctionInvoke || eventType == EventConfigUpdate:
+	case eventType == EventFunctionInvoke || eventType == EventFunctionRegister || eventType == EventFunctionUnregister ||
+		eventType == EventFunctionUpdate || eventType == EventPageDraftSave || eventType == EventPagePublish ||
+		eventType == EventPageUnpublish || eventType == EventPageRollback || eventType == EventPageExecute ||
+		eventType == EventConfigUpdate:
 		return CategoryOperational
 	case eventType == EventDataAccess || eventType == EventDataExport || eventType == EventDataDelete:
 		return CategoryData

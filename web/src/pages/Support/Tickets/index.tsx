@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Input, Select, Tag, Modal, Form, Dropdown } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { MenuProps } from 'antd';
-import { listUsers } from '@/services/api';
-import { updateTicket as updateTicketAPI } from '@/services/api/support';
+import { listAdmins, type AdminRecord } from '@/services/api/permissions';
 import { history } from '@umijs/max';
 import {
   listTickets,
@@ -14,8 +13,70 @@ import {
 } from '@/services/api/support';
 import { useAccess } from '@umijs/max';
 
+type TicketPriority = 'urgent' | 'high' | 'normal' | 'low';
+type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+
+type SupportTicket = {
+  id: number;
+  title: string;
+  content?: string;
+  category?: string;
+  priority?: TicketPriority | string;
+  status?: TicketStatus | string;
+  assignee?: string;
+  tags?: string[];
+  player_id?: string;
+  contact?: string;
+  game_id?: string;
+  env?: string;
+  source?: string;
+  updated_at?: string;
+};
+
+type SupportAccess = {
+  canSupportManage?: boolean;
+};
+
+const ticketStatuses: TicketStatus[] = ['open', 'in_progress', 'resolved', 'closed'];
+
+const priorityColors: Record<TicketPriority, string> = {
+  urgent: 'red',
+  high: 'volcano',
+  normal: 'blue',
+  low: 'default',
+};
+
+const priorityLabels: Record<TicketPriority, string> = {
+  urgent: '紧急',
+  high: '高',
+  normal: '普通',
+  low: '低',
+};
+
+const statusColors: Record<TicketStatus, string> = {
+  open: 'gold',
+  in_progress: 'blue',
+  resolved: 'green',
+  closed: 'default',
+};
+
+const statusLabels: Record<TicketStatus, string> = {
+  open: '打开',
+  in_progress: '处理中',
+  resolved: '已解决',
+  closed: '已关闭',
+};
+
+function isTicketPriority(value: string): value is TicketPriority {
+  return value in priorityLabels;
+}
+
+function isTicketStatus(value: string): value is TicketStatus {
+  return value in statusLabels;
+}
+
 export default function SupportTicketsPage() {
-  const [list, setList] = useState<any[]>([]);
+  const [list, setList] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
@@ -28,10 +89,10 @@ export default function SupportTicketsPage() {
   const [gameId, setGameId] = useState<string>('');
   const [env, setEnv] = useState<string>('');
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any>(null);
+  const [editing, setEditing] = useState<SupportTicket | null>(null);
   const [form] = Form.useForm();
-  const access: any = useAccess?.() || {};
-  const [users, setUsers] = useState<any[]>([]);
+  const access = (useAccess?.() || {}) as SupportAccess;
+  const [users, setUsers] = useState<AdminRecord[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -59,21 +120,23 @@ export default function SupportTicketsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res: any = await listUsers();
-        setUsers(res.users || []);
+        const res = await listAdmins({ page: 1, pageSize: 200 });
+        setUsers(res.items || []);
       } catch {}
     })();
   }, []);
 
   const priTag = (v?: string) => {
-    const map: any = { urgent: 'red', high: 'volcano', normal: 'blue', low: 'default' };
-    const t: any = { urgent: '紧急', high: '高', normal: '普通', low: '低' };
-    return v ? <Tag color={map[v] || 'default'}>{t[v] || v}</Tag> : '-';
+    if (!v) return '-';
+    return <Tag color={isTicketPriority(v) ? priorityColors[v] : 'default'}>
+      {isTicketPriority(v) ? priorityLabels[v] : v}
+    </Tag>;
   };
   const stTag = (v?: string) => {
-    const map: any = { open: 'gold', in_progress: 'blue', resolved: 'green', closed: 'default' };
-    const t: any = { open: '打开', in_progress: '处理中', resolved: '已解决', closed: '已关闭' };
-    return v ? <Tag color={map[v] || 'default'}>{t[v] || v}</Tag> : '-';
+    if (!v) return '-';
+    return <Tag color={isTicketStatus(v) ? statusColors[v] : 'default'}>
+      {isTicketStatus(v) ? statusLabels[v] : v}
+    </Tag>;
   };
 
   const openAdd = () => {
@@ -81,7 +144,7 @@ export default function SupportTicketsPage() {
     form.resetFields();
     setOpen(true);
   };
-  const openEdit = (rec: any) => {
+  const openEdit = (rec: SupportTicket) => {
     setEditing(rec);
     form.setFieldsValue(rec);
     setOpen(true);
@@ -96,7 +159,7 @@ export default function SupportTicketsPage() {
     setOpen(false);
     load();
   };
-  const onDelete = (rec: any) => {
+  const onDelete = (rec: SupportTicket) => {
     Modal.confirm({
       title: '删除工单',
       content: `确定删除工单“${rec.title}”？`,
@@ -107,20 +170,17 @@ export default function SupportTicketsPage() {
     });
   };
 
-  const transition = async (rec: any, status: string) => {
+  const transition = async (rec: SupportTicket, status: TicketStatus) => {
     await transitionTicket(rec.id, { status });
     load();
   };
 
-  const transitionMenu = (rec: any): MenuProps['items'] =>
-    ['open', 'in_progress', 'resolved', 'closed']
+  const transitionMenu = (rec: SupportTicket): MenuProps['items'] =>
+    ticketStatuses
       .filter((s) => s !== rec.status)
       .map((s) => ({
         key: s,
-        label:
-          ({ open: '打开', in_progress: '处理中', resolved: '已解决', closed: '已关闭' } as any)[
-            s
-          ] || s,
+        label: statusLabels[s],
       }));
 
   return (
@@ -208,15 +268,15 @@ export default function SupportTicketsPage() {
             { title: '优先级', dataIndex: 'priority', render: priTag },
             { title: '状态', dataIndex: 'status', render: stTag },
             { title: '处理人', dataIndex: 'assignee' },
-            { title: '游戏/环境', render: (_: any, r: any) => `${r.game_id || ''}/${r.env || ''}` },
+            { title: '游戏/环境', render: (_, r: SupportTicket) => `${r.game_id || ''}/${r.env || ''}` },
             {
               title: '更新时间',
               dataIndex: 'updated_at',
-              render: (v: any) => (v ? new Date(v).toLocaleString() : '-'),
+              render: (v?: string) => (v ? new Date(v).toLocaleString() : '-'),
             },
             {
               title: '操作',
-              render: (_: any, r: any) => (
+              render: (_, r: SupportTicket) => (
                 <Space>
                   <Button size="small" onClick={() => history.push(`/support/tickets/${r.id}`)}>
                     查看详情
@@ -235,7 +295,12 @@ export default function SupportTicketsPage() {
                     <Dropdown
                       menu={{
                         items: transitionMenu(r),
-                        onClick: ({ key }) => transition(r, String(key)),
+                        onClick: ({ key }) => {
+                          const nextStatus = String(key);
+                          if (isTicketStatus(nextStatus)) {
+                            transition(r, nextStatus);
+                          }
+                        },
                       }}
                       trigger={['click']}
                     >
@@ -313,7 +378,7 @@ export default function SupportTicketsPage() {
               <Select
                 allowClear
                 showSearch
-                options={(users || []).map((u: any) => ({ label: u.username, value: u.username }))}
+                options={users.map((u) => ({ label: u.username, value: u.username }))}
               />{' '}
             </Form.Item>
             <Form.Item label="标签" name="tags">

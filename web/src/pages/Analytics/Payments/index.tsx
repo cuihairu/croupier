@@ -1071,7 +1071,14 @@ const DeltaSection: React.FC<{
           : dim === 'city'
           ? cur.by_city
           : cur.by_product) || [];
-      const arrPreIdx: Record<string, any> = {};
+      type CompareItem = {
+        key: string;
+        cur: Record<string, unknown>;
+        prev: Record<string, unknown>;
+        revDelta: number;
+        rateDelta: number;
+      };
+      const arrPreIdx: Record<string, Record<string, unknown>> = {};
       const arrPre =
         (dim === 'channel'
           ? pre.by_channel
@@ -1088,7 +1095,7 @@ const DeltaSection: React.FC<{
         const k = String(dim === 'product' ? x['product_id'] : x[dim]);
         arrPreIdx[k] = x;
       });
-      const items = arrCur.map((x: any) => {
+      const items: CompareItem[] = arrCur.map((x: Record<string, unknown>) => {
         const key = String(dim === 'product' ? x['product_id'] : x[dim]);
         const prev = arrPreIdx[key] || {};
         const revDelta = Number(x.revenue_cents || 0) - Number(prev.revenue_cents || 0);

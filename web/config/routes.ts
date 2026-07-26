@@ -10,8 +10,77 @@
  * @param icon 配置路由的图标，取值参考 https://ant.design/components/icon-cn， 注意去除风格后缀和大小写，如想要配置图标为 <StepBackwardOutlined /> 则取值应为 stepBackward 或 StepBackward，如想要配置图标为 <UserOutlined /> 则取值应为 user 或者 User
  * @doc https://umijs.org/docs/guides/routes
  */
+const functionManagementRoutes = [
+  {
+    path: '/system/functions',
+    redirect: '/system/functions/catalog',
+  },
+  {
+    path: '/system/functions/catalog',
+    name: 'FunctionCatalog',
+    access: 'canFunctionsRead',
+    component: './Functions/Directory',
+  },
+  {
+    path: '/system/functions/resources',
+    name: 'Resources',
+    access: 'canResourcesRead',
+    component: './Resources',
+    icon: 'apartment',
+  },
+  {
+    path: '/system/functions/pages',
+    name: 'PageStudio',
+    access: 'canPageRead',
+    component: './PageStudio',
+    icon: 'layout',
+  },
+  {
+    path: '/system/functions/invoke',
+    name: 'FunctionInvoke',
+    access: 'canFunctionsRead',
+    component: './Functions/Invoke',
+    hideInMenu: true,
+  },
+  {
+    path: '/system/functions/instances',
+    name: 'FunctionInstances',
+    access: 'canFunctionsRead',
+    component: './Functions/Instances',
+    icon: 'cluster',
+  },
+  {
+    path: '/system/functions/warnings',
+    name: 'FunctionWarnings',
+    access: 'canFunctionsRead',
+    component: './Functions/Warnings',
+    icon: 'warning',
+  },
+  {
+    path: '/system/functions/assignments',
+    name: 'FunctionAssignments',
+    access: 'canAssignmentsRead',
+    component: './Assignments',
+    icon: 'safety',
+  },
+  {
+    path: '/system/functions/:id/ui-designer',
+    name: 'FunctionUIDesigner',
+    access: 'canFunctionsRead',
+    component: './Functions/SchemaDesigner',
+    hideInMenu: true,
+  },
+  {
+    path: '/system/functions/:id',
+    name: 'FunctionDetail',
+    access: 'canFunctionsRead',
+    component: './Functions/Detail',
+    hideInMenu: true,
+  },
+];
+
 export default [
-  // ==================== 现有路由 ====================
+  // ==================== 平台配置 ====================
   {
     path: '/system',
     name: 'SystemConfig',
@@ -20,7 +89,7 @@ export default [
     routes: [
       {
         path: '/system',
-        redirect: '/system/functions/catalog',
+        redirect: '/system/foundation/environments',
       },
       {
         path: '/system/foundation',
@@ -31,79 +100,6 @@ export default [
             name: 'GameEnvironments',
             access: 'canGamesRead',
             component: './GamesEnvs',
-          },
-          {
-            path: '/system/foundation/resources',
-            name: 'Resources',
-            access: 'canFunctionsRead',
-            component: './Resources',
-          },
-        ],
-      },
-      // 函数管理模块 - 重构后的统一函数管理菜单
-      {
-        path: '/system/functions',
-        name: 'FunctionManagement',
-        access: 'canFunctionsRead',
-        routes: [
-          {
-            path: '/system/functions',
-            redirect: '/system/functions/catalog',
-          },
-          {
-            path: '/system/functions/catalog',
-            name: 'FunctionCatalog',
-            access: 'canFunctionsRead',
-            component: './Functions/Directory',
-          },
-          {
-            path: '/system/functions/resources',
-            name: 'Resources',
-            access: 'canFunctionsRead',
-            component: './Resources',
-            icon: 'apartment',
-          },
-          {
-            path: '/system/functions/invoke',
-            name: 'FunctionInvoke',
-            access: 'canFunctionsRead',
-            component: './Functions/Invoke',
-            hideInMenu: true,
-          },
-          {
-            path: '/system/functions/instances',
-            name: 'FunctionInstances',
-            access: 'canFunctionsRead',
-            component: './Functions/Instances',
-            icon: 'cluster',
-          },
-          {
-            path: '/system/functions/warnings',
-            name: 'FunctionWarnings',
-            access: 'canFunctionsRead',
-            component: './Functions/Warnings',
-            icon: 'warning',
-          },
-          {
-            path: '/system/functions/assignments',
-            name: 'FunctionAssignments',
-            access: 'canAssignmentsRead',
-            component: './Assignments',
-            icon: 'safety',
-          },
-          {
-            path: '/system/functions/:id/ui-designer',
-            name: 'FunctionUIDesigner',
-            access: 'canFunctionsRead',
-            component: './Functions/SchemaDesigner',
-            hideInMenu: true,
-          },
-          {
-            path: '/system/functions/:id',
-            name: 'FunctionDetail',
-            access: 'canFunctionsRead',
-            component: './Functions/Detail',
-            hideInMenu: true,
           },
         ],
       },
@@ -133,6 +129,13 @@ export default [
         ],
       },
     ],
+  },
+  {
+    path: '/system/functions',
+    name: 'FunctionsAndPages',
+    icon: 'function',
+    access: 'canFunctionsAndPagesRead',
+    routes: functionManagementRoutes,
   },
   {
     path: '/console',

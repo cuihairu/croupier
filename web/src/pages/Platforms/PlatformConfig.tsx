@@ -83,8 +83,8 @@ config:
   providers:
     quicksdk:
       enabled: true
-      open_id: "${QUICKSDK_OPEN_ID}"
-      open_key: "${QUICKSDK_OPEN_KEY}"
+      open_id: "<QUICKSDK_OPEN_ID>"
+      open_key: "<QUICKSDK_OPEN_KEY>"
       api_base_url: "https://www.quicksdk.com"
       timeout: "30s"
       retry_count: 3`}

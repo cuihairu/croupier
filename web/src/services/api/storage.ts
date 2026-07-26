@@ -11,12 +11,6 @@ type StorageObjectsPayload = {
   next_marker?: string;
 };
 
-type LegacyEnvelope<T> = {
-  code?: number;
-  message?: string;
-  data?: T;
-};
-
 type UploadAssetOptions = {
   path?: string;
 };
@@ -56,9 +50,9 @@ function uploadObjectMultipart(file: File, path?: string): Promise<{ path?: stri
     }
 
     xhr.onload = () => {
-      let payload: any = null;
+      let payload: { path?: string; message?: string } | null = null;
       try {
-        payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        payload = xhr.responseText ? (JSON.parse(xhr.responseText) as { path?: string; message?: string }) : null;
       } catch (error) {
         reject(new Error('上传响应解析失败'));
         return;
@@ -95,12 +89,7 @@ export async function listObjects(params: {
   limit?: number;
   delimiter?: string;
 }) {
-  const resp = await request<StorageObjectsPayload | LegacyEnvelope<StorageObjectsPayload>>(
-    '/api/v1/storage/objects',
-    { params },
-  );
-  const payload =
-    resp && typeof resp === 'object' && 'data' in resp && resp.data ? resp.data : resp;
+  const payload = await request<StorageObjectsPayload>('/api/v1/storage/objects', { params });
   return {
     objects: Array.isArray(payload?.objects) ? payload.objects : [],
     prefixes: Array.isArray(payload?.prefixes) ? payload.prefixes : [],
@@ -135,13 +124,8 @@ export async function createDirectory(prefix: string) {
 }
 
 export async function getSignedUrl(path: string) {
-  const resp = await request<{ url?: string } | LegacyEnvelope<{ url?: string }>>(
-    '/api/v1/storage/signed-url',
-    {
-      params: { path },
-    },
-  );
-  const payload =
-    resp && typeof resp === 'object' && 'data' in resp && resp.data ? resp.data : resp;
+  const payload = await request<{ url?: string }>('/api/v1/storage/signed-url', {
+    params: { path },
+  });
   return { url: payload?.url || '' };
 }

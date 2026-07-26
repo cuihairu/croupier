@@ -248,6 +248,14 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	metadata := map[string]string{
 		"async": "false",
 	}
+	for key, value := range req.Metadata {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			continue
+		}
+		metadata[key] = value
+	}
 	if req.Mode == "async" {
 		metadata["async"] = "true"
 	}

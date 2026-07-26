@@ -5,18 +5,24 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"log/slog"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/api/function"
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type Service struct {
@@ -28,6 +34,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 }
 
 func (s *Service) Menu(ctx context.Context, req *ConsoleMenuRequest) (*ConsoleMenuResponse, error) {
+	if err := s.requireConsoleRead(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -42,6 +51,9 @@ func (s *Service) Menu(ctx context.Context, req *ConsoleMenuRequest) (*ConsoleMe
 }
 
 func (s *Service) Pages(ctx context.Context, req *ConsolePagesRequest) (*ConsolePagesResponse, error) {
+	if err := s.requireConsoleRead(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -61,6 +73,9 @@ func (s *Service) Pages(ctx context.Context, req *ConsolePagesRequest) (*Console
 }
 
 func (s *Service) Page(ctx context.Context, req *ConsolePageRequest) (*ConsolePageResponse, error) {
+	if err := s.requireConsoleRead(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -76,7 +91,10 @@ func (s *Service) Page(ctx context.Context, req *ConsolePageRequest) (*ConsolePa
 	return &ConsolePageResponse{Page: *pageSpec}, nil
 }
 
-func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBindingRequest) (*ConsoleExecuteBindingResponse, error) {
+func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBindingRequest) (resp *ConsoleExecuteBindingResponse, err error) {
+	if err := s.requireConsoleExecute(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -98,6 +116,14 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	if !ok {
 		return nil, errorx.NewValidationError("binding contract snapshot missing")
 	}
+	requestID := uuid.NewString()
+	var result spec.PageExecutionResult
+	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, *published, binding, requestID)
+	defer func() {
+		finishSpan(err)
+		s.auditPageExecute(ctx, gameID, env, *published, binding, requestID, result, err)
+	}()
+
 	if err := s.ensureBindingFresh(ctx, binding, contract); err != nil {
 		return nil, err
 	}
@@ -120,12 +146,21 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 		GameID:  gameID,
 		Env:     env,
 		Mode:    mode,
+		Metadata: map[string]string{
+			"page_key":         published.PageKey,
+			"page_category":    published.Category.Key,
+			"publish_version":  strconv.Itoa(published.Version),
+			"binding_id":       binding.ID,
+			"binding_usage":    string(binding.Usage),
+			"page_request_id":  requestID,
+			"page_runtime_api": "console.binding.execute",
+		},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := buildExecutionResult(ctx, functionResp)
+	result, err = buildExecutionResult(ctx, requestID, functionResp)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +186,10 @@ func (s *Service) ensureBindingFresh(ctx context.Context, binding spec.PageFunct
 	return nil
 }
 
-func buildExecutionResult(ctx context.Context, resp *function.FunctionInvokeResponse) (spec.PageExecutionResult, error) {
-	requestID := uuid.NewString()
+func buildExecutionResult(ctx context.Context, requestID string, resp *function.FunctionInvokeResponse) (spec.PageExecutionResult, error) {
+	if strings.TrimSpace(requestID) == "" {
+		requestID = uuid.NewString()
+	}
 	traceID := telemetry.TraceIDFromContext(ctx)
 	if resp == nil {
 		return spec.PageExecutionResult{
@@ -187,6 +224,108 @@ func buildExecutionResult(ctx context.Context, resp *function.FunctionInvokeResp
 		TraceID:   traceID,
 		Data:      resp.Result,
 	}, nil
+}
+
+func (s *Service) startPageExecuteSpan(
+	ctx context.Context,
+	gameID string,
+	env string,
+	page spec.PublishedPageSpec,
+	binding spec.PageFunctionBinding,
+	requestID string,
+) (context.Context, func(error)) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.Telemetry == nil {
+		return ctx, func(error) {}
+	}
+	startedAt := time.Now()
+	nextCtx, span := s.svcCtx.Telemetry.StartSpan(ctx, "page.binding.execute",
+		attribute.String("request.id", requestID),
+		attribute.String("game.id", gameID),
+		attribute.String("game.env", env),
+		attribute.String("page.key", page.PageKey),
+		attribute.Int("page.publish_version", page.Version),
+		attribute.String("page.binding_id", binding.ID),
+		attribute.String("function.id", binding.FunctionID),
+		attribute.String("page.binding_usage", string(binding.Usage)),
+		attribute.String("page.execution_mode", string(binding.Execution.Mode)),
+	)
+	return nextCtx, func(err error) {
+		s.svcCtx.Telemetry.EndSpan(span, startedAt, err)
+	}
+}
+
+func (s *Service) auditPageExecute(
+	ctx context.Context,
+	gameID string,
+	env string,
+	page spec.PublishedPageSpec,
+	binding spec.PageFunctionBinding,
+	requestID string,
+	result spec.PageExecutionResult,
+	executeErr error,
+) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil {
+		return
+	}
+	actor, err := logicutils.CurrentUsername(ctx)
+	if err != nil {
+		actor = "unknown"
+	}
+	outcome := "success"
+	errorMessage := ""
+	if executeErr != nil {
+		outcome = "failure"
+		errorMessage = executeErr.Error()
+	}
+	traceID := result.TraceID
+	if traceID == "" {
+		traceID = telemetry.TraceIDFromContext(ctx)
+	}
+	details := map[string]interface{}{
+		"request_id":       requestID,
+		"trace_id":         traceID,
+		"game_id":          gameID,
+		"env":              env,
+		"page_key":         page.PageKey,
+		"publish_version":  page.Version,
+		"binding_id":       binding.ID,
+		"binding_usage":    string(binding.Usage),
+		"function_id":      binding.FunctionID,
+		"execution_mode":   string(binding.Execution.Mode),
+		"result_kind":      string(result.Kind),
+		"task_id":          result.TaskID,
+		"approval_id":      result.ApprovalID,
+		"diagnostic_count": len(result.Diagnostics),
+	}
+	_, err = s.svcCtx.AuditService.Log(ctx, audit.EventPageExecute,
+		audit.WithActorID(actor, "user", actor),
+		audit.WithResource(audit.ResourceInfo{
+			Type:        "page",
+			ID:          page.PageKey,
+			Name:        page.PageKey,
+			GameID:      gameID,
+			Environment: env,
+			Metadata: map[string]string{
+				"binding_id":  binding.ID,
+				"function_id": binding.FunctionID,
+			},
+		}),
+		audit.WithDetails(details),
+		audit.WithContext(audit.AuditContext{
+			RequestID: requestID,
+			TraceID:   traceID,
+			Service:   "console",
+			Tags: map[string]string{
+				"page_key":    page.PageKey,
+				"binding_id":  binding.ID,
+				"function_id": binding.FunctionID,
+			},
+		}),
+		audit.WithOutcome(outcome, errorMessage),
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to write page execute audit event", "pageKey", page.PageKey, "bindingId", binding.ID, "error", err)
+	}
 }
 
 func parsePublishedPages(models []model.PublishedPageSpec) []spec.PublishedPageSpec {
@@ -318,6 +457,16 @@ func normalizedFunctions(ctx context.Context, svcCtx *svc.ServiceContext) map[st
 		}
 	}
 	return out
+}
+
+func (s *Service) requireConsoleRead(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权查看运行控制台", "admin:all", "console:read", "pages:read", "function:invoke")
+	return err
+}
+
+func (s *Service) requireConsoleExecute(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权执行运行控制台操作", "admin:all", "function:invoke")
+	return err
 }
 
 func digestRaw(raw []byte) string {

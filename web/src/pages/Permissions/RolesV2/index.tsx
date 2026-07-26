@@ -8,9 +8,9 @@ import {
   createRole,
   updateRole,
   deleteRole,
-  setRolePerms,
+  updateRolePermissions,
   type RoleRecord,
-} from '@/services/api/roles';
+} from '@/services/api/permissions';
 
 export default function RolesV2() {
   const [roles, setRoles] = useState<RoleRecord[]>([]);
@@ -25,7 +25,7 @@ export default function RolesV2() {
     setLoading(true);
     try {
       const r = await listRoles();
-      setRoles(r.roles || []);
+      setRoles(r.items || []);
     } finally {
       setLoading(false);
     }
@@ -53,7 +53,7 @@ export default function RolesV2() {
       await updateRole(editing.id, { name: v.name, description: v.description });
       getMessage()?.success('已更新');
     } else {
-      const resp = await createRole({ name: v.name, description: v.description, perms: [] });
+      const resp = await createRole({ name: v.name, description: v.description, permissions: [] });
       getMessage()?.success(`已创建 #${resp.id}`);
     }
     setEditOpen(false);
@@ -62,7 +62,7 @@ export default function RolesV2() {
   const submitPerms = async () => {
     const v = await permsForm.validateFields();
     if (!editing) return;
-    await setRolePerms(editing.id, v.perms || []);
+    await updateRolePermissions(editing.id, v.permissions || []);
     getMessage()?.success('权限已更新');
     setPermsOpen(false);
     refresh();
@@ -80,7 +80,7 @@ export default function RolesV2() {
 
   useEffect(() => {
     if (permsOpen) {
-      permsForm.setFieldsValue({ perms: editing?.perms || [] });
+      permsForm.setFieldsValue({ permissions: editing?.permissions || [] });
     }
   }, [permsOpen, editing]);
 
@@ -95,14 +95,14 @@ export default function RolesV2() {
     { title: '描述', dataIndex: 'description', key: 'description' },
     {
       title: '权限',
-      dataIndex: 'perms',
-      key: 'perms',
+      dataIndex: 'permissions',
+      key: 'permissions',
       render: (arr?: string[]) => (arr || []).slice(0, 6).map((p) => <Tag key={p}>{p}</Tag>),
     },
     {
       title: '操作',
       key: 'ops',
-      render: (_: any, rec) => (
+      render: (_value, rec) => (
         <Space>
           <Button size="small" onClick={() => openEdit(rec)}>
             编辑
@@ -166,7 +166,7 @@ export default function RolesV2() {
         destroyOnHidden
       >
         <Form form={permsForm} layout="vertical">
-          <Form.Item label="权限" name="perms">
+          <Form.Item label="权限" name="permissions">
             <Select mode="tags" tokenSeparators={[',', ' ']} placeholder="输入权限，按回车添加" />
           </Form.Item>
         </Form>

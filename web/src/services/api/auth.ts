@@ -64,17 +64,15 @@ export async function createSession(params: {
   });
 }
 
-// Compatibility wrapper over canonical profile API.
+// Runtime bootstrap projection over canonical profile API.
 export async function fetchCurrentUser(): Promise<CurrentUser> {
   return toCurrentUser(await getMyProfile());
 }
 
-// Compatibility wrapper over canonical profile API.
 export async function fetchCurrentUserProfile(): Promise<MeProfile> {
   return getMyProfile();
 }
 
-// Compatibility wrapper over canonical profile API.
 export async function updateCurrentUserProfile(params: {
   nickname?: string;
   email?: string;
@@ -84,7 +82,6 @@ export async function updateCurrentUserProfile(params: {
   return updateMyProfile(params);
 }
 
-// Compatibility wrapper over canonical profile API.
 export async function changeCurrentUserPassword(params: {
   oldPassword: string;
   newPassword: string;
@@ -92,7 +89,6 @@ export async function changeCurrentUserPassword(params: {
   return changeMyPassword({ current: params.oldPassword, password: params.newPassword });
 }
 
-// Compatibility wrapper over canonical profile API.
 export async function fetchCurrentUserPermissions(params?: {
   gameId?: string;
   env?: string;
@@ -106,16 +102,6 @@ export async function fetchCurrentUserPermissions(params?: {
   };
 }
 
-// Compatibility wrapper over canonical profile API.
 export async function fetchCurrentUserGames(): Promise<CurrentUserGamesResponse> {
   return getMyGames();
-}
-
-// 向后兼容的别名函数
-export async function loginAuth(params: { username: string; password: string }) {
-  return createSession(params);
-}
-
-export async function fetchMe() {
-  return fetchCurrentUser();
 }

@@ -395,7 +395,7 @@ type GeneratedPageSpec struct {
 }
 
 // ---------------------------------------------------------------------------
-// Page draft (workspace)
+// Page draft
 // ---------------------------------------------------------------------------
 
 // PageDraftStatus represents the status of a page draft.

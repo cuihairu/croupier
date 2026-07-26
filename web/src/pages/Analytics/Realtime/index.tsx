@@ -4,6 +4,15 @@ import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
 import { fetchRealtimeSeries, openAnalyticsRealtimeEventSource } from '@/services/api/analytics';
 
+type SeriesPoint = [number | string, number];
+type RealtimeSeriesResponse = {
+  online?: SeriesPoint[];
+  active_5m_sum?: SeriesPoint[];
+  active_15m_sum?: SeriesPoint[];
+  revenue_cents?: SeriesPoint[];
+};
+type ExportRow = Array<string | number>;
+
 export default function AnalyticsRealtimePage() {
   const intl = useIntl();
   const [data, setData] = useState<any>({});
@@ -270,28 +279,28 @@ export default function AnalyticsRealtimePage() {
             <Button
               onClick={async () => {
                 try {
-                  const params: any = {};
+                  const params: Record<string, string> = {};
                   if (expRange && expRange[0]) params.start = expRange[0].toISOString();
                   if (expRange && expRange[1]) params.end = expRange[1].toISOString();
-                  const s = await fetchRealtimeSeries(params);
-                  const rows: any[] = [
+                  const s = await fetchRealtimeSeries(params) as RealtimeSeriesResponse;
+                  const rows: ExportRow[] = [
                     ['ts', 'online', 'active_5m_sum', 'active_15m_sum', 'revenue_cents'],
                   ];
-                  const idx: Record<string, any> = {};
-                  (s?.online || []).forEach((x: any) => {
+                  const idx: Record<string, { ts: string | number; online?: number; a5?: number; a15?: number; rev?: number }> = {};
+                  (s?.online || []).forEach((x) => {
                     idx[String(x[0])] = { ts: x[0], online: x[1] };
                   });
-                  (s?.active_5m_sum || []).forEach((x: any) => {
+                  (s?.active_5m_sum || []).forEach((x) => {
                     const k = String(x[0]);
                     idx[k] = idx[k] || { ts: x[0] };
                     idx[k].a5 = x[1];
                   });
-                  (s?.active_15m_sum || []).forEach((x: any) => {
+                  (s?.active_15m_sum || []).forEach((x) => {
                     const k = String(x[0]);
                     idx[k] = idx[k] || { ts: x[0] };
                     idx[k].a15 = x[1];
                   });
-                  (s?.revenue_cents || []).forEach((x: any) => {
+                  (s?.revenue_cents || []).forEach((x) => {
                     const k = String(x[0]);
                     idx[k] = idx[k] || { ts: x[0] };
                     idx[k].rev = x[1];

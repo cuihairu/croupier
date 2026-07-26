@@ -227,7 +227,7 @@ const InlinePropertyEditor: React.FC<{
             <Select
               placeholder="Format"
               value={config.format || ''}
-              onChange={(format) => updateConfig({ format: format || null })}
+              onChange={(format) => updateConfig({ format: format || undefined })}
               style={{ width: 120 }}
             >
               <Option value="date">Date</Option>
@@ -254,7 +254,7 @@ const InlinePropertyEditor: React.FC<{
             <Input
               placeholder="Pattern"
               value={config.pattern || ''}
-              onChange={(e) => updateConfig({ pattern: e.target.value || null })}
+              onChange={(e) => updateConfig({ pattern: e.target.value || undefined })}
               style={{ width: 150 }}
             />
           </Space>
@@ -307,7 +307,7 @@ const InlinePropertyEditor: React.FC<{
               placeholder="Items Type"
               value={config.items?.type}
               onChange={(type) => {
-                updateConfig({ items: type ? { type: type as PropertyConfig['type'] } : null });
+                updateConfig({ items: type ? { type: type as PropertyConfig['type'] } : undefined });
               }}
               style={{ width: 120 }}
             >

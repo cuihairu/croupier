@@ -38,6 +38,11 @@ export default function OpsAlertsPage() {
   const [lv, setLv] = useState('');
   const [detail, setDetail] = useState<OpsAlert | null>(null);
 
+  const toStringRecord = (input?: Record<string, unknown>): Record<string, string> =>
+    Object.fromEntries(
+      Object.entries(input || {}).map(([key, value]) => [key, String(value ?? '')]),
+    );
+
   const load = async () => {
     setLoading(true);
     try {
@@ -128,7 +133,7 @@ export default function OpsAlertsPage() {
                   onOk: async () => {
                     try {
                       await silenceOpsAlert({
-                        matchers: r.labels || {},
+                        matchers: toStringRecord(r.labels),
                         duration: '1h',
                         comment: r.summary || '',
                       });
@@ -154,7 +159,7 @@ export default function OpsAlertsPage() {
                   onOk: async () => {
                     try {
                       await silenceOpsAlert({
-                        matchers: r.labels || {},
+                        matchers: toStringRecord(r.labels),
                         duration: '24h',
                         comment: r.summary || '',
                       });
@@ -387,7 +392,7 @@ export default function OpsAlertsPage() {
                       onOk: async () => {
                         try {
                           await silenceOpsAlert({
-                            matchers: detail.labels || {},
+                            matchers: toStringRecord(detail.labels),
                             duration: '1h',
                             comment: detail.summary || '',
                           });
@@ -412,7 +417,7 @@ export default function OpsAlertsPage() {
                       onOk: async () => {
                         try {
                           await silenceOpsAlert({
-                            matchers: detail.labels || {},
+                            matchers: toStringRecord(detail.labels),
                             duration: '6h',
                             comment: detail.summary || '',
                           });
@@ -437,7 +442,7 @@ export default function OpsAlertsPage() {
                       onOk: async () => {
                         try {
                           await silenceOpsAlert({
-                            matchers: detail.labels || {},
+                            matchers: toStringRecord(detail.labels),
                             duration: '24h',
                             comment: detail.summary || '',
                           });
@@ -454,9 +459,9 @@ export default function OpsAlertsPage() {
                   静默1d
                 </Button>
               )}
-              {typeof detail.annotations?.runbook_url === 'string' && (
+              {typeof (detail.annotations || {}).runbook_url === 'string' && (
                 <Button
-                  onClick={() => window.open(detail.annotations.runbook_url as string, '_blank')}
+                  onClick={() => window.open((detail.annotations || {}).runbook_url as string, '_blank')}
                 >
                   打开 Runbook
                 </Button>

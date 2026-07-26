@@ -200,7 +200,6 @@ export default function LoginLogsPage() {
         <Table
           rowKey={(r) => r.hash}
           loading={loading}
-          dataSource={rows}
           columns={[
             { title: '时间', dataIndex: 'time', render: (t) => new Date(t).toLocaleString() },
             {

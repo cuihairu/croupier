@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Drawer, Input, Space, Tag, Typography } from 'antd';
-import { ProColumns, PageContainer } from '@ant-design/pro-components';
+import { ProColumns, PageContainer, ProTable } from '@ant-design/pro-components';
 import { FileSearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
-import XResourceTable from '@/components/XResourceTable';
 import {
   listGeneratedPages,
   listResourceOperations,
@@ -167,13 +166,14 @@ export default function ResourcesPage() {
         </Card>
 
         <Card>
-          <XResourceTable<ResourceSpec>
+          <ProTable<ResourceSpec>
             dataSource={resources}
             loading={loading}
             rowKey="key"
             columns={columns}
             search={false}
             pagination={{ pageSize: 20 }}
+            options={false}
           />
         </Card>
       </Space>

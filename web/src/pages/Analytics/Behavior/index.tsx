@@ -182,7 +182,7 @@ export default function AnalyticsBehaviorPage() {
                 min={0}
                 style={{ width: 140 }}
               />
-              <Button type="primary" onClick={loadFunnel}>
+              <Button type="primary" onClick={() => loadFunnel()}>
                 计算
               </Button>
               <Button

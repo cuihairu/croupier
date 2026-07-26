@@ -44,7 +44,6 @@ type PageSaveRequest struct {
 	Schema        json.RawMessage            `json:"schema" binding:"required"`
 	Bindings      []spec.PageFunctionBinding `json:"bindings"`
 	Metadata      map[string]json.RawMessage `json:"metadata,omitempty"`
-	UpdatedBy     string                     `json:"updatedBy,omitempty"`
 }
 
 type PageSaveResponse struct {
@@ -72,7 +71,6 @@ type PagePreviewResponse struct {
 type PagePublishRequest struct {
 	PageKey       string `uri:"pageKey" binding:"required"`
 	DraftRevision *int   `json:"draftRevision" binding:"required"`
-	PublishedBy   string `json:"publishedBy,omitempty"`
 }
 
 type PagePublishResponse struct {

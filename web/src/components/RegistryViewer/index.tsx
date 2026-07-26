@@ -14,6 +14,7 @@ import {
   Alert,
   Progress,
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
   ClusterOutlined,
   ReloadOutlined,
@@ -163,16 +164,16 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
     }));
   }, [services]);
 
-  const columns = [
+  const columns: ColumnsType<RegistryService> = [
     {
       title: '服务状态',
       dataIndex: 'status',
       width: 100,
-      render: (_, record: RegistryService) => (
+      render: (_value, record) => (
         <Space direction="vertical" size="small">
           {getStatusBadge(record.status)}
           {!compact && record.version && (
-            <Tag size="small" color="blue">
+            <Tag color="blue">
               {record.version}
             </Tag>
           )}
@@ -184,7 +185,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
       dataIndex: 'serviceId',
       width: 200,
       ellipsis: true,
-      render: (_, record: RegistryService) => (
+      render: (_value, record) => (
         <Button
           type="link"
           size="small"
@@ -200,7 +201,9 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
       dataIndex: 'addr',
       width: 250,
       ellipsis: true,
-      copyable: true,
+      render: (value: string) => (
+        <Text copyable={{ text: value }}>{value || '-'}</Text>
+      ),
     },
     {
       title: '函数数量',
@@ -217,7 +220,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
             title: '游戏环境',
             dataIndex: 'gameId',
             width: 120,
-            render: (_: any, record: RegistryService) => (
+            render: (_value: unknown, record: RegistryService) => (
               <Space direction="vertical" size="small">
                 {record.gameId && <Tag color="geekblue">{record.gameId}</Tag>}
                 {record.env && <Tag color="orange">{record.env}</Tag>}
@@ -229,7 +232,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
       title: '最后心跳',
       dataIndex: 'lastSeen',
       width: 150,
-      render: (_, record: RegistryService) => (
+      render: (_value, record) => (
         <Text type="secondary">{formatLastSeen(record.lastSeen)}</Text>
       ),
     },
@@ -345,7 +348,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
             pageSize: compact ? 5 : 10,
             showSizeChanger: !compact,
             showQuickJumper: !compact,
-            showTotal: compact ? false : (total) => `共 ${total} 个服务`,
+            showTotal: compact ? undefined : (total) => `共 ${total} 个服务`,
           }}
           scroll={compact ? undefined : { x: 1000 }}
           rowClassName={(record) => {

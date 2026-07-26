@@ -2,9 +2,35 @@ import { Request, Response } from 'express';
 import moment from 'moment';
 import { parse } from 'url';
 
+type RuleListItem = {
+  key: number;
+  disabled?: boolean;
+  href: string;
+  avatar: string;
+  name: string;
+  owner: string;
+  desc: string;
+  callNo: number;
+  status: number;
+  updatedAt: string;
+  createdAt: string;
+  progress: number;
+};
+
+type PageParams = {
+  current?: number | string;
+  pageSize?: number | string;
+};
+
+type RuleQuery = PageParams &
+  Partial<RuleListItem> & {
+    sorter?: string;
+    filter?: string;
+  };
+
 // mock tableListDataSource
 const genList = (current: number, pageSize: number) => {
-  const tableListDataSource: API.RuleListItem[] = [];
+  const tableListDataSource: RuleListItem[] = [];
 
   for (let i = 0; i < pageSize; i += 1) {
     const index = (current - 1) * 10 + i;
@@ -38,21 +64,19 @@ function getRule(req: Request, res: Response, u: string) {
     realUrl = req.url;
   }
   const { current = 1, pageSize = 10 } = req.query;
-  const params = parse(realUrl, true).query as unknown as API.PageParams &
-    API.RuleListItem & {
-      sorter: any;
-      filter: any;
-    };
+  const params = parse(realUrl, true).query as RuleQuery;
+  const currentPage = Number(current) || 1;
+  const currentSize = Number(pageSize) || 10;
 
   let dataSource = [...tableListDataSource].slice(
-    ((current as number) - 1) * (pageSize as number),
-    (current as number) * (pageSize as number),
+    (currentPage - 1) * currentSize,
+    currentPage * currentSize,
   );
   if (params.sorter) {
     const sorter = JSON.parse(params.sorter);
     dataSource = dataSource.sort((prev, next) => {
       let sortNumber = 0;
-      (Object.keys(sorter) as Array<keyof API.RuleListItem>).forEach((key) => {
+      (Object.keys(sorter) as Array<keyof RuleListItem>).forEach((key) => {
         let nextSort = next?.[key] as number;
         let preSort = prev?.[key] as number;
         if (sorter[key] === 'descend') {
@@ -73,12 +97,12 @@ function getRule(req: Request, res: Response, u: string) {
     });
   }
   if (params.filter) {
-    const filter = JSON.parse(params.filter as any) as {
+    const filter = JSON.parse(params.filter) as {
       [key: string]: string[];
     };
     if (Object.keys(filter).length > 0) {
       dataSource = dataSource.filter((item) => {
-        return (Object.keys(filter) as Array<keyof API.RuleListItem>).some((key) => {
+        return (Object.keys(filter) as Array<keyof RuleListItem>).some((key) => {
           if (!filter[key]) {
             return true;
           }
@@ -122,7 +146,7 @@ function postRule(req: Request, res: Response, u: string, b: Request) {
     case 'post':
       (() => {
         const i = Math.ceil(Math.random() * 10000);
-        const newRule: API.RuleListItem = {
+        const newRule: RuleListItem = {
           key: tableListDataSource.length,
           href: 'https://ant.design',
           avatar: [

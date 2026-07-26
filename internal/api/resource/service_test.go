@@ -2,14 +2,19 @@ package resource
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestServiceListCollectsRegistryDescriptorV2Metadata(t *testing.T) {
@@ -50,8 +55,9 @@ func TestServiceListCollectsRegistryDescriptorV2Metadata(t *testing.T) {
 		},
 	})
 
-	service := NewService(&svc.ServiceContext{RegistryStore: store})
-	resp, err := service.List(context.Background(), &ResourceListRequest{})
+	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:read")
+	service := NewService(svcCtx)
+	resp, err := service.List(ctx, &ResourceListRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 
@@ -103,8 +109,9 @@ func TestServiceGeneratedPagesCreatesConservativeOperationCandidates(t *testing.
 		},
 	})
 
-	service := NewService(&svc.ServiceContext{RegistryStore: store})
-	resp, err := service.GeneratedPages(context.Background(), &ResourceGeneratedPagesRequest{ResourceKey: "player"})
+	svcCtx, ctx := newResourceTestServiceContext(t, store, "pages:edit")
+	service := NewService(svcCtx)
+	resp, err := service.GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Items)
 
@@ -136,8 +143,9 @@ func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
 		},
 	})
 
-	service := NewService(&svc.ServiceContext{RegistryStore: store})
-	resp, err := service.GeneratedPages(context.Background(), &ResourceGeneratedPagesRequest{ResourceKey: "player"})
+	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:diagnose")
+	service := NewService(svcCtx)
+	resp, err := service.GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Items)
 
@@ -148,4 +156,60 @@ func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
 	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
 	require.NotEmpty(t, page.Diagnostics)
 	assert.Equal(t, "page_contract_missing", page.Diagnostics[0].Code)
+}
+
+func TestServiceListRequiresResourcePermission(t *testing.T) {
+	store := reg.NewStore()
+	svcCtx, ctx := newResourceTestServiceContext(t, store)
+
+	_, err := NewService(svcCtx).List(ctx, &ResourceListRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "无权查看资源")
+}
+
+func newResourceTestServiceContext(t *testing.T, store *reg.Store, permissions ...string) (*svc.ServiceContext, context.Context) {
+	t.Helper()
+
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, model.AutoMigrate(db))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+
+	admin := model.Admin{Username: "resource_tester", Status: 1, PasswordHash: "test"}
+	require.NoError(t, db.Create(&admin).Error)
+
+	role := model.Role{Name: "resource_tester_role", Description: "resource tester"}
+	require.NoError(t, db.Create(&role).Error)
+	require.NoError(t, db.Create(&model.AdminRole{AdminID: admin.ID, RoleID: role.ID}).Error)
+
+	for _, permissionID := range permissions {
+		permissionID = strings.TrimSpace(permissionID)
+		if permissionID == "" {
+			continue
+		}
+		permission := model.Permission{
+			ID:       permissionID,
+			Name:     permissionID,
+			Resource: strings.SplitN(permissionID, ":", 2)[0],
+			Action:   "read",
+			Category: "dashboard",
+		}
+		require.NoError(t, db.Where("id = ?", permission.ID).FirstOrCreate(&permission).Error)
+		require.NoError(t, db.Create(&model.RolePermission{RoleID: role.ID, PermissionID: permissionID}).Error)
+	}
+
+	nullCache := cache.NewNullCache()
+	svcCtx := &svc.ServiceContext{
+		DB:              db,
+		AdminModel:      model.NewAdminModel(db),
+		RoleModel:       model.NewRoleModel(db),
+		PermissionModel: model.NewPermissionModel(db),
+		RegistryStore:   store,
+		Cache:           nullCache,
+		CacheHelper:     cache.NewCacheHelper(nullCache),
+	}
+	ctx := context.WithValue(context.Background(), "username", admin.Username)
+	return svcCtx, ctx
 }

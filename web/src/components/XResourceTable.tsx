@@ -1,32 +1,35 @@
-import React, { useRef, ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { Button, Space, Modal, App } from 'antd';
 import { ProTable, ProColumns } from '@ant-design/pro-components';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import type { TablePaginationConfig } from 'antd/es/table';
 
-export interface XResourceTableProps<T = any> {
+type ResourceRow = Record<string, unknown>;
+
+export interface XResourceTableProps {
   // Data props
-  dataSource: T[];
+  dataSource: ResourceRow[];
   loading?: boolean;
-  rowKey: string | ((record: T) => string);
+  rowKey: string | ((record: ResourceRow) => string);
 
   // Column configuration
-  columns: ProColumns<T>[];
+  columns: ProColumns<ResourceRow>[];
 
   // Actions
   onAdd?: () => void;
-  onEdit?: (record: T) => void;
-  onDelete?: (record: T) => void;
-  onPreview?: (record: T) => void;
+  onEdit?: (record: ResourceRow) => void;
+  onDelete?: (record: ResourceRow) => void;
+  onPreview?: (record: ResourceRow) => void;
 
   // Customization
   title?: string;
   addButtonText?: string;
   deleteConfirmTitle?: string;
-  getDeleteConfirmContent?: (record: T) => string;
+  getDeleteConfirmContent?: (record: ResourceRow) => string;
 
   // Table props
   search?: boolean;
-  pagination?: any;
+  pagination?: TablePaginationConfig | false;
   toolBarRender?: () => ReactNode[];
 
   // Permissions
@@ -36,7 +39,7 @@ export interface XResourceTableProps<T = any> {
   canPreview?: boolean;
 }
 
-export default function XResourceTable<T = any>({
+export default function XResourceTable({
   dataSource,
   loading = false,
   rowKey,
@@ -59,8 +62,7 @@ export default function XResourceTable<T = any>({
   canEdit = true,
   canDelete = true,
   canPreview = true,
-}: XResourceTableProps<T>) {
-  const tableRef = useRef<any>();
+}: XResourceTableProps) {
   // Use App context message API to avoid React 18 concurrent-mode warnings
   const { message } = App.useApp();
 
@@ -68,7 +70,7 @@ export default function XResourceTable<T = any>({
   const shouldShowActions =
     (canEdit && onEdit) || (canDelete && onDelete) || (canPreview && onPreview);
 
-  const handleDelete = (record: T) => {
+  const handleDelete = (record: ResourceRow) => {
     if (!onDelete) return;
 
     const content = getDeleteConfirmContent
@@ -84,15 +86,15 @@ export default function XResourceTable<T = any>({
         try {
           await onDelete(record);
           message.success('Item deleted successfully');
-        } catch (error: any) {
-          message.error(error?.message || 'Failed to delete item');
+        } catch (error) {
+          message.error(error instanceof Error ? error.message : 'Failed to delete item');
         }
       },
     });
   };
 
   // Enhanced columns with actions
-  const enhancedColumns: ProColumns<T>[] = [
+  const enhancedColumns: ProColumns<ResourceRow>[] = [
     ...baseColumns,
     ...(shouldShowActions
       ? [
@@ -100,7 +102,7 @@ export default function XResourceTable<T = any>({
             title: 'Actions',
             key: 'actions',
             width: 200,
-            render: (_: any, record: T) => (
+            render: (_value: React.ReactNode, record: ResourceRow) => (
               <Space size="small">
                 {canPreview && onPreview && (
                   <Button
@@ -153,13 +155,12 @@ export default function XResourceTable<T = any>({
   };
 
   return (
-    <ProTable<T>
-      actionRef={tableRef}
+    <ProTable<ResourceRow>
       columns={enhancedColumns}
       dataSource={dataSource}
       loading={loading}
       rowKey={rowKey}
-      search={search}
+      search={search ? { labelWidth: 'auto' } : false}
       pagination={pagination}
       toolBarRender={toolBarRender || (canAdd && onAdd ? defaultToolBarRender : false)}
       headerTitle={title}
@@ -168,4 +169,4 @@ export default function XResourceTable<T = any>({
 }
 
 // Type helper for better TypeScript support
-export type XResourceTableRef = React.RefObject<any>;
+export type XResourceTableRef = React.RefObject<unknown>;

@@ -6,15 +6,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
@@ -43,6 +46,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 }
 
 func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*PageDraftListResponse, error) {
+	if err := s.requirePageRead(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -86,6 +92,9 @@ func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*P
 }
 
 func (s *Service) GetDraft(ctx context.Context, req *PageDraftRequest) (*PageDraftResponse, error) {
+	if err := s.requirePageRead(ctx); err != nil {
+		return nil, err
+	}
 	p, err := s.findDraft(ctx, req.PageKey)
 	if err != nil {
 		return nil, err
@@ -94,7 +103,14 @@ func (s *Service) GetDraft(ctx context.Context, req *PageDraftRequest) (*PageDra
 }
 
 func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSaveResponse, error) {
+	if err := s.requirePageEdit(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	actor, err := logicutils.CurrentUsername(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +177,7 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 			Icon:          strings.TrimSpace(req.Icon),
 			SchemaJSON:    string(req.Schema),
 			Status:        "draft",
-			UpdatedBy:     strings.TrimSpace(req.UpdatedBy),
+			UpdatedBy:     actor,
 			UpdatedAt:     now,
 		}
 		if err := ps.SetTitle(title); err != nil {
@@ -222,10 +238,20 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	if err != nil {
 		return nil, err
 	}
+	s.auditPageEvent(ctx, audit.EventPageDraftSave, gameID, env, req.PageKey, map[string]interface{}{
+		"draft_revision": nextRevision,
+		"type":           string(req.Type),
+		"resource_key":   strings.TrimSpace(req.ResourceKey),
+		"category_key":   categoryKey,
+		"binding_count":  len(req.Bindings),
+	})
 	return &PageSaveResponse{PageKey: req.PageKey, DraftRevision: nextRevision}, nil
 }
 
 func (s *Service) Validate(ctx context.Context, req *PageValidateRequest) (*PageValidateResponse, error) {
+	if err := s.requirePageRead(ctx); err != nil {
+		return nil, err
+	}
 	p, err := s.findDraft(ctx, req.PageKey)
 	if err != nil {
 		return nil, err
@@ -235,6 +261,9 @@ func (s *Service) Validate(ctx context.Context, req *PageValidateRequest) (*Page
 }
 
 func (s *Service) Preview(ctx context.Context, req *PagePreviewRequest) (*PagePreviewResponse, error) {
+	if err := s.requirePageRead(ctx); err != nil {
+		return nil, err
+	}
 	p, err := s.findDraft(ctx, req.PageKey)
 	if err != nil {
 		return nil, err
@@ -248,7 +277,14 @@ func (s *Service) Preview(ctx context.Context, req *PagePreviewRequest) (*PagePr
 }
 
 func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePublishResponse, error) {
+	if err := s.requirePagePublish(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	actor, err := logicutils.CurrentUsername(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +340,7 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 			RendererSchemaVersion: rendererSchemaVersion,
 			Active:                true,
 			PublishedAt:           now,
-			PublishedBy:           strings.TrimSpace(req.PublishedBy),
+			PublishedBy:           actor,
 		}); err != nil {
 			return err
 		}
@@ -323,17 +359,26 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 			SpecJSON:  string(specJSON),
 			Status:    "published",
 			Message:   "publish",
-			CreatedBy: req.PublishedBy,
+			CreatedBy: actor,
 			CreatedAt: now,
 		})
 	})
 	if err != nil {
 		return nil, err
 	}
+	s.auditPageEvent(ctx, audit.EventPagePublish, gameID, env, req.PageKey, map[string]interface{}{
+		"draft_revision":    p.DraftRevision,
+		"published_version": publishedVersion,
+		"diagnostic_errors": countErrors(diags),
+		"binding_count":     len(pageSpec.Bindings),
+	})
 	return &PagePublishResponse{PageKey: req.PageKey, Published: true, PublishedVersion: publishedVersion}, nil
 }
 
 func (s *Service) Unpublish(ctx context.Context, req *PageUnpublishRequest) (*PageUnpublishResponse, error) {
+	if err := s.requirePagePublish(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -355,10 +400,17 @@ func (s *Service) Unpublish(ctx context.Context, req *PageUnpublishRequest) (*Pa
 	if err != nil {
 		return nil, err
 	}
+	s.auditPageEvent(ctx, audit.EventPageUnpublish, gameID, env, req.PageKey, map[string]interface{}{
+		"draft_revision":    p.DraftRevision,
+		"published_version": p.PublishedVersion,
+	})
 	return &PageUnpublishResponse{PageKey: req.PageKey, Published: false}, nil
 }
 
 func (s *Service) Versions(ctx context.Context, req *PageVersionsRequest) (*PageVersionsResponse, error) {
+	if err := s.requirePageRead(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -389,6 +441,9 @@ func (s *Service) Versions(ctx context.Context, req *PageVersionsRequest) (*Page
 }
 
 func (s *Service) VersionDetail(ctx context.Context, req *PageVersionDetailRequest) (*PageVersionDetailResponse, error) {
+	if err := s.requirePageRead(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -418,7 +473,14 @@ func (s *Service) VersionDetail(ctx context.Context, req *PageVersionDetailReque
 }
 
 func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*PageRollbackResponse, error) {
+	if err := s.requirePageRollback(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	actor, err := logicutils.CurrentUsername(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -469,12 +531,17 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 			SpecJSON:  specJSON,
 			Status:    "draft",
 			Message:   "rollback to version " + strconv.Itoa(target.Version),
+			CreatedBy: actor,
 			CreatedAt: p.UpdatedAt,
 		})
 	})
 	if err != nil {
 		return nil, err
 	}
+	s.auditPageEvent(ctx, audit.EventPageRollback, gameID, env, req.PageKey, map[string]interface{}{
+		"from_version":       target.Version,
+		"new_draft_revision": p.DraftRevision,
+	})
 	return &PageRollbackResponse{PageKey: req.PageKey, DraftRevision: p.DraftRevision}, nil
 }
 
@@ -875,6 +942,58 @@ func (s *Service) normalizedFunctions(ctx context.Context) map[string]spec.Funct
 		}
 	}
 	return out
+}
+
+func (s *Service) requirePageRead(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权查看页面", "admin:all", "pages:read", "pages:edit", "pages:publish", "pages:rollback")
+	return err
+}
+
+func (s *Service) requirePageEdit(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权编辑页面", "admin:all", "pages:edit")
+	return err
+}
+
+func (s *Service) requirePagePublish(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权发布页面", "admin:all", "pages:publish")
+	return err
+}
+
+func (s *Service) requirePageRollback(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权回滚页面", "admin:all", "pages:rollback")
+	return err
+}
+
+func (s *Service) auditPageEvent(ctx context.Context, eventType audit.AuditEventType, gameID, env, pageKey string, details map[string]interface{}) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil {
+		return
+	}
+	actor, err := logicutils.CurrentUsername(ctx)
+	if err != nil {
+		actor = "unknown"
+	}
+	if details == nil {
+		details = map[string]interface{}{}
+	}
+	details["game_id"] = gameID
+	details["env"] = env
+	details["page_key"] = pageKey
+
+	_, err = s.svcCtx.AuditService.Log(ctx, eventType,
+		audit.WithActorID(actor, "user", actor),
+		audit.WithResource(audit.ResourceInfo{
+			Type:        "page",
+			ID:          pageKey,
+			Name:        pageKey,
+			GameID:      gameID,
+			Environment: env,
+		}),
+		audit.WithDetails(details),
+		audit.WithOutcome("success", ""),
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to write page audit event", "event", eventType, "pageKey", pageKey, "error", err)
+	}
 }
 
 func normalizeLocaleKeys(input map[string]string) map[string]string {

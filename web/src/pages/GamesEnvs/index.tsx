@@ -200,7 +200,7 @@ export default function GamesEnvsPage() {
         }
       >
         <Table<GameEnv>
-          rowKey={(r) => String(r.id || r.env)}
+          rowKey={(r) => r.env}
           dataSource={envs}
           loading={loading}
           columns={columns}

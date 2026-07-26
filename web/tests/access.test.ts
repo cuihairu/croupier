@@ -9,8 +9,9 @@ describe('runtime access', () => {
     });
 
     expect(result.canAdmin).toBe(true);
+    expect(result.canFunctionsAndPagesRead).toBe(true);
     expect(result.canFunctionsRead).toBe(true);
-    expect(result.canWorkspaceManage).toBe(true);
+    expect(result.canPageManage).toBe(true);
     expect(result.canConsoleRead).toBe(true);
   });
 
@@ -22,23 +23,25 @@ describe('runtime access', () => {
     });
 
     expect(result.canAdmin).toBe(true);
+    expect(result.canFunctionsAndPagesRead).toBe(true);
     expect(result.canFunctionsRead).toBe(true);
-    expect(result.canWorkspaceRead).toBe(true);
+    expect(result.canPageRead).toBe(true);
     expect(result.canConsoleRead).toBe(true);
   });
 
-  it('识别当前后端使用的 workspace 单数权限码', () => {
+  it('识别 PageSpec 页面管理权限码', () => {
     const result = access({
       currentUser: {
-        access: 'functions:read,workspace:read,workspace:edit,workspace:publish',
+        access: 'functions:read,pages:read,pages:edit,pages:publish',
       },
     });
 
     expect(result.canFunctionsRead).toBe(true);
-    expect(result.canWorkspaceRead).toBe(true);
-    expect(result.canWorkspaceEdit).toBe(true);
-    expect(result.canWorkspacePublish).toBe(true);
-    expect(result.canWorkspaceManage).toBe(true);
+    expect(result.canFunctionsAndPagesRead).toBe(true);
+    expect(result.canPageRead).toBe(true);
+    expect(result.canPageEdit).toBe(true);
+    expect(result.canPagePublish).toBe(true);
+    expect(result.canPageManage).toBe(true);
     expect(result.canConsoleRead).toBe(true);
   });
 
@@ -50,7 +53,33 @@ describe('runtime access', () => {
     });
 
     expect(result.canFunctionsRead).toBe(false);
-    expect(result.canWorkspaceRead).toBe(false);
+    expect(result.canFunctionsAndPagesRead).toBe(false);
+    expect(result.canPageRead).toBe(false);
     expect(result.canConsoleRead).toBe(true);
+  });
+
+  it('函数目录读取权限不等于运行控制台权限', () => {
+    const result = access({
+      currentUser: {
+        access: 'functions:read',
+      },
+    });
+
+    expect(result.canFunctionsRead).toBe(true);
+    expect(result.canFunctionsAndPagesRead).toBe(true);
+    expect(result.canPageRead).toBe(false);
+    expect(result.canConsoleRead).toBe(false);
+  });
+
+  it('允许只有 PageSpec 读取权限的用户进入函数与页面入口', () => {
+    const result = access({
+      currentUser: {
+        access: 'pages:read',
+      },
+    });
+
+    expect(result.canFunctionsRead).toBe(false);
+    expect(result.canPageRead).toBe(true);
+    expect(result.canFunctionsAndPagesRead).toBe(true);
   });
 });

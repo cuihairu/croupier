@@ -2,7 +2,9 @@ import { request } from '@umijs/max';
 import { getScope } from '@/stores/scope';
 import { createEventSource } from '../core/http';
 
-function withAnalyticsScope(params?: Record<string, any>) {
+type AnalyticsParams = Record<string, unknown>;
+
+function withAnalyticsScope(params?: AnalyticsParams) {
   const scope = getScope();
   return {
     ...(params || {}),
@@ -12,7 +14,7 @@ function withAnalyticsScope(params?: Record<string, any>) {
 }
 
 // Overview KPI
-export async function fetchAnalyticsOverview(params?: any) {
+export async function fetchAnalyticsOverview(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/overview', { params: withAnalyticsScope(params) });
   } catch {
@@ -21,7 +23,7 @@ export async function fetchAnalyticsOverview(params?: any) {
 }
 
 // Retention (cohort)
-export async function fetchAnalyticsRetention(params?: any) {
+export async function fetchAnalyticsRetention(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/retention', { params: withAnalyticsScope(params) });
   } catch {
@@ -30,7 +32,7 @@ export async function fetchAnalyticsRetention(params?: any) {
 }
 
 // Realtime screen
-export async function fetchAnalyticsRealtime(params?: any) {
+export async function fetchAnalyticsRealtime(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/realtime', { params: withAnalyticsScope(params) });
   } catch {
@@ -38,7 +40,7 @@ export async function fetchAnalyticsRealtime(params?: any) {
   }
 }
 
-export function openAnalyticsRealtimeEventSource(params?: Record<string, any>) {
+export function openAnalyticsRealtimeEventSource(params?: AnalyticsParams) {
   const scoped = withAnalyticsScope(params);
   return createEventSource('/api/v1/analytics/realtime', {
     params: Object.fromEntries(
@@ -47,7 +49,7 @@ export function openAnalyticsRealtimeEventSource(params?: Record<string, any>) {
   });
 }
 
-export async function fetchRealtimeSeries(params: any) {
+export async function fetchRealtimeSeries(params: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/realtime/series', {
       params: withAnalyticsScope(params),
@@ -58,7 +60,7 @@ export async function fetchRealtimeSeries(params: any) {
 }
 
 // Behavior events and funnel
-export async function fetchAnalyticsEvents(params?: any) {
+export async function fetchAnalyticsEvents(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/behavior/events', {
       params: withAnalyticsScope(params),
@@ -67,7 +69,7 @@ export async function fetchAnalyticsEvents(params?: any) {
     return { events: [], total: 0 };
   }
 }
-export async function fetchAnalyticsFunnel(params?: any) {
+export async function fetchAnalyticsFunnel(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/behavior/funnel', {
       params: withAnalyticsScope(params),
@@ -78,7 +80,7 @@ export async function fetchAnalyticsFunnel(params?: any) {
 }
 
 // Behavior paths (Top N)
-export async function fetchAnalyticsPaths(params?: any) {
+export async function fetchAnalyticsPaths(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/behavior/paths', {
       params: withAnalyticsScope(params),
@@ -89,7 +91,7 @@ export async function fetchAnalyticsPaths(params?: any) {
 }
 
 // Feature adoption
-export async function fetchAnalyticsAdoption(params?: any) {
+export async function fetchAnalyticsAdoption(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/behavior/adoption', {
       params: withAnalyticsScope(params),
@@ -99,7 +101,7 @@ export async function fetchAnalyticsAdoption(params?: any) {
   }
 }
 
-export async function fetchAnalyticsAdoptionBreakdown(params?: any) {
+export async function fetchAnalyticsAdoptionBreakdown(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/behavior/adoption/breakdown', {
       params: withAnalyticsScope(params),
@@ -110,7 +112,7 @@ export async function fetchAnalyticsAdoptionBreakdown(params?: any) {
 }
 
 // Payments
-export async function fetchAnalyticsPaymentsSummary(params?: any) {
+export async function fetchAnalyticsPaymentsSummary(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/payments/summary', {
       params: withAnalyticsScope(params),
@@ -119,7 +121,7 @@ export async function fetchAnalyticsPaymentsSummary(params?: any) {
     return { totals: {}, by_channel: [], by_product: [] };
   }
 }
-export async function fetchAnalyticsTransactions(params?: any) {
+export async function fetchAnalyticsTransactions(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/payments/transactions', {
       params: withAnalyticsScope(params),
@@ -130,14 +132,14 @@ export async function fetchAnalyticsTransactions(params?: any) {
 }
 
 // Levels (funnel + winrate + time + retries)
-export async function fetchAnalyticsLevels(params?: any) {
+export async function fetchAnalyticsLevels(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/levels', { params: withAnalyticsScope(params) });
   } catch {
     return { funnel: [], per_level: [] };
   }
 }
-export async function fetchAnalyticsLevelsEpisodes(params?: any) {
+export async function fetchAnalyticsLevelsEpisodes(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/levels/episodes', {
       params: withAnalyticsScope(params),
@@ -146,7 +148,7 @@ export async function fetchAnalyticsLevelsEpisodes(params?: any) {
     return { episodes: [] };
   }
 }
-export async function fetchAnalyticsLevelsMaps(params?: any) {
+export async function fetchAnalyticsLevelsMaps(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/levels/maps', {
       params: withAnalyticsScope(params),
@@ -157,7 +159,7 @@ export async function fetchAnalyticsLevelsMaps(params?: any) {
 }
 
 // Payments product trend
-export async function fetchProductTrend(params: any) {
+export async function fetchProductTrend(params: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/payments/product-trend', {
       params: withAnalyticsScope(params),

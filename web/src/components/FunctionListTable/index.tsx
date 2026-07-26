@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { ProTable, ProColumns } from '@ant-design/pro-components';
 import { Button, Space, Tag, Badge, Tooltip, Typography, Popconfirm } from 'antd';
+import type { Key } from 'react';
 import {
   PlayCircleOutlined,
   InfoCircleOutlined,
@@ -101,14 +102,13 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
   const processedData = useMemo(() => {
     return data.map((row) => ({
       ...row,
-      displayName: row.displayName?.zh || row.displayName?.en || row.id,
       displaySummary: row.summary?.zh || row.summary?.en || '-',
       categoryName: row.category || '未分类',
     }));
   }, [data]);
 
   // Handle selection change
-  const handleSelectionChange = (rows: FunctionItem[]) => {
+  const handleSelectionChange = (_keys: Key[], rows: FunctionItem[]) => {
     setSelectedRows(rows);
     if (onSelectionChange) {
       onSelectionChange(rows);
@@ -117,8 +117,8 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
 
   // Get categories for filter
   const categories = useMemo(() => {
-    const cats = [...new Set(data.map((item) => item.category).filter(Boolean))];
-    return cats.map((cat) => ({ text: cat || '未分类', value: cat }));
+    const cats = [...new Set(data.map((item) => item.category).filter((cat): cat is string => Boolean(cat)))];
+    return cats.map((cat) => ({ text: cat, value: cat }));
   }, [data]);
 
   const columns: ProColumns<FunctionItem>[] = [
@@ -135,7 +135,7 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
             <Text code>{record.id}</Text>
           </Space>
           {record.version && (
-            <Tag color="blue" size="small">
+            <Tag color="blue">
               v{record.version}
             </Tag>
           )}
@@ -184,14 +184,14 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
       dataIndex: 'tags',
       width: 200,
       render: (_, record) => (
-        <Space wrap>
+          <Space wrap>
           {(record.tags || []).slice(0, 3).map((tag) => (
-            <Tag key={tag} size="small">
+            <Tag key={tag}>
               {tag}
             </Tag>
           ))}
           {(record.tags || []).length > 3 && (
-            <Tag size="small">+{(record.tags || []).length - 3}</Tag>
+            <Tag>+{(record.tags || []).length - 3}</Tag>
           )}
         </Space>
       ),

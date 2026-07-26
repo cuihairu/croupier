@@ -21,7 +21,6 @@ const Settings: ProLayoutProps & {
   logo: '/logo.svg',
   iconfontUrl: '',
   token: {
-    borderRadius: 4,
     bgLayout: '#f3f5f7',
     sider: {
       colorMenuBackground: '#fbfbfa',

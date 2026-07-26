@@ -27,18 +27,18 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
   const isAdmin = has('admin') || has('admin:all') || has('super_admin');
   const hasAny = (...keys: string[]) => keys.some((key) => has(key)) || isAdmin;
 
-  const canPageRead = hasAny('pages:read', 'pages:manage', 'functions:manage');
-  const canPageEdit = hasAny('pages:edit', 'pages:manage', 'functions:manage');
-  const canPagePublish = hasAny('pages:publish', 'pages:manage', 'functions:manage');
-  const canPageRollback = hasAny('pages:rollback', 'pages:manage', 'functions:manage');
-  const canPageDelete = hasAny('pages:delete', 'pages:manage', 'functions:manage');
-  const canConsoleRead = canPageRead || hasAny('function:invoke', 'functions:read', 'functions:manage');
+  const canPageRead = hasAny('pages:read', 'pages:edit', 'pages:publish', 'pages:rollback');
+  const canPageEdit = hasAny('pages:edit');
+  const canPagePublish = hasAny('pages:publish');
+  const canPageRollback = hasAny('pages:rollback');
+  const canPageDelete = hasAny('pages:delete');
+  const canConsoleRead = hasAny('console:read', 'pages:read', 'function:invoke');
+  const canResourcesRead = hasAny('resources:read', 'resources:diagnose', 'functions:read', 'functions:manage');
+  const canFunctionsRead = hasAny('functions:read', 'functions:manage');
   const canSystemConfigRead =
     hasAny(
       'games:read',
       'games:manage',
-      'functions:read',
-      'functions:manage',
       'ops:read',
       'ops:manage',
       'extension:read',
@@ -57,7 +57,8 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
     canAssignmentsWrite: hasAny('assignments:write'),
     canAuditRead: hasAny('audit:read'),
     // Functions management
-    canFunctionsRead: hasAny('functions:read', 'functions:manage'),
+    canFunctionsAndPagesRead: canFunctionsRead || canPageRead || canResourcesRead,
+    canFunctionsRead,
     canFunctionsManage: hasAny('functions:manage'),
     // Runtime console reads published PageSpec snapshots.
     canConsoleRead,
@@ -67,7 +68,7 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
     canPagePublish,
     canPageRollback,
     canPageDelete,
-    canResourcesRead: hasAny('resources:read', 'resources:diagnose', 'functions:read', 'functions:manage'),
+    canResourcesRead,
     // 运维管理（Ops）
     canOpsRead: hasAny(
       'ops:read',

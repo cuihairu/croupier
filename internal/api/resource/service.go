@@ -9,6 +9,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -24,6 +25,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 
 // List returns normalized ResourceSpec list from registered functions.
 func (s *Service) List(ctx context.Context, req *ResourceListRequest) (*ResourceListResponse, error) {
+	if err := s.requireResourceRead(ctx); err != nil {
+		return nil, err
+	}
 	// Get all function descriptors and normalize them
 	inputs := descriptors.Collect(ctx, s.svcCtx)
 	_, resources := normalizer.NormalizeBatch(inputs)
@@ -62,6 +66,9 @@ func (s *Service) List(ctx context.Context, req *ResourceListRequest) (*Resource
 
 // Detail returns a single ResourceSpec by key.
 func (s *Service) Detail(ctx context.Context, req *ResourceDetailRequest) (*ResourceDetailResponse, error) {
+	if err := s.requireResourceRead(ctx); err != nil {
+		return nil, err
+	}
 	inputs := descriptors.Collect(ctx, s.svcCtx)
 	_, resources := normalizer.NormalizeBatch(inputs)
 
@@ -75,6 +82,9 @@ func (s *Service) Detail(ctx context.Context, req *ResourceDetailRequest) (*Reso
 
 // Operations returns OperationSpec list for a resource.
 func (s *Service) Operations(ctx context.Context, req *ResourceOperationsRequest) (*ResourceOperationsResponse, error) {
+	if err := s.requireResourceRead(ctx); err != nil {
+		return nil, err
+	}
 	inputs := descriptors.Collect(ctx, s.svcCtx)
 	_, resources := normalizer.NormalizeBatch(inputs)
 
@@ -88,6 +98,9 @@ func (s *Service) Operations(ctx context.Context, req *ResourceOperationsRequest
 
 // GeneratedPages returns generated PageSpec suggestions for a resource.
 func (s *Service) GeneratedPages(ctx context.Context, req *ResourceGeneratedPagesRequest) (*ResourceGeneratedPagesResponse, error) {
+	if err := s.requireResourceDiagnose(ctx); err != nil {
+		return nil, err
+	}
 	inputs := descriptors.Collect(ctx, s.svcCtx)
 	_, resources := normalizer.NormalizeBatch(inputs)
 
@@ -120,6 +133,16 @@ func matchesLocalizedText(labels spec.LocalizedText, query string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Service) requireResourceRead(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权查看资源", "admin:all", "resources:read", "resources:diagnose", "functions:read", "functions:manage", "pages:read", "pages:edit")
+	return err
+}
+
+func (s *Service) requireResourceDiagnose(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权生成页面候选", "admin:all", "resources:diagnose", "functions:manage", "pages:edit")
+	return err
 }
 
 // ErrResourceNotFound returns a not-found error for a resource key.

@@ -1,6 +1,6 @@
 # Dashboard Resource/Page 重构 TODO
 
-更新时间：2026-07-26（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；旧 Workspace/Entity 当前页面模型已物理清理，剩余重点是 Page Studio 前端、权限审计、CI guard 和端到端验收）
+更新时间：2026-07-26（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；Page Studio 基础前端已接入；旧 Workspace/Entity/PageGenerator 前端协议残留已物理清理；dashboard CI guard 已接入；剩余重点是 Page Studio 可视化编辑、权限审计、真实数据端到端验收和 Source binding 完整闭环）
 
 本文是 Dashboard 动态页面、函数注册描述符、Page Studio 和运行控制台菜单的重构交接清单。执行 AI 必须按本文推进；审核 AI 以本文和权威设计文档为验收依据。
 
@@ -27,9 +27,9 @@
 | P0-9 PageSpec Generator | ✅ 核心完成 | 2026-07-25 | generator 已接 `PageContract/x-page-contract`，无可验证 mapping/分页/列/任务/报表契约时只产出 diagnostics，不标 ready |
 | P0-10 受控 Page 执行与契约失效 | ✅ 核心完成 | 2026-07-25 | Page binding execute 已接 active PublishedPageSpec、contract digest stale 检查、traceId 返回；task/approval UI 细节仍在 P1 |
 | P0-11 OpenAPI Source 上传与执行绑定 | ✅ 基础完成 | 2026-07-25 | Source API、diagnostics、provider binding、旧 import 路由删除已完成；httpConnector/Source revision 后续实现 |
-| P1-1 Page Studio 前端 | ⏳ 待开始 | | 旧 WorkspaceEditor 已删除；需要新建 Page Studio，而不是复用旧 layout editor |
-| P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 动态菜单已接 ConsoleMenuSpec；系统菜单仍需补 Page Studio 入口和最终文案验收 |
-| P1-3 权限和审计模型迁移 | ⏳ 进行中 | | 权限/审计需按 Page/Resource 重新核验 |
+| P1-1 Page Studio 前端 | ⏳ 进行中 | | 已新增 `/system/functions/pages` Page Studio 基础入口，支持 PageSpec 草稿列表、Resource 生成候选、PageCandidate 落草稿、JSON 编辑、基础信息与 binding 结构化编辑、校验、预览、发布/取消发布、版本查看、版本回滚和 409 revision 冲突提示；下一步是 Formily schema 可视化编辑器与组件 ABI 编辑器 |
+| P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 动态菜单已接 ConsoleMenuSpec；“函数与页面”已提升为独立顶层入口；旧注册函数静态菜单翻译已清理；仍需真实发布数据端到端验收和最终文案验收 |
+| P1-3 权限和审计模型迁移 | ⏳ 进行中 | | Resource/Page/Console 后端服务层权限已接入；Page 保存/发布/取消发布/回滚/执行审计已落地；Console Page 执行已补 Page binding span 与下游 metadata 传播；前端 access 已收敛到 Page/Resource/Console 权限；剩余真实 OTel collector 字段验收 |
 | P1-4 数据表和历史数据处理 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 不作为兼容来源，历史数据只能人工导出/清理，禁止自动发布为新 Page |
 
 ## 0. 硬约束
@@ -538,7 +538,7 @@ rg -n "schemaInputFromRaw|rawSchemaFromAny|boolFromAny|stringFromAny|__clear_cus
 - `internal/logic/function/function_u_i_update_logic.go`
 - `internal/logic/function/function_u_i_rollback_logic.go`
 - `internal/api/function/dto.go`
-- `web/src/components/FunctionFormRenderer/index.tsx`
+- `web/src/components/formily/SchemaRenderer.tsx`
 - `web/src/components/FunctionUIManager/index.tsx`
 - `web/src/pages/Functions/SchemaDesigner/*`
 - `web/src/utils/json.ts`
@@ -561,7 +561,7 @@ rg -n "schemaInputFromRaw|rawSchemaFromAny|boolFromAny|stringFromAny|__clear_cus
 
 ```bash
 go test ./internal/logic/function/... ./internal/api/function/...
-./web/node_modules/.bin/eslint "src/components/FunctionFormRenderer/index.tsx" "src/components/FunctionUIManager/index.tsx" "src/pages/Functions/SchemaDesigner/index.tsx" "src/services/api/functions.ts" "src/services/schema/index.ts" "src/utils/json.ts"
+./web/node_modules/.bin/eslint "src/components/formily/SchemaRenderer.tsx" "src/components/FunctionUIManager/index.tsx" "src/pages/Functions/SchemaDesigner/index.tsx" "src/pages/Functions/Invoke/index.tsx" "src/services/api/functions.ts" "src/services/schema/index.ts" "src/utils/json.ts"
 rg -n "openapi_x_ui|uiConfig\\.layout|uiConfig\\.components|layout\\?: Record<string, unknown>|components\\?: Record<string, unknown>|parseInputSchema\\([^\\)]*,|generatedFromParams" "web/src/components/FunctionUIManager/index.tsx" "web/src/services/api/functions.ts" "web/src/services/schema/index.ts" "web/src/pages/Functions/SchemaDesigner/index.tsx" "web/src/utils/json.ts"
 ```
 
@@ -1007,7 +1007,7 @@ rg -n "x-ui|\"ui\"|/api/v1/openapi/import" "internal/api/openapi" "web/src/servi
 
 ### P1-1. 新建 Page Studio
 
-状态：旧 WorkspaceEditor 已删除；必须新建 Page Studio，禁止恢复旧 editor。
+状态：基础闭环已接入；旧 WorkspaceEditor 已删除；已支持版本查看、版本回滚和 409 revision 冲突提示；必须继续演进 Page Studio，禁止恢复旧 editor。
 
 目标：
 
@@ -1015,8 +1015,9 @@ rg -n "x-ui|\"ui\"|/api/v1/openapi/import" "internal/api/openapi" "web/src/servi
 
 受影响路径：
 
-- 新增：`web/src/pages/PageStudio/*`
-- 新增：`web/src/services/pageStudio.ts`
+- `web/src/pages/PageStudio/*`
+- `web/src/services/api/pages.ts`
+- `web/src/services/api/resources.ts`
 - `web/config/routes.ts`
 - `web/src/types/dashboard.ts`
 
@@ -1024,27 +1025,27 @@ rg -n "x-ui|\"ui\"|/api/v1/openapi/import" "internal/api/openapi" "web/src/servi
 
 - 路由改为 `/system/functions/pages`、`/system/functions/pages/:pageKey` 或符合现有信息架构的 Page Studio 路径。
 - 列表页展示 Page 草稿、发布状态、分类、类型、诊断、更新时间。
-- 支持从 Resource 生成默认 PageSpec 建议并复制为草稿。
+- 支持从 Resource 生成默认 PageSpec 建议并复制为草稿。（已接入基础流程）
 - 编辑器只编辑 PageSpec Formily Page Schema、bindingId/usage/inputMapping/outputMapping/execution 和非执行展示 metadata。
-- 保存时携带 revision，409 时显示并支持与当前草稿比较；不得覆盖。
+- 保存时携带 revision，409 时显示当前/本地 revision 并允许加载最新草稿；不得覆盖。（已接入基础冲突提示，diff 视图后续补）
 - 编辑器必须使用与发布端相同的组件 registry/props validator，不能出现“编辑器能保存、运行期不能渲染”。
 - 预览调用 `/preview`，不影响运行控制台。
 - 发布调用 `/publish`，失败展示 diagnostics。
-- 历史版本、diff、rollback 使用 PageSpec 结构，不比较旧 layout。
+- 历史版本、diff、rollback 使用 PageSpec 结构，不比较旧 layout。（版本查看和 rollback 已接入，diff 视图后续补）
 - 禁止恢复 `TabEditor/LayoutDesigner/CanvasEditor/schemaToLayout` 等旧 layout 专用概念。
 
 验收标准：
 
-- 用户可以从 `player` Resource 生成 `player.manage` 草稿、预览、发布。
+- 用户可以从 Resource 生成 PageCandidate 草稿、预览、校验，并在确认后发布。
 - 发布后当前 scope 的运行控制台菜单出现，取消发布后消失。
 - 编辑器页面没有 objectKey、tabs layout、sections layout 的概念。
 
 验证命令：
 
 ```bash
-pnpm --dir "web" exec eslint "src/pages/PageStudio" "src/services/pageStudio.ts"
-test ! -d "web/src/pages/PageStudio" || ! rg -n "objectKey|WorkspaceConfig|TabEditor|LayoutDesigner|schemaToLayout|tabs|sections|wizard|dashboard" "web/src/pages/PageStudio"
-test ! -f "web/src/services/pageStudio.ts" || ! rg -n "objectKey|WorkspaceConfig|TabEditor|LayoutDesigner|schemaToLayout|tabs|sections|wizard|dashboard" "web/src/services/pageStudio.ts"
+./web/node_modules/.bin/eslint "src/pages/PageStudio/index.tsx" "src/services/api/pages.ts" "src/services/api/resources.ts"
+test ! -d "web/src/pages/PageStudio" || ! rg -n "objectKey|WorkspaceConfig|TabEditor|LayoutDesigner|schemaToLayout|WorkspaceLayout|PageGenerator" "web/src/pages/PageStudio"
+test ! -f "web/src/services/api/pages.ts" || ! rg -n "objectKey|WorkspaceConfig|TabEditor|LayoutDesigner|schemaToLayout|WorkspaceLayout|PageGenerator" "web/src/services/api/pages.ts"
 ```
 
 禁止事项：
@@ -1057,6 +1058,8 @@ test ! -f "web/src/services/pageStudio.ts" || ! rg -n "objectKey|WorkspaceConfig
 目标：
 
 - 让后台菜单表达清晰边界，用户能理解每个入口做什么。
+
+状态：2026-07-26 已完成第一轮菜单重排；`FunctionsAndPages` 为独立顶层入口，`SystemConfig` 只保留系统基础配置和扩展配置；动态运行菜单仍只由 `ConsoleMenuSpec` 注入。
 
 受影响路径：
 
@@ -1098,6 +1101,7 @@ test ! -f "web/src/services/pageStudio.ts" || ! rg -n "objectKey|WorkspaceConfig
   - Page Studio：草稿、生成、编辑、发布。
   - 运行控制台：只执行已发布页面。
 - 前端不在 Page 内再出现一套 `game_id/env` 选择；所有 API 请求使用全局选择的 scope。
+- 顶层“函数与页面”访问控制必须允许 `functions:*`、`resources:*` 或 `pages:*` 任一能力进入，子路由再按具体权限裁剪；不能让只有 `pages:read` 的用户看不到 Page Studio。
 
 验收标准：
 
@@ -1110,6 +1114,7 @@ test ! -f "web/src/services/pageStudio.ts" || ! rg -n "objectKey|WorkspaceConfig
 ```bash
 pnpm --dir "web" exec eslint "src"
 rg -n "实体管理|对象工作台|workspace|Workspace|game_id|env" "web/config/routes.ts" "web/src/pages" "web/src/locales"
+./web/node_modules/.bin/jest --config "web/jest.config.ts" --runTestsByPath "web/tests/access.test.ts" --runInBand
 ```
 
 禁止事项：
@@ -1134,8 +1139,9 @@ rg -n "实体管理|对象工作台|workspace|Workspace|game_id|env" "web/config
 实施要点：
 
 - 保留函数权限：`functions:read`、`function:invoke` 等按现状核对。
-- 新增或迁移：
+- 已新增或迁移：
   - `resources:read`
+  - `resources:diagnose`
   - `pages:read`
   - `pages:edit`
   - `pages:publish`
@@ -1143,19 +1149,27 @@ rg -n "实体管理|对象工作台|workspace|Workspace|game_id|env" "web/config
   - `pages:delete`
   - `console:read`
 - 删除或替换 `workspace:*`、`entities:*` 中误导的权限描述。
-- 发布、回滚、取消发布必须写审计日志，记录 pageKey、版本、操作者、诊断结果。
+- 保存、发布、回滚、取消发布、执行 Page binding 必须写审计日志，记录 pageKey、版本、操作者、诊断结果或执行结果。
+- Resource API 必须在服务层校验 `resources:read/resources:diagnose`；Page API 必须在服务层校验 `pages:read/edit/publish/rollback`；Console API 必须在服务层校验 `console:read/pages:read/function:invoke`，执行 binding 还必须具备 `function:invoke`。
+- 浏览器提交的操作者字段不可信；Page 保存、发布、回滚的 `updatedBy/publishedBy/createdBy` 只能从服务端上下文 `username` 获取。
+- 前端 `access.ts` 不得用 `functions:read` 打开运行控制台；函数目录权限、Page Studio 权限和运行控制台权限必须分别判断。
+- Console Page binding 执行必须生成 Page 层 `requestId`，并写入返回结果、审计 `AuditContext` 和下游 Function invoke metadata；metadata 至少包含 `page_key/binding_id/page_request_id/page_runtime_api/publish_version`。
 
 验收标准：
 
 - 前端按钮权限和后端 API 权限一致。
 - 权限描述不再出现“对象工作台配置”。
 - 审计能追踪 Page 发布和回滚。
+- 审计能追踪 Page binding 执行，至少包含 `game_id/env/page_key/publish_version/binding_id/function_id/request_id/trace_id/actor/result_kind`。
+- 无 Page 权限的用户不能保存、发布、回滚草稿；无 `function:invoke` 的用户不能执行运行控制台 binding。
+- `updatedBy/publishedBy` 不再来自请求体。
 
 验证命令：
 
 ```bash
 rg -n "workspace:|entities:|entity:write|对象工作台|实体定义" "configs" "internal" "web/src"
-go test ./internal/api/policy/... ./internal/logic/...
+GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/api/page ./internal/api/resource ./internal/api/console
+./web/node_modules/.bin/jest --config "web/jest.config.ts" --runTestsByPath "web/tests/access.test.ts" --runInBand
 ```
 
 禁止事项：
@@ -1279,6 +1293,9 @@ rg -n "workspace_configs|WorkspaceConfigModel|FindByObjectKey|SetPublished|objec
 - `web/src/services/workspaceConfig.ts` 和 `web/src/services/workspace/*` 已删除。
 - `web/src/pages/Workspaces/*`、`web/src/pages/WorkspaceEditor/*` 已删除。
 - `web/src/pages/ComponentManagement/components/FunctionWorkspace.tsx` 已删除。
+- `web/src/components/PageGenerator/*`、`web/src/components/FunctionFormRenderer/*`、`web/src/components/XUISchema.tsx` 已删除。
+- `web/docs` 中旧 Workspace 用户/开发/API/治理文档已删除。
+- `web/dist` 已重建，旧 Workspace/PageGenerator 运行产物已清理。
 
 后续要点：
 
@@ -1293,7 +1310,7 @@ rg -n "workspace_configs|WorkspaceConfigModel|FindByObjectKey|SetPublished|objec
 验证命令：
 
 ```bash
-rg -n "WorkspaceRenderer|workspaceMock|workspaceConfig|WorkspaceConfig|WorkspaceLayout|TabLayout" "web/src"
+rg -n "WorkspaceRenderer|workspaceMock|workspaceConfig|WorkspaceConfig|WorkspaceLayout|TabLayout|PageGenerator|FunctionFormRenderer|XUISchema" "web/src"
 pnpm --dir "web" exec eslint "src"
 ```
 
@@ -1349,15 +1366,16 @@ rg -n "WorkspaceConfig|EntityModel|/api/v1/entities|workspace_configs|object_key
 
 ### P2-3. CI Guard
 
+状态：2026-07-26 已新增 `.github/scripts/dashboard_guard.sh` 并接入 `.github/workflows/ci-dashboard.yml`；已覆盖旧前端路径、旧文档、旧 dist 产物和 Function UI 兼容 wrapper；后续可继续扩展 guard 覆盖后端 DTO 和 SDK 越界字段。
+
 目标：
 
 - 防止旧模式被重新引入。
 
 受影响路径：
 
-- `.github/workflows/ci.yml`
-- `scripts/*`
-- 新增建议：`scripts/check-dashboard-model.sh`
+- `.github/workflows/ci-dashboard.yml`
+- `.github/scripts/dashboard_guard.sh`
 
 Guard 必须检查：
 
@@ -1389,7 +1407,7 @@ rg -n "\"domain\"\\s*:\\s*\"entity\"|domain=entity|Domain:\\s*\"entity\"" "confi
 验证命令：
 
 ```bash
-bash scripts/check-dashboard-model.sh
+bash .github/scripts/dashboard_guard.sh
 ```
 
 禁止事项：
