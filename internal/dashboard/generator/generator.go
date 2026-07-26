@@ -102,7 +102,7 @@ func buildOperationPageSchema(resourceKey, bindingID string) spec.FormilySchema 
 		ResourceKey:   strings.TrimSpace(resourceKey),
 	})
 	root.Properties["form"] = componentNode("QueryForm", bindingComponentProps{BindingID: bindingID})
-	root.Properties["result"] = emptyComponentNode("ResultPanel")
+	root.Properties["result"] = componentNode("ResultPanel", bindingComponentProps{BindingID: bindingID})
 	return marshalSchema(root)
 }
 

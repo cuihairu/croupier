@@ -27,7 +27,7 @@
 | P0-9 PageSpec Generator | ✅ 核心完成 | 2026-07-25 | generator 已接 `PageContract/x-page-contract`，无可验证 mapping/分页/列/任务/报表契约时只产出 diagnostics，不标 ready |
 | P0-10 受控 Page 执行与契约失效 | ✅ 核心完成 | 2026-07-25 | Page binding execute 已接 active PublishedPageSpec、contract digest stale 检查、traceId 返回；task/approval UI 细节仍在 P1 |
 | P0-11 OpenAPI Source 上传与执行绑定 | ✅ 基础完成 | 2026-07-25 | Source API、diagnostics、provider binding、旧 import 路由删除已完成；httpConnector/Source revision 后续实现 |
-| P1-1 Page Studio 前端 | ⏳ 进行中 | | 已新增 `/system/functions/pages` Page Studio 基础入口，支持 PageSpec 草稿列表、Resource 生成候选、PageCandidate 落草稿、JSON 编辑、基础信息与 binding 结构化编辑、服务端组件 ABI 校验、校验、预览、发布/取消发布、版本查看、版本回滚和 409 revision 冲突提示；下一步是 Formily schema 可视化编辑器 |
+| P1-1 Page Studio 前端 | ⏳ 进行中 | | 已新增 `/system/functions/pages` Page Studio 基础入口，支持 PageSpec 草稿列表、Resource 生成候选、PageCandidate 落草稿、JSON 编辑、基础信息与 binding 结构化编辑、Page schema 顶层组件结构化编辑、服务端组件 ABI 校验、校验、预览、发布/取消发布、版本查看、版本回滚和 409 revision 冲突提示；下一步是完整组件 props 表单化编辑与 diff 视图 |
 | P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 动态菜单已接 ConsoleMenuSpec；“函数与页面”已提升为独立顶层入口；旧注册函数静态菜单翻译已清理；仍需真实发布数据端到端验收和最终文案验收 |
 | P1-3 权限和审计模型迁移 | ⏳ 进行中 | | Resource/Page/Console 后端服务层权限已接入；Page 保存/发布/取消发布/回滚/执行审计已落地；Console Page 执行已补 Page binding span 与下游 metadata 传播；前端 access 已收敛到 Page/Resource/Console 权限；剩余真实 OTel collector 字段验收 |
 | P1-4 数据表和历史数据处理 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 不作为兼容来源，历史数据只能人工导出/清理，禁止自动发布为新 Page |
@@ -1007,7 +1007,7 @@ rg -n "x-ui|\"ui\"|/api/v1/openapi/import" "internal/api/openapi" "web/src/servi
 
 ### P1-1. 新建 Page Studio
 
-状态：基础闭环已接入；旧 WorkspaceEditor 已删除；已支持版本查看、版本回滚、409 revision 冲突提示和服务端 Page 组件 ABI 校验；必须继续演进 Page Studio，禁止恢复旧 editor。
+状态：基础闭环已接入；旧 WorkspaceEditor 已删除；已支持版本查看、版本回滚、409 revision 冲突提示、服务端 Page 组件 ABI 校验和 Page schema 顶层组件结构化编辑；必须继续演进 Page Studio，禁止恢复旧 editor。
 
 目标：
 
@@ -1026,7 +1026,7 @@ rg -n "x-ui|\"ui\"|/api/v1/openapi/import" "internal/api/openapi" "web/src/servi
 - 路由改为 `/system/functions/pages`、`/system/functions/pages/:pageKey` 或符合现有信息架构的 Page Studio 路径。
 - 列表页展示 Page 草稿、发布状态、分类、类型、诊断、更新时间。
 - 支持从 Resource 生成默认 PageSpec 建议并复制为草稿。（已接入基础流程）
-- 编辑器只编辑 PageSpec Formily Page Schema、bindingId/usage/inputMapping/outputMapping/execution 和非执行展示 metadata。
+- 编辑器只编辑 PageSpec Formily Page Schema、bindingId/usage/inputMapping/outputMapping/execution 和非执行展示 metadata。（已接入顶层 Page 组件结构化编辑；完整 props 表单化编辑后续补齐。）
 - 保存时携带 revision，409 时显示当前/本地 revision 并允许加载最新草稿；不得覆盖。（已接入基础冲突提示，diff 视图后续补）
 - 编辑器必须使用与发布端相同的组件 registry/props validator，不能出现“编辑器能保存、运行期不能渲染”。（服务端 ABI validator 已接入；可视化 schema 编辑器后续复用该 diagnostics。）
 - 预览调用 `/preview`，不影响运行控制台。

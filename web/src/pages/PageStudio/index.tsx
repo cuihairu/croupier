@@ -28,6 +28,7 @@ import {
   StopOutlined,
 } from '@ant-design/icons';
 import FormilyPageRenderer from '@/components/FormilyPageRenderer';
+import PageSchemaEditor from './PageSchemaEditor';
 import {
   getPageDraft,
   getPageVersion,
@@ -429,6 +430,13 @@ export default function PageStudio() {
     } catch (error) {
       message.error(errorMessage(error, `${key} 必须是合法 JSON`));
     }
+  };
+
+  const updatePageSchema = (schema: PageSpec['schema']) => {
+    updateCurrentPage((page) => ({
+      ...page,
+      schema,
+    }));
   };
 
   const addBinding = () => {
@@ -1074,6 +1082,19 @@ export default function PageStudio() {
                         </Space>
                       </Card>
                     </Space>
+                  ) : (
+                    <Alert type="error" showIcon message="PageSpec JSON 无效" description={currentJsonErrorMessage} />
+                  ),
+                },
+                {
+                  key: 'schema',
+                  label: '页面组件',
+                  children: currentPage ? (
+                    <PageSchemaEditor
+                      schema={currentPage.schema}
+                      bindings={currentPage.bindings}
+                      onChange={updatePageSchema}
+                    />
                   ) : (
                     <Alert type="error" showIcon message="PageSpec JSON 无效" description={currentJsonErrorMessage} />
                   ),

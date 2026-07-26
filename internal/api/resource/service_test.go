@@ -120,6 +120,7 @@ func TestServiceGeneratedPagesCreatesConservativeOperationCandidates(t *testing.
 	assert.Equal(t, "player.ban", page.PageKey)
 	assert.Equal(t, "player", page.Category.Key)
 	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
+	assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
 	assert.Contains(t, string(page.Schema), `"bindingId":"player.main"`)
 	assert.Equal(t, "needs_review", page.Quality)
 	assert.NotContains(t, string(page.Schema), `"functionId"`)
