@@ -14,6 +14,31 @@ import { buildAssignmentOptions, buildAssignmentStats, buildGroupedAssignments }
 import { ASSIGNMENTS_PAGE_SCHEMA } from './pageSchema';
 import { renderPageActions } from './PageRenderer';
 
+type InitialStateWithAccess = {
+  currentUser?: {
+    access?: string;
+  };
+};
+
+type DescriptorListResponse = FunctionDescriptor[] | { descriptors?: FunctionDescriptor[] };
+
+type AssignmentHistoryPayload = {
+  items?: AssignmentHistory[];
+  total?: number;
+};
+
+type AssignmentHistoryEnvelope = AssignmentHistoryPayload | { data?: AssignmentHistoryPayload };
+
+function toDescriptorArray(input: DescriptorListResponse): FunctionDescriptor[] {
+  if (Array.isArray(input)) return input;
+  return Array.isArray(input?.descriptors) ? input.descriptors : [];
+}
+
+function extractHistoryPayload(input: AssignmentHistoryEnvelope): AssignmentHistoryPayload {
+  if ('data' in input && input.data) return input.data;
+  return input as AssignmentHistoryPayload;
+}
+
 export default function useAssignmentsPage() {
   const { message } = App.useApp();
   const intl = useIntl();
@@ -40,7 +65,7 @@ export default function useAssignmentsPage() {
 
   const { initialState } = useModel('@@initialState');
   const canWrite = useMemo(() => {
-    const acc = (initialState as any)?.currentUser?.access as string | undefined;
+    const acc = (initialState as InitialStateWithAccess | undefined)?.currentUser?.access;
     const roles = (acc ? acc.split(',') : []).filter(Boolean);
     return roles.includes('*') || roles.includes('assignments:write');
   }, [initialState]);
@@ -55,13 +80,7 @@ export default function useAssignmentsPage() {
     setLoading(true);
     try {
       const d = await listDescriptors();
-      if (Array.isArray(d)) {
-        setDescs(d);
-      } else if (d && Array.isArray((d as any)?.descriptors)) {
-        setDescs((d as any).descriptors);
-      } else {
-        setDescs([]);
-      }
+      setDescs(toDescriptorArray(d as DescriptorListResponse));
       if (gameId) {
         try {
           const res = await fetchAssignments({ game_id: gameId, env });
@@ -86,16 +105,13 @@ export default function useAssignmentsPage() {
       setEnv(localStorage.getItem('env') || undefined);
     };
     const onGamesChanged = () => onStorage();
-    const onRouteChanged = () => load().catch(() => {});
     window.addEventListener('storage', onStorage);
     window.addEventListener('games:changed', onGamesChanged as EventListener);
-    window.addEventListener('function-route:changed', onRouteChanged as EventListener);
     return () => {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('games:changed', onGamesChanged as EventListener);
-      window.removeEventListener('function-route:changed', onRouteChanged as EventListener);
     };
-  }, [load]);
+  }, []);
 
   const onSave = useCallback(async () => {
     if (!gameId) {
@@ -124,8 +140,8 @@ export default function useAssignmentsPage() {
   }, [env, gameId, intl, load, message, selected]);
 
   const onBatchAssign = useCallback(
-    (category: string, assign: boolean) => {
-      const ids = options.filter((o) => o.category === category).map((o) => o.value);
+    (resource: string, assign: boolean) => {
+      const ids = options.filter((o) => o.resource === resource).map((o) => o.value);
       if (assign) {
         setSelected([...new Set([...selected, ...ids])]);
       } else {
@@ -152,8 +168,8 @@ export default function useAssignmentsPage() {
         });
         message.success(`已克隆分配到 ${targetEnv} 环境`);
         return true;
-      } catch (e: any) {
-        message.error(`克隆失败: ${e.message}`);
+      } catch (e: unknown) {
+        message.error(`克隆失败: ${e instanceof Error ? e.message : '未知错误'}`);
         return false;
       } finally {
         setLoading(false);
@@ -177,7 +193,7 @@ export default function useAssignmentsPage() {
           page,
           pageSize,
         });
-        const dataObj: any = (res as any)?.data || res;
+        const dataObj = extractHistoryPayload(res as AssignmentHistoryEnvelope);
         const items = Array.isArray(dataObj?.items) ? dataObj.items : [];
         setHistory(items);
         setHistoryTotal(typeof dataObj?.total === 'number' ? dataObj.total : items.length);
@@ -207,28 +223,25 @@ export default function useAssignmentsPage() {
         onOpenDetail: (id) => {
           routerHistory.push(`/system/functions/${encodeURIComponent(id)}?tab=config&subTab=ui`);
         },
-        onOpenRoute: (id) => {
-          routerHistory.push(`/system/functions/${encodeURIComponent(id)}?tab=config&subTab=route`);
-        },
       }),
     [canWrite, selected],
   );
 
-  const categoryColumns = useMemo(
+  const resourceColumns = useMemo(
     () =>
       buildCategoryColumns({
-        categoryColumns: ASSIGNMENTS_PAGE_SCHEMA.categoryColumns,
+        resourceColumns: ASSIGNMENTS_PAGE_SCHEMA.resourceColumns,
         onBatchAssign,
       }),
     [onBatchAssign],
   );
 
-  const routeColumns = useMemo(
+  const capabilityColumns = useMemo(
     () =>
       buildRouteColumns({
-        routeColumns: ASSIGNMENTS_PAGE_SCHEMA.routeColumns,
-        onEditRoute: (id) => {
-          routerHistory.push(`/system/functions/${encodeURIComponent(id)}?tab=config&subTab=route`);
+        capabilityColumns: ASSIGNMENTS_PAGE_SCHEMA.capabilityColumns,
+        onOpenDetail: (id) => {
+          routerHistory.push(`/system/functions/${encodeURIComponent(id)}`);
         },
       }),
     [],
@@ -246,8 +259,8 @@ export default function useAssignmentsPage() {
       activeTab,
       onTabChange: setActiveTab,
       columns,
-      categoryColumns,
-      routeColumns,
+      resourceColumns,
+      capabilityColumns,
       onSelectAll: () => setSelected(options.map((o) => o.value)),
       onClearAll: () => setSelected([]),
       onBatchAssign,
@@ -260,7 +273,7 @@ export default function useAssignmentsPage() {
     [
       activeTab,
       canWrite,
-      categoryColumns,
+      capabilityColumns,
       columns,
       gameId,
       groupedAssignments,
@@ -270,7 +283,7 @@ export default function useAssignmentsPage() {
       onBatchAssign,
       onSave,
       options,
-      routeColumns,
+      resourceColumns,
       selected,
       stats,
     ],

@@ -54,7 +54,9 @@
 | `id` | string | 是 | 函数 ID，例如 `player.ban` |
 | `version` | string | 是 | 语义化版本 |
 
-扩展字段（见 L2）：`tags` `summary` `description` `operation_id` `deprecated` `input_schema` `output_schema` `category` `risk` `entity` `operation`。
+扩展字段（见 L2）：`tags` `summary` `description` `operation_id` `deprecated` `input_schema` `output_schema` `resource` `operation` `risk` `enabled` `permission`。
+
+SDK 描述符不承载 UI、菜单、页面分类、多语言标题、Formily schema、`placement` 或 `page_hint`。最终页面只在 Page Studio / PageSpec 中确定。
 
 ### 2.4 Handler 签名
 
@@ -97,11 +99,26 @@
 | 能力 | 触发条件 | 统一字段/语义 |
 | --- | --- | --- |
 | JSON Schema 校验 | 描述符含 `input_schema` / `output_schema` | 默认 JSON Schema 格式，校验失败返回标准错误 |
+| Dashboard 能力契约 | 需要让 Server 归一化 Resource/Operation 候选 | 只使用 `resource` / `operation` / `risk` / `enabled` / `permission`；`summary` / `description` 只用于目录搜索和说明，不作为菜单或页面标题事实源 |
+| OpenAPI 注册 helper | 从 OpenAPI 文档批量注册 Provider 函数 | 只解析标准 `operationId/tags/summary/description/requestBody/responses/deprecated` 和 `x-resource` / `x-operation` / `x-risk` / `x-enabled` / `x-permission`；遇到 UI、Formily、菜单、路由、页面分类、显示文案、`x-placement`、`x-page-hint` 必须报错 |
 | 平台 drain 处理 | Agent 发送 `ProviderDrainRequest` | 停止接收新请求 → 完成在途 → 返回 `ProviderDrainResponse` |
 | 控制面 manifest 上传 | 配置 `control_addr` | 通过 `RegisterCapabilitiesRequest` 推送压缩 manifest |
 | TLS | `insecure=false` | `ca_file` / `cert_file` / `key_file` / `server_name` |
 | 鉴权 | 配置 `auth_token` | Bearer token，附加到握手 metadata |
 | 文件传输 | `enable_file_transfer=true` | 受白名单（`allowed_extensions` / `allowed_mime_types`）与上限（`max_file_size`）约束 |
+
+当前 Descriptor v2 / OpenAPI helper 实现状态：
+
+| SDK | Descriptor v2 字段 | `RegisterFromOpenAPI` 等价 helper | 备注 |
+| --- | --- | --- | --- |
+| Go | ✅ 已接 builder / OpenAPI helper | ✅ 可验证 | 作为当前基准实现 |
+| JS/TS | ⏳ 待验收 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
+| Python | ⏳ 待验收 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
+| Java | ⏳ 待验收 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
+| C++ | ⏳ 待验收 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
+| C# | ⏳ 待验收 | ❌ 未实现 | 生成 proto 已含字段，手写 API/示例仍需验收 |
+
+验收前禁止在 README 或集成文档中写“所有 SDK 支持 OpenAPI 解析/上传注册”。Server 侧 OpenAPI Source 上传是控制台能力，不等于每个 SDK 都有本地 OpenAPI helper。
 
 ---
 

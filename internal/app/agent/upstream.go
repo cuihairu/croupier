@@ -14,7 +14,6 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
-	componentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/proto"
@@ -471,61 +470,15 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		}
 		// Copy all metadata fields if available
 		if meta != nil {
-			desc.Category = meta.Category
+			desc.Resource = meta.Resource
 			desc.Risk = meta.Risk
-			desc.Entity = meta.Entity
 			desc.Operation = meta.Operation
+			desc.Permission = meta.Permission
 			desc.InputSchema = meta.InputSchema
 			desc.OutputSchema = meta.OutputSchema
 			desc.Tags = meta.Tags
-			desc.CategoryDisplay = meta.CategoryDisplay
-			desc.EntityDisplay = meta.EntityDisplay
-			desc.OperationDisplay = meta.OperationDisplay
-			desc.OperationKind = meta.OperationKind
-			desc.Placement = meta.Placement
-			desc.PageHint = meta.PageHint
-			desc.Extensions = meta.Extensions
-
-			// Set display_name and summary from metadata
-			if meta.Summary != "" {
-				desc.DisplayName = &componentv1.I18NText{
-					En: meta.Summary,
-					Zh: meta.Summary, // TODO: add proper i18n support
-				}
-			}
-			if meta.Description != "" {
-				desc.Summary = &componentv1.I18NText{
-					En: meta.Description,
-					Zh: meta.Description, // TODO: add proper i18n support
-				}
-			}
-
-			// Generate menu metadata from category/entity
-			nodes := make([]string, 0, 2)
-			if n := sanitizeNodeKey(meta.Category); n != "" {
-				nodes = append(nodes, n)
-			}
-			if n := sanitizeNodeKey(meta.Entity); n != "" {
-				nodes = append(nodes, n)
-			}
-			desc.Menu = &componentv1.Menu{
-				Nodes:  nodes,
-				Path:   defaultAgentMenuPath(fid, meta.Entity),
-				Order:  100,
-				Hidden: false,
-			}
-
-			// Generate permissions from operation type
-			if meta.Operation != "" {
-				desc.Permissions = &componentv1.PermissionSpec{
-					Verbs:  operationToVerbs(meta.Operation),
-					Scopes: []string{"game", "env", "function_id"},
-					Defaults: []*componentv1.RoleBinding{
-						{Role: "admin", Verbs: []string{"*"}},
-						{Role: "operator", Verbs: operationToVerbs(meta.Operation)},
-					},
-				}
-			}
+			desc.Summary = meta.Summary
+			desc.Description = meta.Description
 		}
 		funcs = append(funcs, desc)
 	}

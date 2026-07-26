@@ -21,9 +21,9 @@ func NewFunctionInstancesAllLogic(ctx context.Context, svcCtx *svc.ServiceContex
 	}
 }
 
-func (l *FunctionInstancesAllLogic) FunctionInstancesAll() (map[string]interface{}, error) {
+func (l *FunctionInstancesAllLogic) FunctionInstancesAll() (*FunctionInstancesAllResponse, error) {
 	if store := l.svcCtx.RegistryStore; store != nil {
-		out := make([]map[string]interface{}, 0)
+		out := make([]RuntimeFunctionInstance, 0)
 		store.Mu().RLock()
 		for _, sess := range store.AgentsUnsafe() {
 			if sess == nil || strings.TrimSpace(sess.AgentID) == "" {
@@ -43,23 +43,23 @@ func (l *FunctionInstancesAllLogic) FunctionInstancesAll() (map[string]interface
 					if fid == "" {
 						continue
 					}
-					out = append(out, map[string]interface{}{
-						"function_id": fid,
-						"agent_id":    sess.AgentID,
-						"provider_id": p.ProviderID,
-						"addr":        p.Addr,
-						"version":     p.Version,
-						"last_seen":   agentLastSeen.Format(time.RFC3339),
-						"healthy":     agentHealthy,
-						"game_id":     sess.GameID,
-						"env":         sess.Env,
+					out = append(out, RuntimeFunctionInstance{
+						FunctionID: fid,
+						AgentID:    sess.AgentID,
+						ProviderID: p.ProviderID,
+						Addr:       p.Addr,
+						Version:    p.Version,
+						LastSeen:   agentLastSeen.Format(time.RFC3339),
+						Healthy:    agentHealthy,
+						GameID:     sess.GameID,
+						Env:        sess.Env,
 					})
 				}
 			}
 		}
 		store.Mu().RUnlock()
-		return map[string]interface{}{"instances": out}, nil
+		return &FunctionInstancesAllResponse{Instances: out}, nil
 	}
 
-	return map[string]interface{}{"instances": []map[string]interface{}{}}, nil
+	return &FunctionInstancesAllResponse{Instances: []RuntimeFunctionInstance{}}, nil
 }

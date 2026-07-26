@@ -23,20 +23,13 @@ message LocalFunctionDescriptor {
   string input_schema = 8;                // JSON Schema for request body
   string output_schema = 9;               // JSON Schema for response body
 
-  // OpenAPI 3.0.3 Extension fields (x-* prefix)
-  string category = 10;                   // x-category: navigation category key (e.g., "gameplay", "support")
-  string risk = 11;                       // x-risk: risk level (e.g., "safe", "warning", "high", "danger")
-  string entity = 12;                     // x-entity: resource key (e.g., "player", "mail", "inventory")
-  string operation = 13;                  // x-operation: business action key (e.g., "ban", "send", "list")
-
-  // v2 extension fields for Page generation
-  map<string, string> category_display = 14;   // x-category-display: category multi-language labels
-  map<string, string> entity_display = 15;     // x-entity-display: resource multi-language labels
-  map<string, string> operation_display = 16;  // x-operation-display: operation multi-language labels
-  string operation_kind = 17;                  // x-operation-kind: page generation semantic (list/get/action/task/report)
-  string placement = 18;                       // x-placement: recommended page placement (tableData/rowAction/standalone)
-  string page_hint = 19;                       // x-page-hint: suggested page key
-  map<string, string> extensions = 20;         // third-party extensions (never used for core semantics)
+  // Croupier capability fields. These are business/governance contract fields,
+  // not Dashboard page, menu, Formily, label, or placement fields.
+  string resource = 10;                   // x-resource: business resource/capability key (e.g., "player", "mail")
+  string operation = 11;                  // x-operation: business action key (e.g., "ban", "send", "list")
+  string risk = 12;                       // x-risk: risk level (e.g., "safe", "warning", "high", "danger")
+  bool enabled = 13;                      // x-enabled: whether this function is enabled
+  string permission = 14;                 // x-permission: optional permission identifier
 }
 
 // ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.

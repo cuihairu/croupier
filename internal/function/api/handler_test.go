@@ -33,7 +33,7 @@ func setupTestRouter() (*gin.Engine, *Service) {
 		functions.GET("/:id", handler.GetFunction)
 		functions.PUT("/:id", handler.UpdateFunction)
 		functions.DELETE("/:id", handler.DeleteFunction)
-		functions.GET("/categories", handler.GetCategories)
+		functions.GET("/resources", handler.GetResources)
 		functions.GET("/tags", handler.GetTags)
 		functions.POST("/import/openapi", handler.ImportFromOpenAPI)
 	}
@@ -47,7 +47,7 @@ func TestHandler_ListFunctions(t *testing.T) {
 	// Register test functions
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Tags:     []string{"read"},
 		Name:     "Get Player",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
@@ -69,24 +69,24 @@ func TestHandler_ListFunctions(t *testing.T) {
 func TestHandler_ListFunctionsWithFilters(t *testing.T) {
 	router, service := setupTestRouter()
 
-	// Register test functions with different categories
+	// Register test functions with different resources
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Tags:     []string{"read"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
-		Category: "game",
+		Resource: "game",
 		Tags:     []string{"write"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
 	})
 
-	// Test filter by category
-	req := httptest.NewRequest("GET", "/api/v1/metadata/functions?category=player&page=1&pageSize=10", nil)
+	// Test filter by resource
+	req := httptest.NewRequest("GET", "/api/v1/metadata/functions?resource=player&page=1&pageSize=10", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -94,7 +94,7 @@ func TestHandler_ListFunctionsWithFilters(t *testing.T) {
 	var resp ListFunctionsResponse
 	json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, 1, len(resp.Functions))
-	Equal(t, "player", resp.Functions[0].Category)
+	Equal(t, "player", resp.Functions[0].Resource)
 }
 
 func TestHandler_GetFunction(t *testing.T) {
@@ -103,7 +103,7 @@ func TestHandler_GetFunction(t *testing.T) {
 	// Register test function
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.ban",
-		Category: "player",
+		Resource: "player",
 		Name:     "Ban Player",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
@@ -138,7 +138,7 @@ func TestHandler_RegisterFunction(t *testing.T) {
 	reqBody := RegisterFunctionRequest{
 		ID:       "player.kick",
 		Version:  "1.0.0",
-		Category: "player",
+		Resource: "player",
 		Tags:     []string{"moderation"},
 		Name:     "Kick Player",
 		Security: &FunctionSecurity{RiskLevel: "high"},
@@ -164,7 +164,7 @@ func TestHandler_DeleteFunction(t *testing.T) {
 	// Register test function
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.warn",
-		Category: "player",
+		Resource: "player",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
 	})
@@ -188,33 +188,33 @@ func TestHandler_DeleteFunctionNotFound(t *testing.T) {
 	Equal(t, http.StatusNotFound, w.Code)
 }
 
-func TestHandler_GetCategories(t *testing.T) {
+func TestHandler_GetResources(t *testing.T) {
 	router, service := setupTestRouter()
 
 	// Register test functions
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
-		Category: "game",
+		Resource: "game",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
 	})
 
-	// Get categories
-	req := httptest.NewRequest("GET", "/api/v1/metadata/functions/categories", nil)
+	// Get resources
+	req := httptest.NewRequest("GET", "/api/v1/metadata/functions/resources", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp map[string][]string
 	json.Unmarshal(w.Body.Bytes(), &resp)
-	Contains(t, resp["categories"], "player")
-	Contains(t, resp["categories"], "game")
+	Contains(t, resp["resources"], "player")
+	Contains(t, resp["resources"], "game")
 }
 
 func TestHandler_GetTags(t *testing.T) {
@@ -223,7 +223,7 @@ func TestHandler_GetTags(t *testing.T) {
 	// Register test functions
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Tags:     []string{"read", "player"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
@@ -408,7 +408,7 @@ func TestHandler_ImportFromOpenAPIWithOptions(t *testing.T) {
 	}`
 
 	encodedSpec := base64.StdEncoding.EncodeToString([]byte(openAPISpec))
-	reqBody := `{"spec": "` + encodedSpec + `", "options": {"categoryPrefix": "api", "defaultTimeoutMs": 30000}}`
+	reqBody := `{"spec": "` + encodedSpec + `", "options": {"resource_prefix": "api", "default_timeout_ms": 30000}}`
 	req := httptest.NewRequest("POST", "/api/v1/metadata/functions/import/openapi", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

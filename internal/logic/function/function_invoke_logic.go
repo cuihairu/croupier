@@ -43,15 +43,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 	gameID := strings.TrimSpace(req.GameID)
 	env := strings.TrimSpace(req.Env)
 
-	payloadObj := req.Payload
-	if payloadObj == nil {
-		payloadObj = req.Params
-	}
-	if payloadObj == nil {
-		payloadObj = map[string]interface{}{}
-	}
-
-	payload, err := json.Marshal(payloadObj)
+	payload, err := invokePayloadBytes(req)
 	if err != nil {
 		return nil, err
 	}
@@ -131,12 +123,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 	}
 	out := &FunctionInvokeResponse{}
 	if resp != nil && len(resp.GetPayload()) > 0 {
-		var v interface{}
-		if err := json.Unmarshal(resp.GetPayload(), &v); err == nil {
-			out.Result = v
-		} else {
-			out.Result = string(resp.GetPayload())
-		}
+		out.Result = rawJSONFromBytes(resp.GetPayload())
 	}
 	return out, nil
 }
@@ -165,17 +152,9 @@ func buildBroadcastResponse(b *dispatch.BroadcastInvocation) *FunctionInvokeResp
 	for _, s := range b.Successes {
 		item := BroadcastAgentItem{AgentID: s.AgentID}
 		if s.Response != nil && len(s.Response.GetPayload()) > 0 {
-			var v interface{}
-			if err := json.Unmarshal(s.Response.GetPayload(), &v); err == nil {
-				item.Result = v
-				if out.Result == nil {
-					out.Result = v
-				}
-			} else {
-				item.Result = string(s.Response.GetPayload())
-				if out.Result == nil {
-					out.Result = item.Result
-				}
+			item.Result = rawJSONFromBytes(s.Response.GetPayload())
+			if out.Result == nil {
+				out.Result = item.Result
 			}
 		}
 		out.Broadcast.Results = append(out.Broadcast.Results, item)
@@ -189,4 +168,28 @@ func buildBroadcastResponse(b *dispatch.BroadcastInvocation) *FunctionInvokeResp
 	}
 
 	return out
+}
+
+func invokePayloadBytes(req *FunctionInvokeRequest) ([]byte, error) {
+	if req == nil {
+		return []byte("null"), nil
+	}
+	switch {
+	case len(req.Payload) > 0:
+		if !jsonValid(req.Payload) {
+			return nil, errorx.NewBadRequest("payload must be valid JSON")
+		}
+		return append([]byte(nil), req.Payload...), nil
+	case len(req.Params) > 0:
+		if !jsonValid(req.Params) {
+			return nil, errorx.NewBadRequest("params must be valid JSON")
+		}
+		return append([]byte(nil), req.Params...), nil
+	default:
+		return []byte("{}"), nil
+	}
+}
+
+func jsonValid(raw []byte) bool {
+	return len(raw) > 0 && json.Valid(raw)
 }

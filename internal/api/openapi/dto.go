@@ -11,7 +11,8 @@ type Descriptor struct {
 	Id          string          `json:"id"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
-	Category    string          `json:"category"`
+	Resource    string          `json:"resource,omitempty"`
+	Operation   string          `json:"operation,omitempty"`
 	Schema      json.RawMessage `json:"schema"`
 }
 
@@ -82,26 +83,20 @@ type OpenAPISourceSummary struct {
 }
 
 type OpenAPISourceOperation struct {
-	OperationID      string                  `json:"operationId"`
-	Method           string                  `json:"method"`
-	Path             string                  `json:"path"`
-	Summary          string                  `json:"summary,omitempty"`
-	Description      string                  `json:"description,omitempty"`
-	Tags             []string                `json:"tags,omitempty"`
-	Category         string                  `json:"category,omitempty"`
-	CategoryDisplay  spec.LocalizedText      `json:"categoryDisplay,omitempty"`
-	Entity           string                  `json:"entity,omitempty"`
-	EntityDisplay    spec.LocalizedText      `json:"entityDisplay,omitempty"`
-	Operation        string                  `json:"operation,omitempty"`
-	OperationDisplay spec.LocalizedText      `json:"operationDisplay,omitempty"`
-	OperationKind    spec.OperationKind      `json:"operationKind,omitempty"`
-	Placement        spec.OperationPlacement `json:"placement,omitempty"`
-	PageHint         string                  `json:"pageHint,omitempty"`
-	PageContract     *spec.PageContract      `json:"pageContract,omitempty"`
-	Risk             spec.RiskLevel          `json:"risk,omitempty"`
-	Bound            bool                    `json:"bound"`
-	BindingID        string                  `json:"bindingId,omitempty"`
-	FunctionID       string                  `json:"functionId,omitempty"`
+	OperationID  string             `json:"operationId"`
+	Method       string             `json:"method"`
+	Path         string             `json:"path"`
+	Summary      string             `json:"summary,omitempty"`
+	Description  string             `json:"description,omitempty"`
+	Tags         []string           `json:"tags,omitempty"`
+	Operation    string             `json:"operation,omitempty"`
+	Resource     string             `json:"resource,omitempty"`
+	PageContract *spec.PageContract `json:"pageContract,omitempty"`
+	Risk         spec.RiskLevel     `json:"risk,omitempty"`
+	Permission   string             `json:"permission,omitempty"`
+	Bound        bool               `json:"bound"`
+	BindingID    string             `json:"bindingId,omitempty"`
+	FunctionID   string             `json:"functionId,omitempty"`
 }
 
 type OpenAPISourceDetail struct {

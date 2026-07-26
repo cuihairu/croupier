@@ -108,6 +108,16 @@ namespace {
     }
     return "";
 }
+
+#ifdef CROUPIER_SDK_ENABLE_JSON
+void ApplyFunctionDescriptorV2Json(FunctionDescriptor& desc, const nlohmann::json& func) {
+    desc.resource = func.value("resource", desc.resource);
+    desc.operation = func.value("operation", desc.operation);
+    desc.risk = func.value("risk", desc.risk);
+    desc.enabled = func.value("enabled", desc.enabled);
+    desc.permission = func.value("permission", desc.permission);
+}
+#endif
 }  // namespace
 
 namespace {
@@ -732,17 +742,18 @@ public:
             if (!desc.output_schema.empty()) {
                 fn->set_output_schema(desc.output_schema);
             }
-            if (!desc.category.empty()) {
-                fn->set_category(desc.category);
+            if (!desc.resource.empty()) {
+                fn->set_resource(desc.resource);
+            }
+            if (!desc.operation.empty()) {
+                fn->set_operation(desc.operation);
             }
             if (!desc.risk.empty()) {
                 fn->set_risk(desc.risk);
             }
-            if (!desc.entity.empty()) {
-                fn->set_entity(desc.entity);
-            }
-            if (!desc.operation.empty()) {
-                fn->set_operation(desc.operation);
+            fn->set_enabled(desc.enabled);
+            if (!desc.permission.empty()) {
+                fn->set_permission(desc.permission);
             }
         }
 
@@ -1876,21 +1887,7 @@ VirtualObjectDescriptor LoadObjectDescriptor(const std::string& file_path) {
                 if (func.contains("outputSchema")) {
                     func_desc.output_schema = func["outputSchema"];
                 }
-                if (func.contains("category")) {
-                    func_desc.category = func["category"];
-                }
-                if (func.contains("risk")) {
-                    func_desc.risk = func["risk"];
-                }
-                if (func.contains("entity")) {
-                    func_desc.entity = func["entity"];
-                }
-                if (func.contains("operation")) {
-                    func_desc.operation = func["operation"];
-                }
-                if (func.contains("enabled")) {
-                    func_desc.enabled = func["enabled"];
-                }
+                ApplyFunctionDescriptorV2Json(func_desc, func);
                 desc.functions.push_back(func_desc);
             }
         }

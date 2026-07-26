@@ -49,7 +49,7 @@ func (l *FunctionsListLogic) FunctionsList(req *FunctionsListRequest) (*Function
 			Page:     req.Page,
 			PageSize: req.PageSize,
 		},
-		Category: strings.TrimSpace(req.Category),
+		Resource: strings.TrimSpace(req.Resource),
 	}
 
 	// 只有非管理员才需要按 GameID 过滤
@@ -148,13 +148,13 @@ func (l *FunctionsListLogic) runtimeFunctions(req *FunctionsListRequest) []Funct
 					GameId:   sess.GameID,
 					Status:   1,
 					Version:  meta.Version,
-					Category: strings.TrimSpace(meta.Category),
+					Resource: strings.TrimSpace(meta.Resource),
 				}
 			}
 			if req.Status != 0 && item.Status != req.Status {
 				continue
 			}
-			if strings.TrimSpace(req.Category) != "" && !strings.EqualFold(item.Category, strings.TrimSpace(req.Category)) {
+			if strings.TrimSpace(req.Resource) != "" && !strings.EqualFold(item.Resource, strings.TrimSpace(req.Resource)) {
 				continue
 			}
 			if meta.Version != "" && meta.Version > item.Version {

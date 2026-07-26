@@ -26,9 +26,8 @@ type FunctionDescriptor struct {
 	Description  string
 	InputSchema  string
 	OutputSchema string
-	Category     string
+	Resource     string
 	Risk         string
-	Entity       string
 	Operation    string
 }
 
@@ -45,11 +44,11 @@ func (c *ProviderConverter) ToOpenAPIOperation(desc *FunctionDescriptor) (*opena
 	}
 
 	// Add extensions
-	if desc.Category != "" {
+	if desc.Resource != "" {
 		if op.Extensions == nil {
 			op.Extensions = make(map[string]interface{})
 		}
-		op.Extensions["x-category"] = desc.Category
+		op.Extensions["x-resource"] = desc.Resource
 	}
 
 	if desc.Risk != "" {
@@ -57,13 +56,6 @@ func (c *ProviderConverter) ToOpenAPIOperation(desc *FunctionDescriptor) (*opena
 			op.Extensions = make(map[string]interface{})
 		}
 		op.Extensions["x-risk"] = desc.Risk
-	}
-
-	if desc.Entity != "" {
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		op.Extensions["x-entity"] = desc.Entity
 	}
 
 	if desc.Operation != "" {

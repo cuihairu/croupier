@@ -15,10 +15,9 @@ type MetadataBuilder struct {
 func NewMetadataBuilder() *MetadataBuilder {
 	return &MetadataBuilder{
 		metadata: &FunctionMetadata{
-			Tags:       []string{},
-			Behavior:   &FunctionBehavior{},
-			Risk:       &FunctionRisk{Level: RiskMedium},
-			Extensions: map[string]string{},
+			Tags:     []string{},
+			Behavior: &FunctionBehavior{},
+			Risk:     &FunctionRisk{Level: RiskMedium},
 		},
 		errors: []error{},
 	}
@@ -36,15 +35,9 @@ func (b *MetadataBuilder) SetVersion(version string) *MetadataBuilder {
 	return b
 }
 
-// SetCategory sets the function category.
-func (b *MetadataBuilder) SetCategory(category string) *MetadataBuilder {
-	b.metadata.Category = category
-	return b
-}
-
-// SetEntity sets the resource key (e.g., "player", "mail").
-func (b *MetadataBuilder) SetEntity(entity string) *MetadataBuilder {
-	b.metadata.Entity = entity
+// SetResource sets the business resource/capability key.
+func (b *MetadataBuilder) SetResource(resource string) *MetadataBuilder {
+	b.metadata.Resource = resource
 	return b
 }
 
@@ -54,23 +47,9 @@ func (b *MetadataBuilder) SetOperation(operation string) *MetadataBuilder {
 	return b
 }
 
-// SetOperationKind sets the page generation semantic.
-// Valid values: "list", "get", "create", "update", "delete", "action", "task", "report"
-func (b *MetadataBuilder) SetOperationKind(kind string) *MetadataBuilder {
-	b.metadata.OperationKind = kind
-	return b
-}
-
-// SetPlacement sets the recommended page placement.
-// Valid values: "query", "tableData", "detailData", "rowAction", "detailAction", "toolbarAction", "batchAction", "standalone"
-func (b *MetadataBuilder) SetPlacement(placement string) *MetadataBuilder {
-	b.metadata.Placement = placement
-	return b
-}
-
-// SetPageHint sets the suggested page key.
-func (b *MetadataBuilder) SetPageHint(hint string) *MetadataBuilder {
-	b.metadata.PageHint = hint
+// SetPermission sets the optional permission identifier.
+func (b *MetadataBuilder) SetPermission(permission string) *MetadataBuilder {
+	b.metadata.Permission = permission
 	return b
 }
 
@@ -104,60 +83,6 @@ func (b *MetadataBuilder) SetSummary(summary string) *MetadataBuilder {
 	return b
 }
 
-// SetDisplayNameLocale sets the display name for a specific locale.
-func (b *MetadataBuilder) SetDisplayNameLocale(locale, name string) *MetadataBuilder {
-	if b.metadata.DisplayNameMap == nil {
-		b.metadata.DisplayNameMap = make(map[string]string)
-	}
-	b.metadata.DisplayNameMap[locale] = name
-	return b
-}
-
-// SetSummaryLocale sets the summary for a specific locale.
-func (b *MetadataBuilder) SetSummaryLocale(locale, summary string) *MetadataBuilder {
-	if b.metadata.SummaryMap == nil {
-		b.metadata.SummaryMap = make(map[string]string)
-	}
-	b.metadata.SummaryMap[locale] = summary
-	return b
-}
-
-// SetDescriptionLocale sets the description for a specific locale.
-func (b *MetadataBuilder) SetDescriptionLocale(locale, description string) *MetadataBuilder {
-	if b.metadata.DescriptionMap == nil {
-		b.metadata.DescriptionMap = make(map[string]string)
-	}
-	b.metadata.DescriptionMap[locale] = description
-	return b
-}
-
-// SetCategoryDisplay sets the category display label for a specific locale.
-func (b *MetadataBuilder) SetCategoryDisplay(locale, label string) *MetadataBuilder {
-	if b.metadata.CategoryDisplay == nil {
-		b.metadata.CategoryDisplay = make(map[string]string)
-	}
-	b.metadata.CategoryDisplay[locale] = label
-	return b
-}
-
-// SetEntityDisplay sets the entity display label for a specific locale.
-func (b *MetadataBuilder) SetEntityDisplay(locale, label string) *MetadataBuilder {
-	if b.metadata.EntityDisplay == nil {
-		b.metadata.EntityDisplay = make(map[string]string)
-	}
-	b.metadata.EntityDisplay[locale] = label
-	return b
-}
-
-// SetOperationDisplay sets the operation display label for a specific locale.
-func (b *MetadataBuilder) SetOperationDisplay(locale, label string) *MetadataBuilder {
-	if b.metadata.OperationDisplay == nil {
-		b.metadata.OperationDisplay = make(map[string]string)
-	}
-	b.metadata.OperationDisplay[locale] = label
-	return b
-}
-
 // SetInputSchema sets the input JSON Schema.
 func (b *MetadataBuilder) SetInputSchema(schema string) *MetadataBuilder {
 	b.metadata.InputSchema = schema
@@ -179,15 +104,6 @@ func (b *MetadataBuilder) SetBehavior(behavior *FunctionBehavior) *MetadataBuild
 // SetRisk sets the function risk.
 func (b *MetadataBuilder) SetRisk(risk *FunctionRisk) *MetadataBuilder {
 	b.metadata.Risk = risk
-	return b
-}
-
-// SetExtension sets an extension value.
-func (b *MetadataBuilder) SetExtension(key, value string) *MetadataBuilder {
-	if b.metadata.Extensions == nil {
-		b.metadata.Extensions = make(map[string]string)
-	}
-	b.metadata.Extensions[key] = value
 	return b
 }
 
@@ -337,8 +253,8 @@ func (b *RiskBuilder) Build() *FunctionRisk {
 
 // ImportOptions controls OpenAPI import behavior.
 type ImportOptions struct {
-	// CategoryPrefix adds a prefix to all imported categories
-	CategoryPrefix string
+	// ResourcePrefix adds a prefix to all imported resources.
+	ResourcePrefix string
 
 	// TagPrefix adds a prefix to all imported tags
 	TagPrefix string

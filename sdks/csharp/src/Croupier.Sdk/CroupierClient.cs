@@ -198,7 +198,7 @@ public partial class CroupierClient : IDisposable
         if (!descriptor.IsValid())
             throw new ArgumentException("Invalid function descriptor", nameof(descriptor));
 
-        var functionId = descriptor.GetFullName();
+        var functionId = descriptor.Id;
 
         if (!_handlers.TryAdd(functionId, handler))
         {
@@ -545,16 +545,17 @@ public partial class CroupierClient : IDisposable
             {
                 Id = descriptor.Id,
                 Version = descriptor.Version,
-                Summary = descriptor.Summary ?? descriptor.DisplayName ?? string.Empty,
+                Summary = descriptor.Summary ?? string.Empty,
                 Description = descriptor.Description ?? string.Empty,
                 OperationId = descriptor.OperationId ?? descriptor.Id,
                 Deprecated = descriptor.Deprecated,
                 InputSchema = descriptor.InputSchema ?? string.Empty,
                 OutputSchema = descriptor.OutputSchema ?? string.Empty,
-                Category = descriptor.Category,
+                Resource = descriptor.Resource ?? string.Empty,
+                Operation = descriptor.Operation ?? string.Empty,
                 Risk = descriptor.Risk,
-                Entity = descriptor.Entity ?? string.Empty,
-                Operation = descriptor.Operation ?? string.Empty
+                Enabled = descriptor.Enabled,
+                Permission = descriptor.Permission ?? string.Empty
             };
             function.Tags.AddRange(DescriptorTags(descriptor));
             request.Functions.Add(function);
@@ -638,8 +639,7 @@ public partial class CroupierClient : IDisposable
     {
         IEnumerable<string?> baseTags = new[]
             {
-                descriptor.Category,
-                descriptor.Entity,
+                descriptor.Resource,
                 descriptor.Operation,
             };
 
@@ -666,15 +666,15 @@ public partial class CroupierClient : IDisposable
             {
                 id = descriptor.Id,
                 version = descriptor.Version,
-                display_name = descriptor.DisplayName,
                 summary = descriptor.Summary,
                 tags = DescriptorTags(descriptor),
                 operation_id = descriptor.OperationId,
                 deprecated = descriptor.Deprecated,
-                category = descriptor.Category,
-                risk = descriptor.Risk,
-                entity = descriptor.Entity,
+                resource = descriptor.Resource,
                 operation = descriptor.Operation,
+                risk = descriptor.Risk,
+                enabled = descriptor.Enabled,
+                permission = descriptor.Permission,
                 description = descriptor.Description,
                 input_schema = descriptor.InputSchema,
                 output_schema = descriptor.OutputSchema

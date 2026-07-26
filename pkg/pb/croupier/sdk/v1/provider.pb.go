@@ -36,21 +36,15 @@ type LocalFunctionDescriptor struct {
 	// OpenAPI 3.0.3 Schema fields (JSON Schema format)
 	InputSchema  string `protobuf:"bytes,8,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body
 	OutputSchema string `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body
-	// OpenAPI 3.0.3 Extension fields (x-* prefix)
-	Category  string `protobuf:"bytes,10,opt,name=category,proto3" json:"category,omitempty"`   // x-category: navigation category key (e.g., "gameplay", "support")
-	Risk      string `protobuf:"bytes,11,opt,name=risk,proto3" json:"risk,omitempty"`           // x-risk: risk level (e.g., "safe", "warning", "high", "danger")
-	Entity    string `protobuf:"bytes,12,opt,name=entity,proto3" json:"entity,omitempty"`       // x-entity: resource key (e.g., "player", "mail", "inventory")
-	Operation string `protobuf:"bytes,13,opt,name=operation,proto3" json:"operation,omitempty"` // x-operation: business action key (e.g., "ban", "send", "list")
-	// v2 extension fields for Page generation
-	CategoryDisplay  map[string]string `protobuf:"bytes,14,rep,name=category_display,json=categoryDisplay,proto3" json:"category_display,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`    // x-category-display: category multi-language labels
-	EntityDisplay    map[string]string `protobuf:"bytes,15,rep,name=entity_display,json=entityDisplay,proto3" json:"entity_display,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`          // x-entity-display: resource multi-language labels
-	OperationDisplay map[string]string `protobuf:"bytes,16,rep,name=operation_display,json=operationDisplay,proto3" json:"operation_display,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // x-operation-display: operation multi-language labels
-	OperationKind    string            `protobuf:"bytes,17,opt,name=operation_kind,json=operationKind,proto3" json:"operation_kind,omitempty"`                                                                                    // x-operation-kind: page generation semantic (list/get/action/task/report)
-	Placement        string            `protobuf:"bytes,18,opt,name=placement,proto3" json:"placement,omitempty"`                                                                                                                 // x-placement: recommended page placement (tableData/rowAction/standalone)
-	PageHint         string            `protobuf:"bytes,19,opt,name=page_hint,json=pageHint,proto3" json:"page_hint,omitempty"`                                                                                                   // x-page-hint: suggested page key
-	Extensions       map[string]string `protobuf:"bytes,20,rep,name=extensions,proto3" json:"extensions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`                                     // third-party extensions (never used for core semantics)
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Croupier capability fields. These are business/governance contract fields,
+	// not Dashboard page, menu, Formily, label, or placement fields.
+	Resource      string `protobuf:"bytes,10,opt,name=resource,proto3" json:"resource,omitempty"`     // x-resource: business resource/capability key (e.g., "player", "mail")
+	Operation     string `protobuf:"bytes,11,opt,name=operation,proto3" json:"operation,omitempty"`   // x-operation: business action key (e.g., "ban", "send", "list")
+	Risk          string `protobuf:"bytes,12,opt,name=risk,proto3" json:"risk,omitempty"`             // x-risk: risk level (e.g., "safe", "warning", "high", "danger")
+	Enabled       bool   `protobuf:"varint,13,opt,name=enabled,proto3" json:"enabled,omitempty"`      // x-enabled: whether this function is enabled
+	Permission    string `protobuf:"bytes,14,opt,name=permission,proto3" json:"permission,omitempty"` // x-permission: optional permission identifier
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *LocalFunctionDescriptor) Reset() {
@@ -146,23 +140,9 @@ func (x *LocalFunctionDescriptor) GetOutputSchema() string {
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetCategory() string {
+func (x *LocalFunctionDescriptor) GetResource() string {
 	if x != nil {
-		return x.Category
-	}
-	return ""
-}
-
-func (x *LocalFunctionDescriptor) GetRisk() string {
-	if x != nil {
-		return x.Risk
-	}
-	return ""
-}
-
-func (x *LocalFunctionDescriptor) GetEntity() string {
-	if x != nil {
-		return x.Entity
+		return x.Resource
 	}
 	return ""
 }
@@ -174,53 +154,25 @@ func (x *LocalFunctionDescriptor) GetOperation() string {
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetCategoryDisplay() map[string]string {
+func (x *LocalFunctionDescriptor) GetRisk() string {
 	if x != nil {
-		return x.CategoryDisplay
-	}
-	return nil
-}
-
-func (x *LocalFunctionDescriptor) GetEntityDisplay() map[string]string {
-	if x != nil {
-		return x.EntityDisplay
-	}
-	return nil
-}
-
-func (x *LocalFunctionDescriptor) GetOperationDisplay() map[string]string {
-	if x != nil {
-		return x.OperationDisplay
-	}
-	return nil
-}
-
-func (x *LocalFunctionDescriptor) GetOperationKind() string {
-	if x != nil {
-		return x.OperationKind
+		return x.Risk
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetPlacement() string {
+func (x *LocalFunctionDescriptor) GetEnabled() bool {
 	if x != nil {
-		return x.Placement
+		return x.Enabled
 	}
-	return ""
+	return false
 }
 
-func (x *LocalFunctionDescriptor) GetPageHint() string {
+func (x *LocalFunctionDescriptor) GetPermission() string {
 	if x != nil {
-		return x.PageHint
+		return x.Permission
 	}
 	return ""
-}
-
-func (x *LocalFunctionDescriptor) GetExtensions() map[string]string {
-	if x != nil {
-		return x.Extensions
-	}
-	return nil
 }
 
 // ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.
@@ -710,7 +662,7 @@ var File_croupier_sdk_v1_provider_proto protoreflect.FileDescriptor
 
 const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\n" +
-	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\x85\t\n" +
+	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\xa6\x03\n" +
 	"\x17LocalFunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
@@ -723,32 +675,14 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"deprecated\x12!\n" +
 	"\finput_schema\x18\b \x01(\tR\vinputSchema\x12#\n" +
 	"\routput_schema\x18\t \x01(\tR\foutputSchema\x12\x1a\n" +
-	"\bcategory\x18\n" +
-	" \x01(\tR\bcategory\x12\x12\n" +
-	"\x04risk\x18\v \x01(\tR\x04risk\x12\x16\n" +
-	"\x06entity\x18\f \x01(\tR\x06entity\x12\x1c\n" +
-	"\toperation\x18\r \x01(\tR\toperation\x12h\n" +
-	"\x10category_display\x18\x0e \x03(\v2=.croupier.sdk.v1.LocalFunctionDescriptor.CategoryDisplayEntryR\x0fcategoryDisplay\x12b\n" +
-	"\x0eentity_display\x18\x0f \x03(\v2;.croupier.sdk.v1.LocalFunctionDescriptor.EntityDisplayEntryR\rentityDisplay\x12k\n" +
-	"\x11operation_display\x18\x10 \x03(\v2>.croupier.sdk.v1.LocalFunctionDescriptor.OperationDisplayEntryR\x10operationDisplay\x12%\n" +
-	"\x0eoperation_kind\x18\x11 \x01(\tR\roperationKind\x12\x1c\n" +
-	"\tplacement\x18\x12 \x01(\tR\tplacement\x12\x1b\n" +
-	"\tpage_hint\x18\x13 \x01(\tR\bpageHint\x12X\n" +
+	"\bresource\x18\n" +
+	" \x01(\tR\bresource\x12\x1c\n" +
+	"\toperation\x18\v \x01(\tR\toperation\x12\x12\n" +
+	"\x04risk\x18\f \x01(\tR\x04risk\x12\x18\n" +
+	"\aenabled\x18\r \x01(\bR\aenabled\x12\x1e\n" +
 	"\n" +
-	"extensions\x18\x14 \x03(\v28.croupier.sdk.v1.LocalFunctionDescriptor.ExtensionsEntryR\n" +
-	"extensions\x1aB\n" +
-	"\x14CategoryDisplayEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
-	"\x12EntityDisplayEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aC\n" +
-	"\x15OperationDisplayEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a=\n" +
-	"\x0fExtensionsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf0\x03\n" +
+	"permission\x18\x0e \x01(\tR\n" +
+	"permission\"\xf0\x03\n" +
 	"\x16ProviderConnectRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +
@@ -802,7 +736,7 @@ func file_croupier_sdk_v1_provider_proto_rawDescGZIP() []byte {
 	return file_croupier_sdk_v1_provider_proto_rawDescData
 }
 
-var file_croupier_sdk_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_croupier_sdk_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_croupier_sdk_v1_provider_proto_goTypes = []any{
 	(*LocalFunctionDescriptor)(nil),   // 0: croupier.sdk.v1.LocalFunctionDescriptor
 	(*ProviderConnectRequest)(nil),    // 1: croupier.sdk.v1.ProviderConnectRequest
@@ -813,22 +747,14 @@ var file_croupier_sdk_v1_provider_proto_goTypes = []any{
 	(*ProviderDrainResponse)(nil),     // 6: croupier.sdk.v1.ProviderDrainResponse
 	(*GetTaskResultRequest)(nil),      // 7: croupier.sdk.v1.GetTaskResultRequest
 	(*GetTaskResultResponse)(nil),     // 8: croupier.sdk.v1.GetTaskResultResponse
-	nil,                               // 9: croupier.sdk.v1.LocalFunctionDescriptor.CategoryDisplayEntry
-	nil,                               // 10: croupier.sdk.v1.LocalFunctionDescriptor.EntityDisplayEntry
-	nil,                               // 11: croupier.sdk.v1.LocalFunctionDescriptor.OperationDisplayEntry
-	nil,                               // 12: croupier.sdk.v1.LocalFunctionDescriptor.ExtensionsEntry
 }
 var file_croupier_sdk_v1_provider_proto_depIdxs = []int32{
-	9,  // 0: croupier.sdk.v1.LocalFunctionDescriptor.category_display:type_name -> croupier.sdk.v1.LocalFunctionDescriptor.CategoryDisplayEntry
-	10, // 1: croupier.sdk.v1.LocalFunctionDescriptor.entity_display:type_name -> croupier.sdk.v1.LocalFunctionDescriptor.EntityDisplayEntry
-	11, // 2: croupier.sdk.v1.LocalFunctionDescriptor.operation_display:type_name -> croupier.sdk.v1.LocalFunctionDescriptor.OperationDisplayEntry
-	12, // 3: croupier.sdk.v1.LocalFunctionDescriptor.extensions:type_name -> croupier.sdk.v1.LocalFunctionDescriptor.ExtensionsEntry
-	0,  // 4: croupier.sdk.v1.ProviderConnectRequest.functions:type_name -> croupier.sdk.v1.LocalFunctionDescriptor
-	5,  // [5:5] is the sub-list for method output_type
-	5,  // [5:5] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	0, // 0: croupier.sdk.v1.ProviderConnectRequest.functions:type_name -> croupier.sdk.v1.LocalFunctionDescriptor
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_croupier_sdk_v1_provider_proto_init() }
@@ -842,7 +768,7 @@ func file_croupier_sdk_v1_provider_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_sdk_v1_provider_proto_rawDesc), len(file_croupier_sdk_v1_provider_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

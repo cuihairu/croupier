@@ -3,6 +3,7 @@ package terms
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -17,6 +18,12 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 
 // List retrieves terms for a given domain
 func (s *Service) List(ctx context.Context, req *TermsListRequest) (*TermsListResponse, error) {
+	if req == nil {
+		req = &TermsListRequest{}
+	}
+	if _, err := model.NormalizeTermDictionaryDomain(req.Domain); err != nil {
+		return nil, errorx.NewBadRequest(err.Error())
+	}
 	terms, err := s.svcCtx.TermDictModel.List(ctx, req.Domain)
 	if err != nil {
 		return nil, err
@@ -42,6 +49,12 @@ func (s *Service) List(ctx context.Context, req *TermsListRequest) (*TermsListRe
 
 // Upsert creates or updates a term
 func (s *Service) Upsert(ctx context.Context, req *TermUpsertRequest) (*TermUpsertResponse, error) {
+	if req == nil {
+		return nil, errorx.NewBadRequest("term request is required")
+	}
+	if _, err := model.NormalizeTermDictionaryDomain(req.Domain); err != nil {
+		return nil, errorx.NewBadRequest(err.Error())
+	}
 	term := &model.TermDictionary{
 		Domain:    req.Domain,
 		TermKey:   req.TermKey,
@@ -63,6 +76,12 @@ func (s *Service) Upsert(ctx context.Context, req *TermUpsertRequest) (*TermUpse
 
 // Delete removes a term by domain and alias
 func (s *Service) Delete(ctx context.Context, req *TermDeleteRequest) (*TermDeleteResponse, error) {
+	if req == nil {
+		return nil, errorx.NewBadRequest("term delete request is required")
+	}
+	if _, err := model.NormalizeTermDictionaryDomain(req.Domain); err != nil {
+		return nil, errorx.NewBadRequest(err.Error())
+	}
 	err := s.svcCtx.TermDictModel.DeleteByAlias(ctx, req.Domain, req.Alias)
 	if err != nil {
 		return nil, err

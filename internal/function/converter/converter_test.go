@@ -94,14 +94,14 @@ func TestOpenAPIConverter_ToJSONSchema(t *testing.T) {
 		schema := &openapi3.Schema{
 			Type: &stringType,
 			Extensions: map[string]interface{}{
-				"x-category": "player",
+				"x-resource": "player",
 				"x-risk":     "high",
 			},
 		}
 
 		result, err := converter.ToJSONSchema(schema)
 		require.NoError(t, err)
-		assert.Equal(t, "player", result["x-category"])
+		assert.Equal(t, "player", result["x-resource"])
 		assert.Equal(t, "high", result["x-risk"])
 	})
 }
@@ -141,7 +141,7 @@ func TestPackConverter_PackToOpenAPI(t *testing.T) {
 							},
 						},
 					},
-					Category:  "player",
+					Resource:  "player",
 					Risk:      "high",
 					Operation: "update",
 				},
@@ -159,7 +159,7 @@ func TestPackConverter_PackToOpenAPI(t *testing.T) {
 		assert.NotNil(t, op.Responses)
 
 		// Check extensions
-		assert.Equal(t, "player", op.Extensions["x-category"])
+		assert.Equal(t, "player", op.Extensions["x-resource"])
 		assert.Equal(t, "high", op.Extensions["x-risk"])
 		assert.Equal(t, "update", op.Extensions["x-operation"])
 	})
@@ -199,7 +199,7 @@ func TestPackConverter_PackToOpenAPI(t *testing.T) {
 		op := operations["session.create"]
 		assert.Equal(t, "session.create", op.OperationID)
 		assert.Equal(t, "Create Session", op.Summary)
-		assert.Equal(t, "session", op.Extensions["x-entity"])
+		assert.Equal(t, "session", op.Extensions["x-resource"])
 		assert.Equal(t, "create", op.Extensions["x-operation"])
 	})
 }
@@ -207,11 +207,11 @@ func TestPackConverter_PackToOpenAPI(t *testing.T) {
 func TestExtractExtension(t *testing.T) {
 	t.Run("extract string extension", func(t *testing.T) {
 		extensions := map[string]interface{}{
-			"x-category": "player",
+			"x-resource": "player",
 			"x-risk":     "high",
 		}
 
-		value, exists := ExtractExtension(extensions, "category")
+		value, exists := ExtractExtension(extensions, "resource")
 		assert.True(t, exists)
 		assert.Equal(t, "player", value)
 
@@ -222,7 +222,7 @@ func TestExtractExtension(t *testing.T) {
 
 	t.Run("extract non-existent extension", func(t *testing.T) {
 		extensions := map[string]interface{}{
-			"x-category": "player",
+			"x-resource": "player",
 		}
 
 		value, exists := ExtractExtension(extensions, "nonexistent")
@@ -232,10 +232,10 @@ func TestExtractExtension(t *testing.T) {
 
 	t.Run("extract with string helper", func(t *testing.T) {
 		extensions := map[string]interface{}{
-			"x-category": "player",
+			"x-resource": "player",
 		}
 
-		value, exists := GetStringExtension(extensions, "category")
+		value, exists := GetStringExtension(extensions, "resource")
 		assert.True(t, exists)
 		assert.Equal(t, "player", value)
 	})
@@ -264,13 +264,13 @@ func TestProtoConverter_ProtoToOpenAPI(t *testing.T) {
 		}
 
 		op, err := converter.ProtoToOpenAPI(method, map[string]interface{}{
-			"x-category": "player",
+			"x-resource": "player",
 			"x-risk":     "low",
 		})
 		require.NoError(t, err)
 		assert.Equal(t, "PlayerService.GetPlayer", op.OperationID)
 		assert.Equal(t, "GetPlayer", op.Summary)
-		assert.Equal(t, "player", op.Extensions["x-category"])
+		assert.Equal(t, "player", op.Extensions["x-resource"])
 		assert.Equal(t, "low", op.Extensions["x-risk"])
 	})
 
@@ -372,10 +372,10 @@ func TestToOpenAPIOperation(t *testing.T) {
 					"success": {"type": "boolean"}
 				}
 			}`,
-			Category:  "player",
-			Risk:      "high",
-			Entity:    "Player",
-			Operation: "delete",
+			Resource:   "player",
+			Risk:       "high",
+			Operation:  "ban",
+			Permission: "player.ban",
 		}
 
 		op, err := ToOpenAPIOperation(descriptor)
@@ -405,10 +405,10 @@ func TestToOpenAPIOperation(t *testing.T) {
 		assert.Equal(t, &desc, response200.Value.Description)
 
 		// Check extensions
-		assert.Equal(t, "player", op.Extensions["x-category"])
+		assert.Equal(t, "player", op.Extensions["x-resource"])
 		assert.Equal(t, "high", op.Extensions["x-risk"])
-		assert.Equal(t, "Player", op.Extensions["x-entity"])
-		assert.Equal(t, "delete", op.Extensions["x-operation"])
+		assert.Equal(t, "ban", op.Extensions["x-operation"])
+		assert.Equal(t, "player.ban", op.Extensions["x-permission"])
 	})
 
 	t.Run("convert minimal descriptor", func(t *testing.T) {
@@ -459,17 +459,17 @@ func TestToOpenAPIOperation(t *testing.T) {
 		assert.True(t, op.Deprecated)
 	})
 
-	t.Run("convert descriptor with only category extension", func(t *testing.T) {
+	t.Run("convert descriptor with only resource extension", func(t *testing.T) {
 		descriptor := LocalFunctionDescriptorDesc{
 			OperationID: "game.create",
-			Category:    "game",
+			Resource:    "game",
 		}
 
 		op, err := ToOpenAPIOperation(descriptor)
 		require.NoError(t, err)
 
 		assert.NotNil(t, op.Extensions)
-		assert.Equal(t, "game", op.Extensions["x-category"])
+		assert.Equal(t, "game", op.Extensions["x-resource"])
 		_, hasRisk := op.Extensions["x-risk"]
 		assert.False(t, hasRisk)
 	})
@@ -616,7 +616,7 @@ func TestOpenAPIConverter_ToJSONSchema_Complete(t *testing.T) {
 
 func TestExtractExtension_ErrorCases(t *testing.T) {
 	t.Run("nil extensions map", func(t *testing.T) {
-		value, exists := ExtractExtension(nil, "category")
+		value, exists := ExtractExtension(nil, "resource")
 		assert.False(t, exists)
 		assert.Nil(t, value)
 	})
@@ -704,9 +704,8 @@ func TestToOpenAPIOperation_WithCompleteSchema(t *testing.T) {
 			"type": "object",
 			"title": "Output"
 		}`,
-		Category:  "test",
-		Risk:      "medium",
-		Entity:    "TestEntity",
+		Resource:  "test",
+		Risk:      "warning",
 		Operation: "update",
 	}
 
@@ -720,9 +719,8 @@ func TestToOpenAPIOperation_WithCompleteSchema(t *testing.T) {
 	assert.True(t, op.Deprecated)
 	assert.NotNil(t, op.RequestBody)
 	assert.NotNil(t, op.Responses)
-	assert.Equal(t, "test", op.Extensions["x-category"])
-	assert.Equal(t, "medium", op.Extensions["x-risk"])
-	assert.Equal(t, "TestEntity", op.Extensions["x-entity"])
+	assert.Equal(t, "test", op.Extensions["x-resource"])
+	assert.Equal(t, "warning", op.Extensions["x-risk"])
 	assert.Equal(t, "update", op.Extensions["x-operation"])
 }
 
@@ -746,9 +744,8 @@ func TestPackConverter_PackToOpenAPI_WithCompleteFunction(t *testing.T) {
 					"type":  "object",
 					"title": "Response",
 				},
-				Category:  "complex",
+				Resource:  "complex",
 				Risk:      "medium",
-				Entity:    "ComplexEntity",
 				Operation: "create",
 			},
 		},
@@ -760,8 +757,7 @@ func TestPackConverter_PackToOpenAPI_WithCompleteFunction(t *testing.T) {
 	op := operations["complex.function"]
 	assert.NotNil(t, op)
 	assert.Equal(t, "complex.function", op.OperationID)
-	assert.Equal(t, "complex", op.Extensions["x-category"])
+	assert.Equal(t, "complex", op.Extensions["x-resource"])
 	assert.Equal(t, "medium", op.Extensions["x-risk"])
-	assert.Equal(t, "ComplexEntity", op.Extensions["x-entity"])
 	assert.Equal(t, "create", op.Extensions["x-operation"])
 }

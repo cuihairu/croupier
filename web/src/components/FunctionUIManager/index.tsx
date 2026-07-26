@@ -177,28 +177,28 @@ export default function FunctionUIManager({
   }, [loadUIConfig, loadUIHistory]);
 
   useEffect(() => {
-    const entityKey = String(descriptor?.entity || '').trim().toLowerCase();
-    if (!entityKey) {
+    const resourceKey = String(descriptor?.resource || '').trim().toLowerCase();
+    if (!resourceKey) {
       setRelatedFunctions([]);
       setBatchTargets([]);
       return;
     }
     listDescriptors()
       .then((items) => {
-        const sameEntity = items
+        const sameResource = items
           .filter((item) => {
-            const currentEntity = String(item?.entity || '').trim().toLowerCase();
-            return item.id && currentEntity === entityKey && item.id !== functionId;
+            const currentResource = String(item?.resource || '').trim().toLowerCase();
+            return item.id && currentResource === resourceKey && item.id !== functionId;
           })
           .map((item) => ({
             id: item.id,
             name: item.displayName?.zh || item.displayName?.en || item.summary?.zh || item.id,
           }));
-        setRelatedFunctions(sameEntity);
-        setBatchTargets((prev) => prev.filter((id) => sameEntity.some((item) => item.id === id)));
+        setRelatedFunctions(sameResource);
+        setBatchTargets((prev) => prev.filter((id) => sameResource.some((item) => item.id === id)));
       })
       .catch(() => setRelatedFunctions([]));
-  }, [descriptor?.entity, functionId]);
+  }, [descriptor?.resource, functionId]);
 
   const handleSave = async (schema?: FormilySchema) => {
     if (!onSave || !schema) {
@@ -414,12 +414,12 @@ export default function FunctionUIManager({
         />
       )}
 
-      {isObject(descriptor) && (descriptor.entity || descriptor.operation) && (
+      {isObject(descriptor) && (descriptor.resource || descriptor.operation) && (
         <Card size="small" style={{ marginBottom: 16 }} title="函数归属">
           <Space wrap>
-            <Tag color="blue">Entity: {String(descriptor.entity || '-')}</Tag>
+            <Tag color="blue">Resource: {String(descriptor.resource || '-')}</Tag>
             <Tag color="purple">Operation: {String(descriptor.operation || 'custom')}</Tag>
-            <Text type="secondary">对象管理页由 Page 模型组合这些动作，不在这里生成 CRUD UI。</Text>
+            <Text type="secondary">Page 模型组合这些动作；函数表单不生成菜单、分页或 CRUD 页面。</Text>
           </Space>
         </Card>
       )}
@@ -462,13 +462,13 @@ export default function FunctionUIManager({
             </Card>
 
             {relatedFunctions.length > 0 && (
-              <Card size="small" title="同实体函数同步" style={{ marginTop: 16 }}>
+              <Card size="small" title="同资源函数同步" style={{ marginTop: 16 }}>
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Select
                     mode="multiple"
                     maxTagCount={2}
                     style={{ width: '100%' }}
-                    placeholder="选择同实体函数"
+                    placeholder="选择同资源函数"
                     value={batchTargets}
                     onChange={setBatchTargets}
                     options={relatedFunctions.map((item) => ({

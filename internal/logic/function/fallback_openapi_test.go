@@ -16,6 +16,12 @@ func TestBuildFallbackOpenAPIOperation(t *testing.T) {
 		if op.Extensions["x-operation"] != "get" {
 			t.Errorf("x-operation = %q", op.Extensions["x-operation"])
 		}
+		if op.Extensions["x-resource"] != "player" {
+			t.Errorf("x-resource = %q", op.Extensions["x-resource"])
+		}
+		if _, exists := op.Extensions["x-entity"]; exists {
+			t.Fatalf("x-entity must not be emitted by fallback operation")
+		}
 		if op.RequestBody == nil {
 			t.Fatal("expected request body")
 		}
@@ -82,14 +88,14 @@ func TestBuildFallbackOpenAPIOperation(t *testing.T) {
 		if op == nil {
 			t.Fatal("expected non-nil operation")
 		}
-		if op.Extensions["x-entity"] != "player" || op.Extensions["x-operation"] != "ban" {
+		if op.Extensions["x-resource"] != "player" || op.Extensions["x-operation"] != "ban" {
 			t.Fatalf("unexpected extensions: %#v", op.Extensions)
 		}
 	})
 }
 
 func TestBuildFallbackUISchema(t *testing.T) {
-	t.Run("player.update", func(t *testing.T) {
+	t.Run("player.update uses payload only", func(t *testing.T) {
 		schema := BuildFallbackUISchema("player.update")
 		if schema == nil {
 			t.Fatal("expected non-nil schema")
@@ -98,8 +104,11 @@ func TestBuildFallbackUISchema(t *testing.T) {
 		if !ok {
 			t.Fatal("expected properties map")
 		}
-		if _, exists := props["playerId"]; !exists {
-			t.Error("expected playerId property")
+		if _, exists := props["payload"]; !exists {
+			t.Error("expected payload property")
+		}
+		if _, exists := props["playerId"]; exists {
+			t.Error("fallback UI must not infer playerId")
 		}
 	})
 
@@ -126,52 +135,19 @@ func TestBuildFallbackUISchema(t *testing.T) {
 		if !ok {
 			t.Fatal("expected properties map")
 		}
-		if _, exists := props["playerId"]; !exists {
-			t.Fatalf("expected playerId property, got %#v", props)
+		if _, exists := props["payload"]; !exists {
+			t.Fatalf("expected payload property, got %#v", props)
 		}
 	})
 }
 
-func TestFallbackFields_AllEntities(t *testing.T) {
-	tests := []struct {
-		entity    string
-		action    string
-		minFields int
-	}{
-		{"player", "list", 2},
-		{"player", "get", 1},
-		{"player", "create", 2},
-		{"player", "update", 2},
-		{"player", "delete", 1},
-		{"player", "unknown", 1},
-		{"order", "list", 2},
-		{"order", "get", 1},
-		{"order", "create", 3},
-		{"order", "update", 2},
-		{"order", "delete", 1},
-		{"order", "unknown", 1},
-		{"inventory", "list", 2},
-		{"inventory", "grant", 3},
-		{"inventory", "consume", 3},
-		{"inventory", "unknown", 1},
-		{"leaderboard", "list", 2},
-		{"leaderboard", "upsert", 3},
-		{"leaderboard", "reset", 1},
-		{"leaderboard", "unknown", 1},
-		{"mail", "list", 2},
-		{"mail", "claim", 2},
-		{"mail", "send", 3},
-		{"mail", "unknown", 1},
-		{"unknown", "action", 2},
+func TestFallbackFields_UsesSinglePayload(t *testing.T) {
+	fields := fallbackFields()
+	if len(fields) != 1 {
+		t.Fatalf("expected single payload field, got %d", len(fields))
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.entity+"."+tt.action, func(t *testing.T) {
-			fields := fallbackFields(tt.entity, tt.action)
-			if len(fields) < tt.minFields {
-				t.Errorf("expected at least %d fields, got %d", tt.minFields, len(fields))
-			}
-		})
+	if fields[0].Name != "payload" || fields[0].Type != "object" {
+		t.Fatalf("unexpected fallback field: %#v", fields[0])
 	}
 }
 
@@ -198,11 +174,11 @@ func TestSanitizeFallbackToken(t *testing.T) {
 	}
 }
 
-func TestInferFallbackEntityAction(t *testing.T) {
+func TestInferFallbackResourceAction(t *testing.T) {
 	tests := []struct {
-		input      string
-		wantEntity string
-		wantAction string
+		input        string
+		wantResource string
+		wantAction   string
 	}{
 		{"player.get", "player", "get"},
 		{"order.list", "order", "list"},
@@ -214,10 +190,10 @@ func TestInferFallbackEntityAction(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			entity, action := inferFallbackEntityAction(tt.input)
-			if entity != tt.wantEntity || action != tt.wantAction {
-				t.Errorf("inferFallbackEntityAction(%q) = (%q, %q), want (%q, %q)",
-					tt.input, entity, action, tt.wantEntity, tt.wantAction)
+			resource, action := inferFallbackResourceAction(tt.input)
+			if resource != tt.wantResource || action != tt.wantAction {
+				t.Errorf("inferFallbackResourceAction(%q) = (%q, %q), want (%q, %q)",
+					tt.input, resource, action, tt.wantResource, tt.wantAction)
 			}
 		})
 	}

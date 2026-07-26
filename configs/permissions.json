@@ -112,48 +112,6 @@
     "module": "system"
   },
   {
-    "code": "entities:read",
-    "name": "实体查看",
-    "description": "查看实体定义",
-    "category": "entity",
-    "module": "schema"
-  },
-  {
-    "code": "entities:create",
-    "name": "实体创建",
-    "description": "创建实体定义",
-    "category": "entity",
-    "module": "schema"
-  },
-  {
-    "code": "entities:update",
-    "name": "实体编辑",
-    "description": "编辑实体定义",
-    "category": "entity",
-    "module": "schema"
-  },
-  {
-    "code": "entities:delete",
-    "name": "实体删除",
-    "description": "删除实体定义",
-    "category": "entity",
-    "module": "schema"
-  },
-  {
-    "code": "entity:read",
-    "name": "实体查看",
-    "description": "查看实体定义（单数形式）",
-    "category": "entity",
-    "module": "schema"
-  },
-  {
-    "code": "entity:write",
-    "name": "实体管理",
-    "description": "创建、编辑实体定义（单数形式）",
-    "category": "entity",
-    "module": "schema"
-  },
-  {
     "code": "certificates:manage",
     "name": "证书管理",
     "description": "管理SSL证书监控",
@@ -231,53 +189,11 @@
     "module": "ops"
   },
   {
-    "code": "entities:list",
-    "name": "实体列表",
-    "description": "查看实体列表",
-    "category": "entity",
-    "module": "schema"
-  },
-  {
     "code": "functions:read",
     "name": "函数查看",
     "description": "读取函数描述符",
     "category": "function",
     "module": "gm"
-  },
-  {
-    "code": "workspace:read",
-    "name": "工作台查看",
-    "description": "查看对象工作台配置与版本",
-    "category": "workspace",
-    "module": "workspace"
-  },
-  {
-    "code": "workspace:edit",
-    "name": "工作台编辑",
-    "description": "保存对象工作台草稿",
-    "category": "workspace",
-    "module": "workspace"
-  },
-  {
-    "code": "workspace:publish",
-    "name": "工作台发布",
-    "description": "发布或取消发布对象工作台",
-    "category": "workspace",
-    "module": "workspace"
-  },
-  {
-    "code": "workspace:rollback",
-    "name": "工作台回滚",
-    "description": "回滚对象工作台到历史版本",
-    "category": "workspace",
-    "module": "workspace"
-  },
-  {
-    "code": "workspace:delete",
-    "name": "工作台删除",
-    "description": "删除对象工作台配置",
-    "category": "workspace",
-    "module": "workspace"
   },
   {
     "code": "resources:read",

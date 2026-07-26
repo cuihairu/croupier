@@ -30,7 +30,7 @@ func NewService(store *registry.Store) *Service {
 
 // ListOptions defines filtering options for listing functions.
 type ListOptions struct {
-	Category  string
+	Resource  string
 	Tag       string
 	RiskLevel string
 	Mode      string
@@ -46,8 +46,8 @@ type ListResult struct {
 func (s *Service) List(ctx context.Context, opts *ListOptions) (*ListResult, error) {
 	// Build filter
 	filter := &functionv1.FunctionFilter{}
-	if opts.Category != "" {
-		filter.Category = opts.Category
+	if opts.Resource != "" {
+		filter.Resource = opts.Resource
 	}
 	if opts.Tag != "" {
 		filter.Tags = []string{opts.Tag}
@@ -120,7 +120,7 @@ func (s *Service) ImportFromOpenAPI(ctx context.Context, specData []byte, opts *
 	var importOpts *openapi.ImportOptions
 	if opts != nil {
 		importOpts = &openapi.ImportOptions{
-			CategoryPrefix:   opts.CategoryPrefix,
+			ResourcePrefix:   opts.ResourcePrefix,
 			TagPrefix:        opts.TagPrefix,
 			DefaultTimeoutMs: opts.DefaultTimeoutMs,
 			ContinueOnError:  opts.ContinueOnError,
@@ -142,9 +142,9 @@ func (s *Service) ImportFromOpenAPI(ctx context.Context, specData []byte, opts *
 	return metadatas, nil
 }
 
-// GetCategories returns all unique categories.
-func (s *Service) GetCategories(ctx context.Context) []string {
-	return s.store.GetCategories(ctx)
+// GetResources returns all unique resources.
+func (s *Service) GetResources(ctx context.Context) []string {
+	return s.store.GetResources(ctx)
 }
 
 // GetTags returns all unique tags.

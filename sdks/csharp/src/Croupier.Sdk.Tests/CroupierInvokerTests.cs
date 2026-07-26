@@ -216,8 +216,8 @@ public class CroupierInvokerTests
         using var provider = new CroupierClient(providerConfig);
         var descriptor = new FunctionDescriptor
         {
-            Id = "function",
-            Category = "test",
+            Id = "test.function",
+            Resource = "test",
             Operation = "test"
         };
 
@@ -284,8 +284,8 @@ public class CroupierInvokerTests
         using var provider = new CroupierClient(providerConfig);
         var descriptor = new FunctionDescriptor
         {
-            Id = "function",
-            Category = "test",
+            Id = "test.function",
+            Resource = "test",
             Operation = "options"
         };
 
@@ -358,8 +358,8 @@ public class CroupierInvokerTests
         using var provider = new CroupierClient(providerConfig);
         var descriptor = new FunctionDescriptor
         {
-            Id = "function",
-            Category = "test",
+            Id = "test.function",
+            Resource = "test",
             Operation = "cancel"
         };
 
@@ -434,9 +434,9 @@ public class CroupierInvokerTests
         using var provider = new CroupierClient(providerConfig);
         FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"result: {payload}");
 
-        provider.RegisterFunction(new FunctionDescriptor { Id = "func1", Category = "batch", Operation = "test" }, handler);
-        provider.RegisterFunction(new FunctionDescriptor { Id = "func2", Category = "batch", Operation = "test" }, handler);
-        provider.RegisterFunction(new FunctionDescriptor { Id = "func3", Category = "batch", Operation = "test" }, handler);
+        provider.RegisterFunction(new FunctionDescriptor { Id = "batch.func1", Resource = "batch", Operation = "test" }, handler);
+        provider.RegisterFunction(new FunctionDescriptor { Id = "batch.func2", Resource = "batch", Operation = "test" }, handler);
+        provider.RegisterFunction(new FunctionDescriptor { Id = "batch.func3", Resource = "batch", Operation = "test" }, handler);
         await provider.ConnectAsync();
 
         try
@@ -497,8 +497,8 @@ public class CroupierInvokerTests
         using var provider = new CroupierClient(providerConfig);
         var descriptor = new FunctionDescriptor
         {
-            Id = "running",
-            Category = "long",
+            Id = "long.running.function",
+            Resource = "long",
             Operation = "function"
         };
 
@@ -583,8 +583,8 @@ public class CroupierInvokerTests
         using var provider = new CroupierClient(providerConfig);
         var descriptor = new FunctionDescriptor
         {
-            Id = "running",
-            Category = "long",
+            Id = "long.running.function",
+            Resource = "long",
             Operation = "function"
         };
 

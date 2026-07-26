@@ -12,7 +12,6 @@ import { fetchCurrentUser, getMyPermissions } from '@/services/api';
 import React, { useEffect } from 'react';
 import { App as AntdApp, Grid } from 'antd';
 import { setAppApi } from './utils/antdApp';
-import { initWorkspaceAlerting } from './services/workspace/alerts';
 import { getConsoleMenu } from './services/console';
 import type { ConsoleMenuSpec, LocalizedText } from './types/dashboard';
 import { loadAuthedInitialState, type InitialCurrentUser } from './services/initialState';
@@ -212,9 +211,6 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     useEffect(() => {
       setAppApi({ message: inst.message, notification: inst.notification });
     }, [inst]);
-    useEffect(() => {
-      initWorkspaceAlerting();
-    }, []);
     return null;
   };
   return {

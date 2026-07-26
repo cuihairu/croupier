@@ -76,7 +76,6 @@ type ServiceContext struct {
 	BackupModel          *model.BackupModel
 	FAQModel             *model.FAQModel
 	FeedbackModel        *model.FeedbackModel
-	EntityModel          *model.EntityModel
 	GameModel            *model.GameModel
 	PlayerModel          *model.PlayerModel
 	ProfileModel         *model.ProfileModel
@@ -91,9 +90,8 @@ type ServiceContext struct {
 	MessageModel         *model.MessageModel
 	CertificateModel     *model.CertificateModel
 	ConfigVersionModel   *model.ConfigVersionModel
-	WorkspaceConfigModel *model.WorkspaceConfigModel
 
-	// Page Spec models (new dashboard model)
+	// Page Spec models
 	PageSpecModel             *model.PageSpecModel
 	PublishedPageSpecModel    *model.PublishedPageSpecModel
 	PageVersionModel          *model.PageVersionModel
@@ -164,7 +162,6 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	backupModel := model.NewBackupModel(db)
 	faqModel := model.NewFAQModel(db)
 	feedbackModel := model.NewFeedbackModel(db)
-	entityModel := model.NewEntityModel(db)
 	gameModel := model.NewGameModel(db)
 	playerModel := model.NewPlayerModel(db)
 	profileModel := model.NewProfileModel(db)
@@ -179,9 +176,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	messageModel := model.NewMessageModel(db)
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
-	workspaceConfigModel := model.NewWorkspaceConfigModel(db)
 
-	// Page Spec models (new dashboard model)
+	// Page Spec models
 	pageSpecModel := model.NewPageSpecModel(db)
 	publishedPageSpecModel := model.NewPublishedPageSpecModel(db)
 	pageVersionModel := model.NewPageVersionModel(db)
@@ -274,7 +270,6 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		BackupModel:               backupModel,
 		FAQModel:                  faqModel,
 		FeedbackModel:             feedbackModel,
-		EntityModel:               entityModel,
 		GameModel:                 gameModel,
 		PlayerModel:               playerModel,
 		ProfileModel:              profileModel,
@@ -289,7 +284,6 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		MessageModel:              messageModel,
 		CertificateModel:          certificateModel,
 		ConfigVersionModel:        configVersionModel,
-		WorkspaceConfigModel:      workspaceConfigModel,
 		PageSpecModel:             pageSpecModel,
 		PublishedPageSpecModel:    publishedPageSpecModel,
 		PageVersionModel:          pageVersionModel,
@@ -387,9 +381,6 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 	if err := seedBootstrapTermDictionary(ctx); err != nil {
 		slog.Default().Error("failed to seed term dictionary", "error", err)
-	}
-	if err := seedBootstrapWorkspaces(ctx); err != nil {
-		slog.Default().Error("failed to seed bootstrap workspaces", "error", err)
 	}
 
 	// Initialize agent ops stores
@@ -1073,177 +1064,6 @@ func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.St
 	default:
 		return nil, fmt.Errorf("unsupported storage driver: %s", driver)
 	}
-}
-
-// seedBootstrapWorkspaces creates default workspace configurations for registered functions.
-// It groups functions by their prefix (e.g., "examples.player", "packs.prom") and creates
-// a workspace for each group.
-func seedBootstrapWorkspaces(ctx *ServiceContext) error {
-	if ctx == nil || ctx.FunctionModel == nil || ctx.WorkspaceConfigModel == nil {
-		return nil
-	}
-
-	bg := context.Background()
-	functionIDs, err := collectWorkspaceBootstrapFunctionIDs(ctx, bg)
-	if err != nil {
-		return err
-	}
-	if len(functionIDs) == 0 {
-		return nil
-	}
-
-	// Group functions by prefix (e.g., "examples.player" -> ["examples.player.get", "examples.player.create"])
-	groups := make(map[string][]string)
-	for _, functionID := range functionIDs {
-		parts := strings.SplitN(functionID, ".", 3)
-		if len(parts) < 2 {
-			continue
-		}
-		prefix := parts[0] + "." + parts[1]
-		groups[prefix] = append(groups[prefix], functionID)
-	}
-
-	// Create workspace for each group
-	menuOrder := 0
-	for prefix, functionIDs := range groups {
-		// Check if workspace already exists
-		_, err := ctx.WorkspaceConfigModel.FindByObjectKey(bg, prefix)
-		if err == nil {
-			continue // Already exists
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			slog.Default().Error("failed to check workspace", "prefix", prefix, "error", err)
-			continue
-		}
-
-		// Create workspace config JSON
-		layout := buildDefaultWorkspaceLayout(prefix, functionIDs)
-		configJSON, err := json.Marshal(layout)
-		if err != nil {
-			slog.Default().Error("failed to marshal workspace config", "prefix", prefix, "error", err)
-			continue
-		}
-
-		// Extract title from prefix (e.g., "examples.player" -> "Player")
-		titleParts := strings.Split(prefix, ".")
-		title := titleParts[len(titleParts)-1]
-		title = strings.ToUpper(string(title[0])) + title[1:] // Capitalize first letter
-
-		workspace := &model.WorkspaceConfig{
-			ObjectKey: prefix,
-			Title:     title,
-			Published: false,
-			MenuOrder: menuOrder,
-			Config:    string(configJSON),
-		}
-
-		if err := ctx.WorkspaceConfigModel.Upsert(bg, workspace); err != nil {
-			slog.Default().Error("failed to create workspace", "prefix", prefix, "error", err)
-			continue
-		}
-
-		slog.Default().Info("created default workspace", "prefix", prefix, "functions", len(functionIDs))
-		menuOrder++
-	}
-
-	return nil
-}
-
-// EnsureWorkspaceSeeded ensures bootstrap workspace configs exist based on current function catalog.
-func (ctx *ServiceContext) EnsureWorkspaceSeeded() error {
-	return seedBootstrapWorkspaces(ctx)
-}
-
-func collectWorkspaceBootstrapFunctionIDs(ctx *ServiceContext, bg context.Context) ([]string, error) {
-	ids := make(map[string]struct{})
-
-	// 1) Database-backed function catalog.
-	functions, _, err := ctx.FunctionModel.List(bg, model.ListFunctionsOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 10000,
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list functions: %w", err)
-	}
-	for _, fn := range functions {
-		fid := strings.TrimSpace(fn.FunctionID)
-		if fid == "" {
-			continue
-		}
-		ids[fid] = struct{}{}
-	}
-
-	// 2) Runtime registry functions (covers agent-registered functions not yet persisted in DB).
-	if ctx.RegistryStore != nil {
-		ctx.RegistryStore.Mu().RLock()
-		for _, sess := range ctx.RegistryStore.AgentsUnsafe() {
-			if sess == nil {
-				continue
-			}
-			for fid := range sess.Functions {
-				fid = strings.TrimSpace(fid)
-				if fid == "" {
-					continue
-				}
-				ids[fid] = struct{}{}
-			}
-		}
-		ctx.RegistryStore.Mu().RUnlock()
-	}
-
-	out := make([]string, 0, len(ids))
-	for fid := range ids {
-		out = append(out, fid)
-	}
-	return out, nil
-}
-
-// buildDefaultWorkspaceLayout creates a default layout for a workspace
-func buildDefaultWorkspaceLayout(objectKey string, functionIDs []string) map[string]interface{} {
-	// Create tabs layout with one tab per function (up to 10)
-	tabs := make([]map[string]interface{}, 0, min(len(functionIDs), 10))
-
-	for i, fnID := range functionIDs {
-		if i >= 10 {
-			break
-		}
-
-		// Extract function name from ID (e.g., "examples.player.get" -> "get")
-		parts := strings.Split(fnID, ".")
-		fnName := parts[len(parts)-1]
-
-		tab := map[string]interface{}{
-			"key":       fnID,
-			"title":     fnName,
-			"functions": []string{fnID}, // 添加 functions 字段
-			"layout": map[string]interface{}{
-				"type":           "form",
-				"submitFunction": fnID,
-				"fields":         []map[string]interface{}{},
-			},
-		}
-		tabs = append(tabs, tab)
-	}
-
-	return map[string]interface{}{
-		"objectKey": objectKey,
-		"title":     objectKey,
-		"layout": map[string]interface{}{
-			"type": "tabs",
-			"tabs": tabs,
-		},
-		"published": false,
-		"menuOrder": 0,
-	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // ============================================================================

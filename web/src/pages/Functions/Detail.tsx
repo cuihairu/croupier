@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { Alert, Badge, Button, Card, Form, Space, Tabs, Tag, Typography, Row, Col } from 'antd';
 import {
-  AppstoreOutlined,
+  ApartmentOutlined,
   ArrowLeftOutlined,
   CopyOutlined,
   DeleteOutlined,
@@ -38,11 +38,8 @@ export default function FunctionDetailPage() {
     permSaving,
     permError,
     permForm,
-    routeConfigSaving,
-    routeConfigForm,
-    routePreview,
     parsedInputSchema,
-    effectiveCategory,
+    effectiveResource,
     jsonViewData,
     uiDescriptor,
     loadDetail,
@@ -51,16 +48,9 @@ export default function FunctionDetailPage() {
     handleCopy,
     handleDelete,
     handleSavePermissions,
-    handleSaveRoute,
-    handleResetRoute,
     onSaveUi,
   } = useFunctionDetailPage(params.id);
-  const workspaceObjectKey = String(uiDescriptor?.entity || params.id?.split('.')[0] || '').trim();
-  const workspaceSearch = new URLSearchParams();
-  if (workspaceObjectKey) workspaceSearch.set('objectKey', workspaceObjectKey);
-  if (params.id) workspaceSearch.set('functionId', params.id);
-  workspaceSearch.set('from', 'function_detail');
-  const workspaceEditorPath = `/system/functions/workspaces?${workspaceSearch.toString()}`;
+  const pageStudioPath = '/system/functions/resources';
   const invokePath = params.id ? `/system/functions/invoke?fid=${encodeURIComponent(params.id)}` : '';
 
   const buildSearch = (tab: string, subTab?: string) => {
@@ -101,7 +91,7 @@ export default function FunctionDetailPage() {
     basic: (
       <BasicInfoTab
         functionDetail={functionDetail}
-        effectiveCategory={effectiveCategory}
+        effectiveResource={effectiveResource}
         editing={editing}
         onStatusToggle={handleStatusToggle}
       />
@@ -120,12 +110,7 @@ export default function FunctionDetailPage() {
         uiDescriptor={uiDescriptor}
         parsedInputSchema={parsedInputSchema}
         onSaveUi={onSaveUi}
-        routePreview={routePreview || {}}
-        routeConfigForm={routeConfigForm}
-        routeConfigSaving={routeConfigSaving}
-        onSaveRoute={handleSaveRoute}
-        onResetRoute={handleResetRoute}
-        onOpenAssignments={() => history.push('/system/functions/assignments')}
+        onOpenPageStudio={() => history.push(pageStudioPath)}
       />
     ),
     permissions: (
@@ -154,7 +139,7 @@ export default function FunctionDetailPage() {
     noFunction: !functionDetail,
   } as const;
 
-  const descriptorEntity = String(uiDescriptor?.entity || '').trim();
+  const descriptorResource = String(uiDescriptor?.resource || '').trim();
   const descriptorOperation = String(uiDescriptor?.operation || '').trim();
   const functionStatusText = functionDetail?.enabled ? '已启用' : '未启用';
   const functionStatusTone = functionDetail?.enabled ? 'success' : 'default';
@@ -182,11 +167,11 @@ export default function FunctionDetailPage() {
           <Badge status={functionDetail?.enabled ? 'success' : 'default'} />
         </Space>
       }
-      subTitle="这里处理单个函数的描述、表单与挂载信息。函数是原子能力，对象工作台负责把它装配成业务页面。"
+      subTitle="这里处理单个函数的能力定义与 Formily 输入表单；页面、菜单和分类在 Page Studio 中确定。"
       extra={[
         <Space key="actions">
-          <Button onClick={() => history.push(workspaceEditorPath)}>
-            {workspaceObjectKey ? `去 ${workspaceObjectKey} 对象工作台` : '去对象工作台'}
+          <Button onClick={() => history.push(pageStudioPath)}>
+            查看资源/页面候选
           </Button>
           {FUNCTION_DETAIL_SCHEMA.actions.map((action) => (
             <Button
@@ -232,8 +217,8 @@ export default function FunctionDetailPage() {
               <Tag color="blue">函数能力详情</Tag>
               <Badge status={functionStatusTone} text={functionStatusText} />
               {functionDetail?.version ? <Tag>{`v${functionDetail.version}`}</Tag> : null}
-              {effectiveCategory ? <Tag color="purple">{effectiveCategory}</Tag> : null}
-              {descriptorEntity ? <Tag>{`对象 ${descriptorEntity}`}</Tag> : null}
+              {effectiveResource ? <Tag color="purple">{effectiveResource}</Tag> : null}
+              {descriptorResource ? <Tag>{`资源 ${descriptorResource}`}</Tag> : null}
               {descriptorOperation ? <Tag>{`操作 ${descriptorOperation}`}</Tag> : null}
             </Space>
             <Space direction="vertical" size={6} style={{ width: '100%' }}>
@@ -242,7 +227,7 @@ export default function FunctionDetailPage() {
               </Typography.Title>
               <Typography.Text type="secondary">
                 {functionDetail?.description ||
-                  '这里用于确认单个函数的能力定义、挂载信息和单函数配置。最终业务页面应在对象工作台中完成装配。'}
+                  '这里用于确认单个函数的能力定义、资源/操作归属和单函数 Formily 表单。最终业务页面应在 Page Studio 中完成装配。'}
               </Typography.Text>
             </Space>
             <Row gutter={[12, 12]}>
@@ -255,15 +240,15 @@ export default function FunctionDetailPage() {
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Typography.Text strong>当前建议动作</Typography.Text>
                     <Typography.Text type="secondary">
-                      函数能力确认无误后，下一步应该去对象工作台生成页面骨架，而不是把这里当成最终业务界面。
+                      函数能力确认无误后，下一步应该去资源/页面候选检查 PageSpec 质量，而不是把这里当成最终业务界面。
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
                       <Button
                         type="primary"
-                        icon={<AppstoreOutlined />}
-                        onClick={() => history.push(workspaceEditorPath)}
+                        icon={<ApartmentOutlined />}
+                        onClick={() => history.push(pageStudioPath)}
                       >
-                        {workspaceObjectKey ? `去 ${workspaceObjectKey} 对象工作台` : '去对象工作台'}
+                        查看资源/页面候选
                       </Button>
                       <Button
                         icon={<PlayCircleOutlined />}
@@ -285,11 +270,11 @@ export default function FunctionDetailPage() {
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Typography.Text strong>这里适合确认什么</Typography.Text>
                     <Typography.Text type="secondary">
-                      重点检查函数摘要、入参 schema、挂载路由、权限、调用历史和告警配置，确认它是否足够稳定地支撑后续页面装配与发布验证。
+                      重点检查函数摘要、入参 schema、资源/操作归属、权限、调用历史和告警配置，确认它是否足够稳定地支撑后续页面装配与发布验证。
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
                       <Badge status="processing" text="函数定义与 schema" />
-                      <Badge status="success" text="路由与调用入口" />
+                      <Badge status="success" text="资源与调用入口" />
                       <Badge status="default" text="权限与告警配置" />
                     </Space>
                   </Space>
@@ -304,11 +289,11 @@ export default function FunctionDetailPage() {
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            message="函数层负责能力定义，工作台层负责页面装配"
-            description="这里适合校验函数定义、权限、告警和单函数表单配置；如果目标是做运营可用的实际界面，下一步应进入对象工作台完成页面骨架、预览和发布。"
+            message="函数层负责能力定义，Page Studio 负责页面装配"
+            description="这里适合校验函数定义、权限、告警和单函数表单配置；如果目标是做运营可用的实际界面，下一步应进入 Page Studio 完成页面骨架、预览和发布。"
             action={
-              <Button type="primary" onClick={() => history.push(workspaceEditorPath)}>
-                去对象工作台
+              <Button type="primary" onClick={() => history.push(pageStudioPath)}>
+                查看资源/页面候选
               </Button>
             }
           />

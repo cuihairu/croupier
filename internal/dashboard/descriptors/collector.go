@@ -114,9 +114,6 @@ func mergeDescriptorTemplateInput(input *normalizer.DescriptorInput, template mo
 	if input.Description == "" {
 		input.Description = strings.TrimSpace(template.Description)
 	}
-	if input.Category == "" {
-		input.Category = strings.TrimSpace(template.Category)
-	}
 	if input.InputSchema == "" && len(template.Schema) > 0 {
 		if raw, err := json.Marshal(template.Schema); err == nil {
 			input.InputSchema = string(raw)
@@ -140,38 +137,17 @@ func mergeRuntimeFunctionMetaInput(input *normalizer.DescriptorInput, meta reg.F
 	if input.OutputSchema == "" {
 		input.OutputSchema = strings.TrimSpace(meta.OutputSchema)
 	}
-	if input.Category == "" {
-		input.Category = strings.TrimSpace(meta.Category)
-	}
-	if input.Entity == "" {
-		input.Entity = strings.TrimSpace(meta.Entity)
+	if input.Resource == "" {
+		input.Resource = strings.TrimSpace(meta.Resource)
 	}
 	if input.Operation == "" {
 		input.Operation = strings.TrimSpace(meta.Operation)
 	}
-	if input.OperationKind == "" {
-		input.OperationKind = strings.TrimSpace(meta.OperationKind)
-	}
-	if input.Placement == "" {
-		input.Placement = strings.TrimSpace(meta.Placement)
-	}
-	if input.PageHint == "" {
-		input.PageHint = strings.TrimSpace(meta.PageHint)
-	}
-	if input.PageContract == nil {
-		input.PageContract = pageContractFromStringMap(meta.Extensions)
-	}
 	if input.Risk == "" {
 		input.Risk = strings.TrimSpace(meta.Risk)
 	}
-	if input.CategoryDisplay == nil {
-		input.CategoryDisplay = cloneStringMap(meta.CategoryDisplay)
-	}
-	if input.EntityDisplay == nil {
-		input.EntityDisplay = cloneStringMap(meta.EntityDisplay)
-	}
-	if input.OperationDisplay == nil {
-		input.OperationDisplay = cloneStringMap(meta.OperationDisplay)
+	if input.Permission == "" {
+		input.Permission = strings.TrimSpace(meta.Permission)
 	}
 	if input.Tags == nil {
 		input.Tags = append([]string(nil), meta.Tags...)
@@ -188,9 +164,6 @@ func mergeFunctionRecordInput(input *normalizer.DescriptorInput, fn model.Functi
 	input.Enabled = fn.Status != 0
 	if fn.Version != "" && input.Version == "" {
 		input.Version = fn.Version
-	}
-	if fn.Category != "" && input.Category == "" {
-		input.Category = fn.Category
 	}
 	if fn.Description != "" {
 		if input.Summary == "" {
@@ -228,23 +201,11 @@ func mergeOpenAPIOperationInput(input *normalizer.DescriptorInput, op *openapi3.
 		input.OutputSchema = schema
 	}
 	ext := op.Extensions
-	if input.Category == "" {
-		input.Category = stringExtension(ext, "x-category")
-	}
-	if input.Entity == "" {
-		input.Entity = stringExtension(ext, "x-entity")
+	if input.Resource == "" {
+		input.Resource = stringExtension(ext, "x-resource")
 	}
 	if input.Operation == "" {
 		input.Operation = stringExtension(ext, "x-operation")
-	}
-	if input.OperationKind == "" {
-		input.OperationKind = stringExtension(ext, "x-operation-kind")
-	}
-	if input.Placement == "" {
-		input.Placement = stringExtension(ext, "x-placement")
-	}
-	if input.PageHint == "" {
-		input.PageHint = stringExtension(ext, "x-page-hint")
 	}
 	if input.PageContract == nil {
 		input.PageContract = pageContractExtension(ext, "x-page-contract")
@@ -252,14 +213,8 @@ func mergeOpenAPIOperationInput(input *normalizer.DescriptorInput, op *openapi3.
 	if input.Risk == "" {
 		input.Risk = stringExtension(ext, "x-risk")
 	}
-	if input.CategoryDisplay == nil {
-		input.CategoryDisplay = localizedMapExtension(ext, "x-category-display")
-	}
-	if input.EntityDisplay == nil {
-		input.EntityDisplay = localizedMapExtension(ext, "x-entity-display")
-	}
-	if input.OperationDisplay == nil {
-		input.OperationDisplay = localizedMapExtension(ext, "x-operation-display")
+	if input.Permission == "" {
+		input.Permission = stringExtension(ext, "x-permission")
 	}
 }
 
@@ -267,29 +222,11 @@ func mergeMetadataInput(input *normalizer.DescriptorInput, metadata map[string]i
 	if input == nil || len(metadata) == 0 {
 		return
 	}
-	if input.Category == "" {
-		input.Category = stringExtension(metadata, "category")
-	}
-	if input.Entity == "" {
-		input.Entity = stringExtension(metadata, "entity")
+	if input.Resource == "" {
+		input.Resource = stringExtension(metadata, "resource")
 	}
 	if input.Operation == "" {
 		input.Operation = stringExtension(metadata, "operation")
-	}
-	if input.OperationKind == "" {
-		input.OperationKind = firstNonEmpty(
-			stringExtension(metadata, "operationKind"),
-			stringExtension(metadata, "operation_kind"),
-		)
-	}
-	if input.Placement == "" {
-		input.Placement = stringExtension(metadata, "placement")
-	}
-	if input.PageHint == "" {
-		input.PageHint = firstNonEmpty(
-			stringExtension(metadata, "pageHint"),
-			stringExtension(metadata, "page_hint"),
-		)
 	}
 	if input.PageContract == nil {
 		input.PageContract = firstPageContract(
@@ -298,14 +235,11 @@ func mergeMetadataInput(input *normalizer.DescriptorInput, metadata map[string]i
 			pageContractExtension(metadata, "x-page-contract"),
 		)
 	}
-	if input.CategoryDisplay == nil {
-		input.CategoryDisplay = localizedMapExtension(metadata, "categoryDisplay")
+	if input.Risk == "" {
+		input.Risk = stringExtension(metadata, "risk")
 	}
-	if input.EntityDisplay == nil {
-		input.EntityDisplay = localizedMapExtension(metadata, "entityDisplay")
-	}
-	if input.OperationDisplay == nil {
-		input.OperationDisplay = localizedMapExtension(metadata, "operationDisplay")
+	if input.Permission == "" {
+		input.Permission = stringExtension(metadata, "permission")
 	}
 }
 
@@ -394,26 +328,6 @@ func stringExtension(extensions map[string]interface{}, key string) string {
 	return ""
 }
 
-func localizedMapExtension(extensions map[string]interface{}, key string) map[string]string {
-	if len(extensions) == 0 || key == "" {
-		return nil
-	}
-	candidates := []string{key}
-	if strings.HasPrefix(key, "x-") {
-		candidates = append(candidates, strings.TrimPrefix(key, "x-"))
-	} else {
-		candidates = append(candidates, "x-"+key)
-	}
-	for _, candidate := range candidates {
-		if raw, ok := extensions[candidate]; ok {
-			if result := toStringMap(raw); len(result) > 0 {
-				return result
-			}
-		}
-	}
-	return nil
-}
-
 func pageContractExtension(extensions map[string]interface{}, key string) *spec.PageContract {
 	if len(extensions) == 0 || key == "" {
 		return nil
@@ -432,18 +346,6 @@ func pageContractExtension(extensions map[string]interface{}, key string) *spec.
 		contract := decodePageContract(raw)
 		if contract != nil {
 			return contract
-		}
-	}
-	return nil
-}
-
-func pageContractFromStringMap(extensions map[string]string) *spec.PageContract {
-	if len(extensions) == 0 {
-		return nil
-	}
-	for _, key := range []string{"x-page-contract", "page_contract", "pageContract"} {
-		if raw := strings.TrimSpace(extensions[key]); raw != "" {
-			return decodePageContract(raw)
 		}
 	}
 	return nil
@@ -516,17 +418,4 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func cloneStringMap(input map[string]string) map[string]string {
-	if len(input) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(input))
-	for key, value := range input {
-		if strings.TrimSpace(value) != "" {
-			out[key] = strings.TrimSpace(value)
-		}
-	}
-	return out
 }

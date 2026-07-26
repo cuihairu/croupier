@@ -63,13 +63,18 @@ func (l *FunctionUIRollbackLogic) FunctionUIRollback(req *FunctionUIRollbackRequ
 	}
 
 	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
-	if err := validateFormilySchema(resolved.Schema); err != nil {
+	schema := rawJSONFromValue(resolved.Schema)
+	schemaValue, err := jsonValueFromRaw(schema)
+	if err != nil {
+		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+	}
+	if err := validateFormilySchema(schemaValue); err != nil {
 		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
 	}
 	return &FunctionUIRollbackResponse{
 		AppliedVersion: req.Version,
 		Current: &FunctionUIResponse{
-			Schema:         resolved.Schema,
+			Schema:         schema,
 			Custom:         resolved.Custom,
 			HasDefault:     resolved.HasDefault,
 			UISource:       resolved.UISource,

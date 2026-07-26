@@ -234,17 +234,17 @@ func (FunctionSecurity_ApprovalType) EnumDescriptor() ([]byte, []int) {
 
 // FunctionMetadata defines the core function registration contract.
 // It deliberately excludes UI-related fields (menu, display_name, i18n) which
-// are derived by the Dashboard from this metadata.
+// are derived by the Dashboard from PageSpec.
 type FunctionMetadata struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Identity fields
-	Id      string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`           // Unique identifier, format: <domain>.<entity>.<action>
+	Id      string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`           // Unique identifier, format: <resource>.<operation>
 	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"` // Semantic version (semver)
-	// Classification fields
-	Category string   `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"` // Function category (e.g., "player", "game", "system")
+	// Capability fields
+	Resource string   `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"` // Resource key (e.g., "player", "mail", "guild")
 	Tags     []string `protobuf:"bytes,4,rep,name=tags,proto3" json:"tags,omitempty"`         // Tags for grouping and filtering
 	// Documentation fields
-	Name        string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`               // Short display name (english, UI will i18n from key)
+	Name        string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`               // Short technical name, not a UI label
 	Description string `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"` // Detailed description (supports markdown)
 	// Parameter definitions (JSON Schema Draft 2020-12)
 	InputSchema  string `protobuf:"bytes,7,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request/validation
@@ -303,9 +303,9 @@ func (x *FunctionMetadata) GetVersion() string {
 	return ""
 }
 
-func (x *FunctionMetadata) GetCategory() string {
+func (x *FunctionMetadata) GetResource() string {
 	if x != nil {
-		return x.Category
+		return x.Resource
 	}
 	return ""
 }
@@ -607,7 +607,7 @@ func (x *FunctionMetadataList) GetFunctions() []*FunctionMetadata {
 // FunctionFilter for listing/querying functions
 type FunctionFilter struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Category      string                 `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
+	Resource      string                 `protobuf:"bytes,1,opt,name=resource,proto3" json:"resource,omitempty"`
 	Tags          []string               `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
 	RiskLevel     string                 `protobuf:"bytes,3,opt,name=risk_level,json=riskLevel,proto3" json:"risk_level,omitempty"`
 	Mode          string                 `protobuf:"bytes,4,opt,name=mode,proto3" json:"mode,omitempty"` // query/command
@@ -647,9 +647,9 @@ func (*FunctionFilter) Descriptor() ([]byte, []int) {
 	return file_croupier_function_v1_metadata_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *FunctionFilter) GetCategory() string {
+func (x *FunctionFilter) GetResource() string {
 	if x != nil {
-		return x.Category
+		return x.Resource
 	}
 	return ""
 }
@@ -758,7 +758,7 @@ const file_croupier_function_v1_metadata_proto_rawDesc = "" +
 	"\x10FunctionMetadata\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
-	"\bcategory\x18\x03 \x01(\tR\bcategory\x12\x12\n" +
+	"\bresource\x18\x03 \x01(\tR\bresource\x12\x12\n" +
 	"\x04tags\x18\x04 \x03(\tR\x04tags\x12\x12\n" +
 	"\x04name\x18\x05 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x06 \x01(\tR\vdescription\x12!\n" +
@@ -819,7 +819,7 @@ const file_croupier_function_v1_metadata_proto_rawDesc = "" +
 	"\x14FunctionMetadataList\x12D\n" +
 	"\tfunctions\x18\x01 \x03(\v2&.croupier.function.v1.FunctionMetadataR\tfunctions\"\xaf\x01\n" +
 	"\x0eFunctionFilter\x12\x1a\n" +
-	"\bcategory\x18\x01 \x01(\tR\bcategory\x12\x12\n" +
+	"\bresource\x18\x01 \x01(\tR\bresource\x12\x12\n" +
 	"\x04tags\x18\x02 \x03(\tR\x04tags\x12\x1d\n" +
 	"\n" +
 	"risk_level\x18\x03 \x01(\tR\triskLevel\x12\x12\n" +

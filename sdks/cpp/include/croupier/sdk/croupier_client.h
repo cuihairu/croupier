@@ -30,12 +30,11 @@ struct FunctionDescriptor {
     std::string input_schema;      // JSON schema for input payload
     std::string output_schema;     // JSON schema for output payload
 
-    // Legacy fields kept for backward compatibility with existing examples/tests.
-    std::string category;   // grouping category
-    std::string risk;       // "low"|"medium"|"high"
-    std::string entity;     // entity type, e.g. "item", "player"
-    std::string operation;  // operation type, e.g. "create", "read", "update", "delete"
-    bool enabled = true;    // whether this function is currently enabled
+    std::string resource;    // business resource/capability key
+    std::string operation;   // business action key, e.g. "ban", "send", "list"
+    std::string risk;        // "safe"|"warning"|"high"|"danger"
+    bool enabled = true;     // whether this function is currently enabled
+    std::string permission;  // optional permission identifier
 };
 
 // Relationship definition for virtual objects

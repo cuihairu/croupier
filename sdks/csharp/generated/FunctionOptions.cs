@@ -26,56 +26,28 @@ namespace Croupier.Component.V1 {
           string.Concat(
             "Cixjcm91cGllci9jb21wb25lbnQvdjEvZnVuY3Rpb25fb3B0aW9ucy5wcm90",
             "bxIVY3JvdXBpZXIuY29tcG9uZW50LnYxGiBnb29nbGUvcHJvdG9idWYvZGVz",
-            "Y3JpcHRvci5wcm90bxooY3JvdXBpZXIvY29tcG9uZW50L3YxL2Rhc2hib2Fy",
-            "ZF91aS5wcm90byLDBQoPRnVuY3Rpb25PcHRpb25zEh8KC2Z1bmN0aW9uX2lk",
-            "GAEgASgJUgpmdW5jdGlvbklkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24S",
-            "GgoIY2F0ZWdvcnkYAyABKAlSCGNhdGVnb3J5EhIKBHJpc2sYBCABKAlSBHJp",
-            "c2sSFAoFcm91dGUYBSABKAlSBXJvdXRlEhgKB3RpbWVvdXQYBiABKAlSB3Rp",
-            "bWVvdXQSJgoPdHdvX3BlcnNvbl9ydWxlGAcgASgIUg10d29QZXJzb25SdWxl",
-            "EhwKCXBsYWNlbWVudBgIIAEoCVIJcGxhY2VtZW50EkoKBmxhYmVscxgJIAMo",
-            "CzIyLmNyb3VwaWVyLmNvbXBvbmVudC52MS5GdW5jdGlvbk9wdGlvbnMuTGFi",
-            "ZWxzRW50cnlSBmxhYmVscxISCgRtb2RlGAogASgJUgRtb2RlEicKD2lkZW1w",
-            "b3RlbmN5X2tleRgLIAEoCFIOaWRlbXBvdGVuY3lLZXkSQgoMZGlzcGxheV9u",
-            "YW1lGAwgASgLMh8uY3JvdXBpZXIuY29tcG9uZW50LnYxLkkxOG5UZXh0Ugtk",
-            "aXNwbGF5TmFtZRI5CgdzdW1tYXJ5GA0gASgLMh8uY3JvdXBpZXIuY29tcG9u",
-            "ZW50LnYxLkkxOG5UZXh0UgdzdW1tYXJ5EhIKBHRhZ3MYDiADKAlSBHRhZ3MS",
-            "LwoEbWVudRgPIAEoCzIbLmNyb3VwaWVyLmNvbXBvbmVudC52MS5NZW51UgRt",
-            "ZW51EkcKC3Blcm1pc3Npb25zGBAgASgLMiUuY3JvdXBpZXIuY29tcG9uZW50",
-            "LnYxLlBlcm1pc3Npb25TcGVjUgtwZXJtaXNzaW9ucxo5CgtMYWJlbHNFbnRy",
-            "eRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgB",
-            "IowHCg1FbnRpdHlPcHRpb25zEhsKCWVudGl0eV9pZBgBIAEoCVIIZW50aXR5",
-            "SWQSGAoHdmVyc2lvbhgCIAEoCVIHdmVyc2lvbhISCgRuYW1lGAMgASgJUgRu",
-            "YW1lEiAKC2Rlc2NyaXB0aW9uGAQgASgJUgtkZXNjcmlwdGlvbhIaCghjYXRl",
-            "Z29yeRgFIAEoCVIIY2F0ZWdvcnkSHwoLcHJpbWFyeV9rZXkYBiABKAlSCnBy",
-            "aW1hcnlLZXkSIwoNZGlzcGxheV9maWVsZBgHIAEoCVIMZGlzcGxheUZpZWxk",
-            "EiUKDnRpdGxlX3RlbXBsYXRlGAggASgJUg10aXRsZVRlbXBsYXRlEiEKDGF2",
-            "YXRhcl9maWVsZBgJIAEoCVILYXZhdGFyRmllbGQSIQoMc3RhdHVzX2ZpZWxk",
-            "GAogASgJUgtzdGF0dXNGaWVsZBIpChBjcmVhdGVfZnVuY3Rpb25zGAsgAygJ",
-            "Ug9jcmVhdGVGdW5jdGlvbnMSJQoOcmVhZF9mdW5jdGlvbnMYDCADKAlSDXJl",
-            "YWRGdW5jdGlvbnMSKQoQdXBkYXRlX2Z1bmN0aW9ucxgNIAMoCVIPdXBkYXRl",
-            "RnVuY3Rpb25zEikKEGRlbGV0ZV9mdW5jdGlvbnMYDiADKAlSD2RlbGV0ZUZ1",
-            "bmN0aW9ucxIlCg5saXN0X2Z1bmN0aW9ucxgPIAMoCVINbGlzdEZ1bmN0aW9u",
-            "cxJnChFjdXN0b21fb3BlcmF0aW9ucxgQIAMoCzI6LmNyb3VwaWVyLmNvbXBv",
-            "bmVudC52MS5FbnRpdHlPcHRpb25zLkN1c3RvbU9wZXJhdGlvbnNFbnRyeVIQ",
-            "Y3VzdG9tT3BlcmF0aW9ucxJCCgxkaXNwbGF5X25hbWUYESABKAsyHy5jcm91",
-            "cGllci5jb21wb25lbnQudjEuSTE4blRleHRSC2Rpc3BsYXlOYW1lEjkKB3N1",
-            "bW1hcnkYEiABKAsyHy5jcm91cGllci5jb21wb25lbnQudjEuSTE4blRleHRS",
-            "B3N1bW1hcnkSEgoEdGFncxgTIAMoCVIEdGFncxIvCgRtZW51GBQgASgLMhsu",
-            "Y3JvdXBpZXIuY29tcG9uZW50LnYxLk1lbnVSBG1lbnUaQwoVQ3VzdG9tT3Bl",
-            "cmF0aW9uc0VudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgJ",
-            "UgV2YWx1ZToCOAE6ZAoIZnVuY3Rpb24SHi5nb29nbGUucHJvdG9idWYuTWV0",
-            "aG9kT3B0aW9ucxi5jgMgASgLMiYuY3JvdXBpZXIuY29tcG9uZW50LnYxLkZ1",
-            "bmN0aW9uT3B0aW9uc1IIZnVuY3Rpb246XwoGZW50aXR5Eh8uZ29vZ2xlLnBy",
-            "b3RvYnVmLk1lc3NhZ2VPcHRpb25zGLqOAyABKAsyJC5jcm91cGllci5jb21w",
-            "b25lbnQudjEuRW50aXR5T3B0aW9uc1IGZW50aXR5QnMKKGlvLmdpdGh1Yi5j",
-            "dWloYWlydS5jcm91cGllci5jb21wb25lbnQudjFQAVpFZ2l0aHViLmNvbS9j",
-            "dWloYWlydS9jcm91cGllci9wa2cvcGIvY3JvdXBpZXIvY29tcG9uZW50L3Yx",
-            "O2NvbXBvbmVudHYxYgZwcm90bzM="));
+            "Y3JpcHRvci5wcm90byKmBAoPRnVuY3Rpb25PcHRpb25zEh8KC2Z1bmN0aW9u",
+            "X2lkGAEgASgJUgpmdW5jdGlvbklkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNp",
+            "b24SGgoIcmVzb3VyY2UYAyABKAlSCHJlc291cmNlEhwKCW9wZXJhdGlvbhgE",
+            "IAEoCVIJb3BlcmF0aW9uEhIKBHJpc2sYBSABKAlSBHJpc2sSFAoFcm91dGUY",
+            "BiABKAlSBXJvdXRlEhgKB3RpbWVvdXQYByABKAlSB3RpbWVvdXQSJgoPdHdv",
+            "X3BlcnNvbl9ydWxlGAggASgIUg10d29QZXJzb25SdWxlEkoKBmxhYmVscxgJ",
+            "IAMoCzIyLmNyb3VwaWVyLmNvbXBvbmVudC52MS5GdW5jdGlvbk9wdGlvbnMu",
+            "TGFiZWxzRW50cnlSBmxhYmVscxISCgRtb2RlGAogASgJUgRtb2RlEicKD2lk",
+            "ZW1wb3RlbmN5X2tleRgLIAEoCFIOaWRlbXBvdGVuY3lLZXkSGAoHc3VtbWFy",
+            "eRgMIAEoCVIHc3VtbWFyeRIgCgtkZXNjcmlwdGlvbhgNIAEoCVILZGVzY3Jp",
+            "cHRpb24SEgoEdGFncxgOIAMoCVIEdGFncxIeCgpwZXJtaXNzaW9uGA8gASgJ",
+            "UgpwZXJtaXNzaW9uGjkKC0xhYmVsc0VudHJ5EhAKA2tleRgBIAEoCVIDa2V5",
+            "EhQKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAE6ZAoIZnVuY3Rpb24SHi5nb29n",
+            "bGUucHJvdG9idWYuTWV0aG9kT3B0aW9ucxi5jgMgASgLMiYuY3JvdXBpZXIu",
+            "Y29tcG9uZW50LnYxLkZ1bmN0aW9uT3B0aW9uc1IIZnVuY3Rpb25CcwooaW8u",
+            "Z2l0aHViLmN1aWhhaXJ1LmNyb3VwaWVyLmNvbXBvbmVudC52MVABWkVnaXRo",
+            "dWIuY29tL2N1aWhhaXJ1L2Nyb3VwaWVyL3BrZy9wYi9jcm91cGllci9jb21w",
+            "b25lbnQvdjE7Y29tcG9uZW50djFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Google.Protobuf.Reflection.DescriptorReflection.Descriptor, global::Croupier.Component.V1.DashboardUiReflection.Descriptor, },
-          new pbr::GeneratedClrTypeInfo(null, new pb::Extension[] { FunctionOptionsExtensions.Function, FunctionOptionsExtensions.Entity }, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Component.V1.FunctionOptions), global::Croupier.Component.V1.FunctionOptions.Parser, new[]{ "FunctionId", "Version", "Category", "Risk", "Route", "Timeout", "TwoPersonRule", "Placement", "Labels", "Mode", "IdempotencyKey", "DisplayName", "Summary", "Tags", "Menu", "Permissions" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Component.V1.EntityOptions), global::Croupier.Component.V1.EntityOptions.Parser, new[]{ "EntityId", "Version", "Name", "Description", "Category", "PrimaryKey", "DisplayField", "TitleTemplate", "AvatarField", "StatusField", "CreateFunctions", "ReadFunctions", "UpdateFunctions", "DeleteFunctions", "ListFunctions", "CustomOperations", "DisplayName", "Summary", "Tags", "Menu" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, })
+          new pbr::FileDescriptor[] { global::Google.Protobuf.Reflection.DescriptorReflection.Descriptor, },
+          new pbr::GeneratedClrTypeInfo(null, new pb::Extension[] { FunctionOptionsExtensions.Function }, new pbr::GeneratedClrTypeInfo[] {
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Component.V1.FunctionOptions), global::Croupier.Component.V1.FunctionOptions.Parser, new[]{ "FunctionId", "Version", "Resource", "Operation", "Risk", "Route", "Timeout", "TwoPersonRule", "Labels", "Mode", "IdempotencyKey", "Summary", "Description", "Tags", "Permission" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, })
           }));
     }
     #endregion
@@ -85,13 +57,13 @@ namespace Croupier.Component.V1 {
   public static partial class FunctionOptionsExtensions {
     public static readonly pb::Extension<global::Google.Protobuf.Reflection.MethodOptions, global::Croupier.Component.V1.FunctionOptions> Function =
       new pb::Extension<global::Google.Protobuf.Reflection.MethodOptions, global::Croupier.Component.V1.FunctionOptions>(51001, pb::FieldCodec.ForMessage(408010, global::Croupier.Component.V1.FunctionOptions.Parser));
-    public static readonly pb::Extension<global::Google.Protobuf.Reflection.MessageOptions, global::Croupier.Component.V1.EntityOptions> Entity =
-      new pb::Extension<global::Google.Protobuf.Reflection.MessageOptions, global::Croupier.Component.V1.EntityOptions>(51002, pb::FieldCodec.ForMessage(408018, global::Croupier.Component.V1.EntityOptions.Parser));
   }
 
   #region Messages
   /// <summary>
-  /// 方法级元信息（可选）。插件未识别时将使用默认推断。
+  /// FunctionOptions is a proto annotation for executable function capability
+  /// contracts. It does not define Dashboard UI, menu, labels, page placement,
+  /// Formily schema, or PageSpec.
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class FunctionOptions : pb::IMessage<FunctionOptions>
@@ -130,20 +102,19 @@ namespace Croupier.Component.V1 {
     public FunctionOptions(FunctionOptions other) : this() {
       functionId_ = other.functionId_;
       version_ = other.version_;
-      category_ = other.category_;
+      resource_ = other.resource_;
+      operation_ = other.operation_;
       risk_ = other.risk_;
       route_ = other.route_;
       timeout_ = other.timeout_;
       twoPersonRule_ = other.twoPersonRule_;
-      placement_ = other.placement_;
       labels_ = other.labels_.Clone();
       mode_ = other.mode_;
       idempotencyKey_ = other.idempotencyKey_;
-      displayName_ = other.displayName_ != null ? other.displayName_.Clone() : null;
-      summary_ = other.summary_ != null ? other.summary_.Clone() : null;
+      summary_ = other.summary_;
+      description_ = other.description_;
       tags_ = other.tags_.Clone();
-      menu_ = other.menu_ != null ? other.menu_.Clone() : null;
-      permissions_ = other.permissions_ != null ? other.permissions_.Clone() : null;
+      permission_ = other.permission_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -157,7 +128,7 @@ namespace Croupier.Component.V1 {
     public const int FunctionIdFieldNumber = 1;
     private string functionId_ = "";
     /// <summary>
-    /// 全局唯一函数ID（规范：&lt;domain>.&lt;entity>.&lt;action>，小写，允许 [a-z0-9._-]）
+    /// Stable function id, e.g. "player.ban".
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -172,7 +143,7 @@ namespace Croupier.Component.V1 {
     public const int VersionFieldNumber = 2;
     private string version_ = "";
     /// <summary>
-    /// 版本（规范：SemVer，如 1.0.0 / 1.2.3-beta.1）
+    /// Function version.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -183,26 +154,41 @@ namespace Croupier.Component.V1 {
       }
     }
 
-    /// <summary>Field number for the "category" field.</summary>
-    public const int CategoryFieldNumber = 3;
-    private string category_ = "";
+    /// <summary>Field number for the "resource" field.</summary>
+    public const int ResourceFieldNumber = 3;
+    private string resource_ = "";
     /// <summary>
-    /// 类目（默认取 package 里的第二级，如 games.player.v1 → player）
+    /// Business resource/capability key.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Category {
-      get { return category_; }
+    public string Resource {
+      get { return resource_; }
       set {
-        category_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        resource_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "operation" field.</summary>
+    public const int OperationFieldNumber = 4;
+    private string operation_ = "";
+    /// <summary>
+    /// Business action key.
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Operation {
+      get { return operation_; }
+      set {
+        operation_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
     /// <summary>Field number for the "risk" field.</summary>
-    public const int RiskFieldNumber = 4;
+    public const int RiskFieldNumber = 5;
     private string risk_ = "";
     /// <summary>
-    /// 风险级别：low/medium/high（默认 medium）
+    /// safe/warning/high/danger.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -214,10 +200,10 @@ namespace Croupier.Component.V1 {
     }
 
     /// <summary>Field number for the "route" field.</summary>
-    public const int RouteFieldNumber = 5;
+    public const int RouteFieldNumber = 6;
     private string route_ = "";
     /// <summary>
-    /// 路由策略：lb/broadcast/targeted/hash（默认 lb）
+    /// lb/broadcast/targeted/hash.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -229,10 +215,10 @@ namespace Croupier.Component.V1 {
     }
 
     /// <summary>Field number for the "timeout" field.</summary>
-    public const int TimeoutFieldNumber = 6;
+    public const int TimeoutFieldNumber = 7;
     private string timeout_ = "";
     /// <summary>
-    /// 超时（默认 30s）
+    /// e.g. "30s".
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -244,10 +230,10 @@ namespace Croupier.Component.V1 {
     }
 
     /// <summary>Field number for the "two_person_rule" field.</summary>
-    public const int TwoPersonRuleFieldNumber = 7;
+    public const int TwoPersonRuleFieldNumber = 8;
     private bool twoPersonRule_;
     /// <summary>
-    /// 两人审批（默认 false）
+    /// Whether approval is required.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -258,29 +244,11 @@ namespace Croupier.Component.V1 {
       }
     }
 
-    /// <summary>Field number for the "placement" field.</summary>
-    public const int PlacementFieldNumber = 8;
-    private string placement_ = "";
-    /// <summary>
-    /// 放置位置：core/agent（默认 agent）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Placement {
-      get { return placement_; }
-      set {
-        placement_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
     /// <summary>Field number for the "labels" field.</summary>
     public const int LabelsFieldNumber = 9;
     private static readonly pbc::MapField<string, string>.Codec _map_labels_codec
         = new pbc::MapField<string, string>.Codec(pb::FieldCodec.ForString(10, ""), pb::FieldCodec.ForString(18, ""), 74);
     private readonly pbc::MapField<string, string> labels_ = new pbc::MapField<string, string>();
-    /// <summary>
-    /// 额外标签
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::MapField<string, string> Labels {
@@ -291,7 +259,7 @@ namespace Croupier.Component.V1 {
     public const int ModeFieldNumber = 10;
     private string mode_ = "";
     /// <summary>
-    /// 调用模式：query/command（默认 query）
+    /// query/command.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -305,9 +273,6 @@ namespace Croupier.Component.V1 {
     /// <summary>Field number for the "idempotency_key" field.</summary>
     public const int IdempotencyKeyFieldNumber = 11;
     private bool idempotencyKey_;
-    /// <summary>
-    /// 是否启用幂等键（默认 false）
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool IdempotencyKey {
@@ -317,31 +282,33 @@ namespace Croupier.Component.V1 {
       }
     }
 
-    /// <summary>Field number for the "display_name" field.</summary>
-    public const int DisplayNameFieldNumber = 12;
-    private global::Croupier.Component.V1.I18nText displayName_;
+    /// <summary>Field number for the "summary" field.</summary>
+    public const int SummaryFieldNumber = 12;
+    private string summary_ = "";
     /// <summary>
-    /// ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
-    /// 展示名称与摘要（i18n）
+    /// Catalog/search text only.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.I18nText DisplayName {
-      get { return displayName_; }
+    public string Summary {
+      get { return summary_; }
       set {
-        displayName_ = value;
+        summary_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
-    /// <summary>Field number for the "summary" field.</summary>
-    public const int SummaryFieldNumber = 13;
-    private global::Croupier.Component.V1.I18nText summary_;
+    /// <summary>Field number for the "description" field.</summary>
+    public const int DescriptionFieldNumber = 13;
+    private string description_ = "";
+    /// <summary>
+    /// Catalog/help text only.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.I18nText Summary {
-      get { return summary_; }
+    public string Description {
+      get { return description_; }
       set {
-        summary_ = value;
+        description_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -350,42 +317,24 @@ namespace Croupier.Component.V1 {
     private static readonly pb::FieldCodec<string> _repeated_tags_codec
         = pb::FieldCodec.ForString(114);
     private readonly pbc::RepeatedField<string> tags_ = new pbc::RepeatedField<string>();
-    /// <summary>
-    /// 标签
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<string> Tags {
       get { return tags_; }
     }
 
-    /// <summary>Field number for the "menu" field.</summary>
-    public const int MenuFieldNumber = 15;
-    private global::Croupier.Component.V1.Menu menu_;
+    /// <summary>Field number for the "permission" field.</summary>
+    public const int PermissionFieldNumber = 15;
+    private string permission_ = "";
     /// <summary>
-    /// 菜单元数据（用于构建前端菜单）
+    /// Optional permission identifier.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.Menu Menu {
-      get { return menu_; }
+    public string Permission {
+      get { return permission_; }
       set {
-        menu_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "permissions" field.</summary>
-    public const int PermissionsFieldNumber = 16;
-    private global::Croupier.Component.V1.PermissionSpec permissions_;
-    /// <summary>
-    /// 权限规范（verbs/scopes/default role grants/i18n）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.PermissionSpec Permissions {
-      get { return permissions_; }
-      set {
-        permissions_ = value;
+        permission_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -406,20 +355,19 @@ namespace Croupier.Component.V1 {
       }
       if (FunctionId != other.FunctionId) return false;
       if (Version != other.Version) return false;
-      if (Category != other.Category) return false;
+      if (Resource != other.Resource) return false;
+      if (Operation != other.Operation) return false;
       if (Risk != other.Risk) return false;
       if (Route != other.Route) return false;
       if (Timeout != other.Timeout) return false;
       if (TwoPersonRule != other.TwoPersonRule) return false;
-      if (Placement != other.Placement) return false;
       if (!Labels.Equals(other.Labels)) return false;
       if (Mode != other.Mode) return false;
       if (IdempotencyKey != other.IdempotencyKey) return false;
-      if (!object.Equals(DisplayName, other.DisplayName)) return false;
-      if (!object.Equals(Summary, other.Summary)) return false;
+      if (Summary != other.Summary) return false;
+      if (Description != other.Description) return false;
       if(!tags_.Equals(other.tags_)) return false;
-      if (!object.Equals(Menu, other.Menu)) return false;
-      if (!object.Equals(Permissions, other.Permissions)) return false;
+      if (Permission != other.Permission) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -429,20 +377,19 @@ namespace Croupier.Component.V1 {
       int hash = 1;
       if (FunctionId.Length != 0) hash ^= FunctionId.GetHashCode();
       if (Version.Length != 0) hash ^= Version.GetHashCode();
-      if (Category.Length != 0) hash ^= Category.GetHashCode();
+      if (Resource.Length != 0) hash ^= Resource.GetHashCode();
+      if (Operation.Length != 0) hash ^= Operation.GetHashCode();
       if (Risk.Length != 0) hash ^= Risk.GetHashCode();
       if (Route.Length != 0) hash ^= Route.GetHashCode();
       if (Timeout.Length != 0) hash ^= Timeout.GetHashCode();
       if (TwoPersonRule != false) hash ^= TwoPersonRule.GetHashCode();
-      if (Placement.Length != 0) hash ^= Placement.GetHashCode();
       hash ^= Labels.GetHashCode();
       if (Mode.Length != 0) hash ^= Mode.GetHashCode();
       if (IdempotencyKey != false) hash ^= IdempotencyKey.GetHashCode();
-      if (displayName_ != null) hash ^= DisplayName.GetHashCode();
-      if (summary_ != null) hash ^= Summary.GetHashCode();
+      if (Summary.Length != 0) hash ^= Summary.GetHashCode();
+      if (Description.Length != 0) hash ^= Description.GetHashCode();
       hash ^= tags_.GetHashCode();
-      if (menu_ != null) hash ^= Menu.GetHashCode();
-      if (permissions_ != null) hash ^= Permissions.GetHashCode();
+      if (Permission.Length != 0) hash ^= Permission.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -469,29 +416,29 @@ namespace Croupier.Component.V1 {
         output.WriteRawTag(18);
         output.WriteString(Version);
       }
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(26);
-        output.WriteString(Category);
+        output.WriteString(Resource);
+      }
+      if (Operation.Length != 0) {
+        output.WriteRawTag(34);
+        output.WriteString(Operation);
       }
       if (Risk.Length != 0) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(42);
         output.WriteString(Risk);
       }
       if (Route.Length != 0) {
-        output.WriteRawTag(42);
+        output.WriteRawTag(50);
         output.WriteString(Route);
       }
       if (Timeout.Length != 0) {
-        output.WriteRawTag(50);
+        output.WriteRawTag(58);
         output.WriteString(Timeout);
       }
       if (TwoPersonRule != false) {
-        output.WriteRawTag(56);
+        output.WriteRawTag(64);
         output.WriteBool(TwoPersonRule);
-      }
-      if (Placement.Length != 0) {
-        output.WriteRawTag(66);
-        output.WriteString(Placement);
       }
       labels_.WriteTo(output, _map_labels_codec);
       if (Mode.Length != 0) {
@@ -502,22 +449,18 @@ namespace Croupier.Component.V1 {
         output.WriteRawTag(88);
         output.WriteBool(IdempotencyKey);
       }
-      if (displayName_ != null) {
+      if (Summary.Length != 0) {
         output.WriteRawTag(98);
-        output.WriteMessage(DisplayName);
+        output.WriteString(Summary);
       }
-      if (summary_ != null) {
+      if (Description.Length != 0) {
         output.WriteRawTag(106);
-        output.WriteMessage(Summary);
+        output.WriteString(Description);
       }
       tags_.WriteTo(output, _repeated_tags_codec);
-      if (menu_ != null) {
+      if (Permission.Length != 0) {
         output.WriteRawTag(122);
-        output.WriteMessage(Menu);
-      }
-      if (permissions_ != null) {
-        output.WriteRawTag(130, 1);
-        output.WriteMessage(Permissions);
+        output.WriteString(Permission);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -537,29 +480,29 @@ namespace Croupier.Component.V1 {
         output.WriteRawTag(18);
         output.WriteString(Version);
       }
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(26);
-        output.WriteString(Category);
+        output.WriteString(Resource);
+      }
+      if (Operation.Length != 0) {
+        output.WriteRawTag(34);
+        output.WriteString(Operation);
       }
       if (Risk.Length != 0) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(42);
         output.WriteString(Risk);
       }
       if (Route.Length != 0) {
-        output.WriteRawTag(42);
+        output.WriteRawTag(50);
         output.WriteString(Route);
       }
       if (Timeout.Length != 0) {
-        output.WriteRawTag(50);
+        output.WriteRawTag(58);
         output.WriteString(Timeout);
       }
       if (TwoPersonRule != false) {
-        output.WriteRawTag(56);
+        output.WriteRawTag(64);
         output.WriteBool(TwoPersonRule);
-      }
-      if (Placement.Length != 0) {
-        output.WriteRawTag(66);
-        output.WriteString(Placement);
       }
       labels_.WriteTo(ref output, _map_labels_codec);
       if (Mode.Length != 0) {
@@ -570,22 +513,18 @@ namespace Croupier.Component.V1 {
         output.WriteRawTag(88);
         output.WriteBool(IdempotencyKey);
       }
-      if (displayName_ != null) {
+      if (Summary.Length != 0) {
         output.WriteRawTag(98);
-        output.WriteMessage(DisplayName);
+        output.WriteString(Summary);
       }
-      if (summary_ != null) {
+      if (Description.Length != 0) {
         output.WriteRawTag(106);
-        output.WriteMessage(Summary);
+        output.WriteString(Description);
       }
       tags_.WriteTo(ref output, _repeated_tags_codec);
-      if (menu_ != null) {
+      if (Permission.Length != 0) {
         output.WriteRawTag(122);
-        output.WriteMessage(Menu);
-      }
-      if (permissions_ != null) {
-        output.WriteRawTag(130, 1);
-        output.WriteMessage(Permissions);
+        output.WriteString(Permission);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -603,8 +542,11 @@ namespace Croupier.Component.V1 {
       if (Version.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Version);
       }
-      if (Category.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Category);
+      if (Resource.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Resource);
+      }
+      if (Operation.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Operation);
       }
       if (Risk.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Risk);
@@ -618,9 +560,6 @@ namespace Croupier.Component.V1 {
       if (TwoPersonRule != false) {
         size += 1 + 1;
       }
-      if (Placement.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Placement);
-      }
       size += labels_.CalculateSize(_map_labels_codec);
       if (Mode.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Mode);
@@ -628,18 +567,15 @@ namespace Croupier.Component.V1 {
       if (IdempotencyKey != false) {
         size += 1 + 1;
       }
-      if (displayName_ != null) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(DisplayName);
+      if (Summary.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Summary);
       }
-      if (summary_ != null) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Summary);
+      if (Description.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Description);
       }
       size += tags_.CalculateSize(_repeated_tags_codec);
-      if (menu_ != null) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Menu);
-      }
-      if (permissions_ != null) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(Permissions);
+      if (Permission.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Permission);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -659,8 +595,11 @@ namespace Croupier.Component.V1 {
       if (other.Version.Length != 0) {
         Version = other.Version;
       }
-      if (other.Category.Length != 0) {
-        Category = other.Category;
+      if (other.Resource.Length != 0) {
+        Resource = other.Resource;
+      }
+      if (other.Operation.Length != 0) {
+        Operation = other.Operation;
       }
       if (other.Risk.Length != 0) {
         Risk = other.Risk;
@@ -674,9 +613,6 @@ namespace Croupier.Component.V1 {
       if (other.TwoPersonRule != false) {
         TwoPersonRule = other.TwoPersonRule;
       }
-      if (other.Placement.Length != 0) {
-        Placement = other.Placement;
-      }
       labels_.MergeFrom(other.labels_);
       if (other.Mode.Length != 0) {
         Mode = other.Mode;
@@ -684,30 +620,15 @@ namespace Croupier.Component.V1 {
       if (other.IdempotencyKey != false) {
         IdempotencyKey = other.IdempotencyKey;
       }
-      if (other.displayName_ != null) {
-        if (displayName_ == null) {
-          DisplayName = new global::Croupier.Component.V1.I18nText();
-        }
-        DisplayName.MergeFrom(other.DisplayName);
+      if (other.Summary.Length != 0) {
+        Summary = other.Summary;
       }
-      if (other.summary_ != null) {
-        if (summary_ == null) {
-          Summary = new global::Croupier.Component.V1.I18nText();
-        }
-        Summary.MergeFrom(other.Summary);
+      if (other.Description.Length != 0) {
+        Description = other.Description;
       }
       tags_.Add(other.tags_);
-      if (other.menu_ != null) {
-        if (menu_ == null) {
-          Menu = new global::Croupier.Component.V1.Menu();
-        }
-        Menu.MergeFrom(other.Menu);
-      }
-      if (other.permissions_ != null) {
-        if (permissions_ == null) {
-          Permissions = new global::Croupier.Component.V1.PermissionSpec();
-        }
-        Permissions.MergeFrom(other.Permissions);
+      if (other.Permission.Length != 0) {
+        Permission = other.Permission;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -733,27 +654,27 @@ namespace Croupier.Component.V1 {
             break;
           }
           case 26: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 34: {
-            Risk = input.ReadString();
+            Operation = input.ReadString();
             break;
           }
           case 42: {
-            Route = input.ReadString();
+            Risk = input.ReadString();
             break;
           }
           case 50: {
+            Route = input.ReadString();
+            break;
+          }
+          case 58: {
             Timeout = input.ReadString();
             break;
           }
-          case 56: {
+          case 64: {
             TwoPersonRule = input.ReadBool();
-            break;
-          }
-          case 66: {
-            Placement = input.ReadString();
             break;
           }
           case 74: {
@@ -769,17 +690,11 @@ namespace Croupier.Component.V1 {
             break;
           }
           case 98: {
-            if (displayName_ == null) {
-              DisplayName = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(DisplayName);
+            Summary = input.ReadString();
             break;
           }
           case 106: {
-            if (summary_ == null) {
-              Summary = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(Summary);
+            Description = input.ReadString();
             break;
           }
           case 114: {
@@ -787,17 +702,7 @@ namespace Croupier.Component.V1 {
             break;
           }
           case 122: {
-            if (menu_ == null) {
-              Menu = new global::Croupier.Component.V1.Menu();
-            }
-            input.ReadMessage(Menu);
-            break;
-          }
-          case 130: {
-            if (permissions_ == null) {
-              Permissions = new global::Croupier.Component.V1.PermissionSpec();
-            }
-            input.ReadMessage(Permissions);
+            Permission = input.ReadString();
             break;
           }
         }
@@ -824,27 +729,27 @@ namespace Croupier.Component.V1 {
             break;
           }
           case 26: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 34: {
-            Risk = input.ReadString();
+            Operation = input.ReadString();
             break;
           }
           case 42: {
-            Route = input.ReadString();
+            Risk = input.ReadString();
             break;
           }
           case 50: {
+            Route = input.ReadString();
+            break;
+          }
+          case 58: {
             Timeout = input.ReadString();
             break;
           }
-          case 56: {
+          case 64: {
             TwoPersonRule = input.ReadBool();
-            break;
-          }
-          case 66: {
-            Placement = input.ReadString();
             break;
           }
           case 74: {
@@ -860,17 +765,11 @@ namespace Croupier.Component.V1 {
             break;
           }
           case 98: {
-            if (displayName_ == null) {
-              DisplayName = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(DisplayName);
+            Summary = input.ReadString();
             break;
           }
           case 106: {
-            if (summary_ == null) {
-              Summary = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(Summary);
+            Description = input.ReadString();
             break;
           }
           case 114: {
@@ -878,921 +777,7 @@ namespace Croupier.Component.V1 {
             break;
           }
           case 122: {
-            if (menu_ == null) {
-              Menu = new global::Croupier.Component.V1.Menu();
-            }
-            input.ReadMessage(Menu);
-            break;
-          }
-          case 130: {
-            if (permissions_ == null) {
-              Permissions = new global::Croupier.Component.V1.PermissionSpec();
-            }
-            input.ReadMessage(Permissions);
-            break;
-          }
-        }
-      }
-    }
-    #endif
-
-  }
-
-  /// <summary>
-  /// 消息级元信息，用于标记实体类型并生成 entity 描述符
-  /// </summary>
-  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class EntityOptions : pb::IMessage<EntityOptions>
-  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-      , pb::IBufferMessage
-  #endif
-  {
-    private static readonly pb::MessageParser<EntityOptions> _parser = new pb::MessageParser<EntityOptions>(() => new EntityOptions());
-    private pb::UnknownFieldSet _unknownFields;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<EntityOptions> Parser { get { return _parser; } }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pbr::MessageDescriptor Descriptor {
-      get { return global::Croupier.Component.V1.FunctionOptionsReflection.Descriptor.MessageTypes[1]; }
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    pbr::MessageDescriptor pb::IMessage.Descriptor {
-      get { return Descriptor; }
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public EntityOptions() {
-      OnConstruction();
-    }
-
-    partial void OnConstruction();
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public EntityOptions(EntityOptions other) : this() {
-      entityId_ = other.entityId_;
-      version_ = other.version_;
-      name_ = other.name_;
-      description_ = other.description_;
-      category_ = other.category_;
-      primaryKey_ = other.primaryKey_;
-      displayField_ = other.displayField_;
-      titleTemplate_ = other.titleTemplate_;
-      avatarField_ = other.avatarField_;
-      statusField_ = other.statusField_;
-      createFunctions_ = other.createFunctions_.Clone();
-      readFunctions_ = other.readFunctions_.Clone();
-      updateFunctions_ = other.updateFunctions_.Clone();
-      deleteFunctions_ = other.deleteFunctions_.Clone();
-      listFunctions_ = other.listFunctions_.Clone();
-      customOperations_ = other.customOperations_.Clone();
-      displayName_ = other.displayName_ != null ? other.displayName_.Clone() : null;
-      summary_ = other.summary_ != null ? other.summary_.Clone() : null;
-      tags_ = other.tags_.Clone();
-      menu_ = other.menu_ != null ? other.menu_.Clone() : null;
-      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public EntityOptions Clone() {
-      return new EntityOptions(this);
-    }
-
-    /// <summary>Field number for the "entity_id" field.</summary>
-    public const int EntityIdFieldNumber = 1;
-    private string entityId_ = "";
-    /// <summary>
-    /// 实体ID（默认：&lt;package>.&lt;message> 转小写）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string EntityId {
-      get { return entityId_; }
-      set {
-        entityId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "version" field.</summary>
-    public const int VersionFieldNumber = 2;
-    private string version_ = "";
-    /// <summary>
-    /// 版本（默认 1.0.0）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Version {
-      get { return version_; }
-      set {
-        version_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "name" field.</summary>
-    public const int NameFieldNumber = 3;
-    private string name_ = "";
-    /// <summary>
-    /// 实体名称（默认使用 message 名称）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Name {
-      get { return name_; }
-      set {
-        name_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "description" field.</summary>
-    public const int DescriptionFieldNumber = 4;
-    private string description_ = "";
-    /// <summary>
-    /// 描述
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Description {
-      get { return description_; }
-      set {
-        description_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "category" field.</summary>
-    public const int CategoryFieldNumber = 5;
-    private string category_ = "";
-    /// <summary>
-    /// 类目（默认取 package 里的第二级）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Category {
-      get { return category_; }
-      set {
-        category_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "primary_key" field.</summary>
-    public const int PrimaryKeyFieldNumber = 6;
-    private string primaryKey_ = "";
-    /// <summary>
-    /// 主键字段（默认取第一个 string 类型的字段）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string PrimaryKey {
-      get { return primaryKey_; }
-      set {
-        primaryKey_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "display_field" field.</summary>
-    public const int DisplayFieldFieldNumber = 7;
-    private string displayField_ = "";
-    /// <summary>
-    /// 显示字段（用于 UI 展示）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string DisplayField {
-      get { return displayField_; }
-      set {
-        displayField_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "title_template" field.</summary>
-    public const int TitleTemplateFieldNumber = 8;
-    private string titleTemplate_ = "";
-    /// <summary>
-    /// 标题模板（支持 {field_name} 占位符）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string TitleTemplate {
-      get { return titleTemplate_; }
-      set {
-        titleTemplate_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "avatar_field" field.</summary>
-    public const int AvatarFieldFieldNumber = 9;
-    private string avatarField_ = "";
-    /// <summary>
-    /// 头像字段
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string AvatarField {
-      get { return avatarField_; }
-      set {
-        avatarField_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "status_field" field.</summary>
-    public const int StatusFieldFieldNumber = 10;
-    private string statusField_ = "";
-    /// <summary>
-    /// 状态字段
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string StatusField {
-      get { return statusField_; }
-      set {
-        statusField_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "create_functions" field.</summary>
-    public const int CreateFunctionsFieldNumber = 11;
-    private static readonly pb::FieldCodec<string> _repeated_createFunctions_codec
-        = pb::FieldCodec.ForString(90);
-    private readonly pbc::RepeatedField<string> createFunctions_ = new pbc::RepeatedField<string>();
-    /// <summary>
-    /// 操作映射（将 CRUD 操作映射到具体的函数 ID）
-    /// 创建操作的函数ID列表
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<string> CreateFunctions {
-      get { return createFunctions_; }
-    }
-
-    /// <summary>Field number for the "read_functions" field.</summary>
-    public const int ReadFunctionsFieldNumber = 12;
-    private static readonly pb::FieldCodec<string> _repeated_readFunctions_codec
-        = pb::FieldCodec.ForString(98);
-    private readonly pbc::RepeatedField<string> readFunctions_ = new pbc::RepeatedField<string>();
-    /// <summary>
-    /// 读取操作的函数ID列表
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<string> ReadFunctions {
-      get { return readFunctions_; }
-    }
-
-    /// <summary>Field number for the "update_functions" field.</summary>
-    public const int UpdateFunctionsFieldNumber = 13;
-    private static readonly pb::FieldCodec<string> _repeated_updateFunctions_codec
-        = pb::FieldCodec.ForString(106);
-    private readonly pbc::RepeatedField<string> updateFunctions_ = new pbc::RepeatedField<string>();
-    /// <summary>
-    /// 更新操作的函数ID列表
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<string> UpdateFunctions {
-      get { return updateFunctions_; }
-    }
-
-    /// <summary>Field number for the "delete_functions" field.</summary>
-    public const int DeleteFunctionsFieldNumber = 14;
-    private static readonly pb::FieldCodec<string> _repeated_deleteFunctions_codec
-        = pb::FieldCodec.ForString(114);
-    private readonly pbc::RepeatedField<string> deleteFunctions_ = new pbc::RepeatedField<string>();
-    /// <summary>
-    /// 删除操作的函数ID列表
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<string> DeleteFunctions {
-      get { return deleteFunctions_; }
-    }
-
-    /// <summary>Field number for the "list_functions" field.</summary>
-    public const int ListFunctionsFieldNumber = 15;
-    private static readonly pb::FieldCodec<string> _repeated_listFunctions_codec
-        = pb::FieldCodec.ForString(122);
-    private readonly pbc::RepeatedField<string> listFunctions_ = new pbc::RepeatedField<string>();
-    /// <summary>
-    /// 列表操作的函数ID列表
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<string> ListFunctions {
-      get { return listFunctions_; }
-    }
-
-    /// <summary>Field number for the "custom_operations" field.</summary>
-    public const int CustomOperationsFieldNumber = 16;
-    private static readonly pbc::MapField<string, string>.Codec _map_customOperations_codec
-        = new pbc::MapField<string, string>.Codec(pb::FieldCodec.ForString(10, ""), pb::FieldCodec.ForString(18, ""), 130);
-    private readonly pbc::MapField<string, string> customOperations_ = new pbc::MapField<string, string>();
-    /// <summary>
-    /// 自定义操作（key: 操作名, value: 函数ID列表）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::MapField<string, string> CustomOperations {
-      get { return customOperations_; }
-    }
-
-    /// <summary>Field number for the "display_name" field.</summary>
-    public const int DisplayNameFieldNumber = 17;
-    private global::Croupier.Component.V1.I18nText displayName_;
-    /// <summary>
-    /// 实体展示配置（i18n）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.I18nText DisplayName {
-      get { return displayName_; }
-      set {
-        displayName_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "summary" field.</summary>
-    public const int SummaryFieldNumber = 18;
-    private global::Croupier.Component.V1.I18nText summary_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.I18nText Summary {
-      get { return summary_; }
-      set {
-        summary_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "tags" field.</summary>
-    public const int TagsFieldNumber = 19;
-    private static readonly pb::FieldCodec<string> _repeated_tags_codec
-        = pb::FieldCodec.ForString(154);
-    private readonly pbc::RepeatedField<string> tags_ = new pbc::RepeatedField<string>();
-    /// <summary>
-    /// 标签
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<string> Tags {
-      get { return tags_; }
-    }
-
-    /// <summary>Field number for the "menu" field.</summary>
-    public const int MenuFieldNumber = 20;
-    private global::Croupier.Component.V1.Menu menu_;
-    /// <summary>
-    /// 菜单元数据（用于构建前端菜单）
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.Menu Menu {
-      get { return menu_; }
-      set {
-        menu_ = value;
-      }
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override bool Equals(object other) {
-      return Equals(other as EntityOptions);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(EntityOptions other) {
-      if (ReferenceEquals(other, null)) {
-        return false;
-      }
-      if (ReferenceEquals(other, this)) {
-        return true;
-      }
-      if (EntityId != other.EntityId) return false;
-      if (Version != other.Version) return false;
-      if (Name != other.Name) return false;
-      if (Description != other.Description) return false;
-      if (Category != other.Category) return false;
-      if (PrimaryKey != other.PrimaryKey) return false;
-      if (DisplayField != other.DisplayField) return false;
-      if (TitleTemplate != other.TitleTemplate) return false;
-      if (AvatarField != other.AvatarField) return false;
-      if (StatusField != other.StatusField) return false;
-      if(!createFunctions_.Equals(other.createFunctions_)) return false;
-      if(!readFunctions_.Equals(other.readFunctions_)) return false;
-      if(!updateFunctions_.Equals(other.updateFunctions_)) return false;
-      if(!deleteFunctions_.Equals(other.deleteFunctions_)) return false;
-      if(!listFunctions_.Equals(other.listFunctions_)) return false;
-      if (!CustomOperations.Equals(other.CustomOperations)) return false;
-      if (!object.Equals(DisplayName, other.DisplayName)) return false;
-      if (!object.Equals(Summary, other.Summary)) return false;
-      if(!tags_.Equals(other.tags_)) return false;
-      if (!object.Equals(Menu, other.Menu)) return false;
-      return Equals(_unknownFields, other._unknownFields);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override int GetHashCode() {
-      int hash = 1;
-      if (EntityId.Length != 0) hash ^= EntityId.GetHashCode();
-      if (Version.Length != 0) hash ^= Version.GetHashCode();
-      if (Name.Length != 0) hash ^= Name.GetHashCode();
-      if (Description.Length != 0) hash ^= Description.GetHashCode();
-      if (Category.Length != 0) hash ^= Category.GetHashCode();
-      if (PrimaryKey.Length != 0) hash ^= PrimaryKey.GetHashCode();
-      if (DisplayField.Length != 0) hash ^= DisplayField.GetHashCode();
-      if (TitleTemplate.Length != 0) hash ^= TitleTemplate.GetHashCode();
-      if (AvatarField.Length != 0) hash ^= AvatarField.GetHashCode();
-      if (StatusField.Length != 0) hash ^= StatusField.GetHashCode();
-      hash ^= createFunctions_.GetHashCode();
-      hash ^= readFunctions_.GetHashCode();
-      hash ^= updateFunctions_.GetHashCode();
-      hash ^= deleteFunctions_.GetHashCode();
-      hash ^= listFunctions_.GetHashCode();
-      hash ^= CustomOperations.GetHashCode();
-      if (displayName_ != null) hash ^= DisplayName.GetHashCode();
-      if (summary_ != null) hash ^= Summary.GetHashCode();
-      hash ^= tags_.GetHashCode();
-      if (menu_ != null) hash ^= Menu.GetHashCode();
-      if (_unknownFields != null) {
-        hash ^= _unknownFields.GetHashCode();
-      }
-      return hash;
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override string ToString() {
-      return pb::JsonFormatter.ToDiagnosticString(this);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void WriteTo(pb::CodedOutputStream output) {
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-      output.WriteRawMessage(this);
-    #else
-      if (EntityId.Length != 0) {
-        output.WriteRawTag(10);
-        output.WriteString(EntityId);
-      }
-      if (Version.Length != 0) {
-        output.WriteRawTag(18);
-        output.WriteString(Version);
-      }
-      if (Name.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(Name);
-      }
-      if (Description.Length != 0) {
-        output.WriteRawTag(34);
-        output.WriteString(Description);
-      }
-      if (Category.Length != 0) {
-        output.WriteRawTag(42);
-        output.WriteString(Category);
-      }
-      if (PrimaryKey.Length != 0) {
-        output.WriteRawTag(50);
-        output.WriteString(PrimaryKey);
-      }
-      if (DisplayField.Length != 0) {
-        output.WriteRawTag(58);
-        output.WriteString(DisplayField);
-      }
-      if (TitleTemplate.Length != 0) {
-        output.WriteRawTag(66);
-        output.WriteString(TitleTemplate);
-      }
-      if (AvatarField.Length != 0) {
-        output.WriteRawTag(74);
-        output.WriteString(AvatarField);
-      }
-      if (StatusField.Length != 0) {
-        output.WriteRawTag(82);
-        output.WriteString(StatusField);
-      }
-      createFunctions_.WriteTo(output, _repeated_createFunctions_codec);
-      readFunctions_.WriteTo(output, _repeated_readFunctions_codec);
-      updateFunctions_.WriteTo(output, _repeated_updateFunctions_codec);
-      deleteFunctions_.WriteTo(output, _repeated_deleteFunctions_codec);
-      listFunctions_.WriteTo(output, _repeated_listFunctions_codec);
-      customOperations_.WriteTo(output, _map_customOperations_codec);
-      if (displayName_ != null) {
-        output.WriteRawTag(138, 1);
-        output.WriteMessage(DisplayName);
-      }
-      if (summary_ != null) {
-        output.WriteRawTag(146, 1);
-        output.WriteMessage(Summary);
-      }
-      tags_.WriteTo(output, _repeated_tags_codec);
-      if (menu_ != null) {
-        output.WriteRawTag(162, 1);
-        output.WriteMessage(Menu);
-      }
-      if (_unknownFields != null) {
-        _unknownFields.WriteTo(output);
-      }
-    #endif
-    }
-
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (EntityId.Length != 0) {
-        output.WriteRawTag(10);
-        output.WriteString(EntityId);
-      }
-      if (Version.Length != 0) {
-        output.WriteRawTag(18);
-        output.WriteString(Version);
-      }
-      if (Name.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(Name);
-      }
-      if (Description.Length != 0) {
-        output.WriteRawTag(34);
-        output.WriteString(Description);
-      }
-      if (Category.Length != 0) {
-        output.WriteRawTag(42);
-        output.WriteString(Category);
-      }
-      if (PrimaryKey.Length != 0) {
-        output.WriteRawTag(50);
-        output.WriteString(PrimaryKey);
-      }
-      if (DisplayField.Length != 0) {
-        output.WriteRawTag(58);
-        output.WriteString(DisplayField);
-      }
-      if (TitleTemplate.Length != 0) {
-        output.WriteRawTag(66);
-        output.WriteString(TitleTemplate);
-      }
-      if (AvatarField.Length != 0) {
-        output.WriteRawTag(74);
-        output.WriteString(AvatarField);
-      }
-      if (StatusField.Length != 0) {
-        output.WriteRawTag(82);
-        output.WriteString(StatusField);
-      }
-      createFunctions_.WriteTo(ref output, _repeated_createFunctions_codec);
-      readFunctions_.WriteTo(ref output, _repeated_readFunctions_codec);
-      updateFunctions_.WriteTo(ref output, _repeated_updateFunctions_codec);
-      deleteFunctions_.WriteTo(ref output, _repeated_deleteFunctions_codec);
-      listFunctions_.WriteTo(ref output, _repeated_listFunctions_codec);
-      customOperations_.WriteTo(ref output, _map_customOperations_codec);
-      if (displayName_ != null) {
-        output.WriteRawTag(138, 1);
-        output.WriteMessage(DisplayName);
-      }
-      if (summary_ != null) {
-        output.WriteRawTag(146, 1);
-        output.WriteMessage(Summary);
-      }
-      tags_.WriteTo(ref output, _repeated_tags_codec);
-      if (menu_ != null) {
-        output.WriteRawTag(162, 1);
-        output.WriteMessage(Menu);
-      }
-      if (_unknownFields != null) {
-        _unknownFields.WriteTo(ref output);
-      }
-    }
-    #endif
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int CalculateSize() {
-      int size = 0;
-      if (EntityId.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(EntityId);
-      }
-      if (Version.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Version);
-      }
-      if (Name.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Name);
-      }
-      if (Description.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Description);
-      }
-      if (Category.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Category);
-      }
-      if (PrimaryKey.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(PrimaryKey);
-      }
-      if (DisplayField.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(DisplayField);
-      }
-      if (TitleTemplate.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(TitleTemplate);
-      }
-      if (AvatarField.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(AvatarField);
-      }
-      if (StatusField.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(StatusField);
-      }
-      size += createFunctions_.CalculateSize(_repeated_createFunctions_codec);
-      size += readFunctions_.CalculateSize(_repeated_readFunctions_codec);
-      size += updateFunctions_.CalculateSize(_repeated_updateFunctions_codec);
-      size += deleteFunctions_.CalculateSize(_repeated_deleteFunctions_codec);
-      size += listFunctions_.CalculateSize(_repeated_listFunctions_codec);
-      size += customOperations_.CalculateSize(_map_customOperations_codec);
-      if (displayName_ != null) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(DisplayName);
-      }
-      if (summary_ != null) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(Summary);
-      }
-      size += tags_.CalculateSize(_repeated_tags_codec);
-      if (menu_ != null) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(Menu);
-      }
-      if (_unknownFields != null) {
-        size += _unknownFields.CalculateSize();
-      }
-      return size;
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(EntityOptions other) {
-      if (other == null) {
-        return;
-      }
-      if (other.EntityId.Length != 0) {
-        EntityId = other.EntityId;
-      }
-      if (other.Version.Length != 0) {
-        Version = other.Version;
-      }
-      if (other.Name.Length != 0) {
-        Name = other.Name;
-      }
-      if (other.Description.Length != 0) {
-        Description = other.Description;
-      }
-      if (other.Category.Length != 0) {
-        Category = other.Category;
-      }
-      if (other.PrimaryKey.Length != 0) {
-        PrimaryKey = other.PrimaryKey;
-      }
-      if (other.DisplayField.Length != 0) {
-        DisplayField = other.DisplayField;
-      }
-      if (other.TitleTemplate.Length != 0) {
-        TitleTemplate = other.TitleTemplate;
-      }
-      if (other.AvatarField.Length != 0) {
-        AvatarField = other.AvatarField;
-      }
-      if (other.StatusField.Length != 0) {
-        StatusField = other.StatusField;
-      }
-      createFunctions_.Add(other.createFunctions_);
-      readFunctions_.Add(other.readFunctions_);
-      updateFunctions_.Add(other.updateFunctions_);
-      deleteFunctions_.Add(other.deleteFunctions_);
-      listFunctions_.Add(other.listFunctions_);
-      customOperations_.MergeFrom(other.customOperations_);
-      if (other.displayName_ != null) {
-        if (displayName_ == null) {
-          DisplayName = new global::Croupier.Component.V1.I18nText();
-        }
-        DisplayName.MergeFrom(other.DisplayName);
-      }
-      if (other.summary_ != null) {
-        if (summary_ == null) {
-          Summary = new global::Croupier.Component.V1.I18nText();
-        }
-        Summary.MergeFrom(other.Summary);
-      }
-      tags_.Add(other.tags_);
-      if (other.menu_ != null) {
-        if (menu_ == null) {
-          Menu = new global::Croupier.Component.V1.Menu();
-        }
-        Menu.MergeFrom(other.Menu);
-      }
-      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(pb::CodedInputStream input) {
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-      input.ReadRawMessage(this);
-    #else
-      uint tag;
-      while ((tag = input.ReadTag()) != 0) {
-        switch(tag) {
-          default:
-            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
-            break;
-          case 10: {
-            EntityId = input.ReadString();
-            break;
-          }
-          case 18: {
-            Version = input.ReadString();
-            break;
-          }
-          case 26: {
-            Name = input.ReadString();
-            break;
-          }
-          case 34: {
-            Description = input.ReadString();
-            break;
-          }
-          case 42: {
-            Category = input.ReadString();
-            break;
-          }
-          case 50: {
-            PrimaryKey = input.ReadString();
-            break;
-          }
-          case 58: {
-            DisplayField = input.ReadString();
-            break;
-          }
-          case 66: {
-            TitleTemplate = input.ReadString();
-            break;
-          }
-          case 74: {
-            AvatarField = input.ReadString();
-            break;
-          }
-          case 82: {
-            StatusField = input.ReadString();
-            break;
-          }
-          case 90: {
-            createFunctions_.AddEntriesFrom(input, _repeated_createFunctions_codec);
-            break;
-          }
-          case 98: {
-            readFunctions_.AddEntriesFrom(input, _repeated_readFunctions_codec);
-            break;
-          }
-          case 106: {
-            updateFunctions_.AddEntriesFrom(input, _repeated_updateFunctions_codec);
-            break;
-          }
-          case 114: {
-            deleteFunctions_.AddEntriesFrom(input, _repeated_deleteFunctions_codec);
-            break;
-          }
-          case 122: {
-            listFunctions_.AddEntriesFrom(input, _repeated_listFunctions_codec);
-            break;
-          }
-          case 130: {
-            customOperations_.AddEntriesFrom(input, _map_customOperations_codec);
-            break;
-          }
-          case 138: {
-            if (displayName_ == null) {
-              DisplayName = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(DisplayName);
-            break;
-          }
-          case 146: {
-            if (summary_ == null) {
-              Summary = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(Summary);
-            break;
-          }
-          case 154: {
-            tags_.AddEntriesFrom(input, _repeated_tags_codec);
-            break;
-          }
-          case 162: {
-            if (menu_ == null) {
-              Menu = new global::Croupier.Component.V1.Menu();
-            }
-            input.ReadMessage(Menu);
-            break;
-          }
-        }
-      }
-    #endif
-    }
-
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
-      uint tag;
-      while ((tag = input.ReadTag()) != 0) {
-        switch(tag) {
-          default:
-            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
-            break;
-          case 10: {
-            EntityId = input.ReadString();
-            break;
-          }
-          case 18: {
-            Version = input.ReadString();
-            break;
-          }
-          case 26: {
-            Name = input.ReadString();
-            break;
-          }
-          case 34: {
-            Description = input.ReadString();
-            break;
-          }
-          case 42: {
-            Category = input.ReadString();
-            break;
-          }
-          case 50: {
-            PrimaryKey = input.ReadString();
-            break;
-          }
-          case 58: {
-            DisplayField = input.ReadString();
-            break;
-          }
-          case 66: {
-            TitleTemplate = input.ReadString();
-            break;
-          }
-          case 74: {
-            AvatarField = input.ReadString();
-            break;
-          }
-          case 82: {
-            StatusField = input.ReadString();
-            break;
-          }
-          case 90: {
-            createFunctions_.AddEntriesFrom(ref input, _repeated_createFunctions_codec);
-            break;
-          }
-          case 98: {
-            readFunctions_.AddEntriesFrom(ref input, _repeated_readFunctions_codec);
-            break;
-          }
-          case 106: {
-            updateFunctions_.AddEntriesFrom(ref input, _repeated_updateFunctions_codec);
-            break;
-          }
-          case 114: {
-            deleteFunctions_.AddEntriesFrom(ref input, _repeated_deleteFunctions_codec);
-            break;
-          }
-          case 122: {
-            listFunctions_.AddEntriesFrom(ref input, _repeated_listFunctions_codec);
-            break;
-          }
-          case 130: {
-            customOperations_.AddEntriesFrom(ref input, _map_customOperations_codec);
-            break;
-          }
-          case 138: {
-            if (displayName_ == null) {
-              DisplayName = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(DisplayName);
-            break;
-          }
-          case 146: {
-            if (summary_ == null) {
-              Summary = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(Summary);
-            break;
-          }
-          case 154: {
-            tags_.AddEntriesFrom(ref input, _repeated_tags_codec);
-            break;
-          }
-          case 162: {
-            if (menu_ == null) {
-              Menu = new global::Croupier.Component.V1.Menu();
-            }
-            input.ReadMessage(Menu);
+            Permission = input.ReadString();
             break;
           }
         }

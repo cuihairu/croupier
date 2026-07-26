@@ -6,7 +6,7 @@ import (
 
 // ListFunctionsRequest represents a request to list functions with optional filters.
 type ListFunctionsRequest struct {
-	Category string `form:"category" json:"category"`
+	Resource string `form:"resource" json:"resource"`
 	Tag      string `form:"tag" json:"tag"`
 	Risk     string `form:"risk" json:"risk"`
 	Mode     string `form:"mode" json:"mode"`
@@ -36,7 +36,7 @@ type GetFunctionResponse struct {
 type RegisterFunctionRequest struct {
 	ID           string            `json:"id" binding:"required"`
 	Version      string            `json:"version"`
-	Category     string            `json:"category"`
+	Resource     string            `json:"resource"`
 	Tags         []string          `json:"tags"`
 	Name         string            `json:"name" binding:"required"`
 	Description  string            `json:"description"`
@@ -78,7 +78,7 @@ type DeleteFunctionRequest struct {
 type FunctionMetadata struct {
 	ID           string            `json:"id"`
 	Version      string            `json:"version"`
-	Category     string            `json:"category"`
+	Resource     string            `json:"resource"`
 	Tags         []string          `json:"tags"`
 	Name         string            `json:"name"`
 	Description  string            `json:"description"`
@@ -128,7 +128,7 @@ type ImportFromOpenAPIResponse struct {
 
 // ImportOptions controls the import behavior.
 type ImportOptions struct {
-	CategoryPrefix   string `json:"category_prefix,omitempty"`
+	ResourcePrefix   string `json:"resource_prefix,omitempty"`
 	TagPrefix        string `json:"tag_prefix,omitempty"`
 	DefaultTimeoutMs int32  `json:"default_timeout_ms,omitempty"`
 	ContinueOnError  bool   `json:"continue_on_error,omitempty"`
@@ -143,7 +143,7 @@ func ProtoToMetadata(pb *functionv1.FunctionMetadata) *FunctionMetadata {
 	metadata := &FunctionMetadata{
 		ID:           pb.Id,
 		Version:      pb.Version,
-		Category:     pb.Category,
+		Resource:     pb.Resource,
 		Tags:         pb.Tags,
 		Name:         pb.Name,
 		Description:  pb.Description,
@@ -187,7 +187,7 @@ func MetadataToProto(dto *FunctionMetadata) *functionv1.FunctionMetadata {
 	pb := &functionv1.FunctionMetadata{
 		Id:           dto.ID,
 		Version:      dto.Version,
-		Category:     dto.Category,
+		Resource:     dto.Resource,
 		Tags:         dto.Tags,
 		Name:         dto.Name,
 		Description:  dto.Description,

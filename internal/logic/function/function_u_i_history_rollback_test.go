@@ -52,14 +52,14 @@ func TestFunctionUI_HistoryAndRollback(t *testing.T) {
 	updateLogic := NewFunctionUIUpdateLogic(context.Background(), svcCtx)
 	_, err = updateLogic.FunctionUIUpdate(&FunctionUIUpdateRequest{
 		ID:     "player.ban",
-		Schema: historyTestFormilySchema("Input.TextArea"),
+		Schema: rawJSONFromValue(historyTestFormilySchema("Input.TextArea")),
 	})
 	if err != nil {
 		t.Fatalf("first update failed: %v", err)
 	}
 	_, err = updateLogic.FunctionUIUpdate(&FunctionUIUpdateRequest{
 		ID:     "player.ban",
-		Schema: historyTestFormilySchema("Select"),
+		Schema: rawJSONFromValue(historyTestFormilySchema("Select")),
 	})
 	if err != nil {
 		t.Fatalf("second update failed: %v", err)
@@ -82,13 +82,13 @@ func TestFunctionUI_HistoryAndRollback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rollback failed: %v", err)
 	}
-	currentUI, ok := rollbackResp.Current.(*FunctionUIResponse)
-	if !ok {
-		t.Fatalf("current should be FunctionUIResponse, got %T", rollbackResp.Current)
+	currentUI := rollbackResp.Current
+	if currentUI == nil {
+		t.Fatalf("current should not be nil")
 	}
-	currentSchema, ok := currentUI.Schema.(map[string]interface{})
-	if !ok {
-		t.Fatalf("current schema should be map, got %T", currentUI.Schema)
+	currentSchema, err := jsonObjectFromRaw(currentUI.Schema)
+	if err != nil {
+		t.Fatalf("current schema should be valid object JSON: %v", err)
 	}
 	props, _ := currentSchema["properties"].(map[string]interface{})
 	reason, _ := props["reason"].(map[string]interface{})

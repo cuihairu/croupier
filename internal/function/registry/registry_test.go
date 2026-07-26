@@ -31,7 +31,7 @@ func TestRegistry_Register(t *testing.T) {
 	metadata := &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Name:     "Get Player",
-		Category: "player",
+		Resource: "player",
 		Security: &functionv1.FunctionSecurity{
 			RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW,
 		},
@@ -209,13 +209,13 @@ func TestRegistry_List(t *testing.T) {
 	// Register some functions
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
-		Category: "game",
+		Resource: "game",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
@@ -225,33 +225,33 @@ func TestRegistry_List(t *testing.T) {
 	assert.Equal(t, 2, len(functions))
 }
 
-func TestRegistry_ListByCategory(t *testing.T) {
+func TestRegistry_ListByResource(t *testing.T) {
 	reg := New()
 
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
-		Category: "game",
+		Resource: "game",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.update",
-		Category: "player",
+		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
 
-	playerFuncs, err := reg.ListByCategory(context.Background(), "player")
+	playerFuncs, err := reg.ListByResource(context.Background(), "player")
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(playerFuncs))
 
-	gameFuncs, err := reg.ListByCategory(context.Background(), "game")
+	gameFuncs, err := reg.ListByResource(context.Background(), "game")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(gameFuncs))
 }
@@ -355,22 +355,22 @@ func TestRegistry_Filter(t *testing.T) {
 
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Tags:     []string{"read"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.update",
-		Category: "player",
+		Resource: "player",
 		Tags:     []string{"write"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
 	})
 
-	t.Run("filter by category", func(t *testing.T) {
+	t.Run("filter by resource", func(t *testing.T) {
 		filter := &functionv1.FunctionFilter{
-			Category: "player",
+			Resource: "player",
 		}
 		results, _, err := reg.Filter(context.Background(), filter)
 		assert.Nil(t, err)
@@ -467,32 +467,32 @@ func TestRegistry_Count(t *testing.T) {
 	assert.Equal(t, 1, reg.Count(context.Background()))
 }
 
-func TestRegistry_GetCategories(t *testing.T) {
+func TestRegistry_GetResources(t *testing.T) {
 	reg := New()
 
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
-		Category: "game",
+		Resource: "game",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
 	reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.update",
-		Category: "player",
+		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
 
-	categories := reg.GetCategories(context.Background())
-	assert.Equal(t, 2, len(categories))
-	assert.Contains(t, categories, "player")
-	assert.Contains(t, categories, "game")
+	resources := reg.GetResources(context.Background())
+	assert.Equal(t, 2, len(resources))
+	assert.Contains(t, resources, "player")
+	assert.Contains(t, resources, "game")
 }
 
 func TestRegistry_GetTags(t *testing.T) {

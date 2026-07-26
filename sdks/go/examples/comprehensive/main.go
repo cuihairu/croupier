@@ -106,13 +106,13 @@ func demonstrateClientRegistration(client croupier.Client) error {
 
 	// 1. 注册高风险管理函数
 	banDesc := croupier.FunctionDescriptor{
-		ID:        "player.ban",
-		Version:   "1.0.0",
-		Category:  "moderation",
-		Risk:      "high",
-		Entity:    "player",
-		Operation: "update",
-		Enabled:   true,
+		ID:         "player.ban",
+		Version:    "1.0.0",
+		Resource:   "player",
+		Risk:       "high",
+		Operation:  "ban",
+		Permission: "player:ban",
+		Enabled:    true,
 	}
 
 	if err := client.RegisterFunction(banDesc, playerBanHandler); err != nil {
@@ -124,9 +124,8 @@ func demonstrateClientRegistration(client croupier.Client) error {
 	itemDesc := croupier.FunctionDescriptor{
 		ID:        "item.create",
 		Version:   "1.0.0",
-		Category:  "inventory",
+		Resource:  "item",
 		Risk:      "low",
-		Entity:    "item",
 		Operation: "create",
 		Enabled:   true,
 	}
@@ -140,10 +139,9 @@ func demonstrateClientRegistration(client croupier.Client) error {
 	dataDesc := croupier.FunctionDescriptor{
 		ID:        "player.data",
 		Version:   "1.0.0",
-		Category:  "data",
+		Resource:  "player",
 		Risk:      "medium",
-		Entity:    "player",
-		Operation: "read",
+		Operation: "data",
 		Enabled:   true,
 	}
 
@@ -156,10 +154,9 @@ func demonstrateClientRegistration(client croupier.Client) error {
 	guildDesc := croupier.FunctionDescriptor{
 		ID:        "guild.manage",
 		Version:   "1.0.0",
-		Category:  "social",
+		Resource:  "guild",
 		Risk:      "medium",
-		Entity:    "guild",
-		Operation: "update",
+		Operation: "manage",
 		Enabled:   true,
 	}
 
@@ -172,10 +169,9 @@ func demonstrateClientRegistration(client croupier.Client) error {
 	utilDesc := croupier.FunctionDescriptor{
 		ID:        "util.process",
 		Version:   "1.0.0",
-		Category:  "utility",
+		Resource:  "util",
 		Risk:      "low",
-		Entity:    "system",
-		Operation: "read",
+		Operation: "process",
 		Enabled:   true,
 	}
 
@@ -367,10 +363,9 @@ func demonstrateErrorHandling(client croupier.Client) {
 	desc := croupier.FunctionDescriptor{
 		ID:        "player.ban", // 已经注册过的函数
 		Version:   "1.0.0",
-		Category:  "test",
+		Resource:  "player",
 		Risk:      "low",
-		Entity:    "test",
-		Operation: "read",
+		Operation: "ban",
 		Enabled:   true,
 	}
 
@@ -382,10 +377,9 @@ func demonstrateErrorHandling(client croupier.Client) {
 	invalidDesc := croupier.FunctionDescriptor{
 		ID:        "", // 空ID
 		Version:   "1.0.0",
-		Category:  "test",
+		Resource:  "test",
 		Risk:      "low",
-		Entity:    "test",
-		Operation: "read",
+		Operation: "test",
 		Enabled:   true,
 	}
 

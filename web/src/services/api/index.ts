@@ -10,7 +10,7 @@ export * from './me';
 export * from './users';
 export * from './roles';
 export * from './messages';
-export * from './entities';
+export * from './resources';
 export * from './support';
 export * from './permissions';
 export * from './players';

@@ -135,8 +135,8 @@ public class CroupierClientTests
         var client = new CroupierClient(CreateTestConfig());
         var descriptor = new FunctionDescriptor
         {
-            Id = "get",
-            Category = "player",
+            Id = "player.get",
+            Resource = "player",
             Operation = "get"
         };
 
@@ -157,11 +157,10 @@ public class CroupierClientTests
         {
             Id = "player.ban",
             Version = "1.0.0",
-            Category = "moderation",
-            Risk = "high",
-            Entity = "player",
-            Operation = "update",
-            DisplayName = "封禁玩家",
+            Resource = "player",
+            Operation = "ban",
+            Risk = "danger",
+            Permission = "player.ban",
             Summary = "Ban player",
             Description = "封禁指定玩家账号",
             OperationId = "banPlayer",
@@ -188,13 +187,14 @@ public class CroupierClientTests
         function.Description.Should().Be("封禁指定玩家账号");
         function.OperationId.Should().Be("banPlayer");
         function.Deprecated.Should().BeTrue();
-        function.Tags.Should().Contain(new[] { "moderation", "player", "update", "owner", "team-player", "kind" });
+        function.Tags.Should().Contain(new[] { "player", "ban", "owner", "team-player", "kind", "moderation" });
         function.InputSchema.Should().Contain("player_id");
         function.OutputSchema.Should().Contain("success");
-        function.Category.Should().Be("moderation");
-        function.Risk.Should().Be("high");
-        function.Entity.Should().Be("player");
-        function.Operation.Should().Be("update");
+        function.Resource.Should().Be("player");
+        function.Operation.Should().Be("ban");
+        function.Risk.Should().Be("danger");
+        function.Enabled.Should().BeTrue();
+        function.Permission.Should().Be("player.ban");
     }
 
     [Fact]
@@ -204,8 +204,8 @@ public class CroupierClientTests
         var client = new CroupierClient(CreateTestConfig());
         var descriptor = new FunctionDescriptor
         {
-            Id = "sync",
-            Category = "player",
+            Id = "player.sync",
+            Resource = "player",
             Operation = "sync"
         };
 
@@ -224,8 +224,8 @@ public class CroupierClientTests
         var client = new CroupierClient(CreateTestConfig());
         var descriptor = new FunctionDescriptor
         {
-            Id = "custom",
-            Category = "player",
+            Id = "player.custom",
+            Resource = "player",
             Operation = "custom"
         };
 
@@ -258,8 +258,8 @@ public class CroupierClientTests
         var client = new CroupierClient(CreateTestConfig());
         var descriptor = new FunctionDescriptor
         {
-            Id = "remove",
-            Category = "player",
+            Id = "player.remove",
+            Resource = "player",
             Operation = "remove"
         };
 
@@ -325,9 +325,9 @@ public class CroupierClientTests
 
         var functions = new[]
         {
-            new FunctionDescriptor { Id = "get", Category = "player", Operation = "get" },
-            new FunctionDescriptor { Id = "ban", Category = "player", Operation = "ban" },
-            new FunctionDescriptor { Id = "transfer", Category = "wallet", Operation = "transfer" }
+            new FunctionDescriptor { Id = "player.get", Resource = "player", Operation = "get" },
+            new FunctionDescriptor { Id = "player.ban", Resource = "player", Operation = "ban" },
+            new FunctionDescriptor { Id = "wallet.transfer", Resource = "wallet", Operation = "transfer" }
         };
 
         FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult("{}");
@@ -346,7 +346,7 @@ public class CroupierClientTests
     {
         // Arrange
         var client = new CroupierClient(CreateTestConfig());
-        var descriptor = new FunctionDescriptor { Id = "test", Category = "player" };
+        var descriptor = new FunctionDescriptor { Id = "player.test", Resource = "player" };
 
         FunctionHandlerDelegate handler1 = (ctx, payload) => Task.FromResult("{\"handler\":1}");
         FunctionHandlerDelegate handler2 = (ctx, payload) => Task.FromResult("{\"handler\":2}");
@@ -392,7 +392,7 @@ public class CroupierClientTests
         client.Dispose();
 
         // Act & Assert
-        var descriptor = new FunctionDescriptor { Id = "test", Category = "player" };
+        var descriptor = new FunctionDescriptor { Id = "player.test", Resource = "player" };
         FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult("{}");
 
         var action = () => client.RegisterFunction(descriptor, handler);
@@ -421,8 +421,8 @@ public class CroupierClientTests
             // Register a test function before connecting
             var descriptor = new FunctionDescriptor
             {
-                Id = "function",
-                Category = "test",
+                Id = "test.function",
+                Resource = "test",
                 Operation = "invoke"
             };
 

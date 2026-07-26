@@ -23,7 +23,8 @@ const { TextArea } = Input;
 export type FunctionDetailData = {
   id: string;
   description?: string;
-  category?: string;
+  resource?: string;
+  operation?: string;
   version?: string;
   enabled: boolean;
   tags?: string[];
@@ -39,15 +40,20 @@ export function JsonViewer({
   onCopySuccess,
   onCopyError,
 }: {
-  data: any;
+  data: unknown;
   onCopySuccess: () => void;
   onCopyError: () => void;
 }) {
   const pretty = JSON.stringify(data || {}, null, 2);
 
-  const beforeMount = (monaco: any) => {
+  const beforeMount = (monaco: {
+    editor?: {
+      getTheme?: () => string;
+      defineTheme?: (name: string, data: unknown) => void;
+    };
+  }) => {
     if (!monaco?.editor || monaco.editor.getTheme?.() === 'sublime-monokai') return;
-    monaco.editor.defineTheme('sublime-monokai', {
+    monaco.editor.defineTheme?.('sublime-monokai', {
       base: 'vs-dark',
       inherit: true,
       rules: [
@@ -117,12 +123,12 @@ export function JsonViewer({
 
 export function BasicInfoTab({
   functionDetail,
-  effectiveCategory,
+  effectiveResource,
   editing,
   onStatusToggle,
 }: {
   functionDetail: FunctionDetailData | null;
-  effectiveCategory: string;
+  effectiveResource: string;
   editing: boolean;
   onStatusToggle: (enabled: boolean) => void;
 }) {
@@ -135,8 +141,11 @@ export function BasicInfoTab({
         <Descriptions.Item label="版本">
           <Tag>{functionDetail?.version || '1.0.0'}</Tag>
         </Descriptions.Item>
-        <Descriptions.Item label="分类">
-          <Tag color="blue">{effectiveCategory || '默认'}</Tag>
+        <Descriptions.Item label="资源">
+          <Tag color="blue">{effectiveResource || '未声明'}</Tag>
+        </Descriptions.Item>
+        <Descriptions.Item label="操作">
+          <Tag color="purple">{functionDetail?.operation || '未声明'}</Tag>
         </Descriptions.Item>
         <Descriptions.Item label="状态">
           <Space>
@@ -185,8 +194,8 @@ export function BasicInfoTab({
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="分类" name="category">
-                <Input placeholder="请输入分类" />
+              <Form.Item label="资源" name="resource">
+                <Input placeholder="例如 player / mail / economy" />
               </Form.Item>
             </Col>
           </Row>

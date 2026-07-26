@@ -178,10 +178,11 @@ type APIMethod struct {
 	Deprecated bool `yaml:"deprecated" json:"deprecated"`
 
 	// OpenAPI 3.0.3 Extension fields (x-*)
-	Category  string `yaml:"x-category" json:"x-category"`   // x-category: function category
-	Risk      string `yaml:"x-risk" json:"x-risk"`           // x-risk: risk level
-	Entity    string `yaml:"x-entity" json:"x-entity"`       // x-entity: associated entity type
-	Operation string `yaml:"x-operation" json:"x-operation"` // x-operation: CRUD operation type
+	Resource   string `yaml:"x-resource" json:"x-resource"`     // x-resource: business resource/capability key
+	Risk       string `yaml:"x-risk" json:"x-risk"`             // x-risk: risk level
+	Operation  string `yaml:"x-operation" json:"x-operation"`   // x-operation: business action key
+	Enabled    bool   `yaml:"x-enabled" json:"x-enabled"`       // x-enabled: whether this function is enabled
+	Permission string `yaml:"x-permission" json:"x-permission"` // x-permission: optional permission identifier
 }
 
 // ParameterMapping defines how to map a parameter.
@@ -274,10 +275,11 @@ type MethodDetails struct {
 	Parameters  []ParameterMapping
 
 	// OpenAPI 3.0.3 Extension fields (x-*)
-	Category  string // x-category
-	Risk      string // x-risk
-	Entity    string // x-entity
-	Operation string // x-operation
+	Resource   string // x-resource
+	Risk       string // x-risk
+	Operation  string // x-operation
+	Enabled    bool   // x-enabled
+	Permission string // x-permission
 }
 
 // NewProvider creates a new OpenAPI provider.
@@ -530,10 +532,11 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			deprecated, _ := methodObj["deprecated"].(bool)
 
 			// Extract OpenAPI extension fields (x-*)
-			category, _ := methodObj["x-category"].(string)
+			resource, _ := methodObj["x-resource"].(string)
 			risk, _ := methodObj["x-risk"].(string)
-			entity, _ := methodObj["x-entity"].(string)
 			operation, _ := methodObj["x-operation"].(string)
+			enabled, _ := methodObj["x-enabled"].(bool)
+			permission, _ := methodObj["x-permission"].(string)
 
 			// Create APIMethod
 			apiMethod := &APIMethod{
@@ -546,10 +549,11 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 				Tags:        tags,
 				Deprecated:  deprecated,
 				Parameters:  p.extractParameters(methodObj),
-				Category:    category,
+				Resource:    resource,
 				Risk:        risk,
-				Entity:      entity,
 				Operation:   operation,
+				Enabled:     enabled,
+				Permission:  permission,
 			}
 
 			p.methodMap[methodName] = apiMethod
@@ -692,10 +696,11 @@ func (p *Provider) GetMethodDetails() map[string]*MethodDetails {
 			Tags:        method.Tags,
 			Deprecated:  method.Deprecated,
 			Parameters:  method.Parameters,
-			Category:    method.Category,
+			Resource:    method.Resource,
 			Risk:        method.Risk,
-			Entity:      method.Entity,
 			Operation:   method.Operation,
+			Enabled:     method.Enabled,
+			Permission:  method.Permission,
 		}
 	}
 	return result

@@ -14,38 +14,37 @@ func TestParseFunctionOptions_Extension(t *testing.T) {
 	proto.SetExtension(mo, componentv1.E_Function, &componentv1.FunctionOptions{
 		FunctionId:     "player.ban",
 		Version:        "1.2.0",
-		Category:       "player",
+		Resource:       "player",
+		Operation:      "ban",
 		Risk:           "high",
 		Route:          "lb",
 		Timeout:        "30s",
 		TwoPersonRule:  true,
-		Placement:      "agent",
 		Mode:           "command",
 		IdempotencyKey: true,
-		Labels:         map[string]string{"team": "gm"},
-		DisplayName:    &componentv1.I18NText{Zh: "封禁玩家", En: "Ban Player"},
-		Summary:        &componentv1.I18NText{Zh: "封禁指定玩家", En: "Ban a player"},
+		Summary:        "Ban Player",
+		Description:    "Ban a player",
 		Tags:           []string{"player", "moderation"},
-		// UI fields (menu, permissions) are deprecated and no longer extracted.
+		Permission:     "player.ban.invoke",
 	})
 
 	out := parseFunctionOptions(mo)
 	require.Equal(t, "player.ban", out.FunctionID)
 	require.Equal(t, "1.2.0", out.Version)
-	require.Equal(t, "player", out.Category)
+	require.Equal(t, "player", out.Resource)
+	require.Equal(t, "ban", out.Operation)
 	require.Equal(t, "high", out.Risk)
 	require.Equal(t, "lb", out.Route)
 	require.Equal(t, "30s", out.Timeout)
 	require.True(t, out.TwoPersonRuleSet)
 	require.True(t, out.TwoPersonRule)
-	require.Equal(t, "agent", out.Placement)
 	require.Equal(t, "command", out.Mode)
 	require.True(t, out.IdempotencyKeySet)
 	require.True(t, out.IdempotencyKey)
-	require.Equal(t, map[string]string{"team": "gm"}, out.Labels)
-	require.Equal(t, map[string]string{"zh": "封禁玩家", "en": "Ban Player"}, out.DisplayName)
-	require.Equal(t, map[string]string{"zh": "封禁指定玩家", "en": "Ban a player"}, out.Summary)
+	require.Equal(t, "Ban Player", out.Summary)
+	require.Equal(t, "Ban a player", out.Description)
 	require.Equal(t, []string{"player", "moderation"}, out.Tags)
+	require.Equal(t, "player.ban.invoke", out.Permission)
 }
 
 func TestFieldToJSONSchema_RepeatedString(t *testing.T) {

@@ -11,18 +11,20 @@ import {
   disableFunction,
   getFunctionPermissions,
   updateFunctionPermissions,
-  fetchFunctionRoute,
   saveFunctionUiSchema,
-  saveFunctionRoute,
   listDescriptors,
   type FunctionPermission,
+  type FunctionDescriptor,
 } from '@/services/api/functions';
+import type { FormilySchema } from '@/components/formily/schema/types';
+import type { JSONSchema, JSONValue } from '@/types/dashboard';
 
 export interface FunctionDetail {
   id: string;
   name?: string;
   description?: string;
-  category?: string;
+  resource?: string;
+  operation?: string;
   version?: string;
   enabled: boolean;
   tags?: string[];
@@ -31,9 +33,44 @@ export interface FunctionDetail {
   provider?: string;
   agentCount?: number;
   health?: 'healthy' | 'unhealthy' | 'unknown';
-  descriptor?: any;
-  permissions?: any;
-  config?: any;
+  descriptor?: FunctionDescriptor;
+  permissions?: JSONValue;
+  config?: JSONValue;
+}
+
+type OpenAPIOperationPreview = {
+  extensions?: Record<string, unknown>;
+  requestBody?: unknown;
+};
+
+type DescriptorListResponse = FunctionDescriptor[] | { descriptors?: FunctionDescriptor[] };
+
+type FunctionEditValues = {
+  name?: string;
+  description?: string;
+  resource?: string;
+  tags?: string;
+};
+
+function parseMaybeJSON(value: unknown): JSONSchema | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as JSONSchema)
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  if (typeof value === 'object' && !Array.isArray(value)) return value as JSONSchema;
+  return undefined;
+}
+
+function toDescriptorArray(input: DescriptorListResponse): FunctionDescriptor[] {
+  if (Array.isArray(input)) return input;
+  return Array.isArray(input?.descriptors) ? input.descriptors : [];
 }
 
 export default function useFunctionDetailPage(functionId?: string) {
@@ -46,49 +83,41 @@ export default function useFunctionDetailPage(functionId?: string) {
   const [permSaving, setPermSaving] = useState(false);
   const [permError, setPermError] = useState<string>('');
   const [permForm] = Form.useForm();
-  const [routeConfigSaving, setRouteConfigSaving] = useState(false);
-  const [routeConfigForm] = Form.useForm();
-  const routePreview = Form.useWatch([], routeConfigForm);
-  const [descriptorIndexItem, setDescriptorIndexItem] = useState<any>(null);
-  const [openapiOperation, setOpenapiOperation] = useState<any>(null);
+  const [descriptorIndexItem, setDescriptorIndexItem] = useState<FunctionDescriptor | null>(null);
+  const [openapiOperation, setOpenapiOperation] = useState<OpenAPIOperationPreview | null>(null);
 
   const parsedInputSchema = useMemo(() => {
-    const detailDesc = functionDetail?.descriptor || {};
-    const indexDesc = descriptorIndexItem || {};
-    const parseMaybeJSON = (v: any) => {
-      if (!v) return undefined;
-      if (typeof v === 'string') {
-        try {
-          return JSON.parse(v);
-        } catch {
-          return undefined;
-        }
-      }
-      if (typeof v === 'object') return v;
-      return undefined;
-    };
+    const detailDesc = functionDetail?.descriptor;
+    const indexDesc = descriptorIndexItem;
+    const requestBody = openapiOperation?.requestBody;
+    const bodySchema =
+      requestBody && typeof requestBody === 'object' && 'content' in requestBody
+        ? ((requestBody as { content?: Record<string, { schema?: JSONSchema }> }).content?.[
+            'application/json'
+          ]?.schema)
+        : undefined;
     return (
-      parseMaybeJSON(detailDesc.inputSchema) ||
-      parseMaybeJSON(indexDesc.inputSchema) ||
-      parseMaybeJSON(detailDesc.schema) ||
-      parseMaybeJSON(indexDesc.schema) ||
-      parseMaybeJSON(detailDesc.params) ||
-      parseMaybeJSON(indexDesc.params) ||
-      openapiOperation?.requestBody?.content?.['application/json']?.schema
+      parseMaybeJSON(detailDesc?.inputSchema) ||
+      parseMaybeJSON(indexDesc?.inputSchema) ||
+      parseMaybeJSON(detailDesc?.schema) ||
+      parseMaybeJSON(indexDesc?.schema) ||
+      parseMaybeJSON(detailDesc?.params) ||
+      parseMaybeJSON(indexDesc?.params) ||
+      bodySchema
     );
   }, [functionDetail?.descriptor, descriptorIndexItem, openapiOperation]);
 
-  const effectiveCategory = useMemo(() => {
-    const direct = String(functionDetail?.category || '').trim();
+  const effectiveResource = useMemo(() => {
+    const direct = String(functionDetail?.resource || '').trim();
     if (direct) return direct;
-    const fromIndex = String((descriptorIndexItem as any)?.category || '').trim();
+    const fromIndex = String(descriptorIndexItem?.resource || '').trim();
     if (fromIndex) return fromIndex;
-    const fromDetailDesc = String((functionDetail?.descriptor as any)?.category || '').trim();
+    const fromDetailDesc = String(functionDetail?.descriptor?.resource || '').trim();
     if (fromDetailDesc) return fromDetailDesc;
-    const fromOpenapi = String((openapiOperation as any)?.extensions?.['x-category'] || '').trim();
+    const fromOpenapi = String(openapiOperation?.extensions?.['x-resource'] || '').trim();
     if (fromOpenapi) return fromOpenapi;
     return '';
-  }, [functionDetail?.category, functionDetail?.descriptor, descriptorIndexItem, openapiOperation]);
+  }, [functionDetail?.resource, functionDetail?.descriptor, descriptorIndexItem, openapiOperation]);
 
   const jsonViewData = useMemo(
     () => ({
@@ -97,7 +126,8 @@ export default function useFunctionDetailPage(functionId?: string) {
             id: functionDetail.id,
             name: functionDetail.name,
             description: functionDetail.description,
-            category: effectiveCategory,
+            resource: effectiveResource,
+            operation: functionDetail.operation,
             version: functionDetail.version,
             enabled: functionDetail.enabled,
             tags: functionDetail.tags || [],
@@ -107,41 +137,37 @@ export default function useFunctionDetailPage(functionId?: string) {
       descriptor_from_detail_api: functionDetail?.descriptor || null,
       descriptor_from_index_api: descriptorIndexItem || null,
       openapi_operation: openapiOperation || null,
-      route: routePreview || null,
     }),
-    [functionDetail, descriptorIndexItem, openapiOperation, routePreview, effectiveCategory],
+    [functionDetail, descriptorIndexItem, openapiOperation, effectiveResource],
   );
 
   const uiDescriptor = useMemo(() => {
-    const detailDesc = functionDetail?.descriptor || {};
-    const indexDesc = descriptorIndexItem || {};
+    const detailDesc = functionDetail?.descriptor;
+    const indexDesc = descriptorIndexItem;
     return {
-      ...detailDesc,
-      ...indexDesc,
-      entity: indexDesc?.entity || detailDesc?.entity,
+      ...(detailDesc || {}),
+      ...(indexDesc || {}),
+      resource: indexDesc?.resource || detailDesc?.resource || functionDetail?.resource,
       operation: indexDesc?.operation || detailDesc?.operation,
-      entityDisplay: indexDesc?.entityDisplay || detailDesc?.entityDisplay,
-      operationDisplay: indexDesc?.operationDisplay || detailDesc?.operationDisplay,
     };
-  }, [functionDetail?.descriptor, descriptorIndexItem]);
+  }, [functionDetail?.descriptor, functionDetail?.resource, descriptorIndexItem]);
 
   const loadSourceOfTruth = async (id: string) => {
-    let indexItem: any = null;
+    let indexItem: FunctionDescriptor | null = null;
     try {
       const [descsRes, openapiRes] = await Promise.allSettled([
         listDescriptors(),
         getFunctionOpenAPI(id),
       ]);
       if (descsRes.status === 'fulfilled') {
-        const descs = descsRes.value;
-        const descArray = Array.isArray(descs) ? descs : (descs as any)?.descriptors || [];
-        indexItem = descArray.find((d: any) => d.id === id) || null;
+        const descArray = toDescriptorArray(descsRes.value as DescriptorListResponse);
+        indexItem = descArray.find((descriptor) => descriptor.id === id) || null;
         setDescriptorIndexItem(indexItem);
       } else {
         setDescriptorIndexItem(null);
       }
       if (openapiRes.status === 'fulfilled') {
-        setOpenapiOperation(openapiRes.value || null);
+        setOpenapiOperation((openapiRes.value || null) as OpenAPIOperationPreview | null);
       } else {
         setOpenapiOperation(null);
       }
@@ -162,7 +188,8 @@ export default function useFunctionDetailPage(functionId?: string) {
         id: detail.id,
         name: detail.displayName?.zh || detail.displayName?.en || detail.id,
         description: detail.summary?.zh || detail.summary?.en || detail.description || '',
-        category: detail.category,
+        resource: detail.resource || indexItem?.resource,
+        operation: detail.operation || indexItem?.operation,
         version: detail.version,
         enabled: true,
         tags: detail.tags || [],
@@ -173,11 +200,10 @@ export default function useFunctionDetailPage(functionId?: string) {
         descriptor: detail,
       };
       setFunctionDetail(normalizedDetail);
-      const categoryFromDetail = detail.category || (indexItem as any)?.category || '';
       form.setFieldsValue({
         name: normalizedDetail.name,
         description: normalizedDetail.description,
-        category: categoryFromDetail,
+        resource: normalizedDetail.resource || '',
         tags: normalizedDetail.tags?.join(', '),
       });
 
@@ -197,38 +223,19 @@ export default function useFunctionDetailPage(functionId?: string) {
       } finally {
         setPermLoading(false);
       }
-
-      const descriptor = detail || {};
-      const menuConfig = descriptor?.menu || {};
-      const mergedRoute = {
-        nodes: Array.isArray(menuConfig.nodes) ? menuConfig.nodes : [],
-        path: menuConfig.path ?? '',
-        order: menuConfig.order ?? 10,
-        hidden: menuConfig.hidden ?? false,
-      };
-      try {
-        const routeRes = await fetchFunctionRoute(functionId);
-        const rm = routeRes?.menu || {};
-        mergedRoute.nodes = Array.isArray(rm.nodes) ? rm.nodes : mergedRoute.nodes;
-        mergedRoute.path = rm.path ?? mergedRoute.path;
-        mergedRoute.order = rm.order ?? mergedRoute.order;
-        mergedRoute.hidden = rm.hidden ?? mergedRoute.hidden;
-      } catch {
-        // keep defaults from descriptor
-      }
-      routeConfigForm.setFieldsValue(mergedRoute);
     } catch (error: any) {
       if (error?.response?.status === 400 || error?.response?.status === 404) {
         try {
           const descs = await listDescriptors();
-          const descArray = Array.isArray(descs) ? descs : (descs as any)?.descriptors || [];
-          const desc = descArray.find((d: any) => d.id === functionId);
+          const descArray = toDescriptorArray(descs as DescriptorListResponse);
+          const desc = descArray.find((descriptor) => descriptor.id === functionId);
           if (desc) {
             const detailFromDesc: FunctionDetail = {
               id: desc.id,
               name: desc.displayName?.zh || desc.displayName?.en || desc.id,
               description: desc.summary?.zh || desc.summary?.en || desc.description || '',
-              category: desc.category || 'general',
+              resource: desc.resource,
+              operation: desc.operation,
               version: desc.version || '1.0.0',
               enabled: true,
               tags: desc.tags || [],
@@ -243,7 +250,7 @@ export default function useFunctionDetailPage(functionId?: string) {
             form.setFieldsValue({
               name: detailFromDesc.name,
               description: detailFromDesc.description,
-              category: detailFromDesc.category,
+              resource: detailFromDesc.resource || '',
               tags: detailFromDesc.tags?.join(', '),
             });
             permForm.setFieldsValue({ items: [] });
@@ -266,13 +273,13 @@ export default function useFunctionDetailPage(functionId?: string) {
     loadDetail();
   }, [functionId]);
 
-  const handleSave = async (values: any) => {
+  const handleSave = async (values: FunctionEditValues) => {
     if (!functionId) return;
     try {
       await updateFunction(functionId, {
         name: values.name,
         description: values.description,
-        category: values.category,
+        resource: values.resource,
         tags: values.tags
           ? values.tags
               .split(',')
@@ -344,44 +351,7 @@ export default function useFunctionDetailPage(functionId?: string) {
     }
   };
 
-  const handleSaveRoute = async () => {
-    if (!functionId) return;
-    try {
-      setRouteConfigSaving(true);
-      const v = await routeConfigForm.validateFields();
-      await saveFunctionRoute(functionId, {
-        nodes: Array.isArray(v.nodes) ? v.nodes : [],
-        path: v.path || '',
-        order: v.order ?? 10,
-        hidden: !!v.hidden,
-      });
-      window.dispatchEvent(new CustomEvent('function-route:changed'));
-      message.success('路由配置已保存');
-    } catch {
-      // validation error
-    } finally {
-      setRouteConfigSaving(false);
-    }
-  };
-
-  const handleResetRoute = async () => {
-    const descriptor = functionDetail?.descriptor || {};
-    const menuConfig = descriptor?.menu || {};
-    const resetRoute = {
-      nodes: Array.isArray(menuConfig.nodes) ? menuConfig.nodes : [],
-      path: menuConfig.path || '',
-      order: menuConfig.order || 10,
-      hidden: menuConfig.hidden || false,
-    };
-    routeConfigForm.setFieldsValue(resetRoute);
-    if (functionId) {
-      await saveFunctionRoute(functionId, resetRoute);
-    }
-    window.dispatchEvent(new CustomEvent('function-route:changed'));
-    message.success('已恢复为默认路由');
-  };
-
-  const onSaveUi = async (uiConfig: any) => {
+  const onSaveUi = async (uiConfig: { schema?: FormilySchema; clearCustom?: boolean }) => {
     if (!functionId) return;
     await saveFunctionUiSchema(functionId, uiConfig);
   };
@@ -396,11 +366,8 @@ export default function useFunctionDetailPage(functionId?: string) {
     permSaving,
     permError,
     permForm,
-    routeConfigSaving,
-    routeConfigForm,
-    routePreview,
     parsedInputSchema,
-    effectiveCategory,
+    effectiveResource,
     jsonViewData,
     uiDescriptor,
     loadDetail,
@@ -409,8 +376,6 @@ export default function useFunctionDetailPage(functionId?: string) {
     handleCopy,
     handleDelete,
     handleSavePermissions,
-    handleSaveRoute,
-    handleResetRoute,
     onSaveUi,
   };
 }

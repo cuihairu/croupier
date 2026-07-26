@@ -154,7 +154,7 @@ export default function SchemaDesigner() {
       setRaw(next);
       setSchema(templateSchema);
       setParseError(undefined);
-      setGeneratedFromParams(false);
+      setGeneratedFromInputSchema(false);
       setDirty(true);
       setPreviewData({});
       message.success(`已应用模板：${label}`);

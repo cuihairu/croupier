@@ -192,36 +192,6 @@ func (h *Handler) FunctionPublish(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-func (h *Handler) FunctionRoute(c *gin.Context) {
-	var req FunctionRouteRequest
-	if err := bindFunctionRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.FunctionRoute(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
-func (h *Handler) FunctionRouteUpdate(c *gin.Context) {
-	var req FunctionRouteUpdateRequest
-	if err := bindFunctionRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.FunctionRouteUpdate(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
 // Instance management handlers
 
 func (h *Handler) FunctionInstances(c *gin.Context) {
@@ -507,14 +477,6 @@ func (h *Handler) UIHistory(c *gin.Context) {
 
 func (h *Handler) UIRollback(c *gin.Context) {
 	h.FunctionUIRollback(c)
-}
-
-func (h *Handler) Route(c *gin.Context) {
-	h.FunctionRoute(c)
-}
-
-func (h *Handler) RouteUpdate(c *gin.Context) {
-	h.FunctionRouteUpdate(c)
 }
 
 func (h *Handler) History(c *gin.Context) {

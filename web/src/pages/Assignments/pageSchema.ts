@@ -6,18 +6,18 @@ import type {
 
 export type AssignmentPageSchema = {
   listColumns: Array<{
-    key: 'id' | 'name' | 'version' | 'status' | 'route' | 'assignedAt' | 'actions';
+    key: 'id' | 'name' | 'version' | 'status' | 'capability' | 'assignedAt' | 'actions';
     title: string;
     width?: number;
     copyable?: boolean;
   }>;
-  categoryColumns: Array<{
-    key: 'category' | 'count' | 'activeCount' | 'activeRate' | 'actions';
+  resourceColumns: Array<{
+    key: 'resource' | 'count' | 'activeCount' | 'activeRate' | 'actions';
     title: string;
     width?: number;
   }>;
-  routeColumns: Array<{
-    key: 'id' | 'name' | 'route' | 'actions';
+  capabilityColumns: Array<{
+    key: 'id' | 'name' | 'capability' | 'actions';
     title: string;
     width?: number;
     copyable?: boolean;
@@ -31,21 +31,21 @@ export type AssignmentPageSchema = {
     disabledWhen?: Array<'noScope' | 'noSelection' | 'loading'>;
     loadingWhen?: 'loading';
   }>;
-  categoryActions: Array<{
+  resourceActions: Array<{
     key: 'enable' | 'disable';
     label: string;
   }>;
   rowActions: Array<{
-    key: 'enable' | 'disable' | 'canary' | 'detail' | 'route';
+    key: 'enable' | 'disable' | 'canary' | 'detail';
     tooltip: string;
-    icon: 'check' | 'delete' | 'experiment' | 'setting' | 'edit';
+    icon: 'check' | 'delete' | 'experiment' | 'setting';
     danger?: boolean;
     permission?: 'read' | 'write';
     visibleWhen?: 'isActive' | 'notActive';
   }>;
   stats: Array<
     SchemaStat & {
-      key: 'total' | 'active' | 'inactive' | 'categories';
+      key: 'total' | 'active' | 'inactive' | 'resources';
       icon: 'setting' | 'check' | 'warning' | 'experiment';
     }
   >;
@@ -58,7 +58,7 @@ export type AssignmentPageSchema = {
   >;
   tabs: Array<
     SchemaTab & {
-      key: 'list' | 'category' | 'route';
+      key: 'list' | 'resource' | 'capability';
       visibleWhen?: 'hasGroups';
       component: 'ListTab' | 'CategoryTab' | 'RouteTab';
     }
@@ -71,21 +71,21 @@ export const ASSIGNMENTS_PAGE_SCHEMA: AssignmentPageSchema = {
     { key: 'name', title: '名称', width: 180 },
     { key: 'version', title: '版本', width: 100 },
     { key: 'status', title: '状态', width: 100 },
-    { key: 'route', title: '路由展示', width: 320 },
+    { key: 'capability', title: '能力归属', width: 320 },
     { key: 'assignedAt', title: '分配时间', width: 180 },
     { key: 'actions', title: '操作', width: 180 },
   ],
-  categoryColumns: [
-    { key: 'category', title: '分类', width: 200 },
+  resourceColumns: [
+    { key: 'resource', title: '资源', width: 200 },
     { key: 'count', title: '函数数量', width: 120 },
     { key: 'activeCount', title: '已启用', width: 120 },
     { key: 'activeRate', title: '启用率', width: 150 },
     { key: 'actions', title: '操作', width: 200 },
   ],
-  routeColumns: [
+  capabilityColumns: [
     { key: 'id', title: '函数ID', width: 240, copyable: true },
     { key: 'name', title: '名称', width: 180 },
-    { key: 'route', title: '路由展示', width: 420 },
+    { key: 'capability', title: '能力归属', width: 420 },
     { key: 'actions', title: '操作', width: 150 },
   ],
   listToolbar: [
@@ -109,7 +109,7 @@ export const ASSIGNMENTS_PAGE_SCHEMA: AssignmentPageSchema = {
       loadingWhen: 'loading',
     },
   ],
-  categoryActions: [
+  resourceActions: [
     { key: 'enable', label: '启用' },
     { key: 'disable', label: '禁用' },
   ],
@@ -131,13 +131,12 @@ export const ASSIGNMENTS_PAGE_SCHEMA: AssignmentPageSchema = {
     },
     { key: 'canary', tooltip: '灰度配置', icon: 'experiment', permission: 'write' },
     { key: 'detail', tooltip: '查看详情', icon: 'setting', permission: 'read' },
-    { key: 'route', tooltip: '路由配置', icon: 'edit', permission: 'write' },
   ],
   stats: [
     { key: 'total', title: '总函数数', icon: 'setting' },
     { key: 'active', title: '已分配', icon: 'check', color: '#3f8600' },
     { key: 'inactive', title: '未分配', icon: 'warning', color: '#cf1322' },
-    { key: 'categories', title: '分类数', icon: 'experiment' },
+    { key: 'resources', title: '资源数', icon: 'experiment' },
   ],
   actions: [
     {
@@ -165,15 +164,15 @@ export const ASSIGNMENTS_PAGE_SCHEMA: AssignmentPageSchema = {
       component: 'ListTab',
     },
     {
-      key: 'category',
-      labelTemplate: '分类管理',
+      key: 'resource',
+      labelTemplate: '资源分组',
       permission: 'read',
       visibleWhen: 'hasGroups',
       component: 'CategoryTab',
     },
     {
-      key: 'route',
-      labelTemplate: '路由展示 ({selectedCount})',
+      key: 'capability',
+      labelTemplate: '能力归属 ({selectedCount})',
       permission: 'read',
       component: 'RouteTab',
     },

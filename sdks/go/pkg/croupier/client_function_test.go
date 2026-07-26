@@ -49,9 +49,8 @@ func TestClient_functionRegistration(t *testing.T) {
 		desc := FunctionDescriptor{
 			ID:        "test.full",
 			Version:   "2.5.0-beta",
-			Category:  "test",
+			Resource:  "test",
 			Risk:      "low",
-			Entity:    "TestEntity",
 			Operation: "create",
 			Enabled:   true,
 		}
@@ -245,7 +244,7 @@ func TestClient_functionVariations(t *testing.T) {
 		}
 	})
 
-	t.Run("RegisterFunction with different categories", func(t *testing.T) {
+	t.Run("RegisterFunction with different resources", func(t *testing.T) {
 		config := DefaultClientConfig()
 		client := NewClient(config)
 
@@ -254,13 +253,13 @@ func TestClient_functionVariations(t *testing.T) {
 		}
 		defer client.Close()
 
-		categories := []string{"player", "item", "guild", "chat", "system", "admin"}
+		resources := []string{"player", "item", "guild", "chat", "system", "admin"}
 
-		for _, cat := range categories {
+		for _, resource := range resources {
 			desc := FunctionDescriptor{
-				ID:       "test." + cat,
+				ID:       "test." + resource,
 				Version:  "1.0.0",
-				Category: cat,
+				Resource: resource,
 			}
 
 			handler := func(ctx context.Context, payload []byte) ([]byte, error) {
@@ -268,7 +267,7 @@ func TestClient_functionVariations(t *testing.T) {
 			}
 
 			err := client.RegisterFunction(desc, handler)
-			t.Logf("RegisterFunction with category='%s' error: %v", cat, err)
+			t.Logf("RegisterFunction with resource='%s' error: %v", resource, err)
 		}
 	})
 
@@ -621,9 +620,8 @@ func TestClient_descriptionTests(t *testing.T) {
 		desc := FunctionDescriptor{
 			ID:        "test.complete",
 			Version:   "3.5.0-beta",
-			Category:  "comprehensive",
+			Resource:  "comprehensive",
 			Risk:      "medium",
-			Entity:    "TestEntity",
 			Operation: "update",
 			Enabled:   true,
 		}

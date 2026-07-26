@@ -24,7 +24,7 @@ func (l *BatchDeleteFunctionsLogic) BatchDeleteFunctions(req *BatchDeleteFunctio
 	if len(req.FunctionIds) == 0 {
 		return &BatchDeleteFunctionsResponse{
 			Updated: 0,
-			Failed:  []string{"no function ids provided"},
+			Failed:  []string{},
 		}, nil
 	}
 

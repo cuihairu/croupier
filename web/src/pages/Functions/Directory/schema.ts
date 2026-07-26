@@ -14,12 +14,12 @@ export type DirectoryPageSchema = {
     loadingWhen?: 'loading';
   }>;
   rowActions: Array<{
-    key: 'detail' | 'ui' | 'invoke';
+    key: 'detail' | 'form' | 'invoke';
     tooltip: string;
     icon: 'info' | 'setting' | 'play';
   }>;
   columns: Array<{
-    key: 'id' | 'displayName' | 'summary' | 'category' | 'tags' | 'enabled' | 'actions';
+    key: 'id' | 'displayName' | 'summary' | 'resource' | 'operation' | 'tags' | 'enabled' | 'actions';
     title: string;
     width?: number;
     copyable?: boolean;
@@ -54,14 +54,15 @@ export const DIRECTORY_PAGE_SCHEMA: DirectoryPageSchema = {
   ],
   rowActions: [
     { key: 'detail', tooltip: '查看详情', icon: 'info' },
-    { key: 'ui', tooltip: '编辑UI', icon: 'setting' },
+    { key: 'form', tooltip: '函数表单', icon: 'setting' },
     { key: 'invoke', tooltip: '调用函数', icon: 'play' },
   ],
   columns: [
     { key: 'id', title: '函数ID', width: 250, copyable: true },
     { key: 'displayName', title: '函数名称', width: 200 },
     { key: 'summary', title: '函数摘要', width: 300 },
-    { key: 'category', title: '分类', width: 120 },
+    { key: 'resource', title: '资源', width: 160 },
+    { key: 'operation', title: '操作', width: 140 },
     { key: 'tags', title: '标签', width: 200 },
     { key: 'enabled', title: '状态', width: 80 },
     { key: 'actions', title: '操作', width: 200 },

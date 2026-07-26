@@ -4,13 +4,11 @@ package examples.games.player.v1;
 option java_package = "io.github.cuihairu.croupier.examples.games.player.v1";
 option java_multiple_files = true;
 
-import "croupier/component/v1/ui_options.proto";
-
 option go_package = "github.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1";
 
 message BanRequest {
-  string player_id = 1 [(croupier.component.v1.ui) = { label: "玩家ID", widget: "input" }];
-  string reason = 2 [(croupier.component.v1.ui) = { widget: "textarea", placeholder: "原因" }];
+  string player_id = 1;
+  string reason = 2;
 }
 
 message BanResponse { string result = 1; }

@@ -40,9 +40,8 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 			Deprecated:   false,
 			InputSchema:  `{"type":"object","properties":{"name":{"type":"string"}}}`,
 			OutputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`,
-			Category:     "player",
+			Resource:     "player",
 			Risk:         "safe",
-			Entity:       "Player",
 			Operation:    "create",
 		}
 
@@ -168,18 +167,18 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 		}
 	})
 
-	t.Run("descriptor with various categories", func(t *testing.T) {
-		categories := []string{"game", "system", "player", "monitoring", "inventory"}
+	t.Run("descriptor with various resources", func(t *testing.T) {
+		resources := []string{"game", "system", "player", "monitoring", "inventory"}
 
-		for _, cat := range categories {
+		for _, resource := range resources {
 			desc := LocalFunctionDescriptor{
 				ID:       "test.func",
 				Version:  "1.0.0",
-				Category: cat,
+				Resource: resource,
 			}
 
-			if desc.Category != cat {
-				t.Errorf("Category = %s, want %s", desc.Category, cat)
+			if desc.Resource != resource {
+				t.Errorf("Resource = %s, want %s", desc.Resource, resource)
 			}
 		}
 	})

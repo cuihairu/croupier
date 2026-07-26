@@ -112,7 +112,6 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 		RoleModel:                 model.NewRoleModel(db),
 		PermissionModel:           model.NewPermissionModel(db),
 		ConfigVersionModel:        model.NewConfigVersionModel(db),
-		WorkspaceConfigModel:      model.NewWorkspaceConfigModel(db),
 		PageSpecModel:             model.NewPageSpecModel(db),
 		PublishedPageSpecModel:    model.NewPublishedPageSpecModel(db),
 		PageVersionModel:          model.NewPageVersionModel(db),
@@ -274,8 +273,6 @@ func registerFunctionRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 		group.GET("/:id/analytics", handler.Analytics)
 		group.POST("/:id/invoke", handler.Invoke)
 		group.POST("/:id/publish", handler.Publish)
-		group.GET("/:id/route", handler.Route)
-		group.POST("/:id/route", handler.RouteUpdate)
 		group.GET("/:id/instances", handler.Instances)
 		group.GET("/:id/permissions", handler.Permissions)
 		group.POST("/:id/permissions", handler.PermissionsUpdate)

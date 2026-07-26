@@ -50,9 +50,9 @@ func (l *FunctionDetailLogic) FunctionDetail(req *FunctionDetailRequest) (*Funct
 	descs, err := l.svcCtx.FunctionModel.ListDescriptors(l.ctx, functionID)
 	if err == nil && len(descs) > 0 {
 		desc = FunctionDescriptor{
-			Input:  descs[0].Input,
-			Output: descs[0].Output,
-			Schema: descs[0].Schema,
+			Input:  rawJSONFromValue(descs[0].Input),
+			Output: rawJSONFromValue(descs[0].Output),
+			Schema: rawJSONFromValue(descs[0].Schema),
 		}
 	} else if rt != nil {
 		desc = rt.descriptor
@@ -80,13 +80,13 @@ func (l *FunctionDetailLogic) FunctionDetail(req *FunctionDetailRequest) (*Funct
 			ID:          fn.FunctionID,
 			Name:        name,
 			Description: fn.Description,
-			Category:    fn.Category,
+			Resource:    fn.Resource,
 			GameId:      gameID,
 			Status:      fn.Status,
 			Version:     version,
 			Instances:   instances,
 			SpecFormat:  fn.SpecFormat,
-			OpenAPISpec: fn.OpenAPISpec,
+			OpenAPISpec: rawJSONFromValue(fn.OpenAPISpec),
 			CreatedAt:   utils.FormatTimestamp(fn.CreatedAt),
 			UpdatedAt:   utils.FormatTimestamp(fn.UpdatedAt),
 		},
@@ -125,26 +125,26 @@ func loadRuntimeFunctionDetail(store *registry.Store, functionID string) *runtim
 		}
 	}
 	if op, err := store.GetOpenAPI(functionID); err == nil && op != nil {
-		out.descriptor.Schema = extractOperationRequestSchema(op)
+		out.descriptor.Schema = rawJSONFromValue(extractOperationRequestSchema(op))
 		if op.RequestBody != nil && op.RequestBody.Value != nil {
-			out.descriptor.Input = op.RequestBody.Value
+			out.descriptor.Input = rawJSONFromValue(op.RequestBody.Value)
 		}
 		if op.Responses != nil {
-			out.descriptor.Output = op.Responses
+			out.descriptor.Output = rawJSONFromValue(op.Responses)
 		}
 	} else if out.instances > 0 {
 		if op := BuildFallbackOpenAPIOperation(functionID); op != nil {
-			out.descriptor.Schema = extractOperationRequestSchema(op)
+			out.descriptor.Schema = rawJSONFromValue(extractOperationRequestSchema(op))
 			if op.RequestBody != nil && op.RequestBody.Value != nil {
-				out.descriptor.Input = op.RequestBody.Value
+				out.descriptor.Input = rawJSONFromValue(op.RequestBody.Value)
 			}
 			if op.Responses != nil {
-				out.descriptor.Output = op.Responses
+				out.descriptor.Output = rawJSONFromValue(op.Responses)
 			}
 		}
 	}
 	if out.instances == 0 && out.version == "" && out.gameID == "" &&
-		out.descriptor.Input == nil && out.descriptor.Output == nil && out.descriptor.Schema == nil {
+		len(out.descriptor.Input) == 0 && len(out.descriptor.Output) == 0 && len(out.descriptor.Schema) == 0 {
 		return nil
 	}
 	return out

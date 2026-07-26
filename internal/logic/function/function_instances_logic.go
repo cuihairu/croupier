@@ -22,7 +22,7 @@ func NewFunctionInstancesLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-func (l *FunctionInstancesLogic) FunctionInstances(req *FunctionInstancesRequest) (map[string]interface{}, error) {
+func (l *FunctionInstancesLogic) FunctionInstances(req *FunctionInstancesRequest) (*FunctionInstancesResponse, error) {
 	functionID, err := utils.ValidateFunctionID(req.ID)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func (l *FunctionInstancesLogic) FunctionInstances(req *FunctionInstancesRequest
 	// Prefer runtime registry (SDK->Agent registrations) to power dashboard targeted routing.
 	// Fallback to DB-backed instances if registry is not available.
 	if store := l.svcCtx.RegistryStore; store != nil {
-		out := make([]map[string]interface{}, 0)
+		out := make([]RuntimeFunctionInstance, 0)
 		store.Mu().RLock()
 		for _, sess := range store.AgentsUnsafe() {
 			if sess == nil || strings.TrimSpace(sess.AgentID) == "" {
@@ -54,24 +54,34 @@ func (l *FunctionInstancesLogic) FunctionInstances(req *FunctionInstancesRequest
 				if !has {
 					continue
 				}
-				out = append(out, map[string]interface{}{
-					"function_id": functionID,
-					"agent_id":    sess.AgentID,
-					"provider_id": p.ProviderID,
-					"addr":        p.Addr,
-					"version":     p.Version,
-					"last_seen":   agentLastSeen.Format(time.RFC3339),
-					"healthy":     agentHealthy,
+				out = append(out, RuntimeFunctionInstance{
+					FunctionID: functionID,
+					AgentID:    sess.AgentID,
+					ProviderID: p.ProviderID,
+					Addr:       p.Addr,
+					Version:    p.Version,
+					LastSeen:   agentLastSeen.Format(time.RFC3339),
+					Healthy:    agentHealthy,
 				})
 			}
 		}
 		store.Mu().RUnlock()
-		return map[string]interface{}{"instances": out}, nil
+		return &FunctionInstancesResponse{Instances: out}, nil
 	}
 
 	instances, err := l.svcCtx.FunctionModel.ListInstances(l.ctx, functionID)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{"items": utils.BuildFunctionInstances(instances)}, nil
+	items := utils.BuildFunctionInstances(instances)
+	out := make([]FunctionInstance, 0, len(items))
+	for _, item := range items {
+		out = append(out, FunctionInstance{
+			AgentId:   item.AgentId,
+			AgentName: item.AgentName,
+			Status:    item.Status,
+			UpdatedAt: item.UpdatedAt,
+		})
+	}
+	return &FunctionInstancesResponse{Items: out}, nil
 }

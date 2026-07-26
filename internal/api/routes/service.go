@@ -26,7 +26,6 @@ func (s *Service) GetRoutes(ctx context.Context) (*GetRoutesResponse, error) {
 		{Path: "/api/v1/backups", Name: "Backups", Icon: "backup", Component: "Backups"},
 		{Path: "/api/v1/certificates", Name: "Certificates", Icon: "certificate", Component: "Certificates"},
 		{Path: "/api/v1/configs", Name: "Configs", Icon: "config", Component: "Configs"},
-		{Path: "/api/v1/entities", Name: "Entities", Icon: "entity", Component: "Entities"},
 		{Path: "/api/v1/faqs", Name: "FAQs", Icon: "faq", Component: "FAQs"},
 		{Path: "/api/v1/feedback", Name: "Feedback", Icon: "feedback", Component: "Feedback"},
 		{Path: "/api/v1/messages", Name: "Messages", Icon: "message", Component: "Messages"},
@@ -38,7 +37,6 @@ func (s *Service) GetRoutes(ctx context.Context) (*GetRoutesResponse, error) {
 		{Path: "/api/v1/schemas", Name: "Schemas", Icon: "schema", Component: "Schemas"},
 		{Path: "/api/v1/terms", Name: "Terms", Icon: "terms", Component: "Terms"},
 		{Path: "/api/v1/tickets", Name: "Tickets", Icon: "ticket", Component: "Tickets"},
-		{Path: "/api/v1/workspaces", Name: "Workspaces", Icon: "workspace", Component: "Workspaces"},
 	}
 
 	return &routes, nil

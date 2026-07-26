@@ -25,6 +25,7 @@ import {
 } from '@ant-design/icons';
 import { getFunctionInstances, getFunctionDetail, type FunctionInstance } from '@/services/api';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
+import type { FunctionDescriptor } from '@/services/api/functions';
 
 const { Text } = Typography;
 
@@ -35,13 +36,13 @@ type CoverageData = {
   total_instances: number;
   active_instances: number;
   inactive_instances: number;
-  functions_by_category: Record<string, number>;
+  functions_by_resource_prefix: Record<string, number>;
   instances_by_game: Record<string, number>;
 };
 
 type InstanceDetail = {
   instance: FunctionInstance;
-  functionInfo?: any;
+  functionInfo?: FunctionDescriptor;
   logs?: Array<{
     timestamp: string;
     level: string;
@@ -112,7 +113,7 @@ export default () => {
 
       // Calculate coverage statistics
       const functionsMap = new Map<string, number>();
-      const categoryMap = new Map<string, number>();
+      const resourcePrefixMap = new Map<string, number>();
       const gameMap = new Map<string, number>();
       let activeCount = 0;
       let inactiveCount = 0;
@@ -120,9 +121,9 @@ export default () => {
       instanceList.forEach((instance) => {
         functionsMap.set(instance.functionId, (functionsMap.get(instance.functionId) || 0) + 1);
 
-        // Count by category (extract from function_id)
-        const category = instance.functionId.split('.')[0] || 'other';
-        categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+        // Instances endpoint does not carry FunctionSpec.resource yet; this is display-only.
+        const resourcePrefix = instance.functionId.split('.')[0] || 'other';
+        resourcePrefixMap.set(resourcePrefix, (resourcePrefixMap.get(resourcePrefix) || 0) + 1);
 
         // Count by game
         if (instance.gameId) {
@@ -141,9 +142,9 @@ export default () => {
         (count) => count > 0,
       ).length;
 
-      const functionsByCategory: Record<string, number> = {};
-      categoryMap.forEach((count, category) => {
-        functionsByCategory[category] = count;
+      const functionsByResourcePrefix: Record<string, number> = {};
+      resourcePrefixMap.forEach((count, resourcePrefix) => {
+        functionsByResourcePrefix[resourcePrefix] = count;
       });
 
       const instancesByGame: Record<string, number> = {};
@@ -159,7 +160,7 @@ export default () => {
         total_instances: instanceList.length,
         active_instances: activeCount,
         inactive_instances: inactiveCount,
-        functions_by_category: functionsByCategory,
+        functions_by_resource_prefix: functionsByResourcePrefix,
         instances_by_game: instancesByGame,
       });
     } catch (e: any) {
@@ -214,7 +215,7 @@ export default () => {
       activeInstances: coverage?.active_instances || 0,
       inactiveInstances: coverage?.inactive_instances || 0,
       totalFunctions: coverage?.total_functions || functionOptions.length,
-      categoryCount: Object.keys(coverage?.functions_by_category || {}).length,
+      resourcePrefixCount: Object.keys(coverage?.functions_by_resource_prefix || {}).length,
       gameCount: Object.keys(coverage?.instances_by_game || {}).length,
       coveragePercentage: coverage?.coverage_percentage || 0,
     };
@@ -467,7 +468,7 @@ export default () => {
             { color: '#52c41a', text: `在线 ${summary.activeInstances}` },
             { color: '#ff4d4f', text: `离线 ${summary.inactiveInstances}` },
             { color: '#2f54eb', text: `函数 ${summary.totalFunctions}` },
-            { color: '#722ed1', text: `分类 ${summary.categoryCount}` },
+            { color: '#722ed1', text: `资源前缀 ${summary.resourcePrefixCount}` },
             { color: '#13c2c2', text: `游戏 ${summary.gameCount}` },
           ]}
           hint={

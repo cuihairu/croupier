@@ -25,54 +25,49 @@ namespace Croupier.Agent.V1 {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "CiBjcm91cGllci9hZ2VudC92MS9yZWdpc3Rlci5wcm90bxIRY3JvdXBpZXIu",
-            "YWdlbnQudjEaKGNyb3VwaWVyL2NvbXBvbmVudC92MS9kYXNoYm9hcmRfdWku",
-            "cHJvdG8ikwQKEkZ1bmN0aW9uRGVzY3JpcHRvchIOCgJpZBgBIAEoCVICaWQS",
-            "GAoHdmVyc2lvbhgCIAEoCVIHdmVyc2lvbhIaCghjYXRlZ29yeRgDIAEoCVII",
-            "Y2F0ZWdvcnkSEgoEcmlzaxgEIAEoCVIEcmlzaxIWCgZlbnRpdHkYBSABKAlS",
-            "BmVudGl0eRIcCglvcGVyYXRpb24YBiABKAlSCW9wZXJhdGlvbhIYCgdlbmFi",
-            "bGVkGAcgASgIUgdlbmFibGVkEkIKDGRpc3BsYXlfbmFtZRgUIAEoCzIfLmNy",
-            "b3VwaWVyLmNvbXBvbmVudC52MS5JMThuVGV4dFILZGlzcGxheU5hbWUSOQoH",
-            "c3VtbWFyeRgVIAEoCzIfLmNyb3VwaWVyLmNvbXBvbmVudC52MS5JMThuVGV4",
-            "dFIHc3VtbWFyeRISCgR0YWdzGBYgAygJUgR0YWdzEi8KBG1lbnUYFyABKAsy",
-            "Gy5jcm91cGllci5jb21wb25lbnQudjEuTWVudVIEbWVudRJHCgtwZXJtaXNz",
-            "aW9ucxgYIAEoCzIlLmNyb3VwaWVyLmNvbXBvbmVudC52MS5QZXJtaXNzaW9u",
-            "U3BlY1ILcGVybWlzc2lvbnMSIQoMaW5wdXRfc2NoZW1hGB4gASgJUgtpbnB1",
-            "dFNjaGVtYRIjCg1vdXRwdXRfc2NoZW1hGB8gASgJUgxvdXRwdXRTY2hlbWEi",
-            "rgIKDEFnZW50UHJvY2VzcxIdCgpzZXJ2aWNlX2lkGAEgASgJUglzZXJ2aWNl",
-            "SWQSEgoEYWRkchgCIAEoCVIEYWRkchIYCgd2ZXJzaW9uGAMgASgJUgd2ZXJz",
-            "aW9uEiQKDmxhc3Rfc2Vlbl91bml4GAQgASgDUgxsYXN0U2VlblVuaXgSIQoM",
-            "ZnVuY3Rpb25faWRzGAUgAygJUgtmdW5jdGlvbklkcxIhCgxzZGtfbGFuZ3Vh",
-            "Z2UYBiABKAlSC3Nka0xhbmd1YWdlEh8KC3Nka192ZXJzaW9uGAcgASgJUgpz",
-            "ZGtWZXJzaW9uEhkKCHNka19uYW1lGAggASgJUgdzZGtOYW1lEhcKB2dhbWVf",
-            "aWQYCSABKAlSBmdhbWVJZBIQCgNlbnYYCiABKAlSA2VudiLVAwoPUmVnaXN0",
-            "ZXJSZXF1ZXN0EhkKCGFnZW50X2lkGAEgASgJUgdhZ2VudElkEhgKB3ZlcnNp",
-            "b24YAiABKAlSB3ZlcnNpb24SQwoJZnVuY3Rpb25zGAMgAygLMiUuY3JvdXBp",
-            "ZXIuYWdlbnQudjEuRnVuY3Rpb25EZXNjcmlwdG9yUglmdW5jdGlvbnMSFwoH",
-            "Z2FtZV9pZBgFIAEoCVIGZ2FtZUlkEhAKA2VudhgGIAEoCVIDZW52Ej0KCXBy",
-            "b2Nlc3NlcxgHIAMoCzIfLmNyb3VwaWVyLmFnZW50LnYxLkFnZW50UHJvY2Vz",
-            "c1IJcHJvY2Vzc2VzEh8KC3R0bF9zZWNvbmRzGAggASgNUgp0dGxTZWNvbmRz",
-            "EhYKBnJlZ2lvbhgKIAEoCVIGcmVnaW9uEhIKBHpvbmUYCyABKAlSBHpvbmUS",
-            "RgoGbGFiZWxzGAwgAygLMi4uY3JvdXBpZXIuYWdlbnQudjEuUmVnaXN0ZXJS",
-            "ZXF1ZXN0LkxhYmVsc0VudHJ5UgZsYWJlbHMaOQoLTGFiZWxzRW50cnkSEAoD",
-            "a2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AUoECAQQ",
-            "BVIIcnBjX2FkZHIiagoQUmVnaXN0ZXJSZXNwb25zZRIdCgpzZXNzaW9uX2lk",
-            "GAEgASgJUglzZXNzaW9uSWQSGwoJZXhwaXJlX2F0GAIgASgDUghleHBpcmVB",
-            "dBIaCgh3YXJuaW5ncxgDIAMoCVIId2FybmluZ3MiTAoQSGVhcnRiZWF0UmVx",
-            "dWVzdBIZCghhZ2VudF9pZBgBIAEoCVIHYWdlbnRJZBIdCgpzZXNzaW9uX2lk",
-            "GAIgASgJUglzZXNzaW9uSWQiEwoRSGVhcnRiZWF0UmVzcG9uc2UiXgoMUHJv",
-            "dmlkZXJNZXRhEg4KAmlkGAEgASgJUgJpZBIYCgd2ZXJzaW9uGAIgASgJUgd2",
-            "ZXJzaW9uEhIKBGxhbmcYAyABKAlSBGxhbmcSEAoDc2RrGAQgASgJUgNzZGsi",
-            "hAEKG1JlZ2lzdGVyQ2FwYWJpbGl0aWVzUmVxdWVzdBI7Cghwcm92aWRlchgB",
-            "IAEoCzIfLmNyb3VwaWVyLmFnZW50LnYxLlByb3ZpZGVyTWV0YVIIcHJvdmlk",
-            "ZXISKAoQbWFuaWZlc3RfanNvbl9nehgCIAEoDFIObWFuaWZlc3RKc29uR3oi",
-            "HgocUmVnaXN0ZXJDYXBhYmlsaXRpZXNSZXNwb25zZUJnCiRpby5naXRodWIu",
-            "Y3VpaGFpcnUuY3JvdXBpZXIuYWdlbnQudjFQAVo9Z2l0aHViLmNvbS9jdWlo",
-            "YWlydS9jcm91cGllci9wa2cvcGIvY3JvdXBpZXIvYWdlbnQvdjE7YWdlbnR2",
-            "MWIGcHJvdG8z"));
+            "YWdlbnQudjEi/gIKEkZ1bmN0aW9uRGVzY3JpcHRvchIOCgJpZBgBIAEoCVIC",
+            "aWQSGAoHdmVyc2lvbhgCIAEoCVIHdmVyc2lvbhIaCghyZXNvdXJjZRgDIAEo",
+            "CVIIcmVzb3VyY2USHAoJb3BlcmF0aW9uGAQgASgJUglvcGVyYXRpb24SEgoE",
+            "cmlzaxgFIAEoCVIEcmlzaxIeCgpwZXJtaXNzaW9uGAYgASgJUgpwZXJtaXNz",
+            "aW9uEhgKB2VuYWJsZWQYByABKAhSB2VuYWJsZWQSGAoHc3VtbWFyeRgZIAEo",
+            "CVIHc3VtbWFyeRIgCgtkZXNjcmlwdGlvbhgaIAEoCVILZGVzY3JpcHRpb24S",
+            "EgoEdGFncxgbIAMoCVIEdGFncxIeCgpkZXByZWNhdGVkGBwgASgIUgpkZXBy",
+            "ZWNhdGVkEiEKDGlucHV0X3NjaGVtYRgeIAEoCVILaW5wdXRTY2hlbWESIwoN",
+            "b3V0cHV0X3NjaGVtYRgfIAEoCVIMb3V0cHV0U2NoZW1hIq4CCgxBZ2VudFBy",
+            "b2Nlc3MSHQoKc2VydmljZV9pZBgBIAEoCVIJc2VydmljZUlkEhIKBGFkZHIY",
+            "AiABKAlSBGFkZHISGAoHdmVyc2lvbhgDIAEoCVIHdmVyc2lvbhIkCg5sYXN0",
+            "X3NlZW5fdW5peBgEIAEoA1IMbGFzdFNlZW5Vbml4EiEKDGZ1bmN0aW9uX2lk",
+            "cxgFIAMoCVILZnVuY3Rpb25JZHMSIQoMc2RrX2xhbmd1YWdlGAYgASgJUgtz",
+            "ZGtMYW5ndWFnZRIfCgtzZGtfdmVyc2lvbhgHIAEoCVIKc2RrVmVyc2lvbhIZ",
+            "CghzZGtfbmFtZRgIIAEoCVIHc2RrTmFtZRIXCgdnYW1lX2lkGAkgASgJUgZn",
+            "YW1lSWQSEAoDZW52GAogASgJUgNlbnYi1QMKD1JlZ2lzdGVyUmVxdWVzdBIZ",
+            "CghhZ2VudF9pZBgBIAEoCVIHYWdlbnRJZBIYCgd2ZXJzaW9uGAIgASgJUgd2",
+            "ZXJzaW9uEkMKCWZ1bmN0aW9ucxgDIAMoCzIlLmNyb3VwaWVyLmFnZW50LnYx",
+            "LkZ1bmN0aW9uRGVzY3JpcHRvclIJZnVuY3Rpb25zEhcKB2dhbWVfaWQYBSAB",
+            "KAlSBmdhbWVJZBIQCgNlbnYYBiABKAlSA2VudhI9Cglwcm9jZXNzZXMYByAD",
+            "KAsyHy5jcm91cGllci5hZ2VudC52MS5BZ2VudFByb2Nlc3NSCXByb2Nlc3Nl",
+            "cxIfCgt0dGxfc2Vjb25kcxgIIAEoDVIKdHRsU2Vjb25kcxIWCgZyZWdpb24Y",
+            "CiABKAlSBnJlZ2lvbhISCgR6b25lGAsgASgJUgR6b25lEkYKBmxhYmVscxgM",
+            "IAMoCzIuLmNyb3VwaWVyLmFnZW50LnYxLlJlZ2lzdGVyUmVxdWVzdC5MYWJl",
+            "bHNFbnRyeVIGbGFiZWxzGjkKC0xhYmVsc0VudHJ5EhAKA2tleRgBIAEoCVID",
+            "a2V5EhQKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAFKBAgEEAVSCHJwY19hZGRy",
+            "ImoKEFJlZ2lzdGVyUmVzcG9uc2USHQoKc2Vzc2lvbl9pZBgBIAEoCVIJc2Vz",
+            "c2lvbklkEhsKCWV4cGlyZV9hdBgCIAEoA1IIZXhwaXJlQXQSGgoId2Fybmlu",
+            "Z3MYAyADKAlSCHdhcm5pbmdzIkwKEEhlYXJ0YmVhdFJlcXVlc3QSGQoIYWdl",
+            "bnRfaWQYASABKAlSB2FnZW50SWQSHQoKc2Vzc2lvbl9pZBgCIAEoCVIJc2Vz",
+            "c2lvbklkIhMKEUhlYXJ0YmVhdFJlc3BvbnNlIl4KDFByb3ZpZGVyTWV0YRIO",
+            "CgJpZBgBIAEoCVICaWQSGAoHdmVyc2lvbhgCIAEoCVIHdmVyc2lvbhISCgRs",
+            "YW5nGAMgASgJUgRsYW5nEhAKA3NkaxgEIAEoCVIDc2RrIoQBChtSZWdpc3Rl",
+            "ckNhcGFiaWxpdGllc1JlcXVlc3QSOwoIcHJvdmlkZXIYASABKAsyHy5jcm91",
+            "cGllci5hZ2VudC52MS5Qcm92aWRlck1ldGFSCHByb3ZpZGVyEigKEG1hbmlm",
+            "ZXN0X2pzb25fZ3oYAiABKAxSDm1hbmlmZXN0SnNvbkd6Ih4KHFJlZ2lzdGVy",
+            "Q2FwYWJpbGl0aWVzUmVzcG9uc2VCZwokaW8uZ2l0aHViLmN1aWhhaXJ1LmNy",
+            "b3VwaWVyLmFnZW50LnYxUAFaPWdpdGh1Yi5jb20vY3VpaGFpcnUvY3JvdXBp",
+            "ZXIvcGtnL3BiL2Nyb3VwaWVyL2FnZW50L3YxO2FnZW50djFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Croupier.Component.V1.DashboardUiReflection.Descriptor, },
+          new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.FunctionDescriptor), global::Croupier.Agent.V1.FunctionDescriptor.Parser, new[]{ "Id", "Version", "Category", "Risk", "Entity", "Operation", "Enabled", "DisplayName", "Summary", "Tags", "Menu", "Permissions", "InputSchema", "OutputSchema" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.FunctionDescriptor), global::Croupier.Agent.V1.FunctionDescriptor.Parser, new[]{ "Id", "Version", "Resource", "Operation", "Risk", "Permission", "Enabled", "Summary", "Description", "Tags", "Deprecated", "InputSchema", "OutputSchema" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.AgentProcess), global::Croupier.Agent.V1.AgentProcess.Parser, new[]{ "ServiceId", "Addr", "Version", "LastSeenUnix", "FunctionIds", "SdkLanguage", "SdkVersion", "SdkName", "GameId", "Env" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.RegisterRequest), global::Croupier.Agent.V1.RegisterRequest.Parser, new[]{ "AgentId", "Version", "Functions", "GameId", "Env", "Processes", "TtlSeconds", "Region", "Zone", "Labels" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Agent.V1.RegisterResponse), global::Croupier.Agent.V1.RegisterResponse.Parser, new[]{ "SessionId", "ExpireAt", "Warnings" }, null, null, null, null),
@@ -88,7 +83,9 @@ namespace Croupier.Agent.V1 {
   }
   #region Messages
   /// <summary>
-  /// Function Descriptor - Server-side function definition with UI/RBAC metadata
+  /// Function Descriptor - server-side executable capability contract.
+  /// It intentionally carries no Dashboard UI, menu, route, label, Formily,
+  /// placement, or PageSpec metadata.
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class FunctionDescriptor : pb::IMessage<FunctionDescriptor>
@@ -127,16 +124,15 @@ namespace Croupier.Agent.V1 {
     public FunctionDescriptor(FunctionDescriptor other) : this() {
       id_ = other.id_;
       version_ = other.version_;
-      category_ = other.category_;
-      risk_ = other.risk_;
-      entity_ = other.entity_;
+      resource_ = other.resource_;
       operation_ = other.operation_;
+      risk_ = other.risk_;
+      permission_ = other.permission_;
       enabled_ = other.enabled_;
-      displayName_ = other.displayName_ != null ? other.displayName_.Clone() : null;
-      summary_ = other.summary_ != null ? other.summary_.Clone() : null;
+      summary_ = other.summary_;
+      description_ = other.description_;
       tags_ = other.tags_.Clone();
-      menu_ = other.menu_ != null ? other.menu_.Clone() : null;
-      permissions_ = other.permissions_ != null ? other.permissions_.Clone() : null;
+      deprecated_ = other.deprecated_;
       inputSchema_ = other.inputSchema_;
       outputSchema_ = other.outputSchema_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -178,26 +174,41 @@ namespace Croupier.Agent.V1 {
       }
     }
 
-    /// <summary>Field number for the "category" field.</summary>
-    public const int CategoryFieldNumber = 3;
-    private string category_ = "";
+    /// <summary>Field number for the "resource" field.</summary>
+    public const int ResourceFieldNumber = 3;
+    private string resource_ = "";
     /// <summary>
-    /// grouping
+    /// business resource/capability key, e.g. "player"
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Category {
-      get { return category_; }
+    public string Resource {
+      get { return resource_; }
       set {
-        category_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        resource_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "operation" field.</summary>
+    public const int OperationFieldNumber = 4;
+    private string operation_ = "";
+    /// <summary>
+    /// business action key, e.g. "ban", "send", "list"
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Operation {
+      get { return operation_; }
+      set {
+        operation_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
     /// <summary>Field number for the "risk" field.</summary>
-    public const int RiskFieldNumber = 4;
+    public const int RiskFieldNumber = 5;
     private string risk_ = "";
     /// <summary>
-    /// "low"|"medium"|"high"
+    /// "safe"|"warning"|"high"|"danger"
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -208,33 +219,18 @@ namespace Croupier.Agent.V1 {
       }
     }
 
-    /// <summary>Field number for the "entity" field.</summary>
-    public const int EntityFieldNumber = 5;
-    private string entity_ = "";
+    /// <summary>Field number for the "permission" field.</summary>
+    public const int PermissionFieldNumber = 6;
+    private string permission_ = "";
     /// <summary>
-    /// entity type, e.g. "item", "player"
+    /// optional permission identifier
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Entity {
-      get { return entity_; }
+    public string Permission {
+      get { return permission_; }
       set {
-        entity_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "operation" field.</summary>
-    public const int OperationFieldNumber = 6;
-    private string operation_ = "";
-    /// <summary>
-    /// operation type, e.g. "create", "read", "update", "delete"
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Operation {
-      get { return operation_; }
-      set {
-        operation_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        permission_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -253,37 +249,37 @@ namespace Croupier.Agent.V1 {
       }
     }
 
-    /// <summary>Field number for the "display_name" field.</summary>
-    public const int DisplayNameFieldNumber = 20;
-    private global::Croupier.Component.V1.I18nText displayName_;
+    /// <summary>Field number for the "summary" field.</summary>
+    public const int SummaryFieldNumber = 25;
+    private string summary_ = "";
     /// <summary>
-    /// UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+    /// OpenAPI 3.0.3 Operation Object fields for catalog/search.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.I18nText DisplayName {
-      get { return displayName_; }
+    public string Summary {
+      get { return summary_; }
       set {
-        displayName_ = value;
+        summary_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
-    /// <summary>Field number for the "summary" field.</summary>
-    public const int SummaryFieldNumber = 21;
-    private global::Croupier.Component.V1.I18nText summary_;
+    /// <summary>Field number for the "description" field.</summary>
+    public const int DescriptionFieldNumber = 26;
+    private string description_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.I18nText Summary {
-      get { return summary_; }
+    public string Description {
+      get { return description_; }
       set {
-        summary_ = value;
+        description_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
     /// <summary>Field number for the "tags" field.</summary>
-    public const int TagsFieldNumber = 22;
+    public const int TagsFieldNumber = 27;
     private static readonly pb::FieldCodec<string> _repeated_tags_codec
-        = pb::FieldCodec.ForString(178);
+        = pb::FieldCodec.ForString(218);
     private readonly pbc::RepeatedField<string> tags_ = new pbc::RepeatedField<string>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -291,27 +287,15 @@ namespace Croupier.Agent.V1 {
       get { return tags_; }
     }
 
-    /// <summary>Field number for the "menu" field.</summary>
-    public const int MenuFieldNumber = 23;
-    private global::Croupier.Component.V1.Menu menu_;
+    /// <summary>Field number for the "deprecated" field.</summary>
+    public const int DeprecatedFieldNumber = 28;
+    private bool deprecated_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.Menu Menu {
-      get { return menu_; }
+    public bool Deprecated {
+      get { return deprecated_; }
       set {
-        menu_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "permissions" field.</summary>
-    public const int PermissionsFieldNumber = 24;
-    private global::Croupier.Component.V1.PermissionSpec permissions_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Croupier.Component.V1.PermissionSpec Permissions {
-      get { return permissions_; }
-      set {
-        permissions_ = value;
+        deprecated_ = value;
       }
     }
 
@@ -362,16 +346,15 @@ namespace Croupier.Agent.V1 {
       }
       if (Id != other.Id) return false;
       if (Version != other.Version) return false;
-      if (Category != other.Category) return false;
-      if (Risk != other.Risk) return false;
-      if (Entity != other.Entity) return false;
+      if (Resource != other.Resource) return false;
       if (Operation != other.Operation) return false;
+      if (Risk != other.Risk) return false;
+      if (Permission != other.Permission) return false;
       if (Enabled != other.Enabled) return false;
-      if (!object.Equals(DisplayName, other.DisplayName)) return false;
-      if (!object.Equals(Summary, other.Summary)) return false;
+      if (Summary != other.Summary) return false;
+      if (Description != other.Description) return false;
       if(!tags_.Equals(other.tags_)) return false;
-      if (!object.Equals(Menu, other.Menu)) return false;
-      if (!object.Equals(Permissions, other.Permissions)) return false;
+      if (Deprecated != other.Deprecated) return false;
       if (InputSchema != other.InputSchema) return false;
       if (OutputSchema != other.OutputSchema) return false;
       return Equals(_unknownFields, other._unknownFields);
@@ -383,16 +366,15 @@ namespace Croupier.Agent.V1 {
       int hash = 1;
       if (Id.Length != 0) hash ^= Id.GetHashCode();
       if (Version.Length != 0) hash ^= Version.GetHashCode();
-      if (Category.Length != 0) hash ^= Category.GetHashCode();
-      if (Risk.Length != 0) hash ^= Risk.GetHashCode();
-      if (Entity.Length != 0) hash ^= Entity.GetHashCode();
+      if (Resource.Length != 0) hash ^= Resource.GetHashCode();
       if (Operation.Length != 0) hash ^= Operation.GetHashCode();
+      if (Risk.Length != 0) hash ^= Risk.GetHashCode();
+      if (Permission.Length != 0) hash ^= Permission.GetHashCode();
       if (Enabled != false) hash ^= Enabled.GetHashCode();
-      if (displayName_ != null) hash ^= DisplayName.GetHashCode();
-      if (summary_ != null) hash ^= Summary.GetHashCode();
+      if (Summary.Length != 0) hash ^= Summary.GetHashCode();
+      if (Description.Length != 0) hash ^= Description.GetHashCode();
       hash ^= tags_.GetHashCode();
-      if (menu_ != null) hash ^= Menu.GetHashCode();
-      if (permissions_ != null) hash ^= Permissions.GetHashCode();
+      if (Deprecated != false) hash ^= Deprecated.GetHashCode();
       if (InputSchema.Length != 0) hash ^= InputSchema.GetHashCode();
       if (OutputSchema.Length != 0) hash ^= OutputSchema.GetHashCode();
       if (_unknownFields != null) {
@@ -421,42 +403,38 @@ namespace Croupier.Agent.V1 {
         output.WriteRawTag(18);
         output.WriteString(Version);
       }
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(26);
-        output.WriteString(Category);
-      }
-      if (Risk.Length != 0) {
-        output.WriteRawTag(34);
-        output.WriteString(Risk);
-      }
-      if (Entity.Length != 0) {
-        output.WriteRawTag(42);
-        output.WriteString(Entity);
+        output.WriteString(Resource);
       }
       if (Operation.Length != 0) {
-        output.WriteRawTag(50);
+        output.WriteRawTag(34);
         output.WriteString(Operation);
+      }
+      if (Risk.Length != 0) {
+        output.WriteRawTag(42);
+        output.WriteString(Risk);
+      }
+      if (Permission.Length != 0) {
+        output.WriteRawTag(50);
+        output.WriteString(Permission);
       }
       if (Enabled != false) {
         output.WriteRawTag(56);
         output.WriteBool(Enabled);
       }
-      if (displayName_ != null) {
-        output.WriteRawTag(162, 1);
-        output.WriteMessage(DisplayName);
+      if (Summary.Length != 0) {
+        output.WriteRawTag(202, 1);
+        output.WriteString(Summary);
       }
-      if (summary_ != null) {
-        output.WriteRawTag(170, 1);
-        output.WriteMessage(Summary);
+      if (Description.Length != 0) {
+        output.WriteRawTag(210, 1);
+        output.WriteString(Description);
       }
       tags_.WriteTo(output, _repeated_tags_codec);
-      if (menu_ != null) {
-        output.WriteRawTag(186, 1);
-        output.WriteMessage(Menu);
-      }
-      if (permissions_ != null) {
-        output.WriteRawTag(194, 1);
-        output.WriteMessage(Permissions);
+      if (Deprecated != false) {
+        output.WriteRawTag(224, 1);
+        output.WriteBool(Deprecated);
       }
       if (InputSchema.Length != 0) {
         output.WriteRawTag(242, 1);
@@ -484,42 +462,38 @@ namespace Croupier.Agent.V1 {
         output.WriteRawTag(18);
         output.WriteString(Version);
       }
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(26);
-        output.WriteString(Category);
-      }
-      if (Risk.Length != 0) {
-        output.WriteRawTag(34);
-        output.WriteString(Risk);
-      }
-      if (Entity.Length != 0) {
-        output.WriteRawTag(42);
-        output.WriteString(Entity);
+        output.WriteString(Resource);
       }
       if (Operation.Length != 0) {
-        output.WriteRawTag(50);
+        output.WriteRawTag(34);
         output.WriteString(Operation);
+      }
+      if (Risk.Length != 0) {
+        output.WriteRawTag(42);
+        output.WriteString(Risk);
+      }
+      if (Permission.Length != 0) {
+        output.WriteRawTag(50);
+        output.WriteString(Permission);
       }
       if (Enabled != false) {
         output.WriteRawTag(56);
         output.WriteBool(Enabled);
       }
-      if (displayName_ != null) {
-        output.WriteRawTag(162, 1);
-        output.WriteMessage(DisplayName);
+      if (Summary.Length != 0) {
+        output.WriteRawTag(202, 1);
+        output.WriteString(Summary);
       }
-      if (summary_ != null) {
-        output.WriteRawTag(170, 1);
-        output.WriteMessage(Summary);
+      if (Description.Length != 0) {
+        output.WriteRawTag(210, 1);
+        output.WriteString(Description);
       }
       tags_.WriteTo(ref output, _repeated_tags_codec);
-      if (menu_ != null) {
-        output.WriteRawTag(186, 1);
-        output.WriteMessage(Menu);
-      }
-      if (permissions_ != null) {
-        output.WriteRawTag(194, 1);
-        output.WriteMessage(Permissions);
+      if (Deprecated != false) {
+        output.WriteRawTag(224, 1);
+        output.WriteBool(Deprecated);
       }
       if (InputSchema.Length != 0) {
         output.WriteRawTag(242, 1);
@@ -545,33 +519,30 @@ namespace Croupier.Agent.V1 {
       if (Version.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Version);
       }
-      if (Category.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Category);
-      }
-      if (Risk.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Risk);
-      }
-      if (Entity.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Entity);
+      if (Resource.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Resource);
       }
       if (Operation.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Operation);
       }
+      if (Risk.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Risk);
+      }
+      if (Permission.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Permission);
+      }
       if (Enabled != false) {
         size += 1 + 1;
       }
-      if (displayName_ != null) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(DisplayName);
+      if (Summary.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(Summary);
       }
-      if (summary_ != null) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(Summary);
+      if (Description.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(Description);
       }
       size += tags_.CalculateSize(_repeated_tags_codec);
-      if (menu_ != null) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(Menu);
-      }
-      if (permissions_ != null) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(Permissions);
+      if (Deprecated != false) {
+        size += 2 + 1;
       }
       if (InputSchema.Length != 0) {
         size += 2 + pb::CodedOutputStream.ComputeStringSize(InputSchema);
@@ -597,45 +568,30 @@ namespace Croupier.Agent.V1 {
       if (other.Version.Length != 0) {
         Version = other.Version;
       }
-      if (other.Category.Length != 0) {
-        Category = other.Category;
-      }
-      if (other.Risk.Length != 0) {
-        Risk = other.Risk;
-      }
-      if (other.Entity.Length != 0) {
-        Entity = other.Entity;
+      if (other.Resource.Length != 0) {
+        Resource = other.Resource;
       }
       if (other.Operation.Length != 0) {
         Operation = other.Operation;
       }
+      if (other.Risk.Length != 0) {
+        Risk = other.Risk;
+      }
+      if (other.Permission.Length != 0) {
+        Permission = other.Permission;
+      }
       if (other.Enabled != false) {
         Enabled = other.Enabled;
       }
-      if (other.displayName_ != null) {
-        if (displayName_ == null) {
-          DisplayName = new global::Croupier.Component.V1.I18nText();
-        }
-        DisplayName.MergeFrom(other.DisplayName);
+      if (other.Summary.Length != 0) {
+        Summary = other.Summary;
       }
-      if (other.summary_ != null) {
-        if (summary_ == null) {
-          Summary = new global::Croupier.Component.V1.I18nText();
-        }
-        Summary.MergeFrom(other.Summary);
+      if (other.Description.Length != 0) {
+        Description = other.Description;
       }
       tags_.Add(other.tags_);
-      if (other.menu_ != null) {
-        if (menu_ == null) {
-          Menu = new global::Croupier.Component.V1.Menu();
-        }
-        Menu.MergeFrom(other.Menu);
-      }
-      if (other.permissions_ != null) {
-        if (permissions_ == null) {
-          Permissions = new global::Croupier.Component.V1.PermissionSpec();
-        }
-        Permissions.MergeFrom(other.Permissions);
+      if (other.Deprecated != false) {
+        Deprecated = other.Deprecated;
       }
       if (other.InputSchema.Length != 0) {
         InputSchema = other.InputSchema;
@@ -667,55 +623,39 @@ namespace Croupier.Agent.V1 {
             break;
           }
           case 26: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 34: {
-            Risk = input.ReadString();
+            Operation = input.ReadString();
             break;
           }
           case 42: {
-            Entity = input.ReadString();
+            Risk = input.ReadString();
             break;
           }
           case 50: {
-            Operation = input.ReadString();
+            Permission = input.ReadString();
             break;
           }
           case 56: {
             Enabled = input.ReadBool();
             break;
           }
-          case 162: {
-            if (displayName_ == null) {
-              DisplayName = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(DisplayName);
+          case 202: {
+            Summary = input.ReadString();
             break;
           }
-          case 170: {
-            if (summary_ == null) {
-              Summary = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(Summary);
+          case 210: {
+            Description = input.ReadString();
             break;
           }
-          case 178: {
+          case 218: {
             tags_.AddEntriesFrom(input, _repeated_tags_codec);
             break;
           }
-          case 186: {
-            if (menu_ == null) {
-              Menu = new global::Croupier.Component.V1.Menu();
-            }
-            input.ReadMessage(Menu);
-            break;
-          }
-          case 194: {
-            if (permissions_ == null) {
-              Permissions = new global::Croupier.Component.V1.PermissionSpec();
-            }
-            input.ReadMessage(Permissions);
+          case 224: {
+            Deprecated = input.ReadBool();
             break;
           }
           case 242: {
@@ -750,55 +690,39 @@ namespace Croupier.Agent.V1 {
             break;
           }
           case 26: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 34: {
-            Risk = input.ReadString();
+            Operation = input.ReadString();
             break;
           }
           case 42: {
-            Entity = input.ReadString();
+            Risk = input.ReadString();
             break;
           }
           case 50: {
-            Operation = input.ReadString();
+            Permission = input.ReadString();
             break;
           }
           case 56: {
             Enabled = input.ReadBool();
             break;
           }
-          case 162: {
-            if (displayName_ == null) {
-              DisplayName = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(DisplayName);
+          case 202: {
+            Summary = input.ReadString();
             break;
           }
-          case 170: {
-            if (summary_ == null) {
-              Summary = new global::Croupier.Component.V1.I18nText();
-            }
-            input.ReadMessage(Summary);
+          case 210: {
+            Description = input.ReadString();
             break;
           }
-          case 178: {
+          case 218: {
             tags_.AddEntriesFrom(ref input, _repeated_tags_codec);
             break;
           }
-          case 186: {
-            if (menu_ == null) {
-              Menu = new global::Croupier.Component.V1.Menu();
-            }
-            input.ReadMessage(Menu);
-            break;
-          }
-          case 194: {
-            if (permissions_ == null) {
-              Permissions = new global::Croupier.Component.V1.PermissionSpec();
-            }
-            input.ReadMessage(Permissions);
+          case 224: {
+            Deprecated = input.ReadBool();
             break;
           }
           case 242: {

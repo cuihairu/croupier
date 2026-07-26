@@ -23,7 +23,7 @@ func (h *Handler) List(c *gin.Context) {
 
 	resp, err := h.service.List(c.Request.Context(), &req)
 	if err != nil {
-		response.InternalServerError(c, err.Error())
+		response.Error(c, err)
 		return
 	}
 	response.Success(c, resp)
@@ -39,7 +39,7 @@ func (h *Handler) Upsert(c *gin.Context) {
 
 	resp, err := h.service.Upsert(c.Request.Context(), &req)
 	if err != nil {
-		response.InternalServerError(c, err.Error())
+		response.Error(c, err)
 		return
 	}
 	response.Success(c, resp)
@@ -55,7 +55,7 @@ func (h *Handler) Delete(c *gin.Context) {
 
 	resp, err := h.service.Delete(c.Request.Context(), &req)
 	if err != nil {
-		response.InternalServerError(c, err.Error())
+		response.Error(c, err)
 		return
 	}
 	response.Success(c, resp)

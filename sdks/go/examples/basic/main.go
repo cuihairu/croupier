@@ -68,13 +68,13 @@ func main() {
 func registerFunctions(client croupier.Client) error {
 	// Register player ban function
 	playerBanDesc := croupier.FunctionDescriptor{
-		ID:        "player.ban",
-		Version:   "1.0.0",
-		Category:  "moderation",
-		Risk:      "high",
-		Entity:    "player",
-		Operation: "update",
-		Enabled:   true,
+		ID:         "player.ban",
+		Version:    "1.0.0",
+		Resource:   "player",
+		Risk:       "high",
+		Operation:  "ban",
+		Permission: "player:ban",
+		Enabled:    true,
 	}
 
 	playerBanHandler := func(ctx context.Context, payload []byte) ([]byte, error) {
@@ -101,9 +101,8 @@ func registerFunctions(client croupier.Client) error {
 	itemCreateDesc := croupier.FunctionDescriptor{
 		ID:        "item.create",
 		Version:   "1.0.0",
-		Category:  "inventory",
+		Resource:  "item",
 		Risk:      "low",
-		Entity:    "item",
 		Operation: "create",
 		Enabled:   true,
 	}

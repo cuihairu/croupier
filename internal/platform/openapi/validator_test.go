@@ -96,9 +96,11 @@ func TestValidator_ValidateExtensionFields(t *testing.T) {
 
 	t.Run("valid extensions", func(t *testing.T) {
 		extensions := map[string]interface{}{
-			"x-risk":      "safe",
-			"x-category":  "player",
-			"x-operation": "create",
+			"x-risk":       "safe",
+			"x-resource":   "player",
+			"x-operation":  "ban",
+			"x-enabled":    true,
+			"x-permission": "player:ban",
 		}
 		err := validator.ValidateExtensionFields(extensions)
 		assert.NoError(t, err)

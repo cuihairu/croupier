@@ -441,26 +441,6 @@ func openAPIMethodOperations(paths *openapi3.Paths) []methodOperation {
 
 func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diags *[]spec.Diagnostic) OpenAPISourceOperation {
 	extensions := candidate.op.Extensions
-	kind := spec.OperationKind(extensionString(extensions, "x-operation-kind"))
-	if kind != "" && !isValidOperationKind(kind) {
-		*diags = append(*diags, sourceDiagnostic(
-			"openapi_operation_kind_invalid",
-			spec.SeverityWarning,
-			"invalid x-operation-kind ignored",
-			fmt.Sprintf("$.paths.%s.%s.x-operation-kind", candidate.path, strings.ToLower(candidate.method)),
-		))
-		kind = ""
-	}
-	placement := spec.OperationPlacement(extensionString(extensions, "x-placement"))
-	if placement != "" && !isValidOperationPlacement(placement) {
-		*diags = append(*diags, sourceDiagnostic(
-			"openapi_placement_invalid",
-			spec.SeverityWarning,
-			"invalid x-placement ignored",
-			fmt.Sprintf("$.paths.%s.%s.x-placement", candidate.path, strings.ToLower(candidate.method)),
-		))
-		placement = ""
-	}
 	risk := spec.RiskLevel(extensionString(extensions, "x-risk"))
 	if risk != "" && !isValidRisk(risk) {
 		*diags = append(*diags, sourceDiagnostic(
@@ -472,23 +452,17 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 		risk = ""
 	}
 	return OpenAPISourceOperation{
-		OperationID:      operationID,
-		Method:           candidate.method,
-		Path:             candidate.path,
-		Summary:          strings.TrimSpace(candidate.op.Summary),
-		Description:      strings.TrimSpace(candidate.op.Description),
-		Tags:             append([]string(nil), candidate.op.Tags...),
-		Category:         extensionString(extensions, "x-category"),
-		CategoryDisplay:  extensionLocalized(extensions, "x-category-display"),
-		Entity:           extensionString(extensions, "x-entity"),
-		EntityDisplay:    extensionLocalized(extensions, "x-entity-display"),
-		Operation:        extensionString(extensions, "x-operation"),
-		OperationDisplay: extensionLocalized(extensions, "x-operation-display"),
-		OperationKind:    kind,
-		Placement:        placement,
-		PageHint:         extensionString(extensions, "x-page-hint"),
-		PageContract:     extensionPageContract(extensions, "x-page-contract"),
-		Risk:             risk,
+		OperationID:  operationID,
+		Method:       candidate.method,
+		Path:         candidate.path,
+		Summary:      strings.TrimSpace(candidate.op.Summary),
+		Description:  strings.TrimSpace(candidate.op.Description),
+		Tags:         append([]string(nil), candidate.op.Tags...),
+		Operation:    extensionString(extensions, "x-operation"),
+		Resource:     extensionString(extensions, "x-resource"),
+		PageContract: extensionPageContract(extensions, "x-page-contract"),
+		Risk:         risk,
+		Permission:   extensionString(extensions, "x-permission"),
 	}
 }
 
@@ -713,26 +687,6 @@ func extensionPageContract(extensions map[string]interface{}, key string) *spec.
 		return nil
 	}
 	return &contract
-}
-
-func isValidOperationKind(kind spec.OperationKind) bool {
-	switch kind {
-	case spec.OperationKindList, spec.OperationKindGet, spec.OperationKindCreate, spec.OperationKindUpdate,
-		spec.OperationKindDelete, spec.OperationKindAction, spec.OperationKindTask, spec.OperationKindReport:
-		return true
-	default:
-		return false
-	}
-}
-
-func isValidOperationPlacement(placement spec.OperationPlacement) bool {
-	switch placement {
-	case spec.PlacementQuery, spec.PlacementTableData, spec.PlacementDetailData, spec.PlacementRowAction,
-		spec.PlacementDetailAction, spec.PlacementToolbarAction, spec.PlacementBatchAction, spec.PlacementStandalone:
-		return true
-	default:
-		return false
-	}
 }
 
 func isValidRisk(risk spec.RiskLevel) bool {

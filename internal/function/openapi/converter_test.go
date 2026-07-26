@@ -13,7 +13,7 @@ func TestConverter_MetadataToOperation(t *testing.T) {
 	metadata := &functionv1.FunctionMetadata{
 		Id:           "player.ban",
 		Version:      "1.0.0",
-		Category:     "player",
+		Resource:     "player",
 		Name:         "Ban Player",
 		Description:  "Ban a player from the game",
 		Tags:         []string{"moderation", "player"},
@@ -47,8 +47,8 @@ func TestConverter_MetadataToOperation(t *testing.T) {
 	}
 
 	// Check extensions
-	if category, ok := op.Extensions["x-category"].(string); !ok || category != metadata.Category {
-		t.Errorf("Expected x-category %s, got %v", metadata.Category, op.Extensions["x-category"])
+	if resource, ok := op.Extensions["x-resource"].(string); !ok || resource != metadata.Resource {
+		t.Errorf("Expected x-resource %s, got %v", metadata.Resource, op.Extensions["x-resource"])
 	}
 
 	if risk, ok := op.Extensions["x-risk"].(string); !ok || risk != "high" {
@@ -90,7 +90,7 @@ func TestConverter_OperationToMetadata(t *testing.T) {
 		},
 		Responses: openapi3.NewResponses(),
 	}
-	op.Extensions["x-category"] = "player"
+	op.Extensions["x-resource"] = "player"
 	op.Extensions["x-risk"] = "high"
 	op.Extensions["x-permission"] = "player.ban.invoke"
 
@@ -118,8 +118,8 @@ func TestConverter_OperationToMetadata(t *testing.T) {
 		t.Errorf("Expected ID player.ban, got %s", metadata.Id)
 	}
 
-	if metadata.Category != "player" {
-		t.Errorf("Expected category player, got %s", metadata.Category)
+	if metadata.Resource != "player" {
+		t.Errorf("Expected resource player, got %s", metadata.Resource)
 	}
 
 	if metadata.Behavior.Mode != functionv1.FunctionBehavior_MODE_QUERY {
@@ -155,7 +155,7 @@ func TestConverter_ImportFromSpec(t *testing.T) {
 		Tags:        []string{"player", "moderation"},
 		Extensions:  map[string]interface{}{},
 	}
-	op1.Extensions["x-category"] = "player"
+	op1.Extensions["x-resource"] = "player"
 	op1.Extensions["x-risk"] = "high"
 
 	objectType := openapi3.Types{"object"}
@@ -203,8 +203,8 @@ func TestConverter_ImportFromSpec(t *testing.T) {
 		t.Errorf("Expected ID player.ban, got %s", md.Id)
 	}
 
-	if md.Category != "player" {
-		t.Errorf("Expected category player, got %s", md.Category)
+	if md.Resource != "player" {
+		t.Errorf("Expected resource player, got %s", md.Resource)
 	}
 
 	if md.Security.RiskLevel != functionv1.FunctionSecurity_RISK_LEVEL_HIGH {
@@ -218,7 +218,7 @@ func TestConverter_ExportToSpec(t *testing.T) {
 	metadatas := []*functionv1.FunctionMetadata{
 		{
 			Id:          "player.ban",
-			Category:    "player",
+			Resource:    "player",
 			Name:        "Ban Player",
 			Description: "Ban a player",
 			Tags:        []string{"moderation"},
@@ -651,7 +651,7 @@ func TestConverter_ExportToSpec_WithNilMetadata(t *testing.T) {
 	metadatas := []*functionv1.FunctionMetadata{
 		{
 			Id:       "player.get",
-			Category: "player",
+			Resource: "player",
 			Name:     "Get Player",
 			Behavior: &functionv1.FunctionBehavior{},
 			Security: &functionv1.FunctionSecurity{},
@@ -659,7 +659,7 @@ func TestConverter_ExportToSpec_WithNilMetadata(t *testing.T) {
 		nil, // Nil metadata should be skipped
 		{
 			Id:       "game.create",
-			Category: "game",
+			Resource: "game",
 			Name:     "Create Game",
 			Behavior: &functionv1.FunctionBehavior{},
 			Security: &functionv1.FunctionSecurity{},
@@ -963,7 +963,7 @@ func TestConverter_MetadataToOperation_WithNilSecurity(t *testing.T) {
 
 	metadata := &functionv1.FunctionMetadata{
 		Id:       "test.no-security",
-		Category: "test",
+		Resource: "test",
 		Name:     "No Security",
 		Security: nil,
 		Behavior: &functionv1.FunctionBehavior{

@@ -75,9 +75,9 @@ const Welcome: React.FC = () => {
     },
     {
       title: '页面装配',
-      description: '在对象工作台完成主函数绑定、页面骨架生成、字段细化与发布。',
-      actionLabel: '进入对象工作台',
-      path: '/system/functions/workspaces',
+      description: '在资源/页面候选中确认 PageSpec 生成质量，再进入 Page Studio 修改与发布。',
+      actionLabel: '查看资源/页面候选',
+      path: '/system/functions/resources',
     },
     {
       title: '运行验证',
@@ -117,17 +117,16 @@ const Welcome: React.FC = () => {
                   type="secondary"
                   style={{ margin: 0, fontSize: 16, lineHeight: 1.8, maxWidth: 860 }}
                 >
-                  函数目录负责沉淀原子能力，对象工作台负责把函数组织成页面，控制台负责把已发布页面交付给运营和管理用户。当前稳定交付范围是
-                  `tabs + list/form/detail/form-detail`。
+                  函数目录负责沉淀原子能力，资源/页面候选负责暴露可编排能力，Page Studio 负责最终页面，控制台负责把已发布页面交付给运营和管理用户。
                 </Typography.Paragraph>
                 <Space wrap size={[12, 12]}>
                   <Button
                     type="primary"
                     icon={<RocketOutlined />}
                     size="large"
-                    onClick={() => history.push('/system/functions/workspaces')}
+                    onClick={() => history.push('/system/functions/resources')}
                   >
-                    进入对象工作台
+                    查看资源/页面候选
                   </Button>
                   <Button
                     size="large"
@@ -212,10 +211,10 @@ const Welcome: React.FC = () => {
           <Col xs={24} md={8}>
             <EntryCard
               title="对象工作台"
-              hint="把函数组装成页面"
-              description="从业务对象视角创建页面骨架、绑定函数、预览结构、发布到控制台。这是当前最核心的产品入口。"
-              actionLabel="去做页面编排"
-              path="/system/functions/workspaces"
+              hint="Page Studio 页面装配"
+              description="从资源/操作候选进入 Page Studio，创建页面骨架、绑定函数、校验映射并发布到运行控制台。"
+              actionLabel="查看页面候选"
+              path="/system/functions/resources"
               icon={<SettingOutlined />}
               tone="linear-gradient(135deg, #1668dc 0%, #69b1ff 100%)"
             />

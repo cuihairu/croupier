@@ -286,9 +286,8 @@ func TestLocalFunctionDescriptor_AllFieldCombinations(t *testing.T) {
 			Deprecated:   false,
 			InputSchema:  `{"type":"object"}`,
 			OutputSchema: `{"type":"object"}`,
-			Category:     "test",
+			Resource:     "test",
 			Risk:         "safe",
-			Entity:       "TestEntity",
 			Operation:    "test",
 		}
 

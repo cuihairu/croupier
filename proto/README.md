@@ -12,9 +12,7 @@ proto/
 │   │   ├── task.proto
 │   │   └── register.proto
 │   ├── component/v1/
-│   │   ├── dashboard_ui.proto
-│   │   ├── function_options.proto
-│   │   └── ui_options.proto
+│   │   └── function_options.proto
 │   ├── external/v1/
 │   │   └── platform.proto
 │   ├── ops/v1/
@@ -53,9 +51,7 @@ Proto 文件主要描述的是这些子协议之上的消息格式。
 
 | 文件 | 用途 |
 | --- | --- |
-| `function_options.proto` | 方法级元数据扩展 |
-| `ui_options.proto` | 字段级 UI 元数据扩展 |
-| `dashboard_ui.proto` | UI / i18n / 菜单 / 权限定义 |
+| `function_options.proto` | 方法级函数能力契约扩展 |
 
 ### `croupier/sdk/v1`
 
@@ -84,7 +80,7 @@ Proto 文件主要描述的是这些子协议之上的消息格式。
 当前语义：
 
 - `RegisterRequest` 在语义上等价于 agent session connect/register
-- `rpc_addr` 字段仍有历史兼容痕迹，但不应再作为目标架构的长期依赖
+- Agent 注册只上传能力契约和 provider 进程信息，不上传 Dashboard 菜单或页面元数据。
 
 ### `croupier/ops/v1`
 

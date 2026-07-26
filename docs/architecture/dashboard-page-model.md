@@ -47,7 +47,7 @@ API/函数契约内省
 1. **函数不是页面**：Function 只是最小可执行能力；Page 才是运营人员完成任务的界面。
 2. **资源先于菜单**：菜单按已发布 Resource/Page 组织，不按原始函数列表堆叠。
 3. **Formily 是唯一 UI 协议**：函数表单和页面编排都必须是 Formily JSON Schema。
-4. **动态文案跟随配置**：动态分类、资源、页面标题的多语言文案来自注册或 Page 的强类型 labels，不进入 `web/src/locales/*/menu.ts`。
+4. **动态文案跟随 Page**：动态分类、资源、页面标题和按钮文案来自 PageSpec / PublishedPageSpec 的强类型 labels，不进入函数注册或 `web/src/locales/*/menu.ts`。
 5. **不把字典当主模型**：字典适合枚举、状态、下拉选项，不适合作为动态导航分类的事实源。
 6. **不在前端运行时猜语义**：函数归类、操作类型、页面候选和默认 Page 生成由 Server 归一化完成。
 7. **发布产物必须自洽**：运行控制台只消费已发布 PageSpec；缺少标题、分类、多语言、Formily Schema 或绑定函数时发布失败。
@@ -69,7 +69,7 @@ SDK / OpenAPI / DB Template
 | --- | --- | --- |
 | `FunctionSpec` | 单个函数能力、输入/输出契约、默认函数表单 | 页面布局、菜单位置 |
 | `ResourceSpec` | 稳定业务对象或能力域，如 `player`、`mail`、`inventory` | 具体调用执行 |
-| `OperationSpec` | 某个资源上的操作语义和放置位置 | 全局菜单结构 |
+| `OperationSpec` | 某个资源上的业务动作、治理信息和页面候选诊断 | 全局菜单结构、最终页面位置 |
 | `PageSpec` | 页面级 Formily 组件树和显式数据映射，组合函数、表格、详情、动作和分页 | 底层协议和函数注册 |
 | `PageDraft` | 一个作用域内可编辑的 PageSpec 草稿及其修订 | 运行控制台展示 |
 | `PublishedPageSpec` | 已校验、冻结函数契约、可运行的页面快照 | 继续猜测和补全 |
@@ -117,17 +117,23 @@ Resource 的作用是把相关 Operation 组织成页面候选能力。它不是
 
 ### Operation
 
-Operation 是某个 Function 在 Resource 或页面中的业务动作和页面语义。
+Operation 是某个 Function 在 Resource 中的业务动作，不是页面类型。
 
-它必须拆成三个字段理解：
+注册侧只允许表达业务动作：
 
 | 字段 | 含义 | 示例 |
 | --- | --- | --- |
 | `operation` | 业务动作 key | `list`、`get`、`ban`、`grant`、`send` |
-| `operationKind` | 可选的页面候选语义提示 | `list`、`get`、`action`、`task`、`report` |
-| `placement` | 可选的页面候选放置提示 | `tableData`、`rowAction`、`toolbarAction`、`standalone` |
 
-不能把 `operation` 当成页面类型。`operationKind` / `placement` 即使存在也只是 Server 生成候选时的提示；最终页面类型、组件和位置只由 Page Studio 保存的 PageSpec 决定。
+页面候选类型和位置由 Server 内部生成器或 Page Studio 决定：
+
+| 概念 | 含义 | 所属模型 |
+| --- | --- | --- |
+| `PageCandidate.kind` | 候选页面形态，例如 `entity`、`operation`、`task`、`report` | Server 生成诊断 |
+| `PageFunctionBinding.usage` | 页面实际消费函数的方式，例如 `query`、`detail`、`action`、`task`、`report` | PageSpec |
+| 组件位置 | 表格数据源、行操作、工具栏、独立页、图表等 | PageSpec Formily schema |
+
+SDK/OpenAPI 注册不得提供 `operationKind`、`placement`、`pageHint`、菜单或动态显示字段。最终页面类型、组件和位置只由 Page Studio 保存的 PageSpec 决定。
 
 ### Page
 
@@ -183,28 +189,27 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 1. 先判断是不是一个可执行能力：是则进入 `FunctionSpec`。
 2. 再判断它是否围绕稳定资源展开：是则关联 `ResourceSpec`，否则只保留为独立 Operation 候选。
-3. 再分析候选页面语义：优先使用可选 `operationKind` / `placement`，缺失时只能使用 OpenAPI/JSON Schema 的确定性结构规则生成保守候选和 diagnostics，不能根据函数名猜业务字段。
+3. 再分析页面候选：只能使用 FunctionSpec、JSON Schema、执行模式和可验证 PageContract 做确定性结构分析；无法确认时生成保守候选和 diagnostics，不能根据函数名猜业务字段。
 4. 再生成 PageSpec 候选：候选不是发布结果，必须进入 Page Studio 确认、修改或直接接受。
 6. 校验页面组件 props、数据映射、函数契约和权限后发布冻结快照。
 7. 只有当前 scope 的 PublishedPageSpec 才能进入运行控制台菜单和执行链路。
 
 典型判断：
 
-| 函数 | Resource | Operation | Page 类型 | Placement | 说明 |
+| 函数 | Resource | Operation | 可能页面形态 | 最终位置示例 | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| `player.list` | `player` | `list` / `list` | Entity Page | `tableData` | 玩家列表页的数据源 |
-| `player.get` | `player` | `get` / `get` | Entity Page | `detailData` | 玩家详情的数据源 |
-| `player.ban` | `player` | `ban` / `action` | Entity Page | `rowAction` | 需要选中具体玩家，适合作为行操作 |
-| `mail.send` | `mail` 或无 Resource | `send` / `action` | Operation Page 或 Entity Page | `standalone` / `toolbarAction` | 如果是全局发邮件，独立页；如果在邮件模板页内触发，可作为工具栏动作 |
-| `reward.batchGrant` | `reward` | `batchGrant` / `task` | Task Page | `standalone` / `batchAction` | 长耗时或批量操作需要任务页状态 |
-| `analytics.retention` | `analytics` | `retention` / `report` | Report Page | `standalone` | 查询结果更适合图表和报表 |
-| `cache.refresh` | 无 Resource 或 `system` | `refresh` / `action` | Operation Page | `standalone` | 运维命令不属于 Entity Page |
+| `player.list` | `player` | `list` | Entity Page | DataTable 数据源 | 玩家列表页的数据源 |
+| `player.get` | `player` | `get` | Entity Page | DetailPanel 数据源 | 玩家详情的数据源 |
+| `player.ban` | `player` | `ban` | Entity Page 或 Operation Page | 行操作或独立操作 | 只有 PageSpec 映射到选中玩家后才能作为行操作 |
+| `mail.send` | `mail` 或无 Resource | `send` | Operation Page 或 Entity Page | 独立页或工具栏动作 | 如果是全局发邮件，独立页；如果在邮件模板页内触发，可作为工具栏动作 |
+| `reward.batchGrant` | `reward` | `batchGrant` | Task Page | 独立任务页或批量操作 | 长耗时或批量操作需要任务页状态 |
+| `analytics.retention` | `analytics` | `retention` | Report Page | 图表或报表页 | 查询结果更适合图表和报表 |
+| `cache.refresh` | 无 Resource 或 `system` | `refresh` | Operation Page | 独立操作页 | 运维命令不属于 Entity Page |
 
 关键约束：
 
 - 函数注册成功只代表函数目录可见，不代表运行控制台可见。
-- 缺少 `operationKind` 或 `placement` 不影响函数注册；Server 仍可生成保守候选或待编排建议，不能自动发布 Page。
-- 缺少动态 labels 时，可以预览草稿，但不能发布到运行控制台。
+- 缺少可验证的 PageContract、分页、列、mapping 或默认语言 labels 时，可以生成候选或预览草稿，但不能发布到运行控制台。
 - `mail.send`、`cache.refresh` 这类函数不能因为有 `mail` 或 `cache` 前缀就强行进入 Entity Page。
 
 ## 术语定义
@@ -225,19 +230,15 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 | 字段 | 说明 |
 | --- | --- |
-| `displayName` | 函数显示名，多语言文本 |
 | `summary` | 一句话简介，多语言文本 |
 | `description` | 详细说明，支持 Markdown |
-| `category` | 导航分类 key |
-| `categoryDisplay` | 分类多语言显示名 |
-| `entity` | 资源 key，例如 `player` |
-| `entityDisplay` | 资源多语言显示名 |
 | `operation` | 业务操作 key，例如 `ban` |
-| `operationKind` | 可选页面候选提示，例如 `list`、`get`、`action` |
-| `placement` | 可选候选放置提示 |
+| `resource` | 业务资源或能力域 key，例如 `player` |
 | `risk` | 风险等级 |
 | `tags` | 搜索和治理标签 |
 | `outputSchema` | 响应 JSON Schema |
+
+`summary`、`description` 只能用于函数目录、搜索和候选说明，不能成为运行控制台菜单、页面标题或按钮文案的事实来源。SDK/OpenAPI 注册不得包含 `displayName`、分类 labels、资源 labels、操作 labels、`operationKind`、`placement` 或 `pageHint`。
 
 ### ResourceSpec
 
@@ -263,52 +264,41 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 }
 ```
 
-`ResourceSpec` 可以来自显式 `entity`，也可以由函数 ID 的对象段确定。进入发布态前必须完成归一化，不允许运行控制台临时推断。
+`ResourceSpec` 可以来自显式 `resource`，也可以由函数 ID 的对象段作为候选确定。它可以带 labels 供 Page Studio 初始化草稿，但运行控制台最终只读取 PublishedPageSpec 的分类和标题。
 
 ### OperationSpec
 
-`OperationSpec` 描述函数在页面里的语义。
+`OperationSpec` 描述归一化后的业务动作和候选诊断。它不是 SDK descriptor 的直接镜像，也不保存最终页面位置。
 
 ```json
 {
   "functionId": "player.ban",
   "resourceKey": "player",
   "operation": "ban",
-  "kind": "action",
-  "placement": "rowAction",
-  "labels": {
-    "zh-CN": "封禁",
-    "en-US": "Ban"
-  },
-  "risk": "danger"
+  "risk": "danger",
+  "candidate": {
+    "kind": "operation",
+    "quality": "needs_review",
+    "diagnostics": [
+      {
+        "code": "page_mapping_required",
+        "message": "需要在 Page Studio 中确认 playerId 来源和按钮位置"
+      }
+    ]
+  }
 }
 ```
 
-`kind` 是归一化后的候选页面语义。可由 descriptor 提示或 Server 的确定性契约分析给出；缺失时只能标记 `needs_review`，不能让前端猜测。允许的值：
+`candidate.kind` 是归一化后的候选页面形态，只能由 Server 的确定性契约分析或 Page Studio 编辑结果给出；缺失时只能标记 `needs_review`，不能让前端猜测。允许的值：
 
-| `kind` | 含义 | 典型页面 |
+| `candidate.kind` | 含义 | 典型页面 |
 | --- | --- | --- |
-| `list` | 列表查询 | Entity Page |
-| `get` | 单对象读取 | Entity Page |
-| `create` | 新建对象 | Entity Page |
-| `update` | 更新对象 | Entity Page |
-| `delete` | 删除对象 | Entity Page |
-| `action` | 同步命令 | Entity Page / Operation Page |
-| `task` | 异步任务 | Task Page |
-| `report` | 报表查询 | Report Page |
+| `entity` | 围绕稳定资源组合列表、详情和动作 | 玩家管理、邮件模板管理 |
+| `operation` | 独立同步命令或一次性操作 | 发送邮件、刷新缓存 |
+| `task` | 异步、批量或长耗时任务 | 批量发奖 |
+| `report` | 查询和图表/报表展示 | 留存分析 |
 
-`placement` 定义操作在默认候选中的推荐位置：
-
-| `placement` | 含义 |
-| --- | --- |
-| `query` | 查询区 |
-| `tableData` | 表格数据源 |
-| `rowAction` | 表格行操作 |
-| `detailAction` | 详情页操作 |
-| `toolbarAction` | 页面工具栏操作 |
-| `standalone` | 独立操作页 |
-
-缺少 `kind` 或 `placement` 的函数可以出现在函数目录；Server 可以给出保守候选或 `needs_review` diagnostics。无论字段是否存在，函数注册都不会自动发布正式 Page。
+候选不等于发布。函数可以出现在函数目录；Server 可以给出保守候选或 `needs_review` diagnostics。无论候选质量如何，函数注册都不会自动发布正式 Page。
 
 ### PageSpec
 
@@ -392,7 +382,7 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 不定义第二套 `layout` 运行时协议。PageSpec 的 `schema` 是唯一页面 UI 协议。
 
-`PageFunctionBinding.usage` 是页面实际如何消费函数（`query`、`detail`、`action`、`task`、`report` 等）；`OperationSpec.placement` 是归一化服务给生成器的**推荐**放置位置。两者不能复用同一个 `role` 字段，更不能要求完全相等。比如 `player.list` 推荐 `tableData`，但同一个 binding 可以由 `QueryForm` 发起并由 `DataTable` 消费其结果。发布校验验证映射和权限，而不是把候选 placement 当成不可变运行规则。
+`PageFunctionBinding.usage` 是页面实际如何消费函数（`query`、`detail`、`action`、`task`、`report` 等）。页面位置由 Formily schema 中的组件和 `bindingId` 引用决定，不能复用旧 `role` 或注册期 `placement` 字段。发布校验验证映射、组件 props、权限和契约快照，而不是把候选信息当成不可变运行规则。
 
 ### 作用域、标识和并发
 
@@ -691,10 +681,10 @@ Function Form 只渲染单次函数输入表单。Page 负责维护分页状态�
 
 分类确定时机：
 
-- FunctionSpec 归一化时可以从 descriptor 计算候选分类。
-- ResourceSpec 生成时可以继承或覆盖候选分类。
-- PageSpec 生成或保存时必须写入最终分类。
-- 发布时校验分类 key 和 labels。
+- FunctionSpec 归一化阶段最多产生 `resourceKey` 或 PageCandidate 分组建议，不产生运行菜单分类。
+- ResourceSpec 生成阶段最多为 Page Studio 提供候选，不是菜单事实源。
+- PageSpec 保存或发布时必须写入最终 `category.key` 与 `category.labels`。
+- 发布时校验分类 key、默认语言 labels 和页面 title。
 - 运行控制台只读取 PublishedPageSpec，不再重新推断分类。
 
 动态菜单生成规则：
@@ -733,8 +723,6 @@ PublishedPageSpec[]
 - 资源标题。
 - 页面标题。
 - 操作标题。
-- 函数显示名。
-- 函数简介和说明。
 - 字段标题和帮助文案。
 
 发布校验要求：
@@ -743,7 +731,7 @@ PublishedPageSpec[]
 - 必须覆盖 Dashboard 启用的语言集合。
 - 缺失语言时发布失败。
 
-运行时不从静态 locale 文件补动态分类和页面标题。静态 locale 只用于固定系统菜单，例如“系统配置”“运行控制台”“权限管理”。
+上述动态页面文案只属于 PageSpec / PublishedPageSpec。函数注册中的 `summary`、`description` 和 JSON Schema 字段说明可以用于函数目录和候选说明，但不能作为运行控制台分类、页面标题或按钮文案的事实来源。运行时不从静态 locale 文件补动态分类和页面标题。静态 locale 只用于固定系统菜单，例如“系统配置”“运行控制台”“权限管理”。
 
 ## 默认生成策略
 
@@ -753,10 +741,10 @@ Server 可以生成默认 PageSpec，但生成必须基于明确元数据。
 
 ```text
 FunctionSpec.inputSchema -> Server 派生 Function Form
-ResourceSpec + OperationSpec -> Entity PageSpec 初稿
-OperationSpec(kind=action, placement=standalone) -> Operation PageSpec 初稿
-OperationSpec(kind=task) -> Task PageSpec 初稿
-OperationSpec(kind=report) -> Report PageSpec 初稿
+ResourceSpec + OperationSpec + 可验证 PageContract -> Entity PageSpec 初稿
+OperationSpec + sync execution contract -> Operation PageSpec 初稿
+OperationSpec + task execution contract -> Task PageSpec 初稿
+OperationSpec + report/chart contract -> Report PageSpec 初稿
 ```
 
 不允许：
@@ -766,11 +754,11 @@ OperationSpec(kind=report) -> Report PageSpec 初稿
 把所有函数默认塞入 Entity Page
 把 Function Form 当 Page Schema
 要求函数注册者提供 Formily、Page schema、表格列或菜单布局
-缺少 kind/placement 时把猜测结果自动发布为正式 Page
+缺少可验证 PageContract、mapping、labels 或 binding 时把猜测结果自动发布为正式 Page
 为动态分类改静态 i18n 文件
 ```
 
-对于缺失 `operationKind`、`placement`、`entity`、`outputSchema` 等字段的函数，Server 可以生成保守“待编排建议”，但建议不是发布产物。用户在 Page Studio 确认和补齐后才生成可发布 PageSpec。
+对于缺失 `resource`、`operation`、`outputSchema`、分页字段、列定义、输入/输出 mapping、任务追踪或图表契约的函数，Server 可以生成保守“待编排建议”，但建议不是发布产物。用户在 Page Studio 确认和补齐后才生成可发布 PageSpec。
 
 ## Page Studio 职责
 
@@ -839,7 +827,7 @@ Dashboard 不应直接从函数目录组装运行控制台菜单。
 - 动态分类、资源、页面标题来自 PageSpec 的强类型 labels，不依赖不受约束的 metadata。
 - 所有运行时 UI schema 都是 Formily JSON Schema，且组件 props 满足平台的版本化 ABI。
 - 非 Formily Schema 在保存或渲染阶段直接报错。
-- 缺少 `operationKind` 或 `placement` 的函数仍可注册；只能生成保守候选或待编排 diagnostics，绝不自动发布。
+- 缺少可验证 PageContract、分页、列、mapping 或默认语言 labels 的函数仍可注册；只能生成保守候选或待编排 diagnostics，绝不自动发布。
 - 运行控制台左侧菜单只展示已发布 PageSpec。
 - 分页字段必须显式映射。
 - 函数目录、Page Studio、运行控制台之间没有重复菜单生成逻辑。

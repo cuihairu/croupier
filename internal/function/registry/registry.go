@@ -58,9 +58,9 @@ func (r *Registry) List(ctx context.Context) ([]*functionv1.FunctionMetadata, er
 	return r.store.List(ctx)
 }
 
-// ListByCategory retrieves functions by category.
-func (r *Registry) ListByCategory(ctx context.Context, category string) ([]*functionv1.FunctionMetadata, error) {
-	return r.store.ListByCategory(ctx, category)
+// ListByResource retrieves functions by resource.
+func (r *Registry) ListByResource(ctx context.Context, resource string) ([]*functionv1.FunctionMetadata, error) {
+	return r.store.ListByResource(ctx, resource)
 }
 
 // ListByTag retrieves functions by tag.
@@ -109,9 +109,9 @@ func (r *Registry) Count(ctx context.Context) int {
 	return r.store.Count(ctx)
 }
 
-// GetCategories returns all unique categories.
-func (r *Registry) GetCategories(ctx context.Context) []string {
-	return r.store.GetCategories(ctx)
+// GetResources returns all unique resources.
+func (r *Registry) GetResources(ctx context.Context) []string {
+	return r.store.GetResources(ctx)
 }
 
 // GetTags returns all unique tags.
@@ -129,11 +129,11 @@ func (r *Registry) validateMetadata(metadata *functionv1.FunctionMetadata) error
 		return fmt.Errorf("function ID is required")
 	}
 
-	// Validate ID format: <domain>.<entity>.<action>
-	// Allow flexible formats but require at least 2 parts
+	// Validate ID format: <resource>.<operation>[.<qualifier>].
+	// Allow flexible formats but require at least 2 parts.
 	parts := splitID(metadata.Id)
 	if len(parts) < 2 {
-		return fmt.Errorf("invalid function ID format: %s (expected <domain>.<entity>[.<action>])", metadata.Id)
+		return fmt.Errorf("invalid function ID format: %s (expected <resource>.<operation>[.<qualifier>])", metadata.Id)
 	}
 
 	// Validate version if provided

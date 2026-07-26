@@ -68,7 +68,7 @@ func TestFunctionUI_EndToEndOverride(t *testing.T) {
 	updateLogic := NewFunctionUIUpdateLogic(context.Background(), svcCtx)
 	updateResp, err := updateLogic.FunctionUIUpdate(&FunctionUIUpdateRequest{
 		ID:     "player.ban",
-		Schema: testFormilySchema("Select"),
+		Schema: rawJSONFromValue(testFormilySchema("Select")),
 	})
 	if err != nil {
 		t.Fatalf("FunctionUIUpdate failed: %v", err)

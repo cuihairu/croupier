@@ -156,10 +156,10 @@ class CroupierClientImplTest {
         descriptor.setDeprecated(true);
         descriptor.setInputSchema("{\"type\":\"object\"}");
         descriptor.setOutputSchema("{\"type\":\"object\"}");
-        descriptor.setCategory("game");
+        descriptor.setResource("player");
         descriptor.setRisk("danger");
-        descriptor.setEntity("Player");
-        descriptor.setOperation("update");
+        descriptor.setOperation("ban");
+        descriptor.setPermission("player.ban");
         client.registerFunction(descriptor, (ctx, payload) -> "ok");
 
         String json = new String(client.buildManifest(), StandardCharsets.UTF_8);
@@ -168,6 +168,11 @@ class CroupierClientImplTest {
         assertTrue(json.contains("\"operation_id\":\"playerBan\""));
         assertTrue(json.contains("\"deprecated\":true"));
         assertTrue(json.contains("\"input_schema\":\"{\\\"type\\\":\\\"object\\\"}\""));
+        assertTrue(json.contains("\"resource\":\"player\""));
+        assertTrue(json.contains("\"operation\":\"ban\""));
+        assertTrue(json.contains("\"permission\":\"player.ban\""));
+        assertFalse(json.contains("\"category\""));
+        assertFalse(json.contains("\"entity\""));
     }
 
     @Test

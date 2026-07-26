@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x63roupier/sdk/v1/provider.proto\x12\x0f\x63roupier.sdk.v1\"\x85\t\n\x17LocalFunctionDescriptor\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x12\n\x04tags\x18\x03 \x03(\tR\x04tags\x12\x18\n\x07summary\x18\x04 \x01(\tR\x07summary\x12 \n\x0b\x64\x65scription\x18\x05 \x01(\tR\x0b\x64\x65scription\x12!\n\x0coperation_id\x18\x06 \x01(\tR\x0boperationId\x12\x1e\n\ndeprecated\x18\x07 \x01(\x08R\ndeprecated\x12!\n\x0cinput_schema\x18\x08 \x01(\tR\x0binputSchema\x12#\n\routput_schema\x18\t \x01(\tR\x0coutputSchema\x12\x1a\n\x08\x63\x61tegory\x18\n \x01(\tR\x08\x63\x61tegory\x12\x12\n\x04risk\x18\x0b \x01(\tR\x04risk\x12\x16\n\x06\x65ntity\x18\x0c \x01(\tR\x06\x65ntity\x12\x1c\n\toperation\x18\r \x01(\tR\toperation\x12h\n\x10\x63\x61tegory_display\x18\x0e \x03(\x0b\x32=.croupier.sdk.v1.LocalFunctionDescriptor.CategoryDisplayEntryR\x0f\x63\x61tegoryDisplay\x12\x62\n\x0e\x65ntity_display\x18\x0f \x03(\x0b\x32;.croupier.sdk.v1.LocalFunctionDescriptor.EntityDisplayEntryR\rentityDisplay\x12k\n\x11operation_display\x18\x10 \x03(\x0b\x32>.croupier.sdk.v1.LocalFunctionDescriptor.OperationDisplayEntryR\x10operationDisplay\x12%\n\x0eoperation_kind\x18\x11 \x01(\tR\roperationKind\x12\x1c\n\tplacement\x18\x12 \x01(\tR\tplacement\x12\x1b\n\tpage_hint\x18\x13 \x01(\tR\x08pageHint\x12X\n\nextensions\x18\x14 \x03(\x0b\x32\x38.croupier.sdk.v1.LocalFunctionDescriptor.ExtensionsEntryR\nextensions\x1a\x42\n\x14\x43\x61tegoryDisplayEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a@\n\x12\x45ntityDisplayEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a\x43\n\x15OperationDisplayEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a=\n\x0f\x45xtensionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"\xf0\x03\n\x16ProviderConnectRequest\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x46\n\tfunctions\x18\x03 \x03(\x0b\x32(.croupier.sdk.v1.LocalFunctionDescriptorR\tfunctions\x12!\n\x0csdk_language\x18\x04 \x01(\tR\x0bsdkLanguage\x12\x1f\n\x0bsdk_version\x18\x05 \x01(\tR\nsdkVersion\x12\x19\n\x08sdk_name\x18\x06 \x01(\tR\x07sdkName\x12)\n\x10protocol_version\x18\x07 \x01(\tR\x0fprotocolVersion\x12\x35\n\x16supported_capabilities\x18\x08 \x03(\tR\x15supportedCapabilities\x12\x36\n\x17transport_security_mode\x18\t \x01(\tR\x15transportSecurityMode\x12\x31\n\x14supported_transports\x18\n \x03(\tR\x13supportedTransports\x12\x17\n\x07game_id\x18\x0b \x01(\tR\x06gameId\x12\x10\n\x03\x65nv\x18\x0c \x01(\tR\x03\x65nv\"\x89\x01\n\x17ProviderConnectResponse\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x33\n\x15\x61\x63\x63\x65pted_capabilities\x18\x02 \x03(\tR\x14\x61\x63\x63\x65ptedCapabilities\x12\x1a\n\x08warnings\x18\x03 \x03(\tR\x08warnings\"X\n\x18ProviderHeartbeatRequest\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\"\x1b\n\x19ProviderHeartbeatResponse\"s\n\x14ProviderDrainRequest\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n\x06reason\x18\x02 \x01(\tR\x06reason\x12$\n\x0eretry_after_ms\x18\x03 \x01(\rR\x0cretryAfterMs\"\x17\n\x15ProviderDrainResponse\"/\n\x14GetTaskResultRequest\x12\x17\n\x07task_id\x18\x01 \x01(\tR\x06taskId\"]\n\x15GetTaskResultResponse\x12\x14\n\x05state\x18\x01 \x01(\tR\x05state\x12\x18\n\x07payload\x18\x02 \x01(\x0cR\x07payload\x12\x14\n\x05\x65rror\x18\x03 \x01(\tR\x05\x65rrorBa\n\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x63roupier/sdk/v1/provider.proto\x12\x0f\x63roupier.sdk.v1\"\xa6\x03\n\x17LocalFunctionDescriptor\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x12\n\x04tags\x18\x03 \x03(\tR\x04tags\x12\x18\n\x07summary\x18\x04 \x01(\tR\x07summary\x12 \n\x0b\x64\x65scription\x18\x05 \x01(\tR\x0b\x64\x65scription\x12!\n\x0coperation_id\x18\x06 \x01(\tR\x0boperationId\x12\x1e\n\ndeprecated\x18\x07 \x01(\x08R\ndeprecated\x12!\n\x0cinput_schema\x18\x08 \x01(\tR\x0binputSchema\x12#\n\routput_schema\x18\t \x01(\tR\x0coutputSchema\x12\x1a\n\x08resource\x18\n \x01(\tR\x08resource\x12\x1c\n\toperation\x18\x0b \x01(\tR\toperation\x12\x12\n\x04risk\x18\x0c \x01(\tR\x04risk\x12\x18\n\x07\x65nabled\x18\r \x01(\x08R\x07\x65nabled\x12\x1e\n\npermission\x18\x0e \x01(\tR\npermission\"\xf0\x03\n\x16ProviderConnectRequest\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x46\n\tfunctions\x18\x03 \x03(\x0b\x32(.croupier.sdk.v1.LocalFunctionDescriptorR\tfunctions\x12!\n\x0csdk_language\x18\x04 \x01(\tR\x0bsdkLanguage\x12\x1f\n\x0bsdk_version\x18\x05 \x01(\tR\nsdkVersion\x12\x19\n\x08sdk_name\x18\x06 \x01(\tR\x07sdkName\x12)\n\x10protocol_version\x18\x07 \x01(\tR\x0fprotocolVersion\x12\x35\n\x16supported_capabilities\x18\x08 \x03(\tR\x15supportedCapabilities\x12\x36\n\x17transport_security_mode\x18\t \x01(\tR\x15transportSecurityMode\x12\x31\n\x14supported_transports\x18\n \x03(\tR\x13supportedTransports\x12\x17\n\x07game_id\x18\x0b \x01(\tR\x06gameId\x12\x10\n\x03\x65nv\x18\x0c \x01(\tR\x03\x65nv\"\x89\x01\n\x17ProviderConnectResponse\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x33\n\x15\x61\x63\x63\x65pted_capabilities\x18\x02 \x03(\tR\x14\x61\x63\x63\x65ptedCapabilities\x12\x1a\n\x08warnings\x18\x03 \x03(\tR\x08warnings\"X\n\x18ProviderHeartbeatRequest\x12\x1d\n\nservice_id\x18\x01 \x01(\tR\tserviceId\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\"\x1b\n\x19ProviderHeartbeatResponse\"s\n\x14ProviderDrainRequest\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n\x06reason\x18\x02 \x01(\tR\x06reason\x12$\n\x0eretry_after_ms\x18\x03 \x01(\rR\x0cretryAfterMs\"\x17\n\x15ProviderDrainResponse\"/\n\x14GetTaskResultRequest\x12\x17\n\x07task_id\x18\x01 \x01(\tR\x06taskId\"]\n\x15GetTaskResultResponse\x12\x14\n\x05state\x18\x01 \x01(\tR\x05state\x12\x18\n\x07payload\x18\x02 \x01(\x0cR\x07payload\x12\x14\n\x05\x65rror\x18\x03 \x01(\tR\x05\x65rrorBa\n\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -22,38 +22,22 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'croupier.sdk.v1.provider_pb
 if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['DESCRIPTOR']._options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\"io.github.cuihairu.croupier.sdk.v1P\001Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1'
-  _globals['_LOCALFUNCTIONDESCRIPTOR_CATEGORYDISPLAYENTRY']._options = None
-  _globals['_LOCALFUNCTIONDESCRIPTOR_CATEGORYDISPLAYENTRY']._serialized_options = b'8\001'
-  _globals['_LOCALFUNCTIONDESCRIPTOR_ENTITYDISPLAYENTRY']._options = None
-  _globals['_LOCALFUNCTIONDESCRIPTOR_ENTITYDISPLAYENTRY']._serialized_options = b'8\001'
-  _globals['_LOCALFUNCTIONDESCRIPTOR_OPERATIONDISPLAYENTRY']._options = None
-  _globals['_LOCALFUNCTIONDESCRIPTOR_OPERATIONDISPLAYENTRY']._serialized_options = b'8\001'
-  _globals['_LOCALFUNCTIONDESCRIPTOR_EXTENSIONSENTRY']._options = None
-  _globals['_LOCALFUNCTIONDESCRIPTOR_EXTENSIONSENTRY']._serialized_options = b'8\001'
   _globals['_LOCALFUNCTIONDESCRIPTOR']._serialized_start=52
-  _globals['_LOCALFUNCTIONDESCRIPTOR']._serialized_end=1209
-  _globals['_LOCALFUNCTIONDESCRIPTOR_CATEGORYDISPLAYENTRY']._serialized_start=945
-  _globals['_LOCALFUNCTIONDESCRIPTOR_CATEGORYDISPLAYENTRY']._serialized_end=1011
-  _globals['_LOCALFUNCTIONDESCRIPTOR_ENTITYDISPLAYENTRY']._serialized_start=1013
-  _globals['_LOCALFUNCTIONDESCRIPTOR_ENTITYDISPLAYENTRY']._serialized_end=1077
-  _globals['_LOCALFUNCTIONDESCRIPTOR_OPERATIONDISPLAYENTRY']._serialized_start=1079
-  _globals['_LOCALFUNCTIONDESCRIPTOR_OPERATIONDISPLAYENTRY']._serialized_end=1146
-  _globals['_LOCALFUNCTIONDESCRIPTOR_EXTENSIONSENTRY']._serialized_start=1148
-  _globals['_LOCALFUNCTIONDESCRIPTOR_EXTENSIONSENTRY']._serialized_end=1209
-  _globals['_PROVIDERCONNECTREQUEST']._serialized_start=1212
-  _globals['_PROVIDERCONNECTREQUEST']._serialized_end=1708
-  _globals['_PROVIDERCONNECTRESPONSE']._serialized_start=1711
-  _globals['_PROVIDERCONNECTRESPONSE']._serialized_end=1848
-  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_start=1850
-  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_end=1938
-  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_start=1940
-  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_end=1967
-  _globals['_PROVIDERDRAINREQUEST']._serialized_start=1969
-  _globals['_PROVIDERDRAINREQUEST']._serialized_end=2084
-  _globals['_PROVIDERDRAINRESPONSE']._serialized_start=2086
-  _globals['_PROVIDERDRAINRESPONSE']._serialized_end=2109
-  _globals['_GETTASKRESULTREQUEST']._serialized_start=2111
-  _globals['_GETTASKRESULTREQUEST']._serialized_end=2158
-  _globals['_GETTASKRESULTRESPONSE']._serialized_start=2160
-  _globals['_GETTASKRESULTRESPONSE']._serialized_end=2253
+  _globals['_LOCALFUNCTIONDESCRIPTOR']._serialized_end=474
+  _globals['_PROVIDERCONNECTREQUEST']._serialized_start=477
+  _globals['_PROVIDERCONNECTREQUEST']._serialized_end=973
+  _globals['_PROVIDERCONNECTRESPONSE']._serialized_start=976
+  _globals['_PROVIDERCONNECTRESPONSE']._serialized_end=1113
+  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_start=1115
+  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_end=1203
+  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_start=1205
+  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_end=1232
+  _globals['_PROVIDERDRAINREQUEST']._serialized_start=1234
+  _globals['_PROVIDERDRAINREQUEST']._serialized_end=1349
+  _globals['_PROVIDERDRAINRESPONSE']._serialized_start=1351
+  _globals['_PROVIDERDRAINRESPONSE']._serialized_end=1374
+  _globals['_GETTASKRESULTREQUEST']._serialized_start=1376
+  _globals['_GETTASKRESULTREQUEST']._serialized_end=1423
+  _globals['_GETTASKRESULTRESPONSE']._serialized_start=1425
+  _globals['_GETTASKRESULTRESPONSE']._serialized_end=1518
 # @@protoc_insertion_point(module_scope)

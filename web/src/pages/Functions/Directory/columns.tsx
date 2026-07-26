@@ -11,7 +11,7 @@ type BuildColumnsOptions = {
   columns: DirectoryPageSchema['columns'];
   rowActions: DirectoryPageSchema['rowActions'];
   onOpenDetail: (record: SummaryRow) => void;
-  onOpenUI: (id: string) => void;
+  onOpenForm: (id: string) => void;
   onInvoke: (record: SummaryRow) => void;
 };
 
@@ -25,7 +25,7 @@ export const buildDirectoryColumns = ({
   columns,
   rowActions,
   onOpenDetail,
-  onOpenUI,
+  onOpenForm,
   onInvoke,
 }: BuildColumnsOptions): ProColumns<SummaryRow>[] =>
   columns.map((col) => {
@@ -63,15 +63,25 @@ export const buildDirectoryColumns = ({
         render: (_, record) => record.summary?.zh || record.summary?.en || '-',
       } as ProColumns<SummaryRow>;
     }
-    if (col.key === 'category') {
+    if (col.key === 'resource') {
       return {
         title: col.title,
-        dataIndex: 'category',
+        dataIndex: 'resource',
         width: col.width,
         filters: true,
-        onFilter: (value, record) => record.category === value,
+        onFilter: (value, record) => record.resource === value,
         render: (_, record) => (
-          <Tag color={record.category ? 'geekblue' : 'default'}>{record.category || '未分类'}</Tag>
+          <Tag color={record.resource ? 'geekblue' : 'default'}>{record.resource || '未声明'}</Tag>
+        ),
+      } as ProColumns<SummaryRow>;
+    }
+    if (col.key === 'operation') {
+      return {
+        title: col.title,
+        dataIndex: 'operation',
+        width: col.width,
+        render: (_, record) => (
+          <Tag color={record.operation ? 'purple' : 'default'}>{record.operation || '未声明'}</Tag>
         ),
       } as ProColumns<SummaryRow>;
     }
@@ -121,7 +131,7 @@ export const buildDirectoryColumns = ({
               icon={rowActionIcon[action.icon]}
               onClick={() => {
                 if (action.key === 'detail') return onOpenDetail(record);
-                if (action.key === 'ui') return onOpenUI(record.id);
+                if (action.key === 'form') return onOpenForm(record.id);
                 return onInvoke(record);
               }}
             />

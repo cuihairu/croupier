@@ -287,15 +287,12 @@ export default {
   'profile.permissions.apply.content.permission.key': 'Permission Key',
   'profile.permissions.apply.content.permission.id': 'Permission ID',
   'profile.permissions.apply.content.reason': 'Reason',
-  'profile.permissions.fallback.workspaces.edit.name': 'Workspace Edit Permission',
-  'profile.permissions.fallback.workspaces.edit.description':
-    'Allows editing and saving workspace drafts.',
-  'profile.permissions.fallback.workspaces.publish.name': 'Workspace Publish Permission',
-  'profile.permissions.fallback.workspaces.publish.description':
-    'Allows publishing and unpublishing workspaces.',
-  'profile.permissions.fallback.workspaces.rollback.name': 'Workspace Rollback Permission',
-  'profile.permissions.fallback.workspaces.rollback.description':
-    'Allows workspace version rollback operations.',
+  'profile.permissions.fallback.pages.edit.name': 'Page Edit Permission',
+  'profile.permissions.fallback.pages.edit.description': 'Allows editing and saving PageSpec drafts.',
+  'profile.permissions.fallback.pages.publish.name': 'Page Publish Permission',
+  'profile.permissions.fallback.pages.publish.description': 'Allows publishing and unpublishing PageSpecs.',
+  'profile.permissions.fallback.pages.rollback.name': 'Page Rollback Permission',
+  'profile.permissions.fallback.pages.rollback.description': 'Allows PageSpec version rollback operations.',
   'profile.permissions.fallback.functions.manage.name': 'Function Management Permission',
   'profile.permissions.fallback.functions.manage.description':
     'Allows function management and configuration changes.',

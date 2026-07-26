@@ -34,7 +34,7 @@ func getOrCreateFunctionRecordWithRisk(ctx context.Context, svcCtx *svc.ServiceC
 	}
 
 	// Backfill metadata from runtime registry if available.
-	// This populates input_schema, category, risk, version from SDK registration.
+	// This populates input_schema, resource, risk, version from SDK registration.
 	backfillFromRegistry(svcCtx, functionID, created)
 
 	if createErr := svcCtx.FunctionModel.Create(ctx, created); createErr != nil {
@@ -67,7 +67,7 @@ func getOrCreateFunctionRecordWithRisk(ctx context.Context, svcCtx *svc.ServiceC
 
 // backfillFromRegistry populates a new function record with metadata from the
 // runtime registry (SDK registration). This avoids creating empty records that
-// lose the input_schema, category, and other metadata carried by the SDK.
+// lose the input_schema, resource, and other metadata carried by the SDK.
 func backfillFromRegistry(svcCtx *svc.ServiceContext, functionID string, fn *model.Function) {
 	if svcCtx == nil || svcCtx.RegistryStore == nil {
 		return
@@ -89,11 +89,11 @@ func backfillFromRegistry(svcCtx *svc.ServiceContext, functionID string, fn *mod
 		}
 	}
 
-	// Extract category from extensions
+	// Extract resource from extensions.
 	if op.Extensions != nil {
-		if cat, ok := op.Extensions["x-category"]; ok {
-			if catStr, ok := cat.(string); ok && strings.TrimSpace(catStr) != "" {
-				fn.Category = strings.TrimSpace(catStr)
+		if resource, ok := op.Extensions["x-resource"]; ok {
+			if resourceStr, ok := resource.(string); ok && strings.TrimSpace(resourceStr) != "" {
+				fn.Resource = strings.TrimSpace(resourceStr)
 			}
 		}
 	}
@@ -115,5 +115,5 @@ func backfillFromRegistry(svcCtx *svc.ServiceContext, functionID string, fn *mod
 	slog.Default().Debug("Backfilled function metadata from registry",
 		"function_id", functionID,
 		"has_openapi_spec", fn.OpenAPISpec != nil,
-		"category", fn.Category)
+		"resource", fn.Resource)
 }

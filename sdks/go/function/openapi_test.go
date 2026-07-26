@@ -55,7 +55,7 @@ func TestRegistry_RegisterFromOpenAPI(t *testing.T) {
 					"summary": "Ban Player",
 					"tags": ["player", "moderation"],
 					"description": "Ban a player from the game",
-					"x-category": "player",
+					"x-resource": "player",
 					"x-risk": "high",
 					"x-permission": "player.ban.invoke",
 					"requestBody": {
@@ -122,8 +122,8 @@ func TestRegistry_RegisterFromOpenAPI(t *testing.T) {
 		t.Errorf("Expected name 'Ban Player', got '%s'", metadata.Name)
 	}
 
-	if metadata.Category != "player" {
-		t.Errorf("Expected category 'player', got '%s'", metadata.Category)
+	if metadata.Resource != "player" {
+		t.Errorf("Expected resource 'player', got '%s'", metadata.Resource)
 	}
 
 	if metadata.Risk.Level != RiskHigh {
@@ -185,7 +185,7 @@ func TestRegistry_RegisterFromOpenAPI_WithPrefix(t *testing.T) {
 				"get": {
 					"operationId": "test.function",
 					"tags": ["tag1", "tag2"],
-					"x-category": "mycategory",
+					"x-resource": "myresource",
 					"responses": {
 						"200": {
 							"description": "Success"
@@ -200,7 +200,7 @@ func TestRegistry_RegisterFromOpenAPI_WithPrefix(t *testing.T) {
 	registry := NewRegistryWithLogger(client, &NoOpLogger{})
 
 	options := &ImportOptions{
-		CategoryPrefix: "prefix",
+		ResourcePrefix: "prefix",
 		TagPrefix:      "pre:",
 	}
 
@@ -217,8 +217,8 @@ func TestRegistry_RegisterFromOpenAPI_WithPrefix(t *testing.T) {
 
 	metadata, _ := registry.GetMetadata("test.function")
 
-	if metadata.Category != "prefix.mycategory" {
-		t.Errorf("Expected category 'prefix.mycategory', got '%s'", metadata.Category)
+	if metadata.Resource != "prefix.myresource" {
+		t.Errorf("Expected resource 'prefix.myresource', got '%s'", metadata.Resource)
 	}
 
 	if len(metadata.Tags) != 2 {

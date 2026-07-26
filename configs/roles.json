@@ -8,13 +8,13 @@
       "admin:all",
       "*",
       "registry:read",
-      "entities:read",
+      "resources:read",
       "functions:read",
-      "workspace:read",
-      "workspace:edit",
-      "workspace:publish",
-      "workspace:rollback",
-      "workspace:delete"
+      "pages:read",
+      "pages:edit",
+      "pages:publish",
+      "pages:rollback",
+      "pages:delete"
     ]
   },
   {
@@ -26,13 +26,13 @@
       "admin:all",
       "*",
       "registry:read",
-      "entities:read",
+      "resources:read",
       "functions:read",
-      "workspace:read",
-      "workspace:edit",
-      "workspace:publish",
-      "workspace:rollback",
-      "workspace:delete"
+      "pages:read",
+      "pages:edit",
+      "pages:publish",
+      "pages:rollback",
+      "pages:delete"
     ]
   },
   {
@@ -43,13 +43,12 @@
     "permissions": [
       "games:manage",
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "registry:read",
-      "entities:read",
       "functions:read",
-      "workspace:read",
-      "workspace:edit"
+      "pages:read",
+      "pages:edit"
     ]
   },
   {
@@ -60,13 +59,12 @@
     "permissions": [
       "games:read",
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "registry:read",
-      "entities:read",
       "functions:read",
-      "workspace:read",
-      "workspace:edit"
+      "pages:read",
+      "pages:edit"
     ]
   },
   {
@@ -77,22 +75,20 @@
     "permissions": [
       "games:manage",
       "uploads:write",
-      "entities:create",
-      "entities:update",
-      "entities:delete",
+      "resources:diagnose",
       "item:create",
       "item:update",
       "item:delete",
       "assignments:write",
       "function:invoke",
       "registry:read",
-      "entities:read",
+      "resources:read",
       "functions:read",
-      "workspace:read",
-      "workspace:edit",
-      "workspace:publish",
-      "workspace:rollback",
-      "workspace:delete"
+      "pages:read",
+      "pages:edit",
+      "pages:publish",
+      "pages:rollback",
+      "pages:delete"
     ]
   },
   {
@@ -103,22 +99,20 @@
     "permissions": [
       "games:manage",
       "uploads:write",
-      "entities:create",
-      "entities:update",
-      "entities:delete",
+      "resources:diagnose",
       "item:create",
       "item:update",
       "item:delete",
       "assignments:write",
       "function:invoke",
       "registry:read",
-      "entities:read",
+      "resources:read",
       "functions:read",
-      "workspace:read",
-      "workspace:edit",
-      "workspace:publish",
-      "workspace:rollback",
-      "workspace:delete"
+      "pages:read",
+      "pages:edit",
+      "pages:publish",
+      "pages:rollback",
+      "pages:delete"
     ]
   },
   {
@@ -129,11 +123,10 @@
     "permissions": [
       "function:invoke",
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -146,10 +139,9 @@
       "certificates:manage",
       "games:manage",
       "uploads:write",
-      "entity:read",
+      "resources:read",
       "item:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -161,13 +153,12 @@
     "permissions": [
       "function:invoke",
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "currency:read",
       "wallet:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -180,13 +171,12 @@
       "function:invoke",
       "assignments:read",
       "assignments:write",
-      "entity:read",
+      "resources:read",
       "item:read",
       "currency:read",
       "wallet:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -197,11 +187,10 @@
     "level": 80,
     "permissions": [
       "uploads:write",
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -213,10 +202,9 @@
     "permissions": [
       "wallet:read",
       "currency:read",
-      "entity:read",
+      "resources:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -228,12 +216,12 @@
     "permissions": [
       "function:invoke",
       "uploads:write",
-      "entities:update",
+      "resources:diagnose",
       "item:update",
       "games:read",
       "assignments:read",
       "registry:read",
-      "entities:read",
+      "resources:read",
       "functions:read"
     ]
   },
@@ -245,15 +233,14 @@
     "permissions": [
       "function:invoke",
       "uploads:write",
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "assignments:read",
       "registry:read",
-      "entities:read",
       "functions:read",
-      "workspace:read",
-      "workspace:edit"
+      "pages:read",
+      "pages:edit"
     ]
   },
   {
@@ -263,14 +250,13 @@
     "level": 60,
     "permissions": [
       "uploads:write",
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read",
-      "workspace:read",
-      "workspace:edit"
+      "pages:read",
+      "pages:edit"
     ]
   },
   {
@@ -281,13 +267,12 @@
     "permissions": [
       "function:invoke",
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read",
-      "workspace:read"
+      "pages:read"
     ]
   },
   {
@@ -299,9 +284,8 @@
       "certificates:manage",
       "games:read",
       "uploads:write",
-      "entity:read",
+      "resources:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -313,9 +297,8 @@
     "permissions": [
       "certificates:manage",
       "games:read",
-      "entity:read",
+      "resources:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -326,10 +309,9 @@
     "level": 70,
     "permissions": [
       "certificates:manage",
-      "entity:read",
+      "resources:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -341,12 +323,11 @@
     "permissions": [
       "function:invoke",
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "currency:read",
       "wallet:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -356,11 +337,10 @@
     "description": "活动/投放/增长相关",
     "level": 50,
     "permissions": [
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -370,11 +350,10 @@
     "description": "社区/公告/活动相关",
     "level": 50,
     "permissions": [
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -389,7 +368,7 @@
       "item:update",
       "uploads:write",
       "registry:read",
-      "entities:read",
+      "resources:read",
       "functions:read"
     ]
   },
@@ -399,11 +378,10 @@
     "description": "玩法/活动/系统设计",
     "level": 55,
     "permissions": [
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -413,11 +391,10 @@
     "description": "系统/功能策划",
     "level": 55,
     "permissions": [
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -427,11 +404,10 @@
     "description": "关卡/剧情相关策划",
     "level": 55,
     "permissions": [
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -443,10 +419,9 @@
     "permissions": [
       "currency:read",
       "wallet:read",
-      "entity:read",
+      "resources:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -456,11 +431,10 @@
     "description": "界面/交互设计",
     "level": 50,
     "permissions": [
-      "entity:read",
+      "resources:read",
       "games:read",
       "uploads:write",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -471,10 +445,9 @@
     "level": 50,
     "permissions": [
       "uploads:write",
-      "entity:read",
+      "resources:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -485,9 +458,8 @@
     "level": 50,
     "permissions": [
       "uploads:write",
-      "entity:read",
+      "resources:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -499,11 +471,10 @@
     "permissions": [
       "currency:read",
       "wallet:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -515,11 +486,10 @@
     "permissions": [
       "currency:read",
       "wallet:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -529,11 +499,10 @@
     "description": "用户研究与调研",
     "level": 45,
     "permissions": [
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -545,9 +514,8 @@
     "permissions": [
       "wallet:read",
       "currency:read",
-      "entity:read",
+      "resources:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -559,9 +527,8 @@
     "permissions": [
       "wallet:read",
       "currency:read",
-      "entity:read",
+      "resources:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -574,8 +541,8 @@
       "function:invoke",
       "assignments:read",
       "assignments:write",
-      "entity:read",
-      "entity:write",
+      "resources:read",
+      "resources:diagnose",
       "item:create",
       "item:read",
       "item:update",
@@ -583,7 +550,6 @@
       "currency:read",
       "wallet:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -598,7 +564,7 @@
       "wallet:read",
       "wallet:transfer",
       "registry:read",
-      "entities:read",
+      "resources:read",
       "functions:read"
     ]
   },
@@ -615,7 +581,7 @@
       "permission:read",
       "permission:write",
       "registry:read",
-      "entities:read",
+      "resources:read",
       "functions:read"
     ]
   },
@@ -627,10 +593,9 @@
     "permissions": [
       "function:invoke",
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -640,11 +605,10 @@
     "description": "审计与合规检查",
     "level": 40,
     "permissions": [
-      "entity:read",
+      "resources:read",
       "item:read",
       "games:read",
       "registry:read",
-      "entities:read",
       "functions:read"
     ]
   },
@@ -655,13 +619,12 @@
     "level": 20,
     "permissions": [
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "currency:read",
       "registry:read",
-      "entities:read",
       "functions:read",
-      "workspace:read"
+      "pages:read"
     ]
   }
 ]

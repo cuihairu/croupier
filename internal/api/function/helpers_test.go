@@ -36,7 +36,7 @@ func TestMetadataHelpers(t *testing.T) {
 	if len(nodes) != 2 || nodes[0] != "a" {
 		t.Fatalf("unexpected string slice metadata: %#v", nodes)
 	}
-	obj := getInterfaceFromMetadata(meta, "object")
+	obj := jsonValueFromMetadata(meta, "object")
 	if obj == nil {
 		t.Fatal("expected interface metadata")
 	}
@@ -103,46 +103,6 @@ func TestEnforceInvokePermission(t *testing.T) {
 	}
 	if err := enforceInvokePermission(svcCtx, []string{"guest"}, nil, "f1", "", ""); err == nil {
 		t.Fatal("expected invoke forbidden without role or perm")
-	}
-}
-
-func TestBoolFromAny(t *testing.T) {
-	t.Parallel()
-
-	if boolFromAny(true) != true {
-		t.Fatal("expected true")
-	}
-	if boolFromAny(false) != false {
-		t.Fatal("expected false")
-	}
-	if boolFromAny("not a bool") != false {
-		t.Fatal("expected false for non-bool")
-	}
-	if boolFromAny(nil) != false {
-		t.Fatal("expected false for nil")
-	}
-	if boolFromAny(42) != false {
-		t.Fatal("expected false for int")
-	}
-}
-
-func TestStringFromAny(t *testing.T) {
-	t.Parallel()
-
-	if stringFromAny("hello") != "hello" {
-		t.Fatal("expected 'hello'")
-	}
-	if stringFromAny("") != "" {
-		t.Fatal("expected empty string")
-	}
-	if stringFromAny(42) != "" {
-		t.Fatal("expected empty string for int")
-	}
-	if stringFromAny(nil) != "" {
-		t.Fatal("expected empty string for nil")
-	}
-	if stringFromAny(true) != "" {
-		t.Fatal("expected empty string for bool")
 	}
 }
 

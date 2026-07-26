@@ -257,12 +257,13 @@ func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Opera
 		})
 	}
 
-	// Set OpenAPI extensions (x-* fields)
-	if descriptor.Category != "" {
+	// Set only executable capability extensions. Dashboard UI, labels,
+	// menu, placement, and page metadata are not part of function registration.
+	if descriptor.Resource != "" {
 		if op.Extensions == nil {
 			op.Extensions = make(map[string]interface{})
 		}
-		op.Extensions["x-category"] = descriptor.Category
+		op.Extensions["x-resource"] = descriptor.Resource
 	}
 	if descriptor.Risk != "" {
 		if op.Extensions == nil {
@@ -270,62 +271,17 @@ func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Opera
 		}
 		op.Extensions["x-risk"] = descriptor.Risk
 	}
-	if descriptor.Entity != "" {
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		op.Extensions["x-entity"] = descriptor.Entity
-	}
 	if descriptor.Operation != "" {
 		if op.Extensions == nil {
 			op.Extensions = make(map[string]interface{})
 		}
 		op.Extensions["x-operation"] = descriptor.Operation
 	}
-	if len(descriptor.CategoryDisplay) > 0 {
+	if descriptor.Permission != "" {
 		if op.Extensions == nil {
 			op.Extensions = make(map[string]interface{})
 		}
-		op.Extensions["x-category-display"] = descriptor.CategoryDisplay
-	}
-	if len(descriptor.EntityDisplay) > 0 {
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		op.Extensions["x-entity-display"] = descriptor.EntityDisplay
-	}
-	if len(descriptor.OperationDisplay) > 0 {
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		op.Extensions["x-operation-display"] = descriptor.OperationDisplay
-	}
-	if descriptor.OperationKind != "" {
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		op.Extensions["x-operation-kind"] = descriptor.OperationKind
-	}
-	if descriptor.Placement != "" {
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		op.Extensions["x-placement"] = descriptor.Placement
-	}
-	if descriptor.PageHint != "" {
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		op.Extensions["x-page-hint"] = descriptor.PageHint
-	}
-	for key, value := range descriptor.Extensions {
-		if key == "" || value == "" {
-			continue
-		}
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		op.Extensions[key] = value
+		op.Extensions["x-permission"] = descriptor.Permission
 	}
 
 	return op, nil
@@ -333,26 +289,19 @@ func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Opera
 
 // LocalFunctionDescriptorDesc represents a LocalFunctionDescriptor for conversion
 type LocalFunctionDescriptorDesc struct {
-	ID               string
-	Version          string
-	Tags             []string
-	Summary          string
-	Description      string
-	OperationID      string
-	Deprecated       bool
-	InputSchema      string
-	OutputSchema     string
-	Category         string
-	Risk             string
-	Entity           string
-	Operation        string
-	CategoryDisplay  map[string]string
-	EntityDisplay    map[string]string
-	OperationDisplay map[string]string
-	OperationKind    string
-	Placement        string
-	PageHint         string
-	Extensions       map[string]string
+	ID           string
+	Version      string
+	Tags         []string
+	Summary      string
+	Description  string
+	OperationID  string
+	Deprecated   bool
+	InputSchema  string
+	OutputSchema string
+	Resource     string
+	Operation    string
+	Risk         string
+	Permission   string
 }
 
 // ExtractExtension extracts an extension value without the x- prefix

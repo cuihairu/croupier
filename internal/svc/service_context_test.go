@@ -104,7 +104,6 @@ func setupTestServiceContext(t *testing.T) *ServiceContext {
 	backupModel := model.NewBackupModel(db)
 	faqModel := model.NewFAQModel(db)
 	feedbackModel := model.NewFeedbackModel(db)
-	entityModel := model.NewEntityModel(db)
 	behaviorModel := model.NewBehaviorModel(db)
 	retentionModel := model.NewRetentionModel(db)
 	paymentsModel := model.NewPaymentsModel(db)
@@ -112,7 +111,6 @@ func setupTestServiceContext(t *testing.T) *ServiceContext {
 	supportModel := model.NewSupportModel(db)
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
-	workspaceConfigModel := model.NewWorkspaceConfigModel(db)
 	agentSessionModel := reg.NewAgentSessionModel(db)
 
 	adminManager := NewAdminManager(tmpDir)
@@ -141,7 +139,6 @@ func setupTestServiceContext(t *testing.T) *ServiceContext {
 		BackupModel:          backupModel,
 		FAQModel:             faqModel,
 		FeedbackModel:        feedbackModel,
-		EntityModel:          entityModel,
 		BehaviorModel:        behaviorModel,
 		RetentionModel:       retentionModel,
 		PaymentsModel:        paymentsModel,
@@ -149,7 +146,6 @@ func setupTestServiceContext(t *testing.T) *ServiceContext {
 		SupportModel:         supportModel,
 		CertificateModel:     certificateModel,
 		ConfigVersionModel:   configVersionModel,
-		WorkspaceConfigModel: workspaceConfigModel,
 		AgentSessionModel:    agentSessionModel,
 		AdminManager:         adminManager,
 		OpsStateStore:        opsStateStore,
@@ -1667,21 +1663,25 @@ func TestSeedBootstrapTermDictionary_NilContext(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSeedBootstrapWorkspaces_NilContext(t *testing.T) {
+func TestSeedBootstrapTermDictionary_RejectsLegacyEntityDomain(t *testing.T) {
 	t.Parallel()
 
-	err := seedBootstrapWorkspaces(nil)
-	assert.NoError(t, err)
-}
+	db := setupTestDB(t)
+	require.NoError(t, autoMigrate(db))
+	tmpDir := t.TempDir()
+	data := `{"items":[{"domain":"entity","key":"player","aliases":["players"],"display_zh":"玩家","display_en":"Player","order":1}]}`
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "term_dictionary.json"), []byte(data), 0o644))
 
-func TestEnsureWorkspaceSeeded(t *testing.T) {
-	t.Parallel()
+	ctx := &ServiceContext{
+		Config: config.Config{
+			BootstrapData: config.BootstrapDataConfig{BaseDir: tmpDir},
+		},
+		TermDictModel: model.NewTermDictionaryModel(db),
+	}
 
-	ctx := setupTestServiceContext(t)
-
-	// Should not error
-	err := ctx.EnsureWorkspaceSeeded()
-	assert.NoError(t, err)
+	err := seedBootstrapTermDictionary(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported term dictionary domain")
 }
 
 // ============================================================================
@@ -2041,8 +2041,9 @@ func TestDefaultTermDictionaryConfig(t *testing.T) {
 	for _, item := range cfg.Items {
 		domains[item.Domain] = true
 	}
-	assert.True(t, domains["entity"])
+	assert.True(t, domains["resource"])
 	assert.True(t, domains["operation"])
+	assert.False(t, domains["entity"])
 }
 
 // ============================================================================
@@ -2071,29 +2072,6 @@ func TestInitObjectStore_UnsupportedDriver(t *testing.T) {
 	store, err := initObjectStore(context.Background(), cfg)
 	assert.Error(t, err)
 	assert.Nil(t, store)
-}
-
-// ============================================================================
-// Tests for Helpers
-// ============================================================================
-
-func TestBuildDefaultWorkspaceLayout(t *testing.T) {
-	t.Parallel()
-
-	functionIDs := []string{"examples.player.get", "examples.player.create", "examples.player.update"}
-
-	layout := buildDefaultWorkspaceLayout("examples.player", functionIDs)
-
-	assert.NotNil(t, layout)
-	assert.Equal(t, "examples.player", layout["objectKey"])
-
-	layoutData, ok := layout["layout"].(map[string]interface{})
-	assert.True(t, ok)
-	assert.Equal(t, "tabs", layoutData["type"])
-
-	tabs, ok := layoutData["tabs"].([]map[string]interface{})
-	assert.True(t, ok)
-	assert.Len(t, tabs, 3)
 }
 
 // ============================================================================

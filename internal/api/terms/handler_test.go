@@ -54,7 +54,7 @@ func assertTermsErrorShape(t *testing.T, rec *httptest.ResponseRecorder) {
 func TestHandler_List_Empty_Success(t *testing.T) {
 	handler := newTermsHandler(newTermsTestDB(t))
 
-	ctx, rec := newTermsRequest(http.MethodGet, "/api/v1/terms?domain=entity", "")
+	ctx, rec := newTermsRequest(http.MethodGet, "/api/v1/terms?domain=resource", "")
 	handler.List(ctx)
 
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -68,7 +68,7 @@ func TestHandler_UpsertAndList_RoundTrip(t *testing.T) {
 	handler := newTermsHandler(db)
 
 	upsertCtx, upsertRec := newTermsRequest(http.MethodPost, "/api/v1/terms",
-		`{"domain":"entity","term_key":"player","alias":"玩家","display_zh":"玩家","display_en":"Player","order":1}`)
+		`{"domain":"resource","term_key":"player","alias":"玩家","display_zh":"玩家","display_en":"Player","order":1}`)
 	handler.Upsert(upsertCtx)
 	require.Equal(t, http.StatusOK, upsertRec.Code, upsertRec.Body.String())
 
@@ -77,7 +77,7 @@ func TestHandler_UpsertAndList_RoundTrip(t *testing.T) {
 	assert.True(t, upsertResp.Ok)
 
 	// List the domain back.
-	listCtx, listRec := newTermsRequest(http.MethodGet, "/api/v1/terms?domain=entity", "")
+	listCtx, listRec := newTermsRequest(http.MethodGet, "/api/v1/terms?domain=resource", "")
 	handler.List(listCtx)
 	require.Equal(t, http.StatusOK, listRec.Code)
 	var listResp TermsListResponse
@@ -85,6 +85,16 @@ func TestHandler_UpsertAndList_RoundTrip(t *testing.T) {
 	require.Len(t, listResp.Items, 1)
 	assert.Equal(t, "player", listResp.Items[0].TermKey)
 	assert.Equal(t, "玩家", listResp.Items[0].Alias)
+}
+
+func TestHandler_LegacyEntityDomain_BadRequest(t *testing.T) {
+	handler := newTermsHandler(newTermsTestDB(t))
+
+	ctx, rec := newTermsRequest(http.MethodGet, "/api/v1/terms?domain=entity", "")
+	handler.List(ctx)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	assertTermsErrorShape(t, rec)
 }
 
 func TestHandler_Delete_Success(t *testing.T) {

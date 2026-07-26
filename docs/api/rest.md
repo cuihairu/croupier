@@ -174,13 +174,13 @@ POST /api/v1/tasks/{task_id}/cancel
 ### 获取函数列表
 
 ```http
-GET /api/v1/functions/descriptors?category={category}
+GET /api/v1/functions/descriptors?resource={resource}
 ```
 
 **查询参数**：
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `category` | string | 可选，函数分类 key |
+| `resource` | string | 可选，业务资源或能力域 key |
 
 **响应**：
 ```json
@@ -188,16 +188,9 @@ GET /api/v1/functions/descriptors?category={category}
   {
     "id": "player.ban",
     "version": "1.0.0",
-    "displayName": { "zh-CN": "封禁玩家", "en-US": "Ban Player" },
     "summary": { "zh-CN": "封禁玩家", "en-US": "Ban player" },
-    "category": "support",
-    "categoryDisplay": { "zh-CN": "客服", "en-US": "Support" },
-    "entity": "player",
-    "entityDisplay": { "zh-CN": "玩家", "en-US": "Player" },
+    "resource": "player",
     "operation": "ban",
-    "operationDisplay": { "zh-CN": "封禁", "en-US": "Ban" },
-    "operationKind": "action",
-    "placement": "rowAction",
     "risk": "danger"
   }
 ]
@@ -213,13 +206,14 @@ GET /api/v1/functions/{function_id}
 ```json
 {
   "id": "player.ban",
-  "name": "封禁玩家",
+  "version": "1.0.0",
+  "summary": "封禁玩家",
   "description": "封禁指定玩家账号",
-  "category": "support",
-  "params_schema": {...},
-  "result_schema": {...},
-  "auth": {...},
-  "ui": {...}
+  "resource": "player",
+  "operation": "ban",
+  "inputSchema": {...},
+  "outputSchema": {...},
+  "risk": "danger"
 }
 ```
 
@@ -234,17 +228,13 @@ POST /api/v1/metadata/functions
 {
   "id": "player.ban",
   "version": "1.0.0",
-  "category": "support",
-  "name": "封禁玩家",
+  "summary": "封禁玩家",
   "description": "封禁指定玩家账号",
+  "resource": "player",
+  "operation": "ban",
+  "risk": "danger",
   "inputSchema": "{...}",
-  "outputSchema": "{...}",
-  "extensions": {
-    "x-entity": "player",
-    "x-operation": "ban",
-    "x-operation-kind": "action",
-    "x-placement": "rowAction"
-  }
+  "outputSchema": "{...}"
 }
 ```
 

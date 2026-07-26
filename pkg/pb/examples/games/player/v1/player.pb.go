@@ -7,7 +7,6 @@
 package playerv1
 
 import (
-	_ "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -122,13 +121,11 @@ var File_examples_games_player_v1_player_proto protoreflect.FileDescriptor
 
 const file_examples_games_player_v1_player_proto_rawDesc = "" +
 	"\n" +
-	"%examples/games/player/v1/player.proto\x12\x18examples.games.player.v1\x1a&croupier/component/v1/ui_options.proto\"p\n" +
+	"%examples/games/player/v1/player.proto\x12\x18examples.games.player.v1\"A\n" +
 	"\n" +
-	"BanRequest\x122\n" +
-	"\tplayer_id\x18\x01 \x01(\tB\x15\x8a\xb2\x19\x11\n" +
-	"\x05input\x12\b玩家IDR\bplayerId\x12.\n" +
-	"\x06reason\x18\x02 \x01(\tB\x16\x8a\xb2\x19\x12\n" +
-	"\btextarea\x1a\x06原因R\x06reason\"%\n" +
+	"BanRequest\x12\x1b\n" +
+	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"%\n" +
 	"\vBanResponse\x12\x16\n" +
 	"\x06result\x18\x01 \x01(\tR\x06resultB\x7f\n" +
 	"4io.github.cuihairu.croupier.examples.games.player.v1P\x01ZEgithub.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1b\x06proto3"

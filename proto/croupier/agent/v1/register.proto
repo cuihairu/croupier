@@ -6,37 +6,27 @@ option java_multiple_files = true;
 
 option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1";
 
-import "croupier/component/v1/dashboard_ui.proto";
-
-// Function Descriptor - Server-side function definition with UI/RBAC metadata
+// Function Descriptor - server-side executable capability contract.
+// It intentionally carries no Dashboard UI, menu, route, label, Formily,
+// placement, or PageSpec metadata.
 message FunctionDescriptor {
   string id = 1;        // function id, e.g. "player.ban"
   string version = 2;   // semver, e.g. "1.2.0"
-  string category = 3;  // grouping
-  string risk = 4;      // "low"|"medium"|"high"
-  string entity = 5;    // entity type, e.g. "item", "player"
-  string operation = 6; // operation type, e.g. "create", "read", "update", "delete"
+  string resource = 3;  // business resource/capability key, e.g. "player"
+  string operation = 4; // business action key, e.g. "ban", "send", "list"
+  string risk = 5;      // "safe"|"warning"|"high"|"danger"
+  string permission = 6; // optional permission identifier
   bool enabled = 7;     // whether this function is currently enabled
 
-  // UI/i18n/tags/menu/permissions for dynamic navigation & RBAC generation
-  croupier.component.v1.I18nText display_name = 20;
-  croupier.component.v1.I18nText summary      = 21;
-  repeated string tags = 22;
-  croupier.component.v1.Menu menu = 23;
-  croupier.component.v1.PermissionSpec permissions = 24;
+  // OpenAPI 3.0.3 Operation Object fields for catalog/search.
+  string summary = 25;
+  string description = 26;
+  repeated string tags = 27;
+  bool deprecated = 28;
 
   // OpenAPI 3.0.3 Schema fields (JSON Schema format)
   string input_schema = 30;               // JSON Schema for request body
   string output_schema = 31;              // JSON Schema for response body
-
-  // v2 extension fields for Page generation. These mirror sdk.v1.LocalFunctionDescriptor.
-  map<string, string> category_display = 40;   // x-category-display: category multi-language labels
-  map<string, string> entity_display = 41;     // x-entity-display: resource multi-language labels
-  map<string, string> operation_display = 42;  // x-operation-display: operation multi-language labels
-  string operation_kind = 43;                  // x-operation-kind: page generation semantic
-  string placement = 44;                       // x-placement: recommended page placement
-  string page_hint = 45;                       // x-page-hint: suggested page key
-  map<string, string> extensions = 46;         // third-party extensions, never used for core semantics
 }
 
 // Process/service instance registered to an agent (e.g. a game server process)

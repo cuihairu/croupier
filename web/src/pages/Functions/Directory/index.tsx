@@ -13,7 +13,7 @@ import {
   Row,
   Col,
 } from 'antd';
-import { AppstoreOutlined, PlayCircleOutlined, ProfileOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, PlayCircleOutlined, ProfileOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
 import { DASHBOARD_PAGE_TOKENS, StandardListSection, SummaryOverview } from '@/components';
 import type { SummaryRow } from './types';
@@ -38,11 +38,11 @@ export default function DirectoryPage() {
     const total = processedData.length;
     const enabledCount = processedData.filter((item) => item.enabled).length;
     const disabledCount = total - enabledCount;
-    const categoryCount = new Set(processedData.map((item) => item.category || '未分类')).size;
-    const entityBoundCount = processedData.filter((item) => Boolean(item.entity)).length;
-    const topCategory = Object.entries(
+    const resourceCount = new Set(processedData.map((item) => item.resource || '未声明')).size;
+    const operationCount = processedData.filter((item) => Boolean(item.operation)).length;
+    const topResource = Object.entries(
       processedData.reduce<Record<string, number>>((acc, item) => {
-        const key = item.category || '未分类';
+        const key = item.resource || '未声明';
         acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {}),
@@ -51,25 +51,17 @@ export default function DirectoryPage() {
       total,
       enabledCount,
       disabledCount,
-      categoryCount,
-      entityBoundCount,
-      topCategoryLabel: topCategory?.[0] || '未分类',
-      topCategoryCount: topCategory?.[1] || 0,
+      resourceCount,
+      operationCount,
+      topResourceLabel: topResource?.[0] || '未声明',
+      topResourceCount: topResource?.[1] || 0,
     };
   }, [processedData]);
-
-  const buildWorkspacePath = React.useCallback((objectKey: string, functionId?: string) => {
-    const search = new URLSearchParams();
-    if (objectKey) search.set('objectKey', objectKey);
-    if (functionId) search.set('functionId', functionId);
-    search.set('from', 'functions_directory');
-    return `/system/functions/workspaces?${search.toString()}`;
-  }, []);
 
   return (
     <PageContainer
       title="函数目录"
-      subTitle="函数目录负责管理原子能力，并为对象工作台提供可装配的函数供给"
+      subTitle="函数目录只管理原子能力契约；页面、菜单和分类在 Page Studio 中确定"
       extra={headerActions}
     >
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -86,17 +78,17 @@ export default function DirectoryPage() {
             <Space wrap size={[8, 8]}>
               <Tag color="blue">能力供给层</Tag>
               <Tag color="green">{`可装配函数 ${summary.enabledCount}`}</Tag>
-              <Tag>{`对象已绑定 ${summary.entityBoundCount}`}</Tag>
-              {summary.topCategoryCount > 0 ? (
-                <Tag color="purple">{`当前最大分类 ${summary.topCategoryLabel} · ${summary.topCategoryCount}`}</Tag>
+              <Tag>{`已声明操作 ${summary.operationCount}`}</Tag>
+              {summary.topResourceCount > 0 ? (
+                <Tag color="purple">{`当前最大资源 ${summary.topResourceLabel} · ${summary.topResourceCount}`}</Tag>
               ) : null}
             </Space>
             <Space direction="vertical" size={6} style={{ width: '100%' }}>
               <Typography.Title level={4} style={{ margin: 0 }}>
-                先确认函数能力，再进入对象工作台完成页面装配
+                先确认函数能力，再进入 Page Studio 编排页面
               </Typography.Title>
               <Typography.Text type="secondary">
-                函数目录负责原子能力供给和单函数校验，不负责最终业务页面编排。推荐顺序是：先确认 descriptor、入参与实例，再去对象工作台生成页面骨架，最后到运行控制台验证发布结果。
+                函数目录负责 descriptor、入参表单、实例覆盖和调用校验，不决定菜单、页面分类、表格、分页或多函数组合。页面发布后的菜单只来自 PublishedPageSpec。
               </Typography.Text>
             </Space>
             <Row gutter={[12, 12]}>
@@ -112,26 +104,26 @@ export default function DirectoryPage() {
                       <Typography.Text strong>当前建议动作</Typography.Text>
                     </Space>
                     <Typography.Text type="secondary">
-                      如果你已经确认函数可用，下一步应该进入对象工作台做页面骨架，而不是停留在单函数 UI 配置。
+                      如果函数能力已经可用，下一步应到资源/页面候选中检查 PageSpec 生成质量，再进入 Page Studio 修改并发布。
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
                       <Button
                         type="primary"
-                        icon={<AppstoreOutlined />}
-                        onClick={() => history.push(buildWorkspacePath('', undefined))}
+                        icon={<ApartmentOutlined />}
+                        onClick={() => history.push('/system/functions/resources')}
                       >
-                        去对象工作台
+                        查看资源/页面候选
                       </Button>
                       <Button
                         onClick={() =>
                           history.push(
                             selectedFunction
-                              ? buildInvokePath(undefined, selectedFunction.id)
+                              ? buildInvokePath(selectedFunction.id)
                               : '/system/functions/invoke',
                           )
                         }
                       >
-                        去运行控制台
+                        测试函数调用
                       </Button>
                     </Space>
                   </Space>
@@ -146,12 +138,12 @@ export default function DirectoryPage() {
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Typography.Text strong>这里适合确认什么</Typography.Text>
                     <Typography.Text type="secondary">
-                      重点检查函数是否启用、是否有可调用实例、对象归属是否正确，以及它是否已经足够支撑后续页面装配。这里查的是能力本身，不是最终业务界面。
+                      重点检查函数是否启用、是否有可调用实例、资源和操作声明是否清晰，以及是否有足够 schema 支撑后续 PageSpec 编排。
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
                       <Badge status="success" text="函数定义与摘要" />
                       <Badge status="processing" text="实例与调用入口" />
-                      <Badge status="default" text="对象绑定与分类" />
+                      <Badge status="default" text="资源与操作契约" />
                     </Space>
                   </Space>
                 </Card>
@@ -161,27 +153,27 @@ export default function DirectoryPage() {
         </Card>
         <SummaryOverview
           title="函数概览"
-          description="这里是能力供给层。先确认函数本身是否可用，再把它们装配成业务页面。"
+          description="这里是能力供给层。函数注册不负责页面显示，页面编排只在 PageSpec/Page Studio 中完成。"
           items={[
             { color: '#1677ff', text: `总数 ${summary.total}` },
             { color: '#52c41a', text: `启用 ${summary.enabledCount}` },
             { color: '#d9d9d9', text: `禁用 ${summary.disabledCount}` },
-            { color: '#722ed1', text: `分类 ${summary.categoryCount}` },
+            { color: '#722ed1', text: `资源 ${summary.resourceCount}` },
           ]}
-          hint="函数层负责供给，对象工作台负责装配，运行控制台负责发布后的验证。"
+          hint="函数层负责供给，Page Studio 负责装配，运行控制台只展示已发布 PageSpec。"
         />
 
         <Alert
           type="info"
           showIcon
           message="函数详情里的 UI 配置只影响单函数表单"
-          description="如果目标是做运营人员真正访问的页面，不要在函数层停太久。函数层确认能力后，应转到对象工作台完成页面骨架、预览和发布。"
+          description="如果目标是做运营人员真正访问的页面，不要在函数层配置菜单或页面布局；请到资源/页面候选中进入 Page Studio。"
           action={
             <Button
               type="primary"
-              onClick={() => history.push(buildWorkspacePath('', undefined))}
+              onClick={() => history.push('/system/functions/resources')}
             >
-              去对象工作台
+              查看资源
             </Button>
           }
         />
@@ -229,18 +221,18 @@ export default function DirectoryPage() {
               <Descriptions.Item label="版本">
                 {selectedFunction.version || <Text type="secondary">未指定</Text>}
               </Descriptions.Item>
-              <Descriptions.Item label="分类">
-                <Tag color={selectedFunction.category ? 'geekblue' : 'default'}>
-                  {selectedFunction.category || '未分类'}
+              <Descriptions.Item label="资源">
+                <Tag color={selectedFunction.resource ? 'geekblue' : 'default'}>
+                  {selectedFunction.resource || '未声明'}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="对象键">
-                {selectedFunction.entity ? (
+              <Descriptions.Item label="操作">
+                {selectedFunction.operation ? (
                   <Text code copyable>
-                    {selectedFunction.entity}
+                    {selectedFunction.operation}
                   </Text>
                 ) : (
-                  <Text type="secondary">未提供，当前将按函数 ID 推断</Text>
+                  <Text type="secondary">未声明</Text>
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="状态">
@@ -280,50 +272,17 @@ export default function DirectoryPage() {
               </Card>
             )}
 
-            {selectedFunction.menu && (
-              <Card size="small" title="菜单信息" style={{ marginTop: 16 }}>
-                <Descriptions column={1} size="small">
-                  {Array.isArray(selectedFunction.menu.nodes) &&
-                    selectedFunction.menu.nodes.length > 0 && (
-                      <Descriptions.Item label="菜单节点">
-                        <Space wrap>
-                          {selectedFunction.menu.nodes.map((n) => (
-                            <Tag key={n}>{n}</Tag>
-                          ))}
-                        </Space>
-                      </Descriptions.Item>
-                    )}
-                  {selectedFunction.menu.path && (
-                    <Descriptions.Item label="调用路径">
-                      {buildInvokePath(selectedFunction.menu.path, selectedFunction.id)}
-                    </Descriptions.Item>
-                  )}
-                </Descriptions>
-              </Card>
-            )}
-
             <Card size="small" style={{ marginTop: 16 }}>
               <Space wrap>
                 <Button
-                  onClick={() =>
-                    history.push(
-                      buildWorkspacePath(
-                        String(
-                          selectedFunction.entity || selectedFunction.id.split('.')[0] || '',
-                        ).trim(),
-                        selectedFunction.id,
-                      ),
-                    )
-                  }
+                  onClick={() => history.push('/system/functions/resources')}
                 >
-                  去对象工作台装配
+                  查看资源/页面候选
                 </Button>
                 <Button
                   type="primary"
                   icon={<PlayCircleOutlined />}
-                  onClick={() =>
-                    history.push(buildInvokePath(selectedFunction.menu?.path, selectedFunction.id))
-                  }
+                  onClick={() => history.push(buildInvokePath(selectedFunction.id))}
                 >
                   测试调用
                 </Button>

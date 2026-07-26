@@ -2,7 +2,7 @@ import { request } from '@umijs/max';
 
 export type TermItem = {
   id?: number;
-  domain: 'entity' | 'operation';
+  domain: 'resource' | 'operation';
   term_key: string;
   alias: string;
   display_zh?: string;
@@ -10,7 +10,7 @@ export type TermItem = {
   order?: number;
 };
 
-export async function listTerms(domain?: 'entity' | 'operation') {
+export async function listTerms(domain?: TermItem['domain']) {
   return request<{ items?: TermItem[] } | TermItem[]>('/api/v1/terms', {
     params: domain ? { domain } : {},
   });

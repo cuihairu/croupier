@@ -7,18 +7,18 @@ import (
 	"path/filepath"
 )
 
-// Descriptor is a simplified function descriptor model for UI/validation.
+// Descriptor is a simplified function capability descriptor model.
 type Descriptor struct {
 	ID        string         `json:"id"`
 	Version   string         `json:"version"`
-	Category  string         `json:"category"`
+	Resource  string         `json:"resource"`
+	Operation string         `json:"operation"`
 	Risk      string         `json:"risk"`
 	Auth      map[string]any `json:"auth"`
 	Params    map[string]any `json:"params"`
 	Semantics map[string]any `json:"semantics"`
 	Transport map[string]any `json:"transport"`
 	Outputs   map[string]any `json:"outputs"`
-	UI        map[string]any `json:"ui"`
 }
 
 func LoadAll(dir string) ([]*Descriptor, error) {

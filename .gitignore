@@ -139,6 +139,7 @@ sdks/csharp/**/bin/
 sdks/csharp/**/obj/
 sdks/csharp/**/[Dd]ebug/
 sdks/csharp/**/[Rr]elease/
+sdks/csharp/TestResults/
 sdks/csharp/x64/
 sdks/csharp/x86/
 

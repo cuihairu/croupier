@@ -10,7 +10,7 @@ type Props = {
 export default function CategoryTab({ data, columns }: Props) {
   return (
     <ProTable<AssignmentGroup>
-      rowKey="category"
+      rowKey="resource"
       columns={columns}
       dataSource={data}
       pagination={false}

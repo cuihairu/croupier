@@ -17,13 +17,13 @@ import { fetchOptions } from '@/services/schema/async';
 import { validateFormilySchema } from '@/services/schema/validateSchema';
 import { extractErrorMessage } from '@/utils/errors';
 import type { FormilyValues } from '@/components/formily/schema/types';
+import type { JSONValue } from '@/types/dashboard';
 
 const { Text } = Typography;
 
 type SchemaSource =
   | 'custom_metadata'
   | 'config_file_override'
-  | 'openapi_x_ui'
   | 'generated_default'
   | 'none'
   | string;
@@ -89,6 +89,10 @@ function getRuntimeContext(functionId: string, access?: string) {
     functionId,
     permissions,
   };
+}
+
+function toJSONValue(values: FormilyValues): JSONValue {
+  return JSON.parse(JSON.stringify(values)) as JSONValue;
 }
 
 type InitialStateWithAccess = {
@@ -201,10 +205,11 @@ export default function FunctionRuntimeUIPage() {
       try {
         await formRef.current?.validate();
         const values = (formRef.current?.values || formValues) as FormilyValues;
+        const payload = toJSONValue(values);
         const response =
           mode === 'invoke'
-            ? await invokeFunction(selected.id, values)
-            : await startTask(selected.id, values);
+            ? await invokeFunction(selected.id, payload)
+            : await startTask(selected.id, payload);
         setResult(response);
         message.success(mode === 'invoke' ? '执行成功' : '任务已创建');
       } catch (err: unknown) {
@@ -323,7 +328,8 @@ export default function FunctionRuntimeUIPage() {
       >
         <Space direction="vertical" style={{ width: '100%' }} size="middle">
           <Text code>{selected.id}</Text>
-          {selected.category && <Tag color="blue">{selected.category}</Tag>}
+          {selected.resource && <Tag color="blue">Resource: {selected.resource}</Tag>}
+          {selected.operation && <Tag color="purple">Operation: {selected.operation}</Tag>}
           {selected.version && <Tag>v{selected.version}</Tag>}
           {uiState.status !== 'idle' && (
             <Tag color={uiState.status === 'ready' ? 'green' : 'red'}>

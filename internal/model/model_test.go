@@ -34,7 +34,6 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&RolePermission{},
 		&Permission{},
 		&Player{},
-		&Entity{},
 		&Function{},
 		&FunctionDescriptor{},
 		&FunctionInstance{},
@@ -59,7 +58,6 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&ProfileGame{},
 		&RateLimit{},
 		&TermDictionary{},
-		&WorkspaceConfig{},
 		&RetentionCohort{},
 		&SupportTicket{},
 		&SupportComment{},
@@ -1869,261 +1867,6 @@ func TestPlayer_Activate(t *testing.T) {
 	assert.Equal(t, 1, player.Status)
 }
 
-// ===== EntityModel Tests =====
-
-func TestNewEntityModel(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-	assert.NotNil(t, model)
-}
-
-func TestEntityModel_Create(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-	ctx := context.Background()
-
-	entity := &Entity{
-		Type:       "player",
-		ProviderID: "provider1",
-		Status:     1,
-	}
-
-	err := entity.SetData(map[string]string{"key": "value"})
-	require.NoError(t, err)
-
-	err = model.Create(ctx, entity)
-	require.NoError(t, err)
-	assert.NotZero(t, entity.ID)
-}
-
-func TestEntityModel_FindOne(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-	ctx := context.Background()
-
-	entity := &Entity{
-		Type:       "player",
-		ProviderID: "provider1",
-		Status:     1,
-	}
-	err := entity.SetData(map[string]string{"key": "value"})
-	require.NoError(t, err)
-	err = model.Create(ctx, entity)
-	require.NoError(t, err)
-
-	found, err := model.FindOne(ctx, entity.ID)
-	require.NoError(t, err)
-	assert.Equal(t, entity.Type, found.Type)
-
-	_, err = model.FindOne(ctx, 99999)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "entity not found")
-}
-
-func TestEntityModel_Update(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-	ctx := context.Background()
-
-	entity := &Entity{
-		Type:       "player",
-		ProviderID: "provider1",
-		Status:     1,
-	}
-	err := entity.SetData(map[string]string{"key": "value"})
-	require.NoError(t, err)
-	err = model.Create(ctx, entity)
-	require.NoError(t, err)
-
-	updates := map[string]interface{}{
-		"type":   "item",
-		"status": 0,
-	}
-	err = model.Update(ctx, entity.ID, updates)
-	require.NoError(t, err)
-
-	found, err := model.FindOne(ctx, entity.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "item", found.Type)
-	assert.Equal(t, 0, found.Status)
-}
-
-func TestEntityModel_Delete(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-	ctx := context.Background()
-
-	entity := &Entity{
-		Type:       "player",
-		ProviderID: "provider1",
-		Status:     1,
-	}
-	err := model.Create(ctx, entity)
-	require.NoError(t, err)
-
-	err = model.Delete(ctx, entity.ID)
-	require.NoError(t, err)
-
-	_, err = model.FindOne(ctx, entity.ID)
-	assert.Error(t, err)
-}
-
-func TestEntityModel_List(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-	ctx := context.Background()
-
-	for i := 0; i < 5; i++ {
-		entity := &Entity{
-			Type:       "player",
-			ProviderID: "provider1",
-			Status:     1,
-		}
-		err := model.Create(ctx, entity)
-		require.NoError(t, err)
-	}
-
-	entities, total, err := model.List(ctx, ListEntitiesOptions{
-		Page:     1,
-		PageSize: 10,
-	})
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, total, int64(5))
-	assert.GreaterOrEqual(t, len(entities), 5)
-}
-
-func TestEntityModel_List_TypeFilter(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-	ctx := context.Background()
-
-	entity1 := &Entity{Type: "player", ProviderID: "p1", Status: 1}
-	entity2 := &Entity{Type: "item", ProviderID: "p1", Status: 1}
-	err := model.Create(ctx, entity1)
-	require.NoError(t, err)
-	err = model.Create(ctx, entity2)
-	require.NoError(t, err)
-
-	entities, total, err := model.List(ctx, ListEntitiesOptions{
-		Page:     1,
-		PageSize: 10,
-		Type:     "player",
-	})
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, total, int64(1))
-	for _, e := range entities {
-		assert.Equal(t, "player", e.Type)
-	}
-}
-
-func TestEntityModel_List_ProviderIDFilter(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-	ctx := context.Background()
-
-	entity1 := &Entity{Type: "player", ProviderID: "provider1", Status: 1}
-	entity2 := &Entity{Type: "player", ProviderID: "provider2", Status: 1}
-	err := model.Create(ctx, entity1)
-	require.NoError(t, err)
-	err = model.Create(ctx, entity2)
-	require.NoError(t, err)
-
-	entities, total, err := model.List(ctx, ListEntitiesOptions{
-		Page:       1,
-		PageSize:   10,
-		ProviderID: "provider1",
-	})
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, total, int64(1))
-	for _, e := range entities {
-		assert.Equal(t, "provider1", e.ProviderID)
-	}
-}
-
-func TestEntityModel_List_StatusFilter(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-	ctx := context.Background()
-
-	status1 := 1
-	status0 := 0
-	entity1 := &Entity{Type: "player", ProviderID: "p1", Status: 1}
-	entity2 := &Entity{Type: "player", ProviderID: "p1", Status: 0}
-	err := model.Create(ctx, entity1)
-	require.NoError(t, err)
-	err = model.Create(ctx, entity2)
-	require.NoError(t, err)
-
-	entities, total, err := model.List(ctx, ListEntitiesOptions{
-		Page:     1,
-		PageSize: 10,
-		Status:   &status1,
-	})
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, total, int64(1))
-	for _, e := range entities {
-		assert.Equal(t, 1, e.Status)
-	}
-
-	entities, total, err = model.List(ctx, ListEntitiesOptions{
-		Page:     1,
-		PageSize: 10,
-		Status:   &status0,
-	})
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, total, int64(1))
-	for _, e := range entities {
-		assert.Equal(t, 0, e.Status)
-	}
-}
-
-func TestEntityModel_ValidateEntityData(t *testing.T) {
-	db := setupTestDB(t)
-	model := NewEntityModel(db)
-
-	// Test empty type
-	err := model.ValidateEntityData("", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "entity type cannot be empty")
-
-	// Test valid type
-	err = model.ValidateEntityData("player", nil)
-	assert.NoError(t, err)
-}
-
-// ===== Entity Helper Methods Tests =====
-
-func TestEntity_GetData(t *testing.T) {
-	entity := &Entity{}
-
-	// Test empty data
-	var dest map[string]string
-	err := entity.GetData(&dest)
-	require.NoError(t, err)
-
-	// Test with data
-	testData := map[string]string{"key": "value"}
-	err = entity.SetData(testData)
-	require.NoError(t, err)
-
-	var result map[string]string
-	err = entity.GetData(&result)
-	require.NoError(t, err)
-	assert.Equal(t, "value", result["key"])
-}
-
-func TestEntity_SetData(t *testing.T) {
-	entity := &Entity{}
-
-	data := map[string]string{
-		"key1": "value1",
-		"key2": "value2",
-	}
-	err := entity.SetData(data)
-	require.NoError(t, err)
-	assert.NotNil(t, entity.Data)
-}
-
 // ===== FunctionModel Tests =====
 
 func TestNewFunctionModel(t *testing.T) {
@@ -2141,7 +1884,7 @@ func TestFunctionModel_Create(t *testing.T) {
 		FunctionID: "testfunction",
 		GameID:     "game1",
 		Name:       "Test Function",
-		Category:   "test",
+		Resource:   "test",
 		Status:     1,
 	}
 
@@ -2159,7 +1902,7 @@ func TestFunctionModel_FindByID(t *testing.T) {
 		FunctionID: "findbyid",
 		GameID:     "game1",
 		Name:       "Find By ID",
-		Category:   "test",
+		Resource:   "test",
 		Status:     1,
 	}
 	err := model.Create(ctx, fn)
@@ -2179,7 +1922,7 @@ func TestFunctionModel_FindByFunctionID(t *testing.T) {
 		FunctionID: "findbyfuncid",
 		GameID:     "game1",
 		Name:       "Find By Function ID",
-		Category:   "test",
+		Resource:   "test",
 		Status:     1,
 	}
 	err := model.Create(ctx, fn)
@@ -2199,7 +1942,7 @@ func TestFunctionModel_Update(t *testing.T) {
 		FunctionID: "updatefunction",
 		GameID:     "game1",
 		Name:       "Update Function",
-		Category:   "test",
+		Resource:   "test",
 		Status:     1,
 	}
 	err := model.Create(ctx, fn)
@@ -2225,7 +1968,7 @@ func TestFunctionModel_Delete(t *testing.T) {
 		FunctionID: "deletefunction",
 		GameID:     "game1",
 		Name:       "Delete Function",
-		Category:   "test",
+		Resource:   "test",
 		Status:     1,
 	}
 	err := model.Create(ctx, fn)
@@ -2248,7 +1991,7 @@ func TestFunctionModel_List(t *testing.T) {
 			FunctionID: "listfunction" + string(rune('a'+i)),
 			GameID:     "game1",
 			Name:       "List Function " + string(rune('a'+i)),
-			Category:   "test",
+			Resource:   "test",
 			Status:     1,
 		}
 		err := model.Create(ctx, fn)
@@ -2268,8 +2011,8 @@ func TestFunctionModel_List_GameIDFilter(t *testing.T) {
 	model := NewFunctionModel(db)
 	ctx := context.Background()
 
-	fn1 := &Function{FunctionID: "game1fn", GameID: "game1", Name: "Game1 Func", Category: "test", Status: 1}
-	fn2 := &Function{FunctionID: "game2fn", GameID: "game2", Name: "Game2 Func", Category: "test", Status: 1}
+	fn1 := &Function{FunctionID: "game1fn", GameID: "game1", Name: "Game1 Func", Resource: "test", Status: 1}
+	fn2 := &Function{FunctionID: "game2fn", GameID: "game2", Name: "Game2 Func", Resource: "test", Status: 1}
 	err := model.Create(ctx, fn1)
 	require.NoError(t, err)
 	err = model.Create(ctx, fn2)
@@ -2286,13 +2029,13 @@ func TestFunctionModel_List_GameIDFilter(t *testing.T) {
 	}
 }
 
-func TestFunctionModel_List_CategoryFilter(t *testing.T) {
+func TestFunctionModel_List_ResourceFilter(t *testing.T) {
 	db := setupTestDB(t)
 	model := NewFunctionModel(db)
 	ctx := context.Background()
 
-	fn1 := &Function{FunctionID: "cat1fn", GameID: "game1", Name: "Cat1", Category: "admin", Status: 1}
-	fn2 := &Function{FunctionID: "cat2fn", GameID: "game1", Name: "Cat2", Category: "user", Status: 1}
+	fn1 := &Function{FunctionID: "cat1fn", GameID: "game1", Name: "Cat1", Resource: "admin", Status: 1}
+	fn2 := &Function{FunctionID: "cat2fn", GameID: "game1", Name: "Cat2", Resource: "user", Status: 1}
 	err := model.Create(ctx, fn1)
 	require.NoError(t, err)
 	err = model.Create(ctx, fn2)
@@ -2300,12 +2043,12 @@ func TestFunctionModel_List_CategoryFilter(t *testing.T) {
 
 	functions, total, err := model.List(ctx, ListFunctionsOptions{
 		PaginationOptions: PaginationOptions{Page: 1, PageSize: 10},
-		Category:          "admin",
+		Resource:          "admin",
 	})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(1))
 	for _, f := range functions {
-		assert.Equal(t, "admin", f.Category)
+		assert.Equal(t, "admin", f.Resource)
 	}
 }
 
@@ -2316,8 +2059,8 @@ func TestFunctionModel_List_StatusFilter(t *testing.T) {
 
 	status1 := 1
 	status0 := 0
-	fn1 := &Function{FunctionID: "status1fn", GameID: "game1", Name: "Status1", Category: "test", Status: 1}
-	fn2 := &Function{FunctionID: "status0fn", GameID: "game1", Name: "Status0", Category: "test", Status: 0}
+	fn1 := &Function{FunctionID: "status1fn", GameID: "game1", Name: "Status1", Resource: "test", Status: 1}
+	fn2 := &Function{FunctionID: "status0fn", GameID: "game1", Name: "Status0", Resource: "test", Status: 0}
 	err := model.Create(ctx, fn1)
 	require.NoError(t, err)
 	err = model.Create(ctx, fn2)
@@ -2349,8 +2092,8 @@ func TestFunctionModel_List_Search(t *testing.T) {
 	model := NewFunctionModel(db)
 	ctx := context.Background()
 
-	fn1 := &Function{FunctionID: "searchfn", GameID: "game1", Name: "Searchable Function", Category: "test", Status: 1}
-	fn2 := &Function{FunctionID: "otherfn", GameID: "game1", Name: "Other Function", Category: "test", Status: 1}
+	fn1 := &Function{FunctionID: "searchfn", GameID: "game1", Name: "Searchable Function", Resource: "test", Status: 1}
+	fn2 := &Function{FunctionID: "otherfn", GameID: "game1", Name: "Other Function", Resource: "test", Status: 1}
 	err := model.Create(ctx, fn1)
 	require.NoError(t, err)
 	err = model.Create(ctx, fn2)
@@ -2559,7 +2302,7 @@ func TestFunctionModel_DeleteFunction(t *testing.T) {
 		FunctionID: "deletebyfuncid",
 		GameID:     "game1",
 		Name:       "Delete By Function ID",
-		Category:   "test",
+		Resource:   "test",
 		Status:     1,
 	}
 	err := model.Create(ctx, fn)
@@ -2581,7 +2324,7 @@ func TestFunctionModel_CopyFunction(t *testing.T) {
 		FunctionID: "copyoriginal",
 		GameID:     "game1",
 		Name:       "Copy Original",
-		Category:   "test",
+		Resource:   "test",
 		Status:     1,
 	}
 	err := model.Create(ctx, fn)
@@ -2612,22 +2355,34 @@ func TestFunctionModel_BatchUpdateStatus(t *testing.T) {
 	model := NewFunctionModel(db)
 	ctx := context.Background()
 
-	// Note: Function model doesn't have an 'enabled' field, but BatchUpdateStatus
-	// function exists and will attempt to update it. This test verifies the function
-	// exists and can be called without error, even though the field doesn't exist.
-	// The SQL error is expected due to the missing column.
-	fn1 := &Function{FunctionID: "batchstatus1", GameID: "game1", Name: "Batch1", Category: "test", Status: 1}
-	fn2 := &Function{FunctionID: "batchstatus2", GameID: "game1", Name: "Batch2", Category: "test", Status: 1}
+	fn1 := &Function{FunctionID: "batchstatus1", GameID: "game1", Name: "Batch1", Resource: "test", Status: 1}
+	fn2 := &Function{FunctionID: "batchstatus2", GameID: "game1", Name: "Batch2", Resource: "test", Status: 1}
 	err := model.Create(ctx, fn1)
 	require.NoError(t, err)
 	err = model.Create(ctx, fn2)
 	require.NoError(t, err)
 
-	// This will error because 'enabled' field doesn't exist, but we test that
-	// the function signature and logic are correct
-	_, _, err = model.BatchUpdateStatus(ctx, []string{"batchstatus1", "batchstatus2"}, true)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no such column: enabled")
+	affected, failed, err := model.BatchUpdateStatus(ctx, []string{"batchstatus1", "batchstatus2"}, false)
+	require.NoError(t, err)
+	assert.Equal(t, 2, affected)
+	assert.Nil(t, failed)
+
+	updated1, err := model.FindByFunctionID(ctx, "batchstatus1")
+	require.NoError(t, err)
+	assert.Equal(t, StatusDisabled, updated1.Status)
+
+	updated2, err := model.FindByFunctionID(ctx, "batchstatus2")
+	require.NoError(t, err)
+	assert.Equal(t, StatusDisabled, updated2.Status)
+
+	affected, failed, err = model.BatchUpdateStatus(ctx, []string{"batchstatus1"}, true)
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected)
+	assert.Nil(t, failed)
+
+	updated1, err = model.FindByFunctionID(ctx, "batchstatus1")
+	require.NoError(t, err)
+	assert.Equal(t, StatusEnabled, updated1.Status)
 }
 
 func TestFunctionModel_BatchUpdateStatus_Empty(t *testing.T) {
@@ -2645,8 +2400,8 @@ func TestFunctionModel_BatchDeleteFunctions(t *testing.T) {
 	model := NewFunctionModel(db)
 	ctx := context.Background()
 
-	fn1 := &Function{FunctionID: "batchdel1", GameID: "game1", Name: "BatchDel1", Category: "test", Status: 1}
-	fn2 := &Function{FunctionID: "batchdel2", GameID: "game1", Name: "BatchDel2", Category: "test", Status: 1}
+	fn1 := &Function{FunctionID: "batchdel1", GameID: "game1", Name: "BatchDel1", Resource: "test", Status: 1}
+	fn2 := &Function{FunctionID: "batchdel2", GameID: "game1", Name: "BatchDel2", Resource: "test", Status: 1}
 	err := model.Create(ctx, fn1)
 	require.NoError(t, err)
 	err = model.Create(ctx, fn2)
@@ -2678,8 +2433,8 @@ func TestFunctionModel_BatchCopyFunctions(t *testing.T) {
 	model := NewFunctionModel(db)
 	ctx := context.Background()
 
-	fn1 := &Function{FunctionID: "batchcopy1", GameID: "game1", Name: "BatchCopy1", Category: "test", Status: 1}
-	fn2 := &Function{FunctionID: "batchcopy2", GameID: "game1", Name: "BatchCopy2", Category: "test", Status: 1}
+	fn1 := &Function{FunctionID: "batchcopy1", GameID: "game1", Name: "BatchCopy1", Resource: "test", Status: 1}
+	fn2 := &Function{FunctionID: "batchcopy2", GameID: "game1", Name: "BatchCopy2", Resource: "test", Status: 1}
 	err := model.Create(ctx, fn1)
 	require.NoError(t, err)
 	err = model.Create(ctx, fn2)
@@ -5085,191 +4840,6 @@ func TestConfigVersionModel_FindLatest(t *testing.T) {
 	assert.Contains(t, err.Error(), "config key required")
 }
 
-// ===== WorkspaceConfigModel Tests =====
-
-func setupWorkspaceConfigTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	require.NoError(t, err)
-	err = db.AutoMigrate(&WorkspaceConfig{})
-	require.NoError(t, err)
-	return db
-}
-
-func TestNewWorkspaceConfigModel(t *testing.T) {
-	db := setupWorkspaceConfigTestDB(t)
-	model := NewWorkspaceConfigModel(db)
-	assert.NotNil(t, model)
-}
-
-func TestWorkspaceConfigModel_Upsert(t *testing.T) {
-	db := setupWorkspaceConfigTestDB(t)
-	model := NewWorkspaceConfigModel(db)
-	ctx := context.Background()
-
-	cfg := &WorkspaceConfig{
-		ObjectKey: "test-object",
-		Title:     "Test Config",
-		Config:    `{"key":"value"}`,
-	}
-
-	// Create new
-	err := model.Upsert(ctx, cfg)
-	require.NoError(t, err)
-	assert.NotZero(t, cfg.ID)
-
-	// Update existing
-	cfg.Title = "Updated Title"
-	err = model.Upsert(ctx, cfg)
-	require.NoError(t, err)
-
-	// Verify
-	found, err := model.FindByObjectKey(ctx, "test-object")
-	require.NoError(t, err)
-	assert.Equal(t, "Updated Title", found.Title)
-	assert.Equal(t, cfg.ID, found.ID)
-	assert.Equal(t, cfg.CreatedAt, found.CreatedAt)
-}
-
-func TestWorkspaceConfigModel_FindByObjectKey(t *testing.T) {
-	db := setupWorkspaceConfigTestDB(t)
-	model := NewWorkspaceConfigModel(db)
-	ctx := context.Background()
-
-	cfg := &WorkspaceConfig{
-		ObjectKey: "find-test",
-		Title:     "Find Test",
-		Config:    `{}`,
-	}
-	err := model.Upsert(ctx, cfg)
-	require.NoError(t, err)
-
-	// Find existing
-	found, err := model.FindByObjectKey(ctx, "find-test")
-	require.NoError(t, err)
-	assert.Equal(t, "Find Test", found.Title)
-
-	// Find non-existent
-	_, err = model.FindByObjectKey(ctx, "non-existent")
-	assert.Error(t, err)
-}
-
-func TestWorkspaceConfigModel_Delete(t *testing.T) {
-	db := setupWorkspaceConfigTestDB(t)
-	model := NewWorkspaceConfigModel(db)
-	ctx := context.Background()
-
-	cfg := &WorkspaceConfig{
-		ObjectKey: "delete-test",
-		Title:     "Delete Test",
-		Config:    `{}`,
-	}
-	err := model.Upsert(ctx, cfg)
-	require.NoError(t, err)
-
-	// Delete
-	err = model.Delete(ctx, "delete-test")
-	require.NoError(t, err)
-
-	// Verify
-	_, err = model.FindByObjectKey(ctx, "delete-test")
-	assert.Error(t, err)
-}
-
-func TestWorkspaceConfigModel_ListAll(t *testing.T) {
-	db := setupWorkspaceConfigTestDB(t)
-	model := NewWorkspaceConfigModel(db)
-	ctx := context.Background()
-
-	configs := []*WorkspaceConfig{
-		{ObjectKey: "list-obj-1", Title: "Config 1", MenuOrder: 2, Config: `{}`},
-		{ObjectKey: "list-obj-2", Title: "Config 2", MenuOrder: 1, Config: `{}`},
-		{ObjectKey: "list-obj-3", Title: "Config 3", MenuOrder: 3, Config: `{}`},
-	}
-	for _, cfg := range configs {
-		err := model.Upsert(ctx, cfg)
-		require.NoError(t, err)
-	}
-
-	// List all (should be ordered by menu_order)
-	all, err := model.ListAll(ctx)
-	require.NoError(t, err)
-	// Find our configs and verify ordering among them
-	var foundConfigs []WorkspaceConfig
-	for _, cfg := range all {
-		if cfg.ObjectKey == "list-obj-1" || cfg.ObjectKey == "list-obj-2" || cfg.ObjectKey == "list-obj-3" {
-			foundConfigs = append(foundConfigs, cfg)
-		}
-	}
-	assert.Len(t, foundConfigs, 3)
-	// Verify ordering among our configs
-	assert.Equal(t, "list-obj-2", foundConfigs[0].ObjectKey) // MenuOrder 1
-	assert.Equal(t, "list-obj-1", foundConfigs[1].ObjectKey) // MenuOrder 2
-}
-
-func TestWorkspaceConfigModel_ListPublished(t *testing.T) {
-	db := setupWorkspaceConfigTestDB(t)
-	model := NewWorkspaceConfigModel(db)
-	ctx := context.Background()
-
-	now := time.Now()
-	configs := []*WorkspaceConfig{
-		{ObjectKey: "pub1", Title: "Published 1", Published: true, PublishedAt: &now, PublishedBy: "admin", MenuOrder: 1, Config: `{}`},
-		{ObjectKey: "pub2", Title: "Published 2", Published: true, PublishedAt: &now, PublishedBy: "admin", MenuOrder: 2, Config: `{}`},
-		{ObjectKey: "unpub", Title: "Unpublished", Published: false, MenuOrder: 3, Config: `{}`},
-	}
-	for _, cfg := range configs {
-		err := model.Upsert(ctx, cfg)
-		require.NoError(t, err)
-	}
-
-	// List published
-	published, err := model.ListPublished(ctx)
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, len(published), 2)
-	for _, p := range published {
-		assert.True(t, p.Published)
-	}
-}
-
-func TestWorkspaceConfigModel_SetPublished(t *testing.T) {
-	db := setupWorkspaceConfigTestDB(t)
-	model := NewWorkspaceConfigModel(db)
-	ctx := context.Background()
-
-	cfg := &WorkspaceConfig{
-		ObjectKey: "setpub-test",
-		Title:     "Set Published Test",
-		Published: false,
-		Config:    `{}`,
-	}
-	err := model.Upsert(ctx, cfg)
-	require.NoError(t, err)
-
-	// Publish
-	err = model.SetPublished(ctx, "setpub-test", true, "admin")
-	require.NoError(t, err)
-
-	// Verify
-	found, err := model.FindByObjectKey(ctx, "setpub-test")
-	require.NoError(t, err)
-	assert.True(t, found.Published)
-	assert.NotNil(t, found.PublishedAt)
-	assert.Equal(t, "admin", found.PublishedBy)
-
-	// Unpublish
-	err = model.SetPublished(ctx, "setpub-test", false, "")
-	require.NoError(t, err)
-
-	found, err = model.FindByObjectKey(ctx, "setpub-test")
-	require.NoError(t, err)
-	assert.False(t, found.Published)
-	assert.Nil(t, found.PublishedAt)
-	assert.Equal(t, "", found.PublishedBy)
-}
-
 // ===== TermDictionaryModel Tests =====
 
 func setupTermDictionaryTestDB(t *testing.T) *gorm.DB {
@@ -5295,8 +4865,8 @@ func TestTermDictionaryModel_List(t *testing.T) {
 	ctx := context.Background()
 
 	terms := []*TermDictionary{
-		{Domain: "entity", TermKey: "player", Alias: "玩家", DisplayZh: "玩家", DisplayEn: "Player", SortOrder: 1},
-		{Domain: "entity", TermKey: "game", Alias: "游戏", DisplayZh: "游戏", DisplayEn: "Game", SortOrder: 2},
+		{Domain: "resource", TermKey: "player", Alias: "玩家", DisplayZh: "玩家", DisplayEn: "Player", SortOrder: 1},
+		{Domain: "resource", TermKey: "game", Alias: "游戏", DisplayZh: "游戏", DisplayEn: "Game", SortOrder: 2},
 		{Domain: "operation", TermKey: "create", Alias: "创建", DisplayZh: "创建", DisplayEn: "Create", SortOrder: 1},
 	}
 	for _, term := range terms {
@@ -5310,9 +4880,9 @@ func TestTermDictionaryModel_List(t *testing.T) {
 	assert.GreaterOrEqual(t, len(all), 3)
 
 	// Filter by domain
-	entityTerms, err := model.List(ctx, "entity")
+	resourceTerms, err := model.List(ctx, "resource")
 	require.NoError(t, err)
-	assert.GreaterOrEqual(t, len(entityTerms), 2)
+	assert.GreaterOrEqual(t, len(resourceTerms), 2)
 }
 
 func TestTermDictionaryModel_Upsert(t *testing.T) {
@@ -5322,7 +4892,7 @@ func TestTermDictionaryModel_Upsert(t *testing.T) {
 
 	// Create new
 	term := &TermDictionary{
-		Domain:    "entity",
+		Domain:    "resource",
 		TermKey:   "item",
 		Alias:     "道具",
 		DisplayZh: "道具",
@@ -5340,7 +4910,7 @@ func TestTermDictionaryModel_Upsert(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify
-	list, err := model.List(ctx, "entity")
+	list, err := model.List(ctx, "resource")
 	require.NoError(t, err)
 	for _, term := range list {
 		if term.Alias == "道具" {
@@ -5357,6 +4927,15 @@ func TestTermDictionaryModel_Upsert(t *testing.T) {
 	emptyTerm := &TermDictionary{}
 	err = model.Upsert(ctx, emptyTerm)
 	require.NoError(t, err)
+
+	legacyTerm := &TermDictionary{
+		Domain:  "entity",
+		TermKey: "player",
+		Alias:   "玩家",
+	}
+	err = model.Upsert(ctx, legacyTerm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported term dictionary domain")
 }
 
 func TestTermDictionaryModel_AliasMap(t *testing.T) {
@@ -5365,9 +4944,9 @@ func TestTermDictionaryModel_AliasMap(t *testing.T) {
 	ctx := context.Background()
 
 	terms := []*TermDictionary{
-		{Domain: "entity_alias_map", TermKey: "player", Alias: "玩家2", DisplayZh: "玩家", DisplayEn: "Player"},
-		{Domain: "entity_alias_map", TermKey: "game", Alias: "游戏2", DisplayZh: "游戏", DisplayEn: "Game"},
-		{Domain: "operation_alias_map", TermKey: "create", Alias: "创建2", DisplayZh: "创建", DisplayEn: "Create"},
+		{Domain: "resource", TermKey: "player", Alias: "玩家2", DisplayZh: "玩家", DisplayEn: "Player"},
+		{Domain: "resource", TermKey: "game", Alias: "游戏2", DisplayZh: "游戏", DisplayEn: "Game"},
+		{Domain: "operation", TermKey: "create", Alias: "创建2", DisplayZh: "创建", DisplayEn: "Create"},
 	}
 	for _, term := range terms {
 		err := db.Create(term).Error
@@ -5377,11 +4956,11 @@ func TestTermDictionaryModel_AliasMap(t *testing.T) {
 	// Get alias map
 	aliasMap, err := model.AliasMap(ctx)
 	require.NoError(t, err)
-	assert.Contains(t, aliasMap, "entity_alias_map")
-	assert.Contains(t, aliasMap, "operation_alias_map")
-	assert.Equal(t, "player", aliasMap["entity_alias_map"]["玩家2"])
-	assert.Equal(t, "game", aliasMap["entity_alias_map"]["游戏2"])
-	assert.Equal(t, "create", aliasMap["operation_alias_map"]["创建2"])
+	assert.Contains(t, aliasMap, "resource")
+	assert.Contains(t, aliasMap, "operation")
+	assert.Equal(t, "player", aliasMap["resource"]["玩家2"])
+	assert.Equal(t, "game", aliasMap["resource"]["游戏2"])
+	assert.Equal(t, "create", aliasMap["operation"]["创建2"])
 }
 
 func TestTermDictionaryModel_DeleteByAlias(t *testing.T) {
@@ -5390,7 +4969,7 @@ func TestTermDictionaryModel_DeleteByAlias(t *testing.T) {
 	ctx := context.Background()
 
 	term := &TermDictionary{
-		Domain:    "entity_del",
+		Domain:    "resource",
 		TermKey:   "test_del",
 		Alias:     "测试_del",
 		DisplayZh: "测试",
@@ -5400,11 +4979,11 @@ func TestTermDictionaryModel_DeleteByAlias(t *testing.T) {
 	require.NoError(t, err)
 
 	// Delete by alias
-	err = model.DeleteByAlias(ctx, "entity_del", "测试_del")
+	err = model.DeleteByAlias(ctx, "resource", "测试_del")
 	require.NoError(t, err)
 
 	// Verify
-	list, err := model.List(ctx, "entity_del")
+	list, err := model.List(ctx, "resource")
 	require.NoError(t, err)
 	for _, termItem := range list {
 		assert.NotEqual(t, "测试_del", termItem.Alias)

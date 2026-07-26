@@ -34,13 +34,13 @@ func assertConfigHTTPStatus(t *testing.T, rec *httptest.ResponseRecorder, want i
 func TestBindConfigRequestUsesQueryForGet(t *testing.T) {
 	t.Parallel()
 
-	ctx, _ := newConfigTestContext(http.MethodGet, "/api/v1/config/versions?key=workspace:player&version=2", "")
+	ctx, _ := newConfigTestContext(http.MethodGet, "/api/v1/config/versions?key=page:player.manage&version=2", "")
 	var req GetVersionRequest
 	if err := bindConfigRequest(ctx, &req); err != nil {
 		t.Fatalf("bindConfigRequest() error = %v", err)
 	}
-	if req.Key != "workspace:player" {
-		t.Fatalf("expected key=workspace:player, got %q", req.Key)
+	if req.Key != "page:player.manage" {
+		t.Fatalf("expected key=page:player.manage, got %q", req.Key)
 	}
 	if req.Version != 2 {
 		t.Fatalf("expected version=2, got %d", req.Version)
@@ -50,13 +50,13 @@ func TestBindConfigRequestUsesQueryForGet(t *testing.T) {
 func TestBindConfigRequestUsesJSONForPost(t *testing.T) {
 	t.Parallel()
 
-	ctx, _ := newConfigTestContext(http.MethodPost, "/api/v1/config", `{"key":"workspace:player","value":"{}"}`)
+	ctx, _ := newConfigTestContext(http.MethodPost, "/api/v1/config", `{"key":"page:player.manage","value":"{}"}`)
 	var req UpsertRequest
 	if err := bindConfigRequest(ctx, &req); err != nil {
 		t.Fatalf("bindConfigRequest() error = %v", err)
 	}
-	if req.Key != "workspace:player" {
-		t.Fatalf("expected key=workspace:player, got %q", req.Key)
+	if req.Key != "page:player.manage" {
+		t.Fatalf("expected key=page:player.manage, got %q", req.Key)
 	}
 }
 

@@ -60,8 +60,8 @@ public class CroupierClientIntegrationTests
 
         var descriptor = new FunctionDescriptor
         {
-            Id = "ping",
-            Category = "test",
+            Id = "test.ping",
+            Resource = "test",
             Operation = "ping"
         };
 
@@ -106,8 +106,8 @@ public class CroupierClientIntegrationTests
 
         var descriptor = new FunctionDescriptor
         {
-            Id = "ping",
-            Category = "test",
+            Id = "test.ping",
+            Resource = "test",
             Operation = "ping"
         };
 
@@ -152,7 +152,7 @@ public class CroupierClientIntegrationTests
         using var client = new CroupierClient(config);
 
         client.RegisterFunction(
-            new FunctionDescriptor { Id = "test", Category = "test", Operation = "idempotent" },
+            new FunctionDescriptor { Id = "test.idempotent", Resource = "test", Operation = "idempotent" },
             (ctx, payload) => Task.FromResult("ok")
         );
 
@@ -185,7 +185,7 @@ public class CroupierClientIntegrationTests
         using var client = new CroupierClient(config);
 
         client.RegisterFunction(
-            new FunctionDescriptor { Id = "test", Category = "test", Operation = "reconnect" },
+            new FunctionDescriptor { Id = "test.reconnect", Resource = "test", Operation = "reconnect" },
             (ctx, payload) => Task.FromResult("ok")
         );
 
@@ -222,7 +222,7 @@ public class CroupierClientIntegrationTests
         using var client = new CroupierClient(config);
 
         client.RegisterFunction(
-            new FunctionDescriptor { Id = "test", Category = "test", Operation = "disconnect" },
+            new FunctionDescriptor { Id = "test.disconnect", Resource = "test", Operation = "disconnect" },
             (ctx, payload) => Task.FromResult("ok")
         );
 
@@ -252,15 +252,15 @@ public class CroupierClientIntegrationTests
 
         // Act
         client.RegisterFunction(
-            new FunctionDescriptor { Id = "ping", Category = "test", Operation = "ping" },
+            new FunctionDescriptor { Id = "test.ping", Resource = "test", Operation = "ping" },
             (ctx, payload) => Task.FromResult($"pong: {payload}")
         );
         client.RegisterFunction(
-            new FunctionDescriptor { Id = "echo", Category = "test", Operation = "echo" },
+            new FunctionDescriptor { Id = "test.echo", Resource = "test", Operation = "echo" },
             (ctx, payload) => Task.FromResult(payload)
         );
         client.RegisterFunction(
-            new FunctionDescriptor { Id = "upper", Category = "test", Operation = "upper" },
+            new FunctionDescriptor { Id = "test.upper", Resource = "test", Operation = "upper" },
             (ctx, payload) => Task.FromResult(payload.ToUpperInvariant())
         );
 

@@ -1,7 +1,7 @@
 export type CanaryConfig = {
   enabled?: boolean;
   percentage?: number;
-  rules?: Record<string, any>;
+  rules?: Record<string, unknown>;
   duration?: string;
 };
 
@@ -14,7 +14,7 @@ export type AssignmentHistory = {
   count: number;
   operated_by: string;
   operated_at: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 };
 
 export type HistoryAction = 'all' | 'assign' | 'remove' | 'clone';
@@ -23,10 +23,8 @@ export type AssignmentItem = {
   id: string;
   name: string;
   version: string;
-  category: string;
-  menuNodes?: string[];
-  menuPath?: string;
-  menuSource?: string;
+  resource: string;
+  operation?: string;
   status: 'active' | 'canary' | 'disabled';
   canary?: CanaryConfig;
   assignedAt?: string;
@@ -34,7 +32,7 @@ export type AssignmentItem = {
 };
 
 export type AssignmentGroup = {
-  category: string;
+  resource: string;
   items: AssignmentItem[];
   activeCount: number;
   canaryCount: number;

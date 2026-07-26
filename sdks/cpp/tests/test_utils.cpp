@@ -138,21 +138,21 @@ TEST_F(UtilsTest, TaskEventError) {
 // 测试 FunctionDescriptor 创建
 TEST_F(UtilsTest, FunctionDescriptorCreation) {
     FunctionDescriptor desc;
-    desc.id = "player.create";
+    desc.id = "player.ban";
     desc.version = "1.0.0";
-    desc.category = "player";
-    desc.risk = "low";
-    desc.entity = "player";
-    desc.operation = "create";
+    desc.resource = "player";
+    desc.operation = "ban";
+    desc.risk = "danger";
     desc.enabled = true;
+    desc.permission = "player.ban";
 
-    EXPECT_EQ(desc.id, "player.create");
+    EXPECT_EQ(desc.id, "player.ban");
     EXPECT_EQ(desc.version, "1.0.0");
-    EXPECT_EQ(desc.category, "player");
-    EXPECT_EQ(desc.risk, "low");
-    EXPECT_EQ(desc.entity, "player");
-    EXPECT_EQ(desc.operation, "create");
+    EXPECT_EQ(desc.resource, "player");
+    EXPECT_EQ(desc.operation, "ban");
+    EXPECT_EQ(desc.risk, "danger");
     EXPECT_TRUE(desc.enabled);
+    EXPECT_EQ(desc.permission, "player.ban");
 }
 
 // 测试关系定义验证

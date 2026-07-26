@@ -405,14 +405,14 @@ public class EdgeCaseTests
         {
             Id = "test.function",
             Version = "1.0.0",
-            Category = "test",
+            Resource = "test",
             Risk = "low"
         };
 
         // Assert
         descriptor.Id.Should().Be("test.function");
         descriptor.Version.Should().Be("1.0.0");
-        descriptor.Category.Should().Be("test");
+        descriptor.Resource.Should().Be("test");
         descriptor.Risk.Should().Be("low");
     }
 
@@ -424,7 +424,7 @@ public class EdgeCaseTests
         {
             Id = "test.function",
             Version = "1.0.0",
-            Category = "test",
+            Resource = "test",
             Risk = "low",
             Description = null,
             InputSchema = null,
@@ -452,7 +452,7 @@ public class EdgeCaseTests
             {
                 Id = "test.function",
                 Version = version,
-                Category = "test",
+                Resource = "test",
                 Risk = "low"
             };
 
@@ -533,7 +533,7 @@ public class EdgeCaseTests
         {
             Id = id,
             Version = "1.0.0",
-            Category = "test",
+            Resource = "test",
             Risk = "low"
         };
 

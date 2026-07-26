@@ -203,11 +203,11 @@ export default function ResourcesPage() {
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Space wrap>
                       <Typography.Text strong>
-                        {localizedText(operation.labels, operation.operation)}
+                        {operation.operation}
                       </Typography.Text>
-                      <Tag>{operation.kind}</Tag>
-                      <Tag>{operation.placement}</Tag>
                       <Tag color={riskColor(operation.risk)}>{operation.risk || 'safe'}</Tag>
+                      {operation.permission && <Tag>{operation.permission}</Tag>}
+                      {!operation.enabled && <Tag color="default">disabled</Tag>}
                     </Space>
                     <Typography.Text code>{operation.functionId}</Typography.Text>
                   </Space>

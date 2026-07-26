@@ -12,7 +12,7 @@ func TestMetadataBuilder_Basic(t *testing.T) {
 	metadata, err := NewMetadataBuilder().
 		SetID("player.ban").
 		SetVersion("1.0.0").
-		SetCategory("player").
+		SetResource("player").
 		SetTags("moderation", "player").
 		SetName("Ban Player").
 		SetDescription("Ban a player from the game").
@@ -22,7 +22,7 @@ func TestMetadataBuilder_Basic(t *testing.T) {
 	assert.NotNil(t, metadata)
 	assert.Equal(t, "player.ban", metadata.ID)
 	assert.Equal(t, "1.0.0", metadata.Version)
-	assert.Equal(t, "player", metadata.Category)
+	assert.Equal(t, "player", metadata.Resource)
 	assert.Equal(t, "Ban Player", metadata.Name)
 	assert.Equal(t, "Ban a player from the game", metadata.Description)
 	assert.ElementsMatch(t, []string{"moderation", "player"}, metadata.Tags)
@@ -104,20 +104,20 @@ func TestMetadataBuilder_WithSchemas(t *testing.T) {
 	assert.Equal(t, outputSchema, metadata.OutputSchema)
 }
 
-// TestMetadataBuilder_WithExtensions tests setting extension fields.
-func TestMetadataBuilder_WithExtensions(t *testing.T) {
+// TestMetadataBuilder_WithCapabilityFields tests setting capability fields.
+func TestMetadataBuilder_WithCapabilityFields(t *testing.T) {
 	metadata, err := NewMetadataBuilder().
 		SetID("custom.function").
 		SetName("Custom Function").
-		SetExtension("x-entity", "Player").
-		SetExtension("x-operation", "delete").
-		SetExtension("x-deprecated", "true").
+		SetResource("player").
+		SetOperation("delete").
+		SetPermission("player.delete").
 		Build()
 
 	assert.NoError(t, err)
-	assert.Equal(t, "Player", metadata.Extensions["x-entity"])
-	assert.Equal(t, "delete", metadata.Extensions["x-operation"])
-	assert.Equal(t, "true", metadata.Extensions["x-deprecated"])
+	assert.Equal(t, "player", metadata.Resource)
+	assert.Equal(t, "delete", metadata.Operation)
+	assert.Equal(t, "player.delete", metadata.Permission)
 }
 
 // TestMetadataBuilder_Chaining tests method chaining.
@@ -125,7 +125,7 @@ func TestMetadataBuilder_Chaining(t *testing.T) {
 	metadata, err := NewMetadataBuilder().
 		SetID("test.chain").
 		SetName("Chain Test").
-		SetCategory("test").
+		SetResource("test").
 		SetTags("tag1", "tag2").
 		SetDescription("Testing method chaining").
 		Build()
@@ -133,7 +133,7 @@ func TestMetadataBuilder_Chaining(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "test.chain", metadata.ID)
 	assert.Equal(t, "Chain Test", metadata.Name)
-	assert.Equal(t, "test", metadata.Category)
+	assert.Equal(t, "test", metadata.Resource)
 	assert.Len(t, metadata.Tags, 2)
 }
 
@@ -432,7 +432,8 @@ func TestMetadataBuilder_CompleteExample(t *testing.T) {
 	metadata, err := NewMetadataBuilder().
 		SetID("game.update").
 		SetVersion("2.0.0").
-		SetCategory("game").
+		SetResource("game").
+		SetOperation("update").
 		SetTags("game", "configuration", "admin").
 		SetName("Update Game Configuration").
 		SetDescription("Updates the configuration for an active game").
@@ -440,8 +441,7 @@ func TestMetadataBuilder_CompleteExample(t *testing.T) {
 		SetOutputSchema(`{"type":"object","properties":{"success":{"type":"boolean"}}}`).
 		SetBehavior(behavior).
 		SetRisk(risk).
-		SetExtension("x-entity", "Game").
-		SetExtension("x-operation", "update").
+		SetPermission("game.update").
 		Build()
 
 	assert.NoError(t, err)
@@ -450,5 +450,7 @@ func TestMetadataBuilder_CompleteExample(t *testing.T) {
 	assert.Equal(t, "2.0.0", metadata.Version)
 	assert.Equal(t, ModeCommand, metadata.Behavior.Mode)
 	assert.Equal(t, RiskHigh, metadata.Risk.Level)
-	assert.Equal(t, "Game", metadata.Extensions["x-entity"])
+	assert.Equal(t, "game", metadata.Resource)
+	assert.Equal(t, "update", metadata.Operation)
+	assert.Equal(t, "game.update", metadata.Permission)
 }

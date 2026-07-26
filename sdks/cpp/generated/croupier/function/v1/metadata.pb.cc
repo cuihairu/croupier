@@ -102,7 +102,7 @@ inline constexpr FunctionFilter::Impl_::Impl_(
         tags_ {}
         #endif
         ,
-        category_(
+        resource_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         risk_level_(
@@ -187,7 +187,7 @@ inline constexpr FunctionMetadata::Impl_::Impl_(
         version_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
-        category_(
+        resource_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         name_(
@@ -327,7 +327,7 @@ const ::uint32_t
         14, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.id_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.version_),
-        PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.category_),
+        PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.resource_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.tags_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.name_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.description_),
@@ -389,7 +389,7 @@ const ::uint32_t
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionFilter, _impl_._has_bits_),
         9, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionFilter, _impl_.category_),
+        PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionFilter, _impl_.resource_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionFilter, _impl_.tags_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionFilter, _impl_.risk_level_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionFilter, _impl_.mode_),
@@ -436,7 +436,7 @@ const char descriptor_table_protodef_croupier_2ffunction_2fv1_2fmetadata_2eproto
     "\n#croupier/function/v1/metadata.proto\022\024c"
     "roupier.function.v1\"\211\004\n\020FunctionMetadata"
     "\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 \001(\tR\007versi"
-    "on\022\032\n\010category\030\003 \001(\tR\010category\022\022\n\004tags\030\004"
+    "on\022\032\n\010resource\030\003 \001(\tR\010resource\022\022\n\004tags\030\004"
     " \003(\tR\004tags\022\022\n\004name\030\005 \001(\tR\004name\022 \n\013descri"
     "ption\030\006 \001(\tR\013description\022!\n\014input_schema"
     "\030\007 \001(\tR\013inputSchema\022#\n\routput_schema\030\010 \001"
@@ -480,8 +480,8 @@ const char descriptor_table_protodef_croupier_2ffunction_2fv1_2fmetadata_2eproto
     "\020\001\022\034\n\030APPROVAL_TYPE_TWO_PERSON\020\002\"\\\n\024Func"
     "tionMetadataList\022D\n\tfunctions\030\001 \003(\0132&.cr"
     "oupier.function.v1.FunctionMetadataR\tfun"
-    "ctions\"\257\001\n\016FunctionFilter\022\032\n\010category\030\001 "
-    "\001(\tR\010category\022\022\n\004tags\030\002 \003(\tR\004tags\022\035\n\nris"
+    "ctions\"\257\001\n\016FunctionFilter\022\032\n\010resource\030\001 "
+    "\001(\tR\010resource\022\022\n\004tags\030\002 \003(\tR\004tags\022\035\n\nris"
     "k_level\030\003 \001(\tR\triskLevel\022\022\n\004mode\030\004 \001(\tR\004"
     "mode\022\033\n\tpage_size\030\005 \001(\005R\010pageSize\022\035\n\npag"
     "e_token\030\006 \001(\tR\tpageToken\"\245\001\n\024FunctionLis"
@@ -674,7 +674,7 @@ PROTOBUF_NDEBUG_INLINE FunctionMetadata::Impl_::Impl_(
         ,
         id_(arena, from.id_),
         version_(arena, from.version_),
-        category_(arena, from.category_),
+        resource_(arena, from.resource_),
         name_(arena, from.name_),
         description_(arena, from.description_),
         input_schema_(arena, from.input_schema_),
@@ -727,7 +727,7 @@ PROTOBUF_NDEBUG_INLINE FunctionMetadata::Impl_::Impl_(
         ,
         id_(arena),
         version_(arena),
-        category_(arena),
+        resource_(arena),
         name_(arena),
         description_(arena),
         input_schema_(arena),
@@ -764,7 +764,7 @@ inline void FunctionMetadata::SharedDtor(MessageLite& self) {
   ABSL_DCHECK(this_.GetArena() == nullptr);
   this_._impl_.id_.Destroy();
   this_._impl_.version_.Destroy();
-  this_._impl_.category_.Destroy();
+  this_._impl_.resource_.Destroy();
   this_._impl_.name_.Destroy();
   this_._impl_.description_.Destroy();
   this_._impl_.input_schema_.Destroy();
@@ -867,10 +867,10 @@ FunctionMetadata::_table_ = {
     {::_pbi::TcParser::FastUS1,
      {18, 2, 0,
       PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.version_)}},
-    // string category = 3 [json_name = "category"];
+    // string resource = 3 [json_name = "resource"];
     {::_pbi::TcParser::FastUS1,
      {26, 3, 0,
-      PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.category_)}},
+      PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.resource_)}},
     // repeated string tags = 4 [json_name = "tags"];
     {::_pbi::TcParser::FastUR1,
      {34, 0, 0,
@@ -911,8 +911,8 @@ FunctionMetadata::_table_ = {
     {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string version = 2 [json_name = "version"];
     {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.version_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string category = 3 [json_name = "category"];
-    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.category_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string resource = 3 [json_name = "resource"];
+    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.resource_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // repeated string tags = 4 [json_name = "tags"];
     {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.tags_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
     // string name = 5 [json_name = "name"];
@@ -941,7 +941,7 @@ FunctionMetadata::_table_ = {
     "croupier.function.v1.FunctionMetadata"
     "id"
     "version"
-    "category"
+    "resource"
     "tags"
     "name"
     "description"
@@ -969,7 +969,7 @@ PROTOBUF_NOINLINE void FunctionMetadata::Clear() {
       _impl_.version_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000008U)) {
-      _impl_.category_.ClearNonDefaultToEmpty();
+      _impl_.resource_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000010U)) {
       _impl_.name_.ClearNonDefaultToEmpty();
@@ -1040,12 +1040,12 @@ PROTOBUF_NOINLINE void FunctionMetadata::Clear() {
     }
   }
 
-  // string category = 3 [json_name = "category"];
+  // string resource = 3 [json_name = "resource"];
   if (CheckHasBit(cached_has_bits, 0x00000008U)) {
-    if (!this_._internal_category().empty()) {
-      const ::std::string& _s = this_._internal_category();
+    if (!this_._internal_resource().empty()) {
+      const ::std::string& _s = this_._internal_resource();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.function.v1.FunctionMetadata.category");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.function.v1.FunctionMetadata.resource");
       target = stream->WriteStringMaybeAliased(3, _s, target);
     }
   }
@@ -1198,11 +1198,11 @@ PROTOBUF_NOINLINE void FunctionMetadata::Clear() {
                                         this_._internal_version());
       }
     }
-    // string category = 3 [json_name = "category"];
+    // string resource = 3 [json_name = "resource"];
     if (CheckHasBit(cached_has_bits, 0x00000008U)) {
-      if (!this_._internal_category().empty()) {
+      if (!this_._internal_resource().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_category());
+                                        this_._internal_resource());
       }
     }
     // string name = 5 [json_name = "name"];
@@ -1300,11 +1300,11 @@ void FunctionMetadata::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000008U)) {
-      if (!from._internal_category().empty()) {
-        _this->_internal_set_category(from._internal_category());
+      if (!from._internal_resource().empty()) {
+        _this->_internal_set_resource(from._internal_resource());
       } else {
-        if (_this->_impl_.category_.IsDefault()) {
-          _this->_internal_set_category("");
+        if (_this->_impl_.resource_.IsDefault()) {
+          _this->_internal_set_resource("");
         }
       }
     }
@@ -1388,7 +1388,7 @@ void FunctionMetadata::InternalSwap(FunctionMetadata* PROTOBUF_RESTRICT PROTOBUF
   _impl_.tags_.InternalSwap(&other->_impl_.tags_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.id_, &other->_impl_.id_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.category_, &other->_impl_.category_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.resource_, &other->_impl_.resource_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.name_, &other->_impl_.name_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.description_, &other->_impl_.description_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.input_schema_, &other->_impl_.input_schema_, arena);
@@ -2679,7 +2679,7 @@ PROTOBUF_NDEBUG_INLINE FunctionFilter::Impl_::Impl_(
         tags_ { visibility, arena, from.tags_ }
         #endif
         ,
-        category_(arena, from.category_),
+        resource_(arena, from.resource_),
         risk_level_(arena, from.risk_level_),
         mode_(arena, from.mode_),
         page_token_(arena, from.page_token_) {}
@@ -2714,7 +2714,7 @@ PROTOBUF_NDEBUG_INLINE FunctionFilter::Impl_::Impl_(
         tags_ { visibility, arena }
         #endif
         ,
-        category_(arena),
+        resource_(arena),
         risk_level_(arena),
         mode_(arena),
         page_token_(arena) {}
@@ -2734,7 +2734,7 @@ inline void FunctionFilter::SharedDtor(MessageLite& self) {
   }
   this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
   ABSL_DCHECK(this_.GetArena() == nullptr);
-  this_._impl_.category_.Destroy();
+  this_._impl_.resource_.Destroy();
   this_._impl_.risk_level_.Destroy();
   this_._impl_.mode_.Destroy();
   this_._impl_.page_token_.Destroy();
@@ -2822,10 +2822,10 @@ FunctionFilter::_table_ = {
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
     {::_pbi::TcParser::MiniParse, {}},
-    // string category = 1 [json_name = "category"];
+    // string resource = 1 [json_name = "resource"];
     {::_pbi::TcParser::FastUS1,
      {10, 1, 0,
-      PROTOBUF_FIELD_OFFSET(FunctionFilter, _impl_.category_)}},
+      PROTOBUF_FIELD_OFFSET(FunctionFilter, _impl_.resource_)}},
     // repeated string tags = 2 [json_name = "tags"];
     {::_pbi::TcParser::FastUR1,
      {18, 0, 0,
@@ -2850,8 +2850,8 @@ FunctionFilter::_table_ = {
   }}, {{
     65535, 65535
   }}, {{
-    // string category = 1 [json_name = "category"];
-    {PROTOBUF_FIELD_OFFSET(FunctionFilter, _impl_.category_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string resource = 1 [json_name = "resource"];
+    {PROTOBUF_FIELD_OFFSET(FunctionFilter, _impl_.resource_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // repeated string tags = 2 [json_name = "tags"];
     {PROTOBUF_FIELD_OFFSET(FunctionFilter, _impl_.tags_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
     // string risk_level = 3 [json_name = "riskLevel"];
@@ -2867,7 +2867,7 @@ FunctionFilter::_table_ = {
   {{
     "\43\10\4\12\4\0\12\0"
     "croupier.function.v1.FunctionFilter"
-    "category"
+    "resource"
     "tags"
     "risk_level"
     "mode"
@@ -2887,7 +2887,7 @@ PROTOBUF_NOINLINE void FunctionFilter::Clear() {
       _impl_.tags_.Clear();
     }
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      _impl_.category_.ClearNonDefaultToEmpty();
+      _impl_.resource_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       _impl_.risk_level_.ClearNonDefaultToEmpty();
@@ -2923,12 +2923,12 @@ PROTOBUF_NOINLINE void FunctionFilter::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string category = 1 [json_name = "category"];
+  // string resource = 1 [json_name = "resource"];
   if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-    if (!this_._internal_category().empty()) {
-      const ::std::string& _s = this_._internal_category();
+    if (!this_._internal_resource().empty()) {
+      const ::std::string& _s = this_._internal_resource();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.function.v1.FunctionFilter.category");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.function.v1.FunctionFilter.resource");
       target = stream->WriteStringMaybeAliased(1, _s, target);
     }
   }
@@ -3017,11 +3017,11 @@ PROTOBUF_NOINLINE void FunctionFilter::Clear() {
             this_._internal_tags().Get(i));
       }
     }
-    // string category = 1 [json_name = "category"];
+    // string resource = 1 [json_name = "resource"];
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      if (!this_._internal_category().empty()) {
+      if (!this_._internal_resource().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_category());
+                                        this_._internal_resource());
       }
     }
     // string risk_level = 3 [json_name = "riskLevel"];
@@ -3079,11 +3079,11 @@ void FunctionFilter::MergeImpl(::google::protobuf::MessageLite& to_msg,
           from._internal_tags());
     }
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      if (!from._internal_category().empty()) {
-        _this->_internal_set_category(from._internal_category());
+      if (!from._internal_resource().empty()) {
+        _this->_internal_set_resource(from._internal_resource());
       } else {
-        if (_this->_impl_.category_.IsDefault()) {
-          _this->_internal_set_category("");
+        if (_this->_impl_.resource_.IsDefault()) {
+          _this->_internal_set_resource("");
         }
       }
     }
@@ -3140,7 +3140,7 @@ void FunctionFilter::InternalSwap(FunctionFilter* PROTOBUF_RESTRICT PROTOBUF_NON
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   _impl_.tags_.InternalSwap(&other->_impl_.tags_);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.category_, &other->_impl_.category_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.resource_, &other->_impl_.resource_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.risk_level_, &other->_impl_.risk_level_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.mode_, &other->_impl_.mode_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.page_token_, &other->_impl_.page_token_, arena);

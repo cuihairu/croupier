@@ -17,6 +17,15 @@ import "encoding/json"
 // publishable.
 type LocalizedText map[string]string
 
+// JSONValue represents arbitrary JSON data at parsing boundaries. Core DTOs
+// should prefer typed structs or json.RawMessage and only use JSONValue when
+// traversing JSON Schema / extension documents.
+type JSONValue = any
+
+// JSONObject is an explicitly named JSON object shape used by schema parsing
+// code instead of leaking map[string]interface{} through public contracts.
+type JSONObject map[string]JSONValue
+
 // JSONSchema is a raw JSON Schema object. The canonical form follows
 // draft-07 / 2020-12 but the type itself does not enforce validation.
 type JSONSchema json.RawMessage
@@ -28,52 +37,6 @@ type FormilySchema json.RawMessage
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
-
-// OperationKind expresses the page-generation semantic of a function.
-//
-//	list       – list query
-//	get        – single object read
-//	create     – new object
-//	update     – existing object
-//	delete     – remove object
-//	action     – synchronous command
-//	task       – asynchronous / batch task
-//	report     – analytics / report query
-type OperationKind string
-
-const (
-	OperationKindList   OperationKind = "list"
-	OperationKindGet    OperationKind = "get"
-	OperationKindCreate OperationKind = "create"
-	OperationKindUpdate OperationKind = "update"
-	OperationKindDelete OperationKind = "delete"
-	OperationKindAction OperationKind = "action"
-	OperationKindTask   OperationKind = "task"
-	OperationKindReport OperationKind = "report"
-)
-
-// OperationPlacement describes where an operation is rendered in a page.
-//
-//	query         – query/filter form area
-//	tableData     – table data source
-//	detailData    – detail panel data source
-//	rowAction     – per-row action in a table
-//	detailAction  – action in a detail panel
-//	toolbarAction – page-level toolbar button
-//	batchAction   – bulk action on selected rows
-//	standalone    – independent single-purpose page
-type OperationPlacement string
-
-const (
-	PlacementQuery         OperationPlacement = "query"
-	PlacementTableData     OperationPlacement = "tableData"
-	PlacementDetailData    OperationPlacement = "detailData"
-	PlacementRowAction     OperationPlacement = "rowAction"
-	PlacementDetailAction  OperationPlacement = "detailAction"
-	PlacementToolbarAction OperationPlacement = "toolbarAction"
-	PlacementBatchAction   OperationPlacement = "batchAction"
-	PlacementStandalone    OperationPlacement = "standalone"
-)
 
 // RiskLevel indicates the risk tier of a function or operation.
 //
@@ -105,9 +68,8 @@ const (
 	PageTypeReport    PageType = "report"
 )
 
-// PageBindingUsage is the runtime meaning of a page binding. It is separate
-// from OperationPlacement: placement is a generator hint from registration,
-// usage is how a published page consumes the function.
+// PageBindingUsage is the runtime meaning of a page binding. It belongs to
+// PageSpec and is not inferred from function registration.
 type PageBindingUsage string
 
 const (
@@ -174,25 +136,17 @@ type FunctionSpec struct {
 	InputFormilySchema FormilySchema `json:"inputFormilySchema,omitempty"`
 	OutputSchema       JSONSchema    `json:"outputSchema,omitempty"`
 
-	// Display & search
-	DisplayName LocalizedText `json:"displayName,omitempty"`
+	// Catalog/search text. These fields are not runtime menu labels.
 	Summary     LocalizedText `json:"summary,omitempty"`
 	Description LocalizedText `json:"description,omitempty"`
 
-	// Resource / page semantic
-	Category         string             `json:"category,omitempty"`
-	CategoryDisplay  LocalizedText      `json:"categoryDisplay,omitempty"`
-	Entity           string             `json:"entity,omitempty"`
-	EntityDisplay    LocalizedText      `json:"entityDisplay,omitempty"`
-	Operation        string             `json:"operation,omitempty"`
-	OperationDisplay LocalizedText      `json:"operationDisplay,omitempty"`
-	OperationKind    OperationKind      `json:"operationKind,omitempty"`
-	Placement        OperationPlacement `json:"placement,omitempty"`
-	PageHint         string             `json:"pageHint,omitempty"`
+	Resource  string `json:"resource,omitempty"`
+	Operation string `json:"operation,omitempty"`
 
 	// Governance
-	Risk RiskLevel `json:"risk,omitempty"`
-	Tags []string  `json:"tags,omitempty"`
+	Risk       RiskLevel `json:"risk,omitempty"`
+	Permission string    `json:"permission,omitempty"`
+	Tags       []string  `json:"tags,omitempty"`
 
 	// Diagnostics generated during normalization
 	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
@@ -228,18 +182,15 @@ type ResourceCategorySpec struct {
 // OperationSpec
 // ---------------------------------------------------------------------------
 
-// OperationSpec describes how a function participates in a Resource or Page:
-// its business action key, page-generation semantic, and recommended
-// placement in the UI.
+// OperationSpec describes a function capability grouped under a resource.
+// It is not a page placement model; PageSpec decides page usage and layout.
 type OperationSpec struct {
-	FunctionID  string             `json:"functionId"`
-	ResourceKey string             `json:"resourceKey,omitempty"`
-	Operation   string             `json:"operation"`
-	Kind        OperationKind      `json:"kind"`
-	Placement   OperationPlacement `json:"placement"`
-	Labels      LocalizedText      `json:"labels"`
-	Risk        RiskLevel          `json:"risk,omitempty"`
-	Enabled     bool               `json:"enabled"`
+	FunctionID  string    `json:"functionId"`
+	ResourceKey string    `json:"resourceKey,omitempty"`
+	Operation   string    `json:"operation"`
+	Risk        RiskLevel `json:"risk,omitempty"`
+	Permission  string    `json:"permission,omitempty"`
+	Enabled     bool      `json:"enabled"`
 
 	PageContract *PageContract `json:"pageContract,omitempty"`
 	Diagnostics  []Diagnostic  `json:"diagnostics,omitempty"`

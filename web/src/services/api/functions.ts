@@ -19,49 +19,31 @@ import type { FormilySchema } from '@/components/formily/schema/types';
 // Primary backend references: croupier/internal/api/function/dto.go and internal/logic/function/descriptors logic.
 export type FunctionDescriptor = {
   id: string;
-  type?: 'function' | 'entity'; // Type of descriptor: function or entity
+  type?: 'function';
   version?: string;
-  category?: string;
+  resource?: string;
   description?: string;
   displayName?: LocalizedText;
   summary?: LocalizedText;
-  entity?: string;
   operation?: string;
-  entityDisplay?: LocalizedText;
-  operationDisplay?: LocalizedText;
   tags?: string[];
-  menu?: {
-    nodes?: string[];
-    path?: string;
-    order?: number;
-    icon?: string;
-    badge?: string;
-    hidden?: boolean;
-  };
   params?: unknown;
   auth?: Record<string, unknown>;
-  // Optional outputs schema for UI rendering (views/layout); present in generated descriptors
   outputs?: unknown;
-  // Entity-specific fields
   schema?: unknown;
   operations?: unknown;
-  ui?: unknown;
-  // OpenAPI 3.0.3 Schema fields (JSON Schema format, stringified)
   inputSchema?: string; // JSON Schema for request body (from proto)
   outputSchema?: string; // JSON Schema for response body (from proto)
 };
 
 type RawFunctionDescriptor = Omit<
   FunctionDescriptor,
-  'displayName' | 'summary' | 'entityDisplay' | 'operationDisplay'
+  'displayName' | 'summary'
 > & {
   displayName?: LocalizedText | string;
   display_name?: LocalizedText | string;
   summary?: LocalizedText | string;
-  entityDisplay?: LocalizedText | string;
-  operationDisplay?: LocalizedText | string;
-  entity_display?: LocalizedText | string;
-  operation_display?: LocalizedText | string;
+  resource?: string;
   input_schema?: string;
   output_schema?: string;
 };
@@ -128,9 +110,8 @@ function buildFunctionUiPayload(uiConfig: {
   clearCustom?: boolean;
 }) {
   if (uiConfig.clearCustom) {
-    const clearSchema = { __clear_custom_ui: true } as unknown as FormilySchema;
     return {
-      schema: clearSchema,
+      schema: null,
     };
   }
 
@@ -166,8 +147,6 @@ function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): FunctionDescri
     ...raw,
     displayName: normalizeLocalizedText(raw.displayName || raw.display_name),
     summary: normalizeLocalizedText(raw.summary),
-    entityDisplay: normalizeLocalizedText(raw.entityDisplay || raw.entity_display),
-    operationDisplay: normalizeLocalizedText(raw.operationDisplay || raw.operation_display),
     inputSchema: raw.inputSchema || raw.input_schema,
     outputSchema: raw.outputSchema || raw.output_schema,
   };
@@ -380,30 +359,6 @@ export async function rollbackFunctionUiSchema(functionId: string, version: numb
   });
 }
 
-export type FunctionRouteConfig = {
-  nodes?: string[];
-  path?: string;
-  order?: number;
-  hidden?: boolean;
-};
-
-export async function fetchFunctionRoute(functionId: string) {
-  return request<{
-    menu?: FunctionRouteConfig;
-    source?: 'metadata' | 'default' | string;
-  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/route`, { method: 'GET' });
-}
-
-export async function saveFunctionRoute(functionId: string, route: FunctionRouteConfig) {
-  return request<{
-    menu?: FunctionRouteConfig;
-    source?: 'metadata' | 'default' | string;
-  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/route`, {
-    method: 'PUT',
-    data: route,
-  });
-}
-
 export async function getFunctionPermissions(functionId: string) {
   return request<{ items?: FunctionPermission[] }>(
     `/api/v1/functions/${encodeURIComponent(functionId)}/permissions`,
@@ -588,7 +543,7 @@ export async function updateFunction(
   data: {
     name?: string;
     description?: string;
-    category?: string;
+    resource?: string;
     tags?: string[];
     enabled?: boolean;
   },

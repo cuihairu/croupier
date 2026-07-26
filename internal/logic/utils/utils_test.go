@@ -72,7 +72,7 @@ func TestBuildFunctionDTO(t *testing.T) {
 		FunctionID:  "test.function",
 		Name:        "Test Function",
 		Description: "Test Description",
-		Category:    "test",
+		Resource:    "test",
 		GameID:      "game1",
 		Status:      1,
 		Version:     "1.0.0",

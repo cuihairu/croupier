@@ -20,7 +20,7 @@ namespace Croupier.Sdk.Models;
 public class FunctionDescriptor
 {
     /// <summary>
-    /// 函数唯一标识符 (格式: category.entity.operation)
+    /// 函数唯一标识符
     /// </summary>
     public string Id { get; set; } = string.Empty;
 
@@ -30,24 +30,24 @@ public class FunctionDescriptor
     public string Version { get; set; } = "1.0.0";
 
     /// <summary>
-    /// 函数分类 (player, wallet, moderation, etc.)
+    /// 业务资源或能力域标识
     /// </summary>
-    public string Category { get; set; } = string.Empty;
+    public string? Resource { get; set; }
 
     /// <summary>
-    /// 风险级别 (low, medium, high, critical)
-    /// </summary>
-    public string Risk { get; set; } = "medium";
-
-    /// <summary>
-    /// 操作实体类型
-    /// </summary>
-    public string? Entity { get; set; }
-
-    /// <summary>
-    /// 操作类型
+    /// 业务动作标识
     /// </summary>
     public string? Operation { get; set; }
+
+    /// <summary>
+    /// 风险级别 (safe, warning, high, danger)
+    /// </summary>
+    public string? Risk { get; set; } = "warning";
+
+    /// <summary>
+    /// 权限标识
+    /// </summary>
+    public string? Permission { get; set; }
 
     /// <summary>
     /// 是否启用
@@ -55,12 +55,7 @@ public class FunctionDescriptor
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// 显示名称
-    /// </summary>
-    public string? DisplayName { get; set; }
-
-    /// <summary>
-    /// 简短摘要，用于函数目录和默认界面
+    /// 简短摘要，用于函数目录和搜索
     /// </summary>
     public string? Summary { get; set; }
 
@@ -105,17 +100,6 @@ public class FunctionDescriptor
         if (string.IsNullOrWhiteSpace(Version))
             return false;
 
-        if (string.IsNullOrWhiteSpace(Category))
-            return false;
-
-        if (string.IsNullOrWhiteSpace(Risk))
-            return false;
-
         return true;
     }
-
-    /// <summary>
-    /// 获取完整函数标识符
-    /// </summary>
-    public string GetFullName() => $"{Category}.{Id}";
 }

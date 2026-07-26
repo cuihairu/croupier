@@ -172,10 +172,10 @@ func main() {
     desc := croupier.FunctionDescriptor{
         ID:        "player.ban",
         Version:   "1.0.0",
-        Category:  "moderation",
+        Resource:  "player",
         Risk:      "high",
-        Entity:    "player",
-        Operation: "update",
+        Operation: "ban",
+        Permission: "player:ban",
         Enabled:   true,
     }
 
@@ -229,13 +229,13 @@ CROUPIER_ENV=development
 
 ```go
 type FunctionDescriptor struct {
-    ID        string // 函数 ID，如 "player.ban"
-    Version   string // 语义化版本，如 "1.2.0"
-    Category  string // 分组类别
-    Risk      string // "low"|"medium"|"high"
-    Entity    string // 实体类型，如 "player"
-    Operation string // "create"|"read"|"update"|"delete"
-    Enabled   bool   // 是否启用
+    ID          string // 函数 ID，如 "player.ban"
+    Version     string // 语义化版本，如 "1.2.0"
+    Resource    string // 业务资源或能力域，如 "player"
+    Operation   string // 业务动作 key，如 "ban"、"send"、"list"
+    Risk        string // "safe"|"warning"|"high"|"danger"
+    Permission  string // 可选权限标识，如 "player:ban"
+    Enabled     bool   // 是否启用
 }
 ```
 
@@ -248,7 +248,7 @@ type LocalFunctionDescriptor struct {
     ID      string // 函数 ID
     Version string // 函数版本
     // 扩展字段：tags / summary / description / operation_id / deprecated /
-    // input_schema / output_schema / category / risk / entity / operation
+    // input_schema / output_schema / resource / operation / risk / enabled / permission
 }
 ```
 

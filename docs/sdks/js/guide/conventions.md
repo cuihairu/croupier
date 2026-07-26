@@ -2,7 +2,7 @@
 
 ## 命名约定
 
-函数 ID 使用 `[namespace.]entity.operation`：
+函数 ID 使用 `[namespace.]resource.operation`：
 
 ```typescript
 "player.get";
@@ -44,24 +44,19 @@ await client.connect();
 - `input_schema`
 - `output_schema`
 
-需要参与默认页面生成时必须明确：
+建议补齐业务与治理信息：
 
-- `category`
-- `category_display`
-- `entity`
-- `entity_display`
+- `resource`
 - `operation`
-- `operation_display`
-- `operation_kind`
-- `placement`
 - `risk`
 - `enabled`
+- `permission`
 
 语义约束：
 
 - `operation` 是业务操作 key，例如 `ban`、`grant`、`send`。
-- `operation_kind` 是页面生成语义，例如 `list`、`get`、`action`、`task`、`report`。
-- `placement` 是页面放置位置，例如 `tableData`、`rowAction`、`standalone`。
-- 动态分类、资源、操作标题必须随 descriptor 或 PageSpec 提供，不写入前端静态 locale 文件。
+- SDK descriptor 不提供 `category_display`、`entity_display`、`operation_display`、`operation_kind`、`placement` 或 `page_hint`。
+- 动态分类、页面标题、按钮文案和页面位置只在 PageSpec / Page Studio 中确定，不写入 SDK descriptor，也不写入前端静态 locale 文件。
+- 默认 PageSpec 候选由 Server 根据 FunctionSpec、JSON Schema、PageContract 和 diagnostics 生成；缺少可验证 mapping 时只能进入待编排状态。
 
 完整契约见 [OpenAPI / SDK Descriptor v2](../../../architecture/openapi-sdk-descriptor-v2.md)。

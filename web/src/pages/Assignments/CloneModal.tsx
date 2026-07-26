@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal } from 'antd';
 import SchemaRenderer from '@/components/formily/SchemaRenderer';
+import type { FormilyValues } from '@/components/formily/schema/types';
 import { CLONE_FORM_SCHEMA } from './schemas';
 
 type Props = {
@@ -10,7 +11,7 @@ type Props = {
 };
 
 export default function CloneModal({ visible, onClose, onSave }: Props) {
-  const [formValues, setFormValues] = React.useState<Record<string, any>>({});
+  const [formValues, setFormValues] = React.useState<FormilyValues>({});
 
   React.useEffect(() => {
     if (!visible) return;

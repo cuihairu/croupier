@@ -13,10 +13,9 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import descriptor_pb2 as google_dot_protobuf_dot_descriptor__pb2
-from croupier.component.v1 import dashboard_ui_pb2 as croupier_dot_component_dot_v1_dot_dashboard__ui__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,croupier/component/v1/function_options.proto\x12\x15\x63roupier.component.v1\x1a google/protobuf/descriptor.proto\x1a(croupier/component/v1/dashboard_ui.proto\"\xcb\x05\n\x0f\x46unctionOptions\x12\x1f\n\x0b\x66unction_id\x18\x01 \x01(\tR\nfunctionId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x1a\n\x08\x63\x61tegory\x18\x03 \x01(\tR\x08\x63\x61tegory\x12\x12\n\x04risk\x18\x04 \x01(\tR\x04risk\x12\x14\n\x05route\x18\x05 \x01(\tR\x05route\x12\x18\n\x07timeout\x18\x06 \x01(\tR\x07timeout\x12&\n\x0ftwo_person_rule\x18\x07 \x01(\x08R\rtwoPersonRule\x12\x1c\n\tplacement\x18\x08 \x01(\tR\tplacement\x12J\n\x06labels\x18\t \x03(\x0b\x32\x32.croupier.component.v1.FunctionOptions.LabelsEntryR\x06labels\x12\x12\n\x04mode\x18\n \x01(\tR\x04mode\x12\'\n\x0fidempotency_key\x18\x0b \x01(\x08R\x0eidempotencyKey\x12\x42\n\x0c\x64isplay_name\x18\x0c \x01(\x0b\x32\x1f.croupier.component.v1.I18nTextR\x0b\x64isplayName\x12\x39\n\x07summary\x18\r \x01(\x0b\x32\x1f.croupier.component.v1.I18nTextR\x07summary\x12\x12\n\x04tags\x18\x0e \x03(\tR\x04tags\x12\x33\n\x04menu\x18\x0f \x01(\x0b\x32\x1b.croupier.component.v1.MenuB\x02\x18\x01R\x04menu\x12K\n\x0bpermissions\x18\x10 \x01(\x0b\x32%.croupier.component.v1.PermissionSpecB\x02\x18\x01R\x0bpermissions\x1a\x39\n\x0bLabelsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"\x90\x07\n\rEntityOptions\x12\x1b\n\tentity_id\x18\x01 \x01(\tR\x08\x65ntityId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12 \n\x0b\x64\x65scription\x18\x04 \x01(\tR\x0b\x64\x65scription\x12\x1a\n\x08\x63\x61tegory\x18\x05 \x01(\tR\x08\x63\x61tegory\x12\x1f\n\x0bprimary_key\x18\x06 \x01(\tR\nprimaryKey\x12#\n\rdisplay_field\x18\x07 \x01(\tR\x0c\x64isplayField\x12%\n\x0etitle_template\x18\x08 \x01(\tR\rtitleTemplate\x12!\n\x0c\x61vatar_field\x18\t \x01(\tR\x0b\x61vatarField\x12!\n\x0cstatus_field\x18\n \x01(\tR\x0bstatusField\x12)\n\x10\x63reate_functions\x18\x0b \x03(\tR\x0f\x63reateFunctions\x12%\n\x0eread_functions\x18\x0c \x03(\tR\rreadFunctions\x12)\n\x10update_functions\x18\r \x03(\tR\x0fupdateFunctions\x12)\n\x10\x64\x65lete_functions\x18\x0e \x03(\tR\x0f\x64\x65leteFunctions\x12%\n\x0elist_functions\x18\x0f \x03(\tR\rlistFunctions\x12g\n\x11\x63ustom_operations\x18\x10 \x03(\x0b\x32:.croupier.component.v1.EntityOptions.CustomOperationsEntryR\x10\x63ustomOperations\x12\x42\n\x0c\x64isplay_name\x18\x11 \x01(\x0b\x32\x1f.croupier.component.v1.I18nTextR\x0b\x64isplayName\x12\x39\n\x07summary\x18\x12 \x01(\x0b\x32\x1f.croupier.component.v1.I18nTextR\x07summary\x12\x12\n\x04tags\x18\x13 \x03(\tR\x04tags\x12\x33\n\x04menu\x18\x14 \x01(\x0b\x32\x1b.croupier.component.v1.MenuB\x02\x18\x01R\x04menu\x1a\x43\n\x15\x43ustomOperationsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01:d\n\x08\x66unction\x12\x1e.google.protobuf.MethodOptions\x18\xb9\x8e\x03 \x01(\x0b\x32&.croupier.component.v1.FunctionOptionsR\x08\x66unction:_\n\x06\x65ntity\x12\x1f.google.protobuf.MessageOptions\x18\xba\x8e\x03 \x01(\x0b\x32$.croupier.component.v1.EntityOptionsR\x06\x65ntityBs\n(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/pkg/pb/croupier/component/v1;componentv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,croupier/component/v1/function_options.proto\x12\x15\x63roupier.component.v1\x1a google/protobuf/descriptor.proto\"\x9f\x03\n\x0f\x46unctionOptions\x12\x1f\n\x0b\x66unction_id\x18\x01 \x01(\tR\nfunctionId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x1a\n\x08resource\x18\x03 \x01(\tR\x08resource\x12\x1c\n\toperation\x18\x04 \x01(\tR\toperation\x12\x12\n\x04risk\x18\x05 \x01(\tR\x04risk\x12\x14\n\x05route\x18\x06 \x01(\tR\x05route\x12\x18\n\x07timeout\x18\x07 \x01(\tR\x07timeout\x12&\n\x0ftwo_person_rule\x18\x08 \x01(\x08R\rtwoPersonRule\x12\x12\n\x04mode\x18\t \x01(\tR\x04mode\x12\'\n\x0fidempotency_key\x18\n \x01(\x08R\x0eidempotencyKey\x12\x18\n\x07summary\x18\x0b \x01(\tR\x07summary\x12 \n\x0b\x64\x65scription\x18\x0c \x01(\tR\x0b\x64\x65scription\x12\x12\n\x04tags\x18\r \x03(\tR\x04tags\x12\x1e\n\npermission\x18\x0e \x01(\tR\npermission:d\n\x08\x66unction\x12\x1e.google.protobuf.MethodOptions\x18\xb9\x8e\x03 \x01(\x0b\x32&.croupier.component.v1.FunctionOptionsR\x08\x66unctionBs\n(io.github.cuihairu.croupier.component.v1P\x01ZEgithub.com/cuihairu/croupier/pkg/pb/croupier/component/v1;componentv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -24,22 +23,6 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'croupier.component.v1.funct
 if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['DESCRIPTOR']._options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n(io.github.cuihairu.croupier.component.v1P\001ZEgithub.com/cuihairu/croupier/pkg/pb/croupier/component/v1;componentv1'
-  _globals['_FUNCTIONOPTIONS_LABELSENTRY']._options = None
-  _globals['_FUNCTIONOPTIONS_LABELSENTRY']._serialized_options = b'8\001'
-  _globals['_FUNCTIONOPTIONS'].fields_by_name['menu']._options = None
-  _globals['_FUNCTIONOPTIONS'].fields_by_name['menu']._serialized_options = b'\030\001'
-  _globals['_FUNCTIONOPTIONS'].fields_by_name['permissions']._options = None
-  _globals['_FUNCTIONOPTIONS'].fields_by_name['permissions']._serialized_options = b'\030\001'
-  _globals['_ENTITYOPTIONS_CUSTOMOPERATIONSENTRY']._options = None
-  _globals['_ENTITYOPTIONS_CUSTOMOPERATIONSENTRY']._serialized_options = b'8\001'
-  _globals['_ENTITYOPTIONS'].fields_by_name['menu']._options = None
-  _globals['_ENTITYOPTIONS'].fields_by_name['menu']._serialized_options = b'\030\001'
-  _globals['_FUNCTIONOPTIONS']._serialized_start=148
-  _globals['_FUNCTIONOPTIONS']._serialized_end=863
-  _globals['_FUNCTIONOPTIONS_LABELSENTRY']._serialized_start=806
-  _globals['_FUNCTIONOPTIONS_LABELSENTRY']._serialized_end=863
-  _globals['_ENTITYOPTIONS']._serialized_start=866
-  _globals['_ENTITYOPTIONS']._serialized_end=1778
-  _globals['_ENTITYOPTIONS_CUSTOMOPERATIONSENTRY']._serialized_start=1711
-  _globals['_ENTITYOPTIONS_CUSTOMOPERATIONSENTRY']._serialized_end=1778
+  _globals['_FUNCTIONOPTIONS']._serialized_start=106
+  _globals['_FUNCTIONOPTIONS']._serialized_end=521
 # @@protoc_insertion_point(module_scope)

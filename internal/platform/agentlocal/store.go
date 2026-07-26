@@ -43,18 +43,10 @@ type FunctionMeta struct {
 	InputSchema  string // JSON Schema for request body (OpenAPI 3.0.3)
 	OutputSchema string // JSON Schema for response body (OpenAPI 3.0.3)
 
-	// Additional OpenAPI fields
-	Category         string // x-category extension
-	Risk             string // x-risk extension
-	Entity           string // x-entity extension
-	Operation        string // x-operation extension (business action key)
-	CategoryDisplay  map[string]string
-	EntityDisplay    map[string]string
-	OperationDisplay map[string]string
-	OperationKind    string
-	Placement        string
-	PageHint         string
-	Extensions       map[string]string
+	Resource   string // x-resource extension
+	Operation  string // x-operation extension (business action key)
+	Risk       string // x-risk extension
+	Permission string // x-permission extension
 
 	// Full OpenAPI operation as JSON (optional, for advanced use cases)
 	OpenAPIOperation string // Complete OpenAPI 3.0.3 Operation object as JSON string
@@ -152,39 +144,25 @@ func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs
 			Deprecated:       fn.GetDeprecated(),
 			InputSchema:      fn.GetInputSchema(),
 			OutputSchema:     fn.GetOutputSchema(),
-			Category:         fn.GetCategory(),
-			Risk:             fn.GetRisk(),
-			Entity:           fn.GetEntity(),
+			Resource:         fn.GetResource(),
 			Operation:        fn.GetOperation(),
-			CategoryDisplay:  fn.GetCategoryDisplay(),
-			EntityDisplay:    fn.GetEntityDisplay(),
-			OperationDisplay: fn.GetOperationDisplay(),
-			OperationKind:    fn.GetOperationKind(),
-			Placement:        fn.GetPlacement(),
-			PageHint:         fn.GetPageHint(),
-			Extensions:       fn.GetExtensions(),
+			Risk:             fn.GetRisk(),
+			Permission:       fn.GetPermission(),
 		}
 		if op, err := converter.ToOpenAPIOperation(converter.LocalFunctionDescriptorDesc{
-			ID:               meta.ID,
-			Version:          meta.Version,
-			Tags:             meta.Tags,
-			Summary:          meta.Summary,
-			Description:      meta.Description,
-			OperationID:      meta.OperationID,
-			Deprecated:       meta.Deprecated,
-			InputSchema:      meta.InputSchema,
-			OutputSchema:     meta.OutputSchema,
-			Category:         meta.Category,
-			Risk:             meta.Risk,
-			Entity:           meta.Entity,
-			Operation:        meta.Operation,
-			CategoryDisplay:  meta.CategoryDisplay,
-			EntityDisplay:    meta.EntityDisplay,
-			OperationDisplay: meta.OperationDisplay,
-			OperationKind:    meta.OperationKind,
-			Placement:        meta.Placement,
-			PageHint:         meta.PageHint,
-			Extensions:       meta.Extensions,
+			ID:           meta.ID,
+			Version:      meta.Version,
+			Tags:         meta.Tags,
+			Summary:      meta.Summary,
+			Description:  meta.Description,
+			OperationID:  meta.OperationID,
+			Deprecated:   meta.Deprecated,
+			InputSchema:  meta.InputSchema,
+			OutputSchema: meta.OutputSchema,
+			Resource:     meta.Resource,
+			Operation:    meta.Operation,
+			Risk:         meta.Risk,
+			Permission:   meta.Permission,
 		}); err == nil {
 			if opJSON, marshalErr := json.Marshal(op); marshalErr == nil {
 				meta.OpenAPIOperation = string(opJSON)
@@ -367,17 +345,10 @@ func (s *LocalStore) FunctionMetadata() map[string]*FunctionMeta {
 			Deprecated:       meta.Deprecated,
 			InputSchema:      meta.InputSchema,
 			OutputSchema:     meta.OutputSchema,
-			Category:         meta.Category,
-			Risk:             meta.Risk,
-			Entity:           meta.Entity,
+			Resource:         meta.Resource,
 			Operation:        meta.Operation,
-			CategoryDisplay:  cloneStringMap(meta.CategoryDisplay),
-			EntityDisplay:    cloneStringMap(meta.EntityDisplay),
-			OperationDisplay: cloneStringMap(meta.OperationDisplay),
-			OperationKind:    meta.OperationKind,
-			Placement:        meta.Placement,
-			PageHint:         meta.PageHint,
-			Extensions:       cloneStringMap(meta.Extensions),
+			Risk:             meta.Risk,
+			Permission:       meta.Permission,
 			OpenAPIOperation: meta.OpenAPIOperation,
 		}
 		out[fid] = cp

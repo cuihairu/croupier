@@ -132,8 +132,10 @@ func (p *CasbinPolicy) parsePermission(permission string) (string, string) {
 		path = "/api/v1/games"
 	case "users":
 		path = "/api/v1/users"
-	case "entities":
-		path = "/api/v1/entities"
+	case "resources":
+		path = "/api/v1/resources"
+	case "pages":
+		path = "/api/v1/pages"
 	case "functions":
 		path = "/api/v1/functions"
 	case "assignments":
@@ -158,7 +160,7 @@ func (p *CasbinPolicy) parsePermission(permission string) (string, string) {
 	switch action {
 	case "read":
 		method = "GET"
-	case "write", "create":
+	case "write", "create", "publish":
 		method = "POST"
 	case "manage":
 		method = "*" // manage implies all methods

@@ -61,14 +61,6 @@ func (s *Service) FunctionPublish(ctx context.Context, req *FunctionPublishReque
 	return functionPublish(ctx, s.svcCtx, req)
 }
 
-func (s *Service) FunctionRoute(ctx context.Context, req *FunctionRouteRequest) (*FunctionRouteResponse, error) {
-	return functionRoute(ctx, s.svcCtx, req)
-}
-
-func (s *Service) FunctionRouteUpdate(ctx context.Context, req *FunctionRouteUpdateRequest) (*FunctionRouteResponse, error) {
-	return functionRouteUpdate(ctx, s.svcCtx, req)
-}
-
 // Instance management methods
 
 func (s *Service) FunctionInstances(ctx context.Context, req *FunctionInstancesRequest) (*FunctionInstancesResponse, error) {

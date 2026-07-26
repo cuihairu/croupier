@@ -125,30 +125,24 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 const char descriptor_table_protodef_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n%examples/games/player/v1/player.proto\022"
-    "\030examples.games.player.v1\032&croupier/comp"
-    "onent/v1/ui_options.proto\"p\n\nBanRequest\022"
-    "2\n\tplayer_id\030\001 \001(\tB\025\212\262\031\021\n\005input\022\010\347\216\251\345\256\266I"
-    "DR\010playerId\022.\n\006reason\030\002 \001(\tB\026\212\262\031\022\n\010texta"
-    "rea\032\006\345\216\237\345\233\240R\006reason\"%\n\013BanResponse\022\026\n\006re"
-    "sult\030\001 \001(\tR\006resultB\177\n4io.github.cuihairu"
-    ".croupier.examples.games.player.v1P\001ZEgi"
-    "thub.com/cuihairu/croupier/pkg/pb/exampl"
-    "es/games/player/v1;playerv1b\006proto3"
-};
-static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
-    descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto_deps[1] = {
-        &::descriptor_table_croupier_2fcomponent_2fv1_2fui_5foptions_2eproto,
+    "\030examples.games.player.v1\"A\n\nBanRequest\022"
+    "\033\n\tplayer_id\030\001 \001(\tR\010playerId\022\026\n\006reason\030\002"
+    " \001(\tR\006reason\"%\n\013BanResponse\022\026\n\006result\030\001 "
+    "\001(\tR\006resultB\177\n4io.github.cuihairu.croupi"
+    "er.examples.games.player.v1P\001ZEgithub.co"
+    "m/cuihairu/croupier/pkg/pb/examples/game"
+    "s/player/v1;playerv1b\006proto3"
 };
 static ::absl::once_flag descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto = {
     false,
     false,
-    395,
+    308,
     descriptor_table_protodef_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto,
     "examples/games/player/v1/player.proto",
     &descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto_once,
-    descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto_deps,
-    1,
+    nullptr,
+    0,
     2,
     schemas,
     file_default_instances,
@@ -291,20 +285,20 @@ BanRequest::_table_ = {
     ::_pbi::TcParser::GetTable<::examples::games::player::v1::BanRequest>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // string reason = 2 [json_name = "reason", (.croupier.component.v1.ui) = {
+    // string reason = 2 [json_name = "reason"];
     {::_pbi::TcParser::FastUS1,
      {18, 1, 0,
       PROTOBUF_FIELD_OFFSET(BanRequest, _impl_.reason_)}},
-    // string player_id = 1 [json_name = "playerId", (.croupier.component.v1.ui) = {
+    // string player_id = 1 [json_name = "playerId"];
     {::_pbi::TcParser::FastUS1,
      {10, 0, 0,
       PROTOBUF_FIELD_OFFSET(BanRequest, _impl_.player_id_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // string player_id = 1 [json_name = "playerId", (.croupier.component.v1.ui) = {
+    // string player_id = 1 [json_name = "playerId"];
     {PROTOBUF_FIELD_OFFSET(BanRequest, _impl_.player_id_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string reason = 2 [json_name = "reason", (.croupier.component.v1.ui) = {
+    // string reason = 2 [json_name = "reason"];
     {PROTOBUF_FIELD_OFFSET(BanRequest, _impl_.reason_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
@@ -354,7 +348,7 @@ PROTOBUF_NOINLINE void BanRequest::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string player_id = 1 [json_name = "playerId", (.croupier.component.v1.ui) = {
+  // string player_id = 1 [json_name = "playerId"];
   if (CheckHasBit(cached_has_bits, 0x00000001U)) {
     if (!this_._internal_player_id().empty()) {
       const ::std::string& _s = this_._internal_player_id();
@@ -364,7 +358,7 @@ PROTOBUF_NOINLINE void BanRequest::Clear() {
     }
   }
 
-  // string reason = 2 [json_name = "reason", (.croupier.component.v1.ui) = {
+  // string reason = 2 [json_name = "reason"];
   if (CheckHasBit(cached_has_bits, 0x00000002U)) {
     if (!this_._internal_reason().empty()) {
       const ::std::string& _s = this_._internal_reason();
@@ -400,14 +394,14 @@ PROTOBUF_NOINLINE void BanRequest::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
-    // string player_id = 1 [json_name = "playerId", (.croupier.component.v1.ui) = {
+    // string player_id = 1 [json_name = "playerId"];
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_player_id().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_player_id());
       }
     }
-    // string reason = 2 [json_name = "reason", (.croupier.component.v1.ui) = {
+    // string reason = 2 [json_name = "reason"];
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
       if (!this_._internal_reason().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(

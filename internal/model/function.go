@@ -13,7 +13,7 @@ type Function struct {
 	FunctionID  string            `gorm:"size:64;uniqueIndex"`
 	Name        string            `gorm:"size:128"`
 	Description string            `gorm:"type:text"`
-	Category    string            `gorm:"size:64;index"`
+	Resource    string            `gorm:"size:64;index"`
 	GameID      string            `gorm:"size:64;index"`
 	Status      int               `gorm:"index"`
 	Version     string            `gorm:"size:32"`

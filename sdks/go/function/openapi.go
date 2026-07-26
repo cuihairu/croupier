@@ -144,19 +144,16 @@ func (r *Registry) operationToMetadata(path string, op *openapi3.Operation, opti
 		}
 	}
 
-	// Extract extensions
-	metadata.Category = extractExtension(op.Extensions, "x-category")
+	// Extract Croupier capability extensions.
+	metadata.Resource = extractExtension(op.Extensions, "x-resource")
+	metadata.Operation = extractExtension(op.Extensions, "x-operation")
+	metadata.Permission = extractExtension(op.Extensions, "x-permission")
 	riskLevel := extractExtension(op.Extensions, "x-risk")
-
-	// Set default values
-	if metadata.Category == "" && len(op.Tags) > 0 {
-		metadata.Category = op.Tags[0]
-	}
 
 	// Apply options
 	if options != nil {
-		if options.CategoryPrefix != "" && metadata.Category != "" {
-			metadata.Category = options.CategoryPrefix + "." + metadata.Category
+		if options.ResourcePrefix != "" && metadata.Resource != "" {
+			metadata.Resource = options.ResourcePrefix + "." + metadata.Resource
 		}
 		if options.TagPrefix != "" {
 			tags := make([]string, 0, len(metadata.Tags))

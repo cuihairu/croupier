@@ -25,7 +25,7 @@ func NewFunctionModel(db *gorm.DB) *FunctionModel {
 type ListFunctionsOptions struct {
 	PaginationOptions
 	GameID   string
-	Category string
+	Resource string
 	Status   *int
 	Search   string
 }
@@ -68,34 +68,6 @@ func (m *FunctionModel) FindByFunctionID(ctx context.Context, functionID string)
 	return &fn, nil
 }
 
-// ListFunctionMenus returns function_id -> metadata.menu map.
-func (m *FunctionModel) ListFunctionMenus(ctx context.Context) (map[string]map[string]interface{}, error) {
-	type row struct {
-		FunctionID string
-		Metadata   datatypes.JSONMap
-	}
-	var rows []row
-	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Function{}).Select("function_id", "metadata").Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	out := make(map[string]map[string]interface{}, len(rows))
-	for _, r := range rows {
-		if r.FunctionID == "" || r.Metadata == nil {
-			continue
-		}
-		raw, ok := r.Metadata["menu"]
-		if !ok {
-			continue
-		}
-		mm, ok := raw.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		out[r.FunctionID] = mm
-	}
-	return out, nil
-}
-
 // List returns paginated functions.
 func (m *FunctionModel) List(ctx context.Context, opts ListFunctionsOptions) ([]Function, int64, error) {
 	opts.PaginationOptions.Normalize()
@@ -109,8 +81,8 @@ func (m *FunctionModel) List(ctx context.Context, opts ListFunctionsOptions) ([]
 	if opts.GameID != "" {
 		query = query.Where("game_id = ?", opts.GameID)
 	}
-	if opts.Category != "" {
-		query = query.Where("category = ?", opts.Category)
+	if opts.Resource != "" {
+		query = query.Where("resource = ?", opts.Resource)
 	}
 	if opts.Status != nil {
 		query = query.Where("status = ?", *opts.Status)
@@ -264,10 +236,15 @@ func (m *FunctionModel) BatchUpdateStatus(ctx context.Context, functionIDs []str
 		return 0, nil, nil
 	}
 
+	status := StatusDisabled
+	if enabled {
+		status = StatusEnabled
+	}
+
 	result := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&Function{}).
 		Where("function_id IN ?", functionIDs).
-		Updates(map[string]interface{}{"enabled": enabled})
+		Updates(map[string]interface{}{"status": status})
 
 	if result.Error != nil {
 		return 0, nil, result.Error

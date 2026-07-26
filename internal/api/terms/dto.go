@@ -2,7 +2,7 @@ package terms
 
 // TermDeleteRequest represents the request to delete a term
 type TermDeleteRequest struct {
-	Domain string `json:"domain"` // entity | operation
+	Domain string `json:"domain"` // resource | operation
 	Alias  string `json:"alias"`  // 要删除的别名
 }
 
@@ -14,7 +14,7 @@ type TermDeleteResponse struct {
 // TermItem represents a single term dictionary item
 type TermItem struct {
 	Id        int64  `json:"id"`
-	Domain    string `json:"domain"`     // entity | operation
+	Domain    string `json:"domain"`     // resource | operation
 	TermKey   string `json:"term_key"`   // 原始术语键
 	Alias     string `json:"alias"`      // 别名
 	DisplayZh string `json:"display_zh"` // 中文显示
@@ -24,7 +24,7 @@ type TermItem struct {
 
 // TermUpsertRequest represents the request to create or update a term
 type TermUpsertRequest struct {
-	Domain    string `json:"domain"`     // entity | operation
+	Domain    string `json:"domain"`     // resource | operation
 	TermKey   string `json:"term_key"`   // 原始术语键
 	Alias     string `json:"alias"`      // 别名
 	DisplayZh string `json:"display_zh"` // 中文显示
@@ -39,7 +39,7 @@ type TermUpsertResponse struct {
 
 // TermsListRequest represents the request to list terms
 type TermsListRequest struct {
-	Domain string `form:"domain" json:"domain"` // entity | operation
+	Domain string `form:"domain" json:"domain"` // resource | operation
 }
 
 // TermsListResponse represents the response with terms list

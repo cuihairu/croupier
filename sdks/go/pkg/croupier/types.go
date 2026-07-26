@@ -8,31 +8,22 @@ import (
 	"time"
 )
 
-// FunctionDescriptor defines a game function descriptor aligned with control.proto
+// FunctionDescriptor defines the executable function capability contract.
 type FunctionDescriptor struct {
 	ID           string   `json:"id"`            // function id, e.g. "player.ban"
 	Version      string   `json:"version"`       // semver, e.g. "1.2.0"
 	Tags         []string `json:"tags"`          // tags for grouping and search
-	Summary      string   `json:"summary"`       // short summary for catalogs and default UI
+	Summary      string   `json:"summary"`       // short summary for catalogs and search
 	Description  string   `json:"description"`   // detailed description, supports Markdown
 	OperationID  string   `json:"operation_id"`  // stable operation identifier
 	Deprecated   bool     `json:"deprecated"`    // whether this function is deprecated
 	InputSchema  string   `json:"input_schema"`  // JSON Schema for request body validation
 	OutputSchema string   `json:"output_schema"` // JSON Schema for response body validation
-	Category     string   `json:"category"`      // grouping category
-	Risk         string   `json:"risk"`          // "safe"|"warning"|"high"|"danger"
-	Entity       string   `json:"entity"`        // resource key, e.g. "player", "mail"
+	Resource     string   `json:"resource"`      // business resource/capability key
 	Operation    string   `json:"operation"`     // business action key, e.g. "ban", "send", "list"
+	Risk         string   `json:"risk"`          // "safe"|"warning"|"high"|"danger"
+	Permission   string   `json:"permission"`    // optional permission identifier
 	Enabled      bool     `json:"enabled"`       // whether this function is currently enabled
-
-	// v2 fields for Page generation
-	CategoryDisplay  map[string]string `json:"category_display,omitempty"`  // category multi-language labels
-	EntityDisplay    map[string]string `json:"entity_display,omitempty"`    // entity multi-language labels
-	OperationDisplay map[string]string `json:"operation_display,omitempty"` // operation multi-language labels
-	OperationKind    string            `json:"operation_kind,omitempty"`    // page generation semantic
-	Placement        string            `json:"placement,omitempty"`         // recommended page placement
-	PageHint         string            `json:"page_hint,omitempty"`         // suggested page key
-	Extensions       map[string]string `json:"extensions,omitempty"`        // third-party extensions
 }
 
 // LocalFunctionDescriptor defines a local function descriptor for SDK->Agent registration
@@ -54,20 +45,12 @@ type LocalFunctionDescriptor struct {
 	InputSchema  string `json:"input_schema"`  // JSON Schema for request body validation
 	OutputSchema string `json:"output_schema"` // JSON Schema for response body validation
 
-	// OpenAPI 3.0.3 Extension fields (x-* prefix)
-	Category  string `json:"category"`  // x-category: navigation category key
-	Risk      string `json:"risk"`      // x-risk: risk level ("safe", "warning", "high", "danger")
-	Entity    string `json:"entity"`    // x-entity: resource key (e.g., "player", "mail")
-	Operation string `json:"operation"` // x-operation: business action key (e.g., "ban", "send", "list")
-
-	// v2 extension fields for Page generation
-	CategoryDisplay  map[string]string `json:"category_display,omitempty"`  // x-category-display
-	EntityDisplay    map[string]string `json:"entity_display,omitempty"`    // x-entity-display
-	OperationDisplay map[string]string `json:"operation_display,omitempty"` // x-operation-display
-	OperationKind    string            `json:"operation_kind,omitempty"`    // x-operation-kind
-	Placement        string            `json:"placement,omitempty"`         // x-placement
-	PageHint         string            `json:"page_hint,omitempty"`         // x-page-hint
-	Extensions       map[string]string `json:"extensions,omitempty"`        // third-party extensions
+	// Croupier capability fields.
+	Resource   string `json:"resource"`   // x-resource: business resource/capability key
+	Operation  string `json:"operation"`  // x-operation: business action key
+	Risk       string `json:"risk"`       // x-risk: risk level ("safe", "warning", "high", "danger")
+	Enabled    bool   `json:"enabled"`    // x-enabled: whether this function is enabled
+	Permission string `json:"permission"` // x-permission: optional permission identifier
 }
 
 // FunctionHandler defines the signature for game function handlers

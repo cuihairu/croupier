@@ -8,6 +8,6 @@
 
 ## 建议
 
-- 函数 ID 采用 `[namespace.]entity.operation`
+- 函数 ID 采用 `[namespace.]resource.operation`
 - 高风险操作设置 `risk`
 - 处理器保持无状态或显式管理状态

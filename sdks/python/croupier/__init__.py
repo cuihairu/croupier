@@ -92,11 +92,11 @@ class FunctionDescriptor:
     deprecated: bool = False
     input_schema: Optional[Dict[str, object] | str] = None
     output_schema: Optional[Dict[str, object] | str] = None
-    category: Optional[str] = None
-    risk: Optional[str] = None
-    entity: Optional[str] = None
+    resource: Optional[str] = None
     operation: Optional[str] = None
+    risk: Optional[str] = None
     enabled: bool = True
+    permission: Optional[str] = None
 
 
 @dataclass
@@ -244,10 +244,11 @@ class CroupierClient:
             deprecated=desc.deprecated,
             input_schema=input_schema,
             output_schema=output_schema,
-            category=desc.category or "",
-            risk=desc.risk or "",
-            entity=desc.entity or "",
+            resource=desc.resource or "",
             operation=desc.operation or "",
+            risk=desc.risk or "",
+            enabled=desc.enabled,
+            permission=desc.permission or "",
         )
 
     def get_provider_connect_request(self) -> provider_pb2.ProviderConnectRequest:  # type: ignore[name-defined]
@@ -408,14 +409,14 @@ class CroupierClient:
                 entry["input_schema"] = descriptor.input_schema
             if descriptor.output_schema:
                 entry["output_schema"] = descriptor.output_schema
-            if descriptor.category:
-                entry["category"] = descriptor.category
+            if descriptor.resource:
+                entry["resource"] = descriptor.resource
             if descriptor.risk:
                 entry["risk"] = descriptor.risk
-            if descriptor.entity:
-                entry["entity"] = descriptor.entity
             if descriptor.operation:
                 entry["operation"] = descriptor.operation
+            if descriptor.permission:
+                entry["permission"] = descriptor.permission
             if descriptor.enabled:
                 entry["enabled"] = True  # type: ignore[assignment]
             functions.append(entry)

@@ -169,15 +169,13 @@ func (c *Converter) operationToMetadata(path string, op *openapi3.Operation, opt
 		}
 	}
 
-	// Extract extensions
-	metadata.Category = c.extractExtension(op.Extensions, "x-category")
+	// Extract capability extensions. UI/page extensions are rejected at the
+	// registration boundary; only executable capability metadata belongs here.
+	metadata.Resource = c.extractExtension(op.Extensions, "x-resource")
 	riskLevel := c.extractExtension(op.Extensions, "x-risk")
 	permission := c.extractExtension(op.Extensions, "x-permission")
 
 	// Set default values
-	if metadata.Category == "" && len(op.Tags) > 0 {
-		metadata.Category = op.Tags[0]
-	}
 	if riskLevel == "" {
 		riskLevel = "medium"
 	}
@@ -207,8 +205,8 @@ func (c *Converter) metadataToOperation(metadata *functionv1.FunctionMetadata) *
 	}
 
 	// Add extensions
-	if metadata.Category != "" {
-		op.Extensions["x-category"] = metadata.Category
+	if metadata.Resource != "" {
+		op.Extensions["x-resource"] = metadata.Resource
 	}
 
 	if metadata.Security != nil {
@@ -411,8 +409,8 @@ type ImportOptions struct {
 	// DefaultRouteStrategy is the default routing strategy
 	DefaultRouteStrategy string
 
-	// CategoryPrefix adds a prefix to all imported categories
-	CategoryPrefix string
+	// ResourcePrefix adds a prefix to imported resource keys.
+	ResourcePrefix string
 
 	// TagPrefix adds a prefix to all imported tags
 	TagPrefix string

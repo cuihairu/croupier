@@ -149,21 +149,31 @@ func (v *Validator) ValidateExtensionFields(extensions map[string]interface{}) e
 		}
 	}
 
+	// Validate x-resource if present
+	if resource, exists := extensions["x-resource"]; exists {
+		if _, ok := resource.(string); !ok {
+			return errors.New("x-resource must be a string")
+		}
+	}
+
 	// Validate x-operation if present
 	if operation, exists := extensions["x-operation"]; exists {
-		operationStr, ok := operation.(string)
-		if !ok {
+		if _, ok := operation.(string); !ok {
 			return errors.New("x-operation must be a string")
 		}
-		validOps := map[string]bool{
-			"create": true,
-			"read":   true,
-			"update": true,
-			"delete": true,
-			"custom": true,
+	}
+
+	// Validate x-enabled if present
+	if enabled, exists := extensions["x-enabled"]; exists {
+		if _, ok := enabled.(bool); !ok {
+			return errors.New("x-enabled must be a boolean")
 		}
-		if !validOps[operationStr] {
-			return fmt.Errorf("invalid x-operation value: %s (must be create, read, update, delete, or custom)", operationStr)
+	}
+
+	// Validate x-permission if present
+	if permission, exists := extensions["x-permission"]; exists {
+		if _, ok := permission.(string); !ok {
+			return errors.New("x-permission must be a string")
 		}
 	}
 

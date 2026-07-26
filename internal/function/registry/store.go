@@ -18,7 +18,7 @@ type Store struct {
 	functions map[string]*functionv1.FunctionMetadata // id -> metadata
 
 	// Indexes
-	byCategory map[string]map[string]struct{} // category -> set of function ids
+	byResource map[string]map[string]struct{} // resource -> set of function ids
 	byTag      map[string]map[string]struct{} // tag -> set of function ids
 	byRisk     map[string]map[string]struct{} // risk_level -> set of function ids
 	byMode     map[string]map[string]struct{} // mode -> set of function ids
@@ -32,7 +32,7 @@ type Store struct {
 func NewStore() *Store {
 	return &Store{
 		functions:  make(map[string]*functionv1.FunctionMetadata),
-		byCategory: make(map[string]map[string]struct{}),
+		byResource: make(map[string]map[string]struct{}),
 		byTag:      make(map[string]map[string]struct{}),
 		byRisk:     make(map[string]map[string]struct{}),
 		byMode:     make(map[string]map[string]struct{}),
@@ -79,7 +79,7 @@ func (s *Store) Register(ctx context.Context, metadata *functionv1.FunctionMetad
 	slog.Debug("Function registered",
 		"function_id", metadata.Id,
 		"version", metadata.Version,
-		"category", metadata.Category,
+		"resource", metadata.Resource,
 		"action", map[bool]string{true: "updated", false: "created"}[existing != nil])
 
 	return nil
@@ -130,16 +130,16 @@ func (s *Store) List(ctx context.Context) ([]*functionv1.FunctionMetadata, error
 	return result, nil
 }
 
-// ListByCategory retrieves function metadatas by category.
-func (s *Store) ListByCategory(ctx context.Context, category string) ([]*functionv1.FunctionMetadata, error) {
-	if category == "" {
+// ListByResource retrieves function metadatas by resource.
+func (s *Store) ListByResource(ctx context.Context, resource string) ([]*functionv1.FunctionMetadata, error) {
+	if resource == "" {
 		return s.List(ctx)
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	ids, exists := s.byCategory[category]
+	ids, exists := s.byResource[resource]
 	if !exists {
 		return []*functionv1.FunctionMetadata{}, nil
 	}
@@ -257,9 +257,9 @@ func (s *Store) Filter(ctx context.Context, filter *functionv1.FunctionFilter) (
 		candidates[id] = struct{}{}
 	}
 
-	// Filter by category
-	if filter.Category != "" {
-		if ids, exists := s.byCategory[filter.Category]; exists {
+	// Filter by resource
+	if filter.Resource != "" {
+		if ids, exists := s.byResource[filter.Resource]; exists {
 			candidates = intersectStringSets(candidates, ids)
 		} else {
 			return []*functionv1.FunctionMetadata{}, nil
@@ -357,16 +357,16 @@ func (s *Store) Count(ctx context.Context) int {
 	return len(s.functions)
 }
 
-// GetCategories returns all unique categories.
-func (s *Store) GetCategories(ctx context.Context) []string {
+// GetResources returns all unique resources.
+func (s *Store) GetResources(ctx context.Context) []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	categories := make([]string, 0, len(s.byCategory))
-	for category := range s.byCategory {
-		categories = append(categories, category)
+	resources := make([]string, 0, len(s.byResource))
+	for resource := range s.byResource {
+		resources = append(resources, resource)
 	}
-	return categories
+	return resources
 }
 
 // GetTags returns all unique tags.
@@ -417,12 +417,12 @@ func (s *Store) GetUpdatedAt(ctx context.Context, id string) (time.Time, error) 
 
 // addToIndexes adds a function to all indexes.
 func (s *Store) addToIndexes(id string, metadata *functionv1.FunctionMetadata) {
-	// Category index
-	if metadata.Category != "" {
-		if s.byCategory[metadata.Category] == nil {
-			s.byCategory[metadata.Category] = make(map[string]struct{})
+	// Resource index
+	if metadata.Resource != "" {
+		if s.byResource[metadata.Resource] == nil {
+			s.byResource[metadata.Resource] = make(map[string]struct{})
 		}
-		s.byCategory[metadata.Category][id] = struct{}{}
+		s.byResource[metadata.Resource][id] = struct{}{}
 	}
 
 	// Tag index
@@ -454,12 +454,12 @@ func (s *Store) addToIndexes(id string, metadata *functionv1.FunctionMetadata) {
 
 // removeFromIndexes removes a function from all indexes.
 func (s *Store) removeFromIndexes(id string, metadata *functionv1.FunctionMetadata) {
-	// Category index
-	if metadata.Category != "" {
-		if ids, exists := s.byCategory[metadata.Category]; exists {
+	// Resource index
+	if metadata.Resource != "" {
+		if ids, exists := s.byResource[metadata.Resource]; exists {
 			delete(ids, id)
 			if len(ids) == 0 {
-				delete(s.byCategory, metadata.Category)
+				delete(s.byResource, metadata.Resource)
 			}
 		}
 	}

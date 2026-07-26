@@ -341,23 +341,23 @@ func TestVersion_formats(t *testing.T) {
 	})
 }
 
-func TestCategory_and_Risk(t *testing.T) {
-	t.Run("all combinations of category and risk", func(t *testing.T) {
-		categories := []string{"player", "item", "guild", "chat", "system", "admin"}
+func TestResource_and_Risk(t *testing.T) {
+	t.Run("all combinations of resource and risk", func(t *testing.T) {
+		resources := []string{"player", "item", "guild", "chat", "system", "admin"}
 		risks := []string{"low", "medium", "high", "critical"}
 
-		for _, cat := range categories {
+		for _, resource := range resources {
 			for _, risk := range risks {
 				desc := FunctionDescriptor{
 					ID:       "test.func",
 					Version:  "1.0.0",
-					Category: cat,
+					Resource: resource,
 					Risk:     risk,
 					Enabled:  true,
 				}
 
-				if desc.Category != cat || desc.Risk != risk {
-					t.Errorf("Category=%s, Risk=%s not preserved", cat, risk)
+				if desc.Resource != resource || desc.Risk != risk {
+					t.Errorf("Resource=%s, Risk=%s not preserved", resource, risk)
 				}
 			}
 		}

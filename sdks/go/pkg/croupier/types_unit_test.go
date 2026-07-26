@@ -115,10 +115,9 @@ func TestTypes_FunctionDescriptor_Fields(t *testing.T) {
 	fd := FunctionDescriptor{
 		ID:        "player.ban",
 		Version:   "1.0.0",
-		Category:  "player",
+		Resource:  "player",
 		Risk:      "high",
-		Entity:    "Player",
-		Operation: "update",
+		Operation: "ban",
 		Enabled:   true,
 	}
 
@@ -141,10 +140,9 @@ func TestLocalFunctionDescriptor_Fields(t *testing.T) {
 		Deprecated:   false,
 		InputSchema:  `{"type":"object"}`,
 		OutputSchema: `{"type":"object"}`,
-		Category:     "player",
+		Resource:     "player",
 		Risk:         "danger",
-		Entity:       "Player",
-		Operation:    "update",
+		Operation:    "ban",
 	}
 
 	if lfd.ID != "player.ban" {

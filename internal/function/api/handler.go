@@ -32,8 +32,8 @@ func (h *Handler) ListFunctions(c *gin.Context) {
 
 	// Build options from request
 	opts := &ListOptions{}
-	if req.Category != "" {
-		opts.Category = req.Category
+	if req.Resource != "" {
+		opts.Resource = req.Resource
 	}
 	if req.Tag != "" {
 		opts.Tag = req.Tag
@@ -94,7 +94,7 @@ func (h *Handler) RegisterFunction(c *gin.Context) {
 	metadata := MetadataToProto(&FunctionMetadata{
 		ID:           req.ID,
 		Version:      req.Version,
-		Category:     req.Category,
+		Resource:     req.Resource,
 		Tags:         req.Tags,
 		Name:         req.Name,
 		Description:  req.Description,
@@ -224,7 +224,7 @@ func (h *Handler) ImportFromOpenAPI(c *gin.Context) {
 	var opts *ImportOptions
 	if req.Options != nil {
 		opts = &ImportOptions{
-			CategoryPrefix:   req.Options.CategoryPrefix,
+			ResourcePrefix:   req.Options.ResourcePrefix,
 			TagPrefix:        req.Options.TagPrefix,
 			DefaultTimeoutMs: req.Options.DefaultTimeoutMs,
 			ContinueOnError:  req.Options.ContinueOnError,
@@ -249,11 +249,11 @@ func (h *Handler) ImportFromOpenAPI(c *gin.Context) {
 	})
 }
 
-// GetCategories handles GET /api/metadata/functions/categories - List all categories.
-func (h *Handler) GetCategories(c *gin.Context) {
-	categories := h.service.GetCategories(c.Request.Context())
+// GetResources handles GET /api/metadata/functions/resources - List all resources.
+func (h *Handler) GetResources(c *gin.Context) {
+	resources := h.service.GetResources(c.Request.Context())
 	response.Success(c, gin.H{
-		"categories": categories,
+		"resources": resources,
 	})
 }
 

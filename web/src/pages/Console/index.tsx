@@ -1,7 +1,7 @@
 /**
  * Console/index - 运行控制台首页
  *
- * 从 ConsoleMenuSpec 动态读取已发布页面，不读取旧 WorkspaceConfig。
+ * 从 ConsoleMenuSpec 动态读取已发布页面。
  * 路由：/console/home 或 /console/:categoryKey
  */
 

@@ -48,9 +48,9 @@ func createTestFunction(t *testing.T, db *gorm.DB, functionID, name string) *mod
 		GameID:      "test-game",
 		Status:      1,
 		Version:     "1.0.0",
-		Category:    "test",
+		Resource:    "test",
 		Metadata: map[string]interface{}{
-			"category":      "test",
+			"resource":      "test",
 			"version":       "1.0.0",
 			"spec_format":   "openapi3.0.3",
 			"instances":     3,
@@ -122,7 +122,7 @@ func TestFunctionsList_WithFunctions(t *testing.T) {
 	assert.Len(t, resp.Items, 2)
 	assert.Equal(t, "func1", resp.Items[0].Id)
 	assert.Equal(t, "Function 1", resp.Items[0].Name)
-	assert.Equal(t, "test", resp.Items[0].Category)
+	assert.Equal(t, "test", resp.Items[0].Resource)
 	assert.Equal(t, "1.0.0", resp.Items[0].Version)
 	assert.Equal(t, "openapi3.0.3", resp.Items[0].SpecFormat)
 }
@@ -204,7 +204,7 @@ func TestFunctionDetail_Found(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "func1", resp.Function.Id)
 	assert.Equal(t, "Function 1", resp.Function.Name)
-	assert.Equal(t, "test", resp.Function.Category)
+	assert.Equal(t, "test", resp.Function.Resource)
 	assert.Equal(t, 1, resp.Function.Status)
 	assert.Equal(t, "1.0.0", resp.Function.Version)
 	// Instances comes from getIntFromMetadata which handles int/float64
@@ -400,7 +400,7 @@ func TestFunctionInvoke_MissingPayload(t *testing.T) {
 	// Test without proper auth context
 	req := &FunctionInvokeRequest{
 		ID:      "func1",
-		Payload: map[string]interface{}{"test": "data"},
+		Payload: json.RawMessage(`{"test":"data"}`),
 	}
 
 	_, err := functionInvoke(ctx, svcCtx, req)
@@ -418,107 +418,6 @@ func TestFunctionPublish(t *testing.T) {
 	resp, err := functionPublish(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.True(t, resp.Published)
-}
-
-// Test functionRoute
-
-func TestFunctionRoute(t *testing.T) {
-	t.Parallel()
-	svcCtx := setupTestServiceContext(t)
-	ctx := context.Background()
-
-	fn := &model.Function{
-		FunctionID:  "func1",
-		Name:        "Function 1",
-		Description: "Test function",
-		GameID:      "test-game",
-		Status:      1,
-		Version:     "1.0.0",
-		Category:    "test",
-		Metadata: map[string]interface{}{
-			"menu": map[string]interface{}{
-				"nodes":  []string{"node1", "node2"},
-				"path":   "/test",
-				"order":  1,
-				"hidden": false,
-			},
-		},
-	}
-	require.NoError(t, svcCtx.DB.Create(fn).Error)
-
-	req := &FunctionRouteRequest{ID: "func1"}
-	resp, err := functionRoute(ctx, svcCtx, req)
-	require.NoError(t, err)
-	assert.Equal(t, "metadata", resp.Source)
-	assert.Equal(t, []string{"node1", "node2"}, resp.Menu.Nodes)
-	assert.Equal(t, "/test", resp.Menu.Path)
-	assert.GreaterOrEqual(t, resp.Menu.Order, 0) // Order may be 0 or 1 depending on JSON conversion
-	assert.False(t, resp.Menu.Hidden)
-}
-
-func TestFunctionRoute_NotFound(t *testing.T) {
-	t.Parallel()
-	svcCtx := setupTestServiceContext(t)
-	ctx := context.Background()
-
-	req := &FunctionRouteRequest{ID: "nonexistent"}
-	resp, err := functionRoute(ctx, svcCtx, req)
-	require.NoError(t, err)
-	assert.Equal(t, "default", resp.Source)
-	assert.NotNil(t, resp.Menu.Nodes)
-}
-
-// Test functionRouteUpdate
-
-func TestFunctionRouteUpdate(t *testing.T) {
-	t.Parallel()
-	svcCtx := setupTestServiceContext(t)
-	ctx := context.Background()
-
-	// Create function with minimal metadata
-	fn := &model.Function{
-		FunctionID:  "func1",
-		Name:        "Function 1",
-		Description: "Test function",
-		GameID:      "test-game",
-		Status:      1,
-		Version:     "1.0.0",
-		Category:    "test",
-		Metadata:    map[string]interface{}{},
-	}
-	require.NoError(t, svcCtx.DB.Create(fn).Error)
-
-	req := &FunctionRouteUpdateRequest{
-		ID:     "func1",
-		Nodes:  []string{"node3", "node4"},
-		Path:   "/updated",
-		Order:  5,
-		Hidden: true,
-	}
-
-	resp, err := functionRouteUpdate(ctx, svcCtx, req)
-	require.NoError(t, err)
-	assert.Equal(t, "metadata", resp.Source)
-	assert.Equal(t, []string{"node3", "node4"}, resp.Menu.Nodes)
-	assert.Equal(t, "/updated", resp.Menu.Path)
-	assert.Equal(t, 5, resp.Menu.Order)
-	assert.True(t, resp.Menu.Hidden)
-}
-
-func TestFunctionRouteUpdate_NotFound(t *testing.T) {
-	t.Parallel()
-	svcCtx := setupTestServiceContext(t)
-	ctx := context.Background()
-
-	req := &FunctionRouteUpdateRequest{
-		ID:    "nonexistent",
-		Nodes: []string{"node1"},
-	}
-
-	resp, err := functionRouteUpdate(ctx, svcCtx, req)
-	require.NoError(t, err)
-	assert.Equal(t, "metadata", resp.Source)
-	assert.Equal(t, []string{"node1"}, resp.Menu.Nodes)
 }
 
 // Test functionInstances
@@ -973,29 +872,14 @@ func TestBatchUpdateFunctions(t *testing.T) {
 	createTestFunction(t, svcCtx.DB, "func2", "Function 2")
 
 	req := &BatchUpdateFunctionsRequest{
-		Updates: []FunctionRouteUpdateRequest{
-			{
-				ID:     "func1",
-				Nodes:  []string{"node1"},
-				Path:   "/path1",
-				Order:  1,
-				Hidden: false,
-			},
-			{
-				ID:     "func2",
-				Nodes:  []string{"node2"},
-				Path:   "/path2",
-				Order:  2,
-				Hidden: true,
-			},
-		},
+		FunctionIds: []string{"func1", "func2"},
+		Enabled:     false,
 	}
 
 	resp, err := batchUpdateFunctions(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Len(t, resp.Results, 2)
-	assert.Equal(t, "/path1", resp.Results[0].Menu.Path)
-	assert.Equal(t, "/path2", resp.Results[1].Menu.Path)
+	assert.Equal(t, 2, resp.Updated)
+	assert.Empty(t, resp.Failed)
 }
 
 func TestBatchUpdateFunctions_Empty(t *testing.T) {
@@ -1004,12 +888,14 @@ func TestBatchUpdateFunctions_Empty(t *testing.T) {
 	ctx := context.Background()
 
 	req := &BatchUpdateFunctionsRequest{
-		Updates: []FunctionRouteUpdateRequest{},
+		FunctionIds: []string{},
+		Enabled:     true,
 	}
 
 	resp, err := batchUpdateFunctions(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Empty(t, resp.Results)
+	assert.Equal(t, 0, resp.Updated)
+	assert.Empty(t, resp.Failed)
 }
 
 // Test trimString helper
@@ -1139,14 +1025,14 @@ func TestService_BatchUpdateFunctions(t *testing.T) {
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
 	req := &BatchUpdateFunctionsRequest{
-		Updates: []FunctionRouteUpdateRequest{
-			{ID: "func1", Nodes: []string{"node1"}, Path: "/test", Order: 1, Hidden: false},
-		},
+		FunctionIds: []string{"func1"},
+		Enabled:     false,
 	}
 
 	resp, err := svc.BatchUpdateFunctions(ctx, req)
 	require.NoError(t, err)
-	assert.Len(t, resp.Results, 1)
+	assert.Equal(t, 1, resp.Updated)
+	assert.Empty(t, resp.Failed)
 }
 
 func TestService_BatchCopyFunctions(t *testing.T) {
@@ -1275,51 +1161,6 @@ func TestService_FunctionPublish(t *testing.T) {
 	assert.True(t, resp.Published)
 }
 
-func TestService_FunctionRoute(t *testing.T) {
-	t.Parallel()
-	svcCtx := setupTestServiceContext(t)
-	svc := NewService(svcCtx)
-	ctx := context.Background()
-
-	fn := &model.Function{
-		FunctionID: "func1",
-		Name:       "Function 1",
-		Metadata: map[string]interface{}{
-			"menu": map[string]interface{}{
-				"nodes": []string{"node1"},
-				"path":  "/test",
-			},
-		},
-	}
-	require.NoError(t, svcCtx.DB.Create(fn).Error)
-
-	req := &FunctionRouteRequest{ID: "func1"}
-	resp, err := svc.FunctionRoute(ctx, req)
-	require.NoError(t, err)
-	assert.Equal(t, "metadata", resp.Source)
-}
-
-func TestService_FunctionRouteUpdate(t *testing.T) {
-	t.Parallel()
-	svcCtx := setupTestServiceContext(t)
-	svc := NewService(svcCtx)
-	ctx := context.Background()
-
-	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
-
-	req := &FunctionRouteUpdateRequest{
-		ID:     "func1",
-		Nodes:  []string{"node1"},
-		Path:   "/test",
-		Order:  1,
-		Hidden: false,
-	}
-
-	resp, err := svc.FunctionRouteUpdate(ctx, req)
-	require.NoError(t, err)
-	assert.Equal(t, "/test", resp.Menu.Path)
-}
-
 func TestService_FunctionInstancesAll(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
@@ -1434,7 +1275,7 @@ func TestService_FunctionInvoke(t *testing.T) {
 	// Test without auth - should fail
 	req := &FunctionInvokeRequest{
 		ID:      "func1",
-		Payload: map[string]interface{}{"test": "data"},
+		Payload: json.RawMessage(`{"test":"data"}`),
 	}
 
 	_, err := svc.FunctionInvoke(ctx, req)
@@ -1491,17 +1332,17 @@ func TestGetIntFromMetadata(t *testing.T) {
 	}
 }
 
-func TestGetInterfaceFromMetadata(t *testing.T) {
+func TestJSONValueFromMetadata(t *testing.T) {
 	t.Parallel()
 
 	metadata := map[string]interface{}{
 		"obj": map[string]interface{}{"nested": "value"},
 	}
 
-	assert.Nil(t, getInterfaceFromMetadata(nil, "key"))
-	assert.Nil(t, getInterfaceFromMetadata(map[string]interface{}{}, "key"))
-	assert.Nil(t, getInterfaceFromMetadata(metadata, "missing"))
-	assert.NotNil(t, getInterfaceFromMetadata(metadata, "obj"))
+	assert.Nil(t, jsonValueFromMetadata(nil, "key"))
+	assert.Nil(t, jsonValueFromMetadata(map[string]interface{}{}, "key"))
+	assert.Nil(t, jsonValueFromMetadata(metadata, "missing"))
+	assert.NotNil(t, jsonValueFromMetadata(metadata, "obj"))
 }
 
 func TestGetStringSliceFromMetadata(t *testing.T) {
@@ -1636,7 +1477,7 @@ func TestMetadataHelpers_NilMetadata(t *testing.T) {
 
 	assert.Equal(t, "", getStringFromMetadata(nil, "key"))
 	assert.Equal(t, 0, getIntFromMetadata(nil, "key"))
-	assert.Nil(t, getInterfaceFromMetadata(nil, "key"))
+	assert.Nil(t, jsonValueFromMetadata(nil, "key"))
 	assert.Equal(t, []string{}, getStringSliceFromMetadata(nil, "key"))
 	assert.False(t, getBoolFromMetadata(nil, "key"))
 }
@@ -1734,56 +1575,6 @@ func TestBatchOperations_MultipleItems(t *testing.T) {
 	copyResp, err := batchCopyFunctions(ctx, svcCtx, copyReq)
 	require.NoError(t, err)
 	assert.Len(t, copyResp.Results, 3)
-}
-
-// Test functionRoute with nil metadata
-
-func TestFunctionRoute_NilMetadata(t *testing.T) {
-	t.Parallel()
-	svcCtx := setupTestServiceContext(t)
-	ctx := context.Background()
-
-	fn := &model.Function{
-		FunctionID: "func1",
-		Name:       "Function 1",
-		Metadata:   nil,
-	}
-	require.NoError(t, svcCtx.DB.Create(fn).Error)
-
-	req := &FunctionRouteRequest{ID: "func1"}
-	resp, err := functionRoute(ctx, svcCtx, req)
-	require.NoError(t, err)
-	assert.Equal(t, "default", resp.Source)
-	assert.Empty(t, resp.Menu.Nodes)
-	assert.Empty(t, resp.Menu.Path)
-}
-
-// Test functionRouteUpdate with nil metadata initially
-
-func TestFunctionRouteUpdate_NilMetadata(t *testing.T) {
-	t.Parallel()
-	svcCtx := setupTestServiceContext(t)
-	ctx := context.Background()
-
-	fn := &model.Function{
-		FunctionID: "func1",
-		Name:       "Function 1",
-		Metadata:   nil,
-	}
-	require.NoError(t, svcCtx.DB.Create(fn).Error)
-
-	req := &FunctionRouteUpdateRequest{
-		ID:     "func1",
-		Nodes:  []string{"node1"},
-		Path:   "/test",
-		Order:  1,
-		Hidden: false,
-	}
-
-	resp, err := functionRouteUpdate(ctx, svcCtx, req)
-	require.NoError(t, err)
-	assert.Equal(t, "metadata", resp.Source)
-	assert.Equal(t, []string{"node1"}, resp.Menu.Nodes)
 }
 
 // Test functionsList with different pagination options
@@ -1995,7 +1786,7 @@ func TestFunctionInvoke_AsyncMode(t *testing.T) {
 
 	req := &FunctionInvokeRequest{
 		ID:      "f1",
-		Payload: map[string]interface{}{"test": "data"},
+		Payload: json.RawMessage(`{"test":"data"}`),
 		Mode:    "async",
 	}
 
@@ -2034,20 +1825,14 @@ func TestBatchUpdateFunctions_SingleItem(t *testing.T) {
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
 	req := &BatchUpdateFunctionsRequest{
-		Updates: []FunctionRouteUpdateRequest{
-			{
-				ID:     "func1",
-				Nodes:  []string{"node1"},
-				Path:   "/test",
-				Order:  1,
-				Hidden: false,
-			},
-		},
+		FunctionIds: []string{"func1"},
+		Enabled:     false,
 	}
 
 	resp, err := batchUpdateFunctions(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Len(t, resp.Results, 1)
+	assert.Equal(t, 1, resp.Updated)
+	assert.Empty(t, resp.Failed)
 }
 
 // Test more metadata helper edge cases
@@ -2110,39 +1895,6 @@ func TestFunctionsList_AdminUser(t *testing.T) {
 	assert.Len(t, resp.Items, 1)
 }
 
-// Test functionRouteUpdate with partial metadata
-
-func TestFunctionRouteUpdate_PartialMetadata(t *testing.T) {
-	t.Parallel()
-	svcCtx := setupTestServiceContext(t)
-	ctx := context.Background()
-
-	fn := &model.Function{
-		FunctionID: "func1",
-		Name:       "Function 1",
-		Metadata: map[string]interface{}{
-			"existing": "value",
-		},
-	}
-	require.NoError(t, svcCtx.DB.Create(fn).Error)
-
-	req := &FunctionRouteUpdateRequest{
-		ID:     "func1",
-		Nodes:  []string{"node1"},
-		Path:   "/test",
-		Order:  1,
-		Hidden: false,
-	}
-
-	resp, err := functionRouteUpdate(ctx, svcCtx, req)
-	require.NoError(t, err)
-	assert.Equal(t, "metadata", resp.Source)
-
-	// Verify existing metadata is preserved
-	fnAfter, err := svcCtx.FunctionModel.FindByFunctionID(ctx, "func1")
-	require.NoError(t, err)
-	assert.Equal(t, "value", fnAfter.Metadata["existing"])
-}
 
 // Test getStringSliceFromMetadata with mixed types
 
@@ -2180,7 +1932,7 @@ func TestFunctionInvoke_ErrorPaths(t *testing.T) {
 	// Test with no auth context - should fail
 	req := &FunctionInvokeRequest{
 		ID:      "func1",
-		Payload: map[string]interface{}{"test": "data"},
+		Payload: json.RawMessage(`{"test":"data"}`),
 	}
 
 	_, err := functionInvoke(ctx, svcCtx, req)
@@ -2234,21 +1986,21 @@ func TestEnforceInvokePermission_NoPermissionsConfigured(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// Test functionsList with category filter
+// Test functionsList with resource filter
 
-func TestFunctionsList_WithCategoryFilter(t *testing.T) {
+func TestFunctionsList_WithResourceFilter(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 
-	// Create function with different category
+	// Create function with different resource
 	fn := createTestFunction(t, svcCtx.DB, "func1", "Function 1")
-	svcCtx.DB.Model(fn).Update("category", "special")
+	svcCtx.DB.Model(fn).Update("resource", "special")
 
 	req := &FunctionsListRequest{
 		Page:     1,
 		PageSize: 10,
-		Category: "special",
+		Resource: "special",
 	}
 
 	resp, err := functionsList(ctx, svcCtx, req)
@@ -2463,8 +2215,6 @@ func TestHandlerAliasMethods(t *testing.T) {
 		{"UIUpdate", h.UIUpdate},
 		{"UIHistory", h.UIHistory},
 		{"UIRollback", h.UIRollback},
-		{"Route", h.Route},
-		{"RouteUpdate", h.RouteUpdate},
 		{"History", h.History},
 		{"Analytics", h.Analytics},
 		{"Warnings", h.Warnings},
@@ -2531,21 +2281,6 @@ func TestHandlers_AdditionalCoverage(t *testing.T) {
 		ctx.Request = req
 
 		h.FunctionUI(ctx)
-
-		assert.Equal(t, http.StatusBadRequest, rec.Code)
-	})
-
-	t.Run("FunctionRoute_Success", func(t *testing.T) {
-		svcCtx := setupTestServiceContext(t)
-		svc := NewService(svcCtx)
-		h := NewHandler(svc)
-
-		rec := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(rec)
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/functions/func1/route", nil)
-		ctx.Request = req
-
-		h.FunctionRoute(ctx)
 
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})

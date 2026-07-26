@@ -52,7 +52,14 @@ def test_build_manifest_contains_provider_and_functions():
     config = croupier.ClientConfig(service_id="svc-1", service_version="sv1")
     client = croupier.CroupierClient(config)
     client.register_function(
-        croupier.FunctionDescriptor(id="f1", version="1.2.3", category="cat", enabled=True),
+        croupier.FunctionDescriptor(
+            id="f1",
+            version="1.2.3",
+            resource="player",
+            operation="ban",
+            permission="player.ban",
+            enabled=True,
+        ),
         lambda ctx, payload: "ok",  # noqa: E731
     )
 
@@ -66,7 +73,9 @@ def test_build_manifest_contains_provider_and_functions():
     }
     assert parsed["functions"][0]["id"] == "f1"
     assert parsed["functions"][0]["version"] == "1.2.3"
-    assert parsed["functions"][0]["category"] == "cat"
+    assert parsed["functions"][0]["resource"] == "player"
+    assert parsed["functions"][0]["operation"] == "ban"
+    assert parsed["functions"][0]["permission"] == "player.ban"
     assert parsed["functions"][0]["enabled"] is True
 
 
@@ -81,6 +90,30 @@ def test_build_manifest_defaults_version():
     raw = client.build_manifest()
     parsed = json.loads(raw.decode("utf-8"))
     assert parsed["functions"][0]["version"] == "1.0.0"
+
+
+def test_function_descriptor_maps_capability_fields():
+    client = croupier.CroupierClient()
+    client.register_function(
+        croupier.FunctionDescriptor(
+            id="player.ban",
+            version="1.0.0",
+            resource="player",
+            operation="ban",
+            risk="danger",
+            permission="player.ban",
+        ),
+        lambda ctx, payload: "ok",  # noqa: E731
+    )
+
+    descriptor = client.get_function_descriptor("player.ban")
+
+    assert descriptor is not None
+    assert descriptor.resource == "player"
+    assert descriptor.operation == "ban"
+    assert descriptor.risk == "danger"
+    assert descriptor.enabled is True
+    assert descriptor.permission == "player.ban"
 
 
 def test_gzip_bytes_roundtrip():
@@ -229,10 +262,10 @@ def test_function_descriptor_defaults():
     """Test FunctionDescriptor has correct defaults."""
     desc = croupier.FunctionDescriptor(id="test.fn")
     assert desc.version == "1.0.0"
-    assert desc.category is None
+    assert desc.resource is None
     assert desc.risk is None
-    assert desc.entity is None
     assert desc.operation is None
+    assert desc.permission is None
     assert desc.enabled is True
 
 
@@ -297,19 +330,19 @@ def test_function_descriptor_with_all_fields():
     desc = croupier.FunctionDescriptor(
         id="test.function",
         version="2.0.0",
-        category="test-category",
+        resource="player",
         risk="low",
-        entity="player",
-        operation="read",
+        operation="ban",
+        permission="player.ban",
         enabled=False,
     )
 
     assert desc.id == "test.function"
     assert desc.version == "2.0.0"
-    assert desc.category == "test-category"
+    assert desc.resource == "player"
     assert desc.risk == "low"
-    assert desc.entity == "player"
-    assert desc.operation == "read"
+    assert desc.operation == "ban"
+    assert desc.permission == "player.ban"
     assert desc.enabled is False
 
 
@@ -455,10 +488,10 @@ def test_build_manifest_with_all_descriptor_fields():
         croupier.FunctionDescriptor(
             id="full.fn",
             version="2.0.0",
-            category="cat",
+            resource="player",
             risk="low",
-            entity="player",
-            operation="read",
+            operation="ban",
+            permission="player.ban",
             enabled=True,
         ),
         lambda ctx, payload: "ok",  # noqa: E731
@@ -470,10 +503,10 @@ def test_build_manifest_with_all_descriptor_fields():
     fn = parsed["functions"][0]
     assert fn["id"] == "full.fn"
     assert fn["version"] == "2.0.0"
-    assert fn["category"] == "cat"
+    assert fn["resource"] == "player"
     assert fn["risk"] == "low"
-    assert fn["entity"] == "player"
-    assert fn["operation"] == "read"
+    assert fn["operation"] == "ban"
+    assert fn["permission"] == "player.ban"
     assert fn["enabled"] is True
 
 
@@ -492,10 +525,10 @@ def test_build_manifest_with_minimal_descriptor():
     fn = parsed["functions"][0]
     assert fn["id"] == "min.fn"
     assert fn["version"] == "1.0.0"
-    assert "category" not in fn
+    assert "resource" not in fn
     assert "risk" not in fn
-    assert "entity" not in fn
     assert "operation" not in fn
+    assert "permission" not in fn
 
 
 def test_build_manifest_with_empty_functions():
@@ -580,7 +613,7 @@ def test_build_manifest_with_disabled_function():
         croupier.FunctionDescriptor(
             id="disabled.fn",
             version="1.0.0",
-            category="cat",
+            resource="player",
             enabled=False,
         ),
         lambda ctx, payload: "ok",  # noqa: E731
@@ -662,10 +695,10 @@ def test_get_function_descriptor():
             operation_id="testFn",
             input_schema={"type": "object", "properties": {"id": {"type": "string"}}},
             output_schema={"type": "object", "properties": {"ok": {"type": "boolean"}}},
-            category="cat",
+            resource="player",
             risk="safe",
-            entity="test",
-            operation="read",
+            operation="ban",
+            permission="player.ban",
         ),
         lambda ctx, payload: "ok",  # noqa: E731
     )
@@ -680,10 +713,10 @@ def test_get_function_descriptor():
     assert desc.operation_id == "testFn"
     assert '"id"' in desc.input_schema
     assert '"ok"' in desc.output_schema
-    assert desc.category == "cat"
+    assert desc.resource == "player"
     assert desc.risk == "safe"
-    assert desc.entity == "test"
-    assert desc.operation == "read"
+    assert desc.operation == "ban"
+    assert desc.permission == "player.ban"
 
 
 def test_get_function_descriptor_unknown():
@@ -815,11 +848,11 @@ def test_build_manifest_with_functions():
     client = croupier.CroupierClient(config)
 
     client.register_function(
-        croupier.FunctionDescriptor(id="fn1", version="1.0.0", category="cat1"),
+        croupier.FunctionDescriptor(id="fn1", version="1.0.0", resource="player"),
         lambda ctx, payload: "ok",
     )
     client.register_function(
-        croupier.FunctionDescriptor(id="fn2", version="2.0.0", category="cat2"),
+        croupier.FunctionDescriptor(id="fn2", version="2.0.0", resource="mail"),
         lambda ctx, payload: "ok",
     )
 

@@ -19,8 +19,8 @@ export default function RouteTab({ data, columns }: Props) {
       toolBarRender={() => [
         <Alert
           key="hint"
-          message="分配后路由展示说明"
-          description="这里显示的是函数描述符中的 menu 路由信息（nodes/path）。如需调整请点击“编辑路由”。"
+          message="函数能力归属说明"
+          description="这里只展示已分配函数的 resource/operation 能力归属。菜单、分类和页面标题必须在 PageSpec/Page Studio 中确定。"
           type="info"
           showIcon
         />,

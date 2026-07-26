@@ -32,12 +32,20 @@ func (l *FunctionUILogicV2) FunctionUI(req *FunctionUIRequest) (*FunctionUIRespo
 		return nil, err
 	}
 	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
-	if err := validateFormilySchema(resolved.Schema); err != nil {
+	schema := rawJSONFromValue(resolved.Schema)
+	schemaValue, err := jsonValueFromRaw(schema)
+	if err != nil {
+		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+	}
+	if schemaValue == nil {
+		schemaValue = map[string]interface{}{}
+	}
+	if err := validateFormilySchema(schemaValue); err != nil {
 		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
 	}
 
 	return &FunctionUIResponse{
-		Schema:         resolved.Schema,
+		Schema:         schema,
 		Custom:         resolved.Custom,
 		HasDefault:     resolved.HasDefault,
 		UISource:       resolved.UISource,

@@ -29,7 +29,7 @@ func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Functio
 		Page:     1,
 		PageSize: 10000,
 		GameId:   req.GameId,
-		Category: req.Category,
+		Resource: req.Resource,
 		Status:   req.Status,
 	})
 	if err != nil {
@@ -51,16 +51,16 @@ func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Functio
 	items := make([]Function, 0, len(logicResp.Items))
 	for _, fn := range logicResp.Items {
 		dbFn, ok := dbIndex[fn.ID]
-		category := fn.Category
+		resource := fn.Resource
 		version := fn.Version
 		specFormat := fn.SpecFormat
-		openAPISpec := fn.OpenAPISpec
+		openAPISpec := rawJSONFromAny(fn.OpenAPISpec)
 		description := fn.Description
 		createdAt := ""
 		updatedAt := ""
 		if ok {
-			if category == "" {
-				category = getStringFromMetadata(dbFn.Metadata, "category")
+			if resource == "" {
+				resource = getStringFromMetadata(dbFn.Metadata, "resource")
 			}
 			if version == "" {
 				version = getStringFromMetadata(dbFn.Metadata, "version")
@@ -68,8 +68,8 @@ func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Functio
 			if specFormat == "" {
 				specFormat = getStringFromMetadata(dbFn.Metadata, "spec_format")
 			}
-			if openAPISpec == nil {
-				openAPISpec = getInterfaceFromMetadata(dbFn.Metadata, "openapi_spec")
+			if len(openAPISpec) == 0 {
+				openAPISpec = rawJSONFromAny(jsonValueFromMetadata(dbFn.Metadata, "openapi_spec"))
 			}
 			if description == "" {
 				description = dbFn.Description
@@ -81,7 +81,7 @@ func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Functio
 			Id:          fn.ID,
 			Name:        fn.Name,
 			Description: description,
-			Category:    category,
+			Resource:    resource,
 			GameId:      fn.GameId,
 			Status:      fn.Status,
 			Version:     version,
@@ -121,20 +121,20 @@ func functionDetail(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 			Id:          logicResp.Function.ID,
 			Name:        logicResp.Function.Name,
 			Description: logicResp.Function.Description,
-			Category:    logicResp.Function.Category,
+			Resource:    logicResp.Function.Resource,
 			GameId:      logicResp.Function.GameId,
 			Status:      logicResp.Function.Status,
 			Version:     logicResp.Function.Version,
 			Instances:   logicResp.Function.Instances,
 			SpecFormat:  logicResp.Function.SpecFormat,
-			OpenAPISpec: logicResp.Function.OpenAPISpec,
+			OpenAPISpec: rawJSONFromBytes(logicResp.Function.OpenAPISpec),
 			CreatedAt:   logicResp.Function.CreatedAt,
 			UpdatedAt:   logicResp.Function.UpdatedAt,
 		},
 		Descriptor: FunctionDescriptor{
-			Input:  logicResp.Descriptor.Input,
-			Output: logicResp.Descriptor.Output,
-			Schema: logicResp.Descriptor.Schema,
+			Input:  rawJSONFromBytes(logicResp.Descriptor.Input),
+			Output: rawJSONFromBytes(logicResp.Descriptor.Output),
+			Schema: rawJSONFromBytes(logicResp.Descriptor.Schema),
 		},
 	}, nil
 }
@@ -219,11 +219,7 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		}
 	}
 
-	payload, err := json.Marshal(req.Payload)
-	if err != nil {
-		spanErr = err
-		return nil, err
-	}
+	payload := invokePayload(req)
 
 	// Check if approval is required
 	if functionPolicy != nil && functionPolicy.RequireApproval && svcCtx.ApprovalsStore != nil {
@@ -302,10 +298,7 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		} else {
 			result = &FunctionInvokeResponse{}
 			if resp != nil && len(resp.GetPayload()) > 0 {
-				var v map[string]interface{}
-				if err := json.Unmarshal(resp.GetPayload(), &v); err == nil {
-					result.Result = v
-				}
+				result.Result = rawJSONFromBytes(resp.GetPayload())
 			}
 		}
 	}
@@ -327,12 +320,10 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 }
 
 // auditFunctionInvoke logs function invocation to audit service
-func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin interface{}, userRoles []string, functionPolicy *policy.Policy, invokeErr error) {
+func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin *model.Admin, userRoles []string, functionPolicy *policy.Policy, invokeErr error) {
 	username := ""
 	if admin != nil {
-		if u, ok := admin.(interface{ GetUsername() string }); ok {
-			username = u.GetUsername()
-		}
+		username = admin.Username
 	}
 
 	outcome := "success"
@@ -368,12 +359,10 @@ func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functi
 }
 
 // createFunctionApproval creates an approval request for function invocation
-func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, payload []byte, mode string, admin interface{}, functionPolicy *policy.Policy) (string, error) {
+func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, payload []byte, mode string, admin *model.Admin, functionPolicy *policy.Policy) (string, error) {
 	username := "system"
 	if admin != nil {
-		if u, ok := admin.(interface{ GetUsername() string }); ok {
-			username = u.GetUsername()
-		}
+		username = admin.Username
 	}
 
 	// Generate approval ID
@@ -401,12 +390,10 @@ func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, fun
 }
 
 // auditApprovalCreated logs approval creation to audit service
-func auditApprovalCreated(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin interface{}, userRoles []string, approvalID string, functionPolicy *policy.Policy) {
+func auditApprovalCreated(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin *model.Admin, userRoles []string, approvalID string, functionPolicy *policy.Policy) {
 	username := ""
 	if admin != nil {
-		if u, ok := admin.(interface{ GetUsername() string }); ok {
-			username = u.GetUsername()
-		}
+		username = admin.Username
 	}
 
 	// Build audit details
@@ -436,48 +423,6 @@ func functionPublish(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 	return &FunctionPublishResponse{
 		ApprovalId: "",
 		Published:  true,
-	}, nil
-}
-
-func functionRoute(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionRouteRequest) (*FunctionRouteResponse, error) {
-	logicResp, err := logicfunction.NewFunctionRouteLogic(ctx, svcCtx).FunctionRoute(&logicfunction.FunctionRouteRequest{
-		ID: req.ID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &FunctionRouteResponse{
-		Menu: FunctionRouteConfig{
-			Nodes:  logicResp.Menu.(logicfunction.FunctionRouteConfig).Nodes,
-			Path:   logicResp.Menu.(logicfunction.FunctionRouteConfig).Path,
-			Order:  logicResp.Menu.(logicfunction.FunctionRouteConfig).Order,
-			Hidden: logicResp.Menu.(logicfunction.FunctionRouteConfig).Hidden,
-		},
-		Source: logicResp.Source,
-	}, nil
-}
-
-func functionRouteUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionRouteUpdateRequest) (*FunctionRouteResponse, error) {
-	logicResp, err := logicfunction.NewFunctionRouteUpdateLogic(ctx, svcCtx).FunctionRouteUpdate(&logicfunction.FunctionRouteUpdateRequest{
-		ID:     req.ID,
-		Nodes:  req.Nodes,
-		Path:   req.Path,
-		Order:  req.Order,
-		Hidden: req.Hidden,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &FunctionRouteResponse{
-		Menu: FunctionRouteConfig{
-			Nodes:  logicResp.Menu.(logicfunction.FunctionRouteConfig).Nodes,
-			Path:   logicResp.Menu.(logicfunction.FunctionRouteConfig).Path,
-			Order:  logicResp.Menu.(logicfunction.FunctionRouteConfig).Order,
-			Hidden: logicResp.Menu.(logicfunction.FunctionRouteConfig).Hidden,
-		},
-		Source: logicResp.Source,
 	}, nil
 }
 
@@ -515,24 +460,24 @@ func functionInstances(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInstancesAllRequest) (*FunctionInstancesAllResponse, error) {
 	store := svcCtx.RegistryStore
 	if store == nil {
-		return &FunctionInstancesAllResponse{Instances: []map[string]interface{}{}}, nil
+		return &FunctionInstancesAllResponse{Instances: []FunctionInstanceSummary{}}, nil
 	}
 
 	store.Mu().RLock()
 	defer store.Mu().RUnlock()
 
-	instances := []map[string]interface{}{}
+	instances := []FunctionInstanceSummary{}
 	for _, sess := range store.AgentsUnsafe() {
 		if sess == nil {
 			continue
 		}
 		for fid := range sess.Functions {
-			instances = append(instances, map[string]interface{}{
-				"functionId": fid,
-				"agentId":    sess.AgentID,
-				"agentName":  sess.AgentID, // Use AgentID as name since AgentName doesn't exist
-				"status":     "active",
-				"updatedAt":  utils.FormatTimestamp(sess.LastSeen),
+			instances = append(instances, FunctionInstanceSummary{
+				FunctionID: fid,
+				AgentID:    sess.AgentID,
+				AgentName:  sess.AgentID,
+				Status:     "active",
+				UpdatedAt:  utils.FormatTimestamp(sess.LastSeen),
 			})
 		}
 	}
@@ -598,42 +543,29 @@ func functionUI(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUI
 		return nil, err
 	}
 
-	schema, err := rawSchemaFromAny(logicResp.Schema)
-	if err != nil {
-		return nil, err
-	}
-
 	return &FunctionUIResponse{
-		Schema:         schema,
-		Custom:         boolFromAny(logicResp.Custom),
+		Schema:         rawJSONFromBytes(logicResp.Schema),
+		Custom:         logicResp.Custom,
 		HasDefault:     logicResp.HasDefault,
 		UISource:       logicResp.UISource,
-		UISourceDetail: stringFromAny(logicResp.UISourceDetail),
+		UISourceDetail: logicResp.UISourceDetail,
 	}, nil
 }
 
 func functionUIUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIUpdateRequest) (*FunctionUIResponse, error) {
-	schemaInput, err := schemaInputFromRaw(req.Schema)
-	if err != nil {
-		return nil, err
-	}
 	logicResp, err := logicfunction.NewFunctionUIUpdateLogic(ctx, svcCtx).FunctionUIUpdate(&logicfunction.FunctionUIUpdateRequest{
 		ID:     req.ID,
-		Schema: schemaInput,
+		Schema: rawJSONFromBytes(req.Schema),
 	})
 	if err != nil {
 		return nil, err
 	}
-	schema, err := rawSchemaFromAny(logicResp.Schema)
-	if err != nil {
-		return nil, err
-	}
 	return &FunctionUIResponse{
-		Schema:         schema,
-		Custom:         boolFromAny(logicResp.Custom),
+		Schema:         rawJSONFromBytes(logicResp.Schema),
+		Custom:         logicResp.Custom,
 		HasDefault:     logicResp.HasDefault,
-		UISource:       stringFromAny(logicResp.UISource),
-		UISourceDetail: stringFromAny(logicResp.UISourceDetail),
+		UISource:       logicResp.UISource,
+		UISourceDetail: logicResp.UISourceDetail,
 	}, nil
 }
 
@@ -646,13 +578,9 @@ func functionUIHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 	}
 	items := make([]FunctionUIHistoryItem, 0, len(logicResp.Items))
 	for _, item := range logicResp.Items {
-		schema, err := rawSchemaFromAny(item.Schema)
-		if err != nil {
-			return nil, err
-		}
 		items = append(items, FunctionUIHistoryItem{
 			Version:   item.Version,
-			Schema:    schema,
+			Schema:    rawJSONFromBytes(item.Schema),
 			Message:   item.Message,
 			CreatedBy: item.CreatedBy,
 			CreatedAt: item.CreatedAt,
@@ -670,17 +598,13 @@ func functionUIRollback(ctx context.Context, svcCtx *svc.ServiceContext, req *Fu
 		return nil, err
 	}
 	current := (*FunctionUIResponse)(nil)
-	if resp, ok := logicResp.Current.(*logicfunction.FunctionUIResponse); ok && resp != nil {
-		schema, err := rawSchemaFromAny(resp.Schema)
-		if err != nil {
-			return nil, err
-		}
+	if resp := logicResp.Current; resp != nil {
 		current = &FunctionUIResponse{
-			Schema:         schema,
-			Custom:         boolFromAny(resp.Custom),
+			Schema:         rawJSONFromBytes(resp.Schema),
+			Custom:         resp.Custom,
 			HasDefault:     resp.HasDefault,
-			UISource:       stringFromAny(resp.UISource),
-			UISourceDetail: stringFromAny(resp.UISourceDetail),
+			UISource:       resp.UISource,
+			UISourceDetail: resp.UISourceDetail,
 		}
 	}
 	return &FunctionUIRollbackResponse{
@@ -705,14 +629,12 @@ func descriptors(ctx context.Context, svcCtx *svc.ServiceContext, req *Descripto
 
 	items := make([]Descriptor, 0, len(descs))
 	for _, d := range descs {
-		inputMap := map[string]interface{}(d.Input)
-		outputMap := map[string]interface{}(d.Output)
 		items = append(items, Descriptor{
 			Id:          d.FunctionID,
 			Name:        "", // FunctionDescriptor doesn't have Name
 			Description: "", // FunctionDescriptor doesn't have Description
-			Input:       inputMap,
-			Output:      outputMap,
+			Input:       rawJSONFromAny(d.Input),
+			Output:      rawJSONFromAny(d.Output),
 		})
 	}
 
@@ -755,15 +677,16 @@ func batchDeleteFunctions(ctx context.Context, svcCtx *svc.ServiceContext, req *
 }
 
 func batchUpdateFunctions(ctx context.Context, svcCtx *svc.ServiceContext, req *BatchUpdateFunctionsRequest) (*BatchUpdateFunctionsResponse, error) {
-	results := make([]FunctionRouteResponse, 0, len(req.Updates))
-	for _, u := range req.Updates {
-		result, _ := functionRouteUpdate(ctx, svcCtx, &u)
-		if result != nil {
-			results = append(results, *result)
-		}
+	resp, err := logicfunction.NewBatchUpdateFunctionsLogic(ctx, svcCtx).BatchUpdateFunctions(&logicfunction.BatchUpdateFunctionsRequest{
+		FunctionIds: req.FunctionIds,
+		Enabled:     req.Enabled,
+	})
+	if err != nil {
+		return nil, err
 	}
 	return &BatchUpdateFunctionsResponse{
-		Results: results,
+		Updated: resp.Updated,
+		Failed:  resp.Failed,
 	}, nil
 }
 
@@ -869,8 +792,7 @@ func parseActionsFromJSON(data datatypes.JSON) []string {
 	return []string{}
 }
 
-// getInterfaceFromMetadata gets an interface{} value from metadata map
-func getInterfaceFromMetadata(metadata map[string]interface{}, key string) interface{} {
+func jsonValueFromMetadata(metadata map[string]interface{}, key string) interface{} {
 	if metadata == nil {
 		return nil
 	}
@@ -922,57 +844,52 @@ func getBoolFromMetadata(metadata map[string]interface{}, key string) bool {
 	return false
 }
 
-func boolFromAny(value interface{}) bool {
-	if v, ok := value.(bool); ok {
-		return v
+func invokePayload(req *FunctionInvokeRequest) []byte {
+	if req == nil {
+		return []byte("null")
 	}
-	return false
+	if len(req.Payload) > 0 {
+		return append([]byte(nil), req.Payload...)
+	}
+	if len(req.Params) > 0 {
+		return append([]byte(nil), req.Params...)
+	}
+	return []byte("{}")
 }
 
-func rawSchemaFromAny(value interface{}) (json.RawMessage, error) {
+func rawJSONFromAny(value interface{}) json.RawMessage {
 	if value == nil {
-		return nil, nil
+		return nil
 	}
-	var raw json.RawMessage
 	switch v := value.(type) {
 	case json.RawMessage:
-		raw = append(json.RawMessage(nil), v...)
+		return append(json.RawMessage(nil), v...)
 	case []byte:
-		raw = append(json.RawMessage(nil), v...)
+		return rawJSONFromBytes(v)
 	case string:
-		raw = json.RawMessage(strings.TrimSpace(v))
+		return rawJSONFromBytes([]byte(v))
 	default:
 		b, err := json.Marshal(v)
 		if err != nil {
-			return nil, errorx.NewBadRequest("function UI schema must be JSON serializable")
+			return nil
 		}
-		raw = b
+		return rawJSONFromBytes(b)
 	}
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	if !json.Valid(raw) {
-		return nil, errorx.NewBadRequest("function UI schema must be valid JSON")
-	}
-	return raw, nil
 }
 
-func schemaInputFromRaw(raw json.RawMessage) (interface{}, error) {
-	if len(raw) == 0 {
-		return nil, nil
+func rawJSONFromBytes(value []byte) json.RawMessage {
+	value = append([]byte(nil), value...)
+	if len(value) == 0 {
+		return nil
 	}
-	var value interface{}
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, errorx.NewBadRequest("function UI schema must be valid JSON")
+	if json.Valid(value) {
+		return json.RawMessage(value)
 	}
-	return value, nil
-}
-
-func stringFromAny(value interface{}) string {
-	if v, ok := value.(string); ok {
-		return v
+	encoded, err := json.Marshal(string(value))
+	if err != nil {
+		return nil
 	}
-	return ""
+	return json.RawMessage(encoded)
 }
 
 // enforceFunctionPolicy checks if the user's roles are allowed to invoke the function
@@ -1068,17 +985,9 @@ func buildBroadcastResponse(b *dispatch.BroadcastInvocation) *FunctionInvokeResp
 	for _, s := range b.Successes {
 		item := BroadcastAgentItem{AgentID: s.AgentID}
 		if s.Response != nil && len(s.Response.GetPayload()) > 0 {
-			var v interface{}
-			if err := json.Unmarshal(s.Response.GetPayload(), &v); err == nil {
-				item.Result = v
-				if out.Result == nil {
-					out.Result = v
-				}
-			} else {
-				item.Result = string(s.Response.GetPayload())
-				if out.Result == nil {
-					out.Result = item.Result
-				}
+			item.Result = rawJSONFromBytes(s.Response.GetPayload())
+			if out.Result == nil {
+				out.Result = item.Result
 			}
 		}
 		out.Broadcast.Results = append(out.Broadcast.Results, item)

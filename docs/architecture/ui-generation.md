@@ -36,7 +36,7 @@ OpenAPI 在 Croupier 中是成熟的函数契约来源，适合承载：
 - error response
 - 安全和治理扩展
 
-OpenAPI 不直接等于 Dashboard Page。它可以生成默认函数表单初稿，也可以帮助推断页面候选能力，但不能直接决定页面布局。
+OpenAPI 不直接等于 Dashboard Page。它可以生成默认函数表单初稿，也可以帮助推断页面候选能力，但不能直接决定页面布局、菜单、动态显示名或按钮位置。
 
 正确的数据流是：
 
@@ -45,7 +45,8 @@ OpenAPI / SDK descriptor
     -> FunctionDescriptor
     -> input_schema / output_schema
     -> Formily Schema 初稿
-    -> Function UI / PageSpec 使用
+    -> Function UI / PageCandidate
+    -> Page Studio 确认 PageSpec
 ```
 
 错误的数据流是：
@@ -79,14 +80,13 @@ Function 表示一个可执行能力，不等同于 CRUD。
 - `version`
 - `summary`
 - `description`
-- `category`
-- `entity`
+- `resource`
 - `operation`
 - `risk`
 - `input_schema`
 - `output_schema`
 
-缺少 `input_schema` 时，后端可以生成最小 Formily Schema 初稿，但该初稿仍必须是 Formily Schema，不能在前端运行时再生成第二套格式。
+函数注册不得提供动态显示名、菜单分类、页面类型、页面放置、Formily 或 Page schema。缺少 `input_schema` 时，后端可以生成最小 Formily Schema 初稿，但该初稿仍必须是 Formily Schema，不能在前端运行时再生成第二套格式。
 
 ---
 
@@ -104,7 +104,7 @@ Entity Page 是 Page 的一种类型，只适合围绕同一 Resource 生命周�
 
 只有满足以下条件的函数才应该进入 Entity Page：
 
-- 有明确 `entity`
+- 有明确 `resource`
 - 操作围绕该对象生命周期展开
 - 存在稳定对象标识或列表查询
 - 返回结构可映射到表格、详情或对象状态
@@ -149,15 +149,12 @@ Function UI 只描述**单个函数的输入表单**。
 Function UI 的加载优先级：
 
 ```text
-1. functions.metadata.ui
-2. configs/ui/functions.override/{function-id}.yaml|json
-3. configs/ui/functions/{function-id}.yaml|json
-4. OpenAPI operation["x-ui"]
-5. input_schema / OpenAPI request schema 生成的 Formily Schema
-6. 无可用 schema 时生成仅包含 `payload` 对象字段的最小 Formily Schema
+1. 管理员在函数目录保存的 Formily override
+2. input_schema / OpenAPI request schema 生成的 Formily Schema
+3. 无可用 schema 时生成仅包含 `payload` 对象字段的最小 Formily Schema
 ```
 
-所有来源的输出都必须是 Formily Schema。任一来源输出非 Formily Schema 时，应在保存或渲染阶段报错。
+所有来源的输出都必须是 Formily Schema。SDK/OpenAPI 注册中的 `ui/x-ui/Formily/layout/components` 必须在注册或导入边界拒绝，不能作为 Function UI 来源。
 
 Function UI 不负责：
 

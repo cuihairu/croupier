@@ -34,9 +34,9 @@ func (l *DescriptorsLogic) DescriptorsV2(req *DescriptorsRequest) (*DescriptorsV
 		return nil, err
 	}
 
-	category := ""
+	resource := ""
 	if req != nil {
-		category = strings.TrimSpace(firstNonEmpty(req.Type, req.Category))
+		resource = strings.TrimSpace(firstNonEmpty(req.Type, req.Resource))
 	}
 
 	inputs := descriptors.Collect(l.ctx, l.svcCtx)
@@ -48,7 +48,7 @@ func (l *DescriptorsLogic) DescriptorsV2(req *DescriptorsRequest) (*DescriptorsV
 		if fn.ID == "" {
 			continue
 		}
-		if category != "" && fn.Category != category {
+		if resource != "" && fn.Resource != resource {
 			continue
 		}
 		functions = append(functions, fn)

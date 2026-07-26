@@ -125,17 +125,17 @@ FunctionSpec -> ResourceSpec + OperationSpec -> PageSpec -> PublishedPageSpec ->
 
 ### OperationSpec
 
-`OperationSpec` 描述函数在资源或页面中的语义。
+`OperationSpec` 描述函数在资源中的业务动作和候选诊断，不保存最终页面位置。
 
 必须区分：
 
 | 字段 | 含义 | 示例 |
 | --- | --- | --- |
 | `operation` | 业务动作 key | `ban`、`grant`、`send`、`list` |
-| `operationKind` | 页面生成语义 | `list`、`get`、`action`、`task`、`report` |
-| `placement` | 页面放置位置 | `tableData`、`rowAction`、`toolbarAction`、`standalone` |
+| `PageCandidate.kind` | Server 生成的候选页面形态 | `entity`、`operation`、`task`、`report` |
+| `PageFunctionBinding.usage` | PageSpec 中页面实际消费函数的方式 | `query`、`detail`、`action`、`task`、`report` |
 
-`operation` 只能表示业务动作 key，页面类型必须由 `operationKind` 和 PageSpec 表达。
+`operation` 只能表示业务动作 key。SDK/OpenAPI 注册不提供 `operationKind`、`placement`、菜单或动态显示字段；页面类型、按钮位置和多语言标题必须由 PageSpec 表达。
 
 ### PageSpec
 
@@ -157,7 +157,7 @@ Page Studio 不是运行控制台。未发布草稿不能出现在运行控制�
 PublishedPageSpec[] -> ConsoleMenuSpec
 ```
 
-动态分类、页面标题和菜单多语言来自 PageSpec metadata。前端静态 locale 文件只用于固定系统菜单。
+动态分类、页面标题和菜单多语言来自 PublishedPageSpec 的强类型字段。前端静态 locale 文件只用于固定系统菜单。
 
 ## 不再推荐的理解
 

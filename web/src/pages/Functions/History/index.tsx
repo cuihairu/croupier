@@ -34,7 +34,6 @@ import {
   type FunctionCallItem,
   type FunctionCallStatsResponse,
 } from '@/services/api/function-calls';
-import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -157,7 +156,9 @@ export default () => {
   // 格式化时间
   const formatTime = (timeStr?: string) => {
     if (!timeStr) return '-';
-    return dayjs(timeStr).format('YYYY-MM-DD HH:mm:ss');
+    const date = new Date(timeStr);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString('zh-CN', { hour12: false });
   };
 
   const columns: ProColumns<FunctionCallItem>[] = [
@@ -211,7 +212,7 @@ export default () => {
       render: (_, record) => (
         <Space direction="vertical" size={0}>
           <span>{record.gameId || '-'}</span>
-          {record.env && <Tag size="small">{record.env}</Tag>}
+          {record.env && <Tag>{record.env}</Tag>}
         </Space>
       ),
     },

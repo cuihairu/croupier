@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -322,10 +323,11 @@ public class CroupierClientImpl implements CroupierClient {
             descriptor.isDeprecated(),
             descriptor.getInputSchema(),
             descriptor.getOutputSchema(),
-            descriptor.getCategory(),
+            descriptor.getResource(),
+            descriptor.getOperation(),
             descriptor.getRisk(),
-            descriptor.getEntity(),
-            descriptor.getOperation()
+            descriptor.isEnabled(),
+            descriptor.getPermission()
         );
     }
 
@@ -651,14 +653,34 @@ public class CroupierClientImpl implements CroupierClient {
      * Build a registration request for the agent.
      */
     public Map<String, Object> getRegisterRequest() {
-        return Map.of(
-            "serviceId", config.getServiceId(),
-            "version", config.getServiceVersion(),
-            "rpcAddr", "",
-            "functions", getLocalFunctions().stream()
-                .map(f -> Map.of("id", f.getId(), "version", f.getVersion()))
-                .collect(Collectors.toList())
-        );
+        List<Map<String, Object>> functions = descriptors.values().stream()
+            .map(this::toRegisterFunctionMap)
+            .collect(Collectors.toList());
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("serviceId", config.getServiceId());
+        request.put("version", config.getServiceVersion());
+        request.put("rpcAddr", "");
+        request.put("functions", functions);
+        return request;
+    }
+
+    private Map<String, Object> toRegisterFunctionMap(FunctionDescriptor descriptor) {
+        Map<String, Object> function = new LinkedHashMap<>();
+        function.put("id", defaultValue(descriptor.getId(), ""));
+        function.put("version", defaultVersion(descriptor.getVersion()));
+        function.put("tags", descriptor.getTags() == null ? List.of() : List.copyOf(descriptor.getTags()));
+        function.put("summary", defaultValue(descriptor.getSummary(), ""));
+        function.put("description", defaultValue(descriptor.getDescription(), ""));
+        function.put("operation_id", defaultValue(descriptor.getOperationId(), descriptor.getId()));
+        function.put("deprecated", descriptor.isDeprecated());
+        function.put("input_schema", defaultValue(descriptor.getInputSchema(), ""));
+        function.put("output_schema", defaultValue(descriptor.getOutputSchema(), ""));
+        function.put("resource", defaultValue(descriptor.getResource(), ""));
+        function.put("operation", defaultValue(descriptor.getOperation(), ""));
+        function.put("risk", defaultValue(descriptor.getRisk(), ""));
+        function.put("enabled", descriptor.isEnabled());
+        function.put("permission", defaultValue(descriptor.getPermission(), ""));
+        return function;
     }
 
     /**
@@ -716,17 +738,17 @@ public class CroupierClientImpl implements CroupierClient {
             if (!isNullOrEmpty(descriptor.getOutputSchema())) {
                 functionsBuilder.append(",\"output_schema\":\"").append(escapeJson(descriptor.getOutputSchema())).append("\"");
             }
-            if (!isNullOrEmpty(descriptor.getCategory())) {
-                functionsBuilder.append(",\"category\":\"").append(escapeJson(descriptor.getCategory())).append("\"");
+            if (!isNullOrEmpty(descriptor.getResource())) {
+                functionsBuilder.append(",\"resource\":\"").append(escapeJson(descriptor.getResource())).append("\"");
             }
             if (!isNullOrEmpty(descriptor.getRisk())) {
                 functionsBuilder.append(",\"risk\":\"").append(escapeJson(descriptor.getRisk())).append("\"");
             }
-            if (!isNullOrEmpty(descriptor.getEntity())) {
-                functionsBuilder.append(",\"entity\":\"").append(escapeJson(descriptor.getEntity())).append("\"");
-            }
             if (!isNullOrEmpty(descriptor.getOperation())) {
                 functionsBuilder.append(",\"operation\":\"").append(escapeJson(descriptor.getOperation())).append("\"");
+            }
+            if (!isNullOrEmpty(descriptor.getPermission())) {
+                functionsBuilder.append(",\"permission\":\"").append(escapeJson(descriptor.getPermission())).append("\"");
             }
             if (descriptor.isEnabled()) {
                 functionsBuilder.append(",\"enabled\":true");

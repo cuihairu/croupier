@@ -3,10 +3,9 @@
 // internal/dashboard/spec.
 //
 // The normalizer is the single place where:
-//   - locale keys are normalized (e.g. "zh" -> "zh-CN")
 //   - missing fields produce diagnostics
 //   - Formily schema is derived from JSON Schema when needed
-//   - ResourceSpec and OperationSpec are extracted from function metadata
+//   - ResourceSpec and OperationSpec candidates are extracted from capability metadata
 //
 // The normalizer does NOT:
 //   - persist anything to the database
@@ -37,23 +36,14 @@ type DescriptorInput struct {
 	InputSchema  string `json:"input_schema,omitempty"`
 	OutputSchema string `json:"output_schema,omitempty"`
 
-	// v2 semantic fields
-	Category      string `json:"category,omitempty"`
-	Entity        string `json:"entity,omitempty"`
-	Operation     string `json:"operation,omitempty"`
-	OperationKind string `json:"operation_kind,omitempty"`
-	Placement     string `json:"placement,omitempty"`
-	PageHint      string `json:"page_hint,omitempty"`
-	Risk          string `json:"risk,omitempty"`
-	Enabled       bool   `json:"enabled"`
+	Resource   string `json:"resource,omitempty"`
+	Operation  string `json:"operation,omitempty"`
+	Risk       string `json:"risk,omitempty"`
+	Permission string `json:"permission,omitempty"`
+	Enabled    bool   `json:"enabled"`
 
-	// Multi-language display fields (may use short keys like "zh", "en")
-	CategoryDisplay  map[string]string `json:"category_display,omitempty"`
-	EntityDisplay    map[string]string `json:"entity_display,omitempty"`
-	OperationDisplay map[string]string `json:"operation_display,omitempty"`
-	DisplayName      map[string]string `json:"display_name,omitempty"`
-	SummaryMap       map[string]string `json:"summary_map,omitempty"`
-	DescriptionMap   map[string]string `json:"description_map,omitempty"`
+	SummaryMap     map[string]string `json:"summary_map,omitempty"`
+	DescriptionMap map[string]string `json:"description_map,omitempty"`
 
 	// Tags
 	Tags []string `json:"tags,omitempty"`
@@ -85,16 +75,9 @@ func Normalize(input DescriptorInput) NormalizerResult {
 		return NormalizerResult{Diagnostics: diags}
 	}
 
-	// 2. Normalize locale keys
-	categoryDisplay := normalizeLocaleKeys(input.CategoryDisplay)
-	entityDisplay := normalizeLocaleKeys(input.EntityDisplay)
-	operationDisplay := normalizeLocaleKeys(input.OperationDisplay)
-	displayName := normalizeLocaleKeys(input.DisplayName)
+	// 2. Normalize catalog text keys. These are not runtime menu labels.
 	summaryMap := normalizeLocaleKeys(input.SummaryMap)
 	descriptionMap := normalizeLocaleKeys(input.DescriptionMap)
-	if displayName == nil {
-		displayName = localizedFallback(firstNonEmpty(input.Summary, input.Description, input.ID))
-	}
 	if summaryMap == nil {
 		summaryMap = localizedFallback(input.Summary)
 	}
@@ -106,7 +89,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 	var inputSchema spec.JSONSchema
 	var inputFormilySchema spec.FormilySchema
 	if input.InputSchema != "" {
-		var parsed map[string]interface{}
+		var parsed spec.JSONObject
 		if err := json.Unmarshal([]byte(input.InputSchema), &parsed); err != nil {
 			diags = append(diags, spec.Diagnostic{
 				Code:     "input_schema_invalid",
@@ -130,7 +113,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 
 	var outputSchema spec.JSONSchema
 	if input.OutputSchema != "" {
-		var parsed map[string]interface{}
+		var parsed spec.JSONObject
 		if err := json.Unmarshal([]byte(input.OutputSchema), &parsed); err != nil {
 			diags = append(diags, spec.Diagnostic{
 				Code:     "output_schema_invalid",
@@ -142,27 +125,24 @@ func Normalize(input DescriptorInput) NormalizerResult {
 		}
 	}
 
-	// 4. Validate v2 semantic fields
-	operationKind := normalizeOperationKind(input.OperationKind)
-	placement := normalizePlacement(input.Placement)
-
-	if operationKind == "" {
+	resourceKey := strings.TrimSpace(input.Resource)
+	operationKey := strings.TrimSpace(input.Operation)
+	if resourceKey == "" {
 		diags = append(diags, spec.Diagnostic{
-			Code:       "operation_kind_missing",
+			Code:       "resource_missing",
 			Severity:   spec.SeverityWarning,
-			Message:    "operation_kind is missing; page cannot be auto-generated",
+			Message:    "resource is missing; the function remains executable but cannot be grouped into a resource candidate",
 			FunctionID: input.ID,
-			Field:      "operation_kind",
+			Field:      "resource",
 		})
 	}
-
-	if placement == "" {
+	if operationKey == "" {
 		diags = append(diags, spec.Diagnostic{
-			Code:       "placement_missing",
+			Code:       "operation_missing",
 			Severity:   spec.SeverityWarning,
-			Message:    "placement is missing; page cannot be auto-generated",
+			Message:    "operation is missing; Page Studio must name how this capability is used",
 			FunctionID: input.ID,
-			Field:      "placement",
+			Field:      "operation",
 		})
 	}
 
@@ -174,69 +154,43 @@ func Normalize(input DescriptorInput) NormalizerResult {
 		InputSchema:        inputSchema,
 		InputFormilySchema: inputFormilySchema,
 		OutputSchema:       outputSchema,
-		DisplayName:        displayName,
 		Summary:            summaryMap,
 		Description:        descriptionMap,
-		Category:           strings.TrimSpace(input.Category),
-		CategoryDisplay:    categoryDisplay,
-		Entity:             strings.TrimSpace(input.Entity),
-		EntityDisplay:      entityDisplay,
-		Operation:          strings.TrimSpace(input.Operation),
-		OperationDisplay:   operationDisplay,
-		OperationKind:      operationKind,
-		Placement:          placement,
-		PageHint:           strings.TrimSpace(input.PageHint),
+		Resource:           resourceKey,
+		Operation:          operationKey,
 		Risk:               normalizeRisk(input.Risk),
+		Permission:         strings.TrimSpace(input.Permission),
 		Tags:               input.Tags,
 		Diagnostics:        diags,
 	}
 
-	// 6. Build ResourceSpec if entity is present
+	// 6. Build ResourceSpec candidate if resource is present.
 	var resource *spec.ResourceSpec
-	if fn.Entity != "" {
+	if fn.Resource != "" {
+		categoryKey := inferCategoryFromKey(fn.Resource)
 		resource = &spec.ResourceSpec{
-			Key:    fn.Entity,
-			Labels: entityDisplay,
+			Key:    fn.Resource,
+			Labels: localizedFallback(fn.Resource),
 			Category: spec.ResourceCategorySpec{
-				Key:    fn.Category,
-				Labels: categoryDisplay,
+				Key:    categoryKey,
+				Labels: localizedFallback(categoryKey),
 			},
-		}
-		// Infer category from entity key if not explicitly set
-		if resource.Category.Key == "" {
-			resource.Category.Key = inferCategoryFromKey(fn.Entity)
 		}
 	}
 
-	// 7. Build OperationSpec if we have enough info
+	// 7. Build OperationSpec candidate if we have resource or operation info.
 	var operation *spec.OperationSpec
-	if fn.Entity != "" || fn.Operation != "" {
+	if fn.Resource != "" || fn.Operation != "" {
 		operation = &spec.OperationSpec{
 			FunctionID:   fn.ID,
-			ResourceKey:  fn.Entity,
+			ResourceKey:  fn.Resource,
 			Operation:    fn.Operation,
-			Kind:         operationKind,
-			Placement:    placement,
-			Labels:       operationDisplay,
 			Risk:         fn.Risk,
+			Permission:   fn.Permission,
 			Enabled:      fn.Enabled,
 			PageContract: input.PageContract,
 		}
-		// Add diagnostics to operation if fields missing
-		if operationKind == "" {
-			operation.Diagnostics = append(operation.Diagnostics, spec.Diagnostic{
-				Code:     "operation_kind_missing",
-				Severity: spec.SeverityWarning,
-				Message:  "operation_kind is required for page generation",
-			})
-		}
-		if placement == "" {
-			operation.Diagnostics = append(operation.Diagnostics, spec.Diagnostic{
-				Code:     "placement_missing",
-				Severity: spec.SeverityWarning,
-				Message:  "placement is required for page generation",
-			})
-		}
+		operation.Diagnostics = append(operation.Diagnostics, diags...)
 	}
 
 	return NormalizerResult{
@@ -323,95 +277,6 @@ func localizedFallback(value string) map[string]string {
 	}
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if v := strings.TrimSpace(value); v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-// normalizeOperationKind validates and normalizes the operation kind.
-func normalizeOperationKind(kind string) spec.OperationKind {
-	kind = strings.TrimSpace(strings.ToLower(kind))
-	switch spec.OperationKind(kind) {
-	case spec.OperationKindList, spec.OperationKindGet, spec.OperationKindCreate,
-		spec.OperationKindUpdate, spec.OperationKindDelete, spec.OperationKindAction,
-		spec.OperationKindTask, spec.OperationKindReport:
-		return spec.OperationKind(kind)
-	default:
-		return ""
-	}
-}
-
-// normalizePlacement validates and normalizes the placement.
-// Supports canonical camelCase and common aliases.
-func normalizePlacement(p string) spec.OperationPlacement {
-	p = strings.TrimSpace(p)
-	// Direct match first (case-sensitive for camelCase)
-	switch spec.OperationPlacement(p) {
-	case spec.PlacementQuery, spec.PlacementTableData, spec.PlacementDetailData,
-		spec.PlacementRowAction, spec.PlacementDetailAction, spec.PlacementToolbarAction,
-		spec.PlacementBatchAction, spec.PlacementStandalone:
-		return spec.OperationPlacement(p)
-	}
-
-	// Case-insensitive aliases
-	switch strings.ToLower(strings.ReplaceAll(p, "_", "")) {
-	case "query":
-		return spec.PlacementQuery
-	case "tabledata":
-		return spec.PlacementTableData
-	case "detaildata":
-		return spec.PlacementDetailData
-	case "rowaction":
-		return spec.PlacementRowAction
-	case "detailaction":
-		return spec.PlacementDetailAction
-	case "toolbaraction":
-		return spec.PlacementToolbarAction
-	case "batchaction":
-		return spec.PlacementBatchAction
-	case "standalone":
-		return spec.PlacementStandalone
-	}
-
-	// snake_case aliases
-	switch strings.ToLower(p) {
-	case "table_data":
-		return spec.PlacementTableData
-	case "detail_data":
-		return spec.PlacementDetailData
-	case "row_action":
-		return spec.PlacementRowAction
-	case "detail_action":
-		return spec.PlacementDetailAction
-	case "toolbar_action":
-		return spec.PlacementToolbarAction
-	case "batch_action":
-		return spec.PlacementBatchAction
-	}
-
-	// kebab-case aliases
-	switch strings.ToLower(p) {
-	case "table-data":
-		return spec.PlacementTableData
-	case "detail-data":
-		return spec.PlacementDetailData
-	case "row-action":
-		return spec.PlacementRowAction
-	case "detail-action":
-		return spec.PlacementDetailAction
-	case "toolbar-action":
-		return spec.PlacementToolbarAction
-	case "batch-action":
-		return spec.PlacementBatchAction
-	}
-
-	return ""
-}
-
 // normalizeRisk validates and normalizes the risk level.
 func normalizeRisk(r string) spec.RiskLevel {
 	r = strings.TrimSpace(strings.ToLower(r))
@@ -435,19 +300,19 @@ func inferCategoryFromKey(key string) string {
 // deriveFormilySchema creates a basic Formily schema from a JSON Schema.
 // This is a minimal implementation; a full implementation would recursively
 // convert JSON Schema properties to Formily fields.
-func deriveFormilySchema(jsonSchema map[string]interface{}) spec.FormilySchema {
+func deriveFormilySchema(jsonSchema spec.JSONObject) spec.FormilySchema {
 	// Create a Formily-compatible schema wrapper
-	formily := map[string]interface{}{
+	formily := spec.JSONObject{
 		"type":       "object",
-		"properties": map[string]interface{}{},
+		"properties": spec.JSONObject{},
 	}
 
 	// Extract properties from JSON Schema
-	if props, ok := jsonSchema["properties"].(map[string]interface{}); ok {
-		formilyProps := map[string]interface{}{}
+	if props, ok := asJSONObject(jsonSchema["properties"]); ok {
+		formilyProps := spec.JSONObject{}
 		for name, prop := range props {
-			if propMap, ok := prop.(map[string]interface{}); ok {
-				field := map[string]interface{}{
+			if propMap, ok := asJSONObject(prop); ok {
+				field := spec.JSONObject{
 					"type":        getOrDefault(propMap, "type", "string"),
 					"title":       getOrDefault(propMap, "title", name),
 					"x-component": mapTypeToComponent(getOrDefault(propMap, "type", "string")),
@@ -455,7 +320,7 @@ func deriveFormilySchema(jsonSchema map[string]interface{}) spec.FormilySchema {
 				if desc, ok := propMap["description"].(string); ok {
 					field["description"] = desc
 				}
-				if enum, ok := propMap["enum"].([]interface{}); ok {
+				if enum, ok := propMap["enum"].([]any); ok {
 					field["enum"] = enum
 					field["x-component"] = "Select"
 				}
@@ -466,7 +331,7 @@ func deriveFormilySchema(jsonSchema map[string]interface{}) spec.FormilySchema {
 	}
 
 	// Handle required fields
-	if required, ok := jsonSchema["required"].([]interface{}); ok {
+	if required, ok := jsonSchema["required"].([]any); ok {
 		formily["required"] = required
 	}
 
@@ -476,14 +341,14 @@ func deriveFormilySchema(jsonSchema map[string]interface{}) spec.FormilySchema {
 
 // minimalPayloadFormilySchema returns a Formily schema with a single "payload" field.
 func minimalPayloadFormilySchema() spec.FormilySchema {
-	schema := map[string]interface{}{
+	schema := spec.JSONObject{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"payload": map[string]interface{}{
+		"properties": spec.JSONObject{
+			"payload": spec.JSONObject{
 				"type":        "object",
 				"title":       "Payload",
 				"x-component": "Input.TextArea",
-				"x-component-props": map[string]interface{}{
+				"x-component-props": spec.JSONObject{
 					"rows": 6,
 				},
 			},
@@ -494,11 +359,22 @@ func minimalPayloadFormilySchema() spec.FormilySchema {
 }
 
 // getOrDefault extracts a string value from a map or returns a default.
-func getOrDefault(m map[string]interface{}, key, defaultVal string) string {
+func getOrDefault(m spec.JSONObject, key, defaultVal string) string {
 	if v, ok := m[key].(string); ok {
 		return v
 	}
 	return defaultVal
+}
+
+func asJSONObject(value spec.JSONValue) (spec.JSONObject, bool) {
+	switch v := value.(type) {
+	case spec.JSONObject:
+		return v, true
+	case map[string]any:
+		return spec.JSONObject(v), true
+	default:
+		return nil, false
+	}
 }
 
 // mapTypeToComponent maps JSON Schema types to Formily component names.

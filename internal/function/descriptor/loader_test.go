@@ -47,9 +47,9 @@ func TestLoadAll_MultipleDescriptors(t *testing.T) {
 
 	// 创建多个描述符文件
 	descriptors := []Descriptor{
-		{ID: "func1", Category: "cat1", Version: "1.0"},
-		{ID: "func2", Category: "cat2", Version: "1.0"},
-		{ID: "func3", Category: "cat1", Version: "1.0"},
+		{ID: "func1", Resource: "player", Operation: "list", Version: "1.0"},
+		{ID: "func2", Resource: "mail", Operation: "send", Version: "1.0"},
+		{ID: "func3", Resource: "player", Operation: "ban", Version: "1.0"},
 	}
 
 	for i, desc := range descriptors {
@@ -73,7 +73,7 @@ func TestLoadAll_SkipsNonJSON(t *testing.T) {
 	dir := t.TempDir()
 
 	// 创建有效的描述符
-	_ = os.WriteFile(filepath.Join(dir, "test.json"), []byte(`{"id":"test-func","category":"test"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "test.json"), []byte(`{"id":"test-func","resource":"test"}`), 0o644)
 
 	// 创建非 JSON 文件
 	_ = os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("text"), 0o644)
@@ -95,10 +95,10 @@ func TestLoadAll_SkipsNoID(t *testing.T) {
 	dir := t.TempDir()
 
 	// 创建没有 ID 字段的 JSON
-	_ = os.WriteFile(filepath.Join(dir, "no-id.json"), []byte(`{"category": "test", "version": "1.0"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "no-id.json"), []byte(`{"resource": "test", "version": "1.0"}`), 0o644)
 
 	// 创建有效的描述符
-	_ = os.WriteFile(filepath.Join(dir, "valid.json"), []byte(`{"id":"valid-func","category":"test"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "valid.json"), []byte(`{"id":"valid-func","resource":"test"}`), 0o644)
 
 	result, err := LoadAll(dir)
 	if err != nil {
@@ -115,13 +115,13 @@ func TestLoadAll_SkipsEmptyID(t *testing.T) {
 	dir := t.TempDir()
 
 	// 创建空 ID 字段的 JSON
-	_ = os.WriteFile(filepath.Join(dir, "empty-id.json"), []byte(`{"id": "", "category": "test"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "empty-id.json"), []byte(`{"id": "", "resource": "test"}`), 0o644)
 
 	// 创建 null ID 字段的 JSON
-	_ = os.WriteFile(filepath.Join(dir, "null-id.json"), []byte(`{"id": null, "category": "test"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "null-id.json"), []byte(`{"id": null, "resource": "test"}`), 0o644)
 
 	// 创建有效的描述符
-	_ = os.WriteFile(filepath.Join(dir, "valid.json"), []byte(`{"id":"valid-func","category":"test"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "valid.json"), []byte(`{"id":"valid-func","resource":"test"}`), 0o644)
 
 	result, err := LoadAll(dir)
 	if err != nil {
@@ -155,12 +155,12 @@ func TestLoadAll_Subdirectory(t *testing.T) {
 	dir := t.TempDir()
 
 	// 在主目录创建描述符
-	_ = os.WriteFile(filepath.Join(dir, "main.json"), []byte(`{"id":"main-func","category":"main"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "main.json"), []byte(`{"id":"main-func","resource":"main"}`), 0o644)
 
 	// 在子目录创建描述符
 	subDir := filepath.Join(dir, "subdir")
 	_ = os.MkdirAll(subDir, 0o755)
-	_ = os.WriteFile(filepath.Join(subDir, "sub.json"), []byte(`{"id":"sub-func","category":"sub"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(subDir, "sub.json"), []byte(`{"id":"sub-func","resource":"sub"}`), 0o644)
 
 	result, err := LoadAll(dir)
 	if err != nil {
@@ -177,12 +177,12 @@ func TestLoadAll_NestedUIDir(t *testing.T) {
 	dir := t.TempDir()
 
 	// 在主目录创建描述符
-	_ = os.WriteFile(filepath.Join(dir, "main.json"), []byte(`{"id":"main-func","category":"main"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "main.json"), []byte(`{"id":"main-func","resource":"main"}`), 0o644)
 
 	// 在嵌套的 ui 目录创建描述符
 	nestedUIDir := filepath.Join(dir, "subdir", "ui")
 	_ = os.MkdirAll(nestedUIDir, 0o755)
-	_ = os.WriteFile(filepath.Join(nestedUIDir, "ui.json"), []byte(`{"id":"ui-func","category":"ui"}`), 0o644)
+	_ = os.WriteFile(filepath.Join(nestedUIDir, "ui.json"), []byte(`{"id":"ui-func","resource":"ui"}`), 0o644)
 
 	result, err := LoadAll(dir)
 	if err != nil {

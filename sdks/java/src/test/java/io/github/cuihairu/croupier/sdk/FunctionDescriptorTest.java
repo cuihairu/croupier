@@ -31,31 +31,31 @@ class FunctionDescriptorTest {
         FunctionDescriptor desc = new FunctionDescriptor();
         desc.setId("new.func");
         desc.setVersion("2.0.0");
-        desc.setCategory("test");
+        desc.setResource("player");
         desc.setRisk("low");
-        desc.setEntity("player");
-        desc.setOperation("read");
+        desc.setOperation("ban");
+        desc.setPermission("player.ban");
         desc.setEnabled(false);
 
         assertEquals("new.func", desc.getId());
         assertEquals("2.0.0", desc.getVersion());
-        assertEquals("test", desc.getCategory());
+        assertEquals("player", desc.getResource());
         assertEquals("low", desc.getRisk());
-        assertEquals("player", desc.getEntity());
-        assertEquals("read", desc.getOperation());
+        assertEquals("ban", desc.getOperation());
+        assertEquals("player.ban", desc.getPermission());
         assertFalse(desc.isEnabled());
     }
 
     @Test
     void toStringContainsAllFields() {
         FunctionDescriptor desc = new FunctionDescriptor("test.func", "1.0.0");
-        desc.setCategory("test");
+        desc.setResource("player");
         desc.setRisk("medium");
 
         String str = desc.toString();
         assertTrue(str.contains("test.func"));
         assertTrue(str.contains("1.0.0"));
-        assertTrue(str.contains("test"));
+        assertTrue(str.contains("player"));
         assertTrue(str.contains("medium"));
     }
 
@@ -65,19 +65,19 @@ class FunctionDescriptorTest {
 
         assertNotNull(builder);
         FunctionDescriptor desc = builder
-            .category("test")
+            .resource("player")
             .risk("low")
-            .entity("player")
-            .operation("create")
+            .operation("ban")
+            .permission("player.ban")
             .enabled(true)
             .build();
 
         assertEquals("test.func", desc.getId());
         assertEquals("1.0.0", desc.getVersion());
-        assertEquals("test", desc.getCategory());
+        assertEquals("player", desc.getResource());
         assertEquals("low", desc.getRisk());
-        assertEquals("player", desc.getEntity());
-        assertEquals("create", desc.getOperation());
+        assertEquals("ban", desc.getOperation());
+        assertEquals("player.ban", desc.getPermission());
         assertTrue(desc.isEnabled());
     }
 }

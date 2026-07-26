@@ -116,7 +116,7 @@ class CroupierSDKCoverageTest {
     @DisplayName("functionDescriptor builder should build with all fields")
     void functionDescriptorBuilder() {
         FunctionDescriptor desc = CroupierSDK.functionDescriptor("f1", "1.0.0")
-            .category("game")
+            .resource("player")
             .tags(List.of("tag1", "tag2"))
             .summary("Summary")
             .description("Description")
@@ -124,15 +124,15 @@ class CroupierSDKCoverageTest {
             .deprecated(true)
             .inputSchema("{\"type\":\"object\"}")
             .outputSchema("{\"type\":\"string\"}")
-            .risk("low")
-            .entity("Player")
-            .operation("create")
+            .risk("danger")
+            .operation("ban")
+            .permission("player.ban")
             .enabled(true)
             .build();
 
         assertEquals("f1", desc.getId());
         assertEquals("1.0.0", desc.getVersion());
-        assertEquals("game", desc.getCategory());
+        assertEquals("player", desc.getResource());
         assertEquals(2, desc.getTags().size());
         assertEquals("Summary", desc.getSummary());
         assertEquals("Description", desc.getDescription());
@@ -140,9 +140,9 @@ class CroupierSDKCoverageTest {
         assertTrue(desc.isDeprecated());
         assertEquals("{\"type\":\"object\"}", desc.getInputSchema());
         assertEquals("{\"type\":\"string\"}", desc.getOutputSchema());
-        assertEquals("low", desc.getRisk());
-        assertEquals("Player", desc.getEntity());
-        assertEquals("create", desc.getOperation());
+        assertEquals("danger", desc.getRisk());
+        assertEquals("ban", desc.getOperation());
+        assertEquals("player.ban", desc.getPermission());
         assertTrue(desc.isEnabled());
     }
 

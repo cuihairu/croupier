@@ -35,28 +35,6 @@ export type FormilySchema = Record<string, unknown>;
 // Enums
 // ---------------------------------------------------------------------------
 
-/** 操作的页面生成语义 */
-export type OperationKind =
-  | 'list'
-  | 'get'
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'action'
-  | 'task'
-  | 'report';
-
-/** 操作在页面中的放置位置 */
-export type OperationPlacement =
-  | 'query'
-  | 'tableData'
-  | 'detailData'
-  | 'rowAction'
-  | 'detailAction'
-  | 'toolbarAction'
-  | 'batchAction'
-  | 'standalone';
-
 /** 风险等级 */
 export type RiskLevel = 'safe' | 'warning' | 'high' | 'danger';
 
@@ -102,24 +80,17 @@ export interface FunctionSpec {
   inputFormilySchema?: FormilySchema;
   outputSchema?: JSONSchema;
 
-  // 显示与搜索
-  displayName?: LocalizedText;
+  // Catalog/search text. These fields are not runtime menu or page labels.
   summary?: LocalizedText;
   description?: LocalizedText;
 
-  // 资源/页面语义
-  category?: string;
-  categoryDisplay?: LocalizedText;
-  entity?: string;
-  entityDisplay?: LocalizedText;
+  // Executable capability contract.
+  resource?: string;
   operation?: string;
-  operationDisplay?: LocalizedText;
-  operationKind?: OperationKind;
-  placement?: OperationPlacement;
-  pageHint?: string;
 
   // 治理
   risk?: RiskLevel;
+  permission?: string;
   tags?: string[];
 
   // 归一化诊断
@@ -158,10 +129,8 @@ export interface OperationSpec {
   functionId: string;
   resourceKey?: string;
   operation: string;
-  kind: OperationKind;
-  placement: OperationPlacement;
-  labels: LocalizedText;
   risk?: RiskLevel;
+  permission?: string;
   enabled: boolean;
   pageContract?: PageContract;
   diagnostics?: Diagnostic[];

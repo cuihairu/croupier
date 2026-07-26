@@ -26,8 +26,8 @@ namespace Croupier.Function.V1 {
           string.Concat(
             "CiNjcm91cGllci9mdW5jdGlvbi92MS9tZXRhZGF0YS5wcm90bxIUY3JvdXBp",
             "ZXIuZnVuY3Rpb24udjEiiQQKEEZ1bmN0aW9uTWV0YWRhdGESDgoCaWQYASAB",
-            "KAlSAmlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24SGgoIY2F0ZWdvcnkY",
-            "AyABKAlSCGNhdGVnb3J5EhIKBHRhZ3MYBCADKAlSBHRhZ3MSEgoEbmFtZRgF",
+            "KAlSAmlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24SGgoIcmVzb3VyY2UY",
+            "AyABKAlSCHJlc291cmNlEhIKBHRhZ3MYBCADKAlSBHRhZ3MSEgoEbmFtZRgF",
             "IAEoCVIEbmFtZRIgCgtkZXNjcmlwdGlvbhgGIAEoCVILZGVzY3JpcHRpb24S",
             "IQoMaW5wdXRfc2NoZW1hGAcgASgJUgtpbnB1dFNjaGVtYRIjCg1vdXRwdXRf",
             "c2NoZW1hGAggASgJUgxvdXRwdXRTY2hlbWESQgoIYmVoYXZpb3IYCSABKAsy",
@@ -66,7 +66,7 @@ namespace Croupier.Function.V1 {
             "SU5HTEUQARIcChhBUFBST1ZBTF9UWVBFX1RXT19QRVJTT04QAiJcChRGdW5j",
             "dGlvbk1ldGFkYXRhTGlzdBJECglmdW5jdGlvbnMYASADKAsyJi5jcm91cGll",
             "ci5mdW5jdGlvbi52MS5GdW5jdGlvbk1ldGFkYXRhUglmdW5jdGlvbnMirwEK",
-            "DkZ1bmN0aW9uRmlsdGVyEhoKCGNhdGVnb3J5GAEgASgJUghjYXRlZ29yeRIS",
+            "DkZ1bmN0aW9uRmlsdGVyEhoKCHJlc291cmNlGAEgASgJUghyZXNvdXJjZRIS",
             "CgR0YWdzGAIgAygJUgR0YWdzEh0KCnJpc2tfbGV2ZWwYAyABKAlSCXJpc2tM",
             "ZXZlbBISCgRtb2RlGAQgASgJUgRtb2RlEhsKCXBhZ2Vfc2l6ZRgFIAEoBVII",
             "cGFnZVNpemUSHQoKcGFnZV90b2tlbhgGIAEoCVIJcGFnZVRva2VuIqUBChRG",
@@ -80,11 +80,11 @@ namespace Croupier.Function.V1 {
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionMetadata), global::Croupier.Function.V1.FunctionMetadata.Parser, new[]{ "Id", "Version", "Category", "Tags", "Name", "Description", "InputSchema", "OutputSchema", "Behavior", "Security", "Extensions" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionMetadata), global::Croupier.Function.V1.FunctionMetadata.Parser, new[]{ "Id", "Version", "Resource", "Tags", "Name", "Description", "InputSchema", "OutputSchema", "Behavior", "Security", "Extensions" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionBehavior), global::Croupier.Function.V1.FunctionBehavior.Parser, new[]{ "Mode", "Idempotent", "SupportsIdempotencyKey", "TimeoutMs", "RouteStrategy", "Cacheable", "CacheTtlSeconds" }, null, new[]{ typeof(global::Croupier.Function.V1.FunctionBehavior.Types.Mode), typeof(global::Croupier.Function.V1.FunctionBehavior.Types.RouteStrategy) }, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionSecurity), global::Croupier.Function.V1.FunctionSecurity.Parser, new[]{ "RiskLevel", "Permission", "RequiresApproval", "ApprovalType", "AllowedRoles", "AuditLog", "MaskSensitiveData" }, null, new[]{ typeof(global::Croupier.Function.V1.FunctionSecurity.Types.RiskLevel), typeof(global::Croupier.Function.V1.FunctionSecurity.Types.ApprovalType) }, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionMetadataList), global::Croupier.Function.V1.FunctionMetadataList.Parser, new[]{ "Functions" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionFilter), global::Croupier.Function.V1.FunctionFilter.Parser, new[]{ "Category", "Tags", "RiskLevel", "Mode", "PageSize", "PageToken" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionFilter), global::Croupier.Function.V1.FunctionFilter.Parser, new[]{ "Resource", "Tags", "RiskLevel", "Mode", "PageSize", "PageToken" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionListResponse), global::Croupier.Function.V1.FunctionListResponse.Parser, new[]{ "Functions", "NextPageToken", "TotalCount" }, null, null, null, null)
           }));
     }
@@ -95,7 +95,7 @@ namespace Croupier.Function.V1 {
   /// <summary>
   /// FunctionMetadata defines the core function registration contract.
   /// It deliberately excludes UI-related fields (menu, display_name, i18n) which
-  /// are derived by the Dashboard from this metadata.
+  /// are derived by the Dashboard from PageSpec.
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class FunctionMetadata : pb::IMessage<FunctionMetadata>
@@ -134,7 +134,7 @@ namespace Croupier.Function.V1 {
     public FunctionMetadata(FunctionMetadata other) : this() {
       id_ = other.id_;
       version_ = other.version_;
-      category_ = other.category_;
+      resource_ = other.resource_;
       tags_ = other.tags_.Clone();
       name_ = other.name_;
       description_ = other.description_;
@@ -182,18 +182,18 @@ namespace Croupier.Function.V1 {
       }
     }
 
-    /// <summary>Field number for the "category" field.</summary>
-    public const int CategoryFieldNumber = 3;
-    private string category_ = "";
+    /// <summary>Field number for the "resource" field.</summary>
+    public const int ResourceFieldNumber = 3;
+    private string resource_ = "";
     /// <summary>
-    /// Classification fields
+    /// Capability fields
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Category {
-      get { return category_; }
+    public string Resource {
+      get { return resource_; }
       set {
-        category_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        resource_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -332,7 +332,7 @@ namespace Croupier.Function.V1 {
       }
       if (Id != other.Id) return false;
       if (Version != other.Version) return false;
-      if (Category != other.Category) return false;
+      if (Resource != other.Resource) return false;
       if(!tags_.Equals(other.tags_)) return false;
       if (Name != other.Name) return false;
       if (Description != other.Description) return false;
@@ -350,7 +350,7 @@ namespace Croupier.Function.V1 {
       int hash = 1;
       if (Id.Length != 0) hash ^= Id.GetHashCode();
       if (Version.Length != 0) hash ^= Version.GetHashCode();
-      if (Category.Length != 0) hash ^= Category.GetHashCode();
+      if (Resource.Length != 0) hash ^= Resource.GetHashCode();
       hash ^= tags_.GetHashCode();
       if (Name.Length != 0) hash ^= Name.GetHashCode();
       if (Description.Length != 0) hash ^= Description.GetHashCode();
@@ -385,9 +385,9 @@ namespace Croupier.Function.V1 {
         output.WriteRawTag(18);
         output.WriteString(Version);
       }
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(26);
-        output.WriteString(Category);
+        output.WriteString(Resource);
       }
       tags_.WriteTo(output, _repeated_tags_codec);
       if (Name.Length != 0) {
@@ -433,9 +433,9 @@ namespace Croupier.Function.V1 {
         output.WriteRawTag(18);
         output.WriteString(Version);
       }
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(26);
-        output.WriteString(Category);
+        output.WriteString(Resource);
       }
       tags_.WriteTo(ref output, _repeated_tags_codec);
       if (Name.Length != 0) {
@@ -479,8 +479,8 @@ namespace Croupier.Function.V1 {
       if (Version.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Version);
       }
-      if (Category.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Category);
+      if (Resource.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Resource);
       }
       size += tags_.CalculateSize(_repeated_tags_codec);
       if (Name.Length != 0) {
@@ -520,8 +520,8 @@ namespace Croupier.Function.V1 {
       if (other.Version.Length != 0) {
         Version = other.Version;
       }
-      if (other.Category.Length != 0) {
-        Category = other.Category;
+      if (other.Resource.Length != 0) {
+        Resource = other.Resource;
       }
       tags_.Add(other.tags_);
       if (other.Name.Length != 0) {
@@ -573,7 +573,7 @@ namespace Croupier.Function.V1 {
             break;
           }
           case 26: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 34: {
@@ -638,7 +638,7 @@ namespace Croupier.Function.V1 {
             break;
           }
           case 26: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 34: {
@@ -1844,7 +1844,7 @@ namespace Croupier.Function.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public FunctionFilter(FunctionFilter other) : this() {
-      category_ = other.category_;
+      resource_ = other.resource_;
       tags_ = other.tags_.Clone();
       riskLevel_ = other.riskLevel_;
       mode_ = other.mode_;
@@ -1859,15 +1859,15 @@ namespace Croupier.Function.V1 {
       return new FunctionFilter(this);
     }
 
-    /// <summary>Field number for the "category" field.</summary>
-    public const int CategoryFieldNumber = 1;
-    private string category_ = "";
+    /// <summary>Field number for the "resource" field.</summary>
+    public const int ResourceFieldNumber = 1;
+    private string resource_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Category {
-      get { return category_; }
+    public string Resource {
+      get { return resource_; }
       set {
-        category_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        resource_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -1948,7 +1948,7 @@ namespace Croupier.Function.V1 {
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (Category != other.Category) return false;
+      if (Resource != other.Resource) return false;
       if(!tags_.Equals(other.tags_)) return false;
       if (RiskLevel != other.RiskLevel) return false;
       if (Mode != other.Mode) return false;
@@ -1961,7 +1961,7 @@ namespace Croupier.Function.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (Category.Length != 0) hash ^= Category.GetHashCode();
+      if (Resource.Length != 0) hash ^= Resource.GetHashCode();
       hash ^= tags_.GetHashCode();
       if (RiskLevel.Length != 0) hash ^= RiskLevel.GetHashCode();
       if (Mode.Length != 0) hash ^= Mode.GetHashCode();
@@ -1985,9 +1985,9 @@ namespace Croupier.Function.V1 {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(Category);
+        output.WriteString(Resource);
       }
       tags_.WriteTo(output, _repeated_tags_codec);
       if (RiskLevel.Length != 0) {
@@ -2016,9 +2016,9 @@ namespace Croupier.Function.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(Category);
+        output.WriteString(Resource);
       }
       tags_.WriteTo(ref output, _repeated_tags_codec);
       if (RiskLevel.Length != 0) {
@@ -2047,8 +2047,8 @@ namespace Croupier.Function.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (Category.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Category);
+      if (Resource.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Resource);
       }
       size += tags_.CalculateSize(_repeated_tags_codec);
       if (RiskLevel.Length != 0) {
@@ -2075,8 +2075,8 @@ namespace Croupier.Function.V1 {
       if (other == null) {
         return;
       }
-      if (other.Category.Length != 0) {
-        Category = other.Category;
+      if (other.Resource.Length != 0) {
+        Resource = other.Resource;
       }
       tags_.Add(other.tags_);
       if (other.RiskLevel.Length != 0) {
@@ -2107,7 +2107,7 @@ namespace Croupier.Function.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 18: {
@@ -2146,7 +2146,7 @@ namespace Croupier.Function.V1 {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 18: {

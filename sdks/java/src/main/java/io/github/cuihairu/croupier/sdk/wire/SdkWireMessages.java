@@ -356,10 +356,11 @@ public final class SdkWireMessages {
             writeBool(out, 7, message.deprecated);
             writeString(out, 8, message.inputSchema);
             writeString(out, 9, message.outputSchema);
-            writeString(out, 10, message.category);
-            writeString(out, 11, message.risk);
-            writeString(out, 12, message.entity);
-            writeString(out, 13, message.operation);
+            writeString(out, 10, message.resource);
+            writeString(out, 11, message.operation);
+            writeString(out, 12, message.risk);
+            writeBool(out, 13, message.enabled);
+            writeString(out, 14, message.permission);
         });
     }
 
@@ -373,10 +374,11 @@ public final class SdkWireMessages {
         boolean deprecated = false;
         String inputSchema = "";
         String outputSchema = "";
-        String category = "";
-        String risk = "";
-        String entity = "";
+        String resource = "";
         String operation = "";
+        String risk = "";
+        boolean enabled = false;
+        String permission = "";
         CodedInputStream input = newInput(data);
         try {
             while (!input.isAtEnd()) {
@@ -394,10 +396,11 @@ public final class SdkWireMessages {
                     case 7 -> deprecated = input.readBool();
                     case 8 -> inputSchema = input.readString();
                     case 9 -> outputSchema = input.readString();
-                    case 10 -> category = input.readString();
-                    case 11 -> risk = input.readString();
-                    case 12 -> entity = input.readString();
-                    case 13 -> operation = input.readString();
+                    case 10 -> resource = input.readString();
+                    case 11 -> operation = input.readString();
+                    case 12 -> risk = input.readString();
+                    case 13 -> enabled = input.readBool();
+                    case 14 -> permission = input.readString();
                     default -> input.skipField(tag);
                 }
             }
@@ -414,11 +417,21 @@ public final class SdkWireMessages {
             deprecated,
             inputSchema,
             outputSchema,
-            category,
+            resource,
+            operation,
             risk,
-            entity,
-            operation
+            enabled,
+            permission
         );
+    }
+
+    private static void writeMap(CodedOutputStream out, int fieldNumber, Map<String, String> value) throws IOException {
+        if (value == null || value.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, String> entry : value.entrySet()) {
+            writeMessage(out, fieldNumber, encodeMapEntry(entry.getKey(), entry.getValue()));
+        }
     }
 
     private static void readMapEntry(byte[] data, Map<String, String> target) {
@@ -579,15 +592,16 @@ public final class SdkWireMessages {
         public final boolean deprecated;
         public final String inputSchema;
         public final String outputSchema;
-        public final String category;
-        public final String risk;
-        public final String entity;
+        public final String resource;
         public final String operation;
+        public final String risk;
+        public final boolean enabled;
+        public final String permission;
 
         public LocalFunctionDescriptor(String id, String version, java.util.List<String> tags, String summary,
                                        String description, String operationId, boolean deprecated,
-                                       String inputSchema, String outputSchema, String category, String risk,
-                                       String entity, String operation) {
+                                       String inputSchema, String outputSchema, String resource, String operation,
+                                       String risk, boolean enabled, String permission) {
             this.id = id == null ? "" : id;
             this.version = version == null ? "" : version;
             this.tags = tags == null ? java.util.List.of() : java.util.List.copyOf(tags);
@@ -597,10 +611,11 @@ public final class SdkWireMessages {
             this.deprecated = deprecated;
             this.inputSchema = inputSchema == null ? "" : inputSchema;
             this.outputSchema = outputSchema == null ? "" : outputSchema;
-            this.category = category == null ? "" : category;
-            this.risk = risk == null ? "" : risk;
-            this.entity = entity == null ? "" : entity;
+            this.resource = resource == null ? "" : resource;
             this.operation = operation == null ? "" : operation;
+            this.risk = risk == null ? "" : risk;
+            this.enabled = enabled;
+            this.permission = permission == null ? "" : permission;
         }
     }
 }

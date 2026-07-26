@@ -7,7 +7,6 @@
 package promv1
 
 import (
-	_ "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -242,15 +241,12 @@ var File_examples_integrations_prom_v1_prom_proto protoreflect.FileDescriptor
 
 const file_examples_integrations_prom_v1_prom_proto_rawDesc = "" +
 	"\n" +
-	"(examples/integrations/prom/v1/prom.proto\x12\x1dexamples.integrations.prom.v1\x1a&croupier/component/v1/ui_options.proto\"\xe1\x01\n" +
-	"\x11QueryRangeRequest\x12I\n" +
-	"\x04expr\x18\x01 \x01(\tB5\x8a\xb2\x191\n" +
-	"\btextarea\x12\x06PromQL\x1a\x1drate(http_requests_total[5m])R\x04expr\x12.\n" +
-	"\x05start\x18\x02 \x01(\tB\x18\x8a\xb2\x19\x14\n" +
-	"\x04date\x12\f开始时间R\x05start\x12*\n" +
-	"\x03end\x18\x03 \x01(\tB\x18\x8a\xb2\x19\x14\n" +
-	"\x04date\x12\f结束时间R\x03end\x12%\n" +
-	"\x04step\x18\x04 \x01(\tB\x11\x8a\xb2\x19\r\x12\x06步长\x1a\x0330sR\x04step\"$\n" +
+	"(examples/integrations/prom/v1/prom.proto\x12\x1dexamples.integrations.prom.v1\"c\n" +
+	"\x11QueryRangeRequest\x12\x12\n" +
+	"\x04expr\x18\x01 \x01(\tR\x04expr\x12\x14\n" +
+	"\x05start\x18\x02 \x01(\tR\x05start\x12\x10\n" +
+	"\x03end\x18\x03 \x01(\tR\x03end\x12\x12\n" +
+	"\x04step\x18\x04 \x01(\tR\x04step\"$\n" +
 	"\x06Sample\x12\f\n" +
 	"\x01t\x18\x01 \x01(\x03R\x01t\x12\f\n" +
 	"\x01v\x18\x02 \x01(\x01R\x01v\"\xd7\x01\n" +

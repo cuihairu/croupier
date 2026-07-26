@@ -27,18 +27,12 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
   const isAdmin = has('admin') || has('admin:all') || has('super_admin');
   const hasAny = (...keys: string[]) => keys.some((key) => has(key)) || isAdmin;
 
-  const canWorkspaceRead =
-    hasAny('workspace:read', 'workspaces:read', 'workspaces:manage', 'functions:manage');
-  const canWorkspaceEdit =
-    hasAny('workspace:edit', 'workspaces:edit', 'workspaces:manage', 'functions:manage');
-  const canWorkspacePublish =
-    hasAny('workspace:publish', 'workspaces:publish', 'workspaces:manage', 'functions:manage');
-  const canWorkspaceRollback =
-    hasAny('workspace:rollback', 'workspaces:rollback', 'workspaces:manage', 'functions:manage');
-  const canWorkspaceDelete =
-    hasAny('workspace:delete', 'workspaces:delete', 'workspaces:manage', 'functions:manage');
-  const canConsoleRead =
-    canWorkspaceRead || hasAny('function:invoke', 'functions:read', 'functions:manage');
+  const canPageRead = hasAny('pages:read', 'pages:manage', 'functions:manage');
+  const canPageEdit = hasAny('pages:edit', 'pages:manage', 'functions:manage');
+  const canPagePublish = hasAny('pages:publish', 'pages:manage', 'functions:manage');
+  const canPageRollback = hasAny('pages:rollback', 'pages:manage', 'functions:manage');
+  const canPageDelete = hasAny('pages:delete', 'pages:manage', 'functions:manage');
+  const canConsoleRead = canPageRead || hasAny('function:invoke', 'functions:read', 'functions:manage');
   const canSystemConfigRead =
     hasAny(
       'games:read',
@@ -65,17 +59,15 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
     // Functions management
     canFunctionsRead: hasAny('functions:read', 'functions:manage'),
     canFunctionsManage: hasAny('functions:manage'),
-    // Runtime console reads published workspaces; it is not the workspace editor.
+    // Runtime console reads published PageSpec snapshots.
     canConsoleRead,
-    // Workspace management (design/publish) - admin only
-    canWorkspaceManage:
-      canWorkspaceEdit || canWorkspacePublish || canWorkspaceRollback || canWorkspaceDelete,
-    canWorkspaceRead,
-    canWorkspaceEdit,
-    canWorkspacePublish,
-    canWorkspaceRollback,
-    canWorkspaceDelete,
-    canEntitiesRead: hasAny('entities:read', 'entities:manage'),
+    canPageManage: canPageEdit || canPagePublish || canPageRollback || canPageDelete,
+    canPageRead,
+    canPageEdit,
+    canPagePublish,
+    canPageRollback,
+    canPageDelete,
+    canResourcesRead: hasAny('resources:read', 'resources:diagnose', 'functions:read', 'functions:manage'),
     // 运维管理（Ops）
     canOpsRead: hasAny(
       'ops:read',

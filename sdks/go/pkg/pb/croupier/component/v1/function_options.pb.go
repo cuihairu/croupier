@@ -22,47 +22,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// 方法级元信息（可选）。插件未识别时将使用默认推断。
+// FunctionOptions is a proto annotation for executable function capability
+// contracts. It does not define Dashboard UI, menu, labels, page placement,
+// Formily schema, or PageSpec.
 type FunctionOptions struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 全局唯一函数ID（规范：<domain>.<entity>.<action>，小写，允许 [a-z0-9._-]）
-	FunctionId string `protobuf:"bytes,1,opt,name=function_id,json=functionId,proto3" json:"function_id,omitempty"`
-	// 版本（规范：SemVer，如 1.0.0 / 1.2.3-beta.1）
-	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	// 类目（默认取 package 里的第二级，如 games.player.v1 → player）
-	Category string `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`
-	// 风险级别：low/medium/high（默认 medium）
-	Risk string `protobuf:"bytes,4,opt,name=risk,proto3" json:"risk,omitempty"`
-	// 路由策略：lb/broadcast/targeted/hash（默认 lb）
-	Route string `protobuf:"bytes,5,opt,name=route,proto3" json:"route,omitempty"`
-	// 超时（默认 30s）
-	Timeout string `protobuf:"bytes,6,opt,name=timeout,proto3" json:"timeout,omitempty"`
-	// 两人审批（默认 false）
-	TwoPersonRule bool `protobuf:"varint,7,opt,name=two_person_rule,json=twoPersonRule,proto3" json:"two_person_rule,omitempty"`
-	// 放置位置：core/agent（默认 agent）
-	Placement string `protobuf:"bytes,8,opt,name=placement,proto3" json:"placement,omitempty"`
-	// 额外标签
-	Labels map[string]string `protobuf:"bytes,9,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// 调用模式：query/command（默认 query）
-	Mode string `protobuf:"bytes,10,opt,name=mode,proto3" json:"mode,omitempty"`
-	// 是否启用幂等键（默认 false）
-	IdempotencyKey bool `protobuf:"varint,11,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
-	// ========== 展示元数据（API 文档，仍在使用） ==========
-	// 展示名称与摘要（i18n）
-	DisplayName *I18NText `protobuf:"bytes,12,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Summary     *I18NText `protobuf:"bytes,13,opt,name=summary,proto3" json:"summary,omitempty"`
-	// 标签
-	Tags []string `protobuf:"bytes,14,rep,name=tags,proto3" json:"tags,omitempty"`
-	// 已废弃：菜单元数据。由 Server 端 descriptors_logic 和 ui_resolver 生成。
-	//
-	// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
-	Menu *Menu `protobuf:"bytes,15,opt,name=menu,proto3" json:"menu,omitempty"`
-	// 已废弃：权限规范。由 Server 端 FunctionPolicy 和 RBAC 系统管理。
-	//
-	// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
-	Permissions   *PermissionSpec `protobuf:"bytes,16,opt,name=permissions,proto3" json:"permissions,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	FunctionId     string                 `protobuf:"bytes,1,opt,name=function_id,json=functionId,proto3" json:"function_id,omitempty"`             // Stable function id, e.g. "player.ban".
+	Version        string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                                     // Function version.
+	Resource       string                 `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"`                                   // Business resource/capability key.
+	Operation      string                 `protobuf:"bytes,4,opt,name=operation,proto3" json:"operation,omitempty"`                                 // Business action key.
+	Risk           string                 `protobuf:"bytes,5,opt,name=risk,proto3" json:"risk,omitempty"`                                           // safe/warning/high/danger.
+	Route          string                 `protobuf:"bytes,6,opt,name=route,proto3" json:"route,omitempty"`                                         // lb/broadcast/targeted/hash.
+	Timeout        string                 `protobuf:"bytes,7,opt,name=timeout,proto3" json:"timeout,omitempty"`                                     // e.g. "30s".
+	TwoPersonRule  bool                   `protobuf:"varint,8,opt,name=two_person_rule,json=twoPersonRule,proto3" json:"two_person_rule,omitempty"` // Whether approval is required.
+	Mode           string                 `protobuf:"bytes,9,opt,name=mode,proto3" json:"mode,omitempty"`                                           // query/command.
+	IdempotencyKey bool                   `protobuf:"varint,10,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	Summary        string                 `protobuf:"bytes,11,opt,name=summary,proto3" json:"summary,omitempty"`         // Catalog/search text only.
+	Description    string                 `protobuf:"bytes,12,opt,name=description,proto3" json:"description,omitempty"` // Catalog/help text only.
+	Tags           []string               `protobuf:"bytes,13,rep,name=tags,proto3" json:"tags,omitempty"`
+	Permission     string                 `protobuf:"bytes,14,opt,name=permission,proto3" json:"permission,omitempty"` // Optional permission identifier.
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *FunctionOptions) Reset() {
@@ -109,9 +89,16 @@ func (x *FunctionOptions) GetVersion() string {
 	return ""
 }
 
-func (x *FunctionOptions) GetCategory() string {
+func (x *FunctionOptions) GetResource() string {
 	if x != nil {
-		return x.Category
+		return x.Resource
+	}
+	return ""
+}
+
+func (x *FunctionOptions) GetOperation() string {
+	if x != nil {
+		return x.Operation
 	}
 	return ""
 }
@@ -144,20 +131,6 @@ func (x *FunctionOptions) GetTwoPersonRule() bool {
 	return false
 }
 
-func (x *FunctionOptions) GetPlacement() string {
-	if x != nil {
-		return x.Placement
-	}
-	return ""
-}
-
-func (x *FunctionOptions) GetLabels() map[string]string {
-	if x != nil {
-		return x.Labels
-	}
-	return nil
-}
-
 func (x *FunctionOptions) GetMode() string {
 	if x != nil {
 		return x.Mode
@@ -172,18 +145,18 @@ func (x *FunctionOptions) GetIdempotencyKey() bool {
 	return false
 }
 
-func (x *FunctionOptions) GetDisplayName() *I18NText {
-	if x != nil {
-		return x.DisplayName
-	}
-	return nil
-}
-
-func (x *FunctionOptions) GetSummary() *I18NText {
+func (x *FunctionOptions) GetSummary() string {
 	if x != nil {
 		return x.Summary
 	}
-	return nil
+	return ""
+}
+
+func (x *FunctionOptions) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
 }
 
 func (x *FunctionOptions) GetTags() []string {
@@ -193,240 +166,11 @@ func (x *FunctionOptions) GetTags() []string {
 	return nil
 }
 
-// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
-func (x *FunctionOptions) GetMenu() *Menu {
+func (x *FunctionOptions) GetPermission() string {
 	if x != nil {
-		return x.Menu
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
-func (x *FunctionOptions) GetPermissions() *PermissionSpec {
-	if x != nil {
-		return x.Permissions
-	}
-	return nil
-}
-
-// 消息级元信息，用于标记实体类型并生成 entity 描述符
-type EntityOptions struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 实体ID（默认：<package>.<message> 转小写）
-	EntityId string `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	// 版本（默认 1.0.0）
-	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	// 实体名称（默认使用 message 名称）
-	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// 描述
-	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	// 类目（默认取 package 里的第二级）
-	Category string `protobuf:"bytes,5,opt,name=category,proto3" json:"category,omitempty"`
-	// 主键字段（默认取第一个 string 类型的字段）
-	PrimaryKey string `protobuf:"bytes,6,opt,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
-	// 显示字段（用于 UI 展示）
-	DisplayField string `protobuf:"bytes,7,opt,name=display_field,json=displayField,proto3" json:"display_field,omitempty"`
-	// 标题模板（支持 {field_name} 占位符）
-	TitleTemplate string `protobuf:"bytes,8,opt,name=title_template,json=titleTemplate,proto3" json:"title_template,omitempty"`
-	// 头像字段
-	AvatarField string `protobuf:"bytes,9,opt,name=avatar_field,json=avatarField,proto3" json:"avatar_field,omitempty"`
-	// 状态字段
-	StatusField string `protobuf:"bytes,10,opt,name=status_field,json=statusField,proto3" json:"status_field,omitempty"`
-	// 操作映射（将 CRUD 操作映射到具体的函数 ID）
-	// 创建操作的函数ID列表
-	CreateFunctions []string `protobuf:"bytes,11,rep,name=create_functions,json=createFunctions,proto3" json:"create_functions,omitempty"`
-	// 读取操作的函数ID列表
-	ReadFunctions []string `protobuf:"bytes,12,rep,name=read_functions,json=readFunctions,proto3" json:"read_functions,omitempty"`
-	// 更新操作的函数ID列表
-	UpdateFunctions []string `protobuf:"bytes,13,rep,name=update_functions,json=updateFunctions,proto3" json:"update_functions,omitempty"`
-	// 删除操作的函数ID列表
-	DeleteFunctions []string `protobuf:"bytes,14,rep,name=delete_functions,json=deleteFunctions,proto3" json:"delete_functions,omitempty"`
-	// 列表操作的函数ID列表
-	ListFunctions []string `protobuf:"bytes,15,rep,name=list_functions,json=listFunctions,proto3" json:"list_functions,omitempty"`
-	// 自定义操作（key: 操作名, value: 函数ID列表）
-	CustomOperations map[string]string `protobuf:"bytes,16,rep,name=custom_operations,json=customOperations,proto3" json:"custom_operations,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// ========== 展示元数据（API 文档，仍在使用） ==========
-	DisplayName *I18NText `protobuf:"bytes,17,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Summary     *I18NText `protobuf:"bytes,18,opt,name=summary,proto3" json:"summary,omitempty"`
-	Tags        []string  `protobuf:"bytes,19,rep,name=tags,proto3" json:"tags,omitempty"`
-	// ========== 废弃：UI 菜单元数据 ==========
-	// 已废弃：菜单元数据。由 Server 端 descriptors_logic 生成。
-	//
-	// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
-	Menu          *Menu `protobuf:"bytes,20,opt,name=menu,proto3" json:"menu,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *EntityOptions) Reset() {
-	*x = EntityOptions{}
-	mi := &file_croupier_component_v1_function_options_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EntityOptions) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EntityOptions) ProtoMessage() {}
-
-func (x *EntityOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_component_v1_function_options_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EntityOptions.ProtoReflect.Descriptor instead.
-func (*EntityOptions) Descriptor() ([]byte, []int) {
-	return file_croupier_component_v1_function_options_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *EntityOptions) GetEntityId() string {
-	if x != nil {
-		return x.EntityId
+		return x.Permission
 	}
 	return ""
-}
-
-func (x *EntityOptions) GetVersion() string {
-	if x != nil {
-		return x.Version
-	}
-	return ""
-}
-
-func (x *EntityOptions) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *EntityOptions) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *EntityOptions) GetCategory() string {
-	if x != nil {
-		return x.Category
-	}
-	return ""
-}
-
-func (x *EntityOptions) GetPrimaryKey() string {
-	if x != nil {
-		return x.PrimaryKey
-	}
-	return ""
-}
-
-func (x *EntityOptions) GetDisplayField() string {
-	if x != nil {
-		return x.DisplayField
-	}
-	return ""
-}
-
-func (x *EntityOptions) GetTitleTemplate() string {
-	if x != nil {
-		return x.TitleTemplate
-	}
-	return ""
-}
-
-func (x *EntityOptions) GetAvatarField() string {
-	if x != nil {
-		return x.AvatarField
-	}
-	return ""
-}
-
-func (x *EntityOptions) GetStatusField() string {
-	if x != nil {
-		return x.StatusField
-	}
-	return ""
-}
-
-func (x *EntityOptions) GetCreateFunctions() []string {
-	if x != nil {
-		return x.CreateFunctions
-	}
-	return nil
-}
-
-func (x *EntityOptions) GetReadFunctions() []string {
-	if x != nil {
-		return x.ReadFunctions
-	}
-	return nil
-}
-
-func (x *EntityOptions) GetUpdateFunctions() []string {
-	if x != nil {
-		return x.UpdateFunctions
-	}
-	return nil
-}
-
-func (x *EntityOptions) GetDeleteFunctions() []string {
-	if x != nil {
-		return x.DeleteFunctions
-	}
-	return nil
-}
-
-func (x *EntityOptions) GetListFunctions() []string {
-	if x != nil {
-		return x.ListFunctions
-	}
-	return nil
-}
-
-func (x *EntityOptions) GetCustomOperations() map[string]string {
-	if x != nil {
-		return x.CustomOperations
-	}
-	return nil
-}
-
-func (x *EntityOptions) GetDisplayName() *I18NText {
-	if x != nil {
-		return x.DisplayName
-	}
-	return nil
-}
-
-func (x *EntityOptions) GetSummary() *I18NText {
-	if x != nil {
-		return x.Summary
-	}
-	return nil
-}
-
-func (x *EntityOptions) GetTags() []string {
-	if x != nil {
-		return x.Tags
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in croupier/component/v1/function_options.proto.
-func (x *EntityOptions) GetMenu() *Menu {
-	if x != nil {
-		return x.Menu
-	}
-	return nil
 }
 
 var file_croupier_component_v1_function_options_proto_extTypes = []protoimpl.ExtensionInfo{
@@ -438,14 +182,6 @@ var file_croupier_component_v1_function_options_proto_extTypes = []protoimpl.Ext
 		Tag:           "bytes,51001,opt,name=function",
 		Filename:      "croupier/component/v1/function_options.proto",
 	},
-	{
-		ExtendedType:  (*descriptorpb.MessageOptions)(nil),
-		ExtensionType: (*EntityOptions)(nil),
-		Field:         51002,
-		Name:          "croupier.component.v1.entity",
-		Tag:           "bytes,51002,opt,name=entity",
-		Filename:      "croupier/component/v1/function_options.proto",
-	},
 }
 
 // Extension fields to descriptorpb.MethodOptions.
@@ -454,67 +190,31 @@ var (
 	E_Function = &file_croupier_component_v1_function_options_proto_extTypes[0]
 )
 
-// Extension fields to descriptorpb.MessageOptions.
-var (
-	// optional croupier.component.v1.EntityOptions entity = 51002;
-	E_Entity = &file_croupier_component_v1_function_options_proto_extTypes[1]
-)
-
 var File_croupier_component_v1_function_options_proto protoreflect.FileDescriptor
 
 const file_croupier_component_v1_function_options_proto_rawDesc = "" +
 	"\n" +
-	",croupier/component/v1/function_options.proto\x12\x15croupier.component.v1\x1a google/protobuf/descriptor.proto\x1a(croupier/component/v1/dashboard_ui.proto\"\xcb\x05\n" +
+	",croupier/component/v1/function_options.proto\x12\x15croupier.component.v1\x1a google/protobuf/descriptor.proto\"\x9f\x03\n" +
 	"\x0fFunctionOptions\x12\x1f\n" +
 	"\vfunction_id\x18\x01 \x01(\tR\n" +
 	"functionId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
-	"\bcategory\x18\x03 \x01(\tR\bcategory\x12\x12\n" +
-	"\x04risk\x18\x04 \x01(\tR\x04risk\x12\x14\n" +
-	"\x05route\x18\x05 \x01(\tR\x05route\x12\x18\n" +
-	"\atimeout\x18\x06 \x01(\tR\atimeout\x12&\n" +
-	"\x0ftwo_person_rule\x18\a \x01(\bR\rtwoPersonRule\x12\x1c\n" +
-	"\tplacement\x18\b \x01(\tR\tplacement\x12J\n" +
-	"\x06labels\x18\t \x03(\v22.croupier.component.v1.FunctionOptions.LabelsEntryR\x06labels\x12\x12\n" +
-	"\x04mode\x18\n" +
-	" \x01(\tR\x04mode\x12'\n" +
-	"\x0fidempotency_key\x18\v \x01(\bR\x0eidempotencyKey\x12B\n" +
-	"\fdisplay_name\x18\f \x01(\v2\x1f.croupier.component.v1.I18nTextR\vdisplayName\x129\n" +
-	"\asummary\x18\r \x01(\v2\x1f.croupier.component.v1.I18nTextR\asummary\x12\x12\n" +
-	"\x04tags\x18\x0e \x03(\tR\x04tags\x123\n" +
-	"\x04menu\x18\x0f \x01(\v2\x1b.croupier.component.v1.MenuB\x02\x18\x01R\x04menu\x12K\n" +
-	"\vpermissions\x18\x10 \x01(\v2%.croupier.component.v1.PermissionSpecB\x02\x18\x01R\vpermissions\x1a9\n" +
-	"\vLabelsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x90\a\n" +
-	"\rEntityOptions\x12\x1b\n" +
-	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1a\n" +
-	"\bcategory\x18\x05 \x01(\tR\bcategory\x12\x1f\n" +
-	"\vprimary_key\x18\x06 \x01(\tR\n" +
-	"primaryKey\x12#\n" +
-	"\rdisplay_field\x18\a \x01(\tR\fdisplayField\x12%\n" +
-	"\x0etitle_template\x18\b \x01(\tR\rtitleTemplate\x12!\n" +
-	"\favatar_field\x18\t \x01(\tR\vavatarField\x12!\n" +
-	"\fstatus_field\x18\n" +
-	" \x01(\tR\vstatusField\x12)\n" +
-	"\x10create_functions\x18\v \x03(\tR\x0fcreateFunctions\x12%\n" +
-	"\x0eread_functions\x18\f \x03(\tR\rreadFunctions\x12)\n" +
-	"\x10update_functions\x18\r \x03(\tR\x0fupdateFunctions\x12)\n" +
-	"\x10delete_functions\x18\x0e \x03(\tR\x0fdeleteFunctions\x12%\n" +
-	"\x0elist_functions\x18\x0f \x03(\tR\rlistFunctions\x12g\n" +
-	"\x11custom_operations\x18\x10 \x03(\v2:.croupier.component.v1.EntityOptions.CustomOperationsEntryR\x10customOperations\x12B\n" +
-	"\fdisplay_name\x18\x11 \x01(\v2\x1f.croupier.component.v1.I18nTextR\vdisplayName\x129\n" +
-	"\asummary\x18\x12 \x01(\v2\x1f.croupier.component.v1.I18nTextR\asummary\x12\x12\n" +
-	"\x04tags\x18\x13 \x03(\tR\x04tags\x123\n" +
-	"\x04menu\x18\x14 \x01(\v2\x1b.croupier.component.v1.MenuB\x02\x18\x01R\x04menu\x1aC\n" +
-	"\x15CustomOperationsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:d\n" +
-	"\bfunction\x12\x1e.google.protobuf.MethodOptions\x18\xb9\x8e\x03 \x01(\v2&.croupier.component.v1.FunctionOptionsR\bfunction:_\n" +
-	"\x06entity\x12\x1f.google.protobuf.MessageOptions\x18\xba\x8e\x03 \x01(\v2$.croupier.component.v1.EntityOptionsR\x06entityB\xf6\x01\n" +
+	"\bresource\x18\x03 \x01(\tR\bresource\x12\x1c\n" +
+	"\toperation\x18\x04 \x01(\tR\toperation\x12\x12\n" +
+	"\x04risk\x18\x05 \x01(\tR\x04risk\x12\x14\n" +
+	"\x05route\x18\x06 \x01(\tR\x05route\x12\x18\n" +
+	"\atimeout\x18\a \x01(\tR\atimeout\x12&\n" +
+	"\x0ftwo_person_rule\x18\b \x01(\bR\rtwoPersonRule\x12\x12\n" +
+	"\x04mode\x18\t \x01(\tR\x04mode\x12'\n" +
+	"\x0fidempotency_key\x18\n" +
+	" \x01(\bR\x0eidempotencyKey\x12\x18\n" +
+	"\asummary\x18\v \x01(\tR\asummary\x12 \n" +
+	"\vdescription\x18\f \x01(\tR\vdescription\x12\x12\n" +
+	"\x04tags\x18\r \x03(\tR\x04tags\x12\x1e\n" +
+	"\n" +
+	"permission\x18\x0e \x01(\tR\n" +
+	"permission:d\n" +
+	"\bfunction\x12\x1e.google.protobuf.MethodOptions\x18\xb9\x8e\x03 \x01(\v2&.croupier.component.v1.FunctionOptionsR\bfunctionB\xf6\x01\n" +
 	"\x19com.croupier.component.v1B\x14FunctionOptionsProtoP\x01ZMgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/component/v1;componentv1\xa2\x02\x03CCX\xaa\x02\x15Croupier.Component.V1\xca\x02\x15Croupier\\Component\\V1\xe2\x02!Croupier\\Component\\V1\\GPBMetadata\xea\x02\x17Croupier::Component::V1b\x06proto3"
 
 var (
@@ -529,37 +229,19 @@ func file_croupier_component_v1_function_options_proto_rawDescGZIP() []byte {
 	return file_croupier_component_v1_function_options_proto_rawDescData
 }
 
-var file_croupier_component_v1_function_options_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_croupier_component_v1_function_options_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_croupier_component_v1_function_options_proto_goTypes = []any{
-	(*FunctionOptions)(nil),             // 0: croupier.component.v1.FunctionOptions
-	(*EntityOptions)(nil),               // 1: croupier.component.v1.EntityOptions
-	nil,                                 // 2: croupier.component.v1.FunctionOptions.LabelsEntry
-	nil,                                 // 3: croupier.component.v1.EntityOptions.CustomOperationsEntry
-	(*I18NText)(nil),                    // 4: croupier.component.v1.I18nText
-	(*Menu)(nil),                        // 5: croupier.component.v1.Menu
-	(*PermissionSpec)(nil),              // 6: croupier.component.v1.PermissionSpec
-	(*descriptorpb.MethodOptions)(nil),  // 7: google.protobuf.MethodOptions
-	(*descriptorpb.MessageOptions)(nil), // 8: google.protobuf.MessageOptions
+	(*FunctionOptions)(nil),            // 0: croupier.component.v1.FunctionOptions
+	(*descriptorpb.MethodOptions)(nil), // 1: google.protobuf.MethodOptions
 }
 var file_croupier_component_v1_function_options_proto_depIdxs = []int32{
-	2,  // 0: croupier.component.v1.FunctionOptions.labels:type_name -> croupier.component.v1.FunctionOptions.LabelsEntry
-	4,  // 1: croupier.component.v1.FunctionOptions.display_name:type_name -> croupier.component.v1.I18nText
-	4,  // 2: croupier.component.v1.FunctionOptions.summary:type_name -> croupier.component.v1.I18nText
-	5,  // 3: croupier.component.v1.FunctionOptions.menu:type_name -> croupier.component.v1.Menu
-	6,  // 4: croupier.component.v1.FunctionOptions.permissions:type_name -> croupier.component.v1.PermissionSpec
-	3,  // 5: croupier.component.v1.EntityOptions.custom_operations:type_name -> croupier.component.v1.EntityOptions.CustomOperationsEntry
-	4,  // 6: croupier.component.v1.EntityOptions.display_name:type_name -> croupier.component.v1.I18nText
-	4,  // 7: croupier.component.v1.EntityOptions.summary:type_name -> croupier.component.v1.I18nText
-	5,  // 8: croupier.component.v1.EntityOptions.menu:type_name -> croupier.component.v1.Menu
-	7,  // 9: croupier.component.v1.function:extendee -> google.protobuf.MethodOptions
-	8,  // 10: croupier.component.v1.entity:extendee -> google.protobuf.MessageOptions
-	0,  // 11: croupier.component.v1.function:type_name -> croupier.component.v1.FunctionOptions
-	1,  // 12: croupier.component.v1.entity:type_name -> croupier.component.v1.EntityOptions
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	11, // [11:13] is the sub-list for extension type_name
-	9,  // [9:11] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	1, // 0: croupier.component.v1.function:extendee -> google.protobuf.MethodOptions
+	0, // 1: croupier.component.v1.function:type_name -> croupier.component.v1.FunctionOptions
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	1, // [1:2] is the sub-list for extension type_name
+	0, // [0:1] is the sub-list for extension extendee
+	0, // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_croupier_component_v1_function_options_proto_init() }
@@ -567,15 +249,14 @@ func file_croupier_component_v1_function_options_proto_init() {
 	if File_croupier_component_v1_function_options_proto != nil {
 		return
 	}
-	file_croupier_component_v1_dashboard_ui_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_component_v1_function_options_proto_rawDesc), len(file_croupier_component_v1_function_options_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
-			NumExtensions: 2,
+			NumMessages:   1,
+			NumExtensions: 1,
 			NumServices:   0,
 		},
 		GoTypes:           file_croupier_component_v1_function_options_proto_goTypes,

@@ -1,7 +1,7 @@
 {
   "items": [
     {
-      "domain": "entity",
+      "domain": "resource",
       "key": "player",
       "aliases": ["players", "user", "users", "role"],
       "display_zh": "玩家",
@@ -9,7 +9,7 @@
       "order": 10
     },
     {
-      "domain": "entity",
+      "domain": "resource",
       "key": "guild",
       "aliases": ["clan", "alliance"],
       "display_zh": "公会",
@@ -17,7 +17,7 @@
       "order": 20
     },
     {
-      "domain": "entity",
+      "domain": "resource",
       "key": "item",
       "aliases": ["bag", "inventory"],
       "display_zh": "道具",
@@ -25,7 +25,7 @@
       "order": 30
     },
     {
-      "domain": "entity",
+      "domain": "resource",
       "key": "mail",
       "aliases": ["message", "messages"],
       "display_zh": "邮件",
@@ -33,7 +33,7 @@
       "order": 40
     },
     {
-      "domain": "entity",
+      "domain": "resource",
       "key": "order",
       "aliases": ["payment", "payments", "transaction"],
       "display_zh": "订单",
@@ -41,7 +41,7 @@
       "order": 50
     },
     {
-      "domain": "entity",
+      "domain": "resource",
       "key": "match",
       "aliases": ["battle", "arena"],
       "display_zh": "对局",

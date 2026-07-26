@@ -1917,9 +1917,8 @@ func TestLocalFunctionDescriptor_OpenAPICompliance(t *testing.T) {
 		Deprecated:   false,
 		InputSchema:  `{"type":"object","properties":{"name":{"type":"string"}}}`,
 		OutputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`,
-		Category:     "player",
+		Resource:     "player",
 		Risk:         "safe",
-		Entity:       "Player",
 		Operation:    "create",
 	}
 

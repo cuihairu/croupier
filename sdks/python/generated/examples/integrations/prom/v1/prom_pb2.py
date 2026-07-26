@@ -12,10 +12,9 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from croupier.component.v1 import ui_options_pb2 as croupier_dot_component_dot_v1_dot_ui__options__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(examples/integrations/prom/v1/prom.proto\x12\x1d\x65xamples.integrations.prom.v1\x1a&croupier/component/v1/ui_options.proto\"\xe1\x01\n\x11QueryRangeRequest\x12I\n\x04\x65xpr\x18\x01 \x01(\tB5\x8a\xb2\x19\x31\n\x08textarea\x12\x06PromQL\x1a\x1drate(http_requests_total[5m])R\x04\x65xpr\x12.\n\x05start\x18\x02 \x01(\tB\x18\x8a\xb2\x19\x14\n\x04\x64\x61te\x12\x0c\xe5\xbc\x80\xe5\xa7\x8b\xe6\x97\xb6\xe9\x97\xb4R\x05start\x12*\n\x03\x65nd\x18\x03 \x01(\tB\x18\x8a\xb2\x19\x14\n\x04\x64\x61te\x12\x0c\xe7\xbb\x93\xe6\x9d\x9f\xe6\x97\xb6\xe9\x97\xb4R\x03\x65nd\x12%\n\x04step\x18\x04 \x01(\tB\x11\x8a\xb2\x19\r\x12\x06\xe6\xad\xa5\xe9\x95\xbf\x1a\x03\x33\x30sR\x04step\"$\n\x06Sample\x12\x0c\n\x01t\x18\x01 \x01(\x03R\x01t\x12\x0c\n\x01v\x18\x02 \x01(\x01R\x01v\"\xd7\x01\n\nTimeseries\x12M\n\x06labels\x18\x01 \x03(\x0b\x32\x35.examples.integrations.prom.v1.Timeseries.LabelsEntryR\x06labels\x12?\n\x07samples\x18\x02 \x03(\x0b\x32%.examples.integrations.prom.v1.SampleR\x07samples\x1a\x39\n\x0bLabelsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"W\n\x12QueryRangeResponse\x12\x41\n\x06series\x18\x01 \x03(\x0b\x32).examples.integrations.prom.v1.TimeseriesR\x06seriesB\x87\x01\n9io.github.cuihairu.croupier.examples.integrations.prom.v1P\x01ZHgithub.com/cuihairu/croupier/pkg/pb/examples/integrations/prom/v1;promv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(examples/integrations/prom/v1/prom.proto\x12\x1d\x65xamples.integrations.prom.v1\"c\n\x11QueryRangeRequest\x12\x12\n\x04\x65xpr\x18\x01 \x01(\tR\x04\x65xpr\x12\x14\n\x05start\x18\x02 \x01(\tR\x05start\x12\x10\n\x03\x65nd\x18\x03 \x01(\tR\x03\x65nd\x12\x12\n\x04step\x18\x04 \x01(\tR\x04step\"$\n\x06Sample\x12\x0c\n\x01t\x18\x01 \x01(\x03R\x01t\x12\x0c\n\x01v\x18\x02 \x01(\x01R\x01v\"\xd7\x01\n\nTimeseries\x12M\n\x06labels\x18\x01 \x03(\x0b\x32\x35.examples.integrations.prom.v1.Timeseries.LabelsEntryR\x06labels\x12?\n\x07samples\x18\x02 \x03(\x0b\x32%.examples.integrations.prom.v1.SampleR\x07samples\x1a\x39\n\x0bLabelsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"W\n\x12QueryRangeResponse\x12\x41\n\x06series\x18\x01 \x03(\x0b\x32).examples.integrations.prom.v1.TimeseriesR\x06seriesB\x87\x01\n9io.github.cuihairu.croupier.examples.integrations.prom.v1P\x01ZHgithub.com/cuihairu/croupier/pkg/pb/examples/integrations/prom/v1;promv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,24 +22,16 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'examples.integrations.prom.
 if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['DESCRIPTOR']._options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n9io.github.cuihairu.croupier.examples.integrations.prom.v1P\001ZHgithub.com/cuihairu/croupier/pkg/pb/examples/integrations/prom/v1;promv1'
-  _globals['_QUERYRANGEREQUEST'].fields_by_name['expr']._options = None
-  _globals['_QUERYRANGEREQUEST'].fields_by_name['expr']._serialized_options = b'\212\262\0311\n\010textarea\022\006PromQL\032\035rate(http_requests_total[5m])'
-  _globals['_QUERYRANGEREQUEST'].fields_by_name['start']._options = None
-  _globals['_QUERYRANGEREQUEST'].fields_by_name['start']._serialized_options = b'\212\262\031\024\n\004date\022\014\345\274\200\345\247\213\346\227\266\351\227\264'
-  _globals['_QUERYRANGEREQUEST'].fields_by_name['end']._options = None
-  _globals['_QUERYRANGEREQUEST'].fields_by_name['end']._serialized_options = b'\212\262\031\024\n\004date\022\014\347\273\223\346\235\237\346\227\266\351\227\264'
-  _globals['_QUERYRANGEREQUEST'].fields_by_name['step']._options = None
-  _globals['_QUERYRANGEREQUEST'].fields_by_name['step']._serialized_options = b'\212\262\031\r\022\006\346\255\245\351\225\277\032\00330s'
   _globals['_TIMESERIES_LABELSENTRY']._options = None
   _globals['_TIMESERIES_LABELSENTRY']._serialized_options = b'8\001'
-  _globals['_QUERYRANGEREQUEST']._serialized_start=116
-  _globals['_QUERYRANGEREQUEST']._serialized_end=341
-  _globals['_SAMPLE']._serialized_start=343
-  _globals['_SAMPLE']._serialized_end=379
-  _globals['_TIMESERIES']._serialized_start=382
-  _globals['_TIMESERIES']._serialized_end=597
-  _globals['_TIMESERIES_LABELSENTRY']._serialized_start=540
-  _globals['_TIMESERIES_LABELSENTRY']._serialized_end=597
-  _globals['_QUERYRANGERESPONSE']._serialized_start=599
-  _globals['_QUERYRANGERESPONSE']._serialized_end=686
+  _globals['_QUERYRANGEREQUEST']._serialized_start=75
+  _globals['_QUERYRANGEREQUEST']._serialized_end=174
+  _globals['_SAMPLE']._serialized_start=176
+  _globals['_SAMPLE']._serialized_end=212
+  _globals['_TIMESERIES']._serialized_start=215
+  _globals['_TIMESERIES']._serialized_end=430
+  _globals['_TIMESERIES_LABELSENTRY']._serialized_start=373
+  _globals['_TIMESERIES_LABELSENTRY']._serialized_end=430
+  _globals['_QUERYRANGERESPONSE']._serialized_start=432
+  _globals['_QUERYRANGERESPONSE']._serialized_end=519
 # @@protoc_insertion_point(module_scope)

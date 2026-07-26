@@ -30,7 +30,6 @@
 #include "google/protobuf/repeated_field.h"  // IWYU pragma: export
 #include "google/protobuf/extension_set.h"  // IWYU pragma: export
 #include "google/protobuf/unknown_field_set.h"
-#include "croupier/component/v1/ui_options.pb.h"
 // @@protoc_insertion_point(includes)
 
 // Must be included last.
@@ -435,7 +434,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED BanRequest final : public ::google:
     kPlayerIdFieldNumber = 1,
     kReasonFieldNumber = 2,
   };
-  // string player_id = 1 [json_name = "playerId", (.croupier.component.v1.ui) = {
+  // string player_id = 1 [json_name = "playerId"];
   void clear_player_id() ;
   [[nodiscard]] const ::std::string& player_id() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -450,7 +449,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED BanRequest final : public ::google:
   ::std::string* PROTOBUF_NONNULL _internal_mutable_player_id();
 
   public:
-  // string reason = 2 [json_name = "reason", (.croupier.component.v1.ui) = {
+  // string reason = 2 [json_name = "reason"];
   void clear_reason() ;
   [[nodiscard]] const ::std::string& reason() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -519,7 +518,7 @@ extern const ::google::protobuf::internal::ClassDataFull BanRequest_class_data_;
 
 // BanRequest
 
-// string player_id = 1 [json_name = "playerId", (.croupier.component.v1.ui) = {
+// string player_id = 1 [json_name = "playerId"];
 inline void BanRequest::clear_player_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.player_id_.ClearToEmpty();
@@ -584,7 +583,7 @@ inline void BanRequest::set_allocated_player_id(::std::string* PROTOBUF_NULLABLE
   // @@protoc_insertion_point(field_set_allocated:examples.games.player.v1.BanRequest.player_id)
 }
 
-// string reason = 2 [json_name = "reason", (.croupier.component.v1.ui) = {
+// string reason = 2 [json_name = "reason"];
 inline void BanRequest::clear_reason() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.reason_.ClearToEmpty();

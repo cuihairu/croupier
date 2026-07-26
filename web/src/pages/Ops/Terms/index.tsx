@@ -3,13 +3,21 @@ import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-compon
 import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Tag } from 'antd';
 import { deleteTerm, listTerms, type TermItem, upsertTerm } from '@/services/api/terms';
 
-type DomainType = 'entity' | 'operation';
+type DomainType = TermItem['domain'];
+
+const domainOptions: { label: string; value: DomainType }[] = [
+  { label: 'Resource', value: 'resource' },
+  { label: 'Operation', value: 'operation' },
+];
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : '加载术语失败';
 
 export default function TermsPage() {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<TermItem[]>([]);
-  const [domain, setDomain] = useState<DomainType>('entity');
+  const [domain, setDomain] = useState<DomainType>('resource');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TermItem | null>(null);
   const [form] = Form.useForm();
@@ -20,8 +28,8 @@ export default function TermsPage() {
       const res = await listTerms(domain);
       const items = Array.isArray(res) ? res : res?.items || [];
       setRows(items);
-    } catch (e: any) {
-      message.error(e?.message || '加载术语失败');
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -38,7 +46,7 @@ export default function TermsPage() {
         dataIndex: 'domain',
         width: 120,
         render: (_, row) => (
-          <Tag color={row.domain === 'entity' ? 'blue' : 'purple'}>{row.domain}</Tag>
+          <Tag color={row.domain === 'resource' ? 'blue' : 'purple'}>{row.domain}</Tag>
         ),
       },
       { title: 'Key', dataIndex: 'term_key', width: 140 },
@@ -88,17 +96,14 @@ export default function TermsPage() {
   return (
     <PageContainer
       title="术语字典"
-      subTitle="维护实体/操作术语映射，影响动态菜单分组与显示"
+      subTitle="维护资源/操作术语别名与展示提示；运行控制台菜单只来自已发布 PageSpec"
       extra={[
         <Select
           key="domain"
           value={domain}
           style={{ width: 140 }}
           onChange={(v) => setDomain(v)}
-          options={[
-            { label: 'Entity', value: 'entity' },
-            { label: 'Operation', value: 'operation' },
-          ]}
+          options={domainOptions}
         />,
         <Button
           key="add"
@@ -132,16 +137,12 @@ export default function TermsPage() {
           message.success('保存成功');
           setOpen(false);
           load();
-          window.dispatchEvent(new CustomEvent('function-route:changed'));
         }}
       >
         <Form form={form} layout="vertical">
           <Form.Item name="domain" label="Domain" rules={[{ required: true }]}>
             <Select
-              options={[
-                { label: 'Entity', value: 'entity' },
-                { label: 'Operation', value: 'operation' },
-              ]}
+              options={domainOptions}
             />
           </Form.Item>
           <Form.Item name="term_key" label="Key" rules={[{ required: true }]}>

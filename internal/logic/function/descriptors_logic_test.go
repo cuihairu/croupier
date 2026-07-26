@@ -67,15 +67,10 @@ func TestDescriptorsV2_OpenAPIOperationProvidesParams(t *testing.T) {
 			}),
 		),
 		Extensions: map[string]interface{}{
-			"x-category":          "ops",
-			"x-risk":              "high",
-			"x-entity":            "player",
-			"x-operation":         "ban",
-			"x-operation-kind":    "action",
-			"x-placement":         "rowAction",
-			"x-category-display":  map[string]interface{}{"zh-CN": "运营", "en-US": "Operations"},
-			"x-entity-display":    map[string]interface{}{"zh-CN": "玩家", "en-US": "Player"},
-			"x-operation-display": map[string]interface{}{"zh-CN": "封禁", "en-US": "Ban"},
+			"x-resource":   "player",
+			"x-risk":       "high",
+			"x-operation":  "ban",
+			"x-permission": "player.ban",
 		},
 	})
 	if err != nil {
@@ -100,35 +95,23 @@ func TestDescriptorsV2_OpenAPIOperationProvidesParams(t *testing.T) {
 	if fn.ID != "player.ban" {
 		t.Fatalf("unexpected id: %v", fn.ID)
 	}
-	if fn.Category != "ops" {
-		t.Fatalf("unexpected category: %v", fn.Category)
-	}
 	if fn.Risk != "high" {
 		t.Fatalf("unexpected risk: %v", fn.Risk)
 	}
-	if fn.Entity != "player" {
-		t.Fatalf("unexpected entity: %v", fn.Entity)
+	if fn.Resource != "player" {
+		t.Fatalf("unexpected resource: %v", fn.Resource)
 	}
 	if fn.Operation != "ban" {
 		t.Fatalf("unexpected operation: %v", fn.Operation)
 	}
-	if fn.OperationKind != "action" {
-		t.Fatalf("unexpected operationKind: %v", fn.OperationKind)
-	}
-	if fn.Placement != "rowAction" {
-		t.Fatalf("unexpected placement: %v", fn.Placement)
-	}
-	if fn.CategoryDisplay["zh-CN"] != "运营" || fn.EntityDisplay["zh-CN"] != "玩家" || fn.OperationDisplay["zh-CN"] != "封禁" {
-		t.Fatalf("unexpected localized labels: category=%v entity=%v operation=%v", fn.CategoryDisplay, fn.EntityDisplay, fn.OperationDisplay)
+	if fn.Permission != "player.ban" {
+		t.Fatalf("unexpected permission: %v", fn.Permission)
 	}
 	if fn.Description == nil || !strings.Contains(fn.Description["en-US"], "Ban a player account") {
 		t.Fatalf("unexpected description: %v", fn.Description)
 	}
 	if fn.Summary == nil || !strings.Contains(fn.Summary["en-US"], "Ban") {
 		t.Fatalf("unexpected summary: %v", fn.Summary)
-	}
-	if fn.DisplayName == nil || !strings.Contains(fn.DisplayName["en-US"], "Ban") {
-		t.Fatalf("unexpected displayName: %v", fn.DisplayName)
 	}
 	if fn.InputSchema == nil {
 		t.Fatalf("inputSchema should not be nil")
@@ -150,7 +133,6 @@ func TestDescriptorsV2_DoesNotInferPageSemanticsFromFunctionID(t *testing.T) {
 		Summary:     "Ban Player",
 		Description: "Ban a player account",
 		Extensions: map[string]interface{}{
-			"x-category":  "ops",
 			"x-risk":      "high",
 			"x-operation": "ban",
 		},
@@ -168,20 +150,17 @@ func TestDescriptorsV2_DoesNotInferPageSemanticsFromFunctionID(t *testing.T) {
 	}
 
 	fn := result.Functions[0]
-	if fn.Entity != "" {
-		t.Fatalf("entity must not be inferred from function id, got %q", fn.Entity)
-	}
-	if fn.OperationKind != "" || fn.Placement != "" {
-		t.Fatalf("page semantics must not be inferred, got kind=%q placement=%q", fn.OperationKind, fn.Placement)
+	if fn.Resource != "" {
+		t.Fatalf("resource must not be inferred from function id, got %q", fn.Resource)
 	}
 	if len(fn.Diagnostics) == 0 {
-		t.Fatalf("expected diagnostics for missing v2 page semantics")
+		t.Fatalf("expected diagnostics for missing resource")
 	}
 	codes := map[string]bool{}
 	for _, diag := range fn.Diagnostics {
 		codes[diag.Code] = true
 	}
-	if !codes["operation_kind_missing"] || !codes["placement_missing"] {
-		t.Fatalf("expected missing kind/placement diagnostics, got %#v", fn.Diagnostics)
+	if !codes["resource_missing"] {
+		t.Fatalf("expected missing resource diagnostics, got %#v", fn.Diagnostics)
 	}
 }

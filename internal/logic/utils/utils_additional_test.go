@@ -134,41 +134,6 @@ func TestNormalizeDateRange(t *testing.T) {
 	}
 }
 
-func TestValidateEntityType(t *testing.T) {
-	tests := []struct {
-		name    string
-		typ     string
-		wantErr bool
-	}{
-		{
-			name:    "valid type",
-			typ:     "player",
-			wantErr: false,
-		},
-		{
-			name:    "with whitespace",
-			typ:     " player ",
-			wantErr: false,
-		},
-		{
-			name:    "empty type",
-			typ:     "",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := ValidateEntityType(tt.typ)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
 func TestValidateNodeID(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -444,45 +409,6 @@ func TestBuildNode(t *testing.T) {
 	assert.Equal(t, "online", result.Status)
 	assert.Equal(t, "192.168.1.1", result.IP)
 	assert.Equal(t, 8080, result.Port)
-}
-
-func TestBuildEntityDTO(t *testing.T) {
-	entity := &model.Entity{
-		Model:      gorm.Model{ID: 789},
-		Type:       "player",
-		Data:       datatypes.JSON(`{"level": 5, "score": 100}`),
-		ProviderID: "provider-1",
-		Status:     1,
-	}
-
-	result := BuildEntityDTO(entity)
-
-	assert.Equal(t, uint(789), result["id"])
-	assert.Equal(t, "player", result["type"])
-	assert.NotNil(t, result["data"])
-	assert.Equal(t, "provider-1", result["providerId"])
-	assert.Equal(t, 1, result["status"])
-}
-
-func TestBuildEntityDTONil(t *testing.T) {
-	// BuildEntityDTO doesn't handle nil - it will panic
-	// This is expected behavior based on the implementation
-	t.Skip("BuildEntityDTO doesn't handle nil - would panic")
-}
-
-func TestBuildEntityDTOInvalidJSON(t *testing.T) {
-	entity := &model.Entity{
-		Model:      gorm.Model{ID: 789},
-		Type:       "player",
-		Data:       datatypes.JSON(`invalid json`),
-		ProviderID: "provider-1",
-		Status:     1,
-	}
-
-	result := BuildEntityDTO(entity)
-
-	// Should fall back to string representation
-	assert.NotNil(t, result["data"])
 }
 
 func TestBuildMessageDTO(t *testing.T) {

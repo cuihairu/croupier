@@ -88,18 +88,18 @@ class TestFunctionDescriptorValidation:
         desc = FunctionDescriptor(
             id="test.func",
             version="1.0.0",
-            category=None,
+            resource=None,
             risk=None,
-            entity=None,
-            operation=None
+            operation=None,
+            permission=None,
         )
 
         assert desc.id == "test.func"
         assert desc.version == "1.0.0"
-        assert desc.category is None
+        assert desc.resource is None
         assert desc.risk is None
-        assert desc.entity is None
         assert desc.operation is None
+        assert desc.permission is None
 
 
 class TestFunctionContextValidation:
@@ -577,7 +577,7 @@ class TestIDValidation:
         """Test function ID format."""
         valid_ids = [
             "test.function",
-            "category.entity.operation",
+            "player.ban",
             "a.b.c",
             "function123",  # Single function name without dots is also valid
         ]

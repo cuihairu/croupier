@@ -18,25 +18,15 @@ import (
 
 // OpenAPI types for specification generation
 type OpenAPIOperation struct {
-	ID          string            `json:"operationId"`
-	Summary     map[string]string `json:"summary,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Category    string            `json:"x-category,omitempty"`
-	Risk        string            `json:"x-risk,omitempty"`
-	Entity      string            `json:"x-entity,omitempty"`
-	Operation   string            `json:"x-operation,omitempty"`
-	Labels      map[string]string `json:"x-labels,omitempty"`
-	Request     map[string]any    `json:"request,omitempty"`
-	Response    map[string]any    `json:"response,omitempty"`
-}
-
-type OpenAPIEntity struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Category    string            `json:"x-category,omitempty"`
-	DisplayName map[string]string `json:"display_name,omitempty"`
-	Summary     map[string]string `json:"summary,omitempty"`
+	ID          string         `json:"operationId"`
+	Summary     string         `json:"summary,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Resource    string         `json:"x-resource,omitempty"`
+	Operation   string         `json:"x-operation,omitempty"`
+	Risk        string         `json:"x-risk,omitempty"`
+	Permission  string         `json:"x-permission,omitempty"`
+	Request     map[string]any `json:"request,omitempty"`
+	Response    map[string]any `json:"response,omitempty"`
 }
 
 func main() {
@@ -76,7 +66,6 @@ func main() {
 
 	// OpenAPI output collection
 	openapiOps := make([]OpenAPIOperation, 0)
-	openapiEntities := make([]OpenAPIEntity, 0)
 
 	var generatedFiles []generatedFile
 	emittedSchemas := map[string]bool{}
@@ -90,9 +79,8 @@ func main() {
 
 		for _, svc := range fd.GetService() {
 			for _, m := range svc.GetMethod() {
-				// Derive function spec (basic defaults; custom options TODO)
+				// Derive function spec.
 				funID := defaultFunctionID(pkg, svc.GetName(), m.GetName())
-				category := defaultCategory(pkg)
 
 				// Transport info
 				inType := strings.TrimPrefix(m.GetInputType(), ".")
@@ -105,7 +93,6 @@ func main() {
 				op := OpenAPIOperation{
 					ID:          funID,
 					Description: fmt.Sprintf("gRPC method: %s.%s/%s", pkg, svc.GetName(), m.GetName()),
-					Category:    category,
 				}
 
 				// Apply overrides from function options
@@ -113,22 +100,24 @@ func main() {
 					op.ID = fo.FunctionID
 					funID = fo.FunctionID
 				}
-				if fo.Category != "" {
-					op.Category = fo.Category
+				if fo.Resource != "" {
+					op.Resource = fo.Resource
+				}
+				if fo.Operation != "" {
+					op.Operation = fo.Operation
 				}
 				if fo.Risk != "" {
 					op.Risk = strings.ToLower(fo.Risk)
 				}
-				if len(fo.DisplayName) > 0 {
-					op.Summary = fo.DisplayName
+				if fo.Permission != "" {
+					op.Permission = fo.Permission
 				}
-				if len(fo.Summary) > 0 {
+				if fo.Summary != "" {
 					op.Summary = fo.Summary
 				}
-				if len(fo.Labels) > 0 {
-					op.Labels = fo.Labels
+				if fo.Description != "" {
+					op.Description = fo.Description
 				}
-
 				// Add request/response schema references
 				op.Request = map[string]any{"proto_fqn": inType}
 				op.Response = map[string]any{"proto_fqn": outType}
@@ -157,65 +146,11 @@ func main() {
 				openapiOps = append(openapiOps, op)
 			}
 		}
-
-		// ========== Process entities (messages with (croupier.options.entity) option) ==========
-		for _, msg := range fd.GetMessageType() {
-			eo := parseEntityOptions(msg.GetOptions())
-			if eo.EntityID == "" && !hasEntityExtension(msg.GetOptions()) {
-				continue
-			}
-
-			// Default entity ID
-			entityID := eo.EntityID
-			if entityID == "" {
-				entityID = defaultEntityID(pkg, msg.GetName())
-			}
-			category := eo.Category
-			if category == "" {
-				category = defaultCategory(pkg)
-			}
-			name := eo.Name
-			if name == "" {
-				name = msg.GetName()
-			}
-			description := eo.Description
-			if description == "" {
-				description = fmt.Sprintf("%s entity definition", name)
-			}
-
-			// Build JSON Schema for the entity
-			entitySchema := buildJSONSchema(pkg, globalMsgIndex, globalEnumIndex, msg)
-
-			// Add entity-specific annotations to schema (primary_key, searchable, etc.)
-			addEntityHintsToSchema(entitySchema, msg, eo)
-
-			// Emit schema file
-			schemaFile := schemaFileForFQN("." + pkg + "." + msg.GetName())
-			if !emittedSchemas[schemaFile] {
-				addJSON(resp, &generatedFiles, schemaFile, entitySchema)
-				emittedSchemas[schemaFile] = true
-			}
-
-			// Add to OpenAPI entities
-			ent := OpenAPIEntity{
-				ID:          entityID,
-				Name:        name,
-				Description: description,
-				Category:    category,
-			}
-			if len(eo.DisplayName) > 0 {
-				ent.DisplayName = eo.DisplayName
-			}
-			if len(eo.Summary) > 0 {
-				ent.Summary = eo.Summary
-			}
-			openapiEntities = append(openapiEntities, ent)
-		}
 	}
 
 	// Generate OpenAPI 3.0.3 spec
-	if len(openapiOps) > 0 || len(openapiEntities) > 0 {
-		openapiDoc := buildOpenAPIDoc(openapiOps, openapiEntities, params)
+	if len(openapiOps) > 0 {
+		openapiDoc := buildOpenAPIDoc(openapiOps, params)
 		addYAML(resp, &generatedFiles, "openapi.yaml", openapiDoc)
 	}
 
@@ -248,7 +183,7 @@ func addYAML(resp *pluginpb.CodeGeneratorResponse, files *[]generatedFile, name 
 	*files = append(*files, generatedFile{Name: name, Data: b})
 }
 
-func buildOpenAPIDoc(ops []OpenAPIOperation, entities []OpenAPIEntity, params map[string]string) map[string]any {
+func buildOpenAPIDoc(ops []OpenAPIOperation, params map[string]string) map[string]any {
 	doc := map[string]any{
 		"openapi": "3.0.3",
 		"info": map[string]any{
@@ -266,7 +201,7 @@ func buildOpenAPIDoc(ops []OpenAPIOperation, entities []OpenAPIEntity, params ma
 		pathItem := map[string]any{
 			"post": map[string]any{
 				"operationId": op.ID,
-				"summary":     getFirstLocalizedString(op.Summary, op.ID),
+				"summary":     firstNonEmpty(op.Summary, op.ID),
 				"description": op.Description,
 				"requestBody": map[string]any{
 					"content": map[string]any{
@@ -291,63 +226,28 @@ func buildOpenAPIDoc(ops []OpenAPIOperation, entities []OpenAPIEntity, params ma
 						},
 					},
 				},
-				"x-category": op.Category,
-				"x-request":  op.Request,
+				"x-request": op.Request,
 				"x-response": op.Response,
 			},
 		}
 
 		// Add optional extensions
-		if op.Risk != "" {
-			pathItem["post"].(map[string]any)["x-risk"] = op.Risk
-		}
-		if op.Entity != "" {
-			pathItem["post"].(map[string]any)["x-entity"] = op.Entity
+		if op.Resource != "" {
+			pathItem["post"].(map[string]any)["x-resource"] = op.Resource
 		}
 		if op.Operation != "" {
 			pathItem["post"].(map[string]any)["x-operation"] = op.Operation
 		}
-		if len(op.Labels) > 0 {
-			pathItem["post"].(map[string]any)["x-labels"] = op.Labels
+		if op.Risk != "" {
+			pathItem["post"].(map[string]any)["x-risk"] = op.Risk
 		}
-
+		if op.Permission != "" {
+			pathItem["post"].(map[string]any)["x-permission"] = op.Permission
+		}
 		paths[path] = pathItem
 	}
 
-	// Add components for entities if any
-	if len(entities) > 0 {
-		doc["components"] = map[string]any{
-			"x-entities": map[string]any{},
-		}
-		entitiesMap := doc["components"].(map[string]any)["x-entities"].(map[string]any)
-		for _, ent := range entities {
-			entitiesMap[ent.ID] = map[string]any{
-				"id":          ent.ID,
-				"name":        ent.Name,
-				"description": ent.Description,
-				"x-category":  ent.Category,
-			}
-			if len(ent.DisplayName) > 0 {
-				entitiesMap[ent.ID].(map[string]any)["display_name"] = ent.DisplayName
-			}
-			if len(ent.Summary) > 0 {
-				entitiesMap[ent.ID].(map[string]any)["summary"] = ent.Summary
-			}
-		}
-	}
-
 	return doc
-}
-
-func getFirstLocalizedString(m map[string]string, defaultVal string) string {
-	if len(m) == 0 {
-		return defaultVal
-	}
-	// Return first value or default
-	for _, v := range m {
-		return v
-	}
-	return defaultVal
 }
 
 func parseParams(p string) map[string]string {
@@ -544,17 +444,6 @@ func defaultFunctionID(pkg, svc, method string) string {
 	return strings.ToLower(id)
 }
 
-func defaultCategory(pkg string) string {
-	parts := strings.Split(pkg, ".")
-	if len(parts) >= 2 {
-		return parts[len(parts)-2]
-	}
-	if len(parts) == 1 {
-		return parts[0]
-	}
-	return "general"
-}
-
 func firstNonEmpty(values ...string) string {
 	for _, v := range values {
 		v = strings.TrimSpace(v)
@@ -624,20 +513,20 @@ func parseBool(s string) bool {
 type funcOpts struct {
 	FunctionID        string
 	Version           string
-	Category          string
+	Resource          string
+	Operation         string
 	Risk              string
 	Route             string
 	Timeout           string
 	TwoPersonRule     bool
 	TwoPersonRuleSet  bool
-	Placement         string
 	Mode              string
 	IdempotencyKey    bool
 	IdempotencyKeySet bool
-	Labels            map[string]string
-	DisplayName       map[string]string
-	Summary           map[string]string
+	Summary           string
+	Description       string
 	Tags              []string
+	Permission        string
 }
 
 func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
@@ -652,33 +541,22 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 		if fn, ok := ext.(*ui.FunctionOptions); ok && fn != nil {
 			out.FunctionID = strings.TrimSpace(fn.GetFunctionId())
 			out.Version = strings.TrimSpace(fn.GetVersion())
-			out.Category = strings.TrimSpace(fn.GetCategory())
+			out.Resource = strings.TrimSpace(fn.GetResource())
+			out.Operation = strings.TrimSpace(fn.GetOperation())
 			out.Risk = strings.TrimSpace(fn.GetRisk())
 			out.Route = strings.TrimSpace(fn.GetRoute())
 			out.Timeout = strings.TrimSpace(fn.GetTimeout())
 			out.TwoPersonRule = fn.GetTwoPersonRule()
 			out.TwoPersonRuleSet = true
-			out.Placement = strings.TrimSpace(fn.GetPlacement())
 			out.Mode = strings.TrimSpace(fn.GetMode())
 			out.IdempotencyKey = fn.GetIdempotencyKey()
 			out.IdempotencyKeySet = true
-			if len(fn.GetLabels()) > 0 {
-				out.Labels = map[string]string{}
-				for k, v := range fn.GetLabels() {
-					out.Labels[k] = v
-				}
-			}
-			if dn := i18nToMap(fn.GetDisplayName()); len(dn) > 0 {
-				out.DisplayName = dn
-			}
-			if sm := i18nToMap(fn.GetSummary()); len(sm) > 0 {
-				out.Summary = sm
-			}
+			out.Summary = strings.TrimSpace(fn.GetSummary())
+			out.Description = strings.TrimSpace(fn.GetDescription())
 			if len(fn.GetTags()) > 0 {
 				out.Tags = append([]string{}, fn.GetTags()...)
 			}
-			// Note: UI fields (menu, permissions) are deprecated in proto
-			// and no longer extracted. See docs/architecture/ui-generation.md.
+			out.Permission = strings.TrimSpace(fn.GetPermission())
 			return out
 		}
 	}
@@ -697,8 +575,11 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 		if v := kv["version"]; v != "" {
 			out.Version = trimQuotes(v)
 		}
-		if v := kv["category"]; v != "" {
-			out.Category = trimQuotes(v)
+		if v := kv["resource"]; v != "" {
+			out.Resource = trimQuotes(v)
+		}
+		if v := kv["operation"]; v != "" {
+			out.Operation = trimQuotes(v)
 		}
 		if v := kv["risk"]; v != "" {
 			out.Risk = trimQuotes(v)
@@ -706,30 +587,18 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 		if v := kv["two_person_rule"]; v != "" {
 			out.TwoPersonRule, out.TwoPersonRuleSet = parseBool(v), true
 		}
-		if m := parseOptionObjectMap(raw, "labels"); len(m) > 0 {
-			out.Labels = m
+		if v := kv["summary"]; v != "" {
+			out.Summary = trimQuotes(v)
+		}
+		if v := kv["description"]; v != "" {
+			out.Description = trimQuotes(v)
+		}
+		if v := kv["permission"]; v != "" {
+			out.Permission = trimQuotes(v)
 		}
 	}
 	return out
 }
-
-func i18nToMap(t *ui.I18NText) map[string]string {
-	if t == nil {
-		return nil
-	}
-	out := map[string]string{}
-	if v := strings.TrimSpace(t.GetEn()); v != "" {
-		out["en"] = v
-	}
-	if v := strings.TrimSpace(t.GetZh()); v != "" {
-		out["zh"] = v
-	}
-	return out
-}
-
-// menuToMap, permissionToMap were removed.
-// Menu and permissions are deprecated UI concerns.
-// See docs/architecture/ui-generation.md.
 
 func parseAggregateKV(s string) map[string]string {
 	// very small tolerant parser for key: value pairs inside {...}
@@ -941,147 +810,6 @@ func parseOptionObjectMap(s, fieldName string) map[string]string {
 	}
 	return res
 }
-
-// ========== Entity helpers ==========
-
-type entityOptions struct {
-	EntityID         string
-	Version          string
-	Name             string
-	Description      string
-	Category         string
-	PrimaryKey       string
-	DisplayField     string
-	TitleTemplate    string
-	AvatarField      string
-	StatusField      string
-	CreateFunctions  []string
-	ReadFunctions    []string
-	UpdateFunctions  []string
-	DeleteFunctions  []string
-	ListFunctions    []string
-	CustomOperations map[string]string
-	DisplayName      map[string]string
-	Summary          map[string]string
-	Tags             []string
-	Menu             map[string]any
-}
-
-func parseEntityOptions(mo *descriptorpb.MessageOptions) entityOptions {
-	var out entityOptions
-
-	if mo == nil {
-		return out
-	}
-
-	// For now, only parse from UninterpretedOption (proto-first workflow)
-	for _, u := range mo.GetUninterpretedOption() {
-		name := joinOptionName(u)
-		if name != "croupier.options.v1.entity" {
-			continue
-		}
-		raw := u.GetAggregateValue()
-		kv := parseAggregateKV(raw)
-		if v := kv["entity_id"]; v != "" {
-			out.EntityID = trimQuotes(v)
-		}
-		if v := kv["version"]; v != "" {
-			out.Version = trimQuotes(v)
-		}
-		if v := kv["name"]; v != "" {
-			out.Name = trimQuotes(v)
-		}
-		if v := kv["description"]; v != "" {
-			out.Description = trimQuotes(v)
-		}
-		if v := kv["category"]; v != "" {
-			out.Category = trimQuotes(v)
-		}
-		if v := kv["primary_key"]; v != "" {
-			out.PrimaryKey = trimQuotes(v)
-		}
-		if v := kv["display_field"]; v != "" {
-			out.DisplayField = trimQuotes(v)
-		}
-		if v := kv["title_template"]; v != "" {
-			out.TitleTemplate = trimQuotes(v)
-		}
-		if v := kv["avatar_field"]; v != "" {
-			out.AvatarField = trimQuotes(v)
-		}
-		if v := kv["status_field"]; v != "" {
-			out.StatusField = trimQuotes(v)
-		}
-	}
-
-	return out
-}
-
-func hasEntityExtension(mo *descriptorpb.MessageOptions) bool {
-	if mo == nil {
-		return false
-	}
-	// Check uninterpreted options for entity extension
-	for _, u := range mo.GetUninterpretedOption() {
-		if joinOptionName(u) == "croupier.options.v1.entity" {
-			return true
-		}
-	}
-	return false
-}
-
-func defaultEntityID(pkg, msg string) string {
-	id := pkg + "." + msg
-	id = strings.ReplaceAll(id, " ", "")
-	return strings.ToLower(id)
-}
-
-func addEntityHintsToSchema(schema map[string]any, msg *descriptorpb.DescriptorProto, eo entityOptions) {
-	props, ok := schema["properties"].(map[string]any)
-	if !ok {
-		return
-	}
-
-	// Determine primary key
-	primaryKey := eo.PrimaryKey
-	if primaryKey == "" {
-		// Default to first string field
-		for _, f := range msg.GetField() {
-			if f.GetType() == descriptorpb.FieldDescriptorProto_TYPE_STRING {
-				primaryKey = f.GetJsonName()
-				if primaryKey == "" {
-					primaryKey = f.GetName()
-				}
-				break
-			}
-		}
-	}
-
-	// Add hints to each property
-	for _, f := range msg.GetField() {
-		name := f.GetJsonName()
-		if name == "" {
-			name = f.GetName()
-		}
-		prop, ok := props[name]
-		if !ok {
-			continue
-		}
-		propMap, ok := prop.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		// Mark primary key
-		if name == primaryKey {
-			propMap["primary_key"] = true
-		}
-	}
-}
-
-// UIFieldHints and collectUIFieldHints were removed.
-// Field-level UI hints (widget, label, placeholder, show_if) are no longer
-// extracted from proto. UI generation is handled entirely by the Server side.
 
 func fatalf(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", a...)

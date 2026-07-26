@@ -38,7 +38,7 @@ public class SecurityTests
             {
                 Id = attempt,
                 Version = "1.0.0",
-                Category = "test",
+                Resource = "test",
                 Risk = "low"
             };
 

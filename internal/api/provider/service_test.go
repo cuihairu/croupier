@@ -47,9 +47,8 @@ func createTestOpenAPIDoc() []byte {
 			OperationID: "listUsers",
 			Summary:     "List all users",
 			Extensions: map[string]interface{}{
-				"x-category":  "users",
+				"x-resource":  "user",
 				"x-risk":      "low",
-				"x-entity":    "user",
 				"x-operation": "list",
 			},
 		},
@@ -57,9 +56,8 @@ func createTestOpenAPIDoc() []byte {
 			OperationID: "createUser",
 			Summary:     "Create a new user",
 			Extensions: map[string]interface{}{
-				"x-category":  "users",
+				"x-resource":  "user",
 				"x-risk":      "medium",
-				"x-entity":    "user",
 				"x-operation": "create",
 			},
 		},
@@ -69,8 +67,7 @@ func createTestOpenAPIDoc() []byte {
 			OperationID: "listPosts",
 			Summary:     "List all posts",
 			Extensions: map[string]interface{}{
-				"x-category": "posts",
-				"x-entity":   "post",
+				"x-resource": "post",
 			},
 		},
 	})
@@ -263,16 +260,16 @@ func TestOpenAPIDocEntities_WithXEntities(t *testing.T) {
 	}
 }
 
-func TestOpenAPIDocEntities_WithXEntity(t *testing.T) {
+func TestOpenAPIDocEntities_WithXResource(t *testing.T) {
 	t.Parallel()
 
-	// Create doc with x-entity in operations but no x-entities
+	// Create doc with x-resource in operations but no x-entities
 	paths := openapi3.NewPaths()
 	paths.Set("/items", &openapi3.PathItem{
 		Get: &openapi3.Operation{
 			OperationID: "listItems",
 			Extensions: map[string]interface{}{
-				"x-entity": "item",
+				"x-resource": "item",
 			},
 		},
 	})

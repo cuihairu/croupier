@@ -256,41 +256,33 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 const char descriptor_table_protodef_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n(examples/integrations/prom/v1/prom.pro"
-    "to\022\035examples.integrations.prom.v1\032&croup"
-    "ier/component/v1/ui_options.proto\"\341\001\n\021Qu"
-    "eryRangeRequest\022I\n\004expr\030\001 \001(\tB5\212\262\0311\n\010tex"
-    "tarea\022\006PromQL\032\035rate(http_requests_total["
-    "5m])R\004expr\022.\n\005start\030\002 \001(\tB\030\212\262\031\024\n\004date\022\014\345"
-    "\274\200\345\247\213\346\227\266\351\227\264R\005start\022*\n\003end\030\003 \001(\tB\030\212\262\031\024\n\004d"
-    "ate\022\014\347\273\223\346\235\237\346\227\266\351\227\264R\003end\022%\n\004step\030\004 \001(\tB\021\212\262"
-    "\031\r\022\006\346\255\245\351\225\277\032\00330sR\004step\"$\n\006Sample\022\014\n\001t\030\001 \001"
-    "(\003R\001t\022\014\n\001v\030\002 \001(\001R\001v\"\327\001\n\nTimeseries\022M\n\006la"
-    "bels\030\001 \003(\01325.examples.integrations.prom."
-    "v1.Timeseries.LabelsEntryR\006labels\022\?\n\007sam"
-    "ples\030\002 \003(\0132%.examples.integrations.prom."
-    "v1.SampleR\007samples\0329\n\013LabelsEntry\022\020\n\003key"
-    "\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005value:\0028\001\"W\n"
-    "\022QueryRangeResponse\022A\n\006series\030\001 \003(\0132).ex"
-    "amples.integrations.prom.v1.TimeseriesR\006"
-    "seriesB\207\001\n9io.github.cuihairu.croupier.e"
-    "xamples.integrations.prom.v1P\001ZHgithub.c"
-    "om/cuihairu/croupier/pkg/pb/examples/int"
-    "egrations/prom/v1;promv1b\006proto3"
-};
-static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
-    descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto_deps[1] = {
-        &::descriptor_table_croupier_2fcomponent_2fv1_2fui_5foptions_2eproto,
+    "to\022\035examples.integrations.prom.v1\"c\n\021Que"
+    "ryRangeRequest\022\022\n\004expr\030\001 \001(\tR\004expr\022\024\n\005st"
+    "art\030\002 \001(\tR\005start\022\020\n\003end\030\003 \001(\tR\003end\022\022\n\004st"
+    "ep\030\004 \001(\tR\004step\"$\n\006Sample\022\014\n\001t\030\001 \001(\003R\001t\022\014"
+    "\n\001v\030\002 \001(\001R\001v\"\327\001\n\nTimeseries\022M\n\006labels\030\001 "
+    "\003(\01325.examples.integrations.prom.v1.Time"
+    "series.LabelsEntryR\006labels\022\?\n\007samples\030\002 "
+    "\003(\0132%.examples.integrations.prom.v1.Samp"
+    "leR\007samples\0329\n\013LabelsEntry\022\020\n\003key\030\001 \001(\tR"
+    "\003key\022\024\n\005value\030\002 \001(\tR\005value:\0028\001\"W\n\022QueryR"
+    "angeResponse\022A\n\006series\030\001 \003(\0132).examples."
+    "integrations.prom.v1.TimeseriesR\006seriesB"
+    "\207\001\n9io.github.cuihairu.croupier.examples"
+    ".integrations.prom.v1P\001ZHgithub.com/cuih"
+    "airu/croupier/pkg/pb/examples/integratio"
+    "ns/prom/v1;promv1b\006proto3"
 };
 static ::absl::once_flag descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto = {
     false,
     false,
-    832,
+    665,
     descriptor_table_protodef_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto,
     "examples/integrations/prom/v1/prom.proto",
     &descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto_once,
-    descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto_deps,
-    1,
+    nullptr,
+    0,
     5,
     schemas,
     file_default_instances,
@@ -439,32 +431,32 @@ QueryRangeRequest::_table_ = {
     ::_pbi::TcParser::GetTable<::examples::integrations::prom::v1::QueryRangeRequest>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // string step = 4 [json_name = "step", (.croupier.component.v1.ui) = {
+    // string step = 4 [json_name = "step"];
     {::_pbi::TcParser::FastUS1,
      {34, 3, 0,
       PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.step_)}},
-    // string expr = 1 [json_name = "expr", (.croupier.component.v1.ui) = {
+    // string expr = 1 [json_name = "expr"];
     {::_pbi::TcParser::FastUS1,
      {10, 0, 0,
       PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.expr_)}},
-    // string start = 2 [json_name = "start", (.croupier.component.v1.ui) = {
+    // string start = 2 [json_name = "start"];
     {::_pbi::TcParser::FastUS1,
      {18, 1, 0,
       PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.start_)}},
-    // string end = 3 [json_name = "end", (.croupier.component.v1.ui) = {
+    // string end = 3 [json_name = "end"];
     {::_pbi::TcParser::FastUS1,
      {26, 2, 0,
       PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.end_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // string expr = 1 [json_name = "expr", (.croupier.component.v1.ui) = {
+    // string expr = 1 [json_name = "expr"];
     {PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.expr_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string start = 2 [json_name = "start", (.croupier.component.v1.ui) = {
+    // string start = 2 [json_name = "start"];
     {PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.start_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string end = 3 [json_name = "end", (.croupier.component.v1.ui) = {
+    // string end = 3 [json_name = "end"];
     {PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.end_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string step = 4 [json_name = "step", (.croupier.component.v1.ui) = {
+    // string step = 4 [json_name = "step"];
     {PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.step_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
@@ -522,7 +514,7 @@ PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string expr = 1 [json_name = "expr", (.croupier.component.v1.ui) = {
+  // string expr = 1 [json_name = "expr"];
   if (CheckHasBit(cached_has_bits, 0x00000001U)) {
     if (!this_._internal_expr().empty()) {
       const ::std::string& _s = this_._internal_expr();
@@ -532,7 +524,7 @@ PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
     }
   }
 
-  // string start = 2 [json_name = "start", (.croupier.component.v1.ui) = {
+  // string start = 2 [json_name = "start"];
   if (CheckHasBit(cached_has_bits, 0x00000002U)) {
     if (!this_._internal_start().empty()) {
       const ::std::string& _s = this_._internal_start();
@@ -542,7 +534,7 @@ PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
     }
   }
 
-  // string end = 3 [json_name = "end", (.croupier.component.v1.ui) = {
+  // string end = 3 [json_name = "end"];
   if (CheckHasBit(cached_has_bits, 0x00000004U)) {
     if (!this_._internal_end().empty()) {
       const ::std::string& _s = this_._internal_end();
@@ -552,7 +544,7 @@ PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
     }
   }
 
-  // string step = 4 [json_name = "step", (.croupier.component.v1.ui) = {
+  // string step = 4 [json_name = "step"];
   if (CheckHasBit(cached_has_bits, 0x00000008U)) {
     if (!this_._internal_step().empty()) {
       const ::std::string& _s = this_._internal_step();
@@ -588,28 +580,28 @@ PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x0000000fU)) {
-    // string expr = 1 [json_name = "expr", (.croupier.component.v1.ui) = {
+    // string expr = 1 [json_name = "expr"];
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_expr().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_expr());
       }
     }
-    // string start = 2 [json_name = "start", (.croupier.component.v1.ui) = {
+    // string start = 2 [json_name = "start"];
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
       if (!this_._internal_start().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_start());
       }
     }
-    // string end = 3 [json_name = "end", (.croupier.component.v1.ui) = {
+    // string end = 3 [json_name = "end"];
     if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       if (!this_._internal_end().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_end());
       }
     }
-    // string step = 4 [json_name = "step", (.croupier.component.v1.ui) = {
+    // string step = 4 [json_name = "step"];
     if (CheckHasBit(cached_has_bits, 0x00000008U)) {
       if (!this_._internal_step().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(

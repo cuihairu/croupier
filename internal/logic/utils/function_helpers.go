@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -26,13 +27,13 @@ func BuildFunctionDTO(fn *model.Function) Function {
 		Id:          fn.FunctionID,
 		Name:        fn.Name,
 		Description: fn.Description,
-		Category:    fn.Category,
+		Resource:    fn.Resource,
 		GameId:      fn.GameID,
 		Status:      fn.Status,
 		Version:     fn.Version,
 		Instances:   fn.Instances,
 		SpecFormat:  fn.SpecFormat,
-		OpenAPISpec: fn.OpenAPISpec,
+		OpenAPISpec: rawJSONFromValue(fn.OpenAPISpec),
 		CreatedAt:   helper.FormatTimestamp(fn.CreatedAt),
 		UpdatedAt:   helper.FormatTimestamp(fn.UpdatedAt),
 	}
@@ -123,22 +124,19 @@ func ConvertFunctionPermissions(functionID string, perms []FunctionPermission) (
 	return result, nil
 }
 
-// Local types for backward compatibility within utils package
-// These will be removed once all code is migrated to use domain DTOs
-
 type Function struct {
-	Id          string      `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	Category    string      `json:"category"`
-	GameId      string      `json:"gameId"`
-	Status      int         `json:"status"`
-	Version     string      `json:"version"`
-	Instances   int         `json:"instances"`
-	SpecFormat  string      `json:"specFormat"`
-	OpenAPISpec interface{} `json:"openapiSpec"`
-	CreatedAt   string      `json:"createdAt"`
-	UpdatedAt   string      `json:"updatedAt"`
+	Id          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Resource    string          `json:"resource"`
+	GameId      string          `json:"gameId"`
+	Status      int             `json:"status"`
+	Version     string          `json:"version"`
+	Instances   int             `json:"instances"`
+	SpecFormat  string          `json:"specFormat"`
+	OpenAPISpec json.RawMessage `json:"openapiSpec,omitempty"`
+	CreatedAt   string          `json:"createdAt"`
+	UpdatedAt   string          `json:"updatedAt"`
 }
 
 type FunctionInstance struct {

@@ -1,6 +1,6 @@
 # 虚拟对象示例
 
-虚拟对象示例应展示 descriptor v2 字段。需要参与默认页面生成时，函数 descriptor 必须提供 `entity`、`operation_kind`、`placement` 和动态 labels。
+虚拟对象示例应展示函数能力契约。SDK descriptor 只提供 `resource`、`operation`、`risk`、`input_schema` 和 `output_schema` 等字段；页面分类、动态 labels、页面类型和位置必须在 Page Studio / PageSpec 中确定。
 
 ## 继续阅读
 

@@ -39,10 +39,9 @@ type PackFunction struct {
 	Description string                 `json:"description"`
 	Params      map[string]interface{} `json:"params"`
 	Returns     map[string]interface{} `json:"returns"`
-	Category    string                 `json:"category,omitempty"`
+	Resource    string                 `json:"resource,omitempty"`
 	Risk        string                 `json:"risk,omitempty"`
-	Entity      string                 `json:"entity,omitempty"`
-	Operation   string                 `json:"operation,omitempty"` // create/read/update/delete/custom
+	Operation   string                 `json:"operation,omitempty"`
 }
 
 // PackEntity represents an entity in the Pack manifest
@@ -142,12 +141,12 @@ func (c *PackConverter) convertFunction(fn PackFunction) (*openapi3.Operation, e
 		op.Responses.Set("200", &openapi3.ResponseRef{Value: response})
 	}
 
-	// Extensions
-	if fn.Category != "" {
+	// Capability extensions
+	if fn.Resource != "" {
 		if op.Extensions == nil {
 			op.Extensions = make(map[string]interface{})
 		}
-		op.Extensions["x-category"] = fn.Category
+		op.Extensions["x-resource"] = fn.Resource
 	}
 
 	if fn.Risk != "" {
@@ -155,13 +154,6 @@ func (c *PackConverter) convertFunction(fn PackFunction) (*openapi3.Operation, e
 			op.Extensions = make(map[string]interface{})
 		}
 		op.Extensions["x-risk"] = fn.Risk
-	}
-
-	if fn.Entity != "" {
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		op.Extensions["x-entity"] = fn.Entity
 	}
 
 	if fn.Operation != "" {
@@ -225,11 +217,11 @@ func (c *PackConverter) convertEntityOperation(entityID string, entity PackEntit
 		operation.Responses.Set("200", &openapi3.ResponseRef{Value: response})
 	}
 
-	// Extensions
+	// Capability extensions
 	if operation.Extensions == nil {
 		operation.Extensions = make(map[string]interface{})
 	}
-	operation.Extensions["x-entity"] = entityID
+	operation.Extensions["x-resource"] = entityID
 	operation.Extensions["x-operation"] = op.OP
 
 	return operation, nil

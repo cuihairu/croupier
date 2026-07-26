@@ -262,10 +262,10 @@ class CroupierClientImplCoverageTest {
         desc.setDeprecated(true);
         desc.setInputSchema("{\"type\":\"object\"}");
         desc.setOutputSchema("{\"type\":\"object\"}");
-        desc.setCategory("game");
+        desc.setResource("player");
         desc.setRisk("danger");
-        desc.setEntity("Player");
-        desc.setOperation("create");
+        desc.setOperation("ban");
+        desc.setPermission("player.ban");
         desc.setEnabled(true);
 
         client.registerFunction(desc, (ctx, payload) -> "ok");
@@ -279,6 +279,13 @@ class CroupierClientImplCoverageTest {
         assertTrue(json.contains("\"operation_id\":\"opId\""));
         assertTrue(json.contains("\"deprecated\":true"));
         assertTrue(json.contains("\"enabled\":true"));
+        assertTrue(json.contains("\"resource\":\"player\""));
+        assertTrue(json.contains("\"operation\":\"ban\""));
+        assertTrue(json.contains("\"permission\":\"player.ban\""));
+        assertFalse(json.contains("\"category\""));
+        assertFalse(json.contains("\"entity\""));
+        assertFalse(json.contains("\"placement\""));
+        assertFalse(json.contains("\"page_hint\""));
     }
 
     @Test
@@ -312,12 +319,31 @@ class CroupierClientImplCoverageTest {
     void getRegisterRequest() throws CroupierException {
         CroupierClientImpl client = new CroupierClientImpl(createConfig(),
             (address, timeout) -> createFakeTransport());
-        client.registerFunction(new FunctionDescriptor("f1", "1.0.0"), (ctx, payload) -> "ok");
+        FunctionDescriptor descriptor = CroupierSDK.functionDescriptor("f1", "1.0.0")
+            .resource("player")
+            .operation("ban")
+            .risk("danger")
+            .permission("player.ban")
+            .build();
+        client.registerFunction(descriptor, (ctx, payload) -> "ok");
 
         Map<String, Object> request = client.getRegisterRequest();
 
         assertEquals("svc-1", request.get("serviceId"));
         assertEquals("1.0.0", request.get("version"));
+        @SuppressWarnings("unchecked")
+        var functions = (java.util.List<Map<String, Object>>) request.get("functions");
+        assertEquals(1, functions.size());
+        assertEquals("player", functions.get(0).get("resource"));
+        assertEquals("ban", functions.get(0).get("operation"));
+        assertEquals("danger", functions.get(0).get("risk"));
+        assertEquals("player.ban", functions.get(0).get("permission"));
+        assertFalse(functions.get(0).containsKey("category_display"));
+        assertFalse(functions.get(0).containsKey("entity_display"));
+        assertFalse(functions.get(0).containsKey("operation_kind"));
+        assertFalse(functions.get(0).containsKey("placement"));
+        assertFalse(functions.get(0).containsKey("page_hint"));
+        assertFalse(functions.get(0).containsKey("extensions"));
     }
 
     @Test

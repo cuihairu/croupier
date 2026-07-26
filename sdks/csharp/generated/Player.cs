@@ -25,16 +25,14 @@ namespace Examples.Games.Player.V1 {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "CiVleGFtcGxlcy9nYW1lcy9wbGF5ZXIvdjEvcGxheWVyLnByb3RvEhhleGFt",
-            "cGxlcy5nYW1lcy5wbGF5ZXIudjEaJmNyb3VwaWVyL2NvbXBvbmVudC92MS91",
-            "aV9vcHRpb25zLnByb3RvInAKCkJhblJlcXVlc3QSMgoJcGxheWVyX2lkGAEg",
-            "ASgJQhWKshkRCgVpbnB1dBII546p5a62SURSCHBsYXllcklkEi4KBnJlYXNv",
-            "bhgCIAEoCUIWirIZEgoIdGV4dGFyZWEaBuWOn+WboFIGcmVhc29uIiUKC0Jh",
-            "blJlc3BvbnNlEhYKBnJlc3VsdBgBIAEoCVIGcmVzdWx0Qn8KNGlvLmdpdGh1",
-            "Yi5jdWloYWlydS5jcm91cGllci5leGFtcGxlcy5nYW1lcy5wbGF5ZXIudjFQ",
-            "AVpFZ2l0aHViLmNvbS9jdWloYWlydS9jcm91cGllci9wa2cvcGIvZXhhbXBs",
-            "ZXMvZ2FtZXMvcGxheWVyL3YxO3BsYXllcnYxYgZwcm90bzM="));
+            "cGxlcy5nYW1lcy5wbGF5ZXIudjEiQQoKQmFuUmVxdWVzdBIbCglwbGF5ZXJf",
+            "aWQYASABKAlSCHBsYXllcklkEhYKBnJlYXNvbhgCIAEoCVIGcmVhc29uIiUK",
+            "C0JhblJlc3BvbnNlEhYKBnJlc3VsdBgBIAEoCVIGcmVzdWx0Qn8KNGlvLmdp",
+            "dGh1Yi5jdWloYWlydS5jcm91cGllci5leGFtcGxlcy5nYW1lcy5wbGF5ZXIu",
+            "djFQAVpFZ2l0aHViLmNvbS9jdWloYWlydS9jcm91cGllci9wa2cvcGIvZXhh",
+            "bXBsZXMvZ2FtZXMvcGxheWVyL3YxO3BsYXllcnYxYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Croupier.Component.V1.UiOptionsReflection.Descriptor, },
+          new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Examples.Games.Player.V1.BanRequest), global::Examples.Games.Player.V1.BanRequest.Parser, new[]{ "PlayerId", "Reason" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Examples.Games.Player.V1.BanResponse), global::Examples.Games.Player.V1.BanResponse.Parser, new[]{ "Result" }, null, null, null, null)

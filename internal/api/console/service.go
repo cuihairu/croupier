@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -103,11 +102,12 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 		return nil, err
 	}
 
-	var payload any = map[string]any{}
+	payload := json.RawMessage(`{}`)
 	if len(req.Payload) > 0 {
-		if err := json.Unmarshal(req.Payload, &payload); err != nil {
+		if !json.Valid(req.Payload) {
 			return nil, errorx.NewBadRequest("payload must be valid JSON")
 		}
+		payload = append(json.RawMessage(nil), req.Payload...)
 	}
 	mode := ""
 	if binding.Execution.Mode == spec.PageExecutionModeTask {
@@ -181,15 +181,11 @@ func buildExecutionResult(ctx context.Context, resp *function.FunctionInvokeResp
 			TaskID:    taskID,
 		}, nil
 	}
-	data, err := json.Marshal(resp.Result)
-	if err != nil {
-		return spec.PageExecutionResult{}, fmt.Errorf("encode page execution result: %w", err)
-	}
 	return spec.PageExecutionResult{
 		Kind:      spec.PageExecutionKindSync,
 		RequestID: requestID,
 		TraceID:   traceID,
-		Data:      data,
+		Data:      resp.Result,
 	}, nil
 }
 

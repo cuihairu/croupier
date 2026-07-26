@@ -33,10 +33,11 @@ message LocalFunctionDescriptor {
   bool deprecated = 7;
   string input_schema = 8;
   string output_schema = 9;
-  string category = 10;
-  string risk = 11;
-  string entity = 12;
-  string operation = 13;
+  string resource = 10;
+  string operation = 11;
+  string risk = 12;
+  bool enabled = 13;
+  string permission = 14;
 }
 message ProviderConnectRequest {
   string service_id = 1;
@@ -504,7 +505,17 @@ describe("BasicClient", () => {
 
   test("registerFunction throws when connected", () => {
     const client = new BasicClient();
-    client.registerFunction({ id: "f1", version: "1.0.0" }, async () => "ok");
+    client.registerFunction(
+      {
+        id: "f1",
+        version: "1.0.0",
+        resource: "player",
+        operation: "ban",
+        risk: "danger",
+        permission: "player:ban",
+      },
+      async () => "ok",
+    );
 
     // Manually set connected to true (since we can't actually connect in tests)
     (client as any).connected = true;
@@ -561,7 +572,10 @@ describe("BasicClient", () => {
       {
         id: "full.fn",
         version: "2.0.0",
-        category: "full-category",
+        resource: "full-resource",
+        operation: "full-operation",
+        risk: "safe",
+        permission: "full:invoke",
         description: "A full function descriptor",
         input_schema: { type: "object" },
         output_schema: { type: "string" },
@@ -574,7 +588,10 @@ describe("BasicClient", () => {
 
     expect(fn).toBeDefined();
     expect(fn.version).toBe("2.0.0");
-    expect(fn.category).toBe("full-category");
+    expect(fn.resource).toBe("full-resource");
+    expect(fn.operation).toBe("full-operation");
+    expect(fn.risk).toBe("safe");
+    expect(fn.permission).toBe("full:invoke");
     expect(fn.description).toBe("A full function descriptor");
     expect(fn.input_schema).toEqual({ type: "object" });
     expect(fn.output_schema).toEqual({ type: "string" });
@@ -602,7 +619,17 @@ describe("BasicClient", () => {
 
   test("disconnect clears state", async () => {
     const client = new BasicClient();
-    client.registerFunction({ id: "f1", version: "1.0.0" }, async () => "ok");
+    client.registerFunction(
+      {
+        id: "f1",
+        version: "1.0.0",
+        resource: "player",
+        operation: "ban",
+        risk: "danger",
+        permission: "player:ban",
+      },
+      async () => "ok",
+    );
 
     // Set some state
     (client as any).connected = true;
@@ -884,14 +911,14 @@ describe("BasicClient", () => {
     expect(() => client.streamTask("unknown-task-id")).toThrow(/not found/i);
   });
 
-  test("buildManifest without category uses descriptor id", () => {
+  test("buildManifest omits resource when descriptor has none", () => {
     const client = new BasicClient();
 
     client.registerFunction(
       {
         id: "simple.fn",
         version: "1.0.0",
-        // no category specified
+        // no resource specified
       },
       async () => "ok",
     );
@@ -900,7 +927,7 @@ describe("BasicClient", () => {
     const fn = manifest.functions.find((f: any) => f.id === "simple.fn");
 
     expect(fn).toBeDefined();
-    expect(fn.category).toBeUndefined();
+    expect(fn.resource).toBeUndefined();
   });
 
   test("createClient exports a factory function", () => {
@@ -949,8 +976,10 @@ describe("BasicClient", () => {
         description: "Detailed test function description",
         input_schema: { type: "object", properties: { id: { type: "string" } } },
         output_schema: { type: "object", properties: { ok: { type: "boolean" } } },
-        category: "cat",
+        resource: "player",
         risk: "low",
+        operation: "ban",
+        permission: "player:ban",
       },
       async () => "ok",
     );
@@ -967,10 +996,11 @@ describe("BasicClient", () => {
       deprecated: undefined,
       input_schema: JSON.stringify({ type: "object", properties: { id: { type: "string" } } }),
       output_schema: JSON.stringify({ type: "object", properties: { ok: { type: "boolean" } } }),
-      category: "cat",
+      resource: "player",
       risk: "low",
-      entity: undefined,
-      operation: undefined,
+      operation: "ban",
+      permission: "player:ban",
+      enabled: undefined,
     });
   });
 
@@ -987,7 +1017,17 @@ describe("BasicClient", () => {
       serviceId: "test-svc",
       serviceVersion: "1.0.0",
     });
-    client.registerFunction({ id: "f1", version: "1.0.0" }, async () => "ok");
+    client.registerFunction(
+      {
+        id: "f1",
+        version: "1.0.0",
+        resource: "player",
+        operation: "ban",
+        risk: "danger",
+        permission: "player:ban",
+      },
+      async () => "ok",
+    );
 
     const req = client.getRegisterRequest();
 
@@ -995,6 +1035,17 @@ describe("BasicClient", () => {
     expect(req.version).toBe("1.0.0");
     expect(req.functions).toHaveLength(1);
     expect(req.functions[0].id).toBe("f1");
+    expect(req.functions[0].resource).toBe("player");
+    expect(req.functions[0].operation).toBe("ban");
+    expect(req.functions[0].risk).toBe("danger");
+    expect(req.functions[0].permission).toBe("player:ban");
+    expect(req.functions[0]).not.toHaveProperty("category_display");
+    expect(req.functions[0]).not.toHaveProperty("entity_display");
+    expect(req.functions[0]).not.toHaveProperty("operation_display");
+    expect(req.functions[0]).not.toHaveProperty("operation_kind");
+    expect(req.functions[0]).not.toHaveProperty("placement");
+    expect(req.functions[0]).not.toHaveProperty("page_hint");
+    expect(req.functions[0]).not.toHaveProperty("extensions");
   });
 
   test("getManifestGzipped returns gzipped manifest", () => {
@@ -1118,10 +1169,10 @@ describe("BasicClient", () => {
         version: "1.0.0",
         name: "Complete Function",
         description: "A complete function descriptor",
-        category: "utils",
+        resource: "system",
         risk: "low",
-        entity: "system",
-        operation: "read",
+        operation: "health",
+        permission: "system:health",
         input_schema: { type: "object" },
         output_schema: { type: "string" },
       },
@@ -1132,10 +1183,10 @@ describe("BasicClient", () => {
 
     expect(desc?.id).toBe("complete.fn");
     expect(desc?.version).toBe("1.0.0");
-    expect(desc?.category).toBe("utils");
+    expect(desc?.resource).toBe("system");
     expect(desc?.risk).toBe("low");
-    expect(desc?.entity).toBe("system");
-    expect(desc?.operation).toBe("read");
+    expect(desc?.operation).toBe("health");
+    expect(desc?.permission).toBe("system:health");
     expect(desc?.input_schema).toBe(JSON.stringify({ type: "object" }));
     expect(desc?.output_schema).toBe(JSON.stringify({ type: "string" }));
   });

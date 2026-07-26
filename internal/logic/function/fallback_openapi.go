@@ -20,8 +20,8 @@ func BuildFallbackOpenAPIOperation(functionID string) *openapi3.Operation {
 		return nil
 	}
 
-	entity, action := inferFallbackEntityAction(functionID)
-	fields := fallbackFields(entity, action)
+	resource, action := inferFallbackResourceAction(functionID)
+	fields := fallbackFields()
 	requestSchema := buildFallbackRequestSchema(fields)
 	responseDesc := "Auto-generated success response"
 
@@ -47,17 +47,15 @@ func BuildFallbackOpenAPIOperation(functionID string) *openapi3.Operation {
 			}),
 		),
 		Extensions: map[string]interface{}{
-			"x-entity":    entity,
+			"x-resource":  resource,
 			"x-operation": action,
-			"x-action":    action,
 		},
 	}
 	return op
 }
 
 func BuildFallbackUISchema(functionID string) map[string]interface{} {
-	entity, action := inferFallbackEntityAction(functionID)
-	fields := fallbackFields(entity, action)
+	fields := fallbackFields()
 
 	properties := map[string]interface{}{}
 	required := make([]string, 0, len(fields))
@@ -136,7 +134,7 @@ func buildFallbackRequestSchema(fields []fallbackField) *openapi3.Schema {
 	}
 }
 
-func inferFallbackEntityAction(functionID string) (string, string) {
+func inferFallbackResourceAction(functionID string) (string, string) {
 	parts := strings.FieldsFunc(strings.TrimSpace(strings.ToLower(functionID)), func(r rune) bool {
 		return r == '.' || r == '_' || r == '-' || r == '/'
 	})
@@ -169,143 +167,8 @@ func sanitizeFallbackToken(value string) string {
 	return strings.Trim(b.String(), "_-")
 }
 
-func fallbackFields(entity, action string) []fallbackField {
-	switch entity {
-	case "player":
-		return fallbackPlayerFields(action)
-	case "order":
-		return fallbackOrderFields(action)
-	case "inventory":
-		return fallbackInventoryFields(action)
-	case "leaderboard":
-		return fallbackLeaderboardFields(action)
-	case "mail":
-		return fallbackMailFields(action)
-	default:
-		return []fallbackField{
-			{Name: "id", Type: "string", Description: "Target identifier", Required: true},
-			{Name: "payload", Type: "object", Description: "Invocation payload", Required: false},
-		}
-	}
-}
-
-func fallbackPlayerFields(action string) []fallbackField {
-	switch action {
-	case "list":
-		return []fallbackField{
-			{Name: "page", Type: "integer", Description: "Page number", Required: false},
-			{Name: "pageSize", Type: "integer", Description: "Page size", Required: false},
-			{Name: "keyword", Type: "string", Description: "Search keyword", Required: false},
-		}
-	case "get", "delete":
-		return []fallbackField{{Name: "playerId", Type: "string", Description: "Player ID", Required: true}}
-	case "create":
-		return []fallbackField{
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: true},
-			{Name: "nickname", Type: "string", Description: "Player nickname", Required: false},
-			{Name: "level", Type: "integer", Description: "Initial level", Required: false},
-		}
-	case "update":
-		return []fallbackField{
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: true},
-			{Name: "nickname", Type: "string", Description: "Player nickname", Required: false},
-			{Name: "level", Type: "integer", Description: "Player level", Required: false},
-			{Name: "status", Type: "string", Description: "Player status", Required: false},
-		}
-	default:
-		return []fallbackField{{Name: "playerId", Type: "string", Description: "Player ID", Required: true}}
-	}
-}
-
-func fallbackOrderFields(action string) []fallbackField {
-	switch action {
-	case "list":
-		return []fallbackField{
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: false},
-			{Name: "status", Type: "string", Description: "Order status", Required: false},
-			{Name: "page", Type: "integer", Description: "Page number", Required: false},
-			{Name: "pageSize", Type: "integer", Description: "Page size", Required: false},
-		}
-	case "get", "delete":
-		return []fallbackField{{Name: "orderId", Type: "string", Description: "Order ID", Required: true}}
-	case "create":
-		return []fallbackField{
-			{Name: "orderId", Type: "string", Description: "Order ID", Required: true},
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: true},
-			{Name: "productId", Type: "string", Description: "Product ID", Required: true},
-			{Name: "amount", Type: "integer", Description: "Order amount", Required: false},
-		}
-	case "update":
-		return []fallbackField{
-			{Name: "orderId", Type: "string", Description: "Order ID", Required: true},
-			{Name: "status", Type: "string", Description: "Order status", Required: false},
-			{Name: "amount", Type: "integer", Description: "Order amount", Required: false},
-		}
-	default:
-		return []fallbackField{{Name: "orderId", Type: "string", Description: "Order ID", Required: true}}
-	}
-}
-
-func fallbackInventoryFields(action string) []fallbackField {
-	switch action {
-	case "list":
-		return []fallbackField{
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: true},
-			{Name: "page", Type: "integer", Description: "Page number", Required: false},
-			{Name: "pageSize", Type: "integer", Description: "Page size", Required: false},
-		}
-	case "grant", "consume":
-		return []fallbackField{
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: true},
-			{Name: "itemId", Type: "string", Description: "Item ID", Required: true},
-			{Name: "amount", Type: "integer", Description: "Item amount", Required: true},
-		}
-	default:
-		return []fallbackField{{Name: "playerId", Type: "string", Description: "Player ID", Required: true}}
-	}
-}
-
-func fallbackLeaderboardFields(action string) []fallbackField {
-	switch action {
-	case "list":
-		return []fallbackField{
-			{Name: "leaderboardId", Type: "string", Description: "Leaderboard ID", Required: true},
-			{Name: "page", Type: "integer", Description: "Page number", Required: false},
-			{Name: "pageSize", Type: "integer", Description: "Page size", Required: false},
-		}
-	case "upsert":
-		return []fallbackField{
-			{Name: "leaderboardId", Type: "string", Description: "Leaderboard ID", Required: true},
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: true},
-			{Name: "score", Type: "integer", Description: "Player score", Required: true},
-		}
-	case "reset":
-		return []fallbackField{{Name: "leaderboardId", Type: "string", Description: "Leaderboard ID", Required: true}}
-	default:
-		return []fallbackField{{Name: "leaderboardId", Type: "string", Description: "Leaderboard ID", Required: true}}
-	}
-}
-
-func fallbackMailFields(action string) []fallbackField {
-	switch action {
-	case "list":
-		return []fallbackField{
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: true},
-			{Name: "page", Type: "integer", Description: "Page number", Required: false},
-			{Name: "pageSize", Type: "integer", Description: "Page size", Required: false},
-		}
-	case "claim":
-		return []fallbackField{
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: true},
-			{Name: "mailId", Type: "string", Description: "Mail ID", Required: true},
-		}
-	case "send":
-		return []fallbackField{
-			{Name: "playerId", Type: "string", Description: "Player ID", Required: true},
-			{Name: "title", Type: "string", Description: "Mail title", Required: true},
-			{Name: "content", Type: "string", Description: "Mail content", Required: true},
-		}
-	default:
-		return []fallbackField{{Name: "playerId", Type: "string", Description: "Player ID", Required: true}}
+func fallbackFields() []fallbackField {
+	return []fallbackField{
+		{Name: "payload", Type: "object", Description: "Invocation payload", Required: false},
 	}
 }

@@ -32,15 +32,14 @@ func TestTypes_FunctionDescriptor(t *testing.T) {
 		desc := FunctionDescriptor{
 			ID:        "test.full",
 			Version:   "2.0.0",
-			Category:  "test",
+			Resource:  "test",
 			Risk:      "low",
-			Entity:    "TestEntity",
 			Operation: "create",
 			Enabled:   true,
 		}
 
-		t.Logf("Full descriptor: ID=%s, Version=%s, Category=%s, Risk=%s",
-			desc.ID, desc.Version, desc.Category, desc.Risk)
+		t.Logf("Full descriptor: ID=%s, Version=%s, Resource=%s, Risk=%s",
+			desc.ID, desc.Version, desc.Resource, desc.Risk)
 	})
 
 	t.Run("FunctionDescriptor with special characters in ID", func(t *testing.T) {

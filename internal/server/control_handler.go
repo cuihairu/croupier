@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/function/converter"
-	"github.com/cuihairu/croupier/internal/function/uicontract"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
@@ -392,56 +391,34 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		if f == nil || f.Id == "" {
 			continue
 		}
-		displayName := ""
-		if v := f.GetDisplayName(); v != nil {
-			displayName = v.GetEn()
-		}
-		description := ""
-		if v := f.GetSummary(); v != nil {
-			description = v.GetEn()
-		}
 		sess.Functions[f.Id] = reg.FunctionMeta{
-			Enabled:          f.Enabled,
-			Version:          f.Version,
-			Tags:             append([]string(nil), f.Tags...),
-			Summary:          displayName,
-			Description:      description,
-			OperationID:      f.Id,
-			InputSchema:      f.GetInputSchema(),
-			OutputSchema:     f.GetOutputSchema(),
-			Category:         f.GetCategory(),
-			Risk:             f.GetRisk(),
-			Entity:           f.GetEntity(),
-			Operation:        f.GetOperation(),
-			CategoryDisplay:  cloneStringMap(f.GetCategoryDisplay()),
-			EntityDisplay:    cloneStringMap(f.GetEntityDisplay()),
-			OperationDisplay: cloneStringMap(f.GetOperationDisplay()),
-			OperationKind:    f.GetOperationKind(),
-			Placement:        f.GetPlacement(),
-			PageHint:         f.GetPageHint(),
-			Extensions:       cloneStringMap(f.GetExtensions()),
+			Enabled:      f.Enabled,
+			Version:      f.Version,
+			Tags:         append([]string(nil), f.Tags...),
+			Summary:      f.GetSummary(),
+			Description:  f.GetDescription(),
+			OperationID:  f.Id,
+			InputSchema:  f.GetInputSchema(),
+			OutputSchema: f.GetOutputSchema(),
+			Resource:     f.GetResource(),
+			Operation:    f.GetOperation(),
+			Risk:         f.GetRisk(),
+			Permission:   f.GetPermission(),
 		}
 		if op, err := converter.ToOpenAPIOperation(converter.LocalFunctionDescriptorDesc{
-			ID:               f.Id,
-			Version:          f.Version,
-			Tags:             f.Tags,
-			Summary:          displayName,
-			Description:      description,
-			OperationID:      f.Id,
-			Deprecated:       false,
-			InputSchema:      f.GetInputSchema(),
-			OutputSchema:     f.GetOutputSchema(),
-			Category:         f.GetCategory(),
-			Risk:             f.GetRisk(),
-			Entity:           f.GetEntity(),
-			Operation:        f.GetOperation(),
-			CategoryDisplay:  f.GetCategoryDisplay(),
-			EntityDisplay:    f.GetEntityDisplay(),
-			OperationDisplay: f.GetOperationDisplay(),
-			OperationKind:    f.GetOperationKind(),
-			Placement:        f.GetPlacement(),
-			PageHint:         f.GetPageHint(),
-			Extensions:       f.GetExtensions(),
+			ID:           f.Id,
+			Version:      f.Version,
+			Tags:         f.Tags,
+			Summary:      f.GetSummary(),
+			Description:  f.GetDescription(),
+			OperationID:  f.Id,
+			Deprecated:   f.GetDeprecated(),
+			InputSchema:  f.GetInputSchema(),
+			OutputSchema: f.GetOutputSchema(),
+			Resource:     f.GetResource(),
+			Operation:    f.GetOperation(),
+			Risk:         f.GetRisk(),
+			Permission:   f.GetPermission(),
 		}); err == nil {
 			if err := s.registry.UpsertOpenAPI(f.Id, op); err != nil {
 				s.logger.Warn("failed to upsert openapi operation from register request", "function_id", f.Id, "error", err)
@@ -644,14 +621,6 @@ func validateAndNormalizeFunctions(items []*agentv1.FunctionDescriptor) ([]*agen
 }
 
 func descriptorUIRegistrationKey(f *agentv1.FunctionDescriptor) (string, bool) {
-	if f == nil {
-		return "", false
-	}
-	for key := range f.GetExtensions() {
-		if forbiddenKey, ok := uicontract.ForbiddenRegistrationKey(key); ok {
-			return forbiddenKey, true
-		}
-	}
 	return "", false
 }
 

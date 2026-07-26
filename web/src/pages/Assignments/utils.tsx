@@ -25,7 +25,7 @@ export const formatDateTime = (value?: string | number | Date) => {
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString('zh-CN');
 };
 
-export const renderHistoryDetail = (key: string, value: any) => {
+export const renderHistoryDetail = (key: string, value: unknown) => {
   if (Array.isArray(value)) {
     if (value.length === 0) return <Tag>0</Tag>;
     if (value.length <= 8) {

@@ -10,13 +10,13 @@ func convertFromUtilsFunction(u utils.Function) Function {
 		ID:          u.Id,
 		Name:        u.Name,
 		Description: u.Description,
-		Category:    u.Category,
+		Resource:    u.Resource,
 		GameId:      u.GameId,
 		Status:      u.Status,
 		Version:     u.Version,
 		Instances:   u.Instances,
 		SpecFormat:  u.SpecFormat,
-		OpenAPISpec: u.OpenAPISpec,
+		OpenAPISpec: rawJSONFromValue(u.OpenAPISpec),
 	}
 }
 

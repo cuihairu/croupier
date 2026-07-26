@@ -13,7 +13,6 @@ import (
 	"github.com/cuihairu/croupier/internal/api/certificate"
 	"github.com/cuihairu/croupier/internal/api/config"
 	"github.com/cuihairu/croupier/internal/api/console"
-	"github.com/cuihairu/croupier/internal/api/entity"
 	"github.com/cuihairu/croupier/internal/api/extension"
 	"github.com/cuihairu/croupier/internal/api/faq"
 	"github.com/cuihairu/croupier/internal/api/feedback"
@@ -89,7 +88,6 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerBackupRoutes(protected.Group("/backups"), serverCtx)
 		registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
 		registerConfigRoutes(protected.Group("/configs"), serverCtx)
-		registerEntityRoutes(protected.Group("/entities"), serverCtx)
 		registerResourceRoutes(protected.Group("/resources"), serverCtx)
 		registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
 		registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
@@ -251,10 +249,6 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/:id/ui", functionHandler.UIUpdate)
 	g.GET("/:id/ui/history", functionHandler.UIHistory)
 	g.POST("/:id/ui/rollback", functionHandler.UIRollback)
-
-	// 路由配置
-	g.GET("/:id/route", functionHandler.Route)
-	g.PUT("/:id/route", functionHandler.RouteUpdate)
 
 	// 历史与分析
 	g.GET("/:id/history", functionHandler.History)
@@ -594,23 +588,6 @@ func registerConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 }
 
 // ============================================================================
-// Entity 路由注册
-// ============================================================================
-func registerEntityRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	entitySvc := entity.NewService(ctx)
-	entityHandler := entity.NewHandler(entitySvc)
-	g.GET("", entityHandler.List)
-	g.GET("/", entityHandler.List)
-	g.POST("", entityHandler.Create)
-	g.POST("/", entityHandler.Create)
-	g.GET("/:id", entityHandler.Get)
-	g.PUT("/:id", entityHandler.Update)
-	g.DELETE("/:id", entityHandler.Delete)
-	g.GET("/:id/preview", entityHandler.Preview)
-	g.POST("/validate", entityHandler.Validate)
-}
-
-// ============================================================================
 // FAQ 路由注册
 // ============================================================================
 func registerFAQRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
@@ -871,7 +848,7 @@ func registerFunctionMetadataRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext)
 		functions.GET("/:id", handler.GetFunction)
 		functions.PUT("/:id", handler.UpdateFunction)
 		functions.DELETE("/:id", handler.DeleteFunction)
-		functions.GET("/categories", handler.GetCategories)
+		functions.GET("/resources", handler.GetResources)
 		functions.GET("/tags", handler.GetTags)
 	}
 }

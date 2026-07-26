@@ -81,9 +81,8 @@ func TestClient_RegisterFunction_coverage(t *testing.T) {
 		desc := FunctionDescriptor{
 			ID:        "player.create",
 			Version:   "1.0.0",
-			Category:  "player",
+			Resource:  "player",
 			Risk:      "low",
-			Entity:    "Player",
 			Operation: "create",
 			Enabled:   true,
 		}

@@ -33,7 +33,7 @@ OpenAPI 在这里提供函数契约和元数据来源，不定义单独的注册
 - 不再要求 SDK 开本地监听端口。
 - 不再以 `LocalControlService` 作为实现依据。
 - OpenAPI 标准字段映射到 RawFunctionDescriptor。
-- OpenAPI `x-*` 扩展字段映射到 Descriptor v2。
+- OpenAPI `x-*` 扩展字段只允许表达能力契约和治理信息。
 - Server 先归一化 FunctionSpec / ResourceSpec / OperationSpec，再生成 PageSpec 建议。
 - 前端运行控制台不得直接从 OpenAPI operation 生成菜单或页面。
 
@@ -71,22 +71,27 @@ OpenAPI 在这里提供函数契约和元数据来源，不定义单独的注册
 | `input_schema` | `requestBody.content.application/json.schema` | 输入 JSON Schema |
 | `output_schema` | `responses.*.content.application/json.schema` | 输出 JSON Schema |
 
-治理和页面生成字段：
+业务与治理字段：
 
 | Croupier 字段 | OpenAPI 扩展 | 说明 |
 | --- | --- | --- |
-| `category` | `x-category` | 分类 key |
-| `category_display` | `x-category-display` | 分类多语言显示名 |
-| `risk` | `x-risk` | 风险级别 |
-| `entity` | `x-entity` | 资源 key |
-| `entity_display` | `x-entity-display` | 资源多语言显示名 |
+| `resource` | `x-resource` | 业务资源或能力域 key |
 | `operation` | `x-operation` | 业务操作 key，例如 `ban`、`send` |
-| `operation_display` | `x-operation-display` | 操作多语言显示名 |
-| `operation_kind` | `x-operation-kind` | 页面生成语义，例如 `list`、`action`、`task` |
-| `placement` | `x-placement` | 页面放置位置，例如 `tableData`、`rowAction` |
-| `page_hint` | `x-page-hint` | 可选页面生成建议 |
+| `risk` | `x-risk` | 风险级别 |
+| `enabled` | `x-enabled` | 是否启用 |
+| `permission` | `x-permission` | 权限标识 |
 
-`x-operation` 不再表示页面类型。CRUD、命令、任务、报表等页面语义由 `x-operation-kind` 表达。
+`x-operation` 不再表示页面类型。页面类型、按钮位置、菜单分类和多语言标题只在 PageSpec / Page Studio 中确定。
+
+以下字段不属于 OpenAPI 函数注册，导入时必须拒绝或返回 Source diagnostics：
+
+- `x-category-display`
+- `x-entity-display`
+- `x-operation-display`
+- `x-operation-kind`
+- `x-placement`
+- `x-page-hint`
+- `x-ui` / `ui` / Formily / menu / routes / table columns / Page schema
 
 ## OpenAPI 示例
 
@@ -101,21 +106,9 @@ paths:
       summary: 封禁玩家
       description: 封禁指定玩家账号，可设置原因和时长。
       x-version: 1.0.0
-      x-category: support
-      x-category-display:
-        zh-CN: 客服
-        en-US: Support
+      x-resource: player
       x-risk: danger
-      x-entity: player
-      x-entity-display:
-        zh-CN: 玩家
-        en-US: Player
       x-operation: ban
-      x-operation-display:
-        zh-CN: 封禁
-        en-US: Ban
-      x-operation-kind: action
-      x-placement: rowAction
       requestBody:
         required: true
         content:
@@ -154,8 +147,8 @@ paths:
 ```text
 FunctionSpec(player.ban)
   -> ResourceSpec(player)
-  -> OperationSpec(kind=action, placement=rowAction)
-  -> Entity PageSpec 建议
+  -> OperationSpec(operation=ban)
+  -> GeneratedPageCandidate(needs_review 或 ready，取决于 PageContract/mapping 是否可验证)
 ```
 
 ## 与 PageSpec 的关系
@@ -215,19 +208,17 @@ OpenAPI 有两种入口，先选定执行模型：
 
 1. 为每个 Operation 补齐 `operationId`、`summary`、`description`。
 2. 把 request/response schema 写完整。
-3. 使用 `x-category`、`x-entity`、`x-operation`、`x-risk` 表达治理和资源归属。
-4. 可选地使用 `x-operation-kind` 和 `x-placement` 提高 PageSpec 候选质量；不写不影响函数导入。
-5. 可选地使用 `x-category-display`、`x-entity-display`、`x-operation-display` 提供动态多语言文案。
-6. 导入 OpenAPI 后，由 Server 生成 FunctionSpec / ResourceSpec / OperationSpec，并从 request schema 派生 Function Form。
-7. 在 Page Studio 确认、补齐或编辑 PageSpec 候选后发布。
+3. 使用 `x-resource`、`x-operation`、`x-risk` 表达治理和业务归属。
+4. 不在 OpenAPI 中填写动态显示名、菜单分类、页面类型、按钮位置、Formily 或 Page schema。
+5. 导入 OpenAPI 后，由 Server 生成 FunctionSpec / ResourceSpec / OperationSpec，并从 request schema 派生 Function Form。
+6. 在 Page Studio 确认分类、标题、页面组件、binding、mapping 和多语言 labels 后发布。
 
 ## 发布限制
 
 以下情况只允许进入函数目录或待编排建议，不能自动发布为正式页面：
 
-- 缺少 `operation_kind`。
-- 缺少 `placement`。
-- 缺少动态 labels。
+- 缺少 PageContract、input/output mapping、分页字段或列定义。
+- 缺少 PageSpec 默认语言 labels。
 - `output_schema` 无法支持声明的表格、详情或报表组件。
 
 ## 明确废弃的旧模型
@@ -241,7 +232,7 @@ OpenAPI 有两种入口，先选定执行模型：
 - `Agent -> SDK` 回拨模型。
 - 用 `x-operation` 表示 CRUD 或非 CRUD 类型。
 - 前端根据 OpenAPI 或函数 ID 后缀生成正式 Page。
-- 在 OpenAPI 中保存 `x-ui`、Formily、菜单、路由或页面组件配置。
+- 在 OpenAPI 中保存 `x-ui`、Formily、菜单、路由、动态显示名、页面类型、页面放置或页面组件配置。
 
 ## 相关文档
 

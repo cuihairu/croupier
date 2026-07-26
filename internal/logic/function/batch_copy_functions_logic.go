@@ -24,7 +24,7 @@ func (l *BatchCopyFunctionsLogic) BatchCopyFunctions(req *BatchCopyFunctionsRequ
 	if len(req.FunctionIds) == 0 {
 		return &BatchCopyFunctionsResponse{
 			Updated: 0,
-			Failed:  []string{"no function ids provided"},
+			Failed:  []string{},
 			Copied:  []string{},
 		}, nil
 	}

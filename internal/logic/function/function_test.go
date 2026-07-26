@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/config"
@@ -118,7 +117,7 @@ func TestSanitizeNodeKey(t *testing.T) {
 
 func TestNormalizeTerm(t *testing.T) {
 	aliasMap := map[string]map[string]string{
-		"entity": {
+		"resource": {
 			"player": "player",
 			"user":   "player",
 		},
@@ -135,8 +134,8 @@ func TestNormalizeTerm(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "normalize entity alias",
-			domain:   "entity",
+			name:     "normalize resource alias",
+			domain:   "resource",
 			raw:      "user",
 			expected: "player",
 		},
@@ -148,7 +147,7 @@ func TestNormalizeTerm(t *testing.T) {
 		},
 		{
 			name:     "no alias found",
-			domain:   "entity",
+			domain:   "resource",
 			raw:      "game",
 			expected: "game",
 		},
@@ -160,13 +159,13 @@ func TestNormalizeTerm(t *testing.T) {
 		},
 		{
 			name:     "empty raw",
-			domain:   "entity",
+			domain:   "resource",
 			raw:      "",
 			expected: "",
 		},
 		{
 			name:     "case insensitive",
-			domain:   "entity",
+			domain:   "resource",
 			raw:      "User",
 			expected: "player",
 		},
@@ -182,7 +181,7 @@ func TestNormalizeTerm(t *testing.T) {
 
 func TestTermDisplay(t *testing.T) {
 	displayMap := map[string]map[string]map[string]string{
-		"entity": {
+		"resource": {
 			"player": {
 				"zh": "玩家",
 				"en": "Player",
@@ -205,8 +204,8 @@ func TestTermDisplay(t *testing.T) {
 		expectEn  string
 	}{
 		{
-			name:     "entity display",
-			domain:   "entity",
+			name:     "resource display",
+			domain:   "resource",
 			key:      "player",
 			expectZh: "玩家",
 			expectEn: "Player",
@@ -220,7 +219,7 @@ func TestTermDisplay(t *testing.T) {
 		},
 		{
 			name:      "not found",
-			domain:    "entity",
+			domain:    "resource",
 			key:       "unknown",
 			expectNil: true,
 		},
@@ -232,7 +231,7 @@ func TestTermDisplay(t *testing.T) {
 		},
 		{
 			name:      "empty key",
-			domain:    "entity",
+			domain:    "resource",
 			key:       "",
 			expectNil: true,
 		},
@@ -257,7 +256,7 @@ func TestConvertFromUtilsFunction(t *testing.T) {
 		Id:          "test.function",
 		Name:        "Test Function",
 		Description: "Test",
-		Category:    "test",
+		Resource:    "test",
 		GameId:      "game1",
 		Status:      1,
 		Version:     "1.0",
@@ -269,7 +268,7 @@ func TestConvertFromUtilsFunction(t *testing.T) {
 	assert.Equal(t, "test.function", result.ID)
 	assert.Equal(t, "Test Function", result.Name)
 	assert.Equal(t, "Test", result.Description)
-	assert.Equal(t, "test", result.Category)
+	assert.Equal(t, "test", result.Resource)
 	assert.Equal(t, "game1", result.GameId)
 	assert.Equal(t, 1, result.Status)
 	assert.Equal(t, "1.0", result.Version)
@@ -374,7 +373,7 @@ func TestExtractRoleNamesEmpty(t *testing.T) {
 	assert.Empty(t, result)
 }
 
-func TestFunctionsList_RuntimeCategoryUsesRegisteredMetadataOnly(t *testing.T) {
+func TestFunctionsList_RuntimeResourceUsesRegisteredMetadataOnly(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
@@ -391,7 +390,7 @@ func TestFunctionsList_RuntimeCategoryUsesRegisteredMetadataOnly(t *testing.T) {
 			"mail.send": {
 				Enabled:  true,
 				Version:  "1.0.0",
-				Category: "ops",
+				Resource: "ops",
 			},
 		},
 	})
@@ -411,116 +410,8 @@ func TestFunctionsList_RuntimeCategoryUsesRegisteredMetadataOnly(t *testing.T) {
 		byID[item.ID] = item
 	}
 
-	assert.Equal(t, "", byID["player.ban"].Category)
-	assert.Equal(t, "ops", byID["mail.send"].Category)
-}
-
-// Tests for FunctionRouteLogic
-func TestFunctionRouteLogic_Constructor(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-
-	svcCtx := &svc.ServiceContext{
-		DB:            db,
-		FunctionModel: model.NewFunctionModel(db),
-	}
-	ctx := context.Background()
-
-	logic := NewFunctionRouteLogic(ctx, svcCtx)
-
-	assert.NotNil(t, logic)
-	assert.Equal(t, ctx, logic.ctx)
-	assert.Equal(t, svcCtx, logic.svcCtx)
-}
-
-func TestFunctionRouteLogic_FunctionRoute_NotFound(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	err = model.AutoMigrate(db)
-	require.NoError(t, err)
-
-	svcCtx := &svc.ServiceContext{
-		DB:            db,
-		FunctionModel: model.NewFunctionModel(db),
-	}
-
-	logic := NewFunctionRouteLogic(context.Background(), svcCtx)
-	resp, err := logic.FunctionRoute(&FunctionRouteRequest{ID: "nonexistent.function"})
-
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	assert.Equal(t, "default", resp.Source)
-	assert.NotNil(t, resp.Menu)
-}
-
-func TestFunctionRouteLogic_FunctionRoute_EmptyID(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-
-	svcCtx := &svc.ServiceContext{
-		DB:            db,
-		FunctionModel: model.NewFunctionModel(db),
-	}
-
-	logic := NewFunctionRouteLogic(context.Background(), svcCtx)
-	resp, err := logic.FunctionRoute(&FunctionRouteRequest{ID: ""})
-
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-}
-
-func TestFunctionRouteLogic_FunctionRoute_WithMetadata(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	err = model.AutoMigrate(db)
-	require.NoError(t, err)
-
-	fn := &model.Function{
-		FunctionID: "player.ban",
-		Name:       "Ban Player",
-		Status:     1,
-		Metadata: map[string]interface{}{
-			"menu": map[string]interface{}{
-				"nodes":  []string{"player", "actions"},
-				"path":   "/custom/ban",
-				"order":  10,
-				"hidden": false,
-			},
-		},
-	}
-	err = db.Create(fn).Error
-	require.NoError(t, err)
-
-	svcCtx := &svc.ServiceContext{
-		DB:            db,
-		FunctionModel: model.NewFunctionModel(db),
-	}
-
-	logic := NewFunctionRouteLogic(context.Background(), svcCtx)
-	resp, err := logic.FunctionRoute(&FunctionRouteRequest{ID: "player.ban"})
-
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	assert.Equal(t, "metadata", resp.Source)
-	assert.NotNil(t, resp.Menu)
-}
-
-// Tests for FunctionRouteUpdateLogic
-func TestNewFunctionRouteUpdateLogic(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-
-	svcCtx := &svc.ServiceContext{
-		DB:            db,
-		FunctionModel: model.NewFunctionModel(db),
-	}
-	ctx := context.Background()
-
-	logic := NewFunctionRouteUpdateLogic(ctx, svcCtx)
-
-	assert.NotNil(t, logic)
-	assert.Equal(t, ctx, logic.ctx)
-	assert.Equal(t, svcCtx, logic.svcCtx)
+	assert.Equal(t, "", byID["player.ban"].Resource)
+	assert.Equal(t, "ops", byID["mail.send"].Resource)
 }
 
 // Tests for FunctionHistoryLogic
@@ -882,13 +773,13 @@ func TestSanitizeNodeKey_EdgeCases(t *testing.T) {
 // Tests for normalizeTerm edge cases
 func TestNormalizeTerm_EdgeCases(t *testing.T) {
 	aliasMap := map[string]map[string]string{
-		"entity": {
+		"resource": {
 			"user": "player",
 		},
 	}
 
 	t.Run("whitespace value", func(t *testing.T) {
-		result := normalizeTerm(aliasMap, "entity", "  ")
+		result := normalizeTerm(aliasMap, "resource", "  ")
 		assert.Equal(t, "", result)
 	})
 
@@ -901,7 +792,7 @@ func TestNormalizeTerm_EdgeCases(t *testing.T) {
 // Tests for termDisplay edge cases
 func TestTermDisplay_EdgeCases(t *testing.T) {
 	displayMap := map[string]map[string]map[string]string{
-		"entity": {
+		"resource": {
 			"player": {
 				"zh": "玩家",
 			},
@@ -909,7 +800,7 @@ func TestTermDisplay_EdgeCases(t *testing.T) {
 	}
 
 	t.Run("missing language", func(t *testing.T) {
-		result := termDisplay(displayMap, "entity", "player")
+		result := termDisplay(displayMap, "resource", "player")
 		assert.NotNil(t, result)
 		assert.Equal(t, "玩家", result["zh"])
 		_, hasEn := result["en"]
@@ -917,7 +808,7 @@ func TestTermDisplay_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty display map", func(t *testing.T) {
-		result := termDisplay(nil, "entity", "player")
+		result := termDisplay(nil, "resource", "player")
 		assert.Nil(t, result)
 	})
 }
@@ -1088,14 +979,6 @@ func TestFunctionHistoryLogic_FunctionHistory_MoreScenarios(t *testing.T) {
 		_, err = configModel.Create(context.Background(), "ui.test.history", string(uiConfigJSON), "testuser")
 		require.NoError(t, err)
 
-		// Route config version
-		routeConfig := map[string]interface{}{
-			"nodes": []string{"test", "node"},
-		}
-		routeConfigJSON, _ := json.Marshal(routeConfig)
-		_, err = configModel.Create(context.Background(), "route.test.history", string(routeConfigJSON), "testuser")
-		require.NoError(t, err)
-
 		svcCtx := &svc.ServiceContext{
 			DB:                 db,
 			FunctionModel:      model.NewFunctionModel(db),
@@ -1106,25 +989,21 @@ func TestFunctionHistoryLogic_FunctionHistory_MoreScenarios(t *testing.T) {
 		items, err := logic.FunctionHistory(&FunctionHistoryRequest{ID: "test.history"})
 
 		assert.NoError(t, err)
-		assert.GreaterOrEqual(t, len(items), 3)
+		assert.GreaterOrEqual(t, len(items), 2)
 
 		// Check we have the right types
 		hasCreated := false
 		hasUIUpdate := false
-		hasRouteUpdate := false
 		for _, item := range items {
 			switch item.Action {
 			case "function_created":
 				hasCreated = true
 			case "ui_config_updated":
 				hasUIUpdate = true
-			case "route_config_updated":
-				hasRouteUpdate = true
 			}
 		}
 		assert.True(t, hasCreated, "should have function_created item")
 		assert.True(t, hasUIUpdate, "should have ui_config_updated item")
-		assert.True(t, hasRouteUpdate, "should have route_config_updated item")
 	})
 
 	t.Run("with nil config version model", func(t *testing.T) {
@@ -1140,48 +1019,6 @@ func TestFunctionHistoryLogic_FunctionHistory_MoreScenarios(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, items, 1)
 		assert.Equal(t, "function_created", items[0].Action)
-	})
-}
-
-// Tests for function_route_update_logic edge cases
-func TestFunctionRouteUpdateLogic_EdgeCases(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	err = model.AutoMigrate(db)
-	require.NoError(t, err)
-
-	t.Run("empty ID", func(t *testing.T) {
-		svcCtx := &svc.ServiceContext{
-			DB:            db,
-			FunctionModel: model.NewFunctionModel(db),
-		}
-		ctx := context.Background()
-
-		logic := NewFunctionRouteUpdateLogic(ctx, svcCtx)
-		resp, err := logic.FunctionRouteUpdate(&FunctionRouteUpdateRequest{
-			ID:    "",
-			Nodes: []string{"test"},
-		})
-
-		assert.Error(t, err)
-		assert.Nil(t, resp)
-	})
-
-	t.Run("invalid function ID", func(t *testing.T) {
-		svcCtx := &svc.ServiceContext{
-			DB:            db,
-			FunctionModel: model.NewFunctionModel(db),
-		}
-		ctx := context.Background()
-
-		logic := NewFunctionRouteUpdateLogic(ctx, svcCtx)
-		resp, err := logic.FunctionRouteUpdate(&FunctionRouteUpdateRequest{
-			ID:    "   ", // only whitespace
-			Nodes: []string{"test"},
-		})
-
-		assert.Error(t, err)
-		assert.Nil(t, resp)
 	})
 }
 
@@ -1235,289 +1072,6 @@ func TestGetOrCreateFunctionRecord_EdgeCases(t *testing.T) {
 	})
 }
 
-// Tests for FunctionRouteLogic edge cases
-func TestFunctionRouteLogic_EdgeCases(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	err = model.AutoMigrate(db)
-	require.NoError(t, err)
-
-	t.Run("with empty nodes in metadata", func(t *testing.T) {
-		fn := &model.Function{
-			FunctionID: "test.function",
-			Name:       "Test",
-			Status:     1,
-			Metadata: map[string]interface{}{
-				"menu": map[string]interface{}{
-					"nodes": []string{}, // empty
-				},
-			},
-		}
-		err = db.Create(fn).Error
-		require.NoError(t, err)
-
-		svcCtx := &svc.ServiceContext{
-			DB:            db,
-			FunctionModel: model.NewFunctionModel(db),
-		}
-
-		logic := NewFunctionRouteLogic(context.Background(), svcCtx)
-		resp, err := logic.FunctionRoute(&FunctionRouteRequest{ID: "test.function"})
-
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
-		// Menu may be nil or have different structure depending on implementation
-		if resp.Menu != nil {
-			if menuMap, ok := resp.Menu.(map[string]interface{}); ok {
-				if nodesVal, exists := menuMap["nodes"]; exists {
-					if nodes, ok := nodesVal.([]string); ok {
-						assert.Empty(t, nodes)
-					}
-				}
-			}
-		}
-	})
-
-	t.Run("with whitespace ID", func(t *testing.T) {
-		svcCtx := &svc.ServiceContext{
-			DB:            db,
-			FunctionModel: model.NewFunctionModel(db),
-		}
-
-		logic := NewFunctionRouteLogic(context.Background(), svcCtx)
-		resp, err := logic.FunctionRoute(&FunctionRouteRequest{ID: "  test.function  "})
-
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
-	})
-
-	t.Run("nil metadata", func(t *testing.T) {
-		fn := &model.Function{
-			FunctionID: "test.nilmeta",
-			Name:       "Test",
-			Status:     1,
-			Metadata:   nil,
-		}
-		err = db.Create(fn).Error
-		require.NoError(t, err)
-
-		svcCtx := &svc.ServiceContext{
-			DB:            db,
-			FunctionModel: model.NewFunctionModel(db),
-		}
-
-		logic := NewFunctionRouteLogic(context.Background(), svcCtx)
-		resp, err := logic.FunctionRoute(&FunctionRouteRequest{ID: "test.nilmeta"})
-
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
-		assert.Equal(t, "default", resp.Source)
-	})
-}
-
-// Tests for FunctionRouteLogic with different node types
-func TestFunctionRouteLogic_NodeTypes(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	err = model.AutoMigrate(db)
-	require.NoError(t, err)
-
-	tests := []struct {
-		name           string
-		nodesValue     interface{}
-		expectedNodes  []string
-		expectedSource string
-	}{
-		{
-			name:           "string nodes",
-			nodesValue:     []string{"node1", "node2"},
-			expectedNodes:  []string{"node1", "node2"},
-			expectedSource: "metadata",
-		},
-		{
-			name:           "interface array nodes with mixed types",
-			nodesValue:     []interface{}{"node1", 123, true, "node2"},
-			expectedNodes:  []string{"node1", "node2"},
-			expectedSource: "metadata",
-		},
-		{
-			name:           "nodes as interface array with non-strings",
-			nodesValue:     []interface{}{123, true, nil},
-			expectedNodes:  []string{},
-			expectedSource: "metadata",
-		},
-		{
-			name:           "invalid nodes type (string)",
-			nodesValue:     "invalid",
-			expectedNodes:  []string{},
-			expectedSource: "metadata",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Use unique function ID for each test case
-			fnID := "test.nodes." + strings.ReplaceAll(tt.name, " ", "_")
-			fn := &model.Function{
-				FunctionID: fnID,
-				Name:       "Test",
-				Status:     1,
-				Metadata: map[string]interface{}{
-					"menu": map[string]interface{}{
-						"nodes": tt.nodesValue,
-					},
-				},
-			}
-			err = db.Create(fn).Error
-			require.NoError(t, err)
-
-			svcCtx := &svc.ServiceContext{
-				DB:            db,
-				FunctionModel: model.NewFunctionModel(db),
-			}
-
-			logic := NewFunctionRouteLogic(context.Background(), svcCtx)
-			resp, err := logic.FunctionRoute(&FunctionRouteRequest{ID: fnID})
-
-			assert.NoError(t, err)
-			assert.NotNil(t, resp)
-
-			// Source might vary based on actual implementation
-			// Just check that response is successful
-
-			// Menu may be nil or not a map depending on implementation
-			if resp.Menu != nil {
-				// If Menu exists, check if it has the expected structure
-				if menuMap, ok := resp.Menu.(map[string]interface{}); ok {
-					// Check nodes if present
-					if nodesVal, exists := menuMap["nodes"]; exists {
-						if nodes, ok := nodesVal.([]string); ok {
-							// Compare only if we got a valid string array
-							if len(nodes) > 0 || len(tt.expectedNodes) == 0 {
-								assert.Equal(t, tt.expectedNodes, nodes)
-							}
-						}
-					}
-				}
-			}
-		})
-	}
-}
-
-// Tests for FunctionRouteLogic order and hidden types
-func TestFunctionRouteLogic_OrderAndHiddenTypes(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	err = model.AutoMigrate(db)
-	require.NoError(t, err)
-
-	tests := []struct {
-		name           string
-		orderValue     interface{}
-		expectedOrder  interface{}
-		hiddenValue    interface{}
-		expectedHidden interface{}
-	}{
-		{
-			name:           "no order field",
-			orderValue:     nil,
-			expectedOrder:  nil,
-			hiddenValue:    nil,
-			expectedHidden: nil,
-		},
-		{
-			name:           "int order",
-			orderValue:     50,
-			expectedOrder:  50,
-			hiddenValue:    nil,
-			expectedHidden: nil,
-		},
-		{
-			name:           "float64 order",
-			orderValue:     75.5,
-			expectedOrder:  75,
-			hiddenValue:    nil,
-			expectedHidden: nil,
-		},
-		{
-			name:           "string order (invalid)",
-			orderValue:     "50",
-			expectedOrder:  nil,
-			hiddenValue:    nil,
-			expectedHidden: nil,
-		},
-		{
-			name:           "hidden true",
-			orderValue:     nil,
-			expectedOrder:  nil,
-			hiddenValue:    true,
-			expectedHidden: nil, // Response doesn't preserve the hidden field
-		},
-		{
-			name:           "hidden false",
-			orderValue:     nil,
-			expectedOrder:  nil,
-			hiddenValue:    false,
-			expectedHidden: nil, // Response doesn't preserve the hidden field
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			metadata := map[string]interface{}{
-				"menu": map[string]interface{}{
-					"nodes": []string{"test"},
-				},
-			}
-			if tt.orderValue != nil {
-				metadata["menu"].(map[string]interface{})["order"] = tt.orderValue
-			}
-			if tt.hiddenValue != nil {
-				metadata["menu"].(map[string]interface{})["hidden"] = tt.hiddenValue
-			}
-
-			// Use unique function ID for each test case
-			fnID := "test.orderhidden." + strings.ReplaceAll(tt.name, " ", "_")
-			fn := &model.Function{
-				FunctionID: fnID,
-				Name:       "Test",
-				Status:     1,
-				Metadata:   metadata,
-			}
-			err = db.Create(fn).Error
-			require.NoError(t, err)
-
-			svcCtx := &svc.ServiceContext{
-				DB:            db,
-				FunctionModel: model.NewFunctionModel(db),
-			}
-
-			logic := NewFunctionRouteLogic(context.Background(), svcCtx)
-			resp, err := logic.FunctionRoute(&FunctionRouteRequest{ID: fnID})
-
-			assert.NoError(t, err)
-			assert.NotNil(t, resp)
-
-			if resp.Menu == nil {
-				// When Menu is nil, skip field checks
-				return
-			}
-
-			menuMap, ok := resp.Menu.(map[string]interface{})
-			if !ok {
-				// Menu exists but is not a map, skip type-specific checks
-				return
-			}
-
-			assert.Equal(t, tt.expectedOrder, menuMap["order"])
-			// hidden field might not be present in response if nil/empty
-			if tt.expectedHidden != nil {
-				assert.Equal(t, tt.expectedHidden, menuMap["hidden"])
-			}
-		})
-	}
-}
-
 // Tests for FunctionUILogicV2 with more scenarios
 func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
@@ -1549,9 +1103,7 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		custom, ok := resp.Custom.(bool)
-		assert.True(t, ok)
-		assert.False(t, custom)
+		assert.False(t, resp.Custom)
 		assert.True(t, resp.HasDefault)
 		assert.Equal(t, "generated_default", resp.UISource)
 		assert.NotNil(t, resp.Schema)
@@ -1592,9 +1144,7 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.NotNil(t, resp.Schema)
-		custom, ok := resp.Custom.(bool)
-		assert.True(t, ok)
-		assert.False(t, custom)
+		assert.False(t, resp.Custom)
 		assert.Equal(t, "generated_default", resp.UISource)
 	})
 
@@ -1660,12 +1210,10 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		custom, ok := resp.Custom.(bool)
-		assert.True(t, ok)
-		assert.True(t, custom)
+		assert.True(t, resp.Custom)
 
-		schema, ok := resp.Schema.(map[string]interface{})
-		assert.True(t, ok)
+		schema, err := jsonObjectFromRaw(resp.Schema)
+		assert.NoError(t, err)
 		assert.Equal(t, "object", schema["type"])
 	})
 }

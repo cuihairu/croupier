@@ -551,15 +551,15 @@ def make_mail_claim(store: DemoStore) -> Callable:
 
 def enrich_descriptor(desc: FunctionDescriptor) -> FunctionDescriptor:
     if not desc.tags:
-        desc.tags = [value for value in (desc.category, desc.entity, desc.operation) if value]
+        desc.tags = [value for value in (desc.resource, desc.operation) if value]
     if not desc.summary:
-        desc.summary = f"{desc.entity} {desc.operation}"
+        desc.summary = f"{desc.resource or 'function'} {desc.operation or 'invoke'}"
     if not desc.description:
         desc.description = (
-            f"Demo function {desc.id} for {desc.entity} {desc.operation} operations."
+            f"Demo function {desc.id} for {desc.resource or 'unscoped'} {desc.operation or 'invoke'} operations."
         )
     if not desc.input_schema:
-        desc.input_schema = input_schema_for(desc.entity or "object", desc.operation or "custom")
+        desc.input_schema = input_schema_for(desc.resource or "object", desc.operation or "invoke")
     if not desc.output_schema:
         desc.output_schema = {
             "type": "object",
@@ -571,8 +571,8 @@ def enrich_descriptor(desc: FunctionDescriptor) -> FunctionDescriptor:
     return desc
 
 
-def input_schema_for(entity: str, operation: str) -> dict[str, Any]:
-    id_key = "player_id" if entity == "inventory" else f"{entity}_id"
+def input_schema_for(resource: str, operation: str) -> dict[str, Any]:
+    id_key = "player_id" if resource == "inventory" else f"{resource}_id"
     if operation == "create":
         return {
             "type": "object",
@@ -612,31 +612,31 @@ def main() -> None:
     store = DemoStore()
 
     fns = [
-        ("player.create", "player", "medium", "player", "create", make_player_create(store)),
-        ("player.get", "player", "low", "player", "read", make_player_get(store)),
-        ("player.update", "player", "medium", "player", "update", make_player_update(store)),
-        ("player.delete", "player", "high", "player", "delete", make_player_delete(store)),
-        ("player.list", "player", "low", "player", "read", make_player_list(store)),
-        ("order.create", "commerce", "medium", "order", "create", make_order_create(store)),
-        ("order.get", "commerce", "low", "order", "read", make_order_get(store)),
-        ("order.update", "commerce", "medium", "order", "update", make_order_update(store)),
-        ("order.delete", "commerce", "high", "order", "delete", make_order_delete(store)),
-        ("order.list", "commerce", "low", "order", "read", make_order_list(store)),
-        ("leaderboard.list", "leaderboard", "low", "leaderboard", "read", make_leaderboard_list(store)),
-        ("leaderboard.upsert", "leaderboard", "medium", "leaderboard", "update", make_leaderboard_upsert(store)),
-        ("leaderboard.reset", "leaderboard", "high", "leaderboard", "delete", make_leaderboard_reset(store)),
-        ("inventory.list", "inventory", "low", "inventory", "read", make_inventory_list(store)),
-        ("inventory.grant", "inventory", "medium", "inventory", "create", make_inventory_grant(store)),
-        ("inventory.consume", "inventory", "medium", "inventory", "delete", make_inventory_consume(store)),
-        ("mail.send", "mail", "medium", "mail", "create", make_mail_send(store)),
-        ("mail.list", "mail", "low", "mail", "read", make_mail_list(store)),
-        ("mail.claim", "mail", "medium", "mail", "update", make_mail_claim(store)),
+        ("player.create", "player", "medium", "create", make_player_create(store)),
+        ("player.get", "player", "low", "get", make_player_get(store)),
+        ("player.update", "player", "medium", "update", make_player_update(store)),
+        ("player.delete", "player", "high", "delete", make_player_delete(store)),
+        ("player.list", "player", "low", "list", make_player_list(store)),
+        ("order.create", "order", "medium", "create", make_order_create(store)),
+        ("order.get", "order", "low", "get", make_order_get(store)),
+        ("order.update", "order", "medium", "update", make_order_update(store)),
+        ("order.delete", "order", "high", "delete", make_order_delete(store)),
+        ("order.list", "order", "low", "list", make_order_list(store)),
+        ("leaderboard.list", "leaderboard", "low", "list", make_leaderboard_list(store)),
+        ("leaderboard.upsert", "leaderboard", "medium", "upsert", make_leaderboard_upsert(store)),
+        ("leaderboard.reset", "leaderboard", "high", "reset", make_leaderboard_reset(store)),
+        ("inventory.list", "inventory", "low", "list", make_inventory_list(store)),
+        ("inventory.grant", "inventory", "medium", "grant", make_inventory_grant(store)),
+        ("inventory.consume", "inventory", "medium", "consume", make_inventory_consume(store)),
+        ("mail.send", "mail", "medium", "send", make_mail_send(store)),
+        ("mail.list", "mail", "low", "list", make_mail_list(store)),
+        ("mail.claim", "mail", "medium", "claim", make_mail_claim(store)),
     ]
 
-    for fid, cat, risk, entity, op, handler in fns:
+    for fid, resource, risk, operation, handler in fns:
         desc = enrich_descriptor(FunctionDescriptor(
-            id=fid, version="1.0.0", category=cat, risk=risk,
-            entity=entity, operation=op,
+            id=fid, version="1.0.0", resource=resource, risk=risk,
+            operation=operation,
         ))
         client.register_function(desc, handler)
         print(f"  registered: {fid}")

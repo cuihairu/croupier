@@ -269,7 +269,7 @@ func TestService_OpenAPISourceListDiagnosticsAndBinding(t *testing.T) {
 			"/players": map[string]interface{}{
 				"get": map[string]interface{}{
 					"operationId": "playerList",
-					"x-entity":    "player",
+					"x-resource":  "player",
 					"x-operation": "list",
 					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
 				},

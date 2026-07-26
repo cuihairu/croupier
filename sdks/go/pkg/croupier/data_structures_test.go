@@ -69,9 +69,8 @@ func TestField_assignments(t *testing.T) {
 
 		desc.ID = "test.id"
 		desc.Version = "2.0.0"
-		desc.Category = "test"
+		desc.Resource = "test"
 		desc.Risk = "low"
-		desc.Entity = "TestEntity"
 		desc.Operation = "create"
 		desc.Enabled = true
 

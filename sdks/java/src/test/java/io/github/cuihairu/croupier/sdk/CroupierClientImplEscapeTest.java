@@ -161,10 +161,10 @@ class CroupierClientImplEscapeTest {
         desc.setOperationId("opId");
         desc.setInputSchema("{\"type\":\"object\"}");
         desc.setOutputSchema("{\"type\":\"string\"}");
-        desc.setCategory("game");
+        desc.setResource("player");
         desc.setRisk("low");
-        desc.setEntity("Player");
-        desc.setOperation("create");
+        desc.setOperation("ban");
+        desc.setPermission("player.ban");
         desc.setEnabled(true);
 
         client.registerFunction(desc, (ctx, payload) -> "ok");
@@ -177,11 +177,13 @@ class CroupierClientImplEscapeTest {
         assertTrue(json.contains("\"operation_id\":\"opId\""));
         assertTrue(json.contains("\"input_schema\":"));
         assertTrue(json.contains("\"output_schema\":"));
-        assertTrue(json.contains("\"category\":\"game\""));
+        assertTrue(json.contains("\"resource\":\"player\""));
         assertTrue(json.contains("\"risk\":\"low\""));
-        assertTrue(json.contains("\"entity\":\"Player\""));
-        assertTrue(json.contains("\"operation\":\"create\""));
+        assertTrue(json.contains("\"operation\":\"ban\""));
+        assertTrue(json.contains("\"permission\":\"player.ban\""));
         assertTrue(json.contains("\"enabled\":true"));
+        assertFalse(json.contains("\"category\""));
+        assertFalse(json.contains("\"entity\""));
     }
 
     @Test

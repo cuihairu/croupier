@@ -25,10 +25,9 @@ type FunctionDefinition struct {
 	ID           string
 	Summary      string
 	Description  string
-	Category     string
+	Resource     string
 	Risk         string
-	Entity       string
-	Operation    string // create/read/update/delete/custom
+	Operation    string
 	InputSchema  interface{}
 	OutputSchema interface{}
 }

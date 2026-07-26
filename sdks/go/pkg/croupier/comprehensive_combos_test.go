@@ -79,9 +79,8 @@ func TestComprehensive_descriptorCombinations(t *testing.T) {
 				desc := FunctionDescriptor{
 					ID:        "test.function",
 					Version:   "1.0.0",
-					Category:  "test",
+					Resource:  "test",
 					Risk:      risk,
-					Entity:    "TestEntity",
 					Operation: op,
 					Enabled:   true,
 				}
@@ -104,9 +103,8 @@ func TestComprehensive_descriptorCombinations(t *testing.T) {
 			Deprecated:   false,
 			InputSchema:  `{"type":"object","properties":{"input":{"type":"string"}}}`,
 			OutputSchema: `{"type":"object","properties":{"output":{"type":"string"}}}`,
-			Category:     "test",
+			Resource:     "test",
 			Risk:         "safe",
-			Entity:       "Test",
 			Operation:    "test",
 		}
 
@@ -287,7 +285,7 @@ func TestComprehensive_concurrentAccess(t *testing.T) {
 				desc := FunctionDescriptor{
 					ID:       "test.func",
 					Version:  "1.0.0",
-					Category: "test",
+					Resource: "test",
 					Risk:     "low",
 					Enabled:  true,
 				}

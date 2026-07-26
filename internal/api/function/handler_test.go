@@ -89,8 +89,6 @@ func TestFunctionHandlersRejectMalformedJSON(t *testing.T) {
 		{name: "FunctionHistory", fn: h.FunctionHistory},
 		{name: "FunctionInvoke", fn: h.FunctionInvoke},
 		{name: "FunctionPublish", fn: h.FunctionPublish},
-		{name: "FunctionRoute", fn: h.FunctionRoute},
-		{name: "FunctionRouteUpdate", fn: h.FunctionRouteUpdate},
 		{name: "FunctionInstances", fn: h.FunctionInstances},
 		{name: "FunctionInstancesAll", fn: h.FunctionInstancesAll},
 		{name: "FunctionPermissions", fn: h.FunctionPermissions},
@@ -107,7 +105,6 @@ func TestFunctionHandlersRejectMalformedJSON(t *testing.T) {
 		{name: "AliasList", fn: h.List},
 		{name: "AliasPending", fn: h.Pending},
 		{name: "AliasAnalytics", fn: h.Analytics},
-		{name: "AliasRouteUpdate", fn: h.RouteUpdate},
 		{name: "AliasBatchDelete", fn: h.BatchDelete},
 	}
 
@@ -125,29 +122,6 @@ func TestFunctionHandlersRejectMalformedJSON(t *testing.T) {
 				t.Fatalf("expected bad_request body, got %s", rec.Body.String())
 			}
 		})
-	}
-}
-
-// TestHandler_FunctionRouteUpdate_ValidRequest tests valid request path
-func TestHandler_FunctionRouteUpdate_ValidRequest(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/route", `{
-		"id": "test",
-		"nodes": [{"id": "1"}],
-		"path": "/test",
-		"order": 1,
-		"hidden": false
-	}`)
-
-	h.FunctionRouteUpdate(ctx)
-
-	// Should return error since service doesn't have actual implementations
-	// but we've tested the valid request binding path
-	if rec.Code != http.StatusOK && rec.Code != http.StatusInternalServerError {
-		// Accept both since we're not mocking the full service
 	}
 }
 

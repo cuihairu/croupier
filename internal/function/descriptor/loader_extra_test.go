@@ -49,7 +49,7 @@ func TestLoadAll_IDFieldNotString(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create a JSON file where "id" is not a string
-	data := `{"id": 123, "category": "test"}`
+	data := `{"id": 123, "resource": "test"}`
 	err := os.WriteFile(filepath.Join(dir, "id-number.json"), []byte(data), 0o644)
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +70,7 @@ func TestLoadAll_IDFieldArray(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create a JSON file where "id" is an array
-	data := `{"id": ["a", "b"], "category": "test"}`
+	data := `{"id": ["a", "b"], "resource": "test"}`
 	err := os.WriteFile(filepath.Join(dir, "id-array.json"), []byte(data), 0o644)
 	if err != nil {
 		t.Fatal(err)
@@ -100,9 +100,10 @@ func TestLoadAll_MixedValidAndInvalid(t *testing.T) {
 
 	// Create mix of valid and invalid files
 	validDesc := Descriptor{
-		ID:       "valid.func",
-		Version:  "1.0.0",
-		Category: "test",
+		ID:        "valid.func",
+		Version:   "1.0.0",
+		Resource:  "test",
+		Operation: "run",
 	}
 	validData, _ := json.Marshal(validDesc)
 	err := os.WriteFile(filepath.Join(dir, "valid.json"), validData, 0o644)
@@ -129,17 +130,17 @@ func TestLoadAll_AllBranches(t *testing.T) {
 	// Create a comprehensive test that covers multiple branches
 	files := map[string]string{
 		// Valid descriptor
-		"valid.json": `{"id":"test.func","version":"1.0.0","category":"test"}`,
+		"valid.json": `{"id":"test.func","version":"1.0.0","resource":"test","operation":"run"}`,
 		// No id field
-		"no-id.json": `{"category":"test"}`,
+		"no-id.json": `{"resource":"test"}`,
 		// Null id
-		"null-id.json": `{"id":null,"category":"test"}`,
+		"null-id.json": `{"id":null,"resource":"test"}`,
 		// Empty id
-		"empty-id.json": `{"id":"","category":"test"}`,
+		"empty-id.json": `{"id":"","resource":"test"}`,
 		// Non-JSON file
 		"readme.txt": "This is not JSON",
 		// JSON in ui subdirectory
-		"ui/schema.json": `{"id":"ui.func","category":"ui"}`,
+		"ui/schema.json": `{"id":"ui.func","resource":"ui"}`,
 	}
 
 	for name, content := range files {

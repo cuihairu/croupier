@@ -28,163 +28,6 @@ namespace _fl = ::google::protobuf::internal::field_layout;
 namespace croupier {
 namespace component {
 namespace v1 {
-template <typename>
-constexpr FunctionOptions_LabelsEntry_DoNotUse::FunctionOptions_LabelsEntry_DoNotUse(::_pbi::ConstantInitialized)
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-    : FunctionOptions_LabelsEntry_DoNotUse::MapEntry(FunctionOptions_LabelsEntry_DoNotUse_class_data_.base()){}
-#else   // PROTOBUF_CUSTOM_VTABLE
-    : FunctionOptions_LabelsEntry_DoNotUse::MapEntry() {
-}
-#endif  // PROTOBUF_CUSTOM_VTABLE
-struct FunctionOptions_LabelsEntry_DoNotUseDefaultTypeInternal {
-  constexpr FunctionOptions_LabelsEntry_DoNotUseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~FunctionOptions_LabelsEntry_DoNotUseDefaultTypeInternal() {}
-  union {
-    FunctionOptions_LabelsEntry_DoNotUse _instance;
-  };
-};
-
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 FunctionOptions_LabelsEntry_DoNotUseDefaultTypeInternal _FunctionOptions_LabelsEntry_DoNotUse_default_instance_;
-template <typename>
-constexpr EntityOptions_CustomOperationsEntry_DoNotUse::EntityOptions_CustomOperationsEntry_DoNotUse(::_pbi::ConstantInitialized)
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-    : EntityOptions_CustomOperationsEntry_DoNotUse::MapEntry(EntityOptions_CustomOperationsEntry_DoNotUse_class_data_.base()){}
-#else   // PROTOBUF_CUSTOM_VTABLE
-    : EntityOptions_CustomOperationsEntry_DoNotUse::MapEntry() {
-}
-#endif  // PROTOBUF_CUSTOM_VTABLE
-struct EntityOptions_CustomOperationsEntry_DoNotUseDefaultTypeInternal {
-  constexpr EntityOptions_CustomOperationsEntry_DoNotUseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~EntityOptions_CustomOperationsEntry_DoNotUseDefaultTypeInternal() {}
-  union {
-    EntityOptions_CustomOperationsEntry_DoNotUse _instance;
-  };
-};
-
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 EntityOptions_CustomOperationsEntry_DoNotUseDefaultTypeInternal _EntityOptions_CustomOperationsEntry_DoNotUse_default_instance_;
-
-inline constexpr EntityOptions::Impl_::Impl_(
-    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
-    ::_pbi::ConstantInitialized) noexcept
-      : _cached_size_{0},
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        create_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.create_functions_)>()
-        }
-        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        create_functions_ {}
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        read_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.read_functions_)>()
-        }
-        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        read_functions_ {}
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        update_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.update_functions_)>()
-        }
-        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        update_functions_ {}
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        delete_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.delete_functions_)>()
-        }
-        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        delete_functions_ {}
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        list_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.list_functions_)>()
-        }
-        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        list_functions_ {}
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        tags_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.tags_)>()
-        }
-        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        tags_ {}
-        #endif
-        ,
-        entity_id_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        version_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        name_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        description_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        category_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        primary_key_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        display_field_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        title_template_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        avatar_field_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        status_field_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        display_name_{nullptr},
-        summary_{nullptr},
-        menu_{nullptr},
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
-        custom_operations_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.custom_operations_)>()
-        }
-        #else
-        custom_operations_ {}
-        #endif
-     {}
-
-template <typename>
-constexpr EntityOptions::EntityOptions(::_pbi::ConstantInitialized)
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::Message(EntityOptions_class_data_.base()),
-#else   // PROTOBUF_CUSTOM_VTABLE
-    : ::google::protobuf::Message(),
-#endif  // PROTOBUF_CUSTOM_VTABLE
-      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
-}
-struct EntityOptionsDefaultTypeInternal {
-  constexpr EntityOptionsDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~EntityOptionsDefaultTypeInternal() {}
-  union {
-    EntityOptions _instance;
-  };
-};
-
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 EntityOptionsDefaultTypeInternal _EntityOptions_default_instance_;
 
 inline constexpr FunctionOptions::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
@@ -205,7 +48,10 @@ inline constexpr FunctionOptions::Impl_::Impl_(
         version_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
-        category_(
+        resource_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        operation_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         risk_(
@@ -217,27 +63,20 @@ inline constexpr FunctionOptions::Impl_::Impl_(
         timeout_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
-        placement_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
         mode_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
-        display_name_{nullptr},
-        summary_{nullptr},
-        menu_{nullptr},
-        permissions_{nullptr},
+        summary_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        description_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        permission_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         two_person_rule_{false},
-        idempotency_key_{false},
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
-        labels_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::FunctionOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.labels_)>()
-        }
-        #else
-        labels_ {}
-        #endif
-     {}
+        idempotency_key_{false} {}
 
 template <typename>
 constexpr FunctionOptions::FunctionOptions(::_pbi::ConstantInitialized)
@@ -269,184 +108,82 @@ const ::uint32_t
     TableStruct_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto::offsets[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
         protodesc_cold) = {
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions_LabelsEntry_DoNotUse, _impl_._has_bits_),
-        5, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions_LabelsEntry_DoNotUse, _impl_.key_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions_LabelsEntry_DoNotUse, _impl_.value_),
-        0,
-        1,
-        0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_._has_bits_),
-        19, // hasbit index offset
+        17, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.function_id_),
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.version_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.category_),
+        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.resource_),
+        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.operation_),
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.risk_),
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.route_),
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.timeout_),
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.two_person_rule_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.placement_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.labels_),
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.mode_),
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.idempotency_key_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.display_name_),
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.summary_),
+        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.description_),
         PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.tags_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.menu_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.permissions_),
+        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.permission_),
         1,
         2,
         3,
         4,
         5,
         6,
-        13,
         7,
-        15,
+        12,
         8,
-        14,
+        13,
         9,
         10,
         0,
         11,
-        12,
-        0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions_CustomOperationsEntry_DoNotUse, _impl_._has_bits_),
-        5, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions_CustomOperationsEntry_DoNotUse, _impl_.key_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions_CustomOperationsEntry_DoNotUse, _impl_.value_),
-        0,
-        1,
-        0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_._has_bits_),
-        23, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.entity_id_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.version_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.name_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.description_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.category_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.primary_key_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.display_field_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.title_template_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.avatar_field_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.status_field_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.create_functions_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.read_functions_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.update_functions_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.delete_functions_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.list_functions_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.custom_operations_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.display_name_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.summary_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.tags_),
-        PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.menu_),
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        0,
-        1,
-        2,
-        3,
-        4,
-        19,
-        16,
-        17,
-        5,
-        18,
 };
 
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
-        {0, sizeof(::croupier::component::v1::FunctionOptions_LabelsEntry_DoNotUse)},
-        {7, sizeof(::croupier::component::v1::FunctionOptions)},
-        {42, sizeof(::croupier::component::v1::EntityOptions_CustomOperationsEntry_DoNotUse)},
-        {49, sizeof(::croupier::component::v1::EntityOptions)},
+        {0, sizeof(::croupier::component::v1::FunctionOptions)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
-    &::croupier::component::v1::_FunctionOptions_LabelsEntry_DoNotUse_default_instance_._instance,
     &::croupier::component::v1::_FunctionOptions_default_instance_._instance,
-    &::croupier::component::v1::_EntityOptions_CustomOperationsEntry_DoNotUse_default_instance_._instance,
-    &::croupier::component::v1::_EntityOptions_default_instance_._instance,
 };
 const char descriptor_table_protodef_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n,croupier/component/v1/function_options"
     ".proto\022\025croupier.component.v1\032 google/pr"
-    "otobuf/descriptor.proto\032(croupier/compon"
-    "ent/v1/dashboard_ui.proto\"\313\005\n\017FunctionOp"
-    "tions\022\037\n\013function_id\030\001 \001(\tR\nfunctionId\022\030"
-    "\n\007version\030\002 \001(\tR\007version\022\032\n\010category\030\003 \001"
-    "(\tR\010category\022\022\n\004risk\030\004 \001(\tR\004risk\022\024\n\005rout"
-    "e\030\005 \001(\tR\005route\022\030\n\007timeout\030\006 \001(\tR\007timeout"
-    "\022&\n\017two_person_rule\030\007 \001(\010R\rtwoPersonRule"
-    "\022\034\n\tplacement\030\010 \001(\tR\tplacement\022J\n\006labels"
-    "\030\t \003(\01322.croupier.component.v1.FunctionO"
-    "ptions.LabelsEntryR\006labels\022\022\n\004mode\030\n \001(\t"
-    "R\004mode\022\'\n\017idempotency_key\030\013 \001(\010R\016idempot"
-    "encyKey\022B\n\014display_name\030\014 \001(\0132\037.croupier"
-    ".component.v1.I18nTextR\013displayName\0229\n\007s"
-    "ummary\030\r \001(\0132\037.croupier.component.v1.I18"
-    "nTextR\007summary\022\022\n\004tags\030\016 \003(\tR\004tags\0223\n\004me"
-    "nu\030\017 \001(\0132\033.croupier.component.v1.MenuB\002\030"
-    "\001R\004menu\022K\n\013permissions\030\020 \001(\0132%.croupier."
-    "component.v1.PermissionSpecB\002\030\001R\013permiss"
-    "ions\0329\n\013LabelsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n"
-    "\005value\030\002 \001(\tR\005value:\0028\001\"\220\007\n\rEntityOption"
-    "s\022\033\n\tentity_id\030\001 \001(\tR\010entityId\022\030\n\007versio"
-    "n\030\002 \001(\tR\007version\022\022\n\004name\030\003 \001(\tR\004name\022 \n\013"
-    "description\030\004 \001(\tR\013description\022\032\n\010catego"
-    "ry\030\005 \001(\tR\010category\022\037\n\013primary_key\030\006 \001(\tR"
-    "\nprimaryKey\022#\n\rdisplay_field\030\007 \001(\tR\014disp"
-    "layField\022%\n\016title_template\030\010 \001(\tR\rtitleT"
-    "emplate\022!\n\014avatar_field\030\t \001(\tR\013avatarFie"
-    "ld\022!\n\014status_field\030\n \001(\tR\013statusField\022)\n"
-    "\020create_functions\030\013 \003(\tR\017createFunctions"
-    "\022%\n\016read_functions\030\014 \003(\tR\rreadFunctions\022"
-    ")\n\020update_functions\030\r \003(\tR\017updateFunctio"
-    "ns\022)\n\020delete_functions\030\016 \003(\tR\017deleteFunc"
-    "tions\022%\n\016list_functions\030\017 \003(\tR\rlistFunct"
-    "ions\022g\n\021custom_operations\030\020 \003(\0132:.croupi"
-    "er.component.v1.EntityOptions.CustomOper"
-    "ationsEntryR\020customOperations\022B\n\014display"
-    "_name\030\021 \001(\0132\037.croupier.component.v1.I18n"
-    "TextR\013displayName\0229\n\007summary\030\022 \001(\0132\037.cro"
-    "upier.component.v1.I18nTextR\007summary\022\022\n\004"
-    "tags\030\023 \003(\tR\004tags\0223\n\004menu\030\024 \001(\0132\033.croupie"
-    "r.component.v1.MenuB\002\030\001R\004menu\032C\n\025CustomO"
-    "perationsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005valu"
-    "e\030\002 \001(\tR\005value:\0028\001:d\n\010function\022\036.google."
-    "protobuf.MethodOptions\030\271\216\003 \001(\0132&.croupie"
-    "r.component.v1.FunctionOptionsR\010function"
-    ":_\n\006entity\022\037.google.protobuf.MessageOpti"
-    "ons\030\272\216\003 \001(\0132$.croupier.component.v1.Enti"
-    "tyOptionsR\006entityBs\n(io.github.cuihairu."
-    "croupier.component.v1P\001ZEgithub.com/cuih"
-    "airu/croupier/pkg/pb/croupier/component/"
-    "v1;componentv1b\006proto3"
+    "otobuf/descriptor.proto\"\237\003\n\017FunctionOpti"
+    "ons\022\037\n\013function_id\030\001 \001(\tR\nfunctionId\022\030\n\007"
+    "version\030\002 \001(\tR\007version\022\032\n\010resource\030\003 \001(\t"
+    "R\010resource\022\034\n\toperation\030\004 \001(\tR\toperation"
+    "\022\022\n\004risk\030\005 \001(\tR\004risk\022\024\n\005route\030\006 \001(\tR\005rou"
+    "te\022\030\n\007timeout\030\007 \001(\tR\007timeout\022&\n\017two_pers"
+    "on_rule\030\010 \001(\010R\rtwoPersonRule\022\022\n\004mode\030\t \001"
+    "(\tR\004mode\022\'\n\017idempotency_key\030\n \001(\010R\016idemp"
+    "otencyKey\022\030\n\007summary\030\013 \001(\tR\007summary\022 \n\013d"
+    "escription\030\014 \001(\tR\013description\022\022\n\004tags\030\r "
+    "\003(\tR\004tags\022\036\n\npermission\030\016 \001(\tR\npermissio"
+    "n:d\n\010function\022\036.google.protobuf.MethodOp"
+    "tions\030\271\216\003 \001(\0132&.croupier.component.v1.Fu"
+    "nctionOptionsR\010functionBs\n(io.github.cui"
+    "hairu.croupier.component.v1P\001ZEgithub.co"
+    "m/cuihairu/croupier/pkg/pb/croupier/comp"
+    "onent/v1;componentv1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
-    descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto_deps[2] = {
-        &::descriptor_table_croupier_2fcomponent_2fv1_2fdashboard_5fui_2eproto,
+    descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto_deps[1] = {
         &::descriptor_table_google_2fprotobuf_2fdescriptor_2eproto,
 };
 static ::absl::once_flag descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto = {
     false,
     false,
-    2102,
+    748,
     descriptor_table_protodef_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto,
     "croupier/component/v1/function_options.proto",
     &descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto_once,
     descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto_deps,
-    2,
-    4,
+    1,
+    1,
     schemas,
     file_default_instances,
     TableStruct_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto::offsets,
@@ -458,103 +195,6 @@ namespace component {
 namespace v1 {
 // ===================================================================
 
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-FunctionOptions_LabelsEntry_DoNotUse::FunctionOptions_LabelsEntry_DoNotUse()
-    : SuperType(FunctionOptions_LabelsEntry_DoNotUse_class_data_.base()) {}
-FunctionOptions_LabelsEntry_DoNotUse::FunctionOptions_LabelsEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
-    : SuperType(arena, FunctionOptions_LabelsEntry_DoNotUse_class_data_.base()) {}
-#else   // PROTOBUF_CUSTOM_VTABLE
-FunctionOptions_LabelsEntry_DoNotUse::FunctionOptions_LabelsEntry_DoNotUse() : SuperType() {}
-FunctionOptions_LabelsEntry_DoNotUse::FunctionOptions_LabelsEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena) : SuperType(arena) {}
-#endif  // PROTOBUF_CUSTOM_VTABLE
-inline void* PROTOBUF_NONNULL FunctionOptions_LabelsEntry_DoNotUse::PlacementNew_(
-    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
-    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
-  return ::new (mem) FunctionOptions_LabelsEntry_DoNotUse(arena);
-}
-constexpr auto FunctionOptions_LabelsEntry_DoNotUse::InternalNewImpl_() {
-  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(FunctionOptions_LabelsEntry_DoNotUse),
-                                            alignof(FunctionOptions_LabelsEntry_DoNotUse));
-}
-constexpr auto FunctionOptions_LabelsEntry_DoNotUse::InternalGenerateClassData_() {
-  return ::google::protobuf::internal::ClassDataFull{
-      ::google::protobuf::internal::ClassData{
-          &_FunctionOptions_LabelsEntry_DoNotUse_default_instance_._instance,
-          &_table_.header,
-          nullptr,  // IsInitialized
-          &FunctionOptions_LabelsEntry_DoNotUse::MergeImpl,
-          ::google::protobuf::Message::GetNewImpl<FunctionOptions_LabelsEntry_DoNotUse>(),
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-          &FunctionOptions_LabelsEntry_DoNotUse::SharedDtor,
-          static_cast<void (::google::protobuf::MessageLite::*)()>(&FunctionOptions_LabelsEntry_DoNotUse::ClearImpl),
-              ::google::protobuf::Message::ByteSizeLongImpl, ::google::protobuf::Message::_InternalSerializeImpl
-              ,
-#endif  // PROTOBUF_CUSTOM_VTABLE
-          PROTOBUF_FIELD_OFFSET(FunctionOptions_LabelsEntry_DoNotUse, _impl_._cached_size_),
-          false,
-      },
-      &FunctionOptions_LabelsEntry_DoNotUse::kDescriptorMethods,
-      &descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto,
-      nullptr,  // tracker
-  };
-}
-
-PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
-    ::google::protobuf::internal::ClassDataFull FunctionOptions_LabelsEntry_DoNotUse_class_data_ =
-        FunctionOptions_LabelsEntry_DoNotUse::InternalGenerateClassData_();
-
-PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
-FunctionOptions_LabelsEntry_DoNotUse::GetClassData() const {
-  ::google::protobuf::internal::PrefetchToLocalCache(&FunctionOptions_LabelsEntry_DoNotUse_class_data_);
-  ::google::protobuf::internal::PrefetchToLocalCache(FunctionOptions_LabelsEntry_DoNotUse_class_data_.tc_table);
-  return FunctionOptions_LabelsEntry_DoNotUse_class_data_.base();
-}
-PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 2, 0, 66, 2>
-FunctionOptions_LabelsEntry_DoNotUse::_table_ = {
-  {
-    PROTOBUF_FIELD_OFFSET(FunctionOptions_LabelsEntry_DoNotUse, _impl_._has_bits_),
-    0, // no _extensions_
-    2, 8,  // max_field_number, fast_idx_mask
-    offsetof(decltype(_table_), field_lookup_table),
-    4294967292,  // skipmap
-    offsetof(decltype(_table_), field_entries),
-    2,  // num_field_entries
-    0,  // num_aux_entries
-    offsetof(decltype(_table_), field_names),  // no aux_entries
-    FunctionOptions_LabelsEntry_DoNotUse_class_data_.base(),
-    nullptr,  // post_loop_handler
-    ::_pbi::TcParser::DiscardEverythingFallback,  // fallback
-    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::croupier::component::v1::FunctionOptions_LabelsEntry_DoNotUse>(),  // to_prefetch
-    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
-  }, {{
-    // string value = 2 [json_name = "value"];
-    {::_pbi::TcParser::FastUS1,
-     {18, 1, 0,
-      PROTOBUF_FIELD_OFFSET(FunctionOptions_LabelsEntry_DoNotUse, _impl_.value_)}},
-    // string key = 1 [json_name = "key"];
-    {::_pbi::TcParser::FastUS1,
-     {10, 0, 0,
-      PROTOBUF_FIELD_OFFSET(FunctionOptions_LabelsEntry_DoNotUse, _impl_.key_)}},
-  }}, {{
-    65535, 65535
-  }}, {{
-    // string key = 1 [json_name = "key"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions_LabelsEntry_DoNotUse, _impl_.key_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string value = 2 [json_name = "value"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions_LabelsEntry_DoNotUse, _impl_.value_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-  }},
-  // no aux_entries
-  {{
-    "\61\3\5\0\0\0\0\0"
-    "croupier.component.v1.FunctionOptions.LabelsEntry"
-    "key"
-    "value"
-  }},
-};
-// ===================================================================
-
 class FunctionOptions::_Internal {
  public:
   using HasBits =
@@ -563,30 +203,6 @@ class FunctionOptions::_Internal {
       8 * PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_._has_bits_);
 };
 
-void FunctionOptions::clear_display_name() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (_impl_.display_name_ != nullptr) _impl_.display_name_->Clear();
-  ClearHasBit(_impl_._has_bits_[0],
-                  0x00000200U);
-}
-void FunctionOptions::clear_summary() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (_impl_.summary_ != nullptr) _impl_.summary_->Clear();
-  ClearHasBit(_impl_._has_bits_[0],
-                  0x00000400U);
-}
-void FunctionOptions::clear_menu() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (_impl_.menu_ != nullptr) _impl_.menu_->Clear();
-  ClearHasBit(_impl_._has_bits_[0],
-                  0x00000800U);
-}
-void FunctionOptions::clear_permissions() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (_impl_.permissions_ != nullptr) _impl_.permissions_->Clear();
-  ClearHasBit(_impl_._has_bits_[0],
-                  0x00001000U);
-}
 FunctionOptions::FunctionOptions(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
     : ::google::protobuf::Message(arena, FunctionOptions_class_data_.base()) {
@@ -613,21 +229,15 @@ PROTOBUF_NDEBUG_INLINE FunctionOptions::Impl_::Impl_(
         ,
         function_id_(arena, from.function_id_),
         version_(arena, from.version_),
-        category_(arena, from.category_),
+        resource_(arena, from.resource_),
+        operation_(arena, from.operation_),
         risk_(arena, from.risk_),
         route_(arena, from.route_),
         timeout_(arena, from.timeout_),
-        placement_(arena, from.placement_),
         mode_(arena, from.mode_),
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
-        labels_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::FunctionOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.labels_)>()
-        , from.labels_}
-        #else
-        labels_ { visibility, arena, from.labels_ }
-        #endif
-     {}
+        summary_(arena, from.summary_),
+        description_(arena, from.description_),
+        permission_(arena, from.permission_) {}
 
 FunctionOptions::FunctionOptions(
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
@@ -642,19 +252,6 @@ FunctionOptions::FunctionOptions(
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
-  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
-  _impl_.display_name_ = (CheckHasBit(cached_has_bits, 0x00000200U))
-                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.display_name_)
-                : nullptr;
-  _impl_.summary_ = (CheckHasBit(cached_has_bits, 0x00000400U))
-                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.summary_)
-                : nullptr;
-  _impl_.menu_ = (CheckHasBit(cached_has_bits, 0x00000800U))
-                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.menu_)
-                : nullptr;
-  _impl_.permissions_ = (CheckHasBit(cached_has_bits, 0x00001000U))
-                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.permissions_)
-                : nullptr;
   ::memcpy(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, two_person_rule_),
            reinterpret_cast<const char*>(&from._impl_) +
@@ -680,29 +277,23 @@ PROTOBUF_NDEBUG_INLINE FunctionOptions::Impl_::Impl_(
         ,
         function_id_(arena),
         version_(arena),
-        category_(arena),
+        resource_(arena),
+        operation_(arena),
         risk_(arena),
         route_(arena),
         timeout_(arena),
-        placement_(arena),
         mode_(arena),
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
-        labels_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::FunctionOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::FunctionOptions, _impl_.labels_)>()
-        }
-        #else
-        labels_ { visibility, arena }
-        #endif
-     {}
+        summary_(arena),
+        description_(arena),
+        permission_(arena) {}
 
 inline void FunctionOptions::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, display_name_),
+               offsetof(Impl_, two_person_rule_),
            0,
            offsetof(Impl_, idempotency_key_) -
-               offsetof(Impl_, display_name_) +
+               offsetof(Impl_, two_person_rule_) +
                sizeof(Impl_::idempotency_key_));
 }
 FunctionOptions::~FunctionOptions() {
@@ -718,16 +309,15 @@ inline void FunctionOptions::SharedDtor(MessageLite& self) {
   ABSL_DCHECK(this_.GetArena() == nullptr);
   this_._impl_.function_id_.Destroy();
   this_._impl_.version_.Destroy();
-  this_._impl_.category_.Destroy();
+  this_._impl_.resource_.Destroy();
+  this_._impl_.operation_.Destroy();
   this_._impl_.risk_.Destroy();
   this_._impl_.route_.Destroy();
   this_._impl_.timeout_.Destroy();
-  this_._impl_.placement_.Destroy();
   this_._impl_.mode_.Destroy();
-  delete this_._impl_.display_name_;
-  delete this_._impl_.summary_;
-  delete this_._impl_.menu_;
-  delete this_._impl_.permissions_;
+  this_._impl_.summary_.Destroy();
+  this_._impl_.description_.Destroy();
+  this_._impl_.permission_.Destroy();
   this_._impl_.~Impl_();
 }
 
@@ -744,10 +334,6 @@ constexpr auto FunctionOptions::InternalNewImpl_() {
 #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
 constexpr auto FunctionOptions::InternalNewImpl_() {
   constexpr auto arena_bits = ::google::protobuf::internal::EncodePlacementArenaOffsets({
-      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.labels_) +
-          decltype(FunctionOptions::_impl_.labels_)::
-              InternalGetArenaOffset(
-                  ::google::protobuf::Message::internal_visibility()),
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.tags_) +
           decltype(FunctionOptions::_impl_.tags_)::
               InternalGetArenaOffset(
@@ -796,18 +382,18 @@ FunctionOptions::GetClassData() const {
   return FunctionOptions_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 16, 5, 127, 2>
+const ::_pbi::TcParseTable<4, 14, 0, 141, 2>
 FunctionOptions::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_._has_bits_),
     0, // no _extensions_
-    16, 120,  // max_field_number, fast_idx_mask
+    14, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294901760,  // skipmap
+    4294950912,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    16,  // num_field_entries
-    5,  // num_aux_entries
-    offsetof(decltype(_table_), aux_entries),
+    14,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
     FunctionOptions_class_data_.base(),
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -815,10 +401,7 @@ FunctionOptions::_table_ = {
     ::_pbi::TcParser::GetTable<::croupier::component::v1::FunctionOptions>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
-    {::_pbi::TcParser::FastMtS2,
-     {386, 12, 3,
-      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.permissions_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string function_id = 1 [json_name = "functionId"];
     {::_pbi::TcParser::FastUS1,
      {10, 1, 0,
@@ -827,55 +410,55 @@ FunctionOptions::_table_ = {
     {::_pbi::TcParser::FastUS1,
      {18, 2, 0,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.version_)}},
-    // string category = 3 [json_name = "category"];
+    // string resource = 3 [json_name = "resource"];
     {::_pbi::TcParser::FastUS1,
      {26, 3, 0,
-      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.category_)}},
-    // string risk = 4 [json_name = "risk"];
+      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.resource_)}},
+    // string operation = 4 [json_name = "operation"];
     {::_pbi::TcParser::FastUS1,
      {34, 4, 0,
-      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.risk_)}},
-    // string route = 5 [json_name = "route"];
+      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.operation_)}},
+    // string risk = 5 [json_name = "risk"];
     {::_pbi::TcParser::FastUS1,
      {42, 5, 0,
-      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.route_)}},
-    // string timeout = 6 [json_name = "timeout"];
+      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.risk_)}},
+    // string route = 6 [json_name = "route"];
     {::_pbi::TcParser::FastUS1,
      {50, 6, 0,
+      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.route_)}},
+    // string timeout = 7 [json_name = "timeout"];
+    {::_pbi::TcParser::FastUS1,
+     {58, 7, 0,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.timeout_)}},
-    // bool two_person_rule = 7 [json_name = "twoPersonRule"];
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionOptions, _impl_.two_person_rule_), 13>(),
-     {56, 13, 0,
+    // bool two_person_rule = 8 [json_name = "twoPersonRule"];
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionOptions, _impl_.two_person_rule_), 12>(),
+     {64, 12, 0,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.two_person_rule_)}},
-    // string placement = 8 [json_name = "placement"];
+    // string mode = 9 [json_name = "mode"];
     {::_pbi::TcParser::FastUS1,
-     {66, 7, 0,
-      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.placement_)}},
-    {::_pbi::TcParser::MiniParse, {}},
-    // string mode = 10 [json_name = "mode"];
-    {::_pbi::TcParser::FastUS1,
-     {82, 8, 0,
+     {74, 8, 0,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.mode_)}},
-    // bool idempotency_key = 11 [json_name = "idempotencyKey"];
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionOptions, _impl_.idempotency_key_), 14>(),
-     {88, 14, 0,
+    // bool idempotency_key = 10 [json_name = "idempotencyKey"];
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionOptions, _impl_.idempotency_key_), 13>(),
+     {80, 13, 0,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.idempotency_key_)}},
-    // .croupier.component.v1.I18nText display_name = 12 [json_name = "displayName"];
-    {::_pbi::TcParser::FastMtS1,
-     {98, 9, 0,
-      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.display_name_)}},
-    // .croupier.component.v1.I18nText summary = 13 [json_name = "summary"];
-    {::_pbi::TcParser::FastMtS1,
-     {106, 10, 1,
+    // string summary = 11 [json_name = "summary"];
+    {::_pbi::TcParser::FastUS1,
+     {90, 9, 0,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.summary_)}},
-    // repeated string tags = 14 [json_name = "tags"];
+    // string description = 12 [json_name = "description"];
+    {::_pbi::TcParser::FastUS1,
+     {98, 10, 0,
+      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.description_)}},
+    // repeated string tags = 13 [json_name = "tags"];
     {::_pbi::TcParser::FastUR1,
-     {114, 0, 0,
+     {106, 0, 0,
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.tags_)}},
-    // .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
-    {::_pbi::TcParser::FastMtS1,
-     {122, 11, 2,
-      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.menu_)}},
+    // string permission = 14 [json_name = "permission"];
+    {::_pbi::TcParser::FastUS1,
+     {114, 11, 0,
+      PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.permission_)}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -883,56 +466,47 @@ FunctionOptions::_table_ = {
     {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.function_id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string version = 2 [json_name = "version"];
     {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.version_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string category = 3 [json_name = "category"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.category_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string risk = 4 [json_name = "risk"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.risk_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string route = 5 [json_name = "route"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.route_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string timeout = 6 [json_name = "timeout"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.timeout_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // bool two_person_rule = 7 [json_name = "twoPersonRule"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.two_person_rule_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
-    // string placement = 8 [json_name = "placement"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.placement_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // map<string, string> labels = 9 [json_name = "labels"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.labels_), _Internal::kHasBitsOffset + 15, 4, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
-    // string mode = 10 [json_name = "mode"];
+    // string resource = 3 [json_name = "resource"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.resource_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string operation = 4 [json_name = "operation"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.operation_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string risk = 5 [json_name = "risk"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.risk_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string route = 6 [json_name = "route"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.route_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string timeout = 7 [json_name = "timeout"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.timeout_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool two_person_rule = 8 [json_name = "twoPersonRule"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.two_person_rule_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // string mode = 9 [json_name = "mode"];
     {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.mode_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // bool idempotency_key = 11 [json_name = "idempotencyKey"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.idempotency_key_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
-    // .croupier.component.v1.I18nText display_name = 12 [json_name = "displayName"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.display_name_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
-    // .croupier.component.v1.I18nText summary = 13 [json_name = "summary"];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.summary_), _Internal::kHasBitsOffset + 10, 1, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
-    // repeated string tags = 14 [json_name = "tags"];
+    // bool idempotency_key = 10 [json_name = "idempotencyKey"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.idempotency_key_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // string summary = 11 [json_name = "summary"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.summary_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string description = 12 [json_name = "description"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.description_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // repeated string tags = 13 [json_name = "tags"];
     {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.tags_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.menu_), _Internal::kHasBitsOffset + 11, 2, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
-    // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
-    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.permissions_), _Internal::kHasBitsOffset + 12, 3, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // string permission = 14 [json_name = "permission"];
+    {PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.permission_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
+  // no aux_entries
   {{
-      {::_pbi::TcParser::GetTable<::croupier::component::v1::I18nText>()},
-      {::_pbi::TcParser::GetTable<::croupier::component::v1::I18nText>()},
-      {::_pbi::TcParser::GetTable<::croupier::component::v1::Menu>()},
-      {::_pbi::TcParser::GetTable<::croupier::component::v1::PermissionSpec>()},
-      {::_pbi::TcParser::GetMapAuxInfo(
-          1, 0, 9, 9, 0)},
-  }},
-  {{
-    "\45\13\7\10\4\5\7\0\11\6\4\0\0\0\4\0\0\0\0\0\0\0\0\0"
+    "\45\13\7\10\11\4\5\7\0\4\0\7\13\4\12\0"
     "croupier.component.v1.FunctionOptions"
     "function_id"
     "version"
-    "category"
+    "resource"
+    "operation"
     "risk"
     "route"
     "timeout"
-    "placement"
-    "labels"
     "mode"
+    "summary"
+    "description"
     "tags"
+    "permission"
   }},
 };
 PROTOBUF_NOINLINE void FunctionOptions::Clear() {
@@ -954,48 +528,38 @@ PROTOBUF_NOINLINE void FunctionOptions::Clear() {
       _impl_.version_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000008U)) {
-      _impl_.category_.ClearNonDefaultToEmpty();
+      _impl_.resource_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000010U)) {
-      _impl_.risk_.ClearNonDefaultToEmpty();
+      _impl_.operation_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000020U)) {
-      _impl_.route_.ClearNonDefaultToEmpty();
+      _impl_.risk_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000040U)) {
-      _impl_.timeout_.ClearNonDefaultToEmpty();
+      _impl_.route_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-      _impl_.placement_.ClearNonDefaultToEmpty();
+      _impl_.timeout_.ClearNonDefaultToEmpty();
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00001f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       _impl_.mode_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000200U)) {
-      ABSL_DCHECK(_impl_.display_name_ != nullptr);
-      _impl_.display_name_->Clear();
+      _impl_.summary_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000400U)) {
-      ABSL_DCHECK(_impl_.summary_ != nullptr);
-      _impl_.summary_->Clear();
+      _impl_.description_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000800U)) {
-      ABSL_DCHECK(_impl_.menu_ != nullptr);
-      _impl_.menu_->Clear();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
-      ABSL_DCHECK(_impl_.permissions_ != nullptr);
-      _impl_.permissions_->Clear();
+      _impl_.permission_.ClearNonDefaultToEmpty();
     }
   }
   ::memset(&_impl_.two_person_rule_, 0, static_cast<::size_t>(
       reinterpret_cast<char*>(&_impl_.idempotency_key_) -
       reinterpret_cast<char*>(&_impl_.two_person_rule_)) + sizeof(_impl_.idempotency_key_));
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00008000U)) {
-    _impl_.labels_.Clear();
-  }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -1039,155 +603,122 @@ PROTOBUF_NOINLINE void FunctionOptions::Clear() {
     }
   }
 
-  // string category = 3 [json_name = "category"];
+  // string resource = 3 [json_name = "resource"];
   if (CheckHasBit(cached_has_bits, 0x00000008U)) {
-    if (!this_._internal_category().empty()) {
-      const ::std::string& _s = this_._internal_category();
+    if (!this_._internal_resource().empty()) {
+      const ::std::string& _s = this_._internal_resource();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.category");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.resource");
       target = stream->WriteStringMaybeAliased(3, _s, target);
     }
   }
 
-  // string risk = 4 [json_name = "risk"];
+  // string operation = 4 [json_name = "operation"];
   if (CheckHasBit(cached_has_bits, 0x00000010U)) {
-    if (!this_._internal_risk().empty()) {
-      const ::std::string& _s = this_._internal_risk();
+    if (!this_._internal_operation().empty()) {
+      const ::std::string& _s = this_._internal_operation();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.risk");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.operation");
       target = stream->WriteStringMaybeAliased(4, _s, target);
     }
   }
 
-  // string route = 5 [json_name = "route"];
+  // string risk = 5 [json_name = "risk"];
   if (CheckHasBit(cached_has_bits, 0x00000020U)) {
-    if (!this_._internal_route().empty()) {
-      const ::std::string& _s = this_._internal_route();
+    if (!this_._internal_risk().empty()) {
+      const ::std::string& _s = this_._internal_risk();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.route");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.risk");
       target = stream->WriteStringMaybeAliased(5, _s, target);
     }
   }
 
-  // string timeout = 6 [json_name = "timeout"];
+  // string route = 6 [json_name = "route"];
   if (CheckHasBit(cached_has_bits, 0x00000040U)) {
-    if (!this_._internal_timeout().empty()) {
-      const ::std::string& _s = this_._internal_timeout();
+    if (!this_._internal_route().empty()) {
+      const ::std::string& _s = this_._internal_route();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.timeout");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.route");
       target = stream->WriteStringMaybeAliased(6, _s, target);
     }
   }
 
-  // bool two_person_rule = 7 [json_name = "twoPersonRule"];
-  if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+  // string timeout = 7 [json_name = "timeout"];
+  if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    if (!this_._internal_timeout().empty()) {
+      const ::std::string& _s = this_._internal_timeout();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.timeout");
+      target = stream->WriteStringMaybeAliased(7, _s, target);
+    }
+  }
+
+  // bool two_person_rule = 8 [json_name = "twoPersonRule"];
+  if (CheckHasBit(cached_has_bits, 0x00001000U)) {
     if (this_._internal_two_person_rule() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteBoolToArray(
-          7, this_._internal_two_person_rule(), target);
+          8, this_._internal_two_person_rule(), target);
     }
   }
 
-  // string placement = 8 [json_name = "placement"];
-  if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-    if (!this_._internal_placement().empty()) {
-      const ::std::string& _s = this_._internal_placement();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.placement");
-      target = stream->WriteStringMaybeAliased(8, _s, target);
-    }
-  }
-
-  // map<string, string> labels = 9 [json_name = "labels"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00008000U)) {
-    if (!this_._internal_labels().empty()) {
-      using MapType = ::google::protobuf::Map<::std::string, ::std::string>;
-      using WireHelper = _pbi::MapEntryFuncs<::std::string, ::std::string,
-                                     _pbi::WireFormatLite::TYPE_STRING,
-                                     _pbi::WireFormatLite::TYPE_STRING>;
-      const auto& field = this_._internal_labels();
-
-      if (stream->IsSerializationDeterministic() && field.size() > 1) {
-        for (const auto& entry : ::google::protobuf::internal::MapSorterPtr<MapType>(field)) {
-          target = WireHelper::InternalSerialize(
-              9, entry.first, entry.second, target, stream);
-          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-              entry.first.data(), static_cast<int>(entry.first.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.labels");
-          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-              entry.second.data(), static_cast<int>(entry.second.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.labels");
-        }
-      } else {
-        for (const auto& entry : field) {
-          target = WireHelper::InternalSerialize(
-              9, entry.first, entry.second, target, stream);
-          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-              entry.first.data(), static_cast<int>(entry.first.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.labels");
-          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-              entry.second.data(), static_cast<int>(entry.second.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.labels");
-        }
-      }
-    }
-  }
-
-  // string mode = 10 [json_name = "mode"];
+  // string mode = 9 [json_name = "mode"];
   if (CheckHasBit(cached_has_bits, 0x00000100U)) {
     if (!this_._internal_mode().empty()) {
       const ::std::string& _s = this_._internal_mode();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.mode");
-      target = stream->WriteStringMaybeAliased(10, _s, target);
+      target = stream->WriteStringMaybeAliased(9, _s, target);
     }
   }
 
-  // bool idempotency_key = 11 [json_name = "idempotencyKey"];
-  if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+  // bool idempotency_key = 10 [json_name = "idempotencyKey"];
+  if (CheckHasBit(cached_has_bits, 0x00002000U)) {
     if (this_._internal_idempotency_key() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteBoolToArray(
-          11, this_._internal_idempotency_key(), target);
+          10, this_._internal_idempotency_key(), target);
     }
   }
 
-  // .croupier.component.v1.I18nText display_name = 12 [json_name = "displayName"];
+  // string summary = 11 [json_name = "summary"];
   if (CheckHasBit(cached_has_bits, 0x00000200U)) {
-    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
-        12, *this_._impl_.display_name_, this_._impl_.display_name_->GetCachedSize(), target,
-        stream);
+    if (!this_._internal_summary().empty()) {
+      const ::std::string& _s = this_._internal_summary();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.summary");
+      target = stream->WriteStringMaybeAliased(11, _s, target);
+    }
   }
 
-  // .croupier.component.v1.I18nText summary = 13 [json_name = "summary"];
+  // string description = 12 [json_name = "description"];
   if (CheckHasBit(cached_has_bits, 0x00000400U)) {
-    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
-        13, *this_._impl_.summary_, this_._impl_.summary_->GetCachedSize(), target,
-        stream);
+    if (!this_._internal_description().empty()) {
+      const ::std::string& _s = this_._internal_description();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.description");
+      target = stream->WriteStringMaybeAliased(12, _s, target);
+    }
   }
 
-  // repeated string tags = 14 [json_name = "tags"];
+  // repeated string tags = 13 [json_name = "tags"];
   if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
     for (int i = 0, n = this_._internal_tags_size(); i < n; ++i) {
       const auto& s = this_._internal_tags().Get(i);
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.tags");
-      target = stream->WriteString(14, s, target);
+      target = stream->WriteString(13, s, target);
     }
   }
 
-  // .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
+  // string permission = 14 [json_name = "permission"];
   if (CheckHasBit(cached_has_bits, 0x00000800U)) {
-    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
-        15, *this_._impl_.menu_, this_._impl_.menu_->GetCachedSize(), target,
-        stream);
-  }
-
-  // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
-  if (CheckHasBit(cached_has_bits, 0x00001000U)) {
-    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
-        16, *this_._impl_.permissions_, this_._impl_.permissions_->GetCachedSize(), target,
-        stream);
+    if (!this_._internal_permission().empty()) {
+      const ::std::string& _s = this_._internal_permission();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.FunctionOptions.permission");
+      target = stream->WriteStringMaybeAliased(14, _s, target);
+    }
   }
 
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
@@ -1216,7 +747,7 @@ PROTOBUF_NOINLINE void FunctionOptions::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
-    // repeated string tags = 14 [json_name = "tags"];
+    // repeated string tags = 13 [json_name = "tags"];
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
       total_size +=
           1 * ::google::protobuf::internal::FromIntSize(this_._internal_tags().size());
@@ -1239,90 +770,81 @@ PROTOBUF_NOINLINE void FunctionOptions::Clear() {
                                         this_._internal_version());
       }
     }
-    // string category = 3 [json_name = "category"];
+    // string resource = 3 [json_name = "resource"];
     if (CheckHasBit(cached_has_bits, 0x00000008U)) {
-      if (!this_._internal_category().empty()) {
+      if (!this_._internal_resource().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_category());
+                                        this_._internal_resource());
       }
     }
-    // string risk = 4 [json_name = "risk"];
+    // string operation = 4 [json_name = "operation"];
     if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (!this_._internal_operation().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_operation());
+      }
+    }
+    // string risk = 5 [json_name = "risk"];
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
       if (!this_._internal_risk().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_risk());
       }
     }
-    // string route = 5 [json_name = "route"];
-    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+    // string route = 6 [json_name = "route"];
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
       if (!this_._internal_route().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_route());
       }
     }
-    // string timeout = 6 [json_name = "timeout"];
-    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+    // string timeout = 7 [json_name = "timeout"];
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
       if (!this_._internal_timeout().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_timeout());
       }
     }
-    // string placement = 8 [json_name = "placement"];
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-      if (!this_._internal_placement().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_placement());
-      }
-    }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
-    // string mode = 10 [json_name = "mode"];
+  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+    // string mode = 9 [json_name = "mode"];
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!this_._internal_mode().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_mode());
       }
     }
-    // .croupier.component.v1.I18nText display_name = 12 [json_name = "displayName"];
+    // string summary = 11 [json_name = "summary"];
     if (CheckHasBit(cached_has_bits, 0x00000200U)) {
-      total_size += 1 +
-                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.display_name_);
+      if (!this_._internal_summary().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_summary());
+      }
     }
-    // .croupier.component.v1.I18nText summary = 13 [json_name = "summary"];
+    // string description = 12 [json_name = "description"];
     if (CheckHasBit(cached_has_bits, 0x00000400U)) {
-      total_size += 1 +
-                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.summary_);
+      if (!this_._internal_description().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_description());
+      }
     }
-    // .croupier.component.v1.Menu menu = 15 [json_name = "menu", deprecated = true];
+    // string permission = 14 [json_name = "permission"];
     if (CheckHasBit(cached_has_bits, 0x00000800U)) {
-      total_size += 1 +
-                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.menu_);
+      if (!this_._internal_permission().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_permission());
+      }
     }
-    // .croupier.component.v1.PermissionSpec permissions = 16 [json_name = "permissions", deprecated = true];
+    // bool two_person_rule = 8 [json_name = "twoPersonRule"];
     if (CheckHasBit(cached_has_bits, 0x00001000U)) {
-      total_size += 2 +
-                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.permissions_);
-    }
-    // bool two_person_rule = 7 [json_name = "twoPersonRule"];
-    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
       if (this_._internal_two_person_rule() != 0) {
         total_size += 2;
       }
     }
-    // bool idempotency_key = 11 [json_name = "idempotencyKey"];
-    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+    // bool idempotency_key = 10 [json_name = "idempotencyKey"];
+    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
       if (this_._internal_idempotency_key() != 0) {
         total_size += 2;
-      }
-    }
-    // map<string, string> labels = 9 [json_name = "labels"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00008000U)) {
-      total_size +=
-          1 * ::google::protobuf::internal::FromIntSize(this_._internal_labels_size());
-      for (const auto& entry : this_._internal_labels()) {
-        total_size += _pbi::MapEntryFuncs<::std::string, ::std::string,
-                                       _pbi::WireFormatLite::TYPE_STRING,
-                                       _pbi::WireFormatLite::TYPE_STRING>::ByteSizeLong(entry.first, entry.second);
       }
     }
   }
@@ -1370,15 +892,24 @@ void FunctionOptions::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000008U)) {
-      if (!from._internal_category().empty()) {
-        _this->_internal_set_category(from._internal_category());
+      if (!from._internal_resource().empty()) {
+        _this->_internal_set_resource(from._internal_resource());
       } else {
-        if (_this->_impl_.category_.IsDefault()) {
-          _this->_internal_set_category("");
+        if (_this->_impl_.resource_.IsDefault()) {
+          _this->_internal_set_resource("");
         }
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (!from._internal_operation().empty()) {
+        _this->_internal_set_operation(from._internal_operation());
+      } else {
+        if (_this->_impl_.operation_.IsDefault()) {
+          _this->_internal_set_operation("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
       if (!from._internal_risk().empty()) {
         _this->_internal_set_risk(from._internal_risk());
       } else {
@@ -1387,7 +918,7 @@ void FunctionOptions::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
       if (!from._internal_route().empty()) {
         _this->_internal_set_route(from._internal_route());
       } else {
@@ -1396,7 +927,7 @@ void FunctionOptions::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
       if (!from._internal_timeout().empty()) {
         _this->_internal_set_timeout(from._internal_timeout());
       } else {
@@ -1405,17 +936,8 @@ void FunctionOptions::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-      if (!from._internal_placement().empty()) {
-        _this->_internal_set_placement(from._internal_placement());
-      } else {
-        if (_this->_impl_.placement_.IsDefault()) {
-          _this->_internal_set_placement("");
-        }
-      }
-    }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!from._internal_mode().empty()) {
         _this->_internal_set_mode(from._internal_mode());
@@ -1426,49 +948,41 @@ void FunctionOptions::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000200U)) {
-      ABSL_DCHECK(from._impl_.display_name_ != nullptr);
-      if (_this->_impl_.display_name_ == nullptr) {
-        _this->_impl_.display_name_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.display_name_);
+      if (!from._internal_summary().empty()) {
+        _this->_internal_set_summary(from._internal_summary());
       } else {
-        _this->_impl_.display_name_->MergeFrom(*from._impl_.display_name_);
+        if (_this->_impl_.summary_.IsDefault()) {
+          _this->_internal_set_summary("");
+        }
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000400U)) {
-      ABSL_DCHECK(from._impl_.summary_ != nullptr);
-      if (_this->_impl_.summary_ == nullptr) {
-        _this->_impl_.summary_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.summary_);
+      if (!from._internal_description().empty()) {
+        _this->_internal_set_description(from._internal_description());
       } else {
-        _this->_impl_.summary_->MergeFrom(*from._impl_.summary_);
+        if (_this->_impl_.description_.IsDefault()) {
+          _this->_internal_set_description("");
+        }
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000800U)) {
-      ABSL_DCHECK(from._impl_.menu_ != nullptr);
-      if (_this->_impl_.menu_ == nullptr) {
-        _this->_impl_.menu_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.menu_);
+      if (!from._internal_permission().empty()) {
+        _this->_internal_set_permission(from._internal_permission());
       } else {
-        _this->_impl_.menu_->MergeFrom(*from._impl_.menu_);
+        if (_this->_impl_.permission_.IsDefault()) {
+          _this->_internal_set_permission("");
+        }
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00001000U)) {
-      ABSL_DCHECK(from._impl_.permissions_ != nullptr);
-      if (_this->_impl_.permissions_ == nullptr) {
-        _this->_impl_.permissions_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.permissions_);
-      } else {
-        _this->_impl_.permissions_->MergeFrom(*from._impl_.permissions_);
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
       if (from._internal_two_person_rule() != 0) {
         _this->_impl_.two_person_rule_ = from._impl_.two_person_rule_;
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
       if (from._internal_idempotency_key() != 0) {
         _this->_impl_.idempotency_key_ = from._impl_.idempotency_key_;
       }
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00008000U)) {
-      _this->_impl_.labels_.MergeFrom(from._impl_.labels_);
     }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
@@ -1493,1367 +1007,30 @@ void FunctionOptions::InternalSwap(FunctionOptions* PROTOBUF_RESTRICT PROTOBUF_N
   _impl_.tags_.InternalSwap(&other->_impl_.tags_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.function_id_, &other->_impl_.function_id_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.category_, &other->_impl_.category_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.resource_, &other->_impl_.resource_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.operation_, &other->_impl_.operation_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.risk_, &other->_impl_.risk_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.route_, &other->_impl_.route_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.timeout_, &other->_impl_.timeout_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.placement_, &other->_impl_.placement_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.mode_, &other->_impl_.mode_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.summary_, &other->_impl_.summary_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.description_, &other->_impl_.description_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.permission_, &other->_impl_.permission_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.idempotency_key_)
       + sizeof(FunctionOptions::_impl_.idempotency_key_)
-      - PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.display_name_)>(
-          reinterpret_cast<char*>(&_impl_.display_name_),
-          reinterpret_cast<char*>(&other->_impl_.display_name_));
-  _impl_.labels_.InternalSwap(&other->_impl_.labels_);
+      - PROTOBUF_FIELD_OFFSET(FunctionOptions, _impl_.two_person_rule_)>(
+          reinterpret_cast<char*>(&_impl_.two_person_rule_),
+          reinterpret_cast<char*>(&other->_impl_.two_person_rule_));
 }
 
 ::google::protobuf::Metadata FunctionOptions::GetMetadata() const {
-  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
-}
-// ===================================================================
-
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-EntityOptions_CustomOperationsEntry_DoNotUse::EntityOptions_CustomOperationsEntry_DoNotUse()
-    : SuperType(EntityOptions_CustomOperationsEntry_DoNotUse_class_data_.base()) {}
-EntityOptions_CustomOperationsEntry_DoNotUse::EntityOptions_CustomOperationsEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
-    : SuperType(arena, EntityOptions_CustomOperationsEntry_DoNotUse_class_data_.base()) {}
-#else   // PROTOBUF_CUSTOM_VTABLE
-EntityOptions_CustomOperationsEntry_DoNotUse::EntityOptions_CustomOperationsEntry_DoNotUse() : SuperType() {}
-EntityOptions_CustomOperationsEntry_DoNotUse::EntityOptions_CustomOperationsEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena) : SuperType(arena) {}
-#endif  // PROTOBUF_CUSTOM_VTABLE
-inline void* PROTOBUF_NONNULL EntityOptions_CustomOperationsEntry_DoNotUse::PlacementNew_(
-    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
-    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
-  return ::new (mem) EntityOptions_CustomOperationsEntry_DoNotUse(arena);
-}
-constexpr auto EntityOptions_CustomOperationsEntry_DoNotUse::InternalNewImpl_() {
-  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(EntityOptions_CustomOperationsEntry_DoNotUse),
-                                            alignof(EntityOptions_CustomOperationsEntry_DoNotUse));
-}
-constexpr auto EntityOptions_CustomOperationsEntry_DoNotUse::InternalGenerateClassData_() {
-  return ::google::protobuf::internal::ClassDataFull{
-      ::google::protobuf::internal::ClassData{
-          &_EntityOptions_CustomOperationsEntry_DoNotUse_default_instance_._instance,
-          &_table_.header,
-          nullptr,  // IsInitialized
-          &EntityOptions_CustomOperationsEntry_DoNotUse::MergeImpl,
-          ::google::protobuf::Message::GetNewImpl<EntityOptions_CustomOperationsEntry_DoNotUse>(),
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-          &EntityOptions_CustomOperationsEntry_DoNotUse::SharedDtor,
-          static_cast<void (::google::protobuf::MessageLite::*)()>(&EntityOptions_CustomOperationsEntry_DoNotUse::ClearImpl),
-              ::google::protobuf::Message::ByteSizeLongImpl, ::google::protobuf::Message::_InternalSerializeImpl
-              ,
-#endif  // PROTOBUF_CUSTOM_VTABLE
-          PROTOBUF_FIELD_OFFSET(EntityOptions_CustomOperationsEntry_DoNotUse, _impl_._cached_size_),
-          false,
-      },
-      &EntityOptions_CustomOperationsEntry_DoNotUse::kDescriptorMethods,
-      &descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto,
-      nullptr,  // tracker
-  };
-}
-
-PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
-    ::google::protobuf::internal::ClassDataFull EntityOptions_CustomOperationsEntry_DoNotUse_class_data_ =
-        EntityOptions_CustomOperationsEntry_DoNotUse::InternalGenerateClassData_();
-
-PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
-EntityOptions_CustomOperationsEntry_DoNotUse::GetClassData() const {
-  ::google::protobuf::internal::PrefetchToLocalCache(&EntityOptions_CustomOperationsEntry_DoNotUse_class_data_);
-  ::google::protobuf::internal::PrefetchToLocalCache(EntityOptions_CustomOperationsEntry_DoNotUse_class_data_.tc_table);
-  return EntityOptions_CustomOperationsEntry_DoNotUse_class_data_.base();
-}
-PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 2, 0, 74, 2>
-EntityOptions_CustomOperationsEntry_DoNotUse::_table_ = {
-  {
-    PROTOBUF_FIELD_OFFSET(EntityOptions_CustomOperationsEntry_DoNotUse, _impl_._has_bits_),
-    0, // no _extensions_
-    2, 8,  // max_field_number, fast_idx_mask
-    offsetof(decltype(_table_), field_lookup_table),
-    4294967292,  // skipmap
-    offsetof(decltype(_table_), field_entries),
-    2,  // num_field_entries
-    0,  // num_aux_entries
-    offsetof(decltype(_table_), field_names),  // no aux_entries
-    EntityOptions_CustomOperationsEntry_DoNotUse_class_data_.base(),
-    nullptr,  // post_loop_handler
-    ::_pbi::TcParser::DiscardEverythingFallback,  // fallback
-    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::croupier::component::v1::EntityOptions_CustomOperationsEntry_DoNotUse>(),  // to_prefetch
-    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
-  }, {{
-    // string value = 2 [json_name = "value"];
-    {::_pbi::TcParser::FastUS1,
-     {18, 1, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions_CustomOperationsEntry_DoNotUse, _impl_.value_)}},
-    // string key = 1 [json_name = "key"];
-    {::_pbi::TcParser::FastUS1,
-     {10, 0, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions_CustomOperationsEntry_DoNotUse, _impl_.key_)}},
-  }}, {{
-    65535, 65535
-  }}, {{
-    // string key = 1 [json_name = "key"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions_CustomOperationsEntry_DoNotUse, _impl_.key_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string value = 2 [json_name = "value"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions_CustomOperationsEntry_DoNotUse, _impl_.value_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-  }},
-  // no aux_entries
-  {{
-    "\71\3\5\0\0\0\0\0"
-    "croupier.component.v1.EntityOptions.CustomOperationsEntry"
-    "key"
-    "value"
-  }},
-};
-// ===================================================================
-
-class EntityOptions::_Internal {
- public:
-  using HasBits =
-      decltype(::std::declval<EntityOptions>()._impl_._has_bits_);
-  static constexpr ::int32_t kHasBitsOffset =
-      8 * PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_._has_bits_);
-};
-
-void EntityOptions::clear_display_name() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (_impl_.display_name_ != nullptr) _impl_.display_name_->Clear();
-  ClearHasBit(_impl_._has_bits_[0],
-                  0x00010000U);
-}
-void EntityOptions::clear_summary() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (_impl_.summary_ != nullptr) _impl_.summary_->Clear();
-  ClearHasBit(_impl_._has_bits_[0],
-                  0x00020000U);
-}
-void EntityOptions::clear_menu() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (_impl_.menu_ != nullptr) _impl_.menu_->Clear();
-  ClearHasBit(_impl_._has_bits_[0],
-                  0x00040000U);
-}
-EntityOptions::EntityOptions(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::Message(arena, EntityOptions_class_data_.base()) {
-#else   // PROTOBUF_CUSTOM_VTABLE
-    : ::google::protobuf::Message(arena) {
-#endif  // PROTOBUF_CUSTOM_VTABLE
-  SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:croupier.component.v1.EntityOptions)
-}
-PROTOBUF_NDEBUG_INLINE EntityOptions::Impl_::Impl_(
-    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
-    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
-    [[maybe_unused]] const ::croupier::component::v1::EntityOptions& from_msg)
-      : _has_bits_{from._has_bits_},
-        _cached_size_{0},
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        create_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.create_functions_)>()
-        , from.create_functions_}
-        #else
-        create_functions_ { visibility, arena, from.create_functions_ }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        read_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.read_functions_)>()
-        , from.read_functions_}
-        #else
-        read_functions_ { visibility, arena, from.read_functions_ }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        update_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.update_functions_)>()
-        , from.update_functions_}
-        #else
-        update_functions_ { visibility, arena, from.update_functions_ }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        delete_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.delete_functions_)>()
-        , from.delete_functions_}
-        #else
-        delete_functions_ { visibility, arena, from.delete_functions_ }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        list_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.list_functions_)>()
-        , from.list_functions_}
-        #else
-        list_functions_ { visibility, arena, from.list_functions_ }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        tags_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.tags_)>()
-        , from.tags_}
-        #else
-        tags_ { visibility, arena, from.tags_ }
-        #endif
-        ,
-        entity_id_(arena, from.entity_id_),
-        version_(arena, from.version_),
-        name_(arena, from.name_),
-        description_(arena, from.description_),
-        category_(arena, from.category_),
-        primary_key_(arena, from.primary_key_),
-        display_field_(arena, from.display_field_),
-        title_template_(arena, from.title_template_),
-        avatar_field_(arena, from.avatar_field_),
-        status_field_(arena, from.status_field_),
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
-        custom_operations_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.custom_operations_)>()
-        , from.custom_operations_}
-        #else
-        custom_operations_ { visibility, arena, from.custom_operations_ }
-        #endif
-     {}
-
-EntityOptions::EntityOptions(
-    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
-    const EntityOptions& from)
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::Message(arena, EntityOptions_class_data_.base()) {
-#else   // PROTOBUF_CUSTOM_VTABLE
-    : ::google::protobuf::Message(arena) {
-#endif  // PROTOBUF_CUSTOM_VTABLE
-  EntityOptions* const _this = this;
-  (void)_this;
-  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
-      from._internal_metadata_);
-  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
-  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
-  _impl_.display_name_ = (CheckHasBit(cached_has_bits, 0x00010000U))
-                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.display_name_)
-                : nullptr;
-  _impl_.summary_ = (CheckHasBit(cached_has_bits, 0x00020000U))
-                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.summary_)
-                : nullptr;
-  _impl_.menu_ = (CheckHasBit(cached_has_bits, 0x00040000U))
-                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.menu_)
-                : nullptr;
-
-  // @@protoc_insertion_point(copy_constructor:croupier.component.v1.EntityOptions)
-}
-PROTOBUF_NDEBUG_INLINE EntityOptions::Impl_::Impl_(
-    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
-    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
-      : _cached_size_{0},
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        create_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.create_functions_)>()
-        }
-        #else
-        create_functions_ { visibility, arena }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        read_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.read_functions_)>()
-        }
-        #else
-        read_functions_ { visibility, arena }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        update_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.update_functions_)>()
-        }
-        #else
-        update_functions_ { visibility, arena }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        delete_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.delete_functions_)>()
-        }
-        #else
-        delete_functions_ { visibility, arena }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        list_functions_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.list_functions_)>()
-        }
-        #else
-        list_functions_ { visibility, arena }
-        #endif
-        ,
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        tags_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.tags_)>()
-        }
-        #else
-        tags_ { visibility, arena }
-        #endif
-        ,
-        entity_id_(arena),
-        version_(arena),
-        name_(arena),
-        description_(arena),
-        category_(arena),
-        primary_key_(arena),
-        display_field_(arena),
-        title_template_(arena),
-        avatar_field_(arena),
-        status_field_(arena),
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
-        custom_operations_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::component::v1::EntityOptions,
-            PROTOBUF_FIELD_OFFSET(::croupier::component::v1::EntityOptions, _impl_.custom_operations_)>()
-        }
-        #else
-        custom_operations_ { visibility, arena }
-        #endif
-     {}
-
-inline void EntityOptions::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
-  new (&_impl_) Impl_(internal_visibility(), arena);
-  ::memset(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, display_name_),
-           0,
-           offsetof(Impl_, menu_) -
-               offsetof(Impl_, display_name_) +
-               sizeof(Impl_::menu_));
-}
-EntityOptions::~EntityOptions() {
-  // @@protoc_insertion_point(destructor:croupier.component.v1.EntityOptions)
-  SharedDtor(*this);
-}
-inline void EntityOptions::SharedDtor(MessageLite& self) {
-  EntityOptions& this_ = static_cast<EntityOptions&>(self);
-  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
-    this_.CheckHasBitConsistency();
-  }
-  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
-  ABSL_DCHECK(this_.GetArena() == nullptr);
-  this_._impl_.entity_id_.Destroy();
-  this_._impl_.version_.Destroy();
-  this_._impl_.name_.Destroy();
-  this_._impl_.description_.Destroy();
-  this_._impl_.category_.Destroy();
-  this_._impl_.primary_key_.Destroy();
-  this_._impl_.display_field_.Destroy();
-  this_._impl_.title_template_.Destroy();
-  this_._impl_.avatar_field_.Destroy();
-  this_._impl_.status_field_.Destroy();
-  delete this_._impl_.display_name_;
-  delete this_._impl_.summary_;
-  delete this_._impl_.menu_;
-  this_._impl_.~Impl_();
-}
-
-inline void* PROTOBUF_NONNULL EntityOptions::PlacementNew_(
-    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
-    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
-  return ::new (mem) EntityOptions(arena);
-}
-#ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-constexpr auto EntityOptions::InternalNewImpl_() {
-  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(EntityOptions),
-                                            alignof(EntityOptions));
-}
-#else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-constexpr auto EntityOptions::InternalNewImpl_() {
-  constexpr auto arena_bits = ::google::protobuf::internal::EncodePlacementArenaOffsets({
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.create_functions_) +
-          decltype(EntityOptions::_impl_.create_functions_)::
-              InternalGetArenaOffset(
-                  ::google::protobuf::Message::internal_visibility()),
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.read_functions_) +
-          decltype(EntityOptions::_impl_.read_functions_)::
-              InternalGetArenaOffset(
-                  ::google::protobuf::Message::internal_visibility()),
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.update_functions_) +
-          decltype(EntityOptions::_impl_.update_functions_)::
-              InternalGetArenaOffset(
-                  ::google::protobuf::Message::internal_visibility()),
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.delete_functions_) +
-          decltype(EntityOptions::_impl_.delete_functions_)::
-              InternalGetArenaOffset(
-                  ::google::protobuf::Message::internal_visibility()),
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.list_functions_) +
-          decltype(EntityOptions::_impl_.list_functions_)::
-              InternalGetArenaOffset(
-                  ::google::protobuf::Message::internal_visibility()),
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.custom_operations_) +
-          decltype(EntityOptions::_impl_.custom_operations_)::
-              InternalGetArenaOffset(
-                  ::google::protobuf::Message::internal_visibility()),
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.tags_) +
-          decltype(EntityOptions::_impl_.tags_)::
-              InternalGetArenaOffset(
-                  ::google::protobuf::Message::internal_visibility()),
-  });
-  if (arena_bits.has_value()) {
-    return ::google::protobuf::internal::MessageCreator::CopyInit(
-        sizeof(EntityOptions), alignof(EntityOptions), *arena_bits);
-  } else {
-    return ::google::protobuf::internal::MessageCreator(&EntityOptions::PlacementNew_,
-                                 sizeof(EntityOptions),
-                                 alignof(EntityOptions));
-  }
-}
-#endif
-constexpr auto EntityOptions::InternalGenerateClassData_() {
-  return ::google::protobuf::internal::ClassDataFull{
-      ::google::protobuf::internal::ClassData{
-          &_EntityOptions_default_instance_._instance,
-          &_table_.header,
-          nullptr,  // IsInitialized
-          &EntityOptions::MergeImpl,
-          ::google::protobuf::Message::GetNewImpl<EntityOptions>(),
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-          &EntityOptions::SharedDtor,
-          ::google::protobuf::Message::GetClearImpl<EntityOptions>(), &EntityOptions::ByteSizeLong,
-              &EntityOptions::_InternalSerialize,
-#endif  // PROTOBUF_CUSTOM_VTABLE
-          PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_._cached_size_),
-          false,
-      },
-      &EntityOptions::kDescriptorMethods,
-      &descriptor_table_croupier_2fcomponent_2fv1_2ffunction_5foptions_2eproto,
-      nullptr,  // tracker
-  };
-}
-
-PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
-    ::google::protobuf::internal::ClassDataFull EntityOptions_class_data_ =
-        EntityOptions::InternalGenerateClassData_();
-
-PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
-EntityOptions::GetClassData() const {
-  ::google::protobuf::internal::PrefetchToLocalCache(&EntityOptions_class_data_);
-  ::google::protobuf::internal::PrefetchToLocalCache(EntityOptions_class_data_.tc_table);
-  return EntityOptions_class_data_.base();
-}
-PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<5, 20, 4, 258, 2>
-EntityOptions::_table_ = {
-  {
-    PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_._has_bits_),
-    0, // no _extensions_
-    20, 248,  // max_field_number, fast_idx_mask
-    offsetof(decltype(_table_), field_lookup_table),
-    4293918720,  // skipmap
-    offsetof(decltype(_table_), field_entries),
-    20,  // num_field_entries
-    4,  // num_aux_entries
-    offsetof(decltype(_table_), aux_entries),
-    EntityOptions_class_data_.base(),
-    nullptr,  // post_loop_handler
-    ::_pbi::TcParser::GenericFallback,  // fallback
-    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::croupier::component::v1::EntityOptions>(),  // to_prefetch
-    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
-  }, {{
-    {::_pbi::TcParser::MiniParse, {}},
-    // string entity_id = 1 [json_name = "entityId"];
-    {::_pbi::TcParser::FastUS1,
-     {10, 6, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.entity_id_)}},
-    // string version = 2 [json_name = "version"];
-    {::_pbi::TcParser::FastUS1,
-     {18, 7, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.version_)}},
-    // string name = 3 [json_name = "name"];
-    {::_pbi::TcParser::FastUS1,
-     {26, 8, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.name_)}},
-    // string description = 4 [json_name = "description"];
-    {::_pbi::TcParser::FastUS1,
-     {34, 9, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.description_)}},
-    // string category = 5 [json_name = "category"];
-    {::_pbi::TcParser::FastUS1,
-     {42, 10, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.category_)}},
-    // string primary_key = 6 [json_name = "primaryKey"];
-    {::_pbi::TcParser::FastUS1,
-     {50, 11, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.primary_key_)}},
-    // string display_field = 7 [json_name = "displayField"];
-    {::_pbi::TcParser::FastUS1,
-     {58, 12, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.display_field_)}},
-    // string title_template = 8 [json_name = "titleTemplate"];
-    {::_pbi::TcParser::FastUS1,
-     {66, 13, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.title_template_)}},
-    // string avatar_field = 9 [json_name = "avatarField"];
-    {::_pbi::TcParser::FastUS1,
-     {74, 14, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.avatar_field_)}},
-    // string status_field = 10 [json_name = "statusField"];
-    {::_pbi::TcParser::FastUS1,
-     {82, 15, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.status_field_)}},
-    // repeated string create_functions = 11 [json_name = "createFunctions"];
-    {::_pbi::TcParser::FastUR1,
-     {90, 0, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.create_functions_)}},
-    // repeated string read_functions = 12 [json_name = "readFunctions"];
-    {::_pbi::TcParser::FastUR1,
-     {98, 1, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.read_functions_)}},
-    // repeated string update_functions = 13 [json_name = "updateFunctions"];
-    {::_pbi::TcParser::FastUR1,
-     {106, 2, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.update_functions_)}},
-    // repeated string delete_functions = 14 [json_name = "deleteFunctions"];
-    {::_pbi::TcParser::FastUR1,
-     {114, 3, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.delete_functions_)}},
-    // repeated string list_functions = 15 [json_name = "listFunctions"];
-    {::_pbi::TcParser::FastUR1,
-     {122, 4, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.list_functions_)}},
-    {::_pbi::TcParser::MiniParse, {}},
-    // .croupier.component.v1.I18nText display_name = 17 [json_name = "displayName"];
-    {::_pbi::TcParser::FastMtS2,
-     {394, 16, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.display_name_)}},
-    // .croupier.component.v1.I18nText summary = 18 [json_name = "summary"];
-    {::_pbi::TcParser::FastMtS2,
-     {402, 17, 1,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.summary_)}},
-    // repeated string tags = 19 [json_name = "tags"];
-    {::_pbi::TcParser::FastUR2,
-     {410, 5, 0,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.tags_)}},
-    // .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
-    {::_pbi::TcParser::FastMtS2,
-     {418, 18, 2,
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.menu_)}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-  }}, {{
-    65535, 65535
-  }}, {{
-    // string entity_id = 1 [json_name = "entityId"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.entity_id_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string version = 2 [json_name = "version"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.version_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string name = 3 [json_name = "name"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.name_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string description = 4 [json_name = "description"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.description_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string category = 5 [json_name = "category"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.category_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string primary_key = 6 [json_name = "primaryKey"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.primary_key_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string display_field = 7 [json_name = "displayField"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.display_field_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string title_template = 8 [json_name = "titleTemplate"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.title_template_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string avatar_field = 9 [json_name = "avatarField"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.avatar_field_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string status_field = 10 [json_name = "statusField"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.status_field_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // repeated string create_functions = 11 [json_name = "createFunctions"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.create_functions_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // repeated string read_functions = 12 [json_name = "readFunctions"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.read_functions_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // repeated string update_functions = 13 [json_name = "updateFunctions"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.update_functions_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // repeated string delete_functions = 14 [json_name = "deleteFunctions"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.delete_functions_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // repeated string list_functions = 15 [json_name = "listFunctions"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.list_functions_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // map<string, string> custom_operations = 16 [json_name = "customOperations"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.custom_operations_), _Internal::kHasBitsOffset + 19, 3, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
-    // .croupier.component.v1.I18nText display_name = 17 [json_name = "displayName"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.display_name_), _Internal::kHasBitsOffset + 16, 0, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
-    // .croupier.component.v1.I18nText summary = 18 [json_name = "summary"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.summary_), _Internal::kHasBitsOffset + 17, 1, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
-    // repeated string tags = 19 [json_name = "tags"];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.tags_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-    // .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
-    {PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.menu_), _Internal::kHasBitsOffset + 18, 2, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
-  }},
-  {{
-      {::_pbi::TcParser::GetTable<::croupier::component::v1::I18nText>()},
-      {::_pbi::TcParser::GetTable<::croupier::component::v1::I18nText>()},
-      {::_pbi::TcParser::GetTable<::croupier::component::v1::Menu>()},
-      {::_pbi::TcParser::GetMapAuxInfo(
-          1, 0, 9, 9, 0)},
-  }},
-  {{
-    "\43\11\7\4\13\10\13\15\16\14\14\20\16\20\20\16\21\0\0\4\0\0\0\0"
-    "croupier.component.v1.EntityOptions"
-    "entity_id"
-    "version"
-    "name"
-    "description"
-    "category"
-    "primary_key"
-    "display_field"
-    "title_template"
-    "avatar_field"
-    "status_field"
-    "create_functions"
-    "read_functions"
-    "update_functions"
-    "delete_functions"
-    "list_functions"
-    "custom_operations"
-    "tags"
-  }},
-};
-PROTOBUF_NOINLINE void EntityOptions::Clear() {
-// @@protoc_insertion_point(message_clear_start:croupier.component.v1.EntityOptions)
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  ::uint32_t cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  cached_has_bits = _impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
-      _impl_.create_functions_.Clear();
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000002U)) {
-      _impl_.read_functions_.Clear();
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000004U)) {
-      _impl_.update_functions_.Clear();
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000008U)) {
-      _impl_.delete_functions_.Clear();
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000010U)) {
-      _impl_.list_functions_.Clear();
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000020U)) {
-      _impl_.tags_.Clear();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
-      _impl_.entity_id_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-      _impl_.version_.ClearNonDefaultToEmpty();
-    }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
-      _impl_.name_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
-      _impl_.description_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
-      _impl_.category_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
-      _impl_.primary_key_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
-      _impl_.display_field_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
-      _impl_.title_template_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
-      _impl_.avatar_field_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
-      _impl_.status_field_.ClearNonDefaultToEmpty();
-    }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x000f0000U)) {
-    if (CheckHasBit(cached_has_bits, 0x00010000U)) {
-      ABSL_DCHECK(_impl_.display_name_ != nullptr);
-      _impl_.display_name_->Clear();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00020000U)) {
-      ABSL_DCHECK(_impl_.summary_ != nullptr);
-      _impl_.summary_->Clear();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00040000U)) {
-      ABSL_DCHECK(_impl_.menu_ != nullptr);
-      _impl_.menu_->Clear();
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00080000U)) {
-      _impl_.custom_operations_.Clear();
-    }
-  }
-  _impl_._has_bits_.Clear();
-  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
-}
-
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-::uint8_t* PROTOBUF_NONNULL EntityOptions::_InternalSerialize(
-    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
-    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
-  const EntityOptions& this_ = static_cast<const EntityOptions&>(base);
-#else   // PROTOBUF_CUSTOM_VTABLE
-::uint8_t* PROTOBUF_NONNULL EntityOptions::_InternalSerialize(
-    ::uint8_t* PROTOBUF_NONNULL target,
-    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
-  const EntityOptions& this_ = *this;
-#endif  // PROTOBUF_CUSTOM_VTABLE
-  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
-    this_.CheckHasBitConsistency();
-  }
-  // @@protoc_insertion_point(serialize_to_array_start:croupier.component.v1.EntityOptions)
-  ::uint32_t cached_has_bits = 0;
-  (void)cached_has_bits;
-
-  cached_has_bits = this_._impl_._has_bits_[0];
-  // string entity_id = 1 [json_name = "entityId"];
-  if (CheckHasBit(cached_has_bits, 0x00000040U)) {
-    if (!this_._internal_entity_id().empty()) {
-      const ::std::string& _s = this_._internal_entity_id();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.entity_id");
-      target = stream->WriteStringMaybeAliased(1, _s, target);
-    }
-  }
-
-  // string version = 2 [json_name = "version"];
-  if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-    if (!this_._internal_version().empty()) {
-      const ::std::string& _s = this_._internal_version();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.version");
-      target = stream->WriteStringMaybeAliased(2, _s, target);
-    }
-  }
-
-  // string name = 3 [json_name = "name"];
-  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
-    if (!this_._internal_name().empty()) {
-      const ::std::string& _s = this_._internal_name();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.name");
-      target = stream->WriteStringMaybeAliased(3, _s, target);
-    }
-  }
-
-  // string description = 4 [json_name = "description"];
-  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
-    if (!this_._internal_description().empty()) {
-      const ::std::string& _s = this_._internal_description();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.description");
-      target = stream->WriteStringMaybeAliased(4, _s, target);
-    }
-  }
-
-  // string category = 5 [json_name = "category"];
-  if (CheckHasBit(cached_has_bits, 0x00000400U)) {
-    if (!this_._internal_category().empty()) {
-      const ::std::string& _s = this_._internal_category();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.category");
-      target = stream->WriteStringMaybeAliased(5, _s, target);
-    }
-  }
-
-  // string primary_key = 6 [json_name = "primaryKey"];
-  if (CheckHasBit(cached_has_bits, 0x00000800U)) {
-    if (!this_._internal_primary_key().empty()) {
-      const ::std::string& _s = this_._internal_primary_key();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.primary_key");
-      target = stream->WriteStringMaybeAliased(6, _s, target);
-    }
-  }
-
-  // string display_field = 7 [json_name = "displayField"];
-  if (CheckHasBit(cached_has_bits, 0x00001000U)) {
-    if (!this_._internal_display_field().empty()) {
-      const ::std::string& _s = this_._internal_display_field();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.display_field");
-      target = stream->WriteStringMaybeAliased(7, _s, target);
-    }
-  }
-
-  // string title_template = 8 [json_name = "titleTemplate"];
-  if (CheckHasBit(cached_has_bits, 0x00002000U)) {
-    if (!this_._internal_title_template().empty()) {
-      const ::std::string& _s = this_._internal_title_template();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.title_template");
-      target = stream->WriteStringMaybeAliased(8, _s, target);
-    }
-  }
-
-  // string avatar_field = 9 [json_name = "avatarField"];
-  if (CheckHasBit(cached_has_bits, 0x00004000U)) {
-    if (!this_._internal_avatar_field().empty()) {
-      const ::std::string& _s = this_._internal_avatar_field();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.avatar_field");
-      target = stream->WriteStringMaybeAliased(9, _s, target);
-    }
-  }
-
-  // string status_field = 10 [json_name = "statusField"];
-  if (CheckHasBit(cached_has_bits, 0x00008000U)) {
-    if (!this_._internal_status_field().empty()) {
-      const ::std::string& _s = this_._internal_status_field();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.status_field");
-      target = stream->WriteStringMaybeAliased(10, _s, target);
-    }
-  }
-
-  // repeated string create_functions = 11 [json_name = "createFunctions"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
-    for (int i = 0, n = this_._internal_create_functions_size(); i < n; ++i) {
-      const auto& s = this_._internal_create_functions().Get(i);
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.create_functions");
-      target = stream->WriteString(11, s, target);
-    }
-  }
-
-  // repeated string read_functions = 12 [json_name = "readFunctions"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00000002U)) {
-    for (int i = 0, n = this_._internal_read_functions_size(); i < n; ++i) {
-      const auto& s = this_._internal_read_functions().Get(i);
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.read_functions");
-      target = stream->WriteString(12, s, target);
-    }
-  }
-
-  // repeated string update_functions = 13 [json_name = "updateFunctions"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00000004U)) {
-    for (int i = 0, n = this_._internal_update_functions_size(); i < n; ++i) {
-      const auto& s = this_._internal_update_functions().Get(i);
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.update_functions");
-      target = stream->WriteString(13, s, target);
-    }
-  }
-
-  // repeated string delete_functions = 14 [json_name = "deleteFunctions"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00000008U)) {
-    for (int i = 0, n = this_._internal_delete_functions_size(); i < n; ++i) {
-      const auto& s = this_._internal_delete_functions().Get(i);
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.delete_functions");
-      target = stream->WriteString(14, s, target);
-    }
-  }
-
-  // repeated string list_functions = 15 [json_name = "listFunctions"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00000010U)) {
-    for (int i = 0, n = this_._internal_list_functions_size(); i < n; ++i) {
-      const auto& s = this_._internal_list_functions().Get(i);
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.list_functions");
-      target = stream->WriteString(15, s, target);
-    }
-  }
-
-  // map<string, string> custom_operations = 16 [json_name = "customOperations"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00080000U)) {
-    if (!this_._internal_custom_operations().empty()) {
-      using MapType = ::google::protobuf::Map<::std::string, ::std::string>;
-      using WireHelper = _pbi::MapEntryFuncs<::std::string, ::std::string,
-                                     _pbi::WireFormatLite::TYPE_STRING,
-                                     _pbi::WireFormatLite::TYPE_STRING>;
-      const auto& field = this_._internal_custom_operations();
-
-      if (stream->IsSerializationDeterministic() && field.size() > 1) {
-        for (const auto& entry : ::google::protobuf::internal::MapSorterPtr<MapType>(field)) {
-          target = WireHelper::InternalSerialize(
-              16, entry.first, entry.second, target, stream);
-          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-              entry.first.data(), static_cast<int>(entry.first.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.custom_operations");
-          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-              entry.second.data(), static_cast<int>(entry.second.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.custom_operations");
-        }
-      } else {
-        for (const auto& entry : field) {
-          target = WireHelper::InternalSerialize(
-              16, entry.first, entry.second, target, stream);
-          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-              entry.first.data(), static_cast<int>(entry.first.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.custom_operations");
-          ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-              entry.second.data(), static_cast<int>(entry.second.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.custom_operations");
-        }
-      }
-    }
-  }
-
-  // .croupier.component.v1.I18nText display_name = 17 [json_name = "displayName"];
-  if (CheckHasBit(cached_has_bits, 0x00010000U)) {
-    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
-        17, *this_._impl_.display_name_, this_._impl_.display_name_->GetCachedSize(), target,
-        stream);
-  }
-
-  // .croupier.component.v1.I18nText summary = 18 [json_name = "summary"];
-  if (CheckHasBit(cached_has_bits, 0x00020000U)) {
-    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
-        18, *this_._impl_.summary_, this_._impl_.summary_->GetCachedSize(), target,
-        stream);
-  }
-
-  // repeated string tags = 19 [json_name = "tags"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00000020U)) {
-    for (int i = 0, n = this_._internal_tags_size(); i < n; ++i) {
-      const auto& s = this_._internal_tags().Get(i);
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.component.v1.EntityOptions.tags");
-      target = stream->WriteString(19, s, target);
-    }
-  }
-
-  // .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
-  if (CheckHasBit(cached_has_bits, 0x00040000U)) {
-    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
-        20, *this_._impl_.menu_, this_._impl_.menu_->GetCachedSize(), target,
-        stream);
-  }
-
-  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
-    target =
-        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
-            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
-  }
-  // @@protoc_insertion_point(serialize_to_array_end:croupier.component.v1.EntityOptions)
-  return target;
-}
-
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-::size_t EntityOptions::ByteSizeLong(const MessageLite& base) {
-  const EntityOptions& this_ = static_cast<const EntityOptions&>(base);
-#else   // PROTOBUF_CUSTOM_VTABLE
-::size_t EntityOptions::ByteSizeLong() const {
-  const EntityOptions& this_ = *this;
-#endif  // PROTOBUF_CUSTOM_VTABLE
-  // @@protoc_insertion_point(message_byte_size_start:croupier.component.v1.EntityOptions)
-  ::size_t total_size = 0;
-
-  ::uint32_t cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void)cached_has_bits;
-
-  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
-  cached_has_bits = this_._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
-    // repeated string create_functions = 11 [json_name = "createFunctions"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
-      total_size +=
-          1 * ::google::protobuf::internal::FromIntSize(this_._internal_create_functions().size());
-      for (int i = 0, n = this_._internal_create_functions().size(); i < n; ++i) {
-        total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
-            this_._internal_create_functions().Get(i));
-      }
-    }
-    // repeated string read_functions = 12 [json_name = "readFunctions"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000002U)) {
-      total_size +=
-          1 * ::google::protobuf::internal::FromIntSize(this_._internal_read_functions().size());
-      for (int i = 0, n = this_._internal_read_functions().size(); i < n; ++i) {
-        total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
-            this_._internal_read_functions().Get(i));
-      }
-    }
-    // repeated string update_functions = 13 [json_name = "updateFunctions"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000004U)) {
-      total_size +=
-          1 * ::google::protobuf::internal::FromIntSize(this_._internal_update_functions().size());
-      for (int i = 0, n = this_._internal_update_functions().size(); i < n; ++i) {
-        total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
-            this_._internal_update_functions().Get(i));
-      }
-    }
-    // repeated string delete_functions = 14 [json_name = "deleteFunctions"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000008U)) {
-      total_size +=
-          1 * ::google::protobuf::internal::FromIntSize(this_._internal_delete_functions().size());
-      for (int i = 0, n = this_._internal_delete_functions().size(); i < n; ++i) {
-        total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
-            this_._internal_delete_functions().Get(i));
-      }
-    }
-    // repeated string list_functions = 15 [json_name = "listFunctions"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000010U)) {
-      total_size +=
-          1 * ::google::protobuf::internal::FromIntSize(this_._internal_list_functions().size());
-      for (int i = 0, n = this_._internal_list_functions().size(); i < n; ++i) {
-        total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
-            this_._internal_list_functions().Get(i));
-      }
-    }
-    // repeated string tags = 19 [json_name = "tags"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000020U)) {
-      total_size +=
-          2 * ::google::protobuf::internal::FromIntSize(this_._internal_tags().size());
-      for (int i = 0, n = this_._internal_tags().size(); i < n; ++i) {
-        total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
-            this_._internal_tags().Get(i));
-      }
-    }
-    // string entity_id = 1 [json_name = "entityId"];
-    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
-      if (!this_._internal_entity_id().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_entity_id());
-      }
-    }
-    // string version = 2 [json_name = "version"];
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-      if (!this_._internal_version().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_version());
-      }
-    }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
-    // string name = 3 [json_name = "name"];
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
-      if (!this_._internal_name().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_name());
-      }
-    }
-    // string description = 4 [json_name = "description"];
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
-      if (!this_._internal_description().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_description());
-      }
-    }
-    // string category = 5 [json_name = "category"];
-    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
-      if (!this_._internal_category().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_category());
-      }
-    }
-    // string primary_key = 6 [json_name = "primaryKey"];
-    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
-      if (!this_._internal_primary_key().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_primary_key());
-      }
-    }
-    // string display_field = 7 [json_name = "displayField"];
-    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
-      if (!this_._internal_display_field().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_display_field());
-      }
-    }
-    // string title_template = 8 [json_name = "titleTemplate"];
-    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
-      if (!this_._internal_title_template().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_title_template());
-      }
-    }
-    // string avatar_field = 9 [json_name = "avatarField"];
-    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
-      if (!this_._internal_avatar_field().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_avatar_field());
-      }
-    }
-    // string status_field = 10 [json_name = "statusField"];
-    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
-      if (!this_._internal_status_field().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_status_field());
-      }
-    }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x000f0000U)) {
-    // .croupier.component.v1.I18nText display_name = 17 [json_name = "displayName"];
-    if (CheckHasBit(cached_has_bits, 0x00010000U)) {
-      total_size += 2 +
-                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.display_name_);
-    }
-    // .croupier.component.v1.I18nText summary = 18 [json_name = "summary"];
-    if (CheckHasBit(cached_has_bits, 0x00020000U)) {
-      total_size += 2 +
-                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.summary_);
-    }
-    // .croupier.component.v1.Menu menu = 20 [json_name = "menu", deprecated = true];
-    if (CheckHasBit(cached_has_bits, 0x00040000U)) {
-      total_size += 2 +
-                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.menu_);
-    }
-    // map<string, string> custom_operations = 16 [json_name = "customOperations"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00080000U)) {
-      total_size +=
-          2 * ::google::protobuf::internal::FromIntSize(this_._internal_custom_operations_size());
-      for (const auto& entry : this_._internal_custom_operations()) {
-        total_size += _pbi::MapEntryFuncs<::std::string, ::std::string,
-                                       _pbi::WireFormatLite::TYPE_STRING,
-                                       _pbi::WireFormatLite::TYPE_STRING>::ByteSizeLong(entry.first, entry.second);
-      }
-    }
-  }
-  return this_.MaybeComputeUnknownFieldsSize(total_size,
-                                             &this_._impl_._cached_size_);
-}
-
-void EntityOptions::MergeImpl(::google::protobuf::MessageLite& to_msg,
-                            const ::google::protobuf::MessageLite& from_msg) {
-   auto* const _this =
-      static_cast<EntityOptions*>(&to_msg);
-  auto& from = static_cast<const EntityOptions&>(from_msg);
-  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
-    from.CheckHasBitConsistency();
-  }
-  ::google::protobuf::Arena* arena = _this->GetArena();
-  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.component.v1.EntityOptions)
-  ABSL_DCHECK_NE(&from, _this);
-  ::uint32_t cached_has_bits = 0;
-  (void)cached_has_bits;
-
-  cached_has_bits = from._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
-      _this->_internal_mutable_create_functions()->InternalMergeFromWithArena(
-          ::google::protobuf::MessageLite::internal_visibility(), arena,
-          from._internal_create_functions());
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000002U)) {
-      _this->_internal_mutable_read_functions()->InternalMergeFromWithArena(
-          ::google::protobuf::MessageLite::internal_visibility(), arena,
-          from._internal_read_functions());
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000004U)) {
-      _this->_internal_mutable_update_functions()->InternalMergeFromWithArena(
-          ::google::protobuf::MessageLite::internal_visibility(), arena,
-          from._internal_update_functions());
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000008U)) {
-      _this->_internal_mutable_delete_functions()->InternalMergeFromWithArena(
-          ::google::protobuf::MessageLite::internal_visibility(), arena,
-          from._internal_delete_functions());
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000010U)) {
-      _this->_internal_mutable_list_functions()->InternalMergeFromWithArena(
-          ::google::protobuf::MessageLite::internal_visibility(), arena,
-          from._internal_list_functions());
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000020U)) {
-      _this->_internal_mutable_tags()->InternalMergeFromWithArena(
-          ::google::protobuf::MessageLite::internal_visibility(), arena,
-          from._internal_tags());
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
-      if (!from._internal_entity_id().empty()) {
-        _this->_internal_set_entity_id(from._internal_entity_id());
-      } else {
-        if (_this->_impl_.entity_id_.IsDefault()) {
-          _this->_internal_set_entity_id("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-      if (!from._internal_version().empty()) {
-        _this->_internal_set_version(from._internal_version());
-      } else {
-        if (_this->_impl_.version_.IsDefault()) {
-          _this->_internal_set_version("");
-        }
-      }
-    }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
-      if (!from._internal_name().empty()) {
-        _this->_internal_set_name(from._internal_name());
-      } else {
-        if (_this->_impl_.name_.IsDefault()) {
-          _this->_internal_set_name("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
-      if (!from._internal_description().empty()) {
-        _this->_internal_set_description(from._internal_description());
-      } else {
-        if (_this->_impl_.description_.IsDefault()) {
-          _this->_internal_set_description("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
-      if (!from._internal_category().empty()) {
-        _this->_internal_set_category(from._internal_category());
-      } else {
-        if (_this->_impl_.category_.IsDefault()) {
-          _this->_internal_set_category("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
-      if (!from._internal_primary_key().empty()) {
-        _this->_internal_set_primary_key(from._internal_primary_key());
-      } else {
-        if (_this->_impl_.primary_key_.IsDefault()) {
-          _this->_internal_set_primary_key("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
-      if (!from._internal_display_field().empty()) {
-        _this->_internal_set_display_field(from._internal_display_field());
-      } else {
-        if (_this->_impl_.display_field_.IsDefault()) {
-          _this->_internal_set_display_field("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
-      if (!from._internal_title_template().empty()) {
-        _this->_internal_set_title_template(from._internal_title_template());
-      } else {
-        if (_this->_impl_.title_template_.IsDefault()) {
-          _this->_internal_set_title_template("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
-      if (!from._internal_avatar_field().empty()) {
-        _this->_internal_set_avatar_field(from._internal_avatar_field());
-      } else {
-        if (_this->_impl_.avatar_field_.IsDefault()) {
-          _this->_internal_set_avatar_field("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
-      if (!from._internal_status_field().empty()) {
-        _this->_internal_set_status_field(from._internal_status_field());
-      } else {
-        if (_this->_impl_.status_field_.IsDefault()) {
-          _this->_internal_set_status_field("");
-        }
-      }
-    }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x000f0000U)) {
-    if (CheckHasBit(cached_has_bits, 0x00010000U)) {
-      ABSL_DCHECK(from._impl_.display_name_ != nullptr);
-      if (_this->_impl_.display_name_ == nullptr) {
-        _this->_impl_.display_name_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.display_name_);
-      } else {
-        _this->_impl_.display_name_->MergeFrom(*from._impl_.display_name_);
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00020000U)) {
-      ABSL_DCHECK(from._impl_.summary_ != nullptr);
-      if (_this->_impl_.summary_ == nullptr) {
-        _this->_impl_.summary_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.summary_);
-      } else {
-        _this->_impl_.summary_->MergeFrom(*from._impl_.summary_);
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00040000U)) {
-      ABSL_DCHECK(from._impl_.menu_ != nullptr);
-      if (_this->_impl_.menu_ == nullptr) {
-        _this->_impl_.menu_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.menu_);
-      } else {
-        _this->_impl_.menu_->MergeFrom(*from._impl_.menu_);
-      }
-    }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00080000U)) {
-      _this->_impl_.custom_operations_.MergeFrom(from._impl_.custom_operations_);
-    }
-  }
-  _this->_impl_._has_bits_[0] |= cached_has_bits;
-  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
-      from._internal_metadata_);
-}
-
-void EntityOptions::CopyFrom(const EntityOptions& from) {
-  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.component.v1.EntityOptions)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-
-void EntityOptions::InternalSwap(EntityOptions* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
-  using ::std::swap;
-  auto* arena = GetArena();
-  ABSL_DCHECK_EQ(arena, other->GetArena());
-  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
-  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
-  _impl_.create_functions_.InternalSwap(&other->_impl_.create_functions_);
-  _impl_.read_functions_.InternalSwap(&other->_impl_.read_functions_);
-  _impl_.update_functions_.InternalSwap(&other->_impl_.update_functions_);
-  _impl_.delete_functions_.InternalSwap(&other->_impl_.delete_functions_);
-  _impl_.list_functions_.InternalSwap(&other->_impl_.list_functions_);
-  _impl_.tags_.InternalSwap(&other->_impl_.tags_);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.entity_id_, &other->_impl_.entity_id_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.name_, &other->_impl_.name_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.description_, &other->_impl_.description_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.category_, &other->_impl_.category_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.primary_key_, &other->_impl_.primary_key_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.display_field_, &other->_impl_.display_field_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.title_template_, &other->_impl_.title_template_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.avatar_field_, &other->_impl_.avatar_field_, arena);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.status_field_, &other->_impl_.status_field_, arena);
-  ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.menu_)
-      + sizeof(EntityOptions::_impl_.menu_)
-      - PROTOBUF_FIELD_OFFSET(EntityOptions, _impl_.display_name_)>(
-          reinterpret_cast<char*>(&_impl_.display_name_),
-          reinterpret_cast<char*>(&other->_impl_.display_name_));
-  _impl_.custom_operations_.InternalSwap(&other->_impl_.custom_operations_);
-}
-
-::google::protobuf::Metadata EntityOptions::GetMetadata() const {
   return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY2 ::_pbi::ExtensionIdentifier<
         ::google::protobuf::MethodOptions, ::_pbi::MessageTypeTraits< ::croupier::component::v1::FunctionOptions >, 11, false>
         function(kFunctionFieldNumber, &::croupier::component::v1::_FunctionOptions_default_instance_);
-PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY2 ::_pbi::ExtensionIdentifier<
-        ::google::protobuf::MessageOptions, ::_pbi::MessageTypeTraits< ::croupier::component::v1::EntityOptions >, 11, false>
-        entity(kEntityFieldNumber, &::croupier::component::v1::_EntityOptions_default_instance_);
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace v1
 }  // namespace component
@@ -2869,10 +1046,6 @@ PROTOBUF_ATTRIBUTE_INIT_PRIORITY2 static ::std::false_type
         ::_pbi::ExtensionSet::RegisterMessageExtension(
             &::google::protobuf::MethodOptions::default_instance(), 51001, 11,
             false, false, &::croupier::component::v1::FunctionOptions::default_instance(),
-            nullptr, ::_pbi::LazyAnnotation::kUndefined),
-        ::_pbi::ExtensionSet::RegisterMessageExtension(
-            &::google::protobuf::MessageOptions::default_instance(), 51002, 11,
-            false, false, &::croupier::component::v1::EntityOptions::default_instance(),
             nullptr, ::_pbi::LazyAnnotation::kUndefined),
          ::std::false_type{});
 #include "google/protobuf/port_undef.inc"

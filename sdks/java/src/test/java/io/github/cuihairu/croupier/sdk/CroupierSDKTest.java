@@ -89,18 +89,18 @@ class CroupierSDKTest {
         assertNotNull(builder);
 
         FunctionDescriptor desc = builder
-            .category("test")
+            .resource("player")
             .risk("low")
-            .entity("player")
-            .operation("create")
+            .operation("ban")
+            .permission("player.ban")
             .build();
 
         assertEquals("test-func", desc.getId());
         assertEquals("1.0.0", desc.getVersion());
-        assertEquals("test", desc.getCategory());
+        assertEquals("player", desc.getResource());
         assertEquals("low", desc.getRisk());
-        assertEquals("player", desc.getEntity());
-        assertEquals("create", desc.getOperation());
+        assertEquals("ban", desc.getOperation());
+        assertEquals("player.ban", desc.getPermission());
         assertTrue(desc.isEnabled());
     }
 
@@ -118,19 +118,19 @@ class CroupierSDKTest {
     @DisplayName("Function descriptor builder with all options")
     void functionDescriptorBuilderWithAllOptions() {
         FunctionDescriptor desc = CroupierSDK.functionDescriptor("player.ban", "1.2.0")
-            .category("player")
+            .resource("player")
             .risk("high")
-            .entity("player")
-            .operation("update")
+            .operation("ban")
+            .permission("player.ban")
             .enabled(true)
             .build();
 
         assertEquals("player.ban", desc.getId());
         assertEquals("1.2.0", desc.getVersion());
-        assertEquals("player", desc.getCategory());
+        assertEquals("player", desc.getResource());
         assertEquals("high", desc.getRisk());
-        assertEquals("player", desc.getEntity());
-        assertEquals("update", desc.getOperation());
+        assertEquals("ban", desc.getOperation());
+        assertEquals("player.ban", desc.getPermission());
         assertTrue(desc.isEnabled());
     }
 
@@ -201,10 +201,10 @@ class CroupierSDKTest {
         CroupierSDK.FunctionDescriptorBuilder builder = CroupierSDK.functionDescriptor("func", "1.0.0");
 
         FunctionDescriptor desc = builder
-            .category("test")
+            .resource("player")
             .risk("low")
-            .entity("Player")
-            .operation("create")
+            .operation("ban")
+            .permission("player.ban")
             .summary("Test function")
             .description("Test description")
             .operationId("testFunc")
@@ -219,10 +219,10 @@ class CroupierSDKTest {
     @DisplayName("Function descriptor builder with empty strings")
     void functionDescriptorBuilderWithEmptyStrings() {
         FunctionDescriptor desc = CroupierSDK.functionDescriptor("func", "1.0.0")
-            .category("")
+            .resource("")
             .risk("")
-            .entity("")
             .operation("")
+            .permission("")
             .summary("")
             .description("")
             .operationId("")
@@ -230,10 +230,10 @@ class CroupierSDKTest {
             .outputSchema("")
             .build();
 
-        assertEquals("", desc.getCategory());
+        assertEquals("", desc.getResource());
         assertEquals("", desc.getRisk());
-        assertEquals("", desc.getEntity());
         assertEquals("", desc.getOperation());
+        assertEquals("", desc.getPermission());
         assertEquals("", desc.getSummary());
         assertEquals("", desc.getDescription());
         assertEquals("", desc.getOperationId());
@@ -350,11 +350,11 @@ class CroupierSDKTest {
     void functionDescriptorBuilderCanCreateMultipleDescriptors() {
         CroupierSDK.FunctionDescriptorBuilder builder = CroupierSDK.functionDescriptor("func", "1.0.0");
 
-        FunctionDescriptor desc1 = builder.category("cat1").build();
-        FunctionDescriptor desc2 = builder.category("cat2").build();
+        FunctionDescriptor desc1 = builder.resource("player").build();
+        FunctionDescriptor desc2 = builder.resource("mail").build();
 
-        assertEquals("cat1", desc1.getCategory());
-        assertEquals("cat2", desc2.getCategory());
+        assertEquals("player", desc1.getResource());
+        assertEquals("mail", desc2.getResource());
         // Both should have the same ID and version
         assertEquals(desc1.getId(), desc2.getId());
         assertEquals(desc1.getVersion(), desc2.getVersion());
@@ -418,12 +418,12 @@ class CroupierSDKTest {
     void functionDescriptorBuilderMaintainsImmutabilityAfterBuild() {
         CroupierSDK.FunctionDescriptorBuilder builder = CroupierSDK.functionDescriptor("func", "1.0.0");
 
-        FunctionDescriptor desc1 = builder.category("cat1").build();
-        FunctionDescriptor desc2 = builder.category("cat2").build();
+        FunctionDescriptor desc1 = builder.resource("player").build();
+        FunctionDescriptor desc2 = builder.resource("mail").build();
 
         // desc1 should not be affected by subsequent builder calls
-        assertEquals("cat1", desc1.getCategory());
-        assertEquals("cat2", desc2.getCategory());
+        assertEquals("player", desc1.getResource());
+        assertEquals("mail", desc2.getResource());
     }
 
     @Test

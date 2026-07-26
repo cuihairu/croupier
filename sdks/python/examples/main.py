@@ -47,10 +47,9 @@ def main() -> None:
         FunctionDescriptor(
             id="player.ban",
             version="1.0.0",
-            category="moderation",
             risk="high",
-            entity="player",
-            operation="update",
+            resource="player",
+            operation="ban",
         ),
         player_ban,
     )

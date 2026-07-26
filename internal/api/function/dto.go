@@ -7,18 +7,18 @@ import "encoding/json"
 
 // Function represents a function entity
 type Function struct {
-	Id          string      `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	Category    string      `json:"category"`
-	GameId      string      `json:"gameId"`
-	Status      int         `json:"status"`
-	Version     string      `json:"version"`
-	Instances   int         `json:"instances"`
-	SpecFormat  string      `json:"specFormat"`
-	OpenAPISpec interface{} `json:"openapiSpec"`
-	CreatedAt   string      `json:"createdAt"`
-	UpdatedAt   string      `json:"updatedAt"`
+	Id          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Resource    string          `json:"resource"`
+	GameId      string          `json:"gameId"`
+	Status      int             `json:"status"`
+	Version     string          `json:"version"`
+	Instances   int             `json:"instances"`
+	SpecFormat  string          `json:"specFormat"`
+	OpenAPISpec json.RawMessage `json:"openapiSpec,omitempty"`
+	CreatedAt   string          `json:"createdAt"`
+	UpdatedAt   string          `json:"updatedAt"`
 }
 
 // FunctionActionRequest represents an action request on a function
@@ -54,9 +54,9 @@ type FunctionCopyResponse struct {
 
 // FunctionDescriptor represents the input/output schema of a function
 type FunctionDescriptor struct {
-	Input  interface{} `json:"input"`
-	Output interface{} `json:"output"`
-	Schema interface{} `json:"schema"`
+	Input  json.RawMessage `json:"input,omitempty"`
+	Output json.RawMessage `json:"output,omitempty"`
+	Schema json.RawMessage `json:"schema,omitempty"`
 }
 
 // FunctionDetailRequest represents a request to get function details
@@ -72,11 +72,11 @@ type FunctionDetailResponse struct {
 
 // FunctionHistoryItem represents an item in the function history
 type FunctionHistoryItem struct {
-	ID        string      `json:"id"`
-	Action    string      `json:"action"`
-	Operator  string      `json:"operator"`
-	Timestamp string      `json:"timestamp"`
-	Details   interface{} `json:"details"`
+	ID        string          `json:"id"`
+	Action    string          `json:"action"`
+	Operator  string          `json:"operator"`
+	Timestamp string          `json:"timestamp"`
+	Details   json.RawMessage `json:"details,omitempty"`
 }
 
 // FunctionHistoryRequest represents a request for function history
@@ -103,7 +103,16 @@ type FunctionInstancesAllRequest struct {
 
 // FunctionInstancesAllResponse represents the response containing all function instances
 type FunctionInstancesAllResponse struct {
-	Instances []map[string]interface{} `json:"instances"`
+	Instances []FunctionInstanceSummary `json:"instances"`
+}
+
+// FunctionInstanceSummary represents one function registration on an agent.
+type FunctionInstanceSummary struct {
+	FunctionID string `json:"functionId"`
+	AgentID    string `json:"agentId"`
+	AgentName  string `json:"agentName"`
+	Status     string `json:"status"`
+	UpdatedAt  string `json:"updatedAt"`
 }
 
 // FunctionInstancesRequest represents a request for function instances
@@ -118,25 +127,25 @@ type FunctionInstancesResponse struct {
 
 // FunctionInvokeRequest represents a request to invoke a function
 type FunctionInvokeRequest struct {
-	ID              string      `uri:"id"`
-	Params          interface{} `json:"params"`
-	Payload         interface{} `json:"payload"`
-	GameID          string      `json:"gameId"`
-	Env             string      `json:"env"`
-	Mode            string      `json:"mode"`
-	Route           string      `json:"route"`
-	TargetServiceID string      `json:"target_service_id"`
-	HashKey         string      `json:"hash_key"`
+	ID              string          `uri:"id"`
+	Params          json.RawMessage `json:"params,omitempty"`
+	Payload         json.RawMessage `json:"payload,omitempty"`
+	GameID          string          `json:"gameId"`
+	Env             string          `json:"env"`
+	Mode            string          `json:"mode"`
+	Route           string          `json:"route"`
+	TargetServiceID string          `json:"target_service_id"`
+	HashKey         string          `json:"hash_key"`
 }
 
 // FunctionInvokeResponse represents the response of a function invocation
 type FunctionInvokeResponse struct {
-	TaskId           string      `json:"taskId"`
-	TaskID           string      `json:"taskID,omitempty"`
-	Result           interface{} `json:"result,omitempty"`
-	ApprovalID       string      `json:"approval_id,omitempty"`
-	ApprovalRequired bool        `json:"approval_required,omitempty"`
-	ApprovalWorkflow string      `json:"approval_workflow,omitempty"`
+	TaskId           string          `json:"taskId"`
+	TaskID           string          `json:"taskID,omitempty"`
+	Result           json.RawMessage `json:"result,omitempty"`
+	ApprovalID       string          `json:"approval_id,omitempty"`
+	ApprovalRequired bool            `json:"approval_required,omitempty"`
+	ApprovalWorkflow string          `json:"approval_workflow,omitempty"`
 	// Broadcast carries per-agent outcomes when route=broadcast. Empty when
 	// the call did not use broadcast routing.
 	Broadcast *BroadcastResult `json:"broadcast,omitempty"`
@@ -152,9 +161,9 @@ type BroadcastResult struct {
 
 // BroadcastAgentItem captures one agent's outcome in a broadcast.
 type BroadcastAgentItem struct {
-	AgentID string      `json:"agentId"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   string      `json:"error,omitempty"`
+	AgentID string          `json:"agentId"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   string          `json:"error,omitempty"`
 }
 
 // FunctionPermission represents a permission for a function
@@ -189,34 +198,6 @@ type FunctionPublishRequest struct {
 type FunctionPublishResponse struct {
 	ApprovalId string `json:"approvalId,omitempty"` // 如果需要审批
 	Published  bool   `json:"published"`
-}
-
-// FunctionRouteConfig represents the route configuration for a function
-type FunctionRouteConfig struct {
-	Nodes  []string `json:"nodes"`
-	Path   string   `json:"path"`
-	Order  int      `json:"order"`
-	Hidden bool     `json:"hidden"`
-}
-
-// FunctionRouteRequest represents a request for function route configuration
-type FunctionRouteRequest struct {
-	ID string `uri:"id"`
-}
-
-// FunctionRouteResponse represents the response containing function route configuration
-type FunctionRouteResponse struct {
-	Menu   FunctionRouteConfig `json:"menu"`
-	Source string              `json:"source"`
-}
-
-// FunctionRouteUpdateRequest represents a request to update function route configuration
-type FunctionRouteUpdateRequest struct {
-	ID     string   `uri:"id"`
-	Nodes  []string `json:"nodes"`
-	Path   string   `json:"path"`
-	Order  int      `json:"order"`
-	Hidden bool     `json:"hidden"`
 }
 
 // FunctionUIHistoryItem represents an item in the function UI history
@@ -301,7 +282,7 @@ type FunctionsListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
 	GameId   string `form:"gameId"`
-	Category string `form:"category"`
+	Resource string `form:"resource"`
 	Status   int    `form:"status"`
 }
 
@@ -369,11 +350,13 @@ type BatchDeleteFunctionsResponse struct {
 }
 
 type BatchUpdateFunctionsRequest struct {
-	Updates []FunctionRouteUpdateRequest `json:"updates"`
+	FunctionIds []string `json:"functionIds"`
+	Enabled     bool     `json:"enabled"`
 }
 
 type BatchUpdateFunctionsResponse struct {
-	Results []FunctionRouteResponse `json:"results"`
+	Updated int      `json:"updated"`
+	Failed  []string `json:"failed"`
 }
 
 // Descriptors DTOs
@@ -384,11 +367,11 @@ type DescriptorsRequest struct {
 }
 
 type Descriptor struct {
-	Id          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Input       map[string]interface{} `json:"input"`
-	Output      map[string]interface{} `json:"output"`
+	Id          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Input       json.RawMessage `json:"input,omitempty"`
+	Output      json.RawMessage `json:"output,omitempty"`
 }
 
 type DescriptorsResponse struct {
@@ -423,9 +406,6 @@ type UIUpdateRequest = FunctionUIUpdateRequest
 type UIHistoryRequest = FunctionUIHistoryRequest
 type UIHistoryResponse = FunctionUIHistoryResponse
 type UIRollbackRequest = FunctionUIRollbackRequest
-type RouteRequest = FunctionRouteRequest
-type RouteResponse = FunctionRouteResponse
-type RouteUpdateRequest = FunctionRouteUpdateRequest
 type HistoryRequest = FunctionHistoryRequest
 type HistoryResponse = FunctionHistoryResponse
 type AnalyticsRequest = FunctionAnalyticsRequest

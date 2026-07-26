@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// TermDictionary stores normalized game terminology entries used by UI/menu grouping.
+// TermDictionary stores normalized game terminology entries used for aliasing and display hints.
 type TermDictionary struct {
 	ID        uint           `gorm:"primaryKey"`
 	Domain    string         `gorm:"size:32;not null;index:idx_term_domain_key,priority:1;uniqueIndex:uidx_term_domain_alias,priority:1"`

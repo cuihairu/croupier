@@ -16,10 +16,10 @@ public class FunctionDescriptor {
     private boolean deprecated;
     private String inputSchema;
     private String outputSchema;
-    private String category;  // grouping category
-    private String risk;      // "low"|"medium"|"high"
-    private String entity;    // entity type, e.g. "item", "player"
-    private String operation; // operation type, e.g. "create", "read", "update", "delete"
+    private String resource;  // business resource/capability key
+    private String operation; // business action key, e.g. "ban", "send", "list"
+    private String risk;      // "safe"|"warning"|"high"|"danger"
+    private String permission;
     private boolean enabled = true; // whether this function is currently enabled
 
     public FunctionDescriptor() {}
@@ -43,10 +43,10 @@ public class FunctionDescriptor {
         this.deprecated = other.deprecated;
         this.inputSchema = other.inputSchema;
         this.outputSchema = other.outputSchema;
-        this.category = other.category;
-        this.risk = other.risk;
-        this.entity = other.entity;
+        this.resource = other.resource;
         this.operation = other.operation;
+        this.risk = other.risk;
+        this.permission = other.permission;
         this.enabled = other.enabled;
     }
 
@@ -78,17 +78,17 @@ public class FunctionDescriptor {
     public String getOutputSchema() { return outputSchema; }
     public void setOutputSchema(String outputSchema) { this.outputSchema = outputSchema; }
 
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
+    public String getResource() { return resource; }
+    public void setResource(String resource) { this.resource = resource; }
 
     public String getRisk() { return risk; }
     public void setRisk(String risk) { this.risk = risk; }
 
-    public String getEntity() { return entity; }
-    public void setEntity(String entity) { this.entity = entity; }
-
     public String getOperation() { return operation; }
     public void setOperation(String operation) { this.operation = operation; }
+
+    public String getPermission() { return permission; }
+    public void setPermission(String permission) { this.permission = permission; }
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -96,8 +96,8 @@ public class FunctionDescriptor {
     @Override
     public String toString() {
         return String.format(
-            "FunctionDescriptor{id='%s', version='%s', summary='%s', category='%s', risk='%s', entity='%s', operation='%s', enabled=%s}",
-            id, version, summary, category, risk, entity, operation, enabled
+            "FunctionDescriptor{id='%s', version='%s', summary='%s', resource='%s', operation='%s', risk='%s', enabled=%s}",
+            id, version, summary, resource, operation, risk, enabled
         );
     }
 }

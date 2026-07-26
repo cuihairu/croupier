@@ -35,7 +35,7 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 ## 确定时机
 
-分类可以在函数注册、资源归一化或 PageSpec 编辑时提供候选值，但最终分类必须在 PageSpec 保存或发布时确定。
+函数注册不提供运行菜单分类，也不提供分类多语言显示名。Server 可以根据 `resourceKey`、`pageKey` 和契约分析给 Page Studio 提供分类建议，但最终分类必须在 PageSpec 保存或发布时确定。
 
 运行控制台加载菜单时不再推断分类。它只能读取已经发布并通过校验的 `category.key`、`category.labels` 和页面 labels。
 
@@ -95,7 +95,7 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 允许：
 
 - PageSpec 保存时根据规则生成分类 key。
-- Server 根据函数注册信息生成 PageSpec 建议。
+- Server 根据函数能力契约生成 PageSpec 建议；建议不是菜单事实源。
 - 用户在 Page Studio 中覆盖分类、标题、图标和排序。
 
 ## 验收规则

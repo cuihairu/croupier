@@ -24,7 +24,7 @@ func (l *BatchUpdateFunctionsLogic) BatchUpdateFunctions(req *BatchUpdateFunctio
 	if len(req.FunctionIds) == 0 {
 		return &BatchUpdateFunctionsResponse{
 			Updated: 0,
-			Failed:  []string{"no function ids provided"},
+			Failed:  []string{},
 		}, nil
 	}
 

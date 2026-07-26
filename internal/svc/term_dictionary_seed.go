@@ -3,7 +3,7 @@ package svc
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,14 +33,17 @@ func seedBootstrapTermDictionary(ctx *ServiceContext) error {
 	for _, item := range cfg.Items {
 		domain := strings.TrimSpace(strings.ToLower(item.Domain))
 		key := strings.TrimSpace(strings.ToLower(item.Key))
-		if domain == "" || key == "" {
-			continue
+		if domain == "" {
+			return fmt.Errorf("term dictionary seed domain is required for key %q", item.Key)
+		}
+		if key == "" {
+			return fmt.Errorf("term dictionary seed key is required for domain %q", domain)
 		}
 		aliases := append([]string{key}, item.Aliases...)
 		for _, alias := range aliases {
 			alias = strings.TrimSpace(strings.ToLower(alias))
 			if alias == "" {
-				continue
+				return fmt.Errorf("term dictionary seed alias is required for domain %q key %q", domain, key)
 			}
 			err := ctx.TermDictModel.Upsert(bg, &model.TermDictionary{
 				Domain:    domain,
@@ -51,7 +54,7 @@ func seedBootstrapTermDictionary(ctx *ServiceContext) error {
 				SortOrder: item.Order,
 			})
 			if err != nil {
-				slog.Default().Error("seed term dictionary failed", "domain", domain, "alias", alias, "error", err)
+				return fmt.Errorf("seed term dictionary failed for domain %q alias %q: %w", domain, alias, err)
 			}
 		}
 	}
@@ -81,12 +84,12 @@ func loadTermDictionaryConfig(ctx *ServiceContext) termDictionarySeedConfig {
 func defaultTermDictionaryConfig() termDictionarySeedConfig {
 	return termDictionarySeedConfig{
 		Items: []termDictionarySeedItem{
-			{Domain: "entity", Key: "player", Aliases: []string{"players", "user", "users", "role"}, DisplayZh: "玩家", DisplayEn: "Player", Order: 10},
-			{Domain: "entity", Key: "guild", Aliases: []string{"clan", "alliance"}, DisplayZh: "公会", DisplayEn: "Guild", Order: 20},
-			{Domain: "entity", Key: "item", Aliases: []string{"bag", "inventory"}, DisplayZh: "道具", DisplayEn: "Item", Order: 30},
-			{Domain: "entity", Key: "mail", Aliases: []string{"message", "messages"}, DisplayZh: "邮件", DisplayEn: "Mail", Order: 40},
-			{Domain: "entity", Key: "order", Aliases: []string{"payment", "payments", "transaction"}, DisplayZh: "订单", DisplayEn: "Order", Order: 50},
-			{Domain: "entity", Key: "match", Aliases: []string{"battle", "arena"}, DisplayZh: "对局", DisplayEn: "Match", Order: 60},
+			{Domain: "resource", Key: "player", Aliases: []string{"players", "user", "users", "role"}, DisplayZh: "玩家", DisplayEn: "Player", Order: 10},
+			{Domain: "resource", Key: "guild", Aliases: []string{"clan", "alliance"}, DisplayZh: "公会", DisplayEn: "Guild", Order: 20},
+			{Domain: "resource", Key: "item", Aliases: []string{"bag", "inventory"}, DisplayZh: "道具", DisplayEn: "Item", Order: 30},
+			{Domain: "resource", Key: "mail", Aliases: []string{"message", "messages"}, DisplayZh: "邮件", DisplayEn: "Mail", Order: 40},
+			{Domain: "resource", Key: "order", Aliases: []string{"payment", "payments", "transaction"}, DisplayZh: "订单", DisplayEn: "Order", Order: 50},
+			{Domain: "resource", Key: "match", Aliases: []string{"battle", "arena"}, DisplayZh: "对局", DisplayEn: "Match", Order: 60},
 			{Domain: "operation", Key: "create", Aliases: []string{"add", "new"}, DisplayZh: "创建", DisplayEn: "Create", Order: 10},
 			{Domain: "operation", Key: "read", Aliases: []string{"get", "list", "query", "search", "detail"}, DisplayZh: "查询", DisplayEn: "Query", Order: 20},
 			{Domain: "operation", Key: "update", Aliases: []string{"edit", "patch", "modify"}, DisplayZh: "更新", DisplayEn: "Update", Order: 30},

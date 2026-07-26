@@ -42,11 +42,11 @@ func (l *FunctionHistoryLogic) FunctionHistory(req *FunctionHistoryRequest) ([]F
 			Action:    "function_created",
 			Operator:  "system",
 			Timestamp: fn.CreatedAt.UTC().Format(time.RFC3339),
-			Details: map[string]interface{}{
+			Details: rawJSONFromValue(map[string]interface{}{
 				"functionId": fn.FunctionID,
 				"name":       fn.Name,
 				"status":     fn.Status,
-			},
+			}),
 		},
 	}
 
@@ -68,20 +68,17 @@ func (l *FunctionHistoryLogic) FunctionHistory(req *FunctionHistoryRequest) ([]F
 				Action:    action,
 				Operator:  v.CreatedBy,
 				Timestamp: v.CreatedAt.UTC().Format(time.RFC3339),
-				Details: map[string]interface{}{
+				Details: rawJSONFromValue(map[string]interface{}{
 					"version": v.Version,
 					"message": v.Message,
 					"config":  details,
-				},
+				}),
 			})
 		}
 		return nil
 	}
 
 	if err := appendConfigVersions(functionUIHistoryKey(functionID), "ui_config_updated"); err != nil {
-		return nil, err
-	}
-	if err := appendConfigVersions(functionRouteHistoryKey(functionID), "route_config_updated"); err != nil {
 		return nil, err
 	}
 

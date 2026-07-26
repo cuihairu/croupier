@@ -146,8 +146,7 @@ func TestClientAdvanced_RealWorldScenarios(t *testing.T) {
 				desc: FunctionDescriptor{
 					ID:        "cart.add",
 					Version:   "1.0.0",
-					Category:  "cart",
-					Entity:    "CartItem",
+					Resource:  "cart.item",
 					Operation: "create",
 					Risk:      "low",
 				},
@@ -160,8 +159,7 @@ func TestClientAdvanced_RealWorldScenarios(t *testing.T) {
 				desc: FunctionDescriptor{
 					ID:        "cart.remove",
 					Version:   "1.0.0",
-					Category:  "cart",
-					Entity:    "CartItem",
+					Resource:  "cart.item",
 					Operation: "delete",
 					Risk:      "low",
 				},
@@ -174,8 +172,7 @@ func TestClientAdvanced_RealWorldScenarios(t *testing.T) {
 				desc: FunctionDescriptor{
 					ID:        "order.create",
 					Version:   "1.0.0",
-					Category:  "order",
-					Entity:    "Order",
+					Resource:  "order",
 					Operation: "create",
 					Risk:      "medium",
 				},
@@ -188,8 +185,7 @@ func TestClientAdvanced_RealWorldScenarios(t *testing.T) {
 				desc: FunctionDescriptor{
 					ID:        "payment.process",
 					Version:   "1.0.0",
-					Category:  "payment",
-					Entity:    "Payment",
+					Resource:  "payment",
 					Operation: "process",
 					Risk:      "high",
 					Enabled:   true,
@@ -255,7 +251,7 @@ func TestClientAdvanced_RealWorldScenarios(t *testing.T) {
 			desc := FunctionDescriptor{
 				ID:       gf.id,
 				Version:  "1.0.0",
-				Category: "gameplay",
+				Resource: "gameplay",
 				Risk:     gf.risk,
 				Enabled:  true,
 			}

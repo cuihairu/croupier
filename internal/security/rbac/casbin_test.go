@@ -15,15 +15,15 @@ func TestCasbinKeyMatch2(t *testing.T) {
 	if !ok {
 		t.Skip("Casbin not active (legacy policy in use); skip")
 	}
-	// developer can GET /api/v1/entities/*
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/entities/123", nil)
+	// developer can GET /api/v1/resources/*
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/resources/player", nil)
 	if !cp.CanHTTP("u1", []string{"developer"}, req) {
-		t.Fatalf("developer should be allowed to GET /api/v1/entities/*")
+		t.Fatalf("developer should be allowed to GET /api/v1/resources/*")
 	}
-	// but cannot PUT /api/v1/entities/*
-	req2, _ := http.NewRequest(http.MethodPut, "/api/v1/entities/123", nil)
+	// but cannot PUT /api/v1/resources/*
+	req2, _ := http.NewRequest(http.MethodPut, "/api/v1/resources/player", nil)
 	if cp.CanHTTP("u1", []string{"developer"}, req2) {
-		t.Fatalf("developer should NOT be allowed to PUT /api/v1/entities/*")
+		t.Fatalf("developer should NOT be allowed to PUT /api/v1/resources/*")
 	}
 	// admin role wildcard
 	req3, _ := http.NewRequest(http.MethodDelete, "/api/v1/anything/here", nil)

@@ -3,42 +3,38 @@
  */
 
 import { invokeFunction as apiInvokeFunction } from './api/functions';
-import { mockFunctionInvoke } from './mock/workspaceMock';
-
-// 只有明确设置 USE_MOCK=true 才走 mock，默认走真实 API
-const USE_MOCK = process.env.USE_MOCK === 'true';
+import type { JSONValue } from '@/types/dashboard';
 
 export interface InvokeFunctionOptions {
   timeout?: number;
   signal?: AbortSignal;
 }
 
-export interface InvokeFunctionResult<T = any> {
+export interface InvokeFunctionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
 }
 
 /**
  * 调用函数
  */
-export async function invokeFunction<T = any>(
+export async function invokeFunction<T = unknown>(
   functionId: string,
-  params: Record<string, any>,
+  params: JSONValue,
   options?: InvokeFunctionOptions,
 ): Promise<T> {
   try {
-    if (USE_MOCK) {
-      return await mockFunctionInvoke(functionId, params);
+    if (options?.signal?.aborted) {
+      throw new DOMException('函数调用已取消', 'AbortError');
     }
-    // 复用 api/functions.ts 里的真实调用，格式一致
     const result = await apiInvokeFunction(functionId, params);
     return result as T;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[FunctionInvoke] ${functionId} failed:`, error);
     throw error;
   }
@@ -48,8 +44,8 @@ export async function invokeFunction<T = any>(
  * 批量调用函数
  */
 export async function invokeFunctions(
-  calls: Array<{ functionId: string; params: Record<string, any> }>,
-): Promise<any[]> {
+  calls: Array<{ functionId: string; params: JSONValue }>,
+): Promise<unknown[]> {
   const results = await Promise.allSettled(
     calls.map((call) => invokeFunction(call.functionId, call.params)),
   );
@@ -67,9 +63,9 @@ export async function invokeFunctions(
 /**
  * 创建可取消的函数调用
  */
-export function createCancellableInvoke<T = any>(
+export function createCancellableInvoke<T = unknown>(
   functionId: string,
-  params: Record<string, any>,
+  params: JSONValue,
   options?: Omit<InvokeFunctionOptions, 'signal'>,
 ) {
   const controller = new AbortController();
@@ -90,9 +86,9 @@ export function createCancellableInvoke<T = any>(
  */
 export interface FunctionInvokeLog {
   functionId: string;
-  params: Record<string, any>;
-  result?: any;
-  error?: any;
+  params: JSONValue;
+  result?: unknown;
+  error?: unknown;
   duration: number;
   timestamp: number;
 }
@@ -127,9 +123,9 @@ export function clearFunctionInvokeLogs() {
 /**
  * 带日志的函数调用
  */
-export async function invokeWithLog<T = any>(
+export async function invokeWithLog<T = unknown>(
   functionId: string,
-  params: Record<string, any>,
+  params: JSONValue,
   options?: InvokeFunctionOptions,
 ): Promise<T> {
   const startTime = Date.now();

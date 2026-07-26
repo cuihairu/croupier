@@ -40,12 +40,12 @@ export default function AssignmentsPage() {
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
         <SummaryOverview
           title="分配概览"
-          description="这里优先处理“当前环境该开放哪些函数”，先看分配总览，再进入列表、分类或路由视图细化调整。"
+          description="这里优先处理“当前环境该开放哪些函数”，函数按 resource 分组；菜单和页面归属不在这里配置。"
           items={[
             { color: '#1677ff', text: `总函数 ${pageCtx.stats.total}` },
             { color: '#52c41a', text: `已分配 ${pageCtx.stats.active}` },
             { color: '#d9d9d9', text: `未分配 ${pageCtx.stats.inactive}` },
-            { color: '#722ed1', text: `分类 ${pageCtx.stats.categories}` },
+            { color: '#722ed1', text: `资源 ${pageCtx.stats.resources}` },
             {
               color: pageCtx.hasScope ? '#13c2c2' : '#faad14',
               text: pageCtx.hasScope ? '已选择作用域' : '尚未选择作用域',
@@ -53,7 +53,7 @@ export default function AssignmentsPage() {
           ]}
           hint={
             pageCtx.hasScope
-              ? '推荐先在列表视图完成批量选择，再到分类或路由视图做补充调整。'
+              ? '推荐先在列表视图完成批量选择，再到资源分组或能力归属视图做补充确认。'
               : '当前还没有选择游戏或环境，部分操作会被禁用。'
           }
           hintType={pageCtx.hasScope ? 'info' : 'warning'}

@@ -2,26 +2,23 @@
 
 本文说明 C++ SDK 在 descriptor v2 下的资源页面生成 API 约定。
 
-当前目标模型不定义独立的虚拟对象运行时 API。SDK 通过函数 descriptor v2 上报 `entity`、`operation_kind`、`placement` 和动态 labels，由 Server 归一化为 `ResourceSpec / OperationSpec / PageSpec`。
+当前目标模型不定义独立的虚拟对象运行时 API。SDK 只上报函数能力契约，由 Server 归一化为 `FunctionSpec / ResourceSpec / OperationSpec`，再生成 PageSpec 候选。页面分类、动态 labels、页面类型和位置只在 Page Studio / PageSpec 中确定。
 
 ## 必要字段
 
-需要参与默认页面生成的函数至少应提供：
+建议提供：
 
 - `id`
 - `version`
 - `summary`
 - `description`
-- `entity`
-- `entity_display`
+- `resource`
 - `operation`
-- `operation_display`
-- `operation_kind`
-- `placement`
-- `category`
-- `category_display`
+- `risk`
 - `input_schema`
 - `output_schema`
+
+不得在 SDK descriptor 中提供 `entity_display`、`operation_display`、`category_display`、`operation_kind`、`placement`、`page_hint` 或任何 Page UI 配置。
 
 ## 继续阅读
 

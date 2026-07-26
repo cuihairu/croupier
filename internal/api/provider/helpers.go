@@ -76,16 +76,17 @@ func openAPIDocEntities(doc *openapi3.T) []map[string]interface{} {
 		}
 	}
 
-	// Also extract entities from operation extensions (x-entity)
+	// Also expose resources from operation extensions for the old provider
+	// summary view while it is being removed.
 	entitySet := make(map[string]map[string]interface{})
 	for _, pathItem := range doc.Paths.Map() {
 		for _, op := range pathItem.Operations() {
 			if op.Extensions != nil {
-				if entityExt, exists := op.Extensions["x-entity"]; exists {
-					if entityName, ok := entityExt.(string); ok && entityName != "" {
-						if _, exists := entitySet[entityName]; !exists {
-							entitySet[entityName] = map[string]interface{}{
-								"name": entityName,
+				if resourceExt, exists := op.Extensions["x-resource"]; exists {
+					if resourceName, ok := resourceExt.(string); ok && resourceName != "" {
+						if _, exists := entitySet[resourceName]; !exists {
+							entitySet[resourceName] = map[string]interface{}{
+								"name": resourceName,
 							}
 						}
 					}
@@ -124,14 +125,11 @@ func openAPIDocFunctions(doc *openapi3.T) []map[string]interface{} {
 
 			// Extract extensions
 			if op.Extensions != nil {
-				if cat, exists := op.Extensions["x-category"]; exists {
-					fn["category"] = cat
+				if resource, exists := op.Extensions["x-resource"]; exists {
+					fn["resource"] = resource
 				}
 				if risk, exists := op.Extensions["x-risk"]; exists {
 					fn["risk"] = risk
-				}
-				if entity, exists := op.Extensions["x-entity"]; exists {
-					fn["entity"] = entity
 				}
 				if operation, exists := op.Extensions["x-operation"]; exists {
 					fn["operation"] = operation

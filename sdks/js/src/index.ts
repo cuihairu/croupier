@@ -41,10 +41,11 @@ message LocalFunctionDescriptor {
   bool deprecated = 7;
   string input_schema = 8;
   string output_schema = 9;
-  string category = 10;
-  string risk = 11;
-  string entity = 12;
-  string operation = 13;
+  string resource = 10;
+  string operation = 11;
+  string risk = 12;
+  bool enabled = 13;
+  string permission = 14;
 }
 
 message ProviderConnectRequest {
@@ -281,10 +282,11 @@ export interface FunctionDescriptor {
   deprecated?: boolean;
   input_schema?: Record<string, unknown>;
   output_schema?: Record<string, unknown>;
-  category?: string;
+  resource?: string;
   risk?: string;
-  entity?: string;
   operation?: string;
+  permission?: string;
+  enabled?: boolean;
 }
 
 export interface FunctionHandler {
@@ -357,10 +359,11 @@ interface LocalFunctionDescriptor {
   deprecated?: boolean;
   input_schema?: string;
   output_schema?: string;
-  category?: string;
+  resource?: string;
   risk?: string;
-  entity?: string;
   operation?: string;
+  permission?: string;
+  enabled?: boolean;
 }
 
 interface TaskEvent {
@@ -695,10 +698,11 @@ export class BasicClient implements CroupierClient {
       output_schema: desc.output_schema
         ? JSON.stringify(desc.output_schema)
         : undefined,
-      category: desc.category,
+      resource: desc.resource,
       risk: desc.risk,
-      entity: desc.entity,
       operation: desc.operation,
+      permission: desc.permission,
+      enabled: desc.enabled,
     };
   }
 
@@ -720,10 +724,11 @@ export class BasicClient implements CroupierClient {
         output_schema: desc.output_schema
           ? JSON.stringify(desc.output_schema)
           : "",
-        category: desc.category || "",
-        risk: desc.risk || "",
-        entity: desc.entity || "",
+        resource: desc.resource || "",
         operation: desc.operation || "",
+        risk: desc.risk || "",
+        enabled: desc.enabled ?? true,
+        permission: desc.permission || "",
       })),
     };
   }
@@ -1401,10 +1406,11 @@ export class BasicClient implements CroupierClient {
         description: fn.description,
         inputSchema: fn.input_schema,
         outputSchema: fn.output_schema,
-        category: fn.category,
-        risk: fn.risk,
-        entity: fn.entity,
+        resource: fn.resource,
         operation: fn.operation,
+        risk: fn.risk,
+        enabled: fn.enabled,
+        permission: fn.permission,
       })),
       sdkLanguage: this.config.providerLang || "javascript",
       sdkVersion: "1.0.0",
@@ -1486,7 +1492,10 @@ export class BasicClient implements CroupierClient {
     const functions = Array.from(this.descriptors.values()).map((desc) => ({
       id: desc.id,
       version: desc.version || "1.0.0",
-      category: desc.category,
+      resource: desc.resource,
+      operation: desc.operation,
+      risk: desc.risk,
+      permission: desc.permission,
       description: desc.description,
       input_schema: desc.input_schema,
       output_schema: desc.output_schema,

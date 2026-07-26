@@ -22,7 +22,6 @@ type BuildColumnsOptions = {
   setEditingAssignment: Dispatch<SetStateAction<AssignmentItem | null>>;
   setCanaryModalVisible: Dispatch<SetStateAction<boolean>>;
   onOpenDetail: (id: string) => void;
-  onOpenRoute: (id: string) => void;
 };
 
 export const buildAssignmentColumns = ({
@@ -34,7 +33,6 @@ export const buildAssignmentColumns = ({
   setEditingAssignment,
   setCanaryModalVisible,
   onOpenDetail,
-  onOpenRoute,
 }: BuildColumnsOptions): ProColumns<AssignmentItem>[] =>
   listColumns.map((col) => {
     if (col.key === 'id') {
@@ -91,27 +89,15 @@ export const buildAssignmentColumns = ({
         },
       } as ProColumns<AssignmentItem>;
     }
-    if (col.key === 'route') {
+    if (col.key === 'capability') {
       return {
         title: col.title,
         width: col.width,
         render: (_, record) => {
-          const hasRoute = !!(
-            (Array.isArray(record.menuNodes) && record.menuNodes.length > 0) ||
-            record.menuPath
-          );
-          if (!hasRoute) return <Tag color="default">未配置</Tag>;
           return (
             <Space wrap size={[4, 6]}>
-              {(record.menuNodes || []).map((node) => (
-                <Tag key={node} color="blue">
-                  {node}
-                </Tag>
-              ))}
-              {record.menuPath && <Tag color="geekblue">{record.menuPath}</Tag>}
-              <Tag color={record.menuSource === 'metadata' ? 'green' : 'default'}>
-                {record.menuSource === 'metadata' ? '已自定义' : '默认'}
-              </Tag>
+              <Tag color={record.resource ? 'blue' : 'default'}>{record.resource || '未声明'}</Tag>
+              {record.operation ? <Tag color="purple">{record.operation}</Tag> : null}
             </Space>
           );
         },
@@ -159,9 +145,7 @@ export const buildAssignmentColumns = ({
           }
           if (key === 'detail') {
             onOpenDetail(record.id);
-            return;
           }
-          onOpenRoute(record.id);
         };
 
         return (
@@ -187,19 +171,19 @@ export const buildAssignmentColumns = ({
   });
 
 type BuildCategoryColumnsOptions = {
-  categoryColumns: AssignmentPageSchema['categoryColumns'];
-  onBatchAssign: (category: string, assign: boolean) => void;
+  resourceColumns: AssignmentPageSchema['resourceColumns'];
+  onBatchAssign: (resource: string, assign: boolean) => void;
 };
 
 export const buildCategoryColumns = ({
-  categoryColumns,
+  resourceColumns,
   onBatchAssign,
 }: BuildCategoryColumnsOptions): ProColumns<AssignmentGroup>[] =>
-  categoryColumns.map((col) => {
-    if (col.key === 'category') {
+  resourceColumns.map((col) => {
+    if (col.key === 'resource') {
       return {
         title: col.title,
-        dataIndex: 'category',
+        dataIndex: 'resource',
         width: col.width,
       } as ProColumns<AssignmentGroup>;
     }
@@ -247,11 +231,11 @@ export const buildCategoryColumns = ({
             size="small"
             type="primary"
             ghost
-            onClick={() => onBatchAssign(record.category, true)}
+            onClick={() => onBatchAssign(record.resource, true)}
           >
             全部启用
           </Button>
-          <Button size="small" danger onClick={() => onBatchAssign(record.category, false)}>
+          <Button size="small" danger onClick={() => onBatchAssign(record.resource, false)}>
             全部禁用
           </Button>
         </Space>
@@ -260,15 +244,15 @@ export const buildCategoryColumns = ({
   });
 
 type BuildRouteColumnsOptions = {
-  routeColumns: AssignmentPageSchema['routeColumns'];
-  onEditRoute: (id: string) => void;
+  capabilityColumns: AssignmentPageSchema['capabilityColumns'];
+  onOpenDetail: (id: string) => void;
 };
 
 export const buildRouteColumns = ({
-  routeColumns,
-  onEditRoute,
+  capabilityColumns,
+  onOpenDetail,
 }: BuildRouteColumnsOptions): ProColumns<AssignmentItem>[] =>
-  routeColumns.map((col) => {
+  capabilityColumns.map((col) => {
     if (col.key === 'id') {
       return {
         title: col.title,
@@ -285,29 +269,14 @@ export const buildRouteColumns = ({
         ellipsis: true,
       } as ProColumns<AssignmentItem>;
     }
-    if (col.key === 'route') {
+    if (col.key === 'capability') {
       return {
         title: col.title,
         width: col.width,
         render: (_, record) => (
           <Space wrap size={[4, 6]}>
-            {Array.isArray(record.menuNodes) && record.menuNodes.length > 0 ? (
-              record.menuNodes.map((node) => (
-                <Tag key={node} color="blue">
-                  {node}
-                </Tag>
-              ))
-            ) : (
-              <Tag>未分组</Tag>
-            )}
-            {record.menuPath ? (
-              <Tag color="geekblue">{record.menuPath}</Tag>
-            ) : (
-              <Tag color="default">默认调用页</Tag>
-            )}
-            <Tag color={record.menuSource === 'metadata' ? 'green' : 'default'}>
-              {record.menuSource === 'metadata' ? '已自定义' : '默认'}
-            </Tag>
+            <Tag color={record.resource ? 'blue' : 'default'}>{record.resource || '未声明'}</Tag>
+            {record.operation ? <Tag color="purple">{record.operation}</Tag> : null}
           </Space>
         ),
       } as ProColumns<AssignmentItem>;
@@ -319,10 +288,10 @@ export const buildRouteColumns = ({
         <Button
           type="link"
           size="small"
-          icon={<EditOutlined />}
-          onClick={() => onEditRoute(record.id)}
+          icon={<SettingOutlined />}
+          onClick={() => onOpenDetail(record.id)}
         >
-          编辑路由
+          查看函数
         </Button>
       ),
     } as ProColumns<AssignmentItem>;

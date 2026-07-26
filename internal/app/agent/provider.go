@@ -148,9 +148,8 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 				desc.Tags = details.Tags
 				desc.Deprecated = details.Deprecated
 				desc.OperationId = details.OperationID
-				desc.Category = details.Category
 				desc.Risk = details.Risk
-				desc.Entity = details.Entity
+				desc.Resource = details.Entity
 				desc.Operation = details.Operation
 			}
 		}

@@ -812,7 +812,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionFilter final : public ::goo
   // accessors -------------------------------------------------------
   enum : int {
     kTagsFieldNumber = 2,
-    kCategoryFieldNumber = 1,
+    kResourceFieldNumber = 1,
     kRiskLevelFieldNumber = 3,
     kModeFieldNumber = 4,
     kPageTokenFieldNumber = 6,
@@ -843,19 +843,19 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionFilter final : public ::goo
   ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL _internal_mutable_tags();
 
   public:
-  // string category = 1 [json_name = "category"];
-  void clear_category() ;
-  [[nodiscard]] const ::std::string& category() const;
+  // string resource = 1 [json_name = "resource"];
+  void clear_resource() ;
+  [[nodiscard]] const ::std::string& resource() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_category(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_category();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_category();
-  void set_allocated_category(::std::string* PROTOBUF_NULLABLE value);
+  void set_resource(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_resource();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_resource();
+  void set_allocated_resource(::std::string* PROTOBUF_NULLABLE value);
 
   private:
-  const ::std::string& _internal_category() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_category(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_category();
+  const ::std::string& _internal_resource() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_resource(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_resource();
 
   public:
   // string risk_level = 3 [json_name = "riskLevel"];
@@ -942,7 +942,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionFilter final : public ::goo
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     ::google::protobuf::RepeatedPtrField<::std::string> tags_;
-    ::google::protobuf::internal::ArenaStringPtr category_;
+    ::google::protobuf::internal::ArenaStringPtr resource_;
     ::google::protobuf::internal::ArenaStringPtr risk_level_;
     ::google::protobuf::internal::ArenaStringPtr mode_;
     ::google::protobuf::internal::ArenaStringPtr page_token_;
@@ -1417,7 +1417,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionMetadata final : public ::g
     kTagsFieldNumber = 4,
     kIdFieldNumber = 1,
     kVersionFieldNumber = 2,
-    kCategoryFieldNumber = 3,
+    kResourceFieldNumber = 3,
     kNameFieldNumber = 5,
     kDescriptionFieldNumber = 6,
     kInputSchemaFieldNumber = 7,
@@ -1481,19 +1481,19 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionMetadata final : public ::g
   ::std::string* PROTOBUF_NONNULL _internal_mutable_version();
 
   public:
-  // string category = 3 [json_name = "category"];
-  void clear_category() ;
-  [[nodiscard]] const ::std::string& category() const;
+  // string resource = 3 [json_name = "resource"];
+  void clear_resource() ;
+  [[nodiscard]] const ::std::string& resource() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_category(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_category();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_category();
-  void set_allocated_category(::std::string* PROTOBUF_NULLABLE value);
+  void set_resource(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_resource();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_resource();
+  void set_allocated_resource(::std::string* PROTOBUF_NULLABLE value);
 
   private:
-  const ::std::string& _internal_category() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_category(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_category();
+  const ::std::string& _internal_resource() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_resource(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_resource();
 
   public:
   // string name = 5 [json_name = "name"];
@@ -1635,7 +1635,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionMetadata final : public ::g
     ::google::protobuf::RepeatedPtrField<::std::string> tags_;
     ::google::protobuf::internal::ArenaStringPtr id_;
     ::google::protobuf::internal::ArenaStringPtr version_;
-    ::google::protobuf::internal::ArenaStringPtr category_;
+    ::google::protobuf::internal::ArenaStringPtr resource_;
     ::google::protobuf::internal::ArenaStringPtr name_;
     ::google::protobuf::internal::ArenaStringPtr description_;
     ::google::protobuf::internal::ArenaStringPtr input_schema_;
@@ -2240,69 +2240,69 @@ inline void FunctionMetadata::set_allocated_version(::std::string* PROTOBUF_NULL
   // @@protoc_insertion_point(field_set_allocated:croupier.function.v1.FunctionMetadata.version)
 }
 
-// string category = 3 [json_name = "category"];
-inline void FunctionMetadata::clear_category() {
+// string resource = 3 [json_name = "resource"];
+inline void FunctionMetadata::clear_resource() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.category_.ClearToEmpty();
+  _impl_.resource_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000008U);
 }
-inline const ::std::string& FunctionMetadata::category() const
+inline const ::std::string& FunctionMetadata::resource() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.function.v1.FunctionMetadata.category)
-  return _internal_category();
+  // @@protoc_insertion_point(field_get:croupier.function.v1.FunctionMetadata.resource)
+  return _internal_resource();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void FunctionMetadata::set_category(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void FunctionMetadata::set_resource(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000008U);
-  _impl_.category_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.function.v1.FunctionMetadata.category)
+  _impl_.resource_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.function.v1.FunctionMetadata.resource)
 }
-inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::mutable_category()
+inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::mutable_resource()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000008U);
-  ::std::string* _s = _internal_mutable_category();
-  // @@protoc_insertion_point(field_mutable:croupier.function.v1.FunctionMetadata.category)
+  ::std::string* _s = _internal_mutable_resource();
+  // @@protoc_insertion_point(field_mutable:croupier.function.v1.FunctionMetadata.resource)
   return _s;
 }
-inline const ::std::string& FunctionMetadata::_internal_category() const {
+inline const ::std::string& FunctionMetadata::_internal_resource() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
-  return _impl_.category_.Get();
+  return _impl_.resource_.Get();
 }
-inline void FunctionMetadata::_internal_set_category(const ::std::string& value) {
+inline void FunctionMetadata::_internal_set_resource(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.category_.Set(value, GetArena());
+  _impl_.resource_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::_internal_mutable_category() {
+inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::_internal_mutable_resource() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  return _impl_.category_.Mutable( GetArena());
+  return _impl_.resource_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE FunctionMetadata::release_category() {
+inline ::std::string* PROTOBUF_NULLABLE FunctionMetadata::release_resource() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.function.v1.FunctionMetadata.category)
+  // @@protoc_insertion_point(field_release:croupier.function.v1.FunctionMetadata.resource)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
     return nullptr;
   }
   ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
-  auto* released = _impl_.category_.Release();
+  auto* released = _impl_.resource_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
-    _impl_.category_.Set("", GetArena());
+    _impl_.resource_.Set("", GetArena());
   }
   return released;
 }
-inline void FunctionMetadata::set_allocated_category(::std::string* PROTOBUF_NULLABLE value) {
+inline void FunctionMetadata::set_allocated_resource(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   } else {
     ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
   }
-  _impl_.category_.SetAllocated(value, GetArena());
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.category_.IsDefault()) {
-    _impl_.category_.Set("", GetArena());
+  _impl_.resource_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.resource_.IsDefault()) {
+    _impl_.resource_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.function.v1.FunctionMetadata.category)
+  // @@protoc_insertion_point(field_set_allocated:croupier.function.v1.FunctionMetadata.resource)
 }
 
 // repeated string tags = 4 [json_name = "tags"];
@@ -3376,69 +3376,69 @@ FunctionMetadataList::_internal_mutable_functions() {
 
 // FunctionFilter
 
-// string category = 1 [json_name = "category"];
-inline void FunctionFilter::clear_category() {
+// string resource = 1 [json_name = "resource"];
+inline void FunctionFilter::clear_resource() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.category_.ClearToEmpty();
+  _impl_.resource_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000002U);
 }
-inline const ::std::string& FunctionFilter::category() const
+inline const ::std::string& FunctionFilter::resource() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.function.v1.FunctionFilter.category)
-  return _internal_category();
+  // @@protoc_insertion_point(field_get:croupier.function.v1.FunctionFilter.resource)
+  return _internal_resource();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void FunctionFilter::set_category(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void FunctionFilter::set_resource(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
-  _impl_.category_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.function.v1.FunctionFilter.category)
+  _impl_.resource_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.function.v1.FunctionFilter.resource)
 }
-inline ::std::string* PROTOBUF_NONNULL FunctionFilter::mutable_category()
+inline ::std::string* PROTOBUF_NONNULL FunctionFilter::mutable_resource()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
-  ::std::string* _s = _internal_mutable_category();
-  // @@protoc_insertion_point(field_mutable:croupier.function.v1.FunctionFilter.category)
+  ::std::string* _s = _internal_mutable_resource();
+  // @@protoc_insertion_point(field_mutable:croupier.function.v1.FunctionFilter.resource)
   return _s;
 }
-inline const ::std::string& FunctionFilter::_internal_category() const {
+inline const ::std::string& FunctionFilter::_internal_resource() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
-  return _impl_.category_.Get();
+  return _impl_.resource_.Get();
 }
-inline void FunctionFilter::_internal_set_category(const ::std::string& value) {
+inline void FunctionFilter::_internal_set_resource(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.category_.Set(value, GetArena());
+  _impl_.resource_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL FunctionFilter::_internal_mutable_category() {
+inline ::std::string* PROTOBUF_NONNULL FunctionFilter::_internal_mutable_resource() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  return _impl_.category_.Mutable( GetArena());
+  return _impl_.resource_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE FunctionFilter::release_category() {
+inline ::std::string* PROTOBUF_NULLABLE FunctionFilter::release_resource() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.function.v1.FunctionFilter.category)
+  // @@protoc_insertion_point(field_release:croupier.function.v1.FunctionFilter.resource)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
     return nullptr;
   }
   ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
-  auto* released = _impl_.category_.Release();
+  auto* released = _impl_.resource_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
-    _impl_.category_.Set("", GetArena());
+    _impl_.resource_.Set("", GetArena());
   }
   return released;
 }
-inline void FunctionFilter::set_allocated_category(::std::string* PROTOBUF_NULLABLE value) {
+inline void FunctionFilter::set_allocated_resource(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   } else {
     ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
   }
-  _impl_.category_.SetAllocated(value, GetArena());
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.category_.IsDefault()) {
-    _impl_.category_.Set("", GetArena());
+  _impl_.resource_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.resource_.IsDefault()) {
+    _impl_.resource_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.function.v1.FunctionFilter.category)
+  // @@protoc_insertion_point(field_set_allocated:croupier.function.v1.FunctionFilter.resource)
 }
 
 // repeated string tags = 2 [json_name = "tags"];

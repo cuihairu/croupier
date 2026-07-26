@@ -13,7 +13,6 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
-	componentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -454,21 +453,15 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			GameId:  "game-1",
 			Functions: []*agentv1.FunctionDescriptor{
 				{
-					Id:        "game.player.get",
-					Version:   "1.0.0",
-					Enabled:   true,
-					Category:  "game",
-					Risk:      "safe",
-					Entity:    "player",
-					Operation: "read",
-					DisplayName: &componentv1.I18NText{
-						En: "Get player",
-						Zh: "查询玩家",
-					},
-					Summary: &componentv1.I18NText{
-						En: "Read a player profile",
-						Zh: "读取玩家档案",
-					},
+					Id:           "game.player.get",
+					Version:      "1.0.0",
+					Enabled:      true,
+					Resource:     "player",
+					Risk:         "safe",
+					Operation:    "get",
+					Permission:   "player.get",
+					Summary:      "Get player",
+					Description:  "Read a player profile",
 					InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
 					OutputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
 				},
@@ -483,10 +476,10 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Get player", op.Summary)
 		assert.Equal(t, "Read a player profile", op.Description)
-		assert.Equal(t, "game", op.Extensions["x-category"])
+		assert.Equal(t, "player", op.Extensions["x-resource"])
 		assert.Equal(t, "safe", op.Extensions["x-risk"])
-		assert.Equal(t, "player", op.Extensions["x-entity"])
-		assert.Equal(t, "read", op.Extensions["x-operation"])
+		assert.Equal(t, "get", op.Extensions["x-operation"])
+		assert.Equal(t, "player.get", op.Extensions["x-permission"])
 		require.NotNil(t, op.RequestBody)
 		require.NotNil(t, op.Responses)
 	})
@@ -501,23 +494,18 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			Version: "1.0.0",
 			Functions: []*agentv1.FunctionDescriptor{
 				{
-					Id:               "player.ban",
-					Version:          "1.2.3",
-					Enabled:          true,
-					Tags:             []string{"player", "moderation"},
-					Category:         "ops",
-					Risk:             "danger",
-					Entity:           "player",
-					Operation:        "ban",
-					InputSchema:      `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
-					OutputSchema:     `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
-					CategoryDisplay:  map[string]string{"zh-CN": "运营", "en-US": "Operations"},
-					EntityDisplay:    map[string]string{"zh-CN": "玩家", "en-US": "Player"},
-					OperationDisplay: map[string]string{"zh-CN": "封禁", "en-US": "Ban"},
-					OperationKind:    "action",
-					Placement:        "rowAction",
-					PageHint:         "player.manage",
-					Extensions:       map[string]string{"x-owner": "gm"},
+					Id:           "player.ban",
+					Version:      "1.2.3",
+					Enabled:      true,
+					Tags:         []string{"player", "moderation"},
+					Summary:      "Ban player",
+					Description:  "Ban a player account",
+					Resource:     "player",
+					Risk:         "danger",
+					Operation:    "ban",
+					Permission:   "player.ban",
+					InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
+					OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
 				},
 			},
 		}
@@ -535,30 +523,21 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		assert.True(t, meta.Enabled)
 		assert.Equal(t, "1.2.3", meta.Version)
 		assert.Equal(t, []string{"player", "moderation"}, meta.Tags)
-		assert.Equal(t, "ops", meta.Category)
+		assert.Equal(t, "Ban player", meta.Summary)
+		assert.Equal(t, "Ban a player account", meta.Description)
+		assert.Equal(t, "player", meta.Resource)
 		assert.Equal(t, "danger", meta.Risk)
-		assert.Equal(t, "player", meta.Entity)
 		assert.Equal(t, "ban", meta.Operation)
-		assert.Equal(t, "action", meta.OperationKind)
-		assert.Equal(t, "rowAction", meta.Placement)
-		assert.Equal(t, "player.manage", meta.PageHint)
-		assert.Equal(t, "运营", meta.CategoryDisplay["zh-CN"])
-		assert.Equal(t, "玩家", meta.EntityDisplay["zh-CN"])
-		assert.Equal(t, "封禁", meta.OperationDisplay["zh-CN"])
-		assert.Equal(t, "gm", meta.Extensions["x-owner"])
+		assert.Equal(t, "player.ban", meta.Permission)
 		assert.Contains(t, meta.InputSchema, "player_id")
 		assert.Contains(t, meta.OutputSchema, "success")
 
 		op, err := svc.registry.GetOpenAPI("player.ban")
 		require.NoError(t, err)
+		assert.Equal(t, "player", op.Extensions["x-resource"])
 		assert.Equal(t, "ban", op.Extensions["x-operation"])
-		assert.Equal(t, "action", op.Extensions["x-operation-kind"])
-		assert.Equal(t, "rowAction", op.Extensions["x-placement"])
-		assert.Equal(t, "player.manage", op.Extensions["x-page-hint"])
-		assert.Equal(t, "gm", op.Extensions["x-owner"])
-		assert.Equal(t, map[string]interface{}{"zh-CN": "运营", "en-US": "Operations"}, op.Extensions["x-category-display"])
-		assert.Equal(t, map[string]interface{}{"zh-CN": "玩家", "en-US": "Player"}, op.Extensions["x-entity-display"])
-		assert.Equal(t, map[string]interface{}{"zh-CN": "封禁", "en-US": "Ban"}, op.Extensions["x-operation-display"])
+		assert.Equal(t, "danger", op.Extensions["x-risk"])
+		assert.Equal(t, "player.ban", op.Extensions["x-permission"])
 	})
 
 	t.Run("with nil process in processes list", func(t *testing.T) {
@@ -1216,24 +1195,6 @@ func TestValidateAndNormalizeFunctions(t *testing.T) {
 		assert.Empty(t, functions)
 		assert.Len(t, warnings, 1)
 		assert.Equal(t, "invalid_version", warnings[0].Code)
-	})
-
-	t.Run("rejects ui extension", func(t *testing.T) {
-		items := []*agentv1.FunctionDescriptor{
-			{
-				Id:      "game.player.ban",
-				Version: "1.0.0",
-				Extensions: map[string]string{
-					"x-ui": `{"type":"object"}`,
-				},
-			},
-		}
-
-		functions, warnings := validateAndNormalizeFunctions(items)
-		assert.Empty(t, functions)
-		require.Len(t, warnings, 1)
-		assert.Equal(t, "function_ui_not_allowed", warnings[0].Code)
-		assert.Contains(t, warnings[0].Message, "x-ui")
 	})
 
 	t.Run("duplicate function IDs - keep higher version", func(t *testing.T) {

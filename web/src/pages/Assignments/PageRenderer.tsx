@@ -13,7 +13,7 @@ import RouteTab from './RouteTab';
 
 type RenderCtx = {
   schema: AssignmentPageSchema;
-  stats: { total: number; active: number; inactive: number; categories: number };
+  stats: { total: number; active: number; inactive: number; resources: number };
   groupedAssignments: AssignmentGroup[];
   selected: string[];
   loading: boolean;
@@ -22,11 +22,11 @@ type RenderCtx = {
   activeTab: string;
   onTabChange: (key: string) => void;
   columns: ProColumns<AssignmentItem>[];
-  categoryColumns: ProColumns<AssignmentGroup>[];
-  routeColumns: ProColumns<AssignmentItem>[];
+  resourceColumns: ProColumns<AssignmentGroup>[];
+  capabilityColumns: ProColumns<AssignmentItem>[];
   onSelectAll: () => void;
   onClearAll: () => void;
-  onBatchAssign: (category: string, assign: boolean) => void;
+  onBatchAssign: (resource: string, assign: boolean) => void;
   onSave: () => void;
   onReload: () => void;
   onSelectionChange: (keys: React.Key[]) => void;
@@ -69,16 +69,16 @@ const renderListToolbarActions = (ctx: RenderCtx) =>
       </Button>
     ));
 
-const renderCategoryActions = (
-  category: string,
+const renderResourceActions = (
+  resource: string,
   ctx: RenderCtx,
   size: 'small' | 'middle' = 'small',
 ) =>
-  ctx.schema.categoryActions.map((action) => (
+  ctx.schema.resourceActions.map((action) => (
     <Button
-      key={`${category}-${action.key}`}
+      key={`${resource}-${action.key}`}
       size={size}
-      onClick={() => ctx.onBatchAssign(category, action.key === 'enable')}
+      onClick={() => ctx.onBatchAssign(resource, action.key === 'enable')}
     >
       {action.label}
     </Button>
@@ -92,20 +92,20 @@ const renderTab = (component: string, ctx: RenderCtx) => {
         selected={ctx.selected}
         columns={ctx.columns}
         toolbarActions={renderListToolbarActions(ctx)}
-        renderCategoryActions={(category, size) => renderCategoryActions(category, ctx, size)}
+        renderResourceActions={(resource, size) => renderResourceActions(resource, ctx, size)}
         onSelectionChange={ctx.onSelectionChange}
       />
     );
   }
   if (component === 'CategoryTab') {
-    return <CategoryTab data={ctx.groupedAssignments} columns={ctx.categoryColumns} />;
+    return <CategoryTab data={ctx.groupedAssignments} columns={ctx.resourceColumns} />;
   }
   return (
     <RouteTab
       data={ctx.groupedAssignments
         .flatMap((g) => g.items)
         .filter((item) => ctx.selected.includes(item.id))}
-      columns={ctx.routeColumns}
+      columns={ctx.capabilityColumns}
     />
   );
 };

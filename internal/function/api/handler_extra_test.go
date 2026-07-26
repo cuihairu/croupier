@@ -17,14 +17,14 @@ func TestHandler_ListFunctions_WithAllFilters(t *testing.T) {
 	// Register test functions
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Tags:     []string{"read"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
 
 	// Test with all filters
-	req := httptest.NewRequest("GET", "/api/v1/metadata/functions?category=player&tag=read&risk=low&mode=query&page=1&pageSize=10", nil)
+	req := httptest.NewRequest("GET", "/api/v1/metadata/functions?resource=player&tag=read&risk=low&mode=query&page=1&pageSize=10", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -38,7 +38,7 @@ func TestHandler_ListFunctions_WithAllFilters(t *testing.T) {
 func TestHandler_ListFunctions_EmptyResult(t *testing.T) {
 	router, _ := setupTestRouter()
 
-	req := httptest.NewRequest("GET", "/api/v1/metadata/functions?category=nonexistent&page=1&pageSize=10", nil)
+	req := httptest.NewRequest("GET", "/api/v1/metadata/functions?resource=nonexistent&page=1&pageSize=10", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -192,17 +192,17 @@ func TestHandler_ImportFromOpenAPI_InvalidJSON(t *testing.T) {
 	Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestHandler_GetCategories_Empty(t *testing.T) {
+func TestHandler_GetResources_Empty(t *testing.T) {
 	router, _ := setupTestRouter()
 
-	req := httptest.NewRequest("GET", "/api/v1/metadata/functions/categories", nil)
+	req := httptest.NewRequest("GET", "/api/v1/metadata/functions/resources", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp map[string][]string
 	json.Unmarshal(w.Body.Bytes(), &resp)
-	NotNil(t, resp["categories"])
+	NotNil(t, resp["resources"])
 }
 
 func TestHandler_GetTags_Empty(t *testing.T) {
@@ -223,13 +223,13 @@ func TestHandler_ListFunctions_WithModeFilter(t *testing.T) {
 
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "query.func",
-		Category: "test",
+		Resource: "test",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
 	service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "command.func",
-		Category: "test",
+		Resource: "test",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
 	})
@@ -254,7 +254,7 @@ func TestHandler_RegisterFunction_WithAllFields(t *testing.T) {
 	reqBody := RegisterFunctionRequest{
 		ID:           "full.func",
 		Version:      "1.0.0",
-		Category:     "test",
+		Resource:     "test",
 		Tags:         []string{"tag1", "tag2"},
 		Name:         "Full Function",
 		Description:  "A function with all fields",

@@ -136,8 +136,8 @@ public class CroupierSDK {
             this.descriptor = new FunctionDescriptor(id, version);
         }
 
-        public FunctionDescriptorBuilder category(String category) {
-            descriptor.setCategory(category);
+        public FunctionDescriptorBuilder resource(String resource) {
+            descriptor.setResource(resource);
             return this;
         }
 
@@ -181,13 +181,13 @@ public class CroupierSDK {
             return this;
         }
 
-        public FunctionDescriptorBuilder entity(String entity) {
-            descriptor.setEntity(entity);
+        public FunctionDescriptorBuilder operation(String operation) {
+            descriptor.setOperation(operation);
             return this;
         }
 
-        public FunctionDescriptorBuilder operation(String operation) {
-            descriptor.setOperation(operation);
+        public FunctionDescriptorBuilder permission(String permission) {
+            descriptor.setPermission(permission);
             return this;
         }
 

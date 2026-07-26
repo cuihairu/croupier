@@ -16,14 +16,8 @@ export interface FunctionSummary {
   displayName?: LocalizedText;
   summary?: LocalizedText;
   tags?: string[];
-  category?: string;
-  menu?: {
-    section?: string;
-    group?: string;
-    path?: string;
-    order?: number;
-    hidden?: boolean;
-  };
+  resource?: string;
+  operation?: string;
 }
 
 export interface FunctionCallRecord {
@@ -151,8 +145,8 @@ type RawFunctionSummary = {
   displayName?: LocalizedText;
   summary?: LocalizedText;
   tags?: string[];
-  category?: string;
-  menu?: FunctionSummary['menu'];
+  resource?: string;
+  operation?: string;
 };
 
 type FunctionSummaryListResponse = {
@@ -228,8 +222,8 @@ function normalizeFunctionSummary(item: RawFunctionSummary): FunctionSummary {
     displayName: item.display_name || item.displayName,
     summary: item.summary,
     tags: item.tags || [],
-    category: item.category,
-    menu: item.menu,
+    resource: item.resource,
+    operation: item.operation,
   };
 }
 
@@ -274,7 +268,7 @@ function normalizeRegistryService(item: RawRegistryService): RegistryService {
 export async function getFunctionSummary(params?: {
   gameId?: string;
   env?: string;
-  category?: string;
+  resource?: string;
   tags?: string[];
   enabled?: boolean;
 }): Promise<FunctionSummary[]> {
@@ -283,7 +277,7 @@ export async function getFunctionSummary(params?: {
       params: {
         game_id: params?.gameId,
         env: params?.env,
-        category: params?.category,
+        resource: params?.resource,
         tags: params?.tags,
         enabled: params?.enabled,
       },
@@ -306,7 +300,8 @@ export async function getFunctionSummary(params?: {
       displayName: desc.display_name || desc.displayName,
       summary: desc.summary,
       tags: desc.tags || [],
-      category: desc.category,
+      resource: desc.resource,
+      operation: desc.operation,
     }));
   }
 }
@@ -491,14 +486,14 @@ export async function searchFunctions(params: {
   query: string;
   gameId?: string;
   env?: string;
-  category?: string;
+  resource?: string;
   tags?: string[];
   limit?: number;
 }): Promise<{ functions: FunctionSummary[]; total: number }> {
   const functions = await getFunctionSummary({
     gameId: params.gameId,
     env: params.env,
-    category: params.category,
+    resource: params.resource,
     tags: params.tags,
   });
   const q = params.query.trim().toLowerCase();
@@ -514,19 +509,19 @@ export async function searchFunctions(params: {
 }
 
 /**
- * 获取函数分类
+ * 获取函数资源
  */
-export async function getFunctionCategories(params?: {
+export async function getFunctionResources(params?: {
   gameId?: string;
   env?: string;
-}): Promise<{ categories: string[]; counts: Record<string, number> }> {
+}): Promise<{ resources: string[]; counts: Record<string, number> }> {
   const functions = await getFunctionSummary(params);
   const counts: Record<string, number> = {};
   for (const item of functions) {
-    const key = item.category || 'uncategorized';
+    const key = item.resource || 'unassigned';
     counts[key] = (counts[key] || 0) + 1;
   }
-  return { categories: Object.keys(counts), counts };
+  return { resources: Object.keys(counts), counts };
 }
 
 /**
@@ -637,12 +632,11 @@ export async function getFunctionOpenAPIDetail(functionId: string): Promise<{
   tags?: string[];
   // OpenAPI 扩展字段
   extensions?: {
-    'x-category'?: string;
+    'x-resource'?: string;
     'x-risk'?: 'safe' | 'warning' | 'high' | 'danger';
-    'x-entity'?: string;
     'x-operation'?: string; // business action key
-    'x-operation-kind'?: 'list' | 'get' | 'create' | 'update' | 'delete' | 'action' | 'task' | 'report';
-    'x-placement'?: 'query' | 'tableData' | 'detailData' | 'rowAction' | 'detailAction' | 'toolbarAction' | 'batchAction' | 'standalone';
+    'x-enabled'?: boolean;
+    'x-permission'?: string;
   };
   // 请求/响应 schema
   requestBody?: JSONValue;

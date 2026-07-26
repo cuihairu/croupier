@@ -14,12 +14,10 @@ import (
 // This matches the proto definition in proto/croupier/sdk/v1/provider.proto
 type FunctionMetadata struct {
 	// Identity fields
-	ID      string `json:"id"`      // Unique identifier, format: <domain>.<entity>.<action>
+	ID      string `json:"id"`      // Unique identifier, format: <domain>.<resource>.<action>
 	Version string `json:"version"` // Semantic version (semver)
 
-	// Classification fields
-	Category string   `json:"category"` // Navigation category key
-	Tags     []string `json:"tags"`     // Tags for grouping and filtering
+	Tags []string `json:"tags"` // Tags for grouping and filtering
 
 	// Documentation fields
 	Name        string `json:"name"`        // Short display name
@@ -36,23 +34,9 @@ type FunctionMetadata struct {
 	// Risk definition (function's inherent risk level)
 	Risk *FunctionRisk `json:"risk"`
 
-	// v2 Resource/Page semantic fields
-	Entity        string `json:"entity,omitempty"`         // Resource key (e.g., "player", "mail")
-	Operation     string `json:"operation,omitempty"`      // Business action key (e.g., "ban", "send", "list")
-	OperationKind string `json:"operation_kind,omitempty"` // Page generation semantic (list/get/action/task/report)
-	Placement     string `json:"placement,omitempty"`      // Recommended page placement (tableData/rowAction/standalone)
-	PageHint      string `json:"page_hint,omitempty"`      // Suggested page key
-
-	// v2 Multi-language display fields
-	DisplayNameMap   map[string]string `json:"display_name,omitempty"`      // Display name by locale
-	SummaryMap       map[string]string `json:"summary_map,omitempty"`       // Summary by locale
-	DescriptionMap   map[string]string `json:"description_map,omitempty"`   // Description by locale
-	CategoryDisplay  map[string]string `json:"category_display,omitempty"`  // Category labels by locale
-	EntityDisplay    map[string]string `json:"entity_display,omitempty"`    // Entity labels by locale
-	OperationDisplay map[string]string `json:"operation_display,omitempty"` // Operation labels by locale
-
-	// Extension fields (third-party only, never for core semantics)
-	Extensions map[string]string `json:"extensions"`
+	Resource   string `json:"resource,omitempty"`   // Business resource/capability key.
+	Operation  string `json:"operation,omitempty"`  // Business action key.
+	Permission string `json:"permission,omitempty"` // Optional permission identifier.
 }
 
 // FunctionBehavior defines how the function executes.
@@ -269,7 +253,7 @@ func (r *Registry) Register(metadata *FunctionMetadata, handler Handler) error {
 	r.metadata[cloned.ID] = cloned
 	r.handlers[cloned.ID] = handler
 
-	r.logger.Debug("Registered function", "id", cloned.ID, "category", cloned.Category)
+	r.logger.Debug("Registered function", "id", cloned.ID, "resource", cloned.Resource)
 	return nil
 }
 
@@ -367,44 +351,28 @@ func (r *Registry) cloneMetadata(metadata *FunctionMetadata) *FunctionMetadata {
 		cloned.Risk = &riskClone
 	}
 
-	if metadata.Extensions != nil {
-		cloned.Extensions = make(map[string]string)
-		for k, v := range metadata.Extensions {
-			cloned.Extensions[k] = v
-		}
-	}
-
 	return &cloned
 }
 
 // toFunctionDescriptor converts FunctionMetadata to FunctionDescriptor for client registration.
 func (r *Registry) toFunctionDescriptor(metadata *FunctionMetadata) croupier.FunctionDescriptor {
 	desc := croupier.FunctionDescriptor{
-		ID:            metadata.ID,
-		Version:       metadata.Version,
-		Category:      metadata.Category,
-		Enabled:       true,
-		Entity:        metadata.Entity,
-		Operation:     metadata.Operation,
-		OperationKind: metadata.OperationKind,
-		Placement:     metadata.Placement,
-		PageHint:      metadata.PageHint,
+		ID:          metadata.ID,
+		Version:     metadata.Version,
+		Tags:        metadata.Tags,
+		Summary:     metadata.Summary,
+		Description: metadata.Description,
+		InputSchema: metadata.InputSchema,
+		OutputSchema: metadata.OutputSchema,
+		Resource:    metadata.Resource,
+		Operation:   metadata.Operation,
+		Permission:  metadata.Permission,
+		Enabled:     true,
 	}
 
 	// Safely get risk level
 	if metadata.Risk != nil {
 		desc.Risk = metadata.Risk.Level.String()
-	}
-
-	// Map multi-language fields
-	if metadata.CategoryDisplay != nil {
-		desc.CategoryDisplay = metadata.CategoryDisplay
-	}
-	if metadata.EntityDisplay != nil {
-		desc.EntityDisplay = metadata.EntityDisplay
-	}
-	if metadata.OperationDisplay != nil {
-		desc.OperationDisplay = metadata.OperationDisplay
 	}
 
 	return desc
@@ -429,14 +397,14 @@ func getConfig(client croupier.Client) *croupier.ClientConfig {
 // Use this for simple cases where you don't need the full Registry.
 func SimpleRegister(
 	client croupier.Client,
-	id, category, name string,
+	id, resource, name string,
 	handler Handler,
 ) error {
 	registry := NewRegistry(client)
 
 	metadata := &FunctionMetadata{
 		ID:       id,
-		Category: category,
+		Resource: resource,
 		Name:     name,
 		Behavior: &FunctionBehavior{
 			Mode:      ModeQuery,

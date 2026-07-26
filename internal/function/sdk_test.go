@@ -17,7 +17,7 @@ func TestSDK_Builder_BasicCreation(t *testing.T) {
 	metadata := &functionv1.FunctionMetadata{
 		Id:          "player.ban",
 		Version:     "1.0.0",
-		Category:    "player",
+		Resource:    "player",
 		Name:        "Ban Player",
 		Description: "Ban a player from the game",
 		Tags:        []string{"moderation", "player"},
@@ -40,14 +40,14 @@ func TestSDK_Builder_BasicCreation(t *testing.T) {
 		InputSchema:  `{"type":"object","properties":{"playerId":{"type":"string"}}}`,
 		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
 		Extensions: map[string]string{
-			"x-entity":    "Player",
+			"x-resource":  "player",
 			"x-operation": "ban",
 		},
 	}
 
 	assert.Equal(t, "player.ban", metadata.Id)
 	assert.Equal(t, "1.0.0", metadata.Version)
-	assert.Equal(t, "player", metadata.Category)
+	assert.Equal(t, "player", metadata.Resource)
 	assert.Equal(t, "Ban Player", metadata.Name)
 	assert.Equal(t, functionv1.FunctionSecurity_RISK_LEVEL_HIGH, metadata.Security.RiskLevel)
 	assert.Equal(t, functionv1.FunctionBehavior_MODE_COMMAND, metadata.Behavior.Mode)
@@ -230,14 +230,14 @@ func TestSDK_Extensions(t *testing.T) {
 		Id:   "custom.function",
 		Name: "Custom Function",
 		Extensions: map[string]string{
-			"x-entity":     "Player",
+			"x-resource":   "player",
 			"x-operation":  "delete",
 			"x-deprecated": "true",
 			"x-rate-limit": "100",
 		},
 	}
 
-	assert.Equal(t, "Player", metadata.Extensions["x-entity"])
+	assert.Equal(t, "player", metadata.Extensions["x-resource"])
 	assert.Equal(t, "delete", metadata.Extensions["x-operation"])
 	assert.Equal(t, "true", metadata.Extensions["x-deprecated"])
 	assert.Equal(t, "100", metadata.Extensions["x-rate-limit"])
@@ -348,7 +348,7 @@ func TestSDK_CompleteFunction(t *testing.T) {
 	metadata := &functionv1.FunctionMetadata{
 		Id:           "game.update",
 		Version:      "2.1.0",
-		Category:     "game",
+		Resource:     "game",
 		Name:         "Update Game Configuration",
 		Description:  "Updates the configuration for an active game",
 		Tags:         []string{"game", "configuration", "admin"},
@@ -371,7 +371,7 @@ func TestSDK_CompleteFunction(t *testing.T) {
 			MaskSensitiveData: false,
 		},
 		Extensions: map[string]string{
-			"x-entity":      "Game",
+			"x-resource":    "game",
 			"x-operation":   "update",
 			"x-api-version": "v2",
 		},
@@ -380,7 +380,7 @@ func TestSDK_CompleteFunction(t *testing.T) {
 	// Verify all fields
 	assert.Equal(t, "game.update", metadata.Id)
 	assert.Equal(t, "2.1.0", metadata.Version)
-	assert.Equal(t, "game", metadata.Category)
+	assert.Equal(t, "game", metadata.Resource)
 	assert.Equal(t, "Update Game Configuration", metadata.Name)
 	assert.Len(t, metadata.Tags, 3)
 	assert.Equal(t, functionv1.FunctionBehavior_MODE_COMMAND, metadata.Behavior.Mode)
@@ -397,7 +397,7 @@ func TestProtoToDTOConversion(t *testing.T) {
 	protoMeta := &functionv1.FunctionMetadata{
 		Id:           "test.function",
 		Version:      "1.0.0",
-		Category:     "test",
+		Resource:     "test",
 		Name:         "Test Function",
 		Description:  "A test function",
 		Tags:         []string{"tag1", "tag2"},
@@ -467,7 +467,7 @@ func TestSDK_Validation(t *testing.T) {
 				Id:          "complete.function",
 				Name:        "Complete Function",
 				Version:     "1.0.0",
-				Category:    "test",
+				Resource:    "test",
 				Description: "A complete test function",
 				Tags:        []string{"test"},
 				Security:    &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},

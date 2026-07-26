@@ -2,17 +2,18 @@ import React from 'react';
 import { Modal } from 'antd';
 import type { AssignmentItem } from './types';
 import SchemaRenderer from '@/components/formily/SchemaRenderer';
+import type { FormilyValues } from '@/components/formily/schema/types';
 import { CANARY_FORM_SCHEMA } from './schemas';
 
 type Props = {
   visible: boolean;
   assignment: AssignmentItem | null;
   onClose: () => void;
-  onSave: (values: Record<string, any>) => void;
+  onSave: (values: FormilyValues) => void;
 };
 
 export default function CanaryModal({ visible, assignment, onClose, onSave }: Props) {
-  const [formValues, setFormValues] = React.useState<Record<string, any>>({});
+  const [formValues, setFormValues] = React.useState<FormilyValues>({});
 
   React.useEffect(() => {
     if (!visible) return;

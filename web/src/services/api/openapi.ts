@@ -3,8 +3,6 @@ import type {
   Diagnostic,
   JSONValue,
   LocalizedText,
-  OperationKind,
-  OperationPlacement,
   RiskLevel,
 } from '@/types/dashboard';
 
@@ -20,16 +18,11 @@ import type {
 // Canonical frontend projection for OpenAPI operation extensions.
 // Source: croupier/internal/api/openapi/dto.go OpenAPISpecResponse.Spec
 export type OpenAPIExtensions = {
-  'x-category'?: string;
+  'x-resource'?: string;
   'x-risk'?: RiskLevel;
-  'x-entity'?: string;
   'x-operation'?: string; // business action key, e.g. "ban", "send", "list"
-  'x-category-display'?: LocalizedText;
-  'x-entity-display'?: LocalizedText;
-  'x-operation-display'?: LocalizedText;
-  'x-operation-kind'?: OperationKind;
-  'x-placement'?: OperationPlacement;
-  'x-page-hint'?: string;
+  'x-enabled'?: boolean;
+  'x-permission'?: string;
 };
 
 /**
@@ -93,16 +86,11 @@ export interface OpenAPISourceOperation {
   summary?: string;
   description?: string;
   tags?: string[];
-  category?: string;
-  categoryDisplay?: LocalizedText;
-  entity?: string;
-  entityDisplay?: LocalizedText;
+  resource?: string;
   operation?: string;
-  operationDisplay?: LocalizedText;
-  operationKind?: OperationKind;
-  placement?: OperationPlacement;
-  pageHint?: string;
   risk?: RiskLevel;
+  enabled?: boolean;
+  permission?: string;
   bound: boolean;
   bindingId?: string;
   functionId?: string;
@@ -247,27 +235,26 @@ export async function validateOpenAPISpec(spec: OpenAPIDocument) {
  */
 export function descriptorToOpenAPI(descriptor: {
   id: string;
-  display_name?: LocalizedText;
-  description?: string;
   summary?: LocalizedText;
+  description?: string;
   tags?: string[];
-  category?: string;
+  resource?: string;
   risk?: RiskLevel;
-  entity?: string;
   operation?: string;
+  enabled?: boolean;
+  permission?: string;
 }): OpenAPIOperation {
   const operation: OpenAPIOperation = {
     operationId: descriptor.id,
-    summary: descriptor.display_name?.zh || descriptor.display_name?.en || descriptor.id,
+    summary: descriptor.summary?.zh || descriptor.summary?.en || descriptor.id,
     description: descriptor.description || descriptor.summary?.zh || descriptor.summary?.en,
-    tags: descriptor.tags || [descriptor.category],
+    tags: descriptor.tags || (descriptor.resource ? [descriptor.resource] : undefined),
   };
 
-  // 添加扩展字段
-  if (descriptor.category) {
+  if (descriptor.resource) {
     operation.extensions = {
       ...operation.extensions,
-      'x-category': descriptor.category,
+      'x-resource': descriptor.resource,
     };
   }
 
@@ -278,17 +265,24 @@ export function descriptorToOpenAPI(descriptor: {
     };
   }
 
-  if (descriptor.entity) {
-    operation.extensions = {
-      ...operation.extensions,
-      'x-entity': descriptor.entity,
-    };
-  }
-
   if (descriptor.operation) {
     operation.extensions = {
       ...operation.extensions,
       'x-operation': descriptor.operation,
+    };
+  }
+
+  if (typeof descriptor.enabled === 'boolean') {
+    operation.extensions = {
+      ...operation.extensions,
+      'x-enabled': descriptor.enabled,
+    };
+  }
+
+  if (descriptor.permission) {
+    operation.extensions = {
+      ...operation.extensions,
+      'x-permission': descriptor.permission,
     };
   }
 
@@ -301,19 +295,17 @@ export function descriptorToOpenAPI(descriptor: {
  * @returns 元数据对象
  */
 export function extractOpenAPIMetadata(operation: OpenAPIOperation): {
-  category?: string;
+  resource?: string;
   risk?: RiskLevel;
-  entity?: string;
   operation?: string;
-  operationKind?: OperationKind;
-  placement?: OperationPlacement;
+  enabled?: boolean;
+  permission?: string;
 } {
   return {
-    category: operation.extensions?.['x-category'],
+    resource: operation.extensions?.['x-resource'],
     risk: operation.extensions?.['x-risk'],
-    entity: operation.extensions?.['x-entity'],
     operation: operation.extensions?.['x-operation'],
-    operationKind: operation.extensions?.['x-operation-kind'],
-    placement: operation.extensions?.['x-placement'],
+    enabled: operation.extensions?.['x-enabled'],
+    permission: operation.extensions?.['x-permission'],
   };
 }

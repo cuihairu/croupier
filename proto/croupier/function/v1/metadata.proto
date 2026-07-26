@@ -8,18 +8,18 @@ option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1;fu
 
 // FunctionMetadata defines the core function registration contract.
 // It deliberately excludes UI-related fields (menu, display_name, i18n) which
-// are derived by the Dashboard from this metadata.
+// are derived by the Dashboard from PageSpec.
 message FunctionMetadata {
   // Identity fields
-  string id = 1;              // Unique identifier, format: <domain>.<entity>.<action>
+  string id = 1;              // Unique identifier, format: <resource>.<operation>
   string version = 2;         // Semantic version (semver)
 
-  // Classification fields
-  string category = 3;        // Function category (e.g., "player", "game", "system")
+  // Capability fields
+  string resource = 3;        // Resource key (e.g., "player", "mail", "guild")
   repeated string tags = 4;   // Tags for grouping and filtering
 
   // Documentation fields
-  string name = 5;            // Short display name (english, UI will i18n from key)
+  string name = 5;            // Short technical name, not a UI label
   string description = 6;     // Detailed description (supports markdown)
 
   // Parameter definitions (JSON Schema Draft 2020-12)
@@ -107,7 +107,7 @@ message FunctionMetadataList {
 
 // FunctionFilter for listing/querying functions
 message FunctionFilter {
-  string category = 1;
+  string resource = 1;
   repeated string tags = 2;
   string risk_level = 3;
   string mode = 4;            // query/command

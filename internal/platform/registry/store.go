@@ -28,17 +28,10 @@ type FunctionMeta struct {
 	InputSchema  string
 	OutputSchema string
 
-	Category         string
-	Risk             string
-	Entity           string
-	Operation        string
-	CategoryDisplay  map[string]string
-	EntityDisplay    map[string]string
-	OperationDisplay map[string]string
-	OperationKind    string
-	Placement        string
-	PageHint         string
-	Extensions       map[string]string
+	Resource   string
+	Operation  string
+	Risk       string
+	Permission string
 }
 
 // ProviderSession represents a single provider registered to an agent (via SDK->Agent local registry).

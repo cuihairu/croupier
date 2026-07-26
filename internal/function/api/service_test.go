@@ -146,9 +146,9 @@ func TestService_ImportFromOpenAPI_WithOptions(t *testing.T) {
 		}
 	}`)
 
-	categoryPrefix := "api"
+	resourcePrefix := "api"
 	opts := &ImportOptions{
-		CategoryPrefix:   categoryPrefix,
+		ResourcePrefix:   resourcePrefix,
 		DefaultTimeoutMs: 60000,
 	}
 
@@ -172,21 +172,21 @@ func TestService_List_WithFilters(t *testing.T) {
 	// Register test functions
 	service.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
-		Category: "player",
+		Resource: "player",
 		Tags:     []string{"read"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
 	service.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
-		Category: "game",
+		Resource: "game",
 		Tags:     []string{"write"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
 	})
 
-	t.Run("filter by category", func(t *testing.T) {
-		result, err := service.List(context.Background(), &ListOptions{Category: "player"})
+	t.Run("filter by resource", func(t *testing.T) {
+		result, err := service.List(context.Background(), &ListOptions{Resource: "player"})
 		assert.Nil(t, err)
 		assert.Equal(t, 1, result.Total)
 	})

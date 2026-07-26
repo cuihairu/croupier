@@ -824,16 +824,16 @@ func registerFunction(client croupier.Client, desc croupier.FunctionDescriptor, 
 
 func enrichDescriptor(desc croupier.FunctionDescriptor) croupier.FunctionDescriptor {
 	if desc.Tags == nil {
-		desc.Tags = []string{desc.Category, desc.Entity, desc.Operation}
+		desc.Tags = []string{desc.Resource, desc.Operation}
 	}
 	if desc.Summary == "" {
-		desc.Summary = fmt.Sprintf("%s %s", desc.Entity, desc.Operation)
+		desc.Summary = fmt.Sprintf("%s %s", desc.Resource, desc.Operation)
 	}
 	if desc.Description == "" {
-		desc.Description = fmt.Sprintf("Demo function %s for %s %s operations.", desc.ID, desc.Entity, desc.Operation)
+		desc.Description = fmt.Sprintf("Demo function %s for %s %s operations.", desc.ID, desc.Resource, desc.Operation)
 	}
 	if desc.InputSchema == "" {
-		desc.InputSchema = inputSchemaFor(desc.Entity, desc.Operation)
+		desc.InputSchema = inputSchemaFor(desc.Resource, desc.Operation)
 	}
 	if desc.OutputSchema == "" {
 		desc.OutputSchema = `{"type":"object","properties":{"status":{"type":"string"},"action":{"type":"string"}}}`
@@ -841,9 +841,9 @@ func enrichDescriptor(desc croupier.FunctionDescriptor) croupier.FunctionDescrip
 	return desc
 }
 
-func inputSchemaFor(entity, operation string) string {
-	idKey := entity + "_id"
-	if entity == "inventory" {
+func inputSchemaFor(resource, operation string) string {
+	idKey := resource + "_id"
+	if resource == "inventory" {
 		idKey = "player_id"
 	}
 	switch operation {
@@ -863,25 +863,25 @@ func registerGameDemoFunctions(client croupier.Client, store *demoStore) error {
 		desc    croupier.FunctionDescriptor
 		handler func(context.Context, []byte) ([]byte, error)
 	}{
-		{croupier.FunctionDescriptor{ID: "player.create", Version: "1.0.0", Category: "player", Risk: "medium", Entity: "player", Operation: "create", Enabled: true}, store.playerCreate},
-		{croupier.FunctionDescriptor{ID: "player.get", Version: "1.0.0", Category: "player", Risk: "low", Entity: "player", Operation: "read", Enabled: true}, store.playerGet},
-		{croupier.FunctionDescriptor{ID: "player.update", Version: "1.0.0", Category: "player", Risk: "medium", Entity: "player", Operation: "update", Enabled: true}, store.playerUpdate},
-		{croupier.FunctionDescriptor{ID: "player.delete", Version: "1.0.0", Category: "player", Risk: "high", Entity: "player", Operation: "delete", Enabled: true}, store.playerDelete},
-		{croupier.FunctionDescriptor{ID: "player.list", Version: "1.0.0", Category: "player", Risk: "low", Entity: "player", Operation: "read", Enabled: true}, store.playerList},
-		{croupier.FunctionDescriptor{ID: "order.create", Version: "1.0.0", Category: "commerce", Risk: "medium", Entity: "order", Operation: "create", Enabled: true}, store.orderCreate},
-		{croupier.FunctionDescriptor{ID: "order.get", Version: "1.0.0", Category: "commerce", Risk: "low", Entity: "order", Operation: "read", Enabled: true}, store.orderGet},
-		{croupier.FunctionDescriptor{ID: "order.update", Version: "1.0.0", Category: "commerce", Risk: "medium", Entity: "order", Operation: "update", Enabled: true}, store.orderUpdate},
-		{croupier.FunctionDescriptor{ID: "order.delete", Version: "1.0.0", Category: "commerce", Risk: "high", Entity: "order", Operation: "delete", Enabled: true}, store.orderDelete},
-		{croupier.FunctionDescriptor{ID: "order.list", Version: "1.0.0", Category: "commerce", Risk: "low", Entity: "order", Operation: "read", Enabled: true}, store.orderList},
-		{croupier.FunctionDescriptor{ID: "leaderboard.list", Version: "1.0.0", Category: "leaderboard", Risk: "low", Entity: "leaderboard", Operation: "read", Enabled: true}, store.leaderboardList},
-		{croupier.FunctionDescriptor{ID: "leaderboard.upsert", Version: "1.0.0", Category: "leaderboard", Risk: "medium", Entity: "leaderboard", Operation: "update", Enabled: true}, store.leaderboardUpsert},
-		{croupier.FunctionDescriptor{ID: "leaderboard.reset", Version: "1.0.0", Category: "leaderboard", Risk: "high", Entity: "leaderboard", Operation: "delete", Enabled: true}, store.leaderboardReset},
-		{croupier.FunctionDescriptor{ID: "inventory.list", Version: "1.0.0", Category: "inventory", Risk: "low", Entity: "inventory", Operation: "read", Enabled: true}, store.inventoryList},
-		{croupier.FunctionDescriptor{ID: "inventory.grant", Version: "1.0.0", Category: "inventory", Risk: "medium", Entity: "inventory", Operation: "create", Enabled: true}, store.inventoryGrant},
-		{croupier.FunctionDescriptor{ID: "inventory.consume", Version: "1.0.0", Category: "inventory", Risk: "medium", Entity: "inventory", Operation: "delete", Enabled: true}, store.inventoryConsume},
-		{croupier.FunctionDescriptor{ID: "mail.send", Version: "1.0.0", Category: "mail", Risk: "medium", Entity: "mail", Operation: "create", Enabled: true}, store.mailSend},
-		{croupier.FunctionDescriptor{ID: "mail.list", Version: "1.0.0", Category: "mail", Risk: "low", Entity: "mail", Operation: "read", Enabled: true}, store.mailList},
-		{croupier.FunctionDescriptor{ID: "mail.claim", Version: "1.0.0", Category: "mail", Risk: "medium", Entity: "mail", Operation: "update", Enabled: true}, store.mailClaim},
+		{croupier.FunctionDescriptor{ID: "player.create", Version: "1.0.0", Resource: "player", Risk: "medium", Operation: "create", Enabled: true}, store.playerCreate},
+		{croupier.FunctionDescriptor{ID: "player.get", Version: "1.0.0", Resource: "player", Risk: "low", Operation: "get", Enabled: true}, store.playerGet},
+		{croupier.FunctionDescriptor{ID: "player.update", Version: "1.0.0", Resource: "player", Risk: "medium", Operation: "update", Enabled: true}, store.playerUpdate},
+		{croupier.FunctionDescriptor{ID: "player.delete", Version: "1.0.0", Resource: "player", Risk: "high", Operation: "delete", Enabled: true}, store.playerDelete},
+		{croupier.FunctionDescriptor{ID: "player.list", Version: "1.0.0", Resource: "player", Risk: "low", Operation: "list", Enabled: true}, store.playerList},
+		{croupier.FunctionDescriptor{ID: "order.create", Version: "1.0.0", Resource: "order", Risk: "medium", Operation: "create", Enabled: true}, store.orderCreate},
+		{croupier.FunctionDescriptor{ID: "order.get", Version: "1.0.0", Resource: "order", Risk: "low", Operation: "get", Enabled: true}, store.orderGet},
+		{croupier.FunctionDescriptor{ID: "order.update", Version: "1.0.0", Resource: "order", Risk: "medium", Operation: "update", Enabled: true}, store.orderUpdate},
+		{croupier.FunctionDescriptor{ID: "order.delete", Version: "1.0.0", Resource: "order", Risk: "high", Operation: "delete", Enabled: true}, store.orderDelete},
+		{croupier.FunctionDescriptor{ID: "order.list", Version: "1.0.0", Resource: "order", Risk: "low", Operation: "list", Enabled: true}, store.orderList},
+		{croupier.FunctionDescriptor{ID: "leaderboard.list", Version: "1.0.0", Resource: "leaderboard", Risk: "low", Operation: "list", Enabled: true}, store.leaderboardList},
+		{croupier.FunctionDescriptor{ID: "leaderboard.upsert", Version: "1.0.0", Resource: "leaderboard", Risk: "medium", Operation: "upsert", Enabled: true}, store.leaderboardUpsert},
+		{croupier.FunctionDescriptor{ID: "leaderboard.reset", Version: "1.0.0", Resource: "leaderboard", Risk: "high", Operation: "reset", Enabled: true}, store.leaderboardReset},
+		{croupier.FunctionDescriptor{ID: "inventory.list", Version: "1.0.0", Resource: "inventory", Risk: "low", Operation: "list", Enabled: true}, store.inventoryList},
+		{croupier.FunctionDescriptor{ID: "inventory.grant", Version: "1.0.0", Resource: "inventory", Risk: "medium", Operation: "grant", Enabled: true}, store.inventoryGrant},
+		{croupier.FunctionDescriptor{ID: "inventory.consume", Version: "1.0.0", Resource: "inventory", Risk: "medium", Operation: "consume", Enabled: true}, store.inventoryConsume},
+		{croupier.FunctionDescriptor{ID: "mail.send", Version: "1.0.0", Resource: "mail", Risk: "medium", Operation: "send", Enabled: true}, store.mailSend},
+		{croupier.FunctionDescriptor{ID: "mail.list", Version: "1.0.0", Resource: "mail", Risk: "low", Operation: "list", Enabled: true}, store.mailList},
+		{croupier.FunctionDescriptor{ID: "mail.claim", Version: "1.0.0", Resource: "mail", Risk: "medium", Operation: "claim", Enabled: true}, store.mailClaim},
 	}
 
 	for _, item := range definitions {

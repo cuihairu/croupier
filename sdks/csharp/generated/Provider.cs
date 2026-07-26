@@ -25,45 +25,46 @@ namespace Croupier.Sdk.V1 {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "Ch5jcm91cGllci9zZGsvdjEvcHJvdmlkZXIucHJvdG8SD2Nyb3VwaWVyLnNk",
-            "ay52MSKEAwoXTG9jYWxGdW5jdGlvbkRlc2NyaXB0b3ISDgoCaWQYASABKAlS",
+            "ay52MSKmAwoXTG9jYWxGdW5jdGlvbkRlc2NyaXB0b3ISDgoCaWQYASABKAlS",
             "AmlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24SEgoEdGFncxgDIAMoCVIE",
             "dGFncxIYCgdzdW1tYXJ5GAQgASgJUgdzdW1tYXJ5EiAKC2Rlc2NyaXB0aW9u",
             "GAUgASgJUgtkZXNjcmlwdGlvbhIhCgxvcGVyYXRpb25faWQYBiABKAlSC29w",
             "ZXJhdGlvbklkEh4KCmRlcHJlY2F0ZWQYByABKAhSCmRlcHJlY2F0ZWQSIQoM",
             "aW5wdXRfc2NoZW1hGAggASgJUgtpbnB1dFNjaGVtYRIjCg1vdXRwdXRfc2No",
-            "ZW1hGAkgASgJUgxvdXRwdXRTY2hlbWESGgoIY2F0ZWdvcnkYCiABKAlSCGNh",
-            "dGVnb3J5EhIKBHJpc2sYCyABKAlSBHJpc2sSFgoGZW50aXR5GAwgASgJUgZl",
-            "bnRpdHkSHAoJb3BlcmF0aW9uGA0gASgJUglvcGVyYXRpb24i8AMKFlByb3Zp",
-            "ZGVyQ29ubmVjdFJlcXVlc3QSHQoKc2VydmljZV9pZBgBIAEoCVIJc2Vydmlj",
-            "ZUlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24SRgoJZnVuY3Rpb25zGAMg",
-            "AygLMiguY3JvdXBpZXIuc2RrLnYxLkxvY2FsRnVuY3Rpb25EZXNjcmlwdG9y",
-            "UglmdW5jdGlvbnMSIQoMc2RrX2xhbmd1YWdlGAQgASgJUgtzZGtMYW5ndWFn",
-            "ZRIfCgtzZGtfdmVyc2lvbhgFIAEoCVIKc2RrVmVyc2lvbhIZCghzZGtfbmFt",
-            "ZRgGIAEoCVIHc2RrTmFtZRIpChBwcm90b2NvbF92ZXJzaW9uGAcgASgJUg9w",
-            "cm90b2NvbFZlcnNpb24SNQoWc3VwcG9ydGVkX2NhcGFiaWxpdGllcxgIIAMo",
-            "CVIVc3VwcG9ydGVkQ2FwYWJpbGl0aWVzEjYKF3RyYW5zcG9ydF9zZWN1cml0",
-            "eV9tb2RlGAkgASgJUhV0cmFuc3BvcnRTZWN1cml0eU1vZGUSMQoUc3VwcG9y",
-            "dGVkX3RyYW5zcG9ydHMYCiADKAlSE3N1cHBvcnRlZFRyYW5zcG9ydHMSFwoH",
-            "Z2FtZV9pZBgLIAEoCVIGZ2FtZUlkEhAKA2VudhgMIAEoCVIDZW52IokBChdQ",
-            "cm92aWRlckNvbm5lY3RSZXNwb25zZRIdCgpzZXNzaW9uX2lkGAEgASgJUglz",
-            "ZXNzaW9uSWQSMwoVYWNjZXB0ZWRfY2FwYWJpbGl0aWVzGAIgAygJUhRhY2Nl",
-            "cHRlZENhcGFiaWxpdGllcxIaCgh3YXJuaW5ncxgDIAMoCVIId2FybmluZ3Mi",
-            "WAoYUHJvdmlkZXJIZWFydGJlYXRSZXF1ZXN0Eh0KCnNlcnZpY2VfaWQYASAB",
-            "KAlSCXNlcnZpY2VJZBIdCgpzZXNzaW9uX2lkGAIgASgJUglzZXNzaW9uSWQi",
-            "GwoZUHJvdmlkZXJIZWFydGJlYXRSZXNwb25zZSJzChRQcm92aWRlckRyYWlu",
-            "UmVxdWVzdBIdCgpzZXNzaW9uX2lkGAEgASgJUglzZXNzaW9uSWQSFgoGcmVh",
-            "c29uGAIgASgJUgZyZWFzb24SJAoOcmV0cnlfYWZ0ZXJfbXMYAyABKA1SDHJl",
-            "dHJ5QWZ0ZXJNcyIXChVQcm92aWRlckRyYWluUmVzcG9uc2UiLwoUR2V0VGFz",
-            "a1Jlc3VsdFJlcXVlc3QSFwoHdGFza19pZBgBIAEoCVIGdGFza0lkIl0KFUdl",
-            "dFRhc2tSZXN1bHRSZXNwb25zZRIUCgVzdGF0ZRgBIAEoCVIFc3RhdGUSGAoH",
-            "cGF5bG9hZBgCIAEoDFIHcGF5bG9hZBIUCgVlcnJvchgDIAEoCVIFZXJyb3JC",
-            "YQoiaW8uZ2l0aHViLmN1aWhhaXJ1LmNyb3VwaWVyLnNkay52MVABWjlnaXRo",
-            "dWIuY29tL2N1aWhhaXJ1L2Nyb3VwaWVyL3BrZy9wYi9jcm91cGllci9zZGsv",
-            "djE7c2RrdjFiBnByb3RvMw=="));
+            "ZW1hGAkgASgJUgxvdXRwdXRTY2hlbWESGgoIcmVzb3VyY2UYCiABKAlSCHJl",
+            "c291cmNlEhwKCW9wZXJhdGlvbhgLIAEoCVIJb3BlcmF0aW9uEhIKBHJpc2sY",
+            "DCABKAlSBHJpc2sSGAoHZW5hYmxlZBgNIAEoCFIHZW5hYmxlZBIeCgpwZXJt",
+            "aXNzaW9uGA4gASgJUgpwZXJtaXNzaW9uIvADChZQcm92aWRlckNvbm5lY3RS",
+            "ZXF1ZXN0Eh0KCnNlcnZpY2VfaWQYASABKAlSCXNlcnZpY2VJZBIYCgd2ZXJz",
+            "aW9uGAIgASgJUgd2ZXJzaW9uEkYKCWZ1bmN0aW9ucxgDIAMoCzIoLmNyb3Vw",
+            "aWVyLnNkay52MS5Mb2NhbEZ1bmN0aW9uRGVzY3JpcHRvclIJZnVuY3Rpb25z",
+            "EiEKDHNka19sYW5ndWFnZRgEIAEoCVILc2RrTGFuZ3VhZ2USHwoLc2RrX3Zl",
+            "cnNpb24YBSABKAlSCnNka1ZlcnNpb24SGQoIc2RrX25hbWUYBiABKAlSB3Nk",
+            "a05hbWUSKQoQcHJvdG9jb2xfdmVyc2lvbhgHIAEoCVIPcHJvdG9jb2xWZXJz",
+            "aW9uEjUKFnN1cHBvcnRlZF9jYXBhYmlsaXRpZXMYCCADKAlSFXN1cHBvcnRl",
+            "ZENhcGFiaWxpdGllcxI2Chd0cmFuc3BvcnRfc2VjdXJpdHlfbW9kZRgJIAEo",
+            "CVIVdHJhbnNwb3J0U2VjdXJpdHlNb2RlEjEKFHN1cHBvcnRlZF90cmFuc3Bv",
+            "cnRzGAogAygJUhNzdXBwb3J0ZWRUcmFuc3BvcnRzEhcKB2dhbWVfaWQYCyAB",
+            "KAlSBmdhbWVJZBIQCgNlbnYYDCABKAlSA2VudiKJAQoXUHJvdmlkZXJDb25u",
+            "ZWN0UmVzcG9uc2USHQoKc2Vzc2lvbl9pZBgBIAEoCVIJc2Vzc2lvbklkEjMK",
+            "FWFjY2VwdGVkX2NhcGFiaWxpdGllcxgCIAMoCVIUYWNjZXB0ZWRDYXBhYmls",
+            "aXRpZXMSGgoId2FybmluZ3MYAyADKAlSCHdhcm5pbmdzIlgKGFByb3ZpZGVy",
+            "SGVhcnRiZWF0UmVxdWVzdBIdCgpzZXJ2aWNlX2lkGAEgASgJUglzZXJ2aWNl",
+            "SWQSHQoKc2Vzc2lvbl9pZBgCIAEoCVIJc2Vzc2lvbklkIhsKGVByb3ZpZGVy",
+            "SGVhcnRiZWF0UmVzcG9uc2UicwoUUHJvdmlkZXJEcmFpblJlcXVlc3QSHQoK",
+            "c2Vzc2lvbl9pZBgBIAEoCVIJc2Vzc2lvbklkEhYKBnJlYXNvbhgCIAEoCVIG",
+            "cmVhc29uEiQKDnJldHJ5X2FmdGVyX21zGAMgASgNUgxyZXRyeUFmdGVyTXMi",
+            "FwoVUHJvdmlkZXJEcmFpblJlc3BvbnNlIi8KFEdldFRhc2tSZXN1bHRSZXF1",
+            "ZXN0EhcKB3Rhc2tfaWQYASABKAlSBnRhc2tJZCJdChVHZXRUYXNrUmVzdWx0",
+            "UmVzcG9uc2USFAoFc3RhdGUYASABKAlSBXN0YXRlEhgKB3BheWxvYWQYAiAB",
+            "KAxSB3BheWxvYWQSFAoFZXJyb3IYAyABKAlSBWVycm9yQmEKImlvLmdpdGh1",
+            "Yi5jdWloYWlydS5jcm91cGllci5zZGsudjFQAVo5Z2l0aHViLmNvbS9jdWlo",
+            "YWlydS9jcm91cGllci9wa2cvcGIvY3JvdXBpZXIvc2RrL3YxO3Nka3YxYgZw",
+            "cm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.LocalFunctionDescriptor), global::Croupier.Sdk.V1.LocalFunctionDescriptor.Parser, new[]{ "Id", "Version", "Tags", "Summary", "Description", "OperationId", "Deprecated", "InputSchema", "OutputSchema", "Category", "Risk", "Entity", "Operation" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.LocalFunctionDescriptor), global::Croupier.Sdk.V1.LocalFunctionDescriptor.Parser, new[]{ "Id", "Version", "Tags", "Summary", "Description", "OperationId", "Deprecated", "InputSchema", "OutputSchema", "Resource", "Operation", "Risk", "Enabled", "Permission" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderConnectRequest), global::Croupier.Sdk.V1.ProviderConnectRequest.Parser, new[]{ "ServiceId", "Version", "Functions", "SdkLanguage", "SdkVersion", "SdkName", "ProtocolVersion", "SupportedCapabilities", "TransportSecurityMode", "SupportedTransports", "GameId", "Env" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderConnectResponse), global::Croupier.Sdk.V1.ProviderConnectResponse.Parser, new[]{ "SessionId", "AcceptedCapabilities", "Warnings" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderHeartbeatRequest), global::Croupier.Sdk.V1.ProviderHeartbeatRequest.Parser, new[]{ "ServiceId", "SessionId" }, null, null, null, null),
@@ -126,10 +127,11 @@ namespace Croupier.Sdk.V1 {
       deprecated_ = other.deprecated_;
       inputSchema_ = other.inputSchema_;
       outputSchema_ = other.outputSchema_;
-      category_ = other.category_;
-      risk_ = other.risk_;
-      entity_ = other.entity_;
+      resource_ = other.resource_;
       operation_ = other.operation_;
+      risk_ = other.risk_;
+      enabled_ = other.enabled_;
+      permission_ = other.permission_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -273,26 +275,42 @@ namespace Croupier.Sdk.V1 {
       }
     }
 
-    /// <summary>Field number for the "category" field.</summary>
-    public const int CategoryFieldNumber = 10;
-    private string category_ = "";
+    /// <summary>Field number for the "resource" field.</summary>
+    public const int ResourceFieldNumber = 10;
+    private string resource_ = "";
     /// <summary>
-    /// OpenAPI 3.0.3 Extension fields (x-* prefix)
+    /// Croupier capability fields. These are business/governance contract fields,
+    /// not Dashboard page, menu, Formily, label, or placement fields.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Category {
-      get { return category_; }
+    public string Resource {
+      get { return resource_; }
       set {
-        category_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        resource_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "operation" field.</summary>
+    public const int OperationFieldNumber = 11;
+    private string operation_ = "";
+    /// <summary>
+    /// x-operation: business action key (e.g., "ban", "send", "list")
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Operation {
+      get { return operation_; }
+      set {
+        operation_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
     /// <summary>Field number for the "risk" field.</summary>
-    public const int RiskFieldNumber = 11;
+    public const int RiskFieldNumber = 12;
     private string risk_ = "";
     /// <summary>
-    /// x-risk: risk level (e.g., "safe", "danger", "warning")
+    /// x-risk: risk level (e.g., "safe", "warning", "high", "danger")
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -303,33 +321,33 @@ namespace Croupier.Sdk.V1 {
       }
     }
 
-    /// <summary>Field number for the "entity" field.</summary>
-    public const int EntityFieldNumber = 12;
-    private string entity_ = "";
+    /// <summary>Field number for the "enabled" field.</summary>
+    public const int EnabledFieldNumber = 13;
+    private bool enabled_;
     /// <summary>
-    /// x-entity: associated entity type (e.g., "Player", "Item", "Guild")
+    /// x-enabled: whether this function is enabled
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Entity {
-      get { return entity_; }
+    public bool Enabled {
+      get { return enabled_; }
       set {
-        entity_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        enabled_ = value;
       }
     }
 
-    /// <summary>Field number for the "operation" field.</summary>
-    public const int OperationFieldNumber = 13;
-    private string operation_ = "";
+    /// <summary>Field number for the "permission" field.</summary>
+    public const int PermissionFieldNumber = 14;
+    private string permission_ = "";
     /// <summary>
-    /// x-operation: CRUD operation type (e.g., "create", "read", "update", "delete", "custom")
+    /// x-permission: optional permission identifier
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Operation {
-      get { return operation_; }
+    public string Permission {
+      get { return permission_; }
       set {
-        operation_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        permission_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -357,10 +375,11 @@ namespace Croupier.Sdk.V1 {
       if (Deprecated != other.Deprecated) return false;
       if (InputSchema != other.InputSchema) return false;
       if (OutputSchema != other.OutputSchema) return false;
-      if (Category != other.Category) return false;
-      if (Risk != other.Risk) return false;
-      if (Entity != other.Entity) return false;
+      if (Resource != other.Resource) return false;
       if (Operation != other.Operation) return false;
+      if (Risk != other.Risk) return false;
+      if (Enabled != other.Enabled) return false;
+      if (Permission != other.Permission) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -377,10 +396,11 @@ namespace Croupier.Sdk.V1 {
       if (Deprecated != false) hash ^= Deprecated.GetHashCode();
       if (InputSchema.Length != 0) hash ^= InputSchema.GetHashCode();
       if (OutputSchema.Length != 0) hash ^= OutputSchema.GetHashCode();
-      if (Category.Length != 0) hash ^= Category.GetHashCode();
-      if (Risk.Length != 0) hash ^= Risk.GetHashCode();
-      if (Entity.Length != 0) hash ^= Entity.GetHashCode();
+      if (Resource.Length != 0) hash ^= Resource.GetHashCode();
       if (Operation.Length != 0) hash ^= Operation.GetHashCode();
+      if (Risk.Length != 0) hash ^= Risk.GetHashCode();
+      if (Enabled != false) hash ^= Enabled.GetHashCode();
+      if (Permission.Length != 0) hash ^= Permission.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -432,21 +452,25 @@ namespace Croupier.Sdk.V1 {
         output.WriteRawTag(74);
         output.WriteString(OutputSchema);
       }
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(82);
-        output.WriteString(Category);
-      }
-      if (Risk.Length != 0) {
-        output.WriteRawTag(90);
-        output.WriteString(Risk);
-      }
-      if (Entity.Length != 0) {
-        output.WriteRawTag(98);
-        output.WriteString(Entity);
+        output.WriteString(Resource);
       }
       if (Operation.Length != 0) {
-        output.WriteRawTag(106);
+        output.WriteRawTag(90);
         output.WriteString(Operation);
+      }
+      if (Risk.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(Risk);
+      }
+      if (Enabled != false) {
+        output.WriteRawTag(104);
+        output.WriteBool(Enabled);
+      }
+      if (Permission.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(Permission);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -491,21 +515,25 @@ namespace Croupier.Sdk.V1 {
         output.WriteRawTag(74);
         output.WriteString(OutputSchema);
       }
-      if (Category.Length != 0) {
+      if (Resource.Length != 0) {
         output.WriteRawTag(82);
-        output.WriteString(Category);
-      }
-      if (Risk.Length != 0) {
-        output.WriteRawTag(90);
-        output.WriteString(Risk);
-      }
-      if (Entity.Length != 0) {
-        output.WriteRawTag(98);
-        output.WriteString(Entity);
+        output.WriteString(Resource);
       }
       if (Operation.Length != 0) {
-        output.WriteRawTag(106);
+        output.WriteRawTag(90);
         output.WriteString(Operation);
+      }
+      if (Risk.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(Risk);
+      }
+      if (Enabled != false) {
+        output.WriteRawTag(104);
+        output.WriteBool(Enabled);
+      }
+      if (Permission.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(Permission);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -542,17 +570,20 @@ namespace Croupier.Sdk.V1 {
       if (OutputSchema.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(OutputSchema);
       }
-      if (Category.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Category);
+      if (Resource.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Resource);
+      }
+      if (Operation.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Operation);
       }
       if (Risk.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Risk);
       }
-      if (Entity.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Entity);
+      if (Enabled != false) {
+        size += 1 + 1;
       }
-      if (Operation.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Operation);
+      if (Permission.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Permission);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -591,17 +622,20 @@ namespace Croupier.Sdk.V1 {
       if (other.OutputSchema.Length != 0) {
         OutputSchema = other.OutputSchema;
       }
-      if (other.Category.Length != 0) {
-        Category = other.Category;
+      if (other.Resource.Length != 0) {
+        Resource = other.Resource;
+      }
+      if (other.Operation.Length != 0) {
+        Operation = other.Operation;
       }
       if (other.Risk.Length != 0) {
         Risk = other.Risk;
       }
-      if (other.Entity.Length != 0) {
-        Entity = other.Entity;
+      if (other.Enabled != false) {
+        Enabled = other.Enabled;
       }
-      if (other.Operation.Length != 0) {
-        Operation = other.Operation;
+      if (other.Permission.Length != 0) {
+        Permission = other.Permission;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -655,19 +689,23 @@ namespace Croupier.Sdk.V1 {
             break;
           }
           case 82: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 90: {
-            Risk = input.ReadString();
+            Operation = input.ReadString();
             break;
           }
           case 98: {
-            Entity = input.ReadString();
+            Risk = input.ReadString();
             break;
           }
-          case 106: {
-            Operation = input.ReadString();
+          case 104: {
+            Enabled = input.ReadBool();
+            break;
+          }
+          case 114: {
+            Permission = input.ReadString();
             break;
           }
         }
@@ -722,19 +760,23 @@ namespace Croupier.Sdk.V1 {
             break;
           }
           case 82: {
-            Category = input.ReadString();
+            Resource = input.ReadString();
             break;
           }
           case 90: {
-            Risk = input.ReadString();
+            Operation = input.ReadString();
             break;
           }
           case 98: {
-            Entity = input.ReadString();
+            Risk = input.ReadString();
             break;
           }
-          case 106: {
-            Operation = input.ReadString();
+          case 104: {
+            Enabled = input.ReadBool();
+            break;
+          }
+          case 114: {
+            Permission = input.ReadString();
             break;
           }
         }

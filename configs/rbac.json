@@ -15,18 +15,16 @@
       "games:read",
       "games:manage",
       "uploads:write",
-      "entities:read",
-      "entities:create",
-      "entities:update",
-      "entities:delete",
+      "resources:read",
+      "resources:diagnose",
       "certificates:manage"
     ],
     "role:gm": [
       "function:invoke",
       "assignments:read",
       "assignments:write",
-      "entity:read",
-      "entity:write",
+      "resources:read",
+      "resources:diagnose",
       "item:create",
       "item:read",
       "item:update",
@@ -53,14 +51,14 @@
     "role:operator": [
       "function:invoke",
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "currency:read",
       "wallet:read"
     ],
     "role:viewer": [
       "assignments:read",
-      "entity:read",
+      "resources:read",
       "item:read",
       "currency:read"
     ],

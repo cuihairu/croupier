@@ -34,7 +34,6 @@
 #include "google/protobuf/map_entry.h"
 #include "google/protobuf/map_field.h"
 #include "google/protobuf/unknown_field_set.h"
-#include "croupier/component/v1/ui_options.pb.h"
 // @@protoc_insertion_point(includes)
 
 // Must be included last.
@@ -499,7 +498,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED QueryRangeRequest final : public ::
     kEndFieldNumber = 3,
     kStepFieldNumber = 4,
   };
-  // string expr = 1 [json_name = "expr", (.croupier.component.v1.ui) = {
+  // string expr = 1 [json_name = "expr"];
   void clear_expr() ;
   [[nodiscard]] const ::std::string& expr() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -514,7 +513,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED QueryRangeRequest final : public ::
   ::std::string* PROTOBUF_NONNULL _internal_mutable_expr();
 
   public:
-  // string start = 2 [json_name = "start", (.croupier.component.v1.ui) = {
+  // string start = 2 [json_name = "start"];
   void clear_start() ;
   [[nodiscard]] const ::std::string& start() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -529,7 +528,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED QueryRangeRequest final : public ::
   ::std::string* PROTOBUF_NONNULL _internal_mutable_start();
 
   public:
-  // string end = 3 [json_name = "end", (.croupier.component.v1.ui) = {
+  // string end = 3 [json_name = "end"];
   void clear_end() ;
   [[nodiscard]] const ::std::string& end() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -544,7 +543,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED QueryRangeRequest final : public ::
   ::std::string* PROTOBUF_NONNULL _internal_mutable_end();
 
   public:
-  // string step = 4 [json_name = "step", (.croupier.component.v1.ui) = {
+  // string step = 4 [json_name = "step"];
   void clear_step() ;
   [[nodiscard]] const ::std::string& step() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -1045,7 +1044,7 @@ extern const ::google::protobuf::internal::ClassDataFull QueryRangeResponse_clas
 
 // QueryRangeRequest
 
-// string expr = 1 [json_name = "expr", (.croupier.component.v1.ui) = {
+// string expr = 1 [json_name = "expr"];
 inline void QueryRangeRequest::clear_expr() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.expr_.ClearToEmpty();
@@ -1110,7 +1109,7 @@ inline void QueryRangeRequest::set_allocated_expr(::std::string* PROTOBUF_NULLAB
   // @@protoc_insertion_point(field_set_allocated:examples.integrations.prom.v1.QueryRangeRequest.expr)
 }
 
-// string start = 2 [json_name = "start", (.croupier.component.v1.ui) = {
+// string start = 2 [json_name = "start"];
 inline void QueryRangeRequest::clear_start() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.start_.ClearToEmpty();
@@ -1175,7 +1174,7 @@ inline void QueryRangeRequest::set_allocated_start(::std::string* PROTOBUF_NULLA
   // @@protoc_insertion_point(field_set_allocated:examples.integrations.prom.v1.QueryRangeRequest.start)
 }
 
-// string end = 3 [json_name = "end", (.croupier.component.v1.ui) = {
+// string end = 3 [json_name = "end"];
 inline void QueryRangeRequest::clear_end() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.end_.ClearToEmpty();
@@ -1240,7 +1239,7 @@ inline void QueryRangeRequest::set_allocated_end(::std::string* PROTOBUF_NULLABL
   // @@protoc_insertion_point(field_set_allocated:examples.integrations.prom.v1.QueryRangeRequest.end)
 }
 
-// string step = 4 [json_name = "step", (.croupier.component.v1.ui) = {
+// string step = 4 [json_name = "step"];
 inline void QueryRangeRequest::clear_step() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.step_.ClearToEmpty();

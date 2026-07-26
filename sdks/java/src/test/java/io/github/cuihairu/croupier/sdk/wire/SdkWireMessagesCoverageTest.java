@@ -189,7 +189,7 @@ class SdkWireMessagesCoverageTest {
         SdkWireMessages.LocalFunctionDescriptor func = new SdkWireMessages.LocalFunctionDescriptor(
             "f1", "1.0.0", List.of("tag1", "tag2"), "Summary", "Description",
             "opId", true, "{\"type\":\"object\"}", "{\"type\":\"string\"}",
-            "game", "low", "Player", "create");
+            "player", "ban", "danger", true, "player.ban");
 
         SdkWireMessages.ProviderConnectRequest original = new SdkWireMessages.ProviderConnectRequest(
             "svc-1", "2.0.0", "localhost:9090", List.of(func));
@@ -214,10 +214,11 @@ class SdkWireMessagesCoverageTest {
         assertTrue(decodedFunc.deprecated);
         assertEquals("{\"type\":\"object\"}", decodedFunc.inputSchema);
         assertEquals("{\"type\":\"string\"}", decodedFunc.outputSchema);
-        assertEquals("game", decodedFunc.category);
-        assertEquals("low", decodedFunc.risk);
-        assertEquals("Player", decodedFunc.entity);
-        assertEquals("create", decodedFunc.operation);
+        assertEquals("player", decodedFunc.resource);
+        assertEquals("ban", decodedFunc.operation);
+        assertEquals("danger", decodedFunc.risk);
+        assertTrue(decodedFunc.enabled);
+        assertEquals("player.ban", decodedFunc.permission);
     }
 
     @Test
@@ -286,7 +287,7 @@ class SdkWireMessagesCoverageTest {
     @DisplayName("LocalFunctionDescriptor with null fields")
     void localFunctionDescriptorNullFields() {
         SdkWireMessages.LocalFunctionDescriptor desc = new SdkWireMessages.LocalFunctionDescriptor(
-            null, null, null, null, null, null, false, null, null, null, null, null, null);
+            null, null, null, null, null, null, false, null, null, null, null, null, false, null);
 
         assertEquals("", desc.id);
         assertEquals("", desc.version);
@@ -297,10 +298,11 @@ class SdkWireMessagesCoverageTest {
         assertFalse(desc.deprecated);
         assertEquals("", desc.inputSchema);
         assertEquals("", desc.outputSchema);
-        assertEquals("", desc.category);
-        assertEquals("", desc.risk);
-        assertEquals("", desc.entity);
+        assertEquals("", desc.resource);
         assertEquals("", desc.operation);
+        assertEquals("", desc.risk);
+        assertFalse(desc.enabled);
+        assertEquals("", desc.permission);
     }
 
     @Test
@@ -337,9 +339,11 @@ class SdkWireMessagesCoverageTest {
     @DisplayName("Encode/decode multiple functions in ProviderConnectRequest")
     void providerConnectRequestMultipleFunctions() {
         SdkWireMessages.LocalFunctionDescriptor func1 = new SdkWireMessages.LocalFunctionDescriptor(
-            "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "");
+            "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "",
+            Map.of(), Map.of(), Map.of(), "", "", "", Map.of());
         SdkWireMessages.LocalFunctionDescriptor func2 = new SdkWireMessages.LocalFunctionDescriptor(
-            "f2", "2.0.0", List.of("tag"), "Sum", "Desc", "op", false, "", "", "", "", "", "");
+            "f2", "2.0.0", List.of("tag"), "Sum", "Desc", "op", false, "", "", "", "", "", "",
+            Map.of(), Map.of(), Map.of(), "", "", "", Map.of());
 
         SdkWireMessages.ProviderConnectRequest original = new SdkWireMessages.ProviderConnectRequest(
             "svc", "1.0.0", "addr", List.of(func1, func2));
@@ -384,7 +388,8 @@ class SdkWireMessagesCoverageTest {
     @DisplayName("Decode ProviderConnectRequest with truncated data should throw")
     void decodeProviderConnectRequestTruncated() {
         SdkWireMessages.LocalFunctionDescriptor func = new SdkWireMessages.LocalFunctionDescriptor(
-            "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "");
+            "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "",
+            Map.of(), Map.of(), Map.of(), "", "", "", Map.of());
         SdkWireMessages.ProviderConnectRequest original = new SdkWireMessages.ProviderConnectRequest(
             "svc", "1.0.0", "addr", List.of(func));
         byte[] encoded = SdkWireMessages.encodeProviderConnectRequest(original);
@@ -485,7 +490,8 @@ class SdkWireMessagesCoverageTest {
     @DisplayName("LocalFunctionDescriptor with empty tags list")
     void localFunctionDescriptorEmptyTags() {
         SdkWireMessages.LocalFunctionDescriptor desc = new SdkWireMessages.LocalFunctionDescriptor(
-            "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "");
+            "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "",
+            Map.of(), Map.of(), Map.of(), "", "", "", Map.of());
 
         // Encode as part of ProviderConnectRequest to exercise encodeLocalFunctionDescriptor
         SdkWireMessages.ProviderConnectRequest req = new SdkWireMessages.ProviderConnectRequest(

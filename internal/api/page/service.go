@@ -590,11 +590,6 @@ func validateBinding(field string, binding spec.PageFunctionBinding, functions m
 	if binding.Usage == spec.BindingUsageTask && binding.Execution.Mode != spec.PageExecutionModeTask {
 		diags = append(diags, diagnostic("binding_task_mode_mismatch", spec.SeverityError, "task binding must use execution.mode=task", field+".execution.mode"))
 	}
-	if !hasDefaultLocale(fn.OperationDisplay) {
-		d := diagnostic("binding_operation_label_missing", spec.SeverityError, "bound function operationDisplay must include zh-CN before publishing", field+".functionId")
-		d.FunctionID = functionID
-		diags = append(diags, d)
-	}
 	return diags
 }
 

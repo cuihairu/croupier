@@ -374,16 +374,16 @@ function mailClaim(store: DemoStore): FunctionHandler {
 }
 
 function enrichDescriptor(desc: FunctionDescriptor): FunctionDescriptor {
-  const tags = desc.tags || ([desc.category, desc.entity, desc.operation].filter(Boolean) as string[]);
+  const tags = desc.tags || ([desc.resource, desc.operation].filter(Boolean) as string[]);
   return {
     ...desc,
     tags,
-    summary: desc.summary || `${desc.entity} ${desc.operation}`,
+    summary: desc.summary || `${desc.resource || "function"} ${desc.operation || "invoke"}`,
     description:
       desc.description ||
-      `Demo function ${desc.id} for ${desc.entity} ${desc.operation} operations.`,
+      `Demo function ${desc.id} for ${desc.resource || "unscoped"} ${desc.operation || "invoke"} operations.`,
     operation_id: desc.operation_id || desc.id,
-    input_schema: desc.input_schema || inputSchemaFor(desc.entity || "object", desc.operation || "custom"),
+    input_schema: desc.input_schema || inputSchemaFor(desc.resource || "object", desc.operation || "invoke"),
     output_schema: desc.output_schema || {
       type: "object",
       properties: {
@@ -394,8 +394,8 @@ function enrichDescriptor(desc: FunctionDescriptor): FunctionDescriptor {
   };
 }
 
-function inputSchemaFor(entity: string, operation: string): Record<string, unknown> {
-  const idKey = entity === "inventory" ? "player_id" : `${entity}_id`;
+function inputSchemaFor(resource: string, operation: string): Record<string, unknown> {
+  const idKey = resource === "inventory" ? "player_id" : `${resource}_id`;
   if (operation === "create") {
     return {
       type: "object",
@@ -439,31 +439,31 @@ async function main(): Promise<void> {
 
   const store = new DemoStore();
 
-  const fns: Array<[string, string, string, string, string, FunctionHandler]> = [
-    ["player.create", "player", "medium", "player", "create", playerCreate(store)],
-    ["player.get", "player", "low", "player", "read", playerGet(store)],
-    ["player.update", "player", "medium", "player", "update", playerUpdate(store)],
-    ["player.delete", "player", "high", "player", "delete", playerDelete(store)],
-    ["player.list", "player", "low", "player", "read", playerList(store)],
-    ["order.create", "commerce", "medium", "order", "create", orderCreate(store)],
-    ["order.get", "commerce", "low", "order", "read", orderGet(store)],
-    ["order.update", "commerce", "medium", "order", "update", orderUpdate(store)],
-    ["order.delete", "commerce", "high", "order", "delete", orderDelete(store)],
-    ["order.list", "commerce", "low", "order", "read", orderList(store)],
-    ["leaderboard.list", "leaderboard", "low", "leaderboard", "read", leaderboardList(store)],
-    ["leaderboard.upsert", "leaderboard", "medium", "leaderboard", "update", leaderboardUpsert(store)],
-    ["leaderboard.reset", "leaderboard", "high", "leaderboard", "delete", leaderboardReset(store)],
-    ["inventory.list", "inventory", "low", "inventory", "read", inventoryList(store)],
-    ["inventory.grant", "inventory", "medium", "inventory", "create", inventoryGrant(store)],
-    ["inventory.consume", "inventory", "medium", "inventory", "delete", inventoryConsume(store)],
-    ["mail.send", "mail", "medium", "mail", "create", mailSend(store)],
-    ["mail.list", "mail", "low", "mail", "read", mailList(store)],
-    ["mail.claim", "mail", "medium", "mail", "update", mailClaim(store)],
+  const fns: Array<[string, string, string, string, FunctionHandler]> = [
+    ["player.create", "player", "medium", "create", playerCreate(store)],
+    ["player.get", "player", "low", "get", playerGet(store)],
+    ["player.update", "player", "medium", "update", playerUpdate(store)],
+    ["player.delete", "player", "high", "delete", playerDelete(store)],
+    ["player.list", "player", "low", "list", playerList(store)],
+    ["order.create", "order", "medium", "create", orderCreate(store)],
+    ["order.get", "order", "low", "get", orderGet(store)],
+    ["order.update", "order", "medium", "update", orderUpdate(store)],
+    ["order.delete", "order", "high", "delete", orderDelete(store)],
+    ["order.list", "order", "low", "list", orderList(store)],
+    ["leaderboard.list", "leaderboard", "low", "list", leaderboardList(store)],
+    ["leaderboard.upsert", "leaderboard", "medium", "upsert", leaderboardUpsert(store)],
+    ["leaderboard.reset", "leaderboard", "high", "reset", leaderboardReset(store)],
+    ["inventory.list", "inventory", "low", "list", inventoryList(store)],
+    ["inventory.grant", "inventory", "medium", "grant", inventoryGrant(store)],
+    ["inventory.consume", "inventory", "medium", "consume", inventoryConsume(store)],
+    ["mail.send", "mail", "medium", "send", mailSend(store)],
+    ["mail.list", "mail", "low", "list", mailList(store)],
+    ["mail.claim", "mail", "medium", "claim", mailClaim(store)],
   ];
 
-  for (const [id, cat, risk, entity, op, handler] of fns) {
+  for (const [id, resource, risk, operation, handler] of fns) {
     const desc = enrichDescriptor({
-      id, version: "1.0.0", category: cat, risk, entity, operation: op,
+      id, version: "1.0.0", resource, risk, operation,
     });
     client.registerFunction(desc, handler);
     console.log(`  registered: ${id}`);

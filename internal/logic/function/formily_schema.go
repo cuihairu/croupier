@@ -78,15 +78,6 @@ func validateFormilySchema(schema interface{}) error {
 	return validateFormilyNode(root, "$")
 }
 
-func isClearCustomUISchema(schema interface{}) bool {
-	m, ok := schema.(map[string]interface{})
-	if !ok {
-		return false
-	}
-	clear, _ := m["__clear_custom_ui"].(bool)
-	return clear
-}
-
 func validateFormilyNode(node interface{}, path string) error {
 	m, ok := node.(map[string]interface{})
 	if !ok || m == nil {

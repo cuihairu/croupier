@@ -12,40 +12,6 @@ import (
 
 // Additional tests to improve coverage to 80%+
 
-func TestHandler_FunctionRouteUpdate_FullPayload(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-
-	body := `{
-		"id": "test.function",
-		"nodes": [{"id": "node1", "weight": 100}],
-		"path": "/test",
-		"order": 1,
-		"hidden": false,
-		"strategy": "round-robin"
-	}`
-
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test.function/route", body)
-	h.FunctionRouteUpdate(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600, "expected valid HTTP status, got %d", rec.Code)
-}
-
-func TestHandler_FunctionRouteUpdate_EmptyBody(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/route", "")
-	h.FunctionRouteUpdate(ctx)
-
-	// Empty body should be handled
-	assert.True(t, rec.Code >= 400 && rec.Code <= 500 || rec.Code == http.StatusOK)
-}
-
 func TestHandler_AliasMethods(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -61,7 +27,6 @@ func TestHandler_AliasMethods(t *testing.T) {
 	}{
 		{name: "Pending", method: http.MethodGet, target: "/api/v1/functions/pending", fn: h.Pending},
 		{name: "Analytics", method: http.MethodGet, target: "/api/v1/functions/test/analytics", fn: h.Analytics},
-		{name: "RouteUpdate", method: http.MethodPost, target: "/api/v1/functions/test/route", body: `{"path":"/test"}`, fn: h.RouteUpdate},
 	}
 
 	for _, tc := range cases {
@@ -173,17 +138,6 @@ func TestHandler_FunctionPublish_EmptyBody(t *testing.T) {
 	h := NewHandler(NewService(&svc.ServiceContext{}))
 	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/publish", "{}")
 	h.FunctionPublish(ctx)
-
-	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
-}
-
-func TestHandler_FunctionRoute_EmptyParams(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test/route", "")
-	h.FunctionRoute(ctx)
 
 	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
 }
@@ -410,17 +364,6 @@ func TestHandler_FunctionPublish_MalformedJSON(t *testing.T) {
 	h := NewHandler(NewService(&svc.ServiceContext{}))
 	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/publish", "{invalid")
 	h.FunctionPublish(ctx)
-
-	assert.True(t, rec.Code >= 400 && rec.Code <= 500 || rec.Code == 200)
-}
-
-func TestHandler_FunctionRoute_MalformedJSON(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test/route", "{invalid")
-	h.FunctionRoute(ctx)
 
 	assert.True(t, rec.Code >= 400 && rec.Code <= 500 || rec.Code == 200)
 }
@@ -741,35 +684,6 @@ func TestHandler_FunctionsList_InvalidQuery(t *testing.T) {
 	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 400)
 }
 
-func TestHandler_FunctionRouteUpdate_SuccessPath(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	body := `{"path":"/test","order":1}`
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/route", body)
-	h.FunctionRouteUpdate(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600)
-}
-
-func TestHandler_FunctionRoute_SuccessPath(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test/route", "")
-	h.FunctionRoute(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600)
-}
-
 func TestHandler_FunctionDetail_SuccessPath(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -970,20 +884,6 @@ func TestHandler_FunctionsList_LargePageSize(t *testing.T) {
 	assert.True(t, rec.Code >= 200 && rec.Code < 600)
 }
 
-func TestHandler_FunctionRouteUpdate_QueryParams(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test/route?includeInactive=true", "")
-	h.FunctionRoute(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600)
-}
-
 func TestHandler_FunctionHistory_QueryParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -1018,17 +918,6 @@ func TestHandler_FunctionPermissionsUpdate_WithPermissions(t *testing.T) {
 
 	// Should not panic
 	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
-}
-
-func TestHandler_BindFunctionRequest_PutMethod(t *testing.T) {
-	t.Parallel()
-
-	// Test PUT method also uses JSON binding
-	ctx, _ := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/route", `{"path":"/test","order":1}`)
-	var req FunctionRouteUpdateRequest
-	err := bindFunctionRequest(ctx, &req)
-	assert.NoError(t, err)
-	assert.Equal(t, "/test", req.Path)
 }
 
 func TestHandler_FunctionDelete_SuccessResponse(t *testing.T) {
@@ -1071,20 +960,6 @@ func TestHandler_FunctionDisable_DisableSuccess(t *testing.T) {
 
 	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/disable", `{"functionId":"test"}`)
 	h.FunctionDisable(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600)
-}
-
-func TestHandler_FunctionRouteUpdate_EmptyPath(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/route", `{"path":"","order":0}`)
-	h.FunctionRouteUpdate(ctx)
 
 	// Should not panic
 	assert.True(t, rec.Code >= 200 && rec.Code < 600)

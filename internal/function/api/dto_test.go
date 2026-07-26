@@ -187,7 +187,7 @@ func TestMetadataToProto_Complete(t *testing.T) {
 	dto := &FunctionMetadata{
 		ID:           "test.function",
 		Version:      "1.0.0",
-		Category:     "test",
+		Resource:     "test",
 		Name:         "Test Function",
 		Description:  "A test function",
 		Tags:         []string{"tag1", "tag2"},
@@ -218,8 +218,8 @@ func TestMetadataToProto_Complete(t *testing.T) {
 	if pb.Id != "test.function" {
 		t.Errorf("Id = %v, want test.function", pb.Id)
 	}
-	if pb.Category != "test" {
-		t.Errorf("Category = %v, want test", pb.Category)
+	if pb.Resource != "test" {
+		t.Errorf("Resource = %v, want test", pb.Resource)
 	}
 	if pb.Name != "Test Function" {
 		t.Errorf("Name = %v, want Test Function", pb.Name)
@@ -254,7 +254,7 @@ func TestProtoToMetadata_Complete(t *testing.T) {
 	pb := &functionv1.FunctionMetadata{
 		Id:           "test.function",
 		Version:      "1.0.0",
-		Category:     "test",
+		Resource:     "test",
 		Name:         "Test Function",
 		Description:  "A test function",
 		Tags:         []string{"tag1"},

@@ -1,6 +1,7 @@
 package function
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -26,7 +27,7 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 	if err != nil {
 		return nil, err
 	}
-	if req.Schema == nil {
+	if len(req.Schema) == 0 {
 		return nil, errorx.NewBadRequest("empty ui payload: schema is required")
 	}
 
@@ -41,15 +42,18 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 		meta = map[string]interface{}{}
 	}
 
-	if req.Schema != nil {
-		if isClearCustomUISchema(req.Schema) {
-			// 保留显式清理标记，解决 interface{} 无法区分 null 与未传字段的问题。
+	if len(req.Schema) > 0 {
+		if bytes.Equal(bytes.TrimSpace(req.Schema), []byte("null")) {
 			delete(meta, "ui")
 		} else {
-			if err := validateFormilySchema(req.Schema); err != nil {
+			schemaValue, err := jsonValueFromRaw(req.Schema)
+			if err != nil {
 				return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
 			}
-			meta["ui"] = req.Schema
+			if err := validateFormilySchema(schemaValue); err != nil {
+				return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+			}
+			meta["ui"] = schemaValue
 		}
 		updates["metadata"] = meta
 		fn.Metadata = meta
@@ -65,12 +69,17 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 	}
 
 	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
-	if err := validateFormilySchema(resolved.Schema); err != nil {
+	schema := rawJSONFromValue(resolved.Schema)
+	schemaValue, err := jsonValueFromRaw(schema)
+	if err != nil {
+		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+	}
+	if err := validateFormilySchema(schemaValue); err != nil {
 		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
 	}
 
 	return &FunctionUIResponse{
-		Schema:         resolved.Schema,
+		Schema:         schema,
 		Custom:         resolved.Custom,
 		HasDefault:     resolved.HasDefault,
 		UISource:       resolved.UISource,

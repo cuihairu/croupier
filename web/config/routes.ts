@@ -36,7 +36,7 @@ export default [
             path: '/system/foundation/resources',
             name: 'Resources',
             access: 'canFunctionsRead',
-            component: './Entities',
+            component: './Resources',
           },
         ],
       },
@@ -60,7 +60,7 @@ export default [
             path: '/system/functions/resources',
             name: 'Resources',
             access: 'canFunctionsRead',
-            component: './Entities',
+            component: './Resources',
             icon: 'apartment',
           },
           {
