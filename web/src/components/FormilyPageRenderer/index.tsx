@@ -8,6 +8,32 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import { createForm } from '@formily/core';
 import { createSchemaField, FormProvider, useForm } from '@formily/react';
+import {
+  ArrayCards,
+  ArrayCollapse,
+  ArrayItems,
+  ArrayTable,
+  ArrayTabs,
+  Cascader,
+  Checkbox,
+  DatePicker,
+  FormCollapse,
+  FormGrid,
+  FormItem,
+  FormStep,
+  FormTab,
+  Input,
+  NumberPicker,
+  Password,
+  Radio,
+  Select,
+  Space as FormilySpace,
+  Switch,
+  TimePicker,
+  Transfer,
+  TreeSelect,
+  Upload,
+} from '@formily/antd-v5';
 import { Alert, App, Button, Card, Space, Spin, Table, Timeline, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type {
@@ -543,6 +569,31 @@ export interface FormilyPageRendererProps {
 
 const SchemaField = createSchemaField({
   components: {
+    FormItem,
+    Input,
+    Password,
+    NumberPicker,
+    Select,
+    Switch,
+    DatePicker,
+    TimePicker,
+    ArrayTable,
+    ArrayItems,
+    ArrayCards,
+    ArrayCollapse,
+    ArrayTabs,
+    FormGrid,
+    FormCollapse,
+    FormTab,
+    FormStep,
+    Space: FormilySpace,
+    Card,
+    Checkbox,
+    Radio,
+    Cascader,
+    TreeSelect,
+    Transfer,
+    Upload,
     ConsolePage,
     QueryForm,
     DataTable,

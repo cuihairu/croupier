@@ -25,18 +25,6 @@ import (
 
 const rendererSchemaVersion = "formily-page:1"
 
-var supportedPageComponents = map[string]struct{}{
-	"ConsolePage":  {},
-	"QueryForm":    {},
-	"DataTable":    {},
-	"DetailPanel":  {},
-	"ActionButton": {},
-	"ActionGroup":  {},
-	"ResultPanel":  {},
-	"TaskTimeline": {},
-	"ChartPanel":   {},
-}
-
 type Service struct {
 	svcCtx *svc.ServiceContext
 }
@@ -123,10 +111,6 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	if !isValidPageType(req.Type) {
 		return nil, errorx.NewBadRequest("type must be entity, operation, task, or report")
 	}
-	if !isValidFormilySchema(req.Schema) {
-		return nil, errorx.NewBadRequest("schema must be a valid Formily JSON Schema")
-	}
-
 	categoryKey := strings.TrimSpace(req.Category.Key)
 	if categoryKey == "" {
 		categoryKey = inferCategoryFromKey(firstNonEmpty(req.ResourceKey, req.PageKey))
@@ -142,6 +126,9 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	categoryLabels := normalizeLocaleKeys(req.Category.Labels)
 	if !hasDefaultLocale(categoryLabels) {
 		return nil, errorx.NewBadRequest("category.labels must include zh-CN locale")
+	}
+	if diags := validatePageSchema(spec.FormilySchema(req.Schema), bindingsByID(req.Bindings), false); countErrors(diags) > 0 {
+		return nil, errorx.NewValidationErrorWithDetails("page schema validation failed", diagnosticsToDetails(diags))
 	}
 
 	now := time.Now()
@@ -579,17 +566,6 @@ func isValidPageType(t spec.PageType) bool {
 	}
 }
 
-func isValidFormilySchema(schema json.RawMessage) bool {
-	if len(schema) == 0 {
-		return false
-	}
-	var parsed map[string]any
-	if err := json.Unmarshal(schema, &parsed); err != nil {
-		return false
-	}
-	return parsed["type"] != nil || parsed["properties"] != nil || parsed["x-component"] != nil
-}
-
 func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publish bool) []spec.Diagnostic {
 	var diags []spec.Diagnostic
 	if !isValidPageType(page.Type) {
@@ -623,6 +599,17 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 
 	diags = append(diags, validatePageSchema(page.Schema, bindingsByID, publish)...)
 	return diags
+}
+
+func bindingsByID(bindings []spec.PageFunctionBinding) map[string]spec.PageFunctionBinding {
+	result := make(map[string]spec.PageFunctionBinding, len(bindings))
+	for _, binding := range bindings {
+		id := strings.TrimSpace(binding.ID)
+		if id != "" {
+			result[id] = binding
+		}
+	}
+	return result
 }
 
 func validateBinding(field string, binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec) []spec.Diagnostic {
@@ -676,86 +663,6 @@ func isValidExecutionMode(mode spec.PageExecutionMode) bool {
 	default:
 		return false
 	}
-}
-
-func validatePageSchema(schema spec.FormilySchema, bindings map[string]spec.PageFunctionBinding, publish bool) []spec.Diagnostic {
-	var diags []spec.Diagnostic
-	if len(schema) == 0 {
-		return []spec.Diagnostic{diagnostic("page_schema_missing", spec.SeverityError, "schema is required", "schema")}
-	}
-	var root map[string]any
-	if err := json.Unmarshal(schema, &root); err != nil {
-		return []spec.Diagnostic{diagnostic("page_schema_invalid_json", spec.SeverityError, "schema must be JSON object", "schema")}
-	}
-	component, _ := root["x-component"].(string)
-	if component != "ConsolePage" {
-		diags = append(diags, diagnostic("page_root_component_invalid", spec.SeverityError, "schema root x-component must be ConsolePage", "schema.x-component"))
-	}
-	if publish {
-		props, _ := root["x-component-props"].(map[string]any)
-		version, _ := props["schemaVersion"].(string)
-		if version != rendererSchemaVersion {
-			diags = append(diags, diagnostic("page_schema_version_invalid", spec.SeverityError, "ConsolePage schemaVersion must be "+rendererSchemaVersion, "schema.x-component-props.schemaVersion"))
-		}
-	}
-	walkSchema(root, "schema", bindings, &diags)
-	return diags
-}
-
-func walkSchema(node map[string]any, path string, bindings map[string]spec.PageFunctionBinding, diags *[]spec.Diagnostic) {
-	component, _ := node["x-component"].(string)
-	if component != "" {
-		if _, ok := supportedPageComponents[component]; !ok {
-			*diags = append(*diags, diagnostic("page_component_unknown", spec.SeverityError, "unknown page component: "+component, path+".x-component"))
-		}
-	}
-	props, _ := node["x-component-props"].(map[string]any)
-	if _, hasFunctionID := props["functionId"]; hasFunctionID {
-		*diags = append(*diags, diagnostic("page_schema_function_id_forbidden", spec.SeverityError, "page schema must reference bindingId, not functionId", path+".x-component-props.functionId"))
-	}
-	if bindingValue, hasBinding := props["bindingId"]; hasBinding {
-		bindingID, ok := bindingValue.(string)
-		if !ok || strings.TrimSpace(bindingID) == "" {
-			*diags = append(*diags, diagnostic("page_schema_binding_id_invalid", spec.SeverityError, "bindingId must be a non-empty string", path+".x-component-props.bindingId"))
-		} else if _, exists := bindings[bindingID]; !exists {
-			*diags = append(*diags, diagnostic("page_schema_binding_unknown", spec.SeverityError, "bindingId is not defined: "+bindingID, path+".x-component-props.bindingId"))
-		}
-	}
-	if component == "DataTable" {
-		requireStringProp(props, "bindingId", path, diags)
-		requireStringProp(props, "itemsPath", path, diags)
-		requireStringProp(props, "totalPath", path, diags)
-		requireStringProp(props, "pageField", path, diags)
-		requireStringProp(props, "pageSizeField", path, diags)
-		if _, hasColumns := props["columns"]; !hasColumns {
-			requireStringProp(props, "columnsPath", path, diags)
-		}
-	}
-	for key, child := range objectChildren(node["properties"]) {
-		walkSchema(child, path+".properties."+key, bindings, diags)
-	}
-}
-
-func requireStringProp(props map[string]any, key, path string, diags *[]spec.Diagnostic) {
-	value, ok := props[key].(string)
-	if !ok || strings.TrimSpace(value) == "" {
-		*diags = append(*diags, diagnostic("page_component_prop_missing", spec.SeverityError, key+" is required", path+".x-component-props."+key))
-	}
-}
-
-func objectChildren(value any) map[string]map[string]any {
-	props, ok := value.(map[string]any)
-	if !ok {
-		return nil
-	}
-	out := make(map[string]map[string]any)
-	for key, raw := range props {
-		child, ok := raw.(map[string]any)
-		if ok {
-			out[key] = child
-		}
-	}
-	return out
 }
 
 func buildBindingContracts(bindings []spec.PageFunctionBinding, functions map[string]spec.FunctionSpec) ([]spec.BindingContractSnapshot, error) {

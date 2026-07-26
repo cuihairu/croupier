@@ -204,11 +204,11 @@ func saveTestPageDraft(t *testing.T, service *Service, ctx context.Context) int 
 
 func testPageSchema() json.RawMessage {
 	return json.RawMessage(`{
-		"type":"object",
+		"type":"void",
 		"x-component":"ConsolePage",
 		"x-component-props":{"schemaVersion":"formily-page:1"},
 		"properties":{
-			"query":{"type":"object","x-component":"QueryForm","x-component-props":{"bindingId":"player.query"}}
+			"query":{"type":"void","x-component":"QueryForm","x-component-props":{"bindingId":"player.query"}}
 		}
 	}`)
 }
@@ -222,6 +222,130 @@ func testPageBindings() []spec.PageFunctionBinding {
 			Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
 		},
 	}
+}
+
+func TestValidatePageSchemaRejectsUnknownPageComponentProp(t *testing.T) {
+	diags := validatePageSchema(spec.FormilySchema(json.RawMessage(`{
+		"type":"void",
+		"x-component":"ConsolePage",
+		"x-component-props":{"schemaVersion":"formily-page:1","layout":"legacy"},
+		"properties":{
+			"query":{"type":"void","x-component":"QueryForm","x-component-props":{"bindingId":"player.query"}}
+		}
+	}`)), map[string]spec.PageFunctionBinding{
+		"player.query": {
+			ID:        "player.query",
+			Usage:     spec.BindingUsageQuery,
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		},
+	}, true)
+
+	assertDiagnostic(t, diags, "page_component_prop_unknown", "schema.x-component-props.layout")
+}
+
+func TestValidatePageSchemaAllowsFormilyFieldsInsideQueryForm(t *testing.T) {
+	diags := validatePageSchema(spec.FormilySchema(json.RawMessage(`{
+		"type":"void",
+		"x-component":"ConsolePage",
+		"x-component-props":{"schemaVersion":"formily-page:1"},
+		"properties":{
+			"query":{
+				"type":"void",
+				"x-component":"QueryForm",
+				"x-component-props":{"bindingId":"player.query"},
+				"properties":{
+					"keyword":{"type":"string","title":"关键字","x-component":"Input","x-component-props":{"placeholder":"玩家 ID"}}
+				}
+			}
+		}
+	}`)), map[string]spec.PageFunctionBinding{
+		"player.query": {
+			ID:        "player.query",
+			Usage:     spec.BindingUsageQuery,
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		},
+	}, true)
+
+	require.Empty(t, errorDiagnostics(diags))
+}
+
+func TestValidatePageSchemaRejectsDataTableWithoutColumnsContract(t *testing.T) {
+	diags := validatePageSchema(spec.FormilySchema(json.RawMessage(`{
+		"type":"void",
+		"x-component":"ConsolePage",
+		"x-component-props":{"schemaVersion":"formily-page:1"},
+		"properties":{
+			"table":{
+				"type":"void",
+				"x-component":"DataTable",
+				"x-component-props":{
+					"bindingId":"player.query",
+					"itemsPath":"items",
+					"totalPath":"total",
+					"pageField":"page",
+					"pageSizeField":"pageSize"
+				}
+			}
+		}
+	}`)), map[string]spec.PageFunctionBinding{
+		"player.query": {
+			ID:        "player.query",
+			Usage:     spec.BindingUsageQuery,
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		},
+	}, true)
+
+	assertDiagnostic(t, diags, "page_component_prop_missing", "schema.properties.table.x-component-props.columnsPath")
+}
+
+func TestValidatePageSchemaRejectsBindingUsageMismatch(t *testing.T) {
+	diags := validatePageSchema(spec.FormilySchema(json.RawMessage(`{
+		"type":"void",
+		"x-component":"ConsolePage",
+		"x-component-props":{"schemaVersion":"formily-page:1"},
+		"properties":{
+			"table":{
+				"type":"void",
+				"x-component":"DataTable",
+				"x-component-props":{
+					"bindingId":"player.ban",
+					"itemsPath":"items",
+					"totalPath":"total",
+					"pageField":"page",
+					"pageSizeField":"pageSize",
+					"columns":[{"title":"ID","dataIndex":"id"}]
+				}
+			}
+		}
+	}`)), map[string]spec.PageFunctionBinding{
+		"player.ban": {
+			ID:        "player.ban",
+			Usage:     spec.BindingUsageAction,
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		},
+	}, true)
+
+	assertDiagnostic(t, diags, "page_binding_usage_mismatch", "schema.properties.table.x-component-props.bindingId")
+}
+
+func assertDiagnostic(t *testing.T, diags []spec.Diagnostic, code string, field string) {
+	t.Helper()
+	for _, diag := range diags {
+		if diag.Code == code && diag.Field == field {
+			return
+		}
+	}
+	t.Fatalf("expected diagnostic %s at %s, got %#v", code, field, diags)
+}
+
+func errorDiagnostics(diags []spec.Diagnostic) []spec.Diagnostic {
+	var errors []spec.Diagnostic
+	for _, diag := range diags {
+		if diag.Severity == spec.SeverityError {
+			errors = append(errors, diag)
+		}
+	}
+	return errors
 }
 
 func grantPermission(t *testing.T, db *gorm.DB, roleID uint, permissionID string) {

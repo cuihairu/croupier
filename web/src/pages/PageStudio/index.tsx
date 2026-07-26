@@ -216,6 +216,18 @@ function errorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function diagnosticsFromApiError(error: unknown): Diagnostic[] {
+  const apiError = error as ApiErrorLike;
+  const details = apiError?.response?.data?.details;
+  if (!details) return [];
+  return Object.entries(details).map(([field, message]) => ({
+    code: 'server_validation_error',
+    severity: 'error',
+    field,
+    message: typeof message === 'string' ? message : JSON.stringify(message),
+  }));
+}
+
 function isRevisionConflict(error: unknown): error is ApiErrorLike {
   const apiError = error as ApiErrorLike;
   return apiError?.response?.status === 409;
@@ -485,6 +497,12 @@ export default function PageStudio() {
         });
         return;
       }
+      const nextDiagnostics = diagnosticsFromApiError(error);
+      if (nextDiagnostics.length > 0) {
+        setDiagnostics(nextDiagnostics);
+        message.error('保存草稿失败，请查看诊断');
+        return;
+      }
       message.error(errorMessage(error, '保存草稿失败'));
     }
   };
@@ -502,9 +520,19 @@ export default function PageStudio() {
 
   const previewCurrentDraft = async () => {
     if (!draft) return;
-    const page = await previewPageDraft(draft.pageKey);
-    setPreview(page);
-    message.success('预览已生成');
+    try {
+      const page = await previewPageDraft(draft.pageKey);
+      setPreview(page);
+      message.success('预览已生成');
+    } catch (error) {
+      const nextDiagnostics = diagnosticsFromApiError(error);
+      if (nextDiagnostics.length > 0) {
+        setDiagnostics(nextDiagnostics);
+        message.error('预览失败，请查看诊断');
+        return;
+      }
+      message.error(errorMessage(error, '预览失败'));
+    }
   };
 
   const publishCurrentDraft = async () => {
@@ -530,6 +558,12 @@ export default function PageStudio() {
             await loadDrafts();
           },
         });
+        return;
+      }
+      const nextDiagnostics = diagnosticsFromApiError(error);
+      if (nextDiagnostics.length > 0) {
+        setDiagnostics(nextDiagnostics);
+        message.error('发布失败，请查看诊断');
         return;
       }
       message.error(errorMessage(error, '发布失败'));
