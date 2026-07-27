@@ -55,37 +55,18 @@ func decodeOpenAPIDoc(doc []byte) (*openapi3.T, error) {
 	return &out, nil
 }
 
-func openAPIDocEntities(doc *openapi3.T) []map[string]interface{} {
+func openAPIDocResources(doc *openapi3.T) []map[string]interface{} {
 	if doc == nil {
 		return nil
 	}
-
-	// Extract entities from OpenAPI extensions
-	entities := make([]map[string]interface{}, 0)
-
-	// Check if OpenAPI doc has x-entities extension
-	if doc.Extensions != nil {
-		if entitiesExt, exists := doc.Extensions["x-entities"]; exists {
-			if entitiesArr, ok := entitiesExt.([]interface{}); ok {
-				for _, item := range entitiesArr {
-					if entity, ok := item.(map[string]interface{}); ok {
-						entities = append(entities, entity)
-					}
-				}
-			}
-		}
-	}
-
-	// Also expose resources from operation extensions for the old provider
-	// summary view while it is being removed.
-	entitySet := make(map[string]map[string]interface{})
+	resourceSet := make(map[string]map[string]interface{})
 	for _, pathItem := range doc.Paths.Map() {
 		for _, op := range pathItem.Operations() {
 			if op.Extensions != nil {
 				if resourceExt, exists := op.Extensions["x-resource"]; exists {
 					if resourceName, ok := resourceExt.(string); ok && resourceName != "" {
-						if _, exists := entitySet[resourceName]; !exists {
-							entitySet[resourceName] = map[string]interface{}{
+						if _, exists := resourceSet[resourceName]; !exists {
+							resourceSet[resourceName] = map[string]interface{}{
 								"name": resourceName,
 							}
 						}
@@ -95,12 +76,11 @@ func openAPIDocEntities(doc *openapi3.T) []map[string]interface{} {
 		}
 	}
 
-	// Merge unique entities
-	for _, entity := range entitySet {
-		entities = append(entities, entity)
+	resources := make([]map[string]interface{}, 0, len(resourceSet))
+	for _, resource := range resourceSet {
+		resources = append(resources, resource)
 	}
-
-	return entities
+	return resources
 }
 
 func openAPIDocFunctions(doc *openapi3.T) []map[string]interface{} {
@@ -154,9 +134,9 @@ func buildProviderMeta(caps reg.OpenAPIProviderCaps, includeDoc bool) map[string
 	doc, err := decodeOpenAPIDoc(caps.OpenAPIDoc)
 	if err == nil {
 		functions := openAPIDocFunctions(doc)
-		entities := openAPIDocEntities(doc)
+		resources := openAPIDocResources(doc)
 		meta["functions"] = len(functions)
-		meta["entities"] = len(entities)
+		meta["resources"] = len(resources)
 		if includeDoc {
 			meta["openapi"] = doc
 		}
@@ -166,7 +146,7 @@ func buildProviderMeta(caps reg.OpenAPIProviderCaps, includeDoc bool) map[string
 	return meta
 }
 
-func aggregateEntities(store *reg.Store) []map[string]interface{} {
+func aggregateResources(store *reg.Store) []map[string]interface{} {
 	if store == nil {
 		return nil
 	}
@@ -177,22 +157,22 @@ func aggregateEntities(store *reg.Store) []map[string]interface{} {
 		if err != nil {
 			continue
 		}
-		if entities := openAPIDocEntities(doc); len(entities) > 0 {
-			for _, entity := range entities {
-				entityCopy := map[string]interface{}{
+		if resources := openAPIDocResources(doc); len(resources) > 0 {
+			for _, resource := range resources {
+				resourceCopy := map[string]interface{}{
 					"provider_id": item.ID,
 				}
-				for k, v := range entity {
-					entityCopy[k] = v
+				for k, v := range resource {
+					resourceCopy[k] = v
 				}
-				out = append(out, entityCopy)
+				out = append(out, resourceCopy)
 			}
 		}
 	}
 	return out
 }
 
-func aggregateEntitiesForProvider(store *reg.Store, id string) ([]map[string]interface{}, error) {
+func aggregateResourcesForProvider(store *reg.Store, id string) ([]map[string]interface{}, error) {
 	caps, err := getProviderCaps(store, id)
 	if err != nil {
 		return nil, err
@@ -201,13 +181,13 @@ func aggregateEntitiesForProvider(store *reg.Store, id string) ([]map[string]int
 	if err != nil {
 		return nil, err
 	}
-	entities := openAPIDocEntities(doc)
-	result := make([]map[string]interface{}, 0, len(entities))
-	for _, entity := range entities {
+	resources := openAPIDocResources(doc)
+	result := make([]map[string]interface{}, 0, len(resources))
+	for _, resource := range resources {
 		entry := map[string]interface{}{
 			"provider_id": caps.ID,
 		}
-		for k, v := range entity {
+		for k, v := range resource {
 			entry[k] = v
 		}
 		result = append(result, entry)

@@ -104,6 +104,40 @@ func (h *Handler) CreateSource(c *gin.Context) {
 	response.Created(c, resp)
 }
 
+func (h *Handler) UpdateSource(c *gin.Context) {
+	var uriReq OpenAPISourceGetRequest
+	if err := c.ShouldBindUri(&uriReq); err != nil {
+		response.Error(c, err)
+		return
+	}
+	data, err := io.ReadAll(io.LimitReader(c.Request.Body, maxOpenAPISourceBytes+1))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	if len(data) > maxOpenAPISourceBytes {
+		response.BadRequest(c, "OpenAPI source exceeds 2 MiB limit")
+		return
+	}
+	req := OpenAPISourceUpdateRequest{
+		SourceID: uriReq.SourceID,
+		Spec:     json.RawMessage(data),
+	}
+	if json.Valid(data) {
+		var envelope OpenAPISourceUpdateRequest
+		if err := json.Unmarshal(data, &envelope); err == nil && len(envelope.Spec) > 0 {
+			req.Name = envelope.Name
+			req.Spec = envelope.Spec
+		}
+	}
+	resp, err := h.service.UpdateSource(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) ListSources(c *gin.Context) {
 	resp, err := h.service.ListSources(c.Request.Context(), &OpenAPISourceListRequest{})
 	if err != nil {

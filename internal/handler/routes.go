@@ -437,6 +437,7 @@ func registerOpenAPISourceRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/sources", openapiHandler.ListSources)
 	g.POST("/sources", openapiHandler.CreateSource)
 	g.GET("/sources/:sourceId", openapiHandler.GetSource)
+	g.PUT("/sources/:sourceId", openapiHandler.UpdateSource)
 	g.GET("/sources/:sourceId/diagnostics", openapiHandler.SourceDiagnostics)
 	g.POST("/sources/:sourceId/bindings", openapiHandler.CreateBinding)
 	g.DELETE("/sources/:sourceId/bindings/:bindingId", openapiHandler.DeleteBinding)
@@ -695,7 +696,7 @@ func registerProviderRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/capabilities", providerHandler.Capabilities)
 	g.GET("/descriptors", providerHandler.Descriptors)
 	g.GET("/:id", providerHandler.Get)
-	g.GET("/:id/entities", providerHandler.Entities)
+	g.GET("/:id/resources", providerHandler.Resources)
 	g.DELETE("/:id", providerHandler.Delete)
 	g.POST("/:id/reload", providerHandler.Reload)
 }

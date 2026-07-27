@@ -82,9 +82,9 @@ func (s *Service) Descriptors(ctx context.Context, req *ProvidersDescriptorsRequ
 			"lang":      provider.Lang,
 			"sdk":       provider.SDK,
 			"updatedAt": provider.UpdatedAt,
-			// Include functions and entities counts
+			// Include functions and resources counts
 			"functions": len(openAPIDocFunctions(doc)),
-			"entities":  len(openAPIDocEntities(doc)),
+			"resources": len(openAPIDocResources(doc)),
 			// Full OpenAPI doc
 			"openapi": doc,
 		}
@@ -106,26 +106,26 @@ func (s *Service) Detail(ctx context.Context, req *ProviderDetailRequest) (*Prov
 	return &meta, nil
 }
 
-// Entities returns the entities of providers
-func (s *Service) Entities(ctx context.Context, req *ProvidersEntitiesRequest) (*ProvidersEntitiesResponse, error) {
+// Resources returns the resources of providers
+func (s *Service) Resources(ctx context.Context, req *ProvidersResourcesRequest) (*ProvidersResourcesResponse, error) {
 	store, err := ensureRegistryStore(s.svcCtx.RegistryStore)
 	if err != nil {
 		return nil, err
 	}
 
-	var entities []map[string]interface{}
+	var resources []map[string]interface{}
 	if strings.TrimSpace(req.ID) == "" || req.ID == "*" {
-		entities = aggregateEntities(store)
+		resources = aggregateResources(store)
 	} else {
-		entities, err = aggregateEntitiesForProvider(store, req.ID)
+		resources, err = aggregateResourcesForProvider(store, req.ID)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &ProvidersEntitiesResponse{
-		Items: entities,
-		Total: len(entities),
+	return &ProvidersResourcesResponse{
+		Items: resources,
+		Total: len(resources),
 	}, nil
 }
 

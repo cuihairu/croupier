@@ -112,28 +112,6 @@ type FunctionSecurity struct {
 	MaskSensitiveData bool     `json:"mask_sensitive_data"`
 }
 
-// ImportFromOpenAPIRequest represents a request to import functions from OpenAPI.
-type ImportFromOpenAPIRequest struct {
-	Spec    []byte         `json:"spec" binding:"required"`
-	Options *ImportOptions `json:"options"`
-}
-
-// ImportFromOpenAPIResponse represents the response for importing functions.
-type ImportFromOpenAPIResponse struct {
-	Functions     []*FunctionMetadata `json:"functions"`
-	ImportedCount int                 `json:"imported_count"`
-	FailedCount   int                 `json:"failed_count"`
-	Errors        []string            `json:"errors,omitempty"`
-}
-
-// ImportOptions controls the import behavior.
-type ImportOptions struct {
-	ResourcePrefix   string `json:"resource_prefix,omitempty"`
-	TagPrefix        string `json:"tag_prefix,omitempty"`
-	DefaultTimeoutMs int32  `json:"default_timeout_ms,omitempty"`
-	ContinueOnError  bool   `json:"continue_on_error,omitempty"`
-}
-
 // ProtoToMetadata converts a proto FunctionMetadata to API DTO.
 func ProtoToMetadata(pb *functionv1.FunctionMetadata) *FunctionMetadata {
 	if pb == nil {

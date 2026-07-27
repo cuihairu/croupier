@@ -79,18 +79,6 @@ func createTestOpenAPIDoc() []byte {
 			Version: "1.0.0",
 		},
 		Paths: paths,
-		Extensions: map[string]interface{}{
-			"x-entities": []interface{}{
-				map[string]interface{}{
-					"name":        "user",
-					"description": "User entity",
-				},
-				map[string]interface{}{
-					"name":        "post",
-					"description": "Post entity",
-				},
-			},
-		},
 	}
 
 	data, _ := json.Marshal(doc)
@@ -226,44 +214,31 @@ func TestDecodeOpenAPIDoc_Success(t *testing.T) {
 	}
 }
 
-func TestOpenAPIDocEntities_NilDoc(t *testing.T) {
+func TestOpenAPIDocResources_NilDoc(t *testing.T) {
 	t.Parallel()
 
-	entities := openAPIDocEntities(nil)
-	if entities != nil {
+	resources := openAPIDocResources(nil)
+	if resources != nil {
 		t.Fatal("expected nil for nil doc")
 	}
 }
 
-func TestOpenAPIDocEntities_WithXEntities(t *testing.T) {
+func TestOpenAPIDocResources_IgnoresDocumentLevelResourceExtension(t *testing.T) {
 	t.Parallel()
 
-	// Use raw JSON because openapi3.T.MarshalJSON drops extensions
-	rawJSON := `{"openapi":"3.0.3","info":{"title":"Test","version":"1.0"},"paths":{},"x-entities":[{"name":"user","description":"User entity"},{"name":"post","description":"Post entity"}]}`
+	rawJSON := `{"openapi":"3.0.3","info":{"title":"Test","version":"1.0"},"paths":{},"x-resource":"player"}`
 	doc, _ := decodeOpenAPIDoc([]byte(rawJSON))
-	entities := openAPIDocEntities(doc)
+	resources := openAPIDocResources(doc)
 
-	if len(entities) != 2 {
-		t.Fatalf("expected 2 entities, got %d", len(entities))
-	}
-
-	// Check x-entities extension
-	foundUser := false
-	for _, e := range entities {
-		if name, ok := e["name"].(string); ok && name == "user" {
-			foundUser = true
-			break
-		}
-	}
-	if !foundUser {
-		t.Fatal("expected to find 'user' entity")
+	if len(resources) != 0 {
+		t.Fatalf("expected document-level x-resource to be ignored, got %d", len(resources))
 	}
 }
 
-func TestOpenAPIDocEntities_WithXResource(t *testing.T) {
+func TestOpenAPIDocResources_WithXResource(t *testing.T) {
 	t.Parallel()
 
-	// Create doc with x-resource in operations but no x-entities
+	// Create doc with x-resource in operations.
 	paths := openapi3.NewPaths()
 	paths.Set("/items", &openapi3.PathItem{
 		Get: &openapi3.Operation{
@@ -278,26 +253,26 @@ func TestOpenAPIDocEntities_WithXResource(t *testing.T) {
 		Paths: paths,
 	}
 
-	entities := openAPIDocEntities(doc)
-	if len(entities) != 1 {
-		t.Fatalf("expected 1 entity, got %d", len(entities))
+	resources := openAPIDocResources(doc)
+	if len(resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resources))
 	}
-	if entities[0]["name"] != "item" {
-		t.Fatalf("expected entity name 'item', got '%v'", entities[0]["name"])
+	if resources[0]["name"] != "item" {
+		t.Fatalf("expected resource name 'item', got '%v'", resources[0]["name"])
 	}
 }
 
-func TestOpenAPIDocEntities_EmptyDoc(t *testing.T) {
+func TestOpenAPIDocResources_EmptyDoc(t *testing.T) {
 	t.Parallel()
 
 	paths := openapi3.NewPaths()
 	doc := &openapi3.T{
 		Paths: paths,
 	}
-	entities := openAPIDocEntities(doc)
+	resources := openAPIDocResources(doc)
 
-	if len(entities) != 0 {
-		t.Fatalf("expected 0 entities, got %d", len(entities))
+	if len(resources) != 0 {
+		t.Fatalf("expected 0 resources, got %d", len(resources))
 	}
 }
 
@@ -331,11 +306,8 @@ func TestOpenAPIDocFunctions_Success(t *testing.T) {
 			if fn["path"] != "/users" {
 				t.Fatalf("expected path '/users', got '%v'", fn["path"])
 			}
-			if fn["category"] != "users" {
-				t.Fatalf("expected category 'users', got '%v'", fn["category"])
-			}
-			if fn["entity"] != "user" {
-				t.Fatalf("expected entity 'user', got '%v'", fn["entity"])
+			if fn["resource"] != "user" {
+				t.Fatalf("expected resource 'user', got '%v'", fn["resource"])
 			}
 			break
 		}
@@ -397,8 +369,8 @@ func TestBuildProviderMeta_WithDoc(t *testing.T) {
 	if meta["functions"] != 3 {
 		t.Fatalf("expected 3 functions, got %v", meta["functions"])
 	}
-	if meta["entities"] != 2 {
-		t.Fatalf("expected 2 entities, got %v", meta["entities"])
+	if meta["resources"] != 2 {
+		t.Fatalf("expected 2 resources, got %v", meta["resources"])
 	}
 	if meta["openapi"] == nil {
 		t.Fatal("expected openapi field to be set")
@@ -437,59 +409,59 @@ func TestBuildProviderMeta_InvalidDoc(t *testing.T) {
 	}
 }
 
-func TestAggregateEntities_NilStore(t *testing.T) {
+func TestAggregateResources_NilStore(t *testing.T) {
 	t.Parallel()
 
-	entities := aggregateEntities(nil)
-	if entities != nil {
+	resources := aggregateResources(nil)
+	if resources != nil {
 		t.Fatal("expected nil for nil store")
 	}
 }
 
-func TestAggregateEntities_Success(t *testing.T) {
+func TestAggregateResources_Success(t *testing.T) {
 	t.Parallel()
 
 	store := createMockStore()
-	entities := aggregateEntities(store)
+	resources := aggregateResources(store)
 
-	if len(entities) == 0 {
-		t.Fatal("expected entities from store")
+	if len(resources) == 0 {
+		t.Fatal("expected resources from store")
 	}
 
 	// Check that provider_id is included
-	for _, e := range entities {
+	for _, e := range resources {
 		if e["provider_id"] == nil {
-			t.Fatal("expected provider_id in each entity")
+			t.Fatal("expected provider_id in each resource")
 		}
 	}
 }
 
-func TestAggregateEntitiesForProvider_Success(t *testing.T) {
+func TestAggregateResourcesForProvider_Success(t *testing.T) {
 	t.Parallel()
 
 	store := createMockStore()
-	entities, err := aggregateEntitiesForProvider(store, "test-provider-1")
+	resources, err := aggregateResourcesForProvider(store, "test-provider-1")
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(entities) == 0 {
-		t.Fatal("expected entities for provider")
+	if len(resources) == 0 {
+		t.Fatal("expected resources for provider")
 	}
 
 	// Check provider_id
-	for _, e := range entities {
+	for _, e := range resources {
 		if e["provider_id"] != "test-provider-1" {
 			t.Fatalf("expected provider_id 'test-provider-1', got '%v'", e["provider_id"])
 		}
 	}
 }
 
-func TestAggregateEntitiesForProvider_InvalidProvider(t *testing.T) {
+func TestAggregateResourcesForProvider_InvalidProvider(t *testing.T) {
 	t.Parallel()
 
 	store := createMockStore()
-	_, err := aggregateEntitiesForProvider(store, "non-existent")
+	_, err := aggregateResourcesForProvider(store, "non-existent")
 
 	if err == nil {
 		t.Fatal("expected error for non-existent provider")
@@ -591,8 +563,8 @@ func TestService_Descriptors_WithProviders(t *testing.T) {
 		if m["id"] != providerID {
 			t.Fatal("manifest id should match provider id")
 		}
-		if m["functions"] == nil || m["entities"] == nil {
-			t.Fatal("expected functions and entities in manifest")
+		if m["functions"] == nil || m["resources"] == nil {
+			t.Fatal("expected functions and resources in manifest")
 		}
 		if m["openapi"] == nil {
 			t.Fatal("expected openapi field in manifest")
@@ -622,14 +594,14 @@ func TestService_Detail_Success(t *testing.T) {
 	}
 }
 
-func TestService_Entities_AllProviders(t *testing.T) {
+func TestService_Resources_AllProviders(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	store := createMockStore()
 	service := NewService(&svc.ServiceContext{RegistryStore: store})
 
-	resp, err := service.Entities(ctx, &ProvidersEntitiesRequest{
+	resp, err := service.Resources(ctx, &ProvidersResourcesRequest{
 		ID: "",
 	})
 
@@ -637,18 +609,18 @@ func TestService_Entities_AllProviders(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(resp.Items) == 0 {
-		t.Fatal("expected entities")
+		t.Fatal("expected resources")
 	}
 }
 
-func TestService_Entities_Wildcard(t *testing.T) {
+func TestService_Resources_Wildcard(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	store := createMockStore()
 	service := NewService(&svc.ServiceContext{RegistryStore: store})
 
-	resp, err := service.Entities(ctx, &ProvidersEntitiesRequest{
+	resp, err := service.Resources(ctx, &ProvidersResourcesRequest{
 		ID: "*",
 	})
 
@@ -656,18 +628,18 @@ func TestService_Entities_Wildcard(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(resp.Items) == 0 {
-		t.Fatal("expected entities")
+		t.Fatal("expected resources")
 	}
 }
 
-func TestService_Entities_SingleProvider(t *testing.T) {
+func TestService_Resources_SingleProvider(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	store := createMockStore()
 	service := NewService(&svc.ServiceContext{RegistryStore: store})
 
-	resp, err := service.Entities(ctx, &ProvidersEntitiesRequest{
+	resp, err := service.Resources(ctx, &ProvidersResourcesRequest{
 		ID: "test-provider-1",
 	})
 
@@ -675,10 +647,10 @@ func TestService_Entities_SingleProvider(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(resp.Items) == 0 {
-		t.Fatal("expected entities")
+		t.Fatal("expected resources")
 	}
 
-	// Verify all entities have the correct provider_id
+	// Verify all resources have the correct provider_id.
 	for _, item := range resp.Items {
 		if item["provider_id"] != "test-provider-1" {
 			t.Fatalf("expected provider_id 'test-provider-1', got '%v'", item["provider_id"])

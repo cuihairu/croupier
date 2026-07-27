@@ -15,6 +15,7 @@ import { setAppApi } from './utils/antdApp';
 import { getConsoleMenu } from './services/console';
 import type { ConsoleMenuSpec, LocalizedText } from './types/dashboard';
 import { loadAuthedInitialState, type InitialCurrentUser } from './services/initialState';
+import { getScope, subscribeScope, type Scope } from './stores/scope';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -30,6 +31,7 @@ type InitialState = {
   currentUser?: InitialCurrentUser;
   loading?: boolean;
   fetchUserInfo?: () => Promise<InitialCurrentUser | undefined>;
+  scope?: Scope;
 };
 
 type RuntimeMenuItem = {
@@ -164,11 +166,13 @@ export async function getInitialState(): Promise<InitialState> {
     return {
       fetchUserInfo,
       ...authedState,
+      scope: getScope(),
       settings: defaultSettings as Partial<LayoutSettings>,
     };
   }
   return {
     fetchUserInfo,
+    scope: getScope(),
     settings: defaultSettings as Partial<LayoutSettings>,
   };
 }
@@ -213,6 +217,17 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     }, [inst]);
     return null;
   };
+
+  const ScopeMenuRefresher: React.FC = () => {
+    useEffect(() => subscribeScope((scope) => {
+      setInitialState((previous) => ({
+        ...previous,
+        scope,
+      }));
+    }), []);
+    return null;
+  };
+
   return {
     actionsRender: () => [<HeaderActions key="header-actions" />],
     splitMenus: false,
@@ -221,6 +236,8 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
       locale: true,
       params: {
         authed: isAuthed,
+        gameId: initialState?.scope?.gameId || '',
+        env: initialState?.scope?.env || '',
       },
       request: async (params, defaultMenuData) => {
         if (!params.authed) return defaultMenuData;
@@ -264,6 +281,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
       return (
         <AntdApp>
           <AppApiRegistrar />
+          <ScopeMenuRefresher />
           {children}
           {isDev && (
             <SettingDrawer

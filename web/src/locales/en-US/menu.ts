@@ -23,6 +23,7 @@ export default {
   'menu.FunctionsAndPages.FunctionCatalog': 'Function Catalog',
   'menu.FunctionsAndPages.Resources': 'Resources / Operations',
   'menu.FunctionsAndPages.PageStudio': 'Page Studio',
+  'menu.FunctionsAndPages.OpenAPISources': 'OpenAPI Sources',
   'menu.FunctionsAndPages.FunctionInvoke': 'Function Invoke',
   'menu.FunctionsAndPages.FunctionUIDesigner': 'Function Form Designer',
   'menu.FunctionsAndPages.FunctionInstances': 'Instance Management',

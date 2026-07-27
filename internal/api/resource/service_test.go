@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/getkin/kin-openapi/openapi3"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,26 +87,50 @@ func TestServiceListCollectsRegistryDescriptorV2Metadata(t *testing.T) {
 	assert.Empty(t, banOp.Diagnostics)
 }
 
-func TestServiceGeneratedPagesCreatesConservativeOperationCandidates(t *testing.T) {
+func TestServiceGeneratedPagesCreatesEntityCandidateFromExplicitPageContract(t *testing.T) {
 	store := reg.NewStore()
+	require.NoError(t, store.UpsertOpenAPI("player.list", openAPIOperationWithPageContract("player", "list", map[string]interface{}{
+		"version":       "page-contract:1",
+		"inputMapping":  map[string]interface{}{"page": "values.page", "pageSize": "values.pageSize"},
+		"outputMapping": map[string]interface{}{"stateKey": "players"},
+		"pagination": map[string]interface{}{
+			"pageField":     "page",
+			"pageSizeField": "pageSize",
+			"itemsPath":     "items",
+			"totalPath":     "total",
+		},
+		"table": map[string]interface{}{
+			"columns": []interface{}{
+				map[string]interface{}{"key": "id", "title": map[string]interface{}{"zh-CN": "玩家ID"}, "valuePath": "id"},
+			},
+		},
+	})))
+	require.NoError(t, store.UpsertOpenAPI("player.ban", openAPIOperationWithPageContract("player", "ban", map[string]interface{}{
+		"version":       "page-contract:1",
+		"inputMapping":  map[string]interface{}{"playerId": "row.id", "reason": "values.reason"},
+		"outputMapping": map[string]interface{}{"stateKey": "banResult"},
+	})))
 	store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		ExpireAt: time.Now().Add(time.Minute),
 		LastSeen: time.Now(),
 		Functions: map[string]reg.FunctionMeta{
 			"player.list": {
-				Enabled:     true,
-				Version:     "1.0.0",
-				InputSchema: `{"type":"object"}`,
-				Resource:    "player",
-				Operation:   "list",
+				Enabled:      true,
+				Version:      "1.0.0",
+				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+				Resource:     "player",
+				Operation:    "list",
 			},
 			"player.ban": {
-				Enabled:     true,
-				Version:     "1.0.0",
-				InputSchema: `{"type":"object"}`,
-				Resource:    "player",
-				Operation:   "ban",
+				Enabled:      true,
+				Version:      "1.0.0",
+				InputSchema:  `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"}}}`,
+				OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+				Resource:     "player",
+				Operation:    "ban",
+				Risk:         "danger",
 			},
 		},
 	})
@@ -116,13 +142,13 @@ func TestServiceGeneratedPagesCreatesConservativeOperationCandidates(t *testing.
 	require.NotEmpty(t, resp.Items)
 
 	page := resp.Items[0]
-	assert.Equal(t, spec.PageTypeOperation, page.Type)
-	assert.Equal(t, "player.ban", page.PageKey)
+	assert.Equal(t, spec.PageTypeEntity, page.Type)
+	assert.Equal(t, "player.manage", page.PageKey)
 	assert.Equal(t, "player", page.Category.Key)
-	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
-	assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
-	assert.Contains(t, string(page.Schema), `"bindingId":"player.main"`)
-	assert.Equal(t, "needs_review", page.Quality)
+	assert.Contains(t, string(page.Schema), `"x-component":"DataTable"`)
+	assert.Contains(t, string(page.Schema), `"bindingId":"player.query"`)
+	assert.Contains(t, string(page.Schema), `"bindingId":"player.ban"`)
+	assert.Equal(t, "ready", page.Quality)
 	assert.NotContains(t, string(page.Schema), `"functionId"`)
 	assert.NotContains(t, string(page.Schema), `"operation":"update"`)
 }
@@ -157,6 +183,224 @@ func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
 	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
 	require.NotEmpty(t, page.Diagnostics)
 	assert.Equal(t, "page_contract_missing", page.Diagnostics[0].Code)
+}
+
+func TestServiceGeneratedPagesKeepsMailSendAsOperationPage(t *testing.T) {
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"mail.send": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				InputSchema:  `{"type":"object","properties":{"target":{"type":"string"},"content":{"type":"string"}}}`,
+				OutputSchema: `{"type":"object","properties":{"messageId":{"type":"string"}}}`,
+				Resource:     "mail",
+				Operation:    "send",
+			},
+		},
+	})
+
+	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:diagnose")
+	service := NewService(svcCtx)
+	resp, err := service.GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "mail"})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+
+	page := resp.Items[0]
+	assert.Equal(t, spec.PageTypeOperation, page.Type)
+	assert.Equal(t, "mail.send", page.PageKey)
+	assert.Equal(t, "needs_review", page.Quality)
+	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
+	assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
+	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
+}
+
+func TestServiceGeneratedPagesUsesBoundOpenAPISourcePageContract(t *testing.T) {
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.list": {Enabled: true, Version: "1.0.0"},
+		},
+	})
+
+	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:diagnose")
+	playerListContract := map[string]interface{}{
+		"version":       "page-contract:1",
+		"inputMapping":  map[string]interface{}{"page": "values.page", "pageSize": "values.pageSize"},
+		"outputMapping": map[string]interface{}{"stateKey": "players"},
+		"pagination": map[string]interface{}{
+			"pageField":     "page",
+			"pageSizeField": "pageSize",
+			"itemsPath":     "items",
+			"totalPath":     "total",
+		},
+		"table": map[string]interface{}{
+			"columns": []interface{}{
+				map[string]interface{}{"key": "id", "title": map[string]interface{}{"zh-CN": "玩家ID"}, "valuePath": "id"},
+			},
+		},
+	}
+	source := openAPISourceModel(
+		t,
+		"player-source",
+		"player.list",
+		"player",
+		"list",
+		playerListContract,
+		openAPISourceDocument(t, "player.list", "player", "list", playerListContract),
+	)
+	require.NoError(t, svcCtx.OpenAPISourceModel.Create(ctx, source))
+	require.NoError(t, svcCtx.OpenAPISourceBindingModel.Upsert(ctx, &model.OpenAPISourceBinding{
+		GameID:      "demo-game",
+		Env:         "development",
+		SourceID:    source.SourceID,
+		BindingID:   "player.list",
+		OperationID: "player.list",
+		Kind:        "provider",
+		FunctionID:  "player.list",
+	}))
+
+	resp, err := NewService(svcCtx).GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.Items)
+
+	page := resp.Items[0]
+	assert.Equal(t, spec.PageTypeEntity, page.Type)
+	assert.Equal(t, "ready", page.Quality)
+	assert.Contains(t, string(page.Schema), `"x-component":"DataTable"`)
+	assert.Contains(t, string(page.Schema), `"bindingId":"player.query"`)
+}
+
+func TestServiceListIgnoresUnboundOpenAPISource(t *testing.T) {
+	store := reg.NewStore()
+	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:read")
+	mailSendContract := map[string]interface{}{"version": "page-contract:1"}
+	source := openAPISourceModel(
+		t,
+		"mail-source",
+		"mail.send",
+		"mail",
+		"send",
+		mailSendContract,
+		openAPISourceDocument(t, "mail.send", "mail", "send", mailSendContract),
+	)
+	require.NoError(t, svcCtx.OpenAPISourceModel.Create(ctx, source))
+
+	resp, err := NewService(svcCtx).List(ctx, &ResourceListRequest{})
+	require.NoError(t, err)
+	assert.Empty(t, resp.Items)
+}
+
+func openAPIOperationWithPageContract(resource string, operation string, pageContract map[string]interface{}) *openapi3.Operation {
+	return &openapi3.Operation{
+		Extensions: map[string]interface{}{
+			"x-resource":      resource,
+			"x-operation":     operation,
+			"x-page-contract": pageContract,
+		},
+	}
+}
+
+func openAPISourceDocument(t *testing.T, operationID string, resource string, operation string, pageContract map[string]interface{}) json.RawMessage {
+	t.Helper()
+	doc := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Source API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/operation": map[string]interface{}{
+				"post": map[string]interface{}{
+					"operationId":     operationID,
+					"summary":         operationID,
+					"x-resource":      resource,
+					"x-operation":     operation,
+					"x-page-contract": pageContract,
+					"requestBody": map[string]interface{}{
+						"required": true,
+						"content": map[string]interface{}{
+							"application/json": map[string]interface{}{
+								"schema": map[string]interface{}{
+									"type": "object",
+									"properties": map[string]interface{}{
+										"page":     map[string]interface{}{"type": "integer"},
+										"pageSize": map[string]interface{}{"type": "integer"},
+									},
+								},
+							},
+						},
+					},
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{
+							"description": "OK",
+							"content": map[string]interface{}{
+								"application/json": map[string]interface{}{
+									"schema": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"items": map[string]interface{}{
+												"type":  "array",
+												"items": map[string]interface{}{"type": "object"},
+											},
+											"total": map[string]interface{}{"type": "integer"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	raw, err := json.Marshal(doc)
+	require.NoError(t, err)
+	return raw
+}
+
+func openAPISourceModel(
+	t *testing.T,
+	sourceID string,
+	operationID string,
+	resource string,
+	operation string,
+	pageContract map[string]interface{},
+	raw json.RawMessage,
+) *model.OpenAPISource {
+	t.Helper()
+	source := &model.OpenAPISource{
+		GameID:         "demo-game",
+		Env:            "development",
+		SourceID:       sourceID,
+		Name:           sourceID,
+		Revision:       1,
+		Format:         "json",
+		OpenAPIVersion: "3.0.3",
+		InfoTitle:      "Source API",
+		InfoVersion:    "1.0.0",
+		ContentHash:    "test-hash-" + sourceID,
+	}
+	source.SetSpec(raw)
+	require.NoError(t, source.SetOperations([]map[string]interface{}{
+		{
+			"operationId":  operationID,
+			"summary":      operationID,
+			"resource":     resource,
+			"operation":    operation,
+			"pageContract": pageContract,
+		},
+	}))
+	require.NoError(t, source.SetDiagnostics([]spec.Diagnostic{}))
+	return source
 }
 
 func TestServiceListRequiresResourcePermission(t *testing.T) {
@@ -203,14 +447,18 @@ func newResourceTestServiceContext(t *testing.T, store *reg.Store, permissions .
 
 	nullCache := cache.NewNullCache()
 	svcCtx := &svc.ServiceContext{
-		DB:              db,
-		AdminModel:      model.NewAdminModel(db),
-		RoleModel:       model.NewRoleModel(db),
-		PermissionModel: model.NewPermissionModel(db),
-		RegistryStore:   store,
-		Cache:           nullCache,
-		CacheHelper:     cache.NewCacheHelper(nullCache),
+		DB:                        db,
+		AdminModel:                model.NewAdminModel(db),
+		RoleModel:                 model.NewRoleModel(db),
+		PermissionModel:           model.NewPermissionModel(db),
+		RegistryStore:             store,
+		FunctionModel:             model.NewFunctionModel(db),
+		OpenAPISourceModel:        model.NewOpenAPISourceModel(db),
+		OpenAPISourceBindingModel: model.NewOpenAPISourceBindingModel(db),
+		Cache:                     nullCache,
+		CacheHelper:               cache.NewCacheHelper(nullCache),
 	}
-	ctx := context.WithValue(context.Background(), "username", admin.Username)
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
+	ctx = context.WithValue(ctx, "username", admin.Username)
 	return svcCtx, ctx
 }

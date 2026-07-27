@@ -36,6 +36,13 @@ const functionManagementRoutes = [
     icon: 'layout',
   },
   {
+    path: '/system/functions/openapi-sources',
+    name: 'OpenAPISources',
+    access: 'canOpenAPISourcesRead',
+    component: './OpenAPISources',
+    icon: 'cloudUpload',
+  },
+  {
     path: '/system/functions/invoke',
     name: 'FunctionInvoke',
     access: 'canFunctionsRead',

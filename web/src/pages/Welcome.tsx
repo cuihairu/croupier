@@ -210,7 +210,7 @@ const Welcome: React.FC = () => {
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
             <EntryCard
-              title="对象工作台"
+              title="资源/操作"
               hint="Page Studio 页面装配"
               description="从资源/操作候选进入 Page Studio，创建页面骨架、绑定函数、校验映射并发布到运行控制台。"
               actionLabel="查看页面候选"
@@ -234,7 +234,7 @@ const Welcome: React.FC = () => {
             <EntryCard
               title="运行控制台"
               hint="验证发布结果"
-              description="查看已经发布的对象工作台，确认运营入口、页面可读性和运行态反馈是否已经达到可交付标准。"
+              description="查看已经发布的 PageSpec，确认运营入口、页面可读性和运行态反馈是否已经达到可交付标准。"
               actionLabel="进入运行入口"
               path="/console/home"
               icon={<AppstoreOutlined />}

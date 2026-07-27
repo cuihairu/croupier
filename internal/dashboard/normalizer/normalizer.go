@@ -20,12 +20,14 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 )
 
+type jsonObject map[string]interface{}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 // DescriptorInput is the raw input to the normalizer. It can come from
-// SDK registration, OpenAPI import, or DB descriptor templates.
+// SDK registration, OpenAPI Source parsing, or DB descriptor templates.
 type DescriptorInput struct {
 	ID          string `json:"id"`
 	Version     string `json:"version"`
@@ -89,7 +91,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 	var inputSchema spec.JSONSchema
 	var inputFormilySchema spec.FormilySchema
 	if input.InputSchema != "" {
-		var parsed spec.JSONObject
+		var parsed jsonObject
 		if err := json.Unmarshal([]byte(input.InputSchema), &parsed); err != nil {
 			diags = append(diags, spec.Diagnostic{
 				Code:     "input_schema_invalid",
@@ -113,7 +115,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 
 	var outputSchema spec.JSONSchema
 	if input.OutputSchema != "" {
-		var parsed spec.JSONObject
+		var parsed jsonObject
 		if err := json.Unmarshal([]byte(input.OutputSchema), &parsed); err != nil {
 			diags = append(diags, spec.Diagnostic{
 				Code:     "output_schema_invalid",
@@ -300,19 +302,19 @@ func inferCategoryFromKey(key string) string {
 // deriveFormilySchema creates a basic Formily schema from a JSON Schema.
 // This is a minimal implementation; a full implementation would recursively
 // convert JSON Schema properties to Formily fields.
-func deriveFormilySchema(jsonSchema spec.JSONObject) spec.FormilySchema {
+func deriveFormilySchema(jsonSchema jsonObject) spec.FormilySchema {
 	// Create a Formily-compatible schema wrapper
-	formily := spec.JSONObject{
+	formily := jsonObject{
 		"type":       "object",
-		"properties": spec.JSONObject{},
+		"properties": jsonObject{},
 	}
 
 	// Extract properties from JSON Schema
 	if props, ok := asJSONObject(jsonSchema["properties"]); ok {
-		formilyProps := spec.JSONObject{}
+		formilyProps := jsonObject{}
 		for name, prop := range props {
 			if propMap, ok := asJSONObject(prop); ok {
-				field := spec.JSONObject{
+				field := jsonObject{
 					"type":        getOrDefault(propMap, "type", "string"),
 					"title":       getOrDefault(propMap, "title", name),
 					"x-component": mapTypeToComponent(getOrDefault(propMap, "type", "string")),
@@ -341,14 +343,14 @@ func deriveFormilySchema(jsonSchema spec.JSONObject) spec.FormilySchema {
 
 // minimalPayloadFormilySchema returns a Formily schema with a single "payload" field.
 func minimalPayloadFormilySchema() spec.FormilySchema {
-	schema := spec.JSONObject{
+	schema := jsonObject{
 		"type": "object",
-		"properties": spec.JSONObject{
-			"payload": spec.JSONObject{
+		"properties": jsonObject{
+			"payload": jsonObject{
 				"type":        "object",
 				"title":       "Payload",
 				"x-component": "Input.TextArea",
-				"x-component-props": spec.JSONObject{
+				"x-component-props": jsonObject{
 					"rows": 6,
 				},
 			},
@@ -359,19 +361,19 @@ func minimalPayloadFormilySchema() spec.FormilySchema {
 }
 
 // getOrDefault extracts a string value from a map or returns a default.
-func getOrDefault(m spec.JSONObject, key, defaultVal string) string {
+func getOrDefault(m jsonObject, key, defaultVal string) string {
 	if v, ok := m[key].(string); ok {
 		return v
 	}
 	return defaultVal
 }
 
-func asJSONObject(value spec.JSONValue) (spec.JSONObject, bool) {
+func asJSONObject(value interface{}) (jsonObject, bool) {
 	switch v := value.(type) {
-	case spec.JSONObject:
+	case jsonObject:
 		return v, true
 	case map[string]any:
-		return spec.JSONObject(v), true
+		return jsonObject(v), true
 	default:
 		return nil, false
 	}

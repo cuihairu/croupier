@@ -155,41 +155,15 @@ func TestHandler_DeleteFunction_InvalidID(t *testing.T) {
 	True(t, w.Code == http.StatusNotFound || w.Code == http.StatusMovedPermanently)
 }
 
-func TestHandler_ImportFromOpenAPI_EmptySpec(t *testing.T) {
+func TestHandler_UnknownMetadataRouteNotFound(t *testing.T) {
 	router, _ := setupTestRouter()
 
-	reqBody := `{"spec": ""}`
-	req := httptest.NewRequest("POST", "/api/v1/metadata/functions/import/openapi", strings.NewReader(reqBody))
+	req := httptest.NewRequest("POST", "/api/v1/metadata/functions/removed-route", strings.NewReader("invalid json"))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty spec may return 200 with 0 imports or 400
-	True(t, w.Code == http.StatusOK || w.Code == http.StatusBadRequest)
-}
-
-func TestHandler_ImportFromOpenAPI_InvalidBase64(t *testing.T) {
-	router, _ := setupTestRouter()
-
-	reqBody := `{"spec": "not-valid-base64!!!"}`
-	req := httptest.NewRequest("POST", "/api/v1/metadata/functions/import/openapi", strings.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	// Invalid base64 may return 400 or 500
-	True(t, w.Code == http.StatusBadRequest || w.Code == http.StatusInternalServerError)
-}
-
-func TestHandler_ImportFromOpenAPI_InvalidJSON(t *testing.T) {
-	router, _ := setupTestRouter()
-
-	req := httptest.NewRequest("POST", "/api/v1/metadata/functions/import/openapi", strings.NewReader("invalid json"))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	Equal(t, http.StatusBadRequest, w.Code)
+	Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestHandler_GetResources_Empty(t *testing.T) {

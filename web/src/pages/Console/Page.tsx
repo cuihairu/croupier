@@ -23,6 +23,17 @@ export default function ConsolePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [errorCode, setErrorCode] = useState<string>('');
+  const actualCategoryKey = page?.category?.key || '';
+  const canonicalPath =
+    page && actualCategoryKey
+      ? `/console/${encodeURIComponent(actualCategoryKey)}/${encodeURIComponent(page.pageKey)}`
+      : '';
+  const shouldRedirectCanonical = !!(
+    page &&
+    actualCategoryKey &&
+    actualCategoryKey !== categoryKey &&
+    canonicalPath
+  );
 
   useEffect(() => {
     if (!pageKey) return;
@@ -60,6 +71,12 @@ export default function ConsolePage() {
       mounted = false;
     };
   }, [pageKey]);
+
+  useEffect(() => {
+    if (!page) return;
+    if (!shouldRedirectCanonical) return;
+    history.replace(canonicalPath);
+  }, [canonicalPath, page, shouldRedirectCanonical]);
 
   // 页面标题
   const pageTitle = page?.title
@@ -136,7 +153,19 @@ export default function ConsolePage() {
     );
   }
 
+  if (shouldRedirectCanonical) {
+    return (
+      <PageContainer title="正在跳转...">
+        <div style={{ textAlign: 'center', padding: '100px 0' }}>
+          <Spin size="large" tip="正在跳转到页面发布分类..." />
+        </div>
+      </PageContainer>
+    );
+  }
+
   // 渲染页面
+  const breadcrumbCategoryKey = actualCategoryKey || categoryKey;
+
   return (
     <PageContainer
       title={pageTitle}
@@ -144,8 +173,8 @@ export default function ConsolePage() {
       breadcrumb={{
         items: [
           { title: '运行控制台', href: '/console' },
-          ...(categoryKey
-            ? [{ title: categoryKey, href: `/console/${encodeURIComponent(categoryKey)}` }]
+          ...(breadcrumbCategoryKey
+            ? [{ title: breadcrumbCategoryKey, href: `/console/${encodeURIComponent(breadcrumbCategoryKey)}` }]
             : []),
           { title: pageTitle },
         ],

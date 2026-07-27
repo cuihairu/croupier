@@ -147,5 +147,5 @@ type ResourceDiagnostic struct {
 ## 相关文档
 
 - [Dashboard Resource/Page 模型](../architecture/dashboard-page-model.md)
-- [Page Studio API](./workspace.md)
+- [Page Studio API](./page.md)
 - [函数 API](./function.md)

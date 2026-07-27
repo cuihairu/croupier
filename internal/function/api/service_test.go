@@ -107,64 +107,6 @@ func TestService_Update_NotFound(t *testing.T) {
 	assert.Equal(t, ErrNotFound, err)
 }
 
-func TestService_ImportFromOpenAPI(t *testing.T) {
-	store := registry.NewStore()
-	service := NewService(store)
-
-	spec := []byte(`{
-		"openapi": "3.0.0",
-		"info": {"title": "Test", "version": "1.0.0"},
-		"paths": {
-			"/players": {
-				"get": {
-					"operationId": "player.list",
-					"summary": "List players"
-				}
-			}
-		}
-	}`)
-
-	metadatas, err := service.ImportFromOpenAPI(context.Background(), spec, nil)
-	assert.Nil(t, err)
-	assert.True(t, len(metadatas) > 0)
-}
-
-func TestService_ImportFromOpenAPI_WithOptions(t *testing.T) {
-	store := registry.NewStore()
-	service := NewService(store)
-
-	spec := []byte(`{
-		"openapi": "3.0.0",
-		"info": {"title": "Test", "version": "1.0.0"},
-		"paths": {
-			"/games": {
-				"post": {
-					"operationId": "game.create",
-					"summary": "Create game"
-				}
-			}
-		}
-	}`)
-
-	resourcePrefix := "api"
-	opts := &ImportOptions{
-		ResourcePrefix:   resourcePrefix,
-		DefaultTimeoutMs: 60000,
-	}
-
-	metadatas, err := service.ImportFromOpenAPI(context.Background(), spec, opts)
-	assert.Nil(t, err)
-	assert.True(t, len(metadatas) > 0)
-}
-
-func TestService_ImportFromOpenAPI_InvalidSpec(t *testing.T) {
-	store := registry.NewStore()
-	service := NewService(store)
-
-	_, err := service.ImportFromOpenAPI(context.Background(), []byte("{invalid"), nil)
-	assert.NotNil(t, err)
-}
-
 func TestService_List_WithFilters(t *testing.T) {
 	store := registry.NewStore()
 	service := NewService(store)

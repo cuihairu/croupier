@@ -44,7 +44,7 @@ OpenAPI Operation / SDK descriptor / DB template
 
 | 阶段 | 输入 | 产物 | 责任人 | 是否最终 UI |
 | --- | --- | --- | --- | --- |
-| 函数注册 / OpenAPI 导入 | ID、版本、输入/输出 schema、描述、风险和可选业务归属 key | FunctionSpec | 服务开发者或 OpenAPI 所有者 | 否 |
+| 函数注册 / OpenAPI Source 解析 | ID、版本、输入/输出 schema、描述、风险和可选业务归属 key | FunctionSpec | 服务开发者或 OpenAPI 所有者 | 否 |
 | Server 归一化与生成 | FunctionSpec、JSON Schema、业务归属 key | 自动派生 Function Form + 保守 PageCandidate + diagnostics | Server | 否，可随契约重新生成 |
 | Page Studio | PageCandidate、binding、数据映射、组件 ABI | PageDraft -> PublishedPageSpec | 页面管理员 / 运营 | 是，发布后冻结 |
 
@@ -98,16 +98,34 @@ OpenAPI file / pasted document
 
 未绑定执行器的 Source 只能作为契约目录和页面候选输入，不能发布包含可执行 binding 的页面；绑定后才形成可调用 FunctionSpec。HTTP Connector 的凭据和目标地址不允许写进 OpenAPI 文件、PageSpec 或前端请求。
 
+当前实现只把 `provider` binding 的 operation 合并进 Resource/PageCandidate 生成视图：`operationId -> functionId` 必须显式绑定，且该 `functionId` 必须来自当前 scope 已注册 Provider。未绑定 Source 不会伪造成可执行函数，也不会绕过 PageSpec 发布校验。
+
 当前 API：
 
 ```text
 GET    /api/v1/openapi/sources
 POST   /api/v1/openapi/sources                 # multipart file、raw JSON/YAML 或 { name, spec }
 GET    /api/v1/openapi/sources/:sourceId
+PUT    /api/v1/openapi/sources/:sourceId       # raw JSON/YAML 或 { name, spec }，生成新 revision
 POST   /api/v1/openapi/sources/:sourceId/bindings
 DELETE /api/v1/openapi/sources/:sourceId/bindings/:bindingId
 GET    /api/v1/openapi/sources/:sourceId/diagnostics
 ```
+
+固定系统入口是 `/system/functions/openapi-sources`。该页面只管理 Source、operation diagnostics 和 Provider binding，不是运行控制台动态菜单，也不决定 Page UI；运行页面仍必须在 Page Studio 中保存、校验、发布。
+
+权限规则：
+
+- 读取 Source、operation、diagnostics、binding：`openapi_sources:read`，或具备 `openapi_sources:write/resources:read/resources:diagnose/functions:read/functions:manage/pages:read/pages:edit`。
+- 上传或更新 Source、创建或删除 Provider binding：`openapi_sources:write`，或具备 `resources:diagnose/functions:manage/pages:edit`。
+
+审计和追踪规则：
+
+- 上传 Source 写 `openapi_source.create` 审计事件，记录 `game_id/env/source_id/revision/format/openapi_version/operation_count/diagnostic_count/content_hash`。
+- 更新 Source 写 `openapi_source.update` 审计事件，记录 `game_id/env/source_id/previous_revision/revision/format/openapi_version/operation_count/diagnostic_count/content_hash`。
+- 创建 Provider binding 写 `openapi_source.binding_create` 审计事件，记录 `source_id/revision/binding_id/operation_id/function_id/provider_id`。
+- 删除 Provider binding 写 `openapi_source.binding_delete` 审计事件，记录 `source_id/revision/binding_id`。
+- Source 管理 span 使用 `openapi.source.create`、`openapi.source.update`、`openapi.source.binding.create`、`openapi.source.binding.delete`，只记录 scope、source、operation、binding、function、provider 等非敏感字段，不记录 OpenAPI 原文、示例 payload 或 Secret。
 
 当前实现已切断历史 `POST /api/v1/openapi/import` 路由。Source 上传不会写入 runtime registry；`provider` binding 可以显式绑定当前 scope 内已注册函数。`httpConnector` 仍未启用，必须等 allowlist、SecretRef、超时/重试和审计策略完整后才能开放。
 
@@ -122,7 +140,7 @@ category / entity / operation / risk
 这不足以稳定生成游戏运营后台页面，原因是：
 
 - `operation` 被混用成 CRUD 类型和业务动作名。
-- `entity` 被误解成数据库表或通用 CRUD 页面，导致所有函数被塞进“实体管理”。
+- 资源被误解成数据库表或通用 CRUD 页面，导致所有函数被强行塞进同一种页面形态。
 - 函数注册和页面发布边界不清，容易把菜单、显示名、按钮位置和布局塞回 SDK。
 - 缺少统一的 Server 归一化模型，前端只能退回函数名猜测。
 

@@ -75,7 +75,7 @@ SDK / OpenAPI / DB Template
 | `PublishedPageSpec` | 已校验、冻结函数契约、可运行的页面快照 | 继续猜测和补全 |
 | `ConsoleMenuSpec` | 从已发布页面生成的左侧运行控制台菜单 | 保存业务配置 |
 
-`Workspace` 不是 Dashboard 领域模型。历史的 WorkspaceConfig 已废弃；用户面对的编辑入口叫 **Page Studio（页面工作台）**，运行入口叫 **运行控制台**。两者分别操作草稿和已发布快照，不能共享旧 `WorkspaceConfig`、`objectKey` 或 `layout` 概念。
+Dashboard 领域模型只包含页面装配和运行执行两个入口：**Page Studio（页面工作台）** 管理 PageSpec 草稿，**运行控制台** 渲染已发布快照。两者分别操作草稿和发布态，所有页面 UI 必须以 PageSpec/Formily 为准。
 
 ## 概念边界
 

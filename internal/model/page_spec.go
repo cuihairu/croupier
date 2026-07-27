@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // PageSpec stores the draft state of a page.
@@ -147,10 +148,10 @@ func (PublishedPageSpec) TableName() string {
 type PageVersion struct {
 	ID        uint      `gorm:"primarykey" json:"id"`
 	CreatedAt time.Time `json:"createdAt"`
-	GameID    string    `gorm:"size:64;not null;default:'';index:idx_page_versions_scope_key,priority:1" json:"gameId"`
-	Env       string    `gorm:"size:64;not null;default:'';index:idx_page_versions_scope_key,priority:2" json:"env"`
-	PageKey   string    `gorm:"size:128;not null;index:idx_page_versions_scope_key,priority:3" json:"pageKey"`
-	Version   int       `gorm:"index" json:"version"`
+	GameID    string    `gorm:"size:64;not null;default:'';index:idx_page_versions_scope_key,priority:1;uniqueIndex:uidx_page_versions_scope_key_version,priority:1" json:"gameId"`
+	Env       string    `gorm:"size:64;not null;default:'';index:idx_page_versions_scope_key,priority:2;uniqueIndex:uidx_page_versions_scope_key_version,priority:2" json:"env"`
+	PageKey   string    `gorm:"size:128;not null;index:idx_page_versions_scope_key,priority:3;uniqueIndex:uidx_page_versions_scope_key_version,priority:3" json:"pageKey"`
+	Version   int       `gorm:"index;uniqueIndex:uidx_page_versions_scope_key_version,priority:4" json:"version"`
 	SpecJSON  string    `gorm:"type:json" json:"-"`    // Full PageSpec JSON
 	Status    string    `gorm:"size:32" json:"status"` // draft/published
 	Message   string    `gorm:"size:512" json:"message,omitempty"`
@@ -326,9 +327,22 @@ func (m *PageVersionModel) ListByScopeAndPageKey(ctx context.Context, gameID, en
 	return items, nil
 }
 
-// Create inserts a new page version record.
-func (m *PageVersionModel) Create(ctx context.Context, pv *PageVersion) error {
-	return m.db.WithContext(ctx).Create(pv).Error
+// UpsertByScopePageKeyVersion stores one logical snapshot per PageIdentity version.
+func (m *PageVersionModel) UpsertByScopePageKeyVersion(ctx context.Context, pv *PageVersion) error {
+	return m.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{
+			{Name: "game_id"},
+			{Name: "env"},
+			{Name: "page_key"},
+			{Name: "version"},
+		},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"spec_json",
+			"status",
+			"message",
+			"created_by",
+		}),
+	}).Create(pv).Error
 }
 
 // GetNextVersion returns the next version number for a scoped page.

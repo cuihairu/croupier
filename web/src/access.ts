@@ -35,6 +35,22 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
   const canConsoleRead = hasAny('console:read', 'pages:read', 'function:invoke');
   const canResourcesRead = hasAny('resources:read', 'resources:diagnose', 'functions:read', 'functions:manage');
   const canFunctionsRead = hasAny('functions:read', 'functions:manage');
+  const canOpenAPISourcesRead = hasAny(
+    'openapi_sources:read',
+    'openapi_sources:write',
+    'resources:read',
+    'resources:diagnose',
+    'functions:read',
+    'functions:manage',
+    'pages:read',
+    'pages:edit',
+  );
+  const canOpenAPISourcesWrite = hasAny(
+    'openapi_sources:write',
+    'resources:diagnose',
+    'functions:manage',
+    'pages:edit',
+  );
   const canSystemConfigRead =
     hasAny(
       'games:read',
@@ -69,6 +85,8 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
     canPageRollback,
     canPageDelete,
     canResourcesRead,
+    canOpenAPISourcesRead,
+    canOpenAPISourcesWrite,
     // 运维管理（Ops）
     canOpsRead: hasAny(
       'ops:read',

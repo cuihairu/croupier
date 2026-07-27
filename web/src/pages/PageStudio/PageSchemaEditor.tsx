@@ -20,6 +20,13 @@ type ComponentEntry = {
   props: SchemaRecord;
 };
 
+type PropField = {
+  key: string;
+  label: string;
+  kind: 'string' | 'binding' | 'json';
+  placeholder?: string;
+};
+
 type PageSchemaEditorProps = {
   schema: FormilySchema;
   bindings: PageFunctionBinding[];
@@ -46,6 +53,53 @@ const COMPONENT_USAGE: Record<PageComponent, string[]> = {
   ResultPanel: ['query', 'action', 'task', 'report'],
   TaskTimeline: ['task'],
   ChartPanel: ['report'],
+};
+
+const COMPONENT_FIELDS: Record<PageComponent, PropField[]> = {
+  QueryForm: [
+    { key: 'bindingId', label: 'bindingId', kind: 'binding' },
+    { key: 'resultStateKey', label: '结果状态 key', kind: 'string', placeholder: 'players' },
+    { key: 'inputMapping', label: 'inputMapping', kind: 'json', placeholder: '{"keyword":"values.keyword"}' },
+  ],
+  DataTable: [
+    { key: 'bindingId', label: 'bindingId', kind: 'binding' },
+    { key: 'itemsPath', label: 'itemsPath', kind: 'string', placeholder: 'items' },
+    { key: 'totalPath', label: 'totalPath', kind: 'string', placeholder: 'total' },
+    { key: 'pageField', label: 'pageField', kind: 'string', placeholder: 'page' },
+    { key: 'pageSizeField', label: 'pageSizeField', kind: 'string', placeholder: 'pageSize' },
+    { key: 'columnsPath', label: 'columnsPath', kind: 'string', placeholder: 'columns' },
+  ],
+  DetailPanel: [
+    { key: 'bindingId', label: 'bindingId', kind: 'binding' },
+    { key: 'stateKey', label: 'stateKey', kind: 'string', placeholder: 'detail' },
+    { key: 'dataPath', label: 'dataPath', kind: 'string', placeholder: 'data' },
+  ],
+  ActionButton: [
+    { key: 'bindingId', label: 'bindingId', kind: 'binding' },
+    { key: 'label', label: '按钮文案', kind: 'string', placeholder: '执行' },
+    { key: 'risk', label: '风险', kind: 'string', placeholder: 'danger' },
+    { key: 'inputMapping', label: 'inputMapping', kind: 'json', placeholder: '{"playerId":"values.playerId"}' },
+  ],
+  ActionGroup: [
+  ],
+  ResultPanel: [
+    { key: 'bindingId', label: 'bindingId', kind: 'binding' },
+    { key: 'stateKey', label: 'stateKey', kind: 'string', placeholder: 'lastExecution' },
+    { key: 'dataPath', label: 'dataPath', kind: 'string', placeholder: 'data' },
+  ],
+  TaskTimeline: [
+    { key: 'bindingId', label: 'bindingId', kind: 'binding' },
+    { key: 'stateKey', label: 'stateKey', kind: 'string', placeholder: 'task' },
+  ],
+  ChartPanel: [
+    { key: 'bindingId', label: 'bindingId', kind: 'binding' },
+    { key: 'stateKey', label: 'stateKey', kind: 'string', placeholder: 'report' },
+    { key: 'dataPath', label: 'dataPath', kind: 'string', placeholder: 'items' },
+    { key: 'chartType', label: 'chartType', kind: 'string', placeholder: 'line' },
+    { key: 'categoryPath', label: 'categoryPath', kind: 'string', placeholder: 'date' },
+    { key: 'seriesPath', label: 'seriesPath', kind: 'string', placeholder: 'series' },
+    { key: 'valuePath', label: 'valuePath', kind: 'string', placeholder: 'value' },
+  ],
 };
 
 function isRecord(value: unknown): value is SchemaRecord {
@@ -148,20 +202,35 @@ function bindingOptions(bindings: PageFunctionBinding[], component: PageComponen
     }));
 }
 
-function hasBindingProp(props: SchemaRecord): boolean {
-  return typeof props.bindingId === 'string';
-}
-
 function toJSONValue(value: SchemaRecord): JSONValue {
   return JSON.parse(JSON.stringify(value)) as JSONValue;
+}
+
+function propText(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function recordArray(value: unknown): SchemaRecord[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
 }
 
 export default function PageSchemaEditor({ schema, bindings, onChange }: PageSchemaEditorProps) {
   const entries = componentEntries(schema);
   const [propsTexts, setPropsTexts] = useState<Record<string, string>>({});
+  const [jsonFieldTexts, setJsonFieldTexts] = useState<Record<string, string>>({});
+  const [actionMappingTexts, setActionMappingTexts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setPropsTexts(Object.fromEntries(entries.map((entry) => [entry.key, stringifyJSON(entry.props)])));
+    setJsonFieldTexts(Object.fromEntries(
+      entries.flatMap((entry) => COMPONENT_FIELDS[entry.component]
+        .filter((field) => field.kind === 'json')
+        .map((field) => [`${entry.key}:${field.key}`, stringifyJSON(entry.props[field.key])])),
+    ));
+    setActionMappingTexts(Object.fromEntries(
+      entries.flatMap((entry) => ['rowActions', 'actions'].flatMap((key) => recordArray(entry.props[key])
+        .map((action, index) => [`${entry.key}:${key}:${index}`, stringifyJSON(action.inputMapping)]))),
+    ));
   }, [schema]);
 
   const updateEntry = (entryKey: string, nextEntry: ComponentEntry) => {
@@ -192,6 +261,82 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
     }));
   };
 
+  const updateProp = (entry: ComponentEntry, key: string, value: unknown) => {
+    const nextProps = { ...entry.props };
+    if (value === undefined || value === '') {
+      delete nextProps[key];
+    } else {
+      nextProps[key] = value;
+    }
+    updateEntry(entry.key, { ...entry, props: nextProps });
+  };
+
+  const updateArrayItem = (
+    entry: ComponentEntry,
+    key: 'columns' | 'rowActions' | 'actions',
+    index: number,
+    updater: (item: SchemaRecord) => SchemaRecord,
+  ) => {
+    const items = recordArray(entry.props[key]);
+    updateProp(entry, key, items.map((item, itemIndex) => (itemIndex === index ? updater(item) : item)));
+  };
+
+  const addColumn = (entry: ComponentEntry) => {
+    const columns = recordArray(entry.props.columns);
+    const nextProps: SchemaRecord = {
+      ...entry.props,
+      columns: [
+        ...columns,
+        {
+          title: `Column ${columns.length + 1}`,
+          dataIndex: `field${columns.length + 1}`,
+        },
+      ],
+    };
+    delete nextProps.columnsPath;
+    updateEntry(entry.key, { ...entry, props: nextProps });
+  };
+
+  const removeArrayItem = (entry: ComponentEntry, key: 'columns' | 'rowActions' | 'actions', index: number) => {
+    updateProp(entry, key, recordArray(entry.props[key]).filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const addAction = (entry: ComponentEntry, key: 'rowActions' | 'actions') => {
+    const actions = recordArray(entry.props[key]);
+    const bindingId = bindings.find((binding) => binding.usage === 'action' || binding.usage === 'task')?.id;
+    updateProp(entry, key, [
+      ...actions,
+      {
+        ...(bindingId ? { bindingId } : {}),
+        label: bindingId || `Action ${actions.length + 1}`,
+        inputMapping: {},
+      },
+    ]);
+  };
+
+  const updateJsonFieldText = (entryKey: string, fieldKey: string, value: string) => {
+    setJsonFieldTexts((previous) => ({
+      ...previous,
+      [`${entryKey}:${fieldKey}`]: value,
+    }));
+  };
+
+  const updateActionMappingText = (entryKey: string, key: 'rowActions' | 'actions', index: number, value: string) => {
+    setActionMappingTexts((previous) => ({
+      ...previous,
+      [`${entryKey}:${key}:${index}`]: value,
+    }));
+  };
+
+  const commitJsonProp = (entry: ComponentEntry, fieldKey: string, value: string) => {
+    const text = value.trim();
+    if (!text) {
+      updateProp(entry, fieldKey, undefined);
+      return;
+    }
+    updateProp(entry, fieldKey, JSON.parse(text) as JSONValue);
+  };
+
   const commitPropsText = (entry: ComponentEntry, value: string) => {
     const nextProps = normalizeJSON(value);
     if (!nextProps) return;
@@ -199,6 +344,182 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
       ...entry,
       props: toJSONValue(nextProps) as SchemaRecord,
     });
+  };
+
+  const renderPropField = (entry: ComponentEntry, field: PropField) => {
+    if (field.kind === 'binding') {
+      return (
+        <Select
+          allowClear
+          placeholder={field.placeholder || field.label}
+          value={typeof entry.props[field.key] === 'string' ? entry.props[field.key] as string : undefined}
+          options={bindingOptions(bindings, entry.component)}
+          style={{ width: 280 }}
+          onChange={(bindingId) => updateProp(entry, field.key, bindingId)}
+        />
+      );
+    }
+    if (field.kind === 'json') {
+      const textKey = `${entry.key}:${field.key}`;
+      return (
+        <Input.TextArea
+          value={jsonFieldTexts[textKey] ?? stringifyJSON(entry.props[field.key])}
+          placeholder={field.placeholder}
+          rows={4}
+          spellCheck={false}
+          style={{ minWidth: 360, fontFamily: 'monospace' }}
+          onChange={(event) => updateJsonFieldText(entry.key, field.key, event.target.value)}
+          onBlur={(event) => {
+            try {
+              commitJsonProp(entry, field.key, event.target.value);
+            } catch {
+              // 保留非法中间态，最终由服务端 ABI diagnostics 给出精确字段错误。
+            }
+          }}
+        />
+      );
+    }
+    return (
+      <Input
+        placeholder={field.placeholder}
+        value={propText(entry.props[field.key])}
+        style={{ width: 280 }}
+        onChange={(event) => updateProp(entry, field.key, event.target.value.trim() || undefined)}
+      />
+    );
+  };
+
+  const renderColumnsEditor = (entry: ComponentEntry) => {
+    const columns = recordArray(entry.props.columns);
+    if (entry.component !== 'DataTable') return null;
+    return (
+      <Card
+        size="small"
+        title="Columns"
+        extra={
+          <Button size="small" onClick={() => addColumn(entry)}>
+            新增列
+          </Button>
+        }
+      >
+        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          {columns.length === 0 ? <Typography.Text type="secondary">未配置 columns，将使用 columnsPath。</Typography.Text> : null}
+          {columns.map((column, index) => (
+            <Space key={`column-${index}`} wrap>
+              <Input
+                addonBefore="title"
+                value={propText(column.title)}
+                style={{ width: 240 }}
+                onChange={(event) => updateArrayItem(entry, 'columns', index, (item) => ({
+                  ...item,
+                  title: event.target.value,
+                }))}
+              />
+              <Input
+                addonBefore="dataIndex"
+                value={propText(column.dataIndex)}
+                style={{ width: 260 }}
+                onChange={(event) => updateArrayItem(entry, 'columns', index, (item) => ({
+                  ...item,
+                  dataIndex: event.target.value,
+                }))}
+              />
+              <Input
+                addonBefore="key"
+                value={propText(column.key)}
+                style={{ width: 220 }}
+                onChange={(event) => updateArrayItem(entry, 'columns', index, (item) => ({
+                  ...item,
+                  key: event.target.value.trim() || undefined,
+                }))}
+              />
+              <Button danger size="small" type="link" onClick={() => removeArrayItem(entry, 'columns', index)}>
+                删除
+              </Button>
+            </Space>
+          ))}
+        </Space>
+      </Card>
+    );
+  };
+
+  const renderActionsEditor = (entry: ComponentEntry, key: 'rowActions' | 'actions') => {
+    const actions = recordArray(entry.props[key]);
+    const actionBindings = bindings.filter((binding) => binding.usage === 'action' || binding.usage === 'task');
+    return (
+      <Card
+        size="small"
+        title={key}
+        extra={
+          <Button size="small" onClick={() => addAction(entry, key)}>
+            新增动作
+          </Button>
+        }
+      >
+        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          {actions.length === 0 ? <Typography.Text type="secondary">暂无动作</Typography.Text> : null}
+          {actions.map((action, index) => (
+            <Space key={`${key}-${index}`} align="start" wrap>
+              <Select
+                allowClear
+                placeholder="bindingId"
+                value={propText(action.bindingId) || undefined}
+                options={actionBindings.map((binding) => ({
+                  label: `${binding.id} (${binding.usage})`,
+                  value: binding.id,
+                }))}
+                style={{ width: 260 }}
+                onChange={(bindingId) => updateArrayItem(entry, key, index, (item) => ({
+                  ...item,
+                  bindingId,
+                }))}
+              />
+              <Input
+                placeholder="label"
+                value={propText(action.label)}
+                style={{ width: 180 }}
+                onChange={(event) => updateArrayItem(entry, key, index, (item) => ({
+                  ...item,
+                  label: event.target.value.trim() || undefined,
+                }))}
+              />
+              <Input
+                placeholder="risk"
+                value={propText(action.risk)}
+                style={{ width: 140 }}
+                onChange={(event) => updateArrayItem(entry, key, index, (item) => ({
+                  ...item,
+                  risk: event.target.value.trim() || undefined,
+                }))}
+              />
+              <Input.TextArea
+                value={actionMappingTexts[`${entry.key}:${key}:${index}`] ?? stringifyJSON(action.inputMapping)}
+                rows={3}
+                spellCheck={false}
+                style={{ width: 360, fontFamily: 'monospace' }}
+                onChange={(event) => updateActionMappingText(entry.key, key, index, event.target.value)}
+                onBlur={(event) => {
+                  try {
+                    const mapping = normalizeJSON(event.target.value);
+                    if (mapping) {
+                      updateArrayItem(entry, key, index, (item) => ({
+                        ...item,
+                        inputMapping: mapping,
+                      }));
+                    }
+                  } catch {
+                    // 保留当前值，服务端 diagnostics 负责最终错误提示。
+                  }
+                }}
+              />
+              <Button danger size="small" type="link" onClick={() => removeArrayItem(entry, key, index)}>
+                删除
+              </Button>
+            </Space>
+          ))}
+        </Space>
+      </Card>
+    );
   };
 
   return (
@@ -252,37 +573,39 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
                       props: defaultProps(component, typeof entry.props.bindingId === 'string' ? entry.props.bindingId : bindings[0]?.id),
                     })}
                   />
-                  {hasBindingProp(entry.props) ? (
-                    <Select
-                      allowClear
-                      placeholder="bindingId"
-                      value={typeof entry.props.bindingId === 'string' ? entry.props.bindingId : undefined}
-                      options={bindingOptions(bindings, entry.component)}
-                      style={{ width: 260 }}
-                      onChange={(bindingId) => updateEntry(entry.key, {
-                        ...entry,
-                        props: {
-                          ...entry.props,
-                          bindingId,
-                        },
-                      })}
-                    />
-                  ) : null}
+                  {COMPONENT_FIELDS[entry.component].some((field) => field.kind === 'binding') ? null : (
+                    <Typography.Text type="secondary">该组件不直接绑定函数</Typography.Text>
+                  )}
                 </Space>
-                <Input.TextArea
-                  value={propsTexts[entry.key] ?? stringifyJSON(entry.props)}
-                  rows={7}
-                  spellCheck={false}
-                  style={{ fontFamily: 'monospace' }}
-                  onChange={(event) => updatePropsText(entry.key, event.target.value)}
-                  onBlur={(event) => {
-                    try {
-                      commitPropsText(entry, event.target.value);
-                    } catch {
-                      // 允许 JSON 编辑过程中的中间态，失焦前由 PageSpec JSON/服务端校验兜底。
-                    }
-                  }}
-                />
+                <Card size="small" title="结构化 Props">
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    {COMPONENT_FIELDS[entry.component].map((field) => (
+                      <Space key={field.key} align="start" wrap>
+                        <Typography.Text style={{ width: 120 }}>{field.label}</Typography.Text>
+                        {renderPropField(entry, field)}
+                      </Space>
+                    ))}
+                  </Space>
+                </Card>
+                {renderColumnsEditor(entry)}
+                {entry.component === 'DataTable' ? renderActionsEditor(entry, 'rowActions') : null}
+                {entry.component === 'ActionGroup' ? renderActionsEditor(entry, 'actions') : null}
+                <Card size="small" title="高级 Props JSON">
+                  <Input.TextArea
+                    value={propsTexts[entry.key] ?? stringifyJSON(entry.props)}
+                    rows={7}
+                    spellCheck={false}
+                    style={{ fontFamily: 'monospace' }}
+                    onChange={(event) => updatePropsText(entry.key, event.target.value)}
+                    onBlur={(event) => {
+                      try {
+                        commitPropsText(entry, event.target.value);
+                      } catch {
+                        // 允许 JSON 编辑过程中的中间态，失焦前由 PageSpec JSON/服务端校验兜底。
+                      }
+                    }}
+                  />
+                </Card>
               </Space>
             </Card>
           ))}

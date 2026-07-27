@@ -1,4 +1,4 @@
-type Scope = {
+export type Scope = {
   gameId?: string;
   env?: string;
 };
@@ -72,7 +72,9 @@ export const hydrateScope = () => {
 
 export const subscribeScope = (listener: ScopeListener) => {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 };
 
 // Initialize from storage on module load.

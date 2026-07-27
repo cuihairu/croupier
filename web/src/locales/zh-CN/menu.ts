@@ -23,6 +23,7 @@ export default {
   'menu.FunctionsAndPages.FunctionCatalog': '函数目录',
   'menu.FunctionsAndPages.Resources': '资源/操作',
   'menu.FunctionsAndPages.PageStudio': '页面工作台',
+  'menu.FunctionsAndPages.OpenAPISources': 'OpenAPI 来源',
   'menu.FunctionsAndPages.FunctionInvoke': '函数调用',
   'menu.FunctionsAndPages.FunctionDetail': '函数详情',
   'menu.FunctionsAndPages.FunctionUIDesigner': '函数表单设计',

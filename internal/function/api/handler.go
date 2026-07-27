@@ -2,8 +2,6 @@
 package api
 
 import (
-	"fmt"
-
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
@@ -211,42 +209,6 @@ func (h *Handler) DeleteFunction(c *gin.Context) {
 	}
 
 	response.NoContent(c)
-}
-
-// ImportFromOpenAPI handles POST /api/metadata/functions/import/openapi - Import functions from OpenAPI spec.
-func (h *Handler) ImportFromOpenAPI(c *gin.Context) {
-	var req ImportFromOpenAPIRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	var opts *ImportOptions
-	if req.Options != nil {
-		opts = &ImportOptions{
-			ResourcePrefix:   req.Options.ResourcePrefix,
-			TagPrefix:        req.Options.TagPrefix,
-			DefaultTimeoutMs: req.Options.DefaultTimeoutMs,
-			ContinueOnError:  req.Options.ContinueOnError,
-		}
-	}
-
-	metadatas, err := h.service.ImportFromOpenAPI(c.Request.Context(), req.Spec, opts)
-	if err != nil {
-		response.Error(c, errorx.NewBadRequest(fmt.Sprintf("failed to import: %v", err)))
-		return
-	}
-
-	// Convert to DTO
-	functions := make([]*FunctionMetadata, 0, len(metadatas))
-	for _, metadata := range metadatas {
-		functions = append(functions, ProtoToMetadata(metadata))
-	}
-
-	response.Success(c, ImportFromOpenAPIResponse{
-		Functions:     functions,
-		ImportedCount: len(functions),
-	})
 }
 
 // GetResources handles GET /api/metadata/functions/resources - List all resources.

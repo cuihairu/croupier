@@ -142,7 +142,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       if (fallback) {
         if (!isGameControlled) {
           setGameState(fallback);
-          localStorage.setItem('game_id', fallback);
+          setScope({ gameId: fallback }, { persist: true, emit: true });
         }
         onChange?.(fallback);
       }
@@ -159,7 +159,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       if (fallback) {
         if (!isEnvControlled) {
           setEnvState(fallback);
-          localStorage.setItem('env', fallback);
+          setScope({ env: fallback }, { persist: true, emit: true });
         }
         onEnvChange?.(fallback);
       }
@@ -278,7 +278,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
             value={currentEnv}
             placeholder="选择环境"
             onChange={(val) => handleEnvChange(val as string)}
-            options={envSelectOptions as any}
+            options={envSelectOptions}
             showSearch
             optionFilterProp="searchValue"
             size="middle"

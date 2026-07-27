@@ -101,7 +101,7 @@ Croupier 的管理界面在“函数”这一模块下分为三个层次，各�
 - 默认页面由 Server 根据 FunctionSpec / ResourceSpec / OperationSpec 生成建议，用户确认后再编辑和发布。
 - 运行控制台只展示已发布 PageSpec，动态菜单不依赖静态国际化文件。
 
-详见 [Page Studio](./object-workspace.md)、[函数管理](./function-management.md) 和 [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)。
+详见 [函数管理](./function-management.md)、[函数注册与默认界面](./function-registration-ui.md) 和 [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)。
 
 ## Dashboard 核心概念
 

@@ -8,19 +8,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/function/uicontract"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
+	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
 	"gopkg.in/yaml.v3"
 )
 
@@ -60,23 +64,23 @@ func operationUIRegistrationKey(op *openapi3.Operation) (string, bool) {
 }
 
 func (s *Service) CreateSource(ctx context.Context, req *OpenAPISourceCreateRequest) (*OpenAPISourceGetResponse, error) {
+	if err := s.requireSourceWrite(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
 	}
+	ctx, finishSpan := s.startSourceSpan(ctx, "openapi.source.create", gameID, env,
+		attribute.String("openapi_source.name", strings.TrimSpace(req.Name)),
+	)
+	var spanErr error
+	defer func() { finishSpan(spanErr) }()
 	name := strings.TrimSpace(req.Name)
-	raw, format, err := normalizeRawSource(req.Spec)
+	parsed, format, err := s.parseValidSource(req.Spec)
 	if err != nil {
+		spanErr = err
 		return nil, err
-	}
-	parsed, err := parseOpenAPISource(raw)
-	if err != nil {
-		return nil, err
-	}
-	if hasErrorDiagnostic(parsed.Diagnostics) {
-		return nil, errorx.NewBadRequestWithDetails("OpenAPI source is invalid", map[string]any{
-			"diagnostics": parsed.Diagnostics,
-		})
 	}
 	if name == "" {
 		name = firstNonEmpty(parsed.InfoTitle, "OpenAPI Source")
@@ -91,19 +95,110 @@ func (s *Service) CreateSource(ctx context.Context, req *OpenAPISourceCreateRequ
 		OpenAPIVersion: parsed.OpenAPIVersion,
 		InfoTitle:      parsed.InfoTitle,
 		InfoVersion:    parsed.InfoVersion,
-		ContentHash:    sha256Hex(raw),
+		ContentHash:    sha256Hex(parsed.Spec),
 	}
 	modelSource.SetSpec(parsed.Spec)
 	if err := modelSource.SetOperations(parsed.Operations); err != nil {
+		spanErr = err
 		return nil, err
 	}
 	if err := modelSource.SetDiagnostics(parsed.Diagnostics); err != nil {
+		spanErr = err
 		return nil, err
 	}
 	if err := s.svcCtx.OpenAPISourceModel.Create(ctx, modelSource); err != nil {
+		spanErr = err
 		return nil, err
 	}
+	finishSpan(nil,
+		attribute.String("openapi_source.id", modelSource.SourceID),
+		attribute.Int("openapi_source.revision", modelSource.Revision),
+		attribute.String("openapi_source.format", modelSource.Format),
+		attribute.Int("openapi_source.operation_count", len(parsed.Operations)),
+		attribute.Int("openapi_source.diagnostic_count", len(parsed.Diagnostics)),
+	)
+	finishSpan = func(error, ...attribute.KeyValue) {}
+	s.auditSourceEvent(ctx, audit.EventOpenAPISourceCreate, gameID, env, modelSource.SourceID, modelSource.Name, map[string]interface{}{
+		"revision":         modelSource.Revision,
+		"format":           modelSource.Format,
+		"openapi_version":  modelSource.OpenAPIVersion,
+		"operation_count":  len(parsed.Operations),
+		"diagnostic_count": len(parsed.Diagnostics),
+		"content_hash":     modelSource.ContentHash,
+	})
 	return &OpenAPISourceGetResponse{Source: sourceDetailFromModel(modelSource, nil)}, nil
+}
+
+func (s *Service) UpdateSource(ctx context.Context, req *OpenAPISourceUpdateRequest) (*OpenAPISourceGetResponse, error) {
+	if err := s.requireSourceWrite(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	source, err := s.svcCtx.OpenAPISourceModel.FindByScopeAndSourceID(ctx, gameID, env, strings.TrimSpace(req.SourceID))
+	if err != nil {
+		return nil, errorx.NewNotFound("OpenAPI source not found")
+	}
+	ctx, finishSpan := s.startSourceSpan(ctx, "openapi.source.update", gameID, env,
+		attribute.String("openapi_source.id", source.SourceID),
+		attribute.Int("openapi_source.previous_revision", source.Revision),
+	)
+	var spanErr error
+	defer func() { finishSpan(spanErr) }()
+	parsed, format, err := s.parseValidSource(req.Spec)
+	if err != nil {
+		spanErr = err
+		return nil, err
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = firstNonEmpty(parsed.InfoTitle, source.Name, "OpenAPI Source")
+	}
+	previousRevision := source.Revision
+	source.Name = name
+	source.Revision++
+	source.Format = format
+	source.OpenAPIVersion = parsed.OpenAPIVersion
+	source.InfoTitle = parsed.InfoTitle
+	source.InfoVersion = parsed.InfoVersion
+	source.ContentHash = sha256Hex(parsed.Spec)
+	source.SetSpec(parsed.Spec)
+	if err := source.SetOperations(parsed.Operations); err != nil {
+		spanErr = err
+		return nil, err
+	}
+	if err := source.SetDiagnostics(parsed.Diagnostics); err != nil {
+		spanErr = err
+		return nil, err
+	}
+	if err := s.svcCtx.OpenAPISourceModel.Update(ctx, source); err != nil {
+		spanErr = err
+		return nil, err
+	}
+	bindings, err := s.svcCtx.OpenAPISourceBindingModel.ListBySource(ctx, gameID, env, source.SourceID)
+	if err != nil {
+		spanErr = err
+		return nil, err
+	}
+	finishSpan(nil,
+		attribute.Int("openapi_source.revision", source.Revision),
+		attribute.String("openapi_source.format", source.Format),
+		attribute.Int("openapi_source.operation_count", len(parsed.Operations)),
+		attribute.Int("openapi_source.diagnostic_count", len(parsed.Diagnostics)),
+	)
+	finishSpan = func(error, ...attribute.KeyValue) {}
+	s.auditSourceEvent(ctx, audit.EventOpenAPISourceUpdate, gameID, env, source.SourceID, source.Name, map[string]interface{}{
+		"previous_revision": previousRevision,
+		"revision":          source.Revision,
+		"format":            source.Format,
+		"openapi_version":   source.OpenAPIVersion,
+		"operation_count":   len(parsed.Operations),
+		"diagnostic_count":  len(parsed.Diagnostics),
+		"content_hash":      source.ContentHash,
+	})
+	return &OpenAPISourceGetResponse{Source: sourceDetailFromModel(source, bindings)}, nil
 }
 
 func (s *Service) CreateSourceFromMultipart(ctx context.Context, name string, file multipart.File) (*OpenAPISourceGetResponse, error) {
@@ -124,6 +219,9 @@ func (s *Service) CreateSourceFromMultipart(ctx context.Context, name string, fi
 }
 
 func (s *Service) ListSources(ctx context.Context, req *OpenAPISourceListRequest) (*OpenAPISourceListResponse, error) {
+	if err := s.requireSourceRead(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -140,6 +238,9 @@ func (s *Service) ListSources(ctx context.Context, req *OpenAPISourceListRequest
 }
 
 func (s *Service) GetSource(ctx context.Context, req *OpenAPISourceGetRequest) (*OpenAPISourceGetResponse, error) {
+	if err := s.requireSourceRead(ctx); err != nil {
+		return nil, err
+	}
 	source, bindings, err := s.loadSourceWithBindings(ctx, req.SourceID)
 	if err != nil {
 		return nil, err
@@ -148,6 +249,9 @@ func (s *Service) GetSource(ctx context.Context, req *OpenAPISourceGetRequest) (
 }
 
 func (s *Service) SourceDiagnostics(ctx context.Context, req *OpenAPISourceGetRequest) (*OpenAPISourceDiagnosticsResponse, error) {
+	if err := s.requireSourceRead(ctx); err != nil {
+		return nil, err
+	}
 	source, _, err := s.loadSourceWithBindings(ctx, req.SourceID)
 	if err != nil {
 		return nil, err
@@ -163,34 +267,58 @@ func (s *Service) SourceDiagnostics(ctx context.Context, req *OpenAPISourceGetRe
 }
 
 func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCreateRequest) (*OpenAPISourceBindingResponse, error) {
+	if err := s.requireSourceWrite(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
 	}
+	ctx, finishSpan := s.startSourceSpan(ctx, "openapi.source.binding.create", gameID, env,
+		attribute.String("openapi_source.id", strings.TrimSpace(req.SourceID)),
+		attribute.String("openapi_source.operation_id", strings.TrimSpace(req.OperationID)),
+		attribute.String("openapi_source.binding_id", strings.TrimSpace(req.BindingID)),
+		attribute.String("function.id", strings.TrimSpace(req.FunctionID)),
+		attribute.String("provider.id", strings.TrimSpace(req.ProviderID)),
+	)
+	var spanErr error
+	defer func() { finishSpan(spanErr) }()
 	source, err := s.svcCtx.OpenAPISourceModel.FindByScopeAndSourceID(ctx, gameID, env, strings.TrimSpace(req.SourceID))
 	if err != nil {
+		spanErr = err
 		return nil, errorx.NewNotFound("OpenAPI source not found")
 	}
 	var operations []OpenAPISourceOperation
 	if err := source.GetOperations(&operations); err != nil {
+		spanErr = err
 		return nil, err
 	}
 	if !sourceHasOperation(operations, req.OperationID) {
-		return nil, errorx.NewBadRequest("operationId is not part of this OpenAPI source")
+		err := errorx.NewBadRequest("operationId is not part of this OpenAPI source")
+		spanErr = err
+		return nil, err
 	}
 	kind := strings.TrimSpace(req.Kind)
 	if kind == "" {
-		return nil, errorx.NewBadRequest("kind is required")
+		err := errorx.NewBadRequest("kind is required")
+		spanErr = err
+		return nil, err
 	}
 	if kind != "provider" {
-		return nil, errorx.NewBadRequest("only provider execution binding is enabled; httpConnector requires allowlist and SecretRef policy")
+		err := errorx.NewBadRequest("only provider execution binding is enabled; httpConnector requires allowlist and SecretRef policy")
+		spanErr = err
+		return nil, err
 	}
 	functionID := strings.TrimSpace(req.FunctionID)
 	if functionID == "" {
-		return nil, errorx.NewBadRequest("functionId is required for provider binding")
+		err := errorx.NewBadRequest("functionId is required for provider binding")
+		spanErr = err
+		return nil, err
 	}
 	if !hasRegisteredFunction(s.svcCtx, functionID) {
-		return nil, errorx.NewBadRequest("functionId is not registered in current runtime")
+		err := errorx.NewBadRequest("functionId is not registered in current runtime")
+		spanErr = err
+		return nil, err
 	}
 	bindingID := strings.TrimSpace(req.BindingID)
 	if bindingID == "" {
@@ -207,22 +335,55 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		ProviderID:  strings.TrimSpace(req.ProviderID),
 	}
 	if err := s.svcCtx.OpenAPISourceBindingModel.Upsert(ctx, binding); err != nil {
+		spanErr = err
 		return nil, err
 	}
+	finishSpan(nil,
+		attribute.String("openapi_source.id", source.SourceID),
+		attribute.Int("openapi_source.revision", source.Revision),
+		attribute.String("openapi_source.binding_id", binding.BindingID),
+	)
+	finishSpan = func(error, ...attribute.KeyValue) {}
+	s.auditSourceEvent(ctx, audit.EventOpenAPISourceBindingCreate, gameID, env, source.SourceID, source.Name, map[string]interface{}{
+		"binding_id":   binding.BindingID,
+		"operation_id": binding.OperationID,
+		"kind":         binding.Kind,
+		"function_id":  binding.FunctionID,
+		"provider_id":  binding.ProviderID,
+		"revision":     source.Revision,
+	})
 	return &OpenAPISourceBindingResponse{Binding: bindingDTOFromModel(*binding)}, nil
 }
 
 func (s *Service) DeleteBinding(ctx context.Context, req *OpenAPISourceBindingDeleteRequest) (*OpenAPISourceBindingResponse, error) {
+	if err := s.requireSourceWrite(ctx); err != nil {
+		return nil, err
+	}
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.svcCtx.OpenAPISourceModel.FindByScopeAndSourceID(ctx, gameID, env, strings.TrimSpace(req.SourceID)); err != nil {
+	ctx, finishSpan := s.startSourceSpan(ctx, "openapi.source.binding.delete", gameID, env,
+		attribute.String("openapi_source.id", strings.TrimSpace(req.SourceID)),
+		attribute.String("openapi_source.binding_id", strings.TrimSpace(req.BindingID)),
+	)
+	var spanErr error
+	defer func() { finishSpan(spanErr) }()
+	source, err := s.svcCtx.OpenAPISourceModel.FindByScopeAndSourceID(ctx, gameID, env, strings.TrimSpace(req.SourceID))
+	if err != nil {
+		spanErr = err
 		return nil, errorx.NewNotFound("OpenAPI source not found")
 	}
 	if err := s.svcCtx.OpenAPISourceBindingModel.Delete(ctx, gameID, env, strings.TrimSpace(req.SourceID), strings.TrimSpace(req.BindingID)); err != nil {
+		spanErr = err
 		return nil, err
 	}
+	finishSpan(nil, attribute.Int("openapi_source.revision", source.Revision))
+	finishSpan = func(error, ...attribute.KeyValue) {}
+	s.auditSourceEvent(ctx, audit.EventOpenAPISourceBindingDelete, gameID, env, source.SourceID, source.Name, map[string]interface{}{
+		"binding_id": strings.TrimSpace(req.BindingID),
+		"revision":   source.Revision,
+	})
 	return &OpenAPISourceBindingResponse{Binding: OpenAPISourceBindingDTO{
 		BindingID: strings.TrimSpace(req.BindingID),
 	}}, nil
@@ -308,6 +469,23 @@ func normalizeYAMLValue(value interface{}) interface{} {
 	default:
 		return v
 	}
+}
+
+func (s *Service) parseValidSource(spec json.RawMessage) (*parsedOpenAPISource, string, error) {
+	raw, format, err := normalizeRawSource(spec)
+	if err != nil {
+		return nil, "", err
+	}
+	parsed, err := parseOpenAPISource(raw)
+	if err != nil {
+		return nil, "", err
+	}
+	if hasErrorDiagnostic(parsed.Diagnostics) {
+		return nil, "", errorx.NewBadRequestWithDetails("OpenAPI source is invalid", map[string]any{
+			"diagnostics": parsed.Diagnostics,
+		})
+	}
+	return parsed, format, nil
 }
 
 func parseOpenAPISource(raw []byte) (*parsedOpenAPISource, error) {
@@ -751,6 +929,85 @@ func requireScope(ctx context.Context) (string, string, error) {
 		return "", "", errorx.NewBadRequest("X-Env is required")
 	}
 	return gameID, env, nil
+}
+
+func (s *Service) requireSourceRead(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(
+		ctx,
+		s.svcCtx,
+		"无权查看 OpenAPI Source",
+		"admin:all",
+		"openapi_sources:read",
+		"openapi_sources:write",
+		"resources:read",
+		"resources:diagnose",
+		"functions:read",
+		"functions:manage",
+		"pages:read",
+		"pages:edit",
+	)
+	return err
+}
+
+func (s *Service) requireSourceWrite(ctx context.Context) error {
+	_, _, err := logicutils.RequireAnyPermission(
+		ctx,
+		s.svcCtx,
+		"无权管理 OpenAPI Source",
+		"admin:all",
+		"openapi_sources:write",
+		"resources:diagnose",
+		"functions:manage",
+		"pages:edit",
+	)
+	return err
+}
+
+func (s *Service) auditSourceEvent(ctx context.Context, eventType audit.AuditEventType, gameID, env, sourceID, sourceName string, details map[string]interface{}) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil {
+		return
+	}
+	actor, err := logicutils.CurrentUsername(ctx)
+	if err != nil {
+		actor = "unknown"
+	}
+	if details == nil {
+		details = map[string]interface{}{}
+	}
+	details["game_id"] = gameID
+	details["env"] = env
+	details["source_id"] = sourceID
+	_, err = s.svcCtx.AuditService.Log(ctx, eventType,
+		audit.WithActorID(actor, "user", actor),
+		audit.WithResource(audit.ResourceInfo{
+			Type:        "openapi_source",
+			ID:          sourceID,
+			Name:        sourceName,
+			GameID:      gameID,
+			Environment: env,
+		}),
+		audit.WithDetails(details),
+		audit.WithOutcome("success", ""),
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to write OpenAPI source audit event", "event", eventType, "sourceID", sourceID, "error", err)
+	}
+}
+
+func (s *Service) startSourceSpan(ctx context.Context, name, gameID, env string, attrs ...attribute.KeyValue) (context.Context, func(error, ...attribute.KeyValue)) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.Telemetry == nil {
+		return ctx, func(error, ...attribute.KeyValue) {}
+	}
+	startedAt := time.Now()
+	baseAttrs := []attribute.KeyValue{
+		attribute.String("game.id", gameID),
+		attribute.String("game.env", env),
+	}
+	baseAttrs = append(baseAttrs, attrs...)
+	nextCtx, span := s.svcCtx.Telemetry.StartSpan(ctx, name, baseAttrs...)
+	return nextCtx, func(err error, extraAttrs ...attribute.KeyValue) {
+		s.svcCtx.Telemetry.EndSpan(span, startedAt, err, extraAttrs...)
+	}
 }
 
 // GetDocument returns aggregated OpenAPI document

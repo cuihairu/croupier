@@ -6,10 +6,7 @@ import {
   type RawFunctionInstance,
 } from './functions-enhanced';
 import {
-  createOpenAPISource,
   normalizeFunctionOpenAPIResponse,
-  type OpenAPIDocument,
-  type OpenAPISourceGetResponse,
   type OpenAPIOperation,
 } from './openapi';
 import type { JSONValue } from '@/types/dashboard';
@@ -564,13 +561,4 @@ export async function getFunctionOpenAPI(functionId: string) {
     `/api/v1/functions/${encodeURIComponent(functionId)}/openapi`,
   );
   return normalizeFunctionOpenAPIResponse(resp);
-}
-
-/**
- * 导入 OpenAPI 3.0.3 规范
- * @param spec OpenAPI 3.0.3 Document
- * @returns 导入结果
- */
-export async function importOpenAPISpec(spec: OpenAPIDocument): Promise<OpenAPISourceGetResponse> {
-  return createOpenAPISource(spec);
 }

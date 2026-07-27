@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
@@ -24,7 +26,17 @@ import (
 
 func setupOpenAPITestService(t *testing.T) *Service {
 	t.Helper()
+	service, _ := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read", "openapi_sources:write")
+	return service
+}
 
+func setupOpenAPITestServiceWithPermissions(t *testing.T, permissions ...string) (*Service, context.Context) {
+	service, ctx, _ := setupOpenAPITestServiceWithAudit(t, permissions...)
+	return service, ctx
+}
+
+func setupOpenAPITestServiceWithAudit(t *testing.T, permissions ...string) (*Service, context.Context, *audit.InMemoryAuditStore) {
+	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
@@ -45,20 +57,63 @@ func setupOpenAPITestService(t *testing.T) *Service {
 		LastSeen: time.Now(),
 	})
 
-	return NewService(&svc.ServiceContext{
+	admin := model.Admin{Username: "openapi_tester", Status: 1, PasswordHash: "test"}
+	require.NoError(t, db.Create(&admin).Error)
+	role := model.Role{Name: "openapi_tester_role", Description: "openapi tester"}
+	require.NoError(t, db.Create(&role).Error)
+	require.NoError(t, db.Create(&model.AdminRole{AdminID: admin.ID, RoleID: role.ID}).Error)
+	for _, permissionID := range permissions {
+		grantOpenAPITestPermission(t, db, role.ID, permissionID)
+	}
+
+	nullCache := cache.NewNullCache()
+	auditStore := audit.NewInMemoryAuditStore()
+	svcCtx := &svc.ServiceContext{
 		DB:                        db,
+		AdminModel:                model.NewAdminModel(db),
+		RoleModel:                 model.NewRoleModel(db),
+		PermissionModel:           model.NewPermissionModel(db),
 		FunctionModel:             model.NewFunctionModel(db),
 		RegistryStore:             store,
 		OpenAPISourceModel:        model.NewOpenAPISourceModel(db),
 		OpenAPISourceBindingModel: model.NewOpenAPISourceBindingModel(db),
-	})
-}
-
-func openAPITestContext() context.Context {
-	return svc.WithGameScope(context.Background(), svc.GameScope{
+		AuditService:              audit.NewAuditService(auditStore, nil),
+		Cache:                     nullCache,
+		CacheHelper:               cache.NewCacheHelper(nullCache),
+	}
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{
 		GameID: "demo-game",
 		Env:    "development",
 	})
+	ctx = context.WithValue(ctx, "username", admin.Username)
+	return NewService(svcCtx), ctx, auditStore
+}
+
+func openAPITestContext() context.Context {
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
+	return context.WithValue(ctx, "username", "openapi_tester")
+}
+
+func grantOpenAPITestPermission(t *testing.T, db *gorm.DB, roleID uint, permissionID string) {
+	t.Helper()
+	permissionID = strings.TrimSpace(permissionID)
+	if permissionID == "" {
+		return
+	}
+	parts := strings.SplitN(permissionID, ":", 2)
+	action := "*"
+	if len(parts) == 2 {
+		action = parts[1]
+	}
+	permission := model.Permission{
+		ID:       permissionID,
+		Name:     permissionID,
+		Resource: parts[0],
+		Action:   action,
+		Category: "dashboard",
+	}
+	require.NoError(t, db.Where("id = ?", permission.ID).FirstOrCreate(&permission).Error)
+	require.NoError(t, db.Create(&model.RolePermission{RoleID: roleID, PermissionID: permissionID}).Error)
 }
 
 func rawSpec(t *testing.T, spec map[string]interface{}) json.RawMessage {
@@ -86,6 +141,7 @@ func setupOpenAPITestHandler(t *testing.T) (*Handler, *gin.Engine) {
 	router.GET("/sources", handler.ListSources)
 	router.POST("/sources", handler.CreateSource)
 	router.GET("/sources/:sourceId", handler.GetSource)
+	router.PUT("/sources/:sourceId", handler.UpdateSource)
 	router.GET("/sources/:sourceId/diagnostics", handler.SourceDiagnostics)
 	router.POST("/sources/:sourceId/bindings", handler.CreateBinding)
 
@@ -163,6 +219,192 @@ func TestService_CreateSource_ValidSpec(t *testing.T) {
 
 	_, err = service.svcCtx.RegistryStore.GetOpenAPI("getUsers")
 	assert.Error(t, err, "source upload must not register executable functions")
+}
+
+func TestService_OpenAPISourceRequiresReadPermission(t *testing.T) {
+	t.Parallel()
+
+	service, ctx := setupOpenAPITestServiceWithPermissions(t)
+	_, err := service.ListSources(ctx, &OpenAPISourceListRequest{})
+	assert.Error(t, err)
+}
+
+func TestService_OpenAPISourceWriteRequiresPermission(t *testing.T) {
+	t.Parallel()
+
+	service, ctx := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read")
+	spec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Read Only API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{},
+	}
+	_, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
+	assert.Error(t, err)
+}
+
+func TestService_UpdateSource_RefreshesRevisionOperationsAndAudit(t *testing.T) {
+	t.Parallel()
+
+	service, ctx, auditStore := setupOpenAPITestServiceWithAudit(t, "openapi_sources:read", "openapi_sources:write")
+	initialSpec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Player API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/players": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "playerList",
+					"x-resource":  "player",
+					"x-operation": "list",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	}
+	created, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, initialSpec)})
+	require.NoError(t, err)
+	_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
+		SourceID:    created.Source.SourceID,
+		OperationID: "playerList",
+		Kind:        "provider",
+		FunctionID:  "player.list",
+	})
+	require.NoError(t, err)
+
+	nextSpec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Player API v2",
+			"version": "2.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/players/detail": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "playerGet",
+					"x-resource":  "player",
+					"x-operation": "get",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	}
+	updated, err := service.UpdateSource(ctx, &OpenAPISourceUpdateRequest{
+		SourceID: created.Source.SourceID,
+		Spec:     rawSpec(t, nextSpec),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, updated.Source.Revision)
+	assert.Equal(t, "Player API v2", updated.Source.Name)
+	require.Len(t, updated.Source.Operations, 1)
+	assert.Equal(t, "playerGet", updated.Source.Operations[0].OperationID)
+	assert.False(t, updated.Source.Operations[0].Bound)
+	require.Len(t, updated.Source.Bindings, 1, "Source revision update keeps explicit bindings for operator review")
+	assert.Equal(t, "playerList", updated.Source.Bindings[0].OperationID)
+
+	records, total, err := auditStore.List(audit.AuditFilter{EventType: []audit.AuditEventType{audit.EventOpenAPISourceUpdate}}, audit.AuditPage{PageSize: 10})
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, records, 1)
+	assert.Equal(t, 1, records[0].Details["previous_revision"])
+	assert.Equal(t, 2, records[0].Details["revision"])
+	assert.Equal(t, "3.0.3", records[0].Details["openapi_version"])
+}
+
+func TestService_UpdateSourceRequiresWritePermission(t *testing.T) {
+	t.Parallel()
+
+	writer, writerCtx := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read", "openapi_sources:write")
+	spec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Permission API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{},
+	}
+	created, err := writer.CreateSource(writerCtx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
+	require.NoError(t, err)
+
+	reader := NewService(writer.svcCtx)
+	readerCtx := context.WithValue(
+		svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"}),
+		"username",
+		"readonly_openapi_tester",
+	)
+	admin := model.Admin{Username: "readonly_openapi_tester", Status: 1, PasswordHash: "test"}
+	require.NoError(t, writer.svcCtx.DB.Create(&admin).Error)
+	role := model.Role{Name: "readonly_openapi_tester_role", Description: "readonly openapi tester"}
+	require.NoError(t, writer.svcCtx.DB.Create(&role).Error)
+	require.NoError(t, writer.svcCtx.DB.Create(&model.AdminRole{AdminID: admin.ID, RoleID: role.ID}).Error)
+	grantOpenAPITestPermission(t, writer.svcCtx.DB, role.ID, "openapi_sources:read")
+
+	_, err = reader.UpdateSource(readerCtx, &OpenAPISourceUpdateRequest{
+		SourceID: created.Source.SourceID,
+		Spec:     rawSpec(t, spec),
+	})
+	assert.Error(t, err)
+}
+
+func TestService_OpenAPISourceWritesAuditEvents(t *testing.T) {
+	t.Parallel()
+
+	service, ctx, auditStore := setupOpenAPITestServiceWithAudit(t, "openapi_sources:read", "openapi_sources:write")
+	spec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Audit API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/players": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "playerList",
+					"x-resource":  "player",
+					"x-operation": "list",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	}
+	created, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
+	require.NoError(t, err)
+	_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
+		SourceID:    created.Source.SourceID,
+		OperationID: "playerList",
+		Kind:        "provider",
+		FunctionID:  "player.list",
+	})
+	require.NoError(t, err)
+	_, err = service.DeleteBinding(ctx, &OpenAPISourceBindingDeleteRequest{
+		SourceID:  created.Source.SourceID,
+		BindingID: "playerList",
+	})
+	require.NoError(t, err)
+
+	records, total, err := auditStore.List(audit.AuditFilter{}, audit.AuditPage{PageSize: 10})
+	require.NoError(t, err)
+	require.Equal(t, 3, total)
+	require.Len(t, records, 3)
+
+	byEvent := map[audit.AuditEventType]*audit.AuditRecord{}
+	for _, record := range records {
+		byEvent[record.EventType] = record
+		assert.Equal(t, "openapi_tester", record.Actor.ID)
+		assert.Equal(t, "openapi_source", record.Resource.Type)
+		assert.Equal(t, created.Source.SourceID, record.Resource.ID)
+		assert.Equal(t, "demo-game", record.Resource.GameID)
+		assert.Equal(t, "development", record.Resource.Environment)
+		assert.Equal(t, "success", record.Outcome)
+	}
+	assert.Equal(t, 1, byEvent[audit.EventOpenAPISourceCreate].Details["revision"])
+	assert.Equal(t, "playerList", byEvent[audit.EventOpenAPISourceBindingCreate].Details["operation_id"])
+	assert.Equal(t, "player.list", byEvent[audit.EventOpenAPISourceBindingCreate].Details["function_id"])
+	assert.Equal(t, "playerList", byEvent[audit.EventOpenAPISourceBindingDelete].Details["binding_id"])
 }
 
 func TestService_CreateSource_InvalidSpec(t *testing.T) {
@@ -440,6 +682,67 @@ func TestHandler_CreateSource_Success(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	require.NoError(t, err)
 	assert.Len(t, resp.Source.Operations, 1)
+}
+
+func TestHandler_UpdateSource_Success(t *testing.T) {
+	t.Parallel()
+
+	_, router := setupOpenAPITestHandler(t)
+	initialSpec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Handler API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/users": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "getUsers",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	}
+	body, _ := json.Marshal(OpenAPISourceCreateRequest{Spec: rawSpec(t, initialSpec)})
+	req, _ := http.NewRequest("POST", "/sources", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+	var created OpenAPISourceGetResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+
+	nextSpec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Handler API v2",
+			"version": "2.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/users/detail": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "getUser",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	}
+	updateBody, _ := json.Marshal(OpenAPISourceUpdateRequest{
+		Name: "Renamed Handler API",
+		Spec: rawSpec(t, nextSpec),
+	})
+	req, _ = http.NewRequest("PUT", "/sources/"+created.Source.SourceID, strings.NewReader(string(updateBody)))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var updated OpenAPISourceGetResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &updated))
+	assert.Equal(t, 2, updated.Source.Revision)
+	assert.Equal(t, "Renamed Handler API", updated.Source.Name)
+	require.Len(t, updated.Source.Operations, 1)
+	assert.Equal(t, "getUser", updated.Source.Operations[0].OperationID)
 }
 
 func TestHandler_GetDocument_Success(t *testing.T) {

@@ -50,7 +50,7 @@ func TestProviderHandlersReturnServiceErrors(t *testing.T) {
 		{name: "Capabilities", target: "/api/v1/providers/capabilities", fn: h.Capabilities},
 		{name: "Descriptors", target: "/api/v1/providers/descriptors", fn: h.Descriptors},
 		{name: "Detail", target: "/api/v1/providers/", fn: h.Detail},
-		{name: "Entities", target: "/api/v1/providers/entities", fn: h.Entities},
+		{name: "Resources", target: "/api/v1/providers/resources", fn: h.Resources},
 		{name: "Delete", target: "/api/v1/providers/delete", fn: h.Delete},
 		{name: "Reload", target: "/api/v1/providers/reload", fn: h.Reload},
 		{name: "AliasGet", target: "/api/v1/providers/get", fn: h.Get},
@@ -145,13 +145,13 @@ func TestService_Detail_NilContext(t *testing.T) {
 	}
 }
 
-func TestService_Entities_NilContext(t *testing.T) {
+func TestService_Resources_NilContext(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	service := NewService(&svc.ServiceContext{})
 
-	resp, err := service.Entities(nil, &ProvidersEntitiesRequest{
+	resp, err := service.Resources(nil, &ProvidersResourcesRequest{
 		ID: "test",
 	})
 
@@ -160,7 +160,7 @@ func TestService_Entities_NilContext(t *testing.T) {
 		t.Logf("Expected error for nil context: %v", err)
 	}
 	if resp != nil {
-		t.Log("Got response for entities")
+		t.Log("Got response for resources")
 	}
 }
 
@@ -243,13 +243,13 @@ func TestHandler_Detail_WithPathParam(t *testing.T) {
 	}
 }
 
-func TestHandler_Entities_WithPathParam(t *testing.T) {
+func TestHandler_Resources_WithPathParam(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers/test_provider/entities", "")
-	h.Entities(ctx)
+	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers/test_provider/resources", "")
+	h.Resources(ctx)
 
 	// Should handle path parameter
 	if rec.Code != http.StatusInternalServerError && rec.Code != http.StatusOK {
@@ -376,13 +376,13 @@ func TestHandler_Detail_Success(t *testing.T) {
 	}
 }
 
-func TestHandler_Entities_Success(t *testing.T) {
+func TestHandler_Resources_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := createMockStore()
 	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
-	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers/test-provider-1/entities", "")
+	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers/test-provider-1/resources", "")
 	ctx.Params = gin.Params{{Key: "id", Value: "test-provider-1"}}
-	h.Entities(ctx)
+	h.Resources(ctx)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", rec.Code, rec.Body.String())

@@ -3,7 +3,6 @@ package api
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +34,6 @@ func setupTestRouter() (*gin.Engine, *Service) {
 		functions.DELETE("/:id", handler.DeleteFunction)
 		functions.GET("/resources", handler.GetResources)
 		functions.GET("/tags", handler.GetTags)
-		functions.POST("/import/openapi", handler.ImportFromOpenAPI)
 	}
 
 	return router, service
@@ -357,80 +355,6 @@ func TestHandler_UpdateFunctionWithSecurity(t *testing.T) {
 	Equal(t, "danger", resp.Function.Security.RiskLevel)
 	Equal(t, "admin.delete.invoke", resp.Function.Security.Permission)
 	True(t, resp.Function.Security.RequiresApproval)
-}
-
-func TestHandler_ImportFromOpenAPI(t *testing.T) {
-	router, _ := setupTestRouter()
-
-	openAPISpec := `{
-		"openapi": "3.0.0",
-		"info": {"title": "Test API", "version": "1.0.0"},
-		"paths": {
-			"/players": {
-				"get": {
-					"operationId": "player.list",
-					"summary": "List players",
-					"responses": {"200": {"description": "OK"}}
-				}
-			}
-		}
-	}`
-
-	// Need to base64 encode the spec since it's embedded in JSON
-	encodedSpec := base64.StdEncoding.EncodeToString([]byte(openAPISpec))
-	reqBody := `{"spec": "` + encodedSpec + `"}`
-	req := httptest.NewRequest("POST", "/api/v1/metadata/functions/import/openapi", strings.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	Equal(t, http.StatusOK, w.Code)
-	var resp ImportFromOpenAPIResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
-	True(t, resp.ImportedCount > 0)
-}
-
-func TestHandler_ImportFromOpenAPIWithOptions(t *testing.T) {
-	router, _ := setupTestRouter()
-
-	openAPISpec := `{
-		"openapi": "3.0.0",
-		"info": {"title": "Test API", "version": "1.0.0"},
-		"paths": {
-			"/games": {
-				"post": {
-					"operationId": "game.create",
-					"summary": "Create game",
-					"responses": {"201": {"description": "Created"}}
-				}
-			}
-		}
-	}`
-
-	encodedSpec := base64.StdEncoding.EncodeToString([]byte(openAPISpec))
-	reqBody := `{"spec": "` + encodedSpec + `", "options": {"resource_prefix": "api", "default_timeout_ms": 30000}}`
-	req := httptest.NewRequest("POST", "/api/v1/metadata/functions/import/openapi", strings.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	Equal(t, http.StatusOK, w.Code)
-	var resp ImportFromOpenAPIResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
-	True(t, resp.ImportedCount > 0)
-}
-
-func TestHandler_ImportFromOpenAPI_InvalidSpec(t *testing.T) {
-	router, _ := setupTestRouter()
-
-	encodedSpec := base64.StdEncoding.EncodeToString([]byte("{invalid json"))
-	reqBody := `{"spec": "` + encodedSpec + `"}`
-	req := httptest.NewRequest("POST", "/api/v1/metadata/functions/import/openapi", strings.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	Equal(t, http.StatusBadRequest, w.Code)
 }
 
 // Helper function for test context

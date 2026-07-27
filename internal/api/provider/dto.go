@@ -13,7 +13,7 @@ type ProvidersCapabilitiesRequest struct{}
 
 type ProvidersDescriptorsRequest struct{}
 
-type ProvidersEntitiesRequest struct {
+type ProvidersResourcesRequest struct {
 	ID string `uri:"id"`
 }
 
@@ -47,8 +47,8 @@ type ProvidersDescriptorsResponse struct {
 // ProviderDetailResponse returns the canonical detail payload for a single provider.
 type ProviderDetailResponse = ProviderItem
 
-// ProvidersEntitiesResponse lists entities exported by one or more providers.
-type ProvidersEntitiesResponse struct {
+// ProvidersResourcesResponse lists resources exported by one or more providers.
+type ProvidersResourcesResponse struct {
 	Items []map[string]interface{} `json:"items"`
 	Total int                      `json:"total"`
 }

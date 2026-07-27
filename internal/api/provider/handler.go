@@ -85,15 +85,15 @@ func (h *Handler) Detail(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Entities handles the request to get provider entities
-func (h *Handler) Entities(c *gin.Context) {
-	var req ProvidersEntitiesRequest
+// Resources handles the request to get provider resources
+func (h *Handler) Resources(c *gin.Context) {
+	var req ProvidersResourcesRequest
 	if err := c.ShouldBindUri(&req); err != nil {
 		response.Error(c, err)
 		return
 	}
 
-	resp, err := h.service.Entities(c.Request.Context(), &req)
+	resp, err := h.service.Resources(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return

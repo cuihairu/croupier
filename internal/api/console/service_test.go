@@ -46,6 +46,23 @@ func TestServiceMenuAllowsPagesReadPermission(t *testing.T) {
 	assert.Equal(t, "player.manage", resp.Items[0].Children[0].Key)
 }
 
+func TestServiceMenuUsesPublishedPageScopeAndLabels(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "console:read")
+	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
+	otherScope := svc.WithGameScope(ctx, svc.GameScope{GameID: "demo-game", Env: "production"})
+	require.NoError(t, seedConsolePublishedPageForScope(service.svcCtx, otherScope, "mail.send", "mail", "邮件", 5))
+
+	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
+
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, "player", resp.Items[0].Key)
+	assert.Equal(t, "玩家", resp.Items[0].Title["zh-CN"])
+	assert.Equal(t, "/console/player", resp.Items[0].Path)
+	require.Len(t, resp.Items[0].Children, 1)
+	assert.Equal(t, "/console/player/player.manage", resp.Items[0].Children[0].Path)
+}
+
 func TestServiceExecuteBindingRequiresFunctionInvokePermission(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read", "pages:read")
 	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
@@ -105,6 +122,32 @@ func TestServiceExecuteBindingWritesAuditWithPageContext(t *testing.T) {
 	assert.Equal(t, "player.query", caller.lastRequest.Metadata["binding_id"])
 	assert.Equal(t, resp.Result.RequestID, caller.lastRequest.Metadata["page_request_id"])
 	assert.Equal(t, "console.binding.execute", caller.lastRequest.Metadata["page_runtime_api"])
+}
+
+func TestServiceExecuteBindingWritesAuditOnBindingStale(t *testing.T) {
+	service, ctx, auditStore := newConsoleTestServiceWithAudit(t, "function:invoke")
+	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
+
+	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
+		PageKey:   "player.manage",
+		BindingID: "player.query",
+		Payload:   json.RawMessage(`{}`),
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "binding_stale")
+
+	records, total, listErr := auditStore.List(audit.AuditFilter{
+		EventType: []audit.AuditEventType{audit.EventPageExecute},
+	}, audit.AuditPage{PageSize: 10})
+	require.NoError(t, listErr)
+	require.Equal(t, 1, total)
+	require.Len(t, records, 1)
+	assert.Equal(t, "failure", records[0].Outcome)
+	assert.Equal(t, "player.manage", records[0].Details["page_key"])
+	assert.Equal(t, "player.query", records[0].Details["binding_id"])
+	assert.Equal(t, "player.query", records[0].Details["function_id"])
+	assert.NotEmpty(t, records[0].Details["request_id"])
 }
 
 func newConsoleTestService(t *testing.T, permissions ...string) (*Service, context.Context) {
@@ -174,15 +217,21 @@ func newConsoleTestServiceWithAudit(t *testing.T, permissions ...string) (*Servi
 }
 
 func seedConsolePublishedPage(svcCtx *svc.ServiceContext, ctx context.Context) error {
+	return seedConsolePublishedPageForScope(svcCtx, ctx, "player.manage", "player", "玩家", 1)
+}
+
+func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Context, pageKey string, categoryKey string, categoryTitle string, order int) error {
+	gameID, env := svc.GameScopeFromContext(ctx)
 	page := spec.PageSpec{
-		PageKey:     "player.manage",
+		PageKey:     pageKey,
 		Type:        spec.PageTypeOperation,
-		ResourceKey: "player",
-		Title:       spec.LocalizedText{"zh-CN": "玩家管理"},
+		ResourceKey: categoryKey,
+		Title:       spec.LocalizedText{"zh-CN": pageKey},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+			Key:    categoryKey,
+			Labels: spec.LocalizedText{"zh-CN": categoryTitle},
 		},
+		Order: order,
 		Schema: spec.FormilySchema(`{
 			"type":"object",
 			"x-component":"ConsolePage",
@@ -217,9 +266,9 @@ func seedConsolePublishedPage(svcCtx *svc.ServiceContext, ctx context.Context) e
 		return err
 	}
 	return svcCtx.PublishedPageSpecModel.Create(ctx, &model.PublishedPageSpec{
-		GameID:                "demo-game",
-		Env:                   "development",
-		PageKey:               "player.manage",
+		GameID:                gameID,
+		Env:                   env,
+		PageKey:               pageKey,
 		Version:               1,
 		SpecJSON:              string(specJSON),
 		BindingContractsJSON:  string(contractsJSON),

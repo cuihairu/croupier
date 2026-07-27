@@ -10,7 +10,7 @@ import { Alert, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { AppstoreOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { getConsoleMenu, listPublishedPages } from '@/services/console';
-import type { ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
+import type { ConsoleMenuItem, ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
 
 type ConsoleAccess = {
   canConsoleRead?: boolean;
@@ -58,28 +58,20 @@ export default function ConsoleIndex() {
     };
   }, []);
 
-  // 按分类过滤页面
-  const filteredPages = useMemo(() => {
-    if (!categoryKey) return pages;
-    return pages.filter((page) => {
-      const pageCategory = page.category?.key || '';
-      return pageCategory === categoryKey;
-    });
-  }, [categoryKey, pages]);
-
-  // 获取页面标题（多语言）
-  const getPageTitle = (page: PublishedPageSpec): string => {
-    if (!page.title) return page.pageKey;
-    if (typeof page.title === 'string') return page.title;
-    return page.title[intl.locale] || page.title['zh-CN'] || page.title['en-US'] || page.pageKey;
-  };
-
   // 获取页面分类标题
-  const getCategoryTitle = (item: ConsoleMenuSpec['items'][0]): string => {
+  const getCategoryTitle = (item: ConsoleMenuItem): string => {
     if (!item.title) return item.key;
     if (typeof item.title === 'string') return item.title;
     return item.title[intl.locale] || item.title['zh-CN'] || item.title['en-US'] || item.key;
   };
+
+  const visibleCategories = useMemo(() => {
+    const items = menu?.items || [];
+    if (!categoryKey) return items;
+    return items.filter((item) => item.key === categoryKey);
+  }, [categoryKey, menu?.items]);
+
+  const activeCategory = categoryKey ? visibleCategories[0] : undefined;
 
   // 权限检查
   if (!access?.canConsoleRead) {
@@ -111,7 +103,7 @@ export default function ConsoleIndex() {
 
   // 页面标题
   const pageTitle = categoryKey
-    ? `运行控制台 / ${categoryKey}`
+    ? `运行控制台 / ${activeCategory ? getCategoryTitle(activeCategory) : categoryKey}`
     : '运行控制台';
 
   return (
@@ -137,7 +129,7 @@ export default function ConsoleIndex() {
       {/* 分类列表 */}
       {menu?.items && menu.items.length > 0 ? (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          {menu.items.map((category) => (
+          {visibleCategories.map((category) => (
             <Card
               key={category.key}
               title={
@@ -202,6 +194,11 @@ export default function ConsoleIndex() {
               )}
             </Card>
           ))}
+          {categoryKey && visibleCategories.length === 0 ? (
+            <Card>
+              <Empty description={`分类 "${categoryKey}" 下暂无已发布页面`} />
+            </Card>
+          ) : null}
         </Space>
       ) : (
         <Card>
@@ -210,41 +207,6 @@ export default function ConsoleIndex() {
               请先在 Page 工作台发布页面，然后在这里查看。
             </Typography.Text>
           </Empty>
-        </Card>
-      )}
-
-      {/* 所有页面列表（当有分类过滤时显示） */}
-      {categoryKey && filteredPages.length > 0 && (
-        <Card title={`分类 "${categoryKey}" 下的页面`}>
-          <Space wrap size={[12, 12]}>
-            {filteredPages.map((page) => (
-              <Card
-                key={page.pageKey}
-                hoverable
-                size="small"
-                style={{ width: 280 }}
-                onClick={() =>
-                  history.push(
-                    `/console/${encodeURIComponent(categoryKey)}/${encodeURIComponent(page.pageKey)}`,
-                  )
-                }
-              >
-                <Card.Meta
-                  title={getPageTitle(page)}
-                  description={
-                    <Space direction="vertical" size={4}>
-                      <Typography.Text code style={{ fontSize: 12 }}>
-                        {page.pageKey}
-                      </Typography.Text>
-                      {page.version && (
-                        <Tag>{`v${page.version}`}</Tag>
-                      )}
-                    </Space>
-                  }
-                />
-              </Card>
-            ))}
-          </Space>
         </Card>
       )}
     </Space>

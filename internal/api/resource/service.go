@@ -102,7 +102,7 @@ func (s *Service) GeneratedPages(ctx context.Context, req *ResourceGeneratedPage
 		return nil, err
 	}
 	inputs := descriptors.Collect(ctx, s.svcCtx)
-	_, resources := normalizer.NormalizeBatch(inputs)
+	results, resources := normalizer.NormalizeBatch(inputs)
 
 	r, ok := resources[req.ResourceKey]
 	if !ok || r == nil {
@@ -111,6 +111,7 @@ func (s *Service) GeneratedPages(ctx context.Context, req *ResourceGeneratedPage
 
 	// Use generator to create page suggestions
 	opts := generator.DefaultGenerateOptions()
+	opts.Functions = functionsByID(results)
 	pages := generator.GenerateForResource(*r, opts)
 
 	// Collect all diagnostics
@@ -123,6 +124,17 @@ func (s *Service) GeneratedPages(ctx context.Context, req *ResourceGeneratedPage
 		Items:       pages,
 		Diagnostics: diags,
 	}, nil
+}
+
+func functionsByID(results []normalizer.NormalizerResult) map[string]spec.FunctionSpec {
+	out := make(map[string]spec.FunctionSpec, len(results))
+	for _, result := range results {
+		if strings.TrimSpace(result.Function.ID) == "" {
+			continue
+		}
+		out[result.Function.ID] = result.Function
+	}
+	return out
 }
 
 // matchesLocalizedText checks if any localized text value matches the query.

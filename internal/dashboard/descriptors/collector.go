@@ -91,6 +91,7 @@ func Collect(ctx context.Context, svcCtx *svc.ServiceContext) []normalizer.Descr
 			}
 		}
 	}
+	mergeOpenAPISourceBindings(ctx, svcCtx, byID)
 
 	inputs := make([]normalizer.DescriptorInput, 0, len(byID))
 	for _, input := range byID {
@@ -102,6 +103,148 @@ func Collect(ctx context.Context, svcCtx *svc.ServiceContext) []normalizer.Descr
 		return inputs[i].ID < inputs[j].ID
 	})
 	return inputs
+}
+
+type sourceOperationInput struct {
+	OperationID  string             `json:"operationId"`
+	Summary      string             `json:"summary,omitempty"`
+	Description  string             `json:"description,omitempty"`
+	Tags         []string           `json:"tags,omitempty"`
+	Operation    string             `json:"operation,omitempty"`
+	Resource     string             `json:"resource,omitempty"`
+	PageContract *spec.PageContract `json:"pageContract,omitempty"`
+	Risk         string             `json:"risk,omitempty"`
+	Permission   string             `json:"permission,omitempty"`
+}
+
+func mergeOpenAPISourceBindings(ctx context.Context, svcCtx *svc.ServiceContext, byID map[string]*normalizer.DescriptorInput) {
+	if svcCtx == nil || svcCtx.OpenAPISourceModel == nil || svcCtx.OpenAPISourceBindingModel == nil {
+		return
+	}
+	gameID, env := svc.GameScopeFromContext(ctx)
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	if gameID == "" || env == "" {
+		return
+	}
+	sources, err := svcCtx.OpenAPISourceModel.ListByScope(ctx, gameID, env)
+	if err != nil {
+		return
+	}
+	for i := range sources {
+		source := &sources[i]
+		bindings, err := svcCtx.OpenAPISourceBindingModel.ListBySource(ctx, gameID, env, source.SourceID)
+		if err != nil {
+			continue
+		}
+		var operations []sourceOperationInput
+		if err := source.GetOperations(&operations); err != nil {
+			continue
+		}
+		operationsByID := make(map[string]sourceOperationInput, len(operations))
+		for _, operation := range operations {
+			operationID := strings.TrimSpace(operation.OperationID)
+			if operationID != "" {
+				operationsByID[operationID] = operation
+			}
+		}
+		openAPIOperations := sourceOpenAPIOperationsByID(source.GetSpec())
+		for _, binding := range bindings {
+			if strings.TrimSpace(binding.Kind) != "provider" {
+				continue
+			}
+			functionID := strings.TrimSpace(binding.FunctionID)
+			if functionID == "" {
+				continue
+			}
+			input := byID[functionID]
+			if input == nil {
+				continue
+			}
+			operationID := strings.TrimSpace(binding.OperationID)
+			sourceOp, ok := operationsByID[operationID]
+			if !ok {
+				continue
+			}
+			mergeOpenAPISourceOperationInput(input, sourceOp)
+			if op := openAPIOperations[operationID]; op != nil {
+				mergeOpenAPIOperationInput(input, op)
+			}
+		}
+	}
+}
+
+func mergeOpenAPISourceOperationInput(input *normalizer.DescriptorInput, op sourceOperationInput) {
+	if input == nil {
+		return
+	}
+	if input.Summary == "" {
+		input.Summary = strings.TrimSpace(op.Summary)
+	}
+	if input.Description == "" {
+		input.Description = strings.TrimSpace(op.Description)
+	}
+	if input.Tags == nil {
+		input.Tags = append([]string(nil), op.Tags...)
+	}
+	if input.Resource == "" {
+		input.Resource = strings.TrimSpace(op.Resource)
+	}
+	if input.Operation == "" {
+		input.Operation = strings.TrimSpace(op.Operation)
+	}
+	if input.PageContract == nil {
+		input.PageContract = op.PageContract
+	}
+	if input.Risk == "" {
+		input.Risk = strings.TrimSpace(op.Risk)
+	}
+	if input.Permission == "" {
+		input.Permission = strings.TrimSpace(op.Permission)
+	}
+}
+
+func sourceOpenAPIOperationsByID(raw json.RawMessage) map[string]*openapi3.Operation {
+	out := map[string]*openapi3.Operation{}
+	if len(raw) == 0 {
+		return out
+	}
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = false
+	doc, err := loader.LoadFromData(raw)
+	if err != nil || doc == nil || doc.Paths == nil {
+		return out
+	}
+	for _, candidate := range methodOperations(doc.Paths) {
+		if candidate == nil || strings.TrimSpace(candidate.OperationID) == "" {
+			continue
+		}
+		out[strings.TrimSpace(candidate.OperationID)] = candidate
+	}
+	return out
+}
+
+func methodOperations(paths *openapi3.Paths) []*openapi3.Operation {
+	if paths == nil {
+		return nil
+	}
+	out := make([]*openapi3.Operation, 0)
+	for _, pathItem := range paths.Map() {
+		if pathItem == nil {
+			continue
+		}
+		out = append(out,
+			pathItem.Get,
+			pathItem.Post,
+			pathItem.Put,
+			pathItem.Patch,
+			pathItem.Delete,
+			pathItem.Options,
+			pathItem.Head,
+			pathItem.Trace,
+		)
+	}
+	return out
 }
 
 func mergeDescriptorTemplateInput(input *normalizer.DescriptorInput, template model.Descriptor) {

@@ -10,6 +10,8 @@
       "registry:read",
       "resources:read",
       "functions:read",
+      "openapi_sources:read",
+      "openapi_sources:write",
       "pages:read",
       "pages:edit",
       "pages:publish",
@@ -28,6 +30,8 @@
       "registry:read",
       "resources:read",
       "functions:read",
+      "openapi_sources:read",
+      "openapi_sources:write",
       "pages:read",
       "pages:edit",
       "pages:publish",
@@ -47,6 +51,8 @@
       "item:read",
       "registry:read",
       "functions:read",
+      "openapi_sources:read",
+      "openapi_sources:write",
       "pages:read",
       "pages:edit"
     ]
@@ -63,6 +69,8 @@
       "item:read",
       "registry:read",
       "functions:read",
+      "openapi_sources:read",
+      "openapi_sources:write",
       "pages:read",
       "pages:edit"
     ]
@@ -84,6 +92,8 @@
       "registry:read",
       "resources:read",
       "functions:read",
+      "openapi_sources:read",
+      "openapi_sources:write",
       "pages:read",
       "pages:edit",
       "pages:publish",
@@ -108,6 +118,8 @@
       "registry:read",
       "resources:read",
       "functions:read",
+      "openapi_sources:read",
+      "openapi_sources:write",
       "pages:read",
       "pages:edit",
       "pages:publish",

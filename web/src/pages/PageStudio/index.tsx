@@ -65,6 +65,12 @@ type JsonParseResult =
 type BindingMappingField = 'inputMapping' | 'outputMapping';
 type BindingMappingTexts = Record<string, string>;
 
+type TextDiffLine = {
+  key: string;
+  marker: 'same' | 'added' | 'removed';
+  text: string;
+};
+
 type ApiErrorLike = {
   response?: {
     status?: number;
@@ -229,6 +235,28 @@ function diagnosticsFromApiError(error: unknown): Diagnostic[] {
   }));
 }
 
+function diffText(before: string, after: string): TextDiffLine[] {
+  const beforeLines = before.split('\n');
+  const afterLines = after.split('\n');
+  const max = Math.max(beforeLines.length, afterLines.length);
+  const result: TextDiffLine[] = [];
+  for (let index = 0; index < max; index += 1) {
+    const beforeLine = beforeLines[index];
+    const afterLine = afterLines[index];
+    if (beforeLine === afterLine) {
+      result.push({ key: `${index}:same`, marker: 'same', text: `  ${beforeLine || ''}` });
+      continue;
+    }
+    if (beforeLine !== undefined) {
+      result.push({ key: `${index}:removed`, marker: 'removed', text: `- ${beforeLine}` });
+    }
+    if (afterLine !== undefined) {
+      result.push({ key: `${index}:added`, marker: 'added', text: `+ ${afterLine}` });
+    }
+  }
+  return result;
+}
+
 function isRevisionConflict(error: unknown): error is ApiErrorLike {
   const apiError = error as ApiErrorLike;
   return apiError?.response?.status === 409;
@@ -275,6 +303,9 @@ export default function PageStudio() {
   const [versionJsonOpen, setVersionJsonOpen] = useState(false);
   const [versionJsonTitle, setVersionJsonTitle] = useState('');
   const [versionJsonText, setVersionJsonText] = useState('');
+  const [versionDiffOpen, setVersionDiffOpen] = useState(false);
+  const [versionDiffTitle, setVersionDiffTitle] = useState('');
+  const [versionDiffLines, setVersionDiffLines] = useState<TextDiffLine[]>([]);
   const [query, setQuery] = useState('');
   const [resources, setResources] = useState<ResourceSpec[]>([]);
   const [selectedResourceKey, setSelectedResourceKey] = useState<string>();
@@ -599,6 +630,18 @@ export default function PageStudio() {
     setVersionJsonTitle(`${draft.pageKey} / version ${version}`);
     setVersionJsonText(stringifyPage(detail.page));
     setVersionJsonOpen(true);
+  };
+
+  const diffVersion = async (version: number) => {
+    if (!draft) return;
+    if (!currentJson.ok) {
+      message.error(currentJson.message);
+      return;
+    }
+    const detail = await getPageVersion(draft.pageKey, version);
+    setVersionDiffTitle(`${draft.pageKey} / version ${version} -> 当前草稿`);
+    setVersionDiffLines(diffText(stringifyPage(detail.page), stringifyPage(currentJson.value)));
+    setVersionDiffOpen(true);
   };
 
   const rollbackVersion = async (version: number) => {
@@ -1214,6 +1257,9 @@ export default function PageStudio() {
                 <Button key="view" size="small" type="link" onClick={() => viewVersion(record.version)}>
                   查看 JSON
                 </Button>,
+                <Button key="diff" size="small" type="link" onClick={() => diffVersion(record.version)}>
+                  对比当前
+                </Button>,
                 <Popconfirm
                   key="rollback"
                   title={`回滚到版本 ${record.version}？`}
@@ -1237,6 +1283,26 @@ export default function PageStudio() {
         width={920}
       >
         <Input.TextArea value={versionJsonText} rows={30} readOnly spellCheck={false} style={{ fontFamily: 'monospace' }} />
+      </Modal>
+      <Modal
+        title={versionDiffTitle}
+        open={versionDiffOpen}
+        onCancel={() => setVersionDiffOpen(false)}
+        footer={null}
+        width={980}
+      >
+        <Space direction="vertical" size={2} style={{ width: '100%' }}>
+          {versionDiffLines.map((line) => (
+            <Typography.Text
+              key={line.key}
+              code
+              type={line.marker === 'added' ? 'success' : line.marker === 'removed' ? 'danger' : 'secondary'}
+              style={{ whiteSpace: 'pre-wrap', display: 'block' }}
+            >
+              {line.text}
+            </Typography.Text>
+          ))}
+        </Space>
       </Modal>
     </PageContainer>
   );

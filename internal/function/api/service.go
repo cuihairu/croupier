@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cuihairu/croupier/internal/function/openapi"
 	"github.com/cuihairu/croupier/internal/function/registry"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 )
@@ -110,36 +109,6 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 		return ErrNotFound
 	}
 	return s.store.Unregister(ctx, id)
-}
-
-// ImportFromOpenAPI imports functions from an OpenAPI specification.
-func (s *Service) ImportFromOpenAPI(ctx context.Context, specData []byte, opts *ImportOptions) ([]*functionv1.FunctionMetadata, error) {
-	// Use OpenAPI converter
-	converter := openapi.NewConverter()
-
-	var importOpts *openapi.ImportOptions
-	if opts != nil {
-		importOpts = &openapi.ImportOptions{
-			ResourcePrefix:   opts.ResourcePrefix,
-			TagPrefix:        opts.TagPrefix,
-			DefaultTimeoutMs: opts.DefaultTimeoutMs,
-			ContinueOnError:  opts.ContinueOnError,
-		}
-	}
-
-	metadatas, err := converter.ImportFromSpecData(specData, importOpts)
-	if err != nil {
-		return nil, fmt.Errorf("import OpenAPI spec: %w", err)
-	}
-
-	// Register all functions
-	for _, metadata := range metadatas {
-		if err := s.store.Register(ctx, metadata); err != nil {
-			return nil, fmt.Errorf("register function %s: %w", metadata.Id, err)
-		}
-	}
-
-	return metadatas, nil
 }
 
 // GetResources returns all unique resources.

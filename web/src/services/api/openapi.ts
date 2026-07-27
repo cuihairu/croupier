@@ -3,6 +3,7 @@ import type {
   Diagnostic,
   JSONValue,
   LocalizedText,
+  PageContract,
   RiskLevel,
 } from '@/types/dashboard';
 
@@ -88,6 +89,7 @@ export interface OpenAPISourceOperation {
   tags?: string[];
   resource?: string;
   operation?: string;
+  pageContract?: PageContract;
   risk?: RiskLevel;
   enabled?: boolean;
   permission?: string;
@@ -165,6 +167,13 @@ export async function uploadOpenAPISourceFile(file: File, name?: string) {
     method: 'POST',
     data,
     requestType: 'form',
+  });
+}
+
+export async function updateOpenAPISource(sourceId: string, spec: OpenAPIDocument, name?: string) {
+  return request<OpenAPISourceGetResponse>(`/api/v1/openapi/sources/${encodeURIComponent(sourceId)}`, {
+    method: 'PUT',
+    data: { name, spec },
   });
 }
 

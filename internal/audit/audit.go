@@ -67,6 +67,12 @@ const (
 	EventPageRollback  AuditEventType = "page.rollback"
 	EventPageExecute   AuditEventType = "page.execute"
 
+	// OpenAPI Source events
+	EventOpenAPISourceCreate        AuditEventType = "openapi_source.create"
+	EventOpenAPISourceUpdate        AuditEventType = "openapi_source.update"
+	EventOpenAPISourceBindingCreate AuditEventType = "openapi_source.binding_create"
+	EventOpenAPISourceBindingDelete AuditEventType = "openapi_source.binding_delete"
+
 	// Configuration events
 	EventConfigCreate AuditEventType = "config.create"
 	EventConfigUpdate AuditEventType = "config.update"
@@ -447,6 +453,8 @@ func (s *AuditService) inferCategory(eventType AuditEventType) AuditCategory {
 	case eventType == EventFunctionInvoke || eventType == EventFunctionRegister || eventType == EventFunctionUnregister ||
 		eventType == EventFunctionUpdate || eventType == EventPageDraftSave || eventType == EventPagePublish ||
 		eventType == EventPageUnpublish || eventType == EventPageRollback || eventType == EventPageExecute ||
+		eventType == EventOpenAPISourceCreate || eventType == EventOpenAPISourceBindingCreate ||
+		eventType == EventOpenAPISourceUpdate || eventType == EventOpenAPISourceBindingDelete ||
 		eventType == EventConfigUpdate:
 		return CategoryOperational
 	case eventType == EventDataAccess || eventType == EventDataExport || eventType == EventDataDelete:

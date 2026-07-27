@@ -134,18 +134,17 @@ func TestHandler_GetSpec_InvalidID(t *testing.T) {
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 
-func TestHandler_Import_EmptySpec(t *testing.T) {
+func TestHandler_CreateSource_EmptySpec(t *testing.T) {
 	t.Parallel()
 
 	_, router := setupOpenAPITestHandler(t)
 
-	req, _ := http.NewRequest("POST", "/import", strings.NewReader("{}"))
+	req, _ := http.NewRequest("POST", "/sources", strings.NewReader("{}"))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Empty spec should fail validation
-	assert.NotEqual(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestHandler_BatchGetSpec_InvalidJSON(t *testing.T) {

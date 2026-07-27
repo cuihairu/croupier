@@ -97,21 +97,21 @@ type ProviderDeleteResponse struct {
 }
 ```
 
-### 4. "获取提供者实体"
+### 4. "获取提供者资源"
 
 1. route definition
 
-- Url: /api/v1/providers/:id/entities
+- Url: /api/v1/providers/:id/resources
 - Method: GET
-- Request: `ProvidersEntitiesRequest`
-- Response: `ProvidersEntitiesResponse`
+- Request: `ProvidersResourcesRequest`
+- Response: `ProvidersResourcesResponse`
 
 2. request definition
 
 
 
 ```go
-type ProvidersEntitiesRequest struct {
+type ProvidersResourcesRequest struct {
 	ID string `path:"id"`
 }
 ```
@@ -122,7 +122,7 @@ type ProvidersEntitiesRequest struct {
 
 
 ```go
-type ProvidersEntitiesResponse struct {
+type ProvidersResourcesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
 	Data interface{} `json:"data,omitempty"`
@@ -222,4 +222,3 @@ type ProvidersDescriptorsResponse struct {
 	Data interface{} `json:"data,omitempty"`
 }
 ```
-

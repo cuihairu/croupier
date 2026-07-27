@@ -379,6 +379,7 @@ func registerOpenAPIRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceCo
 		group.GET("/sources", handler.ListSources)
 		group.POST("/sources", handler.CreateSource)
 		group.GET("/sources/:sourceId", handler.GetSource)
+		group.PUT("/sources/:sourceId", handler.UpdateSource)
 		group.GET("/sources/:sourceId/diagnostics", handler.SourceDiagnostics)
 		group.POST("/sources/:sourceId/bindings", handler.CreateBinding)
 		group.DELETE("/sources/:sourceId/bindings/:bindingId", handler.DeleteBinding)
@@ -393,7 +394,7 @@ func registerProviderRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 		group.GET("/capabilities", handler.Capabilities)
 		group.GET("/descriptors", handler.Descriptors)
 		group.GET("/:id", handler.Get)
-		group.GET("/:id/entities", handler.Entities)
+		group.GET("/:id/resources", handler.Resources)
 		group.DELETE("/:id", handler.Delete)
 		group.POST("/:id/reload", handler.Reload)
 	}

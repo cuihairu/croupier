@@ -17,14 +17,9 @@ import "encoding/json"
 // publishable.
 type LocalizedText map[string]string
 
-// JSONValue represents arbitrary JSON data at parsing boundaries. Core DTOs
-// should prefer typed structs or json.RawMessage and only use JSONValue when
-// traversing JSON Schema / extension documents.
-type JSONValue = any
-
-// JSONObject is an explicitly named JSON object shape used by schema parsing
-// code instead of leaking map[string]interface{} through public contracts.
-type JSONObject map[string]JSONValue
+// JSONValue represents arbitrary JSON payload at parsing boundaries.
+// Go runtime code stores it as raw JSON instead of an untyped map.
+type JSONValue = json.RawMessage
 
 // JSONSchema is a raw JSON Schema object. The canonical form follows
 // draft-07 / 2020-12 but the type itself does not enforce validation.

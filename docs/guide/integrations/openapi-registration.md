@@ -83,7 +83,7 @@ OpenAPI 在这里提供函数契约和元数据来源，不定义单独的注册
 
 `x-operation` 不再表示页面类型。页面类型、按钮位置、菜单分类和多语言标题只在 PageSpec / Page Studio 中确定。
 
-以下字段不属于 OpenAPI 函数注册，导入时必须拒绝或返回 Source diagnostics：
+以下字段不属于 OpenAPI 函数注册，SDK 本地解析或 Dashboard Source 校验时必须拒绝，并返回 Source diagnostics：
 
 - `x-category-display`
 - `x-entity-display`
@@ -210,7 +210,7 @@ OpenAPI 有两种入口，先选定执行模型：
 2. 把 request/response schema 写完整。
 3. 使用 `x-resource`、`x-operation`、`x-risk` 表达治理和业务归属。
 4. 不在 OpenAPI 中填写动态显示名、菜单分类、页面类型、按钮位置、Formily 或 Page schema。
-5. 导入 OpenAPI 后，由 Server 生成 FunctionSpec / ResourceSpec / OperationSpec，并从 request schema 派生 Function Form。
+5. 上传为 OpenAPI Source 或由 SDK 本地解析后，由 Server 生成 FunctionSpec / ResourceSpec / OperationSpec，并从 request schema 派生 Function Form。
 6. 在 Page Studio 确认分类、标题、页面组件、binding、mapping 和多语言 labels 后发布。
 
 ## 发布限制

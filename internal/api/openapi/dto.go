@@ -64,6 +64,12 @@ type OpenAPISourceCreateRequest struct {
 	Spec json.RawMessage `json:"spec" binding:"required"`
 }
 
+type OpenAPISourceUpdateRequest struct {
+	SourceID string          `uri:"sourceId" binding:"required"`
+	Name     string          `json:"name,omitempty"`
+	Spec     json.RawMessage `json:"spec" binding:"required"`
+}
+
 type OpenAPISourceSummary struct {
 	SourceID        string            `json:"sourceId"`
 	GameID          string            `json:"gameId,omitempty"`

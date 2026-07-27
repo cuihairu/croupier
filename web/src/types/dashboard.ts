@@ -16,7 +16,7 @@
 /** 多语言文本，locale code -> display text */
 export type LocalizedText = Record<string, string>;
 
-/** JSON 基础值，避免核心 DTO 使用 any */
+/** JSON 基础值，避免核心 DTO 使用非约束动态类型 */
 export type JSONValue =
   | null
   | boolean

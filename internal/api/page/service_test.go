@@ -122,6 +122,64 @@ func TestServicePublishWritesActorAndAudit(t *testing.T) {
 	assert.Equal(t, revision, records[0].Details["published_version"])
 }
 
+func TestServicePublishUpdatesDraftVersionRecord(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	revision := saveTestPageDraft(t, service, ctx)
+
+	_, err := service.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+	})
+	require.NoError(t, err)
+
+	versions, err := service.Versions(ctx, &PageVersionsRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	require.Len(t, versions.Items, 1)
+	assert.Equal(t, revision, versions.Items[0].Version)
+	assert.Equal(t, "published", versions.Items[0].Status)
+	assert.True(t, versions.Items[0].IsCurrentDraft)
+	assert.True(t, versions.Items[0].IsCurrentPublished)
+}
+
+func TestServiceKeepsSamePageKeyIsolatedByScope(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:read")
+	devRevision := saveTestPageDraft(t, service, ctx)
+	prodCtx := svc.WithGameScope(ctx, svc.GameScope{GameID: "demo-game", Env: "production"})
+	prodRevision := saveTestPageDraft(t, service, prodCtx)
+
+	devDraft, err := service.GetDraft(ctx, &PageDraftRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	prodDraft, err := service.GetDraft(prodCtx, &PageDraftRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+
+	assert.Equal(t, devRevision, devDraft.DraftRevision)
+	assert.Equal(t, prodRevision, prodDraft.DraftRevision)
+	assert.Equal(t, "development", devDraft.Env)
+	assert.Equal(t, "production", prodDraft.Env)
+
+	nextProdRevision := prodRevision
+	resp, err := service.SaveDraft(prodCtx, &PageSaveRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &nextProdRevision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "生产玩家管理"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Schema:   testPageSchema(),
+		Bindings: testPageBindings(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, prodRevision+1, resp.DraftRevision)
+
+	devDraft, err = service.GetDraft(ctx, &PageDraftRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	assert.Equal(t, devRevision, devDraft.DraftRevision)
+	assert.Equal(t, "玩家管理", devDraft.Title["zh-CN"])
+}
+
 func newPageTestService(t *testing.T, permissions ...string) (*Service, context.Context, *audit.InMemoryAuditStore) {
 	t.Helper()
 

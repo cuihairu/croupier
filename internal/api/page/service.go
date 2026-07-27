@@ -210,7 +210,7 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 		if err != nil {
 			return err
 		}
-		return versionModel.Create(ctx, &model.PageVersion{
+		return versionModel.UpsertByScopePageKeyVersion(ctx, &model.PageVersion{
 			GameID:    gameID,
 			Env:       env,
 			PageKey:   ps.PageKey,
@@ -338,7 +338,7 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 		if err := pageModel.Upsert(ctx, p); err != nil {
 			return err
 		}
-		return versionModel.Create(ctx, &model.PageVersion{
+		return versionModel.UpsertByScopePageKeyVersion(ctx, &model.PageVersion{
 			GameID:    gameID,
 			Env:       env,
 			PageKey:   req.PageKey,
@@ -510,7 +510,7 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 		if err := pageModel.Upsert(ctx, p); err != nil {
 			return err
 		}
-		return versionModel.Create(ctx, &model.PageVersion{
+		return versionModel.UpsertByScopePageKeyVersion(ctx, &model.PageVersion{
 			GameID:    gameID,
 			Env:       env,
 			PageKey:   req.PageKey,

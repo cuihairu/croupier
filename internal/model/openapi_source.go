@@ -67,6 +67,10 @@ func (m *OpenAPISourceModel) Create(ctx context.Context, source *OpenAPISource) 
 	return m.db.WithContext(ctx).Create(source).Error
 }
 
+func (m *OpenAPISourceModel) Update(ctx context.Context, source *OpenAPISource) error {
+	return m.db.WithContext(ctx).Save(source).Error
+}
+
 func (m *OpenAPISourceModel) ListByScope(ctx context.Context, gameID, env string) ([]OpenAPISource, error) {
 	var items []OpenAPISource
 	if err := m.db.WithContext(ctx).

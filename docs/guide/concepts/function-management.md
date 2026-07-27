@@ -170,7 +170,7 @@ stateDiagram-v2
 ## 相关文档
 
 - [核心概念总览](./overview.md)
-- [Page Studio](./object-workspace.md)
+- [函数注册与默认界面](./function-registration-ui.md)
 - [函数注册与默认界面](./function-registration-ui.md)
 - [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)
 - [OpenAPI 函数注册](../integrations/openapi-registration.md)

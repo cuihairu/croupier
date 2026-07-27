@@ -210,6 +210,20 @@
     "module": "dashboard"
   },
   {
+    "code": "openapi_sources:read",
+    "name": "OpenAPI来源查看",
+    "description": "查看 OpenAPI Source、操作清单、诊断和绑定",
+    "category": "openapi_source",
+    "module": "dashboard"
+  },
+  {
+    "code": "openapi_sources:write",
+    "name": "OpenAPI来源管理",
+    "description": "上传 OpenAPI Source 并管理 Provider binding",
+    "category": "openapi_source",
+    "module": "dashboard"
+  },
+  {
     "code": "pages:read",
     "name": "页面查看",
     "description": "查看页面草稿和已发布页面",
