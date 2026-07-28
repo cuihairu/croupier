@@ -117,11 +117,13 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 		return nil, errorx.NewValidationError("binding contract snapshot missing")
 	}
 	requestID := uuid.NewString()
+	actor := currentActor(ctx)
 	var result spec.PageExecutionResult
-	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, *published, binding, requestID)
+	var target string
+	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, *published, binding, requestID, actor)
 	defer func() {
-		finishSpan(err)
-		s.auditPageExecute(ctx, gameID, env, *published, binding, requestID, result, err)
+		finishSpan(err, result, target)
+		s.auditPageExecute(ctx, gameID, env, *published, binding, requestID, target, result, err)
 	}()
 
 	if err := s.ensureBindingFresh(ctx, binding, contract); err != nil {
@@ -159,6 +161,7 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	if err != nil {
 		return nil, err
 	}
+	target = pageExecutionTarget(functionResp)
 
 	result, err = buildExecutionResult(ctx, requestID, functionResp)
 	if err != nil {
@@ -233,15 +236,17 @@ func (s *Service) startPageExecuteSpan(
 	page spec.PublishedPageSpec,
 	binding spec.PageFunctionBinding,
 	requestID string,
-) (context.Context, func(error)) {
+	actor string,
+) (context.Context, func(error, spec.PageExecutionResult, string)) {
 	if s == nil || s.svcCtx == nil || s.svcCtx.Telemetry == nil {
-		return ctx, func(error) {}
+		return ctx, func(error, spec.PageExecutionResult, string) {}
 	}
 	startedAt := time.Now()
 	nextCtx, span := s.svcCtx.Telemetry.StartSpan(ctx, "page.binding.execute",
 		attribute.String("request.id", requestID),
 		attribute.String("game.id", gameID),
 		attribute.String("game.env", env),
+		attribute.String("actor", actor),
 		attribute.String("page.key", page.PageKey),
 		attribute.Int("page.publish_version", page.Version),
 		attribute.String("page.binding_id", binding.ID),
@@ -249,8 +254,21 @@ func (s *Service) startPageExecuteSpan(
 		attribute.String("page.binding_usage", string(binding.Usage)),
 		attribute.String("page.execution_mode", string(binding.Execution.Mode)),
 	)
-	return nextCtx, func(err error) {
-		s.svcCtx.Telemetry.EndSpan(span, startedAt, err)
+	return nextCtx, func(err error, result spec.PageExecutionResult, target string) {
+		attrs := []attribute.KeyValue{
+			attribute.String("trace_id", telemetry.TraceIDFromContext(nextCtx)),
+			attribute.String("page.result_kind", string(result.Kind)),
+		}
+		if target != "" {
+			attrs = append(attrs, attribute.String("target", target))
+		}
+		if result.TaskID != "" {
+			attrs = append(attrs, attribute.String("task.id", result.TaskID))
+		}
+		if result.ApprovalID != "" {
+			attrs = append(attrs, attribute.String("approval.id", result.ApprovalID))
+		}
+		s.svcCtx.Telemetry.EndSpan(span, startedAt, err, attrs...)
 	}
 }
 
@@ -261,16 +279,14 @@ func (s *Service) auditPageExecute(
 	page spec.PublishedPageSpec,
 	binding spec.PageFunctionBinding,
 	requestID string,
+	target string,
 	result spec.PageExecutionResult,
 	executeErr error,
 ) {
 	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil {
 		return
 	}
-	actor, err := logicutils.CurrentUsername(ctx)
-	if err != nil {
-		actor = "unknown"
-	}
+	actor := currentActor(ctx)
 	outcome := "success"
 	errorMessage := ""
 	if executeErr != nil {
@@ -291,13 +307,14 @@ func (s *Service) auditPageExecute(
 		"binding_id":       binding.ID,
 		"binding_usage":    string(binding.Usage),
 		"function_id":      binding.FunctionID,
+		"target":           target,
 		"execution_mode":   string(binding.Execution.Mode),
 		"result_kind":      string(result.Kind),
 		"task_id":          result.TaskID,
 		"approval_id":      result.ApprovalID,
 		"diagnostic_count": len(result.Diagnostics),
 	}
-	_, err = s.svcCtx.AuditService.Log(ctx, audit.EventPageExecute,
+	_, err := s.svcCtx.AuditService.Log(ctx, audit.EventPageExecute,
 		audit.WithActorID(actor, "user", actor),
 		audit.WithResource(audit.ResourceInfo{
 			Type:        "page",
@@ -308,6 +325,7 @@ func (s *Service) auditPageExecute(
 			Metadata: map[string]string{
 				"binding_id":  binding.ID,
 				"function_id": binding.FunctionID,
+				"target":      target,
 			},
 		}),
 		audit.WithDetails(details),
@@ -319,6 +337,7 @@ func (s *Service) auditPageExecute(
 				"page_key":    page.PageKey,
 				"binding_id":  binding.ID,
 				"function_id": binding.FunctionID,
+				"target":      target,
 			},
 		}),
 		audit.WithOutcome(outcome, errorMessage),
@@ -326,6 +345,37 @@ func (s *Service) auditPageExecute(
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to write page execute audit event", "pageKey", page.PageKey, "bindingId", binding.ID, "error", err)
 	}
+}
+
+func pageExecutionTarget(resp *function.FunctionInvokeResponse) string {
+	if resp == nil {
+		return ""
+	}
+	if agentID := strings.TrimSpace(resp.ExecutionMetadata["agent_id"]); agentID != "" {
+		return agentID
+	}
+	if resp.Broadcast != nil {
+		targets := make([]string, 0, len(resp.Broadcast.Results))
+		for _, item := range resp.Broadcast.Results {
+			agentID := strings.TrimSpace(item.AgentID)
+			if agentID != "" {
+				targets = append(targets, agentID)
+			}
+		}
+		if len(targets) > 0 {
+			sort.Strings(targets)
+			return strings.Join(targets, ",")
+		}
+	}
+	return ""
+}
+
+func currentActor(ctx context.Context) string {
+	actor, err := logicutils.CurrentUsername(ctx)
+	if err != nil {
+		return "unknown"
+	}
+	return actor
 }
 
 func parsePublishedPages(models []model.PublishedPageSpec) []spec.PublishedPageSpec {

@@ -147,6 +147,9 @@ type FunctionInvokeResponse struct {
 	ApprovalID       string          `json:"approval_id,omitempty"`
 	ApprovalRequired bool            `json:"approval_required,omitempty"`
 	ApprovalWorkflow string          `json:"approval_workflow,omitempty"`
+	// ExecutionMetadata is server-internal dispatch context for audit/tracing.
+	// It is intentionally not serialized to API clients.
+	ExecutionMetadata map[string]string `json:"-"`
 	// Broadcast carries per-agent outcomes when route=broadcast. Empty when
 	// the call did not use broadcast routing.
 	Broadcast *BroadcastResult `json:"broadcast,omitempty"`

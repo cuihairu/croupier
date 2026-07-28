@@ -3,6 +3,8 @@ package console
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -14,12 +16,17 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
@@ -79,6 +86,7 @@ func TestServiceExecuteBindingRequiresFunctionInvokePermission(t *testing.T) {
 
 func TestServiceExecuteBindingWritesAuditWithPageContext(t *testing.T) {
 	service, ctx, auditStore := newConsoleTestServiceWithAudit(t, "function:invoke")
+	spanRecorder := attachConsoleTestTelemetry(t, service)
 	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))
 	caller := &fakeConsoleSessionCaller{
 		payload: []byte(`{"ok":true}`),
@@ -95,6 +103,7 @@ func TestServiceExecuteBindingWritesAuditWithPageContext(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Result.RequestID)
+	require.NotEmpty(t, resp.Result.TraceID)
 	assert.Equal(t, spec.PageExecutionKindSync, resp.Result.Kind)
 	assert.JSONEq(t, `{"ok":true}`, string(resp.Result.Data))
 
@@ -116,12 +125,31 @@ func TestServiceExecuteBindingWritesAuditWithPageContext(t *testing.T) {
 	assert.Equal(t, "player.manage", record.Details["page_key"])
 	assert.Equal(t, "player.query", record.Details["binding_id"])
 	assert.Equal(t, "player.query", record.Details["function_id"])
+	assert.Equal(t, "agent-1", record.Details["target"])
 	assert.Equal(t, 1, record.Details["publish_version"])
+	assert.Equal(t, "agent-1", record.Resource.Metadata["target"])
 	require.NotNil(t, caller.lastRequest)
 	assert.Equal(t, "player.manage", caller.lastRequest.Metadata["page_key"])
 	assert.Equal(t, "player.query", caller.lastRequest.Metadata["binding_id"])
+	assert.Equal(t, "agent-1", caller.lastRequest.Metadata["agent_id"])
 	assert.Equal(t, resp.Result.RequestID, caller.lastRequest.Metadata["page_request_id"])
+	assert.Equal(t, resp.Result.TraceID, caller.lastRequest.Metadata["trace_id"])
 	assert.Equal(t, "console.binding.execute", caller.lastRequest.Metadata["page_runtime_api"])
+
+	pageSpan := findEndedSpan(t, spanRecorder, "page.binding.execute")
+	assertSpanStringAttr(t, pageSpan, "request.id", resp.Result.RequestID)
+	assertSpanStringAttr(t, pageSpan, "trace_id", resp.Result.TraceID)
+	assertSpanStringAttr(t, pageSpan, "game.id", "demo-game")
+	assertSpanStringAttr(t, pageSpan, "game.env", "development")
+	assertSpanStringAttr(t, pageSpan, "actor", "console_tester")
+	assertSpanStringAttr(t, pageSpan, "page.key", "player.manage")
+	assertSpanIntAttr(t, pageSpan, "page.publish_version", 1)
+	assertSpanStringAttr(t, pageSpan, "page.binding_id", "player.query")
+	assertSpanStringAttr(t, pageSpan, "page.binding_usage", string(spec.BindingUsageQuery))
+	assertSpanStringAttr(t, pageSpan, "page.execution_mode", string(spec.PageExecutionModeSync))
+	assertSpanStringAttr(t, pageSpan, "page.result_kind", string(spec.PageExecutionKindSync))
+	assertSpanStringAttr(t, pageSpan, "function.id", "player.query")
+	assertSpanStringAttr(t, pageSpan, "target", "agent-1")
 }
 
 func TestServiceExecuteBindingWritesAuditOnBindingStale(t *testing.T) {
@@ -214,6 +242,74 @@ func newConsoleTestServiceWithAudit(t *testing.T, permissions ...string) (*Servi
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
 	ctx = context.WithValue(ctx, "username", admin.Username)
 	return NewService(svcCtx), ctx, auditStore
+}
+
+func attachConsoleTestTelemetry(t *testing.T, service *Service) *tracetest.SpanRecorder {
+	t.Helper()
+
+	spanRecorder := tracetest.NewSpanRecorder()
+	previousProvider := otel.GetTracerProvider()
+	tracerProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSpanProcessor(spanRecorder),
+	)
+	otel.SetTracerProvider(tracerProvider)
+
+	telemetryService, err := telemetry.NewGameTelemetryService(telemetry.TelemetryConfig{
+		ServiceName:    "console-test",
+		ServiceVersion: "test",
+		Environment:    "test",
+		CollectorURL:   "localhost:4318",
+		GameID:         "demo-game",
+		EnableTracing:  false,
+		EnableMetrics:  false,
+	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	require.NoError(t, err)
+	service.svcCtx.Telemetry = telemetryService
+
+	t.Cleanup(func() {
+		require.NoError(t, telemetryService.Shutdown(context.Background()))
+		require.NoError(t, tracerProvider.Shutdown(context.Background()))
+		otel.SetTracerProvider(previousProvider)
+	})
+	return spanRecorder
+}
+
+func findEndedSpan(t *testing.T, recorder *tracetest.SpanRecorder, name string) sdktrace.ReadOnlySpan {
+	t.Helper()
+	for _, span := range recorder.Ended() {
+		if span.Name() == name {
+			return span
+		}
+	}
+	t.Fatalf("span %q not found", name)
+	return nil
+}
+
+func assertSpanStringAttr(t *testing.T, span sdktrace.ReadOnlySpan, key string, want string) {
+	t.Helper()
+	value, ok := spanAttribute(span, key)
+	require.Truef(t, ok, "span attribute %q missing", key)
+	assert.Equal(t, want, value.AsString())
+}
+
+func assertSpanIntAttr(t *testing.T, span sdktrace.ReadOnlySpan, key string, want int64) {
+	t.Helper()
+	value, ok := spanAttribute(span, key)
+	require.Truef(t, ok, "span attribute %q missing", key)
+	assert.Equal(t, want, value.AsInt64())
+}
+
+func spanAttribute(span sdktrace.ReadOnlySpan, key string) (attribute.Value, bool) {
+	if span == nil {
+		return attribute.Value{}, false
+	}
+	for _, attr := range span.Attributes() {
+		if string(attr.Key) == key {
+			return attr.Value, true
+		}
+	}
+	return attribute.Value{}, false
 }
 
 func seedConsolePublishedPage(svcCtx *svc.ServiceContext, ctx context.Context) error {

@@ -1,6 +1,6 @@
 # Dashboard Resource/Page 重构 TODO
 
-更新时间：2026-07-27（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；Page Studio 基础前端已接入；旧 Workspace/Entity/PageGenerator 前端协议残留已物理清理；dashboard CI guard 已接入；函数侧设计器命名已收敛为 Function Form Designer；剩余重点是真实数据端到端验收、OTel collector 字段验收和 Source binding 完整闭环）
+更新时间：2026-07-28（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；Page Studio 基础前端已接入；旧 Workspace/Entity/PageGenerator 前端协议残留已物理清理；dashboard CI guard 已接入；函数侧设计器命名已收敛为 Function Form Designer；Console Page 执行已补本地 OTel span 字段回归测试与真实调度 target 透传；剩余重点是真实数据端到端验收、OTel collector 字段验收和 Source binding 完整闭环）
 
 本文是 Dashboard 动态页面、函数注册描述符、Page Studio 和运行控制台菜单的重构交接清单。执行 AI 必须按本文推进；审核 AI 以本文和权威设计文档为验收依据。
 
@@ -29,7 +29,7 @@
 | P0-11 OpenAPI Source 上传与执行绑定 | ✅ 基础完成 | 2026-07-26 | Source API、diagnostics、revision update、provider binding、Source binding 到 PageCandidate 生成、固定管理入口、前端只读/写入裁剪、服务层 RBAC、审计和管理 span 已完成；httpConnector 与真实 E2E 后续实现 |
 | P1-1 Page Studio 前端 | ✅ 核心完成 | 2026-07-26 | 已新增 `/system/functions/pages` Page Studio 基础入口，支持 PageSpec 草稿列表、Resource 生成候选、PageCandidate 落草稿、JSON 编辑、基础信息与 binding 结构化编辑、Page schema 顶层组件结构化编辑、组件 props 表单化编辑、DataTable columns/rowActions 和 ActionGroup actions 专用编辑、服务端组件 ABI 校验、校验、预览、发布/取消发布、版本查看、版本 diff、版本回滚和 409 revision 冲突提示；剩余真实端到端验收放入 P1-2/P1-4 |
 | P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 动态菜单已接 ConsoleMenuSpec；“函数与页面”已提升为独立顶层入口；旧注册函数静态菜单翻译和 Provider entities 路由已清理；函数侧 `ui-designer` 路由已改为 `form-designer`；动态菜单合并已抽出纯函数并补测试；仍需真实发布数据端到端验收和最终文案验收 |
-| P1-3 权限和审计模型迁移 | ⏳ 进行中 | | Resource/Page/Console/OpenAPI Source 后端服务层权限已接入；Page 保存/发布/取消发布/回滚、Console Page 执行、OpenAPI Source 上传/绑定/解绑审计已落地；Console 执行和 OpenAPI Source 管理 span 已接入；前端 access 已收敛到 Page/Resource/Console/OpenAPI Source 权限；只有 `openapi_sources:read` 的用户也能进入父级“函数与页面”；剩余真实 OTel collector 字段验收 |
+| P1-3 权限和审计模型迁移 | ⏳ 进行中 | | Resource/Page/Console/OpenAPI Source 后端服务层权限已接入；Page 保存/发布/取消发布/回滚、Console Page 执行、OpenAPI Source 上传/绑定/解绑审计已落地；Console 执行和 OpenAPI Source 管理 span 已接入；Console Page 执行已补本地 span recorder 回归测试，校验 `request_id/trace_id/actor/page_key/publish_version/binding_id/function_id/target/result_kind`；前端 access 已收敛到 Page/Resource/Console/OpenAPI Source 权限；只有 `openapi_sources:read` 的用户也能进入父级“函数与页面”；剩余真实 OTel collector 字段验收 |
 | P1-4 数据表和历史数据处理 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 不作为兼容来源，历史数据只能人工导出/清理，禁止自动发布为新 Page；已补 `page_specs/published_page_specs/page_versions` 同名 pageKey 跨 game/env 隔离测试 |
 
 ## 0. 硬约束

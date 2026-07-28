@@ -167,9 +167,9 @@ if rg -n "ProvidersEntities|openAPIDocEntities|aggregateEntities|/providers/.*/e
   fail "provider API must expose resources, not legacy entities"
 fi
 
-if rg -n "VirtualObjectDescriptor|RelationshipDef|ComponentDescriptor|RegisterVirtualObject|RegisterComponent|GetRegisteredObjects|GetRegisteredComponents|UnregisterVirtualObject|UnregisterComponent|LoadComponentFromFile|config_driven_loader|config_manager|virtual_object_demo|complete_example|comprehensive_demo|production_example|Function -> Entity|虚拟对象|组件系统|register_vo|unregister_vo|get_vo|list_vos" \
-  sdks/cpp/include sdks/cpp/src sdks/cpp/examples sdks/cpp/tests sdks/cpp/lua sdks/cpp/skynet sdks/cpp/README.md sdks/cpp/CMakeLists.txt \
-  --glob "*.h" --glob "*.cpp" --glob "*.lua" --glob "*.md" --glob "CMakeLists.txt" \
+if rg -n "Virtual Object|VirtualObject|RelationshipDef|ComponentDescriptor|RegisterVirtualObject|RegisterComponent|GetRegisteredObjects|GetRegisteredComponents|UnregisterVirtualObject|UnregisterComponent|LoadComponentFromFile|config_driven_loader|config_manager|virtual_object_demo|complete_example|comprehensive_demo|production_example|Function -> Entity|gRPC Integration|虚拟对象|组件系统|register_vo|unregister_vo|get_vo|list_vos|register_virtual_object|get_virtual_object|list_virtual_objects|unregister_virtual_object|create_vo_data|create_invoke_request|desc\\.category|desc\\.entity|test_desc\\.category|test_desc\\.entity" \
+  sdks/cpp/include sdks/cpp/src sdks/cpp/examples sdks/cpp/tests sdks/cpp/lua sdks/cpp/skynet sdks/cpp/README.md sdks/cpp/CMakeLists.txt sdks/cpp/VERSION.cmake sdks/cpp/vcpkg.json \
+  --glob "*.h" --glob "*.cpp" --glob "*.lua" --glob "*.md" --glob "*.cmake" --glob "*.json" --glob "CMakeLists.txt" \
   --glob "!**/build/**" --glob "!**/vcpkg/**" >/dev/null 2>&1; then
   fail "C++ SDK must not restore legacy VirtualObject/Component registration or Skynet VO APIs"
 fi

@@ -237,11 +237,12 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 
 		// Return approval response
 		return &FunctionInvokeResponse{
-			TaskId:           "",
-			ApprovalID:       approvalID,
-			ApprovalRequired: true,
-			ApprovalWorkflow: functionPolicy.ApprovalWorkflow,
-			Result:           nil,
+			TaskId:            "",
+			ApprovalID:        approvalID,
+			ApprovalRequired:  true,
+			ApprovalWorkflow:  functionPolicy.ApprovalWorkflow,
+			Result:            nil,
+			ExecutionMetadata: cloneMetadata(req.Metadata),
 		}, nil
 	}
 
@@ -287,9 +288,10 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 			invokeErr = err
 		} else {
 			result = &FunctionInvokeResponse{
-				TaskId: taskResp.GetTaskId(),
-				TaskID: taskResp.GetTaskId(),
-				Result: nil,
+				TaskId:            taskResp.GetTaskId(),
+				TaskID:            taskResp.GetTaskId(),
+				Result:            nil,
+				ExecutionMetadata: cloneMetadata(metadata),
 			}
 		}
 	} else if strings.EqualFold(strings.TrimSpace(req.Route), "broadcast") {
@@ -298,13 +300,14 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 			invokeErr = err
 		} else {
 			result = buildBroadcastResponse(broadcast)
+			result.ExecutionMetadata = cloneMetadata(metadata)
 		}
 	} else {
 		resp, err := svcCtx.Dispatcher.InvokeRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
 		if err != nil {
 			invokeErr = err
 		} else {
-			result = &FunctionInvokeResponse{}
+			result = &FunctionInvokeResponse{ExecutionMetadata: cloneMetadata(metadata)}
 			if resp != nil && len(resp.GetPayload()) > 0 {
 				result.Result = rawJSONFromBytes(resp.GetPayload())
 			}
@@ -325,6 +328,17 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	}
 
 	return result, nil
+}
+
+func cloneMetadata(metadata map[string]string) map[string]string {
+	if len(metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(metadata))
+	for key, value := range metadata {
+		out[key] = value
+	}
+	return out
 }
 
 // auditFunctionInvoke logs function invocation to audit service
