@@ -291,8 +291,6 @@ endif()
 # SDK source and header files
 set(SDK_SOURCES
     src/croupier_client.cpp
-    src/config_driven_loader.cpp
-    src/config_manager.cpp
     src/tcp_transport.cpp
     src/utils/json_utils.cpp
     src/utils/file_utils.cpp
@@ -303,7 +301,6 @@ set(SDK_SOURCES
 set(SDK_HEADERS
     include/croupier/sdk/croupier_client.h
     include/croupier/sdk/logger.h
-    include/croupier/sdk/config_driven_loader.h
     include/croupier/sdk/tcp_transport.h
     include/croupier/sdk/protocol.h
     include/croupier/sdk/utils/json_utils.h
@@ -575,22 +572,6 @@ if(BUILD_EXAMPLES)
     )
     add_dependencies(croupier-example ${_CROUPIER_SDK_TARGET})
 
-    # Virtual Object Demo
-    add_executable(croupier-virtual-object-demo examples/virtual_object_demo.cpp)
-    target_link_libraries(croupier-virtual-object-demo
-        PRIVATE
-            ${_CROUPIER_SDK_TARGET}
-    )
-    add_dependencies(croupier-virtual-object-demo ${_CROUPIER_SDK_TARGET})
-
-    # Complete Example with gRPC
-    add_executable(croupier-complete-example examples/complete_example.cpp)
-    target_link_libraries(croupier-complete-example
-        PRIVATE
-            ${_CROUPIER_SDK_TARGET}
-    )
-    add_dependencies(croupier-complete-example ${_CROUPIER_SDK_TARGET})
-
     # Advanced Configuration Example
     add_executable(croupier-config-example examples/config_example.cpp)
     target_link_libraries(croupier-config-example
@@ -614,22 +595,6 @@ if(BUILD_EXAMPLES)
             ${_CROUPIER_SDK_TARGET}
     )
     add_dependencies(croupier-game-demo ${_CROUPIER_SDK_TARGET})
-
-    # Comprehensive Demo - Shows ALL SDK interfaces
-    add_executable(croupier-comprehensive-demo examples/comprehensive_demo.cpp)
-    target_link_libraries(croupier-comprehensive-demo
-        PRIVATE
-            ${_CROUPIER_SDK_TARGET}
-    )
-    add_dependencies(croupier-comprehensive-demo ${_CROUPIER_SDK_TARGET})
-
-    # Production Example - Shows best practices for production deployment
-    add_executable(croupier-production-example examples/production_example.cpp)
-    target_link_libraries(croupier-production-example
-        PRIVATE
-            ${_CROUPIER_SDK_TARGET}
-    )
-    add_dependencies(croupier-production-example ${_CROUPIER_SDK_TARGET})
 
     # Example Plugin (shared library)
     add_library(example_plugin SHARED examples/plugins/example_plugin.cpp)
@@ -667,7 +632,7 @@ if(BUILD_EXAMPLES)
     )
 
     # Set output directory for examples
-    set_target_properties(croupier-example croupier-virtual-object-demo croupier-complete-example croupier-config-example croupier-plugin-demo croupier-game-demo croupier-comprehensive-demo PROPERTIES
+    set_target_properties(croupier-example croupier-config-example croupier-plugin-demo croupier-game-demo PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     )
 endif()
@@ -696,9 +661,7 @@ if(BUILD_TESTS)
     # Targets are available either from `find_package(GTest)` (vcpkg/system) or FetchContent.
     if(TARGET GTest::gtest_main OR TARGET gtest_main)
         set(CROUPIER_TEST_SOURCES
-            tests/test_virtual_objects.cpp
             tests/test_utils.cpp
-            tests/test_integration.cpp
             tests/test_json_utils.cpp
             tests/test_file_utils.cpp
             tests/test_main_thread_dispatcher.cpp
@@ -711,16 +674,11 @@ if(BUILD_TESTS)
             tests/test_config_defaults.cpp
             tests/test_client_initialization.cpp
             tests/test_client_function_registration.cpp
-            tests/test_client_virtual_objects.cpp
-            tests/test_client_components.cpp
             tests/test_client_connection.cpp
             tests/test_client_lifecycle.cpp
             tests/test_invoker_fallback.cpp
             tests/test_plugin_registry.cpp
             tests/test_tcp_transport_errors.cpp
-            tests/test_client_utils.cpp
-            tests/test_config_driven_loader.cpp
-            tests/test_config_manager.cpp
             tests/test_plugin_manager.cpp
             tests/test_protocol.cpp
             tests/test_logger.cpp
@@ -797,7 +755,7 @@ endif()
 # ========== Package Information ==========
 set(CPACK_PACKAGE_NAME "croupier-cpp-sdk")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Croupier C++ SDK for Virtual Object Registration")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Croupier C++ SDK for Function Provider and Invoker")
 set(CPACK_PACKAGE_VENDOR "Croupier Project")
 set(CPACK_PACKAGE_CONTACT "support@croupier.dev")
 

@@ -1,6 +1,9 @@
 # SDK 对齐矩阵
 
-本文档记录的是各语言 SDK 必须对齐的统一基线，而不是继续维护历史 `local server`、`LocalControl`、`gRPC callback` 的静态遗留能力表。
+本文档是使用者文档入口。跨语言功能点的单一事实来源是源码目录中的
+[`sdks/SDK_FEATURE_MATRIX.md`](../../sdks/SDK_FEATURE_MATRIX.md)；本文只摘录关键基线和当前必须避免误解的能力状态。
+
+不要把 Server 侧 OpenAPI Source 上传能力等同于每个 SDK 都支持本地 OpenAPI 解析。当前只有 Go SDK 提供并验证了 `RegisterFromOpenAPI` 等价 helper；JS/TS、Python、Java、C#、C++ 只能按 Descriptor v2 字段注册函数，不能在文档或示例中宣称已支持本地 OpenAPI helper。
 
 ## 评估口径
 
@@ -31,6 +34,19 @@
 | `rpc_addr` / 回拨式注册                              | `Forbidden` |
 | SDK 侧 `NNGServer`                                   | `Forbidden` |
 | 以 `gRPC` 作为 SDK 默认主链路                        | `Forbidden` |
+
+## Descriptor v2 / OpenAPI Helper 状态
+
+| SDK | Descriptor v2 字段 | 本地 OpenAPI helper | 说明 |
+| --- | --- | --- | --- |
+| Go | 已接入 | 已实现并可验证 | 当前基准实现 |
+| JS/TS | 待验收 | 未实现 | 不得宣称支持本地 OpenAPI 解析 |
+| Python | 待验收 | 未实现 | 不得宣称支持本地 OpenAPI 解析 |
+| Java | 待验收 | 未实现 | 不得宣称支持本地 OpenAPI 解析 |
+| C# | 待验收 | 未实现 | 生成 proto 已含字段，手写 API/示例仍需验收 |
+| C++ | 待验收 | 未实现 | 不得宣称支持本地 OpenAPI 解析 |
+
+OpenAPI helper 只能解析函数能力契约字段：`operationId/tags/summary/description/requestBody/responses/deprecated` 和 `x-resource/x-operation/x-risk/x-enabled/x-permission`。遇到 UI、Formily、菜单、路由、页面分类、显示文案、`x-placement`、`x-page-hint` 等页面/展示字段必须报错或产生 diagnostics。
 
 ## 协议边界
 
@@ -92,7 +108,7 @@
 - `rpc_addr`
 - `session client/server`
 
-## 为什么主仓库不再维护旧式“现状能力表”
+## 为什么这里不再维护另一份详细状态表
 
 过去那种静态矩阵有两个问题：
 
@@ -105,7 +121,7 @@
 - 统一术语
 - 统一禁止项
 
-而每个 SDK 当前实现状态，应由各 SDK 仓库自己的 README、测试矩阵和 CI 结果负责给出。
+详细功能状态以 [`sdks/SDK_FEATURE_MATRIX.md`](../../sdks/SDK_FEATURE_MATRIX.md) 为准；每个 SDK 的 README、测试矩阵和 CI 结果只能补充语言本地使用说明，不能覆盖该矩阵。
 
 ## SDK 仓库
 

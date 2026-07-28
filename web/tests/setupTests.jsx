@@ -80,18 +80,6 @@ jest.mock(
       if (typeof url === 'string' && url.includes('/api/v1/profile')) {
         return { username: 'admin', roles: ['admin'] };
       }
-      if (typeof url === 'string' && url.includes('/api/v1/workspaces/published')) {
-        return {
-          items: [
-            {
-              objectKey: 'player.ban',
-              title: '封禁玩家',
-              published: true,
-              layout: { type: 'tabs', tabs: [] },
-            },
-          ],
-        };
-      }
       return {};
     });
     const setInitialState = jest.fn((updater) => {

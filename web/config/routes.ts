@@ -71,8 +71,8 @@ const functionManagementRoutes = [
     icon: 'safety',
   },
   {
-    path: '/system/functions/:id/ui-designer',
-    name: 'FunctionUIDesigner',
+    path: '/system/functions/:id/form-designer',
+    name: 'FunctionFormDesigner',
     access: 'canFunctionsRead',
     component: './Functions/SchemaDesigner',
     hideInMenu: true,

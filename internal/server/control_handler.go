@@ -596,8 +596,8 @@ func validateAndNormalizeFunctions(items []*agentv1.FunctionDescriptor) ([]*agen
 			warnings = append(warnings, registerWarning{Code: "invalid_version", FunctionID: fid, Version: version, Message: fmt.Sprintf("function_id=%s version=%s invalid semver and skipped", fid, version)})
 			continue
 		}
-		if forbiddenKey, ok := descriptorUIRegistrationKey(f); ok {
-			warnings = append(warnings, registerWarning{Code: "function_ui_not_allowed", FunctionID: fid, Version: version, Message: fmt.Sprintf("function_id=%s registers UI key %q; function registration only accepts executable capability contract and is skipped", fid, forbiddenKey)})
+		if forbiddenKey, ok := descriptorPresentationField(f); ok {
+			warnings = append(warnings, registerWarning{Code: "function_presentation_field_not_allowed", FunctionID: fid, Version: version, Message: fmt.Sprintf("function_id=%s registers presentation field %q; function registration only accepts executable capability contract and is skipped", fid, forbiddenKey)})
 			continue
 		}
 		f.Id = fid
@@ -620,7 +620,7 @@ func validateAndNormalizeFunctions(items []*agentv1.FunctionDescriptor) ([]*agen
 	return out, warnings
 }
 
-func descriptorUIRegistrationKey(f *agentv1.FunctionDescriptor) (string, bool) {
+func descriptorPresentationField(f *agentv1.FunctionDescriptor) (string, bool) {
 	return "", false
 }
 

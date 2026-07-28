@@ -10,27 +10,27 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-type FunctionUIHistoryLogic struct {
+type FunctionFormHistoryLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewFunctionUIHistoryLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionUIHistoryLogic {
-	return &FunctionUIHistoryLogic{
+func NewFunctionFormHistoryLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionFormHistoryLogic {
+	return &FunctionFormHistoryLogic{
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *FunctionUIHistoryLogic) FunctionUIHistory(req *FunctionUIHistoryRequest) (*FunctionUIHistoryResponse, error) {
+func (l *FunctionFormHistoryLogic) FunctionFormHistory(req *FunctionFormHistoryRequest) (*FunctionFormHistoryResponse, error) {
 	functionID, err := utils.ValidateFunctionID(req.ID)
 	if err != nil {
 		return nil, err
 	}
 	if l == nil || l.svcCtx == nil || l.svcCtx.ConfigVersionModel == nil {
-		return &FunctionUIHistoryResponse{Items: []FunctionUIHistoryItem{}}, nil
+		return &FunctionFormHistoryResponse{Items: []FunctionFormHistoryItem{}}, nil
 	}
-	versions, err := l.svcCtx.ConfigVersionModel.List(l.ctx, functionUIHistoryKey(functionID))
+	versions, err := l.svcCtx.ConfigVersionModel.List(l.ctx, functionFormHistoryKey(functionID))
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +48,9 @@ func (l *FunctionUIHistoryLogic) FunctionUIHistory(req *FunctionUIHistoryRequest
 		scopeFiltered = append(scopeFiltered, v)
 	}
 
-	items := make([]FunctionUIHistoryItem, 0, len(scopeFiltered))
+	items := make([]FunctionFormHistoryItem, 0, len(scopeFiltered))
 	for _, v := range scopeFiltered {
-		entry := FunctionUIHistoryItem{
+		entry := FunctionFormHistoryItem{
 			Version:   v.Version,
 			Message:   v.Message,
 			CreatedBy: v.CreatedBy,
@@ -62,7 +62,7 @@ func (l *FunctionUIHistoryLogic) FunctionUIHistory(req *FunctionUIHistoryRequest
 		}
 		items = append(items, entry)
 	}
-	return &FunctionUIHistoryResponse{Items: items}, nil
+	return &FunctionFormHistoryResponse{Items: items}, nil
 }
 
 func formatVersionTime(ts time.Time) string {

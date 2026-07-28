@@ -26,7 +26,7 @@ func historyTestFormilySchema(component string) map[string]interface{} {
 	}
 }
 
-func TestFunctionUI_HistoryAndRollback(t *testing.T) {
+func TestFunctionForm_HistoryAndRollback(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
@@ -49,15 +49,15 @@ func TestFunctionUI_HistoryAndRollback(t *testing.T) {
 		ConfigVersionModel: model.NewConfigVersionModel(db),
 	}
 
-	updateLogic := NewFunctionUIUpdateLogic(context.Background(), svcCtx)
-	_, err = updateLogic.FunctionUIUpdate(&FunctionUIUpdateRequest{
+	updateLogic := NewFunctionFormUpdateLogic(context.Background(), svcCtx)
+	_, err = updateLogic.FunctionFormUpdate(&FunctionFormUpdateRequest{
 		ID:     "player.ban",
 		Schema: rawJSONFromValue(historyTestFormilySchema("Input.TextArea")),
 	})
 	if err != nil {
 		t.Fatalf("first update failed: %v", err)
 	}
-	_, err = updateLogic.FunctionUIUpdate(&FunctionUIUpdateRequest{
+	_, err = updateLogic.FunctionFormUpdate(&FunctionFormUpdateRequest{
 		ID:     "player.ban",
 		Schema: rawJSONFromValue(historyTestFormilySchema("Select")),
 	})
@@ -65,8 +65,8 @@ func TestFunctionUI_HistoryAndRollback(t *testing.T) {
 		t.Fatalf("second update failed: %v", err)
 	}
 
-	historyLogic := NewFunctionUIHistoryLogic(context.Background(), svcCtx)
-	historyResp, err := historyLogic.FunctionUIHistory(&FunctionUIHistoryRequest{ID: "player.ban"})
+	historyLogic := NewFunctionFormHistoryLogic(context.Background(), svcCtx)
+	historyResp, err := historyLogic.FunctionFormHistory(&FunctionFormHistoryRequest{ID: "player.ban"})
 	if err != nil {
 		t.Fatalf("history failed: %v", err)
 	}
@@ -74,8 +74,8 @@ func TestFunctionUI_HistoryAndRollback(t *testing.T) {
 		t.Fatalf("expected at least 2 history entries, got %d", len(historyResp.Items))
 	}
 
-	rollbackLogic := NewFunctionUIRollbackLogic(context.Background(), svcCtx)
-	rollbackResp, err := rollbackLogic.FunctionUIRollback(&FunctionUIRollbackRequest{
+	rollbackLogic := NewFunctionFormRollbackLogic(context.Background(), svcCtx)
+	rollbackResp, err := rollbackLogic.FunctionFormRollback(&FunctionFormRollbackRequest{
 		ID:      "player.ban",
 		Version: 1,
 	})

@@ -5,7 +5,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
-	"github.com/cuihairu/croupier/internal/function/uicontract"
+	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/gin-gonic/gin"
 )
@@ -255,16 +255,16 @@ func (h *Handler) FunctionPermissionsUpdate(c *gin.Context) {
 	response.Success(c, gin.H{})
 }
 
-// UI configuration handlers
+// Function Form configuration handlers
 
-func (h *Handler) FunctionUI(c *gin.Context) {
-	var req FunctionUIRequest
+func (h *Handler) FunctionForm(c *gin.Context) {
+	var req FunctionFormRequest
 	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
 
-	resp, err := h.service.FunctionUI(c.Request.Context(), &req)
+	resp, err := h.service.FunctionForm(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -272,8 +272,8 @@ func (h *Handler) FunctionUI(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-func (h *Handler) FunctionUIUpdate(c *gin.Context) {
-	var req FunctionUIUpdateRequest
+func (h *Handler) FunctionFormUpdate(c *gin.Context) {
+	var req FunctionFormUpdateRequest
 	if err := c.ShouldBindUri(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -284,8 +284,8 @@ func (h *Handler) FunctionUIUpdate(c *gin.Context) {
 		return
 	}
 	for field := range body {
-		if forbiddenKey, ok := uicontract.ForbiddenRegistrationKey(field); ok {
-			response.BadRequest(c, "function UI only accepts Formily schema; field "+forbiddenKey+" is not supported")
+		if forbiddenKey, ok := registrationguard.ForbiddenPresentationField(field); ok {
+			response.BadRequest(c, "function form only accepts Formily schema; field "+forbiddenKey+" is not supported")
 			return
 		}
 	}
@@ -293,7 +293,7 @@ func (h *Handler) FunctionUIUpdate(c *gin.Context) {
 		req.Schema = raw
 	}
 
-	resp, err := h.service.FunctionUIUpdate(c.Request.Context(), &req)
+	resp, err := h.service.FunctionFormUpdate(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -301,14 +301,14 @@ func (h *Handler) FunctionUIUpdate(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-func (h *Handler) FunctionUIHistory(c *gin.Context) {
-	var req FunctionUIHistoryRequest
+func (h *Handler) FunctionFormHistory(c *gin.Context) {
+	var req FunctionFormHistoryRequest
 	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
 
-	resp, err := h.service.FunctionUIHistory(c.Request.Context(), &req)
+	resp, err := h.service.FunctionFormHistory(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -316,14 +316,14 @@ func (h *Handler) FunctionUIHistory(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-func (h *Handler) FunctionUIRollback(c *gin.Context) {
-	var req FunctionUIRollbackRequest
+func (h *Handler) FunctionFormRollback(c *gin.Context) {
+	var req FunctionFormRollbackRequest
 	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
 
-	resp, err := h.service.FunctionUIRollback(c.Request.Context(), &req)
+	resp, err := h.service.FunctionFormRollback(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -463,20 +463,20 @@ func (h *Handler) PermissionsUpdate(c *gin.Context) {
 	h.FunctionPermissionsUpdate(c)
 }
 
-func (h *Handler) UI(c *gin.Context) {
-	h.FunctionUI(c)
+func (h *Handler) Form(c *gin.Context) {
+	h.FunctionForm(c)
 }
 
-func (h *Handler) UIUpdate(c *gin.Context) {
-	h.FunctionUIUpdate(c)
+func (h *Handler) FormUpdate(c *gin.Context) {
+	h.FunctionFormUpdate(c)
 }
 
-func (h *Handler) UIHistory(c *gin.Context) {
-	h.FunctionUIHistory(c)
+func (h *Handler) FormHistory(c *gin.Context) {
+	h.FunctionFormHistory(c)
 }
 
-func (h *Handler) UIRollback(c *gin.Context) {
-	h.FunctionUIRollback(c)
+func (h *Handler) FormRollback(c *gin.Context) {
+	h.FunctionFormRollback(c)
 }
 
 func (h *Handler) History(c *gin.Context) {

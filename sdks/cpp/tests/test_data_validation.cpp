@@ -47,10 +47,10 @@ TEST(DataValidation, ConfigValidation) {
     EXPECT_FALSE(config.game_id.empty() || config.game_id.empty()); // Can be empty or not
 
     // Validate environment
-    EXPECT_TRUE(config.environment.empty() ||
-                config.environment == "dev" ||
-                config.environment == "production" ||
-                config.environment == "staging");
+    EXPECT_TRUE(config.env.empty() ||
+                config.env == "development" ||
+                config.env == "production" ||
+                config.env == "staging");
 }
 
 // 测试JSON验证

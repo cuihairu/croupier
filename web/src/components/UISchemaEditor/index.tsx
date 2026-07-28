@@ -140,7 +140,7 @@ export default function UISchemaEditor({ value, onChange, jsonSchema }: UISchema
       <Alert
         type="info"
         showIcon
-        message="函数 UI 只接受 Formily Schema"
+        message="函数表单只接受 Formily Schema"
         description="请直接编辑 x-component、x-decorator、x-component-props、x-reactions 等 Formily 字段。旧 fields/widget 格式会被拒绝。"
         style={{ marginBottom: 16 }}
       />

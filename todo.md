@@ -1,6 +1,6 @@
 # Dashboard Resource/Page 重构 TODO
 
-更新时间：2026-07-26（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；Page Studio 基础前端已接入；旧 Workspace/Entity/PageGenerator 前端协议残留已物理清理；dashboard CI guard 已接入；剩余重点是 Page Studio 可视化编辑、权限审计、真实数据端到端验收和 Source binding 完整闭环）
+更新时间：2026-07-27（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；Page Studio 基础前端已接入；旧 Workspace/Entity/PageGenerator 前端协议残留已物理清理；dashboard CI guard 已接入；函数侧设计器命名已收敛为 Function Form Designer；剩余重点是真实数据端到端验收、OTel collector 字段验收和 Source binding 完整闭环）
 
 本文是 Dashboard 动态页面、函数注册描述符、Page Studio 和运行控制台菜单的重构交接清单。执行 AI 必须按本文推进；审核 AI 以本文和权威设计文档为验收依据。
 
@@ -19,7 +19,7 @@
 | P0-1 冻结强类型模型和命名 | ✅ 核心完成 | 2026-07-26 | Go/TS Dashboard 强类型已新增；旧 Workspace/Entity 类型入口已删除；Function/API 核心 DTO 已收敛为 `json.RawMessage`/明确结构；剩余 `map[string]interface{}` 仅允许在 JSON AST、metadata 解析和 GORM update 边界 |
 | P0-2 收敛 SDK/OpenAPI 能力契约 | ✅ 核心完成 | 2026-07-26 | SDK/OpenAPI 注册边界只保留 resource/operation/risk 等能力契约；display/operationKind/placement/pageHint/labels/x-labels 已从注册主链路删除 |
 | P0-3 建立 Descriptor Normalizer | ✅ 核心完成 | 2026-07-26 | normalizer 已输出 FunctionSpec/ResourceSpec/OperationSpec；Function detail/invoke/UI/history DTO 已强类型化；collector 仅保留输入解析边界 JSON AST |
-| P0-4 Function Form 收敛为单一 Formily | ✅ 核心完成 | 2026-07-24 | 注册/OpenAPI Source 解析拒绝 UI 字段；Function UI API/前端只传 Formily schema；旧 params 推断已停止 |
+| P0-4 Function Form 收敛为单一 Formily | ✅ 核心完成 | 2026-07-24 | 注册/OpenAPI Source 解析拒绝 UI 字段；函数表单 API/前端只传 Formily schema；旧 params 推断已停止 |
 | P0-5 Resource API 替换旧 Entity API | ✅ 核心完成 | 2026-07-26 | Resource API 已接 generator；前端主入口已切到 Resources；`/api/v1/entities`、旧 Entity model/API 和 XEntityForm 已删除 |
 | P0-6 Page Studio API | ✅ 核心完成 | 2026-07-25 | PageSpec 已包含 scope、draftRevision、binding、mapping、发布 contract snapshot；旧 Workspace API/model 已删除 |
 | P0-7 Console API 和动态菜单 | ✅ 核心完成 | 2026-07-25 | ConsoleMenuSpec 已作为运行控制台菜单来源；前端不再从 workspaceConfigs 注入菜单 |
@@ -28,9 +28,9 @@
 | P0-10 受控 Page 执行与契约失效 | ✅ 核心完成 | 2026-07-25 | Page binding execute 已接 active PublishedPageSpec、contract digest stale 检查、traceId 返回；task/approval UI 细节仍在 P1 |
 | P0-11 OpenAPI Source 上传与执行绑定 | ✅ 基础完成 | 2026-07-26 | Source API、diagnostics、revision update、provider binding、Source binding 到 PageCandidate 生成、固定管理入口、前端只读/写入裁剪、服务层 RBAC、审计和管理 span 已完成；httpConnector 与真实 E2E 后续实现 |
 | P1-1 Page Studio 前端 | ✅ 核心完成 | 2026-07-26 | 已新增 `/system/functions/pages` Page Studio 基础入口，支持 PageSpec 草稿列表、Resource 生成候选、PageCandidate 落草稿、JSON 编辑、基础信息与 binding 结构化编辑、Page schema 顶层组件结构化编辑、组件 props 表单化编辑、DataTable columns/rowActions 和 ActionGroup actions 专用编辑、服务端组件 ABI 校验、校验、预览、发布/取消发布、版本查看、版本 diff、版本回滚和 409 revision 冲突提示；剩余真实端到端验收放入 P1-2/P1-4 |
-| P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 动态菜单已接 ConsoleMenuSpec；“函数与页面”已提升为独立顶层入口；旧注册函数静态菜单翻译和 Provider entities 路由已清理；仍需真实发布数据端到端验收和最终文案验收 |
-| P1-3 权限和审计模型迁移 | ⏳ 进行中 | | Resource/Page/Console/OpenAPI Source 后端服务层权限已接入；Page 保存/发布/取消发布/回滚、Console Page 执行、OpenAPI Source 上传/绑定/解绑审计已落地；Console 执行和 OpenAPI Source 管理 span 已接入；前端 access 已收敛到 Page/Resource/Console/OpenAPI Source 权限；剩余真实 OTel collector 字段验收 |
-| P1-4 数据表和历史数据处理 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 不作为兼容来源，历史数据只能人工导出/清理，禁止自动发布为新 Page |
+| P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 动态菜单已接 ConsoleMenuSpec；“函数与页面”已提升为独立顶层入口；旧注册函数静态菜单翻译和 Provider entities 路由已清理；函数侧 `ui-designer` 路由已改为 `form-designer`；动态菜单合并已抽出纯函数并补测试；仍需真实发布数据端到端验收和最终文案验收 |
+| P1-3 权限和审计模型迁移 | ⏳ 进行中 | | Resource/Page/Console/OpenAPI Source 后端服务层权限已接入；Page 保存/发布/取消发布/回滚、Console Page 执行、OpenAPI Source 上传/绑定/解绑审计已落地；Console 执行和 OpenAPI Source 管理 span 已接入；前端 access 已收敛到 Page/Resource/Console/OpenAPI Source 权限；只有 `openapi_sources:read` 的用户也能进入父级“函数与页面”；剩余真实 OTel collector 字段验收 |
+| P1-4 数据表和历史数据处理 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 不作为兼容来源，历史数据只能人工导出/清理，禁止自动发布为新 Page；已补 `page_specs/published_page_specs/page_versions` 同名 pageKey 跨 game/env 隔离测试 |
 
 ## 0. 硬约束
 
@@ -89,8 +89,8 @@ SDK / OpenAPI / DB Template
 
 - `proto/croupier/sdk/v1/provider.proto` 的 `LocalFunctionDescriptor` 已收敛为 `resource/operation/risk/enabled/permission` 等能力契约字段，不包含分类显示、菜单、页面类型或页面放置。
 - `internal/dashboard/normalizer` 已输出强类型 `FunctionSpec/ResourceSpec/OperationSpec`。
-- `internal/logic/function/descriptors_logic.go` 的 V2 路径已返回强类型 `FunctionSpec`；`internal/logic/function/types.go` 的 Function detail、descriptor、invoke、UI、history 核心 DTO 已收敛为 `json.RawMessage`、`bool`、`string` 或明确结构。
-- `internal/dashboard/descriptors/collector.go`、`internal/logic/function/ui_resolver.go` 和 Formily/OpenAPI schema 校验仍在解析 JSON metadata/extensions 边界使用 `map[string]interface{}`；这是 JSON AST 输入边界，不允许泄漏到核心 API DTO。
+- `internal/logic/function/descriptors_logic.go` 的 V2 路径已返回强类型 `FunctionSpec`；`internal/logic/function/types.go` 的 Function detail、descriptor、invoke、Function Form、history 核心 DTO 已收敛为 `json.RawMessage`、`bool`、`string` 或明确结构。
+- `internal/dashboard/descriptors/collector.go`、`internal/logic/function/function_form_resolver.go` 和 Formily/OpenAPI schema 校验仍在解析 JSON metadata/extensions 边界使用 `map[string]interface{}`；这是 JSON AST 输入边界，不允许泄漏到核心 API DTO。
 - 注册/导入边界已经拒绝 `x-operation-kind/x-placement/x-*-display/page_hint/ui/x-ui` 等越界字段；需要补 CI guard 防止回流。
 - `term_dictionary` 已改为 `resource/operation` domain，旧 `entity` domain 会报错；字典只提供别名/展示提示，不参与动态导航事实源。
 
@@ -338,8 +338,8 @@ interface ConsoleMenuItem {
 
 已落地：
 
-- `internal/api/function/dto.go` 与 `internal/logic/function/types.go` 的 Function、FunctionDescriptor、FunctionInvoke、FunctionUI、FunctionHistory 核心 DTO 已使用 `json.RawMessage`、`bool`、`string` 或明确结构。
-- Function UI 清理自定义 schema 的唯一契约为 `schema: null`；旧 `__clear_custom_ui` 标记已从前后端删除。
+- `internal/api/function/dto.go` 与 `internal/logic/function/types.go` 的 Function、FunctionDescriptor、FunctionInvoke、FunctionForm、FunctionHistory 核心 DTO 已使用 `json.RawMessage`、`bool`、`string` 或明确结构。
+- 函数表单清理自定义 schema 的唯一契约为 `schema: null`；旧 `__clear_custom_ui` 标记已从前后端删除。
 - `web/src/types/dashboard.ts` 已作为 Dashboard TypeScript 类型入口，核心类型未使用 `any`。
 - 旧 `FunctionRouteConfig`、`FunctionRouteRequest/Response`、函数 metadata 菜单路由配置 DTO 已删除。
 
@@ -375,7 +375,7 @@ interface ConsoleMenuItem {
 验证命令：
 
 ```bash
-rg -n "type Function struct|type FunctionDescriptor struct|type FunctionInvokeRequest struct|type FunctionInvokeResponse struct|type FunctionUIResponse struct|type FunctionUIUpdateRequest struct|type FunctionUIRollbackResponse struct|interface\\{\\}" "internal/logic/function/types.go" "internal/api/function/dto.go"
+rg -n "type Function struct|type FunctionDescriptor struct|type FunctionInvokeRequest struct|type FunctionInvokeResponse struct|type FunctionFormResponse struct|type FunctionFormUpdateRequest struct|type FunctionFormRollbackResponse struct|interface\\{\\}" "internal/logic/function/types.go" "internal/api/function/dto.go"
 rg -n "\\bany\\b" "web/src/types" "web/src/services/api/functions.ts" "web/src/services/api/terms.ts" "web/src/pages/Ops/Terms/index.tsx"
 rg -n "WorkspaceConfigCanonical|SaveConfigRequestAlias|GetConfigRequestAlias|WorkspaceConfig|objectKey" "internal" "web/src"
 ```
@@ -464,8 +464,8 @@ rg -n "operation_kind|operationKind|x-operation-kind|placement|x-placement|categ
 - `internal/dashboard/normalizer` 已输出 `FunctionSpec/ResourceSpec/OperationSpec`。
 - `internal/logic/function/types.go` 的 Function detail、descriptor、invoke、UI、history 返回不再用 `interface{}` 承载 JSON payload。
 - Function invoke 保留 dispatcher 原始 JSON payload；非 JSON 响应会编码为 JSON string，不再反序列化为任意 `interface{}`。
-- Function UI 获取、更新、历史、回滚统一以 Formily schema `json.RawMessage` 对外；保存前显式解析为 JSON AST 并校验 Formily。
-- Function UI 清理自定义 override 使用 `schema: null`，旧 `__clear_custom_ui` 标记已清理。
+- 函数表单获取、更新、历史、回滚统一以 Formily schema `json.RawMessage` 对外；保存前显式解析为 JSON AST 并校验 Formily。
+- 函数表单清理自定义 override 使用 `schema: null`，旧 `__clear_custom_ui` 标记已清理。
 
 目标：
 
@@ -474,7 +474,7 @@ rg -n "operation_kind|operationKind|x-operation-kind|placement|x-placement|categ
 受影响路径：
 
 - `internal/logic/function/descriptors_logic.go`
-- `internal/logic/function/ui_resolver.go`
+- `internal/logic/function/function_form_resolver.go`
 - `internal/logic/function/formily_schema.go`
 - `internal/api/function/*`
 - 新增建议：`internal/dashboard/normalizer/*`
@@ -521,11 +521,11 @@ rg -n "ImportFromOpenAPI|importOpenAPISpec|/metadata/functions/import/openapi" "
 
 已落地：
 
-- SDK 注册 descriptor extensions 中出现 `ui/x-ui/x_formily/layout/components` 等 UI 字段时，注册函数被跳过并产生 `function_ui_not_allowed` warning。
-- OpenAPI Source 的 Operation extensions 中出现 UI 字段时，该 Source 校验失败并返回 diagnostics。
-- Function UI resolver 不再读取 `openapi_spec.x-ui`，默认表单只从 `input_schema` 派生；缺少 `input_schema` 时只生成保守 fallback。
-- HTTP Function UI update 只接受 `schema`；`ui/layout/components/x-ui` 等字段直接返回 400。
-- 前端 Function UI Manager 和 API service 只读取/提交 `schema`，不再传播 `layout/components/openapi_x_ui`。
+- SDK 注册 descriptor extensions 中出现 `ui/x-ui/x_formily/layout/components` 等展示/页面字段时，注册函数被跳过并产生 `function_presentation_field_not_allowed` warning。
+- OpenAPI Source 的 Operation extensions 中出现展示/页面字段时，该 Source 校验失败并返回 `openapi_presentation_field_forbidden` diagnostics。
+- 函数表单 resolver 不再读取 `openapi_spec.x-ui`，默认表单只从 `input_schema` 派生；缺少 `input_schema` 时只生成保守 fallback。
+- HTTP 函数表单 update 只接受 `schema`；`ui/layout/components/x-ui` 等字段直接返回 400。
+- 前端函数表单管理组件和 API service 只读取/提交 `schema`，不再传播 `layout/components/openapi_x_ui`。
 - SchemaDesigner 不再从旧 `params` 推断字段；没有 `input_schema` 时使用单个 `payload` 默认字段。
 - `web/src/utils/json.ts` 中 JSON Schema -> Formily 推断核心路径已使用递归 JSON Schema 类型和 `FormilySchema` 返回类型。
 
@@ -535,12 +535,12 @@ rg -n "ImportFromOpenAPI|importOpenAPISpec|/metadata/functions/import/openapi" "
 
 受影响路径：
 
-- `internal/logic/function/function_u_i_logic_v2.go`
-- `internal/logic/function/function_u_i_update_logic.go`
-- `internal/logic/function/function_u_i_rollback_logic.go`
+- `internal/logic/function/function_form_logic.go`
+- `internal/logic/function/function_form_update_logic.go`
+- `internal/logic/function/function_form_rollback_logic.go`
 - `internal/api/function/dto.go`
 - `web/src/components/formily/SchemaRenderer.tsx`
-- `web/src/components/FunctionUIManager/index.tsx`
+- `web/src/components/FunctionFormManager/index.tsx`
 - `web/src/pages/Functions/SchemaDesigner/*`
 - `web/src/utils/json.ts`
 
@@ -562,8 +562,8 @@ rg -n "ImportFromOpenAPI|importOpenAPISpec|/metadata/functions/import/openapi" "
 
 ```bash
 go test ./internal/logic/function/... ./internal/api/function/...
-./web/node_modules/.bin/eslint "src/components/formily/SchemaRenderer.tsx" "src/components/FunctionUIManager/index.tsx" "src/pages/Functions/SchemaDesigner/index.tsx" "src/pages/Functions/Invoke/index.tsx" "src/services/api/functions.ts" "src/services/schema/index.ts" "src/utils/json.ts"
-rg -n "openapi_x_ui|uiConfig\\.layout|uiConfig\\.components|layout\\?: Record<string, unknown>|components\\?: Record<string, unknown>|parseInputSchema\\([^\\)]*,|generatedFromParams" "web/src/components/FunctionUIManager/index.tsx" "web/src/services/api/functions.ts" "web/src/services/schema/index.ts" "web/src/pages/Functions/SchemaDesigner/index.tsx" "web/src/utils/json.ts"
+./web/node_modules/.bin/eslint "src/components/formily/SchemaRenderer.tsx" "src/components/FunctionFormManager/index.tsx" "src/pages/Functions/SchemaDesigner/index.tsx" "src/pages/Functions/Invoke/index.tsx" "src/services/api/functions.ts" "src/services/schema/index.ts" "src/utils/json.ts"
+rg -n "openapi_x_ui|uiConfig\\.layout|uiConfig\\.components|layout\\?: Record<string, unknown>|components\\?: Record<string, unknown>|parseInputSchema\\([^\\)]*,|generatedFromParams" "web/src/components/FunctionFormManager/index.tsx" "web/src/services/api/functions.ts" "web/src/services/schema/index.ts" "web/src/pages/Functions/SchemaDesigner/index.tsx" "web/src/utils/json.ts"
 ```
 
 当前环境备注：
@@ -1071,7 +1071,7 @@ test ! -f "web/src/services/api/pages.ts" || ! rg -n "objectKey|WorkspaceConfig|
 
 - 让后台菜单表达清晰边界，用户能理解每个入口做什么。
 
-状态：2026-07-26 已完成第一轮菜单重排；`FunctionsAndPages` 为独立顶层入口，`SystemConfig` 只保留系统基础配置和扩展配置；动态运行菜单仍只由 `ConsoleMenuSpec` 注入。
+状态：2026-07-27 已完成第一轮菜单重排；`FunctionsAndPages` 为独立顶层入口，`SystemConfig` 只保留系统基础配置和扩展配置；动态运行菜单仍只由 `ConsoleMenuSpec` 注入；函数侧高级编辑入口已命名为 Function Form Designer 并使用 `/form-designer`，不再暴露会误导为页面 UI 编排的 `ui-designer` 路由；动态菜单合并逻辑已抽为可测试纯函数。
 
 受影响路径：
 
@@ -1113,7 +1113,7 @@ test ! -f "web/src/services/api/pages.ts" || ! rg -n "objectKey|WorkspaceConfig|
   - Page Studio：草稿、生成、编辑、发布。
   - 运行控制台：只执行已发布页面。
 - 前端不在 Page 内再出现一套 `game_id/env` 选择；所有 API 请求使用全局选择的 scope。
-- 顶层“函数与页面”访问控制必须允许 `functions:*`、`resources:*` 或 `pages:*` 任一能力进入，子路由再按具体权限裁剪；不能让只有 `pages:read` 的用户看不到 Page Studio。
+- 顶层“函数与页面”访问控制必须允许 `functions:*`、`resources:*`、`pages:*` 或 `openapi_sources:*` 任一能力进入，子路由再按具体权限裁剪；不能让只有 `pages:read` 的用户看不到 Page Studio，也不能让只有 `openapi_sources:read` 的用户看不到 OpenAPI Source 管理入口。
 
 验收标准：
 
@@ -1126,13 +1126,14 @@ test ! -f "web/src/services/api/pages.ts" || ! rg -n "objectKey|WorkspaceConfig|
 ```bash
 pnpm --dir "web" exec eslint "src"
 rg -n "实体管理|对象工作台|workspace|Workspace|game_id|env" "web/config/routes.ts" "web/src/pages" "web/src/locales"
-./web/node_modules/.bin/jest --config "web/jest.config.ts" --runTestsByPath "web/tests/access.test.ts" --runInBand
+./web/node_modules/.bin/jest --config "web/jest.config.ts" --runTestsByPath "web/tests/access.test.ts" "web/tests/consoleMenu.test.ts" --runInBand
 ```
 
 禁止事项：
 
 - 禁止因为动态菜单缺翻译就去改 `web/src/locales/*/menu.ts`。
 - 禁止同一个概念同时叫 Entity、Object、Workspace、Resource。
+- 禁止把函数表单设计器命名为函数 UI 设计器，或恢复 `/system/functions/:id/ui-designer` 路由。
 
 ### P1-3. 权限和审计模型迁移
 
@@ -1258,7 +1259,7 @@ page_versions
 
 实施要点：
 
-- 确认 `page_specs/published_page_specs/page_versions` 的唯一键均包含 `(game_id, env, page_key)`。
+- 确认 `page_specs/published_page_specs/page_versions` 的唯一键均包含 `(game_id, env, page_key)`。（已补模型测试覆盖同名 `pageKey` 在不同 `game_id/env` 下的草稿、发布快照、版本号和取消发布隔离。）
 - 如果保留 `config_versions`，它只能记录 PageSpec 版本或非 Dashboard 配置，不能继续承载旧 workspace layout。
 - 提供只读诊断脚本时，只输出报告，不写 PageSpec。
 - 清理历史旧表前必须先备份并由用户确认；清理完成后运行态不再读取旧表。
@@ -1273,7 +1274,7 @@ page_versions
 验证命令：
 
 ```bash
-go test ./internal/model/... ./internal/api/page/...
+GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/model/... ./internal/api/page/...
 rg -n "workspace_configs|WorkspaceConfigModel|FindByObjectKey|SetPublished|object_key" "internal" "web/src"
 ```
 
@@ -1336,7 +1337,7 @@ pnpm --dir "web" exec eslint "src"
 
 ### P2-2. 删除旧后端 Workspace/Entity 模型残留
 
-状态：2026-07-26 已物理删除；后续只保留路由/权限/guard 验收。
+状态：2026-07-27 已物理删除；后续只保留路由/权限/guard 验收。
 
 目标：
 
@@ -1349,6 +1350,8 @@ pnpm --dir "web" exec eslint "src"
 - `internal/model/workspace_config.go`
 - `internal/model/entity.go`
 - `internal/model/entity_model.go`
+- `internal/validation/entity*.go`
+- `internal/function/converter/pack.go`
 - `internal/router/router.go`
 - `internal/api/routes/service.go`
 
@@ -1358,6 +1361,8 @@ pnpm --dir "web" exec eslint "src"
 - `internal/api/entity/*` 已删除。
 - `internal/model/workspace_config.go` 已删除。
 - `internal/model/entity.go`、`internal/model/entity_model.go` 已删除。
+- `internal/validation/entity*.go` 已删除；通用 JSON payload 校验只保留 `internal/validation/jsonschema.go`。
+- 旧 Pack manifest converter `internal/function/converter/pack.go` 已删除；OpenAPI/SDK Descriptor v2 是唯一导入与注册契约来源。
 - Provider 只读聚合接口已从 `/api/v1/providers/:id/entities` 改为 `/api/v1/providers/:id/resources`，Provider manifest 计数字段也改为 `resources`；不再读取 `x-entities`。
 
 后续要点：
@@ -1367,7 +1372,7 @@ pnpm --dir "web" exec eslint "src"
 
 验收标准：
 
-- `rg "WorkspaceConfig|EntityModel|/api/v1/entities"` 在运行代码中无命中。
+- `rg "WorkspaceConfig|EntityModel|/api/v1/entities|PackConverter|ValidateEntityDefinition"` 在运行代码中无命中。
 - 测试不依赖旧 API。
 
 验证命令：
@@ -1375,6 +1380,7 @@ pnpm --dir "web" exec eslint "src"
 ```bash
 go test ./...
 rg -n "WorkspaceConfig|EntityModel|/api/v1/entities|workspace_configs|object_key" "internal" "web/src" "configs"
+rg -n "PackConverter|PackManifest|PackEntity|ValidateEntityDefinition|validateUIConfig|validateOperations" "internal"
 ```
 
 禁止事项：
@@ -1383,7 +1389,7 @@ rg -n "WorkspaceConfig|EntityModel|/api/v1/entities|workspace_configs|object_key
 
 ### P2-3. CI Guard
 
-状态：2026-07-26 已新增 `.github/scripts/dashboard_guard.sh` 并接入 `.github/workflows/ci-dashboard.yml`；已覆盖旧前端路径、旧文档、旧 dist 产物和 Function UI 兼容 wrapper；后续可继续扩展 guard 覆盖后端 DTO 和 SDK 越界字段。
+状态：2026-07-27 已新增 `.github/scripts/dashboard_guard.sh` 并接入 `.github/workflows/ci-dashboard.yml`；已覆盖旧前端路径、旧文档、旧 dist 产物、Function Form 旧 UI 命名、旧 `ui-designer` 路由、旧函数表单 API、旧 Pack manifest converter 和旧 Entity definition validator；后续可继续扩展 guard 覆盖后端 DTO 和 SDK 越界字段。
 
 目标：
 
@@ -1398,6 +1404,7 @@ Guard 必须检查：
 
 ```bash
 rg -n "WorkspaceConfig\\.layout|WorkspaceLayout|TabLayout" "web/src" "internal" && exit 1
+rg -n "PackConverter|PackManifest|PackEntity|ValidateEntityDefinition|validateUIConfig|validateOperations" "internal" && exit 1
 rg -n "objectKey" "web/src/pages/Console" "web/src/services" "internal/api/page" && exit 1
 rg -n "menu\\.ControlConsole\\.category\\." "web/src" && exit 1
 rg -n "x-operation.*custom|CRUD operation type" "proto" "sdks" "web/src" && exit 1
@@ -1408,7 +1415,7 @@ rg -n '"functionId"' "web/src/components/FormilyPageRenderer" "web/src/pages/Con
 rg -n "PageFunctionBinding.*Role|binding\\.Role|Role:.*Placement" "internal/dashboard" "internal/api/page" "internal/model/page_spec.go" && exit 1
 rg -n "/api/v1/workspaces/pages|/api/v1/workspaces/:objectKey/config" "internal" "web/src" && exit 1
 rg -n "category_display|entity_display|operation_display|operation_kind|page_hint|x-labels" "proto" "sdks" "internal" "web/src" \
-  --glob "!internal/function/uicontract/reject.go" \
+  --glob "!internal/function/registrationguard/reject.go" \
   --glob "!sdks/js/src/index.test.ts" && exit 1
 rg -n "\"domain\"\\s*:\\s*\"entity\"|domain=entity|Domain:\\s*\"entity\"" "configs" "internal" "web/src" \
   --glob "!internal/api/terms/handler_test.go" \

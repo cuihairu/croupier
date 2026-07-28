@@ -28,7 +28,7 @@ func testFormilySchema(component string) map[string]interface{} {
 	}
 }
 
-func TestFunctionUI_EndToEndOverride(t *testing.T) {
+func TestFunctionForm_EndToEndOverride(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
@@ -55,30 +55,30 @@ func TestFunctionUI_EndToEndOverride(t *testing.T) {
 	}
 
 	// Step 1: OpenAPI x-ui is not a valid function registration source.
-	getLogic := NewFunctionUILogicV2(context.Background(), svcCtx)
-	getResp, err := getLogic.FunctionUI(&FunctionUIRequest{ID: "player.ban"})
+	getLogic := NewFunctionFormLogic(context.Background(), svcCtx)
+	getResp, err := getLogic.FunctionForm(&FunctionFormRequest{ID: "player.ban"})
 	if err != nil {
-		t.Fatalf("FunctionUI failed: %v", err)
+		t.Fatalf("FunctionForm failed: %v", err)
 	}
-	if getResp.UISource != "generated_default" {
-		t.Fatalf("expected uiSource=generated_default, got %s", getResp.UISource)
+	if getResp.FormSource != "generated_default" {
+		t.Fatalf("expected formSource=generated_default, got %s", getResp.FormSource)
 	}
 
 	// Step 2: apply custom override.
-	updateLogic := NewFunctionUIUpdateLogic(context.Background(), svcCtx)
-	updateResp, err := updateLogic.FunctionUIUpdate(&FunctionUIUpdateRequest{
+	updateLogic := NewFunctionFormUpdateLogic(context.Background(), svcCtx)
+	updateResp, err := updateLogic.FunctionFormUpdate(&FunctionFormUpdateRequest{
 		ID:     "player.ban",
 		Schema: rawJSONFromValue(testFormilySchema("Select")),
 	})
 	if err != nil {
-		t.Fatalf("FunctionUIUpdate failed: %v", err)
+		t.Fatalf("FunctionFormUpdate failed: %v", err)
 	}
-	if updateResp.UISource != "custom_metadata" {
-		t.Fatalf("expected uiSource=custom_metadata after update, got %s", updateResp.UISource)
+	if updateResp.FormSource != "custom_metadata" {
+		t.Fatalf("expected formSource=custom_metadata after update, got %s", updateResp.FormSource)
 	}
 }
 
-func TestFunctionUI_RuntimeOnlyFunctionFallback(t *testing.T) {
+func TestFunctionForm_RuntimeOnlyFunctionFallback(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
@@ -92,16 +92,16 @@ func TestFunctionUI_RuntimeOnlyFunctionFallback(t *testing.T) {
 		FunctionModel: model.NewFunctionModel(db),
 	}
 
-	logic := NewFunctionUILogicV2(context.Background(), svcCtx)
-	resp, err := logic.FunctionUI(&FunctionUIRequest{ID: "examples.analytics.player_retention"})
+	logic := NewFunctionFormLogic(context.Background(), svcCtx)
+	resp, err := logic.FunctionForm(&FunctionFormRequest{ID: "examples.analytics.player_retention"})
 	if err != nil {
-		t.Fatalf("FunctionUI fallback failed: %v", err)
+		t.Fatalf("FunctionForm fallback failed: %v", err)
 	}
 	if resp == nil {
 		t.Fatalf("expected response, got nil")
 	}
-	if resp.UISource != "generated_default" {
-		t.Fatalf("expected uiSource=generated_default for runtime-only function, got %s", resp.UISource)
+	if resp.FormSource != "generated_default" {
+		t.Fatalf("expected formSource=generated_default for runtime-only function, got %s", resp.FormSource)
 	}
 	if resp.Schema == nil {
 		t.Fatalf("expected generated schema, got nil")

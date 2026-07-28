@@ -150,12 +150,12 @@ case $choice in
     1)
         echo ""
         echo "运行简单示例..."
-        ./skynet examples/simple_example.lua
+        ./skynet simple_example.lua
         ;;
     2)
         echo ""
         echo "运行完整示例..."
-        ./skynet examples/main.lua
+        ./skynet main.lua
         ;;
     3)
         echo ""

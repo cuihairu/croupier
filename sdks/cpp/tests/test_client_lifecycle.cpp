@@ -45,9 +45,8 @@ protected:
         FunctionDescriptor test_desc;
         test_desc.id = "test.lifecycle.function";
         test_desc.version = "1.0.0";
-        test_desc.category = "test";
-        test_desc.risk = "low";
-        test_desc.entity = "test";
+        test_desc.resource = "test";
+        test_desc.risk = "safe";
         test_desc.operation = "lifecycle";
 
         FunctionHandler test_handler = [](const std::string& context, const std::string& payload) -> std::string {
@@ -110,9 +109,8 @@ TEST_F(ClientLifecycleTest, ServeMethod) {
     FunctionDescriptor desc;
     desc.id = "test.serve.function";
     desc.version = "1.0.0";
-    desc.category = "test";
-    desc.risk = "low";
-    desc.entity = "test";
+    desc.resource = "test";
+    desc.risk = "safe";
     desc.operation = "serve";
 
     FunctionHandler handler = [](const std::string& context, const std::string& payload) -> std::string {
@@ -140,9 +138,8 @@ TEST_F(ClientLifecycleTest, ResourceCleanup) {
         FunctionDescriptor desc;
         desc.id = "test.cleanup.function";
         desc.version = "1.0.0";
-        desc.category = "test";
-        desc.risk = "low";
-        desc.entity = "test";
+        desc.resource = "test";
+        desc.risk = "safe";
         desc.operation = "cleanup";
 
         FunctionHandler handler = [](const std::string& context, const std::string& payload) -> std::string {
@@ -190,9 +187,8 @@ TEST_F(ClientLifecycleTest, MultipleStartStopCycles) {
         FunctionDescriptor desc;
         desc.id = "test.cycle.function";
         desc.version = "1.0.0";
-        desc.category = "test";
-        desc.risk = "low";
-        desc.entity = "test";
+        desc.resource = "test";
+        desc.risk = "safe";
         desc.operation = "cycle";
 
         FunctionHandler handler = [](const std::string& context, const std::string& payload) -> std::string {
@@ -274,9 +270,8 @@ TEST_F(ClientLifecycleTest, CompleteLifecycle) {
     FunctionDescriptor desc;
     desc.id = "test.function";
     desc.version = "1.0.0";
-    desc.category = "test";
-    desc.risk = "low";
-    desc.entity = "test";
+    desc.resource = "test";
+    desc.risk = "safe";
     desc.operation = "create";
 
     FunctionHandler handler = [](const std::string& context, const std::string& payload) -> std::string {

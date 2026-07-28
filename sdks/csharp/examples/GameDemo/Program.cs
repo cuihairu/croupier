@@ -1,6 +1,6 @@
 // Game Demo - 19 functions matching the Go SDK demo.
 //
-// Covers: player CRUD, order CRUD, leaderboard, inventory, mail.
+// Covers: player/order lifecycle actions, leaderboard, inventory, and mail.
 // Run: cd sdks/csharp && dotnet run --project examples/GameDemo
 
 using Croupier.Sdk;
@@ -168,9 +168,9 @@ class Program
         using var client = new CroupierClient(config);
         var store = new DemoStore();
 
-        var fns = new (string Id, string Cat, string Risk, string Entity, string Op, FunctionHandlerDelegate Handler)[]
+        var fns = new (string Id, string Risk, string Resource, string Op, FunctionHandlerDelegate Handler)[]
         {
-            ("player.create", "player", "medium", "player", "create", async (ctx, payload) => {
+            ("player.create", "warning", "player", "create", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var id = H.Str(body, "id", "player_id");
                 if (id == "") id = store.NextPlayerId();
@@ -182,14 +182,14 @@ class Program
                 store.Players[id] = r;
                 return H.Resp(new() { ["status"] = "success", ["action"] = "player.create", ["player"] = r });
             }),
-            ("player.get", "player", "low", "player", "read", async (ctx, payload) => {
+            ("player.get", "safe", "player", "get", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var id = H.Str(body, "player_id", "id");
                 if (!store.Players.TryGetValue(id, out var r))
                     return H.Resp(new() { ["status"] = "not_found", ["message"] = "player not found" });
                 return H.Resp(new() { ["status"] = "success", ["action"] = "player.get", ["player"] = r });
             }),
-            ("player.update", "player", "medium", "player", "update", async (ctx, payload) => {
+            ("player.update", "warning", "player", "update", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var id = H.Str(body, "player_id", "id");
                 if (!store.Players.TryGetValue(id, out var r))
@@ -205,19 +205,19 @@ class Program
                 store.Players[id] = r;
                 return H.Resp(new() { ["status"] = "success", ["action"] = "player.update", ["player"] = r });
             }),
-            ("player.delete", "player", "high", "player", "delete", async (ctx, payload) => {
+            ("player.delete", "danger", "player", "delete", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var id = H.Str(body, "player_id", "id");
                 store.Players.TryRemove(id, out _); store.Inventories.TryRemove(id, out _);
                 store.Mails.TryRemove(id, out _); store.Leaderboard.TryRemove(id, out _);
                 return H.Resp(new() { ["status"] = "success", ["action"] = "player.delete", ["player_id"] = id });
             }),
-            ("player.list", "player", "low", "player", "read", async (ctx, payload) => {
+            ("player.list", "safe", "player", "list", async (ctx, payload) => {
                 var items = store.Players.Values.OrderBy(p => p.Id).ToList();
                 return H.Resp(new() { ["status"] = "success", ["action"] = "player.list", ["items"] = items, ["total"] = items.Count });
             }),
 
-            ("order.create", "commerce", "medium", "order", "create", async (ctx, payload) => {
+            ("order.create", "warning", "order", "create", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var id = H.Str(body, "order_id", "id");
                 if (id == "") id = store.NextOrderId();
@@ -230,14 +230,14 @@ class Program
                 store.Orders[id] = r;
                 return H.Resp(new() { ["status"] = "success", ["action"] = "order.create", ["order"] = r });
             }),
-            ("order.get", "commerce", "low", "order", "read", async (ctx, payload) => {
+            ("order.get", "safe", "order", "get", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var id = H.Str(body, "order_id", "id");
                 if (!store.Orders.TryGetValue(id, out var r))
                     return H.Resp(new() { ["status"] = "not_found", ["message"] = "order not found" });
                 return H.Resp(new() { ["status"] = "success", ["action"] = "order.get", ["order"] = r });
             }),
-            ("order.update", "commerce", "medium", "order", "update", async (ctx, payload) => {
+            ("order.update", "warning", "order", "update", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var id = H.Str(body, "order_id", "id");
                 if (!store.Orders.TryGetValue(id, out var r))
@@ -250,25 +250,25 @@ class Program
                 store.Orders[id] = r;
                 return H.Resp(new() { ["status"] = "success", ["action"] = "order.update", ["order"] = r });
             }),
-            ("order.delete", "commerce", "high", "order", "delete", async (ctx, payload) => {
+            ("order.delete", "danger", "order", "delete", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var id = H.Str(body, "order_id", "id");
                 store.Orders.TryRemove(id, out _);
                 return H.Resp(new() { ["status"] = "success", ["action"] = "order.delete", ["order_id"] = id });
             }),
-            ("order.list", "commerce", "low", "order", "read", async (ctx, payload) => {
+            ("order.list", "safe", "order", "list", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var pid = H.Str(body, "player_id");
                 var items = store.Orders.Values.Where(o => pid == "" || o.PlayerId == pid).OrderBy(o => o.Id).ToList();
                 return H.Resp(new() { ["status"] = "success", ["action"] = "order.list", ["items"] = items, ["total"] = items.Count });
             }),
 
-            ("leaderboard.list", "leaderboard", "low", "leaderboard", "read", async (ctx, payload) => {
+            ("leaderboard.list", "safe", "leaderboard", "list", async (ctx, payload) => {
                 var sorted = store.Leaderboard.Values.OrderByDescending(e => e.Score).ToList();
                 var ranked = sorted.Select((e, i) => e with { Rank = i + 1 }).ToList();
                 return H.Resp(new() { ["status"] = "success", ["action"] = "leaderboard.list", ["items"] = ranked, ["total"] = ranked.Count });
             }),
-            ("leaderboard.upsert", "leaderboard", "medium", "leaderboard", "update", async (ctx, payload) => {
+            ("leaderboard.upsert", "warning", "leaderboard", "upsert", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var pid = H.Str(body, "player_id");
                 if (pid == "") throw new ArgumentException("player_id is required");
@@ -278,12 +278,12 @@ class Program
                 store.Leaderboard[pid] = e;
                 return H.Resp(new() { ["status"] = "success", ["action"] = "leaderboard.upsert", ["entry"] = e });
             }),
-            ("leaderboard.reset", "leaderboard", "high", "leaderboard", "delete", async (ctx, payload) => {
+            ("leaderboard.reset", "danger", "leaderboard", "reset", async (ctx, payload) => {
                 store.Leaderboard.Clear();
                 return H.Resp(new() { ["status"] = "success", ["action"] = "leaderboard.reset" });
             }),
 
-            ("inventory.list", "inventory", "low", "inventory", "read", async (ctx, payload) => {
+            ("inventory.list", "safe", "inventory", "list", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var pid = H.Str(body, "player_id");
                 if (pid == "") throw new ArgumentException("player_id is required");
@@ -291,7 +291,7 @@ class Program
                     ? inv.Values.OrderBy(i => i.TemplateId).ToList() : new List<ItemRecord>();
                 return H.Resp(new() { ["status"] = "success", ["action"] = "inventory.list", ["player_id"] = pid, ["items"] = items });
             }),
-            ("inventory.grant", "inventory", "medium", "inventory", "create", async (ctx, payload) => {
+            ("inventory.grant", "warning", "inventory", "grant", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var pid = H.Str(body, "player_id");
                 var tid = H.Str(body, "template_id", "item_id");
@@ -304,7 +304,7 @@ class Program
                     (_, existing) => existing with { Quantity = existing.Quantity + qty, UpdatedAt = H.Now() });
                 return H.Resp(new() { ["status"] = "success", ["action"] = "inventory.grant", ["player_id"] = pid, ["item"] = inv[tid] });
             }),
-            ("inventory.consume", "inventory", "medium", "inventory", "delete", async (ctx, payload) => {
+            ("inventory.consume", "warning", "inventory", "consume", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var pid = H.Str(body, "player_id");
                 var tid = H.Str(body, "template_id", "item_id");
@@ -318,7 +318,7 @@ class Program
                 return H.Resp(new() { ["status"] = "success", ["action"] = "inventory.consume", ["player_id"] = pid, ["item"] = inv[tid] });
             }),
 
-            ("mail.send", "mail", "medium", "mail", "create", async (ctx, payload) => {
+            ("mail.send", "warning", "mail", "send", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var pid = H.Str(body, "player_id");
                 if (pid == "") throw new ArgumentException("player_id is required");
@@ -330,7 +330,7 @@ class Program
                 store.Mails.AddOrUpdate(pid, _ => new List<MailRecord> { r }, (_, list) => { lock (list) { list.Add(r); } return list; });
                 return H.Resp(new() { ["status"] = "success", ["action"] = "mail.send", ["mail"] = r });
             }),
-            ("mail.list", "mail", "low", "mail", "read", async (ctx, payload) => {
+            ("mail.list", "safe", "mail", "list", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var pid = H.Str(body, "player_id");
                 if (pid == "") throw new ArgumentException("player_id is required");
@@ -338,7 +338,7 @@ class Program
                 if (store.Mails.TryGetValue(pid, out var list)) lock (list) { items = list.ToList(); }
                 return H.Resp(new() { ["status"] = "success", ["action"] = "mail.list", ["player_id"] = pid, ["items"] = items, ["total"] = items.Count });
             }),
-            ("mail.claim", "mail", "medium", "mail", "update", async (ctx, payload) => {
+            ("mail.claim", "warning", "mail", "claim", async (ctx, payload) => {
                 var body = H.Parse(payload);
                 var pid = H.Str(body, "player_id");
                 var mid = H.Str(body, "mail_id", "id");
@@ -360,12 +360,12 @@ class Program
             }),
         };
 
-        foreach (var (id, cat, risk, entity, op, handler) in fns)
+        foreach (var (id, risk, resource, op, handler) in fns)
         {
             var desc = new FunctionDescriptor
             {
-                Id = id, Version = "1.0.0", Category = cat, Risk = risk,
-                Entity = entity, Operation = op, Enabled = true,
+                Id = id, Version = "1.0.0", Risk = risk,
+                Resource = resource, Operation = op, Enabled = true,
             };
             EnrichDescriptor(desc);
             client.RegisterFunction(desc, handler);
@@ -404,23 +404,21 @@ class Program
 
     static void EnrichDescriptor(FunctionDescriptor desc)
     {
-        desc.DisplayName ??= $"{desc.Entity} {desc.Operation}";
-        desc.Summary ??= $"{desc.Entity} {desc.Operation}";
-        desc.Description ??= $"Demo function {desc.Id} for {desc.Entity} {desc.Operation} operations.";
+        desc.Summary ??= $"{desc.Resource} {desc.Operation}";
+        desc.Description ??= $"Demo function {desc.Id} for {desc.Resource} {desc.Operation} action.";
         desc.OperationId ??= desc.Id;
         desc.Tags ??= new Dictionary<string, string>
         {
-            ["category"] = desc.Category,
-            ["entity"] = desc.Entity ?? "",
+            ["resource"] = desc.Resource ?? "",
             ["operation"] = desc.Operation ?? "",
         };
-        desc.InputSchema ??= InputSchemaFor(desc.Entity ?? "object", desc.Operation ?? "custom");
+        desc.InputSchema ??= InputSchemaFor(desc.Resource ?? "payload", desc.Operation ?? "execute");
         desc.OutputSchema ??= "{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}";
     }
 
-    static string InputSchemaFor(string entity, string operation)
+    static string InputSchemaFor(string resource, string operation)
     {
-        var idKey = entity == "inventory" ? "player_id" : $"{entity}_id";
+        var idKey = resource == "inventory" ? "player_id" : $"{resource}_id";
         return operation switch
         {
             "create" => $"{{\"type\":\"object\",\"properties\":{{\"{idKey}\":{{\"type\":\"string\"}},\"data\":{{\"type\":\"object\"}}}}}}",

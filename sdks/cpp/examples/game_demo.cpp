@@ -1,7 +1,7 @@
 /**
  * Game Demo - 19 functions matching the Go SDK demo.
  *
- * Covers: player CRUD, order CRUD, leaderboard, inventory, mail.
+ * Covers: player/order lifecycle actions, leaderboard, inventory, and mail.
  * Build: cd sdks/cpp && cmake --build build --target croupier-game-demo
  * Run:   ./build/bin/croupier-game-demo
  */
@@ -43,8 +43,8 @@ static std::string json_int(const std::string& key, long long val) {
     return "\"" + key + "\":" + std::to_string(val);
 }
 
-static std::string input_schema_for(const std::string& entity, const std::string& operation) {
-    const std::string id_key = entity == "inventory" ? "player_id" : entity + "_id";
+static std::string input_schema_for(const std::string& resource, const std::string& operation) {
+    const std::string id_key = resource == "inventory" ? "player_id" : resource + "_id";
     if (operation == "create") {
         return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"},\"data\":{\"type\":\"object\"}}}";
     }
@@ -58,11 +58,11 @@ static std::string input_schema_for(const std::string& entity, const std::string
 }
 
 static void enrich_descriptor(FunctionDescriptor& desc) {
-    desc.tags = {desc.category, desc.entity, desc.operation};
-    desc.summary = desc.entity + " " + desc.operation;
-    desc.description = "Demo function " + desc.id + " for " + desc.entity + " " + desc.operation + " operations.";
+    desc.tags = {desc.resource, desc.operation};
+    desc.summary = desc.resource + " " + desc.operation;
+    desc.description = "Demo function " + desc.id + " for " + desc.resource + " " + desc.operation + " action.";
     desc.operation_id = desc.id;
-    desc.input_schema = input_schema_for(desc.entity, desc.operation);
+    desc.input_schema = input_schema_for(desc.resource, desc.operation);
     desc.output_schema = R"({"type":"object","properties":{"status":{"type":"string"},"action":{"type":"string"}}})";
 }
 
@@ -229,18 +229,18 @@ static std::string arr_json_vec(const std::vector<T>& v) {
 // ==================== Handler Registration ====================
 
 static void registerAll(CroupierClient& client, DemoStore& store) {
-    auto reg = [&](const std::string& id, const std::string& cat, const std::string& risk,
-                   const std::string& entity, const std::string& op, FunctionHandler handler) {
+    auto reg = [&](const std::string& id, const std::string& risk,
+                   const std::string& resource, const std::string& op, FunctionHandler handler) {
         FunctionDescriptor desc;
-        desc.id = id; desc.version = "1.0.0"; desc.category = cat;
-        desc.risk = risk; desc.entity = entity; desc.operation = op; desc.enabled = true;
+        desc.id = id; desc.version = "1.0.0"; desc.risk = risk;
+        desc.resource = resource; desc.operation = op; desc.enabled = true;
         enrich_descriptor(desc);
         client.RegisterFunction(desc, handler);
         std::cout << "  registered: " << id << std::endl;
     };
 
     // player.create
-    reg("player.create", "player", "medium", "player", "create",
+    reg("player.create", "warning", "player", "create",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string id = extract_str(payload, "id");
@@ -258,7 +258,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // player.get
-    reg("player.get", "player", "low", "player", "read",
+    reg("player.get", "safe", "player", "get",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string id = extract_str(payload, "player_id");
@@ -271,7 +271,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // player.update
-    reg("player.update", "player", "medium", "player", "update",
+    reg("player.update", "warning", "player", "update",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string id = extract_str(payload, "player_id");
@@ -292,7 +292,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // player.delete
-    reg("player.delete", "player", "high", "player", "delete",
+    reg("player.delete", "danger", "player", "delete",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string id = extract_str(payload, "player_id");
@@ -304,7 +304,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // player.list
-    reg("player.list", "player", "low", "player", "read",
+    reg("player.list", "safe", "player", "list",
         [&store](const std::string&, const std::string&) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             return resp({json_str("status", "success"), json_str("action", "player.list"),
@@ -313,7 +313,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // order.create
-    reg("order.create", "commerce", "medium", "order", "create",
+    reg("order.create", "warning", "order", "create",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string id = extract_str(payload, "order_id");
@@ -332,7 +332,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // order.get
-    reg("order.get", "commerce", "low", "order", "read",
+    reg("order.get", "safe", "order", "get",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string id = extract_str(payload, "order_id");
@@ -345,7 +345,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // order.update
-    reg("order.update", "commerce", "medium", "order", "update",
+    reg("order.update", "warning", "order", "update",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string id = extract_str(payload, "order_id");
@@ -363,7 +363,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // order.delete
-    reg("order.delete", "commerce", "high", "order", "delete",
+    reg("order.delete", "danger", "order", "delete",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string id = extract_str(payload, "order_id");
@@ -374,7 +374,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // order.list
-    reg("order.list", "commerce", "low", "order", "read",
+    reg("order.list", "safe", "order", "list",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string pid = extract_str(payload, "player_id");
@@ -391,7 +391,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // leaderboard.list
-    reg("leaderboard.list", "leaderboard", "low", "leaderboard", "read",
+    reg("leaderboard.list", "safe", "leaderboard", "list",
         [&store](const std::string&, const std::string&) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             // Sort by score descending
@@ -411,7 +411,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // leaderboard.upsert
-    reg("leaderboard.upsert", "leaderboard", "medium", "leaderboard", "update",
+    reg("leaderboard.upsert", "warning", "leaderboard", "upsert",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string pid = extract_str(payload, "player_id");
@@ -426,7 +426,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // leaderboard.reset
-    reg("leaderboard.reset", "leaderboard", "high", "leaderboard", "delete",
+    reg("leaderboard.reset", "danger", "leaderboard", "reset",
         [&store](const std::string&, const std::string&) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             store.leaderboard.clear();
@@ -434,7 +434,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // inventory.list
-    reg("inventory.list", "inventory", "low", "inventory", "read",
+    reg("inventory.list", "safe", "inventory", "list",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string pid = extract_str(payload, "player_id");
@@ -447,7 +447,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // inventory.grant
-    reg("inventory.grant", "inventory", "medium", "inventory", "create",
+    reg("inventory.grant", "warning", "inventory", "grant",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string pid = extract_str(payload, "player_id");
@@ -470,7 +470,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // inventory.consume
-    reg("inventory.consume", "inventory", "medium", "inventory", "delete",
+    reg("inventory.consume", "warning", "inventory", "consume",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string pid = extract_str(payload, "player_id");
@@ -492,7 +492,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // mail.send
-    reg("mail.send", "mail", "medium", "mail", "create",
+    reg("mail.send", "warning", "mail", "send",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string pid = extract_str(payload, "player_id");
@@ -523,7 +523,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // mail.list
-    reg("mail.list", "mail", "low", "mail", "read",
+    reg("mail.list", "safe", "mail", "list",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string pid = extract_str(payload, "player_id");
@@ -537,7 +537,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         });
 
     // mail.claim
-    reg("mail.claim", "mail", "medium", "mail", "update",
+    reg("mail.claim", "warning", "mail", "claim",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string pid = extract_str(payload, "player_id");

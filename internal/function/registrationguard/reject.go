@@ -1,8 +1,8 @@
-package uicontract
+package registrationguard
 
 import "strings"
 
-var forbiddenRegistrationKeys = map[string]struct{}{
+var forbiddenPresentationFields = map[string]struct{}{
 	"categorydisplay":     {},
 	"category_display":    {},
 	"displayname":         {},
@@ -58,15 +58,15 @@ var forbiddenRegistrationKeys = map[string]struct{}{
 	"x_ui":                {},
 }
 
-// ForbiddenRegistrationKey reports whether key tries to attach UI concerns to
-// a function capability contract.
-func ForbiddenRegistrationKey(key string) (string, bool) {
+// ForbiddenPresentationField reports whether key tries to attach presentation,
+// navigation, or page-composition concerns to a function capability contract.
+func ForbiddenPresentationField(key string) (string, bool) {
 	normalized := strings.TrimSpace(strings.ToLower(key))
 	if normalized == "" {
 		return "", false
 	}
 	normalized = strings.ReplaceAll(normalized, " ", "")
-	if _, ok := forbiddenRegistrationKeys[normalized]; ok {
+	if _, ok := forbiddenPresentationFields[normalized]; ok {
 		return normalized, true
 	}
 	return normalized, false

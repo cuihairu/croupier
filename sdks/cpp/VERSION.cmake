@@ -21,7 +21,7 @@ set(CROUPIER_SDK_ABI_VERSION "${CROUPIER_SDK_VERSION_MAJOR}.${CROUPIER_SDK_VERSI
 
 # Project metadata
 set(CROUPIER_SDK_NAME "Croupier C++ SDK")
-set(CROUPIER_SDK_DESCRIPTION "C++ SDK for Croupier Virtual Object Registration and gRPC Integration")
+set(CROUPIER_SDK_DESCRIPTION "C++ SDK for Croupier Function Provider and Invoker")
 set(CROUPIER_SDK_HOMEPAGE_URL "https://github.com/cuihairu/croupier-sdk-cpp")
 set(CROUPIER_SDK_LICENSE "Apache-2.0")
 

@@ -42,11 +42,10 @@ var playerGetDescriptor = new FunctionDescriptor
 {
     Id = "player.get",
     Version = "1.0.0",
-    Category = "player",
-    Risk = "low",
-    Entity = "player",
+    Resource = "player",
     Operation = "get",
-    DisplayName = "获取玩家信息",
+    Risk = "safe",
+    Summary = "获取玩家信息",
     Description = "根据玩家 ID 获取玩家详细信息"
 };
 
@@ -84,11 +83,10 @@ var playerBanDescriptor = new FunctionDescriptor
 {
     Id = "player.ban",
     Version = "1.0.0",
-    Category = "moderation",
-    Risk = "high",
-    Entity = "player",
+    Resource = "player",
     Operation = "ban",
-    DisplayName = "封禁玩家",
+    Risk = "danger",
+    Summary = "封禁玩家",
     Description = "封禁指定玩家账号"
 };
 
@@ -117,11 +115,10 @@ var walletTransferDescriptor = new FunctionDescriptor
 {
     Id = "wallet.transfer",
     Version = "1.0.0",
-    Category = "economy",
-    Risk = "high",
-    Entity = "wallet",
+    Resource = "wallet",
     Operation = "transfer",
-    DisplayName = "钱包转账",
+    Risk = "danger",
+    Summary = "钱包转账",
     Description = "在玩家之间转移游戏货币"
 };
 

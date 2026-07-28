@@ -72,7 +72,7 @@ func TestComprehensive_configCombos(t *testing.T) {
 func TestComprehensive_descriptorCombinations(t *testing.T) {
 	t.Run("all risk levels with all operations", func(t *testing.T) {
 		risks := []string{"low", "medium", "high", "critical"}
-		operations := []string{"create", "read", "update", "delete", "custom"}
+		operations := []string{"ban", "send", "grant", "reload", "retention"}
 
 		for _, risk := range risks {
 			for _, op := range operations {

@@ -11,68 +11,68 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type uiResolveResult struct {
-	Schema         interface{}
-	Custom         bool
-	HasDefault     bool
-	UISource       string
-	UISourceDetail string
+type formResolveResult struct {
+	Schema           interface{}
+	Custom           bool
+	HasDefault       bool
+	FormSource       string
+	FormSourceDetail string
 }
 
-func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
-	var customUI, fileUI, defaultUI interface{}
+func resolveFunctionForm(c config.Config, fn *model.Function) formResolveResult {
+	var customForm, fileForm, defaultForm interface{}
 	if fn.Metadata != nil {
-		customUI = fn.Metadata["ui"]
+		customForm = fn.Metadata["form"]
 	}
-	fileUI = loadUIConfigFromFiles(c, fn.FunctionID)
-	// Function registration never supplies UI. The default Function Form is
+	fileForm = loadFormConfigFromFiles(c, fn.FunctionID)
+	// Function registration never supplies form UI. The default function form is
 	// derived from the executable input schema after registration.
 	inputSchema := extractInputSchema(fn)
 	if inputSchema != nil {
-		defaultUI = deriveUISchemaFromJSONSchema(inputSchema)
+		defaultForm = deriveFormSchemaFromJSONSchema(inputSchema)
 	}
-	if defaultUI == nil {
-		defaultUI = BuildFallbackUISchema(fn.FunctionID)
-	}
-
-	resultUI := customUI
-	if resultUI == nil {
-		resultUI = fileUI
-	}
-	if resultUI == nil {
-		resultUI = defaultUI
+	if defaultForm == nil {
+		defaultForm = BuildFallbackFormSchema(fn.FunctionID)
 	}
 
-	uiSource := "none"
-	uiSourceDetail := "no ui schema configured"
+	resultForm := customForm
+	if resultForm == nil {
+		resultForm = fileForm
+	}
+	if resultForm == nil {
+		resultForm = defaultForm
+	}
+
+	formSource := "none"
+	formSourceDetail := "no function form schema configured"
 	switch {
-	case customUI != nil:
-		uiSource = "custom_metadata"
-		uiSourceDetail = "metadata.ui (custom override)"
-	case fileUI != nil:
-		uiSource = "config_file_override"
-		uiSourceDetail = "configs/ui/functions(.override) file"
-	case defaultUI != nil:
-		uiSource = "generated_default"
-		uiSourceDetail = "generated default ui schema"
+	case customForm != nil:
+		formSource = "custom_metadata"
+		formSourceDetail = "metadata.form (custom override)"
+	case fileForm != nil:
+		formSource = "config_file_override"
+		formSourceDetail = "configs/form/functions(.override) file"
+	case defaultForm != nil:
+		formSource = "generated_default"
+		formSourceDetail = "generated default function form schema"
 	}
 
-	return uiResolveResult{
-		Schema:         resultUI,
-		Custom:         customUI != nil,
-		HasDefault:     fileUI != nil || defaultUI != nil,
-		UISource:       uiSource,
-		UISourceDetail: uiSourceDetail,
+	return formResolveResult{
+		Schema:           resultForm,
+		Custom:           customForm != nil,
+		HasDefault:       fileForm != nil || defaultForm != nil,
+		FormSource:       formSource,
+		FormSourceDetail: formSourceDetail,
 	}
 }
 
-func loadUIConfigFromFiles(c config.Config, functionID string) interface{} {
+func loadFormConfigFromFiles(c config.Config, functionID string) interface{} {
 	if strings.TrimSpace(functionID) == "" {
 		return nil
 	}
-	for _, baseDir := range uiConfigBaseDirs(c) {
-		base := readUIConfigFile(filepath.Join(baseDir, "functions"), functionID)
-		override := readUIConfigFile(filepath.Join(baseDir, "functions.override"), functionID)
+	for _, baseDir := range formConfigBaseDirs(c) {
+		base := readFormConfigFile(filepath.Join(baseDir, "functions"), functionID)
+		override := readFormConfigFile(filepath.Join(baseDir, "functions.override"), functionID)
 		switch {
 		case base == nil && override == nil:
 			continue
@@ -87,7 +87,7 @@ func loadUIConfigFromFiles(c config.Config, functionID string) interface{} {
 	return nil
 }
 
-func uiConfigBaseDirs(c config.Config) []string {
+func formConfigBaseDirs(c config.Config) []string {
 	dirs := make([]string, 0, 4)
 	add := func(p string) {
 		p = strings.TrimSpace(p)
@@ -106,18 +106,18 @@ func uiConfigBaseDirs(c config.Config) []string {
 		dirs = append(dirs, abs)
 	}
 
-	if env := strings.TrimSpace(os.Getenv("CROUPIER_UI_CONFIG_DIR")); env != "" {
+	if env := strings.TrimSpace(os.Getenv("CROUPIER_FORM_CONFIG_DIR")); env != "" {
 		add(env)
 	}
 	if c.BootstrapData.BaseDir != "" {
-		add(filepath.Join(c.BootstrapData.BaseDir, "ui"))
+		add(filepath.Join(c.BootstrapData.BaseDir, "form"))
 	}
-	add(filepath.Join("configs", "ui"))
-	add(filepath.Join("..", "..", "configs", "ui"))
+	add(filepath.Join("configs", "form"))
+	add(filepath.Join("..", "..", "configs", "form"))
 	return dirs
 }
 
-func readUIConfigFile(dir, functionID string) interface{} {
+func readFormConfigFile(dir, functionID string) interface{} {
 	for _, ext := range []string{"yaml", "yml", "json"} {
 		path := filepath.Join(dir, functionID+"."+ext)
 		data, err := os.ReadFile(path)
@@ -128,7 +128,7 @@ func readUIConfigFile(dir, functionID string) interface{} {
 		if err != nil {
 			continue
 		}
-		if picked := pickFunctionUIConfig(parsed, functionID); picked != nil {
+		if picked := pickFunctionFormConfig(parsed, functionID); picked != nil {
 			return picked
 		}
 	}
@@ -145,7 +145,7 @@ func parseConfigContent(ext string, data []byte) (interface{}, error) {
 	return out, err
 }
 
-func pickFunctionUIConfig(raw interface{}, functionID string) interface{} {
+func pickFunctionFormConfig(raw interface{}, functionID string) interface{} {
 	root, ok := raw.(map[string]interface{})
 	if !ok {
 		return nil
@@ -246,10 +246,10 @@ func extractSchemaFromOpenAPISpec(spec map[string]interface{}) map[string]interf
 	return schema
 }
 
-// deriveUISchemaFromJSONSchema converts a JSON Schema into a Formily Schema
+// deriveFormSchemaFromJSONSchema converts a JSON Schema into a Formily Schema
 // for the Dashboard form renderer. It maps JSON Schema types and constraints
 // to Formily x-component and x-component-props.
-func deriveUISchemaFromJSONSchema(schema map[string]interface{}) map[string]interface{} {
+func deriveFormSchemaFromJSONSchema(schema map[string]interface{}) map[string]interface{} {
 	if schema == nil {
 		return nil
 	}

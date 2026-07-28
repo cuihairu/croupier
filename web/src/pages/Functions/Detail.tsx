@@ -41,14 +41,14 @@ export default function FunctionDetailPage() {
     parsedInputSchema,
     effectiveResource,
     jsonViewData,
-    uiDescriptor,
+    formDescriptor,
     loadDetail,
     handleSave,
     handleStatusToggle,
     handleCopy,
     handleDelete,
     handleSavePermissions,
-    onSaveUi,
+    onSaveForm,
   } = useFunctionDetailPage(params.id);
   const pageStudioPath = '/system/functions/resources';
   const invokePath = params.id ? `/system/functions/invoke?fid=${encodeURIComponent(params.id)}` : '';
@@ -107,9 +107,9 @@ export default function FunctionDetailPage() {
         jsonViewData={jsonViewData}
         onJsonCopySuccess={() => message.success('JSON 已复制')}
         onJsonCopyError={() => message.error('复制失败')}
-        uiDescriptor={uiDescriptor}
+        formDescriptor={formDescriptor}
         parsedInputSchema={parsedInputSchema}
-        onSaveUi={onSaveUi}
+        onSaveForm={onSaveForm}
         onOpenPageStudio={() => history.push(pageStudioPath)}
       />
     ),
@@ -139,8 +139,8 @@ export default function FunctionDetailPage() {
     noFunction: !functionDetail,
   } as const;
 
-  const descriptorResource = String(uiDescriptor?.resource || '').trim();
-  const descriptorOperation = String(uiDescriptor?.operation || '').trim();
+  const descriptorResource = String(formDescriptor?.resource || '').trim();
+  const descriptorOperation = String(formDescriptor?.operation || '').trim();
   const functionStatusText = functionDetail?.enabled ? '已启用' : '未启用';
   const functionStatusTone = functionDetail?.enabled ? 'success' : 'default';
 

@@ -357,17 +357,17 @@ func (r *Registry) cloneMetadata(metadata *FunctionMetadata) *FunctionMetadata {
 // toFunctionDescriptor converts FunctionMetadata to FunctionDescriptor for client registration.
 func (r *Registry) toFunctionDescriptor(metadata *FunctionMetadata) croupier.FunctionDescriptor {
 	desc := croupier.FunctionDescriptor{
-		ID:          metadata.ID,
-		Version:     metadata.Version,
-		Tags:        metadata.Tags,
-		Summary:     metadata.Summary,
-		Description: metadata.Description,
-		InputSchema: metadata.InputSchema,
+		ID:           metadata.ID,
+		Version:      metadata.Version,
+		Tags:         metadata.Tags,
+		Summary:      metadata.Summary,
+		Description:  metadata.Description,
+		InputSchema:  metadata.InputSchema,
 		OutputSchema: metadata.OutputSchema,
-		Resource:    metadata.Resource,
-		Operation:   metadata.Operation,
-		Permission:  metadata.Permission,
-		Enabled:     true,
+		Resource:     metadata.Resource,
+		Operation:    metadata.Operation,
+		Permission:   metadata.Permission,
+		Enabled:      true,
 	}
 
 	// Safely get risk level

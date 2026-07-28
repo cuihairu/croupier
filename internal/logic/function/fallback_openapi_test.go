@@ -94,9 +94,9 @@ func TestBuildFallbackOpenAPIOperation(t *testing.T) {
 	})
 }
 
-func TestBuildFallbackUISchema(t *testing.T) {
+func TestBuildFallbackFormSchema(t *testing.T) {
 	t.Run("player.update uses payload only", func(t *testing.T) {
-		schema := BuildFallbackUISchema("player.update")
+		schema := BuildFallbackFormSchema("player.update")
 		if schema == nil {
 			t.Fatal("expected non-nil schema")
 		}
@@ -108,26 +108,26 @@ func TestBuildFallbackUISchema(t *testing.T) {
 			t.Error("expected payload property")
 		}
 		if _, exists := props["playerId"]; exists {
-			t.Error("fallback UI must not infer playerId")
+			t.Error("fallback Form must not infer playerId")
 		}
 	})
 
 	t.Run("order.create", func(t *testing.T) {
-		schema := BuildFallbackUISchema("order.create")
+		schema := BuildFallbackFormSchema("order.create")
 		if schema == nil {
 			t.Fatal("expected non-nil schema")
 		}
 	})
 
 	t.Run("mail.claim", func(t *testing.T) {
-		schema := BuildFallbackUISchema("mail.claim")
+		schema := BuildFallbackFormSchema("mail.claim")
 		if schema == nil {
 			t.Fatal("expected non-nil schema")
 		}
 	})
 
 	t.Run("domain.entity.operation", func(t *testing.T) {
-		schema := BuildFallbackUISchema("game.player.ban")
+		schema := BuildFallbackFormSchema("game.player.ban")
 		if schema == nil {
 			t.Fatal("expected non-nil schema")
 		}

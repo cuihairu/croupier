@@ -541,52 +541,52 @@ func functionPermissionsUpdate(ctx context.Context, svcCtx *svc.ServiceContext, 
 	return svcCtx.FunctionModel.ReplacePermissions(ctx, req.ID, modelPerms)
 }
 
-// UI configuration implementations
+// Function Form configuration implementations
 
-func functionUI(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIRequest) (*FunctionUIResponse, error) {
-	logicResp, err := logicfunction.NewFunctionUILogicV2(ctx, svcCtx).FunctionUI(&logicfunction.FunctionUIRequest{
+func functionForm(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormRequest) (*FunctionFormResponse, error) {
+	logicResp, err := logicfunction.NewFunctionFormLogic(ctx, svcCtx).FunctionForm(&logicfunction.FunctionFormRequest{
 		ID: req.ID,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &FunctionUIResponse{
-		Schema:         rawJSONFromBytes(logicResp.Schema),
-		Custom:         logicResp.Custom,
-		HasDefault:     logicResp.HasDefault,
-		UISource:       logicResp.UISource,
-		UISourceDetail: logicResp.UISourceDetail,
+	return &FunctionFormResponse{
+		Schema:           rawJSONFromBytes(logicResp.Schema),
+		Custom:           logicResp.Custom,
+		HasDefault:       logicResp.HasDefault,
+		FormSource:       logicResp.FormSource,
+		FormSourceDetail: logicResp.FormSourceDetail,
 	}, nil
 }
 
-func functionUIUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIUpdateRequest) (*FunctionUIResponse, error) {
-	logicResp, err := logicfunction.NewFunctionUIUpdateLogic(ctx, svcCtx).FunctionUIUpdate(&logicfunction.FunctionUIUpdateRequest{
+func functionFormUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormUpdateRequest) (*FunctionFormResponse, error) {
+	logicResp, err := logicfunction.NewFunctionFormUpdateLogic(ctx, svcCtx).FunctionFormUpdate(&logicfunction.FunctionFormUpdateRequest{
 		ID:     req.ID,
 		Schema: rawJSONFromBytes(req.Schema),
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &FunctionUIResponse{
-		Schema:         rawJSONFromBytes(logicResp.Schema),
-		Custom:         logicResp.Custom,
-		HasDefault:     logicResp.HasDefault,
-		UISource:       logicResp.UISource,
-		UISourceDetail: logicResp.UISourceDetail,
+	return &FunctionFormResponse{
+		Schema:           rawJSONFromBytes(logicResp.Schema),
+		Custom:           logicResp.Custom,
+		HasDefault:       logicResp.HasDefault,
+		FormSource:       logicResp.FormSource,
+		FormSourceDetail: logicResp.FormSourceDetail,
 	}, nil
 }
 
-func functionUIHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIHistoryRequest) (*FunctionUIHistoryResponse, error) {
-	logicResp, err := logicfunction.NewFunctionUIHistoryLogic(ctx, svcCtx).FunctionUIHistory(&logicfunction.FunctionUIHistoryRequest{
+func functionFormHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormHistoryRequest) (*FunctionFormHistoryResponse, error) {
+	logicResp, err := logicfunction.NewFunctionFormHistoryLogic(ctx, svcCtx).FunctionFormHistory(&logicfunction.FunctionFormHistoryRequest{
 		ID: req.ID,
 	})
 	if err != nil {
 		return nil, err
 	}
-	items := make([]FunctionUIHistoryItem, 0, len(logicResp.Items))
+	items := make([]FunctionFormHistoryItem, 0, len(logicResp.Items))
 	for _, item := range logicResp.Items {
-		items = append(items, FunctionUIHistoryItem{
+		items = append(items, FunctionFormHistoryItem{
 			Version:   item.Version,
 			Schema:    rawJSONFromBytes(item.Schema),
 			Message:   item.Message,
@@ -594,28 +594,28 @@ func functionUIHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 			CreatedAt: item.CreatedAt,
 		})
 	}
-	return &FunctionUIHistoryResponse{Items: items}, nil
+	return &FunctionFormHistoryResponse{Items: items}, nil
 }
 
-func functionUIRollback(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIRollbackRequest) (*FunctionUIRollbackResponse, error) {
-	logicResp, err := logicfunction.NewFunctionUIRollbackLogic(ctx, svcCtx).FunctionUIRollback(&logicfunction.FunctionUIRollbackRequest{
+func functionFormRollback(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormRollbackRequest) (*FunctionFormRollbackResponse, error) {
+	logicResp, err := logicfunction.NewFunctionFormRollbackLogic(ctx, svcCtx).FunctionFormRollback(&logicfunction.FunctionFormRollbackRequest{
 		ID:      req.ID,
 		Version: req.Version,
 	})
 	if err != nil {
 		return nil, err
 	}
-	current := (*FunctionUIResponse)(nil)
+	current := (*FunctionFormResponse)(nil)
 	if resp := logicResp.Current; resp != nil {
-		current = &FunctionUIResponse{
-			Schema:         rawJSONFromBytes(resp.Schema),
-			Custom:         resp.Custom,
-			HasDefault:     resp.HasDefault,
-			UISource:       resp.UISource,
-			UISourceDetail: resp.UISourceDetail,
+		current = &FunctionFormResponse{
+			Schema:           rawJSONFromBytes(resp.Schema),
+			Custom:           resp.Custom,
+			HasDefault:       resp.HasDefault,
+			FormSource:       resp.FormSource,
+			FormSourceDetail: resp.FormSourceDetail,
 		}
 	}
-	return &FunctionUIRollbackResponse{
+	return &FunctionFormRollbackResponse{
 		AppliedVersion: logicResp.AppliedVersion,
 		Current:        current,
 	}, nil

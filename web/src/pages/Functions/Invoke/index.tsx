@@ -7,7 +7,7 @@ import { history, useLocation, getLocale, useModel } from '@umijs/max';
 import SchemaRenderer from '@/components/formily/SchemaRenderer';
 import type { FormilySchema } from '@/components/formily/schema/types';
 import {
-  fetchFunctionUiSchema,
+  fetchFunctionFormSchema,
   invokeFunction,
   listDescriptors,
   startTask,
@@ -28,7 +28,7 @@ type SchemaSource =
   | 'none'
   | string;
 
-type UISchemaState =
+type FormSchemaState =
   | {
       status: 'idle' | 'loading';
       schema?: undefined;
@@ -51,7 +51,7 @@ type UISchemaState =
       error: string;
     };
 
-const EMPTY_UI_STATE: UISchemaState = { status: 'idle' };
+const EMPTY_FORM_STATE: FormSchemaState = { status: 'idle' };
 
 const resolveName = (descriptor: FunctionDescriptor, locale: string) => {
   const zh = descriptor.displayName?.zh || descriptor.summary?.zh;
@@ -69,10 +69,10 @@ const resolveSummary = (descriptor: FunctionDescriptor, locale: string) => {
   return en || zh || descriptor.description || descriptor.id;
 };
 
-function validateRuntimeUISchema(schema: unknown): FormilySchema {
+function validateRuntimeFormSchema(schema: unknown): FormilySchema {
   const validation = validateFormilySchema(schema);
   if (!validation.ok) {
-    throw new Error(validation.error || '函数 UI Schema 不是有效 Formily Schema');
+    throw new Error(validation.error || '函数表单 Schema 不是有效 Formily Schema');
   }
   return schema as FormilySchema;
 }
@@ -113,7 +113,7 @@ export default function FunctionRuntimeUIPage() {
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
-  const [uiState, setUIState] = useState<UISchemaState>(EMPTY_UI_STATE);
+  const [formState, setFormState] = useState<FormSchemaState>(EMPTY_FORM_STATE);
   const [formValues, setFormValues] = useState<FormilyValues>({});
   const [infoOpen, setInfoOpen] = useState(false);
   const [result, setResult] = useState<unknown>(undefined);
@@ -159,9 +159,9 @@ export default function FunctionRuntimeUIPage() {
   useEffect(() => {
     let active = true;
 
-    const loadUISchema = async () => {
+    const loadFormSchema = async () => {
       if (!selected?.id) {
-        setUIState(EMPTY_UI_STATE);
+        setFormState(EMPTY_FORM_STATE);
         return;
       }
 
@@ -169,28 +169,28 @@ export default function FunctionRuntimeUIPage() {
       setFormValues({});
       setResult(undefined);
       setError('');
-      setUIState({ status: 'loading' });
+      setFormState({ status: 'loading' });
 
       try {
-        const response = await fetchFunctionUiSchema(selected.id);
+        const response = await fetchFunctionFormSchema(selected.id);
         if (!active) return;
-        const schema = validateRuntimeUISchema(response?.schema);
-        setUIState({
+        const schema = validateRuntimeFormSchema(response?.schema);
+        setFormState({
           status: 'ready',
           schema,
-          source: response?.uiSource || 'none',
-          detail: response?.uiSourceDetail,
+          source: response?.formSource || 'none',
+          detail: response?.formSourceDetail,
         });
       } catch (err: unknown) {
         if (!active) return;
-        setUIState({
+        setFormState({
           status: 'error',
-          error: extractErrorMessage(err, '函数 UI Schema 加载失败'),
+          error: extractErrorMessage(err, '函数表单 Schema 加载失败'),
         });
       }
     };
 
-    loadUISchema();
+    loadFormSchema();
     return () => {
       active = false;
     };
@@ -198,7 +198,7 @@ export default function FunctionRuntimeUIPage() {
 
   const submitWithValues = useCallback(
     async (mode: 'invoke' | 'task') => {
-      if (!selected?.id || uiState.status !== 'ready') return;
+      if (!selected?.id || formState.status !== 'ready') return;
       setExecuting(true);
       setError('');
       setResult(undefined);
@@ -220,7 +220,7 @@ export default function FunctionRuntimeUIPage() {
         setExecuting(false);
       }
     },
-    [formValues, message, selected?.id, uiState],
+    [formValues, message, selected?.id, formState],
   );
 
   if (!loading && descriptors.length === 0) {
@@ -254,20 +254,20 @@ export default function FunctionRuntimeUIPage() {
     >
       <Card
         title="参数配置"
-        loading={uiState.status === 'loading'}
+        loading={formState.status === 'loading'}
         extra={
           <Space>
             <Button
               type="primary"
               loading={executing}
-              disabled={uiState.status !== 'ready'}
+              disabled={formState.status !== 'ready'}
               onClick={() => submitWithValues('invoke')}
             >
               执行
             </Button>
             <Button
               loading={executing}
-              disabled={uiState.status !== 'ready'}
+              disabled={formState.status !== 'ready'}
               onClick={() => submitWithValues('task')}
             >
               创建任务
@@ -275,26 +275,26 @@ export default function FunctionRuntimeUIPage() {
           </Space>
         }
       >
-        {uiState.status === 'ready' && (
+        {formState.status === 'ready' && (
           <Alert
             style={{ marginBottom: 12 }}
             type="success"
             showIcon
-            message="已加载 Formily UI Schema"
-            description={uiState.detail || `来源：${uiState.source}`}
+            message="已加载 Formily 表单 Schema"
+            description={formState.detail || `来源：${formState.source}`}
           />
         )}
-        {uiState.status === 'error' && (
+        {formState.status === 'error' && (
           <Alert
             type="error"
             showIcon
-            message="函数 UI Schema 无法渲染"
-            description={`${uiState.error}。当前函数调用页只接受 Formily Schema，请在注册描述或函数表单设计器中修正 schema。`}
+            message="函数表单 Schema 无法渲染"
+            description={`${formState.error}。当前函数调用页只接受 Formily Schema，请在注册描述或函数表单设计器中修正 schema。`}
           />
         )}
-        {uiState.status === 'ready' ? (
+        {formState.status === 'ready' ? (
           <SchemaRenderer
-            schema={uiState.schema}
+            schema={formState.schema}
             value={formValues}
             onChange={setFormValues}
             onFormReady={(form) => {
@@ -303,7 +303,7 @@ export default function FunctionRuntimeUIPage() {
             context={runtimeContext}
             scope={rendererScope}
           />
-        ) : uiState.status === 'idle' ? (
+        ) : formState.status === 'idle' ? (
           <Empty description="请选择函数" />
         ) : null}
       </Card>
@@ -331,9 +331,9 @@ export default function FunctionRuntimeUIPage() {
           {selected.resource && <Tag color="blue">Resource: {selected.resource}</Tag>}
           {selected.operation && <Tag color="purple">Operation: {selected.operation}</Tag>}
           {selected.version && <Tag>v{selected.version}</Tag>}
-          {uiState.status !== 'idle' && (
-            <Tag color={uiState.status === 'ready' ? 'green' : 'red'}>
-              UI: {uiState.status === 'ready' ? uiState.source : 'invalid'}
+          {formState.status !== 'idle' && (
+            <Tag color={formState.status === 'ready' ? 'green' : 'red'}>
+              表单: {formState.status === 'ready' ? formState.source : 'invalid'}
             </Tag>
           )}
           {resolveSummary(selected, locale) && (

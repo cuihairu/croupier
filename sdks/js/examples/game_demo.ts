@@ -1,7 +1,7 @@
 /**
  * Game Demo - 19 functions matching the Go SDK demo.
  *
- * Covers: player CRUD, order CRUD, leaderboard, inventory, mail.
+ * Covers: player/order lifecycle actions, leaderboard, inventory, and mail.
  * Run: cd sdks/js && pnpm ts-node examples/game_demo.ts
  */
 

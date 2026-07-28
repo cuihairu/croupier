@@ -477,8 +477,8 @@ func TestFunctionHistoryLogic_FunctionHistory_EmptyID(t *testing.T) {
 	assert.Nil(t, items)
 }
 
-// Tests for FunctionUILogicV2
-func TestFunctionUILogicV2_Constructor(t *testing.T) {
+// Tests for FunctionFormLogic
+func TestFunctionFormLogic_Constructor(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 
@@ -490,14 +490,14 @@ func TestFunctionUILogicV2_Constructor(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	logic := NewFunctionUILogicV2(ctx, svcCtx)
+	logic := NewFunctionFormLogic(ctx, svcCtx)
 
 	assert.NotNil(t, logic)
 	assert.Equal(t, ctx, logic.ctx)
 	assert.Equal(t, svcCtx, logic.svcCtx)
 }
 
-func TestFunctionUILogicV2_FunctionUI_EmptyID(t *testing.T) {
+func TestFunctionFormLogic_FunctionForm_EmptyID(t *testing.T) {
 	db, _ := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 
 	cfg := config.Config{}
@@ -507,14 +507,14 @@ func TestFunctionUILogicV2_FunctionUI_EmptyID(t *testing.T) {
 		Config:        cfg,
 	}
 
-	logic := NewFunctionUILogicV2(context.Background(), svcCtx)
-	resp, err := logic.FunctionUI(&FunctionUIRequest{ID: ""})
+	logic := NewFunctionFormLogic(context.Background(), svcCtx)
+	resp, err := logic.FunctionForm(&FunctionFormRequest{ID: ""})
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 }
 
-func TestFunctionUILogicV2_FunctionUI_CreatesFunction(t *testing.T) {
+func TestFunctionFormLogic_FunctionForm_CreatesFunction(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	err = model.AutoMigrate(db)
@@ -527,8 +527,8 @@ func TestFunctionUILogicV2_FunctionUI_CreatesFunction(t *testing.T) {
 		Config:        cfg,
 	}
 
-	logic := NewFunctionUILogicV2(context.Background(), svcCtx)
-	resp, err := logic.FunctionUI(&FunctionUIRequest{ID: "new.function"})
+	logic := NewFunctionFormLogic(context.Background(), svcCtx)
+	resp, err := logic.FunctionForm(&FunctionFormRequest{ID: "new.function"})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -540,21 +540,21 @@ func TestFunctionUILogicV2_FunctionUI_CreatesFunction(t *testing.T) {
 	assert.Equal(t, "new.function", fn.FunctionID)
 }
 
-// Tests for resolveFunctionUI
-func TestResolveFunctionUI(t *testing.T) {
+// Tests for resolveFunctionForm
+func TestResolveFunctionForm(t *testing.T) {
 	cfg := config.Config{}
 
-	t.Run("function with custom UI", func(t *testing.T) {
-		customUI := testFunctionFormilySchema("name", "Input")
+	t.Run("function with custom Form", func(t *testing.T) {
+		customForm := testFunctionFormilySchema("name", "Input")
 		fn := &model.Function{
 			FunctionID: "test",
 			Metadata: map[string]interface{}{
-				"ui": customUI,
+				"form": customForm,
 			},
 		}
-		result := resolveFunctionUI(cfg, fn)
-		assert.Equal(t, "custom_metadata", result.UISource)
-		assert.Equal(t, customUI, result.Schema)
+		result := resolveFunctionForm(cfg, fn)
+		assert.Equal(t, "custom_metadata", result.FormSource)
+		assert.Equal(t, customForm, result.Schema)
 		assert.True(t, result.Custom)
 	})
 
@@ -565,8 +565,8 @@ func TestResolveFunctionUI(t *testing.T) {
 			Metadata:    nil,
 			OpenAPISpec: map[string]interface{}{"x-ui": xui},
 		}
-		result := resolveFunctionUI(cfg, fn)
-		assert.Equal(t, "generated_default", result.UISource)
+		result := resolveFunctionForm(cfg, fn)
+		assert.Equal(t, "generated_default", result.FormSource)
 		assert.NotEqual(t, xui, result.Schema)
 		assert.False(t, result.Custom)
 		assert.True(t, result.HasDefault)
@@ -607,10 +607,10 @@ func TestMergeAny(t *testing.T) {
 	})
 }
 
-// Tests for loadUIConfigFromFiles
+// Tests for loadFormConfigFromFiles
 func TestLoadUIConfigFromFiles_EmptyFunctionID(t *testing.T) {
 	cfg := config.Config{}
-	result := loadUIConfigFromFiles(cfg, "")
+	result := loadFormConfigFromFiles(cfg, "")
 	assert.Nil(t, result)
 }
 
@@ -637,10 +637,10 @@ func TestParseConfigContent(t *testing.T) {
 	})
 }
 
-// Tests for pickFunctionUIConfig
-func TestPickFunctionUIConfig(t *testing.T) {
+// Tests for pickFunctionFormConfig
+func TestPickFunctionFormConfig(t *testing.T) {
 	t.Run("raw is not a map", func(t *testing.T) {
-		result := pickFunctionUIConfig("not a map", "test.function")
+		result := pickFunctionFormConfig("not a map", "test.function")
 		assert.Nil(t, result)
 	})
 
@@ -650,7 +650,7 @@ func TestPickFunctionUIConfig(t *testing.T) {
 				"type": "object",
 			},
 		}
-		result := pickFunctionUIConfig(raw, "test.function")
+		result := pickFunctionFormConfig(raw, "test.function")
 		assert.NotNil(t, result)
 	})
 
@@ -658,7 +658,7 @@ func TestPickFunctionUIConfig(t *testing.T) {
 		raw := map[string]interface{}{
 			"type": "root",
 		}
-		result := pickFunctionUIConfig(raw, "test.function")
+		result := pickFunctionFormConfig(raw, "test.function")
 		assert.NotNil(t, result)
 	})
 }
@@ -691,26 +691,26 @@ func TestUnwrapUIConfig(t *testing.T) {
 	})
 }
 
-// Tests for uiConfigBaseDirs
+// Tests for formConfigBaseDirs
 func TestUIConfigBaseDirs(t *testing.T) {
 	t.Run("empty config", func(t *testing.T) {
 		cfg := config.Config{}
-		dirs := uiConfigBaseDirs(cfg)
+		dirs := formConfigBaseDirs(cfg)
 		assert.NotEmpty(t, dirs)
 	})
 
 	t.Run("all paths are absolute", func(t *testing.T) {
 		cfg := config.Config{}
-		dirs := uiConfigBaseDirs(cfg)
+		dirs := formConfigBaseDirs(cfg)
 		for _, dir := range dirs {
 			assert.True(t, filepath.IsAbs(dir), "path %s should be absolute", dir)
 		}
 	})
 }
 
-// Tests for readUIConfigFile
+// Tests for readFormConfigFile
 func TestReadUIConfigFile_NonExistentDirectory(t *testing.T) {
-	result := readUIConfigFile("/nonexistent/path", "test.function")
+	result := readFormConfigFile("/nonexistent/path", "test.function")
 	assert.Nil(t, result)
 }
 
@@ -969,14 +969,14 @@ func TestFunctionHistoryLogic_FunctionHistory_MoreScenarios(t *testing.T) {
 	t.Run("with config versions", func(t *testing.T) {
 		configModel := model.NewConfigVersionModel(db)
 
-		// UI config version
-		uiConfig := map[string]interface{}{
+		// Form config version
+		formConfig := map[string]interface{}{
 			"schema": map[string]interface{}{
 				"type": "object",
 			},
 		}
-		uiConfigJSON, _ := json.Marshal(uiConfig)
-		_, err = configModel.Create(context.Background(), "ui.test.history", string(uiConfigJSON), "testuser")
+		formConfigJSON, _ := json.Marshal(formConfig)
+		_, err = configModel.Create(context.Background(), "form.test.history", string(formConfigJSON), "testuser")
 		require.NoError(t, err)
 
 		svcCtx := &svc.ServiceContext{
@@ -993,17 +993,17 @@ func TestFunctionHistoryLogic_FunctionHistory_MoreScenarios(t *testing.T) {
 
 		// Check we have the right types
 		hasCreated := false
-		hasUIUpdate := false
+		hasFormUpdate := false
 		for _, item := range items {
 			switch item.Action {
 			case "function_created":
 				hasCreated = true
-			case "ui_config_updated":
-				hasUIUpdate = true
+			case "form_config_updated":
+				hasFormUpdate = true
 			}
 		}
 		assert.True(t, hasCreated, "should have function_created item")
-		assert.True(t, hasUIUpdate, "should have ui_config_updated item")
+		assert.True(t, hasFormUpdate, "should have form_config_updated item")
 	})
 
 	t.Run("with nil config version model", func(t *testing.T) {
@@ -1072,8 +1072,8 @@ func TestGetOrCreateFunctionRecord_EdgeCases(t *testing.T) {
 	})
 }
 
-// Tests for FunctionUILogicV2 with more scenarios
-func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
+// Tests for FunctionFormLogic with more scenarios
+func TestFunctionFormLogic_MoreScenarios(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	err = model.AutoMigrate(db)
@@ -1098,14 +1098,14 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 			Config:        cfg,
 		}
 
-		logic := NewFunctionUILogicV2(context.Background(), svcCtx)
-		resp, err := logic.FunctionUI(&FunctionUIRequest{ID: "test.nilboth"})
+		logic := NewFunctionFormLogic(context.Background(), svcCtx)
+		resp, err := logic.FunctionForm(&FunctionFormRequest{ID: "test.nilboth"})
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.False(t, resp.Custom)
 		assert.True(t, resp.HasDefault)
-		assert.Equal(t, "generated_default", resp.UISource)
+		assert.Equal(t, "generated_default", resp.FormSource)
 		assert.NotNil(t, resp.Schema)
 	})
 
@@ -1138,14 +1138,14 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 			Config:        cfg,
 		}
 
-		logic := NewFunctionUILogicV2(context.Background(), svcCtx)
-		resp, err := logic.FunctionUI(&FunctionUIRequest{ID: "test.layoutcomp"})
+		logic := NewFunctionFormLogic(context.Background(), svcCtx)
+		resp, err := logic.FunctionForm(&FunctionFormRequest{ID: "test.layoutcomp"})
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.NotNil(t, resp.Schema)
 		assert.False(t, resp.Custom)
-		assert.Equal(t, "generated_default", resp.UISource)
+		assert.Equal(t, "generated_default", resp.FormSource)
 	})
 
 	t.Run("with complex nested schema", func(t *testing.T) {
@@ -1193,7 +1193,7 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 			Name:       "Test Complex",
 			Status:     1,
 			Metadata: map[string]interface{}{
-				"ui": complexSchema,
+				"form": complexSchema,
 			},
 		}
 		err = db.Create(fn).Error
@@ -1205,8 +1205,8 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 			Config:        cfg,
 		}
 
-		logic := NewFunctionUILogicV2(context.Background(), svcCtx)
-		resp, err := logic.FunctionUI(&FunctionUIRequest{ID: "test.complex"})
+		logic := NewFunctionFormLogic(context.Background(), svcCtx)
+		resp, err := logic.FunctionForm(&FunctionFormRequest{ID: "test.complex"})
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
@@ -1218,16 +1218,16 @@ func TestFunctionUILogicV2_MoreScenarios(t *testing.T) {
 	})
 }
 
-// Tests for readUIConfigFile edge cases
+// Tests for readFormConfigFile edge cases
 func TestReadUIConfigFile_EdgeCases(t *testing.T) {
 	t.Run("non-existent directory", func(t *testing.T) {
-		result := readUIConfigFile("/nonexistent/path", "test.function")
+		result := readFormConfigFile("/nonexistent/path", "test.function")
 		assert.Nil(t, result)
 	})
 
 	t.Run("directory exists but no matching files", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		result := readUIConfigFile(tmpDir, "nonexistent")
+		result := readFormConfigFile(tmpDir, "nonexistent")
 		assert.Nil(t, result)
 	})
 }
@@ -1260,10 +1260,10 @@ func TestParseConfigContent_MoreScenarios(t *testing.T) {
 	})
 }
 
-// Tests for pickFunctionUIConfig edge cases
-func TestPickFunctionUIConfig_EdgeCases(t *testing.T) {
+// Tests for pickFunctionFormConfig edge cases
+func TestPickFunctionFormConfig_EdgeCases(t *testing.T) {
 	t.Run("empty map", func(t *testing.T) {
-		result := pickFunctionUIConfig(map[string]interface{}{}, "test.function")
+		result := pickFunctionFormConfig(map[string]interface{}{}, "test.function")
 		// unwrapUIConfig returns the map itself when no x-ui key
 		resultMap, ok := result.(map[string]interface{})
 		assert.True(t, ok)
@@ -1274,7 +1274,7 @@ func TestPickFunctionUIConfig_EdgeCases(t *testing.T) {
 		raw := map[string]interface{}{
 			"type": "root",
 		}
-		result := pickFunctionUIConfig(raw, "unknown.function")
+		result := pickFunctionFormConfig(raw, "unknown.function")
 		assert.NotNil(t, result)
 		// unwrapUIConfig returns the whole map when no x-ui key
 		resultMap, ok := result.(map[string]interface{})
@@ -1311,7 +1311,7 @@ func TestUnwrapUIConfig_EdgeCases(t *testing.T) {
 	})
 }
 
-// Tests for uiConfigBaseDirs edge cases
+// Tests for formConfigBaseDirs edge cases
 func TestUIConfigBaseDirs_EdgeCases(t *testing.T) {
 	t.Run("ignores empty paths", func(t *testing.T) {
 		cfg := config.Config{
@@ -1319,7 +1319,7 @@ func TestUIConfigBaseDirs_EdgeCases(t *testing.T) {
 				BaseDir: "",
 			},
 		}
-		dirs := uiConfigBaseDirs(cfg)
+		dirs := formConfigBaseDirs(cfg)
 		for _, dir := range dirs {
 			assert.NotEmpty(t, dir)
 		}
@@ -1332,11 +1332,11 @@ func TestUIConfigBaseDirs_EdgeCases(t *testing.T) {
 				BaseDir: tmpDir,
 			},
 		}
-		dirs := uiConfigBaseDirs(cfg)
-		// Count how many times the tmpDir/ui path appears
+		dirs := formConfigBaseDirs(cfg)
+		// Count how many times the tmpDir/form path appears.
 		count := 0
 		for _, dir := range dirs {
-			if dir == filepath.Join(tmpDir, "ui") {
+			if dir == filepath.Join(tmpDir, "form") {
 				count++
 			}
 		}

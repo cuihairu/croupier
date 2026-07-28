@@ -13,7 +13,7 @@ Croupier Dashboard 不把 OpenAPI、函数表单、Entity Page 和页面编排�
 1. **OpenAPI 是函数能力契约**：描述函数如何调用、输入输出结构、错误和文档信息。
 2. **Function 是可执行能力**：函数可以是查询、命令、任务、审批动作或对象操作。
 3. **Resource 是页面组织资源**：只用于确实围绕某个资源或能力域展开的页面候选。
-4. **Function UI 是单函数输入表单**：唯一格式是 Formily Schema。
+4. **Function Form 是单函数输入表单**：唯一格式是 Formily Schema。
 5. **Page 是业务页面编排**：组合查询区、分页表格、详情、弹窗表单、批量操作和结果视图。
 
 运行时只消费一种 UI Schema：**Formily JSON Schema**。非 Formily Schema 必须报错，不能转换、猜测或静默降级。
@@ -45,7 +45,7 @@ OpenAPI / SDK descriptor
     -> FunctionDescriptor
     -> input_schema / output_schema
     -> Formily Schema 初稿
-    -> Function UI / PageCandidate
+    -> Function Form / PageCandidate
     -> Page Studio 确认 PageSpec
 ```
 
@@ -122,9 +122,9 @@ Entity Page 是 Page 的一种类型，只适合围绕同一 Resource 生命周�
 
 ---
 
-## 四、Function UI 的职责
+## 四、Function Form 的职责
 
-Function UI 只描述**单个函数的输入表单**。
+Function Form 只描述**单个函数的输入表单**。
 
 唯一合法格式是 Formily Schema：
 
@@ -146,7 +146,7 @@ Function UI 只描述**单个函数的输入表单**。
 }
 ```
 
-Function UI 的加载优先级：
+Function Form 的加载优先级：
 
 ```text
 1. 管理员在函数目录保存的 Formily override
@@ -154,9 +154,9 @@ Function UI 的加载优先级：
 3. 无可用 schema 时生成仅包含 `payload` 对象字段的最小 Formily Schema
 ```
 
-所有来源的输出都必须是 Formily Schema。SDK/OpenAPI 注册中的 `ui/x-ui/Formily/layout/components` 必须在注册或导入边界拒绝，不能作为 Function UI 来源。
+所有来源的输出都必须是 Formily Schema。SDK/OpenAPI 注册中的 `ui/x-ui/Formily/layout/components` 必须在注册或导入边界拒绝，不能作为 Function Form 来源。
 
-Function UI 不负责：
+Function Form 不负责：
 
 - 分页状态
 - 表格列
@@ -285,8 +285,8 @@ Page 不应把所有函数都强行套成 CRUD。CRUD 只是 Entity Page 的一�
 |------|------|------|------|
 | SDK / Provider | 注册函数能力 | 代码声明 / OpenAPI | FunctionDescriptor |
 | Server descriptor | 归一化函数元信息 | FunctionDescriptor | API 契约 |
-| Server UI resolver | 解析或生成函数表单 | 函数记录 | Formily Schema |
-| `/api/v1/functions/:id/ui` | 读写函数表单 | Formily Schema | Formily Schema |
+| Server form resolver | 解析或生成函数表单 | 函数记录 | Formily Schema |
+| `/api/v1/functions/:id/form` | 读写函数表单 | Formily Schema | Formily Schema |
 | `SchemaRenderer` | 渲染函数表单 | Formily Schema | React Form |
 | Function Invoke Page | 调用单个函数 | Formily values | invoke/task |
 | Server Page generator | 生成默认页面建议 | ResourceSpec + OperationSpec | Formily PageSpec |

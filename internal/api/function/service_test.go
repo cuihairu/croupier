@@ -527,7 +527,7 @@ func TestFunctionPermissions(t *testing.T) {
 	}
 	perm2 := &model.FunctionPermission{
 		FunctionID: "func1",
-		Resource:   "function_ui",
+		Resource:   "function_form",
 		Actions:    datatypes.JSON([]byte(`["read","write"]`)),
 		Roles:      datatypes.JSON([]byte(`["viewer","editor"]`)),
 	}
@@ -574,7 +574,7 @@ func TestFunctionPermissionsUpdate(t *testing.T) {
 				Roles:    []string{"admin", "viewer"},
 			},
 			{
-				Resource: "function_ui",
+				Resource: "function_form",
 				Actions:  []string{"read", "write"},
 				Roles:    []string{"editor"},
 			},
@@ -590,24 +590,24 @@ func TestFunctionPermissionsUpdate(t *testing.T) {
 	assert.Len(t, perms, 2)
 }
 
-// Test functionUI
+// Test functionForm
 
-func TestFunctionUI(t *testing.T) {
+func TestFunctionForm(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 
-	req := &FunctionUIRequest{ID: "func1"}
-	resp, err := functionUI(ctx, svcCtx, req)
+	req := &FunctionFormRequest{ID: "func1"}
+	resp, err := functionForm(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "generated_default", resp.UISource)
-	assert.Equal(t, "generated default ui schema", resp.UISourceDetail)
+	assert.Equal(t, "generated_default", resp.FormSource)
+	assert.Equal(t, "generated default function form schema", resp.FormSourceDetail)
 	assert.False(t, resp.Custom)
 	assert.True(t, resp.HasDefault)
 	assert.NotNil(t, resp.Schema)
 }
 
-func TestFunctionUI_RuntimeOnly(t *testing.T) {
+func TestFunctionForm_RuntimeOnly(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
@@ -622,16 +622,16 @@ func TestFunctionUI_RuntimeOnly(t *testing.T) {
 		LastSeen: time.Now(),
 	})
 
-	req := &FunctionUIRequest{ID: "player.list"}
-	resp, err := functionUI(ctx, svcCtx, req)
+	req := &FunctionFormRequest{ID: "player.list"}
+	resp, err := functionForm(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "generated_default", resp.UISource)
+	assert.Equal(t, "generated_default", resp.FormSource)
 	assert.NotNil(t, resp.Schema)
 }
 
-// Test functionUIUpdate
+// Test functionFormUpdate
 
-func TestFunctionUIUpdate(t *testing.T) {
+func TestFunctionFormUpdate(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
@@ -640,12 +640,12 @@ func TestFunctionUIUpdate(t *testing.T) {
 
 	schema := testAPIFormilySchema("name", "Input")
 
-	req := &FunctionUIUpdateRequest{
+	req := &FunctionFormUpdateRequest{
 		ID:     "func1",
 		Schema: schema,
 	}
 
-	resp, err := functionUIUpdate(ctx, svcCtx, req)
+	resp, err := functionFormUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.NotNil(t, resp.Schema)
@@ -653,22 +653,23 @@ func TestFunctionUIUpdate(t *testing.T) {
 	// Verify metadata was updated
 	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, "func1")
 	require.NoError(t, err)
-	assert.NotNil(t, fn.Metadata["ui"])
+	assert.NotNil(t, fn.Metadata["form"])
+	assert.Nil(t, fn.Metadata["ui"])
 	assert.Nil(t, fn.Metadata["layout"])
 	assert.Nil(t, fn.Metadata["components"])
 }
 
-func TestFunctionUIUpdate_NotFound(t *testing.T) {
+func TestFunctionFormUpdate_NotFound(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 
-	req := &FunctionUIUpdateRequest{
+	req := &FunctionFormUpdateRequest{
 		ID:     "nonexistent",
 		Schema: testAPIFormilySchema("name", "Input"),
 	}
 
-	resp, err := functionUIUpdate(ctx, svcCtx, req)
+	resp, err := functionFormUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 
@@ -677,32 +678,32 @@ func TestFunctionUIUpdate_NotFound(t *testing.T) {
 	assert.NotNil(t, fn)
 }
 
-// Test functionUIHistory
+// Test functionFormHistory
 
-func TestFunctionUIHistory(t *testing.T) {
+func TestFunctionFormHistory(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 
-	req := &FunctionUIHistoryRequest{ID: "func1"}
-	resp, err := functionUIHistory(ctx, svcCtx, req)
+	req := &FunctionFormHistoryRequest{ID: "func1"}
+	resp, err := functionFormHistory(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
 }
 
-// Test functionUIRollback
+// Test functionFormRollback
 
-func TestFunctionUIRollback(t *testing.T) {
+func TestFunctionFormRollback(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 
-	req := &FunctionUIRollbackRequest{
+	req := &FunctionFormRollbackRequest{
 		ID:      "func1",
 		Version: 1,
 	}
 
-	resp, err := functionUIRollback(ctx, svcCtx, req)
+	resp, err := functionFormRollback(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 1, resp.AppliedVersion)
@@ -978,16 +979,16 @@ func TestService_FunctionPermissions(t *testing.T) {
 	assert.Len(t, resp.Items, 1)
 }
 
-func TestService_FunctionUI(t *testing.T) {
+func TestService_FunctionForm(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	svc := NewService(svcCtx)
 	ctx := context.Background()
 
-	req := &FunctionUIRequest{ID: "func1"}
-	resp, err := svc.FunctionUI(ctx, req)
+	req := &FunctionFormRequest{ID: "func1"}
+	resp, err := svc.FunctionForm(ctx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "generated_default", resp.UISource)
+	assert.Equal(t, "generated_default", resp.FormSource)
 }
 
 func TestService_Descriptors(t *testing.T) {
@@ -1203,7 +1204,7 @@ func TestService_FunctionPermissionsUpdate(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestService_FunctionUIUpdate(t *testing.T) {
+func TestService_FunctionFormUpdate(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	svc := NewService(svcCtx)
@@ -1211,40 +1212,40 @@ func TestService_FunctionUIUpdate(t *testing.T) {
 
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
-	req := &FunctionUIUpdateRequest{
+	req := &FunctionFormUpdateRequest{
 		ID:     "func1",
 		Schema: testAPIFormilySchema("name", "Input"),
 	}
 
-	resp, err := svc.FunctionUIUpdate(ctx, req)
+	resp, err := svc.FunctionFormUpdate(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
 
-func TestService_FunctionUIHistory(t *testing.T) {
+func TestService_FunctionFormHistory(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	svc := NewService(svcCtx)
 	ctx := context.Background()
 
-	req := &FunctionUIHistoryRequest{ID: "func1"}
-	resp, err := svc.FunctionUIHistory(ctx, req)
+	req := &FunctionFormHistoryRequest{ID: "func1"}
+	resp, err := svc.FunctionFormHistory(ctx, req)
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
 }
 
-func TestService_FunctionUIRollback(t *testing.T) {
+func TestService_FunctionFormRollback(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	svc := NewService(svcCtx)
 	ctx := context.Background()
 
-	req := &FunctionUIRollbackRequest{
+	req := &FunctionFormRollbackRequest{
 		ID:      "func1",
 		Version: 1,
 	}
 
-	resp, err := svc.FunctionUIRollback(ctx, req)
+	resp, err := svc.FunctionFormRollback(ctx, req)
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 1, resp.AppliedVersion)
@@ -1671,40 +1672,40 @@ func TestFunctionPermissionsUpdate_Empty(t *testing.T) {
 	assert.Empty(t, perms)
 }
 
-// Test functionUIUpdate with nil values
+// Test functionFormUpdate with nil values
 
-func TestFunctionUIUpdate_NilValues(t *testing.T) {
+func TestFunctionFormUpdate_NilValues(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
-	req := &FunctionUIUpdateRequest{
+	req := &FunctionFormUpdateRequest{
 		ID:     "func1",
 		Schema: nil,
 	}
 
-	resp, err := functionUIUpdate(ctx, svcCtx, req)
+	resp, err := functionFormUpdate(ctx, svcCtx, req)
 	assert.Nil(t, resp)
 	assert.Error(t, err)
 }
 
-// Test functionUIUpdate with empty values
+// Test functionFormUpdate with empty values
 
-func TestFunctionUIUpdate_EmptyValues(t *testing.T) {
+func TestFunctionFormUpdate_EmptyValues(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 
 	createTestFunction(t, svcCtx.DB, "func1", "Function 1")
 
-	req := &FunctionUIUpdateRequest{
+	req := &FunctionFormUpdateRequest{
 		ID:     "func1",
 		Schema: testAPIFormilySchema("name", "Input"),
 	}
 
-	resp, err := functionUIUpdate(ctx, svcCtx, req)
+	resp, err := functionFormUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 
@@ -1895,7 +1896,6 @@ func TestFunctionsList_AdminUser(t *testing.T) {
 	assert.Len(t, resp.Items, 1)
 }
 
-
 // Test getStringSliceFromMetadata with mixed types
 
 func TestGetStringSliceFromMetadata_MixedTypes(t *testing.T) {
@@ -2073,12 +2073,12 @@ func TestHandlers_Success(t *testing.T) {
 			handler:    h.FunctionHistory,
 		},
 		{
-			name:       "FunctionUIHistory",
+			name:       "FunctionFormHistory",
 			method:     http.MethodPost,
-			url:        "/api/v1/functions/func1/ui/history",
+			url:        "/api/v1/functions/func1/form/history",
 			body:       `{}`,
 			statusCode: http.StatusOK, // returns empty even without proper URI binding
-			handler:    h.FunctionUIHistory,
+			handler:    h.FunctionFormHistory,
 		},
 		{
 			name:       "BatchCopyFunctions",
@@ -2115,7 +2115,7 @@ func TestHandlers_Success(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.url, strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
 			ctx.Request = req
-			if tt.name == "FunctionUIHistory" {
+			if tt.name == "FunctionFormHistory" {
 				ctx.Params = gin.Params{{Key: "id", Value: "func1"}}
 			}
 
@@ -2139,8 +2139,8 @@ func TestHandlers_WithBody_Success(t *testing.T) {
 		{"FunctionDelete", nil, `{"functionId":"func1"}`},
 		{"FunctionDisable", nil, `{"functionId":"func1"}`},
 		{"FunctionEnable", nil, `{"functionId":"func1"}`},
-		{"FunctionUIUpdate", nil, `{"id":"func1","schema":{"type":"object","properties":{"name":{"type":"string","title":"name","x-component":"Input","x-decorator":"FormItem"}}}}`},
-		{"FunctionUIRollback", nil, `{"id":"func1","version":1}`},
+		{"FunctionFormUpdate", nil, `{"id":"func1","schema":{"type":"object","properties":{"name":{"type":"string","title":"name","x-component":"Input","x-decorator":"FormItem"}}}}`},
+		{"FunctionFormRollback", nil, `{"id":"func1","version":1}`},
 		{"FunctionPermissionsUpdate", nil, `{"id":"func1","permissions":[]}`},
 	}
 
@@ -2160,10 +2160,10 @@ func TestHandlers_WithBody_Success(t *testing.T) {
 				handler = h.FunctionDisable
 			case "FunctionEnable":
 				handler = h.FunctionEnable
-			case "FunctionUIUpdate":
-				handler = h.FunctionUIUpdate
-			case "FunctionUIRollback":
-				handler = h.FunctionUIRollback
+			case "FunctionFormUpdate":
+				handler = h.FunctionFormUpdate
+			case "FunctionFormRollback":
+				handler = h.FunctionFormRollback
 			case "FunctionPermissionsUpdate":
 				handler = h.FunctionPermissionsUpdate
 			}
@@ -2174,7 +2174,7 @@ func TestHandlers_WithBody_Success(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			ctx.Request = req
 			switch tt.name {
-			case "FunctionUIUpdate", "FunctionUIRollback", "FunctionPermissionsUpdate":
+			case "FunctionFormUpdate", "FunctionFormRollback", "FunctionPermissionsUpdate":
 				ctx.Params = gin.Params{{Key: "id", Value: "func1"}}
 			}
 
@@ -2211,10 +2211,10 @@ func TestHandlerAliasMethods(t *testing.T) {
 		{"InstancesAll", h.InstancesAll},
 		{"Permissions", h.Permissions},
 		{"PermissionsUpdate", h.PermissionsUpdate},
-		{"UI", h.UI},
-		{"UIUpdate", h.UIUpdate},
-		{"UIHistory", h.UIHistory},
-		{"UIRollback", h.UIRollback},
+		{"Form", h.Form},
+		{"FormUpdate", h.FormUpdate},
+		{"FormHistory", h.FormHistory},
+		{"FormRollback", h.FormRollback},
 		{"History", h.History},
 		{"Analytics", h.Analytics},
 		{"Warnings", h.Warnings},
@@ -2270,17 +2270,17 @@ func TestHandlers_AdditionalCoverage(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 	})
 
-	t.Run("FunctionUI_Success", func(t *testing.T) {
+	t.Run("FunctionForm_Success", func(t *testing.T) {
 		svcCtx := setupTestServiceContext(t)
 		svc := NewService(svcCtx)
 		h := NewHandler(svc)
 
 		rec := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(rec)
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/functions/func1/ui", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/functions/func1/form", nil)
 		ctx.Request = req
 
-		h.FunctionUI(ctx)
+		h.FunctionForm(ctx)
 
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})

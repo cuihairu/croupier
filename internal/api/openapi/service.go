@@ -17,7 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
-	"github.com/cuihairu/croupier/internal/function/uicontract"
+	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
@@ -51,12 +51,12 @@ func (s *Service) GetSpec(ctx context.Context, req *GetSpecRequest) (*GetSpecRes
 	return &GetSpecResponse{Spec: mustMarshalRaw(spec)}, nil
 }
 
-func operationUIRegistrationKey(op *openapi3.Operation) (string, bool) {
+func operationPresentationField(op *openapi3.Operation) (string, bool) {
 	if op == nil {
 		return "", false
 	}
 	for key := range op.Extensions {
-		if forbiddenKey, ok := uicontract.ForbiddenRegistrationKey(key); ok {
+		if forbiddenKey, ok := registrationguard.ForbiddenPresentationField(key); ok {
 			return forbiddenKey, true
 		}
 	}
@@ -554,11 +554,11 @@ func extractSourceOperations(doc *openapi3.T, diags []spec.Diagnostic) ([]OpenAP
 			continue
 		}
 		fieldPath := fmt.Sprintf("$.paths.%s.%s", candidate.path, strings.ToLower(candidate.method))
-		if forbiddenKey, ok := operationUIRegistrationKey(candidate.op); ok {
+		if forbiddenKey, ok := operationPresentationField(candidate.op); ok {
 			diags = append(diags, sourceDiagnostic(
-				"openapi_ui_field_forbidden",
+				"openapi_presentation_field_forbidden",
 				spec.SeverityError,
-				fmt.Sprintf("UI field %q is not allowed in OpenAPI source", forbiddenKey),
+				fmt.Sprintf("presentation field %q is not allowed in OpenAPI source", forbiddenKey),
 				fieldPath,
 			))
 			continue
@@ -670,11 +670,11 @@ func scanOpenAPIValue(value interface{}, path string, diags *[]spec.Diagnostic) 
 					))
 				}
 			}
-			if forbiddenOpenAPIUIKey(key) {
+			if forbiddenOpenAPIPresentationField(key) {
 				*diags = append(*diags, sourceDiagnostic(
-					"openapi_ui_field_forbidden",
+					"openapi_presentation_field_forbidden",
 					spec.SeverityError,
-					fmt.Sprintf("UI field %q is not allowed in OpenAPI source", key),
+					fmt.Sprintf("presentation field %q is not allowed in OpenAPI source", key),
 					childPath,
 				))
 			}
@@ -687,9 +687,9 @@ func scanOpenAPIValue(value interface{}, path string, diags *[]spec.Diagnostic) 
 	}
 }
 
-func forbiddenOpenAPIUIKey(key string) bool {
+func forbiddenOpenAPIPresentationField(key string) bool {
 	normalized := strings.TrimSpace(strings.ToLower(strings.ReplaceAll(key, "_", "-")))
-	if _, ok := uicontract.ForbiddenRegistrationKey(normalized); ok {
+	if _, ok := registrationguard.ForbiddenPresentationField(normalized); ok {
 		return ok
 	}
 	switch normalized {

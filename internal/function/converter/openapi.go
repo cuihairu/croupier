@@ -60,11 +60,15 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 	if schema.Max != nil {
 		result["maximum"] = *schema.Max
 	}
-	if schema.ExclusiveMin {
-		result["exclusiveMinimum"] = true
+	if schema.ExclusiveMin.Bool != nil {
+		result["exclusiveMinimum"] = *schema.ExclusiveMin.Bool
+	} else if schema.ExclusiveMin.Value != nil {
+		result["exclusiveMinimum"] = *schema.ExclusiveMin.Value
 	}
-	if schema.ExclusiveMax {
-		result["exclusiveMaximum"] = true
+	if schema.ExclusiveMax.Bool != nil {
+		result["exclusiveMaximum"] = *schema.ExclusiveMax.Bool
+	} else if schema.ExclusiveMax.Value != nil {
+		result["exclusiveMaximum"] = *schema.ExclusiveMax.Value
 	}
 	if schema.MultipleOf != nil {
 		result["multipleOf"] = *schema.MultipleOf

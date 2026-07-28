@@ -1,6 +1,6 @@
 package com.croupier.sdk.examples;
 
-import com.croupier.sdk.*;
+import io.github.cuihairu.croupier.sdk.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,10 +63,11 @@ public class BasicExample {
     private static void registerFunctions(CroupierClient client) throws CroupierException {
         // Register player ban function
         FunctionDescriptor playerBanDesc = CroupierSDK.functionDescriptor("player.ban", "1.0.0")
-                .category("moderation")
-                .risk("high")
-                .entity("player")
-                .operation("update")
+                .resource("player")
+                .risk("danger")
+                .operation("ban")
+                .summary("Ban player")
+                .description("Ban a player account by player ID.")
                 .enabled(true)
                 .build();
 
@@ -91,12 +92,13 @@ public class BasicExample {
 
         client.registerFunction(playerBanDesc, playerBanHandler);
 
-        // Register item create function
-        FunctionDescriptor itemCreateDesc = CroupierSDK.functionDescriptor("item.create", "1.0.0")
-                .category("inventory")
-                .risk("low")
-                .entity("item")
-                .operation("create")
+        // Register inventory grant function
+        FunctionDescriptor itemCreateDesc = CroupierSDK.functionDescriptor("inventory.grant", "1.0.0")
+                .resource("inventory")
+                .risk("warning")
+                .operation("grant")
+                .summary("Grant inventory item")
+                .description("Grant an item to a player's inventory.")
                 .enabled(true)
                 .build();
 

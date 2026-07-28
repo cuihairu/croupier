@@ -18,6 +18,21 @@ removed_paths=(
   "web/docs/workspace-logging-standard.md"
   "web/docs/workspace-product-delivery-guide.md"
   "web/docs/workspace-regression-checklist.md"
+  "internal/function/uicontract"
+  "internal/function/converter/pack.go"
+  "internal/validation/entity.go"
+  "internal/validation/entity_test.go"
+  "internal/validation/entity_extra_test.go"
+  "internal/logic/function/function_u_i_history_logic.go"
+  "internal/logic/function/function_u_i_history_rollback_test.go"
+  "internal/logic/function/function_u_i_logic_v2.go"
+  "internal/logic/function/function_u_i_rollback_logic.go"
+  "internal/logic/function/function_u_i_update_logic.go"
+  "internal/logic/function/function_ui_e2e_test.go"
+  "internal/logic/function/function_ui_versioning.go"
+  "internal/logic/function/ui_resolver.go"
+  "internal/logic/function/ui_resolver_test.go"
+  "web/src/components/FunctionUIManager"
   "web/src/components/FunctionFormRenderer"
   "web/src/components/PageGenerator"
   "web/src/components/WorkspaceRenderer"
@@ -44,10 +59,40 @@ if rg -n "WorkspaceConfig|WorkspaceRenderer|workspaceConfig|/api/v1/workspaces|c
   fail "legacy Workspace/PageGenerator symbols are still referenced in dashboard frontend"
 fi
 
-if rg -n "FunctionFormRenderer|XUISchema|X_UI_SCHEMA|FUNCTION_FORM_RENDERER|已废弃|deprecated wrapper" \
+if rg -n 'PackConverter|PackManifest|PackEntity|PackEntityOperation|ValidateEntityDefinition|validateUIConfig|validateOperations' \
+  internal/function internal/validation internal/api internal/model \
+  --glob "*.go" >/dev/null 2>&1; then
+  fail "legacy Pack manifest or entity definition validators must not be restored"
+fi
+
+if rg -n "FunctionFormRenderer|XUISchema|X_UI_SCHEMA|FUNCTION_FORM_RENDERER|FunctionUIDesigner|FunctionUIManager|@/components/FunctionUIManager|ui-designer|函数 UI 设计器|已废弃|deprecated wrapper" \
   web/src web/tests web/config \
   --glob "*.ts" --glob "*.tsx" >/dev/null 2>&1; then
-  fail "removed function UI compatibility wrappers are still referenced in dashboard frontend"
+  fail "removed function UI compatibility wrappers or legacy UI designer routes are still referenced in dashboard frontend"
+fi
+
+if rg -n "fetchFunctionUiSchema|saveFunctionUiSchema|fetchFunctionUiHistory|rollbackFunctionUiSchema|FunctionUiSchemaDocument|FunctionUIHistoryItem|fetchFunctionUISchemaDocument" \
+  web/src web/tests \
+  --glob "*.ts" --glob "*.tsx" >/dev/null 2>&1; then
+  fail "function form frontend must use FunctionForm service names, not legacy FunctionUi names"
+fi
+
+if rg -n '/api/v1/functions/.*/ui(/history|/rollback)?|/:id/ui($|")|/:id/ui/(history|rollback)|functionHandler\.UI|functionHandler\.UIUpdate|functionHandler\.UIHistory|functionHandler\.UIRollback' \
+  internal/api/function internal/handler internal/router web/src web/tests docs/api docs/architecture docs/guide \
+  --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.md" >/dev/null 2>&1; then
+  fail "function form API must use /form routes, not legacy /ui routes"
+fi
+
+if rg -n 'FunctionUI(Request|Response|UpdateRequest|HistoryRequest|HistoryResponse|HistoryItem|RollbackRequest|RollbackResponse|V2Response|V2UpdateRequest|V2RollbackRequest|Diagnostic)\b|func \(h \*Handler\) FunctionUI\b|func \(s \*Service\) FunctionUI\b|func functionUI\b' \
+  internal/api/function \
+  --glob "*.go" >/dev/null 2>&1; then
+  fail "function API layer must expose FunctionForm types and handlers, not FunctionUI names"
+fi
+
+if rg -n 'uicontract|function_ui_not_allowed|openapi_ui_field_forbidden|descriptorUIRegistrationKey|operationUIRegistrationKey|forbiddenOpenAPIUIKey|Function UI|函数 UI' \
+  internal/api/function internal/api/openapi internal/function internal/logic/function internal/server \
+  --glob "*.go" >/dev/null 2>&1; then
+  fail "function registration and form code must not use legacy Function UI naming"
 fi
 
 if rg -n "from ['\"]@/services/api/users['\"]|from ['\"]@/services/api/roles['\"]|from ['\"]\\./users['\"]|from ['\"]\\./roles['\"]" \
@@ -67,7 +112,7 @@ if [[ -d "docs" ]] && rg -n "workspace\\.md|object-workspace\\.md|WorkspaceConfi
 fi
 
 if rg -n "objectKey" \
-  web/src/pages/Console web/src/services internal/api/page internal/api/console \
+  web/src/pages/Console web/src/services web/tests internal/api/page internal/api/console \
   --glob "*.ts" --glob "*.tsx" --glob "*.go" >/dev/null 2>&1; then
   fail "objectKey must not be used in Page/Console runtime"
 fi
@@ -76,9 +121,9 @@ if rg -n "menu\\.ControlConsole\\.category\\." web/src --glob "*.ts" --glob "*.t
   fail "dynamic console categories must not use static locale keys"
 fi
 
-if rg -n "x-operation.*custom|CRUD operation type" proto sdks web/src \
-  --glob "*.proto" --glob "*.ts" --glob "*.tsx" --glob "*.go" --glob "*.md" \
-  --glob "!**/node_modules/**" --glob "!**/build/**" --glob "!**/obj/**" >/dev/null 2>&1; then
+if rg -n "x-operation.*custom|CRUD operation type|operation \\|\\| ['\\\"]custom['\\\"]|\\\"create\\\", \\\"read\\\", \\\"update\\\", \\\"delete\\\", \\\"custom\\\"" proto sdks web/src \
+  --glob "*.proto" --glob "*.ts" --glob "*.tsx" --glob "*.go" --glob "*.md" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
+  --glob "!**/node_modules/**" --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" --glob "!sdks/cpp/vcpkg/**" >/dev/null 2>&1; then
   fail "SDK/OpenAPI docs or sources still describe operation as CRUD/custom"
 fi
 
@@ -88,8 +133,8 @@ if rg -n "PageFunctionBinding.*Role|binding\\.Role|Role:.*Placement" \
   fail "Page binding must use usage, not placement-derived role"
 fi
 
-if rg -n "/api/v1/workspaces/pages|/api/v1/workspaces/:objectKey/config" \
-  internal web/src --glob "*.go" --glob "*.ts" --glob "*.tsx" >/dev/null 2>&1; then
+if rg -n "/api/v1/workspaces/pages|/api/v1/workspaces/published|/api/v1/workspaces/:objectKey/config" \
+  internal web/src web/tests --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.jsx" >/dev/null 2>&1; then
   fail "legacy workspace routes must not be referenced"
 fi
 
@@ -102,7 +147,8 @@ if rg -n "category_display|entity_display|operation_display|operation_kind|page_
   proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src internal web/src \
   --glob "*.proto" --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
   --glob "!**/test/**" --glob "!**/tests/**" --glob "!**/*Test.java" --glob "!**/*.test.ts" \
-  --glob "!internal/function/uicontract/reject.go" >/dev/null 2>&1; then
+  --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" \
+  --glob "!internal/function/registrationguard/reject.go" >/dev/null 2>&1; then
   fail "SDK/OpenAPI registration sources still contain forbidden page/display fields"
 fi
 
@@ -119,6 +165,13 @@ if rg -n "ProvidersEntities|openAPIDocEntities|aggregateEntities|/providers/.*/e
   internal/api/provider internal/handler internal/router docs/api/provider.md \
   --glob "*.go" --glob "*.md" >/dev/null 2>&1; then
   fail "provider API must expose resources, not legacy entities"
+fi
+
+if rg -n "VirtualObjectDescriptor|RelationshipDef|ComponentDescriptor|RegisterVirtualObject|RegisterComponent|GetRegisteredObjects|GetRegisteredComponents|UnregisterVirtualObject|UnregisterComponent|LoadComponentFromFile|config_driven_loader|config_manager|virtual_object_demo|complete_example|comprehensive_demo|production_example|Function -> Entity|虚拟对象|组件系统|register_vo|unregister_vo|get_vo|list_vos" \
+  sdks/cpp/include sdks/cpp/src sdks/cpp/examples sdks/cpp/tests sdks/cpp/lua sdks/cpp/skynet sdks/cpp/README.md sdks/cpp/CMakeLists.txt \
+  --glob "*.h" --glob "*.cpp" --glob "*.lua" --glob "*.md" --glob "CMakeLists.txt" \
+  --glob "!**/build/**" --glob "!**/vcpkg/**" >/dev/null 2>&1; then
+  fail "C++ SDK must not restore legacy VirtualObject/Component registration or Skynet VO APIs"
 fi
 
 if rg -n "\\bany\\b" web/src/types web/src/services/console.ts web/src/services/api/resources.ts \

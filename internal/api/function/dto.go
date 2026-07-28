@@ -201,8 +201,8 @@ type FunctionPublishResponse struct {
 	Published  bool   `json:"published"`
 }
 
-// FunctionUIHistoryItem represents an item in the function UI history
-type FunctionUIHistoryItem struct {
+// FunctionFormHistoryItem represents an item in the function form history.
+type FunctionFormHistoryItem struct {
 	Version   int             `json:"version"`
 	Schema    json.RawMessage `json:"schema,omitempty"`
 	Message   string          `json:"message"`
@@ -210,44 +210,44 @@ type FunctionUIHistoryItem struct {
 	CreatedAt string          `json:"createdAt"`
 }
 
-// FunctionUIHistoryRequest represents a request for function UI history
-type FunctionUIHistoryRequest struct {
+// FunctionFormHistoryRequest represents a request for function form history.
+type FunctionFormHistoryRequest struct {
 	ID string `uri:"id"`
 }
 
-// FunctionUIHistoryResponse represents the response containing function UI history
-type FunctionUIHistoryResponse struct {
-	Items []FunctionUIHistoryItem `json:"items"`
+// FunctionFormHistoryResponse represents the response containing function form history.
+type FunctionFormHistoryResponse struct {
+	Items []FunctionFormHistoryItem `json:"items"`
 }
 
-// FunctionUIRequest represents a request for function UI configuration
-type FunctionUIRequest struct {
+// FunctionFormRequest represents a request for function form configuration.
+type FunctionFormRequest struct {
 	ID string `uri:"id"`
 }
 
-// FunctionUIResponse represents the response containing function UI configuration
-type FunctionUIResponse struct {
-	Schema         json.RawMessage `json:"schema,omitempty"`
-	Custom         bool            `json:"custom"`
-	HasDefault     bool            `json:"hasDefault"`
-	UISource       string          `json:"uiSource"`       // custom_metadata/config_file_override/generated_default/none
-	UISourceDetail string          `json:"uiSourceDetail"` // human-readable source description
+// FunctionFormResponse represents the response containing function form configuration.
+type FunctionFormResponse struct {
+	Schema           json.RawMessage `json:"schema,omitempty"`
+	Custom           bool            `json:"custom"`
+	HasDefault       bool            `json:"hasDefault"`
+	FormSource       string          `json:"formSource"`       // custom_metadata/config_file_override/generated_default/none
+	FormSourceDetail string          `json:"formSourceDetail"` // human-readable source description
 }
 
-// FunctionUIRollbackRequest represents a request to rollback function UI
-type FunctionUIRollbackRequest struct {
+// FunctionFormRollbackRequest represents a request to rollback function form configuration.
+type FunctionFormRollbackRequest struct {
 	ID      string `uri:"id"`
 	Version int    `json:"version"`
 }
 
-// FunctionUIRollbackResponse represents the response of a function UI rollback
-type FunctionUIRollbackResponse struct {
-	AppliedVersion int                 `json:"appliedVersion"`
-	Current        *FunctionUIResponse `json:"current"`
+// FunctionFormRollbackResponse represents the response of a function form rollback.
+type FunctionFormRollbackResponse struct {
+	AppliedVersion int                   `json:"appliedVersion"`
+	Current        *FunctionFormResponse `json:"current"`
 }
 
-// FunctionUIUpdateRequest represents a request to update function UI
-type FunctionUIUpdateRequest struct {
+// FunctionFormUpdateRequest represents a request to update function form configuration.
+type FunctionFormUpdateRequest struct {
 	ID     string          `uri:"id"`
 	Schema json.RawMessage `json:"schema"`
 }
@@ -401,12 +401,6 @@ type InstancesAllResponse = FunctionInstancesAllResponse
 type PermissionsRequest = FunctionPermissionsRequest
 type PermissionsResponse = FunctionPermissionsResponse
 type PermissionsUpdateRequest = FunctionPermissionsUpdateRequest
-type UIRequest = FunctionUIRequest
-type UIResponse = FunctionUIResponse
-type UIUpdateRequest = FunctionUIUpdateRequest
-type UIHistoryRequest = FunctionUIHistoryRequest
-type UIHistoryResponse = FunctionUIHistoryResponse
-type UIRollbackRequest = FunctionUIRollbackRequest
 type HistoryRequest = FunctionHistoryRequest
 type HistoryResponse = FunctionHistoryResponse
 type AnalyticsRequest = FunctionAnalyticsRequest

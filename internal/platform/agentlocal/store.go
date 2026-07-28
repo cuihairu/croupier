@@ -135,19 +135,19 @@ func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs
 		}
 		// Store function metadata including OpenAPI schema
 		meta := &FunctionMeta{
-			ID:               fid,
-			Version:          fn.GetVersion(),
-			Tags:             fn.GetTags(),
-			Summary:          fn.GetSummary(),
-			Description:      fn.GetDescription(),
-			OperationID:      fn.GetOperationId(),
-			Deprecated:       fn.GetDeprecated(),
-			InputSchema:      fn.GetInputSchema(),
-			OutputSchema:     fn.GetOutputSchema(),
-			Resource:         fn.GetResource(),
-			Operation:        fn.GetOperation(),
-			Risk:             fn.GetRisk(),
-			Permission:       fn.GetPermission(),
+			ID:           fid,
+			Version:      fn.GetVersion(),
+			Tags:         fn.GetTags(),
+			Summary:      fn.GetSummary(),
+			Description:  fn.GetDescription(),
+			OperationID:  fn.GetOperationId(),
+			Deprecated:   fn.GetDeprecated(),
+			InputSchema:  fn.GetInputSchema(),
+			OutputSchema: fn.GetOutputSchema(),
+			Resource:     fn.GetResource(),
+			Operation:    fn.GetOperation(),
+			Risk:         fn.GetRisk(),
+			Permission:   fn.GetPermission(),
 		}
 		if op, err := converter.ToOpenAPIOperation(converter.LocalFunctionDescriptorDesc{
 			ID:           meta.ID,

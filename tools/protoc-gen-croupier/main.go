@@ -226,7 +226,7 @@ func buildOpenAPIDoc(ops []OpenAPIOperation, params map[string]string) map[strin
 						},
 					},
 				},
-				"x-request": op.Request,
+				"x-request":  op.Request,
 				"x-response": op.Response,
 			},
 		}

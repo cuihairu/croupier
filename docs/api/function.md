@@ -385,21 +385,21 @@ type FunctionPublishResponse struct {
 }
 ```
 
-### 12. "获取函数UI配置"
+### 12. "获取函数表单配置"
 
 1. route definition
 
-- Url: /api/v1/functions/:id/ui
+- Url: /api/v1/functions/:id/form
 - Method: GET
-- Request: `FunctionUIRequest`
-- Response: `FunctionUIResponse`
+- Request: `FunctionFormRequest`
+- Response: `FunctionFormResponse`
 
 2. request definition
 
 
 
 ```go
-type FunctionUIRequest struct {
+type FunctionFormRequest struct {
 	ID string `path:"id"`
 }
 ```
@@ -410,28 +410,30 @@ type FunctionUIRequest struct {
 
 
 ```go
-type FunctionUIResponse struct {
-	Schema FormilySchema `json:"schema"`
-	Version int `json:"version,omitempty"`
-	Source string `json:"source,omitempty"` // metadata / override / file / openapi / generated
+type FunctionFormResponse struct {
+	Schema FormilySchema `json:"schema,omitempty"`
+	Custom bool `json:"custom"`
+	HasDefault bool `json:"hasDefault"`
+	FormSource string `json:"formSource"` // custom_metadata / config_file_override / generated_default / none
+	FormSourceDetail string `json:"formSourceDetail"`
 }
 ```
 
-### 13. "更新函数UI配置"
+### 13. "更新函数表单配置"
 
 1. route definition
 
-- Url: /api/v1/functions/:id/ui
+- Url: /api/v1/functions/:id/form
 - Method: PUT
-- Request: `FunctionUIUpdateRequest`
-- Response: `FunctionUIResponse`
+- Request: `FunctionFormUpdateRequest`
+- Response: `FunctionFormResponse`
 
 2. request definition
 
 
 
 ```go
-type FunctionUIUpdateRequest struct {
+type FunctionFormUpdateRequest struct {
 	ID string `path:"id"`
 	Schema FormilySchema `json:"schema"`
 }
@@ -443,33 +445,35 @@ type FunctionUIUpdateRequest struct {
 
 
 ```go
-type FunctionUIResponse struct {
-	Schema FormilySchema `json:"schema"`
-	Version int `json:"version,omitempty"`
-	Source string `json:"source,omitempty"`
+type FunctionFormResponse struct {
+	Schema FormilySchema `json:"schema,omitempty"`
+	Custom bool `json:"custom"`
+	HasDefault bool `json:"hasDefault"`
+	FormSource string `json:"formSource"`
+	FormSourceDetail string `json:"formSourceDetail"`
 }
 ```
 
 **说明：**
 
-- 函数 UI 只读写单函数 Formily JSON Schema。
+- 函数表单只读写单函数 Formily JSON Schema。
 - 不再维护独立的 `layout` / `components` 协议字段。
 - 非 Formily Schema 必须返回校验错误，不能转换、猜测或静默降级。
-- Page 级布局、分页、表格、详情和动作编排属于 Page Studio API，不属于函数 UI API。
+- Page 级布局、分页、表格、详情和动作编排属于 Page Studio API，不属于函数表单 API。
 
-### 14. "获取函数UI配置历史"
+### 14. "获取函数表单配置历史"
 
 1. route definition
 
-- Url: /api/v1/functions/:id/ui/history
+- Url: /api/v1/functions/:id/form/history
 - Method: GET
-- Request: `FunctionUIHistoryRequest`
-- Response: `FunctionUIHistoryResponse`
+- Request: `FunctionFormHistoryRequest`
+- Response: `FunctionFormHistoryResponse`
 
 2. request definition
 
 ```go
-type FunctionUIHistoryRequest struct {
+type FunctionFormHistoryRequest struct {
 	ID string `path:"id"`
 }
 ```
@@ -477,24 +481,24 @@ type FunctionUIHistoryRequest struct {
 3. response definition
 
 ```go
-type FunctionUIHistoryResponse struct {
-	Items []FunctionUIHistoryItem `json:"items"`
+type FunctionFormHistoryResponse struct {
+	Items []FunctionFormHistoryItem `json:"items"`
 }
 ```
 
-### 15. "回滚函数UI配置"
+### 15. "回滚函数表单配置"
 
 1. route definition
 
-- Url: /api/v1/functions/:id/ui/rollback
+- Url: /api/v1/functions/:id/form/rollback
 - Method: POST
-- Request: `FunctionUIRollbackRequest`
-- Response: `FunctionUIRollbackResponse`
+- Request: `FunctionFormRollbackRequest`
+- Response: `FunctionFormRollbackResponse`
 
 2. request definition
 
 ```go
-type FunctionUIRollbackRequest struct {
+type FunctionFormRollbackRequest struct {
 	ID      string `path:"id"`
 	Version int    `json:"version"`
 }
@@ -503,9 +507,9 @@ type FunctionUIRollbackRequest struct {
 3. response definition
 
 ```go
-type FunctionUIRollbackResponse struct {
+type FunctionFormRollbackResponse struct {
 	AppliedVersion int                 `json:"appliedVersion"`
-	Current        *FunctionUIResponse `json:"current"`
+	Current        *FunctionFormResponse `json:"current"`
 }
 ```
 

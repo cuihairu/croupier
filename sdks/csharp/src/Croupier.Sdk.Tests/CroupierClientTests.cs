@@ -224,9 +224,9 @@ public class CroupierClientTests
         var client = new CroupierClient(CreateTestConfig());
         var descriptor = new FunctionDescriptor
         {
-            Id = "player.custom",
+            Id = "player.ban",
             Resource = "player",
-            Operation = "custom"
+            Operation = "ban"
         };
 
         var mockHandler = new Mock<IFunctionHandler>();

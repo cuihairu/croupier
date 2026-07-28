@@ -78,7 +78,7 @@ func (l *FunctionHistoryLogic) FunctionHistory(req *FunctionHistoryRequest) ([]F
 		return nil
 	}
 
-	if err := appendConfigVersions(functionUIHistoryKey(functionID), "ui_config_updated"); err != nil {
+	if err := appendConfigVersions(functionFormHistoryKey(functionID), "form_config_updated"); err != nil {
 		return nil, err
 	}
 

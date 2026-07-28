@@ -6,7 +6,7 @@ import {
   Space,
   Tabs,
 } from 'antd';
-import FunctionUIManager from '@/components/FunctionUIManager';
+import FunctionFormManager from '@/components/FunctionFormManager';
 import type { FormilySchema } from '@/components/formily/schema/types';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { JSONSchema } from '@/types/dashboard';
@@ -23,9 +23,9 @@ export type ConfigTabProps = {
   };
   onJsonCopySuccess: () => void;
   onJsonCopyError: () => void;
-  uiDescriptor: Partial<FunctionDescriptor>;
+  formDescriptor: Partial<FunctionDescriptor>;
   parsedInputSchema?: JSONSchema;
-  onSaveUi: (uiConfig: { schema?: FormilySchema; clearCustom?: boolean }) => Promise<void>;
+  onSaveForm: (formConfig: { schema?: FormilySchema; clearCustom?: boolean }) => Promise<void>;
   onOpenPageStudio: () => void;
 };
 
@@ -36,9 +36,9 @@ export default function DetailConfigTab({
   jsonViewData,
   onJsonCopySuccess,
   onJsonCopyError,
-  uiDescriptor,
+  formDescriptor,
   parsedInputSchema,
-  onSaveUi,
+  onSaveForm,
   onOpenPageStudio,
 }: ConfigTabProps) {
   const jsonTabItems = [
@@ -97,11 +97,11 @@ export default function DetailConfigTab({
       key: 'ui',
       label: '函数表单',
       children: (
-        <FunctionUIManager
+        <FunctionFormManager
           functionId={functionId}
-          descriptor={uiDescriptor}
+          descriptor={formDescriptor}
           jsonSchema={parsedInputSchema}
-          onSave={onSaveUi}
+          onSave={onSaveForm}
         />
       ),
     },

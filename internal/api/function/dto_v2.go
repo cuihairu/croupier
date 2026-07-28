@@ -2,39 +2,39 @@ package function
 
 import "encoding/json"
 
-// FunctionUIV2Response represents the function UI configuration.
+// FunctionFormV2Response represents the function form configuration.
 // This is the new canonical response that only includes Formily Schema.
-type FunctionUIV2Response struct {
+type FunctionFormV2Response struct {
 	// Schema is the Formily JSON Schema for the function's input form.
 	Schema json.RawMessage `json:"schema"`
 
-	// UISource indicates where the schema came from.
-	UISource string `json:"uiSource"` // custom_metadata/config_file_override/generated_default/none
+	// FormSource indicates where the schema came from.
+	FormSource string `json:"formSource"` // custom_metadata/config_file_override/generated_default/none
 
-	// UISourceDetail provides a human-readable description of the source.
-	UISourceDetail string `json:"uiSourceDetail,omitempty"`
+	// FormSourceDetail provides a human-readable description of the source.
+	FormSourceDetail string `json:"formSourceDetail,omitempty"`
 
 	// HasDefault indicates whether a default schema was derived.
 	HasDefault bool `json:"hasDefault"`
 
 	// Diagnostics contains validation warnings/info.
-	Diagnostics []FunctionUIDiagnostic `json:"diagnostics,omitempty"`
+	Diagnostics []FunctionFormDiagnostic `json:"diagnostics,omitempty"`
 }
 
-// FunctionUIV2UpdateRequest represents a request to update function UI.
-type FunctionUIV2UpdateRequest struct {
+// FunctionFormV2UpdateRequest represents a request to update function form.
+type FunctionFormV2UpdateRequest struct {
 	ID     string          `json:"id" binding:"required"`
 	Schema json.RawMessage `json:"schema" binding:"required"`
 }
 
-// FunctionUIV2RollbackRequest represents a request to rollback function UI.
-type FunctionUIV2RollbackRequest struct {
+// FunctionFormV2RollbackRequest represents a request to rollback function form.
+type FunctionFormV2RollbackRequest struct {
 	ID      string `json:"id" binding:"required"`
 	Version int    `json:"version" binding:"required"`
 }
 
-// FunctionUIDiagnostic represents a diagnostic message for function UI.
-type FunctionUIDiagnostic struct {
+// FunctionFormDiagnostic represents a diagnostic message for function form.
+type FunctionFormDiagnostic struct {
 	Code     string `json:"code"`
 	Severity string `json:"severity"` // error/warning/info
 	Message  string `json:"message"`

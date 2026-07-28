@@ -157,13 +157,6 @@ int main(int /* argc */, char* /* argv */[]) {
             if (registered) {
                 std::cout << "✅ All plugin functions registered successfully!" << std::endl;
 
-                // Get list of registered objects from client
-                auto client_objects = client.GetRegisteredObjects();
-                std::cout << "📋 Client now has " << client_objects.size() << " registered objects:" << std::endl;
-                for (const auto& obj : client_objects) {
-                    std::cout << "  - " << obj.id << " (v" << obj.version << ")" << std::endl;
-                }
-
                 // Try to connect to agent (this will fail if no agent is running, which is normal)
                 std::cout << "\n🔌 Testing client connection..." << std::endl;
                 bool connected = client.Connect();

@@ -25,7 +25,7 @@ export default {
   'menu.FunctionsAndPages.PageStudio': 'Page Studio',
   'menu.FunctionsAndPages.OpenAPISources': 'OpenAPI Sources',
   'menu.FunctionsAndPages.FunctionInvoke': 'Function Invoke',
-  'menu.FunctionsAndPages.FunctionUIDesigner': 'Function Form Designer',
+  'menu.FunctionsAndPages.FunctionFormDesigner': 'Function Form Designer',
   'menu.FunctionsAndPages.FunctionInstances': 'Instance Management',
   'menu.FunctionsAndPages.FunctionWarnings': 'Registration Warnings',
   'menu.FunctionsAndPages.FunctionAssignments': 'Permission Assignments',

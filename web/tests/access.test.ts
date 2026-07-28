@@ -82,4 +82,18 @@ describe('runtime access', () => {
     expect(result.canPageRead).toBe(true);
     expect(result.canFunctionsAndPagesRead).toBe(true);
   });
+
+  it('允许只有 OpenAPI Source 读取权限的用户进入函数与页面入口', () => {
+    const result = access({
+      currentUser: {
+        access: 'openapi_sources:read',
+      },
+    });
+
+    expect(result.canOpenAPISourcesRead).toBe(true);
+    expect(result.canFunctionsRead).toBe(false);
+    expect(result.canPageRead).toBe(false);
+    expect(result.canResourcesRead).toBe(false);
+    expect(result.canFunctionsAndPagesRead).toBe(true);
+  });
 });

@@ -37,42 +37,6 @@ struct FunctionDescriptor {
     std::string permission;  // optional permission identifier
 };
 
-// Relationship definition for virtual objects
-struct RelationshipDef {
-    std::string type;         // "one-to-many", "many-to-one", "many-to-many"
-    std::string entity;       // Related entity ID
-    std::string foreign_key;  // Foreign key field name
-};
-
-// Virtual object descriptor
-struct VirtualObjectDescriptor {
-    std::string id;                                        // e.g. "wallet.entity"
-    std::string version;                                   // Version number
-    std::string name;                                      // Display name
-    std::string description;                               // Description
-    std::map<std::string, std::string> schema;             // JSON Schema definition
-    std::map<std::string, std::string> operations;         // Operation mappings: "read" -> "wallet.get"
-    std::map<std::string, RelationshipDef> relationships;  // Relationship definitions
-    std::vector<FunctionDescriptor> functions;             // Function descriptors
-    std::map<std::string, std::string> metadata;           // Additional metadata
-};
-
-// Component descriptor (complete module)
-struct ComponentDescriptor {
-    std::string id;                                 // e.g. "economy-system"
-    std::string version;                            // Component version
-    std::string name;                               // Component name
-    std::string description;                        // Component description
-    std::string type;                               // Component type
-    std::vector<VirtualObjectDescriptor> entities;  // Contained entities
-    std::vector<FunctionDescriptor> functions;      // Contained functions
-    std::map<std::string, std::string> resources;   // UI resource definitions
-    std::map<std::string, std::string> config;      // Component configuration
-    std::vector<std::string> dependencies;          // Dependencies
-    std::map<std::string, std::string> metadata;    // Additional metadata
-    bool enabled = true;                            // Component enabled flag
-};
-
 // Local function descriptor matching agent/local/v1/local.proto
 struct LocalFunctionDescriptor {
     std::string id;       // function id
@@ -236,36 +200,10 @@ public:
     explicit CroupierClient(const ClientConfig& config);
     ~CroupierClient();
 
-    // ========== Existing Function Registration (Backward Compatible) ==========
+    // ========== Function Registration ==========
 
     // Register a function handler with optional schema
     bool RegisterFunction(const FunctionDescriptor& desc, FunctionHandler handler);
-
-    // ========== New Virtual Object Registration ==========
-
-    // Register a virtual object with its associated functions
-    bool RegisterVirtualObject(const VirtualObjectDescriptor& desc,
-                               const std::map<std::string, FunctionHandler>& handlers);
-
-    // Register a complete component (recommended approach)
-    bool RegisterComponent(const ComponentDescriptor& comp);
-
-    // Load and register component from JSON configuration file
-    bool LoadComponentFromFile(const std::string& config_file);
-
-    // ========== Management Interface ==========
-
-    // Get list of registered virtual objects
-    std::vector<VirtualObjectDescriptor> GetRegisteredObjects() const;
-
-    // Get list of registered components
-    std::vector<ComponentDescriptor> GetRegisteredComponents() const;
-
-    // Unregister a virtual object
-    bool UnregisterVirtualObject(const std::string& object_id);
-
-    // Unregister a component
-    bool UnregisterComponent(const std::string& component_id);
 
     // ========== Core Operations ==========
 
@@ -340,38 +278,6 @@ std::map<std::string, std::string> ParseJSON(const std::string& json);
 
 // Serialize map to JSON
 std::string ToJSON(const std::map<std::string, std::string>& data);
-
-// ========== Virtual Object Utilities ==========
-
-// Load virtual object descriptor from JSON file
-VirtualObjectDescriptor LoadObjectDescriptor(const std::string& file_path);
-
-// Load component descriptor from JSON file
-ComponentDescriptor LoadComponentDescriptor(const std::string& file_path);
-
-// Validate virtual object descriptor completeness
-bool ValidateObjectDescriptor(const VirtualObjectDescriptor& desc);
-
-// Validate component descriptor completeness
-bool ValidateComponentDescriptor(const ComponentDescriptor& comp);
-
-// Generate default object configuration template
-std::string GenerateObjectTemplate(const std::string& object_id);
-
-// Generate default component configuration template
-std::string GenerateComponentTemplate(const std::string& component_id);
-
-// Parse object descriptor from JSON string
-VirtualObjectDescriptor ParseObjectDescriptor(const std::string& json);
-
-// Parse component descriptor from JSON string
-ComponentDescriptor ParseComponentDescriptor(const std::string& json);
-
-// Serialize object descriptor to JSON string
-std::string ObjectDescriptorToJSON(const VirtualObjectDescriptor& desc);
-
-// Serialize component descriptor to JSON string
-std::string ComponentDescriptorToJSON(const ComponentDescriptor& comp);
 }  // namespace utils
 
 }  // namespace sdk

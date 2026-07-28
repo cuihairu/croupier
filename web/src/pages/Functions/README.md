@@ -17,14 +17,14 @@
   - Main tabs and header actions metadata for Detail page.
   - Supports `loadingWhen` / `disabledWhen` flags for action behavior.
 - Config tab: `DetailConfigTab.tsx`
-  - JSON/UI/路由配置子页签集中管理。
+  - JSON/函数表单/路由配置子页签集中管理。
 - UI sections: `DetailSections.tsx`
   - Basic info tab / permissions tab / JSON viewer.
 - Async tab blocks: `DetailTabs.tsx`
   - History / Analytics / Warnings are isolated here.
-- UI sub-features:
-  - `config` tab includes JSON / UI / Route sub-tabs.
-  - UI sub-tab is rendered by `@/components/FunctionUIManager`.
+- Function Form sub-features:
+  - `config` tab includes JSON / Function Form / Route sub-tabs.
+  - Function Form sub-tab is rendered by `@/components/FunctionFormManager`.
 
 Rule:
 

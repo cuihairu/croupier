@@ -68,28 +68,28 @@ type ServiceContext struct {
 	MetricsStore    *reg.MetricsStore
 	SystemInfoCache *reg.SystemInfoCache
 
-	AdminModel           *model.AdminModel
-	AlertModel           *model.AlertModel
-	BehaviorModel        *model.BehaviorModel
-	RetentionModel       *model.RetentionModel
-	PaymentsModel        *model.PaymentsModel
-	BackupModel          *model.BackupModel
-	FAQModel             *model.FAQModel
-	FeedbackModel        *model.FeedbackModel
-	GameModel            *model.GameModel
-	PlayerModel          *model.PlayerModel
-	ProfileModel         *model.ProfileModel
-	FunctionModel        *model.FunctionModel
-	TermDictModel        *model.TermDictionaryModel
-	RoleModel            *model.RoleModel
-	NodeModel            *model.NodeModel
-	PermissionModel      *model.PermissionModel
-	RateLimitModel       *model.RateLimitModel
-	SupportModel         *model.SupportModel
-	TicketModel          *model.TicketModel
-	MessageModel         *model.MessageModel
-	CertificateModel     *model.CertificateModel
-	ConfigVersionModel   *model.ConfigVersionModel
+	AdminModel         *model.AdminModel
+	AlertModel         *model.AlertModel
+	BehaviorModel      *model.BehaviorModel
+	RetentionModel     *model.RetentionModel
+	PaymentsModel      *model.PaymentsModel
+	BackupModel        *model.BackupModel
+	FAQModel           *model.FAQModel
+	FeedbackModel      *model.FeedbackModel
+	GameModel          *model.GameModel
+	PlayerModel        *model.PlayerModel
+	ProfileModel       *model.ProfileModel
+	FunctionModel      *model.FunctionModel
+	TermDictModel      *model.TermDictionaryModel
+	RoleModel          *model.RoleModel
+	NodeModel          *model.NodeModel
+	PermissionModel    *model.PermissionModel
+	RateLimitModel     *model.RateLimitModel
+	SupportModel       *model.SupportModel
+	TicketModel        *model.TicketModel
+	MessageModel       *model.MessageModel
+	CertificateModel   *model.CertificateModel
+	ConfigVersionModel *model.ConfigVersionModel
 
 	// Page Spec models
 	PageSpecModel             *model.PageSpecModel

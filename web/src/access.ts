@@ -73,7 +73,8 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
     canAssignmentsWrite: hasAny('assignments:write'),
     canAuditRead: hasAny('audit:read'),
     // Functions management
-    canFunctionsAndPagesRead: canFunctionsRead || canPageRead || canResourcesRead,
+    canFunctionsAndPagesRead:
+      canFunctionsRead || canPageRead || canResourcesRead || canOpenAPISourcesRead,
     canFunctionsRead,
     canFunctionsManage: hasAny('functions:manage'),
     // Runtime console reads published PageSpec snapshots.

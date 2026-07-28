@@ -226,7 +226,7 @@ func TestClient_functionVariations(t *testing.T) {
 		}
 		defer client.Close()
 
-		operations := []string{"create", "read", "update", "delete", "custom"}
+		operations := []string{"ban", "send", "grant", "reload", "retention"}
 
 		for _, op := range operations {
 			desc := FunctionDescriptor{

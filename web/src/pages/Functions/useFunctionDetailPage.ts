@@ -11,7 +11,7 @@ import {
   disableFunction,
   getFunctionPermissions,
   updateFunctionPermissions,
-  saveFunctionUiSchema,
+  saveFunctionFormSchema,
   listDescriptors,
   type FunctionPermission,
   type FunctionDescriptor,
@@ -141,7 +141,7 @@ export default function useFunctionDetailPage(functionId?: string) {
     [functionDetail, descriptorIndexItem, openapiOperation, effectiveResource],
   );
 
-  const uiDescriptor = useMemo(() => {
+  const formDescriptor = useMemo(() => {
     const detailDesc = functionDetail?.descriptor;
     const indexDesc = descriptorIndexItem;
     return {
@@ -351,9 +351,9 @@ export default function useFunctionDetailPage(functionId?: string) {
     }
   };
 
-  const onSaveUi = async (uiConfig: { schema?: FormilySchema; clearCustom?: boolean }) => {
+  const onSaveForm = async (formConfig: { schema?: FormilySchema; clearCustom?: boolean }) => {
     if (!functionId) return;
-    await saveFunctionUiSchema(functionId, uiConfig);
+    await saveFunctionFormSchema(functionId, formConfig);
   };
 
   return {
@@ -369,13 +369,13 @@ export default function useFunctionDetailPage(functionId?: string) {
     parsedInputSchema,
     effectiveResource,
     jsonViewData,
-    uiDescriptor,
+    formDescriptor,
     loadDetail,
     handleSave,
     handleStatusToggle,
     handleCopy,
     handleDelete,
     handleSavePermissions,
-    onSaveUi,
+    onSaveForm,
   };
 }

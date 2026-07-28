@@ -11,9 +11,8 @@ static void RegisterTestFunction(CroupierClient& cl) {
     FunctionDescriptor desc;
     desc.id = "test.temp.function";
     desc.version = "1.0.0";
-    desc.category = "test";
-    desc.risk = "low";
-    desc.entity = "test";
+    desc.resource = "test";
+    desc.risk = "safe";
     desc.operation = "temp";
 
     FunctionHandler handler = [](const std::string& context, const std::string& payload) -> std::string {
@@ -59,9 +58,8 @@ protected:
         FunctionDescriptor test_desc;
         test_desc.id = "test.connection.function";
         test_desc.version = "1.0.0";
-        test_desc.category = "test";
-        test_desc.risk = "low";
-        test_desc.entity = "test";
+        test_desc.resource = "test";
+        test_desc.risk = "safe";
         test_desc.operation = "connect";
 
         FunctionHandler test_handler = [](const std::string& context, const std::string& payload) -> std::string {

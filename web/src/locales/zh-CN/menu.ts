@@ -26,7 +26,7 @@ export default {
   'menu.FunctionsAndPages.OpenAPISources': 'OpenAPI 来源',
   'menu.FunctionsAndPages.FunctionInvoke': '函数调用',
   'menu.FunctionsAndPages.FunctionDetail': '函数详情',
-  'menu.FunctionsAndPages.FunctionUIDesigner': '函数表单设计',
+  'menu.FunctionsAndPages.FunctionFormDesigner': '函数表单设计',
   'menu.FunctionsAndPages.FunctionInstances': '实例管理',
   'menu.FunctionsAndPages.FunctionWarnings': '注册告警',
   'menu.FunctionsAndPages.FunctionAssignments': '权限分配',

@@ -54,7 +54,7 @@ func BuildFallbackOpenAPIOperation(functionID string) *openapi3.Operation {
 	return op
 }
 
-func BuildFallbackUISchema(functionID string) map[string]interface{} {
+func BuildFallbackFormSchema(functionID string) map[string]interface{} {
 	fields := fallbackFields()
 
 	properties := map[string]interface{}{}

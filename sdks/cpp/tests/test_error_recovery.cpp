@@ -103,7 +103,7 @@ TEST(ErrorRecovery, EmptyConfigRecovery) {
 
     config.agent_addr = "";
     config.game_id = "";
-    config.environment = "";
+    config.env = "";
 
     try {
         CroupierClient client(config);
@@ -378,17 +378,19 @@ TEST(ErrorRecovery, DuplicateRegistrationRecovery) {
     ClientConfig config = loader.CreateDefaultConfig();
     CroupierClient client(config);
 
-    // Try to register the same component twice
-    ComponentDescriptor desc;
-    desc.id = "test-component";
+    FunctionDescriptor desc;
+    desc.id = "test.duplicate";
     desc.version = "1.0.0";
-    desc.name = "Test Component";
 
-    bool first_result = client.RegisterComponent(desc);
-    bool second_result = client.RegisterComponent(desc);
+    FunctionHandler handler = [](const std::string&, const std::string&) {
+        return R"({"ok":true})";
+    };
 
-    // At least one should succeed or fail gracefully
-    EXPECT_TRUE(true);
+    bool first_result = client.RegisterFunction(desc, handler);
+    bool second_result = client.RegisterFunction(desc, handler);
+
+    EXPECT_TRUE(first_result);
+    EXPECT_TRUE(second_result);
 }
 
 // 测试部分失败恢复
@@ -413,13 +415,12 @@ TEST(ErrorRecovery, PartialFailureRecovery) {
     EXPECT_GE(configs.size(), 0U);
 }
 
-// 测试日志记录错误
+// 测试日志配置错误
 TEST(ErrorRecovery, LoggingError) {
     ClientConfigLoader loader;
     ClientConfig config = loader.CreateDefaultConfig();
 
-    // Invalid log file path
-    config.log_file = "/invalid/path/that/does/not/exist/log.txt";
+    config.log_level = "INVALID";
 
     try {
         CroupierClient client(config);
@@ -515,7 +516,7 @@ TEST(ErrorRecovery, StateInconsistencyRecovery) {
     // Create inconsistent state
     config.timeout_seconds = 30;
     config.game_id = "";
-    config.environment = "production";
+    config.env = "production";
 
     try {
         CroupierClient client(config);

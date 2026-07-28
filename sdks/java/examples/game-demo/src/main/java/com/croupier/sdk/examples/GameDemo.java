@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Game Demo - 19 functions matching the Go SDK demo.
  *
- * Covers: player CRUD, order CRUD, leaderboard, inventory, mail.
+ * Covers: player/order lifecycle actions, leaderboard, inventory, and mail.
  * Run: cd sdks/java && mvn exec:java -Dexec.mainClass=com.croupier.sdk.examples.GameDemo
  */
 public class GameDemo {
@@ -482,32 +482,32 @@ public class GameDemo {
     // ==================== Registration ====================
 
     static void registerAll(CroupierClient client, DemoStore store) throws CroupierException {
-        record Fn(String id, String cat, String risk, String entity, String op, FunctionHandler handler) {}
+        record Fn(String id, String risk, String resource, String op, FunctionHandler handler) {}
         List<Fn> fns = List.of(
-            new Fn("player.create", "player", "medium", "player", "create", playerCreate(store)),
-            new Fn("player.get", "player", "low", "player", "read", playerGet(store)),
-            new Fn("player.update", "player", "medium", "player", "update", playerUpdate(store)),
-            new Fn("player.delete", "player", "high", "player", "delete", playerDelete(store)),
-            new Fn("player.list", "player", "low", "player", "read", playerList(store)),
-            new Fn("order.create", "commerce", "medium", "order", "create", orderCreate(store)),
-            new Fn("order.get", "commerce", "low", "order", "read", orderGet(store)),
-            new Fn("order.update", "commerce", "medium", "order", "update", orderUpdate(store)),
-            new Fn("order.delete", "commerce", "high", "order", "delete", orderDelete(store)),
-            new Fn("order.list", "commerce", "low", "order", "read", orderList(store)),
-            new Fn("leaderboard.list", "leaderboard", "low", "leaderboard", "read", leaderboardList(store)),
-            new Fn("leaderboard.upsert", "leaderboard", "medium", "leaderboard", "update", leaderboardUpsert(store)),
-            new Fn("leaderboard.reset", "leaderboard", "high", "leaderboard", "delete", leaderboardReset(store)),
-            new Fn("inventory.list", "inventory", "low", "inventory", "read", inventoryList(store)),
-            new Fn("inventory.grant", "inventory", "medium", "inventory", "create", inventoryGrant(store)),
-            new Fn("inventory.consume", "inventory", "medium", "inventory", "delete", inventoryConsume(store)),
-            new Fn("mail.send", "mail", "medium", "mail", "create", mailSend(store)),
-            new Fn("mail.list", "mail", "low", "mail", "read", mailList(store)),
-            new Fn("mail.claim", "mail", "medium", "mail", "update", mailClaim(store))
+            new Fn("player.create", "warning", "player", "create", playerCreate(store)),
+            new Fn("player.get", "safe", "player", "get", playerGet(store)),
+            new Fn("player.update", "warning", "player", "update", playerUpdate(store)),
+            new Fn("player.delete", "danger", "player", "delete", playerDelete(store)),
+            new Fn("player.list", "safe", "player", "list", playerList(store)),
+            new Fn("order.create", "warning", "order", "create", orderCreate(store)),
+            new Fn("order.get", "safe", "order", "get", orderGet(store)),
+            new Fn("order.update", "warning", "order", "update", orderUpdate(store)),
+            new Fn("order.delete", "danger", "order", "delete", orderDelete(store)),
+            new Fn("order.list", "safe", "order", "list", orderList(store)),
+            new Fn("leaderboard.list", "safe", "leaderboard", "list", leaderboardList(store)),
+            new Fn("leaderboard.upsert", "warning", "leaderboard", "upsert", leaderboardUpsert(store)),
+            new Fn("leaderboard.reset", "danger", "leaderboard", "reset", leaderboardReset(store)),
+            new Fn("inventory.list", "safe", "inventory", "list", inventoryList(store)),
+            new Fn("inventory.grant", "warning", "inventory", "grant", inventoryGrant(store)),
+            new Fn("inventory.consume", "warning", "inventory", "consume", inventoryConsume(store)),
+            new Fn("mail.send", "warning", "mail", "send", mailSend(store)),
+            new Fn("mail.list", "safe", "mail", "list", mailList(store)),
+            new Fn("mail.claim", "warning", "mail", "claim", mailClaim(store))
         );
         for (Fn f : fns) {
             FunctionDescriptor desc = new FunctionDescriptor(f.id, "1.0.0");
-            desc.setCategory(f.cat); desc.setRisk(f.risk);
-            desc.setEntity(f.entity); desc.setOperation(f.op); desc.setEnabled(true);
+            desc.setRisk(f.risk); desc.setResource(f.resource);
+            desc.setOperation(f.op); desc.setEnabled(true);
             enrichDescriptor(desc);
             client.registerFunction(desc, f.handler);
             log.info("registered: {}", f.id);
@@ -515,19 +515,19 @@ public class GameDemo {
     }
 
     private static void enrichDescriptor(FunctionDescriptor desc) {
-        desc.setTags(List.of(desc.getCategory(), desc.getEntity(), desc.getOperation()));
-        desc.setSummary(desc.getEntity() + " " + desc.getOperation());
+        desc.setTags(List.of(desc.getResource(), desc.getOperation()));
+        desc.setSummary(desc.getResource() + " " + desc.getOperation());
         desc.setDescription(String.format(
-            "Demo function %s for %s %s operations.",
-            desc.getId(), desc.getEntity(), desc.getOperation()
+            "Demo function %s for %s %s action.",
+            desc.getId(), desc.getResource(), desc.getOperation()
         ));
         desc.setOperationId(desc.getId());
-        desc.setInputSchema(inputSchemaFor(desc.getEntity(), desc.getOperation()));
+        desc.setInputSchema(inputSchemaFor(desc.getResource(), desc.getOperation()));
         desc.setOutputSchema("{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}");
     }
 
-    private static String inputSchemaFor(String entity, String operation) {
-        String idKey = "inventory".equals(entity) ? "player_id" : entity + "_id";
+    private static String inputSchemaFor(String resource, String operation) {
+        String idKey = "inventory".equals(resource) ? "player_id" : resource + "_id";
         return switch (operation) {
             case "create" -> String.format(
                 "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"},\"data\":{\"type\":\"object\"}}}",

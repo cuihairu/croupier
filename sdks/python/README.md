@@ -134,7 +134,7 @@ print("Connected — handling invocations from agent")
 
 ### 完整游戏后台 Demo
 
-`examples/game_demo.py` 包含19个函数（player/order/leaderboard/inventory/mail 完整 CRUD），与 Go SDK demo 功能对齐：
+`examples/game_demo.py` 包含19个业务动作函数（player/order/leaderboard/inventory/mail），与 Go SDK demo 功能对齐：
 
 ```bash
 cd sdks/python

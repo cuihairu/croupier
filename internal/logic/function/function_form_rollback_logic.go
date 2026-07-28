@@ -9,19 +9,19 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-type FunctionUIRollbackLogic struct {
+type FunctionFormRollbackLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewFunctionUIRollbackLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionUIRollbackLogic {
-	return &FunctionUIRollbackLogic{
+func NewFunctionFormRollbackLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionFormRollbackLogic {
+	return &FunctionFormRollbackLogic{
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *FunctionUIRollbackLogic) FunctionUIRollback(req *FunctionUIRollbackRequest) (*FunctionUIRollbackResponse, error) {
+func (l *FunctionFormRollbackLogic) FunctionFormRollback(req *FunctionFormRollbackRequest) (*FunctionFormRollbackResponse, error) {
 	functionID, err := utils.ValidateFunctionID(req.ID)
 	if err != nil {
 		return nil, err
@@ -30,10 +30,10 @@ func (l *FunctionUIRollbackLogic) FunctionUIRollback(req *FunctionUIRollbackRequ
 		return nil, errorx.NewBadRequest("version must be greater than 0")
 	}
 	if l == nil || l.svcCtx == nil || l.svcCtx.ConfigVersionModel == nil {
-		return &FunctionUIRollbackResponse{AppliedVersion: req.Version}, nil
+		return &FunctionFormRollbackResponse{AppliedVersion: req.Version}, nil
 	}
 
-	record, err := l.svcCtx.ConfigVersionModel.Find(l.ctx, functionUIHistoryKey(functionID), req.Version)
+	record, err := l.svcCtx.ConfigVersionModel.Find(l.ctx, functionFormHistoryKey(functionID), req.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -49,36 +49,36 @@ func (l *FunctionUIRollbackLogic) FunctionUIRollback(req *FunctionUIRollbackRequ
 	}
 	if schema, ok := cfg["schema"]; ok && schema != nil {
 		if err := validateFormilySchema(schema); err != nil {
-			return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+			return nil, errorx.NewBadRequest("invalid function form schema: " + err.Error())
 		}
 	}
 
-	meta := applyUICustomConfig(fn.Metadata, cfg)
+	meta := applyFormCustomConfig(fn.Metadata, cfg)
 	if err := l.svcCtx.FunctionModel.Update(l.ctx, fn.ID, map[string]interface{}{"metadata": meta}); err != nil {
 		return nil, err
 	}
 	fn.Metadata = meta
-	if err := persistFunctionUIVersion(l.ctx, l.svcCtx, fn, "rollback to version"); err != nil {
+	if err := persistFunctionFormVersion(l.ctx, l.svcCtx, fn, "rollback to version"); err != nil {
 		return nil, err
 	}
 
-	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
+	resolved := resolveFunctionForm(l.svcCtx.Config, fn)
 	schema := rawJSONFromValue(resolved.Schema)
 	schemaValue, err := jsonValueFromRaw(schema)
 	if err != nil {
-		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+		return nil, errorx.NewBadRequest("invalid function form schema: " + err.Error())
 	}
 	if err := validateFormilySchema(schemaValue); err != nil {
-		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+		return nil, errorx.NewBadRequest("invalid function form schema: " + err.Error())
 	}
-	return &FunctionUIRollbackResponse{
+	return &FunctionFormRollbackResponse{
 		AppliedVersion: req.Version,
-		Current: &FunctionUIResponse{
-			Schema:         schema,
-			Custom:         resolved.Custom,
-			HasDefault:     resolved.HasDefault,
-			UISource:       resolved.UISource,
-			UISourceDetail: resolved.UISourceDetail,
+		Current: &FunctionFormResponse{
+			Schema:           schema,
+			Custom:           resolved.Custom,
+			HasDefault:       resolved.HasDefault,
+			FormSource:       resolved.FormSource,
+			FormSourceDetail: resolved.FormSourceDetail,
 		},
 	}, nil
 }

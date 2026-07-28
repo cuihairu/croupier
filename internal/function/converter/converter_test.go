@@ -2,8 +2,6 @@ package converter
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -103,104 +101,6 @@ func TestOpenAPIConverter_ToJSONSchema(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "player", result["x-resource"])
 		assert.Equal(t, "high", result["x-risk"])
-	})
-}
-
-func TestPackConverter_PackToOpenAPI(t *testing.T) {
-	converter := NewPackConverter()
-
-	t.Run("convert simple function", func(t *testing.T) {
-		manifest := &PackManifest{
-			ID:      "test-pack",
-			Version: "1.0.0",
-			Functions: []PackFunction{
-				{
-					ID:          "player.ban",
-					Name:        "Ban Player",
-					Summary:     "Ban a player",
-					Description: "Permanently ban a player from the game",
-					Params: map[string]interface{}{
-						"type": "object",
-						"properties": map[string]interface{}{
-							"player_id": map[string]interface{}{
-								"type":        "string",
-								"description": "Player ID",
-							},
-							"reason": map[string]interface{}{
-								"type":        "string",
-								"description": "Ban reason",
-							},
-						},
-						"required": []string{"player_id"},
-					},
-					Returns: map[string]interface{}{
-						"type": "object",
-						"properties": map[string]interface{}{
-							"success": map[string]interface{}{
-								"type": "boolean",
-							},
-						},
-					},
-					Resource:  "player",
-					Risk:      "high",
-					Operation: "update",
-				},
-			},
-		}
-
-		operations, err := converter.PackToOpenAPI(manifest)
-		require.NoError(t, err)
-		assert.Contains(t, operations, "player.ban")
-
-		op := operations["player.ban"]
-		assert.Equal(t, "player.ban", op.OperationID)
-		assert.Equal(t, "Ban a player", op.Summary) // Description is used as Summary if Summary is empty
-		assert.NotNil(t, op.RequestBody)
-		assert.NotNil(t, op.Responses)
-
-		// Check extensions
-		assert.Equal(t, "player", op.Extensions["x-resource"])
-		assert.Equal(t, "high", op.Extensions["x-risk"])
-		assert.Equal(t, "update", op.Extensions["x-operation"])
-	})
-
-	t.Run("convert entity operations", func(t *testing.T) {
-		manifest := &PackManifest{
-			ID:      "test-pack",
-			Version: "1.0.0",
-			Entities: []PackEntity{
-				{
-					ID:   "session",
-					Name: "Game Session",
-					Schema: map[string]interface{}{
-						"type": "object",
-					},
-					Operations: []PackEntityOperation{
-						{
-							OP:   "create",
-							Name: "Create Session",
-							Params: map[string]interface{}{
-								"type":     "object",
-								"required": []string{"player_id"},
-							},
-							Returns: map[string]interface{}{
-								"type": "object",
-							},
-						},
-					},
-				},
-			},
-		}
-
-		operations, err := converter.PackToOpenAPI(manifest)
-		require.NoError(t, err)
-		assert.Contains(t, operations, "session.create")
-
-		op := operations["session.create"]
-		assert.Equal(t, "session.create", op.OperationID)
-		assert.Equal(t, "Create Session", op.Summary)
-		assert.Equal(t, "session", op.Extensions["x-resource"])
-		assert.Equal(t, "create", op.Extensions["x-operation"])
 	})
 }
 
@@ -475,95 +375,6 @@ func TestToOpenAPIOperation(t *testing.T) {
 	})
 }
 
-func TestPackConverter_LoadPackFromFile(t *testing.T) {
-	converter := NewPackConverter()
-
-	t.Run("load valid pack file", func(t *testing.T) {
-		// Create a temporary file
-		tmpDir := t.TempDir()
-		packFile := filepath.Join(tmpDir, "pack.json")
-
-		manifestData := `{
-			"id": "test-pack",
-			"version": "1.0.0",
-			"name": "Test Pack",
-			"functions": [
-				{
-					"id": "test.function",
-					"name": "Test Function"
-				}
-			]
-		}`
-
-		err := os.WriteFile(packFile, []byte(manifestData), 0644)
-		require.NoError(t, err)
-
-		manifest, err := converter.LoadPackFromFile(packFile)
-		require.NoError(t, err)
-
-		assert.Equal(t, "test-pack", manifest.ID)
-		assert.Equal(t, "1.0.0", manifest.Version)
-		assert.Equal(t, "Test Pack", manifest.Name)
-		assert.Len(t, manifest.Functions, 1)
-		assert.Equal(t, "test.function", manifest.Functions[0].ID)
-	})
-
-	t.Run("load non-existent file", func(t *testing.T) {
-		_, err := converter.LoadPackFromFile("/nonexistent/file.json")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to read pack file")
-	})
-
-	t.Run("load invalid JSON", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		invalidFile := filepath.Join(tmpDir, "invalid.json")
-
-		err := os.WriteFile(invalidFile, []byte("{invalid json}"), 0644)
-		require.NoError(t, err)
-
-		_, err = converter.LoadPackFromFile(invalidFile)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to unmarshal pack manifest")
-	})
-}
-
-func TestPackConverter_LoadPackFromDir(t *testing.T) {
-	converter := NewPackConverter()
-
-	t.Run("load pack from directory", func(t *testing.T) {
-		// Create a temporary directory with manifest.json
-		tmpDir := t.TempDir()
-
-		manifestData := `{
-			"id": "dir-pack",
-			"version": "1.0.0",
-			"name": "Directory Pack"
-		}`
-
-		err := os.WriteFile(filepath.Join(tmpDir, "manifest.json"), []byte(manifestData), 0644)
-		require.NoError(t, err)
-
-		manifest, err := converter.LoadPackFromDir(tmpDir)
-		require.NoError(t, err)
-
-		assert.Equal(t, "dir-pack", manifest.ID)
-		assert.Equal(t, "Directory Pack", manifest.Name)
-	})
-
-	t.Run("load from directory without manifest", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		// Empty directory, no manifest.json
-
-		_, err := converter.LoadPackFromDir(tmpDir)
-		assert.Error(t, err)
-	})
-
-	t.Run("load from non-existent directory", func(t *testing.T) {
-		_, err := converter.LoadPackFromDir("/nonexistent/directory")
-		assert.Error(t, err)
-	})
-}
-
 func TestOpenAPIConverter_ToJSONSchema_Complete(t *testing.T) {
 	converter := NewOpenAPIConverter()
 
@@ -571,6 +382,8 @@ func TestOpenAPIConverter_ToJSONSchema_Complete(t *testing.T) {
 	min := 0.0
 	max := 100.0
 	multipleOf := 5.0
+	exclusiveMin := true
+	exclusiveMax := true
 
 	schema := &openapi3.Schema{
 		Type:         &objectType,
@@ -581,8 +394,8 @@ func TestOpenAPIConverter_ToJSONSchema_Complete(t *testing.T) {
 		Min:          &min,
 		Max:          &max,
 		MultipleOf:   &multipleOf,
-		ExclusiveMin: true,
-		ExclusiveMax: true,
+		ExclusiveMin: openapi3.ExclusiveBound{Bool: &exclusiveMin},
+		ExclusiveMax: openapi3.ExclusiveBound{Bool: &exclusiveMax},
 		Pattern:      "^[a-z]+$",
 		MinLength:    1,
 		MaxLength:    ptr(uint64(50)),
@@ -722,42 +535,4 @@ func TestToOpenAPIOperation_WithCompleteSchema(t *testing.T) {
 	assert.Equal(t, "test", op.Extensions["x-resource"])
 	assert.Equal(t, "warning", op.Extensions["x-risk"])
 	assert.Equal(t, "update", op.Extensions["x-operation"])
-}
-
-func TestPackConverter_PackToOpenAPI_WithCompleteFunction(t *testing.T) {
-	converter := NewPackConverter()
-
-	manifest := &PackManifest{
-		ID:      "complete-pack",
-		Version: "1.0.0",
-		Functions: []PackFunction{
-			{
-				ID:          "complex.function",
-				Name:        "Complex Function",
-				Summary:     "Complex summary",
-				Description: "Complex description",
-				Params: map[string]interface{}{
-					"type":  "object",
-					"title": "Request",
-				},
-				Returns: map[string]interface{}{
-					"type":  "object",
-					"title": "Response",
-				},
-				Resource:  "complex",
-				Risk:      "medium",
-				Operation: "create",
-			},
-		},
-	}
-
-	operations, err := converter.PackToOpenAPI(manifest)
-	require.NoError(t, err)
-
-	op := operations["complex.function"]
-	assert.NotNil(t, op)
-	assert.Equal(t, "complex.function", op.OperationID)
-	assert.Equal(t, "complex", op.Extensions["x-resource"])
-	assert.Equal(t, "medium", op.Extensions["x-risk"])
-	assert.Equal(t, "create", op.Extensions["x-operation"])
 }

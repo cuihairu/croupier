@@ -152,7 +152,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 	})
 
 	t.Run("descriptor with various operations", func(t *testing.T) {
-		operations := []string{"create", "read", "update", "delete", "custom"}
+		operations := []string{"ban", "send", "grant", "reload", "retention"}
 
 		for _, op := range operations {
 			desc := LocalFunctionDescriptor{

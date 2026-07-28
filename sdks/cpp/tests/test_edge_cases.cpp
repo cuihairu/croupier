@@ -68,10 +68,10 @@ TEST(EdgeCasesConfig, EmptyEnvironment) {
     ClientConfigLoader loader;
     ClientConfig config = loader.CreateDefaultConfig();
 
-    config.environment = "";
+    config.env = "";
 
     CroupierClient client(config);
-    EXPECT_TRUE(config.environment.empty());
+    EXPECT_TRUE(config.env.empty());
 }
 
 // 测试极端字符串值

@@ -244,11 +244,11 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/:id/permissions", functionHandler.Permissions)
 	g.PUT("/:id/permissions", functionHandler.PermissionsUpdate)
 
-	// UI 配置
-	g.GET("/:id/ui", functionHandler.UI)
-	g.PUT("/:id/ui", functionHandler.UIUpdate)
-	g.GET("/:id/ui/history", functionHandler.UIHistory)
-	g.POST("/:id/ui/rollback", functionHandler.UIRollback)
+	// 函数表单配置
+	g.GET("/:id/form", functionHandler.Form)
+	g.PUT("/:id/form", functionHandler.FormUpdate)
+	g.GET("/:id/form/history", functionHandler.FormHistory)
+	g.POST("/:id/form/rollback", functionHandler.FormRollback)
 
 	// 历史与分析
 	g.GET("/:id/history", functionHandler.History)

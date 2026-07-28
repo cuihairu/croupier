@@ -81,22 +81,22 @@ func (s *Service) FunctionPermissionsUpdate(ctx context.Context, req *FunctionPe
 	return functionPermissionsUpdate(ctx, s.svcCtx, req)
 }
 
-// UI configuration methods
+// Function Form configuration methods
 
-func (s *Service) FunctionUI(ctx context.Context, req *FunctionUIRequest) (*FunctionUIResponse, error) {
-	return functionUI(ctx, s.svcCtx, req)
+func (s *Service) FunctionForm(ctx context.Context, req *FunctionFormRequest) (*FunctionFormResponse, error) {
+	return functionForm(ctx, s.svcCtx, req)
 }
 
-func (s *Service) FunctionUIUpdate(ctx context.Context, req *FunctionUIUpdateRequest) (*FunctionUIResponse, error) {
-	return functionUIUpdate(ctx, s.svcCtx, req)
+func (s *Service) FunctionFormUpdate(ctx context.Context, req *FunctionFormUpdateRequest) (*FunctionFormResponse, error) {
+	return functionFormUpdate(ctx, s.svcCtx, req)
 }
 
-func (s *Service) FunctionUIHistory(ctx context.Context, req *FunctionUIHistoryRequest) (*FunctionUIHistoryResponse, error) {
-	return functionUIHistory(ctx, s.svcCtx, req)
+func (s *Service) FunctionFormHistory(ctx context.Context, req *FunctionFormHistoryRequest) (*FunctionFormHistoryResponse, error) {
+	return functionFormHistory(ctx, s.svcCtx, req)
 }
 
-func (s *Service) FunctionUIRollback(ctx context.Context, req *FunctionUIRollbackRequest) (*FunctionUIRollbackResponse, error) {
-	return functionUIRollback(ctx, s.svcCtx, req)
+func (s *Service) FunctionFormRollback(ctx context.Context, req *FunctionFormRollbackRequest) (*FunctionFormRollbackResponse, error) {
+	return functionFormRollback(ctx, s.svcCtx, req)
 }
 
 func (s *Service) FunctionWarnings(ctx context.Context, req *FunctionWarningsRequest) (*FunctionWarningsResponse, error) {

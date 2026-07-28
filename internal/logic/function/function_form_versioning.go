@@ -10,22 +10,22 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-func functionUIHistoryKey(functionID string) string {
-	return "ui." + strings.TrimSpace(functionID)
+func functionFormHistoryKey(functionID string) string {
+	return "form." + strings.TrimSpace(functionID)
 }
 
-func snapshotUICustomConfig(meta map[string]interface{}) map[string]interface{} {
+func snapshotFormCustomConfig(meta map[string]interface{}) map[string]interface{} {
 	out := map[string]interface{}{}
 	if meta == nil {
 		return out
 	}
-	if v, ok := meta["ui"]; ok {
+	if v, ok := meta["form"]; ok {
 		out["schema"] = v
 	}
 	return out
 }
 
-func applyUICustomConfig(meta map[string]interface{}, cfg map[string]interface{}) map[string]interface{} {
+func applyFormCustomConfig(meta map[string]interface{}, cfg map[string]interface{}) map[string]interface{} {
 	if meta == nil {
 		meta = map[string]interface{}{}
 	}
@@ -34,20 +34,21 @@ func applyUICustomConfig(meta map[string]interface{}, cfg map[string]interface{}
 	}
 
 	if schema, ok := cfg["schema"]; ok {
-		meta["ui"] = schema
+		meta["form"] = schema
 	} else {
-		delete(meta, "ui")
+		delete(meta, "form")
 	}
+	delete(meta, "ui")
 	delete(meta, "layout")
 	delete(meta, "components")
 	return meta
 }
 
-func persistFunctionUIVersion(ctx context.Context, svcCtx *svc.ServiceContext, fn *model.Function, message string) error {
+func persistFunctionFormVersion(ctx context.Context, svcCtx *svc.ServiceContext, fn *model.Function, message string) error {
 	if svcCtx == nil || svcCtx.ConfigVersionModel == nil || fn == nil {
 		return nil
 	}
-	snapshot := snapshotUICustomConfig(fn.Metadata)
+	snapshot := snapshotFormCustomConfig(fn.Metadata)
 	payload, err := json.Marshal(snapshot)
 	if err != nil {
 		return err
@@ -62,7 +63,7 @@ func persistFunctionUIVersion(ctx context.Context, svcCtx *svc.ServiceContext, f
 	gameID, env := svc.GameScopeFromContext(ctx)
 
 	_, err = svcCtx.ConfigVersionModel.CreateWithMeta(ctx, model.ConfigVersionPayload{
-		Key:     functionUIHistoryKey(fn.FunctionID),
+		Key:     functionFormHistoryKey(fn.FunctionID),
 		Content: string(payload),
 		Format:  "json",
 		GameID:  gameID,

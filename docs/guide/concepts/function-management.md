@@ -109,7 +109,7 @@ sequenceDiagram
 
 这意味着 SDK 用户不需要先定义自己的 `.proto` 才能接入。
 
-Server 根据 `input_schema` 或 OpenAPI request schema 生成单函数 Formily Schema 初稿。Dashboard 调用页只消费 `/api/v1/functions/:id/ui` 返回的 Formily Schema，不在运行时根据 JSON Schema 推断组件。
+Server 根据 `input_schema` 或 OpenAPI request schema 生成单函数 Formily Schema 初稿。Dashboard 调用页只消费 `/api/v1/functions/:id/form` 返回的 Formily Schema，不在运行时根据 JSON Schema 推断组件。
 
 完整业务页面由 Page Studio 管理。Server 会先把函数归一化为 FunctionSpec / ResourceSpec / OperationSpec，再生成 PageSpec 建议。PageSpec 也是 Formily JSON Schema，负责分页、表格、详情、弹窗、任务状态和图表等页面级能力。
 

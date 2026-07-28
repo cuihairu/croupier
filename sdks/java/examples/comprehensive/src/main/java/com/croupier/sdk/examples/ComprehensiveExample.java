@@ -1,6 +1,6 @@
 package com.croupier.sdk.examples;
 
-import com.croupier.sdk.*;
+import io.github.cuihairu.croupier.sdk.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -131,28 +131,25 @@ public class ComprehensiveExample {
 
         // 1. 使用Builder模式创建FunctionDescriptor
         FunctionDescriptor banDesc = CroupierSDK.functionDescriptor("player.ban", "1.0.0")
-                .category("moderation")
-                .risk("high")
-                .entity("player")
-                .operation("update")
+                .resource("player")
+                .risk("danger")
+                .operation("ban")
                 .enabled(true)
                 .build();
 
         logger.info("✅ 创建高风险函数描述符: {}", banDesc.toString());
 
         // 2. 创建不同类型的函数描述符
-        FunctionDescriptor itemDesc = CroupierSDK.functionDescriptor("item.create", "1.0.0")
-                .category("inventory")
-                .risk("low")
-                .entity("item")
-                .operation("create")
+        FunctionDescriptor itemDesc = CroupierSDK.functionDescriptor("inventory.grant", "1.0.0")
+                .resource("inventory")
+                .risk("warning")
+                .operation("grant")
                 .build();
 
-        FunctionDescriptor dataDesc = CroupierSDK.functionDescriptor("player.data", "1.0.0")
-                .category("data")
-                .risk("medium")
-                .entity("player")
-                .operation("read")
+        FunctionDescriptor dataDesc = CroupierSDK.functionDescriptor("player.snapshot", "1.0.0")
+                .resource("player")
+                .risk("safe")
+                .operation("snapshot")
                 .enabled(true)
                 .build();
 
@@ -206,22 +203,20 @@ public class ComprehensiveExample {
 
         // 1. 注册高风险管理函数
         FunctionDescriptor banDesc = CroupierSDK.functionDescriptor("player.ban", "1.0.0")
-                .category("moderation")
-                .risk("high")
-                .entity("player")
-                .operation("update")
+                .resource("player")
+                .risk("danger")
+                .operation("ban")
                 .enabled(true)
                 .build();
 
         client.registerFunction(banDesc, new PlayerBanHandler());
         logger.info("✅ 成功注册玩家封禁函数 (高风险)");
 
-        // 2. 注册低风险物品创建函数
-        FunctionDescriptor itemDesc = CroupierSDK.functionDescriptor("item.create", "1.0.0")
-                .category("inventory")
-                .risk("low")
-                .entity("item")
-                .operation("create")
+        // 2. 注册中风险物品发放函数
+        FunctionDescriptor itemDesc = CroupierSDK.functionDescriptor("inventory.grant", "1.0.0")
+                .resource("inventory")
+                .risk("warning")
+                .operation("grant")
                 .enabled(true)
                 .build();
 
@@ -229,11 +224,10 @@ public class ComprehensiveExample {
         logger.info("✅ 成功注册道具创建函数 (低风险)");
 
         // 3. 注册中等风险数据操作函数
-        FunctionDescriptor dataDesc = CroupierSDK.functionDescriptor("player.data", "1.0.0")
-                .category("data")
-                .risk("medium")
-                .entity("player")
-                .operation("read")
+        FunctionDescriptor dataDesc = CroupierSDK.functionDescriptor("player.snapshot", "1.0.0")
+                .resource("player")
+                .risk("safe")
+                .operation("snapshot")
                 .enabled(true)
                 .build();
 
@@ -242,10 +236,9 @@ public class ComprehensiveExample {
 
         // 4. 注册公会管理函数
         FunctionDescriptor guildDesc = CroupierSDK.functionDescriptor("guild.manage", "1.0.0")
-                .category("social")
-                .risk("medium")
-                .entity("guild")
-                .operation("update")
+                .resource("guild")
+                .risk("warning")
+                .operation("manage")
                 .enabled(true)
                 .build();
 
@@ -254,10 +247,9 @@ public class ComprehensiveExample {
 
         // 5. 注册工具函数
         FunctionDescriptor utilDesc = CroupierSDK.functionDescriptor("util.process", "1.0.0")
-                .category("utility")
-                .risk("low")
-                .entity("system")
-                .operation("read")
+                .resource("system")
+                .risk("safe")
+                .operation("process")
                 .enabled(true)
                 .build();
 
@@ -322,8 +314,8 @@ public class ComprehensiveExample {
         try {
             // 1. 演示重复注册错误
             FunctionDescriptor desc = CroupierSDK.functionDescriptor("player.ban", "1.0.0")
-                    .category("test")
-                    .risk("low")
+                    .resource("player")
+                    .risk("safe")
                     .build();
 
             client.registerFunction(desc, new PlayerBanHandler());
@@ -335,7 +327,7 @@ public class ComprehensiveExample {
         try {
             // 2. 演示无效描述符错误
             FunctionDescriptor invalidDesc = CroupierSDK.functionDescriptor("", "1.0.0")
-                    .category("test")
+                    .resource("test")
                     .build();
 
             client.registerFunction(invalidDesc, new PlayerBanHandler());
@@ -347,7 +339,7 @@ public class ComprehensiveExample {
         // 3. 演示空处理器错误
         try {
             FunctionDescriptor validDesc = CroupierSDK.functionDescriptor("test.function", "1.0.0")
-                    .category("test")
+                    .resource("test")
                     .build();
 
             client.registerFunction(validDesc, null);
@@ -372,10 +364,9 @@ public class ComprehensiveExample {
             CompletableFuture.runAsync(() -> {
                 try {
                     FunctionDescriptor desc = CroupierSDK.functionDescriptor("concurrent.function" + index, "1.0.0")
-                            .category("concurrent")
-                            .risk("low")
-                            .entity("test")
-                            .operation("read")
+                            .resource("concurrent")
+                            .risk("safe")
+                            .operation("probe")
                             .build();
 
                     client.registerFunction(desc, new UtilityHandler());
@@ -413,7 +404,7 @@ public class ComprehensiveExample {
 
             // 注册一个简单函数
             FunctionDescriptor desc = CroupierSDK.functionDescriptor("resource.test", "1.0.0")
-                    .category("test")
+                    .resource("test")
                     .build();
 
             client.registerFunction(desc, new UtilityHandler());
@@ -440,7 +431,7 @@ public class ComprehensiveExample {
         try {
             // 1. 注册函数
             FunctionDescriptor desc = CroupierSDK.functionDescriptor("lifecycle.test", "1.0.0")
-                    .category("test")
+                    .resource("test")
                     .build();
             client.registerFunction(desc, new UtilityHandler());
             logger.info("✅ 生命周期阶段1: 函数注册完成");

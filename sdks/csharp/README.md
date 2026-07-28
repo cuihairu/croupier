@@ -160,9 +160,10 @@ var descriptor = new FunctionDescriptor
 {
     Id = "player.get",
     Version = "1.0.0",
-    Category = "player",
-    Risk = "low",
-    DisplayName = "获取玩家信息",
+    Resource = "player",
+    Operation = "get",
+    Risk = "safe",
+    Summary = "获取玩家信息",
     Description = "根据玩家 ID 获取玩家详细信息"
 };
 
@@ -202,7 +203,7 @@ else
 
 ### 完整游戏后台 Demo
 
-`examples/GameDemo/` 包含19个函数（player/order/leaderboard/inventory/mail 完整 CRUD），与 Go SDK demo 功能对齐：
+`examples/GameDemo/` 包含19个业务动作函数（player/order/leaderboard/inventory/mail），与 Go SDK demo 功能对齐：
 
 ```bash
 dotnet run --project examples/GameDemo

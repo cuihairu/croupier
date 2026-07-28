@@ -155,62 +155,6 @@ TEST_F(UtilsTest, FunctionDescriptorCreation) {
     EXPECT_EQ(desc.permission, "player.ban");
 }
 
-// 测试关系定义验证
-TEST_F(UtilsTest, RelationshipValidation) {
-    std::vector<std::string> valid_types = {"one-to-one", "one-to-many", "many-to-one", "many-to-many"};
-
-    for ([[maybe_unused]] const auto& type : valid_types) {
-        RelationshipDef rel;
-        rel.type = type;
-        rel.entity = "related_entity";
-        rel.foreign_key = "foreign_key_id";
-
-        EXPECT_FALSE(rel.type.empty());
-        EXPECT_FALSE(rel.entity.empty());
-        EXPECT_FALSE(rel.foreign_key.empty());
-
-        // 验证类型是有效的
-        bool is_valid = (type == "one-to-one" || type == "one-to-many" ||
-                        type == "many-to-one" || type == "many-to-many");
-        EXPECT_TRUE(is_valid);
-    }
-}
-
-// 测试复杂场景下的数据结构
-TEST_F(UtilsTest, ComplexDataStructures) {
-    // 创建一个复杂的组件描述符
-    ComponentDescriptor comp;
-    comp.id = "complete-economy-system";
-    comp.version = "2.0.0";
-    comp.name = "完整经济系统";
-    comp.description = "包含钱包、交易、商店等所有经济功能";
-
-    // 添加多个虚拟对象
-    VirtualObjectDescriptor wallet;
-    wallet.id = "economy.wallet";
-    wallet.version = "2.0.0";
-    wallet.name = "钱包系统";
-    wallet.operations["get"] = "wallet.get";
-    wallet.operations["transfer"] = "wallet.transfer";
-
-    VirtualObjectDescriptor shop;
-    shop.id = "economy.shop";
-    shop.version = "2.0.0";
-    shop.name = "商店系统";
-    shop.operations["list"] = "shop.list";
-    shop.operations["buy"] = "shop.buy";
-
-    comp.entities.push_back(wallet);
-    comp.entities.push_back(shop);
-
-    // 验证结构完整性
-    ASSERT_EQ(comp.entities.size(), 2U);
-    EXPECT_EQ(comp.entities[0].id, "economy.wallet");
-    EXPECT_EQ(comp.entities[1].id, "economy.shop");
-    EXPECT_EQ(comp.entities[0].operations.size(), 2U);
-    EXPECT_EQ(comp.entities[1].operations.size(), 2U);
-}
-
 // 测试配置边界条件
 TEST_F(UtilsTest, ConfigurationBoundaryConditions) {
     // 测试超长字符串
@@ -352,49 +296,4 @@ TEST_F(UtilsTest, InvokerCancelTaskEmitsCancelledEvent) {
     EXPECT_FALSE(invoker.CancelTask(task_id));
 
     invoker.Close();
-}
-
-TEST_F(UtilsTest, ParseObjectDescriptorFromJson) {
-    const std::string json = R"({
-        "id": "wallet.entity",
-        "version": "1.2.3",
-        "name": "Wallet",
-        "description": "Player wallet",
-        "operations": {
-            "read": "wallet.get",
-            "update": "wallet.update"
-        },
-        "metadata": {
-            "domain": "economy"
-        }
-    })";
-
-    const auto desc = utils::ParseObjectDescriptor(json);
-    EXPECT_EQ(desc.id, "wallet.entity");
-    EXPECT_EQ(desc.version, "1.2.3");
-    EXPECT_EQ(desc.name, "Wallet");
-    EXPECT_EQ(desc.operations.at("read"), "wallet.get");
-}
-
-TEST_F(UtilsTest, ParseComponentDescriptorFromJson) {
-    const std::string json = R"({
-        "id": "economy-system",
-        "version": "2.0.0",
-        "name": "Economy",
-        "description": "Economy module",
-        "type": "gameplay",
-        "enabled": true,
-        "dependencies": ["player-system"],
-        "config": {
-            "currency": "gold"
-        }
-    })";
-
-    const auto desc = utils::ParseComponentDescriptor(json);
-    EXPECT_EQ(desc.id, "economy-system");
-    EXPECT_EQ(desc.version, "2.0.0");
-    EXPECT_EQ(desc.type, "gameplay");
-    ASSERT_EQ(desc.dependencies.size(), 1U);
-    EXPECT_EQ(desc.dependencies.front(), "player-system");
-    EXPECT_EQ(desc.config.at("currency"), "gold");
 }

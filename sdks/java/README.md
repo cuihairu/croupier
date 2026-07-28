@@ -152,10 +152,11 @@ public class GameServer {
 
         // 注册函数
         FunctionDescriptor desc = CroupierSDK.functionDescriptor("player.ban", "1.0.0")
-                .category("moderation")
-                .risk("high")
-                .entity("player")
-                .operation("update")
+                .resource("player")
+                .operation("ban")
+                .risk("danger")
+                .summary("Ban player")
+                .description("Ban a player account by player ID.")
                 .build();
 
         FunctionHandler handler = (context, payload) -> {
@@ -192,10 +193,9 @@ client.connect()
 
 ```java
 FunctionDescriptor descriptor = CroupierSDK.functionDescriptor("player.ban", "1.0.0")
-        .category("moderation")     // 分组类别
-        .risk("high")              // "low"|"medium"|"high"
-        .entity("player")          // 实体类型
-        .operation("update")       // "create"|"read"|"update"|"delete"
+        .resource("player")        // 业务资源或能力域
+        .operation("ban")          // 业务动作 key
+        .risk("danger")            // "safe"|"warning"|"high"|"danger"
         .enabled(true)             // 是否启用
         .build();
 ```
@@ -376,7 +376,7 @@ cd examples/comprehensive
 
 ### 完整游戏后台 Demo
 
-`examples/game-demo/` 包含19个函数（player/order/leaderboard/inventory/mail 完整 CRUD），与 Go SDK demo 功能对齐。
+`examples/game-demo/` 包含19个业务动作函数（player/order/leaderboard/inventory/mail），与 Go SDK demo 功能对齐。
 
 ## 贡献指南
 

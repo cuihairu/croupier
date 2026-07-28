@@ -3,14 +3,18 @@ import type {
   FormilySchemaDoc,
   FormilySchemaVersion,
 } from '@/components/formily/schema/types';
-import { fetchFunctionUiSchema, saveFunctionUiSchema } from '@/services/api/functions';
+import {
+  fetchFunctionFormSchema,
+  saveFunctionFormSchema,
+  type FunctionFormSchemaDocument,
+} from '@/services/api/functions';
 import { validateFormilySchema } from './validateSchema';
 
 const VERSION: FormilySchemaVersion = 'formily:1';
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function draftKey(functionId: string) {
-  return `function:ui-schema:draft:${functionId}`;
+  return `function:form-schema:draft:${functionId}`;
 }
 
 function nowISO() {
@@ -37,21 +41,6 @@ export type UnifiedFormilySchemaState = {
   hasDraft: boolean;
 };
 
-export type FunctionUiSchemaDocument = {
-  schema?: FormilySchema;
-  custom?: boolean;
-  hasDefault?: boolean;
-  uiSource?:
-    | 'custom_metadata'
-    | 'config_file_override'
-    | 'generated_default'
-    | 'none'
-    | string;
-  uiSourceDetail?: string;
-  updated_at?: string;
-  updatedAt?: string;
-};
-
 function isExpiredISO(iso?: string): boolean {
   if (!iso) return false;
   const ts = Date.parse(iso);
@@ -60,25 +49,25 @@ function isExpiredISO(iso?: string): boolean {
 }
 
 export async function fetchFormilySchema(functionId: string): Promise<FormilySchemaDoc | null> {
-  const res = await fetchFunctionUISchemaDocument(functionId);
+  const res = await fetchFunctionFormSchemaDocument(functionId);
   if (!res?.schema) return null;
   const validation = validateFormilySchema(res.schema);
   if (!validation.ok) {
-    throw new Error(validation.error || '函数 UI Schema 不是有效 Formily Schema');
+    throw new Error(validation.error || '函数表单 Schema 不是有效 Formily Schema');
   }
   return {
     functionId,
     version: VERSION,
     schema: res.schema,
-    updatedAt: res.updated_at || undefined,
+    updatedAt: res.updatedAt || undefined,
     status: 'published',
   } as FormilySchemaDoc;
 }
 
-export async function fetchFunctionUISchemaDocument(
+export async function fetchFunctionFormSchemaDocument(
   functionId: string,
-): Promise<FunctionUiSchemaDocument> {
-  return fetchFunctionUiSchema(functionId);
+): Promise<FunctionFormSchemaDocument> {
+  return fetchFunctionFormSchema(functionId);
 }
 
 export async function fetchUnifiedFormilySchemaState(
@@ -132,7 +121,7 @@ export async function fetchUnifiedFormilySchemaState(
 }
 
 export async function saveFormilySchema(functionId: string, schema: FormilySchema): Promise<void> {
-  await saveFunctionUiSchema(functionId, { schema });
+  await saveFunctionFormSchema(functionId, { schema });
 }
 
 export function loadDraft(

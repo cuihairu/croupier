@@ -9,26 +9,26 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-type FunctionUIUpdateLogic struct {
+type FunctionFormUpdateLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-// 更新函数UI配置
-func NewFunctionUIUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionUIUpdateLogic {
-	return &FunctionUIUpdateLogic{
+// 更新函数表单配置
+func NewFunctionFormUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionFormUpdateLogic {
+	return &FunctionFormUpdateLogic{
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (*FunctionUIResponse, error) {
+func (l *FunctionFormUpdateLogic) FunctionFormUpdate(req *FunctionFormUpdateRequest) (*FunctionFormResponse, error) {
 	functionID, err := utils.ValidateFunctionID(req.ID)
 	if err != nil {
 		return nil, err
 	}
 	if len(req.Schema) == 0 {
-		return nil, errorx.NewBadRequest("empty ui payload: schema is required")
+		return nil, errorx.NewBadRequest("empty form payload: schema is required")
 	}
 
 	fn, err := getOrCreateFunctionRecord(l.ctx, l.svcCtx, functionID)
@@ -44,17 +44,21 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 
 	if len(req.Schema) > 0 {
 		if bytes.Equal(bytes.TrimSpace(req.Schema), []byte("null")) {
+			delete(meta, "form")
 			delete(meta, "ui")
 		} else {
 			schemaValue, err := jsonValueFromRaw(req.Schema)
 			if err != nil {
-				return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+				return nil, errorx.NewBadRequest("invalid function form schema: " + err.Error())
 			}
 			if err := validateFormilySchema(schemaValue); err != nil {
-				return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+				return nil, errorx.NewBadRequest("invalid function form schema: " + err.Error())
 			}
-			meta["ui"] = schemaValue
+			meta["form"] = schemaValue
+			delete(meta, "ui")
 		}
+		delete(meta, "layout")
+		delete(meta, "components")
 		updates["metadata"] = meta
 		fn.Metadata = meta
 	}
@@ -63,26 +67,26 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *FunctionUIUpdateRequest) (
 		if err := l.svcCtx.FunctionModel.Update(l.ctx, fn.ID, updates); err != nil {
 			return nil, err
 		}
-		if err := persistFunctionUIVersion(l.ctx, l.svcCtx, fn, "update ui config"); err != nil {
+		if err := persistFunctionFormVersion(l.ctx, l.svcCtx, fn, "update form config"); err != nil {
 			return nil, err
 		}
 	}
 
-	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
+	resolved := resolveFunctionForm(l.svcCtx.Config, fn)
 	schema := rawJSONFromValue(resolved.Schema)
 	schemaValue, err := jsonValueFromRaw(schema)
 	if err != nil {
-		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+		return nil, errorx.NewBadRequest("invalid function form schema: " + err.Error())
 	}
 	if err := validateFormilySchema(schemaValue); err != nil {
-		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+		return nil, errorx.NewBadRequest("invalid function form schema: " + err.Error())
 	}
 
-	return &FunctionUIResponse{
-		Schema:         schema,
-		Custom:         resolved.Custom,
-		HasDefault:     resolved.HasDefault,
-		UISource:       resolved.UISource,
-		UISourceDetail: resolved.UISourceDetail,
+	return &FunctionFormResponse{
+		Schema:           schema,
+		Custom:           resolved.Custom,
+		HasDefault:       resolved.HasDefault,
+		FormSource:       resolved.FormSource,
+		FormSourceDetail: resolved.FormSourceDetail,
 	}, nil
 }

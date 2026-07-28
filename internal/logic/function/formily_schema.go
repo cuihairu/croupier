@@ -38,7 +38,7 @@ var supportedFormilyComponents = map[string]struct{}{
 	"Upload.Dragger":         {},
 }
 
-var forbiddenUISchemaKeys = []string{
+var forbiddenFormSchemaKeys = []string{
 	"fields",
 	"ui:layout",
 	"ui:groups",
@@ -52,9 +52,9 @@ func validateFormilySchema(schema interface{}) error {
 	if !ok || root == nil {
 		return fmt.Errorf("formily schema must be an object")
 	}
-	for _, key := range forbiddenUISchemaKeys {
+	for _, key := range forbiddenFormSchemaKeys {
 		if _, exists := root[key]; exists {
-			return fmt.Errorf("legacy ui key %q is not allowed in function ui schema", key)
+			return fmt.Errorf("legacy ui key %q is not allowed in function form schema", key)
 		}
 	}
 	if typ, _ := root["type"].(string); typ != "object" {
@@ -83,7 +83,7 @@ func validateFormilyNode(node interface{}, path string) error {
 	if !ok || m == nil {
 		return fmt.Errorf("%s must be an object", path)
 	}
-	for _, key := range forbiddenUISchemaKeys {
+	for _, key := range forbiddenFormSchemaKeys {
 		if _, exists := m[key]; exists {
 			return fmt.Errorf("%s uses legacy ui key %q", path, key)
 		}

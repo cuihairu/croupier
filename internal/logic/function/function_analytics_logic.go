@@ -50,7 +50,7 @@ func (l *FunctionAnalyticsLogic) FunctionAnalytics(req *FunctionAnalyticsRequest
 			return count, nil
 		}
 
-		keys := []string{functionUIHistoryKey(functionID)}
+		keys := []string{functionFormHistoryKey(functionID)}
 		for _, key := range keys {
 			versions, listErr := l.svcCtx.ConfigVersionModel.List(l.ctx, key)
 			if listErr != nil {

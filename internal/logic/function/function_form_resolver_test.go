@@ -35,11 +35,11 @@ func TestLoadUIConfigFromFiles(t *testing.T) {
 	}
 
 	cfg := config.Config{}
-	t.Setenv("CROUPIER_UI_CONFIG_DIR", root)
-	got := loadUIConfigFromFiles(cfg, "player.ban")
+	t.Setenv("CROUPIER_FORM_CONFIG_DIR", root)
+	got := loadFormConfigFromFiles(cfg, "player.ban")
 	m, ok := got.(map[string]interface{})
 	if !ok {
-		t.Fatalf("expected map ui config, got %T", got)
+		t.Fatalf("expected map form config, got %T", got)
 	}
 
 	props, ok := m["properties"].(map[string]interface{})
@@ -52,7 +52,7 @@ func TestLoadUIConfigFromFiles(t *testing.T) {
 	}
 }
 
-func TestResolveFunctionUI_SourcePriority(t *testing.T) {
+func TestResolveFunctionForm_SourcePriority(t *testing.T) {
 	root := t.TempDir()
 	baseDir := filepath.Join(root, "functions")
 	if err := os.MkdirAll(baseDir, 0o755); err != nil {
@@ -64,18 +64,18 @@ func TestResolveFunctionUI_SourcePriority(t *testing.T) {
 		t.Fatalf("write base config: %v", err)
 	}
 
-	t.Setenv("CROUPIER_UI_CONFIG_DIR", root)
+	t.Setenv("CROUPIER_FORM_CONFIG_DIR", root)
 	cfg := config.Config{}
 	fn := &model.Function{
 		FunctionID: "player.ban",
-		Metadata:   datatypes.JSONMap{"ui": testFunctionFormilySchema("reason", "Input.TextArea")},
+		Metadata:   datatypes.JSONMap{"form": testFunctionFormilySchema("reason", "Input.TextArea")},
 		OpenAPISpec: datatypes.JSONMap{
 			"x-ui": testFunctionFormilySchema("reason", "Input"),
 		},
 		Schema: datatypes.JSONMap{"from": "historical"},
 	}
 
-	resolved := resolveFunctionUI(cfg, fn)
+	resolved := resolveFunctionForm(cfg, fn)
 	schema, ok := resolved.Schema.(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected resolved schema map, got %T", resolved.Schema)
@@ -83,33 +83,33 @@ func TestResolveFunctionUI_SourcePriority(t *testing.T) {
 	props, _ := schema["properties"].(map[string]interface{})
 	reason, _ := props["reason"].(map[string]interface{})
 	if reason["x-component"] != "Input.TextArea" {
-		t.Fatalf("expected custom metadata ui first, got %#v", schema)
+		t.Fatalf("expected custom metadata form first, got %#v", schema)
 	}
-	if resolved.UISource != "custom_metadata" {
-		t.Fatalf("expected source custom_metadata, got %s", resolved.UISource)
+	if resolved.FormSource != "custom_metadata" {
+		t.Fatalf("expected source custom_metadata, got %s", resolved.FormSource)
 	}
 }
 
-func TestResolveFunctionUI_NoLegacySchemaFallback(t *testing.T) {
+func TestResolveFunctionForm_NoLegacySchemaFallback(t *testing.T) {
 	cfg := config.Config{}
 	fn := &model.Function{
 		FunctionID: "player.ban",
 		Schema:     datatypes.JSONMap{"from": "historical"},
 	}
 
-	resolved := resolveFunctionUI(cfg, fn)
+	resolved := resolveFunctionForm(cfg, fn)
 	if resolved.Schema == nil {
-		t.Fatalf("expected generated schema without openapi/custom ui")
+		t.Fatalf("expected generated schema without openapi/custom form")
 	}
 	if !resolved.HasDefault {
-		t.Fatalf("expected hasDefault=true when generated default ui exists")
+		t.Fatalf("expected hasDefault=true when generated default form exists")
 	}
-	if resolved.UISource != "generated_default" {
-		t.Fatalf("expected uiSource=generated_default, got %s", resolved.UISource)
+	if resolved.FormSource != "generated_default" {
+		t.Fatalf("expected formSource=generated_default, got %s", resolved.FormSource)
 	}
 }
 
-func TestResolveFunctionUI_DerivesFromInputSchema(t *testing.T) {
+func TestResolveFunctionForm_DerivesFromInputSchema(t *testing.T) {
 	cfg := config.Config{}
 	fn := &model.Function{
 		FunctionID: "inventory.grant",
@@ -142,7 +142,7 @@ func TestResolveFunctionUI_DerivesFromInputSchema(t *testing.T) {
 		},
 	}
 
-	resolved := resolveFunctionUI(cfg, fn)
+	resolved := resolveFunctionForm(cfg, fn)
 	if resolved.Schema == nil {
 		t.Fatalf("expected schema derived from input_schema")
 	}
@@ -193,8 +193,8 @@ func TestResolveFunctionUI_DerivesFromInputSchema(t *testing.T) {
 		t.Fatalf("expected 2 required fields, got %d", len(req))
 	}
 
-	if resolved.UISource != "generated_default" {
-		t.Fatalf("expected uiSource=generated_default, got %s", resolved.UISource)
+	if resolved.FormSource != "generated_default" {
+		t.Fatalf("expected formSource=generated_default, got %s", resolved.FormSource)
 	}
 }
 
@@ -249,17 +249,17 @@ func TestExtractInputSchema_FromMetadata(t *testing.T) {
 
 func TestDeriveUISchemaFromJSONSchema_Empty(t *testing.T) {
 	// nil schema
-	if result := deriveUISchemaFromJSONSchema(nil); result != nil {
+	if result := deriveFormSchemaFromJSONSchema(nil); result != nil {
 		t.Fatalf("expected nil for nil schema")
 	}
 
 	// non-object schema
-	if result := deriveUISchemaFromJSONSchema(map[string]interface{}{"type": "string"}); result != nil {
+	if result := deriveFormSchemaFromJSONSchema(map[string]interface{}{"type": "string"}); result != nil {
 		t.Fatalf("expected nil for non-object schema")
 	}
 
 	// object without properties
-	if result := deriveUISchemaFromJSONSchema(map[string]interface{}{"type": "object"}); result != nil {
+	if result := deriveFormSchemaFromJSONSchema(map[string]interface{}{"type": "object"}); result != nil {
 		t.Fatalf("expected nil for object without properties")
 	}
 }

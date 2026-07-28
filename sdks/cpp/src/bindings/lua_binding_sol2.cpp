@@ -76,79 +76,24 @@ public:
         return client_->IsConnected();
     }
 
-    // Register a virtual object with Lua table properties
-    bool register_vo(const std::string& vo_id, const std::string& class_id, const sol::table& properties) {
-        VirtualObjectDescriptor desc;
-        desc.id = vo_id;
+    bool register_function(const std::string& function_id, const sol::function& callback) {
+        FunctionDescriptor desc;
+        desc.id = function_id;
         desc.version = "1.0.0";
-        desc.name = class_id;
-        desc.description = "Virtual object registered from Lua";
 
-        // Convert sol table to properties
-        for (const auto& [key, value] : properties) {
-            std::string key_str = key.as<std::string>();
-            if (value.is<std::string>()) {
-                desc.schema[key_str] = value.as<std::string>();
-            } else if (value.is<int>()) {
-                desc.schema[key_str] = std::to_string(value.as<int>());
-            } else if (value.is<double>()) {
-                desc.schema[key_str] = std::to_string(value.as<double>());
-            } else if (value.is<bool>()) {
-                desc.schema[key_str] = value.as<bool>() ? "true" : "false";
-            } else if (value.is<sol::table>()) {
-                desc.schema[key_str] = serialize_table(value.as<sol::table>());
+        FunctionHandler handler = [callback](const std::string& context, const std::string& payload) -> std::string {
+            sol::protected_function_result result = callback(context, payload);
+            if (!result.valid()) {
+                sol::error error = result;
+                return std::string(R"({"error":")") + error.what() + R"("})";
             }
-        }
+            if (result.get_type() == sol::type::string) {
+                return result.get<std::string>();
+            }
+            return "{}";
+        };
 
-        // Register with empty handlers map (actual handlers registered separately)
-        std::map<std::string, FunctionHandler> empty_handlers;
-        return client_->RegisterVirtualObject(desc, empty_handlers);
-    }
-
-    // Unregister a virtual object
-    bool unregister_vo(const std::string& vo_id) {
-        return client_->UnregisterVirtualObject(vo_id);
-    }
-
-    // Register a component from file
-    bool register_component(const std::string& config_file) {
-        return client_->LoadComponentFromFile(config_file);
-    }
-
-    // Get registered virtual objects as a Lua table
-    sol::table list_vos(sol::this_state L) {
-        sol::state_view lua(L);
-        sol::table result = lua.create_table();
-
-        auto objects = client_->GetRegisteredObjects();
-        for (size_t i = 0; i < objects.size(); ++i) {
-            sol::table vo_table = lua.create_table();
-            vo_table["id"] = objects[i].id;
-            vo_table["version"] = objects[i].version;
-            vo_table["name"] = objects[i].name;
-            vo_table["description"] = objects[i].description;
-            result[i + 1] = vo_table;
-        }
-
-        return result;
-    }
-
-    // Get components as a Lua table
-    sol::table list_components(sol::this_state L) {
-        sol::state_view lua(L);
-        sol::table result = lua.create_table();
-
-        auto components = client_->GetRegisteredComponents();
-        for (size_t i = 0; i < components.size(); ++i) {
-            sol::table comp_table = lua.create_table();
-            comp_table["id"] = components[i].id;
-            comp_table["version"] = components[i].version;
-            comp_table["name"] = components[i].name;
-            comp_table["description"] = components[i].description;
-            result[i + 1] = comp_table;
-        }
-
-        return result;
+        return client_->RegisterFunction(desc, std::move(handler));
     }
 
     // Set credentials
@@ -388,20 +333,11 @@ int luaopen_croupier(lua_State* L) {
         // Methods
         "connect", &LuaClient::connect,
         "is_connected", &LuaClient::is_connected,
-        "register_vo", &LuaClient::register_vo,
-        "unregister_vo", &LuaClient::unregister_vo,
-        "register_component", &LuaClient::register_component,
-        "list_vos", &LuaClient::list_vos,
-        "list_components", &LuaClient::list_components,
+        "register_function", &LuaClient::register_function,
         "set_credentials", &LuaClient::set_credentials,
         "serve", &LuaClient::serve,
         "stop", &LuaClient::stop,
         "close", &LuaClient::close,
-
-        // Aliases for backward compatibility
-        "register_virtual_object", &LuaClient::register_vo,
-        "unregister_virtual_object", &LuaClient::unregister_vo,
-        "list_virtual_objects", &LuaClient::list_vos,
 
         // Metamethods
         sol::meta_function::to_string, &LuaClient::to_string

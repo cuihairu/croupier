@@ -23,9 +23,8 @@ protected:
         FunctionDescriptor desc;
         desc.id = id;
         desc.version = "1.0.0";
-        desc.category = "test";
-        desc.risk = "low";
-        desc.entity = "player";
+        desc.resource = "player";
+        desc.risk = "safe";
         desc.operation = "create";
         desc.enabled = true;
         return desc;
@@ -93,17 +92,15 @@ TEST_F(ClientFunctionRegistrationTest, FunctionDescriptorValidation) {
     // 验证所有必填字段都已设置
     EXPECT_FALSE(desc.id.empty());
     EXPECT_FALSE(desc.version.empty());
-    EXPECT_FALSE(desc.category.empty());
+    EXPECT_FALSE(desc.resource.empty());
     EXPECT_FALSE(desc.risk.empty());
-    EXPECT_FALSE(desc.entity.empty());
     EXPECT_FALSE(desc.operation.empty());
 
     // 验证字段值
     EXPECT_EQ(desc.id, "validated.function");
     EXPECT_EQ(desc.version, "1.0.0");
-    EXPECT_EQ(desc.category, "test");
-    EXPECT_EQ(desc.risk, "low");
-    EXPECT_EQ(desc.entity, "player");
+    EXPECT_EQ(desc.resource, "player");
+    EXPECT_EQ(desc.risk, "safe");
     EXPECT_EQ(desc.operation, "create");
     EXPECT_TRUE(desc.enabled);
 
@@ -169,7 +166,7 @@ TEST_F(ClientFunctionRegistrationTest, RegisterInvalidFunctionMissingFields) {
     // 不设置 id（必填字段）
     desc.id = "";
     desc.version = "1.0.0";
-    desc.category = "test";
+    desc.resource = "test";
 
     FunctionHandler handler = CreateSimpleHandler("{\"result\":\"test\"}");
 
@@ -213,23 +210,21 @@ TEST_F(ClientFunctionRegistrationTest, FunctionMetadataCompleteness) {
     FunctionDescriptor desc;
     desc.id = "complete.function";
     desc.version = "1.2.3";
-    desc.category = "gameplay";
-    desc.risk = "medium";
-    desc.entity = "item";
-    desc.operation = "update";
+    desc.resource = "item";
+    desc.risk = "warning";
+    desc.operation = "grant";
     desc.enabled = true;
 
     // 验证所有元数据字段
     EXPECT_EQ(desc.id, "complete.function");
     EXPECT_EQ(desc.version, "1.2.3");
-    EXPECT_EQ(desc.category, "gameplay");
-    EXPECT_EQ(desc.risk, "medium");
-    EXPECT_EQ(desc.entity, "item");
-    EXPECT_EQ(desc.operation, "update");
+    EXPECT_EQ(desc.resource, "item");
+    EXPECT_EQ(desc.risk, "warning");
+    EXPECT_EQ(desc.operation, "grant");
     EXPECT_TRUE(desc.enabled);
 
     // 验证风险等级是合法的
-    bool valid_risk = (desc.risk == "low" || desc.risk == "medium" || desc.risk == "high");
+    bool valid_risk = (desc.risk == "safe" || desc.risk == "warning" || desc.risk == "high" || desc.risk == "danger");
     EXPECT_TRUE(valid_risk);
 
     // 注册函数

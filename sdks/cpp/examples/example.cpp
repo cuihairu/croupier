@@ -74,7 +74,7 @@ int main() {
         }
 
         std::cout << "\n🎉 基础Sample运行Complete!" << std::endl;
-        std::cout << "💡 查看 complete_example.cpp 了解更多高级Feature" << std::endl;
+        std::cout << "💡 查看 game_demo.cpp 了解更多函数注册示例" << std::endl;
 
     } catch (const std::exception& e) {
         std::cerr << "💥 程序Exception: " << e.what() << std::endl;

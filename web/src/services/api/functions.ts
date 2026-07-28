@@ -102,18 +102,18 @@ type RawFunctionRegistrationWarning = {
   last_seen?: string;
 };
 
-function buildFunctionUiPayload(uiConfig: {
+function buildFunctionFormPayload(formConfig: {
   schema?: FormilySchema;
   clearCustom?: boolean;
 }) {
-  if (uiConfig.clearCustom) {
+  if (formConfig.clearCustom) {
     return {
       schema: null,
     };
   }
 
   return {
-    schema: uiConfig.schema,
+    schema: formConfig.schema,
   };
 }
 
@@ -162,17 +162,17 @@ export type FunctionInvokeResponse = {
   taskID?: string;
 };
 
-export type FunctionUiSchemaDocument = {
+export type FunctionFormSchemaDocument = {
   schema?: FormilySchema;
   custom?: boolean;
   hasDefault?: boolean;
-  uiSource?:
+  formSource?:
     | 'custom_metadata'
     | 'config_file_override'
     | 'generated_default'
     | 'none'
     | string;
-  uiSourceDetail?: string;
+  formSourceDetail?: string;
   updatedAt?: string;
 };
 
@@ -292,40 +292,42 @@ export async function listFunctionInstances(params: {
   return { instances: rawItems.map(normalizeFunctionInstance) };
 }
 
-export async function fetchFunctionUiSchema(functionId: string): Promise<FunctionUiSchemaDocument> {
+export async function fetchFunctionFormSchema(
+  functionId: string,
+): Promise<FunctionFormSchemaDocument> {
   const response = await request<{
     schema?: FormilySchema;
     custom?: boolean;
     hasDefault?: boolean;
-    uiSource?: FunctionUiSchemaDocument['uiSource'];
-    uiSourceDetail?: string;
+    formSource?: FunctionFormSchemaDocument['formSource'];
+    formSourceDetail?: string;
     updated_at?: string;
     updatedAt?: string;
-  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/ui`, { method: 'GET' });
-  const normalized: FunctionUiSchemaDocument = {
+  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/form`, { method: 'GET' });
+  const normalized: FunctionFormSchemaDocument = {
     ...response,
     updatedAt: response.updatedAt || response.updated_at,
   };
   return normalized;
 }
 
-export async function saveFunctionUiSchema(
+export async function saveFunctionFormSchema(
   functionId: string,
-  uiConfig: {
+  formConfig: {
     schema?: FormilySchema;
     clearCustom?: boolean;
   },
 ) {
-  return request<FunctionUiSchemaDocument>(
-    `/api/v1/functions/${encodeURIComponent(functionId)}/ui`,
+  return request<FunctionFormSchemaDocument>(
+    `/api/v1/functions/${encodeURIComponent(functionId)}/form`,
     {
       method: 'PUT',
-      data: buildFunctionUiPayload(uiConfig),
+      data: buildFunctionFormPayload(formConfig),
     },
   );
 }
 
-export type FunctionUIHistoryItem = {
+export type FunctionFormHistoryItem = {
   version: number;
   schema?: FormilySchema;
   message?: string;
@@ -333,24 +335,24 @@ export type FunctionUIHistoryItem = {
   createdAt?: string;
 };
 
-export async function fetchFunctionUiHistory(functionId: string) {
-  return request<{ items: FunctionUIHistoryItem[] }>(
-    `/api/v1/functions/${encodeURIComponent(functionId)}/ui/history`,
+export async function fetchFunctionFormHistory(functionId: string) {
+  return request<{ items: FunctionFormHistoryItem[] }>(
+    `/api/v1/functions/${encodeURIComponent(functionId)}/form/history`,
     { method: 'GET' },
   );
 }
 
-export async function rollbackFunctionUiSchema(functionId: string, version: number) {
+export async function rollbackFunctionFormSchema(functionId: string, version: number) {
   return request<{
     appliedVersion: number;
     current?: {
       schema?: FormilySchema;
       custom?: boolean;
       hasDefault?: boolean;
-      uiSource?: string;
-      uiSourceDetail?: string;
+      formSource?: string;
+      formSourceDetail?: string;
     };
-  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/ui/rollback`, {
+  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/form/rollback`, {
     method: 'POST',
     data: { version },
   });

@@ -8,20 +8,20 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-type FunctionUILogicV2 struct {
+type FunctionFormLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-// 获取函数UI配置（增强版：支持优先级合并）
-func NewFunctionUILogicV2(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionUILogicV2 {
-	return &FunctionUILogicV2{
+// 获取函数表单配置。
+func NewFunctionFormLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionFormLogic {
+	return &FunctionFormLogic{
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *FunctionUILogicV2) FunctionUI(req *FunctionUIRequest) (*FunctionUIResponse, error) {
+func (l *FunctionFormLogic) FunctionForm(req *FunctionFormRequest) (*FunctionFormResponse, error) {
 	functionID, err := utils.ValidateFunctionID(req.ID)
 	if err != nil {
 		return nil, err
@@ -31,24 +31,24 @@ func (l *FunctionUILogicV2) FunctionUI(req *FunctionUIRequest) (*FunctionUIRespo
 	if err != nil {
 		return nil, err
 	}
-	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
+	resolved := resolveFunctionForm(l.svcCtx.Config, fn)
 	schema := rawJSONFromValue(resolved.Schema)
 	schemaValue, err := jsonValueFromRaw(schema)
 	if err != nil {
-		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+		return nil, errorx.NewBadRequest("invalid function form schema: " + err.Error())
 	}
 	if schemaValue == nil {
 		schemaValue = map[string]interface{}{}
 	}
 	if err := validateFormilySchema(schemaValue); err != nil {
-		return nil, errorx.NewBadRequest("invalid function ui schema: " + err.Error())
+		return nil, errorx.NewBadRequest("invalid function form schema: " + err.Error())
 	}
 
-	return &FunctionUIResponse{
-		Schema:         schema,
-		Custom:         resolved.Custom,
-		HasDefault:     resolved.HasDefault,
-		UISource:       resolved.UISource,
-		UISourceDetail: resolved.UISourceDetail,
+	return &FunctionFormResponse{
+		Schema:           schema,
+		Custom:           resolved.Custom,
+		HasDefault:       resolved.HasDefault,
+		FormSource:       resolved.FormSource,
+		FormSourceDetail: resolved.FormSourceDetail,
 	}, nil
 }

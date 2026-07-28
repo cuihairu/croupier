@@ -8,7 +8,6 @@ local M = {}
 
 -- Version information
 M.VERSION = "0.1.0"
-M.SDK_VERSION = CROUPIER_SDK_VERSION or "0.1.0"
 
 -- Load C binding
 local ok, binding = pcall(require, "croupier.core")
@@ -22,9 +21,11 @@ end
 
 -- Export Client class
 M.Client = binding.Client
+M.Invoker = binding.Invoker
 
 -- Export version
 M._VERSION = M.VERSION
+M.SDK_VERSION = binding._VERSION or M.VERSION
 
 -- Convenience function for creating a new client
 function M.new(server_address)
@@ -86,26 +87,6 @@ else
             -- This is a minimal implementation
             return load("return " .. str)()
         end
-    }
-end
-
--- Helper for creating virtual object registration data
-function M.create_vo_data(vo_id, class_id, properties)
-    properties = properties or {}
-    return {
-        vo_id = vo_id,
-        class_id = class_id,
-        properties = properties
-    }
-end
-
--- Helper for creating function invocation request
-function M.create_invoke_request(vo_id, function_name, args)
-    args = args or {}
-    return {
-        vo_id = vo_id,
-        function_name = function_name,
-        args = args
     }
 end
 

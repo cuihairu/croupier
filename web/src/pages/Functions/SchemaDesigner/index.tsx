@@ -236,7 +236,7 @@ export default function SchemaDesigner() {
     load();
   }, [load]);
 
-  const title = useMemo(() => `函数 UI 设计器：${functionId || '-'}`, [functionId]);
+  const title = useMemo(() => `函数表单设计器：${functionId || '-'}`, [functionId]);
   const topLevelFields = useMemo(() => countTopLevelFields(schema), [schema]);
   const requiredCount = useMemo(
     () => (Array.isArray(schema?.required) ? schema.required.length : 0),
@@ -394,8 +394,8 @@ export default function SchemaDesigner() {
                 style={{ marginTop: 12 }}
                 type="info"
                 showIcon
-                message="已根据函数 input_schema 自动生成 UI 初稿"
-                description="当前函数还没有已发布 UI Schema；这份初稿可直接编辑并发布。"
+                message="已根据函数 input_schema 自动生成表单初稿"
+                description="当前函数还没有已发布表单 Schema；这份初稿可直接编辑并发布。"
               />
             )}
             {draftConflict && (
