@@ -338,12 +338,8 @@ class SdkWireMessagesCoverageTest {
     @Test
     @DisplayName("Encode/decode multiple functions in ProviderConnectRequest")
     void providerConnectRequestMultipleFunctions() {
-        SdkWireMessages.LocalFunctionDescriptor func1 = new SdkWireMessages.LocalFunctionDescriptor(
-            "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "",
-            Map.of(), Map.of(), Map.of(), "", "", "", Map.of());
-        SdkWireMessages.LocalFunctionDescriptor func2 = new SdkWireMessages.LocalFunctionDescriptor(
-            "f2", "2.0.0", List.of("tag"), "Sum", "Desc", "op", false, "", "", "", "", "", "",
-            Map.of(), Map.of(), Map.of(), "", "", "", Map.of());
+        SdkWireMessages.LocalFunctionDescriptor func1 = new SdkWireMessages.LocalFunctionDescriptor(f1, 1.0.0, List.of(), , , , false, , , , , , , );
+        SdkWireMessages.LocalFunctionDescriptor func2 = new SdkWireMessages.LocalFunctionDescriptor(f2, 2.0.0, List.of("tag"), Sum, Desc, op, false, , , , , , , );
 
         SdkWireMessages.ProviderConnectRequest original = new SdkWireMessages.ProviderConnectRequest(
             "svc", "1.0.0", "addr", List.of(func1, func2));
@@ -387,9 +383,7 @@ class SdkWireMessagesCoverageTest {
     @Test
     @DisplayName("Decode ProviderConnectRequest with truncated data should throw")
     void decodeProviderConnectRequestTruncated() {
-        SdkWireMessages.LocalFunctionDescriptor func = new SdkWireMessages.LocalFunctionDescriptor(
-            "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "",
-            Map.of(), Map.of(), Map.of(), "", "", "", Map.of());
+        SdkWireMessages.LocalFunctionDescriptor func = new SdkWireMessages.LocalFunctionDescriptor(f1, 1.0.0, List.of(), , , , false, , , , , , , );
         SdkWireMessages.ProviderConnectRequest original = new SdkWireMessages.ProviderConnectRequest(
             "svc", "1.0.0", "addr", List.of(func));
         byte[] encoded = SdkWireMessages.encodeProviderConnectRequest(original);
@@ -489,9 +483,7 @@ class SdkWireMessagesCoverageTest {
     @Test
     @DisplayName("LocalFunctionDescriptor with empty tags list")
     void localFunctionDescriptorEmptyTags() {
-        SdkWireMessages.LocalFunctionDescriptor desc = new SdkWireMessages.LocalFunctionDescriptor(
-            "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "",
-            Map.of(), Map.of(), Map.of(), "", "", "", Map.of());
+        SdkWireMessages.LocalFunctionDescriptor desc = new SdkWireMessages.LocalFunctionDescriptor(f1, 1.0.0, List.of(), , , , false, , , , , , , );
 
         // Encode as part of ProviderConnectRequest to exercise encodeLocalFunctionDescriptor
         SdkWireMessages.ProviderConnectRequest req = new SdkWireMessages.ProviderConnectRequest(
