@@ -324,20 +324,12 @@ func dropLegacyPageUniqueIndexes(db *gorm.DB) error {
 	}
 	switch db.Dialector.Name() {
 	case "postgres":
-		// Check if table exists before attempting to drop constraints
-		var exists bool
-		db.Raw("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'page_specs')").Scan(&exists)
-		if !exists {
-			return nil
-		}
-		for _, stmt := range []string{
-			`ALTER TABLE "page_specs" DROP CONSTRAINT IF EXISTS "uni_page_specs_page_key"`,
-			`ALTER TABLE "page_specs" DROP CONSTRAINT IF EXISTS "page_specs_page_key_key"`,
-			`DROP INDEX IF EXISTS "uni_page_specs_page_key"`,
-			`DROP INDEX IF EXISTS "page_specs_page_key_key"`,
-		} {
-			if err := db.Exec(stmt).Error; err != nil {
-				return fmt.Errorf("drop legacy page unique index: %w", err)
+		migrator := db.Migrator()
+		for _, name := range []string{"uni_page_specs_page_key", "page_specs_page_key_key"} {
+			if migrator.HasIndex(&PageSpec{}, name) {
+				if err := migrator.DropIndex(&PageSpec{}, name); err != nil {
+					return fmt.Errorf("drop legacy page index %s: %w", name, err)
+				}
 			}
 		}
 	default:
