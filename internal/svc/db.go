@@ -22,6 +22,21 @@ func openDatabase(cfg config.Config) (*gorm.DB, error) {
 	return openGorm(driver, dsn)
 }
 
+// ResolveDriverAndDSN exposes the effective driver/DSN resolution for CLI tools
+// and other read-only utilities that must honor the same config/env behavior
+// as the server runtime.
+func ResolveDriverAndDSN(cfg config.Config) (string, string) {
+	return resolveDriverAndDSN(cfg)
+}
+
+// OpenReadOnlyDatabase opens a database connection without auto-creating the
+// physical database or running any migration. It is intended for diagnostics
+// commands that must remain read-only.
+func OpenReadOnlyDatabase(cfg config.Config) (*gorm.DB, error) {
+	driver, dsn := resolveDriverAndDSN(cfg)
+	return openReadOnlyGorm(driver, dsn)
+}
+
 // resolveDriverAndDSN resolves the effective driver and DSN from config and
 // environment overrides (DB_DRIVER, DATABASE_URL).
 func resolveDriverAndDSN(cfg config.Config) (string, string) {
@@ -173,6 +188,45 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 	}
 }
 
+func openReadOnlyGorm(driver, dsn string) (*gorm.DB, error) {
+	silent := &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}
+
+	switch driver {
+	case "sqlite", "sqlite3":
+		if dsn == "" {
+			dsn = "data/croupier.db"
+		}
+		if err := ensureSQLiteFileExists(dsn); err != nil {
+			return nil, err
+		}
+		db, err := gorm.Open(gsqlite.Open(dsn), silent)
+		if err != nil {
+			return nil, err
+		}
+		if err := db.Exec("PRAGMA query_only = ON").Error; err != nil {
+			return nil, err
+		}
+		return db, nil
+	case "postgres", "postgresql", "pg":
+		if dsn == "" {
+			return nil, fmt.Errorf("postgres DSN is required")
+		}
+		return gorm.Open(gpostgres.Open(dsn), silent)
+	case "mysql":
+		if dsn == "" {
+			return nil, fmt.Errorf("mysql DSN is required")
+		}
+		return gorm.Open(gmysql.Open(dsn), silent)
+	case "sqlserver":
+		if dsn == "" {
+			return nil, fmt.Errorf("sqlserver DSN is required")
+		}
+		return gorm.Open(gsqlserver.Open(dsn), silent)
+	default:
+		return nil, fmt.Errorf("unsupported database driver %q", driver)
+	}
+}
+
 func ensureSQLiteDir(dsn string) error {
 	if dsn == "" || dsn == ":memory:" {
 		return nil
@@ -201,6 +255,37 @@ func ensureSQLiteDir(dsn string) error {
 		return nil
 	}
 	return os.MkdirAll(dir, 0o755)
+}
+
+func ensureSQLiteFileExists(dsn string) error {
+	path := sqliteFilePath(dsn)
+	if path == "" || path == ":memory:" {
+		return nil
+	}
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("sqlite database does not exist: %s", path)
+		}
+		return err
+	}
+	return nil
+}
+
+func sqliteFilePath(dsn string) string {
+	if dsn == "" {
+		return "data/croupier.db"
+	}
+
+	if strings.HasPrefix(dsn, "sqlite:///") {
+		dsn = strings.TrimPrefix(dsn, "sqlite:///")
+	}
+	if strings.HasPrefix(dsn, "file:") {
+		dsn = strings.TrimPrefix(dsn, "file:")
+	}
+	if idx := strings.IndexByte(dsn, '?'); idx >= 0 {
+		dsn = dsn[:idx]
+	}
+	return dsn
 }
 
 // extractMySQLDatabaseName 从 MySQL DSN 中提取数据库名称

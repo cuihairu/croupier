@@ -26,7 +26,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -94,6 +93,7 @@ func init() {
 	// 添加子命令
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(healthCmd)
+	rootCmd.AddCommand(legacyWorkspaceReportCmd)
 	rootCmd.AddCommand(completionCmd)
 	rootCmd.AddCommand(versionCmd)
 
@@ -110,19 +110,9 @@ func init() {
 }
 
 func runServer() error {
-	var c config.Config
-
-	// 加载配置文件
-	if cfgFile == "" {
-		return fmt.Errorf("配置文件是必需的")
-	}
-	data, err := os.ReadFile(cfgFile)
+	c, err := loadConfigFile(cfgFile)
 	if err != nil {
-		return fmt.Errorf("读取配置文件失败: %w", err)
-	}
-	expanded := os.ExpandEnv(string(data))
-	if err := yaml.Unmarshal([]byte(expanded), &c); err != nil {
-		return fmt.Errorf("解析配置文件失败: %w", err)
+		return err
 	}
 
 	// 覆盖配置文件设置

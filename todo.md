@@ -1,6 +1,6 @@
 # Dashboard Resource/Page 重构 TODO
 
-更新时间：2026-07-28（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；Page Studio 基础前端已接入；旧 Workspace/Entity/PageGenerator 前端协议残留已物理清理；dashboard CI guard 已接入；函数侧设计器命名已收敛为 Function Form Designer；Console Page 执行已补本地 OTel span 字段回归测试与真实调度 target 透传；剩余重点是真实数据端到端验收、OTel collector 字段验收和 Source binding 完整闭环）
+更新时间：2026-07-28（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；Page Studio 基础前端已接入；旧 Workspace/Entity/PageGenerator 前端协议残留已物理清理；dashboard CI guard 已接入；函数侧设计器命名已收敛为 Function Form Designer；Console Page 执行已补本地 OTel span 字段回归测试与真实调度 target 透传；旧 `workspace_configs` 只读诊断命令已落地；剩余重点是真实数据端到端验收、OTel collector 字段验收和 Source binding 完整闭环）
 
 本文是 Dashboard 动态页面、函数注册描述符、Page Studio 和运行控制台菜单的重构交接清单。执行 AI 必须按本文推进；审核 AI 以本文和权威设计文档为验收依据。
 
@@ -30,7 +30,7 @@
 | P1-1 Page Studio 前端 | ✅ 核心完成 | 2026-07-26 | 已新增 `/system/functions/pages` Page Studio 基础入口，支持 PageSpec 草稿列表、Resource 生成候选、PageCandidate 落草稿、JSON 编辑、基础信息与 binding 结构化编辑、Page schema 顶层组件结构化编辑、组件 props 表单化编辑、DataTable columns/rowActions 和 ActionGroup actions 专用编辑、服务端组件 ABI 校验、校验、预览、发布/取消发布、版本查看、版本 diff、版本回滚和 409 revision 冲突提示；剩余真实端到端验收放入 P1-2/P1-4 |
 | P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 动态菜单已接 ConsoleMenuSpec；“函数与页面”已提升为独立顶层入口；旧注册函数静态菜单翻译和 Provider entities 路由已清理；函数侧 `ui-designer` 路由已改为 `form-designer`；动态菜单合并已抽出纯函数并补测试；仍需真实发布数据端到端验收和最终文案验收 |
 | P1-3 权限和审计模型迁移 | ⏳ 进行中 | | Resource/Page/Console/OpenAPI Source 后端服务层权限已接入；Page 保存/发布/取消发布/回滚、Console Page 执行、OpenAPI Source 上传/绑定/解绑审计已落地；Console 执行和 OpenAPI Source 管理 span 已接入；Console Page 执行已补本地 span recorder 回归测试，校验 `request_id/trace_id/actor/page_key/publish_version/binding_id/function_id/target/result_kind`；前端 access 已收敛到 Page/Resource/Console/OpenAPI Source 权限；只有 `openapi_sources:read` 的用户也能进入父级“函数与页面”；剩余真实 OTel collector 字段验收 |
-| P1-4 数据表和历史数据处理 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 不作为兼容来源，历史数据只能人工导出/清理，禁止自动发布为新 Page；已补 `page_specs/published_page_specs/page_versions` 同名 pageKey 跨 game/env 隔离测试 |
+| P1-4 数据表和历史数据处理 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 不作为兼容来源，历史数据只能人工导出/清理，禁止自动发布为新 Page；`croupier-server legacy-workspace-report -f etc/server.yaml` 已提供只读诊断报告；已补 `page_specs/published_page_specs/page_versions` 同名 pageKey 跨 game/env 隔离测试 |
 
 ## 0. 硬约束
 
@@ -1261,7 +1261,7 @@ page_versions
 
 - 确认 `page_specs/published_page_specs/page_versions` 的唯一键均包含 `(game_id, env, page_key)`。（已补模型测试覆盖同名 `pageKey` 在不同 `game_id/env` 下的草稿、发布快照、版本号和取消发布隔离。）
 - 如果保留 `config_versions`，它只能记录 PageSpec 版本或非 Dashboard 配置，不能继续承载旧 workspace layout。
-- 提供只读诊断脚本时，只输出报告，不写 PageSpec。
+- 提供只读诊断命令 `croupier-server legacy-workspace-report -f etc/server.yaml [--limit N]`，只输出报告，不写 PageSpec。
 - 清理历史旧表前必须先备份并由用户确认；清理完成后运行态不再读取旧表。
 - 不允许用默认 labels、默认 binding、默认 mapping 把旧 layout 补成可发布页面。
 
@@ -1274,8 +1274,9 @@ page_versions
 验证命令：
 
 ```bash
-GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/model/... ./internal/api/page/...
-rg -n "workspace_configs|WorkspaceConfigModel|FindByObjectKey|SetPublished|object_key" "internal" "web/src"
+GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./cmd/server ./internal/model/... ./internal/api/page/...
+croupier-server legacy-workspace-report -f etc/server.yaml --limit 20
+rg -n "WorkspaceConfigModel|FindByObjectKey|SetPublished|/api/v1/workspaces|workspaceConfig" "internal" "web/src"
 ```
 
 禁止事项：

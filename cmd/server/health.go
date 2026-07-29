@@ -2,12 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // healthCmd represents the health command
@@ -16,18 +13,9 @@ var healthCmd = &cobra.Command{
 	Short: "健康检查",
 	Long:  `检查服务依赖的健康状态，包括数据库连接、配置文件等。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if cfgFile == "" {
-			return fmt.Errorf("必须指定配置文件 (-f/--config)")
-		}
-
-		var c config.Config
-		data, err := os.ReadFile(cfgFile)
+		c, err := loadConfigFile(cfgFile)
 		if err != nil {
-			return fmt.Errorf("读取配置文件失败: %v", err)
-		}
-		expanded := os.ExpandEnv(string(data))
-		if err := yaml.Unmarshal([]byte(expanded), &c); err != nil {
-			return fmt.Errorf("配置文件解析失败: %v", err)
+			return err
 		}
 		if bootstrapDataDir != "" {
 			c.BootstrapData.BaseDir = bootstrapDataDir
