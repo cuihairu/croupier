@@ -188,7 +188,7 @@ func (m *PageSpecModel) ListByScope(ctx context.Context, gameID, env string) ([]
 	var items []PageSpec
 	if err := m.db.WithContext(ctx).
 		Where("game_id = ? AND env = ?", gameID, env).
-		Order("category_order ASC, `order` ASC, page_key ASC").
+		Order("category_order ASC, \"order\" ASC, page_key ASC").
 		Find(&items).Error; err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (m *PageSpecModel) ListByScopeAndStatus(ctx context.Context, gameID, env, s
 	var items []PageSpec
 	if err := m.db.WithContext(ctx).
 		Where("game_id = ? AND env = ? AND status = ?", gameID, env, status).
-		Order("category_order ASC, `order` ASC, page_key ASC").
+		Order("category_order ASC, \"order\" ASC, page_key ASC").
 		Find(&items).Error; err != nil {
 		return nil, err
 	}
