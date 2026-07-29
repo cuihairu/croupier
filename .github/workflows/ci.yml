@@ -16,9 +16,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - timeout-minutes: 5
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
       - name: Architecture guard
@@ -91,9 +91,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - timeout-minutes: 5
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env
@@ -131,9 +131,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - timeout-minutes: 5
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env
@@ -171,7 +171,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         timeout-minutes: 3
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
@@ -189,9 +189,9 @@ jobs:
     needs: [test]
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - timeout-minutes: 5
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env

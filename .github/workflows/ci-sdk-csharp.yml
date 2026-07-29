@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v5.3.0
         with:
           dotnet-version: '10.0'
@@ -29,7 +29,7 @@ jobs:
             --collect:"XPlat Code Coverage" \
             --results-directory ./TestResults
         working-directory: sdks/csharp
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/csharp/TestResults/*/coverage.cobertura.xml

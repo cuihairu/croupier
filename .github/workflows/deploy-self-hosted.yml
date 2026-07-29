@@ -50,7 +50,7 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Ensure deploy directory
         timeout-minutes: 1

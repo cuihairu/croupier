@@ -24,13 +24,13 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: false
 
       - name: Setup Go
         timeout-minutes: 5
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env

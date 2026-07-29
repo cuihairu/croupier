@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install system dependencies
         run: |
@@ -59,7 +59,7 @@ jobs:
           lcov --list build/linux-x64-debug-tests-vcpkg/coverage.info
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/cpp/build/linux-x64-debug-tests-vcpkg/coverage.info
