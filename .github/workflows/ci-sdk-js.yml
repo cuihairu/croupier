@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v7
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: sdks/js/package.json
       - uses: actions/setup-node@v7.4.0
@@ -30,7 +30,7 @@ jobs:
         working-directory: sdks/js
       - run: pnpm test:coverage
         working-directory: sdks/js
-      - uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/js/coverage/lcov.info

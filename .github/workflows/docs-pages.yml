@@ -38,7 +38,7 @@ jobs:
           node-version: 22
       - name: Setup PNPM
         timeout-minutes: 3
-        uses: pnpm/action-setup@v7
+        uses: pnpm/action-setup@v6
 
       - name: Setup Pages
         timeout-minutes: 3
@@ -69,11 +69,11 @@ jobs:
 
       - name: Upload artifact
         timeout-minutes: 3
-        uses: actions/upload-pages-artifact@v6
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/.vitepress/dist
 
       - name: Deploy to GitHub Pages
         timeout-minutes: 10
         id: deployment
-        uses: actions/deploy-pages@v6
+        uses: actions/deploy-pages@v5

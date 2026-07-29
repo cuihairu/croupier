@@ -97,7 +97,7 @@ jobs:
           Compress-Archive -Path bin/* -DestinationPath $ZIP -Force
       - name: Upload artifact (binaries)
         timeout-minutes: 3
-        uses: actions/upload-artifact@v8
+        uses: actions/upload-artifact@v7
         with:
           name: croupier-binaries-${{ matrix.os }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: release/*
@@ -111,7 +111,7 @@ jobs:
     steps:
       - name: Download artifacts
         timeout-minutes: 3
-        uses: actions/download-artifact@v9
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: Create Nightly Release

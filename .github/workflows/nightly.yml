@@ -90,7 +90,7 @@ jobs:
 
       - name: Upload artifact
         timeout-minutes: 3
-        uses: actions/upload-artifact@v8
+        uses: actions/upload-artifact@v7
         with:
           name: binaries-${{ matrix.os }}
           path: release/*
@@ -165,7 +165,7 @@ jobs:
 
       - name: Upload artifact
         timeout-minutes: 3
-        uses: actions/upload-artifact@v8
+        uses: actions/upload-artifact@v7
         with:
           name: go-sdk-${{ matrix.goos }}-${{ matrix.goarch }}
           path: release-artifacts/sdk-go-*.tar.gz
@@ -191,7 +191,7 @@ jobs:
 
       - name: Setup pnpm
         timeout-minutes: 5
-        uses: pnpm/action-setup@v7
+        uses: pnpm/action-setup@v6
 
       - name: Build JS SDK
         timeout-minutes: 15
@@ -267,7 +267,7 @@ jobs:
 
       - name: Upload SDKs artifact
         timeout-minutes: 3
-        uses: actions/upload-artifact@v8
+        uses: actions/upload-artifact@v7
         with:
           name: other-sdks
           path: release-sdks.tar.gz
@@ -504,7 +504,7 @@ jobs:
 
       - name: Upload artifacts
         timeout-minutes: 3
-        uses: actions/upload-artifact@v8
+        uses: actions/upload-artifact@v7
         with:
           name: cpp-sdk-${{ matrix.artifact_name }}
           path: |
@@ -525,7 +525,7 @@ jobs:
 
       - name: Setup pnpm
         timeout-minutes: 5
-        uses: pnpm/action-setup@v7
+        uses: pnpm/action-setup@v6
         with:
           version: 10.28.2
 
@@ -555,7 +555,7 @@ jobs:
 
       - name: Upload Dashboard artifact
         timeout-minutes: 3
-        uses: actions/upload-artifact@v8
+        uses: actions/upload-artifact@v7
         with:
           name: dashboard
           path: dashboard.tar.gz
@@ -578,7 +578,7 @@ jobs:
 
       - name: Download all artifacts
         timeout-minutes: 10
-        uses: actions/download-artifact@v9
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 

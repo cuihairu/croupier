@@ -29,7 +29,7 @@ jobs:
             --collect:"XPlat Code Coverage" \
             --results-directory ./TestResults
         working-directory: sdks/csharp
-      - uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/csharp/TestResults/*/coverage.cobertura.xml
