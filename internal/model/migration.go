@@ -324,6 +324,12 @@ func dropLegacyPageUniqueIndexes(db *gorm.DB) error {
 	}
 	switch db.Dialector.Name() {
 	case "postgres":
+		// Check if table exists before attempting to drop constraints
+		var exists bool
+		db.Raw("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'page_specs')").Scan(&exists)
+		if !exists {
+			return nil
+		}
 		for _, stmt := range []string{
 			`ALTER TABLE "page_specs" DROP CONSTRAINT IF EXISTS "uni_page_specs_page_key"`,
 			`ALTER TABLE "page_specs" DROP CONSTRAINT IF EXISTS "page_specs_page_key_key"`,
