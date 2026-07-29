@@ -212,7 +212,7 @@ jobs:
 
       - name: Setup Python
         timeout-minutes: 5
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v7.2.0
         with:
           python-version: "3.12"
 
@@ -235,7 +235,7 @@ jobs:
 
       - name: Setup .NET
         timeout-minutes: 5
-        uses: actions/setup-dotnet@v5.3.0
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "8.0.x"
 
