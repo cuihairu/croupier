@@ -225,8 +225,8 @@ func TestDiscoverExternalPlatformFunctions(t *testing.T) {
 	if desc == nil {
 		t.Fatalf("expected descriptor for external.onepanel.install_app")
 	}
-	if desc.GetEntity() != "onepanel" {
-		t.Fatalf("expected entity=onepanel, got %s", desc.GetEntity())
+	if desc.GetResource() != "onepanel" {
+		t.Fatalf("expected resource=onepanel, got %s", desc.GetResource())
 	}
 	if desc.GetOperation() != "install_app" {
 		t.Fatalf("expected operation=install_app, got %s", desc.GetOperation())

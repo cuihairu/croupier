@@ -149,7 +149,7 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 				desc.Deprecated = details.Deprecated
 				desc.OperationId = details.OperationID
 				desc.Risk = details.Risk
-				desc.Resource = details.Entity
+				desc.Resource = details.Resource
 				desc.Operation = details.Operation
 			}
 		}

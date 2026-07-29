@@ -66,6 +66,10 @@ func (l *GetRoutesLogic) buildRoute(objectName string, functions []model.Functio
 	subRoutes := make([]RouteItem, 0, len(functions))
 	for _, fn := range functions {
 		actionName := l.getActionName(fn.FunctionID)
+		resource := strings.TrimSpace(fn.Resource)
+		if resource == "" {
+			resource = objectName
+		}
 		subRoutes = append(subRoutes, RouteItem{
 			Path:      "/functions/" + objectName + "/" + actionName,
 			Name:      l.getDisplayName(fn),
@@ -73,7 +77,7 @@ func (l *GetRoutesLogic) buildRoute(objectName string, functions []model.Functio
 			Meta: map[string]interface{}{
 				"functionId":   fn.FunctionID,
 				"functionName": actionName,
-				"category":     fn.Category,
+				"resource":     resource,
 			},
 		})
 	}

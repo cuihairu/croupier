@@ -79,6 +79,47 @@ func TestGenerateForResourceCreatesEntityPageOnlyFromExplicitTableContract(t *te
 	assert.NotContains(t, string(page.Schema), `"functionId"`)
 }
 
+func TestGenerateForResourceDoesNotAddEntityActionWithoutOutputMapping(t *testing.T) {
+	resource := spec.ResourceSpec{
+		Key:    "player",
+		Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		Operations: []spec.OperationSpec{
+			{
+				FunctionID:   "player.list",
+				ResourceKey:  "player",
+				Operation:    "list",
+				Enabled:      true,
+				PageContract: tablePageContract(),
+			},
+			{
+				FunctionID:  "player.ban",
+				ResourceKey: "player",
+				Operation:   "ban",
+				Risk:        spec.RiskDanger,
+				Enabled:     true,
+				PageContract: &spec.PageContract{
+					Version:      "page-contract:1",
+					InputMapping: raw(`{"targetId":"row.id"}`),
+				},
+			},
+		},
+	}
+
+	pages := GenerateForResource(resource, DefaultGenerateOptions())
+
+	require.Len(t, pages, 2)
+	entityPage := pages[0]
+	assert.Equal(t, "needs_review", entityPage.Quality)
+	assertDiagnostic(t, entityPage.Diagnostics, "entity_action_output_mapping_missing")
+	assertBinding(t, entityPage.Bindings, "player.query", spec.BindingUsageQuery)
+	assert.NotContains(t, string(entityPage.Schema), `"bindingId":"player.ban"`)
+
+	actionPage := pages[1]
+	assert.Equal(t, "needs_review", actionPage.Quality)
+	assert.Equal(t, "player.ban", actionPage.PageKey)
+	assertDiagnostic(t, actionPage.Diagnostics, "binding_output_mapping_missing")
+}
+
 func TestGenerateForResourceKeepsStandaloneOperationOutsideEntityPage(t *testing.T) {
 	resource := spec.ResourceSpec{
 		Key: "mail",

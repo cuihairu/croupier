@@ -527,7 +527,7 @@ func (a *App) syncExtensionFunctionsFromRuntime() {
 func discoverExtensionFunctions(item RuntimeInstallation) []*sdkv1.LocalFunctionDescriptor {
 	out := make([]*sdkv1.LocalFunctionDescriptor, 0)
 	seen := map[string]bool{}
-	pushWithEntity := func(id, operation, category string, tags []string, entity string) {
+	pushWithResource := func(id, operation, resource string, tags []string) {
 		fid := strings.TrimSpace(id)
 		if fid == "" || seen[fid] {
 			return
@@ -536,25 +536,24 @@ func discoverExtensionFunctions(item RuntimeInstallation) []*sdkv1.LocalFunction
 		out = append(out, &sdkv1.LocalFunctionDescriptor{
 			Id:          fid,
 			Version:     item.ReleaseVersion,
-			Category:    firstNonEmpty(category, "extension"),
 			Risk:        "unknown",
-			Entity:      firstNonEmpty(entity, item.ExtensionID),
-			Operation:   firstNonEmpty(operation, "custom"),
+			Resource:    firstNonEmpty(resource, inferFunctionResource(fid), item.ExtensionID),
+			Operation:   firstNonEmpty(operation, inferFunctionOperation(fid), "custom"),
 			Tags:        append([]string{"extension", item.ExtensionID}, tags...),
 			Summary:     "Extension function",
 			Description: "Discovered from extension runtime binding",
+			Enabled:     true,
 		})
 	}
-	push := func(id, operation, category string, tags []string) {
-		pushWithEntity(id, operation, category, tags, "")
+	push := func(id, operation, resource string, tags []string) {
+		pushWithResource(id, operation, resource, tags)
 	}
 	for _, f := range discoverExternalPlatformFunctions(item) {
-		pushWithEntity(
+		pushWithResource(
 			f.FunctionID,
 			f.Operation,
-			"external-platform",
-			[]string{"external-platform", f.Provider, "capability:" + f.Capability},
 			f.Provider,
+			[]string{"external-platform", f.Provider, "capability:" + f.Capability},
 		)
 	}
 
@@ -564,27 +563,43 @@ func discoverExtensionFunctions(item RuntimeInstallation) []*sdkv1.LocalFunction
 		switch bt {
 		case "function":
 			op := valueString(b.Spec, "operation")
-			cat := valueString(b.Spec, "category")
-			push(firstNonEmpty(key, valueString(b.Spec, "function_id"), valueString(b.Spec, "id")), op, cat, nil)
+			resource := valueString(b.Spec, "resource")
+			push(firstNonEmpty(key, valueString(b.Spec, "function_id"), valueString(b.Spec, "id")), op, resource, nil)
 		case "capability":
 			capID := firstNonEmpty(key, valueString(b.Spec, "capability"), valueString(b.Spec, "id"))
 			ops := valueStringSlice(b.Spec, "operations")
 			if len(ops) == 0 {
-				push(capID, "custom", "capability", []string{"capability"})
+				push(capID, "custom", capID, []string{"capability"})
 				continue
 			}
 			for _, op := range ops {
-				push(capID+"."+sanitizeNodeKey(op), op, "capability", []string{"capability"})
+				push(capID+"."+sanitizeNodeKey(op), op, capID, []string{"capability"})
 			}
 		case "operation":
 			capID := firstNonEmpty(valueString(b.Spec, "capability"), key)
 			op := firstNonEmpty(valueString(b.Spec, "operation"), valueString(b.Spec, "name"), "custom")
 			if capID != "" {
-				push(capID+"."+sanitizeNodeKey(op), op, "capability", []string{"capability"})
+				push(capID+"."+sanitizeNodeKey(op), op, capID, []string{"capability"})
 			}
 		}
 	}
 	return out
+}
+
+func inferFunctionResource(functionID string) string {
+	functionID = strings.TrimSpace(functionID)
+	if idx := strings.Index(functionID, "."); idx > 0 {
+		return functionID[:idx]
+	}
+	return functionID
+}
+
+func inferFunctionOperation(functionID string) string {
+	functionID = strings.TrimSpace(functionID)
+	if idx := strings.Index(functionID, "."); idx >= 0 && idx+1 < len(functionID) {
+		return functionID[idx+1:]
+	}
+	return ""
 }
 
 type externalPlatformFunction struct {

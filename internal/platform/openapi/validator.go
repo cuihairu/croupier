@@ -144,8 +144,8 @@ func (v *Validator) ValidateExtensionFields(extensions map[string]interface{}) e
 		if !ok {
 			return errors.New("x-risk must be a string")
 		}
-		if riskStr != "safe" && riskStr != "warning" && riskStr != "danger" {
-			return fmt.Errorf("invalid x-risk value: %s (must be safe, warning, or danger)", riskStr)
+		if riskStr != "safe" && riskStr != "warning" && riskStr != "high" && riskStr != "danger" {
+			return fmt.Errorf("invalid x-risk value: %s (must be safe, warning, high, or danger)", riskStr)
 		}
 	}
 

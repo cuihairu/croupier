@@ -42,6 +42,7 @@ import {
   validatePageDraft,
 } from '@/services/api/pages';
 import { listGeneratedPages, listResources } from '@/services/api/resources';
+import { parseOptionalJSONObject } from '@/utils/dashboardJson';
 import type {
   Diagnostic,
   GeneratedPageSpec,
@@ -137,12 +138,6 @@ function compactLocalizedText(value: Record<string, string> | undefined): Record
       .filter(([, text]) => text),
   );
   return Object.keys(next).length > 0 ? next : undefined;
-}
-
-function parseOptionalJSON(raw: string): JSONValue | undefined {
-  const text = raw.trim();
-  if (!text) return undefined;
-  return JSON.parse(text) as JSONValue;
 }
 
 function mappingToText(value: JSONValue | undefined): string {
@@ -449,7 +444,7 @@ export default function PageStudio() {
     raw: string,
   ) => {
     try {
-      const parsed = parseOptionalJSON(raw);
+      const parsed = parseOptionalJSONObject(raw, key);
       setBindingMappingTexts((previous) => ({
         ...previous,
         [bindingMappingTextKey(bindingIndex, key)]: mappingToText(parsed),

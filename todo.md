@@ -1,6 +1,6 @@
 # Dashboard Resource/Page 重构 TODO
 
-更新时间：2026-07-28（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；Page Studio 基础前端已接入；旧 Workspace/Entity/PageGenerator 前端协议残留已物理清理；dashboard CI guard 已接入；函数侧设计器命名已收敛为 Function Form Designer；Console Page 执行已补本地 OTel span 字段回归测试与真实调度 target 透传；旧 `workspace_configs` 只读诊断命令已落地；剩余重点是真实数据端到端验收、OTel collector 字段验收和 Source binding 完整闭环）
+更新时间：2026-07-29（P0 主链路已推进到 Resource/Page/Console/OpenAPI Source 基础闭环；Page Studio 基础前端已接入；旧 Workspace/Entity/PageGenerator 前端协议残留已物理清理；dashboard CI guard 已接入；函数侧设计器命名已收敛为 Function Form Designer；Console Page 执行已补本地 OTel span 字段回归测试与真实调度 target 透传；旧 `workspace_configs` 只读诊断命令已落地；Page 发布驱动 ConsoleMenuSpec、取消发布移除菜单和 scope 隔离已补服务层回归；OpenAPI Source provider binding 到 PageCandidate 保存/发布/Console 读取已补服务层闭环；发布期 binding mapping 强制校验和前端 renderer mapping 统一执行已补回归；发布快照已冻结 permission 并校验 risk/permission stale；未启用 httpConnector 已强制拒绝且不落库；剩余重点是真实浏览器端到端验收、OTel collector 字段验收和受控 httpConnector 设计实现）
 
 本文是 Dashboard 动态页面、函数注册描述符、Page Studio 和运行控制台菜单的重构交接清单。执行 AI 必须按本文推进；审核 AI 以本文和权威设计文档为验收依据。
 
@@ -21,16 +21,16 @@
 | P0-3 建立 Descriptor Normalizer | ✅ 核心完成 | 2026-07-26 | normalizer 已输出 FunctionSpec/ResourceSpec/OperationSpec；Function detail/invoke/UI/history DTO 已强类型化；collector 仅保留输入解析边界 JSON AST |
 | P0-4 Function Form 收敛为单一 Formily | ✅ 核心完成 | 2026-07-24 | 注册/OpenAPI Source 解析拒绝 UI 字段；函数表单 API/前端只传 Formily schema；旧 params 推断已停止 |
 | P0-5 Resource API 替换旧 Entity API | ✅ 核心完成 | 2026-07-26 | Resource API 已接 generator；前端主入口已切到 Resources；`/api/v1/entities`、旧 Entity model/API 和 XEntityForm 已删除 |
-| P0-6 Page Studio API | ✅ 核心完成 | 2026-07-25 | PageSpec 已包含 scope、draftRevision、binding、mapping、发布 contract snapshot；旧 Workspace API/model 已删除 |
+| P0-6 Page Studio API | ✅ 核心完成 | 2026-07-25 | PageSpec 已包含 scope、draftRevision、binding、mapping、发布 contract snapshot；发布期已强制存在 binding，且 binding input/output mapping 必须为显式 JSON object；旧 Workspace API/model 已删除 |
 | P0-7 Console API 和动态菜单 | ✅ 核心完成 | 2026-07-25 | ConsoleMenuSpec 已作为运行控制台菜单来源；前端不再从 workspaceConfigs 注入菜单 |
-| P0-8 前端 PageSpec Formily Renderer | ✅ 核心完成 | 2026-07-25 | Renderer 只使用 bindingId 和受控 execute API；旧 queryFunctionId/lastResult/onQuery/onAction 已切断；服务端 Page 组件 ABI 校验已接入并与运行期字段组件 registry 对齐 |
-| P0-9 PageSpec Generator | ✅ 核心完成 | 2026-07-26 | generator 已按明确 `PageContract/x-page-contract` 生成 Entity/Operation/Task/Report 四类候选；无可验证 mapping/分页/列/任务/报表契约时只产出 diagnostics，不标 ready |
-| P0-10 受控 Page 执行与契约失效 | ✅ 核心完成 | 2026-07-25 | Page binding execute 已接 active PublishedPageSpec、contract digest stale 检查、traceId 返回；task/approval UI 细节仍在 P1 |
-| P0-11 OpenAPI Source 上传与执行绑定 | ✅ 基础完成 | 2026-07-26 | Source API、diagnostics、revision update、provider binding、Source binding 到 PageCandidate 生成、固定管理入口、前端只读/写入裁剪、服务层 RBAC、审计和管理 span 已完成；httpConnector 与真实 E2E 后续实现 |
-| P1-1 Page Studio 前端 | ✅ 核心完成 | 2026-07-26 | 已新增 `/system/functions/pages` Page Studio 基础入口，支持 PageSpec 草稿列表、Resource 生成候选、PageCandidate 落草稿、JSON 编辑、基础信息与 binding 结构化编辑、Page schema 顶层组件结构化编辑、组件 props 表单化编辑、DataTable columns/rowActions 和 ActionGroup actions 专用编辑、服务端组件 ABI 校验、校验、预览、发布/取消发布、版本查看、版本 diff、版本回滚和 409 revision 冲突提示；剩余真实端到端验收放入 P1-2/P1-4 |
-| P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 动态菜单已接 ConsoleMenuSpec；“函数与页面”已提升为独立顶层入口；旧注册函数静态菜单翻译和 Provider entities 路由已清理；函数侧 `ui-designer` 路由已改为 `form-designer`；动态菜单合并已抽出纯函数并补测试；仍需真实发布数据端到端验收和最终文案验收 |
+| P0-8 前端 PageSpec Formily Renderer | ✅ 核心完成 | 2026-07-25 | Renderer 只使用 bindingId 和受控 execute API；DataTable/QueryForm/ActionButton/rowAction 已统一通过 binding/component inputMapping 生成 payload；JSONValue/JSONRecord 边界已抽为共享工具并纳入 guard；旧 queryFunctionId/lastResult/onQuery/onAction 已切断；服务端 Page 组件 ABI 校验已接入并与运行期字段组件 registry 对齐 |
+| P0-9 PageSpec Generator | ✅ 核心完成 | 2026-07-26 | generator 已按明确 `PageContract/x-page-contract` 生成 Entity/Operation/Task/Report 四类候选；无可验证 mapping/分页/列/任务/报表契约时只产出 diagnostics，不标 ready；实体行操作缺 outputMapping 不再进入 ready Entity Page |
+| P0-10 受控 Page 执行与契约失效 | ✅ 核心完成 | 2026-07-25 | Page binding execute 已接 active PublishedPageSpec、contract digest/risk/permission stale 检查、traceId 返回；task/approval UI 细节仍在 P1 |
+| P0-11 OpenAPI Source 上传与执行绑定 | ✅ 基础完成 | 2026-07-26 | Source API、diagnostics、revision update、provider binding、Source binding 到 PageCandidate 生成、PageCandidate 保存/发布到 ConsoleMenuSpec 服务层回归、固定管理入口、前端只读/写入裁剪、服务层 RBAC、审计和管理 span 已完成；未启用 httpConnector 已强制拒绝且不落库；受控 httpConnector 与真实 E2E 后续实现 |
+| P1-1 Page Studio 前端 | ✅ 核心完成 | 2026-07-26 | 已新增 `/system/functions/pages` Page Studio 基础入口，支持 PageSpec 草稿列表、Resource 生成候选、PageCandidate 落草稿、JSON 编辑、基础信息与 binding 结构化编辑、Page schema 顶层组件结构化编辑、组件 props 表单化编辑、DataTable columns/rowActions 和 ActionGroup actions 专用编辑、基于共享 JSON 边界的 mapping JSON object 前端校验、服务端组件 ABI 校验、校验、预览、发布/取消发布、版本查看、版本 diff、版本回滚和 409 revision 冲突提示；剩余真实端到端验收放入 P1-2/P1-4 |
+| P1-2 系统菜单和信息架构收敛 | ⏳ 进行中 | | Console 动态菜单已接 ConsoleMenuSpec；“函数与页面”已提升为独立顶层入口；旧注册函数静态菜单翻译和 Provider entities 路由已清理；函数侧 `ui-designer` 路由已改为 `form-designer`；动态菜单合并和 Console Page 规范路径解析已抽出纯函数并补测试；Page 发布后菜单出现、取消发布后消失和 scope 隔离已补服务层回归；仍需真实浏览器端到端验收和最终文案验收 |
 | P1-3 权限和审计模型迁移 | ⏳ 进行中 | | Resource/Page/Console/OpenAPI Source 后端服务层权限已接入；Page 保存/发布/取消发布/回滚、Console Page 执行、OpenAPI Source 上传/绑定/解绑审计已落地；Console 执行和 OpenAPI Source 管理 span 已接入；Console Page 执行已补本地 span recorder 回归测试，校验 `request_id/trace_id/actor/page_key/publish_version/binding_id/function_id/target/result_kind`；前端 access 已收敛到 Page/Resource/Console/OpenAPI Source 权限；只有 `openapi_sources:read` 的用户也能进入父级“函数与页面”；剩余真实 OTel collector 字段验收 |
-| P1-4 数据表和历史数据处理 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 不作为兼容来源，历史数据只能人工导出/清理，禁止自动发布为新 Page；`croupier-server legacy-workspace-report -f etc/server.yaml` 已提供只读诊断报告；已补 `page_specs/published_page_specs/page_versions` 同名 pageKey 跨 game/env 隔离测试 |
+| P1-4 数据表和历史数据处理 | ⏳ 进行中 | | PageSpec model 已接入 migration；旧 workspace_configs 不作为兼容来源，历史数据只能人工导出/清理，禁止自动发布为新 Page；`croupier-server legacy-workspace-report -f etc/server.yaml` 已提供只读诊断报告；已补 `page_specs/published_page_specs/page_versions` 同名 pageKey 跨 game/env 隔离测试，并补 Page 发布/取消发布到 PublishedPageSpec/ConsoleMenuSpec 的 scope 隔离回归 |
 
 ## 0. 硬约束
 
@@ -120,7 +120,9 @@ SDK / OpenAPI / DB Template
 - `web/src/app.tsx` 已通过 `GET /api/v1/console/menu` 合并 `ConsoleMenuSpec` 动态菜单，不再加载 `workspaceConfigs`。
 - `web/config/routes.ts` 已使用 `/console/:categoryKey/:pageKey`。
 - `web/src/pages/Console/Page.tsx` 已通过 `getPublishedPage(pageKey)` + `FormilyPageRenderer` 渲染已发布 PageSpec，并通过 `executePageBinding` 执行 binding。
-- 仍需用真实 PublishedPageSpec 数据验收：发布后菜单出现、取消发布后消失、切换 scope 后菜单刷新、URL 分类不一致时跳转规范路径。
+- 已补服务层回归覆盖：发布后菜单出现、取消发布后消失、切换 scope 后菜单隔离。
+- 已补前端纯函数回归覆盖：Console Page 根据 PublishedPageSpec 的 `category.key/pageKey` 生成规范路径，URL 分类不一致时应跳转到规范路径。
+- 仍需真实浏览器验收动态菜单刷新、分类不一致跳转行为和最终文案。
 
 目标：
 
@@ -134,7 +136,7 @@ SDK / OpenAPI / DB Template
 
 - Go/JS/Python demo 已改为 `resource/operation` 能力契约；仍需逐一验收 Java/C#/C++ 示例、README 和 parity matrix。
 - Go SDK 已提供 OpenAPI helper；其他 SDK 是否支持直接解析 OpenAPI 必须在 `sdks/SDK_FEATURE_MATRIX.md` 中真实标注，不得文档泛称“全部支持”。
-- OpenAPI Source 上传、更新、diagnostics 和 Provider binding 已存在；仍需验收 Source/FunctionSpec 候选到 PageCandidate/Page Studio 发布的真实端到端路径。
+- OpenAPI Source 上传、更新、diagnostics 和 Provider binding 已存在；Source/FunctionSpec 候选到 PageCandidate 保存、发布并进入 ConsoleMenuSpec 的服务层闭环已覆盖，仍需真实浏览器端到端验收。
 
 目标：
 
@@ -676,7 +678,8 @@ rg -n "/api/v1/entities|entities:|entity:write|实体管理|XEntityForm" "intern
 - model 增加 `GameID/Env/DraftRevision`；唯一索引、find/list/upsert/active snapshot 和 version lookup 全部使用 scope + pageKey。
 - Save 要求 `If-Match` / `draftRevision`；冲突返回 `409 page_draft_conflict` 和当前 revision，不能静默覆盖。
 - Page binding 改为 `id/functionId/usage/inputMapping/outputMapping/execution`，删除 `Role OperationPlacement`；Schema 只能引用 `bindingId`。
-- 发布前执行完整校验：Formily Page root、schemaVersion、组件 props ABI、labels、category、binding mapping、输入/输出契约、权限和 task/report 数据源。
+- 发布前执行完整校验：Formily Page root、schemaVersion、组件 props ABI、labels、category、binding 存在性、binding mapping、输入/输出契约、权限和 task/report 数据源。
+- 已补服务层回归覆盖：缺 binding、缺 input/output mapping 或 mapping 非 JSON object 时可以保存草稿候选，但发布必须失败。
 - 发布时生成不可变 `PublishedPageSpec` 快照并冻结 binding contract snapshot；不得在运行时从最新 FunctionSpec 静默补齐。
 - 版本 key 使用 `page:{gameId}:{env}:{pageKey}`。
 
@@ -842,7 +845,7 @@ rg -n "\\bany\\b" "web/src/components/FormilyPageRenderer" "web/src/components/c
 
 未完成：
 
-- 真实演示数据端到端 fixture 仍需补到 SDK demo/OpenAPI Source 管理 UI，验证从上传/注册到 Page Studio 发布的完整用户路径。
+- 真实演示数据端到端 fixture 仍需补到 SDK demo/OpenAPI Source 管理 UI，验证从上传/注册到 Page Studio 发布的完整浏览器用户路径。
 - Page Studio 已能消费 GeneratedPageSpec 并保存为草稿；mapping 补齐仍是 JSON 文本/基础表单，后续可增强为按 Function Form 和 PageContract 辅助编辑。
 
 目标：
@@ -967,7 +970,9 @@ rg -n "/functions/.*/invoke|invokeFunction\(" "web/src/components/FormilyPageRen
 - 已完成：前端和服务层权限已接入 `openapi_sources:read/openapi_sources:write`，并允许资源诊断、函数管理或页面编辑权限执行 Source 管理。
 - 已完成：Source 更新会创建新 revision、刷新 operation 清单和 diagnostics、保留显式 binding 记录但不会把已不存在的 operation 标记为 bound，并写 `openapi_source.update` 审计与 `openapi.source.update` span。
 - 已完成：已绑定 Provider 的 Source operation 会合并到同一 `FunctionSpec/ResourceSpec/OperationSpec` 视图，Page Studio 的 Resource generator 能消费 Source 中的 `x-page-contract` 生成 PageCandidate；未绑定 Source 不会伪造成可执行函数。
-- 未完成：受控 `httpConnector`、OpenAPI Source 到 Page Studio 发布的真实浏览器端到端验收、真实 OTel collector 字段验收。
+- 已完成：服务层回归已覆盖 OpenAPI Source provider binding -> GeneratedPageSpec -> PageDraft -> PublishedPageSpec -> ConsoleMenuSpec/PublishedPageSpec 读取闭环。
+- 已完成：当前未启用的 `httpConnector` binding 会被服务层强制拒绝，不落库，不写成功审计，避免半成品执行器进入运行路径。
+- 未完成：受控 `httpConnector` 设计实现、OpenAPI Source 到 Page Studio 发布的真实浏览器端到端验收、真实 OTel collector 字段验收。
 
 受影响路径：
 
@@ -1038,7 +1043,7 @@ rg -n "x-ui|\"ui\"|/api/v1/openapi/import" "internal/api/openapi" "web/src/servi
 - 路由改为 `/system/functions/pages`、`/system/functions/pages/:pageKey` 或符合现有信息架构的 Page Studio 路径。
 - 列表页展示 Page 草稿、发布状态、分类、类型、诊断、更新时间。
 - 支持从 Resource 生成默认 PageSpec 建议并复制为草稿。（已接入基础流程）
-- 编辑器只编辑 PageSpec Formily Page Schema、bindingId/usage/inputMapping/outputMapping/execution 和非执行展示 metadata。（已接入顶层 Page 组件结构化编辑、组件 props 表单化编辑、DataTable columns/rowActions 和 ActionGroup actions 专用编辑。）
+- 编辑器只编辑 PageSpec Formily Page Schema、bindingId/usage/inputMapping/outputMapping/execution 和非执行展示 metadata。（已接入顶层 Page 组件结构化编辑、组件 props 表单化编辑、DataTable columns/rowActions 和 ActionGroup actions 专用编辑；binding/component/action mapping 前端只接受 JSON object，空值仅表示未配置，发布仍由服务端强制校验。）
 - 保存时携带 revision，409 时显示当前/本地 revision 并允许加载最新草稿；不得覆盖。（已接入基础冲突提示和版本 diff。）
 - 编辑器必须使用与发布端相同的组件 registry/props validator，不能出现“编辑器能保存、运行期不能渲染”。（服务端 ABI validator 已接入；可视化 schema 编辑器后续复用该 diagnostics。）
 - 预览调用 `/preview`，不影响运行控制台。

@@ -548,6 +548,51 @@ func TestService_OpenAPISourceListDiagnosticsAndBinding(t *testing.T) {
 	assert.Equal(t, "player.list", detail.Source.Operations[0].FunctionID)
 }
 
+func TestService_CreateBindingRejectsHttpConnectorWithoutPersisting(t *testing.T) {
+	t.Parallel()
+
+	service, ctx, auditStore := setupOpenAPITestServiceWithAudit(t, "openapi_sources:read", "openapi_sources:write")
+	spec := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Player HTTP API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/players": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "playerList",
+					"x-resource":  "player",
+					"x-operation": "list",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	}
+	created, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
+	require.NoError(t, err)
+
+	_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
+		SourceID:    created.Source.SourceID,
+		BindingID:   "player-http",
+		OperationID: "playerList",
+		Kind:        "httpConnector",
+		FunctionID:  "player.list",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "httpConnector requires allowlist")
+
+	bindings, err := service.svcCtx.OpenAPISourceBindingModel.ListBySource(ctx, "demo-game", "development", created.Source.SourceID)
+	require.NoError(t, err)
+	assert.Empty(t, bindings, "disabled httpConnector must not persist a half-created binding")
+
+	records, total, err := auditStore.List(audit.AuditFilter{}, audit.AuditPage{PageSize: 10})
+	require.NoError(t, err)
+	require.Equal(t, 1, total, "failed binding creation must not write success audit records")
+	require.Len(t, records, 1)
+	assert.Equal(t, audit.EventOpenAPISourceCreate, records[0].EventType)
+}
+
 func TestService_GetDocument(t *testing.T) {
 	t.Parallel()
 

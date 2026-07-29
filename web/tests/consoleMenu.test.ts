@@ -1,5 +1,10 @@
-import { buildMenuFromConsoleSpec, resolveLocalizedText } from '@/utils/consoleMenu';
-import type { ConsoleMenuSpec } from '@/types/dashboard';
+import {
+  buildConsolePagePath,
+  buildMenuFromConsoleSpec,
+  resolveConsolePageRoute,
+  resolveLocalizedText,
+} from '@/utils/consoleMenu';
+import type { ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
 
 describe('console menu model', () => {
   it('从 ConsoleMenuSpec 注入运行控制台动态菜单且禁用 locale key', () => {
@@ -62,5 +67,30 @@ describe('console menu model', () => {
     expect(resolveLocalizedText({ 'en-US': 'Mail' }, 'zh-CN', 'mail')).toBe('Mail');
     expect(resolveLocalizedText({ 'zh-CN': '邮件' }, 'en-US', 'mail')).toBe('邮件');
     expect(resolveLocalizedText({}, 'zh-CN', 'mail')).toBe('mail');
+  });
+
+  it('根据 PublishedPageSpec 分类生成规范页面路径', () => {
+    const page: PublishedPageSpec = {
+      pageKey: 'player.ban',
+      type: 'operation',
+      title: { 'zh-CN': '封禁玩家' },
+      category: { key: 'player ops', labels: { 'zh-CN': '玩家运营' } },
+      schema: {},
+      bindings: [],
+      version: 1,
+      publishedAt: '2026-07-29T00:00:00Z',
+      rendererSchemaVersion: 'formily-page/v1',
+      bindingContracts: [],
+    };
+
+    expect(buildConsolePagePath('player ops', 'player.ban')).toBe('/console/player%20ops/player.ban');
+    expect(resolveConsolePageRoute(page, 'player')).toEqual({
+      canonicalPath: '/console/player%20ops/player.ban',
+      shouldRedirect: true,
+    });
+    expect(resolveConsolePageRoute(page, 'player ops')).toEqual({
+      canonicalPath: '/console/player%20ops/player.ban',
+      shouldRedirect: false,
+    });
   });
 });

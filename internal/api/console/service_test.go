@@ -178,6 +178,39 @@ func TestServiceExecuteBindingWritesAuditOnBindingStale(t *testing.T) {
 	assert.NotEmpty(t, records[0].Details["request_id"])
 }
 
+func TestServiceExecuteBindingRejectsChangedRiskOrPermission(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "function:invoke")
+	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))
+	service.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.query": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				Resource:     "player",
+				Operation:    "query",
+				Risk:         "danger",
+				Permission:   "player:admin",
+				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+			},
+		},
+	})
+
+	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
+		PageKey:   "player.manage",
+		BindingID: "player.query",
+		Payload:   json.RawMessage(`{}`),
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "binding_stale")
+}
+
 func newConsoleTestService(t *testing.T, permissions ...string) (*Service, context.Context) {
 	service, ctx, _ := newConsoleTestServiceWithAudit(t, permissions...)
 	return service, ctx
@@ -206,6 +239,8 @@ func newConsoleTestServiceWithAudit(t *testing.T, permissions ...string) (*Servi
 				Version:      "1.0.0",
 				Resource:     "player",
 				Operation:    "query",
+				Risk:         "safe",
+				Permission:   "player:query",
 				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
 				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
 			},
@@ -413,6 +448,8 @@ func seedConsolePublishedPageWithCurrentContracts(svcCtx *svc.ServiceContext, ct
 			FunctionVersion:       "1.0.0",
 			InputSchemaDigest:     inputDigest,
 			OutputSchemaDigest:    outputDigest,
+			Risk:                  spec.RiskSafe,
+			Permission:            "player:query",
 			ExecutionMode:         spec.PageExecutionModeSync,
 			RendererSchemaVersion: "formily-page:1",
 		},

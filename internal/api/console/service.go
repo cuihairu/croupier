@@ -179,6 +179,8 @@ func (s *Service) ensureBindingFresh(ctx context.Context, binding spec.PageFunct
 	stale := strings.TrimSpace(fn.Version) != strings.TrimSpace(contract.FunctionVersion) ||
 		digestRaw(fn.InputSchema) != contract.InputSchemaDigest ||
 		digestRaw(fn.OutputSchema) != contract.OutputSchemaDigest ||
+		fn.Risk != contract.Risk ||
+		strings.TrimSpace(fn.Permission) != strings.TrimSpace(contract.Permission) ||
 		binding.Execution.Mode != contract.ExecutionMode
 	if stale {
 		return errorx.NewConflictWithDetails("binding_stale", map[string]any{

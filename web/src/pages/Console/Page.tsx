@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import FormilyPageRenderer from '@/components/FormilyPageRenderer';
 import { executePageBinding, getPublishedPage } from '@/services/console';
 import type { PublishedPageSpec } from '@/types/dashboard';
+import { resolveConsolePageRoute } from '@/utils/consoleMenu';
 
 export default function ConsolePage() {
   const params = useParams<{ categoryKey?: string; pageKey: string }>();
@@ -23,17 +24,7 @@ export default function ConsolePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [errorCode, setErrorCode] = useState<string>('');
-  const actualCategoryKey = page?.category?.key || '';
-  const canonicalPath =
-    page && actualCategoryKey
-      ? `/console/${encodeURIComponent(actualCategoryKey)}/${encodeURIComponent(page.pageKey)}`
-      : '';
-  const shouldRedirectCanonical = !!(
-    page &&
-    actualCategoryKey &&
-    actualCategoryKey !== categoryKey &&
-    canonicalPath
-  );
+  const { canonicalPath, shouldRedirect } = resolveConsolePageRoute(page, categoryKey);
 
   useEffect(() => {
     if (!pageKey) return;
@@ -74,9 +65,9 @@ export default function ConsolePage() {
 
   useEffect(() => {
     if (!page) return;
-    if (!shouldRedirectCanonical) return;
+    if (!shouldRedirect) return;
     history.replace(canonicalPath);
-  }, [canonicalPath, page, shouldRedirectCanonical]);
+  }, [canonicalPath, page, shouldRedirect]);
 
   // 页面标题
   const pageTitle = page?.title
@@ -153,7 +144,7 @@ export default function ConsolePage() {
     );
   }
 
-  if (shouldRedirectCanonical) {
+  if (shouldRedirect) {
     return (
       <PageContainer title="正在跳转...">
         <div style={{ textAlign: 'center', padding: '100px 0' }}>
@@ -164,7 +155,7 @@ export default function ConsolePage() {
   }
 
   // 渲染页面
-  const breadcrumbCategoryKey = actualCategoryKey || categoryKey;
+  const breadcrumbCategoryKey = page?.category?.key || categoryKey;
 
   return (
     <PageContainer

@@ -43,8 +43,14 @@ import type {
   PageSpec,
   PublishedPageSpec,
 } from '@/types/dashboard';
-
-type JSONRecord = { [key: string]: JSONValue };
+import {
+  buildBindingPayload,
+  isRecord,
+  readPath,
+  toJSONRecord,
+  toJSONValue,
+  type JSONRecord,
+} from './runtimeMapping';
 
 type PageStateValue = PageExecutionResult | JSONValue;
 
@@ -81,48 +87,6 @@ function useRuntimeContext() {
     throw new Error('FormilyPageRenderer runtime context is missing');
   }
   return value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isJSONValue(value: unknown): value is JSONValue {
-  if (value === null) return true;
-  if (['boolean', 'number', 'string'].includes(typeof value)) return true;
-  if (Array.isArray(value)) return value.every(isJSONValue);
-  if (!isRecord(value)) return false;
-  return Object.values(value).every(isJSONValue);
-}
-
-function toJSONValue(value: unknown): JSONValue {
-  return isJSONValue(value) ? value : JSON.parse(JSON.stringify(value)) as JSONValue;
-}
-
-function toJSONRecord(value: unknown): JSONRecord {
-  return isRecord(value) ? Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [key, toJSONValue(item)]),
-  ) : {};
-}
-
-function normalizePath(path?: string): string[] {
-  if (!path) return [];
-  return path
-    .replace(/^\$\./, '')
-    .split('.')
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
-function readPath(source: unknown, path?: string): unknown {
-  const parts = normalizePath(path);
-  if (parts.length === 0) return source;
-  let current = source;
-  for (const part of parts) {
-    if (!isRecord(current)) return undefined;
-    current = current[part];
-  }
-  return current;
 }
 
 function resolveBinding(runtime: RuntimeContextValue, bindingId?: string): PageFunctionBinding | undefined {
@@ -184,25 +148,6 @@ function normalizeColumnsFromPath(value: unknown): ColumnsType<JSONRecord> {
   return normalizeColumns(columns);
 }
 
-function applyInputMapping(mapping: JSONValue | undefined, sources: Record<string, unknown>): JSONValue {
-  if (mapping === undefined || mapping === null) {
-    return toJSONValue(sources.values ?? {});
-  }
-  if (!isRecord(mapping)) {
-    throw new Error('inputMapping 必须是对象');
-  }
-  const payload: JSONRecord = {};
-  for (const [targetKey, sourcePath] of Object.entries(mapping)) {
-    if (typeof sourcePath !== 'string' || sourcePath.trim() === '') {
-      throw new Error(`inputMapping.${targetKey} 必须是路径字符串`);
-    }
-    const [root, ...rest] = normalizePath(sourcePath);
-    const rootValue = sources[root];
-    payload[targetKey] = toJSONValue(readPath(rootValue, rest.join('.')));
-  }
-  return payload;
-}
-
 function isDangerousRisk(risk?: string) {
   return risk === 'high' || risk === 'danger';
 }
@@ -258,8 +203,12 @@ const QueryForm: React.FC<{
     setSubmitting(true);
     try {
       await form.submit();
-      const payload = applyInputMapping(inputMapping, { values: form.values });
-      const result = await executeBinding(runtime, bindingId, payload);
+      const binding = resolveBinding(runtime, bindingId);
+      if (!binding) {
+        throw new Error(`页面 binding 不存在：${bindingId || '-'}`);
+      }
+      const payload = buildBindingPayload(binding, inputMapping, { values: form.values });
+      const result = await executeBinding(runtime, binding.id, payload);
       if (resultStateKey) {
         runtime.setStateValue(resultStateKey, result);
       }
@@ -316,11 +265,15 @@ const DataTable: React.FC<{
     setLoading(true);
     setError(undefined);
     try {
-      const payload: JSONRecord = {
+      const values: JSONRecord = {
         [pageField]: page,
         [pageSizeField]: size,
       };
-      const result = await executeBinding(runtime, bindingId, payload);
+      const binding = resolveBinding(runtime, bindingId);
+      if (!binding) {
+        throw new Error(`页面 binding 不存在：${bindingId || '-'}`);
+      }
+      const result = await executeBinding(runtime, binding.id, buildBindingPayload(binding, undefined, { values }));
       const data = resultData(result);
       const nextRows = toTableRows(readPath(data, itemsPath));
       const nextTotal = readPath(data, totalPath);
@@ -343,8 +296,12 @@ const DataTable: React.FC<{
   const runAction = (action: RowAction, row: JSONRecord) => {
     const execute = async () => {
       try {
-        const payload = applyInputMapping(action.inputMapping, { row, selection: [] });
-        const result = await executeBinding(runtime, action.bindingId, payload);
+        const binding = resolveBinding(runtime, action.bindingId);
+        if (!binding) {
+          throw new Error(`页面 binding 不存在：${action.bindingId || '-'}`);
+        }
+        const payload = buildBindingPayload(binding, action.inputMapping, { row, selection: [] });
+        const result = await executeBinding(runtime, binding.id, payload);
         if (result.kind === 'approval') {
           message.info(`已进入审批：${result.approvalId || result.requestId}`);
         } else {
@@ -444,8 +401,12 @@ const ActionButton: React.FC<{
   const execute = async () => {
     setLoading(true);
     try {
-      const payload = applyInputMapping(inputMapping, { values: {} });
-      const result = await executeBinding(runtime, bindingId, payload);
+      const binding = resolveBinding(runtime, bindingId);
+      if (!binding) {
+        throw new Error(`页面 binding 不存在：${bindingId || '-'}`);
+      }
+      const payload = buildBindingPayload(binding, inputMapping, { values: {} });
+      const result = await executeBinding(runtime, binding.id, payload);
       if (result.kind === 'approval') {
         message.info(`已进入审批：${result.approvalId || result.requestId}`);
       } else {

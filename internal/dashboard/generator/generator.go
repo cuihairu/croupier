@@ -586,6 +586,14 @@ func rowActionsForEntity(queryOp spec.OperationSpec, ops []spec.OperationSpec) (
 			diags = append(diags, diagnostic("entity_action_mapping_context_missing", spec.SeverityWarning, "entity action inputMapping must reference row.* or selection.*", op.FunctionID, "pageContract.inputMapping"))
 			continue
 		}
+		if !hasJSONMapping(op.PageContract.OutputMapping) {
+			diags = append(diags, diagnostic("entity_action_output_mapping_missing", spec.SeverityWarning, "entity action requires explicit outputMapping before it can be added to an entity page", op.FunctionID, "pageContract.outputMapping"))
+			continue
+		}
+		if !isJSONObject(op.PageContract.OutputMapping) {
+			diags = append(diags, diagnostic("entity_action_output_mapping_invalid", spec.SeverityError, "entity action outputMapping must be a JSON object", op.FunctionID, "pageContract.outputMapping"))
+			continue
+		}
 		binding := pageBinding(op, sanitizePageKey(firstNonEmpty(op.Operation, "action")), spec.BindingUsageAction, spec.PageExecutionModeSync)
 		bindings = append(bindings, binding)
 		actions = append(actions, rowAction{

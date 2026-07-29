@@ -55,9 +55,7 @@ func createTestFunction(t *testing.T, db *gorm.DB, functionID, name string) *mod
 		GameID:      "test-game",
 		Status:      1,
 		Version:     "1.0.0",
-		Category:    "test",
 		Metadata: map[string]interface{}{
-			"category":      "test",
 			"version":       "1.0.0",
 			"input_schema":  map[string]interface{}{"type": "object"},
 			"output_schema": map[string]interface{}{"type": "object"},

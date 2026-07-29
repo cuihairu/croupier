@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Empty, Input, Select, Space, Typography } from 'antd';
+import { App, Button, Card, Empty, Input, Select, Space, Typography } from 'antd';
 import type { FormilySchema, JSONValue, PageFunctionBinding } from '@/types/dashboard';
+import {
+  isJSONRecord,
+  isRecord,
+  parseJSONObject,
+  toJSONValue,
+  type JSONRecord,
+} from '@/utils/dashboardJson';
 
 type PageComponent =
   | 'QueryForm'
@@ -12,7 +19,7 @@ type PageComponent =
   | 'TaskTimeline'
   | 'ChartPanel';
 
-type SchemaRecord = Record<string, unknown>;
+type SchemaRecord = JSONRecord;
 
 type ComponentEntry = {
   key: string;
@@ -102,10 +109,6 @@ const COMPONENT_FIELDS: Record<PageComponent, PropField[]> = {
   ],
 };
 
-function isRecord(value: unknown): value is SchemaRecord {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
 function cloneSchema(schema: FormilySchema): SchemaRecord {
   return JSON.parse(JSON.stringify(schema)) as SchemaRecord;
 }
@@ -128,11 +131,6 @@ function componentEntries(schema: FormilySchema): ComponentEntry[] {
       return { key, component: component as PageComponent, props };
     })
     .filter((entry): entry is ComponentEntry => entry !== null);
-}
-
-function normalizeJSON(raw: string): SchemaRecord | null {
-  const parsed = JSON.parse(raw) as unknown;
-  return isRecord(parsed) ? parsed : null;
 }
 
 function stringifyJSON(value: unknown): string {
@@ -202,19 +200,27 @@ function bindingOptions(bindings: PageFunctionBinding[], component: PageComponen
     }));
 }
 
-function toJSONValue(value: SchemaRecord): JSONValue {
-  return JSON.parse(JSON.stringify(value)) as JSONValue;
-}
-
 function propText(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+function withOptionalString(item: SchemaRecord, key: string, value: string): SchemaRecord {
+  const nextItem = { ...item };
+  const text = value.trim();
+  if (text) {
+    nextItem[key] = text;
+  } else {
+    delete nextItem[key];
+  }
+  return nextItem;
+}
+
 function recordArray(value: unknown): SchemaRecord[] {
-  return Array.isArray(value) ? value.filter(isRecord) : [];
+  return Array.isArray(value) ? value.filter(isJSONRecord) : [];
 }
 
 export default function PageSchemaEditor({ schema, bindings, onChange }: PageSchemaEditorProps) {
+  const { message } = App.useApp();
   const entries = componentEntries(schema);
   const [propsTexts, setPropsTexts] = useState<Record<string, string>>({});
   const [jsonFieldTexts, setJsonFieldTexts] = useState<Record<string, string>>({});
@@ -261,7 +267,7 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
     }));
   };
 
-  const updateProp = (entry: ComponentEntry, key: string, value: unknown) => {
+  const updateProp = (entry: ComponentEntry, key: string, value: JSONValue | undefined) => {
     const nextProps = { ...entry.props };
     if (value === undefined || value === '') {
       delete nextProps[key];
@@ -334,12 +340,11 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
       updateProp(entry, fieldKey, undefined);
       return;
     }
-    updateProp(entry, fieldKey, JSON.parse(text) as JSONValue);
+    updateProp(entry, fieldKey, parseJSONObject(text, fieldKey) as JSONValue);
   };
 
   const commitPropsText = (entry: ComponentEntry, value: string) => {
-    const nextProps = normalizeJSON(value);
-    if (!nextProps) return;
+    const nextProps = parseJSONObject(value, 'props');
     updateEntry(entry.key, {
       ...entry,
       props: toJSONValue(nextProps) as SchemaRecord,
@@ -355,7 +360,7 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
           value={typeof entry.props[field.key] === 'string' ? entry.props[field.key] as string : undefined}
           options={bindingOptions(bindings, entry.component)}
           style={{ width: 280 }}
-          onChange={(bindingId) => updateProp(entry, field.key, bindingId)}
+          onChange={(bindingId) => updateProp(entry, field.key, bindingId || undefined)}
         />
       );
     }
@@ -369,13 +374,14 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
           spellCheck={false}
           style={{ minWidth: 360, fontFamily: 'monospace' }}
           onChange={(event) => updateJsonFieldText(entry.key, field.key, event.target.value)}
-          onBlur={(event) => {
-            try {
-              commitJsonProp(entry, field.key, event.target.value);
-            } catch {
-              // 保留非法中间态，最终由服务端 ABI diagnostics 给出精确字段错误。
-            }
-          }}
+                onBlur={(event) => {
+                  try {
+                    commitJsonProp(entry, field.key, event.target.value);
+                  } catch (error) {
+                    message.error(error instanceof Error ? error.message : `${field.label} 必须是合法 JSON object`);
+                    // 保留非法中间态，最终由服务端 ABI diagnostics 给出精确字段错误。
+                  }
+                }}
         />
       );
     }
@@ -428,10 +434,9 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
                 addonBefore="key"
                 value={propText(column.key)}
                 style={{ width: 220 }}
-                onChange={(event) => updateArrayItem(entry, 'columns', index, (item) => ({
-                  ...item,
-                  key: event.target.value.trim() || undefined,
-                }))}
+                onChange={(event) => updateArrayItem(entry, 'columns', index, (item) => (
+                  withOptionalString(item, 'key', event.target.value)
+                ))}
               />
               <Button danger size="small" type="link" onClick={() => removeArrayItem(entry, 'columns', index)}>
                 删除
@@ -469,28 +474,25 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
                   value: binding.id,
                 }))}
                 style={{ width: 260 }}
-                onChange={(bindingId) => updateArrayItem(entry, key, index, (item) => ({
-                  ...item,
-                  bindingId,
-                }))}
+                onChange={(bindingId) => updateArrayItem(entry, key, index, (item) => (
+                  withOptionalString(item, 'bindingId', bindingId || '')
+                ))}
               />
               <Input
                 placeholder="label"
                 value={propText(action.label)}
                 style={{ width: 180 }}
-                onChange={(event) => updateArrayItem(entry, key, index, (item) => ({
-                  ...item,
-                  label: event.target.value.trim() || undefined,
-                }))}
+                onChange={(event) => updateArrayItem(entry, key, index, (item) => (
+                  withOptionalString(item, 'label', event.target.value)
+                ))}
               />
               <Input
                 placeholder="risk"
                 value={propText(action.risk)}
                 style={{ width: 140 }}
-                onChange={(event) => updateArrayItem(entry, key, index, (item) => ({
-                  ...item,
-                  risk: event.target.value.trim() || undefined,
-                }))}
+                onChange={(event) => updateArrayItem(entry, key, index, (item) => (
+                  withOptionalString(item, 'risk', event.target.value)
+                ))}
               />
               <Input.TextArea
                 value={actionMappingTexts[`${entry.key}:${key}:${index}`] ?? stringifyJSON(action.inputMapping)}
@@ -500,14 +502,22 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
                 onChange={(event) => updateActionMappingText(entry.key, key, index, event.target.value)}
                 onBlur={(event) => {
                   try {
-                    const mapping = normalizeJSON(event.target.value);
-                    if (mapping) {
+                    const text = event.target.value.trim();
+                    if (text) {
+                      const mapping = parseJSONObject(text, 'inputMapping');
                       updateArrayItem(entry, key, index, (item) => ({
                         ...item,
                         inputMapping: mapping,
                       }));
+                    } else {
+                      updateArrayItem(entry, key, index, (item) => {
+                        const nextItem = { ...item };
+                        delete nextItem.inputMapping;
+                        return nextItem;
+                      });
                     }
-                  } catch {
+                  } catch (error) {
+                    message.error(error instanceof Error ? error.message : 'inputMapping 必须是合法 JSON object');
                     // 保留当前值，服务端 diagnostics 负责最终错误提示。
                   }
                 }}
@@ -600,7 +610,8 @@ export default function PageSchemaEditor({ schema, bindings, onChange }: PageSch
                     onBlur={(event) => {
                       try {
                         commitPropsText(entry, event.target.value);
-                      } catch {
+                      } catch (error) {
+                        message.error(error instanceof Error ? error.message : 'props 必须是合法 JSON object');
                         // 允许 JSON 编辑过程中的中间态，失焦前由 PageSpec JSON/服务端校验兜底。
                       }
                     }}

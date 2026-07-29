@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	consoleapi "github.com/cuihairu/croupier/internal/api/console"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -110,6 +111,11 @@ func TestServicePublishWritesActorAndAudit(t *testing.T) {
 	published, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", "player.manage")
 	require.NoError(t, err)
 	assert.Equal(t, "page_tester", published.PublishedBy)
+	var contracts []spec.BindingContractSnapshot
+	require.NoError(t, json.Unmarshal([]byte(published.BindingContractsJSON), &contracts))
+	require.Len(t, contracts, 1)
+	assert.Equal(t, spec.RiskSafe, contracts[0].Risk)
+	assert.Equal(t, "player:query", contracts[0].Permission)
 
 	records, total, err := auditStore.List(audit.AuditFilter{
 		EventType: []audit.AuditEventType{audit.EventPagePublish},
@@ -139,6 +145,139 @@ func TestServicePublishUpdatesDraftVersionRecord(t *testing.T) {
 	assert.Equal(t, "published", versions.Items[0].Status)
 	assert.True(t, versions.Items[0].IsCurrentDraft)
 	assert.True(t, versions.Items[0].IsCurrentPublished)
+}
+
+func TestServicePublishRejectsMissingBindingMapping(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
+	revision := 0
+	resp, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "玩家管理"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Schema:   testPageSchema(),
+		Bindings: testPageBindingsWithoutMapping(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &resp.DraftRevision,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "binding.inputMapping must be an explicit JSON object before publish")
+	assert.Contains(t, err.Error(), "binding.outputMapping must be an explicit JSON object before publish")
+}
+
+func TestServicePublishRejectsNonObjectBindingMapping(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
+	revision := 0
+	bindings := testPageBindings()
+	bindings[0].InputMapping = json.RawMessage(`["values.keyword"]`)
+	bindings[0].OutputMapping = json.RawMessage(`"players"`)
+	resp, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "玩家管理"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Schema:   testPageSchema(),
+		Bindings: bindings,
+	})
+	require.NoError(t, err)
+
+	_, err = service.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &resp.DraftRevision,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "binding.inputMapping must be an explicit JSON object before publish")
+	assert.Contains(t, err.Error(), "binding.outputMapping must be an explicit JSON object before publish")
+}
+
+func TestServicePublishRejectsMissingBindings(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
+	revision := 0
+	resp, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "玩家管理"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Schema:   emptyPageSchema(),
+		Bindings: nil,
+	})
+	require.NoError(t, err)
+
+	_, err = service.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &resp.DraftRevision,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page must bind at least one function")
+}
+
+func TestServicePublishDrivesConsoleMenuAndUnpublishRemovesIt(t *testing.T) {
+	pageService, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	consoleService := consoleapi.NewService(pageService.svcCtx)
+	revision := saveTestPageDraft(t, pageService, ctx)
+
+	publishResp, err := pageService.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+	})
+	require.NoError(t, err)
+	assert.True(t, publishResp.Published)
+
+	menu, err := consoleService.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
+	require.NoError(t, err)
+	require.Len(t, menu.Items, 1)
+	assert.Equal(t, "player", menu.Items[0].Key)
+	assert.Equal(t, "玩家", menu.Items[0].Title["zh-CN"])
+	require.Len(t, menu.Items[0].Children, 1)
+	assert.Equal(t, "player.manage", menu.Items[0].Children[0].Key)
+	assert.Equal(t, "玩家管理", menu.Items[0].Children[0].Title["zh-CN"])
+	assert.Equal(t, "/console/player/player.manage", menu.Items[0].Children[0].Path)
+	assert.False(t, menu.Items[0].Locale)
+	assert.False(t, menu.Items[0].Children[0].Locale)
+
+	publishedPage, err := consoleService.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	assert.Equal(t, "demo-game", publishedPage.Page.GameID)
+	assert.Equal(t, "development", publishedPage.Page.Env)
+	assert.Equal(t, revision, publishedPage.Page.Version)
+
+	prodCtx := svc.WithGameScope(ctx, svc.GameScope{GameID: "demo-game", Env: "production"})
+	prodMenu, err := consoleService.Menu(prodCtx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
+	require.NoError(t, err)
+	assert.Empty(t, prodMenu.Items)
+
+	unpublishResp, err := pageService.Unpublish(ctx, &PageUnpublishRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	assert.False(t, unpublishResp.Published)
+
+	emptyMenu, err := consoleService.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
+	require.NoError(t, err)
+	assert.Empty(t, emptyMenu.Items)
+	_, err = consoleService.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: "player.manage"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page not found")
 }
 
 func TestServiceKeepsSamePageKeyIsolatedByScope(t *testing.T) {
@@ -201,6 +340,8 @@ func newPageTestService(t *testing.T, permissions ...string) (*Service, context.
 			"player.query": {
 				Enabled:      true,
 				Version:      "1.0.0",
+				Risk:         "safe",
+				Permission:   "player:query",
 				Resource:     "player",
 				Operation:    "query",
 				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
@@ -271,7 +412,33 @@ func testPageSchema() json.RawMessage {
 	}`)
 }
 
+func emptyPageSchema() json.RawMessage {
+	return json.RawMessage(`{
+		"type":"void",
+		"x-component":"ConsolePage",
+		"x-component-props":{"schemaVersion":"formily-page:1"},
+		"properties":{}
+	}`)
+}
+
 func testPageBindings() []spec.PageFunctionBinding {
+	return []spec.PageFunctionBinding{
+		{
+			ID:         "player.query",
+			FunctionID: "player.query",
+			Usage:      spec.BindingUsageQuery,
+			InputMapping: json.RawMessage(
+				`{"keyword":"values.keyword"}`,
+			),
+			OutputMapping: json.RawMessage(
+				`{"stateKey":"players"}`,
+			),
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		},
+	}
+}
+
+func testPageBindingsWithoutMapping() []spec.PageFunctionBinding {
 	return []spec.PageFunctionBinding{
 		{
 			ID:         "player.query",

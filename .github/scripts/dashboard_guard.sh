@@ -174,9 +174,21 @@ if rg -n "Virtual Object|VirtualObject|RelationshipDef|ComponentDescriptor|Regis
   fail "C++ SDK must not restore legacy VirtualObject/Component registration or Skynet VO APIs"
 fi
 
-if rg -n "\\bany\\b" web/src/types web/src/services/console.ts web/src/services/api/resources.ts \
+if rg -n "\\bany\\b" web/src/types web/src/services/console.ts web/src/services/api/resources.ts web/src/utils/dashboardJson.ts web/src/components/FormilyPageRenderer \
   --glob "*.ts" --glob "*.tsx" >/dev/null 2>&1; then
   fail "dashboard frontend core types/services must not use TypeScript any"
+fi
+
+if rg -n '"functionId"\\s*:|functionId\\s*:' \
+  web/src/components/FormilyPageRenderer web/src/pages/Console \
+  --glob "*.ts" --glob "*.tsx" >/dev/null 2>&1; then
+  fail "console runtime schema and renderer must reference bindingId, not raw functionId"
+fi
+
+if rg -n "/functions/.*/invoke|invokeFunction\\(" \
+  web/src/components/FormilyPageRenderer web/src/pages/Console web/src/services/console.ts \
+  --glob "*.ts" --glob "*.tsx" >/dev/null 2>&1; then
+  fail "console runtime must execute page bindings, not direct function invoke APIs"
 fi
 
 if rg -n "interface\\{\\}|map\\[string\\]interface\\{" \

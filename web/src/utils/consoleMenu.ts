@@ -1,5 +1,5 @@
 import type { MenuDataItem } from '@ant-design/pro-components';
-import type { ConsoleMenuSpec, LocalizedText } from '@/types/dashboard';
+import type { ConsoleMenuSpec, LocalizedText, PublishedPageSpec } from '@/types/dashboard';
 
 export type RuntimeMenuItem = MenuDataItem & {
   children?: RuntimeMenuItem[];
@@ -20,6 +20,26 @@ export function resolveLocalizedText(
     Object.values(text).find((value) => value.trim() !== '') ||
     fallback
   );
+}
+
+export function buildConsolePagePath(categoryKey: string, pageKey: string): string {
+  return `/console/${encodeURIComponent(categoryKey)}/${encodeURIComponent(pageKey)}`;
+}
+
+export function resolveConsolePageRoute(
+  page: Pick<PublishedPageSpec, 'category' | 'pageKey'> | null | undefined,
+  currentCategoryKey: string,
+): { canonicalPath: string; shouldRedirect: boolean } {
+  const actualCategoryKey = page?.category?.key?.trim() || '';
+  if (!page || !actualCategoryKey) {
+    return { canonicalPath: '', shouldRedirect: false };
+  }
+
+  const canonicalPath = buildConsolePagePath(actualCategoryKey, page.pageKey);
+  return {
+    canonicalPath,
+    shouldRedirect: actualCategoryKey !== currentCategoryKey,
+  };
 }
 
 /**

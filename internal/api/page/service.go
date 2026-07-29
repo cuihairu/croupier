@@ -588,7 +588,7 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 	functions := s.normalizedFunctions(ctx)
 	for i, binding := range page.Bindings {
 		field := fmt.Sprintf("bindings[%d]", i)
-		diags = append(diags, validateBinding(field, binding, functions)...)
+		diags = append(diags, validateBinding(field, binding, functions, publish)...)
 		if strings.TrimSpace(binding.ID) != "" {
 			if _, exists := bindingsByID[binding.ID]; exists {
 				diags = append(diags, diagnostic("binding_id_duplicate", spec.SeverityError, "binding id must be unique", field+".id"))
@@ -612,7 +612,7 @@ func bindingsByID(bindings []spec.PageFunctionBinding) map[string]spec.PageFunct
 	return result
 }
 
-func validateBinding(field string, binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec) []spec.Diagnostic {
+func validateBinding(field string, binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec, publish bool) []spec.Diagnostic {
 	var diags []spec.Diagnostic
 	bindingID := strings.TrimSpace(binding.ID)
 	functionID := strings.TrimSpace(binding.FunctionID)
@@ -644,7 +644,30 @@ func validateBinding(field string, binding spec.PageFunctionBinding, functions m
 	if binding.Usage == spec.BindingUsageTask && binding.Execution.Mode != spec.PageExecutionModeTask {
 		diags = append(diags, diagnostic("binding_task_mode_mismatch", spec.SeverityError, "task binding must use execution.mode=task", field+".execution.mode"))
 	}
+	if publish {
+		diags = append(diags, validatePublishBindingMapping(field, binding)...)
+	}
 	return diags
+}
+
+func validatePublishBindingMapping(field string, binding spec.PageFunctionBinding) []spec.Diagnostic {
+	var diags []spec.Diagnostic
+	if !hasJSONObjectRaw(binding.InputMapping) {
+		diags = append(diags, diagnostic("binding_input_mapping_missing", spec.SeverityError, "binding.inputMapping must be an explicit JSON object before publish", field+".inputMapping"))
+	}
+	if !hasJSONObjectRaw(binding.OutputMapping) {
+		diags = append(diags, diagnostic("binding_output_mapping_missing", spec.SeverityError, "binding.outputMapping must be an explicit JSON object before publish", field+".outputMapping"))
+	}
+	return diags
+}
+
+func hasJSONObjectRaw(raw json.RawMessage) bool {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" || trimmed == "null" {
+		return false
+	}
+	var parsed map[string]json.RawMessage
+	return json.Unmarshal([]byte(trimmed), &parsed) == nil
 }
 
 func isValidUsage(usage spec.PageBindingUsage) bool {
@@ -679,6 +702,7 @@ func buildBindingContracts(bindings []spec.PageFunctionBinding, functions map[st
 			InputSchemaDigest:     digestRaw(fn.InputSchema),
 			OutputSchemaDigest:    digestRaw(fn.OutputSchema),
 			Risk:                  fn.Risk,
+			Permission:            strings.TrimSpace(fn.Permission),
 			ExecutionMode:         binding.Execution.Mode,
 			RendererSchemaVersion: rendererSchemaVersion,
 		})

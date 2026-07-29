@@ -96,7 +96,7 @@ func TestValidator_ValidateExtensionFields(t *testing.T) {
 
 	t.Run("valid extensions", func(t *testing.T) {
 		extensions := map[string]interface{}{
-			"x-risk":       "safe",
+			"x-risk":       "high",
 			"x-resource":   "player",
 			"x-operation":  "ban",
 			"x-enabled":    true,
@@ -115,13 +115,12 @@ func TestValidator_ValidateExtensionFields(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid x-risk value")
 	})
 
-	t.Run("invalid operation value", func(t *testing.T) {
+	t.Run("operation is business action key", func(t *testing.T) {
 		extensions := map[string]interface{}{
-			"x-operation": "invalid",
+			"x-operation": "batchGrant",
 		}
 		err := validator.ValidateExtensionFields(extensions)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid x-operation value")
+		assert.NoError(t, err)
 	})
 
 	t.Run("risk must be string", func(t *testing.T) {

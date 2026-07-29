@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	consoleapi "github.com/cuihairu/croupier/internal/api/console"
+	pageapi "github.com/cuihairu/croupier/internal/api/page"
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
@@ -279,6 +282,109 @@ func TestServiceGeneratedPagesUsesBoundOpenAPISourcePageContract(t *testing.T) {
 	assert.Contains(t, string(page.Schema), `"bindingId":"player.query"`)
 }
 
+func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testing.T) {
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.list": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				InputSchema:  `{"type":"object","properties":{"page":{"type":"integer"},"pageSize":{"type":"integer"}}}`,
+				OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object"}},"total":{"type":"integer"}}}`,
+			},
+		},
+	})
+
+	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:diagnose", "pages:edit", "pages:publish", "pages:read")
+	playerListContract := map[string]interface{}{
+		"version":       "page-contract:1",
+		"inputMapping":  map[string]interface{}{"page": "values.page", "pageSize": "values.pageSize"},
+		"outputMapping": map[string]interface{}{"stateKey": "players"},
+		"pagination": map[string]interface{}{
+			"pageField":     "page",
+			"pageSizeField": "pageSize",
+			"itemsPath":     "items",
+			"totalPath":     "total",
+		},
+		"table": map[string]interface{}{
+			"columns": []interface{}{
+				map[string]interface{}{"key": "id", "title": map[string]interface{}{"zh-CN": "玩家ID"}, "valuePath": "id"},
+			},
+		},
+	}
+	source := openAPISourceModel(
+		t,
+		"player-source",
+		"player.list",
+		"player",
+		"list",
+		playerListContract,
+		openAPISourceDocument(t, "player.list", "player", "list", playerListContract),
+	)
+	require.NoError(t, svcCtx.OpenAPISourceModel.Create(ctx, source))
+	require.NoError(t, svcCtx.OpenAPISourceBindingModel.Upsert(ctx, &model.OpenAPISourceBinding{
+		GameID:      "demo-game",
+		Env:         "development",
+		SourceID:    source.SourceID,
+		BindingID:   "player.list",
+		OperationID: "player.list",
+		Kind:        "provider",
+		FunctionID:  "player.list",
+	}))
+
+	generated, err := NewService(svcCtx).GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
+	require.NoError(t, err)
+	require.NotEmpty(t, generated.Items)
+	candidate := generated.Items[0]
+	require.Equal(t, "ready", candidate.Quality)
+
+	pageService := pageapi.NewService(svcCtx)
+	revision := 0
+	saved, err := pageService.SaveDraft(ctx, &pageapi.PageSaveRequest{
+		PageKey:       candidate.PageKey,
+		DraftRevision: &revision,
+		Type:          candidate.Type,
+		ResourceKey:   candidate.ResourceKey,
+		Title:         map[string]string(candidate.Title),
+		Category:      candidate.Category,
+		Schema:        json.RawMessage(candidate.Schema),
+		Bindings:      candidate.Bindings,
+	})
+	require.NoError(t, err)
+
+	published, err := pageService.Publish(ctx, &pageapi.PagePublishRequest{
+		PageKey:       candidate.PageKey,
+		DraftRevision: &saved.DraftRevision,
+	})
+	require.NoError(t, err)
+	assert.True(t, published.Published)
+
+	consoleService := consoleapi.NewService(svcCtx)
+	menu, err := consoleService.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
+	require.NoError(t, err)
+	require.Len(t, menu.Items, 1)
+	assert.Equal(t, "player", menu.Items[0].Key)
+	require.Len(t, menu.Items[0].Children, 1)
+	assert.Equal(t, "player.manage", menu.Items[0].Children[0].Key)
+	assert.Equal(t, "/console/player/player.manage", menu.Items[0].Children[0].Path)
+	assert.False(t, menu.Items[0].Children[0].Locale)
+
+	page, err := consoleService.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: candidate.PageKey})
+	require.NoError(t, err)
+	assert.Equal(t, "demo-game", page.Page.GameID)
+	assert.Equal(t, "development", page.Page.Env)
+	assert.Equal(t, candidate.PageKey, page.Page.PageKey)
+	assert.Equal(t, saved.DraftRevision, page.Page.Version)
+	require.Len(t, page.Page.BindingContracts, 1)
+	assert.Equal(t, "player.query", page.Page.BindingContracts[0].BindingID)
+	assert.Equal(t, "player.list", page.Page.BindingContracts[0].FunctionID)
+}
+
 func TestServiceListIgnoresUnboundOpenAPISource(t *testing.T) {
 	store := reg.NewStore()
 	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:read")
@@ -453,8 +559,12 @@ func newResourceTestServiceContext(t *testing.T, store *reg.Store, permissions .
 		PermissionModel:           model.NewPermissionModel(db),
 		RegistryStore:             store,
 		FunctionModel:             model.NewFunctionModel(db),
+		PageSpecModel:             model.NewPageSpecModel(db),
+		PublishedPageSpecModel:    model.NewPublishedPageSpecModel(db),
+		PageVersionModel:          model.NewPageVersionModel(db),
 		OpenAPISourceModel:        model.NewOpenAPISourceModel(db),
 		OpenAPISourceBindingModel: model.NewOpenAPISourceBindingModel(db),
+		AuditService:              audit.NewAuditService(audit.NewInMemoryAuditStore(), nil),
 		Cache:                     nullCache,
 		CacheHelper:               cache.NewCacheHelper(nullCache),
 	}

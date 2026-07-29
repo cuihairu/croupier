@@ -306,6 +306,7 @@ type BindingContractSnapshot struct {
 	InputSchemaDigest     string            `json:"inputSchemaDigest,omitempty"`
 	OutputSchemaDigest    string            `json:"outputSchemaDigest,omitempty"`
 	Risk                  RiskLevel         `json:"risk,omitempty"`
+	Permission            string            `json:"permission,omitempty"`
 	ExecutionMode         PageExecutionMode `json:"executionMode"`
 	RendererSchemaVersion string            `json:"rendererSchemaVersion"`
 }

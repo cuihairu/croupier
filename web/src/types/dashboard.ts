@@ -249,6 +249,7 @@ export interface BindingContractSnapshot {
   inputSchemaDigest?: string;
   outputSchemaDigest?: string;
   risk?: RiskLevel;
+  permission?: string;
   executionMode: PageExecutionMode;
   rendererSchemaVersion: string;
 }
