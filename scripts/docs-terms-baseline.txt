@@ -24,11 +24,7 @@ docs/development/documentation-governance.md|gRPC
 docs/development/documentation-governance.md|rpc_addr
 docs/development/repository-guidelines.md|gRPC
 docs/development/repository-guidelines.md|rpc_addr
-docs/guide/concepts/overview.md|REQ/REP
-docs/guide/concepts/overview.md|rpc_addr
-docs/guide/integrations/openapi-registration.md|LocalControlService
-docs/guide/integrations/openapi-registration.md|rpc_addr
-docs/guide/integrations/third-party-platforms.md|gRPC
+docs/guide/integrations/third-party-platforms.md|rpc_addr
 docs/guide/operations/security.md|gRPC
 docs/guide/operations/security.md|rpc_addr
 docs/guide/operations/troubleshooting.md|LocalControlService
