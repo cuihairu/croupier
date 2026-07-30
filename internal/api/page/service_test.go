@@ -10,6 +10,7 @@ import (
 	consoleapi "github.com/cuihairu/croupier/internal/api/console"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -278,6 +279,201 @@ func TestServicePublishDrivesConsoleMenuAndUnpublishRemovesIt(t *testing.T) {
 	_, err = consoleService.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: "player.manage"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page not found")
+}
+
+func TestServiceGetDraftReturnsPublishedBindingFreshness(t *testing.T) {
+	pageService, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	revision := saveTestPageDraft(t, pageService, ctx)
+	_, err := pageService.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+	})
+	require.NoError(t, err)
+
+	pageService.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.query": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				Risk:         "danger",
+				Permission:   "player:admin",
+				Resource:     "player",
+				Operation:    "query",
+				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+			},
+		},
+	})
+
+	draft, err := pageService.GetDraft(ctx, &PageDraftRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	require.Len(t, draft.BindingFreshness, 1)
+	assert.Equal(t, spec.BindingFreshnessGovernanceStale, draft.BindingFreshness[0].Status)
+	assert.Equal(t, "binding_governance_stale", draft.BindingFreshness[0].Diagnostic.Code)
+	assert.Equal(t, "player.query", draft.BindingFreshness[0].BindingID)
+}
+
+func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *testing.T) {
+	pageService, ctx, auditStore := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	revision := 0
+	saveResp, err := pageService.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "player.query",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "旧查询页"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Schema:   testPageSchema(),
+		Bindings: testPageBindings(),
+	})
+	require.NoError(t, err)
+
+	publishResp, err := pageService.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.query",
+		DraftRevision: &saveResp.DraftRevision,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, publishResp.PublishedVersion)
+
+	pageService.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.query": {
+				Enabled:      true,
+				Version:      "2.0.0",
+				Risk:         "safe",
+				Permission:   "player:query",
+				Resource:     "player",
+				Operation:    "query",
+				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"},"server_id":{"type":"string","title":"区服"}}}`,
+				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+			},
+		},
+	})
+
+	regenerateResp, err := pageService.RegenerateDraft(ctx, &PageRegenerateRequest{
+		PageKey:       "player.query",
+		DraftRevision: &saveResp.DraftRevision,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "player.query", regenerateResp.PageKey)
+	assert.Equal(t, saveResp.DraftRevision+1, regenerateResp.DraftRevision)
+	assert.Equal(t, spec.GeneratedPageQualityBasic, regenerateResp.Quality)
+	assert.Contains(t, string(regenerateResp.Page.Schema), `"server_id"`)
+	assert.Contains(t, string(regenerateResp.Page.Schema), `"x-component":"Input"`)
+	assert.Equal(t, spec.PageTypeOperation, regenerateResp.Page.Type)
+
+	published, err := pageService.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", "player.query")
+	require.NoError(t, err)
+	assert.Equal(t, 1, published.Version)
+	assert.True(t, published.Active)
+
+	draft, err := pageService.GetDraft(ctx, &PageDraftRequest{PageKey: "player.query"})
+	require.NoError(t, err)
+	assert.Equal(t, regenerateResp.DraftRevision, draft.DraftRevision)
+	assert.Equal(t, "query", draft.Title["zh-CN"])
+	assertBindingFreshnessStatus(t, draft.BindingFreshness, spec.BindingFreshnessFunctionVersionStale)
+	assertBindingFreshnessStatus(t, draft.BindingFreshness, spec.BindingFreshnessInputSchemaStale)
+
+	records, total, err := auditStore.List(audit.AuditFilter{
+		EventType: []audit.AuditEventType{audit.EventPageDraftSave},
+	}, audit.AuditPage{PageSize: 10})
+	require.NoError(t, err)
+	require.Equal(t, 2, total)
+	regenerateAudit := findAuditRecordByDetail(records, "action", "regenerate_default")
+	require.NotNil(t, regenerateAudit)
+	assert.Equal(t, "generated_page", regenerateAudit.Details["source"])
+}
+
+func TestServiceRegenerateDraftRejectsRevisionConflict(t *testing.T) {
+	pageService, ctx, _ := newPageTestService(t, "pages:edit", "pages:read")
+	revision := saveTestPageDraft(t, pageService, ctx)
+	staleRevision := revision - 1
+
+	_, err := pageService.RegenerateDraft(ctx, &PageRegenerateRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &staleRevision,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page draft revision conflict")
+}
+
+func TestServiceRegenerateDraftRejectsMissingGeneratedCandidate(t *testing.T) {
+	pageService, ctx, _ := newPageTestService(t, "pages:edit", "pages:read")
+	revision := saveTestPageDraft(t, pageService, ctx)
+
+	_, err := pageService.RegenerateDraft(ctx, &PageRegenerateRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no generated page candidate matches current pageKey")
+}
+
+func TestServicePublishesBasicGeneratedOperationPage(t *testing.T) {
+	pageService, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	consoleService := consoleapi.NewService(pageService.svcCtx)
+	generated := generator.GenerateForOperation(spec.OperationSpec{
+		FunctionID:  "player.query",
+		ResourceKey: "player",
+		Operation:   "query",
+		Enabled:     true,
+	}, generator.GenerateOptions{
+		DefaultLocale: "zh-CN",
+		Functions: map[string]spec.FunctionSpec{
+			"player.query": {
+				ID: "player.query",
+				InputFormilySchema: spec.FormilySchema(`{
+					"type":"object",
+					"properties":{"keyword":{"type":"string","x-component":"Input"}}
+				}`),
+			},
+		},
+	})
+	require.Equal(t, spec.GeneratedPageQualityBasic, generated.Quality)
+	require.Len(t, generated.Bindings, 1)
+	assert.JSONEq(t, `{"keyword":"values.keyword"}`, string(generated.Bindings[0].InputMapping))
+	assert.JSONEq(t, `{}`, string(generated.Bindings[0].OutputMapping))
+
+	revision := 0
+	saveResp, err := pageService.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       generated.PageKey,
+		DraftRevision: &revision,
+		Type:          generated.Type,
+		ResourceKey:   generated.ResourceKey,
+		Title:         map[string]string(generated.Title),
+		Category:      generated.Category,
+		Schema:        json.RawMessage(generated.Schema),
+		Bindings:      generated.Bindings,
+	})
+	require.NoError(t, err)
+
+	publishResp, err := pageService.Publish(ctx, &PagePublishRequest{
+		PageKey:       generated.PageKey,
+		DraftRevision: &saveResp.DraftRevision,
+	})
+	require.NoError(t, err)
+	assert.True(t, publishResp.Published)
+
+	menu, err := consoleService.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
+	require.NoError(t, err)
+	require.Len(t, menu.Items, 1)
+	require.Len(t, menu.Items[0].Children, 1)
+	assert.Equal(t, generated.PageKey, menu.Items[0].Children[0].Key)
 }
 
 func TestServiceKeepsSamePageKeyIsolatedByScope(t *testing.T) {
@@ -561,6 +757,25 @@ func assertDiagnostic(t *testing.T, diags []spec.Diagnostic, code string, field 
 		}
 	}
 	t.Fatalf("expected diagnostic %s at %s, got %#v", code, field, diags)
+}
+
+func assertBindingFreshnessStatus(t *testing.T, diagnostics []spec.BindingFreshnessDiagnostic, status spec.BindingFreshnessStatus) {
+	t.Helper()
+	for _, diag := range diagnostics {
+		if diag.Status == status {
+			return
+		}
+	}
+	t.Fatalf("expected binding freshness status %s, got %#v", status, diagnostics)
+}
+
+func findAuditRecordByDetail(records []*audit.AuditRecord, key string, value interface{}) *audit.AuditRecord {
+	for _, record := range records {
+		if record != nil && record.Details[key] == value {
+			return record
+		}
+	}
+	return nil
 }
 
 func errorDiagnostics(diags []spec.Diagnostic) []spec.Diagnostic {

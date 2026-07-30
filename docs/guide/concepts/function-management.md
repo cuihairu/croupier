@@ -25,6 +25,7 @@ Croupier 的核心模型仍然是“函数注册驱动”，但注册与调用�
 - 风险等级 `risk`
 - 输入 `input_schema`
 - 输出 `output_schema`
+- 能力语义 `capability`
 
 ## 当前注册模型
 
@@ -65,6 +66,7 @@ sequenceDiagram
   "risk": "high",
   "resource": "player",
   "operation": "ban",
+  "capability": "action",
   "tags": ["player", "moderation"],
   "summary": "封禁玩家",
   "description": "封禁指定玩家账号",
@@ -105,13 +107,13 @@ sequenceDiagram
 - 平台协议层：protobuf
 - 业务 payload 层：UTF-8 JSON
 - 参数和响应契约：JSON Schema / OpenAPI Schema
-- 运行时函数表单：Formily Schema
+- 运行时函数表单：JSON Schema + FormPresentationSpec
 
 这意味着 SDK 用户不需要先定义自己的 `.proto` 才能接入。
 
-Server 根据 `input_schema` 或 OpenAPI request schema 生成单函数 Formily Schema 初稿。Dashboard 调用页只消费 `/api/v1/functions/:id/form` 返回的 Formily Schema，不在运行时根据 JSON Schema 推断组件。
+Server 根据 `input_schema` 或 OpenAPI request schema 生成单函数表单展示建议。Dashboard 表单 renderer 使用 JSON Schema validation 和 FormPresentationSpec，不在运行时猜测页面业务语义。
 
-完整业务页面由 Page Studio 管理。Server 会先把函数归一化为 FunctionSpec / ResourceSpec / OperationSpec，再生成 PageSpec 建议。PageSpec 也是 Formily JSON Schema，负责分页、表格、详情、弹窗、任务状态和图表等页面级能力。
+完整业务页面由 Resource Catalog 与 Page Studio 管理。Server 会先把函数归一化为 FunctionContract / ResourceCapability / CapabilitySemantics，再生成 PageProposal。PageSpec 是强类型页面 DSL，负责分页、表格、详情、弹窗、任务状态和图表等页面级能力，由 ProComponents renderer 显示。
 
 详见[函数注册与默认界面](./function-registration-ui.md)和[Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)。
 
@@ -161,7 +163,7 @@ stateDiagram-v2
 
 1. 函数 ID 应稳定且可读，例如 `player.ban`
 2. `summary`、`description`、`input_schema`、`output_schema` 建议补齐
-3. 需要更好的页面候选时应补齐 `resource`、`operation`、`input_schema`、`output_schema` 和可验证 PageContract/mapping
+3. 需要自动加入 CRUD Resource 时补齐 `resource`、`capability`、`input_schema`、`output_schema`；SDK 没有 REST 语义时由 Resource Catalog 审核 identity/collection 能力
 4. 动态菜单多语言、页面标题和按钮文案只能在 Page Studio / PageSpec 中配置
 5. 需要平台理解的字段必须放在协议层
 6. 只属于具体业务的参数放到 JSON payload

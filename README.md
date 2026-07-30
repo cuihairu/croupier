@@ -33,7 +33,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 - 统一的函数注册、调度、调用与作业模型
 - 轻量 session 传输：单连接、双向请求、可重连、可背压、可摘流
 - JSON payload + protobuf 信封，兼顾跨语言一致性与接入成本
-- Formily + JSON Schema 驱动的控制台 UI
+- JSON Schema 能力契约 + Ant Design Pro/ProComponents 驱动的生成式控制台 UI
 
 ## SDK 生态
 
@@ -55,7 +55,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 ```mermaid
 graph TB
   subgraph "展示层"
-    UI[Dashboard<br/>React + Ant Design + Formily]
+    UI[Dashboard<br/>React + Ant Design Pro + ProComponents]
   end
 
   subgraph "控制层"

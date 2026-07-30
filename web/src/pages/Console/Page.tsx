@@ -6,7 +6,7 @@
  */
 
 import { useParams, history, useIntl } from '@umijs/max';
-import { Button, Result, Spin } from 'antd';
+import { Alert, Button, Result, Space, Spin, Tag, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useEffect, useState } from 'react';
 import FormilyPageRenderer from '@/components/FormilyPageRenderer';
@@ -156,6 +156,7 @@ export default function ConsolePage() {
 
   // 渲染页面
   const breadcrumbCategoryKey = page?.category?.key || categoryKey;
+  const bindingFreshness = page?.bindingFreshness || [];
 
   return (
     <PageContainer
@@ -171,6 +172,26 @@ export default function ConsolePage() {
         ],
       }}
     >
+      {bindingFreshness.length > 0 ? (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="页面绑定的函数契约已变化，执行已被阻断"
+          description={
+            <Space direction="vertical" size={4}>
+              {bindingFreshness.map((item) => (
+                <Space key={`${item.bindingId}:${item.status}:${item.diagnostic.code}`} wrap>
+                  <Tag color="red">{item.status}</Tag>
+                  <Typography.Text code>{item.bindingId}</Typography.Text>
+                  {item.functionId ? <Typography.Text code>{item.functionId}</Typography.Text> : null}
+                  <Typography.Text>{item.diagnostic.message}</Typography.Text>
+                </Space>
+              ))}
+            </Space>
+          }
+        />
+      ) : null}
       <FormilyPageRenderer
         page={page!}
         onExecute={(bindingId, payload) => executePageBinding(page!.pageKey, bindingId, payload)}

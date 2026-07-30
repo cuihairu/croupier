@@ -48,6 +48,7 @@ await client.connect();
 
 - `resource`
 - `operation`
+- `capability`
 - `risk`
 - `enabled`
 - `permission`
@@ -57,6 +58,7 @@ await client.connect();
 - `operation` 是业务操作 key，例如 `ban`、`grant`、`send`。
 - SDK descriptor 不提供 `category_display`、`entity_display`、`operation_display`、`operation_kind`、`placement` 或 `page_hint`。
 - 动态分类、页面标题、按钮文案和页面位置只在 PageSpec / Page Studio 中确定，不写入 SDK descriptor，也不写入前端静态 locale 文件。
-- 默认 PageSpec 候选由 Server 根据 FunctionSpec、JSON Schema、PageContract 和 diagnostics 生成；缺少可验证 mapping 时只能进入待编排状态。
+- `capability` 只允许受控资源语义：`collection_query/item_query/create/update/delete/action/task/report`；它不是页面类型或按钮位置。
+- 默认 PageProposal 由 Server 根据 FunctionContract、JSON Schema、CapabilitySemantics 和 diagnostics 生成；SDK 不提供 PageContract、列、mapping 或 UI。
 
 完整契约见 [OpenAPI / SDK Descriptor v2](../../../architecture/openapi-sdk-descriptor-v2.md)。

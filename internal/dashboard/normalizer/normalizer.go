@@ -20,7 +20,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 )
 
-type jsonObject map[string]interface{}
+type jsonObject map[string]json.RawMessage
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -305,8 +305,8 @@ func inferCategoryFromKey(key string) string {
 func deriveFormilySchema(jsonSchema jsonObject) spec.FormilySchema {
 	// Create a Formily-compatible schema wrapper
 	formily := jsonObject{
-		"type":       "object",
-		"properties": jsonObject{},
+		"type":       rawJSONString("object"),
+		"properties": rawJSONObject(jsonObject{}),
 	}
 
 	// Extract properties from JSON Schema
@@ -315,25 +315,25 @@ func deriveFormilySchema(jsonSchema jsonObject) spec.FormilySchema {
 		for name, prop := range props {
 			if propMap, ok := asJSONObject(prop); ok {
 				field := jsonObject{
-					"type":        getOrDefault(propMap, "type", "string"),
-					"title":       getOrDefault(propMap, "title", name),
-					"x-component": mapTypeToComponent(getOrDefault(propMap, "type", "string")),
+					"type":        rawJSONString(getOrDefault(propMap, "type", "string")),
+					"title":       rawJSONString(getOrDefault(propMap, "title", name)),
+					"x-component": rawJSONString(mapTypeToComponent(getOrDefault(propMap, "type", "string"))),
 				}
-				if desc, ok := propMap["description"].(string); ok {
-					field["description"] = desc
+				if desc := getString(propMap, "description"); desc != "" {
+					field["description"] = rawJSONString(desc)
 				}
-				if enum, ok := propMap["enum"].([]any); ok {
+				if enum, ok := propMap["enum"]; ok {
 					field["enum"] = enum
-					field["x-component"] = "Select"
+					field["x-component"] = rawJSONString("Select")
 				}
-				formilyProps[name] = field
+				formilyProps[name] = rawJSONObject(field)
 			}
 		}
-		formily["properties"] = formilyProps
+		formily["properties"] = rawJSONObject(formilyProps)
 	}
 
 	// Handle required fields
-	if required, ok := jsonSchema["required"].([]any); ok {
+	if required, ok := jsonSchema["required"]; ok {
 		formily["required"] = required
 	}
 
@@ -344,17 +344,17 @@ func deriveFormilySchema(jsonSchema jsonObject) spec.FormilySchema {
 // minimalPayloadFormilySchema returns a Formily schema with a single "payload" field.
 func minimalPayloadFormilySchema() spec.FormilySchema {
 	schema := jsonObject{
-		"type": "object",
-		"properties": jsonObject{
-			"payload": jsonObject{
-				"type":        "object",
-				"title":       "Payload",
-				"x-component": "Input.TextArea",
-				"x-component-props": jsonObject{
-					"rows": 6,
-				},
-			},
-		},
+		"type": rawJSONString("object"),
+		"properties": rawJSONObject(jsonObject{
+			"payload": rawJSONObject(jsonObject{
+				"type":        rawJSONString("object"),
+				"title":       rawJSONString("Payload"),
+				"x-component": rawJSONString("Input.TextArea"),
+				"x-component-props": rawJSONObject(jsonObject{
+					"rows": rawJSONNumber(6),
+				}),
+			}),
+		}),
 	}
 	b, _ := json.Marshal(schema)
 	return spec.FormilySchema(b)
@@ -362,21 +362,48 @@ func minimalPayloadFormilySchema() spec.FormilySchema {
 
 // getOrDefault extracts a string value from a map or returns a default.
 func getOrDefault(m jsonObject, key, defaultVal string) string {
-	if v, ok := m[key].(string); ok {
+	if v := getString(m, key); v != "" {
 		return v
 	}
 	return defaultVal
 }
 
-func asJSONObject(value interface{}) (jsonObject, bool) {
-	switch v := value.(type) {
-	case jsonObject:
-		return v, true
-	case map[string]any:
-		return jsonObject(v), true
-	default:
+func asJSONObject(raw json.RawMessage) (jsonObject, bool) {
+	if len(raw) == 0 {
 		return nil, false
 	}
+	var out jsonObject
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, false
+	}
+	return out, true
+}
+
+func getString(m jsonObject, key string) string {
+	raw, ok := m[key]
+	if !ok {
+		return ""
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+func rawJSONString(value string) json.RawMessage {
+	raw, _ := json.Marshal(value)
+	return raw
+}
+
+func rawJSONNumber(value int) json.RawMessage {
+	raw, _ := json.Marshal(value)
+	return raw
+}
+
+func rawJSONObject(value jsonObject) json.RawMessage {
+	raw, _ := json.Marshal(value)
+	return raw
 }
 
 // mapTypeToComponent maps JSON Schema types to Formily component names.

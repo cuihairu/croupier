@@ -190,7 +190,7 @@ func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptio
 	title := spec.LocalizedText{
 		opts.DefaultLocale: firstNonEmpty(op.Operation, op.FunctionID, pageKey),
 	}
-	binding := pageBinding(op, "main", spec.BindingUsageAction, spec.PageExecutionModeSync)
+	binding := basicOperationBinding(op, opts)
 	diags := assessOperationCandidate(op)
 
 	return spec.GeneratedPageSpec{
@@ -203,7 +203,7 @@ func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptio
 			Schema:      buildOperationPageSchema(pageKey, resourceKey, binding, opts),
 			Bindings:    []spec.PageFunctionBinding{binding},
 		},
-		Quality:     qualityFromDiagnostics(diags),
+		Quality:     operationQuality(op, diags),
 		Diagnostics: diags,
 	}
 }
@@ -502,6 +502,38 @@ func pageBinding(op spec.OperationSpec, suffix string, usage spec.PageBindingUsa
 	return binding
 }
 
+func basicOperationBinding(op spec.OperationSpec, opts GenerateOptions) spec.PageFunctionBinding {
+	binding := pageBinding(op, "main", spec.BindingUsageAction, spec.PageExecutionModeSync)
+	if op.PageContract == nil {
+		binding.InputMapping = identityInputMapping(opts.Functions[op.FunctionID])
+		binding.OutputMapping = json.RawMessage(`{}`)
+	}
+	return binding
+}
+
+func identityInputMapping(fn spec.FunctionSpec) json.RawMessage {
+	properties := functionFormProperties(fn)
+	if len(properties) == 0 {
+		return json.RawMessage(`{}`)
+	}
+	keys := make([]string, 0, len(properties))
+	for key := range properties {
+		if strings.TrimSpace(key) != "" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	mapping := make(map[string]string, len(keys))
+	for _, key := range keys {
+		mapping[key] = "values." + key
+	}
+	raw, err := json.Marshal(mapping)
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return json.RawMessage(raw)
+}
+
 func sortedOperations(ops []spec.OperationSpec) []spec.OperationSpec {
 	out := append([]spec.OperationSpec(nil), ops...)
 	sort.SliceStable(out, func(i, j int) bool {
@@ -794,16 +826,24 @@ func normalizePath(path string) []string {
 	return out
 }
 
-func qualityFromDiagnostics(diags []spec.Diagnostic) string {
+func qualityFromDiagnostics(diags []spec.Diagnostic) spec.GeneratedPageQuality {
 	for _, d := range diags {
 		if d.Severity == spec.SeverityError {
-			return "blocked"
+			return spec.GeneratedPageQualityBlocked
 		}
 	}
 	if len(diags) > 0 {
-		return "needs_review"
+		return spec.GeneratedPageQualityNeedsReview
 	}
-	return "ready"
+	return spec.GeneratedPageQualityReady
+}
+
+func operationQuality(op spec.OperationSpec, diags []spec.Diagnostic) spec.GeneratedPageQuality {
+	quality := qualityFromDiagnostics(diags)
+	if quality == spec.GeneratedPageQualityNeedsReview && op.PageContract == nil && strings.TrimSpace(op.FunctionID) != "" {
+		return spec.GeneratedPageQualityBasic
+	}
+	return quality
 }
 
 func firstNonEmpty(values ...string) string {

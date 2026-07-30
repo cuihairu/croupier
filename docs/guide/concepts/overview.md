@@ -31,7 +31,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
 | --- | --- |
 | 统一 session 传输 | 双向请求、重连、heartbeat、drain、背压 |
 | 函数注册驱动 | SDK / Agent 上报 function/provider/process 能力 |
-| Schema 驱动 UI | OpenAPI / JSON Schema 作为契约输入，运行时 UI 统一使用 Formily Schema |
+| 契约驱动后台 | OpenAPI / JSON Schema 提供能力契约，平台生成可发布的 ProComponents 页面 |
 | JSON payload | 用户业务数据默认 JSON |
 | protobuf 信封 | 平台控制字段与消息路由统一 protobuf |
 
@@ -86,19 +86,20 @@ Croupier 的管理界面在“函数”这一模块下分为三个层次，各�
 | 层次 | 定位 | 数据来源 | 典型操作 |
 | --- | --- | --- | --- |
 | **函数目录** | 能力供给层 | FunctionSpec / 函数注册目录 | 确认函数是否注册成功、Schema 是否正确、有没有可调用实例、单函数 invoke |
-| **Page Studio** | 页面装配层 | ResourceSpec / OperationSpec / PageSpec 草稿 | 生成默认页面、编辑 Formily Page Schema、预览、发布、回滚 |
+| **Resource Catalog** | 能力语义层 | FunctionContract / CapabilitySemantics | 审核资源、CRUD/任务/报表语义与生成诊断 |
+| **Page Studio** | 页面装配层 | PageProposal / PageDraft | 接受默认页面、语义化编辑、预览、发布、合并、回滚 |
 | **运行控制台** | 执行层 | PublishedPageSpec / ConsoleMenuSpec | 面向最终用户/运营执行业务操作 |
 
 三者串成一条主流程：
 
 ```
-函数注册 → 函数目录（确认能力） → Page Studio（装配页面） → 运行控制台（执行）
+函数注册 → 函数目录（确认能力） → Resource Catalog（确认语义） → Page Studio（装配页面） → 运行控制台（执行）
 ```
 
 - 函数目录只负责单个函数的元数据、Schema、实例和单函数调用，不负责最终业务页面。
-- Page Studio 把多个函数组合成 Entity Page、Operation Page、Task Page 或 Report Page，管理草稿、发布版本和回滚。
-- 不是所有函数都进入 Entity Page。只有明确围绕同一资源生命周期展开的函数才进入 Entity Page。
-- 默认页面由 Server 根据 FunctionSpec / ResourceSpec / OperationSpec 生成建议，用户确认后再编辑和发布。
+- Page Studio 把多个函数组合成 ResourcePage、OperationPage、TaskPage 或 ReportPage，管理草稿、发布版本和回滚。
+- CRUD Resource 是默认高质量路径；非 CRUD 函数也有独立 Operation/Task/Report 页面，不会被强行塞入资源页。
+- 默认页面由 Server 根据 FunctionContract / CapabilitySemantics 生成 Proposal，用户可以直接发布或局部编辑。
 - 运行控制台只展示已发布 PageSpec，动态菜单不依赖静态国际化文件。
 
 详见 [函数管理](./function-management.md)、[函数注册与默认界面](./function-registration-ui.md) 和 [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)。
@@ -108,44 +109,36 @@ Croupier 的管理界面在“函数”这一模块下分为三个层次，各�
 当前 Dashboard 只有一套目标模型：
 
 ```text
-FunctionSpec -> ResourceSpec + OperationSpec -> PageSpec -> PublishedPageSpec -> ConsoleMenuSpec
+FunctionContract -> ResourceCapability -> CapabilitySemantics -> PageProposal -> PageSpec -> PublishedPageSpec -> ConsoleMenuSpec
 ```
 
-### FunctionSpec
+### FunctionContract
 
-`FunctionSpec` 是函数注册后的归一化能力描述。它说明“有什么函数、怎么调用、输入输出是什么、风险是什么”。
+`FunctionContract` 是函数注册后的归一化能力描述。它说明“有什么函数、怎么调用、输入输出是什么、风险是什么”。
 
 它不等于页面，也不决定左侧菜单。
 
-### ResourceSpec
+### ResourceCapability
 
-`ResourceSpec` 是 Dashboard 组织页面用的资源或能力域，例如 `player`、`mail`、`inventory`、`analytics`。
+`ResourceCapability` 是 Dashboard 组织页面用的资源能力集合，例如 `player`、`mail`、`inventory`、`analytics`。
 
-它不是数据库表，也不是传统 CRUD Entity。一个 Resource 可以承载 CRUD 操作，也可以承载游戏运营里的封禁、发奖、发邮件、补单等动作。
+它不是旧 Entity API。一个 Resource 可以承载 CRUD 操作，也可以承载游戏运营里的封禁、发奖、发邮件、补单等动作。
 
-### OperationSpec
+### CapabilitySemantics
 
-`OperationSpec` 描述函数在资源中的业务动作和候选诊断，不保存最终页面位置。
+`CapabilitySemantics` 描述 collection、identity、CRUD、action、task、report 等可验证业务用法，不保存最终页面位置、列或菜单。
 
-必须区分：
-
-| 字段 | 含义 | 示例 |
-| --- | --- | --- |
-| `operation` | 业务动作 key | `ban`、`grant`、`send`、`list` |
-| `PageCandidate.kind` | Server 生成的候选页面形态 | `entity`、`operation`、`task`、`report` |
-| `PageFunctionBinding.usage` | PageSpec 中页面实际消费函数的方式 | `query`、`detail`、`action`、`task`、`report` |
-
-`operation` 只能表示业务动作 key。SDK/OpenAPI 注册不提供 `operationKind`、`placement`、菜单或动态显示字段；页面类型、按钮位置和多语言标题必须由 PageSpec 表达。
+SDK/OpenAPI 的 `operation` 仍只是业务动作 key。SDK/OpenAPI 可提供受控 `capability`，但不提供菜单、列、mapping、按钮位置或动态显示字段；页面类型、动作位置和多语言标题只能由 PageSpec 表达。
 
 ### PageSpec
 
-`PageSpec` 是业务页面编排，必须是 Formily JSON Schema。它负责查询区、分页、表格、详情、弹窗、批量操作、任务状态和报表图表。
+`PageSpec` 是强类型业务页面编排，负责查询区、分页、表格、详情、弹窗、批量操作、任务状态和报表图表。它不包含 React 组件树，由 ProComponents renderer 负责显示。
 
 Page 可以组合多个函数。分页查询属于 Page 的状态和字段映射，不属于单函数输入表单。
 
 ### Page Studio
 
-Page Studio 管理 PageSpec 草稿。它可以展示 Server 生成的默认页面建议，也允许用户编辑、预览、校验、发布和回滚。
+Page Studio 管理 PageProposal 和 PageSpec 草稿。它可以展示 Server 生成的默认页面建议，允许直接发布，也允许用户语义化编辑、预览、校验、合并、发布和回滚。
 
 Page Studio 不是运行控制台。未发布草稿不能出现在运行控制台左侧菜单里。
 
@@ -159,14 +152,9 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 动态分类、页面标题和菜单多语言来自 PublishedPageSpec 的强类型字段。前端静态 locale 文件只用于固定系统菜单。
 
-## 不再推荐的理解
+## 当前边界
 
-以下旧概念不应再当作新设计依据：
-
-- `历史 REQ/REP` 作为主链路模型
-- `Server -> Agent` 直接回拨
-- `rpc_addr` 作为长期运行时入口
-- SDK 开本地监听端口给 `Agent`
-- Resource API 直接修改业务对象数据
-- 自定义 `layout` 枚举作为运行时 UI 协议
-- 动态菜单分类写入静态国际化文件
+- Agent 与 SDK 通过 session 模型接入，Server 调用复用已建立链路。
+- Resource API 管理能力语义，不直接修改业务对象数据。
+- PageSpec 是运行控制台唯一页面协议，动态菜单分类来自 PublishedPageSpec。
+- 静态国际化文件只负责固定系统菜单，不承载动态页面事实。

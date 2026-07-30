@@ -5,7 +5,6 @@ package descriptors
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -24,6 +23,9 @@ func Collect(ctx context.Context, svcCtx *svc.ServiceContext) []normalizer.Descr
 	}
 
 	byID := map[string]*normalizer.DescriptorInput{}
+	gameID, env := svc.GameScopeFromContext(ctx)
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
 	ensure := func(fid string) *normalizer.DescriptorInput {
 		fid = strings.TrimSpace(fid)
 		if fid == "" {
@@ -44,6 +46,12 @@ func Collect(ctx context.Context, svcCtx *svc.ServiceContext) []normalizer.Descr
 		store.Mu().RLock()
 		for _, sess := range store.AgentsUnsafe() {
 			if sess == nil {
+				continue
+			}
+			if gameID != "" && strings.TrimSpace(sess.GameID) != gameID {
+				continue
+			}
+			if env != "" && strings.TrimSpace(sess.Env) != env {
 				continue
 			}
 			for fid, meta := range sess.Functions {
@@ -323,7 +331,9 @@ func mergeFunctionRecordInput(input *normalizer.DescriptorInput, fn model.Functi
 		}
 	}
 	if len(fn.Metadata) > 0 {
-		mergeMetadataInput(input, fn.Metadata)
+		if raw, err := json.Marshal(fn.Metadata); err == nil {
+			mergeMetadataInput(input, rawMessageMapFromJSON(raw))
+		}
 	}
 }
 
@@ -343,7 +353,8 @@ func mergeOpenAPIOperationInput(input *normalizer.DescriptorInput, op *openapi3.
 	if schema := openAPIResponseSchema(op); schema != "" && input.OutputSchema == "" {
 		input.OutputSchema = schema
 	}
-	ext := op.Extensions
+	extRaw, _ := json.Marshal(op.Extensions)
+	ext := rawMessageMapFromJSON(extRaw)
 	if input.Resource == "" {
 		input.Resource = stringExtension(ext, "x-resource")
 	}
@@ -361,7 +372,7 @@ func mergeOpenAPIOperationInput(input *normalizer.DescriptorInput, op *openapi3.
 	}
 }
 
-func mergeMetadataInput(input *normalizer.DescriptorInput, metadata map[string]interface{}) {
+func mergeMetadataInput(input *normalizer.DescriptorInput, metadata map[string]json.RawMessage) {
 	if input == nil || len(metadata) == 0 {
 		return
 	}
@@ -448,7 +459,7 @@ func schemaRefJSON(ref *openapi3.SchemaRef) string {
 	return string(raw)
 }
 
-func stringExtension(extensions map[string]interface{}, key string) string {
+func stringExtension(extensions map[string]json.RawMessage, key string) string {
 	if len(extensions) == 0 || key == "" {
 		return ""
 	}
@@ -460,18 +471,16 @@ func stringExtension(extensions map[string]interface{}, key string) string {
 	}
 	for _, candidate := range candidates {
 		if raw, ok := extensions[candidate]; ok {
-			switch v := raw.(type) {
-			case string:
-				return strings.TrimSpace(v)
-			case fmt.Stringer:
-				return strings.TrimSpace(v.String())
+			var value string
+			if err := json.Unmarshal(raw, &value); err == nil {
+				return strings.TrimSpace(value)
 			}
 		}
 	}
 	return ""
 }
 
-func pageContractExtension(extensions map[string]interface{}, key string) *spec.PageContract {
+func pageContractExtension(extensions map[string]json.RawMessage, key string) *spec.PageContract {
 	if len(extensions) == 0 || key == "" {
 		return nil
 	}
@@ -494,30 +503,21 @@ func pageContractExtension(extensions map[string]interface{}, key string) *spec.
 	return nil
 }
 
-func decodePageContract(raw interface{}) *spec.PageContract {
-	switch value := raw.(type) {
-	case spec.PageContract:
-		return &value
-	case *spec.PageContract:
-		return value
-	case string:
-		value = strings.TrimSpace(value)
-		if value == "" {
+func decodePageContract(raw json.RawMessage) *spec.PageContract {
+	if len(raw) == 0 {
+		return nil
+	}
+	var encoded string
+	if err := json.Unmarshal(raw, &encoded); err == nil {
+		encoded = strings.TrimSpace(encoded)
+		if encoded == "" {
 			return nil
 		}
-		var contract spec.PageContract
-		if err := json.Unmarshal([]byte(value), &contract); err == nil && strings.TrimSpace(contract.Version) != "" {
-			return &contract
-		}
-	case map[string]interface{}:
-		data, err := json.Marshal(value)
-		if err != nil {
-			return nil
-		}
-		var contract spec.PageContract
-		if err := json.Unmarshal(data, &contract); err == nil && strings.TrimSpace(contract.Version) != "" {
-			return &contract
-		}
+		raw = json.RawMessage(encoded)
+	}
+	var contract spec.PageContract
+	if err := json.Unmarshal(raw, &contract); err == nil && strings.TrimSpace(contract.Version) != "" {
+		return &contract
 	}
 	return nil
 }
@@ -531,27 +531,15 @@ func firstPageContract(values ...*spec.PageContract) *spec.PageContract {
 	return nil
 }
 
-func toStringMap(raw interface{}) map[string]string {
-	switch v := raw.(type) {
-	case map[string]string:
-		out := make(map[string]string, len(v))
-		for key, value := range v {
-			if strings.TrimSpace(value) != "" {
-				out[key] = strings.TrimSpace(value)
-			}
-		}
-		return out
-	case map[string]interface{}:
-		out := make(map[string]string, len(v))
-		for key, value := range v {
-			if s, ok := value.(string); ok && strings.TrimSpace(s) != "" {
-				out[key] = strings.TrimSpace(s)
-			}
-		}
-		return out
-	default:
+func rawMessageMapFromJSON(raw []byte) map[string]json.RawMessage {
+	if len(raw) == 0 {
 		return nil
 	}
+	var out map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 func firstNonEmpty(values ...string) string {

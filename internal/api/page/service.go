@@ -15,6 +15,8 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
+	"github.com/cuihairu/croupier/internal/dashboard/freshness"
+	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
@@ -87,7 +89,9 @@ func (s *Service) GetDraft(ctx context.Context, req *PageDraftRequest) (*PageDra
 	if err != nil {
 		return nil, err
 	}
-	return pageDraftResponseFromModel(p), nil
+	resp := pageDraftResponseFromModel(p)
+	resp.BindingFreshness = s.bindingFreshnessForPublishedDraft(ctx, p)
+	return resp, nil
 }
 
 func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSaveResponse, error) {
@@ -233,6 +237,97 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 		"binding_count":  len(req.Bindings),
 	})
 	return &PageSaveResponse{PageKey: req.PageKey, DraftRevision: nextRevision}, nil
+}
+
+func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateRequest) (*PageRegenerateResponse, error) {
+	if err := s.requirePageEdit(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	actor, err := logicutils.CurrentUsername(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.DraftRevision == nil {
+		return nil, errorx.NewBadRequest("draftRevision is required")
+	}
+
+	p, err := s.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, gameID, env, req.PageKey)
+	if err != nil {
+		return nil, ErrPageNotFound(req.PageKey)
+	}
+	if p.DraftRevision != *req.DraftRevision {
+		return nil, errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+			"expected": p.DraftRevision,
+			"current":  p.DraftRevision,
+			"provided": *req.DraftRevision,
+		})
+	}
+
+	current := pageSpecFromModel(p)
+	generated, err := s.generateReplacementForDraft(ctx, current)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	if err := applyPageSpecToModel(p, generated.PageSpec); err != nil {
+		return nil, err
+	}
+	p.GameID = gameID
+	p.Env = env
+	p.Status = "draft"
+	p.UpdatedBy = actor
+	p.UpdatedAt = now
+	p.DraftRevision++
+
+	specJSON, err := buildPageSpecJSON(p)
+	if err != nil {
+		return nil, err
+	}
+	err = s.withPageTransaction(ctx, func(pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
+		if err := pageModel.Upsert(ctx, p); err != nil {
+			return err
+		}
+		return versionModel.UpsertByScopePageKeyVersion(ctx, &model.PageVersion{
+			GameID:    gameID,
+			Env:       env,
+			PageKey:   p.PageKey,
+			Version:   p.DraftRevision,
+			SpecJSON:  specJSON,
+			Status:    "draft",
+			Message:   "regenerate default page from latest function contracts",
+			CreatedBy: actor,
+			CreatedAt: now,
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s.auditPageEvent(ctx, audit.EventPageDraftSave, gameID, env, req.PageKey, map[string]interface{}{
+		"action":             "regenerate_default",
+		"source":             "generated_page",
+		"draft_revision":     p.DraftRevision,
+		"previous_revision":  *req.DraftRevision,
+		"quality":            string(generated.Quality),
+		"diagnostic_count":   len(generated.Diagnostics),
+		"diagnostic_errors":  countErrors(generated.Diagnostics),
+		"binding_count":      len(generated.Bindings),
+		"resource_key":       generated.ResourceKey,
+		"generated_page_key": generated.PageKey,
+	})
+
+	return &PageRegenerateResponse{
+		PageKey:       p.PageKey,
+		DraftRevision: p.DraftRevision,
+		Page:          pageSpecFromModel(p),
+		Diagnostics:   generated.Diagnostics,
+		Quality:       generated.Quality,
+	}, nil
 }
 
 func (s *Service) Validate(ctx context.Context, req *PageValidateRequest) (*PageValidateResponse, error) {
@@ -532,6 +627,35 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 	return &PageRollbackResponse{PageKey: req.PageKey, DraftRevision: p.DraftRevision}, nil
 }
 
+func (s *Service) generateReplacementForDraft(ctx context.Context, current spec.PageSpec) (spec.GeneratedPageSpec, error) {
+	resourceKey := strings.TrimSpace(current.ResourceKey)
+	if resourceKey == "" {
+		return spec.GeneratedPageSpec{}, errorx.NewBadRequest("page resourceKey is required for default regeneration")
+	}
+	results, resources := normalizedDashboardSpecs(ctx, s.svcCtx)
+	resource, ok := resources[resourceKey]
+	if !ok || resource == nil {
+		return spec.GeneratedPageSpec{}, errorx.NewBadRequestWithDetails("resource is not available for default regeneration", map[string]any{
+			"resourceKey": resourceKey,
+			"pageKey":     current.PageKey,
+		})
+	}
+	pages := generator.GenerateForResource(*resource, generator.GenerateOptions{
+		DefaultLocale: "zh-CN",
+		Functions:     functionsByID(results),
+	})
+	for _, candidate := range pages {
+		if candidate.PageKey == current.PageKey {
+			return candidate, nil
+		}
+	}
+	return spec.GeneratedPageSpec{}, errorx.NewBadRequestWithDetails("no generated page candidate matches current pageKey", map[string]any{
+		"pageKey":     current.PageKey,
+		"resourceKey": resourceKey,
+		"candidates":  generatedPageKeys(pages),
+	})
+}
+
 func (s *Service) findDraft(ctx context.Context, pageKey string) (*model.PageSpec, error) {
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
@@ -733,6 +857,28 @@ func pageDraftResponseFromModel(p *model.PageSpec) *PageDraftResponse {
 	}
 }
 
+func (s *Service) bindingFreshnessForPublishedDraft(ctx context.Context, p *model.PageSpec) []spec.BindingFreshnessDiagnostic {
+	if s == nil || s.svcCtx == nil || s.svcCtx.PublishedPageSpecModel == nil || p == nil || p.PublishedVersion == 0 {
+		return nil
+	}
+	published, err := s.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, p.GameID, p.Env, p.PageKey)
+	if err != nil {
+		return nil
+	}
+	pageSpec, contracts := parsePublishedPageForFreshness(*published)
+	return freshness.EvaluatePublishedBindings(pageSpec.Bindings, contracts, s.normalizedFunctions(ctx))
+}
+
+func parsePublishedPageForFreshness(published model.PublishedPageSpec) (spec.PageSpec, []spec.BindingContractSnapshot) {
+	var pageSpec spec.PageSpec
+	_ = json.Unmarshal([]byte(published.SpecJSON), &pageSpec)
+	var contracts []spec.BindingContractSnapshot
+	if strings.TrimSpace(published.BindingContractsJSON) != "" {
+		_ = json.Unmarshal([]byte(published.BindingContractsJSON), &contracts)
+	}
+	return pageSpec, contracts
+}
+
 func convertBindingsToSpec(bindings []model.PageFunctionBindingBinding) []spec.PageFunctionBinding {
 	if bindings == nil {
 		return nil
@@ -864,15 +1010,34 @@ func (s *Service) withPageTransaction(
 }
 
 func (s *Service) normalizedFunctions(ctx context.Context) map[string]spec.FunctionSpec {
-	inputs := descriptors.Collect(ctx, s.svcCtx)
-	out := make(map[string]spec.FunctionSpec, len(inputs))
-	for _, input := range inputs {
-		result := normalizer.Normalize(input)
-		if result.Function.ID != "" {
+	results, _ := normalizedDashboardSpecs(ctx, s.svcCtx)
+	return functionsByID(results)
+}
+
+func normalizedDashboardSpecs(ctx context.Context, svcCtx *svc.ServiceContext) ([]normalizer.NormalizerResult, map[string]*spec.ResourceSpec) {
+	inputs := descriptors.Collect(ctx, svcCtx)
+	return normalizer.NormalizeBatch(inputs)
+}
+
+func functionsByID(results []normalizer.NormalizerResult) map[string]spec.FunctionSpec {
+	out := make(map[string]spec.FunctionSpec, len(results))
+	for _, result := range results {
+		if strings.TrimSpace(result.Function.ID) != "" {
 			out[result.Function.ID] = result.Function
 		}
 	}
 	return out
+}
+
+func generatedPageKeys(pages []spec.GeneratedPageSpec) []string {
+	keys := make([]string, 0, len(pages))
+	for _, page := range pages {
+		if key := strings.TrimSpace(page.PageKey); key != "" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func (s *Service) requirePageRead(ctx context.Context) error {

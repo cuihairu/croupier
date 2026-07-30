@@ -2,6 +2,8 @@ package console
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -211,6 +213,42 @@ func TestServiceExecuteBindingRejectsChangedRiskOrPermission(t *testing.T) {
 	assert.Contains(t, err.Error(), "binding_stale")
 }
 
+func TestServicePageReturnsBindingFreshnessDiagnostics(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "console:read")
+	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))
+	service.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.query": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				Resource:     "player",
+				Operation:    "query",
+				Risk:         "safe",
+				Permission:   "player:query",
+				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"},"region":{"type":"string"}}}`,
+				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+			},
+		},
+	})
+
+	pageResp, err := service.Page(ctx, &ConsolePageRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	require.Len(t, pageResp.Page.BindingFreshness, 1)
+	assert.Equal(t, spec.BindingFreshnessInputSchemaStale, pageResp.Page.BindingFreshness[0].Status)
+	assert.Equal(t, "binding_input_schema_stale", pageResp.Page.BindingFreshness[0].Diagnostic.Code)
+
+	pagesResp, err := service.Pages(ctx, &ConsolePagesRequest{})
+	require.NoError(t, err)
+	require.Len(t, pagesResp.Items, 1)
+	require.Len(t, pagesResp.Items[0].BindingFreshness, 1)
+	assert.Equal(t, spec.BindingFreshnessInputSchemaStale, pagesResp.Items[0].BindingFreshness[0].Status)
+}
+
 func newConsoleTestService(t *testing.T, permissions ...string) (*Service, context.Context) {
 	service, ctx, _ := newConsoleTestServiceWithAudit(t, permissions...)
 	return service, ctx
@@ -411,8 +449,8 @@ func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Co
 }
 
 func seedConsolePublishedPageWithCurrentContracts(svcCtx *svc.ServiceContext, ctx context.Context) error {
-	inputDigest := digestRaw([]byte(`{"type":"object","properties":{"keyword":{"type":"string"}}}`))
-	outputDigest := digestRaw([]byte(`{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`))
+	inputDigest := testDigestRaw([]byte(`{"type":"object","properties":{"keyword":{"type":"string"}}}`))
+	outputDigest := testDigestRaw([]byte(`{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`))
 	page := spec.PageSpec{
 		PageKey:     "player.manage",
 		Type:        spec.PageTypeOperation,
@@ -522,4 +560,12 @@ func grantConsolePermission(t *testing.T, db *gorm.DB, roleID uint, permissionID
 	}
 	require.NoError(t, db.Where("id = ?", permission.ID).FirstOrCreate(&permission).Error)
 	require.NoError(t, db.Create(&model.RolePermission{RoleID: roleID, PermissionID: permissionID}).Error)
+}
+
+func testDigestRaw(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
 }

@@ -5,7 +5,7 @@
 ```go
 type JSONValue = json.RawMessage
 type JSONSchema = json.RawMessage
-type FormilySchema = json.RawMessage
+type FormPresentationSpec = json.RawMessage
 type OpenAPIOperation = json.RawMessage
 ```
 
@@ -13,7 +13,7 @@ type OpenAPIOperation = json.RawMessage
 
 - `JSONValue` 仅表示业务 payload 或函数返回值，结构必须由函数 `input_schema` / `output_schema` 约束。
 - `JSONSchema` 仅表示 JSON Schema / OpenAPI Schema。
-- `FormilySchema` 仅表示 Formily JSON Schema，不能混入自定义 `layout` / `components` 协议。
+- `FormPresentationSpec` 表示 JSON Schema 表单的受控展示配置，不能承载页面布局、菜单或任意组件 props。
 - `OpenAPIOperation` 只用于契约查看，不用于运行控制台直接生成页面。
 - `json.RawMessage` 只是 HTTP 边界上的 JSON 承载类型，服务端必须在保存或执行前完成结构校验。
 
@@ -411,7 +411,8 @@ type FunctionFormRequest struct {
 
 ```go
 type FunctionFormResponse struct {
-	Schema FormilySchema `json:"schema,omitempty"`
+	Schema JSONSchema `json:"schema,omitempty"`
+	Presentation FormPresentationSpec `json:"presentation,omitempty"`
 	Custom bool `json:"custom"`
 	HasDefault bool `json:"hasDefault"`
 	FormSource string `json:"formSource"` // custom_metadata / config_file_override / generated_default / none
@@ -435,7 +436,7 @@ type FunctionFormResponse struct {
 ```go
 type FunctionFormUpdateRequest struct {
 	ID string `path:"id"`
-	Schema FormilySchema `json:"schema"`
+	Presentation FormPresentationSpec `json:"presentation"`
 }
 ```
 
@@ -446,7 +447,8 @@ type FunctionFormUpdateRequest struct {
 
 ```go
 type FunctionFormResponse struct {
-	Schema FormilySchema `json:"schema,omitempty"`
+	Schema JSONSchema `json:"schema,omitempty"`
+	Presentation FormPresentationSpec `json:"presentation,omitempty"`
 	Custom bool `json:"custom"`
 	HasDefault bool `json:"hasDefault"`
 	FormSource string `json:"formSource"`
@@ -456,9 +458,9 @@ type FunctionFormResponse struct {
 
 **说明：**
 
-- 函数表单只读写单函数 Formily JSON Schema。
-- 不再维护独立的 `layout` / `components` 协议字段。
-- 非 Formily Schema 必须返回校验错误，不能转换、猜测或静默降级。
+- 函数表单读取 FunctionContract JSON Schema，并只读写单函数 FormPresentationSpec。
+- FormPresentationSpec 不承载独立页面 layout、组件树或任意 React props。
+- 非法 schema/presentation 必须返回校验错误，不能转换、猜测或静默降级。
 - Page 级布局、分页、表格、详情和动作编排属于 Page Studio API，不属于函数表单 API。
 
 ### 14. "获取函数表单配置历史"

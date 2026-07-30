@@ -2,8 +2,6 @@ package console
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"sort"
@@ -15,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
+	"github.com/cuihairu/croupier/internal/dashboard/freshness"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
@@ -62,8 +61,9 @@ func (s *Service) Pages(ctx context.Context, req *ConsolePagesRequest) (*Console
 	if err != nil {
 		return nil, err
 	}
-	items := make([]spec.PublishedPageSpec, 0, len(publishedPages))
-	for _, page := range parsePublishedPages(publishedPages) {
+	pages := s.attachBindingFreshness(ctx, parsePublishedPages(publishedPages))
+	items := make([]spec.PublishedPageSpec, 0, len(pages))
+	for _, page := range pages {
 		if req.Category != "" && page.Category.Key != req.Category {
 			continue
 		}
@@ -88,6 +88,7 @@ func (s *Service) Page(ctx context.Context, req *ConsolePageRequest) (*ConsolePa
 	if pageSpec == nil {
 		return nil, ErrPageNotFound(req.PageKey)
 	}
+	s.attachBindingFreshnessToPage(ctx, pageSpec)
 	return &ConsolePageResponse{Page: *pageSpec}, nil
 }
 
@@ -171,21 +172,12 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 }
 
 func (s *Service) ensureBindingFresh(ctx context.Context, binding spec.PageFunctionBinding, contract spec.BindingContractSnapshot) error {
-	functions := normalizedFunctions(ctx, s.svcCtx)
-	fn, ok := functions[binding.FunctionID]
-	if !ok {
-		return errorx.NewValidationError("binding_stale: function no longer exists")
-	}
-	stale := strings.TrimSpace(fn.Version) != strings.TrimSpace(contract.FunctionVersion) ||
-		digestRaw(fn.InputSchema) != contract.InputSchemaDigest ||
-		digestRaw(fn.OutputSchema) != contract.OutputSchemaDigest ||
-		fn.Risk != contract.Risk ||
-		strings.TrimSpace(fn.Permission) != strings.TrimSpace(contract.Permission) ||
-		binding.Execution.Mode != contract.ExecutionMode
-	if stale {
+	diags := freshness.EvaluateBinding(binding, contract, normalizedFunctions(ctx, s.svcCtx))
+	if len(diags) > 0 {
 		return errorx.NewConflictWithDetails("binding_stale", map[string]any{
 			"bindingId":  binding.ID,
 			"functionId": binding.FunctionID,
+			"statuses":   bindingFreshnessStatuses(diags),
 		})
 	}
 	return nil
@@ -412,6 +404,35 @@ func parsePublishedPageSpec(pp model.PublishedPageSpec) *spec.PublishedPageSpec 
 	}
 }
 
+func (s *Service) attachBindingFreshness(ctx context.Context, pages []spec.PublishedPageSpec) []spec.PublishedPageSpec {
+	if len(pages) == 0 {
+		return pages
+	}
+	functions := normalizedFunctions(ctx, s.svcCtx)
+	for i := range pages {
+		pages[i].BindingFreshness = freshness.EvaluatePublishedBindings(pages[i].Bindings, pages[i].BindingContracts, functions)
+	}
+	return pages
+}
+
+func (s *Service) attachBindingFreshnessToPage(ctx context.Context, page *spec.PublishedPageSpec) {
+	if page == nil {
+		return
+	}
+	page.BindingFreshness = freshness.EvaluatePublishedBindings(page.Bindings, page.BindingContracts, normalizedFunctions(ctx, s.svcCtx))
+}
+
+func bindingFreshnessStatuses(diags []spec.BindingFreshnessDiagnostic) []string {
+	statuses := make([]string, 0, len(diags))
+	for _, diag := range diags {
+		if diag.Status != "" {
+			statuses = append(statuses, string(diag.Status))
+		}
+	}
+	sort.Strings(statuses)
+	return statuses
+}
+
 func generateMenuFromPages(pages []spec.PublishedPageSpec, lang string) spec.ConsoleMenuSpec {
 	categories := map[string]*categoryGroup{}
 	for _, page := range pages {
@@ -519,14 +540,6 @@ func (s *Service) requireConsoleRead(ctx context.Context) error {
 func (s *Service) requireConsoleExecute(ctx context.Context) error {
 	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权执行运行控制台操作", "admin:all", "function:invoke")
 	return err
-}
-
-func digestRaw(raw []byte) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	sum := sha256.Sum256(raw)
-	return hex.EncodeToString(sum[:])
 }
 
 func requireScope(ctx context.Context) (string, string, error) {

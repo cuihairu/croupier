@@ -21,14 +21,15 @@ type PageDraftRequest struct {
 
 type PageDraftResponse struct {
 	spec.PageSpec
-	GameID           string            `json:"gameId,omitempty"`
-	Env              string            `json:"env,omitempty"`
-	Status           string            `json:"status"`
-	DraftRevision    int               `json:"draftRevision"`
-	PublishedVersion int               `json:"publishedVersion,omitempty"`
-	Diagnostics      []spec.Diagnostic `json:"diagnostics,omitempty"`
-	UpdatedAt        string            `json:"updatedAt"`
-	UpdatedBy        string            `json:"updatedBy,omitempty"`
+	GameID           string                            `json:"gameId,omitempty"`
+	Env              string                            `json:"env,omitempty"`
+	Status           string                            `json:"status"`
+	DraftRevision    int                               `json:"draftRevision"`
+	PublishedVersion int                               `json:"publishedVersion,omitempty"`
+	Diagnostics      []spec.Diagnostic                 `json:"diagnostics,omitempty"`
+	BindingFreshness []spec.BindingFreshnessDiagnostic `json:"bindingFreshness,omitempty"`
+	UpdatedAt        string                            `json:"updatedAt"`
+	UpdatedBy        string                            `json:"updatedBy,omitempty"`
 }
 
 type PageSaveRequest struct {
@@ -49,6 +50,19 @@ type PageSaveRequest struct {
 type PageSaveResponse struct {
 	PageKey       string `json:"pageKey"`
 	DraftRevision int    `json:"draftRevision"`
+}
+
+type PageRegenerateRequest struct {
+	PageKey       string `uri:"pageKey" binding:"required"`
+	DraftRevision *int   `json:"draftRevision" binding:"required"`
+}
+
+type PageRegenerateResponse struct {
+	PageKey       string                    `json:"pageKey"`
+	DraftRevision int                       `json:"draftRevision"`
+	Page          spec.PageSpec             `json:"page"`
+	Diagnostics   []spec.Diagnostic         `json:"diagnostics,omitempty"`
+	Quality       spec.GeneratedPageQuality `json:"quality"`
 }
 
 type PageValidateRequest struct {

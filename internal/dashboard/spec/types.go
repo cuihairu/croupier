@@ -115,6 +115,33 @@ type Diagnostic struct {
 	Field      string             `json:"field,omitempty"`
 }
 
+// BindingFreshnessStatus is the current compatibility state of a published
+// binding against the latest FunctionSpec. Published pages freeze contracts;
+// runtime must never silently switch to a changed function contract.
+type BindingFreshnessStatus string
+
+const (
+	BindingFreshnessFresh                BindingFreshnessStatus = "fresh"
+	BindingFreshnessContractMissing      BindingFreshnessStatus = "contract_missing"
+	BindingFreshnessFunctionMissing      BindingFreshnessStatus = "function_missing"
+	BindingFreshnessFunctionVersionStale BindingFreshnessStatus = "function_version_stale"
+	BindingFreshnessInputSchemaStale     BindingFreshnessStatus = "input_schema_stale"
+	BindingFreshnessOutputSchemaStale    BindingFreshnessStatus = "output_schema_stale"
+	BindingFreshnessGovernanceStale      BindingFreshnessStatus = "governance_stale"
+	BindingFreshnessExecutionModeStale   BindingFreshnessStatus = "execution_mode_stale"
+)
+
+// BindingFreshnessDiagnostic explains why a published binding is no longer
+// compatible with the latest FunctionSpec. These diagnostics are read-only
+// hints for Page Studio and Console; synchronization still requires an
+// explicit draft update and re-publish.
+type BindingFreshnessDiagnostic struct {
+	BindingID  string                 `json:"bindingId"`
+	FunctionID string                 `json:"functionId,omitempty"`
+	Status     BindingFreshnessStatus `json:"status"`
+	Diagnostic Diagnostic             `json:"diagnostic"`
+}
+
 // ---------------------------------------------------------------------------
 // FunctionSpec
 // ---------------------------------------------------------------------------
@@ -339,6 +366,10 @@ type PublishedPageSpec struct {
 
 	// BindingContracts freezes the function contract for every binding.
 	BindingContracts []BindingContractSnapshot `json:"bindingContracts"`
+
+	// BindingFreshness reports contract drift against the latest FunctionSpec.
+	// Empty means all bindings are fresh.
+	BindingFreshness []BindingFreshnessDiagnostic `json:"bindingFreshness,omitempty"`
 }
 
 // PageExecutionResult is the only response shape exposed to Page renderer
@@ -379,15 +410,25 @@ type ConsoleMenuItem struct {
 // Generated page suggestion (pre-publish)
 // ---------------------------------------------------------------------------
 
+// GeneratedPageQuality indicates how much review is needed before publication.
+type GeneratedPageQuality string
+
+const (
+	GeneratedPageQualityReady       GeneratedPageQuality = "ready"
+	GeneratedPageQualityBasic       GeneratedPageQuality = "basic"
+	GeneratedPageQualityNeedsReview GeneratedPageQuality = "needs_review"
+	GeneratedPageQualityBlocked     GeneratedPageQuality = "blocked"
+)
+
 // GeneratedPageSpec is a PageSpec suggestion produced by the normalizer /
 // generator before the user confirms it. It carries a quality indicator
 // and diagnostics explaining why it may not be ready for publication.
 type GeneratedPageSpec struct {
 	PageSpec
 
-	// Quality indicates readiness: "ready", "needs_review", or "blocked".
-	Quality     string       `json:"quality"`
-	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
+	// Quality indicates readiness: "ready", "basic", "needs_review", or "blocked".
+	Quality     GeneratedPageQuality `json:"quality"`
+	Diagnostics []Diagnostic         `json:"diagnostics,omitempty"`
 }
 
 // ---------------------------------------------------------------------------

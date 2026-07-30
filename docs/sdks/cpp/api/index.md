@@ -7,7 +7,6 @@
 - `ClientConfig`
 - `CroupierClient`
 - `FunctionDescriptor`
-- `VirtualObjectDescriptor`
 - `ComponentDescriptor`
 
 ## 阅读建议

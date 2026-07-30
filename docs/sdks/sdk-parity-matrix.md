@@ -46,7 +46,7 @@
 | C# | 待验收 | 未实现 | 生成 proto 已含字段，手写 API/示例仍需验收 |
 | C++ | 待验收 | 未实现 | 不得宣称支持本地 OpenAPI 解析 |
 
-OpenAPI helper 只能解析函数能力契约字段：`operationId/tags/summary/description/requestBody/responses/deprecated` 和 `x-resource/x-operation/x-risk/x-enabled/x-permission`。遇到 UI、Formily、菜单、路由、页面分类、显示文案、`x-placement`、`x-page-hint` 等页面/展示字段必须报错或产生 diagnostics。
+OpenAPI helper 只能解析函数能力契约字段：`operationId/tags/summary/description/requestBody/responses` 和 `x-resource/x-operation/x-capability/x-execution/x-risk/x-enabled/x-permission`。遇到页面 schema、组件树、菜单、路由、页面分类、显示文案、页面 mapping 或布局 DSL 必须报错或产生 diagnostics。
 
 ## 协议边界
 

@@ -429,6 +429,7 @@ func registerPageRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceConte
 		group.GET("", handler.ListDrafts)
 		group.GET("/:pageKey", handler.GetDraft)
 		group.PUT("/:pageKey", handler.SaveDraft)
+		group.POST("/:pageKey/regenerate", handler.RegenerateDraft)
 		group.POST("/:pageKey/validate", handler.Validate)
 		group.POST("/:pageKey/preview", handler.Preview)
 		group.POST("/:pageKey/publish", handler.Publish)

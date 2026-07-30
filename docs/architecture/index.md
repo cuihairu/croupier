@@ -32,7 +32,7 @@ Croupier 当前的目标架构已经从"多条回拨链路 + 历史 旧传输/gR
 ```mermaid
 graph TB
   subgraph "展示层"
-    UI[Dashboard<br/>React + Ant Design + Formily]
+    UI[Dashboard<br/>React + Ant Design Pro + ProComponents]
   end
 
   subgraph "控制层"
@@ -185,6 +185,7 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [术语与分层](./terms-and-layering.md)
 - [数据流](./data-flow.md)
 - [Dashboard Resource/Page 模型](./dashboard-page-model.md) — 函数注册、资源归一化、默认页面生成、PageSpec、动态菜单的权威模型
+- [Dashboard 术语表](./dashboard-glossary.md) — FunctionContract、CapabilitySemantics、PageProposal 与 PageSpec 的统一定义
 - [OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md) — OpenAPI 扩展字段、SDK descriptor 与 PageSpec 生成之间的统一契约
 - [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
 - [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
@@ -192,5 +193,5 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [SDK Wire Protocol](./sdk-wire-protocol.md)
 - [Session Runtime 参考实现](./session-runtime-landscape.md)
 - [核心与扩展边界映射](./core-extension-mapping.md)
-- [UI 生成架构决策](./ui-generation.md) — Proto 只管 API 契约，UI 完全由 Server + Dashboard 闭环
-- [UI Schema 协议规范](./ui-schema-spec.md) — Formily Schema 作为唯一 UI Schema 格式
+- [ProComponents 页面生成与运行时](./ui-generation.md) — 能力语义、默认 Proposal、Page Studio 与运行时边界
+- [UI Schema 与 PageSpec 规范](./ui-schema-spec.md) — JSON Schema 表单、强类型 PageSpec 与 typed selector 规范

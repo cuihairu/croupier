@@ -74,6 +74,31 @@ func (h *Handler) SaveDraft(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// RegenerateDraft handles POST /api/v1/pages/:pageKey/regenerate
+func (h *Handler) RegenerateDraft(c *gin.Context) {
+	var req PageRegenerateRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	resp, err := h.service.RegenerateDraft(c.Request.Context(), &req)
+	if err != nil {
+		var notFound *PageNotFoundError
+		if errors.As(err, &notFound) {
+			response.NotFound(c, err.Error())
+			return
+		}
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // Validate handles POST /api/v1/pages/:pageKey/validate
 func (h *Handler) Validate(c *gin.Context) {
 	var req PageValidateRequest

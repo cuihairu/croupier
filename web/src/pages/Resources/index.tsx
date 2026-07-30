@@ -24,6 +24,7 @@ function riskColor(risk?: string) {
 
 function qualityColor(quality: GeneratedPageSpec['quality']) {
   if (quality === 'ready') return 'green';
+  if (quality === 'basic') return 'blue';
   if (quality === 'needs_review') return 'orange';
   return 'red';
 }

@@ -55,9 +55,9 @@ const config = defineConfig({
           items: [
             { text: '系统概述', link: '/guide/concepts/overview' },
             { text: '函数管理', link: '/guide/concepts/function-management' },
-            { text: '对象工作台', link: '/guide/concepts/object-workspace' },
+            { text: 'Page Studio', link: '/guide/concepts/function-registration-ui' },
             { text: '权限控制', link: '/guide/concepts/permissions' },
-            { text: '虚拟对象', link: '/guide/concepts/virtual-objects' },
+            { text: '资源与页面', link: '/architecture/dashboard-page-model' },
           ],
         },
         {
@@ -186,8 +186,8 @@ const config = defineConfig({
           collapsed: true,
           items: [
             { text: '管理员', link: '/api/admin' },
-            { text: '工作空间', link: '/api/workspace' },
-            { text: '实体', link: '/api/entity' },
+            { text: '页面管理', link: '/api/page' },
+            { text: '资源管理', link: '/api/resource' },
             { text: 'Profile', link: '/api/profile' },
           ],
         },
@@ -294,7 +294,7 @@ const config = defineConfig({
             { text: '构建', link: '/sdks/cpp/guide/building' },
             { text: '快速开始', link: '/sdks/cpp/guide/quick-start' },
             { text: '函数', link: '/sdks/cpp/guide/functions' },
-            { text: '虚拟对象', link: '/sdks/cpp/guide/virtual-objects' },
+            { text: '资源与操作', link: '/sdks/cpp/guide/virtual-objects' },
             { text: '插件', link: '/sdks/cpp/guide/plugins' },
             { text: '配置', link: '/sdks/cpp/configuration/' },
           ],

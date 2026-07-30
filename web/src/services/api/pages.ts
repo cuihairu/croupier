@@ -69,6 +69,14 @@ type PageRollbackResponse = {
   draftRevision: number;
 };
 
+type PageRegenerateResponse = {
+  pageKey: string;
+  draftRevision: number;
+  page: PageSpec;
+  diagnostics?: Diagnostic[];
+  quality: 'ready' | 'basic' | 'needs_review' | 'blocked';
+};
+
 export async function listPageDrafts(params?: PageDraftListParams): Promise<PageSpecDraftSummary[]> {
   const response = await request<PageDraftListResponse>(BASE, {
     method: 'GET',
@@ -87,6 +95,16 @@ export async function savePageDraft(payload: PageSavePayload): Promise<PageSaveR
   return request<PageSaveResponse>(`${BASE}/${encodeURIComponent(payload.pageKey)}`, {
     method: 'PUT',
     data: payload,
+  });
+}
+
+export async function regeneratePageDraft(
+  pageKey: string,
+  draftRevision: number,
+): Promise<PageRegenerateResponse> {
+  return request<PageRegenerateResponse>(`${BASE}/${encodeURIComponent(pageKey)}/regenerate`, {
+    method: 'POST',
+    data: { draftRevision },
   });
 }
 

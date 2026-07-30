@@ -8,8 +8,7 @@
 > **与对齐矩阵的关系**：本表定义 L1–L4 分层与各 SDK 的实现状态（"做了什么"）；
 > [`docs/sdks/sdk-parity-matrix.md`](../docs/sdks/sdk-parity-matrix.md) 定义跨语言统一基线
 > （Required / Optional / Forbidden，"该做什么、禁止做什么"）。两者互补，本表为实现状态主表。
-> 历史模型（local server / LocalControl / gRPC callback / rpc_addr）不作默认链路，仅在
-> `Forbidden` / 迁移说明中出现，见 [`docs/development/documentation-governance.md`](../docs/development/documentation-governance.md)。
+> SDK 主链路以 `tcp session` 为准，能力矩阵只记录当前实现目标和状态。
 
 ---
 
@@ -54,9 +53,9 @@
 | `id` | string | 是 | 函数 ID，例如 `player.ban` |
 | `version` | string | 是 | 语义化版本 |
 
-扩展字段（见 L2）：`tags` `summary` `description` `operation_id` `deprecated` `input_schema` `output_schema` `resource` `operation` `risk` `enabled` `permission`。
+扩展字段（见 L2）：`tags` `summary` `description` `operation_id` `input_schema` `output_schema` `resource` `operation` `capability` `execution` `risk` `enabled` `permission`。
 
-SDK 描述符不承载 UI、菜单、页面分类、多语言标题、Formily schema、`placement` 或 `page_hint`。最终页面只在 Page Studio / PageSpec 中确定。
+SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 schema、组件树、页面 mapping 或布局 DSL。最终页面只在 PageProposal / PageSpec / Page Studio 中确定。
 
 ### 2.4 Handler 签名
 
@@ -99,8 +98,8 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、Formily sc
 | 能力 | 触发条件 | 统一字段/语义 |
 | --- | --- | --- |
 | JSON Schema 校验 | 描述符含 `input_schema` / `output_schema` | 默认 JSON Schema 格式，校验失败返回标准错误 |
-| Dashboard 能力契约 | 需要让 Server 归一化 Resource/Operation 候选 | 只使用 `resource` / `operation` / `risk` / `enabled` / `permission`；`summary` / `description` 只用于目录搜索和说明，不作为菜单或页面标题事实源 |
-| OpenAPI 注册 helper | 从 OpenAPI 文档批量注册 Provider 函数 | 只解析标准 `operationId/tags/summary/description/requestBody/responses/deprecated` 和 `x-resource` / `x-operation` / `x-risk` / `x-enabled` / `x-permission`；遇到 UI、Formily、菜单、路由、页面分类、显示文案、`x-placement`、`x-page-hint` 必须报错 |
+| Dashboard 能力契约 | 需要让 Server 归一化 Resource/Operation 候选 | 只使用 `resource` / `operation` / `capability` / `execution` / `risk` / `enabled` / `permission`；`summary` / `description` 只用于目录搜索和说明，不作为菜单或页面标题事实源 |
+| OpenAPI 注册 helper | 从 OpenAPI 文档批量注册 Provider 函数 | 只解析标准 `operationId/tags/summary/description/requestBody/responses` 和 `x-resource` / `x-operation` / `x-capability` / `x-execution` / `x-risk` / `x-enabled` / `x-permission`；遇到页面 schema、菜单、路由、页面分类、显示文案、组件树或布局 DSL 必须报错 |
 | 平台 drain 处理 | Agent 发送 `ProviderDrainRequest` | 停止接收新请求 → 完成在途 → 返回 `ProviderDrainResponse` |
 | 控制面 manifest 上传 | 配置 `control_addr` | 通过 `RegisterCapabilitiesRequest` 推送压缩 manifest |
 | TLS | `insecure=false` | `ca_file` / `cert_file` / `key_file` / `server_name` |
@@ -207,7 +206,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、Formily sc
 ### L3 Invoker 能力映射
 
 > 命名统一为 `task` 系列（`startTask` / `streamTask` / `cancelTask`），与 `proto/croupier/sdk/v1/invocation.proto` 对齐。
-> 本阶段不以向后兼容为约束：`Job` 系列旧命名已删除，不留 deprecated 别名。
+> 本阶段不以向后兼容为约束：过期命名直接删除，不保留别名。
 
 | SDK | 入口文件 | 同步调用 | 异步任务 | 流式事件 | 取消 |
 | --- | --- | --- | --- | --- | --- |
@@ -220,7 +219,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、Formily sc
 
 **命名规则**：
 - 所有 SDK 必须使用 `Task` 系列，禁止保留 `Job` 系列入口。
-- `scripts/check-sdk-matrix.sh` 的 wire 检查将任何 `Job` 命名视为失败（仅 allowlist 内的协议别名模块除外，且这些模块也已迁移为纯 `Task`）。
+- `scripts/check-sdk-matrix.sh` 的 wire 检查将过期命名视为失败。
 
 ---
 

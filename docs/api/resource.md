@@ -1,151 +1,74 @@
 ---
-title: Resource API
+title: Resource Catalog API
 icon: cubes
 order: 98
 category:
   - API 参考
 tag:
-  - ResourceSpec
-  - OperationSpec
-  - PageSpec
+  - ResourceCapability
+  - CapabilitySemantics
+  - PageProposal
 ---
 
-# Resource API
+# Resource Catalog API
 
-本文记录 Dashboard 页面生成使用的 Resource / Operation 查询接口。
+> **状态**：Target API -- Resource 是 CRUD 与非 CRUD 页面生成的领域资源，事实来源是持久化 FunctionContract、ResourceCapability 与 CapabilitySemantics。
 
-`Resource` 是页面组织资源或能力域，不是数据库实体 CRUD API。业务对象的创建、更新、删除应通过函数注册和函数调用完成；Dashboard 页面由 `ResourceSpec + OperationSpec + PageSpec` 编排。
+Resource Catalog 读取 scope 化、持久化的 FunctionContract、ResourceCapability 与 CapabilitySemantics，帮助用户理解平台为什么能够或不能生成默认页面。
 
-## 边界
-
-| 概念 | 职责 |
-| --- | --- |
-| `FunctionSpec` | 单个函数能力、输入输出、风险和治理字段 |
-| `ResourceSpec` | 页面组织用的资源或能力域 |
-| `OperationSpec` | 某个函数在资源中的业务动作和候选诊断 |
-| `PageSpec` | 完整业务页面编排 |
-
-Resource API 只提供归一化查询和诊断，不提供通用实体 CRUD。
-
-## 获取资源列表
+## 资源列表
 
 ```http
-GET /api/v1/resources?category={category}
+GET /api/v1/resources?q={query}&state={state}
 ```
 
-查询参数：
-
-| 参数 | 类型 | 说明 |
-| --- | --- | --- |
-| `category` | string | 可选，分类 key |
-| `q` | string | 可选，资源 key 或显示名搜索 |
-
-响应：
-
-```go
-type ResourceListResponse struct {
-	Items []ResourceSpec `json:"items"`
-}
-
-type ResourceSpec struct {
-	Key         string            `json:"key"`
-	Labels      map[string]string `json:"labels"`
-	Description map[string]string `json:"description,omitempty"`
-	Category    ResourceCategory `json:"category"`
-	Order       int               `json:"order,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	Operations  []OperationSpec   `json:"operations,omitempty"`
-	Diagnostics []ResourceDiagnostic `json:"diagnostics,omitempty"`
-}
-
-type ResourceCategory struct {
-	Key    string            `json:"key"`
-	Labels map[string]string `json:"labels"`
-	Order  int               `json:"order,omitempty"`
+```ts
+interface ResourceSummary {
+  key: string;
+  labels: LocalizedText;
+  state: 'ready' | 'needs_review' | 'conflict' | 'unavailable';
+  capabilities: CapabilitySummary[];
+  proposalCounts: Record<'ready' | 'basic' | 'needs_review' | 'blocked', number>;
+  diagnostics: Diagnostic[];
 }
 ```
 
-## 获取资源详情
+## 资源详情与能力语义
 
 ```http
 GET /api/v1/resources/{resourceKey}
+GET /api/v1/resources/{resourceKey}/semantics
+GET /api/v1/resources/{resourceKey}/history
+PUT /api/v1/resources/{resourceKey}/semantics
 ```
 
-响应：
+详情必须显示：
 
-```go
-type ResourceDetailResponse struct {
-	Resource ResourceSpec `json:"resource"`
-}
-```
+- collection、item、create、update、delete、action、task、report capability 的函数绑定。
+- identity、collection response、识别来源、置信度、source digest 和 diagnostics。
+- 哪些能力来自 OpenAPI REST、SDK 显式 capability 或管理员补充。
+- 当前 Proposal 与 Published 页面受影响情况。
 
-## 获取资源操作
+`PUT /semantics` 只编辑能力语义，不编辑 PageSpec。任何语义补充均需版本、权限、审计和 OTel。
+
+## Proposal
 
 ```http
-GET /api/v1/resources/{resourceKey}/operations
+GET /api/v1/resources/{resourceKey}/page-proposals
+POST /api/v1/resources/{resourceKey}/page-proposals/rebuild
 ```
 
-响应：
+重建 Proposal 只依据持久化 FunctionContract 与 CapabilitySemantics。它不从函数名、浏览器请求、静态 locale 或任意历史页面结果猜测 UI。
 
-```go
-type OperationListResponse struct {
-	Items []OperationSpec `json:"items"`
-}
+## 资源边界
 
-type OperationSpec struct {
-	FunctionID string            `json:"functionId"`
-	ResourceKey string           `json:"resourceKey"`
-	Operation  string            `json:"operation"`
-	Risk       string            `json:"risk,omitempty"`
-	Enabled    bool              `json:"enabled"`
-	Candidate  PageCandidateSummary `json:"candidate,omitempty"`
-	Diagnostics []ResourceDiagnostic `json:"diagnostics,omitempty"`
-}
-```
+- Resource CRUD 页面是默认高质量路径，但 Resource 不是数据库表强绑定，也不开放通用数据库 CRUD API。
+- 业务数据只能通过已注册函数和 PublishedPageSpec binding 执行。
+- Operation、Task、Report 可关联 Resource，也可独立存在。
+- Resource Catalog 不生成 Console 菜单；菜单仅由 PublishedPageSpec 生成。
 
-## 获取资源默认页面建议
+## API 边界
 
-```http
-GET /api/v1/resources/{resourceKey}/pages/generated
-```
-
-该接口返回基于当前 ResourceSpec / OperationSpec 生成的 PageSpec 建议。建议不是发布产物，必须进入 Page Studio 确认、编辑和发布。
-
-```go
-type ResourceGeneratedPagesResponse struct {
-	Items []GeneratedPageSpec `json:"items"`
-}
-```
-
-## 诊断
-
-```go
-type ResourceDiagnostic struct {
-	Code       string `json:"code"`
-	Severity   string `json:"severity"` // error / warning / info
-	Message    string `json:"message"`
-	FunctionID string `json:"functionId,omitempty"`
-	Field      string `json:"field,omitempty"`
-}
-```
-
-常见诊断：
-
-- `resource_label_missing`：缺少资源多语言标题。
-- `page_contract_missing`：缺少可验证 PageContract。
-- `page_mapping_missing`：缺少输入/输出 mapping。
-- `output_schema_missing`：缺少输出结构，无法生成表格、详情或报表。
-- `function_unavailable`：绑定函数没有可调用实例。
-
-## 禁止项
-
-- 禁止把 Resource API 当成通用实体 CRUD API。
-- 禁止用 Resource API 直接修改业务对象数据。
-- 禁止 Resource API 生成运行控制台菜单。
-- 禁止缺少 PageContract、mapping、默认语言 labels 或 binding 时自动发布页面。
-
-## 相关文档
-
-- [Dashboard Resource/Page 模型](../architecture/dashboard-page-model.md)
-- [Page Studio API](./page.md)
-- [函数 API](./function.md)
+- Resource API 读取持久化语义事实，不把内存 Registry 聚合作为唯一事实。
+- Resource API 只编辑 CapabilitySemantics，不接受页面列、动作位置、导航、表单展示或 mapping。
+- Resource API 不直接修改业务对象；业务数据只能通过 PublishedPageSpec binding 执行。

@@ -5,203 +5,120 @@ order: 97
 category:
   - API 参考
 tag:
+  - PageProposal
   - PageSpec
   - Page Studio
-  - PublishedPageSpec
 ---
 
 # Page Studio API
 
-Page Studio API 管理当前 `game_id + env` scope 下的 PageSpec 草稿、校验、预览、发布和版本回滚。
+> **状态**：Target API -- Page Studio 管理 PageProposal、PageDraft 和 PublishedPageSpec，默认工作流是语义化编辑与发布。
 
-Page Studio 是页面装配层，不是运行控制台。运行控制台只读取已发布的 `PublishedPageSpec` 和由它生成的 `ConsoleMenuSpec`。
+Page Studio 管理当前 `game_id + env` scope 的 PageProposal、PageDraft、PublishedPageSpec 和三方合并。运行控制台只读取 PublishedPageSpec 和由它生成的 ConsoleMenuSpec。
 
 ## Scope
 
-所有接口都从统一请求上下文读取作用域：
+所有接口从统一请求上下文读取：
 
 - `X-Game-ID`
 - `X-Env`
 
-请求 body、URL 和 binding payload 不允许覆盖 scope。
+URL、request body、selector 或业务 payload 均不能覆盖 scope。
 
-## PageSpec 草稿列表
+## Proposal Inbox
 
 ```http
-GET /api/v1/pages?resourceKey={resourceKey}&status={status}
+GET /api/v1/page-proposals?resourceKey={resourceKey}&quality={quality}&state={state}
 ```
 
 响应：
 
 ```ts
-interface PageDraftListResponse {
-  items: PageSpecDraftSummary[];
+interface PageProposalSummary {
+  id: string;
+  pageKey: string;
+  kind: 'resource' | 'operation' | 'task' | 'report';
+  resourceKey?: string;
+  quality: 'ready' | 'basic' | 'needs_review' | 'blocked';
+  sourceDigests: SourceDigest[];
+  diagnostics: Diagnostic[];
+  state: 'new' | 'superseded' | 'accepted' | 'stale';
 }
 ```
 
-## PageSpec 草稿详情
+Proposal 是可重新生成的默认建议，不会覆盖 Draft 或 Published 页面。
+
+## 查看与接受 Proposal
 
 ```http
+GET  /api/v1/page-proposals/{proposalId}
+POST /api/v1/page-proposals/{proposalId}/accept
+```
+
+`accept` 将 Proposal 物化为新的 PageDraft。`ready/basic` 可在接受后立即进入发布校验；`needs_review/blocked` 返回结构化 diagnostics，不能发布。
+
+## Draft API
+
+```http
+GET /api/v1/pages
 GET /api/v1/pages/{pageKey}
-```
-
-响应返回 `PageSpec` 加草稿状态：
-
-```ts
-interface PageDraftResponse extends PageSpec {
-  gameId?: string;
-  env?: string;
-  status: 'draft' | 'published' | 'archived';
-  draftRevision: number;
-  publishedVersion?: number;
-  diagnostics?: Diagnostic[];
-  updatedAt: string;
-  updatedBy?: string;
-}
-```
-
-## 保存草稿
-
-```http
 PUT /api/v1/pages/{pageKey}
-Content-Type: application/json
+POST /api/v1/pages/{pageKey}/validate
+POST /api/v1/pages/{pageKey}/publish
+POST /api/v1/pages/{pageKey}/unpublish
+GET /api/v1/pages/{pageKey}/versions
+POST /api/v1/pages/{pageKey}/rollback
 ```
 
-请求体：
+`PUT` 请求体是强类型 PageSpec，使用 `draftRevision` 乐观并发：
 
 ```ts
 interface PageSaveRequest {
   draftRevision: number;
-  type: 'entity' | 'operation' | 'task' | 'report';
-  resourceKey?: string;
-  title: Record<string, string>;
-  description?: Record<string, string>;
-  category: {
-    key: string;
-    labels: Record<string, string>;
-    order?: number;
-  };
-  order?: number;
-  icon?: string;
-  schema: Record<string, unknown>;
-  bindings: PageFunctionBinding[];
-  metadata?: Record<string, unknown>;
+  spec: ResourcePageSpec | OperationPageSpec | TaskPageSpec | ReportPageSpec;
 }
 ```
 
-约束：
+PageSpec 使用导航、列表、详情、表单动作、确认动作、任务、报表和 typed selector DTO。它不含具体 React 组件 props、无约束 JSON mapping 或浏览器可控 target。
 
-- `draftRevision` 必填，冲突返回 409。
-- `title.zh-CN` 和 `category.labels.zh-CN` 必填。
-- `category.key` 缺失时，Server 只在保存时按 `resourceKey/pageKey` 的第一个 `.` 前缀确定一次。
-- `schema` 必须是平台 Page 组件 ABI 支持的 Formily JSON Schema。
-- Schema 组件只能引用 `bindingId`，不能引用裸 `functionId`。
-
-## 校验草稿
+## 变更与合并
 
 ```http
-POST /api/v1/pages/{pageKey}/validate
+GET  /api/v1/pages/{pageKey}/changes
+POST /api/v1/pages/{pageKey}/merge-proposal
 ```
 
-响应：
+Changes API 返回 base Proposal、latest Proposal、Draft、PublishedPageSpec 的差异，以及：
 
-```ts
-interface PageValidateResponse {
-  valid: boolean;
-  diagnostics: Diagnostic[];
-}
-```
+- 可自动合并的展示项。
+- 需要用户决定的 binding、identity、selector、权限、风险、执行模式冲突。
+- stale 原因和受影响页面执行状态。
 
-校验范围包括 PageSpec 基础字段、binding、Formily Page 组件 ABI、组件 props、发布期 schemaVersion 和函数契约可用性。
-
-## 预览草稿
-
-```http
-POST /api/v1/pages/{pageKey}/preview
-```
-
-预览只返回当前草稿 PageSpec，不写入运行控制台菜单。
+`merge-proposal` 必须带 `draftRevision` 与每个冲突的显式决策；不得直接用最新 Proposal 覆盖 Draft。
 
 ## 发布
 
-```http
-POST /api/v1/pages/{pageKey}/publish
-Content-Type: application/json
-```
+发布前校验：
 
-请求体：
+- PageSpec version 和所有业务节点。
+- Navigation 默认语言、binding、typed selector 与类型可赋值性。
+- 函数可执行性、权限、风险、审批和 task/report 真实数据语义。
+- 当前 scope 与 revision。
 
-```ts
-interface PagePublishRequest {
-  draftRevision: number;
-}
-```
-
-发布成功后生成当前 scope 下不可变 `PublishedPageSpec` 快照，并冻结 binding 的函数版本、输入/输出 schema digest、风险、执行模式和 renderer schema version。
-
-## 取消发布
-
-```http
-POST /api/v1/pages/{pageKey}/unpublish
-```
-
-取消发布只让运行控制台菜单不再展示该页面，不删除 PageSpec 草稿和版本历史。
-
-## 版本列表
-
-```http
-GET /api/v1/pages/{pageKey}/versions
-```
-
-响应：
-
-```ts
-interface PageVersionsResponse {
-  currentDraftRevision: number;
-  currentPublishedVersion?: number;
-  items: PageVersionItem[];
-}
-```
-
-`page_versions` 以 `(game_id, env, page_key, version)` 作为唯一逻辑版本。保存草稿和发布同一 revision 时更新同一版本记录，不生成重复版本。
-
-## 版本详情
-
-```http
-GET /api/v1/pages/{pageKey}/versions/{versionId}
-```
-
-返回历史版本中的完整 PageSpec，用于查看、diff 和回滚。
-
-## 回滚
-
-```http
-POST /api/v1/pages/{pageKey}/rollback
-Content-Type: application/json
-```
-
-请求体：
-
-```ts
-interface PageRollbackRequest {
-  versionId: string;
-}
-```
-
-回滚会基于历史 PageSpec 创建新的草稿 revision，不会直接改变运行控制台发布态。
+发布生成不可变 PublishedPageSpec，冻结 PageSpec、FormPresentationSpec、函数契约/语义摘要、权限、风险、执行模式、generator version 和 renderer version。
 
 ## 权限
 
-- 读取草稿、校验、预览、版本：`pages:read`，或具备 `pages:edit/pages:publish/pages:rollback`
-- 保存草稿：`pages:edit`
-- 发布和取消发布：`pages:publish`
-- 回滚：`pages:rollback`
+- Proposal/草稿读取、diff、预览：`pages:read`。
+- 接受 Proposal、保存草稿、解决合并：`pages:edit`。
+- 发布/取消发布：`pages:publish`。
+- 回滚：`pages:rollback`。
+- Resource Catalog 语义补充：独立 `resources:semantics:edit`。
 
-操作者字段只从服务端上下文获取，客户端提交的 `updatedBy/publishedBy/createdBy` 不可信。
+## API 边界
 
-## 禁止项
-
-- 禁止恢复已移除的页面配置模型或非 Formily 页面协议。
-- 禁止在 Page Studio 内再选择一套 `game_id/env`。
-- 禁止把函数注册字段当作菜单、页面标题或按钮文案来源。
-- 禁止发布缺少默认语言 labels、binding、mapping 或组件 ABI 校验失败的 PageSpec。
+- Page API 只接受和返回强类型 PageSpec、Proposal、Draft、PublishedPageSpec 和 diff DTO。
+- Page Studio 默认流程是语义化编辑；原始 JSON 仅用于导入、导出和受控诊断。
+- Proposal 不能覆盖 Draft 或 Published 页面。
+- Page Studio 只使用全局 scope，页面内不选择第二套 game/env。
+- 页面 API 不接受 `functionId`、route、target 或 scope 的浏览器覆盖值。

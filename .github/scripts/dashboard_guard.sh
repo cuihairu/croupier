@@ -111,6 +111,11 @@ if [[ -d "docs" ]] && rg -n "workspace\\.md|object-workspace\\.md|WorkspaceConfi
   fail "legacy dashboard documentation still exists outside docs/archive"
 fi
 
+if rg -n "object-workspace|/api/workspace|/api/entity|对象工作台|实体管理|工作空间" \
+  docs/.vitepress/config.mjs >/dev/null 2>&1; then
+  fail "VitePress sidebar must not expose legacy Workspace/Entity dashboard entries"
+fi
+
 if rg -n "objectKey" \
   web/src/pages/Console web/src/services web/tests internal/api/page internal/api/console \
   --glob "*.ts" --glob "*.tsx" --glob "*.go" >/dev/null 2>&1; then
@@ -195,6 +200,11 @@ if rg -n "interface\\{\\}|map\\[string\\]interface\\{" \
   internal/dashboard/spec internal/dashboard/generator internal/api/page/dto.go internal/api/console/dto.go internal/model/page_spec.go \
   --glob "*.go" >/dev/null 2>&1; then
   fail "dashboard core DTO/model packages must not expose Go interface{} maps"
+fi
+
+if rg -n "interface\\{\\}|map\\[string\\]interface\\{|map\\[string\\]any|\\bany\\(" \
+  internal/dashboard --glob "*.go" >/dev/null 2>&1; then
+  fail "internal/dashboard must keep JSON boundaries typed as json.RawMessage or explicit structs"
 fi
 
 if [[ -d "web/dist" ]] && rg -n "WorkspaceConfig|WorkspaceRenderer|workspaceConfig|/api/v1/workspaces|PageGenerator|WorkspaceEditor|Workspaces|objectKey|workspace_not_found|workspace_invalid_config" \

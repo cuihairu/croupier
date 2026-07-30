@@ -66,7 +66,7 @@ func TestGenerateForResourceCreatesEntityPageOnlyFromExplicitTableContract(t *te
 	page := pages[0]
 	assert.Equal(t, "player.manage", page.PageKey)
 	assert.Equal(t, spec.PageTypeEntity, page.Type)
-	assert.Equal(t, "ready", page.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
 	assert.Equal(t, "玩家", page.Title["zh-CN"])
 	assert.Len(t, page.Bindings, 2)
 	assertBinding(t, page.Bindings, "player.query", spec.BindingUsageQuery)
@@ -109,13 +109,13 @@ func TestGenerateForResourceDoesNotAddEntityActionWithoutOutputMapping(t *testin
 
 	require.Len(t, pages, 2)
 	entityPage := pages[0]
-	assert.Equal(t, "needs_review", entityPage.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityNeedsReview, entityPage.Quality)
 	assertDiagnostic(t, entityPage.Diagnostics, "entity_action_output_mapping_missing")
 	assertBinding(t, entityPage.Bindings, "player.query", spec.BindingUsageQuery)
 	assert.NotContains(t, string(entityPage.Schema), `"bindingId":"player.ban"`)
 
 	actionPage := pages[1]
-	assert.Equal(t, "needs_review", actionPage.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityNeedsReview, actionPage.Quality)
 	assert.Equal(t, "player.ban", actionPage.PageKey)
 	assertDiagnostic(t, actionPage.Diagnostics, "binding_output_mapping_missing")
 }
@@ -144,7 +144,7 @@ func TestGenerateForResourceKeepsStandaloneOperationOutsideEntityPage(t *testing
 	page := pages[0]
 	assert.Equal(t, "mail.send", page.PageKey)
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
-	assert.Equal(t, "ready", page.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
 	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
 	assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
 	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
@@ -172,7 +172,7 @@ func TestGenerateForOperationCreatesTaskPageFromTaskContract(t *testing.T) {
 
 	assert.Equal(t, "reward.batchGrant", page.PageKey)
 	assert.Equal(t, spec.PageTypeTask, page.Type)
-	assert.Equal(t, "ready", page.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
 	require.Len(t, page.Bindings, 1)
 	assert.Equal(t, spec.BindingUsageTask, page.Bindings[0].Usage)
 	assert.Equal(t, spec.PageExecutionModeTask, page.Bindings[0].Execution.Mode)
@@ -201,7 +201,7 @@ func TestGenerateForOperationCreatesReportPageFromReportContract(t *testing.T) {
 
 	assert.Equal(t, "analytics.retention", page.PageKey)
 	assert.Equal(t, spec.PageTypeReport, page.Type)
-	assert.Equal(t, "ready", page.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
 	require.Len(t, page.Bindings, 1)
 	assert.Equal(t, spec.BindingUsageReport, page.Bindings[0].Usage)
 	assert.Contains(t, string(page.Schema), `"x-component":"ChartPanel"`)
@@ -209,17 +209,34 @@ func TestGenerateForOperationCreatesReportPageFromReportContract(t *testing.T) {
 	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
 }
 
-func TestGenerateForOperationMarksMissingContractNeedsReview(t *testing.T) {
+func TestGenerateForOperationCreatesBasicPageWhenContractMissing(t *testing.T) {
 	page := GenerateForOperation(spec.OperationSpec{
 		FunctionID: "cache.refresh",
 		Operation:  "refresh",
 		Enabled:    true,
-	}, DefaultGenerateOptions())
+	}, GenerateOptions{
+		DefaultLocale: "zh-CN",
+		Functions: map[string]spec.FunctionSpec{
+			"cache.refresh": {
+				ID: "cache.refresh",
+				InputFormilySchema: spec.FormilySchema(`{
+					"type":"object",
+					"properties":{
+						"scope":{"type":"string","x-component":"Input"},
+						"dryRun":{"type":"boolean","x-component":"Switch"}
+					}
+				}`),
+			},
+		},
+	})
 
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
-	assert.Equal(t, "needs_review", page.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
 	assertDiagnostic(t, page.Diagnostics, "resource_missing")
 	assertDiagnostic(t, page.Diagnostics, "page_contract_missing")
+	require.Len(t, page.Bindings, 1)
+	assert.JSONEq(t, `{"dryRun":"values.dryRun","scope":"values.scope"}`, string(page.Bindings[0].InputMapping))
+	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
 	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
 	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
 }

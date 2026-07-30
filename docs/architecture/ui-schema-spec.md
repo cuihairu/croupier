@@ -1,188 +1,149 @@
-# UI Schema 协议规范
-
-## 概述
-
-Croupier 全系统使用 **Formily Schema** 作为唯一的 UI Schema 格式。后端生成、前端编辑、渲染器消费，全链路同一格式，无转换层。
-
-Formily Schema 有两种明确用途，不能用同一套顶层约束混淆：
-
-| 用途 | 根节点 | 允许组件 | 负责内容 |
-| --- | --- | --- | --- |
-| Function Form Schema | `type: object` | 输入字段组件 | 单个函数的输入字段和校验 |
-| Page UI Schema | `type: void`，`x-component: ConsolePage` | 运行控制台页面组件和输入字段组件 | 页面编排、数据映射和已发布 binding 引用 |
-
-两者都是 Formily JSON Schema，不存在第二套 `layout` 协议。但 Page UI Schema 的组件 props 是 Croupier 平台 ABI，必须使用独立的 PageSpec validator 校验；不能因为 Formily 接受任意 props 就接受任意运行行为。
-
-任何非 Formily UI Schema 都是错误输入。保存、加载或渲染阶段必须直接报错，不能转换、猜测或静默降级。
-
-## 关于 `x-` 前缀
-
-Schema 中的 `x-component`、`x-decorator`、`x-component-props`、`x-reactions` 等字段**不是 Croupier 自定义扩展**，而是 [Formily JSON Schema 官方规范](https://react.formilyjs.org/api/shared/schema) 定义的标准字段。
-
-Formily 采用 JSON Schema 的扩展机制（`x-` 前缀约定）来表达 UI 元信息，这是 JSON Schema 规范允许的标准做法（RFC 中 `x-` 前缀保留给实现自行扩展）。
-
-| 字段 | 来源 | 说明 |
-|------|------|------|
-| `x-component` | Formily 官方 | 指定渲染组件（`Input`、`Select`、`DatePicker` 等） |
-| `x-decorator` | Formily 官方 | 指定装饰器组件（通常为 `FormItem`） |
-| `x-component-props` | Formily 官方 | 传递给组件的属性（`placeholder`、`min`、`max` 等） |
-| `x-reactions` | Formily 官方 | 字段联动逻辑（条件显示、值联动等） |
-| `x-data-source` | Formily 官方 | 异步数据源配置 |
-
-Croupier 的 `SchemaRenderer` 组件通过 Formily 的 `createSchemaField` API 注册可用组件，渲染时 Formily 引擎根据 `x-component` 自动选择对应组件，无需任何转换。
-
+---
+title: UI Schema 与 PageSpec 规范
+icon: schema
+order: 7
+category:
+  - 系统架构
+tag:
+  - JSON Schema
+  - ProComponents
+  - PageSpec
 ---
 
-## 格式规范
+# UI Schema 与 PageSpec 规范
 
-### Function Form Schema 顶层结构
+> **状态**：Target -- 页面协议采用强类型 PageSpec；表单展示采用 JSON Schema + FormPresentationSpec。
 
-```json
-{
-  "type": "object",
-  "properties": {
-    "fieldName": { ... }
-  },
-  "required": ["fieldName"]
+## 两种不同的 schema
+
+| 协议 | 所属层 | 用途 | 是否来自注册 |
+| --- | --- | --- | --- |
+| JSON Schema | FunctionContract | 输入、输出、校验和字段候选 | 是 |
+| PageSpec | 页面编排 | 页面类型、列表、详情、动作、任务、报表、导航和 binding | 否 |
+
+JSON Schema 不被当作页面布局树。PageSpec 也不复用 JSON Schema 的组件扩展字段。
+
+## Function Form
+
+函数表单由以下稳定结构描述：
+
+```ts
+interface FormPresentationSpec {
+  schema: JSONSchema;
+  fields: FormFieldSpec[];
+  layout: FormLayoutSpec;
+}
+
+interface FormFieldSpec {
+  path: JsonPointer;
+  label?: LocalizedText;
+  help?: LocalizedText;
+  widget?: 'text' | 'textarea' | 'number' | 'switch' | 'select' | 'date' | 'date_time' | 'json';
+  group?: string;
+  order: number;
+  visibleWhen?: ConditionSpec;
+  readOnly?: boolean;
 }
 ```
 
-Function Form Schema 顶层约束：
+Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能在函数表单工作台或 Page Studio 改展示信息，不能改变 FunctionContract payload。渲染器使用 `ProForm` 系列组件并用 JSON Schema validator 校验。
 
-- `type` 必须是 `object`。
-- `properties` 必须是对象。
-- `required` 如果存在，必须是字符串数组。
-- 字段树中必须存在 `x-component` 或 `x-decorator`。
-- 不允许使用 `fields`、`ui:layout`、`ui:groups`、`ui:order`、`widget`、`ui:widget` 作为函数表单协议字段。
+历史表单展示数据如需导入，必须一次性转换为 FormPresentationSpec；转换失败直接报错，不进入发布流程。
 
-### Page UI Schema 顶层结构
+## PageSpec 节点
 
-Page UI Schema 的根节点固定为运行控制台容器：
+PageSpec 使用业务节点而非组件名。最小可用的节点集合固定为：
 
-```json
-{
-  "schemaVersion": "v1",
-  "type": "void",
-  "x-component": "ConsolePage",
-  "properties": {
-    "query": {
-      "type": "void",
-      "x-component": "QueryForm",
-      "x-component-props": {
-        "bindingId": "player.list.query",
-        "resultStateKey": "players"
-      }
-    }
-  }
+```ts
+type PageNode =
+  | QueryViewSpec
+  | ListViewSpec
+  | DetailViewSpec
+  | FormActionSpec
+  | ConfirmActionSpec
+  | TaskViewSpec
+  | ReportViewSpec
+  | ResultViewSpec;
+```
+
+每个节点有版本化、强类型字段和服务端校验器。页面 renderer 根据节点类型选择 ProComponents；PageSpec 不得出现具体 React 组件名或任意组件 props。
+
+### 数据引用和 mapping
+
+输入输出 mapping 必须是可校验的 AST：
+
+```ts
+type ValueSource =
+  | { kind: 'form'; path: JsonPointer }
+  | { kind: 'row'; path: JsonPointer }
+  | { kind: 'selection'; path: JsonPointer }
+  | { kind: 'detail'; path: JsonPointer }
+  | { kind: 'page_state'; key: string; path?: JsonPointer }
+  | { kind: 'literal'; value: JSONValue };
+
+interface InputAssignment {
+  target: JsonPointer;
+  source: ValueSource;
+}
+
+interface OutputAssignment {
+  stateKey: string;
+  source: JsonPointer;
+  shape: 'scalar' | 'object' | 'collection' | 'task' | 'dataset';
 }
 ```
 
-Page UI Schema 约束：
+校验器必须确认：
 
-- `schemaVersion` 必须是受支持的页面组件协议版本；未知版本直接拒绝保存、预览、发布和渲染。
-- 根节点必须是 `type: void` 且 `x-component: ConsolePage`。
-- 页面组件只能来自注册表：`ConsolePage`、`QueryForm`、`DataTable`、`DetailPanel`、`ActionButton`、`ActionGroup`、`ResultPanel`、`TaskTimeline`、`ChartPanel`。
-- 页面组件中的函数引用只能使用 `bindingId`；裸 `functionId` 只允许在 Function Form 和函数目录调用 API 中出现。
-- 每种页面组件的 `x-component-props` 必须通过对应的 JSON Schema 校验；未知关键字段、未知组件和缺少必填映射都必须报错。
-- `metadata` 不能承载执行逻辑、scope、权限或未建模的组件 props。
+- target 存在于绑定函数的 input JSON Schema。
+- source 只引用已定义的表单、行、选择、详情或页面状态。
+- source/target 类型可赋值；不允许裸整行对象自动传给函数。
+- ListView 的 collection、分页和 identity 引用可被 output JSON Schema 或 CapabilitySemantics 验证。
+- ReportView 的数据集、指标和维度引用可验证。
 
-### 字段定义
+禁止保存无结构 `map[string]any`、任意 JSONPath 字符串或组件级临时 mapping 覆盖。
 
-每个字段是一个 Formily Schema 节点：
+## PageBinding
 
-```json
-{
-  "type": "string",
-  "title": "显示名称",
-  "description": "字段描述",
-
-  "x-component": "Input",
-  "x-decorator": "FormItem",
-  "x-component-props": {
-    "placeholder": "请输入",
-    "maxLength": 64
-  }
+```ts
+interface PageBinding {
+  id: string;
+  functionId: string;
+  usage: 'query' | 'detail' | 'create' | 'update' | 'delete' | 'action' | 'task' | 'report';
+  input: InputAssignment[];
+  output: OutputAssignment[];
+  confirmation: ConfirmationSpec;
 }
 ```
 
-### 类型 → 组件映射
+Schema 节点和页面动作只能引用 `bindingId`。运行时由服务端根据 active PublishedPageSpec 找到 functionId、权限、风险、scope 和 dispatch target；浏览器无权选择这些信息。
 
-| JSON Schema type | 格式/枚举 | x-component | x-component-props |
-|-----------------|----------|-------------|-------------------|
-| `string` | — | `Input` | `placeholder`, `maxLength` |
-| `string` | `format: "date"` | `DatePicker` | `format: "YYYY-MM-DD"` |
-| `string` | `format: "date-time"` | `DatePicker` | `showTime: true` |
-| `string` | `format: "time"` | `TimePicker` | `format: "HH:mm:ss"` |
-| `string` | `format: "textarea"` | `Input.TextArea` | `rows: 3` |
-| `string` | `enum: [...]` | `Select` | `options` |
-| `integer` / `number` | — | `NumberPicker` | `min`, `max`, `step`, `precision` |
-| `boolean` | — | `Switch` | — |
-| `array` | `items: { enum }` | `Select` | `mode: "multiple"` |
-| `array` | `items: { object }` | `ArrayTable` | — |
-| `object` | — | `Card` + 递归 properties | — |
+## 导航与多语言
 
-### 约束映射
+导航是 PageSpec 的强类型部分：
 
-| JSON Schema 约束 | Formily 位置 |
-|-----------------|-------------|
-| `minimum` | `x-component-props.min` |
-| `maximum` | `x-component-props.max` |
-| `minLength` | `x-component-props.minLength` |
-| `maxLength` | `x-component-props.maxLength` |
-| `pattern` | `x-component-props.pattern` |
-| `enum` | 顶层 `enum` 字段 |
-| `required` | 顶层 `required` 数组 |
-| `default` | 顶层 `default` 字段 |
-
-### 条件显示
-
-使用 Formily 的 `x-reactions` 实现：
-
-```json
-{
-  "x-reactions": {
-    "dependencies": ["mode"],
-    "fulfill": {
-      "state": {
-        "visible": "{{$deps[0] !== 'readonly'}}"
-      }
-    }
-  }
+```ts
+interface NavigationSpec {
+  category: {
+    key: string;
+    labels: LocalizedText;
+    order: number;
+  };
+  title: LocalizedText;
+  description?: LocalizedText;
+  icon?: string;
+  order: number;
 }
 ```
 
-### 布局
+PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终值；PublishedPageSpec 是 Console 动态菜单的唯一来源。静态 locale 与字典都不得成为动态页面事实源。
 
-使用 Formily 的 `FormGrid` 组件：
+## ABI 与版本
 
-```json
-{
-  "type": "void",
-  "x-component": "FormGrid",
-  "x-component-props": {
-    "minColumns": 2,
-    "maxColumns": 3
-  },
-  "properties": {
-    "field1": { ... },
-    "field2": { ... }
-  }
-}
-```
+`pageSpecVersion`、`formPresentationVersion`、`generatorVersion` 和 renderer version 必须单独保存。发布校验必须拒绝未知版本、未知节点、未知字段和非法 mapping。页面运行时不得尝试降级、猜测或转换成其他 layout/schema。
 
-### 分组
+## 安全边界
 
-使用 Formily 的 `Card` 或自定义分组组件：
-
-```json
-{
-  "type": "void",
-  "x-component": "Card",
-  "x-component-props": {
-    "title": "基本信息"
-  },
-  "properties": {
-    "playerId": { ... }
-  }
-}
-```
+- PageSpec 不存储 route、target service、scope 覆盖、Secret 或任意 HTTP 参数。
+- 未知 JSON 只能存在于 JSON Schema 的标准扩展边界；核心 DTO 使用明确类型和 `JSONValue`，禁止 `any`。
+- 表单展示变化不允许静默改变已发布页面；发布快照必须包含 FormPresentationSpec。

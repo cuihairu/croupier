@@ -151,7 +151,7 @@ func TestServiceGeneratedPagesCreatesEntityCandidateFromExplicitPageContract(t *
 	assert.Contains(t, string(page.Schema), `"x-component":"DataTable"`)
 	assert.Contains(t, string(page.Schema), `"bindingId":"player.query"`)
 	assert.Contains(t, string(page.Schema), `"bindingId":"player.ban"`)
-	assert.Equal(t, "ready", page.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
 	assert.NotContains(t, string(page.Schema), `"functionId"`)
 	assert.NotContains(t, string(page.Schema), `"operation":"update"`)
 }
@@ -181,7 +181,9 @@ func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
 
 	page := resp.Items[0]
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
-	assert.Equal(t, "needs_review", page.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
+	require.Len(t, page.Bindings, 1)
+	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
 	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
 	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
 	require.NotEmpty(t, page.Diagnostics)
@@ -215,7 +217,10 @@ func TestServiceGeneratedPagesKeepsMailSendAsOperationPage(t *testing.T) {
 	page := resp.Items[0]
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
 	assert.Equal(t, "mail.send", page.PageKey)
-	assert.Equal(t, "needs_review", page.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
+	require.Len(t, page.Bindings, 1)
+	assert.JSONEq(t, `{"content":"values.content","target":"values.target"}`, string(page.Bindings[0].InputMapping))
+	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
 	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
 	assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
 	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
@@ -277,7 +282,7 @@ func TestServiceGeneratedPagesUsesBoundOpenAPISourcePageContract(t *testing.T) {
 
 	page := resp.Items[0]
 	assert.Equal(t, spec.PageTypeEntity, page.Type)
-	assert.Equal(t, "ready", page.Quality)
+	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
 	assert.Contains(t, string(page.Schema), `"x-component":"DataTable"`)
 	assert.Contains(t, string(page.Schema), `"bindingId":"player.query"`)
 }
@@ -341,7 +346,7 @@ func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testin
 	require.NoError(t, err)
 	require.NotEmpty(t, generated.Items)
 	candidate := generated.Items[0]
-	require.Equal(t, "ready", candidate.Quality)
+	require.Equal(t, spec.GeneratedPageQualityReady, candidate.Quality)
 
 	pageService := pageapi.NewService(svcCtx)
 	revision := 0

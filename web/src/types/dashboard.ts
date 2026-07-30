@@ -53,6 +53,17 @@ export type PageExecutionKind = 'sync' | 'task' | 'approval';
 /** 诊断严重级别 */
 export type DiagnosticSeverity = 'error' | 'warning' | 'info';
 
+/** 已发布 binding 与最新函数契约的匹配状态 */
+export type BindingFreshnessStatus =
+  | 'fresh'
+  | 'contract_missing'
+  | 'function_missing'
+  | 'function_version_stale'
+  | 'input_schema_stale'
+  | 'output_schema_stale'
+  | 'governance_stale'
+  | 'execution_mode_stale';
+
 // ---------------------------------------------------------------------------
 // Diagnostic
 // ---------------------------------------------------------------------------
@@ -64,6 +75,14 @@ export interface Diagnostic {
   message: string;
   functionId?: string;
   field?: string;
+}
+
+/** 已发布 binding 的函数契约变化诊断 */
+export interface BindingFreshnessDiagnostic {
+  bindingId: string;
+  functionId?: string;
+  status: BindingFreshnessStatus;
+  diagnostic: Diagnostic;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +258,7 @@ export interface PublishedPageSpec extends PageSpec {
   publishedBy?: string;
   rendererSchemaVersion: string;
   bindingContracts: BindingContractSnapshot[];
+  bindingFreshness?: BindingFreshnessDiagnostic[];
 }
 
 /** 已发布页面 binding 的函数契约快照 */
@@ -290,7 +310,7 @@ export interface ConsoleMenuSpec {
 // ---------------------------------------------------------------------------
 
 /** 默认页面建议质量 */
-export type GeneratedPageQuality = 'ready' | 'needs_review' | 'blocked';
+export type GeneratedPageQuality = 'ready' | 'basic' | 'needs_review' | 'blocked';
 
 /** Server 生成的默认页面建议（发布前） */
 export interface GeneratedPageSpec extends PageSpec {
@@ -329,6 +349,7 @@ export interface PageSpecDraft extends PageSpec {
   draftRevision: number;
   publishedVersion?: number;
   diagnostics?: Diagnostic[];
+  bindingFreshness?: BindingFreshnessDiagnostic[];
   updatedAt: string;
   updatedBy?: string;
 }

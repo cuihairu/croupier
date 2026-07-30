@@ -72,6 +72,66 @@ export default function ConsoleIndex() {
   }, [categoryKey, menu?.items]);
 
   const activeCategory = categoryKey ? visibleCategories[0] : undefined;
+  const pagesByKey = useMemo(() => {
+    const next = new Map<string, PublishedPageSpec>();
+    pages.forEach((page) => next.set(page.pageKey, page));
+    return next;
+  }, [pages]);
+
+  const renderPageCard = (item: ConsoleMenuItem) => {
+    const page = pagesByKey.get(item.key);
+    const staleCount = page?.bindingFreshness?.length || 0;
+    return (
+      <Card
+        key={item.key}
+        hoverable
+        size="small"
+        style={{ width: 280 }}
+        onClick={() => history.push(item.path)}
+      >
+        <Card.Meta
+          avatar={
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                display: 'grid',
+                placeItems: 'center',
+                background: 'linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)',
+                color: '#fff',
+              }}
+            >
+              <AppstoreOutlined style={{ fontSize: 18 }} />
+            </div>
+          }
+          title={
+            <Space wrap size={[8, 8]}>
+              <Typography.Text strong>
+                {item.title
+                  ? (typeof item.title === 'string'
+                      ? item.title
+                      : item.title[intl.locale] || item.title['zh-CN'] || item.key)
+                  : item.key}
+              </Typography.Text>
+              {staleCount > 0 ? (
+                <Tag color="error">契约失效 {staleCount}</Tag>
+              ) : (
+                <Tag color="success" icon={<CheckCircleOutlined />}>
+                  已发布
+                </Tag>
+              )}
+            </Space>
+          }
+          description={
+            <Typography.Text code style={{ fontSize: 12 }}>
+              {item.key}
+            </Typography.Text>
+          }
+        />
+      </Card>
+    );
+  };
 
   // 权限检查
   if (!access?.canConsoleRead) {
@@ -142,52 +202,7 @@ export default function ConsoleIndex() {
             >
               {category.children && category.children.length > 0 ? (
                 <Space wrap size={[12, 12]}>
-                  {category.children.map((item) => (
-                    <Card
-                      key={item.key}
-                      hoverable
-                      size="small"
-                      style={{ width: 280 }}
-                      onClick={() => history.push(item.path)}
-                    >
-                      <Card.Meta
-                        avatar={
-                          <div
-                            style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 12,
-                              display: 'grid',
-                              placeItems: 'center',
-                              background: 'linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)',
-                              color: '#fff',
-                            }}
-                          >
-                            <AppstoreOutlined style={{ fontSize: 18 }} />
-                          </div>
-                        }
-                        title={
-                          <Space wrap size={[8, 8]}>
-                            <Typography.Text strong>
-                              {item.title
-                                ? (typeof item.title === 'string'
-                                    ? item.title
-                                    : item.title[intl.locale] || item.title['zh-CN'] || item.key)
-                                : item.key}
-                            </Typography.Text>
-                            <Tag color="success" icon={<CheckCircleOutlined />}>
-                              已发布
-                            </Tag>
-                          </Space>
-                        }
-                        description={
-                          <Typography.Text code style={{ fontSize: 12 }}>
-                            {item.key}
-                          </Typography.Text>
-                        }
-                      />
-                    </Card>
-                  ))}
+                  {category.children.map(renderPageCard)}
                 </Space>
               ) : (
                 <Typography.Text type="secondary">该分类下暂无页面</Typography.Text>

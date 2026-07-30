@@ -24,6 +24,7 @@ import {
   EyeOutlined,
   HistoryOutlined,
   ReloadOutlined,
+  RetweetOutlined,
   RocketOutlined,
   StopOutlined,
 } from '@ant-design/icons';
@@ -36,6 +37,7 @@ import {
   listPageVersions,
   previewPageDraft,
   publishPageDraft,
+  regeneratePageDraft,
   rollbackPageDraft,
   savePageDraft,
   unpublishPage,
@@ -114,10 +116,25 @@ function statusColor(status: PageSpecDraftSummary['status']) {
   return 'blue';
 }
 
+function generatedQualityColor(quality: GeneratedPageSpec['quality']) {
+  if (quality === 'ready') return 'green';
+  if (quality === 'basic') return 'blue';
+  if (quality === 'needs_review') return 'orange';
+  return 'red';
+}
+
+function canPublishGeneratedPage(quality: GeneratedPageSpec['quality']) {
+  return quality === 'ready' || quality === 'basic';
+}
+
 function diagnosticColor(severity: Diagnostic['severity']) {
   if (severity === 'error') return 'red';
   if (severity === 'warning') return 'orange';
   return 'blue';
+}
+
+function bindingFreshnessDiagnostics(page: PageSpecDraft | null): Diagnostic[] {
+  return (page?.bindingFreshness || []).map((item) => item.diagnostic);
 }
 
 function formatDate(value?: string): string {
@@ -327,6 +344,7 @@ export default function PageStudio() {
       setDraft(nextDraft);
       setJsonText(stringifyPage(nextDraft));
       setBindingMappingTexts(mappingTextsFromPage(nextDraft));
+      setDiagnostics(bindingFreshnessDiagnostics(nextDraft));
       setDirty(false);
     } finally {
       setDetailLoading(false);
@@ -362,6 +380,26 @@ export default function PageStudio() {
       await loadDetail(candidate.pageKey);
     } catch (error) {
       message.error(errorMessage(error, '创建草稿失败；如果草稿已存在，请从列表打开后编辑'));
+    }
+  };
+
+  const publishCandidateDirectly = async (candidate: GeneratedPageSpec) => {
+    if (!canPublishGeneratedPage(candidate.quality)) {
+      message.warning('只有 ready/basic 默认页可以直接发布');
+      return;
+    }
+    try {
+      const page = pageSpecFromCandidate(candidate);
+      const saved = await savePageDraft({
+        ...page,
+        draftRevision: 0,
+      });
+      const published = await publishPageDraft(candidate.pageKey, saved.draftRevision);
+      message.success(`默认页已发布：version ${published.publishedVersion}`);
+      await loadDrafts();
+      await loadDetail(candidate.pageKey);
+    } catch (error) {
+      message.error(errorMessage(error, '直接发布失败；如果草稿已存在，请打开草稿后发布'));
     }
   };
 
@@ -604,6 +642,42 @@ export default function PageStudio() {
     }
   };
 
+  const regenerateCurrentDraft = async () => {
+    if (!draft) return;
+    if (dirty) {
+      message.warning('请先保存或放弃当前未保存修改，再重新生成默认草稿');
+      return;
+    }
+    try {
+      const result = await regeneratePageDraft(draft.pageKey, draft.draftRevision);
+      message.success(`已重新生成默认草稿：revision ${result.draftRevision}`);
+      setDiagnostics(result.diagnostics || []);
+      await loadDetail(result.pageKey);
+      await loadDrafts();
+    } catch (error) {
+      if (isRevisionConflict(error)) {
+        modal.confirm({
+          title: '重生成 revision 冲突',
+          content: conflictDescription(error, draft.draftRevision),
+          okText: '加载最新草稿',
+          cancelText: '取消',
+          onOk: async () => {
+            await loadDetail(draft.pageKey);
+            await loadDrafts();
+          },
+        });
+        return;
+      }
+      const nextDiagnostics = diagnosticsFromApiError(error);
+      if (nextDiagnostics.length > 0) {
+        setDiagnostics(nextDiagnostics);
+        message.error('重新生成失败，请查看诊断');
+        return;
+      }
+      message.error(errorMessage(error, '重新生成默认草稿失败'));
+    }
+  };
+
   const unpublishCurrentPage = async () => {
     if (!draft) return;
     await unpublishPage(draft.pageKey);
@@ -743,7 +817,7 @@ export default function PageStudio() {
       title: '质量',
       dataIndex: 'quality',
       width: 130,
-      render: (_, record) => <Tag color={record.quality === 'blocked' ? 'red' : 'orange'}>{record.quality}</Tag>,
+      render: (_, record) => <Tag color={generatedQualityColor(record.quality)}>{record.quality}</Tag>,
     },
     {
       title: '诊断',
@@ -769,12 +843,23 @@ export default function PageStudio() {
     {
       title: '操作',
       valueType: 'option',
-      width: 130,
+      width: 190,
       render: (_, record) => [
+        <Popconfirm
+          key="publish"
+          title="直接发布默认页？"
+          description="ready/basic 默认页会先物化为草稿，再生成发布快照并进入运行控制台。"
+          disabled={!canPublishGeneratedPage(record.quality)}
+          onConfirm={() => publishCandidateDirectly(record)}
+        >
+          <Button type="link" size="small" disabled={!canPublishGeneratedPage(record.quality)}>
+            直接发布
+          </Button>
+        </Popconfirm>,
         <Popconfirm
           key="save"
           title="保存为 PageSpec 草稿？"
-          description="候选不会直接发布，保存后必须在 Page Studio 校验并确认。"
+          description="保存后可预览、编辑、校验并发布。"
           onConfirm={() => saveCandidateAsDraft(record)}
         >
           <Button type="link" size="small">
@@ -887,6 +972,39 @@ export default function PageStudio() {
           <Card loading />
         ) : draft ? (
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            {draft.bindingFreshness && draft.bindingFreshness.length > 0 ? (
+              <Alert
+                type="error"
+                showIcon
+                message="当前已发布页面的函数契约已变化"
+                action={
+                  <Popconfirm
+                    title="重新生成默认草稿？"
+                    description="这会用最新 FunctionSpec 覆盖当前 PageSpec 草稿，但不会自动发布。"
+                    onConfirm={regenerateCurrentDraft}
+                  >
+                    <Button danger size="small" icon={<RetweetOutlined />}>
+                      重新生成草稿
+                    </Button>
+                  </Popconfirm>
+                }
+                description={
+                  <Space direction="vertical" size={4}>
+                    <Typography.Text>
+                      运行控制台会拒绝执行这些 binding。请同步 Function Form、重新生成或修正 PageSpec，并重新发布新快照。
+                    </Typography.Text>
+                    {draft.bindingFreshness.map((item) => (
+                      <Space key={`${item.bindingId}:${item.status}:${item.diagnostic.code}`} wrap>
+                        <Tag color="red">{item.status}</Tag>
+                        <Typography.Text code>{item.bindingId}</Typography.Text>
+                        {item.functionId ? <Typography.Text code>{item.functionId}</Typography.Text> : null}
+                        <Typography.Text>{item.diagnostic.message}</Typography.Text>
+                      </Space>
+                    ))}
+                  </Space>
+                }
+              />
+            ) : null}
             <Card size="small">
               <Space wrap>
                 <Button type="primary" icon={<CodeOutlined />} onClick={saveCurrentDraft} disabled={!dirty}>
