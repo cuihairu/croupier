@@ -2,7 +2,7 @@
 
 更新时间：2026-07-30
 
-> 本文是下一版 Dashboard 的唯一实施计划和 AI 交接清单。它替代此前以 `Formily PageSchema + PageContract/x-page-contract` 为核心的计划；旧计划中的“P0 核心完成”不代表产品可用，不得再据此声明 Dashboard 可发布。
+> 本文是下一版 Dashboard 的唯一实施计划和 AI 交接清单。任何实现、文档、SDK 或测试与本文冲突时，先修正文档和计划，再实现代码；不得并行维护两套模型。
 
 ## 0. 当前结论
 
@@ -41,17 +41,17 @@ SDK / OpenAPI 注册能力
 - Ant Design Pro、ProComponents、ProLayout、ProTable、ProForm、ProDescriptions、Modal/Drawer/Popconfirm。
 - JSON Schema 输入/输出契约和 SDK 多语言注册链路。
 
-### 0.3 必须删除的当前实现路线
+### 0.3 必须物理清理的实现
 
-以下不再是目标，不得新增兼容层或“deprecated but still works”代码：
+以下实现不属于 vNext，重构到对应替代路径后必须物理删除，不新增转换桥：
 
-- PageSpec 使用 Formily `x-component` 树作为页面协议。
-- `PageContract`、`x-page-contract`、任意 `inputMapping/outputMapping` 注册扩展。
-- `FormilyPageRenderer`、Formily Page validator、Page schema editor 和 Page JSON 作为正常编辑路径。
+- 组件树式页面协议、页面 schema validator、页面 schema editor 和原始 JSON 默认编辑路径。
+- 注册侧页面编排扩展、任意 `inputMapping/outputMapping` 注册扩展。
+- 旧页面 renderer、旧表单 registry、旧页面 DTO、旧页面 API 字段和旧数据库列。
 - 从函数名、首批结果、任意 row JSON、静态 locale 或字典猜页面/菜单。
 - 把所有函数都做成 CRUD，或把 CRUD Resource 从模型中排除。
 - React Admin 的 `DataProvider/getList/getOne/create/update/delete` 成为后端协议。
-- 旧 Workspace/Entity/WorkspaceConfig API、数据模型、菜单和任何转换桥。
+- 现行模型外的工作区/对象页配置 API、数据模型、菜单和任何转换桥。
 
 ### 0.4 架构权威文档
 
@@ -61,22 +61,22 @@ SDK / OpenAPI 注册能力
 - `docs/architecture/ui-generation.md`
 - `docs/design/console-dynamic-menu.md`
 
-若本文与代码冲突，以权威文档为准；若权威文档彼此冲突，停止实现并先修正文档，不得自行兼容两种模型。
+若本文与代码冲突，以权威文档为准；若权威文档彼此冲突，停止实现并先修正文档，不得并行维护两种模型。
 
 ## 1. 不可违反的边界
 
-1. **函数注册只描述能力。** SDK/OpenAPI 可提供 JSON Schema、resource、operation、capability、risk、permission、execution；不得提供菜单、页面、Formily、ProComponents、列、mapping、按钮位置、标题或分类 labels。
-2. **CRUD 是主路径。** Resource CRUD 是游戏后台大量场景的默认高质量生成路径；它不是删除的旧 Entity CRUD API。
+1. **函数注册只描述能力。** SDK/OpenAPI 可提供 JSON Schema、resource、operation、capability、risk、permission、execution；不得提供菜单、页面、组件库、列、mapping、按钮位置、标题或分类 labels。
+2. **CRUD 是主路径。** Resource CRUD 是游戏后台大量场景的默认高质量生成路径。
 3. **非 CRUD 是一等能力。** Operation、Task、Report、Approval 不得被强行套进 Resource CRUD。
 4. **能力语义与页面 UI 分离。** `CapabilitySemantics` 描述 list/get/create/update/delete/action/task/report 与 identity，不描述页面布局；PageSpec 才描述页面编排。
 5. **JSON Schema 不等于页面。** JSON Schema 生成字段、候选列和验证；不能单独判断行操作、分页路径、图表或任务状态。
-6. **PageSpec 是强类型业务 DSL。** 它不保存 Formily、`x-component`、React props 或 `ProTable` 名称；renderer adapter 才选择 ProComponents。
-7. **Formily 不是下一版页面依赖。** 表单迁移到 `JSON Schema + FormPresentationSpec + ProForm renderer`；不得同时维护 Formily Page runtime 和新 runtime。
+6. **PageSpec 是强类型业务 DSL。** 它不保存 React props、组件树或 `ProTable` 名称；renderer adapter 才选择 ProComponents。
+7. **表单协议唯一。** 表单使用 `JSON Schema + FormPresentationSpec + ProForm renderer`；不得同时维护第二套页面/表单 runtime。
 8. **PageProposal 与 PageDraft 分离。** Proposal 可重生；Draft 可编辑；Published 不可变。重新生成不能覆盖用户草稿或已发布页。
 9. **菜单唯一来源不变。** `active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout`；动态 labels 不进入静态 locale/字典。
 10. **scope 唯一。** `game_id + env` 来自全局上下文，页面内不得二次选择或由 URL/payload 覆盖。
 11. **执行唯一入口不变。** 页面只能用 active PublishedPageSpec binding execute API；浏览器不得传 functionId、route、target、game/env。
-12. **无兼容迁移。** 不自动将旧 PageSpec/Formily PageSchema/Workspace 配置转换为新页面；历史数据只能导出、备份和人工重建。
+12. **无自动转换。** 不自动将现行模型外的历史页面配置转换为新页面；历史数据只能导出、备份和人工重建。
 
 ## 2. 目标领域模型
 
@@ -147,25 +147,25 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 ### P0. 架构冻结、现状降级与删除准备
 
-状态：进行中。本文档和权威架构文档已更新；代码仍是旧模型，不能宣称完成。
+状态：进行中。本文档和权威架构文档已更新；代码仍未完成 vNext 闭环，不能宣称完成。
 
 #### P0-1. 冻结新模型与术语
 
 - [x] 重写 Dashboard、Descriptor、UI Schema、UI Generation 权威文档。
 - [ ] 建立 `docs/architecture/dashboard-glossary.md`，仅定义当前术语：FunctionContract、ResourceCapability、CapabilitySemantics、PageProposal、PageDraft、PublishedPageSpec、ResourcePage、OperationPage、TaskPage、ReportPage、FormPresentationSpec、binding。
-- [ ] 更新所有 guide/API/SDK 文档，删除 `PageContract`、`x-page-contract`、Formily PageSchema、Entity Page 作为反 CRUD 含义的当前描述。
-- [ ] 文档中明确旧 PageSpec/Formily Page data 无自动迁移路径，避免 agent 再加入兼容。
+- [ ] 更新所有 guide/API/SDK 文档，只保留当前模型术语和正向边界。
+- [ ] 文档中明确历史页面配置无自动迁移路径，避免 agent 再加入转换桥。
 
-验收：`rg -n "PageContract|x-page-contract|Formily PageSchema|FormilyPageRenderer" "docs" --glob '!docs/archive/**'` 无当前设计命中。
+验收：`scripts/dashboard_vnext_guard.sh docs` 通过；产品、架构、API、SDK 文档只出现当前模型术语。
 
 #### P0-2. 盘点保留/删除代码
 
-- [ ] 为以下模块建立删除清单与调用图：`internal/dashboard/generator`、`internal/dashboard/spec` 中旧 PageContract、`internal/api/page/schema_validator.go`、`web/src/components/FormilyPageRenderer`、`web/src/pages/PageStudio/PageSchemaEditor.tsx`、`web/src/components/formily` 的页面用途。
+- [ ] 为 Dashboard 生成器、spec、页面 schema validator、旧 Page renderer、Page schema editor 和旧页面表单 registry 建立删除清单与调用图。
 - [ ] 标注保留模块：scope、PageVersion、PublishedPage、ConsoleMenu、Console execute、OpenAPI Source、Audit/OTel。
 - [ ] 删除前先新增新模型替代路径；替代路径通过 E2E 后物理删除旧文件、路由、DTO、数据库列和 CI allowlist。
 - [ ] 删除历史页面数据前，导出只读报告和备份方案；任何生产数据删除另行取得明确确认，禁止自动执行。
 
-验收：删除清单逐项有 owner、替代模块、测试和删除 PR；无“暂时兼容”项。
+验收：删除清单逐项有 owner、替代模块、测试和删除 PR；无“暂时保留”项。
 
 ### P1. FunctionContract 与 CapabilitySemantics
 
@@ -174,7 +174,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 #### P1-1. 替换 descriptor 核心 DTO
 
 - [ ] 在 proto、SDK、OpenAPI Source、DB 中定义 `capability` 和 `execution` 的受控枚举。
-- [ ] 保留 `resourceKey/operationKey/risk/permission/inputSchema/outputSchema`，删除 PageContract 及其所有解析、透传、测试和文档。
+- [ ] 保留 `resourceKey/operationKey/risk/permission/inputSchema/outputSchema`，删除注册侧页面扩展及其所有解析、透传、测试和文档。
 - [ ] 为各 SDK 建立 capability 支持矩阵；不支持时明确失败或标记未支持，禁止无声丢弃。
 - [ ] 注册边界严格拒绝 UI、页面、mapping、分页、列、任务路径、图表路径与多语言页面显示字段。
 
@@ -257,10 +257,10 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 - [ ] 定义 Go/TypeScript 一致的 discriminated union：ResourcePage、OperationPage、TaskPage、ReportPage。
 - [ ] 定义 NavigationSpec、ListViewSpec、DetailViewSpec、FormActionSpec、ConfirmActionSpec、TaskViewSpec、ReportViewSpec、ResultViewSpec。
-- [ ] 定义 `FormPresentationSpec`，以 JSON Schema + 受控 widget hints 表达表单显示，禁止 Formily schema。
-- [ ] `page_specs/published_page_specs/page_versions` 写入 `pageSpecVersion` 和完整 FormPresentation snapshot；按 scope 迁移为新结构，旧数据不转换。
+- [ ] 定义 `FormPresentationSpec`，以 JSON Schema + 受控 widget hints 表达表单显示。
+- [ ] `page_specs/published_page_specs/page_versions` 写入 `pageSpecVersion` 和完整 FormPresentation snapshot；按 scope 写入新结构，历史数据不转换。
 
-验收：核心 DTO 不含 `any`、`interface{}`、`x-component`、Formily、任意 JSON props 或 PageContract。
+验收：核心 DTO 不含 `any`、`interface{}`、任意 JSON props、组件树字段或注册侧页面扩展。
 
 #### P3-2. Typed selector AST 与静态校验
 
@@ -289,9 +289,9 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - [ ] 新建 JSON Schema -> ProForm field factory，支持基础类型、enum、array/object、required、default、format、错误显示和受控 widget hints。
 - [ ] 接入 JSON Schema validator，禁止前端独自解释与服务端不同的 payload。
 - [ ] 支持 QueryForm、ModalForm、DrawerForm、StepsForm；函数目录与 Page action 复用同一 renderer。
-- [ ] 移除 Function Form 对 Formily 的运行依赖；旧 form 数据一次性转换或报错。
+- [ ] 移除 Function Form 对第二套表单 runtime 的运行依赖；历史 form 数据一次性转换或报错。
 
-验收：复杂 input schema 的函数调用、创建、编辑、查询和动作弹窗使用同一 renderer；不含 Formily import。
+验收：复杂 input schema 的函数调用、创建、编辑、查询和动作弹窗使用同一 renderer；不含第二套表单 runtime import。
 
 #### P4-2. ResourcePageRenderer
 
@@ -311,14 +311,14 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 验收：浏览器 E2E 验证真实 task events、真实图表和审批状态。
 
-#### P4-4. 删除 Formily Page runtime
+#### P4-4. 删除旧 Page runtime
 
-- [ ] 删除 `web/src/components/FormilyPageRenderer`、运行 Page 的 Formily registry、Page schema validator、PageSchemaEditor 和相应 API/schema 字段。
-- [ ] 删除 `@formily/*` 依赖；如没有其他运行用途则完全删除，禁止保留以备兼容。
+- [ ] 删除旧 Page renderer、运行 Page 的旧 registry、Page schema validator、PageSchemaEditor 和相应 API/schema 字段。
+- [ ] 删除旧表单/页面 runtime 依赖；如没有其他运行用途则完全删除，禁止保留。
 - [ ] 删除 `form-render` 未使用依赖；不允许引入第二个 schema runtime。
-- [ ] CI guard 阻止 Formily Page、PageContract、`x-component` 回流；函数旧 form 转换完成后也阻止 Formily runtime 回流。
+- [ ] CI guard 阻止旧 Page runtime、注册侧页面扩展、组件树页面协议回流；历史 form 转换完成后也阻止第二套表单 runtime 回流。
 
-验收：`rg -n "FormilyPageRenderer|x-page-contract|PageContract|x-component" "web/src" "internal"` 在运行代码无命中；前端 build 与 E2E 通过。
+验收：`scripts/dashboard_vnext_guard.sh runtime` 通过；前端 build 与 E2E 通过。
 
 ### P5. Page Studio 与 Resource Catalog 产品化
 
@@ -348,7 +348,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - [ ] ReportPage 面板：查询、dataset、维度、指标、图表、表格、导出。
 - [ ] 所有编辑器读取强类型 DTO；高级 JSON 仅导入/导出/诊断，需单独权限且修改后仍经过同一校验。
 
-验收：正常操作不展示 PageSpec JSON、Formily schema 或 mapping JSON；所有配置可通过选择器完成。
+验收：正常操作不展示原始 PageSpec JSON、第二套表单 schema 或自定义 mapping JSON；所有配置可通过选择器完成。
 
 #### P5-4. 变更处理与版本体验
 
@@ -370,18 +370,18 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 验收：伪造 page/binding/function/target/scope 请求全部失败；真实调用可从 UI 点击关联至 trace、audit、task/approval。
 
-### P7. 旧模型物理清理
+### P7. 非 vNext 实现物理清理
 
 状态：未开始；必须在 vNext 完整 E2E 后执行。
 
-- [ ] 删除旧 PageContract DTO、OpenAPI extension、descriptor collector 解析、SDK/docs/demo、generator、测试。
-- [ ] 删除 Formily PageSpec DTO、Formily Page renderer、Page schema validator/editor、旧 Page APIs 与数据库列。
-- [ ] 删除旧 page spec 数据，不迁移；数据清理前备份并取得单独确认。
-- [ ] 删除旧 `workspace_configs` 诊断/迁移命令、旧 Workspace/Entity 术语和防兼容代码。
-- [ ] 删除不再使用的 Formily/form-render 依赖、锁文件项与构建配置。
-- [ ] 更新 CI guard：旧模型命中必须失败，禁止 allowlist。
+- [ ] 删除注册侧页面扩展 DTO、OpenAPI extension、descriptor collector 解析、SDK/docs/demo、generator、测试。
+- [ ] 删除组件树 PageSpec DTO、旧 Page renderer、Page schema validator/editor、非 vNext Page APIs 与数据库列。
+- [ ] 删除历史 page spec 数据，不迁移；数据清理前备份并取得单独确认。
+- [ ] 删除非 vNext `workspace_configs` 诊断/命令、对象页配置术语和防回流代码。
+- [ ] 删除不再使用的旧页面/表单 runtime 依赖、锁文件项与构建配置。
+- [ ] 更新 CI guard：非 vNext 模型命中必须失败，禁止 allowlist。
 
-验收：`go test ./...`、web/docs build 与全量 E2E 不依赖任意旧模型文件、表、API 或 package。
+验收：`go test ./...`、web/docs build 与全量 E2E 不依赖任意非 vNext 文件、表、API 或 package。
 
 ## 4. 端到端验收矩阵
 
@@ -412,14 +412,14 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 ### Guard 必须拒绝
 
 ```text
-PageContract / x-page-contract
-FormilyPageRenderer / Page Formily schema / x-component Page runtime
-WorkspaceConfig / old Entity API / objectKey
+注册侧页面扩展字段和对应 OpenAPI extension
+旧 Page renderer、组件树页面协议、页面 schema editor
+非 vNext 工作区/对象页配置 API 与 objectKey 页面身份
 动态菜单静态 locale 或字典事实源
 Page binding 的裸 functionId、route、target、game/env
 核心 DTO 中的 TypeScript any 或 Go interface{}
 以 mock/JSON placeholder 声称 Task/Report 完成
-旧模型兼容桥、deprecated runtime、自动数据迁移
+非 vNext 转换桥、第二套 runtime、自动数据迁移
 ```
 
 ## 6. 完成定义
@@ -428,11 +428,11 @@ Page binding 的裸 functionId、route、target、game/env
 
 1. 当前权威模型已在代码、文档、SDK 和数据库中一致实现。
 2. OpenAPI REST 和 SDK capability 都可自动生成完整 CRUD 页面；非 CRUD 可自动生成可发布 Operation 页面。
-3. 用户正常路径不写 Page JSON、Formily 或 mapping JSON。
+3. 用户正常路径不写原始 PageSpec JSON 或自定义 mapping JSON。
 4. Task/Report/Approval 是真实运行能力，不存在最小实现和 JSON 占位。
 5. 运行菜单唯一来自 PublishedPageSpec，scope、权限、审计、OTel、stale 和发布版本均闭环。
 6. 函数/语义变更可生成 Proposal diff 并由用户合并，绝不静默覆盖。
-7. 已物理删�� PageContract、Formily Page runtime、旧 Workspace/Entity 及所有兼容代码和文档。
+7. 已物理删除注册侧页面扩展、旧 Page runtime、非 vNext 工作区/对象页配置及所有转换桥代码和文档。
 8. 全量单元、集成、浏览器 E2E、docs、SDK parity 和部署验证通过。
 
 在此之前，禁止把任何阶段标记为“Dashboard 重构完成”或“可发布版本”。

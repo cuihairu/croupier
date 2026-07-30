@@ -11,12 +11,12 @@ tag:
 
 # Dashboard 术语表
 
-> **状态**：Current -- 本文只定义当前模型。旧 Workspace、Entity、Formily PageSchema、PageContract 不作为当前术语保留。
+> **状态**：Current -- 本文只定义当前模型。任何未出现在本文的历史页面模型都不作为当前术语使用。
 
 | 术语 | 定义 | 不是什么 |
 | --- | --- | --- |
 | FunctionContract | 一个可执行函数的版本、输入/输出 JSON Schema、治理和有限能力语义 | 页面或菜单配置 |
-| ResourceCapability | 围绕同一业务资源聚合的函数能力集合 | 数据库表或旧 Entity API |
+| ResourceCapability | 围绕同一业务资源聚合的函数能力集合 | 数据库表或直接业务数据 API |
 | CapabilitySemantics | 资源 identity、collection、CRUD、action/task/report 的可验证业务语义 | 列、按钮位置、页面布局或 mapping JSON |
 | Resource Catalog | 管理和审核 CapabilitySemantics 的平台入口 | Page Studio 或业务 CRUD API |
 | PageProposal | Server 根据能力和语义生成的可追溯页面建议 | 用户草稿或运行页面 |

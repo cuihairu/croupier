@@ -19,7 +19,7 @@
 - `input_schema`
 - `output_schema`
 
-不得在 SDK descriptor 中提供 `entity_display`、`operation_display`、`category_display`、`operation_kind`、`placement`、`page_hint` 或任何 Page UI 配置。
+SDK descriptor 不提供页面 schema、组件树、页面 mapping、菜单、分类显示名、页面标题、按钮文案或页面位置。
 
 ## 继续阅读
 

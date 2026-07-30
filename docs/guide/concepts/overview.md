@@ -122,7 +122,7 @@ FunctionContract -> ResourceCapability -> CapabilitySemantics -> PageProposal ->
 
 `ResourceCapability` 是 Dashboard 组织页面用的资源能力集合，例如 `player`、`mail`、`inventory`、`analytics`。
 
-它不是旧 Entity API。一个 Resource 可以承载 CRUD 操作，也可以承载游戏运营里的封禁、发奖、发邮件、补单等动作。
+一个 Resource 可以承载 CRUD 操作，也可以承载游戏运营里的封禁、发奖、发邮件、补单等动作。
 
 ### CapabilitySemantics
 

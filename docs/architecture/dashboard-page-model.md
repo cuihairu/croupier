@@ -109,7 +109,7 @@ type CapabilityKind =
   | 'report';
 ```
 
-`resourceKey`、`operationKey` 和 `capability` 都是业务能力语义，不是页面语义。`capability` 只允许上述受控枚举，禁止继续以自由 `operationKind`、`placement`、`pageHint` 传递页面设计。
+`resourceKey`、`operationKey` 和 `capability` 都是业务能力语义，不是页面语义。`capability` 只允许上述受控枚举；页面设计只能由 PageProposal/PageSpec 表达。
 
 函数缺少 `resourceKey` 或 `capability` 不得阻断注册；它仍可生成独立 Operation Page。任意 SDK 函数没有 REST method/path，若想可靠加入 Resource CRUD 页面，必须提供这一个受控能力语义，不能要求 Server 从函数名猜测。
 

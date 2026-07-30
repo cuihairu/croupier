@@ -87,6 +87,7 @@ const config = defineConfig({
             { text: '概述', link: '/architecture/' },
             { text: '分层', link: '/architecture/layers' },
             { text: '术语', link: '/architecture/terms-and-layering' },
+            { text: 'Dashboard 术语表', link: '/architecture/dashboard-glossary' },
             { text: '数据流', link: '/architecture/data-flow' },
             { text: '游戏与环境作用域', link: '/architecture/game-environment-scope' },
             { text: 'Session 生命周期', link: '/architecture/session-lifecycle' },

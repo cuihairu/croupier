@@ -206,7 +206,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 ### L3 Invoker 能力映射
 
 > 命名统一为 `task` 系列（`startTask` / `streamTask` / `cancelTask`），与 `proto/croupier/sdk/v1/invocation.proto` 对齐。
-> 本阶段不以向后兼容为约束：过期命名直接删除，不保留别名。
+> 本阶段不保留过期命名：发现后直接删除，不保留别名。
 
 | SDK | 入口文件 | 同步调用 | 异步任务 | 流式事件 | 取消 |
 | --- | --- | --- | --- | --- | --- |
