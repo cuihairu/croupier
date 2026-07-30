@@ -295,7 +295,7 @@ const config = defineConfig({
             { text: '构建', link: '/sdks/cpp/guide/building' },
             { text: '快速开始', link: '/sdks/cpp/guide/quick-start' },
             { text: '函数', link: '/sdks/cpp/guide/functions' },
-            { text: '资源与操作', link: '/sdks/cpp/guide/virtual-objects' },
+            { text: '资源与操作', link: '/sdks/cpp/guide/resources-and-operations' },
             { text: '插件', link: '/sdks/cpp/guide/plugins' },
             { text: '配置', link: '/sdks/cpp/configuration/' },
           ],

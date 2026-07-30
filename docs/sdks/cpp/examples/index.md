@@ -12,4 +12,4 @@
 - [basic-function](./basic-function)
 - [comprehensive](./comprehensive)
 - [plugin](./plugin)
-- [resource-operation](./virtual-object)
+- [resource-operation](./resources-and-operations)

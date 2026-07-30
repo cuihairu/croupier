@@ -128,7 +128,7 @@ provider.serve();
 - [测试进度](./test-implementation-progress)
 - [Client Config](./configuration/client-config)
 - [插件指南](./guide/plugins)
-- [资源与操作](./guide/virtual-objects)
+- [资源与操作](./guide/resources-and-operations)
 
 ## 相关文档
 

@@ -1,6 +1,6 @@
 # 资源与操作
 
-本文说明 C++ SDK 如何通过 descriptor v2 表达资源页面生成语义。当前目标模型是 `ResourceSpec + OperationSpec + PageSpec`。
+本文说明 C++ SDK 如何通过 descriptor v2 表达资源页面生成语义。当前目标模型是 `FunctionContract / ResourceCapability / CapabilitySemantics / PageProposal / PageSpec`。
 
 资源不是数据库表，也不是 SDK 侧的运行时对象。它只是一组函数围绕同一业务能力域组织出的稳定 key，例如钱包、背包、订单、玩家资料。SDK descriptor 只提供函数能力契约；页面分类、动态 labels、页面类型和位置必须在 Page Studio / PageSpec 中确定。
 

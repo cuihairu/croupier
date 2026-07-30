@@ -85,7 +85,7 @@ Croupier 的管理界面在“函数”这一模块下分为三个层次，各�
 
 | 层次 | 定位 | 数据来源 | 典型操作 |
 | --- | --- | --- | --- |
-| **函数目录** | 能力供给层 | FunctionSpec / 函数注册目录 | 确认函数是否注册成功、Schema 是否正确、有没有可调用实例、单函数 invoke |
+| **函数目录** | 能力供给层 | FunctionContract / 函数注册目录 | 确认函数是否注册成功、Schema 是否正确、有没有可调用实例、单函数 invoke |
 | **Resource Catalog** | 能力语义层 | FunctionContract / CapabilitySemantics | 审核资源、CRUD/任务/报表语义与生成诊断 |
 | **Page Studio** | 页面装配层 | PageProposal / PageDraft | 接受默认页面、语义化编辑、预览、发布、合并、回滚 |
 | **运行控制台** | 执行层 | PublishedPageSpec / ConsoleMenuSpec | 面向最终用户/运营执行业务操作 |

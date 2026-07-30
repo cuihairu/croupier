@@ -13,7 +13,7 @@
 - [快速开始](./quick-start)
 - [构建](./building)
 - [函数注册](./functions)
-- [资源与操作](./virtual-objects)
+- [资源与操作](./resources-and-operations)
 - [插件](./plugins)
 - [线程与并发](./threading)
 - [测试](./testing)

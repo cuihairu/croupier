@@ -10,7 +10,7 @@ from croupier.dispatcher import MainThreadDispatcher
 dispatcher = MainThreadDispatcher.get_instance()
 dispatcher.initialize()
 
-def on_grpc_response(data):
+def on_response(data):
     dispatcher.enqueue(lambda: process_response(data))
 
 while running:
