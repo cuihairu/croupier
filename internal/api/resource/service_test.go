@@ -26,8 +26,8 @@ func TestServiceListCollectsRegistryDescriptorV2Metadata(t *testing.T) {
 	store := reg.NewStore()
 	store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		GameID:   "game-1",
-		Env:      "prod",
+		GameID:   "demo-game",
+		Env:      "development",
 		ExpireAt: time.Now().Add(time.Minute),
 		LastSeen: time.Now(),
 		Functions: map[string]reg.FunctionMeta{
@@ -160,6 +160,8 @@ func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
 	store := reg.NewStore()
 	store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
 		ExpireAt: time.Now().Add(time.Minute),
 		LastSeen: time.Now(),
 		Functions: map[string]reg.FunctionMeta{
@@ -194,6 +196,8 @@ func TestServiceGeneratedPagesKeepsMailSendAsOperationPage(t *testing.T) {
 	store := reg.NewStore()
 	store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
 		ExpireAt: time.Now().Add(time.Minute),
 		LastSeen: time.Now(),
 		Functions: map[string]reg.FunctionMeta{
