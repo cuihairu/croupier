@@ -556,83 +556,26 @@ func functionPermissionsUpdate(ctx context.Context, svcCtx *svc.ServiceContext, 
 }
 
 // Function Form configuration implementations
+// TODO: Implement with new vNext FormPresentationSpec
 
 func functionForm(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormRequest) (*FunctionFormResponse, error) {
-	logicResp, err := logicfunction.NewFunctionFormLogic(ctx, svcCtx).FunctionForm(&logicfunction.FunctionFormRequest{
-		ID: req.ID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &FunctionFormResponse{
-		Schema:           rawJSONFromBytes(logicResp.Schema),
-		Custom:           logicResp.Custom,
-		HasDefault:       logicResp.HasDefault,
-		FormSource:       logicResp.FormSource,
-		FormSourceDetail: logicResp.FormSourceDetail,
-	}, nil
+	// TODO: Implement with vNext
+	return &FunctionFormResponse{}, nil
 }
 
 func functionFormUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormUpdateRequest) (*FunctionFormResponse, error) {
-	logicResp, err := logicfunction.NewFunctionFormUpdateLogic(ctx, svcCtx).FunctionFormUpdate(&logicfunction.FunctionFormUpdateRequest{
-		ID:     req.ID,
-		Schema: rawJSONFromBytes(req.Schema),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &FunctionFormResponse{
-		Schema:           rawJSONFromBytes(logicResp.Schema),
-		Custom:           logicResp.Custom,
-		HasDefault:       logicResp.HasDefault,
-		FormSource:       logicResp.FormSource,
-		FormSourceDetail: logicResp.FormSourceDetail,
-	}, nil
+	// TODO: Implement with vNext
+	return &FunctionFormResponse{}, nil
 }
 
 func functionFormHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormHistoryRequest) (*FunctionFormHistoryResponse, error) {
-	logicResp, err := logicfunction.NewFunctionFormHistoryLogic(ctx, svcCtx).FunctionFormHistory(&logicfunction.FunctionFormHistoryRequest{
-		ID: req.ID,
-	})
-	if err != nil {
-		return nil, err
-	}
-	items := make([]FunctionFormHistoryItem, 0, len(logicResp.Items))
-	for _, item := range logicResp.Items {
-		items = append(items, FunctionFormHistoryItem{
-			Version:   item.Version,
-			Schema:    rawJSONFromBytes(item.Schema),
-			Message:   item.Message,
-			CreatedBy: item.CreatedBy,
-			CreatedAt: item.CreatedAt,
-		})
-	}
-	return &FunctionFormHistoryResponse{Items: items}, nil
+	// TODO: Implement with vNext
+	return &FunctionFormHistoryResponse{}, nil
 }
 
 func functionFormRollback(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormRollbackRequest) (*FunctionFormRollbackResponse, error) {
-	logicResp, err := logicfunction.NewFunctionFormRollbackLogic(ctx, svcCtx).FunctionFormRollback(&logicfunction.FunctionFormRollbackRequest{
-		ID:      req.ID,
-		Version: req.Version,
-	})
-	if err != nil {
-		return nil, err
-	}
-	current := (*FunctionFormResponse)(nil)
-	if resp := logicResp.Current; resp != nil {
-		current = &FunctionFormResponse{
-			Schema:           rawJSONFromBytes(resp.Schema),
-			Custom:           resp.Custom,
-			HasDefault:       resp.HasDefault,
-			FormSource:       resp.FormSource,
-			FormSourceDetail: resp.FormSourceDetail,
-		}
-	}
-	return &FunctionFormRollbackResponse{
-		AppliedVersion: logicResp.AppliedVersion,
-		Current:        current,
-	}, nil
+	// TODO: Implement with vNext
+	return &FunctionFormRollbackResponse{}, nil
 }
 
 func functionWarnings(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionWarningsRequest) (*FunctionWarningsResponse, error) {

@@ -208,3 +208,18 @@ func toJSONMap(m spec.LocalizedText) datatypes.JSONMap {
 	json.Unmarshal(b, &result)
 	return result
 }
+
+// ListContracts lists all contracts in a scope.
+func (s *ContractService) ListContracts(ctx context.Context, gameID, env string) ([]*model.FunctionContract, error) {
+	return s.contractModel.ListByScope(ctx, gameID, env)
+}
+
+// GetContract gets a contract by function ID.
+func (s *ContractService) GetContract(ctx context.Context, gameID, env, functionID string) (*model.FunctionContract, error) {
+	return s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
+}
+
+// ListResourceCapabilities lists all resource capabilities in a scope.
+func (s *ContractService) ListResourceCapabilities(ctx context.Context, gameID, env string) ([]*model.ResourceCapability, error) {
+	return s.capabilityModel.ListByScope(ctx, gameID, env)
+}

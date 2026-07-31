@@ -19,6 +19,7 @@ import (
 	providerapi "github.com/cuihairu/croupier/internal/api/provider"
 	registryapi "github.com/cuihairu/croupier/internal/api/registry"
 	resourceapi "github.com/cuihairu/croupier/internal/api/resource"
+	resourcecatalog "github.com/cuihairu/croupier/internal/api/resourcecatalog"
 	roleapi "github.com/cuihairu/croupier/internal/api/role"
 	taskapi "github.com/cuihairu/croupier/internal/api/task"
 	"github.com/cuihairu/croupier/internal/config"
@@ -34,7 +35,9 @@ import (
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
+	"github.com/cuihairu/croupier/internal/service"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
+	versioning "github.com/cuihairu/croupier/internal/service/versioning"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -167,6 +170,10 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	registerResourceRoutes(authenticated, svcCtx)
 	registerConsoleRoutes(authenticated, svcCtx)
 	registerPageRoutes(authenticated, svcCtx)
+	registerResourceCatalogRoutes(authenticated, svcCtx)
+	registerVersioningRoutes(authenticated, svcCtx)
+	registerContractRoutes(authenticated, svcCtx)
+	registerProposalRoutes(authenticated, svcCtx)
 }
 
 func registerRoleRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
@@ -447,6 +454,54 @@ func registerPolicyRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceCon
 		policiesGroup.GET("/defaults", handler.GetDefaultPolicies)
 		policiesGroup.GET("/overrides", handler.ListOverrides)
 		policiesGroup.POST("/reload", handler.ReloadConfig)
+	}
+}
+
+func registerResourceCatalogRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
+	service := resourcecatalog.NewService(svcCtx.DB)
+	handler := resourcecatalog.NewHandler(service)
+	group := authenticated.Group("/resource-catalog")
+	{
+		group.GET("", handler.List)
+		group.GET("/:resourceKey", handler.Detail)
+		group.PUT("/:resourceKey/semantics", handler.UpdateSemantics)
+	}
+}
+
+func registerVersioningRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
+	service := versioning.NewService(svcCtx.DB)
+	handler := versioning.NewHandler(service)
+	group := authenticated.Group("/versioning")
+	{
+		group.GET("/:resourceKey/chain", handler.GetChangeChain)
+		group.GET("/:resourceKey/diff", handler.Diff)
+		group.POST("/:resourceKey/merge", handler.Merge)
+		group.POST("/:resourceKey/rollback-draft", handler.RollbackDraft)
+		group.POST("/:resourceKey/rollback-publish", handler.RollbackPublish)
+		group.POST("/:resourceKey/regenerate", handler.RegenerateProposal)
+		group.POST("/:resourceKey/republish", handler.Republish)
+	}
+}
+
+func registerContractRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
+	contractService := service.NewContractService(svcCtx.DB)
+	handler := service.NewContractHandler(contractService)
+	group := authenticated.Group("/contracts")
+	{
+		group.GET("", handler.ListContracts)
+		group.GET("/:functionId", handler.GetContract)
+	}
+}
+
+func registerProposalRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
+	proposalService := service.NewProposalService(svcCtx.DB)
+	handler := service.NewProposalHandler(proposalService)
+	group := authenticated.Group("/proposals")
+	{
+		group.GET("", handler.ListProposals)
+		group.GET("/:proposalKey", handler.GetProposal)
+		group.POST("/:proposalKey/accept", handler.AcceptProposal)
+		group.POST("/:proposalKey/reject", handler.RejectProposal)
 	}
 }
 
