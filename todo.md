@@ -282,41 +282,41 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 ### P4. ProComponents 运行时与表单适配器
 
-状态：待前端实现。后端 DTO 和 API 已就绪。
+状态：已完成。
 
 #### P4-1. SchemaFormRenderer
 
-- [ ] 新建 JSON Schema -> ProForm field factory，支持基础类型、enum、array/object、required、default、format、错误显示和受控 widget hints。
-- [ ] 接入 JSON Schema validator，禁止前端独自解释与服务端不同的 payload。
-- [ ] 支持 QueryForm、ModalForm、DrawerForm、StepsForm；函数目录与 Page action 复用同一 renderer。
-- [ ] 移除 Function Form 对第二套表单 runtime 的运行依赖；历史 form 数据一次性转换或报错。
+- [x] 新建 JSON Schema -> ProForm field factory，支持基础类型、enum、array/object、required、default、format、错误显示和受控 widget hints。
+- [x] 接入 JSON Schema validator，禁止前端独自解释与服务端不同的 payload。
+- [x] 支持 QueryForm、ModalForm、DrawerForm、StepsForm；函数目录与 Page action 复用同一 renderer。
+- [x] 移除 Function Form 对第二套表单 runtime 的运行依赖；历史 form 数据一次性转换或报错。
 
 验收：复杂 input schema 的函数调用、创建、编辑、查询和动作弹窗使用同一 renderer；不含第二套表单 runtime import。
 
 #### P4-2. ResourcePageRenderer
 
-- [ ] `ProTable` 实现查询、分页、列设置、筛选、空态、错误态、刷新、批量选择和 toolbar。
-- [ ] `ProDescriptions` 实现详情；`ModalForm/DrawerForm` 实现 create/update；`Popconfirm/Modal.confirm` 实现 delete/high-risk action。
-- [ ] 每个行为通过 binding execute API；数据状态按 page instance/binding 隔离。
-- [ ] 对所有选择、详情、列表状态使用 typed selector，禁止 `lastResult` 或整行隐式数据总线。
+- [x] `ProTable` 实现查询、分页、列设置、筛选、空态、错误态、刷新、批量选择和 toolbar。
+- [x] `ProDescriptions` 实现详情；`ModalForm/DrawerForm` 实现 create/update；`Popconfirm/Modal.confirm` 实现 delete/high-risk action。
+- [x] 每个行为通过 binding execute API；数据状态按 page instance/binding 隔离。
+- [x] 对所有选择、详情、列表状态使用 typed selector，禁止 `lastResult` 或整行隐式数据总线。
 
 验收：一个真实 Resource CRUD 页面不需要页面特例代码即可完成 list/detail/create/update/delete、分页和 row action。
 
 #### P4-3. Task/Report/Approval Renderer
 
-- [ ] Task renderer 对接真实 task status/events/result/cancel/retry API，支持刷新、失败和重试。
-- [ ] Report renderer 接入 `@ant-design/charts` 或确认的 AntV renderer，按 ReportViewSpec 渲染 line/bar/pie/table；无真实数据集不得发布。
-- [ ] Approval renderer 显示 pending/approved/rejected/expired 和后续结果，不以 API 返回成功替代业务完成。
-- [ ] 移除所有 `最小实现`、`JSON.stringify` 结果面板作为 Task/Report 正式 renderer。
+- [x] Task renderer 对接真实 task status/events/result/cancel/retry API，支持刷新、失败和重试。
+- [x] Report renderer 接入 `@ant-design/charts` 或确认的 AntV renderer，按 ReportViewSpec 渲染 line/bar/pie/table；无真实数据集不得发布。
+- [x] Approval renderer 显示 pending/approved/rejected/expired 和后续结果，不以 API 返回成功替代业务完成。
+- [x] 移除所有 `最小实现`、`JSON.stringify` 结果面板作为 Task/Report 正式 renderer。
 
 验收：浏览器 E2E 验证真实 task events、真实图表和审批状态。
 
 #### P4-4. 删除旧 Page runtime
 
-- [ ] 删除旧 Page renderer、运行 Page 的旧 registry、Page schema validator、PageSchemaEditor 和相应 API/schema 字段。
-- [ ] 删除旧表单/页面 runtime 依赖；如没有其他运行用途则完全删除，禁止保留。
-- [ ] 删除 `form-render` 未使用依赖；不允许引入第二个 schema runtime。
-- [ ] CI guard 阻止旧 Page runtime、注册侧页面扩展、组件树页面协议回流；历史 form 转换完成后也阻止第二套表单 runtime 回流。
+- [x] 删除旧 Page renderer、运行 Page 的旧 registry、Page schema validator、PageSchemaEditor 和相应 API/schema 字段。
+- [x] 删除旧表单/页面 runtime 依赖；如没有其他运行用途则完全删除，禁止保留。
+- [x] 删除 `form-render` 未使用依赖；不允许引入第二个 schema runtime。
+- [x] CI guard 阻止旧 Page runtime、注册侧页面扩展、组件树页面协议回流；历史 form 转换完成后也阻止第二套表单 runtime 回流。
 
 验收：`scripts/dashboard_vnext_guard.sh runtime` 通过；前端 build 与 E2E 通过。
 
@@ -342,11 +342,11 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 #### P5-3. 语义化页面编辑器
 
-- [ ] ResourcePage 面板：导航、列表/筛选、列、详情、create/update/delete、row/batch/toolbar actions、权限。
-- [ ] OperationPage 面板：表单、确认、结果、权限。
-- [ ] TaskPage 面板：启动参数、任务状态、事件、取消/重试、结果。
-- [ ] ReportPage 面板：查询、dataset、维度、指标、图表、表格、导出。
-- [ ] 所有编辑器读取强类型 DTO；高级 JSON 仅导入/导出/诊断，需单独权限且修改后仍经过同一校验。
+- [x] ResourcePage 面板：导航、列表/筛选、列、详情、create/update/delete、row/batch/toolbar actions、权限。
+- [x] OperationPage 面板：表单、确认、结果、权限。
+- [x] TaskPage 面板：启动参数、任务状态、事件、取消/重试、结果。
+- [x] ReportPage 面板：查询、dataset、维度、指标、图表、表格、导出。
+- [x] 所有编辑器读取强类型 DTO；高级 JSON 仅导入/导出/诊断，需单独权限且修改后仍经过同一校验。
 
 验收：正常操作不展示原始 PageSpec JSON、第二套表单 schema 或自定义 mapping JSON；所有配置可通过选择器完成。
 
