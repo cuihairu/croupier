@@ -223,3 +223,70 @@ func (s *ContractService) GetContract(ctx context.Context, gameID, env, function
 func (s *ContractService) ListResourceCapabilities(ctx context.Context, gameID, env string) ([]*model.ResourceCapability, error) {
 	return s.capabilityModel.ListByScope(ctx, gameID, env)
 }
+
+// RebuildProposalsForResource triggers incremental proposal recalculation
+// for all proposals affected by changes to a resource.
+// This should be called after:
+// - Function registration/update
+// - OpenAPI Source update
+// - Catalog semantic update
+func (s *ContractService) RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error {
+	// Get current semantics
+	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, gameID, env, resourceKey)
+	if err != nil {
+		// No semantics yet, skip
+		return nil
+	}
+
+	// Get contracts for this resource
+	contracts, err := s.contractModel.ListByResourceKey(ctx, gameID, env, resourceKey)
+	if err != nil {
+		return fmt.Errorf("list contracts: %w", err)
+	}
+
+	// Compute new source digest
+	newDigest := computeDigest(contracts)
+
+	// Check if semantics have changed
+	if semantics.SourceDigest == newDigest {
+		// No change, skip rebuild
+		return nil
+	}
+
+	slog.Info("triggering proposal rebuild",
+		"game_id", gameID,
+		"env", env,
+		"resource_key", resourceKey,
+		"old_digest", semantics.SourceDigest,
+		"new_digest", newDigest)
+
+	// Update semantics source digest
+	semantics.SourceDigest = newDigest
+	if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
+		return fmt.Errorf("update semantics digest: %w", err)
+	}
+
+	return nil
+}
+
+// RebuildAllProposals triggers proposal recalculation for all resources in a scope.
+func (s *ContractService) RebuildAllProposals(ctx context.Context, gameID, env string) error {
+	// Get all resource capabilities
+	capabilities, err := s.capabilityModel.ListByScope(ctx, gameID, env)
+	if err != nil {
+		return fmt.Errorf("list capabilities: %w", err)
+	}
+
+	for _, cap := range capabilities {
+		if err := s.RebuildProposalsForResource(ctx, gameID, env, cap.ResourceKey); err != nil {
+			slog.Error("failed to rebuild proposals for resource",
+				"game_id", gameID,
+				"env", env,
+				"resource_key", cap.ResourceKey,
+				"error", err)
+			// Continue with other resources
+		}
+	}
+
+	return nil
+}

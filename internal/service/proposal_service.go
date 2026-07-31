@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -38,6 +39,7 @@ func (s *ProposalService) GetProposal(ctx context.Context, gameID, env, proposal
 }
 
 // AcceptProposal accepts a proposal and creates a draft.
+// Blocked proposals cannot be accepted - they require manual resolution.
 func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, proposalKey string) error {
 	proposal, err := s.proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey)
 	if err != nil {
@@ -46,6 +48,16 @@ func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, propo
 
 	if proposal.Status != "pending" {
 		return fmt.Errorf("proposal is not pending")
+	}
+
+	// Block acceptance if quality is blocked
+	if proposal.Quality == "blocked" {
+		return fmt.Errorf("proposal is blocked due to semantic conflicts or validation errors; resolve issues before accepting")
+	}
+
+	// Block acceptance if there are error-level diagnostics
+	if hasBlockingDiagnostics(proposal.Diagnostics) {
+		return fmt.Errorf("proposal has blocking diagnostics; resolve errors before accepting")
 	}
 
 	// Update status to accepted
@@ -67,4 +79,25 @@ func (s *ProposalService) RejectProposal(ctx context.Context, gameID, env, propo
 	// Update status to rejected
 	proposal.Status = "rejected"
 	return s.proposalModel.UpsertProposal(ctx, proposal)
+}
+
+// hasBlockingDiagnostics checks if diagnostics contain error-level items.
+func hasBlockingDiagnostics(diagnosticsJSON []byte) bool {
+	if len(diagnosticsJSON) == 0 {
+		return false
+	}
+
+	var diagnostics []struct {
+		Severity string `json:"severity"`
+	}
+	if err := json.Unmarshal(diagnosticsJSON, &diagnostics); err != nil {
+		return false
+	}
+
+	for _, d := range diagnostics {
+		if d.Severity == "error" {
+			return true
+		}
+	}
+	return false
 }

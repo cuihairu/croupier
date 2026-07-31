@@ -27,13 +27,16 @@ type PageSpec struct {
 	CategoryOrder      int            `gorm:"default:0" json:"categoryOrder"`
 	Order              int            `gorm:"default:0" json:"order"`
 	Icon               string         `gorm:"size:64" json:"icon,omitempty"`
-	SchemaJSON         string         `gorm:"type:json" json:"-"`                    // FormilySchema
+	SchemaJSON         string         `gorm:"type:json" json:"-"`                    // FormilySchema (deprecated, use PageSpecJSON)
+	PageSpecJSON       string         `gorm:"type:json" json:"-"`                    // PageSpecV2 strong-typed JSON
+	FormPresentationJSON string       `gorm:"type:json" json:"-"`                    // FormPresentationSpec snapshot
 	BindingsJSON       string         `gorm:"type:json" json:"-"`                    // []PageFunctionBinding
 	MetadataJSON       string         `gorm:"type:json" json:"-"`                    // map[string]json.RawMessage
 	Status             string         `gorm:"size:32;default:'draft'" json:"status"` // draft/published/archived
 	PublishedActive    bool           `gorm:"default:false;index" json:"publishedActive"`
 	DraftRevision      int            `gorm:"default:1" json:"draftRevision"`
 	PublishedVersion   int            `gorm:"default:0" json:"publishedVersion"`
+	PageSpecVersion    string         `gorm:"size:32" json:"pageSpecVersion"`        // v1 or v2
 	UpdatedBy          string         `gorm:"size:128" json:"updatedBy,omitempty"`
 }
 
@@ -106,6 +109,31 @@ func (p *PageSpec) SetBindings(bindings []PageFunctionBindingBinding) error {
 	}
 	p.BindingsJSON = string(b)
 	return nil
+}
+
+// GetPageSpecV2 returns the parsed PageSpecV2 JSON.
+func (p *PageSpec) GetPageSpecV2() json.RawMessage {
+	return json.RawMessage(p.PageSpecJSON)
+}
+
+// SetPageSpecV2 sets the PageSpecV2 JSON.
+func (p *PageSpec) SetPageSpecV2(spec json.RawMessage) {
+	p.PageSpecJSON = string(spec)
+}
+
+// GetFormPresentation returns the parsed FormPresentationSpec JSON.
+func (p *PageSpec) GetFormPresentation() json.RawMessage {
+	return json.RawMessage(p.FormPresentationJSON)
+}
+
+// SetFormPresentation sets the FormPresentationSpec JSON.
+func (p *PageSpec) SetFormPresentation(spec json.RawMessage) {
+	p.FormPresentationJSON = string(spec)
+}
+
+// IsV2 returns true if this page spec uses the v2 format.
+func (p *PageSpec) IsV2() bool {
+	return p.PageSpecVersion == "v2"
 }
 
 // PageFunctionBindingBinding is the GORM model for page function bindings.

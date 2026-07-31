@@ -162,7 +162,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 - [x] 为 Dashboard 生成器、spec、页面 schema validator、旧 Page renderer、Page schema editor 和旧页面表单 registry 建立删除清单与调用图。
 - [x] 标注保留模块：scope、PageVersion、PublishedPage、ConsoleMenu、Console execute、OpenAPI Source、Audit/OTel。
-- [ ] 删除前先新增新模型替代路径；替代路径通过 E2E 后物理删除旧文件、路由、DTO、数据库列和 CI allowlist。
+- [x] 删除前先新增新模型替代路径；替代路径通过 E2E 后物理删除旧文件、路由、DTO、数据库列和 CI allowlist。
 - [ ] 删除历史页面数据前，导出只读报告和备份方案；任何生产数据删除另行取得明确确认，禁止自动执行。
 
 验收：删除清单逐项有 owner、替代模块、测试和删除 PR；无”暂时保留”项。
@@ -203,7 +203,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - [x] SDK builder 支持受控 `capability`，并与 proto/所有语言 SDK 对齐。
 - [x] Resource Catalog 为管理员提供语义补充：identity、collection、生命周期 capability 绑定、task/report 数据语义；独立版本、权限、审计。
 - [x] 补充不是 Page Studio，不包含导航、列、表单布局或动作位置。
-- [ ] 语义冲突时必须阻断 Proposal 自动发布，要求管理员确认。
+- [x] 语义冲突时必须阻断 Proposal 自动发布，要求管理员确认。
 
 验收：纯 SDK Resource 能通过显式 capability 或 Catalog 补充生成 CRUD Proposal；没有补充时仍生成 basic Operation Proposal。
 
@@ -215,7 +215,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 - [x] 新建 `page_proposals`、`page_proposal_versions`，按 `(game_id, env, proposal_key, version)` 隔离。
 - [x] Proposal 记录 FunctionContract/CapabilitySemantics/generator source digest、generator version、质量、诊断、生成时间。
-- [ ] 注册、OpenAPI Source update、Catalog semantic update 触发增量重算；页面工作台只读取持久化 Proposal。
+- [x] 注册、OpenAPI Source update、Catalog semantic update 触发增量重算；页面工作台只读取持久化 Proposal。
 - [ ] 相同输入摘要重算结果必须字节级稳定；为生成器加入 golden tests。
 
 验收：重复生成不产生随机 diff；Proposal 可以显示“因何变化”；Proposal 从不覆盖 Draft/Published 页面。
@@ -226,7 +226,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - [x] ListView 从 output JSON Schema 提取字段候选、可展示类型、默认筛选、分页候选；无可靠 collection/identity 时不生成 CRUD 页。
 - [x] DetailView 从 item query 或 collection item schema 生成描述字段候选。
 - [x] create/update 使用 input schema 生成 FormPresentationSpec；delete 生成受风险/审批约束的 ConfirmAction。
-- [ ] action 根据 semantic/context 生成 row、batch 或 toolbar **候选**；模糊时只生成独立 Operation Proposal 或 needs_review。
+- [x] action 根据 semantic/context 生成 row、batch 或 toolbar **候选**；模糊时只生成独立 Operation Proposal 或 needs_review。
 
 验收：OpenAPI REST `players` 生成可直接发布 ResourcePage；列表、详情、create/update/delete 和 `ban` 行操作的选择理由可展示且类型可验证。
 
@@ -258,7 +258,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - [x] 定义 Go/TypeScript 一致的 discriminated union：ResourcePage、OperationPage、TaskPage、ReportPage。
 - [x] 定义 NavigationSpec、ListViewSpec、DetailViewSpec、FormActionSpec、ConfirmActionSpec、TaskViewSpec、ReportViewSpec、ResultViewSpec。
 - [x] 定义 `FormPresentationSpec`，以 JSON Schema + 受控 widget hints 表达表单显示。
-- [ ] `page_specs/published_page_specs/page_versions` 写入 `pageSpecVersion` 和完整 FormPresentation snapshot；按 scope 写入新结构，历史数据不转换。
+- [x] `page_specs/published_page_specs/page_versions` 写入 `pageSpecVersion` 和完整 FormPresentation snapshot；按 scope 写入新结构，历史数据不转换。
 
 验收：核心 DTO 不含 `any`、`interface{}`、任意 JSON props、组件树字段或注册侧页面扩展。
 
@@ -267,7 +267,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - [x] 以 AST 替换 binding `inputMapping/outputMapping` JSON object。
 - [x] 支持来源：form、row、selection、detail、page_state、literal；禁止任意 JSONPath 和 undefined source。
 - [x] 根据 FunctionContract JSON Schema、CapabilitySemantics 和页面状态进行路径/类型/required 校验。
-- [ ] 支持 field rename、schema diff 和 selector stale diagnostics。
+- [x] 支持 field rename、schema diff 和 selector stale diagnostics。
 
 验收：非法路径、整行盲传、类型不匹配、缺少 required assignment 在保存/发布前可读报错；前端和后端共享同一 selector 行为测试向量。
 
