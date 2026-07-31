@@ -372,14 +372,14 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 ### P7. 非 vNext 实现物理清理
 
-状态：进行中。
+状态：已完成。
 
 - [x] 删除注册侧页面扩展 DTO、OpenAPI extension、descriptor collector 解析、SDK/docs/demo、generator、测试。
 - [x] 删除组件树 PageSpec DTO、旧 Page renderer、Page schema validator/editor、非 vNext Page APIs 与数据库列。
-- [ ] 删除历史 page spec 数据，不迁移；数据清理前备份并取得单独确认。
-- [ ] 删除非 vNext `workspace_configs` 诊断/命令、对象页配置术语和防回流代码。
+- [x] 删除历史 page spec 数据，不迁移；数据清理前备份并取得单独确认。
+- [x] 删除非 vNext `workspace_configs` 诊断/命令、对象页配置术语和防回流代码。
 - [x] 删除不再使用的旧页面/表单 runtime 依赖、锁文件项与构建配置。
-- [ ] 更新 CI guard：非 vNext 模型命中必须失败，禁止 allowlist。
+- [x] 更新 CI guard：非 vNext 模型命中必须失败，禁止 allowlist。
 
 验收：`go test ./...`、web/docs build 与全量 E2E 不依赖任意非 vNext 文件、表、API 或 package。
 
