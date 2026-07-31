@@ -552,6 +552,12 @@ public:
             if (!desc.operation.empty()) {
                 fn->set_operation(desc.operation);
             }
+            if (!desc.capability.empty()) {
+                fn->set_capability(desc.capability);
+            }
+            if (!desc.execution.empty()) {
+                fn->set_execution(desc.execution);
+            }
             if (!desc.risk.empty()) {
                 fn->set_risk(desc.risk);
             }

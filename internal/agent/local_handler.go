@@ -717,6 +717,8 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 				OutputSchema: fn.OutputSchema,
 				Resource:     fn.Resource,
 				Operation:    fn.Operation,
+				Capability:   fn.Capability,
+				Execution:    fn.Execution,
 				Risk:         fn.Risk,
 				Enabled:      fn.Enabled,
 				Permission:   fn.Permission,

@@ -281,6 +281,18 @@ func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Opera
 		}
 		op.Extensions["x-operation"] = descriptor.Operation
 	}
+	if descriptor.Capability != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-capability"] = descriptor.Capability
+	}
+	if descriptor.Execution != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-execution"] = descriptor.Execution
+	}
 	if descriptor.Permission != "" {
 		if op.Extensions == nil {
 			op.Extensions = make(map[string]interface{})
@@ -304,6 +316,8 @@ type LocalFunctionDescriptorDesc struct {
 	OutputSchema string
 	Resource     string
 	Operation    string
+	Capability   string
+	Execution    string
 	Risk         string
 	Permission   string
 }

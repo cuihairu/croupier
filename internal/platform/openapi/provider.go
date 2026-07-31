@@ -181,6 +181,8 @@ type APIMethod struct {
 	Resource   string `yaml:"x-resource" json:"x-resource"`     // x-resource: business resource/capability key
 	Risk       string `yaml:"x-risk" json:"x-risk"`             // x-risk: risk level
 	Operation  string `yaml:"x-operation" json:"x-operation"`   // x-operation: business action key
+	Capability string `yaml:"x-capability" json:"x-capability"` // x-capability: lifecycle capability
+	Execution  string `yaml:"x-execution" json:"x-execution"`   // x-execution: sync/task/approval
 	Enabled    bool   `yaml:"x-enabled" json:"x-enabled"`       // x-enabled: whether this function is enabled
 	Permission string `yaml:"x-permission" json:"x-permission"` // x-permission: optional permission identifier
 }
@@ -278,6 +280,8 @@ type MethodDetails struct {
 	Resource   string // x-resource
 	Risk       string // x-risk
 	Operation  string // x-operation
+	Capability string // x-capability
+	Execution  string // x-execution
 	Enabled    bool   // x-enabled
 	Permission string // x-permission
 }
@@ -535,6 +539,8 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			resource, _ := methodObj["x-resource"].(string)
 			risk, _ := methodObj["x-risk"].(string)
 			operation, _ := methodObj["x-operation"].(string)
+			capability, _ := methodObj["x-capability"].(string)
+			execution, _ := methodObj["x-execution"].(string)
 			enabled, _ := methodObj["x-enabled"].(bool)
 			permission, _ := methodObj["x-permission"].(string)
 
@@ -552,6 +558,8 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 				Resource:    resource,
 				Risk:        risk,
 				Operation:   operation,
+				Capability:  capability,
+				Execution:   execution,
 				Enabled:     enabled,
 				Permission:  permission,
 			}
@@ -699,6 +707,8 @@ func (p *Provider) GetMethodDetails() map[string]*MethodDetails {
 			Resource:    method.Resource,
 			Risk:        method.Risk,
 			Operation:   method.Operation,
+			Capability:  method.Capability,
+			Execution:   method.Execution,
 			Enabled:     method.Enabled,
 			Permission:  method.Permission,
 		}

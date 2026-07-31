@@ -101,6 +101,59 @@ const (
 	SeverityInfo    DiagnosticSeverity = "info"
 )
 
+// CapabilityKind describes what a function does in a resource lifecycle.
+// It is capability semantics, not page placement or UI configuration.
+type CapabilityKind string
+
+const (
+	CapabilityCollectionQuery CapabilityKind = "collection_query"
+	CapabilityItemQuery       CapabilityKind = "item_query"
+	CapabilityCreate          CapabilityKind = "create"
+	CapabilityUpdate          CapabilityKind = "update"
+	CapabilityDelete          CapabilityKind = "delete"
+	CapabilityAction          CapabilityKind = "action"
+	CapabilityTask            CapabilityKind = "task"
+	CapabilityReport          CapabilityKind = "report"
+)
+
+// IsValidCapabilityKind reports whether capability is one of the controlled
+// FunctionContract capability values.
+func IsValidCapabilityKind(capability CapabilityKind) bool {
+	switch capability {
+	case CapabilityCollectionQuery,
+		CapabilityItemQuery,
+		CapabilityCreate,
+		CapabilityUpdate,
+		CapabilityDelete,
+		CapabilityAction,
+		CapabilityTask,
+		CapabilityReport:
+		return true
+	default:
+		return false
+	}
+}
+
+// FunctionExecution describes how a function is executed by the platform.
+type FunctionExecution string
+
+const (
+	FunctionExecutionSync     FunctionExecution = "sync"
+	FunctionExecutionTask     FunctionExecution = "task"
+	FunctionExecutionApproval FunctionExecution = "approval"
+)
+
+// IsValidFunctionExecution reports whether execution is one of the controlled
+// FunctionContract execution values.
+func IsValidFunctionExecution(execution FunctionExecution) bool {
+	switch execution {
+	case FunctionExecutionSync, FunctionExecutionTask, FunctionExecutionApproval:
+		return true
+	default:
+		return false
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Diagnostic
 // ---------------------------------------------------------------------------
@@ -162,8 +215,10 @@ type FunctionSpec struct {
 	Summary     LocalizedText `json:"summary,omitempty"`
 	Description LocalizedText `json:"description,omitempty"`
 
-	Resource  string `json:"resource,omitempty"`
-	Operation string `json:"operation,omitempty"`
+	Resource   string            `json:"resource,omitempty"`
+	Operation  string            `json:"operation,omitempty"`
+	Capability CapabilityKind    `json:"capability,omitempty"`
+	Execution  FunctionExecution `json:"execution,omitempty"`
 
 	// Governance
 	Risk       RiskLevel `json:"risk,omitempty"`
@@ -207,68 +262,16 @@ type ResourceCategorySpec struct {
 // OperationSpec describes a function capability grouped under a resource.
 // It is not a page placement model; PageSpec decides page usage and layout.
 type OperationSpec struct {
-	FunctionID  string    `json:"functionId"`
-	ResourceKey string    `json:"resourceKey,omitempty"`
-	Operation   string    `json:"operation"`
-	Risk        RiskLevel `json:"risk,omitempty"`
-	Permission  string    `json:"permission,omitempty"`
-	Enabled     bool      `json:"enabled"`
+	FunctionID  string            `json:"functionId"`
+	ResourceKey string            `json:"resourceKey,omitempty"`
+	Operation   string            `json:"operation"`
+	Capability  CapabilityKind    `json:"capability,omitempty"`
+	Execution   FunctionExecution `json:"execution,omitempty"`
+	Risk        RiskLevel         `json:"risk,omitempty"`
+	Permission  string            `json:"permission,omitempty"`
+	Enabled     bool              `json:"enabled"`
 
-	PageContract *PageContract `json:"pageContract,omitempty"`
-	Diagnostics  []Diagnostic  `json:"diagnostics,omitempty"`
-}
-
-// PageContract is an optional, machine-readable data contract used only by
-// the generator to create higher-quality PageSpec candidates. It is not a UI
-// schema and must not contain Formily components, routes, menus, or layouts.
-type PageContract struct {
-	Version       string                  `json:"version"`
-	ExecutionMode PageExecutionMode       `json:"executionMode,omitempty"`
-	InputMapping  json.RawMessage         `json:"inputMapping,omitempty"`
-	OutputMapping json.RawMessage         `json:"outputMapping,omitempty"`
-	Pagination    *PagePaginationContract `json:"pagination,omitempty"`
-	Table         *PageTableContract      `json:"table,omitempty"`
-	Task          *PageTaskContract       `json:"task,omitempty"`
-	Report        *PageReportContract     `json:"report,omitempty"`
-}
-
-// PagePaginationContract describes stable request and response paths for a
-// paginated data source.
-type PagePaginationContract struct {
-	PageField     string `json:"pageField"`
-	PageSizeField string `json:"pageSizeField"`
-	ItemsPath     string `json:"itemsPath"`
-	TotalPath     string `json:"totalPath"`
-}
-
-// PageTableContract describes stable columns for a DataTable. Either Columns
-// or ColumnsPath must be present for a generated table to be publishable.
-type PageTableContract struct {
-	Columns     []PageTableColumnContract `json:"columns,omitempty"`
-	ColumnsPath string                    `json:"columnsPath,omitempty"`
-}
-
-type PageTableColumnContract struct {
-	Key       string        `json:"key"`
-	Title     LocalizedText `json:"title"`
-	ValuePath string        `json:"valuePath"`
-}
-
-// PageTaskContract describes external task tracking data needed by TaskPage.
-type PageTaskContract struct {
-	TaskIDPath string `json:"taskIdPath,omitempty"`
-	StatusPath string `json:"statusPath,omitempty"`
-	EventsPath string `json:"eventsPath,omitempty"`
-	ResultPath string `json:"resultPath,omitempty"`
-}
-
-// PageReportContract describes report/chart data mappings. Without this
-// contract the generator must not produce a ready ChartPanel.
-type PageReportContract struct {
-	ChartType    string `json:"chartType,omitempty"`
-	CategoryPath string `json:"categoryPath,omitempty"`
-	SeriesPath   string `json:"seriesPath,omitempty"`
-	ValuePath    string `json:"valuePath,omitempty"`
+	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
 }
 
 // ---------------------------------------------------------------------------

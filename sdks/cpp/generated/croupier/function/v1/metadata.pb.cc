@@ -202,6 +202,15 @@ inline constexpr FunctionMetadata::Impl_::Impl_(
         output_schema_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        capability_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        operation_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        execution_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         behavior_{nullptr},
         security_{nullptr},
         #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
@@ -324,11 +333,14 @@ const ::uint32_t
         1,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_._has_bits_),
-        14, // hasbit index offset
+        17, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.id_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.version_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.resource_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.tags_),
+        PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.capability_),
+        PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.operation_),
+        PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.execution_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.name_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.description_),
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionMetadata, _impl_.input_schema_),
@@ -340,13 +352,16 @@ const ::uint32_t
         2,
         3,
         0,
+        8,
+        9,
+        10,
         4,
         5,
         6,
         7,
-        8,
-        9,
-        10,
+        11,
+        12,
+        13,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::function::v1::FunctionBehavior, _impl_._has_bits_),
         10, // hasbit index offset
@@ -416,11 +431,11 @@ static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, sizeof(::croupier::function::v1::FunctionMetadata_ExtensionsEntry_DoNotUse)},
         {7, sizeof(::croupier::function::v1::FunctionMetadata)},
-        {32, sizeof(::croupier::function::v1::FunctionBehavior)},
-        {49, sizeof(::croupier::function::v1::FunctionSecurity)},
-        {66, sizeof(::croupier::function::v1::FunctionMetadataList)},
-        {71, sizeof(::croupier::function::v1::FunctionFilter)},
-        {86, sizeof(::croupier::function::v1::FunctionListResponse)},
+        {38, sizeof(::croupier::function::v1::FunctionBehavior)},
+        {55, sizeof(::croupier::function::v1::FunctionSecurity)},
+        {72, sizeof(::croupier::function::v1::FunctionMetadataList)},
+        {77, sizeof(::croupier::function::v1::FunctionFilter)},
+        {92, sizeof(::croupier::function::v1::FunctionListResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::function::v1::_FunctionMetadata_ExtensionsEntry_DoNotUse_default_instance_._instance,
@@ -434,70 +449,73 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 const char descriptor_table_protodef_croupier_2ffunction_2fv1_2fmetadata_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n#croupier/function/v1/metadata.proto\022\024c"
-    "roupier.function.v1\"\211\004\n\020FunctionMetadata"
+    "roupier.function.v1\"\345\004\n\020FunctionMetadata"
     "\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 \001(\tR\007versi"
     "on\022\032\n\010resource\030\003 \001(\tR\010resource\022\022\n\004tags\030\004"
-    " \003(\tR\004tags\022\022\n\004name\030\005 \001(\tR\004name\022 \n\013descri"
-    "ption\030\006 \001(\tR\013description\022!\n\014input_schema"
-    "\030\007 \001(\tR\013inputSchema\022#\n\routput_schema\030\010 \001"
-    "(\tR\014outputSchema\022B\n\010behavior\030\t \001(\0132&.cro"
-    "upier.function.v1.FunctionBehaviorR\010beha"
-    "vior\022B\n\010security\030\n \001(\0132&.croupier.functi"
-    "on.v1.FunctionSecurityR\010security\022V\n\nexte"
-    "nsions\030\013 \003(\01326.croupier.function.v1.Func"
-    "tionMetadata.ExtensionsEntryR\nextensions"
-    "\032=\n\017ExtensionsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n"
-    "\005value\030\002 \001(\tR\005value:\0028\001\"\320\004\n\020FunctionBeha"
-    "vior\022\?\n\004mode\030\001 \001(\0162+.croupier.function.v"
-    "1.FunctionBehavior.ModeR\004mode\022\036\n\nidempot"
-    "ent\030\002 \001(\010R\nidempotent\0228\n\030supports_idempo"
-    "tency_key\030\003 \001(\010R\026supportsIdempotencyKey\022"
-    "\035\n\ntimeout_ms\030\004 \001(\005R\ttimeoutMs\022[\n\016route_"
-    "strategy\030\005 \001(\01624.croupier.function.v1.Fu"
-    "nctionBehavior.RouteStrategyR\rrouteStrat"
-    "egy\022\034\n\tcacheable\030\006 \001(\010R\tcacheable\022*\n\021cac"
-    "he_ttl_seconds\030\007 \001(\005R\017cacheTtlSeconds\">\n"
-    "\004Mode\022\024\n\020MODE_UNSPECIFIED\020\000\022\016\n\nMODE_QUER"
-    "Y\020\001\022\020\n\014MODE_COMMAND\020\002\"\232\001\n\rRouteStrategy\022"
-    "\036\n\032ROUTE_STRATEGY_UNSPECIFIED\020\000\022\025\n\021ROUTE"
-    "_STRATEGY_LB\020\001\022\034\n\030ROUTE_STRATEGY_BROADCA"
-    "ST\020\002\022\033\n\027ROUTE_STRATEGY_TARGETED\020\003\022\027\n\023ROU"
-    "TE_STRATEGY_HASH\020\004\"\343\004\n\020FunctionSecurity\022"
-    "O\n\nrisk_level\030\001 \001(\01620.croupier.function."
-    "v1.FunctionSecurity.RiskLevelR\triskLevel"
-    "\022\036\n\npermission\030\002 \001(\tR\npermission\022+\n\021requ"
-    "ires_approval\030\003 \001(\010R\020requiresApproval\022X\n"
-    "\rapproval_type\030\004 \001(\01623.croupier.function"
-    ".v1.FunctionSecurity.ApprovalTypeR\014appro"
-    "valType\022#\n\rallowed_roles\030\005 \003(\tR\014allowedR"
-    "oles\022\033\n\taudit_log\030\006 \001(\010R\010auditLog\022.\n\023mas"
-    "k_sensitive_data\030\007 \001(\010R\021maskSensitiveDat"
-    "a\"~\n\tRiskLevel\022\032\n\026RISK_LEVEL_UNSPECIFIED"
-    "\020\000\022\022\n\016RISK_LEVEL_LOW\020\001\022\025\n\021RISK_LEVEL_MED"
-    "IUM\020\002\022\023\n\017RISK_LEVEL_HIGH\020\003\022\025\n\021RISK_LEVEL"
-    "_DANGER\020\004\"e\n\014ApprovalType\022\035\n\031APPROVAL_TY"
-    "PE_UNSPECIFIED\020\000\022\030\n\024APPROVAL_TYPE_SINGLE"
-    "\020\001\022\034\n\030APPROVAL_TYPE_TWO_PERSON\020\002\"\\\n\024Func"
-    "tionMetadataList\022D\n\tfunctions\030\001 \003(\0132&.cr"
-    "oupier.function.v1.FunctionMetadataR\tfun"
-    "ctions\"\257\001\n\016FunctionFilter\022\032\n\010resource\030\001 "
-    "\001(\tR\010resource\022\022\n\004tags\030\002 \003(\tR\004tags\022\035\n\nris"
-    "k_level\030\003 \001(\tR\triskLevel\022\022\n\004mode\030\004 \001(\tR\004"
-    "mode\022\033\n\tpage_size\030\005 \001(\005R\010pageSize\022\035\n\npag"
-    "e_token\030\006 \001(\tR\tpageToken\"\245\001\n\024FunctionLis"
-    "tResponse\022D\n\tfunctions\030\001 \003(\0132&.croupier."
-    "function.v1.FunctionMetadataR\tfunctions\022"
-    "&\n\017next_page_token\030\002 \001(\tR\rnextPageToken\022"
-    "\037\n\013total_count\030\003 \001(\005R\ntotalCountBp\n\'io.g"
-    "ithub.cuihairu.croupier.function.v1P\001ZCg"
-    "ithub.com/cuihairu/croupier/pkg/pb/croup"
-    "ier/function/v1;functionv1b\006proto3"
+    " \003(\tR\004tags\022\036\n\ncapability\030\014 \001(\tR\ncapabili"
+    "ty\022\034\n\toperation\030\r \001(\tR\toperation\022\034\n\texec"
+    "ution\030\016 \001(\tR\texecution\022\022\n\004name\030\005 \001(\tR\004na"
+    "me\022 \n\013description\030\006 \001(\tR\013description\022!\n\014"
+    "input_schema\030\007 \001(\tR\013inputSchema\022#\n\routpu"
+    "t_schema\030\010 \001(\tR\014outputSchema\022B\n\010behavior"
+    "\030\t \001(\0132&.croupier.function.v1.FunctionBe"
+    "haviorR\010behavior\022B\n\010security\030\n \001(\0132&.cro"
+    "upier.function.v1.FunctionSecurityR\010secu"
+    "rity\022V\n\nextensions\030\013 \003(\01326.croupier.func"
+    "tion.v1.FunctionMetadata.ExtensionsEntry"
+    "R\nextensions\032=\n\017ExtensionsEntry\022\020\n\003key\030\001"
+    " \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005value:\0028\001\"\320\004\n\020"
+    "FunctionBehavior\022\?\n\004mode\030\001 \001(\0162+.croupie"
+    "r.function.v1.FunctionBehavior.ModeR\004mod"
+    "e\022\036\n\nidempotent\030\002 \001(\010R\nidempotent\0228\n\030sup"
+    "ports_idempotency_key\030\003 \001(\010R\026supportsIde"
+    "mpotencyKey\022\035\n\ntimeout_ms\030\004 \001(\005R\ttimeout"
+    "Ms\022[\n\016route_strategy\030\005 \001(\01624.croupier.fu"
+    "nction.v1.FunctionBehavior.RouteStrategy"
+    "R\rrouteStrategy\022\034\n\tcacheable\030\006 \001(\010R\tcach"
+    "eable\022*\n\021cache_ttl_seconds\030\007 \001(\005R\017cacheT"
+    "tlSeconds\">\n\004Mode\022\024\n\020MODE_UNSPECIFIED\020\000\022"
+    "\016\n\nMODE_QUERY\020\001\022\020\n\014MODE_COMMAND\020\002\"\232\001\n\rRo"
+    "uteStrategy\022\036\n\032ROUTE_STRATEGY_UNSPECIFIE"
+    "D\020\000\022\025\n\021ROUTE_STRATEGY_LB\020\001\022\034\n\030ROUTE_STRA"
+    "TEGY_BROADCAST\020\002\022\033\n\027ROUTE_STRATEGY_TARGE"
+    "TED\020\003\022\027\n\023ROUTE_STRATEGY_HASH\020\004\"\343\004\n\020Funct"
+    "ionSecurity\022O\n\nrisk_level\030\001 \001(\01620.croupi"
+    "er.function.v1.FunctionSecurity.RiskLeve"
+    "lR\triskLevel\022\036\n\npermission\030\002 \001(\tR\npermis"
+    "sion\022+\n\021requires_approval\030\003 \001(\010R\020require"
+    "sApproval\022X\n\rapproval_type\030\004 \001(\01623.croup"
+    "ier.function.v1.FunctionSecurity.Approva"
+    "lTypeR\014approvalType\022#\n\rallowed_roles\030\005 \003"
+    "(\tR\014allowedRoles\022\033\n\taudit_log\030\006 \001(\010R\010aud"
+    "itLog\022.\n\023mask_sensitive_data\030\007 \001(\010R\021mask"
+    "SensitiveData\"~\n\tRiskLevel\022\032\n\026RISK_LEVEL"
+    "_UNSPECIFIED\020\000\022\022\n\016RISK_LEVEL_LOW\020\001\022\025\n\021RI"
+    "SK_LEVEL_MEDIUM\020\002\022\023\n\017RISK_LEVEL_HIGH\020\003\022\025"
+    "\n\021RISK_LEVEL_DANGER\020\004\"e\n\014ApprovalType\022\035\n"
+    "\031APPROVAL_TYPE_UNSPECIFIED\020\000\022\030\n\024APPROVAL"
+    "_TYPE_SINGLE\020\001\022\034\n\030APPROVAL_TYPE_TWO_PERS"
+    "ON\020\002\"\\\n\024FunctionMetadataList\022D\n\tfunction"
+    "s\030\001 \003(\0132&.croupier.function.v1.FunctionM"
+    "etadataR\tfunctions\"\257\001\n\016FunctionFilter\022\032\n"
+    "\010resource\030\001 \001(\tR\010resource\022\022\n\004tags\030\002 \003(\tR"
+    "\004tags\022\035\n\nrisk_level\030\003 \001(\tR\triskLevel\022\022\n\004"
+    "mode\030\004 \001(\tR\004mode\022\033\n\tpage_size\030\005 \001(\005R\010pag"
+    "eSize\022\035\n\npage_token\030\006 \001(\tR\tpageToken\"\245\001\n"
+    "\024FunctionListResponse\022D\n\tfunctions\030\001 \003(\013"
+    "2&.croupier.function.v1.FunctionMetadata"
+    "R\tfunctions\022&\n\017next_page_token\030\002 \001(\tR\rne"
+    "xtPageToken\022\037\n\013total_count\030\003 \001(\005R\ntotalC"
+    "ountBp\n\'io.github.cuihairu.croupier.func"
+    "tion.v1P\001ZCgithub.com/cuihairu/croupier/"
+    "pkg/pb/croupier/function/v1;functionv1b\006"
+    "proto3"
 };
 static ::absl::once_flag descriptor_table_croupier_2ffunction_2fv1_2fmetadata_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2ffunction_2fv1_2fmetadata_2eproto = {
     false,
     false,
-    2354,
+    2446,
     descriptor_table_protodef_croupier_2ffunction_2fv1_2fmetadata_2eproto,
     "croupier/function/v1/metadata.proto",
     &descriptor_table_croupier_2ffunction_2fv1_2fmetadata_2eproto_once,
@@ -679,6 +697,9 @@ PROTOBUF_NDEBUG_INLINE FunctionMetadata::Impl_::Impl_(
         description_(arena, from.description_),
         input_schema_(arena, from.input_schema_),
         output_schema_(arena, from.output_schema_),
+        capability_(arena, from.capability_),
+        operation_(arena, from.operation_),
+        execution_(arena, from.execution_),
         #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
         extensions_{visibility, ::_pbi::InternalMetadataOffset::Build<
             ::croupier::function::v1::FunctionMetadata,
@@ -703,10 +724,10 @@ FunctionMetadata::FunctionMetadata(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
   ::uint32_t cached_has_bits = _impl_._has_bits_[0];
-  _impl_.behavior_ = (CheckHasBit(cached_has_bits, 0x00000100U))
+  _impl_.behavior_ = (CheckHasBit(cached_has_bits, 0x00000800U))
                 ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.behavior_)
                 : nullptr;
-  _impl_.security_ = (CheckHasBit(cached_has_bits, 0x00000200U))
+  _impl_.security_ = (CheckHasBit(cached_has_bits, 0x00001000U))
                 ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.security_)
                 : nullptr;
 
@@ -732,6 +753,9 @@ PROTOBUF_NDEBUG_INLINE FunctionMetadata::Impl_::Impl_(
         description_(arena),
         input_schema_(arena),
         output_schema_(arena),
+        capability_(arena),
+        operation_(arena),
+        execution_(arena),
         #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
         extensions_{visibility, ::_pbi::InternalMetadataOffset::Build<
             ::croupier::function::v1::FunctionMetadata,
@@ -769,6 +793,9 @@ inline void FunctionMetadata::SharedDtor(MessageLite& self) {
   this_._impl_.description_.Destroy();
   this_._impl_.input_schema_.Destroy();
   this_._impl_.output_schema_.Destroy();
+  this_._impl_.capability_.Destroy();
+  this_._impl_.operation_.Destroy();
+  this_._impl_.execution_.Destroy();
   delete this_._impl_.behavior_;
   delete this_._impl_.security_;
   this_._impl_.~Impl_();
@@ -839,16 +866,16 @@ FunctionMetadata::GetClassData() const {
   return FunctionMetadata_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 11, 3, 125, 2>
+const ::_pbi::TcParseTable<4, 14, 3, 153, 2>
 FunctionMetadata::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_._has_bits_),
     0, // no _extensions_
-    11, 120,  // max_field_number, fast_idx_mask
+    14, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294965248,  // skipmap
+    4294950912,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    11,  // num_field_entries
+    14,  // num_field_entries
     3,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     FunctionMetadata_class_data_.base(),
@@ -893,16 +920,25 @@ FunctionMetadata::_table_ = {
       PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.output_schema_)}},
     // .croupier.function.v1.FunctionBehavior behavior = 9 [json_name = "behavior"];
     {::_pbi::TcParser::FastMtS1,
-     {74, 8, 0,
+     {74, 11, 0,
       PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.behavior_)}},
     // .croupier.function.v1.FunctionSecurity security = 10 [json_name = "security"];
     {::_pbi::TcParser::FastMtS1,
-     {82, 9, 1,
+     {82, 12, 1,
       PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.security_)}},
     {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // string capability = 12 [json_name = "capability"];
+    {::_pbi::TcParser::FastUS1,
+     {98, 8, 0,
+      PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.capability_)}},
+    // string operation = 13 [json_name = "operation"];
+    {::_pbi::TcParser::FastUS1,
+     {106, 9, 0,
+      PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.operation_)}},
+    // string execution = 14 [json_name = "execution"];
+    {::_pbi::TcParser::FastUS1,
+     {114, 10, 0,
+      PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.execution_)}},
     {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
@@ -924,11 +960,17 @@ FunctionMetadata::_table_ = {
     // string output_schema = 8 [json_name = "outputSchema"];
     {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.output_schema_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // .croupier.function.v1.FunctionBehavior behavior = 9 [json_name = "behavior"];
-    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.behavior_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.behavior_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
     // .croupier.function.v1.FunctionSecurity security = 10 [json_name = "security"];
-    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.security_), _Internal::kHasBitsOffset + 9, 1, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.security_), _Internal::kHasBitsOffset + 12, 1, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
     // map<string, string> extensions = 11 [json_name = "extensions"];
-    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.extensions_), _Internal::kHasBitsOffset + 10, 2, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
+    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.extensions_), _Internal::kHasBitsOffset + 13, 2, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
+    // string capability = 12 [json_name = "capability"];
+    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.capability_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string operation = 13 [json_name = "operation"];
+    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.operation_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string execution = 14 [json_name = "execution"];
+    {PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.execution_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   {{
       {::_pbi::TcParser::GetTable<::croupier::function::v1::FunctionBehavior>()},
@@ -937,7 +979,7 @@ FunctionMetadata::_table_ = {
           1, 0, 9, 9, 0)},
   }},
   {{
-    "\45\2\7\10\4\4\13\14\15\0\0\12\0\0\0\0"
+    "\45\2\7\10\4\4\13\14\15\0\0\12\12\11\11\0"
     "croupier.function.v1.FunctionMetadata"
     "id"
     "version"
@@ -948,6 +990,9 @@ FunctionMetadata::_table_ = {
     "input_schema"
     "output_schema"
     "extensions"
+    "capability"
+    "operation"
+    "execution"
   }},
 };
 PROTOBUF_NOINLINE void FunctionMetadata::Clear() {
@@ -984,16 +1029,25 @@ PROTOBUF_NOINLINE void FunctionMetadata::Clear() {
       _impl_.output_schema_.ClearNonDefaultToEmpty();
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      _impl_.capability_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      _impl_.operation_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      _impl_.execution_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       ABSL_DCHECK(_impl_.behavior_ != nullptr);
       _impl_.behavior_->Clear();
     }
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
       ABSL_DCHECK(_impl_.security_ != nullptr);
       _impl_.security_->Clear();
     }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00002000U)) {
       _impl_.extensions_.Clear();
     }
   }
@@ -1101,21 +1155,21 @@ PROTOBUF_NOINLINE void FunctionMetadata::Clear() {
   }
 
   // .croupier.function.v1.FunctionBehavior behavior = 9 [json_name = "behavior"];
-  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000800U)) {
     target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
         9, *this_._impl_.behavior_, this_._impl_.behavior_->GetCachedSize(), target,
         stream);
   }
 
   // .croupier.function.v1.FunctionSecurity security = 10 [json_name = "security"];
-  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+  if (CheckHasBit(cached_has_bits, 0x00001000U)) {
     target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
         10, *this_._impl_.security_, this_._impl_.security_->GetCachedSize(), target,
         stream);
   }
 
   // map<string, string> extensions = 11 [json_name = "extensions"];
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00000400U)) {
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00002000U)) {
     if (!this_._internal_extensions().empty()) {
       using MapType = ::google::protobuf::Map<::std::string, ::std::string>;
       using WireHelper = _pbi::MapEntryFuncs<::std::string, ::std::string,
@@ -1146,6 +1200,36 @@ PROTOBUF_NOINLINE void FunctionMetadata::Clear() {
  ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.function.v1.FunctionMetadata.extensions");
         }
       }
+    }
+  }
+
+  // string capability = 12 [json_name = "capability"];
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (!this_._internal_capability().empty()) {
+      const ::std::string& _s = this_._internal_capability();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.function.v1.FunctionMetadata.capability");
+      target = stream->WriteStringMaybeAliased(12, _s, target);
+    }
+  }
+
+  // string operation = 13 [json_name = "operation"];
+  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (!this_._internal_operation().empty()) {
+      const ::std::string& _s = this_._internal_operation();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.function.v1.FunctionMetadata.operation");
+      target = stream->WriteStringMaybeAliased(13, _s, target);
+    }
+  }
+
+  // string execution = 14 [json_name = "execution"];
+  if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+    if (!this_._internal_execution().empty()) {
+      const ::std::string& _s = this_._internal_execution();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.function.v1.FunctionMetadata.execution");
+      target = stream->WriteStringMaybeAliased(14, _s, target);
     }
   }
 
@@ -1234,19 +1318,40 @@ PROTOBUF_NOINLINE void FunctionMetadata::Clear() {
       }
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
-    // .croupier.function.v1.FunctionBehavior behavior = 9 [json_name = "behavior"];
+  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+    // string capability = 12 [json_name = "capability"];
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      if (!this_._internal_capability().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_capability());
+      }
+    }
+    // string operation = 13 [json_name = "operation"];
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      if (!this_._internal_operation().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_operation());
+      }
+    }
+    // string execution = 14 [json_name = "execution"];
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      if (!this_._internal_execution().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_execution());
+      }
+    }
+    // .croupier.function.v1.FunctionBehavior behavior = 9 [json_name = "behavior"];
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       total_size += 1 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.behavior_);
     }
     // .croupier.function.v1.FunctionSecurity security = 10 [json_name = "security"];
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
       total_size += 1 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.security_);
     }
     // map<string, string> extensions = 11 [json_name = "extensions"];
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00002000U)) {
       total_size +=
           1 * ::google::protobuf::internal::FromIntSize(this_._internal_extensions_size());
       for (const auto& entry : this_._internal_extensions()) {
@@ -1345,8 +1450,35 @@ void FunctionMetadata::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      if (!from._internal_capability().empty()) {
+        _this->_internal_set_capability(from._internal_capability());
+      } else {
+        if (_this->_impl_.capability_.IsDefault()) {
+          _this->_internal_set_capability("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      if (!from._internal_operation().empty()) {
+        _this->_internal_set_operation(from._internal_operation());
+      } else {
+        if (_this->_impl_.operation_.IsDefault()) {
+          _this->_internal_set_operation("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      if (!from._internal_execution().empty()) {
+        _this->_internal_set_execution(from._internal_execution());
+      } else {
+        if (_this->_impl_.execution_.IsDefault()) {
+          _this->_internal_set_execution("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       ABSL_DCHECK(from._impl_.behavior_ != nullptr);
       if (_this->_impl_.behavior_ == nullptr) {
         _this->_impl_.behavior_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.behavior_);
@@ -1354,7 +1486,7 @@ void FunctionMetadata::MergeImpl(::google::protobuf::MessageLite& to_msg,
         _this->_impl_.behavior_->MergeFrom(*from._impl_.behavior_);
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
       ABSL_DCHECK(from._impl_.security_ != nullptr);
       if (_this->_impl_.security_ == nullptr) {
         _this->_impl_.security_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.security_);
@@ -1362,7 +1494,7 @@ void FunctionMetadata::MergeImpl(::google::protobuf::MessageLite& to_msg,
         _this->_impl_.security_->MergeFrom(*from._impl_.security_);
       }
     }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00002000U)) {
       _this->_impl_.extensions_.MergeFrom(from._impl_.extensions_);
     }
   }
@@ -1393,6 +1525,9 @@ void FunctionMetadata::InternalSwap(FunctionMetadata* PROTOBUF_RESTRICT PROTOBUF
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.description_, &other->_impl_.description_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.input_schema_, &other->_impl_.input_schema_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.output_schema_, &other->_impl_.output_schema_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.capability_, &other->_impl_.capability_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.operation_, &other->_impl_.operation_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.execution_, &other->_impl_.execution_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(FunctionMetadata, _impl_.security_)
       + sizeof(FunctionMetadata::_impl_.security_)

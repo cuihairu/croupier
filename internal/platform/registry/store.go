@@ -30,6 +30,8 @@ type FunctionMeta struct {
 
 	Resource   string
 	Operation  string
+	Capability string
+	Execution  string
 	Risk       string
 	Permission string
 }

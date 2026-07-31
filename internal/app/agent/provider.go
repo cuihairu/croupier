@@ -151,6 +151,8 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 				desc.Risk = details.Risk
 				desc.Resource = details.Resource
 				desc.Operation = details.Operation
+				desc.Capability = details.Capability
+				desc.Execution = details.Execution
 			}
 		}
 

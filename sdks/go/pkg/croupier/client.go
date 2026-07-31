@@ -403,6 +403,8 @@ func (c *client) convertToLocalFunctions() []LocalFunctionDescriptor {
 			OutputSchema: firstNonEmpty(desc.OutputSchema, generateBasicOutputSchema()),
 			Resource:     desc.Resource,
 			Operation:    desc.Operation,
+			Capability:   desc.Capability,
+			Execution:    desc.Execution,
 			Risk:         desc.Risk,
 			Enabled:      desc.Enabled,
 			Permission:   desc.Permission,

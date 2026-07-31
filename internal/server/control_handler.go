@@ -402,6 +402,8 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			OutputSchema: f.GetOutputSchema(),
 			Resource:     f.GetResource(),
 			Operation:    f.GetOperation(),
+			Capability:   f.GetCapability(),
+			Execution:    f.GetExecution(),
 			Risk:         f.GetRisk(),
 			Permission:   f.GetPermission(),
 		}
@@ -417,6 +419,8 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			OutputSchema: f.GetOutputSchema(),
 			Resource:     f.GetResource(),
 			Operation:    f.GetOperation(),
+			Capability:   f.GetCapability(),
+			Execution:    f.GetExecution(),
 			Risk:         f.GetRisk(),
 			Permission:   f.GetPermission(),
 		}); err == nil {

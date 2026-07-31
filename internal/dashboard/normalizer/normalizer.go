@@ -40,6 +40,8 @@ type DescriptorInput struct {
 
 	Resource   string `json:"resource,omitempty"`
 	Operation  string `json:"operation,omitempty"`
+	Capability string `json:"capability,omitempty"`
+	Execution  string `json:"execution,omitempty"`
 	Risk       string `json:"risk,omitempty"`
 	Permission string `json:"permission,omitempty"`
 	Enabled    bool   `json:"enabled"`
@@ -49,9 +51,6 @@ type DescriptorInput struct {
 
 	// Tags
 	Tags []string `json:"tags,omitempty"`
-
-	// Optional data contract for generator quality. This is not UI.
-	PageContract *spec.PageContract `json:"page_contract,omitempty"`
 }
 
 // NormalizerResult holds the normalized specs and diagnostics.
@@ -129,6 +128,10 @@ func Normalize(input DescriptorInput) NormalizerResult {
 
 	resourceKey := strings.TrimSpace(input.Resource)
 	operationKey := strings.TrimSpace(input.Operation)
+	capability, capabilityDiagnostics := normalizeCapability(input.Capability, input.ID)
+	diags = append(diags, capabilityDiagnostics...)
+	execution, executionDiagnostics := normalizeExecution(input.Execution, capability, input.ID)
+	diags = append(diags, executionDiagnostics...)
 	if resourceKey == "" {
 		diags = append(diags, spec.Diagnostic{
 			Code:       "resource_missing",
@@ -160,6 +163,8 @@ func Normalize(input DescriptorInput) NormalizerResult {
 		Description:        descriptionMap,
 		Resource:           resourceKey,
 		Operation:          operationKey,
+		Capability:         capability,
+		Execution:          execution,
 		Risk:               normalizeRisk(input.Risk),
 		Permission:         strings.TrimSpace(input.Permission),
 		Tags:               input.Tags,
@@ -184,13 +189,14 @@ func Normalize(input DescriptorInput) NormalizerResult {
 	var operation *spec.OperationSpec
 	if fn.Resource != "" || fn.Operation != "" {
 		operation = &spec.OperationSpec{
-			FunctionID:   fn.ID,
-			ResourceKey:  fn.Resource,
-			Operation:    fn.Operation,
-			Risk:         fn.Risk,
-			Permission:   fn.Permission,
-			Enabled:      fn.Enabled,
-			PageContract: input.PageContract,
+			FunctionID:  fn.ID,
+			ResourceKey: fn.Resource,
+			Operation:   fn.Operation,
+			Capability:  fn.Capability,
+			Execution:   fn.Execution,
+			Risk:        fn.Risk,
+			Permission:  fn.Permission,
+			Enabled:     fn.Enabled,
 		}
 		operation.Diagnostics = append(operation.Diagnostics, diags...)
 	}
@@ -288,6 +294,45 @@ func normalizeRisk(r string) spec.RiskLevel {
 	default:
 		return ""
 	}
+}
+
+func normalizeCapability(value string, functionID string) (spec.CapabilityKind, []spec.Diagnostic) {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		return "", nil
+	}
+	capability := spec.CapabilityKind(value)
+	if spec.IsValidCapabilityKind(capability) {
+		return capability, nil
+	}
+	return "", []spec.Diagnostic{{
+		Code:       "capability_invalid",
+		Severity:   spec.SeverityError,
+		Message:    "capability must be one of collection_query, item_query, create, update, delete, action, task, report",
+		FunctionID: functionID,
+		Field:      "capability",
+	}}
+}
+
+func normalizeExecution(value string, capability spec.CapabilityKind, functionID string) (spec.FunctionExecution, []spec.Diagnostic) {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		if capability == spec.CapabilityTask {
+			return spec.FunctionExecutionTask, nil
+		}
+		return spec.FunctionExecutionSync, nil
+	}
+	execution := spec.FunctionExecution(value)
+	if spec.IsValidFunctionExecution(execution) {
+		return execution, nil
+	}
+	return "", []spec.Diagnostic{{
+		Code:       "execution_invalid",
+		Severity:   spec.SeverityError,
+		Message:    "execution must be one of sync, task, approval",
+		FunctionID: functionID,
+		Field:      "execution",
+	}}
 }
 
 // inferCategoryFromKey extracts the category from a key like "player.ban" -> "player".

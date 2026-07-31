@@ -1,9 +1,10 @@
 import { request } from '@umijs/max';
 import type {
+  CapabilityKind,
   Diagnostic,
+  FunctionExecution,
   JSONValue,
   LocalizedText,
-  PageContract,
   RiskLevel,
 } from '@/types/dashboard';
 
@@ -20,6 +21,8 @@ import type {
 // Source: croupier/internal/api/openapi/dto.go OpenAPISpecResponse.Spec
 export type OpenAPIExtensions = {
   'x-resource'?: string;
+  'x-capability'?: CapabilityKind;
+  'x-execution'?: FunctionExecution;
   'x-risk'?: RiskLevel;
   'x-operation'?: string; // business action key, e.g. "ban", "send", "list"
   'x-enabled'?: boolean;
@@ -89,7 +92,8 @@ export interface OpenAPISourceOperation {
   tags?: string[];
   resource?: string;
   operation?: string;
-  pageContract?: PageContract;
+  capability?: CapabilityKind;
+  execution?: FunctionExecution;
   risk?: RiskLevel;
   enabled?: boolean;
   permission?: string;
@@ -248,6 +252,8 @@ export function descriptorToOpenAPI(descriptor: {
   description?: string;
   tags?: string[];
   resource?: string;
+  capability?: CapabilityKind;
+  execution?: FunctionExecution;
   risk?: RiskLevel;
   operation?: string;
   enabled?: boolean;
@@ -264,6 +270,20 @@ export function descriptorToOpenAPI(descriptor: {
     operation.extensions = {
       ...operation.extensions,
       'x-resource': descriptor.resource,
+    };
+  }
+
+  if (descriptor.capability) {
+    operation.extensions = {
+      ...operation.extensions,
+      'x-capability': descriptor.capability,
+    };
+  }
+
+  if (descriptor.execution) {
+    operation.extensions = {
+      ...operation.extensions,
+      'x-execution': descriptor.execution,
     };
   }
 
@@ -305,6 +325,8 @@ export function descriptorToOpenAPI(descriptor: {
  */
 export function extractOpenAPIMetadata(operation: OpenAPIOperation): {
   resource?: string;
+  capability?: CapabilityKind;
+  execution?: FunctionExecution;
   risk?: RiskLevel;
   operation?: string;
   enabled?: boolean;
@@ -312,6 +334,8 @@ export function extractOpenAPIMetadata(operation: OpenAPIOperation): {
 } {
   return {
     resource: operation.extensions?.['x-resource'],
+    capability: operation.extensions?.['x-capability'],
+    execution: operation.extensions?.['x-execution'],
     risk: operation.extensions?.['x-risk'],
     operation: operation.extensions?.['x-operation'],
     enabled: operation.extensions?.['x-enabled'],

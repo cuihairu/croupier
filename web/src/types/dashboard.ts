@@ -38,6 +38,20 @@ export type FormilySchema = Record<string, unknown>;
 /** 风险等级 */
 export type RiskLevel = 'safe' | 'warning' | 'high' | 'danger';
 
+/** 函数在资源生命周期中的能力语义 */
+export type CapabilityKind =
+  | 'collection_query'
+  | 'item_query'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'action'
+  | 'task'
+  | 'report';
+
+/** 函数执行方式 */
+export type FunctionExecution = 'sync' | 'task' | 'approval';
+
 /** 页面类型 */
 export type PageType = 'entity' | 'operation' | 'task' | 'report';
 
@@ -106,6 +120,8 @@ export interface FunctionSpec {
   // Executable capability contract.
   resource?: string;
   operation?: string;
+  capability?: CapabilityKind;
+  execution?: FunctionExecution;
 
   // 治理
   risk?: RiskLevel;
@@ -148,59 +164,12 @@ export interface OperationSpec {
   functionId: string;
   resourceKey?: string;
   operation: string;
+  capability?: CapabilityKind;
+  execution?: FunctionExecution;
   risk?: RiskLevel;
   permission?: string;
   enabled: boolean;
-  pageContract?: PageContract;
   diagnostics?: Diagnostic[];
-}
-
-/** 可选页面生成数据契约，不是 UI schema */
-export interface PageContract {
-  version: string;
-  executionMode?: PageExecutionMode;
-  inputMapping?: JSONValue;
-  outputMapping?: JSONValue;
-  pagination?: PagePaginationContract;
-  table?: PageTableContract;
-  task?: PageTaskContract;
-  report?: PageReportContract;
-}
-
-/** 分页请求/响应路径契约 */
-export interface PagePaginationContract {
-  pageField: string;
-  pageSizeField: string;
-  itemsPath: string;
-  totalPath: string;
-}
-
-/** 表格列契约 */
-export interface PageTableContract {
-  columns?: PageTableColumnContract[];
-  columnsPath?: string;
-}
-
-export interface PageTableColumnContract {
-  key: string;
-  title: LocalizedText;
-  valuePath: string;
-}
-
-/** 异步任务跟踪契约 */
-export interface PageTaskContract {
-  taskIdPath?: string;
-  statusPath?: string;
-  eventsPath?: string;
-  resultPath?: string;
-}
-
-/** 报表图表数据契约 */
-export interface PageReportContract {
-  chartType?: string;
-  categoryPath?: string;
-  seriesPath?: string;
-  valuePath?: string;
 }
 
 // ---------------------------------------------------------------------------

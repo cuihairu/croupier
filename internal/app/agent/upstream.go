@@ -473,6 +473,8 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 			desc.Resource = meta.Resource
 			desc.Risk = meta.Risk
 			desc.Operation = meta.Operation
+			desc.Capability = meta.Capability
+			desc.Execution = meta.Execution
 			desc.Permission = meta.Permission
 			desc.InputSchema = meta.InputSchema
 			desc.OutputSchema = meta.OutputSchema

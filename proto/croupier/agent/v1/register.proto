@@ -17,6 +17,8 @@ message FunctionDescriptor {
   string risk = 5;      // "safe"|"warning"|"high"|"danger"
   string permission = 6; // optional permission identifier
   bool enabled = 7;     // whether this function is currently enabled
+  string capability = 8; // collection_query|item_query|create|update|delete|action|task|report
+  string execution = 9;  // sync|task|approval
 
   // OpenAPI 3.0.3 Operation Object fields for catalog/search.
   string summary = 25;

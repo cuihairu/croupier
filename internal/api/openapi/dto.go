@@ -89,20 +89,21 @@ type OpenAPISourceSummary struct {
 }
 
 type OpenAPISourceOperation struct {
-	OperationID  string             `json:"operationId"`
-	Method       string             `json:"method"`
-	Path         string             `json:"path"`
-	Summary      string             `json:"summary,omitempty"`
-	Description  string             `json:"description,omitempty"`
-	Tags         []string           `json:"tags,omitempty"`
-	Operation    string             `json:"operation,omitempty"`
-	Resource     string             `json:"resource,omitempty"`
-	PageContract *spec.PageContract `json:"pageContract,omitempty"`
-	Risk         spec.RiskLevel     `json:"risk,omitempty"`
-	Permission   string             `json:"permission,omitempty"`
-	Bound        bool               `json:"bound"`
-	BindingID    string             `json:"bindingId,omitempty"`
-	FunctionID   string             `json:"functionId,omitempty"`
+	OperationID string                 `json:"operationId"`
+	Method      string                 `json:"method"`
+	Path        string                 `json:"path"`
+	Summary     string                 `json:"summary,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	Tags        []string               `json:"tags,omitempty"`
+	Operation   string                 `json:"operation,omitempty"`
+	Resource    string                 `json:"resource,omitempty"`
+	Capability  spec.CapabilityKind    `json:"capability,omitempty"`
+	Execution   spec.FunctionExecution `json:"execution,omitempty"`
+	Risk        spec.RiskLevel         `json:"risk,omitempty"`
+	Permission  string                 `json:"permission,omitempty"`
+	Bound       bool                   `json:"bound"`
+	BindingID   string                 `json:"bindingId,omitempty"`
+	FunctionID  string                 `json:"functionId,omitempty"`
 }
 
 type OpenAPISourceDetail struct {

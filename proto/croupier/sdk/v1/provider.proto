@@ -30,6 +30,8 @@ message LocalFunctionDescriptor {
   string risk = 12;                       // x-risk: risk level (e.g., "safe", "warning", "high", "danger")
   bool enabled = 13;                      // x-enabled: whether this function is enabled
   string permission = 14;                 // x-permission: optional permission identifier
+  string capability = 15;                 // x-capability: collection_query|item_query|create|update|delete|action|task|report
+  string execution = 16;                  // x-execution: sync|task|approval
 }
 
 // ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.

@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#croupier/function/v1/metadata.proto\x12\x14\x63roupier.function.v1\"\x89\x04\n\x10\x46unctionMetadata\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x1a\n\x08resource\x18\x03 \x01(\tR\x08resource\x12\x12\n\x04tags\x18\x04 \x03(\tR\x04tags\x12\x12\n\x04name\x18\x05 \x01(\tR\x04name\x12 \n\x0b\x64\x65scription\x18\x06 \x01(\tR\x0b\x64\x65scription\x12!\n\x0cinput_schema\x18\x07 \x01(\tR\x0binputSchema\x12#\n\routput_schema\x18\x08 \x01(\tR\x0coutputSchema\x12\x42\n\x08\x62\x65havior\x18\t \x01(\x0b\x32&.croupier.function.v1.FunctionBehaviorR\x08\x62\x65havior\x12\x42\n\x08security\x18\n \x01(\x0b\x32&.croupier.function.v1.FunctionSecurityR\x08security\x12V\n\nextensions\x18\x0b \x03(\x0b\x32\x36.croupier.function.v1.FunctionMetadata.ExtensionsEntryR\nextensions\x1a=\n\x0f\x45xtensionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"\xd0\x04\n\x10\x46unctionBehavior\x12?\n\x04mode\x18\x01 \x01(\x0e\x32+.croupier.function.v1.FunctionBehavior.ModeR\x04mode\x12\x1e\n\nidempotent\x18\x02 \x01(\x08R\nidempotent\x12\x38\n\x18supports_idempotency_key\x18\x03 \x01(\x08R\x16supportsIdempotencyKey\x12\x1d\n\ntimeout_ms\x18\x04 \x01(\x05R\ttimeoutMs\x12[\n\x0eroute_strategy\x18\x05 \x01(\x0e\x32\x34.croupier.function.v1.FunctionBehavior.RouteStrategyR\rrouteStrategy\x12\x1c\n\tcacheable\x18\x06 \x01(\x08R\tcacheable\x12*\n\x11\x63\x61\x63he_ttl_seconds\x18\x07 \x01(\x05R\x0f\x63\x61\x63heTtlSeconds\">\n\x04Mode\x12\x14\n\x10MODE_UNSPECIFIED\x10\x00\x12\x0e\n\nMODE_QUERY\x10\x01\x12\x10\n\x0cMODE_COMMAND\x10\x02\"\x9a\x01\n\rRouteStrategy\x12\x1e\n\x1aROUTE_STRATEGY_UNSPECIFIED\x10\x00\x12\x15\n\x11ROUTE_STRATEGY_LB\x10\x01\x12\x1c\n\x18ROUTE_STRATEGY_BROADCAST\x10\x02\x12\x1b\n\x17ROUTE_STRATEGY_TARGETED\x10\x03\x12\x17\n\x13ROUTE_STRATEGY_HASH\x10\x04\"\xe3\x04\n\x10\x46unctionSecurity\x12O\n\nrisk_level\x18\x01 \x01(\x0e\x32\x30.croupier.function.v1.FunctionSecurity.RiskLevelR\triskLevel\x12\x1e\n\npermission\x18\x02 \x01(\tR\npermission\x12+\n\x11requires_approval\x18\x03 \x01(\x08R\x10requiresApproval\x12X\n\rapproval_type\x18\x04 \x01(\x0e\x32\x33.croupier.function.v1.FunctionSecurity.ApprovalTypeR\x0c\x61pprovalType\x12#\n\rallowed_roles\x18\x05 \x03(\tR\x0c\x61llowedRoles\x12\x1b\n\taudit_log\x18\x06 \x01(\x08R\x08\x61uditLog\x12.\n\x13mask_sensitive_data\x18\x07 \x01(\x08R\x11maskSensitiveData\"~\n\tRiskLevel\x12\x1a\n\x16RISK_LEVEL_UNSPECIFIED\x10\x00\x12\x12\n\x0eRISK_LEVEL_LOW\x10\x01\x12\x15\n\x11RISK_LEVEL_MEDIUM\x10\x02\x12\x13\n\x0fRISK_LEVEL_HIGH\x10\x03\x12\x15\n\x11RISK_LEVEL_DANGER\x10\x04\"e\n\x0c\x41pprovalType\x12\x1d\n\x19\x41PPROVAL_TYPE_UNSPECIFIED\x10\x00\x12\x18\n\x14\x41PPROVAL_TYPE_SINGLE\x10\x01\x12\x1c\n\x18\x41PPROVAL_TYPE_TWO_PERSON\x10\x02\"\\\n\x14\x46unctionMetadataList\x12\x44\n\tfunctions\x18\x01 \x03(\x0b\x32&.croupier.function.v1.FunctionMetadataR\tfunctions\"\xaf\x01\n\x0e\x46unctionFilter\x12\x1a\n\x08resource\x18\x01 \x01(\tR\x08resource\x12\x12\n\x04tags\x18\x02 \x03(\tR\x04tags\x12\x1d\n\nrisk_level\x18\x03 \x01(\tR\triskLevel\x12\x12\n\x04mode\x18\x04 \x01(\tR\x04mode\x12\x1b\n\tpage_size\x18\x05 \x01(\x05R\x08pageSize\x12\x1d\n\npage_token\x18\x06 \x01(\tR\tpageToken\"\xa5\x01\n\x14\x46unctionListResponse\x12\x44\n\tfunctions\x18\x01 \x03(\x0b\x32&.croupier.function.v1.FunctionMetadataR\tfunctions\x12&\n\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n\x0btotal_count\x18\x03 \x01(\x05R\ntotalCountBp\n\'io.github.cuihairu.croupier.function.v1P\x01ZCgithub.com/cuihairu/croupier/pkg/pb/croupier/function/v1;functionv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#croupier/function/v1/metadata.proto\x12\x14\x63roupier.function.v1\"\xe5\x04\n\x10\x46unctionMetadata\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x1a\n\x08resource\x18\x03 \x01(\tR\x08resource\x12\x12\n\x04tags\x18\x04 \x03(\tR\x04tags\x12\x1e\n\ncapability\x18\x0c \x01(\tR\ncapability\x12\x1c\n\toperation\x18\r \x01(\tR\toperation\x12\x1c\n\texecution\x18\x0e \x01(\tR\texecution\x12\x12\n\x04name\x18\x05 \x01(\tR\x04name\x12 \n\x0b\x64\x65scription\x18\x06 \x01(\tR\x0b\x64\x65scription\x12!\n\x0cinput_schema\x18\x07 \x01(\tR\x0binputSchema\x12#\n\routput_schema\x18\x08 \x01(\tR\x0coutputSchema\x12\x42\n\x08\x62\x65havior\x18\t \x01(\x0b\x32&.croupier.function.v1.FunctionBehaviorR\x08\x62\x65havior\x12\x42\n\x08security\x18\n \x01(\x0b\x32&.croupier.function.v1.FunctionSecurityR\x08security\x12V\n\nextensions\x18\x0b \x03(\x0b\x32\x36.croupier.function.v1.FunctionMetadata.ExtensionsEntryR\nextensions\x1a=\n\x0f\x45xtensionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"\xd0\x04\n\x10\x46unctionBehavior\x12?\n\x04mode\x18\x01 \x01(\x0e\x32+.croupier.function.v1.FunctionBehavior.ModeR\x04mode\x12\x1e\n\nidempotent\x18\x02 \x01(\x08R\nidempotent\x12\x38\n\x18supports_idempotency_key\x18\x03 \x01(\x08R\x16supportsIdempotencyKey\x12\x1d\n\ntimeout_ms\x18\x04 \x01(\x05R\ttimeoutMs\x12[\n\x0eroute_strategy\x18\x05 \x01(\x0e\x32\x34.croupier.function.v1.FunctionBehavior.RouteStrategyR\rrouteStrategy\x12\x1c\n\tcacheable\x18\x06 \x01(\x08R\tcacheable\x12*\n\x11\x63\x61\x63he_ttl_seconds\x18\x07 \x01(\x05R\x0f\x63\x61\x63heTtlSeconds\">\n\x04Mode\x12\x14\n\x10MODE_UNSPECIFIED\x10\x00\x12\x0e\n\nMODE_QUERY\x10\x01\x12\x10\n\x0cMODE_COMMAND\x10\x02\"\x9a\x01\n\rRouteStrategy\x12\x1e\n\x1aROUTE_STRATEGY_UNSPECIFIED\x10\x00\x12\x15\n\x11ROUTE_STRATEGY_LB\x10\x01\x12\x1c\n\x18ROUTE_STRATEGY_BROADCAST\x10\x02\x12\x1b\n\x17ROUTE_STRATEGY_TARGETED\x10\x03\x12\x17\n\x13ROUTE_STRATEGY_HASH\x10\x04\"\xe3\x04\n\x10\x46unctionSecurity\x12O\n\nrisk_level\x18\x01 \x01(\x0e\x32\x30.croupier.function.v1.FunctionSecurity.RiskLevelR\triskLevel\x12\x1e\n\npermission\x18\x02 \x01(\tR\npermission\x12+\n\x11requires_approval\x18\x03 \x01(\x08R\x10requiresApproval\x12X\n\rapproval_type\x18\x04 \x01(\x0e\x32\x33.croupier.function.v1.FunctionSecurity.ApprovalTypeR\x0c\x61pprovalType\x12#\n\rallowed_roles\x18\x05 \x03(\tR\x0c\x61llowedRoles\x12\x1b\n\taudit_log\x18\x06 \x01(\x08R\x08\x61uditLog\x12.\n\x13mask_sensitive_data\x18\x07 \x01(\x08R\x11maskSensitiveData\"~\n\tRiskLevel\x12\x1a\n\x16RISK_LEVEL_UNSPECIFIED\x10\x00\x12\x12\n\x0eRISK_LEVEL_LOW\x10\x01\x12\x15\n\x11RISK_LEVEL_MEDIUM\x10\x02\x12\x13\n\x0fRISK_LEVEL_HIGH\x10\x03\x12\x15\n\x11RISK_LEVEL_DANGER\x10\x04\"e\n\x0c\x41pprovalType\x12\x1d\n\x19\x41PPROVAL_TYPE_UNSPECIFIED\x10\x00\x12\x18\n\x14\x41PPROVAL_TYPE_SINGLE\x10\x01\x12\x1c\n\x18\x41PPROVAL_TYPE_TWO_PERSON\x10\x02\"\\\n\x14\x46unctionMetadataList\x12\x44\n\tfunctions\x18\x01 \x03(\x0b\x32&.croupier.function.v1.FunctionMetadataR\tfunctions\"\xaf\x01\n\x0e\x46unctionFilter\x12\x1a\n\x08resource\x18\x01 \x01(\tR\x08resource\x12\x12\n\x04tags\x18\x02 \x03(\tR\x04tags\x12\x1d\n\nrisk_level\x18\x03 \x01(\tR\triskLevel\x12\x12\n\x04mode\x18\x04 \x01(\tR\x04mode\x12\x1b\n\tpage_size\x18\x05 \x01(\x05R\x08pageSize\x12\x1d\n\npage_token\x18\x06 \x01(\tR\tpageToken\"\xa5\x01\n\x14\x46unctionListResponse\x12\x44\n\tfunctions\x18\x01 \x03(\x0b\x32&.croupier.function.v1.FunctionMetadataR\tfunctions\x12&\n\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n\x0btotal_count\x18\x03 \x01(\x05R\ntotalCountBp\n\'io.github.cuihairu.croupier.function.v1P\x01ZCgithub.com/cuihairu/croupier/pkg/pb/croupier/function/v1;functionv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -25,25 +25,25 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_FUNCTIONMETADATA_EXTENSIONSENTRY']._options = None
   _globals['_FUNCTIONMETADATA_EXTENSIONSENTRY']._serialized_options = b'8\001'
   _globals['_FUNCTIONMETADATA']._serialized_start=62
-  _globals['_FUNCTIONMETADATA']._serialized_end=583
-  _globals['_FUNCTIONMETADATA_EXTENSIONSENTRY']._serialized_start=522
-  _globals['_FUNCTIONMETADATA_EXTENSIONSENTRY']._serialized_end=583
-  _globals['_FUNCTIONBEHAVIOR']._serialized_start=586
-  _globals['_FUNCTIONBEHAVIOR']._serialized_end=1178
-  _globals['_FUNCTIONBEHAVIOR_MODE']._serialized_start=959
-  _globals['_FUNCTIONBEHAVIOR_MODE']._serialized_end=1021
-  _globals['_FUNCTIONBEHAVIOR_ROUTESTRATEGY']._serialized_start=1024
-  _globals['_FUNCTIONBEHAVIOR_ROUTESTRATEGY']._serialized_end=1178
-  _globals['_FUNCTIONSECURITY']._serialized_start=1181
-  _globals['_FUNCTIONSECURITY']._serialized_end=1792
-  _globals['_FUNCTIONSECURITY_RISKLEVEL']._serialized_start=1563
-  _globals['_FUNCTIONSECURITY_RISKLEVEL']._serialized_end=1689
-  _globals['_FUNCTIONSECURITY_APPROVALTYPE']._serialized_start=1691
-  _globals['_FUNCTIONSECURITY_APPROVALTYPE']._serialized_end=1792
-  _globals['_FUNCTIONMETADATALIST']._serialized_start=1794
-  _globals['_FUNCTIONMETADATALIST']._serialized_end=1886
-  _globals['_FUNCTIONFILTER']._serialized_start=1889
-  _globals['_FUNCTIONFILTER']._serialized_end=2064
-  _globals['_FUNCTIONLISTRESPONSE']._serialized_start=2067
-  _globals['_FUNCTIONLISTRESPONSE']._serialized_end=2232
+  _globals['_FUNCTIONMETADATA']._serialized_end=675
+  _globals['_FUNCTIONMETADATA_EXTENSIONSENTRY']._serialized_start=614
+  _globals['_FUNCTIONMETADATA_EXTENSIONSENTRY']._serialized_end=675
+  _globals['_FUNCTIONBEHAVIOR']._serialized_start=678
+  _globals['_FUNCTIONBEHAVIOR']._serialized_end=1270
+  _globals['_FUNCTIONBEHAVIOR_MODE']._serialized_start=1051
+  _globals['_FUNCTIONBEHAVIOR_MODE']._serialized_end=1113
+  _globals['_FUNCTIONBEHAVIOR_ROUTESTRATEGY']._serialized_start=1116
+  _globals['_FUNCTIONBEHAVIOR_ROUTESTRATEGY']._serialized_end=1270
+  _globals['_FUNCTIONSECURITY']._serialized_start=1273
+  _globals['_FUNCTIONSECURITY']._serialized_end=1884
+  _globals['_FUNCTIONSECURITY_RISKLEVEL']._serialized_start=1655
+  _globals['_FUNCTIONSECURITY_RISKLEVEL']._serialized_end=1781
+  _globals['_FUNCTIONSECURITY_APPROVALTYPE']._serialized_start=1783
+  _globals['_FUNCTIONSECURITY_APPROVALTYPE']._serialized_end=1884
+  _globals['_FUNCTIONMETADATALIST']._serialized_start=1886
+  _globals['_FUNCTIONMETADATALIST']._serialized_end=1978
+  _globals['_FUNCTIONFILTER']._serialized_start=1981
+  _globals['_FUNCTIONFILTER']._serialized_end=2156
+  _globals['_FUNCTIONLISTRESPONSE']._serialized_start=2159
+  _globals['_FUNCTIONLISTRESPONSE']._serialized_end=2324
 # @@protoc_insertion_point(module_scope)

@@ -84,6 +84,20 @@ function riskColor(risk?: string) {
   return 'green';
 }
 
+function capabilityColor(capability?: string) {
+  if (capability === 'task') return 'purple';
+  if (capability === 'report') return 'geekblue';
+  if (capability === 'collection_query' || capability === 'item_query') return 'cyan';
+  if (capability === 'create' || capability === 'update' || capability === 'delete') return 'volcano';
+  return 'blue';
+}
+
+function executionColor(execution?: string) {
+  if (execution === 'task') return 'purple';
+  if (execution === 'approval') return 'orange';
+  return 'green';
+}
+
 function formatDate(value?: string): string {
   if (!value) return '-';
   const date = new Date(value);
@@ -399,29 +413,19 @@ export default function OpenAPISourcesPage() {
     {
       title: '能力契约',
       dataIndex: 'resource',
-      width: 230,
+      width: 320,
       render: (_, record) => (
         <Space direction="vertical" size={4}>
           <Space size={4} wrap>
-            {record.resource ? <Tag color="blue">{record.resource}</Tag> : <Tag>无 resource</Tag>}
-            {record.operation ? <Tag>{record.operation}</Tag> : <Tag>无 operation</Tag>}
-            <Tag color={riskColor(record.risk)}>{record.risk || 'safe'}</Tag>
+            <Tag color={record.resource ? 'blue' : undefined}>{record.resource || '无 resource'}</Tag>
+            <Tag color={record.operation ? undefined : 'default'}>{record.operation || '无 operation'}</Tag>
+            <Tag color={capabilityColor(record.capability)}>
+              {record.capability || '无 capability'}
+            </Tag>
+            <Tag color={executionColor(record.execution)}>{record.execution || '无 execution'}</Tag>
+            <Tag color={riskColor(record.risk)}>{record.risk || '无 risk'}</Tag>
           </Space>
-          {record.permission ? <Typography.Text code>{record.permission}</Typography.Text> : null}
-        </Space>
-      ),
-    },
-    {
-      title: 'PageContract',
-      dataIndex: 'pageContract',
-      width: 160,
-      render: (_, record) => (
-        <Space size={4} wrap>
-          {record.pageContract?.pagination ? <Tag color="blue">pagination</Tag> : null}
-          {record.pageContract?.table ? <Tag color="cyan">table</Tag> : null}
-          {record.pageContract?.task ? <Tag color="purple">task</Tag> : null}
-          {record.pageContract?.report ? <Tag color="geekblue">report</Tag> : null}
-          {!record.pageContract ? <Tag color="orange">缺失</Tag> : null}
+          <Typography.Text code>{record.permission || '无 permission'}</Typography.Text>
         </Space>
       ),
     },
@@ -634,8 +638,8 @@ export default function OpenAPISourcesPage() {
             message={isUpdatingSource ? '更新只产生新的 Source revision' : '不要在 OpenAPI 中写 UI'}
             description={
               isUpdatingSource
-                ? '更新会刷新 Source 的 operations 和 diagnostics，保留现有 Provider binding；如果新文档移除了某个 operation，详情页不会再把它标记为 bound。'
-                : '只允许 operationId、summary、description、requestBody、responses 以及 x-resource/x-operation/x-risk/x-enabled/x-permission/x-page-contract。'
+                ? '更新会刷新 Source 的 operations 和 diagnostics，保留现有 Provider binding；OpenAPI 不能写 UI，只允许 x-resource/x-operation/x-capability/x-execution/x-risk/x-enabled/x-permission。'
+                : 'OpenAPI 不能写 UI，只允许 x-resource/x-operation/x-capability/x-execution/x-risk/x-enabled/x-permission。'
             }
           />
           <Input

@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -9,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerateForResourceCreatesEntityPageOnlyFromExplicitTableContract(t *testing.T) {
+func TestGenerateForResourceCreatesDefaultOperationPagesWithoutGuessingCRUD(t *testing.T) {
 	resource := spec.ResourceSpec{
 		Key:    "player",
 		Labels: spec.LocalizedText{"zh-CN": "玩家"},
@@ -18,36 +17,16 @@ func TestGenerateForResourceCreatesEntityPageOnlyFromExplicitTableContract(t *te
 				FunctionID:  "player.list",
 				ResourceKey: "player",
 				Operation:   "list",
+				Capability:  spec.CapabilityCollectionQuery,
 				Enabled:     true,
-				PageContract: &spec.PageContract{
-					Version:       "page-contract:1",
-					InputMapping:  raw(`{"page":"values.page","pageSize":"values.pageSize"}`),
-					OutputMapping: raw(`{"stateKey":"players"}`),
-					Pagination: &spec.PagePaginationContract{
-						PageField:     "page",
-						PageSizeField: "pageSize",
-						ItemsPath:     "items",
-						TotalPath:     "total",
-					},
-					Table: &spec.PageTableContract{
-						Columns: []spec.PageTableColumnContract{
-							{Key: "id", Title: spec.LocalizedText{"zh-CN": "玩家ID"}, ValuePath: "id"},
-							{Key: "name", Title: spec.LocalizedText{"zh-CN": "昵称"}, ValuePath: "profile.name"},
-						},
-					},
-				},
 			},
 			{
 				FunctionID:  "player.ban",
 				ResourceKey: "player",
 				Operation:   "ban",
+				Capability:  spec.CapabilityAction,
 				Risk:        spec.RiskDanger,
 				Enabled:     true,
-				PageContract: &spec.PageContract{
-					Version:       "page-contract:1",
-					InputMapping:  raw(`{"targetId":"row.id","note":"values.note"}`),
-					OutputMapping: raw(`{"stateKey":"banResult"}`),
-				},
 			},
 		},
 	}
@@ -62,154 +41,34 @@ func TestGenerateForResourceCreatesEntityPageOnlyFromExplicitTableContract(t *te
 		},
 	})
 
-	require.Len(t, pages, 1)
-	page := pages[0]
-	assert.Equal(t, "player.manage", page.PageKey)
-	assert.Equal(t, spec.PageTypeEntity, page.Type)
-	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
-	assert.Equal(t, "玩家", page.Title["zh-CN"])
-	assert.Len(t, page.Bindings, 2)
-	assertBinding(t, page.Bindings, "player.query", spec.BindingUsageQuery)
-	assertBinding(t, page.Bindings, "player.ban", spec.BindingUsageAction)
-	assert.Contains(t, string(page.Schema), `"x-component":"DataTable"`)
-	assert.Contains(t, string(page.Schema), `"bindingId":"player.query"`)
-	assert.Contains(t, string(page.Schema), `"rowActions"`)
-	assert.Contains(t, string(page.Schema), `"targetId":"row.id"`)
-	assert.Contains(t, string(page.Schema), `"note":"values.note"`)
-	assert.NotContains(t, string(page.Schema), `"functionId"`)
-}
-
-func TestGenerateForResourceDoesNotAddEntityActionWithoutOutputMapping(t *testing.T) {
-	resource := spec.ResourceSpec{
-		Key:    "player",
-		Labels: spec.LocalizedText{"zh-CN": "玩家"},
-		Operations: []spec.OperationSpec{
-			{
-				FunctionID:   "player.list",
-				ResourceKey:  "player",
-				Operation:    "list",
-				Enabled:      true,
-				PageContract: tablePageContract(),
-			},
-			{
-				FunctionID:  "player.ban",
-				ResourceKey: "player",
-				Operation:   "ban",
-				Risk:        spec.RiskDanger,
-				Enabled:     true,
-				PageContract: &spec.PageContract{
-					Version:      "page-contract:1",
-					InputMapping: raw(`{"targetId":"row.id"}`),
-				},
-			},
-		},
-	}
-
-	pages := GenerateForResource(resource, DefaultGenerateOptions())
-
 	require.Len(t, pages, 2)
-	entityPage := pages[0]
-	assert.Equal(t, spec.GeneratedPageQualityNeedsReview, entityPage.Quality)
-	assertDiagnostic(t, entityPage.Diagnostics, "entity_action_output_mapping_missing")
-	assertBinding(t, entityPage.Bindings, "player.query", spec.BindingUsageQuery)
-	assert.NotContains(t, string(entityPage.Schema), `"bindingId":"player.ban"`)
-
-	actionPage := pages[1]
-	assert.Equal(t, spec.GeneratedPageQualityNeedsReview, actionPage.Quality)
-	assert.Equal(t, "player.ban", actionPage.PageKey)
-	assertDiagnostic(t, actionPage.Diagnostics, "binding_output_mapping_missing")
-}
-
-func TestGenerateForResourceKeepsStandaloneOperationOutsideEntityPage(t *testing.T) {
-	resource := spec.ResourceSpec{
-		Key: "mail",
-		Operations: []spec.OperationSpec{
-			{
-				FunctionID:  "mail.send",
-				ResourceKey: "mail",
-				Operation:   "send",
-				Enabled:     true,
-				PageContract: &spec.PageContract{
-					Version:       "page-contract:1",
-					InputMapping:  raw(`{"target":"values.target","content":"values.content"}`),
-					OutputMapping: raw(`{"stateKey":"mailSendResult"}`),
-				},
-			},
-		},
+	assert.Equal(t, "player.ban", pages[0].PageKey)
+	assert.Equal(t, "player.list", pages[1].PageKey)
+	for _, page := range pages {
+		assert.Equal(t, spec.PageTypeOperation, page.Type)
+		assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
+		assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
+		assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
+		assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
+		assert.NotContains(t, string(page.Schema), `"functionId"`)
 	}
-
-	pages := GenerateForResource(resource, DefaultGenerateOptions())
-
-	require.Len(t, pages, 1)
-	page := pages[0]
-	assert.Equal(t, "mail.send", page.PageKey)
-	assert.Equal(t, spec.PageTypeOperation, page.Type)
-	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
-	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
-	assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
-	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
 }
 
-func TestGenerateForOperationCreatesTaskPageFromTaskContract(t *testing.T) {
-	page := GenerateForOperation(spec.OperationSpec{
-		FunctionID:  "reward.batchGrant",
-		ResourceKey: "reward",
-		Operation:   "batchGrant",
+func TestGenerateEntityPageForResourceIsDisabledUntilCapabilitySemantics(t *testing.T) {
+	page, ok, consumed := GenerateEntityPageForResource(spec.ResourceSpec{Key: "player"}, []spec.OperationSpec{{
+		FunctionID:  "player.list",
+		ResourceKey: "player",
+		Operation:   "list",
+		Capability:  spec.CapabilityCollectionQuery,
 		Enabled:     true,
-		PageContract: &spec.PageContract{
-			Version:       "page-contract:1",
-			ExecutionMode: spec.PageExecutionModeTask,
-			InputMapping:  raw(`{"segment":"values.segment","rewardId":"values.rewardId"}`),
-			OutputMapping: raw(`{"stateKey":"rewardTask"}`),
-			Task: &spec.PageTaskContract{
-				TaskIDPath: "taskId",
-				StatusPath: "status",
-				EventsPath: "events",
-				ResultPath: "result",
-			},
-		},
-	}, DefaultGenerateOptions())
+	}}, DefaultGenerateOptions())
 
-	assert.Equal(t, "reward.batchGrant", page.PageKey)
-	assert.Equal(t, spec.PageTypeTask, page.Type)
-	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
-	require.Len(t, page.Bindings, 1)
-	assert.Equal(t, spec.BindingUsageTask, page.Bindings[0].Usage)
-	assert.Equal(t, spec.PageExecutionModeTask, page.Bindings[0].Execution.Mode)
-	assert.Contains(t, string(page.Schema), `"x-component":"TaskTimeline"`)
-	assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
+	assert.False(t, ok)
+	assert.Empty(t, page.PageKey)
+	assert.Empty(t, consumed)
 }
 
-func TestGenerateForOperationCreatesReportPageFromReportContract(t *testing.T) {
-	page := GenerateForOperation(spec.OperationSpec{
-		FunctionID:  "analytics.retention",
-		ResourceKey: "analytics",
-		Operation:   "retention",
-		Enabled:     true,
-		PageContract: &spec.PageContract{
-			Version:       "page-contract:1",
-			InputMapping:  raw(`{"startDate":"values.startDate","endDate":"values.endDate"}`),
-			OutputMapping: raw(`{"stateKey":"retentionReport"}`),
-			Report: &spec.PageReportContract{
-				ChartType:    "line",
-				CategoryPath: "cohorts.date",
-				SeriesPath:   "cohorts.series",
-				ValuePath:    "rate",
-			},
-		},
-	}, DefaultGenerateOptions())
-
-	assert.Equal(t, "analytics.retention", page.PageKey)
-	assert.Equal(t, spec.PageTypeReport, page.Type)
-	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
-	require.Len(t, page.Bindings, 1)
-	assert.Equal(t, spec.BindingUsageReport, page.Bindings[0].Usage)
-	assert.Contains(t, string(page.Schema), `"x-component":"ChartPanel"`)
-	assert.Contains(t, string(page.Schema), `"chartType":"line"`)
-	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
-}
-
-func TestGenerateForOperationCreatesBasicPageWhenContractMissing(t *testing.T) {
+func TestGenerateForOperationCreatesBasicPage(t *testing.T) {
 	page := GenerateForOperation(spec.OperationSpec{
 		FunctionID: "cache.refresh",
 		Operation:  "refresh",
@@ -233,51 +92,63 @@ func TestGenerateForOperationCreatesBasicPageWhenContractMissing(t *testing.T) {
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
 	assertDiagnostic(t, page.Diagnostics, "resource_missing")
-	assertDiagnostic(t, page.Diagnostics, "page_contract_missing")
 	require.Len(t, page.Bindings, 1)
-	assert.JSONEq(t, `{"dryRun":"values.dryRun","scope":"values.scope"}`, string(page.Bindings[0].InputMapping))
+	assert.JSONEq(t, `{"scope":"values.scope","dryRun":"values.dryRun"}`, string(page.Bindings[0].InputMapping))
 	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
 	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
 	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
 }
 
-func TestInferPageTypeUsesOnlyContractShape(t *testing.T) {
+func TestGenerateForOperationUsesExecutionTask(t *testing.T) {
+	page := GenerateForOperation(spec.OperationSpec{
+		FunctionID: "reward.batchGrant",
+		Operation:  "batchGrant",
+		Capability: spec.CapabilityTask,
+		Execution:  spec.FunctionExecutionTask,
+		Enabled:    true,
+	}, GenerateOptions{
+		DefaultLocale: "zh-CN",
+		Functions: map[string]spec.FunctionSpec{
+			"reward.batchGrant": {
+				ID:                 "reward.batchGrant",
+				InputFormilySchema: spec.FormilySchema(`{"type":"object","properties":{"segment":{"type":"string","x-component":"Input"}}}`),
+			},
+		},
+	})
+
+	assert.Equal(t, spec.PageTypeTask, page.Type)
+	assert.Equal(t, spec.GeneratedPageQualityNeedsReview, page.Quality)
+	assertDiagnostic(t, page.Diagnostics, "task_semantics_missing")
+	require.Len(t, page.Bindings, 1)
+	assert.Equal(t, spec.BindingUsageTask, page.Bindings[0].Usage)
+	assert.Equal(t, spec.PageExecutionModeTask, page.Bindings[0].Execution.Mode)
+	assert.JSONEq(t, `{"segment":"values.segment"}`, string(page.Bindings[0].InputMapping))
+	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
+	assert.Contains(t, string(page.Schema), `"x-component":"TaskTimeline"`)
+}
+
+func TestGenerateForOperationUsesCapabilityReport(t *testing.T) {
+	page := GenerateForOperation(spec.OperationSpec{
+		FunctionID:  "analytics.retention",
+		ResourceKey: "analytics",
+		Operation:   "retention",
+		Capability:  spec.CapabilityReport,
+		Execution:   spec.FunctionExecutionSync,
+		Enabled:     true,
+	}, DefaultGenerateOptions())
+
+	assert.Equal(t, spec.PageTypeReport, page.Type)
+	assert.Equal(t, spec.GeneratedPageQualityNeedsReview, page.Quality)
+	assertDiagnostic(t, page.Diagnostics, "report_semantics_missing")
+	require.Len(t, page.Bindings, 1)
+	assert.Equal(t, spec.BindingUsageReport, page.Bindings[0].Usage)
+	assert.Contains(t, string(page.Schema), `"x-component":"ChartPanel"`)
+}
+
+func TestInferPageTypeUsesOnlyCapabilitySemantics(t *testing.T) {
 	assert.Equal(t, spec.PageTypeOperation, InferPageType([]spec.OperationSpec{{FunctionID: "player.list", Operation: "list"}}))
-	assert.Equal(t, spec.PageTypeEntity, InferPageType([]spec.OperationSpec{{PageContract: tablePageContract()}}))
-	assert.Equal(t, spec.PageTypeTask, InferPageType([]spec.OperationSpec{{PageContract: &spec.PageContract{Version: "page-contract:1", ExecutionMode: spec.PageExecutionModeTask}}}))
-	assert.Equal(t, spec.PageTypeReport, InferPageType([]spec.OperationSpec{{PageContract: &spec.PageContract{Version: "page-contract:1", Report: &spec.PageReportContract{ChartType: "line"}}}}))
-}
-
-func tablePageContract() *spec.PageContract {
-	return &spec.PageContract{
-		Version:       "page-contract:1",
-		InputMapping:  raw(`{"page":"values.page","pageSize":"values.pageSize"}`),
-		OutputMapping: raw(`{"stateKey":"rows"}`),
-		Pagination: &spec.PagePaginationContract{
-			PageField:     "page",
-			PageSizeField: "pageSize",
-			ItemsPath:     "items",
-			TotalPath:     "total",
-		},
-		Table: &spec.PageTableContract{
-			Columns: []spec.PageTableColumnContract{{Key: "id", Title: spec.LocalizedText{"zh-CN": "ID"}, ValuePath: "id"}},
-		},
-	}
-}
-
-func raw(value string) json.RawMessage {
-	return json.RawMessage(value)
-}
-
-func assertBinding(t *testing.T, bindings []spec.PageFunctionBinding, id string, usage spec.PageBindingUsage) {
-	t.Helper()
-	for _, binding := range bindings {
-		if binding.ID == id {
-			assert.Equal(t, usage, binding.Usage)
-			return
-		}
-	}
-	t.Fatalf("binding %s not found in %#v", id, bindings)
+	assert.Equal(t, spec.PageTypeTask, InferPageType([]spec.OperationSpec{{Capability: spec.CapabilityTask, Execution: spec.FunctionExecutionTask}}))
+	assert.Equal(t, spec.PageTypeReport, InferPageType([]spec.OperationSpec{{Capability: spec.CapabilityReport}}))
 }
 
 func assertDiagnostic(t *testing.T, diagnostics []spec.Diagnostic, code string) {

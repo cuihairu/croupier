@@ -325,6 +325,8 @@ public class CroupierClientImpl implements CroupierClient {
             descriptor.getOutputSchema(),
             descriptor.getResource(),
             descriptor.getOperation(),
+            descriptor.getCapability(),
+            descriptor.getExecution(),
             descriptor.getRisk(),
             descriptor.isEnabled(),
             descriptor.getPermission()
@@ -645,7 +647,12 @@ public class CroupierClientImpl implements CroupierClient {
      */
     public List<LocalFunctionDescriptor> getLocalFunctions() {
         return descriptors.values().stream()
-                .map(desc -> new LocalFunctionDescriptor(desc.getId(), desc.getVersion()))
+                .map(desc -> new LocalFunctionDescriptor(
+                    desc.getId(),
+                    desc.getVersion(),
+                    desc.getCapability(),
+                    desc.getExecution()
+                ))
                 .collect(Collectors.toList());
     }
 
@@ -677,6 +684,8 @@ public class CroupierClientImpl implements CroupierClient {
         function.put("output_schema", defaultValue(descriptor.getOutputSchema(), ""));
         function.put("resource", defaultValue(descriptor.getResource(), ""));
         function.put("operation", defaultValue(descriptor.getOperation(), ""));
+        function.put("capability", defaultValue(descriptor.getCapability(), ""));
+        function.put("execution", defaultValue(descriptor.getExecution(), ""));
         function.put("risk", defaultValue(descriptor.getRisk(), ""));
         function.put("enabled", descriptor.isEnabled());
         function.put("permission", defaultValue(descriptor.getPermission(), ""));
@@ -746,6 +755,12 @@ public class CroupierClientImpl implements CroupierClient {
             }
             if (!isNullOrEmpty(descriptor.getOperation())) {
                 functionsBuilder.append(",\"operation\":\"").append(escapeJson(descriptor.getOperation())).append("\"");
+            }
+            if (!isNullOrEmpty(descriptor.getCapability())) {
+                functionsBuilder.append(",\"capability\":\"").append(escapeJson(descriptor.getCapability())).append("\"");
+            }
+            if (!isNullOrEmpty(descriptor.getExecution())) {
+                functionsBuilder.append(",\"execution\":\"").append(escapeJson(descriptor.getExecution())).append("\"");
             }
             if (!isNullOrEmpty(descriptor.getPermission())) {
                 functionsBuilder.append(",\"permission\":\"").append(escapeJson(descriptor.getPermission())).append("\"");

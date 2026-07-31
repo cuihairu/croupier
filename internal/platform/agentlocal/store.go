@@ -45,6 +45,8 @@ type FunctionMeta struct {
 
 	Resource   string // x-resource extension
 	Operation  string // x-operation extension (business action key)
+	Capability string // x-capability extension
+	Execution  string // x-execution extension
 	Risk       string // x-risk extension
 	Permission string // x-permission extension
 
@@ -146,6 +148,8 @@ func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs
 			OutputSchema: fn.GetOutputSchema(),
 			Resource:     fn.GetResource(),
 			Operation:    fn.GetOperation(),
+			Capability:   fn.GetCapability(),
+			Execution:    fn.GetExecution(),
 			Risk:         fn.GetRisk(),
 			Permission:   fn.GetPermission(),
 		}
@@ -161,6 +165,8 @@ func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs
 			OutputSchema: meta.OutputSchema,
 			Resource:     meta.Resource,
 			Operation:    meta.Operation,
+			Capability:   meta.Capability,
+			Execution:    meta.Execution,
 			Risk:         meta.Risk,
 			Permission:   meta.Permission,
 		}); err == nil {

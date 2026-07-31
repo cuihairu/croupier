@@ -186,6 +186,16 @@ public class CroupierSDK {
             return this;
         }
 
+        public FunctionDescriptorBuilder capability(String capability) {
+            descriptor.setCapability(capability);
+            return this;
+        }
+
+        public FunctionDescriptorBuilder execution(String execution) {
+            descriptor.setExecution(execution);
+            return this;
+        }
+
         public FunctionDescriptorBuilder permission(String permission) {
             descriptor.setPermission(permission);
             return this;

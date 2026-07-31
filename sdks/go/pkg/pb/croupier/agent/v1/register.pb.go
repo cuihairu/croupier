@@ -33,6 +33,8 @@ type FunctionDescriptor struct {
 	Risk       string                 `protobuf:"bytes,5,opt,name=risk,proto3" json:"risk,omitempty"`             // "safe"|"warning"|"high"|"danger"
 	Permission string                 `protobuf:"bytes,6,opt,name=permission,proto3" json:"permission,omitempty"` // optional permission identifier
 	Enabled    bool                   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`      // whether this function is currently enabled
+	Capability string                 `protobuf:"bytes,8,opt,name=capability,proto3" json:"capability,omitempty"` // collection_query|item_query|create|update|delete|action|task|report
+	Execution  string                 `protobuf:"bytes,9,opt,name=execution,proto3" json:"execution,omitempty"`   // sync|task|approval
 	// OpenAPI 3.0.3 Operation Object fields for catalog/search.
 	Summary     string   `protobuf:"bytes,25,opt,name=summary,proto3" json:"summary,omitempty"`
 	Description string   `protobuf:"bytes,26,opt,name=description,proto3" json:"description,omitempty"`
@@ -122,6 +124,20 @@ func (x *FunctionDescriptor) GetEnabled() bool {
 		return x.Enabled
 	}
 	return false
+}
+
+func (x *FunctionDescriptor) GetCapability() string {
+	if x != nil {
+		return x.Capability
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetExecution() string {
+	if x != nil {
+		return x.Execution
+	}
+	return ""
 }
 
 func (x *FunctionDescriptor) GetSummary() string {
@@ -715,7 +731,7 @@ var File_croupier_agent_v1_register_proto protoreflect.FileDescriptor
 
 const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\n" +
-	" croupier/agent/v1/register.proto\x12\x11croupier.agent.v1\"\xfe\x02\n" +
+	" croupier/agent/v1/register.proto\x12\x11croupier.agent.v1\"\xbc\x03\n" +
 	"\x12FunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
@@ -725,7 +741,11 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\n" +
 	"permission\x18\x06 \x01(\tR\n" +
 	"permission\x12\x18\n" +
-	"\aenabled\x18\a \x01(\bR\aenabled\x12\x18\n" +
+	"\aenabled\x18\a \x01(\bR\aenabled\x12\x1e\n" +
+	"\n" +
+	"capability\x18\b \x01(\tR\n" +
+	"capability\x12\x1c\n" +
+	"\texecution\x18\t \x01(\tR\texecution\x12\x18\n" +
 	"\asummary\x18\x19 \x01(\tR\asummary\x12 \n" +
 	"\vdescription\x18\x1a \x01(\tR\vdescription\x12\x12\n" +
 	"\x04tags\x18\x1b \x03(\tR\x04tags\x12\x1e\n" +

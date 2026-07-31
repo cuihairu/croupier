@@ -629,18 +629,39 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 		))
 		risk = ""
 	}
+	capability := spec.CapabilityKind(extensionString(extensions, "x-capability"))
+	if capability != "" && !spec.IsValidCapabilityKind(capability) {
+		*diags = append(*diags, sourceDiagnostic(
+			"openapi_capability_invalid",
+			spec.SeverityError,
+			"x-capability must be one of collection_query, item_query, create, update, delete, action, task, report",
+			fmt.Sprintf("$.paths.%s.%s.x-capability", candidate.path, strings.ToLower(candidate.method)),
+		))
+		capability = ""
+	}
+	execution := spec.FunctionExecution(extensionString(extensions, "x-execution"))
+	if execution != "" && !spec.IsValidFunctionExecution(execution) {
+		*diags = append(*diags, sourceDiagnostic(
+			"openapi_execution_invalid",
+			spec.SeverityError,
+			"x-execution must be one of sync, task, approval",
+			fmt.Sprintf("$.paths.%s.%s.x-execution", candidate.path, strings.ToLower(candidate.method)),
+		))
+		execution = ""
+	}
 	return OpenAPISourceOperation{
-		OperationID:  operationID,
-		Method:       candidate.method,
-		Path:         candidate.path,
-		Summary:      strings.TrimSpace(candidate.op.Summary),
-		Description:  strings.TrimSpace(candidate.op.Description),
-		Tags:         append([]string(nil), candidate.op.Tags...),
-		Operation:    extensionString(extensions, "x-operation"),
-		Resource:     extensionString(extensions, "x-resource"),
-		PageContract: extensionPageContract(extensions, "x-page-contract"),
-		Risk:         risk,
-		Permission:   extensionString(extensions, "x-permission"),
+		OperationID: operationID,
+		Method:      candidate.method,
+		Path:        candidate.path,
+		Summary:     strings.TrimSpace(candidate.op.Summary),
+		Description: strings.TrimSpace(candidate.op.Description),
+		Tags:        append([]string(nil), candidate.op.Tags...),
+		Operation:   extensionString(extensions, "x-operation"),
+		Resource:    extensionString(extensions, "x-resource"),
+		Capability:  capability,
+		Execution:   execution,
+		Risk:        risk,
+		Permission:  extensionString(extensions, "x-permission"),
 	}
 }
 
@@ -843,28 +864,6 @@ func extensionLocalized(extensions map[string]interface{}, key string) spec.Loca
 		return nil
 	}
 	return out
-}
-
-func extensionPageContract(extensions map[string]interface{}, key string) *spec.PageContract {
-	if extensions == nil {
-		return nil
-	}
-	value, ok := extensions[key]
-	if !ok {
-		return nil
-	}
-	data, err := json.Marshal(value)
-	if err != nil {
-		return nil
-	}
-	var contract spec.PageContract
-	if err := json.Unmarshal(data, &contract); err != nil {
-		return nil
-	}
-	if strings.TrimSpace(contract.Version) == "" {
-		return nil
-	}
-	return &contract
 }
 
 func isValidRisk(risk spec.RiskLevel) bool {

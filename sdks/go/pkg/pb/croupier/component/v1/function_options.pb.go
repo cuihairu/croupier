@@ -41,6 +41,8 @@ type FunctionOptions struct {
 	Description    string                 `protobuf:"bytes,12,opt,name=description,proto3" json:"description,omitempty"` // Catalog/help text only.
 	Tags           []string               `protobuf:"bytes,13,rep,name=tags,proto3" json:"tags,omitempty"`
 	Permission     string                 `protobuf:"bytes,14,opt,name=permission,proto3" json:"permission,omitempty"` // Optional permission identifier.
+	Capability     string                 `protobuf:"bytes,15,opt,name=capability,proto3" json:"capability,omitempty"` // collection_query/item_query/create/update/delete/action/task/report.
+	Execution      string                 `protobuf:"bytes,16,opt,name=execution,proto3" json:"execution,omitempty"`   // sync/task/approval.
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -173,6 +175,20 @@ func (x *FunctionOptions) GetPermission() string {
 	return ""
 }
 
+func (x *FunctionOptions) GetCapability() string {
+	if x != nil {
+		return x.Capability
+	}
+	return ""
+}
+
+func (x *FunctionOptions) GetExecution() string {
+	if x != nil {
+		return x.Execution
+	}
+	return ""
+}
+
 var file_croupier_component_v1_function_options_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
@@ -194,7 +210,7 @@ var File_croupier_component_v1_function_options_proto protoreflect.FileDescripto
 
 const file_croupier_component_v1_function_options_proto_rawDesc = "" +
 	"\n" +
-	",croupier/component/v1/function_options.proto\x12\x15croupier.component.v1\x1a google/protobuf/descriptor.proto\"\x9f\x03\n" +
+	",croupier/component/v1/function_options.proto\x12\x15croupier.component.v1\x1a google/protobuf/descriptor.proto\"\xdd\x03\n" +
 	"\x0fFunctionOptions\x12\x1f\n" +
 	"\vfunction_id\x18\x01 \x01(\tR\n" +
 	"functionId\x12\x18\n" +
@@ -213,7 +229,11 @@ const file_croupier_component_v1_function_options_proto_rawDesc = "" +
 	"\x04tags\x18\r \x03(\tR\x04tags\x12\x1e\n" +
 	"\n" +
 	"permission\x18\x0e \x01(\tR\n" +
-	"permission:d\n" +
+	"permission\x12\x1e\n" +
+	"\n" +
+	"capability\x18\x0f \x01(\tR\n" +
+	"capability\x12\x1c\n" +
+	"\texecution\x18\x10 \x01(\tR\texecution:d\n" +
 	"\bfunction\x12\x1e.google.protobuf.MethodOptions\x18\xb9\x8e\x03 \x01(\v2&.croupier.component.v1.FunctionOptionsR\bfunctionB\xf6\x01\n" +
 	"\x19com.croupier.component.v1B\x14FunctionOptionsProtoP\x01ZMgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/component/v1;componentv1\xa2\x02\x03CCX\xaa\x02\x15Croupier.Component.V1\xca\x02\x15Croupier\\Component\\V1\xe2\x02!Croupier\\Component\\V1\\GPBMetadata\xea\x02\x17Croupier::Component::V1b\x06proto3"
 

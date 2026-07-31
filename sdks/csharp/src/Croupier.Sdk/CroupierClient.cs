@@ -553,6 +553,8 @@ public partial class CroupierClient : IDisposable
                 OutputSchema = descriptor.OutputSchema ?? string.Empty,
                 Resource = descriptor.Resource ?? string.Empty,
                 Operation = descriptor.Operation ?? string.Empty,
+                Capability = descriptor.Capability ?? string.Empty,
+                Execution = descriptor.Execution ?? string.Empty,
                 Risk = descriptor.Risk,
                 Enabled = descriptor.Enabled,
                 Permission = descriptor.Permission ?? string.Empty
@@ -672,6 +674,8 @@ public partial class CroupierClient : IDisposable
                 deprecated = descriptor.Deprecated,
                 resource = descriptor.Resource,
                 operation = descriptor.Operation,
+                capability = descriptor.Capability,
+                execution = descriptor.Execution,
                 risk = descriptor.Risk,
                 enabled = descriptor.Enabled,
                 permission = descriptor.Permission,

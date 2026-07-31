@@ -241,8 +241,11 @@ type FunctionMetadata struct {
 	Id      string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`           // Unique identifier, format: <resource>.<operation>
 	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"` // Semantic version (semver)
 	// Capability fields
-	Resource string   `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"` // Resource key (e.g., "player", "mail", "guild")
-	Tags     []string `protobuf:"bytes,4,rep,name=tags,proto3" json:"tags,omitempty"`         // Tags for grouping and filtering
+	Resource   string   `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"`      // Resource key (e.g., "player", "mail", "guild")
+	Tags       []string `protobuf:"bytes,4,rep,name=tags,proto3" json:"tags,omitempty"`              // Tags for grouping and filtering
+	Capability string   `protobuf:"bytes,12,opt,name=capability,proto3" json:"capability,omitempty"` // collection_query|item_query|create|update|delete|action|task|report
+	Operation  string   `protobuf:"bytes,13,opt,name=operation,proto3" json:"operation,omitempty"`   // Business action key, e.g. "ban", "send", "list"
+	Execution  string   `protobuf:"bytes,14,opt,name=execution,proto3" json:"execution,omitempty"`   // sync|task|approval
 	// Documentation fields
 	Name        string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`               // Short technical name, not a UI label
 	Description string `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"` // Detailed description (supports markdown)
@@ -315,6 +318,27 @@ func (x *FunctionMetadata) GetTags() []string {
 		return x.Tags
 	}
 	return nil
+}
+
+func (x *FunctionMetadata) GetCapability() string {
+	if x != nil {
+		return x.Capability
+	}
+	return ""
+}
+
+func (x *FunctionMetadata) GetOperation() string {
+	if x != nil {
+		return x.Operation
+	}
+	return ""
+}
+
+func (x *FunctionMetadata) GetExecution() string {
+	if x != nil {
+		return x.Execution
+	}
+	return ""
 }
 
 func (x *FunctionMetadata) GetName() string {
@@ -754,12 +778,17 @@ var File_croupier_function_v1_metadata_proto protoreflect.FileDescriptor
 
 const file_croupier_function_v1_metadata_proto_rawDesc = "" +
 	"\n" +
-	"#croupier/function/v1/metadata.proto\x12\x14croupier.function.v1\"\x89\x04\n" +
+	"#croupier/function/v1/metadata.proto\x12\x14croupier.function.v1\"\xe5\x04\n" +
 	"\x10FunctionMetadata\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
 	"\bresource\x18\x03 \x01(\tR\bresource\x12\x12\n" +
-	"\x04tags\x18\x04 \x03(\tR\x04tags\x12\x12\n" +
+	"\x04tags\x18\x04 \x03(\tR\x04tags\x12\x1e\n" +
+	"\n" +
+	"capability\x18\f \x01(\tR\n" +
+	"capability\x12\x1c\n" +
+	"\toperation\x18\r \x01(\tR\toperation\x12\x1c\n" +
+	"\texecution\x18\x0e \x01(\tR\texecution\x12\x12\n" +
 	"\x04name\x18\x05 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x06 \x01(\tR\vdescription\x12!\n" +
 	"\finput_schema\x18\a \x01(\tR\vinputSchema\x12#\n" +

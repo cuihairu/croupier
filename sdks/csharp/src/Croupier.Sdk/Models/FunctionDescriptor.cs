@@ -40,6 +40,16 @@ public class FunctionDescriptor
     public string? Operation { get; set; }
 
     /// <summary>
+    /// 能力类型 (collection_query, item_query, create, update, delete, action, task, report)
+    /// </summary>
+    public string? Capability { get; set; }
+
+    /// <summary>
+    /// 执行方式 (sync, task, approval)
+    /// </summary>
+    public string? Execution { get; set; }
+
+    /// <summary>
     /// 风险级别 (safe, warning, high, danger)
     /// </summary>
     public string? Risk { get; set; } = "warning";

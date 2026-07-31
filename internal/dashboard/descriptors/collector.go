@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
-	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -114,15 +113,16 @@ func Collect(ctx context.Context, svcCtx *svc.ServiceContext) []normalizer.Descr
 }
 
 type sourceOperationInput struct {
-	OperationID  string             `json:"operationId"`
-	Summary      string             `json:"summary,omitempty"`
-	Description  string             `json:"description,omitempty"`
-	Tags         []string           `json:"tags,omitempty"`
-	Operation    string             `json:"operation,omitempty"`
-	Resource     string             `json:"resource,omitempty"`
-	PageContract *spec.PageContract `json:"pageContract,omitempty"`
-	Risk         string             `json:"risk,omitempty"`
-	Permission   string             `json:"permission,omitempty"`
+	OperationID string   `json:"operationId"`
+	Summary     string   `json:"summary,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	Operation   string   `json:"operation,omitempty"`
+	Resource    string   `json:"resource,omitempty"`
+	Capability  string   `json:"capability,omitempty"`
+	Execution   string   `json:"execution,omitempty"`
+	Risk        string   `json:"risk,omitempty"`
+	Permission  string   `json:"permission,omitempty"`
 }
 
 func mergeOpenAPISourceBindings(ctx context.Context, svcCtx *svc.ServiceContext, byID map[string]*normalizer.DescriptorInput) {
@@ -201,8 +201,11 @@ func mergeOpenAPISourceOperationInput(input *normalizer.DescriptorInput, op sour
 	if input.Operation == "" {
 		input.Operation = strings.TrimSpace(op.Operation)
 	}
-	if input.PageContract == nil {
-		input.PageContract = op.PageContract
+	if input.Capability == "" {
+		input.Capability = strings.TrimSpace(op.Capability)
+	}
+	if input.Execution == "" {
+		input.Execution = strings.TrimSpace(op.Execution)
 	}
 	if input.Risk == "" {
 		input.Risk = strings.TrimSpace(op.Risk)
@@ -294,6 +297,12 @@ func mergeRuntimeFunctionMetaInput(input *normalizer.DescriptorInput, meta reg.F
 	if input.Operation == "" {
 		input.Operation = strings.TrimSpace(meta.Operation)
 	}
+	if input.Capability == "" {
+		input.Capability = strings.TrimSpace(meta.Capability)
+	}
+	if input.Execution == "" {
+		input.Execution = strings.TrimSpace(meta.Execution)
+	}
 	if input.Risk == "" {
 		input.Risk = strings.TrimSpace(meta.Risk)
 	}
@@ -361,8 +370,11 @@ func mergeOpenAPIOperationInput(input *normalizer.DescriptorInput, op *openapi3.
 	if input.Operation == "" {
 		input.Operation = stringExtension(ext, "x-operation")
 	}
-	if input.PageContract == nil {
-		input.PageContract = pageContractExtension(ext, "x-page-contract")
+	if input.Capability == "" {
+		input.Capability = stringExtension(ext, "x-capability")
+	}
+	if input.Execution == "" {
+		input.Execution = stringExtension(ext, "x-execution")
 	}
 	if input.Risk == "" {
 		input.Risk = stringExtension(ext, "x-risk")
@@ -382,12 +394,11 @@ func mergeMetadataInput(input *normalizer.DescriptorInput, metadata map[string]j
 	if input.Operation == "" {
 		input.Operation = stringExtension(metadata, "operation")
 	}
-	if input.PageContract == nil {
-		input.PageContract = firstPageContract(
-			pageContractExtension(metadata, "pageContract"),
-			pageContractExtension(metadata, "page_contract"),
-			pageContractExtension(metadata, "x-page-contract"),
-		)
+	if input.Capability == "" {
+		input.Capability = stringExtension(metadata, "capability")
+	}
+	if input.Execution == "" {
+		input.Execution = stringExtension(metadata, "execution")
 	}
 	if input.Risk == "" {
 		input.Risk = stringExtension(metadata, "risk")
@@ -478,57 +489,6 @@ func stringExtension(extensions map[string]json.RawMessage, key string) string {
 		}
 	}
 	return ""
-}
-
-func pageContractExtension(extensions map[string]json.RawMessage, key string) *spec.PageContract {
-	if len(extensions) == 0 || key == "" {
-		return nil
-	}
-	candidates := []string{key}
-	if strings.HasPrefix(key, "x-") {
-		candidates = append(candidates, strings.TrimPrefix(key, "x-"))
-	} else {
-		candidates = append(candidates, "x-"+key)
-	}
-	for _, candidate := range candidates {
-		raw, ok := extensions[candidate]
-		if !ok {
-			continue
-		}
-		contract := decodePageContract(raw)
-		if contract != nil {
-			return contract
-		}
-	}
-	return nil
-}
-
-func decodePageContract(raw json.RawMessage) *spec.PageContract {
-	if len(raw) == 0 {
-		return nil
-	}
-	var encoded string
-	if err := json.Unmarshal(raw, &encoded); err == nil {
-		encoded = strings.TrimSpace(encoded)
-		if encoded == "" {
-			return nil
-		}
-		raw = json.RawMessage(encoded)
-	}
-	var contract spec.PageContract
-	if err := json.Unmarshal(raw, &contract); err == nil && strings.TrimSpace(contract.Version) != "" {
-		return &contract
-	}
-	return nil
-}
-
-func firstPageContract(values ...*spec.PageContract) *spec.PageContract {
-	for _, value := range values {
-		if value != nil {
-			return value
-		}
-	}
-	return nil
 }
 
 func rawMessageMapFromJSON(raw []byte) map[string]json.RawMessage {

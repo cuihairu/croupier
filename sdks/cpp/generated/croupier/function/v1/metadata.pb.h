@@ -1422,6 +1422,9 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionMetadata final : public ::g
     kDescriptionFieldNumber = 6,
     kInputSchemaFieldNumber = 7,
     kOutputSchemaFieldNumber = 8,
+    kCapabilityFieldNumber = 12,
+    kOperationFieldNumber = 13,
+    kExecutionFieldNumber = 14,
     kBehaviorFieldNumber = 9,
     kSecurityFieldNumber = 10,
     kExtensionsFieldNumber = 11,
@@ -1556,6 +1559,51 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionMetadata final : public ::g
   ::std::string* PROTOBUF_NONNULL _internal_mutable_output_schema();
 
   public:
+  // string capability = 12 [json_name = "capability"];
+  void clear_capability() ;
+  [[nodiscard]] const ::std::string& capability() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_capability(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_capability();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_capability();
+  void set_allocated_capability(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_capability() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_capability(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_capability();
+
+  public:
+  // string operation = 13 [json_name = "operation"];
+  void clear_operation() ;
+  [[nodiscard]] const ::std::string& operation() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_operation(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_operation();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_operation();
+  void set_allocated_operation(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_operation() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_operation(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_operation();
+
+  public:
+  // string execution = 14 [json_name = "execution"];
+  void clear_execution() ;
+  [[nodiscard]] const ::std::string& execution() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_execution(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_execution();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_execution();
+  void set_allocated_execution(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_execution() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_execution(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_execution();
+
+  public:
   // .croupier.function.v1.FunctionBehavior behavior = 9 [json_name = "behavior"];
   [[nodiscard]] bool has_behavior()
       const;
@@ -1608,8 +1656,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionMetadata final : public ::g
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 11,
-                                   3, 125,
+  static const ::google::protobuf::internal::TcParseTable<4, 14,
+                                   3, 153,
                                    2>
       _table_;
 
@@ -1640,6 +1688,9 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED FunctionMetadata final : public ::g
     ::google::protobuf::internal::ArenaStringPtr description_;
     ::google::protobuf::internal::ArenaStringPtr input_schema_;
     ::google::protobuf::internal::ArenaStringPtr output_schema_;
+    ::google::protobuf::internal::ArenaStringPtr capability_;
+    ::google::protobuf::internal::ArenaStringPtr operation_;
+    ::google::protobuf::internal::ArenaStringPtr execution_;
     ::croupier::function::v1::FunctionBehavior* PROTOBUF_NULLABLE behavior_;
     ::croupier::function::v1::FunctionSecurity* PROTOBUF_NULLABLE security_;
     ::google::protobuf::internal::MapField<FunctionMetadata_ExtensionsEntry_DoNotUse, ::std::string, ::std::string> extensions_;
@@ -2377,6 +2428,201 @@ FunctionMetadata::_internal_mutable_tags() {
   return &_impl_.tags_;
 }
 
+// string capability = 12 [json_name = "capability"];
+inline void FunctionMetadata::clear_capability() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.capability_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000100U);
+}
+inline const ::std::string& FunctionMetadata::capability() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.function.v1.FunctionMetadata.capability)
+  return _internal_capability();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void FunctionMetadata::set_capability(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  _impl_.capability_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.function.v1.FunctionMetadata.capability)
+}
+inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::mutable_capability()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  ::std::string* _s = _internal_mutable_capability();
+  // @@protoc_insertion_point(field_mutable:croupier.function.v1.FunctionMetadata.capability)
+  return _s;
+}
+inline const ::std::string& FunctionMetadata::_internal_capability() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.capability_.Get();
+}
+inline void FunctionMetadata::_internal_set_capability(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.capability_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::_internal_mutable_capability() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.capability_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE FunctionMetadata::release_capability() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.function.v1.FunctionMetadata.capability)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000100U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+  auto* released = _impl_.capability_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.capability_.Set("", GetArena());
+  }
+  return released;
+}
+inline void FunctionMetadata::set_allocated_capability(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+  }
+  _impl_.capability_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.capability_.IsDefault()) {
+    _impl_.capability_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.function.v1.FunctionMetadata.capability)
+}
+
+// string operation = 13 [json_name = "operation"];
+inline void FunctionMetadata::clear_operation() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.operation_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000200U);
+}
+inline const ::std::string& FunctionMetadata::operation() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.function.v1.FunctionMetadata.operation)
+  return _internal_operation();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void FunctionMetadata::set_operation(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  _impl_.operation_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.function.v1.FunctionMetadata.operation)
+}
+inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::mutable_operation()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  ::std::string* _s = _internal_mutable_operation();
+  // @@protoc_insertion_point(field_mutable:croupier.function.v1.FunctionMetadata.operation)
+  return _s;
+}
+inline const ::std::string& FunctionMetadata::_internal_operation() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.operation_.Get();
+}
+inline void FunctionMetadata::_internal_set_operation(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.operation_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::_internal_mutable_operation() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.operation_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE FunctionMetadata::release_operation() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.function.v1.FunctionMetadata.operation)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000200U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  auto* released = _impl_.operation_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.operation_.Set("", GetArena());
+  }
+  return released;
+}
+inline void FunctionMetadata::set_allocated_operation(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  }
+  _impl_.operation_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.operation_.IsDefault()) {
+    _impl_.operation_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.function.v1.FunctionMetadata.operation)
+}
+
+// string execution = 14 [json_name = "execution"];
+inline void FunctionMetadata::clear_execution() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.execution_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000400U);
+}
+inline const ::std::string& FunctionMetadata::execution() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.function.v1.FunctionMetadata.execution)
+  return _internal_execution();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void FunctionMetadata::set_execution(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  _impl_.execution_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.function.v1.FunctionMetadata.execution)
+}
+inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::mutable_execution()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  ::std::string* _s = _internal_mutable_execution();
+  // @@protoc_insertion_point(field_mutable:croupier.function.v1.FunctionMetadata.execution)
+  return _s;
+}
+inline const ::std::string& FunctionMetadata::_internal_execution() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.execution_.Get();
+}
+inline void FunctionMetadata::_internal_set_execution(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.execution_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL FunctionMetadata::_internal_mutable_execution() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.execution_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE FunctionMetadata::release_execution() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.function.v1.FunctionMetadata.execution)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000400U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+  auto* released = _impl_.execution_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.execution_.Set("", GetArena());
+  }
+  return released;
+}
+inline void FunctionMetadata::set_allocated_execution(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+  }
+  _impl_.execution_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.execution_.IsDefault()) {
+    _impl_.execution_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.function.v1.FunctionMetadata.execution)
+}
+
 // string name = 5 [json_name = "name"];
 inline void FunctionMetadata::clear_name() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
@@ -2639,7 +2885,7 @@ inline void FunctionMetadata::set_allocated_output_schema(::std::string* PROTOBU
 
 // .croupier.function.v1.FunctionBehavior behavior = 9 [json_name = "behavior"];
 inline bool FunctionMetadata::has_behavior() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000100U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000800U);
   PROTOBUF_ASSUME(!value || _impl_.behavior_ != nullptr);
   return value;
 }
@@ -2647,7 +2893,7 @@ inline void FunctionMetadata::clear_behavior() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (_impl_.behavior_ != nullptr) _impl_.behavior_->Clear();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00000800U);
 }
 inline const ::croupier::function::v1::FunctionBehavior& FunctionMetadata::_internal_behavior() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -2666,16 +2912,16 @@ inline void FunctionMetadata::unsafe_arena_set_allocated_behavior(
   }
   _impl_.behavior_ = reinterpret_cast<::croupier::function::v1::FunctionBehavior*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000800U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.function.v1.FunctionMetadata.behavior)
 }
 inline ::croupier::function::v1::FunctionBehavior* PROTOBUF_NULLABLE FunctionMetadata::release_behavior() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
   ::croupier::function::v1::FunctionBehavior* released = _impl_.behavior_;
   _impl_.behavior_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -2695,7 +2941,7 @@ inline ::croupier::function::v1::FunctionBehavior* PROTOBUF_NULLABLE FunctionMet
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.function.v1.FunctionMetadata.behavior)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
   ::croupier::function::v1::FunctionBehavior* temp = _impl_.behavior_;
   _impl_.behavior_ = nullptr;
   return temp;
@@ -2710,7 +2956,7 @@ inline ::croupier::function::v1::FunctionBehavior* PROTOBUF_NONNULL FunctionMeta
 }
 inline ::croupier::function::v1::FunctionBehavior* PROTOBUF_NONNULL FunctionMetadata::mutable_behavior()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000800U);
   ::croupier::function::v1::FunctionBehavior* _msg = _internal_mutable_behavior();
   // @@protoc_insertion_point(field_mutable:croupier.function.v1.FunctionMetadata.behavior)
   return _msg;
@@ -2727,9 +2973,9 @@ inline void FunctionMetadata::set_allocated_behavior(::croupier::function::v1::F
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000800U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
   }
 
   _impl_.behavior_ = reinterpret_cast<::croupier::function::v1::FunctionBehavior*>(value);
@@ -2738,7 +2984,7 @@ inline void FunctionMetadata::set_allocated_behavior(::croupier::function::v1::F
 
 // .croupier.function.v1.FunctionSecurity security = 10 [json_name = "security"];
 inline bool FunctionMetadata::has_security() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000200U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00001000U);
   PROTOBUF_ASSUME(!value || _impl_.security_ != nullptr);
   return value;
 }
@@ -2746,7 +2992,7 @@ inline void FunctionMetadata::clear_security() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (_impl_.security_ != nullptr) _impl_.security_->Clear();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000200U);
+                  0x00001000U);
 }
 inline const ::croupier::function::v1::FunctionSecurity& FunctionMetadata::_internal_security() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -2765,16 +3011,16 @@ inline void FunctionMetadata::unsafe_arena_set_allocated_security(
   }
   _impl_.security_ = reinterpret_cast<::croupier::function::v1::FunctionSecurity*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+    SetHasBit(_impl_._has_bits_[0], 0x00001000U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00001000U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.function.v1.FunctionMetadata.security)
 }
 inline ::croupier::function::v1::FunctionSecurity* PROTOBUF_NULLABLE FunctionMetadata::release_security() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00001000U);
   ::croupier::function::v1::FunctionSecurity* released = _impl_.security_;
   _impl_.security_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -2794,7 +3040,7 @@ inline ::croupier::function::v1::FunctionSecurity* PROTOBUF_NULLABLE FunctionMet
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.function.v1.FunctionMetadata.security)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00001000U);
   ::croupier::function::v1::FunctionSecurity* temp = _impl_.security_;
   _impl_.security_ = nullptr;
   return temp;
@@ -2809,7 +3055,7 @@ inline ::croupier::function::v1::FunctionSecurity* PROTOBUF_NONNULL FunctionMeta
 }
 inline ::croupier::function::v1::FunctionSecurity* PROTOBUF_NONNULL FunctionMetadata::mutable_security()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  SetHasBit(_impl_._has_bits_[0], 0x00001000U);
   ::croupier::function::v1::FunctionSecurity* _msg = _internal_mutable_security();
   // @@protoc_insertion_point(field_mutable:croupier.function.v1.FunctionMetadata.security)
   return _msg;
@@ -2826,9 +3072,9 @@ inline void FunctionMetadata::set_allocated_security(::croupier::function::v1::F
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+    SetHasBit(_impl_._has_bits_[0], 0x00001000U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00001000U);
   }
 
   _impl_.security_ = reinterpret_cast<::croupier::function::v1::FunctionSecurity*>(value);
@@ -2846,7 +3092,7 @@ inline void FunctionMetadata::clear_extensions() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.extensions_.Clear();
   ClearHasBitForRepeated(_impl_._has_bits_[0],
-                  0x00000400U);
+                  0x00002000U);
 }
 inline const ::google::protobuf::Map<::std::string, ::std::string>& FunctionMetadata::_internal_extensions() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -2862,7 +3108,7 @@ inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL F
 }
 inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL FunctionMetadata::mutable_extensions()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000400U);
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00002000U);
   // @@protoc_insertion_point(field_mutable_map:croupier.function.v1.FunctionMetadata.extensions)
   return _internal_mutable_extensions();
 }

@@ -171,6 +171,8 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 			OutputSchema: f.OutputSchema,
 			Resource:     f.Resource,
 			Operation:    f.Operation,
+			Capability:   f.Capability,
+			Execution:    f.Execution,
 			Risk:         f.Risk,
 			Enabled:      f.Enabled,
 			Permission:   f.Permission,

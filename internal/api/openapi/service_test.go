@@ -13,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	dashspec "github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -121,6 +122,26 @@ func rawSpec(t *testing.T, spec map[string]interface{}) json.RawMessage {
 	data, err := json.Marshal(spec)
 	require.NoError(t, err)
 	return json.RawMessage(data)
+}
+
+func assertOpenAPISourceDiagnostic(t *testing.T, err error, code string, severity dashspec.DiagnosticSeverity, fieldSuffix string) {
+	t.Helper()
+	var codeErr *errorx.CodeError
+	require.True(t, errors.As(err, &codeErr), "expected errorx.CodeError, got %T", err)
+	rawDiagnostics, ok := codeErr.Details["diagnostics"]
+	require.True(t, ok, "expected structured diagnostics in error details: %#v", codeErr.Details)
+
+	diagnostics, ok := rawDiagnostics.([]dashspec.Diagnostic)
+	require.True(t, ok, "expected []spec.Diagnostic, got %T", rawDiagnostics)
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code != code || diagnostic.Severity != severity {
+			continue
+		}
+		if fieldSuffix == "" || strings.HasSuffix(diagnostic.Field, fieldSuffix) {
+			return
+		}
+	}
+	t.Fatalf("diagnostic code=%s severity=%s fieldSuffix=%s not found in %#v", code, severity, fieldSuffix, diagnostics)
 }
 
 func setupOpenAPITestHandler(t *testing.T) (*Handler, *gin.Engine) {
@@ -454,7 +475,116 @@ func TestService_CreateSource_RejectsUIExtensions(t *testing.T) {
 
 	_, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec)})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid")
+	assertOpenAPISourceDiagnostic(t, err, "openapi_presentation_field_forbidden", dashspec.SeverityError, ".x-ui")
+}
+
+func TestService_CreateSource_RejectsPresentationContractFields(t *testing.T) {
+	t.Parallel()
+
+	for _, field := range []string{"x-page-contract", "inputMapping", "outputMapping", "pagination", "table"} {
+		field := field
+		t.Run(field, func(t *testing.T) {
+			t.Parallel()
+
+			service := setupOpenAPITestService(t)
+			specDoc := map[string]interface{}{
+				"openapi": "3.0.3",
+				"info": map[string]interface{}{
+					"title":   "Presentation Contract API",
+					"version": "1.0.0",
+				},
+				"paths": map[string]interface{}{
+					"/users": map[string]interface{}{
+						"post": map[string]interface{}{
+							"operationId": field + "Operation",
+							field: map[string]interface{}{
+								"enabled": true,
+							},
+							"responses": map[string]interface{}{
+								"200": map[string]interface{}{"description": "Success"},
+							},
+						},
+					},
+				},
+			}
+
+			_, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, specDoc)})
+			require.Error(t, err)
+			assertOpenAPISourceDiagnostic(t, err, "openapi_presentation_field_forbidden", dashspec.SeverityError, "."+field)
+		})
+	}
+}
+
+func TestService_CreateSource_RejectsInvalidCapabilityAndExecution(t *testing.T) {
+	t.Parallel()
+
+	service := setupOpenAPITestService(t)
+	specDoc := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Invalid Contract API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/users": map[string]interface{}{
+				"post": map[string]interface{}{
+					"operationId":  "createUser",
+					"x-capability": "row_button",
+					"x-execution":  "modal",
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{"description": "Success"},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, specDoc)})
+	require.Error(t, err)
+	assertOpenAPISourceDiagnostic(t, err, "openapi_capability_invalid", dashspec.SeverityError, ".x-capability")
+	assertOpenAPISourceDiagnostic(t, err, "openapi_execution_invalid", dashspec.SeverityError, ".x-execution")
+}
+
+func TestService_CreateSource_CarriesFunctionContractFields(t *testing.T) {
+	t.Parallel()
+
+	service := setupOpenAPITestService(t)
+	specDoc := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Function Contract API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/reward/batch-grant": map[string]interface{}{
+				"post": map[string]interface{}{
+					"operationId":  "rewardBatchGrant",
+					"x-resource":   "reward",
+					"x-operation":  "batchGrant",
+					"x-capability": "task",
+					"x-execution":  "task",
+					"x-risk":       "warning",
+					"x-permission": "reward:grant",
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{"description": "Success"},
+					},
+				},
+			},
+		},
+	}
+
+	resp, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, specDoc)})
+	require.NoError(t, err)
+	require.Len(t, resp.Source.Operations, 1)
+
+	op := resp.Source.Operations[0]
+	assert.Equal(t, "rewardBatchGrant", op.OperationID)
+	assert.Equal(t, "reward", op.Resource)
+	assert.Equal(t, "batchGrant", op.Operation)
+	assert.Equal(t, dashspec.CapabilityTask, op.Capability)
+	assert.Equal(t, dashspec.FunctionExecutionTask, op.Execution)
+	assert.Equal(t, dashspec.RiskWarning, op.Risk)
+	assert.Equal(t, "reward:grant", op.Permission)
 }
 
 func TestService_CreateSource_MultipleOperations(t *testing.T) {

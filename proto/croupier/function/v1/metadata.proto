@@ -17,6 +17,9 @@ message FunctionMetadata {
   // Capability fields
   string resource = 3;        // Resource key (e.g., "player", "mail", "guild")
   repeated string tags = 4;   // Tags for grouping and filtering
+  string capability = 12;     // collection_query|item_query|create|update|delete|action|task|report
+  string operation = 13;      // Business action key, e.g. "ban", "send", "list"
+  string execution = 14;      // sync|task|approval
 
   // Documentation fields
   string name = 5;            // Short technical name, not a UI label

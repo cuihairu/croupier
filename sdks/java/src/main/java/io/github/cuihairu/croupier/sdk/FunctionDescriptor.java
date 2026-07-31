@@ -18,6 +18,8 @@ public class FunctionDescriptor {
     private String outputSchema;
     private String resource;  // business resource/capability key
     private String operation; // business action key, e.g. "ban", "send", "list"
+    private String capability; // collection_query|item_query|create|update|delete|action|task|report
+    private String execution;  // sync|task|approval
     private String risk;      // "safe"|"warning"|"high"|"danger"
     private String permission;
     private boolean enabled = true; // whether this function is currently enabled
@@ -45,6 +47,8 @@ public class FunctionDescriptor {
         this.outputSchema = other.outputSchema;
         this.resource = other.resource;
         this.operation = other.operation;
+        this.capability = other.capability;
+        this.execution = other.execution;
         this.risk = other.risk;
         this.permission = other.permission;
         this.enabled = other.enabled;
@@ -86,6 +90,12 @@ public class FunctionDescriptor {
 
     public String getOperation() { return operation; }
     public void setOperation(String operation) { this.operation = operation; }
+
+    public String getCapability() { return capability; }
+    public void setCapability(String capability) { this.capability = capability; }
+
+    public String getExecution() { return execution; }
+    public void setExecution(String execution) { this.execution = execution; }
 
     public String getPermission() { return permission; }
     public void setPermission(String permission) { this.permission = permission; }

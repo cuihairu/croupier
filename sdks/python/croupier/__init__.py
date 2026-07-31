@@ -94,6 +94,8 @@ class FunctionDescriptor:
     output_schema: Optional[Dict[str, object] | str] = None
     resource: Optional[str] = None
     operation: Optional[str] = None
+    capability: Optional[str] = None
+    execution: Optional[str] = None
     risk: Optional[str] = None
     enabled: bool = True
     permission: Optional[str] = None
@@ -246,6 +248,8 @@ class CroupierClient:
             output_schema=output_schema,
             resource=desc.resource or "",
             operation=desc.operation or "",
+            capability=desc.capability or "",
+            execution=desc.execution or "",
             risk=desc.risk or "",
             enabled=desc.enabled,
             permission=desc.permission or "",
@@ -415,6 +419,10 @@ class CroupierClient:
                 entry["risk"] = descriptor.risk
             if descriptor.operation:
                 entry["operation"] = descriptor.operation
+            if descriptor.capability:
+                entry["capability"] = descriptor.capability
+            if descriptor.execution:
+                entry["execution"] = descriptor.execution
             if descriptor.permission:
                 entry["permission"] = descriptor.permission
             if descriptor.enabled:

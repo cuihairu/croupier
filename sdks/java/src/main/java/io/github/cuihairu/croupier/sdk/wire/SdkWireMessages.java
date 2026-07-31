@@ -361,6 +361,8 @@ public final class SdkWireMessages {
             writeString(out, 12, message.risk);
             writeBool(out, 13, message.enabled);
             writeString(out, 14, message.permission);
+            writeString(out, 15, message.capability);
+            writeString(out, 16, message.execution);
         });
     }
 
@@ -379,6 +381,8 @@ public final class SdkWireMessages {
         String risk = "";
         boolean enabled = false;
         String permission = "";
+        String capability = "";
+        String execution = "";
         CodedInputStream input = newInput(data);
         try {
             while (!input.isAtEnd()) {
@@ -401,6 +405,8 @@ public final class SdkWireMessages {
                     case 12 -> risk = input.readString();
                     case 13 -> enabled = input.readBool();
                     case 14 -> permission = input.readString();
+                    case 15 -> capability = input.readString();
+                    case 16 -> execution = input.readString();
                     default -> input.skipField(tag);
                 }
             }
@@ -419,6 +425,8 @@ public final class SdkWireMessages {
             outputSchema,
             resource,
             operation,
+            capability,
+            execution,
             risk,
             enabled,
             permission
@@ -594,6 +602,8 @@ public final class SdkWireMessages {
         public final String outputSchema;
         public final String resource;
         public final String operation;
+        public final String capability;
+        public final String execution;
         public final String risk;
         public final boolean enabled;
         public final String permission;
@@ -602,6 +612,15 @@ public final class SdkWireMessages {
                                        String description, String operationId, boolean deprecated,
                                        String inputSchema, String outputSchema, String resource, String operation,
                                        String risk, boolean enabled, String permission) {
+            this(id, version, tags, summary, description, operationId, deprecated, inputSchema, outputSchema,
+                resource, operation, "", "", risk, enabled, permission);
+        }
+
+        public LocalFunctionDescriptor(String id, String version, java.util.List<String> tags, String summary,
+                                       String description, String operationId, boolean deprecated,
+                                       String inputSchema, String outputSchema, String resource, String operation,
+                                       String capability, String execution, String risk, boolean enabled,
+                                       String permission) {
             this.id = id == null ? "" : id;
             this.version = version == null ? "" : version;
             this.tags = tags == null ? java.util.List.of() : java.util.List.copyOf(tags);
@@ -613,6 +632,8 @@ public final class SdkWireMessages {
             this.outputSchema = outputSchema == null ? "" : outputSchema;
             this.resource = resource == null ? "" : resource;
             this.operation = operation == null ? "" : operation;
+            this.capability = capability == null ? "" : capability;
+            this.execution = execution == null ? "" : execution;
             this.risk = risk == null ? "" : risk;
             this.enabled = enabled;
             this.permission = permission == null ? "" : permission;

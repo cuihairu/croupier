@@ -42,6 +42,8 @@ func TestServiceListCollectsRegistryDescriptorV2Metadata(t *testing.T) {
 				Resource:     "player",
 				Risk:         "safe",
 				Operation:    "list",
+				Capability:   "collection_query",
+				Execution:    "sync",
 				Permission:   "player:list",
 			},
 			"player.ban": {
@@ -55,14 +57,15 @@ func TestServiceListCollectsRegistryDescriptorV2Metadata(t *testing.T) {
 				Resource:     "player",
 				Risk:         "danger",
 				Operation:    "ban",
+				Capability:   "action",
+				Execution:    "sync",
 				Permission:   "player:ban",
 			},
 		},
 	})
 
 	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:read")
-	service := NewService(svcCtx)
-	resp, err := service.List(ctx, &ResourceListRequest{})
+	resp, err := NewService(svcCtx).List(ctx, &ResourceListRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 
@@ -80,41 +83,27 @@ func TestServiceListCollectsRegistryDescriptorV2Metadata(t *testing.T) {
 
 	listOp := ops["player.list"]
 	assert.Equal(t, "list", listOp.Operation)
+	assert.Equal(t, spec.CapabilityCollectionQuery, listOp.Capability)
+	assert.Equal(t, spec.FunctionExecutionSync, listOp.Execution)
 	assert.Equal(t, "player:list", listOp.Permission)
 	assert.Empty(t, listOp.Diagnostics)
 
 	banOp := ops["player.ban"]
 	assert.Equal(t, "ban", banOp.Operation)
+	assert.Equal(t, spec.CapabilityAction, banOp.Capability)
 	assert.Equal(t, spec.RiskDanger, banOp.Risk)
 	assert.Equal(t, "player:ban", banOp.Permission)
 	assert.Empty(t, banOp.Diagnostics)
 }
 
-func TestServiceGeneratedPagesCreatesEntityCandidateFromExplicitPageContract(t *testing.T) {
+func TestServiceGeneratedPagesDoNotUseRegistrationPageExtensions(t *testing.T) {
 	store := reg.NewStore()
-	require.NoError(t, store.UpsertOpenAPI("player.list", openAPIOperationWithPageContract("player", "list", map[string]interface{}{
-		"version":       "page-contract:1",
-		"inputMapping":  map[string]interface{}{"page": "values.page", "pageSize": "values.pageSize"},
-		"outputMapping": map[string]interface{}{"stateKey": "players"},
-		"pagination": map[string]interface{}{
-			"pageField":     "page",
-			"pageSizeField": "pageSize",
-			"itemsPath":     "items",
-			"totalPath":     "total",
-		},
-		"table": map[string]interface{}{
-			"columns": []interface{}{
-				map[string]interface{}{"key": "id", "title": map[string]interface{}{"zh-CN": "玩家ID"}, "valuePath": "id"},
-			},
-		},
-	})))
-	require.NoError(t, store.UpsertOpenAPI("player.ban", openAPIOperationWithPageContract("player", "ban", map[string]interface{}{
-		"version":       "page-contract:1",
-		"inputMapping":  map[string]interface{}{"playerId": "row.id", "reason": "values.reason"},
-		"outputMapping": map[string]interface{}{"stateKey": "banResult"},
-	})))
+	require.NoError(t, store.UpsertOpenAPI("player.list", openAPIOperationWithCapability("player", "list", "collection_query", "sync")))
+	require.NoError(t, store.UpsertOpenAPI("player.ban", openAPIOperationWithCapability("player", "ban", "action", "sync")))
 	store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
 		ExpireAt: time.Now().Add(time.Minute),
 		LastSeen: time.Now(),
 		Functions: map[string]reg.FunctionMeta{
@@ -123,37 +112,31 @@ func TestServiceGeneratedPagesCreatesEntityCandidateFromExplicitPageContract(t *
 				Version:      "1.0.0",
 				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
 				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
-				Resource:     "player",
-				Operation:    "list",
 			},
 			"player.ban": {
 				Enabled:      true,
 				Version:      "1.0.0",
 				InputSchema:  `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"}}}`,
 				OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
-				Resource:     "player",
-				Operation:    "ban",
 				Risk:         "danger",
 			},
 		},
 	})
 
 	svcCtx, ctx := newResourceTestServiceContext(t, store, "pages:edit")
-	service := NewService(svcCtx)
-	resp, err := service.GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
+	resp, err := NewService(svcCtx).GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
 	require.NoError(t, err)
-	require.NotEmpty(t, resp.Items)
+	require.Len(t, resp.Items, 2)
 
-	page := resp.Items[0]
-	assert.Equal(t, spec.PageTypeEntity, page.Type)
-	assert.Equal(t, "player.manage", page.PageKey)
-	assert.Equal(t, "player", page.Category.Key)
-	assert.Contains(t, string(page.Schema), `"x-component":"DataTable"`)
-	assert.Contains(t, string(page.Schema), `"bindingId":"player.query"`)
-	assert.Contains(t, string(page.Schema), `"bindingId":"player.ban"`)
-	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
-	assert.NotContains(t, string(page.Schema), `"functionId"`)
-	assert.NotContains(t, string(page.Schema), `"operation":"update"`)
+	for _, page := range resp.Items {
+		assert.Equal(t, spec.PageTypeOperation, page.Type)
+		assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
+		assert.Equal(t, "player", page.Category.Key)
+		assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
+		assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
+		assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
+		assert.NotContains(t, string(page.Schema), `"functionId"`)
+	}
 }
 
 func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
@@ -171,25 +154,25 @@ func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
 				InputSchema: `{"type":"object"}`,
 				Resource:    "player",
 				Operation:   "list",
+				Capability:  "collection_query",
 			},
 		},
 	})
 
 	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:diagnose")
-	service := NewService(svcCtx)
-	resp, err := service.GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
+	resp, err := NewService(svcCtx).GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
 	require.NoError(t, err)
-	require.NotEmpty(t, resp.Items)
+	require.Len(t, resp.Items, 1)
 
 	page := resp.Items[0]
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
 	require.Len(t, page.Bindings, 1)
+	assert.JSONEq(t, `{}`, string(page.Bindings[0].InputMapping))
 	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
 	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
 	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
-	require.NotEmpty(t, page.Diagnostics)
-	assert.Equal(t, "page_contract_missing", page.Diagnostics[0].Code)
+	assert.Empty(t, page.Diagnostics)
 }
 
 func TestServiceGeneratedPagesKeepsMailSendAsOperationPage(t *testing.T) {
@@ -208,13 +191,13 @@ func TestServiceGeneratedPagesKeepsMailSendAsOperationPage(t *testing.T) {
 				OutputSchema: `{"type":"object","properties":{"messageId":{"type":"string"}}}`,
 				Resource:     "mail",
 				Operation:    "send",
+				Capability:   "action",
 			},
 		},
 	})
 
 	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:diagnose")
-	service := NewService(svcCtx)
-	resp, err := service.GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "mail"})
+	resp, err := NewService(svcCtx).GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "mail"})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 
@@ -230,7 +213,7 @@ func TestServiceGeneratedPagesKeepsMailSendAsOperationPage(t *testing.T) {
 	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
 }
 
-func TestServiceGeneratedPagesUsesBoundOpenAPISourcePageContract(t *testing.T) {
+func TestServiceListUsesBoundOpenAPISourceFunctionContract(t *testing.T) {
 	store := reg.NewStore()
 	store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
@@ -239,56 +222,90 @@ func TestServiceGeneratedPagesUsesBoundOpenAPISourcePageContract(t *testing.T) {
 		ExpireAt: time.Now().Add(time.Minute),
 		LastSeen: time.Now(),
 		Functions: map[string]reg.FunctionMeta{
-			"player.list": {Enabled: true, Version: "1.0.0"},
+			"analytics.retention": {Enabled: true, Version: "1.0.0"},
 		},
 	})
 
-	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:diagnose")
-	playerListContract := map[string]interface{}{
-		"version":       "page-contract:1",
-		"inputMapping":  map[string]interface{}{"page": "values.page", "pageSize": "values.pageSize"},
-		"outputMapping": map[string]interface{}{"stateKey": "players"},
-		"pagination": map[string]interface{}{
-			"pageField":     "page",
-			"pageSizeField": "pageSize",
-			"itemsPath":     "items",
-			"totalPath":     "total",
-		},
-		"table": map[string]interface{}{
-			"columns": []interface{}{
-				map[string]interface{}{"key": "id", "title": map[string]interface{}{"zh-CN": "玩家ID"}, "valuePath": "id"},
-			},
-		},
-	}
+	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:read")
 	source := openAPISourceModel(
 		t,
-		"player-source",
-		"player.list",
-		"player",
-		"list",
-		playerListContract,
-		openAPISourceDocument(t, "player.list", "player", "list", playerListContract),
+		"analytics-source",
+		"analytics.retention",
+		"analytics",
+		"retention",
+		"report",
+		"sync",
+		openAPISourceDocument(t, "analytics.retention", "analytics", "retention", "report", "sync"),
 	)
 	require.NoError(t, svcCtx.OpenAPISourceModel.Create(ctx, source))
 	require.NoError(t, svcCtx.OpenAPISourceBindingModel.Upsert(ctx, &model.OpenAPISourceBinding{
 		GameID:      "demo-game",
 		Env:         "development",
 		SourceID:    source.SourceID,
-		BindingID:   "player.list",
-		OperationID: "player.list",
+		BindingID:   "analytics.retention",
+		OperationID: "analytics.retention",
 		Kind:        "provider",
-		FunctionID:  "player.list",
+		FunctionID:  "analytics.retention",
 	}))
 
-	resp, err := NewService(svcCtx).GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
+	resp, err := NewService(svcCtx).List(ctx, &ResourceListRequest{})
 	require.NoError(t, err)
-	require.NotEmpty(t, resp.Items)
+	require.Len(t, resp.Items, 1)
+	require.Len(t, resp.Items[0].Operations, 1)
+
+	op := resp.Items[0].Operations[0]
+	assert.Equal(t, "analytics.retention", op.FunctionID)
+	assert.Equal(t, "analytics", op.ResourceKey)
+	assert.Equal(t, "retention", op.Operation)
+	assert.Equal(t, spec.CapabilityReport, op.Capability)
+	assert.Equal(t, spec.FunctionExecutionSync, op.Execution)
+}
+
+func TestServiceGeneratedPagesUsesBoundOpenAPISourceCapability(t *testing.T) {
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"reward.batchGrant": {Enabled: true, Version: "1.0.0"},
+		},
+	})
+
+	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:diagnose")
+	source := openAPISourceModel(
+		t,
+		"reward-source",
+		"reward.batchGrant",
+		"reward",
+		"batchGrant",
+		"task",
+		"task",
+		openAPISourceDocument(t, "reward.batchGrant", "reward", "batchGrant", "task", "task"),
+	)
+	require.NoError(t, svcCtx.OpenAPISourceModel.Create(ctx, source))
+	require.NoError(t, svcCtx.OpenAPISourceBindingModel.Upsert(ctx, &model.OpenAPISourceBinding{
+		GameID:      "demo-game",
+		Env:         "development",
+		SourceID:    source.SourceID,
+		BindingID:   "reward.batchGrant",
+		OperationID: "reward.batchGrant",
+		Kind:        "provider",
+		FunctionID:  "reward.batchGrant",
+	}))
+
+	resp, err := NewService(svcCtx).GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "reward"})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
 
 	page := resp.Items[0]
-	assert.Equal(t, spec.PageTypeEntity, page.Type)
-	assert.Equal(t, spec.GeneratedPageQualityReady, page.Quality)
-	assert.Contains(t, string(page.Schema), `"x-component":"DataTable"`)
-	assert.Contains(t, string(page.Schema), `"bindingId":"player.query"`)
+	assert.Equal(t, spec.PageTypeTask, page.Type)
+	assert.Equal(t, spec.GeneratedPageQualityNeedsReview, page.Quality)
+	assert.Equal(t, spec.BindingUsageTask, page.Bindings[0].Usage)
+	assert.Equal(t, spec.PageExecutionModeTask, page.Bindings[0].Execution.Mode)
+	assert.Contains(t, string(page.Schema), `"x-component":"TaskTimeline"`)
 }
 
 func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testing.T) {
@@ -310,30 +327,15 @@ func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testin
 	})
 
 	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:diagnose", "pages:edit", "pages:publish", "pages:read")
-	playerListContract := map[string]interface{}{
-		"version":       "page-contract:1",
-		"inputMapping":  map[string]interface{}{"page": "values.page", "pageSize": "values.pageSize"},
-		"outputMapping": map[string]interface{}{"stateKey": "players"},
-		"pagination": map[string]interface{}{
-			"pageField":     "page",
-			"pageSizeField": "pageSize",
-			"itemsPath":     "items",
-			"totalPath":     "total",
-		},
-		"table": map[string]interface{}{
-			"columns": []interface{}{
-				map[string]interface{}{"key": "id", "title": map[string]interface{}{"zh-CN": "玩家ID"}, "valuePath": "id"},
-			},
-		},
-	}
 	source := openAPISourceModel(
 		t,
 		"player-source",
 		"player.list",
 		"player",
 		"list",
-		playerListContract,
-		openAPISourceDocument(t, "player.list", "player", "list", playerListContract),
+		"collection_query",
+		"sync",
+		openAPISourceDocument(t, "player.list", "player", "list", "collection_query", "sync"),
 	)
 	require.NoError(t, svcCtx.OpenAPISourceModel.Create(ctx, source))
 	require.NoError(t, svcCtx.OpenAPISourceBindingModel.Upsert(ctx, &model.OpenAPISourceBinding{
@@ -348,9 +350,13 @@ func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testin
 
 	generated, err := NewService(svcCtx).GeneratedPages(ctx, &ResourceGeneratedPagesRequest{ResourceKey: "player"})
 	require.NoError(t, err)
-	require.NotEmpty(t, generated.Items)
+	require.Len(t, generated.Items, 1)
 	candidate := generated.Items[0]
-	require.Equal(t, spec.GeneratedPageQualityReady, candidate.Quality)
+	require.Equal(t, spec.GeneratedPageQualityBasic, candidate.Quality)
+	require.Equal(t, "player.list", candidate.PageKey)
+	require.Len(t, candidate.Bindings, 1)
+	candidate.Bindings[0].InputMapping = json.RawMessage(`{}`)
+	candidate.Bindings[0].OutputMapping = json.RawMessage(`{}`)
 
 	pageService := pageapi.NewService(svcCtx)
 	revision := 0
@@ -379,8 +385,8 @@ func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testin
 	require.Len(t, menu.Items, 1)
 	assert.Equal(t, "player", menu.Items[0].Key)
 	require.Len(t, menu.Items[0].Children, 1)
-	assert.Equal(t, "player.manage", menu.Items[0].Children[0].Key)
-	assert.Equal(t, "/console/player/player.manage", menu.Items[0].Children[0].Path)
+	assert.Equal(t, "player.list", menu.Items[0].Children[0].Key)
+	assert.Equal(t, "/console/player/player.list", menu.Items[0].Children[0].Path)
 	assert.False(t, menu.Items[0].Children[0].Locale)
 
 	page, err := consoleService.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: candidate.PageKey})
@@ -390,22 +396,22 @@ func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testin
 	assert.Equal(t, candidate.PageKey, page.Page.PageKey)
 	assert.Equal(t, saved.DraftRevision, page.Page.Version)
 	require.Len(t, page.Page.BindingContracts, 1)
-	assert.Equal(t, "player.query", page.Page.BindingContracts[0].BindingID)
+	assert.Equal(t, "player.main", page.Page.BindingContracts[0].BindingID)
 	assert.Equal(t, "player.list", page.Page.BindingContracts[0].FunctionID)
 }
 
 func TestServiceListIgnoresUnboundOpenAPISource(t *testing.T) {
 	store := reg.NewStore()
 	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:read")
-	mailSendContract := map[string]interface{}{"version": "page-contract:1"}
 	source := openAPISourceModel(
 		t,
 		"mail-source",
 		"mail.send",
 		"mail",
 		"send",
-		mailSendContract,
-		openAPISourceDocument(t, "mail.send", "mail", "send", mailSendContract),
+		"action",
+		"sync",
+		openAPISourceDocument(t, "mail.send", "mail", "send", "action", "sync"),
 	)
 	require.NoError(t, svcCtx.OpenAPISourceModel.Create(ctx, source))
 
@@ -414,17 +420,18 @@ func TestServiceListIgnoresUnboundOpenAPISource(t *testing.T) {
 	assert.Empty(t, resp.Items)
 }
 
-func openAPIOperationWithPageContract(resource string, operation string, pageContract map[string]interface{}) *openapi3.Operation {
+func openAPIOperationWithCapability(resource string, operation string, capability string, execution string) *openapi3.Operation {
 	return &openapi3.Operation{
 		Extensions: map[string]interface{}{
-			"x-resource":      resource,
-			"x-operation":     operation,
-			"x-page-contract": pageContract,
+			"x-resource":   resource,
+			"x-operation":  operation,
+			"x-capability": capability,
+			"x-execution":  execution,
 		},
 	}
 }
 
-func openAPISourceDocument(t *testing.T, operationID string, resource string, operation string, pageContract map[string]interface{}) json.RawMessage {
+func openAPISourceDocument(t *testing.T, operationID string, resource string, operation string, capability string, execution string) json.RawMessage {
 	t.Helper()
 	doc := map[string]interface{}{
 		"openapi": "3.0.3",
@@ -435,11 +442,12 @@ func openAPISourceDocument(t *testing.T, operationID string, resource string, op
 		"paths": map[string]interface{}{
 			"/operation": map[string]interface{}{
 				"post": map[string]interface{}{
-					"operationId":     operationID,
-					"summary":         operationID,
-					"x-resource":      resource,
-					"x-operation":     operation,
-					"x-page-contract": pageContract,
+					"operationId":  operationID,
+					"summary":      operationID,
+					"x-resource":   resource,
+					"x-operation":  operation,
+					"x-capability": capability,
+					"x-execution":  execution,
 					"requestBody": map[string]interface{}{
 						"required": true,
 						"content": map[string]interface{}{
@@ -488,7 +496,8 @@ func openAPISourceModel(
 	operationID string,
 	resource string,
 	operation string,
-	pageContract map[string]interface{},
+	capability string,
+	execution string,
 	raw json.RawMessage,
 ) *model.OpenAPISource {
 	t.Helper()
@@ -507,11 +516,12 @@ func openAPISourceModel(
 	source.SetSpec(raw)
 	require.NoError(t, source.SetOperations([]map[string]interface{}{
 		{
-			"operationId":  operationID,
-			"summary":      operationID,
-			"resource":     resource,
-			"operation":    operation,
-			"pageContract": pageContract,
+			"operationId": operationID,
+			"summary":     operationID,
+			"resource":    resource,
+			"operation":   operation,
+			"capability":  capability,
+			"execution":   execution,
 		},
 	}))
 	require.NoError(t, source.SetDiagnostics([]spec.Diagnostic{}))
