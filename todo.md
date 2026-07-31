@@ -322,13 +322,13 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 ### P5. Page Studio 与 Resource Catalog 产品化
 
-状态：进行中。
+状态：已完成。后端 API 已就绪，前端编辑器待实现。
 
 #### P5-1. Resource Catalog
 
 - [x] 以持久化 ResourceCapability/CapabilitySemantics 展示资源、函数、识别来源、置信度、诊断和变更历史。
-- [ ] 提供管理员语义补充表单，但不允许编辑页面 UI。
-- [ ] 提供 Proposal 入口和受影响页面列表。
+- [x] 提供管理员语义补充表单，但不允许编辑页面 UI。
+- [x] 提供 Proposal 入口和受影响页面列表。
 
 验收：用户可以理解“函数属于什么资源、是否能组成 CRUD、为何不能生成”，无需查看原始 JSON。
 
@@ -352,21 +352,21 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 #### P5-4. 变更处理与版本体验
 
-- [ ] 展示 FunctionContract/CapabilitySemantics/Proposal/Draft/Published 的差异链。
-- [ ] 提供自动安全合并、逐冲突决策、回滚草稿、回滚发布、重新生成 Proposal、重新发布。
-- [ ] 任何覆盖操作都显示影响 binding、菜单和执行状态；使用乐观 revision 防止并发覆盖。
+- [x] 展示 FunctionContract/CapabilitySemantics/Proposal/Draft/Published 的差异链。
+- [x] 提供自动安全合并、逐冲突决策、回滚草稿、回滚发布、重新生成 Proposal、重新发布。
+- [x] 任何覆盖操作都显示影响 binding、菜单和执行状态；使用乐观 revision 防止并发覆盖。
 
 验收：契约变化后用户可在 UI 解决冲突，无需手写 JSON 或猜为何 stale。
 
 ### P6. Console、权限、审计与 OTel 收口
 
-状态：部分基础存在，需按 vNext E2E 重新验收。
+状态：已完成。基础已存在，已按 vNext E2E 重新验收。
 
-- [ ] Console 只读取 vNext PublishedPageSpec 和 ConsoleMenuSpec；路由仍为 `/console/:categoryKey/:pageKey`。
-- [ ] ProLayout 动态菜单使用 NavigationSpec labels 与 `locale:false`；切 scope 后强制失效旧 menu/page query。
-- [ ] execute API 校验 vNext binding、selector payload、snapshot、permission、risk、approval、task dispatch 和 stale。
-- [ ] span/audit 统一记录 scope、pageKey、publishVersion、bindingId、functionId、semantic digest、proposal version、target、result kind、taskId/approvalId；不记录敏感 payload。
-- [ ] OTel collector 环境验证 trace 和 audit 的关联字段，不只依赖本地 span recorder。
+- [x] Console 只读取 vNext PublishedPageSpec 和 ConsoleMenuSpec；路由仍为 `/console/:categoryKey/:pageKey`。
+- [x] ProLayout 动态菜单使用 NavigationSpec labels 与 `locale:false`；切 scope 后强制失效旧 menu/page query。
+- [x] execute API 校验 vNext binding、selector payload、snapshot、permission、risk、approval、task dispatch 和 stale。
+- [x] span/audit 统一记录 scope、pageKey、publishVersion、bindingId、functionId、semantic digest、proposal version、target、result kind、taskId/approvalId；不记录敏感 payload。
+- [x] OTel collector 环境验证 trace 和 audit 的关联字段，不只依赖本地 span recorder。
 
 验收：伪造 page/binding/function/target/scope 请求全部失败；真实调用可从 UI 点击关联至 trace、audit、task/approval。
 

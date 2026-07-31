@@ -182,6 +182,145 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*ResourceCata
 	return item, nil
 }
 
+// UpdateSemanticsRequest is the request for updating resource semantics.
+type UpdateSemanticsRequest struct {
+	GameID      string `json:"-"`
+	Env         string `json:"-"`
+	ResourceKey string `json:"-"`
+
+	// Identity configuration
+	IdentityField     string `json:"identityField,omitempty"`
+	IdentityFieldType string `json:"identityFieldType,omitempty"` // string|number|integer
+	IdentityPath      string `json:"identityPath,omitempty"`
+
+	// Collection configuration
+	CollectionQueryID uint   `json:"collectionQueryId,omitempty"`
+	CollectionPath    string `json:"collectionPath,omitempty"`
+	PageFieldName     string `json:"pageFieldName,omitempty"`
+	PageSizeFieldName string `json:"pageSizeFieldName,omitempty"`
+	ItemsFieldName    string `json:"itemsFieldName,omitempty"`
+	TotalFieldName    string `json:"totalFieldName,omitempty"`
+
+	// Item query configuration
+	ItemQueryID uint   `json:"itemQueryId,omitempty"`
+	ItemPath    string `json:"itemPath,omitempty"`
+
+	// Lifecycle configuration
+	CreateID uint `json:"createId,omitempty"`
+	UpdateID uint `json:"updateId,omitempty"`
+	DeleteID uint `json:"deleteId,omitempty"`
+
+	// Change reason for audit
+	ChangeReason string `json:"changeReason,omitempty"`
+}
+
+// UpdateSemanticsResponse is the response for updating semantics.
+type UpdateSemanticsResponse struct {
+	Version  int    `json:"version"`
+	Source   string `json:"source"`
+	Message  string `json:"message"`
+}
+
+// UpdateSemantics updates resource capability semantics.
+// This allows admins to supplement semantics that cannot be auto-detected.
+func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsRequest) (*UpdateSemanticsResponse, error) {
+	// Get or create semantics
+	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	if err != nil {
+		// Create new semantics
+		semantics = &model.CapabilitySemantics{
+			GameID:      req.GameID,
+			Env:         req.Env,
+			ResourceKey: req.ResourceKey,
+			Source:      "platform_review",
+		}
+	}
+
+	// Validate function IDs exist
+	if req.CollectionQueryID > 0 {
+		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.CollectionQueryID); err != nil {
+			return nil, fmt.Errorf("invalid collectionQueryId: %w", err)
+		}
+		semantics.CollectionQueryID = req.CollectionQueryID
+	}
+	if req.ItemQueryID > 0 {
+		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.ItemQueryID); err != nil {
+			return nil, fmt.Errorf("invalid itemQueryId: %w", err)
+		}
+		semantics.ItemQueryID = req.ItemQueryID
+	}
+	if req.CreateID > 0 {
+		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.CreateID); err != nil {
+			return nil, fmt.Errorf("invalid createId: %w", err)
+		}
+		semantics.CreateID = req.CreateID
+	}
+	if req.UpdateID > 0 {
+		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.UpdateID); err != nil {
+			return nil, fmt.Errorf("invalid updateId: %w", err)
+		}
+		semantics.UpdateID = req.UpdateID
+	}
+	if req.DeleteID > 0 {
+		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.DeleteID); err != nil {
+			return nil, fmt.Errorf("invalid deleteId: %w", err)
+		}
+		semantics.DeleteID = req.DeleteID
+	}
+
+	// Update identity if provided
+	if req.IdentityField != "" {
+		semantics.IdentityField = req.IdentityField
+		semantics.IdentityFieldType = req.IdentityFieldType
+		if semantics.IdentityFieldType == "" {
+			semantics.IdentityFieldType = "string"
+		}
+		semantics.IdentityPath = req.IdentityPath
+	}
+
+	// Update collection path if provided
+	if req.CollectionPath != "" {
+		semantics.CollectionPath = req.CollectionPath
+	}
+	if req.PageFieldName != "" {
+		semantics.PageFieldName = req.PageFieldName
+	}
+	if req.PageSizeFieldName != "" {
+		semantics.PageSizeFieldName = req.PageSizeFieldName
+	}
+	if req.ItemsFieldName != "" {
+		semantics.ItemsFieldName = req.ItemsFieldName
+	}
+	if req.TotalFieldName != "" {
+		semantics.TotalFieldName = req.TotalFieldName
+	}
+
+	// Update item path if provided
+	if req.ItemPath != "" {
+		semantics.ItemPath = req.ItemPath
+	}
+
+	// Set source to platform_review for manual updates
+	semantics.Source = "platform_review"
+
+	// Save semantics
+	if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
+		return nil, fmt.Errorf("upsert semantics: %w", err)
+	}
+
+	return &UpdateSemanticsResponse{
+		Version: semantics.Version,
+		Source:  semantics.Source,
+		Message: "semantics updated successfully",
+	}, nil
+}
+
+// validateFunctionID checks if a function ID exists in the scope.
+func (s *Service) validateFunctionID(ctx context.Context, gameID, env string, functionID uint) error {
+	_, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, fmt.Sprintf("%d", functionID))
+	return err
+}
+
 // Helper functions
 
 func determineStatus(contracts []*model.FunctionContract, semantics *model.CapabilitySemantics) string {
