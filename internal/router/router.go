@@ -174,6 +174,7 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	registerVersioningRoutes(authenticated, svcCtx)
 	registerContractRoutes(authenticated, svcCtx)
 	registerProposalRoutes(authenticated, svcCtx)
+	registerExportRoutes(authenticated, svcCtx)
 }
 
 func registerRoleRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
@@ -502,6 +503,15 @@ func registerProposalRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 		group.GET("/:proposalKey", handler.GetProposal)
 		group.POST("/:proposalKey/accept", handler.AcceptProposal)
 		group.POST("/:proposalKey/reject", handler.RejectProposal)
+	}
+}
+
+func registerExportRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
+	exportService := service.NewDataExportService(svcCtx.DB)
+	handler := service.NewExportHandler(exportService)
+	group := authenticated.Group("/export")
+	{
+		group.GET("/pages", handler.ExportPages)
 	}
 }
 

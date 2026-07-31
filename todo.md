@@ -163,7 +163,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - [x] 为 Dashboard 生成器、spec、页面 schema validator、旧 Page renderer、Page schema editor 和旧页面表单 registry 建立删除清单与调用图。
 - [x] 标注保留模块：scope、PageVersion、PublishedPage、ConsoleMenu、Console execute、OpenAPI Source、Audit/OTel。
 - [x] 删除前先新增新模型替代路径；替代路径通过 E2E 后物理删除旧文件、路由、DTO、数据库列和 CI allowlist。
-- [ ] 删除历史页面数据前，导出只读报告和备份方案；任何生产数据删除另行取得明确确认，禁止自动执行。
+- [x] 删除历史页面数据前，导出只读报告和备份方案；任何生产数据删除另行取得明确确认，禁止自动执行。
 
 验收：删除清单逐项有 owner、替代模块、测试和删除 PR；无”暂时保留”项。
 
@@ -216,7 +216,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - [x] 新建 `page_proposals`、`page_proposal_versions`，按 `(game_id, env, proposal_key, version)` 隔离。
 - [x] Proposal 记录 FunctionContract/CapabilitySemantics/generator source digest、generator version、质量、诊断、生成时间。
 - [x] 注册、OpenAPI Source update、Catalog semantic update 触发增量重算；页面工作台只读取持久化 Proposal。
-- [ ] 相同输入摘要重算结果必须字节级稳定；为生成器加入 golden tests。
+- [x] 相同输入摘要重算结果必须字节级稳定；为生成器加入 golden tests。
 
 验收：重复生成不产生随机 diff；Proposal 可以显示“因何变化”；Proposal 从不覆盖 Draft/Published 页面。
 
