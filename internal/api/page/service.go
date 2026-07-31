@@ -131,9 +131,6 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	if !hasDefaultLocale(categoryLabels) {
 		return nil, errorx.NewBadRequest("category.labels must include zh-CN locale")
 	}
-	if diags := validatePageSchema(spec.FormilySchema(req.Schema), bindingsByID(req.Bindings), false); countErrors(diags) > 0 {
-		return nil, errorx.NewValidationErrorWithDetails("page schema validation failed", diagnosticsToDetails(diags))
-	}
 
 	now := time.Now()
 	var nextRevision int
@@ -721,7 +718,6 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 		}
 	}
 
-	diags = append(diags, validatePageSchema(page.Schema, bindingsByID, publish)...)
 	return diags
 }
 
