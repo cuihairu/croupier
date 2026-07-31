@@ -35,8 +35,8 @@ func TestGenerateForResourceCreatesDefaultOperationPagesWithoutGuessingCRUD(t *t
 		DefaultLocale: "zh-CN",
 		Functions: map[string]spec.FunctionSpec{
 			"player.list": {
-				ID:                 "player.list",
-				InputFormilySchema: spec.FormilySchema(`{"type":"object","properties":{"keyword":{"type":"string","x-component":"Input"}}}`),
+				ID:          "player.list",
+				InputSchema: spec.JSONSchema(`{"type":"object","properties":{"keyword":{"type":"string"}}}`),
 			},
 		},
 	})
@@ -78,11 +78,11 @@ func TestGenerateForOperationCreatesBasicPage(t *testing.T) {
 		Functions: map[string]spec.FunctionSpec{
 			"cache.refresh": {
 				ID: "cache.refresh",
-				InputFormilySchema: spec.FormilySchema(`{
+				InputSchema: spec.JSONSchema(`{
 					"type":"object",
 					"properties":{
-						"scope":{"type":"string","x-component":"Input"},
-						"dryRun":{"type":"boolean","x-component":"Switch"}
+						"scope":{"type":"string"},
+						"dryRun":{"type":"boolean"}
 					}
 				}`),
 			},
@@ -110,8 +110,8 @@ func TestGenerateForOperationUsesExecutionTask(t *testing.T) {
 		DefaultLocale: "zh-CN",
 		Functions: map[string]spec.FunctionSpec{
 			"reward.batchGrant": {
-				ID:                 "reward.batchGrant",
-				InputFormilySchema: spec.FormilySchema(`{"type":"object","properties":{"segment":{"type":"string","x-component":"Input"}}}`),
+				ID:          "reward.batchGrant",
+				InputSchema: spec.JSONSchema(`{"type":"object","properties":{"segment":{"type":"string"}}}`),
 			},
 		},
 	})

@@ -25,8 +25,8 @@ type JSONValue = json.RawMessage
 // draft-07 / 2020-12 but the type itself does not enforce validation.
 type JSONSchema json.RawMessage
 
-// FormilySchema is a Formily-compatible JSON Schema. It extends JSON Schema
-// with x-component, x-decorator, x-reactions, and other Formily extensions.
+// Deprecated: FormilySchema is retained only for PageSpec.Schema until P3-1
+// refactors PageSpec to use strong-typed vNext. Do not use in new code.
 type FormilySchema json.RawMessage
 
 // ---------------------------------------------------------------------------
@@ -203,13 +203,12 @@ type BindingFreshnessDiagnostic struct {
 // function's executable capability. It is produced by the Descriptor
 // Normalizer from SDK / OpenAPI / DB template raw descriptors.
 type FunctionSpec struct {
-	ID                 string        `json:"id"`
-	Version            string        `json:"version"`
-	Enabled            bool          `json:"enabled"`
-	Deprecated         bool          `json:"deprecated,omitempty"`
-	InputSchema        JSONSchema    `json:"inputSchema,omitempty"`
-	InputFormilySchema FormilySchema `json:"inputFormilySchema,omitempty"`
-	OutputSchema       JSONSchema    `json:"outputSchema,omitempty"`
+	ID          string `json:"id"`
+	Version     string `json:"version"`
+	Enabled     bool   `json:"enabled"`
+	Deprecated  bool   `json:"deprecated,omitempty"`
+	InputSchema JSONSchema `json:"inputSchema,omitempty"`
+	OutputSchema JSONSchema `json:"outputSchema,omitempty"`
 
 	// Catalog/search text. These fields are not runtime menu labels.
 	Summary     LocalizedText `json:"summary,omitempty"`

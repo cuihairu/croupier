@@ -79,6 +79,11 @@ type Store struct {
 	registrationWarnings map[string]*FunctionRegistrationWarning
 	// Optional database for dual-write persistence
 	db *gorm.DB
+	// Contract service for FunctionContract persistence (optional)
+	contractService interface {
+		RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error
+		RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
+	}
 }
 
 type FunctionRegistrationWarning struct {
@@ -132,6 +137,14 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 	}
 }
 
+// SetContractService sets the contract service for FunctionContract persistence.
+func (s *Store) SetContractService(svc interface {
+	RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error
+	RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
+}) {
+	s.contractService = svc
+}
+
 // Mu exposes the lock for read/update operations when callers need batch views.
 func (s *Store) Mu() *sync.RWMutex { return &s.mu }
 
@@ -151,6 +164,65 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 		if err := s.writeToDB(context.Background(), a); err != nil {
 			// Log error but continue - memory store is the primary source
 			slog.Error("failed to write agent session to database", "agent_id", a.AgentID, "error", err)
+		}
+	}
+
+	// Rebuild FunctionContracts if contract service is available
+	if s.contractService != nil && a.Functions != nil {
+		for funcID, meta := range a.Functions {
+			input := struct {
+				ID          string
+				Version     string
+				Enabled     bool
+				Summary     string
+				Description string
+				InputSchema string
+				OutputSchema string
+				Resource    string
+				Operation   string
+				Capability  string
+				Execution   string
+				Risk        string
+				Permission  string
+				Tags        []string
+			}{
+				ID:           funcID,
+				Version:      meta.Version,
+				Enabled:      meta.Enabled,
+				Summary:      meta.Summary,
+				Description:  meta.Description,
+				InputSchema:  meta.InputSchema,
+				OutputSchema: meta.OutputSchema,
+				Resource:     meta.Resource,
+				Operation:    meta.Operation,
+				Capability:   meta.Capability,
+				Execution:    meta.Execution,
+				Risk:         meta.Risk,
+				Permission:   meta.Permission,
+				Tags:         meta.Tags,
+			}
+			if err := s.contractService.RebuildContractFromFunctionMeta(context.Background(), a.GameID, a.Env, "sdk", input); err != nil {
+				slog.Error("failed to rebuild function contract",
+					"agent_id", a.AgentID,
+					"function_id", funcID,
+					"error", err)
+			}
+		}
+
+		// Rebuild resource capabilities for unique resources
+		resources := make(map[string]bool)
+		for _, meta := range a.Functions {
+			if meta.Resource != "" {
+				resources[meta.Resource] = true
+			}
+		}
+		for resource := range resources {
+			if err := s.contractService.RebuildResourceCapability(context.Background(), a.GameID, a.Env, resource); err != nil {
+				slog.Error("failed to rebuild resource capability",
+					"agent_id", a.AgentID,
+					"resource", resource,
+					"error", err)
+			}
 		}
 	}
 

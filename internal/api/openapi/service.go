@@ -639,6 +639,16 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 		))
 		capability = ""
 	}
+
+	// If capability is not provided, try to infer from REST method/path
+	if capability == "" {
+		inferred := classifyRESTCapability(candidate.method, candidate.path)
+		if inferred != "" {
+			capability = inferred
+			*diags = append(*diags, restClassificationDiagnostic(candidate.method, candidate.path, inferred))
+		}
+	}
+
 	execution := spec.FunctionExecution(extensionString(extensions, "x-execution"))
 	if execution != "" && !spec.IsValidFunctionExecution(execution) {
 		*diags = append(*diags, sourceDiagnostic(

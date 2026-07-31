@@ -372,7 +372,7 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 	assert.Equal(t, saveResp.DraftRevision+1, regenerateResp.DraftRevision)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, regenerateResp.Quality)
 	assert.Contains(t, string(regenerateResp.Page.Schema), `"server_id"`)
-	assert.Contains(t, string(regenerateResp.Page.Schema), `"x-component":"Input"`)
+	assert.Contains(t, string(regenerateResp.Page.Schema), `"keyword"`)
 	assert.Equal(t, spec.PageTypeOperation, regenerateResp.Page.Type)
 
 	published, err := pageService.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", "player.query")
@@ -437,9 +437,9 @@ func TestServicePublishesBasicGeneratedOperationPage(t *testing.T) {
 		Functions: map[string]spec.FunctionSpec{
 			"player.query": {
 				ID: "player.query",
-				InputFormilySchema: spec.FormilySchema(`{
+				InputSchema: spec.JSONSchema(`{
 					"type":"object",
-					"properties":{"keyword":{"type":"string","x-component":"Input"}}
+					"properties":{"keyword":{"type":"string"}}
 				}`),
 			},
 		},

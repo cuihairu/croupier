@@ -1,0 +1,210 @@
+package service
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+
+	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/model"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
+)
+
+// ContractService manages FunctionContract persistence and semantic rebuilding.
+type ContractService struct {
+	db              *gorm.DB
+	contractModel   *model.FunctionContractModel
+	capabilityModel *model.ResourceCapabilityModel
+	semanticsModel  *model.CapabilitySemanticsModel
+	versionModel    *model.CapabilitySemanticVersionModel
+}
+
+// NewContractService creates the service.
+func NewContractService(db *gorm.DB) *ContractService {
+	return &ContractService{
+		db:              db,
+		contractModel:   model.NewFunctionContractModel(db),
+		capabilityModel: model.NewResourceCapabilityModel(db),
+		semanticsModel:  model.NewCapabilitySemanticsModel(db),
+		versionModel:    model.NewCapabilitySemanticVersionModel(db),
+	}
+}
+
+// RebuildContractFromFunctionMeta rebuilds a FunctionContract from raw function metadata.
+// This is called when a function is registered or updated.
+func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta FunctionMetaInput) error {
+	// 1. Normalize the descriptor
+	input := normalizer.DescriptorInput{
+		ID:           meta.ID,
+		Version:      meta.Version,
+		Summary:      meta.Summary,
+		Description:  meta.Description,
+		InputSchema:  meta.InputSchema,
+		OutputSchema: meta.OutputSchema,
+		Resource:     meta.Resource,
+		Operation:    meta.Operation,
+		Capability:   meta.Capability,
+		Execution:    meta.Execution,
+		Risk:         meta.Risk,
+		Permission:   meta.Permission,
+		Enabled:      meta.Enabled,
+		Tags:         meta.Tags,
+	}
+	result := normalizer.Normalize(input)
+
+	// 2. Compute source digest
+	digest := computeDigest(meta)
+
+	// 3. Build FunctionContract
+	contract := &model.FunctionContract{
+		GameID:       gameID,
+		Env:          env,
+		FunctionID:   meta.ID,
+		Version:      meta.Version,
+		Enabled:      meta.Enabled,
+		Deprecated:   meta.Deprecated,
+		ResourceKey:  meta.Resource,
+		OperationKey: meta.Operation,
+		Capability:   meta.Capability,
+		Execution:    meta.Execution,
+		Risk:         meta.Risk,
+		Permission:   meta.Permission,
+		InputSchema:  datatypes.JSON(meta.InputSchema),
+		OutputSchema: datatypes.JSON(meta.OutputSchema),
+		Summary:      toJSONMap(result.Function.Summary),
+		Description:  toJSONMap(result.Function.Description),
+		Tags:         toJSON(meta.Tags),
+		Source:       source,
+		SourceDigest: digest,
+		Diagnostics:  toJSON(result.Diagnostics),
+	}
+
+	// 4. Upsert contract
+	if err := s.contractModel.UpsertContract(ctx, contract); err != nil {
+		return fmt.Errorf("upsert function contract: %w", err)
+	}
+
+	slog.Info("rebuilt function contract",
+		"game_id", gameID,
+		"env", env,
+		"function_id", meta.ID,
+		"resource", meta.Resource,
+		"capability", meta.Capability)
+
+	return nil
+}
+
+// RebuildResourceCapability rebuilds a ResourceCapability from existing contracts.
+func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {
+	// 1. Get all contracts for this resource
+	contracts, err := s.contractModel.ListByResourceKey(ctx, gameID, env, resourceKey)
+	if err != nil {
+		return fmt.Errorf("list contracts: %w", err)
+	}
+	if len(contracts) == 0 {
+		return nil
+	}
+
+	// 2. Build capability aggregation
+	cap := &model.ResourceCapability{
+		GameID:      gameID,
+		Env:         env,
+		ResourceKey: resourceKey,
+		Labels:      toJSONMap(spec.LocalizedText{"zh-CN": resourceKey}),
+	}
+
+	if err := s.capabilityModel.UpsertCapability(ctx, cap); err != nil {
+		return fmt.Errorf("upsert resource capability: %w", err)
+	}
+
+	// 3. Build capability semantics
+	semantics := s.buildSemantics(gameID, env, resourceKey, contracts)
+	if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
+		return fmt.Errorf("upsert capability semantics: %w", err)
+	}
+
+	// 4. Create version record
+	version := &model.CapabilitySemanticVersion{
+		SemanticsID:  semantics.ID,
+		Version:      semantics.Version,
+		Semantics:    toJSON(semantics),
+		SourceDigest: computeDigest(contracts),
+		ChangeReason: "rebuild from function registration",
+	}
+	if err := s.versionModel.CreateVersion(ctx, version); err != nil {
+		return fmt.Errorf("create semantic version: %w", err)
+	}
+
+	return nil
+}
+
+// buildSemantics constructs CapabilitySemantics from a list of contracts.
+func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contracts []*model.FunctionContract) *model.CapabilitySemantics {
+	sem := &model.CapabilitySemantics{
+		GameID:      gameID,
+		Env:         env,
+		ResourceKey: resourceKey,
+		Source:      "sdk_explicit",
+	}
+
+	for _, c := range contracts {
+		switch c.Capability {
+		case "collection_query":
+			sem.CollectionQueryID = c.ID
+		case "item_query":
+			sem.ItemQueryID = c.ID
+		case "create":
+			sem.CreateID = c.ID
+		case "update":
+			sem.UpdateID = c.ID
+		case "delete":
+			sem.DeleteID = c.ID
+		}
+	}
+
+	return sem
+}
+
+// FunctionMetaInput is the input for contract rebuilding.
+type FunctionMetaInput struct {
+	ID           string
+	Version      string
+	Enabled      bool
+	Deprecated   bool
+	Summary      string
+	Description  string
+	InputSchema  string
+	OutputSchema string
+	Resource     string
+	Operation    string
+	Capability   string
+	Execution    string
+	Risk         string
+	Permission   string
+	Tags         []string
+}
+
+func computeDigest(v interface{}) string {
+	b, _ := json.Marshal(v)
+	h := sha256.Sum256(b)
+	return fmt.Sprintf("%x", h[:8])
+}
+
+func toJSON(v interface{}) datatypes.JSON {
+	b, _ := json.Marshal(v)
+	return datatypes.JSON(b)
+}
+
+func toJSONMap(m spec.LocalizedText) datatypes.JSONMap {
+	if m == nil {
+		return datatypes.JSONMap{}
+	}
+	b, _ := json.Marshal(m)
+	var result datatypes.JSONMap
+	json.Unmarshal(b, &result)
+	return result
+}

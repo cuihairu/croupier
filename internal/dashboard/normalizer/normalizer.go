@@ -88,7 +88,6 @@ func Normalize(input DescriptorInput) NormalizerResult {
 
 	// 3. Parse and validate JSON Schema
 	var inputSchema spec.JSONSchema
-	var inputFormilySchema spec.FormilySchema
 	if input.InputSchema != "" {
 		var parsed jsonObject
 		if err := json.Unmarshal([]byte(input.InputSchema), &parsed); err != nil {
@@ -99,8 +98,6 @@ func Normalize(input DescriptorInput) NormalizerResult {
 			})
 		} else {
 			inputSchema = spec.JSONSchema(input.InputSchema)
-			// Derive Formily schema from JSON Schema
-			inputFormilySchema = deriveFormilySchema(parsed)
 		}
 	} else {
 		diags = append(diags, spec.Diagnostic{
@@ -108,8 +105,6 @@ func Normalize(input DescriptorInput) NormalizerResult {
 			Severity: spec.SeverityWarning,
 			Message:  "No input_schema defined; function form will be a single payload field",
 		})
-		// Generate minimal Formily schema with single payload field
-		inputFormilySchema = minimalPayloadFormilySchema()
 	}
 
 	var outputSchema spec.JSONSchema
@@ -153,22 +148,21 @@ func Normalize(input DescriptorInput) NormalizerResult {
 
 	// 5. Build FunctionSpec
 	fn := spec.FunctionSpec{
-		ID:                 input.ID,
-		Version:            input.Version,
-		Enabled:            input.Enabled,
-		InputSchema:        inputSchema,
-		InputFormilySchema: inputFormilySchema,
-		OutputSchema:       outputSchema,
-		Summary:            summaryMap,
-		Description:        descriptionMap,
-		Resource:           resourceKey,
-		Operation:          operationKey,
-		Capability:         capability,
-		Execution:          execution,
-		Risk:               normalizeRisk(input.Risk),
-		Permission:         strings.TrimSpace(input.Permission),
-		Tags:               input.Tags,
-		Diagnostics:        diags,
+		ID:          input.ID,
+		Version:     input.Version,
+		Enabled:     input.Enabled,
+		InputSchema: inputSchema,
+		OutputSchema: outputSchema,
+		Summary:     summaryMap,
+		Description: descriptionMap,
+		Resource:    resourceKey,
+		Operation:   operationKey,
+		Capability:  capability,
+		Execution:   execution,
+		Risk:        normalizeRisk(input.Risk),
+		Permission:  strings.TrimSpace(input.Permission),
+		Tags:        input.Tags,
+		Diagnostics: diags,
 	}
 
 	// 6. Build ResourceSpec candidate if resource is present.
@@ -344,67 +338,6 @@ func inferCategoryFromKey(key string) string {
 	return key
 }
 
-// deriveFormilySchema creates a basic Formily schema from a JSON Schema.
-// This is a minimal implementation; a full implementation would recursively
-// convert JSON Schema properties to Formily fields.
-func deriveFormilySchema(jsonSchema jsonObject) spec.FormilySchema {
-	// Create a Formily-compatible schema wrapper
-	formily := jsonObject{
-		"type":       rawJSONString("object"),
-		"properties": rawJSONObject(jsonObject{}),
-	}
-
-	// Extract properties from JSON Schema
-	if props, ok := asJSONObject(jsonSchema["properties"]); ok {
-		formilyProps := jsonObject{}
-		for name, prop := range props {
-			if propMap, ok := asJSONObject(prop); ok {
-				field := jsonObject{
-					"type":        rawJSONString(getOrDefault(propMap, "type", "string")),
-					"title":       rawJSONString(getOrDefault(propMap, "title", name)),
-					"x-component": rawJSONString(mapTypeToComponent(getOrDefault(propMap, "type", "string"))),
-				}
-				if desc := getString(propMap, "description"); desc != "" {
-					field["description"] = rawJSONString(desc)
-				}
-				if enum, ok := propMap["enum"]; ok {
-					field["enum"] = enum
-					field["x-component"] = rawJSONString("Select")
-				}
-				formilyProps[name] = rawJSONObject(field)
-			}
-		}
-		formily["properties"] = rawJSONObject(formilyProps)
-	}
-
-	// Handle required fields
-	if required, ok := jsonSchema["required"]; ok {
-		formily["required"] = required
-	}
-
-	b, _ := json.Marshal(formily)
-	return spec.FormilySchema(b)
-}
-
-// minimalPayloadFormilySchema returns a Formily schema with a single "payload" field.
-func minimalPayloadFormilySchema() spec.FormilySchema {
-	schema := jsonObject{
-		"type": rawJSONString("object"),
-		"properties": rawJSONObject(jsonObject{
-			"payload": rawJSONObject(jsonObject{
-				"type":        rawJSONString("object"),
-				"title":       rawJSONString("Payload"),
-				"x-component": rawJSONString("Input.TextArea"),
-				"x-component-props": rawJSONObject(jsonObject{
-					"rows": rawJSONNumber(6),
-				}),
-			}),
-		}),
-	}
-	b, _ := json.Marshal(schema)
-	return spec.FormilySchema(b)
-}
-
 // getOrDefault extracts a string value from a map or returns a default.
 func getOrDefault(m jsonObject, key, defaultVal string) string {
 	if v := getString(m, key); v != "" {
@@ -449,22 +382,4 @@ func rawJSONNumber(value int) json.RawMessage {
 func rawJSONObject(value jsonObject) json.RawMessage {
 	raw, _ := json.Marshal(value)
 	return raw
-}
-
-// mapTypeToComponent maps JSON Schema types to Formily component names.
-func mapTypeToComponent(typeStr string) string {
-	switch typeStr {
-	case "string":
-		return "Input"
-	case "number", "integer":
-		return "NumberPicker"
-	case "boolean":
-		return "Switch"
-	case "array":
-		return "ArrayTable"
-	case "object":
-		return "ObjectContainer"
-	default:
-		return "Input"
-	}
 }

@@ -59,6 +59,11 @@ type chartPanelProps struct {
 	StateKey  string `json:"stateKey,omitempty"`
 }
 
+type approvalStatusProps struct {
+	BindingID string `json:"bindingId,omitempty"`
+	StateKey  string `json:"stateKey,omitempty"`
+}
+
 // GenerateForResource creates default PageSpec candidates for every operation
 // under a resource. CRUD ResourcePage generation waits for CapabilitySemantics;
 // this function never guesses CRUD, columns, pagination, or row actions from
@@ -88,6 +93,8 @@ func GenerateEntityPageForResource(spec.ResourceSpec, []spec.OperationSpec, Gene
 func GenerateForOperation(op spec.OperationSpec, opts GenerateOptions) spec.GeneratedPageSpec {
 	opts = normalizeOptions(opts)
 	switch {
+	case isApprovalOperation(op):
+		return GenerateApprovalPageForOperation(op, opts)
 	case isReportOperation(op):
 		return GenerateReportPageForOperation(op, opts)
 	case isTaskOperation(op):
@@ -182,6 +189,42 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 		PageSpec: spec.PageSpec{
 			PageKey:     pageKey,
 			Type:        spec.PageTypeReport,
+			ResourceKey: resourceKey,
+			Title:       localizedTitle(op, pageKey, opts.DefaultLocale),
+			Category:    categoryForPage(resourceKey, pageKey, opts.DefaultLocale),
+			Schema:      marshalSchema(root),
+			Bindings:    []spec.PageFunctionBinding{binding},
+		},
+		Quality:     qualityFromDiagnostics(diags),
+		Diagnostics: diags,
+	}
+}
+
+// GenerateApprovalPageForOperation creates an approval candidate.
+// Approval pages require explicit waiting state and status refresh rules.
+func GenerateApprovalPageForOperation(op spec.OperationSpec, opts GenerateOptions) spec.GeneratedPageSpec {
+	opts = normalizeOptions(opts)
+	resourceKey := strings.TrimSpace(op.ResourceKey)
+	pageKey := operationPageKey(op, opts)
+	binding := pageBinding(op, "approval", spec.BindingUsageAction, spec.PageExecutionModeSync)
+	applyDefaultBindingMappings(&binding, opts.Functions[op.FunctionID])
+	diags := append(assessBaseCandidate(op), diagnostic(
+		"approval_semantics_missing",
+		spec.SeverityWarning,
+		"approval capability requires pending/approved/rejected/expired status semantics before it can be safely published",
+		op.FunctionID,
+		"capability",
+	))
+
+	root := consolePage(pageKey, resourceKey)
+	root.Properties["form"] = rawNode(queryFormNode(binding, opts, ""))
+	root.Properties["status"] = rawNode(componentNode("ApprovalStatus", approvalStatusPropsJSON(approvalStatusProps{BindingID: binding.ID})))
+	root.Properties["result"] = rawNode(componentNode("ResultPanel", resultPanelPropsJSON(resultPanelProps{BindingID: binding.ID})))
+
+	return spec.GeneratedPageSpec{
+		PageSpec: spec.PageSpec{
+			PageKey:     pageKey,
+			Type:        spec.PageTypeOperation,
 			ResourceKey: resourceKey,
 			Title:       localizedTitle(op, pageKey, opts.DefaultLocale),
 			Category:    categoryForPage(resourceKey, pageKey, opts.DefaultLocale),
@@ -315,6 +358,14 @@ func chartPanelPropsJSON(value chartPanelProps) json.RawMessage {
 	return json.RawMessage(b)
 }
 
+func approvalStatusPropsJSON(value approvalStatusProps) json.RawMessage {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return nil
+	}
+	return json.RawMessage(b)
+}
+
 func pageBinding(op spec.OperationSpec, suffix string, usage spec.PageBindingUsage, mode spec.PageExecutionMode) spec.PageFunctionBinding {
 	return spec.PageFunctionBinding{
 		ID:         bindingIDForOperationWithSuffix(op, suffix),
@@ -377,6 +428,10 @@ func isReportOperation(op spec.OperationSpec) bool {
 	return op.Capability == spec.CapabilityReport
 }
 
+func isApprovalOperation(op spec.OperationSpec) bool {
+	return op.Execution == spec.FunctionExecutionApproval
+}
+
 func categoryForPage(resourceKey string, pageKey string, locale string) spec.PageCategorySpec {
 	categoryKey := InferCategoryFromKey(firstNonEmpty(resourceKey, pageKey))
 	return spec.PageCategorySpec{
@@ -393,8 +448,10 @@ func localizedTitle(op spec.OperationSpec, pageKey string, locale string) spec.L
 	}
 }
 
+// functionFormProperties extracts form field properties from a function's schema.
+// TODO(P2-2): Replace with JSON Schema + FormPresentationSpec based form generation.
 func functionFormProperties(fn spec.FunctionSpec) map[string]json.RawMessage {
-	raw := []byte(fn.InputFormilySchema)
+	raw := []byte(fn.InputSchema)
 	if len(raw) == 0 {
 		return nil
 	}
