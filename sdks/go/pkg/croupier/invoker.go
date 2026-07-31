@@ -16,7 +16,7 @@ import (
 	"time"
 
 	sdkv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1"
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cuihairu/croupier/sdks/go/pkg/croupier/protocol"
@@ -483,24 +483,38 @@ func (i *tcpInvoker) validatePayload(payload string, schema map[string]interface
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	schemaLoader := gojsonschema.NewBytesLoader(schemaBytes)
-	payloadLoader := gojsonschema.NewStringLoader(payload)
+	var schemaDoc interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaDoc); err != nil {
+		return fmt.Errorf("failed to unmarshal schema: %w", err)
+	}
 
-	result, err := gojsonschema.Validate(schemaLoader, payloadLoader)
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft7)
+	if err := compiler.AddResource("schema.json", schemaDoc); err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+	sch, err := compiler.Compile("schema.json")
 	if err != nil {
 		return fmt.Errorf("schema validation error: %w", err)
 	}
 
-	if result.Valid() {
-		return nil
+	var payloadData interface{}
+	if err := json.Unmarshal([]byte(payload), &payloadData); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	var errs []string
-	for _, desc := range result.Errors() {
-		errs = append(errs, desc.String())
+	if err := sch.Validate(payloadData); err != nil {
+		if ve, ok := err.(*jsonschema.ValidationError); ok {
+			var errs []string
+			for _, cause := range ve.Causes {
+				errs = append(errs, cause.Error())
+			}
+			return fmt.Errorf("payload validation failed: %s", strings.Join(errs, "; "))
+		}
+		return fmt.Errorf("payload validation failed: %s", err.Error())
 	}
 
-	return fmt.Errorf("payload validation failed: %s", strings.Join(errs, "; "))
+	return nil
 }
 
 // buildTLSConfig builds TLS configuration from InvokerConfig

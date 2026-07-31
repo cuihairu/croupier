@@ -305,6 +305,7 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 - Renderer 只能消费 PublishedPageSpec，不能从最新函数目录或运行结果临时补字段。
 - 动态菜单文本来自 PublishedPageSpec 的 NavigationSpec，不能依赖静态 locale 或字典事实源。
 - 浏览器只能通过 published binding execute API 执行，不能选择 function、target、route 或 scope。
+- 历史页面配置无自动迁移路径。旧 WorkspaceConfig、objectKey、layout 等模型的数据只能导出、备份和人工重建；不提供自动转换桥。
 
 ## 完成定义
 

@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/function/descriptor"
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 func main() {
@@ -211,14 +211,12 @@ func validateManifest(data []byte, verbose bool) error {
 }
 
 func validateJSONSchema(schema interface{}) error {
-	// Convert to JSON and validate as JSON Schema
-	schemaBytes, err := json.Marshal(schema)
-	if err != nil {
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft7)
+	if err := compiler.AddResource("schema.json", schema); err != nil {
 		return err
 	}
-
-	loader := gojsonschema.NewBytesLoader(schemaBytes)
-	_, err = gojsonschema.NewSchema(loader)
+	_, err := compiler.Compile("schema.json")
 	return err
 }
 

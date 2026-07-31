@@ -202,3 +202,4 @@ cover_*.html
 coverage_*.html
 *_cov.html
 internal/api/analytics/analytics_filters.json
+schema-validator

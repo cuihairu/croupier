@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 // httpInvoker implements Invoker interface using HTTP REST API
@@ -334,27 +334,27 @@ func (i *httpInvoker) validatePayload(functionID, payload string, schema map[str
 		return fmt.Errorf("invalid JSON payload: %w", err)
 	}
 
-	// Create schema loader
-	schemaLoader := gojsonschema.NewGoLoader(schema)
-	documentLoader := gojsonschema.NewGoLoader(payloadJSON)
-
-	// Validate
-	schemaVal, err := gojsonschema.NewSchema(schemaLoader)
+	// Create schema compiler
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft7)
+	if err := compiler.AddResource("schema.json", schema); err != nil {
+		return fmt.Errorf("failed to create schema validator: %w", err)
+	}
+	sch, err := compiler.Compile("schema.json")
 	if err != nil {
 		return fmt.Errorf("failed to create schema validator: %w", err)
 	}
 
-	result, err := schemaVal.Validate(documentLoader)
-	if err != nil {
-		return fmt.Errorf("validation failed: %w", err)
-	}
-
-	if !result.Valid() {
-		var errs []string
-		for _, desc := range result.Errors() {
-			errs = append(errs, desc.Field()+": "+desc.Description())
+	// Validate
+	if err := sch.Validate(payloadJSON); err != nil {
+		if ve, ok := err.(*jsonschema.ValidationError); ok {
+			var errs []string
+			for _, cause := range ve.Causes {
+				errs = append(errs, cause.Error())
+			}
+			return fmt.Errorf("payload validation failed: %v", errs)
 		}
-		return fmt.Errorf("payload validation failed: %v", errs)
+		return fmt.Errorf("payload validation failed: %s", err.Error())
 	}
 
 	return nil

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/config"
@@ -238,38 +238,45 @@ func ensureUniqueSchemaID(cfg config.Config, name string) string {
 }
 
 func validateSchemaDefinition(schema interface{}) error {
-	data, err := json.Marshal(schema)
-	if err != nil {
-		return errorx.NewBadRequest("schema 不是有效的 JSON")
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft7)
+	if err := compiler.AddResource("schema.json", schema); err != nil {
+		return errorx.NewBadRequest("schema 解析失败")
 	}
-	loader := gojsonschema.NewBytesLoader(data)
-	if _, err := gojsonschema.NewSchema(loader); err != nil {
+	if _, err := compiler.Compile("schema.json"); err != nil {
 		return errorx.NewBadRequest("schema 校验失败")
 	}
 	return nil
 }
 
 func validatePayloadAgainst(schema interface{}, payload interface{}) (bool, []string, error) {
-	schemaBytes, err := json.Marshal(schema)
-	if err != nil {
-		return false, nil, errorx.NewBadRequest("schema JSON 无效")
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft7)
+	if err := compiler.AddResource("schema.json", schema); err != nil {
+		return false, nil, err
 	}
-	dataBytes, err := json.Marshal(payload)
-	if err != nil {
-		return false, nil, errorx.NewBadRequest("数据 JSON 无效")
-	}
-	schemaLoader := gojsonschema.NewBytesLoader(schemaBytes)
-	payloadLoader := gojsonschema.NewBytesLoader(dataBytes)
-	result, err := gojsonschema.Validate(schemaLoader, payloadLoader)
+	sch, err := compiler.Compile("schema.json")
 	if err != nil {
 		return false, nil, err
 	}
-	if result.Valid() {
-		return true, nil, nil
+
+	if err := sch.Validate(payload); err != nil {
+		if ve, ok := err.(*jsonschema.ValidationError); ok {
+			errors := extractErrors(ve)
+			return false, errors, nil
+		}
+		return false, []string{err.Error()}, nil
 	}
-	errors := make([]string, 0, len(result.Errors()))
-	for _, issue := range result.Errors() {
-		errors = append(errors, issue.String())
+	return true, nil, nil
+}
+
+func extractErrors(err *jsonschema.ValidationError) []string {
+	var errors []string
+	if err.Error() != "" {
+		errors = append(errors, err.Error())
 	}
-	return false, errors, nil
+	for _, cause := range err.Causes {
+		errors = append(errors, extractErrors(cause)...)
+	}
+	return errors
 }
