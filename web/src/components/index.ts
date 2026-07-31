@@ -16,6 +16,16 @@ import {
   DASHBOARD_PAGE_TOKENS,
 } from './StandardPage';
 
+/**
+ * Dashboard vNext 组件
+ */
+import PageRenderer from './PageRenderer';
+import ResourcePageRenderer from './PageRenderer/ResourcePageRenderer';
+import OperationPageRenderer from './PageRenderer/OperationPageRenderer';
+import TaskPageRenderer from './PageRenderer/TaskPageRenderer';
+import ReportPageRenderer from './PageRenderer/ReportPageRenderer';
+import SchemaFormRenderer from './SchemaFormRenderer';
+
 export {
   Footer,
   Question,
@@ -27,4 +37,11 @@ export {
   StandardListSection,
   PageStatePanel,
   DASHBOARD_PAGE_TOKENS,
+  // Dashboard vNext
+  PageRenderer,
+  ResourcePageRenderer,
+  OperationPageRenderer,
+  TaskPageRenderer,
+  ReportPageRenderer,
+  SchemaFormRenderer,
 };
