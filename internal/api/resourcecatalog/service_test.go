@@ -75,12 +75,12 @@ func TestService_List(t *testing.T) {
 	// Create semantics
 	semanticsModel := model.NewCapabilitySemanticsModel(db)
 	err = semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
-		GameID:          "demo-game",
-		Env:             "development",
-		ResourceKey:     "player",
+		GameID:            "demo-game",
+		Env:               "development",
+		ResourceKey:       "player",
 		CollectionQueryID: 1,
-		ItemQueryID:     2,
-		IdentityField:   "player_id",
+		ItemQueryID:       2,
+		IdentityField:     "player_id",
 	})
 	require.NoError(t, err)
 
