@@ -212,7 +212,7 @@ jobs:
 
       - name: Setup Python
         timeout-minutes: 5
-        uses: actions/setup-python@v7.2.0
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
