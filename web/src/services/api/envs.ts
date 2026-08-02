@@ -2,14 +2,23 @@ import { request } from '@umijs/max';
 
 export type GameEnv = { env: string; description?: string; color?: string };
 
+interface RawGameEnv {
+  env?: string;
+  Env?: string;
+  description?: string;
+  Description?: string;
+  color?: string;
+  Color?: string;
+}
+
 export async function listGameEnvs(gameId: number) {
-  const res = await request<{ envs?: any[] }>(`/api/v1/games/${gameId}/envs`);
+  const res = await request<{ envs?: RawGameEnv[] }>(`/api/v1/games/${gameId}/envs`);
   const payload = res?.envs;
   const envs = Array.isArray(payload)
-    ? payload.map((item: any) => ({
-        env: item?.env ?? item?.Env ?? '',
-        description: item?.description ?? item?.Description,
-        color: item?.color ?? item?.Color,
+    ? payload.map((item: RawGameEnv) => ({
+        env: String(item?.env ?? item?.Env ?? ''),
+        description: String(item?.description ?? item?.Description ?? ''),
+        color: String(item?.color ?? item?.Color ?? ''),
       }))
     : [];
   return { envs };

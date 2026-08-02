@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ProColumns } from '@ant-design/pro-components';
 import { Badge, Button, Space, Tag, Tooltip, Typography } from 'antd';
-import { InfoCircleOutlined, PlayCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { CodeOutlined, InfoCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import type { DirectoryPageSchema } from './schema';
 import type { SummaryRow } from './types';
 
@@ -11,13 +11,13 @@ type BuildColumnsOptions = {
   columns: DirectoryPageSchema['columns'];
   rowActions: DirectoryPageSchema['rowActions'];
   onOpenDetail: (record: SummaryRow) => void;
-  onOpenForm: (id: string) => void;
+  onOpenSchema: (id: string) => void;
   onInvoke: (record: SummaryRow) => void;
 };
 
 const rowActionIcon = {
   info: <InfoCircleOutlined />,
-  setting: <SettingOutlined />,
+  code: <CodeOutlined />,
   play: <PlayCircleOutlined />,
 } as const;
 
@@ -25,7 +25,7 @@ export const buildDirectoryColumns = ({
   columns,
   rowActions,
   onOpenDetail,
-  onOpenForm,
+  onOpenSchema,
   onInvoke,
 }: BuildColumnsOptions): ProColumns<SummaryRow>[] =>
   columns.map((col) => {
@@ -131,7 +131,7 @@ export const buildDirectoryColumns = ({
               icon={rowActionIcon[action.icon]}
               onClick={() => {
                 if (action.key === 'detail') return onOpenDetail(record);
-                if (action.key === 'form') return onOpenForm(record.id);
+                if (action.key === 'schema') return onOpenSchema(record.id);
                 return onInvoke(record);
               }}
             />

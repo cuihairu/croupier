@@ -356,7 +356,7 @@ export default function ConfigPage() {
     {
       title: '操作',
       key: 'action',
-      render: (_: any, record: PermissionDomain) => (
+      render: (_: unknown, record: PermissionDomain) => (
         <Button type="link" icon={<InfoCircleOutlined />}>
           查看详情
         </Button>

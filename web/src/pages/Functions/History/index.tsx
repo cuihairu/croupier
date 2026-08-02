@@ -34,6 +34,7 @@ import {
   type FunctionCallItem,
   type FunctionCallStatsResponse,
 } from '@/services/api/function-calls';
+import type { JSONValue } from '@/types/dashboard';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -58,8 +59,8 @@ export default () => {
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedCall, setSelectedCall] = useState<FunctionCallItem | null>(null);
   const [stats, setStats] = useState<FunctionCallStatsResponse | null>(null);
-  const [filters, setFilters] = useState<Record<string, any>>({});
-  const actionRef = useRef<any>();
+  const [filters, setFilters] = useState<Record<string, JSONValue>>({});
+  const actionRef = useRef<unknown>();
   const timerRef = useRef<NodeJS.Timeout>();
 
   // 加载数据
@@ -76,8 +77,9 @@ export default () => {
       setTotal(response.total || 0);
       setCurrentPage(response.page || 1);
       setPageSize(response.pageSize || 20);
-    } catch (error: any) {
-      message.error(error?.message || '加载调用历史失败');
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '加载调用历史失败';
+      message.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -122,8 +124,9 @@ export default () => {
       const response = await getFunctionCallDetail(String(record.id));
       setSelectedCall(response || record);
       setDetailVisible(true);
-    } catch (error: any) {
-      message.error(error?.message || '获取详情失败');
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '获取详情失败';
+      message.error(errMsg);
     }
   };
 
@@ -138,8 +141,9 @@ export default () => {
           message.success(`已创建新任务: ${response.taskId}`);
           fetchData();
           fetchStats();
-        } catch (error: any) {
-          message.error(error?.message || '重新执行失败');
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : '重新执行失败';
+          message.error(errMsg);
         }
       },
     });
@@ -194,7 +198,7 @@ export default () => {
         const config = statusConfig[record.status] || statusConfig.pending;
         return (
           <Badge
-            status={config.color as any}
+            status={config.color as 'success' | 'error' | 'processing' | 'default' | 'warning'}
             text={
               <Space size={4}>
                 {config.icon}
@@ -445,7 +449,7 @@ export default () => {
               </Descriptions.Item>
               <Descriptions.Item label="状态">
                 <Badge
-                  status={(statusConfig[selectedCall.status]?.color || 'default') as any}
+                  status={(statusConfig[selectedCall.status]?.color || 'default') as 'success' | 'error' | 'processing' | 'default' | 'warning'}
                   text={statusConfig[selectedCall.status]?.text || selectedCall.status}
                 />
               </Descriptions.Item>

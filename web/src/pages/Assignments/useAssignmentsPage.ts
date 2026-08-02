@@ -221,7 +221,7 @@ export default function useAssignmentsPage() {
         setEditingAssignment,
         setCanaryModalVisible,
         onOpenDetail: (id) => {
-          routerHistory.push(`/system/functions/${encodeURIComponent(id)}?tab=config&subTab=ui`);
+          routerHistory.push(`/system/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`);
         },
       }),
     [canWrite, selected],

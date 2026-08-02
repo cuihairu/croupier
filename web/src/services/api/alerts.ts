@@ -1,8 +1,13 @@
 import { request } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
 
 // ============================================================================
 // 类型定义
 // ============================================================================
+
+export interface AlertDetails {
+  [key: string]: JSONValue;
+}
 
 export interface Alert {
   id: string;
@@ -11,7 +16,7 @@ export interface Alert {
   message: string;
   source: string;
   status: string;
-  details?: any;
+  details?: AlertDetails;
   createdAt: string;
 }
 
@@ -29,10 +34,14 @@ export interface AlertsListResponse {
   pageSize: number;
 }
 
+export interface SilenceMatchers {
+  [key: string]: JSONValue;
+}
+
 export interface Silence {
   id: string;
   alertType: string;
-  matchers?: any;
+  matchers?: SilenceMatchers;
   startAt: string;
   endAt: string;
   createdBy: string;

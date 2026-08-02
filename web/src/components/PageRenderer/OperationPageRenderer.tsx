@@ -11,15 +11,6 @@
 
 import React, { useState, useCallback } from 'react';
 import {
-  ProForm,
-  ProFormText,
-  ProFormTextArea,
-  ProFormSelect,
-  ProFormDigit,
-  ProFormSwitch,
-  ProFormDatePicker,
-} from '@ant-design/pro-components';
-import {
   Card,
   Button,
   Space,
@@ -35,12 +26,16 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons';
+import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import type {
   OperationPageSpec,
-  FormFieldSpec,
-  PageFunctionBindingV2,
   ResultViewSpec,
-} from '@/types/dashboard-vnext';
+  PageFunctionBinding,
+  PageExecuteFn,
+  PageExecutionResult,
+  JSONValue,
+  FormValues,
+} from '@/types/dashboard';
 
 const { Text } = Typography;
 
@@ -52,108 +47,26 @@ export interface OperationPageRendererProps {
   /** 操作页面规格 */
   spec: OperationPageSpec;
   /** 页面绑定 */
-  bindings: PageFunctionBindingV2[];
+  bindings: PageFunctionBinding[];
   /** 执行绑定函数 */
-  onExecute: (bindingId: string, payload: unknown) => Promise<unknown>;
+  onExecute: PageExecuteFn;
   /** 页面标题 */
   title?: string;
-}
-
-// ---------------------------------------------------------------------------
-// 表单字段渲染
-// ---------------------------------------------------------------------------
-
-function renderFormField(field: FormFieldSpec): React.ReactNode {
-  const label = field.label?.['zh-CN'] || field.label?.['en'] || field.key;
-  const placeholder = field.placeholder?.['zh-CN'] || field.placeholder?.['en'];
-  const required = field.required;
-  const rules = required ? [{ required: true, message: `请输入${label}` }] : [];
-
-  switch (field.widget) {
-    case 'TextArea':
-      return (
-        <ProFormTextArea
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          fieldProps={{ disabled: field.disabled }}
-        />
-      );
-    case 'InputNumber':
-      return (
-        <ProFormDigit
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          fieldProps={{ disabled: field.disabled }}
-        />
-      );
-    case 'Switch':
-      return (
-        <ProFormSwitch
-          key={field.key}
-          name={field.key}
-          label={label}
-          fieldProps={{ disabled: field.disabled }}
-        />
-      );
-    case 'Select':
-      return (
-        <ProFormSelect
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          options={field.enumOptions?.map((opt) => ({
-            label: opt.label['zh-CN'] || opt.label['en'] || opt.value,
-            value: opt.value,
-          }))}
-          fieldProps={{ disabled: field.disabled }}
-        />
-      );
-    case 'DatePicker':
-      return (
-        <ProFormDatePicker
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          fieldProps={{ disabled: field.disabled }}
-        />
-      );
-    default:
-      return (
-        <ProFormText
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          fieldProps={{ disabled: field.disabled, type: field.widget === 'Password' ? 'password' : 'text' }}
-        />
-      );
-  }
 }
 
 // ---------------------------------------------------------------------------
 // 结果渲染
 // ---------------------------------------------------------------------------
 
-function renderResult(result: unknown, resultView?: ResultViewSpec): React.ReactNode {
+function renderResult(result: JSONValue | null, resultView?: ResultViewSpec): React.ReactNode {
   if (!result) {
     return null;
   }
 
-  const data = result as any;
+  const data = typeof result === 'object' && result !== null ? result as Record<string, JSONValue> : null;
 
   // 如果有自定义字段
-  if (resultView?.fields && resultView.fields.length > 0) {
+  if (resultView?.fields && resultView.fields.length > 0 && data) {
     return (
       <Descriptions column={1} bordered>
         {resultView.fields.map((field) => (
@@ -171,7 +84,7 @@ function renderResult(result: unknown, resultView?: ResultViewSpec): React.React
   // 默认 JSON 展示
   return (
     <pre style={{ maxHeight: 400, overflow: 'auto' }}>
-      {JSON.stringify(data, null, 2)}
+      {JSON.stringify(result, null, 2)}
     </pre>
   );
 }
@@ -187,17 +100,17 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   title,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<unknown>(null);
+  const [result, setResult] = useState<PageExecutionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
-  const [pendingValues, setPendingValues] = useState<unknown>(null);
+  const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
 
   // 查找主绑定
   const mainBinding = bindings.find((b) => b.usage === 'action') || bindings[0];
 
   // 处理表单提交
   const handleSubmit = useCallback(
-    async (values: unknown) => {
+    async (values: FormValues) => {
       if (!mainBinding) {
         message.error('未配置操作绑定');
         return;
@@ -226,8 +139,9 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         } else {
           message.success('操作成功');
         }
-      } catch (err: any) {
-        setError(err.message || '操作失败');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '操作失败';
+        setError(msg);
 
         if (spec.resultView?.errorMessage) {
           message.error(
@@ -255,11 +169,12 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setResult(null);
 
     try {
-      const response = await onExecute(mainBinding.id, pendingValues);
+      const response = await onExecute(mainBinding.id, pendingValues!);
       setResult(response);
       message.success('操作成功');
-    } catch (err: any) {
-      setError(err.message || '操作失败');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '操作失败';
+      setError(msg);
       message.error('操作失败');
     } finally {
       setLoading(false);
@@ -277,15 +192,14 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     <div>
       {/* 表单 */}
       <Card title={title || '执行操作'}>
-        <ProForm
+        <SchemaFormRenderer
+          spec={spec.form}
           onFinish={handleSubmit}
-          submitter={{
-            submitButtonProps: { loading },
-            resetButtonProps: { onClick: handleReset },
-          }}
-        >
-          {spec.form.fields?.map(renderFormField)}
-        </ProForm>
+          disabled={loading}
+        />
+        <Button style={{ marginTop: 12 }} onClick={handleReset}>
+          重置结果
+        </Button>
       </Card>
 
       {/* 确认对话框 */}
@@ -328,7 +242,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
               status="success"
               title="操作成功"
               icon={<CheckCircleOutlined />}
-              extra={renderResult(result, spec.resultView)}
+              extra={renderResult(result?.data ?? null, spec.resultView)}
             />
           )}
         </Card>

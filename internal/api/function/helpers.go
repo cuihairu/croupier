@@ -555,29 +555,6 @@ func functionPermissionsUpdate(ctx context.Context, svcCtx *svc.ServiceContext, 
 	return svcCtx.FunctionModel.ReplacePermissions(ctx, req.ID, modelPerms)
 }
 
-// Function Form configuration implementations
-// TODO: Implement with new vNext FormPresentationSpec
-
-func functionForm(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormRequest) (*FunctionFormResponse, error) {
-	// TODO: Implement with vNext
-	return &FunctionFormResponse{}, nil
-}
-
-func functionFormUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormUpdateRequest) (*FunctionFormResponse, error) {
-	// TODO: Implement with vNext
-	return &FunctionFormResponse{}, nil
-}
-
-func functionFormHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormHistoryRequest) (*FunctionFormHistoryResponse, error) {
-	// TODO: Implement with vNext
-	return &FunctionFormHistoryResponse{}, nil
-}
-
-func functionFormRollback(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionFormRollbackRequest) (*FunctionFormRollbackResponse, error) {
-	// TODO: Implement with vNext
-	return &FunctionFormRollbackResponse{}, nil
-}
-
 func functionWarnings(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionWarningsRequest) (*FunctionWarningsResponse, error) {
 	return &FunctionWarningsResponse{
 		Items: []FunctionWarningItem{},

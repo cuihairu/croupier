@@ -44,6 +44,7 @@ import (
 	functionapi "github.com/cuihairu/croupier/internal/function/api"
 	"github.com/cuihairu/croupier/internal/function/registry"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
+	"github.com/cuihairu/croupier/internal/service"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
 
@@ -90,6 +91,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerConfigRoutes(protected.Group("/configs"), serverCtx)
 		registerResourceRoutes(protected.Group("/resources"), serverCtx)
 		registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
+		registerProposalRoutes(protected.Group("/proposals"), serverCtx)
 		registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
 		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
 		registerFeedbackRoutes(protected.Group("/feedback"), serverCtx)
@@ -243,12 +245,6 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	// 权限管理
 	g.GET("/:id/permissions", functionHandler.Permissions)
 	g.PUT("/:id/permissions", functionHandler.PermissionsUpdate)
-
-	// 函数表单配置
-	g.GET("/:id/form", functionHandler.Form)
-	g.PUT("/:id/form", functionHandler.FormUpdate)
-	g.GET("/:id/form/history", functionHandler.FormHistory)
-	g.POST("/:id/form/rollback", functionHandler.FormRollback)
 
 	// 历史与分析
 	g.GET("/:id/history", functionHandler.History)
@@ -731,6 +727,16 @@ func registerPageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/:pageKey/versions", pageHandler.Versions)
 	g.GET("/:pageKey/versions/:versionId", pageHandler.VersionDetail)
 	g.POST("/:pageKey/rollback", pageHandler.Rollback)
+}
+
+func registerProposalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	proposalSvc := service.NewProposalService(ctx.DB)
+	proposalHandler := service.NewProposalHandler(proposalSvc)
+	g.GET("", proposalHandler.ListProposals)
+	g.GET("/", proposalHandler.ListProposals)
+	g.GET("/:proposalKey", proposalHandler.GetProposal)
+	g.POST("/:proposalKey/accept", proposalHandler.AcceptProposal)
+	g.POST("/:proposalKey/reject", proposalHandler.RejectProposal)
 }
 
 // ============================================================================

@@ -10,7 +10,6 @@ import {
   type OpenAPIOperation,
 } from './openapi';
 import type { JSONValue } from '@/types/dashboard';
-import type { FormilySchema } from '@/components/formily/schema/types';
 
 // Source: backend function descriptor endpoints and registry-derived descriptors.
 // Primary backend references: croupier/internal/api/function/dto.go and internal/logic/function/descriptors logic.
@@ -24,11 +23,12 @@ export type FunctionDescriptor = {
   summary?: LocalizedText;
   operation?: string;
   tags?: string[];
-  params?: unknown;
-  auth?: Record<string, unknown>;
-  outputs?: unknown;
-  schema?: unknown;
-  operations?: unknown;
+  risk?: string;
+  params?: JSONValue;
+  auth?: Record<string, JSONValue>;
+  outputs?: JSONValue;
+  schema?: JSONValue;
+  operations?: JSONValue;
   inputSchema?: string; // JSON Schema for request body (from proto)
   outputSchema?: string; // JSON Schema for response body (from proto)
 };
@@ -102,21 +102,6 @@ type RawFunctionRegistrationWarning = {
   last_seen?: string;
 };
 
-function buildFunctionFormPayload(formConfig: {
-  schema?: FormilySchema;
-  clearCustom?: boolean;
-}) {
-  if (formConfig.clearCustom) {
-    return {
-      schema: null,
-    };
-  }
-
-  return {
-    schema: formConfig.schema,
-  };
-}
-
 function normalizeFunctionRegistrationWarning(
   raw: RawFunctionRegistrationWarning,
 ): FunctionRegistrationWarning {
@@ -160,20 +145,6 @@ export type FunctionInvokeResponse = {
   timestamp?: string;
   taskId?: string;
   taskID?: string;
-};
-
-export type FunctionFormSchemaDocument = {
-  schema?: FormilySchema;
-  custom?: boolean;
-  hasDefault?: boolean;
-  formSource?:
-    | 'custom_metadata'
-    | 'config_file_override'
-    | 'generated_default'
-    | 'none'
-    | string;
-  formSourceDetail?: string;
-  updatedAt?: string;
 };
 
 export async function listDescriptors() {
@@ -290,72 +261,6 @@ export async function listFunctionInstances(params: {
   );
   const rawItems = res?.items || res?.instances || [];
   return { instances: rawItems.map(normalizeFunctionInstance) };
-}
-
-export async function fetchFunctionFormSchema(
-  functionId: string,
-): Promise<FunctionFormSchemaDocument> {
-  const response = await request<{
-    schema?: FormilySchema;
-    custom?: boolean;
-    hasDefault?: boolean;
-    formSource?: FunctionFormSchemaDocument['formSource'];
-    formSourceDetail?: string;
-    updated_at?: string;
-    updatedAt?: string;
-  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/form`, { method: 'GET' });
-  const normalized: FunctionFormSchemaDocument = {
-    ...response,
-    updatedAt: response.updatedAt || response.updated_at,
-  };
-  return normalized;
-}
-
-export async function saveFunctionFormSchema(
-  functionId: string,
-  formConfig: {
-    schema?: FormilySchema;
-    clearCustom?: boolean;
-  },
-) {
-  return request<FunctionFormSchemaDocument>(
-    `/api/v1/functions/${encodeURIComponent(functionId)}/form`,
-    {
-      method: 'PUT',
-      data: buildFunctionFormPayload(formConfig),
-    },
-  );
-}
-
-export type FunctionFormHistoryItem = {
-  version: number;
-  schema?: FormilySchema;
-  message?: string;
-  createdBy?: string;
-  createdAt?: string;
-};
-
-export async function fetchFunctionFormHistory(functionId: string) {
-  return request<{ items: FunctionFormHistoryItem[] }>(
-    `/api/v1/functions/${encodeURIComponent(functionId)}/form/history`,
-    { method: 'GET' },
-  );
-}
-
-export async function rollbackFunctionFormSchema(functionId: string, version: number) {
-  return request<{
-    appliedVersion: number;
-    current?: {
-      schema?: FormilySchema;
-      custom?: boolean;
-      hasDefault?: boolean;
-      formSource?: string;
-      formSourceDetail?: string;
-    };
-  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/form/rollback`, {
-    method: 'POST',
-    data: { version },
-  });
 }
 
 export async function getFunctionPermissions(functionId: string) {

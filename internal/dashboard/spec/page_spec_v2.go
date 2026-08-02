@@ -1,41 +1,11 @@
 package spec
 
-import "encoding/json"
-
-// PageSpecV2 is the strong-typed vNext page specification.
-// It replaces the Formily-based PageSpec with a discriminated union.
-type PageSpecV2 struct {
-	PageKey     string           `json:"pageKey"`
-	Type        PageType         `json:"type"`
-	ResourceKey string           `json:"resourceKey,omitempty"`
-	Title       LocalizedText    `json:"title"`
-	Description LocalizedText    `json:"description,omitempty"`
-	Category    PageCategorySpec `json:"category"`
-	Order       int              `json:"order,omitempty"`
-	Icon        string           `json:"icon,omitempty"`
-
-	// Navigation spec for page header/breadcrumb
-	Navigation *NavigationSpec `json:"navigation,omitempty"`
-
-	// Page content is a discriminated union based on Type
-	Resource  *ResourcePageSpec  `json:"resource,omitempty"`
-	Operation *OperationPageSpec `json:"operation,omitempty"`
-	Task      *TaskPageSpec      `json:"task,omitempty"`
-	Report    *ReportPageSpec    `json:"report,omitempty"`
-
-	// Bindings lists the functions this page uses
-	Bindings []PageFunctionBinding `json:"bindings"`
-
-	// Metadata holds arbitrary extension data
-	Metadata map[string]json.RawMessage `json:"metadata,omitempty"`
-}
-
 // NavigationSpec defines page navigation structure.
 type NavigationSpec struct {
-	Title       LocalizedText `json:"title"`
-	Breadcrumb  []BreadcrumbItem `json:"breadcrumb,omitempty"`
-	ShowBack    bool          `json:"showBack,omitempty"`
-	BackPath    string        `json:"backPath,omitempty"`
+	Title      LocalizedText    `json:"title"`
+	Breadcrumb []BreadcrumbItem `json:"breadcrumb,omitempty"`
+	ShowBack   bool             `json:"showBack,omitempty"`
+	BackPath   string           `json:"backPath,omitempty"`
 }
 
 // BreadcrumbItem is a single breadcrumb entry.
@@ -91,17 +61,17 @@ type ListViewSpec struct {
 
 // ColumnSpec defines a table column.
 type ColumnSpec struct {
-	Key          string        `json:"key"`
-	Title        LocalizedText `json:"title"`
-	DataType     string        `json:"dataType"` // string|number|boolean|date|datetime|enum
-	Width        int           `json:"width,omitempty"`
-	Fixed        string        `json:"fixed,omitempty"` // left|right
-	Sortable     bool          `json:"sortable,omitempty"`
-	Filterable   bool          `json:"filterable,omitempty"`
-	Visible      bool          `json:"visible,omitempty"` // default true
-	Enum         []EnumOption  `json:"enum,omitempty"`
-	Format       string        `json:"format,omitempty"` // date/time format
-	Render       string        `json:"render,omitempty"` // render hint: tag|link|copy|status
+	Key        string        `json:"key"`
+	Title      LocalizedText `json:"title"`
+	DataType   string        `json:"dataType"` // string|number|boolean|date|datetime|enum
+	Width      int           `json:"width,omitempty"`
+	Fixed      string        `json:"fixed,omitempty"` // left|right
+	Sortable   bool          `json:"sortable,omitempty"`
+	Filterable bool          `json:"filterable,omitempty"`
+	Visible    bool          `json:"visible,omitempty"` // default true
+	Enum       []EnumOption  `json:"enum,omitempty"`
+	Format     string        `json:"format,omitempty"` // date/time format
+	Render     string        `json:"render,omitempty"` // render hint: tag|link|copy|status
 }
 
 // EnumOption represents an enum value for display.
@@ -119,17 +89,17 @@ type SortSpec struct {
 
 // FilterSpec defines a filterable field.
 type FilterSpec struct {
-	Key      string        `json:"key"`
-	Title    LocalizedText `json:"title"`
-	Type     string        `json:"type"` // text|select|date|daterange|number
-	Options  []EnumOption  `json:"options,omitempty"`
+	Key     string        `json:"key"`
+	Title   LocalizedText `json:"title"`
+	Type    string        `json:"type"` // text|select|date|daterange|number
+	Options []EnumOption  `json:"options,omitempty"`
 }
 
 // PaginationSpec defines pagination configuration.
 type PaginationSpec struct {
-	Enabled    bool `json:"enabled"`
-	DefaultSize int  `json:"defaultSize,omitempty"` // default 20
-	PageSizes  []int `json:"pageSizes,omitempty"`   // [10, 20, 50, 100]
+	Enabled     bool  `json:"enabled"`
+	DefaultSize int   `json:"defaultSize,omitempty"` // default 20
+	PageSizes   []int `json:"pageSizes,omitempty"`   // [10, 20, 50, 100]
 }
 
 // DetailViewSpec defines the detail view configuration.
@@ -149,8 +119,8 @@ type DetailFieldSpec struct {
 	Key      string        `json:"key"`
 	Title    LocalizedText `json:"title"`
 	DataType string        `json:"dataType"`
-	Span     int           `json:"span,omitempty"` // grid span
-	Render   string        `json:"render,omitempty"` // render hint
+	Span     int           `json:"span,omitempty"`    // grid span
+	Render   string        `json:"render,omitempty"`  // render hint
 	Visible  bool          `json:"visible,omitempty"` // default true
 }
 
@@ -208,7 +178,7 @@ type TaskViewSpec struct {
 	ShowTimeline bool `json:"showTimeline"`
 	ShowProgress bool `json:"showProgress"`
 	ShowEvents   bool `json:"showEvents"`
-	Cancelable    bool `json:"cancelable"`
+	Cancelable   bool `json:"cancelable"`
 	Retryable    bool `json:"retryable"`
 }
 
@@ -250,19 +220,19 @@ type DimensionSpec struct {
 type MetricSpec struct {
 	Key      string        `json:"key"`
 	Title    LocalizedText `json:"title"`
-	DataType string        `json:"dataType"` // number
+	DataType string        `json:"dataType"`          // number
 	AggType  string        `json:"aggType,omitempty"` // sum|avg|count|min|max
-	Format   string        `json:"format,omitempty"` // number|percent|currency
+	Format   string        `json:"format,omitempty"`  // number|percent|currency
 }
 
 // ChartSpec defines a chart display.
 type ChartSpec struct {
-	Type      string        `json:"type"` // line|bar|pie|area|scatter
-	Title     LocalizedText `json:"title"`
-	XField    string        `json:"xField,omitempty"`
-	YField    string        `json:"yField,omitempty"`
-	SeriesField string      `json:"seriesField,omitempty"`
-	GroupField  string      `json:"groupField,omitempty"`
+	Type        string        `json:"type"` // line|bar|pie|area|scatter
+	Title       LocalizedText `json:"title"`
+	XField      string        `json:"xField,omitempty"`
+	YField      string        `json:"yField,omitempty"`
+	SeriesField string        `json:"seriesField,omitempty"`
+	GroupField  string        `json:"groupField,omitempty"`
 }
 
 // ResultViewSpec defines how to display execution results.

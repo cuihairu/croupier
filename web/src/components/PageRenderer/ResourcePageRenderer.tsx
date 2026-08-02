@@ -4,7 +4,7 @@
  * 根据 ResourcePageSpec 渲染完整的资源 CRUD 页面，包括：
  * - ProTable 列表视图
  * - ProDescriptions 详情视图
- * - ModalForm/DrawerForm 创建/编辑表单
+ * - Modal + SchemaFormRenderer 创建/编辑表单
  * - Popconfirm 删除确认
  *
  * @module components/PageRenderer/ResourcePageRenderer
@@ -14,14 +14,6 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
   ProTable,
   ProDescriptions,
-  ModalForm,
-  DrawerForm,
-  ProFormText,
-  ProFormTextArea,
-  ProFormSelect,
-  ProFormDigit,
-  ProFormSwitch,
-  ProFormDatePicker,
 } from '@ant-design/pro-components';
 import {
   Button,
@@ -41,15 +33,18 @@ import {
   ReloadOutlined,
   ExportOutlined,
 } from '@ant-design/icons';
+import SchemaFormRenderer, {
+  type SchemaFormRendererHandle,
+} from '@/components/SchemaFormRenderer';
 import type {
   ResourcePageSpec,
-  ListViewSpec,
   ColumnSpec,
   ActionSpec,
-  FormPresentationSpec,
-  FormFieldSpec,
-  PageFunctionBindingV2,
-} from '@/types/dashboard-vnext';
+  PageFunctionBinding,
+  PageExecuteFn,
+  JSONValue,
+  FormValues,
+} from '@/types/dashboard';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 
 const { Text } = Typography;
@@ -62,9 +57,9 @@ export interface ResourcePageRendererProps {
   /** 资源页面规格 */
   spec: ResourcePageSpec;
   /** 页面绑定 */
-  bindings: PageFunctionBindingV2[];
+  bindings: PageFunctionBinding[];
   /** 执行绑定函数 */
-  onExecute: (bindingId: string, payload: unknown) => Promise<unknown>;
+  onExecute: PageExecuteFn;
   /** 页面标题 */
   title?: string;
   /** 资源标识字段 */
@@ -142,88 +137,6 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns {
 }
 
 // ---------------------------------------------------------------------------
-// 表单字段渲染
-// ---------------------------------------------------------------------------
-
-function renderFormField(field: FormFieldSpec): React.ReactNode {
-  const label = field.label?.['zh-CN'] || field.label?.['en'] || field.key;
-  const placeholder = field.placeholder?.['zh-CN'] || field.placeholder?.['en'];
-  const required = field.required;
-  const rules = required ? [{ required: true, message: `请输入${label}` }] : [];
-
-  switch (field.widget) {
-    case 'TextArea':
-      return (
-        <ProFormTextArea
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          fieldProps={{ disabled: field.disabled }}
-        />
-      );
-    case 'InputNumber':
-      return (
-        <ProFormDigit
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          fieldProps={{ disabled: field.disabled }}
-        />
-      );
-    case 'Switch':
-      return (
-        <ProFormSwitch
-          key={field.key}
-          name={field.key}
-          label={label}
-          fieldProps={{ disabled: field.disabled }}
-        />
-      );
-    case 'Select':
-      return (
-        <ProFormSelect
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          options={field.enumOptions?.map((opt) => ({
-            label: opt.label['zh-CN'] || opt.label['en'] || opt.value,
-            value: opt.value,
-          }))}
-          fieldProps={{ disabled: field.disabled, mode: field.widget === 'MultiSelect' ? 'multiple' : undefined }}
-        />
-      );
-    case 'DatePicker':
-      return (
-        <ProFormDatePicker
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          fieldProps={{ disabled: field.disabled }}
-        />
-      );
-    default:
-      return (
-        <ProFormText
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          fieldProps={{ disabled: field.disabled, type: field.widget === 'Password' ? 'password' : 'text' }}
-        />
-      );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // ResourcePageRenderer 组件
 // ---------------------------------------------------------------------------
 
@@ -235,10 +148,13 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   identityField = 'id',
 }) => {
   const actionRef = useRef<ActionType>();
+  const createFormRef = useRef<SchemaFormRendererHandle | null>(null);
+  const updateFormRef = useRef<SchemaFormRendererHandle | null>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
-  const [currentRecord, setCurrentRecord] = useState<unknown>(null);
+  const [currentRecord, setCurrentRecord] = useState<FormValues | null>(null);
+  const [formSubmitting, setFormSubmitting] = useState(false);
 
   // 查找绑定
   const listBinding = bindings.find((b) => b.usage === 'query');
@@ -248,15 +164,16 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
   // 处理列表数据请求
   const handleRequest = useCallback(
-    async (params: unknown) => {
+    async (params: FormValues) => {
       if (!listBinding) {
         return { data: [], total: 0 };
       }
       try {
         const result = await onExecute(listBinding.id, params);
+        const data = result.data as Record<string, JSONValue> | undefined;
         return {
-          data: (result as any)?.items || [],
-          total: (result as any)?.total || 0,
+          data: (data?.items as FormValues[]) || [],
+          total: (data?.total as number) || 0,
         };
       } catch (error) {
         message.error('获取数据失败');
@@ -268,7 +185,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
   // 处理创建
   const handleCreate = useCallback(
-    async (values: unknown) => {
+    async (values: FormValues) => {
       if (!createBinding) {
         message.error('未配置创建操作');
         return false;
@@ -289,13 +206,13 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
   // 处理编辑
   const handleEdit = useCallback(
-    async (values: unknown) => {
+    async (values: FormValues) => {
       if (!updateBinding || !currentRecord) {
         message.error('未配置编辑操作');
         return false;
       }
       try {
-        await onExecute(updateBinding.id, { ...values, [identityField]: (currentRecord as any)[identityField] });
+        await onExecute(updateBinding.id, { ...values, [identityField]: currentRecord[identityField] });
         message.success('更新成功');
         setEditModalVisible(false);
         setCurrentRecord(null);
@@ -309,15 +226,35 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     [updateBinding, currentRecord, identityField, onExecute]
   );
 
+  const submitCreateForm = useCallback(async () => {
+    if (!createFormRef.current?.validate()) return;
+    setFormSubmitting(true);
+    try {
+      await handleCreate(createFormRef.current.getValues());
+    } finally {
+      setFormSubmitting(false);
+    }
+  }, [handleCreate]);
+
+  const submitUpdateForm = useCallback(async () => {
+    if (!updateFormRef.current?.validate()) return;
+    setFormSubmitting(true);
+    try {
+      await handleEdit(updateFormRef.current.getValues());
+    } finally {
+      setFormSubmitting(false);
+    }
+  }, [handleEdit]);
+
   // 处理删除
   const handleDelete = useCallback(
-    async (record: unknown) => {
+    async (record: FormValues) => {
       if (!deleteBinding) {
         message.error('未配置删除操作');
         return;
       }
       try {
-        await onExecute(deleteBinding.id, { [identityField]: (record as any)[identityField] });
+        await onExecute(deleteBinding.id, { [identityField]: record[identityField] });
         message.success('删除成功');
         actionRef.current?.reload();
       } catch (error) {
@@ -329,7 +266,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
   // 处理行操作
   const handleRowAction = useCallback(
-    async (action: ActionSpec, record: unknown) => {
+    async (action: ActionSpec, record: FormValues) => {
       if (action.confirm) {
         Modal.confirm({
           title: action.confirmTitle?.['zh-CN'] || '确认操作',
@@ -446,29 +383,39 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
       {/* 创建表单 */}
       {spec.createForm && (
-        <ModalForm
+        <Modal
           title="新建"
           open={createModalVisible}
-          onOpenChange={setCreateModalVisible}
-          onFinish={handleCreate}
-          modalProps={{ destroyOnClose: true }}
+          onOk={submitCreateForm}
+          onCancel={() => setCreateModalVisible(false)}
+          confirmLoading={formSubmitting}
+          destroyOnClose
         >
-          {spec.createForm.fields?.map(renderFormField)}
-        </ModalForm>
+          <SchemaFormRenderer
+            ref={createFormRef}
+            spec={spec.createForm}
+            hideSubmit
+          />
+        </Modal>
       )}
 
       {/* 编辑表单 */}
       {spec.updateForm && (
-        <ModalForm
+        <Modal
           title="编辑"
           open={editModalVisible}
-          onOpenChange={setEditModalVisible}
-          onFinish={handleEdit}
-          initialValues={currentRecord || {}}
-          modalProps={{ destroyOnClose: true }}
+          onOk={submitUpdateForm}
+          onCancel={() => setEditModalVisible(false)}
+          confirmLoading={formSubmitting}
+          destroyOnClose
         >
-          {spec.updateForm.fields?.map(renderFormField)}
-        </ModalForm>
+          <SchemaFormRenderer
+            ref={updateFormRef}
+            spec={spec.updateForm}
+            initialValues={currentRecord || {}}
+            hideSubmit
+          />
+        </Modal>
       )}
 
       {/* 详情抽屉 */}
@@ -488,7 +435,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                   label={field.title['zh-CN'] || field.title['en'] || field.key}
                   span={field.span}
                 >
-                  {(currentRecord as any)[field.key]}
+                  {currentRecord[field.key] as React.ReactNode}
                 </ProDescriptions.Item>
               ))}
           </ProDescriptions>

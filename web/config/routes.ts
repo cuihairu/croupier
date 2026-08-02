@@ -71,11 +71,18 @@ const functionManagementRoutes = [
     icon: 'safety',
   },
   {
-    path: '/system/functions/:id/form-designer',
-    name: 'FunctionFormDesigner',
-    access: 'canFunctionsRead',
-    component: './Functions/SchemaDesigner',
-    hideInMenu: true,
+    path: '/system/functions/resource-catalog',
+    name: 'ResourceCatalog',
+    access: 'canResourcesRead',
+    component: './ResourceCatalog',
+    icon: 'database',
+  },
+  {
+    path: '/system/functions/proposals',
+    name: 'Proposals',
+    access: 'canPageRead',
+    component: './Proposals',
+    icon: 'bulb',
   },
   {
     path: '/system/functions/:id',

@@ -1,52 +1,39 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Form as FormilyForm } from '@formily/core';
 import { PageContainer } from '@ant-design/pro-components';
 import { Alert, App, Button, Card, Drawer, Empty, Space, Tag, Typography } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { history, useLocation, getLocale, useModel } from '@umijs/max';
-import SchemaRenderer from '@/components/formily/SchemaRenderer';
-import type { FormilySchema } from '@/components/formily/schema/types';
+import SchemaFormRenderer, {
+  type SchemaFormRendererHandle,
+} from '@/components/SchemaFormRenderer';
 import {
-  fetchFunctionFormSchema,
   invokeFunction,
   listDescriptors,
   startTask,
   type FunctionDescriptor,
 } from '@/services/api';
-import { fetchOptions } from '@/services/schema/async';
-import { validateFormilySchema } from '@/services/schema/validateSchema';
 import { extractErrorMessage } from '@/utils/errors';
-import type { FormilyValues } from '@/components/formily/schema/types';
-import type { JSONValue } from '@/types/dashboard';
+import { parseInputSchema, type JSONSchemaType } from '@/utils/json';
+import type { FormPresentationSpec, FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
 
 const { Text } = Typography;
-
-type SchemaSource =
-  | 'custom_metadata'
-  | 'config_file_override'
-  | 'generated_default'
-  | 'none'
-  | string;
 
 type FormSchemaState =
   | {
       status: 'idle' | 'loading';
       schema?: undefined;
-      source?: undefined;
       detail?: undefined;
       error?: undefined;
     }
   | {
       status: 'ready';
-      schema: FormilySchema;
-      source: SchemaSource;
+      spec: FormPresentationSpec;
       detail?: string;
       error?: undefined;
     }
   | {
       status: 'error';
       schema?: undefined;
-      source?: SchemaSource;
       detail?: string;
       error: string;
     };
@@ -69,30 +56,33 @@ const resolveSummary = (descriptor: FunctionDescriptor, locale: string) => {
   return en || zh || descriptor.description || descriptor.id;
 };
 
-function validateRuntimeFormSchema(schema: unknown): FormilySchema {
-  const validation = validateFormilySchema(schema);
-  if (!validation.ok) {
-    throw new Error(validation.error || '函数表单 Schema 不是有效 Formily Schema');
-  }
-  return schema as FormilySchema;
+function parseDescriptorSchema(value: unknown): JSONSchemaType | null {
+  if (!value) return null;
+  if (typeof value === 'string') return parseInputSchema(value);
+  if (typeof value === 'object' && !Array.isArray(value)) return value as JSONSchemaType;
+  return null;
 }
 
-function getRuntimeContext(functionId: string, access?: string) {
-  const permissions = String(access || '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return {
-    gameId:
-      typeof window !== 'undefined' ? localStorage.getItem('game_id') || undefined : undefined,
-    env: typeof window !== 'undefined' ? localStorage.getItem('env') || undefined : undefined,
-    functionId,
-    permissions,
-  };
+function resolveInputSchema(descriptor: FunctionDescriptor): JSONSchemaType | null {
+  return (
+    parseDescriptorSchema(descriptor.inputSchema) ||
+    parseDescriptorSchema(descriptor.schema) ||
+    parseDescriptorSchema(descriptor.params)
+  );
 }
 
-function toJSONValue(values: FormilyValues): JSONValue {
+function toJSONValue(values: FormValues): JSONValue {
   return JSON.parse(JSON.stringify(values)) as JSONValue;
+}
+
+function buildFormPresentationSpec(schema: JSONSchemaType): FormPresentationSpec {
+  return {
+    jsonSchema: schema as JSONSchema,
+    layout: 'vertical',
+    submitButton: {
+      text: { 'zh-CN': '执行', en: 'Invoke' },
+    },
+  };
 }
 
 type InitialStateWithAccess = {
@@ -106,7 +96,7 @@ export default function FunctionRuntimeUIPage() {
   const location = useLocation();
   const locale = getLocale();
   const { initialState } = useModel('@@initialState');
-  const formRef = useRef<FormilyForm | null>(null);
+  const formRef = useRef<SchemaFormRendererHandle | null>(null);
   const searchParams = new URLSearchParams(location.search);
   const fid = searchParams.get('fid') || searchParams.get('id') || '';
 
@@ -114,7 +104,7 @@ export default function FunctionRuntimeUIPage() {
   const [executing, setExecuting] = useState(false);
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
   const [formState, setFormState] = useState<FormSchemaState>(EMPTY_FORM_STATE);
-  const [formValues, setFormValues] = useState<FormilyValues>({});
+  const [formValues, setFormValues] = useState<FormValues>({});
   const [infoOpen, setInfoOpen] = useState(false);
   const [result, setResult] = useState<unknown>(undefined);
   const [error, setError] = useState<string>('');
@@ -124,21 +114,13 @@ export default function FunctionRuntimeUIPage() {
     [descriptors, fid],
   );
 
-  const runtimeContext = useMemo(
+  const permissions = useMemo(
     () =>
-      getRuntimeContext(
-        selected?.id || '',
-        (initialState as InitialStateWithAccess | undefined)?.currentUser?.access,
-      ),
-    [initialState, selected?.id],
-  );
-
-  const rendererScope = useMemo(
-    () => ({
-      hasPerm: (perm: string) => runtimeContext.permissions.includes(perm),
-      fetchOptions,
-    }),
-    [runtimeContext.permissions],
+      String((initialState as InitialStateWithAccess | undefined)?.currentUser?.access || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    [initialState],
   );
 
   useEffect(() => {
@@ -159,7 +141,7 @@ export default function FunctionRuntimeUIPage() {
   useEffect(() => {
     let active = true;
 
-    const loadFormSchema = async () => {
+    const buildRuntimeFormSchema = () => {
       if (!selected?.id) {
         setFormState(EMPTY_FORM_STATE);
         return;
@@ -172,29 +154,30 @@ export default function FunctionRuntimeUIPage() {
       setFormState({ status: 'loading' });
 
       try {
-        const response = await fetchFunctionFormSchema(selected.id);
+        const inputSchema = resolveInputSchema(selected);
+        if (!inputSchema) {
+          throw new Error('当前函数没有 inputSchema，无法生成调用测试表单');
+        }
         if (!active) return;
-        const schema = validateRuntimeFormSchema(response?.schema);
         setFormState({
           status: 'ready',
-          schema,
-          source: response?.formSource || 'none',
-          detail: response?.formSourceDetail,
+          spec: buildFormPresentationSpec(inputSchema),
+          detail: '由函数 inputSchema 临时生成，仅用于调用测试，不会保存为页面 UI。',
         });
       } catch (err: unknown) {
         if (!active) return;
         setFormState({
           status: 'error',
-          error: extractErrorMessage(err, '函数表单 Schema 加载失败'),
+          error: extractErrorMessage(err, '调用测试表单生成失败'),
         });
       }
     };
 
-    loadFormSchema();
+    buildRuntimeFormSchema();
     return () => {
       active = false;
     };
-  }, [selected?.id]);
+  }, [selected]);
 
   const submitWithValues = useCallback(
     async (mode: 'invoke' | 'task') => {
@@ -203,8 +186,10 @@ export default function FunctionRuntimeUIPage() {
       setError('');
       setResult(undefined);
       try {
-        await formRef.current?.validate();
-        const values = (formRef.current?.values || formValues) as FormilyValues;
+        if (!formRef.current?.validate()) {
+          throw new Error('表单校验失败，请修正参数后再执行');
+        }
+        const values = formRef.current?.getValues() || formValues;
         const payload = toJSONValue(values);
         const response =
           mode === 'invoke'
@@ -280,28 +265,25 @@ export default function FunctionRuntimeUIPage() {
             style={{ marginBottom: 12 }}
             type="success"
             showIcon
-            message="已加载 Formily 表单 Schema"
-            description={formState.detail || `来源：${formState.source}`}
+            message="已根据函数契约生成调用测试表单"
+            description={formState.detail}
           />
         )}
         {formState.status === 'error' && (
           <Alert
             type="error"
             showIcon
-            message="函数表单 Schema 无法渲染"
-            description={`${formState.error}。当前函数调用页只接受 Formily Schema，请在注册描述或函数表单设计器中修正 schema。`}
+            message="调用测试表单无法生成"
+            description={`${formState.error}。请先修正函数注册中的 inputSchema；业务页面展示请在 Page Studio 中处理。`}
           />
         )}
         {formState.status === 'ready' ? (
-          <SchemaRenderer
-            schema={formState.schema}
-            value={formValues}
-            onChange={setFormValues}
-            onFormReady={(form) => {
-              formRef.current = form;
-            }}
-            context={runtimeContext}
-            scope={rendererScope}
+          <SchemaFormRenderer
+            ref={formRef}
+            spec={formState.spec}
+            initialValues={formValues}
+            onValuesChange={(_, allValues) => setFormValues(allValues)}
+            hideSubmit
           />
         ) : formState.status === 'idle' ? (
           <Empty description="请选择函数" />
@@ -333,9 +315,10 @@ export default function FunctionRuntimeUIPage() {
           {selected.version && <Tag>v{selected.version}</Tag>}
           {formState.status !== 'idle' && (
             <Tag color={formState.status === 'ready' ? 'green' : 'red'}>
-              表单: {formState.status === 'ready' ? formState.source : 'invalid'}
+              调用表单: {formState.status === 'ready' ? 'json-schema' : 'invalid'}
             </Tag>
           )}
+          {permissions.length > 0 && <Tag>权限: {permissions.length}</Tag>}
           {resolveSummary(selected, locale) && (
             <Alert
               type="info"

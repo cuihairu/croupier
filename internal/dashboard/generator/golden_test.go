@@ -22,12 +22,12 @@ func TestGenerateOperationPageGolden(t *testing.T) {
 		{
 			name: "sync operation",
 			op: spec.OperationSpec{
-				FunctionID: "mail.send",
+				FunctionID:  "mail.send",
 				ResourceKey: "mail",
-				Operation:  "send",
-				Capability: spec.CapabilityAction,
-				Execution:  spec.FunctionExecutionSync,
-				Enabled:    true,
+				Operation:   "send",
+				Capability:  spec.CapabilityAction,
+				Execution:   spec.FunctionExecutionSync,
+				Enabled:     true,
 			},
 			opts:     DefaultGenerateOptions(),
 			wantType: spec.PageTypeOperation,
@@ -35,12 +35,12 @@ func TestGenerateOperationPageGolden(t *testing.T) {
 		{
 			name: "task operation",
 			op: spec.OperationSpec{
-				FunctionID: "reward.batchGrant",
+				FunctionID:  "reward.batchGrant",
 				ResourceKey: "reward",
-				Operation:  "batchGrant",
-				Capability: spec.CapabilityTask,
-				Execution:  spec.FunctionExecutionTask,
-				Enabled:    true,
+				Operation:   "batchGrant",
+				Capability:  spec.CapabilityTask,
+				Execution:   spec.FunctionExecutionTask,
+				Enabled:     true,
 			},
 			opts:     DefaultGenerateOptions(),
 			wantType: spec.PageTypeTask,
@@ -97,7 +97,7 @@ func TestGenerateOperationPageGolden(t *testing.T) {
 			assert.NotEmpty(t, result1.PageKey)
 			assert.NotEmpty(t, result1.Title)
 			assert.NotEmpty(t, result1.Bindings)
-			assert.NotEmpty(t, result1.Schema)
+			assert.NotNil(t, pageShape(result1.PageSpec))
 		})
 	}
 }
@@ -247,8 +247,8 @@ func TestBindingStability(t *testing.T) {
 	}
 }
 
-// TestSchemaStability tests that generated schemas are deterministic.
-func TestSchemaStability(t *testing.T) {
+// TestPageSpecStability tests that generated PageSpec output is deterministic.
+func TestPageSpecStability(t *testing.T) {
 	op := spec.OperationSpec{
 		FunctionID:  "mail.send",
 		ResourceKey: "mail",
@@ -259,15 +259,31 @@ func TestSchemaStability(t *testing.T) {
 	}
 
 	// Generate multiple times
-	var schemas []string
+	var specs []string
 	for i := 0; i < 10; i++ {
 		result := GenerateForOperation(op, DefaultGenerateOptions())
-		schemas = append(schemas, string(result.Schema))
+		raw, err := json.Marshal(result.PageSpec)
+		require.NoError(t, err)
+		specs = append(specs, string(raw))
 	}
 
-	// All schemas should be identical
-	for i := 1; i < len(schemas); i++ {
-		assert.Equal(t, schemas[0], schemas[i],
-			"schema should be stable across multiple generations")
+	for i := 1; i < len(specs); i++ {
+		assert.Equal(t, specs[0], specs[i],
+			"PageSpec should be stable across multiple generations")
+	}
+}
+
+func pageShape(page spec.PageSpec) interface{} {
+	switch page.Type {
+	case spec.PageTypeResource:
+		return page.Resource
+	case spec.PageTypeOperation:
+		return page.Operation
+	case spec.PageTypeTask:
+		return page.Task
+	case spec.PageTypeReport:
+		return page.Report
+	default:
+		return nil
 	}
 }

@@ -204,57 +204,6 @@ type FunctionPublishResponse struct {
 	Published  bool   `json:"published"`
 }
 
-// FunctionFormHistoryItem represents an item in the function form history.
-type FunctionFormHistoryItem struct {
-	Version   int             `json:"version"`
-	Schema    json.RawMessage `json:"schema,omitempty"`
-	Message   string          `json:"message"`
-	CreatedBy string          `json:"createdBy"`
-	CreatedAt string          `json:"createdAt"`
-}
-
-// FunctionFormHistoryRequest represents a request for function form history.
-type FunctionFormHistoryRequest struct {
-	ID string `uri:"id"`
-}
-
-// FunctionFormHistoryResponse represents the response containing function form history.
-type FunctionFormHistoryResponse struct {
-	Items []FunctionFormHistoryItem `json:"items"`
-}
-
-// FunctionFormRequest represents a request for function form configuration.
-type FunctionFormRequest struct {
-	ID string `uri:"id"`
-}
-
-// FunctionFormResponse represents the response containing function form configuration.
-type FunctionFormResponse struct {
-	Schema           json.RawMessage `json:"schema,omitempty"`
-	Custom           bool            `json:"custom"`
-	HasDefault       bool            `json:"hasDefault"`
-	FormSource       string          `json:"formSource"`       // custom_metadata/config_file_override/generated_default/none
-	FormSourceDetail string          `json:"formSourceDetail"` // human-readable source description
-}
-
-// FunctionFormRollbackRequest represents a request to rollback function form configuration.
-type FunctionFormRollbackRequest struct {
-	ID      string `uri:"id"`
-	Version int    `json:"version"`
-}
-
-// FunctionFormRollbackResponse represents the response of a function form rollback.
-type FunctionFormRollbackResponse struct {
-	AppliedVersion int                   `json:"appliedVersion"`
-	Current        *FunctionFormResponse `json:"current"`
-}
-
-// FunctionFormUpdateRequest represents a request to update function form configuration.
-type FunctionFormUpdateRequest struct {
-	ID     string          `uri:"id"`
-	Schema json.RawMessage `json:"schema"`
-}
-
 // FunctionWarningItem represents a warning for a function
 type FunctionWarningItem struct {
 	Key        string `json:"key"`

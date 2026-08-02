@@ -103,6 +103,11 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	registryStore := reg.NewStoreWithDB(db)
 	extensionRepos := extensiongorm.NewBundle(db)
 
+	// Wire ContractService into registry store so gRPC function registration
+	// automatically persists FunctionContracts.
+	contractService := service.NewContractService(db)
+	registryStore.SetContractService(contractService)
+
 	svcCtx := &svc.ServiceContext{
 		DB:                        db,
 		RegistryStore:             registryStore,
@@ -172,7 +177,7 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	registerPageRoutes(authenticated, svcCtx)
 	registerResourceCatalogRoutes(authenticated, svcCtx)
 	registerVersioningRoutes(authenticated, svcCtx)
-	registerContractRoutes(authenticated, svcCtx)
+	registerContractRoutes(authenticated, svcCtx, contractService)
 	registerProposalRoutes(authenticated, svcCtx)
 	registerExportRoutes(authenticated, svcCtx)
 }
@@ -284,10 +289,6 @@ func registerFunctionRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 		group.GET("/:id/instances", handler.Instances)
 		group.GET("/:id/permissions", handler.Permissions)
 		group.POST("/:id/permissions", handler.PermissionsUpdate)
-		group.GET("/:id/form", handler.Form)
-		group.PUT("/:id/form", handler.FormUpdate)
-		group.GET("/:id/form/history", handler.FormHistory)
-		group.POST("/:id/form/rollback", handler.FormRollback)
 		// Policy routes for individual functions
 		group.GET("/:id/policy", policyHandler.GetPolicy)
 		group.PUT("/:id/policy", policyHandler.SetPolicy)
@@ -484,13 +485,16 @@ func registerVersioningRoutes(authenticated *gin.RouterGroup, svcCtx *svc.Servic
 	}
 }
 
-func registerContractRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
-	contractService := service.NewContractService(svcCtx.DB)
+func registerContractRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext, contractService *service.ContractService) {
 	handler := service.NewContractHandler(contractService)
 	group := authenticated.Group("/contracts")
 	{
 		group.GET("", handler.ListContracts)
 		group.GET("/:functionId", handler.GetContract)
+	}
+	capGroup := authenticated.Group("/resource-capabilities")
+	{
+		capGroup.GET("", handler.ListResourceCapabilities)
 	}
 }
 

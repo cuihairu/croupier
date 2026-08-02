@@ -8,25 +8,44 @@ import {
   listDescriptors,
   rejectApproval,
 } from '@/services/api';
+import type { FunctionDescriptor } from '@/services/api/functions';
+import type { JSONValue } from '@/types/dashboard';
 
 type Approval = {
-  ID: string;
-  CreatedAt: string;
-  Actor: string;
-  FunctionID: string;
+  id: string;
+  ID?: string;
+  created_at: string;
+  CreatedAt?: string;
+  actor: string;
+  Actor?: string;
+  function_id: string;
+  FunctionID?: string;
+  game_id?: string;
   GameID?: string;
+  env?: string;
   Env?: string;
-  State: 'pending' | 'approved' | 'rejected';
-  Mode: 'invoke' | 'start_job';
+  state: 'pending' | 'approved' | 'rejected';
+  State?: 'pending' | 'approved' | 'rejected';
+  mode: 'invoke' | 'start_job';
+  Mode?: 'invoke' | 'start_job';
+  route?: string;
   Route?: string;
+  reason?: string;
+  idempotency_key?: string;
+  IdempotencyKey?: string;
+  target_service_id?: string;
+  TargetServiceID?: string;
+  hash_key?: string;
+  HashKey?: string;
+  payload?: unknown;
+  payload_preview?: string;
   // optional audit enrichment (when with_audit=1)
   ApproveIP?: string;
   ApproveTime?: string;
+  ApproveIPRegion?: string;
   RejectIP?: string;
   RejectTime?: string;
-  IdempotencyKey?: string;
-  TargetServiceID?: string;
-  HashKey?: string;
+  RejectIPRegion?: string;
 };
 
 export default function ApprovalsPage() {
@@ -44,7 +63,7 @@ export default function ApprovalsPage() {
   const [riskFilter, setRiskFilter] = useState<string>('');
   const [completedOnly, setCompletedOnly] = useState<boolean>(false);
   const onExport = () => {
-    const rows = (filtered || []).map((r: any) => [
+    const rows = (filtered || []).map((r: Approval) => [
       r.CreatedAt || '',
       r.Actor || '',
       r.FunctionID || '',
@@ -92,12 +111,12 @@ export default function ApprovalsPage() {
     URL.revokeObjectURL(url);
   };
   const [open, setOpen] = useState(false);
-  const [current, setCurrent] = useState<any>();
+  const [current, setCurrent] = useState<Approval | undefined>();
   const [preview, setPreview] = useState<string>('');
-  const [descs, setDescs] = useState<any[]>([]);
+  const [descs, setDescs] = useState<FunctionDescriptor[]>([]);
   const descMap = useMemo(() => {
-    const m: Record<string, any> = {};
-    (descs || []).forEach((d: any) => {
+    const m: Record<string, FunctionDescriptor> = {};
+    (descs || []).forEach((d: FunctionDescriptor) => {
       if (d?.id) m[d.id] = d;
     });
     return m;
@@ -116,11 +135,12 @@ export default function ApprovalsPage() {
     qs.set('size', String(size));
     qs.set('with_audit', '1');
     if (completedOnly) qs.set('completed_only', '1');
-    let json: any;
+    let json: Awaited<ReturnType<typeof listApprovals>>;
     try {
-      json = await listApprovals(Object.fromEntries(qs as any));
-    } catch (e: any) {
-      getMessage()?.error(e?.message || '加载失败');
+      json = await listApprovals(Object.fromEntries(qs));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '加载失败';
+      getMessage()?.error(msg);
       setLoading(false);
       return;
     }
@@ -132,29 +152,30 @@ export default function ApprovalsPage() {
   const filtered = useMemo(() => {
     const ip = (ipFilter || '').trim();
     const wantRisk = (riskFilter || '').trim().toLowerCase();
-    const matchIp = (r: any) => {
+    const matchIp = (r: Approval) => {
       if (!ip) return true;
       if (r.State === 'approved') return (r.ApproveIP || '').includes(ip);
       if (r.State === 'rejected') return (r.RejectIP || '').includes(ip);
       return false;
     };
-    const matchRisk = (r: any) => {
+    const matchRisk = (r: Approval) => {
       if (!wantRisk) return true;
-      const d = descMap[r.FunctionID];
+      const d = descMap[r.FunctionID || ''];
       const rk = (d?.risk || '').toString().toLowerCase();
       return rk === wantRisk;
     };
-    const matchCompleted = (r: any) =>
+    const matchCompleted = (r: Approval) =>
       !completedOnly || r.State === 'approved' || r.State === 'rejected';
     return (data || []).filter((r) => matchIp(r) && matchRisk(r) && matchCompleted(r));
   }, [data, ipFilter, riskFilter, completedOnly, descMap]);
 
   async function view(id: string) {
-    let json: any;
+    let json: Awaited<ReturnType<typeof getApproval>>;
     try {
       json = await getApproval(id);
-    } catch (e: any) {
-      getMessage()?.error(e?.message || '加载失败');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '加载失败';
+      getMessage()?.error(msg);
       return;
     }
     setCurrent(json);
@@ -163,14 +184,15 @@ export default function ApprovalsPage() {
   }
 
   async function approve(id: string) {
-    const a = data.find((x) => x.ID === id);
-    const desc = a ? descMap[a.FunctionID] : undefined;
+    const a = data.find((x) => x.ID === id || x.id === id);
+    const funcId = a?.FunctionID || a?.function_id || '';
+    const desc = funcId ? descMap[funcId] : undefined;
     const risk = (desc?.risk || '').toString().toLowerCase();
     const needConfirm = risk === 'high';
     if (needConfirm) {
       // Require typing the function id as a simple safeguard
-      const text = window.prompt(`高风险函数，请输入函数ID确认：${a?.FunctionID || ''}`) || '';
-      if ((a?.FunctionID || '') && text.trim() !== a?.FunctionID) {
+      const text = window.prompt(`高风险函数，请输入函数ID确认：${funcId}`) || '';
+      if (funcId && text.trim() !== funcId) {
         getMessage()?.warning('确认文本不匹配');
         return;
       }
@@ -178,8 +200,9 @@ export default function ApprovalsPage() {
     const otp = window.prompt('动态验证码（若未开启可留空）') || '';
     try {
       await approveApproval({ id, otp });
-    } catch (e: any) {
-      getMessage()?.error(e?.message || '批准失败');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '批准失败';
+      getMessage()?.error(msg);
       return;
     }
     getMessage()?.success('已批准');
@@ -191,8 +214,9 @@ export default function ApprovalsPage() {
     const reason = window.prompt('请输入拒绝原因') || '';
     try {
       await rejectApproval({ id, reason });
-    } catch (e: any) {
-      getMessage()?.error(e?.message || '拒绝失败');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '拒绝失败';
+      getMessage()?.error(msg);
       return;
     }
     getMessage()?.success('已拒绝');
@@ -202,7 +226,7 @@ export default function ApprovalsPage() {
 
   const exportDetailJSON = () => {
     if (!current) return;
-    const v: any = current;
+    const v: Approval = current;
     const obj = {
       id: v.id || v.ID,
       created_at: v.created_at || v.CreatedAt,
@@ -216,10 +240,10 @@ export default function ApprovalsPage() {
       idempotency_key: v.idempotency_key || v.IdempotencyKey,
       target_service_id: v.target_service_id || v.TargetServiceID,
       hash_key: v.hash_key || v.HashKey,
-      approve_ip: v.approve_ip,
-      approve_time: v.approve_time,
-      reject_ip: v.reject_ip,
-      reject_time: v.reject_time,
+      approve_ip: v.ApproveIP,
+      approve_time: v.ApproveTime,
+      reject_ip: v.RejectIP,
+      reject_time: v.RejectTime,
       payload_preview: preview,
     };
     const blob = new Blob([JSON.stringify(obj, null, 2)], {
@@ -352,7 +376,7 @@ export default function ApprovalsPage() {
             render: (v) => {
               const d = descMap[v];
               const risk = (d?.risk || '').toString().toLowerCase();
-              const tags: any[] = [];
+              const tags: React.ReactNode[] = [];
               if (risk)
                 tags.push(
                   <Tag key="risk" color={risk === 'high' ? 'red' : 'gold'}>
@@ -376,10 +400,10 @@ export default function ApprovalsPage() {
           {
             title: '风险',
             render: (_, r) => {
-              const d = descMap[r.FunctionID];
+              const d = descMap[r.FunctionID || ''];
               const risk = (d?.risk || '').toString().toLowerCase();
               if (!risk) return '-';
-              const map: any = {
+              const map: Record<string, { c: string; t: string }> = {
                 high: { c: 'red', t: '高' },
                 medium: { c: 'gold', t: '中' },
                 low: { c: 'default', t: '低' },
@@ -400,7 +424,7 @@ export default function ApprovalsPage() {
           },
           {
             title: 'IP/时间',
-            render: (_: any, r: any) => {
+            render: (_: unknown, r: Approval) => {
               if (r.State === 'approved' && (r.ApproveIP || r.ApproveTime)) {
                 const base = `${r.ApproveIP || ''}${r.ApproveTime ? ' / ' + r.ApproveTime : ''}`;
                 const region = r.ApproveIPRegion || '';
@@ -420,16 +444,16 @@ export default function ApprovalsPage() {
             title: '操作',
             render: (_, r) => (
               <Space>
-                <Button size="small" onClick={() => view(r.ID)}>
+                <Button size="small" onClick={() => view(r.ID || r.id)}>
                   查看
                 </Button>
                 {r.State === 'pending' && (
-                  <Button size="small" type="primary" onClick={() => approve(r.ID)}>
+                  <Button size="small" type="primary" onClick={() => approve(r.ID || r.id)}>
                     通过
                   </Button>
                 )}
                 {r.State === 'pending' && (
-                  <Button size="small" danger onClick={() => reject(r.ID)}>
+                  <Button size="small" danger onClick={() => reject(r.ID || r.id)}>
                     拒绝
                   </Button>
                 )}
@@ -452,7 +476,7 @@ export default function ApprovalsPage() {
                   size="small"
                   onClick={() =>
                     window.open(
-                      `/ops/audit?actor=${encodeURIComponent(current.actor || current.Actor)}`,
+                      `/ops/audit?actor=${encodeURIComponent(current.actor || current.Actor || '')}`,
                       '_blank',
                     )
                   }
@@ -466,7 +490,7 @@ export default function ApprovalsPage() {
                   onClick={() =>
                     window.open(
                       `/ops/audit?actor=${encodeURIComponent(
-                        current.actor || current.Actor,
+                        current.actor || current.Actor || '',
                       )}&kind=approval_approve`,
                       '_blank',
                     )
@@ -506,7 +530,7 @@ export default function ApprovalsPage() {
                 {current.game_id || current.GameID || ''}/{current.env || current.Env || ''}
               </Descriptions.Item>
               <Descriptions.Item label="状态">
-                {(current.state || current.State) as any}
+                {(current.state || current.State) as string}
               </Descriptions.Item>
               <Descriptions.Item label="模式">{current.mode || current.Mode}</Descriptions.Item>
               <Descriptions.Item label="创建时间">
@@ -522,29 +546,29 @@ export default function ApprovalsPage() {
               <Descriptions.Item label="Hash Key">
                 {current.hash_key || current.HashKey}
               </Descriptions.Item>
-              {(current.reason || current.Reason) && (
+              {(current.reason) && (
                 <Descriptions.Item label="原因">
-                  {current.reason || current.Reason}
+                  {current.reason}
                 </Descriptions.Item>
               )}
-              {(current.approve_ip || current.approve_time) && (
+              {(current.ApproveIP || current.ApproveTime) && (
                 <Descriptions.Item label="批准IP/时间">
                   {(() => {
                     const base =
-                      (current.approve_ip || '') +
-                      (current.approve_time ? ' / ' + current.approve_time : '');
-                    const region = current.approve_ip_region || current.ApproveIPRegion || '';
+                      (current.ApproveIP || '') +
+                      (current.ApproveTime ? ' / ' + current.ApproveTime : '');
+                    const region = current.ApproveIPRegion || '';
                     return region ? `${base}（${region}）` : base;
                   })()}
                 </Descriptions.Item>
               )}
-              {(current.reject_ip || current.reject_time) && (
+              {(current.RejectIP || current.RejectTime) && (
                 <Descriptions.Item label="拒绝IP/时间">
                   {(() => {
                     const base =
-                      (current.reject_ip || '') +
-                      (current.reject_time ? ' / ' + current.reject_time : '');
-                    const region = current.reject_ip_region || current.RejectIPRegion || '';
+                      (current.RejectIP || '') +
+                      (current.RejectTime ? ' / ' + current.RejectTime : '');
+                    const region = current.RejectIPRegion || '';
                     return region ? `${base}（${region}）` : base;
                   })()}
                 </Descriptions.Item>

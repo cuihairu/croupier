@@ -5,6 +5,7 @@ import type {
   ExtensionInstallationItem,
   ExtensionReleaseItem,
 } from '@/services/api/extensions';
+import type { JSONValue } from '@/types/dashboard';
 
 type Maybe<T> = T | null | undefined;
 
@@ -57,7 +58,7 @@ export function adaptInstallationDetailResponse(
   resp: Maybe<{
     installation?: ExtensionInstallationItem;
     bindings?: ExtensionBindingItem[];
-    config?: Record<string, any>;
+    config?: Record<string, JSONValue>;
     secretRefs?: Record<string, string>;
   }>,
   fallbackItem?: ExtensionInstallationItem,
@@ -67,7 +68,7 @@ export function adaptInstallationDetailResponse(
     bindings: toArray(resp?.bindings, []),
     config: (resp?.config && typeof resp.config === 'object' ? resp.config : {}) as Record<
       string,
-      any
+      string | number | boolean | null | undefined
     >,
     secretRefs: (resp?.secretRefs && typeof resp.secretRefs === 'object'
       ? resp.secretRefs

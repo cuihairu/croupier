@@ -8,7 +8,7 @@ export default function MessagesBell() {
   const [count, setCount] = useState(0);
   useEffect(() => {
     let alive = true;
-    let timer: any;
+    let timer: ReturnType<typeof setTimeout>;
     const hasToken = () => !!(localStorage.getItem('token') || '');
     const poll = async () => {
       if (!hasToken()) return; // don't call API before login

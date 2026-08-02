@@ -1,11 +1,8 @@
 package function
 
 import (
-	"encoding/json"
-
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
-	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/gin-gonic/gin"
 )
@@ -255,82 +252,6 @@ func (h *Handler) FunctionPermissionsUpdate(c *gin.Context) {
 	response.Success(c, gin.H{})
 }
 
-// Function Form configuration handlers
-
-func (h *Handler) FunctionForm(c *gin.Context) {
-	var req FunctionFormRequest
-	if err := bindFunctionRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.FunctionForm(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
-func (h *Handler) FunctionFormUpdate(c *gin.Context) {
-	var req FunctionFormUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
-	var body map[string]json.RawMessage
-	if err := c.ShouldBindJSON(&body); err != nil {
-		response.Error(c, err)
-		return
-	}
-	for field := range body {
-		if forbiddenKey, ok := registrationguard.ForbiddenPresentationField(field); ok {
-			response.BadRequest(c, "function form only accepts Formily schema; field "+forbiddenKey+" is not supported")
-			return
-		}
-	}
-	if raw, ok := body["schema"]; ok {
-		req.Schema = raw
-	}
-
-	resp, err := h.service.FunctionFormUpdate(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
-func (h *Handler) FunctionFormHistory(c *gin.Context) {
-	var req FunctionFormHistoryRequest
-	if err := bindFunctionRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.FunctionFormHistory(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
-func (h *Handler) FunctionFormRollback(c *gin.Context) {
-	var req FunctionFormRollbackRequest
-	if err := bindFunctionRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.FunctionFormRollback(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
 func (h *Handler) FunctionWarnings(c *gin.Context) {
 	var req FunctionWarningsRequest
 	if err := bindFunctionRequest(c, &req); err != nil {
@@ -461,22 +382,6 @@ func (h *Handler) Permissions(c *gin.Context) {
 
 func (h *Handler) PermissionsUpdate(c *gin.Context) {
 	h.FunctionPermissionsUpdate(c)
-}
-
-func (h *Handler) Form(c *gin.Context) {
-	h.FunctionForm(c)
-}
-
-func (h *Handler) FormUpdate(c *gin.Context) {
-	h.FunctionFormUpdate(c)
-}
-
-func (h *Handler) FormHistory(c *gin.Context) {
-	h.FunctionFormHistory(c)
-}
-
-func (h *Handler) FormRollback(c *gin.Context) {
-	h.FunctionFormRollback(c)
 }
 
 func (h *Handler) History(c *gin.Context) {

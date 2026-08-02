@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
 
 // Source: croupier/internal/api/audit/dto.go AuditItem
 export type AuditItem = {
@@ -10,7 +11,7 @@ export type AuditItem = {
   target?: string;
   result?: string;
   traceId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, JSONValue>;
   createdAt: string;
 };
 
@@ -28,7 +29,7 @@ export type AuditEvent = {
   kind: string;
   actor: string;
   target: string;
-  meta: Record<string, unknown>;
+  meta: Record<string, JSONValue>;
   hash: string;
   prev: string;
 };
@@ -42,12 +43,12 @@ function normalizeAuditEvent(item: AuditItem): AuditEvent {
     target: item?.target ?? '',
     meta: {
       ...metadata,
-      trace_id: (metadata as any)?.trace_id ?? item?.traceId,
-      game_id: (metadata as any)?.game_id ?? item?.gameId,
-      env: (metadata as any)?.env ?? item?.env,
-      ip: (metadata as any)?.ip,
-      ua: (metadata as any)?.ua ?? (metadata as any)?.user_agent,
-      user_agent: (metadata as any)?.user_agent ?? (metadata as any)?.ua,
+      trace_id: (metadata.trace_id as string) ?? item?.traceId,
+      game_id: (metadata.game_id as string) ?? item?.gameId,
+      env: (metadata.env as string) ?? item?.env,
+      ip: metadata.ip as string,
+      ua: (metadata.ua as string) ?? (metadata.user_agent as string),
+      user_agent: (metadata.user_agent as string) ?? (metadata.ua as string),
     },
     hash: item?.id ?? '',
     prev: '',

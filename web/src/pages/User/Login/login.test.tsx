@@ -36,7 +36,7 @@ describe('Login Page', () => {
   });
 
   it('should show login form', async () => {
-    const historyRef = React.createRef<any>();
+    const historyRef = React.createRef<unknown>();
     const rootContainer = render(
       <TestBrowser
         historyRef={historyRef}
@@ -60,7 +60,7 @@ describe('Login Page', () => {
   });
 
   it('should login success', async () => {
-    const historyRef = React.createRef<any>();
+    const historyRef = React.createRef<unknown>();
     const rootContainer = render(
       <TestBrowser
         historyRef={historyRef}

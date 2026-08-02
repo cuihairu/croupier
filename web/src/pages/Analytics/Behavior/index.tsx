@@ -13,6 +13,7 @@ import {
   Tag,
   Modal,
 } from 'antd';
+import dayjs, { type Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
 import {
@@ -22,19 +23,71 @@ import {
   fetchAnalyticsAdoption,
   fetchAnalyticsAdoptionBreakdown,
 } from '@/services/api/analytics';
+import type { JSONValue } from '@/types/dashboard';
+
+interface EventRow {
+  id?: string;
+  event?: string;
+  time?: string;
+  user_id?: string;
+  [key: string]: JSONValue | undefined;
+}
+
+interface FunnelStep {
+  step: string;
+  users: number;
+  rate: number;
+}
+
+interface PathRow {
+  path: string;
+  groups: number;
+}
+
+interface AdoptionRow {
+  feature: string;
+  groups: number;
+  rate: number;
+}
+
+interface AdoptionBreakdownRow {
+  dim: string;
+  baseline: number;
+  groups: number;
+  rate: number;
+}
+
+interface FunnelPreset {
+  name: string;
+  steps: string;
+  sequential: number;
+  same_session: number;
+  gap_sec: number;
+  start?: string;
+  end?: string;
+  lastUsed?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
+interface ImportRow {
+  key: string;
+  name: string;
+  status: string;
+  obj: FunnelPreset;
+}
 
 export default function AnalyticsBehaviorPage() {
   const [loading, setLoading] = useState(false);
   const [eventName, setEventName] = useState<string>('');
   const [propKey, setPropKey] = useState<string>('');
   const [propVal, setPropVal] = useState<string>('');
-  const [range, setRange] = useState<any>(null);
-  const [rows, setRows] = useState<any[]>([]);
+  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [rows, setRows] = useState<EventRow[]>([]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = { event: eventName, prop_key: propKey, prop_val: propVal };
+      const params: Record<string, string | number> = { event: eventName, prop_key: propKey, prop_val: propVal };
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsEvents(params);
@@ -48,7 +101,7 @@ export default function AnalyticsBehaviorPage() {
   }, []);
 
   const [steps, setSteps] = useState<string[]>([]);
-  const [funnel, setFunnel] = useState<any[]>([]);
+  const [funnel, setFunnel] = useState<FunnelStep[]>([]);
   const [seq, setSeq] = useState<boolean>(false);
   const [sameSess, setSameSess] = useState<boolean>(false);
   const [gapSec, setGapSec] = useState<number>(0);
@@ -56,7 +109,7 @@ export default function AnalyticsBehaviorPage() {
     setLoading(true);
     try {
       const st = overrideSteps && overrideSteps.length > 0 ? overrideSteps : steps;
-      const params: any = { steps: st.join(','), sequential: seq ? 1 : 0 };
+      const params: Record<string, string | number> = { steps: st.join(','), sequential: seq ? 1 : 0 };
       if (sameSess) params.same_session = 1;
       if (gapSec && gapSec > 0) params.gap_sec = gapSec;
       if (range && range[0]) params.start = range[0].toISOString();
@@ -86,7 +139,11 @@ export default function AnalyticsBehaviorPage() {
       const e = qs.get('end');
       if (s && e) {
         try {
-          setRange([new Date(s) as any, new Date(e) as any]);
+          const startDate = dayjs(s);
+          const endDate = dayjs(e);
+          if (startDate.isValid() && endDate.isValid()) {
+            setRange([startDate, endDate]);
+          }
         } catch {}
       }
       if (st.length > 0) {
@@ -121,17 +178,17 @@ export default function AnalyticsBehaviorPage() {
                 onChange={(e) => setPropVal(e.target.value)}
                 style={{ width: 140 }}
               />
-              <DatePicker.RangePicker value={range as any} onChange={setRange as any} />
+              <DatePicker.RangePicker value={range as [Dayjs, Dayjs]} onChange={(dates) => setRange(dates as [Dayjs | null, Dayjs | null] | null)} />
               <Button type="primary" onClick={load}>
                 查询
               </Button>
             </Space>
           }
         >
-          <Table
+          <Table<EventRow>
             size="small"
             loading={loading}
-            rowKey={(r) => r.id || `${r.event || ''}-${r.time || ''}`}
+            rowKey={(r: EventRow) => r.id || `${r.event || ''}-${r.time || ''}`}
             dataSource={rows}
             columns={[
               { title: '时间', dataIndex: 'time' },
@@ -143,7 +200,7 @@ export default function AnalyticsBehaviorPage() {
             <Button
               onClick={async () => {
                 const rowsOut = [['time', 'event', 'user_id']].concat(
-                  (rows || []).map((r: any) => [r.time, r.event, r.user_id]),
+                  (rows || []).map((r: EventRow) => [r.time || '', r.event || '', r.user_id || '']),
                 );
                 await exportToXLSX('events.csv', [{ sheet: 'events', rows: rowsOut }]);
               }}
@@ -163,7 +220,7 @@ export default function AnalyticsBehaviorPage() {
                 mode="tags"
                 placeholder="步骤（事件名）"
                 value={steps}
-                onChange={setSteps as any}
+                onChange={(v) => setSteps(v)}
                 style={{ minWidth: 360 }}
               />
               <Switch
@@ -177,7 +234,7 @@ export default function AnalyticsBehaviorPage() {
               </Checkbox>
               <InputNumber
                 placeholder="步间最大秒数"
-                value={gapSec as any}
+                value={gapSec}
                 onChange={(v) => setGapSec(Number(v || 0))}
                 min={0}
                 style={{ width: 140 }}
@@ -205,11 +262,10 @@ export default function AnalyticsBehaviorPage() {
             </Space>
           }
         >
-          <Table
+          <Table<FunnelStep>
             size="small"
             pagination={false}
-            dataSource={(funnel || []).map((s: any, i: number) => ({
-              key: i,
+            dataSource={(funnel || []).map((s: FunnelStep, i: number) => ({
               step: s.step,
               users: s.users,
               rate: s.rate,
@@ -217,14 +273,14 @@ export default function AnalyticsBehaviorPage() {
             columns={[
               { title: '步骤', dataIndex: 'step' },
               { title: '人数', dataIndex: 'users' },
-              { title: '转化率', dataIndex: 'rate', render: (v) => (v != null ? `${v}%` : '-') },
+              { title: '转化率', dataIndex: 'rate', render: (v: number) => (v != null ? `${v}%` : '-') },
             ]}
           />
           <div style={{ marginTop: 8 }}>
             <Button
               onClick={async () => {
                 const rowsOut = [['step', 'users', 'rate']].concat(
-                  (funnel || []).map((s: any) => [s.step, s.users, s.rate]),
+                  (funnel || []).map((s: FunnelStep) => [String(s.step), String(s.users), String(s.rate)]),
                 );
                 await exportToXLSX('funnel.csv', [{ sheet: 'funnel', rows: rowsOut }]);
               }}
@@ -256,7 +312,7 @@ export default function AnalyticsBehaviorPage() {
 }
 
 const PathControls: React.FC<{
-  range: any;
+  range: [Dayjs | null, Dayjs | null] | null;
   currentSteps?: string[];
   onUsePath?: (steps: string[]) => void;
 }> = ({ range, currentSteps, onUsePath }) => {
@@ -269,12 +325,12 @@ const PathControls: React.FC<{
   const [gapSec, setGapSec] = useState<number>(0);
   const [pathRe, setPathRe] = useState<string>('');
   const [pathNotRe, setPathNotRe] = useState<string>('');
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<PathRow[]>([]);
   const [loading, setLoading] = useState(false);
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = { per, steps, limit };
+      const params: Record<string, string | number> = { per, steps, limit };
       if (include.length > 0) params.include = include.join(',');
       if (exclude.length > 0) params.exclude = exclude.join(',');
       if (sameSess) params.same_session = 1;
@@ -294,21 +350,21 @@ const PathControls: React.FC<{
       <Space>
         <Select
           value={per}
-          onChange={setPer as any}
+          onChange={(v) => setPer(v)}
           options={[
             { label: '按会话', value: 'session' },
             { label: '按用户', value: 'user' },
           ]}
         />
         <InputNumber
-          value={steps as any}
+          value={steps}
           onChange={(v) => setSteps(Number(v || 5))}
           min={1}
           max={10}
           addonBefore="步数"
         />
         <InputNumber
-          value={limit as any}
+          value={limit}
           onChange={(v) => setLimit(Number(v || 50))}
           min={10}
           max={500}
@@ -317,14 +373,14 @@ const PathControls: React.FC<{
         <Select
           mode="tags"
           value={include}
-          onChange={setInclude as any}
+          onChange={(v) => setInclude(v)}
           placeholder="包含事件"
           style={{ minWidth: 200 }}
         />
         <Select
           mode="tags"
           value={exclude}
-          onChange={setExclude as any}
+          onChange={(v) => setExclude(v)}
           placeholder="排除事件"
           style={{ minWidth: 200 }}
         />
@@ -332,7 +388,7 @@ const PathControls: React.FC<{
           同会话
         </Checkbox>
         <InputNumber
-          value={gapSec as any}
+          value={gapSec}
           onChange={(v) => setGapSec(Number(v || 0))}
           min={0}
           addonBefore="步间秒数"
@@ -355,7 +411,7 @@ const PathControls: React.FC<{
         <Button
           onClick={async () => {
             const rowsOut = [['path', 'groups']].concat(
-              (rows || []).map((r: any) => [r.path, r.groups]),
+              (rows || []).map((r: PathRow) => [String(r.path || ''), String(r.groups || '')]),
             );
             await exportToXLSX('paths.csv', [{ sheet: 'paths', rows: rowsOut }]);
           }}
@@ -377,17 +433,17 @@ const PathControls: React.FC<{
           return null;
         }
       })()}
-      <Table
+      <Table<PathRow>
         size="small"
         loading={loading}
-        rowKey={(r: any) => `${r.path || ''}|${r.groups || ''}`}
+        rowKey={(r: PathRow) => `${r.path || ''}|${r.groups || ''}`}
         dataSource={rows}
         columns={[
           { title: '路径', dataIndex: 'path' },
           { title: '分组数', dataIndex: 'groups' },
           {
             title: '操作',
-            render: (_: any, r: any) => (
+            render: (_: unknown, r: PathRow) => (
               <Space>
                 <Button
                   size="small"
@@ -421,14 +477,14 @@ const PresetBar: React.FC<{
   seq: boolean;
   sameSess: boolean;
   gapSec: number;
-  range: any;
-  onApply: (p: any) => void;
+  range: [Dayjs | null, Dayjs | null] | null;
+  onApply: (p: Record<string, string | number | boolean>) => void;
 }> = ({ steps, seq, sameSess, gapSec, range, onApply }) => {
   const KEY = 'analytics:funnel_presets';
-  const [list, setList] = useState<any[]>([]);
+  const [list, setList] = useState<FunnelPreset[]>([]);
   const [sel, setSel] = useState<string>('');
 
-  const readAll = (): any[] => {
+  const readAll = (): FunnelPreset[] => {
     try {
       const txt = localStorage.getItem(KEY);
       const arr = txt ? JSON.parse(txt) : [];
@@ -437,12 +493,12 @@ const PresetBar: React.FC<{
       return [];
     }
   };
-  const writeAll = (arr: any[]) => {
+  const writeAll = (arr: FunnelPreset[]) => {
     try {
       localStorage.setItem(KEY, JSON.stringify(arr));
     } catch {}
   };
-  const sortPresets = (arr: any[]) => {
+  const sortPresets = (arr: FunnelPreset[]) => {
     return [...arr].sort((a, b) => {
       const ta = a.lastUsed ? new Date(a.lastUsed).getTime() : 0;
       const tb = b.lastUsed ? new Date(b.lastUsed).getTime() : 0;
@@ -463,23 +519,23 @@ const PresetBar: React.FC<{
       if (!input) return;
       const name = input.trim();
       if (!name) return;
-      const nowObj = {
+      const nowObj: FunnelPreset = {
         name,
-        steps,
-        seq,
-        sameSess,
-        gapSec,
+        steps: steps.join(','),
+        sequential: seq ? 1 : 0,
+        same_session: sameSess ? 1 : 0,
+        gap_sec: gapSec,
         start: range?.[0]?.toISOString?.(),
         end: range?.[1]?.toISOString?.(),
         lastUsed: new Date().toISOString(),
       };
       const arr = readAll();
-      const exists = arr.find((x: any) => x.name === name);
+      const exists = arr.find((x) => x.name === name);
       if (exists) {
         const ok = confirm(`预设 "${name}" 已存在，是否覆盖？`);
         if (!ok) return;
       }
-      const others = arr.filter((x: any) => x.name !== name);
+      const others = arr.filter((x) => x.name !== name);
       writeAll(sortPresets([...others, nowObj]));
       setSel(name);
       loadList();
@@ -490,13 +546,20 @@ const PresetBar: React.FC<{
     try {
       if (!sel) return;
       const arr = readAll();
-      const found = arr.find((x: any) => x.name === sel);
+      const found = arr.find((x) => x.name === sel);
       if (!found) return;
       // update lastUsed
       found.lastUsed = new Date().toISOString();
-      writeAll(sortPresets([...arr.filter((x: any) => x.name !== sel), found]));
+      writeAll(sortPresets([...arr.filter((x) => x.name !== sel), found]));
       loadList();
-      onApply(found);
+      // 过滤掉 undefined 值，确保类型安全
+      const cleaned: Record<string, string | number | boolean> = {};
+      Object.entries(found).forEach(([key, value]) => {
+        if (value !== undefined) {
+          cleaned[key] = value;
+        }
+      });
+      onApply(cleaned);
     } catch {}
   };
 
@@ -506,7 +569,7 @@ const PresetBar: React.FC<{
       const ok = confirm(`删除预设 ${sel}？`);
       if (!ok) return;
       const arr = readAll();
-      writeAll(arr.filter((x: any) => x.name !== sel));
+      writeAll(arr.filter((x) => x.name !== sel));
       setSel('');
       loadList();
     } catch {}
@@ -516,13 +579,13 @@ const PresetBar: React.FC<{
     try {
       if (!sel) return;
       const arr = readAll();
-      const found = arr.find((x: any) => x.name === sel);
+      const found = arr.find((x) => x.name === sel);
       if (!found) return;
       const input = prompt('重命名预设', sel || '');
       if (!input) return;
       const newName = input.trim();
       if (!newName) return;
-      if (arr.some((x: any) => x.name === newName && x.name !== sel)) {
+      if (arr.some((x) => x.name === newName && x.name !== sel)) {
         const ok = confirm(`已存在名为 "${newName}" 的预设，确定覆盖为该名称？`);
         if (!ok) return;
         // remove target name
@@ -540,7 +603,7 @@ const PresetBar: React.FC<{
     try {
       if (!sel) return;
       const arr = readAll();
-      const found = arr.find((x: any) => x.name === sel);
+      const found = arr.find((x) => x.name === sel);
       if (!found) return;
       const blob = new Blob([JSON.stringify([found], null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -577,7 +640,7 @@ const PresetBar: React.FC<{
   // Import preview modal
   const [impOpen, setImpOpen] = useState(false);
   const [impText, setImpText] = useState('');
-  const [impList, setImpList] = useState<any[]>([]);
+  const [impList, setImpList] = useState<ImportRow[]>([]);
   const [impSel, setImpSel] = useState<React.Key[]>([]);
   const openImport = () => {
     setImpText('');
@@ -593,10 +656,10 @@ const PresetBar: React.FC<{
         return;
       }
       const cur = readAll();
-      const names = new Set(cur.map((x: any) => x.name));
+      const names = new Set(cur.map((x) => x.name));
       const list = arr
-        .filter((x: any) => x && x.name)
-        .map((x: any, i: number) => ({
+        .filter((x) => x && x.name)
+        .map((x: FunnelPreset, i: number) => ({
           key: x.name || String(i),
           name: String(x.name),
           status: names.has(x.name) ? '覆盖' : '新增',
@@ -611,11 +674,11 @@ const PresetBar: React.FC<{
   const doImport = () => {
     try {
       const cur = readAll();
-      const map: any = {};
-      cur.forEach((x: any) => (map[x.name] = x));
-      impList.forEach((row: any) => {
+      const map: Record<string, FunnelPreset> = {};
+      cur.forEach((x) => (map[x.name] = x));
+      impList.forEach((row) => {
         if (impSel.includes(row.key)) {
-          map[row.name] = row.obj;
+          map[row.name] = row.obj as FunnelPreset;
         }
       });
       writeAll(sortPresets(Object.values(map)));
@@ -633,7 +696,7 @@ const PresetBar: React.FC<{
         <Select
           placeholder="选择预设"
           value={sel}
-          onChange={setSel as any}
+          onChange={(v) => setSel(v)}
           options={(list || []).map((x) => ({
             label: `${x.name}${x.lastUsed ? ' · ' + new Date(x.lastUsed).toLocaleString() : ''}`,
             value: x.name,
@@ -680,11 +743,11 @@ const PresetBar: React.FC<{
           </div>
         </div>
         {impList.length > 0 && (
-          <Table
+          <Table<ImportRow>
             size="small"
-            rowKey={(r: any) => r.key}
+            rowKey={(r: ImportRow) => r.key}
             dataSource={impList}
-            rowSelection={{ selectedRowKeys: impSel, onChange: setImpSel as any }}
+            rowSelection={{ selectedRowKeys: impSel, onChange: (keys) => setImpSel(keys) }}
             columns={[
               { title: '名称', dataIndex: 'name' },
               { title: '动作', dataIndex: 'status' },
@@ -697,17 +760,17 @@ const PresetBar: React.FC<{
   );
 };
 
-const AdoptionControls: React.FC<{ range: any }> = ({ range }) => {
+const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ range }) => {
   const [features, setFeatures] = useState<string[]>([]);
   const [per, setPer] = useState<'user' | 'session'>('user');
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<AdoptionRow[]>([]);
   const [baseline, setBaseline] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [by, setBy] = useState<'channel' | 'platform' | 'country'>('channel');
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = { features: features.join(','), per };
+      const params: Record<string, string | number> = { features: features.join(','), per };
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsAdoption(params);
@@ -717,11 +780,11 @@ const AdoptionControls: React.FC<{ range: any }> = ({ range }) => {
       setLoading(false);
     }
   };
-  const [rowsDim, setRowsDim] = useState<any[]>([]);
+  const [rowsDim, setRowsDim] = useState<AdoptionBreakdownRow[]>([]);
   const loadDim = async () => {
     setLoading(true);
     try {
-      const params: any = { features: features.join(','), per, by };
+      const params: Record<string, string | number> = { features: features.join(','), per, by };
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsAdoptionBreakdown(params);
@@ -736,13 +799,13 @@ const AdoptionControls: React.FC<{ range: any }> = ({ range }) => {
         <Select
           mode="tags"
           value={features}
-          onChange={setFeatures as any}
+          onChange={(v) => setFeatures(v)}
           placeholder="功能事件（如：first_pay, open_store）"
           style={{ minWidth: 360 }}
         />
         <Select
           value={per}
-          onChange={setPer as any}
+          onChange={(v) => setPer(v)}
           options={[
             { label: '按用户', value: 'user' },
             { label: '按会话', value: 'session' },
@@ -754,7 +817,7 @@ const AdoptionControls: React.FC<{ range: any }> = ({ range }) => {
         <Button
           onClick={async () => {
             const rowsOut = [['feature', 'groups', 'rate(%)', 'baseline']].concat(
-              (rows || []).map((r: any) => [r.feature, r.groups, r.rate, baseline]),
+              (rows || []).map((r: AdoptionRow) => [r.feature, String(r.groups), String(r.rate), String(baseline)]),
             );
             await exportToXLSX('adoption.csv', [{ sheet: 'adoption', rows: rowsOut }]);
           }}
@@ -765,22 +828,22 @@ const AdoptionControls: React.FC<{ range: any }> = ({ range }) => {
       <div>
         基数（{per === 'user' ? '用户' : '会话'}）：{baseline}
       </div>
-      <Table
+      <Table<AdoptionRow>
         size="small"
         loading={loading}
-        rowKey={(r: any) => r.feature}
+        rowKey={(r: AdoptionRow) => r.feature}
         dataSource={rows}
         columns={[
           { title: '功能事件', dataIndex: 'feature' },
           { title: '分组数', dataIndex: 'groups' },
-          { title: '采用率', dataIndex: 'rate', render: (v: any) => (v != null ? `${v}%` : '-') },
+          { title: '采用率', dataIndex: 'rate', render: (v: number) => (v != null ? `${v}%` : '-') },
         ]}
         pagination={{ pageSize: 10 }}
       />
       <Space>
-        <Select
+        <Select<'channel' | 'platform' | 'country'>
           value={by}
-          onChange={setBy as any}
+          onChange={(v) => setBy(v)}
           options={[
             { label: '按渠道', value: 'channel' },
             { label: '按平台', value: 'platform' },
@@ -793,7 +856,7 @@ const AdoptionControls: React.FC<{ range: any }> = ({ range }) => {
         <Button
           onClick={async () => {
             const rowsOut = [['dim', 'baseline', 'groups', 'rate(%)']].concat(
-              (rowsDim || []).map((r: any) => [r.dim, r.baseline, r.groups, r.rate]),
+              (rowsDim || []).map((r: AdoptionBreakdownRow) => [r.dim, String(r.baseline), String(r.groups), String(r.rate)]),
             );
             await exportToXLSX('adoption_breakdown.csv', [
               { sheet: 'adoption_breakdown', rows: rowsOut },
@@ -803,16 +866,16 @@ const AdoptionControls: React.FC<{ range: any }> = ({ range }) => {
           导出 CSV
         </Button>
       </Space>
-      <Table
+      <Table<AdoptionBreakdownRow>
         size="small"
         loading={loading}
-        rowKey={(r: any) => `${r.dim || ''}|${r.baseline || ''}|${r.groups || ''}`}
+        rowKey={(r: AdoptionBreakdownRow) => `${r.dim || ''}|${r.baseline || ''}|${r.groups || ''}`}
         dataSource={rowsDim}
         columns={[
           { title: '分层', dataIndex: 'dim' },
           { title: '基数', dataIndex: 'baseline' },
           { title: '分组数', dataIndex: 'groups' },
-          { title: '采用率', dataIndex: 'rate', render: (v: any) => (v != null ? `${v}%` : '-') },
+          { title: '采用率', dataIndex: 'rate', render: (v: number) => (v != null ? `${v}%` : '-') },
         ]}
         pagination={{ pageSize: 10 }}
       />

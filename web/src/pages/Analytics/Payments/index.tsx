@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AutoComplete, Card, Space, DatePicker, Select, Button, Table, Tag } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
 import {
@@ -7,12 +8,129 @@ import {
   fetchAnalyticsTransactions,
   fetchProductTrend,
 } from '@/services/api/analytics';
+import type { JSONValue } from '@/types/dashboard';
+
+interface ChannelData {
+  channel: string;
+  revenue_cents: number;
+  success: number;
+  total: number;
+  success_rate: number;
+}
+
+interface PlatformData {
+  platform: string;
+  revenue_cents: number;
+  success: number;
+  total: number;
+  success_rate: number;
+}
+
+interface CountryData {
+  country: string;
+  country_code?: string;
+  revenue_cents: number;
+  success: number;
+  total: number;
+  success_rate: number;
+}
+
+interface RegionData {
+  region: string;
+  revenue_cents: number;
+  success: number;
+  total: number;
+  success_rate: number;
+}
+
+interface CityData {
+  city: string;
+  revenue_cents: number;
+  success: number;
+  total: number;
+  success_rate: number;
+}
+
+interface ProductData {
+  product_id: string;
+  revenue_cents: number;
+  success: number;
+  total: number;
+  success_rate: number;
+}
+
+interface PaymentSummary {
+  totals: Record<string, number>;
+  by_channel: ChannelData[];
+  by_platform: PlatformData[];
+  by_country: CountryData[];
+  by_region: RegionData[];
+  by_city: CityData[];
+  by_product: ProductData[];
+}
+
+interface Transaction {
+  order_id: string;
+  user_id: string;
+  channel: string;
+  platform?: string;
+  country?: string;
+  region?: string;
+  city?: string;
+  product_id?: string;
+  amount: number;
+  status: string;
+  time: string;
+  amount_cents?: number;
+  reason?: string;
+}
+
+interface TransactionsResponse {
+  transactions: Transaction[];
+  total: number;
+}
+
+interface TrendPoint {
+  time: string;
+  amount: number;
+  count: number;
+}
+
+interface TrendData {
+  product_id: string;
+  points: TrendPoint[];
+}
+
+interface CompareItem {
+  key: string;
+  cur: Record<string, JSONValue>;
+  prev: Record<string, JSONValue>;
+  revDelta: number;
+  rateDelta: number;
+}
+
+interface DeltaRows {
+  upRev: CompareItem[];
+  downRev: CompareItem[];
+  upRate: CompareItem[];
+  downRate: CompareItem[];
+  all: CompareItem[];
+}
+
+type GeoDim = 'country' | 'region' | 'city';
+type DeltaDim = 'channel' | 'platform' | 'country' | 'region' | 'city' | 'product';
+type DeltaMode = 'prev' | 'prev_week' | 'prev_month' | 'prev_year';
+
+interface FilterOption {
+  label: string;
+  value: string;
+}
 
 export default function AnalyticsPaymentsPage() {
   const [loading, setLoading] = useState(false);
-  const [range, setRange] = useState<any>(null);
+  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [channel, setChannel] = useState<string>('');
-  const [summary, setSummary] = useState<any>({
+  const [summary, setSummary] = useState<PaymentSummary>({
     totals: {},
     by_channel: [],
     by_platform: [],
@@ -21,35 +139,29 @@ export default function AnalyticsPaymentsPage() {
     by_city: [],
     by_product: [],
   });
-  const [tx, setTx] = useState<any>({ transactions: [], total: 0 });
+  const [tx, setTx] = useState<TransactionsResponse>({ transactions: [], total: 0 });
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
   const [platform, setPlatform] = useState<string>('');
   const [country, setCountry] = useState<string>('');
   const [region, setRegion] = useState<string>('');
   const [city, setCity] = useState<string>('');
-  const [geoDim, setGeoDim] = useState<'country' | 'region' | 'city'>('region');
+  const [geoDim, setGeoDim] = useState<GeoDim>('region');
   const [prodIds, setProdIds] = useState<string[]>([]);
   const [gran, setGran] = useState<'minute' | 'hour'>('hour');
-  const [trend, setTrend] = useState<any[]>([]);
+  const [trend, setTrend] = useState<TrendData[]>([]);
 
   // Available options for filters
-  const [availableChannels, setAvailableChannels] = useState<{ label: string; value: string }[]>(
-    [],
-  );
-  const [availablePlatforms, setAvailablePlatforms] = useState<{ label: string; value: string }[]>(
-    [],
-  );
-  const [availableCountries, setAvailableCountries] = useState<{ label: string; value: string }[]>(
-    [],
-  );
-  const [availableRegions, setAvailableRegions] = useState<{ label: string; value: string }[]>([]);
-  const [availableCities, setAvailableCities] = useState<{ label: string; value: string }[]>([]);
+  const [availableChannels, setAvailableChannels] = useState<FilterOption[]>([]);
+  const [availablePlatforms, setAvailablePlatforms] = useState<FilterOption[]>([]);
+  const [availableCountries, setAvailableCountries] = useState<FilterOption[]>([]);
+  const [availableRegions, setAvailableRegions] = useState<FilterOption[]>([]);
+  const [availableCities, setAvailableCities] = useState<FilterOption[]>([]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = { page, size };
+      const params: Record<string, string | number> = { page, size };
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       if (channel) params.channel = channel;
@@ -75,14 +187,14 @@ export default function AnalyticsPaymentsPage() {
         // Channels
         if (s.by_channel) {
           const channels = s.by_channel
-            .filter((item: any) => item.channel)
-            .map((item: any) => ({
+            .filter((item: ChannelData) => item.channel)
+            .map((item: ChannelData) => ({
               label: item.channel,
               value: item.channel,
             }));
           const uniqueChannels = channels.filter(
-            (channel: any, index: number, self: any[]) =>
-              index === self.findIndex((c: any) => c.value === channel.value),
+            (channel: FilterOption, index: number, self: FilterOption[]) =>
+              index === self.findIndex((c: FilterOption) => c.value === channel.value),
           );
           setAvailableChannels(uniqueChannels);
         }
@@ -90,14 +202,14 @@ export default function AnalyticsPaymentsPage() {
         // Platforms
         if (s.by_platform) {
           const platforms = s.by_platform
-            .filter((item: any) => item.platform)
-            .map((item: any) => ({
+            .filter((item: PlatformData) => item.platform)
+            .map((item: PlatformData) => ({
               label: item.platform,
               value: item.platform,
             }));
           const uniquePlatforms = platforms.filter(
-            (platform: any, index: number, self: any[]) =>
-              index === self.findIndex((p: any) => p.value === platform.value),
+            (platform: FilterOption, index: number, self: FilterOption[]) =>
+              index === self.findIndex((p: FilterOption) => p.value === platform.value),
           );
           setAvailablePlatforms(uniquePlatforms);
         }
@@ -105,14 +217,14 @@ export default function AnalyticsPaymentsPage() {
         // Countries
         if (s.by_country) {
           const countries = s.by_country
-            .filter((item: any) => item.country)
-            .map((item: any) => ({
+            .filter((item: CountryData) => item.country)
+            .map((item: CountryData) => ({
               label: `${item.country} (${item.country_code || ''})`,
               value: item.country,
             }));
           const uniqueCountries = countries.filter(
-            (country: any, index: number, self: any[]) =>
-              index === self.findIndex((c: any) => c.value === country.value),
+            (country: FilterOption, index: number, self: FilterOption[]) =>
+              index === self.findIndex((c: FilterOption) => c.value === country.value),
           );
           setAvailableCountries(uniqueCountries);
         }
@@ -120,14 +232,14 @@ export default function AnalyticsPaymentsPage() {
         // Regions
         if (s.by_region) {
           const regions = s.by_region
-            .filter((item: any) => item.region)
-            .map((item: any) => ({
+            .filter((item: RegionData) => item.region)
+            .map((item: RegionData) => ({
               label: item.region,
               value: item.region,
             }));
           const uniqueRegions = regions.filter(
-            (region: any, index: number, self: any[]) =>
-              index === self.findIndex((r: any) => r.value === region.value),
+            (region: FilterOption, index: number, self: FilterOption[]) =>
+              index === self.findIndex((r: FilterOption) => r.value === region.value),
           );
           setAvailableRegions(uniqueRegions);
         }
@@ -135,14 +247,14 @@ export default function AnalyticsPaymentsPage() {
         // Cities
         if (s.by_city) {
           const cities = s.by_city
-            .filter((item: any) => item.city)
-            .map((item: any) => ({
+            .filter((item: CityData) => item.city)
+            .map((item: CityData) => ({
               label: item.city,
               value: item.city,
             }));
           const uniqueCities = cities.filter(
-            (city: any, index: number, self: any[]) =>
-              index === self.findIndex((c: any) => c.value === city.value),
+            (city: FilterOption, index: number, self: FilterOption[]) =>
+              index === self.findIndex((c: FilterOption) => c.value === city.value),
           );
           setAvailableCities(uniqueCities);
         }
@@ -158,13 +270,28 @@ export default function AnalyticsPaymentsPage() {
     load();
   }, [page, size]);
 
+  const filterOption = (input: string, option?: FilterOption): boolean => {
+    const needle = (input || '').toLowerCase();
+    return (
+      String(option?.value ?? '')
+        .toLowerCase()
+        .includes(needle) ||
+      String(option?.label ?? '')
+        .toLowerCase()
+        .includes(needle)
+    );
+  };
+
   return (
     <PageContainer>
       <Card
         title="支付分析"
         extra={
           <Space>
-            <DatePicker.RangePicker value={range as any} onChange={setRange as any} />
+            <DatePicker.RangePicker
+              value={range as [Dayjs, Dayjs]}
+              onChange={(dates) => setRange(dates as [Dayjs | null, Dayjs | null] | null)}
+            />
             <AutoComplete
               allowClear
               placeholder="渠道"
@@ -172,17 +299,7 @@ export default function AnalyticsPaymentsPage() {
               onChange={setChannel}
               style={{ width: 140 }}
               options={availableChannels}
-              filterOption={(input, option: any) => {
-                const needle = (input || '').toLowerCase();
-                return (
-                  String(option?.value ?? '')
-                    .toLowerCase()
-                    .includes(needle) ||
-                  String(option?.label ?? '')
-                    .toLowerCase()
-                    .includes(needle)
-                );
-              }}
+              filterOption={filterOption}
             />
             <AutoComplete
               allowClear
@@ -191,17 +308,7 @@ export default function AnalyticsPaymentsPage() {
               onChange={setPlatform}
               style={{ width: 140 }}
               options={availablePlatforms}
-              filterOption={(input, option: any) => {
-                const needle = (input || '').toLowerCase();
-                return (
-                  String(option?.value ?? '')
-                    .toLowerCase()
-                    .includes(needle) ||
-                  String(option?.label ?? '')
-                    .toLowerCase()
-                    .includes(needle)
-                );
-              }}
+              filterOption={filterOption}
             />
             <AutoComplete
               allowClear
@@ -210,17 +317,7 @@ export default function AnalyticsPaymentsPage() {
               onChange={setCountry}
               style={{ width: 120 }}
               options={availableCountries}
-              filterOption={(input, option: any) => {
-                const needle = (input || '').toLowerCase();
-                return (
-                  String(option?.value ?? '')
-                    .toLowerCase()
-                    .includes(needle) ||
-                  String(option?.label ?? '')
-                    .toLowerCase()
-                    .includes(needle)
-                );
-              }}
+              filterOption={filterOption}
             />
             <AutoComplete
               allowClear
@@ -229,17 +326,7 @@ export default function AnalyticsPaymentsPage() {
               onChange={setRegion}
               style={{ width: 140 }}
               options={availableRegions}
-              filterOption={(input, option: any) => {
-                const needle = (input || '').toLowerCase();
-                return (
-                  String(option?.value ?? '')
-                    .toLowerCase()
-                    .includes(needle) ||
-                  String(option?.label ?? '')
-                    .toLowerCase()
-                    .includes(needle)
-                );
-              }}
+              filterOption={filterOption}
             />
             <AutoComplete
               allowClear
@@ -248,21 +335,11 @@ export default function AnalyticsPaymentsPage() {
               onChange={setCity}
               style={{ width: 140 }}
               options={availableCities}
-              filterOption={(input, option: any) => {
-                const needle = (input || '').toLowerCase();
-                return (
-                  String(option?.value ?? '')
-                    .toLowerCase()
-                    .includes(needle) ||
-                  String(option?.label ?? '')
-                    .toLowerCase()
-                    .includes(needle)
-                );
-              }}
+              filterOption={filterOption}
             />
-            <Select
+            <Select<GeoDim>
               value={geoDim}
-              onChange={setGeoDim as any}
+              onChange={(v) => setGeoDim(v)}
               style={{ width: 120 }}
               options={[
                 { label: '按国家', value: 'country' },
@@ -281,70 +358,70 @@ export default function AnalyticsPaymentsPage() {
             </Button>
             <Button
               onClick={async () => {
-                const ch = [
+                const ch: string[][] = [
                   ['channel', 'revenue_cents', 'success', 'total', 'success_rate(%)'],
                 ].concat(
-                  (summary?.by_channel || []).map((r: any) => [
-                    r.channel,
-                    r.revenue_cents,
-                    r.success,
-                    r.total,
-                    r.success_rate,
+                  (summary?.by_channel || []).map((r: ChannelData) => [
+                    String(r.channel),
+                    String(r.revenue_cents),
+                    String(r.success),
+                    String(r.total),
+                    String(r.success_rate),
                   ]),
                 );
-                const pf = [
+                const pf: string[][] = [
                   ['platform', 'revenue_cents', 'success', 'total', 'success_rate(%)'],
                 ].concat(
-                  (summary?.by_platform || []).map((r: any) => [
-                    r.platform,
-                    r.revenue_cents,
-                    r.success,
-                    r.total,
-                    r.success_rate,
+                  (summary?.by_platform || []).map((r: PlatformData) => [
+                    String(r.platform),
+                    String(r.revenue_cents),
+                    String(r.success),
+                    String(r.total),
+                    String(r.success_rate),
                   ]),
                 );
-                const co = [
+                const co: string[][] = [
                   ['country', 'revenue_cents', 'success', 'total', 'success_rate(%)'],
                 ].concat(
-                  (summary?.by_country || []).map((r: any) => [
-                    r.country,
-                    r.revenue_cents,
-                    r.success,
-                    r.total,
-                    r.success_rate,
+                  (summary?.by_country || []).map((r: CountryData) => [
+                    String(r.country),
+                    String(r.revenue_cents),
+                    String(r.success),
+                    String(r.total),
+                    String(r.success_rate),
                   ]),
                 );
-                const rg = [
+                const rg: string[][] = [
                   ['region', 'revenue_cents', 'success', 'total', 'success_rate(%)'],
                 ].concat(
-                  (summary?.by_region || []).map((r: any) => [
-                    r.region,
-                    r.revenue_cents,
-                    r.success,
-                    r.total,
-                    r.success_rate,
+                  (summary?.by_region || []).map((r: RegionData) => [
+                    String(r.region),
+                    String(r.revenue_cents),
+                    String(r.success),
+                    String(r.total),
+                    String(r.success_rate),
                   ]),
                 );
-                const ct = [
+                const ct: string[][] = [
                   ['city', 'revenue_cents', 'success', 'total', 'success_rate(%)'],
                 ].concat(
-                  (summary?.by_city || []).map((r: any) => [
-                    r.city,
-                    r.revenue_cents,
-                    r.success,
-                    r.total,
-                    r.success_rate,
+                  (summary?.by_city || []).map((r: CityData) => [
+                    String(r.city),
+                    String(r.revenue_cents),
+                    String(r.success),
+                    String(r.total),
+                    String(r.success_rate),
                   ]),
                 );
-                const pr = [
+                const pr: string[][] = [
                   ['product_id', 'revenue_cents', 'success', 'total', 'success_rate(%)'],
                 ].concat(
-                  (summary?.by_product || []).map((r: any) => [
-                    r.product_id,
-                    r.revenue_cents,
-                    r.success,
-                    r.total,
-                    r.success_rate,
+                  (summary?.by_product || []).map((r: ProductData) => [
+                    String(r.product_id),
+                    String(r.revenue_cents),
+                    String(r.success),
+                    String(r.total),
+                    String(r.success_rate),
                   ]),
                 );
                 await exportToXLSX('payments_summary.csv', [
@@ -370,9 +447,9 @@ export default function AnalyticsPaymentsPage() {
         </Space>
         <div style={{ marginTop: 12 }}>
           <b>按渠道</b>
-          <Table
+          <Table<ChannelData>
             size="small"
-            rowKey={(r: any) => String(r.channel || '')}
+            rowKey={(r: ChannelData) => String(r.channel || '')}
             dataSource={summary?.by_channel || []}
             columns={[
               { title: '渠道', dataIndex: 'channel' },
@@ -382,7 +459,7 @@ export default function AnalyticsPaymentsPage() {
               {
                 title: '成功率',
                 dataIndex: 'success_rate',
-                render: (v: any) => (v != null ? `${v}%` : '-'),
+                render: (v: number) => (v != null ? `${v}%` : '-'),
               },
             ]}
             pagination={false}
@@ -397,9 +474,9 @@ export default function AnalyticsPaymentsPage() {
         </div>
         <div style={{ marginTop: 12 }}>
           <b>按平台</b>
-          <Table
+          <Table<PlatformData>
             size="small"
-            rowKey={(r: any) => String(r.platform || '')}
+            rowKey={(r: PlatformData) => String(r.platform || '')}
             dataSource={summary?.by_platform || []}
             columns={[
               { title: '平台', dataIndex: 'platform' },
@@ -409,7 +486,7 @@ export default function AnalyticsPaymentsPage() {
               {
                 title: '成功率',
                 dataIndex: 'success_rate',
-                render: (v: any) => (v != null ? `${v}%` : '-'),
+                render: (v: number) => (v != null ? `${v}%` : '-'),
               },
             ]}
             pagination={false}
@@ -435,9 +512,12 @@ export default function AnalyticsPaymentsPage() {
           <b>
             按地区（{geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市'}）
           </b>
-          <Table
+          <Table<CountryData | RegionData | CityData>
             size="small"
-            rowKey={(r: any) => String((r as any)[geoDim] ?? r.country ?? r.region ?? r.city ?? '')}
+            rowKey={(r) => {
+              const record = r as unknown as Record<string, JSONValue>;
+              return String(record[geoDim] ?? record.country ?? record.region ?? record.city ?? '');
+            }}
             dataSource={
               geoDim === 'country'
                 ? summary?.by_country || []
@@ -456,7 +536,7 @@ export default function AnalyticsPaymentsPage() {
               {
                 title: '成功率',
                 dataIndex: 'success_rate',
-                render: (v: any) => (v != null ? `${v}%` : '-'),
+                render: (v: number) => (v != null ? `${v}%` : '-'),
               },
             ]}
             pagination={false}
@@ -514,9 +594,9 @@ export default function AnalyticsPaymentsPage() {
         </div>
         <div style={{ marginTop: 12 }}>
           <b>按商品</b>
-          <Table
+          <Table<ProductData>
             size="small"
-            rowKey={(r: any) => String(r.product_id || '')}
+            rowKey={(r: ProductData) => String(r.product_id || '')}
             dataSource={summary?.by_product || []}
             columns={[
               { title: '商品', dataIndex: 'product_id' },
@@ -526,7 +606,7 @@ export default function AnalyticsPaymentsPage() {
               {
                 title: '成功率',
                 dataIndex: 'success_rate',
-                render: (v: any) => (v != null ? `${v}%` : '-'),
+                render: (v: number) => (v != null ? `${v}%` : '-'),
               },
             ]}
             pagination={false}
@@ -543,17 +623,17 @@ export default function AnalyticsPaymentsPage() {
         <div style={{ marginTop: 16 }}>
           <Card size="small" title="SKU 转化趋势">
             <Space style={{ marginBottom: 8 }}>
-              <Select
+              <Select<string[]>
                 mode="tags"
                 allowClear
                 placeholder="product_id（支持多选）"
                 value={prodIds}
-                onChange={setProdIds as any}
+                onChange={(v) => setProdIds(v)}
                 style={{ minWidth: 360 }}
               />
-              <Select
+              <Select<'minute' | 'hour'>
                 value={gran}
-                onChange={setGran as any}
+                onChange={(v) => setGran(v)}
                 options={[
                   { label: '小时', value: 'hour' },
                   { label: '分钟', value: 'minute' },
@@ -564,7 +644,7 @@ export default function AnalyticsPaymentsPage() {
                 onClick={async () => {
                   try {
                     if (!range || !range[0] || !range[1] || (prodIds || []).length === 0) return;
-                    const params: any = {
+                    const params: Record<string, string | number> = {
                       start: range[0].toISOString(),
                       end: range[1].toISOString(),
                       product_id: prodIds.join(','),
@@ -583,21 +663,21 @@ export default function AnalyticsPaymentsPage() {
               <Button
                 onClick={async () => {
                   try {
-                    const rows: any[] = [
+                    const rows: (string | number)[][] = [
                       ['ts', 'product_id', 'success', 'total', 'revenue_cents', 'success_rate(%)'],
                     ];
-                    (trend || []).forEach((p: any) => {
-                      (p.points || []).forEach((pt: any) => {
-                        const ts = pt[0],
-                          succ = pt[1] || 0,
-                          tot = pt[2] || 0,
-                          rev = pt[3] || 0;
+                    (trend || []).forEach((p: TrendData) => {
+                      (p.points || []).forEach((pt: TrendPoint) => {
+                        const ts = pt.time;
+                        const succ = pt.amount || 0;
+                        const tot = pt.count || 0;
+                        const rev = pt.amount || 0;
                         const rate = tot > 0 ? Math.round((succ * 10000) / tot) / 100 : 0;
                         rows.push([ts, p.product_id, succ, tot, rev, rate]);
                       });
                     });
                     const csv = rows
-                      .map((r) => r.map((x: any) => String(x ?? '')).join(','))
+                      .map((r) => r.map((x: string | number) => String(x ?? '')).join(','))
                       .join('\n');
                     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
@@ -615,11 +695,11 @@ export default function AnalyticsPaymentsPage() {
             <TrendChart data={trend} />
           </Card>
         </div>
-        <Table
+        <Table<Transaction>
           style={{ marginTop: 12 }}
           size="small"
           loading={loading}
-          rowKey={(r: any) => String(r.order_id || `${r.user_id || ''}|${r.time || ''}`)}
+          rowKey={(r: Transaction) => String(r.order_id || `${r.user_id || ''}|${r.time || ''}`)}
           dataSource={tx?.transactions || []}
           columns={[
             { title: '时间', dataIndex: 'time' },
@@ -647,14 +727,14 @@ export default function AnalyticsPaymentsPage() {
               const rows = [
                 ['time', 'order_id', 'user_id', 'amount_cents', 'status', 'channel', 'reason'],
               ].concat(
-                (tx?.transactions || []).map((r: any) => [
-                  r.time,
-                  r.order_id,
-                  r.user_id,
-                  r.amount_cents,
-                  r.status,
-                  r.channel,
-                  r.reason,
+                (tx?.transactions || []).map((r: Transaction) => [
+                  String(r.time),
+                  String(r.order_id),
+                  String(r.user_id),
+                  String(r.amount_cents ?? ''),
+                  String(r.status),
+                  String(r.channel),
+                  String(r.reason ?? ''),
                 ]),
               );
               await exportToXLSX('payments.csv', [{ sheet: 'transactions', rows }]);
@@ -676,14 +756,16 @@ export default function AnalyticsPaymentsPage() {
   );
 }
 
-const TopProducts: React.FC<{ data: any[] }> = ({ data }) => {
+type DimData = ChannelData | PlatformData | CountryData | RegionData | CityData | ProductData;
+
+const TopProducts: React.FC<{ data: ProductData[] }> = ({ data }) => {
   try {
     const items = (data || [])
       .slice(0)
-      .sort((a: any, b: any) => Number(b.revenue_cents || 0) - Number(a.revenue_cents || 0))
+      .sort((a: ProductData, b: ProductData) => Number(b.revenue_cents || 0) - Number(a.revenue_cents || 0))
       .slice(0, 10);
-    if (!items.length) return null as any;
-    const max = Math.max(...items.map((x: any) => Number(x.revenue_cents || 0)), 1);
+    if (!items.length) return null;
+    const max = Math.max(...items.map((x: ProductData) => Number(x.revenue_cents || 0)), 1);
     const w = 600,
       barH = 18,
       gap = 6,
@@ -699,7 +781,7 @@ const TopProducts: React.FC<{ data: any[] }> = ({ data }) => {
           height={h}
           style={{ display: 'block', border: '1px solid #f0f0f0', background: '#fff' }}
         >
-          {items.map((it: any, idx: number) => {
+          {items.map((it: ProductData, idx: number) => {
             const y = 10 + idx * (barH + gap);
             const val = Number(it.revenue_cents || 0);
             return (
@@ -723,11 +805,11 @@ const TopProducts: React.FC<{ data: any[] }> = ({ data }) => {
       </div>
     );
   } catch {
-    return null as any;
+    return null;
   }
 };
 
-const TopDimBar: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
+const TopDimBar: React.FC<{ data: DimData[]; dimKey: string; title: string }> = ({
   data,
   dimKey,
   title,
@@ -735,10 +817,10 @@ const TopDimBar: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
   try {
     const items = (data || [])
       .slice(0)
-      .sort((a: any, b: any) => Number(b.revenue_cents || 0) - Number(a.revenue_cents || 0))
+      .sort((a, b) => Number((b as any).revenue_cents || 0) - Number((a as any).revenue_cents || 0))
       .slice(0, 10);
-    if (!items.length) return null as any;
-    const max = Math.max(...items.map((x: any) => Number(x.revenue_cents || 0)), 1);
+    if (!items.length) return null;
+    const max = Math.max(...items.map((x) => Number((x as any).revenue_cents || 0)), 1);
     const w = 600,
       barH = 18,
       gap = 6,
@@ -754,13 +836,13 @@ const TopDimBar: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
           height={h}
           style={{ display: 'block', border: '1px solid #f0f0f0', background: '#fff' }}
         >
-          {items.map((it: any, idx: number) => {
+          {items.map((it, idx: number) => {
             const y = 10 + idx * (barH + gap);
-            const val = Number(it.revenue_cents || 0);
+            const val = Number((it as any).revenue_cents || 0);
             return (
               <g key={idx}>
                 <text x={4} y={y + barH - 4} fontSize={12} fill="#555">
-                  {String(it[dimKey] || '-')}
+                  {String((it as any)[dimKey] || '-')}
                 </text>
                 <rect x={left} y={y} width={Math.max(2, scale(val))} height={barH} fill="#73d13d" />
                 <text
@@ -778,23 +860,23 @@ const TopDimBar: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
       </div>
     );
   } catch {
-    return null as any;
+    return null;
   }
 };
 
-const TopDimRate: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
+const TopDimRate: React.FC<{ data: DimData[]; dimKey: string; title: string }> = ({
   data,
   dimKey,
   title,
 }) => {
   try {
     const items = (data || [])
-      .map((x: any) => ({ ...x, success_rate: Number(x.success_rate || 0) }))
-      .filter((x: any) => isFinite(x.success_rate))
-      .sort((a: any, b: any) => b.success_rate - a.success_rate)
+      .map((x) => ({ ...(x as any), success_rate: Number((x as any).success_rate || 0) }))
+      .filter((x) => isFinite(x.success_rate))
+      .sort((a, b) => b.success_rate - a.success_rate)
       .slice(0, 10);
-    if (!items.length) return null as any;
-    const max = Math.max(...items.map((x: any) => Number(x.success_rate || 0)), 1);
+    if (!items.length) return null;
+    const max = Math.max(...items.map((x) => Number(x.success_rate || 0)), 1);
     const w = 600,
       barH = 18,
       gap = 6,
@@ -810,7 +892,7 @@ const TopDimRate: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
           height={h}
           style={{ display: 'block', border: '1px solid #f0f0f0', background: '#fff' }}
         >
-          {items.map((it: any, idx: number) => {
+          {items.map((it, idx: number) => {
             const y = 10 + idx * (barH + gap);
             const val = Number(it.success_rate || 0);
             return (
@@ -834,12 +916,12 @@ const TopDimRate: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
       </div>
     );
   } catch {
-    return null as any;
+    return null;
   }
 };
 
 // Combined revenue (bar) + success_rate (line) on same chart (two scales approximated visually)
-const TopDimCombo: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
+const TopDimCombo: React.FC<{ data: DimData[]; dimKey: string; title: string }> = ({
   data,
   dimKey,
   title,
@@ -847,11 +929,11 @@ const TopDimCombo: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
   try {
     const items = (data || [])
       .slice(0)
-      .sort((a: any, b: any) => Number(b.revenue_cents || 0) - Number(a.revenue_cents || 0))
+      .sort((a, b) => Number((b as any).revenue_cents || 0) - Number((a as any).revenue_cents || 0))
       .slice(0, 10);
-    if (!items.length) return null as any;
-    const maxRev = Math.max(...items.map((x: any) => Number(x.revenue_cents || 0)), 1);
-    const maxRate = Math.max(...items.map((x: any) => Number(x.success_rate || 0)), 1);
+    if (!items.length) return null;
+    const maxRev = Math.max(...items.map((x) => Number((x as any).revenue_cents || 0)), 1);
+    const maxRate = Math.max(...items.map((x) => Number((x as any).success_rate || 0)), 1);
     const w = 720,
       barH = 18,
       gap = 10,
@@ -869,14 +951,14 @@ const TopDimCombo: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
           height={h}
           style={{ display: 'block', border: '1px solid #f0f0f0', background: '#fff' }}
         >
-          {items.map((it: any, idx: number) => {
+          {items.map((it, idx: number) => {
             const y = topm + idx * (barH + gap);
-            const rev = Number(it.revenue_cents || 0);
-            const rate = Number(it.success_rate || 0);
+            const rev = Number((it as any).revenue_cents || 0);
+            const rate = Number((it as any).success_rate || 0);
             return (
               <g key={idx}>
                 <text x={4} y={y + barH - 4} fontSize={12} fill="#555">
-                  {String(it[dimKey] || '-')}
+                  {String((it as any)[dimKey] || '-')}
                 </text>
                 {/* revenue bar */}
                 <rect x={left} y={y} width={Math.max(2, sRev(rev))} height={barH} fill="#69c0ff" />
@@ -910,19 +992,19 @@ const TopDimCombo: React.FC<{ data: any[]; dimKey: string; title: string }> = ({
       </div>
     );
   } catch {
-    return null as any;
+    return null;
   }
 };
 
 // Product conversion compare (success vs total)
-const TopProductConv: React.FC<{ data: any[] }> = ({ data }) => {
+const TopProductConv: React.FC<{ data: ProductData[] }> = ({ data }) => {
   try {
     const items = (data || [])
       .slice(0)
-      .sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0))
+      .sort((a: ProductData, b: ProductData) => Number(b.total || 0) - Number(a.total || 0))
       .slice(0, 10);
-    if (!items.length) return null as any;
-    const max = Math.max(...items.map((x: any) => Number(x.total || 0)), 1);
+    if (!items.length) return null;
+    const max = Math.max(...items.map((x: ProductData) => Number(x.total || 0)), 1);
     const w = 720,
       barH = 16,
       gap = 8,
@@ -939,7 +1021,7 @@ const TopProductConv: React.FC<{ data: any[] }> = ({ data }) => {
           height={h}
           style={{ display: 'block', border: '1px solid #f0f0f0', background: '#fff' }}
         >
-          {items.map((it: any, idx: number) => {
+          {items.map((it: ProductData, idx: number) => {
             const y = topm + idx * (barH + gap);
             const succ = Number(it.success || 0);
             const tot = Number(it.total || 0);
@@ -967,13 +1049,13 @@ const TopProductConv: React.FC<{ data: any[] }> = ({ data }) => {
       </div>
     );
   } catch {
-    return null as any;
+    return null;
   }
 };
 
 // Export current dimension rows to CSV
 const ExportDimCSV: React.FC<{
-  data: any[];
+  data: DimData[];
   dimKey: string;
   name: string;
   includeConv?: boolean;
@@ -982,12 +1064,18 @@ const ExportDimCSV: React.FC<{
     style={{ marginTop: 8 }}
     onClick={() => {
       try {
-        const rows: any[] = [['dim', 'revenue_cents', 'success', 'total', 'success_rate(%)']];
-        (data || []).forEach((r: any) =>
-          rows.push([r[dimKey], r.revenue_cents, r.success, r.total, r.success_rate]),
+        const rows: string[][] = [['dim', 'revenue_cents', 'success', 'total', 'success_rate(%)']];
+        (data || []).forEach((r) =>
+          rows.push([
+            String((r as any)[dimKey] ?? ''),
+            String((r as any).revenue_cents ?? 0),
+            String((r as any).success ?? 0),
+            String((r as any).total ?? 0),
+            String((r as any).success_rate ?? 0),
+          ]),
         );
         if (includeConv) rows.push([]);
-        const csv = rows.map((r) => r.map((x: any) => String(x ?? '')).join(',')).join('\n');
+        const csv = rows.map((r) => r.map((x) => String(x ?? '')).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1004,7 +1092,7 @@ const ExportDimCSV: React.FC<{
 
 // 环比分析：对比同等长度的上一个时间窗口，展示收入与成功率涨幅 Top/Bottom
 const DeltaSection: React.FC<{
-  range: any;
+  range: [Dayjs | null, Dayjs | null] | null;
   channel: string;
   platform: string;
   country: string;
@@ -1012,11 +1100,9 @@ const DeltaSection: React.FC<{
   city?: string;
 }> = ({ range, channel, platform, country, region, city }) => {
   const [loading, setLoading] = useState(false);
-  const [dim, setDim] = useState<
-    'channel' | 'platform' | 'country' | 'region' | 'city' | 'product'
-  >('channel');
-  const [mode, setMode] = useState<'prev' | 'prev_week' | 'prev_month' | 'prev_year'>('prev');
-  const [rows, setRows] = useState<any>({
+  const [dim, setDim] = useState<DeltaDim>('channel');
+  const [mode, setMode] = useState<DeltaMode>('prev');
+  const [rows, setRows] = useState<DeltaRows>({
     upRev: [],
     downRev: [],
     upRate: [],
@@ -1027,15 +1113,15 @@ const DeltaSection: React.FC<{
     if (!range || !range[0] || !range[1]) return;
     setLoading(true);
     try {
-      const s1: any = { start: range[0].toISOString(), end: range[1].toISOString() };
+      const s1: Record<string, string | number> = { start: range[0].toISOString(), end: range[1].toISOString() };
       if (channel) s1.channel = channel;
       if (platform) s1.platform = platform;
       if (country) s1.country = country;
       if (region) s1.region = region;
       if (city) s1.city = city;
       let pStart: Date, pEnd: Date;
-      const startDate = new Date(range[0]);
-      const endDate = new Date(range[1]);
+      const startDate = new Date(range[0].toISOString());
+      const endDate = new Date(range[1].toISOString());
       if (mode === 'prev') {
         const prevMs = endDate.getTime() - startDate.getTime();
         pEnd = new Date(startDate.getTime());
@@ -1051,7 +1137,7 @@ const DeltaSection: React.FC<{
         pStart = new Date(startDate.getTime() - 365 * 24 * 3600 * 1000);
         pEnd = new Date(endDate.getTime() - 365 * 24 * 3600 * 1000);
       }
-      const s0: any = { start: pStart.toISOString(), end: pEnd.toISOString() };
+      const s0: Record<string, string | number> = { start: pStart.toISOString(), end: pEnd.toISOString() };
       if (channel) s0.channel = channel;
       if (platform) s0.platform = platform;
       if (country) s0.country = country;
@@ -1071,14 +1157,7 @@ const DeltaSection: React.FC<{
           : dim === 'city'
           ? cur.by_city
           : cur.by_product) || [];
-      type CompareItem = {
-        key: string;
-        cur: Record<string, unknown>;
-        prev: Record<string, unknown>;
-        revDelta: number;
-        rateDelta: number;
-      };
-      const arrPreIdx: Record<string, Record<string, unknown>> = {};
+      const arrPreIdx: Record<string, Record<string, JSONValue>> = {};
       const arrPre =
         (dim === 'channel'
           ? pre.by_channel
@@ -1091,11 +1170,11 @@ const DeltaSection: React.FC<{
           : dim === 'city'
           ? pre.by_city
           : pre.by_product) || [];
-      arrPre.forEach((x: any) => {
+      arrPre.forEach((x: Record<string, JSONValue>) => {
         const k = String(dim === 'product' ? x['product_id'] : x[dim]);
         arrPreIdx[k] = x;
       });
-      const items: CompareItem[] = arrCur.map((x: Record<string, unknown>) => {
+      const items: CompareItem[] = arrCur.map((x: Record<string, JSONValue>) => {
         const key = String(dim === 'product' ? x['product_id'] : x[dim]);
         const prev = arrPreIdx[key] || {};
         const revDelta = Number(x.revenue_cents || 0) - Number(prev.revenue_cents || 0);
@@ -1130,9 +1209,9 @@ const DeltaSection: React.FC<{
       style={{ marginTop: 16 }}
       extra={
         <Space>
-          <Select
+          <Select<DeltaDim>
             value={dim}
-            onChange={setDim as any}
+            onChange={(v) => setDim(v)}
             options={[
               { label: '渠道', value: 'channel' },
               { label: '平台', value: 'platform' },
@@ -1140,9 +1219,9 @@ const DeltaSection: React.FC<{
               { label: '商品', value: 'product' },
             ]}
           />
-          <Select
+          <Select<DeltaMode>
             value={mode}
-            onChange={setMode as any}
+            onChange={(v) => setMode(v)}
             options={[
               { label: '上一等长窗口', value: 'prev' },
               { label: '上一周', value: 'prev_week' },
@@ -1156,7 +1235,7 @@ const DeltaSection: React.FC<{
           <Button
             onClick={() => {
               try {
-                const rowsOut: any[] = [
+                const rowsOut: (string | number)[][] = [
                   [
                     'dim',
                     'cur_revenue_cents',
@@ -1167,7 +1246,7 @@ const DeltaSection: React.FC<{
                     'delta_success_rate(%)',
                   ],
                 ];
-                (rows.all || []).forEach((it: any) => {
+                (rows.all || []).forEach((it: CompareItem) => {
                   rowsOut.push([
                     it.key,
                     Number(it.cur?.revenue_cents || 0),
@@ -1179,7 +1258,7 @@ const DeltaSection: React.FC<{
                   ]);
                 });
                 const csv = rowsOut
-                  .map((r) => r.map((x: any) => String(x ?? '')).join(','))
+                  .map((r) => r.map((x: string | number) => String(x ?? '')).join(','))
                   .join('\n');
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
@@ -1199,9 +1278,9 @@ const DeltaSection: React.FC<{
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <b>收入涨幅 Top5</b>
-          <Table
+          <Table<CompareItem>
             size="small"
-            rowKey={(r: any) => String(r.key || '')}
+            rowKey={(r: CompareItem) => String(r.key || '')}
             dataSource={rows.upRev}
             columns={[
               { title: dim, dataIndex: 'key' },
@@ -1212,9 +1291,9 @@ const DeltaSection: React.FC<{
         </div>
         <div>
           <b>收入降幅 Top5</b>
-          <Table
+          <Table<CompareItem>
             size="small"
-            rowKey={(r: any) => String(r.key || '')}
+            rowKey={(r: CompareItem) => String(r.key || '')}
             dataSource={rows.downRev}
             columns={[
               { title: dim, dataIndex: 'key' },
@@ -1225,9 +1304,9 @@ const DeltaSection: React.FC<{
         </div>
         <div>
           <b>成功率涨幅 Top5</b>
-          <Table
+          <Table<CompareItem>
             size="small"
-            rowKey={(r: any) => String(r.key || '')}
+            rowKey={(r: CompareItem) => String(r.key || '')}
             dataSource={rows.upRate}
             columns={[
               { title: dim, dataIndex: 'key' },
@@ -1238,9 +1317,9 @@ const DeltaSection: React.FC<{
         </div>
         <div>
           <b>成功率降幅 Top5</b>
-          <Table
+          <Table<CompareItem>
             size="small"
-            rowKey={(r: any) => String(r.key || '')}
+            rowKey={(r: CompareItem) => String(r.key || '')}
             dataSource={rows.downRate}
             columns={[
               { title: dim, dataIndex: 'key' },
@@ -1255,10 +1334,10 @@ const DeltaSection: React.FC<{
 };
 
 // TrendChart: two panels (revenue & success_rate) for multiple products
-const TrendChart: React.FC<{ data: any[] }> = ({ data }) => {
+const TrendChart: React.FC<{ data: TrendData[] }> = ({ data }) => {
   try {
-    const prods = (data || []) as any[];
-    if (!prods.length) return null as any;
+    const prods = (data || []) as TrendData[];
+    if (!prods.length) return null;
     const colors = [
       '#1677ff',
       '#fa541c',
@@ -1275,12 +1354,12 @@ const TrendChart: React.FC<{ data: any[] }> = ({ data }) => {
     const timesSet: Record<string, number> = {};
     let maxRev = 1,
       maxRate = 100;
-    prods.forEach((p: any) =>
-      (p.points || []).forEach((pt: any) => {
-        timesSet[String(pt[0])] = 1;
-        maxRev = Math.max(maxRev, Number(pt[3] || 0));
-        const succ = Number(pt[1] || 0),
-          tot = Number(pt[2] || 0);
+    prods.forEach((p: TrendData) =>
+      (p.points || []).forEach((pt: TrendPoint) => {
+        timesSet[String(pt.time)] = 1;
+        maxRev = Math.max(maxRev, Number(pt.amount || 0));
+        const succ = Number(pt.amount || 0);
+        const tot = Number(pt.count || 0);
         const rate = tot > 0 ? (succ * 100) / tot : 0;
         maxRate = Math.max(maxRate, rate);
       }),
@@ -1304,12 +1383,12 @@ const TrendChart: React.FC<{ data: any[] }> = ({ data }) => {
       yfn,
       color,
     }: {
-      vals: any[];
+      vals: [string, number][];
       yfn: (v: number) => number;
       color: string;
     }) => {
       const d = vals
-        .map((pt: any, idx: number) => `${idx ? 'L' : 'M'}${sx(pt[0])},${yfn(Number(pt[1]))}`)
+        .map((pt: [string, number], idx: number) => `${idx ? 'L' : 'M'}${sx(pt[0])},${yfn(Number(pt[1]))}`)
         .join(' ');
       return <path d={d} fill="none" stroke={color} strokeWidth={2} />;
     };
@@ -1324,10 +1403,10 @@ const TrendChart: React.FC<{ data: any[] }> = ({ data }) => {
           >
             <line x1={left} y1={topm} x2={left} y2={h - bottom} stroke="#ddd" />
             <line x1={left} y1={h - bottom} x2={w - right} y2={h - bottom} stroke="#ddd" />
-            {prods.map((p: any, i: number) => (
+            {prods.map((p: TrendData, i: number) => (
               <Path
                 key={p.product_id || i}
-                vals={(p.points || []).map((pt: any) => [pt[0], Number(pt[3] || 0)])}
+                vals={(p.points || []).map((pt: TrendPoint) => [pt.time, Number(pt.amount || 0)])}
                 yfn={syRev}
                 color={colors[i % colors.length]}
               />
@@ -1343,14 +1422,14 @@ const TrendChart: React.FC<{ data: any[] }> = ({ data }) => {
           >
             <line x1={left} y1={topm} x2={left} y2={h - bottom} stroke="#ddd" />
             <line x1={left} y1={h - bottom} x2={w - right} y2={h - bottom} stroke="#ddd" />
-            {prods.map((p: any, i: number) => (
+            {prods.map((p: TrendData, i: number) => (
               <Path
                 key={p.product_id || i}
-                vals={(p.points || []).map((pt: any) => {
-                  const succ = Number(pt[1] || 0),
-                    tot = Number(pt[2] || 0);
+                vals={(p.points || []).map((pt: TrendPoint) => {
+                  const succ = Number(pt.amount || 0);
+                  const tot = Number(pt.count || 0);
                   const rate = tot > 0 ? (succ * 100) / tot : 0;
-                  return [pt[0], rate];
+                  return [pt.time, rate] as [string, number];
                 })}
                 yfn={syRate}
                 color={colors[i % colors.length]}
@@ -1360,7 +1439,7 @@ const TrendChart: React.FC<{ data: any[] }> = ({ data }) => {
         </div>
         <div style={{ marginTop: 4 }}>
           <b>图例：</b>
-          {prods.map((p: any, i: number) => (
+          {prods.map((p: TrendData, i: number) => (
             <span key={p.product_id || i} style={{ marginRight: 12 }}>
               <span
                 style={{
@@ -1378,6 +1457,6 @@ const TrendChart: React.FC<{ data: any[] }> = ({ data }) => {
       </div>
     );
   } catch {
-    return null as any;
+    return null;
   }
 };

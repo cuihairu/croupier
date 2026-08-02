@@ -94,13 +94,13 @@ export default function OpsCertificatesPage() {
       title: '剩余',
       dataIndex: 'daysLeft',
       width: 100,
-      render: (_: any, r) => daysTag(r.daysLeft, r.status),
+      render: (_: unknown, r: Certificate) => daysTag(r.daysLeft, r.status),
     },
     {
       title: '状态',
       dataIndex: 'status',
       width: 100,
-      render: (_: any, r) => {
+      render: (_: unknown, r: Certificate) => {
         const v = getStatus(r);
         const c =
           v === 'expired' ? 'red' : v === 'expiring' ? 'gold' : v === 'valid' ? 'green' : 'default';
@@ -112,7 +112,7 @@ export default function OpsCertificatesPage() {
       title: '操作',
       key: 'act',
       width: 200,
-      render: (_: any, r) => (
+      render: (_: unknown, r: Certificate) => (
         <Space>
           <Button
             size="small"

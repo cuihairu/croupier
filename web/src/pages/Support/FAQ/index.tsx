@@ -3,17 +3,34 @@ import { Card, Table, Space, Button, Input, Switch, Modal, Form } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { listFAQ, createFAQ, updateFAQ, deleteFAQ } from '@/services/api/support';
 import { useAccess } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
+
+interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
+  category?: string;
+  tags?: string;
+  visible?: boolean;
+  sort?: number;
+  updated_at?: string;
+  [key: string]: JSONValue | undefined;
+}
+
+interface AccessState {
+  canSupportManage?: boolean;
+}
 
 export default function SupportFAQPage() {
-  const [list, setList] = useState<any[]>([]);
+  const [list, setList] = useState<FAQItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
   const [visible, setVisible] = useState<string>('');
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any>(null);
+  const [editing, setEditing] = useState<FAQItem | null>(null);
   const [form] = Form.useForm();
-  const access: any = useAccess?.() || {};
+  const access: AccessState = useAccess?.() || {};
 
   const load = async () => {
     setLoading(true);
@@ -33,7 +50,7 @@ export default function SupportFAQPage() {
     form.resetFields();
     setOpen(true);
   };
-  const openEdit = (rec: any) => {
+  const openEdit = (rec: FAQItem) => {
     setEditing(rec);
     form.setFieldsValue({
       question: rec.question,
@@ -55,7 +72,7 @@ export default function SupportFAQPage() {
     setOpen(false);
     load();
   };
-  const onDelete = (rec: any) => {
+  const onDelete = (rec: FAQItem) => {
     Modal.confirm({
       title: '删除 FAQ',
       onOk: async () => {
@@ -96,7 +113,7 @@ export default function SupportFAQPage() {
           </Space>
         }
       >
-        <Table
+        <Table<FAQItem>
           rowKey="id"
           loading={loading}
           dataSource={list}
@@ -109,11 +126,11 @@ export default function SupportFAQPage() {
             {
               title: '更新时间',
               dataIndex: 'updated_at',
-              render: (v: any) => (v ? new Date(v).toLocaleString() : '-'),
+              render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
             },
             {
               title: '操作',
-              render: (_: any, r: any) => (
+              render: (_: unknown, r: FAQItem) => (
                 <Space>
                   {access.canSupportManage && (
                     <Button size="small" onClick={() => openEdit(r)}>

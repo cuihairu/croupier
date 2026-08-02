@@ -48,7 +48,6 @@ export default function FunctionDetailPage() {
     handleCopy,
     handleDelete,
     handleSavePermissions,
-    onSaveForm,
   } = useFunctionDetailPage(params.id);
   const pageStudioPath = '/system/functions/resources';
   const invokePath = params.id ? `/system/functions/invoke?fid=${encodeURIComponent(params.id)}` : '';
@@ -109,7 +108,6 @@ export default function FunctionDetailPage() {
         onJsonCopyError={() => message.error('复制失败')}
         formDescriptor={formDescriptor}
         parsedInputSchema={parsedInputSchema}
-        onSaveForm={onSaveForm}
         onOpenPageStudio={() => history.push(pageStudioPath)}
       />
     ),
@@ -167,7 +165,7 @@ export default function FunctionDetailPage() {
           <Badge status={functionDetail?.enabled ? 'success' : 'default'} />
         </Space>
       }
-      subTitle="这里处理单个函数的能力定义与 Formily 输入表单；页面、菜单和分类在 Page Studio 中确定。"
+      subTitle="这里处理单个函数的能力定义与契约核对；页面、菜单和分类在 Page Studio 中确定。"
       extra={[
         <Space key="actions">
           <Button onClick={() => history.push(pageStudioPath)}>
@@ -227,7 +225,7 @@ export default function FunctionDetailPage() {
               </Typography.Title>
               <Typography.Text type="secondary">
                 {functionDetail?.description ||
-                  '这里用于确认单个函数的能力定义、资源/操作归属和单函数 Formily 表单。最终业务页面应在 Page Studio 中完成装配。'}
+                  '这里用于确认单个函数的能力定义、资源/操作归属和 JSON Schema 契约。最终业务页面应在 Page Studio 中完成装配。'}
               </Typography.Text>
             </Space>
             <Row gutter={[12, 12]}>
@@ -290,7 +288,7 @@ export default function FunctionDetailPage() {
             showIcon
             style={{ marginBottom: 16 }}
             message="函数层负责能力定义，Page Studio 负责页面装配"
-            description="这里适合校验函数定义、权限、告警和单函数表单配置；如果目标是做运营可用的实际界面，下一步应进入 Page Studio 完成页面骨架、预览和发布。"
+            description="这里适合校验函数定义、JSON Schema、权限和告警；如果目标是做运营可用的实际界面，下一步应进入 Page Studio 完成页面骨架、预览和发布。"
             action={
               <Button type="primary" onClick={() => history.push(pageStudioPath)}>
                 查看资源/页面候选

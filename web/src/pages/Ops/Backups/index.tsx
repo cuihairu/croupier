@@ -42,8 +42,9 @@ export default function OpsBackupsPage() {
       await deleteOpsBackup(r.id);
       message.success('已删除');
       load();
-    } catch (e: any) {
-      message.error(e?.message || '失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      message.error(errMsg || '失败');
     }
   };
 
@@ -69,7 +70,7 @@ export default function OpsBackupsPage() {
         }
       >
         <Table
-          rowKey={(r: any) => r.id}
+          rowKey={(r: OpsBackup) => r.id}
           dataSource={rows}
           size="small"
           pagination={{ pageSize: 10 }}
@@ -87,7 +88,7 @@ export default function OpsBackupsPage() {
             { title: '时间', dataIndex: 'createdAt' },
             {
               title: '操作',
-              render: (_: any, r: OpsBackup) => (
+              render: (_: unknown, r: OpsBackup) => (
                 <Space>
                   <a href={getOpsBackupDownloadUrl(r.id)} target="_blank" rel="noreferrer">
                     下载

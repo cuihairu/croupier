@@ -17,7 +17,7 @@ import {
 } from './StandardPage';
 
 /**
- * Dashboard vNext 组件
+ * Dashboard PageSpec 组件
  */
 import PageRenderer from './PageRenderer';
 import ResourcePageRenderer from './PageRenderer/ResourcePageRenderer';
@@ -37,7 +37,7 @@ export {
   StandardListSection,
   PageStatePanel,
   DASHBOARD_PAGE_TOKENS,
-  // Dashboard vNext
+  // Dashboard PageSpec
   PageRenderer,
   ResourcePageRenderer,
   OperationPageRenderer,

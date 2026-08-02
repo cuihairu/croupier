@@ -1,7 +1,7 @@
 /**
  * Console/Page - 运行控制台页面渲染器
  *
- * 使用 FormilyPageRenderer 渲染已发布的 PageSpec。
+ * 使用 PageRenderer 渲染已发布 PageSpec 页面。
  * 路由：/console/:categoryKey/:pageKey
  */
 
@@ -9,7 +9,7 @@ import { useParams, history, useIntl } from '@umijs/max';
 import { Alert, Button, Result, Space, Spin, Tag, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useEffect, useState } from 'react';
-import FormilyPageRenderer from '@/components/FormilyPageRenderer';
+import PageRenderer from '@/components/PageRenderer';
 import { executePageBinding, getPublishedPage } from '@/services/console';
 import type { PublishedPageSpec } from '@/types/dashboard';
 import { resolveConsolePageRoute } from '@/utils/consoleMenu';
@@ -192,10 +192,14 @@ export default function ConsolePage() {
           }
         />
       ) : null}
-      <FormilyPageRenderer
-        page={page!}
-        onExecute={(bindingId, payload) => executePageBinding(page!.pageKey, bindingId, payload)}
-      />
+      {page && (
+        <PageRenderer
+          pageSpec={page}
+          onExecute={async (bindingId, payload) => {
+            return executePageBinding(page.pageKey, bindingId, payload);
+          }}
+        />
+      )}
     </PageContainer>
   );
 }

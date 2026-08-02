@@ -14,9 +14,9 @@ export type DirectoryPageSchema = {
     loadingWhen?: 'loading';
   }>;
   rowActions: Array<{
-    key: 'detail' | 'form' | 'invoke';
+    key: 'detail' | 'schema' | 'invoke';
     tooltip: string;
-    icon: 'info' | 'setting' | 'play';
+    icon: 'info' | 'code' | 'play';
   }>;
   columns: Array<{
     key: 'id' | 'displayName' | 'summary' | 'resource' | 'operation' | 'tags' | 'enabled' | 'actions';
@@ -54,7 +54,7 @@ export const DIRECTORY_PAGE_SCHEMA: DirectoryPageSchema = {
   ],
   rowActions: [
     { key: 'detail', tooltip: '查看详情', icon: 'info' },
-    { key: 'form', tooltip: '函数表单', icon: 'setting' },
+    { key: 'schema', tooltip: '契约 Schema', icon: 'code' },
     { key: 'invoke', tooltip: '调用函数', icon: 'play' },
   ],
   columns: [

@@ -36,48 +36,64 @@ func NewContractService(db *gorm.DB) *ContractService {
 
 // RebuildContractFromFunctionMeta rebuilds a FunctionContract from raw function metadata.
 // This is called when a function is registered or updated.
-func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta FunctionMetaInput) error {
-	// 1. Normalize the descriptor
-	input := normalizer.DescriptorInput{
-		ID:           meta.ID,
-		Version:      meta.Version,
-		Summary:      meta.Summary,
-		Description:  meta.Description,
-		InputSchema:  meta.InputSchema,
-		OutputSchema: meta.OutputSchema,
-		Resource:     meta.Resource,
-		Operation:    meta.Operation,
-		Capability:   meta.Capability,
-		Execution:    meta.Execution,
-		Risk:         meta.Risk,
-		Permission:   meta.Permission,
-		Enabled:      meta.Enabled,
-		Tags:         meta.Tags,
+// meta can be FunctionMetaInput or any struct with matching JSON tags.
+func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error {
+	// Convert meta to FunctionMetaInput via JSON round-trip to support
+	// anonymous structs from the registry store.
+	var input FunctionMetaInput
+	if m, ok := meta.(FunctionMetaInput); ok {
+		input = m
+	} else {
+		b, err := json.Marshal(meta)
+		if err != nil {
+			return fmt.Errorf("marshal meta: %w", err)
+		}
+		if err := json.Unmarshal(b, &input); err != nil {
+			return fmt.Errorf("unmarshal meta: %w", err)
+		}
 	}
-	result := normalizer.Normalize(input)
+
+	// 1. Normalize the descriptor
+	normInput := normalizer.DescriptorInput{
+		ID:           input.ID,
+		Version:      input.Version,
+		Summary:      input.Summary,
+		Description:  input.Description,
+		InputSchema:  input.InputSchema,
+		OutputSchema: input.OutputSchema,
+		Resource:     input.Resource,
+		Operation:    input.Operation,
+		Capability:   input.Capability,
+		Execution:    input.Execution,
+		Risk:         input.Risk,
+		Permission:   input.Permission,
+		Enabled:      input.Enabled,
+		Tags:         input.Tags,
+	}
+	result := normalizer.Normalize(normInput)
 
 	// 2. Compute source digest
-	digest := computeDigest(meta)
+	digest := computeDigest(input)
 
 	// 3. Build FunctionContract
 	contract := &model.FunctionContract{
 		GameID:       gameID,
 		Env:          env,
-		FunctionID:   meta.ID,
-		Version:      meta.Version,
-		Enabled:      meta.Enabled,
-		Deprecated:   meta.Deprecated,
-		ResourceKey:  meta.Resource,
-		OperationKey: meta.Operation,
-		Capability:   meta.Capability,
-		Execution:    meta.Execution,
-		Risk:         meta.Risk,
-		Permission:   meta.Permission,
-		InputSchema:  datatypes.JSON(meta.InputSchema),
-		OutputSchema: datatypes.JSON(meta.OutputSchema),
+		FunctionID:   input.ID,
+		Version:      input.Version,
+		Enabled:      input.Enabled,
+		Deprecated:   input.Deprecated,
+		ResourceKey:  input.Resource,
+		OperationKey: input.Operation,
+		Capability:   input.Capability,
+		Execution:    input.Execution,
+		Risk:         input.Risk,
+		Permission:   input.Permission,
+		InputSchema:  datatypes.JSON(input.InputSchema),
+		OutputSchema: datatypes.JSON(input.OutputSchema),
 		Summary:      toJSONMap(result.Function.Summary),
 		Description:  toJSONMap(result.Function.Description),
-		Tags:         toJSON(meta.Tags),
+		Tags:         toJSON(input.Tags),
 		Source:       source,
 		SourceDigest: digest,
 		Diagnostics:  toJSON(result.Diagnostics),
@@ -91,9 +107,9 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 	slog.Info("rebuilt function contract",
 		"game_id", gameID,
 		"env", env,
-		"function_id", meta.ID,
-		"resource", meta.Resource,
-		"capability", meta.Capability)
+		"function_id", input.ID,
+		"resource", input.Resource,
+		"capability", input.Capability)
 
 	return nil
 }

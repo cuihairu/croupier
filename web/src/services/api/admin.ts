@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
 
 type LocalizedText = {
   zh?: string;
@@ -45,14 +46,14 @@ export async function publishPendingFunction(functionId: string) {
 }
 
 export async function getAdminFunctionPermissions(functionId: string) {
-  const res = await request<{ permissions?: any }>(
+  const res = await request<{ permissions?: Record<string, JSONValue> }>(
     `/api/v1/functions/${encodeURIComponent(functionId)}/permissions`,
     { method: 'GET' },
   );
   return res?.permissions || {};
 }
 
-export async function setAdminFunctionPermissions(functionId: string, permissions: any) {
+export async function setAdminFunctionPermissions(functionId: string, permissions: Record<string, JSONValue>) {
   return request<void>(`/api/v1/functions/${encodeURIComponent(functionId)}/permissions`, {
     method: 'PUT',
     data: permissions,

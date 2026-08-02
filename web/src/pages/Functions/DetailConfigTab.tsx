@@ -3,14 +3,16 @@ import {
   Alert,
   Button,
   Card,
+  Descriptions,
   Space,
   Tabs,
+  Typography,
 } from 'antd';
-import FunctionFormManager from '@/components/FunctionFormManager';
-import type { FormilySchema } from '@/components/formily/schema/types';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { JSONSchema } from '@/types/dashboard';
 import { JsonViewer } from './DetailSections';
+
+const { Text } = Typography;
 
 export type ConfigTabProps = {
   functionId: string;
@@ -25,7 +27,6 @@ export type ConfigTabProps = {
   onJsonCopyError: () => void;
   formDescriptor: Partial<FunctionDescriptor>;
   parsedInputSchema?: JSONSchema;
-  onSaveForm: (formConfig: { schema?: FormilySchema; clearCustom?: boolean }) => Promise<void>;
   onOpenPageStudio: () => void;
 };
 
@@ -38,9 +39,13 @@ export default function DetailConfigTab({
   onJsonCopyError,
   formDescriptor,
   parsedInputSchema,
-  onSaveForm,
   onOpenPageStudio,
 }: ConfigTabProps) {
+  const outputSchema =
+    typeof formDescriptor.outputSchema === 'string'
+      ? formDescriptor.outputSchema
+      : JSON.stringify(formDescriptor.outputSchema || {}, null, 2);
+
   const jsonTabItems = [
     {
       key: 'json-detail',
@@ -94,15 +99,47 @@ export default function DetailConfigTab({
       ),
     },
     {
-      key: 'ui',
-      label: '函数表单',
+      key: 'schema',
+      label: '契约 Schema',
       children: (
-        <FunctionFormManager
-          functionId={functionId}
-          descriptor={formDescriptor}
-          jsonSchema={parsedInputSchema}
-          onSave={onSaveForm}
-        />
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Alert
+            message="函数注册只提供契约，不保存页面 UI"
+            description="这里展示 input/output JSON Schema，用于核对调用参数和返回结构。默认业务页面由 PageProposal 生成，接受后进入 Page Studio 编辑和发布。"
+            type="info"
+            showIcon
+            action={
+              <Button type="primary" size="small" onClick={onOpenPageStudio}>
+                查看页面候选
+              </Button>
+            }
+          />
+          <Descriptions bordered size="small" column={1}>
+            <Descriptions.Item label="Function ID">
+              <Text code>{functionId || '-'}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Resource">
+              <Text>{formDescriptor.resource || '-'}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Operation">
+              <Text>{formDescriptor.operation || '-'}</Text>
+            </Descriptions.Item>
+          </Descriptions>
+          <Card size="small" title="Input JSON Schema">
+            <JsonViewer
+              data={parsedInputSchema || {}}
+              onCopySuccess={onJsonCopySuccess}
+              onCopyError={onJsonCopyError}
+            />
+          </Card>
+          <Card size="small" title="Output JSON Schema">
+            <JsonViewer
+              data={outputSchema ? outputSchema : {}}
+              onCopySuccess={onJsonCopySuccess}
+              onCopyError={onJsonCopyError}
+            />
+          </Card>
+        </Space>
       ),
     },
   ];
@@ -117,7 +154,7 @@ export default function DetailConfigTab({
         description={
           <Space wrap>
             <span>
-              “函数表单”只影响当前函数的入参展示；如果你要把多个函数组装成实际可操作页面，请进入 Page Studio。
+              函数层只确认能力契约；分类、菜单、列表、详情、动作位置和表单展示都由 PageProposal/PageSpec 决定。
             </span>
             <Button type="primary" size="small" onClick={onOpenPageStudio}>
               查看资源/页面候选

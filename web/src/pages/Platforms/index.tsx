@@ -20,8 +20,9 @@ export default function PlatformsPage() {
     try {
       const r = await listPlatforms();
       setPlatforms(r?.platforms || []);
-    } catch (err: any) {
-      if (err?.response?.status === 503) {
+    } catch (err) {
+      const errObj = err as { response?: { status?: number } };
+      if (errObj?.response?.status === 503) {
         message.warning('第三方平台扩展未就绪，请先安装并启用 official.external-platform');
       } else {
         message.error('加载平台列表失败');
@@ -82,7 +83,7 @@ export default function PlatformsPage() {
     {
       title: '操作',
       key: 'action',
-      render: (_: any, record: PlatformInfo) => (
+      render: (_: unknown, record: PlatformInfo) => (
         <Space>
           <Button
             size="small"

@@ -144,6 +144,16 @@ func assertOpenAPISourceDiagnostic(t *testing.T, err error, code string, severit
 	t.Fatalf("diagnostic code=%s severity=%s fieldSuffix=%s not found in %#v", code, severity, fieldSuffix, diagnostics)
 }
 
+func assertSourceDiagnostic(t *testing.T, diagnostics []dashspec.Diagnostic, code string, severity dashspec.DiagnosticSeverity) {
+	t.Helper()
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == code && diagnostic.Severity == severity {
+			return
+		}
+	}
+	t.Fatalf("diagnostic code=%s severity=%s not found in %#v", code, severity, diagnostics)
+}
+
 func setupOpenAPITestHandler(t *testing.T) (*Handler, *gin.Engine) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -236,7 +246,7 @@ func TestService_CreateSource_ValidSpec(t *testing.T) {
 	assert.Equal(t, "Test API", resp.Source.Name)
 	assert.Len(t, resp.Source.Operations, 1)
 	assert.Equal(t, "getUsers", resp.Source.Operations[0].OperationID)
-	assert.Empty(t, resp.Source.Diagnostics)
+	assertSourceDiagnostic(t, resp.Source.Diagnostics, "rest_capability_inferred", dashspec.SeverityInfo)
 
 	_, err = service.svcCtx.RegistryStore.GetOpenAPI("getUsers")
 	assert.Error(t, err, "source upload must not register executable functions")
@@ -659,7 +669,7 @@ func TestService_OpenAPISourceListDiagnosticsAndBinding(t *testing.T) {
 
 	diags, err := service.SourceDiagnostics(openAPITestContext(), &OpenAPISourceGetRequest{SourceID: created.Source.SourceID})
 	require.NoError(t, err)
-	assert.Empty(t, diags.Diagnostics)
+	assertSourceDiagnostic(t, diags.Diagnostics, "rest_capability_inferred", dashspec.SeverityInfo)
 
 	binding, err := service.CreateBinding(openAPITestContext(), &OpenAPISourceBindingCreateRequest{
 		SourceID:    created.Source.SourceID,

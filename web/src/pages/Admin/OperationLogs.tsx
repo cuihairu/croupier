@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Space, Input, Button, DatePicker, Tag, Select } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { listAudit, type AuditEvent } from '@/services/api';
 
@@ -33,7 +34,7 @@ export default function OperationLogsPage() {
     'support.ticket_transition',
   ];
   const [kinds, setKinds] = useState<string[]>(defaultKinds);
-  const [timeRange, setTimeRange] = useState<any>(null);
+  const [timeRange, setTimeRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [page, setPage] = useState<number>(1);
   const [size, setSize] = useState<number>(20);
   const [gameId, setGameId] = useState<string>('');
@@ -42,7 +43,7 @@ export default function OperationLogsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = { page, size };
+      const params: Record<string, string | number> = { page, size };
       if (actor) params.actor = actor;
       if (ip) params.ip = ip;
       if (gameId) params.game_id = gameId;
@@ -63,7 +64,7 @@ export default function OperationLogsPage() {
   }, [page, size]);
 
   const exportCSV = () => {
-    const arr = (rows || []).map((e: any) => [
+    const arr = (rows || []).map((e: AuditEvent) => [
       new Date(e.time).toISOString(),
       e.kind,
       e.actor,
@@ -142,8 +143,8 @@ export default function OperationLogsPage() {
           {kindTags}
           <DatePicker.RangePicker
             showTime
-            value={timeRange as any}
-            onChange={setTimeRange as any}
+            value={timeRange as [Dayjs, Dayjs]}
+            onChange={(dates) => setTimeRange(dates as [Dayjs | null, Dayjs | null] | null)}
           />
           <Button
             type="primary"
@@ -168,7 +169,7 @@ export default function OperationLogsPage() {
             { title: 'IP', dataIndex: ['meta', 'ip'] },
             {
               title: '属地',
-              render: (_: any, r: any) => {
+              render: (_: unknown, r: AuditEvent) => {
                 const v = String(r?.meta?.ip_region || '');
                 if (!v) return '-';
                 if (v === '本地') return <Tag color="blue">本地</Tag>;

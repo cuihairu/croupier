@@ -508,7 +508,7 @@ export default function OpenAPISourcesPage() {
           type="info"
           showIcon
           message="Source 不是 UI，也不是自动注册"
-          description="OpenAPI Source 用于解析 FunctionSpec / ResourceSpec / OperationSpec 和 PageCandidate 诊断；Source 未绑定 Provider 前不可执行，上传文档中的 UI、菜单、路由和 Formily 字段会被后端拒绝。"
+          description="OpenAPI Source 用于解析 FunctionSpec / ResourceSpec / OperationSpec 和 PageCandidate 诊断；Source 未绑定 Provider 前不可执行，上传文档中的 UI、菜单、路由和 renderer 私有字段会被后端拒绝。"
         />
         {!canWrite ? (
           <Alert

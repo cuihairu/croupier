@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-// PageSpec stores the draft state of a page.
+// PageSpec stores the draft state of a canonical dashboard PageSpec. The
+// indexed fields mirror immutable identifiers and list metadata; SpecJSON is
+// the single source for the full page DSL.
 type PageSpec struct {
 	ID                 uint           `gorm:"primarykey" json:"id"`
 	CreatedAt          time.Time      `json:"createdAt"`
@@ -18,25 +21,19 @@ type PageSpec struct {
 	GameID             string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:1;index:idx_page_specs_scope,priority:1" json:"gameId"`
 	Env                string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:2;index:idx_page_specs_scope,priority:2" json:"env"`
 	PageKey            string         `gorm:"size:128;not null;uniqueIndex:uidx_page_specs_scope_key,priority:3" json:"pageKey"`
-	Type               string         `gorm:"size:32" json:"type"` // entity/operation/task/report
+	Type               string         `gorm:"size:32" json:"type"` // resource/operation/task/report
 	ResourceKey        string         `gorm:"size:128;index" json:"resourceKey,omitempty"`
-	TitleJSON          string         `gorm:"type:json" json:"-"` // LocalizedText
-	DescriptionJSON    string         `gorm:"type:json" json:"-"` // LocalizedText
+	TitleJSON          string         `gorm:"type:json" json:"-"`
 	CategoryKey        string         `gorm:"size:64;index" json:"categoryKey"`
-	CategoryLabelsJSON string         `gorm:"type:json" json:"-"` // LocalizedText
+	CategoryLabelsJSON string         `gorm:"type:json" json:"-"`
 	CategoryOrder      int            `gorm:"default:0" json:"categoryOrder"`
 	Order              int            `gorm:"default:0" json:"order"`
 	Icon               string         `gorm:"size:64" json:"icon,omitempty"`
-	SchemaJSON         string         `gorm:"type:json" json:"-"`                    // FormilySchema (deprecated, use PageSpecJSON)
-	PageSpecJSON       string         `gorm:"type:json" json:"-"`                    // PageSpecV2 strong-typed JSON
-	FormPresentationJSON string       `gorm:"type:json" json:"-"`                    // FormPresentationSpec snapshot
-	BindingsJSON       string         `gorm:"type:json" json:"-"`                    // []PageFunctionBinding
-	MetadataJSON       string         `gorm:"type:json" json:"-"`                    // map[string]json.RawMessage
+	SpecJSON           string         `gorm:"type:json;not null" json:"-"`
 	Status             string         `gorm:"size:32;default:'draft'" json:"status"` // draft/published/archived
 	PublishedActive    bool           `gorm:"default:false;index" json:"publishedActive"`
 	DraftRevision      int            `gorm:"default:1" json:"draftRevision"`
 	PublishedVersion   int            `gorm:"default:0" json:"publishedVersion"`
-	PageSpecVersion    string         `gorm:"size:32" json:"pageSpecVersion"`        // v1 or v2
 	UpdatedBy          string         `gorm:"size:128" json:"updatedBy,omitempty"`
 }
 
@@ -82,73 +79,14 @@ func (p *PageSpec) SetCategoryLabels(labels map[string]string) error {
 	return nil
 }
 
-// GetSchema returns the parsed Formily schema.
-func (p *PageSpec) GetSchema() json.RawMessage {
-	return json.RawMessage(p.SchemaJSON)
+// GetSpec returns the raw canonical PageSpec JSON.
+func (p *PageSpec) GetSpec() json.RawMessage {
+	return json.RawMessage(p.SpecJSON)
 }
 
-// SetSchema sets the Formily schema.
-func (p *PageSpec) SetSchema(schema json.RawMessage) {
-	p.SchemaJSON = string(schema)
-}
-
-// GetBindings returns the parsed bindings.
-func (p *PageSpec) GetBindings() []PageFunctionBindingBinding {
-	var bindings []PageFunctionBindingBinding
-	if p.BindingsJSON != "" {
-		json.Unmarshal([]byte(p.BindingsJSON), &bindings)
-	}
-	return bindings
-}
-
-// SetBindings sets the bindings.
-func (p *PageSpec) SetBindings(bindings []PageFunctionBindingBinding) error {
-	b, err := json.Marshal(bindings)
-	if err != nil {
-		return err
-	}
-	p.BindingsJSON = string(b)
-	return nil
-}
-
-// GetPageSpecV2 returns the parsed PageSpecV2 JSON.
-func (p *PageSpec) GetPageSpecV2() json.RawMessage {
-	return json.RawMessage(p.PageSpecJSON)
-}
-
-// SetPageSpecV2 sets the PageSpecV2 JSON.
-func (p *PageSpec) SetPageSpecV2(spec json.RawMessage) {
-	p.PageSpecJSON = string(spec)
-}
-
-// GetFormPresentation returns the parsed FormPresentationSpec JSON.
-func (p *PageSpec) GetFormPresentation() json.RawMessage {
-	return json.RawMessage(p.FormPresentationJSON)
-}
-
-// SetFormPresentation sets the FormPresentationSpec JSON.
-func (p *PageSpec) SetFormPresentation(spec json.RawMessage) {
-	p.FormPresentationJSON = string(spec)
-}
-
-// IsV2 returns true if this page spec uses the v2 format.
-func (p *PageSpec) IsV2() bool {
-	return p.PageSpecVersion == "v2"
-}
-
-// PageFunctionBindingBinding is the GORM model for page function bindings.
-type PageFunctionBindingBinding struct {
-	ID            string                  `json:"id"`
-	FunctionID    string                  `json:"functionId"`
-	Usage         string                  `json:"usage"`
-	InputMapping  json.RawMessage         `json:"inputMapping,omitempty"`
-	OutputMapping json.RawMessage         `json:"outputMapping,omitempty"`
-	Execution     BindingExecutionBinding `json:"execution"`
-}
-
-type BindingExecutionBinding struct {
-	Mode           string `json:"mode"`
-	RequireConfirm bool   `json:"requireConfirm,omitempty"`
+// SetSpec stores canonical PageSpec JSON.
+func (p *PageSpec) SetSpec(spec json.RawMessage) {
+	p.SpecJSON = string(spec)
 }
 
 // PublishedPageSpec stores an immutable snapshot of a published page.
@@ -203,7 +141,7 @@ func NewPageSpecModel(db *gorm.DB) *PageSpecModel {
 // FindByScopeAndPageKey returns a page spec by PageIdentity.
 func (m *PageSpecModel) FindByScopeAndPageKey(ctx context.Context, gameID, env, pageKey string) (*PageSpec, error) {
 	var ps PageSpec
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
 		First(&ps).Error; err != nil {
 		return nil, err
@@ -214,7 +152,7 @@ func (m *PageSpecModel) FindByScopeAndPageKey(ctx context.Context, gameID, env, 
 // ListByScope returns all page specs in a scope ordered by category and order.
 func (m *PageSpecModel) ListByScope(ctx context.Context, gameID, env string) ([]PageSpec, error) {
 	var items []PageSpec
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ?", gameID, env).
 		Order("category_order ASC, \"order\" ASC, page_key ASC").
 		Find(&items).Error; err != nil {
@@ -226,7 +164,7 @@ func (m *PageSpecModel) ListByScope(ctx context.Context, gameID, env string) ([]
 // ListByScopeAndStatus returns page specs filtered by status in a scope.
 func (m *PageSpecModel) ListByScopeAndStatus(ctx context.Context, gameID, env, status string) ([]PageSpec, error) {
 	var items []PageSpec
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND status = ?", gameID, env, status).
 		Order("category_order ASC, \"order\" ASC, page_key ASC").
 		Find(&items).Error; err != nil {
@@ -237,24 +175,25 @@ func (m *PageSpecModel) ListByScopeAndStatus(ctx context.Context, gameID, env, s
 
 // Upsert creates or updates a page spec by PageIdentity.
 func (m *PageSpecModel) Upsert(ctx context.Context, ps *PageSpec) error {
+	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
 	var existing PageSpec
-	err := m.db.WithContext(ctx).
+	err := db.
 		Where("game_id = ? AND env = ? AND page_key = ?", ps.GameID, ps.Env, ps.PageKey).
 		First(&existing).Error
 	if err == gorm.ErrRecordNotFound {
-		return m.db.WithContext(ctx).Create(ps).Error
+		return db.Create(ps).Error
 	}
 	if err != nil {
 		return err
 	}
 	ps.ID = existing.ID
 	ps.CreatedAt = existing.CreatedAt
-	return m.db.WithContext(ctx).Save(ps).Error
+	return db.Save(ps).Error
 }
 
 // Delete removes a page spec by PageIdentity.
 func (m *PageSpecModel) Delete(ctx context.Context, gameID, env, pageKey string) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
 		Delete(&PageSpec{}).Error
 }
@@ -272,7 +211,7 @@ func NewPublishedPageSpecModel(db *gorm.DB) *PublishedPageSpecModel {
 // FindByScopePageKeyAndVersion returns a published page spec.
 func (m *PublishedPageSpecModel) FindByScopePageKeyAndVersion(ctx context.Context, gameID, env, pageKey string, version int) (*PublishedPageSpec, error) {
 	var ps PublishedPageSpec
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND page_key = ? AND version = ?", gameID, env, pageKey, version).
 		First(&ps).Error; err != nil {
 		return nil, err
@@ -283,7 +222,7 @@ func (m *PublishedPageSpecModel) FindByScopePageKeyAndVersion(ctx context.Contex
 // FindLatestByScopeAndPageKey returns the active published version of a page.
 func (m *PublishedPageSpecModel) FindLatestByScopeAndPageKey(ctx context.Context, gameID, env, pageKey string) (*PublishedPageSpec, error) {
 	var ps PublishedPageSpec
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND page_key = ? AND active = ?", gameID, env, pageKey, true).
 		Order("version DESC").
 		First(&ps).Error; err != nil {
@@ -295,7 +234,7 @@ func (m *PublishedPageSpecModel) FindLatestByScopeAndPageKey(ctx context.Context
 // ListByScope returns all published page specs in a scope.
 func (m *PublishedPageSpecModel) ListByScope(ctx context.Context, gameID, env string) ([]PublishedPageSpec, error) {
 	var items []PublishedPageSpec
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ?", gameID, env).
 		Order("page_key ASC, version DESC").
 		Find(&items).Error; err != nil {
@@ -307,7 +246,7 @@ func (m *PublishedPageSpecModel) ListByScope(ctx context.Context, gameID, env st
 // ListLatestActiveByScope returns active published pages for a scope.
 func (m *PublishedPageSpecModel) ListLatestActiveByScope(ctx context.Context, gameID, env string) ([]PublishedPageSpec, error) {
 	var items []PublishedPageSpec
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND active = ?", gameID, env, true).
 		Order("page_key ASC").
 		Find(&items).Error; err != nil {
@@ -318,7 +257,7 @@ func (m *PublishedPageSpecModel) ListLatestActiveByScope(ctx context.Context, ga
 
 // DeactivatePage marks all published snapshots of a scoped page inactive.
 func (m *PublishedPageSpecModel) DeactivatePage(ctx context.Context, gameID, env, pageKey string, at time.Time) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&PublishedPageSpec{}).
 		Where("game_id = ? AND env = ? AND page_key = ? AND active = ?", gameID, env, pageKey, true).
 		Select("active", "unpublished_at").
@@ -330,7 +269,7 @@ func (m *PublishedPageSpecModel) DeactivatePage(ctx context.Context, gameID, env
 
 // Create inserts a new published page spec.
 func (m *PublishedPageSpecModel) Create(ctx context.Context, ps *PublishedPageSpec) error {
-	return m.db.WithContext(ctx).Create(ps).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(ps).Error
 }
 
 // PageVersionModel provides data access for page versions.
@@ -346,7 +285,7 @@ func NewPageVersionModel(db *gorm.DB) *PageVersionModel {
 // ListByScopeAndPageKey returns version history for a scoped page.
 func (m *PageVersionModel) ListByScopeAndPageKey(ctx context.Context, gameID, env, pageKey string) ([]PageVersion, error) {
 	var items []PageVersion
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
 		Order("version DESC").
 		Find(&items).Error; err != nil {
@@ -357,7 +296,7 @@ func (m *PageVersionModel) ListByScopeAndPageKey(ctx context.Context, gameID, en
 
 // UpsertByScopePageKeyVersion stores one logical snapshot per PageIdentity version.
 func (m *PageVersionModel) UpsertByScopePageKeyVersion(ctx context.Context, pv *PageVersion) error {
-	return m.db.WithContext(ctx).Clauses(clause.OnConflict{
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{
 			{Name: "game_id"},
 			{Name: "env"},
@@ -376,7 +315,7 @@ func (m *PageVersionModel) UpsertByScopePageKeyVersion(ctx context.Context, pv *
 // GetNextVersion returns the next version number for a scoped page.
 func (m *PageVersionModel) GetNextVersion(ctx context.Context, gameID, env, pageKey string) (int, error) {
 	var maxVersion int
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&PageVersion{}).
 		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
 		Select("COALESCE(MAX(version), 0)").

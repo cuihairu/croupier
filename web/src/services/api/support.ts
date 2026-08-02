@@ -1,8 +1,148 @@
 import { request } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
 
 const TICKETS_BASE = '/api/v1/tickets';
 const FAQ_BASE = '/api/v1/faqs';
 const FEEDBACK_BASE = '/api/v1/feedback';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface Ticket {
+  id: number;
+  player_id: string;
+  playerId: string;
+  game_id: string;
+  gameId: string;
+  title: string;
+  content?: string;
+  status: string;
+  category?: string;
+  priority?: string;
+  assignee?: string;
+  tags: string[];
+  created_at: string;
+  createdAt: string;
+  updated_at: string;
+  updatedAt: string;
+  comments?: TicketComment[];
+}
+
+export interface TicketComment {
+  id: number;
+  content: string;
+  author?: string;
+  created_at: string;
+  createdAt: string;
+}
+
+export interface FAQ {
+  id: number;
+  title: string;
+  content: string;
+  category?: string;
+  tags: string[];
+  visible?: boolean;
+  sort?: number;
+  created_at: string;
+  createdAt: string;
+  updated_at: string;
+  updatedAt: string;
+}
+
+export interface Feedback {
+  id: number;
+  player_id: string;
+  playerId: string;
+  game_id: string;
+  gameId: string;
+  title: string;
+  content?: string;
+  status: string;
+  category?: string;
+  created_at: string;
+  createdAt: string;
+  updated_at: string;
+  updatedAt: string;
+}
+
+export interface TicketListParams {
+  page?: number;
+  pageSize?: number;
+  size?: number;
+  status?: string;
+  category?: string;
+  priority?: string;
+  assignee?: string;
+  q?: string;
+  gameId?: string;
+  game_id?: string;
+  env?: string;
+}
+
+export interface FAQListParams {
+  page?: number;
+  pageSize?: number;
+  size?: number;
+  category?: string;
+  keyword?: string;
+  q?: string;
+  visible?: string | boolean;
+}
+
+export interface FeedbackListParams {
+  page?: number;
+  pageSize?: number;
+  size?: number;
+  status?: string;
+  category?: string;
+  gameId?: string;
+  game_id?: string;
+  q?: string;
+  env?: string;
+}
+
+export interface TicketPayload {
+  playerId?: string;
+  player_id?: string;
+  gameId?: string;
+  game_id?: string;
+  title?: string;
+  content?: string;
+  status?: string;
+  category?: string;
+  priority?: string;
+  assignee?: string;
+  tags?: string | string[];
+  [key: string]: JSONValue | undefined;
+}
+
+export interface FAQPayload {
+  title?: string;
+  content?: string;
+  category?: string;
+  tags?: string | string[];
+  visible?: boolean | string;
+  sort?: number | string;
+  [key: string]: JSONValue | undefined;
+}
+
+export interface FeedbackPayload {
+  playerId?: string;
+  player_id?: string;
+  gameId?: string;
+  game_id?: string;
+  title?: string;
+  content?: string;
+  status?: string;
+  category?: string;
+  [key: string]: JSONValue | undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function toArray<T>(value: T[] | undefined | null): T[] {
   return Array.isArray(value) ? value : [];
@@ -33,87 +173,103 @@ function parseVisible(value: unknown): boolean | undefined {
   return undefined;
 }
 
-function normalizeTicket(item: any) {
-  if (!item || typeof item !== 'object') return item;
+function normalizeTicket(item: Record<string, JSONValue>): Ticket {
   return {
-    ...item,
-    player_id: item.player_id ?? item.playerId ?? '',
-    playerId: item.playerId ?? item.player_id ?? '',
-    game_id: item.game_id ?? item.gameId ?? '',
-    gameId: item.gameId ?? item.game_id ?? '',
-    created_at: item.created_at ?? item.createdAt ?? '',
-    createdAt: item.createdAt ?? item.created_at ?? '',
-    updated_at: item.updated_at ?? item.updatedAt ?? '',
-    updatedAt: item.updatedAt ?? item.updated_at ?? '',
+    id: Number(item.id ?? 0),
+    player_id: String(item.player_id ?? item.playerId ?? ''),
+    playerId: String(item.playerId ?? item.player_id ?? ''),
+    game_id: String(item.game_id ?? item.gameId ?? ''),
+    gameId: String(item.gameId ?? item.game_id ?? ''),
+    title: String(item.title ?? ''),
+    content: item.content ? String(item.content) : undefined,
+    status: String(item.status ?? ''),
+    category: item.category ? String(item.category) : undefined,
+    priority: item.priority ? String(item.priority) : undefined,
+    assignee: item.assignee ? String(item.assignee) : undefined,
     tags: splitTags(item.tags),
+    created_at: String(item.created_at ?? item.createdAt ?? ''),
+    createdAt: String(item.createdAt ?? item.created_at ?? ''),
+    updated_at: String(item.updated_at ?? item.updatedAt ?? ''),
+    updatedAt: String(item.updatedAt ?? item.updated_at ?? ''),
   };
 }
 
-function normalizeComment(item: any) {
-  if (!item || typeof item !== 'object') return item;
+function normalizeComment(item: Record<string, JSONValue>): TicketComment {
   return {
-    ...item,
-    created_at: item.created_at ?? item.createdAt ?? '',
-    createdAt: item.createdAt ?? item.created_at ?? '',
+    id: Number(item.id ?? 0),
+    content: String(item.content ?? ''),
+    author: item.author ? String(item.author) : undefined,
+    created_at: String(item.created_at ?? item.createdAt ?? ''),
+    createdAt: String(item.createdAt ?? item.created_at ?? ''),
   };
 }
 
-function normalizeFAQ(item: any) {
-  if (!item || typeof item !== 'object') return item;
+function normalizeFAQ(item: Record<string, JSONValue>): FAQ {
   return {
-    ...item,
-    created_at: item.created_at ?? item.createdAt ?? '',
-    createdAt: item.createdAt ?? item.created_at ?? '',
-    updated_at: item.updated_at ?? item.updatedAt ?? '',
-    updatedAt: item.updatedAt ?? item.updated_at ?? '',
+    id: Number(item.id ?? 0),
+    title: String(item.title ?? ''),
+    content: String(item.content ?? ''),
+    category: item.category ? String(item.category) : undefined,
     tags: splitTags(item.tags),
+    visible: typeof item.visible === 'boolean' ? item.visible : undefined,
+    sort: typeof item.sort === 'number' ? item.sort : undefined,
+    created_at: String(item.created_at ?? item.createdAt ?? ''),
+    createdAt: String(item.createdAt ?? item.created_at ?? ''),
+    updated_at: String(item.updated_at ?? item.updatedAt ?? ''),
+    updatedAt: String(item.updatedAt ?? item.updated_at ?? ''),
   };
 }
 
-function normalizeFeedback(item: any) {
-  if (!item || typeof item !== 'object') return item;
+function normalizeFeedback(item: Record<string, JSONValue>): Feedback {
   return {
-    ...item,
-    player_id: item.player_id ?? item.playerId ?? '',
-    playerId: item.playerId ?? item.player_id ?? '',
-    game_id: item.game_id ?? item.gameId ?? '',
-    gameId: item.gameId ?? item.game_id ?? '',
-    created_at: item.created_at ?? item.createdAt ?? '',
-    createdAt: item.createdAt ?? item.created_at ?? '',
-    updated_at: item.updated_at ?? item.updatedAt ?? '',
-    updatedAt: item.updatedAt ?? item.updated_at ?? '',
+    id: Number(item.id ?? 0),
+    player_id: String(item.player_id ?? item.playerId ?? ''),
+    playerId: String(item.playerId ?? item.player_id ?? ''),
+    game_id: String(item.game_id ?? item.gameId ?? ''),
+    gameId: String(item.gameId ?? item.game_id ?? ''),
+    title: String(item.title ?? ''),
+    content: item.content ? String(item.content) : undefined,
+    status: String(item.status ?? ''),
+    category: item.category ? String(item.category) : undefined,
+    created_at: String(item.created_at ?? item.createdAt ?? ''),
+    createdAt: String(item.createdAt ?? item.created_at ?? ''),
+    updated_at: String(item.updated_at ?? item.updatedAt ?? ''),
+    updatedAt: String(item.updatedAt ?? item.updated_at ?? ''),
   };
 }
 
-function buildTicketPayload(data: any) {
-  return {
-    ...data,
-    playerId: data?.playerId ?? data?.player_id ?? '',
-    gameId: data?.gameId ?? data?.game_id ?? '',
-    tags: splitTags(data?.tags),
-  };
-}
-
-function buildFAQPayload(data: any) {
-  return {
-    ...data,
-    tags: splitTags(data?.tags),
-    visible: typeof data?.visible === 'boolean' ? data.visible : Boolean(data?.visible),
-    sort: typeof data?.sort === 'string' ? Number(data.sort) || 0 : data?.sort ?? 0,
-  };
-}
-
-function buildFeedbackPayload(data: any) {
+function buildTicketPayload(data: TicketPayload): Record<string, JSONValue> {
   return {
     ...data,
-    playerId: data?.playerId ?? data?.player_id ?? '',
-    gameId: data?.gameId ?? data?.game_id ?? '',
+    playerId: data.playerId ?? data.player_id ?? '',
+    gameId: data.gameId ?? data.game_id ?? '',
+    tags: splitTags(data.tags),
   };
 }
 
+function buildFAQPayload(data: FAQPayload): Record<string, JSONValue> {
+  return {
+    ...data,
+    tags: splitTags(data.tags),
+    visible: typeof data.visible === 'boolean' ? data.visible : Boolean(data.visible),
+    sort: typeof data.sort === 'string' ? Number(data.sort) || 0 : data.sort ?? 0,
+  };
+}
+
+function buildFeedbackPayload(data: FeedbackPayload): Record<string, JSONValue> {
+  return {
+    ...data,
+    playerId: data.playerId ?? data.player_id ?? '',
+    gameId: data.gameId ?? data.game_id ?? '',
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Tickets
-export async function listTickets(params?: any) {
-  const resp = await request<{ items?: any[]; total?: number; page?: number; pageSize?: number }>(
+// ---------------------------------------------------------------------------
+
+export async function listTickets(params?: TicketListParams) {
+  const resp = await request<{ items?: Record<string, JSONValue>[]; total?: number; page?: number; pageSize?: number }>(
     TICKETS_BASE,
     {
       params: {
@@ -136,13 +292,13 @@ export async function listTickets(params?: any) {
   };
 }
 
-export async function createTicket(data: any) {
-  const resp = await request<any>(TICKETS_BASE, { method: 'POST', data: buildTicketPayload(data) });
+export async function createTicket(data: TicketPayload) {
+  const resp = await request<Record<string, JSONValue>>(TICKETS_BASE, { method: 'POST', data: buildTicketPayload(data) });
   return normalizeTicket(resp);
 }
 
-export async function updateTicket(id: number, data: any) {
-  const resp = await request<any>(`${TICKETS_BASE}/${id}`, {
+export async function updateTicket(id: number, data: TicketPayload) {
+  const resp = await request<Record<string, JSONValue>>(`${TICKETS_BASE}/${id}`, {
     method: 'PUT',
     data: buildTicketPayload(data),
   });
@@ -154,25 +310,25 @@ export async function deleteTicket(id: number) {
 }
 
 export async function getTicket(id: string | number) {
-  const resp = await request<any>(`${TICKETS_BASE}/${id}`);
+  const resp = await request<Record<string, JSONValue>>(`${TICKETS_BASE}/${id}`);
   const normalized = normalizeTicket(resp);
   return {
     ...normalized,
-    comments: toArray(resp?.comments).map(normalizeComment),
+    comments: toArray(resp?.comments as Record<string, JSONValue>[]).map(normalizeComment),
   };
 }
 
 export async function listTicketComments(id: string | number) {
-  const resp = await request<{ items?: any[]; comments?: any[] }>(`${TICKETS_BASE}/${id}/comments`);
+  const resp = await request<{ items?: Record<string, JSONValue>[]; comments?: Record<string, JSONValue>[] }>(`${TICKETS_BASE}/${id}/comments`);
   const comments = toArray(resp?.items ?? resp?.comments).map(normalizeComment);
   return { comments, items: comments };
 }
 
 export async function addTicketComment(
   id: string | number,
-  data: { content: string; attach?: any; note?: string },
+  data: { content: string; attach?: JSONValue; note?: string },
 ) {
-  const resp = await request<{ items?: any[]; comments?: any[] }>(
+  const resp = await request<{ items?: Record<string, JSONValue>[]; comments?: Record<string, JSONValue>[] }>(
     `${TICKETS_BASE}/${id}/comments`,
     {
       method: 'POST',
@@ -185,9 +341,9 @@ export async function addTicketComment(
 
 export async function transitionTicket(
   id: string | number,
-  data: { status?: string; comment?: string; attach?: any; note?: string },
+  data: { status?: string; comment?: string; attach?: JSONValue; note?: string },
 ) {
-  return request<any>(`${TICKETS_BASE}/${id}/transition`, {
+  return request<Record<string, JSONValue>>(`${TICKETS_BASE}/${id}/transition`, {
     method: 'POST',
     data: {
       status: data.status,
@@ -196,9 +352,12 @@ export async function transitionTicket(
   });
 }
 
+// ---------------------------------------------------------------------------
 // FAQ
-export async function listFAQ(params?: any) {
-  const resp = await request<{ items?: any[]; total?: number; page?: number; pageSize?: number }>(
+// ---------------------------------------------------------------------------
+
+export async function listFAQ(params?: FAQListParams) {
+  const resp = await request<{ items?: Record<string, JSONValue>[]; total?: number; page?: number; pageSize?: number }>(
     FAQ_BASE,
     {
       params: {
@@ -220,13 +379,13 @@ export async function listFAQ(params?: any) {
   };
 }
 
-export async function createFAQ(data: any) {
-  const resp = await request<any>(FAQ_BASE, { method: 'POST', data: buildFAQPayload(data) });
+export async function createFAQ(data: FAQPayload) {
+  const resp = await request<Record<string, JSONValue>>(FAQ_BASE, { method: 'POST', data: buildFAQPayload(data) });
   return normalizeFAQ(resp);
 }
 
-export async function updateFAQ(id: number, data: any) {
-  const resp = await request<any>(`${FAQ_BASE}/${id}`, {
+export async function updateFAQ(id: number, data: FAQPayload) {
+  const resp = await request<Record<string, JSONValue>>(`${FAQ_BASE}/${id}`, {
     method: 'PUT',
     data: buildFAQPayload(data),
   });
@@ -237,9 +396,12 @@ export async function deleteFAQ(id: number) {
   return request<void>(`${FAQ_BASE}/${id}`, { method: 'DELETE' });
 }
 
+// ---------------------------------------------------------------------------
 // Feedback
-export async function listFeedback(params?: any) {
-  const resp = await request<{ items?: any[]; total?: number; page?: number; pageSize?: number }>(
+// ---------------------------------------------------------------------------
+
+export async function listFeedback(params?: FeedbackListParams) {
+  const resp = await request<{ items?: Record<string, JSONValue>[]; total?: number; page?: number; pageSize?: number }>(
     FEEDBACK_BASE,
     {
       params: {
@@ -261,16 +423,16 @@ export async function listFeedback(params?: any) {
   };
 }
 
-export async function createFeedback(data: any) {
-  const resp = await request<any>(FEEDBACK_BASE, {
+export async function createFeedback(data: FeedbackPayload) {
+  const resp = await request<Record<string, JSONValue>>(FEEDBACK_BASE, {
     method: 'POST',
     data: buildFeedbackPayload(data),
   });
   return normalizeFeedback(resp);
 }
 
-export async function updateFeedback(id: number, data: any) {
-  const resp = await request<any>(`${FEEDBACK_BASE}/${id}`, {
+export async function updateFeedback(id: number, data: FeedbackPayload) {
+  const resp = await request<Record<string, JSONValue>>(`${FEEDBACK_BASE}/${id}`, {
     method: 'PUT',
     data: buildFeedbackPayload(data),
   });

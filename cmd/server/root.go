@@ -93,7 +93,6 @@ func init() {
 	// 添加子命令
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(healthCmd)
-	rootCmd.AddCommand(legacyWorkspaceReportCmd)
 	rootCmd.AddCommand(completionCmd)
 	rootCmd.AddCommand(versionCmd)
 

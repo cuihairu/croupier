@@ -1,391 +1,273 @@
 /**
- * SchemaFormRenderer - JSON Schema 表单渲染器
+ * JSON Schema form runtime adapter.
  *
- * 根据 FormPresentationSpec 渲染表单，支持：
- * - JSON Schema 字段类型
- * - 自定义组件 hints
- * - 字段分组
- * - 验证规则
- *
- * @module components/SchemaFormRenderer
+ * The public contract is FormPresentationSpec. RJSF uiSchema is derived in
+ * memory only and must not be persisted into SDK/OpenAPI/PageSpec snapshots.
  */
 
-import React, { useMemo } from 'react';
-import {
-  ProForm,
-  ProFormText,
-  ProFormTextArea,
-  ProFormSelect,
-  ProFormDigit,
-  ProFormSwitch,
-  ProFormDatePicker,
-  ProFormTimePicker,
-  ProFormCheckbox,
-  ProFormRadio,
-} from '@ant-design/pro-components';
-import { Card, Typography, Space, Divider, Collapse } from 'antd';
+import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import Form from '@rjsf/antd';
+import type CoreForm from '@rjsf/core';
+import type { IChangeEvent } from '@rjsf/core';
+import validator from '@rjsf/validator-ajv8';
+import type { RJSFSchema, UiSchema } from '@rjsf/utils';
 import type {
-  FormPresentationSpec,
   FormFieldSpec,
-  FormGroupSpec,
+  FormPresentationSpec,
+  FormValues,
   FormWidget,
-} from '@/types/dashboard-vnext';
+  JSONSchema,
+  JSONValue,
+} from '@/types/dashboard';
 
-const { Text, Title } = Typography;
-const { Panel } = Collapse;
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
+export interface SchemaFormRendererHandle {
+  submit: () => void;
+  validate: () => boolean;
+  getValues: () => FormValues;
+}
 
 export interface SchemaFormRendererProps {
-  /** 表单展示规格 */
   spec: FormPresentationSpec;
-  /** 表单初始值 */
-  initialValues?: Record<string, unknown>;
-  /** 表单提交回调 */
-  onFinish?: (values: Record<string, unknown>) => Promise<boolean | void>;
-  /** 表单值变化回调 */
-  onValuesChange?: (changedValues: Record<string, unknown>, allValues: Record<string, unknown>) => void;
-  /** 是否只读 */
+  initialValues?: FormValues;
+  onFinish?: (values: FormValues) => Promise<boolean | void> | boolean | void;
+  onValuesChange?: (changedValues: FormValues, allValues: FormValues) => void;
   readonly?: boolean;
-  /** 自定义组件映射 */
-  widgetMap?: Partial<Record<FormWidget, React.ComponentType<unknown>>>;
+  disabled?: boolean;
+  hideSubmit?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// 字段类型推断
-// ---------------------------------------------------------------------------
+type JsonObject = Record<string, JSONValue>;
+type RJSFFormRef = CoreForm<FormValues, RJSFSchema, Record<string, never>>;
 
-function inferWidgetFromSchema(schema: Record<string, unknown>, fieldKey: string): FormWidget {
-  const type = schema.type as string;
-  const format = schema.format as string;
-  const enumValues = schema.enum as unknown[];
-
-  // 有枚举值使用 Select
-  if (enumValues && enumValues.length > 0) {
-    return 'Select';
-  }
-
-  // 根据格式推断
-  if (format === 'date') return 'DatePicker';
-  if (format === 'date-time') return 'DatePicker';
-  if (format === 'time') return 'TimePicker';
-  if (format === 'email') return 'Input';
-  if (format === 'uri') return 'Input';
-  if (format === 'password') return 'Password';
-  if (format === 'textarea') return 'TextArea';
-
-  // 根据类型推断
-  switch (type) {
-    case 'string':
-      return 'Input';
-    case 'number':
-    case 'integer':
-      return 'InputNumber';
-    case 'boolean':
-      return 'Switch';
-    case 'array':
-      return 'Array';
-    case 'object':
-      return 'Object';
-    default:
-      return 'Input';
-  }
+function isObject(value: unknown): value is JsonObject {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-// ---------------------------------------------------------------------------
-// 单字段渲染
-// ---------------------------------------------------------------------------
-
-function renderSingleField(
-  field: FormFieldSpec,
-  schema: Record<string, unknown>,
-  readonly: boolean
-): React.ReactNode {
-  const label = field.label?.['zh-CN'] || field.label?.['en'] || field.key;
-  const placeholder = field.placeholder?.['zh-CN'] || field.placeholder?.['en'];
-  const description = field.description?.['zh-CN'] || field.description?.['en'];
-  const required = field.required;
-  const disabled = field.disabled || readonly;
-
-  // 验证规则
-  const rules: unknown[] = [];
-  if (required) {
-    rules.push({ required: true, message: `请输入${label}` });
+function normalizeJsonValue(value: unknown): JSONValue {
+  if (value === null) return null;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
   }
-
-  // 从 schema 获取额外验证
-  const minLength = schema.minLength as number;
-  const maxLength = schema.maxLength as number;
-  const pattern = schema.pattern as string;
-  const minimum = schema.minimum as number;
-  const maximum = schema.maximum as number;
-
-  if (minLength !== undefined) {
-    rules.push({ min: minLength, message: `最少 ${minLength} 个字符` });
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeJsonValue(item));
   }
-  if (maxLength !== undefined) {
-    rules.push({ max: maxLength, message: `最多 ${maxLength} 个字符` });
+  if (isObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, normalizeJsonValue(item)]),
+    );
   }
-  if (pattern) {
-    rules.push({ pattern: new RegExp(pattern), message: '格式不正确' });
-  }
+  return null;
+}
 
-  // 确定组件类型
-  const widget = field.widget || inferWidgetFromSchema(schema, field.key);
+function normalizeFormValues(value: unknown): FormValues {
+  if (!isObject(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, normalizeJsonValue(item)]),
+  );
+}
 
-  // 公共属性
-  const commonProps = {
-    key: field.key,
-    name: field.key,
-    label,
-    placeholder,
-    rules,
-    tooltip: description,
-    disabled,
-    width: field.width ? `${field.width}px` : undefined,
-  };
+function getLocalizedText(
+  value: Record<string, string> | undefined,
+  fallback: string,
+): string {
+  if (!value) return fallback;
+  return value['zh-CN'] || value.zh || value.en || value['en-US'] || fallback;
+}
 
-  // 渲染组件
+function getFieldSchema(schema: JSONSchema, key: string): JSONSchema {
+  const properties = schema.properties;
+  if (!isObject(properties)) return {};
+  const child = properties[key];
+  return isObject(child) ? child : {};
+}
+
+function getEnumNames(field: FormFieldSpec | undefined): string[] | undefined {
+  if (!field?.enumOptions?.length) return undefined;
+  return field.enumOptions.map((option) => getLocalizedText(option.label, String(option.value)));
+}
+
+function shouldUseTextarea(schema: JSONSchema): boolean {
+  return schema.format === 'textarea' || Number(schema.maxLength || 0) > 120;
+}
+
+function widgetToRjsf(widget?: FormWidget, schema?: JSONSchema): string | undefined {
+  if (!widget && schema && shouldUseTextarea(schema)) return 'textarea';
   switch (widget) {
     case 'TextArea':
-      return <ProFormTextArea {...commonProps} />;
-
-    case 'InputNumber':
-      return (
-        <ProFormDigit
-          {...commonProps}
-          min={minimum}
-          max={maximum}
-          fieldProps={{ precision: schema.type === 'integer' ? 0 : undefined }}
-        />
-      );
-
-    case 'Switch':
-      return <ProFormSwitch {...commonProps} />;
-
-    case 'Checkbox':
-      return <ProFormCheckbox {...commonProps} />;
-
-    case 'Radio':
-      return (
-        <ProFormRadio.Group
-          {...commonProps}
-          options={field.enumOptions?.map((opt) => ({
-            label: opt.label['zh-CN'] || opt.label['en'] || opt.value,
-            value: opt.value,
-          }))}
-        />
-      );
-
-    case 'Select':
-      return (
-        <ProFormSelect
-          {...commonProps}
-          options={field.enumOptions?.map((opt) => ({
-            label: opt.label['zh-CN'] || opt.label['en'] || opt.value,
-            value: opt.value,
-          }))}
-        />
-      );
-
-    case 'MultiSelect':
-      return (
-        <ProFormSelect
-          {...commonProps}
-          mode="multiple"
-          options={field.enumOptions?.map((opt) => ({
-            label: opt.label['zh-CN'] || opt.label['en'] || opt.value,
-            value: opt.value,
-          }))}
-        />
-      );
-
-    case 'DatePicker':
-      return <ProFormDatePicker {...commonProps} />;
-
-    case 'TimePicker':
-      return <ProFormTimePicker {...commonProps} />;
-
-    case 'Password':
-      return <ProFormText.Password {...commonProps} />;
-
     case 'Code':
-      return (
-        <ProFormTextArea
-          {...commonProps}
-          fieldProps={{
-            style: { fontFamily: 'monospace' },
-            autoSize: { minRows: 3, maxRows: 10 },
-          }}
-        />
-      );
-
     case 'JSON':
-      return (
-        <ProFormTextArea
-          {...commonProps}
-          fieldProps={{
-            style: { fontFamily: 'monospace' },
-            autoSize: { minRows: 3, maxRows: 10 },
-          }}
-          rules={[
-            ...rules,
-            {
-              validator: async (_, value) => {
-                if (value) {
-                  try {
-                    JSON.parse(value);
-                  } catch {
-                    throw new Error('请输入有效的 JSON');
-                  }
-                }
-              },
-            },
-          ]}
-        />
-      );
-
+      return 'textarea';
+    case 'Password':
+      return 'password';
+    case 'Radio':
+      return 'radio';
+    case 'Checkbox':
+      return 'checkbox';
+    case 'Switch':
+      return 'checkbox';
+    case 'DatePicker':
+      return 'date';
+    case 'TimePicker':
+      return 'time';
+    case 'Color':
+      return 'color';
+    case 'Slider':
+      return 'range';
+    case 'Select':
+    case 'MultiSelect':
+    case 'Input':
+    case 'InputNumber':
+    case 'DateRange':
+    case 'Upload':
+    case 'ImageUpload':
+    case 'FileUpload':
+    case 'RichText':
+    case 'Cascader':
+    case 'TreeSelect':
+    case 'Rate':
+    case 'KeyValue':
+    case 'Array':
+    case 'Object':
     default:
-      return <ProFormText {...commonProps} />;
+      return undefined;
   }
 }
 
-// ---------------------------------------------------------------------------
-// SchemaFormRenderer 组件
-// ---------------------------------------------------------------------------
+function applyFieldPresentation(
+  jsonSchema: RJSFSchema,
+  uiSchema: UiSchema,
+  field: FormFieldSpec,
+  rootSchema: JSONSchema,
+) {
+  const fieldSchema = getFieldSchema(rootSchema, field.key);
+  const nextUi = (uiSchema[field.key] || {}) as UiSchema;
+  const widget = widgetToRjsf(field.widget, fieldSchema);
 
-const SchemaFormRenderer: React.FC<SchemaFormRendererProps> = ({
-  spec,
-  initialValues,
-  onFinish,
-  onValuesChange,
-  readonly = false,
-  widgetMap,
-}) => {
-  // 解析 JSON Schema
-  const schema = useMemo(() => {
-    return (spec.jsonSchema || {}) as Record<string, unknown>;
-  }, [spec.jsonSchema]);
-
-  // 获取字段定义
-  const properties = useMemo(() => {
-    return (schema.properties || {}) as Record<string, Record<string, unknown>>;
-  }, [schema.properties]);
-
-  // 获取必填字段
-  const requiredFields = useMemo(() => {
-    return (schema.required || []) as string[];
-  }, [schema.required]);
-
-  // 构建字段列表
-  const fields = useMemo(() => {
-    const result: FormFieldSpec[] = [];
-
-    // 从 spec.fields 获取字段配置
-    if (spec.fields && spec.fields.length > 0) {
-      spec.fields.forEach((field) => {
-        const fieldSchema = properties[field.key] || {};
-        result.push({
-          ...field,
-          required: field.required ?? requiredFields.includes(field.key),
-        });
-      });
-    } else {
-      // 从 schema 自动生成字段
-      Object.keys(properties).forEach((key) => {
-        const fieldSchema = properties[key];
-        result.push({
-          key,
-          label: { 'zh-CN': (fieldSchema.title as string) || key },
-          description: fieldSchema.description ? { 'zh-CN': fieldSchema.description as string } : undefined,
-          required: requiredFields.includes(key),
-          enumOptions: (fieldSchema.enum as unknown[])?.map((v) => ({
-            value: String(v),
-            label: { 'zh-CN': String(v) },
-          })),
-        });
-      });
+  if (field.label) {
+    const properties = jsonSchema.properties as Record<string, RJSFSchema> | undefined;
+    if (properties?.[field.key]) {
+      properties[field.key] = {
+        ...properties[field.key],
+        title: getLocalizedText(field.label, field.key),
+      };
     }
-
-    // 排序
-    result.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-    return result;
-  }, [spec.fields, properties, requiredFields]);
-
-  // 按分组组织字段
-  const groupedFields = useMemo(() => {
-    if (!spec.groups || spec.groups.length === 0) {
-      return [{ fields }];
+  }
+  if (field.description) {
+    const properties = jsonSchema.properties as Record<string, RJSFSchema> | undefined;
+    if (properties?.[field.key]) {
+      properties[field.key] = {
+        ...properties[field.key],
+        description: getLocalizedText(field.description, ''),
+      };
     }
-
-    const groups: Array<{ group: FormGroupSpec; fields: FormFieldSpec[] }> = [];
-    const groupedKeys = new Set<string>();
-
-    spec.groups.forEach((group) => {
-      const groupFields = fields.filter((f) => group.fields.includes(f.key));
-      group.fields.forEach((key) => groupedKeys.add(key));
-      groups.push({ group, fields: groupFields });
-    });
-
-    // 未分组的字段
-    const ungroupedFields = fields.filter((f) => !groupedKeys.has(f.key));
-    if (ungroupedFields.length > 0) {
-      groups.unshift({
-        group: { key: '__ungrouped__', fields: [] },
-        fields: ungroupedFields,
-      });
+  }
+  if (field.enumOptions?.length) {
+    const properties = jsonSchema.properties as Record<string, RJSFSchema> | undefined;
+    if (properties?.[field.key]) {
+      properties[field.key] = {
+        ...properties[field.key],
+        enumNames: getEnumNames(field),
+      };
     }
+  }
+  if (field.disabled) nextUi['ui:disabled'] = true;
+  if (field.placeholder) nextUi['ui:placeholder'] = getLocalizedText(field.placeholder, '');
+  if (widget) nextUi['ui:widget'] = widget;
+  if (field.widget === 'MultiSelect') nextUi['ui:widget'] = 'select';
+  if (field.widgetProps) nextUi['ui:options'] = { ...(nextUi['ui:options'] || {}), ...field.widgetProps };
+  uiSchema[field.key] = nextUi;
+}
 
-    return groups;
-  }, [fields, spec.groups]);
+function deriveRuntimeSchema(spec: FormPresentationSpec): {
+  schema: RJSFSchema;
+  uiSchema: UiSchema;
+} {
+  const schema = { ...(spec.jsonSchema || {}) } as RJSFSchema;
+  const uiSchema: UiSchema = {
+    'ui:submitButtonOptions': {
+      submitText: getLocalizedText(spec.submitButton?.text, '提交'),
+      norender: false,
+    },
+  };
 
-  return (
-    <ProForm
-      layout={spec.layout || 'vertical'}
-      initialValues={initialValues}
-      onFinish={onFinish}
-      onValuesChange={onValuesChange}
-      submitter={
-        readonly
-          ? false
-          : {
-              submitButtonProps: {
-                children: spec.submitButton?.text?.['zh-CN'] || '提交',
-              },
-              resetButtonProps: {
-                children: spec.cancelButton?.text?.['zh-CN'] || '重置',
-              },
-            }
+  if (!schema.type) schema.type = 'object';
+  if (!schema.properties) schema.properties = {};
+
+  const rootSchema = spec.jsonSchema || {};
+  for (const field of spec.fields || []) {
+    applyFieldPresentation(schema, uiSchema, field, rootSchema);
+  }
+
+  const order = spec.fields?.map((field) => field.key).filter(Boolean);
+  if (order?.length) {
+    uiSchema['ui:order'] = [...order, '*'];
+  }
+
+  return { schema, uiSchema };
+}
+
+const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRendererProps>(
+  (
+    {
+      spec,
+      initialValues,
+      onFinish,
+      onValuesChange,
+      readonly = false,
+      disabled = false,
+      hideSubmit = false,
+    },
+    ref,
+  ) => {
+    const formRef = useRef<RJSFFormRef | null>(null);
+    const currentValuesRef = useRef<FormValues>(initialValues || {});
+
+    const { schema, uiSchema } = useMemo(() => {
+      const derived = deriveRuntimeSchema(spec);
+      if (hideSubmit || readonly) {
+        derived.uiSchema['ui:submitButtonOptions'] = {
+          ...(derived.uiSchema['ui:submitButtonOptions'] || {}),
+          norender: true,
+        };
       }
-    >
-      {groupedFields.length === 1 && groupedFields[0].group.key === '__ungrouped__' ? (
-        // 无分组
-        groupedFields[0].fields.map((field) => {
-          const fieldSchema = properties[field.key] || {};
-          return renderSingleField(field, fieldSchema, readonly);
-        })
-      ) : (
-        // 有分组
-        <Collapse defaultActiveKey={spec.groups?.map((g) => g.key) || []}>
-          {groupedFields.map(({ group, fields: groupFields }) => (
-            <Panel
-              key={group.key}
-              header={group.title?.['zh-CN'] || group.title?.['en'] || group.key}
-              collapsible={group.collapsible}
-            >
-              {groupFields.map((field) => {
-                const fieldSchema = properties[field.key] || {};
-                return renderSingleField(field, fieldSchema, readonly);
-              })}
-            </Panel>
-          ))}
-        </Collapse>
-      )}
-    </ProForm>
-  );
-};
+      return derived;
+    }, [hideSubmit, readonly, spec]);
+
+    useImperativeHandle(ref, () => ({
+      submit: () => {
+        formRef.current?.submit();
+      },
+      validate: () => Boolean(formRef.current?.validateForm()),
+      getValues: () => currentValuesRef.current,
+    }));
+
+    return (
+      <Form
+        ref={formRef as React.Ref<RJSFFormRef>}
+        schema={schema}
+        uiSchema={uiSchema}
+        validator={validator}
+        formData={initialValues || {}}
+        readonly={readonly}
+        disabled={disabled}
+        liveValidate={false}
+        omitExtraData
+        noHtml5Validate
+        onChange={(event: IChangeEvent<FormValues>) => {
+          const next = normalizeFormValues(event.formData);
+          currentValuesRef.current = next;
+          onValuesChange?.({}, next);
+        }}
+        onSubmit={async (event: IChangeEvent<FormValues>) => {
+          const next = normalizeFormValues(event.formData);
+          currentValuesRef.current = next;
+          await onFinish?.(next);
+        }}
+      />
+    );
+  },
+);
+
+SchemaFormRenderer.displayName = 'SchemaFormRenderer';
 
 export default SchemaFormRenderer;

@@ -47,10 +47,9 @@ func TestGenerateForResourceCreatesDefaultOperationPagesWithoutGuessingCRUD(t *t
 	for _, page := range pages {
 		assert.Equal(t, spec.PageTypeOperation, page.Type)
 		assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
-		assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
-		assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
-		assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
-		assert.NotContains(t, string(page.Schema), `"functionId"`)
+		require.NotNil(t, page.Operation)
+		require.NotNil(t, page.Operation.Form)
+		assert.Nil(t, page.Resource)
 	}
 }
 
@@ -93,10 +92,11 @@ func TestGenerateForOperationCreatesBasicPage(t *testing.T) {
 	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
 	assertDiagnostic(t, page.Diagnostics, "resource_missing")
 	require.Len(t, page.Bindings, 1)
-	assert.JSONEq(t, `{"scope":"values.scope","dryRun":"values.dryRun"}`, string(page.Bindings[0].InputMapping))
-	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
-	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
-	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
+	require.NotNil(t, page.Operation)
+	require.NotNil(t, page.Operation.Form)
+	require.NotNil(t, page.Bindings[0].Selectors)
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "scope", spec.SourceForm, "scope")
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "dryRun", spec.SourceForm, "dryRun")
 }
 
 func TestGenerateForOperationUsesExecutionTask(t *testing.T) {
@@ -122,9 +122,10 @@ func TestGenerateForOperationUsesExecutionTask(t *testing.T) {
 	require.Len(t, page.Bindings, 1)
 	assert.Equal(t, spec.BindingUsageTask, page.Bindings[0].Usage)
 	assert.Equal(t, spec.PageExecutionModeTask, page.Bindings[0].Execution.Mode)
-	assert.JSONEq(t, `{"segment":"values.segment"}`, string(page.Bindings[0].InputMapping))
-	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
-	assert.Contains(t, string(page.Schema), `"x-component":"TaskTimeline"`)
+	require.NotNil(t, page.Task)
+	require.NotNil(t, page.Task.TaskView)
+	require.NotNil(t, page.Bindings[0].Selectors)
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "segment", spec.SourceForm, "segment")
 }
 
 func TestGenerateForOperationUsesCapabilityReport(t *testing.T) {
@@ -142,7 +143,8 @@ func TestGenerateForOperationUsesCapabilityReport(t *testing.T) {
 	assertDiagnostic(t, page.Diagnostics, "report_semantics_missing")
 	require.Len(t, page.Bindings, 1)
 	assert.Equal(t, spec.BindingUsageReport, page.Bindings[0].Usage)
-	assert.Contains(t, string(page.Schema), `"x-component":"ChartPanel"`)
+	require.NotNil(t, page.Report)
+	require.NotNil(t, page.Report.Dataset)
 }
 
 func TestInferPageTypeUsesOnlyCapabilitySemantics(t *testing.T) {
@@ -159,4 +161,14 @@ func assertDiagnostic(t *testing.T, diagnostics []spec.Diagnostic, code string) 
 		}
 	}
 	t.Fatalf("diagnostic %s not found in %#v", code, diagnostics)
+}
+
+func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceType spec.SelectorSourceType, sourcePath string) {
+	t.Helper()
+	for _, assignment := range selector.Assignments {
+		if assignment.Target == target && assignment.Source.Type == sourceType && assignment.Source.Path == sourcePath {
+			return
+		}
+	}
+	t.Fatalf("selector assignment %s <- %s:%s not found in %#v", target, sourceType, sourcePath, selector.Assignments)
 }

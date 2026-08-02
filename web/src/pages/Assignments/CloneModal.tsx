@@ -1,8 +1,10 @@
 import React from 'react';
 import { Modal } from 'antd';
-import SchemaRenderer from '@/components/formily/SchemaRenderer';
-import type { FormilyValues } from '@/components/formily/schema/types';
-import { CLONE_FORM_SCHEMA } from './schemas';
+import SchemaFormRenderer, {
+  type SchemaFormRendererHandle,
+} from '@/components/SchemaFormRenderer';
+import type { FormValues } from '@/types/dashboard';
+import { CLONE_FORM_SPEC } from './schemas';
 
 type Props = {
   visible: boolean;
@@ -11,7 +13,8 @@ type Props = {
 };
 
 export default function CloneModal({ visible, onClose, onSave }: Props) {
-  const [formValues, setFormValues] = React.useState<FormilyValues>({});
+  const formRef = React.useRef<SchemaFormRendererHandle | null>(null);
+  const [formValues, setFormValues] = React.useState<FormValues>({});
 
   React.useEffect(() => {
     if (!visible) return;
@@ -23,10 +26,19 @@ export default function CloneModal({ visible, onClose, onSave }: Props) {
       title="克隆分配配置"
       open={visible}
       onCancel={onClose}
-      onOk={() => onSave(String(formValues.targetEnv || ''))}
+      onOk={() => {
+        if (!formRef.current?.validate()) return;
+        onSave(String(formRef.current.getValues().targetEnv || ''));
+      }}
       width={520}
     >
-      <SchemaRenderer schema={CLONE_FORM_SCHEMA} value={formValues} onChange={setFormValues} />
+      <SchemaFormRenderer
+        ref={formRef}
+        spec={CLONE_FORM_SPEC}
+        initialValues={formValues}
+        onValuesChange={(_, allValues) => setFormValues(allValues)}
+        hideSubmit
+      />
     </Modal>
   );
 }

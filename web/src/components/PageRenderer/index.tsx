@@ -1,11 +1,12 @@
 /**
  * PageRenderer - 页面渲染器统一入口
  *
- * 根据 PageSpecV2 的类型自动选择合适的渲染器：
+ * 根据 PageSpec 的类型自动选择合适的渲染器：
  * - ResourcePageRenderer: 资源 CRUD 页面
  * - OperationPageRenderer: 独立操作页面
  * - TaskPageRenderer: 异步任务页面
  * - ReportPageRenderer: 报表页面
+ * - ApprovalPageRenderer: 审批页面
  *
  * @module components/PageRenderer
  */
@@ -17,10 +18,12 @@ import ResourcePageRenderer from './ResourcePageRenderer';
 import OperationPageRenderer from './OperationPageRenderer';
 import TaskPageRenderer from './TaskPageRenderer';
 import ReportPageRenderer from './ReportPageRenderer';
+import ApprovalPageRenderer from './ApprovalPageRenderer';
 import type {
-  PageSpecV2,
-  PageFunctionBindingV2,
-} from '@/types/dashboard-vnext';
+  PageSpec,
+  PageExecuteFn,
+  TaskStatusResult,
+} from '@/types/dashboard';
 
 const { Text } = Typography;
 
@@ -30,11 +33,11 @@ const { Text } = Typography;
 
 export interface PageRendererProps {
   /** 页面规格 */
-  pageSpec: PageSpecV2;
+  pageSpec: PageSpec;
   /** 执行绑定函数 */
-  onExecute: (bindingId: string, payload: unknown) => Promise<unknown>;
+  onExecute: PageExecuteFn;
   /** 查询任务状态（仅 TaskPage 需要） */
-  onQueryStatus?: (taskId: string) => Promise<unknown>;
+  onQueryStatus?: (taskId: string) => Promise<TaskStatusResult>;
   /** 取消任务（仅 TaskPage 需要） */
   onCancelTask?: (taskId: string) => Promise<void>;
   /** 重试任务（仅 TaskPage 需要） */
@@ -115,7 +118,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           spec={pageSpec.task}
           bindings={bindings}
           onExecute={onExecute}
-          onQueryStatus={onQueryStatus as any}
+          onQueryStatus={onQueryStatus}
           onCancelTask={onCancelTask}
           onRetryTask={onRetryTask}
           title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}

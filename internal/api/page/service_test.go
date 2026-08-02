@@ -34,8 +34,8 @@ func TestServiceSaveDraftRequiresPageEditPermission(t *testing.T) {
 			Key:    "player",
 			Labels: spec.LocalizedText{"zh-CN": "玩家"},
 		},
-		Schema:   testPageSchema(),
-		Bindings: testPageBindings(),
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
 	})
 
 	require.Error(t, err)
@@ -56,8 +56,8 @@ func TestServiceSaveDraftUsesContextActorAndWritesAudit(t *testing.T) {
 			Key:    "player",
 			Labels: spec.LocalizedText{"zh-CN": "玩家"},
 		},
-		Schema:   testPageSchema(),
-		Bindings: testPageBindings(),
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
 	})
 
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func TestServicePublishUpdatesDraftVersionRecord(t *testing.T) {
 	assert.True(t, versions.Items[0].IsCurrentPublished)
 }
 
-func TestServicePublishRejectsMissingBindingMapping(t *testing.T) {
+func TestServicePublishRejectsMissingBindingSelector(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
 	revision := 0
 	resp, err := service.SaveDraft(ctx, &PageSaveRequest{
@@ -161,8 +161,8 @@ func TestServicePublishRejectsMissingBindingMapping(t *testing.T) {
 			Key:    "player",
 			Labels: spec.LocalizedText{"zh-CN": "玩家"},
 		},
-		Schema:   testPageSchema(),
-		Bindings: testPageBindingsWithoutMapping(),
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindingsWithoutSelector(),
 	})
 	require.NoError(t, err)
 
@@ -172,16 +172,30 @@ func TestServicePublishRejectsMissingBindingMapping(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "binding.inputMapping must be an explicit JSON object before publish")
-	assert.Contains(t, err.Error(), "binding.outputMapping must be an explicit JSON object before publish")
+	assert.Contains(t, err.Error(), "binding.selectors.input is required before publish")
 }
 
-func TestServicePublishRejectsNonObjectBindingMapping(t *testing.T) {
+func TestServicePublishRejectsIncompleteBindingSelector(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
+	service.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.query": {
+				Enabled:     true,
+				Version:     "1.0.0",
+				Resource:    "player",
+				Operation:   "query",
+				InputSchema: `{"type":"object","properties":{"keyword":{"type":"string"}},"required":["keyword"]}`,
+			},
+		},
+	})
 	revision := 0
 	bindings := testPageBindings()
-	bindings[0].InputMapping = json.RawMessage(`["values.keyword"]`)
-	bindings[0].OutputMapping = json.RawMessage(`"players"`)
+	bindings[0].Selectors = &spec.BindingSelectors{Input: spec.SelectorAST{}}
 	resp, err := service.SaveDraft(ctx, &PageSaveRequest{
 		PageKey:       "player.manage",
 		DraftRevision: &revision,
@@ -192,8 +206,8 @@ func TestServicePublishRejectsNonObjectBindingMapping(t *testing.T) {
 			Key:    "player",
 			Labels: spec.LocalizedText{"zh-CN": "玩家"},
 		},
-		Schema:   testPageSchema(),
-		Bindings: bindings,
+		Operation: testOperationPageSpec(),
+		Bindings:  bindings,
 	})
 	require.NoError(t, err)
 
@@ -203,8 +217,7 @@ func TestServicePublishRejectsNonObjectBindingMapping(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "binding.inputMapping must be an explicit JSON object before publish")
-	assert.Contains(t, err.Error(), "binding.outputMapping must be an explicit JSON object before publish")
+	assert.Contains(t, err.Error(), "required field not assigned")
 }
 
 func TestServicePublishRejectsMissingBindings(t *testing.T) {
@@ -220,8 +233,8 @@ func TestServicePublishRejectsMissingBindings(t *testing.T) {
 			Key:    "player",
 			Labels: spec.LocalizedText{"zh-CN": "玩家"},
 		},
-		Schema:   emptyPageSchema(),
-		Bindings: nil,
+		Operation: testOperationPageSpec(),
+		Bindings:  nil,
 	})
 	require.NoError(t, err)
 
@@ -331,8 +344,8 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 			Key:    "player",
 			Labels: spec.LocalizedText{"zh-CN": "玩家"},
 		},
-		Schema:   testPageSchema(),
-		Bindings: testPageBindings(),
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
 	})
 	require.NoError(t, err)
 
@@ -371,8 +384,10 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 	assert.Equal(t, "player.query", regenerateResp.PageKey)
 	assert.Equal(t, saveResp.DraftRevision+1, regenerateResp.DraftRevision)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, regenerateResp.Quality)
-	assert.Contains(t, string(regenerateResp.Page.Schema), `"server_id"`)
-	assert.Contains(t, string(regenerateResp.Page.Schema), `"keyword"`)
+	require.NotNil(t, regenerateResp.Page.Operation)
+	require.NotNil(t, regenerateResp.Page.Operation.Form)
+	assert.Contains(t, string(regenerateResp.Page.Operation.Form.JSONSchema), `"server_id"`)
+	assert.Contains(t, string(regenerateResp.Page.Operation.Form.JSONSchema), `"keyword"`)
 	assert.Equal(t, spec.PageTypeOperation, regenerateResp.Page.Type)
 
 	published, err := pageService.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", "player.query")
@@ -446,8 +461,8 @@ func TestServicePublishesBasicGeneratedOperationPage(t *testing.T) {
 	})
 	require.Equal(t, spec.GeneratedPageQualityBasic, generated.Quality)
 	require.Len(t, generated.Bindings, 1)
-	assert.JSONEq(t, `{"keyword":"values.keyword"}`, string(generated.Bindings[0].InputMapping))
-	assert.JSONEq(t, `{}`, string(generated.Bindings[0].OutputMapping))
+	require.NotNil(t, generated.Bindings[0].Selectors)
+	assertSelectorAssignment(t, generated.Bindings[0].Selectors.Input, "keyword", spec.SourceForm, "keyword")
 
 	revision := 0
 	saveResp, err := pageService.SaveDraft(ctx, &PageSaveRequest{
@@ -457,7 +472,7 @@ func TestServicePublishesBasicGeneratedOperationPage(t *testing.T) {
 		ResourceKey:   generated.ResourceKey,
 		Title:         map[string]string(generated.Title),
 		Category:      generated.Category,
-		Schema:        json.RawMessage(generated.Schema),
+		Operation:     generated.Operation,
 		Bindings:      generated.Bindings,
 	})
 	require.NoError(t, err)
@@ -503,8 +518,8 @@ func TestServiceKeepsSamePageKeyIsolatedByScope(t *testing.T) {
 			Key:    "player",
 			Labels: spec.LocalizedText{"zh-CN": "玩家"},
 		},
-		Schema:   testPageSchema(),
-		Bindings: testPageBindings(),
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, prodRevision+1, resp.DraftRevision)
@@ -590,31 +605,25 @@ func saveTestPageDraft(t *testing.T, service *Service, ctx context.Context) int 
 			Key:    "player",
 			Labels: spec.LocalizedText{"zh-CN": "玩家"},
 		},
-		Schema:   testPageSchema(),
-		Bindings: testPageBindings(),
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
 	})
 	require.NoError(t, err)
 	return resp.DraftRevision
 }
 
-func testPageSchema() json.RawMessage {
-	return json.RawMessage(`{
-		"type":"void",
-		"x-component":"ConsolePage",
-		"x-component-props":{"schemaVersion":"formily-page:1"},
-		"properties":{
-			"query":{"type":"void","x-component":"QueryForm","x-component-props":{"bindingId":"player.query"}}
-		}
-	}`)
-}
-
-func emptyPageSchema() json.RawMessage {
-	return json.RawMessage(`{
-		"type":"void",
-		"x-component":"ConsolePage",
-		"x-component-props":{"schemaVersion":"formily-page:1"},
-		"properties":{}
-	}`)
+func testOperationPageSpec() *spec.OperationPageSpec {
+	return &spec.OperationPageSpec{
+		Form: spec.DefaultFormPresentation(spec.JSONSchema(`{
+			"type":"object",
+			"properties":{"keyword":{"type":"string"}},
+			"required":["keyword"]
+		}`)),
+		ResultView: &spec.ResultViewSpec{
+			SuccessMessage: spec.LocalizedText{"zh-CN": "操作成功"},
+			ErrorMessage:   spec.LocalizedText{"zh-CN": "操作失败"},
+		},
+	}
 }
 
 func testPageBindings() []spec.PageFunctionBinding {
@@ -623,18 +632,18 @@ func testPageBindings() []spec.PageFunctionBinding {
 			ID:         "player.query",
 			FunctionID: "player.query",
 			Usage:      spec.BindingUsageQuery,
-			InputMapping: json.RawMessage(
-				`{"keyword":"values.keyword"}`,
-			),
-			OutputMapping: json.RawMessage(
-				`{"stateKey":"players"}`,
-			),
+			Selectors: &spec.BindingSelectors{
+				Input: spec.SelectorAST{Assignments: []spec.Assignment{{
+					Target: "keyword",
+					Source: spec.SelectorSource{Type: spec.SourceForm, Path: "keyword"},
+				}}},
+			},
 			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
 		},
 	}
 }
 
-func testPageBindingsWithoutMapping() []spec.PageFunctionBinding {
+func testPageBindingsWithoutSelector() []spec.PageFunctionBinding {
 	return []spec.PageFunctionBinding{
 		{
 			ID:         "player.query",
@@ -663,6 +672,16 @@ func assertBindingFreshnessStatus(t *testing.T, diagnostics []spec.BindingFreshn
 		}
 	}
 	t.Fatalf("expected binding freshness status %s, got %#v", status, diagnostics)
+}
+
+func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceType spec.SelectorSourceType, sourcePath string) {
+	t.Helper()
+	for _, assignment := range selector.Assignments {
+		if assignment.Target == target && assignment.Source.Type == sourceType && assignment.Source.Path == sourcePath {
+			return
+		}
+	}
+	t.Fatalf("expected selector assignment %s <- %s:%s, got %#v", target, sourceType, sourcePath, selector.Assignments)
 }
 
 func findAuditRecordByDetail(records []*audit.AuditRecord, key string, value interface{}) *audit.AuditRecord {

@@ -132,10 +132,9 @@ func TestServiceGeneratedPagesDoNotUseRegistrationPageExtensions(t *testing.T) {
 		assert.Equal(t, spec.PageTypeOperation, page.Type)
 		assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
 		assert.Equal(t, "player", page.Category.Key)
-		assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
-		assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
-		assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
-		assert.NotContains(t, string(page.Schema), `"functionId"`)
+		require.NotNil(t, page.Operation)
+		require.NotNil(t, page.Operation.Form)
+		assert.Nil(t, page.Resource)
 	}
 }
 
@@ -168,10 +167,9 @@ func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
 	require.Len(t, page.Bindings, 1)
-	assert.JSONEq(t, `{}`, string(page.Bindings[0].InputMapping))
-	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
-	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
-	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
+	require.NotNil(t, page.Operation)
+	require.NotNil(t, page.Operation.Form)
+	assert.Empty(t, page.Bindings[0].Selectors.Input.Assignments)
 	assert.Empty(t, page.Diagnostics)
 }
 
@@ -206,11 +204,11 @@ func TestServiceGeneratedPagesKeepsMailSendAsOperationPage(t *testing.T) {
 	assert.Equal(t, "mail.send", page.PageKey)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
 	require.Len(t, page.Bindings, 1)
-	assert.JSONEq(t, `{"content":"values.content","target":"values.target"}`, string(page.Bindings[0].InputMapping))
-	assert.JSONEq(t, `{}`, string(page.Bindings[0].OutputMapping))
-	assert.Contains(t, string(page.Schema), `"x-component":"QueryForm"`)
-	assert.Contains(t, string(page.Schema), `"x-component":"ResultPanel"`)
-	assert.NotContains(t, string(page.Schema), `"x-component":"DataTable"`)
+	require.NotNil(t, page.Bindings[0].Selectors)
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "content", spec.SourceForm, "content")
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "target", spec.SourceForm, "target")
+	require.NotNil(t, page.Operation)
+	require.NotNil(t, page.Operation.ResultView)
 }
 
 func TestServiceListUsesBoundOpenAPISourceFunctionContract(t *testing.T) {
@@ -305,7 +303,8 @@ func TestServiceGeneratedPagesUsesBoundOpenAPISourceCapability(t *testing.T) {
 	assert.Equal(t, spec.GeneratedPageQualityNeedsReview, page.Quality)
 	assert.Equal(t, spec.BindingUsageTask, page.Bindings[0].Usage)
 	assert.Equal(t, spec.PageExecutionModeTask, page.Bindings[0].Execution.Mode)
-	assert.Contains(t, string(page.Schema), `"x-component":"TaskTimeline"`)
+	require.NotNil(t, page.Task)
+	require.NotNil(t, page.Task.TaskView)
 }
 
 func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testing.T) {
@@ -355,8 +354,6 @@ func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testin
 	require.Equal(t, spec.GeneratedPageQualityBasic, candidate.Quality)
 	require.Equal(t, "player.list", candidate.PageKey)
 	require.Len(t, candidate.Bindings, 1)
-	candidate.Bindings[0].InputMapping = json.RawMessage(`{}`)
-	candidate.Bindings[0].OutputMapping = json.RawMessage(`{}`)
 
 	pageService := pageapi.NewService(svcCtx)
 	revision := 0
@@ -367,7 +364,7 @@ func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testin
 		ResourceKey:   candidate.ResourceKey,
 		Title:         map[string]string(candidate.Title),
 		Category:      candidate.Category,
-		Schema:        json.RawMessage(candidate.Schema),
+		Operation:     candidate.Operation,
 		Bindings:      candidate.Bindings,
 	})
 	require.NoError(t, err)
@@ -429,6 +426,16 @@ func openAPIOperationWithCapability(resource string, operation string, capabilit
 			"x-execution":  execution,
 		},
 	}
+}
+
+func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceType spec.SelectorSourceType, sourcePath string) {
+	t.Helper()
+	for _, assignment := range selector.Assignments {
+		if assignment.Target == target && assignment.Source.Type == sourceType && assignment.Source.Path == sourcePath {
+			return
+		}
+	}
+	t.Fatalf("expected selector assignment %s <- %s:%s, got %#v", target, sourceType, sourcePath, selector.Assignments)
 }
 
 func openAPISourceDocument(t *testing.T, operationID string, resource string, operation string, capability string, execution string) json.RawMessage {

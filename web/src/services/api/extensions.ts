@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
 
 const BASE = '/api/v1/extensions';
 
@@ -93,7 +94,7 @@ export type ExtensionInstallRequest = {
   scopeId: string;
   targetType: string;
   targetId?: string;
-  config?: Record<string, any>;
+  config?: Record<string, JSONValue>;
   secretRefs?: Record<string, string>;
 };
 
@@ -246,7 +247,7 @@ export async function getExtensionCatalogDetail(id: string) {
   const response = await request<{
     item?: RawExtensionCatalogItem;
     releases?: RawExtensionReleaseItem[];
-    manifest?: Record<string, any>;
+    manifest?: Record<string, JSONValue>;
     capabilities?: string[];
   }>(`${BASE}/catalog/${encodeURIComponent(id)}`);
   return {
@@ -303,7 +304,7 @@ export async function installExtension(data: ExtensionInstallRequest) {
       config: data.config,
       secret_refs: data.secretRefs,
     },
-  }).then((response: any) => ({
+  }).then((response: Record<string, JSONValue>) => ({
     installationId: response?.installation_id ?? response?.installationId ?? 0,
     status: response?.status ?? '',
   }));
@@ -312,8 +313,8 @@ export async function installExtension(data: ExtensionInstallRequest) {
 export async function getExtensionInstallationDetail(id: number) {
   const response = await request<{
     installation?: RawExtensionInstallationItem;
-    config_schema?: Record<string, any>;
-    config?: Record<string, any>;
+    config_schema?: Record<string, JSONValue>;
+    config?: Record<string, JSONValue>;
     secret_refs?: Record<string, string>;
     bindings?: RawExtensionBindingItem[];
     events?: RawExtensionEventItem[];
@@ -332,7 +333,7 @@ export async function getExtensionInstallationDetail(id: number) {
 
 export async function updateExtensionConfig(
   id: number,
-  data: { config?: Record<string, any>; secretRefs?: Record<string, string> },
+  data: { config?: Record<string, JSONValue>; secretRefs?: Record<string, string> },
 ) {
   return request<{ status: string }>(`${BASE}/installations/${id}/config`, {
     method: 'PUT',
@@ -344,12 +345,12 @@ export async function updateExtensionConfig(
 }
 
 export async function getExtensionConfigSchema(id: number) {
-  return request<{ schema: Record<string, any> }>(`${BASE}/installations/${id}/config-schema`);
+  return request<{ schema: Record<string, JSONValue> }>(`${BASE}/installations/${id}/config-schema`);
 }
 
 export async function getExtensionConfig(id: number) {
   const response = await request<{
-    config: Record<string, any>;
+    config: Record<string, JSONValue>;
     secret_refs: Record<string, string>;
   }>(`${BASE}/installations/${id}/config`);
   return {
@@ -372,7 +373,7 @@ export async function runExtensionHealthCheck(id: number) {
   return request<{ status: string; checkedAt: number }>(
     `${BASE}/installations/${id}/health-check`,
     { method: 'POST' },
-  ).then((response: any) => ({
+  ).then((response: Record<string, JSONValue>) => ({
     status: response?.status ?? '',
     checkedAt: response?.checked_at ?? response?.checkedAt ?? 0,
   }));
@@ -428,7 +429,7 @@ export async function listExtensionEvents(
 }
 
 export async function getAgentSyncPayload(agentId: string) {
-  return request<{ payload: any }>(`${BASE}/agents/${encodeURIComponent(agentId)}/sync-payload`);
+  return request<{ payload: JSONValue }>(`${BASE}/agents/${encodeURIComponent(agentId)}/sync-payload`);
 }
 
 export async function listExtensionPages(id: string | number) {

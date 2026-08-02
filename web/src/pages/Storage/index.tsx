@@ -92,7 +92,7 @@ export default function StoragePage() {
         }
       });
 
-      (result.objects || []).forEach((obj: any) => {
+      (result.objects || []).forEach((obj: { key?: string; size?: number; last_modified?: string }) => {
         if (obj?.key && !obj.key.endsWith('/')) {
           const displayName = obj.key.replace(currentPrefix, '');
           items.push({
@@ -186,7 +186,7 @@ export default function StoragePage() {
     return items;
   }, [currentPrefix]);
 
-  const handleUpload = async (options: any) => {
+  const handleUpload = async (options: { file: File; onSuccess?: (body: unknown) => void; onError?: (err: Error) => void; onProgress?: (event: { percent: number }) => void }) => {
     const { file, onSuccess, onError, onProgress } = options;
 
     try {

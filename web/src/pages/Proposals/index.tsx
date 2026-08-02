@@ -43,14 +43,14 @@ import type {
   PageProposal,
   ProposalStatus,
   ProposalQuality,
-  PageTypeV2,
-} from '@/types/dashboard-vnext';
+  PageType,
+} from '@/types/dashboard';
 import {
   listProposals,
   getProposal,
   acceptProposal,
   rejectProposal,
-} from '@/services/dashboard-vnext';
+} from '@/services/dashboard';
 
 const { Text, Title, Paragraph } = Typography;
 const { Option } = Select;
@@ -94,14 +94,14 @@ const qualityLabels: Record<ProposalQuality, string> = {
   blocked: '阻断',
 };
 
-const pageTypeLabels: Record<PageTypeV2, string> = {
+const pageTypeLabels: Record<PageType, string> = {
   resource: '资源',
   operation: '操作',
   task: '任务',
   report: '报表',
 };
 
-const pageTypeColors: Record<PageTypeV2, string> = {
+const pageTypeColors: Record<PageType, string> = {
   resource: 'blue',
   operation: 'green',
   task: 'orange',
@@ -128,8 +128,9 @@ const ProposalsPage: React.FC = () => {
         status: status || undefined,
       });
       setData(result);
-    } catch (error: any) {
-      message.error('加载失败: ' + (error.message || '未知错误'));
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '未知错误';
+      message.error('加载失败: ' + errMsg);
     } finally {
       setLoading(false);
     }
@@ -146,8 +147,9 @@ const ProposalsPage: React.FC = () => {
       const detail = await getProposal(proposalKey);
       setSelectedProposal(detail);
       setDetailVisible(true);
-    } catch (error: any) {
-      message.error('获取详情失败: ' + (error.message || '未知错误'));
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '未知错误';
+      message.error('获取详情失败: ' + errMsg);
     }
   }, []);
 
@@ -158,8 +160,9 @@ const ProposalsPage: React.FC = () => {
         await acceptProposal(proposalKey);
         message.success('提案已接受');
         fetchData();
-      } catch (error: any) {
-        message.error('接受失败: ' + (error.message || '未知错误'));
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : '未知错误';
+        message.error('接受失败: ' + errMsg);
       }
     },
     [fetchData]
@@ -172,8 +175,9 @@ const ProposalsPage: React.FC = () => {
         await rejectProposal(proposalKey);
         message.success('提案已拒绝');
         fetchData();
-      } catch (error: any) {
-        message.error('拒绝失败: ' + (error.message || '未知错误'));
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : '未知错误';
+        message.error('拒绝失败: ' + errMsg);
       }
     },
     [fetchData]
@@ -196,7 +200,7 @@ const ProposalsPage: React.FC = () => {
       title: '页面类型',
       dataIndex: 'pageType',
       key: 'pageType',
-      render: (type: PageTypeV2) => (
+      render: (type: PageType) => (
         <Tag color={pageTypeColors[type]}>
           {pageTypeLabels[type] || type}
         </Tag>
@@ -232,7 +236,7 @@ const ProposalsPage: React.FC = () => {
       title: '诊断',
       dataIndex: 'diagnostics',
       key: 'diagnostics',
-      render: (diagnostics: any[]) => {
+      render: (diagnostics: Record<string, unknown>[]) => {
         if (!diagnostics || diagnostics.length === 0) {
           return <Tag color="success">无</Tag>;
         }

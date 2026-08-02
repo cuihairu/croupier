@@ -67,7 +67,7 @@ export default function OpsNotificationsPage() {
       title: '操作',
       key: 'act',
       width: 140,
-      render: (_: any, r) => (
+      render: (_, r) => (
         <Space>
           <Button size="small" onClick={() => setEditCh(r)}>
             编辑
@@ -95,7 +95,7 @@ export default function OpsNotificationsPage() {
       title: '操作',
       key: 'act',
       width: 140,
-      render: (_: any, r) => (
+      render: (_, r) => (
         <Space>
           <Button size="small" onClick={() => setEditRule(r)}>
             编辑

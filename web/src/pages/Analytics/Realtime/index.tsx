@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Card, Space, Button, Row, Col, Statistic, DatePicker, Tag } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
 import { fetchRealtimeSeries, openAnalyticsRealtimeEventSource } from '@/services/api/analytics';
+import type { JSONValue } from '@/types/dashboard';
 
 type SeriesPoint = [number | string, number];
 type RealtimeSeriesResponse = {
@@ -13,9 +15,36 @@ type RealtimeSeriesResponse = {
 };
 type ExportRow = Array<string | number>;
 
+interface RealtimeData {
+  online?: number;
+  active_1m?: number;
+  active_5m?: number;
+  active_15m?: number;
+  qps?: number;
+  avg_latency?: number;
+  error_rate?: number;
+  top_events?: { event: string; count: number }[];
+  rev_5m?: number;
+  online_peak_today?: number;
+  online_peak_all_time?: number;
+  dau_today?: number;
+  new_today?: number;
+  registered_total?: number;
+  pay_succ_rate?: number;
+  rev_today?: number;
+  realtimeMetrics?: {
+    onlineUsers?: number;
+    activeSessions?: number;
+    qps?: number;
+    avgLatency?: number;
+    errorRate?: number;
+    topEvents?: { event: string; count: number }[];
+  };
+}
+
 export default function AnalyticsRealtimePage() {
   const intl = useIntl();
-  const [data, setData] = useState<any>({});
+  const [data, setData] = useState<RealtimeData>({});
   const [loading, setLoading] = useState(false);
   const [auto, setAuto] = useState(true);
   const [streamStatus, setStreamStatus] = useState<'connecting' | 'connected' | 'stale' | 'error'>(
@@ -28,11 +57,11 @@ export default function AnalyticsRealtimePage() {
   const [ptsRev5, setPtsRev5] = useState<[number, number][]>([]);
   const [thrOnline, setThrOnline] = useState<number>(0);
   const [thrA5, setThrA5] = useState<number>(0);
-  const [expRange, setExpRange] = useState<any>(null);
+  const [expRange, setExpRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const esRef = useRef<EventSource | null>(null);
   const staleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const normalizeRealtime = (payload: any) => {
+  const normalizeRealtime = (payload: RealtimeData): RealtimeData => {
     const metrics = payload?.realtimeMetrics || {};
     return {
       ...payload,
@@ -47,7 +76,7 @@ export default function AnalyticsRealtimePage() {
     };
   };
 
-  const pushRealtime = (r: any) => {
+  const pushRealtime = (r: RealtimeData) => {
     const normalized = normalizeRealtime(r || {});
     setData(normalized);
     setLastMessageAt(Date.now());
@@ -273,8 +302,8 @@ export default function AnalyticsRealtimePage() {
             />
             <DatePicker.RangePicker
               showTime
-              value={expRange as any}
-              onChange={setExpRange as any}
+              value={expRange as [Dayjs, Dayjs]}
+              onChange={(dates) => setExpRange(dates as [Dayjs | null, Dayjs | null] | null)}
             />
             <Button
               onClick={async () => {
@@ -332,16 +361,16 @@ export default function AnalyticsRealtimePage() {
                     return (arr || []).filter((p) => p[0] >= t);
                   };
                   // revenue column exported in Yuan (to match UI/spark)
-                  const csvRows = [['ts', 'online', 'active_5m', 'active_15m', 'rev_5m_yuan']];
+                  const csvRows: string[][] = [['ts', 'online', 'active_5m', 'active_15m', 'rev_5m_yuan']];
                   const o = last10(ptsOnline),
                     a5 = last10(ptsA5),
                     a15 = last10(ptsA15),
                     rv = last10(ptsRev5);
                   const idx = new Set<number>([...o, ...a5, ...a15, ...rv].map((p) => p[0]));
                   const times = Array.from(idx).sort((a, b) => a - b);
-                  const at = (arr: [number, number][], t: number) => {
+                  const at = (arr: [number, number][], t: number): string => {
                     const f = arr.find((p) => p[0] === t);
-                    return f ? f[1] : '';
+                    return f ? String(f[1]) : '';
                   };
                   for (const t of times) {
                     csvRows.push([
@@ -350,7 +379,7 @@ export default function AnalyticsRealtimePage() {
                       at(a5, t),
                       at(a15, t),
                       at(rv, t),
-                    ] as any);
+                    ]);
                   }
                   const csv = csvRows
                     .map((r) => r.map((x) => String(x ?? '')).join(','))

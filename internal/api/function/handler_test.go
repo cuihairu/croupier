@@ -56,11 +56,11 @@ func TestBindFunctionRequestBindsURIParams(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/functions/inventory.consume/form", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/functions/inventory.consume/history", nil)
 	ctx.Request = req
 	ctx.Params = gin.Params{{Key: "id", Value: "inventory.consume"}}
 
-	var bindReq FunctionFormRequest
+	var bindReq FunctionHistoryRequest
 	if err := bindFunctionRequest(ctx, &bindReq); err != nil {
 		t.Fatalf("bindFunctionRequest() error = %v", err)
 	}
@@ -93,10 +93,6 @@ func TestFunctionHandlersRejectMalformedJSON(t *testing.T) {
 		{name: "FunctionInstancesAll", fn: h.FunctionInstancesAll},
 		{name: "FunctionPermissions", fn: h.FunctionPermissions},
 		{name: "FunctionPermissionsUpdate", fn: h.FunctionPermissionsUpdate},
-		{name: "FunctionForm", fn: h.FunctionForm},
-		{name: "FunctionFormUpdate", fn: h.FunctionFormUpdate},
-		{name: "FunctionFormHistory", fn: h.FunctionFormHistory},
-		{name: "FunctionFormRollback", fn: h.FunctionFormRollback},
 		{name: "FunctionWarnings", fn: h.FunctionWarnings},
 		{name: "Descriptors", fn: h.Descriptors},
 		{name: "BatchCopyFunctions", fn: h.BatchCopyFunctions},

@@ -175,7 +175,7 @@ export default function ConsoleIndex() {
             {pageTitle}
           </Typography.Title>
           <Typography.Text type="secondary">
-            运行控制台展示已发布的页面。页面由 PageSpec 定义，通过 Formily 渲染。
+            运行控制台展示已发布的页面。页面由 PageSpec 定义，通过统一 JSON Schema 表单渲染器执行。
           </Typography.Text>
           <Space wrap size={[8, 8]}>
             <Tag color="blue">{`已发布 ${pages.length} 个页面`}</Tag>

@@ -121,7 +121,7 @@ export default function AnalyticsFiltersPage() {
             <InputNumber
               min={0}
               max={100}
-              value={sampleGlobal as any}
+              value={sampleGlobal}
               onChange={(v) => setSampleGlobal(Number(v || 0))}
             />
             <span style={{ marginLeft: 8 }}>%</span>
@@ -142,7 +142,7 @@ export default function AnalyticsFiltersPage() {
               mode="tags"
               style={{ width: '100%', maxWidth: 720 }}
               value={events}
-              onChange={setEvents as any}
+              onChange={(v) => setEvents(v)}
               placeholder="输入允许的事件名，留空=全部允许"
             />
           </div>

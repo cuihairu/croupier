@@ -166,7 +166,7 @@ export default function DirectoryPage() {
         <Alert
           type="info"
           showIcon
-          message="函数详情里的 UI 配置只影响单函数表单"
+          message="函数目录只展示能力供给，不承载页面 UI"
           description="如果目标是做运营人员真正访问的页面，不要在函数层配置菜单或页面布局；请到资源/页面候选中进入 Page Studio。"
           action={
             <Button

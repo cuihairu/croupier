@@ -1,8 +1,9 @@
 import { request } from '@umijs/max';
 import { getScope } from '@/stores/scope';
 import { createEventSource } from '../core/http';
+import type { JSONValue } from '@/types/dashboard';
 
-type AnalyticsParams = Record<string, unknown>;
+type AnalyticsParams = Record<string, JSONValue>;
 
 function withAnalyticsScope(params?: AnalyticsParams) {
   const scope = getScope();

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Select, Button, Table } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsRetention } from '@/services/api/analytics';
@@ -17,16 +18,26 @@ type RetentionRow = {
 
 type ExportCell = string | number | null;
 
+type CohortData = {
+  cohort: string;
+  users: number;
+  retention: number[];
+};
+
+type RetentionResponse = {
+  cohorts: CohortData[];
+};
+
 export default function AnalyticsRetentionPage() {
   const [loading, setLoading] = useState(false);
-  const [range, setRange] = useState<any>(null);
+  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [cohort, setCohort] = useState<'signup' | 'first_active'>('signup');
-  const [data, setData] = useState<any>({ cohorts: [] });
+  const [data, setData] = useState<RetentionResponse>({ cohorts: [] });
 
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = { cohort };
+      const params: Record<string, string> = { cohort };
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsRetention(params);
@@ -40,7 +51,7 @@ export default function AnalyticsRetentionPage() {
   }, []);
 
   // 处理后端返回的数据结构
-  const rowsData: RetentionRow[] = (data?.cohorts || []).map((c: any, idx: number) => {
+  const rowsData: RetentionRow[] = (data?.cohorts || []).map((c, idx) => {
     // retention 数组格式: [Day1, Day3, Day7, Day14, Day30]
     const retention = c.retention || [];
     return {
@@ -63,13 +74,16 @@ export default function AnalyticsRetentionPage() {
           <Space>
             <Select
               value={cohort}
-              onChange={setCohort as any}
+              onChange={(val) => setCohort(val)}
               options={[
                 { label: '按注册', value: 'signup' },
                 { label: '按首次活跃', value: 'first_active' },
               ]}
             />
-            <DatePicker.RangePicker value={range as any} onChange={setRange as any} />
+            <DatePicker.RangePicker
+              value={range}
+              onChange={(dates) => setRange(dates as [Dayjs | null, Dayjs | null])}
+            />
             <Button type="primary" onClick={load}>
               查询
             </Button>

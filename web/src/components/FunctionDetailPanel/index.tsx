@@ -21,6 +21,7 @@ import {
 } from '@ant-design/icons';
 import { history } from '@umijs/max';
 import type { FunctionInstance } from '@/services/api';
+import type { JSONSchema } from '@/types/dashboard';
 
 const { Text, Paragraph } = Typography;
 
@@ -43,8 +44,8 @@ export type FunctionDetail = {
     hidden?: boolean;
   };
   instances?: FunctionInstance[];
-  params?: any;
-  outputs?: any;
+  params?: JSONSchema;
+  outputs?: JSONSchema;
   permissions?: string[];
   recent_calls?: Array<{
     timestamp: string;

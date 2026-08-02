@@ -115,8 +115,9 @@ export default function OpsNodesPage() {
           await drainOpsNode(id);
           message.success('已下线');
           load();
-        } catch (e: any) {
-          message.error(e?.message || '操作失败');
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : '操作失败';
+          message.error(msg);
         }
       },
     });
@@ -130,8 +131,9 @@ export default function OpsNodesPage() {
           await undrainOpsNode(id);
           message.success('已取消下线');
           load();
-        } catch (e: any) {
-          message.error(e?.message || '操作失败');
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : '操作失败';
+          message.error(msg);
         }
       },
     });
@@ -144,8 +146,9 @@ export default function OpsNodesPage() {
         try {
           await restartOpsNode(id);
           message.success('已下发重启');
-        } catch (e: any) {
-          message.error(e?.message || '操作失败');
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : '操作失败';
+          message.error(msg);
         }
       },
     });
@@ -196,7 +199,7 @@ export default function OpsNodesPage() {
       title: '操作',
       width: 220,
       fixed: 'right',
-      render: (_: any, r) => (
+      render: (_, r) => (
         <Space>
           <Button size="small" onClick={() => drain(r.agentId)}>
             下线
@@ -255,7 +258,7 @@ export default function OpsNodesPage() {
                   allowClear
                   placeholder="游戏"
                   value={game}
-                  onChange={setGame as any}
+                  onChange={(val) => setGame(val)}
                   style={{ width: 140 }}
                   options={games}
                 />
@@ -263,15 +266,15 @@ export default function OpsNodesPage() {
                   allowClear
                   placeholder="环境"
                   value={env}
-                  onChange={setEnv as any}
+                  onChange={(val) => setEnv(val)}
                   style={{ width: 120 }}
                   options={envs}
                 />
                 <Select
                   allowClear
                   placeholder="健康"
-                  value={healthy as any}
-                  onChange={setHealthy as any}
+                  value={healthy}
+                  onChange={(val) => setHealthy(val)}
                   style={{ width: 120 }}
                   options={[
                     { label: '健康', value: 'healthy' },

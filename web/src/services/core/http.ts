@@ -1,5 +1,11 @@
 import { apiUrl } from '@/utils/api';
 import { getScope } from '@/stores/scope';
+import type { JSONValue } from '@/types/dashboard';
+
+interface HttpError extends Error {
+  status?: number;
+  responseText?: string;
+}
 
 type JsonInit = RequestInit & {
   skipAuth?: boolean;
@@ -44,7 +50,7 @@ function buildHeaders(
   return headers;
 }
 
-export async function fetchJSON<T = any>(path: string, init: JsonInit = {}): Promise<T> {
+export async function fetchJSON<T = JSONValue>(path: string, init: JsonInit = {}): Promise<T> {
   const url = apiUrl(path);
   const headers = buildHeaders(init.headers, {
     skipAuth: init.skipAuth,
@@ -57,9 +63,9 @@ export async function fetchJSON<T = any>(path: string, init: JsonInit = {}): Pro
   const resp = await fetch(url, { ...init, headers });
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
-    const err = new Error(text || `Request failed: ${resp.status}`);
-    (err as any).status = resp.status;
-    (err as any).responseText = text;
+    const err = new Error(text || `Request failed: ${resp.status}`) as HttpError;
+    err.status = resp.status;
+    err.responseText = text;
     throw err;
   }
   if (resp.status === 204) return undefined as T;

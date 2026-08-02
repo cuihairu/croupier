@@ -1,3 +1,4 @@
+// Package page provides canonical PageSpec management API.
 package page
 
 import (
@@ -19,13 +20,14 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
 )
 
-const rendererSchemaVersion = "formily-page:1"
+const rendererSchemaVersion = "page-spec:1"
 
 type Service struct {
 	svcCtx *svc.ServiceContext
@@ -112,8 +114,20 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	if strings.TrimSpace(req.PageKey) == "" {
 		return nil, errorx.NewBadRequest("pageKey is required")
 	}
+	pageSpec := spec.PageSpec{
+		PageKey:     strings.TrimSpace(req.PageKey),
+		Type:        req.Type,
+		ResourceKey: strings.TrimSpace(req.ResourceKey),
+		Navigation:  req.Navigation,
+		Resource:    req.Resource,
+		Operation:   req.Operation,
+		Task:        req.Task,
+		Report:      req.Report,
+		Bindings:    req.Bindings,
+		Metadata:    req.Metadata,
+	}
 	if !isValidPageType(req.Type) {
-		return nil, errorx.NewBadRequest("type must be entity, operation, task, or report")
+		return nil, errorx.NewBadRequest("type must be resource, operation, task, or report")
 	}
 	categoryKey := strings.TrimSpace(req.Category.Key)
 	if categoryKey == "" {
@@ -131,11 +145,25 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	if !hasDefaultLocale(categoryLabels) {
 		return nil, errorx.NewBadRequest("category.labels must include zh-CN locale")
 	}
+	pageSpec.Title = title
+	pageSpec.Description = normalizeLocaleKeys(req.Description)
+	pageSpec.Category = spec.PageCategorySpec{
+		Key:    categoryKey,
+		Labels: categoryLabels,
+		Order:  req.Category.Order,
+	}
+	pageSpec.Order = req.Order
+	pageSpec.Icon = strings.TrimSpace(req.Icon)
+
+	specJSON, err := marshalPageSpec(pageSpec)
+	if err != nil {
+		return nil, err
+	}
 
 	now := time.Now()
 	var nextRevision int
-	err = s.withPageTransaction(ctx, func(pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
-		existing, err := pageModel.FindByScopeAndPageKey(ctx, gameID, env, req.PageKey)
+	err = s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
+		existing, err := pageModel.FindByScopeAndPageKey(txCtx, gameID, env, req.PageKey)
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
@@ -163,7 +191,7 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 			CategoryOrder: req.Category.Order,
 			Order:         req.Order,
 			Icon:          strings.TrimSpace(req.Icon),
-			SchemaJSON:    string(req.Schema),
+			SpecJSON:      specJSON,
 			Status:        "draft",
 			UpdatedBy:     actor,
 			UpdatedAt:     now,
@@ -171,25 +199,8 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 		if err := ps.SetTitle(title); err != nil {
 			return err
 		}
-		if description := normalizeLocaleKeys(req.Description); description != nil {
-			b, err := json.Marshal(description)
-			if err != nil {
-				return err
-			}
-			ps.DescriptionJSON = string(b)
-		}
 		if err := ps.SetCategoryLabels(categoryLabels); err != nil {
 			return err
-		}
-		if err := ps.SetBindings(convertBindingsToModel(req.Bindings)); err != nil {
-			return err
-		}
-		if req.Metadata != nil {
-			b, err := json.Marshal(req.Metadata)
-			if err != nil {
-				return err
-			}
-			ps.MetadataJSON = string(b)
 		}
 
 		if existing != nil {
@@ -204,14 +215,10 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 		}
 		nextRevision = ps.DraftRevision
 
-		if err := pageModel.Upsert(ctx, ps); err != nil {
+		if err := pageModel.Upsert(txCtx, ps); err != nil {
 			return fmt.Errorf("save page draft: %w", err)
 		}
-		specJSON, err := buildPageSpecJSON(ps)
-		if err != nil {
-			return err
-		}
-		return versionModel.UpsertByScopePageKeyVersion(ctx, &model.PageVersion{
+		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
 			GameID:    gameID,
 			Env:       env,
 			PageKey:   ps.PageKey,
@@ -285,11 +292,11 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 	if err != nil {
 		return nil, err
 	}
-	err = s.withPageTransaction(ctx, func(pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
-		if err := pageModel.Upsert(ctx, p); err != nil {
+	err = s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
+		if err := pageModel.Upsert(txCtx, p); err != nil {
 			return err
 		}
-		return versionModel.UpsertByScopePageKeyVersion(ctx, &model.PageVersion{
+		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
 			GameID:    gameID,
 			Env:       env,
 			PageKey:   p.PageKey,
@@ -405,11 +412,11 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 
 	now := time.Now()
 	publishedVersion := p.DraftRevision
-	err = s.withPageTransaction(ctx, func(pageModel *model.PageSpecModel, publishedModel *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
-		if err := publishedModel.DeactivatePage(ctx, gameID, env, req.PageKey, now); err != nil {
+	err = s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, publishedModel *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
+		if err := publishedModel.DeactivatePage(txCtx, gameID, env, req.PageKey, now); err != nil {
 			return err
 		}
-		if err := publishedModel.Create(ctx, &model.PublishedPageSpec{
+		if err := publishedModel.Create(txCtx, &model.PublishedPageSpec{
 			GameID:                gameID,
 			Env:                   env,
 			PageKey:               req.PageKey,
@@ -427,10 +434,10 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 		p.PublishedActive = true
 		p.PublishedVersion = publishedVersion
 		p.UpdatedAt = now
-		if err := pageModel.Upsert(ctx, p); err != nil {
+		if err := pageModel.Upsert(txCtx, p); err != nil {
 			return err
 		}
-		return versionModel.UpsertByScopePageKeyVersion(ctx, &model.PageVersion{
+		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
 			GameID:    gameID,
 			Env:       env,
 			PageKey:   req.PageKey,
@@ -467,14 +474,14 @@ func (s *Service) Unpublish(ctx context.Context, req *PageUnpublishRequest) (*Pa
 		return nil, ErrPageNotFound(req.PageKey)
 	}
 	now := time.Now()
-	err = s.withPageTransaction(ctx, func(pageModel *model.PageSpecModel, publishedModel *model.PublishedPageSpecModel, _ *model.PageVersionModel) error {
+	err = s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, publishedModel *model.PublishedPageSpecModel, _ *model.PageVersionModel) error {
 		p.Status = "draft"
 		p.PublishedActive = false
 		p.UpdatedAt = now
-		if err := pageModel.Upsert(ctx, p); err != nil {
+		if err := pageModel.Upsert(txCtx, p); err != nil {
 			return err
 		}
-		return publishedModel.DeactivatePage(ctx, gameID, env, req.PageKey, now)
+		return publishedModel.DeactivatePage(txCtx, gameID, env, req.PageKey, now)
 	})
 	if err != nil {
 		return nil, err
@@ -598,11 +605,11 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 	if err != nil {
 		return nil, err
 	}
-	err = s.withPageTransaction(ctx, func(pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
-		if err := pageModel.Upsert(ctx, p); err != nil {
+	err = s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
+		if err := pageModel.Upsert(txCtx, p); err != nil {
 			return err
 		}
-		return versionModel.UpsertByScopePageKeyVersion(ctx, &model.PageVersion{
+		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
 			GameID:    gameID,
 			Env:       env,
 			PageKey:   req.PageKey,
@@ -680,7 +687,7 @@ func requireScope(ctx context.Context) (string, string, error) {
 
 func isValidPageType(t spec.PageType) bool {
 	switch t {
-	case spec.PageTypeEntity, spec.PageTypeOperation, spec.PageTypeTask, spec.PageTypeReport:
+	case spec.PageTypeResource, spec.PageTypeOperation, spec.PageTypeTask, spec.PageTypeReport:
 		return true
 	default:
 		return false
@@ -704,12 +711,13 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 	if len(page.Bindings) == 0 {
 		diags = append(diags, diagnostic("bindings_missing", spec.SeverityError, "page must bind at least one function", "bindings"))
 	}
+	diags = append(diags, validatePageShape(page)...)
 
 	bindingsByID := map[string]spec.PageFunctionBinding{}
 	functions := s.normalizedFunctions(ctx)
 	for i, binding := range page.Bindings {
 		field := fmt.Sprintf("bindings[%d]", i)
-		diags = append(diags, validateBinding(field, binding, functions, publish)...)
+		diags = append(diags, validateBinding(field, binding, functions, page, publish)...)
 		if strings.TrimSpace(binding.ID) != "" {
 			if _, exists := bindingsByID[binding.ID]; exists {
 				diags = append(diags, diagnostic("binding_id_duplicate", spec.SeverityError, "binding id must be unique", field+".id"))
@@ -718,6 +726,26 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 		}
 	}
 
+	return diags
+}
+
+func validatePageShape(page spec.PageSpec) []spec.Diagnostic {
+	var diags []spec.Diagnostic
+	requireOnly := func(field string, present bool) {
+		if !present {
+			diags = append(diags, diagnostic("page_shape_missing", spec.SeverityError, "page type requires "+field+" spec", field))
+		}
+	}
+	switch page.Type {
+	case spec.PageTypeResource:
+		requireOnly("resource", page.Resource != nil)
+	case spec.PageTypeOperation:
+		requireOnly("operation", page.Operation != nil)
+	case spec.PageTypeTask:
+		requireOnly("task", page.Task != nil)
+	case spec.PageTypeReport:
+		requireOnly("report", page.Report != nil)
+	}
 	return diags
 }
 
@@ -732,7 +760,7 @@ func bindingsByID(bindings []spec.PageFunctionBinding) map[string]spec.PageFunct
 	return result
 }
 
-func validateBinding(field string, binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec, publish bool) []spec.Diagnostic {
+func validateBinding(field string, binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec, page spec.PageSpec, publish bool) []spec.Diagnostic {
 	var diags []spec.Diagnostic
 	bindingID := strings.TrimSpace(binding.ID)
 	functionID := strings.TrimSpace(binding.FunctionID)
@@ -765,29 +793,79 @@ func validateBinding(field string, binding spec.PageFunctionBinding, functions m
 		diags = append(diags, diagnostic("binding_task_mode_mismatch", spec.SeverityError, "task binding must use execution.mode=task", field+".execution.mode"))
 	}
 	if publish {
-		diags = append(diags, validatePublishBindingMapping(field, binding)...)
+		diags = append(diags, validatePublishBindingSelectors(field, binding, fn, page)...)
 	}
 	return diags
 }
 
-func validatePublishBindingMapping(field string, binding spec.PageFunctionBinding) []spec.Diagnostic {
+func validatePublishBindingSelectors(field string, binding spec.PageFunctionBinding, fn spec.FunctionSpec, page spec.PageSpec) []spec.Diagnostic {
 	var diags []spec.Diagnostic
-	if !hasJSONObjectRaw(binding.InputMapping) {
-		diags = append(diags, diagnostic("binding_input_mapping_missing", spec.SeverityError, "binding.inputMapping must be an explicit JSON object before publish", field+".inputMapping"))
+	if len(fn.InputSchema) == 0 || !schemaHasFields(fn.InputSchema) {
+		return diags
 	}
-	if !hasJSONObjectRaw(binding.OutputMapping) {
-		diags = append(diags, diagnostic("binding_output_mapping_missing", spec.SeverityError, "binding.outputMapping must be an explicit JSON object before publish", field+".outputMapping"))
+	if binding.Selectors == nil {
+		diags = append(diags, diagnostic("binding_selector_missing", spec.SeverityError, "binding.selectors.input is required before publish", field+".selectors.input"))
+		return diags
+	}
+	result := spec.ValidateSelector(binding.Selectors.Input, fn.InputSchema, selectorContextForPage(page))
+	for _, item := range result.Errors {
+		fieldPath := field + ".selectors.input"
+		if strings.TrimSpace(item.Field) != "" {
+			fieldPath += "." + item.Field
+		}
+		diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityError, item.Message, fieldPath))
+	}
+	for _, item := range result.Warnings {
+		fieldPath := field + ".selectors.input"
+		if strings.TrimSpace(item.Field) != "" {
+			fieldPath += "." + item.Field
+		}
+		diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityWarning, item.Message, fieldPath))
 	}
 	return diags
 }
 
-func hasJSONObjectRaw(raw json.RawMessage) bool {
-	trimmed := strings.TrimSpace(string(raw))
-	if trimmed == "" || trimmed == "null" {
+func selectorContextForPage(page spec.PageSpec) spec.SelectorContext {
+	return spec.SelectorContext{
+		PageType:      page.Type,
+		HasListView:   page.Resource != nil && page.Resource.ListView != nil,
+		HasDetailView: page.Resource != nil && page.Resource.DetailView != nil,
+		FormSchema:    primaryFormSchema(page),
+	}
+}
+
+func primaryFormSchema(page spec.PageSpec) spec.JSONSchema {
+	switch {
+	case page.Operation != nil && page.Operation.Form != nil:
+		return page.Operation.Form.JSONSchema
+	case page.Task != nil && page.Task.Form != nil:
+		return page.Task.Form.JSONSchema
+	case page.Report != nil && page.Report.QueryForm != nil:
+		return page.Report.QueryForm.JSONSchema
+	case page.Resource != nil && page.Resource.CreateForm != nil:
+		return page.Resource.CreateForm.JSONSchema
+	default:
+		return nil
+	}
+}
+
+func schemaHasFields(raw spec.JSONSchema) bool {
+	if len(raw) == 0 {
 		return false
 	}
 	var parsed map[string]json.RawMessage
-	return json.Unmarshal([]byte(trimmed), &parsed) == nil
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return true
+	}
+	var properties map[string]json.RawMessage
+	if err := json.Unmarshal(parsed["properties"], &properties); err == nil && len(properties) > 0 {
+		return true
+	}
+	var required []string
+	if err := json.Unmarshal(parsed["required"], &required); err == nil && len(required) > 0 {
+		return true
+	}
+	return false
 }
 
 func isValidUsage(usage spec.PageBindingUsage) bool {
@@ -875,68 +953,28 @@ func parsePublishedPageForFreshness(published model.PublishedPageSpec) (spec.Pag
 	return pageSpec, contracts
 }
 
-func convertBindingsToSpec(bindings []model.PageFunctionBindingBinding) []spec.PageFunctionBinding {
-	if bindings == nil {
-		return nil
-	}
-	result := make([]spec.PageFunctionBinding, len(bindings))
-	for i, b := range bindings {
-		result[i] = spec.PageFunctionBinding{
-			ID:            b.ID,
-			FunctionID:    b.FunctionID,
-			Usage:         spec.PageBindingUsage(b.Usage),
-			InputMapping:  b.InputMapping,
-			OutputMapping: b.OutputMapping,
-			Execution: spec.PageBindingExecution{
-				Mode:           spec.PageExecutionMode(b.Execution.Mode),
-				RequireConfirm: b.Execution.RequireConfirm,
-			},
-		}
-	}
-	return result
-}
-
-func convertBindingsToModel(bindings []spec.PageFunctionBinding) []model.PageFunctionBindingBinding {
-	if bindings == nil {
-		return nil
-	}
-	result := make([]model.PageFunctionBindingBinding, len(bindings))
-	for i, b := range bindings {
-		result[i] = model.PageFunctionBindingBinding{
-			ID:            strings.TrimSpace(b.ID),
-			FunctionID:    strings.TrimSpace(b.FunctionID),
-			Usage:         string(b.Usage),
-			InputMapping:  b.InputMapping,
-			OutputMapping: b.OutputMapping,
-			Execution: model.BindingExecutionBinding{
-				Mode:           string(b.Execution.Mode),
-				RequireConfirm: b.Execution.RequireConfirm,
-			},
-		}
-	}
-	return result
-}
-
 func pageSpecFromModel(p *model.PageSpec) spec.PageSpec {
 	if p == nil {
 		return spec.PageSpec{}
+	}
+	var pageSpec spec.PageSpec
+	if strings.TrimSpace(p.SpecJSON) != "" {
+		if err := json.Unmarshal([]byte(p.SpecJSON), &pageSpec); err == nil && strings.TrimSpace(pageSpec.PageKey) != "" {
+			return pageSpec
+		}
 	}
 	return spec.PageSpec{
 		PageKey:     p.PageKey,
 		Type:        spec.PageType(p.Type),
 		ResourceKey: p.ResourceKey,
 		Title:       p.GetTitle(),
-		Description: getDescriptionFromJSON(p.DescriptionJSON),
 		Category: spec.PageCategorySpec{
 			Key:    p.CategoryKey,
 			Labels: p.GetCategoryLabels(),
 			Order:  p.CategoryOrder,
 		},
-		Order:    p.Order,
-		Icon:     p.Icon,
-		Schema:   spec.FormilySchema(p.GetSchema()),
-		Bindings: convertBindingsToSpec(p.GetBindings()),
-		Metadata: getMetadataFromJSON(p.MetadataJSON),
+		Order: p.Order,
+		Icon:  p.Icon,
 	}
 }
 
@@ -954,39 +992,37 @@ func applyPageSpecToModel(p *model.PageSpec, ps spec.PageSpec) error {
 	p.CategoryOrder = ps.Category.Order
 	p.Order = ps.Order
 	p.Icon = strings.TrimSpace(ps.Icon)
-	p.SchemaJSON = string(ps.Schema)
 	if err := p.SetTitle(normalizeLocaleKeys(ps.Title)); err != nil {
 		return err
-	}
-	if ps.Description != nil {
-		b, err := json.Marshal(normalizeLocaleKeys(ps.Description))
-		if err != nil {
-			return err
-		}
-		p.DescriptionJSON = string(b)
-	} else {
-		p.DescriptionJSON = ""
 	}
 	if err := p.SetCategoryLabels(normalizeLocaleKeys(ps.Category.Labels)); err != nil {
 		return err
 	}
-	if err := p.SetBindings(convertBindingsToModel(ps.Bindings)); err != nil {
+	raw, err := marshalPageSpec(ps)
+	if err != nil {
 		return err
 	}
-	if ps.Metadata != nil {
-		b, err := json.Marshal(ps.Metadata)
-		if err != nil {
-			return err
-		}
-		p.MetadataJSON = string(b)
-	} else {
-		p.MetadataJSON = ""
-	}
+	p.SpecJSON = raw
 	return nil
 }
 
 func buildPageSpecJSON(p *model.PageSpec) (string, error) {
-	b, err := json.Marshal(pageSpecFromModel(p))
+	return marshalPageSpec(pageSpecFromModel(p))
+}
+
+func marshalPageSpec(page spec.PageSpec) (string, error) {
+	page.PageKey = strings.TrimSpace(page.PageKey)
+	page.ResourceKey = strings.TrimSpace(page.ResourceKey)
+	page.Icon = strings.TrimSpace(page.Icon)
+	page.Title = normalizeLocaleKeys(page.Title)
+	page.Description = normalizeLocaleKeys(page.Description)
+	page.Category.Key = strings.TrimSpace(page.Category.Key)
+	page.Category.Labels = normalizeLocaleKeys(page.Category.Labels)
+	for i := range page.Bindings {
+		page.Bindings[i].ID = strings.TrimSpace(page.Bindings[i].ID)
+		page.Bindings[i].FunctionID = strings.TrimSpace(page.Bindings[i].FunctionID)
+	}
+	b, err := json.Marshal(page)
 	if err != nil {
 		return "", err
 	}
@@ -995,13 +1031,15 @@ func buildPageSpecJSON(p *model.PageSpec) (string, error) {
 
 func (s *Service) withPageTransaction(
 	ctx context.Context,
-	fn func(*model.PageSpecModel, *model.PublishedPageSpecModel, *model.PageVersionModel) error,
+	fn func(context.Context, *model.PageSpecModel, *model.PublishedPageSpecModel, *model.PageVersionModel) error,
 ) error {
 	if s.svcCtx == nil || s.svcCtx.DB == nil {
 		return errorx.NewInternalError("page service database is not initialized")
 	}
-	return s.svcCtx.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return fn(model.NewPageSpecModel(tx), model.NewPublishedPageSpecModel(tx), model.NewPageVersionModel(tx))
+	db := dbctx.Resolve(ctx, s.svcCtx.DB)
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txCtx := dbctx.WithDB(ctx, tx)
+		return fn(txCtx, model.NewPageSpecModel(tx), model.NewPublishedPageSpecModel(tx), model.NewPageVersionModel(tx))
 	})
 }
 
@@ -1111,28 +1149,6 @@ func normalizeLocaleKeys(input map[string]string) map[string]string {
 		return nil
 	}
 	return out
-}
-
-func getDescriptionFromJSON(jsonStr string) map[string]string {
-	if jsonStr == "" {
-		return nil
-	}
-	var desc map[string]string
-	if err := json.Unmarshal([]byte(jsonStr), &desc); err != nil {
-		return nil
-	}
-	return desc
-}
-
-func getMetadataFromJSON(jsonStr string) map[string]json.RawMessage {
-	if jsonStr == "" {
-		return nil
-	}
-	var metadata map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(jsonStr), &metadata); err != nil {
-		return nil
-	}
-	return metadata
 }
 
 func diagnosticsToDetails(diags []spec.Diagnostic) map[string]string {

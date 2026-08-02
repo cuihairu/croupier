@@ -3,7 +3,7 @@
  *
  * 渲染报表页面，包括：
  * - 查询表单
- * - 图表展示
+ * - 图表展示（使用 @ant-design/charts）
  * - 数据表格
  * - 导出功能
  *
@@ -12,12 +12,6 @@
 
 import React, { useState, useCallback } from 'react';
 import {
-  ProForm,
-  ProFormText,
-  ProFormTextArea,
-  ProFormSelect,
-  ProFormDigit,
-  ProFormDatePicker,
   ProTable,
 } from '@ant-design/pro-components';
 import {
@@ -37,12 +31,16 @@ import {
   DownloadOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
+import { Line, Column, Pie, Area } from '@ant-design/charts';
+import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import type {
   ReportPageSpec,
-  FormFieldSpec,
   ChartSpec,
-  PageFunctionBindingV2,
-} from '@/types/dashboard-vnext';
+  PageFunctionBinding,
+  PageExecuteFn,
+  JSONValue,
+  FormValues,
+} from '@/types/dashboard';
 import type { ProColumns } from '@ant-design/pro-components';
 
 const { Text } = Typography;
@@ -55,9 +53,9 @@ export interface ReportPageRendererProps {
   /** 报表页面规格 */
   spec: ReportPageSpec;
   /** 页面绑定 */
-  bindings: PageFunctionBindingV2[];
+  bindings: PageFunctionBinding[];
   /** 执行绑定函数 */
-  onExecute: (bindingId: string, payload: unknown) => Promise<unknown>;
+  onExecute: PageExecuteFn;
   /** 导出数据 */
   onExport?: (format: 'csv' | 'excel') => Promise<void>;
   /** 页面标题 */
@@ -65,105 +63,72 @@ export interface ReportPageRendererProps {
 }
 
 // ---------------------------------------------------------------------------
-// 表单字段渲染
+// 图表渲染器
 // ---------------------------------------------------------------------------
 
-function renderFormField(field: FormFieldSpec): React.ReactNode {
-  const label = field.label?.['zh-CN'] || field.label?.['en'] || field.key;
-  const placeholder = field.placeholder?.['zh-CN'] || field.placeholder?.['en'];
-  const required = field.required;
-  const rules = required ? [{ required: true, message: `请输入${label}` }] : [];
+const ChartRenderer: React.FC<{ chart: ChartSpec; data: FormValues[] }> = ({ chart, data }) => {
+  const title = chart.title['zh-CN'] || chart.title['en'] || chart.type;
 
-  switch (field.widget) {
-    case 'TextArea':
-      return (
-        <ProFormTextArea
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-        />
-      );
-    case 'InputNumber':
-      return (
-        <ProFormDigit
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-        />
-      );
-    case 'Select':
-      return (
-        <ProFormSelect
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          options={field.enumOptions?.map((opt) => ({
-            label: opt.label['zh-CN'] || opt.label['en'] || opt.value,
-            value: opt.value,
-          }))}
-        />
-      );
-    case 'DateRange':
-      return (
-        <ProFormDatePicker.RangePicker
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={['开始日期', '结束日期']}
-          rules={rules}
-        />
-      );
-    default:
-      return (
-        <ProFormText
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-        />
-      );
-  }
-}
+  // 准备图表数据
+  const chartData = data.map((item) => ({
+    x: String(item[chart.xField || ''] || ''),
+    y: Number(item[chart.yField || ''] || 0),
+    series: String(item[chart.seriesField || ''] || ''),
+  }));
 
-// ---------------------------------------------------------------------------
-// 图表占位符
-// ---------------------------------------------------------------------------
+  const commonConfig = {
+    data: chartData,
+    xField: 'x',
+    yField: 'y',
+    seriesField: chart.seriesField ? 'series' : undefined,
+    smooth: true,
+    animation: {
+      appear: {
+        animation: 'path-in',
+        duration: 1000,
+      },
+    },
+  };
 
-const ChartPlaceholder: React.FC<{ chart: ChartSpec; data: unknown[] }> = ({ chart, data }) => {
-  const getIcon = () => {
+  const renderChart = () => {
     switch (chart.type) {
       case 'line':
-        return <LineChartOutlined style={{ fontSize: 48, color: '#1890ff' }} />;
+        return <Line {...commonConfig} />;
       case 'bar':
-        return <BarChartOutlined style={{ fontSize: 48, color: '#52c41a' }} />;
+        return <Column {...commonConfig} />;
+      case 'area':
+        return <Area {...commonConfig} />;
       case 'pie':
-        return <PieChartOutlined style={{ fontSize: 48, color: '#faad14' }} />;
+        return (
+          <Pie
+            data={chartData}
+            angleField="y"
+            colorField="x"
+            radius={0.8}
+            label={{
+              type: 'outer',
+              content: '{name}: {percentage}',
+            }}
+            interactions={[
+              { type: 'element-active' },
+            ]}
+          />
+        );
       default:
-        return <LineChartOutlined style={{ fontSize: 48, color: '#1890ff' }} />;
+        return <Line {...commonConfig} />;
     }
   };
 
   return (
-    <Card title={chart.title['zh-CN'] || chart.title['en'] || chart.type}>
-      <div style={{ textAlign: 'center', padding: '40px 0' }}>
-        {getIcon()}
-        <div style={{ marginTop: 16 }}>
-          <Text type="secondary">
-            {chart.type.toUpperCase()} 图表 - {data.length} 条数据
-          </Text>
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            X: {chart.xField || '-'} | Y: {chart.yField || '-'}
-          </Text>
-        </div>
+    <Card title={title} style={{ marginBottom: 16 }}>
+      <div style={{ height: 400 }}>
+        {data.length > 0 ? (
+          renderChart()
+        ) : (
+          <div style={{ textAlign: 'center', padding: '100px 0' }}>
+            <Text type="secondary">暂无数据</Text>
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -181,7 +146,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   title,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<unknown[]>([]);
+  const [data, setData] = useState<FormValues[]>([]);
   const [activeTab, setActiveTab] = useState('chart');
 
   // 查找主绑定
@@ -189,7 +154,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
 
   // 处理查询
   const handleQuery = useCallback(
-    async (values: unknown) => {
+    async (values: FormValues) => {
       if (!mainBinding) {
         message.error('未配置报表绑定');
         return;
@@ -199,11 +164,13 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
 
       try {
         const response = await onExecute(mainBinding.id, values);
-        const items = (response as any)?.items || (response as any)?.data || [];
+        const responseData = response.data as Record<string, JSONValue> | undefined;
+        const items = (responseData?.items as FormValues[]) || (Array.isArray(responseData) ? responseData as FormValues[] : []);
         setData(Array.isArray(items) ? items : []);
         message.success('查询成功');
-      } catch (error: any) {
-        message.error('查询失败: ' + (error.message || '未知错误'));
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : '未知错误';
+        message.error('查询失败: ' + msg);
       } finally {
         setLoading(false);
       }
@@ -222,8 +189,9 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
       try {
         await onExport(format);
         message.success('导出成功');
-      } catch (error: any) {
-        message.error('导出失败: ' + (error.message || '未知错误'));
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : '未知错误';
+        message.error('导出失败: ' + msg);
       }
     },
     [onExport]
@@ -264,20 +232,14 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
     <div>
       {/* 查询表单 */}
       <Card title={title || '报表查询'}>
-        <ProForm
+        <SchemaFormRenderer
+          spec={spec.queryForm}
           onFinish={handleQuery}
-          submitter={{
-            submitButtonProps: { loading },
-            resetButtonProps: {
-              onClick: () => setData([]),
-            },
-          }}
-          layout="horizontal"
-        >
-          <Space wrap>
-            {spec.queryForm.fields?.map(renderFormField)}
-          </Space>
-        </ProForm>
+          disabled={loading}
+        />
+        <Button style={{ marginTop: 12 }} onClick={() => setData([])}>
+          清空结果
+        </Button>
       </Card>
 
       {/* 数据展示 */}
@@ -329,7 +291,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
                       children: (
                         <Space direction="vertical" style={{ width: '100%' }}>
                           {spec.charts.map((chart, index) => (
-                            <ChartPlaceholder key={index} chart={chart} data={data} />
+                            <ChartRenderer key={index} chart={chart} data={data} />
                           ))}
                         </Space>
                       ),

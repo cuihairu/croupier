@@ -171,20 +171,20 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	if s.contractService != nil && a.Functions != nil {
 		for funcID, meta := range a.Functions {
 			input := struct {
-				ID          string
-				Version     string
-				Enabled     bool
-				Summary     string
-				Description string
-				InputSchema string
+				ID           string
+				Version      string
+				Enabled      bool
+				Summary      string
+				Description  string
+				InputSchema  string
 				OutputSchema string
-				Resource    string
-				Operation   string
-				Capability  string
-				Execution   string
-				Risk        string
-				Permission  string
-				Tags        []string
+				Resource     string
+				Operation    string
+				Capability   string
+				Execution    string
+				Risk         string
+				Permission   string
+				Tags         []string
 			}{
 				ID:           funcID,
 				Version:      meta.Version,

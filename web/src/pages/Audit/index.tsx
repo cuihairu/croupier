@@ -11,6 +11,7 @@ import {
   Tag,
   DatePicker,
 } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { getMessage } from '@/utils/antdApp';
 import { useModel } from '@umijs/max';
@@ -34,10 +35,10 @@ export default function AuditPage() {
   const [pageSize, setPageSize] = useState<number>(20);
   const [total, setTotal] = useState<number>(0);
   const [useScope, setUseScope] = useState<boolean>(true);
-  const [timeRange, setTimeRange] = useState<[any, any] | null>(null);
+  const [timeRange, setTimeRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const { initialState } = useModel('@@initialState');
   const roles = useMemo(() => {
-    const acc = (initialState as any)?.currentUser?.access as string | undefined;
+    const acc = (initialState?.currentUser as { access?: string })?.access;
     return (acc ? acc.split(',') : []).filter(Boolean);
   }, [initialState]);
   const canRead = roles.includes('*') || roles.includes('audit:read');
@@ -45,7 +46,7 @@ export default function AuditPage() {
   const reload = async () => {
     setLoading(true);
     try {
-      const params: any = { ...filters, page, size: pageSize };
+      const params: Record<string, string | number> = { ...filters, page, size: pageSize };
       if (!useScope) {
         delete params.game_id;
         delete params.env;
@@ -59,8 +60,9 @@ export default function AuditPage() {
       const res = await listAudit(params);
       setData(res.events || []);
       setTotal(res.total || (res.events || []).length);
-    } catch (e: any) {
-      getMessage()?.error(e?.message || 'Load failed');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Load failed';
+      getMessage()?.error(msg);
     }
     setLoading(false);
   };
@@ -194,8 +196,8 @@ export default function AuditPage() {
           />
           <DatePicker.RangePicker
             showTime
-            value={timeRange as any}
-            onChange={(v) => setTimeRange(v as any)}
+            value={timeRange}
+            onChange={(dates) => setTimeRange(dates as [Dayjs | null, Dayjs | null])}
           />
           <span>仅当前游戏</span>
           <Switch checked={useScope} onChange={setUseScope} />
@@ -249,7 +251,7 @@ export default function AuditPage() {
             { title: 'Trace', dataIndex: ['meta', 'trace_id'] },
             {
               title: '元信息',
-              render: (_: any, r: any) => (
+              render: (_, r) => (
                 <span style={{ fontFamily: 'monospace' }}>{JSON.stringify(r.meta || {})}</span>
               ),
             },

@@ -1,6 +1,9 @@
 package spec
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // SelectorAST represents a typed selector for binding input/output mapping.
 // It replaces the raw JSON object mapping with a structured, validated AST.
@@ -87,9 +90,9 @@ const (
 
 // SelectorValidationResult holds validation results for a selector.
 type SelectorValidationResult struct {
-	Valid       bool                `json:"valid"`
-	Errors      []SelectorError     `json:"errors,omitempty"`
-	Warnings    []SelectorWarning   `json:"warnings,omitempty"`
+	Valid    bool              `json:"valid"`
+	Errors   []SelectorError   `json:"errors,omitempty"`
+	Warnings []SelectorWarning `json:"warnings,omitempty"`
 }
 
 // SelectorError is a selector validation error.
@@ -110,12 +113,12 @@ type SelectorWarning struct {
 
 // Common selector error codes
 const (
-	ErrCodeInvalidPath      = "invalid_path"
-	ErrCodeTypeMismatch     = "type_mismatch"
-	ErrCodeMissingRequired  = "missing_required"
-	ErrCodeInvalidSource    = "invalid_source"
-	ErrCodeAmbiguousSource  = "ambiguous_source"
-	ErrCodeStaleSelector    = "stale_selector"
+	ErrCodeInvalidPath     = "invalid_path"
+	ErrCodeTypeMismatch    = "type_mismatch"
+	ErrCodeMissingRequired = "missing_required"
+	ErrCodeInvalidSource   = "invalid_source"
+	ErrCodeAmbiguousSource = "ambiguous_source"
+	ErrCodeStaleSelector   = "stale_selector"
 )
 
 // ValidateSelector validates a selector against a function's JSON Schema.
@@ -221,6 +224,15 @@ type SelectorContext struct {
 
 	// IsBatchAction indicates if this is a batch action
 	IsBatchAction bool
+
+	// FormSchema is the form's JSON Schema for validating form paths
+	FormSchema JSONSchema
+
+	// RowSchema is the list row's JSON Schema for validating row paths
+	RowSchema JSONSchema
+
+	// DetailSchema is the detail view's JSON Schema for validating detail paths
+	DetailSchema JSONSchema
 }
 
 // isSourceAllowed checks if a source type is allowed in the given context.
@@ -243,11 +255,71 @@ func isSourceAllowed(sourceType SelectorSourceType, ctx SelectorContext) bool {
 	}
 }
 
-// validateSourcePath checks if a source path is valid.
+// validateSourcePath checks if a source path exists in the appropriate schema.
 func validateSourcePath(sourceType SelectorSourceType, path string, ctx SelectorContext) bool {
-	// Basic validation - in a real implementation this would check against
-	// actual form schema, row schema, etc.
-	return path != ""
+	if path == "" {
+		return false
+	}
+
+	var schema JSONSchema
+	switch sourceType {
+	case SourceForm:
+		schema = ctx.FormSchema
+	case SourceRow:
+		schema = ctx.RowSchema
+	case SourceDetail:
+		schema = ctx.DetailSchema
+	case SourceSelection:
+		schema = ctx.RowSchema // selection items share row schema
+	case SourcePageState:
+		return true // page state paths are dynamic, always valid
+	case SourceLiteral:
+		return true // literal values don't need path validation
+	default:
+		return false
+	}
+
+	if len(schema) == 0 {
+		return true // no schema to validate against, assume valid
+	}
+
+	return schemaHasPath(schema, path)
+}
+
+// schemaHasPath checks if a JSON Schema contains a property at the given path.
+func schemaHasPath(schema JSONSchema, path string) bool {
+	var schemaObj map[string]interface{}
+	if err := json.Unmarshal(schema, &schemaObj); err != nil {
+		return true // can't parse schema, assume valid
+	}
+
+	properties, ok := schemaObj["properties"].(map[string]interface{})
+	if !ok {
+		return true // no properties defined, assume valid
+	}
+
+	// Support dot-notation paths (e.g., "address.city")
+	parts := strings.Split(path, ".")
+	current := properties
+	for i, part := range parts {
+		prop, exists := current[part]
+		if !exists {
+			return false
+		}
+		// If not the last part, drill into nested object
+		if i < len(parts)-1 {
+			propMap, ok := prop.(map[string]interface{})
+			if !ok {
+				return false
+			}
+			nestedProps, ok := propMap["properties"].(map[string]interface{})
+			if !ok {
+				return false
+			}
+			current = nestedProps
+		}
+	}
+	return true
 }
 
 // DefaultSelector creates a default selector that maps all form fields to function inputs.

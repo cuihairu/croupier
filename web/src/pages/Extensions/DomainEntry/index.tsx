@@ -60,7 +60,7 @@ export default function ExtensionDomainEntryPage() {
     try {
       const [installationsResp, pagesResp] = await Promise.all([
         listExtensionInstallations({ extensionId: meta.extensionId, page: 1, pageSize: 20 }),
-        listExtensionPages(meta.extensionId).catch(() => ({ items: [] as any[] })),
+        listExtensionPages(meta.extensionId).catch(() => ({ items: [] as Array<{ id?: string; title?: string; path?: string }> })),
       ]);
       setInstalledCount(installationsResp?.total || 0);
       setPages((pagesResp?.items || []).map((x) => ({ title: x.title, path: x.path })));

@@ -98,7 +98,7 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: { username: string; password: string }) => {
     try {
       // RESTful: 创建会话
       const res = await createSession({ username: values.username, password: values.password });

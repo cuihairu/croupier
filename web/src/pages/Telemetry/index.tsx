@@ -58,8 +58,9 @@ export default function TelemetryPage() {
     try {
       const res = await fetchOpsConfig();
       setConfig(res || {});
-    } catch (error: any) {
-      message.error(error?.message || '加载观测配置失败');
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '加载观测配置失败';
+      message.error(errMsg);
     } finally {
       setLoading(false);
     }

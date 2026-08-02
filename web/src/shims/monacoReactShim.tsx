@@ -14,7 +14,7 @@ type EditorProps = {
   language?: string;
   height?: number | string;
   onChange?: (v: string | undefined) => void;
-  options?: any;
+  options?: Record<string, unknown>;
 };
 
 export const Editor: React.FC<EditorProps> = ({ value = '', height = 360, onChange }) => {
@@ -32,7 +32,7 @@ export const DiffEditor: React.FC<{
   modified?: string;
   language?: string;
   height?: number | string;
-  options?: any;
+  options?: Record<string, unknown>;
 }> = ({ original = '', modified = '', height = 420 }) => {
   return (
     <div style={{ display: 'flex', gap: 8 }}>

@@ -31,6 +31,7 @@ import {
 } from '@/services/adapters/extensions';
 import { EXTENSION_ERROR_CODES } from '@/services/errors/codes';
 import { mapExtensionError } from '@/services/errors/mapper';
+import type { JSONValue } from '@/types/dashboard';
 
 const { Text } = Typography;
 
@@ -40,17 +41,17 @@ type InstallFormValues = {
   scopeId: string;
   targetType: string;
   targetId?: string;
-  config?: Record<string, any>;
+  config?: Record<string, JSONValue>;
   configJson?: string;
 };
 
-function buildSchemaDefaults(schema?: Record<string, any>): Record<string, any> {
+function buildSchemaDefaults(schema?: Record<string, JSONValue>): Record<string, JSONValue> {
   if (!schema || typeof schema !== 'object') return {};
   const properties = schema?.properties;
   if (!properties || typeof properties !== 'object') return {};
-  const defaults: Record<string, any> = {};
+  const defaults: Record<string, JSONValue> = {};
   Object.entries(properties).forEach(([key, raw]) => {
-    const prop = (raw || {}) as Record<string, any>;
+    const prop = (raw || {}) as Record<string, JSONValue>;
     if (Object.prototype.hasOwnProperty.call(prop, 'default')) {
       defaults[key] = prop.default;
     }
@@ -59,16 +60,16 @@ function buildSchemaDefaults(schema?: Record<string, any>): Record<string, any> 
 }
 
 function normalizeConfigBySchema(
-  rawConfig: Record<string, any>,
-  schema?: Record<string, any>,
-): Record<string, any> {
+  rawConfig: Record<string, JSONValue>,
+  schema?: Record<string, JSONValue>,
+): Record<string, JSONValue> {
   if (!schema || typeof schema !== 'object') return rawConfig || {};
   const properties = schema?.properties;
   if (!properties || typeof properties !== 'object') return rawConfig || {};
 
-  const out: Record<string, any> = { ...(rawConfig || {}) };
+  const out: Record<string, JSONValue> = { ...(rawConfig || {}) };
   Object.entries(properties).forEach(([key, raw]) => {
-    const field = (raw || {}) as Record<string, any>;
+    const field = (raw || {}) as Record<string, JSONValue>;
     const fieldType = String(field.type || '');
     const value = out[key];
     if (value === undefined || value === null) return;
@@ -122,7 +123,7 @@ export default function ExtensionsStorePage() {
   const [installOpen, setInstallOpen] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [installItem, setInstallItem] = useState<ExtensionCatalogItem | undefined>(undefined);
-  const [installConfigSchema, setInstallConfigSchema] = useState<Record<string, any> | undefined>(
+  const [installConfigSchema, setInstallConfigSchema] = useState<Record<string, JSONValue> | undefined>(
     undefined,
   );
   const [installForm] = Form.useForm<InstallFormValues>();
@@ -186,7 +187,7 @@ export default function ExtensionsStorePage() {
         typeof detailResp.manifest === 'object' &&
         detailResp.manifest.config_schema &&
         typeof detailResp.manifest.config_schema === 'object'
-          ? (detailResp.manifest.config_schema as Record<string, any>)
+          ? (detailResp.manifest.config_schema as Record<string, JSONValue>)
           : undefined;
       setInstallConfigSchema(schema);
       installForm.setFieldsValue({
@@ -207,7 +208,7 @@ export default function ExtensionsStorePage() {
   const handleInstall = async () => {
     if (!installItem) return;
     const values = await installForm.validateFields();
-    let config: Record<string, any> = normalizeConfigBySchema(
+    let config: Record<string, JSONValue> = normalizeConfigBySchema(
       values.config || {},
       installConfigSchema,
     );
@@ -235,8 +236,8 @@ export default function ExtensionsStorePage() {
       setInstallOpen(false);
       setInstallItem(undefined);
       await loadCatalog();
-    } catch (err: any) {
-      const uiErr = mapExtensionError(err);
+    } catch (err) {
+      const uiErr = mapExtensionError(err as Error);
       const details = uiErr.details || {};
       if (uiErr.code === EXTENSION_ERROR_CODES.EXTENSION_ALREADY_INSTALLED) {
         const existedID = details.installation_id || '-';
@@ -533,9 +534,9 @@ export default function ExtensionsStorePage() {
               <Card size="small" title="配置字段（来自 manifest.config_schema）">
                 <Space direction="vertical" style={{ width: '100%' }}>
                   {Object.entries(installConfigSchema.properties).map(([key, raw]) => {
-                    const field = (raw || {}) as Record<string, any>;
+                    const field = (raw || {}) as Record<string, JSONValue>;
                     const type = String(field.type || 'string');
-                    const enums = Array.isArray(field.enum) ? (field.enum as any[]) : [];
+                    const enums = Array.isArray(field.enum) ? (field.enum as JSONValue[]) : [];
                     const label = String(field.title || key);
                     const help = String(field.description || '');
                     const requiredKeys = Array.isArray(installConfigSchema.required)

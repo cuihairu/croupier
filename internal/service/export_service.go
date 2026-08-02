@@ -28,8 +28,7 @@ type PageSpecExport struct {
 	Type             string    `json:"type"`
 	ResourceKey      string    `json:"resourceKey,omitempty"`
 	Title            string    `json:"title"`
-	SchemaJSON       string    `json:"schemaJson"`
-	BindingsJSON     string    `json:"bindingsJson"`
+	SpecJSON         string    `json:"specJson"`
 	Status           string    `json:"status"`
 	DraftRevision    int       `json:"draftRevision"`
 	PublishedVersion int       `json:"publishedVersion"`
@@ -51,12 +50,12 @@ type PublishedPageExport struct {
 
 // ExportReport is the complete export report.
 type ExportReport struct {
-	ExportedAt    time.Time             `json:"exportedAt"`
-	GameID        string                `json:"gameId,omitempty"`
-	Env           string                `json:"env,omitempty"`
-	PageSpecs     []PageSpecExport      `json:"pageSpecs"`
+	ExportedAt     time.Time             `json:"exportedAt"`
+	GameID         string                `json:"gameId,omitempty"`
+	Env            string                `json:"env,omitempty"`
+	PageSpecs      []PageSpecExport      `json:"pageSpecs"`
 	PublishedPages []PublishedPageExport `json:"publishedPages"`
-	Summary       ExportSummary         `json:"summary"`
+	Summary        ExportSummary         `json:"summary"`
 }
 
 // ExportSummary provides summary statistics.
@@ -99,8 +98,7 @@ func (s *DataExportService) ExportAllPages(ctx context.Context, gameID, env stri
 			Type:             ps.Type,
 			ResourceKey:      ps.ResourceKey,
 			Title:            ps.TitleJSON,
-			SchemaJSON:       ps.SchemaJSON,
-			BindingsJSON:     ps.BindingsJSON,
+			SpecJSON:         ps.SpecJSON,
 			Status:           ps.Status,
 			DraftRevision:    ps.DraftRevision,
 			PublishedVersion: ps.PublishedVersion,

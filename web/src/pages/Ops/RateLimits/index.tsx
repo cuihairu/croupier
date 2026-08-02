@@ -98,10 +98,10 @@ export default function OpsRateLimitsPage() {
       try {
         const s2 = await listOpsNodes();
         setAgents(
-          ((s2.nodes || []) as any[])
-            .filter((s) => (s?.type || 'agent') === 'agent')
-            .map((s) => s?.id || s?.addr)
-            .filter(Boolean),
+          (s2.nodes || [])
+            .filter((s) => (s.type || 'agent') === 'agent')
+            .map((s) => s.id || s.addr)
+            .filter(Boolean) as string[],
         );
       } catch {}
     } finally {
@@ -136,7 +136,7 @@ export default function OpsRateLimitsPage() {
       title: intl.formatMessage({ id: 'pages.rate.limits.match' }).replace('（可选）', ''),
       dataIndex: 'match',
       width: 200,
-      render: (m: any) =>
+      render: (m: Record<string, string> | undefined) =>
         m
           ? Object.entries(m).map(([k, v]) => (
               <Tag key={k}>
@@ -147,7 +147,7 @@ export default function OpsRateLimitsPage() {
     },
     {
       title: intl.formatMessage({ id: 'pages.permissions.actions' }),
-      render: (_: any, r) => (
+      render: (_: unknown, r: RateLimitRule) => (
         <Space>
           <Button
             size="small"
@@ -234,8 +234,9 @@ export default function OpsRateLimitsPage() {
         matchZone: v.matchZone,
       });
       setPreview(res);
-    } catch (e: any) {
-      message.error(e?.message || '预览失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      message.error(errMsg || '预览失败');
     }
   };
 

@@ -298,18 +298,6 @@ CREATE TABLE IF NOT EXISTS term_dictionary (
   deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE IF NOT EXISTS workspace_configs (
-  id SERIAL PRIMARY KEY,
-  object_key VARCHAR(128) UNIQUE NOT NULL,
-  title VARCHAR(128),
-  published BOOLEAN DEFAULT FALSE,
-  menu_order INTEGER DEFAULT 0,
-  config JSON,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP WITH TIME ZONE
-);
-
 -- Extension catalog, releases, installations, bindings, events (META)
 CREATE TABLE IF NOT EXISTS extension_catalogs (
   id SERIAL PRIMARY KEY,

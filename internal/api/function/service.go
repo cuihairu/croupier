@@ -81,24 +81,6 @@ func (s *Service) FunctionPermissionsUpdate(ctx context.Context, req *FunctionPe
 	return functionPermissionsUpdate(ctx, s.svcCtx, req)
 }
 
-// Function Form configuration methods
-
-func (s *Service) FunctionForm(ctx context.Context, req *FunctionFormRequest) (*FunctionFormResponse, error) {
-	return functionForm(ctx, s.svcCtx, req)
-}
-
-func (s *Service) FunctionFormUpdate(ctx context.Context, req *FunctionFormUpdateRequest) (*FunctionFormResponse, error) {
-	return functionFormUpdate(ctx, s.svcCtx, req)
-}
-
-func (s *Service) FunctionFormHistory(ctx context.Context, req *FunctionFormHistoryRequest) (*FunctionFormHistoryResponse, error) {
-	return functionFormHistory(ctx, s.svcCtx, req)
-}
-
-func (s *Service) FunctionFormRollback(ctx context.Context, req *FunctionFormRollbackRequest) (*FunctionFormRollbackResponse, error) {
-	return functionFormRollback(ctx, s.svcCtx, req)
-}
-
 func (s *Service) FunctionWarnings(ctx context.Context, req *FunctionWarningsRequest) (*FunctionWarningsResponse, error) {
 	return functionWarnings(ctx, s.svcCtx, req)
 }

@@ -26,6 +26,7 @@ import {
 import { getFunctionInstances, getFunctionDetail, type FunctionInstance } from '@/services/api';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import type { FunctionDescriptor } from '@/services/api/functions';
+import type { JSONValue } from '@/types/dashboard';
 
 const { Text } = Typography;
 
@@ -88,7 +89,7 @@ export default () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [debugVisible, setDebugVisible] = useState(false);
   const [debugPayload, setDebugPayload] = useState('{\n  \n}');
-  const [debugResult, setDebugResult] = useState<any>(null);
+  const [debugResult, setDebugResult] = useState<JSONValue>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [logsVisible, setLogsVisible] = useState(false);
   const [logsData, setLogsData] = useState<
@@ -163,8 +164,9 @@ export default () => {
         functions_by_resource_prefix: functionsByResourcePrefix,
         instances_by_game: instancesByGame,
       });
-    } catch (e: any) {
-      message.error(e?.message || '加载失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      message.error(errMsg || '加载失败');
     } finally {
       setLoading(false);
     }
@@ -273,8 +275,9 @@ export default () => {
         functionInfo: functionDetail,
         logs: [],
       });
-    } catch (e: any) {
-      message.error(e?.message || '加载详情失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      message.error(errMsg || '加载详情失败');
     } finally {
       setDetailLoading(false);
     }
@@ -307,8 +310,9 @@ export default () => {
         },
       });
       message.warning('实例调试接口尚未实现');
-    } catch (e: any) {
-      message.error(e?.message || '调试执行失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      message.error(errMsg || '调试执行失败');
     } finally {
       setDebugLoading(false);
     }

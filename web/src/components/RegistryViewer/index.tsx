@@ -68,7 +68,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
   const fetchData = async () => {
     setLoading(true);
     try {
-      const params: any = {};
+      const params: Record<string, string> = {};
       if (gameId) params.gameId = gameId;
       if (env) params.env = env;
 

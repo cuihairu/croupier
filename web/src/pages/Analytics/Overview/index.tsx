@@ -1,22 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Select, Button, Row, Col, Statistic, Divider, Table } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsOverview } from '@/services/api/analytics';
 
+interface OverviewData {
+  dau?: number;
+  wau?: number;
+  mau?: number;
+  new_users?: number;
+  registered_total?: number;
+  peak_online?: number;
+  revenue_cents?: number;
+  d1?: number;
+  d7?: number;
+  d30?: number;
+  pay_rate?: number;
+  arpu?: number;
+  arppu?: number;
+  series?: {
+    new_users?: [string | number, number][];
+    peak_online?: [string | number, number][];
+    revenue_cents?: [string | number, number][];
+  };
+}
+
 export default function AnalyticsOverviewPage() {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const [range, setRange] = useState<any>(null);
+  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [channel, setChannel] = useState<string>('');
   const [platform, setPlatform] = useState<string>('');
-  const [data, setData] = useState<any>({});
+  const [data, setData] = useState<OverviewData>({});
 
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = {};
+      const params: Record<string, string | number> = {};
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       if (channel) params.channel = channel;
@@ -64,7 +86,7 @@ export default function AnalyticsOverviewPage() {
       const nu = ser?.new_users?.[i]?.[1] ?? '';
       const po = ser?.peak_online?.[i]?.[1] ?? '';
       const rv = ser?.revenue_cents?.[i]?.[1] ?? '';
-      seriesRows.push([t, nu, po, rv]);
+      seriesRows.push([String(t), String(nu), String(po), String(rv)]);
     }
     await exportToXLSX('overview.csv', [
       { sheet: 'summary', rows: summary },

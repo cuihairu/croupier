@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
 
 // Canonical frontend profile DTO normalized from croupier/internal/api/profile/dto.go ProfileGetResponse.
 export type MeProfile = {
@@ -32,32 +33,76 @@ export type ProfilePermission = {
   env?: string;
 };
 
+// Raw profile game from backend
+type RawProfileGame = {
+  gameId?: string;
+  game_id?: string;
+  name?: string;
+  gameName?: string;
+  game_name?: string;
+  display_name?: string;
+  alias_name?: string;
+  envs?: string[];
+  envMeta?: Array<{ env?: string }>;
+  permissions?: string[];
+};
+
+// Raw profile permission from backend
+type RawProfilePermission = {
+  resource?: string;
+  actions?: string[];
+  gameId?: string;
+  game_id?: string;
+  env?: string;
+};
+
+// Raw profile from backend
+type RawProfile = {
+  id?: number;
+  username?: string;
+  nickname?: string;
+  displayName?: string;
+  display_name?: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+  active?: boolean;
+  roles?: string[];
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
+  lastLoginAt?: string;
+  last_login_at?: string;
+  profileInfo?: RawProfile;
+};
+
 // Normalize profile game payloads from backend DTO variants into one frontend shape.
-function normalizeProfileGame(game: any): ProfileGame {
+function normalizeProfileGame(game: RawProfileGame): ProfileGame {
   return {
-    gameId: game?.gameId ?? game?.game_id ?? game?.name,
-    gameName: game?.gameName ?? game?.game_name ?? game?.display_name ?? game?.alias_name,
-    envs: Array.isArray(game?.envs)
+    gameId: game.gameId ?? game.game_id ?? game.name,
+    gameName: game.gameName ?? game.game_name ?? game.display_name ?? game.alias_name,
+    envs: Array.isArray(game.envs)
       ? game.envs
-      : Array.isArray(game?.envMeta)
-      ? game.envMeta.map((env: any) => env?.env).filter(Boolean)
+      : Array.isArray(game.envMeta)
+      ? game.envMeta.map((env) => env?.env).filter(Boolean) as string[]
       : [],
-    permissions: Array.isArray(game?.permissions) ? game.permissions : [],
+    permissions: Array.isArray(game.permissions) ? game.permissions : [],
   };
 }
 
 // Normalize profile permission payloads from backend DTO variants into one frontend shape.
-function normalizeProfilePermission(permission: any): ProfilePermission {
+function normalizeProfilePermission(permission: RawProfilePermission): ProfilePermission {
   return {
-    resource: permission?.resource ?? '',
-    actions: Array.isArray(permission?.actions) ? permission.actions : [],
-    gameId: permission?.gameId ?? permission?.game_id,
-    env: permission?.env,
+    resource: permission.resource ?? '',
+    actions: Array.isArray(permission.actions) ? permission.actions : [],
+    gameId: permission.gameId ?? permission.game_id,
+    env: permission.env,
   };
 }
 
 // Normalize profile payloads from backend DTO variants into one frontend shape.
-function normalizeMyProfile(profile: any): MeProfile {
+function normalizeMyProfile(profile: RawProfile): MeProfile {
   const source = profile?.profileInfo ?? profile ?? {};
   return {
     id: source?.id,
@@ -76,12 +121,12 @@ function normalizeMyProfile(profile: any): MeProfile {
 }
 
 export async function getMyProfile() {
-  const resp = await request<any>('/api/v1/profile');
+  const resp = await request<RawProfile>('/api/v1/profile');
   return normalizeMyProfile(resp);
 }
 
 export async function getMyGames() {
-  const resp = await request<{ games?: ProfileGame[] }>('/api/v1/profile/games');
+  const resp = await request<{ games?: RawProfileGame[] }>('/api/v1/profile/games');
   return {
     games: Array.isArray(resp?.games) ? resp.games.map(normalizeProfileGame) : [],
   };
@@ -95,7 +140,7 @@ export async function getMyPermissions(params?: { gameId?: string; env?: string 
       }
     : undefined;
   const resp = await request<{
-    permissions?: ProfilePermission[];
+    permissions?: RawProfilePermission[];
     admin?: boolean;
     roles?: string[];
     permissionIDs?: string[];

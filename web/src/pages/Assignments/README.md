@@ -19,7 +19,7 @@ If you want to understand this page quickly, read in this order:
 5. `columns.tsx`
    - Column-level render strategy keyed by schema.
 6. `schemas.ts`
-   - Formily schemas for Canary/Clone modals.
+   - JSON Schema FormPresentationSpec for Canary/Clone modals.
 
 ## Rule of thumb
 

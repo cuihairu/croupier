@@ -24,15 +24,68 @@ import {
   addTicketComment,
   transitionTicket,
 } from '@/services/api/support';
+import type { JSONValue } from '@/types/dashboard';
+
+interface Ticket {
+  id: string;
+  title: string;
+  content?: string;
+  category?: string;
+  priority?: string;
+  status?: string;
+  assignee?: string;
+  tags?: string;
+  player_id?: string;
+  contact?: string;
+  game_id?: string;
+  env?: string;
+  source?: string;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: JSONValue | undefined;
+}
+
+interface Comment {
+  id: string;
+  author?: string;
+  content?: string;
+  attach?: string;
+  created_at?: string;
+  [key: string]: JSONValue | undefined;
+}
+
+interface Attachment {
+  name?: string;
+  url?: string;
+}
+
+interface UploadFile {
+  uid: string;
+  name: string;
+  status?: string;
+  url?: string;
+  response?: { URL?: string; Key?: string };
+}
+
+interface InitialState {
+  currentUser?: {
+    name?: string;
+  };
+}
+
+const priColorMap: Record<string, string> = { urgent: 'red', high: 'volcano', normal: 'blue', low: 'default' };
+const priTextMap: Record<string, string> = { urgent: '紧急', high: '高', normal: '普通', low: '低' };
+const stColorMap: Record<string, string> = { open: 'gold', in_progress: 'blue', resolved: 'green', closed: 'default' };
+const stTextMap: Record<string, string> = { open: '打开', in_progress: '处理中', resolved: '已解决', closed: '已关闭' };
 
 export default function TicketDetailPage() {
-  const { id } = useParams() as any;
+  const { id } = useParams();
   const mid = String(id || '');
   const [loading, setLoading] = useState(false);
-  const [ticket, setTicket] = useState<any>(null);
-  const [comments, setComments] = useState<any[]>([]);
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [cmt, setCmt] = useState<string>('');
-  const [files, setFiles] = useState<any[]>([]);
+  const [files, setFiles] = useState<UploadFile[]>([]);
   const [transOpen, setTransOpen] = useState(false);
   const [transStatus, setTransStatus] = useState<string>('');
   const [transComment, setTransComment] = useState<string>('');
@@ -41,14 +94,10 @@ export default function TicketDetailPage() {
   const { initialState } = useModel('@@initialState');
 
   const priTag = (v?: string) => {
-    const map: any = { urgent: 'red', high: 'volcano', normal: 'blue', low: 'default' };
-    const t: any = { urgent: '紧急', high: '高', normal: '普通', low: '低' };
-    return v ? <Tag color={map[v] || 'default'}>{t[v] || v}</Tag> : '-';
+    return v ? <Tag color={priColorMap[v] || 'default'}>{priTextMap[v] || v}</Tag> : '-';
   };
   const stTag = (v?: string) => {
-    const map: any = { open: 'gold', in_progress: 'blue', resolved: 'green', closed: 'default' };
-    const t: any = { open: '打开', in_progress: '处理中', resolved: '已解决', closed: '已关闭' };
-    return v ? <Tag color={map[v] || 'default'}>{t[v] || v}</Tag> : '-';
+    return v ? <Tag color={stColorMap[v] || 'default'}>{stTextMap[v] || v}</Tag> : '-';
   };
 
   const load = async () => {
@@ -68,14 +117,15 @@ export default function TicketDetailPage() {
   const submitComment = async () => {
     try {
       const attach = files
-        .map((f: any) => ({ name: f.name, url: f.url || f.response?.URL, key: f.response?.Key }))
-        .filter((x: any) => x.url);
+        .map((f: UploadFile) => ({ name: f.name, url: f.url || f.response?.URL, key: f.response?.Key }))
+        .filter((x: Attachment) => x.url);
       await addTicketComment(mid, { content: cmt, attach: JSON.stringify(attach) });
       setCmt('');
       setFiles([]);
       load();
-    } catch (e: any) {
-      getMessage()?.error(e?.message || '评论失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      getMessage()?.error(errMsg || '评论失败');
     }
   };
 
@@ -89,8 +139,9 @@ export default function TicketDetailPage() {
       setTransStatus('');
       setTransComment('');
       load();
-    } catch (e: any) {
-      getMessage()?.error(e?.message || '流转失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      getMessage()?.error(errMsg || '流转失败');
     }
   };
 
@@ -118,8 +169,9 @@ export default function TicketDetailPage() {
       await updateTicket(Number(mid), v);
       setEditOpen(false);
       load();
-    } catch (e: any) {
-      getMessage()?.error(e?.message || '更新失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      getMessage()?.error(errMsg || '更新失败');
     }
   };
   const doDelete = async () => {
@@ -134,7 +186,8 @@ export default function TicketDetailPage() {
   };
   const assignToMe = async () => {
     try {
-      const me = (initialState as any)?.currentUser?.name as string | undefined;
+      const state = initialState as InitialState | undefined;
+      const me = state?.currentUser?.name;
       if (!me) {
         getMessage()?.warning('未获取到当前用户');
         return;
@@ -142,8 +195,9 @@ export default function TicketDetailPage() {
       await updateTicket(Number(mid), { assignee: me });
       getMessage()?.success('已指派给我');
       load();
-    } catch (e: any) {
-      getMessage()?.error(e?.message || '指派失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      getMessage()?.error(errMsg || '指派失败');
     }
   };
 
@@ -200,10 +254,10 @@ export default function TicketDetailPage() {
             </Descriptions>
 
             <Divider>评论</Divider>
-            <List
+            <List<Comment>
               dataSource={comments}
-              renderItem={(it: any) => {
-                let attachments: any[] = [];
+              renderItem={(it: Comment) => {
+                let attachments: Attachment[] = [];
                 try {
                   if (it.attach) attachments = JSON.parse(it.attach);
                 } catch {}
@@ -223,7 +277,7 @@ export default function TicketDetailPage() {
                     <div>
                       {attachments && attachments.length > 0 && (
                         <div>
-                          {attachments.map((a: any, idx: number) => {
+                          {attachments.map((a: Attachment, idx: number) => {
                             const url = a.url as string;
                             const isImg = /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
                             return (
@@ -264,13 +318,13 @@ export default function TicketDetailPage() {
                 onChange={(e) => setCmt(e.target.value)}
                 placeholder="输入评论内容"
               />
-              <Upload
-                fileList={files as any}
+              <Upload<UploadFile>
+                fileList={files}
                 listType="picture"
-                customRequest={async (opts: any) => {
+                customRequest={async (opts) => {
                   try {
                     const res = await uploadAsset(opts.file as File);
-                    const next = {
+                    const next: UploadFile = {
                       uid: String(Date.now()),
                       name: opts.file.name,
                       status: 'done',
@@ -279,13 +333,14 @@ export default function TicketDetailPage() {
                     };
                     setFiles((prev) => [...prev, next]);
                     opts.onSuccess && opts.onSuccess(res, opts.file);
-                  } catch (e: any) {
-                    getMessage()?.error(e?.message || '上传失败');
-                    opts.onError && opts.onError(e);
+                  } catch (e) {
+                    const errMsg = e instanceof Error ? e.message : "操作失败";
+                    getMessage()?.error(errMsg || '上传失败');
+                    opts.onError && opts.onError(e as Error);
                   }
                 }}
                 onRemove={(file) => {
-                  setFiles((prev) => prev.filter((f: any) => f.uid !== file.uid));
+                  setFiles((prev) => prev.filter((f: UploadFile) => f.uid !== file.uid));
                   return true;
                 }}
               >

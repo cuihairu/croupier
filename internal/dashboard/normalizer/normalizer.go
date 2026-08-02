@@ -148,21 +148,21 @@ func Normalize(input DescriptorInput) NormalizerResult {
 
 	// 5. Build FunctionSpec
 	fn := spec.FunctionSpec{
-		ID:          input.ID,
-		Version:     input.Version,
-		Enabled:     input.Enabled,
-		InputSchema: inputSchema,
+		ID:           input.ID,
+		Version:      input.Version,
+		Enabled:      input.Enabled,
+		InputSchema:  inputSchema,
 		OutputSchema: outputSchema,
-		Summary:     summaryMap,
-		Description: descriptionMap,
-		Resource:    resourceKey,
-		Operation:   operationKey,
-		Capability:  capability,
-		Execution:   execution,
-		Risk:        normalizeRisk(input.Risk),
-		Permission:  strings.TrimSpace(input.Permission),
-		Tags:        input.Tags,
-		Diagnostics: diags,
+		Summary:      summaryMap,
+		Description:  descriptionMap,
+		Resource:     resourceKey,
+		Operation:    operationKey,
+		Capability:   capability,
+		Execution:    execution,
+		Risk:         normalizeRisk(input.Risk),
+		Permission:   strings.TrimSpace(input.Permission),
+		Tags:         input.Tags,
+		Diagnostics:  diags,
 	}
 
 	// 6. Build ResourceSpec candidate if resource is present.

@@ -44,12 +44,12 @@ import type {
   FunctionInfo,
   SemanticsInfo,
   DiagnosticInfo,
-} from '@/types/dashboard-vnext';
+} from '@/types/dashboard';
 import {
   listResourceCatalog,
   getResourceDetail,
   updateResourceSemantics,
-} from '@/services/dashboard-vnext';
+} from '@/services/dashboard';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -97,8 +97,9 @@ const ResourceCatalogPage: React.FC = () => {
       });
       setData(result.items);
       setTotal(result.total);
-    } catch (error: any) {
-      message.error('加载失败: ' + (error.message || '未知错误'));
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '操作失败';
+      message.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -115,8 +116,9 @@ const ResourceCatalogPage: React.FC = () => {
       const detail = await getResourceDetail(resourceKey);
       setSelectedResource(detail);
       setDetailVisible(true);
-    } catch (error: any) {
-      message.error('获取详情失败: ' + (error.message || '未知错误'));
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '未知错误';
+      message.error('获取详情失败: ' + errMsg);
     }
   }, []);
 
@@ -146,8 +148,9 @@ const ResourceCatalogPage: React.FC = () => {
       message.success('语义更新成功');
       setEditVisible(false);
       fetchData();
-    } catch (error: any) {
-      message.error('更新失败: ' + (error.message || '未知错误'));
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '未知错误';
+      message.error('更新失败: ' + errMsg);
     }
   }, [selectedResource, editForm, fetchData]);
 

@@ -2,11 +2,11 @@
 // Priority: window.CROUPIER_SERVER_ORIGIN > process.env.CROUPIER_SERVER_ORIGIN > http://localhost:18780
 
 export function getServerOrigin(): string {
-  if (typeof window !== 'undefined' && (window as any).CROUPIER_SERVER_ORIGIN) {
-    return (window as any).CROUPIER_SERVER_ORIGIN as string;
+  if (typeof window !== 'undefined' && window.CROUPIER_SERVER_ORIGIN) {
+    return window.CROUPIER_SERVER_ORIGIN;
   }
   // In Umi, process.env.* can be injected at build/dev time
-  const fromEnv = (process as any)?.env?.CROUPIER_SERVER_ORIGIN as string | undefined;
+  const fromEnv = process.env.CROUPIER_SERVER_ORIGIN;
   if (fromEnv) return fromEnv;
   // Fallback to current origin when available (prod build served by server)
   if (typeof window !== 'undefined' && window.location?.origin) {

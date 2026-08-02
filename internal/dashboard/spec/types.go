@@ -25,10 +25,6 @@ type JSONValue = json.RawMessage
 // draft-07 / 2020-12 but the type itself does not enforce validation.
 type JSONSchema json.RawMessage
 
-// Deprecated: FormilySchema is retained only for PageSpec.Schema until P3-1
-// refactors PageSpec to use strong-typed vNext. Do not use in new code.
-type FormilySchema json.RawMessage
-
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -49,15 +45,10 @@ const (
 )
 
 // PageType classifies the overall shape of a page.
-//
-//	entity    – object lifecycle management (list / detail / actions)
-//	operation – standalone synchronous action
-//	task      – async / batch task with progress tracking
-//	report    – analytics query with charts / tables
 type PageType string
 
 const (
-	PageTypeEntity    PageType = "entity"
+	PageTypeResource  PageType = "resource"
 	PageTypeOperation PageType = "operation"
 	PageTypeTask      PageType = "task"
 	PageTypeReport    PageType = "report"
@@ -203,11 +194,11 @@ type BindingFreshnessDiagnostic struct {
 // function's executable capability. It is produced by the Descriptor
 // Normalizer from SDK / OpenAPI / DB template raw descriptors.
 type FunctionSpec struct {
-	ID          string `json:"id"`
-	Version     string `json:"version"`
-	Enabled     bool   `json:"enabled"`
-	Deprecated  bool   `json:"deprecated,omitempty"`
-	InputSchema JSONSchema `json:"inputSchema,omitempty"`
+	ID           string     `json:"id"`
+	Version      string     `json:"version"`
+	Enabled      bool       `json:"enabled"`
+	Deprecated   bool       `json:"deprecated,omitempty"`
+	InputSchema  JSONSchema `json:"inputSchema,omitempty"`
 	OutputSchema JSONSchema `json:"outputSchema,omitempty"`
 
 	// Catalog/search text. These fields are not runtime menu labels.
@@ -277,9 +268,9 @@ type OperationSpec struct {
 // PageSpec
 // ---------------------------------------------------------------------------
 
-// PageSpec is the complete page orchestration artifact. Its Schema field
-// must be a Formily JSON Schema. PageSpec is the single source of truth
-// for page structure; no second "layout" runtime protocol exists.
+// PageSpec is the complete page orchestration artifact.
+// It is a strong typed business DSL; renderer adapters may translate it to
+// ProComponents, but PageSpec never stores React props or component trees.
 type PageSpec struct {
 	PageKey     string           `json:"pageKey"`
 	Type        PageType         `json:"type"`
@@ -290,12 +281,15 @@ type PageSpec struct {
 	Order       int              `json:"order,omitempty"`
 	Icon        string           `json:"icon,omitempty"`
 
-	// Schema is the page-level Formily component tree.
-	Schema FormilySchema `json:"schema"`
+	Navigation *NavigationSpec    `json:"navigation,omitempty"`
+	Resource   *ResourcePageSpec  `json:"resource,omitempty"`
+	Operation  *OperationPageSpec `json:"operation,omitempty"`
+	Task       *TaskPageSpec      `json:"task,omitempty"`
+	Report     *ReportPageSpec    `json:"report,omitempty"`
 
-	// Bindings lists the functions this page uses. Schema components must
-	// reference these bindings by bindingId; direct functionId references are
-	// invalid in published PageSpec.
+	// Bindings lists the functions this page uses. Page content references
+	// bindings by bindingId; direct functionId references are invalid in
+	// published PageSpec.
 	Bindings []PageFunctionBinding `json:"bindings"`
 
 	// Metadata holds arbitrary extension data for the page.
@@ -311,12 +305,17 @@ type PageCategorySpec struct {
 
 // PageFunctionBinding ties a function to a stable runtime binding in a page.
 type PageFunctionBinding struct {
-	ID            string               `json:"id"`
-	FunctionID    string               `json:"functionId"`
-	Usage         PageBindingUsage     `json:"usage"`
-	InputMapping  json.RawMessage      `json:"inputMapping,omitempty"`
-	OutputMapping json.RawMessage      `json:"outputMapping,omitempty"`
-	Execution     PageBindingExecution `json:"execution"`
+	ID         string               `json:"id"`
+	FunctionID string               `json:"functionId"`
+	Usage      PageBindingUsage     `json:"usage"`
+	Selectors  *BindingSelectors    `json:"selectors,omitempty"`
+	Execution  PageBindingExecution `json:"execution"`
+}
+
+// BindingSelectors holds input and output selectors for a binding.
+type BindingSelectors struct {
+	Input  SelectorAST `json:"input"`
+	Output SelectorAST `json:"output,omitempty"`
 }
 
 // PageBindingExecution is the execution policy selected by Page Studio.

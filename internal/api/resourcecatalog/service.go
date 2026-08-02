@@ -53,16 +53,16 @@ type FunctionInfo struct {
 
 // SemanticsInfo represents capability semantics summary.
 type SemanticsInfo struct {
-	Version        int    `json:"version"`
-	HasIdentity    bool   `json:"hasIdentity"`
-	HasCollection  bool   `json:"hasCollection"`
-	HasCreate      bool   `json:"hasCreate"`
-	HasUpdate      bool   `json:"hasUpdate"`
-	HasDelete      bool   `json:"hasDelete"`
-	HasActions     bool   `json:"hasActions"`
-	HasTasks       bool   `json:"hasTasks"`
-	HasReports     bool   `json:"hasReports"`
-	Source         string `json:"source"`
+	Version       int    `json:"version"`
+	HasIdentity   bool   `json:"hasIdentity"`
+	HasCollection bool   `json:"hasCollection"`
+	HasCreate     bool   `json:"hasCreate"`
+	HasUpdate     bool   `json:"hasUpdate"`
+	HasDelete     bool   `json:"hasDelete"`
+	HasActions    bool   `json:"hasActions"`
+	HasTasks      bool   `json:"hasTasks"`
+	HasReports    bool   `json:"hasReports"`
+	Source        string `json:"source"`
 }
 
 // DiagnosticInfo represents a diagnostic message.
@@ -216,9 +216,9 @@ type UpdateSemanticsRequest struct {
 
 // UpdateSemanticsResponse is the response for updating semantics.
 type UpdateSemanticsResponse struct {
-	Version  int    `json:"version"`
-	Source   string `json:"source"`
-	Message  string `json:"message"`
+	Version int    `json:"version"`
+	Source  string `json:"source"`
+	Message string `json:"message"`
 }
 
 // UpdateSemantics updates resource capability semantics.

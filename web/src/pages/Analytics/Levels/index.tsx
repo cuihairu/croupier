@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Input, Button, Table, Tag, Select } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
 import {
@@ -10,15 +11,15 @@ import {
 
 export default function AnalyticsLevelsPage() {
   const [loading, setLoading] = useState(false);
-  const [range, setRange] = useState<any>(null);
+  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [episode, setEpisode] = useState<string>('');
-  const [data, setData] = useState<any>({ funnel: [], per_level: [], per_level_segments: {} });
+  const [data, setData] = useState<LevelsData | null>(null);
   const [seg, setSeg] = useState<'all' | 'new' | 'returning' | 'payer'>('all');
 
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = { episode };
+      const params: Record<string, string | number> = { episode };
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsLevels(params);
@@ -34,12 +35,12 @@ export default function AnalyticsLevelsPage() {
   const exportCSV = () => {
     try {
       const rows = [['level', 'players', 'win_rate', 'avg_duration_sec', 'avg_retries']].concat(
-        (data?.per_level || []).map((x: any) => [
-          x.level,
-          x.players,
-          x.win_rate,
-          x.avg_duration_sec,
-          x.avg_retries,
+        (data?.per_level || []).map((x) => [
+          String(x.level),
+          String(x.players),
+          String(x.win_rate),
+          String(x.avg_duration_sec || ''),
+          String(x.avg_retries || ''),
         ]),
       );
       const csv = rows.map((r) => r.map((x) => String(x ?? '')).join(',')).join('\n');
@@ -66,7 +67,7 @@ export default function AnalyticsLevelsPage() {
                 onChange={(e) => setEpisode(e.target.value)}
                 style={{ width: 200 }}
               />
-              <DatePicker.RangePicker value={range as any} onChange={setRange as any} />
+              <DatePicker.RangePicker value={range} onChange={(dates) => setRange(dates)} />
               <Button type="primary" onClick={load}>
                 查询
               </Button>
@@ -77,7 +78,10 @@ export default function AnalyticsLevelsPage() {
           <Table
             size="small"
             loading={loading}
-            rowKey={(r: any) => `${r.step || ''}|${r.users || ''}`}
+            rowKey={(r) => {
+              const row = r as unknown as Record<string, unknown>;
+              return `${row.step || ''}|${row.users || ''}`;
+            }}
             dataSource={data?.funnel || []}
             columns={[
               { title: '步骤', dataIndex: 'step' },
@@ -85,7 +89,7 @@ export default function AnalyticsLevelsPage() {
               {
                 title: '转化率',
                 dataIndex: 'rate',
-                render: (v: any) => (v != null ? `${v}%` : '-'),
+                render: (v) => (v != null ? `${v}%` : '-'),
               },
             ]}
             pagination={false}
@@ -94,7 +98,7 @@ export default function AnalyticsLevelsPage() {
             <Button
               onClick={async () => {
                 const rows = [['step', 'users', 'rate']].concat(
-                  (data?.funnel || []).map((x: any) => [x.step, x.users, x.rate]),
+                  (data?.funnel || []).map((x) => [String(x.step), String(x.users), String(x.rate || '')]),
                 );
                 await exportToXLSX('levels_funnel.csv', [{ sheet: 'funnel', rows }]);
               }}
@@ -109,7 +113,7 @@ export default function AnalyticsLevelsPage() {
             <Space>
               <Select
                 value={seg}
-                onChange={setSeg as any}
+                onChange={(v) => setSeg(v)}
                 options={[
                   { label: '全部', value: 'all' },
                   { label: '新玩家', value: 'new' },
@@ -123,7 +127,7 @@ export default function AnalyticsLevelsPage() {
           <Table
             size="small"
             loading={loading}
-            rowKey={(r: any) => r.level}
+            rowKey={(r) => r.level}
             dataSource={
               seg === 'all' ? data?.per_level || [] : (data?.per_level_segments || {})[seg] || []
             }
@@ -133,16 +137,16 @@ export default function AnalyticsLevelsPage() {
               {
                 title: '胜率',
                 dataIndex: 'win_rate',
-                render: (v: any) => (v != null ? `${v}%` : '-'),
+                render: (v) => (v != null ? `${v}%` : '-'),
               },
               { title: '平均通关时长(s)', dataIndex: 'avg_duration_sec' },
               { title: '平均复试次数', dataIndex: 'avg_retries' },
               {
                 title: '难度',
-                render: (_: any, r: any) => {
-                  const v = r?.difficulty ?? '-';
+                render: (_: unknown, r: LevelData) => {
+                  const v = r?.difficulty != null ? String(r.difficulty) : '-';
                   const color = v === '高' ? 'red' : v === '中' ? 'gold' : 'default';
-                  return <Tag color={color}>{String(v)}</Tag>;
+                  return <Tag color={color}>{v}</Tag>;
                 },
               },
             ]}
@@ -153,23 +157,23 @@ export default function AnalyticsLevelsPage() {
                 const allRows = [
                   ['level', 'players', 'win_rate', 'avg_duration_sec', 'avg_retries', 'difficulty'],
                 ].concat(
-                  (data?.per_level || []).map((x: any) => [
-                    x.level,
-                    x.players,
-                    x.win_rate,
-                    x.avg_duration_sec,
-                    x.avg_retries,
-                    x.difficulty,
+                  (data?.per_level || []).map((x) => [
+                    String(x.level),
+                    String(x.players),
+                    String(x.win_rate),
+                    String(x.avg_duration_sec || ''),
+                    String(x.avg_retries || ''),
+                    String(x.difficulty || ''),
                   ]),
                 );
-                const segs: any = data?.per_level_segments || {};
-                const mk = (name: string, arr: any[]) => ({
+                const segs = data?.per_level_segments || {};
+                const mk = (name: string, arr: LevelData[]) => ({
                   sheet: `per_level_${name}`,
                   rows: [['level', 'players', 'win_rate']].concat(
-                    (arr || []).map((x: any) => [x.level, x.players, x.win_rate]),
+                    (arr || []).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
                   ),
                 });
-                const sheets: any[] = [{ sheet: 'per_level', rows: allRows }];
+                const sheets = [{ sheet: 'per_level', rows: allRows }];
                 sheets.push(mk('new', segs['new'] || []));
                 sheets.push(mk('returning', segs['returning'] || []));
                 sheets.push(mk('payer', segs['payer'] || []));
@@ -188,19 +192,40 @@ export default function AnalyticsLevelsPage() {
   );
 }
 
-const LevelsSegmentsChart: React.FC<{ data: any }> = ({ data }) => {
+interface LevelData {
+  level: string;
+  players: number;
+  win_rate: number;
+  avg_duration_sec?: number;
+  avg_retries?: number;
+  difficulty?: number;
+}
+
+interface LevelSegments {
+  new?: LevelData[];
+  returning?: LevelData[];
+  payer?: LevelData[];
+}
+
+interface LevelsData {
+  per_level?: LevelData[];
+  per_level_segments?: LevelSegments;
+  funnel?: { step: string; users: number; rate?: number }[];
+}
+
+const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) => {
   try {
-    const all = (data?.per_level || []) as any[];
-    const segs = (data?.per_level_segments || {}) as any;
-    if (!all.length) return null as any;
+    const all = data?.per_level || [];
+    const segs = data?.per_level_segments || {};
+    if (!all.length) return null;
     // pick top 10 levels by players from all
     const top = all
       .slice(0)
-      .sort((a: any, b: any) => Number(b.players || 0) - Number(a.players || 0))
+      .sort((a, b) => Number(b.players || 0) - Number(a.players || 0))
       .slice(0, 10);
     const levels = top.map((x) => String(x.level));
-    const find = (arr: any[], lvl: string) =>
-      (arr || []).find((x: any) => String(x.level) === lvl) || {};
+    const find = (arr: LevelData[], lvl: string) =>
+      (arr || []).find((x) => String(x.level) === lvl) || { win_rate: 0 };
     const rows = levels.map((lvl) => ({
       lvl,
       all: Number(find(all, lvl).win_rate || 0),
@@ -270,18 +295,28 @@ const LevelsSegmentsChart: React.FC<{ data: any }> = ({ data }) => {
       </div>
     );
   } catch {
-    return null as any;
+    return null;
   }
 };
 
-const EpisodeFacets: React.FC<{ range: any }> = ({ range }) => {
-  const [episodes, setEpisodes] = useState<any[]>([]);
+interface EpisodeData {
+  episode: string;
+  per_level?: LevelData[];
+}
+
+interface MapData {
+  map: string;
+  per_level?: LevelData[];
+}
+
+const EpisodeFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ range }) => {
+  const [episodes, setEpisodes] = useState<EpisodeData[]>([]);
   const [loading, setLoading] = useState(false);
   const [limit, setLimit] = useState(6);
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = {};
+      const params: Record<string, string | number> = {};
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsLevelsEpisodes(params);
@@ -293,10 +328,10 @@ const EpisodeFacets: React.FC<{ range: any }> = ({ range }) => {
   useEffect(() => {}, []);
   const exportExcel = async () => {
     try {
-      const sheets: any[] = [];
-      (episodes || []).forEach((e: any) => {
+      const sheets: { sheet: string; rows: string[][] }[] = [];
+      (episodes || []).forEach((e) => {
         const rows = [['level', 'players', 'win_rate']].concat(
-          ((e.per_level || []) as any[]).map((x: any) => [x.level, x.players, x.win_rate]),
+          ((e.per_level || [])).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
         );
         sheets.push({ sheet: `ep_${String(e.episode || '')}`, rows });
       });
@@ -313,7 +348,7 @@ const EpisodeFacets: React.FC<{ range: any }> = ({ range }) => {
           </Button>
           <Select
             value={limit}
-            onChange={setLimit as any}
+            onChange={(v) => setLimit(v)}
             options={[
               { label: '6', value: 6 },
               { label: '9', value: 9 },
@@ -331,7 +366,7 @@ const EpisodeFacets: React.FC<{ range: any }> = ({ range }) => {
           gap: 12,
         }}
       >
-        {(episodes || []).slice(0, limit).map((e: any, idx: number) => (
+        {(episodes || []).slice(0, limit).map((e, idx: number) => (
           <EpisodeFacet key={idx} episode={e} />
         ))}
       </div>
@@ -339,14 +374,14 @@ const EpisodeFacets: React.FC<{ range: any }> = ({ range }) => {
   );
 };
 
-const MapFacets: React.FC<{ range: any }> = ({ range }) => {
-  const [maps, setMaps] = useState<any[]>([]);
+const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ range }) => {
+  const [maps, setMaps] = useState<MapData[]>([]);
   const [loading, setLoading] = useState(false);
   const [limit, setLimit] = useState(6);
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = {};
+      const params: Record<string, string | number> = {};
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsLevelsMaps(params);
@@ -357,10 +392,10 @@ const MapFacets: React.FC<{ range: any }> = ({ range }) => {
   };
   const exportExcel = async () => {
     try {
-      const sheets: any[] = [];
-      (maps || []).forEach((e: any) => {
+      const sheets: { sheet: string; rows: string[][] }[] = [];
+      (maps || []).forEach((e) => {
         const rows = [['level', 'players', 'win_rate']].concat(
-          ((e.per_level || []) as any[]).map((x: any) => [x.level, x.players, x.win_rate]),
+          ((e.per_level || [])).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
         );
         sheets.push({ sheet: `map_${String(e.map || '')}`, rows });
       });
@@ -377,7 +412,7 @@ const MapFacets: React.FC<{ range: any }> = ({ range }) => {
           </Button>
           <Select
             value={limit}
-            onChange={setLimit as any}
+            onChange={(v) => setLimit(v)}
             options={[
               { label: '6', value: 6 },
               { label: '9', value: 9 },
@@ -395,7 +430,7 @@ const MapFacets: React.FC<{ range: any }> = ({ range }) => {
           gap: 12,
         }}
       >
-        {(maps || []).slice(0, limit).map((e: any, idx: number) => (
+        {(maps || []).slice(0, limit).map((e, idx: number) => (
           <MapFacet key={idx} item={e} />
         ))}
       </div>
@@ -403,10 +438,10 @@ const MapFacets: React.FC<{ range: any }> = ({ range }) => {
   );
 };
 
-const MapFacet: React.FC<{ item: any }> = ({ item }) => {
+const MapFacet: React.FC<{ item: MapData }> = ({ item }) => {
   try {
-    const arr = (item?.per_level || []) as any[];
-    if (!arr.length) return null as any;
+    const arr = item?.per_level || [];
+    if (!arr.length) return null;
     const w = 300,
       h = 160,
       left = 30,
@@ -418,7 +453,7 @@ const MapFacet: React.FC<{ item: any }> = ({ item }) => {
     const sx = (i: number) => left + ((w - left - right) * i) / Math.max(1, levels.length - 1);
     const sy = (v: number) => topm + (h - topm - bottom) * (1 - v / Math.max(1, maxY));
     const d = arr
-      .map((x: any, i: number) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.win_rate || 0))}`)
+      .map((x, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.win_rate || 0))}`)
       .join(' ');
     return (
       <Card size="small" title={String(item?.map || '-')}>
@@ -435,14 +470,14 @@ const MapFacet: React.FC<{ item: any }> = ({ item }) => {
       </Card>
     );
   } catch {
-    return null as any;
+    return null;
   }
 };
 
-const EpisodeFacet: React.FC<{ episode: any }> = ({ episode }) => {
+const EpisodeFacet: React.FC<{ episode: EpisodeData }> = ({ episode }) => {
   try {
-    const arr = (episode?.per_level || []) as any[];
-    if (!arr.length) return null as any;
+    const arr = episode?.per_level || [];
+    if (!arr.length) return null;
     const w = 300,
       h = 160,
       left = 30,
@@ -454,7 +489,7 @@ const EpisodeFacet: React.FC<{ episode: any }> = ({ episode }) => {
     const sx = (i: number) => left + ((w - left - right) * i) / Math.max(1, levels.length - 1);
     const sy = (v: number) => topm + (h - topm - bottom) * (1 - v / Math.max(1, maxY));
     const d = arr
-      .map((x: any, i: number) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.win_rate || 0))}`)
+      .map((x, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.win_rate || 0))}`)
       .join(' ');
     return (
       <Card size="small" title={String(episode?.episode || '-')}>
@@ -471,6 +506,6 @@ const EpisodeFacet: React.FC<{ episode: any }> = ({ episode }) => {
       </Card>
     );
   } catch {
-    return null as any;
+    return null;
   }
 };

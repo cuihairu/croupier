@@ -6,7 +6,7 @@ export type SchemaTelemetryEvent =
   | 'schema_publish'
   | 'schema_publish_error';
 
-export function trackSchemaEvent(event: SchemaTelemetryEvent, payload?: Record<string, any>) {
+export function trackSchemaEvent(event: SchemaTelemetryEvent, payload?: Record<string, string | number | boolean | null | undefined>) {
   if (typeof window === 'undefined') return;
   const detail = { event, payload, ts: Date.now() };
   try {

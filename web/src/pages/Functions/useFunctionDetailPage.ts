@@ -11,12 +11,10 @@ import {
   disableFunction,
   getFunctionPermissions,
   updateFunctionPermissions,
-  saveFunctionFormSchema,
   listDescriptors,
   type FunctionPermission,
   type FunctionDescriptor,
 } from '@/services/api/functions';
-import type { FormilySchema } from '@/components/formily/schema/types';
 import type { JSONSchema, JSONValue } from '@/types/dashboard';
 
 export interface FunctionDetail {
@@ -39,8 +37,8 @@ export interface FunctionDetail {
 }
 
 type OpenAPIOperationPreview = {
-  extensions?: Record<string, unknown>;
-  requestBody?: unknown;
+  extensions?: Record<string, string | number | boolean | null | undefined>;
+  requestBody?: JSONValue;
 };
 
 type DescriptorListResponse = FunctionDescriptor[] | { descriptors?: FunctionDescriptor[] };
@@ -217,14 +215,16 @@ export default function useFunctionDetailPage(functionId?: string) {
             ? items
             : [{ resource: 'function', actions: ['invoke'], roles: [] } as FunctionPermission],
         });
-      } catch (e: any) {
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : '加载函数权限失败';
         permForm.setFieldsValue({ items: [] });
-        setPermError(e?.message || '加载函数权限失败');
+        setPermError(errMsg);
       } finally {
         setPermLoading(false);
       }
-    } catch (error: any) {
-      if (error?.response?.status === 400 || error?.response?.status === 404) {
+    } catch (error) {
+      const errObj = error as { response?: { status?: number } };
+      if (errObj?.response?.status === 400 || errObj?.response?.status === 404) {
         try {
           const descs = await listDescriptors();
           const descArray = toDescriptorArray(descs as DescriptorListResponse);
@@ -344,16 +344,12 @@ export default function useFunctionDetailPage(functionId?: string) {
       const items = (values?.items || []) as FunctionPermission[];
       await updateFunctionPermissions(functionId, items);
       message.success('权限已更新');
-    } catch (e: any) {
-      message.error(e?.message || '更新失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : '更新失败';
+      message.error(errMsg);
     } finally {
       setPermSaving(false);
     }
-  };
-
-  const onSaveForm = async (formConfig: { schema?: FormilySchema; clearCustom?: boolean }) => {
-    if (!functionId) return;
-    await saveFunctionFormSchema(functionId, formConfig);
   };
 
   return {
@@ -376,6 +372,5 @@ export default function useFunctionDetailPage(functionId?: string) {
     handleCopy,
     handleDelete,
     handleSavePermissions,
-    onSaveForm,
   };
 }

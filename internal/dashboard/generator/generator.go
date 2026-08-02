@@ -4,7 +4,6 @@
 package generator
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -24,50 +23,9 @@ func DefaultGenerateOptions() GenerateOptions {
 	return GenerateOptions{DefaultLocale: "zh-CN"}
 }
 
-type pageSchemaNode struct {
-	Type           string                     `json:"type,omitempty"`
-	Component      string                     `json:"x-component,omitempty"`
-	ComponentProps json.RawMessage            `json:"x-component-props,omitempty"`
-	Properties     map[string]json.RawMessage `json:"properties,omitempty"`
-}
-
-type consolePageProps struct {
-	SchemaVersion string `json:"schemaVersion"`
-	PageKey       string `json:"pageKey,omitempty"`
-	ResourceKey   string `json:"resourceKey,omitempty"`
-}
-
-type queryFormProps struct {
-	BindingID      string          `json:"bindingId"`
-	InputMapping   json.RawMessage `json:"inputMapping,omitempty"`
-	ResultStateKey string          `json:"resultStateKey,omitempty"`
-}
-
-type resultPanelProps struct {
-	BindingID string `json:"bindingId,omitempty"`
-	StateKey  string `json:"stateKey,omitempty"`
-	DataPath  string `json:"dataPath,omitempty"`
-}
-
-type taskTimelineProps struct {
-	BindingID string `json:"bindingId,omitempty"`
-	StateKey  string `json:"stateKey,omitempty"`
-}
-
-type chartPanelProps struct {
-	BindingID string `json:"bindingId,omitempty"`
-	StateKey  string `json:"stateKey,omitempty"`
-}
-
-type approvalStatusProps struct {
-	BindingID string `json:"bindingId,omitempty"`
-	StateKey  string `json:"stateKey,omitempty"`
-}
-
 // GenerateForResource creates default PageSpec candidates for every operation
-// under a resource. CRUD ResourcePage generation waits for CapabilitySemantics;
-// this function never guesses CRUD, columns, pagination, or row actions from
-// names or raw schemas.
+// under a resource. Resource CRUD generation requires persistent
+// CapabilitySemantics and is handled by GenerateResourcePageProposal.
 func GenerateForResource(resource spec.ResourceSpec, opts GenerateOptions) []spec.GeneratedPageSpec {
 	if len(resource.Operations) == 0 {
 		return nil
@@ -82,8 +40,8 @@ func GenerateForResource(resource spec.ResourceSpec, opts GenerateOptions) []spe
 }
 
 // GenerateEntityPageForResource is intentionally disabled until persistent
-// CapabilitySemantics exists. Function registration cannot provide enough UI
-// semantics to safely generate Resource CRUD pages.
+// CapabilitySemantics exists. Function registration cannot provide enough
+// semantics to safely generate ResourcePage CRUD pages.
 func GenerateEntityPageForResource(spec.ResourceSpec, []spec.OperationSpec, GenerateOptions) (spec.GeneratedPageSpec, bool, []string) {
 	return spec.GeneratedPageSpec{}, false, nil
 }
@@ -104,25 +62,35 @@ func GenerateForOperation(op spec.OperationSpec, opts GenerateOptions) spec.Gene
 	}
 }
 
-// GenerateOperationPageForOperation creates a standalone OperationPage that can
-// be directly published when the executable contract is complete.
+// GenerateOperationPageForOperation creates a standalone OperationPage.
 func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptions) spec.GeneratedPageSpec {
 	opts = normalizeOptions(opts)
 	resourceKey := strings.TrimSpace(op.ResourceKey)
 	pageKey := operationPageKey(op, opts)
 	binding := pageBinding(op, "main", spec.BindingUsageAction, executionModeForOperation(op))
-	applyDefaultBindingMappings(&binding, opts.Functions[op.FunctionID])
+	applySelectors(&binding, opts.Functions[op.FunctionID])
 	diags := assessBaseCandidate(op)
+	locale := opts.DefaultLocale
+	title := localizedTitle(op, pageKey, locale)
 
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
 			PageKey:     pageKey,
 			Type:        spec.PageTypeOperation,
 			ResourceKey: resourceKey,
-			Title:       localizedTitle(op, pageKey, opts.DefaultLocale),
-			Category:    categoryForPage(resourceKey, pageKey, opts.DefaultLocale),
-			Schema:      buildOperationPageSchema(pageKey, resourceKey, binding, opts),
-			Bindings:    []spec.PageFunctionBinding{binding},
+			Title:       title,
+			Category:    categoryForPage(resourceKey, pageKey, locale),
+			Navigation: &spec.NavigationSpec{
+				Title: title,
+			},
+			Operation: &spec.OperationPageSpec{
+				Form: buildFormPresentation(op, opts),
+				ResultView: &spec.ResultViewSpec{
+					SuccessMessage: spec.LocalizedText{locale: "操作成功"},
+					ErrorMessage:   spec.LocalizedText{locale: "操作失败"},
+				},
+			},
+			Bindings: []spec.PageFunctionBinding{binding},
 		},
 		Quality:     operationQuality(op, diags),
 		Diagnostics: diags,
@@ -136,7 +104,7 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 	resourceKey := strings.TrimSpace(op.ResourceKey)
 	pageKey := operationPageKey(op, opts)
 	binding := pageBinding(op, "task", spec.BindingUsageTask, spec.PageExecutionModeTask)
-	applyDefaultBindingMappings(&binding, opts.Functions[op.FunctionID])
+	applySelectors(&binding, opts.Functions[op.FunctionID])
 	diags := append(assessBaseCandidate(op), diagnostic(
 		"task_semantics_missing",
 		spec.SeverityWarning,
@@ -144,21 +112,34 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 		op.FunctionID,
 		"capability",
 	))
-
-	root := consolePage(pageKey, resourceKey)
-	root.Properties["form"] = rawNode(queryFormNode(binding, opts, ""))
-	root.Properties["timeline"] = rawNode(componentNode("TaskTimeline", taskTimelinePropsJSON(taskTimelineProps{BindingID: binding.ID})))
-	root.Properties["result"] = rawNode(componentNode("ResultPanel", resultPanelPropsJSON(resultPanelProps{BindingID: binding.ID})))
+	locale := opts.DefaultLocale
+	title := localizedTitle(op, pageKey, locale)
 
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
 			PageKey:     pageKey,
 			Type:        spec.PageTypeTask,
 			ResourceKey: resourceKey,
-			Title:       localizedTitle(op, pageKey, opts.DefaultLocale),
-			Category:    categoryForPage(resourceKey, pageKey, opts.DefaultLocale),
-			Schema:      marshalSchema(root),
-			Bindings:    []spec.PageFunctionBinding{binding},
+			Title:       title,
+			Category:    categoryForPage(resourceKey, pageKey, locale),
+			Navigation: &spec.NavigationSpec{
+				Title: title,
+			},
+			Task: &spec.TaskPageSpec{
+				Form: buildFormPresentation(op, opts),
+				TaskView: &spec.TaskViewSpec{
+					ShowTimeline: true,
+					ShowProgress: true,
+					ShowEvents:   true,
+					Cancelable:   true,
+					Retryable:    true,
+				},
+				ResultView: &spec.ResultViewSpec{
+					SuccessMessage: spec.LocalizedText{locale: "任务完成"},
+					ErrorMessage:   spec.LocalizedText{locale: "任务失败"},
+				},
+			},
+			Bindings: []spec.PageFunctionBinding{binding},
 		},
 		Quality:     qualityFromDiagnostics(diags),
 		Diagnostics: diags,
@@ -172,7 +153,7 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 	resourceKey := strings.TrimSpace(op.ResourceKey)
 	pageKey := operationPageKey(op, opts)
 	binding := pageBinding(op, "report", spec.BindingUsageReport, spec.PageExecutionModeSync)
-	applyDefaultBindingMappings(&binding, opts.Functions[op.FunctionID])
+	applySelectors(&binding, opts.Functions[op.FunctionID])
 	diags := append(assessBaseCandidate(op), diagnostic(
 		"report_semantics_missing",
 		spec.SeverityWarning,
@@ -180,20 +161,28 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 		op.FunctionID,
 		"capability",
 	))
-
-	root := consolePage(pageKey, resourceKey)
-	root.Properties["form"] = rawNode(queryFormNode(binding, opts, ""))
-	root.Properties["chart"] = rawNode(componentNode("ChartPanel", chartPanelPropsJSON(chartPanelProps{BindingID: binding.ID})))
+	locale := opts.DefaultLocale
+	title := localizedTitle(op, pageKey, locale)
 
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
 			PageKey:     pageKey,
 			Type:        spec.PageTypeReport,
 			ResourceKey: resourceKey,
-			Title:       localizedTitle(op, pageKey, opts.DefaultLocale),
-			Category:    categoryForPage(resourceKey, pageKey, opts.DefaultLocale),
-			Schema:      marshalSchema(root),
-			Bindings:    []spec.PageFunctionBinding{binding},
+			Title:       title,
+			Category:    categoryForPage(resourceKey, pageKey, locale),
+			Navigation: &spec.NavigationSpec{
+				Title: title,
+			},
+			Report: &spec.ReportPageSpec{
+				QueryForm: buildFormPresentation(op, opts),
+				Dataset: &spec.DatasetSpec{
+					Dimensions: inferDimensions(op),
+					Metrics:    inferMetrics(op),
+				},
+				Exportable: true,
+			},
+			Bindings: []spec.PageFunctionBinding{binding},
 		},
 		Quality:     qualityFromDiagnostics(diags),
 		Diagnostics: diags,
@@ -207,7 +196,7 @@ func GenerateApprovalPageForOperation(op spec.OperationSpec, opts GenerateOption
 	resourceKey := strings.TrimSpace(op.ResourceKey)
 	pageKey := operationPageKey(op, opts)
 	binding := pageBinding(op, "approval", spec.BindingUsageAction, spec.PageExecutionModeSync)
-	applyDefaultBindingMappings(&binding, opts.Functions[op.FunctionID])
+	applySelectors(&binding, opts.Functions[op.FunctionID])
 	diags := append(assessBaseCandidate(op), diagnostic(
 		"approval_semantics_missing",
 		spec.SeverityWarning,
@@ -215,32 +204,39 @@ func GenerateApprovalPageForOperation(op spec.OperationSpec, opts GenerateOption
 		op.FunctionID,
 		"capability",
 	))
-
-	root := consolePage(pageKey, resourceKey)
-	root.Properties["form"] = rawNode(queryFormNode(binding, opts, ""))
-	root.Properties["status"] = rawNode(componentNode("ApprovalStatus", approvalStatusPropsJSON(approvalStatusProps{BindingID: binding.ID})))
-	root.Properties["result"] = rawNode(componentNode("ResultPanel", resultPanelPropsJSON(resultPanelProps{BindingID: binding.ID})))
+	locale := opts.DefaultLocale
+	title := localizedTitle(op, pageKey, locale)
 
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
 			PageKey:     pageKey,
 			Type:        spec.PageTypeOperation,
 			ResourceKey: resourceKey,
-			Title:       localizedTitle(op, pageKey, opts.DefaultLocale),
-			Category:    categoryForPage(resourceKey, pageKey, opts.DefaultLocale),
-			Schema:      marshalSchema(root),
-			Bindings:    []spec.PageFunctionBinding{binding},
+			Title:       title,
+			Category:    categoryForPage(resourceKey, pageKey, locale),
+			Navigation: &spec.NavigationSpec{
+				Title: title,
+			},
+			Operation: &spec.OperationPageSpec{
+				Form: buildFormPresentation(op, opts),
+				Confirm: &spec.ConfirmActionSpec{
+					Title:       spec.LocalizedText{locale: "确认执行"},
+					Description: spec.LocalizedText{locale: "此操作需要审批，确认后将提交审批流程"},
+					ConfirmText: spec.LocalizedText{locale: "确认提交"},
+					CancelText:  spec.LocalizedText{locale: "取消"},
+					BindingID:   binding.ID,
+					Risk:        string(op.Risk),
+				},
+				ResultView: &spec.ResultViewSpec{
+					SuccessMessage: spec.LocalizedText{locale: "已提交审批"},
+					ErrorMessage:   spec.LocalizedText{locale: "提交失败"},
+				},
+			},
+			Bindings: []spec.PageFunctionBinding{binding},
 		},
 		Quality:     qualityFromDiagnostics(diags),
 		Diagnostics: diags,
 	}
-}
-
-func buildOperationPageSchema(pageKey string, resourceKey string, binding spec.PageFunctionBinding, opts GenerateOptions) spec.FormilySchema {
-	root := consolePage(pageKey, resourceKey)
-	root.Properties["form"] = rawNode(queryFormNode(binding, opts, ""))
-	root.Properties["result"] = rawNode(componentNode("ResultPanel", resultPanelPropsJSON(resultPanelProps{BindingID: binding.ID})))
-	return marshalSchema(root)
 }
 
 func operationPageKey(op spec.OperationSpec, opts GenerateOptions) string {
@@ -270,6 +266,9 @@ func assessBaseCandidate(op spec.OperationSpec) []spec.Diagnostic {
 	if strings.TrimSpace(op.FunctionID) == "" {
 		diags = append(diags, diagnostic("function_id_missing", spec.SeverityError, "functionId is required", "", "functionId"))
 	}
+	if !op.Enabled {
+		diags = append(diags, diagnostic("function_disabled", spec.SeverityError, "function is disabled and cannot be executed", op.FunctionID, "enabled"))
+	}
 	if strings.TrimSpace(op.ResourceKey) == "" {
 		diags = append(diags, diagnostic("resource_missing", spec.SeverityWarning, "resource is missing; Page Studio must choose page grouping before publishing", op.FunctionID, "resourceKey"))
 	}
@@ -277,93 +276,6 @@ func assessBaseCandidate(op spec.OperationSpec) []spec.Diagnostic {
 		diags = append(diags, diagnostic("operation_missing", spec.SeverityWarning, "operation is missing; Page Studio must name how this capability is used", op.FunctionID, "operation"))
 	}
 	return diags
-}
-
-func componentNode(component string, props json.RawMessage) pageSchemaNode {
-	return pageSchemaNode{
-		Type:           "void",
-		Component:      component,
-		ComponentProps: props,
-		Properties:     map[string]json.RawMessage{},
-	}
-}
-
-func consolePage(pageKey string, resourceKey string) pageSchemaNode {
-	return componentNode("ConsolePage", consolePagePropsJSON(consolePageProps{
-		SchemaVersion: "formily-page:1",
-		PageKey:       strings.TrimSpace(pageKey),
-		ResourceKey:   strings.TrimSpace(resourceKey),
-	}))
-}
-
-func queryFormNode(binding spec.PageFunctionBinding, opts GenerateOptions, resultStateKey string) pageSchemaNode {
-	node := componentNode("QueryForm", queryFormPropsJSON(queryFormProps{
-		BindingID:      binding.ID,
-		InputMapping:   binding.InputMapping,
-		ResultStateKey: strings.TrimSpace(resultStateKey),
-	}))
-	for key, field := range functionFormProperties(opts.Functions[binding.FunctionID]) {
-		node.Properties[key] = field
-	}
-	return node
-}
-
-func marshalSchema(root pageSchemaNode) spec.FormilySchema {
-	b, _ := json.Marshal(root)
-	return spec.FormilySchema(b)
-}
-
-func rawNode(node pageSchemaNode) json.RawMessage {
-	b, _ := json.Marshal(node)
-	return json.RawMessage(b)
-}
-
-func consolePagePropsJSON(value consolePageProps) json.RawMessage {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return nil
-	}
-	return json.RawMessage(b)
-}
-
-func queryFormPropsJSON(value queryFormProps) json.RawMessage {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return nil
-	}
-	return json.RawMessage(b)
-}
-
-func resultPanelPropsJSON(value resultPanelProps) json.RawMessage {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return nil
-	}
-	return json.RawMessage(b)
-}
-
-func taskTimelinePropsJSON(value taskTimelineProps) json.RawMessage {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return nil
-	}
-	return json.RawMessage(b)
-}
-
-func chartPanelPropsJSON(value chartPanelProps) json.RawMessage {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return nil
-	}
-	return json.RawMessage(b)
-}
-
-func approvalStatusPropsJSON(value approvalStatusProps) json.RawMessage {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return nil
-	}
-	return json.RawMessage(b)
 }
 
 func pageBinding(op spec.OperationSpec, suffix string, usage spec.PageBindingUsage, mode spec.PageExecutionMode) spec.PageFunctionBinding {
@@ -375,32 +287,21 @@ func pageBinding(op spec.OperationSpec, suffix string, usage spec.PageBindingUsa
 	}
 }
 
-func applyDefaultBindingMappings(binding *spec.PageFunctionBinding, fn spec.FunctionSpec) {
-	binding.InputMapping = defaultInputMapping(fn)
-	binding.OutputMapping = json.RawMessage(`{}`)
+func applySelectors(binding *spec.PageFunctionBinding, fn spec.FunctionSpec) {
+	if binding == nil || len(fn.InputSchema) == 0 {
+		return
+	}
+	binding.Selectors = &spec.BindingSelectors{
+		Input: spec.DefaultSelector(fn.InputSchema),
+	}
 }
 
-func defaultInputMapping(fn spec.FunctionSpec) json.RawMessage {
-	properties := functionFormProperties(fn)
-	if len(properties) == 0 {
-		return json.RawMessage(`{}`)
+func buildFormPresentation(op spec.OperationSpec, opts GenerateOptions) *spec.FormPresentationSpec {
+	fn, ok := opts.Functions[op.FunctionID]
+	if !ok || len(fn.InputSchema) == 0 {
+		return spec.DefaultFormPresentation(spec.JSONSchema(`{"type":"object","properties":{}}`))
 	}
-	mapping := make(map[string]string, len(properties))
-	for key := range properties {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
-		mapping[key] = "values." + key
-	}
-	if len(mapping) == 0 {
-		return json.RawMessage(`{}`)
-	}
-	raw, err := json.Marshal(mapping)
-	if err != nil {
-		return json.RawMessage(`{}`)
-	}
-	return raw
+	return spec.DefaultFormPresentation(fn.InputSchema)
 }
 
 func executionModeForOperation(op spec.OperationSpec) spec.PageExecutionMode {
@@ -446,22 +347,6 @@ func localizedTitle(op spec.OperationSpec, pageKey string, locale string) spec.L
 	return spec.LocalizedText{
 		locale: firstNonEmpty(op.Operation, op.FunctionID, pageKey),
 	}
-}
-
-// functionFormProperties extracts form field properties from a function's schema.
-// TODO(P2-2): Replace with JSON Schema + FormPresentationSpec based form generation.
-func functionFormProperties(fn spec.FunctionSpec) map[string]json.RawMessage {
-	raw := []byte(fn.InputSchema)
-	if len(raw) == 0 {
-		return nil
-	}
-	var parsed struct {
-		Properties map[string]json.RawMessage `json:"properties"`
-	}
-	if err := json.Unmarshal(raw, &parsed); err != nil || len(parsed.Properties) == 0 {
-		return nil
-	}
-	return parsed.Properties
 }
 
 func bindingIDForOperationWithSuffix(op spec.OperationSpec, suffix string) string {
@@ -521,6 +406,18 @@ func operationQuality(op spec.OperationSpec, diags []spec.Diagnostic) spec.Gener
 		return spec.GeneratedPageQualityBasic
 	}
 	return quality
+}
+
+func inferDimensions(spec.OperationSpec) []spec.DimensionSpec {
+	return []spec.DimensionSpec{
+		{Key: "date", Title: spec.LocalizedText{"zh-CN": "日期"}, DataType: "date"},
+	}
+}
+
+func inferMetrics(spec.OperationSpec) []spec.MetricSpec {
+	return []spec.MetricSpec{
+		{Key: "count", Title: spec.LocalizedText{"zh-CN": "数量"}, DataType: "number", AggType: "sum"},
+	}
 }
 
 func firstNonEmpty(values ...string) string {

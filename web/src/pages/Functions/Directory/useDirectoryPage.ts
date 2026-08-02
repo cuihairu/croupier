@@ -73,8 +73,9 @@ export default function useDirectoryPage() {
     setLoading(true);
     try {
       setRows(await fetchSummary());
-    } catch (e: any) {
-      message.error(e?.message || '加载失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : '加载失败';
+      message.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -114,8 +115,8 @@ export default function useDirectoryPage() {
         columns: DIRECTORY_PAGE_SCHEMA.columns,
         rowActions: DIRECTORY_PAGE_SCHEMA.rowActions,
         onOpenDetail: (record) => handleViewDetail(record),
-        onOpenForm: (id) =>
-          history.push(`/system/functions/${encodeURIComponent(id)}?tab=config&subTab=ui`),
+        onOpenSchema: (id) =>
+          history.push(`/system/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`),
         onInvoke: (record) => {
           history.push(buildInvokePath(record.id));
         },

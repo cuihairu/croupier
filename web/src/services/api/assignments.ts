@@ -18,7 +18,7 @@ export type AssignmentHistoryItem = {
   count: number;
   operated_by: string;
   operated_at: string;
-  details?: Record<string, any>;
+  details?: Record<string, string | number | boolean | null | undefined>;
 };
 
 // Source: croupier/internal/api/assignment/dto.go AssignmentsHistoryResponse

@@ -23,6 +23,7 @@ import {
   type TaskEventSubscription,
 } from '@/services/api/functions';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
+import type { JSONValue } from '@/types/dashboard';
 const { Paragraph, Text } = Typography;
 
 function getTaskStatusMeta(state?: string) {
@@ -43,7 +44,7 @@ export default function OpsTasksPage() {
   const [funcs, setFuncs] = useState<string[]>([]);
   const [detail, setDetail] = useState<OpsTask | null>(null);
   const [stream, setStream] = useState<string[]>([]);
-  const [result, setResult] = useState<{ state?: string; payload?: any; error?: string } | null>(
+  const [result, setResult] = useState<{ state?: string; payload?: JSONValue; error?: string } | null>(
     null,
   );
   const subRef = useRef<TaskEventSubscription | null>(null);
@@ -58,8 +59,9 @@ export default function OpsTasksPage() {
       if (actorValue) params.actor = actorValue;
       const r = await listOpsTasks(params);
       setRows(r.tasks || []);
-    } catch (e: any) {
-      message.error(e?.message || '加载失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      message.error(errMsg || '加载失败');
     } finally {
       setLoading(false);
     }
@@ -119,7 +121,7 @@ export default function OpsTasksPage() {
       }
     } catch {}
     const id = detail.id;
-    const push = (type: string, data: any) => {
+    const push = (type: string, data: JSONValue) => {
       setStream((prev) =>
         [...prev, `${type}: ${typeof data === 'string' ? data : JSON.stringify(data)}`].slice(-200),
       );
@@ -138,7 +140,7 @@ export default function OpsTasksPage() {
         subRef.current = null;
         try {
           const r = await fetchTaskResult(id);
-          setResult(r as any);
+          setResult(r as { state?: string; payload?: JSONValue; error?: string });
         } catch {}
         load();
       },
@@ -160,8 +162,9 @@ export default function OpsTasksPage() {
         setDetail({ ...task, state: 'canceled' });
       }
       load();
-    } catch (e: any) {
-      message.error(e?.message || '取消失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      message.error(errMsg || '取消失败');
     }
   };
 
@@ -182,31 +185,31 @@ export default function OpsTasksPage() {
       title: '游戏/环境',
       key: 'ge',
       width: 160,
-      render: (_: any, r: any) => `${r.gameId || ''}/${r.env || ''}`,
+      render: (_, r) => `${r.gameId || ''}/${r.env || ''}`,
     },
     {
       title: '耗时',
       dataIndex: 'durationMs',
       width: 120,
-      render: (v: any) => (typeof v === 'number' && v > 0 ? `${(v / 1000).toFixed(2)}s` : '-'),
+      render: (v) => (typeof v === 'number' && v > 0 ? `${(v / 1000).toFixed(2)}s` : '-'),
     },
     {
       title: '开始时间',
       dataIndex: 'startedAt',
       width: 180,
-      render: (v: any) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v) => (v ? new Date(v).toLocaleString() : '-'),
     },
     {
       title: '结束时间',
       dataIndex: 'endedAt',
       width: 180,
-      render: (v: any) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v) => (v ? new Date(v).toLocaleString() : '-'),
     },
     { title: '服务地址', dataIndex: 'addr', ellipsis: true },
     {
       title: '操作',
       width: 160,
-      render: (_: any, r) => (
+      render: (_, r) => (
         <Space>
           <Button size="small" type="primary" ghost onClick={() => setDetail(r)}>
             查看详情
@@ -342,11 +345,12 @@ export default function OpsTasksPage() {
                 if (!detail) return;
                 try {
                   const r = await fetchTaskResult(detail.id);
-                  setResult(r as any);
+                  setResult(r as { state?: string; payload?: JSONValue; error?: string });
                   message.success(`状态：${r?.state}`);
                   load();
-                } catch (e: any) {
-                  message.error(e?.message || '查询失败');
+                } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+                  message.error(errMsg || '查询失败');
                 }
               }}
             >
@@ -467,7 +471,7 @@ export default function OpsTasksPage() {
                           subRef.current = null;
                         }
                       } catch {}
-                      const push = (type: string, data: any) =>
+                      const push = (type: string, data: JSONValue) =>
                         setStream((prev) =>
                           [
                             ...prev,
@@ -484,7 +488,7 @@ export default function OpsTasksPage() {
                           subRef.current = null;
                           try {
                             const r = await fetchTaskResult(detail.id);
-                            setResult(r as any);
+                            setResult(r as { state?: string; payload?: JSONValue; error?: string });
                           } catch {}
                           load();
                         },

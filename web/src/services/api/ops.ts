@@ -1,5 +1,6 @@
 import { request } from '@umijs/max';
 import { buildDownloadUrl } from '../core/http';
+import type { JSONValue } from '@/types/dashboard';
 
 // Source: croupier/internal/api/ops/dto.go OpsAgentInfo and legacy ops agent listings.
 export type OpsAgent = {
@@ -187,7 +188,7 @@ export type OpsNotifications = {
 export type OpsSilence = {
   id: string;
   alertType?: string;
-  matchers?: unknown;
+  matchers?: JSONValue;
   startAt?: string;
   endAt?: string;
   createdBy?: string;
@@ -218,8 +219,8 @@ export type OpsAlert = {
   endsAt?: string;
   duration?: string;
   silenced?: boolean;
-  labels?: Record<string, unknown>;
-  annotations?: Record<string, unknown>;
+  labels?: Record<string, JSONValue>;
+  annotations?: Record<string, JSONValue>;
 };
 export type OpsTask = {
   id: string;
@@ -260,7 +261,7 @@ type RawOpsSilence = {
   id: string;
   alertType?: string;
   alert_type?: string;
-  matchers?: unknown;
+  matchers?: JSONValue;
   startAt?: string;
   start_at?: string;
   endAt?: string;
@@ -295,8 +296,8 @@ type RawOpsAlert = {
   ends_at?: string;
   duration?: string;
   silenced?: boolean;
-  labels?: Record<string, unknown>;
-  annotations?: Record<string, unknown>;
+  labels?: Record<string, JSONValue>;
+  annotations?: Record<string, JSONValue>;
 };
 type RawOpsTask = {
   id: string;
@@ -331,14 +332,14 @@ function normalizeOpsConfig(raw?: RawOpsConfig): OpsConfig {
   };
 }
 
-function normalizeOpsBackup(raw: any): OpsBackup {
+function normalizeOpsBackup(raw: Record<string, JSONValue>): OpsBackup {
   return {
-    id: raw?.id ?? '',
-    name: raw?.name,
-    type: raw?.type,
-    status: raw?.status,
-    size: raw?.size,
-    createdAt: raw?.createdAt ?? raw?.created_at,
+    id: String(raw.id ?? ''),
+    name: raw.name ? String(raw.name) : undefined,
+    type: raw.type ? String(raw.type) : undefined,
+    status: raw.status ? String(raw.status) : undefined,
+    size: typeof raw.size === 'number' ? raw.size : undefined,
+    createdAt: String(raw.createdAt ?? raw.created_at ?? ''),
   };
 }
 
@@ -350,11 +351,11 @@ function normalizeOpsNotificationRule(raw: RawOpsNotificationRule): OpsNotificat
   };
 }
 
-function normalizeOpsNotifications(raw: any): OpsNotifications {
+function normalizeOpsNotifications(raw: Record<string, JSONValue>): OpsNotifications {
   return {
     enabled: !!raw?.enabled,
-    channels: Array.isArray(raw?.channels) ? raw.channels : [],
-    rules: Array.isArray(raw?.rules) ? raw.rules.map(normalizeOpsNotificationRule) : [],
+    channels: Array.isArray(raw?.channels) ? raw.channels as OpsNotificationChannel[] : [],
+    rules: Array.isArray(raw?.rules) ? (raw.rules as RawOpsNotificationRule[]).map(normalizeOpsNotificationRule) : [],
   };
 }
 
@@ -551,7 +552,7 @@ function normalizeCertificate(raw: RawCertificate): Certificate {
 }
 
 export async function listCertificates(params?: { page?: number; size?: number; status?: string }) {
-  const r = await request<any>('/api/v1/certificates', { params });
+  const r = await request<{ certificates?: RawCertificate[]; total?: number; page?: number; size?: number }>('/api/v1/certificates', { params });
   const raw = (r?.certificates || []) as RawCertificate[];
   return {
     certificates: raw.map(normalizeCertificate),
@@ -581,10 +582,10 @@ export async function deleteCertificate(id: number) {
 }
 
 export async function listOpsBackups() {
-  const response = await request<{ backups?: any[] }>('/api/v1/ops/backups');
+  const response = await request<{ backups?: Record<string, JSONValue>[] }>('/api/v1/ops/backups');
   return { backups: (response?.backups || []).map(normalizeOpsBackup) };
 }
-export async function createOpsBackup(data: any) {
+export async function createOpsBackup(data: Record<string, JSONValue>) {
   return request<void>('/api/v1/ops/backups', { method: 'POST', data });
 }
 export async function deleteOpsBackup(id: string) {
@@ -595,7 +596,7 @@ export function getOpsBackupDownloadUrl(id: string) {
 }
 
 export async function fetchOpsNotifications() {
-  const response = await request<any>('/api/v1/ops/notifications');
+  const response = await request<Record<string, JSONValue>>('/api/v1/ops/notifications');
   return normalizeOpsNotifications(response);
 }
 export async function saveOpsNotifications(data: {

@@ -54,8 +54,9 @@ export default function GamesEnvsPage() {
     try {
       const res = await listGameEnvs(gid);
       setEnvs(res.envs || []);
-    } catch (e: any) {
-      message.error(e?.message || 'Load failed');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      message.error(errMsg || 'Load failed');
     } finally {
       setLoading(false);
     }
@@ -184,7 +185,7 @@ export default function GamesEnvsPage() {
               placeholder="Select a game"
               style={{ width: 260 }}
               value={gameId}
-              onChange={setGameId as any}
+              onChange={(v) => setGameId(v)}
               options={(games || []).map((g) => ({
                 label: `${g.name} ${g.aliasName ? `(${g.aliasName})` : ''}`,
                 value: g.id!,

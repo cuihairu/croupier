@@ -4,13 +4,18 @@
 
 import { useModel } from '@umijs/max';
 
+interface CurrentUser {
+  access?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
 /**
  * 获取当前用户权限列表
  */
 function getCurrentPermissions(): Set<string> {
   // 从 initialState 获取权限
   const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as any)?.access as string | undefined) || '';
+  const access = ((initialState?.currentUser as CurrentUser)?.access) || '';
 
   return new Set(
     access
@@ -65,7 +70,7 @@ export function filterByPermission<T extends { permissions?: string[] }>(items: 
  */
 export function usePermission(permission: string): boolean {
   const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as any)?.access as string | undefined) || '';
+  const access = ((initialState?.currentUser as CurrentUser)?.access as string | undefined) || '';
 
   const permissions = new Set(
     access
@@ -82,7 +87,7 @@ export function usePermission(permission: string): boolean {
  */
 export function usePermissions(permissions: string[]): boolean[] {
   const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as any)?.access as string | undefined) || '';
+  const access = ((initialState?.currentUser as CurrentUser)?.access as string | undefined) || '';
 
   const userPermissions = new Set(
     access
@@ -99,7 +104,7 @@ export function usePermissions(permissions: string[]): boolean[] {
  */
 export function useAnyPermission(permissions: string[]): boolean {
   const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as any)?.access as string | undefined) || '';
+  const access = ((initialState?.currentUser as CurrentUser)?.access as string | undefined) || '';
 
   if (!permissions || permissions.length === 0) return true;
 
@@ -118,7 +123,7 @@ export function useAnyPermission(permissions: string[]): boolean {
  */
 export function useAllPermissions(permissions: string[]): boolean {
   const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as any)?.access as string | undefined) || '';
+  const access = ((initialState?.currentUser as CurrentUser)?.access as string | undefined) || '';
 
   if (!permissions || permissions.length === 0) return true;
 

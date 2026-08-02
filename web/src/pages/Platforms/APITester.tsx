@@ -15,6 +15,7 @@ import {
 import { PlayCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import type { PlatformInfo } from '@/services/api/platforms';
 import { callPlatform, listPlatformMethods } from '@/services/api/platforms';
+import type { JSONValue } from '@/types/dashboard';
 
 const { TextArea } = Input;
 const { Text, Paragraph } = Typography;
@@ -33,7 +34,7 @@ interface QuickSDKMethod {
 }
 
 // QuickSDK 方法参数模板
-const methodTemplates: Record<string, any> = {
+const methodTemplates: Record<string, JSONValue> = {
   channel_list: {},
   server_list: { product_code: '' },
   product_list: {},
@@ -113,7 +114,7 @@ export default function APITester({
   const [availableMethods, setAvailableMethods] = useState<string[]>([]);
   const [methodsSource, setMethodsSource] = useState<string>('');
   const [callSource, setCallSource] = useState<string>('');
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<JSONValue>(null);
   const [error, setError] = useState<string | null>(null);
 
   const currentPlatform = platforms.find((p) => p.name === selectedPlatform);
@@ -167,8 +168,9 @@ export default function APITester({
       });
       setCallSource(result?.source || '');
       setResponse(result.response);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || '请求失败');
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : '请求失败';
+      setError(errMsg);
     } finally {
       setCalling(false);
     }

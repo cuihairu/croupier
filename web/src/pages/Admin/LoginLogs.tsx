@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Space, Input, Button, DatePicker, Tag } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { listAudit, type AuditEvent } from '@/services/api';
 
@@ -12,7 +13,7 @@ export default function LoginLogsPage() {
   );
   const [ip, setIP] = useState<string>('');
   const [kinds, setKinds] = useState<string[]>(['login', 'login_fail', 'login_rate_limited']);
-  const [timeRange, setTimeRange] = useState<any>(null);
+  const [timeRange, setTimeRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [page, setPage] = useState<number>(1);
   const [size, setSize] = useState<number>(20);
   const [osSel, setOsSel] = useState<string[]>([]);
@@ -21,7 +22,7 @@ export default function LoginLogsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = { page, size };
+      const params: Record<string, string | number> = { page, size };
       if (actor) params.actor = actor;
       if (ip) params.ip = ip;
       const want = kinds && kinds.length > 0 ? kinds : ['login'];
@@ -51,7 +52,7 @@ export default function LoginLogsPage() {
       const br = detectBrowser(ua);
       return brSel.includes(br);
     };
-    return (rows || []).filter((e: any) => {
+    return (rows || []).filter((e: AuditEvent) => {
       const ua = String(e.meta?.ua || '');
       return osMatch(ua) && brMatch(ua);
     });
@@ -63,7 +64,7 @@ export default function LoginLogsPage() {
   }, [filtered, page, size]);
 
   const exportCSV = () => {
-    const arr = (filtered || []).map((e: any) => {
+    const arr = (filtered || []).map((e: AuditEvent) => {
       const ua = String(e.meta?.ua || '');
       return [
         new Date(e.time).toISOString(),
@@ -145,8 +146,8 @@ export default function LoginLogsPage() {
           </Space>
           <DatePicker.RangePicker
             showTime
-            value={timeRange as any}
-            onChange={setTimeRange as any}
+            value={timeRange as [Dayjs, Dayjs]}
+            onChange={(dates) => setTimeRange(dates as [Dayjs | null, Dayjs | null] | null)}
           />
           <Button type="primary" onClick={load}>
             查询
@@ -213,7 +214,7 @@ export default function LoginLogsPage() {
             { title: 'IP', dataIndex: ['meta', 'ip'] },
             {
               title: '属地',
-              render: (_: any, r: any) => {
+              render: (_, r) => {
                 const v = String(r?.meta?.ip_region || '');
                 if (!v) return '-';
                 if (v === '本地') return <Tag color="blue">本地</Tag>;
@@ -221,15 +222,15 @@ export default function LoginLogsPage() {
                 return v;
               },
             },
-            { title: '设备', render: (_: any, r: any) => detectOS(String(r.meta?.ua || '')) },
+            { title: '设备', render: (_, r) => detectOS(String(r.meta?.ua || '')) },
             {
               title: '浏览器',
-              render: (_: any, r: any) => detectBrowser(String(r.meta?.ua || '')),
+              render: (_, r) => detectBrowser(String(r.meta?.ua || '')),
             },
           ]}
           dataSource={paged}
           expandable={{
-            expandedRowRender: (r: any) => {
+            expandedRowRender: (r) => {
               const ua = String(r?.meta?.ua || '');
               return (
                 <div style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>

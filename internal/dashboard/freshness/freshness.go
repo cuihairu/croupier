@@ -84,7 +84,7 @@ func EvaluateBinding(
 			functionID,
 			spec.BindingFreshnessInputSchemaStale,
 			"binding_input_schema_stale",
-			"bound function input schema changed; synchronize Function Form and input mapping before publishing",
+			"bound function input schema changed; synchronize the page input selector before publishing",
 			"bindingContracts."+bindingID+".inputSchemaDigest",
 		))
 	}
@@ -94,7 +94,7 @@ func EvaluateBinding(
 			functionID,
 			spec.BindingFreshnessOutputSchemaStale,
 			"binding_output_schema_stale",
-			"bound function output schema changed; revalidate output mapping before publishing",
+			"bound function output schema changed; revalidate page output selectors before publishing",
 			"bindingContracts."+bindingID+".outputSchemaDigest",
 		))
 	}

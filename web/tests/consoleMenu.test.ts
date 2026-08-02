@@ -75,11 +75,18 @@ describe('console menu model', () => {
       type: 'operation',
       title: { 'zh-CN': '封禁玩家' },
       category: { key: 'player ops', labels: { 'zh-CN': '玩家运营' } },
-      schema: {},
+      operation: {
+        form: {
+          jsonSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+      },
       bindings: [],
       version: 1,
       publishedAt: '2026-07-29T00:00:00Z',
-      rendererSchemaVersion: 'formily-page/v1',
+      rendererSchemaVersion: 'page-spec:1',
       bindingContracts: [],
     };
 

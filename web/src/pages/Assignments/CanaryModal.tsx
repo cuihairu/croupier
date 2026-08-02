@@ -1,19 +1,22 @@
 import React from 'react';
 import { Modal } from 'antd';
 import type { AssignmentItem } from './types';
-import SchemaRenderer from '@/components/formily/SchemaRenderer';
-import type { FormilyValues } from '@/components/formily/schema/types';
-import { CANARY_FORM_SCHEMA } from './schemas';
+import SchemaFormRenderer, {
+  type SchemaFormRendererHandle,
+} from '@/components/SchemaFormRenderer';
+import type { FormValues } from '@/types/dashboard';
+import { CANARY_FORM_SPEC } from './schemas';
 
 type Props = {
   visible: boolean;
   assignment: AssignmentItem | null;
   onClose: () => void;
-  onSave: (values: FormilyValues) => void;
+  onSave: (values: FormValues) => void;
 };
 
 export default function CanaryModal({ visible, assignment, onClose, onSave }: Props) {
-  const [formValues, setFormValues] = React.useState<FormilyValues>({});
+  const formRef = React.useRef<SchemaFormRendererHandle | null>(null);
+  const [formValues, setFormValues] = React.useState<FormValues>({});
 
   React.useEffect(() => {
     if (!visible) return;
@@ -31,11 +34,20 @@ export default function CanaryModal({ visible, assignment, onClose, onSave }: Pr
       title="灰度配置"
       open={visible}
       onCancel={onClose}
-      onOk={() => onSave(formValues)}
+      onOk={() => {
+        if (!formRef.current?.validate()) return;
+        onSave(formRef.current.getValues());
+      }}
       width={600}
     >
       {assignment ? (
-        <SchemaRenderer schema={CANARY_FORM_SCHEMA} value={formValues} onChange={setFormValues} />
+        <SchemaFormRenderer
+          ref={formRef}
+          spec={CANARY_FORM_SPEC}
+          initialValues={formValues}
+          onValuesChange={(_, allValues) => setFormValues(allValues)}
+          hideSubmit
+        />
       ) : null}
     </Modal>
   );

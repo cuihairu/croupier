@@ -5,11 +5,11 @@ type EditorProps = {
   language?: string;
   height?: number | string;
   onChange?: (v: string) => void;
-  onMount?: (editor: any, monaco: any) => void;
+  onMount?: (editor: unknown, monaco: unknown) => void;
   readOnly?: boolean;
   theme?: string;
-  options?: Record<string, any>;
-  beforeMount?: (monaco: any) => void;
+  options?: Record<string, unknown>;
+  beforeMount?: (monaco: unknown) => void;
 };
 
 export const CodeEditor: React.FC<EditorProps> = ({
@@ -23,13 +23,13 @@ export const CodeEditor: React.FC<EditorProps> = ({
   options,
   beforeMount,
 }) => {
-  const [Monaco, setMonaco] = useState<any>(null);
+  const [Monaco, setMonaco] = useState<unknown>(null);
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         // Try dynamic import; if not installed, fallback silently
-        const mod: any = await import('@monaco-editor/react');
+        const mod = await import('@monaco-editor/react');
         if (mounted) setMonaco(mod);
       } catch (_) {
         // ignore
@@ -49,7 +49,8 @@ export const CodeEditor: React.FC<EditorProps> = ({
       />
     );
   }
-  const Editor = Monaco.default || (Monaco as any).Editor || Monaco; // compat
+  const mod = Monaco as Record<string, unknown>;
+  const Editor = (mod.default || mod.Editor || Monaco) as React.ComponentType<Record<string, unknown>>;
   return (
     <Editor
       height={height}
@@ -75,12 +76,12 @@ export const DiffEditor: React.FC<{
   language?: string;
   height?: number | string;
 }> = ({ left, right, language = 'plaintext', height = 420 }) => {
-  const [Monaco, setMonaco] = useState<any>(null);
+  const [Monaco, setMonaco] = useState<unknown>(null);
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const mod: any = await import('@monaco-editor/react');
+        const mod = await import('@monaco-editor/react');
         if (mounted) setMonaco(mod);
       } catch (_) {
         /* ignore */
@@ -92,10 +93,12 @@ export const DiffEditor: React.FC<{
   }, []);
   if (!Monaco) {
     // fallback simple render; caller可以降级
-    return null as any;
+    return null;
   }
-  const M = Monaco.DiffEditor || (Monaco as any).default?.DiffEditor;
-  if (!M) return null as any;
+  const mod = Monaco as Record<string, unknown>;
+  const defaultMod = mod.default as Record<string, unknown> | undefined;
+  const M = (mod.DiffEditor || defaultMod?.DiffEditor) as React.ComponentType<Record<string, unknown>> | undefined;
+  if (!M) return null;
   return (
     <M
       height={height}

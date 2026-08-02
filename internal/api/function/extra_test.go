@@ -160,46 +160,6 @@ func TestHandler_FunctionPermissions_Empty(t *testing.T) {
 	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
 }
 
-func TestHandler_FunctionForm_EmptyParams(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test/form", "")
-
-	// May panic due to nil FunctionModel
-	defer func() {
-		if r := recover(); r != nil {
-			// Expected with empty ServiceContext
-		}
-	}()
-	h.FunctionForm(ctx)
-
-	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
-}
-
-func TestHandler_FunctionFormHistory_EmptyParams(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test/form/history", "")
-	h.FunctionFormHistory(ctx)
-
-	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
-}
-
-func TestHandler_FunctionFormRollback_EmptyBody(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/form/rollback", "{}")
-	h.FunctionFormRollback(ctx)
-
-	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
-}
-
 func TestHandler_FunctionWarnings_EmptyParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -249,17 +209,6 @@ func TestHandler_FunctionPermissionsUpdate_EmptyBody(t *testing.T) {
 	h.FunctionPermissionsUpdate(ctx)
 
 	// If we get here without panic, check response
-	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
-}
-
-func TestHandler_FunctionFormUpdate_EmptyBody(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/form", "{}")
-	h.FunctionFormUpdate(ctx)
-
 	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
 }
 
@@ -457,30 +406,6 @@ func TestHandler_FunctionWarnings_ErrorPath(t *testing.T) {
 
 	// Should not panic
 	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
-}
-
-func TestHandler_FunctionFormUpdate_InvalidJSON(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/form", "{invalid")
-	h.FunctionFormUpdate(ctx)
-
-	// Should handle malformed JSON
-	assert.True(t, rec.Code >= 400 && rec.Code <= 500 || rec.Code == 200)
-}
-
-func TestHandler_FunctionFormRollback_InvalidJSON(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/form/rollback", "{invalid")
-	h.FunctionFormRollback(ctx)
-
-	// Should handle malformed JSON
-	assert.True(t, rec.Code >= 400 && rec.Code <= 500 || rec.Code == 200)
 }
 
 func TestHandler_BatchUpdateFunctions_InvalidJSON(t *testing.T) {
@@ -720,71 +645,6 @@ func TestHandler_FunctionInvoke_SuccessPath(t *testing.T) {
 	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
 }
 
-func TestHandler_FunctionForm_SuccessPath(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test/form", "")
-
-	// May panic due to nil FunctionModel
-	defer func() {
-		if r := recover(); r != nil {
-			// Acceptable with test setup
-		}
-	}()
-	h.FunctionForm(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600 || rec.Code == 500)
-}
-
-func TestHandler_FunctionFormHistory_SuccessPath(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test/form/history", "")
-	h.FunctionFormHistory(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600)
-}
-
-func TestHandler_FunctionFormRollback_SuccessPath(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	body := `{"version":"1.0.0"}`
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/form/rollback", body)
-	h.FunctionFormRollback(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600)
-}
-
-func TestHandler_FunctionFormUpdate_SuccessPath(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	body := `{"schema":{"type":"object","properties":{"name":{"type":"string","title":"name","x-component":"Input","x-decorator":"FormItem"}}}}`
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/form", body)
-	h.FunctionFormUpdate(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600)
-}
-
 func TestHandler_FunctionInstancesAll_SuccessPath(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -960,33 +820,6 @@ func TestHandler_FunctionDisable_DisableSuccess(t *testing.T) {
 
 	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/disable", `{"functionId":"test"}`)
 	h.FunctionDisable(ctx)
-
-	// Should not panic
-	assert.True(t, rec.Code >= 200 && rec.Code < 600)
-}
-
-func TestHandler_FunctionFormUpdate_RejectsLegacyUI(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/form", `{"ui":{}}`)
-	h.FunctionFormUpdate(ctx)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestHandler_FunctionFormRollback_EmptyVersion(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	svcCtx := setupTestServiceContext(t)
-	h := NewHandler(NewService(svcCtx))
-
-	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/test/form/rollback", `{"version":""}`)
-	h.FunctionFormRollback(ctx)
 
 	// Should not panic
 	assert.True(t, rec.Code >= 200 && rec.Code < 600)

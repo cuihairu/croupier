@@ -17,7 +17,7 @@ export interface CallPlatformRequest {
 }
 
 export interface CallPlatformResponse {
-  response?: any;
+  response?: string | number | boolean | null | Record<string, unknown> | unknown[];
   source?: 'extension' | string;
 }
 

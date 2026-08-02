@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
 
 // Source: croupier/internal/api/functioncall/dto.go Item
 export type FunctionCallItem = {
@@ -15,8 +16,8 @@ export type FunctionCallItem = {
   startedAt?: string;
   finishedAt?: string;
   durationMs?: number;
-  payload?: any;
-  result?: any;
+  payload?: JSONValue;
+  result?: JSONValue;
   errorMessage?: string;
   retryCount?: number;
   createdAt: string;
@@ -80,8 +81,8 @@ type RawFunctionCallItem = {
   finishedAt?: string;
   duration_ms?: number;
   durationMs?: number;
-  payload?: any;
-  result?: any;
+  payload?: JSONValue;
+  result?: JSONValue;
   error_msg?: string;
   errorMessage?: string;
   retry_count?: number;
@@ -175,7 +176,7 @@ export async function getFunctionCallDetail(id: string) {
 /**
  * 重新执行失败的调用
  */
-export async function rerunFunctionCall(id: string, payload?: any) {
+export async function rerunFunctionCall(id: string, payload?: JSONValue) {
   const response = await request<{ task_id?: string; taskId?: string }>(
     `/api/v1/function-calls/${encodeURIComponent(id)}/rerun`,
     {

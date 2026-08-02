@@ -52,6 +52,7 @@ import { listMessages, MessageItem } from '@/services/api/messages';
 import { listPermissions, type PermissionRecord } from '@/services/api/permissions';
 import { createFeedback } from '@/services/api/support';
 import { buildAvatarObjectKey, uploadAsset } from '@/services/api/storage';
+import type { JSONValue } from '@/types/dashboard';
 import './index.less';
 
 const { Title, Text } = Typography;
@@ -131,7 +132,7 @@ const FALLBACK_APPLY_PERMISSION_TEMPLATES: PermissionApplyTemplate[] = [
   },
 ];
 
-function pickAuditMetaValue(meta: Record<string, any> | undefined, keys: string[]): string {
+function pickAuditMetaValue(meta: Record<string, JSONValue> | undefined, keys: string[]): string {
   if (!meta) return '';
   for (const key of keys) {
     const value = meta[key];
@@ -142,6 +143,21 @@ function pickAuditMetaValue(meta: Record<string, any> | undefined, keys: string[
   return '';
 }
 
+interface ProfileData {
+  display_name?: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+  name?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
+interface PasswordValues {
+  current: string;
+  password: string;
+  confirm?: string;
+}
+
 export default function Profile() {
   const intl = useIntl();
   const location = useLocation();
@@ -149,7 +165,7 @@ export default function Profile() {
   const formatMessage = (id: string) => intl.formatMessage({ id });
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(false);
   const [profileEditing, setProfileEditing] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -261,7 +277,7 @@ export default function Profile() {
     }
   };
 
-  const handleProfileSubmit = async (values: any) => {
+  const handleProfileSubmit = async (values: ProfileData) => {
     setLoading(true);
     try {
       await updateMyProfile({
@@ -279,7 +295,7 @@ export default function Profile() {
     }
   };
 
-  const handlePasswordFinish = async (values: any) => {
+  const handlePasswordFinish = async (values: PasswordValues) => {
     setPasswordLoading(true);
     try {
       await changeMyPassword({
@@ -320,8 +336,8 @@ export default function Profile() {
     }
   };
 
-  const handleAvatarUpload = async (options: any) => {
-    const file = options?.file as File | undefined;
+  const handleAvatarUpload = async (options: { file: File; onSuccess?: (body: unknown) => void; onError?: (err: Error) => void }) => {
+    const file = options?.file;
     if (!file) {
       options?.onError?.(new Error('missing file'));
       return;
@@ -339,7 +355,7 @@ export default function Profile() {
       options?.onSuccess?.(uploaded);
     } catch (error) {
       message.error(formatMessage('profile.update.error'));
-      options?.onError?.(error);
+      options?.onError?.(error instanceof Error ? error : new Error(String(error)));
     } finally {
       setAvatarUploading(false);
     }
@@ -436,7 +452,7 @@ export default function Profile() {
 
   const loginSessionRows = useMemo(() => {
     return (loginRecords || []).map((item, idx) => {
-      const meta = (item.meta || {}) as Record<string, any>;
+      const meta = (item.meta || {}) as Record<string, JSONValue>;
       const ip = pickAuditMetaValue(meta, ['ip', 'client_ip', 'remote_ip', 'x_forwarded_for']);
       const region = pickAuditMetaValue(meta, ['ip_region', 'region', 'geo']);
       const userAgent = pickAuditMetaValue(meta, ['user_agent', 'ua', 'agent']);

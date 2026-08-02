@@ -10,9 +10,28 @@ import {
 } from '@/services/api/support';
 import { getMessage } from '@/utils/antdApp';
 import { useAccess } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
+
+interface FeedbackItem {
+  id: string;
+  player_id?: string;
+  contact?: string;
+  category?: string;
+  priority?: string;
+  status?: string;
+  game_id?: string;
+  env?: string;
+  content?: string;
+  updated_at?: string;
+  [key: string]: JSONValue | undefined;
+}
+
+interface AccessState {
+  canSupportManage?: boolean;
+}
 
 export default function SupportFeedbackPage() {
-  const [list, setList] = useState<any[]>([]);
+  const [list, setList] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
@@ -23,9 +42,9 @@ export default function SupportFeedbackPage() {
   const [gameId, setGameId] = useState('');
   const [env, setEnv] = useState('');
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any>(null);
+  const [editing, setEditing] = useState<FeedbackItem | null>(null);
   const [form] = Form.useForm();
-  const access: any = useAccess?.() || {};
+  const access: AccessState = useAccess?.() || {};
 
   const load = async () => {
     setLoading(true);
@@ -46,7 +65,7 @@ export default function SupportFeedbackPage() {
     form.resetFields();
     setOpen(true);
   };
-  const openEdit = (rec: any) => {
+  const openEdit = (rec: FeedbackItem) => {
     setEditing(rec);
     form.setFieldsValue(rec);
     setOpen(true);
@@ -61,7 +80,7 @@ export default function SupportFeedbackPage() {
     setOpen(false);
     load();
   };
-  const onDelete = (rec: any) => {
+  const onDelete = (rec: FeedbackItem) => {
     Modal.confirm({
       title: '删除反馈',
       onOk: async () => {
@@ -126,7 +145,7 @@ export default function SupportFeedbackPage() {
           </Space>
         }
       >
-        <Table
+        <Table<FeedbackItem>
           rowKey="id"
           loading={loading}
           dataSource={list}
@@ -136,37 +155,38 @@ export default function SupportFeedbackPage() {
             { title: '分类', dataIndex: 'category' },
             { title: '优先级', dataIndex: 'priority' },
             { title: '状态', dataIndex: 'status' },
-            { title: '游戏/环境', render: (_: any, r: any) => `${r.game_id || ''}/${r.env || ''}` },
+            { title: '游戏/环境', render: (_: unknown, r: FeedbackItem) => `${r.game_id || ''}/${r.env || ''}` },
             { title: '内容', dataIndex: 'content', ellipsis: true },
             {
               title: '更新时间',
               dataIndex: 'updated_at',
-              render: (v: any) => (v ? new Date(v).toLocaleString() : '-'),
+              render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
             },
             {
               title: '操作',
-              render: (_: any, r: any) => (
+              render: (_: unknown, r: FeedbackItem) => (
                 <Space>
                   <Button
                     size="small"
                     onClick={async () => {
                       try {
                         const title = `玩家反馈-${r.player_id || ''}`.trim();
-                        const data: any = {
+                        const data = {
                           title,
-                          content: r.content,
+                          content: r.content || '',
                           category: 'feedback',
                           priority: r.priority || 'normal',
-                          game_id: r.game_id,
-                          env: r.env,
-                          contact: r.contact,
+                          game_id: r.game_id || '',
+                          env: r.env || '',
+                          contact: r.contact || '',
                           source: 'feedback',
                         };
                         const res = await createTicket(data);
                         await updateFeedback(r.id, { status: 'triaged' });
                         getMessage()?.success(`已转工单 #${res.id}`);
-                      } catch (e: any) {
-                        getMessage()?.error(e?.message || '转工单失败');
+                      } catch (e) {
+                        const errMsg = e instanceof Error ? e.message : "操作失败";
+                        getMessage()?.error(errMsg || '转工单失败');
                       }
                     }}
                   >

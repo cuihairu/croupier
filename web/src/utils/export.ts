@@ -4,7 +4,7 @@
  * The project currently does not bundle XLSX libraries; callers may still use
  * this function name for historical reasons.
  */
-export async function exportToXLSX(fileName: string, sheets: { sheet: string; rows: any[][] }[]) {
+export async function exportToXLSX(fileName: string, sheets: { sheet: string; rows: (string | number | boolean | null | undefined)[][] }[]) {
   if (!sheets || sheets.length === 0) return;
   const baseName = (fileName || 'export').replace(/\.(xlsx|csv)$/i, '');
   if (sheets.length === 1) {
@@ -24,7 +24,7 @@ export async function exportToXLSX(fileName: string, sheets: { sheet: string; ro
   }
 }
 
-export function exportToCSV(fileName: string, rows: any[][]) {
+export function exportToCSV(fileName: string, rows: (string | number | boolean | null | undefined)[][]) {
   try {
     const csv = rows
       .map((r) =>

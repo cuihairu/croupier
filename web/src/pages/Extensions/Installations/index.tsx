@@ -49,6 +49,7 @@ import {
 } from '@/services/adapters/extensions';
 import { EXTENSION_ERROR_CODES } from '@/services/errors/codes';
 import { mapExtensionError } from '@/services/errors/mapper';
+import type { JSONValue } from '@/types/dashboard';
 
 const { Text } = Typography;
 
@@ -85,7 +86,7 @@ export default function ExtensionsInstallationsPage() {
     undefined,
   );
   const [detailBindings, setDetailBindings] = useState<ExtensionBindingItem[]>([]);
-  const [detailConfigSchema, setDetailConfigSchema] = useState<Record<string, any> | undefined>(
+  const [detailConfigSchema, setDetailConfigSchema] = useState<Record<string, JSONValue> | undefined>(
     undefined,
   );
   const [detailConfig, setDetailConfig] = useState('{}');
@@ -140,7 +141,7 @@ export default function ExtensionsInstallationsPage() {
     loadInstallations();
   }, [extensionID, status, page, pageSize]);
 
-  const withReload = async (fn: () => Promise<any>, successText: string) => {
+  const withReload = async (fn: () => Promise<unknown>, successText: string) => {
     await fn();
     message.success(successText);
     await loadInstallations();
@@ -156,8 +157,8 @@ export default function ExtensionsInstallationsPage() {
           await uninstallExtension(row.id);
           message.success('已卸载扩展');
           await loadInstallations();
-        } catch (err: any) {
-          const uiErr = mapExtensionError(err);
+        } catch (err) {
+          const uiErr = mapExtensionError(err as Error);
           const details = uiErr.details || {};
           const blockers = Array.isArray(details.blockers) ? details.blockers : [];
           if (uiErr.code === EXTENSION_ERROR_CODES.DEPENDENCY_BLOCKED && blockers.length > 0) {
@@ -625,8 +626,8 @@ export default function ExtensionsInstallationsPage() {
             message.success('升级请求已提交');
             setUpgradeOpen(false);
             await loadInstallations();
-          } catch (err: any) {
-            const uiErr = mapExtensionError(err);
+          } catch (err) {
+            const uiErr = mapExtensionError(err as Error);
             const details = uiErr.details || {};
             if (uiErr.code === EXTENSION_ERROR_CODES.MISSING_DEPENDENCY) {
               message.error(`升级失败，缺少依赖扩展：${details.dependency || 'unknown'}`);
@@ -723,7 +724,7 @@ export default function ExtensionsInstallationsPage() {
               disabled={!access.canExtensionsManage}
               onClick={async () => {
                 if (!detailTarget) return;
-                let config: Record<string, any>;
+                let config: Record<string, JSONValue>;
                 let secretRefs: Record<string, string>;
                 try {
                   config = JSON.parse(detailConfig || '{}');
@@ -808,7 +809,7 @@ export default function ExtensionsInstallationsPage() {
                       typeof detailConfigSchema.properties === 'object' ? (
                         <Space direction="vertical" style={{ width: '100%' }}>
                           {Object.entries(detailConfigSchema.properties).map(([key, raw]) => {
-                            const field = (raw || {}) as Record<string, any>;
+                            const field = (raw || {}) as Record<string, JSONValue>;
                             const required = Array.isArray(detailConfigSchema.required)
                               ? detailConfigSchema.required.includes(key)
                               : false;

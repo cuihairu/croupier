@@ -36,11 +36,11 @@ const (
 
 // FormGroupSpec defines a group of fields.
 type FormGroupSpec struct {
-	Key      string        `json:"key"`
-	Title    LocalizedText `json:"title,omitempty"`
-	Fields   []string      `json:"fields"` // field keys
-	Collapsible bool       `json:"collapsible,omitempty"`
-	Collapsed   bool       `json:"collapsed,omitempty"`
+	Key         string        `json:"key"`
+	Title       LocalizedText `json:"title,omitempty"`
+	Fields      []string      `json:"fields"` // field keys
+	Collapsible bool          `json:"collapsible,omitempty"`
+	Collapsed   bool          `json:"collapsed,omitempty"`
 }
 
 // FormFieldSpec defines presentation hints for a single field.
@@ -93,51 +93,51 @@ type FormWidget string
 
 const (
 	// Basic inputs
-	FormWidgetInput     FormWidget = "Input"
-	FormWidgetTextArea  FormWidget = "TextArea"
-	FormWidgetNumber    FormWidget = "InputNumber"
-	FormWidgetPassword  FormWidget = "Password"
+	FormWidgetInput    FormWidget = "Input"
+	FormWidgetTextArea FormWidget = "TextArea"
+	FormWidgetNumber   FormWidget = "InputNumber"
+	FormWidgetPassword FormWidget = "Password"
 
 	// Selection
-	FormWidgetSelect    FormWidget = "Select"
+	FormWidgetSelect      FormWidget = "Select"
 	FormWidgetMultiSelect FormWidget = "MultiSelect"
-	FormWidgetRadio     FormWidget = "Radio"
-	FormWidgetCheckbox  FormWidget = "Checkbox"
-	FormWidgetSwitch    FormWidget = "Switch"
+	FormWidgetRadio       FormWidget = "Radio"
+	FormWidgetCheckbox    FormWidget = "Checkbox"
+	FormWidgetSwitch      FormWidget = "Switch"
 
 	// Date/Time
-	FormWidgetDatePicker   FormWidget = "DatePicker"
-	FormWidgetTimePicker   FormWidget = "TimePicker"
-	FormWidgetDateRange    FormWidget = "DateRange"
+	FormWidgetDatePicker FormWidget = "DatePicker"
+	FormWidgetTimePicker FormWidget = "TimePicker"
+	FormWidgetDateRange  FormWidget = "DateRange"
 
 	// Upload
-	FormWidgetUpload    FormWidget = "Upload"
+	FormWidgetUpload      FormWidget = "Upload"
 	FormWidgetImageUpload FormWidget = "ImageUpload"
-	FormWidgetFileUpload FormWidget = "FileUpload"
+	FormWidgetFileUpload  FormWidget = "FileUpload"
 
 	// Rich text
-	FormWidgetRichText  FormWidget = "RichText"
-	FormWidgetCode      FormWidget = "Code"
+	FormWidgetRichText FormWidget = "RichText"
+	FormWidgetCode     FormWidget = "Code"
 
 	// Structured
-	FormWidgetCascader  FormWidget = "Cascader"
+	FormWidgetCascader   FormWidget = "Cascader"
 	FormWidgetTreeSelect FormWidget = "TreeSelect"
-	FormWidgetColor     FormWidget = "Color"
-	FormWidgetSlider    FormWidget = "Slider"
-	FormWidgetRate      FormWidget = "Rate"
+	FormWidgetColor      FormWidget = "Color"
+	FormWidgetSlider     FormWidget = "Slider"
+	FormWidgetRate       FormWidget = "Rate"
 
 	// Special
-	FormWidgetJSON      FormWidget = "JSON"      // raw JSON editor
-	FormWidgetKeyValue  FormWidget = "KeyValue"   // key-value pairs
-	FormWidgetArray     FormWidget = "Array"      // array items
-	FormWidgetObject    FormWidget = "Object"     // nested object
+	FormWidgetJSON     FormWidget = "JSON"     // raw JSON editor
+	FormWidgetKeyValue FormWidget = "KeyValue" // key-value pairs
+	FormWidgetArray    FormWidget = "Array"    // array items
+	FormWidgetObject   FormWidget = "Object"   // nested object
 )
 
 // ValidationRule defines custom validation.
 type ValidationRule struct {
-	Type    string `json:"type"` // required|min|max|pattern|custom
+	Type    string          `json:"type"` // required|min|max|pattern|custom
 	Value   json.RawMessage `json:"value,omitempty"`
-	Message LocalizedText `json:"message"`
+	Message LocalizedText   `json:"message"`
 }
 
 // FormButtonSpec defines a form button.

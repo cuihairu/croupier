@@ -107,7 +107,7 @@ export default function OperationsConfigsPage() {
               allowClear
               placeholder={CONFIGS_TOOLBAR_SCHEMA.filters[0].placeholder}
               value={game}
-              onChange={setGame as any}
+              onChange={(v) => setGame(v)}
               style={{ width: CONFIGS_TOOLBAR_SCHEMA.filters[0].width }}
               options={games}
             />
@@ -115,7 +115,7 @@ export default function OperationsConfigsPage() {
               allowClear
               placeholder={CONFIGS_TOOLBAR_SCHEMA.filters[1].placeholder}
               value={env}
-              onChange={setEnv as any}
+              onChange={(v) => setEnv(v)}
               style={{ width: CONFIGS_TOOLBAR_SCHEMA.filters[1].width }}
               options={envs}
             />
@@ -123,7 +123,7 @@ export default function OperationsConfigsPage() {
               allowClear
               placeholder={CONFIGS_TOOLBAR_SCHEMA.filters[2].placeholder}
               value={format}
-              onChange={setFormat as any}
+              onChange={(v) => setFormat(v)}
               style={{ width: CONFIGS_TOOLBAR_SCHEMA.filters[2].width }}
               options={CONFIG_FORMAT_OPTIONS}
             />

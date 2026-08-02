@@ -3,7 +3,6 @@
  */
 
 import { isPlainObject } from 'lodash';
-import type { FormilyJSONValue, FormilySchema } from '@/components/formily/schema/types';
 
 /**
  * 安全地解析 JSON 字符串
@@ -121,16 +120,24 @@ export type JSONSchemaType = {
   title?: string;
   description?: string;
   format?: string;
-  enum?: FormilyJSONValue[];
+  enum?: JSONSchemaValue[];
   items?: JSONSchemaType;
   minimum?: number;
   maximum?: number;
   minLength?: number;
   maxLength?: number;
   pattern?: string;
-  default?: FormilyJSONValue;
-  example?: FormilyJSONValue;
+  default?: JSONSchemaValue;
+  example?: JSONSchemaValue;
 };
+
+export type JSONSchemaValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JSONSchemaValue[]
+  | { [key: string]: JSONSchemaValue };
 
 /**
  * 解析 input_schema 字符串为 JSON Schema 对象
@@ -195,151 +202,4 @@ export function inferWidget(schema?: JSONSchemaType | null): string {
     default:
       return 'input';
   }
-}
-
-/**
- * 从 JSON Schema 自动生成 Formily Schema
- * @param schema JSON Schema 对象
- * @returns Formily Schema（可直接传给 SchemaRenderer）
- */
-export function buildUISchemaFromJSONSchema(schema: JSONSchemaType | null): FormilySchema {
-  if (!schema || !schema.properties) {
-    return { type: 'object', properties: {} };
-  }
-
-  const properties: NonNullable<FormilySchema['properties']> = {};
-  const requiredArr: string[] = [];
-  const requiredSet = new Set(schema.required || []);
-
-  for (const [fieldName, fieldSchema] of Object.entries(schema.properties)) {
-    const title = fieldSchema.title || formatFieldLabel(fieldName);
-    const [component, componentProps] = inferFormilyComponent(fieldSchema);
-
-    const prop: FormilySchema = {
-      type: fieldSchema.type || 'string',
-      title,
-      'x-component': component,
-      'x-decorator': 'FormItem',
-    };
-
-    if (fieldSchema.description && fieldSchema.description !== title) {
-      prop.description = fieldSchema.description;
-    }
-    if (fieldSchema.default !== undefined) {
-      prop.default = fieldSchema.default;
-    }
-    if (fieldSchema.enum) {
-      prop.enum = fieldSchema.enum;
-    }
-    if (fieldSchema.format) {
-      prop.format = fieldSchema.format;
-    }
-    if (Object.keys(componentProps).length > 0) {
-      prop['x-component-props'] = componentProps;
-    }
-
-    properties[fieldName] = prop;
-    if (requiredSet.has(fieldName)) {
-      requiredArr.push(fieldName);
-    }
-  }
-
-  const result: FormilySchema = {
-    type: 'object',
-    properties,
-  };
-  if (requiredArr.length > 0) {
-    result.required = requiredArr;
-  }
-  return result;
-}
-
-/**
- * 推断 Formily 组件名和组件属性
- * @returns [componentName, componentProps]
- */
-function inferFormilyComponent(
-  schema?: JSONSchemaType | null,
-): [string, Record<string, FormilyJSONValue | undefined>] {
-  if (!schema) return ['Input', {}];
-
-  const type = schema.type;
-  const format = schema.format;
-  const props: Record<string, FormilyJSONValue | undefined> = {};
-
-  // format 优先
-  if (format === 'date') return ['DatePicker', { format: 'YYYY-MM-DD' }];
-  if (format === 'date-time') return ['DatePicker', { showTime: true }];
-  if (format === 'time') return ['TimePicker', { format: 'HH:mm:ss' }];
-  if (format === 'textarea') {
-    if (schema.maxLength) props.maxLength = schema.maxLength;
-    return ['Input.TextArea', props];
-  }
-
-  // enum → Select
-  if (Array.isArray(schema.enum) && schema.enum.length > 0) {
-    return ['Select', props];
-  }
-
-  // type 推断
-  switch (type) {
-    case 'boolean':
-      return ['Switch', {}];
-    case 'integer':
-    case 'number':
-      if (typeof schema.minimum === 'number') props.min = schema.minimum;
-      if (typeof schema.maximum === 'number') props.max = schema.maximum;
-      return ['NumberPicker', props];
-    case 'string':
-      if (typeof schema.maxLength === 'number' && schema.maxLength > 120) {
-        props.rows = 3;
-        return ['Input.TextArea', props];
-      }
-      if (schema.minLength) props.minLength = schema.minLength;
-      if (schema.maxLength) props.maxLength = schema.maxLength;
-      return ['Input', props];
-    case 'array':
-      if (schema.items?.enum) return ['Select', { mode: 'multiple' }];
-      return ['ArrayTable', {}];
-    case 'object':
-      return ['Card', {}];
-    default:
-      return ['Input', props];
-  }
-}
-
-/**
- * 格式化字段名为显示标签
- * @param fieldName 字段名
- * @returns 格式化后的标签
- */
-function formatFieldLabel(fieldName: string): string {
-  // snake_case -> Title Case
-  return fieldName
-    .replace(/_/g, ' ')
-    .replace(/([A-Z])/g, ' $1')
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
-    .trim();
-}
-
-/**
- * 构建占位符提示
- * @param schema 字段 schema
- * @returns 占位符字符串
- */
-function buildPlaceholder(schema?: JSONSchemaType | null): string {
-  if (!schema) return '';
-
-  const format = schema.format;
-  if (format === 'date-time') return '例如：2024-01-01T00:00:00Z';
-  if (format === 'date') return '例如：2024-01-01';
-  if (format === 'email') return '例如：user@example.com';
-
-  if (typeof schema.example === 'string' && schema.example) {
-    return schema.example;
-  }
-
-  return '';
 }

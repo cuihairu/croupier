@@ -400,13 +400,8 @@ func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Co
 			Key:    categoryKey,
 			Labels: spec.LocalizedText{"zh-CN": categoryTitle},
 		},
-		Order: order,
-		Schema: spec.FormilySchema(`{
-			"type":"object",
-			"x-component":"ConsolePage",
-			"x-component-props":{"schemaVersion":"formily-page:1"},
-			"properties":{"query":{"type":"object","x-component":"QueryForm","x-component-props":{"bindingId":"player.query"}}}
-		}`),
+		Order:     order,
+		Operation: testConsoleOperationPageSpec(),
 		Bindings: []spec.PageFunctionBinding{
 			{
 				ID:         "player.query",
@@ -428,7 +423,7 @@ func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Co
 			InputSchemaDigest:     "unused-in-permission-test",
 			OutputSchemaDigest:    "unused-in-permission-test",
 			ExecutionMode:         spec.PageExecutionModeSync,
-			RendererSchemaVersion: "formily-page:1",
+			RendererSchemaVersion: "page-spec:1",
 		},
 	})
 	if err != nil {
@@ -441,7 +436,7 @@ func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Co
 		Version:               1,
 		SpecJSON:              string(specJSON),
 		BindingContractsJSON:  string(contractsJSON),
-		RendererSchemaVersion: "formily-page:1",
+		RendererSchemaVersion: "page-spec:1",
 		Active:                true,
 		PublishedAt:           time.Now(),
 		PublishedBy:           "console_tester",
@@ -460,12 +455,7 @@ func seedConsolePublishedPageWithCurrentContracts(svcCtx *svc.ServiceContext, ct
 			Key:    "player",
 			Labels: spec.LocalizedText{"zh-CN": "玩家"},
 		},
-		Schema: spec.FormilySchema(`{
-			"type":"object",
-			"x-component":"ConsolePage",
-			"x-component-props":{"schemaVersion":"formily-page:1"},
-			"properties":{"query":{"type":"object","x-component":"QueryForm","x-component-props":{"bindingId":"player.query"}}}
-		}`),
+		Operation: testConsoleOperationPageSpec(),
 		Bindings: []spec.PageFunctionBinding{
 			{
 				ID:         "player.query",
@@ -489,7 +479,7 @@ func seedConsolePublishedPageWithCurrentContracts(svcCtx *svc.ServiceContext, ct
 			Risk:                  spec.RiskSafe,
 			Permission:            "player:query",
 			ExecutionMode:         spec.PageExecutionModeSync,
-			RendererSchemaVersion: "formily-page:1",
+			RendererSchemaVersion: "page-spec:1",
 		},
 	})
 	if err != nil {
@@ -502,11 +492,24 @@ func seedConsolePublishedPageWithCurrentContracts(svcCtx *svc.ServiceContext, ct
 		Version:               1,
 		SpecJSON:              string(specJSON),
 		BindingContractsJSON:  string(contractsJSON),
-		RendererSchemaVersion: "formily-page:1",
+		RendererSchemaVersion: "page-spec:1",
 		Active:                true,
 		PublishedAt:           time.Now(),
 		PublishedBy:           "console_tester",
 	})
+}
+
+func testConsoleOperationPageSpec() *spec.OperationPageSpec {
+	return &spec.OperationPageSpec{
+		Form: spec.DefaultFormPresentation(spec.JSONSchema(`{
+			"type":"object",
+			"properties":{"keyword":{"type":"string"}}
+		}`)),
+		ResultView: &spec.ResultViewSpec{
+			SuccessMessage: spec.LocalizedText{"zh-CN": "操作成功"},
+			ErrorMessage:   spec.LocalizedText{"zh-CN": "操作失败"},
+		},
+	}
 }
 
 type fakeConsoleSessionResolver struct {

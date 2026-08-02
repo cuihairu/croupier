@@ -4,6 +4,7 @@ import { history } from '@umijs/max';
 // Use App.useApp() instances (see app.tsx) to avoid AntD static message warnings
 import { getMessage, getNotification } from './utils/antdApp';
 import { normalizeApiUrl, API_V1_PREFIX } from './utils/api';
+import type { JSONValue } from '@/types/dashboard';
 
 // Defer message/notification to avoid calling during render (React 18 concurrent mode)
 function defer(fn: () => void) {
@@ -27,13 +28,13 @@ function msgInfo(text: string) {
 }
 function notiOpen(message: string | number | undefined, description?: string) {
   const api = getNotification();
-  if (api) defer(() => api.open({ message, description } as any));
+  if (api) defer(() => api.open({ message: String(message ?? ''), description }));
 }
 
 type RestErrorPayload = {
   error?: string;
   message?: string;
-  details?: Record<string, any>;
+  details?: Record<string, JSONValue>;
 };
 
 function resolveRestMessage(payload: RestErrorPayload | undefined, status?: number): string {
@@ -76,11 +77,16 @@ function resolveRestMessage(payload: RestErrorPayload | undefined, status?: numb
  * pro 自带的错误处理， 可以在这里做自己的改动
  * @doc https://umijs.org/docs/max/request#配置
  */
+interface ErrorHandlerOptions {
+  skipErrorHandler?: boolean;
+  [key: string]: string | number | boolean | undefined;
+}
+
 export const errorConfig: RequestConfig = {
   // 错误处理： umi@3 的错误处理方案。
   errorConfig: {
     // 错误接收及处理
-    errorHandler: (error: any, opts: any) => {
+    errorHandler: (error: Error, opts: ErrorHandlerOptions) => {
       if (opts?.skipErrorHandler) throw error;
       const rawUrl: string | undefined = error?.response?.config?.url || error?.request?.url;
       const url = normalizeApiUrl(rawUrl);
@@ -166,7 +172,7 @@ export const errorConfig: RequestConfig = {
     (config: RequestOptions) => {
       const headers = {
         ...(config.headers || {}),
-      } as Record<string, any>;
+      } as Record<string, string>;
       const isASCII = (s?: string | null) => !!s && /^[\x00-\x7F]*$/.test(s);
       const token = localStorage.getItem('token');
       if (token) headers['Authorization'] = `Bearer ${token}`;

@@ -17,7 +17,7 @@ export type ApprovalRow = {
   target_service_id?: string;
   hash_key?: string;
   // Detail-only fields
-  payload?: any;
+  payload?: string | number | boolean | null | Record<string, unknown> | unknown[];
   payload_preview?: string;
 };
 

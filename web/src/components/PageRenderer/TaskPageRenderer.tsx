@@ -12,13 +12,6 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  ProForm,
-  ProFormText,
-  ProFormTextArea,
-  ProFormSelect,
-  ProFormDigit,
-} from '@ant-design/pro-components';
-import {
   Card,
   Button,
   Space,
@@ -40,34 +33,17 @@ import {
   StopOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
+import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import type {
   TaskPageSpec,
-  FormFieldSpec,
-  PageFunctionBindingV2,
-} from '@/types/dashboard-vnext';
+  PageFunctionBinding,
+  PageExecuteFn,
+  TaskStatusResult,
+  FormValues,
+  JSONValue,
+} from '@/types/dashboard';
 
 const { Text } = Typography;
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface TaskStatus {
-  taskId: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  progress?: number;
-  message?: string;
-  result?: unknown;
-  error?: string;
-  events?: TaskEvent[];
-}
-
-interface TaskEvent {
-  timestamp: string;
-  type: 'info' | 'warning' | 'error' | 'progress';
-  message: string;
-  data?: unknown;
-}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -77,75 +53,17 @@ export interface TaskPageRendererProps {
   /** 任务页面规格 */
   spec: TaskPageSpec;
   /** 页面绑定 */
-  bindings: PageFunctionBindingV2[];
+  bindings: PageFunctionBinding[];
   /** 执行绑定函数 */
-  onExecute: (bindingId: string, payload: unknown) => Promise<unknown>;
+  onExecute: PageExecuteFn;
   /** 查询任务状态 */
-  onQueryStatus?: (taskId: string) => Promise<TaskStatus>;
+  onQueryStatus?: (taskId: string) => Promise<TaskStatusResult>;
   /** 取消任务 */
   onCancelTask?: (taskId: string) => Promise<void>;
   /** 重试任务 */
   onRetryTask?: (taskId: string) => Promise<void>;
   /** 页面标题 */
   title?: string;
-}
-
-// ---------------------------------------------------------------------------
-// 表单字段渲染
-// ---------------------------------------------------------------------------
-
-function renderFormField(field: FormFieldSpec): React.ReactNode {
-  const label = field.label?.['zh-CN'] || field.label?.['en'] || field.key;
-  const placeholder = field.placeholder?.['zh-CN'] || field.placeholder?.['en'];
-  const required = field.required;
-  const rules = required ? [{ required: true, message: `请输入${label}` }] : [];
-
-  switch (field.widget) {
-    case 'TextArea':
-      return (
-        <ProFormTextArea
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-        />
-      );
-    case 'InputNumber':
-      return (
-        <ProFormDigit
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-        />
-      );
-    case 'Select':
-      return (
-        <ProFormSelect
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-          options={field.enumOptions?.map((opt) => ({
-            label: opt.label['zh-CN'] || opt.label['en'] || opt.value,
-            value: opt.value,
-          }))}
-        />
-      );
-    default:
-      return (
-        <ProFormText
-          key={field.key}
-          name={field.key}
-          label={label}
-          placeholder={placeholder}
-          rules={rules}
-        />
-      );
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -196,7 +114,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   title,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [taskStatus, setTaskStatus] = useState<TaskStatus | null>(null);
+  const [taskStatus, setTaskStatus] = useState<TaskStatusResult | null>(null);
   const [polling, setPolling] = useState(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -212,7 +130,13 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
 
       try {
         const status = await onQueryStatus(taskId);
-        setTaskStatus(status);
+        setTaskStatus({
+          taskId: status.taskId,
+          status: status.status,
+          progress: status.progress,
+          message: status.message,
+          result: status.result,
+        });
 
         // 如果任务完成或失败，停止轮询
         if (status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled') {
@@ -258,7 +182,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
 
   // 处理表单提交
   const handleSubmit = useCallback(
-    async (values: unknown) => {
+    async (values: FormValues) => {
       if (!mainBinding) {
         message.error('未配置任务绑定');
         return;
@@ -269,7 +193,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
 
       try {
         const response = await onExecute(mainBinding.id, values);
-        const taskId = (response as any)?.taskId;
+        const { taskId } = response;
 
         if (taskId) {
           setTaskStatus({
@@ -282,8 +206,9 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         } else {
           message.warning('未获取到任务 ID');
         }
-      } catch (error: any) {
-        message.error('任务提交失败: ' + (error.message || '未知错误'));
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : '未知错误';
+        message.error('任务提交失败: ' + msg);
       } finally {
         setLoading(false);
       }
@@ -302,8 +227,9 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       message.success('任务已取消');
       stopPolling();
       setTaskStatus((prev) => prev ? { ...prev, status: 'cancelled' } : null);
-    } catch (error: any) {
-      message.error('取消任务失败: ' + (error.message || '未知错误'));
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : '未知错误';
+      message.error('取消任务失败: ' + msg);
     }
   }, [taskStatus?.taskId, onCancelTask, stopPolling]);
 
@@ -317,8 +243,9 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       await onRetryTask(taskStatus.taskId);
       message.success('任务已重新提交');
       startPolling(taskStatus.taskId);
-    } catch (error: any) {
-      message.error('重试失败: ' + (error.message || '未知错误'));
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : '未知错误';
+      message.error('重试失败: ' + msg);
     }
   }, [taskStatus?.taskId, onRetryTask, startPolling]);
 
@@ -394,11 +321,11 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
                 <Text type="secondary">{new Date(event.timestamp).toLocaleString()}</Text>
                 <br />
                 <Text>{event.message}</Text>
-                {event.data && (
+                {event.data ? (
                   <pre style={{ marginTop: 8, background: '#f5f5f5', padding: 8, fontSize: 12 }}>
                     {JSON.stringify(event.data, null, 2)}
                   </pre>
-                )}
+                ) : null}
               </div>
             ),
           }))}
@@ -413,16 +340,20 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       return null;
     }
 
+    const data = typeof taskStatus.result === 'object' && taskStatus.result !== null
+      ? taskStatus.result as Record<string, JSONValue>
+      : null;
+
     return (
       <Card title="任务结果" style={{ marginTop: 16 }}>
-        {spec.resultView?.fields && spec.resultView.fields.length > 0 ? (
+        {spec.resultView?.fields && spec.resultView.fields.length > 0 && data ? (
           <Descriptions column={1} bordered>
             {spec.resultView.fields.map((field) => (
               <Descriptions.Item
                 key={field.key}
                 label={field.title['zh-CN'] || field.title['en'] || field.key}
               >
-                {(taskStatus.result as any)[field.key]?.toString() || '-'}
+                {data[field.key]?.toString() || '-'}
               </Descriptions.Item>
             ))}
           </Descriptions>
@@ -439,14 +370,11 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
     <div>
       {/* 表单 */}
       <Card title={title || '提交任务'}>
-        <ProForm
+        <SchemaFormRenderer
+          spec={spec.form}
           onFinish={handleSubmit}
-          submitter={{
-            submitButtonProps: { loading },
-          }}
-        >
-          {spec.form.fields?.map(renderFormField)}
-        </ProForm>
+          disabled={loading}
+        />
       </Card>
 
       {/* 任务进度 */}

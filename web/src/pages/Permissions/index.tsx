@@ -48,8 +48,9 @@ const PermissionsPage: React.FC = () => {
     try {
       const data = await fetchSummary();
       setRows(data);
-    } catch (e: any) {
-      message.error(e?.message || intl.formatMessage({ id: 'pages.permissions.load.error' }));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : intl.formatMessage({ id: 'pages.permissions.load.error' });
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -133,10 +134,10 @@ const PermissionsPage: React.FC = () => {
         }
         open={!!editing}
         onOpenChange={(v) => !v && setEditing(null)}
-        onFinish={async (values: any) => {
+        onFinish={async (values: Record<string, string | string[]>) => {
           try {
-            const verbs: string[] = values.verbs || permDraft.verbs || [];
-            const scopes: string[] = values.scopes || permDraft.scopes || [];
+            const verbs: string[] = (values.verbs as string[]) || permDraft.verbs || [];
+            const scopes: string[] = (values.scopes as string[]) || permDraft.scopes || [];
             const defaults = (permDraft.defaults || []).slice();
             // collect i18n_zh from dynamic fields
             const i18n_zh: Record<string, string> = {};
@@ -152,8 +153,9 @@ const PermissionsPage: React.FC = () => {
             setEditing(null);
             reload();
             return true;
-          } catch (e: any) {
-            message.error(e?.message || intl.formatMessage({ id: 'pages.permissions.save.error' }));
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : intl.formatMessage({ id: 'pages.permissions.save.error' });
+            message.error(msg);
             return false;
           }
         }}

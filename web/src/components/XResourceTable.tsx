@@ -3,8 +3,9 @@ import { Button, Space, Modal, App } from 'antd';
 import { ProTable, ProColumns } from '@ant-design/pro-components';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import type { TablePaginationConfig } from 'antd/es/table';
+import type { JSONValue } from '@/types/dashboard';
 
-type ResourceRow = Record<string, unknown>;
+type ResourceRow = Record<string, JSONValue>;
 
 export interface XResourceTableProps {
   // Data props

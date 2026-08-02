@@ -48,8 +48,9 @@ export default function OpsAlertsPage() {
     try {
       const r = await fetchOpsAlerts();
       setRows(r.alerts || []);
-    } catch (e: any) {
-      message.error(e?.message || '加载失败');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      message.error(errMsg || '加载失败');
     } finally {
       setLoading(false);
     }
@@ -121,7 +122,7 @@ export default function OpsAlertsPage() {
     {
       title: '操作',
       width: 160,
-      render: (_: any, r) => (
+      render: (_, r) => (
         <Space>
           {!r.silenced && (
             <Button
@@ -139,8 +140,9 @@ export default function OpsAlertsPage() {
                       });
                       message.success('已静默');
                       load();
-                    } catch (e: any) {
-                      message.error(e?.message || '静默失败');
+                    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+                      message.error(errMsg || '静默失败');
                     }
                   },
                 });
@@ -165,8 +167,9 @@ export default function OpsAlertsPage() {
                       });
                       message.success('已静默');
                       load();
-                    } catch (e: any) {
-                      message.error(e?.message || '静默失败');
+                    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+                      message.error(errMsg || '静默失败');
                     }
                   },
                 });
@@ -317,8 +320,9 @@ export default function OpsAlertsPage() {
                             message.success('已解除');
                             const s = await listSilences();
                             setSilences(s.silences || []);
-                          } catch (e: any) {
-                            message.error(e?.message || '操作失败');
+                          } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+                            message.error(errMsg || '操作失败');
                           }
                         },
                       })
@@ -399,8 +403,9 @@ export default function OpsAlertsPage() {
                           message.success('已静默');
                           load();
                           setDetail(null);
-                        } catch (e: any) {
-                          message.error(e?.message || '失败');
+                        } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+                          message.error(errMsg || '失败');
                         }
                       },
                     })
@@ -424,8 +429,9 @@ export default function OpsAlertsPage() {
                           message.success('已静默');
                           load();
                           setDetail(null);
-                        } catch (e: any) {
-                          message.error(e?.message || '失败');
+                        } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+                          message.error(errMsg || '失败');
                         }
                       },
                     })
@@ -449,8 +455,9 @@ export default function OpsAlertsPage() {
                           message.success('已静默');
                           load();
                           setDetail(null);
-                        } catch (e: any) {
-                          message.error(e?.message || '失败');
+                        } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+                          message.error(errMsg || '失败');
                         }
                       },
                     })

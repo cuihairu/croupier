@@ -42,7 +42,11 @@ type PageSaveRequest struct {
 	Category      spec.PageCategorySpec      `json:"category" binding:"required"`
 	Order         int                        `json:"order,omitempty"`
 	Icon          string                     `json:"icon,omitempty"`
-	Schema        json.RawMessage            `json:"schema" binding:"required"`
+	Navigation    *spec.NavigationSpec       `json:"navigation,omitempty"`
+	Resource      *spec.ResourcePageSpec     `json:"resource,omitempty"`
+	Operation     *spec.OperationPageSpec    `json:"operation,omitempty"`
+	Task          *spec.TaskPageSpec         `json:"task,omitempty"`
+	Report        *spec.ReportPageSpec       `json:"report,omitempty"`
 	Bindings      []spec.PageFunctionBinding `json:"bindings"`
 	Metadata      map[string]json.RawMessage `json:"metadata,omitempty"`
 }

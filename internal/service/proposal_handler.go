@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,8 +18,7 @@ func NewProposalHandler(service *ProposalService) *ProposalHandler {
 
 // ListProposals handles GET /api/proposals
 func (h *ProposalHandler) ListProposals(c *gin.Context) {
-	gameID := c.GetString("game_id")
-	env := c.GetString("env")
+	gameID, env := svc.GameScopeFromContext(c.Request.Context())
 	status := c.Query("status")
 
 	var resp interface{}
@@ -41,8 +41,7 @@ func (h *ProposalHandler) ListProposals(c *gin.Context) {
 // GetProposal handles GET /api/proposals/:proposalKey
 func (h *ProposalHandler) GetProposal(c *gin.Context) {
 	proposalKey := c.Param("proposalKey")
-	gameID := c.GetString("game_id")
-	env := c.GetString("env")
+	gameID, env := svc.GameScopeFromContext(c.Request.Context())
 
 	resp, err := h.service.GetProposal(c.Request.Context(), gameID, env, proposalKey)
 	if err != nil {
@@ -56,8 +55,7 @@ func (h *ProposalHandler) GetProposal(c *gin.Context) {
 // AcceptProposal handles POST /api/proposals/:proposalKey/accept
 func (h *ProposalHandler) AcceptProposal(c *gin.Context) {
 	proposalKey := c.Param("proposalKey")
-	gameID := c.GetString("game_id")
-	env := c.GetString("env")
+	gameID, env := svc.GameScopeFromContext(c.Request.Context())
 
 	err := h.service.AcceptProposal(c.Request.Context(), gameID, env, proposalKey)
 	if err != nil {
@@ -71,8 +69,7 @@ func (h *ProposalHandler) AcceptProposal(c *gin.Context) {
 // RejectProposal handles POST /api/proposals/:proposalKey/reject
 func (h *ProposalHandler) RejectProposal(c *gin.Context) {
 	proposalKey := c.Param("proposalKey")
-	gameID := c.GetString("game_id")
-	env := c.GetString("env")
+	gameID, env := svc.GameScopeFromContext(c.Request.Context())
 
 	err := h.service.RejectProposal(c.Request.Context(), gameID, env, proposalKey)
 	if err != nil {

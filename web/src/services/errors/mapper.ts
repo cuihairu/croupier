@@ -1,19 +1,20 @@
 import { EXTENSION_ERROR_CODES, type ExtensionErrorCode } from './codes';
+import type { JSONValue } from '@/types/dashboard';
 
 export interface UiError {
   code: ExtensionErrorCode | 'unknown';
   title: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, JSONValue>;
 }
 
 function readBackendPayload(err: unknown): {
   code?: string;
-  details?: Record<string, any>;
+  details?: Record<string, JSONValue>;
   message?: string;
 } {
   const anyErr = err as {
-    response?: { data?: { details?: Record<string, any>; message?: string } };
+    response?: { data?: { details?: Record<string, JSONValue>; message?: string } };
   };
   const details = anyErr?.response?.data?.details;
   return {

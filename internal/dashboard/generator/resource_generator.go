@@ -2,189 +2,261 @@ package generator
 
 import (
 	"encoding/json"
+	"sort"
+	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 )
 
 // GenerateResourcePageProposal generates a ResourcePage proposal from
-// persistent CapabilitySemantics and FunctionContracts.
+// persistent CapabilitySemantics and FunctionContracts. This path is not driven
+// by SDK registration UI metadata.
 func GenerateResourcePageProposal(
 	semantics *model.CapabilitySemantics,
 	contracts []*model.FunctionContract,
 	opts GenerateOptions,
 ) (spec.GeneratedPageSpec, bool) {
 	opts = normalizeOptions(opts)
-
-	// Need at least collection_query and item_query for a CRUD page
-	hasCollection := semantics.CollectionQueryID > 0
-	hasIdentity := semantics.IdentityField != ""
-
-	if !hasCollection || !hasIdentity {
+	if semantics == nil || strings.TrimSpace(semantics.ResourceKey) == "" {
+		return spec.GeneratedPageSpec{}, false
+	}
+	if semantics.CollectionQueryID == 0 || strings.TrimSpace(semantics.IdentityField) == "" {
 		return spec.GeneratedPageSpec{}, false
 	}
 
-	// Build function lookup
-	functions := make(map[string]spec.FunctionSpec)
-	for _, c := range contracts {
-		functions[c.FunctionID] = contractToFunctionSpec(c)
-	}
-
-	// Find the collection query contract
-	var collectionContract *model.FunctionContract
-	for _, c := range contracts {
-		if c.Capability == "collection_query" {
-			collectionContract = c
-			break
-		}
-	}
+	collectionContract := findResourceContract(contracts, semantics.CollectionQueryID, spec.CapabilityCollectionQuery)
 	if collectionContract == nil {
 		return spec.GeneratedPageSpec{}, false
 	}
 
-	resourceKey := semantics.ResourceKey
+	createContract := findResourceContract(contracts, semantics.CreateID, spec.CapabilityCreate)
+	updateContract := findResourceContract(contracts, semantics.UpdateID, spec.CapabilityUpdate)
+	deleteContract := findResourceContract(contracts, semantics.DeleteID, spec.CapabilityDelete)
+
+	resourceKey := strings.TrimSpace(semantics.ResourceKey)
 	pageKey := resourceKey + ".manage"
+	locale := opts.DefaultLocale
+	title := spec.LocalizedText{locale: resourceKey}
 
-	// Build bindings
-	bindings := buildResourceBindings(semantics, contracts)
+	bindings := []spec.PageFunctionBinding{
+		resourceBinding(collectionContract, "list", spec.BindingUsageQuery),
+	}
 
-	// Build diagnostics
+	var actions []spec.ActionSpec
+	if createContract != nil {
+		bindings = append(bindings, resourceBinding(createContract, "create", spec.BindingUsageAction))
+	}
+	if updateContract != nil {
+		bindings = append(bindings, resourceBinding(updateContract, "update", spec.BindingUsageAction))
+		actions = append(actions, spec.ActionSpec{
+			Key:       "edit",
+			Title:     spec.LocalizedText{locale: "编辑"},
+			Type:      "link",
+			BindingID: "update",
+		})
+	}
+	if deleteContract != nil {
+		bindings = append(bindings, resourceBinding(deleteContract, "delete", spec.BindingUsageAction))
+		actions = append(actions, spec.ActionSpec{
+			Key:          "delete",
+			Title:        spec.LocalizedText{locale: "删除"},
+			Type:         "danger",
+			Confirm:      true,
+			ConfirmTitle: spec.LocalizedText{locale: "确认删除"},
+			ConfirmDesc:  spec.LocalizedText{locale: "删除后不可恢复，确认继续？"},
+			BindingID:    "delete",
+			Risk:         "high",
+		})
+	}
+
 	diags := assessResourceSemantics(semantics)
-
-	// Build schema
-	schema := buildResourcePageSchema(pageKey, resourceKey, semantics, bindings, opts)
-
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
 			PageKey:     pageKey,
-			Type:        spec.PageTypeEntity,
+			Type:        spec.PageTypeResource,
 			ResourceKey: resourceKey,
-			Title:       spec.LocalizedText{opts.DefaultLocale: resourceKey},
-			Category:    categoryForPage(resourceKey, pageKey, opts.DefaultLocale),
-			Schema:      schema,
-			Bindings:    bindings,
+			Title:       title,
+			Category:    categoryForPage(resourceKey, pageKey, locale),
+			Navigation: &spec.NavigationSpec{
+				Title: title,
+			},
+			Resource: &spec.ResourcePageSpec{
+				ListView:     buildListViewFromContract(collectionContract, semantics),
+				Actions:      actions,
+				CreateForm:   buildFormFromContract(createContract),
+				UpdateForm:   buildFormFromContract(updateContract),
+				DeleteAction: buildDeleteAction(deleteContract, locale),
+			},
+			Bindings: bindings,
 		},
 		Quality:     resourceQuality(semantics, diags),
 		Diagnostics: diags,
 	}, true
 }
 
-// buildResourceBindings creates bindings for a resource page.
-func buildResourceBindings(semantics *model.CapabilitySemantics, contracts []*model.FunctionContract) []spec.PageFunctionBinding {
-	var bindings []spec.PageFunctionBinding
-
-	// Collection query binding
-	if semantics.CollectionQueryID > 0 {
-		contract := findContractByID(contracts, semantics.CollectionQueryID)
-		if contract != nil {
-			bindings = append(bindings, spec.PageFunctionBinding{
-				ID:            "list",
-				FunctionID:    contract.FunctionID,
-				Usage:         spec.BindingUsageQuery,
-				InputMapping:  json.RawMessage(`{}`),
-				OutputMapping: json.RawMessage(`{}`),
-				Execution:     spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
-			})
+func resourceBinding(contract *model.FunctionContract, suffix string, usage spec.PageBindingUsage) spec.PageFunctionBinding {
+	binding := spec.PageFunctionBinding{
+		ID:         suffix,
+		FunctionID: strings.TrimSpace(contract.FunctionID),
+		Usage:      usage,
+		Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+	}
+	if len(contract.InputSchema) > 0 {
+		binding.Selectors = &spec.BindingSelectors{
+			Input: spec.DefaultSelector(spec.JSONSchema(contract.InputSchema)),
 		}
 	}
-
-	// Create binding
-	if semantics.CreateID > 0 {
-		contract := findContractByID(contracts, semantics.CreateID)
-		if contract != nil {
-			bindings = append(bindings, spec.PageFunctionBinding{
-				ID:            "create",
-				FunctionID:    contract.FunctionID,
-				Usage:         spec.BindingUsageAction,
-				InputMapping:  json.RawMessage(`{}`),
-				OutputMapping: json.RawMessage(`{}`),
-				Execution:     spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
-			})
-		}
-	}
-
-	// Update binding
-	if semantics.UpdateID > 0 {
-		contract := findContractByID(contracts, semantics.UpdateID)
-		if contract != nil {
-			bindings = append(bindings, spec.PageFunctionBinding{
-				ID:            "update",
-				FunctionID:    contract.FunctionID,
-				Usage:         spec.BindingUsageAction,
-				InputMapping:  json.RawMessage(`{}`),
-				OutputMapping: json.RawMessage(`{}`),
-				Execution:     spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
-			})
-		}
-	}
-
-	// Delete binding
-	if semantics.DeleteID > 0 {
-		contract := findContractByID(contracts, semantics.DeleteID)
-		if contract != nil {
-			bindings = append(bindings, spec.PageFunctionBinding{
-				ID:            "delete",
-				FunctionID:    contract.FunctionID,
-				Usage:         spec.BindingUsageAction,
-				InputMapping:  json.RawMessage(`{}`),
-				OutputMapping: json.RawMessage(`{}`),
-				Execution:     spec.PageBindingExecution{Mode: spec.PageExecutionModeSync, RequireConfirm: true},
-			})
-		}
-	}
-
-	return bindings
+	return binding
 }
 
-// buildResourcePageSchema builds the page schema for a resource page.
-func buildResourcePageSchema(pageKey, resourceKey string, semantics *model.CapabilitySemantics, bindings []spec.PageFunctionBinding, opts GenerateOptions) spec.FormilySchema {
-	// Build properties
-	properties := make(map[string]json.RawMessage)
+func buildFormFromContract(contract *model.FunctionContract) *spec.FormPresentationSpec {
+	if contract == nil || len(contract.InputSchema) == 0 {
+		return nil
+	}
+	return spec.DefaultFormPresentation(spec.JSONSchema(contract.InputSchema))
+}
 
-	// Query form
-	queryFormPropsJSON, _ := json.Marshal(queryFormProps{
-		BindingID:    "list",
-		InputMapping: json.RawMessage(`{}`),
-	})
-	properties["form"] = rawNode(componentNode("QueryForm", queryFormPropsJSON))
+func buildListViewFromContract(contract *model.FunctionContract, semantics *model.CapabilitySemantics) *spec.ListViewSpec {
+	if contract == nil || len(contract.OutputSchema) == 0 {
+		return defaultListView()
+	}
 
-	// Data table (would need column info from schema)
-	tablePropsJSON, _ := json.Marshal(map[string]interface{}{
-		"bindingId": "list",
-	})
-	properties["table"] = rawNode(componentNode("DataTable", tablePropsJSON))
+	itemsSchema := findCollectionItemsSchema(spec.JSONSchema(contract.OutputSchema), semantics)
+	if len(itemsSchema) == 0 {
+		return defaultListView()
+	}
 
-	// Result panel
-	resultPanelPropsJSON, _ := json.Marshal(resultPanelProps{
-		BindingID: "list",
-	})
-	properties["result"] = rawNode(componentNode("ResultPanel", resultPanelPropsJSON))
+	properties := objectProperty(parseJSONObject(itemsSchema), "properties")
+	if len(properties) == 0 {
+		return defaultListView()
+	}
 
-	// Build root node
-	consolePagePropsJSON, _ := json.Marshal(consolePageProps{
-		SchemaVersion: "formily-page:1",
-		PageKey:       pageKey,
-		ResourceKey:   resourceKey,
-	})
-	schema := componentNode("ConsolePage", consolePagePropsJSON)
-	schema.Properties = properties
+	keys := make([]string, 0, len(properties))
+	for key := range properties {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
 
-	b, _ := json.Marshal(schema)
-	return spec.FormilySchema(b)
+	identityField := strings.TrimSpace(semantics.IdentityField)
+	columns := make([]spec.ColumnSpec, 0, len(keys))
+	for _, key := range keys {
+		prop := properties[key]
+		col := spec.ColumnSpec{
+			Key:      key,
+			Title:    spec.LocalizedText{"zh-CN": key},
+			DataType: inferDataType(prop),
+			Visible:  true,
+		}
+		if key == identityField {
+			col.Fixed = "left"
+		}
+		columns = append(columns, col)
+	}
+
+	list := defaultListView()
+	list.Columns = columns
+	return list
+}
+
+func defaultListView() *spec.ListViewSpec {
+	return &spec.ListViewSpec{
+		Columns: []spec.ColumnSpec{},
+		Pagination: &spec.PaginationSpec{
+			Enabled:     true,
+			DefaultSize: 20,
+			PageSizes:   []int{10, 20, 50, 100},
+		},
+	}
+}
+
+func findCollectionItemsSchema(raw spec.JSONSchema, semantics *model.CapabilitySemantics) json.RawMessage {
+	root := parseJSONObject(json.RawMessage(raw))
+	if len(root) == 0 {
+		return nil
+	}
+	if items := objectProperty(root, "items"); len(items) > 0 {
+		return rawObject(items)
+	}
+
+	properties := objectProperty(root, "properties")
+	if len(properties) == 0 {
+		return nil
+	}
+	for _, key := range collectionArrayKeys(semantics) {
+		prop := objectProperty(properties, key)
+		if len(prop) == 0 {
+			continue
+		}
+		if items := objectProperty(prop, "items"); len(items) > 0 {
+			return rawObject(items)
+		}
+	}
+	return nil
+}
+
+func collectionArrayKeys(semantics *model.CapabilitySemantics) []string {
+	keys := []string{}
+	if semantics != nil {
+		if key := strings.TrimSpace(semantics.ItemsFieldName); key != "" {
+			keys = append(keys, key)
+		}
+	}
+	return append(keys, "items", "list", "rows", "data")
+}
+
+func buildDeleteAction(contract *model.FunctionContract, locale string) *spec.ConfirmActionSpec {
+	if contract == nil {
+		return nil
+	}
+	return &spec.ConfirmActionSpec{
+		Title:       spec.LocalizedText{locale: "删除"},
+		Description: spec.LocalizedText{locale: "确认删除此记录？删除后不可恢复。"},
+		ConfirmText: spec.LocalizedText{locale: "确认删除"},
+		CancelText:  spec.LocalizedText{locale: "取消"},
+		BindingID:   "delete",
+		Risk:        "high",
+	}
+}
+
+func inferDataType(raw json.RawMessage) string {
+	prop := parseJSONObject(raw)
+	typeStr := rawString(prop["type"])
+	format := rawString(prop["format"])
+	switch typeStr {
+	case "integer", "number":
+		return "number"
+	case "boolean":
+		return "boolean"
+	case "string":
+		switch format {
+		case "date-time", "date":
+			return "datetime"
+		default:
+			return "string"
+		}
+	default:
+		return "string"
+	}
 }
 
 // assessResourceSemantics checks if semantics are sufficient for CRUD.
 func assessResourceSemantics(semantics *model.CapabilitySemantics) []spec.Diagnostic {
 	var diags []spec.Diagnostic
-
-	if semantics.IdentityField == "" {
+	if semantics == nil {
+		return []spec.Diagnostic{{
+			Code:     "resource_semantics_missing",
+			Severity: spec.SeverityError,
+			Message:  "resource capability semantics are required",
+		}}
+	}
+	if strings.TrimSpace(semantics.IdentityField) == "" {
 		diags = append(diags, spec.Diagnostic{
 			Code:     "identity_missing",
 			Severity: spec.SeverityWarning,
 			Message:  "identity field not specified; detail view cannot be generated",
 		})
 	}
-
 	if semantics.CollectionQueryID == 0 {
 		diags = append(diags, spec.Diagnostic{
 			Code:     "collection_query_missing",
@@ -192,38 +264,39 @@ func assessResourceSemantics(semantics *model.CapabilitySemantics) []spec.Diagno
 			Message:  "collection_query function not found; list view cannot be generated",
 		})
 	}
-
 	return diags
 }
 
-// resourceQuality determines quality based on semantics completeness.
 func resourceQuality(semantics *model.CapabilitySemantics, diags []spec.Diagnostic) spec.GeneratedPageQuality {
-	hasError := false
 	for _, d := range diags {
 		if d.Severity == spec.SeverityError {
-			hasError = true
-			break
+			return spec.GeneratedPageQualityBlocked
 		}
 	}
-
-	if hasError {
-		return spec.GeneratedPageQualityBlocked
-	}
-
-	// Check if we have full CRUD
-	hasCRUD := semantics.CreateID > 0 && semantics.UpdateID > 0 && semantics.DeleteID > 0
-	if hasCRUD && semantics.IdentityField != "" {
+	if semantics != nil && semantics.CreateID > 0 && semantics.UpdateID > 0 && semantics.DeleteID > 0 &&
+		strings.TrimSpace(semantics.IdentityField) != "" {
 		return spec.GeneratedPageQualityReady
 	}
-
 	return spec.GeneratedPageQualityBasic
 }
 
-// Helper functions
+func findResourceContract(contracts []*model.FunctionContract, id uint, capability spec.CapabilityKind) *model.FunctionContract {
+	if id > 0 {
+		if contract := findContractByID(contracts, id); contract != nil {
+			return contract
+		}
+	}
+	for _, contract := range contracts {
+		if contract != nil && spec.CapabilityKind(contract.Capability) == capability {
+			return contract
+		}
+	}
+	return nil
+}
 
 func findContractByID(contracts []*model.FunctionContract, id uint) *model.FunctionContract {
 	for _, c := range contracts {
-		if c.ID == id {
+		if c != nil && c.ID == id {
 			return c
 		}
 	}
@@ -231,19 +304,9 @@ func findContractByID(contracts []*model.FunctionContract, id uint) *model.Funct
 }
 
 func contractToFunctionSpec(c *model.FunctionContract) spec.FunctionSpec {
-	summary := make(spec.LocalizedText)
-	for k, v := range c.Summary {
-		if s, ok := v.(string); ok {
-			summary[k] = s
-		}
+	if c == nil {
+		return spec.FunctionSpec{}
 	}
-	description := make(spec.LocalizedText)
-	for k, v := range c.Description {
-		if s, ok := v.(string); ok {
-			description[k] = s
-		}
-	}
-
 	return spec.FunctionSpec{
 		ID:           c.FunctionID,
 		Version:      c.Version,
@@ -251,8 +314,8 @@ func contractToFunctionSpec(c *model.FunctionContract) spec.FunctionSpec {
 		Deprecated:   c.Deprecated,
 		InputSchema:  spec.JSONSchema(c.InputSchema),
 		OutputSchema: spec.JSONSchema(c.OutputSchema),
-		Summary:      summary,
-		Description:  description,
+		Summary:      jsonMapToLocalizedText(c.Summary),
+		Description:  jsonMapToLocalizedText(c.Description),
 		Resource:     c.ResourceKey,
 		Operation:    c.OperationKey,
 		Capability:   spec.CapabilityKind(c.Capability),
@@ -262,7 +325,55 @@ func contractToFunctionSpec(c *model.FunctionContract) spec.FunctionSpec {
 	}
 }
 
-func mustMarshal(v interface{}) json.RawMessage {
-	b, _ := json.Marshal(v)
-	return b
+func jsonMapToLocalizedText(values map[string]interface{}) spec.LocalizedText {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(spec.LocalizedText, len(values))
+	for key, value := range values {
+		if text, ok := value.(string); ok && strings.TrimSpace(text) != "" {
+			out[key] = text
+		}
+	}
+	return out
+}
+
+func parseJSONObject(raw json.RawMessage) map[string]json.RawMessage {
+	if len(raw) == 0 {
+		return nil
+	}
+	var out map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+func objectProperty(obj map[string]json.RawMessage, key string) map[string]json.RawMessage {
+	if len(obj) == 0 {
+		return nil
+	}
+	return parseJSONObject(obj[key])
+}
+
+func rawObject(obj map[string]json.RawMessage) json.RawMessage {
+	if len(obj) == 0 {
+		return nil
+	}
+	raw, err := json.Marshal(obj)
+	if err != nil {
+		return nil
+	}
+	return raw
+}
+
+func rawString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return ""
+	}
+	return value
 }
