@@ -573,6 +573,10 @@ func TestService_CreateSource_CarriesFunctionContractFields(t *testing.T) {
 					"x-operation":  "batchGrant",
 					"x-capability": "task",
 					"x-execution":  "task",
+					"x-approval": map[string]interface{}{
+						"required":  true,
+						"policyKey": "two_person",
+					},
 					"x-risk":       "warning",
 					"x-permission": "reward:grant",
 					"responses": map[string]interface{}{
@@ -593,6 +597,8 @@ func TestService_CreateSource_CarriesFunctionContractFields(t *testing.T) {
 	assert.Equal(t, "batchGrant", op.Operation)
 	assert.Equal(t, dashspec.CapabilityTask, op.Capability)
 	assert.Equal(t, dashspec.FunctionExecutionTask, op.Execution)
+	assert.True(t, op.Approval.Required)
+	assert.Equal(t, "two_person", op.Approval.PolicyKey)
 	assert.Equal(t, dashspec.RiskWarning, op.Risk)
 	assert.Equal(t, "reward:grant", op.Permission)
 }

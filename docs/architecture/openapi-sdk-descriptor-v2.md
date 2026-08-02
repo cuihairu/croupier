@@ -43,7 +43,8 @@ OpenAPI operation / SDK descriptor
 | `resourceKey` | REST path 推导或 `x-resource` | `resource` | 稳定业务资源 key |
 | `operationKey` | REST operation 或 `x-operation` | `operation` | 业务动作 key |
 | `capability` | REST 形态推导或 `x-capability` | `capability` | 受控业务语义，非 UI |
-| `execution` | 标准响应/`x-execution` | `execution` | `sync`、`task`、`approval` |
+| `execution` | 标准响应/`x-execution` | `execution` | `sync` 或 `task` |
+| `approval` | `x-approval` | `approval` | 是否需要审批及可选 policyKey，与 execution 正交 |
 | `risk` / `permission` | `x-risk` / `x-permission` | 同名字段 | 治理约束 |
 
 `capability` 只允许：
@@ -53,6 +54,8 @@ collection_query | item_query | create | update | delete | action | task | repor
 ```
 
 它回答“函数在资源生命周期中做什么”，不回答“按钮显示在哪里”或“页面长什么样”。
+
+`execution: task` 可与 `approval.required: true` 组合，表示审批通过后再创建任务；`approval` 不是 `execution` 的第三个枚举值。SDK/OpenAPI 只能声明治理要求，页面等待态、审批状态和结果展示仍由 Server 生成。
 
 `id`、`resourceKey` 和 `operationKey` 必须是稳定小写 key，格式为 `[a-z0-9][a-z0-9._-]*`。不符合格式的 SDK 注册或 OpenAPI 导入必须返回结构化错误；平台不得靠运行时编码、截断或大小写归一化修复身份。
 
@@ -133,7 +136,7 @@ Server 以 FunctionContract + CapabilitySemantics 生成 Proposal：
 
 - 标准 CRUD 语义生成 ResourcePage Proposal。
 - 可执行但缺少 Resource 语义的同步函数生成 `basic` OperationPage Proposal。
-- `execution=task` 生成 TaskPage Proposal；真实 task 状态契约不完整时为 `needs_review`。
+- `execution=task` 生成 TaskPage Proposal；真实 task 状态契约不完整时为 `needs_review`。`approval.required=true` 则先显示审批等待态，批准后显示同步结果或任务状态。
 - `capability=report` 生成 ReportPage Proposal；数据集/指标语义不完整时为 `needs_review`。
 
 生成器不可读取或写入 SDK/OpenAPI 中的页面 UI。PageProposal 的列、映射、导航、表单展示和动作位置都由 Server 按生成规则产生，随后由 Page Studio 管理。

@@ -129,20 +129,26 @@ func IsValidCapabilityKind(capability CapabilityKind) bool {
 type FunctionExecution string
 
 const (
-	FunctionExecutionSync     FunctionExecution = "sync"
-	FunctionExecutionTask     FunctionExecution = "task"
-	FunctionExecutionApproval FunctionExecution = "approval"
+	FunctionExecutionSync FunctionExecution = "sync"
+	FunctionExecutionTask FunctionExecution = "task"
 )
 
 // IsValidFunctionExecution reports whether execution is one of the controlled
 // FunctionContract execution values.
 func IsValidFunctionExecution(execution FunctionExecution) bool {
 	switch execution {
-	case FunctionExecutionSync, FunctionExecutionTask, FunctionExecutionApproval:
+	case FunctionExecutionSync, FunctionExecutionTask:
 		return true
 	default:
 		return false
 	}
+}
+
+// ApprovalPolicy is independent from execution mode. A sync or task function
+// may require approval before the actual execution starts.
+type ApprovalPolicy struct {
+	Required  bool   `json:"required"`
+	PolicyKey string `json:"policyKey,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -209,6 +215,7 @@ type FunctionSpec struct {
 	Operation  string            `json:"operation,omitempty"`
 	Capability CapabilityKind    `json:"capability,omitempty"`
 	Execution  FunctionExecution `json:"execution,omitempty"`
+	Approval   ApprovalPolicy    `json:"approval"`
 
 	// Governance
 	Risk       RiskLevel `json:"risk,omitempty"`
@@ -257,6 +264,7 @@ type OperationSpec struct {
 	Operation   string            `json:"operation"`
 	Capability  CapabilityKind    `json:"capability,omitempty"`
 	Execution   FunctionExecution `json:"execution,omitempty"`
+	Approval    ApprovalPolicy    `json:"approval"`
 	Risk        RiskLevel         `json:"risk,omitempty"`
 	Permission  string            `json:"permission,omitempty"`
 	Enabled     bool              `json:"enabled"`

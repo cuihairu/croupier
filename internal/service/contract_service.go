@@ -55,20 +55,22 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 
 	// 1. Normalize the descriptor
 	normInput := normalizer.DescriptorInput{
-		ID:           input.ID,
-		Version:      input.Version,
-		Summary:      input.Summary,
-		Description:  input.Description,
-		InputSchema:  input.InputSchema,
-		OutputSchema: input.OutputSchema,
-		Resource:     input.Resource,
-		Operation:    input.Operation,
-		Capability:   input.Capability,
-		Execution:    input.Execution,
-		Risk:         input.Risk,
-		Permission:   input.Permission,
-		Enabled:      input.Enabled,
-		Tags:         input.Tags,
+		ID:                input.ID,
+		Version:           input.Version,
+		Summary:           input.Summary,
+		Description:       input.Description,
+		InputSchema:       input.InputSchema,
+		OutputSchema:      input.OutputSchema,
+		Resource:          input.Resource,
+		Operation:         input.Operation,
+		Capability:        input.Capability,
+		Execution:         input.Execution,
+		ApprovalRequired:  input.ApprovalRequired,
+		ApprovalPolicyKey: input.ApprovalPolicyKey,
+		Risk:              input.Risk,
+		Permission:        input.Permission,
+		Enabled:           input.Enabled,
+		Tags:              input.Tags,
 	}
 	result := normalizer.Normalize(normInput)
 
@@ -87,6 +89,7 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		OperationKey: input.Operation,
 		Capability:   input.Capability,
 		Execution:    input.Execution,
+		Approval:     approvalPolicyToJSONMap(result.Function.Approval),
 		Risk:         input.Risk,
 		Permission:   input.Permission,
 		InputSchema:  datatypes.JSON(input.InputSchema),
@@ -187,21 +190,23 @@ func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contra
 
 // FunctionMetaInput is the input for contract rebuilding.
 type FunctionMetaInput struct {
-	ID           string
-	Version      string
-	Enabled      bool
-	Deprecated   bool
-	Summary      string
-	Description  string
-	InputSchema  string
-	OutputSchema string
-	Resource     string
-	Operation    string
-	Capability   string
-	Execution    string
-	Risk         string
-	Permission   string
-	Tags         []string
+	ID                string
+	Version           string
+	Enabled           bool
+	Deprecated        bool
+	Summary           string
+	Description       string
+	InputSchema       string
+	OutputSchema      string
+	Resource          string
+	Operation         string
+	Capability        string
+	Execution         string
+	ApprovalRequired  bool
+	ApprovalPolicyKey string
+	Risk              string
+	Permission        string
+	Tags              []string
 }
 
 func computeDigest(v interface{}) string {
@@ -223,6 +228,13 @@ func toJSONMap(m spec.LocalizedText) datatypes.JSONMap {
 	var result datatypes.JSONMap
 	json.Unmarshal(b, &result)
 	return result
+}
+
+func approvalPolicyToJSONMap(policy spec.ApprovalPolicy) datatypes.JSONMap {
+	return datatypes.JSONMap{
+		"required":  policy.Required,
+		"policyKey": policy.PolicyKey,
+	}
 }
 
 // ListContracts lists all contracts in a scope.

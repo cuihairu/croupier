@@ -1,5 +1,6 @@
 import { request } from '@umijs/max';
 import type {
+  ApprovalPolicy,
   CapabilityKind,
   Diagnostic,
   FunctionExecution,
@@ -94,6 +95,7 @@ export interface OpenAPISourceOperation {
   operation?: string;
   capability?: CapabilityKind;
   execution?: FunctionExecution;
+  approval: ApprovalPolicy;
   risk?: RiskLevel;
   enabled?: boolean;
   permission?: string;

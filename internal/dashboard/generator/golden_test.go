@@ -59,13 +59,13 @@ func TestGenerateOperationPageGolden(t *testing.T) {
 			wantType: spec.PageTypeReport,
 		},
 		{
-			name: "approval operation",
+			name: "high risk operation",
 			op: spec.OperationSpec{
 				FunctionID:  "player.ban",
 				ResourceKey: "player",
 				Operation:   "ban",
 				Capability:  spec.CapabilityAction,
-				Execution:   spec.FunctionExecutionApproval,
+				Execution:   spec.FunctionExecutionSync,
 				Risk:        spec.RiskHigh,
 				Enabled:     true,
 			},

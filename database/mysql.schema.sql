@@ -188,6 +188,113 @@ CREATE TABLE IF NOT EXISTS `functions` (
   UNIQUE KEY `uk_functions_function_id` (`function_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Dashboard vNext function capability contracts (scope-keyed canonical model)
+CREATE TABLE IF NOT EXISTS `function_contracts` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `game_id` VARCHAR(64) NOT NULL,
+  `env` VARCHAR(64) NOT NULL,
+  `function_id` VARCHAR(128) NOT NULL,
+  `version` VARCHAR(32) NULL,
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `deprecated` TINYINT(1) NOT NULL DEFAULT 0,
+  `resource_key` VARCHAR(64) NULL,
+  `operation_key` VARCHAR(64) NULL,
+  `capability` VARCHAR(32) NULL,
+  `execution` VARCHAR(32) NULL,
+  `approval` JSON NULL,
+  `risk` VARCHAR(32) NULL,
+  `permission` VARCHAR(128) NULL,
+  `input_schema` JSON NULL,
+  `output_schema` JSON NULL,
+  `summary` JSON NULL,
+  `description` JSON NULL,
+  `tags` JSON NULL,
+  `source` VARCHAR(32) NULL,
+  `source_digest` VARCHAR(64) NULL,
+  `diagnostics` JSON NULL,
+  `updated_by` VARCHAR(64) NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_function_contracts_scope` (`game_id`, `env`, `function_id`),
+  KEY `idx_function_contracts_resource_key` (`resource_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `resource_capabilities` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `game_id` VARCHAR(64) NOT NULL,
+  `env` VARCHAR(64) NOT NULL,
+  `resource_key` VARCHAR(64) NOT NULL,
+  `labels` JSON NULL,
+  `description` JSON NULL,
+  `category_key` VARCHAR(64) NULL,
+  `tags` JSON NULL,
+  `semantics_id` BIGINT UNSIGNED NULL,
+  `updated_by` VARCHAR(64) NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_resource_capabilities_scope` (`game_id`, `env`, `resource_key`),
+  KEY `idx_resource_capabilities_category_key` (`category_key`),
+  KEY `idx_resource_capabilities_semantics_id` (`semantics_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `capability_semantics` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `game_id` VARCHAR(64) NOT NULL,
+  `env` VARCHAR(64) NOT NULL,
+  `resource_key` VARCHAR(64) NOT NULL,
+  `version` BIGINT NOT NULL DEFAULT 1,
+  `identity_field` VARCHAR(64) NULL,
+  `identity_field_type` VARCHAR(32) NULL,
+  `identity_path` VARCHAR(128) NULL,
+  `collection_query_id` BIGINT UNSIGNED NULL,
+  `collection_path` VARCHAR(128) NULL,
+  `page_field_name` VARCHAR(64) NULL,
+  `page_size_field_name` VARCHAR(64) NULL,
+  `items_field_name` VARCHAR(64) NULL,
+  `total_field_name` VARCHAR(64) NULL,
+  `item_query_id` BIGINT UNSIGNED NULL,
+  `item_path` VARCHAR(128) NULL,
+  `create_id` BIGINT UNSIGNED NULL,
+  `update_id` BIGINT UNSIGNED NULL,
+  `delete_id` BIGINT UNSIGNED NULL,
+  `actions` JSON NULL,
+  `tasks` JSON NULL,
+  `reports` JSON NULL,
+  `source` VARCHAR(32) NULL,
+  `source_digest` VARCHAR(64) NULL,
+  `diagnostics` JSON NULL,
+  `updated_by` VARCHAR(64) NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_capability_semantics_scope` (`game_id`, `env`, `resource_key`),
+  KEY `idx_capability_semantics_collection_query_id` (`collection_query_id`),
+  KEY `idx_capability_semantics_item_query_id` (`item_query_id`),
+  KEY `idx_capability_semantics_create_id` (`create_id`),
+  KEY `idx_capability_semantics_update_id` (`update_id`),
+  KEY `idx_capability_semantics_delete_id` (`delete_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `capability_semantic_versions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `semantics_id` BIGINT UNSIGNED NULL,
+  `version` BIGINT NULL,
+  `semantics` JSON NULL,
+  `source_digest` VARCHAR(64) NULL,
+  `change_reason` VARCHAR(256) NULL,
+  `created_by` VARCHAR(64) NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_capability_semantic_versions_semantics_id` (`semantics_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `behavior_events` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `event_type` VARCHAR(128) NOT NULL,

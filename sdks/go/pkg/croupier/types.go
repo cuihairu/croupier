@@ -22,7 +22,7 @@ type FunctionDescriptor struct {
 	Resource     string   `json:"resource"`      // business resource/capability key
 	Operation    string   `json:"operation"`     // business action key, e.g. "ban", "send", "list"
 	Capability   string   `json:"capability"`    // collection_query|item_query|create|update|delete|action|task|report
-	Execution    string   `json:"execution"`     // sync|task|approval
+	Execution    string   `json:"execution"`     // sync|task
 	Risk         string   `json:"risk"`          // "safe"|"warning"|"high"|"danger"
 	Permission   string   `json:"permission"`    // optional permission identifier
 	Enabled      bool     `json:"enabled"`       // whether this function is currently enabled
@@ -51,7 +51,7 @@ type LocalFunctionDescriptor struct {
 	Resource   string `json:"resource"`   // x-resource: business resource/capability key
 	Operation  string `json:"operation"`  // x-operation: business action key
 	Capability string `json:"capability"` // x-capability: collection_query|item_query|create|update|delete|action|task|report
-	Execution  string `json:"execution"`  // x-execution: sync|task|approval
+	Execution  string `json:"execution"`  // x-execution: sync|task
 	Risk       string `json:"risk"`       // x-risk: risk level ("safe", "warning", "high", "danger")
 	Enabled    bool   `json:"enabled"`    // x-enabled: whether this function is enabled
 	Permission string `json:"permission"` // x-permission: optional permission identifier

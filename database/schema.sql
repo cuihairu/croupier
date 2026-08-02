@@ -457,6 +457,109 @@ CREATE TABLE IF NOT EXISTS function_policies (
   deleted_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Dashboard vNext function capability contracts (scope-keyed canonical model)
+CREATE TABLE IF NOT EXISTS function_contracts (
+  id SERIAL PRIMARY KEY,
+  game_id VARCHAR(64) NOT NULL,
+  env VARCHAR(64) NOT NULL,
+  function_id VARCHAR(128) NOT NULL,
+  version VARCHAR(32),
+  enabled BOOLEAN DEFAULT TRUE,
+  deprecated BOOLEAN DEFAULT FALSE,
+  resource_key VARCHAR(64),
+  operation_key VARCHAR(64),
+  capability VARCHAR(32),
+  execution VARCHAR(32),
+  approval JSON,
+  risk VARCHAR(32),
+  permission VARCHAR(128),
+  input_schema JSON,
+  output_schema JSON,
+  summary JSON,
+  description JSON,
+  tags JSON,
+  source VARCHAR(32),
+  source_digest VARCHAR(64),
+  diagnostics JSON,
+  updated_by VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(game_id, env, function_id)
+);
+CREATE INDEX IF NOT EXISTS idx_function_contracts_resource_key ON function_contracts(resource_key);
+
+CREATE TABLE IF NOT EXISTS resource_capabilities (
+  id SERIAL PRIMARY KEY,
+  game_id VARCHAR(64) NOT NULL,
+  env VARCHAR(64) NOT NULL,
+  resource_key VARCHAR(64) NOT NULL,
+  labels JSON,
+  description JSON,
+  category_key VARCHAR(64),
+  tags JSON,
+  semantics_id INTEGER,
+  updated_by VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(game_id, env, resource_key)
+);
+CREATE INDEX IF NOT EXISTS idx_resource_capabilities_category_key ON resource_capabilities(category_key);
+CREATE INDEX IF NOT EXISTS idx_resource_capabilities_semantics_id ON resource_capabilities(semantics_id);
+
+CREATE TABLE IF NOT EXISTS capability_semantics (
+  id SERIAL PRIMARY KEY,
+  game_id VARCHAR(64) NOT NULL,
+  env VARCHAR(64) NOT NULL,
+  resource_key VARCHAR(64) NOT NULL,
+  version INTEGER DEFAULT 1,
+  identity_field VARCHAR(64),
+  identity_field_type VARCHAR(32),
+  identity_path VARCHAR(128),
+  collection_query_id INTEGER,
+  collection_path VARCHAR(128),
+  page_field_name VARCHAR(64),
+  page_size_field_name VARCHAR(64),
+  items_field_name VARCHAR(64),
+  total_field_name VARCHAR(64),
+  item_query_id INTEGER,
+  item_path VARCHAR(128),
+  create_id INTEGER,
+  update_id INTEGER,
+  delete_id INTEGER,
+  actions JSON,
+  tasks JSON,
+  reports JSON,
+  source VARCHAR(32),
+  source_digest VARCHAR(64),
+  diagnostics JSON,
+  updated_by VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(game_id, env, resource_key)
+);
+CREATE INDEX IF NOT EXISTS idx_capability_semantics_collection_query_id ON capability_semantics(collection_query_id);
+CREATE INDEX IF NOT EXISTS idx_capability_semantics_item_query_id ON capability_semantics(item_query_id);
+CREATE INDEX IF NOT EXISTS idx_capability_semantics_create_id ON capability_semantics(create_id);
+CREATE INDEX IF NOT EXISTS idx_capability_semantics_update_id ON capability_semantics(update_id);
+CREATE INDEX IF NOT EXISTS idx_capability_semantics_delete_id ON capability_semantics(delete_id);
+
+CREATE TABLE IF NOT EXISTS capability_semantic_versions (
+  id SERIAL PRIMARY KEY,
+  semantics_id INTEGER,
+  version INTEGER,
+  semantics JSON,
+  source_digest VARCHAR(64),
+  change_reason VARCHAR(256),
+  created_by VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX IF NOT EXISTS idx_capability_semantic_versions_semantics_id ON capability_semantic_versions(semantics_id);
+
 CREATE TABLE IF NOT EXISTS behavior_events (
   id SERIAL PRIMARY KEY,
   event_type VARCHAR(128) NOT NULL,

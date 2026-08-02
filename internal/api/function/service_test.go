@@ -67,25 +67,6 @@ func createTestFunction(t *testing.T, db *gorm.DB, functionID, name string) *mod
 	return fn
 }
 
-func testAPIFormilySchema(fieldName, component string) json.RawMessage {
-	schema := map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			fieldName: map[string]interface{}{
-				"type":        "string",
-				"title":       fieldName,
-				"x-component": component,
-				"x-decorator": "FormItem",
-			},
-		},
-	}
-	raw, err := json.Marshal(schema)
-	if err != nil {
-		panic(err)
-	}
-	return raw
-}
-
 // Test functionsList
 
 func TestFunctionsList_Empty(t *testing.T) {

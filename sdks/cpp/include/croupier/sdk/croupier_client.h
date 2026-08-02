@@ -33,7 +33,7 @@ struct FunctionDescriptor {
     std::string resource;    // business resource/capability key
     std::string operation;   // business action key, e.g. "ban", "send", "list"
     std::string capability;  // collection_query|item_query|create|update|delete|action|task|report
-    std::string execution;   // sync|task|approval
+    std::string execution;   // sync|task
     std::string risk;        // "safe"|"warning"|"high"|"danger"
     bool enabled = true;     // whether this function is currently enabled
     std::string permission;  // optional permission identifier

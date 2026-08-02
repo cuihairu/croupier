@@ -37,7 +37,8 @@ OpenAPI
 | `resource` | REST path 推导或 `x-resource` | 资源 key |
 | `operation` | method/path 推导或 `x-operation` | 动作 key |
 | `capability` | REST 推导或 `x-capability` | 受控能力语义 |
-| `execution` | `x-execution` | `sync/task/approval` |
+| `execution` | `x-execution` | `sync` 或 `task` |
+| `approval` | `x-approval` | `required` 与可选 `policyKey`；可与同步/异步执行组合 |
 | `risk` / `permission` | `x-risk` / `x-permission` | 治理字段 |
 
 REST 自动识别示例：
@@ -87,6 +88,7 @@ Provider binding / controlled HTTP connector -> executable FunctionContract
 - 标准 REST CRUD Resource 可生成 ready ResourcePage Proposal。
 - 任意可执行同步 operation 至少可生成 basic OperationPage Proposal。
 - `x-execution: task` 或受控 task semantic 可生成 TaskPage Proposal。
+- `x-approval` 只声明治理要求；审批等待态和审批后的同步/任务结果由 Server 生成，不是独立页面类型。
 - report capability 需要真实数据集/指标语义，信息不足时 needs_review。
 
 用户在 Page Studio 显式接受并发布 Proposal；运行 Console 不直接读取 OpenAPI 或 tags 生成菜单。

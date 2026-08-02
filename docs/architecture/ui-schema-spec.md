@@ -44,6 +44,17 @@ interface FormFieldSpec {
   visibleWhen?: ConditionSpec;
   readOnly?: boolean;
 }
+
+type ConditionSpec =
+  | { kind: 'all'; conditions: ConditionSpec[] }
+  | { kind: 'any'; conditions: ConditionSpec[] }
+  | { kind: 'not'; condition: ConditionSpec }
+  | { kind: 'exists'; source: ConditionSource }
+  | { kind: 'equals'; source: ConditionSource; value: JSONValue };
+
+type ConditionSource =
+  | { kind: 'form'; path: JsonPointer }
+  | { kind: 'page_state'; key: string; path?: JsonPointer };
 ```
 
 Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能在 Page Studio 改展示信息，不能改变 FunctionContract payload。前端渲染器固定使用 `@rjsf/antd + @rjsf/validator-ajv8` 校验 payload。rjsf `uiSchema` 只能作为 adapter 的内存派生结果，不得成为 SDK/OpenAPI 注册字段或持久页面协议。
@@ -136,7 +147,7 @@ interface NavigationSpec {
 }
 ```
 
-PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终值；PublishedPageSpec 是 Console 动态菜单的唯一来源。静态 locale 与字典都不得成为动态页面事实源。
+PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终值；PublishedPageSpec 是 Console 动态菜单的唯一来源。静态 locale 与字典都不得成为动态页面事实源。`ConditionSpec` 只读取当前表单或 page state，禁止通过可见性条件访问 row、详情、外部函数或任意 JSONPath，以保证保存、发布和运行时具有一致语义。
 
 ## ABI 与版本
 

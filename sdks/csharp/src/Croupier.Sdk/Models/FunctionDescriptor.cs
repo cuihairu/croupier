@@ -45,7 +45,7 @@ public class FunctionDescriptor
     public string? Capability { get; set; }
 
     /// <summary>
-    /// 执行方式 (sync, task, approval)
+    /// 执行方式 (sync, task)。审批使用独立 ApprovalPolicy，不是 execution 枚举值。
     /// </summary>
     public string? Execution { get; set; }
 

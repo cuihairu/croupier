@@ -94,7 +94,6 @@ function capabilityColor(capability?: string) {
 
 function executionColor(execution?: string) {
   if (execution === 'task') return 'purple';
-  if (execution === 'approval') return 'orange';
   return 'green';
 }
 
@@ -423,6 +422,11 @@ export default function OpenAPISourcesPage() {
               {record.capability || '无 capability'}
             </Tag>
             <Tag color={executionColor(record.execution)}>{record.execution || '无 execution'}</Tag>
+            <Tag color={record.approval?.required ? 'orange' : 'default'}>
+              {record.approval?.required
+                ? `approval:${record.approval.policyKey || 'required'}`
+                : '无 approval'}
+            </Tag>
             <Tag color={riskColor(record.risk)}>{record.risk || '无 risk'}</Tag>
           </Space>
           <Typography.Text code>{record.permission || '无 permission'}</Typography.Text>

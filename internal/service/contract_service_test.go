@@ -38,20 +38,22 @@ func TestContractService_RebuildContractFromFunctionMeta(t *testing.T) {
 
 	// Test rebuilding contract
 	meta := FunctionMetaInput{
-		ID:           "player.ban",
-		Version:      "1.0.0",
-		Enabled:      true,
-		Summary:      "Ban a player",
-		Description:  "Ban a player from the game",
-		InputSchema:  `{"type":"object","properties":{"playerId":{"type":"string"}}}`,
-		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
-		Resource:     "player",
-		Operation:    "ban",
-		Capability:   "action",
-		Execution:    "sync",
-		Risk:         "high",
-		Permission:   "player.ban.invoke",
-		Tags:         []string{"player", "admin"},
+		ID:                "player.ban",
+		Version:           "1.0.0",
+		Enabled:           true,
+		Summary:           "Ban a player",
+		Description:       "Ban a player from the game",
+		InputSchema:       `{"type":"object","properties":{"playerId":{"type":"string"}}}`,
+		OutputSchema:      `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+		Resource:          "player",
+		Operation:         "ban",
+		Capability:        "action",
+		Execution:         "sync",
+		ApprovalRequired:  true,
+		ApprovalPolicyKey: "two_person",
+		Risk:              "high",
+		Permission:        "player.ban.invoke",
+		Tags:              []string{"player", "admin"},
 	}
 
 	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta)
@@ -66,6 +68,8 @@ func TestContractService_RebuildContractFromFunctionMeta(t *testing.T) {
 	assert.Equal(t, "ban", contract.OperationKey)
 	assert.Equal(t, "action", contract.Capability)
 	assert.Equal(t, "sync", contract.Execution)
+	assert.Equal(t, true, contract.Approval["required"])
+	assert.Equal(t, "two_person", contract.Approval["policyKey"])
 	assert.Equal(t, "high", contract.Risk)
 	assert.Equal(t, "sdk", contract.Source)
 }

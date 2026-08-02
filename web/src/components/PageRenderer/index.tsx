@@ -6,7 +6,6 @@
  * - OperationPageRenderer: 独立操作页面
  * - TaskPageRenderer: 异步任务页面
  * - ReportPageRenderer: 报表页面
- * - ApprovalPageRenderer: 审批页面
  *
  * @module components/PageRenderer
  */
@@ -18,7 +17,6 @@ import ResourcePageRenderer from './ResourcePageRenderer';
 import OperationPageRenderer from './OperationPageRenderer';
 import TaskPageRenderer from './TaskPageRenderer';
 import ReportPageRenderer from './ReportPageRenderer';
-import ApprovalPageRenderer from './ApprovalPageRenderer';
 import type {
   PageSpec,
   PageExecuteFn,

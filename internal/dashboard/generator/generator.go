@@ -51,8 +51,6 @@ func GenerateEntityPageForResource(spec.ResourceSpec, []spec.OperationSpec, Gene
 func GenerateForOperation(op spec.OperationSpec, opts GenerateOptions) spec.GeneratedPageSpec {
 	opts = normalizeOptions(opts)
 	switch {
-	case isApprovalOperation(op):
-		return GenerateApprovalPageForOperation(op, opts)
 	case isReportOperation(op):
 		return GenerateReportPageForOperation(op, opts)
 	case isTaskOperation(op):
@@ -189,56 +187,6 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 	}
 }
 
-// GenerateApprovalPageForOperation creates an approval candidate.
-// Approval pages require explicit waiting state and status refresh rules.
-func GenerateApprovalPageForOperation(op spec.OperationSpec, opts GenerateOptions) spec.GeneratedPageSpec {
-	opts = normalizeOptions(opts)
-	resourceKey := strings.TrimSpace(op.ResourceKey)
-	pageKey := operationPageKey(op, opts)
-	binding := pageBinding(op, "approval", spec.BindingUsageAction, spec.PageExecutionModeSync)
-	applySelectors(&binding, opts.Functions[op.FunctionID])
-	diags := append(assessBaseCandidate(op), diagnostic(
-		"approval_semantics_missing",
-		spec.SeverityWarning,
-		"approval capability requires pending/approved/rejected/expired status semantics before it can be safely published",
-		op.FunctionID,
-		"capability",
-	))
-	locale := opts.DefaultLocale
-	title := localizedTitle(op, pageKey, locale)
-
-	return spec.GeneratedPageSpec{
-		PageSpec: spec.PageSpec{
-			PageKey:     pageKey,
-			Type:        spec.PageTypeOperation,
-			ResourceKey: resourceKey,
-			Title:       title,
-			Category:    categoryForPage(resourceKey, pageKey, locale),
-			Navigation: &spec.NavigationSpec{
-				Title: title,
-			},
-			Operation: &spec.OperationPageSpec{
-				Form: buildFormPresentation(op, opts),
-				Confirm: &spec.ConfirmActionSpec{
-					Title:       spec.LocalizedText{locale: "确认执行"},
-					Description: spec.LocalizedText{locale: "此操作需要审批，确认后将提交审批流程"},
-					ConfirmText: spec.LocalizedText{locale: "确认提交"},
-					CancelText:  spec.LocalizedText{locale: "取消"},
-					BindingID:   binding.ID,
-					Risk:        string(op.Risk),
-				},
-				ResultView: &spec.ResultViewSpec{
-					SuccessMessage: spec.LocalizedText{locale: "已提交审批"},
-					ErrorMessage:   spec.LocalizedText{locale: "提交失败"},
-				},
-			},
-			Bindings: []spec.PageFunctionBinding{binding},
-		},
-		Quality:     qualityFromDiagnostics(diags),
-		Diagnostics: diags,
-	}
-}
-
 func operationPageKey(op spec.OperationSpec, opts GenerateOptions) string {
 	resourceKey := strings.TrimSpace(op.ResourceKey)
 	pageKey := opts.PageKeyPrefix + sanitizePageKey(firstNonEmpty(resourceKey, op.FunctionID))
@@ -327,10 +275,6 @@ func isTaskOperation(op spec.OperationSpec) bool {
 
 func isReportOperation(op spec.OperationSpec) bool {
 	return op.Capability == spec.CapabilityReport
-}
-
-func isApprovalOperation(op spec.OperationSpec) bool {
-	return op.Execution == spec.FunctionExecutionApproval
 }
 
 func categoryForPage(resourceKey string, pageKey string, locale string) spec.PageCategorySpec {

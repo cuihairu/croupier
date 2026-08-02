@@ -8,14 +8,16 @@ import (
 
 func TestNormalizeCarriesCapabilityAndExecution(t *testing.T) {
 	result := Normalize(DescriptorInput{
-		ID:          "reward.batchGrant",
-		Version:     "1.0.0",
-		Resource:    "reward",
-		Operation:   "batchGrant",
-		Capability:  "task",
-		InputSchema: `{"type":"object"}`,
-		Execution:   "task",
-		Enabled:     true,
+		ID:                "reward.batchGrant",
+		Version:           "1.0.0",
+		Resource:          "reward",
+		Operation:         "batchGrant",
+		Capability:        "task",
+		InputSchema:       `{"type":"object"}`,
+		Execution:         "task",
+		ApprovalRequired:  true,
+		ApprovalPolicyKey: "two_person",
+		Enabled:           true,
 	})
 
 	if result.Function.Capability != spec.CapabilityTask {
@@ -23,6 +25,9 @@ func TestNormalizeCarriesCapabilityAndExecution(t *testing.T) {
 	}
 	if result.Function.Execution != spec.FunctionExecutionTask {
 		t.Fatalf("expected function execution task, got %q", result.Function.Execution)
+	}
+	if !result.Function.Approval.Required || result.Function.Approval.PolicyKey != "two_person" {
+		t.Fatalf("expected approval policy to be carried, got %#v", result.Function.Approval)
 	}
 	if result.Operation == nil {
 		t.Fatal("expected operation")
@@ -32,6 +37,9 @@ func TestNormalizeCarriesCapabilityAndExecution(t *testing.T) {
 	}
 	if result.Operation.Execution != spec.FunctionExecutionTask {
 		t.Fatalf("expected operation execution task, got %q", result.Operation.Execution)
+	}
+	if !result.Operation.Approval.Required || result.Operation.Approval.PolicyKey != "two_person" {
+		t.Fatalf("expected operation approval policy to be carried, got %#v", result.Operation.Approval)
 	}
 }
 

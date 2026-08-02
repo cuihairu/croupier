@@ -250,68 +250,6 @@ type BroadcastAgentItem struct {
 	Error   string          `json:"error,omitempty"`
 }
 
-// FunctionFormRequest represents a request for function form.
-type FunctionFormRequest struct {
-	ID string `json:"id" binding:"required"`
-}
-
-// FunctionFormResponse represents the response for function form.
-type FunctionFormResponse struct {
-	Schema           json.RawMessage `json:"schema,omitempty"`
-	Custom           bool            `json:"custom"`
-	HasDefault       bool            `json:"hasDefault"`
-	FormSource       string          `json:"formSource"`
-	FormSourceDetail string          `json:"formSourceDetail"`
-}
-
-// FunctionFormUpdateRequest represents a request to update function form.
-type FunctionFormUpdateRequest struct {
-	ID     string          `json:"id" binding:"required"`
-	Schema json.RawMessage `json:"schema" binding:"required"`
-}
-
-// FunctionFormHistoryRequest represents a request for function form history.
-type FunctionFormHistoryRequest struct {
-	ID     string `json:"id" binding:"required"`
-	Limit  int    `json:"limit"`
-	Offset int    `json:"offset"`
-}
-
-// FunctionFormHistoryResponse represents the response for function form history.
-type FunctionFormHistoryResponse struct {
-	Items []FunctionFormHistoryItem `json:"items"`
-	Total int64                     `json:"total"`
-}
-
-// FunctionFormHistoryItem represents a single function form history item.
-type FunctionFormHistoryItem struct {
-	ID        string          `json:"id"`
-	Timestamp string          `json:"timestamp"`
-	User      string          `json:"user"`
-	Form      json.RawMessage `json:"form,omitempty"`
-	Active    bool            `json:"active"`
-	Version   int             `json:"version"`
-	Message   string          `json:"message"`
-	CreatedBy string          `json:"createdBy"`
-	CreatedAt string          `json:"createdAt"`
-	Schema    json.RawMessage `json:"schema,omitempty"`
-}
-
-// FunctionFormRollbackRequest represents a request to rollback function form.
-type FunctionFormRollbackRequest struct {
-	ID        string `json:"id" binding:"required"`
-	HistoryId string `json:"historyId" binding:"required"`
-	Version   int    `json:"version"`
-}
-
-// FunctionFormRollbackResponse represents the response for function form rollback.
-type FunctionFormRollbackResponse struct {
-	RolledBack     bool                  `json:"rolledBack"`
-	Form           json.RawMessage       `json:"form,omitempty"`
-	AppliedVersion int                   `json:"appliedVersion"`
-	Current        *FunctionFormResponse `json:"current,omitempty"`
-}
-
 // FunctionsPendingRequest represents a request to get pending functions
 type FunctionsPendingRequest struct {
 	GameId string `json:"gameId"`

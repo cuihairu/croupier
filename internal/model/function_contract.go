@@ -20,9 +20,10 @@ type FunctionContract struct {
 	Deprecated   bool              `gorm:"default:false"`
 	ResourceKey  string            `gorm:"size:64;index"`
 	OperationKey string            `gorm:"size:64"`
-	Capability   string            `gorm:"size:32"` // collection_query|item_query|create|update|delete|action|task|report
-	Execution    string            `gorm:"size:32"` // sync|task|approval
-	Risk         string            `gorm:"size:32"` // safe|warning|high|danger
+	Capability   string            `gorm:"size:32"`   // collection_query|item_query|create|update|delete|action|task|report
+	Execution    string            `gorm:"size:32"`   // sync|task
+	Approval     datatypes.JSONMap `gorm:"type:json"` // ApprovalPolicy
+	Risk         string            `gorm:"size:32"`   // safe|warning|high|danger
 	Permission   string            `gorm:"size:128"`
 	InputSchema  datatypes.JSON    `gorm:"type:json"`
 	OutputSchema datatypes.JSON    `gorm:"type:json"`

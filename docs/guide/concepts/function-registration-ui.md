@@ -36,7 +36,7 @@ FunctionContract
 | `input_schema`、`output_schema` | 表单字段、验证、候选列和详情字段 | 否 |
 | `resource`、`operation` | 业务资源与动作归属 | 否 |
 | `capability` | `collection_query/item_query/create/update/delete/action/task/report` | 否 |
-| `execution`、`risk`、`permission` | 调度、审批与治理 | 否 |
+| `execution`、`approval`、`risk`、`permission` | 调度、审批与治理；审批可与同步/异步组合 | 否 |
 | 分类、标题、列、动作位置、mapping、页面类型 | PageProposal/PageSpec | 是，不能注册 |
 
 示例：
@@ -62,7 +62,7 @@ JSON Schema 是自动界面的基础，但不是完整页面定义：
 
 | JSON Schema 信息 | 平台可自动生成 |
 | --- | --- |
-| 输入字段、required、enum、format、默认值 | ProForm / ModalForm / DrawerForm 字段与校验 |
+| 输入字段、required、enum、format、默认值 | SchemaFormRenderer 字段与校验；Modal/Drawer 仅作为容器 |
 | 输出对象字段 | 详情字段、结果字段候选 |
 | 输出 collection item schema | ProTable 列候选 |
 | REST path + method + path parameter | CRUD capability 与 identity 高置信度建议 |
@@ -80,13 +80,13 @@ JSON Schema 不能自行判断：
 
 ### CRUD Resource
 
-当平台识别到同一资源的 collection query、identity 和生命周期能力时，生成 ResourcePage Proposal：
+当平台识别到同一资源的 collection query 与 identity 时，生成 ResourcePage Proposal；写 capability 是可选的，因此只读资源也可直接发布：
 
 ```text
 GET /players                    -> collection_query -> ProTable
 GET /players/{playerId}         -> item_query       -> ProDescriptions
-POST /players                   -> create           -> ModalForm/DrawerForm
-PATCH /players/{playerId}       -> update           -> ModalForm/DrawerForm
+POST /players                   -> create           -> Modal/Drawer + SchemaFormRenderer
+PATCH /players/{playerId}       -> update           -> Modal/Drawer + SchemaFormRenderer
 DELETE /players/{playerId}      -> delete           -> Popconfirm
 POST /players/{playerId}/ban    -> action           -> 行操作候选
 ```

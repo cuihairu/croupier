@@ -92,10 +92,49 @@ interface FunctionContract {
   outputSchema?: JSONSchema;
   risk: RiskLevel;
   permission?: string;
-  execution: 'sync' | 'task' | 'approval';
+  execution: 'sync' | 'task';
+  approval: ApprovalPolicy;
   resourceKey?: string;
   operationKey?: string;
   capability?: CapabilityKind;
+}
+
+type LocaleCode = string;
+type LocalizedText = Readonly<Record<LocaleCode, string>>;
+type JsonPointer = '' | `/${string}`;
+type JSONPrimitive = string | number | boolean | null;
+type JSONValue = JSONPrimitive | JSONValue[] | { [key: string]: JSONValue };
+type JSONSchema = boolean | { [key: string]: JSONValue };
+type RiskLevel = 'low' | 'medium' | 'high' | 'danger';
+
+interface Scope {
+  gameId: string;
+  env: string;
+}
+
+interface FunctionRef {
+  functionId: string;
+  contractVersion: string;
+  inputSchemaDigest: string;
+  outputSchemaDigest: string;
+}
+
+interface SourceDigest {
+  kind: 'function_contract' | 'capability_semantics';
+  id: string;
+  digest: string;
+}
+
+interface Diagnostic {
+  code: string;
+  severity: 'info' | 'warning' | 'error';
+  message: LocalizedText;
+  path?: JsonPointer;
+}
+
+interface ApprovalPolicy {
+  required: boolean;
+  policyKey?: string;
 }
 
 type CapabilityKind =
@@ -108,6 +147,8 @@ type CapabilityKind =
   | 'task'
   | 'report';
 ```
+
+`execution` 与 `approval` 正交：`execution: 'task'` 且 `approval.required: true` 表示审批通过后才启动异步任务；同步操作也可以要求审批。`approval.policyKey` 只引用平台已配置的治理策略，缺失时由 Server 按风险策略解析默认值；它不是页面 UI，不能由浏览器覆盖。
 
 `resourceKey`、`operationKey` 和 `capability` 都是业务能力语义，不是页面语义。`capability` 只允许上述受控枚举；页面设计只能由 PageProposal/PageSpec 表达。
 
@@ -149,6 +190,12 @@ interface CollectionSemantic {
   itemsPath: JsonPointer; // collection query 输出中项目数组的位置
   itemSchemaDigest: string;
   pagination?: OffsetPaginationSemantic | CursorPaginationSemantic;
+}
+
+interface ItemSemantic {
+  query?: FunctionRef;
+  itemPath: JsonPointer;
+  itemSchemaDigest: string;
 }
 
 interface OffsetPaginationSemantic {
@@ -241,8 +288,8 @@ interface BlockedProposalIssue {
 
 `proposalKey` 是生成器幂等身份：一个 ResourceCapability 只能有 `resource:<resourceKey>`，每个独立 Operation/Task/Report 函数分别有 `<kind>:<functionId>`。`pageKey` 固定为 `resource--<resourceKey>` 或 `<kind>--<functionId>`，其中 source key 必须符合 `[a-z0-9][a-z0-9._-]*`；它是可读的路由与发布身份，不得从 summary、labels 或本次生成结果随机生成。分类建议的默认规则以 [ProComponents 页面生成与运行时](./ui-generation.md) 为唯一出处；不得从带 kind 前缀的 pageKey 推断分类。Resource action 只有在 `subject` 可验证时才并入唯一 ResourcePage；否则保留为函数自己的 OperationPage，避免重复菜单或覆盖资源页。
 
-- `ready`：完整且可验证的 Resource CRUD、Task 或 Report 页面，可直接接受并发布。
-- `basic`：安全的 Operation Page，含输入表单、确认、受控执行和结果区，可直接接受并发布。
+- `ready`：页面全部已声明能力都有可验证的 binding、selector、治理与 renderer 支持，可直接接受并发布。ResourcePage 的写能力是可选的，因此只读 ResourcePage 也可以是 `ready`。
+- `basic`：安全的同步 OperationPage，含输入表单、确认、受控执行和结果区；可要求审批，并在审批通过后展示真实结果；可直接接受并发布。
 - `needs_review`：语义或映射不完整，必须在 Page Studio 决策后发布。
 - 函数不可执行、权限/风险不可校验、schema 无效或 binding 不安全时，生成 BlockedProposalIssue，禁止物化和发布；`blocked` 不是 Proposal quality。
 
@@ -350,12 +397,12 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 发布时必须冻结：
 
 - PageSpec 与 FormPresentationSpec 完整快照。
-- 每个 binding 的函数版本、输入/输出 schema digest、风险、权限、执行模式和语义 digest。
+- 每个 binding 的函数版本、输入/输出 schema digest、风险、权限、执行模式、审批策略和语义 digest。
 - Renderer ABI version 与 generator version。
 
 函数或 CapabilitySemantics 变化后，Server 生成新的 Proposal 并计算 diff。已发布页标记 stale 且拒绝执行；Page Studio 必须提供“查看差异、自动合并安全字段、解决冲突、重新发布”。绝不静默更新 Draft 或 PublishedPageSpec。
 
-自动合并的安全集只包含展示类字段：列顺序与显隐、字段 label/help、order、group、widget hint、导航标题、分类 labels、图标和排序。`visibleWhen` 只有经校验证明不影响 required 输入、binding payload 和 selector 引用时才允许自动合并，否则归入冲突集。执行类字段——bindings、functionId、input/output assignment、confirmation、permissions、risk——出现任何差异都必须人工确认，不得自动合并。
+自动合并的安全集只包含展示类字段：列顺序与显隐、字段 label/help、order、group、widget hint、导航标题、分类 labels、图标和排序。`visibleWhen` 只有经校验证明不影响 required 输入、binding payload 和 selector 引用时才允许自动合并，否则归入冲突集。执行类字段——bindings、functionId、input/output assignment、confirmation、permissions、risk、approval——出现任何差异都必须人工确认，不得自动合并。
 
 ## 模型边界
 
@@ -371,8 +418,8 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 
 下一版只有满足以下条件才可宣称可发布：
 
-1. 一个 OpenAPI REST Resource 可自动生成并直接发布完整 CRUD 页面。
-2. 一个 SDK 显式能力 Resource 可自动生成并直接发布 CRUD 页面。
+1. 一个 OpenAPI REST Resource 可自动生成并直接发布 ResourcePage；声明写 capability 时提供完整 CRUD，未声明写 capability 时提供只读查询/详情页面。
+2. 一个 SDK 显式能力 Resource 可自动生成并直接发布同等 ResourcePage。
 3. 未提供 CRUD 语义的函数可自动生成并直接发布安全 Operation Page。
 4. Task 和 Report 页面使用真实任务/图表数据，不包含“最小实现”或 JSON 占位。
 5. Page Studio 的常用路径不要求编辑原始 PageSpec JSON 或自定义 mapping。

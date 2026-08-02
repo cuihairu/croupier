@@ -46,6 +46,8 @@ message LocalFunctionDescriptor {
   string risk = 12;
   bool enabled = 13;
   string permission = 14;
+  string capability = 15;
+  string execution = 16;
 }
 
 message ProviderConnectRequest {
@@ -285,6 +287,8 @@ export interface FunctionDescriptor {
   resource?: string;
   risk?: string;
   operation?: string;
+  capability?: string;
+  execution?: string;
   permission?: string;
   enabled?: boolean;
 }
@@ -362,6 +366,8 @@ interface LocalFunctionDescriptor {
   resource?: string;
   risk?: string;
   operation?: string;
+  capability?: string;
+  execution?: string;
   permission?: string;
   enabled?: boolean;
 }
@@ -701,6 +707,8 @@ export class BasicClient implements CroupierClient {
       resource: desc.resource,
       risk: desc.risk,
       operation: desc.operation,
+      capability: desc.capability,
+      execution: desc.execution,
       permission: desc.permission,
       enabled: desc.enabled,
     };
@@ -726,6 +734,8 @@ export class BasicClient implements CroupierClient {
           : "",
         resource: desc.resource || "",
         operation: desc.operation || "",
+        capability: desc.capability || "",
+        execution: desc.execution || "",
         risk: desc.risk || "",
         enabled: desc.enabled ?? true,
         permission: desc.permission || "",
@@ -1408,6 +1418,8 @@ export class BasicClient implements CroupierClient {
         outputSchema: fn.output_schema,
         resource: fn.resource,
         operation: fn.operation,
+        capability: fn.capability,
+        execution: fn.execution,
         risk: fn.risk,
         enabled: fn.enabled,
         permission: fn.permission,

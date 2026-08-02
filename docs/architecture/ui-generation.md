@@ -55,7 +55,7 @@ action           -> row / toolbar / batch action
 | `action` / 无 resource 的同步函数 | OperationPage | 表单、确认、受控执行、结构化结果 |
 | `task` | TaskPage | 启动、状态、事件、取消/重试、结果 |
 | `report` | ReportPage | 查询、数据集、指标/维度、图表或表格 |
-| `approval` | Operation/Task Page | 等待态、approvalId、审批状态，不得显示为完成 |
+| `approval.required=true` | Operation/Task Page | 等待态、approvalId、审批状态，以及审批通过后的同步结果或任务状态；不得显示为完成 |
 
 ## Page Studio
 
@@ -108,7 +108,7 @@ JSON Schema + FormPresentationSpec
 
 以下项目必须在浏览器 E2E 中验证，服务层单测不能替代：
 
-- OpenAPI REST 和 SDK capability 各生成一个 Resource CRUD Page，并可发布执行。
+- OpenAPI REST 和 SDK capability 各生成一个 ResourcePage，并可发布执行；至少覆盖一个完整 CRUD 和一个只读资源页面。
 - 无 CRUD 语义函数生成 `basic` OperationPage，并可直接发布。
 - 任务页能持续显示真实状态和事件。
 - 报表页渲染真实图表或表格数据。

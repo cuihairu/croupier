@@ -74,7 +74,7 @@ func EvaluateBinding(
 			functionID,
 			spec.BindingFreshnessFunctionVersionStale,
 			"binding_function_version_stale",
-			"bound function version changed; revalidate generated Function Form and publish a new page snapshot",
+			"bound function version changed; revalidate generated page bindings and publish a new page snapshot",
 			"bindingContracts."+bindingID+".functionVersion",
 		))
 	}

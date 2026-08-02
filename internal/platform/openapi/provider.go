@@ -182,7 +182,7 @@ type APIMethod struct {
 	Risk       string `yaml:"x-risk" json:"x-risk"`             // x-risk: risk level
 	Operation  string `yaml:"x-operation" json:"x-operation"`   // x-operation: business action key
 	Capability string `yaml:"x-capability" json:"x-capability"` // x-capability: lifecycle capability
-	Execution  string `yaml:"x-execution" json:"x-execution"`   // x-execution: sync/task/approval
+	Execution  string `yaml:"x-execution" json:"x-execution"`   // x-execution: sync/task
 	Enabled    bool   `yaml:"x-enabled" json:"x-enabled"`       // x-enabled: whether this function is enabled
 	Permission string `yaml:"x-permission" json:"x-permission"` // x-permission: optional permission identifier
 }

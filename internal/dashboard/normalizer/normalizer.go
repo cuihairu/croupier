@@ -4,12 +4,12 @@
 //
 // The normalizer is the single place where:
 //   - missing fields produce diagnostics
-//   - Formily schema is derived from JSON Schema when needed
 //   - ResourceSpec and OperationSpec candidates are extracted from capability metadata
 //
 // The normalizer does NOT:
 //   - persist anything to the database
 //   - generate PageSpec (that is the generator's job)
+//   - generate form or page presentation
 //   - infer menu structure (that is the console API's job)
 package normalizer
 
@@ -38,13 +38,15 @@ type DescriptorInput struct {
 	InputSchema  string `json:"input_schema,omitempty"`
 	OutputSchema string `json:"output_schema,omitempty"`
 
-	Resource   string `json:"resource,omitempty"`
-	Operation  string `json:"operation,omitempty"`
-	Capability string `json:"capability,omitempty"`
-	Execution  string `json:"execution,omitempty"`
-	Risk       string `json:"risk,omitempty"`
-	Permission string `json:"permission,omitempty"`
-	Enabled    bool   `json:"enabled"`
+	Resource          string `json:"resource,omitempty"`
+	Operation         string `json:"operation,omitempty"`
+	Capability        string `json:"capability,omitempty"`
+	Execution         string `json:"execution,omitempty"`
+	ApprovalRequired  bool   `json:"approval_required,omitempty"`
+	ApprovalPolicyKey string `json:"approval_policy_key,omitempty"`
+	Risk              string `json:"risk,omitempty"`
+	Permission        string `json:"permission,omitempty"`
+	Enabled           bool   `json:"enabled"`
 
 	SummaryMap     map[string]string `json:"summary_map,omitempty"`
 	DescriptionMap map[string]string `json:"description_map,omitempty"`
@@ -127,6 +129,10 @@ func Normalize(input DescriptorInput) NormalizerResult {
 	diags = append(diags, capabilityDiagnostics...)
 	execution, executionDiagnostics := normalizeExecution(input.Execution, capability, input.ID)
 	diags = append(diags, executionDiagnostics...)
+	approval := spec.ApprovalPolicy{
+		Required:  input.ApprovalRequired,
+		PolicyKey: strings.TrimSpace(input.ApprovalPolicyKey),
+	}
 	if resourceKey == "" {
 		diags = append(diags, spec.Diagnostic{
 			Code:       "resource_missing",
@@ -159,6 +165,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 		Operation:    operationKey,
 		Capability:   capability,
 		Execution:    execution,
+		Approval:     approval,
 		Risk:         normalizeRisk(input.Risk),
 		Permission:   strings.TrimSpace(input.Permission),
 		Tags:         input.Tags,
@@ -188,6 +195,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 			Operation:   fn.Operation,
 			Capability:  fn.Capability,
 			Execution:   fn.Execution,
+			Approval:    fn.Approval,
 			Risk:        fn.Risk,
 			Permission:  fn.Permission,
 			Enabled:     fn.Enabled,
@@ -323,7 +331,7 @@ func normalizeExecution(value string, capability spec.CapabilityKind, functionID
 	return "", []spec.Diagnostic{{
 		Code:       "execution_invalid",
 		Severity:   spec.SeverityError,
-		Message:    "execution must be one of sync, task, approval",
+		Message:    "execution must be one of sync, task",
 		FunctionID: functionID,
 		Field:      "execution",
 	}}

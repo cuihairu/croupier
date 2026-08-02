@@ -54,26 +54,16 @@ func BuildFallbackOpenAPIOperation(functionID string) *openapi3.Operation {
 	return op
 }
 
-func BuildFallbackFormSchema(functionID string) map[string]interface{} {
+func BuildFallbackInputJSONSchema(functionID string) map[string]interface{} {
 	fields := fallbackFields()
 
 	properties := map[string]interface{}{}
 	required := make([]string, 0, len(fields))
 	for _, field := range fields {
-		component, decorator := fallbackFormilyComponent(field.Type)
 		prop := map[string]interface{}{
 			"type":        field.Type,
 			"title":       field.Name,
 			"description": field.Description,
-			"x-component": component,
-		}
-		if decorator != "" {
-			prop["x-decorator"] = decorator
-		}
-		if ph := fallbackPlaceholder(field); ph != "" {
-			prop["x-component-props"] = map[string]interface{}{
-				"placeholder": ph,
-			}
 		}
 		properties[field.Name] = prop
 		if field.Required {
@@ -86,28 +76,6 @@ func BuildFallbackFormSchema(functionID string) map[string]interface{} {
 		"properties": properties,
 		"required":   required,
 	}
-}
-
-// fallbackFormilyComponent maps a fallback field type to Formily component.
-func fallbackFormilyComponent(typ string) (component, decorator string) {
-	switch typ {
-	case "boolean":
-		return "Switch", "FormItem"
-	case "integer", "number":
-		return "NumberPicker", "FormItem"
-	case "object":
-		return "Card", "FormItem"
-	default:
-		return "Input", "FormItem"
-	}
-}
-
-// fallbackPlaceholder generates a placeholder for a fallback field.
-func fallbackPlaceholder(field fallbackField) string {
-	if field.Description != "" {
-		return "请输入" + field.Description
-	}
-	return "请输入" + field.Name
 }
 
 func buildFallbackRequestSchema(fields []fallbackField) *openapi3.Schema {

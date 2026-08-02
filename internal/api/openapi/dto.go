@@ -99,6 +99,7 @@ type OpenAPISourceOperation struct {
 	Resource    string                 `json:"resource,omitempty"`
 	Capability  spec.CapabilityKind    `json:"capability,omitempty"`
 	Execution   spec.FunctionExecution `json:"execution,omitempty"`
+	Approval    spec.ApprovalPolicy    `json:"approval"`
 	Risk        spec.RiskLevel         `json:"risk,omitempty"`
 	Permission  string                 `json:"permission,omitempty"`
 	Bound       bool                   `json:"bound"`

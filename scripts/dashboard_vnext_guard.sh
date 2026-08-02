@@ -58,10 +58,10 @@ assert_contains() {
 }
 
 assert_not_contains() {
-    local scope="$1"
-    local pattern="$2"
-    local label="$3"
-    if rg -n "$pattern" $scope >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+    local pattern="$1"
+    local label="$2"
+    shift 2
+    if rg -n "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
         fail "$label"
         sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
     else
@@ -93,12 +93,25 @@ assert_file_absent "web/src/services/dashboard-vnext.ts" "legacy split-model ser
 assert_file_absent "web/src/pages/PageStudioV2" "legacy PageStudioV2"
 assert_file_absent "web/src/pages/PageStudio/PageSchemaEditor.tsx" "legacy PageSchemaEditor"
 assert_file_absent "web/src/components/FormilyPageRenderer" "legacy Formily page renderer"
+assert_file_absent "web/src/components/FunctionFormManager" "legacy FunctionForm manager"
+assert_file_absent "web/src/components/formily" "legacy Formily component runtime"
 
 echo ""
 echo "Checking legacy Page protocol terms do not return..."
-assert_not_contains "internal/dashboard internal/api/page internal/model web/src/types web/src/pages/PageStudio web/src/pages/Console web/src/components/PageRenderer web/src/services/dashboard.ts" "\\b(PageSpecV2|GeneratedPageSpecV2|PageTypeV2|PageFunctionBindingV2|PageSchemaEditor|PageStudioV2)\\b|formily-page:1|formily-page/v1|dashboard-vnext" "legacy split/page-schema identifiers absent"
-assert_not_contains "internal/dashboard internal/api/page internal/model web/src/types web/src/pages/PageStudio web/src/pages/Console web/src/components/PageRenderer web/src/services/dashboard.ts" "\\b(inputMapping|outputMapping|SchemaJSON|PageSpecJSON|FormPresentationJSON|PageSpecVersion)\\b" "legacy page storage/mapping fields absent"
-assert_not_contains "web/src/types/dashboard.ts web/src/components/PageRenderer web/src/pages/PageStudio web/src/pages/Console web/src/services/dashboard.ts" "\\bany\\b" "core Dashboard TypeScript code has no any"
+assert_not_contains "\\b(PageSpecV2|GeneratedPageSpecV2|PageTypeV2|PageFunctionBindingV2|PageSchemaEditor|PageStudioV2)\\b|formily-page:1|formily-page/v1|dashboard-vnext" "legacy split/page-schema identifiers absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
+assert_not_contains "\\b(inputMapping|outputMapping|SchemaJSON|PageSpecJSON|FormPresentationJSON|PageSpecVersion)\\b" "legacy page storage/mapping fields absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
+assert_not_contains "\\bany\\b" "core Dashboard TypeScript code has no any" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts"
+
+echo ""
+echo "Checking form runtime boundary..."
+assert_not_contains "@formily/|form-render|components/formily|FunctionFormManager|generateFormily|validateFormily|BuildFallbackFormSchema" "legacy Formily/FunctionForm runtime absent" "web/src" "web/package.json"
+assert_not_contains "\\bFunctionForm|BuildFallbackFormSchema|fallbackFormilyComponent|generateFormily|validateFormily" "legacy backend FunctionForm APIs absent" "internal/logic" "internal/api" "internal/dashboard" "pkg" "cmd"
+assert_contains "web/src/components/SchemaFormRenderer/index.tsx" "@rjsf/antd" "SchemaFormRenderer uses @rjsf/antd adapter"
+assert_contains "web/src/components/SchemaFormRenderer/index.tsx" "@rjsf/validator-ajv8" "SchemaFormRenderer uses ajv8 validator"
+
+echo ""
+echo "Checking execution and approval boundary..."
+assert_not_contains "FunctionExecutionApproval|GenerateApprovalPageForOperation|isApprovalOperation|execution must be one of sync, task, approval|x-execution must be one of sync, task, approval|sync\\|task\\|approval|sync/task/approval|execution === 'approval'" "approval is not a FunctionContract execution mode" "internal/dashboard" "internal/api/openapi" "internal/platform/openapi" "internal/model" "proto/croupier" "web/src/types/dashboard.ts" "web/src/pages/OpenAPISources" "sdks/go/pkg/croupier" "sdks/java/src/main" "sdks/cpp/include"
 
 echo ""
 echo "Checking dependencies..."

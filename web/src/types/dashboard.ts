@@ -47,7 +47,7 @@ export type CapabilityKind =
   | 'report';
 
 /** 函数执行方式 */
-export type FunctionExecution = 'sync' | 'task' | 'approval';
+export type FunctionExecution = 'sync' | 'task';
 
 /** 页面类型 */
 export type PageType = 'resource' | 'operation' | 'task' | 'report';
@@ -121,6 +121,12 @@ export interface BindingFreshnessDiagnostic {
   diagnostic: Diagnostic;
 }
 
+/** 函数审批策略，独立于 sync/task 执行模式 */
+export interface ApprovalPolicy {
+  required: boolean;
+  policyKey?: string;
+}
+
 // ---------------------------------------------------------------------------
 // FunctionSpec
 // ---------------------------------------------------------------------------
@@ -143,6 +149,7 @@ export interface FunctionSpec {
   operation?: string;
   capability?: CapabilityKind;
   execution?: FunctionExecution;
+  approval: ApprovalPolicy;
 
   // 治理
   risk?: RiskLevel;
@@ -187,6 +194,7 @@ export interface OperationSpec {
   operation: string;
   capability?: CapabilityKind;
   execution?: FunctionExecution;
+  approval: ApprovalPolicy;
   risk?: RiskLevel;
   permission?: string;
   enabled: boolean;

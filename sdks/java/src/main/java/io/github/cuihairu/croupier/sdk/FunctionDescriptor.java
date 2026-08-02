@@ -19,7 +19,7 @@ public class FunctionDescriptor {
     private String resource;  // business resource/capability key
     private String operation; // business action key, e.g. "ban", "send", "list"
     private String capability; // collection_query|item_query|create|update|delete|action|task|report
-    private String execution;  // sync|task|approval
+    private String execution;  // sync|task
     private String risk;      // "safe"|"warning"|"high"|"danger"
     private String permission;
     private boolean enabled = true; // whether this function is currently enabled

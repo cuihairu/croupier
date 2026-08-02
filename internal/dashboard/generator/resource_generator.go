@@ -320,8 +320,24 @@ func contractToFunctionSpec(c *model.FunctionContract) spec.FunctionSpec {
 		Operation:    c.OperationKey,
 		Capability:   spec.CapabilityKind(c.Capability),
 		Execution:    spec.FunctionExecution(c.Execution),
+		Approval:     jsonMapToApprovalPolicy(c.Approval),
 		Risk:         spec.RiskLevel(c.Risk),
 		Permission:   c.Permission,
+	}
+}
+
+func jsonMapToApprovalPolicy(values map[string]interface{}) spec.ApprovalPolicy {
+	if len(values) == 0 {
+		return spec.ApprovalPolicy{}
+	}
+	required, _ := values["required"].(bool)
+	policyKey, _ := values["policyKey"].(string)
+	if policyKey == "" {
+		policyKey, _ = values["policy_key"].(string)
+	}
+	return spec.ApprovalPolicy{
+		Required:  required,
+		PolicyKey: strings.TrimSpace(policyKey),
 	}
 }
 

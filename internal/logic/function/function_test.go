@@ -49,20 +49,6 @@ func setupFunctionTestContext(t *testing.T) (*svc.ServiceContext, context.Contex
 	return svcCtx, ctx
 }
 
-func testFunctionFormilySchema(fieldName, component string) map[string]interface{} {
-	return map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			fieldName: map[string]interface{}{
-				"type":        "string",
-				"title":       fieldName,
-				"x-component": component,
-				"x-decorator": "FormItem",
-			},
-		},
-	}
-}
-
 func TestFirstNonEmpty(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -471,8 +457,4 @@ func TestFunctionHistoryLogic_FunctionHistory_EmptyID(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, items)
-}
-
-// Tests for FunctionFormLogic
-func TestFunctionFormLogic_Constructor(t *testing.T) {
 }

@@ -979,6 +979,8 @@ describe("BasicClient", () => {
         resource: "player",
         risk: "low",
         operation: "ban",
+        capability: "action",
+        execution: "sync",
         permission: "player:ban",
       },
       async () => "ok",
@@ -999,6 +1001,8 @@ describe("BasicClient", () => {
       resource: "player",
       risk: "low",
       operation: "ban",
+      capability: "action",
+      execution: "sync",
       permission: "player:ban",
       enabled: undefined,
     });
@@ -1023,6 +1027,8 @@ describe("BasicClient", () => {
         version: "1.0.0",
         resource: "player",
         operation: "ban",
+        capability: "action",
+        execution: "sync",
         risk: "danger",
         permission: "player:ban",
       },
@@ -1037,6 +1043,8 @@ describe("BasicClient", () => {
     expect(req.functions[0].id).toBe("f1");
     expect(req.functions[0].resource).toBe("player");
     expect(req.functions[0].operation).toBe("ban");
+    expect(req.functions[0].capability).toBe("action");
+    expect(req.functions[0].execution).toBe("sync");
     expect(req.functions[0].risk).toBe("danger");
     expect(req.functions[0].permission).toBe("player:ban");
     expect(req.functions[0]).not.toHaveProperty("category_display");

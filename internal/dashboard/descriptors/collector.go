@@ -113,16 +113,22 @@ func Collect(ctx context.Context, svcCtx *svc.ServiceContext) []normalizer.Descr
 }
 
 type sourceOperationInput struct {
-	OperationID string   `json:"operationId"`
-	Summary     string   `json:"summary,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
-	Operation   string   `json:"operation,omitempty"`
-	Resource    string   `json:"resource,omitempty"`
-	Capability  string   `json:"capability,omitempty"`
-	Execution   string   `json:"execution,omitempty"`
-	Risk        string   `json:"risk,omitempty"`
-	Permission  string   `json:"permission,omitempty"`
+	OperationID string            `json:"operationId"`
+	Summary     string            `json:"summary,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Tags        []string          `json:"tags,omitempty"`
+	Operation   string            `json:"operation,omitempty"`
+	Resource    string            `json:"resource,omitempty"`
+	Capability  string            `json:"capability,omitempty"`
+	Execution   string            `json:"execution,omitempty"`
+	Approval    specApprovalInput `json:"approval,omitempty"`
+	Risk        string            `json:"risk,omitempty"`
+	Permission  string            `json:"permission,omitempty"`
+}
+
+type specApprovalInput struct {
+	Required  bool   `json:"required,omitempty"`
+	PolicyKey string `json:"policyKey,omitempty"`
 }
 
 func mergeOpenAPISourceBindings(ctx context.Context, svcCtx *svc.ServiceContext, byID map[string]*normalizer.DescriptorInput) {
@@ -206,6 +212,12 @@ func mergeOpenAPISourceOperationInput(input *normalizer.DescriptorInput, op sour
 	}
 	if input.Execution == "" {
 		input.Execution = strings.TrimSpace(op.Execution)
+	}
+	if !input.ApprovalRequired {
+		input.ApprovalRequired = op.Approval.Required
+	}
+	if input.ApprovalPolicyKey == "" {
+		input.ApprovalPolicyKey = strings.TrimSpace(op.Approval.PolicyKey)
 	}
 	if input.Risk == "" {
 		input.Risk = strings.TrimSpace(op.Risk)
@@ -376,6 +388,7 @@ func mergeOpenAPIOperationInput(input *normalizer.DescriptorInput, op *openapi3.
 	if input.Execution == "" {
 		input.Execution = stringExtension(ext, "x-execution")
 	}
+	mergeApprovalInputFromMetadata(input, ext)
 	if input.Risk == "" {
 		input.Risk = stringExtension(ext, "x-risk")
 	}
@@ -400,6 +413,7 @@ func mergeMetadataInput(input *normalizer.DescriptorInput, metadata map[string]j
 	if input.Execution == "" {
 		input.Execution = stringExtension(metadata, "execution")
 	}
+	mergeApprovalInputFromMetadata(input, metadata)
 	if input.Risk == "" {
 		input.Risk = stringExtension(metadata, "risk")
 	}
@@ -489,6 +503,72 @@ func stringExtension(extensions map[string]json.RawMessage, key string) string {
 		}
 	}
 	return ""
+}
+
+func mergeApprovalInputFromMetadata(input *normalizer.DescriptorInput, metadata map[string]json.RawMessage) {
+	if input == nil || len(metadata) == 0 {
+		return
+	}
+	if required, ok := boolExtension(metadata, "approval_required"); ok && !input.ApprovalRequired {
+		input.ApprovalRequired = required
+	}
+	if required, ok := boolExtension(metadata, "requires_approval"); ok && !input.ApprovalRequired {
+		input.ApprovalRequired = required
+	}
+	if policyKey := stringExtension(metadata, "approval_policy_key"); input.ApprovalPolicyKey == "" && policyKey != "" {
+		input.ApprovalPolicyKey = policyKey
+	}
+	raw, ok := firstRawExtension(metadata, "approval")
+	if !ok {
+		return
+	}
+	var required bool
+	if err := json.Unmarshal(raw, &required); err == nil {
+		if !input.ApprovalRequired {
+			input.ApprovalRequired = required
+		}
+		return
+	}
+	var object struct {
+		Required     bool   `json:"required"`
+		PolicyKey    string `json:"policyKey"`
+		PolicyKeyAlt string `json:"policy_key"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		if !input.ApprovalRequired {
+			input.ApprovalRequired = object.Required
+		}
+		if input.ApprovalPolicyKey == "" {
+			input.ApprovalPolicyKey = strings.TrimSpace(firstNonEmpty(object.PolicyKey, object.PolicyKeyAlt))
+		}
+	}
+}
+
+func boolExtension(extensions map[string]json.RawMessage, key string) (bool, bool) {
+	raw, ok := firstRawExtension(extensions, key)
+	if !ok {
+		return false, false
+	}
+	var value bool
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return false, false
+	}
+	return value, true
+}
+
+func firstRawExtension(extensions map[string]json.RawMessage, key string) (json.RawMessage, bool) {
+	candidates := []string{key}
+	if strings.HasPrefix(key, "x-") {
+		candidates = append(candidates, strings.TrimPrefix(key, "x-"))
+	} else {
+		candidates = append(candidates, "x-"+key)
+	}
+	for _, candidate := range candidates {
+		if raw, ok := extensions[candidate]; ok {
+			return raw, true
+		}
+	}
+	return nil, false
 }
 
 func rawMessageMapFromJSON(raw []byte) map[string]json.RawMessage {

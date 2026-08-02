@@ -20,8 +20,13 @@ tag:
 | CapabilitySemantics | 资源 identity、collection、CRUD、action/task/report 的可验证业务语义 | 列、按钮位置、页面布局或 mapping JSON |
 | Resource Catalog | 管理和审核 CapabilitySemantics 的平台入口 | Page Studio 或业务 CRUD API |
 | PageProposal | Server 根据能力和语义生成的可追溯页面建议 | 用户草稿或运行页面 |
+| ProposalKey | 生成器的幂等身份：`resource:<resourceKey>` 或 `<kind>:<functionId>` | 菜单标题或随机页面 ID |
+| PageIdentity | `game_id + env + pageKey` 的发布页面身份 | 函数 ID 或 URL 中可覆盖的 scope |
 | PageDraft | 用户接受 Proposal 后可编辑的页面版本 | 自动覆盖的生成缓存 |
 | PublishedPageSpec | 校验通过且冻结契约摘要的不可变运行页面快照 | 最新函数的实时投影 |
+| BlockedProposalIssue | 不可安全物化页面时的诊断和修复指引 | 带 `blocked` quality 的 Proposal |
+| SemanticProvenance | 每个有效或冲突语义字段的来源、摘要和置信度 | 单一 source 字段 |
+| ApprovalPolicy | 与同步/异步执行正交的审批要求和策略引用 | 第五种页面类型或 execution 枚举值 |
 | ResourcePage | 围绕一个资源的列表、详情、CRUD 和资源动作页面 | 所有函数的容器 |
 | OperationPage | 独立同步命令的表单、确认和结果页面 | 低配 CRUD 页面 |
 | TaskPage | 启动和跟踪异步任务的页面 | 只展示 taskId 的结果框 |
@@ -31,6 +36,8 @@ tag:
 | FormPresentationSpec | JSON Schema 表单的字段顺序、分组、widget hint 和可见性配置 | FunctionContract 或页面布局树 |
 | ConsoleMenuSpec | 由 active PublishedPageSpec 生成的 Console 动态菜单 | 函数目录、字典或静态 locale |
 | Scope | 全局 `game_id + env` 上下文 | 页面 URL 或 payload 中可覆盖的参数 |
+
+基础 DTO（`Scope`、`FunctionRef`、`SourceDigest`、`Diagnostic`、`LocalizedText`、`JsonPointer` 和 JSON 值类型）唯一以 [Dashboard Resource/Page 模型](./dashboard-page-model.md) 的定义为准；前端共享类型与 Go DTO 必须逐项对应，不得在页面或组件内重复定义。
 
 ## 常见边界
 

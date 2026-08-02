@@ -353,6 +353,8 @@ func (s *LocalStore) FunctionMetadata() map[string]*FunctionMeta {
 			OutputSchema:     meta.OutputSchema,
 			Resource:         meta.Resource,
 			Operation:        meta.Operation,
+			Capability:       meta.Capability,
+			Execution:        meta.Execution,
 			Risk:             meta.Risk,
 			Permission:       meta.Permission,
 			OpenAPIOperation: meta.OpenAPIOperation,

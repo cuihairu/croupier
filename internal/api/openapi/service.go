@@ -654,11 +654,12 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 		*diags = append(*diags, sourceDiagnostic(
 			"openapi_execution_invalid",
 			spec.SeverityError,
-			"x-execution must be one of sync, task, approval",
+			"x-execution must be one of sync, task",
 			fmt.Sprintf("$.paths.%s.%s.x-execution", candidate.path, strings.ToLower(candidate.method)),
 		))
 		execution = ""
 	}
+	approval := approvalPolicyFromExtensions(extensions, candidate, diags)
 	return OpenAPISourceOperation{
 		OperationID: operationID,
 		Method:      candidate.method,
@@ -670,8 +671,43 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 		Resource:    extensionString(extensions, "x-resource"),
 		Capability:  capability,
 		Execution:   execution,
+		Approval:    approval,
 		Risk:        risk,
 		Permission:  extensionString(extensions, "x-permission"),
+	}
+}
+
+func approvalPolicyFromExtensions(
+	extensions map[string]interface{},
+	candidate methodOperation,
+	diags *[]spec.Diagnostic,
+) spec.ApprovalPolicy {
+	raw, ok := extensions["x-approval"]
+	if !ok {
+		return spec.ApprovalPolicy{}
+	}
+	fieldPath := fmt.Sprintf("$.paths.%s.%s.x-approval", candidate.path, strings.ToLower(candidate.method))
+	switch value := raw.(type) {
+	case bool:
+		return spec.ApprovalPolicy{Required: value}
+	case map[string]interface{}:
+		required, _ := value["required"].(bool)
+		policyKey, _ := value["policyKey"].(string)
+		if policyKey == "" {
+			policyKey, _ = value["policy_key"].(string)
+		}
+		return spec.ApprovalPolicy{
+			Required:  required,
+			PolicyKey: strings.TrimSpace(policyKey),
+		}
+	default:
+		*diags = append(*diags, sourceDiagnostic(
+			"openapi_approval_invalid",
+			spec.SeverityError,
+			"x-approval must be a boolean or an object with required/policyKey",
+			fieldPath,
+		))
+		return spec.ApprovalPolicy{}
 	}
 }
 

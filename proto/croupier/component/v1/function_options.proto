@@ -27,7 +27,7 @@ message FunctionOptions {
   repeated string tags = 13;
   string permission = 14;       // Optional permission identifier.
   string capability = 15;       // collection_query/item_query/create/update/delete/action/task/report.
-  string execution = 16;        // sync/task/approval.
+  string execution = 16;        // sync/task.
 }
 
 extend google.protobuf.MethodOptions {

@@ -23,6 +23,12 @@ func TestFunctionMetaOpenAPIFields(t *testing.T) {
 			Deprecated:   false,
 			InputSchema:  `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"}}}`,
 			OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+			Resource:     "player",
+			Operation:    "ban",
+			Capability:   "action",
+			Execution:    "sync",
+			Risk:         "high",
+			Permission:   "player.ban.invoke",
 		},
 	}
 
@@ -61,6 +67,24 @@ func TestFunctionMetaOpenAPIFields(t *testing.T) {
 
 	if functionMeta.OutputSchema == "" {
 		t.Error("output schema should not be empty")
+	}
+	if functionMeta.Resource != "player" {
+		t.Errorf("expected resource 'player', got '%s'", functionMeta.Resource)
+	}
+	if functionMeta.Operation != "ban" {
+		t.Errorf("expected operation 'ban', got '%s'", functionMeta.Operation)
+	}
+	if functionMeta.Capability != "action" {
+		t.Errorf("expected capability 'action', got '%s'", functionMeta.Capability)
+	}
+	if functionMeta.Execution != "sync" {
+		t.Errorf("expected execution 'sync', got '%s'", functionMeta.Execution)
+	}
+	if functionMeta.Risk != "high" {
+		t.Errorf("expected risk 'high', got '%s'", functionMeta.Risk)
+	}
+	if functionMeta.Permission != "player.ban.invoke" {
+		t.Errorf("expected permission 'player.ban.invoke', got '%s'", functionMeta.Permission)
 	}
 
 	// Verify tags
