@@ -70,15 +70,17 @@ jobs:
         run: |
           pnpm exec eslint \
             src/components/index.ts \
-            src/components/FormilyPageRenderer/index.tsx \
+            src/components/PageRenderer/index.tsx \
             src/pages/Console/index.tsx \
             src/pages/Console/Page.tsx \
             src/pages/Functions/Detail.tsx \
             src/pages/Functions/Directory/index.tsx \
             src/pages/Functions/Invoke/index.tsx \
             src/pages/PageStudio/index.tsx \
-            src/pages/Resources/index.tsx \
+            src/pages/ResourceCatalog/index.tsx \
+            src/pages/Proposals/index.tsx \
             src/services/api/pages.ts \
+            src/services/dashboard.ts \
             src/services/console.ts \
             src/types/dashboard.ts
 
