@@ -1,8 +1,31 @@
 # Croupier Dashboard 产品重构计划
 
-更新时间：2026-07-30
+更新时间：2026-08-02
 
 > 本文是下一版 Dashboard 的唯一实施计划和 AI 交接清单。任何实现、文档、SDK 或测试与本文冲突时，先修正文档和计划，再实现代码；不得并行维护两套模型。
+
+## 0.0 重新审核基线
+
+本轮重新审核后，所有历史勾选均已撤销。任何工作包不得因为“代码看起来已改”“局部测试通过”或“已有实现雏形”重新打勾；只有同时满足该工作包的代码、单元测试、真实浏览器 E2E、文档和旧路径物理清理验收后，才允许勾选。
+
+当前事实基线：
+
+- Dashboard 新版本只有一个模型：canonical `PageSpec`，不是新旧模型并存。
+- 函数注册只描述能力；默认页面由平台根据 `FunctionContract + CapabilitySemantics` 生成 `PageProposal`。
+- 用户路径必须是：生成默认 Proposal -> 预览 -> 接受/发布 -> Console 左侧动态菜单出现；只有不满意时才进入 Page Studio 编辑。
+- 当前工作区存在大量未提交改动，不能把任一阶段声明为完成。
+- 以下检查的历史“曾通过”记录不作为交接依据；必须重新执行并记录命令与结果后才可作为证据：Dashboard PageSpec guard、目标后端包测试、`web/tests/consoleMenu.test.ts`。
+- 未通过或未验收的检查：全量 Web TypeScript、全量 Playwright E2E、docs build、SDK parity、部署验证。
+- 仍需清理的误导项包括历史 split-model 命名、旧页面协议残留、失败测试产物、旧路径文件名和未经过真实验收的文档表述。
+
+重新实现顺序：
+
+1. 先完成 P0 的旧模型盘点、降级与防回流门禁，并完成 P7-a（删除清单与 guard 先行），确保后续 agent 不再沿旧设计实现。P7-b 的物理删除不前置：每个旧模块必须在替代路径通过真实 E2E 后才删除，随 P1–P6 验收滚动完成。
+2. 再完成 P1 的注册能力、持久化 CapabilitySemantics 与 Resource Catalog 语义闭环。
+3. 再完成 P3 的 canonical PageSpec、typed selector、发布快照和静态校验；这是 P2 生成器的硬前置，P2 不得在 P3 完成前生成或持久化页面。
+4. 再完成 P2 的默认 Proposal 生成闭环，再完成 P4 的 ProComponents runtime。
+5. 再完成 P5/P6 的 Page Studio、Console 动态菜单、执行安全、审计和 OTel。
+6. 最后用端到端验收矩阵逐项验证，全部通过前禁止声明“重构完成”。
 
 ## 0. 当前结论
 
@@ -38,15 +61,15 @@ SDK / OpenAPI 注册能力
 - `PublishedPageSpec -> ConsoleMenuSpec -> ProLayout` 的动态菜单方向。
 - binding execute API、函数权限、审批、审计、OTel 和 traceId 透传。
 - OpenAPI Source、Provider binding、函数目录、全局 scope 和权限体系。
-- Ant Design Pro、ProComponents、ProLayout、ProTable、ProForm、ProDescriptions、Modal/Drawer/Popconfirm。
-- JSON Schema 输入/输出契约和 SDK 多语言注册链路。
+- Ant Design Pro、ProComponents、ProLayout、ProTable、ProDescriptions、Modal/Drawer/Popconfirm；ProForm 只作为表单容器能力（ModalForm/DrawerForm 等）保留，不作为 JSON Schema renderer。
+- JSON Schema 输入/输出契约和多语言 SDK 注册链路。
 
 ### 0.3 必须物理清理的实现
 
-以下实现不属于 vNext，重构到对应替代路径后必须物理删除，不新增转换桥：
+以下实现属于旧模型，重构到对应替代路径后必须物理删除，不新增转换桥：
 
 - 组件树式页面协议、页面 schema validator、页面 schema editor 和原始 JSON 默认编辑路径。
-- 注册侧页面编排扩展、任意 `inputMapping/outputMapping` 注册扩展。
+- 注册侧页面编排扩展、任意映射 JSON 注册扩展。
 - 旧页面 renderer、旧表单 registry、旧页面 DTO、旧页面 API 字段和旧数据库列。
 - 从函数名、首批结果、任意 row JSON、静态 locale 或字典猜页面/菜单。
 - 把所有函数都做成 CRUD，或把 CRUD Resource 从模型中排除。
@@ -59,7 +82,8 @@ SDK / OpenAPI 注册能力
 - `docs/architecture/openapi-sdk-descriptor-v2.md`
 - `docs/architecture/ui-schema-spec.md`
 - `docs/architecture/ui-generation.md`
-- `docs/design/console-dynamic-menu.md`
+- `docs/architecture/console-dynamic-menu.md`
+- `docs/architecture/dashboard-glossary.md`
 
 若本文与代码冲突，以权威文档为准；若权威文档彼此冲突，停止实现并先修正文档，不得并行维护两种模型。
 
@@ -71,12 +95,14 @@ SDK / OpenAPI 注册能力
 4. **能力语义与页面 UI 分离。** `CapabilitySemantics` 描述 list/get/create/update/delete/action/task/report 与 identity，不描述页面布局；PageSpec 才描述页面编排。
 5. **JSON Schema 不等于页面。** JSON Schema 生成字段、候选列和验证；不能单独判断行操作、分页路径、图表或任务状态。
 6. **PageSpec 是强类型业务 DSL。** 它不保存 React props、组件树或 `ProTable` 名称；renderer adapter 才选择 ProComponents。
-7. **表单协议唯一。** 表单使用 `JSON Schema + FormPresentationSpec + ProForm renderer`；不得同时维护第二套页面/表单 runtime。
+7. **表单协议唯一。** 表单使用 `JSON Schema + FormPresentationSpec + SchemaFormRenderer`（runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8` adapter）；不得同时维护第二套页面/表单 runtime，包括 Formily、form-render 或自研 ProForm field factory。
 8. **PageProposal 与 PageDraft 分离。** Proposal 可重生；Draft 可编辑；Published 不可变。重新生成不能覆盖用户草稿或已发布页。
 9. **菜单唯一来源不变。** `active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout`；动态 labels 不进入静态 locale/字典。
 10. **scope 唯一。** `game_id + env` 来自全局上下文，页面内不得二次选择或由 URL/payload 覆盖。
 11. **执行唯一入口不变。** 页面只能用 active PublishedPageSpec binding execute API；浏览器不得传 functionId、route、target、game/env。
 12. **无自动转换。** 不自动将现行模型外的历史页面配置转换为新页面；历史数据只能导出、备份和人工重建。
+13. **数据库访问只用 GORM。** 表结构以 GORM model + AutoMigrate 为唯一定义；查询、事务、关联一律使用 GORM API，禁止在业务代码中手写原生 SQL（`db.Raw`/`db.Exec`）。GORM 无法表达的运维语句（建库、PRAGMA 等）除外，且必须集中在基础设施层并注明理由。`database/schema.sql` 与 `mysql.schema.sql` 只是参考文档，需与 GORM model 同步更新，不作为迁移执行脚本。
+14. **TypeScript 类型不敷衍。** web 项目禁止用 `any`/`unknown` 绕过类型检查：API DTO、PageSpec、FormPresentationSpec、selector AST、ConsoleMenuSpec 等共享类型统一定义在 `web/src/types/`（与服务端 Go DTO 一一对应）并被引用，禁止在页面或组件内重复定义同名结构。`any` 只允许出现在第三方库边界等确实无法避免的位置并注明理由；`unknown` 必须配合类型收窄使用，禁止直接断言为具体类型了事。
 
 ## 2. 目标领域模型
 
@@ -116,11 +142,72 @@ interface CapabilitySemantics {
   actions: ActionSemantic[];
   tasks: TaskSemantic[];
   reports: ReportSemantic[];
-  source: 'openapi_rest' | 'sdk_explicit' | 'platform_review';
   sourceDigest: string;
+  provenance: SemanticProvenance[];
   diagnostics: Diagnostic[];
 }
+
+interface IdentitySemantic {
+  itemPath: JsonPointer; // canonical item schema 中的唯一标识字段
+  valueType: JsonScalarType;
+}
+
+type JsonScalarType = 'string' | 'number' | 'integer' | 'boolean';
+
+interface CollectionSemantic {
+  query: FunctionRef;
+  itemsPath: JsonPointer; // collection query 输出中项目数组的位置
+  itemSchemaDigest: string;
+  pagination?: OffsetPaginationSemantic | CursorPaginationSemantic;
+}
+
+interface OffsetPaginationSemantic {
+  kind: 'offset';
+  request: { offset: JsonPointer; limit: JsonPointer };
+  response: { total?: JsonPointer; hasMore?: JsonPointer };
+}
+
+interface CursorPaginationSemantic {
+  kind: 'cursor';
+  request: { cursor: JsonPointer; limit?: JsonPointer };
+  response: { nextCursor: JsonPointer; previousCursor?: JsonPointer; hasMore?: JsonPointer };
+}
+
+interface ActionSemantic {
+  function: FunctionRef;
+  subject: 'resource_item' | 'resource_selection' | 'none';
+  identityInput?: JsonPointer;
+}
+
+interface TaskSemantic {
+  start: FunctionRef;
+  taskId: { resultPath: JsonPointer; valueType: JsonScalarType };
+  status: { function: FunctionRef; taskIdInput: JsonPointer; statePath: JsonPointer };
+  events?: { function: FunctionRef; taskIdInput: JsonPointer; eventsPath: JsonPointer };
+  result?: { function: FunctionRef; taskIdInput: JsonPointer; resultPath: JsonPointer };
+  cancel?: { function: FunctionRef; taskIdInput: JsonPointer };
+  retry?: { function: FunctionRef; taskIdInput: JsonPointer };
+}
+
+interface ReportSemantic {
+  query: FunctionRef;
+  datasetPath: JsonPointer;
+  dimensions: JsonPointer[];
+  metrics: JsonPointer[];
+}
+
+interface SemanticProvenance {
+  field: string;
+  source: 'openapi_rest' | 'sdk_explicit' | 'platform_review';
+  sourceDigest: string;
+  confidence: 'high' | 'low';
+  status: 'effective' | 'overridden' | 'conflict';
+}
 ```
+
+`IdentitySemantic.itemPath` 必须在 collection item 或 item query 的输出 schema 中唯一存在；item/update/delete/action 的 identity input 由 P3 typed selector 显式映射并校验，不得要求 collection query 的 input 包含 identity。`CollectionSemantic.pagination` 必须同时声明请求参数和响应元数据的 JSON Pointer；offset 分页必须至少提供 `total` 或 `hasMore`，cursor 分页必须提供 `nextCursor`；缺失时只生成不带分页控件的列表，不得猜测 offset/cursor 协议。
+
+`ActionSemantic.subject` 是资源操作所需的业务上下文，不是按钮位置：`resource_item` 由生成器映射为行操作，`resource_selection` 映射为批量操作，`none` 映射为资源工具栏操作；无法安全判定 subject 或 identity input 时只生成独立 Operation Proposal。`TaskSemantic` 与 `ReportSemantic` 的所有 pointer 都必须可由对应 FunctionContract schema 验证，否则只能生成 `needs_review`。
 
 ### 2.3 PageProposal 与 PageSpec
 
@@ -130,258 +217,321 @@ type PageSpec = ResourcePageSpec | OperationPageSpec | TaskPageSpec | ReportPage
 interface PageProposal {
   id: string;
   scope: Scope;
+  proposalKey: string;
   pageKey: string;
   spec: PageSpec;
-  quality: 'ready' | 'basic' | 'needs_review' | 'blocked';
+  quality: 'ready' | 'basic' | 'needs_review';
   generatorVersion: string;
   sourceDigests: SourceDigest[];
   diagnostics: Diagnostic[];
+  createdAt: string;
+}
+
+// 不可物化的问题不是 Proposal：只保存诊断与修复指引，不携带 spec。
+interface BlockedProposalIssue {
+  id: string;
+  scope: Scope;
+  sourceDigests: SourceDigest[];
+  diagnostics: Diagnostic[];
+  repairHint: string;
 }
 ```
 
-PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、任务和报表节点必须使用明确 Go/TypeScript DTO；mapping 使用 typed selector AST，禁止 `map[string]any`、任意 JSONPath、组件 props 和裸 row 透传。
+`proposalKey` 是生成器幂等身份：一个 ResourceCapability 只能有 `resource:<resourceKey>`，每个独立 Operation/Task/Report 函数分别有 `<kind>:<functionId>`。`pageKey` 固定为 `resource--<resourceKey>` 或 `<kind>--<functionId>`，其中 source key 必须符合 `[a-z0-9][a-z0-9._-]*`；它是可读的路由与发布身份，不得从 summary、labels 或本次生成结果随机生成。分类建议对 ResourcePage 取 `resourceKey` 的第一个 `.` 前缀、对独立 Operation/Task/Report 页面取原始 `functionId` 的第一个 `.` 前缀（无 `.` 时取完整 key），不得从带 kind 前缀的 pageKey 推断。Resource action 只有在 `subject` 可验证时才并入唯一 ResourcePage；否则保留为函数自己的 Operation Proposal，避免重复菜单或覆盖资源页。
+
+PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、任务和报表节点必须使用明确 Go/TypeScript DTO；mapping 使用 typed selector AST，禁止 `map[string]any`、任意 JSONPath、组件 props 和裸 row 透传。Approval 不是第五种页面类型：`execution: 'approval'` 落在 OperationPage 或 TaskPage 上，以等待态和审批状态呈现，不得发明 ApprovalPageSpec。
 
 ## 3. 执行顺序与工作包
 
-每个工作包必须完成“代码、单元测试、真实浏览器 E2E、文档、删除旧路径”后才能标记完成。禁止仅因有服务层测试就勾选完成。
+每个工作包必须完成“代码、单元测试、文档”后才能标记完成；涉及用户路径的工作包还必须完成真实浏览器 E2E（P1 等纯后端契约包以服务端集成测试替代浏览器 E2E）。该工作包涉及的旧路径清理应同步完成，无法立即删除的必须登记为 P7-b 前置条件项，禁止无登记遗留。禁止仅因有服务层测试就勾选完成。
 
 ### P0. 架构冻结、现状降级与删除准备
 
-状态：已完成。术语清理、术语表、删除清单均已建立；物理删除在 P7 执行。
+状态：待重新审核。
+
+#### P0-0. 先完成表单 runtime 替换
+
+> 这是当前重构的第一步，优先级高于 PageSpec、Proposal 和 Console 后续改造。原因：函数调用测试、Page action、QueryForm、Modal/Drawer create/update 都依赖同一个表单 runtime；如果这里继续保留 Formily 或旧 Function Form，后续页面生成仍会反复返工。
+
+当前本地事实：
+
+- 当前表单 runtime 选定为 `@rjsf/antd + @rjsf/validator-ajv8`。
+- `@rjsf/*` 只作为前端 renderer adapter；rjsf `uiSchema` 只能从 `FormPresentationSpec` 内存派生，不进入 SDK/OpenAPI/PageSpec/发布快照。
+- 待重新验证的观察项（不是完成证据）：工作区似乎已清理 `@formily/*` 依赖、`components/formily` runtime、`generateFormilyFromJsonSchema`、`validateFormilySchema` 和 Formily 文案。必须重新执行 `rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json` 确认无运行代码命中后才可作为证据。
+- 待重新验证的观察项（不是完成证据）：Functions Invoke、PageRenderer 的 Operation/Resource/Task/Report/Approval 表单和 Assignments 弹窗似乎已接入同一个 `SchemaFormRenderer`。必须在浏览器 POC 中逐路径实测后才可作为证据。
+- 当前全仓库 TypeScript 仍有 Analytics、Profile、Support、Storage 等既有类型错误；P0-0 不能仅因表单链路清理完成就标记完成。
+
+实施顺序：
+
+- [ ] 固定唯一 JSON Schema 表单 runtime 为 `@rjsf/antd + @rjsf/validator-ajv8`；禁止保留 `form-render`、Formily 或自研 ProForm field factory 作为第二运行时。
+- [ ] 用真实游戏 JSON Schema 验证 antd v5、React 18、Umi Max 构建、中文错误、array/object、enum、format、默认值和复杂嵌套。
+- [ ] 建立 `FormPresentationSpec -> renderer presentation config` 的只读派生 adapter；renderer 私有 UI 配置不持久化、不进入 SDK/OpenAPI、不成为第二套页面协议。
+- [ ] 让 Functions Invoke、QueryForm、Page action、create/update Modal/Drawer 和 Assignments 弹窗全部复用同一 renderer。
+- [ ] 物理删除 `@formily/*` 依赖、`components/formily`、`generateFormilyFromJsonSchema`、`validateFormilySchema`、Formily 文案和所有 Formily 类型引用。
+- [ ] 更新 `scripts/dashboard_vnext_guard.sh`，阻止 Formily runtime 和旧 Function Form 回流；只允许选定的唯一 JSON Schema 表单 runtime。
+- [ ] 表单/runtime 相关的 TypeScript 检查、目标单测和浏览器 POC 验收通过后，才允许继续 P1+；全仓库既有 TS 错误（Analytics、Profile、Support、Storage 等）归入第 5 节最终门禁，不阻塞后端契约重构。
+
+验收：`rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json` 无运行代码命中；复杂 input schema 的函数调用、创建、编辑、查询和动作弹窗使用同一 renderer；不持久化 renderer 私有 UI 配置；前后端校验结果一致。
 
 #### P0-1. 冻结新模型与术语
 
-- [x] 重写 Dashboard、Descriptor、UI Schema、UI Generation 权威文档。
-- [x] 建立 `docs/architecture/dashboard-glossary.md`，仅定义当前术语：FunctionContract、ResourceCapability、CapabilitySemantics、PageProposal、PageDraft、PublishedPageSpec、ResourcePage、OperationPage、TaskPage、ReportPage、FormPresentationSpec、binding。
-- [x] 更新所有 guide/API/SDK 文档，只保留当前模型术语和正向边界。
-- [x] 文档中明确历史页面配置无自动迁移路径，避免 agent 再加入转换桥。
+- [ ] 重写 Dashboard、Descriptor、UI Schema、UI Generation 权威文档。
+- [ ] 建立 `docs/architecture/dashboard-glossary.md`，仅定义当前术语：FunctionContract、ResourceCapability、CapabilitySemantics、PageProposal、PageDraft、PublishedPageSpec、ResourcePage、OperationPage、TaskPage、ReportPage、FormPresentationSpec、binding。
+- [ ] 更新所有 guide/API/SDK 文档，只保留当前模型术语和正向边界。
+- [ ] 文档中明确历史页面配置无自动迁移路径，避免 agent 再加入转换桥。
 
-验收：`scripts/dashboard_vnext_guard.sh docs` 通过；产品、架构、API、SDK 文档只出现当前模型术语。
+验收：Dashboard PageSpec guard 通过；产品、架构、API、SDK 文档只出现当前模型术语。脚本暂沿用 `scripts/dashboard_vnext_guard.sh` 历史文件名以保持 CI 调用稳定，但检查内容必须是唯一 canonical PageSpec 模型。
 
 #### P0-2. 盘点保留/删除代码
 
-- [x] 为 Dashboard 生成器、spec、页面 schema validator、旧 Page renderer、Page schema editor 和旧页面表单 registry 建立删除清单与调用图。
-- [x] 标注保留模块：scope、PageVersion、PublishedPage、ConsoleMenu、Console execute、OpenAPI Source、Audit/OTel。
-- [x] 删除前先新增新模型替代路径；替代路径通过 E2E 后物理删除旧文件、路由、DTO、数据库列和 CI allowlist。
-- [x] 删除历史页面数据前，导出只读报告和备份方案；任何生产数据删除另行取得明确确认，禁止自动执行。
+> 历史初稿见 `docs/discussions/p0-2-deletion-checklist.md`；以本计划口径重新核对后更新该清单，不得直接沿用。
+
+- [ ] 为 Dashboard 生成器、spec、页面 schema validator、旧 Page renderer、Page schema editor 和旧页面表单 registry 建立删除清单与调用图。
+- [ ] 标注保留模块：scope、PageVersion、PublishedPage、ConsoleMenu、Console execute、OpenAPI Source、Audit/OTel。
+- [ ] 删除前先新增新模型替代路径；替代路径通过 E2E 后物理删除旧文件、路由、DTO、数据库列和 CI allowlist。
+- [ ] 删除历史页面数据前，导出只读报告和备份方案；任何生产数据删除另行取得明确确认，禁止自动执行。
 
 验收：删除清单逐项有 owner、替代模块、测试和删除 PR；无”暂时保留”项。
 
 ### P1. FunctionContract 与 CapabilitySemantics
 
-状态：已完成。
+状态：待重新审核。
 
 #### P1-1. 替换 descriptor 核心 DTO
 
-- [x] 在 proto、SDK、OpenAPI Source、DB 中定义 `capability` 和 `execution` 的受控枚举。
-- [x] 保留 `resourceKey/operationKey/risk/permission/inputSchema/outputSchema`，删除注册侧页面扩展及其所有解析、透传、测试和文档。
-- [x] 为各 SDK 建立 capability 支持矩阵；不支持时明确失败或标记未支持，禁止无声丢弃。
-- [x] 注册边界严格拒绝 UI、页面、mapping、分页、列、任务路径、图表路径与多语言页面显示字段。
+- [ ] 在 proto、SDK、OpenAPI Source、DB 中定义 `capability` 和 `execution` 的受控枚举。
+- [ ] 在注册边界校验 `functionId`、`resourceKey`、`operationKey` 使用稳定小写 key（`[a-z0-9][a-z0-9._-]*`）；不符合格式必须返回结构化错误，避免 proposalKey/pageKey 和动态分类出现不可路由或不可复现的身份。
+- [ ] 保留 `resourceKey/operationKey/risk/permission/inputSchema/outputSchema`，删除注册侧页面扩展及其所有解析、透传、测试和文档。
+- [ ] 为各 SDK 建立 capability 支持矩阵；不支持时明确失败或标记未支持，禁止无声丢弃。
+- [ ] 注册边界严格拒绝 UI、页面、mapping、分页、列、任务路径、图表路径与多语言页面显示字段。
+- [ ] 声明 JSON Schema 受支持子集：object/array/scalar、`required`、`enum`、format hint、本地 `$defs`/`$ref`；`oneOf`/`anyOf`/`discriminator`、远程 `$ref` 不影响注册，但必须标注为后续生成降级来源。
 
 验收：SDK/OpenAPI 只能构建 FunctionContract；任意被禁止字段返回结构化错误；所有官方 SDK demo 可注册至少一个新模型示例。
 
 #### P1-2. 持久化能力和语义
 
-- [x] 新建 scope 化 `function_contracts`、`resource_capabilities`、`capability_semantics`、`capability_semantic_versions` 数据模型和迁移。
-- [x] Function 注册/Source 更新后异步或事务内重建对应 scope 的 FunctionContract；不再由 Resource API 请求时临时拼装唯一事实。
-- [x] 保存 source、sourceDigest、版本、诊断、更新时间和操作者；所有变更审计、OTel。
-- [x] Resource Catalog API 读取持久化聚合，并展示”已识别、待确认、冲突、不可执行”。
+- [ ] 新建 scope 化 `function_contracts`、`resource_capabilities`、`capability_semantics`、`capability_semantic_versions` 数据模型和迁移；所有新建表（含 P2-1/P3-1 的 Proposal 与页面表）以 GORM model + AutoMigrate 定义（边界 13），并同步更新 `database/schema.sql` 参考文档。
+- [ ] Function 注册/Source 更新后异步或事务内重建对应 scope 的 FunctionContract；不再由 Resource API 请求时临时拼装唯一事实。
+- [ ] 保存有效语义、字段级 `SemanticProvenance`、sourceDigest、版本、诊断、更新时间和操作者；所有变更审计、OTel。不得以单一 `source` 字段掩盖多个来源或冲突。
+- [ ] Resource Catalog API 读取持久化聚合，并展示”已识别、待确认、冲突、不可执行”。
 
 验收：同一函数更新后可查询旧/新语义版本和来源；不同 game/env 不串数据；重启 server 后资源语义不依赖内存注册表才能解释历史 Proposal。
 
 #### P1-3. OpenAPI REST 语义分类器
 
-- [x] 从 method/path/path parameter/request/response schema 分类 `collection_query/item_query/create/update/delete`。
-- [x] 明确 collection response、identity field、分页参数、响应对象的置信度规则和 diagnostics。
-- [x] REST 规则只生成 capability semantic，不生成列、按钮位置、最终 mapping 或菜单。
-- [x] path/schema 不完整时降级 `action` 或 `needs_review`，绝不凭 operationId 名称猜 CRUD。
+- [ ] 从 method/path/path parameter/request/response schema 分类 `collection_query/item_query/create/update/delete`。
+- [ ] 明确 collection response、identity field、分页参数、响应对象的置信度规则和 diagnostics。
+- [ ] REST 规则只生成 capability semantic，不生成列、按钮位置、最终 mapping 或菜单。
+- [ ] path/schema 不完整时只产出低置信度 `action` semantic 和 diagnostics，绝不凭 operationId 名称猜 CRUD；`ready`/`basic`/`needs_review` 是 PageProposal quality，只能由 P2 生成器判定，不得出现在 CapabilitySemantics 层。
 
 验收：`/players`、`/players/{playerId}` 的标准 OpenAPI 生成 CRUD 语义；非标准 REST 和普通 SDK 函数不被误判。
 
 #### P1-4. SDK 显式语义与 Resource Catalog 补充
 
-- [x] SDK builder 支持受控 `capability`，并与 proto/所有语言 SDK 对齐。
-- [x] Resource Catalog 为管理员提供语义补充：identity、collection、生命周期 capability 绑定、task/report 数据语义；独立版本、权限、审计。
-- [x] 补充不是 Page Studio，不包含导航、列、表单布局或动作位置。
-- [x] 语义冲突时必须阻断 Proposal 自动发布，要求管理员确认。
+- [ ] SDK builder 支持受控 `capability`，并与 proto/所有语言 SDK 对齐。
+- [ ] Resource Catalog 为管理员提供语义补充：identity、collection、生命周期 capability 绑定、task/report 数据语义；独立版本、权限、审计。
+- [ ] 补充不是 Page Studio，不包含导航、列、表单布局或动作位置。
+- [ ] 语义来源冲突优先级固定为 `platform_review > sdk_explicit > openapi_rest`；按该顺序计算字段级有效语义，但冲突必须保留结构化 diagnostics，并触发受影响 ResourceCapability 与 PageProposal 重算。
+- [ ] 存在未解决语义冲突时，受影响 Proposal 必须降级为 `needs_review` 且禁止发布；管理员以版本化 `platform_review` 明确选择后才消除冲突。所有 Proposal 本就需要用户显式接受并发布，不得使用“自动发布”作为冲突控制表述。
 
 验收：纯 SDK Resource 能通过显式 capability 或 Catalog 补充生成 CRUD Proposal；没有补充时仍生成 basic Operation Proposal。
 
-### P2. PageProposal 生成器
-
-状态：已完成。
-
-#### P2-1. Proposal 数据模型和生成作业
-
-- [x] 新建 `page_proposals`、`page_proposal_versions`，按 `(game_id, env, proposal_key, version)` 隔离。
-- [x] Proposal 记录 FunctionContract/CapabilitySemantics/generator source digest、generator version、质量、诊断、生成时间。
-- [x] 注册、OpenAPI Source update、Catalog semantic update 触发增量重算；页面工作台只读取持久化 Proposal。
-- [x] 相同输入摘要重算结果必须字节级稳定；为生成器加入 golden tests。
-
-验收：重复生成不产生随机 diff；Proposal 可以显示“因何变化”；Proposal 从不覆盖 Draft/Published 页面。
-
-#### P2-2. Resource CRUD 模板
-
-- [x] 按 Collection + Identity + capability 生成 ResourcePage Proposal。
-- [x] ListView 从 output JSON Schema 提取字段候选、可展示类型、默认筛选、分页候选；无可靠 collection/identity 时不生成 CRUD 页。
-- [x] DetailView 从 item query 或 collection item schema 生成描述字段候选。
-- [x] create/update 使用 input schema 生成 FormPresentationSpec；delete 生成受风险/审批约束的 ConfirmAction。
-- [x] action 根据 semantic/context 生成 row、batch 或 toolbar **候选**；模糊时只生成独立 Operation Proposal 或 needs_review。
-
-验收：OpenAPI REST `players` 生成可直接发布 ResourcePage；列表、详情、create/update/delete 和 `ban` 行操作的选择理由可展示且类型可验证。
-
-#### P2-3. Operation、Task、Report、Approval 模板
-
-- [x] 同步非 CRUD 函数生成 `basic` OperationPage：表单、确认、受控执行、结构化 ResultView。
-- [x] task semantic 生成 TaskPage，要求 start/status/events/result/cancel/retry 的真实 API 语义；缺失时 needs_review。
-- [x] report semantic 生成 ReportPage，要求 dataset、dimension、metric、chart/table 的类型化语义；缺失时 needs_review。
-- [x] approval execution 生成明确等待态和状态刷新规则，禁止”已提交即完成”。
-
-验收：`mail.send`、`reward.batchGrant`、`analytics.retention` 都生成独立且真实可运行的 Proposal；没有占位 JSON 面板。
-
-#### P2-4. 质量与直接发布规则
-
-- [x] `ready`：所有 binding、selector、navigation labels、权限、风险、页面节点和 renderer ABI 通过校验。
-- [x] `basic`：安全 OperationPage 完整，但没有复杂 Resource/Task/Report 语义；可直接发布。
-- [x] `needs_review`：可预览但必须确认/补充语义；不可发布。
-- [x] `blocked`：函数不可执行、schema/selector 违法、权限或 scope 不安全；不可物化。
-- [x] 所有自动 Proposal 仍需用户显式”接受并发布”；禁止注册后自动上线菜单。
-
-验收：质量判断由后端唯一计算；前端不可自行提高质量或绕过发布校验。
-
 ### P3. 强类型 PageSpec、FormPresentation 和 binding
 
-状态：已完成。
+状态：待重新审核。
 
-#### P3-1. PageSpec vNext DTO 与数据库
+> P3 是 P2 的硬前置。任何 P2 Proposal、Page Studio 保存或发布 API 在 P3 的 DTO、selector 和服务端校验闭环前都不得上线。
 
-- [x] 定义 Go/TypeScript 一致的 discriminated union：ResourcePage、OperationPage、TaskPage、ReportPage。
-- [x] 定义 NavigationSpec、ListViewSpec、DetailViewSpec、FormActionSpec、ConfirmActionSpec、TaskViewSpec、ReportViewSpec、ResultViewSpec。
-- [x] 定义 `FormPresentationSpec`，以 JSON Schema + 受控 widget hints 表达表单显示。
-- [x] `page_specs/published_page_specs/page_versions` 写入 `pageSpecVersion` 和完整 FormPresentation snapshot；按 scope 写入新结构，历史数据不转换。
+#### P3-1. Canonical PageSpec DTO 与数据库
+
+- [ ] 定义 Go/TypeScript 一致的 discriminated union：ResourcePage、OperationPage、TaskPage、ReportPage。
+- [ ] 定义 NavigationSpec、QueryViewSpec、ListViewSpec、DetailViewSpec、FormActionSpec、ConfirmActionSpec、TaskViewSpec、ReportViewSpec、ResultViewSpec，以及 pagination、identity、action subject、taskId、dataset/dimension/metric 的强类型引用；`FormFieldSpec` 必须包含 `visibleWhen?: ConditionSpec`（与 P3-3 合并规则一致）。
+- [ ] 定义 `FormPresentationSpec`，以 JSON Schema + 受控 widget hints 表达表单显示。
+- [ ] `page_specs/published_page_specs/page_versions` 写入 `pageSpecVersion` 和完整 FormPresentation snapshot；按 scope 写入新结构，历史数据不转换。
 
 验收：核心 DTO 不含 `any`、`interface{}`、任意 JSON props、组件树字段或注册侧页面扩展。
 
 #### P3-2. Typed selector AST 与静态校验
 
-- [x] 以 AST 替换 binding `inputMapping/outputMapping` JSON object。
-- [x] 支持来源：form、row、selection、detail、page_state、literal；禁止任意 JSONPath 和 undefined source。
-- [x] 根据 FunctionContract JSON Schema、CapabilitySemantics 和页面状态进行路径/类型/required 校验。
-- [x] 支持 field rename、schema diff 和 selector stale diagnostics。
+- [ ] 以 typed selector AST 替换 binding 任意映射 JSON object；AST 形状必须与 `docs/architecture/ui-schema-spec.md` 对齐：path 为 JsonPointer、`page_state` 为 `{key, path?}`、`OutputAssignment` 含 `stateKey`/`shape`。现有实现（点分 path、无 key、输入输出复用同一 AST）若与文档不一致，必须先修正实现或修正文档，不得并存。
+- [ ] 支持来源：form、row、selection、detail、page_state、literal；禁止任意 JSONPath 和 undefined source。
+- [ ] 根据 FunctionContract JSON Schema、CapabilitySemantics 和页面状态进行路径/类型/required 校验。
+- [ ] 支持 field rename、schema diff 和 selector stale diagnostics。
 
 验收：非法路径、整行盲传、类型不匹配、缺少 required assignment 在保存/发布前可读报错；前端和后端共享同一 selector 行为测试向量。
 
 #### P3-3. 发布快照、stale 与三方合并
 
-- [x] PublishedPageSpec 冻结 page spec、form presentation、function contract digest、semantic digest、risk、permission、execution、renderer/generator version。
-- [x] 变化产生新 Proposal，比较 base Proposal、当前 Draft、最新 Proposal，输出自动合并项和冲突项。
-- [x] 自动合并仅允许非语义展示字段；binding/selector/权限/风险/identity/执行模式变化必须显式确认。
-- [x] stale 页面继续显示菜单和诊断，但 binding execute 必须拒绝执行，直到重新发布。
+- [ ] PublishedPageSpec 冻结 page spec、form presentation、function contract digest、semantic digest、risk、permission、execution、renderer/generator version。
+- [ ] 变化产生新 Proposal，比较 base Proposal、当前 Draft、最新 Proposal，输出自动合并项和冲突项。
+- [ ] 自动合并安全集仅限展示字段：列顺序与显隐、字段 label/help、order、group、widget hint、导航标题、分类 labels、图标、排序。`visibleWhen` 只有经校验证明不影响 required 输入、binding payload 和 selector 引用时才允许自动合并，否则归入冲突集。
+- [ ] 冲突集必须显式确认，禁止自动合并：bindings、functionId、input/output assignment、selector、confirmation、permissions、risk、identity、execution。
+- [ ] stale 页面继续显示菜单和诊断，但 binding execute 必须拒绝执行，直到重新发布。
 
 验收：函数新增 optional 字段、删除 required 字段、风险提高、identity 变化、列表字段变更都有明确 diff 和可测试结果；不发生静默覆盖。
 
+### P2. PageProposal 生成器
+
+状态：待重新审核。
+
+> 硬前置：P3 的 canonical PageSpec DTO、selector AST、服务端静态校验和发布快照必须已经通过目标测试。P2 只能生成已被 P3 校验器接受的 PageSpec，不得在生成器中另建页面结构或 mapping 规则。
+
+#### P2-1. Proposal 数据模型和生成作业
+
+- [ ] 新建 `page_proposals`、`page_proposal_versions`，按 `(game_id, env, proposal_key, version)` 隔离；proposalKey 固定为 `resource:<resourceKey>` 或 `<kind>:<functionId>`，pageKey 固定为 `resource--<resourceKey>` 或 `<kind>--<functionId>`，source key 限制为 `[a-z0-9][a-z0-9._-]*`，禁止由 title、labels 或本次输出随机决定。
+- [ ] Proposal 记录 FunctionContract/CapabilitySemantics/generator source digest、generator version、质量、诊断、生成时间。
+- [ ] 注册、OpenAPI Source update、Catalog semantic update 触发增量重算；页面工作台只读取持久化 Proposal。
+- [ ] 相同输入摘要重算结果必须字节级稳定；为生成器加入 golden tests。
+
+验收：重复生成不产生随机 diff；Proposal 可以显示“因何变化”；Proposal 从不覆盖 Draft/Published 页面。
+
+#### P2-2. Resource CRUD 模板
+
+- [ ] 按 Collection + Identity 生成 ResourcePage Proposal；只有 collection/identity 时生成只读 ResourcePage，create/update/delete 是可选生命周期能力，不得因缺少写操作降级为 OperationPage。
+- [ ] ListView 从 output JSON Schema 提取字段候选、可展示类型、默认筛选、分页候选；无可靠 collection/identity 时不生成 ResourcePage。
+- [ ] DetailView 从 item query 或 collection item schema 生成描述字段候选。
+- [ ] create/update 使用 input schema 生成 FormPresentationSpec；delete 生成受风险/审批约束的 ConfirmAction。
+- [ ] action 只按 `ActionSemantic.subject` 确定性生成 row、batch 或 toolbar 候选；`resource_item`/`resource_selection` 的 identity input 不能静态验证时只生成独立 Operation Proposal，`none` 不要求 identity input；不得猜测页面位置。
+- [ ] input/output schema 超出受支持子集（`oneOf`/`anyOf`/`discriminator`、远程 `$ref`，见 P1-1）时，表单与列生成降级 `needs_review` 并记录 diagnostic，不得生成不可用的默认页面。
+
+验收：OpenAPI REST `players` 生成可直接发布 ResourcePage；列表、详情、create/update/delete 和 `ban` 行操作的选择理由可展示且类型可验证。只读资源生成可直接发布的查询/详情页面，不出现虚构的写操作。
+
+#### P2-3. Operation、Task、Report、Approval 模板
+
+- [ ] 同步非 CRUD 函数生成 `basic` OperationPage：表单、确认、受控执行、结构化 ResultView。
+- [ ] task semantic 生成 TaskPage，要求 start/status/events/result/cancel/retry 的真实 API 语义；缺失时 needs_review。
+- [ ] report semantic 生成 ReportPage，要求 dataset、dimension、metric、chart/table 的类型化语义；缺失时 needs_review。
+- [ ] approval execution 生成明确等待态和状态刷新规则，禁止”已提交即完成”。
+
+验收：`mail.send`、`reward.batchGrant`、`analytics.retention` 都生成独立且真实可运行的 Proposal；没有占位 JSON 面板。
+
+#### P2-4. 质量与直接发布规则
+
+- [ ] `ready`：所有 binding、selector、navigation labels、权限、风险、页面节点和 renderer ABI 通过校验。
+- [ ] `basic`：安全 OperationPage 完整，但没有复杂 Resource/Task/Report 语义；可直接发布。
+- [ ] `needs_review`：可预览但必须确认/补充语义；不可发布。
+- [ ] 不可物化的问题（函数不可执行、schema/selector 违法、权限或 scope 不安全）生成 BlockedProposalIssue，只保存诊断与修复指引；`blocked` 不是 Proposal quality，不得要求 spec。
+- [ ] 所有自动 Proposal 仍需用户显式”接受并发布”；禁止注册后自动上线菜单。
+- [ ] 默认 labels 分三套规则：ResourcePage `title` 取 humanize `resourceKey`；Operation/Task/Report 的 `title` 取主 binding 的 `summary[systemDefaultLocale]`，缺失时 humanize `operationKey`，再缺失时 humanize 原始 `functionId`；`category.key` 对 ResourcePage 取 `resourceKey` 的第一个 `.` 前缀、对独立页面取原始 `functionId` 的第一个 `.` 前缀（无 `.` 时取完整 key），`category.labels` 取该 key 的 humanize 结果。显式 labels 只能来自 PageSpec/Page Studio 人工编辑，SDK/OpenAPI 注册不得提供 labels。系统默认语言必须在生成阶段补齐，否则 Proposal 不得标记 `ready`/`basic`。
+- [ ] `LocalizedText` 的显示顺序固定为当前界面语言、系统默认语言；生成器只保证系统默认语言，Page Studio 可补充其他语言。此 fallback 只读取 PublishedPageSpec 文本，不得访问静态 locale/字典。
+- [ ] 发布时校验同 scope 内相同 `category.key` 的 `category.labels` 完全一致；不一致则发布失败，由管理员在 Page Studio 统一后重发。
+
+验收：质量判断由后端唯一计算；前端不可自行提高质量或绕过发布校验。
+
 ### P4. ProComponents 运行时与表单适配器
 
-状态：已完成。
+状态：待重新审核。
 
-#### P4-1. SchemaFormRenderer
+#### P4-1. JSON Schema Form Renderer 选型与 POC
 
-- [x] 新建 JSON Schema -> ProForm field factory，支持基础类型、enum、array/object、required、default、format、错误显示和受控 widget hints。
-- [x] 接入 JSON Schema validator，禁止前端独自解释与服务端不同的 payload。
-- [x] 支持 QueryForm、ModalForm、DrawerForm、StepsForm；函数目录与 Page action 复用同一 renderer。
-- [x] 移除 Function Form 对第二套表单 runtime 的运行依赖；历史 form 数据一次性转换或报错。
+- [ ] P4-1 的选型和 Formily 清理已前移到 P0-0；本阶段只接入已选定的 `@rjsf/antd + @rjsf/validator-ajv8` renderer 到 ResourcePage/OperationPage/TaskPage/ReportPage。
+- [ ] 前端 JSON Schema 校验入口必须基于 P0-0 选定 runtime 的 Ajv/validator；服务端仍必须做最终 JSON Schema 校验，禁止前端独自解释 payload。
+- [ ] 支持 QueryForm、Modal/Drawer 中的 create/update/action 表单；函数调用测试与 Page action 复用同一 renderer。
 
-验收：复杂 input schema 的函数调用、创建、编辑、查询和动作弹窗使用同一 renderer；不含第二套表单 runtime import。
+验收：复杂 input schema 的函数调用、创建、编辑、查询和动作弹窗使用同一 renderer；不含 Formily runtime import；不持久化 renderer 私有 UI 配置；前后端校验结果一致。
 
 #### P4-2. ResourcePageRenderer
 
-- [x] `ProTable` 实现查询、分页、列设置、筛选、空态、错误态、刷新、批量选择和 toolbar。
-- [x] `ProDescriptions` 实现详情；`ModalForm/DrawerForm` 实现 create/update；`Popconfirm/Modal.confirm` 实现 delete/high-risk action。
-- [x] 每个行为通过 binding execute API；数据状态按 page instance/binding 隔离。
-- [x] 对所有选择、详情、列表状态使用 typed selector，禁止 `lastResult` 或整行隐式数据总线。
+- [ ] `ProTable` 实现查询、分页、列设置、筛选、空态、错误态、刷新、批量选择和 toolbar。
+- [ ] `ProDescriptions` 实现详情；`ModalForm/DrawerForm` 实现 create/update；`Popconfirm/Modal.confirm` 实现 delete/high-risk action。
+- [ ] 每个行为通过 binding execute API；数据状态按 page instance/binding 隔离。
+- [ ] 对所有选择、详情、列表状态使用 typed selector，禁止 `lastResult` 或整行隐式数据总线。
 
 验收：一个真实 Resource CRUD 页面不需要页面特例代码即可完成 list/detail/create/update/delete、分页和 row action。
 
 #### P4-3. Task/Report/Approval Renderer
 
-- [x] Task renderer 对接真实 task status/events/result/cancel/retry API，支持刷新、失败和重试。
-- [x] Report renderer 接入 `@ant-design/charts` 或确认的 AntV renderer，按 ReportViewSpec 渲染 line/bar/pie/table；无真实数据集不得发布。
-- [x] Approval renderer 显示 pending/approved/rejected/expired 和后续结果，不以 API 返回成功替代业务完成。
-- [x] 移除所有 `最小实现`、`JSON.stringify` 结果面板作为 Task/Report 正式 renderer。
+- [ ] Task renderer 对接真实 task status/events/result/cancel/retry API，支持刷新、失败和重试。
+- [ ] Report renderer 接入 `@ant-design/charts` 或确认的 AntV renderer，按 ReportViewSpec 渲染 line/bar/pie/table；无真实数据集不得发布。
+- [ ] Approval renderer 显示 pending/approved/rejected/expired 和后续结果，不以 API 返回成功替代业务完成。
+- [ ] 移除所有 `最小实现`、`JSON.stringify` 结果面板作为 Task/Report 正式 renderer。
 
 验收：浏览器 E2E 验证真实 task events、真实图表和审批状态。
 
 #### P4-4. 删除旧 Page runtime
 
-- [x] 删除旧 Page renderer、运行 Page 的旧 registry、Page schema validator、PageSchemaEditor 和相应 API/schema 字段。
-- [x] 删除旧表单/页面 runtime 依赖；如没有其他运行用途则完全删除，禁止保留。
-- [x] 删除 `form-render` 未使用依赖；不允许引入第二个 schema runtime。
-- [x] CI guard 阻止旧 Page runtime、注册侧页面扩展、组件树页面协议回流；历史 form 转换完成后也阻止第二套表单 runtime 回流。
+- [ ] 删除旧 Page renderer、运行 Page 的旧 registry、Page schema validator、PageSchemaEditor 和相应 API/schema 字段。
+- [ ] 删除旧表单/页面 runtime 依赖；如没有其他运行用途则完全删除，禁止保留。
+- [ ] 删除 `form-render` 未使用依赖；不允许引入第二个 schema runtime。
+- [ ] CI guard 阻止旧 Page runtime、注册侧页面扩展、组件树页面协议回流，并永久阻止第二套表单 runtime 回流。
+- [ ] 旧 form 路径物理删除；历史表单数据只允许导出、备份和在 Page Studio 人工重建，不提供导入或自动转换桥。
 
-验收：`scripts/dashboard_vnext_guard.sh runtime` 通过；前端 build 与 E2E 通过。
+验收：Dashboard PageSpec guard 通过；前端 build 与 E2E 通过。
 
 ### P5. Page Studio 与 Resource Catalog 产品化
 
-状态：已完成。后端 API 已就绪，前端编辑器待实现。
+状态：待重新审核。
 
 #### P5-1. Resource Catalog
 
-- [x] 以持久化 ResourceCapability/CapabilitySemantics 展示资源、函数、识别来源、置信度、诊断和变更历史。
-- [x] 提供管理员语义补充表单，但不允许编辑页面 UI。
-- [x] 提供 Proposal 入口和受影响页面列表。
+- [ ] 以持久化 ResourceCapability/CapabilitySemantics 展示资源、函数、识别来源、置信度、诊断和变更历史。
+- [ ] 提供管理员语义补充表单，但不允许编辑页面 UI。
+- [ ] 提供 Proposal 入口和受影响页面列表。
 
 验收：用户可以理解“函数属于什么资源、是否能组成 CRUD、为何不能生成”，无需查看原始 JSON。
 
 #### P5-2. Proposal Inbox 与直接发布
 
-- [x] Page Studio 首屏按 `ready/basic/needs_review/blocked/stale` 展示 Proposal/Draft，而不是空白 PageSpec 列表。
-- [x] ready/basic 支持预览、接受、发布；needs_review 打开对应缺失语义/页面配置步骤；blocked 只展示修复指引。
-- [x] Resource 页面和 Operation/Task/Report 页面都有明确入口，不把所有候选塞入一个资源抽屉。
+- [ ] Page Studio 首屏分三队列，而不是空白 PageSpec 列表：可直接发布（`ready`/`basic` Proposal）、需要处理（`needs_review` Proposal 和 BlockedProposalIssue）、契约变更（source digest 变化导致 stale 的 Draft/PublishedPageSpec）。`stale` 和 `blocked` 都不是 Proposal quality，不得混入 quality 枚举或模型字段。
+- [ ] ready/basic 支持预览、接受、发布；needs_review 打开对应缺失语义/页面配置步骤；BlockedProposalIssue 只展示诊断与修复指引。
+- [ ] Resource 页面和 Operation/Task/Report 页面都有明确入口，不把所有候选塞入一个资源抽屉。
 
 验收：新注册 `mail.send` 后，用户无需写 JSON：找到 basic Proposal -> 预览 -> 发布 -> Console 菜单出现 -> 可执行。
 
 #### P5-3. 语义化页面编辑器
 
-- [x] ResourcePage 面板：导航、列表/筛选、列、详情、create/update/delete、row/batch/toolbar actions、权限。
-- [x] OperationPage 面板：表单、确认、结果、权限。
-- [x] TaskPage 面板：启动参数、任务状态、事件、取消/重试、结果。
-- [x] ReportPage 面板：查询、dataset、维度、指标、图表、表格、导出。
-- [x] 所有编辑器读取强类型 DTO；高级 JSON 仅导入/导出/诊断，需单独权限且修改后仍经过同一校验。
+- [ ] ResourcePage 面板：导航、列表/筛选、列、详情、create/update/delete、row/batch/toolbar actions、权限。
+- [ ] OperationPage 面板：表单、确认、结果、权限。
+- [ ] TaskPage 面板：启动参数、任务状态、事件、取消/重试、结果。
+- [ ] ReportPage 面板：查询、dataset、维度、指标、图表、表格、导出。
+- [ ] 所有编辑器读取强类型 DTO；高级 JSON 仅导入/导出/诊断，需单独权限且修改后仍经过同一校验。
 
 验收：正常操作不展示原始 PageSpec JSON、第二套表单 schema 或自定义 mapping JSON；所有配置可通过选择器完成。
 
 #### P5-4. 变更处理与版本体验
 
-- [x] 展示 FunctionContract/CapabilitySemantics/Proposal/Draft/Published 的差异链。
-- [x] 提供自动安全合并、逐冲突决策、回滚草稿、回滚发布、重新生成 Proposal、重新发布。
-- [x] 任何覆盖操作都显示影响 binding、菜单和执行状态；使用乐观 revision 防止并发覆盖。
+- [ ] 展示 FunctionContract/CapabilitySemantics/Proposal/Draft/Published 的差异链。
+- [ ] 提供自动安全合并、逐冲突决策、回滚草稿、回滚发布、重新生成 Proposal、重新发布。
+- [ ] 任何覆盖操作都显示影响 binding、菜单和执行状态；使用乐观 revision 防止并发覆盖。
 
 验收：契约变化后用户可在 UI 解决冲突，无需手写 JSON 或猜为何 stale。
 
 ### P6. Console、权限、审计与 OTel 收口
 
-状态：已完成。基础已存在，已按 vNext E2E 重新验收。
+状态：待重新审核。
 
-- [x] Console 只读取 vNext PublishedPageSpec 和 ConsoleMenuSpec；路由仍为 `/console/:categoryKey/:pageKey`。
-- [x] ProLayout 动态菜单使用 NavigationSpec labels 与 `locale:false`；切 scope 后强制失效旧 menu/page query。
-- [x] execute API 校验 vNext binding、selector payload、snapshot、permission、risk、approval、task dispatch 和 stale。
-- [x] span/audit 统一记录 scope、pageKey、publishVersion、bindingId、functionId、semantic digest、proposal version、target、result kind、taskId/approvalId；不记录敏感 payload。
-- [x] OTel collector 环境验证 trace 和 audit 的关联字段，不只依赖本地 span recorder。
+- [ ] Console 只读取当前模型 PublishedPageSpec 和 ConsoleMenuSpec；路由仍为 `/console/:categoryKey/:pageKey`。
+- [ ] ProLayout 动态菜单使用 NavigationSpec labels 与 `locale:false`；切 scope 后强制失效旧 menu/page query。
+- [ ] 菜单分类仲裁：分类 order 取该分类下已发布页面 order 的最小值；运行时菜单只读已发布的 `category.key`/`category.labels`，不推断分类（同 key labels 一致性发布校验见 P2-4）。
+- [ ] execute API 校验 PageSpec binding、selector payload、snapshot、permission、risk、approval、task dispatch 和 stale。
+- [ ] span/audit 统一记录 scope、pageKey、publishVersion、bindingId、functionId、semantic digest、proposal version、target、result kind、taskId/approvalId；不记录敏感 payload。
+- [ ] OTel collector 环境验证 trace 和 audit 的关联字段，不只依赖本地 span recorder。
 
 验收：伪造 page/binding/function/target/scope 请求全部失败；真实调用可从 UI 点击关联至 trace、audit、task/approval。
 
-### P7. 非 vNext 实现物理清理
+### P7-a. 删除清单与防回流 guard（随 P0 先行）
 
-状态：已完成。
+状态：待重新审核。
 
-- [x] 删除注册侧页面扩展 DTO、OpenAPI extension、descriptor collector 解析、SDK/docs/demo、generator、测试。
-- [x] 删除组件树 PageSpec DTO、旧 Page renderer、Page schema validator/editor、非 vNext Page APIs 与数据库列。
-- [x] 删除历史 page spec 数据，不迁移；数据清理前备份并取得单独确认。
-- [x] 删除非 vNext `workspace_configs` 诊断/命令、对象页配置术语和防回流代码。
-- [x] 删除不再使用的旧页面/表单 runtime 依赖、锁文件项与构建配置。
-- [x] 更新 CI guard：非 vNext 模型命中必须失败，禁止 allowlist。
+- [ ] 建立旧模型文件、路由、DTO、API、数据库列的完整删除清单与调用图，逐项标注替代路径、owner 和删除前置条件。
+- [ ] 先行上线 CI guard：旧模型任何新命中即失败，allowlist 只减不增。
+- [ ] guard 同步拒绝业务代码中的原生 SQL：`internal/` 业务包中 `db.Raw(`/`db.Exec(` 命中即失败，allowlist 仅豁免 `internal/svc` 等基础设施层和测试文件，且豁免项只减不增（边界 13）。
+- [ ] guard 同步拒绝 web 业务代码中未收窄的 `unknown`、`as any` 和页面/组件内重复定义的共享 DTO：以当前存量为 baseline 建立 allowlist，新命中即失败，allowlist 只减不增（边界 14）。
 
-验收：`go test ./...`、web/docs build 与全量 E2E 不依赖任意非 vNext 文件、表、API 或 package。
+### P7-b. 按模块替换验收后物理删除
+
+状态：待重新审核。
+
+> 前置条件：被删模块的替代路径已通过该模块的真实浏览器 E2E。禁止在替代路径验收前删除仍在服务的旧模块，禁止一次性“大爆炸”删除。
+
+- [ ] 删除注册侧页面扩展 DTO、OpenAPI extension、descriptor collector 解析、SDK/docs/demo、generator、测试。
+- [ ] 删除组件树 PageSpec DTO、旧 Page renderer、Page schema validator/editor、旧模型 Page APIs 与数据库列。
+- [ ] 删除历史 page spec 数据，不迁移；数据清理前备份并取得单独确认。
+- [ ] 删除旧模型 `workspace_configs` 诊断/命令、对象页配置术语和防回流代码。
+- [ ] 删除不再使用的旧页面/表单 runtime 依赖、锁文件项与构建配置。
+- [ ] 更新 CI guard：旧模型命中必须失败，禁止 allowlist。
+
+验收：`go test ./...`、web/docs build 与全量 E2E 不依赖任意旧模型文件、表、API 或 package。
 
 ## 4. 端到端验收矩阵
 
@@ -414,12 +564,13 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 ```text
 注册侧页面扩展字段和对应 OpenAPI extension
 旧 Page renderer、组件树页面协议、页面 schema editor
-非 vNext 工作区/对象页配置 API 与 objectKey 页面身份
+旧模型工作区/对象页配置 API 与 objectKey 页面身份
 动态菜单静态 locale 或字典事实源
 Page binding 的裸 functionId、route、target、game/env
 核心 DTO 中的 TypeScript any 或 Go interface{}
+web 业务代码中未收窄的 unknown、绕过类型的 as any、在页面/组件内重复定义共享 DTO
 以 mock/JSON placeholder 声称 Task/Report 完成
-非 vNext 转换桥、第二套 runtime、自动数据迁移
+旧模型转换桥、第二套 runtime、自动数据迁移
 ```
 
 ## 6. 完成定义
@@ -432,7 +583,7 @@ Page binding 的裸 functionId、route、target、game/env
 4. Task/Report/Approval 是真实运行能力，不存在最小实现和 JSON 占位。
 5. 运行菜单唯一来自 PublishedPageSpec，scope、权限、审计、OTel、stale 和发布版本均闭环。
 6. 函数/语义变更可生成 Proposal diff 并由用户合并，绝不静默覆盖。
-7. 已物理删除注册侧页面扩展、旧 Page runtime、非 vNext 工作区/对象页配置及所有转换桥代码和文档。
+7. 已物理删除注册侧页面扩展、旧 Page runtime、旧模型工作区/对象页配置及所有转换桥代码和文档。
 8. 全量单元、集成、浏览器 E2E、docs、SDK parity 和部署验证通过。
 
 在此之前，禁止把任何阶段标记为“Dashboard 重构完成”或“可发布版本”。

@@ -132,11 +132,72 @@ interface CapabilitySemantics {
   actions: ActionSemantic[];
   tasks: TaskSemantic[];
   reports: ReportSemantic[];
-  source: 'openapi_rest' | 'sdk_explicit' | 'platform_review';
   sourceDigest: string;
+  provenance: SemanticProvenance[];
   diagnostics: Diagnostic[];
 }
+
+interface IdentitySemantic {
+  itemPath: JsonPointer; // canonical item schema 中的唯一标识字段
+  valueType: JsonScalarType;
+}
+
+type JsonScalarType = 'string' | 'number' | 'integer' | 'boolean';
+
+interface CollectionSemantic {
+  query: FunctionRef;
+  itemsPath: JsonPointer; // collection query 输出中项目数组的位置
+  itemSchemaDigest: string;
+  pagination?: OffsetPaginationSemantic | CursorPaginationSemantic;
+}
+
+interface OffsetPaginationSemantic {
+  kind: 'offset';
+  request: { offset: JsonPointer; limit: JsonPointer };
+  response: { total?: JsonPointer; hasMore?: JsonPointer };
+}
+
+interface CursorPaginationSemantic {
+  kind: 'cursor';
+  request: { cursor: JsonPointer; limit?: JsonPointer };
+  response: { nextCursor: JsonPointer; previousCursor?: JsonPointer; hasMore?: JsonPointer };
+}
+
+interface ActionSemantic {
+  function: FunctionRef;
+  subject: 'resource_item' | 'resource_selection' | 'none';
+  identityInput?: JsonPointer;
+}
+
+interface TaskSemantic {
+  start: FunctionRef;
+  taskId: { resultPath: JsonPointer; valueType: JsonScalarType };
+  status: { function: FunctionRef; taskIdInput: JsonPointer; statePath: JsonPointer };
+  events?: { function: FunctionRef; taskIdInput: JsonPointer; eventsPath: JsonPointer };
+  result?: { function: FunctionRef; taskIdInput: JsonPointer; resultPath: JsonPointer };
+  cancel?: { function: FunctionRef; taskIdInput: JsonPointer };
+  retry?: { function: FunctionRef; taskIdInput: JsonPointer };
+}
+
+interface ReportSemantic {
+  query: FunctionRef;
+  datasetPath: JsonPointer;
+  dimensions: JsonPointer[];
+  metrics: JsonPointer[];
+}
+
+interface SemanticProvenance {
+  field: string;
+  source: 'openapi_rest' | 'sdk_explicit' | 'platform_review';
+  sourceDigest: string;
+  confidence: 'high' | 'low';
+  status: 'effective' | 'overridden' | 'conflict';
+}
 ```
+
+`IdentitySemantic.itemPath` 必须在 collection item 或 item query 的输出 schema 中唯一存在；item/update/delete/action 的 identity input 由 typed selector 显式映射并校验，不得要求 collection query 的 input 包含 identity。`CollectionSemantic.pagination` 必须同时声明请求参数和响应元数据的 JSON Pointer；offset 分页必须至少提供 `total` 或 `hasMore`，cursor 分页必须提供 `nextCursor`；缺失时只生成不带分页控件的列表，不得猜测 offset/cursor 协议。
+
+`ActionSemantic.subject` 是资源操作所需的业务上下文，不是按钮位置：`resource_item` 映射为行操作，`resource_selection` 映射为批量操作，`none` 映射为资源工具栏操作；无法安全判定 subject 或 identity input 时只生成独立 OperationPage。`TaskSemantic` 与 `ReportSemantic` 的所有 pointer 都必须可由对应 FunctionContract schema 验证，否则只能生成 `needs_review`。
 
 可接受的来源优先级：
 
@@ -146,6 +207,10 @@ interface CapabilitySemantics {
 
 不允许从 `player.list`、`player.ban` 等名称猜测对象 ID、分页字段、动作位置或页面类型。允许将确定性 REST 形态与 JSON Schema 字段产生为“高置信度建议”，但低置信度建议不得自动发布。
 
+来源冲突按字段裁决：`platform_review` 是人工最终裁决，优先级最高；`sdk_explicit` 高于 `openapi_rest` 推导。每个有效值和被覆盖值都必须记录在 `SemanticProvenance`，不能以单一 `source` 掩盖多个来源。未解决冲突必须保留 diagnostic，受影响 Proposal 降级为 `needs_review` 并禁止发布；管理员以版本化 `platform_review` 明确选择后才消除冲突。Resource Catalog 的覆盖必须保存版本、记录审计，并在生效时触发受影响 ResourceCapability 与 PageProposal 的重新计算。
+
+`action` 与 `update` 的判定：幂等修改资源自身字段的生命周期操作归为 `update`；触发资源相关副作用或流程（封禁、补偿、重置、发放）归为 `action`。例如 `player.ban` 是 `player` 资源的 `action`，生成行操作而不是编辑表单。
+
 ### PageProposal、PageDraft 与 PublishedPageSpec
 
 PageProposal 是可重新生成的默认页面建议，不是草稿，也不是运行页面：
@@ -154,20 +219,32 @@ PageProposal 是可重新生成的默认页面建议，不是草稿，也不是�
 interface PageProposal {
   id: string;
   scope: Scope;
+  proposalKey: string;
   pageKey: string;
   spec: PageSpec;
-  quality: 'ready' | 'basic' | 'needs_review' | 'blocked';
+  quality: 'ready' | 'basic' | 'needs_review';
   generatorVersion: string;
   sourceDigests: SourceDigest[];
   diagnostics: Diagnostic[];
   createdAt: string;
 }
+
+// 不可物化的问题不是 Proposal：只保存诊断与修复指引，不携带 spec。
+interface BlockedProposalIssue {
+  id: string;
+  scope: Scope;
+  sourceDigests: SourceDigest[];
+  diagnostics: Diagnostic[];
+  repairHint: string;
+}
 ```
+
+`proposalKey` 是生成器幂等身份：一个 ResourceCapability 只能有 `resource:<resourceKey>`，每个独立 Operation/Task/Report 函数分别有 `<kind>:<functionId>`。`pageKey` 固定为 `resource--<resourceKey>` 或 `<kind>--<functionId>`，其中 source key 必须符合 `[a-z0-9][a-z0-9._-]*`；它是可读的路由与发布身份，不得从 summary、labels 或本次生成结果随机生成。分类建议的默认规则以 [ProComponents 页面生成与运行时](./ui-generation.md) 为唯一出处；不得从带 kind 前缀的 pageKey 推断分类。Resource action 只有在 `subject` 可验证时才并入唯一 ResourcePage；否则保留为函数自己的 OperationPage，避免重复菜单或覆盖资源页。
 
 - `ready`：完整且可验证的 Resource CRUD、Task 或 Report 页面，可直接接受并发布。
 - `basic`：安全的 Operation Page，含输入表单、确认、受控执行和结果区，可直接接受并发布。
 - `needs_review`：语义或映射不完整，必须在 Page Studio 决策后发布。
-- `blocked`：函数不可执行、权限/风险不可校验、schema 无效或 binding 不安全，禁止物化和发布。
+- 函数不可执行、权限/风险不可校验、schema 无效或 binding 不安全时，生成 BlockedProposalIssue，禁止物化和发布；`blocked` 不是 Proposal quality。
 
 PageDraft 是用户接受 Proposal 后形成的可编辑页面；PublishedPageSpec 是包含完整 PageSpec、binding snapshot、表单展示快照和 renderer version 的不可变运行产物。Proposal 重新生成绝不覆盖 Draft 或 PublishedPageSpec。
 
@@ -218,7 +295,7 @@ interface ReportPageSpec extends PageBase {
 }
 ```
 
-`PageBinding` 只引用发布期允许执行的 FunctionContract。输入输出映射必须使用受控的 typed selector AST，例如 `form.field`、`row.field`、`selection.ids`、`pageState.key` 和 literal；禁止保存无约束 JSON mapping、裸整行透传或运行时猜路径。
+`PageBinding` 只引用发布期允许执行的 FunctionContract。输入输出映射必须使用受控的 typed selector AST，禁止保存无约束 JSON mapping、裸整行透传或运行时猜路径；AST 定义与校验规则见 [UI Schema 与 PageSpec 规范](./ui-schema-spec.md)。
 
 `NavigationSpec` 承载 `category.key`、`category.labels`、`title`、排序和图标。它只在 PageProposal/PageSpec 中确定，注册侧不能提供菜单事实。
 
@@ -226,16 +303,7 @@ interface ReportPageSpec extends PageBase {
 
 ### ResourcePage
 
-当 ResourceCapability 有可验证的 `collection_query`、对象 identity 和一个或多个生命周期能力时，生成 ResourcePage：
-
-```text
-player Resource
-  collection_query -> ProTable 列表、筛选、分页
-  item_query       -> ProDescriptions 详情
-  create/update    -> ProForm / ModalForm / DrawerForm
-  delete           -> Popconfirm + 受控执行
-  action           -> 行操作、批量操作或工具栏操作
-```
+当 ResourceCapability 有可验证的 `collection_query` 与对象 identity 时，生成 ResourcePage；生命周期写操作是可选能力。只读资源也必须生成查询/列表/详情页面，不能因为缺少 create/update/delete 被错误降级为 OperationPage。语义到页面节点与组件的生成模板见 [ProComponents 页面生成与运行时](./ui-generation.md)。
 
 JSON Schema 为列表列、详情项和表单字段生成候选。`CapabilitySemantics` 解决分页、identity、集合与对象响应；PageProposal 决定列、默认排序、动作位置和展示文本。管理员可覆盖 Proposal，但不能绕过类型和发布校验。
 
@@ -249,17 +317,7 @@ JSON Schema 为列表列、详情项和表单字段生成候选。`CapabilitySem
 
 ## 前端运行时：ProComponents 页面渲染器
 
-页面运行时固定使用 Ant Design Pro/ProComponents，具体对应关系如下：
-
-| PageSpec 概念 | 运行时实现 |
-| --- | --- |
-| `ListViewSpec` | `ProTable`，包含筛选、分页、列设置、批量选择和 toolbar |
-| `DetailViewSpec` | `ProDescriptions` / `Descriptions` |
-| `FormActionSpec` / `QueryViewSpec` | `ProForm`、`ModalForm`、`DrawerForm` 或 `StepsForm` |
-| `ConfirmActionSpec` | `Popconfirm` / `Modal.confirm` + 后端风险与审批策略 |
-| `TaskViewSpec` | 真实 Task API 的状态、事件和结果视图 |
-| `ReportViewSpec` | `@ant-design/charts` 或等价 AntV renderer；表格用 `ProTable` |
-| `ConsoleMenuSpec` | ProLayout 的动态左侧菜单 |
+页面运行时固定使用 Ant Design Pro/ProComponents；PageSpec 节点与运行时组件的对应关系见 [ProComponents 页面生成与运行时](./ui-generation.md)。
 
 Renderer 只接受 PublishedPageSpec，并只通过 `POST /console/pages/:pageKey/bindings/:bindingId/execute` 执行。浏览器不得传 functionId、route、target、gameId 或 env 来选择执行目标。
 
@@ -267,9 +325,9 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 
 ## 表单策略
 
-JSON Schema 是函数输入/输出的持久化标准。函数表单和动作表单由 `FormPresentationSpec` 表示字段顺序、分组、可见性和受控 widget hint，并由 ProForm renderer + JSON Schema validation 渲染。
+JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [UI Schema 与 PageSpec 规范](./ui-schema-spec.md)，渲染链路与唯一 runtime 约束见 [ProComponents 页面生成与运行时](./ui-generation.md)。
 
-`FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload。转换、保存和发布都必须经过服务端结构校验；转换失败必须报错并要求管理员修复。
+`FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。
 
 ## Scope、菜单、发布与演进
 
@@ -296,6 +354,8 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 - Renderer ABI version 与 generator version。
 
 函数或 CapabilitySemantics 变化后，Server 生成新的 Proposal 并计算 diff。已发布页标记 stale 且拒绝执行；Page Studio 必须提供“查看差异、自动合并安全字段、解决冲突、重新发布”。绝不静默更新 Draft 或 PublishedPageSpec。
+
+自动合并的安全集只包含展示类字段：列顺序与显隐、字段 label/help、order、group、widget hint、导航标题、分类 labels、图标和排序。`visibleWhen` 只有经校验证明不影响 required 输入、binding payload 和 selector 引用时才允许自动合并，否则归入冲突集。执行类字段——bindings、functionId、input/output assignment、confirmation、permissions、risk——出现任何差异都必须人工确认，不得自动合并。
 
 ## 模型边界
 

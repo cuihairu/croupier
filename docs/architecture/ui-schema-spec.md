@@ -23,9 +23,9 @@ tag:
 
 JSON Schema 不被当作页面布局树。PageSpec 也不复用 JSON Schema 的组件扩展字段。
 
-## Function Form
+## FormPresentationSpec
 
-函数表单由以下稳定结构描述：
+表单展示由以下稳定结构描述：
 
 ```ts
 interface FormPresentationSpec {
@@ -46,9 +46,9 @@ interface FormFieldSpec {
 }
 ```
 
-Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能在函数表单工作台或 Page Studio 改展示信息，不能改变 FunctionContract payload。渲染器使用 `ProForm` 系列组件并用 JSON Schema validator 校验。
+Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能在 Page Studio 改展示信息，不能改变 FunctionContract payload。前端渲染器固定使用 `@rjsf/antd + @rjsf/validator-ajv8` 校验 payload。rjsf `uiSchema` 只能作为 adapter 的内存派生结果，不得成为 SDK/OpenAPI 注册字段或持久页面协议。
 
-历史表单展示数据如需导入，必须一次性转换为 FormPresentationSpec；转换失败直接报错，不进入发布流程。
+历史表单展示数据不提供转换或导入路径；只能在删除旧路径前导出、备份，并由管理员在 Page Studio 按当前 FormPresentationSpec 人工重建。旧数据不得进入新页面发布流程。
 
 ## PageSpec 节点
 

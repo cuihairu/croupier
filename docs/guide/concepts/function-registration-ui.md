@@ -107,7 +107,8 @@ POST /players/{playerId}/ban    -> action           -> 行操作候选
 - `ready`：完整、类型可验证，可直接接受并发布。
 - `basic`：安全的同步 OperationPage，可直接接受并发布。
 - `needs_review`：缺少不可自动确定的语义或配置，先在 Page Studio 确认。
-- `blocked`：函数不可执行、契约违法或治理不安全，不能发布。
+
+函数不可执行、契约违法或治理不安全时不生成 Proposal，而是 BlockedProposalIssue（只含诊断与修复指引，不携带页面定义）；`blocked` 不是页面质量。
 
 注册成功不等于自动上线。`ready/basic` 仍由用户显式“接受并发布”；系统绝不自动在运行控制台暴露菜单。
 
@@ -116,10 +117,10 @@ POST /players/{playerId}/ban    -> action           -> 行操作候选
 函数输入表单使用：
 
 ```text
-JSON Schema + FormPresentationSpec -> ProForm renderer
+JSON Schema + FormPresentationSpec -> JSON Schema form adapter
 ```
 
-Function Form 只负责一次函数调用的字段、验证和展示。页面负责组合列表、详情、CRUD、动作、任务与报表。PageSpec 不保存 React 组件树；ProComponents 是 renderer 实现细节。
+表单展示只负责一次查询、创建、编辑或动作调用的字段、验证和展示。页面负责组合列表、详情、CRUD、动作、任务与报表。PageSpec 不保存 React 组件树；`@rjsf/antd` 或 ProComponents 都只是 renderer 实现细节。
 
 ## 契约变化
 

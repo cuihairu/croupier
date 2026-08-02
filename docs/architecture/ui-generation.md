@@ -22,7 +22,7 @@ React Admin 的可借鉴之处是“资源语义 -> 默认后台页面 -> 局部
 | --- | --- |
 | `Resource` | ResourceCapability + CapabilitySemantics |
 | `getList/getOne/create/update/delete` | PublishedPageSpec 的受控 PageBinding |
-| List/Edit/Create/Show | ProTable、ProForm、ModalForm、DrawerForm、ProDescriptions |
+| List/Edit/Create/Show | ProTable、SchemaFormRenderer、Modal/Drawer、ProDescriptions |
 | DataProvider | 服务端 controlled binding execute API |
 | 自动路由/菜单 | PublishedPageSpec -> ConsoleMenuSpec -> ProLayout |
 
@@ -32,19 +32,21 @@ React Admin 的可借鉴之处是“资源语义 -> 默认后台页面 -> 局部
 
 生成器从持久化 FunctionContract 与 CapabilitySemantics 生成 PageProposal，且必须是确定性的：相同输入摘要和 generator version 产生相同 Proposal。
 
+生成器同时负责产出默认 NavigationSpec：ResourcePage `title` 取 humanize `resourceKey`；Operation/Task/Report 的 `title` 取主 binding 的 `summary[systemDefaultLocale]`，缺失时 humanize `operationKey`，再缺失时 humanize 原始 `functionId`；`category.key` 对 ResourcePage 取 `resourceKey` 的第一个 `.` 前缀、对独立 Operation/Task/Report 页面取原始 `functionId` 的第一个 `.` 前缀（无 `.` 时取完整 key），`category.labels` 取该 key 的 humanize 结果。不得从 `operation--mail.send` 这类 pageKey 推断分类。显式 labels 只能来自 Page Studio 人工编辑，SDK/OpenAPI 注册不得提供 labels。`LocalizedText` 显示时按当前界面语言、系统默认语言依次回退；生成器只保证系统默认语言。只有能产出系统默认语言 labels 的 Proposal 才允许标记为 `ready`/`basic`；labels 不齐备时必须降级并记录 diagnostic，不得让“可直接发布”的 Proposal 到发布时才失败。
+
 ### Resource CRUD 模板
 
-当检测到 collection query、identity 和生命周期能力时生成 ResourcePage：
+当检测到 collection query 与 identity 时生成 ResourcePage；create/update/delete 是可选能力。只有查询能力的资源生成只读 ResourcePage，不得错误降级为 OperationPage：
 
 ```text
 collection_query -> ListViewSpec -> ProTable
 item_query       -> DetailViewSpec -> ProDescriptions
-create/update    -> FormActionSpec -> ModalForm / DrawerForm
+create/update    -> FormActionSpec -> Modal / Drawer + SchemaFormRenderer
 delete           -> ConfirmActionSpec -> Popconfirm
 action           -> row / toolbar / batch action
 ```
 
-列表字段、详情字段和表单字段由 JSON Schema 提供候选；生成器必须记录选择理由。没有可靠 identity 或 collection 语义时不得伪造 CRUD 页，降级为 OperationPage Proposal。
+列表字段、详情字段和表单字段由 JSON Schema 提供候选；生成器必须记录选择理由。`ActionSemantic.subject=resource_item`、`resource_selection`、`none` 分别确定性映射为 row、batch、toolbar action；前两者缺少可验证 identity input 时不得猜测位置，生成独立 OperationPage Proposal，`none` 不要求 identity input。没有可靠 identity 或 collection 语义时不得伪造 CRUD 页，降级为 OperationPage Proposal。
 
 ### 非 CRUD 模板
 
@@ -59,12 +61,26 @@ action           -> row / toolbar / batch action
 
 Page Studio 的第一屏是 Proposal Inbox，而不是 JSON 编辑器：
 
-1. 显示“可直接发布 / 需要处理 / 契约变更”三个队列。
+1. 显示“可直接发布 / 需要处理 / 契约变更”三个队列：可直接发布 = `ready` + `basic` Proposal；需要处理 = `needs_review` Proposal 和 BlockedProposalIssue（只含诊断与修复指引，不携带 spec）；契约变更 = source digest 变化导致 stale 的 Draft 和 PublishedPageSpec。
 2. `ready/basic` Proposal 可查看预览、接受、发布。
 3. 编辑 ResourcePage 时提供列表、列、详情、表单、动作、导航和权限面板。
 4. 编辑 Task/Report 时提供任务/数据集/图表的受控配置面板。
 5. JSON 只允许导入、导出、诊断和受权限保护的高级模式，不能是默认编辑器。
 6. 函数或语义变化时展示 Proposal 与 Draft/PublishedPageSpec 的三方 diff；用户选择合并或修复后发布。
+
+## PageSpec 节点与运行时组件
+
+PageSpec 节点到 ProComponents 的对应关系固定如下（renderer adapter 的唯一映射表）：
+
+| PageSpec 概念 | 运行时实现 |
+| --- | --- |
+| `ListViewSpec` | `ProTable`，包含筛选、分页、列设置、批量选择和 toolbar |
+| `DetailViewSpec` | `ProDescriptions` / `Descriptions` |
+| `FormActionSpec` / `QueryViewSpec` | `SchemaFormRenderer`，基于 `@rjsf/antd + @rjsf/validator-ajv8` |
+| `ConfirmActionSpec` | `Popconfirm` / `Modal.confirm` + 后端风险与审批策略 |
+| `TaskViewSpec` | 真实 Task API 的状态、事件和结果视图 |
+| `ReportViewSpec` | `@ant-design/charts` 或等价 AntV renderer；表格用 `ProTable` |
+| `ConsoleMenuSpec` | ProLayout 的动态左侧菜单 |
 
 ## 运行时约束
 
@@ -76,16 +92,17 @@ Page Studio 的第一屏是 Proposal Inbox，而不是 JSON 编辑器：
 
 ## 表单渲染
 
-Function input、查询、创建、编辑和动作弹窗共用 `SchemaFormRenderer`：
+Function input、查询、创建、编辑和动作弹窗共用 `SchemaFormRenderer`。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`：
 
 ```text
 JSON Schema + FormPresentationSpec
-  -> ProForm field factory
+  -> SchemaFormRenderer
+  -> rjsf uiSchema derived in memory
   -> JSON Schema validation
   -> typed PageBinding input assignments
 ```
 
-这层不得耦合 PageSpec 的页面布局。未来替换表单库只替换 SchemaFormRenderer adapter，不改变页面、发布或执行模型。
+这层不得耦合 PageSpec 的页面布局。renderer 私有 `uiSchema` 只能由 FormPresentationSpec 在前端临时派生，不能持久化、不能进入 SDK/OpenAPI、不能成为第二套页面协议。项目内禁止保留 Formily、form-render 或自研 ProForm field factory 作为并行运行时。
 
 ## 真实验收
 

@@ -54,6 +54,8 @@ collection_query | item_query | create | update | delete | action | task | repor
 
 它回答“函数在资源生命周期中做什么”，不回答“按钮显示在哪里”或“页面长什么样”。
 
+`id`、`resourceKey` 和 `operationKey` 必须是稳定小写 key，格式为 `[a-z0-9][a-z0-9._-]*`。不符合格式的 SDK 注册或 OpenAPI 导入必须返回结构化错误；平台不得靠运行时编码、截断或大小写归一化修复身份。
+
 ## OpenAPI REST 自动识别
 
 当 OpenAPI 同时满足稳定 path 和 schema 条件时，Server 必须产生高置信度 CRUD 语义：
@@ -68,6 +70,15 @@ collection_query | item_query | create | update | delete | action | task | repor
 | 其他 REST 操作 | `action` / `task` / `report` | 需显式 execution 或可验证响应特征 |
 
 推导出的语义必须记录来源和置信度。REST path 不满足规范、identity 不可验证或 schema 矛盾时，平台降级为 OperationPage Proposal 并给出诊断，不得猜测成 Resource CRUD。
+
+高置信度的可判定条件（全部满足才允许标记 `ready`）：
+
+- path 符合 `{resource}` 或 `{resource}/{id}` 两段形态，resource 段为稳定名词。
+- identity 必须在 collection item 或 item query 的输出 JSON Schema 中唯一确定；item/update/delete/action 所需 input 由后续 typed selector 显式映射并校验。REST path parameter 只是候选，不得作为唯一 identity 证据。
+- `collection_query` 的 output schema 可识别为数组，或含明确 items 字段的分页包装。
+- 同一 `resourceKey` 聚合的生命周期函数版本兼容、digest 可追溯。
+
+任一条件不满足即降级并记录 diagnostic，不按“最像”猜测。SDK 侧参加 Resource CRUD 组合的条件是：`resourceKey + capability` 显式提供，且资源 identity 可在 item output schema 中唯一确定，或由 Resource Catalog 版本化补充；item/update/delete/action 的 input 由 typed selector 显式验证。否则只生成 OperationPage Proposal。
 
 ## SDK 函数语义
 
@@ -97,6 +108,10 @@ SDK 和 OpenAPI Source 导入边界只接受 FunctionContract 字段。页面展
 - 任意组件树、组件 props、页面 mapping 或布局 DSL。
 
 导入器遇到上述页面字段必须返回结构化 diagnostics，不得静默丢弃或转换。
+
+## JSON Schema 支持子集
+
+生成器只对以下子集保证生成可直接发布的表单与列表：object/array/scalar 类型、`required`、`enum`、格式 hint（`date`、`date-time`）和本地 `$defs`/`$ref`。`oneOf`/`anyOf`/`discriminator`、远程 `$ref` 等更复杂的组合不影响函数注册，但表单与列生成必须降级为 `needs_review` 并记录 diagnostic，不得硬吞后生成不可用的默认页面。
 
 ## OpenAPI Source 与执行绑定
 

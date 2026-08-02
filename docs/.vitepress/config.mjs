@@ -87,11 +87,22 @@ const config = defineConfig({
             { text: '概述', link: '/architecture/' },
             { text: '分层', link: '/architecture/layers' },
             { text: '术语', link: '/architecture/terms-and-layering' },
-            { text: 'Dashboard 术语表', link: '/architecture/dashboard-glossary' },
             { text: '数据流', link: '/architecture/data-flow' },
             { text: '游戏与环境作用域', link: '/architecture/game-environment-scope' },
             { text: 'Session 生命周期', link: '/architecture/session-lifecycle' },
             { text: 'SDK Wire 协议', link: '/architecture/sdk-wire-protocol' },
+          ],
+        },
+        {
+          text: 'Dashboard 页面模型',
+          collapsed: false,
+          items: [
+            { text: 'Resource/Page 模型', link: '/architecture/dashboard-page-model' },
+            { text: 'Descriptor v2 注册契约', link: '/architecture/openapi-sdk-descriptor-v2' },
+            { text: 'UI Schema 与 PageSpec 规范', link: '/architecture/ui-schema-spec' },
+            { text: '页面生成与运行时', link: '/architecture/ui-generation' },
+            { text: 'Console 动态菜单', link: '/architecture/console-dynamic-menu' },
+            { text: 'Dashboard 术语表', link: '/architecture/dashboard-glossary' },
           ],
         },
         {

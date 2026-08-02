@@ -78,7 +78,7 @@ graph TB
 ### 函数管理
 
 - **OpenAPI 驱动注册**：通过 OpenAPI 规范快速注册函数
-- **JSON Schema 函数表单**：根据函数契约生成字段与校验，ProForm renderer 统一渲染调用与动作表单
+- **JSON Schema 表单展示**：根据函数契约生成字段与校验，JSON Schema form adapter 统一渲染调用、查询、创建、编辑与动作表单
 - **Resource/PageSpec 编排**：CRUD Resource、独立操作、分页表格、报表和任务页由强类型 PageSpec 组合多个函数
 - **统一调用链路**：控制面通过 Agent session 路由调用，本地接入通过 Agent gateway 完成
 

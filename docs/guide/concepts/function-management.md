@@ -107,11 +107,11 @@ sequenceDiagram
 - 平台协议层：protobuf
 - 业务 payload 层：UTF-8 JSON
 - 参数和响应契约：JSON Schema / OpenAPI Schema
-- 运行时函数表单：JSON Schema + FormPresentationSpec
+- 表单展示候选：JSON Schema + FormPresentationSpec
 
 这意味着 SDK 用户不需要先定义自己的 `.proto` 才能接入。
 
-Server 根据 `input_schema` 或 OpenAPI request schema 生成单函数表单展示建议。Dashboard 表单 renderer 使用 JSON Schema validation 和 FormPresentationSpec，不在运行时猜测页面业务语义。
+Server 根据 `input_schema` 或 OpenAPI request schema 为 PageProposal 生成表单展示候选。Dashboard 表单 renderer 使用 JSON Schema validation 和 FormPresentationSpec，不在运行时猜测页面业务语义。
 
 完整业务页面由 Resource Catalog 与 Page Studio 管理。Server 会先把函数归一化为 FunctionContract / ResourceCapability / CapabilitySemantics，再生成 PageProposal。PageSpec 是强类型页面 DSL，负责分页、表格、详情、弹窗、任务状态和图表等页面级能力，由 ProComponents renderer 显示。
 
@@ -172,7 +172,6 @@ stateDiagram-v2
 ## 相关文档
 
 - [核心概念总览](./overview.md)
-- [函数注册与默认界面](./function-registration-ui.md)
 - [函数注册与默认界面](./function-registration-ui.md)
 - [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)
 - [OpenAPI 函数注册](../integrations/openapi-registration.md)
