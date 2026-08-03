@@ -53,6 +53,7 @@ import { listPermissions, type PermissionRecord } from '@/services/api/permissio
 import { createFeedback } from '@/services/api/support';
 import { buildAvatarObjectKey, uploadAsset } from '@/services/api/storage';
 import type { JSONValue } from '@/types/dashboard';
+import type { UploadProps } from 'antd/es/upload/interface';
 import './index.less';
 
 const { Title, Text } = Typography;
@@ -337,27 +338,22 @@ export default function Profile() {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleAvatarUpload = async (options: any) => {
-    const file = options?.file;
-    if (!file) {
-      options?.onError?.(new Error('missing file'));
-      return;
-    }
+  const handleAvatarUpload: UploadProps['customRequest'] = async (options) => {
+    const { file, onSuccess, onError } = options;
 
     setAvatarUploading(true);
     try {
-      const uploaded = await uploadAsset(file, { path: buildAvatarObjectKey(file) });
+      const uploaded = await uploadAsset(file as File, { path: buildAvatarObjectKey(file as File) });
       const avatarUrl = uploaded?.URL || '';
       if (!avatarUrl) {
         throw new Error('missing avatar url');
       }
       avatarForm.setFieldsValue({ avatar: avatarUrl });
       await persistAvatar(avatarUrl);
-      options?.onSuccess?.(uploaded);
+      onSuccess?.(uploaded);
     } catch (error) {
       message.error(formatMessage('profile.update.error'));
-      options?.onError?.(error instanceof Error ? error : new Error(String(error)));
+      onError?.(error instanceof Error ? error : new Error(String(error)));
     } finally {
       setAvatarUploading(false);
     }

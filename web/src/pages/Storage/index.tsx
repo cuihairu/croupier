@@ -19,6 +19,7 @@ import {
   Typography,
   Progress,
 } from 'antd';
+import type { UploadProps, RcFile } from 'antd/es/upload/interface';
 import {
   UploadOutlined,
   DeleteOutlined,
@@ -186,9 +187,9 @@ export default function StoragePage() {
     return items;
   }, [currentPrefix]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleUpload = async (options: any) => {
-    const { file, onSuccess, onError, onProgress } = options;
+  const handleUpload: UploadProps['customRequest'] = async (options) => {
+    const { file: rawFile, onSuccess, onError, onProgress } = options;
+    const file = rawFile as RcFile;
 
     try {
       const formData = new FormData();
