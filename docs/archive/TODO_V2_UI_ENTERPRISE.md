@@ -1,4 +1,6 @@
-# 函数 UI 编辑器企业级改造 TODO (V2)
+# [ARCHIVED] 函数 UI 编辑器企业级改造 TODO (V2)
+
+> **⚠️ 归档文档**：本文档记录历史工作，仅供参考。当前 Dashboard 模型已更新为 FunctionContract + CapabilitySemantics + PageProposal + PageSpec 架构。Formily 已被替换为 `@rjsf/antd + @rjsf/validator-ajv8`。详见 [Dashboard 术语表](../architecture/dashboard-glossary.md) 和 [Dashboard 页面模型](../architecture/dashboard-page-model.md)。
 
 本文档面向 `croupier-dashboard` 函数 UI 编辑体验的企业级改造。V1 已完成模型收敛、发布链路、版本治理、权限审计等基础设施，V2 聚焦提升 UI 编辑器的易用性、可维护性和专业度，达到企业级产品标准。
 
