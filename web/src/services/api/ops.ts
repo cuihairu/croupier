@@ -197,6 +197,7 @@ export type OpsSilence = {
 // Source: croupier/internal/api/ops/dto.go Node / OpsNodesResponse
 export type OpsNode = {
   id: string;
+  type?: string;
   hostname?: string;
   addr?: string;
   gameId?: string;

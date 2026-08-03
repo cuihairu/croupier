@@ -426,7 +426,7 @@ export async function getFunctionHistory(functionId: string) {
       action: string;
       operator?: string;
       timestamp: string;
-      details?: unknown;
+      details?: JSONValue;
     }>
   >(`/api/v1/functions/${encodeURIComponent(functionId)}/history`);
 }

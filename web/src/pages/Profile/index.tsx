@@ -149,7 +149,8 @@ interface ProfileData {
   phone?: string;
   avatar?: string;
   name?: string;
-  [key: string]: string | number | boolean | undefined;
+  roles?: string[];
+  [key: string]: string | number | boolean | string[] | undefined;
 }
 
 interface PasswordValues {
@@ -336,7 +337,7 @@ export default function Profile() {
     }
   };
 
-  const handleAvatarUpload = async (options: { file: File; onSuccess?: (body: unknown) => void; onError?: (err: Error) => void }) => {
+  const handleAvatarUpload = async (options: any) => {
     const file = options?.file;
     if (!file) {
       options?.onError?.(new Error('missing file'));
@@ -554,12 +555,12 @@ export default function Profile() {
     },
     {
       title: formatMessage('profile.info.joined'),
-      value: profile?.createdAt ? new Date(profile.createdAt).toLocaleString() : 'N/A',
+      value: profile?.createdAt ? new Date(String(profile.createdAt)).toLocaleString() : 'N/A',
       icon: <RocketOutlined />,
     },
     {
       title: formatMessage('profile.info.last.login'),
-      value: profile?.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleString() : 'N/A',
+      value: profile?.lastLoginAt ? new Date(String(profile.lastLoginAt)).toLocaleString() : 'N/A',
       icon: <HistoryOutlined />,
     },
     {
@@ -754,7 +755,7 @@ export default function Profile() {
     <Card
       loading={extrasLoading}
       extra={
-        <Button type="link" onClick={() => loadExtras(profile?.username)}>
+        <Button type="link" onClick={() => loadExtras(String(profile?.username || ''))}>
           {formatMessage('profile.activities.refresh')}
         </Button>
       }
@@ -1065,11 +1066,11 @@ export default function Profile() {
                         {profile?.phone || 'N/A'}
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.joined')}>
-                        {profile?.createdAt ? new Date(profile.createdAt).toLocaleString() : 'N/A'}
+                        {profile?.createdAt ? new Date(String(profile.createdAt)).toLocaleString() : 'N/A'}
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.last.login')}>
                         {profile?.lastLoginAt
-                          ? new Date(profile.lastLoginAt).toLocaleString()
+                          ? new Date(String(profile.lastLoginAt)).toLocaleString()
                           : 'N/A'}
                       </Descriptions.Item>
                     </Descriptions>
@@ -1342,7 +1343,7 @@ export default function Profile() {
                     <Card
                       loading={extrasLoading}
                       extra={
-                        <Button type="link" onClick={() => loadExtras(profile?.username)}>
+                        <Button type="link" onClick={() => loadExtras(String(profile?.username || ''))}>
                           {formatMessage('profile.activities.refresh')}
                         </Button>
                       }

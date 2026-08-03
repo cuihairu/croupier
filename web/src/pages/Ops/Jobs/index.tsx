@@ -131,7 +131,7 @@ export default function OpsTasksPage() {
         const body = ev.message || ev.payload;
         push(ev.type, body);
       },
-      onError: (err) => push('error', err),
+      onError: (err) => push('error', String(err)),
       onDone: async () => {
         // stream finished: fetch final result and refresh list
         try {
@@ -480,7 +480,7 @@ export default function OpsTasksPage() {
                         );
                       const sub = subscribeTaskEvents(detail.id, {
                         onEvent: (ev) => push(ev.type, ev.message || ev.payload),
-                        onError: (err) => push('error', err),
+                        onError: (err) => push('error', String(err)),
                         onDone: async () => {
                           try {
                             sub.close();

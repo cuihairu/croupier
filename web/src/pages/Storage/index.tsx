@@ -186,7 +186,7 @@ export default function StoragePage() {
     return items;
   }, [currentPrefix]);
 
-  const handleUpload = async (options: { file: File; onSuccess?: (body: unknown) => void; onError?: (err: Error) => void; onProgress?: (event: { percent: number }) => void }) => {
+  const handleUpload = async (options: any) => {
     const { file, onSuccess, onError, onProgress } = options;
 
     try {
@@ -227,7 +227,7 @@ export default function StoragePage() {
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
           const percent = Math.round((e.loaded / e.total) * 100);
-          onProgress({ percent });
+          onProgress?.({ percent });
         }
       });
 
@@ -246,7 +246,7 @@ export default function StoragePage() {
             onSuccess?.(data);
             checkAllUploadsComplete();
           } catch (error) {
-            onError?.(error);
+            onError?.(error instanceof Error ? error : new Error(String(error)));
           }
         } else {
           try {
@@ -300,7 +300,7 @@ export default function StoragePage() {
         failed: prev.failed + 1,
         failedFiles: [...prev.failedFiles, file.name],
       }));
-      onError?.(error);
+      onError?.(error instanceof Error ? error : new Error(String(error)));
     }
   };
 

@@ -505,7 +505,7 @@ export default function ApprovalsPage() {
                   onClick={() =>
                     window.open(
                       `/ops/audit?actor=${encodeURIComponent(
-                        current.actor || current.Actor,
+                        current.actor || current.Actor || '',
                       )}&kind=approval_reject`,
                       '_blank',
                     )

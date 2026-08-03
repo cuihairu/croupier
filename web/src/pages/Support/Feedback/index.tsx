@@ -7,13 +7,14 @@ import {
   updateFeedback,
   deleteFeedback,
   createTicket,
+  type Feedback as FeedbackType,
 } from '@/services/api/support';
 import { getMessage } from '@/utils/antdApp';
 import { useAccess } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 
 interface FeedbackItem {
-  id: string;
+  id: number;
   player_id?: string;
   contact?: string;
   category?: string;
@@ -50,7 +51,7 @@ export default function SupportFeedbackPage() {
     setLoading(true);
     try {
       const res = await listFeedback({ q, category, status, game_id: gameId, env, page, size });
-      setList(res.feedback || []);
+      setList((res.feedback || []) as unknown as FeedbackItem[]);
       setTotal(res.total || 0);
     } finally {
       setLoading(false);

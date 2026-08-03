@@ -23,18 +23,20 @@ import {
   listTicketComments,
   addTicketComment,
   transitionTicket,
+  type Ticket as TicketType,
+  type TicketComment as TicketCommentType,
 } from '@/services/api/support';
 import type { JSONValue } from '@/types/dashboard';
 
 interface Ticket {
-  id: string;
+  id: number;
   title: string;
   content?: string;
   category?: string;
   priority?: string;
   status?: string;
   assignee?: string;
-  tags?: string;
+  tags?: string[];
   player_id?: string;
   contact?: string;
   game_id?: string;
@@ -46,7 +48,7 @@ interface Ticket {
 }
 
 interface Comment {
-  id: string;
+  id: number;
   author?: string;
   content?: string;
   attach?: string;

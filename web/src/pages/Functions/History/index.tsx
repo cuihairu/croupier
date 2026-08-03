@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { PageContainer, ProTable, ProColumns } from '@ant-design/pro-components';
+import { PageContainer, ProTable, ProColumns, type ActionType } from '@ant-design/pro-components';
 import {
   App,
   Button,
@@ -60,7 +60,7 @@ export default () => {
   const [selectedCall, setSelectedCall] = useState<FunctionCallItem | null>(null);
   const [stats, setStats] = useState<FunctionCallStatsResponse | null>(null);
   const [filters, setFilters] = useState<Record<string, JSONValue>>({});
-  const actionRef = useRef<unknown>();
+  const actionRef = useRef<ActionType>();
   const timerRef = useRef<NodeJS.Timeout>();
 
   // 加载数据

@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import type { JSONValue } from '@/types/dashboard';
 
 const BASE = '/api/v1/platforms';
 
@@ -17,7 +18,7 @@ export interface CallPlatformRequest {
 }
 
 export interface CallPlatformResponse {
-  response?: string | number | boolean | null | Record<string, unknown> | unknown[];
+  response?: JSONValue;
   source?: 'extension' | string;
 }
 

@@ -46,14 +46,15 @@ export function JsonViewer({
 }) {
   const pretty = JSON.stringify(data || {}, null, 2);
 
-  const beforeMount = (monaco: {
-    editor?: {
-      getTheme?: () => string;
-      defineTheme?: (name: string, data: unknown) => void;
+  const beforeMount = (monaco: unknown) => {
+    const m = monaco as {
+      editor?: {
+        getTheme?: () => string;
+        defineTheme?: (name: string, data: unknown) => void;
+      };
     };
-  }) => {
-    if (!monaco?.editor || monaco.editor.getTheme?.() === 'sublime-monokai') return;
-    monaco.editor.defineTheme?.('sublime-monokai', {
+    if (!m?.editor || m.editor.getTheme?.() === 'sublime-monokai') return;
+    m.editor.defineTheme?.('sublime-monokai', {
       base: 'vs-dark',
       inherit: true,
       rules: [

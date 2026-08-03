@@ -847,8 +847,8 @@ export default () => {
                 style={{
                   marginTop: 8,
                   padding: 12,
-                  background: debugResult.success ? '#f6ffed' : '#fff2f0',
-                  border: `1px solid ${debugResult.success ? '#b7eb8f' : '#ffccc7'}`,
+                  background: (debugResult as any)?.success ? '#f6ffed' : '#fff2f0',
+                  border: `1px solid ${(debugResult as any)?.success ? '#b7eb8f' : '#ffccc7'}`,
                   borderRadius: 4,
                   fontSize: 12,
                   maxHeight: 200,

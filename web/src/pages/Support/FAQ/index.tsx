@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Input, Switch, Modal, Form } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
-import { listFAQ, createFAQ, updateFAQ, deleteFAQ } from '@/services/api/support';
+import { listFAQ, createFAQ, updateFAQ, deleteFAQ, type FAQ as FAQType } from '@/services/api/support';
 import { useAccess } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 
 interface FAQItem {
-  id: string;
+  id: number;
   question: string;
   answer: string;
   category?: string;
-  tags?: string;
+  tags?: string[];
   visible?: boolean;
   sort?: number;
   updated_at?: string;
@@ -36,7 +36,7 @@ export default function SupportFAQPage() {
     setLoading(true);
     try {
       const res = await listFAQ({ q, category, visible });
-      setList(res.faq || []);
+      setList((res.faq || []) as unknown as FAQItem[]);
     } finally {
       setLoading(false);
     }

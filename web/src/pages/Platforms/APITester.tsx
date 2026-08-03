@@ -167,7 +167,7 @@ export default function APITester({
         request: values.request,
       });
       setCallSource(result?.source || '');
-      setResponse(result.response);
+      setResponse(result.response ?? null);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : '请求失败';
       setError(errMsg);

@@ -167,9 +167,9 @@ export default function ExtensionsInstallationsPage() {
               content: (
                 <Space direction="vertical">
                   <Text type="secondary">以下扩展仍依赖当前扩展，请先处理它们：</Text>
-                  {blockers.map((item: string) => (
-                    <Tag key={item} color="orange">
-                      {item}
+                  {blockers.map((item: unknown) => (
+                    <Tag key={String(item)} color="orange">
+                      {String(item)}
                     </Tag>
                   ))}
                 </Space>
