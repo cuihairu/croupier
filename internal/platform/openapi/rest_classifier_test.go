@@ -11,14 +11,14 @@ func TestRESTCapabilityClassifier_ClassifyOperation(t *testing.T) {
 	classifier := NewRESTCapabilityClassifier()
 
 	tests := []struct {
-		name           string
-		method         string
-		path           string
-		hasRequestBody bool
+		name            string
+		method          string
+		path            string
+		hasRequestBody  bool
 		responseIsArray bool
-		wantCapability spec.CapabilityKind
-		wantConfidence string
-		wantResource   string
+		wantCapability  spec.CapabilityKind
+		wantConfidence  string
+		wantResource    string
 	}{
 		// Collection query patterns
 		{
