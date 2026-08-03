@@ -33,5 +33,13 @@ module.exports = [
         REACT_APP_ENV: 'readonly',
       },
     },
+    rules: {
+      // TypeScript strict rules - no any types allowed
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // React hooks rules
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+    },
   },
 ];

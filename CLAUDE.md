@@ -36,6 +36,34 @@ gofmt -w .                # Format all Go files
 gofmt -l .                # List files that need formatting
 ```
 
+**TypeScript Type Safety (Mandatory):**
+
+**NEVER use `any` type in TypeScript/React code.** This is strictly prohibited.
+
+Instead:
+- Use proper interface/type definitions from API services
+- Use `unknown` for truly unknown types, then narrow with type guards
+- Use generics like `Record<string, JSONValue>` for dynamic objects
+- Import specific types from libraries: `import type { UploadProps } from 'antd'`
+- Use `as` type assertions only when you know the exact type
+- Define proper interfaces for component props and state
+
+Examples:
+```typescript
+// ❌ WRONG - never do this
+const handleUpload = async (options: any) => { ... }
+const data: any = response;
+
+// ✅ CORRECT - use proper types
+const handleUpload: UploadProps['customRequest'] = async (options) => { ... }
+const data: Record<string, JSONValue> = response;
+```
+
+If you encounter a type error, fix it by:
+1. Checking the actual type from the library/API
+2. Defining a proper interface if one doesn't exist
+3. Using type narrowing or assertions with known types
+
 **SDK Conformance:**
 ```bash
 ./scripts/check-sdk-matrix.sh   # Verify each SDK exposes L1 APIs from sdks/SDK_FEATURE_MATRIX.md
