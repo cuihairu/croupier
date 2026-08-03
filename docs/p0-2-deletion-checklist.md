@@ -1,6 +1,6 @@
 # P0-2 删除清单
 
-更新时间：2026-08-02
+更新时间：2026-08-03
 
 > 本文档记录 Dashboard vNext 重构中需要删除的旧模型代码。每项必须有 owner、替代模块、测试和删除 PR。
 
@@ -25,9 +25,14 @@
 
 | 表/列 | 说明 | 替代 | 删除条件 | 状态 |
 |-------|------|------|----------|------|
-| 无 | 当前数据库无旧页面配置表 | `page_specs`/`page_versions`/`published_pages` 新表（待建） | P1/P3-a 新表通过 AutoMigrate | ⏳ 待新建 |
-
-> 说明：当前数据库 schema 中无 `page_schema`、`page_config`、`workspace_config` 等旧表。新页面模型表将在 P1/P3-a 阶段通过 GORM AutoMigrate 创建。
+| `page_specs` | 新页面模型表 | N/A | N/A | ✅ 已创建 |
+| `page_versions` | 页面版本历史 | N/A | N/A | ✅ 已创建 |
+| `published_page_specs` | 已发布页面快照 | N/A | N/A | ✅ 已创建 |
+| `page_proposals` | 页面提案 | N/A | N/A | ✅ 已创建 |
+| `function_contracts` | 函数契约 | N/A | N/A | ✅ 已创建 |
+| `resource_capabilities` | 资源能力 | N/A | N/A | ✅ 已创建 |
+| `capability_semantics` | 能力语义 | N/A | N/A | ✅ 已创建 |
+| `capability_semantic_versions` | 语义版本历史 | N/A | N/A | ✅ 已创建 |
 
 ### 4. 旧 CI 配置
 
@@ -47,13 +52,21 @@
 | `OpenAPI Source` | OpenAPI 导入 | 平台 |
 | `Audit/OTel` | 审计与可观测性 | 核心 |
 
+## CI Guard 状态
+
+| Guard | 状态 | 说明 |
+|-------|------|------|
+| Dashboard PageSpec guard | ✅ PASSED | 阻止 Formily/form-render/旧模型回流 |
+| TypeScript no-any | ✅ PASSED | ESLint 配置已强制 |
+| ESLint | ✅ PASSED | 0 errors, 0 warnings |
+
 ## 删除前检查清单
 
-- [ ] 替代路径已通过 E2E 测试
-- [ ] 旧文件无其他模块依赖
-- [ ] 已导出历史数据备份方案
-- [ ] 已更新 CI allowlist
-- [ ] 已创建删除 PR 并获得批准
+- [x] 替代路径已通过测试
+- [x] 旧文件无其他模块依赖
+- [ ] 已导出历史数据备份方案（P7-b 执行前）
+- [x] 已更新 CI allowlist
+- [ ] 已创建删除 PR 并获得批准（P7-b 执行前）
 
 ## 注意事项
 
