@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Card,
   Table,
@@ -10,7 +10,6 @@ import {
   App,
   Modal,
   Drawer,
-  Typography,
 } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
@@ -43,7 +42,7 @@ export default function OpsAlertsPage() {
       Object.entries(input || {}).map(([key, value]) => [key, String(value ?? '')]),
     );
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const r = await fetchOpsAlerts();
@@ -54,10 +53,10 @@ export default function OpsAlertsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
   useEffect(() => {
     (async () => {
       try {
@@ -96,7 +95,7 @@ export default function OpsAlertsPage() {
         }
         return true;
       }),
-    [rows, sev, svc, q],
+    [rows, sev, svc, q, lk, lv],
   );
 
   const columns: ColumnsType<OpsAlert> = [

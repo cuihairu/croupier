@@ -17,9 +17,7 @@ import {
   EditOutlined,
   StopOutlined,
   CopyOutlined,
-  InfoCircleOutlined,
 } from '@ant-design/icons';
-import { history } from '@umijs/max';
 import type { FunctionInstance } from '@/services/api';
 import type { JSONSchema } from '@/types/dashboard';
 
@@ -67,7 +65,6 @@ export interface FunctionDetailPanelProps {
 
 export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
   function: func,
-  loading = false,
   showActions = true,
   onInvoke,
   onEdit,

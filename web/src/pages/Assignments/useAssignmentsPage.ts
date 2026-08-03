@@ -175,7 +175,7 @@ export default function useAssignmentsPage() {
         setLoading(false);
       }
     },
-    [env, gameId, message, selected],
+    [gameId, message, selected],
   );
 
   const loadHistory = useCallback(

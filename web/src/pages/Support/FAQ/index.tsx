@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Input, Switch, Modal, Form } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
-import { listFAQ, createFAQ, updateFAQ, deleteFAQ, type FAQ as FAQType } from '@/services/api/support';
+import { listFAQ, createFAQ, updateFAQ, deleteFAQ } from '@/services/api/support';
 import { useAccess } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 
@@ -32,7 +32,7 @@ export default function SupportFAQPage() {
   const [form] = Form.useForm();
   const access: AccessState = useAccess?.() || {};
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listFAQ({ q, category, visible });
@@ -40,10 +40,10 @@ export default function SupportFAQPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [q, category, visible]);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const openAdd = () => {
     setEditing(null);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Card,
   Table,
@@ -33,7 +33,7 @@ export default function OpsCertificatesPage() {
   const [status, setStatus] = useState<string>('');
   const [addOpen, setAddOpen] = useState(false);
 
-  const load = async (p = page, s = size, st = status) => {
+  const load = useCallback(async (p = page, s = size, st = status) => {
     setLoading(true);
     try {
       const r = await listCertificates({ page: p, size: s, status: st });
@@ -46,10 +46,10 @@ export default function OpsCertificatesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, size, status, message]);
   useEffect(() => {
     load(1, size, status);
-  }, [status]);
+  }, [load, size, status]);
 
   const daysTag = (d?: number, st?: string) => {
     const v = typeof d === 'number' ? d : undefined;
@@ -236,7 +236,7 @@ const AddDomainModal: React.FC<{
   const [form] = Form.useForm();
   useEffect(() => {
     if (open) form.setFieldsValue({ port: 443, alertDays: 30 });
-  }, [open]);
+  }, [open, form]);
   return (
     <Modal
       open={open}

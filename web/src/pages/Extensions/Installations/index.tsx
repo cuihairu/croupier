@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   App,
@@ -120,7 +120,7 @@ export default function ExtensionsInstallationsPage() {
     .filter(Boolean)
     .join(' / ');
 
-  const loadInstallations = async () => {
+  const loadInstallations = useCallback(async () => {
     setLoading(true);
     try {
       const resp = await listExtensionInstallations({
@@ -135,11 +135,11 @@ export default function ExtensionsInstallationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [extensionID, status, page, pageSize]);
 
   useEffect(() => {
     loadInstallations();
-  }, [extensionID, status, page, pageSize]);
+  }, [loadInstallations]);
 
   const withReload = async (fn: () => Promise<unknown>, successText: string) => {
     await fn();
@@ -192,7 +192,7 @@ export default function ExtensionsInstallationsPage() {
     setEventsTitle(`${row.displayName || row.extensionId} (#${row.id})`);
   };
 
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     if (!eventsOpen || !eventInstallationID) return;
     setEventLoading(true);
     try {
@@ -208,11 +208,11 @@ export default function ExtensionsInstallationsPage() {
     } finally {
       setEventLoading(false);
     }
-  };
+  }, [eventsOpen, eventInstallationID, eventLevel, eventKeyword, eventPage, eventPageSize]);
 
   useEffect(() => {
     loadEvents();
-  }, [eventsOpen, eventInstallationID, eventLevel, eventKeyword, eventPage, eventPageSize]);
+  }, [loadEvents]);
 
   const openDetail = async (row: ExtensionInstallationItem) => {
     setDetailOpen(true);

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Card, Table, Space, Input, Button, DatePicker, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
@@ -6,7 +6,6 @@ import { listAudit, type AuditEvent } from '@/services/api';
 
 export default function LoginLogsPage() {
   const [rows, setRows] = useState<AuditEvent[]>([]);
-  const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [actor, setActor] = useState<string>(
     () => new URLSearchParams(location.search).get('actor') || '',
@@ -19,7 +18,7 @@ export default function LoginLogsPage() {
   const [osSel, setOsSel] = useState<string[]>([]);
   const [brSel, setBrSel] = useState<string[]>([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = { page, size };
@@ -31,15 +30,14 @@ export default function LoginLogsPage() {
       if (timeRange && timeRange[1]) params.end = timeRange[1].toISOString();
       const r = await listAudit(params);
       setRows(r.events || []);
-      setTotal(r.total || (r.events || []).length);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, size, actor, ip, kinds, timeRange]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const filtered = useMemo(() => {
     const osMatch = (ua: string) => {

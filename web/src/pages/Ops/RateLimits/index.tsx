@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Card,
   Table,
@@ -81,7 +81,7 @@ export default function OpsRateLimitsPage() {
       }
     }, 200);
     return () => clearTimeout(id);
-  }, [pvTick, open]);
+  }, [pvTick, open, form]);
 
   const load = async () => {
     setLoading(true);

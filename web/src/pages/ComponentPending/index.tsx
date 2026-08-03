@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { PageContainer, ProTable, ProColumns } from '@ant-design/pro-components';
 import { App, Button, Space, Tag } from 'antd';
 import {
@@ -19,7 +19,7 @@ export default () => {
   const [rows, setRows] = useState<PendingFunctionRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchPending();
@@ -30,10 +30,10 @@ export default () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
   useEffect(() => {
     reload();
-  }, []);
+  }, [reload]);
 
   const columns: ProColumns<PendingFunctionRow>[] = [
     { title: '函数ID', dataIndex: 'functionId', width: 280, copyable: true, ellipsis: true },

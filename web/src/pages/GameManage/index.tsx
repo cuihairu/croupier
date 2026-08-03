@@ -54,7 +54,7 @@ export default function GameManagePage() {
       form.resetFields();
       await reload();
       notifyGamesChanged();
-    } catch (_) {
+    } catch {
       // handled by global request interceptor
     } finally {
       setSubmitting(false);

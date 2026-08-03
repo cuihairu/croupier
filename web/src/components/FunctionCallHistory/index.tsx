@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Timeline,
   Badge,
@@ -10,7 +10,6 @@ import {
   Descriptions,
   Card,
   Empty,
-  Tooltip,
 } from 'antd';
 import {
   PlayCircleOutlined,
@@ -28,7 +27,7 @@ import {
   type FunctionCallsListParams,
 } from '@/services/api';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text } = Typography;
 
 type FunctionCall = FunctionCallItem;
 
@@ -68,7 +67,7 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedCall, setSelectedCall] = useState<FunctionCallView | null>(null);
 
-  const fetchCalls = async () => {
+  const fetchCalls = useCallback(async () => {
     setLoading(true);
     try {
       const params: FunctionCallsListParams = {};
@@ -85,11 +84,11 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [functionId, userId, gameId, limit]);
 
   useEffect(() => {
     fetchCalls();
-  }, [functionId, userId, gameId, limit]);
+  }, [fetchCalls]);
 
   const handleRefresh = () => {
     fetchCalls();
@@ -125,21 +124,6 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'success':
-        return '成功';
-      case 'failed':
-        return '失败';
-      case 'running':
-        return '运行中';
-      case 'cancelled':
-        return '已取消';
-      default:
-        return '未知';
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       success: { status: 'success' as const, text: '成功' },
@@ -165,18 +149,18 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
     return new Date(dateString).toLocaleString('zh-CN');
   };
 
-  const decorateCall = (call: FunctionCall): FunctionCallView => ({
+  const decorateCall = useCallback((call: FunctionCall): FunctionCallView => ({
     ...call,
     durationText: formatDuration(call.durationMs),
     startedText: formatDate(call.startedAt || call.createdAt),
     completedText: call.finishedAt ? formatDate(call.finishedAt) : '-',
     actorText: call.actorId || '-',
     errorText: call.errorMessage,
-  });
+  }), []);
 
   const processedCalls = useMemo(() => {
     return calls.map(decorateCall);
-  }, [calls]);
+  }, [calls, decorateCall]);
 
   if (calls.length === 0 && !loading) {
     return (
@@ -211,7 +195,7 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
         }
       >
         <Timeline mode={compact ? 'left' : 'alternate'}>
-          {processedCalls.map((call, index) => (
+          {processedCalls.map((call, _index) => (
             <Timeline.Item
               key={call.id}
               dot={getStatusIcon(call.status)}

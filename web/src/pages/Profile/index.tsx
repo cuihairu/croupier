@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Avatar,
@@ -164,7 +164,7 @@ export default function Profile() {
   const intl = useIntl();
   const location = useLocation();
   const navigate = useNavigate();
-  const formatMessage = (id: string) => intl.formatMessage({ id });
+  const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -212,26 +212,7 @@ export default function Profile() {
     setActiveTab(initialTab);
   }, [initialTab]);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    try {
-      const p = await getMyProfile();
-      setProfile(p);
-      form.setFieldsValue({
-        display_name: p.displayName || p.nickname,
-        email: p.email,
-        phone: p.phone,
-      });
-      loadExtras(p.username);
-    } catch (error) {
-      message.error(formatMessage('profile.load.error'));
-    }
-  };
-
-  const loadExtras = async (username?: string) => {
+  const loadExtras = useCallback(async (username?: string) => {
     setExtrasLoading(true);
     try {
       const [gamesRes, permsRes, auditsRes, loginRes, notificationsRes, permissionCatalogRes] =
@@ -272,12 +253,31 @@ export default function Profile() {
         setPermissionCatalog([]);
         setPermissionCatalogAvailable(false);
       }
-    } catch (error) {
+    } catch {
       message.error(formatMessage('profile.extras.error'));
     } finally {
       setExtrasLoading(false);
     }
-  };
+  }, [formatMessage]);
+
+  const loadProfile = useCallback(async () => {
+    try {
+      const p = await getMyProfile();
+      setProfile(p);
+      form.setFieldsValue({
+        display_name: p.displayName || p.nickname,
+        email: p.email,
+        phone: p.phone,
+      });
+      loadExtras(p.username);
+    } catch {
+      message.error(formatMessage('profile.load.error'));
+    }
+  }, [form, formatMessage, loadExtras]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const handleProfileSubmit = async (values: ProfileData) => {
     setLoading(true);
@@ -290,7 +290,7 @@ export default function Profile() {
       message.success(formatMessage('profile.update.success'));
       setProfileEditing(false);
       loadProfile();
-    } catch (error) {
+    } catch {
       message.error(formatMessage('profile.update.error'));
     } finally {
       setLoading(false);
@@ -333,7 +333,7 @@ export default function Profile() {
     const values = await avatarForm.validateFields();
     try {
       await persistAvatar(values.avatar);
-    } catch (error) {
+    } catch {
       message.error(formatMessage('profile.update.error'));
     }
   };
@@ -520,7 +520,7 @@ export default function Profile() {
       });
       message.success(formatMessage('profile.permissions.apply.submit.success'));
       setApplyPermissionModalVisible(false);
-    } catch (error) {
+    } catch {
       // 部分环境可能未开放反馈写入，降级为复制文案+人工提交流程
       await navigator.clipboard.writeText(content);
       message.warning(formatMessage('profile.permissions.apply.submit.fallback'));
@@ -932,7 +932,7 @@ export default function Profile() {
                 try {
                   new URL(value);
                   return Promise.resolve();
-                } catch (error) {
+                } catch {
                   return Promise.reject(new Error(formatMessage('profile.avatar.modal.invalid')));
                 }
               },

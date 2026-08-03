@@ -311,7 +311,7 @@ export async function getFunctionSummary(params?: {
  */
 export async function getFunctionDetail(
   functionId: string,
-  params?: {
+  _params?: {
     gameId?: string;
     env?: string;
   },
@@ -546,7 +546,7 @@ export async function getFunctionTags(params?: {
 /**
  * 导出函数配置
  */
-export async function exportFunctions(params: {
+export async function exportFunctions(_params: {
   functionIds?: string[];
   format?: 'json' | 'yaml' | 'csv';
   includeMetadata?: boolean;
@@ -557,7 +557,7 @@ export async function exportFunctions(params: {
 /**
  * 导入函数配置
  */
-export async function importFunctions(params: {
+export async function importFunctions(_params: {
   fileUrl: string;
   format?: 'json' | 'yaml' | 'csv';
   overwrite?: boolean;
@@ -570,7 +570,7 @@ export async function importFunctions(params: {
 /**
  * 验证函数配置
  */
-export async function validateFunctionConfig(params: {
+export async function validateFunctionConfig(_params: {
   functionConfig: unknown;
   strict?: boolean;
 }): Promise<{ valid: boolean; errors: string[]; warnings: string[] }> {
@@ -581,7 +581,7 @@ export async function validateFunctionConfig(params: {
 /**
  * 获取函数依赖关系
  */
-export async function getFunctionDependencies(functionId: string): Promise<{
+export async function getFunctionDependencies(_functionId: string): Promise<{
   dependencies: string[];
   dependents: string[];
   circularDependencies: string[];

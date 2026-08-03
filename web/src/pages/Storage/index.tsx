@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Card,
   Table,
@@ -71,7 +71,7 @@ export default function StoragePage() {
     failedFiles: [] as string[],
   });
 
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async () => {
     setLoading(true);
     try {
       const result = await storageAPI.listObjects({
@@ -108,17 +108,17 @@ export default function StoragePage() {
       });
 
       setFiles(items);
-    } catch (error) {
+    } catch {
       message.error('加载文件列表失败');
       setFiles([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPrefix, message]);
 
   useEffect(() => {
     loadFiles();
-  }, [currentPrefix]); // 当目录变化时重新加载
+  }, [loadFiles]);
 
   // 进入目录
   const handleEnterDirectory = (directory: FileInfo) => {
@@ -352,7 +352,7 @@ export default function StoragePage() {
       await storageAPI.deleteObject(key);
       message.success('删除成功');
       loadFiles();
-    } catch (error) {
+    } catch {
       message.error('删除失败');
     }
   };
@@ -368,7 +368,7 @@ export default function StoragePage() {
       message.success(`成功删除 ${selectedKeys.length} 个文件`);
       setSelectedKeys([]);
       loadFiles();
-    } catch (error) {
+    } catch {
       message.error('批量删除失败');
     }
   };
@@ -386,7 +386,7 @@ export default function StoragePage() {
       setDirName('');
       setCreateDirVisible(false);
       loadFiles();
-    } catch (error) {
+    } catch {
       message.error('创建目录失败');
     }
   };
@@ -400,7 +400,7 @@ export default function StoragePage() {
       } else {
         message.error('获取预览链接失败');
       }
-    } catch (error) {
+    } catch {
       message.error('预览失败');
     }
   };
@@ -414,7 +414,7 @@ export default function StoragePage() {
       } else {
         message.error('获取链接失败');
       }
-    } catch (error) {
+    } catch {
       message.error('复制链接失败');
     }
   };

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Card,
   Table,
@@ -43,7 +43,7 @@ export default function AuditPage() {
   }, [initialState]);
   const canRead = roles.includes('*') || roles.includes('audit:read');
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = { ...filters, page, size: pageSize };
@@ -65,11 +65,11 @@ export default function AuditPage() {
       getMessage()?.error(msg);
     }
     setLoading(false);
-  };
+  }, [filters, page, pageSize, useScope, timeRange]);
 
   useEffect(() => {
     reload();
-  }, []);
+  }, [reload]);
   // Read actor/kind from query string for deep-linking (e.g., from Users page)
   useEffect(() => {
     try {
@@ -107,7 +107,7 @@ export default function AuditPage() {
         autoRef.current = null;
       }
     };
-  }, [auto]);
+  }, [auto, reload]);
 
   const kinds = [
     'invoke',

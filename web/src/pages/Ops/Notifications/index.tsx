@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Card,
   Space,
@@ -31,7 +31,7 @@ export default function OpsNotificationsPage() {
   const [editCh, setEditCh] = useState<Channel | null>(null);
   const [editRule, setEditRule] = useState<Rule | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const r = await fetchOpsNotifications();
@@ -42,10 +42,10 @@ export default function OpsNotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const save = async () => {
     setLoading(true);
@@ -202,7 +202,7 @@ const ChannelModal: React.FC<{
   const [form] = Form.useForm();
   useEffect(() => {
     if (open) form.setFieldsValue(value || { type: 'dingtalk' });
-  }, [open, value]);
+  }, [open, value, form]);
   return (
     <Modal
       open={open}
@@ -250,7 +250,7 @@ const RuleModal: React.FC<{
   const [form] = Form.useForm();
   useEffect(() => {
     if (open) form.setFieldsValue(value || {});
-  }, [open, value]);
+  }, [open, value, form]);
   return (
     <Modal
       open={open}

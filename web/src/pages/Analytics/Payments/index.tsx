@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { AutoComplete, Card, Space, DatePicker, Select, Button, Table, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
@@ -158,7 +158,7 @@ export default function AnalyticsPaymentsPage() {
   const [availableRegions, setAvailableRegions] = useState<FilterOption[]>([]);
   const [availableCities, setAvailableCities] = useState<FilterOption[]>([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = { page, size };
@@ -265,10 +265,10 @@ export default function AnalyticsPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, size, range, channel, platform, country, region, city]);
   useEffect(() => {
     load();
-  }, [page, size]);
+  }, [load]);
 
   const filterOption = (input: string, option?: FilterOption): boolean => {
     const needle = (input || '').toLowerCase();

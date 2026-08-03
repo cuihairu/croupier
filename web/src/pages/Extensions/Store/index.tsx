@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   App,
   Button,
@@ -128,7 +128,7 @@ export default function ExtensionsStorePage() {
   );
   const [installForm] = Form.useForm<InstallFormValues>();
 
-  const loadCatalog = async () => {
+  const loadCatalog = useCallback(async () => {
     setLoading(true);
     try {
       const resp = await listExtensionCatalog({
@@ -144,11 +144,11 @@ export default function ExtensionsStorePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [keyword, kind, status, page, pageSize]);
 
   useEffect(() => {
     loadCatalog();
-  }, [keyword, kind, status, page, pageSize]);
+  }, [loadCatalog]);
 
   const openDetail = async (item: ExtensionCatalogItem) => {
     setDetailOpen(true);

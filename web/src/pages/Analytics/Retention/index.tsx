@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Space, DatePicker, Select, Button, Table } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
@@ -34,7 +34,7 @@ export default function AnalyticsRetentionPage() {
   const [cohort, setCohort] = useState<'signup' | 'first_active'>('signup');
   const [data, setData] = useState<RetentionResponse>({ cohorts: [] });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string> = { cohort };
@@ -45,10 +45,10 @@ export default function AnalyticsRetentionPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [cohort, range]);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   // 处理后端返回的数据结构
   const rowsData: RetentionRow[] = (data?.cohorts || []).map((c, idx) => {

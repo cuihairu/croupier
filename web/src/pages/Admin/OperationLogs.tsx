@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Table, Space, Input, Button, DatePicker, Tag, Select } from 'antd';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Card, Table, Space, Input, Button, DatePicker, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { listAudit, type AuditEvent } from '@/services/api';
@@ -12,7 +12,7 @@ export default function OperationLogsPage() {
   );
   const [ip, setIP] = useState<string>('');
   // 默认展示常见操作类事件，不含登录
-  const defaultKinds = [
+  const defaultKinds = useMemo(() => [
     'invoke',
     'start_job',
     'cancel_job',
@@ -32,7 +32,7 @@ export default function OperationLogsPage() {
     'support.ticket_delete',
     'support.ticket_comment',
     'support.ticket_transition',
-  ];
+  ], []);
   const [kinds, setKinds] = useState<string[]>(defaultKinds);
   const [timeRange, setTimeRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [page, setPage] = useState<number>(1);
@@ -40,7 +40,7 @@ export default function OperationLogsPage() {
   const [gameId, setGameId] = useState<string>('');
   const [env, setEnv] = useState<string>('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = { page, size };
@@ -57,11 +57,11 @@ export default function OperationLogsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, size, actor, ip, gameId, env, kinds, defaultKinds, timeRange]);
 
   useEffect(() => {
     load();
-  }, [page, size]);
+  }, [load]);
 
   const exportCSV = () => {
     const arr = (rows || []).map((e: AuditEvent) => [
@@ -110,7 +110,7 @@ export default function OperationLogsPage() {
         ))}
       </Space>
     );
-  }, [kinds]);
+  }, [kinds, defaultKinds]);
 
   return (
     <PageContainer>

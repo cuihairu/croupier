@@ -75,7 +75,7 @@ export function SortableList<T>({ items, getKey, onReorder, children }: Sortable
       <SortableContext items={items.map(getKey)} strategy={verticalListSortingStrategy}>
         {items.map((item, index) => (
           <SortableItem key={getKey(item)} id={getKey(item)}>
-            {(dragHandleProps) => children(item, index)}
+            {(_dragHandleProps) => children(item, index)}
           </SortableItem>
         ))}
       </SortableContext>

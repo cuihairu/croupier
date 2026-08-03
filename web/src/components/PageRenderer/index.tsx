@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { Result, Typography } from 'antd';
+import { Result } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
 import ResourcePageRenderer from './ResourcePageRenderer';
 import OperationPageRenderer from './OperationPageRenderer';
@@ -22,8 +22,6 @@ import type {
   PageExecuteFn,
   TaskStatusResult,
 } from '@/types/dashboard';
-
-const { Text } = Typography;
 
 // ---------------------------------------------------------------------------
 // Props

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, Drawer, Input, Space, Tag, Typography } from 'antd';
 import { ProColumns, PageContainer, ProTable } from '@ant-design/pro-components';
 import { FileSearchOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -39,18 +39,18 @@ export default function ResourcesPage() {
   const [operations, setOperations] = useState<OperationSpec[]>([]);
   const [generatedPages, setGeneratedPages] = useState<GeneratedPageSpec[]>([]);
 
-  const loadResources = async () => {
+  const loadResources = useCallback(async () => {
     setLoading(true);
     try {
       setResources(await listResources(query ? { q: query } : undefined));
     } finally {
       setLoading(false);
     }
-  };
+  }, [query]);
 
   useEffect(() => {
     loadResources();
-  }, []);
+  }, [loadResources]);
 
   const openResource = async (resource: ResourceSpec) => {
     setSelectedResource(resource);

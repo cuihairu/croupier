@@ -15,7 +15,7 @@ export function trackSchemaEvent(event: SchemaTelemetryEvent, payload?: Record<s
     // Ignore telemetry failures
   }
   if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
+     
     console.info('[schema]', detail);
   }
 }

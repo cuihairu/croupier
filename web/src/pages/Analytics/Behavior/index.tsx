@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Card,
   Space,
@@ -265,7 +265,7 @@ export default function AnalyticsBehaviorPage() {
           <Table<FunnelStep>
             size="small"
             pagination={false}
-            dataSource={(funnel || []).map((s: FunnelStep, i: number) => ({
+            dataSource={(funnel || []).map((s: FunnelStep, _i: number) => ({
               step: s.step,
               users: s.users,
               rate: s.rate,
@@ -472,6 +472,7 @@ const PathControls: React.FC<{
 };
 
 // Preset bar for funnel
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PresetBar: React.FC<{
   steps: string[];
   seq: boolean;
@@ -506,12 +507,12 @@ const PresetBar: React.FC<{
       return String(a.name || '').localeCompare(String(b.name || ''));
     });
   };
-  const loadList = () => {
+  const loadList = useCallback(() => {
     setList(sortPresets(readAll()));
-  };
+  }, []);
   useEffect(() => {
     loadList();
-  }, []);
+  }, [loadList]);
 
   const savePreset = () => {
     try {

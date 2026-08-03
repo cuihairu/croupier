@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { Alert, App, Button, Card, Col, Empty, Row, Space, Tag, Typography } from 'antd';
 import { BarChartOutlined, LinkOutlined, ReloadOutlined, RocketOutlined } from '@ant-design/icons';
@@ -53,7 +53,7 @@ export default function TelemetryPage() {
 
   const configuredCount = entries.filter((entry) => !!entry.url).length;
 
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetchOpsConfig();
@@ -64,11 +64,11 @@ export default function TelemetryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
 
   useEffect(() => {
     loadConfig().catch(() => {});
-  }, []);
+  }, [loadConfig]);
 
   useEffect(() => {
     const onStorage = () => {

@@ -31,7 +31,7 @@ export const CodeEditor: React.FC<EditorProps> = ({
         // Try dynamic import; if not installed, fallback silently
         const mod = await import('@monaco-editor/react');
         if (mounted) setMonaco(mod);
-      } catch (_) {
+      } catch {
         // ignore
       }
     })();
@@ -83,7 +83,7 @@ export const DiffEditor: React.FC<{
       try {
         const mod = await import('@monaco-editor/react');
         if (mounted) setMonaco(mod);
-      } catch (_) {
+      } catch {
         /* ignore */
       }
     })();

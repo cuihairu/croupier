@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Drawer, Empty, Select, Spin } from 'antd';
 import classNames from 'classnames';
@@ -74,7 +74,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const reloadGames = async () => {
+  const reloadGames = useCallback(async () => {
     if (!canListGames) return;
     setLoading(true);
     try {
@@ -86,7 +86,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [canListGames]);
 
   const isGameControlled = typeof value !== 'undefined';
   const [gameState, setGameState] = useState<string | undefined>(
@@ -112,7 +112,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 
   useEffect(() => {
     reloadGames();
-  }, [canListGames]);
+  }, [reloadGames]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -123,7 +123,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     return () => {
       window.removeEventListener('games:changed', onGamesChanged);
     };
-  }, []);
+  }, [reloadGames]);
 
   const activeGame = useMemo(() => {
     if (!games.length) return undefined;

@@ -76,13 +76,13 @@ export default function RolesV2() {
     } else {
       form.resetFields();
     }
-  }, [editOpen, editing]);
+  }, [editOpen, editing, form]);
 
   useEffect(() => {
     if (permsOpen) {
       permsForm.setFieldsValue({ permissions: editing?.permissions || [] });
     }
-  }, [permsOpen, editing]);
+  }, [permsOpen, editing, permsForm]);
 
   const remove = async (rec: RoleRecord) => {
     await deleteRole(rec.id);

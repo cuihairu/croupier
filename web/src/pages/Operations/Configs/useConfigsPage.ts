@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App, Modal } from 'antd';
 import {
   listConfigs,
@@ -29,7 +29,7 @@ export default function useConfigsPage() {
   const [diffLeft, setDiffLeft] = useState('');
   const [diffRight, setDiffRight] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string> = {};
@@ -45,11 +45,11 @@ export default function useConfigsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [game, env, format, q, message]);
 
   useEffect(() => {
     load();
-  }, [game, env, format]);
+  }, [load]);
 
   const openItem = async (id: string, fmt: string) => {
     try {

@@ -13,9 +13,9 @@ if (typeof window !== 'undefined' && !window.CROUPIER_SERVER_ORIGIN) {
 
 // Dev-only: suppress noisy React StrictMode findDOMNode warnings from rc-* deps
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-  // eslint-disable-next-line no-console
+   
   const origError = console.error?.bind(console);
-  // eslint-disable-next-line no-console
+   
   console.error = (...args: unknown[]) => {
     try {
       const msg = args?.[0];
@@ -23,7 +23,7 @@ if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
         return; // drop
       }
     } catch {}
-    // eslint-disable-next-line no-console
+     
     return origError?.(...args);
   };
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { Alert, Button, Card, Form, Input, InputNumber, Space, Table, Tag } from 'antd';
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
@@ -28,7 +28,7 @@ export default function FunctionWarningsPage() {
     history.replace(`${location.pathname}${query ? `?${query}` : ''}`);
   };
 
-  const loadData = async (values: FilterValues) => {
+  const loadData = useCallback(async (values: FilterValues) => {
     setLoading(true);
     try {
       const res = await listFunctionWarnings({
@@ -41,7 +41,7 @@ export default function FunctionWarningsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const search = new URLSearchParams(location.search);
@@ -53,7 +53,7 @@ export default function FunctionWarningsPage() {
     };
     form.setFieldsValue(initial);
     loadData(initial).catch(() => setRows([]));
-  }, []);
+  }, [form, location.search, loadData]);
 
   return (
     <PageContainer title="函数注册告警" subTitle="集中查看 function_id/version 校验与去重告警">

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Space, Select, Button, Table, Modal, Form, Input, App, Tag } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
@@ -28,7 +28,7 @@ export default function GamesEnvsPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<GameEnv | null>(null);
 
-  const loadGames = async () => {
+  const loadGames = useCallback(async () => {
     // Prefer full game list; fallback to scoped list so page still works with limited permissions.
     let gameList = (await listGamesMeta()).games || [];
     if (!gameList.length) {
@@ -47,8 +47,8 @@ export default function GamesEnvsPage() {
         setGameId(fallback.id);
       }
     }
-  };
-  const loadEnvs = async (gid?: number) => {
+  }, [gameId]);
+  const loadEnvs = useCallback(async (gid?: number) => {
     if (!gid) return;
     setLoading(true);
     try {
@@ -60,11 +60,11 @@ export default function GamesEnvsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
 
   useEffect(() => {
     loadGames();
-  }, []);
+  }, [loadGames]);
   useEffect(() => {
     const off = subscribeScope((scope) => {
       setScopeGameId(scope.gameId || undefined);
@@ -95,7 +95,7 @@ export default function GamesEnvsPage() {
   }, [games, gameId]);
   useEffect(() => {
     if (gameId) loadEnvs(gameId);
-  }, [gameId]);
+  }, [gameId, loadEnvs]);
 
   const columns: ColumnsType<GameEnv> = useMemo(
     () => [
@@ -142,7 +142,7 @@ export default function GamesEnvsPage() {
         ),
       },
     ],
-    [gameId],
+    [gameId, loadEnvs, message],
   );
 
   const onAdd = async () => {

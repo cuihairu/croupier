@@ -9,7 +9,7 @@ type Renderer = (props: { data: JSONValue; options?: Record<string, JSONValue> }
 const renderers: Record<string, Renderer> = {};
 
 // Default JSON view renderer
-const JsonView: Renderer = ({ data, options }) => {
+const JsonView: Renderer = ({ data }) => {
   return (
     <pre style={{ whiteSpace: 'pre-wrap' }}>
       {typeof data === 'string' ? data : JSON.stringify(data, null, 2)}

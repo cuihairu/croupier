@@ -24,8 +24,6 @@ import {
   Form,
   message,
   Typography,
-  Tooltip,
-  Badge,
 } from 'antd';
 import {
   SearchOutlined,
@@ -35,8 +33,6 @@ import {
   FunctionOutlined,
   CheckCircleOutlined,
   WarningOutlined,
-  CloseCircleOutlined,
-  QuestionCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Input, Select, Tag, Modal, Form } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { listTickets, createTicket, updateTicket, deleteTicket } from '@/services/api/support';
@@ -81,7 +81,7 @@ export default function SupportBugsPage() {
   const access = (useAccess?.() || {}) as SupportAccess;
   const [users, setUsers] = useState<AdminRecord[]>([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listTickets({
@@ -100,10 +100,10 @@ export default function SupportBugsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [q, status, priority, assignee, gameId, env, page, size]);
   useEffect(() => {
     load();
-  }, [page, size]);
+  }, [load]);
   useEffect(() => {
     (async () => {
       try {

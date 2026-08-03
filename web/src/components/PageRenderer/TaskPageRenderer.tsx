@@ -16,7 +16,6 @@ import {
   Button,
   Space,
   message,
-  Result,
   Typography,
   Timeline,
   Progress,
@@ -25,7 +24,6 @@ import {
   Alert,
 } from 'antd';
 import {
-  PlayCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   SyncOutlined,

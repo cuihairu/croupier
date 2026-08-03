@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
 import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Tag } from 'antd';
 import { deleteTerm, listTerms, type TermItem, upsertTerm } from '@/services/api/terms';
@@ -22,7 +22,7 @@ export default function TermsPage() {
   const [editing, setEditing] = useState<TermItem | null>(null);
   const [form] = Form.useForm();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listTerms(domain);
@@ -33,11 +33,11 @@ export default function TermsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [domain, message]);
 
   useEffect(() => {
     load();
-  }, [domain]);
+  }, [load]);
 
   const columns: ProColumns<TermItem>[] = useMemo(
     () => [
@@ -90,7 +90,7 @@ export default function TermsPage() {
         ],
       },
     ],
-    [form],
+    [form, load, message],
   );
 
   return (

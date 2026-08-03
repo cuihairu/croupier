@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App, Form, Modal } from 'antd';
 import { history } from '@umijs/max';
 import {
@@ -150,7 +150,7 @@ export default function useFunctionDetailPage(functionId?: string) {
     };
   }, [functionDetail?.descriptor, functionDetail?.resource, descriptorIndexItem]);
 
-  const loadSourceOfTruth = async (id: string) => {
+  const loadSourceOfTruth = useCallback(async (id: string) => {
     let indexItem: FunctionDescriptor | null = null;
     try {
       const [descsRes, openapiRes] = await Promise.allSettled([
@@ -174,9 +174,9 @@ export default function useFunctionDetailPage(functionId?: string) {
       setOpenapiOperation(null);
     }
     return indexItem;
-  };
+  }, []);
 
-  const loadDetail = async () => {
+  const loadDetail = useCallback(async () => {
     if (!functionId) return;
     setLoading(true);
     try {
@@ -267,11 +267,11 @@ export default function useFunctionDetailPage(functionId?: string) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [functionId, message, form, permForm, loadSourceOfTruth]);
 
   useEffect(() => {
     loadDetail();
-  }, [functionId]);
+  }, [loadDetail]);
 
   const handleSave = async (values: FunctionEditValues) => {
     if (!functionId) return;

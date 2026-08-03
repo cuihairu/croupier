@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ProTable, ProColumns } from '@ant-design/pro-components';
 import { Button, Space, Tag, Badge, Tooltip, Typography, Popconfirm } from 'antd';
 import type { Key } from 'react';
@@ -8,10 +8,8 @@ import {
   EditOutlined,
   DeleteOutlined,
   ReloadOutlined,
-  EyeOutlined,
   StopOutlined,
 } from '@ant-design/icons';
-import { history } from '@umijs/max';
 
 const { Text } = Typography;
 
@@ -96,7 +94,7 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
   filters = true,
   compact = false,
 }) => {
-  const [selectedRows, setSelectedRows] = useState<FunctionItem[]>([]);
+  const [, setSelectedRows] = useState<FunctionItem[]>([]);
 
   // Process data for display
   const processedData = useMemo(() => {
@@ -305,7 +303,7 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
   const rowSelection = selectable
     ? {
         onChange: handleSelectionChange,
-        getCheckboxProps: (record: FunctionItem) => ({
+        getCheckboxProps: (_record: FunctionItem) => ({
           disabled: false,
         }),
       }

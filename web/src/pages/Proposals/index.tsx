@@ -22,8 +22,6 @@ import {
   Descriptions,
   message,
   Typography,
-  Tooltip,
-  Badge,
   Popconfirm,
 } from 'antd';
 import {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { PageContainer, ProTable, ProColumns, type ActionType } from '@ant-design/pro-components';
 import {
   App,
@@ -64,7 +64,7 @@ export default () => {
   const timerRef = useRef<NodeJS.Timeout>();
 
   // 加载数据
-  const fetchData = async (page = currentPage, size = pageSize) => {
+  const fetchData = useCallback(async (page = currentPage, size = pageSize) => {
     setLoading(true);
     try {
       const params = {
@@ -83,17 +83,17 @@ export default () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, pageSize, filters, message]);
 
   // 加载统计数据
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await getFunctionCallStats(filters);
       setStats(response);
     } catch (error) {
       console.warn('加载统计数据失败', error);
     }
-  };
+  }, [filters]);
 
   // 初始加载
   useEffect(() => {
@@ -116,7 +116,7 @@ export default () => {
         clearInterval(timerRef.current);
       }
     };
-  }, [filters]);
+  }, [dataSource, fetchData, fetchStats]);
 
   // 查看详情
   const handleViewDetail = async (record: FunctionCallItem) => {
@@ -405,7 +405,9 @@ export default () => {
                   end_time: dates[1].toISOString(),
                 });
               } else {
-                const { start_time, end_time, ...rest } = filters;
+                const rest = Object.fromEntries(
+                  Object.entries(filters).filter(([k]) => k !== 'start_time' && k !== 'end_time')
+                );
                 setFilters(rest);
               }
               setCurrentPage(1);

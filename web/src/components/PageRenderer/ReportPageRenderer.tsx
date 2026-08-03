@@ -25,8 +25,6 @@ import {
 } from 'antd';
 import {
   LineChartOutlined,
-  BarChartOutlined,
-  PieChartOutlined,
   TableOutlined,
   DownloadOutlined,
   ReloadOutlined,

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Table, Tag, Space, Button, Drawer, Descriptions, Select, Input, Modal } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Card, Table, Tag, Space, Button, Drawer, Descriptions, Select, Input } from 'antd';
 import { getMessage } from '@/utils/antdApp';
 import {
   approveApproval,
@@ -9,7 +9,6 @@ import {
   rejectApproval,
 } from '@/services/api';
 import type { FunctionDescriptor } from '@/services/api/functions';
-import type { JSONValue } from '@/types/dashboard';
 
 type Approval = {
   id: string;
@@ -122,7 +121,7 @@ export default function ApprovalsPage() {
     return m;
   }, [descs]);
 
-  async function list() {
+  const list = useCallback(async () => {
     setLoading(true);
     const qs = new URLSearchParams();
     if (state) qs.set('state', state);
@@ -147,7 +146,7 @@ export default function ApprovalsPage() {
     setData(json.approvals || []);
     setTotal(json.total || 0);
     setLoading(false);
-  }
+  }, [state, functionId, gameId, env, actor, riskFilter, page, size, completedOnly]);
 
   const filtered = useMemo(() => {
     const ip = (ipFilter || '').trim();
@@ -269,7 +268,7 @@ export default function ApprovalsPage() {
 
   useEffect(() => {
     list();
-  }, [page, size, state]);
+  }, [list]);
   useEffect(() => {
     listDescriptors()
       .then((d) => setDescs(d || []))

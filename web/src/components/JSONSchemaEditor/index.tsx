@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   Card,
-  Form,
   Input,
   Button,
   Space,
@@ -12,27 +11,19 @@ import {
   Divider,
   Alert,
   Tag,
-  List,
   Modal,
   Dropdown,
   Menu,
 } from 'antd';
-import type { CollapseProps } from 'antd';
 import {
   PlusOutlined,
   DeleteOutlined,
-  EditOutlined,
-  CopyOutlined,
-  EyeOutlined,
   QuestionCircleOutlined,
   SettingOutlined,
   FunctionOutlined,
   AppstoreOutlined,
-  DownOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
-import { useIntl } from '@umijs/max';
-import type { FormInstance } from 'antd/es/form';
 import { jsonParse } from '@/utils/json';
 import type { JSONValue } from '@/types/dashboard';
 
@@ -181,8 +172,6 @@ const InlinePropertyEditor: React.FC<{
   onChange: (property: string, config: PropertyConfig) => void;
   onDelete: (property: string) => void;
 }> = ({ property, config, onChange, onDelete }) => {
-  const intl = useIntl();
-
   const updateConfig = (updates: Partial<PropertyConfig>) => {
     onChange(property, { ...config, ...updates });
   };
@@ -478,7 +467,6 @@ const ObjectPropertyEditor: React.FC<{
 };
 
 export default function JSONSchemaEditor({ value, onChange }: JSONSchemaEditorProps) {
-  const intl = useIntl();
   const [activeTab, setActiveTab] = useState<'visual' | 'code'>('visual');
   const [jsonError, setJsonError] = useState<string>('');
   const buildSchema = (input?: SchemaObject): SchemaObject => {

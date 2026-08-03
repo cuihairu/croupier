@@ -21,7 +21,6 @@ import {
   Modal,
   message,
   Drawer,
-  Card,
   Tag,
   Popconfirm,
   Typography,
@@ -31,7 +30,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   ReloadOutlined,
-  ExportOutlined,
 } from '@ant-design/icons';
 import SchemaFormRenderer, {
   type SchemaFormRendererHandle,
@@ -175,7 +173,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           data: (data?.items as FormValues[]) || [],
           total: (data?.total as number) || 0,
         };
-      } catch (error) {
+      } catch {
         message.error('获取数据失败');
         return { data: [], total: 0 };
       }
@@ -196,7 +194,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         setCreateModalVisible(false);
         actionRef.current?.reload();
         return true;
-      } catch (error) {
+      } catch {
         message.error('创建失败');
         return false;
       }
@@ -218,7 +216,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         setCurrentRecord(null);
         actionRef.current?.reload();
         return true;
-      } catch (error) {
+      } catch {
         message.error('更新失败');
         return false;
       }
@@ -257,7 +255,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         await onExecute(deleteBinding.id, { [identityField]: record[identityField] });
         message.success('删除成功');
         actionRef.current?.reload();
-      } catch (error) {
+      } catch {
         message.error('删除失败');
       }
     },
@@ -276,7 +274,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               await onExecute(action.bindingId!, record);
               message.success('操作成功');
               actionRef.current?.reload();
-            } catch (error) {
+            } catch {
               message.error('操作失败');
             }
           },
@@ -286,7 +284,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           await onExecute(action.bindingId!, record);
           message.success('操作成功');
           actionRef.current?.reload();
-        } catch (error) {
+        } catch {
           message.error('操作失败');
         }
       }

@@ -8,8 +8,6 @@ import {
   Space,
   Alert,
   Spin,
-  Typography,
-  Divider,
   Tag,
 } from 'antd';
 import { PlayCircleOutlined, LoadingOutlined } from '@ant-design/icons';
@@ -18,19 +16,11 @@ import { callPlatform, listPlatformMethods } from '@/services/api/platforms';
 import type { JSONValue } from '@/types/dashboard';
 
 const { TextArea } = Input;
-const { Text, Paragraph } = Typography;
 
 interface APITesterProps {
   platforms: PlatformInfo[];
   selectedPlatform: string | null;
   onPlatformChange: (platform: string) => void;
-}
-
-interface QuickSDKMethod {
-  name: string;
-  category: string;
-  description: string;
-  params: { name: string; type: string; required: boolean; description: string }[];
 }
 
 // QuickSDK 方法参数模板

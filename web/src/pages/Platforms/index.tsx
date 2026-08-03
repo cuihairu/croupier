@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, Space, Tag, Button, App, Tabs, Badge } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
@@ -15,7 +15,7 @@ export default function PlatformsPage() {
   const [platformMethods, setPlatformMethods] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('list');
 
-  const loadPlatforms = async () => {
+  const loadPlatforms = useCallback(async () => {
     setLoading(true);
     try {
       const r = await listPlatforms();
@@ -31,7 +31,7 @@ export default function PlatformsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
 
   const loadPlatformMethods = async (platformName: string) => {
     try {
@@ -45,7 +45,7 @@ export default function PlatformsPage() {
 
   useEffect(() => {
     loadPlatforms();
-  }, []);
+  }, [loadPlatforms]);
 
   const columns: ColumnsType<PlatformInfo> = [
     {

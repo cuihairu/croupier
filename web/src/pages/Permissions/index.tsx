@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   PageContainer,
   ProTable,
@@ -43,7 +43,7 @@ const PermissionsPage: React.FC = () => {
   const [permDraft, setPermDraft] = useState<PermissionSpec>({});
   const [formI18nKeys, setFormI18nKeys] = useState<string[]>([]);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchSummary();
@@ -54,10 +54,10 @@ const PermissionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message, intl]);
   useEffect(() => {
     reload();
-  }, []);
+  }, [reload]);
 
   const columns: ProColumns<FuncRow>[] = useMemo(
     () => [
@@ -113,7 +113,7 @@ const PermissionsPage: React.FC = () => {
         ],
       },
     ],
-    [],
+    [intl],
   );
 
   return (

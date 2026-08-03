@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Alert, Card, Space, Button, Row, Col, Statistic, DatePicker, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
 import { fetchRealtimeSeries, openAnalyticsRealtimeEventSource } from '@/services/api/analytics';
-import type { JSONValue } from '@/types/dashboard';
 
 type SeriesPoint = [number | string, number];
 type RealtimeSeriesResponse = {
@@ -76,7 +75,31 @@ export default function AnalyticsRealtimePage() {
     };
   };
 
-  const pushRealtime = (r: RealtimeData) => {
+  const tryPersist = useCallback(
+    (
+      online?: [number, number][],
+      a5?: [number, number][],
+      a15?: [number, number][],
+      rev5?: [number, number][],
+    ) => {
+      try {
+        const current = sessionStorage.getItem('realtime:series');
+        const parsed = current ? JSON.parse(current) : {};
+        sessionStorage.setItem(
+          'realtime:series',
+          JSON.stringify({
+            online: online ?? parsed.online ?? ptsOnline,
+            a5: a5 ?? parsed.a5 ?? ptsA5,
+            a15: a15 ?? parsed.a15 ?? ptsA15,
+            rev5: rev5 ?? parsed.rev5 ?? ptsRev5,
+          }),
+        );
+      } catch {}
+    },
+    [ptsOnline, ptsA5, ptsA15, ptsRev5],
+  );
+
+  const pushRealtime = useCallback((r: RealtimeData) => {
     const normalized = normalizeRealtime(r || {});
     setData(normalized);
     setLastMessageAt(Date.now());
@@ -108,28 +131,7 @@ export default function AnalyticsRealtimePage() {
       tryPersist(undefined, undefined, undefined, next);
       return next;
     });
-  };
-
-  const tryPersist = (
-    online?: [number, number][],
-    a5?: [number, number][],
-    a15?: [number, number][],
-    rev5?: [number, number][],
-  ) => {
-    try {
-      const current = sessionStorage.getItem('realtime:series');
-      const parsed = current ? JSON.parse(current) : {};
-      sessionStorage.setItem(
-        'realtime:series',
-        JSON.stringify({
-          online: online ?? parsed.online ?? ptsOnline,
-          a5: a5 ?? parsed.a5 ?? ptsA5,
-          a15: a15 ?? parsed.a15 ?? ptsA15,
-          rev5: rev5 ?? parsed.rev5 ?? ptsRev5,
-        }),
-      );
-    } catch {}
-  };
+  }, [tryPersist]);
 
   const resetStaleTimer = () => {
     if (staleTimerRef.current) {
@@ -149,7 +151,7 @@ export default function AnalyticsRealtimePage() {
     }
   };
 
-  const connect = (singleShot = false) => {
+  const connect = useCallback((singleShot = false) => {
     closeStream();
     setLoading(true);
     setStreamStatus('connecting');
@@ -184,7 +186,7 @@ export default function AnalyticsRealtimePage() {
       setLoading(false);
       setStreamStatus('error');
     });
-  };
+  }, [pushRealtime]);
 
   const load = async () => {
     connect(!auto);
@@ -195,7 +197,7 @@ export default function AnalyticsRealtimePage() {
     return () => {
       closeStream();
     };
-  }, []);
+  }, [connect]);
   // load thresholds from localStorage
   useEffect(() => {
     try {
@@ -237,7 +239,7 @@ export default function AnalyticsRealtimePage() {
     return () => {
       closeStream();
     };
-  }, [auto]);
+  }, [auto, connect]);
 
   const statusTag =
     streamStatus === 'connected' ? (

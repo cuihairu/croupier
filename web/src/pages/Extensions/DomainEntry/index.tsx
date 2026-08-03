@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { App, Button, Card, Empty, Space, Tag, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { history, useLocation } from '@umijs/max';
@@ -55,7 +55,7 @@ export default function ExtensionDomainEntryPage() {
   const [installedCount, setInstalledCount] = useState(0);
   const [pages, setPages] = useState<Array<{ title?: string; path?: string }>>([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [installationsResp, pagesResp] = await Promise.all([
@@ -71,11 +71,11 @@ export default function ExtensionDomainEntryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [meta.extensionId, message]);
 
   useEffect(() => {
     load();
-  }, [meta.extensionId]);
+  }, [load]);
 
   return (
     <PageContainer title={meta.title} subTitle={meta.description}>

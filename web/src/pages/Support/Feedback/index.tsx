@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Input, Select, Modal, Form } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import {
@@ -7,7 +7,6 @@ import {
   updateFeedback,
   deleteFeedback,
   createTicket,
-  type Feedback as FeedbackType,
 } from '@/services/api/support';
 import { getMessage } from '@/utils/antdApp';
 import { useAccess } from '@umijs/max';
@@ -47,7 +46,7 @@ export default function SupportFeedbackPage() {
   const [form] = Form.useForm();
   const access: AccessState = useAccess?.() || {};
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listFeedback({ q, category, status, game_id: gameId, env, page, size });
@@ -56,10 +55,10 @@ export default function SupportFeedbackPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [q, category, status, gameId, env, page, size]);
   useEffect(() => {
     load();
-  }, [page, size]);
+  }, [load]);
 
   const openAdd = () => {
     setEditing(null);

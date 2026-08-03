@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Space, DatePicker, Select, Button, Row, Col, Statistic, Divider, Table } from 'antd';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Card, Space, Row, Col, Statistic, Divider } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
@@ -30,12 +30,12 @@ interface OverviewData {
 export default function AnalyticsOverviewPage() {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-  const [channel, setChannel] = useState<string>('');
-  const [platform, setPlatform] = useState<string>('');
+  const [range] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [channel] = useState<string>('');
+  const [platform] = useState<string>('');
   const [data, setData] = useState<OverviewData>({});
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = {};
@@ -48,11 +48,12 @@ export default function AnalyticsOverviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [range, channel, platform]);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const exportExcel = async () => {
     // Sheet 1: summary; Sheet 2: series (new_users/peak_online/revenue)
     const summary = [

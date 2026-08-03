@@ -31,7 +31,7 @@ function TestComponent({ onHistoryRef }: { onHistoryRef: (ref: React.MutableRefO
   const historyRef = useRef<MemoryHistory>();
   React.useEffect(() => {
     onHistoryRef(historyRef);
-  }, []);
+  }, [onHistoryRef]);
   return (
     <TestBrowser
       historyRef={historyRef as unknown as React.MutableRefObject<Location>}
@@ -64,7 +64,7 @@ describe('Login Page', () => {
 
     await act(async () => {
       await waitTime(100);
-      historyRef.current?.push('/user/login');
+      historyRef!.current?.push('/user/login');
     });
 
     expect(rootContainer.baseElement?.querySelector('.ant-pro-form-login-desc')?.textContent).toBe(
@@ -75,9 +75,8 @@ describe('Login Page', () => {
   });
 
   it('should login success', async () => {
-    let historyRef: React.MutableRefObject<MemoryHistory | undefined>;
     const rootContainer = render(
-      <TestComponent onHistoryRef={(ref) => { historyRef = ref; }} />
+      <TestComponent onHistoryRef={() => {}} />
     );
 
     await rootContainer.findAllByText(BRAND.title);

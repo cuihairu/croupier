@@ -8,23 +8,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
 import {
-  Alert,
   App,
   Button,
   Card,
   Drawer,
   Empty,
-  Modal,
   Popconfirm,
   Space,
   Tag,
-  Tabs,
   Typography,
 } from 'antd';
 import {
-  CheckCircleOutlined,
   EyeOutlined,
-  HistoryOutlined,
   ReloadOutlined,
   RocketOutlined,
   StopOutlined,
@@ -34,12 +29,10 @@ import {
   getPageDraft,
   listPageDrafts,
   publishPageDraft,
-  savePageDraft,
   unpublishPage,
 } from '@/services/api/pages';
 import type {
   PageSpecDraftSummary,
-  PageVersionItem,
   PageSpec,
   PageType,
 } from '@/types/dashboard';
@@ -88,8 +81,6 @@ export default function PageStudio() {
   const [selectedDraft, setSelectedDraft] = useState<PageSpec | null>(null);
   const [selectedDraftRevision, setSelectedDraftRevision] = useState<number>(0);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [versionsVisible, setVersionsVisible] = useState(false);
-  const [versions, setVersions] = useState<PageVersionItem[]>([]);
 
   // 加载草稿列表
   const loadDrafts = useCallback(async () => {
@@ -97,7 +88,7 @@ export default function PageStudio() {
     try {
       const result = await listPageDrafts();
       setDrafts(result || []);
-    } catch (error) {
+    } catch {
       message.error('加载页面列表失败');
     } finally {
       setLoading(false);
@@ -114,7 +105,7 @@ export default function PageStudio() {
       const draft = await getPageDraft(pageKey);
       setSelectedDraft(draft);
       setSelectedDraftRevision(draft.draftRevision || 0);
-    } catch (error) {
+    } catch {
       message.error('加载页面详情失败');
     }
   }, [message]);
@@ -125,7 +116,7 @@ export default function PageStudio() {
       await publishPageDraft(pageKey, selectedDraftRevision);
       message.success('发布成功');
       loadDrafts();
-    } catch (error) {
+    } catch {
       message.error('发布失败');
     }
   }, [message, loadDrafts, selectedDraftRevision]);
@@ -136,7 +127,7 @@ export default function PageStudio() {
       await unpublishPage(pageKey);
       message.success('已取消发布');
       loadDrafts();
-    } catch (error) {
+    } catch {
       message.error('取消发布失败');
     }
   }, [message, loadDrafts]);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { PageContainer, ProTable, ProColumns } from '@ant-design/pro-components';
 import {
   App,
@@ -96,7 +96,7 @@ export default () => {
     Array<{ timestamp: string; level: string; message: string }>
   >([]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getFunctionInstances();
@@ -170,11 +170,11 @@ export default () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const processedData = useMemo(() => {
     return instances.map((instance) => ({

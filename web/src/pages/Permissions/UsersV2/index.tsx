@@ -11,7 +11,6 @@ import {
   Tag,
   Space,
   Popconfirm,
-  Divider,
 } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
@@ -179,13 +178,13 @@ export default function UsersV2() {
       form.resetFields();
       form.setFieldsValue({ active: true });
     }
-  }, [modalOpen, editing]);
+  }, [modalOpen, editing, form]);
 
   useEffect(() => {
     if (pwdOpen) {
       pwdForm.resetFields();
     }
-  }, [pwdOpen]);
+  }, [pwdOpen, pwdForm]);
 
   const remove = async (rec: AdminRecord) => {
     await deleteAdmin(rec.id);

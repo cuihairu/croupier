@@ -13,16 +13,12 @@ import React, { useState, useCallback } from 'react';
 import {
   Card,
   Button,
-  Space,
   Modal,
   message,
   Result,
-  Typography,
   Descriptions,
-  Tag,
 } from 'antd';
 import {
-  PlayCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons';
@@ -36,8 +32,6 @@ import type {
   JSONValue,
   FormValues,
 } from '@/types/dashboard';
-
-const { Text } = Typography;
 
 // ---------------------------------------------------------------------------
 // Props

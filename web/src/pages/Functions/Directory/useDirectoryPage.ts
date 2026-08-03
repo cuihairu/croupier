@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App } from 'antd';
 import { history } from '@umijs/max';
 import { listDescriptors, listFunctionInstances, type FunctionDescriptor } from '@/services/api';
@@ -159,7 +159,7 @@ export default function useDirectoryPage() {
         },
         DIRECTORY_PAGE_SCHEMA.drawerActions,
       ),
-    [buildInvokePath, selectedFunction],
+    [buildInvokePath, selectedFunction, loading],
   );
 
   return {

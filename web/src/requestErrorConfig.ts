@@ -22,10 +22,6 @@ function msgWarn(text: string) {
   const api = getMessage();
   if (api) defer(() => api.warning(text));
 }
-function msgInfo(text: string) {
-  const api = getMessage();
-  if (api) defer(() => api.info(text));
-}
 function notiOpen(message: string | number | undefined, description?: string) {
   const api = getNotification();
   if (api) defer(() => api.open({ message: String(message ?? ''), description }));

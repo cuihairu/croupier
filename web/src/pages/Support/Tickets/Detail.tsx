@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Card,
   Space,
@@ -94,7 +94,7 @@ export default function TicketDetailPage() {
     return v ? <Tag color={stColorMap[v] || 'default'}>{stTextMap[v] || v}</Tag> : '-';
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [t, cm] = await Promise.all([getTicket(mid), listTicketComments(mid)]);
@@ -103,10 +103,10 @@ export default function TicketDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [mid]);
   useEffect(() => {
     if (mid) load();
-  }, [mid]);
+  }, [mid, load]);
 
   const submitComment = async () => {
     try {

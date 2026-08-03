@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Card,
   Table,
@@ -7,7 +7,6 @@ import {
   Space,
   Typography,
   Button,
-  Tooltip,
   Statistic,
   Row,
   Col,
@@ -19,9 +18,6 @@ import {
   ClusterOutlined,
   ReloadOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  CloseCircleOutlined,
-  InfoCircleOutlined,
   ApiOutlined,
   DatabaseOutlined,
 } from '@ant-design/icons';
@@ -65,7 +61,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
   const [stats, setStats] = useState<RegistryStats | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string> = {};
@@ -104,7 +100,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [gameId, env, onRefresh]);
 
   useEffect(() => {
     fetchData();
@@ -119,7 +115,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
         clearInterval(intervalId);
       }
     };
-  }, [gameId, env, autoRefresh, refreshInterval]);
+  }, [fetchData, autoRefresh, refreshInterval]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -130,17 +126,6 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.unknown;
     return <Badge {...config} />;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return '#52c41a';
-      case 'unhealthy':
-        return '#ff4d4f';
-      default:
-        return '#d9d9d9';
-    }
   };
 
   const formatLastSeen = (lastSeen: string) => {

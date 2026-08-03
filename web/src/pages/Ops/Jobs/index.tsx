@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   App,
@@ -49,7 +49,7 @@ export default function OpsTasksPage() {
   );
   const subRef = useRef<TaskEventSubscription | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string> = {};
@@ -65,10 +65,10 @@ export default function OpsTasksPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [status, fid, actor, message]);
   useEffect(() => {
     load();
-  }, [status, fid, actor]);
+  }, [load]);
   useEffect(() => {
     (async () => {
       try {
@@ -152,7 +152,7 @@ export default function OpsTasksPage() {
       } catch {}
       subRef.current = null;
     };
-  }, [detail]);
+  }, [detail, load]);
 
   const handleCancelTask = async (task: OpsTask) => {
     try {

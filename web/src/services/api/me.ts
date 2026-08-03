@@ -1,5 +1,4 @@
 import { request } from '@umijs/max';
-import type { JSONValue } from '@/types/dashboard';
 
 // Canonical frontend profile DTO normalized from croupier/internal/api/profile/dto.go ProfileGetResponse.
 export type MeProfile = {
