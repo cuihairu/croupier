@@ -10,15 +10,11 @@ interface CurrentUser {
 }
 
 /**
- * 获取当前用户权限列表
+ * 解析权限字符串为 Set
  */
-function getCurrentPermissions(): Set<string> {
-  // 从 initialState 获取权限
-  const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as CurrentUser)?.access) || '';
-
+function parsePermissions(access: string | undefined): Set<string> {
   return new Set(
-    access
+    (access || '')
       .split(',')
       .map((p) => p.trim())
       .filter(Boolean),
@@ -26,113 +22,81 @@ function getCurrentPermissions(): Set<string> {
 }
 
 /**
- * 检查是否有指定权限
+ * 检查是否有指定权限（纯函数，接受 access 参数）
  */
-export function hasPermission(permission: string): boolean {
+function checkPermission(access: string | undefined, permission: string): boolean {
   if (!permission) return true;
-
-  const permissions = getCurrentPermissions();
-  return permissions.has(permission);
+  return parsePermissions(access).has(permission);
 }
 
 /**
- * 检查是否有任意一个权限
+ * 检查是否有任意一个权限（纯函数）
  */
-export function hasAnyPermission(permissions: string[]): boolean {
+function checkAnyPermission(access: string | undefined, permissions: string[]): boolean {
   if (!permissions || permissions.length === 0) return true;
-
-  const userPermissions = getCurrentPermissions();
+  const userPermissions = parsePermissions(access);
   return permissions.some((p) => userPermissions.has(p));
 }
 
 /**
- * 检查是否有所有权限
+ * 检查是否有所有权限（纯函数）
  */
-export function hasAllPermissions(permissions: string[]): boolean {
+function checkAllPermissions(access: string | undefined, permissions: string[]): boolean {
   if (!permissions || permissions.length === 0) return true;
-
-  const userPermissions = getCurrentPermissions();
+  const userPermissions = parsePermissions(access);
   return permissions.every((p) => userPermissions.has(p));
 }
 
 /**
- * 根据权限过滤项目
+ * 根据权限过滤项目（纯函数）
  */
-export function filterByPermission<T extends { permissions?: string[] }>(items: T[]): T[] {
+export function filterByPermission<T extends { permissions?: string[] }>(
+  items: T[],
+  access: string | undefined,
+): T[] {
   return items.filter((item) => {
     if (!item.permissions || item.permissions.length === 0) return true;
-    return hasAnyPermission(item.permissions);
+    return checkAnyPermission(access, item.permissions);
   });
+}
+
+/**
+ * 获取当前用户的 access 字符串（Hook）
+ */
+export function useCurrentUserAccess(): string {
+  const { initialState } = useModel('@@initialState');
+  const currentUser = initialState?.currentUser as CurrentUser | undefined;
+  return (currentUser?.access as string | undefined) || '';
 }
 
 /**
  * 权限验证 Hook
  */
 export function usePermission(permission: string): boolean {
-  const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as CurrentUser)?.access as string | undefined) || '';
-
-  const permissions = new Set(
-    access
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean),
-  );
-
-  return !permission || permissions.has(permission);
+  const access = useCurrentUserAccess();
+  return checkPermission(access, permission);
 }
 
 /**
  * 批量权限验证 Hook
  */
 export function usePermissions(permissions: string[]): boolean[] {
-  const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as CurrentUser)?.access as string | undefined) || '';
-
-  const userPermissions = new Set(
-    access
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean),
-  );
-
-  return permissions.map((p) => !p || userPermissions.has(p));
+  const access = useCurrentUserAccess();
+  return permissions.map((p) => checkPermission(access, p));
 }
 
 /**
  * 权限验证 Hook（任意一个）
  */
 export function useAnyPermission(permissions: string[]): boolean {
-  const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as CurrentUser)?.access as string | undefined) || '';
-
-  if (!permissions || permissions.length === 0) return true;
-
-  const userPermissions = new Set(
-    access
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean),
-  );
-
-  return permissions.some((p) => userPermissions.has(p));
+  const access = useCurrentUserAccess();
+  return checkAnyPermission(access, permissions);
 }
 
 /**
  * 权限验证 Hook（所有）
  */
 export function useAllPermissions(permissions: string[]): boolean {
-  const { initialState } = useModel('@@initialState');
-  const access = ((initialState?.currentUser as CurrentUser)?.access as string | undefined) || '';
-
-  if (!permissions || permissions.length === 0) return true;
-
-  const userPermissions = new Set(
-    access
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean),
-  );
-
-  return permissions.every((p) => userPermissions.has(p));
+  const access = useCurrentUserAccess();
+  return checkAllPermissions(access, permissions);
 }

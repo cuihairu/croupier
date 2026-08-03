@@ -31,7 +31,8 @@ describe('applyTransform', () => {
       },
     });
     expect(Array.isArray(out)).toBe(true);
-    expect(out[0]).toEqual({
+    const arr = out as Array<{ name: string; data: unknown }>;
+    expect(arr[0]).toEqual({
       name: 'x',
       data: [
         [1, '2'],

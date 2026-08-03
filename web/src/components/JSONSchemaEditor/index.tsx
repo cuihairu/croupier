@@ -34,12 +34,25 @@ import {
 import { useIntl } from '@umijs/max';
 import type { FormInstance } from 'antd/es/form';
 import { jsonParse } from '@/utils/json';
+import type { JSONValue } from '@/types/dashboard';
 
 const { TextArea } = Input;
 const { Option } = Select;
 
+interface SchemaObject {
+  type?: string;
+  properties?: Record<string, PropertyConfig>;
+  required?: string[];
+}
+
+type SchemaTemplate = {
+  type: 'object';
+  properties: Record<string, PropertyConfig>;
+  required?: string[];
+};
+
 // Preset templates for common entity types
-const SCHEMA_TEMPLATES: Record<string, any> = {
+const SCHEMA_TEMPLATES: Record<string, SchemaTemplate> = {
   player: {
     type: 'object',
     properties: {
@@ -128,8 +141,8 @@ interface PropertyConfig {
   type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
   title?: string;
   description?: string;
-  default?: any;
-  enum?: any[];
+  default?: JSONValue;
+  enum?: JSONValue[];
   minimum?: number;
   maximum?: number;
   minLength?: number;
@@ -138,7 +151,7 @@ interface PropertyConfig {
   format?: string;
   required?: boolean;
   readOnly?: boolean;
-  const?: any;
+  const?: JSONValue;
   $ref?: string;
   // Array specific
   items?: PropertyConfig;
@@ -156,9 +169,9 @@ interface PropertyConfig {
 }
 
 interface JSONSchemaEditorProps {
-  value?: any;
-  onChange?: (value: any) => void;
-  schemaFormSchema?: any;
+  value?: SchemaObject;
+  onChange?: (value: SchemaObject) => void;
+  schemaFormSchema?: SchemaObject;
 }
 
 // 内联属性编辑器
@@ -264,14 +277,14 @@ const InlinePropertyEditor: React.FC<{
           <Space wrap>
             <InputNumber
               placeholder="Default"
-              value={config.default}
-              onChange={(value) => updateConfig({ default: value || null })}
+              value={typeof config.default === 'number' ? config.default : undefined}
+              onChange={(value) => updateConfig({ default: value ?? null })}
               style={{ width: 120 }}
             />
             <InputNumber
               placeholder="Minimum"
               value={config.minimum}
-              onChange={(value) => updateConfig({ minimum: value || undefined })}
+              onChange={(value) => updateConfig({ minimum: value ?? undefined })}
               style={{ width: 100 }}
             />
             <InputNumber
@@ -468,7 +481,7 @@ export default function JSONSchemaEditor({ value, onChange }: JSONSchemaEditorPr
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<'visual' | 'code'>('visual');
   const [jsonError, setJsonError] = useState<string>('');
-  const buildSchema = (input?: any) => {
+  const buildSchema = (input?: SchemaObject): SchemaObject => {
     if (
       !input ||
       typeof input !== 'object' ||
@@ -483,7 +496,7 @@ export default function JSONSchemaEditor({ value, onChange }: JSONSchemaEditorPr
     }
     return input;
   };
-  const [schemaData, setSchemaData] = useState<any>(buildSchema(value));
+  const [schemaData, setSchemaData] = useState<SchemaObject>(buildSchema(value));
 
   useEffect(() => {
     setSchemaData(buildSchema(value));
@@ -491,7 +504,7 @@ export default function JSONSchemaEditor({ value, onChange }: JSONSchemaEditorPr
   }, [value]);
 
   const handleVisualChange = useCallback(
-    (newData: any) => {
+    (newData: SchemaObject) => {
       setSchemaData(newData);
       onChange?.(newData);
     },
@@ -500,16 +513,17 @@ export default function JSONSchemaEditor({ value, onChange }: JSONSchemaEditorPr
 
   const handleCodeChange = (jsonString: string) => {
     try {
-      const parsed = jsonParse(jsonString);
+      const parsed = jsonParse(jsonString) as SchemaObject;
       setSchemaData(parsed);
       onChange?.(parsed);
       setJsonError('');
-    } catch (error: any) {
-      setJsonError(error.message || 'Invalid JSON');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid JSON';
+      setJsonError(message);
     }
   };
 
-  const addCommonProperty = (type: string, preset?: any) => {
+  const addCommonProperty = (type: string, preset?: Partial<PropertyConfig>) => {
     const propName = `new${type.charAt(0).toUpperCase() + type.slice(1)}${
       Object.keys(schemaData.properties || {}).length + 1
     }`;
@@ -517,7 +531,7 @@ export default function JSONSchemaEditor({ value, onChange }: JSONSchemaEditorPr
       type: type as PropertyConfig['type'],
       title: propName,
       description: `A ${type} property`,
-      ...(preset || {}),
+      ...preset,
     };
 
     handleVisualChange({

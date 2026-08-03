@@ -116,6 +116,7 @@ export default function APITester({
   const [callSource, setCallSource] = useState<string>('');
   const [response, setResponse] = useState<JSONValue>(null);
   const [error, setError] = useState<string | null>(null);
+  const currentMethod = Form.useWatch('method', form);
 
   const currentPlatform = platforms.find((p) => p.name === selectedPlatform);
 
@@ -278,11 +279,11 @@ export default function APITester({
                     </Select>
                   </Form.Item>
 
-                  {Form.useWatch('method', form) && (
+                  {currentMethod && (
                     <Alert
                       message={
                         <span>
-                          {getMethodDescription(Form.useWatch('method', form))}
+                          {getMethodDescription(currentMethod)}
                           {methodsSource && (
                             <>
                               {' '}
