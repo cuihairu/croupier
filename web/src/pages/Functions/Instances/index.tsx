@@ -847,8 +847,8 @@ export default () => {
                 style={{
                   marginTop: 8,
                   padding: 12,
-                  background: (debugResult as any)?.success ? '#f6ffed' : '#fff2f0',
-                  border: `1px solid ${(debugResult as any)?.success ? '#b7eb8f' : '#ffccc7'}`,
+                  background: (debugResult && typeof debugResult === 'object' && !Array.isArray(debugResult) && 'success' in debugResult && debugResult.success) ? '#f6ffed' : '#fff2f0',
+                  border: `1px solid ${(debugResult && typeof debugResult === 'object' && !Array.isArray(debugResult) && 'success' in debugResult && debugResult.success) ? '#b7eb8f' : '#ffccc7'}`,
                   borderRadius: 4,
                   fontSize: 12,
                   maxHeight: 200,

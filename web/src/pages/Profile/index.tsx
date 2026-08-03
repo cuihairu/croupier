@@ -337,6 +337,7 @@ export default function Profile() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAvatarUpload = async (options: any) => {
     const file = options?.file;
     if (!file) {

@@ -82,16 +82,33 @@ interface ErrorHandlerOptions {
   [key: string]: string | number | boolean | undefined;
 }
 
+interface RequestError extends Error {
+  response?: {
+    status?: number;
+    config?: { url?: string };
+    data?: RestErrorPayload;
+  };
+  request?: {
+    url?: string;
+  };
+  info?: {
+    errorMessage?: string;
+    errorCode?: string;
+    showType?: number;
+  };
+}
+
 export const errorConfig: RequestConfig = {
   // 错误处理： umi@3 的错误处理方案。
   errorConfig: {
     // 错误接收及处理
     errorHandler: (error: Error, opts: ErrorHandlerOptions) => {
       if (opts?.skipErrorHandler) throw error;
-      const rawUrl: string | undefined = error?.response?.config?.url || error?.request?.url;
+      const reqError = error as RequestError;
+      const rawUrl: string | undefined = reqError?.response?.config?.url || reqError?.request?.url;
       const url = normalizeApiUrl(rawUrl);
-      const status: number | undefined = error?.response?.status;
-      const payload = error?.response?.data as RestErrorPayload | undefined;
+      const status: number | undefined = reqError?.response?.status;
+      const payload = reqError?.response?.data as RestErrorPayload | undefined;
       const errorCode = String(payload?.error || '')
         .trim()
         .toLowerCase();
@@ -141,7 +158,7 @@ export const errorConfig: RequestConfig = {
         return;
       }
       // 兼容极少数遗留 success/errorCode/errorMessage 格式，后续可移除
-      const legacyInfo = error?.info;
+      const legacyInfo = reqError?.info;
       if (error.name === 'BizError' && legacyInfo) {
         const legacyMessage = String(legacyInfo.errorMessage || '请求失败');
         if (legacyInfo.showType === 3) {
@@ -151,13 +168,13 @@ export const errorConfig: RequestConfig = {
         msgError(legacyMessage);
         return;
       }
-      if (error.response) {
+      if (reqError?.response) {
         // Axios 的错误
         // 请求成功发出且服务器也响应了状态码，但状态代码超出了 2xx 的范围
-        msgError(resolveRestMessage(undefined, error.response.status));
-      } else if (error.request) {
+        msgError(resolveRestMessage(undefined, reqError.response.status));
+      } else if (reqError?.request) {
         // 请求已经成功发起，但没有收到响应
-        // \`error.request\` 在浏览器中是 XMLHttpRequest 的实例，
+        // `error.request` 在浏览器中是 XMLHttpRequest 的实例，
         // 而在node.js中是 http.ClientRequest 的实例
         msgError('无响应，请稍后重试');
       } else {

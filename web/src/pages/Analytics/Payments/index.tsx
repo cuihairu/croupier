@@ -756,7 +756,15 @@ export default function AnalyticsPaymentsPage() {
   );
 }
 
-type DimData = ChannelData | PlatformData | CountryData | RegionData | CityData | ProductData;
+interface DimBase {
+  revenue_cents: number;
+  success: number;
+  total: number;
+  success_rate: number;
+  [key: string]: string | number | boolean | undefined;
+}
+
+type DimData = ChannelData | PlatformData | CountryData | RegionData | CityData | ProductData | DimBase;
 
 const TopProducts: React.FC<{ data: ProductData[] }> = ({ data }) => {
   try {
@@ -817,10 +825,10 @@ const TopDimBar: React.FC<{ data: DimData[]; dimKey: string; title: string }> = 
   try {
     const items = (data || [])
       .slice(0)
-      .sort((a, b) => Number((b as any).revenue_cents || 0) - Number((a as any).revenue_cents || 0))
+      .sort((a, b) => Number(b.revenue_cents || 0) - Number(a.revenue_cents || 0))
       .slice(0, 10);
     if (!items.length) return null;
-    const max = Math.max(...items.map((x) => Number((x as any).revenue_cents || 0)), 1);
+    const max = Math.max(...items.map((x) => Number(x.revenue_cents || 0)), 1);
     const w = 600,
       barH = 18,
       gap = 6,
@@ -838,11 +846,11 @@ const TopDimBar: React.FC<{ data: DimData[]; dimKey: string; title: string }> = 
         >
           {items.map((it, idx: number) => {
             const y = 10 + idx * (barH + gap);
-            const val = Number((it as any).revenue_cents || 0);
+            const val = Number(it.revenue_cents || 0);
             return (
               <g key={idx}>
                 <text x={4} y={y + barH - 4} fontSize={12} fill="#555">
-                  {String((it as any)[dimKey] || '-')}
+                  {String((it as Record<string, string | number>)[dimKey] || '-')}
                 </text>
                 <rect x={left} y={y} width={Math.max(2, scale(val))} height={barH} fill="#73d13d" />
                 <text
@@ -871,7 +879,7 @@ const TopDimRate: React.FC<{ data: DimData[]; dimKey: string; title: string }> =
 }) => {
   try {
     const items = (data || [])
-      .map((x) => ({ ...(x as any), success_rate: Number((x as any).success_rate || 0) }))
+      .map((x) => ({ ...x, success_rate: Number(x.success_rate || 0) }))
       .filter((x) => isFinite(x.success_rate))
       .sort((a, b) => b.success_rate - a.success_rate)
       .slice(0, 10);
@@ -898,7 +906,7 @@ const TopDimRate: React.FC<{ data: DimData[]; dimKey: string; title: string }> =
             return (
               <g key={idx}>
                 <text x={4} y={y + barH - 4} fontSize={12} fill="#555">
-                  {String(it[dimKey] || '-')}
+                  {String((it as Record<string, string | number>)[dimKey] || '-')}
                 </text>
                 <rect x={left} y={y} width={Math.max(2, scale(val))} height={barH} fill="#faad14" />
                 <text
@@ -929,11 +937,11 @@ const TopDimCombo: React.FC<{ data: DimData[]; dimKey: string; title: string }> 
   try {
     const items = (data || [])
       .slice(0)
-      .sort((a, b) => Number((b as any).revenue_cents || 0) - Number((a as any).revenue_cents || 0))
+      .sort((a, b) => Number(b.revenue_cents || 0) - Number(a.revenue_cents || 0))
       .slice(0, 10);
     if (!items.length) return null;
-    const maxRev = Math.max(...items.map((x) => Number((x as any).revenue_cents || 0)), 1);
-    const maxRate = Math.max(...items.map((x) => Number((x as any).success_rate || 0)), 1);
+    const maxRev = Math.max(...items.map((x) => Number(x.revenue_cents || 0)), 1);
+    const maxRate = Math.max(...items.map((x) => Number(x.success_rate || 0)), 1);
     const w = 720,
       barH = 18,
       gap = 10,
@@ -953,12 +961,12 @@ const TopDimCombo: React.FC<{ data: DimData[]; dimKey: string; title: string }> 
         >
           {items.map((it, idx: number) => {
             const y = topm + idx * (barH + gap);
-            const rev = Number((it as any).revenue_cents || 0);
-            const rate = Number((it as any).success_rate || 0);
+            const rev = Number(it.revenue_cents || 0);
+            const rate = Number(it.success_rate || 0);
             return (
               <g key={idx}>
                 <text x={4} y={y + barH - 4} fontSize={12} fill="#555">
-                  {String((it as any)[dimKey] || '-')}
+                  {String((it as Record<string, string | number>)[dimKey] || '-')}
                 </text>
                 {/* revenue bar */}
                 <rect x={left} y={y} width={Math.max(2, sRev(rev))} height={barH} fill="#69c0ff" />
@@ -1065,15 +1073,16 @@ const ExportDimCSV: React.FC<{
     onClick={() => {
       try {
         const rows: string[][] = [['dim', 'revenue_cents', 'success', 'total', 'success_rate(%)']];
-        (data || []).forEach((r) =>
+        (data || []).forEach((r) => {
+          const record = r as Record<string, string | number>;
           rows.push([
-            String((r as any)[dimKey] ?? ''),
-            String((r as any).revenue_cents ?? 0),
-            String((r as any).success ?? 0),
-            String((r as any).total ?? 0),
-            String((r as any).success_rate ?? 0),
-          ]),
-        );
+            String(record[dimKey] ?? ''),
+            String(record.revenue_cents ?? 0),
+            String(record.success ?? 0),
+            String(record.total ?? 0),
+            String(record.success_rate ?? 0),
+          ]);
+        });
         if (includeConv) rows.push([]);
         const csv = rows.map((r) => r.map((x) => String(x ?? '')).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1174,12 +1183,13 @@ const DeltaSection: React.FC<{
         const k = String(dim === 'product' ? x['product_id'] : x[dim]);
         arrPreIdx[k] = x;
       });
-      const items: CompareItem[] = arrCur.map((x: Record<string, JSONValue>) => {
-        const key = String(dim === 'product' ? x['product_id'] : x[dim]);
+      const items: CompareItem[] = arrCur.map((x: DimData) => {
+        const record = x as unknown as Record<string, JSONValue>;
+        const key = String(dim === 'product' ? record['product_id'] : record[dim]);
         const prev = arrPreIdx[key] || {};
         const revDelta = Number(x.revenue_cents || 0) - Number(prev.revenue_cents || 0);
         const rateDelta = Number(x.success_rate || 0) - Number(prev.success_rate || 0);
-        return { key, cur: x, prev, revDelta, rateDelta };
+        return { key, cur: record, prev, revDelta, rateDelta };
       });
       const upRev = items
         .slice(0)

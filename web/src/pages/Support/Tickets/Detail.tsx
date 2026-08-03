@@ -13,6 +13,7 @@ import {
   Select,
   Form,
 } from 'antd';
+import type { UploadFile as AntUploadFile } from 'antd/es/upload/interface';
 import { useParams, history, useModel } from '@umijs/max';
 import { uploadAsset } from '@/services/api/storage';
 import { getMessage } from '@/utils/antdApp';
@@ -23,50 +24,24 @@ import {
   listTicketComments,
   addTicketComment,
   transitionTicket,
-  type Ticket as TicketType,
-  type TicketComment as TicketCommentType,
+  type Ticket,
+  type TicketComment,
 } from '@/services/api/support';
-import type { JSONValue } from '@/types/dashboard';
 
-interface Ticket {
-  id: number;
-  title: string;
-  content?: string;
-  category?: string;
-  priority?: string;
-  status?: string;
-  assignee?: string;
-  tags?: string[];
-  player_id?: string;
+interface ExtendedTicket extends Ticket {
   contact?: string;
-  game_id?: string;
   env?: string;
   source?: string;
-  created_at?: string;
-  updated_at?: string;
-  [key: string]: JSONValue | undefined;
 }
 
-interface Comment {
-  id: number;
-  author?: string;
-  content?: string;
+interface ExtendedComment extends TicketComment {
   attach?: string;
-  created_at?: string;
-  [key: string]: JSONValue | undefined;
 }
 
 interface Attachment {
   name?: string;
   url?: string;
-}
-
-interface UploadFile {
-  uid: string;
-  name: string;
-  status?: string;
-  url?: string;
-  response?: { URL?: string; Key?: string };
+  key?: string;
 }
 
 interface InitialState {
@@ -84,16 +59,33 @@ export default function TicketDetailPage() {
   const { id } = useParams();
   const mid = String(id || '');
   const [loading, setLoading] = useState(false);
-  const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [ticket, setTicket] = useState<ExtendedTicket | null>(null);
+  const [comments, setComments] = useState<ExtendedComment[]>([]);
   const [cmt, setCmt] = useState<string>('');
-  const [files, setFiles] = useState<UploadFile[]>([]);
+  const [files, setFiles] = useState<AntUploadFile[]>([]);
   const [transOpen, setTransOpen] = useState(false);
   const [transStatus, setTransStatus] = useState<string>('');
   const [transComment, setTransComment] = useState<string>('');
   const [editOpen, setEditOpen] = useState(false);
   const [form] = Form.useForm();
   const { initialState } = useModel('@@initialState');
+
+  // 处理文件上传
+  const handleUpload = async (file: File): Promise<void> => {
+    try {
+      const res = await uploadAsset(file);
+      const next: AntUploadFile = {
+        uid: String(Date.now()),
+        name: file.name,
+        status: 'done',
+        url: res.URL,
+      };
+      setFiles((prev) => [...prev, next]);
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "操作失败";
+      getMessage()?.error(errMsg || '上传失败');
+    }
+  };
 
   const priTag = (v?: string) => {
     return v ? <Tag color={priColorMap[v] || 'default'}>{priTextMap[v] || v}</Tag> : '-';
@@ -119,8 +111,8 @@ export default function TicketDetailPage() {
   const submitComment = async () => {
     try {
       const attach = files
-        .map((f: UploadFile) => ({ name: f.name, url: f.url || f.response?.URL, key: f.response?.Key }))
-        .filter((x: Attachment) => x.url);
+        .map((f) => ({ name: f.name, url: f.url || (f.response as { URL?: string })?.URL, key: (f.response as { Key?: string })?.Key }))
+        .filter((x) => x.url);
       await addTicketComment(mid, { content: cmt, attach: JSON.stringify(attach) });
       setCmt('');
       setFiles([]);
@@ -256,9 +248,9 @@ export default function TicketDetailPage() {
             </Descriptions>
 
             <Divider>评论</Divider>
-            <List<Comment>
+            <List<ExtendedComment>
               dataSource={comments}
-              renderItem={(it: Comment) => {
+              renderItem={(it: ExtendedComment) => {
                 let attachments: Attachment[] = [];
                 try {
                   if (it.attach) attachments = JSON.parse(it.attach);
@@ -320,29 +312,14 @@ export default function TicketDetailPage() {
                 onChange={(e) => setCmt(e.target.value)}
                 placeholder="输入评论内容"
               />
-              <Upload<UploadFile>
+              <Upload<AntUploadFile>
                 fileList={files}
                 listType="picture"
                 customRequest={async (opts) => {
-                  try {
-                    const res = await uploadAsset(opts.file as File);
-                    const next: UploadFile = {
-                      uid: String(Date.now()),
-                      name: opts.file.name,
-                      status: 'done',
-                      url: res.URL,
-                      response: res,
-                    };
-                    setFiles((prev) => [...prev, next]);
-                    opts.onSuccess && opts.onSuccess(res, opts.file);
-                  } catch (e) {
-                    const errMsg = e instanceof Error ? e.message : "操作失败";
-                    getMessage()?.error(errMsg || '上传失败');
-                    opts.onError && opts.onError(e as Error);
-                  }
+                  await handleUpload(opts.file as File);
                 }}
                 onRemove={(file) => {
-                  setFiles((prev) => prev.filter((f: UploadFile) => f.uid !== file.uid));
+                  setFiles((prev) => prev.filter((f) => f.uid !== file.uid));
                   return true;
                 }}
               >

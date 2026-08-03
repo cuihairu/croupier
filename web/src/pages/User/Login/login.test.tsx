@@ -1,8 +1,10 @@
 ﻿import { render, fireEvent, act } from '@testing-library/react';
-import React from 'react';
+import React, { useRef } from 'react';
 import { TestBrowser } from '@@/testBrowser';
 import { BRAND } from '@/config/branding';
 import { history } from '@umijs/max';
+import type { Location } from 'history';
+import type { MemoryHistory } from 'history';
 
 // @ts-ignore
 import { startMock } from '@@/requestRecordMock';
@@ -19,9 +21,26 @@ const waitTime = (time: number = 100) => {
   });
 };
 
-let server: {
+interface MockServer {
   close: () => void;
-};
+}
+
+let server: MockServer;
+
+function TestComponent({ onHistoryRef }: { onHistoryRef: (ref: React.MutableRefObject<MemoryHistory | undefined>) => void }) {
+  const historyRef = useRef<MemoryHistory>();
+  React.useEffect(() => {
+    onHistoryRef(historyRef);
+  }, []);
+  return (
+    <TestBrowser
+      historyRef={historyRef as unknown as React.MutableRefObject<Location>}
+      location={{
+        pathname: '/user/login',
+      }}
+    />
+  );
+}
 
 describe('Login Page', () => {
   beforeAll(async () => {
@@ -36,19 +55,15 @@ describe('Login Page', () => {
   });
 
   it('should show login form', async () => {
-    const historyRef = React.createRef<unknown>();
+    let historyRef: React.MutableRefObject<MemoryHistory | undefined>;
     const rootContainer = render(
-      <TestBrowser
-        historyRef={historyRef}
-        location={{
-          pathname: '/user/login',
-        }}
-      />,
+      <TestComponent onHistoryRef={(ref) => { historyRef = ref; }} />
     );
 
     await rootContainer.findAllByText(BRAND.title);
 
-    act(() => {
+    await act(async () => {
+      await waitTime(100);
       historyRef.current?.push('/user/login');
     });
 
@@ -60,14 +75,9 @@ describe('Login Page', () => {
   });
 
   it('should login success', async () => {
-    const historyRef = React.createRef<unknown>();
+    let historyRef: React.MutableRefObject<MemoryHistory | undefined>;
     const rootContainer = render(
-      <TestBrowser
-        historyRef={historyRef}
-        location={{
-          pathname: '/user/login',
-        }}
-      />,
+      <TestComponent onHistoryRef={(ref) => { historyRef = ref; }} />
     );
 
     await rootContainer.findAllByText(BRAND.title);

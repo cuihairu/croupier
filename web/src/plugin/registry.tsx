@@ -33,7 +33,12 @@ const TableView: Renderer = ({ data }) => {
     return <div>No data</div>;
   }
 
-  const headers = Object.keys(data[0]);
+  const firstRow = data[0];
+  if (typeof firstRow !== 'object' || firstRow === null || Array.isArray(firstRow)) {
+    return <div>No data</div>;
+  }
+
+  const headers = Object.keys(firstRow);
   return (
     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
       <thead>
@@ -49,15 +54,21 @@ const TableView: Renderer = ({ data }) => {
         </tr>
       </thead>
       <tbody>
-        {data.map((row, index) => (
-          <tr key={index}>
-            {headers.map((header) => (
-              <td key={header} style={{ border: '1px solid #ddd', padding: '8px' }}>
-                {String(row[header] ?? '')}
-              </td>
-            ))}
-          </tr>
-        ))}
+        {data.map((row, index) => {
+          if (typeof row !== 'object' || row === null || Array.isArray(row)) {
+            return null;
+          }
+          const obj = row as Record<string, JSONValue>;
+          return (
+            <tr key={index}>
+              {headers.map((header) => (
+                <td key={header} style={{ border: '1px solid #ddd', padding: '8px' }}>
+                  {String(obj[header] ?? '')}
+                </td>
+              ))}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
