@@ -477,3 +477,68 @@ func diagnostic(code string, severity spec.DiagnosticSeverity, message string, f
 		Field:      field,
 	}
 }
+
+// ShouldBlockProposal checks if a proposal should be blocked (cannot be materialized).
+// Returns true if the proposal has blocking issues that prevent materialization.
+func ShouldBlockProposal(diags []spec.Diagnostic) bool {
+	for _, d := range diags {
+		if d.Severity == spec.SeverityError {
+			// Check for specific blocking conditions
+			switch d.Code {
+			case "function_id_missing", "function_disabled":
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// CreateBlockedProposalIssue creates a BlockedProposalIssue from diagnostics.
+// It only contains diagnostics and repair hints, not a spec.
+func CreateBlockedProposalIssue(
+	gameID string,
+	env string,
+	resourceKey string,
+	functionID string,
+	diags []spec.Diagnostic,
+	locale string,
+) spec.BlockedProposalIssue {
+	// Filter to only error diagnostics
+	var errorDiags []spec.Diagnostic
+	for _, d := range diags {
+		if d.Severity == spec.SeverityError {
+			errorDiags = append(errorDiags, d)
+		}
+	}
+
+	// Generate repair hint based on diagnostics
+	repairHint := generateRepairHint(errorDiags, locale)
+
+	return spec.BlockedProposalIssue{
+		GameID:      gameID,
+		Env:         env,
+		ResourceKey: resourceKey,
+		FunctionID:  functionID,
+		Diagnostics: errorDiags,
+		RepairHint:  repairHint,
+		Status:      "open",
+	}
+}
+
+// generateRepairHint creates a repair hint from diagnostics.
+func generateRepairHint(diags []spec.Diagnostic, locale string) spec.LocalizedText {
+	if len(diags) == 0 {
+		return spec.LocalizedText{locale: "No issues found"}
+	}
+
+	// Use the first error as the primary hint
+	primaryDiag := diags[0]
+	switch primaryDiag.Code {
+	case "function_id_missing":
+		return spec.LocalizedText{locale: "Function ID is required. Please register the function first."}
+	case "function_disabled":
+		return spec.LocalizedText{locale: "Function is disabled. Please enable it before creating a page."}
+	default:
+		return spec.LocalizedText{locale: primaryDiag.Message}
+	}
+}

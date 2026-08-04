@@ -512,6 +512,37 @@ type GeneratedPageSpec struct {
 	Diagnostics []Diagnostic         `json:"diagnostics,omitempty"`
 }
 
+// BlockedProposalIssue represents a proposal that cannot be materialized into
+// a PageSpec. It only contains diagnostics and repair hints, not a spec.
+// "blocked" is NOT a Proposal quality; it's a separate issue type.
+type BlockedProposalIssue struct {
+	// ID is the unique identifier for this issue.
+	ID string `json:"id"`
+
+	// GameID and Env identify the scope.
+	GameID string `json:"gameId"`
+	Env    string `json:"env"`
+
+	// ResourceKey identifies the resource (if applicable).
+	ResourceKey string `json:"resourceKey,omitempty"`
+
+	// FunctionID identifies the function (if applicable).
+	FunctionID string `json:"functionId,omitempty"`
+
+	// Diagnostics explains why the proposal cannot be materialized.
+	Diagnostics []Diagnostic `json:"diagnostics"`
+
+	// RepairHint provides guidance on how to resolve the issue.
+	RepairHint LocalizedText `json:"repairHint"`
+
+	// CreatedAt is when this issue was created.
+	CreatedAt string `json:"createdAt"`
+
+	// Status tracks whether this issue has been addressed.
+	// "open" | "resolved" | "dismissed"
+	Status string `json:"status"`
+}
+
 // ---------------------------------------------------------------------------
 // Page draft
 // ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"time"
 
 	"gorm.io/datatypes"
@@ -50,4 +51,78 @@ type PageProposalVersion struct {
 	SemanticsDigest string         `gorm:"size:64"`
 	ChangeReason    string         `gorm:"size:256"`
 	CreatedBy       string         `gorm:"size:64"`
+}
+
+// BlockedProposalIssue represents a proposal that cannot be materialized.
+// It only contains diagnostics and repair hints, not a spec.
+type BlockedProposalIssue struct {
+	gorm.Model
+	GameID      string         `gorm:"size:64;uniqueIndex:idx_blocked_proposal_scope"`
+	Env         string         `gorm:"size:64;uniqueIndex:idx_blocked_proposal_scope"`
+	ResourceKey string         `gorm:"size:64;index"`
+	FunctionID  string         `gorm:"size:128;index"`
+
+	// Source tracking
+	SourceDigests datatypes.JSON `gorm:"type:json"` // SourceDigest array
+
+	// Diagnostics explains why the proposal cannot be materialized
+	Diagnostics datatypes.JSON `gorm:"type:json"` // Diagnostic array
+
+	// RepairHint provides guidance on how to resolve the issue
+	RepairHint datatypes.JSONMap `gorm:"type:json"` // LocalizedText
+
+	// Status tracks whether this issue has been addressed
+	Status string `gorm:"size:32;default:'open'"` // open|resolved|dismissed
+
+	UpdatedAt time.Time
+	UpdatedBy string `gorm:"size:64"`
+}
+
+// BlockedProposalIssueModel provides data access for blocked proposal issues.
+type BlockedProposalIssueModel struct {
+	db *gorm.DB
+}
+
+// NewBlockedProposalIssueModel creates a new model.
+func NewBlockedProposalIssueModel(db *gorm.DB) *BlockedProposalIssueModel {
+	return &BlockedProposalIssueModel{db: db}
+}
+
+// Create creates a new blocked proposal issue.
+func (m *BlockedProposalIssueModel) Create(ctx context.Context, issue *BlockedProposalIssue) error {
+	return m.db.WithContext(ctx).Create(issue).Error
+}
+
+// FindByScopeAndResourceKey finds a blocked issue by scope and resource key.
+func (m *BlockedProposalIssueModel) FindByScopeAndResourceKey(ctx context.Context, gameID, env, resourceKey string) (*BlockedProposalIssue, error) {
+	var issue BlockedProposalIssue
+	if err := m.db.WithContext(ctx).
+		Where("game_id = ? AND env = ? AND resource_key = ? AND status = ?", gameID, env, resourceKey, "open").
+		First(&issue).Error; err != nil {
+		return nil, err
+	}
+	return &issue, nil
+}
+
+// ListByScope lists all blocked issues in a scope.
+func (m *BlockedProposalIssueModel) ListByScope(ctx context.Context, gameID, env string) ([]*BlockedProposalIssue, error) {
+	var issues []*BlockedProposalIssue
+	if err := m.db.WithContext(ctx).
+		Where("game_id = ? AND env = ? AND status = ?", gameID, env, "open").
+		Order("created_at DESC").
+		Find(&issues).Error; err != nil {
+		return nil, err
+	}
+	return issues, nil
+}
+
+// UpdateStatus updates the status of a blocked issue.
+func (m *BlockedProposalIssueModel) UpdateStatus(ctx context.Context, id uint, status, updatedBy string) error {
+	return m.db.WithContext(ctx).
+		Model(&BlockedProposalIssue{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"status":     status,
+			"updated_by": updatedBy,
+		}).Error
 }
