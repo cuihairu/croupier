@@ -414,7 +414,8 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - `proposalKey/pageKey` 已收敛为 `resource:<resourceKey>` / `<kind>:<functionId>` 与 `resource--<resourceKey>` / `<kind>--<functionId>`；重复生成走稳定 key，不再沿用 `<resource>.manage` 或 `<resource>.<operation>`。
 - `blocked` 已从 Proposal quality 中移除；当前阻断接受/发布依赖 error diagnostics，而不是 quality 枚举。
 - 已实现发布时同 scope、同 `category.key` 的 `category.labels` 完全一致性校验；冲突会阻断发布，避免动态菜单分类文本由运行时仲裁。
-- 仍未完成：P3-a 全量前置审计、BlockedProposalIssue 物化、Task/Report/Approval 的真实浏览器路径，以及 P3-b 的 stale/diff/合并闭环；因此 P2 仍不能勾选完成。
+- 已实现 BlockedProposalIssue 物化：`spec.BlockedProposalIssue` 类型、GORM 模型、`ShouldBlockProposal` 和 `CreateBlockedProposalIssue` 函数。
+- 仍未完成：P3-a 全量前置审计、Task/Report/Approval 的真实浏览器路径，以及 P3-b 的 stale/diff/合并闭环；因此 P2 仍不能勾选完成。
 
 #### P2-1. Proposal 数据模型和生成作业
 
