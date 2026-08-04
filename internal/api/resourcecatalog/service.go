@@ -446,13 +446,13 @@ type ConflictInfo struct {
 
 // ProvenanceInfo represents field-level provenance for API response.
 type ProvenanceInfo struct {
-	Field        string `json:"field"`
-	Source       string `json:"source"`
-	Confidence   string `json:"confidence"`
-	Status       string `json:"status"`
-	Value        string `json:"value,omitempty"`
-	UpdatedAt    string `json:"updatedAt"`
-	UpdatedBy    string `json:"updatedBy"`
+	Field      string `json:"field"`
+	Source     string `json:"source"`
+	Confidence string `json:"confidence"`
+	Status     string `json:"status"`
+	Value      string `json:"value,omitempty"`
+	UpdatedAt  string `json:"updatedAt"`
+	UpdatedBy  string `json:"updatedBy"`
 }
 
 // ListConflictsRequest is the request for listing conflicts.
@@ -464,7 +464,7 @@ type ListConflictsRequest struct {
 
 // ListConflictsResponse is the response for listing conflicts.
 type ListConflictsResponse struct {
-	Conflicts []ConflictInfo  `json:"conflicts"`
+	Conflicts  []ConflictInfo   `json:"conflicts"`
 	Provenance []ProvenanceInfo `json:"provenance"`
 }
 
@@ -523,12 +523,12 @@ func (s *Service) ListConflicts(ctx context.Context, req *ListConflictsRequest) 
 
 // ResolveConflictRequest is the request for resolving a conflict.
 type ResolveConflictRequest struct {
-	GameID      string `json:"-"`
-	Env         string `json:"-"`
-	ResourceKey string `json:"-"`
-	Field       string `json:"field"`
+	GameID       string `json:"-"`
+	Env          string `json:"-"`
+	ResourceKey  string `json:"-"`
+	Field        string `json:"field"`
 	ChosenSource string `json:"chosenSource"` // platform_review|sdk_explicit|openapi_rest
-	Reason      string `json:"reason,omitempty"`
+	Reason       string `json:"reason,omitempty"`
 }
 
 // ResolveConflictResponse is the response for resolving a conflict.
@@ -613,9 +613,9 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 			audit.WithActorID(actor, "user", actor),
 			audit.WithResourceID("resource_catalog", req.ResourceKey),
 			audit.WithDetails(map[string]interface{}{
-				"field":          req.Field,
-				"chosen_source":  req.ChosenSource,
-				"reason":         req.Reason,
+				"field":         req.Field,
+				"chosen_source": req.ChosenSource,
+				"reason":        req.Reason,
 			}),
 		); err != nil {
 			slog.ErrorContext(ctx, "failed to write semantic conflict resolve audit event",

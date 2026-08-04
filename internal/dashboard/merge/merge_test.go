@@ -9,9 +9,9 @@ import (
 
 func TestThreeWayMerge_NoChanges(t *testing.T) {
 	base := spec.PageSpec{
-		Title:    spec.LocalizedText{"zh-CN": "测试页面"},
-		PageKey:  "test.page",
-		Type:     spec.PageTypeOperation,
+		Title:   spec.LocalizedText{"zh-CN": "测试页面"},
+		PageKey: "test.page",
+		Type:    spec.PageTypeOperation,
 	}
 
 	result := ThreeWayMerge(base, base, base)
@@ -80,11 +80,11 @@ func TestThreeWayMerge_MixedChanges(t *testing.T) {
 
 	draft := base
 	draft.Title = spec.LocalizedText{"zh-CN": "用户修改"} // Auto-merge field
-	draft.Icon = "user-icon"                           // Auto-merge field
+	draft.Icon = "user-icon"                          // Auto-merge field
 
 	latest := base
 	latest.Title = spec.LocalizedText{"zh-CN": "生成器修改"} // Auto-merge field
-	latest.Icon = "generator-icon"                         // Auto-merge field
+	latest.Icon = "generator-icon"                      // Auto-merge field
 
 	result := ThreeWayMerge(base, draft, latest)
 

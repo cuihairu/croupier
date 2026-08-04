@@ -57,10 +57,10 @@ type PageProposalVersion struct {
 // It only contains diagnostics and repair hints, not a spec.
 type BlockedProposalIssue struct {
 	gorm.Model
-	GameID      string         `gorm:"size:64;uniqueIndex:idx_blocked_proposal_scope"`
-	Env         string         `gorm:"size:64;uniqueIndex:idx_blocked_proposal_scope"`
-	ResourceKey string         `gorm:"size:64;index"`
-	FunctionID  string         `gorm:"size:128;index"`
+	GameID      string `gorm:"size:64;uniqueIndex:idx_blocked_proposal_scope"`
+	Env         string `gorm:"size:64;uniqueIndex:idx_blocked_proposal_scope"`
+	ResourceKey string `gorm:"size:64;index"`
+	FunctionID  string `gorm:"size:128;index"`
 
 	// Source tracking
 	SourceDigests datatypes.JSON `gorm:"type:json"` // SourceDigest array

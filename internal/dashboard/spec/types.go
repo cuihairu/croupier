@@ -173,8 +173,8 @@ type Diagnostic struct {
 type SemanticSource string
 
 const (
-	SemanticSourceOpenAPIRest SemanticSource = "openapi_rest"
-	SemanticSourceSDKExplicit SemanticSource = "sdk_explicit"
+	SemanticSourceOpenAPIRest    SemanticSource = "openapi_rest"
+	SemanticSourceSDKExplicit    SemanticSource = "sdk_explicit"
 	SemanticSourcePlatformReview SemanticSource = "platform_review"
 )
 

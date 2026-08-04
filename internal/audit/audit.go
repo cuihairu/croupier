@@ -68,9 +68,9 @@ const (
 	EventPageExecute   AuditEventType = "page.execute"
 
 	// Semantic events
-	EventSemanticUpdate        AuditEventType = "semantic.update"
-	EventSemanticConflict      AuditEventType = "semantic.conflict"
-	EventSemanticConflictResolve AuditEventType = "semantic.conflict_resolve"
+	EventSemanticUpdate           AuditEventType = "semantic.update"
+	EventSemanticConflict         AuditEventType = "semantic.conflict"
+	EventSemanticConflictResolve  AuditEventType = "semantic.conflict_resolve"
 	EventSemanticProvenanceUpdate AuditEventType = "semantic.provenance_update"
 
 	// OpenAPI Source events
