@@ -32,6 +32,10 @@ message LocalFunctionDescriptor {
   string permission = 14;                 // x-permission: optional permission identifier
   string capability = 15;                 // x-capability: collection_query|item_query|create|update|delete|action|task|report
   string execution = 16;                  // x-execution: sync|task
+
+  // Approval policy (independent of execution mode)
+  bool approval_required = 17;            // x-approval.required: whether approval is required
+  string approval_policy_key = 18;        // x-approval.policyKey: optional policy key (e.g., "two_person")
 }
 
 // ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.

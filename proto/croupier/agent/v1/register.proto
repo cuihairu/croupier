@@ -20,6 +20,10 @@ message FunctionDescriptor {
   string capability = 8; // collection_query|item_query|create|update|delete|action|task|report
   string execution = 9;  // sync|task
 
+  // Approval policy (independent of execution mode)
+  bool approval_required = 10;     // whether approval is required
+  string approval_policy_key = 11; // optional policy key (e.g., "two_person")
+
   // OpenAPI 3.0.3 Operation Object fields for catalog/search.
   string summary = 25;
   string description = 26;
