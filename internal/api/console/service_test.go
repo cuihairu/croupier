@@ -604,7 +604,10 @@ func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, c
 				ID:         "player.query",
 				FunctionID: "player.query",
 				Usage:      spec.BindingUsageQuery,
-				Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+				Selectors: &spec.BindingSelectors{
+					Input: selector,
+				},
+				Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
 			},
 		},
 	}

@@ -554,7 +554,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 状态：待重新审核。
 
-- 当前事实（2026-08-04）：Console execute 已在 stale/snapshot 校验通过后，使用当前 FunctionSpec input schema 做服务端 JSON Schema 校验；非法 JSON、缺 required、类型不匹配和未声明字段会在调用 agent 前失败。已验证 `GOCACHE="/tmp/croupier-go-build" go test ./internal/validation ./internal/dashboard/spec ./internal/dashboard/freshness ./internal/api/console ./internal/api/page ./internal/dashboard/generator ./internal/api/resource`、`cd "web" && pnpm exec tsc --noEmit`、`scripts/dashboard_vnext_guard.sh`。这不是 P6 完成证据：服务端按 typed selector 从受控 form/row/selection/detail/page_state 构造 payload、approval/task dispatch 和 OTel collector E2E 仍未闭环。
+- 当前事实（2026-08-04）：Console execute 已切到 `context` 协议，浏览器只提交 form/row/selection/detail/pageState 来源值；服务端在 stale/snapshot 校验通过后，按 PublishedPageSpec 的 typed selector 构造函数 payload，再用当前 FunctionSpec input schema 做最终 JSON Schema 校验。ResourcePage renderer 已停止裸 payload/整行透传；query/create/operation/task/report 传 `form`，update/delete/row action 传 `row`，ResourcePage 生成器会把 update/delete 的 identity selector 切到 row 来源。已验证 `GOCACHE="/tmp/croupier-go-build" go test ./internal/dashboard/generator ./internal/api/console`、`cd "web" && pnpm exec tsc --noEmit`。这不是 P6 完成证据：approval/task dispatch、OTel collector E2E、真实浏览器路径和选择/详情/page_state 复杂上下文仍未闭环。
 
 - [ ] Console 只读取当前模型 PublishedPageSpec 和 ConsoleMenuSpec；路由仍为 `/console/:categoryKey/:pageKey`。
 - [ ] ProLayout 动态菜单使用 NavigationSpec labels 与 `locale:false`；切 scope 后强制失效旧 menu/page query。

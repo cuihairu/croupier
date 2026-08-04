@@ -64,8 +64,17 @@ export type PageExecutionMode = 'sync' | 'task';
 /** 页面执行返回类型 */
 export type PageExecutionKind = 'sync' | 'task' | 'approval';
 
+/** 页面 binding 执行上下文；服务端根据 typed selector 构造函数 payload。 */
+export interface BindingExecutionContext {
+  form?: JSONValue;
+  row?: JSONValue;
+  selection?: JSONValue;
+  detail?: JSONValue;
+  pageState?: Record<string, JSONValue>;
+}
+
 /** 页面执行函数签名 - 所有渲染器统一使用 */
-export type PageExecuteFn = (bindingId: string, payload: FormValues) => Promise<PageExecutionResult>;
+export type PageExecuteFn = (bindingId: string, context: BindingExecutionContext) => Promise<PageExecutionResult>;
 
 /** 任务状态查询结果 */
 export interface TaskStatusResult {

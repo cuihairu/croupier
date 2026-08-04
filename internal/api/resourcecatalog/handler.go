@@ -86,6 +86,54 @@ func (h *Handler) UpdateSemantics(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// ListConflicts handles GET /api/resource-catalog/:resourceKey/conflicts
+func (h *Handler) ListConflicts(c *gin.Context) {
+	var req ListConflictsRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	// Get scope from context
+	gameID, env := getScope(c)
+	req.GameID = gameID
+	req.Env = env
+
+	resp, err := h.service.ListConflicts(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	response.Success(c, resp)
+}
+
+// ResolveConflict handles POST /api/resource-catalog/:resourceKey/conflicts/:field/resolve
+func (h *Handler) ResolveConflict(c *gin.Context) {
+	var req ResolveConflictRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	// Get scope from context
+	gameID, env := getScope(c)
+	req.GameID = gameID
+	req.Env = env
+
+	resp, err := h.service.ResolveConflict(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	response.Success(c, resp)
+}
+
 // getScope extracts game_id and env from context.
 func getScope(c *gin.Context) (string, string) {
 	gameID := c.GetString("game_id")

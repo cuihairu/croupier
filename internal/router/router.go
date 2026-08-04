@@ -467,6 +467,8 @@ func registerResourceCatalogRoutes(authenticated *gin.RouterGroup, svcCtx *svc.S
 		group.GET("", handler.List)
 		group.GET("/:resourceKey", handler.Detail)
 		group.PUT("/:resourceKey/semantics", handler.UpdateSemantics)
+		group.GET("/:resourceKey/conflicts", handler.ListConflicts)
+		group.POST("/:resourceKey/conflicts/:field/resolve", handler.ResolveConflict)
 	}
 }
 

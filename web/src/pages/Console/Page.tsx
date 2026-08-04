@@ -195,8 +195,8 @@ export default function ConsolePage() {
       {page && (
         <PageRenderer
           pageSpec={page}
-          onExecute={async (bindingId, payload) => {
-            return executePageBinding(page.pageKey, bindingId, payload);
+          onExecute={async (bindingId, context) => {
+            return executePageBinding(page.pageKey, bindingId, context);
           }}
         />
       )}

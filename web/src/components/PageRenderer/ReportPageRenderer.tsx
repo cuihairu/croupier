@@ -161,7 +161,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
       setLoading(true);
 
       try {
-        const response = await onExecute(mainBinding.id, values);
+        const response = await onExecute(mainBinding.id, { form: values });
         const responseData = response.data as Record<string, JSONValue> | undefined;
         const items = (responseData?.items as FormValues[]) || (Array.isArray(responseData) ? responseData as FormValues[] : []);
         setData(Array.isArray(items) ? items : []);

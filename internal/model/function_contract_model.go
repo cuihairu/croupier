@@ -179,6 +179,11 @@ func (m *CapabilitySemanticsModel) ListByScope(ctx context.Context, gameID, env 
 	return sems, nil
 }
 
+// Update updates a capability semantics record.
+func (m *CapabilitySemanticsModel) Update(ctx context.Context, sem *CapabilitySemantics) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Save(sem).Error
+}
+
 // CapabilitySemanticVersionModel wraps data access for semantic versions.
 type CapabilitySemanticVersionModel struct {
 	db *gorm.DB

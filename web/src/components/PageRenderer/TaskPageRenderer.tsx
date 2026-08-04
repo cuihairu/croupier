@@ -190,7 +190,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       setTaskStatus(null);
 
       try {
-        const response = await onExecute(mainBinding.id, values);
+        const response = await onExecute(mainBinding.id, { form: values });
         const { taskId } = response;
 
         if (taskId) {

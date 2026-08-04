@@ -167,7 +167,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return { data: [], total: 0 };
       }
       try {
-        const result = await onExecute(listBinding.id, params);
+        const result = await onExecute(listBinding.id, { form: params });
         const data = result.data as Record<string, JSONValue> | undefined;
         return {
           data: (data?.items as FormValues[]) || [],
@@ -189,7 +189,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
       try {
-        await onExecute(createBinding.id, values);
+        await onExecute(createBinding.id, { form: values });
         message.success('创建成功');
         setCreateModalVisible(false);
         actionRef.current?.reload();
@@ -210,7 +210,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
       try {
-        await onExecute(updateBinding.id, { ...values, [identityField]: currentRecord[identityField] });
+        await onExecute(updateBinding.id, { form: values, row: currentRecord });
         message.success('更新成功');
         setEditModalVisible(false);
         setCurrentRecord(null);
@@ -221,7 +221,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [updateBinding, currentRecord, identityField, onExecute]
+    [updateBinding, currentRecord, onExecute]
   );
 
   const submitCreateForm = useCallback(async () => {
@@ -252,14 +252,14 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return;
       }
       try {
-        await onExecute(deleteBinding.id, { [identityField]: record[identityField] });
+        await onExecute(deleteBinding.id, { row: record });
         message.success('删除成功');
         actionRef.current?.reload();
       } catch {
         message.error('删除失败');
       }
     },
-    [deleteBinding, identityField, onExecute]
+    [deleteBinding, onExecute]
   );
 
   // 处理行操作
@@ -271,7 +271,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           content: action.confirmDescription?.['zh-CN'] || '确定要执行此操作吗？',
           onOk: async () => {
             try {
-              await onExecute(action.bindingId!, record);
+              await onExecute(action.bindingId!, { row: record });
               message.success('操作成功');
               actionRef.current?.reload();
             } catch {
@@ -281,7 +281,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         });
       } else {
         try {
-          await onExecute(action.bindingId!, record);
+          await onExecute(action.bindingId!, { row: record });
           message.success('操作成功');
           actionRef.current?.reload();
         } catch {

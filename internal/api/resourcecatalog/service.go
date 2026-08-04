@@ -2,10 +2,13 @@ package resourcecatalog
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"gorm.io/gorm"
 )
@@ -405,4 +408,195 @@ func matchesQuery(item ResourceCatalogItem, query string) bool {
 		}
 	}
 	return false
+}
+
+// ---------------------------------------------------------------------------
+// Conflict Management API
+// ---------------------------------------------------------------------------
+
+// ConflictInfo represents a semantic conflict for API response.
+type ConflictInfo struct {
+	Field      string            `json:"field"`
+	Values     map[string]string `json:"values"` // source -> value
+	Resolution string            `json:"resolution,omitempty"`
+	ResolvedAt string            `json:"resolvedAt,omitempty"`
+	ResolvedBy string            `json:"resolvedBy,omitempty"`
+}
+
+// ProvenanceInfo represents field-level provenance for API response.
+type ProvenanceInfo struct {
+	Field        string `json:"field"`
+	Source       string `json:"source"`
+	Confidence   string `json:"confidence"`
+	Status       string `json:"status"`
+	Value        string `json:"value,omitempty"`
+	UpdatedAt    string `json:"updatedAt"`
+	UpdatedBy    string `json:"updatedBy"`
+}
+
+// ListConflictsRequest is the request for listing conflicts.
+type ListConflictsRequest struct {
+	GameID      string `json:"-"`
+	Env         string `json:"-"`
+	ResourceKey string `json:"-"`
+}
+
+// ListConflictsResponse is the response for listing conflicts.
+type ListConflictsResponse struct {
+	Conflicts []ConflictInfo  `json:"conflicts"`
+	Provenance []ProvenanceInfo `json:"provenance"`
+}
+
+// ListConflicts returns conflicts and provenance for a resource.
+func (s *Service) ListConflicts(ctx context.Context, req *ListConflictsRequest) (*ListConflictsResponse, error) {
+	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	if err != nil {
+		return nil, fmt.Errorf("find semantics: %w", err)
+	}
+
+	response := &ListConflictsResponse{
+		Conflicts:  make([]ConflictInfo, 0),
+		Provenance: make([]ProvenanceInfo, 0),
+	}
+
+	// Parse conflicts
+	if len(semantics.Conflicts) > 0 {
+		var conflicts []spec.SemanticConflict
+		if err := json.Unmarshal(semantics.Conflicts, &conflicts); err == nil {
+			for _, c := range conflicts {
+				values := make(map[string]string)
+				for source, val := range c.Values {
+					values[string(source)] = string(val)
+				}
+				response.Conflicts = append(response.Conflicts, ConflictInfo{
+					Field:      c.Field,
+					Values:     values,
+					Resolution: string(c.Resolution),
+					ResolvedAt: c.ResolvedAt,
+					ResolvedBy: c.ResolvedBy,
+				})
+			}
+		}
+	}
+
+	// Parse provenance
+	if len(semantics.Provenance) > 0 {
+		var provenance map[string]*spec.SemanticProvenance
+		if err := json.Unmarshal(semantics.Provenance, &provenance); err == nil {
+			for _, p := range provenance {
+				response.Provenance = append(response.Provenance, ProvenanceInfo{
+					Field:      p.Field,
+					Source:     string(p.Source),
+					Confidence: p.Confidence,
+					Status:     p.Status,
+					Value:      string(p.Value),
+					UpdatedAt:  p.UpdatedAt,
+					UpdatedBy:  p.UpdatedBy,
+				})
+			}
+		}
+	}
+
+	return response, nil
+}
+
+// ResolveConflictRequest is the request for resolving a conflict.
+type ResolveConflictRequest struct {
+	GameID      string `json:"-"`
+	Env         string `json:"-"`
+	ResourceKey string `json:"-"`
+	Field       string `json:"field"`
+	ChosenSource string `json:"chosenSource"` // platform_review|sdk_explicit|openapi_rest
+	Reason      string `json:"reason,omitempty"`
+}
+
+// ResolveConflictResponse is the response for resolving a conflict.
+type ResolveConflictResponse struct {
+	Message string `json:"message"`
+}
+
+// ResolveConflict resolves a semantic conflict by choosing a source.
+func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictRequest) (*ResolveConflictResponse, error) {
+	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	if err != nil {
+		return nil, fmt.Errorf("find semantics: %w", err)
+	}
+
+	// Parse existing conflicts
+	var conflicts []spec.SemanticConflict
+	if len(semantics.Conflicts) > 0 {
+		if err := json.Unmarshal(semantics.Conflicts, &conflicts); err != nil {
+			return nil, fmt.Errorf("parse conflicts: %w", err)
+		}
+	}
+
+	// Find the conflict
+	found := false
+	for i, c := range conflicts {
+		if c.Field == req.Field {
+			// Validate chosen source exists in conflict
+			chosenSource := spec.SemanticSource(req.ChosenSource)
+			if _, ok := c.Values[chosenSource]; !ok {
+				return nil, fmt.Errorf("source %s not found in conflict values", req.ChosenSource)
+			}
+
+			// Resolve conflict
+			conflicts[i].Resolution = chosenSource
+			conflicts[i].ResolvedAt = time.Now().UTC().Format(time.RFC3339)
+			conflicts[i].ResolvedBy = "admin" // TODO: get from context
+
+			// Update provenance
+			var provenance map[string]*spec.SemanticProvenance
+			if len(semantics.Provenance) > 0 {
+				json.Unmarshal(semantics.Provenance, &provenance)
+			}
+			if provenance == nil {
+				provenance = make(map[string]*spec.SemanticProvenance)
+			}
+
+			if prov, exists := provenance[req.Field]; exists {
+				prov.Value = c.Values[chosenSource]
+				prov.Source = chosenSource
+				prov.Confidence = confidenceForSource(chosenSource)
+				prov.Status = "effective"
+				prov.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+				prov.UpdatedBy = "admin"
+			}
+
+			// Save provenance
+			provenanceJSON, _ := json.Marshal(provenance)
+			semantics.Provenance = provenanceJSON
+
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, fmt.Errorf("conflict not found for field %s", req.Field)
+	}
+
+	// Save conflicts
+	conflictsJSON, _ := json.Marshal(conflicts)
+	semantics.Conflicts = conflictsJSON
+
+	// Update semantics
+	if err := s.semanticsModel.Update(ctx, semantics); err != nil {
+		return nil, fmt.Errorf("update semantics: %w", err)
+	}
+
+	return &ResolveConflictResponse{
+		Message: fmt.Sprintf("Conflict resolved for field %s", req.Field),
+	}, nil
+}
+
+func confidenceForSource(source spec.SemanticSource) string {
+	switch source {
+	case spec.SemanticSourcePlatformReview, spec.SemanticSourceSDKExplicit:
+		return "high"
+	case spec.SemanticSourceOpenAPIRest:
+		return "low"
+	default:
+		return "low"
+	}
 }

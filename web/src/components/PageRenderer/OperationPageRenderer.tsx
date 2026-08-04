@@ -123,7 +123,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       setResult(null);
 
       try {
-        const response = await onExecute(mainBinding.id, values);
+        const response = await onExecute(mainBinding.id, { form: values });
         setResult(response);
 
         if (spec.resultView?.successMessage) {
@@ -163,7 +163,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setResult(null);
 
     try {
-      const response = await onExecute(mainBinding.id, pendingValues!);
+      const response = await onExecute(mainBinding.id, { form: pendingValues });
       setResult(response);
       message.success('操作成功');
     } catch (err) {

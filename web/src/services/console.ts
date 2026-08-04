@@ -5,7 +5,12 @@
  */
 
 import { request } from '@umijs/max';
-import type { ConsoleMenuSpec, JSONValue, PageExecutionResult, PublishedPageSpec } from '@/types/dashboard';
+import type {
+  BindingExecutionContext,
+  ConsoleMenuSpec,
+  PageExecutionResult,
+  PublishedPageSpec,
+} from '@/types/dashboard';
 
 const BASE = '/api/v1/console';
 
@@ -52,13 +57,13 @@ export async function getPublishedPage(pageKey: string): Promise<PublishedPageSp
 export async function executePageBinding(
   pageKey: string,
   bindingId: string,
-  payload: JSONValue = {},
+  context: BindingExecutionContext = {},
 ): Promise<PageExecutionResult> {
   const response = await request<ConsoleExecuteBindingResponse>(
     `${BASE}/pages/${encodeURIComponent(pageKey)}/bindings/${encodeURIComponent(bindingId)}/execute`,
     {
       method: 'POST',
-      data: { payload },
+      data: { context },
     },
   );
   if (!response?.result) {

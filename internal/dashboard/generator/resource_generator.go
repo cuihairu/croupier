@@ -40,15 +40,15 @@ func GenerateResourcePageProposal(
 	title := spec.LocalizedText{locale: humanizeKey(resourceKey)}
 
 	bindings := []spec.PageFunctionBinding{
-		resourceBinding(collectionContract, "list", spec.BindingUsageQuery),
+		resourceBinding(collectionContract, "list", spec.BindingUsageQuery, nil),
 	}
 
 	var actions []spec.ActionSpec
 	if createContract != nil {
-		bindings = append(bindings, resourceBinding(createContract, "create", spec.BindingUsageAction))
+		bindings = append(bindings, resourceBinding(createContract, "create", spec.BindingUsageAction, nil))
 	}
 	if updateContract != nil {
-		bindings = append(bindings, resourceBinding(updateContract, "update", spec.BindingUsageAction))
+		bindings = append(bindings, resourceBinding(updateContract, "update", spec.BindingUsageAction, semantics))
 		actions = append(actions, spec.ActionSpec{
 			Key:       "edit",
 			Title:     spec.LocalizedText{locale: "编辑"},
@@ -57,7 +57,7 @@ func GenerateResourcePageProposal(
 		})
 	}
 	if deleteContract != nil {
-		bindings = append(bindings, resourceBinding(deleteContract, "delete", spec.BindingUsageAction))
+		bindings = append(bindings, resourceBinding(deleteContract, "delete", spec.BindingUsageAction, semantics))
 		actions = append(actions, spec.ActionSpec{
 			Key:          "delete",
 			Title:        spec.LocalizedText{locale: "删除"},
@@ -85,7 +85,7 @@ func GenerateResourcePageProposal(
 				ListView:     buildListViewFromContract(collectionContract, semantics),
 				Actions:      actions,
 				CreateForm:   buildFormFromContract(createContract),
-				UpdateForm:   buildFormFromContract(updateContract),
+				UpdateForm:   buildUpdateFormFromContract(updateContract, semantics),
 				DeleteAction: buildDeleteAction(deleteContract, locale),
 			},
 			Bindings: bindings,
@@ -95,7 +95,7 @@ func GenerateResourcePageProposal(
 	}, true
 }
 
-func resourceBinding(contract *model.FunctionContract, suffix string, usage spec.PageBindingUsage) spec.PageFunctionBinding {
+func resourceBinding(contract *model.FunctionContract, suffix string, usage spec.PageBindingUsage, semantics *model.CapabilitySemantics) spec.PageFunctionBinding {
 	binding := spec.PageFunctionBinding{
 		ID:         suffix,
 		FunctionID: strings.TrimSpace(contract.FunctionID),
@@ -104,10 +104,40 @@ func resourceBinding(contract *model.FunctionContract, suffix string, usage spec
 	}
 	if len(contract.InputSchema) > 0 {
 		binding.Selectors = &spec.BindingSelectors{
-			Input: spec.DefaultSelector(spec.JSONSchema(contract.InputSchema)),
+			Input: resourceInputSelector(spec.JSONSchema(contract.InputSchema), contract, semantics),
 		}
 	}
 	return binding
+}
+
+func resourceInputSelector(inputSchema spec.JSONSchema, contract *model.FunctionContract, semantics *model.CapabilitySemantics) spec.SelectorAST {
+	selector := spec.DefaultSelector(inputSchema)
+	if contract == nil || semantics == nil {
+		return selector
+	}
+	if spec.CapabilityKind(contract.Capability) != spec.CapabilityUpdate && spec.CapabilityKind(contract.Capability) != spec.CapabilityDelete {
+		return selector
+	}
+
+	identityField := strings.TrimSpace(semantics.IdentityField)
+	if identityField == "" {
+		return selector
+	}
+	identityTarget := "/" + escapeJSONPointerToken(identityField)
+	for i := range selector.Assignments {
+		if selector.Assignments[i].Target == identityTarget {
+			selector.Assignments[i].Source = spec.ValueSource{
+				Kind: spec.SourceRow,
+				Path: identityTarget,
+			}
+		}
+	}
+	return selector
+}
+
+func escapeJSONPointerToken(token string) string {
+	token = strings.ReplaceAll(token, "~", "~0")
+	return strings.ReplaceAll(token, "/", "~1")
 }
 
 func buildFormFromContract(contract *model.FunctionContract) *spec.FormPresentationSpec {
@@ -115,6 +145,55 @@ func buildFormFromContract(contract *model.FunctionContract) *spec.FormPresentat
 		return nil
 	}
 	return spec.DefaultFormPresentation(spec.JSONSchema(contract.InputSchema))
+}
+
+func buildUpdateFormFromContract(contract *model.FunctionContract, semantics *model.CapabilitySemantics) *spec.FormPresentationSpec {
+	form := buildFormFromContract(contract)
+	if form == nil || semantics == nil {
+		return form
+	}
+	identityField := strings.TrimSpace(semantics.IdentityField)
+	if identityField == "" {
+		return form
+	}
+	form.JSONSchema = removeTopLevelSchemaField(form.JSONSchema, identityField)
+	return form
+}
+
+func removeTopLevelSchemaField(schema spec.JSONSchema, field string) spec.JSONSchema {
+	field = strings.TrimSpace(field)
+	if len(schema) == 0 || field == "" {
+		return schema
+	}
+	root := parseJSONObject(json.RawMessage(schema))
+	if len(root) == 0 {
+		return schema
+	}
+	properties := objectProperty(root, "properties")
+	if len(properties) > 0 {
+		delete(properties, field)
+		root["properties"] = rawObject(properties)
+	}
+	if rawRequired := root["required"]; len(rawRequired) > 0 {
+		var required []string
+		if err := json.Unmarshal(rawRequired, &required); err == nil {
+			next := make([]string, 0, len(required))
+			for _, item := range required {
+				if item != field {
+					next = append(next, item)
+				}
+			}
+			if len(next) > 0 {
+				raw, err := json.Marshal(next)
+				if err == nil {
+					root["required"] = raw
+				}
+			} else {
+				delete(root, "required")
+			}
+		}
+	}
+	return spec.JSONSchema(rawObject(root))
 }
 
 func buildListViewFromContract(contract *model.FunctionContract, semantics *model.CapabilitySemantics) *spec.ListViewSpec {

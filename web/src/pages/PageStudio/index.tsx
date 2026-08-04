@@ -261,8 +261,8 @@ export default function PageStudio() {
         {selectedDraft ? (
           <PageRenderer
             pageSpec={selectedDraft}
-            onExecute={async (bindingId, payload) => {
-              console.log('Preview execute:', bindingId, payload);
+            onExecute={async (bindingId, context) => {
+              console.log('Preview execute:', bindingId, context);
               return { kind: 'sync', requestId: 'preview', data: {} };
             }}
           />
