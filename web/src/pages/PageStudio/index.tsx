@@ -23,6 +23,7 @@ import {
 } from 'antd';
 import {
   DiffOutlined,
+  EditOutlined,
   EyeOutlined,
   HistoryOutlined,
   MergeOutlined,
@@ -31,11 +32,13 @@ import {
   StopOutlined,
 } from '@ant-design/icons';
 import PageRenderer from '@/components/PageRenderer';
+import PageEditor from '@/components/PageEditor';
 import {
   getPageDraft,
   listPageDrafts,
   publishPageDraft,
   unpublishPage,
+  savePageDraft,
 } from '@/services/api/pages';
 import {
   getChangeChain,
@@ -95,6 +98,8 @@ export default function PageStudio() {
   const [selectedDraft, setSelectedDraft] = useState<PageSpec | null>(null);
   const [selectedDraftRevision, setSelectedDraftRevision] = useState<number>(0);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [editorVisible, setEditorVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // 变更链相关状态
   const [changeChainVisible, setChangeChainVisible] = useState(false);
@@ -166,6 +171,31 @@ export default function PageStudio() {
     loadDraftDetail(pageKey);
     setPreviewVisible(true);
   }, [loadDraftDetail]);
+
+  // 编辑页面
+  const handleEdit = useCallback((pageKey: string) => {
+    loadDraftDetail(pageKey);
+    setEditorVisible(true);
+  }, [loadDraftDetail]);
+
+  // 保存编辑
+  const handleSave = useCallback(async () => {
+    if (!selectedDraft) return;
+    setSaving(true);
+    try {
+      await savePageDraft({
+        ...selectedDraft,
+        draftRevision: selectedDraftRevision,
+      });
+      message.success('保存成功');
+      setEditorVisible(false);
+      loadDrafts();
+    } catch {
+      message.error('保存失败');
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedDraft, selectedDraftRevision, message, loadDrafts]);
 
   // 查看变更链
   const handleChangeChain = useCallback(async (resourceKey: string) => {
@@ -265,9 +295,17 @@ export default function PageStudio() {
     {
       title: '操作',
       key: 'actions',
-      width: 350,
+      width: 400,
       render: (_, record) => (
         <Space>
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record.pageKey)}
+          >
+            编辑
+          </Button>
           <Button
             type="link"
             size="small"
@@ -357,6 +395,31 @@ export default function PageStudio() {
               console.log('Preview execute:', bindingId, context);
               return { kind: 'sync', requestId: 'preview', data: {} };
             }}
+          />
+        ) : (
+          <Empty description="请选择页面" />
+        )}
+      </Drawer>
+
+      {/* 编辑器抽屉 */}
+      <Drawer
+        title="页面编辑"
+        width={800}
+        open={editorVisible}
+        onClose={() => setEditorVisible(false)}
+        extra={
+          <Space>
+            <Button onClick={() => setEditorVisible(false)}>取消</Button>
+            <Button type="primary" loading={saving} onClick={handleSave}>
+              保存
+            </Button>
+          </Space>
+        }
+      >
+        {selectedDraft ? (
+          <PageEditor
+            value={selectedDraft}
+            onChange={setSelectedDraft}
           />
         ) : (
           <Empty description="请选择页面" />
