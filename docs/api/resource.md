@@ -28,7 +28,8 @@ interface ResourceSummary {
   labels: LocalizedText;
   state: 'ready' | 'needs_review' | 'conflict' | 'unavailable';
   capabilities: CapabilitySummary[];
-  proposalCounts: Record<'ready' | 'basic' | 'needs_review' | 'blocked', number>;
+  proposalCounts: Record<'ready' | 'basic' | 'needs_review', number>;
+  blockedIssueCount: number;
   diagnostics: Diagnostic[];
 }
 ```

@@ -39,7 +39,7 @@ interface PageProposalSummary {
   pageKey: string;
   kind: 'resource' | 'operation' | 'task' | 'report';
   resourceKey?: string;
-  quality: 'ready' | 'basic' | 'needs_review' | 'blocked';
+  quality: 'ready' | 'basic' | 'needs_review';
   sourceDigests: SourceDigest[];
   diagnostics: Diagnostic[];
   state: 'new' | 'superseded' | 'accepted' | 'stale';
@@ -55,7 +55,7 @@ GET  /api/v1/page-proposals/{proposalId}
 POST /api/v1/page-proposals/{proposalId}/accept
 ```
 
-`accept` 将 Proposal 物化为新的 PageDraft。`ready/basic` 可在接受后立即进入发布校验；`needs_review/blocked` 返回结构化 diagnostics，不能发布。
+`accept` 将 Proposal 物化为新的 PageDraft。`ready/basic` 可在接受后立即进入发布校验；`needs_review` 返回结构化 diagnostics，必须处理后才能发布。不可物化的问题进入 BlockedProposalIssue，不能作为 Proposal quality。
 
 ## Draft API
 

@@ -68,6 +68,7 @@ func EvaluateBinding(
 	}
 
 	var out []spec.BindingFreshnessDiagnostic
+	selectorChecked := false
 	if strings.TrimSpace(fn.Version) != strings.TrimSpace(contract.FunctionVersion) {
 		out = append(out, bindingFreshnessDiagnostic(
 			bindingID,
@@ -87,6 +88,8 @@ func EvaluateBinding(
 			"bound function input schema changed; synchronize the page input selector before publishing",
 			"bindingContracts."+bindingID+".inputSchemaDigest",
 		))
+		out = append(out, selectorFreshnessDiagnostics(bindingID, functionID, binding, fn)...)
+		selectorChecked = true
 	}
 	if digestRaw(fn.OutputSchema) != strings.TrimSpace(contract.OutputSchemaDigest) {
 		out = append(out, bindingFreshnessDiagnostic(
@@ -97,6 +100,9 @@ func EvaluateBinding(
 			"bound function output schema changed; revalidate page output selectors before publishing",
 			"bindingContracts."+bindingID+".outputSchemaDigest",
 		))
+		if !selectorChecked {
+			out = append(out, selectorFreshnessDiagnostics(bindingID, functionID, binding, fn)...)
+		}
 	}
 	if fn.Risk != contract.Risk || strings.TrimSpace(fn.Permission) != strings.TrimSpace(contract.Permission) {
 		out = append(out, bindingFreshnessDiagnostic(
@@ -119,6 +125,43 @@ func EvaluateBinding(
 		))
 	}
 	return out
+}
+
+func selectorFreshnessDiagnostics(
+	bindingID string,
+	functionID string,
+	binding spec.PageFunctionBinding,
+	fn spec.FunctionSpec,
+) []spec.BindingFreshnessDiagnostic {
+	if binding.Selectors == nil {
+		return nil
+	}
+	rawDiags := spec.SelectorStaleDiagnostics(
+		binding.Selectors.Input,
+		binding.Selectors.Output,
+		nil,
+		fn.InputSchema,
+		nil,
+		fn.OutputSchema,
+	)
+	out := make([]spec.BindingFreshnessDiagnostic, 0, len(rawDiags))
+	for _, diag := range rawDiags {
+		diag.FunctionID = functionID
+		out = append(out, spec.BindingFreshnessDiagnostic{
+			BindingID:  bindingID,
+			FunctionID: functionID,
+			Status:     selectorFreshnessStatus(diag.Field),
+			Diagnostic: diag,
+		})
+	}
+	return out
+}
+
+func selectorFreshnessStatus(field string) spec.BindingFreshnessStatus {
+	if strings.HasPrefix(field, "output.") {
+		return spec.BindingFreshnessOutputSchemaStale
+	}
+	return spec.BindingFreshnessInputSchemaStale
 }
 
 func bindingFreshnessDiagnostic(

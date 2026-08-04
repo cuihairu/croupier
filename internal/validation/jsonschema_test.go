@@ -86,6 +86,71 @@ func TestValidateJSON_DataValidation(t *testing.T) {
 			data:    []byte(`{"profile":{"name":"alice"}}`),
 			wantErr: false,
 		},
+		{
+			name: "unknown object field rejected by default",
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"name": map[string]any{"type": "string"},
+				},
+			},
+			data:    []byte(`{"name":"alice","role":"admin"}`),
+			wantErr: true,
+		},
+		{
+			name: "additional object field allowed explicitly",
+			schema: map[string]any{
+				"type":                 "object",
+				"additionalProperties": true,
+				"properties": map[string]any{
+					"name": map[string]any{"type": "string"},
+				},
+			},
+			data:    []byte(`{"name":"alice","role":"admin"}`),
+			wantErr: false,
+		},
+		{
+			name: "array items validated",
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"ids": map[string]any{
+						"type":  "array",
+						"items": map[string]any{"type": "string"},
+					},
+				},
+			},
+			data:    []byte(`{"ids":["p1",2]}`),
+			wantErr: true,
+		},
+		{
+			name: "enum validated",
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+						"enum": []any{"active", "banned"},
+					},
+				},
+			},
+			data:    []byte(`{"status":"deleted"}`),
+			wantErr: true,
+		},
+		{
+			name: "local ref validated",
+			schema: map[string]any{
+				"type": "object",
+				"$defs": map[string]any{
+					"id": map[string]any{"type": "string"},
+				},
+				"properties": map[string]any{
+					"playerId": map[string]any{"$ref": "#/$defs/id"},
+				},
+			},
+			data:    []byte(`{"playerId":1}`),
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -95,6 +160,23 @@ func TestValidateJSON_DataValidation(t *testing.T) {
 				t.Errorf("ValidateJSON() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestValidateJSONRaw(t *testing.T) {
+	schema := json.RawMessage(`{
+		"type": "object",
+		"properties": {
+			"playerId": {"type": "string"}
+		},
+		"required": ["playerId"]
+	}`)
+
+	if err := ValidateJSONRaw(schema, []byte(`{"playerId":"p1"}`)); err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	if err := ValidateJSONRaw(schema, []byte(`{"playerId":1}`)); err == nil {
+		t.Fatalf("expected type validation error")
 	}
 }
 

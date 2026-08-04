@@ -42,8 +42,8 @@ func TestGenerateForResourceCreatesDefaultOperationPagesWithoutGuessingCRUD(t *t
 	})
 
 	require.Len(t, pages, 2)
-	assert.Equal(t, "player.ban", pages[0].PageKey)
-	assert.Equal(t, "player.list", pages[1].PageKey)
+	assert.Equal(t, "operation--player.ban", pages[0].PageKey)
+	assert.Equal(t, "operation--player.list", pages[1].PageKey)
 	for _, page := range pages {
 		assert.Equal(t, spec.PageTypeOperation, page.Type)
 		assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
@@ -95,8 +95,8 @@ func TestGenerateForOperationCreatesBasicPage(t *testing.T) {
 	require.NotNil(t, page.Operation)
 	require.NotNil(t, page.Operation.Form)
 	require.NotNil(t, page.Bindings[0].Selectors)
-	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "scope", spec.SourceForm, "scope")
-	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "dryRun", spec.SourceForm, "dryRun")
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "/scope", spec.SourceForm, "/scope")
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "/dryRun", spec.SourceForm, "/dryRun")
 }
 
 func TestGenerateForOperationUsesExecutionTask(t *testing.T) {
@@ -125,7 +125,7 @@ func TestGenerateForOperationUsesExecutionTask(t *testing.T) {
 	require.NotNil(t, page.Task)
 	require.NotNil(t, page.Task.TaskView)
 	require.NotNil(t, page.Bindings[0].Selectors)
-	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "segment", spec.SourceForm, "segment")
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "/segment", spec.SourceForm, "/segment")
 }
 
 func TestGenerateForOperationUsesCapabilityReport(t *testing.T) {
@@ -163,12 +163,12 @@ func assertDiagnostic(t *testing.T, diagnostics []spec.Diagnostic, code string) 
 	t.Fatalf("diagnostic %s not found in %#v", code, diagnostics)
 }
 
-func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceType spec.SelectorSourceType, sourcePath string) {
+func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceKind spec.ValueSourceKind, sourcePath string) {
 	t.Helper()
 	for _, assignment := range selector.Assignments {
-		if assignment.Target == target && assignment.Source.Type == sourceType && assignment.Source.Path == sourcePath {
+		if assignment.Target == target && assignment.Source.Kind == sourceKind && assignment.Source.Path == sourcePath {
 			return
 		}
 	}
-	t.Fatalf("selector assignment %s <- %s:%s not found in %#v", target, sourceType, sourcePath, selector.Assignments)
+	t.Fatalf("selector assignment %s <- %s:%s not found in %#v", target, sourceKind, sourcePath, selector.Assignments)
 }

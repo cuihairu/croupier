@@ -201,12 +201,12 @@ func TestServiceGeneratedPagesKeepsMailSendAsOperationPage(t *testing.T) {
 
 	page := resp.Items[0]
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
-	assert.Equal(t, "mail.send", page.PageKey)
+	assert.Equal(t, "operation--mail.send", page.PageKey)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
 	require.Len(t, page.Bindings, 1)
 	require.NotNil(t, page.Bindings[0].Selectors)
-	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "content", spec.SourceForm, "content")
-	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "target", spec.SourceForm, "target")
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "/content", spec.SourceForm, "/content")
+	assertSelectorAssignment(t, page.Bindings[0].Selectors.Input, "/target", spec.SourceForm, "/target")
 	require.NotNil(t, page.Operation)
 	require.NotNil(t, page.Operation.ResultView)
 }
@@ -352,7 +352,7 @@ func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testin
 	require.Len(t, generated.Items, 1)
 	candidate := generated.Items[0]
 	require.Equal(t, spec.GeneratedPageQualityBasic, candidate.Quality)
-	require.Equal(t, "player.list", candidate.PageKey)
+	require.Equal(t, "operation--player.list", candidate.PageKey)
 	require.Len(t, candidate.Bindings, 1)
 
 	pageService := pageapi.NewService(svcCtx)
@@ -382,8 +382,8 @@ func TestServiceGeneratedOpenAPISourceCandidateCanBePublishedToConsole(t *testin
 	require.Len(t, menu.Items, 1)
 	assert.Equal(t, "player", menu.Items[0].Key)
 	require.Len(t, menu.Items[0].Children, 1)
-	assert.Equal(t, "player.list", menu.Items[0].Children[0].Key)
-	assert.Equal(t, "/console/player/player.list", menu.Items[0].Children[0].Path)
+	assert.Equal(t, "operation--player.list", menu.Items[0].Children[0].Key)
+	assert.Equal(t, "/console/player/operation--player.list", menu.Items[0].Children[0].Path)
 	assert.False(t, menu.Items[0].Children[0].Locale)
 
 	page, err := consoleService.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: candidate.PageKey})
@@ -428,14 +428,14 @@ func openAPIOperationWithCapability(resource string, operation string, capabilit
 	}
 }
 
-func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceType spec.SelectorSourceType, sourcePath string) {
+func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceKind spec.ValueSourceKind, sourcePath string) {
 	t.Helper()
 	for _, assignment := range selector.Assignments {
-		if assignment.Target == target && assignment.Source.Type == sourceType && assignment.Source.Path == sourcePath {
+		if assignment.Target == target && assignment.Source.Kind == sourceKind && assignment.Source.Path == sourcePath {
 			return
 		}
 	}
-	t.Fatalf("expected selector assignment %s <- %s:%s, got %#v", target, sourceType, sourcePath, selector.Assignments)
+	t.Fatalf("expected selector assignment %s <- %s:%s, got %#v", target, sourceKind, sourcePath, selector.Assignments)
 }
 
 func openAPISourceDocument(t *testing.T, operationID string, resource string, operation string, capability string, execution string) json.RawMessage {

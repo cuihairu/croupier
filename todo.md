@@ -1,6 +1,6 @@
 # Croupier Dashboard 产品重构计划
 
-更新时间：2026-08-02
+更新时间：2026-08-03
 
 > 本文是下一版 Dashboard 的唯一实施计划和 AI 交接清单。任何实现、文档、SDK 或测试与本文冲突时，先修正文档和计划，再实现代码；不得并行维护两套模型。
 
@@ -15,7 +15,8 @@
 - 用户路径必须是：生成默认 Proposal -> 预览 -> 接受/发布 -> Console 左侧动态菜单出现；只有不满意时才进入 Page Studio 编辑。
 - 当前工作区存在大量未提交改动，不能把任一阶段声明为完成。
 - 以下检查的历史“曾通过”记录不作为交接依据；必须重新执行并记录命令与结果后才可作为证据：Dashboard PageSpec guard、目标后端包测试、`web/tests/consoleMenu.test.ts`。
-- 未通过或未验收的检查：全量 Web TypeScript、全量 Playwright E2E、docs build、SDK parity、部署验证。
+- 本轮（2026-08-03）已重新执行并通过的检查：`bash "scripts/dashboard_vnext_guard.sh"`；`GOCACHE="/tmp/croupier-go-build" go test ./internal/service ./internal/dashboard/generator ./internal/platform/registry ./internal/service/versioning ./internal/api/page ./internal/api/console ./internal/api/resource ./internal/api/resourcecatalog ./internal/dashboard/...`；`cd "web" && pnpm exec tsc --noEmit`；`rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json` 无命中。
+- 未通过或未验收的检查：全量 Playwright E2E、docs build、SDK parity、部署验证、`web/tests/consoleMenu.test.ts` 重新执行、全量 `go test ./...`。其中 `go test ./internal/...` 在当前受限环境下会卡在 `internal/agent` 的 TCP listener 测试（`socket: operation not permitted`），不能作为完成证据。
 - 仍需清理的误导项包括历史 split-model 命名、旧页面协议残留、失败测试产物、旧路径文件名和未经过真实验收的文档表述。
 
 重新实现顺序：
@@ -262,9 +263,9 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 - 当前表单 runtime 选定为 `@rjsf/antd + @rjsf/validator-ajv8`。
 - `@rjsf/*` 只作为前端 renderer adapter；rjsf `uiSchema` 只能从 `FormPresentationSpec` 内存派生，不进入 SDK/OpenAPI/PageSpec/发布快照。
-- 待重新验证的观察项（不是完成证据）：工作区似乎已清理 `@formily/*` 依赖、`components/formily` runtime、`generateFormilyFromJsonSchema`、`validateFormilySchema` 和 Formily 文案。必须重新执行 `rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json` 确认无运行代码命中后才可作为证据。
+- 已重新验证：`rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json` 无命中；`rg "form-render|FormRender|FunctionFormManager" web/src web/package.json internal` 只剩 `SchemaFormRenderer` 正向命中。
 - 待重新验证的观察项（不是完成证据）：Functions Invoke、PageRenderer 的 Operation/Resource/Task/Report/Approval 表单和 Assignments 弹窗似乎已接入同一个 `SchemaFormRenderer`。必须在浏览器 POC 中逐路径实测后才可作为证据。
-- 当前全仓库 TypeScript 仍有 Analytics、Profile、Support、Storage 等既有类型错误；P0-0 不能仅因表单链路清理完成就标记完成。
+- 已重新验证：`cd "web" && pnpm exec tsc --noEmit` 通过。P0-0 仍不能仅因类型检查通过就标记完成，浏览器 POC、真实游戏 JSON Schema 和单路径复用验收仍未完成。
 
 实施顺序：
 
@@ -298,8 +299,8 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - 已增强 `scripts/dashboard_vnext_guard.sh`：阻止 Formily/form-render/FunctionFormManager/旧 fallback form API 和 `PageStudioV2` 回流，并验证唯一 `SchemaFormRenderer` 使用 `@rjsf/antd + @rjsf/validator-ajv8`。
 - 已将 FunctionContract/descriptor 层 `execution` 收敛为 `sync|task`：删除 `FunctionExecutionApproval`、generator approval execution 分支、OpenAPI `x-execution=approval` 校验提示和 proto 注释残留。`approval` 仅保留为执行结果 kind、审计 trace 字段和独立治理策略语义。
 - Protobuf 生成文件不得手工修改：本轮只保留 `.proto` 源文件与非生成 SDK 源码注释变更；`pkg/pb/**`、`sdks/go/pkg/pb/**`、C#/C++/Python generated protobuf 产物必须由统一生成命令刷新。
-- 当前已验证命令：`bash "scripts/dashboard_vnext_guard.sh"`；`GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/dashboard/... ./internal/api/openapi ./internal/api/console ./internal/platform/openapi ./internal/logic/function ./internal/api/function`。
-- 当前失败检查：`pnpm --dir "web" exec tsc --noEmit` 仍失败，错误集中在既有 Approvals、Extensions、Functions Detail、Ops、Profile、Storage、Support、plugin、requestErrorConfig 类型问题；不是本轮 PageStudioV2/Formily/approval execution 清理引入的新增旧模型路径。
+- 当前已重新验证命令（2026-08-03）：`bash "scripts/dashboard_vnext_guard.sh"`；`rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json`；`rg "form-render|FormRender|FunctionFormManager" web/src web/package.json internal`；`GOCACHE="/tmp/croupier-go-build" go test ./internal/service ./internal/dashboard/generator ./internal/platform/registry ./internal/service/versioning ./internal/api/page ./internal/api/console ./internal/api/resource ./internal/api/resourcecatalog ./internal/dashboard/...`；`cd "web" && pnpm exec tsc --noEmit`。
+- 当前未完成检查：全量 Playwright E2E、docs build、SDK parity、部署验证；全量 `go test ./...`/`go test ./internal/...` 仍不能在当前受限环境下作为完成证据，因为 `internal/agent` 的 TCP listener 测试会遇到 `socket: operation not permitted`。
 
 仍需继续修复的旧模型事实：
 
@@ -336,6 +337,12 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 验收：SDK/OpenAPI 只能构建 FunctionContract；任意被禁止字段返回结构化错误；所有官方 SDK demo 可注册至少一个新模型示例。
 
 #### P1-2. 持久化能力和语义
+
+当前本地事实（2026-08-03，本轮验证）：
+
+- 已实现并通过目标测试的主链路：注册写入规范化 `FunctionContract`，`SourceDigest` 为完整 SHA-256；注册后会继续重建对应 `CapabilitySemantics` 与 `PageProposal`。
+- `ResourceCapability` 不再由注册侧填充 labels；基础语义会从 collection output schema 推导 `items/total/page/page_size` 默认字段和最小可用 identity。
+- 仍未完成：字段级 `SemanticProvenance`、多来源冲突持久化与优先级收敛、Resource Catalog 管理端、OTel/audit 完整闭环；因此本工作包不能勾选完成。
 
 - [ ] 新建 scope 化 `function_contracts`、`resource_capabilities`、`capability_semantics`、`capability_semantic_versions` 数据模型；新表和新增列以 GORM model + AutoMigrate 定义（边界 13），并同步更新 `database/schema.sql` 参考文档。旧表/列删除不在此阶段执行，统一进入 P7-b 的确认后 GORM Migrator 清理。
 - [ ] Function 注册/Source 更新后异步或事务内重建对应 scope 的 FunctionContract；不再由 Resource API 请求时临时拼装唯一事实。
@@ -380,6 +387,14 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 #### P3-a-2. Typed selector AST 与静态校验
 
+当前本地事实（2026-08-04，本轮验证）：
+
+- selector DTO 已改为文档要求的形状：`InputAssignment.target/source.path` 使用 JSON Pointer，`ValueSource.kind` 替代旧 `source.type`，`page_state` 显式携带 `key`，`BindingSelectors.output` 使用独立 `OutputAssignment[]`。
+- 服务端发布校验已覆盖 input selector required/path/type 和 output selector source/stateKey/shape；旧点分 path 会被拒绝。
+- 已新增 `testdata/dashboard_selector_vectors.json` 作为前后端共享 selector 协议向量；Go spec 测试和前端 Jest DTO 测试均读取同一份向量。
+- 已新增 schema field diff、低置信 field rename candidate 和 selector stale diagnostics helper；freshness 诊断会在 schema digest 变化时附带 selector 失效原因。
+- 仍未完成：CapabilitySemantics 语义校验、Page Studio 中的 selector 冲突处理体验和浏览器 E2E 还没有闭环，P3-a-2 不能勾选完成。
+
 - [ ] 以 typed selector AST 替换 binding 任意映射 JSON object；AST 形状必须与 `docs/architecture/ui-schema-spec.md` 对齐：path 为 JsonPointer、`page_state` 为 `{key, path?}`、`OutputAssignment` 含 `stateKey`/`shape`。现有实现（点分 path、无 key、输入输出复用同一 AST）若与文档不一致，必须先修正实现或修正文档，不得并存。
 - [ ] 支持来源：form、row、selection、detail、page_state、literal；禁止任意 JSONPath 和 undefined source。
 - [ ] 根据 FunctionContract JSON Schema、CapabilitySemantics 和页面状态进行路径/类型/required 校验。
@@ -392,6 +407,14 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 状态：待重新审核。
 
 > 硬前置：P3-a 的 canonical PageSpec DTO、selector AST 和服务端静态校验必须已经通过目标测试。P2 只能生成已被 P3-a 校验器接受的 PageSpec，不得在生成器中另建页面结构或 mapping 规则。
+
+当前本地事实（2026-08-04，本轮验证）：
+
+- 后端已打通一条受控的 Proposal 主链路：`FunctionContract + CapabilitySemantics -> PageProposal`，并已通过目标 Go 测试与 API 集成测试。
+- `proposalKey/pageKey` 已收敛为 `resource:<resourceKey>` / `<kind>:<functionId>` 与 `resource--<resourceKey>` / `<kind>--<functionId>`；重复生成走稳定 key，不再沿用 `<resource>.manage` 或 `<resource>.<operation>`。
+- `blocked` 已从 Proposal quality 中移除；当前阻断接受/发布依赖 error diagnostics，而不是 quality 枚举。
+- 已实现发布时同 scope、同 `category.key` 的 `category.labels` 完全一致性校验；冲突会阻断发布，避免动态菜单分类文本由运行时仲裁。
+- 仍未完成：P3-a 全量前置审计、BlockedProposalIssue 物化、Task/Report/Approval 的真实浏览器路径，以及 P3-b 的 stale/diff/合并闭环；因此 P2 仍不能勾选完成。
 
 #### P2-1. Proposal 数据模型和生成作业
 
@@ -530,6 +553,8 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 ### P6. Console、权限、审计与 OTel 收口
 
 状态：待重新审核。
+
+- 当前事实（2026-08-04）：Console execute 已在 stale/snapshot 校验通过后，使用当前 FunctionSpec input schema 做服务端 JSON Schema 校验；非法 JSON、缺 required、类型不匹配和未声明字段会在调用 agent 前失败。已验证 `GOCACHE="/tmp/croupier-go-build" go test ./internal/validation ./internal/dashboard/spec ./internal/dashboard/freshness ./internal/api/console ./internal/api/page ./internal/dashboard/generator ./internal/api/resource`、`cd "web" && pnpm exec tsc --noEmit`、`scripts/dashboard_vnext_guard.sh`。这不是 P6 完成证据：服务端按 typed selector 从受控 form/row/selection/detail/page_state 构造 payload、approval/task dispatch 和 OTel collector E2E 仍未闭环。
 
 - [ ] Console 只读取当前模型 PublishedPageSpec 和 ConsoleMenuSpec；路由仍为 `/console/:categoryKey/:pageKey`。
 - [ ] ProLayout 动态菜单使用 NavigationSpec labels 与 `locale:false`；切 scope 后强制失效旧 menu/page query。

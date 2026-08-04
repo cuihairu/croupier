@@ -35,9 +35,9 @@ func GenerateResourcePageProposal(
 	deleteContract := findResourceContract(contracts, semantics.DeleteID, spec.CapabilityDelete)
 
 	resourceKey := strings.TrimSpace(semantics.ResourceKey)
-	pageKey := resourceKey + ".manage"
+	pageKey := "resource--" + sanitizeSourceKey(resourceKey)
 	locale := opts.DefaultLocale
-	title := spec.LocalizedText{locale: resourceKey}
+	title := spec.LocalizedText{locale: humanizeKey(resourceKey)}
 
 	bindings := []spec.PageFunctionBinding{
 		resourceBinding(collectionContract, "list", spec.BindingUsageQuery),
@@ -77,7 +77,7 @@ func GenerateResourcePageProposal(
 			Type:        spec.PageTypeResource,
 			ResourceKey: resourceKey,
 			Title:       title,
-			Category:    categoryForPage(resourceKey, pageKey, locale),
+			Category:    categoryForResource(resourceKey, locale),
 			Navigation: &spec.NavigationSpec{
 				Title: title,
 			},
@@ -270,7 +270,7 @@ func assessResourceSemantics(semantics *model.CapabilitySemantics) []spec.Diagno
 func resourceQuality(semantics *model.CapabilitySemantics, diags []spec.Diagnostic) spec.GeneratedPageQuality {
 	for _, d := range diags {
 		if d.Severity == spec.SeverityError {
-			return spec.GeneratedPageQualityBlocked
+			return spec.GeneratedPageQualityNeedsReview
 		}
 	}
 	if semantics != nil && semantics.CreateID > 0 && semantics.UpdateID > 0 && semantics.DeleteID > 0 &&

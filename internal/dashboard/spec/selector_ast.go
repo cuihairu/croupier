@@ -5,66 +5,60 @@ import (
 	"strings"
 )
 
-// SelectorAST represents a typed selector for binding input/output mapping.
-// It replaces the raw JSON object mapping with a structured, validated AST.
+// SelectorAST maps function input JSON Pointer targets to typed value sources.
 type SelectorAST struct {
-	// Assignments maps target field paths to source expressions
-	Assignments []Assignment `json:"assignments"`
+	Assignments []InputAssignment `json:"assignments"`
 }
 
-// Assignment maps a target field to a source expression.
-type Assignment struct {
-	// Target is the field path in the function's JSON Schema
-	Target string `json:"target"`
-
-	// Source defines where to get the value
-	Source SelectorSource `json:"source"`
+// InputAssignment maps a function input field to a source expression.
+type InputAssignment struct {
+	// Target is a JSON Pointer inside the function input JSON Schema.
+	Target string      `json:"target"`
+	Source ValueSource `json:"source"`
 }
 
-// SelectorSource defines the source of a value.
-type SelectorSource struct {
-	// Type is the source type
-	Type SelectorSourceType `json:"type"`
-
-	// Path is the field path within the source (for form, row, selection, detail)
-	Path string `json:"path,omitempty"`
-
-	// Value is the literal value (for literal type)
-	Value json.RawMessage `json:"value,omitempty"`
-
-	// Transform optionally transforms the value
-	Transform *TransformSpec `json:"transform,omitempty"`
+// OutputAssignment maps a function output JSON Pointer to page state.
+type OutputAssignment struct {
+	StateKey string            `json:"stateKey"`
+	Source   string            `json:"source"`
+	Shape    OutputResultShape `json:"shape"`
 }
 
-// SelectorSourceType defines allowed source types.
-type SelectorSourceType string
+// OutputResultShape is the expected page-state shape for an output mapping.
+type OutputResultShape string
 
 const (
-	// SourceForm reads from form input fields
-	SourceForm SelectorSourceType = "form"
-
-	// SourceRow reads from the current row data (for row actions)
-	SourceRow SelectorSourceType = "row"
-
-	// SourceSelection reads from selected rows (for batch actions)
-	SourceSelection SelectorSourceType = "selection"
-
-	// SourceDetail reads from detail view data
-	SourceDetail SelectorSourceType = "detail"
-
-	// SourcePageState reads from page-level state
-	SourcePageState SelectorSourceType = "page_state"
-
-	// SourceLiteral uses a fixed literal value
-	SourceLiteral SelectorSourceType = "literal"
+	OutputShapeScalar     OutputResultShape = "scalar"
+	OutputShapeObject     OutputResultShape = "object"
+	OutputShapeCollection OutputResultShape = "collection"
+	OutputShapeTask       OutputResultShape = "task"
+	OutputShapeDataset    OutputResultShape = "dataset"
 )
 
-// TransformSpec defines a value transformation.
-type TransformSpec struct {
-	// Type of transform
-	Type TransformType `json:"type"`
+// ValueSource defines where an input value comes from.
+type ValueSource struct {
+	Kind      ValueSourceKind `json:"kind"`
+	Path      string          `json:"path,omitempty"`
+	Key       string          `json:"key,omitempty"`
+	Value     json.RawMessage `json:"value,omitempty"`
+	Transform *TransformSpec  `json:"transform,omitempty"`
+}
 
-	// Params for the transform
+// ValueSourceKind defines allowed selector source kinds.
+type ValueSourceKind string
+
+const (
+	SourceForm      ValueSourceKind = "form"
+	SourceRow       ValueSourceKind = "row"
+	SourceSelection ValueSourceKind = "selection"
+	SourceDetail    ValueSourceKind = "detail"
+	SourcePageState ValueSourceKind = "page_state"
+	SourceLiteral   ValueSourceKind = "literal"
+)
+
+// TransformSpec defines a controlled value transformation.
+type TransformSpec struct {
+	Type   TransformType              `json:"type"`
 	Params map[string]json.RawMessage `json:"params,omitempty"`
 }
 
@@ -72,20 +66,11 @@ type TransformSpec struct {
 type TransformType string
 
 const (
-	// TransformDefault provides a default value if source is empty
 	TransformDefault TransformType = "default"
-
-	// TransformFormat formats a string with params
-	TransformFormat TransformType = "format"
-
-	// TransformConvert converts between types
+	TransformFormat  TransformType = "format"
 	TransformConvert TransformType = "convert"
-
-	// TransformPick picks a field from an object
-	TransformPick TransformType = "pick"
-
-	// TransformMap maps array items
-	TransformMap TransformType = "map"
+	TransformPick    TransformType = "pick"
+	TransformMap     TransformType = "map"
 )
 
 // SelectorValidationResult holds validation results for a selector.
@@ -111,7 +96,6 @@ type SelectorWarning struct {
 	Code    string `json:"code"`
 }
 
-// Common selector error codes
 const (
 	ErrCodeInvalidPath     = "invalid_path"
 	ErrCodeTypeMismatch    = "type_mismatch"
@@ -121,125 +105,142 @@ const (
 	ErrCodeStaleSelector   = "stale_selector"
 )
 
-// ValidateSelector validates a selector against a function's JSON Schema.
+// SelectorContext provides page context for selector validation.
+type SelectorContext struct {
+	PageType PageType
+
+	HasListView   bool
+	HasDetailView bool
+	IsRowAction   bool
+	IsBatchAction bool
+
+	FormSchema   JSONSchema
+	RowSchema    JSONSchema
+	DetailSchema JSONSchema
+	PageState    map[string]JSONSchema
+}
+
+// ValidateSelector validates input selector assignments against JSON Schema.
 func ValidateSelector(selector SelectorAST, schema JSONSchema, context SelectorContext) SelectorValidationResult {
 	result := SelectorValidationResult{Valid: true}
 
-	// Parse schema
-	var schemaObj map[string]interface{}
-	if err := json.Unmarshal(schema, &schemaObj); err != nil {
-		result.Valid = false
-		result.Errors = append(result.Errors, SelectorError{
-			Code:    ErrCodeInvalidPath,
-			Message: "invalid JSON Schema",
-		})
-		return result
+	required, err := requiredPointers(schema)
+	if err != nil {
+		return invalidSelectorResult("invalid JSON Schema")
 	}
-
-	// Get required fields
-	required := make(map[string]bool)
-	if req, ok := schemaObj["required"].([]interface{}); ok {
-		for _, r := range req {
-			if s, ok := r.(string); ok {
-				required[s] = true
-			}
-		}
-	}
-
-	// Get properties
-	properties, _ := schemaObj["properties"].(map[string]interface{})
-
-	// Track which required fields are assigned
-	assignedRequired := make(map[string]bool)
 
 	for _, assignment := range selector.Assignments {
-		// Validate target path exists in schema
-		if properties != nil {
-			if _, ok := properties[assignment.Target]; !ok {
-				result.Valid = false
-				result.Errors = append(result.Errors, SelectorError{
-					Field:   assignment.Target,
-					Code:    ErrCodeInvalidPath,
-					Message: "target field not found in schema",
-				})
-				continue
-			}
+		if !isJSONPointer(assignment.Target) {
+			result.addError(assignment.Target, ErrCodeInvalidPath, "target must be a JSON Pointer")
+			continue
 		}
-
-		// Track required fields
-		if required[assignment.Target] {
-			assignedRequired[assignment.Target] = true
+		if !schemaHasPath(schema, assignment.Target) {
+			result.addError(assignment.Target, ErrCodeInvalidPath, "target field not found in schema")
+			continue
 		}
+		delete(required, assignment.Target)
 
-		// Validate source type is allowed in context
-		if !isSourceAllowed(assignment.Source.Type, context) {
-			result.Valid = false
-			result.Errors = append(result.Errors, SelectorError{
-				Field:   assignment.Target,
-				Code:    ErrCodeInvalidSource,
-				Message: "source type not allowed in this context",
-			})
+		if !isSourceAllowed(assignment.Source.Kind, context) {
+			result.addError(assignment.Target, ErrCodeInvalidSource, "source kind not allowed in this context")
+			continue
 		}
-
-		// Validate path exists for source type
-		if assignment.Source.Type != SourceLiteral && assignment.Source.Path != "" {
-			if !validateSourcePath(assignment.Source.Type, assignment.Source.Path, context) {
-				result.Warnings = append(result.Warnings, SelectorWarning{
-					Field:   assignment.Target,
-					Code:    ErrCodeStaleSelector,
-					Message: "source path may not exist",
-				})
-			}
+		validateInputSource(assignment, context, &result)
+		if !isAssignable(schema, assignment.Target, assignment.Source, context) {
+			result.addError(assignment.Target, ErrCodeTypeMismatch, "source type is not assignable to target")
 		}
 	}
 
-	// Check all required fields are assigned
 	for field := range required {
-		if !assignedRequired[field] {
-			result.Valid = false
-			result.Errors = append(result.Errors, SelectorError{
-				Field:   field,
-				Code:    ErrCodeMissingRequired,
-				Message: "required field not assigned",
-			})
-		}
+		result.addError(field, ErrCodeMissingRequired, "required field not assigned")
 	}
-
 	return result
 }
 
-// SelectorContext provides context for selector validation.
-type SelectorContext struct {
-	// PageType determines allowed source types
-	PageType PageType
-
-	// HasListView indicates if page has a list view
-	HasListView bool
-
-	// HasDetailView indicates if page has a detail view
-	HasDetailView bool
-
-	// IsRowAction indicates if this is a row-level action
-	IsRowAction bool
-
-	// IsBatchAction indicates if this is a batch action
-	IsBatchAction bool
-
-	// FormSchema is the form's JSON Schema for validating form paths
-	FormSchema JSONSchema
-
-	// RowSchema is the list row's JSON Schema for validating row paths
-	RowSchema JSONSchema
-
-	// DetailSchema is the detail view's JSON Schema for validating detail paths
-	DetailSchema JSONSchema
+// ValidateOutputAssignments validates output selectors against a function output schema.
+func ValidateOutputAssignments(assignments []OutputAssignment, schema JSONSchema) SelectorValidationResult {
+	result := SelectorValidationResult{Valid: true}
+	for _, assignment := range assignments {
+		stateKey := strings.TrimSpace(assignment.StateKey)
+		if stateKey == "" {
+			result.addError(assignment.Source, ErrCodeMissingRequired, "output stateKey is required")
+		}
+		if !isJSONPointer(assignment.Source) {
+			result.addError(assignment.Source, ErrCodeInvalidPath, "output source must be a JSON Pointer")
+			continue
+		}
+		if len(schema) > 0 && !schemaHasPath(schema, assignment.Source) {
+			result.addError(assignment.Source, ErrCodeInvalidPath, "output source not found in schema")
+		}
+		if !isOutputShape(assignment.Shape) {
+			result.addError(stateKey, ErrCodeInvalidSource, "output shape is invalid")
+		}
+	}
+	return result
 }
 
-// isSourceAllowed checks if a source type is allowed in the given context.
-func isSourceAllowed(sourceType SelectorSourceType, ctx SelectorContext) bool {
-	switch sourceType {
+func validateInputSource(assignment InputAssignment, ctx SelectorContext, result *SelectorValidationResult) {
+	source := assignment.Source
+	switch source.Kind {
+	case SourceLiteral:
+		return
+	case SourcePageState:
+		if strings.TrimSpace(source.Key) == "" {
+			result.addError(assignment.Target, ErrCodeMissingRequired, "page_state source key is required")
+			return
+		}
+		if source.Path != "" && !isJSONPointer(source.Path) {
+			result.addError(assignment.Target, ErrCodeInvalidPath, "page_state source path must be a JSON Pointer")
+			return
+		}
+		if !validatePageStatePath(source, ctx) {
+			result.addError(assignment.Target, ErrCodeInvalidPath, "page_state source path does not exist")
+		}
+	default:
+		if strings.TrimSpace(source.Path) == "" {
+			result.addError(assignment.Target, ErrCodeMissingRequired, "source path is required")
+			return
+		}
+		if !isJSONPointer(source.Path) {
+			result.addError(assignment.Target, ErrCodeInvalidPath, "source path must be a JSON Pointer")
+			return
+		}
+		if !validateSourcePath(source.Kind, source.Path, ctx) {
+			result.addError(assignment.Target, ErrCodeInvalidPath, "source path does not exist")
+		}
+	}
+}
+
+func invalidSelectorResult(message string) SelectorValidationResult {
+	return SelectorValidationResult{
+		Valid: false,
+		Errors: []SelectorError{{
+			Code:    ErrCodeInvalidPath,
+			Message: message,
+		}},
+	}
+}
+
+func (result *SelectorValidationResult) addError(field string, code string, message string) {
+	result.Valid = false
+	result.Errors = append(result.Errors, SelectorError{
+		Field:   field,
+		Code:    code,
+		Message: message,
+	})
+}
+
+func (result *SelectorValidationResult) addWarning(field string, code string, message string) {
+	result.Warnings = append(result.Warnings, SelectorWarning{
+		Field:   field,
+		Code:    code,
+		Message: message,
+	})
+}
+
+func isSourceAllowed(sourceKind ValueSourceKind, ctx SelectorContext) bool {
+	switch sourceKind {
 	case SourceForm:
-		return true // always allowed
+		return true
 	case SourceRow:
 		return ctx.IsRowAction || ctx.HasDetailView
 	case SourceSelection:
@@ -247,103 +248,591 @@ func isSourceAllowed(sourceType SelectorSourceType, ctx SelectorContext) bool {
 	case SourceDetail:
 		return ctx.HasDetailView
 	case SourcePageState:
-		return true // always allowed
+		return true
 	case SourceLiteral:
-		return true // always allowed
+		return true
 	default:
 		return false
 	}
 }
 
-// validateSourcePath checks if a source path exists in the appropriate schema.
-func validateSourcePath(sourceType SelectorSourceType, path string, ctx SelectorContext) bool {
-	if path == "" {
-		return false
-	}
-
+func validateSourcePath(sourceKind ValueSourceKind, path string, ctx SelectorContext) bool {
 	var schema JSONSchema
-	switch sourceType {
+	switch sourceKind {
 	case SourceForm:
 		schema = ctx.FormSchema
-	case SourceRow:
+	case SourceRow, SourceSelection:
 		schema = ctx.RowSchema
 	case SourceDetail:
 		schema = ctx.DetailSchema
-	case SourceSelection:
-		schema = ctx.RowSchema // selection items share row schema
-	case SourcePageState:
-		return true // page state paths are dynamic, always valid
-	case SourceLiteral:
-		return true // literal values don't need path validation
 	default:
-		return false
+		return true
 	}
-
 	if len(schema) == 0 {
-		return true // no schema to validate against, assume valid
+		return true
 	}
-
 	return schemaHasPath(schema, path)
 }
 
-// schemaHasPath checks if a JSON Schema contains a property at the given path.
-func schemaHasPath(schema JSONSchema, path string) bool {
-	var schemaObj map[string]interface{}
-	if err := json.Unmarshal(schema, &schemaObj); err != nil {
-		return true // can't parse schema, assume valid
+func validatePageStatePath(source ValueSource, ctx SelectorContext) bool {
+	if len(ctx.PageState) == 0 {
+		return true
 	}
-
-	properties, ok := schemaObj["properties"].(map[string]interface{})
+	schema, ok := ctx.PageState[strings.TrimSpace(source.Key)]
 	if !ok {
-		return true // no properties defined, assume valid
+		return false
+	}
+	if source.Path == "" {
+		return true
+	}
+	return schemaHasPath(schema, source.Path)
+}
+
+func isAssignable(targetSchema JSONSchema, targetPath string, source ValueSource, ctx SelectorContext) bool {
+	if source.Kind == SourceLiteral || source.Transform != nil {
+		return true
+	}
+	targetType, ok := schemaTypeAtPath(targetSchema, targetPath)
+	if !ok || targetType == "" {
+		return true
+	}
+	sourceSchema, sourcePath, ok := sourceSchemaAndPath(source, ctx)
+	if !ok || len(sourceSchema) == 0 {
+		return true
+	}
+	sourceType, ok := schemaTypeAtPath(sourceSchema, sourcePath)
+	if !ok || sourceType == "" {
+		return true
+	}
+	return jsonSchemaTypeAssignable(targetType, sourceType)
+}
+
+func sourceSchemaAndPath(source ValueSource, ctx SelectorContext) (JSONSchema, string, bool) {
+	switch source.Kind {
+	case SourceForm:
+		return ctx.FormSchema, source.Path, true
+	case SourceRow, SourceSelection:
+		return ctx.RowSchema, source.Path, true
+	case SourceDetail:
+		return ctx.DetailSchema, source.Path, true
+	case SourcePageState:
+		schema, ok := ctx.PageState[strings.TrimSpace(source.Key)]
+		return schema, source.Path, ok
+	default:
+		return nil, "", false
+	}
+}
+
+func requiredPointers(schema JSONSchema) (map[string]struct{}, error) {
+	var schemaObj map[string]json.RawMessage
+	if len(schema) == 0 {
+		return map[string]struct{}{}, nil
+	}
+	if err := json.Unmarshal(schema, &schemaObj); err != nil {
+		return nil, err
 	}
 
-	// Support dot-notation paths (e.g., "address.city")
-	parts := strings.Split(path, ".")
-	current := properties
-	for i, part := range parts {
-		prop, exists := current[part]
-		if !exists {
+	var required []string
+	if raw := schemaObj["required"]; len(raw) > 0 {
+		if err := json.Unmarshal(raw, &required); err != nil {
+			return nil, err
+		}
+	}
+
+	out := make(map[string]struct{}, len(required))
+	for _, field := range required {
+		out["/"+escapeJSONPointerToken(field)] = struct{}{}
+	}
+	return out, nil
+}
+
+// schemaHasPath checks if a JSON Schema contains a property at the JSON Pointer.
+func schemaHasPath(schema JSONSchema, path string) bool {
+	if !isJSONPointer(path) {
+		return false
+	}
+	if path == "" {
+		return true
+	}
+
+	var schemaObj map[string]json.RawMessage
+	if err := json.Unmarshal(schema, &schemaObj); err != nil {
+		return true
+	}
+	if len(schemaObj) == 0 {
+		return true
+	}
+
+	current := schemaObj
+	for _, token := range jsonPointerTokens(path) {
+		properties, ok := rawObject(current["properties"])
+		if !ok {
 			return false
 		}
-		// If not the last part, drill into nested object
-		if i < len(parts)-1 {
-			propMap, ok := prop.(map[string]interface{})
-			if !ok {
-				return false
-			}
-			nestedProps, ok := propMap["properties"].(map[string]interface{})
-			if !ok {
-				return false
-			}
-			current = nestedProps
+		nextRaw, ok := properties[token]
+		if !ok {
+			return false
 		}
+		nextObj, ok := rawObject(nextRaw)
+		if !ok {
+			return false
+		}
+		current = nextObj
 	}
 	return true
 }
 
-// DefaultSelector creates a default selector that maps all form fields to function inputs.
+func schemaTypeAtPath(schema JSONSchema, path string) (string, bool) {
+	node, ok := schemaNodeAtPath(schema, path)
+	if !ok {
+		return "", false
+	}
+	rawType, ok := node["type"]
+	if !ok {
+		return "", true
+	}
+	var schemaType string
+	if err := json.Unmarshal(rawType, &schemaType); err == nil {
+		return schemaType, true
+	}
+	var schemaTypes []string
+	if err := json.Unmarshal(rawType, &schemaTypes); err == nil && len(schemaTypes) == 1 {
+		return schemaTypes[0], true
+	}
+	return "", true
+}
+
+func schemaNodeAtPath(schema JSONSchema, path string) (map[string]json.RawMessage, bool) {
+	if !isJSONPointer(path) {
+		return nil, false
+	}
+	var current map[string]json.RawMessage
+	if err := json.Unmarshal(schema, &current); err != nil {
+		return nil, false
+	}
+	if path == "" {
+		return current, true
+	}
+	for _, token := range jsonPointerTokens(path) {
+		properties, ok := rawObject(current["properties"])
+		if !ok {
+			return nil, false
+		}
+		nextRaw, ok := properties[token]
+		if !ok {
+			return nil, false
+		}
+		nextObj, ok := rawObject(nextRaw)
+		if !ok {
+			return nil, false
+		}
+		current = nextObj
+	}
+	return current, true
+}
+
+func jsonSchemaTypeAssignable(targetType string, sourceType string) bool {
+	if targetType == sourceType {
+		return true
+	}
+	return targetType == "number" && sourceType == "integer"
+}
+
+// SchemaFieldSnapshot is a comparable field view extracted from the supported
+// JSON Schema subset.
+type SchemaFieldSnapshot struct {
+	Path     string `json:"path"`
+	Type     string `json:"type,omitempty"`
+	Required bool   `json:"required,omitempty"`
+}
+
+// SchemaFieldChangeType describes a field-level schema change.
+type SchemaFieldChangeType string
+
+const (
+	SchemaFieldAdded           SchemaFieldChangeType = "added"
+	SchemaFieldRemoved         SchemaFieldChangeType = "removed"
+	SchemaFieldTypeChanged     SchemaFieldChangeType = "type_changed"
+	SchemaFieldRequiredChanged SchemaFieldChangeType = "required_changed"
+)
+
+// SchemaFieldChange is a deterministic field-level schema diff item.
+type SchemaFieldChange struct {
+	Path       string                `json:"path"`
+	ChangeType SchemaFieldChangeType `json:"changeType"`
+	Old        *SchemaFieldSnapshot  `json:"old,omitempty"`
+	New        *SchemaFieldSnapshot  `json:"new,omitempty"`
+}
+
+// FieldRenameCandidate is a conservative rename hint for Page Studio.
+type FieldRenameCandidate struct {
+	OldPath    string `json:"oldPath"`
+	NewPath    string `json:"newPath"`
+	Confidence string `json:"confidence"`
+	Reason     string `json:"reason"`
+}
+
+// SchemaDiffResult contains supported-subset schema diff output.
+type SchemaDiffResult struct {
+	Changes          []SchemaFieldChange    `json:"changes"`
+	RenameCandidates []FieldRenameCandidate `json:"renameCandidates,omitempty"`
+	Diagnostics      []Diagnostic           `json:"diagnostics,omitempty"`
+}
+
+// DiffJSONSchemaFields compares the supported object/property subset of JSON Schema.
+func DiffJSONSchemaFields(oldSchema JSONSchema, newSchema JSONSchema) SchemaDiffResult {
+	oldFields, oldOK := schemaFieldSnapshots(oldSchema)
+	newFields, newOK := schemaFieldSnapshots(newSchema)
+	result := SchemaDiffResult{}
+	if !oldOK || !newOK {
+		result.Diagnostics = append(result.Diagnostics, Diagnostic{
+			Code:     "schema_diff_invalid_schema",
+			Severity: SeverityError,
+			Message:  "schema diff requires valid JSON Schema objects",
+		})
+		return result
+	}
+
+	allPaths := make(map[string]struct{}, len(oldFields)+len(newFields))
+	for path := range oldFields {
+		allPaths[path] = struct{}{}
+	}
+	for path := range newFields {
+		allPaths[path] = struct{}{}
+	}
+	paths := sortedMapKeys(allPaths)
+
+	var removed []SchemaFieldSnapshot
+	var added []SchemaFieldSnapshot
+	for _, path := range paths {
+		oldField, oldExists := oldFields[path]
+		newField, newExists := newFields[path]
+		switch {
+		case !oldExists && newExists:
+			newCopy := newField
+			added = append(added, newField)
+			result.Changes = append(result.Changes, SchemaFieldChange{
+				Path:       path,
+				ChangeType: SchemaFieldAdded,
+				New:        &newCopy,
+			})
+		case oldExists && !newExists:
+			oldCopy := oldField
+			removed = append(removed, oldField)
+			result.Changes = append(result.Changes, SchemaFieldChange{
+				Path:       path,
+				ChangeType: SchemaFieldRemoved,
+				Old:        &oldCopy,
+			})
+		case oldField.Type != newField.Type:
+			oldCopy := oldField
+			newCopy := newField
+			result.Changes = append(result.Changes, SchemaFieldChange{
+				Path:       path,
+				ChangeType: SchemaFieldTypeChanged,
+				Old:        &oldCopy,
+				New:        &newCopy,
+			})
+		case oldField.Required != newField.Required:
+			oldCopy := oldField
+			newCopy := newField
+			result.Changes = append(result.Changes, SchemaFieldChange{
+				Path:       path,
+				ChangeType: SchemaFieldRequiredChanged,
+				Old:        &oldCopy,
+				New:        &newCopy,
+			})
+		}
+	}
+	result.RenameCandidates = fieldRenameCandidates(removed, added)
+	return result
+}
+
+// SelectorStaleDiagnostics explains how selector paths are affected by schema changes.
+func SelectorStaleDiagnostics(
+	selector SelectorAST,
+	outputAssignments []OutputAssignment,
+	oldInputSchema JSONSchema,
+	newInputSchema JSONSchema,
+	oldOutputSchema JSONSchema,
+	newOutputSchema JSONSchema,
+) []Diagnostic {
+	inputDiff := DiffJSONSchemaFields(oldInputSchema, newInputSchema)
+	outputDiff := DiffJSONSchemaFields(oldOutputSchema, newOutputSchema)
+	diags := append([]Diagnostic{}, inputDiff.Diagnostics...)
+	diags = append(diags, outputDiff.Diagnostics...)
+	if len(inputDiff.Diagnostics) > 0 || len(outputDiff.Diagnostics) > 0 {
+		return diags
+	}
+
+	assignedTargets := map[string]struct{}{}
+	for _, assignment := range selector.Assignments {
+		assignedTargets[assignment.Target] = struct{}{}
+		if !schemaHasPath(newInputSchema, assignment.Target) {
+			diags = append(diags, staleDiagnostic("selector_target_stale", "selector target no longer exists in input schema", "input."+assignment.Target))
+			continue
+		}
+		if hasChange(inputDiff.Changes, assignment.Target, SchemaFieldTypeChanged) {
+			diags = append(diags, staleDiagnostic("selector_target_type_stale", "selector target type changed in input schema", "input."+assignment.Target))
+		}
+	}
+
+	required, err := requiredPointers(newInputSchema)
+	if err == nil {
+		for _, path := range sortedMapKeys(required) {
+			if _, ok := assignedTargets[path]; !ok {
+				diags = append(diags, staleDiagnostic("selector_required_stale", "new required input field is not assigned", "input."+path))
+			}
+		}
+	}
+
+	for _, assignment := range outputAssignments {
+		if !schemaHasPath(newOutputSchema, assignment.Source) {
+			diags = append(diags, staleDiagnostic("selector_output_source_stale", "output source no longer exists in output schema", "output."+assignment.Source))
+			continue
+		}
+		if hasChange(outputDiff.Changes, assignment.Source, SchemaFieldTypeChanged) {
+			diags = append(diags, staleDiagnostic("selector_output_type_stale", "output source type changed in output schema", "output."+assignment.Source))
+		}
+	}
+
+	for _, candidate := range inputDiff.RenameCandidates {
+		if _, ok := assignedTargets[candidate.OldPath]; ok {
+			diags = append(diags, Diagnostic{
+				Code:     "selector_field_rename_candidate",
+				Severity: SeverityInfo,
+				Message:  "input selector may be updated from " + candidate.OldPath + " to " + candidate.NewPath,
+				Field:    "input." + candidate.OldPath,
+			})
+		}
+	}
+	for _, candidate := range outputDiff.RenameCandidates {
+		for _, assignment := range outputAssignments {
+			if assignment.Source == candidate.OldPath {
+				diags = append(diags, Diagnostic{
+					Code:     "selector_output_rename_candidate",
+					Severity: SeverityInfo,
+					Message:  "output selector may be updated from " + candidate.OldPath + " to " + candidate.NewPath,
+					Field:    "output." + candidate.OldPath,
+				})
+			}
+		}
+	}
+	return diags
+}
+
+// DefaultSelector creates a default selector that maps each top-level form
+// field to the same function input JSON Pointer.
 func DefaultSelector(schema JSONSchema) SelectorAST {
-	var schemaObj map[string]interface{}
+	var schemaObj map[string]json.RawMessage
 	if err := json.Unmarshal(schema, &schemaObj); err != nil {
 		return SelectorAST{}
 	}
 
-	properties, ok := schemaObj["properties"].(map[string]interface{})
+	properties, ok := rawObject(schemaObj["properties"])
 	if !ok {
 		return SelectorAST{}
 	}
 
-	assignments := make([]Assignment, 0, len(properties))
+	keys := make([]string, 0, len(properties))
 	for field := range properties {
-		assignments = append(assignments, Assignment{
-			Target: field,
-			Source: SelectorSource{
-				Type: SourceForm,
-				Path: field,
+		keys = append(keys, field)
+	}
+	sortStrings(keys)
+
+	assignments := make([]InputAssignment, 0, len(keys))
+	for _, field := range keys {
+		pointer := "/" + escapeJSONPointerToken(field)
+		assignments = append(assignments, InputAssignment{
+			Target: pointer,
+			Source: ValueSource{
+				Kind: SourceForm,
+				Path: pointer,
 			},
 		})
 	}
-
 	return SelectorAST{Assignments: assignments}
+}
+
+func isOutputShape(shape OutputResultShape) bool {
+	switch shape {
+	case OutputShapeScalar, OutputShapeObject, OutputShapeCollection, OutputShapeTask, OutputShapeDataset:
+		return true
+	default:
+		return false
+	}
+}
+
+func isJSONPointer(path string) bool {
+	return path == "" || strings.HasPrefix(path, "/")
+}
+
+func jsonPointerTokens(path string) []string {
+	if path == "" {
+		return nil
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	for i, part := range parts {
+		parts[i] = strings.ReplaceAll(strings.ReplaceAll(part, "~1", "/"), "~0", "~")
+	}
+	return parts
+}
+
+func escapeJSONPointerToken(token string) string {
+	token = strings.ReplaceAll(token, "~", "~0")
+	return strings.ReplaceAll(token, "/", "~1")
+}
+
+func rawObject(raw json.RawMessage) (map[string]json.RawMessage, bool) {
+	if len(raw) == 0 {
+		return nil, false
+	}
+	var out map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, false
+	}
+	return out, true
+}
+
+func schemaFieldSnapshots(schema JSONSchema) (map[string]SchemaFieldSnapshot, bool) {
+	if len(schema) == 0 {
+		return map[string]SchemaFieldSnapshot{}, true
+	}
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(schema, &root); err != nil {
+		return nil, false
+	}
+	out := map[string]SchemaFieldSnapshot{}
+	collectSchemaFieldSnapshots("", root, requiredSet(root), out)
+	return out, true
+}
+
+func collectSchemaFieldSnapshots(prefix string, node map[string]json.RawMessage, required map[string]struct{}, out map[string]SchemaFieldSnapshot) {
+	properties, ok := rawObject(node["properties"])
+	if !ok {
+		return
+	}
+	for _, name := range sortedRawMapKeys(properties) {
+		propRaw := properties[name]
+		prop, ok := rawObject(propRaw)
+		if !ok {
+			continue
+		}
+		path := prefix + "/" + escapeJSONPointerToken(name)
+		_, isRequired := required[name]
+		out[path] = SchemaFieldSnapshot{
+			Path:     path,
+			Type:     schemaTypeFromNode(prop),
+			Required: isRequired,
+		}
+		collectSchemaFieldSnapshots(path, prop, requiredSet(prop), out)
+	}
+}
+
+func requiredSet(node map[string]json.RawMessage) map[string]struct{} {
+	out := map[string]struct{}{}
+	var required []string
+	if raw := node["required"]; len(raw) > 0 {
+		if err := json.Unmarshal(raw, &required); err == nil {
+			for _, field := range required {
+				out[field] = struct{}{}
+			}
+		}
+	}
+	return out
+}
+
+func schemaTypeFromNode(node map[string]json.RawMessage) string {
+	rawType, ok := node["type"]
+	if !ok {
+		return ""
+	}
+	var schemaType string
+	if err := json.Unmarshal(rawType, &schemaType); err == nil {
+		return schemaType
+	}
+	var schemaTypes []string
+	if err := json.Unmarshal(rawType, &schemaTypes); err == nil && len(schemaTypes) == 1 {
+		return schemaTypes[0]
+	}
+	return ""
+}
+
+func fieldRenameCandidates(removed []SchemaFieldSnapshot, added []SchemaFieldSnapshot) []FieldRenameCandidate {
+	candidates := []FieldRenameCandidate{}
+	for _, oldField := range removed {
+		for _, newField := range added {
+			if oldField.Type == "" || oldField.Type != newField.Type {
+				continue
+			}
+			if oldField.Required != newField.Required {
+				continue
+			}
+			if parentPointer(oldField.Path) != parentPointer(newField.Path) {
+				continue
+			}
+			candidates = append(candidates, FieldRenameCandidate{
+				OldPath:    oldField.Path,
+				NewPath:    newField.Path,
+				Confidence: "low",
+				Reason:     "same parent, type, and required flag",
+			})
+		}
+	}
+	return candidates
+}
+
+func hasChange(changes []SchemaFieldChange, path string, changeType SchemaFieldChangeType) bool {
+	for _, change := range changes {
+		if change.Path == path && change.ChangeType == changeType {
+			return true
+		}
+	}
+	return false
+}
+
+func staleDiagnostic(code string, message string, field string) Diagnostic {
+	return Diagnostic{
+		Code:     code,
+		Severity: SeverityError,
+		Message:  message,
+		Field:    field,
+	}
+}
+
+func parentPointer(path string) string {
+	if path == "" {
+		return ""
+	}
+	index := strings.LastIndex(path, "/")
+	if index <= 0 {
+		return ""
+	}
+	return path[:index]
+}
+
+func sortedMapKeys[T any](input map[string]T) []string {
+	keys := make([]string, 0, len(input))
+	for key := range input {
+		keys = append(keys, key)
+	}
+	sortStrings(keys)
+	return keys
+}
+
+func sortedRawMapKeys(input map[string]json.RawMessage) []string {
+	keys := make([]string, 0, len(input))
+	for key := range input {
+		keys = append(keys, key)
+	}
+	sortStrings(keys)
+	return keys
+}
+
+func sortStrings(values []string) {
+	for i := 1; i < len(values); i++ {
+		for j := i; j > 0 && values[j] < values[j-1]; j-- {
+			values[j], values[j-1] = values[j-1], values[j]
+		}
+	}
 }

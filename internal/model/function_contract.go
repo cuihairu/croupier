@@ -99,6 +99,13 @@ type CapabilitySemantics struct {
 	SourceDigest string         `gorm:"size:64"`   // SHA256 of source
 	Diagnostics  datatypes.JSON `gorm:"type:json"` // Diagnostic array
 
+	// Field-level provenance tracking
+	// Each semantic field can have its own provenance record
+	Provenance datatypes.JSON `gorm:"type:json"` // map[string]SemanticProvenance
+
+	// Unresolved conflicts
+	Conflicts datatypes.JSON `gorm:"type:json"` // []SemanticConflict
+
 	UpdatedAt time.Time
 	UpdatedBy string `gorm:"size:64"`
 }

@@ -128,7 +128,7 @@ func TestGeneratePageKeyStability(t *testing.T) {
 				Operation:   "ban",
 			},
 			opts: GenerateOptions{DefaultLocale: "zh-CN"},
-			want: "player.ban",
+			want: "operation--player.ban",
 		},
 		{
 			name: "with only function id",
@@ -136,17 +136,7 @@ func TestGeneratePageKeyStability(t *testing.T) {
 				FunctionID: "mail.send",
 			},
 			opts: GenerateOptions{DefaultLocale: "zh-CN"},
-			want: "mail.send",
-		},
-		{
-			name: "with prefix",
-			op: spec.OperationSpec{
-				FunctionID:  "player.ban",
-				ResourceKey: "player",
-				Operation:   "ban",
-			},
-			opts: GenerateOptions{DefaultLocale: "zh-CN", PageKeyPrefix: "gm."},
-			want: "gm.player.ban",
+			want: "operation--mail.send",
 		},
 	}
 
@@ -204,12 +194,13 @@ func TestQualityAssessmentGolden(t *testing.T) {
 			wantQ: spec.GeneratedPageQualityNeedsReview,
 		},
 		{
-			name: "disabled function - blocked",
+			name: "disabled function - needs review with error diagnostic",
 			op: spec.OperationSpec{
 				FunctionID: "player.ban",
 				Enabled:    false,
 			},
-			wantQ: spec.GeneratedPageQualityBlocked,
+			wantQ:   spec.GeneratedPageQualityNeedsReview,
+			wantErr: true,
 		},
 	}
 
@@ -217,6 +208,9 @@ func TestQualityAssessmentGolden(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GenerateForOperation(tt.op, DefaultGenerateOptions())
 			assert.Equal(t, tt.wantQ, result.Quality)
+			if tt.wantErr {
+				assertDiagnostic(t, result.Diagnostics, "function_disabled")
+			}
 		})
 	}
 }

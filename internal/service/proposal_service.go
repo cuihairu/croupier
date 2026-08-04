@@ -49,7 +49,7 @@ func (s *ProposalService) GetProposal(ctx context.Context, gameID, env, proposal
 }
 
 // AcceptProposal accepts a proposal and materializes it as a PageSpec draft.
-// Blocked proposals cannot be accepted - they require manual resolution.
+// Proposals with error-level diagnostics cannot be accepted.
 func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, proposalKey string) error {
 	proposal, err := s.proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey)
 	if err != nil {
@@ -58,11 +58,6 @@ func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, propo
 
 	if proposal.Status != "pending" {
 		return fmt.Errorf("proposal is not pending")
-	}
-
-	// Block acceptance if quality is blocked
-	if proposal.Quality == "blocked" {
-		return fmt.Errorf("proposal is blocked due to semantic conflicts or validation errors; resolve issues before accepting")
 	}
 
 	// Block acceptance if there are error-level diagnostics

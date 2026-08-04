@@ -1,67 +1,126 @@
 package validation
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
+
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 // ValidateJSON validates a JSON payload `data` against a minimal subset of JSON Schema contained in `schema`.
 // Supported subset:
-// - type: object
-// - properties: string|number|integer|boolean|object (object validated shallowly)
-// - required: [..]
-// Returns first error encountered for simplicity.
+// - object/array/scalar types
+// - properties/items
+// - required
+// - enum
+// - local $defs/$ref supported by the jsonschema compiler
+//
+// Object payloads are strict by default: if a schema object declares properties
+// but does not declare additionalProperties, unknown fields are rejected.
 func ValidateJSON(schema map[string]any, data []byte) error {
-	// parse data
-	var v any
-	if len(data) == 0 {
-		v = map[string]any{}
-	} else if err := json.Unmarshal(data, &v); err != nil {
-		return fmt.Errorf("invalid JSON: %w", err)
+	if schema == nil {
+		schema = map[string]any{}
 	}
-	// only object supported at top-level
-	m, ok := v.(map[string]any)
-	if !ok {
-		return errors.New("payload must be a JSON object")
+	return ValidateJSONSchema(schema, data)
+}
+
+// ValidateJSONRaw validates a JSON payload against a raw JSON Schema object.
+func ValidateJSONRaw(schema json.RawMessage, data []byte) error {
+	if len(bytes.TrimSpace(schema)) == 0 {
+		return ValidateJSONSchema(map[string]any{}, data)
+	}
+	var parsed any
+	if err := json.Unmarshal(schema, &parsed); err != nil {
+		return fmt.Errorf("invalid JSON Schema: %w", err)
+	}
+	return ValidateJSONSchema(parsed, data)
+}
+
+// ValidateJSONSchema validates a payload against a JSON Schema value.
+func ValidateJSONSchema(schema any, data []byte) error {
+	payload, err := decodeJSONPayload(data)
+	if err != nil {
+		return err
 	}
 
-	// read schema
-	st, _ := schema["type"].(string)
-	if st != "object" && st != "" {
-		return fmt.Errorf("schema.type %q not supported", st)
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft7)
+	if err := compiler.AddResource("schema.json", strictSchemaObjects(schema)); err != nil {
+		return fmt.Errorf("invalid JSON Schema: %w", err)
 	}
-	props, _ := schema["properties"].(map[string]any)
-	reqArr, _ := schema["required"].([]any)
-
-	// required
-	for _, r := range reqArr {
-		key, _ := r.(string)
-		if key == "" {
-			continue
-		}
-		if _, ok := m[key]; !ok {
-			return fmt.Errorf("missing required field: %s", key)
-		}
+	compiled, err := compiler.Compile("schema.json")
+	if err != nil {
+		return fmt.Errorf("invalid JSON Schema: %w", err)
 	}
-
-	// types
-	for k, raw := range props {
-		pm, _ := raw.(map[string]any)
-		t, _ := pm["type"].(string)
-		if t == "" {
-			continue
-		}
-		val, exists := m[k]
-		if !exists {
-			continue
-		}
-		if err := checkType(t, val); err != nil {
-			return fmt.Errorf("field %s: %w", k, err)
-		}
+	if err := compiled.Validate(payload); err != nil {
+		return fmt.Errorf("payload does not match schema: %w", err)
 	}
 	return nil
+}
+
+func decodeJSONPayload(data []byte) (any, error) {
+	if len(bytes.TrimSpace(data)) == 0 {
+		return map[string]any{}, nil
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var payload any
+	if err := decoder.Decode(&payload); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return nil, errors.New("invalid JSON: multiple JSON values")
+	}
+	return payload, nil
+}
+
+func strictSchemaObjects(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed)+1)
+		for key, item := range typed {
+			out[key] = strictSchemaObjects(item)
+		}
+		if schemaDeclaresObjectProperties(out) {
+			if _, ok := out["additionalProperties"]; !ok {
+				out["additionalProperties"] = false
+			}
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for i, item := range typed {
+			out[i] = strictSchemaObjects(item)
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+func schemaDeclaresObjectProperties(schema map[string]any) bool {
+	if _, ok := schema["properties"].(map[string]any); !ok {
+		return false
+	}
+	schemaType, ok := schema["type"]
+	if !ok {
+		return true
+	}
+	switch typed := schemaType.(type) {
+	case string:
+		return typed == "object"
+	case []any:
+		for _, item := range typed {
+			if item == "object" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func checkType(t string, v any) error {

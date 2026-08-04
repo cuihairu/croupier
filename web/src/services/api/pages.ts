@@ -74,7 +74,7 @@ type PageRegenerateResponse = {
   draftRevision: number;
   page: PageSpec;
   diagnostics?: Diagnostic[];
-  quality: 'ready' | 'basic' | 'needs_review' | 'blocked';
+  quality: 'ready' | 'basic' | 'needs_review';
 };
 
 export async function listPageDrafts(params?: PageDraftListParams): Promise<PageSpecDraftSummary[]> {

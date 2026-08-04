@@ -20,6 +20,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
+	"github.com/cuihairu/croupier/internal/validation"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -117,6 +118,7 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	if !ok {
 		return nil, errorx.NewValidationError("binding contract snapshot missing")
 	}
+	functions := normalizedFunctions(ctx, s.svcCtx)
 	requestID := uuid.NewString()
 	actor := currentActor(ctx)
 	var result spec.PageExecutionResult
@@ -127,16 +129,16 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 		s.auditPageExecute(ctx, gameID, env, *published, binding, requestID, target, result, err)
 	}()
 
-	if err := s.ensureBindingFresh(ctx, binding, contract); err != nil {
+	if err := s.ensureBindingFresh(binding, contract, functions); err != nil {
 		return nil, err
 	}
 
-	payload := json.RawMessage(`{}`)
-	if len(req.Payload) > 0 {
-		if !json.Valid(req.Payload) {
-			return nil, errorx.NewBadRequest("payload must be valid JSON")
-		}
-		payload = append(json.RawMessage(nil), req.Payload...)
+	payload, err := buildBindingPayloadFromSelectors(binding, req.Context)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateBindingExecutePayload(payload, binding, functions); err != nil {
+		return nil, err
 	}
 	mode := ""
 	if binding.Execution.Mode == spec.PageExecutionModeTask {
@@ -171,8 +173,8 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	return &ConsoleExecuteBindingResponse{Result: result}, nil
 }
 
-func (s *Service) ensureBindingFresh(ctx context.Context, binding spec.PageFunctionBinding, contract spec.BindingContractSnapshot) error {
-	diags := freshness.EvaluateBinding(binding, contract, normalizedFunctions(ctx, s.svcCtx))
+func (s *Service) ensureBindingFresh(binding spec.PageFunctionBinding, contract spec.BindingContractSnapshot, functions map[string]spec.FunctionSpec) error {
+	diags := freshness.EvaluateBinding(binding, contract, functions)
 	if len(diags) > 0 {
 		return errorx.NewConflictWithDetails("binding_stale", map[string]any{
 			"bindingId":  binding.ID,
@@ -181,6 +183,184 @@ func (s *Service) ensureBindingFresh(ctx context.Context, binding spec.PageFunct
 		})
 	}
 	return nil
+}
+
+func validateBindingExecutePayload(payload json.RawMessage, binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec) error {
+	fn, ok := functions[strings.TrimSpace(binding.FunctionID)]
+	if !ok || len(fn.InputSchema) == 0 {
+		return nil
+	}
+	if err := validation.ValidateJSONRaw(json.RawMessage(fn.InputSchema), payload); err != nil {
+		return errorx.NewValidationErrorWithDetails("binding payload does not match input schema", map[string]string{
+			"bindingId":  binding.ID,
+			"functionId": binding.FunctionID,
+			"schema":     "inputSchema",
+			"error":      err.Error(),
+		})
+	}
+	return nil
+}
+
+func buildBindingPayloadFromSelectors(binding spec.PageFunctionBinding, execCtx ConsoleBindingExecutionContext) (json.RawMessage, error) {
+	if binding.Selectors == nil {
+		return nil, errorx.NewValidationError("binding selectors are required for console execution")
+	}
+	payload := map[string]any{}
+	for _, assignment := range binding.Selectors.Input.Assignments {
+		value, found, err := resolveSelectorValue(assignment.Source, execCtx)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			continue
+		}
+		if err := setJSONPointerValue(payload, assignment.Target, value); err != nil {
+			return nil, errorx.NewValidationErrorWithDetails("binding selector target is invalid", map[string]string{
+				"bindingId": binding.ID,
+				"target":    assignment.Target,
+				"error":     err.Error(),
+			})
+		}
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(raw), nil
+}
+
+func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecutionContext) (any, bool, error) {
+	if source.Transform != nil {
+		return nil, false, errorx.NewValidationError("binding selector transforms are not supported by console execution")
+	}
+	switch source.Kind {
+	case spec.SourceLiteral:
+		if len(source.Value) == 0 {
+			return nil, true, nil
+		}
+		value, err := decodeRawJSONValue(source.Value, "literal")
+		return value, err == nil, err
+	case spec.SourceForm:
+		return valueFromRawContext(execCtx.Form, source.Path, "form")
+	case spec.SourceRow:
+		return valueFromRawContext(execCtx.Row, source.Path, "row")
+	case spec.SourceSelection:
+		return valueFromRawContext(execCtx.Selection, source.Path, "selection")
+	case spec.SourceDetail:
+		return valueFromRawContext(execCtx.Detail, source.Path, "detail")
+	case spec.SourcePageState:
+		key := strings.TrimSpace(source.Key)
+		if key == "" {
+			return nil, false, errorx.NewValidationError("page_state selector key is required")
+		}
+		if execCtx.PageState == nil {
+			return nil, false, nil
+		}
+		raw, ok := execCtx.PageState[key]
+		if !ok {
+			return nil, false, nil
+		}
+		return valueFromRawContext(raw, source.Path, "page_state."+key)
+	default:
+		return nil, false, errorx.NewValidationError("unsupported binding selector source: " + string(source.Kind))
+	}
+}
+
+func valueFromRawContext(raw json.RawMessage, path string, sourceName string) (any, bool, error) {
+	if len(raw) == 0 {
+		return nil, false, nil
+	}
+	value, err := decodeRawJSONValue(raw, sourceName)
+	if err != nil {
+		return nil, false, err
+	}
+	if path == "" {
+		return value, true, nil
+	}
+	selected, ok := getJSONPointerValue(value, path)
+	return selected, ok, nil
+}
+
+func decodeRawJSONValue(raw json.RawMessage, sourceName string) (any, error) {
+	if !json.Valid(raw) {
+		return nil, errorx.NewBadRequest(sourceName + " context must be valid JSON")
+	}
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, errorx.NewBadRequest(sourceName + " context must be valid JSON")
+	}
+	return value, nil
+}
+
+func getJSONPointerValue(value any, path string) (any, bool) {
+	if !isJSONPointer(path) {
+		return nil, false
+	}
+	current := value
+	for _, token := range jsonPointerTokens(path) {
+		switch typed := current.(type) {
+		case map[string]any:
+			next, ok := typed[token]
+			if !ok {
+				return nil, false
+			}
+			current = next
+		case []any:
+			index, err := strconv.Atoi(token)
+			if err != nil || index < 0 || index >= len(typed) {
+				return nil, false
+			}
+			current = typed[index]
+		default:
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+func setJSONPointerValue(payload map[string]any, path string, value any) error {
+	if !isJSONPointer(path) || path == "" {
+		return errorx.NewValidationError("target must be a non-empty JSON Pointer")
+	}
+	current := payload
+	tokens := jsonPointerTokens(path)
+	for i, token := range tokens {
+		if token == "" {
+			return errorx.NewValidationError("target contains an empty object key")
+		}
+		if i == len(tokens)-1 {
+			current[token] = value
+			return nil
+		}
+		next, ok := current[token]
+		if !ok {
+			child := map[string]any{}
+			current[token] = child
+			current = child
+			continue
+		}
+		child, ok := next.(map[string]any)
+		if !ok {
+			return errorx.NewValidationError("target conflicts with a non-object parent")
+		}
+		current = child
+	}
+	return nil
+}
+
+func isJSONPointer(path string) bool {
+	return path == "" || strings.HasPrefix(path, "/")
+}
+
+func jsonPointerTokens(path string) []string {
+	if path == "" {
+		return nil
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	for i, part := range parts {
+		parts[i] = strings.ReplaceAll(strings.ReplaceAll(part, "~1", "/"), "~0", "~")
+	}
+	return parts
 }
 
 func buildExecutionResult(ctx context.Context, requestID string, resp *function.FunctionInvokeResponse) (spec.PageExecutionResult, error) {

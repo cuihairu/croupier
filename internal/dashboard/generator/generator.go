@@ -4,9 +4,9 @@
 package generator
 
 import (
-	"fmt"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 )
@@ -14,7 +14,6 @@ import (
 // GenerateOptions controls page generation behavior.
 type GenerateOptions struct {
 	DefaultLocale string
-	PageKeyPrefix string
 	Functions     map[string]spec.FunctionSpec
 }
 
@@ -69,7 +68,7 @@ func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptio
 	applySelectors(&binding, opts.Functions[op.FunctionID])
 	diags := assessBaseCandidate(op)
 	locale := opts.DefaultLocale
-	title := localizedTitle(op, pageKey, locale)
+	title := localizedTitle(op, pageKey, locale, opts)
 
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
@@ -77,7 +76,7 @@ func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptio
 			Type:        spec.PageTypeOperation,
 			ResourceKey: resourceKey,
 			Title:       title,
-			Category:    categoryForPage(resourceKey, pageKey, locale),
+			Category:    categoryForOperation(op.FunctionID, locale),
 			Navigation: &spec.NavigationSpec{
 				Title: title,
 			},
@@ -111,7 +110,7 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 		"capability",
 	))
 	locale := opts.DefaultLocale
-	title := localizedTitle(op, pageKey, locale)
+	title := localizedTitle(op, pageKey, locale, opts)
 
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
@@ -119,7 +118,7 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 			Type:        spec.PageTypeTask,
 			ResourceKey: resourceKey,
 			Title:       title,
-			Category:    categoryForPage(resourceKey, pageKey, locale),
+			Category:    categoryForOperation(op.FunctionID, locale),
 			Navigation: &spec.NavigationSpec{
 				Title: title,
 			},
@@ -160,7 +159,7 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 		"capability",
 	))
 	locale := opts.DefaultLocale
-	title := localizedTitle(op, pageKey, locale)
+	title := localizedTitle(op, pageKey, locale, opts)
 
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
@@ -168,7 +167,7 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 			Type:        spec.PageTypeReport,
 			ResourceKey: resourceKey,
 			Title:       title,
-			Category:    categoryForPage(resourceKey, pageKey, locale),
+			Category:    categoryForOperation(op.FunctionID, locale),
 			Navigation: &spec.NavigationSpec{
 				Title: title,
 			},
@@ -188,18 +187,12 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 }
 
 func operationPageKey(op spec.OperationSpec, opts GenerateOptions) string {
-	resourceKey := strings.TrimSpace(op.ResourceKey)
-	pageKey := opts.PageKeyPrefix + sanitizePageKey(firstNonEmpty(resourceKey, op.FunctionID))
-	if operation := strings.TrimSpace(op.Operation); operation != "" {
-		pageKey += "." + sanitizePageKey(operation)
+	_ = opts
+	functionID := sanitizeSourceKey(op.FunctionID)
+	if functionID == "" {
+		functionID = "unbound"
 	}
-	if strings.TrimSpace(pageKey) == "" {
-		pageKey = opts.PageKeyPrefix + sanitizePageKey(op.FunctionID)
-	}
-	if strings.TrimSpace(pageKey) == "" {
-		pageKey = opts.PageKeyPrefix + "operation"
-	}
-	return pageKey
+	return string(pageKindForOperation(op)) + "--" + functionID
 }
 
 func normalizeOptions(opts GenerateOptions) GenerateOptions {
@@ -277,19 +270,34 @@ func isReportOperation(op spec.OperationSpec) bool {
 	return op.Capability == spec.CapabilityReport
 }
 
-func categoryForPage(resourceKey string, pageKey string, locale string) spec.PageCategorySpec {
-	categoryKey := InferCategoryFromKey(firstNonEmpty(resourceKey, pageKey))
+func categoryForResource(resourceKey string, locale string) spec.PageCategorySpec {
+	categoryKey := InferCategoryFromKey(resourceKey)
 	return spec.PageCategorySpec{
 		Key: categoryKey,
 		Labels: spec.LocalizedText{
-			locale: categoryKey,
+			locale: humanizeKey(categoryKey),
 		},
 	}
 }
 
-func localizedTitle(op spec.OperationSpec, pageKey string, locale string) spec.LocalizedText {
+func categoryForOperation(functionID string, locale string) spec.PageCategorySpec {
+	categoryKey := InferCategoryFromKey(functionID)
+	return spec.PageCategorySpec{
+		Key: categoryKey,
+		Labels: spec.LocalizedText{
+			locale: humanizeKey(categoryKey),
+		},
+	}
+}
+
+func localizedTitle(op spec.OperationSpec, pageKey string, locale string, opts GenerateOptions) spec.LocalizedText {
+	if fn, ok := opts.Functions[op.FunctionID]; ok {
+		if summary := strings.TrimSpace(fn.Summary[locale]); summary != "" {
+			return spec.LocalizedText{locale: summary}
+		}
+	}
 	return spec.LocalizedText{
-		locale: firstNonEmpty(op.Operation, op.FunctionID, pageKey),
+		locale: humanizeKey(firstNonEmpty(op.Operation, op.FunctionID, pageKey)),
 	}
 }
 
@@ -329,10 +337,25 @@ func sanitizePageKey(value string) string {
 	return sanitizeBindingID(value)
 }
 
+func sanitizeSourceKey(value string) string {
+	return strings.Trim(sanitizePageKey(value), ".")
+}
+
+func pageKindForOperation(op spec.OperationSpec) spec.PageType {
+	switch {
+	case isReportOperation(op):
+		return spec.PageTypeReport
+	case isTaskOperation(op):
+		return spec.PageTypeTask
+	default:
+		return spec.PageTypeOperation
+	}
+}
+
 func qualityFromDiagnostics(diags []spec.Diagnostic) spec.GeneratedPageQuality {
 	for _, d := range diags {
 		if d.Severity == spec.SeverityError {
-			return spec.GeneratedPageQualityBlocked
+			return spec.GeneratedPageQualityNeedsReview
 		}
 	}
 	if len(diags) > 0 {
@@ -343,6 +366,9 @@ func qualityFromDiagnostics(diags []spec.Diagnostic) spec.GeneratedPageQuality {
 
 func operationQuality(op spec.OperationSpec, diags []spec.Diagnostic) spec.GeneratedPageQuality {
 	quality := qualityFromDiagnostics(diags)
+	if hasErrorDiagnostic(diags) {
+		return quality
+	}
 	if quality == spec.GeneratedPageQualityReady {
 		return spec.GeneratedPageQualityBasic
 	}
@@ -350,6 +376,15 @@ func operationQuality(op spec.OperationSpec, diags []spec.Diagnostic) spec.Gener
 		return spec.GeneratedPageQualityBasic
 	}
 	return quality
+}
+
+func hasErrorDiagnostic(diags []spec.Diagnostic) bool {
+	for _, diag := range diags {
+		if diag.Severity == spec.SeverityError {
+			return true
+		}
+	}
+	return false
 }
 
 func inferDimensions(spec.OperationSpec) []spec.DimensionSpec {
@@ -373,9 +408,39 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-// FormatPageKey creates a page key from resource and page name.
-func FormatPageKey(resourceKey string, pageName string) string {
-	return fmt.Sprintf("%s.%s", resourceKey, pageName)
+func humanizeKey(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	var words []string
+	var current strings.Builder
+	for i, r := range value {
+		if r == '.' || r == '_' || r == '-' || unicode.IsSpace(r) {
+			flushWord(&words, &current)
+			continue
+		}
+		if i > 0 && unicode.IsUpper(r) && current.Len() > 0 {
+			flushWord(&words, &current)
+		}
+		current.WriteRune(r)
+	}
+	flushWord(&words, &current)
+	if len(words) == 0 {
+		return value
+	}
+	for i, word := range words {
+		words[i] = strings.ToUpper(word[:1]) + word[1:]
+	}
+	return strings.Join(words, " ")
+}
+
+func flushWord(words *[]string, current *strings.Builder) {
+	if current.Len() == 0 {
+		return
+	}
+	*words = append(*words, current.String())
+	current.Reset()
 }
 
 // InferPageType returns the strongest page shape supported by capability

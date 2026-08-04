@@ -165,6 +165,79 @@ type Diagnostic struct {
 	Field      string             `json:"field,omitempty"`
 }
 
+// ---------------------------------------------------------------------------
+// SemanticProvenance
+// ---------------------------------------------------------------------------
+
+// SemanticSource indicates where a semantic value originated.
+type SemanticSource string
+
+const (
+	SemanticSourceOpenAPIRest SemanticSource = "openapi_rest"
+	SemanticSourceSDKExplicit SemanticSource = "sdk_explicit"
+	SemanticSourcePlatformReview SemanticSource = "platform_review"
+)
+
+// SemanticProvenance tracks the origin and confidence of a single semantic field.
+// Each field in CapabilitySemantics can have its own provenance record.
+type SemanticProvenance struct {
+	// Field is the semantic field name (e.g., "identityField", "collectionQueryID")
+	Field string `json:"field"`
+
+	// Source indicates where this value came from
+	Source SemanticSource `json:"source"`
+
+	// SourceDigest is the SHA-256 of the source descriptor that provided this value
+	SourceDigest string `json:"sourceDigest"`
+
+	// Confidence indicates how confident the platform is in this value
+	// "high" = explicit SDK or platform_review
+	// "low" = inferred from REST patterns
+	Confidence string `json:"confidence"` // high|low
+
+	// Status indicates the current state of this provenance
+	// "effective" = this value is currently used
+	// "overridden" = replaced by higher-priority source
+	// "conflict" = multiple sources disagree
+	Status string `json:"status"` // effective|overridden|conflict
+
+	// ConflictingSources lists sources that provided different values (when status=conflict)
+	ConflictingSources []SemanticSource `json:"conflictingSources,omitempty"`
+
+	// Value is the current effective value (JSON encoded)
+	Value json.RawMessage `json:"value,omitempty"`
+
+	// OverriddenValue is the value that was overridden (when status=overridden)
+	OverriddenValue json.RawMessage `json:"overriddenValue,omitempty"`
+
+	// UpdatedAt is when this provenance was last updated
+	UpdatedAt string `json:"updatedAt"`
+
+	// UpdatedBy identifies who/what updated this provenance
+	UpdatedBy string `json:"updatedBy"`
+}
+
+// SemanticConflict represents a conflict between multiple sources for the same field.
+type SemanticConflict struct {
+	// Field is the semantic field name
+	Field string `json:"field"`
+
+	// Values maps each conflicting source to its proposed value
+	Values map[SemanticSource]json.RawMessage `json:"values"`
+
+	// Resolution indicates how this conflict was resolved (if at all)
+	// "" = unresolved
+	// "platform_review" = admin chose platform_review value
+	// "sdk_explicit" = admin chose sdk_explicit value
+	Resolution SemanticSource `json:"resolution,omitempty"`
+
+	// ResolvedAt is when this conflict was resolved
+	ResolvedAt string `json:"resolvedAt,omitempty"`
+
+	// ResolvedBy identifies who resolved this conflict
+	ResolvedBy string `json:"resolvedBy,omitempty"`
+}
+
 // BindingFreshnessStatus is the current compatibility state of a published
 // binding against the latest FunctionSpec. Published pages freeze contracts;
 // runtime must never silently switch to a changed function contract.
@@ -322,8 +395,8 @@ type PageFunctionBinding struct {
 
 // BindingSelectors holds input and output selectors for a binding.
 type BindingSelectors struct {
-	Input  SelectorAST `json:"input"`
-	Output SelectorAST `json:"output,omitempty"`
+	Input  SelectorAST        `json:"input"`
+	Output []OutputAssignment `json:"output,omitempty"`
 }
 
 // PageBindingExecution is the execution policy selected by Page Studio.
@@ -426,7 +499,6 @@ const (
 	GeneratedPageQualityReady       GeneratedPageQuality = "ready"
 	GeneratedPageQualityBasic       GeneratedPageQuality = "basic"
 	GeneratedPageQualityNeedsReview GeneratedPageQuality = "needs_review"
-	GeneratedPageQualityBlocked     GeneratedPageQuality = "blocked"
 )
 
 // GeneratedPageSpec is a PageSpec suggestion produced by the normalizer /
@@ -435,7 +507,7 @@ const (
 type GeneratedPageSpec struct {
 	PageSpec
 
-	// Quality indicates readiness: "ready", "basic", "needs_review", or "blocked".
+	// Quality indicates readiness: "ready", "basic", or "needs_review".
 	Quality     GeneratedPageQuality `json:"quality"`
 	Diagnostics []Diagnostic         `json:"diagnostics,omitempty"`
 }

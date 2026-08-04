@@ -79,7 +79,6 @@ func TestServiceExecuteBindingRequiresFunctionInvokePermission(t *testing.T) {
 	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
 		PageKey:   "player.manage",
 		BindingID: "player.query",
-		Payload:   json.RawMessage(`{}`),
 	})
 
 	require.Error(t, err)
@@ -100,7 +99,9 @@ func TestServiceExecuteBindingWritesAuditWithPageContext(t *testing.T) {
 	resp, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
 		PageKey:   "player.manage",
 		BindingID: "player.query",
-		Payload:   json.RawMessage(`{"keyword":"alice"}`),
+		Context: ConsoleBindingExecutionContext{
+			Form: json.RawMessage(`{"keyword":"alice"}`),
+		},
 	})
 
 	require.NoError(t, err)
@@ -161,7 +162,6 @@ func TestServiceExecuteBindingWritesAuditOnBindingStale(t *testing.T) {
 	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
 		PageKey:   "player.manage",
 		BindingID: "player.query",
-		Payload:   json.RawMessage(`{}`),
 	})
 
 	require.Error(t, err)
@@ -178,6 +178,111 @@ func TestServiceExecuteBindingWritesAuditOnBindingStale(t *testing.T) {
 	assert.Equal(t, "player.query", records[0].Details["binding_id"])
 	assert.Equal(t, "player.query", records[0].Details["function_id"])
 	assert.NotEmpty(t, records[0].Details["request_id"])
+}
+
+func TestServiceExecuteBindingRejectsPayloadTypeMismatch(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "function:invoke")
+	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))
+	caller := &fakeConsoleSessionCaller{
+		payload: []byte(`{"ok":true}`),
+	}
+	service.svcCtx.Dispatcher.SetSessionResolver(fakeConsoleSessionResolver{
+		caller: caller,
+	})
+
+	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
+		PageKey:   "player.manage",
+		BindingID: "player.query",
+		Context: ConsoleBindingExecutionContext{
+			Form: json.RawMessage(`{"keyword":123}`),
+		},
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "binding payload does not match input schema")
+	assert.Nil(t, caller.lastRequest)
+}
+
+func TestServiceExecuteBindingIgnoresUnselectedContextFields(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "function:invoke")
+	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))
+	caller := &fakeConsoleSessionCaller{
+		payload: []byte(`{"ok":true}`),
+	}
+	service.svcCtx.Dispatcher.SetSessionResolver(fakeConsoleSessionResolver{
+		caller: caller,
+	})
+
+	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
+		PageKey:   "player.manage",
+		BindingID: "player.query",
+		Context: ConsoleBindingExecutionContext{
+			Form: json.RawMessage(`{"keyword":"alice","role":"admin"}`),
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, caller.lastRequest)
+	assert.JSONEq(t, `{"keyword":"alice"}`, string(caller.lastRequest.Payload))
+}
+
+func TestServiceExecuteBindingUsesRowSelectorWithoutPassingWholeRow(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "function:invoke")
+	inputSchema := `{"type":"object","properties":{"playerId":{"type":"string"}},"required":["playerId"]}`
+	outputSchema := `{"type":"object","properties":{"ok":{"type":"boolean"}}}`
+	selector := spec.SelectorAST{Assignments: []spec.InputAssignment{
+		{
+			Target: "/playerId",
+			Source: spec.ValueSource{
+				Kind: spec.SourceRow,
+				Path: "/id",
+			},
+		},
+	}}
+	require.NoError(t, seedConsolePublishedPageWithSchemaAndSelector(service.svcCtx, ctx, inputSchema, outputSchema, selector))
+	caller := &fakeConsoleSessionCaller{
+		payload: []byte(`{"ok":true}`),
+	}
+	service.svcCtx.Dispatcher.SetSessionResolver(fakeConsoleSessionResolver{
+		caller: caller,
+	})
+
+	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
+		PageKey:   "player.manage",
+		BindingID: "player.query",
+		Context: ConsoleBindingExecutionContext{
+			Row: json.RawMessage(`{"id":"p1","role":"admin","balance":999}`),
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, caller.lastRequest)
+	assert.JSONEq(t, `{"playerId":"p1"}`, string(caller.lastRequest.Payload))
+}
+
+func TestServiceExecuteBindingRejectsMissingRequiredPayloadField(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "function:invoke")
+	inputSchema := `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"}},"required":["playerId"]}`
+	outputSchema := `{"type":"object","properties":{"ok":{"type":"boolean"}}}`
+	require.NoError(t, seedConsolePublishedPageWithSchema(service.svcCtx, ctx, inputSchema, outputSchema))
+	caller := &fakeConsoleSessionCaller{
+		payload: []byte(`{"ok":true}`),
+	}
+	service.svcCtx.Dispatcher.SetSessionResolver(fakeConsoleSessionResolver{
+		caller: caller,
+	})
+
+	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
+		PageKey:   "player.manage",
+		BindingID: "player.query",
+		Context: ConsoleBindingExecutionContext{
+			Form: json.RawMessage(`{"reason":"abuse"}`),
+		},
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "binding payload does not match input schema")
+	assert.Nil(t, caller.lastRequest)
 }
 
 func TestServiceExecuteBindingRejectsChangedRiskOrPermission(t *testing.T) {
@@ -206,7 +311,6 @@ func TestServiceExecuteBindingRejectsChangedRiskOrPermission(t *testing.T) {
 	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
 		PageKey:   "player.manage",
 		BindingID: "player.query",
-		Payload:   json.RawMessage(`{}`),
 	})
 
 	require.Error(t, err)
@@ -444,8 +548,47 @@ func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Co
 }
 
 func seedConsolePublishedPageWithCurrentContracts(svcCtx *svc.ServiceContext, ctx context.Context) error {
-	inputDigest := testDigestRaw([]byte(`{"type":"object","properties":{"keyword":{"type":"string"}}}`))
-	outputDigest := testDigestRaw([]byte(`{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`))
+	return seedConsolePublishedPageWithSchema(
+		svcCtx,
+		ctx,
+		`{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+		`{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+	)
+}
+
+func seedConsolePublishedPageWithSchema(svcCtx *svc.ServiceContext, ctx context.Context, inputSchema string, outputSchema string) error {
+	return seedConsolePublishedPageWithSchemaAndSelector(
+		svcCtx,
+		ctx,
+		inputSchema,
+		outputSchema,
+		spec.DefaultSelector(spec.JSONSchema(inputSchema)),
+	)
+}
+
+func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, ctx context.Context, inputSchema string, outputSchema string, selector spec.SelectorAST) error {
+	gameID, env := svc.GameScopeFromContext(ctx)
+	inputDigest := testDigestRaw([]byte(inputSchema))
+	outputDigest := testDigestRaw([]byte(outputSchema))
+	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   gameID,
+		Env:      env,
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.query": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				Resource:     "player",
+				Operation:    "query",
+				Risk:         "safe",
+				Permission:   "player:query",
+				InputSchema:  inputSchema,
+				OutputSchema: outputSchema,
+			},
+		},
+	})
 	page := spec.PageSpec{
 		PageKey:     "player.manage",
 		Type:        spec.PageTypeOperation,
@@ -486,8 +629,8 @@ func seedConsolePublishedPageWithCurrentContracts(svcCtx *svc.ServiceContext, ct
 		return err
 	}
 	return svcCtx.PublishedPageSpecModel.Create(ctx, &model.PublishedPageSpec{
-		GameID:                "demo-game",
-		Env:                   "development",
+		GameID:                gameID,
+		Env:                   env,
 		PageKey:               "player.manage",
 		Version:               1,
 		SpecJSON:              string(specJSON),

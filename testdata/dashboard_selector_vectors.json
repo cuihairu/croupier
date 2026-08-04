@@ -1,0 +1,128 @@
+[
+  {
+    "name": "valid form json pointer selector",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "keyword": { "type": "string" }
+      },
+      "required": ["keyword"]
+    },
+    "context": {
+      "formSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": { "type": "string" }
+        }
+      }
+    },
+    "selector": {
+      "assignments": [
+        {
+          "target": "/keyword",
+          "source": { "kind": "form", "path": "/keyword" }
+        }
+      ]
+    },
+    "wantValid": true
+  },
+  {
+    "name": "reject legacy dot path selector",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "keyword": { "type": "string" }
+      },
+      "required": ["keyword"]
+    },
+    "context": {
+      "formSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": { "type": "string" }
+        }
+      }
+    },
+    "selector": {
+      "assignments": [
+        {
+          "target": "keyword",
+          "source": { "kind": "form", "path": "keyword" }
+        }
+      ]
+    },
+    "wantValid": false,
+    "wantErrorCode": "invalid_path"
+  },
+  {
+    "name": "reject missing page state key",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "playerId": { "type": "string" }
+      },
+      "required": ["playerId"]
+    },
+    "context": {},
+    "selector": {
+      "assignments": [
+        {
+          "target": "/playerId",
+          "source": { "kind": "page_state", "path": "/id" }
+        }
+      ]
+    },
+    "wantValid": false,
+    "wantErrorCode": "missing_required"
+  },
+  {
+    "name": "reject source target type mismatch",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "count": { "type": "number" }
+      },
+      "required": ["count"]
+    },
+    "context": {
+      "formSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        }
+      }
+    },
+    "selector": {
+      "assignments": [
+        {
+          "target": "/count",
+          "source": { "kind": "form", "path": "/name" }
+        }
+      ]
+    },
+    "wantValid": false,
+    "wantErrorCode": "type_mismatch"
+  },
+  {
+    "name": "valid output assignment",
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "items": { "type": "array" }
+          }
+        }
+      }
+    },
+    "outputAssignments": [
+      {
+        "stateKey": "players",
+        "source": "/data/items",
+        "shape": "collection"
+      }
+    ],
+    "wantOutputValid": true
+  }
+]

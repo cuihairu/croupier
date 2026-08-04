@@ -708,6 +708,9 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 	if !hasDefaultLocale(page.Category.Labels) {
 		diags = append(diags, diagnostic("category_label_missing", spec.SeverityError, "category.labels must include zh-CN locale", "category.labels"))
 	}
+	if publish {
+		diags = append(diags, s.validatePublishedCategoryLabels(ctx, page)...)
+	}
 	if len(page.Bindings) == 0 {
 		diags = append(diags, diagnostic("bindings_missing", spec.SeverityError, "page must bind at least one function", "bindings"))
 	}
@@ -727,6 +730,44 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 	}
 
 	return diags
+}
+
+func (s *Service) validatePublishedCategoryLabels(ctx context.Context, page spec.PageSpec) []spec.Diagnostic {
+	if s == nil || s.svcCtx == nil || s.svcCtx.PublishedPageSpecModel == nil {
+		return nil
+	}
+	categoryKey := strings.TrimSpace(page.Category.Key)
+	if categoryKey == "" {
+		return nil
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil
+	}
+	published, err := s.svcCtx.PublishedPageSpecModel.ListLatestActiveByScope(ctx, gameID, env)
+	if err != nil {
+		return []spec.Diagnostic{diagnostic("category_label_check_failed", spec.SeverityError, "failed to validate category labels", "category.labels")}
+	}
+	expected := normalizeLocaleKeys(page.Category.Labels)
+	for _, item := range published {
+		if item.PageKey == page.PageKey {
+			continue
+		}
+		publishedPage := pageSpecFromPublishedModel(item)
+		if strings.TrimSpace(publishedPage.Category.Key) != categoryKey {
+			continue
+		}
+		actual := normalizeLocaleKeys(publishedPage.Category.Labels)
+		if !localizedTextEqual(actual, expected) {
+			return []spec.Diagnostic{diagnostic(
+				"category_label_conflict",
+				spec.SeverityError,
+				"category.labels must match existing published pages in the same category",
+				"category.labels",
+			)}
+		}
+	}
+	return nil
 }
 
 func validatePageShape(page spec.PageSpec) []spec.Diagnostic {
@@ -821,6 +862,23 @@ func validatePublishBindingSelectors(field string, binding spec.PageFunctionBind
 			fieldPath += "." + item.Field
 		}
 		diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityWarning, item.Message, fieldPath))
+	}
+	if len(binding.Selectors.Output) > 0 {
+		outputResult := spec.ValidateOutputAssignments(binding.Selectors.Output, fn.OutputSchema)
+		for _, item := range outputResult.Errors {
+			fieldPath := field + ".selectors.output"
+			if strings.TrimSpace(item.Field) != "" {
+				fieldPath += "." + item.Field
+			}
+			diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityError, item.Message, fieldPath))
+		}
+		for _, item := range outputResult.Warnings {
+			fieldPath := field + ".selectors.output"
+			if strings.TrimSpace(item.Field) != "" {
+				fieldPath += "." + item.Field
+			}
+			diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityWarning, item.Message, fieldPath))
+		}
 	}
 	return diags
 }
@@ -976,6 +1034,16 @@ func pageSpecFromModel(p *model.PageSpec) spec.PageSpec {
 		Order: p.Order,
 		Icon:  p.Icon,
 	}
+}
+
+func pageSpecFromPublishedModel(p model.PublishedPageSpec) spec.PageSpec {
+	var pageSpec spec.PageSpec
+	if strings.TrimSpace(p.SpecJSON) != "" {
+		if err := json.Unmarshal([]byte(p.SpecJSON), &pageSpec); err == nil && strings.TrimSpace(pageSpec.PageKey) != "" {
+			return pageSpec
+		}
+	}
+	return spec.PageSpec{PageKey: p.PageKey}
 }
 
 func applyPageSpecToModel(p *model.PageSpec, ps spec.PageSpec) error {
@@ -1169,6 +1237,20 @@ func diagnostic(code string, severity spec.DiagnosticSeverity, message string, f
 
 func hasDefaultLocale(labels spec.LocalizedText) bool {
 	return labels != nil && strings.TrimSpace(labels["zh-CN"]) != ""
+}
+
+func localizedTextEqual(left map[string]string, right map[string]string) bool {
+	left = normalizeLocaleKeys(left)
+	right = normalizeLocaleKeys(right)
+	if len(left) != len(right) {
+		return false
+	}
+	for key, leftValue := range left {
+		if strings.TrimSpace(right[key]) != strings.TrimSpace(leftValue) {
+			return false
+		}
+	}
+	return true
 }
 
 func countErrors(diags []spec.Diagnostic) int {

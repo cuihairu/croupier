@@ -28,6 +28,9 @@ export type JSONValue =
 /** JSON Schema 对象 (draft-07 / 2020-12) */
 export type JSONSchema = { [key: string]: JSONValue };
 
+/** RFC 6901 JSON Pointer */
+export type JsonPointer = string;
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -224,30 +227,41 @@ export interface PageFunctionBinding {
 /** 页面 binding selector 集合 */
 export interface BindingSelectors {
   input: SelectorAST;
-  output?: SelectorAST;
+  output?: OutputAssignment[];
 }
 
 /** 选择器 AST */
 export interface SelectorAST {
-  assignments: Assignment[];
+  assignments: InputAssignment[];
 }
 
-/** 选择器赋值 */
-export interface Assignment {
-  target: string;
-  source: SelectorSource;
+/** 输入选择器赋值 */
+export interface InputAssignment {
+  target: JsonPointer;
+  source: ValueSource;
 }
 
-/** 选择器源 */
-export interface SelectorSource {
-  type: SelectorSourceType;
-  path?: string;
+/** 输出选择器赋值 */
+export interface OutputAssignment {
+  stateKey: string;
+  source: JsonPointer;
+  shape: OutputResultShape;
+}
+
+/** 输出结果形态 */
+export type OutputResultShape = 'scalar' | 'object' | 'collection' | 'task' | 'dataset';
+
+/** 值来源 */
+export interface ValueSource {
+  kind: ValueSourceKind;
+  path?: JsonPointer;
+  key?: string;
   value?: JSONValue;
   transform?: TransformSpec;
 }
 
-/** 选择器源类型 */
-export type SelectorSourceType = 'form' | 'row' | 'selection' | 'detail' | 'page_state' | 'literal';
+/** 值来源类型 */
+export type ValueSourceKind = 'form' | 'row' | 'selection' | 'detail' | 'page_state' | 'literal';
 
 /** 选择器转换 */
 export interface TransformSpec {
@@ -628,7 +642,7 @@ export interface ConsoleMenuSpec {
 // ---------------------------------------------------------------------------
 
 /** 默认页面建议质量 */
-export type GeneratedPageQuality = 'ready' | 'basic' | 'needs_review' | 'blocked';
+export type GeneratedPageQuality = 'ready' | 'basic' | 'needs_review';
 
 /** Server 生成的默认页面建议（发布前） */
 export interface GeneratedPageSpec extends PageSpec {

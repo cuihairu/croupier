@@ -83,6 +83,7 @@ type Store struct {
 	contractService interface {
 		RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error
 		RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
+		RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
 	}
 }
 
@@ -141,6 +142,7 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 func (s *Store) SetContractService(svc interface {
 	RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error
 	RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
+	RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
 }) {
 	s.contractService = svc
 }
@@ -219,6 +221,13 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 		for resource := range resources {
 			if err := s.contractService.RebuildResourceCapability(context.Background(), a.GameID, a.Env, resource); err != nil {
 				slog.Error("failed to rebuild resource capability",
+					"agent_id", a.AgentID,
+					"resource", resource,
+					"error", err)
+				continue
+			}
+			if err := s.contractService.RebuildProposalsForResource(context.Background(), a.GameID, a.Env, resource); err != nil {
+				slog.Error("failed to rebuild page proposals",
 					"agent_id", a.AgentID,
 					"resource", resource,
 					"error", err)

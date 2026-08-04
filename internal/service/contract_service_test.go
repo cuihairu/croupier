@@ -173,12 +173,15 @@ func TestContractService_RebuildProposalsForResource(t *testing.T) {
 
 	// Create contract
 	meta := FunctionMetaInput{
-		ID:         "player.list",
-		Version:    "1.0.0",
-		Enabled:    true,
-		Resource:   "player",
-		Operation:  "list",
-		Capability: "collection_query",
+		ID:           "player.list",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Resource:     "player",
+		Operation:    "list",
+		Capability:   "collection_query",
+		Execution:    "sync",
+		InputSchema:  `{"type":"object","properties":{"page":{"type":"integer"},"page_size":{"type":"integer"}}}`,
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}},"total":{"type":"integer"}}}`,
 	}
 	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta)
 	require.NoError(t, err)
@@ -190,6 +193,49 @@ func TestContractService_RebuildProposalsForResource(t *testing.T) {
 	// Rebuild proposals
 	err = service.RebuildProposalsForResource(ctx, "demo-game", "development", "player")
 	require.NoError(t, err)
+
+	proposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
+	require.NoError(t, err)
+	assert.Equal(t, "resource--player", proposal.PageKey)
+	assert.Equal(t, "resource", proposal.PageType)
+	assert.Equal(t, "basic", proposal.Quality)
+	assert.NotEmpty(t, proposal.PageSpec)
+	assert.Len(t, proposal.FunctionDigest, 64)
+	assert.Len(t, proposal.SemanticsDigest, 64)
+}
+
+func TestContractService_RebuildProposalsPreservesAcceptedStatus(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	meta := FunctionMetaInput{
+		ID:           "player.list",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Resource:     "player",
+		Operation:    "list",
+		Capability:   "collection_query",
+		Execution:    "sync",
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}},"total":{"type":"integer"}}}`,
+	}
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "player"))
+
+	proposalModel := model.NewPageProposalModel(db)
+	proposal, err := proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
+	require.NoError(t, err)
+	proposal.Status = "accepted"
+	proposal.UpdatedBy = "operator"
+	require.NoError(t, proposalModel.UpsertProposal(ctx, proposal))
+
+	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "player"))
+
+	proposal, err = proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
+	require.NoError(t, err)
+	assert.Equal(t, "accepted", proposal.Status)
+	assert.Equal(t, "operator", proposal.UpdatedBy)
 }
 
 func TestContractService_ScopeIsolation(t *testing.T) {

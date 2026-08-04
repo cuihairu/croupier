@@ -10,6 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 )
 
 func TestProposalService_ListProposals(t *testing.T) {
@@ -22,8 +23,8 @@ func TestProposalService_ListProposals(t *testing.T) {
 		{
 			GameID:      "demo-game",
 			Env:         "development",
-			ProposalKey: "player.manage",
-			PageKey:     "player.manage",
+			ProposalKey: "resource:player",
+			PageKey:     "resource--player",
 			PageType:    "resource",
 			ResourceKey: "player",
 			Quality:     "ready",
@@ -32,8 +33,8 @@ func TestProposalService_ListProposals(t *testing.T) {
 		{
 			GameID:      "demo-game",
 			Env:         "development",
-			ProposalKey: "mail.send",
-			PageKey:     "mail.send",
+			ProposalKey: "operation:mail.send",
+			PageKey:     "operation--mail.send",
 			PageType:    "operation",
 			ResourceKey: "mail",
 			Quality:     "basic",
@@ -67,14 +68,14 @@ func TestProposalService_AcceptProposal(t *testing.T) {
 	service := NewProposalService(db)
 
 	// Create proposal
-	page := testProposalPageSpec("player.manage")
+	page := testProposalPageSpec("resource--player")
 	pageJSON, err := json.Marshal(page)
 	require.NoError(t, err)
 	proposal := &model.PageProposal{
 		GameID:      "demo-game",
 		Env:         "development",
-		ProposalKey: "player.manage",
-		PageKey:     "player.manage",
+		ProposalKey: "resource:player",
+		PageKey:     "resource--player",
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
@@ -85,21 +86,21 @@ func TestProposalService_AcceptProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Accept proposal
-	err = service.AcceptProposal(ctx, "demo-game", "development", "player.manage")
+	err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 
 	// Verify status changed
-	result, err := service.GetProposal(ctx, "demo-game", "development", "player.manage")
+	result, err := service.GetProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 	assert.Equal(t, "accepted", result.Status)
 	assert.Equal(t, "proposal_tester", result.UpdatedBy)
 
-	draft, err := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "player.manage")
+	draft, err := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "resource--player")
 	require.NoError(t, err)
 	assert.Equal(t, "draft", draft.Status)
 	assert.Equal(t, 1, draft.DraftRevision)
 	assert.Equal(t, "proposal_tester", draft.UpdatedBy)
-	assert.Equal(t, "player.manage", draft.PageKey)
+	assert.Equal(t, "resource--player", draft.PageKey)
 	assert.Equal(t, "player", draft.CategoryKey)
 
 	var stored spec.PageSpec
@@ -107,7 +108,7 @@ func TestProposalService_AcceptProposal(t *testing.T) {
 	assert.Equal(t, spec.PageTypeOperation, stored.Type)
 	assert.Equal(t, "player.query", stored.Bindings[0].FunctionID)
 
-	versions, err := model.NewPageVersionModel(db).ListByScopeAndPageKey(ctx, "demo-game", "development", "player.manage")
+	versions, err := model.NewPageVersionModel(db).ListByScopeAndPageKey(ctx, "demo-game", "development", "resource--player")
 	require.NoError(t, err)
 	require.Len(t, versions, 1)
 	assert.Equal(t, "draft", versions[0].Status)
@@ -122,8 +123,8 @@ func TestProposalService_AcceptProposalRequiresCanonicalPageSpec(t *testing.T) {
 	proposal := &model.PageProposal{
 		GameID:      "demo-game",
 		Env:         "development",
-		ProposalKey: "player.manage",
-		PageKey:     "player.manage",
+		ProposalKey: "resource:player",
+		PageKey:     "resource--player",
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
@@ -132,7 +133,7 @@ func TestProposalService_AcceptProposalRequiresCanonicalPageSpec(t *testing.T) {
 	err := service.proposalModel.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)
 
-	err = service.AcceptProposal(ctx, "demo-game", "development", "player.manage")
+	err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "canonical PageSpec")
 }
@@ -142,14 +143,14 @@ func TestProposalService_AcceptProposalDoesNotOverwriteExistingDraft(t *testing.
 	ctx := proposalTestContext()
 	service := NewProposalService(db)
 
-	page := testProposalPageSpec("player.manage")
+	page := testProposalPageSpec("resource--player")
 	pageJSON, err := json.Marshal(page)
 	require.NoError(t, err)
 	err = service.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID:      "demo-game",
 		Env:         "development",
-		ProposalKey: "player.manage",
-		PageKey:     "player.manage",
+		ProposalKey: "resource:player",
+		PageKey:     "resource--player",
 		PageType:    "operation",
 		ResourceKey: "player",
 		Quality:     "ready",
@@ -161,10 +162,10 @@ func TestProposalService_AcceptProposalDoesNotOverwriteExistingDraft(t *testing.
 	existing := &model.PageSpec{
 		GameID:        "demo-game",
 		Env:           "development",
-		PageKey:       "player.manage",
+		PageKey:       "resource--player",
 		Type:          string(spec.PageTypeOperation),
 		CategoryKey:   "player",
-		SpecJSON:      `{"pageKey":"player.manage","type":"operation","title":{"zh-CN":"用户已编辑"},"category":{"key":"player","labels":{"zh-CN":"玩家"}},"operation":{"form":{"jsonSchema":{"type":"object"}}},"bindings":[{"id":"query","functionId":"player.query","usage":"query","execution":{"mode":"sync"}}]}`,
+		SpecJSON:      `{"pageKey":"resource--player","type":"operation","title":{"zh-CN":"用户已编辑"},"category":{"key":"player","labels":{"zh-CN":"玩家"}},"operation":{"form":{"jsonSchema":{"type":"object"}}},"bindings":[{"id":"query","functionId":"player.query","usage":"query","execution":{"mode":"sync"}}]}`,
 		Status:        "draft",
 		DraftRevision: 3,
 		UpdatedBy:     "manual_editor",
@@ -173,39 +174,43 @@ func TestProposalService_AcceptProposalDoesNotOverwriteExistingDraft(t *testing.
 	require.NoError(t, existing.SetCategoryLabels(map[string]string{"zh-CN": "玩家"}))
 	require.NoError(t, model.NewPageSpecModel(db).Upsert(ctx, existing))
 
-	err = service.AcceptProposal(ctx, "demo-game", "development", "player.manage")
+	err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page draft already exists")
 
-	draft, err := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "player.manage")
+	draft, err := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "resource--player")
 	require.NoError(t, err)
 	assert.Equal(t, 3, draft.DraftRevision)
 	assert.Equal(t, "manual_editor", draft.UpdatedBy)
 }
 
-func TestProposalService_AcceptBlockedProposal(t *testing.T) {
+func TestProposalService_AcceptProposalRejectsErrorDiagnostics(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewProposalService(db)
 
-	// Create blocked proposal
+	page := testProposalPageSpec("resource--player")
+	pageJSON, err := json.Marshal(page)
+	require.NoError(t, err)
+
 	proposal := &model.PageProposal{
 		GameID:      "demo-game",
 		Env:         "development",
-		ProposalKey: "player.manage",
-		PageKey:     "player.manage",
+		ProposalKey: "resource:player",
+		PageKey:     "resource--player",
 		PageType:    "resource",
 		ResourceKey: "player",
-		Quality:     "blocked",
+		Quality:     "needs_review",
 		Status:      "pending",
+		PageSpec:    pageJSON,
+		Diagnostics: datatypes.JSON(`[{"code":"function_disabled","severity":"error","message":"function is disabled"}]`),
 	}
-	err := service.proposalModel.UpsertProposal(ctx, proposal)
+	err = service.proposalModel.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)
 
-	// Try to accept blocked proposal
-	err = service.AcceptProposal(ctx, "demo-game", "development", "player.manage")
+	err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "blocked")
+	assert.Contains(t, err.Error(), "blocking diagnostics")
 }
 
 func TestProposalService_RejectProposal(t *testing.T) {
@@ -217,8 +222,8 @@ func TestProposalService_RejectProposal(t *testing.T) {
 	proposal := &model.PageProposal{
 		GameID:      "demo-game",
 		Env:         "development",
-		ProposalKey: "player.manage",
-		PageKey:     "player.manage",
+		ProposalKey: "resource:player",
+		PageKey:     "resource--player",
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
@@ -228,11 +233,11 @@ func TestProposalService_RejectProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Reject proposal
-	err = service.RejectProposal(ctx, "demo-game", "development", "player.manage")
+	err = service.RejectProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 
 	// Verify status changed
-	result, err := service.GetProposal(ctx, "demo-game", "development", "player.manage")
+	result, err := service.GetProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 	assert.Equal(t, "rejected", result.Status)
 }
@@ -246,8 +251,8 @@ func TestProposalService_ScopeIsolation(t *testing.T) {
 	proposal := &model.PageProposal{
 		GameID:      "game-1",
 		Env:         "prod",
-		ProposalKey: "player.manage",
-		PageKey:     "player.manage",
+		ProposalKey: "resource:player",
+		PageKey:     "resource--player",
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",

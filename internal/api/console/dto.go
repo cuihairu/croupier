@@ -39,9 +39,19 @@ type ConsolePageResponse struct {
 }
 
 type ConsoleExecuteBindingRequest struct {
-	PageKey   string          `uri:"pageKey" binding:"required"`
-	BindingID string          `uri:"bindingId" binding:"required"`
-	Payload   json.RawMessage `json:"payload"`
+	PageKey   string                         `uri:"pageKey" binding:"required"`
+	BindingID string                         `uri:"bindingId" binding:"required"`
+	Context   ConsoleBindingExecutionContext `json:"context"`
+}
+
+// ConsoleBindingExecutionContext contains renderer-owned source values for
+// PageBinding typed selectors. It is not the function payload.
+type ConsoleBindingExecutionContext struct {
+	Form      json.RawMessage            `json:"form,omitempty"`
+	Row       json.RawMessage            `json:"row,omitempty"`
+	Selection json.RawMessage            `json:"selection,omitempty"`
+	Detail    json.RawMessage            `json:"detail,omitempty"`
+	PageState map[string]json.RawMessage `json:"pageState,omitempty"`
 }
 
 type ConsoleExecuteBindingResponse struct {

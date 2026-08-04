@@ -75,21 +75,19 @@ const statusIcons: Record<ProposalStatus, React.ReactNode> = {
   pending: <ClockCircleOutlined />,
   accepted: <CheckCircleOutlined />,
   rejected: <StopOutlined />,
-  expired: <WarningOutlined />,
+  expired: <StopOutlined />,
 };
 
 const qualityColors: Record<ProposalQuality, string> = {
   ready: 'success',
   basic: 'processing',
   needs_review: 'warning',
-  blocked: 'error',
 };
 
 const qualityLabels: Record<ProposalQuality, string> = {
   ready: '可发布',
   basic: '基础',
   needs_review: '需审核',
-  blocked: '阻断',
 };
 
 const pageTypeLabels: Record<PageType, string> = {
@@ -105,6 +103,9 @@ const pageTypeColors: Record<PageType, string> = {
   task: 'orange',
   report: 'purple',
 };
+
+const hasErrorDiagnostics = (proposal: PageProposal): boolean =>
+  proposal.diagnostics?.some((diagnostic) => diagnostic.severity === 'error') ?? false;
 
 // ---------------------------------------------------------------------------
 // ProposalsPage 组件
@@ -266,7 +267,7 @@ const ProposalsPage: React.FC = () => {
           >
             查看
           </Button>
-          {record.status === 'pending' && record.quality !== 'blocked' && (
+          {record.status === 'pending' && !hasErrorDiagnostics(record) && (
             <>
               <Popconfirm
                 title="确定要接受此提案吗？"
@@ -443,7 +444,7 @@ const ProposalsPage: React.FC = () => {
             )}
 
             {/* 操作按钮 */}
-            {selectedProposal.status === 'pending' && selectedProposal.quality !== 'blocked' && (
+            {selectedProposal.status === 'pending' && !hasErrorDiagnostics(selectedProposal) && (
               <div style={{ marginTop: 16, textAlign: 'right' }}>
                 <Space>
                   <Popconfirm

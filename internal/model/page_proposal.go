@@ -17,7 +17,7 @@ type PageProposal struct {
 	PageKey          string `gorm:"size:128;index"`
 	PageType         string `gorm:"size:32"` // resource|operation|task|report
 	ResourceKey      string `gorm:"size:64;index"`
-	Quality          string `gorm:"size:32"` // ready|basic|needs_review|blocked
+	Quality          string `gorm:"size:32"` // ready|basic|needs_review
 	GeneratorVersion string `gorm:"size:32"`
 
 	// Source tracking

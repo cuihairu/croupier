@@ -220,6 +220,39 @@ func TestServicePublishRejectsIncompleteBindingSelector(t *testing.T) {
 	assert.Contains(t, err.Error(), "required field not assigned")
 }
 
+func TestServicePublishRejectsInvalidOutputSelector(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
+	revision := 0
+	bindings := testPageBindings()
+	bindings[0].Selectors.Output = []spec.OutputAssignment{{
+		StateKey: "players",
+		Source:   "items",
+		Shape:    spec.OutputShapeCollection,
+	}}
+	resp, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "玩家管理"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Operation: testOperationPageSpec(),
+		Bindings:  bindings,
+	})
+	require.NoError(t, err)
+
+	_, err = service.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &resp.DraftRevision,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "output source must be a JSON Pointer")
+}
+
 func TestServicePublishRejectsMissingBindings(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
 	revision := 0
@@ -294,6 +327,40 @@ func TestServicePublishDrivesConsoleMenuAndUnpublishRemovesIt(t *testing.T) {
 	assert.Contains(t, err.Error(), "page not found")
 }
 
+func TestServicePublishRejectsCategoryLabelConflict(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	firstRevision := saveTestPageDraft(t, service, ctx)
+	_, err := service.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &firstRevision,
+	})
+	require.NoError(t, err)
+
+	secondRevision := 0
+	secondResp, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "player.audit",
+		DraftRevision: &secondRevision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "玩家审计"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家管理"},
+		},
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.audit",
+		DraftRevision: &secondResp.DraftRevision,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "category.labels must match existing published pages")
+}
+
 func TestServiceGetDraftReturnsPublishedBindingFreshness(t *testing.T) {
 	pageService, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
 	revision := saveTestPageDraft(t, pageService, ctx)
@@ -335,7 +402,7 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 	pageService, ctx, auditStore := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
 	revision := 0
 	saveResp, err := pageService.SaveDraft(ctx, &PageSaveRequest{
-		PageKey:       "player.query",
+		PageKey:       "operation--player.query",
 		DraftRevision: &revision,
 		Type:          spec.PageTypeOperation,
 		ResourceKey:   "player",
@@ -350,7 +417,7 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 	require.NoError(t, err)
 
 	publishResp, err := pageService.Publish(ctx, &PagePublishRequest{
-		PageKey:       "player.query",
+		PageKey:       "operation--player.query",
 		DraftRevision: &saveResp.DraftRevision,
 	})
 	require.NoError(t, err)
@@ -377,11 +444,11 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 	})
 
 	regenerateResp, err := pageService.RegenerateDraft(ctx, &PageRegenerateRequest{
-		PageKey:       "player.query",
+		PageKey:       "operation--player.query",
 		DraftRevision: &saveResp.DraftRevision,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "player.query", regenerateResp.PageKey)
+	assert.Equal(t, "operation--player.query", regenerateResp.PageKey)
 	assert.Equal(t, saveResp.DraftRevision+1, regenerateResp.DraftRevision)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, regenerateResp.Quality)
 	require.NotNil(t, regenerateResp.Page.Operation)
@@ -390,15 +457,15 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 	assert.Contains(t, string(regenerateResp.Page.Operation.Form.JSONSchema), `"keyword"`)
 	assert.Equal(t, spec.PageTypeOperation, regenerateResp.Page.Type)
 
-	published, err := pageService.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", "player.query")
+	published, err := pageService.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", "operation--player.query")
 	require.NoError(t, err)
 	assert.Equal(t, 1, published.Version)
 	assert.True(t, published.Active)
 
-	draft, err := pageService.GetDraft(ctx, &PageDraftRequest{PageKey: "player.query"})
+	draft, err := pageService.GetDraft(ctx, &PageDraftRequest{PageKey: "operation--player.query"})
 	require.NoError(t, err)
 	assert.Equal(t, regenerateResp.DraftRevision, draft.DraftRevision)
-	assert.Equal(t, "query", draft.Title["zh-CN"])
+	assert.Equal(t, "Query", draft.Title["zh-CN"])
 	assertBindingFreshnessStatus(t, draft.BindingFreshness, spec.BindingFreshnessFunctionVersionStale)
 	assertBindingFreshnessStatus(t, draft.BindingFreshness, spec.BindingFreshnessInputSchemaStale)
 
@@ -462,7 +529,7 @@ func TestServicePublishesBasicGeneratedOperationPage(t *testing.T) {
 	require.Equal(t, spec.GeneratedPageQualityBasic, generated.Quality)
 	require.Len(t, generated.Bindings, 1)
 	require.NotNil(t, generated.Bindings[0].Selectors)
-	assertSelectorAssignment(t, generated.Bindings[0].Selectors.Input, "keyword", spec.SourceForm, "keyword")
+	assertSelectorAssignment(t, generated.Bindings[0].Selectors.Input, "/keyword", spec.SourceForm, "/keyword")
 
 	revision := 0
 	saveResp, err := pageService.SaveDraft(ctx, &PageSaveRequest{
@@ -633,9 +700,9 @@ func testPageBindings() []spec.PageFunctionBinding {
 			FunctionID: "player.query",
 			Usage:      spec.BindingUsageQuery,
 			Selectors: &spec.BindingSelectors{
-				Input: spec.SelectorAST{Assignments: []spec.Assignment{{
-					Target: "keyword",
-					Source: spec.SelectorSource{Type: spec.SourceForm, Path: "keyword"},
+				Input: spec.SelectorAST{Assignments: []spec.InputAssignment{{
+					Target: "/keyword",
+					Source: spec.ValueSource{Kind: spec.SourceForm, Path: "/keyword"},
 				}}},
 			},
 			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
@@ -674,14 +741,14 @@ func assertBindingFreshnessStatus(t *testing.T, diagnostics []spec.BindingFreshn
 	t.Fatalf("expected binding freshness status %s, got %#v", status, diagnostics)
 }
 
-func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceType spec.SelectorSourceType, sourcePath string) {
+func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceKind spec.ValueSourceKind, sourcePath string) {
 	t.Helper()
 	for _, assignment := range selector.Assignments {
-		if assignment.Target == target && assignment.Source.Type == sourceType && assignment.Source.Path == sourcePath {
+		if assignment.Target == target && assignment.Source.Kind == sourceKind && assignment.Source.Path == sourcePath {
 			return
 		}
 	}
-	t.Fatalf("expected selector assignment %s <- %s:%s, got %#v", target, sourceType, sourcePath, selector.Assignments)
+	t.Fatalf("expected selector assignment %s <- %s:%s, got %#v", target, sourceKind, sourcePath, selector.Assignments)
 }
 
 func findAuditRecordByDetail(records []*audit.AuditRecord, key string, value interface{}) *audit.AuditRecord {

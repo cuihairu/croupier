@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/service"
 	"gorm.io/gorm"
 )
 
@@ -114,7 +115,7 @@ func (s *Service) GetChangeChain(ctx context.Context, req *GetChangeChainRequest
 	}
 
 	// Get proposal
-	proposal, _ := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	proposal, _ := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, resourceProposalKey(req.ResourceKey))
 	if proposal != nil {
 		chain.Items = append(chain.Items, ChangeItem{
 			Type:      ChangeTypeProposalUpdate,
@@ -161,7 +162,7 @@ func (s *Service) Diff(ctx context.Context, req *DiffRequest) (*DiffResponse, er
 	}
 
 	// Get proposal to compare against
-	proposal, _ := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	proposal, _ := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, resourceProposalKey(req.ResourceKey))
 
 	var changes []FieldChange
 
@@ -289,7 +290,7 @@ func (s *Service) autoMerge(ctx context.Context, req *MergeRequest) (*MergeRespo
 	merged := 0
 
 	// Update proposal status to indicate auto-merge was applied
-	proposal, _ := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	proposal, _ := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, resourceProposalKey(req.ResourceKey))
 	if proposal != nil {
 		// Mark proposal as ready if all semantics are complete
 		if semantics.IdentityField != "" && semantics.CollectionQueryID > 0 {
@@ -308,7 +309,7 @@ func (s *Service) autoMerge(ctx context.Context, req *MergeRequest) (*MergeRespo
 
 func (s *Service) acceptAll(ctx context.Context, req *MergeRequest) (*MergeResponse, error) {
 	// Accept all changes - update proposal to ready status
-	proposal, err := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	proposal, err := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, resourceProposalKey(req.ResourceKey))
 	if err != nil {
 		return nil, fmt.Errorf("proposal not found: %w", err)
 	}
@@ -382,46 +383,11 @@ type RegenerateProposalResponse struct {
 	Message string `json:"message"`
 }
 
-// RegenerateProposal regenerates a proposal from current semantics.
+// RegenerateProposal regenerates a proposal from current contracts and semantics.
 func (s *Service) RegenerateProposal(ctx context.Context, req *RegenerateProposalRequest) (*RegenerateProposalResponse, error) {
-	// Get current semantics
-	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
-	if err != nil {
-		return nil, fmt.Errorf("semantics not found: %w", err)
-	}
-
-	// Get contracts for this resource
-	contracts, err := s.contractModel.ListByResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
-	if err != nil {
-		return nil, fmt.Errorf("list contracts: %w", err)
-	}
-
-	if len(contracts) == 0 {
-		return nil, fmt.Errorf("no contracts found for resource %s", req.ResourceKey)
-	}
-
-	// Check if proposal exists, create or update
-	proposal, _ := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, req.ResourceKey)
-	if proposal == nil {
-		proposal = &model.PageProposal{
-			GameID:      req.GameID,
-			Env:         req.Env,
-			ProposalKey: req.ResourceKey,
-			PageKey:     req.ResourceKey + ".manage",
-			PageType:    "resource",
-		}
-	}
-
-	// Update proposal with regenerated data
-	proposal.Quality = "needs_review"
-	proposal.Status = "pending"
-
-	if semantics.IdentityField != "" && semantics.CollectionQueryID > 0 {
-		proposal.Quality = "ready"
-	}
-
-	if err := s.proposalModel.UpsertProposal(ctx, proposal); err != nil {
-		return nil, fmt.Errorf("upsert proposal: %w", err)
+	contractService := service.NewContractService(s.db)
+	if err := contractService.RebuildProposalsForResource(ctx, req.GameID, req.Env, req.ResourceKey); err != nil {
+		return nil, fmt.Errorf("regenerate proposal: %w", err)
 	}
 
 	return &RegenerateProposalResponse{
@@ -446,7 +412,7 @@ type RepublishResponse struct {
 // Republish creates a new published version from current draft.
 func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*RepublishResponse, error) {
 	// Get the proposal
-	proposal, err := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	proposal, err := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, resourceProposalKey(req.ResourceKey))
 	if err != nil {
 		return nil, fmt.Errorf("proposal not found: %w", err)
 	}
@@ -480,4 +446,8 @@ func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*Republ
 		Version: version.Version,
 		Message: fmt.Sprintf("republished %s at version %d", req.ResourceKey, version.Version),
 	}, nil
+}
+
+func resourceProposalKey(resourceKey string) string {
+	return "resource:" + resourceKey
 }

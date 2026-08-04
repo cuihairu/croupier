@@ -209,8 +209,8 @@ func TestVersioningService_Republish(t *testing.T) {
 	err := proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID:      "demo-game",
 		Env:         "development",
-		ProposalKey: "player",
-		PageKey:     "player.manage",
+		ProposalKey: "resource:player",
+		PageKey:     "resource--player",
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
