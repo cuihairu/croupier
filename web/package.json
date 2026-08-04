@@ -132,10 +132,5 @@
   },
   "engines": {
     "node": ">=24.0.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "@umijs/preset-umi>path-to-regexp": "1.7.0"
-    }
   }
 }
