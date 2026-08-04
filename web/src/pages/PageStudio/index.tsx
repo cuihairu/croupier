@@ -3,6 +3,7 @@
  *
  * 使用强类型 PageSpec，不使用组件树式页面协议。
  * 支持 ResourcePage、OperationPage、TaskPage、ReportPage 的语义化编辑。
+ * 支持变更链查看、Diff 对比、冲突解决。
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -13,13 +14,18 @@ import {
   Card,
   Drawer,
   Empty,
+  Modal,
   Popconfirm,
   Space,
   Tag,
+  Timeline,
   Typography,
 } from 'antd';
 import {
+  DiffOutlined,
   EyeOutlined,
+  HistoryOutlined,
+  MergeOutlined,
   ReloadOutlined,
   RocketOutlined,
   StopOutlined,
@@ -31,13 +37,21 @@ import {
   publishPageDraft,
   unpublishPage,
 } from '@/services/api/pages';
+import {
+  getChangeChain,
+  getDiff,
+  mergeChanges,
+  type ChangeChain,
+  type DiffResponse,
+  type MergeStrategy,
+} from '@/services/api/versioning';
 import type {
   PageSpecDraftSummary,
   PageSpec,
   PageType,
 } from '@/types/dashboard';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,6 +95,21 @@ export default function PageStudio() {
   const [selectedDraft, setSelectedDraft] = useState<PageSpec | null>(null);
   const [selectedDraftRevision, setSelectedDraftRevision] = useState<number>(0);
   const [previewVisible, setPreviewVisible] = useState(false);
+
+  // 变更链相关状态
+  const [changeChainVisible, setChangeChainVisible] = useState(false);
+  const [changeChain, setChangeChain] = useState<ChangeChain | null>(null);
+  const [changeChainLoading, setChangeChainLoading] = useState(false);
+  const [selectedResourceKey, setSelectedResourceKey] = useState<string>('');
+
+  // Diff 相关状态
+  const [diffVisible, setDiffVisible] = useState(false);
+  const [diffData, setDiffData] = useState<DiffResponse | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+
+  // 合并相关状态
+  const [mergeVisible, setMergeVisible] = useState(false);
+  const [mergeLoading, setMergeLoading] = useState(false);
 
   // 加载草稿列表
   const loadDrafts = useCallback(async () => {
@@ -138,6 +167,51 @@ export default function PageStudio() {
     setPreviewVisible(true);
   }, [loadDraftDetail]);
 
+  // 查看变更链
+  const handleChangeChain = useCallback(async (resourceKey: string) => {
+    setSelectedResourceKey(resourceKey);
+    setChangeChainVisible(true);
+    setChangeChainLoading(true);
+    try {
+      const chain = await getChangeChain(resourceKey);
+      setChangeChain(chain);
+    } catch {
+      message.error('加载变更链失败');
+    } finally {
+      setChangeChainLoading(false);
+    }
+  }, [message]);
+
+  // 查看 Diff
+  const handleDiff = useCallback(async (resourceKey: string) => {
+    setSelectedResourceKey(resourceKey);
+    setDiffVisible(true);
+    setDiffLoading(true);
+    try {
+      const diff = await getDiff(resourceKey);
+      setDiffData(diff);
+    } catch {
+      message.error('加载 Diff 失败');
+    } finally {
+      setDiffLoading(false);
+    }
+  }, [message]);
+
+  // 合并变更
+  const handleMerge = useCallback(async (strategy: MergeStrategy) => {
+    setMergeLoading(true);
+    try {
+      const result = await mergeChanges(selectedResourceKey, { strategy });
+      message.success(`合并完成：${result.merged} 项自动合并，${result.conflicts} 项冲突`);
+      setMergeVisible(false);
+      loadDrafts();
+    } catch {
+      message.error('合并失败');
+    } finally {
+      setMergeLoading(false);
+    }
+  }, [message, selectedResourceKey, loadDrafts]);
+
   // 表格列定义
   const columns: ProColumns<PageSpecDraftSummary>[] = [
     {
@@ -191,7 +265,7 @@ export default function PageStudio() {
     {
       title: '操作',
       key: 'actions',
-      width: 200,
+      width: 350,
       render: (_, record) => (
         <Space>
           <Button
@@ -201,6 +275,24 @@ export default function PageStudio() {
             onClick={() => handlePreview(record.pageKey)}
           >
             预览
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            icon={<HistoryOutlined />}
+            onClick={() => record.resourceKey && handleChangeChain(record.resourceKey)}
+            disabled={!record.resourceKey}
+          >
+            变更链
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            icon={<DiffOutlined />}
+            onClick={() => record.resourceKey && handleDiff(record.resourceKey)}
+            disabled={!record.resourceKey}
+          >
+            Diff
           </Button>
           {record.status === 'draft' ? (
             <Popconfirm
@@ -270,6 +362,138 @@ export default function PageStudio() {
           <Empty description="请选择页面" />
         )}
       </Drawer>
+
+      {/* 变更链抽屉 */}
+      <Drawer
+        title="变更链"
+        width={600}
+        open={changeChainVisible}
+        onClose={() => setChangeChainVisible(false)}
+        loading={changeChainLoading}
+      >
+        {changeChain ? (
+          <div>
+            <Paragraph>
+              <Text strong>资源：</Text> {changeChain.resourceKey}
+            </Paragraph>
+            <Paragraph>
+              <Text strong>当前状态：</Text>
+              函数版本: {changeChain.current.functionVersion || '-'},
+              语义版本: {changeChain.current.semanticVersion || '-'},
+              提案版本: {changeChain.current.proposalVersion || '-'},
+              草稿版本: {changeChain.current.draftRevision || '-'},
+              发布版本: {changeChain.current.publishedVersion || '-'}
+            </Paragraph>
+            <Timeline
+              items={changeChain.items.map((item) => ({
+                children: (
+                  <div>
+                    <Tag color="blue">{item.type}</Tag>
+                    <Text>{item.summary}</Text>
+                    <br />
+                    <Text type="secondary">{formatDate(item.timestamp)}</Text>
+                    {item.actor && <Text type="secondary"> - {item.actor}</Text>}
+                  </div>
+                ),
+              }))}
+            />
+          </div>
+        ) : (
+          <Empty description="暂无变更记录" />
+        )}
+      </Drawer>
+
+      {/* Diff 抽屉 */}
+      <Drawer
+        title="变更对比"
+        width={800}
+        open={diffVisible}
+        onClose={() => setDiffVisible(false)}
+        loading={diffLoading}
+        extra={
+          <Button
+            type="primary"
+            icon={<MergeOutlined />}
+            onClick={() => setMergeVisible(true)}
+          >
+            合并变更
+          </Button>
+        }
+      >
+        {diffData ? (
+          <div>
+            <Paragraph>
+              <Text strong>{diffData.summary}</Text>
+            </Paragraph>
+            {diffData.changes.map((change, index) => (
+              <Card key={index} size="small" style={{ marginBottom: 8 }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space>
+                    <Tag color={change.changeType === 'added' ? 'green' : change.changeType === 'removed' ? 'red' : 'orange'}>
+                      {change.changeType}
+                    </Tag>
+                    <Text code>{change.path}</Text>
+                    {change.isSemantic && <Tag color="purple">语义变更</Tag>}
+                  </Space>
+                  {change.oldValue && (
+                    <div>
+                      <Text type="secondary">旧值：</Text>
+                      <pre style={{ margin: 0, padding: 8, background: '#f5f5f5' }}>
+                        {JSON.stringify(change.oldValue, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                  {change.newValue && (
+                    <div>
+                      <Text type="secondary">新值：</Text>
+                      <pre style={{ margin: 0, padding: 8, background: '#f5f5f5' }}>
+                        {JSON.stringify(change.newValue, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </Space>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Empty description="暂无变更" />
+        )}
+      </Drawer>
+
+      {/* 合并确认弹窗 */}
+      <Modal
+        title="合并变更"
+        open={mergeVisible}
+        onCancel={() => setMergeVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setMergeVisible(false)}>
+            取消
+          </Button>,
+          <Button
+            key="auto"
+            loading={mergeLoading}
+            onClick={() => handleMerge('auto')}
+          >
+            自动合并
+          </Button>,
+          <Button
+            key="accept"
+            type="primary"
+            loading={mergeLoading}
+            onClick={() => handleMerge('accept')}
+          >
+            接受所有
+          </Button>,
+        ]}
+      >
+        <Paragraph>
+          选择合并策略：
+        </Paragraph>
+        <ul>
+          <li><Text strong>自动合并</Text>：安全字段自动合并，冲突字段需手动解决</li>
+          <li><Text strong>接受所有</Text>：接受所有新变更，覆盖草稿</li>
+        </ul>
+      </Modal>
     </PageContainer>
   );
 }
