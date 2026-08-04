@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"gorm.io/gorm"
@@ -19,15 +21,17 @@ type Service struct {
 	contractModel   *model.FunctionContractModel
 	capabilityModel *model.ResourceCapabilityModel
 	semanticsModel  *model.CapabilitySemanticsModel
+	auditService    *audit.AuditService
 }
 
 // NewService creates the service.
-func NewService(db *gorm.DB) *Service {
+func NewService(db *gorm.DB, auditSvc *audit.AuditService) *Service {
 	return &Service{
 		db:              db,
 		contractModel:   model.NewFunctionContractModel(db),
 		capabilityModel: model.NewResourceCapabilityModel(db),
 		semanticsModel:  model.NewCapabilitySemanticsModel(db),
+		auditService:    auditSvc,
 	}
 }
 
@@ -311,6 +315,23 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		return nil, fmt.Errorf("upsert semantics: %w", err)
 	}
 
+	// Audit log
+	if s.auditService != nil {
+		actor := "admin" // TODO: get from context
+		if _, err := s.auditService.Log(ctx, audit.EventSemanticUpdate,
+			audit.WithActorID(actor, "user", actor),
+			audit.WithResourceID("resource_catalog", req.ResourceKey),
+			audit.WithDetails(map[string]interface{}{
+				"change_reason": req.ChangeReason,
+			}),
+		); err != nil {
+			slog.ErrorContext(ctx, "failed to write semantic update audit event",
+				"resourceKey", req.ResourceKey,
+				"error", err,
+			)
+		}
+	}
+
 	return &UpdateSemanticsResponse{
 		Version: semantics.Version,
 		Source:  semantics.Source,
@@ -583,6 +604,26 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	// Update semantics
 	if err := s.semanticsModel.Update(ctx, semantics); err != nil {
 		return nil, fmt.Errorf("update semantics: %w", err)
+	}
+
+	// Audit log
+	if s.auditService != nil {
+		actor := "admin" // TODO: get from context
+		if _, err := s.auditService.Log(ctx, audit.EventSemanticConflictResolve,
+			audit.WithActorID(actor, "user", actor),
+			audit.WithResourceID("resource_catalog", req.ResourceKey),
+			audit.WithDetails(map[string]interface{}{
+				"field":          req.Field,
+				"chosen_source":  req.ChosenSource,
+				"reason":         req.Reason,
+			}),
+		); err != nil {
+			slog.ErrorContext(ctx, "failed to write semantic conflict resolve audit event",
+				"resourceKey", req.ResourceKey,
+				"field", req.Field,
+				"error", err,
+			)
+		}
 	}
 
 	return &ResolveConflictResponse{

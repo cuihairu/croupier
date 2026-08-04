@@ -67,6 +67,12 @@ const (
 	EventPageRollback  AuditEventType = "page.rollback"
 	EventPageExecute   AuditEventType = "page.execute"
 
+	// Semantic events
+	EventSemanticUpdate        AuditEventType = "semantic.update"
+	EventSemanticConflict      AuditEventType = "semantic.conflict"
+	EventSemanticConflictResolve AuditEventType = "semantic.conflict_resolve"
+	EventSemanticProvenanceUpdate AuditEventType = "semantic.provenance_update"
+
 	// OpenAPI Source events
 	EventOpenAPISourceCreate        AuditEventType = "openapi_source.create"
 	EventOpenAPISourceUpdate        AuditEventType = "openapi_source.update"

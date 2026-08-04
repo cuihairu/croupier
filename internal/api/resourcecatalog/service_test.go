@@ -30,7 +30,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 func TestService_List(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
-	service := NewService(db)
+	service := NewService(db, nil)
 
 	// Create resource capability
 	capModel := model.NewResourceCapabilityModel(db)
@@ -98,7 +98,7 @@ func TestService_List(t *testing.T) {
 func TestService_Detail(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
-	service := NewService(db)
+	service := NewService(db, nil)
 
 	// Create resource capability
 	capModel := model.NewResourceCapabilityModel(db)
@@ -124,7 +124,7 @@ func TestService_Detail(t *testing.T) {
 func TestService_UpdateSemantics(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
-	service := NewService(db)
+	service := NewService(db, nil)
 
 	// Create resource capability
 	capModel := model.NewResourceCapabilityModel(db)
@@ -152,7 +152,7 @@ func TestService_UpdateSemantics(t *testing.T) {
 func TestService_ScopeIsolation(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
-	service := NewService(db)
+	service := NewService(db, nil)
 
 	// Create resource in scope 1
 	capModel := model.NewResourceCapabilityModel(db)
@@ -184,7 +184,7 @@ func TestService_ScopeIsolation(t *testing.T) {
 func TestService_SearchFilter(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
-	service := NewService(db)
+	service := NewService(db, nil)
 
 	// Create resources
 	capModel := model.NewResourceCapabilityModel(db)

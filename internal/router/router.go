@@ -460,7 +460,7 @@ func registerPolicyRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceCon
 }
 
 func registerResourceCatalogRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
-	service := resourcecatalog.NewService(svcCtx.DB)
+	service := resourcecatalog.NewService(svcCtx.DB, svcCtx.AuditService)
 	handler := resourcecatalog.NewHandler(service)
 	group := authenticated.Group("/resource-catalog")
 	{
