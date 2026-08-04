@@ -10,17 +10,22 @@
  * @module components/PageRenderer
  */
 
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Result } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
 import ResourcePageRenderer from './ResourcePageRenderer';
 import OperationPageRenderer from './OperationPageRenderer';
 import TaskPageRenderer from './TaskPageRenderer';
 import ReportPageRenderer from './ReportPageRenderer';
+import { contextWithPageState, mergePageState, outputPatchFromResult } from './runtime';
+import type { PageState } from './runtime';
 import type {
   PageSpec,
   PageExecuteFn,
   TaskStatusResult,
+  BindingExecutionContext,
+  PageExecutionResult,
+  ApprovalStatusResult,
 } from '@/types/dashboard';
 
 // ---------------------------------------------------------------------------
@@ -38,6 +43,8 @@ export interface PageRendererProps {
   onCancelTask?: (taskId: string) => Promise<void>;
   /** 重试任务（仅 TaskPage 需要） */
   onRetryTask?: (taskId: string) => Promise<void>;
+  /** 查询审批状态（Operation/Task 等待审批需要） */
+  onQueryApprovalStatus?: (approvalId: string) => Promise<ApprovalStatusResult>;
   /** 导出数据（仅 ReportPage 需要） */
   onExport?: (format: 'csv' | 'excel') => Promise<void>;
 }
@@ -52,9 +59,36 @@ const PageRenderer: React.FC<PageRendererProps> = ({
   onQueryStatus,
   onCancelTask,
   onRetryTask,
+  onQueryApprovalStatus,
   onExport,
 }) => {
   const { type, bindings } = pageSpec;
+  const [pageState, setPageState] = useState<PageState>({});
+  const pageStateRef = useRef<PageState>({});
+
+  useEffect(() => {
+    pageStateRef.current = {};
+    setPageState({});
+  }, [pageSpec.pageKey]);
+
+  useEffect(() => {
+    pageStateRef.current = pageState;
+  }, [pageState]);
+
+  const executeWithPageState = useCallback<PageExecuteFn>(
+    async (bindingId: string, context: BindingExecutionContext): Promise<PageExecutionResult> => {
+      const binding = bindings.find((item) => item.id === bindingId);
+      const result = await onExecute(bindingId, contextWithPageState(context, pageStateRef.current));
+      const patch = outputPatchFromResult(binding, result);
+      setPageState((current) => {
+        const next = mergePageState(current, patch);
+        pageStateRef.current = next;
+        return next;
+      });
+      return result;
+    },
+    [bindings, onExecute],
+  );
 
   // 根据页面类型选择渲染器
   switch (type) {
@@ -73,7 +107,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         <ResourcePageRenderer
           spec={pageSpec.resource}
           bindings={bindings}
-          onExecute={onExecute}
+          onExecute={executeWithPageState}
           title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
         />
       );
@@ -93,7 +127,8 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         <OperationPageRenderer
           spec={pageSpec.operation}
           bindings={bindings}
-          onExecute={onExecute}
+          onExecute={executeWithPageState}
+          onQueryApprovalStatus={onQueryApprovalStatus}
           title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
         />
       );
@@ -113,10 +148,11 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         <TaskPageRenderer
           spec={pageSpec.task}
           bindings={bindings}
-          onExecute={onExecute}
+          onExecute={executeWithPageState}
           onQueryStatus={onQueryStatus}
           onCancelTask={onCancelTask}
           onRetryTask={onRetryTask}
+          onQueryApprovalStatus={onQueryApprovalStatus}
           title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
         />
       );
@@ -136,7 +172,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         <ReportPageRenderer
           spec={pageSpec.report}
           bindings={bindings}
-          onExecute={onExecute}
+          onExecute={executeWithPageState}
           onExport={onExport}
           title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
         />

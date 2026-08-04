@@ -22,6 +22,7 @@ import {
   Typography,
   Tabs,
   Empty,
+  Result,
 } from 'antd';
 import {
   LineChartOutlined,
@@ -31,12 +32,16 @@ import {
 } from '@ant-design/icons';
 import { Line, Column, Pie, Area } from '@ant-design/charts';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
+import {
+  getPageStateArray,
+  mergePageState,
+  outputPatchFromResult,
+} from './runtime';
 import type {
   ReportPageSpec,
   ChartSpec,
   PageFunctionBinding,
   PageExecuteFn,
-  JSONValue,
   FormValues,
 } from '@/types/dashboard';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -145,10 +150,15 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<FormValues[]>([]);
-  const [activeTab, setActiveTab] = useState('chart');
+  const [activeTab, setActiveTab] = useState(spec.charts && spec.charts.length > 0 ? 'chart' : 'table');
 
   // 查找主绑定
   const mainBinding = bindings.find((b) => b.usage === 'report') || bindings[0];
+  const hasDatasetSemantics = spec.dataset?.dimensions?.length > 0 && spec.dataset?.metrics?.length > 0;
+  const hasDatasetOutputSelector = !!mainBinding?.selectors?.output?.some(
+    (assignment) => assignment.stateKey === 'dataset' && assignment.shape === 'dataset',
+  );
+  const dataset = spec.dataset || { dimensions: [], metrics: [] };
 
   // 处理查询
   const handleQuery = useCallback(
@@ -162,9 +172,14 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
 
       try {
         const response = await onExecute(mainBinding.id, { form: values });
-        const responseData = response.data as Record<string, JSONValue> | undefined;
-        const items = (responseData?.items as FormValues[]) || (Array.isArray(responseData) ? responseData as FormValues[] : []);
-        setData(Array.isArray(items) ? items : []);
+        const nextState = mergePageState({}, outputPatchFromResult(mainBinding, response));
+        const dataset = getPageStateArray(nextState, 'dataset');
+        if (!dataset.length) {
+          message.error('报表查询结果未命中 dataset 映射');
+          setData([]);
+          return;
+        }
+        setData(dataset);
         message.success('查询成功');
       } catch (error) {
         const msg = error instanceof Error ? error.message : '未知错误';
@@ -196,7 +211,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   );
 
   // 构建表格列
-  const columns: ProColumns[] = spec.dataset.dimensions.map((dim) => ({
+  const columns: ProColumns[] = dataset.dimensions.map((dim) => ({
     title: dim.title['zh-CN'] || dim.title['en'] || dim.key,
     dataIndex: dim.key,
     key: dim.key,
@@ -204,7 +219,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   }));
 
   // 添加指标列
-  spec.dataset.metrics.forEach((metric) => {
+  dataset.metrics.forEach((metric) => {
     columns.push({
       title: metric.title['zh-CN'] || metric.title['en'] || metric.key,
       dataIndex: metric.key,
@@ -225,6 +240,26 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
       },
     });
   });
+
+  if (!hasDatasetSemantics) {
+    return (
+      <Result
+        status="warning"
+        title="报表语义未完成"
+        subTitle="ReportPage 发布前必须配置 dataset.dimensions 和 dataset.metrics，否则无法生成可运行的图表和数据表。"
+      />
+    );
+  }
+
+  if (!mainBinding || !hasDatasetOutputSelector) {
+    return (
+      <Result
+        status="warning"
+        title="报表绑定未完成"
+        subTitle="ReportPage 必须通过 output selector 将函数结果映射到 pageState.dataset。"
+      />
+    );
+  }
 
   return (
     <div>

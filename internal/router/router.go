@@ -467,6 +467,7 @@ func registerResourceCatalogRoutes(authenticated *gin.RouterGroup, svcCtx *svc.S
 		group.GET("", handler.List)
 		group.GET("/:resourceKey", handler.Detail)
 		group.PUT("/:resourceKey/semantics", handler.UpdateSemantics)
+		group.GET("/:resourceKey/semantics/versions", handler.ListSemanticVersions)
 		group.GET("/:resourceKey/conflicts", handler.ListConflicts)
 		group.POST("/:resourceKey/conflicts/:field/resolve", handler.ResolveConflict)
 	}
@@ -506,8 +507,10 @@ func registerProposalRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 	group := authenticated.Group("/proposals")
 	{
 		group.GET("", handler.ListProposals)
+		group.GET("/inbox", handler.Inbox)
 		group.GET("/:proposalKey", handler.GetProposal)
 		group.POST("/:proposalKey/accept", handler.AcceptProposal)
+		group.POST("/:proposalKey/accept-and-publish", handler.AcceptAndPublishProposal)
 		group.POST("/:proposalKey/reject", handler.RejectProposal)
 	}
 }

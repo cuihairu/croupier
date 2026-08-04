@@ -13,6 +13,8 @@ import { Empty } from 'antd';
 import type { PageSpec } from '@/types/dashboard';
 import ResourcePageEditor from './ResourcePageEditor';
 import OperationPageEditor from './OperationPageEditor';
+import TaskPageEditor from './TaskPageEditor';
+import ReportPageEditor from './ReportPageEditor';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -61,12 +63,26 @@ export default function PageEditor({
       );
 
     case 'task':
-      // TODO: 实现 TaskPageEditor
-      return <Empty description="任务页面编辑器开发中" />;
+      return value.task ? (
+        <TaskPageEditor
+          value={value.task}
+          onChange={(task) => onChange({ ...value, task })}
+          readonly={readonly}
+        />
+      ) : (
+        <Empty description="无任务页面配置" />
+      );
 
     case 'report':
-      // TODO: 实现 ReportPageEditor
-      return <Empty description="报表页面编辑器开发中" />;
+      return value.report ? (
+        <ReportPageEditor
+          value={value.report}
+          onChange={(report) => onChange({ ...value, report })}
+          readonly={readonly}
+        />
+      ) : (
+        <Empty description="无报表页面配置" />
+      );
 
     default:
       return <Empty description="未知页面类型" />;
@@ -76,3 +92,5 @@ export default function PageEditor({
 // 导出子编辑器
 export { default as ResourcePageEditor } from './ResourcePageEditor';
 export { default as OperationPageEditor } from './OperationPageEditor';
+export { default as TaskPageEditor } from './TaskPageEditor';
+export { default as ReportPageEditor } from './ReportPageEditor';

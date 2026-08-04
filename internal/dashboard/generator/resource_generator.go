@@ -40,7 +40,7 @@ func GenerateResourcePageProposal(
 	title := spec.LocalizedText{locale: humanizeKey(resourceKey)}
 
 	bindings := []spec.PageFunctionBinding{
-		resourceBinding(collectionContract, "list", spec.BindingUsageQuery, nil),
+		resourceBinding(collectionContract, "list", spec.BindingUsageQuery, semantics),
 	}
 
 	var actions []spec.ActionSpec
@@ -102,12 +102,52 @@ func resourceBinding(contract *model.FunctionContract, suffix string, usage spec
 		Usage:      usage,
 		Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
 	}
+	selectors := &spec.BindingSelectors{}
 	if len(contract.InputSchema) > 0 {
-		binding.Selectors = &spec.BindingSelectors{
-			Input: resourceInputSelector(spec.JSONSchema(contract.InputSchema), contract, semantics),
-		}
+		selectors.Input = resourceInputSelector(spec.JSONSchema(contract.InputSchema), contract, semantics)
 	}
+	selectors.Output = resourceOutputAssignments(contract, usage, semantics)
+	if len(selectors.Input.Assignments) == 0 && len(selectors.Output) == 0 {
+		return binding
+	}
+	binding.Selectors = selectors
 	return binding
+}
+
+func resourceOutputAssignments(contract *model.FunctionContract, usage spec.PageBindingUsage, semantics *model.CapabilitySemantics) []spec.OutputAssignment {
+	if contract == nil || len(contract.OutputSchema) == 0 {
+		return nil
+	}
+	if usage != spec.BindingUsageQuery {
+		return []spec.OutputAssignment{{
+			StateKey: "result",
+			Source:   "",
+			Shape:    outputShapeForSchema(spec.JSONSchema(contract.OutputSchema)),
+		}}
+	}
+	arrayKeys := collectionArrayKeys(semantics)
+	assignments := collectionOutputAssignments(spec.JSONSchema(contract.OutputSchema), arrayKeys, "items")
+	if len(assignments) == 0 {
+		return nil
+	}
+	if semantics != nil && strings.TrimSpace(semantics.TotalFieldName) != "" {
+		totalSource := scalarPropertySource(spec.JSONSchema(contract.OutputSchema), []string{strings.TrimSpace(semantics.TotalFieldName)})
+		if totalSource == "" {
+			return assignments
+		}
+		for i := range assignments {
+			if assignments[i].StateKey == "total" {
+				assignments[i].Source = totalSource
+				return assignments
+			}
+		}
+		assignments = append(assignments, spec.OutputAssignment{
+			StateKey: "total",
+			Source:   totalSource,
+			Shape:    spec.OutputShapeScalar,
+		})
+	}
+	return assignments
 }
 
 func resourceInputSelector(inputSchema spec.JSONSchema, contract *model.FunctionContract, semantics *model.CapabilitySemantics) spec.SelectorAST {
@@ -116,6 +156,9 @@ func resourceInputSelector(inputSchema spec.JSONSchema, contract *model.Function
 		return selector
 	}
 	if spec.CapabilityKind(contract.Capability) != spec.CapabilityUpdate && spec.CapabilityKind(contract.Capability) != spec.CapabilityDelete {
+		if spec.CapabilityKind(contract.Capability) == spec.CapabilityCollectionQuery {
+			return applyCollectionQuerySelector(selector, semantics)
+		}
 		return selector
 	}
 
@@ -133,6 +176,31 @@ func resourceInputSelector(inputSchema spec.JSONSchema, contract *model.Function
 		}
 	}
 	return selector
+}
+
+func applyCollectionQuerySelector(selector spec.SelectorAST, semantics *model.CapabilitySemantics) spec.SelectorAST {
+	if semantics == nil {
+		return selector
+	}
+	pageField := strings.TrimSpace(semantics.PageFieldName)
+	pageSizeField := strings.TrimSpace(semantics.PageSizeFieldName)
+	for i := range selector.Assignments {
+		switch selector.Assignments[i].Target {
+		case pointerForField(pageField):
+			selector.Assignments[i].Source = spec.ValueSource{Kind: spec.SourceForm, Path: "/current"}
+		case pointerForField(pageSizeField):
+			selector.Assignments[i].Source = spec.ValueSource{Kind: spec.SourceForm, Path: "/pageSize"}
+		}
+	}
+	return selector
+}
+
+func pointerForField(field string) string {
+	field = strings.TrimSpace(field)
+	if field == "" {
+		return ""
+	}
+	return "/" + escapeJSONPointerToken(field)
 }
 
 func escapeJSONPointerToken(token string) string {
@@ -218,6 +286,11 @@ func buildListViewFromContract(contract *model.FunctionContract, semantics *mode
 	sort.Strings(keys)
 
 	identityField := strings.TrimSpace(semantics.IdentityField)
+	filters := buildFiltersFromContract(contract, semantics)
+	filterKeys := make(map[string]struct{}, len(filters))
+	for _, filter := range filters {
+		filterKeys[filter.Key] = struct{}{}
+	}
 	columns := make([]spec.ColumnSpec, 0, len(keys))
 	for _, key := range keys {
 		prop := properties[key]
@@ -230,22 +303,81 @@ func buildListViewFromContract(contract *model.FunctionContract, semantics *mode
 		if key == identityField {
 			col.Fixed = "left"
 		}
+		if _, ok := filterKeys[key]; ok {
+			col.Filterable = true
+		}
 		columns = append(columns, col)
 	}
 
 	list := defaultListView()
+	list.IdentityKey = identityField
+	list.RowSchema = spec.JSONSchema(itemsSchema)
 	list.Columns = columns
+	list.Filters = filters
+	list.Pagination = paginationFromContract(contract, semantics)
 	return list
 }
 
 func defaultListView() *spec.ListViewSpec {
 	return &spec.ListViewSpec{
 		Columns: []spec.ColumnSpec{},
-		Pagination: &spec.PaginationSpec{
-			Enabled:     true,
-			DefaultSize: 20,
-			PageSizes:   []int{10, 20, 50, 100},
-		},
+	}
+}
+
+func buildFiltersFromContract(contract *model.FunctionContract, semantics *model.CapabilitySemantics) []spec.FilterSpec {
+	if contract == nil || len(contract.InputSchema) == 0 {
+		return nil
+	}
+	properties := objectProperty(parseJSONObject(json.RawMessage(contract.InputSchema)), "properties")
+	if len(properties) == 0 {
+		return nil
+	}
+	pageField := strings.TrimSpace(semantics.PageFieldName)
+	pageSizeField := strings.TrimSpace(semantics.PageSizeFieldName)
+	keys := make([]string, 0, len(properties))
+	for key := range properties {
+		if key == pageField || key == pageSizeField {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	filters := make([]spec.FilterSpec, 0, len(keys))
+	for _, key := range keys {
+		prop := properties[key]
+		filters = append(filters, spec.FilterSpec{
+			Key:     key,
+			Title:   spec.LocalizedText{"zh-CN": key},
+			Type:    inferFilterType(prop),
+			Options: enumOptionsFromSchema(prop),
+		})
+	}
+	return filters
+}
+
+func paginationFromContract(contract *model.FunctionContract, semantics *model.CapabilitySemantics) *spec.PaginationSpec {
+	if contract == nil || len(contract.InputSchema) == 0 || semantics == nil {
+		return nil
+	}
+	properties := objectProperty(parseJSONObject(json.RawMessage(contract.InputSchema)), "properties")
+	if len(properties) == 0 {
+		return nil
+	}
+	pageField := strings.TrimSpace(semantics.PageFieldName)
+	pageSizeField := strings.TrimSpace(semantics.PageSizeFieldName)
+	if pageField == "" || pageSizeField == "" {
+		return nil
+	}
+	if _, ok := properties[pageField]; !ok {
+		return nil
+	}
+	if _, ok := properties[pageSizeField]; !ok {
+		return nil
+	}
+	return &spec.PaginationSpec{
+		Enabled:     true,
+		DefaultSize: 20,
+		PageSizes:   []int{10, 20, 50, 100},
 	}
 }
 
@@ -317,6 +449,47 @@ func inferDataType(raw json.RawMessage) string {
 	default:
 		return "string"
 	}
+}
+
+func inferFilterType(raw json.RawMessage) string {
+	prop := parseJSONObject(raw)
+	typeStr := rawString(prop["type"])
+	format := rawString(prop["format"])
+	if len(prop["enum"]) > 0 {
+		return "select"
+	}
+	switch typeStr {
+	case "integer", "number":
+		return "number"
+	case "string":
+		switch format {
+		case "date", "date-time":
+			return "date"
+		default:
+			return "text"
+		}
+	default:
+		return "text"
+	}
+}
+
+func enumOptionsFromSchema(raw json.RawMessage) []spec.EnumOption {
+	prop := parseJSONObject(raw)
+	if len(prop["enum"]) == 0 {
+		return nil
+	}
+	var values []string
+	if err := json.Unmarshal(prop["enum"], &values); err != nil {
+		return nil
+	}
+	options := make([]spec.EnumOption, 0, len(values))
+	for _, value := range values {
+		options = append(options, spec.EnumOption{
+			Value: value,
+			Label: spec.LocalizedText{"zh-CN": value},
+		})
+	}
+	return options
 }
 
 // assessResourceSemantics checks if semantics are sufficient for CRUD.

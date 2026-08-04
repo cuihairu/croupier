@@ -416,6 +416,7 @@ type BindingContractSnapshot struct {
 	OutputSchemaDigest    string            `json:"outputSchemaDigest,omitempty"`
 	Risk                  RiskLevel         `json:"risk,omitempty"`
 	Permission            string            `json:"permission,omitempty"`
+	Approval              ApprovalPolicy    `json:"approval"`
 	ExecutionMode         PageExecutionMode `json:"executionMode"`
 	RendererSchemaVersion string            `json:"rendererSchemaVersion"`
 }

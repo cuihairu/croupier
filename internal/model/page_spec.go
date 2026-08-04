@@ -14,27 +14,29 @@ import (
 // indexed fields mirror immutable identifiers and list metadata; SpecJSON is
 // the single source for the full page DSL.
 type PageSpec struct {
-	ID                 uint           `gorm:"primarykey" json:"id"`
-	CreatedAt          time.Time      `json:"createdAt"`
-	UpdatedAt          time.Time      `json:"updatedAt"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	GameID             string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:1;index:idx_page_specs_scope,priority:1" json:"gameId"`
-	Env                string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:2;index:idx_page_specs_scope,priority:2" json:"env"`
-	PageKey            string         `gorm:"size:128;not null;uniqueIndex:uidx_page_specs_scope_key,priority:3" json:"pageKey"`
-	Type               string         `gorm:"size:32" json:"type"` // resource/operation/task/report
-	ResourceKey        string         `gorm:"size:128;index" json:"resourceKey,omitempty"`
-	TitleJSON          string         `gorm:"type:json" json:"-"`
-	CategoryKey        string         `gorm:"size:64;index" json:"categoryKey"`
-	CategoryLabelsJSON string         `gorm:"type:json" json:"-"`
-	CategoryOrder      int            `gorm:"default:0" json:"categoryOrder"`
-	Order              int            `gorm:"default:0" json:"order"`
-	Icon               string         `gorm:"size:64" json:"icon,omitempty"`
-	SpecJSON           string         `gorm:"type:json;not null" json:"-"`
-	Status             string         `gorm:"size:32;default:'draft'" json:"status"` // draft/published/archived
-	PublishedActive    bool           `gorm:"default:false;index" json:"publishedActive"`
-	DraftRevision      int            `gorm:"default:1" json:"draftRevision"`
-	PublishedVersion   int            `gorm:"default:0" json:"publishedVersion"`
-	UpdatedBy          string         `gorm:"size:128" json:"updatedBy,omitempty"`
+	ID                  uint           `gorm:"primarykey" json:"id"`
+	CreatedAt           time.Time      `json:"createdAt"`
+	UpdatedAt           time.Time      `json:"updatedAt"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	GameID              string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:1;index:idx_page_specs_scope,priority:1" json:"gameId"`
+	Env                 string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:2;index:idx_page_specs_scope,priority:2" json:"env"`
+	PageKey             string         `gorm:"size:128;not null;uniqueIndex:uidx_page_specs_scope_key,priority:3" json:"pageKey"`
+	Type                string         `gorm:"size:32" json:"type"` // resource/operation/task/report
+	ResourceKey         string         `gorm:"size:128;index" json:"resourceKey,omitempty"`
+	TitleJSON           string         `gorm:"type:json" json:"-"`
+	CategoryKey         string         `gorm:"size:64;index" json:"categoryKey"`
+	CategoryLabelsJSON  string         `gorm:"type:json" json:"-"`
+	CategoryOrder       int            `gorm:"default:0" json:"categoryOrder"`
+	Order               int            `gorm:"default:0" json:"order"`
+	Icon                string         `gorm:"size:64" json:"icon,omitempty"`
+	SpecJSON            string         `gorm:"type:json;not null" json:"-"`
+	Status              string         `gorm:"size:32;default:'draft'" json:"status"` // draft/published/archived
+	PublishedActive     bool           `gorm:"default:false;index" json:"publishedActive"`
+	DraftRevision       int            `gorm:"default:1" json:"draftRevision"`
+	PublishedVersion    int            `gorm:"default:0" json:"publishedVersion"`
+	BaseProposalKey     string         `gorm:"size:128;index" json:"baseProposalKey,omitempty"`
+	BaseProposalVersion int            `gorm:"default:0" json:"baseProposalVersion,omitempty"`
+	UpdatedBy           string         `gorm:"size:128" json:"updatedBy,omitempty"`
 }
 
 func (PageSpec) TableName() string {

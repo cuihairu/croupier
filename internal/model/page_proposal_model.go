@@ -70,6 +70,30 @@ func (m *PageProposalModel) ListByStatus(ctx context.Context, gameID, env, statu
 	return proposals, nil
 }
 
+// ListByScopeAndResourceKey lists proposals for a resource in a scope.
+func (m *PageProposalModel) ListByScopeAndResourceKey(ctx context.Context, gameID, env, resourceKey string) ([]*PageProposal, error) {
+	var proposals []*PageProposal
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND resource_key = ?", gameID, env, resourceKey).
+		Order("proposal_key").
+		Find(&proposals).Error; err != nil {
+		return nil, err
+	}
+	return proposals, nil
+}
+
+// ListByScopeStatusAndResourceKey lists proposals by status and resource in a scope.
+func (m *PageProposalModel) ListByScopeStatusAndResourceKey(ctx context.Context, gameID, env, status, resourceKey string) ([]*PageProposal, error) {
+	var proposals []*PageProposal
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND status = ? AND resource_key = ?", gameID, env, status, resourceKey).
+		Order("proposal_key").
+		Find(&proposals).Error; err != nil {
+		return nil, err
+	}
+	return proposals, nil
+}
+
 // DeleteByScopeAndKey removes a proposal.
 func (m *PageProposalModel) DeleteByScopeAndKey(ctx context.Context, gameID, env, proposalKey string) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
@@ -102,4 +126,38 @@ func (m *PageProposalVersionModel) ListByProposalID(ctx context.Context, proposa
 		return nil, err
 	}
 	return vers, nil
+}
+
+// FindByProposalIDAndVersion returns one proposal snapshot.
+func (m *PageProposalVersionModel) FindByProposalIDAndVersion(ctx context.Context, proposalID uint, version int) (*PageProposalVersion, error) {
+	var ver PageProposalVersion
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("proposal_id = ? AND version = ?", proposalID, version).
+		First(&ver).Error; err != nil {
+		return nil, err
+	}
+	return &ver, nil
+}
+
+// LatestByProposalID returns the latest proposal snapshot.
+func (m *PageProposalVersionModel) LatestByProposalID(ctx context.Context, proposalID uint) (*PageProposalVersion, error) {
+	var ver PageProposalVersion
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("proposal_id = ?", proposalID).
+		Order("version DESC").
+		First(&ver).Error; err != nil {
+		return nil, err
+	}
+	return &ver, nil
+}
+
+// GetNextVersion returns the next monotonically increasing proposal version.
+func (m *PageProposalVersionModel) GetNextVersion(ctx context.Context, proposalID uint) (int, error) {
+	var maxVersion int
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&PageProposalVersion{}).
+		Where("proposal_id = ?", proposalID).
+		Select("COALESCE(MAX(version), 0)").
+		Scan(&maxVersion).Error
+	return maxVersion + 1, err
 }

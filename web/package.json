@@ -88,7 +88,7 @@
     "@typescript-eslint/parser": "^8.56.1",
     "@umijs/fabric": "^2.14.1",
     "@umijs/lint": "^4.1.1",
-    "@umijs/max": "^4.6.83",
+    "@umijs/max": "^4.7.0",
     "baseline-browser-mapping": "^2.9.11",
     "cross-env": "^7.0.3",
     "eslint": "^9.39.2",
@@ -128,10 +128,14 @@
     "qs": "^6.14.1",
     "vite": "^5.4.20",
     "rollup": "^3.30.0",
-    "@tootallnate/once": "^3.0.1",
-    "path-to-regexp": "^8.4.0"
+    "@tootallnate/once": "^3.0.1"
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@umijs/preset-umi>path-to-regexp": "1.7.0"
+    }
   }
 }

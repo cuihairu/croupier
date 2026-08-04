@@ -82,6 +82,26 @@ export interface MergeResponse {
   merged: number;
   conflicts: number;
   message: string;
+  draftRevision?: number;
+  autoMergeItems?: MergeItemInfo[];
+  conflictItems?: MergeConflictInfo[];
+}
+
+export interface MergeItemInfo {
+  field: string;
+  baseValue?: JSONValue;
+  draftValue?: JSONValue;
+  latestValue?: JSONValue;
+  mergedValue?: JSONValue;
+  reason: string;
+}
+
+export interface MergeConflictInfo {
+  field: string;
+  baseValue?: JSONValue;
+  draftValue?: JSONValue;
+  latestValue?: JSONValue;
+  reason: string;
 }
 
 /** 回滚请求 */

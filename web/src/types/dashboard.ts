@@ -87,6 +87,16 @@ export interface TaskStatusResult {
   events?: TaskEvent[];
 }
 
+/** 审批状态查询结果 */
+export interface ApprovalStatusResult {
+  approvalId: string;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  functionId?: string;
+  actor?: string;
+  reason?: string;
+  updatedAt?: string;
+}
+
 /** 任务事件 */
 export interface TaskEvent {
   timestamp: string;
@@ -100,6 +110,9 @@ export type FormValues = Record<string, JSONValue>;
 
 /** 诊断严重级别 */
 export type DiagnosticSeverity = 'error' | 'warning' | 'info';
+
+/** 语义来源优先级：platform_review > sdk_explicit > openapi_rest */
+export type SemanticSource = 'openapi_rest' | 'sdk_explicit' | 'platform_review';
 
 /** 已发布 binding 与最新函数契约的匹配状态 */
 export type BindingFreshnessStatus =
@@ -329,6 +342,8 @@ export interface ResourcePageSpec {
 
 /** 列表视图规格 */
 export interface ListViewSpec {
+  identityKey?: string;
+  rowSchema?: JSONSchema;
   columns: ColumnSpec[];
   defaultSort?: SortSpec;
   filters?: FilterSpec[];
@@ -534,6 +549,7 @@ export interface FormFieldSpec {
   width?: number;
   order?: number;
   visible?: boolean;
+  visibleWhen?: ConditionSpec;
   disabled?: boolean;
   required?: boolean;
   defaultValue?: JSONValue;
@@ -541,6 +557,14 @@ export interface FormFieldSpec {
   widgetProps?: Record<string, JSONValue>;
   validationRules?: ValidationRule[];
 }
+
+/** 字段显示条件 */
+export type ConditionSpec =
+  | { kind: 'equals'; path: JsonPointer; value: JSONValue }
+  | { kind: 'notEquals'; path: JsonPointer; value: JSONValue }
+  | { kind: 'exists'; path: JsonPointer }
+  | { kind: 'all'; conditions: ConditionSpec[] }
+  | { kind: 'any'; conditions: ConditionSpec[] };
 
 /** 表单组件类型 */
 export type FormWidget =
@@ -611,6 +635,7 @@ export interface BindingContractSnapshot {
   outputSchemaDigest?: string;
   risk?: RiskLevel;
   permission?: string;
+  approval: ApprovalPolicy;
   executionMode: PageExecutionMode;
   rendererSchemaVersion: string;
 }
@@ -720,10 +745,12 @@ export interface ResourceCatalogItem {
   functions: FunctionInfo[];
   semantics?: SemanticsInfo;
   diagnostics?: DiagnosticInfo[];
+  affectedPages?: AffectedPageInfo[];
 }
 
 /** 函数信息 */
 export interface FunctionInfo {
+  id: number;
   functionId: string;
   version: string;
   capability: CapabilityKind;
@@ -745,6 +772,22 @@ export interface SemanticsInfo {
   hasTasks: boolean;
   hasReports: boolean;
   source: string;
+  sourceDigest?: string;
+  identityField?: string;
+  identityFieldType?: 'string' | 'number' | 'integer' | 'boolean';
+  identityPath?: string;
+  collectionQueryId?: number;
+  collectionPath?: string;
+  pageFieldName?: string;
+  pageSizeFieldName?: string;
+  itemsFieldName?: string;
+  totalFieldName?: string;
+  itemQueryId?: number;
+  itemPath?: string;
+  createId?: number;
+  updateId?: number;
+  deleteId?: number;
+  unresolvedConflicts: number;
 }
 
 /** 诊断信息 */
@@ -752,6 +795,94 @@ export interface DiagnosticInfo {
   code: string;
   severity: DiagnosticSeverity;
   message: string;
+  functionId?: string;
+  field?: string;
+}
+
+/** 管理端补充资源语义请求；只描述能力语义，不描述页面 UI */
+export interface UpdateResourceSemanticsRequest {
+  identityField?: string;
+  identityFieldType?: 'string' | 'number' | 'integer' | 'boolean';
+  identityPath?: string;
+  collectionQueryId?: number;
+  collectionPath?: string;
+  pageFieldName?: string;
+  pageSizeFieldName?: string;
+  itemsFieldName?: string;
+  totalFieldName?: string;
+  itemQueryId?: number;
+  itemPath?: string;
+  createId?: number;
+  updateId?: number;
+  deleteId?: number;
+  changeReason?: string;
+}
+
+/** 单字段语义冲突 */
+export interface SemanticConflictInfo {
+  field: string;
+  values: Partial<Record<SemanticSource, string>>;
+  resolution?: SemanticSource;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+/** 单字段语义来源 */
+export interface SemanticProvenanceInfo {
+  field: string;
+  source: SemanticSource;
+  confidence: 'high' | 'low';
+  status: 'effective' | 'overridden' | 'conflict';
+  value?: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+/** 资源语义冲突和来源响应 */
+export interface ResourceSemanticConflicts {
+  conflicts: SemanticConflictInfo[];
+  provenance: SemanticProvenanceInfo[];
+}
+
+/** 语义冲突解决请求 */
+export interface ResolveSemanticConflictRequest {
+  chosenSource: SemanticSource;
+  reason?: string;
+}
+
+/** 资源语义版本记录 */
+export interface ResourceSemanticVersionInfo {
+  version: number;
+  sourceDigest?: string;
+  changeReason?: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
+/** 资源语义版本响应 */
+export interface ResourceSemanticVersions {
+  items: ResourceSemanticVersionInfo[];
+  total: number;
+}
+
+/** 受影响页面类型 */
+export type AffectedPageKind = 'draft' | 'published' | 'proposal';
+
+/** 资源变更影响到的页面/提案摘要 */
+export interface AffectedPageInfo {
+  pageKey: string;
+  pageType?: PageType | string;
+  title?: LocalizedText;
+  kind: AffectedPageKind;
+  status?: string;
+  draftRevision?: number;
+  publishedVersion?: number;
+  proposalKey?: string;
+  proposalQuality?: ProposalQuality;
+  proposalStatus?: ProposalStatus;
+  stale?: boolean;
+  bindingFreshness?: BindingFreshnessDiagnostic[];
+  updatedAt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -775,6 +906,8 @@ export interface PageProposal {
   resourceKey?: string;
   quality: ProposalQuality;
   generatorVersion: string;
+  functionDigest?: string;
+  semanticsDigest?: string;
   title: LocalizedText;
   description?: LocalizedText;
   categoryKey?: string;
@@ -783,6 +916,51 @@ export interface PageProposal {
   status: ProposalStatus;
   updatedAt: string;
   updatedBy?: string;
+}
+
+/** 不可物化的默认页面问题，不携带 PageSpec */
+export interface BlockedProposalIssue {
+  id: number;
+  gameId?: string;
+  env?: string;
+  resourceKey?: string;
+  functionId?: string;
+  sourceDigests?: string[];
+  diagnostics?: DiagnosticInfo[];
+  repairHint?: LocalizedText;
+  status: 'open' | 'resolved' | 'dismissed';
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+/** stale Draft/Published 页面摘要 */
+export interface ContractChangeInfo {
+  pageKey: string;
+  pageType: PageType;
+  resourceKey?: string;
+  title?: LocalizedText;
+  categoryKey?: string;
+  kind: 'draft' | 'published';
+  status?: string;
+  draftRevision?: number;
+  publishedVersion?: number;
+  bindingFreshness?: BindingFreshnessDiagnostic[];
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+/** Page Studio 三队列入口 */
+export interface ProposalInbox {
+  publishable: PageProposal[];
+  needsReview: PageProposal[];
+  blockedIssues: BlockedProposalIssue[];
+  contractChanges: ContractChangeInfo[];
+  summary: {
+    publishable: number;
+    needsReview: number;
+    blockedIssues: number;
+    contractChanges: number;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -840,4 +1018,26 @@ export interface MergeResponse {
   merged: number;
   conflicts: number;
   message: string;
+  draftRevision?: number;
+  autoMergeItems?: MergeItemInfo[];
+  conflictItems?: MergeConflictInfo[];
+}
+
+/** 自动合并展示字段 */
+export interface MergeItemInfo {
+  field: string;
+  baseValue?: JSONValue;
+  draftValue?: JSONValue;
+  latestValue?: JSONValue;
+  mergedValue?: JSONValue;
+  reason: string;
+}
+
+/** 需要人工确认的合并冲突 */
+export interface MergeConflictInfo {
+  field: string;
+  baseValue?: JSONValue;
+  draftValue?: JSONValue;
+  latestValue?: JSONValue;
+  reason: string;
 }

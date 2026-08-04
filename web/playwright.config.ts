@@ -6,12 +6,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  reporter: 'list',
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:8000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    headless: true, // 强制 headless 模式，无需桌面
+    headless: true,
   },
   projects: [
     {
@@ -20,8 +20,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm dev',
+    command: 'cross-env REACT_APP_ENV=test MOCK=none UMI_ENV=dev max dev',
     url: 'http://localhost:8000',
     reuseExistingServer: !process.env.CI,
+    timeout: 120000,
   },
 });

@@ -155,6 +155,39 @@ export default {
     });
     access = 'guest';
   },
+  // Mock for /api/v1/auth/login endpoint used by the app
+  'POST /api/v1/auth/login': async (req: Request, res: Response) => {
+    const { password, username } = req.body;
+    await waitTime(1000);
+    if (password === 'ant.design' && username === 'admin') {
+      res.send({
+        token: 'mock-jwt-token-admin',
+        user: {
+          username: 'admin',
+          nickname: '管理员',
+          roles: ['admin'],
+        },
+      });
+      access = 'admin';
+      return;
+    }
+    if (password === 'ant.design' && username === 'user') {
+      res.send({
+        token: 'mock-jwt-token-user',
+        user: {
+          username: 'user',
+          nickname: '普通用户',
+          roles: ['user'],
+        },
+      });
+      access = 'user';
+      return;
+    }
+    res.status(401).send({
+      error: 'unauthorized',
+      message: '用户名或密码错误',
+    });
+  },
   'POST /api/login/outLogin': (req: Request, res: Response) => {
     access = '';
     res.send({ data: {}, success: true });
@@ -196,6 +229,55 @@ export default {
       error: 'Unauthorized',
       message: 'Unauthorized',
       path: '/base/category/list',
+    });
+  },
+
+  // Mock profile endpoints
+  'GET /api/v1/profile': (req: Request, res: Response) => {
+    if (!getAccess()) {
+      res.status(401).send({ error: 'unauthorized', message: '未授权' });
+      return;
+    }
+    res.send({
+      id: 1,
+      username: 'admin',
+      nickname: '管理员',
+      displayName: '管理员',
+      email: 'admin@example.com',
+      active: true,
+      roles: ['admin'],
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+    });
+  },
+
+  // Mock games endpoint
+  'GET /api/v1/profile/games': (req: Request, res: Response) => {
+    if (!getAccess()) {
+      res.status(401).send({ error: 'unauthorized', message: '未授权' });
+      return;
+    }
+    res.send({
+      games: [
+        {
+          gameId: 'test-game',
+          gameName: '测试游戏',
+          envs: ['prod', 'staging'],
+        },
+      ],
+    });
+  },
+
+  // Mock permissions endpoint
+  'GET /api/v1/profile/permissions': (req: Request, res: Response) => {
+    if (!getAccess()) {
+      res.status(401).send({ error: 'unauthorized', message: '未授权' });
+      return;
+    }
+    res.send({
+      permissions: [],
+      admin: true,
+      roles: ['admin'],
     });
   },
 

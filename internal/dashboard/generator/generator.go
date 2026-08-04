@@ -4,6 +4,7 @@
 package generator
 
 import (
+	"encoding/json"
 	"sort"
 	"strings"
 	"unicode"
@@ -129,7 +130,7 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 					ShowProgress: true,
 					ShowEvents:   true,
 					Cancelable:   true,
-					Retryable:    true,
+					Retryable:    false,
 				},
 				ResultView: &spec.ResultViewSpec{
 					SuccessMessage: spec.LocalizedText{locale: "任务完成"},
@@ -174,8 +175,8 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 			Report: &spec.ReportPageSpec{
 				QueryForm: buildFormPresentation(op, opts),
 				Dataset: &spec.DatasetSpec{
-					Dimensions: inferDimensions(op),
-					Metrics:    inferMetrics(op),
+					Dimensions: []spec.DimensionSpec{},
+					Metrics:    []spec.MetricSpec{},
 				},
 				Exportable: true,
 			},
@@ -229,12 +230,18 @@ func pageBinding(op spec.OperationSpec, suffix string, usage spec.PageBindingUsa
 }
 
 func applySelectors(binding *spec.PageFunctionBinding, fn spec.FunctionSpec) {
-	if binding == nil || len(fn.InputSchema) == 0 {
+	if binding == nil {
 		return
 	}
-	binding.Selectors = &spec.BindingSelectors{
-		Input: spec.DefaultSelector(fn.InputSchema),
+	selectors := &spec.BindingSelectors{}
+	if len(fn.InputSchema) > 0 {
+		selectors.Input = spec.DefaultSelector(fn.InputSchema)
 	}
+	selectors.Output = defaultOutputAssignments(binding.Usage, fn.OutputSchema)
+	if len(selectors.Input.Assignments) == 0 && len(selectors.Output) == 0 {
+		return
+	}
+	binding.Selectors = selectors
 }
 
 func buildFormPresentation(op spec.OperationSpec, opts GenerateOptions) *spec.FormPresentationSpec {
@@ -387,16 +394,102 @@ func hasErrorDiagnostic(diags []spec.Diagnostic) bool {
 	return false
 }
 
-func inferDimensions(spec.OperationSpec) []spec.DimensionSpec {
-	return []spec.DimensionSpec{
-		{Key: "date", Title: spec.LocalizedText{"zh-CN": "日期"}, DataType: "date"},
+func defaultOutputAssignments(usage spec.PageBindingUsage, outputSchema spec.JSONSchema) []spec.OutputAssignment {
+	if len(outputSchema) == 0 {
+		return nil
+	}
+	switch usage {
+	case spec.BindingUsageQuery:
+		return collectionOutputAssignments(outputSchema, []string{"items", "list", "rows", "data"}, "items")
+	case spec.BindingUsageReport:
+		if source := collectionOutputSource(outputSchema, []string{"dataset", "items", "rows", "data"}); source != "" || schemaRootType(outputSchema) == "array" {
+			return []spec.OutputAssignment{{
+				StateKey: "dataset",
+				Source:   source,
+				Shape:    spec.OutputShapeDataset,
+			}}
+		}
+		return nil
+	case spec.BindingUsageAction, spec.BindingUsageDetail:
+		return []spec.OutputAssignment{{
+			StateKey: "result",
+			Source:   "",
+			Shape:    outputShapeForSchema(outputSchema),
+		}}
+	default:
+		return nil
 	}
 }
 
-func inferMetrics(spec.OperationSpec) []spec.MetricSpec {
-	return []spec.MetricSpec{
-		{Key: "count", Title: spec.LocalizedText{"zh-CN": "数量"}, DataType: "number", AggType: "sum"},
+func collectionOutputAssignments(outputSchema spec.JSONSchema, arrayKeys []string, stateKey string) []spec.OutputAssignment {
+	source := collectionOutputSource(outputSchema, arrayKeys)
+	if source == "" && schemaRootType(outputSchema) != "array" {
+		return nil
 	}
+	assignments := []spec.OutputAssignment{{
+		StateKey: stateKey,
+		Source:   source,
+		Shape:    spec.OutputShapeCollection,
+	}}
+	if totalSource := scalarPropertySource(outputSchema, []string{"total", "count", "total_count"}); totalSource != "" {
+		assignments = append(assignments, spec.OutputAssignment{
+			StateKey: "total",
+			Source:   totalSource,
+			Shape:    spec.OutputShapeScalar,
+		})
+	}
+	return assignments
+}
+
+func collectionOutputSource(outputSchema spec.JSONSchema, keys []string) string {
+	if schemaRootType(outputSchema) == "array" {
+		return ""
+	}
+	root := parseJSONObject(jsonRaw(outputSchema))
+	properties := objectProperty(root, "properties")
+	for _, key := range keys {
+		prop := objectProperty(properties, key)
+		if schemaTypeFromObject(prop) == "array" {
+			return "/" + escapeJSONPointerToken(key)
+		}
+	}
+	return ""
+}
+
+func scalarPropertySource(outputSchema spec.JSONSchema, keys []string) string {
+	root := parseJSONObject(jsonRaw(outputSchema))
+	properties := objectProperty(root, "properties")
+	for _, key := range keys {
+		prop := objectProperty(properties, key)
+		switch schemaTypeFromObject(prop) {
+		case "integer", "number":
+			return "/" + escapeJSONPointerToken(key)
+		}
+	}
+	return ""
+}
+
+func outputShapeForSchema(outputSchema spec.JSONSchema) spec.OutputResultShape {
+	switch schemaRootType(outputSchema) {
+	case "array":
+		return spec.OutputShapeCollection
+	case "object":
+		return spec.OutputShapeObject
+	default:
+		return spec.OutputShapeScalar
+	}
+}
+
+func schemaRootType(outputSchema spec.JSONSchema) string {
+	return schemaTypeFromObject(parseJSONObject(jsonRaw(outputSchema)))
+}
+
+func schemaTypeFromObject(obj map[string]json.RawMessage) string {
+	return rawString(obj["type"])
+}
+
+func jsonRaw(schema spec.JSONSchema) json.RawMessage {
+	return json.RawMessage(schema)
 }
 
 func firstNonEmpty(values ...string) string {

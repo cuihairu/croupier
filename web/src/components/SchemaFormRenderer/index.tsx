@@ -5,7 +5,7 @@
  * memory only and must not be persisted into SDK/OpenAPI/PageSpec snapshots.
  */
 
-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import Form from '@rjsf/antd';
 import type CoreForm from '@rjsf/core';
 import type { IChangeEvent } from '@rjsf/core';
@@ -221,6 +221,10 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
   ) => {
     const formRef = useRef<RJSFFormRef | null>(null);
     const currentValuesRef = useRef<FormValues>(initialValues || {});
+
+    useEffect(() => {
+      currentValuesRef.current = initialValues || {};
+    }, [initialValues]);
 
     const { schema, uiSchema } = useMemo(() => {
       const derived = deriveRuntimeSchema(spec);

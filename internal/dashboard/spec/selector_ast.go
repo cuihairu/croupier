@@ -120,6 +120,46 @@ type SelectorContext struct {
 	PageState    map[string]JSONSchema
 }
 
+// SelectorContextForBinding builds the runtime selector context for a concrete
+// page binding. It must stay aligned with PageRenderer execution contexts.
+func SelectorContextForBinding(page PageSpec, binding PageFunctionBinding) SelectorContext {
+	ctx := SelectorContext{
+		PageType:      page.Type,
+		HasListView:   page.Resource != nil && page.Resource.ListView != nil,
+		HasDetailView: page.Resource != nil && page.Resource.DetailView != nil,
+		FormSchema:    FormSchemaForBinding(page, binding),
+	}
+	if page.Resource != nil && page.Resource.ListView != nil {
+		ctx.RowSchema = page.Resource.ListView.RowSchema
+	}
+	if page.Type == PageTypeResource && binding.Usage == BindingUsageAction {
+		ctx.IsRowAction = bindingUsesRowSource(binding)
+		ctx.IsBatchAction = bindingUsesSelectionSource(binding)
+	}
+	return ctx
+}
+
+// FormSchemaForBinding returns the PageSpec form that supplies SourceForm
+// values for a binding.
+func FormSchemaForBinding(page PageSpec, binding PageFunctionBinding) JSONSchema {
+	switch {
+	case page.Operation != nil && binding.Usage == BindingUsageAction && page.Operation.Form != nil:
+		return page.Operation.Form.JSONSchema
+	case page.Task != nil && binding.Usage == BindingUsageTask && page.Task.Form != nil:
+		return page.Task.Form.JSONSchema
+	case page.Report != nil && binding.Usage == BindingUsageReport && page.Report.QueryForm != nil:
+		return page.Report.QueryForm.JSONSchema
+	case page.Resource != nil && binding.ID == "create" && page.Resource.CreateForm != nil:
+		return page.Resource.CreateForm.JSONSchema
+	case page.Resource != nil && binding.ID == "update" && page.Resource.UpdateForm != nil:
+		return page.Resource.UpdateForm.JSONSchema
+	case page.Resource != nil && binding.Usage == BindingUsageQuery:
+		return listQuerySchema(page.Resource)
+	default:
+		return nil
+	}
+}
+
 // ValidateSelector validates input selector assignments against JSON Schema.
 func ValidateSelector(selector SelectorAST, schema JSONSchema, context SelectorContext) SelectorValidationResult {
 	result := SelectorValidationResult{Valid: true}
@@ -156,6 +196,73 @@ func ValidateSelector(selector SelectorAST, schema JSONSchema, context SelectorC
 	return result
 }
 
+func bindingUsesRowSource(binding PageFunctionBinding) bool {
+	if binding.Selectors == nil {
+		return false
+	}
+	for _, assignment := range binding.Selectors.Input.Assignments {
+		if assignment.Source.Kind == SourceRow {
+			return true
+		}
+	}
+	return false
+}
+
+func bindingUsesSelectionSource(binding PageFunctionBinding) bool {
+	if binding.Selectors == nil {
+		return false
+	}
+	for _, assignment := range binding.Selectors.Input.Assignments {
+		if assignment.Source.Kind == SourceSelection {
+			return true
+		}
+	}
+	return false
+}
+
+func listQuerySchema(resource *ResourcePageSpec) JSONSchema {
+	if resource == nil || resource.ListView == nil {
+		return nil
+	}
+	properties := map[string]json.RawMessage{}
+	for _, filter := range resource.ListView.Filters {
+		if key := strings.TrimSpace(filter.Key); key != "" {
+			properties[key] = schemaForFilter(filter)
+		}
+	}
+	if resource.ListView.Pagination != nil && resource.ListView.Pagination.Enabled {
+		properties["current"] = json.RawMessage(`{"type":"integer"}`)
+		properties["pageSize"] = json.RawMessage(`{"type":"integer"}`)
+	}
+	if len(properties) == 0 {
+		return nil
+	}
+	root := map[string]json.RawMessage{
+		"type":       json.RawMessage(`"object"`),
+		"properties": mustMarshalRaw(properties),
+	}
+	return JSONSchema(mustMarshalRaw(root))
+}
+
+func schemaForFilter(filter FilterSpec) json.RawMessage {
+	switch strings.TrimSpace(filter.Type) {
+	case "number":
+		return json.RawMessage(`{"type":"number"}`)
+	case "date", "daterange":
+		return json.RawMessage(`{"type":"string"}`)
+	default:
+		return json.RawMessage(`{"type":"string"}`)
+	}
+}
+
+func mustMarshalRaw(value interface{}) json.RawMessage {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return json.RawMessage(`null`)
+	}
+	return raw
+}
+
 // ValidateOutputAssignments validates output selectors against a function output schema.
 func ValidateOutputAssignments(assignments []OutputAssignment, schema JSONSchema) SelectorValidationResult {
 	result := SelectorValidationResult{Valid: true}
@@ -173,6 +280,10 @@ func ValidateOutputAssignments(assignments []OutputAssignment, schema JSONSchema
 		}
 		if !isOutputShape(assignment.Shape) {
 			result.addError(stateKey, ErrCodeInvalidSource, "output shape is invalid")
+			continue
+		}
+		if len(schema) > 0 && !outputShapeMatchesSchema(assignment.Shape, schema, assignment.Source) {
+			result.addError(assignment.Source, ErrCodeTypeMismatch, "output source schema does not match output shape")
 		}
 	}
 	return result
@@ -436,6 +547,23 @@ func jsonSchemaTypeAssignable(targetType string, sourceType string) bool {
 		return true
 	}
 	return targetType == "number" && sourceType == "integer"
+}
+
+func outputShapeMatchesSchema(shape OutputResultShape, schema JSONSchema, source string) bool {
+	sourceType, ok := schemaTypeAtPath(schema, source)
+	if !ok || sourceType == "" {
+		return true
+	}
+	switch shape {
+	case OutputShapeCollection, OutputShapeDataset:
+		return sourceType == "array"
+	case OutputShapeObject, OutputShapeTask:
+		return sourceType == "object"
+	case OutputShapeScalar:
+		return sourceType != "array" && sourceType != "object"
+	default:
+		return true
+	}
 }
 
 // SchemaFieldSnapshot is a comparable field view extracted from the supported

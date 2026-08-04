@@ -8,11 +8,15 @@ import { request } from '@umijs/max';
 import type {
   ResourceCatalogItem,
   PageProposal,
+  ProposalInbox,
   ChangeChain,
   MergeRequest,
   MergeResponse,
-  SemanticsInfo,
   JSONValue,
+  ResourceSemanticConflicts,
+  ResourceSemanticVersions,
+  ResolveSemanticConflictRequest,
+  UpdateResourceSemanticsRequest,
 } from '@/types/dashboard';
 
 const BASE_URL = '/api/v1';
@@ -38,10 +42,40 @@ export async function getResourceDetail(resourceKey: string): Promise<ResourceCa
 /** 更新资源语义 */
 export async function updateResourceSemantics(
   resourceKey: string,
-  data: Partial<SemanticsInfo> & { changeReason?: string },
+  data: UpdateResourceSemanticsRequest,
 ): Promise<{ version: number; source: string; message: string }> {
   return request(`${BASE_URL}/resource-catalog/${resourceKey}/semantics`, {
     method: 'PUT',
+    data,
+  });
+}
+
+/** 获取资源语义冲突和来源 */
+export async function getResourceSemanticConflicts(
+  resourceKey: string,
+): Promise<ResourceSemanticConflicts> {
+  return request(`${BASE_URL}/resource-catalog/${resourceKey}/conflicts`, {
+    method: 'GET',
+  });
+}
+
+/** 获取资源语义版本历史 */
+export async function getResourceSemanticVersions(
+  resourceKey: string,
+): Promise<ResourceSemanticVersions> {
+  return request(`${BASE_URL}/resource-catalog/${resourceKey}/semantics/versions`, {
+    method: 'GET',
+  });
+}
+
+/** 解决资源语义冲突 */
+export async function resolveResourceSemanticConflict(
+  resourceKey: string,
+  field: string,
+  data: ResolveSemanticConflictRequest,
+): Promise<{ message: string }> {
+  return request(`${BASE_URL}/resource-catalog/${resourceKey}/conflicts/${field}/resolve`, {
+    method: 'POST',
     data,
   });
 }
@@ -131,8 +165,21 @@ export async function getContract(functionId: string): Promise<JSONValue> {
 }
 
 /** 列出提案 */
-export async function listProposals(params?: { status?: string }): Promise<PageProposal[]> {
+export async function listProposals(params?: {
+  status?: string;
+  resourceKey?: string;
+}): Promise<PageProposal[]> {
   return request(`${BASE_URL}/proposals`, {
+    method: 'GET',
+    params,
+  });
+}
+
+/** 获取 Page Studio 三队列入口 */
+export async function listProposalInbox(params?: {
+  resourceKey?: string;
+}): Promise<ProposalInbox> {
+  return request(`${BASE_URL}/proposals/inbox`, {
     method: 'GET',
     params,
   });
@@ -148,6 +195,15 @@ export async function getProposal(proposalKey: string): Promise<PageProposal> {
 /** 接受提案 */
 export async function acceptProposal(proposalKey: string): Promise<{ message: string }> {
   return request(`${BASE_URL}/proposals/${proposalKey}/accept`, {
+    method: 'POST',
+  });
+}
+
+/** 接受并直接发布提案 */
+export async function acceptAndPublishProposal(
+  proposalKey: string,
+): Promise<{ pageKey: string; draftRevision: number; publishedVersion: number }> {
+  return request(`${BASE_URL}/proposals/${proposalKey}/accept-and-publish`, {
     method: 'POST',
   });
 }

@@ -37,6 +37,7 @@ import type {
   PageFunctionBinding,
   PageExecuteFn,
   TaskStatusResult,
+  ApprovalStatusResult,
   FormValues,
   JSONValue,
 } from '@/types/dashboard';
@@ -60,6 +61,8 @@ export interface TaskPageRendererProps {
   onCancelTask?: (taskId: string) => Promise<void>;
   /** 重试任务 */
   onRetryTask?: (taskId: string) => Promise<void>;
+  /** 查询审批状态 */
+  onQueryApprovalStatus?: (approvalId: string) => Promise<ApprovalStatusResult>;
   /** 页面标题 */
   title?: string;
 }
@@ -109,10 +112,13 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   onQueryStatus,
   onCancelTask,
   onRetryTask,
+  onQueryApprovalStatus,
   title,
 }) => {
   const [loading, setLoading] = useState(false);
   const [taskStatus, setTaskStatus] = useState<TaskStatusResult | null>(null);
+  const [approvalId, setApprovalId] = useState<string>('');
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatusResult | null>(null);
   const [polling, setPolling] = useState(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -188,9 +194,22 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
 
       setLoading(true);
       setTaskStatus(null);
+      setApprovalId('');
+      setApprovalStatus(null);
 
       try {
         const response = await onExecute(mainBinding.id, { form: values });
+        if (response.kind === 'approval') {
+          const nextApprovalId = response.approvalId || response.requestId;
+          setApprovalId(nextApprovalId);
+          setTaskStatus({
+            taskId: nextApprovalId,
+            status: 'pending',
+            message: '任务已提交审批，审批通过后才会启动任务',
+          });
+          message.info('任务已提交审批');
+          return;
+        }
         const { taskId } = response;
 
         if (taskId) {
@@ -247,6 +266,18 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
     }
   }, [taskStatus?.taskId, onRetryTask, startPolling]);
 
+  const refreshApproval = useCallback(async () => {
+    if (!approvalId || !onQueryApprovalStatus) {
+      return;
+    }
+    try {
+      setApprovalStatus(await onQueryApprovalStatus(approvalId));
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : '审批状态查询失败';
+      message.error(msg);
+    }
+  }, [approvalId, onQueryApprovalStatus]);
+
   // 渲染任务进度
   const renderTaskProgress = () => {
     if (!taskStatus) {
@@ -277,6 +308,15 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
             <Alert message={taskStatus.message} type="info" />
           )}
 
+          {approvalId ? (
+            <Alert
+              message={approvalStatus ? `审批状态：${approvalStatus.status}` : '等待审批'}
+              description={approvalStatus?.reason || approvalStatus?.updatedAt}
+              type={approvalStatus?.status === 'rejected' ? 'error' : approvalStatus?.status === 'approved' ? 'success' : 'info'}
+              showIcon
+            />
+          ) : null}
+
           {/* 错误信息 */}
           {taskStatus.error && (
             <Alert message={taskStatus.error} type="error" />
@@ -294,9 +334,16 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
                 重试
               </Button>
             )}
-            <Button icon={<SyncOutlined />} onClick={() => pollTaskStatus(taskStatus.taskId)} loading={polling}>
-              刷新
-            </Button>
+            {!approvalId ? (
+              <Button icon={<SyncOutlined />} onClick={() => pollTaskStatus(taskStatus.taskId)} loading={polling}>
+                刷新
+              </Button>
+            ) : null}
+            {approvalId && onQueryApprovalStatus ? (
+              <Button onClick={refreshApproval}>
+                刷新审批状态
+              </Button>
+            ) : null}
           </Space>
         </Space>
       </Card>

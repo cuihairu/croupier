@@ -30,10 +30,10 @@ async function login(page: Page) {
   // 等待页面完全加载
   await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(5000); // 等待 React 渲染
-  // 等待表单出现 - 使用 placeholder
+  // 等待表单出现 - 使用 ProFormText 的 placeholder
   await page.waitForSelector('input[placeholder*="admin"]', { timeout: 60000 });
   await page.fill('input[placeholder*="admin"]', 'admin');
-  await page.fill('input[placeholder*="Password"]', 'admin123');
+  await page.fill('input[type="password"]', 'ant.design');
   await page.click('button:has-text("Login")');
   // 等待登录成功 - 导航到首页或 dashboard
   await page.waitForURL(/\/(dashboard|$)/, { timeout: 60000 });

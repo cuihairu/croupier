@@ -114,7 +114,17 @@ func EvaluateBinding(
 			"bindingContracts."+bindingID+".governance",
 		))
 	}
-	if binding.Execution.Mode != contract.ExecutionMode {
+	if fn.Approval.Required != contract.Approval.Required || strings.TrimSpace(fn.Approval.PolicyKey) != strings.TrimSpace(contract.Approval.PolicyKey) {
+		out = append(out, bindingFreshnessDiagnostic(
+			bindingID,
+			functionID,
+			spec.BindingFreshnessGovernanceStale,
+			"binding_approval_stale",
+			"bound function approval policy changed; review governance and publish a new page snapshot",
+			"bindingContracts."+bindingID+".approval",
+		))
+	}
+	if executionModeForFunction(fn) != contract.ExecutionMode || binding.Execution.Mode != contract.ExecutionMode {
 		out = append(out, bindingFreshnessDiagnostic(
 			bindingID,
 			functionID,
@@ -125,6 +135,13 @@ func EvaluateBinding(
 		))
 	}
 	return out
+}
+
+func executionModeForFunction(fn spec.FunctionSpec) spec.PageExecutionMode {
+	if fn.Execution == spec.FunctionExecutionTask {
+		return spec.PageExecutionModeTask
+	}
+	return spec.PageExecutionModeSync
 }
 
 func selectorFreshnessDiagnostics(

@@ -208,6 +208,8 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 			ps.CreatedAt = existing.CreatedAt
 			ps.PublishedVersion = existing.PublishedVersion
 			ps.PublishedActive = existing.PublishedActive
+			ps.BaseProposalKey = existing.BaseProposalKey
+			ps.BaseProposalVersion = existing.BaseProposalVersion
 			ps.DraftRevision = existing.DraftRevision + 1
 		} else {
 			ps.CreatedAt = now
@@ -287,6 +289,10 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 	p.UpdatedBy = actor
 	p.UpdatedAt = now
 	p.DraftRevision++
+	if proposalKey := proposalKeyForGeneratedPage(generated); proposalKey != "" {
+		p.BaseProposalKey = proposalKey
+		p.BaseProposalVersion = latestProposalVersion(ctx, s.svcCtx.DB, gameID, env, proposalKey)
+	}
 
 	specJSON, err := buildPageSpecJSON(p)
 	if err != nil {
@@ -601,6 +607,8 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 	p.DraftRevision++
 	p.Status = "draft"
 	p.UpdatedAt = time.Now()
+	p.BaseProposalKey = ""
+	p.BaseProposalVersion = 0
 	specJSON, err := buildPageSpecJSON(p)
 	if err != nil {
 		return nil, err
@@ -715,6 +723,9 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 		diags = append(diags, diagnostic("bindings_missing", spec.SeverityError, "page must bind at least one function", "bindings"))
 	}
 	diags = append(diags, validatePageShape(page)...)
+	if publish {
+		diags = append(diags, spec.ValidatePublishablePageShape(page)...)
+	}
 
 	bindingsByID := map[string]spec.PageFunctionBinding{}
 	functions := s.normalizedFunctions(ctx)
@@ -841,29 +852,37 @@ func validateBinding(field string, binding spec.PageFunctionBinding, functions m
 
 func validatePublishBindingSelectors(field string, binding spec.PageFunctionBinding, fn spec.FunctionSpec, page spec.PageSpec) []spec.Diagnostic {
 	var diags []spec.Diagnostic
-	if len(fn.InputSchema) == 0 || !schemaHasFields(fn.InputSchema) {
-		return diags
-	}
-	if binding.Selectors == nil {
+	requiresInputSelectors := len(fn.InputSchema) > 0 && schemaHasFields(fn.InputSchema)
+	requiresOutputSelectors := bindingRequiresOutputSelectors(binding, page)
+	if binding.Selectors == nil && requiresInputSelectors {
 		diags = append(diags, diagnostic("binding_selector_missing", spec.SeverityError, "binding.selectors.input is required before publish", field+".selectors.input"))
 		return diags
 	}
-	result := spec.ValidateSelector(binding.Selectors.Input, fn.InputSchema, selectorContextForPage(page))
-	for _, item := range result.Errors {
-		fieldPath := field + ".selectors.input"
-		if strings.TrimSpace(item.Field) != "" {
-			fieldPath += "." + item.Field
-		}
-		diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityError, item.Message, fieldPath))
+	if binding.Selectors == nil && requiresOutputSelectors {
+		diags = append(diags, diagnostic("binding_output_selector_missing", spec.SeverityError, "binding.selectors.output is required before publish", field+".selectors.output"))
+		return diags
 	}
-	for _, item := range result.Warnings {
-		fieldPath := field + ".selectors.input"
-		if strings.TrimSpace(item.Field) != "" {
-			fieldPath += "." + item.Field
+	if binding.Selectors != nil && requiresInputSelectors {
+		result := spec.ValidateSelector(binding.Selectors.Input, fn.InputSchema, spec.SelectorContextForBinding(page, binding))
+		for _, item := range result.Errors {
+			fieldPath := field + ".selectors.input"
+			if strings.TrimSpace(item.Field) != "" {
+				fieldPath += "." + item.Field
+			}
+			diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityError, item.Message, fieldPath))
 		}
-		diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityWarning, item.Message, fieldPath))
+		for _, item := range result.Warnings {
+			fieldPath := field + ".selectors.input"
+			if strings.TrimSpace(item.Field) != "" {
+				fieldPath += "." + item.Field
+			}
+			diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityWarning, item.Message, fieldPath))
+		}
 	}
-	if len(binding.Selectors.Output) > 0 {
+	if binding.Selectors != nil && requiresOutputSelectors && len(binding.Selectors.Output) == 0 {
+		diags = append(diags, diagnostic("binding_output_selector_missing", spec.SeverityError, "binding.selectors.output is required before publish", field+".selectors.output"))
+	}
+	if binding.Selectors != nil && len(binding.Selectors.Output) > 0 {
 		outputResult := spec.ValidateOutputAssignments(binding.Selectors.Output, fn.OutputSchema)
 		for _, item := range outputResult.Errors {
 			fieldPath := field + ".selectors.output"
@@ -880,30 +899,21 @@ func validatePublishBindingSelectors(field string, binding spec.PageFunctionBind
 			diags = append(diags, diagnostic("binding_selector_"+item.Code, spec.SeverityWarning, item.Message, fieldPath))
 		}
 	}
+	for _, item := range spec.ValidateRequiredOutputAssignments(binding, page) {
+		item.Field = field + ".selectors.output"
+		diags = append(diags, item)
+	}
 	return diags
 }
 
-func selectorContextForPage(page spec.PageSpec) spec.SelectorContext {
-	return spec.SelectorContext{
-		PageType:      page.Type,
-		HasListView:   page.Resource != nil && page.Resource.ListView != nil,
-		HasDetailView: page.Resource != nil && page.Resource.DetailView != nil,
-		FormSchema:    primaryFormSchema(page),
-	}
-}
-
-func primaryFormSchema(page spec.PageSpec) spec.JSONSchema {
-	switch {
-	case page.Operation != nil && page.Operation.Form != nil:
-		return page.Operation.Form.JSONSchema
-	case page.Task != nil && page.Task.Form != nil:
-		return page.Task.Form.JSONSchema
-	case page.Report != nil && page.Report.QueryForm != nil:
-		return page.Report.QueryForm.JSONSchema
-	case page.Resource != nil && page.Resource.CreateForm != nil:
-		return page.Resource.CreateForm.JSONSchema
+func bindingRequiresOutputSelectors(binding spec.PageFunctionBinding, page spec.PageSpec) bool {
+	switch binding.Usage {
+	case spec.BindingUsageQuery:
+		return page.Type == spec.PageTypeResource
+	case spec.BindingUsageReport:
+		return page.Type == spec.PageTypeReport
 	default:
-		return nil
+		return false
 	}
 }
 
@@ -959,6 +969,7 @@ func buildBindingContracts(bindings []spec.PageFunctionBinding, functions map[st
 			OutputSchemaDigest:    digestRaw(fn.OutputSchema),
 			Risk:                  fn.Risk,
 			Permission:            strings.TrimSpace(fn.Permission),
+			Approval:              fn.Approval,
 			ExecutionMode:         binding.Execution.Mode,
 			RendererSchemaVersion: rendererSchemaVersion,
 		})
@@ -1140,6 +1151,26 @@ func generatedPageKeys(pages []spec.GeneratedPageSpec) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func proposalKeyForGeneratedPage(page spec.GeneratedPageSpec) string {
+	sourceKey := strings.TrimSpace(page.ResourceKey)
+	if page.Type == spec.PageTypeResource && sourceKey != "" {
+		return "resource:" + sourceKey
+	}
+	return ""
+}
+
+func latestProposalVersion(ctx context.Context, db *gorm.DB, gameID, env, proposalKey string) int {
+	proposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, gameID, env, proposalKey)
+	if err != nil || proposal == nil {
+		return 0
+	}
+	version, err := model.NewPageProposalVersionModel(db).LatestByProposalID(ctx, proposal.ID)
+	if err != nil || version == nil {
+		return 0
+	}
+	return version.Version
 }
 
 func (s *Service) requirePageRead(ctx context.Context) error {

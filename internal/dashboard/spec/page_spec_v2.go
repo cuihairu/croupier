@@ -37,6 +37,12 @@ type ResourcePageSpec struct {
 
 // ListViewSpec defines the list view configuration.
 type ListViewSpec struct {
+	// IdentityKey identifies the stable row key in collection items.
+	IdentityKey string `json:"identityKey,omitempty"`
+
+	// RowSchema freezes the item shape used by row/detail/action selectors.
+	RowSchema JSONSchema `json:"rowSchema,omitempty"`
+
 	// Columns to display
 	Columns []ColumnSpec `json:"columns"`
 

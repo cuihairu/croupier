@@ -30,22 +30,48 @@ import {
   EditOutlined,
   DeleteOutlined,
   ReloadOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import SchemaFormRenderer, {
   type SchemaFormRendererHandle,
 } from '@/components/SchemaFormRenderer';
+import {
+  getPageStateArray,
+  getPageStateNumber,
+  mergePageState,
+  outputPatchFromResult,
+} from './runtime';
 import type {
   ResourcePageSpec,
   ColumnSpec,
   ActionSpec,
   PageFunctionBinding,
   PageExecuteFn,
-  JSONValue,
   FormValues,
+  JSONValue,
 } from '@/types/dashboard';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 
 const { Text } = Typography;
+
+function renderJsonValue(value: JSONValue | undefined): React.ReactNode {
+  if (value === undefined || value === null) {
+    return '-';
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return (
+    <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+      {JSON.stringify(value, null, 2)}
+    </pre>
+  );
+}
+
+type TableRequestParams = FormValues & {
+  current?: number;
+  pageSize?: number;
+};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -60,8 +86,6 @@ export interface ResourcePageRendererProps {
   onExecute: PageExecuteFn;
   /** 页面标题 */
   title?: string;
-  /** 资源标识字段 */
-  identityField?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +167,6 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   bindings,
   onExecute,
   title,
-  identityField = 'id',
 }) => {
   const actionRef = useRef<ActionType>();
   const createFormRef = useRef<SchemaFormRendererHandle | null>(null);
@@ -159,19 +182,22 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const createBinding = bindings.find((b) => b.id === 'create');
   const updateBinding = bindings.find((b) => b.id === 'update');
   const deleteBinding = bindings.find((b) => b.id === 'delete');
+  const rowIdentityKey = spec.listView?.identityKey || spec.listView?.columns.find((column) => column.fixed === 'left')?.key || 'id';
 
   // 处理列表数据请求
   const handleRequest = useCallback(
-    async (params: FormValues) => {
+    async (params: TableRequestParams) => {
       if (!listBinding) {
         return { data: [], total: 0 };
       }
       try {
         const result = await onExecute(listBinding.id, { form: params });
-        const data = result.data as Record<string, JSONValue> | undefined;
+        const nextState = mergePageState({}, outputPatchFromResult(listBinding, result));
+        const rows = getPageStateArray(nextState, 'items');
+        const total = getPageStateNumber(nextState, 'total');
         return {
-          data: (data?.items as FormValues[]) || [],
-          total: (data?.total as number) || 0,
+          data: rows,
+          total: total ?? rows.length,
         };
       } catch {
         message.error('获取数据失败');
@@ -296,14 +322,27 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const columns: ProColumns[] = spec.listView?.columns.map(columnSpecToProColumn) || [];
 
   // 添加操作列
-  if (spec.listView?.rowActions && spec.listView.rowActions.length > 0) {
+  if (spec.detailView || (spec.listView?.rowActions && spec.listView.rowActions.length > 0) || deleteBinding) {
     columns.push({
       title: '操作',
       valueType: 'option',
       key: 'action',
       render: (_, record) => (
         <Space>
-          {spec.listView!.rowActions!.map((action) => (
+          {spec.detailView ? (
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setCurrentRecord(record);
+                setDetailDrawerVisible(true);
+              }}
+            >
+              查看
+            </Button>
+          ) : null}
+          {(spec.listView?.rowActions || []).map((action) => (
             <Button
               key={action.key}
               type={action.type === 'primary' ? 'primary' : 'link'}
@@ -343,7 +382,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       <ProTable
         headerTitle={title || spec.listView?.columns[0]?.title?.['zh-CN'] || '资源列表'}
         actionRef={actionRef}
-        rowKey={identityField}
+        rowKey={(record) => String(record[rowIdentityKey] ?? record.id ?? record.key ?? '')}
         columns={columns}
         request={handleRequest}
         search={{
@@ -433,7 +472,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                   label={field.title['zh-CN'] || field.title['en'] || field.key}
                   span={field.span}
                 >
-                  {currentRecord[field.key] as React.ReactNode}
+                  {renderJsonValue(currentRecord[field.key])}
                 </ProDescriptions.Item>
               ))}
           </ProDescriptions>

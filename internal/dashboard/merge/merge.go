@@ -5,6 +5,7 @@ package merge
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -193,6 +194,12 @@ func compareField(prefix, field string, base, draft, latest json.RawMessage, res
 	if bytesEqual(base, draft) && bytesEqual(draft, latest) {
 		return
 	}
+	if bytesEqual(base, latest) {
+		return
+	}
+	if bytesEqual(draft, latest) {
+		return
+	}
 
 	// Check if this is an auto-merge field
 	if isAutoMergeField(fullField) {
@@ -290,7 +297,7 @@ func compareColumns(base, draft, latest []spec.ColumnSpec, result *MergeResult) 
 	}
 
 	for i := 0; i < maxLen; i++ {
-		prefix := "resource.listView.columns[" + string(rune('0'+i)) + "]"
+		prefix := "resource.listView.columns[" + strconv.Itoa(i) + "]"
 		var baseCol, draftCol, latestCol *spec.ColumnSpec
 		if i < len(base) {
 			baseCol = &base[i]
@@ -322,7 +329,7 @@ func compareDetailFields(base, draft, latest []spec.DetailFieldSpec, result *Mer
 	}
 
 	for i := 0; i < maxLen; i++ {
-		prefix := "resource.detailView.fields[" + string(rune('0'+i)) + "]"
+		prefix := "resource.detailView.fields[" + strconv.Itoa(i) + "]"
 		var baseField, draftField, latestField *spec.DetailFieldSpec
 		if i < len(base) {
 			baseField = &base[i]
@@ -352,7 +359,7 @@ func compareFormFields(base, draft, latest []spec.FormFieldSpec, prefix string, 
 	}
 
 	for i := 0; i < maxLen; i++ {
-		fieldPrefix := prefix + ".fields[" + string(rune('0'+i)) + "]"
+		fieldPrefix := prefix + ".fields[" + strconv.Itoa(i) + "]"
 		var baseField, draftField, latestField *spec.FormFieldSpec
 		if i < len(base) {
 			baseField = &base[i]
@@ -384,7 +391,7 @@ func compareCharts(base, draft, latest []spec.ChartSpec, result *MergeResult) {
 	}
 
 	for i := 0; i < maxLen; i++ {
-		prefix := "report.charts[" + string(rune('0'+i)) + "]"
+		prefix := "report.charts[" + strconv.Itoa(i) + "]"
 		var baseChart, draftChart, latestChart *spec.ChartSpec
 		if i < len(base) {
 			baseChart = &base[i]
@@ -435,10 +442,23 @@ func isConflictField(field string) bool {
 }
 
 func matchPattern(pattern, field string) bool {
-	// Simple pattern matching for array indices
-	// e.g., "columns[].title" matches "columns[0].title"
-	pattern = strings.ReplaceAll(pattern, "[]", "[")
-	return strings.HasPrefix(field, pattern)
+	if !strings.Contains(pattern, "[]") {
+		return pattern == field
+	}
+	parts := strings.Split(pattern, "[]")
+	if len(parts) != 2 {
+		return false
+	}
+	prefix, suffix := parts[0], parts[1]
+	if !strings.HasPrefix(field, prefix+"[") || !strings.HasSuffix(field, suffix) {
+		return false
+	}
+	indexPart := strings.TrimSuffix(strings.TrimPrefix(field, prefix+"["), "]"+suffix)
+	if indexPart == "" {
+		return false
+	}
+	_, err := strconv.Atoi(indexPart)
+	return err == nil
 }
 
 func toJSON(v interface{}) json.RawMessage {

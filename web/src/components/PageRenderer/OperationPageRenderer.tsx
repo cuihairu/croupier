@@ -17,10 +17,15 @@ import {
   message,
   Result,
   Descriptions,
+  Alert,
+  Space,
+  Typography,
 } from 'antd';
 import {
   CheckCircleOutlined,
+  ClockCircleOutlined,
   CloseCircleOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import type {
@@ -29,6 +34,7 @@ import type {
   PageFunctionBinding,
   PageExecuteFn,
   PageExecutionResult,
+  ApprovalStatusResult,
   JSONValue,
   FormValues,
 } from '@/types/dashboard';
@@ -44,6 +50,8 @@ export interface OperationPageRendererProps {
   bindings: PageFunctionBinding[];
   /** 执行绑定函数 */
   onExecute: PageExecuteFn;
+  /** 查询审批状态 */
+  onQueryApprovalStatus?: (approvalId: string) => Promise<ApprovalStatusResult>;
   /** 页面标题 */
   title?: string;
 }
@@ -91,10 +99,12 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   spec,
   bindings,
   onExecute,
+  onQueryApprovalStatus,
   title,
 }) => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PageExecutionResult | null>(null);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatusResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
@@ -121,12 +131,17 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       setLoading(true);
       setError(null);
       setResult(null);
+      setApprovalStatus(null);
 
       try {
         const response = await onExecute(mainBinding.id, { form: values });
         setResult(response);
 
-        if (spec.resultView?.successMessage) {
+        if (response.kind === 'approval') {
+          message.info('操作已提交审批');
+        } else if (response.kind === 'task') {
+          message.success('任务已提交');
+        } else if (spec.resultView?.successMessage) {
           message.success(
             spec.resultView.successMessage['zh-CN'] || '操作成功'
           );
@@ -158,14 +173,21 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     }
 
     setConfirmVisible(false);
-    setLoading(true);
-    setError(null);
-    setResult(null);
+      setLoading(true);
+      setError(null);
+      setResult(null);
+      setApprovalStatus(null);
 
     try {
       const response = await onExecute(mainBinding.id, { form: pendingValues });
       setResult(response);
-      message.success('操作成功');
+      if (response.kind === 'approval') {
+        message.info('操作已提交审批');
+      } else if (response.kind === 'task') {
+        message.success('任务已提交');
+      } else {
+        message.success('操作成功');
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '操作失败';
       setError(msg);
@@ -179,8 +201,22 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   // 重置
   const handleReset = useCallback(() => {
     setResult(null);
+    setApprovalStatus(null);
     setError(null);
   }, []);
+
+  const refreshApproval = useCallback(async () => {
+    const approvalId = result?.approvalId;
+    if (!approvalId || !onQueryApprovalStatus) {
+      return;
+    }
+    try {
+      setApprovalStatus(await onQueryApprovalStatus(approvalId));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '审批状态查询失败';
+      message.error(msg);
+    }
+  }, [onQueryApprovalStatus, result?.approvalId]);
 
   return (
     <div>
@@ -230,6 +266,43 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
               title="操作失败"
               subTitle={error}
               icon={<CloseCircleOutlined />}
+            />
+          ) : result?.kind === 'approval' ? (
+            <Result
+              status="info"
+              title="等待审批"
+              subTitle="审批通过后才会继续执行，请在审批中心查看状态。"
+              icon={<ClockCircleOutlined />}
+              extra={
+                <Space direction="vertical">
+                  <Alert
+                    type="info"
+                    showIcon
+                    message="操作尚未完成"
+                    description="当前返回的是 approvalId，不代表业务执行成功。"
+                  />
+                  <Typography.Text code>{result.approvalId || result.requestId}</Typography.Text>
+                  {approvalStatus ? (
+                    <Alert
+                      type={approvalStatus.status === 'rejected' ? 'error' : approvalStatus.status === 'approved' ? 'success' : 'info'}
+                      showIcon
+                      message={`审批状态：${approvalStatus.status}`}
+                      description={approvalStatus.reason || approvalStatus.updatedAt || undefined}
+                    />
+                  ) : null}
+                  {result.approvalId && onQueryApprovalStatus ? (
+                    <Button onClick={refreshApproval}>刷新审批状态</Button>
+                  ) : null}
+                </Space>
+              }
+            />
+          ) : result?.kind === 'task' ? (
+            <Result
+              status="info"
+              title="任务已提交"
+              subTitle="异步任务仍在执行，请在任务中心或任务页面查看进度。"
+              icon={<SyncOutlined spin />}
+              extra={<Typography.Text code>{result.taskId || result.requestId}</Typography.Text>}
             />
           ) : (
             <Result

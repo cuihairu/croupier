@@ -265,7 +265,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - `@rjsf/*` 只作为前端 renderer adapter；rjsf `uiSchema` 只能从 `FormPresentationSpec` 内存派生，不进入 SDK/OpenAPI/PageSpec/发布快照。
 - 已重新验证：`rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json` 无命中；`rg "form-render|FormRender|FunctionFormManager" web/src web/package.json internal` 只剩 `SchemaFormRenderer` 正向命中。
 - 待重新验证的观察项（不是完成证据）：Functions Invoke、PageRenderer 的 Operation/Resource/Task/Report/Approval 表单和 Assignments 弹窗似乎已接入同一个 `SchemaFormRenderer`。必须在浏览器 POC 中逐路径实测后才可作为证据。
-- 已重新验证：`cd "web" && pnpm exec tsc --noEmit` 通过。P0-0 仍不能仅因类型检查通过就标记完成，浏览器 POC、真实游戏 JSON Schema 和单路径复用验收仍未完成。
+- 已重新验证：目标 renderer 文件的 `pnpm --dir "web" exec eslint "src/components/PageRenderer/runtime.ts" "src/components/PageRenderer/index.tsx" "src/components/PageRenderer/ResourcePageRenderer.tsx" "src/components/PageRenderer/ReportPageRenderer.tsx" "src/types/dashboard.ts"` 通过。全量 `cd "web" && pnpm exec tsc --noEmit` 仍被仓库既有 `@umijs/max` 类型导出与旧页面 implicit any 阻断，不能作为 P0-0/P4/P6 完成证据；浏览器 POC、真实游戏 JSON Schema 和单路径复用验收仍未完成。
 
 实施顺序：
 
@@ -290,7 +290,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 #### P0-2. 盘点保留/删除代码
 
-当前盘点事实（2026-08-02，本轮验证）：
+当前盘点事实（2026-08-04，本轮验证）：
 
 - 已物理删除旧 split-model 页面入口：`web/src/pages/PageStudioV2`。
 - 已物理删除独立 `ApprovalPageRenderer` 文件；Approval 仍必须作为 OperationPage/TaskPage 的治理状态实现，不得恢复第五种页面类型。
@@ -299,7 +299,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - 已增强 `scripts/dashboard_vnext_guard.sh`：阻止 Formily/form-render/FunctionFormManager/旧 fallback form API 和 `PageStudioV2` 回流，并验证唯一 `SchemaFormRenderer` 使用 `@rjsf/antd + @rjsf/validator-ajv8`。
 - 已将 FunctionContract/descriptor 层 `execution` 收敛为 `sync|task`：删除 `FunctionExecutionApproval`、generator approval execution 分支、OpenAPI `x-execution=approval` 校验提示和 proto 注释残留。`approval` 仅保留为执行结果 kind、审计 trace 字段和独立治理策略语义。
 - Protobuf 生成文件不得手工修改：本轮只保留 `.proto` 源文件与非生成 SDK 源码注释变更；`pkg/pb/**`、`sdks/go/pkg/pb/**`、C#/C++/Python generated protobuf 产物必须由统一生成命令刷新。
-- 当前已重新验证命令（2026-08-03）：`bash "scripts/dashboard_vnext_guard.sh"`；`rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json`；`rg "form-render|FormRender|FunctionFormManager" web/src web/package.json internal`；`GOCACHE="/tmp/croupier-go-build" go test ./internal/service ./internal/dashboard/generator ./internal/platform/registry ./internal/service/versioning ./internal/api/page ./internal/api/console ./internal/api/resource ./internal/api/resourcecatalog ./internal/dashboard/...`；`cd "web" && pnpm exec tsc --noEmit`。
+- 当前已重新验证命令（2026-08-04）：`bash "scripts/dashboard_vnext_guard.sh"`；`rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json`；`rg "form-render|FormRender|FunctionFormManager" web/src web/package.json internal`；`GOCACHE="/tmp/croupier-go-build" go test ./internal/service ./internal/dashboard/generator ./internal/platform/registry ./internal/service/versioning ./internal/api/page ./internal/api/console ./internal/api/resource ./internal/api/resourcecatalog ./internal/dashboard/...`；`pnpm --dir "web" exec eslint "src/components/PageRenderer/runtime.ts" "src/components/PageRenderer/index.tsx" "src/components/PageRenderer/ResourcePageRenderer.tsx" "src/components/PageRenderer/ReportPageRenderer.tsx" "src/types/dashboard.ts"`。
 - 当前未完成检查：全量 Playwright E2E、docs build、SDK parity、部署验证；全量 `go test ./...`/`go test ./internal/...` 仍不能在当前受限环境下作为完成证据，因为 `internal/agent` 的 TCP listener 测试会遇到 `socket: operation not permitted`。
 
 仍需继续修复的旧模型事实：
@@ -390,7 +390,8 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 当前本地事实（2026-08-04，本轮验证）：
 
 - selector DTO 已改为文档要求的形状：`InputAssignment.target/source.path` 使用 JSON Pointer，`ValueSource.kind` 替代旧 `source.type`，`page_state` 显式携带 `key`，`BindingSelectors.output` 使用独立 `OutputAssignment[]`。
-- 服务端发布校验已覆盖 input selector required/path/type 和 output selector source/stateKey/shape；旧点分 path 会被拒绝。
+- 服务端发布校验已覆盖 input selector required/path/type 和 output selector source/stateKey/shape；旧点分 path 会被拒绝。`ValidateOutputAssignments` 现在还会校验 output shape 与 schema 对齐：`collection/dataset` 必须映射数组，`object/task` 必须映射对象。
+- 已新增 `SelectorContextForBinding`：发布校验会区分 query/create/update/report/task 的 formSchema，并对 ResourcePage 注入 `rowSchema`；update/delete/row action 的 row selector 不再被当作普通 form selector 误判。
 - 已新增 `testdata/dashboard_selector_vectors.json` 作为前后端共享 selector 协议向量；Go spec 测试和前端 Jest DTO 测试均读取同一份向量。
 - 已新增 schema field diff、低置信 field rename candidate 和 selector stale diagnostics helper；freshness 诊断会在 schema digest 变化时附带 selector 失效原因。
 - 仍未完成：CapabilitySemantics 语义校验、Page Studio 中的 selector 冲突处理体验和浏览器 E2E 还没有闭环，P3-a-2 不能勾选完成。
@@ -415,7 +416,11 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - `blocked` 已从 Proposal quality 中移除；当前阻断接受/发布依赖 error diagnostics，而不是 quality 枚举。
 - 已实现发布时同 scope、同 `category.key` 的 `category.labels` 完全一致性校验；冲突会阻断发布，避免动态菜单分类文本由运行时仲裁。
 - 已实现 BlockedProposalIssue 物化：`spec.BlockedProposalIssue` 类型、GORM 模型、`ShouldBlockProposal` 和 `CreateBlockedProposalIssue` 函数。
-- 仍未完成：P3-a 全量前置审计、Task/Report/Approval 的真实浏览器路径，以及 P3-b 的 stale/diff/合并闭环；因此 P2 仍不能勾选完成。
+- Resource generator 现在会为 `ListViewSpec` 生成 `identityKey`、`rowSchema`、默认筛选字段候选，并且只在输入契约同时存在 `page/page_size` 时启用分页；collection query selector 会把函数输入的 `page/page_size` 映射到前端查询上下文的 `current/pageSize`。
+- Resource/Report 发布校验已收紧为 renderer ABI：ResourcePage 必须有 `listView.identityKey` 且引用实际列；Resource query 必须把集合结果映射到 `pageState.items`；ReportPage 发布前必须有 `dataset.dimensions`、`dataset.metrics`，且 Report binding 必须把数组结果映射到 `pageState.dataset`。
+- P3-a 已有局部实现：Canonical PageSpec DTO、Typed selector AST、发布校验、schema field diff 和 selector stale diagnostics 已落地；CapabilitySemantics 语义校验与 Page Studio 中的 selector/语义冲突处理仍未完成产品闭环。
+- P3-b 已有后端雏形：ThreeWayMerge、安全集/冲突集类型与部分服务入口已存在；Draft/Published stale 队列、冲突确认 UI、回滚/重新发布真实闭环仍未验收。
+- 仍未完成：Task/Report/Approval 的真实浏览器路径、P3-a/P3-b 产品闭环和浏览器 E2E；因此 P2 仍不能勾选完成。
 
 #### P2-1. Proposal 数据模型和生成作业
 
@@ -555,7 +560,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 状态：待重新审核。
 
-- 当前事实（2026-08-04）：Console execute 已切到 `context` 协议，浏览器只提交 form/row/selection/detail/pageState 来源值；服务端在 stale/snapshot 校验通过后，按 PublishedPageSpec 的 typed selector 构造函数 payload，再用当前 FunctionSpec input schema 做最终 JSON Schema 校验。ResourcePage renderer 已停止裸 payload/整行透传；query/create/operation/task/report 传 `form`，update/delete/row action 传 `row`；ResourcePage 生成器会把 update/delete 的 identity selector 切到 row 来源，并从 update form 中剔除 identity 字段，避免用户编辑一个不会生效的字段。已验证 `GOCACHE="/tmp/croupier-go-build" go test ./internal/dashboard/generator ./internal/api/console ./internal/api/resourcecatalog ./internal/model ./internal/router`、`cd "web" && pnpm exec tsc --noEmit`、`cd "web" && pnpm exec eslint ./src --rule "@typescript-eslint/no-explicit-any:error"`。这不是 P6 完成证据：approval/task dispatch、OTel collector E2E、真实浏览器路径和选择/详情/page_state 复杂上下文仍未闭环。
+- 当前事实（2026-08-04）：Console execute 已切到 `context` 协议，浏览器只提交 form/row/selection/detail/pageState 来源值；服务端在 stale/snapshot 校验通过后，按 PublishedPageSpec 的 typed selector 构造函数 payload，再用当前 FunctionSpec input schema 做最终 JSON Schema 校验。ResourcePage renderer 已停止裸 payload/整行透传；query/create/operation/task/report 传 `form`，update/delete/row action 传 `row`；ResourcePage 生成器会把 update/delete 的 identity selector 切到 row 来源，并从 update form 中剔除 identity 字段，避免用户编辑一个不会生效的字段。ResourcePage renderer 现在使用 `listView.identityKey` 作为 rowKey，详情入口已接到 DetailView，列表结果只读取 `pageState.items/total`；ReportPage renderer 不再猜 `response.data.items`，缺少 dataset 语义或 output selector 时直接显示配置错误。已验证 `GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/dashboard/spec ./internal/dashboard/generator ./internal/api/page ./internal/service -run '^$'`、`pnpm --dir "web" exec eslint "src/components/PageRenderer/runtime.ts" "src/components/PageRenderer/index.tsx" "src/components/PageRenderer/ResourcePageRenderer.tsx" "src/components/PageRenderer/ReportPageRenderer.tsx" "src/types/dashboard.ts"`。全量 `cd "web" && pnpm exec tsc --noEmit` 仍被仓库既有 `@umijs/max` 类型导出与旧页面 implicit any 阻断，不是 P6 完成证据；approval/task dispatch、OTel collector E2E、真实浏览器路径和选择/详情/page_state 复杂上下文仍未闭环。
 
 - [ ] Console 只读取当前模型 PublishedPageSpec 和 ConsoleMenuSpec；路由仍为 `/console/:categoryKey/:pageKey`。
 - [ ] ProLayout 动态菜单使用 NavigationSpec labels 与 `locale:false`；切 scope 后强制失效旧 menu/page query。

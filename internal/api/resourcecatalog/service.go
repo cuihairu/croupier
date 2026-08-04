@@ -2,7 +2,9 @@ package resourcecatalog
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -10,8 +12,12 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/dashboard/freshness"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	contractsvc "github.com/cuihairu/croupier/internal/service"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -21,6 +27,11 @@ type Service struct {
 	contractModel   *model.FunctionContractModel
 	capabilityModel *model.ResourceCapabilityModel
 	semanticsModel  *model.CapabilitySemanticsModel
+	versionModel    *model.CapabilitySemanticVersionModel
+	contractService *contractsvc.ContractService
+	proposalModel   *model.PageProposalModel
+	pageModel       *model.PageSpecModel
+	publishedModel  *model.PublishedPageSpecModel
 	auditService    *audit.AuditService
 }
 
@@ -31,24 +42,31 @@ func NewService(db *gorm.DB, auditSvc *audit.AuditService) *Service {
 		contractModel:   model.NewFunctionContractModel(db),
 		capabilityModel: model.NewResourceCapabilityModel(db),
 		semanticsModel:  model.NewCapabilitySemanticsModel(db),
+		versionModel:    model.NewCapabilitySemanticVersionModel(db),
+		contractService: contractsvc.NewContractService(db),
+		proposalModel:   model.NewPageProposalModel(db),
+		pageModel:       model.NewPageSpecModel(db),
+		publishedModel:  model.NewPublishedPageSpecModel(db),
 		auditService:    auditSvc,
 	}
 }
 
 // ResourceCatalogItem represents a resource in the catalog.
 type ResourceCatalogItem struct {
-	ResourceKey string            `json:"resourceKey"`
-	Labels      map[string]string `json:"labels"`
-	Description map[string]string `json:"description,omitempty"`
-	CategoryKey string            `json:"categoryKey,omitempty"`
-	Status      string            `json:"status"` // identified|pending|conflict|not_executable
-	Functions   []FunctionInfo    `json:"functions"`
-	Semantics   *SemanticsInfo    `json:"semantics,omitempty"`
-	Diagnostics []DiagnosticInfo  `json:"diagnostics,omitempty"`
+	ResourceKey   string             `json:"resourceKey"`
+	Labels        map[string]string  `json:"labels"`
+	Description   map[string]string  `json:"description,omitempty"`
+	CategoryKey   string             `json:"categoryKey,omitempty"`
+	Status        string             `json:"status"` // identified|pending|conflict|not_executable
+	Functions     []FunctionInfo     `json:"functions"`
+	Semantics     *SemanticsInfo     `json:"semantics,omitempty"`
+	Diagnostics   []DiagnosticInfo   `json:"diagnostics,omitempty"`
+	AffectedPages []AffectedPageInfo `json:"affectedPages,omitempty"`
 }
 
 // FunctionInfo represents a function in the catalog.
 type FunctionInfo struct {
+	ID         uint   `json:"id"`
 	FunctionID string `json:"functionId"`
 	Version    string `json:"version"`
 	Capability string `json:"capability"`
@@ -60,23 +78,58 @@ type FunctionInfo struct {
 
 // SemanticsInfo represents capability semantics summary.
 type SemanticsInfo struct {
-	Version       int    `json:"version"`
-	HasIdentity   bool   `json:"hasIdentity"`
-	HasCollection bool   `json:"hasCollection"`
-	HasCreate     bool   `json:"hasCreate"`
-	HasUpdate     bool   `json:"hasUpdate"`
-	HasDelete     bool   `json:"hasDelete"`
-	HasActions    bool   `json:"hasActions"`
-	HasTasks      bool   `json:"hasTasks"`
-	HasReports    bool   `json:"hasReports"`
-	Source        string `json:"source"`
+	Version             int    `json:"version"`
+	HasIdentity         bool   `json:"hasIdentity"`
+	HasCollection       bool   `json:"hasCollection"`
+	HasCreate           bool   `json:"hasCreate"`
+	HasUpdate           bool   `json:"hasUpdate"`
+	HasDelete           bool   `json:"hasDelete"`
+	HasActions          bool   `json:"hasActions"`
+	HasTasks            bool   `json:"hasTasks"`
+	HasReports          bool   `json:"hasReports"`
+	Source              string `json:"source"`
+	SourceDigest        string `json:"sourceDigest,omitempty"`
+	IdentityField       string `json:"identityField,omitempty"`
+	IdentityFieldType   string `json:"identityFieldType,omitempty"`
+	IdentityPath        string `json:"identityPath,omitempty"`
+	CollectionQueryID   uint   `json:"collectionQueryId,omitempty"`
+	CollectionPath      string `json:"collectionPath,omitempty"`
+	PageFieldName       string `json:"pageFieldName,omitempty"`
+	PageSizeFieldName   string `json:"pageSizeFieldName,omitempty"`
+	ItemsFieldName      string `json:"itemsFieldName,omitempty"`
+	TotalFieldName      string `json:"totalFieldName,omitempty"`
+	ItemQueryID         uint   `json:"itemQueryId,omitempty"`
+	ItemPath            string `json:"itemPath,omitempty"`
+	CreateID            uint   `json:"createId,omitempty"`
+	UpdateID            uint   `json:"updateId,omitempty"`
+	DeleteID            uint   `json:"deleteId,omitempty"`
+	UnresolvedConflicts int    `json:"unresolvedConflicts"`
 }
 
 // DiagnosticInfo represents a diagnostic message.
 type DiagnosticInfo struct {
-	Code     string `json:"code"`
-	Severity string `json:"severity"`
-	Message  string `json:"message"`
+	Code       string `json:"code"`
+	Severity   string `json:"severity"`
+	Message    string `json:"message"`
+	FunctionID string `json:"functionId,omitempty"`
+	Field      string `json:"field,omitempty"`
+}
+
+// AffectedPageInfo summarizes UI artifacts impacted by this resource.
+type AffectedPageInfo struct {
+	PageKey          string                            `json:"pageKey"`
+	PageType         string                            `json:"pageType,omitempty"`
+	Title            map[string]string                 `json:"title,omitempty"`
+	Kind             string                            `json:"kind"` // draft|published|proposal
+	Status           string                            `json:"status,omitempty"`
+	DraftRevision    int                               `json:"draftRevision,omitempty"`
+	PublishedVersion int                               `json:"publishedVersion,omitempty"`
+	ProposalKey      string                            `json:"proposalKey,omitempty"`
+	ProposalQuality  string                            `json:"proposalQuality,omitempty"`
+	ProposalStatus   string                            `json:"proposalStatus,omitempty"`
+	Stale            bool                              `json:"stale,omitempty"`
+	BindingFreshness []spec.BindingFreshnessDiagnostic `json:"bindingFreshness,omitempty"`
+	UpdatedAt        string                            `json:"updatedAt,omitempty"`
 }
 
 // ListRequest is the request for listing resources.
@@ -111,11 +164,14 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		// Get contracts for this resource
 		contracts, err := s.contractModel.ListByResourceKey(ctx, req.GameID, req.Env, cap.ResourceKey)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("list contracts for resource %s: %w", cap.ResourceKey, err)
 		}
 
 		// Get semantics
-		semantics, _ := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, cap.ResourceKey)
+		semantics, err := s.findSemanticsOptional(ctx, req.GameID, req.Env, cap.ResourceKey)
+		if err != nil {
+			return nil, err
+		}
 
 		// Build item
 		item := ResourceCatalogItem{
@@ -126,6 +182,7 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 			Status:      determineStatus(contracts, semantics),
 			Functions:   buildFunctionInfos(contracts),
 			Semantics:   buildSemanticsInfo(semantics),
+			Diagnostics: buildDiagnostics(contracts, semantics),
 		}
 
 		// Apply search filter
@@ -154,9 +211,9 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 
 // DetailRequest is the request for resource detail.
 type DetailRequest struct {
-	GameID      string
-	Env         string
-	ResourceKey string
+	GameID      string `json:"-"`
+	Env         string `json:"-"`
+	ResourceKey string `uri:"resourceKey" binding:"required"`
 }
 
 // Detail returns a single resource catalog item.
@@ -174,7 +231,10 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*ResourceCata
 	}
 
 	// Get semantics
-	semantics, _ := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	semantics, err := s.findSemanticsOptional(ctx, req.GameID, req.Env, req.ResourceKey)
+	if err != nil {
+		return nil, err
+	}
 
 	item := &ResourceCatalogItem{
 		ResourceKey: cap.ResourceKey,
@@ -184,7 +244,13 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*ResourceCata
 		Status:      determineStatus(contracts, semantics),
 		Functions:   buildFunctionInfos(contracts),
 		Semantics:   buildSemanticsInfo(semantics),
+		Diagnostics: buildDiagnostics(contracts, semantics),
 	}
+	affectedPages, err := s.buildAffectedPages(ctx, req.GameID, req.Env, req.ResourceKey)
+	if err != nil {
+		return nil, err
+	}
+	item.AffectedPages = affectedPages
 
 	return item, nil
 }
@@ -193,7 +259,7 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*ResourceCata
 type UpdateSemanticsRequest struct {
 	GameID      string `json:"-"`
 	Env         string `json:"-"`
-	ResourceKey string `json:"-"`
+	ResourceKey string `json:"-" uri:"resourceKey" binding:"required"`
 
 	// Identity configuration
 	IdentityField     string `json:"identityField,omitempty"`
@@ -228,51 +294,107 @@ type UpdateSemanticsResponse struct {
 	Message string `json:"message"`
 }
 
+// SemanticVersionInfo represents a stored CapabilitySemantics snapshot version.
+type SemanticVersionInfo struct {
+	Version      int    `json:"version"`
+	SourceDigest string `json:"sourceDigest,omitempty"`
+	ChangeReason string `json:"changeReason,omitempty"`
+	CreatedAt    string `json:"createdAt"`
+	CreatedBy    string `json:"createdBy,omitempty"`
+}
+
+// ListSemanticVersionsRequest is the request for semantic version history.
+type ListSemanticVersionsRequest struct {
+	GameID      string `json:"-"`
+	Env         string `json:"-"`
+	ResourceKey string `json:"-" uri:"resourceKey" binding:"required"`
+}
+
+// ListSemanticVersionsResponse is the response for semantic version history.
+type ListSemanticVersionsResponse struct {
+	Items []SemanticVersionInfo `json:"items"`
+	Total int                   `json:"total"`
+}
+
 // UpdateSemantics updates resource capability semantics.
 // This allows admins to supplement semantics that cannot be auto-detected.
 func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsRequest) (*UpdateSemanticsResponse, error) {
+	actor := actorFromContext(ctx)
+	if err := s.requireResourceCapability(ctx, req.GameID, req.Env, req.ResourceKey); err != nil {
+		return nil, err
+	}
 	// Get or create semantics
 	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
 	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("find semantics: %w", err)
+		}
 		// Create new semantics
 		semantics = &model.CapabilitySemantics{
 			GameID:      req.GameID,
 			Env:         req.Env,
 			ResourceKey: req.ResourceKey,
 			Source:      "platform_review",
+			UpdatedBy:   actor,
 		}
+	}
+	sourceDigest := semanticSourceDigest(ctx, s.contractModel, req.GameID, req.Env, req.ResourceKey)
+	if sourceDigest != "" {
+		semantics.SourceDigest = sourceDigest
+	}
+	provenance := parseProvenance(semantics.Provenance)
+	changedFields := make([]string, 0)
+	trackString := func(field string, value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		changedFields = append(changedFields, field)
+		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(mustJSON(value)), "high", "effective", actor)
+	}
+	trackUint := func(field string, value uint) {
+		if value == 0 {
+			return
+		}
+		changedFields = append(changedFields, field)
+		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(mustJSON(value)), "high", "effective", actor)
 	}
 
 	// Validate function IDs exist
 	if req.CollectionQueryID > 0 {
-		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.CollectionQueryID); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.CollectionQueryID, "collection_query"); err != nil {
 			return nil, fmt.Errorf("invalid collectionQueryId: %w", err)
 		}
 		semantics.CollectionQueryID = req.CollectionQueryID
+		trackUint("collectionQueryID", req.CollectionQueryID)
 	}
 	if req.ItemQueryID > 0 {
-		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.ItemQueryID); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.ItemQueryID, "item_query"); err != nil {
 			return nil, fmt.Errorf("invalid itemQueryId: %w", err)
 		}
 		semantics.ItemQueryID = req.ItemQueryID
+		trackUint("itemQueryID", req.ItemQueryID)
 	}
 	if req.CreateID > 0 {
-		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.CreateID); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.CreateID, "create"); err != nil {
 			return nil, fmt.Errorf("invalid createId: %w", err)
 		}
 		semantics.CreateID = req.CreateID
+		trackUint("createID", req.CreateID)
 	}
 	if req.UpdateID > 0 {
-		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.UpdateID); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.UpdateID, "update"); err != nil {
 			return nil, fmt.Errorf("invalid updateId: %w", err)
 		}
 		semantics.UpdateID = req.UpdateID
+		trackUint("updateID", req.UpdateID)
 	}
 	if req.DeleteID > 0 {
-		if err := s.validateFunctionID(ctx, req.GameID, req.Env, req.DeleteID); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.DeleteID, "delete"); err != nil {
 			return nil, fmt.Errorf("invalid deleteId: %w", err)
 		}
 		semantics.DeleteID = req.DeleteID
+		trackUint("deleteID", req.DeleteID)
 	}
 
 	// Update identity if provided
@@ -283,46 +405,70 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 			semantics.IdentityFieldType = "string"
 		}
 		semantics.IdentityPath = req.IdentityPath
+		trackString("identityField", semantics.IdentityField)
+		trackString("identityFieldType", semantics.IdentityFieldType)
+		trackString("identityPath", semantics.IdentityPath)
 	}
 
 	// Update collection path if provided
 	if req.CollectionPath != "" {
 		semantics.CollectionPath = req.CollectionPath
+		trackString("collectionPath", req.CollectionPath)
 	}
 	if req.PageFieldName != "" {
 		semantics.PageFieldName = req.PageFieldName
+		trackString("pageFieldName", req.PageFieldName)
 	}
 	if req.PageSizeFieldName != "" {
 		semantics.PageSizeFieldName = req.PageSizeFieldName
+		trackString("pageSizeFieldName", req.PageSizeFieldName)
 	}
 	if req.ItemsFieldName != "" {
 		semantics.ItemsFieldName = req.ItemsFieldName
+		trackString("itemsFieldName", req.ItemsFieldName)
 	}
 	if req.TotalFieldName != "" {
 		semantics.TotalFieldName = req.TotalFieldName
+		trackString("totalFieldName", req.TotalFieldName)
 	}
 
 	// Update item path if provided
 	if req.ItemPath != "" {
 		semantics.ItemPath = req.ItemPath
+		trackString("itemPath", req.ItemPath)
 	}
 
 	// Set source to platform_review for manual updates
 	semantics.Source = "platform_review"
+	semantics.UpdatedBy = actor
+	if len(provenance) > 0 {
+		raw, err := json.Marshal(provenance)
+		if err != nil {
+			return nil, fmt.Errorf("marshal provenance: %w", err)
+		}
+		semantics.Provenance = raw
+	}
 
 	// Save semantics
 	if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
 		return nil, fmt.Errorf("upsert semantics: %w", err)
 	}
+	if err := s.createSemanticVersion(ctx, semantics, req.ChangeReason, actor); err != nil {
+		return nil, err
+	}
+	if err := s.rebuildProposals(ctx, req.GameID, req.Env, req.ResourceKey); err != nil {
+		return nil, err
+	}
 
 	// Audit log
 	if s.auditService != nil {
-		actor := "admin" // TODO: get from context
 		if _, err := s.auditService.Log(ctx, audit.EventSemanticUpdate,
 			audit.WithActorID(actor, "user", actor),
 			audit.WithResourceID("resource_catalog", req.ResourceKey),
 			audit.WithDetails(map[string]interface{}{
-				"change_reason": req.ChangeReason,
+				"change_reason":    req.ChangeReason,
+				"changed_fields":   changedFields,
+				"semantic_version": semantics.Version,
 			}),
 		); err != nil {
 			slog.ErrorContext(ctx, "failed to write semantic update audit event",
@@ -339,10 +485,63 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 	}, nil
 }
 
-// validateFunctionID checks if a function ID exists in the scope.
-func (s *Service) validateFunctionID(ctx context.Context, gameID, env string, functionID uint) error {
-	_, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, fmt.Sprintf("%d", functionID))
-	return err
+// ListSemanticVersions returns semantic version history for a resource.
+func (s *Service) ListSemanticVersions(ctx context.Context, req *ListSemanticVersionsRequest) (*ListSemanticVersionsResponse, error) {
+	semantics, err := s.findSemanticsOptional(ctx, req.GameID, req.Env, req.ResourceKey)
+	if err != nil {
+		return nil, err
+	}
+	if semantics == nil {
+		return &ListSemanticVersionsResponse{
+			Items: []SemanticVersionInfo{},
+			Total: 0,
+		}, nil
+	}
+	versions, err := s.versionModel.ListBySemanticsID(ctx, semantics.ID)
+	if err != nil {
+		return nil, fmt.Errorf("list semantic versions: %w", err)
+	}
+	items := make([]SemanticVersionInfo, 0, len(versions))
+	for _, version := range versions {
+		items = append(items, SemanticVersionInfo{
+			Version:      version.Version,
+			SourceDigest: version.SourceDigest,
+			ChangeReason: version.ChangeReason,
+			CreatedAt:    version.CreatedAt.Format(time.RFC3339),
+			CreatedBy:    version.CreatedBy,
+		})
+	}
+	return &ListSemanticVersionsResponse{
+		Items: items,
+		Total: len(items),
+	}, nil
+}
+
+func (s *Service) requireResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {
+	if _, err := s.capabilityModel.FindByScopeAndResourceKey(ctx, gameID, env, resourceKey); err != nil {
+		return fmt.Errorf("resource capability not found: %w", err)
+	}
+	return nil
+}
+
+// validateFunctionBinding checks if a function belongs to the resource and capability slot.
+func (s *Service) validateFunctionBinding(ctx context.Context, gameID, env, resourceKey string, functionID uint, capability string) (*model.FunctionContract, error) {
+	var contract model.FunctionContract
+	if err := s.db.WithContext(ctx).
+		Where("game_id = ? AND env = ? AND id = ?", gameID, env, functionID).
+		First(&contract).Error; err != nil {
+		return nil, err
+	}
+	if contract.ResourceKey != resourceKey {
+		return nil, fmt.Errorf("function %s belongs to resource %s, not %s", contract.FunctionID, contract.ResourceKey, resourceKey)
+	}
+	if contract.Capability != capability {
+		return nil, fmt.Errorf("function %s capability is %s, not %s", contract.FunctionID, contract.Capability, capability)
+	}
+	if !contract.Enabled {
+		return nil, fmt.Errorf("function %s is disabled", contract.FunctionID)
+	}
+	return &contract, nil
 }
 
 // Helper functions
@@ -353,6 +552,9 @@ func determineStatus(contracts []*model.FunctionContract, semantics *model.Capab
 	}
 	if semantics == nil {
 		return "pending"
+	}
+	if countUnresolvedConflicts(semantics.Conflicts) > 0 {
+		return "conflict"
 	}
 	// Check if we have a complete CRUD set
 	hasQuery := false
@@ -375,6 +577,7 @@ func buildFunctionInfos(contracts []*model.FunctionContract) []FunctionInfo {
 	infos := make([]FunctionInfo, 0, len(contracts))
 	for _, c := range contracts {
 		infos = append(infos, FunctionInfo{
+			ID:         c.ID,
 			FunctionID: c.FunctionID,
 			Version:    c.Version,
 			Capability: c.Capability,
@@ -392,17 +595,260 @@ func buildSemanticsInfo(semantics *model.CapabilitySemantics) *SemanticsInfo {
 		return nil
 	}
 	return &SemanticsInfo{
-		Version:       semantics.Version,
-		HasIdentity:   semantics.IdentityField != "",
-		HasCollection: semantics.CollectionQueryID > 0,
-		HasCreate:     semantics.CreateID > 0,
-		HasUpdate:     semantics.UpdateID > 0,
-		HasDelete:     semantics.DeleteID > 0,
-		HasActions:    len(semantics.Actions) > 0,
-		HasTasks:      len(semantics.Tasks) > 0,
-		HasReports:    len(semantics.Reports) > 0,
-		Source:        semantics.Source,
+		Version:             semantics.Version,
+		HasIdentity:         semantics.IdentityField != "",
+		HasCollection:       semantics.CollectionQueryID > 0,
+		HasCreate:           semantics.CreateID > 0,
+		HasUpdate:           semantics.UpdateID > 0,
+		HasDelete:           semantics.DeleteID > 0,
+		HasActions:          len(semantics.Actions) > 0,
+		HasTasks:            len(semantics.Tasks) > 0,
+		HasReports:          len(semantics.Reports) > 0,
+		Source:              semantics.Source,
+		SourceDigest:        semantics.SourceDigest,
+		IdentityField:       semantics.IdentityField,
+		IdentityFieldType:   semantics.IdentityFieldType,
+		IdentityPath:        semantics.IdentityPath,
+		CollectionQueryID:   semantics.CollectionQueryID,
+		CollectionPath:      semantics.CollectionPath,
+		PageFieldName:       semantics.PageFieldName,
+		PageSizeFieldName:   semantics.PageSizeFieldName,
+		ItemsFieldName:      semantics.ItemsFieldName,
+		TotalFieldName:      semantics.TotalFieldName,
+		ItemQueryID:         semantics.ItemQueryID,
+		ItemPath:            semantics.ItemPath,
+		CreateID:            semantics.CreateID,
+		UpdateID:            semantics.UpdateID,
+		DeleteID:            semantics.DeleteID,
+		UnresolvedConflicts: countUnresolvedConflicts(semantics.Conflicts),
 	}
+}
+
+func buildDiagnostics(contracts []*model.FunctionContract, semantics *model.CapabilitySemantics) []DiagnosticInfo {
+	diagnostics := make([]DiagnosticInfo, 0)
+	if semantics != nil {
+		diagnostics = append(diagnostics, decodeDiagnostics(semantics.Diagnostics, "")...)
+		if unresolved := countUnresolvedConflicts(semantics.Conflicts); unresolved > 0 {
+			diagnostics = append(diagnostics, DiagnosticInfo{
+				Code:     "semantic_conflict",
+				Severity: "error",
+				Message:  fmt.Sprintf("%d semantic conflict(s) require platform review", unresolved),
+			})
+		}
+	}
+	for _, contract := range contracts {
+		if contract == nil {
+			continue
+		}
+		diagnostics = append(diagnostics, decodeDiagnostics(contract.Diagnostics, contract.FunctionID)...)
+	}
+	return diagnostics
+}
+
+func (s *Service) buildAffectedPages(ctx context.Context, gameID, env, resourceKey string) ([]AffectedPageInfo, error) {
+	byKey := map[string]*AffectedPageInfo{}
+	drafts, err := s.pageModel.ListByScope(ctx, gameID, env)
+	if err != nil {
+		if isMissingTableErr(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("list page drafts: %w", err)
+	}
+	for _, draft := range drafts {
+		if strings.TrimSpace(draft.ResourceKey) != resourceKey {
+			continue
+		}
+		byKey["draft:"+draft.PageKey] = &AffectedPageInfo{
+			PageKey:          draft.PageKey,
+			PageType:         draft.Type,
+			Title:            draft.GetTitle(),
+			Kind:             "draft",
+			Status:           draft.Status,
+			DraftRevision:    draft.DraftRevision,
+			PublishedVersion: draft.PublishedVersion,
+			UpdatedAt:        draft.UpdatedAt.Format(time.RFC3339),
+		}
+	}
+
+	publishedPages, err := s.publishedModel.ListByScope(ctx, gameID, env)
+	if err != nil {
+		if isMissingTableErr(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("list published pages: %w", err)
+	}
+	functions := s.functionSpecsByID(ctx, gameID, env)
+	for _, published := range publishedPages {
+		pageSpec := parsePublishedPageSpec(published)
+		if strings.TrimSpace(pageSpec.ResourceKey) != resourceKey {
+			continue
+		}
+		bindingFreshness := freshness.EvaluatePublishedBindings(pageSpec.Bindings, parseBindingContracts(published.BindingContractsJSON), functions)
+		byKey["published:"+published.PageKey] = &AffectedPageInfo{
+			PageKey:          published.PageKey,
+			PageType:         string(pageSpec.Type),
+			Title:            pageSpec.Title,
+			Kind:             "published",
+			Status:           activeStatus(published.Active),
+			PublishedVersion: published.Version,
+			Stale:            len(bindingFreshness) > 0,
+			BindingFreshness: bindingFreshness,
+			UpdatedAt:        published.PublishedAt.Format(time.RFC3339),
+		}
+	}
+
+	proposals, err := s.proposalModel.ListByScopeAndResourceKey(ctx, gameID, env, resourceKey)
+	if err != nil {
+		if isMissingTableErr(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("list proposals: %w", err)
+	}
+	for _, proposal := range proposals {
+		byKey["proposal:"+proposal.ProposalKey] = &AffectedPageInfo{
+			PageKey:         proposal.PageKey,
+			PageType:        proposal.PageType,
+			Title:           toStringMap(proposal.Title),
+			Kind:            "proposal",
+			ProposalKey:     proposal.ProposalKey,
+			ProposalQuality: proposal.Quality,
+			ProposalStatus:  proposal.Status,
+			Status:          proposal.Status,
+			UpdatedAt:       proposal.UpdatedAt.Format(time.RFC3339),
+		}
+	}
+
+	items := make([]AffectedPageInfo, 0, len(byKey))
+	for _, item := range byKey {
+		items = append(items, *item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Kind != items[j].Kind {
+			return affectedKindOrder(items[i].Kind) < affectedKindOrder(items[j].Kind)
+		}
+		return items[i].PageKey < items[j].PageKey
+	})
+	return items, nil
+}
+
+func (s *Service) functionSpecsByID(ctx context.Context, gameID, env string) map[string]spec.FunctionSpec {
+	contracts, err := s.contractModel.ListByScope(ctx, gameID, env)
+	if err != nil {
+		return map[string]spec.FunctionSpec{}
+	}
+	out := make(map[string]spec.FunctionSpec, len(contracts))
+	for _, contract := range contracts {
+		if contract == nil || strings.TrimSpace(contract.FunctionID) == "" {
+			continue
+		}
+		out[contract.FunctionID] = spec.FunctionSpec{
+			ID:           contract.FunctionID,
+			Version:      contract.Version,
+			Enabled:      contract.Enabled,
+			InputSchema:  spec.JSONSchema(contract.InputSchema),
+			OutputSchema: spec.JSONSchema(contract.OutputSchema),
+			Risk:         spec.RiskLevel(contract.Risk),
+			Permission:   strings.TrimSpace(contract.Permission),
+		}
+	}
+	return out
+}
+
+func parsePublishedPageSpec(published model.PublishedPageSpec) spec.PageSpec {
+	var pageSpec spec.PageSpec
+	if strings.TrimSpace(published.SpecJSON) != "" {
+		_ = json.Unmarshal([]byte(published.SpecJSON), &pageSpec)
+	}
+	if strings.TrimSpace(pageSpec.PageKey) == "" {
+		pageSpec.PageKey = published.PageKey
+	}
+	return pageSpec
+}
+
+func parseBindingContracts(raw string) []spec.BindingContractSnapshot {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var contracts []spec.BindingContractSnapshot
+	_ = json.Unmarshal([]byte(raw), &contracts)
+	return contracts
+}
+
+func activeStatus(active bool) string {
+	if active {
+		return "active"
+	}
+	return "inactive"
+}
+
+func affectedKindOrder(kind string) int {
+	switch kind {
+	case "published":
+		return 0
+	case "draft":
+		return 1
+	case "proposal":
+		return 2
+	default:
+		return 3
+	}
+}
+
+func isMissingTableErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such table") ||
+		strings.Contains(message, "does not exist") ||
+		strings.Contains(message, "undefined table")
+}
+
+func decodeDiagnostics(raw []byte, fallbackFunctionID string) []DiagnosticInfo {
+	if len(raw) == 0 {
+		return nil
+	}
+	var values []spec.Diagnostic
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return []DiagnosticInfo{{
+			Code:       "diagnostic_parse_failed",
+			Severity:   string(spec.SeverityWarning),
+			Message:    "diagnostics payload is not readable",
+			FunctionID: fallbackFunctionID,
+		}}
+	}
+	out := make([]DiagnosticInfo, 0, len(values))
+	for _, value := range values {
+		functionID := value.FunctionID
+		if functionID == "" {
+			functionID = fallbackFunctionID
+		}
+		out = append(out, DiagnosticInfo{
+			Code:       value.Code,
+			Severity:   string(value.Severity),
+			Message:    value.Message,
+			FunctionID: functionID,
+			Field:      value.Field,
+		})
+	}
+	return out
+}
+
+func countUnresolvedConflicts(raw []byte) int {
+	if len(raw) == 0 {
+		return 0
+	}
+	var conflicts []spec.SemanticConflict
+	if err := json.Unmarshal(raw, &conflicts); err != nil {
+		return 0
+	}
+	count := 0
+	for _, conflict := range conflicts {
+		if conflict.Resolution == "" {
+			count++
+		}
+	}
+	return count
 }
 
 func toStringMap(m map[string]interface{}) map[string]string {
@@ -429,6 +875,37 @@ func matchesQuery(item ResourceCatalogItem, query string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Service) findSemanticsOptional(ctx context.Context, gameID, env, resourceKey string) (*model.CapabilitySemantics, error) {
+	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, gameID, env, resourceKey)
+	if err == nil {
+		return semantics, nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("find semantics for resource %s: %w", resourceKey, err)
+}
+
+func semanticSourceDigest(ctx context.Context, contractModel *model.FunctionContractModel, gameID, env, resourceKey string) string {
+	if contractModel == nil {
+		return ""
+	}
+	contracts, err := contractModel.ListByResourceKey(ctx, gameID, env, resourceKey)
+	if err != nil {
+		return ""
+	}
+	raw, err := json.Marshal(contracts)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%x", sha256Bytes(raw))
+}
+
+func sha256Bytes(raw []byte) []byte {
+	sum := sha256.Sum256(raw)
+	return sum[:]
 }
 
 // ---------------------------------------------------------------------------
@@ -459,7 +936,7 @@ type ProvenanceInfo struct {
 type ListConflictsRequest struct {
 	GameID      string `json:"-"`
 	Env         string `json:"-"`
-	ResourceKey string `json:"-"`
+	ResourceKey string `json:"-" uri:"resourceKey" binding:"required"`
 }
 
 // ListConflictsResponse is the response for listing conflicts.
@@ -472,6 +949,12 @@ type ListConflictsResponse struct {
 func (s *Service) ListConflicts(ctx context.Context, req *ListConflictsRequest) (*ListConflictsResponse, error) {
 	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &ListConflictsResponse{
+				Conflicts:  []ConflictInfo{},
+				Provenance: []ProvenanceInfo{},
+			}, nil
+		}
 		return nil, fmt.Errorf("find semantics: %w", err)
 	}
 
@@ -525,8 +1008,8 @@ func (s *Service) ListConflicts(ctx context.Context, req *ListConflictsRequest) 
 type ResolveConflictRequest struct {
 	GameID       string `json:"-"`
 	Env          string `json:"-"`
-	ResourceKey  string `json:"-"`
-	Field        string `json:"field"`
+	ResourceKey  string `json:"-" uri:"resourceKey" binding:"required"`
+	Field        string `json:"field" uri:"field" binding:"required"`
 	ChosenSource string `json:"chosenSource"` // platform_review|sdk_explicit|openapi_rest
 	Reason       string `json:"reason,omitempty"`
 }
@@ -538,9 +1021,17 @@ type ResolveConflictResponse struct {
 
 // ResolveConflict resolves a semantic conflict by choosing a source.
 func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictRequest) (*ResolveConflictResponse, error) {
+	actor := actorFromContext(ctx)
+	chosenSource := spec.SemanticSource(strings.TrimSpace(req.ChosenSource))
+	if !isValidSemanticSource(chosenSource) {
+		return nil, fmt.Errorf("invalid chosenSource %s", req.ChosenSource)
+	}
 	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
 	if err != nil {
 		return nil, fmt.Errorf("find semantics: %w", err)
+	}
+	if sourceDigest := semanticSourceDigest(ctx, s.contractModel, req.GameID, req.Env, req.ResourceKey); sourceDigest != "" {
+		semantics.SourceDigest = sourceDigest
 	}
 
 	// Parse existing conflicts
@@ -556,7 +1047,6 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	for i, c := range conflicts {
 		if c.Field == req.Field {
 			// Validate chosen source exists in conflict
-			chosenSource := spec.SemanticSource(req.ChosenSource)
 			if _, ok := c.Values[chosenSource]; !ok {
 				return nil, fmt.Errorf("source %s not found in conflict values", req.ChosenSource)
 			}
@@ -564,7 +1054,10 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 			// Resolve conflict
 			conflicts[i].Resolution = chosenSource
 			conflicts[i].ResolvedAt = time.Now().UTC().Format(time.RFC3339)
-			conflicts[i].ResolvedBy = "admin" // TODO: get from context
+			conflicts[i].ResolvedBy = actor
+			if err := applySemanticFieldValue(semantics, req.Field, c.Values[chosenSource]); err != nil {
+				return nil, err
+			}
 
 			// Update provenance
 			var provenance map[string]*spec.SemanticProvenance
@@ -578,10 +1071,13 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 			if prov, exists := provenance[req.Field]; exists {
 				prov.Value = c.Values[chosenSource]
 				prov.Source = chosenSource
+				prov.SourceDigest = semantics.SourceDigest
 				prov.Confidence = confidenceForSource(chosenSource)
 				prov.Status = "effective"
 				prov.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-				prov.UpdatedBy = "admin"
+				prov.UpdatedBy = actor
+			} else {
+				provenance[req.Field] = provenanceRecord(req.Field, chosenSource, semantics.SourceDigest, c.Values[chosenSource], confidenceForSource(chosenSource), "effective", actor)
 			}
 
 			// Save provenance
@@ -600,15 +1096,21 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	// Save conflicts
 	conflictsJSON, _ := json.Marshal(conflicts)
 	semantics.Conflicts = conflictsJSON
+	semantics.UpdatedBy = actor
 
 	// Update semantics
-	if err := s.semanticsModel.Update(ctx, semantics); err != nil {
+	if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
 		return nil, fmt.Errorf("update semantics: %w", err)
+	}
+	if err := s.createSemanticVersion(ctx, semantics, req.Reason, actor); err != nil {
+		return nil, err
+	}
+	if err := s.rebuildProposals(ctx, req.GameID, req.Env, req.ResourceKey); err != nil {
+		return nil, err
 	}
 
 	// Audit log
 	if s.auditService != nil {
-		actor := "admin" // TODO: get from context
 		if _, err := s.auditService.Log(ctx, audit.EventSemanticConflictResolve,
 			audit.WithActorID(actor, "user", actor),
 			audit.WithResourceID("resource_catalog", req.ResourceKey),
@@ -631,6 +1133,15 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	}, nil
 }
 
+func isValidSemanticSource(source spec.SemanticSource) bool {
+	switch source {
+	case spec.SemanticSourcePlatformReview, spec.SemanticSourceSDKExplicit, spec.SemanticSourceOpenAPIRest:
+		return true
+	default:
+		return false
+	}
+}
+
 func confidenceForSource(source spec.SemanticSource) string {
 	switch source {
 	case spec.SemanticSourcePlatformReview, spec.SemanticSourceSDKExplicit:
@@ -640,4 +1151,138 @@ func confidenceForSource(source spec.SemanticSource) string {
 	default:
 		return "low"
 	}
+}
+
+func actorFromContext(ctx context.Context) string {
+	actor, err := logicutils.CurrentUsername(ctx)
+	if err != nil || strings.TrimSpace(actor) == "" {
+		return "system"
+	}
+	return strings.TrimSpace(actor)
+}
+
+func provenanceRecord(field string, source spec.SemanticSource, sourceDigest string, value json.RawMessage, confidence string, status string, actor string) *spec.SemanticProvenance {
+	return &spec.SemanticProvenance{
+		Field:        field,
+		Source:       source,
+		SourceDigest: sourceDigest,
+		Confidence:   confidence,
+		Status:       status,
+		Value:        value,
+		UpdatedAt:    time.Now().UTC().Format(time.RFC3339),
+		UpdatedBy:    actor,
+	}
+}
+
+func parseProvenance(raw []byte) map[string]*spec.SemanticProvenance {
+	provenance := map[string]*spec.SemanticProvenance{}
+	if len(raw) == 0 {
+		return provenance
+	}
+	_ = json.Unmarshal(raw, &provenance)
+	if provenance == nil {
+		return map[string]*spec.SemanticProvenance{}
+	}
+	return provenance
+}
+
+func mustJSON(value interface{}) []byte {
+	raw, _ := json.Marshal(value)
+	return raw
+}
+
+func applySemanticFieldValue(semantics *model.CapabilitySemantics, field string, raw json.RawMessage) error {
+	switch strings.TrimSpace(field) {
+	case "identityField":
+		return assignString(raw, &semantics.IdentityField)
+	case "identityFieldType":
+		return assignString(raw, &semantics.IdentityFieldType)
+	case "identityPath":
+		return assignString(raw, &semantics.IdentityPath)
+	case "collectionQueryID", "collectionQueryId":
+		return assignUint(raw, &semantics.CollectionQueryID)
+	case "collectionPath":
+		return assignString(raw, &semantics.CollectionPath)
+	case "pageFieldName":
+		return assignString(raw, &semantics.PageFieldName)
+	case "pageSizeFieldName":
+		return assignString(raw, &semantics.PageSizeFieldName)
+	case "itemsFieldName":
+		return assignString(raw, &semantics.ItemsFieldName)
+	case "totalFieldName":
+		return assignString(raw, &semantics.TotalFieldName)
+	case "itemQueryID", "itemQueryId":
+		return assignUint(raw, &semantics.ItemQueryID)
+	case "itemPath":
+		return assignString(raw, &semantics.ItemPath)
+	case "createID", "createId":
+		return assignUint(raw, &semantics.CreateID)
+	case "updateID", "updateId":
+		return assignUint(raw, &semantics.UpdateID)
+	case "deleteID", "deleteId":
+		return assignUint(raw, &semantics.DeleteID)
+	case "actions":
+		semantics.Actions = datatypes.JSON(raw)
+	case "tasks":
+		semantics.Tasks = datatypes.JSON(raw)
+	case "reports":
+		semantics.Reports = datatypes.JSON(raw)
+	default:
+		return fmt.Errorf("unsupported semantic conflict field %s", field)
+	}
+	return nil
+}
+
+func assignString(raw json.RawMessage, target *string) error {
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return fmt.Errorf("semantic field must be string: %w", err)
+	}
+	*target = strings.TrimSpace(value)
+	return nil
+}
+
+func assignUint(raw json.RawMessage, target *uint) error {
+	var value uint
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return fmt.Errorf("semantic field must be unsigned integer: %w", err)
+	}
+	*target = value
+	return nil
+}
+
+func (s *Service) createSemanticVersion(ctx context.Context, semantics *model.CapabilitySemantics, reason string, actor string) error {
+	if s.versionModel == nil || semantics == nil {
+		return nil
+	}
+	version := &model.CapabilitySemanticVersion{
+		SemanticsID:  semantics.ID,
+		Version:      semantics.Version,
+		Semantics:    toDatatypesJSON(semantics),
+		SourceDigest: semantics.SourceDigest,
+		ChangeReason: strings.TrimSpace(reason),
+		CreatedBy:    actor,
+	}
+	if version.ChangeReason == "" {
+		version.ChangeReason = "resource catalog semantic update"
+	}
+	if err := s.versionModel.CreateVersion(ctx, version); err != nil {
+		return fmt.Errorf("create semantic version: %w", err)
+	}
+	return nil
+}
+
+func toDatatypesJSON(value interface{}) datatypes.JSON {
+	raw, _ := json.Marshal(value)
+	return datatypes.JSON(raw)
+}
+
+func (s *Service) rebuildProposals(ctx context.Context, gameID string, env string, resourceKey string) error {
+	if s.contractService == nil {
+		return nil
+	}
+	if err := s.contractService.RebuildProposalsForResource(ctx, gameID, env, resourceKey); err != nil {
+		return fmt.Errorf("rebuild proposals: %w", err)
+	}
+	return nil
 }

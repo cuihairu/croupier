@@ -6,10 +6,14 @@
 
 import { request } from '@umijs/max';
 import type {
+  ApprovalStatusResult,
   BindingExecutionContext,
   ConsoleMenuSpec,
+  JSONValue,
   PageExecutionResult,
   PublishedPageSpec,
+  TaskEvent,
+  TaskStatusResult,
 } from '@/types/dashboard';
 
 const BASE = '/api/v1/console';
@@ -24,6 +28,36 @@ type ConsolePageResponse = {
 
 type ConsoleExecuteBindingResponse = {
   result?: PageExecutionResult;
+};
+
+type TaskDetailResponse = {
+  id: string;
+  status?: string;
+  progress?: number;
+  message?: string;
+  result?: JSONValue;
+  error?: string;
+};
+
+type TaskEventsResponse = {
+  items?: Array<{
+    type?: string;
+    progress?: number;
+    message?: string;
+    payload?: JSONValue;
+    created_at?: string;
+    createdAt?: string;
+  }>;
+};
+
+type ApprovalDetailResponse = {
+  id: string;
+  state?: string;
+  function_id?: string;
+  actor?: string;
+  reason?: string;
+  updated_at?: string;
+  updatedAt?: string;
 };
 
 /** 获取运行控制台菜单 */
@@ -70,4 +104,106 @@ export async function executePageBinding(
     throw new Error(`page binding execution returned empty result: ${bindingId}`);
   }
   return response.result;
+}
+
+/** 查询异步任务状态，供 TaskPageRenderer 轮询使用 */
+export async function queryTaskStatus(taskId: string): Promise<TaskStatusResult> {
+  const [detail, events] = await Promise.all([
+    request<TaskDetailResponse>(`/api/v1/tasks/${encodeURIComponent(taskId)}`, {
+      method: 'GET',
+    }),
+    request<TaskEventsResponse>(`/api/v1/tasks/${encodeURIComponent(taskId)}/events`, {
+      method: 'GET',
+    }),
+  ]);
+  return {
+    taskId: detail.id || taskId,
+    status: normalizeTaskStatus(detail.status),
+    progress: detail.progress,
+    message: detail.message,
+    result: detail.result,
+    error: detail.error,
+    events: (events.items || []).map(normalizeTaskEvent),
+  };
+}
+
+/** 取消异步任务 */
+export async function cancelTask(taskId: string): Promise<void> {
+  await request<void>(`/api/v1/tasks/${encodeURIComponent(taskId)}/cancel`, {
+    method: 'POST',
+  });
+}
+
+/** 查询审批状态，供 Operation/Task 页面展示等待态 */
+export async function queryApprovalStatus(approvalId: string): Promise<ApprovalStatusResult> {
+  const detail = await request<ApprovalDetailResponse>(`/api/v1/approvals/${encodeURIComponent(approvalId)}`, {
+    method: 'GET',
+  });
+  return {
+    approvalId: detail.id || approvalId,
+    status: normalizeApprovalStatus(detail.state),
+    functionId: detail.function_id,
+    actor: detail.actor,
+    reason: detail.reason,
+    updatedAt: detail.updatedAt || detail.updated_at,
+  };
+}
+
+function normalizeTaskStatus(status?: string): TaskStatusResult['status'] {
+  switch (status) {
+    case 'queued':
+    case 'dispatching':
+      return 'pending';
+    case 'running':
+      return 'running';
+    case 'succeeded':
+    case 'completed':
+      return 'completed';
+    case 'failed':
+    case 'timed_out':
+      return 'failed';
+    case 'cancel_requested':
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'pending';
+  }
+}
+
+function normalizeTaskEvent(event: NonNullable<TaskEventsResponse['items']>[number]): TaskEvent {
+  return {
+    timestamp: event.createdAt || event.created_at || '',
+    type: normalizeTaskEventType(event.type),
+    message: event.message || '',
+    data: event.payload,
+  };
+}
+
+function normalizeTaskEventType(type?: string): TaskEvent['type'] {
+  switch (type) {
+    case 'failed':
+    case 'error':
+      return 'error';
+    case 'cancel_requested':
+    case 'cancelled':
+    case 'warning':
+      return 'warning';
+    case 'progress':
+      return 'progress';
+    default:
+      return 'info';
+  }
+}
+
+function normalizeApprovalStatus(status?: string): ApprovalStatusResult['status'] {
+  switch (status) {
+    case 'approved':
+      return 'approved';
+    case 'rejected':
+      return 'rejected';
+    case 'expired':
+      return 'expired';
+    default:
+      return 'pending';
+  }
 }

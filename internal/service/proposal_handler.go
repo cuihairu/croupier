@@ -19,17 +19,25 @@ func NewProposalHandler(service *ProposalService) *ProposalHandler {
 // ListProposals handles GET /api/proposals
 func (h *ProposalHandler) ListProposals(c *gin.Context) {
 	gameID, env := svc.GameScopeFromContext(c.Request.Context())
-	status := c.Query("status")
+	resp, err := h.service.ListProposalDTOs(c.Request.Context(), gameID, env, ProposalListFilter{
+		Status:      c.Query("status"),
+		ResourceKey: c.Query("resourceKey"),
+	})
 
-	var resp interface{}
-	var err error
-
-	if status != "" {
-		resp, err = h.service.ListProposalsByStatus(c.Request.Context(), gameID, env, status)
-	} else {
-		resp, err = h.service.ListProposals(c.Request.Context(), gameID, env)
+	if err != nil {
+		response.Error(c, err)
+		return
 	}
 
+	response.Success(c, resp)
+}
+
+// Inbox handles GET /api/proposals/inbox.
+func (h *ProposalHandler) Inbox(c *gin.Context) {
+	gameID, env := svc.GameScopeFromContext(c.Request.Context())
+	resp, err := h.service.Inbox(c.Request.Context(), gameID, env, ProposalListFilter{
+		ResourceKey: c.Query("resourceKey"),
+	})
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -43,7 +51,7 @@ func (h *ProposalHandler) GetProposal(c *gin.Context) {
 	proposalKey := c.Param("proposalKey")
 	gameID, env := svc.GameScopeFromContext(c.Request.Context())
 
-	resp, err := h.service.GetProposal(c.Request.Context(), gameID, env, proposalKey)
+	resp, err := h.service.GetProposalDTO(c.Request.Context(), gameID, env, proposalKey)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -64,6 +72,20 @@ func (h *ProposalHandler) AcceptProposal(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"message": "proposal accepted"})
+}
+
+// AcceptAndPublishProposal handles POST /api/proposals/:proposalKey/accept-and-publish
+func (h *ProposalHandler) AcceptAndPublishProposal(c *gin.Context) {
+	proposalKey := c.Param("proposalKey")
+	gameID, env := svc.GameScopeFromContext(c.Request.Context())
+
+	resp, err := h.service.AcceptAndPublishProposal(c.Request.Context(), gameID, env, proposalKey)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	response.Success(c, resp)
 }
 
 // RejectProposal handles POST /api/proposals/:proposalKey/reject

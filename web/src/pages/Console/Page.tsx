@@ -10,7 +10,13 @@ import { Alert, Button, Result, Space, Spin, Tag, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useEffect, useState } from 'react';
 import PageRenderer from '@/components/PageRenderer';
-import { executePageBinding, getPublishedPage } from '@/services/console';
+import {
+  cancelTask,
+  executePageBinding,
+  getPublishedPage,
+  queryApprovalStatus,
+  queryTaskStatus,
+} from '@/services/console';
 import type { PublishedPageSpec } from '@/types/dashboard';
 import { resolveConsolePageRoute } from '@/utils/consoleMenu';
 
@@ -198,6 +204,9 @@ export default function ConsolePage() {
           onExecute={async (bindingId, context) => {
             return executePageBinding(page.pageKey, bindingId, context);
           }}
+          onQueryStatus={queryTaskStatus}
+          onCancelTask={cancelTask}
+          onQueryApprovalStatus={queryApprovalStatus}
         />
       )}
     </PageContainer>

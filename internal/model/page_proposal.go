@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -90,13 +91,13 @@ func NewBlockedProposalIssueModel(db *gorm.DB) *BlockedProposalIssueModel {
 
 // Create creates a new blocked proposal issue.
 func (m *BlockedProposalIssueModel) Create(ctx context.Context, issue *BlockedProposalIssue) error {
-	return m.db.WithContext(ctx).Create(issue).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(issue).Error
 }
 
 // FindByScopeAndResourceKey finds a blocked issue by scope and resource key.
 func (m *BlockedProposalIssueModel) FindByScopeAndResourceKey(ctx context.Context, gameID, env, resourceKey string) (*BlockedProposalIssue, error) {
 	var issue BlockedProposalIssue
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND resource_key = ? AND status = ?", gameID, env, resourceKey, "open").
 		First(&issue).Error; err != nil {
 		return nil, err
@@ -107,8 +108,20 @@ func (m *BlockedProposalIssueModel) FindByScopeAndResourceKey(ctx context.Contex
 // ListByScope lists all blocked issues in a scope.
 func (m *BlockedProposalIssueModel) ListByScope(ctx context.Context, gameID, env string) ([]*BlockedProposalIssue, error) {
 	var issues []*BlockedProposalIssue
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND status = ?", gameID, env, "open").
+		Order("created_at DESC").
+		Find(&issues).Error; err != nil {
+		return nil, err
+	}
+	return issues, nil
+}
+
+// ListByScopeAndResourceKey lists open blocked issues for a resource.
+func (m *BlockedProposalIssueModel) ListByScopeAndResourceKey(ctx context.Context, gameID, env, resourceKey string) ([]*BlockedProposalIssue, error) {
+	var issues []*BlockedProposalIssue
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND resource_key = ? AND status = ?", gameID, env, resourceKey, "open").
 		Order("created_at DESC").
 		Find(&issues).Error; err != nil {
 		return nil, err
@@ -118,7 +131,7 @@ func (m *BlockedProposalIssueModel) ListByScope(ctx context.Context, gameID, env
 
 // UpdateStatus updates the status of a blocked issue.
 func (m *BlockedProposalIssueModel) UpdateStatus(ctx context.Context, id uint, status, updatedBy string) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&BlockedProposalIssue{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{

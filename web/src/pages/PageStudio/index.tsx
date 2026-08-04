@@ -1,12 +1,4 @@
-/**
- * PageStudio - 语义化页面编辑器
- *
- * 使用强类型 PageSpec，不使用组件树式页面协议。
- * 支持 ResourcePage、OperationPage、TaskPage、ReportPage 的语义化编辑。
- * 支持变更链查看、Diff 对比、冲突解决。
- */
-
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
 import {
   App,
@@ -31,14 +23,15 @@ import {
   RocketOutlined,
   StopOutlined,
 } from '@ant-design/icons';
-import PageRenderer from '@/components/PageRenderer';
 import PageEditor from '@/components/PageEditor';
+import PageRenderer from '@/components/PageRenderer';
+import ProposalInbox from '@/components/ProposalInbox';
 import {
   getPageDraft,
   listPageDrafts,
   publishPageDraft,
-  unpublishPage,
   savePageDraft,
+  unpublishPage,
 } from '@/services/api/pages';
 import {
   getChangeChain,
@@ -48,17 +41,9 @@ import {
   type DiffResponse,
   type MergeStrategy,
 } from '@/services/api/versioning';
-import type {
-  PageSpecDraftSummary,
-  PageSpec,
-  PageType,
-} from '@/types/dashboard';
+import type { JSONValue, PageSpec, PageSpecDraftSummary, PageType } from '@/types/dashboard';
 
-const { Text, Paragraph } = Typography;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const { Paragraph, Text } = Typography;
 
 function localizedText(text: Record<string, string> | undefined, fallback: string): string {
   if (!text) return fallback;
@@ -79,49 +64,49 @@ function formatDate(value?: string): string {
 
 function pageTypeLabel(type: PageType): string {
   switch (type) {
-    case 'resource': return '资源页面';
-    case 'operation': return '操作页面';
-    case 'task': return '任务页面';
-    case 'report': return '报表页面';
-    default: return type;
+    case 'resource':
+      return '资源页面';
+    case 'operation':
+      return '操作页面';
+    case 'task':
+      return '任务页面';
+    case 'report':
+      return '报表页面';
+    default:
+      return type;
   }
 }
 
-// ---------------------------------------------------------------------------
-// PageStudio Component
-// ---------------------------------------------------------------------------
+function currentFocusPageKey(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  return new URLSearchParams(window.location.search).get('focus') || '';
+}
 
 export default function PageStudio() {
   const { message } = App.useApp();
   const [drafts, setDrafts] = useState<PageSpecDraftSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<PageSpec | null>(null);
-  const [selectedDraftRevision, setSelectedDraftRevision] = useState<number>(0);
+  const [selectedDraftRevision, setSelectedDraftRevision] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [editorVisible, setEditorVisible] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  // 变更链相关状态
   const [changeChainVisible, setChangeChainVisible] = useState(false);
   const [changeChain, setChangeChain] = useState<ChangeChain | null>(null);
   const [changeChainLoading, setChangeChainLoading] = useState(false);
-  const [selectedResourceKey, setSelectedResourceKey] = useState<string>('');
-
-  // Diff 相关状态
+  const [selectedResourceKey, setSelectedResourceKey] = useState('');
   const [diffVisible, setDiffVisible] = useState(false);
   const [diffData, setDiffData] = useState<DiffResponse | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
-
-  // 合并相关状态
   const [mergeVisible, setMergeVisible] = useState(false);
   const [mergeLoading, setMergeLoading] = useState(false);
 
-  // 加载草稿列表
   const loadDrafts = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await listPageDrafts();
-      setDrafts(result || []);
+      setDrafts(await listPageDrafts());
     } catch {
       message.error('加载页面列表失败');
     } finally {
@@ -133,60 +118,77 @@ export default function PageStudio() {
     loadDrafts();
   }, [loadDrafts]);
 
-  // 加载草稿详情
-  const loadDraftDetail = useCallback(async (pageKey: string) => {
-    try {
-      const draft = await getPageDraft(pageKey);
-      setSelectedDraft(draft);
-      setSelectedDraftRevision(draft.draftRevision || 0);
-    } catch {
-      message.error('加载页面详情失败');
+  const loadDraftDetail = useCallback(
+    async (pageKey: string) => {
+      try {
+        const draft = await getPageDraft(pageKey);
+        setSelectedDraft(draft);
+        setSelectedDraftRevision(draft.draftRevision || 0);
+      } catch {
+        message.error('加载页面详情失败');
+      }
+    },
+    [message],
+  );
+
+  const handlePublish = useCallback(
+    async (pageKey: string, draftRevision: number) => {
+      try {
+        await publishPageDraft(pageKey, draftRevision);
+        message.success('发布成功');
+        loadDrafts();
+      } catch {
+        message.error('发布失败');
+      }
+    },
+    [loadDrafts, message],
+  );
+
+  const handleUnpublish = useCallback(
+    async (pageKey: string) => {
+      try {
+        await unpublishPage(pageKey);
+        message.success('已取消发布');
+        loadDrafts();
+      } catch {
+        message.error('取消发布失败');
+      }
+    },
+    [loadDrafts, message],
+  );
+
+  const handlePreview = useCallback(
+    (pageKey: string) => {
+      loadDraftDetail(pageKey);
+      setPreviewVisible(true);
+    },
+    [loadDraftDetail],
+  );
+
+  const handleEdit = useCallback(
+    (pageKey: string) => {
+      loadDraftDetail(pageKey);
+      setEditorVisible(true);
+    },
+    [loadDraftDetail],
+  );
+
+  useEffect(() => {
+    const focusPageKey = currentFocusPageKey();
+    if (focusPageKey) {
+      handleEdit(focusPageKey);
     }
-  }, [message]);
+  }, [handleEdit]);
 
-  // 发布页面
-  const handlePublish = useCallback(async (pageKey: string) => {
-    try {
-      await publishPageDraft(pageKey, selectedDraftRevision);
-      message.success('发布成功');
-      loadDrafts();
-    } catch {
-      message.error('发布失败');
-    }
-  }, [message, loadDrafts, selectedDraftRevision]);
-
-  // 取消发布
-  const handleUnpublish = useCallback(async (pageKey: string) => {
-    try {
-      await unpublishPage(pageKey);
-      message.success('已取消发布');
-      loadDrafts();
-    } catch {
-      message.error('取消发布失败');
-    }
-  }, [message, loadDrafts]);
-
-  // 预览页面
-  const handlePreview = useCallback((pageKey: string) => {
-    loadDraftDetail(pageKey);
-    setPreviewVisible(true);
-  }, [loadDraftDetail]);
-
-  // 编辑页面
-  const handleEdit = useCallback((pageKey: string) => {
-    loadDraftDetail(pageKey);
-    setEditorVisible(true);
-  }, [loadDraftDetail]);
-
-  // 保存编辑
   const handleSave = useCallback(async () => {
     if (!selectedDraft) return;
     setSaving(true);
     try {
-      await savePageDraft({
+      const result = await savePageDraft({
         ...selectedDraft,
         draftRevision: selectedDraftRevision,
       });
+      setSelectedDraftRevision(result.draftRevision);
       message.success('保存成功');
       setEditorVisible(false);
       loadDrafts();
@@ -195,60 +197,63 @@ export default function PageStudio() {
     } finally {
       setSaving(false);
     }
-  }, [selectedDraft, selectedDraftRevision, message, loadDrafts]);
+  }, [loadDrafts, message, selectedDraft, selectedDraftRevision]);
 
-  // 查看变更链
-  const handleChangeChain = useCallback(async (resourceKey: string) => {
-    setSelectedResourceKey(resourceKey);
-    setChangeChainVisible(true);
-    setChangeChainLoading(true);
-    try {
-      const chain = await getChangeChain(resourceKey);
-      setChangeChain(chain);
-    } catch {
-      message.error('加载变更链失败');
-    } finally {
-      setChangeChainLoading(false);
-    }
-  }, [message]);
+  const handleChangeChain = useCallback(
+    async (resourceKey: string) => {
+      setSelectedResourceKey(resourceKey);
+      setChangeChainVisible(true);
+      setChangeChainLoading(true);
+      try {
+        setChangeChain(await getChangeChain(resourceKey));
+      } catch {
+        message.error('加载变更链失败');
+      } finally {
+        setChangeChainLoading(false);
+      }
+    },
+    [message],
+  );
 
-  // 查看 Diff
-  const handleDiff = useCallback(async (resourceKey: string) => {
-    setSelectedResourceKey(resourceKey);
-    setDiffVisible(true);
-    setDiffLoading(true);
-    try {
-      const diff = await getDiff(resourceKey);
-      setDiffData(diff);
-    } catch {
-      message.error('加载 Diff 失败');
-    } finally {
-      setDiffLoading(false);
-    }
-  }, [message]);
+  const handleDiff = useCallback(
+    async (resourceKey: string) => {
+      setSelectedResourceKey(resourceKey);
+      setDiffVisible(true);
+      setDiffLoading(true);
+      try {
+        setDiffData(await getDiff(resourceKey));
+      } catch {
+        message.error('加载 Diff 失败');
+      } finally {
+        setDiffLoading(false);
+      }
+    },
+    [message],
+  );
 
-  // 合并变更
-  const handleMerge = useCallback(async (strategy: MergeStrategy) => {
-    setMergeLoading(true);
-    try {
-      const result = await mergeChanges(selectedResourceKey, { strategy });
-      message.success(`合并完成：${result.merged} 项自动合并，${result.conflicts} 项冲突`);
-      setMergeVisible(false);
-      loadDrafts();
-    } catch {
-      message.error('合并失败');
-    } finally {
-      setMergeLoading(false);
-    }
-  }, [message, selectedResourceKey, loadDrafts]);
+  const handleMerge = useCallback(
+    async (strategy: MergeStrategy) => {
+      setMergeLoading(true);
+      try {
+        const result = await mergeChanges(selectedResourceKey, { strategy });
+        message.success(`合并完成：${result.merged} 项自动合并，${result.conflicts} 项冲突`);
+        setMergeVisible(false);
+        loadDrafts();
+      } catch {
+        message.error('合并失败');
+      } finally {
+        setMergeLoading(false);
+      }
+    },
+    [loadDrafts, message, selectedResourceKey],
+  );
 
-  // 表格列定义
   const columns: ProColumns<PageSpecDraftSummary>[] = [
     {
       title: '页面标识',
       dataIndex: 'pageKey',
       key: 'pageKey',
-      width: 200,
+      width: 220,
       render: (_, record) => (
         <Space>
           <Text strong>{record.pageKey}</Text>
@@ -274,9 +279,7 @@ export default function PageStudio() {
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (_, record) => (
-        <Tag color={statusColor(record.status)}>{record.status}</Tag>
-      ),
+      render: (_, record) => <Tag color={statusColor(record.status)}>{record.status}</Tag>,
     },
     {
       title: '版本',
@@ -298,20 +301,10 @@ export default function PageStudio() {
       width: 400,
       render: (_, record) => (
         <Space>
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record.pageKey)}
-          >
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record.pageKey)}>
             编辑
           </Button>
-          <Button
-            type="link"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handlePreview(record.pageKey)}
-          >
+          <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => handlePreview(record.pageKey)}>
             预览
           </Button>
           <Button
@@ -333,19 +326,13 @@ export default function PageStudio() {
             Diff
           </Button>
           {record.status === 'draft' ? (
-            <Popconfirm
-              title="确认发布此页面？"
-              onConfirm={() => handlePublish(record.pageKey)}
-            >
+            <Popconfirm title="确认发布此页面？" onConfirm={() => handlePublish(record.pageKey, record.draftRevision)}>
               <Button type="link" size="small" icon={<RocketOutlined />}>
                 发布
               </Button>
             </Popconfirm>
           ) : (
-            <Popconfirm
-              title="确认取消发布此页面？"
-              onConfirm={() => handleUnpublish(record.pageKey)}
-            >
+            <Popconfirm title="确认取消发布此页面？" onConfirm={() => handleUnpublish(record.pageKey)}>
               <Button type="link" size="small" icon={<StopOutlined />} danger>
                 取消发布
               </Button>
@@ -357,11 +344,14 @@ export default function PageStudio() {
   ];
 
   return (
-    <PageContainer
-      title="页面工作室"
-      subTitle="管理语义化页面"
-    >
-      <Card>
+    <PageContainer title="页面工作室" subTitle="从默认页面提案发布；只有不满意时再编辑页面">
+      <ProposalInbox />
+
+      <Card
+        title="已接受和编辑中的页面"
+        style={{ marginTop: 16 }}
+        extra={<Text type="secondary">草稿用于人工调整已接受的 PageSpec；默认生成入口在上方三队列。</Text>}
+      >
         <ProTable<PageSpecDraftSummary>
           columns={columns}
           dataSource={drafts}
@@ -370,41 +360,31 @@ export default function PageStudio() {
           search={false}
           pagination={false}
           toolBarRender={() => [
-            <Button
-              key="refresh"
-              icon={<ReloadOutlined />}
-              onClick={loadDrafts}
-            >
-              刷新
+            <Button key="refresh" icon={<ReloadOutlined />} onClick={loadDrafts}>
+              刷新草稿
             </Button>,
           ]}
         />
       </Card>
 
-      {/* 预览抽屉 */}
-      <Drawer
-        title="页面预览"
-        width={800}
-        open={previewVisible}
-        onClose={() => setPreviewVisible(false)}
-      >
+      <Drawer title="页面预览" width={900} open={previewVisible} onClose={() => setPreviewVisible(false)}>
         {selectedDraft ? (
           <PageRenderer
             pageSpec={selectedDraft}
-            onExecute={async (bindingId, context) => {
-              console.log('Preview execute:', bindingId, context);
-              return { kind: 'sync', requestId: 'preview', data: {} };
-            }}
+            onExecute={async (): Promise<{ kind: 'sync'; requestId: string; data: JSONValue }> => ({
+              kind: 'sync',
+              requestId: 'preview',
+              data: {},
+            })}
           />
         ) : (
           <Empty description="请选择页面" />
         )}
       </Drawer>
 
-      {/* 编辑器抽屉 */}
       <Drawer
         title="页面编辑"
-        width={800}
+        width={900}
         open={editorVisible}
         onClose={() => setEditorVisible(false)}
         extra={
@@ -416,80 +396,68 @@ export default function PageStudio() {
           </Space>
         }
       >
-        {selectedDraft ? (
-          <PageEditor
-            value={selectedDraft}
-            onChange={setSelectedDraft}
-          />
-        ) : (
-          <Empty description="请选择页面" />
-        )}
+        {selectedDraft ? <PageEditor value={selectedDraft} onChange={setSelectedDraft} /> : <Empty description="请选择页面" />}
       </Drawer>
 
-      {/* 变更链抽屉 */}
       <Drawer
         title="变更链"
-        width={600}
+        width={640}
         open={changeChainVisible}
         onClose={() => setChangeChainVisible(false)}
         loading={changeChainLoading}
       >
         {changeChain ? (
-          <div>
+          <Space direction="vertical" style={{ width: '100%' }}>
             <Paragraph>
               <Text strong>资源：</Text> {changeChain.resourceKey}
             </Paragraph>
             <Paragraph>
               <Text strong>当前状态：</Text>
-              函数版本: {changeChain.current.functionVersion || '-'},
-              语义版本: {changeChain.current.semanticVersion || '-'},
-              提案版本: {changeChain.current.proposalVersion || '-'},
-              草稿版本: {changeChain.current.draftRevision || '-'},
+              函数版本: {changeChain.current.functionVersion || '-'}, 语义版本: {changeChain.current.semanticVersion || '-'},
+              提案版本: {changeChain.current.proposalVersion || '-'}, 草稿版本: {changeChain.current.draftRevision || '-'},
               发布版本: {changeChain.current.publishedVersion || '-'}
             </Paragraph>
             <Timeline
               items={changeChain.items.map((item) => ({
                 children: (
-                  <div>
-                    <Tag color="blue">{item.type}</Tag>
-                    <Text>{item.summary}</Text>
-                    <br />
-                    <Text type="secondary">{formatDate(item.timestamp)}</Text>
-                    {item.actor && <Text type="secondary"> - {item.actor}</Text>}
-                  </div>
+                  <Space direction="vertical" size={0}>
+                    <Space>
+                      <Tag color="blue">{item.type}</Tag>
+                      <Text>{item.summary}</Text>
+                    </Space>
+                    <Text type="secondary">
+                      {formatDate(item.timestamp)}
+                      {item.actor ? ` - ${item.actor}` : ''}
+                    </Text>
+                  </Space>
                 ),
               }))}
             />
-          </div>
+          </Space>
         ) : (
           <Empty description="暂无变更记录" />
         )}
       </Drawer>
 
-      {/* Diff 抽屉 */}
       <Drawer
         title="变更对比"
-        width={800}
+        width={840}
         open={diffVisible}
         onClose={() => setDiffVisible(false)}
         loading={diffLoading}
         extra={
-          <Button
-            type="primary"
-            icon={<MergeOutlined />}
-            onClick={() => setMergeVisible(true)}
-          >
+          <Button type="primary" icon={<MergeOutlined />} onClick={() => setMergeVisible(true)}>
             合并变更
           </Button>
         }
       >
         {diffData ? (
-          <div>
+          <Space direction="vertical" style={{ width: '100%' }}>
             <Paragraph>
               <Text strong>{diffData.summary}</Text>
             </Paragraph>
-            {diffData.changes.map((change, index) => (
-              <Card key={index} size="small" style={{ marginBottom: 8 }}>
+            {diffData.changes.map((change) => (
+              <Card key={`${change.path}:${change.changeType}`} size="small">
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Space>
                     <Tag color={change.changeType === 'added' ? 'green' : change.changeType === 'removed' ? 'red' : 'orange'}>
@@ -499,31 +467,24 @@ export default function PageStudio() {
                     {change.isSemantic && <Tag color="purple">语义变更</Tag>}
                   </Space>
                   {change.oldValue && (
-                    <div>
-                      <Text type="secondary">旧值：</Text>
-                      <pre style={{ margin: 0, padding: 8, background: '#f5f5f5' }}>
-                        {JSON.stringify(change.oldValue, null, 2)}
-                      </pre>
-                    </div>
+                    <pre style={{ margin: 0, padding: 8, background: '#f5f5f5' }}>
+                      {JSON.stringify(change.oldValue, null, 2)}
+                    </pre>
                   )}
                   {change.newValue && (
-                    <div>
-                      <Text type="secondary">新值：</Text>
-                      <pre style={{ margin: 0, padding: 8, background: '#f5f5f5' }}>
-                        {JSON.stringify(change.newValue, null, 2)}
-                      </pre>
-                    </div>
+                    <pre style={{ margin: 0, padding: 8, background: '#f5f5f5' }}>
+                      {JSON.stringify(change.newValue, null, 2)}
+                    </pre>
                   )}
                 </Space>
               </Card>
             ))}
-          </div>
+          </Space>
         ) : (
           <Empty description="暂无变更" />
         )}
       </Drawer>
 
-      {/* 合并确认弹窗 */}
       <Modal
         title="合并变更"
         open={mergeVisible}
@@ -532,30 +493,17 @@ export default function PageStudio() {
           <Button key="cancel" onClick={() => setMergeVisible(false)}>
             取消
           </Button>,
-          <Button
-            key="auto"
-            loading={mergeLoading}
-            onClick={() => handleMerge('auto')}
-          >
+          <Button key="auto" loading={mergeLoading} onClick={() => handleMerge('auto')}>
             自动合并
           </Button>,
-          <Button
-            key="accept"
-            type="primary"
-            loading={mergeLoading}
-            onClick={() => handleMerge('accept')}
-          >
-            接受所有
+          <Button key="manual" type="primary" onClick={() => setEditorVisible(true)}>
+            手动处理冲突
           </Button>,
         ]}
       >
         <Paragraph>
-          选择合并策略：
+          自动合并只会写入展示字段；binding、selector、权限、风险、审批和执行模式必须人工确认后重新发布。
         </Paragraph>
-        <ul>
-          <li><Text strong>自动合并</Text>：安全字段自动合并，冲突字段需手动解决</li>
-          <li><Text strong>接受所有</Text>：接受所有新变更，覆盖草稿</li>
-        </ul>
       </Modal>
     </PageContainer>
   );

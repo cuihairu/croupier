@@ -86,6 +86,28 @@ func (h *Handler) UpdateSemantics(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// ListSemanticVersions handles GET /api/resource-catalog/:resourceKey/semantics/versions
+func (h *Handler) ListSemanticVersions(c *gin.Context) {
+	var req ListSemanticVersionsRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	// Get scope from context
+	gameID, env := getScope(c)
+	req.GameID = gameID
+	req.Env = env
+
+	resp, err := h.service.ListSemanticVersions(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	response.Success(c, resp)
+}
+
 // ListConflicts handles GET /api/resource-catalog/:resourceKey/conflicts
 func (h *Handler) ListConflicts(c *gin.Context) {
 	var req ListConflictsRequest

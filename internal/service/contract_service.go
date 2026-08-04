@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -21,23 +22,25 @@ const pageProposalGeneratorVersion = "dashboard-vnext-1"
 
 // ContractService manages FunctionContract persistence and semantic rebuilding.
 type ContractService struct {
-	db              *gorm.DB
-	contractModel   *model.FunctionContractModel
-	capabilityModel *model.ResourceCapabilityModel
-	semanticsModel  *model.CapabilitySemanticsModel
-	versionModel    *model.CapabilitySemanticVersionModel
-	proposalModel   *model.PageProposalModel
+	db               *gorm.DB
+	contractModel    *model.FunctionContractModel
+	capabilityModel  *model.ResourceCapabilityModel
+	semanticsModel   *model.CapabilitySemanticsModel
+	versionModel     *model.CapabilitySemanticVersionModel
+	proposalModel    *model.PageProposalModel
+	proposalVersions *model.PageProposalVersionModel
 }
 
 // NewContractService creates the service.
 func NewContractService(db *gorm.DB) *ContractService {
 	return &ContractService{
-		db:              db,
-		contractModel:   model.NewFunctionContractModel(db),
-		capabilityModel: model.NewResourceCapabilityModel(db),
-		semanticsModel:  model.NewCapabilitySemanticsModel(db),
-		versionModel:    model.NewCapabilitySemanticVersionModel(db),
-		proposalModel:   model.NewPageProposalModel(db),
+		db:               db,
+		contractModel:    model.NewFunctionContractModel(db),
+		capabilityModel:  model.NewResourceCapabilityModel(db),
+		semanticsModel:   model.NewCapabilitySemanticsModel(db),
+		versionModel:     model.NewCapabilitySemanticVersionModel(db),
+		proposalModel:    model.NewPageProposalModel(db),
+		proposalVersions: model.NewPageProposalVersionModel(db),
 	}
 }
 
@@ -525,16 +528,69 @@ func (s *ContractService) upsertGeneratedProposal(
 		Status:           "pending",
 		UpdatedBy:        "system",
 	}
+	changed := true
 	if existing, err := s.proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey); err == nil {
-		proposal.Status = preserveGeneratedProposalStatus(existing.Status)
-		if proposal.Status == existing.Status && existing.UpdatedBy != "" {
-			proposal.UpdatedBy = existing.UpdatedBy
+		changed = generatedProposalChanged(existing, proposal)
+		if !changed {
+			proposal.Status = preserveGeneratedProposalStatus(existing.Status)
+			if existing.UpdatedBy != "" {
+				proposal.UpdatedBy = existing.UpdatedBy
+			}
 		}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find existing page proposal %s: %w", proposalKey, err)
 	}
 	if err := s.proposalModel.UpsertProposal(ctx, proposal); err != nil {
 		return fmt.Errorf("upsert page proposal %s: %w", proposalKey, err)
 	}
+	if changed {
+		if _, err := createProposalVersionSnapshot(ctx, s.proposalVersions, proposal, "generate proposal from latest contracts", "system"); err != nil {
+			return fmt.Errorf("snapshot page proposal %s: %w", proposalKey, err)
+		}
+	}
 	return nil
+}
+
+func generatedProposalChanged(existing *model.PageProposal, next *model.PageProposal) bool {
+	if existing == nil || next == nil {
+		return true
+	}
+	return proposalComparableDigest(existing) != proposalComparableDigest(next)
+}
+
+func proposalComparableDigest(proposal *model.PageProposal) string {
+	if proposal == nil {
+		return ""
+	}
+	return computeDigest(struct {
+		ProposalKey      string
+		PageKey          string
+		PageType         string
+		ResourceKey      string
+		Quality          string
+		GeneratorVersion string
+		FunctionDigest   string
+		SemanticsDigest  string
+		Title            datatypes.JSONMap
+		Description      datatypes.JSONMap
+		CategoryKey      string
+		PageSpec         datatypes.JSON
+		Diagnostics      datatypes.JSON
+	}{
+		ProposalKey:      proposal.ProposalKey,
+		PageKey:          proposal.PageKey,
+		PageType:         proposal.PageType,
+		ResourceKey:      proposal.ResourceKey,
+		Quality:          proposal.Quality,
+		GeneratorVersion: proposal.GeneratorVersion,
+		FunctionDigest:   proposal.FunctionDigest,
+		SemanticsDigest:  proposal.SemanticsDigest,
+		Title:            proposal.Title,
+		Description:      proposal.Description,
+		CategoryKey:      proposal.CategoryKey,
+		PageSpec:         proposal.PageSpec,
+		Diagnostics:      proposal.Diagnostics,
+	})
 }
 
 func preserveGeneratedProposalStatus(status string) string {
