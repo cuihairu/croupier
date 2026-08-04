@@ -62,6 +62,11 @@ proto: croupier-plugin
 	@echo "[proto] generating code via buf..."
 	buf generate proto --template buf.gen.yaml --clean
 
+# 本地编译 - 不上传 proto 文件到 buf 服务
+proto-local:
+	@echo "[proto] generating code locally via buf..."
+	buf generate proto --template buf.gen.local.yaml --clean
+
 # Generate API code from .api files (DEPRECATED - go-zero removed)
 api:
 	@echo "[deprecated] API generation via goctl is no longer supported. Use hand-written handlers in internal/api/"

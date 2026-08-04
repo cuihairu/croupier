@@ -42,7 +42,7 @@ type FunctionOptions struct {
 	Tags           []string               `protobuf:"bytes,13,rep,name=tags,proto3" json:"tags,omitempty"`
 	Permission     string                 `protobuf:"bytes,14,opt,name=permission,proto3" json:"permission,omitempty"` // Optional permission identifier.
 	Capability     string                 `protobuf:"bytes,15,opt,name=capability,proto3" json:"capability,omitempty"` // collection_query/item_query/create/update/delete/action/task/report.
-	Execution      string                 `protobuf:"bytes,16,opt,name=execution,proto3" json:"execution,omitempty"`   // sync/task/approval.
+	Execution      string                 `protobuf:"bytes,16,opt,name=execution,proto3" json:"execution,omitempty"`   // sync/task.
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }

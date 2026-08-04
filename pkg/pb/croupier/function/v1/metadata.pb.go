@@ -245,7 +245,7 @@ type FunctionMetadata struct {
 	Tags       []string `protobuf:"bytes,4,rep,name=tags,proto3" json:"tags,omitempty"`              // Tags for grouping and filtering
 	Capability string   `protobuf:"bytes,12,opt,name=capability,proto3" json:"capability,omitempty"` // collection_query|item_query|create|update|delete|action|task|report
 	Operation  string   `protobuf:"bytes,13,opt,name=operation,proto3" json:"operation,omitempty"`   // Business action key, e.g. "ban", "send", "list"
-	Execution  string   `protobuf:"bytes,14,opt,name=execution,proto3" json:"execution,omitempty"`   // sync|task|approval
+	Execution  string   `protobuf:"bytes,14,opt,name=execution,proto3" json:"execution,omitempty"`   // sync|task
 	// Documentation fields
 	Name        string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`               // Short technical name, not a UI label
 	Description string `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"` // Detailed description (supports markdown)
