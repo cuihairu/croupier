@@ -1,10 +1,10 @@
 /**
- * ProposalsPage - 提案管理页面
+ * ProposalsPage - 提案管理页面（三队列模式）
  *
- * 展示和管理页面提案，包括：
- * - 提案列表
- * - 提案详情
- * - 接受/拒绝操作
+ * 展示和管理页面提案，包括三个队列：
+ * - 可直接发布：ready/basic Proposal
+ * - 需要处理：needs_review Proposal 和 BlockedProposalIssue
+ * - 契约变更：source digest 变化导致 stale 的 Draft/PublishedPageSpec
  *
  * @module pages/Proposals
  */
@@ -17,9 +17,9 @@ import {
   Space,
   Button,
   Input,
-  Select,
   Modal,
   Descriptions,
+  Tabs,
   message,
   Typography,
   Popconfirm,
@@ -35,6 +35,9 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   StopOutlined,
+  RocketOutlined,
+  ExclamationCircleOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type {
@@ -51,7 +54,6 @@ import {
 } from '@/services/dashboard';
 
 const { Text, Title, Paragraph } = Typography;
-const { Option } = Select;
 
 // ---------------------------------------------------------------------------
 // 状态颜色映射
@@ -108,13 +110,33 @@ const hasErrorDiagnostics = (proposal: PageProposal): boolean =>
   proposal.diagnostics?.some((diagnostic) => diagnostic.severity === 'error') ?? false;
 
 // ---------------------------------------------------------------------------
+// 三队列分类
+// ---------------------------------------------------------------------------
+
+/** 可直接发布的提案 */
+const isPublishable = (proposal: PageProposal): boolean =>
+  proposal.status === 'pending' &&
+  (proposal.quality === 'ready' || proposal.quality === 'basic') &&
+  !hasErrorDiagnostics(proposal);
+
+/** 需要处理的提案 */
+const needsHandling = (proposal: PageProposal): boolean =>
+  proposal.status === 'pending' &&
+  (proposal.quality === 'needs_review' || hasErrorDiagnostics(proposal));
+
+/** 契约变更的提案（stale） */
+const isStale = (proposal: PageProposal): boolean =>
+  proposal.status === 'accepted' &&
+  (proposal.diagnostics?.some((d) => d.code?.includes('stale')) ?? false);
+
+// ---------------------------------------------------------------------------
 // ProposalsPage 组件
 // ---------------------------------------------------------------------------
 
 const ProposalsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<PageProposal[]>([]);
-  const [status, setStatus] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('publishable');
   const [query, setQuery] = useState<string>('');
   const [selectedProposal, setSelectedProposal] = useState<PageProposal | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -123,9 +145,7 @@ const ProposalsPage: React.FC = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await listProposals({
-        status: status || undefined,
-      });
+      const result = await listProposals({});
       setData(result);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : '未知错误';
@@ -133,12 +153,17 @@ const ProposalsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, []);
 
   // 初始加载
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // 按队列过滤数据
+  const publishableProposals = data.filter(isPublishable);
+  const needsHandlingProposals = data.filter(needsHandling);
+  const staleProposals = data.filter(isStale);
 
   // 查看详情
   const handleViewDetail = useCallback(async (proposalKey: string) => {
@@ -304,39 +329,76 @@ const ProposalsPage: React.FC = () => {
             onChange={(e) => setQuery(e.target.value)}
             style={{ width: 200 }}
           />
-          <Select
-            placeholder="选择状态"
-            value={status || undefined}
-            onChange={(value) => setStatus(value || '')}
-            allowClear
-            style={{ width: 150 }}
-          >
-            <Option value="">全部</Option>
-            <Option value="pending">待处理</Option>
-            <Option value="accepted">已接受</Option>
-            <Option value="rejected">已拒绝</Option>
-          </Select>
-          <Button type="primary" icon={<SearchOutlined />} onClick={fetchData}>
-            搜索
-          </Button>
           <Button icon={<ReloadOutlined />} onClick={fetchData}>
             刷新
           </Button>
         </Space>
       </Card>
 
-      {/* 提案列表 */}
-      <Card title="提案管理">
-        <Table
-          columns={columns}
-          dataSource={data}
-          rowKey="proposalKey"
-          loading={loading}
-          pagination={{
-            pageSize: 20,
-            showSizeChanger: true,
-            showTotal: (total) => `共 ${total} 条`,
-          }}
+      {/* 三队列 Tabs */}
+      <Card>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={[
+            {
+              key: 'publishable',
+              label: (
+                <Space>
+                  <RocketOutlined />
+                  可直接发布
+                  <Tag color="success">{publishableProposals.length}</Tag>
+                </Space>
+              ),
+              children: (
+                <Table
+                  columns={columns}
+                  dataSource={publishableProposals}
+                  rowKey="proposalKey"
+                  loading={loading}
+                  pagination={{ pageSize: 20 }}
+                />
+              ),
+            },
+            {
+              key: 'needsHandling',
+              label: (
+                <Space>
+                  <ExclamationCircleOutlined />
+                  需要处理
+                  <Tag color="warning">{needsHandlingProposals.length}</Tag>
+                </Space>
+              ),
+              children: (
+                <Table
+                  columns={columns}
+                  dataSource={needsHandlingProposals}
+                  rowKey="proposalKey"
+                  loading={loading}
+                  pagination={{ pageSize: 20 }}
+                />
+              ),
+            },
+            {
+              key: 'stale',
+              label: (
+                <Space>
+                  <SyncOutlined />
+                  契约变更
+                  <Tag color="error">{staleProposals.length}</Tag>
+                </Space>
+              ),
+              children: (
+                <Table
+                  columns={columns}
+                  dataSource={staleProposals}
+                  rowKey="proposalKey"
+                  loading={loading}
+                  pagination={{ pageSize: 20 }}
+                />
+              ),
+            },
+          ]}
         />
       </Card>
 
