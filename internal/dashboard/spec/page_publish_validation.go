@@ -12,6 +12,10 @@ func ValidatePublishablePageShape(page PageSpec) []Diagnostic {
 	switch page.Type {
 	case PageTypeResource:
 		diags = append(diags, validatePublishableResourcePage(page.Resource)...)
+	case PageTypeOperation:
+		diags = append(diags, validatePublishableResultView(page.Operation.ResultView, "operation.resultView")...)
+	case PageTypeTask:
+		diags = append(diags, validatePublishableTaskPage(page.Task)...)
 	case PageTypeReport:
 		diags = append(diags, validatePublishableReportPage(page.Report)...)
 	default:
@@ -58,6 +62,50 @@ func validatePublishableResourcePage(resource *ResourcePageSpec) []Diagnostic {
 		}
 	}
 	return []Diagnostic{publishShapeDiagnostic("resource_identity_key_invalid", "resource listView.identityKey must reference a list column", "resource.listView.identityKey")}
+}
+
+func validatePublishableTaskPage(task *TaskPageSpec) []Diagnostic {
+	if task == nil {
+		return nil
+	}
+	var diags []Diagnostic
+	if task.Form == nil {
+		diags = append(diags, publishShapeDiagnostic("task_form_missing", "task.form is required before publish", "task.form"))
+	}
+	if task.TaskView == nil {
+		diags = append(diags, publishShapeDiagnostic("task_view_missing", "task.taskView is required before publish", "task.taskView"))
+	} else if task.TaskView.Retryable {
+		diags = append(diags, publishShapeDiagnostic("task_retry_unavailable", "task retry requires an explicit retry function semantic before publish", "task.taskView.retryable"))
+	}
+	diags = append(diags, validatePublishableResultView(task.ResultView, "task.resultView")...)
+	return diags
+}
+
+func validatePublishableResultView(resultView *ResultViewSpec, field string) []Diagnostic {
+	if resultView == nil || len(resultView.Fields) == 0 {
+		return nil
+	}
+	var diags []Diagnostic
+	seen := map[string]struct{}{}
+	for i, resultField := range resultView.Fields {
+		itemField := field + ".fields[" + strconv.Itoa(i) + "]"
+		key := strings.TrimSpace(resultField.Key)
+		if key == "" {
+			diags = append(diags, publishShapeDiagnostic("result_field_key_missing", "result field key is required", itemField+".key"))
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			diags = append(diags, publishShapeDiagnostic("result_field_key_duplicate", "result field key must be unique", itemField+".key"))
+		}
+		seen[key] = struct{}{}
+		if !hasDefaultLocale(resultField.Title) {
+			diags = append(diags, publishShapeDiagnostic("result_field_title_missing", "result field title must include zh-CN locale", itemField+".title"))
+		}
+		if strings.TrimSpace(resultField.DataType) == "" {
+			diags = append(diags, publishShapeDiagnostic("result_field_type_missing", "result field dataType is required", itemField+".dataType"))
+		}
+	}
+	return diags
 }
 
 func validatePublishableReportPage(report *ReportPageSpec) []Diagnostic {

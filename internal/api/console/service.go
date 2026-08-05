@@ -230,8 +230,8 @@ func buildBindingPayloadFromSelectors(binding spec.PageFunctionBinding, execCtx 
 }
 
 func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecutionContext) (any, bool, error) {
-	if source.Transform != nil {
-		return nil, false, errorx.NewValidationError("binding selector transforms are not supported by console execution")
+	if source.Transform != nil && source.Transform.Type != spec.TransformPick {
+		return nil, false, errorx.NewValidationError("binding selector transform is not supported: " + string(source.Transform.Type))
 	}
 	switch source.Kind {
 	case spec.SourceLiteral:
@@ -245,6 +245,9 @@ func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecuti
 	case spec.SourceRow:
 		return valueFromRawContext(execCtx.Row, source.Path, "row")
 	case spec.SourceSelection:
+		if source.Transform != nil && source.Transform.Type == spec.TransformPick {
+			return pickSelectionValues(execCtx.Selection, source.Path)
+		}
 		return valueFromRawContext(execCtx.Selection, source.Path, "selection")
 	case spec.SourceDetail:
 		return valueFromRawContext(execCtx.Detail, source.Path, "detail")
@@ -264,6 +267,29 @@ func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecuti
 	default:
 		return nil, false, errorx.NewValidationError("unsupported binding selector source: " + string(source.Kind))
 	}
+}
+
+func pickSelectionValues(raw json.RawMessage, path string) (any, bool, error) {
+	if len(raw) == 0 {
+		return nil, false, nil
+	}
+	value, err := decodeRawJSONValue(raw, "selection")
+	if err != nil {
+		return nil, false, err
+	}
+	rows, ok := value.([]any)
+	if !ok {
+		return nil, false, errorx.NewBadRequest("selection context must be an array")
+	}
+	values := make([]any, 0, len(rows))
+	for _, row := range rows {
+		selected, ok := getJSONPointerValue(row, path)
+		if !ok {
+			return nil, false, nil
+		}
+		values = append(values, selected)
+	}
+	return values, true, nil
 }
 
 func valueFromRawContext(raw json.RawMessage, path string, sourceName string) (any, bool, error) {

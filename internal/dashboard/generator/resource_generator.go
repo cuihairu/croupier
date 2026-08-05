@@ -70,9 +70,10 @@ func GenerateResourcePageProposal(
 	if deleteContract != nil {
 		bindings = append(bindings, resourceBinding(deleteContract, "delete", spec.BindingUsageAction, semantics))
 	}
-	inlineRowActions, inlineToolbarActions, inlineBindings, inlineDiags := buildInlineResourceActions(semantics, contracts, locale)
+	inlineRowActions, inlineBatchActions, inlineToolbarActions, inlineBindings, inlineDiags := buildInlineResourceActions(semantics, contracts, locale)
 	if listView != nil {
 		listView.RowActions = append(rowActions, inlineRowActions...)
+		listView.BatchActions = inlineBatchActions
 		listView.ToolbarActions = inlineToolbarActions
 	}
 
@@ -357,10 +358,10 @@ func buildInlineResourceActions(
 	semantics *model.CapabilitySemantics,
 	contracts []*model.FunctionContract,
 	locale string,
-) ([]spec.ActionSpec, []spec.ActionSpec, []spec.PageFunctionBinding, []spec.Diagnostic) {
+) ([]spec.ActionSpec, []spec.ActionSpec, []spec.ActionSpec, []spec.PageFunctionBinding, []spec.Diagnostic) {
 	actions := parseResourceActionSemantics(semantics)
 	if len(actions) == 0 {
-		return nil, nil, nil, nil
+		return nil, nil, nil, nil, nil
 	}
 	sort.Slice(actions, func(i, j int) bool {
 		if actions[i].Subject != actions[j].Subject {
@@ -369,6 +370,7 @@ func buildInlineResourceActions(
 		return actions[i].FunctionID < actions[j].FunctionID
 	})
 	rowActions := make([]spec.ActionSpec, 0, len(actions))
+	batchActions := make([]spec.ActionSpec, 0, len(actions))
 	toolbarActions := make([]spec.ActionSpec, 0, len(actions))
 	bindings := make([]spec.PageFunctionBinding, 0, len(actions))
 	diags := make([]spec.Diagnostic, 0)
@@ -394,12 +396,14 @@ func buildInlineResourceActions(
 		switch placement {
 		case "row":
 			rowActions = append(rowActions, actionSpec)
+		case "batch":
+			batchActions = append(batchActions, actionSpec)
 		case "toolbar":
 			toolbarActions = append(toolbarActions, actionSpec)
 		}
 		bindings = append(bindings, binding)
 	}
-	return rowActions, toolbarActions, bindings, diags
+	return rowActions, batchActions, toolbarActions, bindings, diags
 }
 
 func buildInlineResourceAction(
@@ -467,6 +471,26 @@ func buildInlineResourceActionSelector(
 			return spec.SelectorAST{}, "", false
 		}
 		return selector, "row", true
+	case "resource_selection":
+		target := topLevelPointerToken(action.IdentityInput)
+		if target == "" || !schemaCanBindBySingleRequiredArrayField(spec.JSONSchema(contract.InputSchema), target) {
+			return spec.SelectorAST{}, "", false
+		}
+		rowIdentity := pointerForField(semantics.IdentityField)
+		if rowIdentity == "" {
+			return spec.SelectorAST{}, "", false
+		}
+		selector := spec.DefaultSelector(spec.JSONSchema(contract.InputSchema))
+		if !replaceSelectorSource(&selector, action.IdentityInput, spec.ValueSource{
+			Kind: spec.SourceSelection,
+			Path: rowIdentity,
+			Transform: &spec.TransformSpec{
+				Type: spec.TransformPick,
+			},
+		}) {
+			return spec.SelectorAST{}, "", false
+		}
+		return selector, "batch", true
 	case "none":
 		if !schemaHasNoRequiredFields(spec.JSONSchema(contract.InputSchema)) {
 			return spec.SelectorAST{}, "", false
@@ -514,23 +538,24 @@ func parseResourceActionSemantics(semantics *model.CapabilitySemantics) []resour
 	if semantics == nil || len(semantics.Actions) == 0 {
 		return nil
 	}
-	var rawItems []map[string]json.RawMessage
-	if err := json.Unmarshal(semantics.Actions, &rawItems); err != nil {
+	var items []resourceActionSemantic
+	if err := json.Unmarshal(semantics.Actions, &items); err != nil {
 		return nil
 	}
-	items := make([]resourceActionSemantic, 0, len(rawItems))
-	for _, raw := range rawItems {
-		action := resourceActionSemantic{
-			FunctionID:    firstNonEmpty(extractNestedString(raw, "function", "functionId"), extractString(raw, "functionId")),
-			Subject:       extractString(raw, "subject"),
-			IdentityInput: extractString(raw, "identityInput"),
-		}
-		if strings.TrimSpace(action.FunctionID) == "" || strings.TrimSpace(action.Subject) == "" {
+	out := make([]resourceActionSemantic, 0, len(items))
+	for _, action := range items {
+		action.FunctionID = strings.TrimSpace(action.FunctionID)
+		action.Subject = strings.TrimSpace(action.Subject)
+		action.IdentityInput = strings.TrimSpace(action.IdentityInput)
+		if action.FunctionID == "" || action.Subject == "" {
 			continue
 		}
-		items = append(items, action)
+		if action.Subject == "none" {
+			action.IdentityInput = ""
+		}
+		out = append(out, action)
 	}
-	return items
+	return out
 }
 
 func detailSchemaFromContracts(
@@ -630,6 +655,36 @@ func schemaCanBindBySingleRequiredField(schema spec.JSONSchema, field string) bo
 		}
 	}
 	return true
+}
+
+func schemaCanBindBySingleRequiredArrayField(schema spec.JSONSchema, field string) bool {
+	field = strings.TrimSpace(field)
+	if field == "" {
+		return false
+	}
+	root := parseJSONObject(json.RawMessage(schema))
+	if len(root) == 0 {
+		return false
+	}
+	properties := objectProperty(root, "properties")
+	if len(properties) == 0 {
+		return false
+	}
+	prop, ok := properties[field]
+	if !ok || schemaTypeFromRaw(prop) != "array" {
+		return false
+	}
+	for _, required := range requiredFieldNames(root) {
+		if required != field {
+			return false
+		}
+	}
+	return true
+}
+
+func schemaTypeFromRaw(raw json.RawMessage) string {
+	obj := parseJSONObject(raw)
+	return rawString(obj["type"])
 }
 
 func topLevelPointerToken(pointer string) string {
@@ -1037,14 +1092,6 @@ func extractString(obj map[string]json.RawMessage, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(rawString(obj[key]))
-}
-
-func extractNestedString(obj map[string]json.RawMessage, objectKey string, key string) string {
-	nested := objectProperty(obj, objectKey)
-	if len(nested) == 0 {
-		return ""
-	}
-	return strings.TrimSpace(rawString(nested[key]))
 }
 
 func parseJSONObject(raw json.RawMessage) map[string]json.RawMessage {

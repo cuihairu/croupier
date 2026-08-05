@@ -143,10 +143,10 @@ export default function TaskPageEditor({
             />
           </Form.Item>
           <Form.Item label="允许重试">
-            <Switch
-              checked={value.taskView.retryable}
-              onChange={(retryable) => handleTaskViewChange({ retryable })}
-            />
+            <Switch checked={false} disabled />
+            <Text type="secondary" style={{ marginLeft: 8 }}>
+              当前未配置真实 retry function，不能生成重试入口。
+            </Text>
           </Form.Item>
         </Form>
       </Panel>

@@ -20,7 +20,6 @@ import {
   Timeline,
   Progress,
   Tag,
-  Descriptions,
   Alert,
 } from 'antd';
 import {
@@ -29,9 +28,9 @@ import {
   SyncOutlined,
   ClockCircleOutlined,
   StopOutlined,
-  ReloadOutlined,
 } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
+import ResultViewRenderer, { renderJSONValueSummary } from './ResultViewRenderer';
 import type {
   TaskPageSpec,
   PageFunctionBinding,
@@ -39,7 +38,6 @@ import type {
   TaskStatusResult,
   ApprovalStatusResult,
   FormValues,
-  JSONValue,
 } from '@/types/dashboard';
 
 const { Text } = Typography;
@@ -59,8 +57,6 @@ export interface TaskPageRendererProps {
   onQueryStatus?: (taskId: string) => Promise<TaskStatusResult>;
   /** 取消任务 */
   onCancelTask?: (taskId: string) => Promise<void>;
-  /** 重试任务 */
-  onRetryTask?: (taskId: string) => Promise<void>;
   /** 查询审批状态 */
   onQueryApprovalStatus?: (approvalId: string) => Promise<ApprovalStatusResult>;
   /** 页面标题 */
@@ -111,7 +107,6 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   onExecute,
   onQueryStatus,
   onCancelTask,
-  onRetryTask,
   onQueryApprovalStatus,
   title,
 }) => {
@@ -140,6 +135,8 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           progress: status.progress,
           message: status.message,
           result: status.result,
+          error: status.error,
+          events: status.events,
         });
 
         // 如果任务完成或失败，停止轮询
@@ -250,33 +247,40 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
     }
   }, [taskStatus?.taskId, onCancelTask, stopPolling]);
 
-  // 重试任务
-  const handleRetry = useCallback(async () => {
-    if (!taskStatus?.taskId || !onRetryTask) {
-      return;
-    }
-
-    try {
-      await onRetryTask(taskStatus.taskId);
-      message.success('任务已重新提交');
-      startPolling(taskStatus.taskId);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : '未知错误';
-      message.error('重试失败: ' + msg);
-    }
-  }, [taskStatus?.taskId, onRetryTask, startPolling]);
-
   const refreshApproval = useCallback(async () => {
     if (!approvalId || !onQueryApprovalStatus) {
       return;
     }
     try {
-      setApprovalStatus(await onQueryApprovalStatus(approvalId));
+      const nextStatus = await onQueryApprovalStatus(approvalId);
+      setApprovalStatus(nextStatus);
+      if (nextStatus.status !== 'approved') {
+        return;
+      }
+      if (nextStatus.resultKind === 'task' && nextStatus.taskId) {
+        setApprovalId('');
+        setTaskStatus({
+          taskId: nextStatus.taskId,
+          status: 'pending',
+          message: '审批已通过，任务已启动',
+        });
+        startPolling(nextStatus.taskId);
+        return;
+      }
+      if (nextStatus.resultKind === 'sync') {
+        setApprovalId('');
+        setTaskStatus({
+          taskId: approvalId,
+          status: 'completed',
+          message: '审批已通过，执行已完成',
+          result: nextStatus.result,
+        });
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : '审批状态查询失败';
       message.error(msg);
     }
-  }, [approvalId, onQueryApprovalStatus]);
+  }, [approvalId, onQueryApprovalStatus, startPolling]);
 
   // 渲染任务进度
   const renderTaskProgress = () => {
@@ -329,11 +333,6 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
                 取消
               </Button>
             )}
-            {spec.taskView.retryable && taskStatus.status === 'failed' && onRetryTask && (
-              <Button icon={<ReloadOutlined />} onClick={handleRetry}>
-                重试
-              </Button>
-            )}
             {!approvalId ? (
               <Button icon={<SyncOutlined />} onClick={() => pollTaskStatus(taskStatus.taskId)} loading={polling}>
                 刷新
@@ -367,9 +366,9 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
                 <br />
                 <Text>{event.message}</Text>
                 {event.data ? (
-                  <pre style={{ marginTop: 8, background: '#f5f5f5', padding: 8, fontSize: 12 }}>
-                    {JSON.stringify(event.data, null, 2)}
-                  </pre>
+                  <div style={{ marginTop: 8 }}>
+                    {renderJSONValueSummary(event.data)}
+                  </div>
                 ) : null}
               </div>
             ),
@@ -385,28 +384,13 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       return null;
     }
 
-    const data = typeof taskStatus.result === 'object' && taskStatus.result !== null
-      ? taskStatus.result as Record<string, JSONValue>
-      : null;
-
     return (
       <Card title="任务结果" style={{ marginTop: 16 }}>
-        {spec.resultView?.fields && spec.resultView.fields.length > 0 && data ? (
-          <Descriptions column={1} bordered>
-            {spec.resultView.fields.map((field) => (
-              <Descriptions.Item
-                key={field.key}
-                label={field.title['zh-CN'] || field.title['en'] || field.key}
-              >
-                {data[field.key]?.toString() || '-'}
-              </Descriptions.Item>
-            ))}
-          </Descriptions>
-        ) : (
-          <pre style={{ maxHeight: 400, overflow: 'auto' }}>
-            {JSON.stringify(taskStatus.result, null, 2)}
-          </pre>
-        )}
+        <ResultViewRenderer
+          data={taskStatus.result}
+          resultView={spec.resultView}
+          emptyTitle="任务结果视图未配置"
+        />
       </Card>
     );
   };

@@ -16,6 +16,8 @@ import (
 type GenerateOptions struct {
 	DefaultLocale string
 	Functions     map[string]spec.FunctionSpec
+	TaskSemantics map[string]spec.TaskSemantic
+	ReportSemantics map[string]spec.ReportSemantic
 }
 
 // DefaultGenerateOptions returns default options.
@@ -107,15 +109,16 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 	fn := opts.Functions[op.FunctionID]
 	applySelectors(&binding, fn)
 	diags := assessBaseCandidate(op)
-
-	// Task pages without explicit task semantics should be needs_review
-	diags = append(diags, diagnostic(
-		"task_semantics_missing",
-		spec.SeverityWarning,
-		"task capability requires status/events/result semantics before it can be safely published",
-		op.FunctionID,
-		"capability",
-	))
+	taskSemantic, hasTaskSemantic := opts.TaskSemantics[strings.TrimSpace(op.FunctionID)]
+	if !hasTaskSemantic {
+		diags = append(diags, diagnostic(
+			"task_semantics_missing",
+			spec.SeverityWarning,
+			"task capability requires status/events/result semantics before it can be safely published",
+			op.FunctionID,
+			"capability",
+		))
+	}
 
 	locale := opts.DefaultLocale
 	title := localizedTitle(op, pageKey, locale, opts)
@@ -136,8 +139,8 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 					ShowTimeline: true,
 					ShowProgress: true,
 					ShowEvents:   true,
-					Cancelable:   true,
-					Retryable:    false,
+					Cancelable:   hasTaskSemantic && taskSemantic.Cancel != nil,
+					Retryable:    hasTaskSemantic && taskSemantic.Retry != nil,
 				},
 				ResultView: &spec.ResultViewSpec{
 					Fields:         buildResultFields(fn.OutputSchema, locale),
@@ -164,15 +167,22 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 	diags := assessBaseCandidate(op)
 	locale := opts.DefaultLocale
 	title := localizedTitle(op, pageKey, locale, opts)
-	dataset := buildDatasetSpec(fn.OutputSchema, locale)
+	reportSemantic, hasReportSemantic := opts.ReportSemantics[strings.TrimSpace(op.FunctionID)]
+	dataset := buildDatasetSpecFromSemantic(fn.OutputSchema, reportSemantic, locale)
+	if dataset == nil {
+		dataset = buildDatasetSpec(fn.OutputSchema, locale)
+	}
 	charts := buildChartSpecs(dataset, title, locale)
-	if dataset == nil || len(dataset.Dimensions) == 0 || len(dataset.Metrics) == 0 {
+	if hasReportSemantic {
+		applyReportSemantic(&binding, reportSemantic)
+	}
+	if !hasReportSemantic || dataset == nil || len(dataset.Dimensions) == 0 || len(dataset.Metrics) == 0 {
 		diags = append(diags, diagnostic(
 			"report_dataset_missing",
 			spec.SeverityWarning,
-			"report output schema must expose an array dataset with at least one dimension and one numeric metric",
+			"report capability requires dataset, dimension, and metric semantics before it can be safely published",
 			op.FunctionID,
-			"outputSchema",
+			"capability",
 		))
 		dataset = &spec.DatasetSpec{
 			Dimensions: []spec.DimensionSpec{},
@@ -216,6 +226,15 @@ func operationPageKey(op spec.OperationSpec, opts GenerateOptions) string {
 func normalizeOptions(opts GenerateOptions) GenerateOptions {
 	if strings.TrimSpace(opts.DefaultLocale) == "" {
 		opts.DefaultLocale = "zh-CN"
+	}
+	if opts.Functions == nil {
+		opts.Functions = map[string]spec.FunctionSpec{}
+	}
+	if opts.TaskSemantics == nil {
+		opts.TaskSemantics = map[string]spec.TaskSemantic{}
+	}
+	if opts.ReportSemantics == nil {
+		opts.ReportSemantics = map[string]spec.ReportSemantic{}
 	}
 	return opts
 }
@@ -462,6 +481,20 @@ func defaultOutputAssignments(usage spec.PageBindingUsage, outputSchema spec.JSO
 	}
 }
 
+func applyReportSemantic(binding *spec.PageFunctionBinding, reportSemantic spec.ReportSemantic) {
+	if binding == nil || strings.TrimSpace(reportSemantic.Query.FunctionID) == "" {
+		return
+	}
+	if binding.Selectors == nil {
+		binding.Selectors = &spec.BindingSelectors{}
+	}
+	binding.Selectors.Output = []spec.OutputAssignment{{
+		StateKey: "dataset",
+		Source:   strings.TrimSpace(reportSemantic.DatasetPath),
+		Shape:    spec.OutputShapeDataset,
+	}}
+}
+
 func buildResultFields(outputSchema spec.JSONSchema, locale string) []spec.ResultFieldSpec {
 	if len(outputSchema) == 0 {
 		return nil
@@ -536,6 +569,145 @@ func buildDatasetSpec(outputSchema spec.JSONSchema, locale string) *spec.Dataset
 		return nil
 	}
 	return dataset
+}
+
+func buildDatasetSpecFromSemantic(outputSchema spec.JSONSchema, report spec.ReportSemantic, locale string) *spec.DatasetSpec {
+	if strings.TrimSpace(report.Query.FunctionID) == "" || len(outputSchema) == 0 {
+		return nil
+	}
+	itemSchema := datasetItemSchemaAtPointer(outputSchema, strings.TrimSpace(report.DatasetPath))
+	if len(itemSchema) == 0 {
+		return nil
+	}
+	dimensions := buildDimensionsFromPointers(itemSchema, report.Dimensions, locale)
+	metrics := buildMetricsFromPointers(itemSchema, report.Metrics, locale)
+	if len(dimensions) == 0 || len(metrics) == 0 {
+		return nil
+	}
+	return &spec.DatasetSpec{
+		Dimensions: dimensions,
+		Metrics:    metrics,
+	}
+}
+
+func buildDimensionsFromPointers(itemSchema map[string]json.RawMessage, pointers []string, locale string) []spec.DimensionSpec {
+	out := make([]spec.DimensionSpec, 0, len(pointers))
+	for _, pointer := range compactPointers(pointers) {
+		prop, ok := schemaAtPointer(itemSchema, pointer)
+		if !ok {
+			continue
+		}
+		key := keyFromPointer(pointer)
+		dataType := dataTypeFromSchema(prop)
+		if dataType == "datetime" {
+			dataType = "date"
+		}
+		if dataType != "string" && dataType != "number" && dataType != "date" {
+			dataType = "string"
+		}
+		out = append(out, spec.DimensionSpec{
+			Key:      key,
+			Title:    spec.LocalizedText{locale: humanizeKey(key)},
+			DataType: dataType,
+		})
+	}
+	return out
+}
+
+func buildMetricsFromPointers(itemSchema map[string]json.RawMessage, pointers []string, locale string) []spec.MetricSpec {
+	out := make([]spec.MetricSpec, 0, len(pointers))
+	for _, pointer := range compactPointers(pointers) {
+		prop, ok := schemaAtPointer(itemSchema, pointer)
+		if !ok {
+			continue
+		}
+		if schemaTypeFromObject(prop) != "number" && schemaTypeFromObject(prop) != "integer" {
+			continue
+		}
+		key := keyFromPointer(pointer)
+		out = append(out, spec.MetricSpec{
+			Key:      key,
+			Title:    spec.LocalizedText{locale: humanizeKey(key)},
+			DataType: "number",
+			AggType:  "sum",
+		})
+	}
+	return out
+}
+
+func datasetItemSchemaAtPointer(outputSchema spec.JSONSchema, pointer string) map[string]json.RawMessage {
+	root := parseJSONObject(jsonRaw(outputSchema))
+	node := root
+	if pointer != "" {
+		for _, token := range pointerTokens(pointer) {
+			properties := objectProperty(node, "properties")
+			if len(properties) == 0 {
+				return nil
+			}
+			node = parseJSONObject(properties[token])
+			if len(node) == 0 {
+				return nil
+			}
+		}
+	}
+	if schemaTypeFromObject(node) != "array" {
+		return nil
+	}
+	return objectProperty(node, "items")
+}
+
+func schemaAtPointer(root map[string]json.RawMessage, pointer string) (map[string]json.RawMessage, bool) {
+	if pointer == "" {
+		return root, len(root) > 0
+	}
+	node := root
+	for _, token := range pointerTokens(pointer) {
+		properties := objectProperty(node, "properties")
+		if len(properties) == 0 {
+			return nil, false
+		}
+		node = parseJSONObject(properties[token])
+		if len(node) == 0 {
+			return nil, false
+		}
+	}
+	return node, true
+}
+
+func compactPointers(pointers []string) []string {
+	out := make([]string, 0, len(pointers))
+	seen := map[string]struct{}{}
+	for _, pointer := range pointers {
+		pointer = strings.TrimSpace(pointer)
+		if pointer == "" || !strings.HasPrefix(pointer, "/") {
+			continue
+		}
+		if _, ok := seen[pointer]; ok {
+			continue
+		}
+		seen[pointer] = struct{}{}
+		out = append(out, pointer)
+	}
+	return out
+}
+
+func pointerTokens(pointer string) []string {
+	if pointer == "" {
+		return nil
+	}
+	parts := strings.Split(strings.TrimPrefix(pointer, "/"), "/")
+	for i, part := range parts {
+		parts[i] = strings.ReplaceAll(strings.ReplaceAll(part, "~1", "/"), "~0", "~")
+	}
+	return parts
+}
+
+func keyFromPointer(pointer string) string {
+	tokens := pointerTokens(pointer)
+	if len(tokens) == 0 {
+		return "value"
+	}
+	return tokens[len(tokens)-1]
 }
 
 func buildChartSpecs(dataset *spec.DatasetSpec, title spec.LocalizedText, locale string) []spec.ChartSpec {

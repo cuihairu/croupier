@@ -1,10 +1,6 @@
 package page
 
-import (
-	"encoding/json"
-
-	"github.com/cuihairu/croupier/internal/dashboard/spec"
-)
+import "github.com/cuihairu/croupier/internal/dashboard/spec"
 
 type PageDraftListRequest struct {
 	ResourceKey string `form:"resourceKey"`
@@ -48,7 +44,6 @@ type PageSaveRequest struct {
 	Task          *spec.TaskPageSpec         `json:"task,omitempty"`
 	Report        *spec.ReportPageSpec       `json:"report,omitempty"`
 	Bindings      []spec.PageFunctionBinding `json:"bindings"`
-	Metadata      map[string]json.RawMessage `json:"metadata,omitempty"`
 }
 
 type PageSaveResponse struct {

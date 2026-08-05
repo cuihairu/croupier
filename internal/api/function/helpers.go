@@ -208,9 +208,10 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		return nil, err
 	}
 
+	approvedContinuation := isApprovedContinuation(req.Metadata)
 	var functionPolicy *policy.Policy
 	// Apply function policy checks
-	if svcCtx.PolicyManager != nil {
+	if svcCtx.PolicyManager != nil && !approvedContinuation {
 		roleNames := utils.RoleNamesFromModels(roles)
 		functionPolicy, err = enforceFunctionPolicy(ctx, svcCtx, req.ID, roleNames)
 		if err != nil {
@@ -224,7 +225,7 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	// Check if approval is required
 	if functionPolicy != nil && functionPolicy.RequireApproval && svcCtx.ApprovalsStore != nil {
 		// Create approval request instead of executing directly
-		approvalID, err := createFunctionApproval(ctx, svcCtx, req.ID, payload, req.Mode, admin, functionPolicy)
+		approvalID, err := createFunctionApproval(ctx, svcCtx, req, payload, admin, functionPolicy)
 		if err != nil {
 			spanErr = fmt.Errorf("failed to create approval request: %w", err)
 			return nil, spanErr
@@ -341,6 +342,13 @@ func cloneMetadata(metadata map[string]string) map[string]string {
 	return out
 }
 
+func isApprovedContinuation(metadata map[string]string) bool {
+	if metadata == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(metadata["approval_bypass"]), "approved")
+}
+
 // auditFunctionInvoke logs function invocation to audit service
 func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin *model.Admin, userRoles []string, functionPolicy *policy.Policy, invokeErr error) {
 	username := ""
@@ -381,25 +389,31 @@ func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functi
 }
 
 // createFunctionApproval creates an approval request for function invocation
-func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, payload []byte, mode string, admin *model.Admin, functionPolicy *policy.Policy) (string, error) {
+func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest, payload []byte, admin *model.Admin, functionPolicy *policy.Policy) (string, error) {
 	username := "system"
 	if admin != nil {
 		username = admin.Username
 	}
+	functionID := strings.TrimSpace(req.ID)
 
 	// Generate approval ID
 	approvalID := fmt.Sprintf("func_%s_%d", functionID, time.Now().UnixNano())
 
 	// Create approval record
 	approval := &approvals.Approval{
-		ID:         approvalID,
-		State:      "pending",
-		FunctionID: functionID,
-		Actor:      username,
-		Mode:       mode,
-		Payload:    payload,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		ID:              approvalID,
+		State:           "pending",
+		FunctionID:      functionID,
+		GameID:          strings.TrimSpace(req.GameID),
+		Env:             strings.TrimSpace(req.Env),
+		Actor:           username,
+		Mode:            strings.TrimSpace(req.Mode),
+		Route:           strings.TrimSpace(req.Route),
+		TargetServiceID: strings.TrimSpace(req.TargetServiceID),
+		HashKey:         strings.TrimSpace(req.HashKey),
+		Payload:         payload,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 
 	// Store approval

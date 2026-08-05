@@ -150,8 +150,15 @@ func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID,
 		return fmt.Errorf("upsert resource capability: %w", err)
 	}
 
-	// 3. Build capability semantics
+	// 3. Build capability semantics. Existing platform_review fields are
+	// preserved because registration only provides capability hints, not the
+	// final reviewed semantics.
 	semantics := s.buildSemantics(gameID, env, resourceKey, contracts)
+	if existing, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, gameID, env, resourceKey); err == nil {
+		preserveReviewedSemantics(semantics, existing)
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find existing capability semantics: %w", err)
+	}
 	semantics.SourceDigest = computeDigest(contracts)
 	if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
 		return fmt.Errorf("upsert capability semantics: %w", err)
@@ -206,6 +213,66 @@ func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contra
 	inferIdentityField(sem, contracts)
 
 	return sem
+}
+
+func preserveReviewedSemantics(next *model.CapabilitySemantics, existing *model.CapabilitySemantics) {
+	if next == nil || existing == nil {
+		return
+	}
+	if strings.TrimSpace(existing.Source) == "platform_review" {
+		next.Source = existing.Source
+	}
+	next.UpdatedBy = existing.UpdatedBy
+	next.Provenance = existing.Provenance
+	next.Conflicts = existing.Conflicts
+	next.Diagnostics = existing.Diagnostics
+	if strings.TrimSpace(existing.IdentityField) != "" {
+		next.IdentityField = existing.IdentityField
+		next.IdentityFieldType = existing.IdentityFieldType
+		next.IdentityPath = existing.IdentityPath
+	}
+	if existing.CollectionQueryID > 0 {
+		next.CollectionQueryID = existing.CollectionQueryID
+	}
+	if strings.TrimSpace(existing.CollectionPath) != "" {
+		next.CollectionPath = existing.CollectionPath
+	}
+	if strings.TrimSpace(existing.PageFieldName) != "" {
+		next.PageFieldName = existing.PageFieldName
+	}
+	if strings.TrimSpace(existing.PageSizeFieldName) != "" {
+		next.PageSizeFieldName = existing.PageSizeFieldName
+	}
+	if strings.TrimSpace(existing.ItemsFieldName) != "" {
+		next.ItemsFieldName = existing.ItemsFieldName
+	}
+	if strings.TrimSpace(existing.TotalFieldName) != "" {
+		next.TotalFieldName = existing.TotalFieldName
+	}
+	if existing.ItemQueryID > 0 {
+		next.ItemQueryID = existing.ItemQueryID
+	}
+	if strings.TrimSpace(existing.ItemPath) != "" {
+		next.ItemPath = existing.ItemPath
+	}
+	if existing.CreateID > 0 {
+		next.CreateID = existing.CreateID
+	}
+	if existing.UpdateID > 0 {
+		next.UpdateID = existing.UpdateID
+	}
+	if existing.DeleteID > 0 {
+		next.DeleteID = existing.DeleteID
+	}
+	if len(existing.Actions) > 0 {
+		next.Actions = existing.Actions
+	}
+	if len(existing.Tasks) > 0 {
+		next.Tasks = existing.Tasks
+	}
+	if len(existing.Reports) > 0 {
+		next.Reports = existing.Reports
+	}
 }
 
 func inferCollectionFields(sem *model.CapabilitySemantics, contract *model.FunctionContract) {
@@ -455,7 +522,7 @@ func (s *ContractService) RebuildProposalsForResource(ctx context.Context, gameI
 	if err != nil {
 		return err
 	}
-	if err := s.upsertStandaloneProposals(ctx, gameID, env, contracts, consumedActions); err != nil {
+	if err := s.upsertStandaloneProposals(ctx, gameID, env, contracts, semantics, consumedActions); err != nil {
 		return err
 	}
 	return nil
@@ -481,8 +548,11 @@ func (s *ContractService) upsertStandaloneProposals(
 	gameID string,
 	env string,
 	contracts []*model.FunctionContract,
+	semantics *model.CapabilitySemantics,
 	consumed map[string]struct{},
 ) error {
+	taskSemantics := taskSemanticsByStartFunction(semantics)
+	reportSemantics := reportSemanticsByQueryFunction(semantics)
 	for _, contract := range contracts {
 		if contract == nil || isCRUDCapability(contract.Capability) {
 			continue
@@ -495,6 +565,8 @@ func (s *ContractService) upsertStandaloneProposals(
 			Functions: map[string]spec.FunctionSpec{
 				contract.FunctionID: functionSpecFromContract(contract),
 			},
+			TaskSemantics:   taskSemantics,
+			ReportSemantics: reportSemantics,
 		})
 		proposalKey := standaloneProposalKey(generated.Type, contract.FunctionID)
 		if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, []*model.FunctionContract{contract}, generated); err != nil {
@@ -524,6 +596,44 @@ func findContractByFunctionID(contracts []*model.FunctionContract, functionID st
 		}
 	}
 	return nil
+}
+
+func taskSemanticsByStartFunction(semantics *model.CapabilitySemantics) map[string]spec.TaskSemantic {
+	out := map[string]spec.TaskSemantic{}
+	if semantics == nil || len(semantics.Tasks) == 0 {
+		return out
+	}
+	var items []spec.TaskSemantic
+	if err := json.Unmarshal(semantics.Tasks, &items); err != nil {
+		return out
+	}
+	for _, item := range items {
+		functionID := strings.TrimSpace(item.Start.FunctionID)
+		if functionID == "" {
+			continue
+		}
+		out[functionID] = item
+	}
+	return out
+}
+
+func reportSemanticsByQueryFunction(semantics *model.CapabilitySemantics) map[string]spec.ReportSemantic {
+	out := map[string]spec.ReportSemantic{}
+	if semantics == nil || len(semantics.Reports) == 0 {
+		return out
+	}
+	var items []spec.ReportSemantic
+	if err := json.Unmarshal(semantics.Reports, &items); err != nil {
+		return out
+	}
+	for _, item := range items {
+		functionID := strings.TrimSpace(item.Query.FunctionID)
+		if functionID == "" {
+			continue
+		}
+		out[functionID] = item
+	}
+	return out
 }
 
 func (s *ContractService) upsertGeneratedProposal(

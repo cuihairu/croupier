@@ -28,6 +28,9 @@ type Approval struct {
 	HashKey         string
 	Payload         []byte
 	Reason          string
+	ResultKind      string
+	TaskID          string
+	Result          []byte
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

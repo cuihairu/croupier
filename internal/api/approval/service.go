@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/api/function"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
@@ -123,14 +124,33 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	if err != nil {
 		return nil, err
 	}
+	continuation, err := s.continueApprovedFunction(ctx, record)
+	if err != nil {
+		record.Reason = "approved but continuation failed: " + err.Error()
+		if updated, updateErr := s.svcCtx.ApprovalsStore.Update(record); updateErr == nil {
+			record = updated
+		}
+		_ = s.upsertApprovalToExtension(ctx, buildApprovalDetail(record))
+		return nil, err
+	}
+	record.ResultKind = continuation.Kind
+	record.TaskID = continuation.TaskID
+	record.Result = continuation.Result
+	if updated, updateErr := s.svcCtx.ApprovalsStore.Update(record); updateErr == nil {
+		record = updated
+	}
 	_ = s.upsertApprovalToExtension(ctx, buildApprovalDetail(record))
 	_ = s.recordApprovalEvent(ctx, "approvals_approve", "approval approved",
 		fmt.Sprintf(`{"approval_id":"%s"}`, record.ID),
 	)
 
 	return &ApprovalApproveResponse{
-		ID:    record.ID,
-		State: record.State,
+		ID:           record.ID,
+		State:        record.State,
+		TaskID:       continuation.TaskID,
+		Result:       continuation.Result,
+		ResultKind:   continuation.Kind,
+		Continuation: continuation.Triggered,
 	}, nil
 }
 
@@ -183,6 +203,10 @@ func buildApprovalSummary(a *approvals.Approval) ApprovalSummary {
 		TargetServiceID: a.TargetServiceID,
 		HashKey:         a.HashKey,
 		Reason:          a.Reason,
+		Continuation:    strings.TrimSpace(a.ResultKind) != "" || strings.TrimSpace(a.TaskID) != "" || len(a.Result) > 0,
+		ResultKind:      a.ResultKind,
+		TaskID:          a.TaskID,
+		Result:          string(a.Result),
 	}
 }
 
@@ -204,6 +228,10 @@ func buildApprovalDetail(a *approvals.Approval) Approval {
 		TargetServiceID: summary.TargetServiceID,
 		HashKey:         summary.HashKey,
 		Reason:          summary.Reason,
+		Continuation:    summary.Continuation,
+		ResultKind:      summary.ResultKind,
+		TaskID:          summary.TaskID,
+		Result:          summary.Result,
 		Payload:         payload,
 		PayloadPreview:  preview,
 	}
@@ -222,6 +250,55 @@ func decodeApprovalPayload(a *approvals.Approval) (map[string]interface{}, strin
 		return payload, string(a.Payload)
 	}
 	return payload, buf.String()
+}
+
+type approvalContinuationResult struct {
+	Triggered bool
+	Kind      string
+	TaskID    string
+	Result    json.RawMessage
+}
+
+func (s *Service) continueApprovedFunction(ctx context.Context, record *approvals.Approval) (approvalContinuationResult, error) {
+	if record == nil {
+		return approvalContinuationResult{}, errors.New("approval record is required")
+	}
+	if strings.TrimSpace(record.FunctionID) == "" {
+		return approvalContinuationResult{}, nil
+	}
+	resp, err := function.NewService(s.svcCtx).FunctionInvoke(ctx, &function.FunctionInvokeRequest{
+		ID:              strings.TrimSpace(record.FunctionID),
+		Payload:         json.RawMessage(record.Payload),
+		GameID:          strings.TrimSpace(record.GameID),
+		Env:             strings.TrimSpace(record.Env),
+		Mode:            strings.TrimSpace(record.Mode),
+		Route:           strings.TrimSpace(record.Route),
+		TargetServiceID: strings.TrimSpace(record.TargetServiceID),
+		HashKey:         strings.TrimSpace(record.HashKey),
+		Metadata: map[string]string{
+			"approval_bypass": "approved",
+			"approval_id":     strings.TrimSpace(record.ID),
+			"approval_actor":  strings.TrimSpace(record.Actor),
+			"runtime_api":     "approval.continue",
+		},
+	})
+	if err != nil {
+		return approvalContinuationResult{}, fmt.Errorf("continue approved function: %w", err)
+	}
+	result := approvalContinuationResult{Triggered: true, Kind: "sync"}
+	if resp == nil {
+		return result, nil
+	}
+	if resp.TaskID != "" || resp.TaskId != "" {
+		result.Kind = "task"
+		result.TaskID = resp.TaskID
+		if result.TaskID == "" {
+			result.TaskID = resp.TaskId
+		}
+		return result, nil
+	}
+	result.Result = resp.Result
+	return result, nil
 }
 
 func defaultString(value, fallback string) string {

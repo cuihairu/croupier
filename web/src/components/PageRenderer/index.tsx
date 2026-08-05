@@ -41,8 +41,6 @@ export interface PageRendererProps {
   onQueryStatus?: (taskId: string) => Promise<TaskStatusResult>;
   /** 取消任务（仅 TaskPage 需要） */
   onCancelTask?: (taskId: string) => Promise<void>;
-  /** 重试任务（仅 TaskPage 需要） */
-  onRetryTask?: (taskId: string) => Promise<void>;
   /** 查询审批状态（Operation/Task 等待审批需要） */
   onQueryApprovalStatus?: (approvalId: string) => Promise<ApprovalStatusResult>;
   /** 导出数据（仅 ReportPage 需要） */
@@ -58,7 +56,6 @@ const PageRenderer: React.FC<PageRendererProps> = ({
   onExecute,
   onQueryStatus,
   onCancelTask,
-  onRetryTask,
   onQueryApprovalStatus,
   onExport,
 }) => {
@@ -151,7 +148,6 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           onExecute={executeWithPageState}
           onQueryStatus={onQueryStatus}
           onCancelTask={onCancelTask}
-          onRetryTask={onRetryTask}
           onQueryApprovalStatus={onQueryApprovalStatus}
           title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
         />

@@ -124,7 +124,6 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 		Task:        req.Task,
 		Report:      req.Report,
 		Bindings:    req.Bindings,
-		Metadata:    req.Metadata,
 	}
 	if !isValidPageType(req.Type) {
 		return nil, errorx.NewBadRequest("type must be resource, operation, task, or report")

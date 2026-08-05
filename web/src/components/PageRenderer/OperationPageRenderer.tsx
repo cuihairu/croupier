@@ -16,7 +16,6 @@ import {
   Modal,
   message,
   Result,
-  Descriptions,
   Alert,
   Space,
   Typography,
@@ -28,14 +27,13 @@ import {
   SyncOutlined,
 } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
+import ResultViewRenderer, { renderJSONValueSummary } from './ResultViewRenderer';
 import type {
   OperationPageSpec,
-  ResultViewSpec,
   PageFunctionBinding,
   PageExecuteFn,
   PageExecutionResult,
   ApprovalStatusResult,
-  JSONValue,
   FormValues,
 } from '@/types/dashboard';
 
@@ -55,45 +53,6 @@ export interface OperationPageRendererProps {
   /** 页面标题 */
   title?: string;
 }
-
-// ---------------------------------------------------------------------------
-// 结果渲染
-// ---------------------------------------------------------------------------
-
-function renderResult(result: JSONValue | null, resultView?: ResultViewSpec): React.ReactNode {
-  if (!result) {
-    return null;
-  }
-
-  const data = typeof result === 'object' && result !== null ? result as Record<string, JSONValue> : null;
-
-  // 如果有自定义字段
-  if (resultView?.fields && resultView.fields.length > 0 && data) {
-    return (
-      <Descriptions column={1} bordered>
-        {resultView.fields.map((field) => (
-          <Descriptions.Item
-            key={field.key}
-            label={field.title['zh-CN'] || field.title['en'] || field.key}
-          >
-            {data[field.key]?.toString() || '-'}
-          </Descriptions.Item>
-        ))}
-      </Descriptions>
-    );
-  }
-
-  // 默认 JSON 展示
-  return (
-    <pre style={{ maxHeight: 400, overflow: 'auto' }}>
-      {JSON.stringify(result, null, 2)}
-    </pre>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// OperationPageRenderer 组件
-// ---------------------------------------------------------------------------
 
 const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   spec,
@@ -173,10 +132,10 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     }
 
     setConfirmVisible(false);
-      setLoading(true);
-      setError(null);
-      setResult(null);
-      setApprovalStatus(null);
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setApprovalStatus(null);
 
     try {
       const response = await onExecute(mainBinding.id, { form: pendingValues });
@@ -218,6 +177,32 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     }
   }, [onQueryApprovalStatus, result?.approvalId]);
 
+  const renderApprovedContinuation = () => {
+    if (!approvalStatus || approvalStatus.status !== 'approved' || !approvalStatus.continuation) {
+      return null;
+    }
+    if (approvalStatus.resultKind === 'task' && approvalStatus.taskId) {
+      return (
+        <Alert
+          type="info"
+          showIcon
+          message="审批已通过，任务已启动"
+          description={<Typography.Text code>{approvalStatus.taskId}</Typography.Text>}
+        />
+      );
+    }
+    if (approvalStatus.resultKind === 'sync') {
+      return (
+        <ResultViewRenderer
+          data={approvalStatus.result}
+          resultView={spec.resultView}
+          emptyTitle="审批后执行结果视图未配置"
+        />
+      );
+    }
+    return null;
+  };
+
   return (
     <div>
       {/* 表单 */}
@@ -250,9 +235,14 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
             <p>{spec.confirm.description['zh-CN']}</p>
           )}
           {pendingValues && (
-            <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f5f5f5', padding: 12 }}>
-              {JSON.stringify(pendingValues, null, 2)}
-            </pre>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              {Object.entries(pendingValues).map(([key, value]) => (
+                <Space key={key} align="start">
+                  <Typography.Text strong>{key}</Typography.Text>
+                  {renderJSONValueSummary(value)}
+                </Space>
+              ))}
+            </Space>
           )}
         </Modal>
       )}
@@ -283,12 +273,15 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                   />
                   <Typography.Text code>{result.approvalId || result.requestId}</Typography.Text>
                   {approvalStatus ? (
-                    <Alert
-                      type={approvalStatus.status === 'rejected' ? 'error' : approvalStatus.status === 'approved' ? 'success' : 'info'}
-                      showIcon
-                      message={`审批状态：${approvalStatus.status}`}
-                      description={approvalStatus.reason || approvalStatus.updatedAt || undefined}
-                    />
+                    <>
+                      <Alert
+                        type={approvalStatus.status === 'rejected' ? 'error' : approvalStatus.status === 'approved' ? 'success' : 'info'}
+                        showIcon
+                        message={`审批状态：${approvalStatus.status}`}
+                        description={approvalStatus.reason || approvalStatus.updatedAt || undefined}
+                      />
+                      {renderApprovedContinuation()}
+                    </>
                   ) : null}
                   {result.approvalId && onQueryApprovalStatus ? (
                     <Button onClick={refreshApproval}>刷新审批状态</Button>
@@ -309,7 +302,13 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
               status="success"
               title="操作成功"
               icon={<CheckCircleOutlined />}
-              extra={renderResult(result?.data ?? null, spec.resultView)}
+              extra={
+                <ResultViewRenderer
+                  data={result?.data}
+                  resultView={spec.resultView}
+                  emptyTitle="操作结果视图未配置"
+                />
+              }
             />
           )}
         </Card>

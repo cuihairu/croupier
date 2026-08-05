@@ -26,7 +26,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'cross-env REACT_APP_ENV=test MOCK=none UMI_ENV=dev max dev',
+    command: 'cross-env REACT_APP_ENV=dev MOCK=all UMI_ENV=dev max dev',
     url: 'http://localhost:8000',
     reuseExistingServer: !process.env.CI,
     timeout: 180000,

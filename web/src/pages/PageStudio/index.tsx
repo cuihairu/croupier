@@ -371,11 +371,9 @@ export default function PageStudio() {
         {selectedDraft ? (
           <PageRenderer
             pageSpec={selectedDraft}
-            onExecute={async (): Promise<{ kind: 'sync'; requestId: string; data: JSONValue }> => ({
-              kind: 'sync',
-              requestId: 'preview',
-              data: {},
-            })}
+            onExecute={async () => {
+              throw new Error('Page Studio 预览不执行函数；发布后请在运行控制台执行。');
+            }}
           />
         ) : (
           <Empty description="请选择页面" />

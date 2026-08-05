@@ -1,5 +1,7 @@
 package approval
 
+import "encoding/json"
+
 // ApprovalSummary represents an approval summary
 type ApprovalSummary struct {
 	ID              string `json:"id"`
@@ -16,6 +18,10 @@ type ApprovalSummary struct {
 	TargetServiceID string `json:"target_service_id,omitempty"`
 	HashKey         string `json:"hash_key,omitempty"`
 	Reason          string `json:"reason,omitempty"`
+	Continuation    bool   `json:"continuation,omitempty"`
+	ResultKind      string `json:"result_kind,omitempty"`
+	TaskID          string `json:"task_id,omitempty"`
+	Result          string `json:"result,omitempty"`
 }
 
 // ApprovalDetail represents an approval detail
@@ -66,6 +72,10 @@ type Approval struct {
 	TargetServiceID string                 `json:"target_service_id,omitempty"`
 	HashKey         string                 `json:"hash_key,omitempty"`
 	Reason          string                 `json:"reason,omitempty"`
+	Continuation    bool                   `json:"continuation,omitempty"`
+	ResultKind      string                 `json:"result_kind,omitempty"`
+	TaskID          string                 `json:"task_id,omitempty"`
+	Result          string                 `json:"result,omitempty"`
 	Payload         map[string]interface{} `json:"payload,omitempty"`
 	PayloadPreview  string                 `json:"payload_preview,omitempty"`
 }
@@ -77,8 +87,12 @@ type ApprovalApproveRequest struct {
 
 // ApprovalApproveResponse represents the response after approving
 type ApprovalApproveResponse struct {
-	ID    string `json:"id"`
-	State string `json:"state"`
+	ID           string          `json:"id"`
+	State        string          `json:"state"`
+	Continuation bool            `json:"continuation"`
+	ResultKind   string          `json:"result_kind,omitempty"`
+	TaskID       string          `json:"task_id,omitempty"`
+	Result       json.RawMessage `json:"result,omitempty"`
 }
 
 // ApprovalRejectRequest represents the request to reject an approval

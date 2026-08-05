@@ -400,11 +400,17 @@ func validatePageStatePath(source ValueSource, ctx SelectorContext) bool {
 }
 
 func isAssignable(targetSchema JSONSchema, targetPath string, source ValueSource, ctx SelectorContext) bool {
-	if source.Kind == SourceLiteral || source.Transform != nil {
+	if source.Kind == SourceLiteral {
 		return true
 	}
 	targetType, ok := schemaTypeAtPath(targetSchema, targetPath)
 	if !ok || targetType == "" {
+		return true
+	}
+	if source.Kind == SourceSelection && source.Transform != nil && source.Transform.Type == TransformPick {
+		return targetType == "array"
+	}
+	if source.Transform != nil {
 		return true
 	}
 	sourceSchema, sourcePath, ok := sourceSchemaAndPath(source, ctx)

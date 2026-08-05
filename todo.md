@@ -418,11 +418,12 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - 已实现 BlockedProposalIssue 物化：`spec.BlockedProposalIssue` 类型、GORM 模型、`ShouldBlockProposal` 和 `CreateBlockedProposalIssue` 函数。
 - Resource generator 现在会为 `ListViewSpec` 生成 `identityKey`、`rowSchema`、默认筛选字段候选，并且只在输入契约同时存在 `page/page_size` 时启用分页；collection query selector 会把函数输入的 `page/page_size` 映射到前端查询上下文的 `current/pageSize`。
 - Resource generator 现在还会从 `item_query` 或 collection item schema 生成 `DetailView`；只有当 `item_query` 的输入可以仅靠当前行 identity 填满、且输出根对象可静态验证 identity 字段时，才会额外生成 `detail` binding，并要求它把对象结果映射到 `pageState.detail`。`update` 的默认入口也已从无效的顶层 `resource.actions` 收敛到 `listView.rowActions`，避免生成后前端没有编辑入口。
-- Resource generator 已开始消费持久化 `CapabilitySemantics.actions`：当前只保守内联两类可静态证明安全的动作，`resource_item`（identityInput 指向单个必填字段）和 `none`（无必填输入）；其余动作仍保留独立 `OperationPage`。Proposal 重建时也会跳过已被 ResourcePage 吸收的非 CRUD 动作函数，避免同一函数同时生成资源内按钮和独立菜单。
-- Resource/Report 发布校验已收紧为 renderer ABI：ResourcePage 必须有 `listView.identityKey` 且引用实际列；Resource query 必须把集合结果映射到 `pageState.items`；ReportPage 发布前必须有 `dataset.dimensions`、`dataset.metrics`，且 Report binding 必须把数组结果映射到 `pageState.dataset`。
+- Resource Catalog 已提供 `actions` 语义录入入口：只保存 `functionId`、`subject(resource_item/resource_selection/none)` 和 `identityInput`，不保存按钮位置、菜单、标题或页面 UI。后端会校验 action 函数属于当前 resource 且 capability=action，`resource_item/resource_selection` 必须提供 JSON Pointer identityInput，保存后触发 Proposal 重算。
+- Resource generator 已开始消费持久化 `CapabilitySemantics.actions`：当前只接受当前格式的 `functionId/subject/identityInput` 数组，不再解析旧 nested action 兼容格式；只保守内联可静态证明安全的动作，`resource_item` 映射为 row action，`resource_selection` 映射为 batch action，`none` 映射为 toolbar action；无法静态证明 selector 安全的动作仍保留独立 `OperationPage`。Proposal 重建时也会跳过已被 ResourcePage 吸收的非 CRUD 动作函数，避免同一函数同时生成资源内按钮和独立菜单。
+- Operation/Task generator 已从 output schema 生成结构化 `ResultViewSpec.fields`；Report generator 已从 array dataset output schema 推导 dimensions、metrics 和默认 chart，推导失败仍降级 `needs_review`。Resource/Report/Operation/Task 发布校验已收紧为 renderer ABI：ResourcePage 必须有 `listView.identityKey` 且引用实际列；Resource query 必须把集合结果映射到 `pageState.items`；ReportPage 发布前必须有 `dataset.dimensions`、`dataset.metrics`，且 Report binding 必须把数组结果映射到 `pageState.dataset`；Operation/Task 的 resultView 字段一旦声明必须具备 key/title/type。Task retry 没有真实 retry function 语义前禁止发布 `retryable=true`，前端也不展示假重试入口。
 - P3-a 已有局部实现：Canonical PageSpec DTO、Typed selector AST、发布校验、schema field diff 和 selector stale diagnostics 已落地；CapabilitySemantics 语义校验与 Page Studio 中的 selector/语义冲突处理仍未完成产品闭环。
 - P3-b 已有后端雏形：ThreeWayMerge、安全集/冲突集类型与部分服务入口已存在；Draft/Published stale 队列、冲突确认 UI、回滚/重新发布真实闭环仍未验收。
-- 仍未完成：Task/Report/Approval 的真实浏览器路径、P3-a/P3-b 产品闭环和浏览器 E2E；因此 P2 仍不能勾选完成。
+- 仍未完成：Task retry function semantic、审批通过后继续执行的闭环、Task/Report/Approval 的真实浏览器路径、P3-a/P3-b 产品闭环和浏览器 E2E；因此 P2 仍不能勾选完成。
 
 #### P2-1. Proposal 数据模型和生成作业
 
@@ -447,7 +448,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 #### P2-3. Operation、Task、Report、Approval 模板
 
 - [ ] 同步非 CRUD 函数生成 `basic` OperationPage：表单、确认、受控执行、结构化 ResultView。
-- [ ] task semantic 生成 TaskPage，要求 start/status/events/result/cancel/retry 的真实 API 语义；缺失时 needs_review。
+- [ ] task semantic 生成 TaskPage，要求 start/status/events/result/cancel 的真实 API 语义；retry 必须由显式 retry function semantic 提供，缺失时不得显示或发布 retry 入口。
 - [ ] report semantic 生成 ReportPage，要求 dataset、dimension、metric、chart/table 的类型化语义；缺失时 needs_review。
 - [ ] `approval.required: true` 为 OperationPage 或 TaskPage 生成明确等待态、审批状态刷新和审批通过后的同步/任务结果；禁止把“已提交审批”显示为完成。
 
@@ -503,7 +504,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 #### P4-3. Task/Report/Approval Renderer
 
-- [ ] Task renderer 对接真实 task status/events/result/cancel/retry API，支持刷新、失败和重试。
+- [ ] Task renderer 对接真实 task status/events/result/cancel API；retry 必须等显式 retry function semantic 和真实 API 存在后再启用，禁止假重试按钮。
 - [ ] Report renderer 接入 `@ant-design/charts` 或确认的 AntV renderer，按 ReportViewSpec 渲染 line/bar/pie/table；无真实数据集不得发布。
 - [ ] Approval renderer 显示 pending/approved/rejected/expired 和后续结果，不以 API 返回成功替代业务完成。
 - [ ] 移除所有 `最小实现`、`JSON.stringify` 结果面板作为 Task/Report 正式 renderer。
@@ -562,7 +563,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 状态：待重新审核。
 
-- 当前事实（2026-08-04）：Console execute 已切到 `context` 协议，浏览器只提交 form/row/selection/detail/pageState 来源值；服务端在 stale/snapshot 校验通过后，按 PublishedPageSpec 的 typed selector 构造函数 payload，再用当前 FunctionSpec input schema 做最终 JSON Schema 校验。ResourcePage renderer 已停止裸 payload/整行透传；query/create/operation/task/report 传 `form`，update/delete/row action 传 `row`；ResourcePage 生成器会把 update/delete/detail 的 identity selector 切到 row 来源，并从 update form 中剔除 identity 字段，避免用户编辑一个不会生效的字段。ResourcePage renderer 现在使用 `listView.identityKey` 作为 rowKey，详情入口会优先执行 `detail` binding 并只读取 selector 映射后的 `pageState.detail`；列表结果只读取 `pageState.items/total`，并已补上 batch/toolbar action 的基础运行时。ReportPage renderer 不再猜 `response.data.items`，缺少 dataset 语义或 output selector 时直接显示配置错误。已验证 `GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/dashboard/spec ./internal/dashboard/generator ./internal/api/page ./internal/service -run '^$'`；前端目标 eslint 在当前受限环境下被 `pnpm` 触发重装依赖后卡在网络拉包，不能作为完成证据。全量 `cd "web" && pnpm exec tsc --noEmit` 仍被仓库既有 `@umijs/max` 类型导出与旧页面 implicit any 阻断，不是 P6 完成证据；approval/task dispatch、OTel collector E2E、真实浏览器路径和选择/详情/page_state 复杂上下文仍未闭环。
+- 当前事实（2026-08-05）：Console execute 已切到 `context` 协议，浏览器只提交 form/row/selection/detail/pageState 来源值；服务端在 stale/snapshot 校验通过后，按 PublishedPageSpec 的 typed selector 构造函数 payload，再用当前 FunctionSpec input schema 做最终 JSON Schema 校验。ResourcePage renderer 已停止裸 payload/整行透传；query/create/operation/task/report 传 `form`，update/delete/row action 传 `row`，batch action 传 `selection`；Console selector 现在仅支持受控 `selection + pick` transform，把选中行 identity 提取为数组输入，禁止开放任意 transform。ResourcePage 生成器会把 update/delete/detail 的 identity selector 切到 row 来源，并从 update form 中剔除 identity 字段，避免用户编辑一个不会生效的字段。ResourcePage renderer 现在使用 `listView.identityKey` 作为 rowKey，详情入口会优先执行 `detail` binding 并只读取 selector 映射后的 `pageState.detail`；列表结果只读取 `pageState.items/total`，并已补上 batch/toolbar action 的基础运行时。Operation/Task/Resource 详情结果不再把原始 JSON 作为正式面板，只按 ResultView/DetailView 字段展示结构化摘要；Task retry 因缺少真实 retry function semantic 已在 renderer/editor/publish guard 中禁用。ReportPage renderer 不再猜 `response.data.items`，缺少 dataset 语义或 output selector 时直接显示配置错误。已验证 `GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/dashboard/generator ./internal/dashboard/spec ./internal/api/console ./internal/api/resourcecatalog ./internal/service -run '^$'`；前端目标 eslint 在当前受限环境下被 `pnpm` 触发重装依赖后卡在网络拉包，不能作为完成证据。全量 `cd "web" && pnpm exec tsc --noEmit` 仍被仓库既有 `@umijs/max` 类型导出与旧页面 implicit any 阻断，不是 P6 完成证据；approval/task dispatch、OTel collector E2E、真实浏览器路径和选择/详情/page_state 复杂上下文仍未闭环。
 
 - [ ] Console 只读取当前模型 PublishedPageSpec 和 ConsoleMenuSpec；路由仍为 `/console/:categoryKey/:pageKey`。
 - [ ] ProLayout 动态菜单使用 NavigationSpec labels 与 `locale:false`；切 scope 后强制失效旧 menu/page query。

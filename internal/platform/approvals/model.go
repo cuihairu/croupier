@@ -21,6 +21,9 @@ type ApprovalModel struct {
 	HashKey         string         `gorm:"type:varchar(255);index" json:"hash_key"`
 	Payload         []byte         `gorm:"type:blob" json:"payload"`
 	Reason          string         `gorm:"type:text" json:"reason"`
+	ResultKind      string         `gorm:"type:varchar(50)" json:"result_kind"`
+	TaskID          string         `gorm:"type:varchar(255);index" json:"task_id"`
+	Result          []byte         `gorm:"type:blob" json:"result"`
 	CreatedAt       time.Time      `gorm:"not null;index" json:"created_at"`
 	UpdatedAt       time.Time      `gorm:"not null" json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"deleted_at"`
@@ -50,6 +53,9 @@ func (a *ApprovalModel) ToApproval() *Approval {
 		HashKey:         a.HashKey,
 		Payload:         a.Payload,
 		Reason:          a.Reason,
+		ResultKind:      a.ResultKind,
+		TaskID:          a.TaskID,
+		Result:          a.Result,
 		CreatedAt:       a.CreatedAt,
 		UpdatedAt:       a.UpdatedAt,
 	}
@@ -74,6 +80,9 @@ func FromApproval(a *Approval) *ApprovalModel {
 		HashKey:         a.HashKey,
 		Payload:         a.Payload,
 		Reason:          a.Reason,
+		ResultKind:      a.ResultKind,
+		TaskID:          a.TaskID,
+		Result:          a.Result,
 		CreatedAt:       a.CreatedAt,
 		UpdatedAt:       a.UpdatedAt,
 	}

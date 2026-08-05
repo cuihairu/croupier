@@ -78,32 +78,42 @@ type FunctionInfo struct {
 
 // SemanticsInfo represents capability semantics summary.
 type SemanticsInfo struct {
-	Version             int    `json:"version"`
-	HasIdentity         bool   `json:"hasIdentity"`
-	HasCollection       bool   `json:"hasCollection"`
-	HasCreate           bool   `json:"hasCreate"`
-	HasUpdate           bool   `json:"hasUpdate"`
-	HasDelete           bool   `json:"hasDelete"`
-	HasActions          bool   `json:"hasActions"`
-	HasTasks            bool   `json:"hasTasks"`
-	HasReports          bool   `json:"hasReports"`
-	Source              string `json:"source"`
-	SourceDigest        string `json:"sourceDigest,omitempty"`
-	IdentityField       string `json:"identityField,omitempty"`
-	IdentityFieldType   string `json:"identityFieldType,omitempty"`
-	IdentityPath        string `json:"identityPath,omitempty"`
-	CollectionQueryID   uint   `json:"collectionQueryId,omitempty"`
-	CollectionPath      string `json:"collectionPath,omitempty"`
-	PageFieldName       string `json:"pageFieldName,omitempty"`
-	PageSizeFieldName   string `json:"pageSizeFieldName,omitempty"`
-	ItemsFieldName      string `json:"itemsFieldName,omitempty"`
-	TotalFieldName      string `json:"totalFieldName,omitempty"`
-	ItemQueryID         uint   `json:"itemQueryId,omitempty"`
-	ItemPath            string `json:"itemPath,omitempty"`
-	CreateID            uint   `json:"createId,omitempty"`
-	UpdateID            uint   `json:"updateId,omitempty"`
-	DeleteID            uint   `json:"deleteId,omitempty"`
-	UnresolvedConflicts int    `json:"unresolvedConflicts"`
+	Version             int                  `json:"version"`
+	HasIdentity         bool                 `json:"hasIdentity"`
+	HasCollection       bool                 `json:"hasCollection"`
+	HasCreate           bool                 `json:"hasCreate"`
+	HasUpdate           bool                 `json:"hasUpdate"`
+	HasDelete           bool                 `json:"hasDelete"`
+	HasActions          bool                 `json:"hasActions"`
+	HasTasks            bool                 `json:"hasTasks"`
+	HasReports          bool                 `json:"hasReports"`
+	Source              string               `json:"source"`
+	SourceDigest        string               `json:"sourceDigest,omitempty"`
+	IdentityField       string               `json:"identityField,omitempty"`
+	IdentityFieldType   string               `json:"identityFieldType,omitempty"`
+	IdentityPath        string               `json:"identityPath,omitempty"`
+	CollectionQueryID   uint                 `json:"collectionQueryId,omitempty"`
+	CollectionPath      string               `json:"collectionPath,omitempty"`
+	PageFieldName       string               `json:"pageFieldName,omitempty"`
+	PageSizeFieldName   string               `json:"pageSizeFieldName,omitempty"`
+	ItemsFieldName      string               `json:"itemsFieldName,omitempty"`
+	TotalFieldName      string               `json:"totalFieldName,omitempty"`
+	ItemQueryID         uint                 `json:"itemQueryId,omitempty"`
+	ItemPath            string               `json:"itemPath,omitempty"`
+	CreateID            uint                 `json:"createId,omitempty"`
+	UpdateID            uint                 `json:"updateId,omitempty"`
+	DeleteID            uint                 `json:"deleteId,omitempty"`
+	Actions             []ActionSemanticInfo `json:"actions,omitempty"`
+	Tasks               []spec.TaskSemantic  `json:"tasks,omitempty"`
+	Reports             []spec.ReportSemantic `json:"reports,omitempty"`
+	UnresolvedConflicts int                  `json:"unresolvedConflicts"`
+}
+
+// ActionSemanticInfo describes resource action capability semantics.
+type ActionSemanticInfo struct {
+	FunctionID    string `json:"functionId"`
+	Subject       string `json:"subject"` // resource_item|resource_selection|none
+	IdentityInput string `json:"identityInput,omitempty"`
 }
 
 // DiagnosticInfo represents a diagnostic message.
@@ -283,6 +293,13 @@ type UpdateSemanticsRequest struct {
 	UpdateID uint `json:"updateId,omitempty"`
 	DeleteID uint `json:"deleteId,omitempty"`
 
+	// Resource action semantics. This is capability context, not button UI.
+	Actions []ActionSemanticInfo `json:"actions,omitempty"`
+
+	// Task/report semantics. These are capability data semantics, not page UI.
+	Tasks   []spec.TaskSemantic   `json:"tasks,omitempty"`
+	Reports []spec.ReportSemantic `json:"reports,omitempty"`
+
 	// Change reason for audit
 	ChangeReason string `json:"changeReason,omitempty"`
 }
@@ -395,6 +412,45 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		}
 		semantics.DeleteID = req.DeleteID
 		trackUint("deleteID", req.DeleteID)
+	}
+	if req.Actions != nil {
+		actions, err := s.validateActionSemantics(ctx, req.GameID, req.Env, req.ResourceKey, req.Actions)
+		if err != nil {
+			return nil, err
+		}
+		raw, err := json.Marshal(actions)
+		if err != nil {
+			return nil, fmt.Errorf("marshal actions: %w", err)
+		}
+		semantics.Actions = datatypes.JSON(raw)
+		changedFields = append(changedFields, "actions")
+		provenance["actions"] = provenanceRecord("actions", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
+	}
+	if req.Tasks != nil {
+		tasks, err := s.validateTaskSemantics(ctx, req.GameID, req.Env, req.ResourceKey, req.Tasks)
+		if err != nil {
+			return nil, err
+		}
+		raw, err := json.Marshal(tasks)
+		if err != nil {
+			return nil, fmt.Errorf("marshal tasks: %w", err)
+		}
+		semantics.Tasks = datatypes.JSON(raw)
+		changedFields = append(changedFields, "tasks")
+		provenance["tasks"] = provenanceRecord("tasks", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
+	}
+	if req.Reports != nil {
+		reports, err := s.validateReportSemantics(ctx, req.GameID, req.Env, req.ResourceKey, req.Reports)
+		if err != nil {
+			return nil, err
+		}
+		raw, err := json.Marshal(reports)
+		if err != nil {
+			return nil, fmt.Errorf("marshal reports: %w", err)
+		}
+		semantics.Reports = datatypes.JSON(raw)
+		changedFields = append(changedFields, "reports")
+		provenance["reports"] = provenanceRecord("reports", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
 	}
 
 	// Update identity if provided
@@ -601,9 +657,9 @@ func buildSemanticsInfo(semantics *model.CapabilitySemantics) *SemanticsInfo {
 		HasCreate:           semantics.CreateID > 0,
 		HasUpdate:           semantics.UpdateID > 0,
 		HasDelete:           semantics.DeleteID > 0,
-		HasActions:          len(semantics.Actions) > 0,
-		HasTasks:            len(semantics.Tasks) > 0,
-		HasReports:          len(semantics.Reports) > 0,
+		HasActions:          len(parseActionSemantics(semantics.Actions)) > 0,
+		HasTasks:            len(parseTaskSemantics(semantics.Tasks)) > 0,
+		HasReports:          len(parseReportSemantics(semantics.Reports)) > 0,
 		Source:              semantics.Source,
 		SourceDigest:        semantics.SourceDigest,
 		IdentityField:       semantics.IdentityField,
@@ -620,6 +676,9 @@ func buildSemanticsInfo(semantics *model.CapabilitySemantics) *SemanticsInfo {
 		CreateID:            semantics.CreateID,
 		UpdateID:            semantics.UpdateID,
 		DeleteID:            semantics.DeleteID,
+		Actions:             parseActionSemantics(semantics.Actions),
+		Tasks:               parseTaskSemantics(semantics.Tasks),
+		Reports:             parseReportSemantics(semantics.Reports),
 		UnresolvedConflicts: countUnresolvedConflicts(semantics.Conflicts),
 	}
 }
@@ -643,6 +702,449 @@ func buildDiagnostics(contracts []*model.FunctionContract, semantics *model.Capa
 		diagnostics = append(diagnostics, decodeDiagnostics(contract.Diagnostics, contract.FunctionID)...)
 	}
 	return diagnostics
+}
+
+func (s *Service) validateActionSemantics(
+	ctx context.Context,
+	gameID string,
+	env string,
+	resourceKey string,
+	actions []ActionSemanticInfo,
+) ([]ActionSemanticInfo, error) {
+	out := make([]ActionSemanticInfo, 0, len(actions))
+	seen := map[string]struct{}{}
+	for index, action := range actions {
+		functionID := strings.TrimSpace(action.FunctionID)
+		if functionID == "" {
+			return nil, fmt.Errorf("invalid actions[%d]: functionId is required", index)
+		}
+		contract, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid actions[%d].functionId: %w", index, err)
+		}
+		if strings.TrimSpace(contract.ResourceKey) != resourceKey {
+			return nil, fmt.Errorf("invalid actions[%d].functionId: function does not belong to resource %s", index, resourceKey)
+		}
+		if contract.Capability != "action" {
+			return nil, fmt.Errorf("invalid actions[%d].functionId: function capability must be action", index)
+		}
+		subject := strings.TrimSpace(action.Subject)
+		switch subject {
+		case "resource_item", "resource_selection":
+			if strings.TrimSpace(action.IdentityInput) == "" || !isJSONPointer(action.IdentityInput) {
+				return nil, fmt.Errorf("invalid actions[%d].identityInput: must be a JSON Pointer", index)
+			}
+		case "none":
+			action.IdentityInput = ""
+		default:
+			return nil, fmt.Errorf("invalid actions[%d].subject: must be resource_item, resource_selection, or none", index)
+		}
+		key := functionID + ":" + subject + ":" + strings.TrimSpace(action.IdentityInput)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, ActionSemanticInfo{
+			FunctionID:    functionID,
+			Subject:       subject,
+			IdentityInput: strings.TrimSpace(action.IdentityInput),
+		})
+	}
+	return out, nil
+}
+
+func (s *Service) validateTaskSemantics(
+	ctx context.Context,
+	gameID string,
+	env string,
+	resourceKey string,
+	tasks []spec.TaskSemantic,
+) ([]spec.TaskSemantic, error) {
+	out := make([]spec.TaskSemantic, 0, len(tasks))
+	seen := map[string]struct{}{}
+	for index, task := range tasks {
+		start, err := s.validateSemanticFunctionRef(ctx, gameID, env, resourceKey, task.Start, spec.CapabilityTask, fmt.Sprintf("tasks[%d].start", index))
+		if err != nil {
+			return nil, err
+		}
+		task.Start = start.ref
+		if !isJSONPointer(task.TaskID.ResultPath) {
+			return nil, fmt.Errorf("invalid tasks[%d].taskId.resultPath: must be a JSON Pointer", index)
+		}
+		if !spec.IsValidJsonScalarType(task.TaskID.ValueType) {
+			return nil, fmt.Errorf("invalid tasks[%d].taskId.valueType: must be string, number, integer, or boolean", index)
+		}
+		if !schemaHasPointer(start.contract.OutputSchema, task.TaskID.ResultPath) {
+			return nil, fmt.Errorf("invalid tasks[%d].taskId.resultPath: path not found in start output schema", index)
+		}
+		status, err := s.validateSemanticFunctionRef(ctx, gameID, env, resourceKey, task.Status.Function, "", fmt.Sprintf("tasks[%d].status.function", index))
+		if err != nil {
+			return nil, err
+		}
+		task.Status.Function = status.ref
+		if err := validateTaskInputPointer(status.contract, task.Status.TaskIDInput, fmt.Sprintf("tasks[%d].status.taskIdInput", index)); err != nil {
+			return nil, err
+		}
+		if !isJSONPointer(task.Status.StatePath) {
+			return nil, fmt.Errorf("invalid tasks[%d].status.statePath: must be a JSON Pointer", index)
+		}
+		if !schemaHasPointer(status.contract.OutputSchema, task.Status.StatePath) {
+			return nil, fmt.Errorf("invalid tasks[%d].status.statePath: path not found in status output schema", index)
+		}
+		if task.Events != nil {
+			events, err := s.validateSemanticFunctionRef(ctx, gameID, env, resourceKey, task.Events.Function, "", fmt.Sprintf("tasks[%d].events.function", index))
+			if err != nil {
+				return nil, err
+			}
+			task.Events.Function = events.ref
+			if err := validateTaskInputPointer(events.contract, task.Events.TaskIDInput, fmt.Sprintf("tasks[%d].events.taskIdInput", index)); err != nil {
+				return nil, err
+			}
+			if !isJSONPointer(task.Events.EventsPath) {
+				return nil, fmt.Errorf("invalid tasks[%d].events.eventsPath: must be a JSON Pointer", index)
+			}
+			if !schemaHasPointer(events.contract.OutputSchema, task.Events.EventsPath) {
+				return nil, fmt.Errorf("invalid tasks[%d].events.eventsPath: path not found in events output schema", index)
+			}
+		}
+		if task.Result != nil {
+			result, err := s.validateSemanticFunctionRef(ctx, gameID, env, resourceKey, task.Result.Function, "", fmt.Sprintf("tasks[%d].result.function", index))
+			if err != nil {
+				return nil, err
+			}
+			task.Result.Function = result.ref
+			if err := validateTaskInputPointer(result.contract, task.Result.TaskIDInput, fmt.Sprintf("tasks[%d].result.taskIdInput", index)); err != nil {
+				return nil, err
+			}
+			if !isJSONPointer(task.Result.ResultPath) {
+				return nil, fmt.Errorf("invalid tasks[%d].result.resultPath: must be a JSON Pointer", index)
+			}
+			if !schemaHasPointer(result.contract.OutputSchema, task.Result.ResultPath) {
+				return nil, fmt.Errorf("invalid tasks[%d].result.resultPath: path not found in result output schema", index)
+			}
+		}
+		if task.Cancel != nil {
+			cancel, err := s.validateSemanticFunctionRef(ctx, gameID, env, resourceKey, task.Cancel.Function, "", fmt.Sprintf("tasks[%d].cancel.function", index))
+			if err != nil {
+				return nil, err
+			}
+			task.Cancel.Function = cancel.ref
+			if err := validateTaskInputPointer(cancel.contract, task.Cancel.TaskIDInput, fmt.Sprintf("tasks[%d].cancel.taskIdInput", index)); err != nil {
+				return nil, err
+			}
+		}
+		if task.Retry != nil {
+			retry, err := s.validateSemanticFunctionRef(ctx, gameID, env, resourceKey, task.Retry.Function, "", fmt.Sprintf("tasks[%d].retry.function", index))
+			if err != nil {
+				return nil, err
+			}
+			task.Retry.Function = retry.ref
+			if err := validateTaskInputPointer(retry.contract, task.Retry.TaskIDInput, fmt.Sprintf("tasks[%d].retry.taskIdInput", index)); err != nil {
+				return nil, err
+			}
+		}
+		key := strings.TrimSpace(task.Start.FunctionID)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, task)
+	}
+	return out, nil
+}
+
+func (s *Service) validateReportSemantics(
+	ctx context.Context,
+	gameID string,
+	env string,
+	resourceKey string,
+	reports []spec.ReportSemantic,
+) ([]spec.ReportSemantic, error) {
+	out := make([]spec.ReportSemantic, 0, len(reports))
+	seen := map[string]struct{}{}
+	for index, report := range reports {
+		query, err := s.validateSemanticFunctionRef(ctx, gameID, env, resourceKey, report.Query, spec.CapabilityReport, fmt.Sprintf("reports[%d].query", index))
+		if err != nil {
+			return nil, err
+		}
+		report.Query = query.ref
+		if !isJSONPointer(report.DatasetPath) {
+			return nil, fmt.Errorf("invalid reports[%d].datasetPath: must be a JSON Pointer", index)
+		}
+		datasetItemSchema, ok := arrayItemSchemaAtPointer(query.contract.OutputSchema, report.DatasetPath)
+		if !ok {
+			return nil, fmt.Errorf("invalid reports[%d].datasetPath: path must reference an array in query output schema", index)
+		}
+		if len(report.Dimensions) == 0 {
+			return nil, fmt.Errorf("invalid reports[%d].dimensions: at least one dimension is required", index)
+		}
+		if len(report.Metrics) == 0 {
+			return nil, fmt.Errorf("invalid reports[%d].metrics: at least one metric is required", index)
+		}
+		report.Dimensions = compactJSONPointers(report.Dimensions)
+		report.Metrics = compactJSONPointers(report.Metrics)
+		if len(report.Dimensions) == 0 || len(report.Metrics) == 0 {
+			return nil, fmt.Errorf("invalid reports[%d]: dimensions and metrics must be JSON Pointers", index)
+		}
+		for _, pointer := range report.Dimensions {
+			if !strings.HasPrefix(pointer, "/") {
+				return nil, fmt.Errorf("invalid reports[%d]: dataset field pointer %s must be relative to dataset item and start with /", index, pointer)
+			}
+			if !schemaObjectHasPointer(datasetItemSchema, pointer) {
+				return nil, fmt.Errorf("invalid reports[%d].dimensions: pointer %s not found in dataset item schema", index, pointer)
+			}
+		}
+		for _, pointer := range report.Metrics {
+			if !strings.HasPrefix(pointer, "/") {
+				return nil, fmt.Errorf("invalid reports[%d]: dataset field pointer %s must be relative to dataset item and start with /", index, pointer)
+			}
+			if !schemaObjectHasPointer(datasetItemSchema, pointer) {
+				return nil, fmt.Errorf("invalid reports[%d].metrics: pointer %s not found in dataset item schema", index, pointer)
+			}
+		}
+		key := strings.TrimSpace(report.Query.FunctionID)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, report)
+	}
+	return out, nil
+}
+
+type semanticFunctionRef struct {
+	ref      spec.FunctionRef
+	contract *model.FunctionContract
+}
+
+func (s *Service) validateSemanticFunctionRef(
+	ctx context.Context,
+	gameID string,
+	env string,
+	resourceKey string,
+	ref spec.FunctionRef,
+	requiredCapability spec.CapabilityKind,
+	field string,
+) (semanticFunctionRef, error) {
+	functionID := strings.TrimSpace(ref.FunctionID)
+	if functionID == "" {
+		return semanticFunctionRef{}, fmt.Errorf("invalid %s.functionId: functionId is required", field)
+	}
+	contract, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
+	if err != nil {
+		return semanticFunctionRef{}, fmt.Errorf("invalid %s.functionId: %w", field, err)
+	}
+	if strings.TrimSpace(contract.ResourceKey) != resourceKey {
+		return semanticFunctionRef{}, fmt.Errorf("invalid %s.functionId: function does not belong to resource %s", field, resourceKey)
+	}
+	if requiredCapability != "" && spec.CapabilityKind(contract.Capability) != requiredCapability {
+		return semanticFunctionRef{}, fmt.Errorf("invalid %s.functionId: function capability must be %s", field, requiredCapability)
+	}
+	if !contract.Enabled {
+		return semanticFunctionRef{}, fmt.Errorf("invalid %s.functionId: function %s is disabled", field, contract.FunctionID)
+	}
+	return semanticFunctionRef{
+		ref: spec.FunctionRef{
+			FunctionID:         strings.TrimSpace(contract.FunctionID),
+			ContractVersion:    strings.TrimSpace(contract.Version),
+			InputSchemaDigest:  digestRawJSON(contract.InputSchema),
+			OutputSchemaDigest: digestRawJSON(contract.OutputSchema),
+		},
+		contract: contract,
+	}, nil
+}
+
+func validateTaskInputPointer(contract *model.FunctionContract, pointer string, field string) error {
+	if !isJSONPointer(pointer) {
+		return fmt.Errorf("invalid %s: must be a JSON Pointer", field)
+	}
+	if contract != nil && !schemaHasPointer(contract.InputSchema, pointer) {
+		return fmt.Errorf("invalid %s: path not found in function input schema", field)
+	}
+	return nil
+}
+
+func compactJSONPointers(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		pointer := strings.TrimSpace(value)
+		if pointer == "" || !isJSONPointer(pointer) {
+			continue
+		}
+		if _, ok := seen[pointer]; ok {
+			continue
+		}
+		seen[pointer] = struct{}{}
+		out = append(out, pointer)
+	}
+	return out
+}
+
+func parseActionSemantics(raw []byte) []ActionSemanticInfo {
+	if len(raw) == 0 {
+		return nil
+	}
+	var actions []ActionSemanticInfo
+	if err := json.Unmarshal(raw, &actions); err != nil {
+		return nil
+	}
+	return compactActionSemantics(actions)
+}
+
+func parseTaskSemantics(raw []byte) []spec.TaskSemantic {
+	if len(raw) == 0 {
+		return nil
+	}
+	var tasks []spec.TaskSemantic
+	if err := json.Unmarshal(raw, &tasks); err != nil {
+		return nil
+	}
+	out := make([]spec.TaskSemantic, 0, len(tasks))
+	for _, task := range tasks {
+		if strings.TrimSpace(task.Start.FunctionID) == "" {
+			continue
+		}
+		out = append(out, task)
+	}
+	return out
+}
+
+func parseReportSemantics(raw []byte) []spec.ReportSemantic {
+	if len(raw) == 0 {
+		return nil
+	}
+	var reports []spec.ReportSemantic
+	if err := json.Unmarshal(raw, &reports); err != nil {
+		return nil
+	}
+	out := make([]spec.ReportSemantic, 0, len(reports))
+	for _, report := range reports {
+		if strings.TrimSpace(report.Query.FunctionID) == "" {
+			continue
+		}
+		report.Dimensions = compactJSONPointers(report.Dimensions)
+		report.Metrics = compactJSONPointers(report.Metrics)
+		out = append(out, report)
+	}
+	return out
+}
+
+func compactActionSemantics(actions []ActionSemanticInfo) []ActionSemanticInfo {
+	out := make([]ActionSemanticInfo, 0, len(actions))
+	for _, action := range actions {
+		action.FunctionID = strings.TrimSpace(action.FunctionID)
+		action.Subject = strings.TrimSpace(action.Subject)
+		action.IdentityInput = strings.TrimSpace(action.IdentityInput)
+		if action.FunctionID == "" || action.Subject == "" {
+			continue
+		}
+		if action.Subject == "none" {
+			action.IdentityInput = ""
+		}
+		out = append(out, action)
+	}
+	return out
+}
+
+func isJSONPointer(path string) bool {
+	return path == "" || strings.HasPrefix(strings.TrimSpace(path), "/")
+}
+
+func schemaHasPointer(raw []byte, pointer string) bool {
+	if len(raw) == 0 {
+		return true
+	}
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &root); err != nil {
+		return true
+	}
+	return schemaObjectHasPointer(root, pointer)
+}
+
+func schemaObjectHasPointer(root map[string]json.RawMessage, pointer string) bool {
+	if !isJSONPointer(pointer) {
+		return false
+	}
+	if pointer == "" {
+		return true
+	}
+	current := root
+	for _, token := range jsonPointerTokens(pointer) {
+		properties := parseRawObject(current["properties"])
+		if len(properties) == 0 {
+			return false
+		}
+		next := parseRawObject(properties[token])
+		if len(next) == 0 {
+			return false
+		}
+		current = next
+	}
+	return true
+}
+
+func arrayItemSchemaAtPointer(raw []byte, pointer string) (map[string]json.RawMessage, bool) {
+	if len(raw) == 0 || !isJSONPointer(pointer) {
+		return nil, false
+	}
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &root); err != nil {
+		return nil, false
+	}
+	node := root
+	if pointer != "" {
+		for _, token := range jsonPointerTokens(pointer) {
+			properties := parseRawObject(node["properties"])
+			if len(properties) == 0 {
+				return nil, false
+			}
+			node = parseRawObject(properties[token])
+			if len(node) == 0 {
+				return nil, false
+			}
+		}
+	}
+	if schemaStringValue(node["type"]) != "array" {
+		return nil, false
+	}
+	items := parseRawObject(node["items"])
+	return items, len(items) > 0
+}
+
+func parseRawObject(raw json.RawMessage) map[string]json.RawMessage {
+	if len(raw) == 0 {
+		return nil
+	}
+	var out map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+func schemaStringValue(raw json.RawMessage) string {
+	var value string
+	_ = json.Unmarshal(raw, &value)
+	return value
+}
+
+func jsonPointerTokens(path string) []string {
+	if path == "" {
+		return nil
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	for i, part := range parts {
+		parts[i] = strings.ReplaceAll(strings.ReplaceAll(part, "~1", "/"), "~0", "~")
+	}
+	return parts
+}
+
+func digestRawJSON(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%x", sha256Bytes(raw))
 }
 
 func (s *Service) buildAffectedPages(ctx context.Context, gameID, env, resourceKey string) ([]AffectedPageInfo, error) {

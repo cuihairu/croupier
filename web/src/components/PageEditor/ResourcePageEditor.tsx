@@ -114,21 +114,90 @@ export default function ResourcePageEditor({
     [value, handleListViewChange]
   );
 
-  // 添加操作
-  const handleAddAction = useCallback(
-    (type: 'row' | 'batch' | 'toolbar') => {
-      const newAction: ActionSpec = {
-        key: `action_${Date.now()}`,
-        title: { 'zh-CN': '新操作' },
-        type: 'default',
-      };
-      const field = type === 'row' ? 'rowActions' : type === 'batch' ? 'batchActions' : 'toolbarActions';
-      handleListViewChange({
-        [field]: [...(value.listView?.[field] || []), newAction],
-      });
+  const handleActionChange = useCallback(
+    (
+      group: 'rowActions' | 'batchActions' | 'toolbarActions',
+      index: number,
+      updates: Partial<ActionSpec>,
+    ) => {
+      const actions = [...(value.listView?.[group] || [])];
+      actions[index] = { ...actions[index], ...updates };
+      handleListViewChange({ [group]: actions });
     },
-    [value, handleListViewChange]
+    [handleListViewChange, value.listView],
   );
+
+  const renderActionGroup = (
+    label: string,
+    group: 'rowActions' | 'batchActions' | 'toolbarActions',
+  ) => {
+    const actions = value.listView?.[group] || [];
+    return (
+      <div>
+        <Text type="secondary">{label}</Text>
+        <div style={{ marginTop: 8 }}>
+          {actions.length === 0 ? (
+            <Tag color="default">未生成</Tag>
+          ) : (
+            <Space direction="vertical" style={{ width: '100%' }}>
+              {actions.map((action, index) => (
+                <Card
+                  key={action.key}
+                  size="small"
+                  title={
+                    <Space>
+                      <Text code>{action.key}</Text>
+                      {action.bindingId ? <Tag color="blue">{action.bindingId}</Tag> : <Tag color="red">缺少 binding</Tag>}
+                    </Space>
+                  }
+                >
+                  <Form layout="inline" disabled={readonly}>
+                    <Form.Item label="标题">
+                      <Input
+                        size="small"
+                        value={action.title?.['zh-CN'] || ''}
+                        onChange={(event) =>
+                          handleActionChange(group, index, {
+                            title: { ...action.title, 'zh-CN': event.target.value },
+                          })
+                        }
+                      />
+                    </Form.Item>
+                    <Form.Item label="样式">
+                      <Select
+                        size="small"
+                        value={action.type || 'default'}
+                        onChange={(type) => handleActionChange(group, index, { type })}
+                        style={{ width: 110 }}
+                        options={[
+                          { value: 'default', label: '默认' },
+                          { value: 'primary', label: '主按钮' },
+                          { value: 'danger', label: '危险' },
+                          { value: 'link', label: '链接' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item label="确认">
+                      <Switch
+                        size="small"
+                        checked={Boolean(action.confirm)}
+                        onChange={(confirm) => handleActionChange(group, index, { confirm })}
+                      />
+                    </Form.Item>
+                    <Form.Item label="风险">
+                      <Tag color={action.risk === 'danger' ? 'red' : action.risk === 'high' ? 'orange' : 'default'}>
+                        {action.risk || '未声明'}
+                      </Tag>
+                    </Form.Item>
+                  </Form>
+                </Card>
+              ))}
+            </Space>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Collapse
@@ -258,65 +327,14 @@ export default function ResourcePageEditor({
         key="actions"
       >
         <Space direction="vertical" style={{ width: '100%' }}>
-          <div>
-            <Text type="secondary">行操作</Text>
-            <div style={{ marginTop: 8 }}>
-              {value.listView?.rowActions?.map((action) => (
-                <Tag key={action.key} closable={!readonly}>
-                  {action.title?.['zh-CN'] || action.key}
-                </Tag>
-              ))}
-              <Button
-                type="dashed"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={() => handleAddAction('row')}
-                disabled={readonly}
-              >
-                添加行操作
-              </Button>
-            </div>
-          </div>
+          <Text type="secondary">
+            动作能力来自 Resource Catalog 的 ActionSemantic；这里只能调整已生成动作的展示文案、样式和确认，不创建新函数绑定。
+          </Text>
+          {renderActionGroup('行操作', 'rowActions')}
           <Divider style={{ margin: '8px 0' }} />
-          <div>
-            <Text type="secondary">批量操作</Text>
-            <div style={{ marginTop: 8 }}>
-              {value.listView?.batchActions?.map((action) => (
-                <Tag key={action.key} closable={!readonly}>
-                  {action.title?.['zh-CN'] || action.key}
-                </Tag>
-              ))}
-              <Button
-                type="dashed"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={() => handleAddAction('batch')}
-                disabled={readonly}
-              >
-                添加批量操作
-              </Button>
-            </div>
-          </div>
+          {renderActionGroup('批量操作', 'batchActions')}
           <Divider style={{ margin: '8px 0' }} />
-          <div>
-            <Text type="secondary">工具栏操作</Text>
-            <div style={{ marginTop: 8 }}>
-              {value.listView?.toolbarActions?.map((action) => (
-                <Tag key={action.key} closable={!readonly}>
-                  {action.title?.['zh-CN'] || action.key}
-                </Tag>
-              ))}
-              <Button
-                type="dashed"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={() => handleAddAction('toolbar')}
-                disabled={readonly}
-              >
-                添加工具栏操作
-              </Button>
-            </div>
-          </div>
+          {renderActionGroup('工具栏操作', 'toolbarActions')}
         </Space>
       </Panel>
 

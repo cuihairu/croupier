@@ -49,6 +49,7 @@ import type {
   SemanticProvenanceInfo,
   SemanticSource,
   SemanticsInfo,
+  TaskSemanticInfo,
   UpdateResourceSemanticsRequest,
 } from '@/types/dashboard';
 import {
@@ -173,6 +174,9 @@ const semanticsToFormValues = (semantics?: SemanticsInfo): UpdateResourceSemanti
   createId: semantics?.createId,
   updateId: semantics?.updateId,
   deleteId: semantics?.deleteId,
+  actions: semantics?.actions || [],
+  tasks: semantics?.tasks || [],
+  reports: semantics?.reports || [],
 });
 
 const compactSemanticsPayload = (
@@ -206,9 +210,87 @@ const compactSemanticsPayload = (
   assignNumber('createId', values.createId);
   assignNumber('updateId', values.updateId);
   assignNumber('deleteId', values.deleteId);
+  if (values.actions) {
+    const actions = values.actions
+      .map((action) => ({
+        functionId: action.functionId?.trim(),
+        subject: action.subject,
+        identityInput: action.identityInput?.trim(),
+      }))
+      .filter((action) => action.functionId && action.subject);
+    Object.assign(payload, { actions });
+  }
+  if (values.tasks) {
+    const tasks = values.tasks
+      .map(compactTaskSemantic)
+      .filter((task): task is TaskSemanticInfo => Boolean(task));
+    Object.assign(payload, { tasks });
+  }
+  if (values.reports) {
+    const reports = values.reports
+      .map((report) => ({
+        query: { functionId: report.query?.functionId?.trim() || '' },
+        datasetPath: report.datasetPath?.trim() || '',
+        dimensions: (report.dimensions || [])
+          .map((item) => item?.trim())
+          .filter((item): item is string => Boolean(item)),
+        metrics: (report.metrics || [])
+          .map((item) => item?.trim())
+          .filter((item): item is string => Boolean(item)),
+      }))
+      .filter((report) => report.query.functionId);
+    Object.assign(payload, { reports });
+  }
   assignString('changeReason', values.changeReason);
 
   return payload;
+};
+
+const compactTaskSemantic = (task: TaskSemanticInfo): TaskSemanticInfo | undefined => {
+  const startFunctionId = task.start?.functionId?.trim();
+  const statusFunctionId = task.status?.function?.functionId?.trim();
+  if (!startFunctionId || !statusFunctionId) {
+    return undefined;
+  }
+  const next: TaskSemanticInfo = {
+    start: { functionId: startFunctionId },
+    taskId: {
+      resultPath: task.taskId?.resultPath?.trim() || '',
+      valueType: task.taskId?.valueType || 'string',
+    },
+    status: {
+      function: { functionId: statusFunctionId },
+      taskIdInput: task.status?.taskIdInput?.trim() || '',
+      statePath: task.status?.statePath?.trim() || '',
+    },
+  };
+  if (task.events?.function?.functionId) {
+    next.events = {
+      function: { functionId: task.events.function.functionId.trim() },
+      taskIdInput: task.events.taskIdInput?.trim() || '',
+      eventsPath: task.events.eventsPath?.trim() || '',
+    };
+  }
+  if (task.result?.function?.functionId) {
+    next.result = {
+      function: { functionId: task.result.function.functionId.trim() },
+      taskIdInput: task.result.taskIdInput?.trim() || '',
+      resultPath: task.result.resultPath?.trim() || '',
+    };
+  }
+  if (task.cancel?.function?.functionId) {
+    next.cancel = {
+      function: { functionId: task.cancel.function.functionId.trim() },
+      taskIdInput: task.cancel.taskIdInput?.trim() || '',
+    };
+  }
+  if (task.retry?.function?.functionId) {
+    next.retry = {
+      function: { functionId: task.retry.function.functionId.trim() },
+      taskIdInput: task.retry.taskIdInput?.trim() || '',
+    };
+  }
+  return next;
 };
 
 const ResourceCatalogPage: React.FC = () => {
@@ -354,6 +436,23 @@ const ResourceCatalogPage: React.FC = () => {
         .map((fn) => ({
           value: fn.id,
           label: `${fn.functionId} #${fn.id}`,
+          disabled: !fn.enabled,
+        }))}
+    />
+  );
+
+  const renderFunctionIdSelect = (placeholder: string, capability?: CapabilityKind, width = 260) => (
+    <Select<string>
+      allowClear
+      placeholder={placeholder}
+      showSearch
+      optionFilterProp="label"
+      style={{ width }}
+      options={(selectedResource?.functions || [])
+        .filter((fn) => !capability || fn.capability === capability)
+        .map((fn) => ({
+          value: fn.functionId,
+          label: `${fn.functionId} #${fn.id} / ${capabilityLabels[fn.capability] || fn.capability}`,
           disabled: !fn.enabled,
         }))}
     />
@@ -706,7 +805,47 @@ const ResourceCatalogPage: React.FC = () => {
                       (selectedResource.semantics.hasDelete ? '已配置' : '未配置')}
                   </Descriptions.Item>
                   <Descriptions.Item label="Actions">
-                    {selectedResource.semantics.hasActions ? '已配置' : '未配置'}
+                    {selectedResource.semantics.actions?.length ? (
+                      <Space wrap>
+                        {selectedResource.semantics.actions.map((action) => (
+                          <Tag key={`${action.functionId}:${action.subject}:${action.identityInput || ''}`}>
+                            {action.functionId} / {action.subject}
+                            {action.identityInput ? ` / ${action.identityInput}` : ''}
+                          </Tag>
+                        ))}
+                      </Space>
+                    ) : (
+                      '未配置'
+                    )}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Tasks">
+                    {selectedResource.semantics.tasks?.length ? (
+                      <Space direction="vertical" size={4}>
+                        {selectedResource.semantics.tasks.map((task) => (
+                          <Text code key={task.start.functionId}>
+                            {task.start.functionId} / status: {task.status.function.functionId}
+                            {task.cancel ? ` / cancel: ${task.cancel.function.functionId}` : ''}
+                            {task.retry ? ` / retry: ${task.retry.function.functionId}` : ''}
+                          </Text>
+                        ))}
+                      </Space>
+                    ) : (
+                      '未配置'
+                    )}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Reports">
+                    {selectedResource.semantics.reports?.length ? (
+                      <Space direction="vertical" size={4}>
+                        {selectedResource.semantics.reports.map((report) => (
+                          <Text code key={report.query.functionId}>
+                            {report.query.functionId} / dataset: {report.datasetPath || '(root)'} / dims:{' '}
+                            {report.dimensions.join(',')} / metrics: {report.metrics.join(',')}
+                          </Text>
+                        ))}
+                      </Space>
+                    ) : (
+                      '未配置'
+                    )}
                   </Descriptions.Item>
                 </Descriptions>
               </>
@@ -927,6 +1066,275 @@ const ResourceCatalogPage: React.FC = () => {
           <Form.Item label="Delete" name="deleteId">
             {renderFunctionSelect('delete', '选择删除函数')}
           </Form.Item>
+          <Form.List name="actions">
+            {(fields, { add, remove }) => (
+              <Card
+                size="small"
+                title="资源动作语义"
+                style={{ marginBottom: 16 }}
+                extra={
+                  <Button size="small" onClick={() => add({ subject: 'resource_item' })}>
+                    添加动作
+                  </Button>
+                }
+              >
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="这里只描述动作需要的资源上下文"
+                  description="subject 决定动作针对单行、选中集合或整个资源；按钮位置由 PageProposal 生成器决定，不在这里配置。"
+                />
+                {fields.map((field) => (
+                  <Space key={field.key} align="baseline" wrap style={{ display: 'flex', marginBottom: 8 }}>
+                    <Form.Item
+                      {...field}
+                      label="函数"
+                      name={[field.name, 'functionId']}
+                      rules={[{ required: true, message: '请选择 action 函数' }]}
+                    >
+                      <Select<string>
+                        style={{ width: 260 }}
+                        placeholder="选择 action 函数"
+                        showSearch
+                        optionFilterProp="label"
+                        options={(selectedResource?.functions || [])
+                          .filter((fn) => fn.capability === 'action')
+                          .map((fn) => ({
+                            value: fn.functionId,
+                            label: `${fn.functionId} #${fn.id}`,
+                            disabled: !fn.enabled,
+                          }))}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      {...field}
+                      label="Subject"
+                      name={[field.name, 'subject']}
+                      rules={[{ required: true, message: '请选择 subject' }]}
+                    >
+                      <Select
+                        style={{ width: 180 }}
+                        options={[
+                          { value: 'resource_item', label: '单个资源对象' },
+                          { value: 'resource_selection', label: '选中资源集合' },
+                          { value: 'none', label: '整个资源' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      {...field}
+                      label="Identity Input"
+                      name={[field.name, 'identityInput']}
+                      tooltip="resource_item/resource_selection 必填，例如 /playerId 或 /playerIds；none 可留空"
+                    >
+                      <Input style={{ width: 200 }} placeholder="/playerId 或 /playerIds" />
+                    </Form.Item>
+                    <Button danger onClick={() => remove(field.name)}>
+                      删除
+                    </Button>
+                  </Space>
+                ))}
+              </Card>
+            )}
+          </Form.List>
+          <Form.List name="tasks">
+            {(fields, { add, remove }) => (
+              <Card
+                size="small"
+                title="任务语义"
+                style={{ marginBottom: 16 }}
+                extra={
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      add({
+                        taskId: { resultPath: '/taskId', valueType: 'string' },
+                        status: { taskIdInput: '/taskId', statePath: '/status' },
+                      })
+                    }
+                  >
+                    添加任务
+                  </Button>
+                }
+              >
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="这里只描述任务生命周期能力"
+                  description="start 必须是 task 能力函数；status/events/result/cancel/retry 只声明真实函数和 taskId 输入路径，不配置页面按钮位置。"
+                />
+                {fields.map((field) => (
+                  <Card key={field.key} size="small" style={{ marginBottom: 12 }}>
+                    <Space align="baseline" wrap style={{ display: 'flex' }}>
+                      <Form.Item
+                        label="Start 函数"
+                        name={[field.name, 'start', 'functionId']}
+                        rules={[{ required: true, message: '请选择 task start 函数' }]}
+                      >
+                        {renderFunctionIdSelect('选择 task 函数', 'task', 300)}
+                      </Form.Item>
+                      <Form.Item
+                        label="TaskID Result Path"
+                        name={[field.name, 'taskId', 'resultPath']}
+                        rules={[{ required: true, message: '请输入 taskId 输出路径' }]}
+                      >
+                        <Input style={{ width: 180 }} placeholder="/taskId 或空根路径" />
+                      </Form.Item>
+                      <Form.Item
+                        label="TaskID 类型"
+                        name={[field.name, 'taskId', 'valueType']}
+                        rules={[{ required: true, message: '请选择 taskId 类型' }]}
+                      >
+                        <Select
+                          style={{ width: 140 }}
+                          options={[
+                            { value: 'string', label: 'string' },
+                            { value: 'number', label: 'number' },
+                            { value: 'integer', label: 'integer' },
+                            { value: 'boolean', label: 'boolean' },
+                          ]}
+                        />
+                      </Form.Item>
+                    </Space>
+                    <Space align="baseline" wrap style={{ display: 'flex' }}>
+                      <Form.Item
+                        label="Status 函数"
+                        name={[field.name, 'status', 'function', 'functionId']}
+                        rules={[{ required: true, message: '请选择 status 函数' }]}
+                      >
+                        {renderFunctionIdSelect('选择 status 函数', undefined, 300)}
+                      </Form.Item>
+                      <Form.Item
+                        label="Status TaskID Input"
+                        name={[field.name, 'status', 'taskIdInput']}
+                        rules={[{ required: true, message: '请输入 status taskId 输入路径' }]}
+                      >
+                        <Input style={{ width: 180 }} placeholder="/taskId" />
+                      </Form.Item>
+                      <Form.Item
+                        label="State Path"
+                        name={[field.name, 'status', 'statePath']}
+                        rules={[{ required: true, message: '请输入状态输出路径' }]}
+                      >
+                        <Input style={{ width: 160 }} placeholder="/status" />
+                      </Form.Item>
+                    </Space>
+                    <Space align="baseline" wrap style={{ display: 'flex' }}>
+                      <Form.Item label="Events 函数" name={[field.name, 'events', 'function', 'functionId']}>
+                        {renderFunctionIdSelect('选择 events 函数')}
+                      </Form.Item>
+                      <Form.Item label="Events TaskID Input" name={[field.name, 'events', 'taskIdInput']}>
+                        <Input style={{ width: 160 }} placeholder="/taskId" />
+                      </Form.Item>
+                      <Form.Item label="Events Path" name={[field.name, 'events', 'eventsPath']}>
+                        <Input style={{ width: 160 }} placeholder="/events" />
+                      </Form.Item>
+                    </Space>
+                    <Space align="baseline" wrap style={{ display: 'flex' }}>
+                      <Form.Item label="Result 函数" name={[field.name, 'result', 'function', 'functionId']}>
+                        {renderFunctionIdSelect('选择 result 函数')}
+                      </Form.Item>
+                      <Form.Item label="Result TaskID Input" name={[field.name, 'result', 'taskIdInput']}>
+                        <Input style={{ width: 160 }} placeholder="/taskId" />
+                      </Form.Item>
+                      <Form.Item label="Result Path" name={[field.name, 'result', 'resultPath']}>
+                        <Input style={{ width: 160 }} placeholder="/result" />
+                      </Form.Item>
+                    </Space>
+                    <Space align="baseline" wrap style={{ display: 'flex' }}>
+                      <Form.Item label="Cancel 函数" name={[field.name, 'cancel', 'function', 'functionId']}>
+                        {renderFunctionIdSelect('选择 cancel 函数')}
+                      </Form.Item>
+                      <Form.Item label="Cancel TaskID Input" name={[field.name, 'cancel', 'taskIdInput']}>
+                        <Input style={{ width: 160 }} placeholder="/taskId" />
+                      </Form.Item>
+                      <Form.Item label="Retry 函数" name={[field.name, 'retry', 'function', 'functionId']}>
+                        {renderFunctionIdSelect('选择 retry 函数')}
+                      </Form.Item>
+                      <Form.Item label="Retry TaskID Input" name={[field.name, 'retry', 'taskIdInput']}>
+                        <Input style={{ width: 160 }} placeholder="/taskId" />
+                      </Form.Item>
+                    </Space>
+                    <Button danger onClick={() => remove(field.name)}>
+                      删除任务语义
+                    </Button>
+                  </Card>
+                ))}
+              </Card>
+            )}
+          </Form.List>
+          <Form.List name="reports">
+            {(fields, { add, remove }) => (
+              <Card
+                size="small"
+                title="报表语义"
+                style={{ marginBottom: 16 }}
+                extra={
+                  <Button
+                    size="small"
+                    onClick={() => add({ datasetPath: '/dataset', dimensions: [], metrics: [] })}
+                  >
+                    添加报表
+                  </Button>
+                }
+              >
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="这里只描述报表数据集"
+                  description="datasetPath 指向查询结果中的数组；dimensions/metrics 是相对 dataset item 的 JSON Pointer。图表类型和表格展示属于 Page Proposal/Page Studio。"
+                />
+                {fields.map((field) => (
+                  <Space key={field.key} align="baseline" wrap style={{ display: 'flex', marginBottom: 8 }}>
+                    <Form.Item
+                      label="Query 函数"
+                      name={[field.name, 'query', 'functionId']}
+                      rules={[{ required: true, message: '请选择 report 函数' }]}
+                    >
+                      {renderFunctionIdSelect('选择 report 函数', 'report', 300)}
+                    </Form.Item>
+                    <Form.Item
+                      label="Dataset Path"
+                      name={[field.name, 'datasetPath']}
+                      tooltip="根数组可留空；对象字段数组示例 /dataset 或 /data/items"
+                    >
+                      <Input style={{ width: 180 }} placeholder="/dataset 或空根路径" />
+                    </Form.Item>
+                    <Form.Item
+                      label="Dimensions"
+                      name={[field.name, 'dimensions']}
+                      rules={[{ required: true, message: '至少填写一个维度指针' }]}
+                    >
+                      <Select<string>
+                        mode="tags"
+                        style={{ width: 260 }}
+                        tokenSeparators={[',']}
+                        placeholder="/date, /channel"
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Metrics"
+                      name={[field.name, 'metrics']}
+                      rules={[{ required: true, message: '至少填写一个指标指针' }]}
+                    >
+                      <Select<string>
+                        mode="tags"
+                        style={{ width: 260 }}
+                        tokenSeparators={[',']}
+                        placeholder="/payAmount, /userCount"
+                      />
+                    </Form.Item>
+                    <Button danger onClick={() => remove(field.name)}>
+                      删除
+                    </Button>
+                  </Space>
+                ))}
+              </Card>
+            )}
+          </Form.List>
           <Form.Item label="变更原因" name="changeReason">
             <Input.TextArea placeholder="说明变更原因" />
           </Form.Item>

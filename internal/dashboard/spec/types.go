@@ -144,6 +144,93 @@ func IsValidFunctionExecution(execution FunctionExecution) bool {
 	}
 }
 
+// JsonScalarType is the allowed scalar value type for capability semantics.
+type JsonScalarType string
+
+const (
+	JsonScalarString  JsonScalarType = "string"
+	JsonScalarNumber  JsonScalarType = "number"
+	JsonScalarInteger JsonScalarType = "integer"
+	JsonScalarBoolean JsonScalarType = "boolean"
+)
+
+// IsValidJsonScalarType reports whether valueType is a controlled scalar type.
+func IsValidJsonScalarType(valueType JsonScalarType) bool {
+	switch valueType {
+	case JsonScalarString, JsonScalarNumber, JsonScalarInteger, JsonScalarBoolean:
+		return true
+	default:
+		return false
+	}
+}
+
+// FunctionRef points at a concrete FunctionContract snapshot.
+type FunctionRef struct {
+	FunctionID         string `json:"functionId"`
+	ContractVersion    string `json:"contractVersion,omitempty"`
+	InputSchemaDigest  string `json:"inputSchemaDigest,omitempty"`
+	OutputSchemaDigest string `json:"outputSchemaDigest,omitempty"`
+}
+
+// ActionSemantic describes resource action context. It does not define button UI.
+type ActionSemantic struct {
+	Function      FunctionRef `json:"function"`
+	Subject       string      `json:"subject"` // resource_item|resource_selection|none
+	IdentityInput string      `json:"identityInput,omitempty"`
+}
+
+// TaskSemantic describes a task lifecycle around a start function.
+type TaskSemantic struct {
+	Start  FunctionRef          `json:"start"`
+	TaskID TaskIDSemantic       `json:"taskId"`
+	Status TaskStatusSemantic   `json:"status"`
+	Events *TaskEventsSemantic  `json:"events,omitempty"`
+	Result *TaskResultSemantic  `json:"result,omitempty"`
+	Cancel *TaskCommandSemantic `json:"cancel,omitempty"`
+	Retry  *TaskCommandSemantic `json:"retry,omitempty"`
+}
+
+// TaskIDSemantic extracts the task id from the start function result.
+type TaskIDSemantic struct {
+	ResultPath string         `json:"resultPath"`
+	ValueType  JsonScalarType `json:"valueType"`
+}
+
+// TaskStatusSemantic describes how to query task state.
+type TaskStatusSemantic struct {
+	Function    FunctionRef `json:"function"`
+	TaskIDInput string      `json:"taskIdInput"`
+	StatePath   string      `json:"statePath"`
+}
+
+// TaskEventsSemantic describes how to query task events.
+type TaskEventsSemantic struct {
+	Function    FunctionRef `json:"function"`
+	TaskIDInput string      `json:"taskIdInput"`
+	EventsPath  string      `json:"eventsPath"`
+}
+
+// TaskResultSemantic describes how to query final task result.
+type TaskResultSemantic struct {
+	Function    FunctionRef `json:"function"`
+	TaskIDInput string      `json:"taskIdInput"`
+	ResultPath  string      `json:"resultPath"`
+}
+
+// TaskCommandSemantic describes a task command function such as cancel/retry.
+type TaskCommandSemantic struct {
+	Function    FunctionRef `json:"function"`
+	TaskIDInput string      `json:"taskIdInput"`
+}
+
+// ReportSemantic describes the dataset exposed by a report function.
+type ReportSemantic struct {
+	Query       FunctionRef `json:"query"`
+	DatasetPath string      `json:"datasetPath"`
+	Dimensions  []string    `json:"dimensions"`
+	Metrics     []string    `json:"metrics"`
+}
+
 // ApprovalPolicy is independent from execution mode. A sync or task function
 // may require approval before the actual execution starts.
 type ApprovalPolicy struct {
@@ -372,9 +459,6 @@ type PageSpec struct {
 	// bindings by bindingId; direct functionId references are invalid in
 	// published PageSpec.
 	Bindings []PageFunctionBinding `json:"bindings"`
-
-	// Metadata holds arbitrary extension data for the page.
-	Metadata map[string]json.RawMessage `json:"metadata,omitempty"`
 }
 
 // PageCategorySpec groups pages into navigation categories.

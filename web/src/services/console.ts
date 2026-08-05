@@ -56,6 +56,10 @@ type ApprovalDetailResponse = {
   function_id?: string;
   actor?: string;
   reason?: string;
+  continuation?: boolean;
+  result_kind?: 'sync' | 'task';
+  task_id?: string;
+  result?: JSONValue | string;
   updated_at?: string;
   updatedAt?: string;
 };
@@ -145,8 +149,26 @@ export async function queryApprovalStatus(approvalId: string): Promise<ApprovalS
     functionId: detail.function_id,
     actor: detail.actor,
     reason: detail.reason,
+    continuation: detail.continuation,
+    resultKind: detail.result_kind,
+    taskId: detail.task_id,
+    result: normalizeApprovalResult(detail.result),
     updatedAt: detail.updatedAt || detail.updated_at,
   };
+}
+
+function normalizeApprovalResult(result?: JSONValue | string): JSONValue | undefined {
+  if (result === undefined || result === '') {
+    return undefined;
+  }
+  if (typeof result !== 'string') {
+    return result;
+  }
+  try {
+    return JSON.parse(result) as JSONValue;
+  } catch {
+    return result;
+  }
 }
 
 function normalizeTaskStatus(status?: string): TaskStatusResult['status'] {

@@ -31,6 +31,9 @@ export type JSONSchema = { [key: string]: JSONValue };
 /** RFC 6901 JSON Pointer */
 export type JsonPointer = string;
 
+/** JSON 标量类型 */
+export type JsonScalarType = 'string' | 'number' | 'integer' | 'boolean';
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -94,6 +97,10 @@ export interface ApprovalStatusResult {
   functionId?: string;
   actor?: string;
   reason?: string;
+  continuation?: boolean;
+  resultKind?: 'sync' | 'task';
+  taskId?: string;
+  result?: JSONValue;
   updatedAt?: string;
 }
 
@@ -150,6 +157,14 @@ export interface BindingFreshnessDiagnostic {
 export interface ApprovalPolicy {
   required: boolean;
   policyKey?: string;
+}
+
+/** 函数契约快照引用 */
+export interface FunctionRef {
+  functionId: string;
+  contractVersion?: string;
+  inputSchemaDigest?: string;
+  outputSchemaDigest?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -313,7 +328,6 @@ export interface PageSpec {
   task?: TaskPageSpec;
   report?: ReportPageSpec;
   bindings: PageFunctionBinding[];
-  metadata?: Record<string, JSONValue>;
 }
 
 /** 页面导航规格 */
@@ -787,7 +801,64 @@ export interface SemanticsInfo {
   createId?: number;
   updateId?: number;
   deleteId?: number;
+  actions?: ActionSemanticInfo[];
+  tasks?: TaskSemanticInfo[];
+  reports?: ReportSemanticInfo[];
   unresolvedConflicts: number;
+}
+
+/** 资源动作语义：只描述能力上下文，不描述按钮 UI */
+export interface ActionSemanticInfo {
+  functionId: string;
+  subject: 'resource_item' | 'resource_selection' | 'none';
+  identityInput?: string;
+}
+
+/** 任务语义：只描述任务生命周期能力，不描述页面 UI */
+export interface TaskSemanticInfo {
+  start: FunctionRef;
+  taskId: TaskIdSemanticInfo;
+  status: TaskStatusSemanticInfo;
+  events?: TaskEventsSemanticInfo;
+  result?: TaskResultSemanticInfo;
+  cancel?: TaskCommandSemanticInfo;
+  retry?: TaskCommandSemanticInfo;
+}
+
+export interface TaskIdSemanticInfo {
+  resultPath: JsonPointer;
+  valueType: JsonScalarType;
+}
+
+export interface TaskStatusSemanticInfo {
+  function: FunctionRef;
+  taskIdInput: JsonPointer;
+  statePath: JsonPointer;
+}
+
+export interface TaskEventsSemanticInfo {
+  function: FunctionRef;
+  taskIdInput: JsonPointer;
+  eventsPath: JsonPointer;
+}
+
+export interface TaskResultSemanticInfo {
+  function: FunctionRef;
+  taskIdInput: JsonPointer;
+  resultPath: JsonPointer;
+}
+
+export interface TaskCommandSemanticInfo {
+  function: FunctionRef;
+  taskIdInput: JsonPointer;
+}
+
+/** 报表语义：只描述数据集语义，不描述图表 UI */
+export interface ReportSemanticInfo {
+  query: FunctionRef;
+  datasetPath: JsonPointer;
+  dimensions: JsonPointer[];
+  metrics: JsonPointer[];
 }
 
 /** 诊断信息 */
@@ -815,6 +886,9 @@ export interface UpdateResourceSemanticsRequest {
   createId?: number;
   updateId?: number;
   deleteId?: number;
+  actions?: ActionSemanticInfo[];
+  tasks?: TaskSemanticInfo[];
+  reports?: ReportSemanticInfo[];
   changeReason?: string;
 }
 
