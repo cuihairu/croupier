@@ -27,10 +27,7 @@ flags:
     carryforward: true
   server:
     paths:
-      - cmd/**
       - internal/**
-      - pkg/protocol/**
-      - tools/protoc-gen-croupier/**
     carryforward: true
 
 coverage:
