@@ -4,31 +4,31 @@ flags:
   go-sdk:
     paths:
       - sdks/go/**
-    carryforward: true
+    carryforward: false
   js-sdk:
     paths:
       - sdks/js/**
-    carryforward: true
+    carryforward: false
   cpp-sdk:
     paths:
       - sdks/cpp/**
-    carryforward: true
+    carryforward: false
   python-sdk:
     paths:
       - sdks/python/**
-    carryforward: true
+    carryforward: false
   java-sdk:
     paths:
       - sdks/java/**
-    carryforward: true
+    carryforward: false
   csharp-sdk:
     paths:
       - sdks/csharp/**
-    carryforward: true
+    carryforward: false
   server:
     paths:
       - internal/**
-    carryforward: true
+    carryforward: false
 
 coverage:
   status:
