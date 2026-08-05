@@ -266,3 +266,133 @@ func TestContractService_ScopeIsolation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, contracts2, 0)
 }
+
+func TestOperationSpecFromContract(t *testing.T) {
+	// Test nil contract
+	spec := operationSpecFromContract(nil)
+	assert.Empty(t, spec.FunctionID)
+
+	// Test with contract
+	contract := &model.FunctionContract{
+		FunctionID:   "player.list",
+		ResourceKey:  "player",
+		OperationKey: "list",
+		Capability:   "collection_query",
+		Execution:    "sync",
+		Risk:         "safe",
+		Permission:   "player:list",
+		Enabled:      true,
+	}
+	spec = operationSpecFromContract(contract)
+	assert.Equal(t, "player.list", spec.FunctionID)
+	assert.Equal(t, "player", spec.ResourceKey)
+	assert.Equal(t, "list", spec.Operation)
+	assert.Equal(t, "collection_query", string(spec.Capability))
+	assert.Equal(t, "sync", string(spec.Execution))
+	assert.Equal(t, "safe", string(spec.Risk))
+	assert.Equal(t, "player:list", spec.Permission)
+	assert.True(t, spec.Enabled)
+}
+
+func TestFunctionSpecFromContract(t *testing.T) {
+	// Test nil contract
+	spec := functionSpecFromContract(nil)
+	assert.Empty(t, spec.ID)
+
+	// Test with contract
+	contract := &model.FunctionContract{
+		FunctionID:   "player.list",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Deprecated:   false,
+		InputSchema:  []byte(`{"type":"object"}`),
+		OutputSchema: []byte(`{"type":"array"}`),
+		ResourceKey:  "player",
+		OperationKey: "list",
+		Capability:   "collection_query",
+		Execution:    "sync",
+		Risk:         "safe",
+		Permission:   "player:list",
+	}
+	spec = functionSpecFromContract(contract)
+	assert.Equal(t, "player.list", spec.ID)
+	assert.Equal(t, "1.0.0", spec.Version)
+	assert.True(t, spec.Enabled)
+	assert.False(t, spec.Deprecated)
+	assert.Equal(t, "player", spec.Resource)
+	assert.Equal(t, "list", spec.Operation)
+}
+
+func TestJsonMapToApprovalPolicy(t *testing.T) {
+	// Test empty map
+	policy := jsonMapToApprovalPolicy(nil)
+	assert.False(t, policy.Required)
+	assert.Empty(t, policy.PolicyKey)
+
+	// Test with values
+	values := map[string]interface{}{
+		"required":  true,
+		"policyKey": "high-risk",
+	}
+	policy = jsonMapToApprovalPolicy(values)
+	assert.True(t, policy.Required)
+	assert.Equal(t, "high-risk", policy.PolicyKey)
+
+	// Test with policy_key (snake_case)
+	values2 := map[string]interface{}{
+		"required":   true,
+		"policy_key": "admin-approval",
+	}
+	policy2 := jsonMapToApprovalPolicy(values2)
+	assert.True(t, policy2.Required)
+	assert.Equal(t, "admin-approval", policy2.PolicyKey)
+}
+
+func TestJsonMapToLocalizedText(t *testing.T) {
+	// Test empty map
+	text := jsonMapToLocalizedText(nil)
+	assert.Nil(t, text)
+
+	// Test with values
+	values := map[string]interface{}{
+		"zh-CN": "玩家列表",
+		"en":    "Player List",
+	}
+	text = jsonMapToLocalizedText(values)
+	assert.Equal(t, "玩家列表", text["zh-CN"])
+	assert.Equal(t, "Player List", text["en"])
+
+	// Test with empty values
+	values2 := map[string]interface{}{
+		"zh-CN": "",
+		"en":    "  ",
+	}
+	text2 := jsonMapToLocalizedText(values2)
+	assert.Nil(t, text2)
+}
+
+func TestResourceProposalKey(t *testing.T) {
+	assert.Equal(t, "resource:player", resourceProposalKey("player"))
+	assert.Equal(t, "resource:inventory", resourceProposalKey("inventory"))
+	assert.Empty(t, resourceProposalKey(""))
+	assert.Empty(t, resourceProposalKey("  "))
+}
+
+func TestStandaloneProposalKey(t *testing.T) {
+	assert.Equal(t, "operation:mail.send", standaloneProposalKey("operation", "mail.send"))
+	assert.Equal(t, "task:reward.batch", standaloneProposalKey("task", "reward.batch"))
+	assert.Equal(t, "report:analytics.retention", standaloneProposalKey("report", "analytics.retention"))
+	assert.Empty(t, standaloneProposalKey("operation", ""))
+}
+
+func TestIsCRUDCapability(t *testing.T) {
+	assert.True(t, isCRUDCapability("collection_query"))
+	assert.True(t, isCRUDCapability("item_query"))
+	assert.True(t, isCRUDCapability("create"))
+	assert.True(t, isCRUDCapability("update"))
+	assert.True(t, isCRUDCapability("delete"))
+	assert.False(t, isCRUDCapability("action"))
+	assert.False(t, isCRUDCapability("task"))
+	assert.False(t, isCRUDCapability("report"))
+	assert.False(t, isCRUDCapability(""))
+}

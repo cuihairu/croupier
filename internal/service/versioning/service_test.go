@@ -2,9 +2,11 @@ package versioning
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -207,4 +209,75 @@ func TestVersioningService_RepublishNoDraft(t *testing.T) {
 		Reason:      "test republish",
 	})
 	assert.Error(t, err)
+}
+
+func TestResourceProposalKey(t *testing.T) {
+	assert.Equal(t, "resource:player", resourceProposalKey("player"))
+	assert.Equal(t, "resource:inventory", resourceProposalKey("inventory"))
+	assert.Equal(t, "resource:", resourceProposalKey(""))
+	assert.Equal(t, "resource:  ", resourceProposalKey("  "))
+}
+
+func TestResourcePageKey(t *testing.T) {
+	assert.Equal(t, "resource--player", resourcePageKey("player"))
+	assert.Equal(t, "resource--inventory", resourcePageKey("inventory"))
+	assert.Equal(t, "resource--", resourcePageKey(""))
+	assert.Equal(t, "resource--", resourcePageKey("  "))
+}
+
+func TestMergeMessage(t *testing.T) {
+	msg := mergeMessage(0, 0, false)
+	assert.Equal(t, "no contract changes require merge", msg)
+
+	msg2 := mergeMessage(1, 0, false)
+	assert.Contains(t, msg2, "found 1 safe changes")
+
+	msg3 := mergeMessage(0, 2, false)
+	assert.Contains(t, msg3, "2 conflicts")
+
+	msg4 := mergeMessage(1, 0, true)
+	assert.Contains(t, msg4, "auto-merged 1")
+
+	msg5 := mergeMessage(1, 1, true)
+	assert.Contains(t, msg5, "auto-merged 1")
+	assert.Contains(t, msg5, "1 conflicts")
+}
+
+func TestJsonString(t *testing.T) {
+	assert.Equal(t, json.RawMessage(`"hello"`), jsonString("hello"))
+	assert.Equal(t, json.RawMessage(`""`), jsonString(""))
+	assert.Equal(t, json.RawMessage(`"test"`), jsonString("test"))
+}
+
+func TestFirstNonEmpty(t *testing.T) {
+	assert.Equal(t, "a", firstNonEmpty("a", "b", "c"))
+	assert.Equal(t, "b", firstNonEmpty("", "b", "c"))
+	assert.Equal(t, "c", firstNonEmpty("", "", "c"))
+	assert.Empty(t, firstNonEmpty("", "", ""))
+}
+
+func TestSamePageSpec(t *testing.T) {
+	// Test empty specs
+	spec1 := spec.PageSpec{}
+	spec2 := spec.PageSpec{}
+	assert.True(t, samePageSpec(spec1, spec2))
+
+	// Test with same page key
+	spec3 := spec.PageSpec{PageKey: "test"}
+	spec4 := spec.PageSpec{PageKey: "test"}
+	assert.True(t, samePageSpec(spec3, spec4))
+
+	// Test with different page key
+	spec5 := spec.PageSpec{PageKey: "test1"}
+	spec6 := spec.PageSpec{PageKey: "test2"}
+	assert.False(t, samePageSpec(spec5, spec6))
+}
+
+func TestDigestRaw(t *testing.T) {
+	digest1 := digestRaw([]byte("test"))
+	digest2 := digestRaw([]byte("test"))
+	assert.Equal(t, digest1, digest2)
+
+	digest3 := digestRaw([]byte("different"))
+	assert.NotEqual(t, digest1, digest3)
 }
