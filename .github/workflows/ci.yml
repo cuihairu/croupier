@@ -167,7 +167,13 @@ jobs:
           DATABASE_URL: ":memory:"
           STORAGE_DRIVER: file
           STORAGE_BASE_DIR: data/uploads
-        run: go test -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+        run: |
+          # Only test packages that need coverage (exclude generated code)
+          go test -count=1 -coverprofile=coverage.out -covermode=atomic \
+            ./internal/... \
+            ./cmd/... \
+            ./pkg/protocol/... \
+            ./tools/protoc-gen-croupier/...
 
       - name: Upload coverage to Codecov
         timeout-minutes: 3
