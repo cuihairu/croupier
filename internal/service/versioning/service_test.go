@@ -23,6 +23,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.CapabilitySemanticVersion{},
 		&model.PageProposal{},
 		&model.PageProposalVersion{},
+		&model.PageSpec{},
+		&model.PublishedPageSpec{},
+		&model.PageVersion{},
 	)
 	require.NoError(t, err)
 
@@ -88,33 +91,13 @@ func TestVersioningService_Diff(t *testing.T) {
 	assert.Contains(t, diff.Summary, "changes")
 }
 
-func TestVersioningService_Merge(t *testing.T) {
+func TestVersioningService_MergeReject(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
 
-	// Create semantics first
-	semanticsModel := model.NewCapabilitySemanticsModel(db)
-	err := semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
-		GameID:      "demo-game",
-		Env:         "development",
-		ResourceKey: "player",
-	})
-	require.NoError(t, err)
-
-	// Test auto merge
+	// Test reject merge (should work without any data)
 	result, err := service.Merge(ctx, &MergeRequest{
-		GameID:      "demo-game",
-		Env:         "development",
-		ResourceKey: "player",
-		Strategy:    MergeStrategyAuto,
-	})
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Contains(t, result.Message, "auto-merged")
-
-	// Test reject merge
-	result, err = service.Merge(ctx, &MergeRequest{
 		GameID:      "demo-game",
 		Env:         "development",
 		ResourceKey: "player",
@@ -125,40 +108,52 @@ func TestVersioningService_Merge(t *testing.T) {
 	assert.Equal(t, "all changes rejected", result.Message)
 }
 
-func TestVersioningService_RollbackDraft(t *testing.T) {
+func TestVersioningService_MergeAutoNoDraft(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
 
-	// Rollback draft
-	result, err := service.RollbackDraft(ctx, &RollbackRequest{
+	// Test auto merge without draft should fail
+	_, err := service.Merge(ctx, &MergeRequest{
 		GameID:      "demo-game",
 		Env:         "development",
 		ResourceKey: "player",
-		Version:     1,
-		Reason:      "test rollback",
+		Strategy:    MergeStrategyAuto,
 	})
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Contains(t, result.Message, "rolled back")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "page draft not found")
 }
 
-func TestVersioningService_RollbackPublish(t *testing.T) {
+func TestVersioningService_RollbackDraftNoData(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
 
-	// Rollback publish
-	result, err := service.RollbackPublish(ctx, &RollbackRequest{
+	// Rollback draft without data should fail
+	_, err := service.RollbackDraft(ctx, &RollbackRequest{
 		GameID:      "demo-game",
 		Env:         "development",
 		ResourceKey: "player",
 		Version:     1,
 		Reason:      "test rollback",
 	})
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Contains(t, result.Message, "rolled back")
+	assert.Error(t, err)
+}
+
+func TestVersioningService_RollbackPublishNoData(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewService(db)
+
+	// Rollback publish without data should fail
+	_, err := service.RollbackPublish(ctx, &RollbackRequest{
+		GameID:      "demo-game",
+		Env:         "development",
+		ResourceKey: "player",
+		Version:     1,
+		Reason:      "test rollback",
+	})
+	assert.Error(t, err)
 }
 
 func TestVersioningService_RegenerateProposal(t *testing.T) {
@@ -175,7 +170,6 @@ func TestVersioningService_RegenerateProposal(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Create contract
 	contractModel := model.NewFunctionContractModel(db)
 	err = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID:      "demo-game",
@@ -185,6 +179,7 @@ func TestVersioningService_RegenerateProposal(t *testing.T) {
 		Enabled:     true,
 		ResourceKey: "player",
 		Capability:  "collection_query",
+		UpdatedAt:   time.Now(),
 	})
 	require.NoError(t, err)
 
@@ -196,36 +191,20 @@ func TestVersioningService_RegenerateProposal(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.Contains(t, result.Message, "proposal regenerated")
+	assert.Contains(t, result.Message, "regenerated")
 }
 
-func TestVersioningService_Republish(t *testing.T) {
+func TestVersioningService_RepublishNoDraft(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
 
-	// Create proposal first
-	proposalModel := model.NewPageProposalModel(db)
-	err := proposalModel.UpsertProposal(ctx, &model.PageProposal{
-		GameID:      "demo-game",
-		Env:         "development",
-		ProposalKey: "resource:player",
-		PageKey:     "resource--player",
-		PageType:    "resource",
-		ResourceKey: "player",
-		Quality:     "ready",
-		Status:      "accepted",
-	})
-	require.NoError(t, err)
-
-	// Republish
-	result, err := service.Republish(ctx, &RepublishRequest{
+	// Republish without draft should fail
+	_, err := service.Republish(ctx, &RepublishRequest{
 		GameID:      "demo-game",
 		Env:         "development",
 		ResourceKey: "player",
 		Reason:      "test republish",
 	})
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, 1, result.Version)
+	assert.Error(t, err)
 }

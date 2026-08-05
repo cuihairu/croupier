@@ -66,7 +66,8 @@ func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptio
 	resourceKey := strings.TrimSpace(op.ResourceKey)
 	pageKey := operationPageKey(op, opts)
 	binding := pageBinding(op, "main", spec.BindingUsageAction, executionModeForOperation(op))
-	applySelectors(&binding, opts.Functions[op.FunctionID])
+	fn := opts.Functions[op.FunctionID]
+	applySelectors(&binding, fn)
 	diags := assessBaseCandidate(op)
 	locale := opts.DefaultLocale
 	title := localizedTitle(op, pageKey, locale, opts)
@@ -84,6 +85,7 @@ func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptio
 			Operation: &spec.OperationPageSpec{
 				Form: buildFormPresentation(op, opts),
 				ResultView: &spec.ResultViewSpec{
+					Fields:         buildResultFields(fn.OutputSchema, locale),
 					SuccessMessage: spec.LocalizedText{locale: "操作成功"},
 					ErrorMessage:   spec.LocalizedText{locale: "操作失败"},
 				},
@@ -102,14 +104,19 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 	resourceKey := strings.TrimSpace(op.ResourceKey)
 	pageKey := operationPageKey(op, opts)
 	binding := pageBinding(op, "task", spec.BindingUsageTask, spec.PageExecutionModeTask)
-	applySelectors(&binding, opts.Functions[op.FunctionID])
-	diags := append(assessBaseCandidate(op), diagnostic(
+	fn := opts.Functions[op.FunctionID]
+	applySelectors(&binding, fn)
+	diags := assessBaseCandidate(op)
+
+	// Task pages without explicit task semantics should be needs_review
+	diags = append(diags, diagnostic(
 		"task_semantics_missing",
 		spec.SeverityWarning,
 		"task capability requires status/events/result semantics before it can be safely published",
 		op.FunctionID,
 		"capability",
 	))
+
 	locale := opts.DefaultLocale
 	title := localizedTitle(op, pageKey, locale, opts)
 
@@ -133,13 +140,14 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 					Retryable:    false,
 				},
 				ResultView: &spec.ResultViewSpec{
+					Fields:         buildResultFields(fn.OutputSchema, locale),
 					SuccessMessage: spec.LocalizedText{locale: "任务完成"},
 					ErrorMessage:   spec.LocalizedText{locale: "任务失败"},
 				},
 			},
 			Bindings: []spec.PageFunctionBinding{binding},
 		},
-		Quality:     qualityFromDiagnostics(diags),
+		Quality:     taskQuality(op, diags),
 		Diagnostics: diags,
 	}
 }
@@ -151,16 +159,27 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 	resourceKey := strings.TrimSpace(op.ResourceKey)
 	pageKey := operationPageKey(op, opts)
 	binding := pageBinding(op, "report", spec.BindingUsageReport, spec.PageExecutionModeSync)
-	applySelectors(&binding, opts.Functions[op.FunctionID])
-	diags := append(assessBaseCandidate(op), diagnostic(
-		"report_semantics_missing",
-		spec.SeverityWarning,
-		"report capability requires dataset, dimension, metric, and chart semantics before it can be safely published",
-		op.FunctionID,
-		"capability",
-	))
+	fn := opts.Functions[op.FunctionID]
+	applySelectors(&binding, fn)
+	diags := assessBaseCandidate(op)
 	locale := opts.DefaultLocale
 	title := localizedTitle(op, pageKey, locale, opts)
+	dataset := buildDatasetSpec(fn.OutputSchema, locale)
+	charts := buildChartSpecs(dataset, title, locale)
+	if dataset == nil || len(dataset.Dimensions) == 0 || len(dataset.Metrics) == 0 {
+		diags = append(diags, diagnostic(
+			"report_dataset_missing",
+			spec.SeverityWarning,
+			"report output schema must expose an array dataset with at least one dimension and one numeric metric",
+			op.FunctionID,
+			"outputSchema",
+		))
+		dataset = &spec.DatasetSpec{
+			Dimensions: []spec.DimensionSpec{},
+			Metrics:    []spec.MetricSpec{},
+		}
+		charts = nil
+	}
 
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
@@ -173,11 +192,9 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 				Title: title,
 			},
 			Report: &spec.ReportPageSpec{
-				QueryForm: buildFormPresentation(op, opts),
-				Dataset: &spec.DatasetSpec{
-					Dimensions: []spec.DimensionSpec{},
-					Metrics:    []spec.MetricSpec{},
-				},
+				QueryForm:  buildFormPresentation(op, opts),
+				Dataset:    dataset,
+				Charts:     charts,
 				Exportable: true,
 			},
 			Bindings: []spec.PageFunctionBinding{binding},
@@ -385,6 +402,30 @@ func operationQuality(op spec.OperationSpec, diags []spec.Diagnostic) spec.Gener
 	return quality
 }
 
+func taskQuality(op spec.OperationSpec, diags []spec.Diagnostic) spec.GeneratedPageQuality {
+	quality := qualityFromDiagnostics(diags)
+	if hasErrorDiagnostic(diags) {
+		return quality
+	}
+	// Task pages without explicit task semantics should be needs_review
+	if hasWarningDiagnostic(diags) {
+		return spec.GeneratedPageQualityNeedsReview
+	}
+	if strings.TrimSpace(op.FunctionID) != "" {
+		return spec.GeneratedPageQualityBasic
+	}
+	return quality
+}
+
+func hasWarningDiagnostic(diags []spec.Diagnostic) bool {
+	for _, diag := range diags {
+		if diag.Severity == spec.SeverityWarning {
+			return true
+		}
+	}
+	return false
+}
+
 func hasErrorDiagnostic(diags []spec.Diagnostic) bool {
 	for _, diag := range diags {
 		if diag.Severity == spec.SeverityError {
@@ -419,6 +460,115 @@ func defaultOutputAssignments(usage spec.PageBindingUsage, outputSchema spec.JSO
 	default:
 		return nil
 	}
+}
+
+func buildResultFields(outputSchema spec.JSONSchema, locale string) []spec.ResultFieldSpec {
+	if len(outputSchema) == 0 {
+		return nil
+	}
+	root := parseJSONObject(jsonRaw(outputSchema))
+	if schemaTypeFromObject(root) != "object" {
+		return []spec.ResultFieldSpec{{
+			Key:      "result",
+			Title:    spec.LocalizedText{locale: "结果"},
+			DataType: dataTypeFromSchema(root),
+		}}
+	}
+	properties := objectProperty(root, "properties")
+	if len(properties) == 0 {
+		return nil
+	}
+	keys := sortedRawMapKeys(properties)
+	fields := make([]spec.ResultFieldSpec, 0, len(keys))
+	for _, key := range keys {
+		fields = append(fields, spec.ResultFieldSpec{
+			Key:      key,
+			Title:    spec.LocalizedText{locale: humanizeKey(key)},
+			DataType: dataTypeFromSchema(parseJSONObject(properties[key])),
+		})
+	}
+	return fields
+}
+
+func buildDatasetSpec(outputSchema spec.JSONSchema, locale string) *spec.DatasetSpec {
+	itemSchema := datasetItemSchema(outputSchema)
+	if len(itemSchema) == 0 {
+		return nil
+	}
+	properties := objectProperty(itemSchema, "properties")
+	if len(properties) == 0 {
+		return nil
+	}
+	keys := sortedRawMapKeys(properties)
+	dataset := &spec.DatasetSpec{
+		Dimensions: []spec.DimensionSpec{},
+		Metrics:    []spec.MetricSpec{},
+	}
+	for _, key := range keys {
+		prop := parseJSONObject(properties[key])
+		switch schemaTypeFromObject(prop) {
+		case "integer", "number":
+			dataset.Metrics = append(dataset.Metrics, spec.MetricSpec{
+				Key:      key,
+				Title:    spec.LocalizedText{locale: humanizeKey(key)},
+				DataType: "number",
+				AggType:  "sum",
+			})
+		case "string":
+			dimensionType := "string"
+			if rawString(prop["format"]) == "date" || rawString(prop["format"]) == "date-time" {
+				dimensionType = "date"
+			}
+			dataset.Dimensions = append(dataset.Dimensions, spec.DimensionSpec{
+				Key:      key,
+				Title:    spec.LocalizedText{locale: humanizeKey(key)},
+				DataType: dimensionType,
+			})
+		case "boolean":
+			dataset.Dimensions = append(dataset.Dimensions, spec.DimensionSpec{
+				Key:      key,
+				Title:    spec.LocalizedText{locale: humanizeKey(key)},
+				DataType: "string",
+			})
+		}
+	}
+	if len(dataset.Dimensions) == 0 || len(dataset.Metrics) == 0 {
+		return nil
+	}
+	return dataset
+}
+
+func buildChartSpecs(dataset *spec.DatasetSpec, title spec.LocalizedText, locale string) []spec.ChartSpec {
+	if dataset == nil || len(dataset.Dimensions) == 0 || len(dataset.Metrics) == 0 {
+		return nil
+	}
+	return []spec.ChartSpec{{
+		Type:   "line",
+		Title:  title,
+		XField: dataset.Dimensions[0].Key,
+		YField: dataset.Metrics[0].Key,
+	}}
+}
+
+func datasetItemSchema(outputSchema spec.JSONSchema) map[string]json.RawMessage {
+	if len(outputSchema) == 0 {
+		return nil
+	}
+	root := parseJSONObject(jsonRaw(outputSchema))
+	if schemaTypeFromObject(root) == "array" {
+		return objectProperty(root, "items")
+	}
+	properties := objectProperty(root, "properties")
+	for _, key := range []string{"dataset", "items", "rows", "data"} {
+		prop := objectProperty(properties, key)
+		if schemaTypeFromObject(prop) != "array" {
+			continue
+		}
+		if items := objectProperty(prop, "items"); len(items) > 0 {
+			return items
+		}
+	}
+	return nil
 }
 
 func collectionOutputAssignments(outputSchema spec.JSONSchema, arrayKeys []string, stateKey string) []spec.OutputAssignment {
@@ -490,6 +640,38 @@ func schemaTypeFromObject(obj map[string]json.RawMessage) string {
 
 func jsonRaw(schema spec.JSONSchema) json.RawMessage {
 	return json.RawMessage(schema)
+}
+
+func sortedRawMapKeys(input map[string]json.RawMessage) []string {
+	keys := make([]string, 0, len(input))
+	for key := range input {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func dataTypeFromSchema(obj map[string]json.RawMessage) string {
+	switch schemaTypeFromObject(obj) {
+	case "integer", "number":
+		return "number"
+	case "boolean":
+		return "boolean"
+	case "array":
+		return "array"
+	case "object":
+		return "object"
+	case "string":
+		if rawString(obj["format"]) == "date-time" {
+			return "datetime"
+		}
+		if rawString(obj["format"]) == "date" {
+			return "date"
+		}
+		return "string"
+	default:
+		return "string"
+	}
 }
 
 func firstNonEmpty(values ...string) string {

@@ -198,7 +198,8 @@ func TestContractService_RebuildProposalsForResource(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "resource--player", proposal.PageKey)
 	assert.Equal(t, "resource", proposal.PageType)
-	assert.Equal(t, "basic", proposal.Quality)
+	// With collection_query and identity field, quality should be ready
+	assert.Equal(t, "ready", proposal.Quality)
 	assert.NotEmpty(t, proposal.PageSpec)
 	assert.Len(t, proposal.FunctionDigest, 64)
 	assert.Len(t, proposal.SemanticsDigest, 64)
