@@ -59,7 +59,7 @@ jobs:
           lcov --list build/linux-x64-debug-tests-vcpkg/coverage.info
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/cpp/build/linux-x64-debug-tests-vcpkg/coverage.info

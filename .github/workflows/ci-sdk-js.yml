@@ -30,7 +30,7 @@ jobs:
         working-directory: sdks/js
       - run: pnpm test:coverage
         working-directory: sdks/js
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/js/coverage/lcov.info

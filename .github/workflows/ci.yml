@@ -173,7 +173,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         timeout-minutes: 3
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
