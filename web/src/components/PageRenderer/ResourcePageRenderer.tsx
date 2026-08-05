@@ -36,6 +36,7 @@ import {
 import SchemaFormRenderer, {
   type SchemaFormRendererHandle,
 } from '@/components/SchemaFormRenderer';
+import { renderJSONValueSummary } from './ResultViewRenderer';
 import {
   getPageStateArray,
   getPageStateObject,
@@ -50,25 +51,10 @@ import type {
   PageFunctionBinding,
   PageExecuteFn,
   FormValues,
-  JSONValue,
 } from '@/types/dashboard';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 
 const { Text } = Typography;
-
-function renderJsonValue(value: JSONValue | undefined): React.ReactNode {
-  if (value === undefined || value === null) {
-    return '-';
-  }
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-  return (
-    <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-      {JSON.stringify(value, null, 2)}
-    </pre>
-  );
-}
 
 type TableRequestParams = FormValues & {
   current?: number;
@@ -120,7 +106,7 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
       column.valueType = 'date';
       column.render = (_, record) => {
         const value = record[col.key];
-        return value ? new Date(value).toLocaleString() : '-';
+        return value ? new Date(String(value)).toLocaleString() : '-';
       };
       break;
     case 'enum':
@@ -146,14 +132,14 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
       const value = record[col.key];
       const opt = col.enum?.find((e) => e.value === value);
       if (opt) {
-        return <Tag color={opt.color || 'default'}>{opt.label['zh-CN'] || opt.label['en'] || value}</Tag>;
+        return <Tag color={opt.color || 'default'}>{opt.label['zh-CN'] || opt.label['en'] || String(value)}</Tag>;
       }
-      return value;
+      return String(value ?? '-');
     };
   } else if (col.render === 'copy') {
     column.render = (_, record) => {
       const value = record[col.key];
-      return <Text copyable>{value}</Text>;
+      return <Text copyable>{String(value ?? '-')}</Text>;
     };
   }
 
@@ -309,6 +295,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           title: action.confirmTitle?.['zh-CN'] || '确认操作',
           content: action.confirmDescription?.['zh-CN'] || '确定要执行此操作吗？',
           onOk: async () => {
+            if (!action.bindingId) return;
             try {
               await onExecute(action.bindingId, { row: record });
               message.success('操作成功');
@@ -575,7 +562,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                     label={field.title['zh-CN'] || field.title['en'] || field.key}
                     span={field.span}
                   >
-                    {renderJsonValue((detailRecord || currentRecord)[field.key])}
+                    {renderJSONValueSummary((detailRecord || currentRecord)[field.key])}
                   </ProDescriptions.Item>
                 ))}
             </ProDescriptions>

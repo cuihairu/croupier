@@ -45,7 +45,7 @@ export function getPageStateArray(pageState: PageState | undefined, key: string)
 
 export function getPageStateObject(pageState: PageState | undefined, key: string): Record<string, JSONValue> | undefined {
   const value = pageState?.[key];
-  return isJsonObject(value) ? value : undefined;
+  return value !== undefined && isJsonObject(value) ? value : undefined;
 }
 
 export function getPageStateNumber(pageState: PageState | undefined, key: string): number | undefined {
