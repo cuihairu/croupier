@@ -12,11 +12,13 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
 export async function login(page: Page): Promise<void> {
   await page.goto(`${BASE_URL}/user/login`);
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(2000);
+
+  // 等待页面完全加载（可能需要等待 bundling）
+  await page.waitForTimeout(5000);
 
   // 等待登录表单
   const usernameInput = page.locator('input[id="username"], input[placeholder*="admin"], input[placeholder*="用户名"]').first();
-  await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
+  await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
 
   await usernameInput.fill('admin');
   await page.locator('input[type="password"]').fill('ant.design');

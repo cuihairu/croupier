@@ -181,6 +181,7 @@ function findPage(pageKey: string) {
     buildResourcePage('players'),
     buildResourcePage('inventory'),
     buildOperationPage('mail.send'),
+    buildOperationPage('system.dangerous-op'),
     buildTaskPage('reward.batchGrant'),
     buildReportPage('analytics.retention'),
   ];
@@ -234,6 +235,14 @@ export default {
           order: 5,
           pages: [
             { pageKey: 'report--analytics.retention', title: { 'zh-CN': '留存分析', en: 'Retention' } },
+          ],
+        },
+        {
+          key: 'system',
+          labels: { 'zh-CN': '系统', en: 'System' },
+          order: 6,
+          pages: [
+            { pageKey: 'operation--system.dangerous-op', title: { 'zh-CN': '危险操作', en: 'Dangerous Op' } },
           ],
         },
       ],
