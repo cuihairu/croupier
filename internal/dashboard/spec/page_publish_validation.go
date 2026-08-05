@@ -112,6 +112,8 @@ func ValidateRequiredOutputAssignments(binding PageFunctionBinding, page PageSpe
 	switch {
 	case page.Type == PageTypeResource && binding.Usage == BindingUsageQuery:
 		return validateOutputStateKey(binding, "items", OutputShapeCollection, "resource list query must map collection output to pageState.items")
+	case page.Type == PageTypeResource && binding.Usage == BindingUsageDetail:
+		return validateOutputStateKey(binding, "detail", OutputShapeObject, "resource detail query must map object output to pageState.detail")
 	case page.Type == PageTypeReport && binding.Usage == BindingUsageReport:
 		return validateOutputStateKey(binding, "dataset", OutputShapeDataset, "report query must map dataset output to pageState.dataset")
 	default:

@@ -451,10 +451,11 @@ func (s *ContractService) RebuildProposalsForResource(ctx context.Context, gameI
 		}
 	}
 
-	if err := s.upsertResourceProposal(ctx, gameID, env, semantics, contracts); err != nil {
+	consumedActions, err := s.upsertResourceProposal(ctx, gameID, env, semantics, contracts)
+	if err != nil {
 		return err
 	}
-	if err := s.upsertStandaloneProposals(ctx, gameID, env, contracts); err != nil {
+	if err := s.upsertStandaloneProposals(ctx, gameID, env, contracts, consumedActions); err != nil {
 		return err
 	}
 	return nil
@@ -466,17 +467,27 @@ func (s *ContractService) upsertResourceProposal(
 	env string,
 	semantics *model.CapabilitySemantics,
 	contracts []*model.FunctionContract,
-) error {
+) (map[string]struct{}, error) {
 	generated, ok := generator.GenerateResourcePageProposal(semantics, contracts, generator.DefaultGenerateOptions())
 	if !ok {
-		return nil
+		return map[string]struct{}{}, nil
 	}
-	return s.upsertGeneratedProposal(ctx, gameID, env, resourceProposalKey(semantics.ResourceKey), semantics, contracts, generated)
+	consumed := consumedStandaloneBindings(generated.Bindings, contracts)
+	return consumed, s.upsertGeneratedProposal(ctx, gameID, env, resourceProposalKey(semantics.ResourceKey), semantics, contracts, generated)
 }
 
-func (s *ContractService) upsertStandaloneProposals(ctx context.Context, gameID, env string, contracts []*model.FunctionContract) error {
+func (s *ContractService) upsertStandaloneProposals(
+	ctx context.Context,
+	gameID string,
+	env string,
+	contracts []*model.FunctionContract,
+	consumed map[string]struct{},
+) error {
 	for _, contract := range contracts {
 		if contract == nil || isCRUDCapability(contract.Capability) {
+			continue
+		}
+		if _, ok := consumed[strings.TrimSpace(contract.FunctionID)]; ok {
 			continue
 		}
 		generated := generator.GenerateForOperation(operationSpecFromContract(contract), generator.GenerateOptions{
@@ -488,6 +499,28 @@ func (s *ContractService) upsertStandaloneProposals(ctx context.Context, gameID,
 		proposalKey := standaloneProposalKey(generated.Type, contract.FunctionID)
 		if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, []*model.FunctionContract{contract}, generated); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func consumedStandaloneBindings(bindings []spec.PageFunctionBinding, contracts []*model.FunctionContract) map[string]struct{} {
+	consumed := map[string]struct{}{}
+	for _, binding := range bindings {
+		contract := findContractByFunctionID(contracts, binding.FunctionID)
+		if contract == nil || isCRUDCapability(contract.Capability) {
+			continue
+		}
+		consumed[strings.TrimSpace(contract.FunctionID)] = struct{}{}
+	}
+	return consumed
+}
+
+func findContractByFunctionID(contracts []*model.FunctionContract, functionID string) *model.FunctionContract {
+	functionID = strings.TrimSpace(functionID)
+	for _, contract := range contracts {
+		if contract != nil && strings.TrimSpace(contract.FunctionID) == functionID {
+			return contract
 		}
 	}
 	return nil
