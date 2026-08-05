@@ -140,7 +140,7 @@ func TestGenerateForOperationUsesCapabilityReport(t *testing.T) {
 
 	assert.Equal(t, spec.PageTypeReport, page.Type)
 	assert.Equal(t, spec.GeneratedPageQualityNeedsReview, page.Quality)
-	assertDiagnostic(t, page.Diagnostics, "report_semantics_missing")
+	assertDiagnostic(t, page.Diagnostics, "report_dataset_missing")
 	require.Len(t, page.Bindings, 1)
 	assert.Equal(t, spec.BindingUsageReport, page.Bindings[0].Usage)
 	require.NotNil(t, page.Report)
