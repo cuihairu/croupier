@@ -34,6 +34,8 @@ coverage:
   status:
     project:
       default:
+        flags:
+          - server
         target: auto
         threshold: 1%
       go-sdk:
