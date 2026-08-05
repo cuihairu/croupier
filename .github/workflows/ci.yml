@@ -180,6 +180,7 @@ jobs:
           flags: server
           fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
           verbose: true
+          disable_search: true
 
   e2e:
     name: E2E Tests
