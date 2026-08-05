@@ -64,3 +64,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/cpp/build/linux-x64-debug-tests-vcpkg/coverage.info
           flags: cpp-sdk
+          disable_search: true

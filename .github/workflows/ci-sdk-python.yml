@@ -42,3 +42,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/python/coverage.xml
           flags: python-sdk
+          disable_search: true

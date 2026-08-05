@@ -28,3 +28,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/go/coverage.out
           flags: go-sdk
+          disable_search: true

@@ -34,3 +34,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/csharp/TestResults/*/coverage.cobertura.xml
           flags: csharp-sdk
+          disable_search: true

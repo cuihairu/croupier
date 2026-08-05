@@ -35,3 +35,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/js/coverage/lcov.info
           flags: js-sdk
+          disable_search: true
