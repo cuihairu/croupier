@@ -104,7 +104,6 @@ ignore:
   # Generated code and protocols
   - "proto/**"
   - "pkg/pb/**"
-  - "pkg/protocol/**"
   - "gen/**"
   - "generated/**"
 
@@ -124,7 +123,6 @@ ignore:
 
   # Non-SDK code
   - "dashboard/**"
-  - "cmd/**"
   - "examples/**"
   - "scripts/**"
   - "web/**"
