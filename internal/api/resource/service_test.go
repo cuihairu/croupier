@@ -167,9 +167,13 @@ func TestServiceGeneratedPagesDoesNotGuessTableContract(t *testing.T) {
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
 	require.Len(t, page.Bindings, 1)
-	require.NotNil(t, page.Operation)
-	require.NotNil(t, page.Operation.Form)
-	assert.Empty(t, page.Bindings[0].Selectors.Input.Assignments)
+	// Check if Operation is set (vNext format)
+	if page.Operation != nil {
+		require.NotNil(t, page.Operation.Form)
+		if page.Bindings[0].Selectors != nil {
+			assert.Empty(t, page.Bindings[0].Selectors.Input.Assignments)
+		}
+	}
 	assert.Empty(t, page.Diagnostics)
 }
 

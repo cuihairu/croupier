@@ -114,9 +114,11 @@ func TestServicePublishWritesActorAndAudit(t *testing.T) {
 	assert.Equal(t, "page_tester", published.PublishedBy)
 	var contracts []spec.BindingContractSnapshot
 	require.NoError(t, json.Unmarshal([]byte(published.BindingContractsJSON), &contracts))
-	require.Len(t, contracts, 1)
+	require.Len(t, contracts, 2)
 	assert.Equal(t, spec.RiskSafe, contracts[0].Risk)
-	assert.Equal(t, "player:query", contracts[0].Permission)
+	assert.Equal(t, "player:action", contracts[0].Permission)
+	assert.Equal(t, spec.RiskSafe, contracts[1].Risk)
+	assert.Equal(t, "player:query", contracts[1].Permission)
 
 	records, total, err := auditStore.List(audit.AuditFilter{
 		EventType: []audit.AuditEventType{audit.EventPagePublish},
@@ -277,7 +279,7 @@ func TestServicePublishRejectsMissingBindings(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "page must bind at least one function")
+	assert.Contains(t, err.Error(), "operation page requires an action binding before publish")
 }
 
 func TestServicePublishDrivesConsoleMenuAndUnpublishRemovesIt(t *testing.T) {
@@ -386,6 +388,16 @@ func TestServiceGetDraftReturnsPublishedBindingFreshness(t *testing.T) {
 				Operation:    "query",
 				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
 				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+			},
+			"player.action": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				Risk:         "safe",
+				Permission:   "player:action",
+				Resource:     "player",
+				Operation:    "action",
+				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+				OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
 			},
 		},
 	})
@@ -625,6 +637,16 @@ func newPageTestService(t *testing.T, permissions ...string) (*Service, context.
 				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
 				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
 			},
+			"player.action": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				Risk:         "safe",
+				Permission:   "player:action",
+				Resource:     "player",
+				Operation:    "action",
+				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+				OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+			},
 		},
 	})
 
@@ -699,6 +721,18 @@ func testPageBindings() []spec.PageFunctionBinding {
 			ID:         "player.query",
 			FunctionID: "player.query",
 			Usage:      spec.BindingUsageQuery,
+			Selectors: &spec.BindingSelectors{
+				Input: spec.SelectorAST{Assignments: []spec.InputAssignment{{
+					Target: "/keyword",
+					Source: spec.ValueSource{Kind: spec.SourceForm, Path: "/keyword"},
+				}}},
+			},
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		},
+		{
+			ID:         "player.action",
+			FunctionID: "player.action",
+			Usage:      spec.BindingUsageAction,
 			Selectors: &spec.BindingSelectors{
 				Input: spec.SelectorAST{Assignments: []spec.InputAssignment{{
 					Target: "/keyword",
