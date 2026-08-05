@@ -78,35 +78,35 @@ type FunctionInfo struct {
 
 // SemanticsInfo represents capability semantics summary.
 type SemanticsInfo struct {
-	Version             int                  `json:"version"`
-	HasIdentity         bool                 `json:"hasIdentity"`
-	HasCollection       bool                 `json:"hasCollection"`
-	HasCreate           bool                 `json:"hasCreate"`
-	HasUpdate           bool                 `json:"hasUpdate"`
-	HasDelete           bool                 `json:"hasDelete"`
-	HasActions          bool                 `json:"hasActions"`
-	HasTasks            bool                 `json:"hasTasks"`
-	HasReports          bool                 `json:"hasReports"`
-	Source              string               `json:"source"`
-	SourceDigest        string               `json:"sourceDigest,omitempty"`
-	IdentityField       string               `json:"identityField,omitempty"`
-	IdentityFieldType   string               `json:"identityFieldType,omitempty"`
-	IdentityPath        string               `json:"identityPath,omitempty"`
-	CollectionQueryID   uint                 `json:"collectionQueryId,omitempty"`
-	CollectionPath      string               `json:"collectionPath,omitempty"`
-	PageFieldName       string               `json:"pageFieldName,omitempty"`
-	PageSizeFieldName   string               `json:"pageSizeFieldName,omitempty"`
-	ItemsFieldName      string               `json:"itemsFieldName,omitempty"`
-	TotalFieldName      string               `json:"totalFieldName,omitempty"`
-	ItemQueryID         uint                 `json:"itemQueryId,omitempty"`
-	ItemPath            string               `json:"itemPath,omitempty"`
-	CreateID            uint                 `json:"createId,omitempty"`
-	UpdateID            uint                 `json:"updateId,omitempty"`
-	DeleteID            uint                 `json:"deleteId,omitempty"`
-	Actions             []ActionSemanticInfo `json:"actions,omitempty"`
-	Tasks               []spec.TaskSemantic  `json:"tasks,omitempty"`
+	Version             int                   `json:"version"`
+	HasIdentity         bool                  `json:"hasIdentity"`
+	HasCollection       bool                  `json:"hasCollection"`
+	HasCreate           bool                  `json:"hasCreate"`
+	HasUpdate           bool                  `json:"hasUpdate"`
+	HasDelete           bool                  `json:"hasDelete"`
+	HasActions          bool                  `json:"hasActions"`
+	HasTasks            bool                  `json:"hasTasks"`
+	HasReports          bool                  `json:"hasReports"`
+	Source              string                `json:"source"`
+	SourceDigest        string                `json:"sourceDigest,omitempty"`
+	IdentityField       string                `json:"identityField,omitempty"`
+	IdentityFieldType   string                `json:"identityFieldType,omitempty"`
+	IdentityPath        string                `json:"identityPath,omitempty"`
+	CollectionQueryID   uint                  `json:"collectionQueryId,omitempty"`
+	CollectionPath      string                `json:"collectionPath,omitempty"`
+	PageFieldName       string                `json:"pageFieldName,omitempty"`
+	PageSizeFieldName   string                `json:"pageSizeFieldName,omitempty"`
+	ItemsFieldName      string                `json:"itemsFieldName,omitempty"`
+	TotalFieldName      string                `json:"totalFieldName,omitempty"`
+	ItemQueryID         uint                  `json:"itemQueryId,omitempty"`
+	ItemPath            string                `json:"itemPath,omitempty"`
+	CreateID            uint                  `json:"createId,omitempty"`
+	UpdateID            uint                  `json:"updateId,omitempty"`
+	DeleteID            uint                  `json:"deleteId,omitempty"`
+	Actions             []ActionSemanticInfo  `json:"actions,omitempty"`
+	Tasks               []spec.TaskSemantic   `json:"tasks,omitempty"`
 	Reports             []spec.ReportSemantic `json:"reports,omitempty"`
-	UnresolvedConflicts int                  `json:"unresolvedConflicts"`
+	UnresolvedConflicts int                   `json:"unresolvedConflicts"`
 }
 
 // ActionSemanticInfo describes resource action capability semantics.

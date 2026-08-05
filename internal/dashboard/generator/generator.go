@@ -14,9 +14,9 @@ import (
 
 // GenerateOptions controls page generation behavior.
 type GenerateOptions struct {
-	DefaultLocale string
-	Functions     map[string]spec.FunctionSpec
-	TaskSemantics map[string]spec.TaskSemantic
+	DefaultLocale   string
+	Functions       map[string]spec.FunctionSpec
+	TaskSemantics   map[string]spec.TaskSemantic
 	ReportSemantics map[string]spec.ReportSemantic
 }
 
