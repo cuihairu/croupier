@@ -2,7 +2,7 @@ name: Nightly Build
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # Daily at 02:00 UTC
+    - cron: "0 2 * * *" # Daily at 02:00 UTC
   workflow_dispatch:
 
 env:
@@ -527,7 +527,7 @@ jobs:
         timeout-minutes: 5
         uses: pnpm/action-setup@v6
         with:
-          version: 10.28.2
+          version: 11.11.0
 
       - name: Setup Node.js
         timeout-minutes: 5
@@ -565,7 +565,14 @@ jobs:
     name: Create Nightly Release
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [build-binaries, build-go-sdk, build-other-sdks, build-cpp-sdk, build-dashboard]
+    needs:
+      [
+        build-binaries,
+        build-go-sdk,
+        build-other-sdks,
+        build-cpp-sdk,
+        build-dashboard,
+      ]
     permissions:
       contents: write
     steps:
