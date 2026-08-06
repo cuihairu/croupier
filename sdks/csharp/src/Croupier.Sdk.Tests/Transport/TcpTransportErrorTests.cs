@@ -359,10 +359,10 @@ public class TcpTransportErrorTests
                 var buffer = new byte[1024 * 4];
 
                 // Read length prefix
-                await stream.ReadAsync(buffer, 0, 4);
+                await stream.ReadExactlyAsync(buffer, 0, 4);
 
                 // Read some data
-                await stream.ReadAsync(buffer, 0, buffer.Length);
+                await stream.ReadExactlyAsync(buffer, 0, buffer.Length);
 
                 // Send response
                 var response = new byte[10];
@@ -416,8 +416,8 @@ public class TcpTransportErrorTests
                         using var stream = client.GetStream();
                         var buffer = new byte[1024];
 
-                        await stream.ReadAsync(buffer, 0, 4);
-                        await stream.ReadAsync(buffer, 0, buffer.Length);
+                        await stream.ReadExactlyAsync(buffer, 0, 4);
+                        await stream.ReadExactlyAsync(buffer, 0, buffer.Length);
 
                         var response = new byte[10];
                         var responseLength = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(response.Length));
