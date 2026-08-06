@@ -72,6 +72,8 @@ export interface ResourcePageRendererProps {
   bindings: PageFunctionBinding[];
   /** 执行绑定函数 */
   onExecute: PageExecuteFn;
+  /** 预览模式只展示页面结构，禁止触发真实函数执行 */
+  preview?: boolean;
   /** 页面标题 */
   title?: string;
 }
@@ -154,6 +156,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   spec,
   bindings,
   onExecute,
+  preview = false,
   title,
 }) => {
   const actionRef = useRef<ActionType>();
@@ -182,6 +185,9 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       if (!listBinding) {
         return { data: [], total: 0 };
       }
+      if (preview) {
+        return { data: [], total: 0 };
+      }
       try {
         const result = await onExecute(listBinding.id, { form: params });
         const nextState = mergePageState({}, outputPatchFromResult(listBinding, result));
@@ -196,7 +202,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return { data: [], total: 0 };
       }
     },
-    [listBinding, onExecute]
+    [listBinding, onExecute, preview]
   );
 
   // 处理创建
@@ -204,6 +210,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     async (values: FormValues) => {
       if (!createBinding) {
         message.error('未配置创建操作');
+        return false;
+      }
+      if (preview) {
+        message.info('预览模式不执行创建操作');
         return false;
       }
       try {
@@ -218,7 +228,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [createBinding, onExecute]
+    [createBinding, onExecute, preview]
   );
 
   // 处理编辑
@@ -226,6 +236,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     async (values: FormValues) => {
       if (!updateBinding || !currentRecord) {
         message.error('未配置编辑操作');
+        return false;
+      }
+      if (preview) {
+        message.info('预览模式不执行编辑操作');
         return false;
       }
       try {
@@ -241,7 +255,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [updateBinding, currentRecord, onExecute]
+    [updateBinding, currentRecord, onExecute, preview]
   );
 
   const submitCreateForm = useCallback(async () => {
@@ -271,6 +285,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         message.error('未配置删除操作');
         return;
       }
+      if (preview) {
+        message.info('预览模式不执行删除操作');
+        return;
+      }
       try {
         await onExecute(deleteBinding.id, { row: record });
         message.success('删除成功');
@@ -280,7 +298,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         message.error('删除失败');
       }
     },
-    [deleteBinding, onExecute]
+    [deleteBinding, onExecute, preview]
   );
 
   // 处理行操作
@@ -288,6 +306,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     async (action: ActionSpec, record: FormValues) => {
       if (!action.bindingId) {
         message.error('未配置操作绑定');
+        return;
+      }
+      if (preview) {
+        message.info('预览模式不执行资源动作');
         return;
       }
       if (action.confirm) {
@@ -317,13 +339,17 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         }
       }
     },
-    [onExecute]
+    [onExecute, preview]
   );
 
   const executeListAction = useCallback(
     async (action: ActionSpec, context: { row?: FormValues; selection?: FormValues[] }) => {
       if (!action.bindingId) {
         message.error('未配置操作绑定');
+        return;
+      }
+      if (preview) {
+        message.info('预览模式不执行资源动作');
         return;
       }
       const run = async () => {
@@ -346,7 +372,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       await run();
     },
-    [onExecute],
+    [onExecute, preview],
   );
 
   const openDetail = useCallback(
@@ -354,7 +380,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       setCurrentRecord(record);
       setDetailRecord(record);
       setDetailDrawerVisible(true);
-      if (!detailBinding) {
+      if (!detailBinding || preview) {
         return;
       }
       setDetailLoading(true);
@@ -373,7 +399,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         setDetailLoading(false);
       }
     },
-    [detailBinding, onExecute],
+    [detailBinding, onExecute, preview],
   );
 
   // 构建表格列
@@ -449,6 +475,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               key="create"
               type="primary"
               icon={<PlusOutlined />}
+              disabled={preview}
               onClick={() => setCreateModalVisible(true)}
             >
               新建
@@ -459,6 +486,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               key={action.key}
               danger={action.type === 'danger'}
               type={action.type === 'primary' ? 'primary' : 'default'}
+              disabled={preview}
               onClick={() => void executeListAction(action, {})}
             >
               {action.title['zh-CN'] || action.title['en'] || action.key}
@@ -470,6 +498,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                   key={action.key}
                   danger={action.type === 'danger'}
                   type={action.type === 'primary' ? 'primary' : 'default'}
+                  disabled={preview}
                   onClick={() => void executeListAction(action, { selection: selectedRows })}
                 >
                   {action.title['zh-CN'] || action.title['en'] || action.key}

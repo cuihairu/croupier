@@ -48,6 +48,8 @@ export interface OperationPageRendererProps {
   bindings: PageFunctionBinding[];
   /** 执行绑定函数 */
   onExecute: PageExecuteFn;
+  /** 预览模式只展示页面结构，禁止触发真实函数执行 */
+  preview?: boolean;
   /** 查询审批状态 */
   onQueryApprovalStatus?: (approvalId: string) => Promise<ApprovalStatusResult>;
   /** 页面标题 */
@@ -58,6 +60,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   spec,
   bindings,
   onExecute,
+  preview = false,
   onQueryApprovalStatus,
   title,
 }) => {
@@ -76,6 +79,10 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     async (values: FormValues) => {
       if (!mainBinding) {
         message.error('未配置操作绑定');
+        return;
+      }
+      if (preview) {
+        message.info('预览模式不执行操作');
         return;
       }
 
@@ -122,12 +129,16 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         setLoading(false);
       }
     },
-    [mainBinding, spec.confirm, spec.resultView, onExecute]
+    [mainBinding, spec.confirm, spec.resultView, onExecute, preview]
   );
 
   // 处理确认后执行
   const handleConfirm = useCallback(async () => {
     if (!mainBinding || !pendingValues) {
+      return;
+    }
+    if (preview) {
+      message.info('预览模式不执行操作');
       return;
     }
 
@@ -155,7 +166,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       setLoading(false);
       setPendingValues(null);
     }
-  }, [mainBinding, pendingValues, onExecute]);
+  }, [mainBinding, pendingValues, onExecute, preview]);
 
   // 重置
   const handleReset = useCallback(() => {
@@ -210,7 +221,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         <SchemaFormRenderer
           spec={spec.form}
           onFinish={handleSubmit}
-          disabled={loading}
+          disabled={loading || preview}
         />
         <Button style={{ marginTop: 12 }} onClick={handleReset}>
           重置结果

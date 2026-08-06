@@ -37,6 +37,8 @@ export interface PageRendererProps {
   pageSpec: PageSpec;
   /** 执行绑定函数 */
   onExecute: PageExecuteFn;
+  /** 预览模式只展示页面结构，禁止触发真实函数执行 */
+  preview?: boolean;
   /** 查询任务状态（仅 TaskPage 需要） */
   onQueryStatus?: (taskId: string) => Promise<TaskStatusResult>;
   /** 取消任务（仅 TaskPage 需要） */
@@ -54,6 +56,7 @@ export interface PageRendererProps {
 const PageRenderer: React.FC<PageRendererProps> = ({
   pageSpec,
   onExecute,
+  preview = false,
   onQueryStatus,
   onCancelTask,
   onQueryApprovalStatus,
@@ -105,6 +108,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           spec={pageSpec.resource}
           bindings={bindings}
           onExecute={executeWithPageState}
+          preview={preview}
           title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
         />
       );
@@ -125,6 +129,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           spec={pageSpec.operation}
           bindings={bindings}
           onExecute={executeWithPageState}
+          preview={preview}
           onQueryApprovalStatus={onQueryApprovalStatus}
           title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
         />
@@ -146,6 +151,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           spec={pageSpec.task}
           bindings={bindings}
           onExecute={executeWithPageState}
+          preview={preview}
           onQueryStatus={onQueryStatus}
           onCancelTask={onCancelTask}
           onQueryApprovalStatus={onQueryApprovalStatus}
@@ -169,6 +175,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           spec={pageSpec.report}
           bindings={bindings}
           onExecute={executeWithPageState}
+          preview={preview}
           onExport={onExport}
           title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
         />

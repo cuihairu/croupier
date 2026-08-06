@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	dashboardmerge "github.com/cuihairu/croupier/internal/dashboard/merge"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
@@ -70,8 +71,9 @@ type ChangeItem struct {
 	Actor     string          `json:"actor,omitempty"`
 }
 
-// ChangeChain represents the full chain of changes for a resource.
+// ChangeChain represents the full chain of changes for a page.
 type ChangeChain struct {
+	PageKey     string       `json:"pageKey"`
 	ResourceKey string       `json:"resourceKey"`
 	Items       []ChangeItem `json:"items"`
 	Current     CurrentState `json:"current"`
@@ -88,20 +90,40 @@ type CurrentState struct {
 
 // GetChangeChainRequest is the request for getting change chain.
 type GetChangeChainRequest struct {
-	GameID      string
-	Env         string
-	ResourceKey string
+	GameID  string
+	Env     string
+	PageKey string `uri:"pageKey"`
 }
 
-// GetChangeChain returns the change chain for a resource.
+// GetChangeChain returns the change chain for a page.
 func (s *Service) GetChangeChain(ctx context.Context, req *GetChangeChainRequest) (*ChangeChain, error) {
+	pageKey := strings.TrimSpace(req.PageKey)
+	if pageKey == "" {
+		return nil, errorx.NewBadRequest("pageKey is required")
+	}
 	chain := &ChangeChain{
-		ResourceKey: req.ResourceKey,
-		Items:       []ChangeItem{},
+		PageKey: pageKey,
+		Items:   []ChangeItem{},
+	}
+
+	page, err := s.pageModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
+	if err != nil {
+		return nil, errorx.NewNotFound("page draft not found")
+	}
+	pageSpec, _ := pageSpecFromModel(page)
+	chain.ResourceKey = strings.TrimSpace(page.ResourceKey)
+	chain.Current.DraftRevision = page.DraftRevision
+	chain.Current.PublishedVersion = page.PublishedVersion
+
+	proposalKey := strings.TrimSpace(page.BaseProposalKey)
+	if proposalKey == "" {
+		if proposal, err := s.proposalModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey); err == nil {
+			proposalKey = strings.TrimSpace(proposal.ProposalKey)
+		}
 	}
 
 	// Get function contracts and their versions
-	contracts, err := s.contractModel.ListByResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	contracts, err := s.contractsForPage(ctx, req.GameID, req.Env, pageSpec)
 	if err != nil {
 		return nil, fmt.Errorf("list contracts: %w", err)
 	}
@@ -120,21 +142,29 @@ func (s *Service) GetChangeChain(ctx context.Context, req *GetChangeChainRequest
 		}
 	}
 
-	// Get semantics
-	semantics, _ := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
-	if semantics != nil {
-		chain.Items = append(chain.Items, ChangeItem{
-			Type:      ChangeTypeSemanticUpdate,
-			Timestamp: semantics.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-			Version:   semantics.Version,
-			Summary:   fmt.Sprintf("semantics updated to version %d", semantics.Version),
-			Actor:     semantics.UpdatedBy,
-		})
-		chain.Current.SemanticVersion = semantics.Version
+	// Get semantics when the page belongs to a resource.
+	if chain.ResourceKey != "" {
+		semantics, _ := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, chain.ResourceKey)
+		if semantics != nil {
+			chain.Items = append(chain.Items, ChangeItem{
+				Type:      ChangeTypeSemanticUpdate,
+				Timestamp: semantics.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+				Version:   semantics.Version,
+				Summary:   fmt.Sprintf("semantics updated to version %d", semantics.Version),
+				Actor:     semantics.UpdatedBy,
+			})
+			chain.Current.SemanticVersion = semantics.Version
+		}
 	}
 
 	// Get proposal
-	proposal, _ := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, resourceProposalKey(req.ResourceKey))
+	var proposal *model.PageProposal
+	if proposalKey != "" {
+		proposal, _ = s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, proposalKey)
+	}
+	if proposal == nil {
+		proposal, _ = s.proposalModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
+	}
 	if proposal != nil {
 		versions, err := s.proposalVersionModel.ListByProposalID(ctx, proposal.ID)
 		if err != nil {
@@ -151,11 +181,6 @@ func (s *Service) GetChangeChain(ctx context.Context, req *GetChangeChainRequest
 		}
 	}
 
-	pageKey := resourcePageKey(req.ResourceKey)
-	if page, err := s.pageModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey); err == nil {
-		chain.Current.DraftRevision = page.DraftRevision
-		chain.Current.PublishedVersion = page.PublishedVersion
-	}
 	pageVersions, err := s.pageVersionModel.ListByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
 	if err != nil {
 		return nil, fmt.Errorf("list page versions: %w", err)
@@ -185,7 +210,7 @@ func (s *Service) GetChangeChain(ctx context.Context, req *GetChangeChainRequest
 type DiffRequest struct {
 	GameID      string
 	Env         string
-	ResourceKey string
+	PageKey     string `uri:"pageKey"`
 	FromVersion int
 	ToVersion   int
 }
@@ -207,61 +232,72 @@ type FieldChange struct {
 
 // Diff compares two semantic versions and returns changes.
 func (s *Service) Diff(ctx context.Context, req *DiffRequest) (*DiffResponse, error) {
-	// Get current semantics
-	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
-	if err != nil {
-		return nil, fmt.Errorf("semantics not found: %w", err)
+	pageKey := strings.TrimSpace(req.PageKey)
+	if pageKey == "" {
+		return nil, errorx.NewBadRequest("pageKey is required")
 	}
+	page, err := s.pageModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
+	if err != nil {
+		return nil, errorx.NewNotFound("page draft not found")
+	}
+	pageSpec, _ := pageSpecFromModel(page)
+	resourceKey := strings.TrimSpace(page.ResourceKey)
 
 	// Get proposal to compare against
-	proposal, _ := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, resourceProposalKey(req.ResourceKey))
+	proposal, _ := s.proposalForPage(ctx, req.GameID, req.Env, page)
 
 	var changes []FieldChange
 
-	// Compare identity field
-	if semantics.IdentityField != "" {
-		changes = append(changes, FieldChange{
-			Path:       "identityField",
-			NewValue:   jsonString(semantics.IdentityField),
-			ChangeType: "modified",
-			IsSemantic: true,
-		})
-	}
+	if resourceKey != "" {
+		// Get current semantics
+		semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, resourceKey)
+		if err == nil && semantics != nil {
+			// Compare identity field
+			if semantics.IdentityField != "" {
+				changes = append(changes, FieldChange{
+					Path:       "identityField",
+					NewValue:   jsonString(semantics.IdentityField),
+					ChangeType: "modified",
+					IsSemantic: true,
+				})
+			}
 
-	// Compare collection query
-	if semantics.CollectionQueryID > 0 {
-		changes = append(changes, FieldChange{
-			Path:       "collectionQueryId",
-			NewValue:   jsonNumber(semantics.CollectionQueryID),
-			ChangeType: "modified",
-			IsSemantic: true,
-		})
-	}
+			// Compare collection query
+			if semantics.CollectionQueryID > 0 {
+				changes = append(changes, FieldChange{
+					Path:       "collectionQueryId",
+					NewValue:   jsonNumber(semantics.CollectionQueryID),
+					ChangeType: "modified",
+					IsSemantic: true,
+				})
+			}
 
-	// Compare lifecycle capabilities
-	if semantics.CreateID > 0 {
-		changes = append(changes, FieldChange{
-			Path:       "lifecycle.create",
-			NewValue:   jsonNumber(semantics.CreateID),
-			ChangeType: "modified",
-			IsSemantic: true,
-		})
-	}
-	if semantics.UpdateID > 0 {
-		changes = append(changes, FieldChange{
-			Path:       "lifecycle.update",
-			NewValue:   jsonNumber(semantics.UpdateID),
-			ChangeType: "modified",
-			IsSemantic: true,
-		})
-	}
-	if semantics.DeleteID > 0 {
-		changes = append(changes, FieldChange{
-			Path:       "lifecycle.delete",
-			NewValue:   jsonNumber(semantics.DeleteID),
-			ChangeType: "modified",
-			IsSemantic: true,
-		})
+			// Compare lifecycle capabilities
+			if semantics.CreateID > 0 {
+				changes = append(changes, FieldChange{
+					Path:       "lifecycle.create",
+					NewValue:   jsonNumber(semantics.CreateID),
+					ChangeType: "modified",
+					IsSemantic: true,
+				})
+			}
+			if semantics.UpdateID > 0 {
+				changes = append(changes, FieldChange{
+					Path:       "lifecycle.update",
+					NewValue:   jsonNumber(semantics.UpdateID),
+					ChangeType: "modified",
+					IsSemantic: true,
+				})
+			}
+			if semantics.DeleteID > 0 {
+				changes = append(changes, FieldChange{
+					Path:       "lifecycle.delete",
+					NewValue:   jsonNumber(semantics.DeleteID),
+					ChangeType: "modified",
+					IsSemantic: true,
+				})
+			}
+		}
 	}
 
 	// If we have a proposal, compare proposal quality
@@ -274,7 +310,7 @@ func (s *Service) Diff(ctx context.Context, req *DiffRequest) (*DiffResponse, er
 		})
 	}
 
-	changes = append(changes, s.bindingContractChanges(ctx, req)...)
+	changes = append(changes, s.bindingContractChanges(ctx, req.GameID, req.Env, pageKey, pageSpec)...)
 
 	return &DiffResponse{
 		Changes: changes,
@@ -294,12 +330,12 @@ const (
 
 // MergeRequest is the request for merging changes.
 type MergeRequest struct {
-	GameID      string               `json:"-"`
-	Env         string               `json:"-"`
-	ResourceKey string               `json:"-"`
-	Strategy    MergeStrategy        `json:"strategy"`
-	Conflicts   []ConflictResolution `json:"conflicts,omitempty"`
-	Reason      string               `json:"reason,omitempty"`
+	GameID    string               `json:"-"`
+	Env       string               `json:"-"`
+	PageKey   string               `json:"-"`
+	Strategy  MergeStrategy        `json:"strategy"`
+	Conflicts []ConflictResolution `json:"conflicts,omitempty"`
+	Reason    string               `json:"reason,omitempty"`
 }
 
 // ConflictResolution represents how to resolve a specific conflict.
@@ -327,8 +363,9 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 		req.Strategy != MergeStrategyManual {
 		return nil, errorx.NewBadRequest("unknown merge strategy: " + string(req.Strategy))
 	}
-	if strings.TrimSpace(req.ResourceKey) == "" {
-		return nil, errorx.NewBadRequest("resourceKey is required")
+	pageKey := strings.TrimSpace(req.PageKey)
+	if pageKey == "" {
+		return nil, errorx.NewBadRequest("pageKey is required")
 	}
 	if req.Strategy == MergeStrategyReject {
 		return &MergeResponse{Message: "all changes rejected"}, nil
@@ -340,21 +377,20 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 		return nil, errorx.NewNotImplemented("manual conflict resolution is not wired yet; edit the PageSpec draft and publish")
 	}
 
-	pageKey := resourcePageKey(req.ResourceKey)
-	proposalKey := resourceProposalKey(req.ResourceKey)
 	page, err := s.pageModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
 	if err != nil {
 		return nil, errorx.NewNotFound("page draft not found")
 	}
-	if strings.TrimSpace(page.BaseProposalKey) == "" || page.BaseProposalVersion <= 0 {
+	proposalKey := strings.TrimSpace(page.BaseProposalKey)
+	if proposalKey == "" || page.BaseProposalVersion <= 0 {
 		return nil, errorx.NewConflict("page draft has no base proposal snapshot; regenerate or accept a new proposal before merge")
-	}
-	if page.BaseProposalKey != proposalKey {
-		return nil, errorx.NewConflict("page draft base proposal does not match the requested resource")
 	}
 	proposal, err := s.proposalModel.FindByScopeAndKey(ctx, req.GameID, req.Env, proposalKey)
 	if err != nil {
 		return nil, errorx.NewNotFound("latest proposal not found")
+	}
+	if strings.TrimSpace(proposal.PageKey) != pageKey {
+		return nil, errorx.NewConflict("latest proposal pageKey does not match the requested page")
 	}
 	latestVersion, err := s.proposalVersionModel.LatestByProposalID(ctx, proposal.ID)
 	if err != nil {
@@ -482,6 +518,162 @@ func pageSpecFromProposalModel(proposal *model.PageProposal) (spec.PageSpec, err
 		return spec.PageSpec{}, fmt.Errorf("decode proposal PageSpec: %w", err)
 	}
 	return normalizePageSpec(page), nil
+}
+
+func (s *Service) proposalForPage(ctx context.Context, gameID, env string, page *model.PageSpec) (*model.PageProposal, error) {
+	if page == nil {
+		return nil, errorx.NewNotFound("page draft not found")
+	}
+	if key := strings.TrimSpace(page.BaseProposalKey); key != "" {
+		return s.proposalModel.FindByScopeAndKey(ctx, gameID, env, key)
+	}
+	return s.proposalModel.FindByScopeAndPageKey(ctx, gameID, env, strings.TrimSpace(page.PageKey))
+}
+
+func (s *Service) contractsForPage(ctx context.Context, gameID, env string, pageSpec spec.PageSpec) ([]*model.FunctionContract, error) {
+	seen := map[string]struct{}{}
+	contracts := make([]*model.FunctionContract, 0, len(pageSpec.Bindings))
+	for _, binding := range pageSpec.Bindings {
+		functionID := strings.TrimSpace(binding.FunctionID)
+		if functionID == "" {
+			continue
+		}
+		if _, ok := seen[functionID]; ok {
+			continue
+		}
+		seen[functionID] = struct{}{}
+		contract, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
+		if err != nil {
+			continue
+		}
+		contracts = append(contracts, contract)
+	}
+	return contracts, nil
+}
+
+func (s *Service) regenerateStandaloneProposal(ctx context.Context, gameID, env string, pageSpec spec.PageSpec) error {
+	mainContract, err := s.mainContractForStandalonePage(ctx, gameID, env, pageSpec)
+	if err != nil {
+		return err
+	}
+	functions, err := s.functionSpecsByID(ctx, gameID, env, pageSpec)
+	if err != nil {
+		return err
+	}
+	generated := generator.GenerateForOperation(operationSpecFromContract(mainContract), generator.GenerateOptions{
+		DefaultLocale: "zh-CN",
+		Functions:     functions,
+	})
+	if strings.TrimSpace(generated.PageKey) != strings.TrimSpace(pageSpec.PageKey) {
+		return errorx.NewConflict("regenerated proposal pageKey does not match current page")
+	}
+	proposalKey := proposalKeyForPage(pageSpec.Type, strings.TrimSpace(mainContract.FunctionID))
+	if proposalKey == "" {
+		return errorx.NewValidationError("cannot derive proposalKey for page")
+	}
+	return s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, []*model.FunctionContract{mainContract}, generated)
+}
+
+func (s *Service) mainContractForStandalonePage(ctx context.Context, gameID, env string, pageSpec spec.PageSpec) (*model.FunctionContract, error) {
+	if pageSpec.Type == spec.PageTypeResource {
+		return nil, errorx.NewValidationError("resource pages must be regenerated from resource semantics")
+	}
+	for _, binding := range pageSpec.Bindings {
+		if binding.Usage != spec.BindingUsageAction &&
+			binding.Usage != spec.BindingUsageTask &&
+			binding.Usage != spec.BindingUsageReport {
+			continue
+		}
+		functionID := strings.TrimSpace(binding.FunctionID)
+		if functionID == "" {
+			continue
+		}
+		contract, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
+		if err != nil {
+			return nil, errorx.NewNotFound("main page function contract not found")
+		}
+		return contract, nil
+	}
+	return nil, errorx.NewValidationError("page has no main executable binding")
+}
+
+func (s *Service) functionSpecsByID(ctx context.Context, gameID, env string, pageSpec spec.PageSpec) (map[string]spec.FunctionSpec, error) {
+	contracts, err := s.contractsForPage(ctx, gameID, env, pageSpec)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]spec.FunctionSpec, len(contracts))
+	for _, contract := range contracts {
+		if contract == nil || strings.TrimSpace(contract.FunctionID) == "" {
+			continue
+		}
+		out[strings.TrimSpace(contract.FunctionID)] = functionSpecFromContract(contract)
+	}
+	return out, nil
+}
+
+func (s *Service) upsertGeneratedProposal(ctx context.Context, gameID, env, proposalKey string, contracts []*model.FunctionContract, generated spec.GeneratedPageSpec) error {
+	pageJSON, err := json.Marshal(generated.PageSpec)
+	if err != nil {
+		return fmt.Errorf("marshal generated page spec: %w", err)
+	}
+	proposal := &model.PageProposal{
+		GameID:           gameID,
+		Env:              env,
+		ProposalKey:      proposalKey,
+		PageKey:          generated.PageKey,
+		PageType:         string(generated.Type),
+		ResourceKey:      generated.ResourceKey,
+		Quality:          string(generated.Quality),
+		GeneratorVersion: pageProposalGeneratorVersion,
+		FunctionDigest:   computeDigest(contracts),
+		Title:            localizedTextToJSONMap(generated.Title),
+		Description:      localizedTextToJSONMap(generated.Description),
+		CategoryKey:      generated.Category.Key,
+		PageSpec:         datatypes.JSON(pageJSON),
+		Diagnostics:      jsonValue(generated.Diagnostics),
+		Status:           "pending",
+		UpdatedBy:        actorFromContext(ctx),
+	}
+	if err := s.proposalModel.UpsertProposal(ctx, proposal); err != nil {
+		return fmt.Errorf("upsert page proposal %s: %w", proposalKey, err)
+	}
+	if _, err := createProposalVersionSnapshot(ctx, s.proposalVersionModel, proposal, "regenerate proposal from latest page contracts", actorFromContext(ctx)); err != nil {
+		return fmt.Errorf("snapshot page proposal %s: %w", proposalKey, err)
+	}
+	return nil
+}
+
+func createProposalVersionSnapshot(
+	ctx context.Context,
+	versionModel *model.PageProposalVersionModel,
+	proposal *model.PageProposal,
+	reason string,
+	actor string,
+) (int, error) {
+	if proposal == nil || proposal.ID == 0 {
+		return 0, errorx.NewValidationError("proposal must be persisted before snapshot")
+	}
+	nextVersion, err := versionModel.GetNextVersion(ctx, proposal.ID)
+	if err != nil {
+		return 0, err
+	}
+	proposalJSON, err := json.Marshal(proposal)
+	if err != nil {
+		return 0, err
+	}
+	if err := versionModel.CreateVersion(ctx, &model.PageProposalVersion{
+		ProposalID:      proposal.ID,
+		Version:         nextVersion,
+		Proposal:        proposalJSON,
+		FunctionDigest:  proposal.FunctionDigest,
+		SemanticsDigest: proposal.SemanticsDigest,
+		ChangeReason:    reason,
+		CreatedBy:       actor,
+	}); err != nil {
+		return 0, err
+	}
+	return nextVersion, nil
 }
 
 func applyAutoMergeItems(page spec.PageSpec, items []dashboardmerge.MergeItem) (spec.PageSpec, error) {
@@ -663,11 +855,11 @@ func samePageSpec(left spec.PageSpec, right spec.PageSpec) bool {
 
 // RollbackRequest is the request for rollback.
 type RollbackRequest struct {
-	GameID      string `json:"-"`
-	Env         string `json:"-"`
-	ResourceKey string `json:"-"`
-	Version     int    `json:"version"`
-	Reason      string `json:"reason,omitempty"`
+	GameID  string `json:"-"`
+	Env     string `json:"-"`
+	PageKey string `json:"-"`
+	Version int    `json:"version"`
+	Reason  string `json:"reason,omitempty"`
 }
 
 // RollbackResponse is the response for rollback.
@@ -683,7 +875,10 @@ func (s *Service) RollbackDraft(ctx context.Context, req *RollbackRequest) (*Rol
 	if req.Version <= 0 {
 		return nil, errorx.NewBadRequest("version is required")
 	}
-	pageKey := resourcePageKey(req.ResourceKey)
+	pageKey := strings.TrimSpace(req.PageKey)
+	if pageKey == "" {
+		return nil, errorx.NewBadRequest("pageKey is required")
+	}
 	target, err := s.findPageVersion(ctx, req.GameID, req.Env, pageKey, req.Version)
 	if err != nil {
 		return nil, err
@@ -760,7 +955,10 @@ func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*R
 	if req.Version <= 0 {
 		return nil, errorx.NewBadRequest("version is required")
 	}
-	pageKey := resourcePageKey(req.ResourceKey)
+	pageKey := strings.TrimSpace(req.PageKey)
+	if pageKey == "" {
+		return nil, errorx.NewBadRequest("pageKey is required")
+	}
 	target, err := s.publishedModel.FindByScopePageKeyAndVersion(ctx, req.GameID, req.Env, pageKey, req.Version)
 	if err != nil {
 		return nil, errorx.NewNotFound("published page version not found")
@@ -818,6 +1016,11 @@ func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*R
 			SpecJSON:              specJSON,
 			BindingContractsJSON:  target.BindingContractsJSON,
 			RendererSchemaVersion: target.RendererSchemaVersion,
+			BaseProposalKey:       target.BaseProposalKey,
+			BaseProposalVersion:   target.BaseProposalVersion,
+			FunctionDigest:        target.FunctionDigest,
+			SemanticsDigest:       target.SemanticsDigest,
+			GeneratorVersion:      target.GeneratorVersion,
 			Active:                true,
 			PublishedAt:           now,
 			PublishedBy:           actor,
@@ -852,10 +1055,10 @@ func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*R
 
 // RegenerateProposalRequest is the request for regenerating proposal.
 type RegenerateProposalRequest struct {
-	GameID      string `json:"-"`
-	Env         string `json:"-"`
-	ResourceKey string `json:"-"`
-	Force       bool   `json:"force,omitempty"`
+	GameID  string `json:"-"`
+	Env     string `json:"-"`
+	PageKey string `json:"-"`
+	Force   bool   `json:"force,omitempty"`
 }
 
 // RegenerateProposalResponse is the response for regenerating proposal.
@@ -865,22 +1068,43 @@ type RegenerateProposalResponse struct {
 
 // RegenerateProposal regenerates a proposal from current contracts and semantics.
 func (s *Service) RegenerateProposal(ctx context.Context, req *RegenerateProposalRequest) (*RegenerateProposalResponse, error) {
-	contractService := service.NewContractService(s.db)
-	if err := contractService.RebuildProposalsForResource(ctx, req.GameID, req.Env, req.ResourceKey); err != nil {
-		return nil, fmt.Errorf("regenerate proposal: %w", err)
+	pageKey := strings.TrimSpace(req.PageKey)
+	if pageKey == "" {
+		return nil, errorx.NewBadRequest("pageKey is required")
+	}
+	page, err := s.pageModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
+	if err != nil {
+		return nil, errorx.NewNotFound("page draft not found")
+	}
+	pageSpec, err := pageSpecFromModel(page)
+	if err != nil {
+		return nil, err
 	}
 
+	if strings.TrimSpace(page.ResourceKey) != "" && pageSpec.Type == spec.PageTypeResource {
+		contractService := service.NewContractService(s.db)
+		if err := contractService.RebuildProposalsForResource(ctx, req.GameID, req.Env, page.ResourceKey); err != nil {
+			return nil, fmt.Errorf("regenerate proposal: %w", err)
+		}
+		return &RegenerateProposalResponse{
+			Message: fmt.Sprintf("proposal regenerated for page %s", pageKey),
+		}, nil
+	}
+
+	if err := s.regenerateStandaloneProposal(ctx, req.GameID, req.Env, pageSpec); err != nil {
+		return nil, err
+	}
 	return &RegenerateProposalResponse{
-		Message: fmt.Sprintf("proposal regenerated for resource %s", req.ResourceKey),
+		Message: fmt.Sprintf("proposal regenerated for page %s", pageKey),
 	}, nil
 }
 
 // RepublishRequest is the request for republishing.
 type RepublishRequest struct {
-	GameID      string `json:"-"`
-	Env         string `json:"-"`
-	ResourceKey string `json:"-"`
-	Reason      string `json:"reason,omitempty"`
+	GameID  string `json:"-"`
+	Env     string `json:"-"`
+	PageKey string `json:"-"`
+	Reason  string `json:"reason,omitempty"`
 }
 
 // RepublishResponse is the response for republishing.
@@ -891,7 +1115,10 @@ type RepublishResponse struct {
 
 // Republish creates a new published version from current draft.
 func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*RepublishResponse, error) {
-	pageKey := resourcePageKey(req.ResourceKey)
+	pageKey := strings.TrimSpace(req.PageKey)
+	if pageKey == "" {
+		return nil, errorx.NewBadRequest("pageKey is required")
+	}
 	page, err := s.pageModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
 	if err != nil {
 		return nil, errorx.NewNotFound("page draft not found")
@@ -936,6 +1163,8 @@ func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*Republ
 			SpecJSON:              specJSON,
 			BindingContractsJSON:  string(contractsJSON),
 			RendererSchemaVersion: rendererSchemaVersion,
+			BaseProposalKey:       page.BaseProposalKey,
+			BaseProposalVersion:   page.BaseProposalVersion,
 			Active:                true,
 			PublishedAt:           now,
 			PublishedBy:           actor,
@@ -973,15 +1202,8 @@ func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*Republ
 	}, nil
 }
 
-func resourceProposalKey(resourceKey string) string {
-	return "resource:" + resourceKey
-}
-
 const rendererSchemaVersion = "page-spec:1"
-
-func resourcePageKey(resourceKey string) string {
-	return "resource--" + strings.TrimSpace(resourceKey)
-}
+const pageProposalGeneratorVersion = "dashboard-vnext-1"
 
 func (s *Service) findPageVersion(ctx context.Context, gameID, env, pageKey string, version int) (*model.PageVersion, error) {
 	versions, err := s.pageVersionModel.ListByScopeAndPageKey(ctx, gameID, env, pageKey)
@@ -996,11 +1218,10 @@ func (s *Service) findPageVersion(ctx context.Context, gameID, env, pageKey stri
 	return nil, errorx.NewNotFound("page version not found")
 }
 
-func (s *Service) bindingContractChanges(ctx context.Context, req *DiffRequest) []FieldChange {
-	pageKey := resourcePageKey(req.ResourceKey)
-	published, err := s.publishedModel.FindLatestByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
+func (s *Service) bindingContractChanges(ctx context.Context, gameID, env, pageKey string, pageSpec spec.PageSpec) []FieldChange {
+	published, err := s.publishedModel.FindLatestByScopeAndPageKey(ctx, gameID, env, pageKey)
 	if err != nil {
-		return nil
+		return s.draftBindingContractChanges(ctx, gameID, env, pageSpec)
 	}
 	var contracts []spec.BindingContractSnapshot
 	if strings.TrimSpace(published.BindingContractsJSON) != "" {
@@ -1008,7 +1229,7 @@ func (s *Service) bindingContractChanges(ctx context.Context, req *DiffRequest) 
 	}
 	var changes []FieldChange
 	for _, frozen := range contracts {
-		latest, err := s.contractModel.FindByScopeAndFunctionID(ctx, req.GameID, req.Env, frozen.FunctionID)
+		latest, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, frozen.FunctionID)
 		if err != nil {
 			changes = append(changes, FieldChange{
 				Path:       "bindings." + frozen.BindingID + ".function",
@@ -1053,6 +1274,25 @@ func (s *Service) bindingContractChanges(ctx context.Context, req *DiffRequest) 
 				OldValue:   jsonString(frozen.Permission),
 				NewValue:   jsonString(latest.Permission),
 				ChangeType: "modified",
+				IsSemantic: true,
+			})
+		}
+	}
+	return changes
+}
+
+func (s *Service) draftBindingContractChanges(ctx context.Context, gameID, env string, pageSpec spec.PageSpec) []FieldChange {
+	var changes []FieldChange
+	for _, binding := range pageSpec.Bindings {
+		functionID := strings.TrimSpace(binding.FunctionID)
+		if functionID == "" {
+			continue
+		}
+		if _, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID); err != nil {
+			changes = append(changes, FieldChange{
+				Path:       "bindings." + strings.TrimSpace(binding.ID) + ".function",
+				OldValue:   jsonString(functionID),
+				ChangeType: "removed",
 				IsSemantic: true,
 			})
 		}
@@ -1210,6 +1450,109 @@ func approvalPolicyFromJSONMap(values map[string]interface{}) spec.ApprovalPolic
 		Required:  required,
 		PolicyKey: strings.TrimSpace(policyKey),
 	}
+}
+
+func operationSpecFromContract(contract *model.FunctionContract) spec.OperationSpec {
+	if contract == nil {
+		return spec.OperationSpec{}
+	}
+	return spec.OperationSpec{
+		FunctionID:  strings.TrimSpace(contract.FunctionID),
+		ResourceKey: strings.TrimSpace(contract.ResourceKey),
+		Operation:   strings.TrimSpace(contract.OperationKey),
+		Capability:  spec.CapabilityKind(contract.Capability),
+		Execution:   spec.FunctionExecution(contract.Execution),
+		Approval:    approvalPolicyFromJSONMap(contract.Approval),
+		Risk:        spec.RiskLevel(contract.Risk),
+		Permission:  strings.TrimSpace(contract.Permission),
+		Enabled:     contract.Enabled,
+	}
+}
+
+func functionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpec {
+	if contract == nil {
+		return spec.FunctionSpec{}
+	}
+	return spec.FunctionSpec{
+		ID:           strings.TrimSpace(contract.FunctionID),
+		Version:      strings.TrimSpace(contract.Version),
+		Enabled:      contract.Enabled,
+		Deprecated:   contract.Deprecated,
+		InputSchema:  spec.JSONSchema(contract.InputSchema),
+		OutputSchema: spec.JSONSchema(contract.OutputSchema),
+		Summary:      localizedTextFromJSONMap(contract.Summary),
+		Description:  localizedTextFromJSONMap(contract.Description),
+		Resource:     strings.TrimSpace(contract.ResourceKey),
+		Operation:    strings.TrimSpace(contract.OperationKey),
+		Capability:   spec.CapabilityKind(contract.Capability),
+		Execution:    spec.FunctionExecution(contract.Execution),
+		Approval:     approvalPolicyFromJSONMap(contract.Approval),
+		Risk:         spec.RiskLevel(contract.Risk),
+		Permission:   strings.TrimSpace(contract.Permission),
+	}
+}
+
+func localizedTextFromJSONMap(values map[string]interface{}) spec.LocalizedText {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(spec.LocalizedText, len(values))
+	for key, value := range values {
+		text, ok := value.(string)
+		if !ok || strings.TrimSpace(text) == "" {
+			continue
+		}
+		out[key] = strings.TrimSpace(text)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func localizedTextToJSONMap(values spec.LocalizedText) datatypes.JSONMap {
+	if len(values) == 0 {
+		return datatypes.JSONMap{}
+	}
+	out := datatypes.JSONMap{}
+	for key, value := range values {
+		if text := strings.TrimSpace(value); text != "" {
+			out[key] = text
+		}
+	}
+	return out
+}
+
+func proposalKeyForPage(pageType spec.PageType, functionID string) string {
+	functionID = strings.TrimSpace(functionID)
+	if functionID == "" {
+		return ""
+	}
+	switch pageType {
+	case spec.PageTypeTask:
+		return "task:" + functionID
+	case spec.PageTypeReport:
+		return "report:" + functionID
+	default:
+		return "operation:" + functionID
+	}
+}
+
+func jsonValue(v interface{}) datatypes.JSON {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return datatypes.JSON([]byte("null"))
+	}
+	return datatypes.JSON(raw)
+}
+
+func computeDigest(v interface{}) string {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
 }
 
 func jsonString(value string) json.RawMessage {

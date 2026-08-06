@@ -59,11 +59,16 @@ const (
 type PageBindingUsage string
 
 const (
-	BindingUsageQuery  PageBindingUsage = "query"
-	BindingUsageDetail PageBindingUsage = "detail"
-	BindingUsageAction PageBindingUsage = "action"
-	BindingUsageTask   PageBindingUsage = "task"
-	BindingUsageReport PageBindingUsage = "report"
+	BindingUsageQuery      PageBindingUsage = "query"
+	BindingUsageDetail     PageBindingUsage = "detail"
+	BindingUsageAction     PageBindingUsage = "action"
+	BindingUsageTask       PageBindingUsage = "task"
+	BindingUsageTaskStatus PageBindingUsage = "task_status"
+	BindingUsageTaskEvents PageBindingUsage = "task_events"
+	BindingUsageTaskResult PageBindingUsage = "task_result"
+	BindingUsageTaskCancel PageBindingUsage = "task_cancel"
+	BindingUsageTaskRetry  PageBindingUsage = "task_retry"
+	BindingUsageReport     PageBindingUsage = "report"
 )
 
 // PageExecutionMode describes how a binding is executed.
@@ -530,6 +535,13 @@ type PublishedPageSpec struct {
 
 	// RendererSchemaVersion identifies the server-validated page renderer ABI.
 	RendererSchemaVersion string `json:"rendererSchemaVersion"`
+
+	// Proposal/source tracking freezes how this page was produced.
+	BaseProposalKey     string `json:"baseProposalKey,omitempty"`
+	BaseProposalVersion int    `json:"baseProposalVersion,omitempty"`
+	FunctionDigest      string `json:"functionDigest,omitempty"`
+	SemanticsDigest     string `json:"semanticsDigest,omitempty"`
+	GeneratorVersion    string `json:"generatorVersion,omitempty"`
 
 	// BindingContracts freezes the function contract for every binding.
 	BindingContracts []BindingContractSnapshot `json:"bindingContracts"`

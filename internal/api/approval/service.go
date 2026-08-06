@@ -6,10 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/api/function"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
+	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
+	"github.com/cuihairu/croupier/internal/dashboard/freshness"
+	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
@@ -252,6 +257,19 @@ func decodeApprovalPayload(a *approvals.Approval) (map[string]interface{}, strin
 	return payload, buf.String()
 }
 
+func cloneApprovalMetadata(metadata map[string]string) map[string]string {
+	out := make(map[string]string, len(metadata)+4)
+	for key, value := range metadata {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			continue
+		}
+		out[key] = value
+	}
+	return out
+}
+
 type approvalContinuationResult struct {
 	Triggered bool
 	Kind      string
@@ -266,6 +284,14 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 	if strings.TrimSpace(record.FunctionID) == "" {
 		return approvalContinuationResult{}, nil
 	}
+	metadata := cloneApprovalMetadata(record.Metadata)
+	metadata["approval_bypass"] = "approved"
+	metadata["approval_id"] = strings.TrimSpace(record.ID)
+	metadata["approval_actor"] = strings.TrimSpace(record.Actor)
+	metadata["runtime_api"] = "approval.continue"
+	if err := s.ensurePageApprovalStillFresh(ctx, record, metadata); err != nil {
+		return approvalContinuationResult{}, err
+	}
 	resp, err := function.NewService(s.svcCtx).FunctionInvoke(ctx, &function.FunctionInvokeRequest{
 		ID:              strings.TrimSpace(record.FunctionID),
 		Payload:         json.RawMessage(record.Payload),
@@ -275,12 +301,7 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 		Route:           strings.TrimSpace(record.Route),
 		TargetServiceID: strings.TrimSpace(record.TargetServiceID),
 		HashKey:         strings.TrimSpace(record.HashKey),
-		Metadata: map[string]string{
-			"approval_bypass": "approved",
-			"approval_id":     strings.TrimSpace(record.ID),
-			"approval_actor":  strings.TrimSpace(record.Actor),
-			"runtime_api":     "approval.continue",
-		},
+		Metadata:        metadata,
 	})
 	if err != nil {
 		return approvalContinuationResult{}, fmt.Errorf("continue approved function: %w", err)
@@ -299,6 +320,94 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 	}
 	result.Result = resp.Result
 	return result, nil
+}
+
+func (s *Service) ensurePageApprovalStillFresh(ctx context.Context, record *approvals.Approval, metadata map[string]string) error {
+	if !strings.EqualFold(strings.TrimSpace(metadata["page_snapshot_governance"]), "validated") {
+		return nil
+	}
+	if s == nil || s.svcCtx == nil || s.svcCtx.PublishedPageSpecModel == nil {
+		return errors.New("published page model unavailable")
+	}
+	pageKey := strings.TrimSpace(metadata["page_key"])
+	bindingID := strings.TrimSpace(metadata["binding_id"])
+	version, err := strconv.Atoi(strings.TrimSpace(metadata["publish_version"]))
+	if pageKey == "" || bindingID == "" || version <= 0 || err != nil {
+		return errors.New("page approval metadata is incomplete")
+	}
+	published, err := s.svcCtx.PublishedPageSpecModel.FindByScopePageKeyAndVersion(ctx, strings.TrimSpace(record.GameID), strings.TrimSpace(record.Env), pageKey, version)
+	if err != nil {
+		return fmt.Errorf("published page snapshot not found: %w", err)
+	}
+	if !published.Active {
+		return errors.New("published page snapshot is no longer active")
+	}
+	pageSpec, contracts := parseApprovalPublishedSnapshot(*published)
+	binding, ok := findApprovalBinding(pageSpec.Bindings, bindingID)
+	if !ok {
+		return errors.New("published page binding not found")
+	}
+	contract, ok := findApprovalContract(contracts, bindingID)
+	if !ok {
+		return errors.New("published page binding contract snapshot missing")
+	}
+	diags := freshness.EvaluateBinding(binding, contract, approvalNormalizedFunctions(ctx, s.svcCtx))
+	if len(diags) > 0 {
+		return fmt.Errorf("published page binding is stale: %s", approvalBindingFreshnessStatuses(diags))
+	}
+	return nil
+}
+
+func parseApprovalPublishedSnapshot(published model.PublishedPageSpec) (spec.PageSpec, []spec.BindingContractSnapshot) {
+	var pageSpec spec.PageSpec
+	if strings.TrimSpace(published.SpecJSON) != "" {
+		_ = json.Unmarshal([]byte(published.SpecJSON), &pageSpec)
+	}
+	var contracts []spec.BindingContractSnapshot
+	if strings.TrimSpace(published.BindingContractsJSON) != "" {
+		_ = json.Unmarshal([]byte(published.BindingContractsJSON), &contracts)
+	}
+	return pageSpec, contracts
+}
+
+func findApprovalBinding(bindings []spec.PageFunctionBinding, bindingID string) (spec.PageFunctionBinding, bool) {
+	for _, binding := range bindings {
+		if strings.TrimSpace(binding.ID) == bindingID {
+			return binding, true
+		}
+	}
+	return spec.PageFunctionBinding{}, false
+}
+
+func findApprovalContract(contracts []spec.BindingContractSnapshot, bindingID string) (spec.BindingContractSnapshot, bool) {
+	for _, contract := range contracts {
+		if strings.TrimSpace(contract.BindingID) == bindingID {
+			return contract, true
+		}
+	}
+	return spec.BindingContractSnapshot{}, false
+}
+
+func approvalNormalizedFunctions(ctx context.Context, svcCtx *svc.ServiceContext) map[string]spec.FunctionSpec {
+	inputs := descriptors.Collect(ctx, svcCtx)
+	out := make(map[string]spec.FunctionSpec, len(inputs))
+	for _, input := range inputs {
+		result := normalizer.Normalize(input)
+		if result.Function.ID != "" {
+			out[result.Function.ID] = result.Function
+		}
+	}
+	return out
+}
+
+func approvalBindingFreshnessStatuses(diags []spec.BindingFreshnessDiagnostic) string {
+	statuses := make([]string, 0, len(diags))
+	for _, diag := range diags {
+		if diag.Status != "" {
+			statuses = append(statuses, string(diag.Status))
+		}
+	}
+	return strings.Join(statuses, ",")
 }
 
 func defaultString(value, fallback string) string {

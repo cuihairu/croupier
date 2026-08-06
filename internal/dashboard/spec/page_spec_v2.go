@@ -181,11 +181,18 @@ type TaskPageSpec struct {
 
 // TaskViewSpec defines task progress display.
 type TaskViewSpec struct {
-	ShowTimeline bool `json:"showTimeline"`
-	ShowProgress bool `json:"showProgress"`
-	ShowEvents   bool `json:"showEvents"`
-	Cancelable   bool `json:"cancelable"`
-	Retryable    bool `json:"retryable"`
+	TaskIDStateKey  string `json:"taskIdStateKey"`
+	StatusBindingID string `json:"statusBindingId"`
+	StatusStatePath string `json:"statusStatePath"`
+	EventsBindingID string `json:"eventsBindingId,omitempty"`
+	ResultBindingID string `json:"resultBindingId,omitempty"`
+	CancelBindingID string `json:"cancelBindingId,omitempty"`
+	RetryBindingID  string `json:"retryBindingId,omitempty"`
+	ShowTimeline    bool   `json:"showTimeline"`
+	ShowProgress    bool   `json:"showProgress"`
+	ShowEvents      bool   `json:"showEvents"`
+	Cancelable      bool   `json:"cancelable"`
+	Retryable       bool   `json:"retryable"`
 }
 
 // ReportPageSpec defines a report page.

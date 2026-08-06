@@ -15,7 +15,7 @@ func ValidatePublishablePageShape(page PageSpec) []Diagnostic {
 	case PageTypeOperation:
 		diags = append(diags, validatePublishableResultView(page.Operation.ResultView, "operation.resultView")...)
 	case PageTypeTask:
-		diags = append(diags, validatePublishableTaskPage(page.Task)...)
+		diags = append(diags, validatePublishableTaskPage(page.Task, page.Bindings)...)
 	case PageTypeReport:
 		diags = append(diags, validatePublishableReportPage(page.Report)...)
 	default:
@@ -64,7 +64,7 @@ func validatePublishableResourcePage(resource *ResourcePageSpec) []Diagnostic {
 	return []Diagnostic{publishShapeDiagnostic("resource_identity_key_invalid", "resource listView.identityKey must reference a list column", "resource.listView.identityKey")}
 }
 
-func validatePublishableTaskPage(task *TaskPageSpec) []Diagnostic {
+func validatePublishableTaskPage(task *TaskPageSpec, bindings []PageFunctionBinding) []Diagnostic {
 	if task == nil {
 		return nil
 	}
@@ -74,11 +74,54 @@ func validatePublishableTaskPage(task *TaskPageSpec) []Diagnostic {
 	}
 	if task.TaskView == nil {
 		diags = append(diags, publishShapeDiagnostic("task_view_missing", "task.taskView is required before publish", "task.taskView"))
-	} else if task.TaskView.Retryable {
-		diags = append(diags, publishShapeDiagnostic("task_retry_unavailable", "task retry requires an explicit retry function semantic before publish", "task.taskView.retryable"))
+	} else {
+		if strings.TrimSpace(task.TaskView.TaskIDStateKey) == "" {
+			diags = append(diags, publishShapeDiagnostic("task_id_state_key_missing", "task.taskView.taskIdStateKey is required before publish", "task.taskView.taskIdStateKey"))
+		}
+		if strings.TrimSpace(task.TaskView.StatusBindingID) == "" {
+			diags = append(diags, publishShapeDiagnostic("task_status_binding_missing", "task.taskView.statusBindingId is required before publish", "task.taskView.statusBindingId"))
+		} else if !hasBindingUsage(bindings, task.TaskView.StatusBindingID, BindingUsageTaskStatus) {
+			diags = append(diags, publishShapeDiagnostic("task_status_binding_invalid", "task.taskView.statusBindingId must reference a task_status binding", "task.taskView.statusBindingId"))
+		}
+		if strings.TrimSpace(task.TaskView.StatusStatePath) == "" {
+			diags = append(diags, publishShapeDiagnostic("task_status_state_path_missing", "task.taskView.statusStatePath is required before publish", "task.taskView.statusStatePath"))
+		} else if !isJSONPointer(task.TaskView.StatusStatePath) {
+			diags = append(diags, publishShapeDiagnostic("task_status_state_path_invalid", "task.taskView.statusStatePath must be a JSON Pointer", "task.taskView.statusStatePath"))
+		}
+		if task.TaskView.ShowEvents && strings.TrimSpace(task.TaskView.EventsBindingID) == "" {
+			diags = append(diags, publishShapeDiagnostic("task_events_binding_missing", "task events require task.taskView.eventsBindingId before publish", "task.taskView.eventsBindingId"))
+		}
+		if strings.TrimSpace(task.TaskView.EventsBindingID) != "" && !hasBindingUsage(bindings, task.TaskView.EventsBindingID, BindingUsageTaskEvents) {
+			diags = append(diags, publishShapeDiagnostic("task_events_binding_invalid", "task.taskView.eventsBindingId must reference a task_events binding", "task.taskView.eventsBindingId"))
+		}
+		if task.TaskView.Cancelable && strings.TrimSpace(task.TaskView.CancelBindingID) == "" {
+			diags = append(diags, publishShapeDiagnostic("task_cancel_binding_missing", "cancelable task page requires task.taskView.cancelBindingId before publish", "task.taskView.cancelBindingId"))
+		}
+		if strings.TrimSpace(task.TaskView.CancelBindingID) != "" && !hasBindingUsage(bindings, task.TaskView.CancelBindingID, BindingUsageTaskCancel) {
+			diags = append(diags, publishShapeDiagnostic("task_cancel_binding_invalid", "task.taskView.cancelBindingId must reference a task_cancel binding", "task.taskView.cancelBindingId"))
+		}
+		if strings.TrimSpace(task.TaskView.ResultBindingID) != "" && !hasBindingUsage(bindings, task.TaskView.ResultBindingID, BindingUsageTaskResult) {
+			diags = append(diags, publishShapeDiagnostic("task_result_binding_invalid", "task.taskView.resultBindingId must reference a task_result binding", "task.taskView.resultBindingId"))
+		}
+		if task.TaskView.Retryable || strings.TrimSpace(task.TaskView.RetryBindingID) != "" {
+			diags = append(diags, publishShapeDiagnostic("task_retry_unavailable", "task retry runtime is not available", "task.taskView.retryable"))
+		}
 	}
 	diags = append(diags, validatePublishableResultView(task.ResultView, "task.resultView")...)
 	return diags
+}
+
+func hasBindingUsage(bindings []PageFunctionBinding, bindingID string, usage PageBindingUsage) bool {
+	bindingID = strings.TrimSpace(bindingID)
+	if bindingID == "" {
+		return false
+	}
+	for _, binding := range bindings {
+		if strings.TrimSpace(binding.ID) == bindingID && binding.Usage == usage {
+			return true
+		}
+	}
+	return false
 }
 
 func validatePublishableResultView(resultView *ResultViewSpec, field string) []Diagnostic {
@@ -164,6 +207,12 @@ func ValidateRequiredOutputAssignments(binding PageFunctionBinding, page PageSpe
 		return validateOutputStateKey(binding, "detail", OutputShapeObject, "resource detail query must map object output to pageState.detail")
 	case page.Type == PageTypeReport && binding.Usage == BindingUsageReport:
 		return validateOutputStateKey(binding, "dataset", OutputShapeDataset, "report query must map dataset output to pageState.dataset")
+	case page.Type == PageTypeTask && binding.Usage == BindingUsageTaskStatus:
+		return validateOutputStateKey(binding, "taskStatus", OutputShapeObject, "task status must map status output to pageState.taskStatus")
+	case page.Type == PageTypeTask && binding.Usage == BindingUsageTaskEvents:
+		return validateOutputStateKey(binding, "taskEvents", OutputShapeCollection, "task events must map events output to pageState.taskEvents")
+	case page.Type == PageTypeTask && binding.Usage == BindingUsageTaskResult:
+		return validateOutputStateKeyAnyShape(binding, "taskResult", "task result must map result output to pageState.taskResult")
 	default:
 		return nil
 	}
@@ -175,6 +224,18 @@ func validateOutputStateKey(binding PageFunctionBinding, stateKey string, shape 
 	}
 	for _, assignment := range binding.Selectors.Output {
 		if strings.TrimSpace(assignment.StateKey) == stateKey && assignment.Shape == shape {
+			return nil
+		}
+	}
+	return []Diagnostic{publishShapeDiagnostic("binding_output_selector_invalid", message, "bindings."+binding.ID+".selectors.output")}
+}
+
+func validateOutputStateKeyAnyShape(binding PageFunctionBinding, stateKey string, message string) []Diagnostic {
+	if binding.Selectors == nil || len(binding.Selectors.Output) == 0 {
+		return []Diagnostic{publishShapeDiagnostic("binding_output_selector_missing", message, "bindings."+binding.ID+".selectors.output")}
+	}
+	for _, assignment := range binding.Selectors.Output {
+		if strings.TrimSpace(assignment.StateKey) == stateKey {
 			return nil
 		}
 	}

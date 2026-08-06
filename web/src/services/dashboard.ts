@@ -80,27 +80,27 @@ export async function resolveResourceSemanticConflict(
   });
 }
 
-/** 获取变更链 */
-export async function getChangeChain(resourceKey: string): Promise<ChangeChain> {
-  return request(`${BASE_URL}/versioning/${resourceKey}/chain`, {
+/** 获取页面变更链 */
+export async function getChangeChain(pageKey: string): Promise<ChangeChain> {
+  return request(`${BASE_URL}/versioning/pages/${pageKey}/chain`, {
     method: 'GET',
   });
 }
 
-/** 版本对比 */
+/** 页面版本对比 */
 export async function getVersionDiff(
-  resourceKey: string,
+  pageKey: string,
   params: { fromVersion: number; toVersion: number },
 ): Promise<{ changes: JSONValue[]; summary: string }> {
-  return request(`${BASE_URL}/versioning/${resourceKey}/diff`, {
+  return request(`${BASE_URL}/versioning/pages/${pageKey}/diff`, {
     method: 'GET',
     params,
   });
 }
 
-/** 合并变更 */
-export async function mergeChanges(resourceKey: string, data: MergeRequest): Promise<MergeResponse> {
-  return request(`${BASE_URL}/versioning/${resourceKey}/merge`, {
+/** 合并页面变更 */
+export async function mergeChanges(pageKey: string, data: MergeRequest): Promise<MergeResponse> {
+  return request(`${BASE_URL}/versioning/pages/${pageKey}/merge`, {
     method: 'POST',
     data,
   });
@@ -108,10 +108,10 @@ export async function mergeChanges(resourceKey: string, data: MergeRequest): Pro
 
 /** 回滚草稿 */
 export async function rollbackDraft(
-  resourceKey: string,
+  pageKey: string,
   data: { version: number; reason?: string },
 ): Promise<{ message: string }> {
-  return request(`${BASE_URL}/versioning/${resourceKey}/rollback-draft`, {
+  return request(`${BASE_URL}/versioning/pages/${pageKey}/rollback-draft`, {
     method: 'POST',
     data,
   });
@@ -119,10 +119,10 @@ export async function rollbackDraft(
 
 /** 回滚发布 */
 export async function rollbackPublish(
-  resourceKey: string,
+  pageKey: string,
   data: { version: number; reason?: string },
 ): Promise<{ message: string }> {
-  return request(`${BASE_URL}/versioning/${resourceKey}/rollback-publish`, {
+  return request(`${BASE_URL}/versioning/pages/${pageKey}/rollback-publish`, {
     method: 'POST',
     data,
   });
@@ -130,10 +130,10 @@ export async function rollbackPublish(
 
 /** 重新生成提案 */
 export async function regenerateProposal(
-  resourceKey: string,
+  pageKey: string,
   data?: { force?: boolean },
 ): Promise<{ message: string }> {
-  return request(`${BASE_URL}/versioning/${resourceKey}/regenerate`, {
+  return request(`${BASE_URL}/versioning/pages/${pageKey}/regenerate`, {
     method: 'POST',
     data,
   });
@@ -141,10 +141,10 @@ export async function regenerateProposal(
 
 /** 重新发布 */
 export async function republish(
-  resourceKey: string,
+  pageKey: string,
   data?: { reason?: string },
 ): Promise<{ version: number; message: string }> {
-  return request(`${BASE_URL}/versioning/${resourceKey}/republish`, {
+  return request(`${BASE_URL}/versioning/pages/${pageKey}/republish`, {
     method: 'POST',
     data,
   });

@@ -102,6 +102,11 @@ type PublishedPageSpec struct {
 	SpecJSON              string     `gorm:"type:json" json:"-"` // Full PageSpec JSON
 	BindingContractsJSON  string     `gorm:"type:json" json:"-"`
 	RendererSchemaVersion string     `gorm:"size:32;not null" json:"rendererSchemaVersion"`
+	BaseProposalKey       string     `gorm:"size:128;index" json:"baseProposalKey,omitempty"`
+	BaseProposalVersion   int        `gorm:"default:0" json:"baseProposalVersion,omitempty"`
+	FunctionDigest        string     `gorm:"size:64" json:"functionDigest,omitempty"`
+	SemanticsDigest       string     `gorm:"size:64" json:"semanticsDigest,omitempty"`
+	GeneratorVersion      string     `gorm:"size:32" json:"generatorVersion,omitempty"`
 	Active                bool       `gorm:"default:true;index" json:"active"`
 	PublishedAt           time.Time  `json:"publishedAt"`
 	UnpublishedAt         *time.Time `json:"unpublishedAt,omitempty"`

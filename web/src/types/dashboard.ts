@@ -59,7 +59,17 @@ export type FunctionExecution = 'sync' | 'task';
 export type PageType = 'resource' | 'operation' | 'task' | 'report';
 
 /** 页面 binding 在运行期的用途 */
-export type PageBindingUsage = 'query' | 'detail' | 'action' | 'task' | 'report';
+export type PageBindingUsage =
+  | 'query'
+  | 'detail'
+  | 'action'
+  | 'task'
+  | 'task_status'
+  | 'task_events'
+  | 'task_result'
+  | 'task_cancel'
+  | 'task_retry'
+  | 'report';
 
 /** 页面 binding 执行模式 */
 export type PageExecutionMode = 'sync' | 'task';
@@ -468,6 +478,13 @@ export interface TaskPageSpec {
 
 /** 任务视图规格 */
 export interface TaskViewSpec {
+  taskIdStateKey: string;
+  statusBindingId: string;
+  statusStatePath: JsonPointer;
+  eventsBindingId?: string;
+  resultBindingId?: string;
+  cancelBindingId?: string;
+  retryBindingId?: string;
   showTimeline: boolean;
   showProgress: boolean;
   showEvents: boolean;
@@ -636,6 +653,11 @@ export interface PublishedPageSpec extends PageSpec {
   publishedAt: string;
   publishedBy?: string;
   rendererSchemaVersion: string;
+  baseProposalKey?: string;
+  baseProposalVersion?: number;
+  functionDigest?: string;
+  semanticsDigest?: string;
+  generatorVersion?: string;
   bindingContracts: BindingContractSnapshot[];
   bindingFreshness?: BindingFreshnessDiagnostic[];
 }
@@ -1065,6 +1087,7 @@ export interface CurrentState {
 
 /** 变更链 */
 export interface ChangeChain {
+  pageKey: string;
   resourceKey: string;
   items: ChangeItem[];
   current: CurrentState;

@@ -1,6 +1,7 @@
 package approvals
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -20,6 +21,7 @@ type ApprovalModel struct {
 	TargetServiceID string         `gorm:"type:varchar(255);index" json:"target_service_id"`
 	HashKey         string         `gorm:"type:varchar(255);index" json:"hash_key"`
 	Payload         []byte         `gorm:"type:blob" json:"payload"`
+	MetadataJSON    []byte         `gorm:"type:json" json:"metadata_json"`
 	Reason          string         `gorm:"type:text" json:"reason"`
 	ResultKind      string         `gorm:"type:varchar(50)" json:"result_kind"`
 	TaskID          string         `gorm:"type:varchar(255);index" json:"task_id"`
@@ -52,6 +54,7 @@ func (a *ApprovalModel) ToApproval() *Approval {
 		TargetServiceID: a.TargetServiceID,
 		HashKey:         a.HashKey,
 		Payload:         a.Payload,
+		Metadata:        decodeMetadataJSON(a.MetadataJSON),
 		Reason:          a.Reason,
 		ResultKind:      a.ResultKind,
 		TaskID:          a.TaskID,
@@ -66,6 +69,7 @@ func FromApproval(a *Approval) *ApprovalModel {
 	if a == nil {
 		return nil
 	}
+	metadataJSON := encodeMetadataJSON(a.Metadata)
 	return &ApprovalModel{
 		ID:              a.ID,
 		State:           a.State,
@@ -79,6 +83,7 @@ func FromApproval(a *Approval) *ApprovalModel {
 		TargetServiceID: a.TargetServiceID,
 		HashKey:         a.HashKey,
 		Payload:         a.Payload,
+		MetadataJSON:    metadataJSON,
 		Reason:          a.Reason,
 		ResultKind:      a.ResultKind,
 		TaskID:          a.TaskID,
@@ -91,4 +96,26 @@ func FromApproval(a *Approval) *ApprovalModel {
 // AutoMigrate runs auto migration for ApprovalModel
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(&ApprovalModel{})
+}
+
+func encodeMetadataJSON(metadata map[string]string) []byte {
+	if len(metadata) == 0 {
+		return nil
+	}
+	raw, err := json.Marshal(metadata)
+	if err != nil {
+		return nil
+	}
+	return raw
+}
+
+func decodeMetadataJSON(raw []byte) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var metadata map[string]string
+	if err := json.Unmarshal(raw, &metadata); err != nil || len(metadata) == 0 {
+		return nil
+	}
+	return metadata
 }

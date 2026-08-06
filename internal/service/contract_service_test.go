@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -395,4 +396,87 @@ func TestIsCRUDCapability(t *testing.T) {
 	assert.False(t, isCRUDCapability("task"))
 	assert.False(t, isCRUDCapability("report"))
 	assert.False(t, isCRUDCapability(""))
+}
+
+func TestPreserveReviewedSemantics(t *testing.T) {
+	// Test nil inputs
+	preserveReviewedSemantics(nil, nil)
+	preserveReviewedSemantics(nil, &model.CapabilitySemantics{})
+	preserveReviewedSemantics(&model.CapabilitySemantics{}, nil)
+
+	// Test preserving platform_review source
+	next := &model.CapabilitySemantics{
+		Source: "sdk_explicit",
+	}
+	existing := &model.CapabilitySemantics{
+		Source:            "platform_review",
+		UpdatedBy:         "admin",
+		IdentityField:     "player_id",
+		IdentityFieldType: "string",
+		CollectionQueryID: 1,
+		CollectionPath:    "/items",
+		PageFieldName:     "page",
+		PageSizeFieldName: "page_size",
+	}
+	preserveReviewedSemantics(next, existing)
+	assert.Equal(t, "platform_review", next.Source)
+	assert.Equal(t, "admin", next.UpdatedBy)
+	assert.Equal(t, "player_id", next.IdentityField)
+	assert.Equal(t, "string", next.IdentityFieldType)
+	assert.Equal(t, uint(1), next.CollectionQueryID)
+	assert.Equal(t, "/items", next.CollectionPath)
+	assert.Equal(t, "page", next.PageFieldName)
+	assert.Equal(t, "page_size", next.PageSizeFieldName)
+
+	// Test not overwriting with empty values
+}
+
+func TestSchemaScalarTypeV2(t *testing.T) {
+	tests := []struct {
+		input    map[string]json.RawMessage
+		expected string
+	}{
+		{map[string]json.RawMessage{"type": []byte(`"string"`)}, "string"},
+		{map[string]json.RawMessage{"type": []byte(`"number"`)}, "number"},
+		{map[string]json.RawMessage{"type": []byte(`"integer"`)}, "integer"},
+		{map[string]json.RawMessage{"type": []byte(`"boolean"`)}, "boolean"},
+		{map[string]json.RawMessage{}, ""},
+	}
+
+	for _, tt := range tests {
+		result := schemaScalarType(tt.input)
+		assert.Equal(t, tt.expected, result)
+	}
+}
+
+func TestParseJSONSchemaV2(t *testing.T) {
+	// Test valid JSON
+	schema := parseJSONSchema([]byte(`{"type":"object","properties":{"name":{"type":"string"}}}`))
+	assert.NotNil(t, schema)
+
+	// Test empty
+	schema = parseJSONSchema([]byte{})
+	assert.Nil(t, schema)
+
+	// Test nil
+	schema = parseJSONSchema(nil)
+	assert.Nil(t, schema)
+}
+
+func TestSchemaStringV2(t *testing.T) {
+	tests := []struct {
+		input    json.RawMessage
+		expected string
+	}{
+		{json.RawMessage(`"hello"`), "hello"},
+		{json.RawMessage(`"world"`), "world"},
+		{json.RawMessage(`""`), ""},
+		{json.RawMessage(`null`), ""},
+		{json.RawMessage(`123`), ""},
+	}
+
+	for _, tt := range tests {
+		result := schemaString(tt.input)
+		assert.Equal(t, tt.expected, result)
+	}
 }

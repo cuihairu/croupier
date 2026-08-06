@@ -553,6 +553,13 @@ func (s *ContractService) upsertStandaloneProposals(
 ) error {
 	taskSemantics := taskSemanticsByStartFunction(semantics)
 	reportSemantics := reportSemanticsByQueryFunction(semantics)
+	functions := make(map[string]spec.FunctionSpec, len(contracts))
+	for _, contract := range contracts {
+		if contract == nil || strings.TrimSpace(contract.FunctionID) == "" {
+			continue
+		}
+		functions[strings.TrimSpace(contract.FunctionID)] = functionSpecFromContract(contract)
+	}
 	for _, contract := range contracts {
 		if contract == nil || isCRUDCapability(contract.Capability) {
 			continue
@@ -561,10 +568,8 @@ func (s *ContractService) upsertStandaloneProposals(
 			continue
 		}
 		generated := generator.GenerateForOperation(operationSpecFromContract(contract), generator.GenerateOptions{
-			DefaultLocale: "zh-CN",
-			Functions: map[string]spec.FunctionSpec{
-				contract.FunctionID: functionSpecFromContract(contract),
-			},
+			DefaultLocale:   "zh-CN",
+			Functions:       functions,
 			TaskSemantics:   taskSemantics,
 			ReportSemantics: reportSemantics,
 		})

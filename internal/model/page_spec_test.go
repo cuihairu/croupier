@@ -43,6 +43,11 @@ func TestPageSpecModelsUseScopedPageIdentity(t *testing.T) {
 	latestDev, err := published.FindLatestByScopeAndPageKey(ctx, "game-a", "dev", "player.manage")
 	require.NoError(t, err)
 	assert.Equal(t, 2, latestDev.Version)
+	assert.Equal(t, "resource:player", latestDev.BaseProposalKey)
+	assert.Equal(t, 7, latestDev.BaseProposalVersion)
+	assert.Equal(t, "function-digest-1", latestDev.FunctionDigest)
+	assert.Equal(t, "semantics-digest-1", latestDev.SemanticsDigest)
+	assert.Equal(t, "dashboard-vnext-test", latestDev.GeneratorVersion)
 	latestProd, err := published.FindLatestByScopeAndPageKey(ctx, "game-a", "prod", "player.manage")
 	require.NoError(t, err)
 	assert.Equal(t, 1, latestProd.Version)
@@ -107,6 +112,11 @@ func testPublishedPageSpec(gameID, env, pageKey string, version int, active bool
 		SpecJSON:              `{"pageKey":"` + pageKey + `","type":"operation","title":{"zh-CN":"玩家管理"},"category":{"key":"player","labels":{"zh-CN":"玩家"}},"operation":{"form":{"jsonSchema":{"type":"object","properties":{}}}},"bindings":[]}`,
 		BindingContractsJSON:  `[]`,
 		RendererSchemaVersion: "page-spec:1",
+		BaseProposalKey:       "resource:player",
+		BaseProposalVersion:   7,
+		FunctionDigest:        "function-digest-1",
+		SemanticsDigest:       "semantics-digest-1",
+		GeneratorVersion:      "dashboard-vnext-test",
 		Active:                active,
 		PublishedAt:           time.Now(),
 		PublishedBy:           "tester",

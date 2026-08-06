@@ -96,7 +96,7 @@ export default function PageStudio() {
   const [changeChainVisible, setChangeChainVisible] = useState(false);
   const [changeChain, setChangeChain] = useState<ChangeChain | null>(null);
   const [changeChainLoading, setChangeChainLoading] = useState(false);
-  const [selectedResourceKey, setSelectedResourceKey] = useState('');
+  const [selectedPageKey, setSelectedPageKey] = useState('');
   const [diffVisible, setDiffVisible] = useState(false);
   const [diffData, setDiffData] = useState<DiffResponse | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
@@ -200,12 +200,12 @@ export default function PageStudio() {
   }, [loadDrafts, message, selectedDraft, selectedDraftRevision]);
 
   const handleChangeChain = useCallback(
-    async (resourceKey: string) => {
-      setSelectedResourceKey(resourceKey);
+    async (pageKey: string) => {
+      setSelectedPageKey(pageKey);
       setChangeChainVisible(true);
       setChangeChainLoading(true);
       try {
-        setChangeChain(await getChangeChain(resourceKey));
+        setChangeChain(await getChangeChain(pageKey));
       } catch {
         message.error('加载变更链失败');
       } finally {
@@ -216,12 +216,12 @@ export default function PageStudio() {
   );
 
   const handleDiff = useCallback(
-    async (resourceKey: string) => {
-      setSelectedResourceKey(resourceKey);
+    async (pageKey: string) => {
+      setSelectedPageKey(pageKey);
       setDiffVisible(true);
       setDiffLoading(true);
       try {
-        setDiffData(await getDiff(resourceKey));
+        setDiffData(await getDiff(pageKey));
       } catch {
         message.error('加载 Diff 失败');
       } finally {
@@ -235,7 +235,7 @@ export default function PageStudio() {
     async (strategy: MergeStrategy) => {
       setMergeLoading(true);
       try {
-        const result = await mergeChanges(selectedResourceKey, { strategy });
+        const result = await mergeChanges(selectedPageKey, { strategy });
         message.success(`合并完成：${result.merged} 项自动合并，${result.conflicts} 项冲突`);
         setMergeVisible(false);
         loadDrafts();
@@ -245,7 +245,7 @@ export default function PageStudio() {
         setMergeLoading(false);
       }
     },
-    [loadDrafts, message, selectedResourceKey],
+    [loadDrafts, message, selectedPageKey],
   );
 
   const columns: ProColumns<PageSpecDraftSummary>[] = [
@@ -311,8 +311,7 @@ export default function PageStudio() {
             type="link"
             size="small"
             icon={<HistoryOutlined />}
-            onClick={() => record.resourceKey && handleChangeChain(record.resourceKey)}
-            disabled={!record.resourceKey}
+            onClick={() => handleChangeChain(record.pageKey)}
           >
             变更链
           </Button>
@@ -320,8 +319,7 @@ export default function PageStudio() {
             type="link"
             size="small"
             icon={<DiffOutlined />}
-            onClick={() => record.resourceKey && handleDiff(record.resourceKey)}
-            disabled={!record.resourceKey}
+            onClick={() => handleDiff(record.pageKey)}
           >
             Diff
           </Button>
@@ -371,6 +369,7 @@ export default function PageStudio() {
         {selectedDraft ? (
           <PageRenderer
             pageSpec={selectedDraft}
+            preview
             onExecute={async () => {
               throw new Error('Page Studio 预览不执行函数；发布后请在运行控制台执行。');
             }}
@@ -406,6 +405,9 @@ export default function PageStudio() {
       >
         {changeChain ? (
           <Space direction="vertical" style={{ width: '100%' }}>
+            <Paragraph>
+              <Text strong>页面：</Text> {changeChain.pageKey}
+            </Paragraph>
             <Paragraph>
               <Text strong>资源：</Text> {changeChain.resourceKey}
             </Paragraph>

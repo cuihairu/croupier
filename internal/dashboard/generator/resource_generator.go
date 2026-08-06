@@ -78,6 +78,13 @@ func GenerateResourcePageProposal(
 	}
 
 	diags := assessResourceSemantics(semantics)
+	for _, contract := range contracts {
+		if contract == nil {
+			continue
+		}
+		diags = append(diags, schemaSubsetDiagnostics(contract.FunctionID, "inputSchema", spec.JSONSchema(contract.InputSchema))...)
+		diags = append(diags, schemaSubsetDiagnostics(contract.FunctionID, "outputSchema", spec.JSONSchema(contract.OutputSchema))...)
+	}
 	diags = append(diags, inlineDiags...)
 	diags = append(diags, validateGeneratedResourceViews(listView, detailView, semantics)...)
 	bindings = append(bindings, inlineBindings...)
@@ -968,14 +975,6 @@ func validateGeneratedResourceViews(
 			Field:    "resource.listView.identityKey",
 		})
 	}
-	if detailView == nil {
-		diags = append(diags, spec.Diagnostic{
-			Code:     "resource_detail_view_missing",
-			Severity: spec.SeverityWarning,
-			Message:  "detail view could not be derived from item query or collection item schema",
-			Field:    "resource.detailView",
-		})
-	}
 	return diags
 }
 
@@ -991,6 +990,9 @@ func listViewHasColumn(listView *spec.ListViewSpec, key string) bool {
 func resourceQuality(semantics *model.CapabilitySemantics, diags []spec.Diagnostic) spec.GeneratedPageQuality {
 	for _, d := range diags {
 		if d.Severity == spec.SeverityError {
+			return spec.GeneratedPageQualityNeedsReview
+		}
+		if d.Code == "json_schema_generation_subset_unsupported" {
 			return spec.GeneratedPageQualityNeedsReview
 		}
 		if d.Severity == spec.SeverityWarning {

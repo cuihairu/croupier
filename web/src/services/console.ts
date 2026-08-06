@@ -64,6 +64,10 @@ type ApprovalDetailResponse = {
   updatedAt?: string;
 };
 
+type ApprovalGetResponse = ApprovalDetailResponse | {
+  approval?: ApprovalDetailResponse;
+};
+
 /** 获取运行控制台菜单 */
 export async function getConsoleMenu(lang?: string): Promise<ConsoleMenuSpec> {
   return request<ConsoleMenuSpec>(`${BASE}/menu`, {
@@ -140,9 +144,10 @@ export async function cancelTask(taskId: string): Promise<void> {
 
 /** 查询审批状态，供 Operation/Task 页面展示等待态 */
 export async function queryApprovalStatus(approvalId: string): Promise<ApprovalStatusResult> {
-  const detail = await request<ApprovalDetailResponse>(`/api/v1/approvals/${encodeURIComponent(approvalId)}`, {
+  const response = await request<ApprovalGetResponse>(`/api/v1/approvals/${encodeURIComponent(approvalId)}`, {
     method: 'GET',
   });
+  const detail = 'approval' in response && response.approval ? response.approval : response;
   return {
     approvalId: detail.id || approvalId,
     status: normalizeApprovalStatus(detail.state),

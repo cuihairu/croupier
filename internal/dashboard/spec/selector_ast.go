@@ -129,6 +129,18 @@ func SelectorContextForBinding(page PageSpec, binding PageFunctionBinding) Selec
 		HasDetailView: page.Resource != nil && page.Resource.DetailView != nil,
 		FormSchema:    FormSchemaForBinding(page, binding),
 	}
+	if page.Task != nil {
+		taskIDStateKey := "taskId"
+		if page.Task.TaskView != nil && strings.TrimSpace(page.Task.TaskView.TaskIDStateKey) != "" {
+			taskIDStateKey = strings.TrimSpace(page.Task.TaskView.TaskIDStateKey)
+		}
+		ctx.PageState = map[string]JSONSchema{
+			taskIDStateKey: JSONSchema(`{"type":"string"}`),
+			"taskStatus":   JSONSchema(`{"type":"object","properties":{}}`),
+			"taskEvents":   JSONSchema(`{"type":"array","items":{"type":"object","properties":{}}}`),
+			"taskResult":   JSONSchema(`{"type":"object","properties":{}}`),
+		}
+	}
 	if page.Resource != nil && page.Resource.ListView != nil {
 		ctx.RowSchema = page.Resource.ListView.RowSchema
 	}

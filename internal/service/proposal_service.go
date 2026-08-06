@@ -428,6 +428,11 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 			SpecJSON:              specJSON,
 			BindingContractsJSON:  string(contractsJSON),
 			RendererSchemaVersion: rendererSchemaVersion,
+			BaseProposalKey:       strings.TrimSpace(proposal.ProposalKey),
+			BaseProposalVersion:   proposalSnapshotVersion,
+			FunctionDigest:        strings.TrimSpace(proposal.FunctionDigest),
+			SemanticsDigest:       strings.TrimSpace(proposal.SemanticsDigest),
+			GeneratorVersion:      strings.TrimSpace(proposal.GeneratorVersion),
 			Active:                true,
 			PublishedAt:           now,
 			PublishedBy:           actor,
@@ -1096,7 +1101,16 @@ func pageShapeMatchesType(page spec.PageSpec) bool {
 
 func isValidBindingUsage(usage spec.PageBindingUsage) bool {
 	switch usage {
-	case spec.BindingUsageQuery, spec.BindingUsageDetail, spec.BindingUsageAction, spec.BindingUsageTask, spec.BindingUsageReport:
+	case spec.BindingUsageQuery,
+		spec.BindingUsageDetail,
+		spec.BindingUsageAction,
+		spec.BindingUsageTask,
+		spec.BindingUsageTaskStatus,
+		spec.BindingUsageTaskEvents,
+		spec.BindingUsageTaskResult,
+		spec.BindingUsageTaskCancel,
+		spec.BindingUsageTaskRetry,
+		spec.BindingUsageReport:
 		return true
 	default:
 		return false
@@ -1178,6 +1192,8 @@ func bindingRequiresOutputSelectors(binding spec.PageFunctionBinding, page spec.
 		return page.Type == spec.PageTypeResource
 	case spec.BindingUsageReport:
 		return page.Type == spec.PageTypeReport
+	case spec.BindingUsageTaskStatus, spec.BindingUsageTaskEvents, spec.BindingUsageTaskResult:
+		return page.Type == spec.PageTypeTask
 	default:
 		return false
 	}

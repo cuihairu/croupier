@@ -478,13 +478,13 @@ func registerVersioningRoutes(authenticated *gin.RouterGroup, svcCtx *svc.Servic
 	handler := versioning.NewHandler(service)
 	group := authenticated.Group("/versioning")
 	{
-		group.GET("/:resourceKey/chain", handler.GetChangeChain)
-		group.GET("/:resourceKey/diff", handler.Diff)
-		group.POST("/:resourceKey/merge", handler.Merge)
-		group.POST("/:resourceKey/rollback-draft", handler.RollbackDraft)
-		group.POST("/:resourceKey/rollback-publish", handler.RollbackPublish)
-		group.POST("/:resourceKey/regenerate", handler.RegenerateProposal)
-		group.POST("/:resourceKey/republish", handler.Republish)
+		group.GET("/pages/:pageKey/chain", handler.GetChangeChain)
+		group.GET("/pages/:pageKey/diff", handler.Diff)
+		group.POST("/pages/:pageKey/merge", handler.Merge)
+		group.POST("/pages/:pageKey/rollback-draft", handler.RollbackDraft)
+		group.POST("/pages/:pageKey/rollback-publish", handler.RollbackPublish)
+		group.POST("/pages/:pageKey/regenerate", handler.RegenerateProposal)
+		group.POST("/pages/:pageKey/republish", handler.Republish)
 	}
 }
 

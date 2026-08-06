@@ -27,6 +27,7 @@ type Approval struct {
 	TargetServiceID string
 	HashKey         string
 	Payload         []byte
+	Metadata        map[string]string
 	Reason          string
 	ResultKind      string
 	TaskID          string

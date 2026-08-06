@@ -2,12 +2,20 @@ package approval
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/cuihairu/croupier/internal/cache"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
+	"github.com/cuihairu/croupier/internal/platform/dispatch"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
@@ -253,4 +261,172 @@ func TestApproveSyncsApprovalToExtensionConfig(t *testing.T) {
 	if len(items) == 0 || items[0].ID != "ap-sync-1" || items[0].State != "approved" {
 		t.Fatalf("unexpected approvals config: %+v", items)
 	}
+}
+
+func TestApproveRejectsPageContinuationWhenPublishedBindingStale(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite failed: %v", err)
+	}
+	if err := model.AutoMigrate(db); err != nil {
+		t.Fatalf("auto migrate failed: %v", err)
+	}
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.ban": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				Resource:     "player",
+				Operation:    "ban",
+				Risk:         "danger",
+				Permission:   "player:ban",
+				InputSchema:  `{"type":"object","properties":{"playerId":{"type":"string"}},"required":["playerId"]}`,
+				OutputSchema: `{"type":"object","properties":{"ok":{"type":"boolean"}}}`,
+			},
+		},
+	})
+	svcCtx := &svc.ServiceContext{
+		DB:                     db,
+		PageSpecModel:          model.NewPageSpecModel(db),
+		PublishedPageSpecModel: model.NewPublishedPageSpecModel(db),
+		PageVersionModel:       model.NewPageVersionModel(db),
+		RegistryStore:          store,
+		Dispatcher:             dispatch.NewDispatcher(store),
+		ApprovalsStore:         approvals.NewMemStore(),
+		Cache:                  cache.NewNullCache(),
+		CacheHelper:            cache.NewCacheHelper(cache.NewNullCache()),
+	}
+	inputSchema := `{"type":"object","properties":{"playerId":{"type":"string"}},"required":["playerId"]}`
+	outputSchema := `{"type":"object","properties":{"ok":{"type":"boolean"}}}`
+	if err := seedApprovalPublishedPage(svcCtx, context.Background(), inputSchema, outputSchema); err != nil {
+		t.Fatalf("seed published page failed: %v", err)
+	}
+	if _, err := svcCtx.ApprovalsStore.Create(&approvals.Approval{
+		ID:         "page-player-ban-1",
+		State:      "pending",
+		FunctionID: "player.ban",
+		GameID:     "demo-game",
+		Env:        "development",
+		Actor:      "tester",
+		Payload:    []byte(`{"playerId":"p1"}`),
+		Metadata: map[string]string{
+			"page_snapshot_governance": "validated",
+			"page_key":                 "player.manage",
+			"publish_version":          "1",
+			"binding_id":               "player.ban",
+		},
+	}); err != nil {
+		t.Fatalf("create approval failed: %v", err)
+	}
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Minute),
+		LastSeen: time.Now(),
+		Functions: map[string]reg.FunctionMeta{
+			"player.ban": {
+				Enabled:      true,
+				Version:      "1.0.0",
+				Resource:     "player",
+				Operation:    "ban",
+				Risk:         "danger",
+				Permission:   "player:ban.admin",
+				InputSchema:  inputSchema,
+				OutputSchema: outputSchema,
+			},
+		},
+	})
+
+	_, err = NewService(svcCtx).Approve(context.Background(), &ApprovalApproveRequest{ID: "page-player-ban-1"})
+
+	if err == nil {
+		t.Fatal("expected stale published binding to block approval continuation")
+	}
+	if got := err.Error(); got == "" || !strings.Contains(got, "stale") {
+		t.Fatalf("expected stale error, got %q", got)
+	}
+}
+
+func seedApprovalPublishedPage(svcCtx *svc.ServiceContext, ctx context.Context, inputSchema string, outputSchema string) error {
+	page := spec.PageSpec{
+		PageKey: "player.manage",
+		Type:    spec.PageTypeResource,
+		Title:   spec.LocalizedText{"zh-CN": "玩家管理"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Resource: &spec.ResourcePageSpec{
+			ListView: &spec.ListViewSpec{
+				IdentityKey: "playerId",
+				Columns: []spec.ColumnSpec{
+					{Key: "playerId", Title: spec.LocalizedText{"zh-CN": "玩家ID"}, DataType: "string", Visible: true},
+				},
+			},
+		},
+		Bindings: []spec.PageFunctionBinding{
+			{
+				ID:         "player.ban",
+				FunctionID: "player.ban",
+				Usage:      spec.BindingUsageAction,
+				Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+				Selectors: &spec.BindingSelectors{
+					Input: spec.SelectorAST{Assignments: []spec.InputAssignment{
+						{
+							Target: "/playerId",
+							Source: spec.ValueSource{Kind: spec.SourceForm, Path: "/playerId"},
+						},
+					}},
+				},
+			},
+		},
+	}
+	specJSON, err := json.Marshal(page)
+	if err != nil {
+		return err
+	}
+	contractsJSON, err := json.Marshal([]spec.BindingContractSnapshot{
+		{
+			BindingID:             "player.ban",
+			FunctionID:            "player.ban",
+			FunctionVersion:       "1.0.0",
+			InputSchemaDigest:     digestApprovalRaw([]byte(inputSchema)),
+			OutputSchemaDigest:    digestApprovalRaw([]byte(outputSchema)),
+			Risk:                  spec.RiskDanger,
+			Permission:            "player:ban",
+			Approval:              spec.ApprovalPolicy{Required: true, PolicyKey: "two_person"},
+			ExecutionMode:         spec.PageExecutionModeSync,
+			RendererSchemaVersion: "page-spec:1",
+		},
+	})
+	if err != nil {
+		return err
+	}
+	return svcCtx.PublishedPageSpecModel.Create(ctx, &model.PublishedPageSpec{
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "player.manage",
+		Version:               1,
+		SpecJSON:              string(specJSON),
+		BindingContractsJSON:  string(contractsJSON),
+		RendererSchemaVersion: "page-spec:1",
+		Active:                true,
+		PublishedAt:           time.Now(),
+		PublishedBy:           "tester",
+	})
+}
+
+func digestApprovalRaw(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
 }

@@ -133,20 +133,54 @@ export default function TaskPageEditor({
           <Form.Item label="显示事件">
             <Switch
               checked={value.taskView.showEvents}
+              disabled={readonly || !value.taskView.eventsBindingId}
               onChange={(showEvents) => handleTaskViewChange({ showEvents })}
             />
+            {!value.taskView.eventsBindingId ? (
+              <Text type="secondary" style={{ marginLeft: 8 }}>
+                未生成 events binding，不能开启事件展示。
+              </Text>
+            ) : null}
           </Form.Item>
           <Form.Item label="允许取消">
             <Switch
               checked={value.taskView.cancelable}
+              disabled={readonly || !value.taskView.cancelBindingId}
               onChange={(cancelable) => handleTaskViewChange({ cancelable })}
             />
+            {!value.taskView.cancelBindingId ? (
+              <Text type="secondary" style={{ marginLeft: 8 }}>
+                未生成 cancel binding，不能开启取消入口。
+              </Text>
+            ) : null}
           </Form.Item>
           <Form.Item label="允许重试">
             <Switch checked={false} disabled />
             <Text type="secondary" style={{ marginLeft: 8 }}>
               当前未配置真实 retry function，不能生成重试入口。
             </Text>
+          </Form.Item>
+          <Form.Item label="Lifecycle bindings">
+            <Space direction="vertical" size={4}>
+              <Text type="secondary">
+                taskId state: <Text code>{value.taskView.taskIdStateKey || 'taskId'}</Text>
+              </Text>
+              <Text type="secondary">
+                status: <Text code>{value.taskView.statusBindingId || '未配置'}</Text>
+              </Text>
+              <Text type="secondary">
+                status path: <Text code>{value.taskView.statusStatePath || '未配置'}</Text>
+              </Text>
+              <Text type="secondary">
+                events: <Text code>{value.taskView.eventsBindingId || '未配置'}</Text>
+              </Text>
+              <Text type="secondary">
+                result: <Text code>{value.taskView.resultBindingId || '未配置'}</Text>
+              </Text>
+              <Text type="secondary">
+                cancel: <Text code>{value.taskView.cancelBindingId || '未配置'}</Text>
+              </Text>
+            </Space>
           </Form.Item>
         </Form>
       </Panel>

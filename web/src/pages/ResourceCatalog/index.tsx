@@ -212,12 +212,18 @@ const compactSemanticsPayload = (
   assignNumber('deleteId', values.deleteId);
   if (values.actions) {
     const actions = values.actions
-      .map((action) => ({
-        functionId: action.functionId?.trim(),
-        subject: action.subject,
-        identityInput: action.identityInput?.trim(),
-      }))
-      .filter((action) => action.functionId && action.subject);
+      .map((action) => {
+        const functionId = action.functionId?.trim();
+        if (!functionId || !action.subject) {
+          return undefined;
+        }
+        return {
+          functionId,
+          subject: action.subject,
+          identityInput: action.identityInput?.trim(),
+        };
+      })
+      .filter((action): action is NonNullable<typeof action> => Boolean(action));
     Object.assign(payload, { actions });
   }
   if (values.tasks) {
@@ -282,12 +288,6 @@ const compactTaskSemantic = (task: TaskSemanticInfo): TaskSemanticInfo | undefin
     next.cancel = {
       function: { functionId: task.cancel.function.functionId.trim() },
       taskIdInput: task.cancel.taskIdInput?.trim() || '',
-    };
-  }
-  if (task.retry?.function?.functionId) {
-    next.retry = {
-      function: { functionId: task.retry.function.functionId.trim() },
-      taskIdInput: task.retry.taskIdInput?.trim() || '',
     };
   }
   return next;
@@ -825,7 +825,6 @@ const ResourceCatalogPage: React.FC = () => {
                           <Text code key={task.start.functionId}>
                             {task.start.functionId} / status: {task.status.function.functionId}
                             {task.cancel ? ` / cancel: ${task.cancel.function.functionId}` : ''}
-                            {task.retry ? ` / retry: ${task.retry.function.functionId}` : ''}
                           </Text>
                         ))}
                       </Space>
@@ -1163,7 +1162,7 @@ const ResourceCatalogPage: React.FC = () => {
                   showIcon
                   style={{ marginBottom: 12 }}
                   message="这里只描述任务生命周期能力"
-                  description="start 必须是 task 能力函数；status/events/result/cancel/retry 只声明真实函数和 taskId 输入路径，不配置页面按钮位置。"
+                  description="start 必须是 task 能力函数；status/events/result/cancel 只声明真实函数和 taskId 输入路径，不配置页面按钮位置。当前平台没有 retry runtime，因此不提供重试语义录入。"
                 />
                 {fields.map((field) => (
                   <Card key={field.key} size="small" style={{ marginBottom: 12 }}>
@@ -1248,12 +1247,6 @@ const ResourceCatalogPage: React.FC = () => {
                         {renderFunctionIdSelect('选择 cancel 函数')}
                       </Form.Item>
                       <Form.Item label="Cancel TaskID Input" name={[field.name, 'cancel', 'taskIdInput']}>
-                        <Input style={{ width: 160 }} placeholder="/taskId" />
-                      </Form.Item>
-                      <Form.Item label="Retry 函数" name={[field.name, 'retry', 'function', 'functionId']}>
-                        {renderFunctionIdSelect('选择 retry 函数')}
-                      </Form.Item>
-                      <Form.Item label="Retry TaskID Input" name={[field.name, 'retry', 'taskIdInput']}>
                         <Input style={{ width: 160 }} placeholder="/taskId" />
                       </Form.Item>
                     </Space>

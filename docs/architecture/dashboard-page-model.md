@@ -360,7 +360,11 @@ JSON Schema 为列表列、详情项和表单字段生成候选。`CapabilitySem
 
 ### TaskPage 与 ReportPage
 
-异步函数生成 TaskPage；报告语义生成 ReportPage。TaskPage 必须接入真实 task 状态、事件、取消/重试和结果，不得只显示 taskId。ReportPage 必须使用已验证的数据集、指标和图表字段，不得只显示 JSON。
+异步函数生成 TaskPage；报告语义生成 ReportPage。TaskPage 必须接入真实 task 状态、事件、取消/重试和结果，不得只显示 taskId。
+
+TaskPage 的生命周期能力来自 `TaskSemantic`，生成器把 `start/status/events/result/cancel` 转成 PageSpec binding，并在 `TaskViewSpec` 中保存 bindingId 引用、固定 `taskId` page state key 与 `status.statePath`。运行时仍统一走 `POST /console/pages/:pageKey/bindings/:bindingId/execute`，浏览器只提交 `page_state.taskId` 作为 selector source，不传 functionId、target、gameId 或 env。缺少 `status` binding 或 `statusStatePath` 的 TaskPage 不可发布；`events/result/cancel` 只有存在对应真实函数语义时才显示入口；retry 在真实 runtime 闭环前禁止发布。
+
+ReportPage 必须使用已验证的数据集、指标和图表字段，不得只显示 JSON。
 
 ## 前端运行时：ProComponents 页面渲染器
 

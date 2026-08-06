@@ -414,6 +414,7 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 	if err != nil {
 		return nil, err
 	}
+	publishSource := s.pagePublishSource(ctx, gameID, env, p)
 
 	now := time.Now()
 	publishedVersion := p.DraftRevision
@@ -429,6 +430,11 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 			SpecJSON:              string(specJSON),
 			BindingContractsJSON:  string(contractsJSON),
 			RendererSchemaVersion: rendererSchemaVersion,
+			BaseProposalKey:       publishSource.BaseProposalKey,
+			BaseProposalVersion:   publishSource.BaseProposalVersion,
+			FunctionDigest:        publishSource.FunctionDigest,
+			SemanticsDigest:       publishSource.SemanticsDigest,
+			GeneratorVersion:      publishSource.GeneratorVersion,
 			Active:                true,
 			PublishedAt:           now,
 			PublishedBy:           actor,
@@ -911,6 +917,8 @@ func bindingRequiresOutputSelectors(binding spec.PageFunctionBinding, page spec.
 		return page.Type == spec.PageTypeResource
 	case spec.BindingUsageReport:
 		return page.Type == spec.PageTypeReport
+	case spec.BindingUsageTaskStatus, spec.BindingUsageTaskEvents, spec.BindingUsageTaskResult:
+		return page.Type == spec.PageTypeTask
 	default:
 		return false
 	}
@@ -937,7 +945,16 @@ func schemaHasFields(raw spec.JSONSchema) bool {
 
 func isValidUsage(usage spec.PageBindingUsage) bool {
 	switch usage {
-	case spec.BindingUsageQuery, spec.BindingUsageDetail, spec.BindingUsageAction, spec.BindingUsageTask, spec.BindingUsageReport:
+	case spec.BindingUsageQuery,
+		spec.BindingUsageDetail,
+		spec.BindingUsageAction,
+		spec.BindingUsageTask,
+		spec.BindingUsageTaskStatus,
+		spec.BindingUsageTaskEvents,
+		spec.BindingUsageTaskResult,
+		spec.BindingUsageTaskCancel,
+		spec.BindingUsageTaskRetry,
+		spec.BindingUsageReport:
 		return true
 	default:
 		return false
@@ -1291,6 +1308,35 @@ func countErrors(diags []spec.Diagnostic) int {
 		}
 	}
 	return count
+}
+
+type pagePublishSource struct {
+	BaseProposalKey     string
+	BaseProposalVersion int
+	FunctionDigest      string
+	SemanticsDigest     string
+	GeneratorVersion    string
+}
+
+func (s *Service) pagePublishSource(ctx context.Context, gameID string, env string, page *model.PageSpec) pagePublishSource {
+	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil || page == nil {
+		return pagePublishSource{}
+	}
+	source := pagePublishSource{
+		BaseProposalKey:     strings.TrimSpace(page.BaseProposalKey),
+		BaseProposalVersion: page.BaseProposalVersion,
+	}
+	if source.BaseProposalKey == "" {
+		return source
+	}
+	proposal, err := model.NewPageProposalModel(s.svcCtx.DB).FindByScopeAndKey(ctx, gameID, env, source.BaseProposalKey)
+	if err != nil || proposal == nil {
+		return source
+	}
+	source.FunctionDigest = strings.TrimSpace(proposal.FunctionDigest)
+	source.SemanticsDigest = strings.TrimSpace(proposal.SemanticsDigest)
+	source.GeneratorVersion = strings.TrimSpace(proposal.GeneratorVersion)
+	return source
 }
 
 func firstNonEmpty(values ...string) string {

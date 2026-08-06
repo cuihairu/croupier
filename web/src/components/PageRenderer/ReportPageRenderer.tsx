@@ -59,6 +59,8 @@ export interface ReportPageRendererProps {
   bindings: PageFunctionBinding[];
   /** 执行绑定函数 */
   onExecute: PageExecuteFn;
+  /** 预览模式只展示页面结构，禁止触发真实函数执行 */
+  preview?: boolean;
   /** 导出数据 */
   onExport?: (format: 'csv' | 'excel') => Promise<void>;
   /** 页面标题 */
@@ -145,6 +147,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   spec,
   bindings,
   onExecute,
+  preview = false,
   onExport,
   title,
 }) => {
@@ -165,6 +168,10 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
     async (values: FormValues) => {
       if (!mainBinding) {
         message.error('未配置报表绑定');
+        return;
+      }
+      if (preview) {
+        message.info('预览模式不执行报表查询');
         return;
       }
 
@@ -188,7 +195,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         setLoading(false);
       }
     },
-    [mainBinding, onExecute]
+    [mainBinding, onExecute, preview]
   );
 
   // 处理导出
@@ -196,6 +203,10 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
     async (format: 'csv' | 'excel') => {
       if (!onExport) {
         message.warning('导出功能未配置');
+        return;
+      }
+      if (preview) {
+        message.info('预览模式不导出数据');
         return;
       }
 
@@ -207,7 +218,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         message.error('导出失败: ' + msg);
       }
     },
-    [onExport]
+    [onExport, preview]
   );
 
   // 构建表格列
@@ -268,7 +279,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         <SchemaFormRenderer
           spec={spec.queryForm}
           onFinish={handleQuery}
-          disabled={loading}
+          disabled={loading || preview}
         />
         <Button style={{ marginTop: 12 }} onClick={() => setData([])}>
           清空结果

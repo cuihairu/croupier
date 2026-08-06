@@ -3,6 +3,7 @@ package console
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sort"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/cuihairu/croupier/internal/validation"
@@ -123,13 +125,16 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	actor := currentActor(ctx)
 	var result spec.PageExecutionResult
 	var target string
-	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, *published, binding, requestID, actor)
+	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, *published, binding, contract, requestID, actor)
 	defer func() {
 		finishSpan(err, result, target)
-		s.auditPageExecute(ctx, gameID, env, *published, binding, requestID, target, result, err)
+		s.auditPageExecute(ctx, gameID, env, *published, binding, contract, requestID, target, result, err)
 	}()
 
 	if err := s.ensureBindingFresh(binding, contract, functions); err != nil {
+		return nil, err
+	}
+	if err := s.enforcePublishedBindingGovernance(ctx, contract); err != nil {
 		return nil, err
 	}
 
@@ -144,22 +149,28 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	if binding.Execution.Mode == spec.PageExecutionModeTask {
 		mode = "async"
 	}
+	metadata := publishedBindingExecutionMetadata(*published, binding, contract, requestID)
+	if contract.Approval.Required {
+		approvalID, err := s.createPageApproval(ctx, gameID, env, binding, contract, payload, mode, metadata)
+		if err != nil {
+			return nil, err
+		}
+		result = spec.PageExecutionResult{
+			Kind:       spec.PageExecutionKindApproval,
+			RequestID:  requestID,
+			TraceID:    telemetry.TraceIDFromContext(ctx),
+			ApprovalID: approvalID,
+		}
+		return &ConsoleExecuteBindingResponse{Result: result}, nil
+	}
 
 	functionResp, err := function.NewService(s.svcCtx).FunctionInvoke(ctx, &function.FunctionInvokeRequest{
-		ID:      binding.FunctionID,
-		Payload: payload,
-		GameID:  gameID,
-		Env:     env,
-		Mode:    mode,
-		Metadata: map[string]string{
-			"page_key":         published.PageKey,
-			"page_category":    published.Category.Key,
-			"publish_version":  strconv.Itoa(published.Version),
-			"binding_id":       binding.ID,
-			"binding_usage":    string(binding.Usage),
-			"page_request_id":  requestID,
-			"page_runtime_api": "console.binding.execute",
-		},
+		ID:       binding.FunctionID,
+		Payload:  payload,
+		GameID:   gameID,
+		Env:      env,
+		Mode:     mode,
+		Metadata: metadata,
 	})
 	if err != nil {
 		return nil, err
@@ -183,6 +194,92 @@ func (s *Service) ensureBindingFresh(binding spec.PageFunctionBinding, contract 
 		})
 	}
 	return nil
+}
+
+func (s *Service) enforcePublishedBindingGovernance(ctx context.Context, contract spec.BindingContractSnapshot) error {
+	permission := strings.TrimSpace(contract.Permission)
+	if permission == "" {
+		return nil
+	}
+	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权执行该页面操作", "admin:all", permission)
+	return err
+}
+
+func publishedBindingExecutionMetadata(
+	page spec.PublishedPageSpec,
+	binding spec.PageFunctionBinding,
+	contract spec.BindingContractSnapshot,
+	requestID string,
+) map[string]string {
+	metadata := map[string]string{
+		"page_key":                 page.PageKey,
+		"page_category":            page.Category.Key,
+		"publish_version":          strconv.Itoa(page.Version),
+		"renderer_schema_version":  page.RendererSchemaVersion,
+		"base_proposal_key":        page.BaseProposalKey,
+		"function_digest":          page.FunctionDigest,
+		"semantics_digest":         page.SemanticsDigest,
+		"generator_version":        page.GeneratorVersion,
+		"binding_id":               binding.ID,
+		"binding_usage":            string(binding.Usage),
+		"page_request_id":          requestID,
+		"page_runtime_api":         "console.binding.execute",
+		"page_snapshot_governance": "validated",
+		"function_id":              binding.FunctionID,
+		"snapshot_function_id":     contract.FunctionID,
+		"snapshot_function_ver":    contract.FunctionVersion,
+		"snapshot_execution_mode":  string(contract.ExecutionMode),
+		"snapshot_risk":            string(contract.Risk),
+		"snapshot_permission":      contract.Permission,
+		"snapshot_approval":        strconv.FormatBool(contract.Approval.Required),
+		"snapshot_approval_policy": contract.Approval.PolicyKey,
+	}
+	for key, value := range metadata {
+		if strings.TrimSpace(value) == "" {
+			delete(metadata, key)
+		}
+	}
+	if page.BaseProposalVersion > 0 {
+		metadata["base_proposal_version"] = strconv.Itoa(page.BaseProposalVersion)
+	}
+	return metadata
+}
+
+func (s *Service) createPageApproval(
+	ctx context.Context,
+	gameID string,
+	env string,
+	binding spec.PageFunctionBinding,
+	contract spec.BindingContractSnapshot,
+	payload json.RawMessage,
+	mode string,
+	metadata map[string]string,
+) (string, error) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.ApprovalsStore == nil {
+		return "", errorx.NewConflict("approval store unavailable")
+	}
+	functionID := strings.TrimSpace(firstNonEmpty(contract.FunctionID, binding.FunctionID))
+	if functionID == "" {
+		return "", errorx.NewValidationError("approval binding function is required")
+	}
+	approvalID := fmt.Sprintf("page_%s_%s", sanitizeApprovalID(functionID), strings.ReplaceAll(uuid.NewString(), "-", ""))
+	approval := &approvals.Approval{
+		ID:         approvalID,
+		State:      "pending",
+		FunctionID: functionID,
+		GameID:     strings.TrimSpace(gameID),
+		Env:        strings.TrimSpace(env),
+		Actor:      currentActor(ctx),
+		Mode:       strings.TrimSpace(mode),
+		Payload:    []byte(payload),
+		Metadata:   cloneStringMap(metadata),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+	if _, err := s.svcCtx.ApprovalsStore.Create(approval); err != nil {
+		return "", fmt.Errorf("failed to create page approval: %w", err)
+	}
+	return approvalID, nil
 }
 
 func validateBindingExecutePayload(payload json.RawMessage, binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec) error {
@@ -435,6 +532,7 @@ func (s *Service) startPageExecuteSpan(
 	env string,
 	page spec.PublishedPageSpec,
 	binding spec.PageFunctionBinding,
+	contract spec.BindingContractSnapshot,
 	requestID string,
 	actor string,
 ) (context.Context, func(error, spec.PageExecutionResult, string)) {
@@ -449,10 +547,19 @@ func (s *Service) startPageExecuteSpan(
 		attribute.String("actor", actor),
 		attribute.String("page.key", page.PageKey),
 		attribute.Int("page.publish_version", page.Version),
+		attribute.String("page.base_proposal_key", strings.TrimSpace(page.BaseProposalKey)),
+		attribute.Int("page.base_proposal_version", page.BaseProposalVersion),
+		attribute.String("page.function_digest", strings.TrimSpace(page.FunctionDigest)),
+		attribute.String("page.semantics_digest", strings.TrimSpace(page.SemanticsDigest)),
+		attribute.String("page.generator_version", strings.TrimSpace(page.GeneratorVersion)),
 		attribute.String("page.binding_id", binding.ID),
 		attribute.String("function.id", binding.FunctionID),
 		attribute.String("page.binding_usage", string(binding.Usage)),
 		attribute.String("page.execution_mode", string(binding.Execution.Mode)),
+		attribute.String("page.snapshot_risk", string(contract.Risk)),
+		attribute.String("page.snapshot_permission", strings.TrimSpace(contract.Permission)),
+		attribute.Bool("page.snapshot_approval_required", contract.Approval.Required),
+		attribute.String("page.snapshot_approval_policy", strings.TrimSpace(contract.Approval.PolicyKey)),
 	)
 	return nextCtx, func(err error, result spec.PageExecutionResult, target string) {
 		attrs := []attribute.KeyValue{
@@ -478,6 +585,7 @@ func (s *Service) auditPageExecute(
 	env string,
 	page spec.PublishedPageSpec,
 	binding spec.PageFunctionBinding,
+	contract spec.BindingContractSnapshot,
 	requestID string,
 	target string,
 	result spec.PageExecutionResult,
@@ -498,21 +606,30 @@ func (s *Service) auditPageExecute(
 		traceID = telemetry.TraceIDFromContext(ctx)
 	}
 	details := map[string]interface{}{
-		"request_id":       requestID,
-		"trace_id":         traceID,
-		"game_id":          gameID,
-		"env":              env,
-		"page_key":         page.PageKey,
-		"publish_version":  page.Version,
-		"binding_id":       binding.ID,
-		"binding_usage":    string(binding.Usage),
-		"function_id":      binding.FunctionID,
-		"target":           target,
-		"execution_mode":   string(binding.Execution.Mode),
-		"result_kind":      string(result.Kind),
-		"task_id":          result.TaskID,
-		"approval_id":      result.ApprovalID,
-		"diagnostic_count": len(result.Diagnostics),
+		"request_id":                 requestID,
+		"trace_id":                   traceID,
+		"game_id":                    gameID,
+		"env":                        env,
+		"page_key":                   page.PageKey,
+		"publish_version":            page.Version,
+		"base_proposal_key":          strings.TrimSpace(page.BaseProposalKey),
+		"base_proposal_version":      page.BaseProposalVersion,
+		"function_digest":            strings.TrimSpace(page.FunctionDigest),
+		"semantics_digest":           strings.TrimSpace(page.SemanticsDigest),
+		"generator_version":          strings.TrimSpace(page.GeneratorVersion),
+		"binding_id":                 binding.ID,
+		"binding_usage":              string(binding.Usage),
+		"function_id":                binding.FunctionID,
+		"target":                     target,
+		"execution_mode":             string(binding.Execution.Mode),
+		"snapshot_risk":              string(contract.Risk),
+		"snapshot_permission":        strings.TrimSpace(contract.Permission),
+		"snapshot_approval_required": contract.Approval.Required,
+		"snapshot_approval_policy":   strings.TrimSpace(contract.Approval.PolicyKey),
+		"result_kind":                string(result.Kind),
+		"task_id":                    result.TaskID,
+		"approval_id":                result.ApprovalID,
+		"diagnostic_count":           len(result.Diagnostics),
 	}
 	_, err := s.svcCtx.AuditService.Log(ctx, audit.EventPageExecute,
 		audit.WithActorID(actor, "user", actor),
@@ -526,6 +643,8 @@ func (s *Service) auditPageExecute(
 				"binding_id":  binding.ID,
 				"function_id": binding.FunctionID,
 				"target":      target,
+				"risk":        string(contract.Risk),
+				"permission":  strings.TrimSpace(contract.Permission),
 			},
 		}),
 		audit.WithDetails(details),
@@ -578,6 +697,53 @@ func currentActor(ctx context.Context) string {
 	return actor
 }
 
+func cloneStringMap(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(values))
+	for key, value := range values {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			continue
+		}
+		out[key] = value
+	}
+	return out
+}
+
+func sanitizeApprovalID(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return "binding"
+	}
+	var builder strings.Builder
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+			builder.WriteRune(r)
+		case r >= '0' && r <= '9':
+			builder.WriteRune(r)
+		case r == '.', r == '_', r == '-':
+			builder.WriteRune('_')
+		}
+	}
+	if builder.Len() == 0 {
+		return "binding"
+	}
+	return builder.String()
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
 func parsePublishedPages(models []model.PublishedPageSpec) []spec.PublishedPageSpec {
 	pages := make([]spec.PublishedPageSpec, 0, len(models))
 	for _, pp := range models {
@@ -606,6 +772,11 @@ func parsePublishedPageSpec(pp model.PublishedPageSpec) *spec.PublishedPageSpec 
 		PublishedAt:           pp.PublishedAt.Format("2006-01-02T15:04:05Z07:00"),
 		PublishedBy:           pp.PublishedBy,
 		RendererSchemaVersion: pp.RendererSchemaVersion,
+		BaseProposalKey:       pp.BaseProposalKey,
+		BaseProposalVersion:   pp.BaseProposalVersion,
+		FunctionDigest:        pp.FunctionDigest,
+		SemanticsDigest:       pp.SemanticsDigest,
+		GeneratorVersion:      pp.GeneratorVersion,
 		BindingContracts:      contracts,
 	}
 }
@@ -652,6 +823,9 @@ func generateMenuFromPages(pages []spec.PublishedPageSpec, lang string) spec.Con
 				labels: page.Category.Labels,
 				order:  page.Category.Order,
 			}
+		}
+		if page.Category.Order < categories[catKey].order {
+			categories[catKey].order = page.Category.Order
 		}
 		categories[catKey].pages = append(categories[catKey].pages, pageEntry{
 			key:   page.PageKey,

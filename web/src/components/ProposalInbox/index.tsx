@@ -255,15 +255,8 @@ export default function ProposalInbox() {
 
   const handleRegenerateProposal = useCallback(
     async (record: ContractChangeInfo) => {
-      if (!record.resourceKey) {
-        Modal.warning({
-          title: '无法按资源重新生成',
-          content: '该页面没有 resourceKey，请进入页面编辑器手动处理契约变化。',
-        });
-        return;
-      }
       await runContractAction(`regenerate:${record.pageKey}`, async () => {
-        const result = await regenerateProposal(record.resourceKey || '');
+        const result = await regenerateProposal(record.pageKey);
         Modal.success({ title: '已重新生成 Proposal', content: result.message });
       });
     },
@@ -272,15 +265,8 @@ export default function ProposalInbox() {
 
   const handleAutoMerge = useCallback(
     async (record: ContractChangeInfo) => {
-      if (!record.resourceKey) {
-        Modal.warning({
-          title: '无法自动合并',
-          content: '当前自动合并只支持 ResourcePage。请进入页面编辑器处理 Operation/Task/Report 的契约变化。',
-        });
-        return;
-      }
       await runContractAction(`merge:${record.pageKey}`, async () => {
-        const result = await mergeChanges(record.resourceKey || '', { strategy: 'auto' });
+        const result = await mergeChanges(record.pageKey, { strategy: 'auto' });
         Modal.info({
           title: '自动合并结果',
           content: `${result.message}。安全合并 ${result.merged} 项，仍有 ${result.conflicts} 项需要人工处理。`,
@@ -301,15 +287,8 @@ export default function ProposalInbox() {
           });
           return;
         }
-        if (record.resourceKey) {
-          const result = await republish(record.resourceKey);
-          Modal.success({ title: '已重新发布', content: result.message });
-          return;
-        }
-        Modal.warning({
-          title: '无法直接重新发布',
-          content: '该页面缺少草稿版本，请进入页面编辑器处理后发布。',
-        });
+        const result = await republish(record.pageKey);
+        Modal.success({ title: '已重新发布', content: result.message });
       });
     },
     [runContractAction],
@@ -536,7 +515,6 @@ export default function ProposalInbox() {
             type="link"
             icon={<ReloadOutlined />}
             loading={contractActionKey === `regenerate:${record.pageKey}`}
-            disabled={!record.resourceKey}
             onClick={() => handleRegenerateProposal(record)}
           >
             重生成
@@ -545,7 +523,6 @@ export default function ProposalInbox() {
             type="link"
             icon={<SyncOutlined />}
             loading={contractActionKey === `merge:${record.pageKey}`}
-            disabled={!record.resourceKey}
             onClick={() => handleAutoMerge(record)}
           >
             合并
@@ -721,6 +698,7 @@ export default function ProposalInbox() {
         {selectedProposal?.pageSpec ? (
           <PageRenderer
             pageSpec={selectedProposal.pageSpec}
+            preview
             onExecute={async () => {
               throw new Error('Proposal 预览不执行函数；发布后请在运行控制台执行。');
             }}

@@ -40,6 +40,7 @@ export interface CurrentState {
 
 /** 变更链 */
 export interface ChangeChain {
+  pageKey: string;
   resourceKey: string;
   items: ChangeItem[];
   current: CurrentState;
@@ -122,8 +123,8 @@ export interface RollbackResponse {
 /**
  * 获取变更链
  */
-export async function getChangeChain(resourceKey: string): Promise<ChangeChain> {
-  return request<ChangeChain>(`/api/v1/versioning/${resourceKey}/chain`, {
+export async function getChangeChain(pageKey: string): Promise<ChangeChain> {
+  return request<ChangeChain>(`/api/v1/versioning/pages/${pageKey}/chain`, {
     method: 'GET',
   });
 }
@@ -132,10 +133,10 @@ export async function getChangeChain(resourceKey: string): Promise<ChangeChain> 
  * 获取 Diff
  */
 export async function getDiff(
-  resourceKey: string,
+  pageKey: string,
   params?: { baseVersion?: number; targetVersion?: number }
 ): Promise<DiffResponse> {
-  return request<DiffResponse>(`/api/v1/versioning/${resourceKey}/diff`, {
+  return request<DiffResponse>(`/api/v1/versioning/pages/${pageKey}/diff`, {
     method: 'GET',
     params,
   });
@@ -145,10 +146,10 @@ export async function getDiff(
  * 合并变更
  */
 export async function mergeChanges(
-  resourceKey: string,
+  pageKey: string,
   data: MergeRequest
 ): Promise<MergeResponse> {
-  return request<MergeResponse>(`/api/v1/versioning/${resourceKey}/merge`, {
+  return request<MergeResponse>(`/api/v1/versioning/pages/${pageKey}/merge`, {
     method: 'POST',
     data,
   });
@@ -158,10 +159,10 @@ export async function mergeChanges(
  * 回滚草稿
  */
 export async function rollbackDraft(
-  resourceKey: string,
+  pageKey: string,
   data?: RollbackRequest
 ): Promise<RollbackResponse> {
-  return request<RollbackResponse>(`/api/v1/versioning/${resourceKey}/rollback-draft`, {
+  return request<RollbackResponse>(`/api/v1/versioning/pages/${pageKey}/rollback-draft`, {
     method: 'POST',
     data,
   });
@@ -171,10 +172,10 @@ export async function rollbackDraft(
  * 回滚发布
  */
 export async function rollbackPublish(
-  resourceKey: string,
+  pageKey: string,
   data?: RollbackRequest
 ): Promise<RollbackResponse> {
-  return request<RollbackResponse>(`/api/v1/versioning/${resourceKey}/rollback-publish`, {
+  return request<RollbackResponse>(`/api/v1/versioning/pages/${pageKey}/rollback-publish`, {
     method: 'POST',
     data,
   });
@@ -183,8 +184,8 @@ export async function rollbackPublish(
 /**
  * 重新生成 Proposal
  */
-export async function regenerateProposal(resourceKey: string): Promise<{ message: string }> {
-  return request<{ message: string }>(`/api/v1/versioning/${resourceKey}/regenerate`, {
+export async function regenerateProposal(pageKey: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/api/v1/versioning/pages/${pageKey}/regenerate`, {
     method: 'POST',
   });
 }
@@ -192,8 +193,8 @@ export async function regenerateProposal(resourceKey: string): Promise<{ message
 /**
  * 重新发布
  */
-export async function republish(resourceKey: string): Promise<{ message: string }> {
-  return request<{ message: string }>(`/api/v1/versioning/${resourceKey}/republish`, {
+export async function republish(pageKey: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/api/v1/versioning/pages/${pageKey}/republish`, {
     method: 'POST',
   });
 }

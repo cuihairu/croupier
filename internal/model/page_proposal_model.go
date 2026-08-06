@@ -46,6 +46,18 @@ func (m *PageProposalModel) FindByScopeAndKey(ctx context.Context, gameID, env, 
 	return &proposal, nil
 }
 
+// FindByScopeAndPageKey fetches the latest proposal that generated a page key.
+func (m *PageProposalModel) FindByScopeAndPageKey(ctx context.Context, gameID, env, pageKey string) (*PageProposal, error) {
+	var proposal PageProposal
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
+		Order("updated_at DESC, id DESC").
+		First(&proposal).Error; err != nil {
+		return nil, err
+	}
+	return &proposal, nil
+}
+
 // ListByScope lists all proposals in a scope.
 func (m *PageProposalModel) ListByScope(ctx context.Context, gameID, env string) ([]*PageProposal, error) {
 	var proposals []*PageProposal

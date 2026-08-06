@@ -834,14 +834,7 @@ func (s *Service) validateTaskSemantics(
 			}
 		}
 		if task.Retry != nil {
-			retry, err := s.validateSemanticFunctionRef(ctx, gameID, env, resourceKey, task.Retry.Function, "", fmt.Sprintf("tasks[%d].retry.function", index))
-			if err != nil {
-				return nil, err
-			}
-			task.Retry.Function = retry.ref
-			if err := validateTaskInputPointer(retry.contract, task.Retry.TaskIDInput, fmt.Sprintf("tasks[%d].retry.taskIdInput", index)); err != nil {
-				return nil, err
-			}
+			return nil, fmt.Errorf("invalid tasks[%d].retry: retry runtime is not available", index)
 		}
 		key := strings.TrimSpace(task.Start.FunctionID)
 		if _, ok := seen[key]; ok {
@@ -881,11 +874,16 @@ func (s *Service) validateReportSemantics(
 		if len(report.Metrics) == 0 {
 			return nil, fmt.Errorf("invalid reports[%d].metrics: at least one metric is required", index)
 		}
-		report.Dimensions = compactJSONPointers(report.Dimensions)
-		report.Metrics = compactJSONPointers(report.Metrics)
-		if len(report.Dimensions) == 0 || len(report.Metrics) == 0 {
-			return nil, fmt.Errorf("invalid reports[%d]: dimensions and metrics must be JSON Pointers", index)
+		dimensions, err := validateJSONPointerList(report.Dimensions, fmt.Sprintf("reports[%d].dimensions", index))
+		if err != nil {
+			return nil, err
 		}
+		metrics, err := validateJSONPointerList(report.Metrics, fmt.Sprintf("reports[%d].metrics", index))
+		if err != nil {
+			return nil, err
+		}
+		report.Dimensions = dimensions
+		report.Metrics = metrics
 		for _, pointer := range report.Dimensions {
 			if !strings.HasPrefix(pointer, "/") {
 				return nil, fmt.Errorf("invalid reports[%d]: dataset field pointer %s must be relative to dataset item and start with /", index, pointer)
@@ -964,12 +962,32 @@ func validateTaskInputPointer(contract *model.FunctionContract, pointer string, 
 	return nil
 }
 
+func validateJSONPointerList(values []string, field string) ([]string, error) {
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for index, value := range values {
+		pointer := strings.TrimSpace(value)
+		if pointer == "" || !strings.HasPrefix(pointer, "/") || !isJSONPointer(pointer) {
+			return nil, fmt.Errorf("invalid %s[%d]: must be a non-empty JSON Pointer", field, index)
+		}
+		if _, ok := seen[pointer]; ok {
+			continue
+		}
+		seen[pointer] = struct{}{}
+		out = append(out, pointer)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("invalid %s: at least one JSON Pointer is required", field)
+	}
+	return out, nil
+}
+
 func compactJSONPointers(values []string) []string {
 	out := make([]string, 0, len(values))
 	seen := map[string]struct{}{}
 	for _, value := range values {
 		pointer := strings.TrimSpace(value)
-		if pointer == "" || !isJSONPointer(pointer) {
+		if pointer == "" || !strings.HasPrefix(pointer, "/") || !isJSONPointer(pointer) {
 			continue
 		}
 		if _, ok := seen[pointer]; ok {

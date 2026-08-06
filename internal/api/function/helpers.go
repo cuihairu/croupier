@@ -209,9 +209,10 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	}
 
 	approvedContinuation := isApprovedContinuation(req.Metadata)
+	pageSnapshotGoverned := isPageSnapshotGoverned(req.Metadata)
 	var functionPolicy *policy.Policy
 	// Apply function policy checks
-	if svcCtx.PolicyManager != nil && !approvedContinuation {
+	if svcCtx.PolicyManager != nil && !approvedContinuation && !pageSnapshotGoverned {
 		roleNames := utils.RoleNamesFromModels(roles)
 		functionPolicy, err = enforceFunctionPolicy(ctx, svcCtx, req.ID, roleNames)
 		if err != nil {
@@ -349,6 +350,13 @@ func isApprovedContinuation(metadata map[string]string) bool {
 	return strings.EqualFold(strings.TrimSpace(metadata["approval_bypass"]), "approved")
 }
 
+func isPageSnapshotGoverned(metadata map[string]string) bool {
+	if metadata == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(metadata["page_snapshot_governance"]), "validated")
+}
+
 // auditFunctionInvoke logs function invocation to audit service
 func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin *model.Admin, userRoles []string, functionPolicy *policy.Policy, invokeErr error) {
 	username := ""
@@ -412,6 +420,7 @@ func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, req
 		TargetServiceID: strings.TrimSpace(req.TargetServiceID),
 		HashKey:         strings.TrimSpace(req.HashKey),
 		Payload:         payload,
+		Metadata:        cloneMetadata(req.Metadata),
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}

@@ -46,6 +46,7 @@ import (
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
+	versioningservice "github.com/cuihairu/croupier/internal/service/versioning"
 	"github.com/cuihairu/croupier/internal/svc"
 
 	"github.com/gin-gonic/gin"
@@ -92,6 +93,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerResourceRoutes(protected.Group("/resources"), serverCtx)
 		registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
 		registerProposalRoutes(protected.Group("/proposals"), serverCtx)
+		registerVersioningRoutes(protected.Group("/versioning"), serverCtx)
 		registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
 		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
 		registerFeedbackRoutes(protected.Group("/feedback"), serverCtx)
@@ -734,9 +736,23 @@ func registerProposalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	proposalHandler := service.NewProposalHandler(proposalSvc)
 	g.GET("", proposalHandler.ListProposals)
 	g.GET("/", proposalHandler.ListProposals)
+	g.GET("/inbox", proposalHandler.Inbox)
 	g.GET("/:proposalKey", proposalHandler.GetProposal)
 	g.POST("/:proposalKey/accept", proposalHandler.AcceptProposal)
+	g.POST("/:proposalKey/accept-and-publish", proposalHandler.AcceptAndPublishProposal)
 	g.POST("/:proposalKey/reject", proposalHandler.RejectProposal)
+}
+
+func registerVersioningRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	versioningSvc := versioningservice.NewService(ctx.DB)
+	versioningHandler := versioningservice.NewHandler(versioningSvc)
+	g.GET("/pages/:pageKey/chain", versioningHandler.GetChangeChain)
+	g.GET("/pages/:pageKey/diff", versioningHandler.Diff)
+	g.POST("/pages/:pageKey/merge", versioningHandler.Merge)
+	g.POST("/pages/:pageKey/rollback-draft", versioningHandler.RollbackDraft)
+	g.POST("/pages/:pageKey/rollback-publish", versioningHandler.RollbackPublish)
+	g.POST("/pages/:pageKey/regenerate", versioningHandler.RegenerateProposal)
+	g.POST("/pages/:pageKey/republish", versioningHandler.Republish)
 }
 
 // ============================================================================
