@@ -117,7 +117,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests
