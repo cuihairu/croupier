@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  minimatch: '>=5.0.0'
   eslint: '>=9.26.0'
   '@babel/runtime': '>=7.26.10 <8.0.0'
   '@octokit/plugin-paginate-rest@>=1.0.0 <9.2.2': '>=9.2.2'
@@ -214,7 +215,7 @@ importers:
         version: 2.14.1(jiti@2.7.0)
       '@umijs/lint':
         specifier: ^4.1.1
-        version: 4.7.0(eslint@9.39.5(jiti@2.7.0))(jest@29.7.0(@types/node@26.1.2)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@26.1.2)(typescript@5.9.3)))(stylelint@14.8.2)(typescript@5.9.3)
+        version: 4.7.0(eslint@9.39.5(jiti@2.7.0))(jest@29.7.0(@types/node@26.1.2)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@26.1.2)(typescript@5.9.3)))(postcss-less@3.1.4)(postcss-scss@2.1.1)(stylelint@14.8.2)(typescript@5.9.3)
       '@umijs/max':
         specifier: ^4.7.0
         version: 4.7.0(@babel/core@8.0.1)(@types/node@26.1.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(dva@2.5.0-beta.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(esbuild@0.28.1)(jest@29.7.0(@types/node@26.1.2)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@26.1.2)(typescript@5.9.3)))(jiti@2.7.0)(prettier@2.8.8)(rc-field-form@2.7.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rollup@3.30.0)(sass@1.54.0)(styled-jsx@5.1.7(@babel/core@8.0.1)(babel-plugin-macros@3.1.0)(react@18.3.1))(terser@5.49.1)(type-fest@4.41.0)(typescript@5.9.3)(webpack@5.109.2(esbuild@0.28.1)(postcss@8.5.25))
@@ -7226,13 +7227,6 @@ packages:
     resolution: {integrity: sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==}
     engines: {node: 18 || 20 || >=22}
 
-  minimatch@3.1.5:
-    resolution: {integrity: sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==}
-
-  minimatch@8.0.7:
-    resolution: {integrity: sha512-V+1uQNdzybxa14e/p00HZnQNNcTjnRJjDxg2V8wtkjFctq4M7hXFws4oekyTP0Jebeq7QYtpFyOeBAjc88zvYg==}
-    engines: {node: '>=16 || 14 >=14.17'}
-
   minimist-options@4.1.0:
     resolution: {integrity: sha512-Q4r8ghd80yhO/0j1O3B2BjweX3fiHg9cdOwjJd2J76Q135c+NDxGCqdYKQ1SKBuFfgWbAUzBfvYjPUEeNgqN1A==}
     engines: {node: '>= 6'}
@@ -13180,7 +13174,7 @@ snapshots:
     dependencies:
       '@eslint/object-schema': 2.1.7
       debug: 4.4.3
-      minimatch: 3.1.5
+      minimatch: 10.2.6
     transitivePeerDependencies:
       - supports-color
 
@@ -13201,7 +13195,7 @@ snapshots:
       ignore: 5.3.2
       import-fresh: 3.3.1
       js-yaml: 5.2.3
-      minimatch: 3.1.5
+      minimatch: 10.2.6
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
       - supports-color
@@ -13850,7 +13844,7 @@ snapshots:
       postcss: 8.5.25
       postcss-syntax: 0.36.2(postcss-html@0.36.0)(postcss-less@3.1.4)(postcss-scss@2.1.1)(postcss@8.5.25)
 
-  '@stylelint/postcss-css-in-js@0.38.0(postcss-syntax@0.36.2(postcss@8.5.25))(postcss@8.5.25)':
+  '@stylelint/postcss-css-in-js@0.38.0(postcss-syntax@0.36.2(postcss-less@3.1.4)(postcss-scss@2.1.1)(postcss@8.5.25))(postcss@8.5.25)':
     dependencies:
       '@babel/core': 8.0.1
       postcss: 8.5.25
@@ -14864,11 +14858,11 @@ snapshots:
       '@babel/runtime': 7.29.7
       query-string: 6.14.1
 
-  '@umijs/lint@4.7.0(eslint@9.39.5(jiti@2.7.0))(jest@29.7.0(@types/node@26.1.2)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@26.1.2)(typescript@5.9.3)))(stylelint@14.8.2)(typescript@5.9.3)':
+  '@umijs/lint@4.7.0(eslint@9.39.5(jiti@2.7.0))(jest@29.7.0(@types/node@26.1.2)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@26.1.2)(typescript@5.9.3)))(postcss-less@3.1.4)(postcss-scss@2.1.1)(stylelint@14.8.2)(typescript@5.9.3)':
     dependencies:
       '@babel/core': 8.0.1
       '@babel/eslint-parser': 7.23.3(@babel/core@8.0.1)(eslint@9.39.5(jiti@2.7.0))
-      '@stylelint/postcss-css-in-js': 0.38.0(postcss-syntax@0.36.2(postcss@8.5.25))(postcss@8.5.25)
+      '@stylelint/postcss-css-in-js': 0.38.0(postcss-syntax@0.36.2(postcss-less@3.1.4)(postcss-scss@2.1.1)(postcss@8.5.25))(postcss@8.5.25)
       '@typescript-eslint/eslint-plugin': 5.62.0(@typescript-eslint/parser@5.62.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
       '@typescript-eslint/parser': 5.62.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
       '@umijs/babel-preset-umi': 4.7.0
@@ -14967,7 +14961,7 @@ snapshots:
 
   '@umijs/max@4.7.0(@babel/core@8.0.1)(@types/node@26.1.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(dva@2.5.0-beta.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(esbuild@0.28.1)(jest@29.7.0(@types/node@26.1.2)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@26.1.2)(typescript@5.9.3)))(jiti@2.7.0)(prettier@2.8.8)(rc-field-form@2.7.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rollup@3.30.0)(sass@1.54.0)(styled-jsx@5.1.7(@babel/core@8.0.1)(babel-plugin-macros@3.1.0)(react@18.3.1))(terser@5.49.1)(type-fest@4.41.0)(typescript@5.9.3)(webpack@5.109.2(esbuild@0.28.1)(postcss@8.5.25))':
     dependencies:
-      '@umijs/lint': 4.7.0(eslint@9.39.5(jiti@2.7.0))(jest@29.7.0(@types/node@26.1.2)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@26.1.2)(typescript@5.9.3)))(stylelint@14.8.2)(typescript@5.9.3)
+      '@umijs/lint': 4.7.0(eslint@9.39.5(jiti@2.7.0))(jest@29.7.0(@types/node@26.1.2)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@26.1.2)(typescript@5.9.3)))(postcss-less@3.1.4)(postcss-scss@2.1.1)(stylelint@14.8.2)(typescript@5.9.3)
       '@umijs/plugins': 4.7.0(@babel/core@8.0.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(antd@4.24.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(dva@2.5.0-beta.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(rc-field-form@2.7.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(webpack@5.109.2(esbuild@0.28.1)(postcss@8.5.25))
       antd: 4.24.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       eslint: 9.39.5(jiti@2.7.0)
@@ -17639,7 +17633,7 @@ snapshots:
       eslint: 9.39.5(jiti@2.7.0)
       estraverse: 5.3.0
       jsx-ast-utils: 3.3.5
-      minimatch: 3.1.5
+      minimatch: 10.2.6
       object.entries: 1.1.9
       object.fromentries: 2.0.8
       object.hasown: 1.1.4
@@ -17661,7 +17655,7 @@ snapshots:
       estraverse: 5.3.0
       hasown: 2.0.4
       jsx-ast-utils: 3.3.5
-      minimatch: 3.1.5
+      minimatch: 10.2.6
       object.entries: 1.1.9
       object.fromentries: 2.0.8
       object.values: 1.2.1
@@ -17763,7 +17757,7 @@ snapshots:
       is-glob: 4.0.3
       json-stable-stringify-without-jsonify: 1.0.1
       lodash.merge: 4.6.2
-      minimatch: 3.1.5
+      minimatch: 10.2.6
       natural-compare: 1.4.0
       optionator: 0.9.4
     optionalDependencies:
@@ -18158,7 +18152,7 @@ snapshots:
       fs-extra: 9.1.0
       glob: 7.2.3
       memfs: 3.5.3
-      minimatch: 3.1.5
+      minimatch: 10.2.6
       schema-utils: 2.7.0
       semver: 7.8.5
       tapable: 1.1.3
@@ -18176,7 +18170,7 @@ snapshots:
       deepmerge: 4.3.1
       fs-extra: 10.1.0
       memfs: 3.5.3
-      minimatch: 3.1.5
+      minimatch: 10.2.6
       node-abort-controller: 3.1.1
       schema-utils: 3.3.0
       semver: 7.8.5
@@ -18347,7 +18341,7 @@ snapshots:
       fs.realpath: 1.0.0
       inflight: 1.0.6
       inherits: 2.0.4
-      minimatch: 3.1.5
+      minimatch: 10.2.6
       once: 1.4.0
       path-is-absolute: 1.0.1
 
@@ -18356,7 +18350,7 @@ snapshots:
       fs.realpath: 1.0.0
       inflight: 1.0.6
       inherits: 2.0.4
-      minimatch: 3.1.5
+      minimatch: 10.2.6
       once: 1.4.0
       path-is-absolute: 1.0.1
 
@@ -18365,14 +18359,14 @@ snapshots:
       fs.realpath: 1.0.0
       inflight: 1.0.6
       inherits: 2.0.4
-      minimatch: 3.1.5
+      minimatch: 10.2.6
       once: 1.4.0
       path-is-absolute: 1.0.1
 
   glob@9.3.4:
     dependencies:
       fs.realpath: 1.0.0
-      minimatch: 8.0.7
+      minimatch: 10.2.6
       minipass: 4.2.8
       path-scurry: 1.11.1
 
@@ -20083,14 +20077,6 @@ snapshots:
   minimalistic-crypto-utils@1.0.1: {}
 
   minimatch@10.2.6:
-    dependencies:
-      brace-expansion: 5.0.9
-
-  minimatch@3.1.5:
-    dependencies:
-      brace-expansion: 5.0.9
-
-  minimatch@8.0.7:
     dependencies:
       brace-expansion: 5.0.9
 
@@ -22185,7 +22171,7 @@ snapshots:
 
   recursive-readdir@2.2.3:
     dependencies:
-      minimatch: 3.1.5
+      minimatch: 10.2.6
 
   redent@3.0.0:
     dependencies:
@@ -23402,7 +23388,7 @@ snapshots:
     dependencies:
       '@istanbuljs/schema': 0.1.6
       glob: 7.2.0
-      minimatch: 3.1.5
+      minimatch: 10.2.6
 
   text-segmentation@1.0.3:
     dependencies:
