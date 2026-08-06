@@ -308,3 +308,66 @@ func testProposalPageSpec(pageKey string) spec.PageSpec {
 		},
 	}
 }
+
+func TestDiagnosticsFromJSON(t *testing.T) {
+	// Test nil
+	diags := diagnosticsFromJSON(nil)
+	assert.Empty(t, diags)
+
+	// Test empty
+	diags = diagnosticsFromJSON([]byte(`[]`))
+	assert.Empty(t, diags)
+
+	// Test with diagnostics
+	diags = diagnosticsFromJSON([]byte(`[{"code":"test","severity":"warning","message":"test message"}]`))
+	assert.Len(t, diags, 1)
+	assert.Equal(t, "test", diags[0].Code)
+	assert.Equal(t, spec.DiagnosticSeverity("warning"), diags[0].Severity)
+}
+
+func TestHasDiagnosticSeverity(t *testing.T) {
+	diags := []spec.Diagnostic{
+		{Code: "test1", Severity: "warning"},
+		{Code: "test2", Severity: "error"},
+	}
+
+	assert.True(t, hasDiagnosticSeverity(diags, "warning"))
+	assert.True(t, hasDiagnosticSeverity(diags, "error"))
+	assert.False(t, hasDiagnosticSeverity(diags, "info"))
+	assert.False(t, hasDiagnosticSeverity(nil, "warning"))
+}
+
+func TestHasBlockingDiagnostics(t *testing.T) {
+	// Test with error diagnostics
+	diagsJSON := []byte(`[{"code":"test","severity":"error","message":"error"}]`)
+	assert.True(t, hasBlockingDiagnostics(diagsJSON))
+
+	// Test with warning diagnostics only
+	diagsJSON2 := []byte(`[{"code":"test","severity":"warning","message":"warning"}]`)
+	assert.False(t, hasBlockingDiagnostics(diagsJSON2))
+
+	// Test with empty diagnostics
+	assert.False(t, hasBlockingDiagnostics(nil))
+	assert.False(t, hasBlockingDiagnostics([]byte(`[]`)))
+}
+
+func TestProposalDTOFromModel(t *testing.T) {
+	// Test nil
+	_, err := proposalDTOFromModel(nil)
+	assert.Error(t, err)
+
+	// Test with proposal
+	proposal := &model.PageProposal{
+		ProposalKey: "resource:player",
+		PageKey:     "resource--player",
+		PageType:    "resource",
+		Quality:     "ready",
+		PageSpec:    []byte(`{"pageKey":"resource--player","type":"resource"}`),
+	}
+	dto, err := proposalDTOFromModel(proposal)
+	assert.NoError(t, err)
+	assert.Equal(t, "resource:player", dto.ProposalKey)
+	assert.Equal(t, "resource--player", dto.PageKey)
+	assert.Equal(t, "resource", string(dto.PageType))
+	assert.Equal(t, "ready", dto.Quality)
+}
