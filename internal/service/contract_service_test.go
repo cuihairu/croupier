@@ -480,3 +480,67 @@ func TestSchemaStringV2(t *testing.T) {
 		assert.Equal(t, tt.expected, result)
 	}
 }
+
+func TestTaskSemanticsByStartFunction(t *testing.T) {
+	// Test nil semantics
+	result := taskSemanticsByStartFunction(nil)
+	assert.Empty(t, result)
+
+	// Test empty tasks
+	sem := &model.CapabilitySemantics{
+		Tasks: []byte(`[]`),
+	}
+	result = taskSemanticsByStartFunction(sem)
+	assert.Empty(t, result)
+
+	// Test with tasks
+	sem2 := &model.CapabilitySemantics{
+		Tasks: []byte(`[{"start":{"functionId":"task.start"},"taskId":{"resultPath":"/id"}}]`),
+	}
+	result = taskSemanticsByStartFunction(sem2)
+	assert.Len(t, result, 1)
+	assert.Contains(t, result, "task.start")
+}
+
+func TestReportSemanticsByQueryFunction(t *testing.T) {
+	// Test nil semantics
+	result := reportSemanticsByQueryFunction(nil)
+	assert.Empty(t, result)
+
+	// Test empty reports
+	sem := &model.CapabilitySemantics{
+		Reports: []byte(`[]`),
+	}
+	result = reportSemanticsByQueryFunction(sem)
+	assert.Empty(t, result)
+
+	// Test with reports
+	sem2 := &model.CapabilitySemantics{
+		Reports: []byte(`[{"query":{"functionId":"report.query"},"datasetPath":"/data"}]`),
+	}
+	result = reportSemanticsByQueryFunction(sem2)
+	assert.Len(t, result, 1)
+	assert.Contains(t, result, "report.query")
+}
+
+func TestGeneratedProposalChanged(t *testing.T) {
+	// Test with different digests
+	existing := &model.PageProposal{
+		FunctionDigest: "digest1",
+	}
+	next := &model.PageProposal{
+		FunctionDigest: "digest2",
+	}
+	changed := generatedProposalChanged(existing, next)
+	assert.True(t, changed)
+
+	// Test with same digests
+	existing2 := &model.PageProposal{
+		FunctionDigest: "digest1",
+	}
+	next2 := &model.PageProposal{
+		FunctionDigest: "digest1",
+	}
+	changed = generatedProposalChanged(existing2, next2)
+	assert.False(t, changed)
+}
