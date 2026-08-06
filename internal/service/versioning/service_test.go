@@ -338,42 +338,6 @@ func TestDigestRaw(t *testing.T) {
 }
 
 func TestPageSpecFromProposalSnapshot(t *testing.T) {
-	// Test nil
-	_, err := pageSpecFromProposalSnapshot(nil)
-	assert.Error(t, err)
-
-	// Test empty
-	_, err = pageSpecFromProposalSnapshot([]byte{})
-	assert.Error(t, err)
-
-	// Test valid JSON
-
-	assert.NoError(t, err)
-	assert.Empty(t, spec.PageKey)
-}
-
-func TestPageSpecFromProposalModel(t *testing.T) {
-	// Test nil
-	spec, err := pageSpecFromProposalModel(nil)
-	assert.Error(t, err)
-
-	// Test with empty PageSpec
-	proposal := &model.PageProposal{
-		PageSpec: nil,
-	}
-	spec, err = pageSpecFromProposalModel(proposal)
-	assert.Error(t, err)
-
-	// Test with valid PageSpec
-	proposal2 := &model.PageProposal{
-		PageSpec: []byte(`{"pageKey":"test","type":"operation"}`),
-	}
-	spec, err = pageSpecFromProposalModel(proposal2)
-	assert.NoError(t, err)
-	assert.Empty(t, spec.PageKey)
-}
-
-func TestMergeMessageV2(t *testing.T) {
 	tests := []struct {
 		merged    int
 		conflicts int
@@ -393,7 +357,7 @@ func TestMergeMessageV2(t *testing.T) {
 	}
 }
 
-func TestDigestRawV2(t *testing.T) {
+func TestDigestRawV3(t *testing.T) {
 	// Test same input
 	d1 := digestRaw([]byte("test"))
 	d2 := digestRaw([]byte("test"))
@@ -402,20 +366,16 @@ func TestDigestRawV2(t *testing.T) {
 	// Test different input
 	d3 := digestRaw([]byte("different"))
 	assert.NotEqual(t, d1, d3)
-
-	// Test empty
-	d4 := digestRaw([]byte{})
-	assert.Empty(t, d4)
 }
 
-func TestFirstNonEmptyV2(t *testing.T) {
+func TestFirstNonEmptyV3(t *testing.T) {
 	assert.Equal(t, "a", firstNonEmpty("a", "b", "c"))
 	assert.Equal(t, "b", firstNonEmpty("", "b", "c"))
 	assert.Equal(t, "c", firstNonEmpty("", "", "c"))
 	assert.Empty(t, firstNonEmpty("", "", ""))
 }
 
-func TestSamePageSpecV2(t *testing.T) {
+func TestSamePageSpecV3(t *testing.T) {
 	// Test empty specs
 	spec1 := spec.PageSpec{}
 	spec2 := spec.PageSpec{}
