@@ -391,3 +391,14 @@ func TestSamePageSpecV3(t *testing.T) {
 	spec6 := spec.PageSpec{PageKey: "test2"}
 	assert.False(t, samePageSpec(spec5, spec6))
 }
+
+func TestNewService(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(db)
+	assert.NotNil(t, service)
+	assert.NotNil(t, service.db)
+	assert.NotNil(t, service.contractModel)
+	assert.NotNil(t, service.semanticsModel)
+	assert.NotNil(t, service.proposalModel)
+	assert.NotNil(t, service.proposalVersionModel)
+}
