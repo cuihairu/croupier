@@ -64,9 +64,11 @@ type ApprovalDetailResponse = {
   updatedAt?: string;
 };
 
-type ApprovalGetResponse = ApprovalDetailResponse | {
-  approval?: ApprovalDetailResponse;
-};
+type ApprovalGetResponse =
+  | ApprovalDetailResponse
+  | {
+      approval?: ApprovalDetailResponse;
+    };
 
 /** 获取运行控制台菜单 */
 export async function getConsoleMenu(lang?: string): Promise<ConsoleMenuSpec> {
@@ -86,9 +88,12 @@ export async function listPublishedPages(): Promise<PublishedPageSpec[]> {
 
 /** 获取单个已发布页面 */
 export async function getPublishedPage(pageKey: string): Promise<PublishedPageSpec> {
-  const response = await request<ConsolePageResponse>(`${BASE}/pages/${encodeURIComponent(pageKey)}`, {
-    method: 'GET',
-  });
+  const response = await request<ConsolePageResponse>(
+    `${BASE}/pages/${encodeURIComponent(pageKey)}`,
+    {
+      method: 'GET',
+    },
+  );
   if (!response?.page) {
     throw new Error(`published page not found: ${pageKey}`);
   }
@@ -144,10 +149,16 @@ export async function cancelTask(taskId: string): Promise<void> {
 
 /** 查询审批状态，供 Operation/Task 页面展示等待态 */
 export async function queryApprovalStatus(approvalId: string): Promise<ApprovalStatusResult> {
-  const response = await request<ApprovalGetResponse>(`/api/v1/approvals/${encodeURIComponent(approvalId)}`, {
-    method: 'GET',
-  });
-  const detail = 'approval' in response && response.approval ? response.approval : response;
+  const response = await request<ApprovalGetResponse>(
+    `/api/v1/approvals/${encodeURIComponent(approvalId)}`,
+    {
+      method: 'GET',
+    },
+  );
+  const detail =
+    'approval' in response && response.approval
+      ? response.approval
+      : (response as ApprovalDetailResponse);
   return {
     approvalId: detail.id || approvalId,
     status: normalizeApprovalStatus(detail.state),
