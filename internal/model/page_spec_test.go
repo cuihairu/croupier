@@ -47,7 +47,7 @@ func TestPageSpecModelsUseScopedPageIdentity(t *testing.T) {
 	assert.Equal(t, 7, latestDev.BaseProposalVersion)
 	assert.Equal(t, "function-digest-1", latestDev.FunctionDigest)
 	assert.Equal(t, "semantics-digest-1", latestDev.SemanticsDigest)
-	assert.Equal(t, "dashboard-vnext-test", latestDev.GeneratorVersion)
+	assert.Equal(t, "dashboard-test", latestDev.GeneratorVersion)
 	latestProd, err := published.FindLatestByScopeAndPageKey(ctx, "game-a", "prod", "player.manage")
 	require.NoError(t, err)
 	assert.Equal(t, 1, latestProd.Version)
@@ -116,7 +116,7 @@ func testPublishedPageSpec(gameID, env, pageKey string, version int, active bool
 		BaseProposalVersion:   7,
 		FunctionDigest:        "function-digest-1",
 		SemanticsDigest:       "semantics-digest-1",
-		GeneratorVersion:      "dashboard-vnext-test",
+		GeneratorVersion:      "dashboard-test",
 		Active:                active,
 		PublishedAt:           time.Now(),
 		PublishedBy:           "tester",

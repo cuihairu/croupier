@@ -2,10 +2,10 @@ packages:
   - '.'
 
 allowBuilds:
-  core-js: set this to true or false
-  core-js-pure: set this to true or false
-  es5-ext: set this to true or false
-  esbuild: set this to true or false
+  core-js: false
+  core-js-pure: false
+  es5-ext: false
+  esbuild: true
 
 overrides:
   eslint: '>=9.26.0'

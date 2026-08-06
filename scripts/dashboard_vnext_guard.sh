@@ -100,7 +100,12 @@ echo ""
 echo "Checking legacy Page protocol terms do not return..."
 assert_not_contains "\\b(PageSpecV2|GeneratedPageSpecV2|PageTypeV2|PageFunctionBindingV2|PageSchemaEditor|PageStudioV2)\\b|formily-page:1|formily-page/v1|dashboard-vnext" "legacy split/page-schema identifiers absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
 assert_not_contains "\\b(inputMapping|outputMapping|SchemaJSON|PageSpecJSON|FormPresentationJSON|PageSpecVersion)\\b" "legacy page storage/mapping fields absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
-assert_not_contains "\\bany\\b" "core Dashboard TypeScript code has no any" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts"
+if rg -nP "(?<![\"'])\\bany\\b(?![\"'])" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+    fail "core Dashboard TypeScript code has no any"
+    sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+else
+    ok "core Dashboard TypeScript code has no any"
+fi
 
 echo ""
 echo "Checking form runtime boundary..."

@@ -3,6 +3,7 @@
   "version": "6.0.0",
   "private": true,
   "description": "An out-of-box UI solution for enterprise applications",
+  "packageManager": "pnpm@11.11.0",
   "scripts": {
     "install": "pnpm install --ignore-scripts",
     "analyze": "cross-env ANALYZE=1 max build",
@@ -134,10 +135,5 @@
   },
   "engines": {
     "node": ">=24.0.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "@umijs/preset-umi>path-to-regexp": "1.7.0"
-    }
   }
 }
