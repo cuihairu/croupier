@@ -1,5 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Button, Input, Modal, Select, Space, Table, Tag } from 'antd';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Descriptions,
+  Input,
+  Modal,
+  Progress,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Drawer,
+  Divider,
+  Typography,
+} from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -12,6 +28,8 @@ import {
 import { fetchRegistry, type RegistryAgent } from '@/services/api/registry';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 
+const { Text } = Typography;
+
 type NodeRow = RegistryAgent & {
   type?: string;
   ip?: string;
@@ -21,6 +39,15 @@ type NodeRow = RegistryAgent & {
   sdkVersion?: string;
   lastSeen?: string;
   nodeStatus?: string;
+  // System metrics (from detail)
+  cpu?: { usagePercent: number; cores: number; load1m: number; load5m: number; load15m: number };
+  memory?: { totalBytes: number; usedBytes: number; usagePercent: number };
+  disks?: Array<{
+    mountPoint: string;
+    usagePercent: number;
+    totalBytes: number;
+    usedBytes: number;
+  }>;
 };
 
 // 从 "host:port" 提取 host 部分作为 IP 展示。
@@ -50,6 +77,21 @@ function normalizeOpsNode(node: OpsNode): NodeRow {
   };
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${seconds}秒`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}分钟`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}小时`;
+  return `${Math.floor(seconds / 86400)}天`;
+}
+
 export default function OpsNodesPage() {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
@@ -58,6 +100,7 @@ export default function OpsNodesPage() {
   const [healthy, setHealthy] = useState<string>('');
   const [env, setEnv] = useState<string>('');
   const [game, setGame] = useState<string>('');
+  const [detailNode, setDetailNode] = useState<NodeRow | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -87,9 +130,7 @@ export default function OpsNodesPage() {
       if (healthy === 'healthy' && !a.healthy) return false;
       if (healthy === 'unhealthy' && a.healthy) return false;
       if (q) {
-        const s = `${a.agentId} ${a.ip || ''} ${a.addr || ''} ${a.type || ''} ${a.version || ''} ${
-          a.sdkName || ''
-        } ${a.sdkLanguage || ''}`.toLowerCase();
+        const s = `${a.agentId} ${a.ip || ''} ${a.addr || ''} ${a.type || ''}`.toLowerCase();
         if (!s.includes(q.toLowerCase())) return false;
       }
       return true;
@@ -154,16 +195,12 @@ export default function OpsNodesPage() {
     });
   };
 
+  // 主表格列 - 只显示关键信息
   const cols: ColumnsType<NodeRow> = [
     { title: '节点 ID', dataIndex: 'agentId', width: 200, ellipsis: true },
-    { title: '类型', dataIndex: 'type', width: 90, render: (v) => v || 'agent' },
     { title: '游戏', dataIndex: 'gameId', width: 100 },
     { title: '环境', dataIndex: 'env', width: 80 },
     { title: 'IP', dataIndex: 'ip', width: 130, ellipsis: true },
-    { title: 'SDK', dataIndex: 'sdkName', width: 150, ellipsis: true, render: (v) => v || '-' },
-    { title: '语言', dataIndex: 'sdkLanguage', width: 90, render: (v) => v || '-' },
-    { title: '版本', dataIndex: 'version', width: 110, ellipsis: true, render: (v) => v || '-' },
-    { title: '函数数', dataIndex: 'functions', width: 100 },
     {
       title: '健康状态',
       dataIndex: 'healthy',
@@ -193,19 +230,17 @@ export default function OpsNodesPage() {
         return <Tag color={s.color}>{s.text}</Tag>;
       },
     },
-    { title: 'TTL', dataIndex: 'expiresInSec', width: 80 },
-    { title: 'RPC 地址', dataIndex: 'addr', width: 220, ellipsis: true },
     {
       title: '操作',
       width: 220,
       fixed: 'right',
       render: (_, r) => (
         <Space>
+          <Button size="small" onClick={() => setDetailNode(r)}>
+            详情
+          </Button>
           <Button size="small" onClick={() => drain(r.agentId)}>
             下线
-          </Button>
-          <Button size="small" onClick={() => undrain(r.agentId)}>
-            取消下线
           </Button>
           <Button size="small" onClick={() => restart(r.agentId)}>
             重启
@@ -281,10 +316,10 @@ export default function OpsNodesPage() {
                     { label: '异常', value: 'unhealthy' },
                   ]}
                 />
-                <Space.Compact style={{ width: 320 }}>
+                <Space.Compact style={{ width: 280 }}>
                   <Input
                     allowClear
-                    placeholder="搜索 id/ip/sdk/version/addr"
+                    placeholder="搜索节点 ID / IP"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     onPressEnter={load}
@@ -323,7 +358,7 @@ export default function OpsNodesPage() {
             loading={loading}
             columns={cols}
             size="small"
-            scroll={{ x: 1500 }}
+            scroll={{ x: 1000 }}
             tableLayout="fixed"
             pagination={{ pageSize: 10 }}
             locale={{
@@ -334,6 +369,143 @@ export default function OpsNodesPage() {
           />
         </StandardListSection>
       </Space>
+
+      {/* 节点详情抽屉 */}
+      <Drawer
+        title={`节点详情 - ${detailNode?.agentId || ''}`}
+        open={!!detailNode}
+        onClose={() => setDetailNode(null)}
+        width={600}
+      >
+        {detailNode && (
+          <Space direction="vertical" size={24} style={{ width: '100%' }}>
+            {/* 基本信息 */}
+            <Descriptions title="基本信息" bordered column={2} size="small">
+              <Descriptions.Item label="节点 ID">{detailNode.agentId}</Descriptions.Item>
+              <Descriptions.Item label="类型">{detailNode.type || 'agent'}</Descriptions.Item>
+              <Descriptions.Item label="游戏">{detailNode.gameId || '-'}</Descriptions.Item>
+              <Descriptions.Item label="环境">{detailNode.env || '-'}</Descriptions.Item>
+              <Descriptions.Item label="IP">{detailNode.ip || '-'}</Descriptions.Item>
+              <Descriptions.Item label="RPC 地址">{detailNode.addr || '-'}</Descriptions.Item>
+              <Descriptions.Item label="健康状态">
+                {detailNode.healthy ? <Tag color="green">健康</Tag> : <Tag color="red">异常</Tag>}
+              </Descriptions.Item>
+              <Descriptions.Item label="运维状态">
+                {(() => {
+                  const statusMap: Record<string, { color: string; text: string }> = {
+                    active: { color: 'green', text: '运行中' },
+                    drained: { color: 'orange', text: '已下线' },
+                    stale: { color: 'red', text: '离线' },
+                    offline: { color: 'red', text: '离线' },
+                  };
+                  const s = statusMap[detailNode.nodeStatus || ''] || {
+                    color: 'default',
+                    text: '未知',
+                  };
+                  return <Tag color={s.color}>{s.text}</Tag>;
+                })()}
+              </Descriptions.Item>
+              <Descriptions.Item label="TTL">{detailNode.expiresInSec}秒</Descriptions.Item>
+              <Descriptions.Item label="最后心跳">{detailNode.lastSeen || '-'}</Descriptions.Item>
+            </Descriptions>
+
+            <Divider />
+
+            {/* 系统指标 */}
+            <div>
+              <Text strong style={{ fontSize: 16, marginBottom: 16, display: 'block' }}>
+                系统指标
+              </Text>
+              {detailNode.cpu || detailNode.memory ? (
+                <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                  {/* CPU */}
+                  {detailNode.cpu && (
+                    <Card title="CPU" size="small">
+                      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Text>使用率</Text>
+                          <Text strong>{detailNode.cpu.usagePercent.toFixed(1)}%</Text>
+                        </div>
+                        <Progress percent={detailNode.cpu.usagePercent} size="small" />
+                        <Descriptions column={2} size="small">
+                          <Descriptions.Item label="核心数">
+                            {detailNode.cpu.cores}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="负载 (1m/5m/15m)">
+                            {detailNode.cpu.load1m?.toFixed(2)} /{' '}
+                            {detailNode.cpu.load5m?.toFixed(2)} /{' '}
+                            {detailNode.cpu.load15m?.toFixed(2)}
+                          </Descriptions.Item>
+                        </Descriptions>
+                      </Space>
+                    </Card>
+                  )}
+
+                  {/* 内存 */}
+                  {detailNode.memory && (
+                    <Card title="内存" size="small">
+                      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Text>使用率</Text>
+                          <Text strong>{detailNode.memory.usagePercent.toFixed(1)}%</Text>
+                        </div>
+                        <Progress percent={detailNode.memory.usagePercent} size="small" />
+                        <Descriptions column={2} size="small">
+                          <Descriptions.Item label="总量">
+                            {formatBytes(detailNode.memory.totalBytes)}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="已用">
+                            {formatBytes(detailNode.memory.usedBytes)}
+                          </Descriptions.Item>
+                        </Descriptions>
+                      </Space>
+                    </Card>
+                  )}
+
+                  {/* 磁盘 */}
+                  {detailNode.disks && detailNode.disks.length > 0 && (
+                    <Card title="磁盘" size="small">
+                      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                        {detailNode.disks.map((disk, idx) => (
+                          <div key={idx}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                marginBottom: 4,
+                              }}
+                            >
+                              <Text>{disk.mountPoint}</Text>
+                              <Text strong>{disk.usagePercent.toFixed(1)}%</Text>
+                            </div>
+                            <Progress percent={disk.usagePercent} size="small" />
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {formatBytes(disk.usedBytes)} / {formatBytes(disk.totalBytes)}
+                            </Text>
+                          </div>
+                        ))}
+                      </Space>
+                    </Card>
+                  )}
+                </Space>
+              ) : (
+                <Text type="secondary">暂无系统指标数据</Text>
+              )}
+            </div>
+
+            <Divider />
+
+            {/* 操作 */}
+            <Space>
+              <Button onClick={() => drain(detailNode.agentId)} danger>
+                下线节点
+              </Button>
+              <Button onClick={() => undrain(detailNode.agentId)}>恢复节点</Button>
+              <Button onClick={() => restart(detailNode.agentId)}>重启节点</Button>
+            </Space>
+          </Space>
+        )}
+      </Drawer>
     </PageContainer>
   );
 }
