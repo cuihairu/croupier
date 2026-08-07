@@ -84,8 +84,15 @@ func DefaultOpsConfig() *OpsConfig {
 
 // Validate validates the ops configuration.
 func (c *OpsConfig) Validate() error {
-	if c.MetricsInterval < time.Second {
-		c.MetricsInterval = 30 * time.Second
+	// MetricsInterval minimum is 3 seconds to prevent excessive resource usage
+	const minMetricsInterval = 3 * time.Second
+	const maxMetricsInterval = 5 * time.Minute
+
+	if c.MetricsInterval < minMetricsInterval {
+		c.MetricsInterval = minMetricsInterval
+	}
+	if c.MetricsInterval > maxMetricsInterval {
+		c.MetricsInterval = maxMetricsInterval
 	}
 	if c.ExecTimeout <= 0 {
 		c.ExecTimeout = 60 * time.Second
