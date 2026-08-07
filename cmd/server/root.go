@@ -358,6 +358,7 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 		model.NewTaskRunModel(svcCtx.DB),
 		model.NewTaskEventModel(svcCtx.DB),
 	))
+	controlService.SetMetricsDB(svcCtx.DB)
 	controlService.StartBackgroundTasks()
 
 	// 创建 TCPListener (管理 Agent session)
