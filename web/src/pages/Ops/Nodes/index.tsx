@@ -40,13 +40,32 @@ type NodeRow = RegistryAgent & {
   lastSeen?: string;
   nodeStatus?: string;
   // System metrics (from detail)
-  cpu?: { usagePercent: number; cores: number; load1m: number; load5m: number; load15m: number };
-  memory?: { totalBytes: number; usedBytes: number; usagePercent: number };
-  disks?: Array<{
-    mountPoint: string;
+  cpu?: {
     usagePercent: number;
+    cores: number;
+    perCore?: number[];
+    load1m: number;
+    load5m: number;
+    load15m: number;
+  };
+  memory?: {
     totalBytes: number;
     usedBytes: number;
+    availableBytes: number;
+    usagePercent: number;
+    swapTotal: number;
+    swapUsed: number;
+  };
+  disks?: Array<{
+    mountPoint: string;
+    device: string;
+    fsType: string;
+    totalBytes: number;
+    usedBytes: number;
+    availableBytes: number;
+    usagePercent: number;
+    inodeTotal?: number;
+    inodeUsed?: number;
   }>;
 };
 
@@ -457,6 +476,13 @@ export default function OpsNodesPage() {
                           <Descriptions.Item label="已用">
                             {formatBytes(detailNode.memory.usedBytes)}
                           </Descriptions.Item>
+                          <Descriptions.Item label="可用">
+                            {formatBytes(detailNode.memory.availableBytes)}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Swap 已用/总量">
+                            {formatBytes(detailNode.memory.swapUsed)} /{' '}
+                            {formatBytes(detailNode.memory.swapTotal)}
+                          </Descriptions.Item>
                         </Descriptions>
                       </Space>
                     </Card>
@@ -479,9 +505,23 @@ export default function OpsNodesPage() {
                               <Text strong>{disk.usagePercent.toFixed(1)}%</Text>
                             </div>
                             <Progress percent={disk.usagePercent} size="small" />
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              {formatBytes(disk.usedBytes)} / {formatBytes(disk.totalBytes)}
-                            </Text>
+                            <Descriptions column={2} size="small" style={{ marginTop: 4 }}>
+                              <Descriptions.Item label="设备">
+                                {disk.device || '-'}
+                              </Descriptions.Item>
+                              <Descriptions.Item label="文件系统">
+                                {disk.fsType || '-'}
+                              </Descriptions.Item>
+                              <Descriptions.Item label="已用">
+                                {formatBytes(disk.usedBytes)}
+                              </Descriptions.Item>
+                              <Descriptions.Item label="可用">
+                                {formatBytes(disk.availableBytes)}
+                              </Descriptions.Item>
+                              <Descriptions.Item label="总量">
+                                {formatBytes(disk.totalBytes)}
+                              </Descriptions.Item>
+                            </Descriptions>
                           </div>
                         ))}
                       </Space>
