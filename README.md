@@ -20,8 +20,8 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 
 地址：https://croupier.cuihairu.site/
 
-| 账号 | 密码 |
-|------|------|
+| 账号    | 密码       |
+| ------- | ---------- |
 | `admin` | `admin123` |
 
 > 📌 演示环境，全部为假数据，会不定期重置。请勿填写任何真实信息。
@@ -35,6 +35,34 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 - JSON payload + protobuf 信封，兼顾跨语言一致性与接入成本
 - JSON Schema 能力契约 + Ant Design Pro/ProComponents 驱动的生成式控制台 UI
 
+## 支持的数据库
+
+| 数据库     | 驱动                       | 适用场景             |
+| ---------- | -------------------------- | -------------------- |
+| SQLite     | `glebarez/sqlite`          | 开发、测试、小型部署 |
+| MySQL      | `gorm.io/driver/mysql`     | 生产环境（推荐）     |
+| PostgreSQL | `gorm.io/driver/postgres`  | 生产环境             |
+| SQL Server | `gorm.io/driver/sqlserver` | 企业环境             |
+
+配置示例：
+
+```yaml
+# SQLite（开发/测试）
+database:
+  driver: sqlite
+  dataSource: "data/croupier.db"
+
+# MySQL（生产推荐）
+database:
+  driver: mysql
+  dataSource: "user:pass@tcp(host:3306)/croupier_meta?charset=utf8mb4&parseTime=True"
+
+# PostgreSQL
+database:
+  driver: postgres
+  dataSource: "host=localhost port=5432 user=postgres password=pass dbname=croupier_meta sslmode=disable"
+```
+
 ## SDK 生态
 
 所有官方 SDK 已整合到 monorepo 的 `sdks/` 目录下统一维护。
@@ -46,7 +74,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 | Go     | `sdks/go/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=go-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/go/README.md)     |
 | C#     | `sdks/csharp/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=csharp-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/csharp/README.md) |
 | Java   | `sdks/java/`   | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=java-sdk)](https://codecov.io/gh/cuihairu/croupier)   | [README](sdks/java/README.md)   |
-| C++    | `sdks/cpp/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=cpp-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/cpp/README.md)    |
+| C++    | `sdks/cpp/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=cpp-sdk)](https://codecov.io/gh/cuihairu/croupier)    | [README](sdks/cpp/README.md)    |
 | Python | `sdks/python/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=python-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/python/README.md) |
 | JS/TS  | `sdks/js/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=js-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/js/README.md)     |
 
