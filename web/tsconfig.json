@@ -20,5 +20,14 @@
     }
   },
   "include": ["./**/*.d.ts", "./**/*.ts", "./**/*.tsx"],
-  "exclude": ["node_modules", "e2e", "playwright.config.ts"]
+  "exclude": [
+    "node_modules",
+    "e2e",
+    "playwright.config.ts",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
 }
