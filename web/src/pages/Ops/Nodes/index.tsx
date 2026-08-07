@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Alert,
   App,
@@ -23,11 +23,13 @@ import {
   listOpsNodes,
   restartOpsNode,
   undrainOpsNode,
+  getAgentMetricsHistory,
   type OpsNode,
 } from '@/services/api/ops';
 import { fetchRegistry, type RegistryAgent } from '@/services/api/registry';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import { formatBytes, formatPercent, formatDuration } from '@/utils/format';
+import { Line } from '@ant-design/charts';
 
 const { Text } = Typography;
 
@@ -110,6 +112,8 @@ export default function OpsNodesPage() {
   const [env, setEnv] = useState<string>('');
   const [game, setGame] = useState<string>('');
   const [detailNode, setDetailNode] = useState<NodeRow | null>(null);
+  const [metricsHistory, setMetricsHistory] = useState<MetricsHistoryEntry[]>([]);
+  const [metricsLoading, setMetricsLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -154,6 +158,30 @@ export default function OpsNodesPage() {
     const envCount = new Set(rows.map((item) => item.env).filter(Boolean)).size;
     return { total, healthyCount, unhealthyCount, gameCount, envCount };
   }, [rows]);
+
+  // Load metrics history when detail node changes
+  const loadMetricsHistory = useCallback(async (agentId: string) => {
+    if (!agentId) return;
+    setMetricsLoading(true);
+    try {
+      const entries = await getAgentMetricsHistory(agentId, { limit: 50 });
+      setMetricsHistory(entries || []);
+    } catch (error) {
+      console.error('Failed to load metrics history:', error);
+      setMetricsHistory([]);
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
+
+  // Load metrics when detail node changes
+  useEffect(() => {
+    if (detailNode?.agentId) {
+      loadMetricsHistory(detailNode.agentId);
+    } else {
+      setMetricsHistory([]);
+    }
+  }, [detailNode?.agentId, loadMetricsHistory]);
 
   const drain = async (id: string) => {
     Modal.confirm({
@@ -520,6 +548,90 @@ export default function OpsNodesPage() {
                 </Space>
               ) : (
                 <Text type="secondary">暂无系统指标数据</Text>
+              )}
+            </div>
+
+            <Divider />
+
+            {/* 历史指标趋势图 */}
+            <div>
+              <Text strong style={{ fontSize: 16, marginBottom: 16, display: 'block' }}>
+                指标趋势
+              </Text>
+              {metricsLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <Spin size="small" />
+                </div>
+              ) : metricsHistory.length > 0 ? (
+                <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                  {/* CPU 趋势图 */}
+                  <Card title="CPU 使用率趋势" size="small">
+                    <Line
+                      data={metricsHistory.map((entry) => ({
+                        time: new Date(entry.timestamp).toLocaleTimeString(),
+                        value: entry.cpu?.usagePercent ?? 0,
+                      }))}
+                      xField="time"
+                      yField="value"
+                      smooth
+                      point={false}
+                      height={200}
+                      yAxis={{
+                        min: 0,
+                        max: 100,
+                        label: { formatter: (v: number) => `${v}%` },
+                      }}
+                    />
+                  </Card>
+
+                  {/* 内存趋势图 */}
+                  <Card title="内存使用率趋势" size="small">
+                    <Line
+                      data={metricsHistory.map((entry) => ({
+                        time: new Date(entry.timestamp).toLocaleTimeString(),
+                        value: entry.memory?.usagePercent ?? 0,
+                      }))}
+                      xField="time"
+                      yField="value"
+                      smooth
+                      point={false}
+                      height={200}
+                      yAxis={{
+                        min: 0,
+                        max: 100,
+                        label: { formatter: (v: number) => `${v}%` },
+                      }}
+                    />
+                  </Card>
+
+                  {/* 磁盘趋势图 */}
+                  {metricsHistory[0]?.disks && metricsHistory[0].disks.length > 0 && (
+                    <Card title="磁盘使用率趋势" size="small">
+                      <Line
+                        data={metricsHistory.flatMap((entry) =>
+                          (entry.disks || []).map((disk) => ({
+                            time: new Date(entry.timestamp).toLocaleTimeString(),
+                            value: disk.usagePercent ?? 0,
+                            series: disk.mountPoint,
+                          })),
+                        )}
+                        xField="time"
+                        yField="value"
+                        seriesField="series"
+                        smooth
+                        point={false}
+                        height={200}
+                        yAxis={{
+                          min: 0,
+                          max: 100,
+                          label: { formatter: (v: number) => `${v}%` },
+                        }}
+                      />
+                    </Card>
+                  )}
+                </Space>
+              ) : (
+                <Text type="secondary">暂无历史数据</Text>
               )}
             </div>
 

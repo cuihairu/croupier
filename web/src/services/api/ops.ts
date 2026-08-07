@@ -696,3 +696,47 @@ export async function restartOpsNode(id: string) {
     data: { nodeId: id },
   });
 }
+
+// Historical metrics
+export type MetricsHistoryEntry = {
+  timestamp: string;
+  cpu?: {
+    usagePercent: number;
+    cores: number;
+    load1m: number;
+    load5m: number;
+    load15m: number;
+  };
+  memory?: {
+    totalBytes: number;
+    usedBytes: number;
+    availableBytes: number;
+    usagePercent: number;
+    swapTotal: number;
+    swapUsed: number;
+  };
+  disks?: Array<{
+    mountPoint: string;
+    device: string;
+    fsType: string;
+    totalBytes: number;
+    usedBytes: number;
+    availableBytes: number;
+    usagePercent: number;
+  }>;
+};
+
+export async function getAgentMetricsHistory(
+  agentId: string,
+  options?: { since?: string; limit?: number },
+): Promise<MetricsHistoryEntry[]> {
+  const params = new URLSearchParams();
+  if (agentId) params.set('agentId', agentId);
+  if (options?.since) params.set('since', options.since);
+  if (options?.limit) params.set('limit', String(options.limit));
+
+  const response = await request<{ entries?: MetricsHistoryEntry[] }>(
+    `/api/v1/ops/agent/metrics/history?${params.toString()}`,
+  );
+  return response?.entries || [];
+}
