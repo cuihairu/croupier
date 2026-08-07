@@ -361,6 +361,10 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	controlService.SetMetricsDB(svcCtx.DB)
 	controlService.StartBackgroundTasks()
 
+	// 将 ControlService 的 MetricsStore 同步到 ServiceContext
+	// 这样 ops API 也能访问到带数据库连接的 MetricsStore
+	svcCtx.MetricsStore = controlService.MetricsStore()
+
 	// 创建 TCPListener (管理 Agent session)
 	// 如果配置了 TLS 证书，启用 TLS；否则使用 insecure 模式
 	hasTLS := c.Control.Cert != "" && c.Control.Key != ""
