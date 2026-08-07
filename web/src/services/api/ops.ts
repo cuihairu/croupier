@@ -210,6 +210,34 @@ export type OpsNode = {
   sdkName?: string;
   functions?: number;
   expiresInSec?: number;
+  // System metrics
+  cpu?: {
+    usagePercent: number;
+    cores: number;
+    perCore?: number[];
+    load1m: number;
+    load5m: number;
+    load15m: number;
+  };
+  memory?: {
+    totalBytes: number;
+    usedBytes: number;
+    availableBytes: number;
+    usagePercent: number;
+    swapTotal: number;
+    swapUsed: number;
+  };
+  disks?: Array<{
+    mountPoint: string;
+    device: string;
+    fsType: string;
+    totalBytes: number;
+    usedBytes: number;
+    availableBytes: number;
+    usagePercent: number;
+    inodeTotal?: number;
+    inodeUsed?: number;
+  }>;
 };
 export type OpsAlert = {
   severity?: string;
@@ -355,8 +383,10 @@ function normalizeOpsNotificationRule(raw: RawOpsNotificationRule): OpsNotificat
 function normalizeOpsNotifications(raw: Record<string, JSONValue>): OpsNotifications {
   return {
     enabled: !!raw?.enabled,
-    channels: Array.isArray(raw?.channels) ? raw.channels as OpsNotificationChannel[] : [],
-    rules: Array.isArray(raw?.rules) ? (raw.rules as RawOpsNotificationRule[]).map(normalizeOpsNotificationRule) : [],
+    channels: Array.isArray(raw?.channels) ? (raw.channels as OpsNotificationChannel[]) : [],
+    rules: Array.isArray(raw?.rules)
+      ? (raw.rules as RawOpsNotificationRule[]).map(normalizeOpsNotificationRule)
+      : [],
   };
 }
 
@@ -553,7 +583,12 @@ function normalizeCertificate(raw: RawCertificate): Certificate {
 }
 
 export async function listCertificates(params?: { page?: number; size?: number; status?: string }) {
-  const r = await request<{ certificates?: RawCertificate[]; total?: number; page?: number; size?: number }>('/api/v1/certificates', { params });
+  const r = await request<{
+    certificates?: RawCertificate[];
+    total?: number;
+    page?: number;
+    size?: number;
+  }>('/api/v1/certificates', { params });
   const raw = (r?.certificates || []) as RawCertificate[];
   return {
     certificates: raw.map(normalizeCertificate),

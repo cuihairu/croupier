@@ -94,6 +94,10 @@ function normalizeOpsNode(node: OpsNode): NodeRow {
     version: node.sdkVersion || '',
     lastSeen: node.lastSeen || '',
     nodeStatus: node.status || 'active',
+    // System metrics
+    cpu: node.cpu,
+    memory: node.memory,
+    disks: node.disks,
   };
 }
 
