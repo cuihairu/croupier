@@ -85,6 +85,14 @@ type AgentConfig struct {
 	Logging     common.LogConfig    `json:"log" yaml:"log"`
 	TLS         AgentTLSConfig      `json:"tls" yaml:"tls"`
 	OutboundTLS AgentTLSConfig      `json:"outboundTLS" yaml:"outboundTLS"`
+	Ops         *OpsConfig          `json:"ops,omitempty" yaml:"ops,omitempty"`
+}
+
+// OpsConfig represents the ops module configuration
+type OpsConfig struct {
+	Enabled         bool   `json:"enabled" yaml:"enabled"`
+	MetricsInterval string `json:"metrics_interval" yaml:"metrics_interval"`
+	MetricsEnabled  bool   `json:"metrics_enabled" yaml:"metrics_enabled"`
 }
 
 type AgentTLSConfig struct {
@@ -582,6 +590,20 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 		})
 	} else {
 		core.WithOutboundTLSConfig(nil)
+	}
+
+	// Configure ops module if enabled
+	if c.Ops != nil && c.Ops.Enabled {
+		opsCfg := agentcore.DefaultOpsConfig()
+		opsCfg.Enabled = true
+		opsCfg.MetricsEnabled = c.Ops.MetricsEnabled
+		if c.Ops.MetricsInterval != "" {
+			if d, err := time.ParseDuration(c.Ops.MetricsInterval); err == nil {
+				opsCfg.MetricsInterval = d
+			}
+		}
+		core.WithOpsConfig(opsCfg)
+		slog.Info("ops module enabled", "metrics_interval", opsCfg.MetricsInterval)
 	}
 
 	// Start the agent (which now starts TCP local server internally)
