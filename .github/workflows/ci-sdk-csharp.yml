@@ -3,11 +3,19 @@ name: CI - C# SDK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
-    paths: [ 'sdks/csharp/**' ]
+    branches: [main]
+    paths:
+      - "sdks/csharp/**"
+      - ".github/workflows/ci-sdk-csharp.yml"
+      - ".github/scripts/normalize_csharp_coverage.py"
+      - "codecov.yml"
   pull_request:
-    branches: [ main ]
-    paths: [ 'sdks/csharp/**' ]
+    branches: [main]
+    paths:
+      - "sdks/csharp/**"
+      - ".github/workflows/ci-sdk-csharp.yml"
+      - ".github/scripts/normalize_csharp_coverage.py"
+      - "codecov.yml"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -20,18 +28,26 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0'
+          dotnet-version: "10.0"
       - run: dotnet build --configuration Release
         working-directory: sdks/csharp
       - run: |
           dotnet test --nologo --no-build --no-restore \
             --configuration Release \
+            --settings coverlet.runsettings.xml \
             --collect:"XPlat Code Coverage" \
             --results-directory ./TestResults
         working-directory: sdks/csharp
+      - name: Normalize coverage paths for Codecov
+        run: python3 .github/scripts/normalize_csharp_coverage.py
+      - name: Verify C# coverage contains repo-relative SDK paths
+        run: |
+          test -n "$(find "sdks/csharp/TestResults/codecov" -name "coverage-*.cobertura.xml" -print -quit)"
+          grep -R -q 'filename="sdks/csharp/src/Croupier.Sdk/' "sdks/csharp/TestResults/codecov"
       - uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: sdks/csharp/TestResults/*/coverage.cobertura.xml
+          files: sdks/csharp/TestResults/codecov/coverage-*.cobertura.xml
           flags: csharp-sdk
           disable_search: true
+          fail_ci_if_error: true
