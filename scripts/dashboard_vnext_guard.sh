@@ -46,6 +46,16 @@ assert_file_absent() {
     fi
 }
 
+assert_dir_has_no_files() {
+    local path="$1"
+    local label="$2"
+    if [ -d "$path" ] && find "$path" -type f | grep -q .; then
+        fail "$label must not contain files: $path"
+    else
+        ok "$label absent"
+    fi
+}
+
 assert_contains() {
     local path="$1"
     local pattern="$2"
@@ -95,11 +105,13 @@ assert_file_absent "web/src/pages/PageStudio/PageSchemaEditor.tsx" "legacy PageS
 assert_file_absent "web/src/components/FormilyPageRenderer" "legacy Formily page renderer"
 assert_file_absent "web/src/components/FunctionFormManager" "legacy FunctionForm manager"
 assert_file_absent "web/src/components/formily" "legacy Formily component runtime"
+assert_dir_has_no_files "internal/dashboard/descriptors" "legacy request-time descriptor collector"
 
 echo ""
 echo "Checking legacy Page protocol terms do not return..."
 assert_not_contains "\\b(PageSpecV2|GeneratedPageSpecV2|PageTypeV2|PageFunctionBindingV2|PageSchemaEditor|PageStudioV2)\\b|formily-page:1|formily-page/v1|dashboard-vnext" "legacy split/page-schema identifiers absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
 assert_not_contains "\\b(inputMapping|outputMapping|SchemaJSON|PageSpecJSON|FormPresentationJSON|PageSpecVersion)\\b" "legacy page storage/mapping fields absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
+assert_not_contains "dashboard/descriptors|descriptors\\.Collect" "legacy descriptor collector imports absent" "internal" "web/src"
 if rg -nP "(?<![\"'])\\bany\\b(?![\"'])" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
     fail "core Dashboard TypeScript code has no any"
     sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt

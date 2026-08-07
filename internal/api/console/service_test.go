@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/cuihairu/croupier/internal/transport"
@@ -319,25 +320,12 @@ func TestServiceExecuteBindingRejectsMissingRequiredPayloadField(t *testing.T) {
 func TestServiceExecuteBindingRejectsChangedRiskOrPermission(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "function:invoke")
 	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))
-	service.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
-		AgentID:  "agent-1",
-		GameID:   "demo-game",
-		Env:      "development",
-		ExpireAt: time.Now().Add(time.Minute),
-		LastSeen: time.Now(),
-		Functions: map[string]reg.FunctionMeta{
-			"player.query": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Resource:     "player",
-				Operation:    "query",
-				Risk:         "danger",
-				Permission:   "player:admin",
-				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
-				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
-			},
-		},
-	})
+	require.NoError(t, upsertConsoleFunctionContract(service.svcCtx, ctx,
+		`{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+		`{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+		"danger",
+		"player:admin",
+	))
 
 	_, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
 		PageKey:   "player.manage",
@@ -351,25 +339,12 @@ func TestServiceExecuteBindingRejectsChangedRiskOrPermission(t *testing.T) {
 func TestServicePageReturnsBindingFreshnessDiagnostics(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
 	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))
-	service.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
-		AgentID:  "agent-1",
-		GameID:   "demo-game",
-		Env:      "development",
-		ExpireAt: time.Now().Add(time.Minute),
-		LastSeen: time.Now(),
-		Functions: map[string]reg.FunctionMeta{
-			"player.query": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Resource:     "player",
-				Operation:    "query",
-				Risk:         "safe",
-				Permission:   "player:query",
-				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"},"region":{"type":"string"}}}`,
-				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
-			},
-		},
-	})
+	require.NoError(t, upsertConsoleFunctionContract(service.svcCtx, ctx,
+		`{"type":"object","properties":{"keyword":{"type":"string"},"region":{"type":"string"}}}`,
+		`{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+		"safe",
+		"player:query",
+	))
 
 	pageResp, err := service.Page(ctx, &ConsolePageRequest{PageKey: "player.manage"})
 	require.NoError(t, err)
@@ -606,25 +581,9 @@ func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, c
 	gameID, env := svc.GameScopeFromContext(ctx)
 	inputDigest := testDigestRaw([]byte(inputSchema))
 	outputDigest := testDigestRaw([]byte(outputSchema))
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
-		AgentID:  "agent-1",
-		GameID:   gameID,
-		Env:      env,
-		ExpireAt: time.Now().Add(time.Minute),
-		LastSeen: time.Now(),
-		Functions: map[string]reg.FunctionMeta{
-			"player.query": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Resource:     "player",
-				Operation:    "query",
-				Risk:         "safe",
-				Permission:   "player:query",
-				InputSchema:  inputSchema,
-				OutputSchema: outputSchema,
-			},
-		},
-	})
+	if err := upsertConsoleFunctionContract(svcCtx, ctx, inputSchema, outputSchema, "safe", "player:query"); err != nil {
+		return err
+	}
 	page := spec.PageSpec{
 		PageKey:     "player.manage",
 		Type:        spec.PageTypeOperation,
@@ -683,6 +642,23 @@ func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, c
 		Active:                true,
 		PublishedAt:           time.Now(),
 		PublishedBy:           "console_tester",
+	})
+}
+
+func upsertConsoleFunctionContract(svcCtx *svc.ServiceContext, ctx context.Context, inputSchema string, outputSchema string, risk string, permission string) error {
+	gameID, env := svc.GameScopeFromContext(ctx)
+	return contractsvc.NewContractService(svcCtx.DB).RebuildContractFromFunctionMeta(ctx, gameID, env, "sdk", contractsvc.FunctionMetaInput{
+		ID:           "player.query",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Resource:     "player",
+		Operation:    "query",
+		Capability:   string(spec.CapabilityAction),
+		Execution:    string(spec.FunctionExecutionSync),
+		Risk:         risk,
+		Permission:   permission,
+		InputSchema:  inputSchema,
+		OutputSchema: outputSchema,
 	})
 }
 

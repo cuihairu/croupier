@@ -75,6 +75,28 @@ func TestContractService_RebuildContractFromFunctionMeta(t *testing.T) {
 	assert.Equal(t, "sdk", contract.Source)
 }
 
+func TestContractService_RebuildContractRejectsUnstableKeys(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID:          "Player.Ban",
+		Version:     "1.0.0",
+		Enabled:     true,
+		Resource:    "player",
+		Operation:   "banPlayer",
+		Capability:  "action",
+		InputSchema: `{"type":"object"}`,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "function contract validation failed")
+	contracts, listErr := service.ListContracts(ctx, "demo-game", "development")
+	require.NoError(t, listErr)
+	assert.Empty(t, contracts)
+}
+
 func TestContractService_RebuildResourceCapability(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
@@ -324,7 +346,7 @@ func TestContractService_ScopeIsolation(t *testing.T) {
 
 func TestOperationSpecFromContract(t *testing.T) {
 	// Test nil contract
-	spec := operationSpecFromContract(nil)
+	spec := OperationSpecFromContract(nil)
 	assert.Empty(t, spec.FunctionID)
 
 	// Test with contract
@@ -338,7 +360,7 @@ func TestOperationSpecFromContract(t *testing.T) {
 		Permission:   "player:list",
 		Enabled:      true,
 	}
-	spec = operationSpecFromContract(contract)
+	spec = OperationSpecFromContract(contract)
 	assert.Equal(t, "player.list", spec.FunctionID)
 	assert.Equal(t, "player", spec.ResourceKey)
 	assert.Equal(t, "list", spec.Operation)
@@ -351,7 +373,7 @@ func TestOperationSpecFromContract(t *testing.T) {
 
 func TestFunctionSpecFromContract(t *testing.T) {
 	// Test nil contract
-	spec := functionSpecFromContract(nil)
+	spec := FunctionSpecFromContract(nil)
 	assert.Empty(t, spec.ID)
 
 	// Test with contract
@@ -369,7 +391,7 @@ func TestFunctionSpecFromContract(t *testing.T) {
 		Risk:         "safe",
 		Permission:   "player:list",
 	}
-	spec = functionSpecFromContract(contract)
+	spec = FunctionSpecFromContract(contract)
 	assert.Equal(t, "player.list", spec.ID)
 	assert.Equal(t, "1.0.0", spec.Version)
 	assert.True(t, spec.Enabled)
@@ -380,7 +402,7 @@ func TestFunctionSpecFromContract(t *testing.T) {
 
 func TestJsonMapToApprovalPolicy(t *testing.T) {
 	// Test empty map
-	policy := jsonMapToApprovalPolicy(nil)
+	policy := ApprovalPolicyFromJSONMap(nil)
 	assert.False(t, policy.Required)
 	assert.Empty(t, policy.PolicyKey)
 
@@ -389,7 +411,7 @@ func TestJsonMapToApprovalPolicy(t *testing.T) {
 		"required":  true,
 		"policyKey": "high-risk",
 	}
-	policy = jsonMapToApprovalPolicy(values)
+	policy = ApprovalPolicyFromJSONMap(values)
 	assert.True(t, policy.Required)
 	assert.Equal(t, "high-risk", policy.PolicyKey)
 
@@ -398,14 +420,14 @@ func TestJsonMapToApprovalPolicy(t *testing.T) {
 		"required":   true,
 		"policy_key": "admin-approval",
 	}
-	policy2 := jsonMapToApprovalPolicy(values2)
+	policy2 := ApprovalPolicyFromJSONMap(values2)
 	assert.True(t, policy2.Required)
 	assert.Equal(t, "admin-approval", policy2.PolicyKey)
 }
 
 func TestJsonMapToLocalizedText(t *testing.T) {
 	// Test empty map
-	text := jsonMapToLocalizedText(nil)
+	text := LocalizedTextFromJSONMap(nil)
 	assert.Nil(t, text)
 
 	// Test with values
@@ -413,7 +435,7 @@ func TestJsonMapToLocalizedText(t *testing.T) {
 		"zh-CN": "玩家列表",
 		"en":    "Player List",
 	}
-	text = jsonMapToLocalizedText(values)
+	text = LocalizedTextFromJSONMap(values)
 	assert.Equal(t, "玩家列表", text["zh-CN"])
 	assert.Equal(t, "Player List", text["en"])
 
@@ -422,7 +444,7 @@ func TestJsonMapToLocalizedText(t *testing.T) {
 		"zh-CN": "",
 		"en":    "  ",
 	}
-	text2 := jsonMapToLocalizedText(values2)
+	text2 := LocalizedTextFromJSONMap(values2)
 	assert.Nil(t, text2)
 }
 

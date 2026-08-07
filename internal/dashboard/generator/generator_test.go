@@ -41,16 +41,16 @@ func TestGenerateForOperationCreatesBasicPage(t *testing.T) {
 
 func TestGenerateForOperationUsesExecutionTask(t *testing.T) {
 	page := GenerateForOperation(spec.OperationSpec{
-		FunctionID: "reward.batchGrant",
-		Operation:  "batchGrant",
+		FunctionID: "reward.batch_grant",
+		Operation:  "batch_grant",
 		Capability: spec.CapabilityTask,
 		Execution:  spec.FunctionExecutionTask,
 		Enabled:    true,
 	}, GenerateOptions{
 		DefaultLocale: "zh-CN",
 		Functions: map[string]spec.FunctionSpec{
-			"reward.batchGrant": {
-				ID:          "reward.batchGrant",
+			"reward.batch_grant": {
+				ID:          "reward.batch_grant",
 				InputSchema: spec.JSONSchema(`{"type":"object","properties":{"segment":{"type":"string"}}}`),
 			},
 		},

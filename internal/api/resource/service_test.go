@@ -5,73 +5,70 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	dashboardservice "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/getkin/kin-openapi/openapi3"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
-func TestServiceListCollectsRegistryDescriptorV2Metadata(t *testing.T) {
-	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
-		AgentID:  "agent-1",
-		GameID:   "demo-game",
-		Env:      "development",
-		ExpireAt: time.Now().Add(time.Minute),
-		LastSeen: time.Now(),
-		Functions: map[string]reg.FunctionMeta{
-			"player.list": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Tags:         []string{"player"},
-				Summary:      "List players",
-				Description:  "List player accounts",
-				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
-				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"}}}`,
-				Resource:     "player",
-				Risk:         "safe",
-				Operation:    "list",
-				Capability:   "collection_query",
-				Execution:    "sync",
-				Permission:   "player:list",
-			},
-			"player.ban": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Tags:         []string{"player", "moderation"},
-				Summary:      "Ban player",
-				Description:  "Ban a player account",
-				InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
-				OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
-				Resource:     "player",
-				Risk:         "danger",
-				Operation:    "ban",
-				Capability:   "action",
-				Execution:    "sync",
-				Permission:   "player:ban",
-			},
+func TestServiceListUsesPersistentFunctionContracts(t *testing.T) {
+	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
+	contractService := dashboardservice.NewContractService(svcCtx.DB)
+	for _, meta := range []dashboardservice.FunctionMetaInput{
+		{
+			ID:           "player.list",
+			Version:      "1.0.0",
+			Enabled:      true,
+			Summary:      "List players",
+			Description:  "List player accounts",
+			InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+			OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}},"total":{"type":"integer"}}}`,
+			Resource:     "player",
+			Risk:         "safe",
+			Operation:    "list",
+			Capability:   "collection_query",
+			Execution:    "sync",
+			Permission:   "player:list",
+			Tags:         []string{"player"},
 		},
-	})
+		{
+			ID:           "player.ban",
+			Version:      "1.0.0",
+			Enabled:      true,
+			Summary:      "Ban player",
+			Description:  "Ban a player account",
+			InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
+			OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+			Resource:     "player",
+			Risk:         "danger",
+			Operation:    "ban",
+			Capability:   "action",
+			Execution:    "sync",
+			Permission:   "player:ban",
+			Tags:         []string{"player", "moderation"},
+		},
+	} {
+		require.NoError(t, contractService.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	}
+	require.NoError(t, contractService.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
 
-	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:read")
 	resp, err := NewService(svcCtx).List(ctx, &ResourceListRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 
 	player := resp.Items[0]
 	assert.Equal(t, "player", player.Key)
-	assert.Equal(t, "player", player.Labels["zh-CN"])
+	assert.Equal(t, "Player", player.Labels["zh-CN"])
 	assert.Equal(t, "player", player.Category.Key)
-	assert.Equal(t, "player", player.Category.Labels["zh-CN"])
+	assert.Equal(t, "Player", player.Category.Labels["zh-CN"])
 	require.Len(t, player.Operations, 2)
 
 	ops := map[string]spec.OperationSpec{}
@@ -94,20 +91,8 @@ func TestServiceListCollectsRegistryDescriptorV2Metadata(t *testing.T) {
 	assert.Empty(t, banOp.Diagnostics)
 }
 
-func TestServiceListUsesBoundOpenAPISourceFunctionContract(t *testing.T) {
-	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
-		AgentID:  "agent-1",
-		GameID:   "demo-game",
-		Env:      "development",
-		ExpireAt: time.Now().Add(time.Minute),
-		LastSeen: time.Now(),
-		Functions: map[string]reg.FunctionMeta{
-			"analytics.retention": {Enabled: true, Version: "1.0.0"},
-		},
-	})
-
-	svcCtx, ctx := newResourceTestServiceContext(t, store, "resources:read")
+func TestServiceListDoesNotInterpretOpenAPISourceBindingsAtReadTime(t *testing.T) {
+	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
 	source := openAPISourceModel(
 		t,
 		"analytics-source",
@@ -131,15 +116,7 @@ func TestServiceListUsesBoundOpenAPISourceFunctionContract(t *testing.T) {
 
 	resp, err := NewService(svcCtx).List(ctx, &ResourceListRequest{})
 	require.NoError(t, err)
-	require.Len(t, resp.Items, 1)
-	require.Len(t, resp.Items[0].Operations, 1)
-
-	op := resp.Items[0].Operations[0]
-	assert.Equal(t, "analytics.retention", op.FunctionID)
-	assert.Equal(t, "analytics", op.ResourceKey)
-	assert.Equal(t, "retention", op.Operation)
-	assert.Equal(t, spec.CapabilityReport, op.Capability)
-	assert.Equal(t, spec.FunctionExecutionSync, op.Execution)
+	assert.Empty(t, resp.Items)
 }
 
 func TestServiceListIgnoresUnboundOpenAPISource(t *testing.T) {
@@ -160,27 +137,6 @@ func TestServiceListIgnoresUnboundOpenAPISource(t *testing.T) {
 	resp, err := NewService(svcCtx).List(ctx, &ResourceListRequest{})
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
-}
-
-func openAPIOperationWithCapability(resource string, operation string, capability string, execution string) *openapi3.Operation {
-	return &openapi3.Operation{
-		Extensions: map[string]interface{}{
-			"x-resource":   resource,
-			"x-operation":  operation,
-			"x-capability": capability,
-			"x-execution":  execution,
-		},
-	}
-}
-
-func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target string, sourceKind spec.ValueSourceKind, sourcePath string) {
-	t.Helper()
-	for _, assignment := range selector.Assignments {
-		if assignment.Target == target && assignment.Source.Kind == sourceKind && assignment.Source.Path == sourcePath {
-			return
-		}
-	}
-	t.Fatalf("expected selector assignment %s <- %s:%s, got %#v", target, sourceKind, sourcePath, selector.Assignments)
 }
 
 func openAPISourceDocument(t *testing.T, operationID string, resource string, operation string, capability string, execution string) json.RawMessage {

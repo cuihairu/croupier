@@ -11,13 +11,12 @@ import (
 
 	"github.com/cuihairu/croupier/internal/api/function"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
-	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
-	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
+	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -351,7 +350,11 @@ func (s *Service) ensurePageApprovalStillFresh(ctx context.Context, record *appr
 	if !ok {
 		return errors.New("published page binding contract snapshot missing")
 	}
-	diags := freshness.EvaluateBinding(binding, contract, approvalNormalizedFunctions(ctx, s.svcCtx))
+	functions, err := loadApprovalFunctionSpecs(ctx, s.svcCtx, record)
+	if err != nil {
+		return err
+	}
+	diags := freshness.EvaluateBinding(binding, contract, functions)
 	if len(diags) > 0 {
 		return fmt.Errorf("published page binding is stale: %s", approvalBindingFreshnessStatuses(diags))
 	}
@@ -388,16 +391,19 @@ func findApprovalContract(contracts []spec.BindingContractSnapshot, bindingID st
 	return spec.BindingContractSnapshot{}, false
 }
 
-func approvalNormalizedFunctions(ctx context.Context, svcCtx *svc.ServiceContext) map[string]spec.FunctionSpec {
-	inputs := descriptors.Collect(ctx, svcCtx)
-	out := make(map[string]spec.FunctionSpec, len(inputs))
-	for _, input := range inputs {
-		result := normalizer.Normalize(input)
-		if result.Function.ID != "" {
-			out[result.Function.ID] = result.Function
-		}
+func loadApprovalFunctionSpecs(ctx context.Context, svcCtx *svc.ServiceContext, record *approvals.Approval) (map[string]spec.FunctionSpec, error) {
+	if svcCtx == nil || svcCtx.DB == nil {
+		return nil, errors.New("function contract database unavailable")
 	}
-	return out
+	if record == nil {
+		return nil, errors.New("approval record unavailable")
+	}
+	gameID := strings.TrimSpace(record.GameID)
+	env := strings.TrimSpace(record.Env)
+	if gameID == "" || env == "" {
+		return nil, errors.New("approval scope is incomplete")
+	}
+	return contractsvc.FunctionSpecsByScope(ctx, model.NewFunctionContractModel(svcCtx.DB), gameID, env)
 }
 
 func approvalBindingFreshnessStatuses(diags []spec.BindingFreshnessDiagnostic) string {

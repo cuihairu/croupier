@@ -20,6 +20,7 @@ import (
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
 )
@@ -88,7 +89,10 @@ func (s *Service) GetDraft(ctx context.Context, req *PageDraftRequest) (*PageDra
 	if err != nil {
 		return nil, err
 	}
-	resp := pageDraftResponseFromModel(p)
+	resp, err := pageDraftResponseFromModel(p)
+	if err != nil {
+		return nil, err
+	}
 	resp.BindingFreshness = s.bindingFreshnessForPublishedDraft(ctx, p)
 	return resp, nil
 }
@@ -127,10 +131,7 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	}
 	categoryKey := strings.TrimSpace(req.Category.Key)
 	if categoryKey == "" {
-		categoryKey = inferCategoryFromKey(firstNonEmpty(req.ResourceKey, req.PageKey))
-	}
-	if categoryKey == "" {
-		return nil, errorx.NewBadRequest("category.key is required or inferable from resourceKey/pageKey")
+		return nil, errorx.NewBadRequest("category.key is required")
 	}
 
 	title := normalizeLocaleKeys(req.Title)
@@ -326,10 +327,14 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 		"proposal_page_key": replacement.PageKey,
 	})
 
+	pageSpec, err := pageSpecFromModel(p)
+	if err != nil {
+		return nil, err
+	}
 	return &PageRegenerateResponse{
 		PageKey:       p.PageKey,
 		DraftRevision: p.DraftRevision,
-		Page:          pageSpecFromModel(p),
+		Page:          pageSpec,
 		Diagnostics:   replacement.Diagnostics,
 		Quality:       replacement.Quality,
 	}, nil
@@ -343,7 +348,11 @@ func (s *Service) Validate(ctx context.Context, req *PageValidateRequest) (*Page
 	if err != nil {
 		return nil, err
 	}
-	diags := s.validatePageSpec(ctx, pageSpecFromModel(p), true)
+	pageSpec, err := pageSpecFromModel(p)
+	if err != nil {
+		return nil, err
+	}
+	diags := s.validatePageSpec(ctx, pageSpec, true)
 	return &PageValidateResponse{Valid: countErrors(diags) == 0, Diagnostics: diags}, nil
 }
 
@@ -355,7 +364,10 @@ func (s *Service) Preview(ctx context.Context, req *PagePreviewRequest) (*PagePr
 	if err != nil {
 		return nil, err
 	}
-	pageSpec := pageSpecFromModel(p)
+	pageSpec, err := pageSpecFromModel(p)
+	if err != nil {
+		return nil, err
+	}
 	diags := s.validatePageSpec(ctx, pageSpec, false)
 	if countErrors(diags) > 0 {
 		return nil, errorx.NewValidationErrorWithDetails("page preview validation failed", diagnosticsToDetails(diags))
@@ -391,7 +403,10 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 		})
 	}
 
-	pageSpec := pageSpecFromModel(p)
+	pageSpec, err := pageSpecFromModel(p)
+	if err != nil {
+		return nil, err
+	}
 	diags := s.validatePageSpec(ctx, pageSpec, true)
 	if countErrors(diags) > 0 {
 		return nil, errorx.NewValidationErrorWithDetails("page validation failed", diagnosticsToDetails(diags))
@@ -803,7 +818,10 @@ func (s *Service) validatePublishedCategoryLabels(ctx context.Context, page spec
 		if item.PageKey == page.PageKey {
 			continue
 		}
-		publishedPage := pageSpecFromPublishedModel(item)
+		publishedPage, err := pageSpecFromPublishedModel(item)
+		if err != nil {
+			return []spec.Diagnostic{diagnostic("published_page_spec_invalid", spec.SeverityError, "published page contains invalid canonical PageSpec", "category.labels")}
+		}
 		if strings.TrimSpace(publishedPage.Category.Key) != categoryKey {
 			continue
 		}
@@ -1036,8 +1054,11 @@ func digestRaw(raw []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func pageDraftResponseFromModel(p *model.PageSpec) *PageDraftResponse {
-	pageSpec := pageSpecFromModel(p)
+func pageDraftResponseFromModel(p *model.PageSpec) (*PageDraftResponse, error) {
+	pageSpec, err := pageSpecFromModel(p)
+	if err != nil {
+		return nil, err
+	}
 	return &PageDraftResponse{
 		PageSpec:         pageSpec,
 		GameID:           p.GameID,
@@ -1047,7 +1068,7 @@ func pageDraftResponseFromModel(p *model.PageSpec) *PageDraftResponse {
 		PublishedVersion: p.PublishedVersion,
 		UpdatedAt:        p.UpdatedAt.Format(time.RFC3339),
 		UpdatedBy:        p.UpdatedBy,
-	}
+	}, nil
 }
 
 func (s *Service) bindingFreshnessForPublishedDraft(ctx context.Context, p *model.PageSpec) []spec.BindingFreshnessDiagnostic {
@@ -1072,39 +1093,37 @@ func parsePublishedPageForFreshness(published model.PublishedPageSpec) (spec.Pag
 	return pageSpec, contracts
 }
 
-func pageSpecFromModel(p *model.PageSpec) spec.PageSpec {
+func pageSpecFromModel(p *model.PageSpec) (spec.PageSpec, error) {
 	if p == nil {
-		return spec.PageSpec{}
+		return spec.PageSpec{}, errorx.NewBadRequest("page draft is required")
+	}
+	if strings.TrimSpace(p.SpecJSON) == "" {
+		return spec.PageSpec{}, errorx.NewValidationError("page draft does not contain canonical PageSpec")
 	}
 	var pageSpec spec.PageSpec
-	if strings.TrimSpace(p.SpecJSON) != "" {
-		if err := json.Unmarshal([]byte(p.SpecJSON), &pageSpec); err == nil && strings.TrimSpace(pageSpec.PageKey) != "" {
-			return pageSpec
-		}
+	if err := json.Unmarshal([]byte(p.SpecJSON), &pageSpec); err != nil {
+		return spec.PageSpec{}, fmt.Errorf("decode canonical PageSpec: %w", err)
 	}
-	return spec.PageSpec{
-		PageKey:     p.PageKey,
-		Type:        spec.PageType(p.Type),
-		ResourceKey: p.ResourceKey,
-		Title:       p.GetTitle(),
-		Category: spec.PageCategorySpec{
-			Key:    p.CategoryKey,
-			Labels: p.GetCategoryLabels(),
-			Order:  p.CategoryOrder,
-		},
-		Order: p.Order,
-		Icon:  p.Icon,
+	pageSpec.PageKey = strings.TrimSpace(pageSpec.PageKey)
+	if pageSpec.PageKey == "" {
+		return spec.PageSpec{}, errorx.NewValidationError("canonical PageSpec pageKey is required")
 	}
+	return pageSpec, nil
 }
 
-func pageSpecFromPublishedModel(p model.PublishedPageSpec) spec.PageSpec {
-	var pageSpec spec.PageSpec
-	if strings.TrimSpace(p.SpecJSON) != "" {
-		if err := json.Unmarshal([]byte(p.SpecJSON), &pageSpec); err == nil && strings.TrimSpace(pageSpec.PageKey) != "" {
-			return pageSpec
-		}
+func pageSpecFromPublishedModel(p model.PublishedPageSpec) (spec.PageSpec, error) {
+	if strings.TrimSpace(p.SpecJSON) == "" {
+		return spec.PageSpec{}, errorx.NewValidationError("published page does not contain canonical PageSpec")
 	}
-	return spec.PageSpec{PageKey: p.PageKey}
+	var pageSpec spec.PageSpec
+	if err := json.Unmarshal([]byte(p.SpecJSON), &pageSpec); err != nil {
+		return spec.PageSpec{}, fmt.Errorf("decode published canonical PageSpec: %w", err)
+	}
+	pageSpec.PageKey = strings.TrimSpace(pageSpec.PageKey)
+	if pageSpec.PageKey == "" {
+		return spec.PageSpec{}, errorx.NewValidationError("published canonical PageSpec pageKey is required")
+	}
+	return pageSpec, nil
 }
 
 func pageSpecFromProposalModel(proposal *model.PageProposal) (spec.PageSpec, error) {
@@ -1144,7 +1163,7 @@ func applyPageSpecToModel(p *model.PageSpec, ps spec.PageSpec) error {
 	p.ResourceKey = strings.TrimSpace(ps.ResourceKey)
 	p.CategoryKey = strings.TrimSpace(ps.Category.Key)
 	if p.CategoryKey == "" {
-		p.CategoryKey = inferCategoryFromKey(firstNonEmpty(p.ResourceKey, p.PageKey))
+		return errorx.NewValidationError("category.key is required in canonical PageSpec")
 	}
 	p.CategoryOrder = ps.Category.Order
 	p.Order = ps.Order
@@ -1164,7 +1183,11 @@ func applyPageSpecToModel(p *model.PageSpec, ps spec.PageSpec) error {
 }
 
 func buildPageSpecJSON(p *model.PageSpec) (string, error) {
-	return marshalPageSpec(pageSpecFromModel(p))
+	pageSpec, err := pageSpecFromModel(p)
+	if err != nil {
+		return "", err
+	}
+	return marshalPageSpec(pageSpec)
 }
 
 func marshalPageSpec(page spec.PageSpec) (string, error) {
@@ -1205,41 +1228,11 @@ func (s *Service) normalizedFunctions(ctx context.Context) map[string]spec.Funct
 	if err != nil || s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
 		return map[string]spec.FunctionSpec{}
 	}
-	contracts, err := model.NewFunctionContractModel(s.svcCtx.DB).ListByScope(ctx, gameID, env)
+	functions, err := contractsvc.FunctionSpecsByScope(ctx, model.NewFunctionContractModel(s.svcCtx.DB), gameID, env)
 	if err != nil {
 		return map[string]spec.FunctionSpec{}
 	}
-	out := make(map[string]spec.FunctionSpec, len(contracts))
-	for _, contract := range contracts {
-		if contract == nil || strings.TrimSpace(contract.FunctionID) == "" {
-			continue
-		}
-		out[contract.FunctionID] = functionSpecFromContract(contract)
-	}
-	return out
-}
-
-func functionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpec {
-	if contract == nil {
-		return spec.FunctionSpec{}
-	}
-	return spec.FunctionSpec{
-		ID:           strings.TrimSpace(contract.FunctionID),
-		Version:      strings.TrimSpace(contract.Version),
-		Enabled:      contract.Enabled,
-		Deprecated:   contract.Deprecated,
-		InputSchema:  spec.JSONSchema(contract.InputSchema),
-		OutputSchema: spec.JSONSchema(contract.OutputSchema),
-		Summary:      localizedTextFromJSONMap(contract.Summary),
-		Description:  localizedTextFromJSONMap(contract.Description),
-		Resource:     strings.TrimSpace(contract.ResourceKey),
-		Operation:    strings.TrimSpace(contract.OperationKey),
-		Capability:   spec.CapabilityKind(contract.Capability),
-		Execution:    spec.FunctionExecution(contract.Execution),
-		Approval:     approvalPolicyFromJSONMap(contract.Approval),
-		Risk:         spec.RiskLevel(contract.Risk),
-		Permission:   strings.TrimSpace(contract.Permission),
-	}
+	return functions
 }
 
 func (s *Service) requirePageRead(ctx context.Context) error {
@@ -1436,26 +1429,6 @@ func (s *Service) pagePublishSource(ctx context.Context, gameID string, env stri
 	source.SemanticsDigest = strings.TrimSpace(proposal.SemanticsDigest)
 	source.GeneratorVersion = strings.TrimSpace(proposal.GeneratorVersion)
 	return source
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if v := strings.TrimSpace(value); v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-func inferCategoryFromKey(key string) string {
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return ""
-	}
-	if idx := strings.Index(key, "."); idx > 0 {
-		return key[:idx]
-	}
-	return key
 }
 
 func ErrPageNotFound(key string) error {

@@ -1,6 +1,8 @@
 package router
 
 import (
+	"context"
+
 	adminapi "github.com/cuihairu/croupier/internal/api/admin"
 	"github.com/cuihairu/croupier/internal/api/auth"
 	configapi "github.com/cuihairu/croupier/internal/api/config"
@@ -107,6 +109,9 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	// automatically persists FunctionContracts.
 	contractService := service.NewContractService(db)
 	registryStore.SetContractService(contractService)
+	registryStore.SetScopeContextResolver(func(gameID, env string) context.Context {
+		return svc.WithGameScope(context.Background(), svc.GameScope{GameID: gameID, Env: env})
+	})
 
 	svcCtx := &svc.ServiceContext{
 		DB:                        db,

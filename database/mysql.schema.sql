@@ -188,6 +188,52 @@ CREATE TABLE IF NOT EXISTS `functions` (
   UNIQUE KEY `uk_functions_function_id` (`function_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `openapi_sources` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `game_id` VARCHAR(64) NOT NULL,
+  `env` VARCHAR(64) NOT NULL,
+  `source_id` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(128) NOT NULL,
+  `revision` BIGINT NOT NULL DEFAULT 1,
+  `format` VARCHAR(16) NOT NULL,
+  `open_api_version` VARCHAR(32) NOT NULL,
+  `info_title` VARCHAR(256) NULL,
+  `info_version` VARCHAR(64) NULL,
+  `content_hash` VARCHAR(64) NOT NULL,
+  `spec_json` JSON NULL,
+  `operations_json` JSON NULL,
+  `diagnostics_json` JSON NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_openapi_sources_scope` (`game_id`, `env`, `source_id`),
+  KEY `idx_openapi_sources_scope` (`game_id`, `env`),
+  KEY `idx_openapi_sources_content_hash` (`content_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `openapi_source_bindings` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `game_id` VARCHAR(64) NOT NULL,
+  `env` VARCHAR(64) NOT NULL,
+  `source_id` VARCHAR(64) NOT NULL,
+  `binding_id` VARCHAR(128) NOT NULL,
+  `operation_id` VARCHAR(128) NOT NULL,
+  `kind` VARCHAR(32) NOT NULL,
+  `function_id` VARCHAR(128) NULL,
+  `provider_id` VARCHAR(128) NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_openapi_source_bindings_scope` (`game_id`, `env`, `source_id`, `binding_id`),
+  KEY `idx_openapi_source_bindings_scope` (`game_id`, `env`),
+  KEY `idx_openapi_source_bindings_source_id` (`source_id`),
+  KEY `idx_openapi_source_bindings_operation_id` (`operation_id`),
+  KEY `idx_openapi_source_bindings_function_id` (`function_id`),
+  KEY `idx_openapi_source_bindings_provider_id` (`provider_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Dashboard vNext function capability contracts (scope-keyed canonical model)
 CREATE TABLE IF NOT EXISTS `function_contracts` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

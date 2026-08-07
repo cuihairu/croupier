@@ -21,6 +21,7 @@ import (
 	extensionmanifest "github.com/cuihairu/croupier/internal/core/extension/manifest"
 	extensionruntime "github.com/cuihairu/croupier/internal/core/extension/runtime"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
@@ -323,6 +324,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		// Use NewStoreWithDB to enable database dual-write and recovery
 		ctx.RegistryStore = reg.NewStoreWithDB(ctx.DB)
 	}
+	ctx.RegistryStore.SetScopeContextResolver(ctx.scopeContextForBackgroundRegistration)
 	if ctx.Dispatcher == nil {
 		var taskStore dispatch.TaskRoutingStore
 		taskRoutingDir := resolveTaskRoutingDir(ctx.Config)
@@ -410,6 +412,23 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	ctx.Authority = NewAuthMiddleware(ctx)
 
 	return ctx
+}
+
+func (ctx *ServiceContext) scopeContextForBackgroundRegistration(gameID, env string) context.Context {
+	base := WithGameScope(context.Background(), GameScope{
+		GameID: strings.TrimSpace(gameID),
+		Env:    strings.TrimSpace(env),
+	})
+	if ctx == nil || ctx.Router == nil || strings.TrimSpace(gameID) == "" {
+		return base
+	}
+	gameDB, err := ctx.Router.GameDB(base, strings.TrimSpace(gameID), strings.TrimSpace(env))
+	if err != nil {
+		slog.Default().Error("failed to resolve game database for function registration",
+			"gameId", strings.TrimSpace(gameID), "env", strings.TrimSpace(env), "error", err)
+		return base
+	}
+	return dbctx.WithDB(base, gameDB)
 }
 
 func NewTelemetryService(c config.Config, serviceName string, logger *slog.Logger) (*telemetry.GameTelemetryService, error) {

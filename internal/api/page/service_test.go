@@ -83,6 +83,49 @@ func TestServiceSaveDraftUsesContextActorAndWritesAudit(t *testing.T) {
 	assert.Equal(t, "development", records[0].Details["env"])
 }
 
+func TestServiceSaveDraftRejectsMissingCategoryKey(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit")
+	revision := 0
+
+	_, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "玩家管理"},
+		Category: spec.PageCategorySpec{
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "category.key is required")
+}
+
+func TestServiceGetDraftRejectsMissingCanonicalSpecJSON(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:read")
+	require.NoError(t, service.svcCtx.PageSpecModel.Upsert(ctx, &model.PageSpec{
+		GameID:             "demo-game",
+		Env:                "development",
+		PageKey:            "player.legacy",
+		Type:               "operation",
+		ResourceKey:        "player",
+		CategoryKey:        "player",
+		CategoryLabelsJSON: `{"zh-CN":"玩家"}`,
+		TitleJSON:          `{"zh-CN":"旧页面"}`,
+		Status:             "draft",
+		DraftRevision:      1,
+		UpdatedBy:          "legacy",
+	}))
+
+	_, err := service.GetDraft(ctx, &PageDraftRequest{PageKey: "player.legacy"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "canonical PageSpec")
+}
+
 func TestServicePublishRequiresPagePublishPermission(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit")
 	revision := saveTestPageDraft(t, service, ctx)

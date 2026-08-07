@@ -83,6 +83,9 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		Tags:              input.Tags,
 	}
 	result := normalizer.Normalize(normInput)
+	if validationErr := contractValidationError(result.Diagnostics); validationErr != nil {
+		return validationErr
+	}
 
 	// 2. Compute source digest from the canonical normalized contract.
 	digest := computeDigest(result.Function)
@@ -185,7 +188,7 @@ func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contra
 		GameID:            gameID,
 		Env:               env,
 		ResourceKey:       resourceKey,
-		Source:            "sdk_explicit",
+		Source:            semanticSourceForContracts(contracts),
 		PageFieldName:     "page",
 		PageSizeFieldName: "page_size",
 		ItemsFieldName:    "items",
@@ -213,6 +216,30 @@ func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contra
 	inferIdentityField(sem, contracts)
 
 	return sem
+}
+
+func semanticSourceForContracts(contracts []*model.FunctionContract) string {
+	hasSDK := false
+	hasOpenAPI := false
+	for _, contract := range contracts {
+		if contract == nil {
+			continue
+		}
+		switch strings.TrimSpace(contract.Source) {
+		case "sdk":
+			hasSDK = true
+		case "openapi":
+			hasOpenAPI = true
+		}
+	}
+	switch {
+	case hasSDK:
+		return string(spec.SemanticSourceSDKExplicit)
+	case hasOpenAPI:
+		return string(spec.SemanticSourceOpenAPIRest)
+	default:
+		return string(spec.SemanticSourceSDKExplicit)
+	}
 }
 
 func preserveReviewedSemantics(next *model.CapabilitySemantics, existing *model.CapabilitySemantics) {
@@ -466,6 +493,20 @@ func approvalPolicyToJSONMap(policy spec.ApprovalPolicy) datatypes.JSONMap {
 	}
 }
 
+func contractValidationError(diags []spec.Diagnostic) error {
+	for _, diag := range diags {
+		if diag.Severity != spec.SeverityError {
+			continue
+		}
+		field := strings.TrimSpace(diag.Field)
+		if field == "" {
+			field = "descriptor"
+		}
+		return fmt.Errorf("function contract validation failed: %s: %s", field, diag.Message)
+	}
+	return nil
+}
+
 // ListContracts lists all contracts in a scope.
 func (s *ContractService) ListContracts(ctx context.Context, gameID, env string) ([]*model.FunctionContract, error) {
 	return s.contractModel.ListByScope(ctx, gameID, env)
@@ -549,7 +590,7 @@ func (s *ContractService) RebuildProposalForFunction(ctx context.Context, gameID
 		return nil
 	}
 	functions := map[string]spec.FunctionSpec{
-		functionID: functionSpecFromContract(contract),
+		functionID: FunctionSpecFromContract(contract),
 	}
 	var taskSemantics map[string]spec.TaskSemantic
 	var reportSemantics map[string]spec.ReportSemantic
@@ -561,7 +602,7 @@ func (s *ContractService) RebuildProposalForFunction(ctx context.Context, gameID
 			return fmt.Errorf("find capability semantics for %s: %w", resourceKey, err)
 		}
 	}
-	generated := generator.GenerateForOperation(operationSpecFromContract(contract), generator.GenerateOptions{
+	generated := generator.GenerateForOperation(OperationSpecFromContract(contract), generator.GenerateOptions{
 		DefaultLocale:   "zh-CN",
 		Functions:       functions,
 		TaskSemantics:   taskSemantics,
@@ -601,7 +642,7 @@ func (s *ContractService) upsertStandaloneProposals(
 		if contract == nil || strings.TrimSpace(contract.FunctionID) == "" {
 			continue
 		}
-		functions[strings.TrimSpace(contract.FunctionID)] = functionSpecFromContract(contract)
+		functions[strings.TrimSpace(contract.FunctionID)] = FunctionSpecFromContract(contract)
 	}
 	for _, contract := range contracts {
 		if contract == nil || isCRUDCapability(contract.Capability) {
@@ -610,7 +651,7 @@ func (s *ContractService) upsertStandaloneProposals(
 		if _, ok := consumed[strings.TrimSpace(contract.FunctionID)]; ok {
 			continue
 		}
-		generated := generator.GenerateForOperation(operationSpecFromContract(contract), generator.GenerateOptions{
+		generated := generator.GenerateForOperation(OperationSpecFromContract(contract), generator.GenerateOptions{
 			DefaultLocale:   "zh-CN",
 			Functions:       functions,
 			TaskSemantics:   taskSemantics,
@@ -791,77 +832,6 @@ func preserveGeneratedProposalStatus(status string) string {
 	default:
 		return "pending"
 	}
-}
-
-func operationSpecFromContract(contract *model.FunctionContract) spec.OperationSpec {
-	if contract == nil {
-		return spec.OperationSpec{}
-	}
-	return spec.OperationSpec{
-		FunctionID:  contract.FunctionID,
-		ResourceKey: contract.ResourceKey,
-		Operation:   contract.OperationKey,
-		Capability:  spec.CapabilityKind(contract.Capability),
-		Execution:   spec.FunctionExecution(contract.Execution),
-		Approval:    jsonMapToApprovalPolicy(contract.Approval),
-		Risk:        spec.RiskLevel(contract.Risk),
-		Permission:  contract.Permission,
-		Enabled:     contract.Enabled,
-	}
-}
-
-func functionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpec {
-	if contract == nil {
-		return spec.FunctionSpec{}
-	}
-	return spec.FunctionSpec{
-		ID:           contract.FunctionID,
-		Version:      contract.Version,
-		Enabled:      contract.Enabled,
-		Deprecated:   contract.Deprecated,
-		InputSchema:  spec.JSONSchema(contract.InputSchema),
-		OutputSchema: spec.JSONSchema(contract.OutputSchema),
-		Summary:      jsonMapToLocalizedText(contract.Summary),
-		Description:  jsonMapToLocalizedText(contract.Description),
-		Resource:     contract.ResourceKey,
-		Operation:    contract.OperationKey,
-		Capability:   spec.CapabilityKind(contract.Capability),
-		Execution:    spec.FunctionExecution(contract.Execution),
-		Approval:     jsonMapToApprovalPolicy(contract.Approval),
-		Risk:         spec.RiskLevel(contract.Risk),
-		Permission:   contract.Permission,
-	}
-}
-
-func jsonMapToApprovalPolicy(values map[string]interface{}) spec.ApprovalPolicy {
-	if len(values) == 0 {
-		return spec.ApprovalPolicy{}
-	}
-	required, _ := values["required"].(bool)
-	policyKey, _ := values["policyKey"].(string)
-	if policyKey == "" {
-		policyKey, _ = values["policy_key"].(string)
-	}
-	return spec.ApprovalPolicy{
-		Required:  required,
-		PolicyKey: strings.TrimSpace(policyKey),
-	}
-}
-
-func jsonMapToLocalizedText(values map[string]interface{}) spec.LocalizedText {
-	if len(values) == 0 {
-		return nil
-	}
-	out := make(spec.LocalizedText, len(values))
-	for key, value := range values {
-		if text, ok := value.(string); ok && strings.TrimSpace(text) != "" {
-			out[key] = text
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 func resourceProposalKey(resourceKey string) string {

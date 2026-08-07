@@ -1016,30 +1016,7 @@ func (s *ProposalService) functionSpecsByID(ctx context.Context, gameID, env str
 	if err != nil {
 		return nil, fmt.Errorf("list function contracts: %w", err)
 	}
-	out := make(map[string]spec.FunctionSpec, len(contracts))
-	for _, contract := range contracts {
-		if contract == nil || strings.TrimSpace(contract.FunctionID) == "" {
-			continue
-		}
-		out[contract.FunctionID] = spec.FunctionSpec{
-			ID:           contract.FunctionID,
-			Version:      contract.Version,
-			Enabled:      contract.Enabled,
-			Deprecated:   contract.Deprecated,
-			InputSchema:  spec.JSONSchema(contract.InputSchema),
-			OutputSchema: spec.JSONSchema(contract.OutputSchema),
-			Summary:      normalizeJSONMap(contract.Summary),
-			Description:  normalizeJSONMap(contract.Description),
-			Resource:     strings.TrimSpace(contract.ResourceKey),
-			Operation:    strings.TrimSpace(contract.OperationKey),
-			Capability:   spec.CapabilityKind(contract.Capability),
-			Execution:    spec.FunctionExecution(contract.Execution),
-			Approval:     approvalPolicyFromJSONMap(contract.Approval),
-			Risk:         spec.RiskLevel(contract.Risk),
-			Permission:   strings.TrimSpace(contract.Permission),
-		}
-	}
-	return out, nil
+	return FunctionSpecsFromContracts(contracts), nil
 }
 
 func (s *ProposalService) validateCategoryLabelConflict(ctx context.Context, gameID, env string, page spec.PageSpec) error {
@@ -1250,7 +1227,7 @@ func (s *ProposalService) buildBindingContracts(ctx context.Context, gameID, env
 			OutputSchemaDigest:    digestJSON(contract.OutputSchema),
 			Risk:                  spec.RiskLevel(contract.Risk),
 			Permission:            strings.TrimSpace(contract.Permission),
-			Approval:              approvalPolicyFromJSONMap(contract.Approval),
+			Approval:              ApprovalPolicyFromJSONMap(contract.Approval),
 			ExecutionMode:         binding.Execution.Mode,
 			RendererSchemaVersion: rendererSchemaVersion,
 		})
@@ -1265,19 +1242,4 @@ func digestJSON(raw datatypes.JSON) string {
 	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
-}
-
-func approvalPolicyFromJSONMap(values map[string]interface{}) spec.ApprovalPolicy {
-	if len(values) == 0 {
-		return spec.ApprovalPolicy{}
-	}
-	required, _ := values["required"].(bool)
-	policyKey, _ := values["policyKey"].(string)
-	if policyKey == "" {
-		policyKey, _ = values["policy_key"].(string)
-	}
-	return spec.ApprovalPolicy{
-		Required:  required,
-		PolicyKey: strings.TrimSpace(policyKey),
-	}
 }

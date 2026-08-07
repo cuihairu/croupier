@@ -62,6 +62,71 @@ func TestStore_UpsertRegistrationWarning(t *testing.T) {
 	})
 }
 
+func TestStore_UpsertAgentUsesScopedContextForContractRebuild(t *testing.T) {
+	store := NewStore()
+	recorder := &recordingContractService{}
+	store.SetContractService(recorder)
+	store.SetScopeContextResolver(func(gameID, env string) context.Context {
+		return context.WithValue(context.Background(), registryTestScopeKey{}, seenScope{gameID: gameID, env: env})
+	})
+
+	store.UpsertAgent(&AgentSession{
+		AgentID: "agent-1",
+		GameID:  "demo-game",
+		Env:     "development",
+		Functions: map[string]FunctionMeta{
+			"player.query": {
+				Enabled:    true,
+				Resource:   "player",
+				Capability: "collection_query",
+				Execution:  "sync",
+			},
+		},
+	})
+
+	require.NotEmpty(t, recorder.scopes)
+	for _, seen := range recorder.scopes {
+		assert.Equal(t, "demo-game", seen.gameID)
+		assert.Equal(t, "development", seen.env)
+	}
+}
+
+type recordingContractService struct {
+	scopes []seenScope
+}
+
+type seenScope struct {
+	gameID string
+	env    string
+}
+
+type registryTestScopeKey struct{}
+
+func (r *recordingContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error {
+	r.record(ctx)
+	return nil
+}
+
+func (r *recordingContractService) RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {
+	r.record(ctx)
+	return nil
+}
+
+func (r *recordingContractService) RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error {
+	r.record(ctx)
+	return nil
+}
+
+func (r *recordingContractService) RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error {
+	r.record(ctx)
+	return nil
+}
+
+func (r *recordingContractService) record(ctx context.Context) {
+	seen, _ := ctx.Value(registryTestScopeKey{}).(seenScope)
+	r.scopes = append(r.scopes, seen)
+}
+
 func TestStore_ListRegistrationWarnings_Filter(t *testing.T) {
 	store := NewStore()
 

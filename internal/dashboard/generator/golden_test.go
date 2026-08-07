@@ -35,9 +35,9 @@ func TestGenerateOperationPageGolden(t *testing.T) {
 		{
 			name: "task operation",
 			op: spec.OperationSpec{
-				FunctionID:  "reward.batchGrant",
+				FunctionID:  "reward.batch_grant",
 				ResourceKey: "reward",
-				Operation:   "batchGrant",
+				Operation:   "batch_grant",
 				Capability:  spec.CapabilityTask,
 				Execution:   spec.FunctionExecutionTask,
 				Enabled:     true,
@@ -173,9 +173,9 @@ func TestQualityAssessmentGolden(t *testing.T) {
 		{
 			name: "task without semantics - needs_review",
 			op: spec.OperationSpec{
-				FunctionID:  "reward.batchGrant",
+				FunctionID:  "reward.batch_grant",
 				ResourceKey: "reward",
-				Operation:   "batchGrant",
+				Operation:   "batch_grant",
 				Capability:  spec.CapabilityTask,
 				Execution:   spec.FunctionExecutionTask,
 				Enabled:     true,

@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
-	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
-	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/model"
+	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -26,11 +26,14 @@ func NewDescriptorsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Descr
 	}
 }
 
-// DescriptorsV2 returns normalized FunctionSpec list using the shared
-// Dashboard descriptor collector and normalizer. This endpoint must not infer
-// resource/page semantics differently from Resource API.
+// DescriptorsV2 returns FunctionSpec list from persisted FunctionContract.
+// It must not use runtime descriptor collectors as a second Dashboard fact source.
 func (l *DescriptorsLogic) DescriptorsV2(req *DescriptorsRequest) (*DescriptorsV2Result, error) {
 	if err := l.checkReadPermission(); err != nil {
+		return nil, err
+	}
+	gameID, env, err := l.requireScope(req)
+	if err != nil {
 		return nil, err
 	}
 
@@ -39,12 +42,16 @@ func (l *DescriptorsLogic) DescriptorsV2(req *DescriptorsRequest) (*DescriptorsV
 		resource = strings.TrimSpace(firstNonEmpty(req.Type, req.Resource))
 	}
 
-	inputs := descriptors.Collect(l.ctx, l.svcCtx)
-	results, _ := normalizer.NormalizeBatch(inputs)
+	if l.svcCtx == nil || l.svcCtx.DB == nil {
+		return nil, errorx.NewInternalError("function contract database is not initialized")
+	}
+	functionsByID, err := contractsvc.FunctionSpecsByScope(l.ctx, model.NewFunctionContractModel(l.svcCtx.DB), gameID, env)
+	if err != nil {
+		return nil, err
+	}
 
-	functions := make([]spec.FunctionSpec, 0, len(results))
-	for _, result := range results {
-		fn := result.Function
+	functions := make([]spec.FunctionSpec, 0, len(functionsByID))
+	for _, fn := range functionsByID {
 		if fn.ID == "" {
 			continue
 		}
@@ -61,6 +68,22 @@ func (l *DescriptorsLogic) DescriptorsV2(req *DescriptorsRequest) (*DescriptorsV
 	return &DescriptorsV2Result{
 		Functions: functions,
 	}, nil
+}
+
+func (l *DescriptorsLogic) requireScope(req *DescriptorsRequest) (string, string, error) {
+	gameID, env := svc.GameScopeFromContext(l.ctx)
+	if req != nil && strings.TrimSpace(req.GameId) != "" {
+		gameID = strings.TrimSpace(req.GameId)
+	}
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	if gameID == "" {
+		return "", "", errorx.NewBadRequest("X-Game-ID is required")
+	}
+	if env == "" {
+		return "", "", errorx.NewBadRequest("X-Env is required")
+	}
+	return gameID, env, nil
 }
 
 func (l *DescriptorsLogic) checkReadPermission() error {

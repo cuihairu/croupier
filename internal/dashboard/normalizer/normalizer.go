@@ -69,7 +69,8 @@ func Normalize(input DescriptorInput) NormalizerResult {
 	var diags []spec.Diagnostic
 
 	// 1. Validate required fields
-	if strings.TrimSpace(input.ID) == "" {
+	functionID := strings.TrimSpace(input.ID)
+	if functionID == "" {
 		diags = append(diags, spec.Diagnostic{
 			Code:     "id_missing",
 			Severity: spec.SeverityError,
@@ -77,6 +78,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 		})
 		return NormalizerResult{Diagnostics: diags}
 	}
+	diags = append(diags, stableKeyDiagnostics("function_id_invalid", functionID, functionID, "id")...)
 
 	// 2. Normalize catalog text keys. These are not runtime menu labels.
 	summaryMap := normalizeLocaleKeys(input.SummaryMap)
@@ -125,9 +127,11 @@ func Normalize(input DescriptorInput) NormalizerResult {
 
 	resourceKey := strings.TrimSpace(input.Resource)
 	operationKey := strings.TrimSpace(input.Operation)
-	capability, capabilityDiagnostics := normalizeCapability(input.Capability, input.ID)
+	diags = append(diags, stableKeyDiagnostics("resource_key_invalid", resourceKey, functionID, "resource")...)
+	diags = append(diags, stableKeyDiagnostics("operation_key_invalid", operationKey, functionID, "operation")...)
+	capability, capabilityDiagnostics := normalizeCapability(input.Capability, functionID)
 	diags = append(diags, capabilityDiagnostics...)
-	execution, executionDiagnostics := normalizeExecution(input.Execution, capability, input.ID)
+	execution, executionDiagnostics := normalizeExecution(input.Execution, capability, functionID)
 	diags = append(diags, executionDiagnostics...)
 	approval := spec.ApprovalPolicy{
 		Required:  input.ApprovalRequired,
@@ -138,7 +142,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 			Code:       "resource_missing",
 			Severity:   spec.SeverityWarning,
 			Message:    "resource is missing; the function remains executable but cannot be grouped into a resource candidate",
-			FunctionID: input.ID,
+			FunctionID: functionID,
 			Field:      "resource",
 		})
 	}
@@ -147,7 +151,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 			Code:       "operation_missing",
 			Severity:   spec.SeverityWarning,
 			Message:    "operation is missing; Page Studio must name how this capability is used",
-			FunctionID: input.ID,
+			FunctionID: functionID,
 			Field:      "operation",
 		})
 	}
@@ -337,6 +341,38 @@ func normalizeExecution(value string, capability spec.CapabilityKind, functionID
 	}}
 }
 
+func stableKeyDiagnostics(code string, value string, functionID string, field string) []spec.Diagnostic {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	if isStableKey(value) {
+		return nil
+	}
+	return []spec.Diagnostic{{
+		Code:       code,
+		Severity:   spec.SeverityError,
+		Message:    field + " must match [a-z0-9][a-z0-9._-]*",
+		FunctionID: functionID,
+		Field:      field,
+	}}
+}
+
+func isStableKey(value string) bool {
+	if value == "" {
+		return false
+	}
+	for i, r := range value {
+		valid := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-'
+		if !valid {
+			return false
+		}
+		if i == 0 && !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')) {
+			return false
+		}
+	}
+	return true
+}
+
 // inferCategoryFromKey extracts the category from a key like "player.ban" -> "player".
 func inferCategoryFromKey(key string) string {
 	key = strings.TrimSpace(key)
@@ -344,50 +380,4 @@ func inferCategoryFromKey(key string) string {
 		return key[:idx]
 	}
 	return key
-}
-
-// getOrDefault extracts a string value from a map or returns a default.
-func getOrDefault(m jsonObject, key, defaultVal string) string {
-	if v := getString(m, key); v != "" {
-		return v
-	}
-	return defaultVal
-}
-
-func asJSONObject(raw json.RawMessage) (jsonObject, bool) {
-	if len(raw) == 0 {
-		return nil, false
-	}
-	var out jsonObject
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, false
-	}
-	return out, true
-}
-
-func getString(m jsonObject, key string) string {
-	raw, ok := m[key]
-	if !ok {
-		return ""
-	}
-	var value string
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return ""
-	}
-	return strings.TrimSpace(value)
-}
-
-func rawJSONString(value string) json.RawMessage {
-	raw, _ := json.Marshal(value)
-	return raw
-}
-
-func rawJSONNumber(value int) json.RawMessage {
-	raw, _ := json.Marshal(value)
-	return raw
-}
-
-func rawJSONObject(value jsonObject) json.RawMessage {
-	raw, _ := json.Marshal(value)
-	return raw
 }

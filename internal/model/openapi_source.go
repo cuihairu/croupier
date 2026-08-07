@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
 
@@ -64,16 +65,16 @@ func NewOpenAPISourceModel(db *gorm.DB) *OpenAPISourceModel {
 }
 
 func (m *OpenAPISourceModel) Create(ctx context.Context, source *OpenAPISource) error {
-	return m.db.WithContext(ctx).Create(source).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(source).Error
 }
 
 func (m *OpenAPISourceModel) Update(ctx context.Context, source *OpenAPISource) error {
-	return m.db.WithContext(ctx).Save(source).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Save(source).Error
 }
 
 func (m *OpenAPISourceModel) ListByScope(ctx context.Context, gameID, env string) ([]OpenAPISource, error) {
 	var items []OpenAPISource
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ?", gameID, env).
 		Order("updated_at DESC, source_id ASC").
 		Find(&items).Error; err != nil {
@@ -84,7 +85,7 @@ func (m *OpenAPISourceModel) ListByScope(ctx context.Context, gameID, env string
 
 func (m *OpenAPISourceModel) FindByScopeAndSourceID(ctx context.Context, gameID, env, sourceID string) (*OpenAPISource, error) {
 	var source OpenAPISource
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND source_id = ?", gameID, env, sourceID).
 		First(&source).Error; err != nil {
 		return nil, err
@@ -142,25 +143,26 @@ func NewOpenAPISourceBindingModel(db *gorm.DB) *OpenAPISourceBindingModel {
 }
 
 func (m *OpenAPISourceBindingModel) Upsert(ctx context.Context, binding *OpenAPISourceBinding) error {
+	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
 	var existing OpenAPISourceBinding
-	err := m.db.WithContext(ctx).
+	err := db.
 		Where("game_id = ? AND env = ? AND source_id = ? AND binding_id = ?",
 			binding.GameID, binding.Env, binding.SourceID, binding.BindingID).
 		First(&existing).Error
 	if err == gorm.ErrRecordNotFound {
-		return m.db.WithContext(ctx).Create(binding).Error
+		return db.Create(binding).Error
 	}
 	if err != nil {
 		return err
 	}
 	binding.ID = existing.ID
 	binding.CreatedAt = existing.CreatedAt
-	return m.db.WithContext(ctx).Save(binding).Error
+	return db.Save(binding).Error
 }
 
 func (m *OpenAPISourceBindingModel) ListBySource(ctx context.Context, gameID, env, sourceID string) ([]OpenAPISourceBinding, error) {
 	var items []OpenAPISourceBinding
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND source_id = ?", gameID, env, sourceID).
 		Order("operation_id ASC, binding_id ASC").
 		Find(&items).Error; err != nil {
@@ -170,7 +172,7 @@ func (m *OpenAPISourceBindingModel) ListBySource(ctx context.Context, gameID, en
 }
 
 func (m *OpenAPISourceBindingModel) Delete(ctx context.Context, gameID, env, sourceID, bindingID string) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND source_id = ? AND binding_id = ?", gameID, env, sourceID, bindingID).
 		Delete(&OpenAPISourceBinding{}).Error
 }

@@ -632,7 +632,7 @@ func (s *Service) regenerateStandaloneProposal(ctx context.Context, gameID, env 
 	if err != nil {
 		return err
 	}
-	generated := generator.GenerateForOperation(operationSpecFromContract(mainContract), generator.GenerateOptions{
+	generated := generator.GenerateForOperation(service.OperationSpecFromContract(mainContract), generator.GenerateOptions{
 		DefaultLocale: "zh-CN",
 		Functions:     functions,
 	})
@@ -674,14 +674,7 @@ func (s *Service) functionSpecsByID(ctx context.Context, gameID, env string, pag
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[string]spec.FunctionSpec, len(contracts))
-	for _, contract := range contracts {
-		if contract == nil || strings.TrimSpace(contract.FunctionID) == "" {
-			continue
-		}
-		out[strings.TrimSpace(contract.FunctionID)] = functionSpecFromContract(contract)
-	}
-	return out, nil
+	return service.FunctionSpecsFromContracts(contracts), nil
 }
 
 func (s *Service) upsertGeneratedProposal(ctx context.Context, gameID, env, proposalKey string, contracts []*model.FunctionContract, generated spec.GeneratedPageSpec) error {
@@ -1929,7 +1922,7 @@ func (s *Service) buildBindingContracts(ctx context.Context, gameID, env string,
 			OutputSchemaDigest:    digestRaw(contract.OutputSchema),
 			Risk:                  spec.RiskLevel(contract.Risk),
 			Permission:            strings.TrimSpace(contract.Permission),
-			Approval:              approvalPolicyFromJSONMap(contract.Approval),
+			Approval:              service.ApprovalPolicyFromJSONMap(contract.Approval),
 			ExecutionMode:         binding.Execution.Mode,
 			RendererSchemaVersion: rendererSchemaVersion,
 		})
@@ -2042,79 +2035,6 @@ func digestRaw(raw datatypes.JSON) string {
 	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
-}
-
-func approvalPolicyFromJSONMap(values map[string]interface{}) spec.ApprovalPolicy {
-	if len(values) == 0 {
-		return spec.ApprovalPolicy{}
-	}
-	required, _ := values["required"].(bool)
-	policyKey, _ := values["policyKey"].(string)
-	if policyKey == "" {
-		policyKey, _ = values["policy_key"].(string)
-	}
-	return spec.ApprovalPolicy{
-		Required:  required,
-		PolicyKey: strings.TrimSpace(policyKey),
-	}
-}
-
-func operationSpecFromContract(contract *model.FunctionContract) spec.OperationSpec {
-	if contract == nil {
-		return spec.OperationSpec{}
-	}
-	return spec.OperationSpec{
-		FunctionID:  strings.TrimSpace(contract.FunctionID),
-		ResourceKey: strings.TrimSpace(contract.ResourceKey),
-		Operation:   strings.TrimSpace(contract.OperationKey),
-		Capability:  spec.CapabilityKind(contract.Capability),
-		Execution:   spec.FunctionExecution(contract.Execution),
-		Approval:    approvalPolicyFromJSONMap(contract.Approval),
-		Risk:        spec.RiskLevel(contract.Risk),
-		Permission:  strings.TrimSpace(contract.Permission),
-		Enabled:     contract.Enabled,
-	}
-}
-
-func functionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpec {
-	if contract == nil {
-		return spec.FunctionSpec{}
-	}
-	return spec.FunctionSpec{
-		ID:           strings.TrimSpace(contract.FunctionID),
-		Version:      strings.TrimSpace(contract.Version),
-		Enabled:      contract.Enabled,
-		Deprecated:   contract.Deprecated,
-		InputSchema:  spec.JSONSchema(contract.InputSchema),
-		OutputSchema: spec.JSONSchema(contract.OutputSchema),
-		Summary:      localizedTextFromJSONMap(contract.Summary),
-		Description:  localizedTextFromJSONMap(contract.Description),
-		Resource:     strings.TrimSpace(contract.ResourceKey),
-		Operation:    strings.TrimSpace(contract.OperationKey),
-		Capability:   spec.CapabilityKind(contract.Capability),
-		Execution:    spec.FunctionExecution(contract.Execution),
-		Approval:     approvalPolicyFromJSONMap(contract.Approval),
-		Risk:         spec.RiskLevel(contract.Risk),
-		Permission:   strings.TrimSpace(contract.Permission),
-	}
-}
-
-func localizedTextFromJSONMap(values map[string]interface{}) spec.LocalizedText {
-	if len(values) == 0 {
-		return nil
-	}
-	out := make(spec.LocalizedText, len(values))
-	for key, value := range values {
-		text, ok := value.(string)
-		if !ok || strings.TrimSpace(text) == "" {
-			continue
-		}
-		out[key] = strings.TrimSpace(text)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 func localizedTextToJSONMap(values spec.LocalizedText) datatypes.JSONMap {

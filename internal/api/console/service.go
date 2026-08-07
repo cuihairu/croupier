@@ -13,13 +13,12 @@ import (
 	"github.com/cuihairu/croupier/internal/api/function"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
-	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
-	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
+	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/cuihairu/croupier/internal/validation"
@@ -64,7 +63,10 @@ func (s *Service) Pages(ctx context.Context, req *ConsolePagesRequest) (*Console
 	if err != nil {
 		return nil, err
 	}
-	pages := s.attachBindingFreshness(ctx, parsePublishedPages(publishedPages))
+	pages, err := s.attachBindingFreshness(ctx, parsePublishedPages(publishedPages))
+	if err != nil {
+		return nil, err
+	}
 	items := make([]spec.PublishedPageSpec, 0, len(pages))
 	for _, page := range pages {
 		if req.Category != "" && page.Category.Key != req.Category {
@@ -91,7 +93,9 @@ func (s *Service) Page(ctx context.Context, req *ConsolePageRequest) (*ConsolePa
 	if pageSpec == nil {
 		return nil, ErrPageNotFound(req.PageKey)
 	}
-	s.attachBindingFreshnessToPage(ctx, pageSpec)
+	if err := s.attachBindingFreshnessToPage(ctx, pageSpec); err != nil {
+		return nil, err
+	}
 	return &ConsolePageResponse{Page: *pageSpec}, nil
 }
 
@@ -120,7 +124,10 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	if !ok {
 		return nil, errorx.NewValidationError("binding contract snapshot missing")
 	}
-	functions := normalizedFunctions(ctx, s.svcCtx)
+	functions, err := loadPublishedFunctionSpecs(ctx, s.svcCtx)
+	if err != nil {
+		return nil, err
+	}
 	requestID := uuid.NewString()
 	actor := currentActor(ctx)
 	var result spec.PageExecutionResult
@@ -781,22 +788,30 @@ func parsePublishedPageSpec(pp model.PublishedPageSpec) *spec.PublishedPageSpec 
 	}
 }
 
-func (s *Service) attachBindingFreshness(ctx context.Context, pages []spec.PublishedPageSpec) []spec.PublishedPageSpec {
+func (s *Service) attachBindingFreshness(ctx context.Context, pages []spec.PublishedPageSpec) ([]spec.PublishedPageSpec, error) {
 	if len(pages) == 0 {
-		return pages
+		return pages, nil
 	}
-	functions := normalizedFunctions(ctx, s.svcCtx)
+	functions, err := loadPublishedFunctionSpecs(ctx, s.svcCtx)
+	if err != nil {
+		return nil, err
+	}
 	for i := range pages {
 		pages[i].BindingFreshness = freshness.EvaluatePublishedBindings(pages[i].Bindings, pages[i].BindingContracts, functions)
 	}
-	return pages
+	return pages, nil
 }
 
-func (s *Service) attachBindingFreshnessToPage(ctx context.Context, page *spec.PublishedPageSpec) {
+func (s *Service) attachBindingFreshnessToPage(ctx context.Context, page *spec.PublishedPageSpec) error {
 	if page == nil {
-		return
+		return nil
 	}
-	page.BindingFreshness = freshness.EvaluatePublishedBindings(page.Bindings, page.BindingContracts, normalizedFunctions(ctx, s.svcCtx))
+	functions, err := loadPublishedFunctionSpecs(ctx, s.svcCtx)
+	if err != nil {
+		return err
+	}
+	page.BindingFreshness = freshness.EvaluatePublishedBindings(page.Bindings, page.BindingContracts, functions)
+	return nil
 }
 
 func bindingFreshnessStatuses(diags []spec.BindingFreshnessDiagnostic) []string {
@@ -900,16 +915,15 @@ func findContract(contracts []spec.BindingContractSnapshot, bindingID string) (s
 	return spec.BindingContractSnapshot{}, false
 }
 
-func normalizedFunctions(ctx context.Context, svcCtx *svc.ServiceContext) map[string]spec.FunctionSpec {
-	inputs := descriptors.Collect(ctx, svcCtx)
-	out := make(map[string]spec.FunctionSpec, len(inputs))
-	for _, input := range inputs {
-		result := normalizer.Normalize(input)
-		if result.Function.ID != "" {
-			out[result.Function.ID] = result.Function
-		}
+func loadPublishedFunctionSpecs(ctx context.Context, svcCtx *svc.ServiceContext) (map[string]spec.FunctionSpec, error) {
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return out
+	if svcCtx == nil || svcCtx.DB == nil {
+		return nil, errorx.NewInternalError("function contract database is not initialized")
+	}
+	return contractsvc.FunctionSpecsByScope(ctx, model.NewFunctionContractModel(svcCtx.DB), gameID, env)
 }
 
 func (s *Service) requireConsoleRead(ctx context.Context) error {

@@ -75,6 +75,9 @@ func setupOpenAPITestServiceWithAudit(t *testing.T, permissions ...string) (*Ser
 		RoleModel:                 model.NewRoleModel(db),
 		PermissionModel:           model.NewPermissionModel(db),
 		FunctionModel:             model.NewFunctionModel(db),
+		PageSpecModel:             model.NewPageSpecModel(db),
+		PublishedPageSpecModel:    model.NewPublishedPageSpecModel(db),
+		PageVersionModel:          model.NewPageVersionModel(db),
 		RegistryStore:             store,
 		OpenAPISourceModel:        model.NewOpenAPISourceModel(db),
 		OpenAPISourceBindingModel: model.NewOpenAPISourceBindingModel(db),
@@ -289,7 +292,7 @@ func TestService_UpdateSource_RefreshesRevisionOperationsAndAudit(t *testing.T) 
 		"paths": map[string]interface{}{
 			"/players": map[string]interface{}{
 				"get": map[string]interface{}{
-					"operationId": "playerList",
+					"operationId": "player.list",
 					"x-resource":  "player",
 					"x-operation": "list",
 					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
@@ -301,7 +304,7 @@ func TestService_UpdateSource_RefreshesRevisionOperationsAndAudit(t *testing.T) 
 	require.NoError(t, err)
 	_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
 		SourceID:    created.Source.SourceID,
-		OperationID: "playerList",
+		OperationID: "player.list",
 		Kind:        "provider",
 		FunctionID:  "player.list",
 	})
@@ -316,7 +319,7 @@ func TestService_UpdateSource_RefreshesRevisionOperationsAndAudit(t *testing.T) 
 		"paths": map[string]interface{}{
 			"/players/detail": map[string]interface{}{
 				"get": map[string]interface{}{
-					"operationId": "playerGet",
+					"operationId": "player.get",
 					"x-resource":  "player",
 					"x-operation": "get",
 					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
@@ -332,10 +335,10 @@ func TestService_UpdateSource_RefreshesRevisionOperationsAndAudit(t *testing.T) 
 	assert.Equal(t, 2, updated.Source.Revision)
 	assert.Equal(t, "Player API v2", updated.Source.Name)
 	require.Len(t, updated.Source.Operations, 1)
-	assert.Equal(t, "playerGet", updated.Source.Operations[0].OperationID)
+	assert.Equal(t, "player.get", updated.Source.Operations[0].OperationID)
 	assert.False(t, updated.Source.Operations[0].Bound)
 	require.Len(t, updated.Source.Bindings, 1, "Source revision update keeps explicit bindings for operator review")
-	assert.Equal(t, "playerList", updated.Source.Bindings[0].OperationID)
+	assert.Equal(t, "player.list", updated.Source.Bindings[0].OperationID)
 
 	records, total, err := auditStore.List(audit.AuditFilter{EventType: []audit.AuditEventType{audit.EventOpenAPISourceUpdate}}, audit.AuditPage{PageSize: 10})
 	require.NoError(t, err)
@@ -568,9 +571,9 @@ func TestService_CreateSource_CarriesFunctionContractFields(t *testing.T) {
 		"paths": map[string]interface{}{
 			"/reward/batch-grant": map[string]interface{}{
 				"post": map[string]interface{}{
-					"operationId":  "rewardBatchGrant",
+					"operationId":  "reward.batch_grant",
 					"x-resource":   "reward",
-					"x-operation":  "batchGrant",
+					"x-operation":  "batch_grant",
 					"x-capability": "task",
 					"x-execution":  "task",
 					"x-approval": map[string]interface{}{
@@ -592,9 +595,9 @@ func TestService_CreateSource_CarriesFunctionContractFields(t *testing.T) {
 	require.Len(t, resp.Source.Operations, 1)
 
 	op := resp.Source.Operations[0]
-	assert.Equal(t, "rewardBatchGrant", op.OperationID)
+	assert.Equal(t, "reward.batch_grant", op.OperationID)
 	assert.Equal(t, "reward", op.Resource)
-	assert.Equal(t, "batchGrant", op.Operation)
+	assert.Equal(t, "batch_grant", op.Operation)
 	assert.Equal(t, dashspec.CapabilityTask, op.Capability)
 	assert.Equal(t, dashspec.FunctionExecutionTask, op.Execution)
 	assert.True(t, op.Approval.Required)
@@ -656,7 +659,7 @@ func TestService_OpenAPISourceListDiagnosticsAndBinding(t *testing.T) {
 		"paths": map[string]interface{}{
 			"/players": map[string]interface{}{
 				"get": map[string]interface{}{
-					"operationId": "playerList",
+					"operationId": "player.list",
 					"x-resource":  "player",
 					"x-operation": "list",
 					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
@@ -679,12 +682,12 @@ func TestService_OpenAPISourceListDiagnosticsAndBinding(t *testing.T) {
 
 	binding, err := service.CreateBinding(openAPITestContext(), &OpenAPISourceBindingCreateRequest{
 		SourceID:    created.Source.SourceID,
-		OperationID: "playerList",
+		OperationID: "player.list",
 		Kind:        "provider",
 		FunctionID:  "player.list",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "playerList", binding.Binding.OperationID)
+	assert.Equal(t, "player.list", binding.Binding.OperationID)
 	assert.Equal(t, "player.list", binding.Binding.FunctionID)
 
 	detail, err := service.GetSource(openAPITestContext(), &OpenAPISourceGetRequest{SourceID: created.Source.SourceID})
@@ -692,6 +695,78 @@ func TestService_OpenAPISourceListDiagnosticsAndBinding(t *testing.T) {
 	require.Len(t, detail.Source.Operations, 1)
 	assert.True(t, detail.Source.Operations[0].Bound)
 	assert.Equal(t, "player.list", detail.Source.Operations[0].FunctionID)
+}
+
+func TestService_CreateBindingRebuildsContractAndProposal(t *testing.T) {
+	t.Parallel()
+
+	service := setupOpenAPITestService(t)
+	specDoc := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Player API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/player": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "player.list",
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{
+							"description": "OK",
+							"content": map[string]interface{}{
+								"application/json": map[string]interface{}{
+									"schema": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"items": map[string]interface{}{
+												"type": "array",
+												"items": map[string]interface{}{
+													"type": "object",
+													"properties": map[string]interface{}{
+														"id":   map[string]interface{}{"type": "string"},
+														"name": map[string]interface{}{"type": "string"},
+													},
+												},
+											},
+											"total": map[string]interface{}{"type": "integer"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	created, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, specDoc)})
+	require.NoError(t, err)
+
+	_, err = service.CreateBinding(openAPITestContext(), &OpenAPISourceBindingCreateRequest{
+		SourceID:    created.Source.SourceID,
+		OperationID: "player.list",
+		Kind:        "provider",
+		FunctionID:  "player.list",
+	})
+	require.NoError(t, err)
+
+	contract, err := model.NewFunctionContractModel(service.svcCtx.DB).FindByScopeAndFunctionID(openAPITestContext(), "demo-game", "development", "player.list")
+	require.NoError(t, err)
+	assert.Equal(t, "openapi", contract.Source)
+	assert.Equal(t, "player", contract.ResourceKey)
+	assert.Equal(t, "list", contract.OperationKey)
+	assert.Equal(t, string(dashspec.CapabilityCollectionQuery), contract.Capability)
+
+	semantics, err := model.NewCapabilitySemanticsModel(service.svcCtx.DB).FindByScopeAndResourceKey(openAPITestContext(), "demo-game", "development", "player")
+	require.NoError(t, err)
+	assert.Equal(t, string(dashspec.SemanticSourceOpenAPIRest), semantics.Source)
+	assert.Equal(t, "id", semantics.IdentityField)
+
+	proposal, err := model.NewPageProposalModel(service.svcCtx.DB).FindByScopeAndKey(openAPITestContext(), "demo-game", "development", "resource:player")
+	require.NoError(t, err)
+	assert.Equal(t, "resource--player", proposal.PageKey)
+	assert.NotEmpty(t, proposal.PageSpec)
 }
 
 func TestService_CreateBindingRejectsHttpConnectorWithoutPersisting(t *testing.T) {
@@ -707,7 +782,7 @@ func TestService_CreateBindingRejectsHttpConnectorWithoutPersisting(t *testing.T
 		"paths": map[string]interface{}{
 			"/players": map[string]interface{}{
 				"get": map[string]interface{}{
-					"operationId": "playerList",
+					"operationId": "player.list",
 					"x-resource":  "player",
 					"x-operation": "list",
 					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
@@ -721,7 +796,7 @@ func TestService_CreateBindingRejectsHttpConnectorWithoutPersisting(t *testing.T
 	_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
 		SourceID:    created.Source.SourceID,
 		BindingID:   "player-http",
-		OperationID: "playerList",
+		OperationID: "player.list",
 		Kind:        "httpConnector",
 		FunctionID:  "player.list",
 	})

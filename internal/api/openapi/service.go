@@ -21,6 +21,8 @@ import (
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	dashboardservice "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
@@ -182,6 +184,10 @@ func (s *Service) UpdateSource(ctx context.Context, req *OpenAPISourceUpdateRequ
 		spanErr = err
 		return nil, err
 	}
+	if err := s.rebuildContractsForSourceBindings(ctx, gameID, env, source, parsed.Operations, bindings); err != nil {
+		spanErr = err
+		return nil, err
+	}
 	finishSpan(nil,
 		attribute.Int("openapi_source.revision", source.Revision),
 		attribute.String("openapi_source.format", source.Format),
@@ -293,7 +299,8 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		spanErr = err
 		return nil, err
 	}
-	if !sourceHasOperation(operations, req.OperationID) {
+	operation, ok := findSourceOperation(operations, req.OperationID)
+	if !ok {
 		err := errorx.NewBadRequest("operationId is not part of this OpenAPI source")
 		spanErr = err
 		return nil, err
@@ -315,8 +322,9 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		spanErr = err
 		return nil, err
 	}
-	if !hasRegisteredFunction(s.svcCtx, functionID) {
-		err := errorx.NewBadRequest("functionId is not registered in current runtime")
+	runtimeMeta, ok := registeredFunctionMetaInScope(s.svcCtx, gameID, env, functionID)
+	if !ok {
+		err := errorx.NewBadRequest("functionId is not registered in current game/env runtime")
 		spanErr = err
 		return nil, err
 	}
@@ -338,6 +346,13 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		spanErr = err
 		return nil, err
 	}
+	if err := s.rebuildContractForSourceBinding(ctx, gameID, env, source, operation, binding, runtimeMeta); err != nil {
+		if rollbackErr := s.svcCtx.OpenAPISourceBindingModel.Delete(ctx, gameID, env, source.SourceID, binding.BindingID); rollbackErr != nil {
+			err = fmt.Errorf("%w; rollback OpenAPI source binding failed: %v", err, rollbackErr)
+		}
+		spanErr = err
+		return nil, err
+	}
 	finishSpan(nil,
 		attribute.String("openapi_source.id", source.SourceID),
 		attribute.Int("openapi_source.revision", source.Revision),
@@ -353,6 +368,112 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		"revision":     source.Revision,
 	})
 	return &OpenAPISourceBindingResponse{Binding: bindingDTOFromModel(*binding)}, nil
+}
+
+func (s *Service) rebuildContractsForSourceBindings(
+	ctx context.Context,
+	gameID string,
+	env string,
+	source *model.OpenAPISource,
+	operations []OpenAPISourceOperation,
+	bindings []model.OpenAPISourceBinding,
+) error {
+	for _, binding := range bindings {
+		if strings.TrimSpace(binding.Kind) != "provider" {
+			continue
+		}
+		operation, ok := findSourceOperation(operations, binding.OperationID)
+		if !ok {
+			continue
+		}
+		runtimeMeta, ok := registeredFunctionMetaInScope(s.svcCtx, gameID, env, binding.FunctionID)
+		if !ok {
+			return errorx.NewBadRequest("bound functionId is not registered in current game/env runtime: " + strings.TrimSpace(binding.FunctionID))
+		}
+		if err := s.rebuildContractForSourceBinding(ctx, gameID, env, source, operation, &binding, runtimeMeta); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) rebuildContractForSourceBinding(
+	ctx context.Context,
+	gameID string,
+	env string,
+	source *model.OpenAPISource,
+	operation OpenAPISourceOperation,
+	binding *model.OpenAPISourceBinding,
+	runtimeMeta reg.FunctionMeta,
+) error {
+	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil || binding == nil {
+		return errorx.NewBadRequest("OpenAPI contract rebuild is not initialized")
+	}
+	functionID := strings.TrimSpace(binding.FunctionID)
+	if functionID == "" {
+		return errorx.NewBadRequest("functionId is required for OpenAPI contract rebuild")
+	}
+	meta, err := s.functionMetaInputForBinding(source, operation, functionID, runtimeMeta)
+	if err != nil {
+		return err
+	}
+	contractService := dashboardservice.NewContractService(s.svcCtx.DB)
+	if err := contractService.RebuildContractFromFunctionMeta(ctx, gameID, env, "openapi", meta); err != nil {
+		return fmt.Errorf("rebuild OpenAPI function contract %s: %w", functionID, err)
+	}
+	if resourceKey := strings.TrimSpace(meta.Resource); resourceKey != "" {
+		if err := contractService.RebuildResourceCapability(ctx, gameID, env, resourceKey); err != nil {
+			return fmt.Errorf("rebuild OpenAPI resource capability %s: %w", resourceKey, err)
+		}
+		if err := contractService.RebuildProposalsForResource(ctx, gameID, env, resourceKey); err != nil {
+			return fmt.Errorf("rebuild OpenAPI page proposals %s: %w", resourceKey, err)
+		}
+		return nil
+	}
+	if err := contractService.RebuildProposalForFunction(ctx, gameID, env, functionID); err != nil {
+		return fmt.Errorf("rebuild OpenAPI standalone page proposal %s: %w", functionID, err)
+	}
+	return nil
+}
+
+func (s *Service) functionMetaInputForBinding(
+	source *model.OpenAPISource,
+	operation OpenAPISourceOperation,
+	functionID string,
+	runtimeMeta reg.FunctionMeta,
+) (dashboardservice.FunctionMetaInput, error) {
+	openAPIOp := openAPIOperationFromSource(source, operation.OperationID)
+	inputSchema := openAPIRequestSchema(openAPIOp)
+	if inputSchema == "" {
+		inputSchema = strings.TrimSpace(runtimeMeta.InputSchema)
+	}
+	outputSchema := openAPIResponseSchema(openAPIOp)
+	if outputSchema == "" {
+		outputSchema = strings.TrimSpace(runtimeMeta.OutputSchema)
+	}
+	tags := append([]string(nil), operation.Tags...)
+	if len(tags) == 0 {
+		tags = append([]string(nil), runtimeMeta.Tags...)
+	}
+	return dashboardservice.FunctionMetaInput{
+		ID:                strings.TrimSpace(functionID),
+		Version:           firstNonEmpty(runtimeMeta.Version, sourceInfoVersion(source)),
+		Enabled:           runtimeMeta.Enabled,
+		Deprecated:        runtimeMeta.Deprecated,
+		Summary:           firstNonEmpty(operation.Summary, runtimeMeta.Summary, operation.OperationID),
+		Description:       firstNonEmpty(operation.Description, runtimeMeta.Description),
+		InputSchema:       inputSchema,
+		OutputSchema:      outputSchema,
+		Resource:          firstNonEmpty(operation.Resource, runtimeMeta.Resource),
+		Operation:         firstNonEmpty(operation.Operation, runtimeMeta.Operation),
+		Capability:        firstNonEmpty(string(operation.Capability), runtimeMeta.Capability),
+		Execution:         firstNonEmpty(string(operation.Execution), runtimeMeta.Execution),
+		ApprovalRequired:  operation.Approval.Required,
+		ApprovalPolicyKey: operation.Approval.PolicyKey,
+		Risk:              firstNonEmpty(string(operation.Risk), runtimeMeta.Risk),
+		Permission:        firstNonEmpty(operation.Permission, runtimeMeta.Permission),
+		Tags:              tags,
+	}, nil
 }
 
 func (s *Service) DeleteBinding(ctx context.Context, req *OpenAPISourceBindingDeleteRequest) (*OpenAPISourceBindingResponse, error) {
@@ -619,13 +740,14 @@ func openAPIMethodOperations(paths *openapi3.Paths) []methodOperation {
 
 func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diags *[]spec.Diagnostic) OpenAPISourceOperation {
 	extensions := candidate.op.Extensions
+	fieldPrefix := fmt.Sprintf("$.paths.%s.%s", candidate.path, strings.ToLower(candidate.method))
 	risk := spec.RiskLevel(extensionString(extensions, "x-risk"))
 	if risk != "" && !isValidRisk(risk) {
 		*diags = append(*diags, sourceDiagnostic(
 			"openapi_risk_invalid",
 			spec.SeverityWarning,
 			"invalid x-risk ignored",
-			fmt.Sprintf("$.paths.%s.%s.x-risk", candidate.path, strings.ToLower(candidate.method)),
+			fieldPrefix+".x-risk",
 		))
 		risk = ""
 	}
@@ -635,15 +757,17 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 			"openapi_capability_invalid",
 			spec.SeverityError,
 			"x-capability must be one of collection_query, item_query, create, update, delete, action, task, report",
-			fmt.Sprintf("$.paths.%s.%s.x-capability", candidate.path, strings.ToLower(candidate.method)),
+			fieldPrefix+".x-capability",
 		))
 		capability = ""
 	}
 
+	inferredCapability := spec.CapabilityKind("")
 	// If capability is not provided, try to infer from REST method/path
 	if capability == "" {
 		inferred := classifyRESTCapability(candidate.method, candidate.path)
 		if inferred != "" {
+			inferredCapability = inferred
 			capability = inferred
 			*diags = append(*diags, restClassificationDiagnostic(candidate.method, candidate.path, inferred))
 		}
@@ -655,11 +779,21 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 			"openapi_execution_invalid",
 			spec.SeverityError,
 			"x-execution must be one of sync, task",
-			fmt.Sprintf("$.paths.%s.%s.x-execution", candidate.path, strings.ToLower(candidate.method)),
+			fieldPrefix+".x-execution",
 		))
 		execution = ""
 	}
 	approval := approvalPolicyFromExtensions(extensions, candidate, diags)
+	resourceKey := extensionString(extensions, "x-resource")
+	if resourceKey == "" && inferredCapability != "" {
+		resourceKey = inferResourceFromPath(candidate.path)
+	}
+	operationKey := extensionString(extensions, "x-operation")
+	if operationKey == "" && inferredCapability != "" {
+		operationKey = operationKeyForCapability(inferredCapability, candidate.path)
+	}
+	appendStableSourceKeyDiagnostic(diags, "openapi_resource_key_invalid", resourceKey, fieldPrefix+".x-resource")
+	appendStableSourceKeyDiagnostic(diags, "openapi_operation_key_invalid", operationKey, fieldPrefix+".x-operation")
 	return OpenAPISourceOperation{
 		OperationID: operationID,
 		Method:      candidate.method,
@@ -667,14 +801,77 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 		Summary:     strings.TrimSpace(candidate.op.Summary),
 		Description: strings.TrimSpace(candidate.op.Description),
 		Tags:        append([]string(nil), candidate.op.Tags...),
-		Operation:   extensionString(extensions, "x-operation"),
-		Resource:    extensionString(extensions, "x-resource"),
+		Operation:   operationKey,
+		Resource:    resourceKey,
 		Capability:  capability,
 		Execution:   execution,
 		Approval:    approval,
 		Risk:        risk,
 		Permission:  extensionString(extensions, "x-permission"),
 	}
+}
+
+func appendStableSourceKeyDiagnostic(diags *[]spec.Diagnostic, code, value, field string) {
+	if strings.TrimSpace(value) == "" || isStableSourceKey(value) {
+		return
+	}
+	*diags = append(*diags, sourceDiagnostic(
+		code,
+		spec.SeverityError,
+		"key must match [a-z0-9][a-z0-9._-]*",
+		field,
+	))
+}
+
+func isStableSourceKey(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	for i, r := range value {
+		valid := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-'
+		if !valid {
+			return false
+		}
+		if i == 0 && !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')) {
+			return false
+		}
+	}
+	return true
+}
+
+func operationKeyForCapability(capability spec.CapabilityKind, path string) string {
+	switch capability {
+	case spec.CapabilityCollectionQuery:
+		return "list"
+	case spec.CapabilityItemQuery:
+		return "get"
+	case spec.CapabilityCreate:
+		return "create"
+	case spec.CapabilityUpdate:
+		return "update"
+	case spec.CapabilityDelete:
+		return "delete"
+	case spec.CapabilityAction:
+		if key := lastStaticPathSegment(path); key != "" {
+			return key
+		}
+		return "action"
+	default:
+		return ""
+	}
+}
+
+func lastStaticPathSegment(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		part := strings.TrimSpace(parts[i])
+		if part == "" || strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}") {
+			continue
+		}
+		return part
+	}
+	return ""
 }
 
 func approvalPolicyFromExtensions(
@@ -838,13 +1035,159 @@ func bindingDTOFromModel(binding model.OpenAPISourceBinding) OpenAPISourceBindin
 }
 
 func sourceHasOperation(operations []OpenAPISourceOperation, operationID string) bool {
+	_, ok := findSourceOperation(operations, operationID)
+	return ok
+}
+
+func findSourceOperation(operations []OpenAPISourceOperation, operationID string) (OpenAPISourceOperation, bool) {
 	operationID = strings.TrimSpace(operationID)
 	for _, operation := range operations {
-		if operation.OperationID == operationID {
-			return true
+		if strings.TrimSpace(operation.OperationID) == operationID {
+			return operation, true
 		}
 	}
-	return false
+	return OpenAPISourceOperation{}, false
+}
+
+func registeredFunctionMetaInScope(svcCtx *svc.ServiceContext, gameID, env, functionID string) (reg.FunctionMeta, bool) {
+	functionID = strings.TrimSpace(functionID)
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	if svcCtx == nil || functionID == "" {
+		return reg.FunctionMeta{}, false
+	}
+	if svcCtx.RegistryStore != nil {
+		svcCtx.RegistryStore.Mu().RLock()
+		defer svcCtx.RegistryStore.Mu().RUnlock()
+		for _, sess := range svcCtx.RegistryStore.AgentsUnsafe() {
+			if sess == nil {
+				continue
+			}
+			if gameID != "" && strings.TrimSpace(sess.GameID) != gameID {
+				continue
+			}
+			if env != "" && strings.TrimSpace(sess.Env) != env {
+				continue
+			}
+			meta, ok := sess.Functions[functionID]
+			if ok {
+				return meta, true
+			}
+		}
+	}
+	if svcCtx.FunctionModel != nil {
+		fn, err := svcCtx.FunctionModel.FindByFunctionID(context.Background(), functionID)
+		if err == nil && fn != nil {
+			if gameID != "" && strings.TrimSpace(fn.GameID) != "" && strings.TrimSpace(fn.GameID) != gameID {
+				return reg.FunctionMeta{}, false
+			}
+			return reg.FunctionMeta{
+				Enabled:     fn.Status != 0,
+				Version:     fn.Version,
+				Summary:     firstNonEmpty(fn.Name, fn.Description),
+				Description: fn.Description,
+				Resource:    fn.Resource,
+			}, true
+		}
+	}
+	return reg.FunctionMeta{}, false
+}
+
+func openAPIOperationFromSource(source *model.OpenAPISource, operationID string) *openapi3.Operation {
+	if source == nil {
+		return nil
+	}
+	return openAPIOperationsByID(source.GetSpec())[strings.TrimSpace(operationID)]
+}
+
+func openAPIOperationsByID(raw json.RawMessage) map[string]*openapi3.Operation {
+	out := map[string]*openapi3.Operation{}
+	if len(raw) == 0 {
+		return out
+	}
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = false
+	doc, err := loader.LoadFromData(raw)
+	if err != nil || doc == nil || doc.Paths == nil {
+		return out
+	}
+	normalizeOpenAPIDoc(doc)
+	for _, candidate := range openAPIMethodOperations(doc.Paths) {
+		if candidate.op == nil || strings.TrimSpace(candidate.op.OperationID) == "" {
+			continue
+		}
+		out[strings.TrimSpace(candidate.op.OperationID)] = candidate.op
+	}
+	return out
+}
+
+func openAPIRequestSchema(op *openapi3.Operation) string {
+	if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
+		return ""
+	}
+	return openAPIMediaSchemaJSON(op.RequestBody.Value.Content)
+}
+
+func openAPIResponseSchema(op *openapi3.Operation) string {
+	if op == nil || op.Responses == nil {
+		return ""
+	}
+	for _, code := range []string{"200", "201", "default"} {
+		if ref := op.Responses.Value(code); ref != nil && ref.Value != nil {
+			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
+				return schema
+			}
+		}
+	}
+	for _, ref := range op.Responses.Map() {
+		if ref != nil && ref.Value != nil {
+			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
+				return schema
+			}
+		}
+	}
+	return ""
+}
+
+func openAPIMediaSchemaJSON(content openapi3.Content) string {
+	if len(content) == 0 {
+		return ""
+	}
+	if media := content.Get("application/json"); media != nil && media.Schema != nil {
+		return openAPISchemaRefJSON(media.Schema)
+	}
+	for _, media := range content {
+		if media != nil && media.Schema != nil {
+			return openAPISchemaRefJSON(media.Schema)
+		}
+	}
+	return ""
+}
+
+func openAPISchemaRefJSON(ref *openapi3.SchemaRef) string {
+	if ref == nil {
+		return ""
+	}
+	var raw []byte
+	var err error
+	if ref.Value != nil {
+		raw, err = json.Marshal(ref.Value)
+	} else if strings.TrimSpace(ref.Ref) != "" {
+		raw, err = json.Marshal(map[string]string{"$ref": ref.Ref})
+	} else {
+		return ""
+	}
+	if err != nil {
+		return ""
+	}
+	return string(raw)
+}
+
+func sourceInfoVersion(source *model.OpenAPISource) string {
+	if source == nil {
+		return ""
+	}
+	return source.InfoVersion
 }
 
 func sanitizeBindingID(value string) string {

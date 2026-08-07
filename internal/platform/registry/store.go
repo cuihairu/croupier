@@ -79,6 +79,9 @@ type Store struct {
 	registrationWarnings map[string]*FunctionRegistrationWarning
 	// Optional database for dual-write persistence
 	db *gorm.DB
+	// scopeContext resolves the DB/scope context used by game-scoped
+	// contract rebuilds triggered outside an HTTP request.
+	scopeContext func(gameID, env string) context.Context
 	// Contract service for FunctionContract persistence (optional)
 	contractService interface {
 		RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error
@@ -125,6 +128,7 @@ func NewStore() *Store {
 		openapiProviders:     make(map[string]*OpenAPIProviderCaps),
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
 		db:                   nil,
+		scopeContext:         defaultScopeContext,
 	}
 }
 
@@ -136,6 +140,7 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 		openapiProviders:     make(map[string]*OpenAPIProviderCaps),
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
 		db:                   db,
+		scopeContext:         defaultScopeContext,
 	}
 }
 
@@ -147,6 +152,16 @@ func (s *Store) SetContractService(svc interface {
 	RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
 }) {
 	s.contractService = svc
+}
+
+// SetScopeContextResolver configures how background registration rebuilds
+// acquire the correct game-scoped database context.
+func (s *Store) SetScopeContextResolver(resolve func(gameID, env string) context.Context) {
+	if resolve == nil {
+		s.scopeContext = defaultScopeContext
+		return
+	}
+	s.scopeContext = resolve
 }
 
 // Mu exposes the lock for read/update operations when callers need batch views.
@@ -173,6 +188,7 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 
 	// Rebuild FunctionContracts if contract service is available
 	if s.contractService != nil && a.Functions != nil {
+		scopeCtx := s.rebuildContext(a.GameID, a.Env)
 		for funcID, meta := range a.Functions {
 			input := struct {
 				ID           string
@@ -205,7 +221,7 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 				Permission:   meta.Permission,
 				Tags:         meta.Tags,
 			}
-			if err := s.contractService.RebuildContractFromFunctionMeta(context.Background(), a.GameID, a.Env, "sdk", input); err != nil {
+			if err := s.contractService.RebuildContractFromFunctionMeta(scopeCtx, a.GameID, a.Env, "sdk", input); err != nil {
 				slog.Error("failed to rebuild function contract",
 					"agent_id", a.AgentID,
 					"function_id", funcID,
@@ -224,14 +240,14 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 			}
 		}
 		for resource := range resources {
-			if err := s.contractService.RebuildResourceCapability(context.Background(), a.GameID, a.Env, resource); err != nil {
+			if err := s.contractService.RebuildResourceCapability(scopeCtx, a.GameID, a.Env, resource); err != nil {
 				slog.Error("failed to rebuild resource capability",
 					"agent_id", a.AgentID,
 					"resource", resource,
 					"error", err)
 				continue
 			}
-			if err := s.contractService.RebuildProposalsForResource(context.Background(), a.GameID, a.Env, resource); err != nil {
+			if err := s.contractService.RebuildProposalsForResource(scopeCtx, a.GameID, a.Env, resource); err != nil {
 				slog.Error("failed to rebuild page proposals",
 					"agent_id", a.AgentID,
 					"resource", resource,
@@ -239,7 +255,7 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 			}
 		}
 		for functionID := range standaloneFunctions {
-			if err := s.contractService.RebuildProposalForFunction(context.Background(), a.GameID, a.Env, functionID); err != nil {
+			if err := s.contractService.RebuildProposalForFunction(scopeCtx, a.GameID, a.Env, functionID); err != nil {
 				slog.Error("failed to rebuild standalone page proposal",
 					"agent_id", a.AgentID,
 					"function_id", functionID,
@@ -277,6 +293,19 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	}
 	cur.ExpireAt = a.ExpireAt
 	cur.LastSeen = a.LastSeen
+}
+
+func (s *Store) rebuildContext(gameID, env string) context.Context {
+	if s != nil && s.scopeContext != nil {
+		if ctx := s.scopeContext(gameID, env); ctx != nil {
+			return ctx
+		}
+	}
+	return defaultScopeContext(gameID, env)
+}
+
+func defaultScopeContext(string, string) context.Context {
+	return context.Background()
 }
 
 // writeToDB persists agent session to database for recovery purposes.

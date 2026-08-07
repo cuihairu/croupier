@@ -1,6 +1,6 @@
 # Croupier Dashboard 产品重构计划
 
-更新时间：2026-08-03
+更新时间：2026-08-07
 
 > 本文是下一版 Dashboard 的唯一实施计划和 AI 交接清单。任何实现、文档、SDK 或测试与本文冲突时，先修正文档和计划，再实现代码；不得并行维护两套模型。
 
@@ -16,6 +16,7 @@
 - 当前工作区存在大量未提交改动，不能把任一阶段声明为完成。
 - 以下检查的历史“曾通过”记录不作为交接依据；必须重新执行并记录命令与结果后才可作为证据：Dashboard PageSpec guard、目标后端包测试、`web/tests/consoleMenu.test.ts`。
 - 本轮（2026-08-03）已重新执行并通过的检查：`bash "scripts/dashboard_vnext_guard.sh"`；`GOCACHE="/tmp/croupier-go-build" go test ./internal/service ./internal/dashboard/generator ./internal/platform/registry ./internal/service/versioning ./internal/api/page ./internal/api/console ./internal/api/resource ./internal/api/resourcecatalog ./internal/dashboard/...`；`cd "web" && pnpm exec tsc --noEmit`；`rg "@formily|components/formily|Formily|formily|generateFormily|validateFormily" web/src web/package.json` 无命中。
+- 本轮（2026-08-07）新增已验证：`GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/platform/registry ./internal/model ./internal/api/openapi ./internal/api/resource ./internal/api/console ./internal/api/approval ./internal/api/page ./internal/logic/function ./internal/service -count=1`；`bash "scripts/dashboard_vnext_guard.sh"`。
 - 未通过或未验收的检查：全量 Playwright E2E、docs build、SDK parity、部署验证、`web/tests/consoleMenu.test.ts` 重新执行、全量 `go test ./...`。其中 `go test ./internal/...` 在当前受限环境下会卡在 `internal/agent` 的 TCP listener 测试（`socket: operation not permitted`），不能作为完成证据。
 - 仍需清理的误导项包括历史 split-model 命名、旧页面协议残留、失败测试产物、旧路径文件名和未经过真实验收的文档表述。
 
@@ -334,7 +335,8 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 - 已修复 Agent 本地注册元数据快照丢失 `capability/execution` 的问题：`internal/platform/agentlocal.LocalStore.FunctionMetadata()` 现在会保留能力与执行模式，否则上游 Register 会把 SDK 显式语义清空。
 - 已修复 JS SDK 手写 ProviderConnect schema 与注册请求丢失 `capability/execution` 的问题，并补充目标测试断言；JS 测试因本地 pnpm 版本切换/签名校验失败未完成执行，不能作为完成证据。
 - 已补充 `ContractService` 测试，验证 `ApprovalPolicy{required, policyKey}` 会写入 `FunctionContract.Approval`。
-- 已同步 `database/schema.sql` 与 `database/mysql.schema.sql` 的 P1 参考表：`function_contracts`、`resource_capabilities`、`capability_semantics`、`capability_semantic_versions`。参考 SQL 不是迁移执行源，迁移仍以 GORM model + AutoMigrate 为准。
+- 已同步 `database/schema.sql` 与 `database/mysql.schema.sql` 的 P1 参考表：`openapi_sources`、`openapi_source_bindings`、`function_contracts`、`resource_capabilities`、`capability_semantics`、`capability_semantic_versions`。参考 SQL 不是迁移执行源，迁移仍以 GORM model + AutoMigrate 为准。
+- 已物理删除无运行引用的旧 `internal/dashboard/descriptors` collector 包；Dashboard 运行时不得再从 runtime/OpenAPI/DB 临时拼装第二套 descriptor 事实源。
 - 仍未完成：SDK/Agent wire protobuf 正式新增 `ApprovalPolicy` 字段并通过统一生成命令刷新 generated 产物；OperationPage/TaskPage 审批等待态、审批后同步/任务结果展示、PageSpec 发布快照冻结 approval、执行前 snapshot approval 校验。
 - `web/src/components/page-schema/*` 仍被 Functions Directory 与 Assignments 系统管理页复用。它不是运行控制台 PageSpec，但名称容易与旧组件树 Page schema 混淆；P7-b 必须在替代普通 UI helper 后物理删除或重命名，禁止把它接入 Dashboard PageSpec。
 - `web/src/types/dashboard.ts` 当前仍含 `metadata?: Record<string, JSONValue>`、部分 `unknown` 收窄边界和可能过宽 DTO；P3-a/P7-a 类型 guard 需要继续收紧。
@@ -368,6 +370,9 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 - 已实现并通过目标测试的主链路：注册写入规范化 `FunctionContract`，`SourceDigest` 为完整 SHA-256；注册后会继续重建对应 `CapabilitySemantics` 与 `PageProposal`。
 - `ResourceCapability` 不再由注册侧填充 labels；基础语义会从 collection output schema 推导 `items/total/page/page_size` 默认字段和最小可用 identity。
+- 2026-08-07 新增事实：SDK 注册后台重建已通过 `registry.Store` 的 scope context resolver 进入当前 `game_id/env`；多库模式不再用裸 `context.Background()` 把 `FunctionContract/ResourceCapability/PageProposal` 写入 meta DB。
+- 2026-08-07 新增事实：OpenAPI Source/Binding 已归入 `GameModels()`，模型访问统一使用 `dbctx.Resolve`；上传/绑定和生成出的 `FunctionContract/PageProposal` 在同一 game/env 数据域。
+- 2026-08-07 新增事实：Resource API、Console freshness/execute、Approval continuation freshness、函数目录 `/functions/descriptors` 均已读取持久化 `FunctionContract` 投影出的 canonical `FunctionSpec`，不再由请求时 `descriptors.Collect` 临时拼装唯一事实。
 - 仍未完成：字段级 `SemanticProvenance`、多来源冲突持久化与优先级收敛、Resource Catalog 管理端、OTel/audit 完整闭环；因此本工作包不能勾选完成。
 
 - [ ] 新建 scope 化 `function_contracts`、`resource_capabilities`、`capability_semantics`、`capability_semantic_versions` 数据模型；新表和新增列以 GORM model + AutoMigrate 定义（边界 13），并同步更新 `database/schema.sql` 参考文档。旧表/列删除不在此阶段执行，统一进入 P7-b 的确认后 GORM Migrator 清理。
@@ -591,7 +596,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 状态：待重新审核。
 
-- 当前事实（2026-08-05）：Console execute 已切到 `context` 协议，浏览器只提交 form/row/selection/detail/pageState 来源值；服务端在 stale/snapshot 校验通过后，按 PublishedPageSpec 的 typed selector 构造函数 payload，再用当前 FunctionSpec input schema 做最终 JSON Schema 校验。ResourcePage renderer 已停止裸 payload/整行透传；query/create/operation/task/report 传 `form`，update/delete/row action 传 `row`，batch action 传 `selection`；Console selector 现在仅支持受控 `selection + pick` transform，把选中行 identity 提取为数组输入，禁止开放任意 transform。ResourcePage 生成器会把 update/delete/detail 的 identity selector 切到 row 来源，并从 update form 中剔除 identity 字段，避免用户编辑一个不会生效的字段。ResourcePage renderer 现在使用 `listView.identityKey` 作为 rowKey，详情入口会优先执行 `detail` binding 并只读取 selector 映射后的 `pageState.detail`；列表结果只读取 `pageState.items/total`，并已补上 batch/toolbar action 的基础运行时。Operation/Task/Resource 详情结果不再把原始 JSON 作为正式面板，只按 ResultView/DetailView 字段展示结构化摘要；Task retry 因缺少真实 retry function semantic 已在 renderer/editor/publish guard 中禁用。ReportPage renderer 不再猜 `response.data.items`，缺少 dataset 语义或 output selector 时直接显示配置错误。已验证 `GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/dashboard/generator ./internal/dashboard/spec ./internal/api/console ./internal/api/resourcecatalog ./internal/service -run '^$'`；前端目标 eslint 在当前受限环境下被 `pnpm` 触发重装依赖后卡在网络拉包，不能作为完成证据。全量 `cd "web" && pnpm exec tsc --noEmit` 仍被仓库既有 `@umijs/max` 类型导出与旧页面 implicit any 阻断，不是 P6 完成证据；approval/task dispatch、OTel collector E2E、真实浏览器路径和选择/详情/page_state 复杂上下文仍未闭环。
+- 当前事实（2026-08-07）：Console execute 已切到 `context` 协议，浏览器只提交 form/row/selection/detail/pageState 来源值；服务端在 stale/snapshot 校验通过后，按 PublishedPageSpec 的 typed selector 构造函数 payload，再用持久化 `FunctionContract` 投影出的当前 `FunctionSpec` input schema 做最终 JSON Schema 校验。Console Page/Pages 的 freshness、execute stale 判断和 Approval continuation freshness 均读取同一持久化合同投影，旧 `descriptors.Collect` 已从这些运行路径删除。ResourcePage renderer 已停止裸 payload/整行透传；query/create/operation/task/report 传 `form`，update/delete/row action 传 `row`，batch action 传 `selection`；Console selector 现在仅支持受控 `selection + pick` transform，把选中行 identity 提取为数组输入，禁止开放任意 transform。ResourcePage 生成器会把 update/delete/detail 的 identity selector 切到 row 来源，并从 update form 中剔除 identity 字段，避免用户编辑一个不会生效的字段。ResourcePage renderer 现在使用 `listView.identityKey` 作为 rowKey，详情入口会优先执行 `detail` binding 并只读取 selector 映射后的 `pageState.detail`；列表结果只读取 `pageState.items/total`，并已补上 batch/toolbar action 的基础运行时。Operation/Task/Resource 详情结果不再把原始 JSON 作为正式面板，只按 ResultView/DetailView 字段展示结构化摘要；Task retry 因缺少真实 retry function semantic 已在 renderer/editor/publish guard 中禁用。ReportPage renderer 不再猜 `response.data.items`，缺少 dataset 语义或 output selector 时直接显示配置错误。已验证 `GOCACHE="/tmp/croupier-go-build" GOMODCACHE="/tmp/croupier-go-mod" go test ./internal/platform/registry ./internal/model ./internal/api/openapi ./internal/api/resource ./internal/api/console ./internal/api/approval ./internal/api/page ./internal/logic/function ./internal/service -count=1`；前端目标 eslint 在当前受限环境下被 `pnpm` 触发重装依赖后卡在网络拉包，不能作为完成证据。全量 `cd "web" && pnpm exec tsc --noEmit` 仍被仓库既有 `@umijs/max` 类型导出与旧页面 implicit any 阻断，不是 P6 完成证据；approval/task dispatch、OTel collector E2E、真实浏览器路径和选择/详情/page_state 复杂上下文仍未闭环。
 
 - [ ] Console 只读取当前模型 PublishedPageSpec 和 ConsoleMenuSpec；路由仍为 `/console/:categoryKey/:pageKey`。
 - [ ] ProLayout 动态菜单使用 NavigationSpec labels 与 `locale:false`；切 scope 后强制失效旧 menu/page query。
@@ -607,6 +612,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 状态：待重新审核。
 
 - [ ] 建立旧模型文件、路由、DTO、API、数据库列的完整删除清单与调用图，逐项标注替代路径、owner 和删除前置条件。
+- 当前事实（2026-08-07）：无引用旧 `internal/dashboard/descriptors` collector 包已物理删除；禁止恢复通过 runtime/OpenAPI/DB 临时合并 descriptor 的 Dashboard 事实源。
 - [ ] 先行上线 CI guard：旧模型任何新命中即失败，allowlist 只减不增。
 - [ ] guard 同步拒绝业务代码中的原生 SQL：`internal/` 业务包中 `db.Raw(`/`db.Exec(` 命中即失败，allowlist 仅豁免 `internal/svc` 等基础设施层和测试文件，且豁免项只减不增（边界 13）。
 - [ ] guard 同步拒绝 web 业务代码中未收窄的 `unknown`、`as any` 和页面/组件内重复定义的共享 DTO：以当前存量为 baseline 建立 allowlist，新命中即失败，allowlist 只减不增（边界 14）。
@@ -617,7 +623,7 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 > 前置条件：被删模块的替代路径已通过该模块的真实浏览器 E2E。禁止在替代路径验收前删除仍在服务的旧模块，禁止一次性“大爆炸”删除。
 
-- [ ] 删除注册侧页面扩展 DTO、OpenAPI extension、descriptor collector 解析、SDK/docs/demo、generator、测试。
+- [ ] 删除注册侧页面扩展 DTO、OpenAPI extension、SDK/docs/demo、generator、测试；旧 descriptor collector 解析已物理删除，后续不得恢复。
 - [ ] 删除组件树 PageSpec DTO、旧 Page renderer、Page schema validator/editor、旧模型 Page APIs 与数据库列。
 - [ ] 删除历史 page spec 数据，不迁移；数据清理前备份并取得单独确认。
 - [ ] 旧表/列物理删除只能由版本化清理函数调用 `db.Migrator().DropColumn/DropTable`，前置条件为替代路径 E2E、备份校验和明确确认；禁止依赖 AutoMigrate 或原生 SQL 隐式删除。

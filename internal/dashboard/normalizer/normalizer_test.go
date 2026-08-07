@@ -8,10 +8,10 @@ import (
 
 func TestNormalizeCarriesCapabilityAndExecution(t *testing.T) {
 	result := Normalize(DescriptorInput{
-		ID:                "reward.batchGrant",
+		ID:                "reward.batch_grant",
 		Version:           "1.0.0",
 		Resource:          "reward",
-		Operation:         "batchGrant",
+		Operation:         "batch_grant",
 		Capability:        "task",
 		InputSchema:       `{"type":"object"}`,
 		Execution:         "task",
@@ -45,7 +45,7 @@ func TestNormalizeCarriesCapabilityAndExecution(t *testing.T) {
 
 func TestNormalizeDefaultsExecutionFromCapability(t *testing.T) {
 	result := Normalize(DescriptorInput{
-		ID:          "reward.batchGrant",
+		ID:          "reward.batch_grant",
 		Capability:  "task",
 		InputSchema: `{"type":"object"}`,
 		Enabled:     true,
@@ -67,6 +67,20 @@ func TestNormalizeRejectsInvalidCapabilityAndExecution(t *testing.T) {
 
 	assertDiagnostic(t, result.Diagnostics, "capability_invalid")
 	assertDiagnostic(t, result.Diagnostics, "execution_invalid")
+}
+
+func TestNormalizeRejectsUnstableKeys(t *testing.T) {
+	result := Normalize(DescriptorInput{
+		ID:          "Reward.BatchGrant",
+		Resource:    "reward",
+		Operation:   "batchGrant",
+		Capability:  "task",
+		InputSchema: `{"type":"object"}`,
+		Enabled:     true,
+	})
+
+	assertDiagnostic(t, result.Diagnostics, "function_id_invalid")
+	assertDiagnostic(t, result.Diagnostics, "operation_key_invalid")
 }
 
 func assertDiagnostic(t *testing.T, diagnostics []spec.Diagnostic, code string) {

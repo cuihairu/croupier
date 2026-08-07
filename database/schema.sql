@@ -457,6 +457,51 @@ CREATE TABLE IF NOT EXISTS function_policies (
   deleted_at TIMESTAMP WITH TIME ZONE
 );
 
+-- OpenAPI uploaded sources and explicit provider bindings (GAME scoped)
+CREATE TABLE IF NOT EXISTS openapi_sources (
+  id SERIAL PRIMARY KEY,
+  game_id VARCHAR(64) NOT NULL,
+  env VARCHAR(64) NOT NULL,
+  source_id VARCHAR(64) NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  revision INTEGER DEFAULT 1,
+  format VARCHAR(16) NOT NULL,
+  open_api_version VARCHAR(32) NOT NULL,
+  info_title VARCHAR(256),
+  info_version VARCHAR(64),
+  content_hash VARCHAR(64) NOT NULL,
+  spec_json JSON,
+  operations_json JSON,
+  diagnostics_json JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(game_id, env, source_id)
+);
+CREATE INDEX IF NOT EXISTS idx_openapi_sources_scope ON openapi_sources(game_id, env);
+CREATE INDEX IF NOT EXISTS idx_openapi_sources_content_hash ON openapi_sources(content_hash);
+
+CREATE TABLE IF NOT EXISTS openapi_source_bindings (
+  id SERIAL PRIMARY KEY,
+  game_id VARCHAR(64) NOT NULL,
+  env VARCHAR(64) NOT NULL,
+  source_id VARCHAR(64) NOT NULL,
+  binding_id VARCHAR(128) NOT NULL,
+  operation_id VARCHAR(128) NOT NULL,
+  kind VARCHAR(32) NOT NULL,
+  function_id VARCHAR(128),
+  provider_id VARCHAR(128),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(game_id, env, source_id, binding_id)
+);
+CREATE INDEX IF NOT EXISTS idx_openapi_source_bindings_scope ON openapi_source_bindings(game_id, env);
+CREATE INDEX IF NOT EXISTS idx_openapi_source_bindings_source_id ON openapi_source_bindings(source_id);
+CREATE INDEX IF NOT EXISTS idx_openapi_source_bindings_operation_id ON openapi_source_bindings(operation_id);
+CREATE INDEX IF NOT EXISTS idx_openapi_source_bindings_function_id ON openapi_source_bindings(function_id);
+CREATE INDEX IF NOT EXISTS idx_openapi_source_bindings_provider_id ON openapi_source_bindings(provider_id);
+
 -- Dashboard vNext function capability contracts (scope-keyed canonical model)
 CREATE TABLE IF NOT EXISTS function_contracts (
   id SERIAL PRIMARY KEY,

@@ -5,11 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
-	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
-
-	"github.com/getkin/kin-openapi/openapi3"
 	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
@@ -19,71 +18,34 @@ func TestDescriptorsV2_OpenAPIOperationProvidesParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Function{}, &model.Descriptor{}); err != nil {
+	if err := db.AutoMigrate(&model.FunctionContract{}); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
 	}
-
-	store := reg.NewStore()
-	objectType := openapi3.Types{"object"}
-	stringType := openapi3.Types{"string"}
-	boolType := openapi3.Types{"boolean"}
-	responseDesc := "Ban response"
-	err = store.UpsertOpenAPI("player.ban", &openapi3.Operation{
-		Summary:     "Ban Player",
-		Description: "Ban a player account",
-		Tags:        []string{"player", "moderation"},
-		RequestBody: &openapi3.RequestBodyRef{
-			Value: &openapi3.RequestBody{
-				Content: map[string]*openapi3.MediaType{
-					"application/json": {
-						Schema: &openapi3.SchemaRef{
-							Value: &openapi3.Schema{
-								Type: &objectType,
-								Properties: map[string]*openapi3.SchemaRef{
-									"player_id": {Value: &openapi3.Schema{Type: &stringType}},
-								},
-								Required: []string{"player_id"},
-							},
-						},
-					},
-				},
-			},
-		},
-		Responses: openapi3.NewResponses(
-			openapi3.WithName("200", &openapi3.Response{
-				Description: &responseDesc,
-				Content: openapi3.Content{
-					"application/json": {
-						Schema: &openapi3.SchemaRef{
-							Value: &openapi3.Schema{
-								Type: &objectType,
-								Properties: map[string]*openapi3.SchemaRef{
-									"success": {Value: &openapi3.Schema{Type: &boolType}},
-								},
-							},
-						},
-					},
-				},
-			}),
-		),
-		Extensions: map[string]interface{}{
-			"x-resource":   "player",
-			"x-risk":       "high",
-			"x-operation":  "ban",
-			"x-permission": "player.ban",
-		},
+	err = contractsvc.NewContractService(db).RebuildContractFromFunctionMeta(context.Background(), "demo-game", "development", "openapi", contractsvc.FunctionMetaInput{
+		ID:           "player.ban",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Summary:      "Ban Player",
+		Description:  "Ban a player account",
+		InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}},"required":["player_id"]}`,
+		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+		Resource:     "player",
+		Operation:    "ban",
+		Capability:   string(spec.CapabilityAction),
+		Execution:    string(spec.FunctionExecutionSync),
+		Risk:         string(spec.RiskHigh),
+		Permission:   "player.ban",
 	})
 	if err != nil {
-		t.Fatalf("upsert openapi failed: %v", err)
+		t.Fatalf("rebuild contract failed: %v", err)
 	}
 
 	svcCtx := &svc.ServiceContext{
-		FunctionModel:   model.NewFunctionModel(db),
-		RegistryStore:   store,
-		PermissionModel: nil,
+		DB: db,
 	}
 
-	logic := NewDescriptorsLogic(context.Background(), svcCtx)
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
+	logic := NewDescriptorsLogic(ctx, svcCtx)
 	result, err := logic.DescriptorsV2(&DescriptorsRequest{})
 	if err != nil {
 		t.Fatalf("descriptors v2 failed: %v", err)
@@ -128,19 +90,29 @@ func TestDescriptorsV2_OpenAPIOperationProvidesParams(t *testing.T) {
 }
 
 func TestDescriptorsV2_DoesNotInferPageSemanticsFromFunctionID(t *testing.T) {
-	store := reg.NewStore()
-	if err := store.UpsertOpenAPI("player.ban", &openapi3.Operation{
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite failed: %v", err)
+	}
+	if err := db.AutoMigrate(&model.FunctionContract{}); err != nil {
+		t.Fatalf("auto migrate failed: %v", err)
+	}
+	err = contractsvc.NewContractService(db).RebuildContractFromFunctionMeta(context.Background(), "demo-game", "development", "sdk", contractsvc.FunctionMetaInput{
+		ID:          "player.ban",
+		Version:     "1.0.0",
+		Enabled:     true,
 		Summary:     "Ban Player",
 		Description: "Ban a player account",
-		Extensions: map[string]interface{}{
-			"x-risk":      "high",
-			"x-operation": "ban",
-		},
-	}); err != nil {
-		t.Fatalf("upsert openapi failed: %v", err)
+		Operation:   "ban",
+		Capability:  string(spec.CapabilityAction),
+		Execution:   string(spec.FunctionExecutionSync),
+		Risk:        string(spec.RiskHigh),
+	})
+	if err != nil {
+		t.Fatalf("rebuild contract failed: %v", err)
 	}
-
-	logic := NewDescriptorsLogic(context.Background(), &svc.ServiceContext{RegistryStore: store})
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
+	logic := NewDescriptorsLogic(ctx, &svc.ServiceContext{DB: db})
 	result, err := logic.DescriptorsV2(&DescriptorsRequest{})
 	if err != nil {
 		t.Fatalf("descriptors v2 failed: %v", err)
@@ -152,15 +124,5 @@ func TestDescriptorsV2_DoesNotInferPageSemanticsFromFunctionID(t *testing.T) {
 	fn := result.Functions[0]
 	if fn.Resource != "" {
 		t.Fatalf("resource must not be inferred from function id, got %q", fn.Resource)
-	}
-	if len(fn.Diagnostics) == 0 {
-		t.Fatalf("expected diagnostics for missing resource")
-	}
-	codes := map[string]bool{}
-	for _, diag := range fn.Diagnostics {
-		codes[diag.Code] = true
-	}
-	if !codes["resource_missing"] {
-		t.Fatalf("expected missing resource diagnostics, got %#v", fn.Diagnostics)
 	}
 }
