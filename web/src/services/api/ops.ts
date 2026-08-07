@@ -416,6 +416,10 @@ function normalizeOpsNode(raw: RawOpsNode): OpsNode {
     sdkName: raw?.sdkName,
     functions: raw?.functions ?? 0,
     expiresInSec: raw?.expiresInSec ?? 0,
+    // System metrics
+    cpu: raw?.cpu,
+    memory: raw?.memory,
+    disks: raw?.disks,
   };
 }
 function normalizeOpsAlert(raw: RawOpsAlert): OpsAlert {
