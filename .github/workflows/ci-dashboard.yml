@@ -91,6 +91,8 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.52.0-noble
     defaults:
       run:
         working-directory: ./web
@@ -115,10 +117,6 @@ jobs:
       - name: Install dependencies
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        timeout-minutes: 10
-        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests
         timeout-minutes: 15
