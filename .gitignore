@@ -203,3 +203,5 @@ coverage_*.html
 *_cov.html
 internal/api/analytics/analytics_filters.json
 schema-validator
+web/test-results/
+web/playwright-report/
