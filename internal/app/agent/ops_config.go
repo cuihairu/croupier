@@ -86,7 +86,7 @@ func DefaultOpsConfig() *OpsConfig {
 func (c *OpsConfig) Validate() error {
 	// MetricsInterval minimum is 3 seconds to prevent excessive resource usage
 	const minMetricsInterval = 3 * time.Second
-	const maxMetricsInterval = 5 * time.Minute
+	const maxMetricsInterval = 10 * time.Hour
 
 	if c.MetricsInterval < minMetricsInterval {
 		c.MetricsInterval = minMetricsInterval
