@@ -37,7 +37,7 @@ env:
   # Keep the historical project name used by the first self-hosted deployment.
   # The existing persistent volumes are docker_* and fixed container_name values
   # conflict if Compose silently derives a new project name from deploy_dir.
-  CROUPIER_COMPOSE_PROJECT: docker
+  CROUPIER_COMPOSE_PROJECT: croupier
 
 permissions:
   contents: read
