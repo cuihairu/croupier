@@ -322,9 +322,7 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 }
 
 // handleMetricEvent accepts a pushed MetricsReport snapshot from an agent.
-// It is currently a fire-and-forget sink: the report is logged at debug level
-// so operators can confirm the pipeline works end-to-end. A future change can
-// hand the report to a dedicated metrics store once that lands.
+// The report is stored in the MetricsStore for later retrieval by the ops API.
 func (s *ControlService) handleMetricEvent(ctx context.Context, data []byte) ([]byte, error) {
 	req := &opsv1.MetricsReport{}
 	if err := proto.Unmarshal(data, req); err != nil {
@@ -334,6 +332,11 @@ func (s *ControlService) handleMetricEvent(ctx context.Context, data []byte) ([]
 	agentID := strings.TrimSpace(req.GetAgentId())
 	if agentID == "" {
 		return nil, fmt.Errorf("agent_id is required")
+	}
+
+	// Store metrics for later retrieval
+	if s.metricsStore != nil {
+		s.metricsStore.Add(agentID, req)
 	}
 
 	if s.logger != nil {

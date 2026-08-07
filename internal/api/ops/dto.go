@@ -211,6 +211,8 @@ type OpsDiskMetrics struct {
 	UsedBytes      uint64  `json:"usedBytes"`
 	AvailableBytes uint64  `json:"availableBytes"`
 	UsagePercent   float64 `json:"usagePercent"`
+	InodeTotal     uint64  `json:"inodeTotal,omitempty"`
+	InodeUsed      uint64  `json:"inodeUsed,omitempty"`
 }
 
 type OpsMemoryMetrics struct {
@@ -583,6 +585,10 @@ type Node struct {
 	SDKName      string            `json:"sdkName,omitempty"`
 	Functions    int               `json:"functions"`
 	ExpiresInSec int64             `json:"expiresInSec"`
+	// System metrics (from SystemInfoCache)
+	CPU    *CpuMetrics    `json:"cpu,omitempty"`
+	Memory *MemoryMetrics `json:"memory,omitempty"`
+	Disks  []DiskMetrics  `json:"disks,omitempty"`
 }
 
 // NodeCommand represents a command that can be executed on a node

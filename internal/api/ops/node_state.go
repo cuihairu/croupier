@@ -60,7 +60,7 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 				continue
 			}
 
-			items = append(items, runtimeNodeListItem(sess, nodeStatus))
+			items = append(items, runtimeNodeListItem(sess, nodeStatus, svcCtx.MetricsStore))
 		}
 		store.Mu().RUnlock()
 	}
@@ -84,7 +84,7 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 	return nodes
 }
 
-func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string) nodeListItem {
+func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string, metricsStore *registry.MetricsStore) nodeListItem {
 	sdkLanguage, sdkVersion, sdkName := "", "", ""
 	if len(sess.Providers) > 0 {
 		sdkLanguage = sess.Providers[0].SDKLanguage
@@ -97,22 +97,67 @@ func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string) nodeLis
 		expiresInSec = 0
 	}
 
+	node := Node{
+		Id:           sess.AgentID,
+		Hostname:     sess.Labels["hostname"],
+		Addr:         sess.Addr,
+		GameId:       sess.GameID,
+		Env:          sess.Env,
+		Status:       nodeStatus,
+		Labels:       sess.Labels,
+		LastSeen:     utils.FormatTimestamp(sess.LastSeen),
+		SDKLanguage:  sdkLanguage,
+		SDKVersion:   sdkVersion,
+		SDKName:      sdkName,
+		Functions:    len(sess.Functions),
+		ExpiresInSec: expiresInSec,
+	}
+
+	// Populate system metrics from MetricsStore
+	if metricsStore != nil {
+		if entry, ok := metricsStore.GetLatest(sess.AgentID); ok && entry != nil {
+			report := entry.Report
+			if report.GetCpu() != nil {
+				node.CPU = &CpuMetrics{
+					UsagePercent: report.GetCpu().GetUsagePercent(),
+					Cores:        report.GetCpu().GetCores(),
+					PerCore:      report.GetCpu().GetPerCore(),
+					Load1M:       report.GetCpu().GetLoad_1M(),
+					Load5M:       report.GetCpu().GetLoad_5M(),
+					Load15M:      report.GetCpu().GetLoad_15M(),
+				}
+			}
+			if report.GetMemory() != nil {
+				node.Memory = &MemoryMetrics{
+					TotalBytes:     report.GetMemory().GetTotalBytes(),
+					UsedBytes:      report.GetMemory().GetUsedBytes(),
+					AvailableBytes: report.GetMemory().GetAvailableBytes(),
+					UsagePercent:   report.GetMemory().GetUsagePercent(),
+					SwapTotal:      report.GetMemory().GetSwapTotal(),
+					SwapUsed:       report.GetMemory().GetSwapUsed(),
+				}
+			}
+			if len(report.GetDisks()) > 0 {
+				node.Disks = make([]DiskMetrics, len(report.GetDisks()))
+				for i, disk := range report.GetDisks() {
+					node.Disks[i] = DiskMetrics{
+						MountPoint:     disk.GetMountPoint(),
+						Device:         disk.GetDevice(),
+						FsType:         disk.GetFsType(),
+						TotalBytes:     disk.GetTotalBytes(),
+						UsedBytes:      disk.GetUsedBytes(),
+						AvailableBytes: disk.GetAvailableBytes(),
+						UsagePercent:   disk.GetUsagePercent(),
+						InodeTotal:     disk.GetInodeTotal(),
+						InodeUsed:      disk.GetInodeUsed(),
+					}
+				}
+			}
+		}
+	}
+
 	return nodeListItem{
-		node: Node{
-			Id:           sess.AgentID,
-			Hostname:     sess.Labels["hostname"],
-			Addr:         sess.Addr,
-			GameId:       sess.GameID,
-			Env:          sess.Env,
-			Status:       nodeStatus,
-			Labels:       sess.Labels,
-			LastSeen:     utils.FormatTimestamp(sess.LastSeen),
-			SDKLanguage:  sdkLanguage,
-			SDKVersion:   sdkVersion,
-			SDKName:      sdkName,
-			Functions:    len(sess.Functions),
-			ExpiresInSec: expiresInSec,
-		},
+		node:     node,
 		lastSeen: sess.LastSeen,
 		rank:     nodeStatusRank(nodeStatus),
 	}
