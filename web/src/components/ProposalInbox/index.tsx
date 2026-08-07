@@ -163,6 +163,25 @@ function currentResourceKey(): string {
   return new URLSearchParams(window.location.search).get('resourceKey') || '';
 }
 
+function currentProposalKey(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  return new URLSearchParams(window.location.search).get('proposalKey') || '';
+}
+
+function clearProposalKeyParam() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has('proposalKey')) {
+    return;
+  }
+  url.searchParams.delete('proposalKey');
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
 function navigateTo(path: string) {
   if (typeof window !== 'undefined') {
     window.location.assign(path);
@@ -179,6 +198,7 @@ export default function ProposalInbox() {
   const [detailVisible, setDetailVisible] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [resourceKey] = useState(currentResourceKey);
+  const [initialProposalKey] = useState(currentProposalKey);
   const [contractActionKey, setContractActionKey] = useState('');
   const [manualMergeVisible, setManualMergeVisible] = useState(false);
   const [manualMergeLoading, setManualMergeLoading] = useState(false);
@@ -198,6 +218,22 @@ export default function ProposalInbox() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!initialProposalKey) {
+      return;
+    }
+    getProposal(initialProposalKey)
+      .then((detail) => {
+        setSelectedProposal(detail);
+        setActiveTab(detail.quality === 'needs_review' ? 'needsReview' : 'publishable');
+        setPreviewVisible(true);
+      })
+      .catch(() => {
+        message.warning(`未找到 Proposal：${initialProposalKey}`);
+      })
+      .finally(clearProposalKeyParam);
+  }, [initialProposalKey, message]);
 
   const handleViewDetail = useCallback(async (proposalKey: string) => {
     const detail = await getProposal(proposalKey);

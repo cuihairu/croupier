@@ -114,6 +114,15 @@ export interface OpenAPISourceBinding {
   updatedAt: string;
 }
 
+export interface OpenAPIBindingProposal {
+  proposalKey: string;
+  pageKey: string;
+  pageType: string;
+  resourceKey?: string;
+  quality: string;
+  status: string;
+}
+
 export interface OpenAPISourceDetail extends OpenAPISourceSummary {
   spec?: OpenAPIDocument;
   operations: OpenAPISourceOperation[];
@@ -135,6 +144,7 @@ export type OpenAPISourceDiagnosticsResponse = {
 
 export type OpenAPISourceBindingResponse = {
   binding: OpenAPISourceBinding;
+  proposal?: OpenAPIBindingProposal;
 };
 
 export function normalizeFunctionOpenAPIResponse(
@@ -177,10 +187,13 @@ export async function uploadOpenAPISourceFile(file: File, name?: string) {
 }
 
 export async function updateOpenAPISource(sourceId: string, spec: OpenAPIDocument, name?: string) {
-  return request<OpenAPISourceGetResponse>(`/api/v1/openapi/sources/${encodeURIComponent(sourceId)}`, {
-    method: 'PUT',
-    data: { name, spec },
-  });
+  return request<OpenAPISourceGetResponse>(
+    `/api/v1/openapi/sources/${encodeURIComponent(sourceId)}`,
+    {
+      method: 'PUT',
+      data: { name, spec },
+    },
+  );
 }
 
 export async function listOpenAPISources() {
@@ -188,7 +201,9 @@ export async function listOpenAPISources() {
 }
 
 export async function getOpenAPISource(sourceId: string) {
-  return request<OpenAPISourceGetResponse>(`/api/v1/openapi/sources/${encodeURIComponent(sourceId)}`);
+  return request<OpenAPISourceGetResponse>(
+    `/api/v1/openapi/sources/${encodeURIComponent(sourceId)}`,
+  );
 }
 
 export async function getOpenAPISourceDiagnostics(sourceId: string) {

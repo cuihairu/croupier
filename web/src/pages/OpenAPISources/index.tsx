@@ -23,6 +23,7 @@ import {
   LinkOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
+import { history, useAccess } from '@umijs/max';
 import {
   bindOpenAPISourceProvider,
   createOpenAPISource,
@@ -39,7 +40,6 @@ import {
 } from '@/services/api/openapi';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import type { Diagnostic } from '@/types/dashboard';
-import { useAccess } from '@umijs/max';
 
 type ApiErrorLike = {
   response?: {
@@ -88,7 +88,8 @@ function capabilityColor(capability?: string) {
   if (capability === 'task') return 'purple';
   if (capability === 'report') return 'geekblue';
   if (capability === 'collection_query' || capability === 'item_query') return 'cyan';
-  if (capability === 'create' || capability === 'update' || capability === 'delete') return 'volcano';
+  if (capability === 'create' || capability === 'update' || capability === 'delete')
+    return 'volcano';
   return 'blue';
 }
 
@@ -104,12 +105,20 @@ function formatDate(value?: string): string {
 }
 
 function functionLabel(fn: FunctionDescriptor): string {
-  const title = fn.summary?.zh || fn.summary?.en || fn.displayName?.zh || fn.displayName?.en || fn.id;
+  const title =
+    fn.summary?.zh || fn.summary?.en || fn.displayName?.zh || fn.displayName?.en || fn.id;
   return `${title} (${fn.id})`;
 }
 
 function operationLabel(operation: OpenAPISourceOperation): string {
   return operation.summary || operation.operation || operation.operationId;
+}
+
+function proposalInboxPath(proposalKey: string, resourceKey?: string): string {
+  const params = new URLSearchParams();
+  if (resourceKey) params.set('resourceKey', resourceKey);
+  params.set('proposalKey', proposalKey);
+  return `/system/functions/proposals?${params.toString()}`;
 }
 
 function parseOpenAPIDocument(text: string): OpenAPIDocument {
@@ -212,7 +221,9 @@ export default function OpenAPISourcesPage() {
     setSourceDiagnostics([]);
     try {
       const response =
-        detail?.sourceId === record.sourceId ? { source: detail } : await getOpenAPISource(record.sourceId);
+        detail?.sourceId === record.sourceId
+          ? { source: detail }
+          : await getOpenAPISource(record.sourceId);
       setEditingSource(response.source);
       setSourceModalMode('update');
       setUploadName(response.source.name);
@@ -253,7 +264,10 @@ export default function OpenAPISourcesPage() {
           uploadName || undefined,
         );
       } else if (uploadFile?.originFileObj) {
-        response = await uploadOpenAPISourceFile(uploadFile.originFileObj, uploadName || uploadFile.name);
+        response = await uploadOpenAPISourceFile(
+          uploadFile.originFileObj,
+          uploadName || uploadFile.name,
+        );
       } else {
         const text = rawSpec.trim();
         if (!text) {
@@ -300,16 +314,30 @@ export default function OpenAPISourcesPage() {
       return;
     }
     try {
-      await bindOpenAPISourceProvider(detail.sourceId, {
+      const result = await bindOpenAPISourceProvider(detail.sourceId, {
         operationId: bindingOperation.operationId,
         functionId: bindingFunctionId,
         providerId: bindingProviderId.trim() || undefined,
         bindingId: bindingId.trim() || undefined,
       });
-      message.success('Provider binding 已保存');
       setBindOpen(false);
       await openDetail(detail.sourceId);
       await loadSources();
+      if (result.proposal) {
+        Modal.success({
+          title: 'Provider binding 已保存',
+          content: `已生成默认页面 Proposal：${result.proposal.proposalKey}。请进入 Proposal 队列预览并发布，发布后才会出现在运行控制台菜单。`,
+          okText: '打开 Proposal',
+          onOk: () =>
+            history.push(
+              proposalInboxPath(result.proposal!.proposalKey, result.proposal!.resourceKey),
+            ),
+        });
+      } else {
+        message.warning(
+          'Provider binding 已保存，但未返回可发布 Proposal。请在 Proposal 队列查看诊断。',
+        );
+      }
     } catch (error) {
       message.error(errorMessage(error, '保存 binding 失败'));
     }
@@ -416,8 +444,12 @@ export default function OpenAPISourcesPage() {
       render: (_, record) => (
         <Space direction="vertical" size={4}>
           <Space size={4} wrap>
-            <Tag color={record.resource ? 'blue' : undefined}>{record.resource || '无 resource'}</Tag>
-            <Tag color={record.operation ? undefined : 'default'}>{record.operation || '无 operation'}</Tag>
+            <Tag color={record.resource ? 'blue' : undefined}>
+              {record.resource || '无 resource'}
+            </Tag>
+            <Tag color={record.operation ? undefined : 'default'}>
+              {record.operation || '无 operation'}
+            </Tag>
             <Tag color={capabilityColor(record.capability)}>
               {record.capability || '无 capability'}
             </Tag>
@@ -451,7 +483,13 @@ export default function OpenAPISourcesPage() {
       width: 110,
       render: (_, record) => [
         canWrite ? (
-          <Button key="bind" type="link" size="small" icon={<LinkOutlined />} onClick={() => openBindingModal(record)}>
+          <Button
+            key="bind"
+            type="link"
+            size="small"
+            icon={<LinkOutlined />}
+            onClick={() => openBindingModal(record)}
+          >
             绑定
           </Button>
         ) : (
@@ -464,10 +502,19 @@ export default function OpenAPISourcesPage() {
   ];
 
   const bindingColumns: ProColumns<OpenAPISourceBinding>[] = [
-    { title: 'bindingId', dataIndex: 'bindingId', render: (_, record) => <Typography.Text code>{record.bindingId}</Typography.Text> },
+    {
+      title: 'bindingId',
+      dataIndex: 'bindingId',
+      render: (_, record) => <Typography.Text code>{record.bindingId}</Typography.Text>,
+    },
     { title: 'operationId', dataIndex: 'operationId' },
     { title: 'functionId', dataIndex: 'functionId' },
-    { title: 'kind', dataIndex: 'kind', width: 100, render: (_, record) => <Tag>{record.kind}</Tag> },
+    {
+      title: 'kind',
+      dataIndex: 'kind',
+      width: 100,
+      render: (_, record) => <Tag>{record.kind}</Tag>,
+    },
     {
       title: '操作',
       valueType: 'option',
@@ -495,7 +542,12 @@ export default function OpenAPISourcesPage() {
   ];
   if (canWrite) {
     pageActions.push(
-      <Button key="create" type="primary" icon={<CloudUploadOutlined />} onClick={openCreateSourceModal}>
+      <Button
+        key="create"
+        type="primary"
+        icon={<CloudUploadOutlined />}
+        onClick={openCreateSourceModal}
+      >
         上传 Source
       </Button>,
     );
@@ -528,7 +580,13 @@ export default function OpenAPISourcesPage() {
               {sourceDiagnostics.map((item) => (
                 <Alert
                   key={`${item.code}:${item.field || ''}:${item.message}`}
-                  type={item.severity === 'error' ? 'error' : item.severity === 'warning' ? 'warning' : 'info'}
+                  type={
+                    item.severity === 'error'
+                      ? 'error'
+                      : item.severity === 'warning'
+                        ? 'warning'
+                        : 'info'
+                  }
                   showIcon
                   message={`${item.code}${item.field ? ` @ ${item.field}` : ''}`}
                   description={item.message}
@@ -571,7 +629,9 @@ export default function OpenAPISourcesPage() {
                 <Tag>{`rev ${detail.revision}`}</Tag>
                 <Tag>{detail.format}</Tag>
                 <Tag>{detail.openapiVersion}</Tag>
-                <Tag color={detail.diagnosticCount > 0 ? 'orange' : 'green'}>{`diagnostics ${detail.diagnosticCount}`}</Tag>
+                <Tag
+                  color={detail.diagnosticCount > 0 ? 'orange' : 'green'}
+                >{`diagnostics ${detail.diagnosticCount}`}</Tag>
                 <Typography.Text code>{detail.contentHash}</Typography.Text>
               </Space>
             </Card>
@@ -583,7 +643,13 @@ export default function OpenAPISourcesPage() {
                   {(detail.diagnostics || []).map((item) => (
                     <Alert
                       key={`${item.code}:${item.field || ''}:${item.message}`}
-                      type={item.severity === 'error' ? 'error' : item.severity === 'warning' ? 'warning' : 'info'}
+                      type={
+                        item.severity === 'error'
+                          ? 'error'
+                          : item.severity === 'warning'
+                            ? 'warning'
+                            : 'info'
+                      }
                       showIcon
                       message={
                         <Space>
@@ -670,7 +736,11 @@ export default function OpenAPISourcesPage() {
           )}
           <Input.TextArea
             rows={12}
-            placeholder={isUpdatingSource ? '粘贴新的 OpenAPI JSON。YAML 更新请走 API raw PUT。' : '或粘贴 OpenAPI JSON。YAML 请使用文件上传。'}
+            placeholder={
+              isUpdatingSource
+                ? '粘贴新的 OpenAPI JSON。YAML 更新请走 API raw PUT。'
+                : '或粘贴 OpenAPI JSON。YAML 请使用文件上传。'
+            }
             value={rawSpec}
             onChange={(event) => setRawSpec(event.target.value)}
           />

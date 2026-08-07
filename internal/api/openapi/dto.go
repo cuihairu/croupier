@@ -157,8 +157,18 @@ type OpenAPISourceBindingDTO struct {
 	UpdatedAt   string `json:"updatedAt"`
 }
 
+type OpenAPIBindingProposalDTO struct {
+	ProposalKey string `json:"proposalKey"`
+	PageKey     string `json:"pageKey"`
+	PageType    string `json:"pageType"`
+	ResourceKey string `json:"resourceKey,omitempty"`
+	Quality     string `json:"quality"`
+	Status      string `json:"status"`
+}
+
 type OpenAPISourceBindingResponse struct {
-	Binding OpenAPISourceBindingDTO `json:"binding"`
+	Binding  OpenAPISourceBindingDTO    `json:"binding"`
+	Proposal *OpenAPIBindingProposalDTO `json:"proposal,omitempty"`
 }
 
 // GetDocumentRequest is the request to get aggregated OpenAPI document

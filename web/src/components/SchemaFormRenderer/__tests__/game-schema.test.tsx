@@ -4,9 +4,13 @@
  * 验证 SchemaFormRenderer 能正确处理游戏运营场景的复杂 JSON Schema
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
+import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
+
+function specFromSchema(jsonSchema: JSONSchema): FormPresentationSpec {
+  return { jsonSchema };
+}
 
 // 真实游戏 JSON Schema 示例
 const PLAYER_BAN_SCHEMA = {
@@ -118,87 +122,87 @@ const ANALYTICS_QUERY_SCHEMA = {
 };
 
 describe('P0-0: 真实游戏 JSON Schema 验证', () => {
-  const user = userEvent.setup();
-
-  test('玩家封禁表单 - 基础字段渲染', async () => {
-    const onSubmit = jest.fn();
-    render(<SchemaFormRenderer schema={PLAYER_BAN_SCHEMA} onSubmit={onSubmit} />);
+  test('玩家封禁表单 - 基础字段渲染', () => {
+    const onFinish = jest.fn();
+    render(<SchemaFormRenderer spec={specFromSchema(PLAYER_BAN_SCHEMA)} onFinish={onFinish} />);
 
     // 验证必填字段渲染
-    expect(screen.getByLabelText(/玩家ID/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/封禁原因/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/封禁时长/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/玩家ID/)).toBeTruthy();
+    expect(screen.getByLabelText(/封禁原因/)).toBeTruthy();
+    expect(screen.getByLabelText(/封禁时长/)).toBeTruthy();
   });
 
-  test('玩家封禁表单 - 枚举字段渲染', async () => {
-    const onSubmit = jest.fn();
-    render(<SchemaFormRenderer schema={PLAYER_BAN_SCHEMA} onSubmit={onSubmit} />);
+  test('玩家封禁表单 - 枚举字段渲染', () => {
+    const onFinish = jest.fn();
+    render(<SchemaFormRenderer spec={specFromSchema(PLAYER_BAN_SCHEMA)} onFinish={onFinish} />);
 
     // 验证枚举字段
     const durationSelect = screen.getByLabelText(/封禁时长/);
-    expect(durationSelect).toBeInTheDocument();
+    expect(durationSelect).toBeTruthy();
   });
 
   test('玩家封禁表单 - 必填验证', async () => {
-    const onSubmit = jest.fn();
-    render(<SchemaFormRenderer schema={PLAYER_BAN_SCHEMA} onSubmit={onSubmit} />);
+    const onFinish = jest.fn();
+    render(<SchemaFormRenderer spec={specFromSchema(PLAYER_BAN_SCHEMA)} onFinish={onFinish} />);
 
     // 直接提交不填值
     const submitBtn = screen.getByRole('button', { name: /提交|submit/i });
-    await user.click(submitBtn);
+    fireEvent.click(submitBtn);
 
     // 验证错误提示
     await waitFor(() => {
-      expect(screen.getByText(/请输入|required/i)).toBeInTheDocument();
+      expect(screen.getByText(/请输入|required/i)).toBeTruthy();
     });
-    expect(onSubmit).not.toHaveBeenCalled();
+    expect(onFinish).not.toHaveBeenCalled();
   });
 
   test('玩家封禁表单 - 正常提交', async () => {
-    const onSubmit = jest.fn();
-    render(<SchemaFormRenderer schema={PLAYER_BAN_SCHEMA} onSubmit={onSubmit} />);
+    const onFinish = jest.fn();
+    render(<SchemaFormRenderer spec={specFromSchema(PLAYER_BAN_SCHEMA)} onFinish={onFinish} />);
 
     // 填写表单
-    await user.type(screen.getByLabelText(/玩家ID/), '1001');
-    await user.type(screen.getByLabelText(/封禁原因/), '使用外挂');
+    fireEvent.change(screen.getByLabelText(/玩家ID/), { target: { value: '1001' } });
+    fireEvent.change(screen.getByLabelText(/封禁原因/), { target: { value: '使用外挂' } });
 
     // 提交
     const submitBtn = screen.getByRole('button', { name: /提交|submit/i });
-    await user.click(submitBtn);
+    fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      expect(onSubmit).toHaveBeenCalled();
+      expect(onFinish).toHaveBeenCalled();
     });
   });
 
-  test('邮件发送表单 - 数组字段渲染', async () => {
-    const onSubmit = jest.fn();
-    render(<SchemaFormRenderer schema={MAIL_SEND_SCHEMA} onSubmit={onSubmit} />);
+  test('邮件发送表单 - 数组字段渲染', () => {
+    const onFinish = jest.fn();
+    render(<SchemaFormRenderer spec={specFromSchema(MAIL_SEND_SCHEMA)} onFinish={onFinish} />);
 
     // 验证数组字段
-    expect(screen.getByLabelText(/收件人/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/主题/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/内容/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/收件人/)).toBeTruthy();
+    expect(screen.getByLabelText(/主题/)).toBeTruthy();
+    expect(screen.getByLabelText(/内容/)).toBeTruthy();
   });
 
-  test('批量发奖表单 - 嵌套对象渲染', async () => {
-    const onSubmit = jest.fn();
-    render(<SchemaFormRenderer schema={REWARD_GRANT_SCHEMA} onSubmit={onSubmit} />);
+  test('批量发奖表单 - 嵌套对象渲染', () => {
+    const onFinish = jest.fn();
+    render(<SchemaFormRenderer spec={specFromSchema(REWARD_GRANT_SCHEMA)} onFinish={onFinish} />);
 
     // 验证嵌套字段
-    expect(screen.getByLabelText(/玩家列表/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/奖励配置/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/发放原因/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/玩家列表/)).toBeTruthy();
+    expect(screen.getByLabelText(/奖励配置/)).toBeTruthy();
+    expect(screen.getByLabelText(/发放原因/)).toBeTruthy();
   });
 
-  test('数据分析查询 - 日期格式渲染', async () => {
-    const onSubmit = jest.fn();
-    render(<SchemaFormRenderer schema={ANALYTICS_QUERY_SCHEMA} onSubmit={onSubmit} />);
+  test('数据分析查询 - 日期格式渲染', () => {
+    const onFinish = jest.fn();
+    render(
+      <SchemaFormRenderer spec={specFromSchema(ANALYTICS_QUERY_SCHEMA)} onFinish={onFinish} />,
+    );
 
     // 验证日期字段
-    expect(screen.getByLabelText(/开始日期/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/结束日期/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/指标/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/开始日期/)).toBeTruthy();
+    expect(screen.getByLabelText(/结束日期/)).toBeTruthy();
+    expect(screen.getByLabelText(/指标/)).toBeTruthy();
   });
 
   test('复杂嵌套 schema - 中文错误提示', async () => {
@@ -211,19 +215,19 @@ describe('P0-0: 真实游戏 JSON Schema 验证', () => {
       required: ['name'],
     };
 
-    const onSubmit = jest.fn();
-    render(<SchemaFormRenderer schema={schema} onSubmit={onSubmit} />);
+    const onFinish = jest.fn();
+    render(<SchemaFormRenderer spec={specFromSchema(schema)} onFinish={onFinish} />);
 
     // 填写无效值
-    await user.type(screen.getByLabelText(/名称/), 'a');
+    fireEvent.change(screen.getByLabelText(/名称/), { target: { value: 'a' } });
 
     // 提交
     const submitBtn = screen.getByRole('button', { name: /提交|submit/i });
-    await user.click(submitBtn);
+    fireEvent.click(submitBtn);
 
     // 验证中文错误提示
     await waitFor(() => {
-      expect(screen.getByText(/至少|最少|minLength/i)).toBeInTheDocument();
+      expect(screen.getByText(/至少|最少|minLength/i)).toBeTruthy();
     });
   });
 });

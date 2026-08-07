@@ -367,7 +367,10 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		"provider_id":  binding.ProviderID,
 		"revision":     source.Revision,
 	})
-	return &OpenAPISourceBindingResponse{Binding: bindingDTOFromModel(*binding)}, nil
+	return &OpenAPISourceBindingResponse{
+		Binding:  bindingDTOFromModel(*binding),
+		Proposal: s.generatedProposalForBinding(ctx, gameID, env, functionID),
+	}, nil
 }
 
 func (s *Service) rebuildContractsForSourceBindings(
@@ -1031,6 +1034,90 @@ func bindingDTOFromModel(binding model.OpenAPISourceBinding) OpenAPISourceBindin
 		ProviderID:  binding.ProviderID,
 		CreatedAt:   formatTime(binding.CreatedAt),
 		UpdatedAt:   formatTime(binding.UpdatedAt),
+	}
+}
+
+func (s *Service) generatedProposalForBinding(ctx context.Context, gameID, env string, functionID string) *OpenAPIBindingProposalDTO {
+	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
+		return nil
+	}
+	contract, err := model.NewFunctionContractModel(s.svcCtx.DB).FindByScopeAndFunctionID(ctx, gameID, env, functionID)
+	if err != nil || contract == nil {
+		return nil
+	}
+	proposalModel := model.NewPageProposalModel(s.svcCtx.DB)
+	keys := proposalKeysForContract(contract)
+	for _, key := range keys {
+		proposal, err := proposalModel.FindByScopeAndKey(ctx, gameID, env, key)
+		if err == nil && proposal != nil {
+			return proposalDTOForOpenAPIBinding(proposal)
+		}
+	}
+	return nil
+}
+
+func proposalKeysForContract(contract *model.FunctionContract) []string {
+	if contract == nil {
+		return nil
+	}
+	functionID := strings.TrimSpace(contract.FunctionID)
+	resourceKey := strings.TrimSpace(contract.ResourceKey)
+	capability := spec.CapabilityKind(contract.Capability)
+	if resourceKey != "" && isOpenAPICRUDCapability(capability) {
+		return []string{"resource:" + strings.Trim(resourceKey, ".")}
+	}
+	pageType := spec.PageTypeOperation
+	switch capability {
+	case spec.CapabilityTask:
+		pageType = spec.PageTypeTask
+	case spec.CapabilityReport:
+		pageType = spec.PageTypeReport
+	}
+	key := dashboardStandaloneProposalKey(pageType, functionID)
+	if key == "" {
+		return nil
+	}
+	return []string{key}
+}
+
+func isOpenAPICRUDCapability(capability spec.CapabilityKind) bool {
+	switch capability {
+	case spec.CapabilityCollectionQuery,
+		spec.CapabilityItemQuery,
+		spec.CapabilityCreate,
+		spec.CapabilityUpdate,
+		spec.CapabilityDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+func dashboardStandaloneProposalKey(pageType spec.PageType, functionID string) string {
+	kind := string(pageType)
+	switch pageType {
+	case spec.PageTypeTask, spec.PageTypeReport:
+	default:
+		kind = string(spec.PageTypeOperation)
+	}
+	functionID = strings.Trim(strings.TrimSpace(functionID), ".")
+	if functionID == "" {
+		return ""
+	}
+	return kind + ":" + functionID
+}
+
+func proposalDTOForOpenAPIBinding(proposal *model.PageProposal) *OpenAPIBindingProposalDTO {
+	if proposal == nil {
+		return nil
+	}
+	return &OpenAPIBindingProposalDTO{
+		ProposalKey: strings.TrimSpace(proposal.ProposalKey),
+		PageKey:     strings.TrimSpace(proposal.PageKey),
+		PageType:    strings.TrimSpace(proposal.PageType),
+		ResourceKey: strings.TrimSpace(proposal.ResourceKey),
+		Quality:     strings.TrimSpace(proposal.Quality),
+		Status:      strings.TrimSpace(proposal.Status),
 	}
 }
 
