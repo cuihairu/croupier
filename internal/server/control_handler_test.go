@@ -595,6 +595,34 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
+
+	t.Run("returns error when dashboard contract rebuild fails", func(t *testing.T) {
+		svc := newTestControlService()
+		svc.registry.SetContractService(failingRegisterContractService{err: fmt.Errorf("rebuild failed")})
+
+		req := &agentv1.RegisterRequest{
+			AgentId: "agent-1",
+			GameId:  "game-1",
+			Env:     "prod",
+			Functions: []*agentv1.FunctionDescriptor{
+				{
+					Id:      "player.query",
+					Version: "1.0.0",
+					Enabled: true,
+				},
+			},
+		}
+
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "register agent dashboard contract rebuild failed")
+
+		svc.registry.Mu().RLock()
+		agent := svc.registry.AgentsUnsafe()["agent-1"]
+		svc.registry.Mu().RUnlock()
+		assert.Nil(t, agent)
+	})
 }
 
 // --- Tests for handleHeartbeatRequest ---
@@ -1674,4 +1702,24 @@ func (m *mockHandler) HandleHeartbeat(ctx context.Context, req *agentv1.Heartbea
 func (m *mockHandler) HandleRegisterCapabilities(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {
 	m.capabilitiesCalled++
 	return m.capabilitiesResp, m.capabilitiesErr
+}
+
+type failingRegisterContractService struct {
+	err error
+}
+
+func (f failingRegisterContractService) RebuildContractFromFunctionMeta(context.Context, string, string, string, interface{}) error {
+	return f.err
+}
+
+func (f failingRegisterContractService) RebuildResourceCapability(context.Context, string, string, string) error {
+	return f.err
+}
+
+func (f failingRegisterContractService) RebuildProposalsForResource(context.Context, string, string, string) error {
+	return f.err
+}
+
+func (f failingRegisterContractService) RebuildProposalForFunction(context.Context, string, string, string) error {
+	return f.err
 }

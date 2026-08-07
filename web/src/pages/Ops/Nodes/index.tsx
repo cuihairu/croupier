@@ -10,6 +10,7 @@ import {
   Progress,
   Select,
   Space,
+  Spin,
   Table,
   Tag,
   Drawer,
@@ -24,11 +25,12 @@ import {
   restartOpsNode,
   undrainOpsNode,
   getAgentMetricsHistory,
+  type MetricsHistoryEntry,
   type OpsNode,
 } from '@/services/api/ops';
 import { fetchRegistry, type RegistryAgent } from '@/services/api/registry';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
-import { formatBytes, formatPercent, formatDuration } from '@/utils/format';
+import { formatBytes } from '@/utils/format';
 import { Line } from '@ant-design/charts';
 
 const { Text } = Typography;
@@ -609,11 +611,13 @@ export default function OpsNodesPage() {
                     <Card title="磁盘使用率趋势" size="small">
                       <Line
                         data={metricsHistory.flatMap((entry) =>
-                          (entry.disks || []).map((disk) => ({
-                            time: new Date(entry.timestamp).toLocaleTimeString(),
-                            value: disk.usagePercent ?? 0,
-                            series: disk.mountPoint,
-                          })),
+                          (entry.disks || []).map(
+                            (disk: NonNullable<MetricsHistoryEntry['disks']>[number]) => ({
+                              time: new Date(entry.timestamp).toLocaleTimeString(),
+                              value: disk.usagePercent ?? 0,
+                              series: disk.mountPoint,
+                            }),
+                          ),
                         )}
                         xField="time"
                         yField="value"

@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -171,24 +172,24 @@ func (s *Store) Mu() *sync.RWMutex { return &s.mu }
 func (s *Store) AgentsUnsafe() map[string]*AgentSession { return s.agents }
 
 // UpsertAgent inserts or updates an agent session by AgentID.
-// Implements dual-write pattern: writes to database first (if enabled), then to memory.
-// Database failures are logged but don't block memory operations.
-func (s *Store) UpsertAgent(a *AgentSession) {
+// Contract and proposal materialization is part of registration and must
+// succeed before the session becomes visible in the runtime registry.
+func (s *Store) UpsertAgent(a *AgentSession) error {
 	if a == nil || a.AgentID == "" {
-		return
+		return nil
 	}
 
 	// Dual-write: database first (if enabled)
 	if s.db != nil {
 		if err := s.writeToDB(context.Background(), a); err != nil {
-			// Log error but continue - memory store is the primary source
-			slog.Error("failed to write agent session to database", "agent_id", a.AgentID, "error", err)
+			return fmt.Errorf("write agent session to database: %w", err)
 		}
 	}
 
 	// Rebuild FunctionContracts if contract service is available
 	if s.contractService != nil && a.Functions != nil {
 		scopeCtx := s.rebuildContext(a.GameID, a.Env)
+		var rebuildErrors []error
 		for funcID, meta := range a.Functions {
 			input := struct {
 				ID           string
@@ -222,10 +223,7 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 				Tags:         meta.Tags,
 			}
 			if err := s.contractService.RebuildContractFromFunctionMeta(scopeCtx, a.GameID, a.Env, "sdk", input); err != nil {
-				slog.Error("failed to rebuild function contract",
-					"agent_id", a.AgentID,
-					"function_id", funcID,
-					"error", err)
+				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild function contract %s: %w", funcID, err))
 			}
 		}
 
@@ -241,26 +239,20 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 		}
 		for resource := range resources {
 			if err := s.contractService.RebuildResourceCapability(scopeCtx, a.GameID, a.Env, resource); err != nil {
-				slog.Error("failed to rebuild resource capability",
-					"agent_id", a.AgentID,
-					"resource", resource,
-					"error", err)
+				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild resource capability %s: %w", resource, err))
 				continue
 			}
 			if err := s.contractService.RebuildProposalsForResource(scopeCtx, a.GameID, a.Env, resource); err != nil {
-				slog.Error("failed to rebuild page proposals",
-					"agent_id", a.AgentID,
-					"resource", resource,
-					"error", err)
+				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild page proposals for %s: %w", resource, err))
 			}
 		}
 		for functionID := range standaloneFunctions {
 			if err := s.contractService.RebuildProposalForFunction(scopeCtx, a.GameID, a.Env, functionID); err != nil {
-				slog.Error("failed to rebuild standalone page proposal",
-					"agent_id", a.AgentID,
-					"function_id", functionID,
-					"error", err)
+				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild standalone page proposal %s: %w", functionID, err))
 			}
+		}
+		if len(rebuildErrors) > 0 {
+			return fmt.Errorf("agent registration contract rebuild failed: %w", errors.Join(rebuildErrors...))
 		}
 	}
 
@@ -270,7 +262,7 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	cur := s.agents[a.AgentID]
 	if cur == nil {
 		s.agents[a.AgentID] = a
-		return
+		return nil
 	}
 	// Merge minimal fields. RPCAddr remains a compatibility mirror and should
 	// not be treated as the primary runtime route.
@@ -293,6 +285,7 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	}
 	cur.ExpireAt = a.ExpireAt
 	cur.LastSeen = a.LastSeen
+	return nil
 }
 
 func (s *Store) rebuildContext(gameID, env string) context.Context {

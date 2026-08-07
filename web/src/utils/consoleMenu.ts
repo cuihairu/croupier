@@ -1,9 +1,16 @@
 import type { MenuDataItem } from '@ant-design/pro-components';
 import type { ConsoleMenuSpec, LocalizedText, PublishedPageSpec } from '@/types/dashboard';
 
+export const CONSOLE_MENU_REFRESH_EVENT = 'console-menu:refresh';
+
 export type RuntimeMenuItem = MenuDataItem & {
   children?: RuntimeMenuItem[];
 };
+
+export function requestConsoleMenuRefresh(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(CONSOLE_MENU_REFRESH_EVENT));
+}
 
 export function resolveLocalizedText(
   text: LocalizedText | undefined,

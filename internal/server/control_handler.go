@@ -472,7 +472,9 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		}
 	}
 
-	s.registry.UpsertAgent(sess)
+	if err := s.registry.UpsertAgent(sess); err != nil {
+		return nil, fmt.Errorf("register agent dashboard contract rebuild failed: %w", err)
+	}
 
 	s.logger.Info("Agent registered", "agent_id", req.AgentId, "game_id", req.GameId, "functions", len(functions), "warnings", len(warnings))
 
@@ -637,6 +639,15 @@ func validateAndNormalizeFunctions(items []*agentv1.FunctionDescriptor) ([]*agen
 }
 
 func descriptorPresentationField(f *agentv1.FunctionDescriptor) (string, bool) {
+	if f == nil {
+		return "", false
+	}
+	// FunctionDescriptor has no presentation fields. Reject unknown protobuf
+	// fields at the registration boundary instead of silently carrying an old
+	// page/UI extension into FunctionContract.
+	if unknown := f.ProtoReflect().GetUnknown(); len(unknown) > 0 {
+		return "unknown_proto_fields", true
+	}
 	return "", false
 }
 

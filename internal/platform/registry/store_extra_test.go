@@ -127,6 +127,50 @@ func (r *recordingContractService) record(ctx context.Context) {
 	r.scopes = append(r.scopes, seen)
 }
 
+func TestStore_UpsertAgentFailsWhenContractRebuildFails(t *testing.T) {
+	store := NewStore()
+	store.SetContractService(failingContractService{err: assert.AnError})
+
+	err := store.UpsertAgent(&AgentSession{
+		AgentID: "agent-1",
+		GameID:  "demo-game",
+		Env:     "development",
+		Functions: map[string]FunctionMeta{
+			"player.query": {
+				Enabled:    true,
+				Version:    "1.0.0",
+				Resource:   "player",
+				Capability: "collection_query",
+				Execution:  "sync",
+			},
+		},
+	})
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "agent registration contract rebuild failed")
+	assert.Nil(t, store.AgentsUnsafe()["agent-1"])
+}
+
+type failingContractService struct {
+	err error
+}
+
+func (f failingContractService) RebuildContractFromFunctionMeta(context.Context, string, string, string, interface{}) error {
+	return f.err
+}
+
+func (f failingContractService) RebuildResourceCapability(context.Context, string, string, string) error {
+	return f.err
+}
+
+func (f failingContractService) RebuildProposalsForResource(context.Context, string, string, string) error {
+	return f.err
+}
+
+func (f failingContractService) RebuildProposalForFunction(context.Context, string, string, string) error {
+	return f.err
+}
+
 func TestStore_ListRegistrationWarnings_Filter(t *testing.T) {
 	store := NewStore()
 

@@ -15,7 +15,11 @@ import { setAppApi } from './utils/antdApp';
 import { getConsoleMenu } from './services/console';
 import { loadAuthedInitialState, type InitialCurrentUser } from './services/initialState';
 import { getScope, subscribeScope, type Scope } from './stores/scope';
-import { buildMenuFromConsoleSpec, type RuntimeMenuItem } from './utils/consoleMenu';
+import {
+  buildMenuFromConsoleSpec,
+  CONSOLE_MENU_REFRESH_EVENT,
+  type RuntimeMenuItem,
+} from './utils/consoleMenu';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -32,6 +36,7 @@ type InitialState = {
   loading?: boolean;
   fetchUserInfo?: () => Promise<InitialCurrentUser | undefined>;
   scope?: Scope;
+  consoleMenuRevision?: number;
 };
 
 function normalizePermissionIDs(perms: PermissionResponse | undefined): string[] {
@@ -141,12 +146,26 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
   };
 
   const ScopeMenuRefresher: React.FC = () => {
-    useEffect(() => subscribeScope((scope) => {
-      setInitialState((previous) => ({
-        ...previous,
-        scope,
-      }));
-    }), []);
+    useEffect(
+      () =>
+        subscribeScope((scope) => {
+          setInitialState((previous) => ({
+            ...previous,
+            scope,
+          }));
+        }),
+      [],
+    );
+    useEffect(() => {
+      const refreshMenu = () => {
+        setInitialState((previous) => ({
+          ...previous,
+          consoleMenuRevision: (previous?.consoleMenuRevision || 0) + 1,
+        }));
+      };
+      window.addEventListener(CONSOLE_MENU_REFRESH_EVENT, refreshMenu);
+      return () => window.removeEventListener(CONSOLE_MENU_REFRESH_EVENT, refreshMenu);
+    }, []);
     return null;
   };
 
@@ -160,6 +179,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         authed: isAuthed,
         gameId: initialState?.scope?.gameId || '',
         env: initialState?.scope?.env || '',
+        consoleMenuRevision: initialState?.consoleMenuRevision || 0,
       },
       request: async (params, defaultMenuData) => {
         if (!params.authed) return defaultMenuData;
@@ -168,7 +188,11 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         try {
           const locale = getLocale();
           const consoleMenu = await getConsoleMenu(locale);
-          return buildMenuFromConsoleSpec(defaultMenuData as RuntimeMenuItem[], consoleMenu, locale);
+          return buildMenuFromConsoleSpec(
+            defaultMenuData as RuntimeMenuItem[],
+            consoleMenu,
+            locale,
+          );
         } catch (error) {
           console.error('[console-menu] failed to load dynamic runtime menu', error);
           throw error;

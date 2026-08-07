@@ -559,11 +559,11 @@ func (s *ContractService) RebuildProposalsForResource(ctx context.Context, gameI
 		}
 	}
 
-	consumedActions, err := s.upsertResourceProposal(ctx, gameID, env, semantics, contracts)
+	consumedBindings, err := s.upsertResourceProposal(ctx, gameID, env, semantics, contracts)
 	if err != nil {
 		return err
 	}
-	if err := s.upsertStandaloneProposals(ctx, gameID, env, contracts, semantics, consumedActions); err != nil {
+	if err := s.upsertStandaloneProposals(ctx, gameID, env, contracts, semantics, consumedBindings); err != nil {
 		return err
 	}
 	return nil
@@ -623,7 +623,7 @@ func (s *ContractService) upsertResourceProposal(
 	if !ok {
 		return map[string]struct{}{}, nil
 	}
-	consumed := consumedStandaloneBindings(generated.Bindings, contracts)
+	consumed := consumedPageBindings(generated.Bindings, contracts)
 	return consumed, s.upsertGeneratedProposal(ctx, gameID, env, resourceProposalKey(semantics.ResourceKey), semantics, contracts, generated)
 }
 
@@ -645,10 +645,11 @@ func (s *ContractService) upsertStandaloneProposals(
 		functions[strings.TrimSpace(contract.FunctionID)] = FunctionSpecFromContract(contract)
 	}
 	for _, contract := range contracts {
-		if contract == nil || isCRUDCapability(contract.Capability) {
+		if contract == nil || strings.TrimSpace(contract.FunctionID) == "" {
 			continue
 		}
-		if _, ok := consumed[strings.TrimSpace(contract.FunctionID)]; ok {
+		functionID := strings.TrimSpace(contract.FunctionID)
+		if _, ok := consumed[functionID]; ok {
 			continue
 		}
 		generated := generator.GenerateForOperation(OperationSpecFromContract(contract), generator.GenerateOptions{
@@ -665,14 +666,17 @@ func (s *ContractService) upsertStandaloneProposals(
 	return nil
 }
 
-func consumedStandaloneBindings(bindings []spec.PageFunctionBinding, contracts []*model.FunctionContract) map[string]struct{} {
+func consumedPageBindings(bindings []spec.PageFunctionBinding, contracts []*model.FunctionContract) map[string]struct{} {
 	consumed := map[string]struct{}{}
 	for _, binding := range bindings {
 		contract := findContractByFunctionID(contracts, binding.FunctionID)
-		if contract == nil || isCRUDCapability(contract.Capability) {
+		if contract == nil {
 			continue
 		}
-		consumed[strings.TrimSpace(contract.FunctionID)] = struct{}{}
+		functionID := strings.TrimSpace(contract.FunctionID)
+		if functionID != "" {
+			consumed[functionID] = struct{}{}
+		}
 	}
 	return consumed
 }

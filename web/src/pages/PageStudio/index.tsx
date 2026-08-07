@@ -48,6 +48,7 @@ import {
   type MergeStrategy,
 } from '@/services/api/versioning';
 import type { PageSpec, PageSpecDraftSummary, PageType, PageVersionItem } from '@/types/dashboard';
+import { requestConsoleMenuRefresh } from '@/utils/consoleMenu';
 
 const { Paragraph, Text } = Typography;
 
@@ -150,6 +151,7 @@ export default function PageStudio() {
     async (pageKey: string, draftRevision: number) => {
       try {
         await publishPageDraft(pageKey, draftRevision);
+        requestConsoleMenuRefresh();
         message.success('发布成功');
         loadDrafts();
       } catch {
@@ -163,6 +165,7 @@ export default function PageStudio() {
     async (pageKey: string) => {
       try {
         await unpublishPage(pageKey);
+        requestConsoleMenuRefresh();
         message.success('已取消发布');
         loadDrafts();
       } catch {

@@ -57,6 +57,7 @@ import {
 import type { ConflictResolution, MergeResponse } from '@/services/api/versioning';
 import { publishPageDraft } from '@/services/api/pages';
 import PageRenderer from '@/components/PageRenderer';
+import { buildConsolePagePath, requestConsoleMenuRefresh } from '@/utils/consoleMenu';
 
 const { Paragraph, Text } = Typography;
 
@@ -248,20 +249,26 @@ export default function ProposalInbox() {
   }, []);
 
   const handleAccept = useCallback(
-    async (proposalKey: string) => {
-      await acceptProposal(proposalKey);
+    async (proposal: PageProposal) => {
+      await acceptProposal(proposal.proposalKey);
       await fetchData();
+      navigateTo(`/system/functions/pages?focus=${encodeURIComponent(proposal.pageKey)}`);
     },
     [fetchData],
   );
 
   const handleAcceptAndPublish = useCallback(
-    async (proposalKey: string) => {
-      const result = await acceptAndPublishProposal(proposalKey);
+    async (proposal: PageProposal) => {
+      const result = await acceptAndPublishProposal(proposal.proposalKey);
       await fetchData();
+      requestConsoleMenuRefresh();
+      const categoryKey = proposal.pageSpec?.category?.key?.trim() || '';
       Modal.success({
         title: '已直接发布',
         content: `页面 ${result.pageKey} 已发布，版本 ${result.publishedVersion}。运行控制台菜单会从已发布快照生成。`,
+        okText: categoryKey ? '打开运行页' : '打开运行控制台',
+        onOk: () =>
+          navigateTo(categoryKey ? buildConsolePagePath(categoryKey, result.pageKey) : '/console'),
       });
     },
     [fetchData],
@@ -277,15 +284,20 @@ export default function ProposalInbox() {
 
   const handleReviewProposal = useCallback(
     async (proposal: PageProposal) => {
-      if (proposal.resourceKey) {
+      if (proposal.pageType === 'resource' && proposal.resourceKey) {
         navigateTo(
           `/system/functions/resource-catalog?resourceKey=${encodeURIComponent(proposal.resourceKey)}`,
         );
         return;
       }
-      await handleViewDetail(proposal.proposalKey);
+      if (proposal.diagnostics?.some((item) => item.severity === 'error')) {
+        await handlePreview(proposal.proposalKey);
+        message.warning('该提案包含阻断诊断，请先查看诊断后再处理。');
+        return;
+      }
+      await handleAccept(proposal);
     },
-    [handleViewDetail],
+    [handleAccept, handlePreview, message],
   );
 
   const runContractAction = useCallback(
@@ -375,6 +387,7 @@ export default function ProposalInbox() {
       await runContractAction(`republish:${record.pageKey}`, async () => {
         if (record.draftRevision && record.draftRevision > 0) {
           const result = await publishPageDraft(record.pageKey, record.draftRevision);
+          requestConsoleMenuRefresh();
           Modal.success({
             title: '已重新发布',
             content: `页面 ${result.pageKey} 已发布，版本 ${result.publishedVersion}。`,
@@ -382,6 +395,7 @@ export default function ProposalInbox() {
           return;
         }
         const result = await republish(record.pageKey);
+        requestConsoleMenuRefresh();
         Modal.success({ title: '已重新发布', content: result.message });
       });
     },
@@ -480,14 +494,17 @@ export default function ProposalInbox() {
                 <Popconfirm
                   title="直接发布默认页面？"
                   description="会创建草稿并发布到运行控制台左侧动态菜单。"
-                  onConfirm={() => handleAcceptAndPublish(record.proposalKey)}
+                  onConfirm={() => handleAcceptAndPublish(record)}
                 >
                   <Button type="link" icon={<RocketOutlined />}>
                     发布
                   </Button>
                 </Popconfirm>
               )}
-              <Popconfirm title="接受为草稿？" onConfirm={() => handleAccept(record.proposalKey)}>
+              <Popconfirm
+                title="接受为草稿并进入 Page Studio？"
+                onConfirm={() => handleAccept(record)}
+              >
                 <Button type="link" icon={<CheckOutlined />}>
                   接受
                 </Button>

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -280,6 +281,74 @@ func TestContractService_RebuildProposalForCRUDFunctionWithoutResource(t *testin
 	assert.Equal(t, "operation--player.create", proposal.PageKey)
 	assert.Equal(t, "operation", proposal.PageType)
 	assert.Equal(t, "", proposal.ResourceKey)
+}
+
+func TestContractService_RebuildProposalsForResourceFallsBackToStandaloneCRUDProposal(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID:           "player.create",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Resource:     "player",
+		Operation:    "create",
+		Capability:   "create",
+		Execution:    "sync",
+		InputSchema:  `{"type":"object","properties":{"name":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`,
+	}))
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "player"))
+
+	proposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.create")
+	require.NoError(t, err)
+	assert.Equal(t, "operation--player.create", proposal.PageKey)
+	assert.Equal(t, "operation", proposal.PageType)
+	assert.Equal(t, "player", proposal.ResourceKey)
+	assert.Equal(t, "basic", proposal.Quality)
+	assert.NotEmpty(t, proposal.PageSpec)
+
+	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
+}
+
+func TestContractService_RebuildProposalsForResourceConsumesCRUDInResourceProposal(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID:           "player.list",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Resource:     "player",
+		Operation:    "list",
+		Capability:   "collection_query",
+		Execution:    "sync",
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}},"total":{"type":"integer"}}}`,
+	}))
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID:           "player.create",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Resource:     "player",
+		Operation:    "create",
+		Capability:   "create",
+		Execution:    "sync",
+		InputSchema:  `{"type":"object","properties":{"name":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`,
+	}))
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "player"))
+
+	resourceProposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
+	require.NoError(t, err)
+	assert.Equal(t, "resource", resourceProposal.PageType)
+
+	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.create")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 }
 
 func TestContractService_RebuildProposalsPreservesAcceptedStatus(t *testing.T) {
