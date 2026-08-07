@@ -19,11 +19,11 @@ func TestNewMetricsStore(t *testing.T) {
 	if store.byAgent == nil {
 		t.Error("byAgent should be initialized")
 	}
-	if store.maxMemory != 120 {
-		t.Errorf("maxMemory = %d, want 120", store.maxMemory)
+	if store.config.MaxMemoryEntries != 120 {
+		t.Errorf("maxMemory = %d, want 120", store.config.MaxMemoryEntries)
 	}
-	if store.maxTotal != 5000 {
-		t.Errorf("maxTotal = %d, want 5000", store.maxTotal)
+	if store.config.MaxTotalEntries != 5000 {
+		t.Errorf("maxTotal = %d, want 5000", store.config.MaxTotalEntries)
 	}
 }
 

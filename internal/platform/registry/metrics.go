@@ -31,30 +31,67 @@ func (AgentMetricsHistory) TableName() string {
 	return "agent_metrics_history"
 }
 
-// MetricsStore stores metrics with memory + database hybrid approach.
-// Recent data (1 hour) is kept in memory for fast access.
-// Older data is persisted to database and queried on demand.
-type MetricsStore struct {
-	mu        sync.RWMutex
-	db        *gorm.DB
-	entries   []MetricsEntry
-	byAgent   map[string][]int
-	maxMemory int           // Max entries in memory per agent (1 hour @ 30s = 120)
-	retention time.Duration // Database retention (default: 7 days)
-	head      int
-	maxTotal  int
+// MetricsStoreConfig configures the metrics store behavior.
+type MetricsStoreConfig struct {
+	// MaxMemoryEntries is the max entries in memory per agent.
+	// Default: 10 (5 minutes @ 30s interval)
+	MaxMemoryEntries int `json:"maxMemoryEntries" yaml:"maxMemoryEntries"`
+	// MaxTotalEntries is the max total entries in memory across all agents.
+	// Default: 2000
+	MaxTotalEntries int `json:"maxTotalEntries" yaml:"maxTotalEntries"`
+	// Retention is how long to keep metrics in the database.
+	// Default: 7 days
+	Retention time.Duration `json:"retention" yaml:"retention"`
+	// CleanupInterval is how often to run the cleanup routine.
+	// Default: 1 hour
+	CleanupInterval time.Duration `json:"cleanupInterval" yaml:"cleanupInterval"`
 }
 
-// NewMetricsStore creates a new metrics store.
-// Memory: 10 entries per agent (5 minutes @ 30s interval)
-// Database: 7 days retention for historical queries
+// DefaultMetricsStoreConfig returns the default configuration.
+func DefaultMetricsStoreConfig() MetricsStoreConfig {
+	return MetricsStoreConfig{
+		MaxMemoryEntries: 10, // 5 minutes @ 30s interval
+		MaxTotalEntries:  2000,
+		Retention:        7 * 24 * time.Hour, // 7 days
+		CleanupInterval:  1 * time.Hour,
+	}
+}
+
+// MetricsStore stores metrics with memory + database hybrid approach.
+type MetricsStore struct {
+	mu      sync.RWMutex
+	db      *gorm.DB
+	config  MetricsStoreConfig
+	entries []MetricsEntry
+	byAgent map[string][]int
+	head    int
+}
+
+// NewMetricsStore creates a new metrics store with default config.
 func NewMetricsStore() *MetricsStore {
+	return NewMetricsStoreWithConfig(DefaultMetricsStoreConfig())
+}
+
+// NewMetricsStoreWithConfig creates a new metrics store with custom config.
+func NewMetricsStoreWithConfig(config MetricsStoreConfig) *MetricsStore {
+	// Apply defaults for zero values
+	if config.MaxMemoryEntries <= 0 {
+		config.MaxMemoryEntries = 10
+	}
+	if config.MaxTotalEntries <= 0 {
+		config.MaxTotalEntries = 2000
+	}
+	if config.Retention <= 0 {
+		config.Retention = 7 * 24 * time.Hour
+	}
+	if config.CleanupInterval <= 0 {
+		config.CleanupInterval = 1 * time.Hour
+	}
+
 	return &MetricsStore{
-		entries:   make([]MetricsEntry, 2000),
-		byAgent:   make(map[string][]int),
-		maxMemory: 10,                 // 5 minutes @ 30s interval
-		retention: 7 * 24 * time.Hour, // 7 days
-		maxTotal:  2000,
+		config:  config,
+		entries: make([]MetricsEntry, config.MaxTotalEntries),
+		byAgent: make(map[string][]int),
 	}
 }
 
@@ -76,7 +113,7 @@ func (s *MetricsStore) Add(agentID string, report *opsv1.MetricsReport) {
 	s.mu.Lock()
 	// Add to memory
 	indices := s.byAgent[agentID]
-	if len(indices) >= s.maxMemory {
+	if len(indices) >= s.config.MaxMemoryEntries {
 		oldIdx := indices[0]
 		s.entries[oldIdx] = MetricsEntry{}
 		s.byAgent[agentID] = append(indices[1:], s.head)
@@ -89,7 +126,7 @@ func (s *MetricsStore) Add(agentID string, report *opsv1.MetricsReport) {
 		Report:   report,
 		Received: time.Now(),
 	}
-	s.head = (s.head + 1) % s.maxTotal
+	s.head = (s.head + 1) % s.config.MaxTotalEntries
 	s.mu.Unlock()
 
 	// Persist to database asynchronously
@@ -261,7 +298,11 @@ func (s *MetricsStore) Prune(olderThan time.Duration) {
 }
 
 // StartCleanupRoutine starts a background routine to clean up old metrics.
+// If interval is 0, uses the configured CleanupInterval.
 func (s *MetricsStore) StartCleanupRoutine(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = s.config.CleanupInterval
+	}
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -270,7 +311,7 @@ func (s *MetricsStore) StartCleanupRoutine(ctx context.Context, interval time.Du
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				s.Prune(s.retention)
+				s.Prune(s.config.Retention)
 			}
 		}
 	}()
@@ -393,7 +434,7 @@ func (s *MetricsStore) GetAllMetrics(since time.Time, limit int) []MetricsEntry 
 
 	var result []MetricsEntry
 	for i := 0; i < len(s.entries) && len(result) < limit; i++ {
-		idx := (s.head - 1 - i + s.maxTotal) % s.maxTotal
+		idx := (s.head - 1 - i + s.config.MaxTotalEntries) % s.config.MaxTotalEntries
 		entry := s.entries[idx]
 		if entry.AgentID == "" {
 			continue
