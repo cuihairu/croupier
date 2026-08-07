@@ -315,6 +315,10 @@ type RawOpsNode = {
   sdkName?: string;
   functions?: number;
   expiresInSec?: number;
+  // System metrics
+  cpu?: OpsNode['cpu'];
+  memory?: OpsNode['memory'];
+  disks?: OpsNode['disks'];
 };
 type RawOpsAlert = {
   severity?: string;
