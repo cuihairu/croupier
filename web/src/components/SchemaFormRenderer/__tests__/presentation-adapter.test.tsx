@@ -4,8 +4,7 @@
  * 验证 FormPresentationSpec 能正确派生 renderer presentation config
  */
 
-import { describe, test, expect } from '@jest/globals';
-import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
+import type { FormPresentationSpec } from '@/types/dashboard';
 
 // FormPresentationSpec 到 renderer config 的派生逻辑
 function deriveRendererConfig(spec: FormPresentationSpec) {
