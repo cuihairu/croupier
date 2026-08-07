@@ -15,10 +15,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
-	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
-	"github.com/cuihairu/croupier/internal/dashboard/generator"
-	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
@@ -272,14 +269,13 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 		})
 	}
 
-	current := pageSpecFromModel(p)
-	generated, err := s.generateReplacementForDraft(ctx, current)
+	replacement, err := s.proposalReplacementForDraft(ctx, gameID, env, p)
 	if err != nil {
 		return nil, err
 	}
 
 	now := time.Now()
-	if err := applyPageSpecToModel(p, generated.PageSpec); err != nil {
+	if err := applyPageSpecToModel(p, replacement.PageSpec); err != nil {
 		return nil, err
 	}
 	p.GameID = gameID
@@ -288,10 +284,8 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 	p.UpdatedBy = actor
 	p.UpdatedAt = now
 	p.DraftRevision++
-	if proposalKey := proposalKeyForGeneratedPage(generated); proposalKey != "" {
-		p.BaseProposalKey = proposalKey
-		p.BaseProposalVersion = latestProposalVersion(ctx, s.svcCtx.DB, gameID, env, proposalKey)
-	}
+	p.BaseProposalKey = replacement.ProposalKey
+	p.BaseProposalVersion = replacement.ProposalVersion
 
 	specJSON, err := buildPageSpecJSON(p)
 	if err != nil {
@@ -318,24 +312,26 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 	}
 
 	s.auditPageEvent(ctx, audit.EventPageDraftSave, gameID, env, req.PageKey, map[string]interface{}{
-		"action":             "regenerate_default",
-		"source":             "generated_page",
-		"draft_revision":     p.DraftRevision,
-		"previous_revision":  *req.DraftRevision,
-		"quality":            string(generated.Quality),
-		"diagnostic_count":   len(generated.Diagnostics),
-		"diagnostic_errors":  countErrors(generated.Diagnostics),
-		"binding_count":      len(generated.Bindings),
-		"resource_key":       generated.ResourceKey,
-		"generated_page_key": generated.PageKey,
+		"action":            "regenerate_default",
+		"source":            "page_proposal",
+		"draft_revision":    p.DraftRevision,
+		"previous_revision": *req.DraftRevision,
+		"quality":           string(replacement.Quality),
+		"diagnostic_count":  len(replacement.Diagnostics),
+		"diagnostic_errors": countErrors(replacement.Diagnostics),
+		"binding_count":     len(replacement.Bindings),
+		"resource_key":      replacement.ResourceKey,
+		"proposal_key":      replacement.ProposalKey,
+		"proposal_version":  replacement.ProposalVersion,
+		"proposal_page_key": replacement.PageKey,
 	})
 
 	return &PageRegenerateResponse{
 		PageKey:       p.PageKey,
 		DraftRevision: p.DraftRevision,
 		Page:          pageSpecFromModel(p),
-		Diagnostics:   generated.Diagnostics,
-		Quality:       generated.Quality,
+		Diagnostics:   replacement.Diagnostics,
+		Quality:       replacement.Quality,
 	}, nil
 }
 
@@ -644,35 +640,6 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 	return &PageRollbackResponse{PageKey: req.PageKey, DraftRevision: p.DraftRevision}, nil
 }
 
-func (s *Service) generateReplacementForDraft(ctx context.Context, current spec.PageSpec) (spec.GeneratedPageSpec, error) {
-	resourceKey := strings.TrimSpace(current.ResourceKey)
-	if resourceKey == "" {
-		return spec.GeneratedPageSpec{}, errorx.NewBadRequest("page resourceKey is required for default regeneration")
-	}
-	results, resources := normalizedDashboardSpecs(ctx, s.svcCtx)
-	resource, ok := resources[resourceKey]
-	if !ok || resource == nil {
-		return spec.GeneratedPageSpec{}, errorx.NewBadRequestWithDetails("resource is not available for default regeneration", map[string]any{
-			"resourceKey": resourceKey,
-			"pageKey":     current.PageKey,
-		})
-	}
-	pages := generator.GenerateForResource(*resource, generator.GenerateOptions{
-		DefaultLocale: "zh-CN",
-		Functions:     functionsByID(results),
-	})
-	for _, candidate := range pages {
-		if candidate.PageKey == current.PageKey {
-			return candidate, nil
-		}
-	}
-	return spec.GeneratedPageSpec{}, errorx.NewBadRequestWithDetails("no generated page candidate matches current pageKey", map[string]any{
-		"pageKey":     current.PageKey,
-		"resourceKey": resourceKey,
-		"candidates":  generatedPageKeys(pages),
-	})
-}
-
 func (s *Service) findDraft(ctx context.Context, pageKey string) (*model.PageSpec, error) {
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
@@ -683,6 +650,73 @@ func (s *Service) findDraft(ctx context.Context, pageKey string) (*model.PageSpe
 		return nil, ErrPageNotFound(pageKey)
 	}
 	return p, nil
+}
+
+type proposalReplacement struct {
+	spec.PageSpec
+	ProposalKey     string
+	ProposalVersion int
+	Quality         spec.GeneratedPageQuality
+	Diagnostics     []spec.Diagnostic
+}
+
+func (s *Service) proposalReplacementForDraft(ctx context.Context, gameID string, env string, draft *model.PageSpec) (proposalReplacement, error) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
+		return proposalReplacement{}, errorx.NewInternalError("page service database is not initialized")
+	}
+	if draft == nil {
+		return proposalReplacement{}, errorx.NewBadRequest("page draft is required")
+	}
+	proposalModel := model.NewPageProposalModel(s.svcCtx.DB)
+	proposalKey := strings.TrimSpace(draft.BaseProposalKey)
+	var proposal *model.PageProposal
+	var err error
+	if proposalKey != "" {
+		proposal, err = proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey)
+	} else {
+		proposal, err = proposalModel.FindByScopeAndPageKey(ctx, gameID, env, draft.PageKey)
+	}
+	if err != nil {
+		return proposalReplacement{}, errorx.NewBadRequestWithDetails("latest PageProposal is required for default regeneration", map[string]any{
+			"pageKey":      draft.PageKey,
+			"proposalKey":  proposalKey,
+			"requiredFlow": "regenerate PageProposal from FunctionContract/CapabilitySemantics, then regenerate draft",
+		})
+	}
+	if proposal == nil {
+		return proposalReplacement{}, errorx.NewBadRequest("latest PageProposal is required for default regeneration")
+	}
+	if proposal.Status != "pending" && proposal.Status != "accepted" {
+		return proposalReplacement{}, errorx.NewBadRequestWithDetails("PageProposal is not usable for regeneration", map[string]any{
+			"proposalKey": proposal.ProposalKey,
+			"status":      proposal.Status,
+		})
+	}
+	pageSpec, err := pageSpecFromProposalModel(proposal)
+	if err != nil {
+		return proposalReplacement{}, err
+	}
+	if strings.TrimSpace(pageSpec.PageKey) != strings.TrimSpace(draft.PageKey) {
+		return proposalReplacement{}, errorx.NewBadRequestWithDetails("PageProposal pageKey does not match draft", map[string]any{
+			"draftPageKey":    draft.PageKey,
+			"proposalPageKey": pageSpec.PageKey,
+			"proposalKey":     proposal.ProposalKey,
+		})
+	}
+	version, err := model.NewPageProposalVersionModel(s.svcCtx.DB).LatestByProposalID(ctx, proposal.ID)
+	if err != nil || version == nil || version.Version <= 0 {
+		return proposalReplacement{}, errorx.NewBadRequestWithDetails("PageProposal version is required for default regeneration", map[string]any{
+			"proposalKey": proposal.ProposalKey,
+			"pageKey":     draft.PageKey,
+		})
+	}
+	return proposalReplacement{
+		PageSpec:        pageSpec,
+		ProposalKey:     strings.TrimSpace(proposal.ProposalKey),
+		ProposalVersion: version.Version,
+		Quality:         spec.GeneratedPageQuality(proposal.Quality),
+		Diagnostics:     diagnosticsFromJSON(proposal.Diagnostics),
+	}, nil
 }
 
 func requireScope(ctx context.Context) (string, string, error) {
@@ -1073,6 +1107,34 @@ func pageSpecFromPublishedModel(p model.PublishedPageSpec) spec.PageSpec {
 	return spec.PageSpec{PageKey: p.PageKey}
 }
 
+func pageSpecFromProposalModel(proposal *model.PageProposal) (spec.PageSpec, error) {
+	if proposal == nil {
+		return spec.PageSpec{}, errorx.NewBadRequest("proposal is required")
+	}
+	if len(proposal.PageSpec) == 0 {
+		return spec.PageSpec{}, errorx.NewValidationError("proposal does not contain canonical PageSpec")
+	}
+	var pageSpec spec.PageSpec
+	if err := json.Unmarshal(proposal.PageSpec, &pageSpec); err != nil {
+		return spec.PageSpec{}, errorx.NewValidationError("proposal PageSpec is invalid JSON")
+	}
+	pageSpec.PageKey = strings.TrimSpace(pageSpec.PageKey)
+	pageSpec.ResourceKey = strings.TrimSpace(pageSpec.ResourceKey)
+	pageSpec.Icon = strings.TrimSpace(pageSpec.Icon)
+	pageSpec.Title = normalizeLocaleKeys(pageSpec.Title)
+	pageSpec.Description = normalizeLocaleKeys(pageSpec.Description)
+	pageSpec.Category.Key = strings.TrimSpace(pageSpec.Category.Key)
+	pageSpec.Category.Labels = normalizeLocaleKeys(pageSpec.Category.Labels)
+	for i := range pageSpec.Bindings {
+		pageSpec.Bindings[i].ID = strings.TrimSpace(pageSpec.Bindings[i].ID)
+		pageSpec.Bindings[i].FunctionID = strings.TrimSpace(pageSpec.Bindings[i].FunctionID)
+	}
+	if strings.TrimSpace(pageSpec.PageKey) == "" {
+		return spec.PageSpec{}, errorx.NewValidationError("proposal PageSpec pageKey is required")
+	}
+	return pageSpec, nil
+}
+
 func applyPageSpecToModel(p *model.PageSpec, ps spec.PageSpec) error {
 	if p == nil {
 		return fmt.Errorf("target page model is nil")
@@ -1139,54 +1201,45 @@ func (s *Service) withPageTransaction(
 }
 
 func (s *Service) normalizedFunctions(ctx context.Context) map[string]spec.FunctionSpec {
-	results, _ := normalizedDashboardSpecs(ctx, s.svcCtx)
-	return functionsByID(results)
-}
-
-func normalizedDashboardSpecs(ctx context.Context, svcCtx *svc.ServiceContext) ([]normalizer.NormalizerResult, map[string]*spec.ResourceSpec) {
-	inputs := descriptors.Collect(ctx, svcCtx)
-	return normalizer.NormalizeBatch(inputs)
-}
-
-func functionsByID(results []normalizer.NormalizerResult) map[string]spec.FunctionSpec {
-	out := make(map[string]spec.FunctionSpec, len(results))
-	for _, result := range results {
-		if strings.TrimSpace(result.Function.ID) != "" {
-			out[result.Function.ID] = result.Function
+	gameID, env, err := requireScope(ctx)
+	if err != nil || s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
+		return map[string]spec.FunctionSpec{}
+	}
+	contracts, err := model.NewFunctionContractModel(s.svcCtx.DB).ListByScope(ctx, gameID, env)
+	if err != nil {
+		return map[string]spec.FunctionSpec{}
+	}
+	out := make(map[string]spec.FunctionSpec, len(contracts))
+	for _, contract := range contracts {
+		if contract == nil || strings.TrimSpace(contract.FunctionID) == "" {
+			continue
 		}
+		out[contract.FunctionID] = functionSpecFromContract(contract)
 	}
 	return out
 }
 
-func generatedPageKeys(pages []spec.GeneratedPageSpec) []string {
-	keys := make([]string, 0, len(pages))
-	for _, page := range pages {
-		if key := strings.TrimSpace(page.PageKey); key != "" {
-			keys = append(keys, key)
-		}
+func functionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpec {
+	if contract == nil {
+		return spec.FunctionSpec{}
 	}
-	sort.Strings(keys)
-	return keys
-}
-
-func proposalKeyForGeneratedPage(page spec.GeneratedPageSpec) string {
-	sourceKey := strings.TrimSpace(page.ResourceKey)
-	if page.Type == spec.PageTypeResource && sourceKey != "" {
-		return "resource:" + sourceKey
+	return spec.FunctionSpec{
+		ID:           strings.TrimSpace(contract.FunctionID),
+		Version:      strings.TrimSpace(contract.Version),
+		Enabled:      contract.Enabled,
+		Deprecated:   contract.Deprecated,
+		InputSchema:  spec.JSONSchema(contract.InputSchema),
+		OutputSchema: spec.JSONSchema(contract.OutputSchema),
+		Summary:      localizedTextFromJSONMap(contract.Summary),
+		Description:  localizedTextFromJSONMap(contract.Description),
+		Resource:     strings.TrimSpace(contract.ResourceKey),
+		Operation:    strings.TrimSpace(contract.OperationKey),
+		Capability:   spec.CapabilityKind(contract.Capability),
+		Execution:    spec.FunctionExecution(contract.Execution),
+		Approval:     approvalPolicyFromJSONMap(contract.Approval),
+		Risk:         spec.RiskLevel(contract.Risk),
+		Permission:   strings.TrimSpace(contract.Permission),
 	}
-	return ""
-}
-
-func latestProposalVersion(ctx context.Context, db *gorm.DB, gameID, env, proposalKey string) int {
-	proposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, gameID, env, proposalKey)
-	if err != nil || proposal == nil {
-		return 0
-	}
-	version, err := model.NewPageProposalVersionModel(db).LatestByProposalID(ctx, proposal.ID)
-	if err != nil || version == nil {
-		return 0
-	}
-	return version.Version
 }
 
 func (s *Service) requirePageRead(ctx context.Context) error {
@@ -1282,6 +1335,21 @@ func diagnostic(code string, severity spec.DiagnosticSeverity, message string, f
 	return spec.Diagnostic{Code: code, Severity: severity, Message: message, Field: field}
 }
 
+func diagnosticsFromJSON(raw []byte) []spec.Diagnostic {
+	if len(raw) == 0 {
+		return nil
+	}
+	var diagnostics []spec.Diagnostic
+	if err := json.Unmarshal(raw, &diagnostics); err != nil {
+		return []spec.Diagnostic{{
+			Code:     "proposal_diagnostics_invalid",
+			Severity: spec.SeverityWarning,
+			Message:  "proposal diagnostics payload is not readable",
+		}}
+	}
+	return diagnostics
+}
+
 func hasDefaultLocale(labels spec.LocalizedText) bool {
 	return labels != nil && strings.TrimSpace(labels["zh-CN"]) != ""
 }
@@ -1308,6 +1376,37 @@ func countErrors(diags []spec.Diagnostic) int {
 		}
 	}
 	return count
+}
+
+func localizedTextFromJSONMap(values map[string]interface{}) spec.LocalizedText {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(spec.LocalizedText, len(values))
+	for key, value := range values {
+		if text, ok := value.(string); ok && strings.TrimSpace(text) != "" {
+			out[key] = strings.TrimSpace(text)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func approvalPolicyFromJSONMap(values map[string]interface{}) spec.ApprovalPolicy {
+	if len(values) == 0 {
+		return spec.ApprovalPolicy{}
+	}
+	required, _ := values["required"].(bool)
+	policyKey, _ := values["policyKey"].(string)
+	if policyKey == "" {
+		policyKey, _ = values["policy_key"].(string)
+	}
+	return spec.ApprovalPolicy{
+		Required:  required,
+		PolicyKey: strings.TrimSpace(policyKey),
+	}
 }
 
 type pagePublishSource struct {

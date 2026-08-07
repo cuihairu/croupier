@@ -32,14 +32,3 @@ type ResourceOperationsRequest struct {
 type ResourceOperationsResponse struct {
 	Items []spec.OperationSpec `json:"items"`
 }
-
-// ResourceGeneratedPagesRequest is the request to get generated pages.
-type ResourceGeneratedPagesRequest struct {
-	ResourceKey string `uri:"resourceKey" binding:"required"`
-}
-
-// ResourceGeneratedPagesResponse is the response with generated pages.
-type ResourceGeneratedPagesResponse struct {
-	Items       []spec.GeneratedPageSpec `json:"items"`
-	Diagnostics []spec.Diagnostic        `json:"diagnostics,omitempty"`
-}

@@ -25,29 +25,6 @@ func DefaultGenerateOptions() GenerateOptions {
 	return GenerateOptions{DefaultLocale: "zh-CN"}
 }
 
-// GenerateForResource creates default PageSpec candidates for every operation
-// under a resource. Resource CRUD generation requires persistent
-// CapabilitySemantics and is handled by GenerateResourcePageProposal.
-func GenerateForResource(resource spec.ResourceSpec, opts GenerateOptions) []spec.GeneratedPageSpec {
-	if len(resource.Operations) == 0 {
-		return nil
-	}
-	opts = normalizeOptions(opts)
-	ops := sortedOperations(resource.Operations)
-	pages := make([]spec.GeneratedPageSpec, 0, len(ops))
-	for _, op := range ops {
-		pages = append(pages, GenerateForOperation(op, opts))
-	}
-	return pages
-}
-
-// GenerateEntityPageForResource is intentionally disabled until persistent
-// CapabilitySemantics exists. Function registration cannot provide enough
-// semantics to safely generate ResourcePage CRUD pages.
-func GenerateEntityPageForResource(spec.ResourceSpec, []spec.OperationSpec, GenerateOptions) (spec.GeneratedPageSpec, bool, []string) {
-	return spec.GeneratedPageSpec{}, false, nil
-}
-
 // GenerateForOperation creates an operation, task, or report candidate from a
 // single executable capability.
 func GenerateForOperation(op spec.OperationSpec, opts GenerateOptions) spec.GeneratedPageSpec {
@@ -288,11 +265,8 @@ func assessBaseCandidate(op spec.OperationSpec) []spec.Diagnostic {
 	if !op.Enabled {
 		diags = append(diags, diagnostic("function_disabled", spec.SeverityError, "function is disabled and cannot be executed", op.FunctionID, "enabled"))
 	}
-	if strings.TrimSpace(op.ResourceKey) == "" {
-		diags = append(diags, diagnostic("resource_missing", spec.SeverityWarning, "resource is missing; Page Studio must choose page grouping before publishing", op.FunctionID, "resourceKey"))
-	}
 	if strings.TrimSpace(op.Operation) == "" {
-		diags = append(diags, diagnostic("operation_missing", spec.SeverityWarning, "operation is missing; Page Studio must name how this capability is used", op.FunctionID, "operation"))
+		diags = append(diags, diagnostic("operation_missing", spec.SeverityWarning, "operation is missing; generated title falls back to functionId", op.FunctionID, "operation"))
 	}
 	return diags
 }
@@ -549,16 +523,6 @@ func executionModeForOperation(op spec.OperationSpec) spec.PageExecutionMode {
 	return spec.PageExecutionModeSync
 }
 
-func sortedOperations(ops []spec.OperationSpec) []spec.OperationSpec {
-	out := append([]spec.OperationSpec(nil), ops...)
-	sort.SliceStable(out, func(i, j int) bool {
-		left := firstNonEmpty(out[i].ResourceKey, "") + "." + firstNonEmpty(out[i].Operation, "") + "." + out[i].FunctionID
-		right := firstNonEmpty(out[j].ResourceKey, "") + "." + firstNonEmpty(out[j].Operation, "") + "." + out[j].FunctionID
-		return left < right
-	})
-	return out
-}
-
 func isTaskOperation(op spec.OperationSpec) bool {
 	return op.Execution == spec.FunctionExecutionTask || op.Capability == spec.CapabilityTask
 }
@@ -662,20 +626,16 @@ func qualityFromDiagnostics(diags []spec.Diagnostic) spec.GeneratedPageQuality {
 }
 
 func operationQuality(op spec.OperationSpec, diags []spec.Diagnostic) spec.GeneratedPageQuality {
-	quality := qualityFromDiagnostics(diags)
 	if hasErrorDiagnostic(diags) {
-		return quality
+		return spec.GeneratedPageQualityNeedsReview
 	}
 	if hasDiagnosticCode(diags, "json_schema_generation_subset_unsupported") {
 		return spec.GeneratedPageQualityNeedsReview
 	}
-	if quality == spec.GeneratedPageQualityReady {
-		return spec.GeneratedPageQualityBasic
+	if strings.TrimSpace(op.FunctionID) == "" {
+		return spec.GeneratedPageQualityNeedsReview
 	}
-	if quality == spec.GeneratedPageQualityNeedsReview && strings.TrimSpace(op.FunctionID) != "" {
-		return spec.GeneratedPageQualityBasic
-	}
-	return quality
+	return spec.GeneratedPageQualityBasic
 }
 
 func taskQuality(op spec.OperationSpec, diags []spec.Diagnostic) spec.GeneratedPageQuality {

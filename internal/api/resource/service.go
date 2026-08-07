@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/descriptors"
-	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
@@ -94,47 +93,6 @@ func (s *Service) Operations(ctx context.Context, req *ResourceOperationsRequest
 	}
 
 	return &ResourceOperationsResponse{Items: r.Operations}, nil
-}
-
-// GeneratedPages returns generated PageSpec suggestions for a resource.
-func (s *Service) GeneratedPages(ctx context.Context, req *ResourceGeneratedPagesRequest) (*ResourceGeneratedPagesResponse, error) {
-	if err := s.requireResourceDiagnose(ctx); err != nil {
-		return nil, err
-	}
-	inputs := descriptors.Collect(ctx, s.svcCtx)
-	results, resources := normalizer.NormalizeBatch(inputs)
-
-	r, ok := resources[req.ResourceKey]
-	if !ok || r == nil {
-		return nil, ErrResourceNotFound(req.ResourceKey)
-	}
-
-	// Use generator to create page suggestions
-	opts := generator.DefaultGenerateOptions()
-	opts.Functions = functionsByID(results)
-	pages := generator.GenerateForResource(*r, opts)
-
-	// Collect all diagnostics
-	var diags []spec.Diagnostic
-	for _, page := range pages {
-		diags = append(diags, page.Diagnostics...)
-	}
-
-	return &ResourceGeneratedPagesResponse{
-		Items:       pages,
-		Diagnostics: diags,
-	}, nil
-}
-
-func functionsByID(results []normalizer.NormalizerResult) map[string]spec.FunctionSpec {
-	out := make(map[string]spec.FunctionSpec, len(results))
-	for _, result := range results {
-		if strings.TrimSpace(result.Function.ID) == "" {
-			continue
-		}
-		out[result.Function.ID] = result.Function
-	}
-	return out
 }
 
 // matchesLocalizedText checks if any localized text value matches the query.

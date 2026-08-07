@@ -8,65 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerateForResourceCreatesDefaultOperationPagesWithoutGuessingCRUD(t *testing.T) {
-	resource := spec.ResourceSpec{
-		Key:    "player",
-		Labels: spec.LocalizedText{"zh-CN": "玩家"},
-		Operations: []spec.OperationSpec{
-			{
-				FunctionID:  "player.list",
-				ResourceKey: "player",
-				Operation:   "list",
-				Capability:  spec.CapabilityCollectionQuery,
-				Enabled:     true,
-			},
-			{
-				FunctionID:  "player.ban",
-				ResourceKey: "player",
-				Operation:   "ban",
-				Capability:  spec.CapabilityAction,
-				Risk:        spec.RiskDanger,
-				Enabled:     true,
-			},
-		},
-	}
-
-	pages := GenerateForResource(resource, GenerateOptions{
-		DefaultLocale: "zh-CN",
-		Functions: map[string]spec.FunctionSpec{
-			"player.list": {
-				ID:          "player.list",
-				InputSchema: spec.JSONSchema(`{"type":"object","properties":{"keyword":{"type":"string"}}}`),
-			},
-		},
-	})
-
-	require.Len(t, pages, 2)
-	assert.Equal(t, "operation--player.ban", pages[0].PageKey)
-	assert.Equal(t, "operation--player.list", pages[1].PageKey)
-	for _, page := range pages {
-		assert.Equal(t, spec.PageTypeOperation, page.Type)
-		assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
-		require.NotNil(t, page.Operation)
-		require.NotNil(t, page.Operation.Form)
-		assert.Nil(t, page.Resource)
-	}
-}
-
-func TestGenerateEntityPageForResourceIsDisabledUntilCapabilitySemantics(t *testing.T) {
-	page, ok, consumed := GenerateEntityPageForResource(spec.ResourceSpec{Key: "player"}, []spec.OperationSpec{{
-		FunctionID:  "player.list",
-		ResourceKey: "player",
-		Operation:   "list",
-		Capability:  spec.CapabilityCollectionQuery,
-		Enabled:     true,
-	}}, DefaultGenerateOptions())
-
-	assert.False(t, ok)
-	assert.Empty(t, page.PageKey)
-	assert.Empty(t, consumed)
-}
-
 func TestGenerateForOperationCreatesBasicPage(t *testing.T) {
 	page := GenerateForOperation(spec.OperationSpec{
 		FunctionID: "cache.refresh",
@@ -90,7 +31,6 @@ func TestGenerateForOperationCreatesBasicPage(t *testing.T) {
 
 	assert.Equal(t, spec.PageTypeOperation, page.Type)
 	assert.Equal(t, spec.GeneratedPageQualityBasic, page.Quality)
-	assertDiagnostic(t, page.Diagnostics, "resource_missing")
 	require.Len(t, page.Bindings, 1)
 	require.NotNil(t, page.Operation)
 	require.NotNil(t, page.Operation.Form)

@@ -74,24 +74,3 @@ func (h *Handler) Operations(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
-
-// GeneratedPages handles GET /api/v1/resources/:resourceKey/pages/generated
-func (h *Handler) GeneratedPages(c *gin.Context) {
-	var req ResourceGeneratedPagesRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.GeneratedPages(c.Request.Context(), &req)
-	if err != nil {
-		var notFound *ResourceNotFoundError
-		if errors.As(err, &notFound) {
-			response.NotFound(c, err.Error())
-			return
-		}
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}

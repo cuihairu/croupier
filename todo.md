@@ -45,14 +45,14 @@ SDK / OpenAPI 注册能力
 
 游戏后台必须同时支持：
 
-| 主路径 | 示例 | 默认页面 |
-| --- | --- | --- |
-| Resource CRUD | 玩家、订单、邮件模板、公告、活动、配置、排行榜配置 | 列表、筛选、分页、详情、新建、编辑、删除、资源动作 |
-| Resource Action | 玩家封禁、物品授予、订单补偿 | 行操作、批量操作或工具栏操作 |
-| Operation | 全服邮件、刷新缓存、运维命令 | 独立输入表单、确认、结果 |
-| Task | 批量发奖、导入导出、数据修复 | 提交、真实进度、事件、结果、取消/重试 |
-| Report | 留存、付费、漏斗、经济指标 | 查询、真实图表、数据表、导出 |
-| Approval | 高风险 GM 操作、灰度、发布 | 等待审批、审批状态和最终结果 |
+| 主路径          | 示例                                               | 默认页面                                           |
+| --------------- | -------------------------------------------------- | -------------------------------------------------- |
+| Resource CRUD   | 玩家、订单、邮件模板、公告、活动、配置、排行榜配置 | 列表、筛选、分页、详情、新建、编辑、删除、资源动作 |
+| Resource Action | 玩家封禁、物品授予、订单补偿                       | 行操作、批量操作或工具栏操作                       |
+| Operation       | 全服邮件、刷新缓存、运维命令                       | 独立输入表单、确认、结果                           |
+| Task            | 批量发奖、导入导出、数据修复                       | 提交、真实进度、事件、结果、取消/重试              |
+| Report          | 留存、付费、漏斗、经济指标                         | 查询、真实图表、数据表、导出                       |
+| Approval        | 高风险 GM 操作、灰度、发布                         | 等待审批、审批状态和最终结果                       |
 
 ### 0.2 已保留的基础资产
 
@@ -121,15 +121,21 @@ interface FunctionContract {
   resourceKey?: string;
   operationKey?: string;
   capability?: CapabilityKind;
-  execution: 'sync' | 'task';
+  execution: "sync" | "task";
   approval: ApprovalPolicy;
   risk: RiskLevel;
   permission?: string;
 }
 
 type CapabilityKind =
-  | 'collection_query' | 'item_query' | 'create' | 'update' | 'delete'
-  | 'action' | 'task' | 'report';
+  | "collection_query"
+  | "item_query"
+  | "create"
+  | "update"
+  | "delete"
+  | "action"
+  | "task"
+  | "report";
 ```
 
 基础 DTO（`Scope`、`FunctionRef`、`SourceDigest`、`Diagnostic`、`LocalizedText`、`JsonPointer`、`JSONSchema`、`JSONValue` 和 `ApprovalPolicy`）唯一以 `docs/architecture/dashboard-page-model.md` 的定义为准；此计划不得复制或扩展第二套结构。
@@ -144,7 +150,7 @@ interface CapabilitySemantics {
   identity?: IdentitySemantic;
   collection?: CollectionSemantic;
   item?: ItemSemantic;
-  lifecycle: Partial<Record<'create' | 'update' | 'delete', FunctionRef>>;
+  lifecycle: Partial<Record<"create" | "update" | "delete", FunctionRef>>;
   actions: ActionSemantic[];
   tasks: TaskSemantic[];
   reports: ReportSemantic[];
@@ -158,7 +164,7 @@ interface IdentitySemantic {
   valueType: JsonScalarType;
 }
 
-type JsonScalarType = 'string' | 'number' | 'integer' | 'boolean';
+type JsonScalarType = "string" | "number" | "integer" | "boolean";
 
 interface CollectionSemantic {
   query: FunctionRef;
@@ -168,29 +174,45 @@ interface CollectionSemantic {
 }
 
 interface OffsetPaginationSemantic {
-  kind: 'offset';
+  kind: "offset";
   request: { offset: JsonPointer; limit: JsonPointer };
   response: { total?: JsonPointer; hasMore?: JsonPointer };
 }
 
 interface CursorPaginationSemantic {
-  kind: 'cursor';
+  kind: "cursor";
   request: { cursor: JsonPointer; limit?: JsonPointer };
-  response: { nextCursor: JsonPointer; previousCursor?: JsonPointer; hasMore?: JsonPointer };
+  response: {
+    nextCursor: JsonPointer;
+    previousCursor?: JsonPointer;
+    hasMore?: JsonPointer;
+  };
 }
 
 interface ActionSemantic {
   function: FunctionRef;
-  subject: 'resource_item' | 'resource_selection' | 'none';
+  subject: "resource_item" | "resource_selection" | "none";
   identityInput?: JsonPointer;
 }
 
 interface TaskSemantic {
   start: FunctionRef;
   taskId: { resultPath: JsonPointer; valueType: JsonScalarType };
-  status: { function: FunctionRef; taskIdInput: JsonPointer; statePath: JsonPointer };
-  events?: { function: FunctionRef; taskIdInput: JsonPointer; eventsPath: JsonPointer };
-  result?: { function: FunctionRef; taskIdInput: JsonPointer; resultPath: JsonPointer };
+  status: {
+    function: FunctionRef;
+    taskIdInput: JsonPointer;
+    statePath: JsonPointer;
+  };
+  events?: {
+    function: FunctionRef;
+    taskIdInput: JsonPointer;
+    eventsPath: JsonPointer;
+  };
+  result?: {
+    function: FunctionRef;
+    taskIdInput: JsonPointer;
+    resultPath: JsonPointer;
+  };
   cancel?: { function: FunctionRef; taskIdInput: JsonPointer };
   retry?: { function: FunctionRef; taskIdInput: JsonPointer };
 }
@@ -204,10 +226,10 @@ interface ReportSemantic {
 
 interface SemanticProvenance {
   field: string;
-  source: 'openapi_rest' | 'sdk_explicit' | 'platform_review';
+  source: "openapi_rest" | "sdk_explicit" | "platform_review";
   sourceDigest: string;
-  confidence: 'high' | 'low';
-  status: 'effective' | 'overridden' | 'conflict';
+  confidence: "high" | "low";
+  status: "effective" | "overridden" | "conflict";
 }
 ```
 
@@ -218,7 +240,11 @@ interface SemanticProvenance {
 ### 2.3 PageProposal 与 PageSpec
 
 ```ts
-type PageSpec = ResourcePageSpec | OperationPageSpec | TaskPageSpec | ReportPageSpec;
+type PageSpec =
+  | ResourcePageSpec
+  | OperationPageSpec
+  | TaskPageSpec
+  | ReportPageSpec;
 
 interface PageProposal {
   id: string;
@@ -226,7 +252,7 @@ interface PageProposal {
   proposalKey: string;
   pageKey: string;
   spec: PageSpec;
-  quality: 'ready' | 'basic' | 'needs_review';
+  quality: "ready" | "basic" | "needs_review";
   generatorVersion: string;
   sourceDigests: SourceDigest[];
   diagnostics: Diagnostic[];
@@ -412,6 +438,8 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 当前本地事实（2026-08-04，本轮验证）：
 
 - 后端已打通一条受控的 Proposal 主链路：`FunctionContract + CapabilitySemantics -> PageProposal`，并已通过目标 Go 测试与 API 集成测试。
+- 资源 API 中旧的临时页面候选链路已清理：`/resources/:resourceKey/pages/generated`、`GenerateForResource`、`GenerateEntityPageForResource` 和前端资源页的“默认页面候选”入口都已移除。页面候选只允许从持久化 `PageProposal` / Page Studio Inbox 读取，Draft 默认重生成也只能消费最新 PageProposal，缺 Proposal 直接报错。
+- Page 保存/发布校验已切到持久化 `FunctionContract` 作为函数事实源，不再通过内存 registry descriptors / normalizer 读取运行时函数定义。
 - `proposalKey/pageKey` 已收敛为 `resource:<resourceKey>` / `<kind>:<functionId>` 与 `resource--<resourceKey>` / `<kind>--<functionId>`；重复生成走稳定 key，不再沿用 `<resource>.manage` 或 `<resource>.<operation>`。
 - `blocked` 已从 Proposal quality 中移除；当前阻断接受/发布依赖 error diagnostics，而不是 quality 枚举。
 - 已实现发布时同 scope、同 `category.key` 的 `category.labels` 完全一致性校验；冲突会阻断发布，避免动态菜单分类文本由运行时仲裁。
@@ -603,18 +631,18 @@ PageSpec 的 page kind、binding、导航、表单、列表、详情、动作、
 
 下面每个场景必须同时有 server integration test 和真实浏览器 E2E；任何“mock preview”不算验收。
 
-| 场景 | 输入 | 预期 Proposal | 发布和运行验收 |
-| --- | --- | --- | --- |
-| OpenAPI CRUD | `/players` 与 `/players/{id}` 的标准 REST + schemas | ready ResourcePage | ProTable 分页、详情、create/update/delete、row ban action、动态菜单、受控执行 |
-| SDK CRUD | 显式 `resource=inventory` + capability | ready ResourcePage | 与 OpenAPI CRUD 同等体验，不依赖 REST path |
-| 只读资源 | collection + identity，无写 capability | ready ResourcePage | 查询、详情、筛选和可用分页，不出现虚构写操作 |
-| 独立操作 | `mail.send`，只有 input/output schema | basic OperationPage | 无 JSON 编辑即可发布，表单/确认/结果可用 |
-| 高风险动作 | `player.ban`，risk/approval | Resource action 或 OperationPage | 高风险确认、approval pending、审计/trace 可关联 |
-| 异步任务 | `reward.batchGrant` + task semantic | ready/needs_review TaskPage | 真实 task event、失败、取消/重试、结果 |
-| 报表 | `analytics.retention` + report semantic | ready/needs_review ReportPage | 真实图表/表格、筛选、空态和数据错误 |
-| 契约变化 | 删除字段、改类型、提高 risk、改 identity | stale + 新 Proposal | 页面拒绝执行、diff/合并/重新发布闭环 |
-| Scope 隔离 | 相同 pageKey 两个 game/env | 各自 Proposal/Published | 菜单、页面、版本和执行绝不串 scope |
-| OpenAPI Source | 上传 -> provider binding -> CRUD/action | 与 SDK 同等 Proposal | 无 binding 不可执行/发布；绑定后进入完整闭环 |
+| 场景           | 输入                                                | 预期 Proposal                    | 发布和运行验收                                                                |
+| -------------- | --------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------- |
+| OpenAPI CRUD   | `/players` 与 `/players/{id}` 的标准 REST + schemas | ready ResourcePage               | ProTable 分页、详情、create/update/delete、row ban action、动态菜单、受控执行 |
+| SDK CRUD       | 显式 `resource=inventory` + capability              | ready ResourcePage               | 与 OpenAPI CRUD 同等体验，不依赖 REST path                                    |
+| 只读资源       | collection + identity，无写 capability              | ready ResourcePage               | 查询、详情、筛选和可用分页，不出现虚构写操作                                  |
+| 独立操作       | `mail.send`，只有 input/output schema               | basic OperationPage              | 无 JSON 编辑即可发布，表单/确认/结果可用                                      |
+| 高风险动作     | `player.ban`，risk/approval                         | Resource action 或 OperationPage | 高风险确认、approval pending、审计/trace 可关联                               |
+| 异步任务       | `reward.batchGrant` + task semantic                 | ready/needs_review TaskPage      | 真实 task event、失败、取消/重试、结果                                        |
+| 报表           | `analytics.retention` + report semantic             | ready/needs_review ReportPage    | 真实图表/表格、筛选、空态和数据错误                                           |
+| 契约变化       | 删除字段、改类型、提高 risk、改 identity            | stale + 新 Proposal              | 页面拒绝执行、diff/合并/重新发布闭环                                          |
+| Scope 隔离     | 相同 pageKey 两个 game/env                          | 各自 Proposal/Published          | 菜单、页面、版本和执行绝不串 scope                                            |
+| OpenAPI Source | 上传 -> provider binding -> CRUD/action             | 与 SDK 同等 Proposal             | 无 binding 不可执行/发布；绑定后进入完整闭环                                  |
 
 ## 5. CI 与质量门禁
 

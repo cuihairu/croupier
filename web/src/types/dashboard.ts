@@ -711,17 +711,11 @@ export interface ConsoleMenuSpec {
 }
 
 // ---------------------------------------------------------------------------
-// Generated page suggestion
+// Page proposal quality
 // ---------------------------------------------------------------------------
 
-/** 默认页面建议质量 */
+/** 默认页面 Proposal 质量 */
 export type GeneratedPageQuality = 'ready' | 'basic' | 'needs_review';
-
-/** Server 生成的默认页面建议（发布前） */
-export interface GeneratedPageSpec extends PageSpec {
-  quality: GeneratedPageQuality;
-  diagnostics?: Diagnostic[];
-}
 
 // ---------------------------------------------------------------------------
 // Page draft

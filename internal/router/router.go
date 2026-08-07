@@ -416,7 +416,6 @@ func registerResourceRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 		group.GET("", handler.List)
 		group.GET("/:resourceKey", handler.Detail)
 		group.GET("/:resourceKey/operations", handler.Operations)
-		group.GET("/:resourceKey/pages/generated", handler.GeneratedPages)
 	}
 }
 

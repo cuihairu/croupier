@@ -709,7 +709,6 @@ func registerResourceRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/", resourceHandler.List)
 	g.GET("/:resourceKey", resourceHandler.Detail)
 	g.GET("/:resourceKey/operations", resourceHandler.Operations)
-	g.GET("/:resourceKey/pages/generated", resourceHandler.GeneratedPages)
 }
 
 // ============================================================================

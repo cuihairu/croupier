@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
 	consoleapi "github.com/cuihairu/croupier/internal/api/console"
 	"github.com/cuihairu/croupier/internal/audit"
@@ -14,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	dashboardservice "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -179,21 +179,12 @@ func TestServicePublishRejectsMissingBindingSelector(t *testing.T) {
 
 func TestServicePublishRejectsIncompleteBindingSelector(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
-	service.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
-		AgentID:  "agent-1",
-		GameID:   "demo-game",
-		Env:      "development",
-		ExpireAt: time.Now().Add(time.Minute),
-		LastSeen: time.Now(),
-		Functions: map[string]reg.FunctionMeta{
-			"player.query": {
-				Enabled:     true,
-				Version:     "1.0.0",
-				Resource:    "player",
-				Operation:   "query",
-				InputSchema: `{"type":"object","properties":{"keyword":{"type":"string"}},"required":["keyword"]}`,
-			},
-		},
+	rebuildFunctionContract(t, service.svcCtx.DB, ctx, "player.query", reg.FunctionMeta{
+		Enabled:     true,
+		Version:     "1.0.0",
+		Resource:    "player",
+		Operation:   "query",
+		InputSchema: `{"type":"object","properties":{"keyword":{"type":"string"}},"required":["keyword"]}`,
 	})
 	revision := 0
 	bindings := testPageBindings()
@@ -372,34 +363,25 @@ func TestServiceGetDraftReturnsPublishedBindingFreshness(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pageService.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
-		AgentID:  "agent-1",
-		GameID:   "demo-game",
-		Env:      "development",
-		ExpireAt: time.Now().Add(time.Minute),
-		LastSeen: time.Now(),
-		Functions: map[string]reg.FunctionMeta{
-			"player.query": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Risk:         "danger",
-				Permission:   "player:admin",
-				Resource:     "player",
-				Operation:    "query",
-				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
-				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
-			},
-			"player.action": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Risk:         "safe",
-				Permission:   "player:action",
-				Resource:     "player",
-				Operation:    "action",
-				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
-				OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
-			},
-		},
+	rebuildFunctionContract(t, pageService.svcCtx.DB, ctx, "player.query", reg.FunctionMeta{
+		Enabled:      true,
+		Version:      "1.0.0",
+		Risk:         "danger",
+		Permission:   "player:admin",
+		Resource:     "player",
+		Operation:    "query",
+		InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+	})
+	rebuildFunctionContract(t, pageService.svcCtx.DB, ctx, "player.action", reg.FunctionMeta{
+		Enabled:      true,
+		Version:      "1.0.0",
+		Risk:         "safe",
+		Permission:   "player:action",
+		Resource:     "player",
+		Operation:    "action",
+		InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
 	})
 
 	draft, err := pageService.GetDraft(ctx, &PageDraftRequest{PageKey: "player.manage"})
@@ -435,24 +417,44 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 	require.NoError(t, err)
 	require.Equal(t, 1, publishResp.PublishedVersion)
 
-	pageService.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
-		AgentID:  "agent-1",
-		GameID:   "demo-game",
-		Env:      "development",
-		ExpireAt: time.Now().Add(time.Minute),
-		LastSeen: time.Now(),
-		Functions: map[string]reg.FunctionMeta{
-			"player.query": {
-				Enabled:      true,
-				Version:      "2.0.0",
-				Risk:         "safe",
-				Permission:   "player:query",
-				Resource:     "player",
-				Operation:    "query",
-				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"},"server_id":{"type":"string","title":"区服"}}}`,
-				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+	rebuildFunctionContract(t, pageService.svcCtx.DB, ctx, "player.query", reg.FunctionMeta{
+		Enabled:      true,
+		Version:      "2.0.0",
+		Risk:         "safe",
+		Permission:   "player:query",
+		Resource:     "player",
+		Operation:    "query",
+		InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"},"server_id":{"type":"string","title":"区服"}}}`,
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+	})
+	upsertProposalForRegenerate(t, pageService.svcCtx.DB, ctx, "operation:player.query", "operation--player.query", spec.PageSpec{
+		PageKey:     "operation--player.query",
+		Type:        spec.PageTypeOperation,
+		ResourceKey: "player",
+		Title:       spec.LocalizedText{"zh-CN": "Query"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Operation: &spec.OperationPageSpec{
+			Form: spec.DefaultFormPresentation(spec.JSONSchema(`{"type":"object","properties":{"keyword":{"type":"string"},"server_id":{"type":"string","title":"区服"}}}`)),
+			ResultView: &spec.ResultViewSpec{
+				SuccessMessage: spec.LocalizedText{"zh-CN": "操作成功"},
+				ErrorMessage:   spec.LocalizedText{"zh-CN": "操作失败"},
 			},
 		},
+		Bindings: []spec.PageFunctionBinding{{
+			ID:         "player.query",
+			FunctionID: "player.query",
+			Usage:      spec.BindingUsageAction,
+			Selectors: &spec.BindingSelectors{
+				Input: spec.SelectorAST{Assignments: []spec.InputAssignment{
+					{Target: "/keyword", Source: spec.ValueSource{Kind: spec.SourceForm, Path: "/keyword"}},
+					{Target: "/server_id", Source: spec.ValueSource{Kind: spec.SourceForm, Path: "/server_id"}},
+				}},
+			},
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		}},
 	})
 
 	regenerateResp, err := pageService.RegenerateDraft(ctx, &PageRegenerateRequest{
@@ -488,7 +490,7 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 	require.Equal(t, 2, total)
 	regenerateAudit := findAuditRecordByDetail(records, "action", "regenerate_default")
 	require.NotNil(t, regenerateAudit)
-	assert.Equal(t, "generated_page", regenerateAudit.Details["source"])
+	assert.Equal(t, "page_proposal", regenerateAudit.Details["source"])
 }
 
 func TestServiceRegenerateDraftRejectsRevisionConflict(t *testing.T) {
@@ -505,7 +507,7 @@ func TestServiceRegenerateDraftRejectsRevisionConflict(t *testing.T) {
 	assert.Contains(t, err.Error(), "page draft revision conflict")
 }
 
-func TestServiceRegenerateDraftRejectsMissingGeneratedCandidate(t *testing.T) {
+func TestServiceRegenerateDraftRejectsMissingProposal(t *testing.T) {
 	pageService, ctx, _ := newPageTestService(t, "pages:edit", "pages:read")
 	revision := saveTestPageDraft(t, pageService, ctx)
 
@@ -515,7 +517,7 @@ func TestServiceRegenerateDraftRejectsMissingGeneratedCandidate(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no generated page candidate matches current pageKey")
+	assert.Contains(t, err.Error(), "latest PageProposal is required for default regeneration")
 }
 
 func TestServicePublishesBasicGeneratedOperationPage(t *testing.T) {
@@ -620,35 +622,6 @@ func newPageTestService(t *testing.T, permissions ...string) (*Service, context.
 	sqlDB.SetMaxOpenConns(1)
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
-		AgentID:  "agent-1",
-		GameID:   "demo-game",
-		Env:      "development",
-		ExpireAt: time.Now().Add(time.Minute),
-		LastSeen: time.Now(),
-		Functions: map[string]reg.FunctionMeta{
-			"player.query": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Risk:         "safe",
-				Permission:   "player:query",
-				Resource:     "player",
-				Operation:    "query",
-				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
-				OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
-			},
-			"player.action": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Risk:         "safe",
-				Permission:   "player:action",
-				Resource:     "player",
-				Operation:    "action",
-				InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
-				OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
-			},
-		},
-	})
 
 	admin := model.Admin{Username: "page_tester", Status: 1, PasswordHash: "test"}
 	require.NoError(t, db.Create(&admin).Error)
@@ -677,6 +650,26 @@ func newPageTestService(t *testing.T, permissions ...string) (*Service, context.
 	}
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
 	ctx = context.WithValue(ctx, "username", admin.Username)
+	rebuildFunctionContract(t, db, ctx, "player.query", reg.FunctionMeta{
+		Enabled:      true,
+		Version:      "1.0.0",
+		Risk:         "safe",
+		Permission:   "player:query",
+		Resource:     "player",
+		Operation:    "query",
+		InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`,
+	})
+	rebuildFunctionContract(t, db, ctx, "player.action", reg.FunctionMeta{
+		Enabled:      true,
+		Version:      "1.0.0",
+		Risk:         "safe",
+		Permission:   "player:action",
+		Resource:     "player",
+		Operation:    "action",
+		InputSchema:  `{"type":"object","properties":{"keyword":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+	})
 	return NewService(svcCtx), ctx, auditStore
 }
 
@@ -792,6 +785,75 @@ func findAuditRecordByDetail(records []*audit.AuditRecord, key string, value int
 		}
 	}
 	return nil
+}
+
+func rebuildFunctionContract(t *testing.T, db *gorm.DB, ctx context.Context, functionID string, meta reg.FunctionMeta) {
+	t.Helper()
+	input := struct {
+		ID           string
+		Version      string
+		Enabled      bool
+		Summary      string
+		Description  string
+		InputSchema  string
+		OutputSchema string
+		Resource     string
+		Operation    string
+		Capability   string
+		Execution    string
+		Risk         string
+		Permission   string
+		Tags         []string
+	}{
+		ID:           functionID,
+		Version:      meta.Version,
+		Enabled:      meta.Enabled,
+		Summary:      meta.Summary,
+		Description:  meta.Description,
+		InputSchema:  meta.InputSchema,
+		OutputSchema: meta.OutputSchema,
+		Resource:     meta.Resource,
+		Operation:    meta.Operation,
+		Capability:   meta.Capability,
+		Execution:    meta.Execution,
+		Risk:         meta.Risk,
+		Permission:   meta.Permission,
+		Tags:         meta.Tags,
+	}
+	require.NoError(t, dashboardservice.NewContractService(db).RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", input))
+}
+
+func upsertProposalForRegenerate(t *testing.T, db *gorm.DB, ctx context.Context, proposalKey string, pageKey string, pageSpec spec.PageSpec) {
+	t.Helper()
+	raw, err := json.Marshal(pageSpec)
+	require.NoError(t, err)
+	proposal := &model.PageProposal{
+		GameID:           "demo-game",
+		Env:              "development",
+		ProposalKey:      proposalKey,
+		PageKey:          pageKey,
+		PageType:         string(pageSpec.Type),
+		ResourceKey:      pageSpec.ResourceKey,
+		Quality:          string(spec.GeneratedPageQualityBasic),
+		GeneratorVersion: "test-generator",
+		Title:            map[string]interface{}{"zh-CN": pageSpec.Title["zh-CN"]},
+		CategoryKey:      pageSpec.Category.Key,
+		PageSpec:         raw,
+		Status:           "pending",
+		UpdatedBy:        "test",
+	}
+	proposalModel := model.NewPageProposalModel(db)
+	require.NoError(t, proposalModel.UpsertProposal(ctx, proposal))
+	proposalRaw, err := json.Marshal(proposal)
+	require.NoError(t, err)
+	version := &model.PageProposalVersion{
+		ProposalID:   proposal.ID,
+		Version:      1,
+		Proposal:     proposalRaw,
+		ChangeReason: "test proposal regenerate",
+		CreatedBy:    "test",
+	}
+	require.NoError(t, model.NewPageProposalVersionModel(db).CreateVersion(ctx, version))
 }
 
 func errorDiagnostics(diags []spec.Diagnostic) []spec.Diagnostic {

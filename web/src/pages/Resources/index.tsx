@@ -3,16 +3,14 @@ import { Button, Card, Drawer, Input, Space, Tag, Typography } from 'antd';
 import { ProColumns, PageContainer, ProTable } from '@ant-design/pro-components';
 import { FileSearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
-import {
-  listGeneratedPages,
-  listResourceOperations,
-  listResources,
-} from '@/services/api/resources';
-import type { GeneratedPageSpec, OperationSpec, ResourceSpec } from '@/types/dashboard';
+import { listResourceOperations, listResources } from '@/services/api/resources';
+import type { OperationSpec, ResourceSpec } from '@/types/dashboard';
 
 function localizedText(text: Record<string, string> | undefined, fallback: string): string {
   if (!text) return fallback;
-  return text['zh-CN'] || text['en-US'] || Object.values(text).find((value) => value.trim()) || fallback;
+  return (
+    text['zh-CN'] || text['en-US'] || Object.values(text).find((value) => value.trim()) || fallback
+  );
 }
 
 function riskColor(risk?: string) {
@@ -20,13 +18,6 @@ function riskColor(risk?: string) {
   if (risk === 'high') return 'volcano';
   if (risk === 'warning') return 'orange';
   return 'green';
-}
-
-function qualityColor(quality: GeneratedPageSpec['quality']) {
-  if (quality === 'ready') return 'green';
-  if (quality === 'basic') return 'blue';
-  if (quality === 'needs_review') return 'orange';
-  return 'red';
 }
 
 export default function ResourcesPage() {
@@ -37,7 +28,6 @@ export default function ResourcesPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedResource, setSelectedResource] = useState<ResourceSpec | null>(null);
   const [operations, setOperations] = useState<OperationSpec[]>([]);
-  const [generatedPages, setGeneratedPages] = useState<GeneratedPageSpec[]>([]);
 
   const loadResources = useCallback(async () => {
     setLoading(true);
@@ -57,12 +47,8 @@ export default function ResourcesPage() {
     setDrawerOpen(true);
     setDetailLoading(true);
     try {
-      const [nextOperations, nextPages] = await Promise.all([
-        listResourceOperations(resource.key),
-        listGeneratedPages(resource.key),
-      ]);
+      const nextOperations = await listResourceOperations(resource.key);
       setOperations(nextOperations);
-      setGeneratedPages(nextPages);
     } finally {
       setDetailLoading(false);
     }
@@ -91,7 +77,9 @@ export default function ResourcesPage() {
       width: 180,
       render: (_, record) => (
         <Space>
-          <Tag color="blue">{localizedText(record.category?.labels, record.category?.key || '-')}</Tag>
+          <Tag color="blue">
+            {localizedText(record.category?.labels, record.category?.key || '-')}
+          </Tag>
           <Typography.Text code>{record.category?.key}</Typography.Text>
         </Space>
       ),
@@ -180,7 +168,11 @@ export default function ResourcesPage() {
       </Space>
 
       <Drawer
-        title={selectedResource ? localizedText(selectedResource.labels, selectedResource.key) : '资源详情'}
+        title={
+          selectedResource
+            ? localizedText(selectedResource.labels, selectedResource.key)
+            : '资源详情'
+        }
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         width={760}
@@ -203,9 +195,7 @@ export default function ResourcesPage() {
                 <Card key={operation.functionId} size="small">
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Space wrap>
-                      <Typography.Text strong>
-                        {operation.operation}
-                      </Typography.Text>
+                      <Typography.Text strong>{operation.operation}</Typography.Text>
                       <Tag color={riskColor(operation.risk)}>{operation.risk || 'safe'}</Tag>
                       {operation.permission && <Tag>{operation.permission}</Tag>}
                       {!operation.enabled && <Tag color="default">disabled</Tag>}
@@ -214,32 +204,29 @@ export default function ResourcesPage() {
                   </Space>
                 </Card>
               ))}
-              {operations.length === 0 && <Typography.Text type="secondary">暂无操作</Typography.Text>}
+              {operations.length === 0 && (
+                <Typography.Text type="secondary">暂无操作</Typography.Text>
+              )}
             </Space>
           </Card>
 
-          <Card size="small" title="默认页面候选" loading={detailLoading}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              {generatedPages.map((page) => (
-                <Card key={page.pageKey} size="small">
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                    <Space wrap>
-                      <Typography.Text strong>{localizedText(page.title, page.pageKey)}</Typography.Text>
-                      <Typography.Text code>{page.pageKey}</Typography.Text>
-                      <Tag>{page.type}</Tag>
-                      <Tag color={qualityColor(page.quality)}>{page.quality}</Tag>
-                    </Space>
-                    {(page.diagnostics || []).map((diagnostic) => (
-                      <Typography.Text key={`${diagnostic.code}:${diagnostic.field || ''}`} type="secondary">
-                        {`${diagnostic.severity}: ${diagnostic.message}`}
-                      </Typography.Text>
-                    ))}
-                  </Space>
-                </Card>
-              ))}
-              {generatedPages.length === 0 && (
-                <Typography.Text type="secondary">暂无默认页面候选</Typography.Text>
-              )}
+          <Card size="small" title="默认页面 Proposal">
+            <Space direction="vertical" size={8}>
+              <Typography.Text type="secondary">
+                默认页面由 FunctionContract 与 Resource Catalog 语义生成
+                PageProposal；资源页不再临时生成页面候选。
+              </Typography.Text>
+              <Button
+                type="primary"
+                onClick={() =>
+                  selectedResource &&
+                  history.push(
+                    `/system/functions/proposals?resourceKey=${encodeURIComponent(selectedResource.key)}`,
+                  )
+                }
+              >
+                打开 Proposal 队列
+              </Button>
             </Space>
           </Card>
         </Space>
