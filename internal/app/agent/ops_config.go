@@ -83,10 +83,19 @@ func DefaultOpsConfig() *OpsConfig {
 }
 
 // Validate validates the ops configuration.
+//
+// MetricsInterval limits:
+//   - Minimum (3s): Prevents excessive CPU/memory usage from frequent collection.
+//     Each collection involves reading /proc, calculating averages, and serializing data.
+//     Below 3s, the overhead becomes significant relative to the monitoring benefit.
+//   - Maximum (24h): Ensures system metrics remain reasonably current for operational
+//     visibility. Beyond 24h, metrics become stale and useless for troubleshooting.
+//     For production environments, 30-60s is recommended; for development, 5-10m is fine.
 func (c *OpsConfig) Validate() error {
 	// MetricsInterval minimum is 3 seconds to prevent excessive resource usage
 	const minMetricsInterval = 3 * time.Second
-	const maxMetricsInterval = 10 * time.Hour
+	// MetricsInterval maximum is 24 hours to ensure metrics remain useful
+	const maxMetricsInterval = 24 * time.Hour
 
 	if c.MetricsInterval < minMetricsInterval {
 		c.MetricsInterval = minMetricsInterval
