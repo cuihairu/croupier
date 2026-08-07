@@ -87,7 +87,10 @@ export interface BindingExecutionContext {
 }
 
 /** 页面执行函数签名 - 所有渲染器统一使用 */
-export type PageExecuteFn = (bindingId: string, context: BindingExecutionContext) => Promise<PageExecutionResult>;
+export type PageExecuteFn = (
+  bindingId: string,
+  context: BindingExecutionContext,
+) => Promise<PageExecutionResult>;
 
 /** 任务状态查询结果 */
 export interface TaskStatusResult {
@@ -1064,7 +1067,12 @@ export interface ProposalInbox {
 // ---------------------------------------------------------------------------
 
 /** 变更类型 */
-export type ChangeType = 'function_update' | 'semantic_update' | 'proposal_update' | 'draft_update' | 'publish';
+export type ChangeType =
+  | 'function_update'
+  | 'semantic_update'
+  | 'proposal_update'
+  | 'draft_update'
+  | 'publish';
 
 /** 变更项 */
 export interface ChangeItem {
@@ -1106,6 +1114,7 @@ export interface ConflictResolution {
 /** 合并请求 */
 export interface MergeRequest {
   strategy: MergeStrategy;
+  dryRun?: boolean;
   conflicts?: ConflictResolution[];
   reason?: string;
 }

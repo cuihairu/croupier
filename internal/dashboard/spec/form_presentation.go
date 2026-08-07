@@ -69,6 +69,9 @@ type FormFieldSpec struct {
 	// Visible controls field visibility
 	Visible *bool `json:"visible,omitempty"`
 
+	// VisibleWhen controls field visibility from form/page state only.
+	VisibleWhen *ConditionSpec `json:"visibleWhen,omitempty"`
+
 	// Disabled controls if field is disabled
 	Disabled *bool `json:"disabled,omitempty"`
 
@@ -138,6 +141,15 @@ type ValidationRule struct {
 	Type    string          `json:"type"` // required|min|max|pattern|custom
 	Value   json.RawMessage `json:"value,omitempty"`
 	Message LocalizedText   `json:"message"`
+}
+
+// ConditionSpec is a restricted expression for presentation visibility. It
+// cannot read row/detail data or invoke functions.
+type ConditionSpec struct {
+	Kind       string          `json:"kind"` // equals|notEquals|exists|all|any
+	Path       string          `json:"path,omitempty"`
+	Value      json.RawMessage `json:"value,omitempty"`
+	Conditions []ConditionSpec `json:"conditions,omitempty"`
 }
 
 // FormButtonSpec defines a form button.

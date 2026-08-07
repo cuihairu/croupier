@@ -217,8 +217,10 @@ type DiffRequest struct {
 
 // DiffResponse represents the diff between two versions.
 type DiffResponse struct {
-	Changes []FieldChange `json:"changes"`
-	Summary string        `json:"summary"`
+	Changes        []FieldChange                  `json:"changes"`
+	Summary        string                         `json:"summary"`
+	AutoMergeItems []dashboardmerge.MergeItem     `json:"autoMergeItems,omitempty"`
+	ConflictItems  []dashboardmerge.MergeConflict `json:"conflictItems,omitempty"`
 }
 
 // FieldChange represents a single field change.
@@ -245,6 +247,7 @@ func (s *Service) Diff(ctx context.Context, req *DiffRequest) (*DiffResponse, er
 
 	// Get proposal to compare against
 	proposal, _ := s.proposalForPage(ctx, req.GameID, req.Env, page)
+	mergeResult, _ := s.mergePreviewForPage(ctx, req.GameID, req.Env, pageKey, page, proposal)
 
 	var changes []FieldChange
 
@@ -313,9 +316,48 @@ func (s *Service) Diff(ctx context.Context, req *DiffRequest) (*DiffResponse, er
 	changes = append(changes, s.bindingContractChanges(ctx, req.GameID, req.Env, pageKey, pageSpec)...)
 
 	return &DiffResponse{
-		Changes: changes,
-		Summary: fmt.Sprintf("found %d changes", len(changes)),
+		Changes:        changes,
+		Summary:        diffSummary(len(changes), len(mergeResult.AutoMerge), len(mergeResult.Conflicts)),
+		AutoMergeItems: mergeResult.AutoMerge,
+		ConflictItems:  mergeResult.Conflicts,
 	}, nil
+}
+
+func (s *Service) mergePreviewForPage(
+	ctx context.Context,
+	gameID string,
+	env string,
+	pageKey string,
+	page *model.PageSpec,
+	proposal *model.PageProposal,
+) (dashboardmerge.MergeResult, error) {
+	if page == nil {
+		return dashboardmerge.MergeResult{}, errorx.NewNotFound("page draft not found")
+	}
+	proposalKey := strings.TrimSpace(page.BaseProposalKey)
+	if proposalKey == "" || page.BaseProposalVersion <= 0 || proposal == nil {
+		return dashboardmerge.MergeResult{}, nil
+	}
+	if strings.TrimSpace(proposal.PageKey) != strings.TrimSpace(pageKey) {
+		return dashboardmerge.MergeResult{}, nil
+	}
+	baseVersion, err := s.proposalVersionModel.FindByProposalIDAndVersion(ctx, proposal.ID, page.BaseProposalVersion)
+	if err != nil {
+		return dashboardmerge.MergeResult{}, nil
+	}
+	basePage, err := pageSpecFromProposalSnapshot(json.RawMessage(baseVersion.Proposal))
+	if err != nil {
+		return dashboardmerge.MergeResult{}, err
+	}
+	draftPage, err := pageSpecFromModel(page)
+	if err != nil {
+		return dashboardmerge.MergeResult{}, err
+	}
+	latestPage, err := pageSpecFromProposalModel(proposal)
+	if err != nil {
+		return dashboardmerge.MergeResult{}, err
+	}
+	return dashboardmerge.ThreeWayMerge(basePage, draftPage, latestPage), nil
 }
 
 // MergeStrategy represents how to handle conflicts.
@@ -334,6 +376,7 @@ type MergeRequest struct {
 	Env       string               `json:"-"`
 	PageKey   string               `json:"-"`
 	Strategy  MergeStrategy        `json:"strategy"`
+	DryRun    bool                 `json:"dryRun,omitempty"`
 	Conflicts []ConflictResolution `json:"conflicts,omitempty"`
 	Reason    string               `json:"reason,omitempty"`
 }
@@ -373,9 +416,6 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 	if req.Strategy == MergeStrategyAccept {
 		return nil, errorx.NewValidationError("accept-all merge is forbidden; resolve execution-affecting conflicts explicitly")
 	}
-	if req.Strategy == MergeStrategyManual {
-		return nil, errorx.NewNotImplemented("manual conflict resolution is not wired yet; edit the PageSpec draft and publish")
-	}
 
 	page, err := s.pageModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
 	if err != nil {
@@ -414,7 +454,74 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 	}
 
 	mergeResult := dashboardmerge.ThreeWayMerge(basePage, draftPage, latestPage)
+	if req.DryRun {
+		return &MergeResponse{
+			Merged:         len(mergeResult.AutoMerge),
+			Conflicts:      len(mergeResult.Conflicts),
+			Message:        mergePreviewMessage(len(mergeResult.AutoMerge), len(mergeResult.Conflicts), latestVersion.Version != page.BaseProposalVersion),
+			DraftRevision:  page.DraftRevision,
+			AutoMergeItems: mergeResult.AutoMerge,
+			ConflictItems:  mergeResult.Conflicts,
+		}, nil
+	}
+	if req.Strategy == MergeStrategyManual {
+		resolutions, err := validateManualConflictResolutions(mergeResult.Conflicts, req.Conflicts)
+		if err != nil {
+			return nil, err
+		}
+		mergedPage, err := applyAutoMergeItems(draftPage, mergeResult.AutoMerge)
+		if err != nil {
+			return nil, err
+		}
+		mergedPage, err = applyConflictResolutions(mergedPage, mergeResult.Conflicts, resolutions)
+		if err != nil {
+			return nil, err
+		}
+		nextRevision, err := s.persistMergedDraft(ctx, persistMergedDraftParams{
+			Request:             req,
+			PageKey:             pageKey,
+			Current:             page,
+			MergedPage:          mergedPage,
+			ProposalKey:         proposalKey,
+			NextBaseProposalVer: latestVersion.Version,
+			Message:             firstNonEmpty(req.Reason, "resolved merge conflicts against latest proposal"),
+			ForceRevision:       true,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &MergeResponse{
+			Merged:         len(mergeResult.AutoMerge) + len(mergeResult.Conflicts),
+			Conflicts:      0,
+			Message:        manualMergeMessage(len(mergeResult.AutoMerge), len(mergeResult.Conflicts)),
+			DraftRevision:  nextRevision,
+			AutoMergeItems: mergeResult.AutoMerge,
+		}, nil
+	}
 	if len(mergeResult.AutoMerge) == 0 {
+		if len(mergeResult.Conflicts) == 0 && latestVersion.Version != page.BaseProposalVersion {
+			nextRevision, err := s.persistMergedDraft(ctx, persistMergedDraftParams{
+				Request:             req,
+				PageKey:             pageKey,
+				Current:             page,
+				MergedPage:          draftPage,
+				ProposalKey:         proposalKey,
+				NextBaseProposalVer: latestVersion.Version,
+				Message:             firstNonEmpty(req.Reason, "accepted latest proposal snapshot without page content changes"),
+				ForceRevision:       true,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return &MergeResponse{
+				Merged:         0,
+				Conflicts:      0,
+				Message:        "accepted latest proposal snapshot without page content changes",
+				DraftRevision:  nextRevision,
+				AutoMergeItems: mergeResult.AutoMerge,
+				ConflictItems:  mergeResult.Conflicts,
+			}, nil
+		}
 		return &MergeResponse{
 			Merged:         0,
 			Conflicts:      len(mergeResult.Conflicts),
@@ -429,7 +536,7 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 	if err != nil {
 		return nil, err
 	}
-	if samePageSpec(mergedPage, draftPage) {
+	if samePageSpec(mergedPage, draftPage) && len(mergeResult.Conflicts) > 0 {
 		return &MergeResponse{
 			Merged:         len(mergeResult.AutoMerge),
 			Conflicts:      len(mergeResult.Conflicts),
@@ -439,54 +546,19 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 			ConflictItems:  mergeResult.Conflicts,
 		}, nil
 	}
-	actor := actorFromContext(ctx)
-	now := time.Now()
-	var nextRevision int
-	err = s.withTransaction(ctx, func(txCtx context.Context) error {
-		pageModel := model.NewPageSpecModel(dbctx.Resolve(txCtx, s.db))
-		versionModel := model.NewPageVersionModel(dbctx.Resolve(txCtx, s.db))
-		current, err := pageModel.FindByScopeAndPageKey(txCtx, req.GameID, req.Env, pageKey)
-		if err != nil {
-			return err
-		}
-		nextRevision, err = versionModel.GetNextVersion(txCtx, req.GameID, req.Env, pageKey)
-		if err != nil {
-			return err
-		}
-		if err := applyPageSpecToModel(current, mergedPage); err != nil {
-			return err
-		}
-		current.GameID = req.GameID
-		current.Env = req.Env
-		current.Status = "draft"
-		current.PublishedActive = page.PublishedActive
-		current.PublishedVersion = page.PublishedVersion
-		current.DraftRevision = nextRevision
-		current.BaseProposalKey = proposalKey
-		current.BaseProposalVersion = page.BaseProposalVersion
-		if len(mergeResult.Conflicts) == 0 {
-			current.BaseProposalVersion = latestVersion.Version
-		}
-		current.UpdatedAt = now
-		current.UpdatedBy = actor
-		specJSON, err := marshalPageSpec(mergedPage)
-		if err != nil {
-			return err
-		}
-		if err := pageModel.Upsert(txCtx, current); err != nil {
-			return err
-		}
-		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
-			GameID:    req.GameID,
-			Env:       req.Env,
-			PageKey:   pageKey,
-			Version:   nextRevision,
-			SpecJSON:  specJSON,
-			Status:    "draft",
-			Message:   firstNonEmpty(req.Reason, "auto-merge safe display changes from latest proposal"),
-			CreatedBy: actor,
-			CreatedAt: now,
-		})
+	nextBaseProposalVer := page.BaseProposalVersion
+	if len(mergeResult.Conflicts) == 0 {
+		nextBaseProposalVer = latestVersion.Version
+	}
+	nextRevision, err := s.persistMergedDraft(ctx, persistMergedDraftParams{
+		Request:             req,
+		PageKey:             pageKey,
+		Current:             page,
+		MergedPage:          mergedPage,
+		ProposalKey:         proposalKey,
+		NextBaseProposalVer: nextBaseProposalVer,
+		Message:             firstNonEmpty(req.Reason, "auto-merge safe display changes from latest proposal"),
+		ForceRevision:       !samePageSpec(mergedPage, draftPage) || len(mergeResult.Conflicts) == 0,
 	})
 	if err != nil {
 		return nil, err
@@ -717,6 +789,94 @@ func applyAutoMergeItem(page *spec.PageSpec, item dashboardmerge.MergeItem) erro
 	return errorx.NewValidationError("unsupported auto-merge field: " + item.Field)
 }
 
+type persistMergedDraftParams struct {
+	Request             *MergeRequest
+	PageKey             string
+	Current             *model.PageSpec
+	MergedPage          spec.PageSpec
+	ProposalKey         string
+	NextBaseProposalVer int
+	Message             string
+	ForceRevision       bool
+}
+
+func (s *Service) persistMergedDraft(ctx context.Context, params persistMergedDraftParams) (int, error) {
+	if params.Request == nil {
+		return 0, errorx.NewValidationError("merge request is required")
+	}
+	current := params.Current
+	if current == nil {
+		return 0, errorx.NewNotFound("page draft not found")
+	}
+	mergedPage := normalizePageSpec(params.MergedPage)
+	writeRevision := params.ForceRevision || !samePageSpec(mergedPage, mustPageSpecFromModel(current))
+	if !writeRevision &&
+		strings.TrimSpace(current.BaseProposalKey) == strings.TrimSpace(params.ProposalKey) &&
+		current.BaseProposalVersion == params.NextBaseProposalVer {
+		return current.DraftRevision, nil
+	}
+
+	actor := actorFromContext(ctx)
+	now := time.Now()
+	nextRevision := current.DraftRevision
+
+	err := s.withTransaction(ctx, func(txCtx context.Context) error {
+		pageModel := model.NewPageSpecModel(dbctx.Resolve(txCtx, s.db))
+		versionModel := model.NewPageVersionModel(dbctx.Resolve(txCtx, s.db))
+
+		latestCurrent, err := pageModel.FindByScopeAndPageKey(txCtx, params.Request.GameID, params.Request.Env, params.PageKey)
+		if err != nil {
+			return err
+		}
+		if writeRevision {
+			nextRevision, err = versionModel.GetNextVersion(txCtx, params.Request.GameID, params.Request.Env, params.PageKey)
+			if err != nil {
+				return err
+			}
+		}
+		if err := applyPageSpecToModel(latestCurrent, mergedPage); err != nil {
+			return err
+		}
+		latestCurrent.GameID = params.Request.GameID
+		latestCurrent.Env = params.Request.Env
+		latestCurrent.Status = "draft"
+		latestCurrent.PublishedActive = current.PublishedActive
+		latestCurrent.PublishedVersion = current.PublishedVersion
+		if writeRevision {
+			latestCurrent.DraftRevision = nextRevision
+		}
+		latestCurrent.BaseProposalKey = params.ProposalKey
+		latestCurrent.BaseProposalVersion = params.NextBaseProposalVer
+		latestCurrent.UpdatedAt = now
+		latestCurrent.UpdatedBy = actor
+		if err := pageModel.Upsert(txCtx, latestCurrent); err != nil {
+			return err
+		}
+		if !writeRevision {
+			return nil
+		}
+		specJSON, err := marshalPageSpec(mergedPage)
+		if err != nil {
+			return err
+		}
+		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
+			GameID:    params.Request.GameID,
+			Env:       params.Request.Env,
+			PageKey:   params.PageKey,
+			Version:   nextRevision,
+			SpecJSON:  specJSON,
+			Status:    "draft",
+			Message:   params.Message,
+			CreatedBy: actor,
+			CreatedAt: now,
+		})
+	})
+	if err != nil {
+		return 0, err
+	}
+	return nextRevision, nil
+}
+
 func applyIndexedAutoMergeItem(page *spec.PageSpec, item dashboardmerge.MergeItem) (bool, error) {
 	if ok, index, leaf := parseIndexedMergeField(item.Field, "resource.listView.columns"); ok {
 		if page.Resource == nil || page.Resource.ListView == nil || index < 0 || index >= len(page.Resource.ListView.Columns) {
@@ -828,6 +988,418 @@ func decodeMergeValue(item dashboardmerge.MergeItem, target interface{}) error {
 	return nil
 }
 
+func validateManualConflictResolutions(
+	conflicts []dashboardmerge.MergeConflict,
+	resolutions []ConflictResolution,
+) (map[string]ConflictResolution, error) {
+	expected := make(map[string]dashboardmerge.MergeConflict, len(conflicts))
+	for _, conflict := range conflicts {
+		expected[conflict.Field] = conflict
+	}
+	if len(expected) == 0 {
+		if len(resolutions) > 0 {
+			return nil, errorx.NewValidationError("manual merge received conflict resolutions, but the latest proposal has no conflicts")
+		}
+		return map[string]ConflictResolution{}, nil
+	}
+
+	byField := make(map[string]ConflictResolution, len(resolutions))
+	extras := make([]string, 0)
+	for _, resolution := range resolutions {
+		field := strings.TrimSpace(resolution.Path)
+		if field == "" {
+			return nil, errorx.NewValidationError("manual merge conflict path is required")
+		}
+		if _, exists := byField[field]; exists {
+			return nil, errorx.NewValidationError("manual merge conflict path duplicated: " + field)
+		}
+		if _, ok := expected[field]; !ok {
+			extras = append(extras, field)
+			continue
+		}
+		resolution.Path = field
+		byField[field] = resolution
+	}
+
+	missing := make([]string, 0)
+	for field := range expected {
+		if _, ok := byField[field]; !ok {
+			missing = append(missing, field)
+		}
+	}
+	sort.Strings(missing)
+	sort.Strings(extras)
+	if len(missing) > 0 || len(extras) > 0 {
+		parts := make([]string, 0, 2)
+		if len(missing) > 0 {
+			parts = append(parts, "missing resolutions for: "+strings.Join(missing, ", "))
+		}
+		if len(extras) > 0 {
+			parts = append(parts, "unexpected resolutions for: "+strings.Join(extras, ", "))
+		}
+		return nil, errorx.NewValidationError("manual merge must resolve exactly the current conflicts; " + strings.Join(parts, "; "))
+	}
+	return byField, nil
+}
+
+func applyConflictResolutions(
+	page spec.PageSpec,
+	conflicts []dashboardmerge.MergeConflict,
+	resolutions map[string]ConflictResolution,
+) (spec.PageSpec, error) {
+	page = normalizePageSpec(page)
+	for _, conflict := range conflicts {
+		resolution, ok := resolutions[conflict.Field]
+		if !ok {
+			return spec.PageSpec{}, errorx.NewValidationError("missing conflict resolution for: " + conflict.Field)
+		}
+		raw := resolveConflictRawValue(conflict, resolution)
+		if err := applyConflictField(&page, conflict.Field, raw); err != nil {
+			return spec.PageSpec{}, err
+		}
+	}
+	return page, nil
+}
+
+func resolveConflictRawValue(
+	conflict dashboardmerge.MergeConflict,
+	resolution ConflictResolution,
+) json.RawMessage {
+	if len(resolution.Value) > 0 {
+		return cloneRawJSON(resolution.Value)
+	}
+	if resolution.AcceptNew {
+		return cloneRawJSON(conflict.LatestValue)
+	}
+	return cloneRawJSON(conflict.DraftValue)
+}
+
+func applyConflictField(page *spec.PageSpec, field string, raw json.RawMessage) error {
+	switch field {
+	case "type":
+		return decodeRawJSONField(raw, field, &page.Type)
+	case "resourceKey":
+		return decodeRawJSONField(raw, field, &page.ResourceKey)
+	case "category.key":
+		return decodeRawJSONField(raw, field, &page.Category.Key)
+	case "bindings":
+		var bindings []spec.PageFunctionBinding
+		if err := decodeRawJSONField(raw, field, &bindings); err != nil {
+			return err
+		}
+		page.Bindings = bindings
+		return nil
+	case "resource.listView.identityKey":
+		listView := ensureResourceListView(page)
+		return decodeRawJSONField(raw, field, &listView.IdentityKey)
+	case "resource.listView.rowSchema":
+		listView := ensureResourceListView(page)
+		listView.RowSchema = cloneJSONSchema(raw)
+		return nil
+	case "resource.listView.defaultSort":
+		var value *spec.SortSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureResourceListView(page).DefaultSort = value
+		return nil
+	case "resource.listView.filters":
+		var value []spec.FilterSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureResourceListView(page).Filters = value
+		return nil
+	case "resource.listView.pagination":
+		var value *spec.PaginationSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureResourceListView(page).Pagination = value
+		return nil
+	case "resource.listView.rowActions":
+		listView := ensureResourceListView(page)
+		return decodeActionListField(raw, field, &listView.RowActions)
+	case "resource.listView.batchActions":
+		listView := ensureResourceListView(page)
+		return decodeActionListField(raw, field, &listView.BatchActions)
+	case "resource.listView.toolbarActions":
+		listView := ensureResourceListView(page)
+		return decodeActionListField(raw, field, &listView.ToolbarActions)
+	case "resource.detailView.actions":
+		detailView := ensureResourceDetailView(page)
+		return decodeActionListField(raw, field, &detailView.Actions)
+	case "resource.actions":
+		resource := ensureResourcePage(page)
+		return decodeActionListField(raw, field, &resource.Actions)
+	case "resource.createForm":
+		var value *spec.FormPresentationSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureResourcePage(page).CreateForm = value
+		return nil
+	case "resource.updateForm":
+		var value *spec.FormPresentationSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureResourcePage(page).UpdateForm = value
+		return nil
+	case "resource.deleteAction":
+		var value *spec.ConfirmActionSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureResourcePage(page).DeleteAction = value
+		return nil
+	case "operation.form.jsonSchema":
+		ensureOperationForm(page).JSONSchema = cloneJSONSchema(raw)
+		return nil
+	case "operation.confirm":
+		var value *spec.ConfirmActionSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureOperationPage(page).Confirm = value
+		return nil
+	case "operation.resultView":
+		var value *spec.ResultViewSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureOperationPage(page).ResultView = value
+		return nil
+	case "task.form.jsonSchema":
+		ensureTaskForm(page).JSONSchema = cloneJSONSchema(raw)
+		return nil
+	case "task.taskView":
+		var value *spec.TaskViewSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureTaskPage(page).TaskView = value
+		return nil
+	case "task.resultView":
+		var value *spec.ResultViewSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureTaskPage(page).ResultView = value
+		return nil
+	case "report.queryForm.jsonSchema":
+		ensureReportQueryForm(page).JSONSchema = cloneJSONSchema(raw)
+		return nil
+	case "report.dataset":
+		var value *spec.DatasetSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureReportPage(page).Dataset = value
+		return nil
+	case "report.table":
+		var value *spec.ListViewSpec
+		if err := decodeRawJSONField(raw, field, &value); err != nil {
+			return err
+		}
+		ensureReportPage(page).Table = value
+		return nil
+	}
+	if handled, err := applyIndexedConflictField(page, field, raw); handled || err != nil {
+		return err
+	}
+	return errorx.NewValidationError("unsupported manual merge field: " + field)
+}
+
+func applyIndexedConflictField(page *spec.PageSpec, field string, raw json.RawMessage) (bool, error) {
+	if ok, index, leaf := parseIndexedMergeField(field, "operation.form.fields"); ok {
+		form := ensureOperationForm(page)
+		if index < 0 || index >= len(form.Fields) {
+			return true, errorx.NewValidationError("manual merge field is out of range: " + field)
+		}
+		return true, applyFormFieldConflictValue(&form.Fields[index], leaf, raw, field)
+	}
+	if ok, index, leaf := parseIndexedMergeField(field, "task.form.fields"); ok {
+		form := ensureTaskForm(page)
+		if index < 0 || index >= len(form.Fields) {
+			return true, errorx.NewValidationError("manual merge field is out of range: " + field)
+		}
+		return true, applyFormFieldConflictValue(&form.Fields[index], leaf, raw, field)
+	}
+	if ok, index, leaf := parseIndexedMergeField(field, "report.queryForm.fields"); ok {
+		form := ensureReportQueryForm(page)
+		if index < 0 || index >= len(form.Fields) {
+			return true, errorx.NewValidationError("manual merge field is out of range: " + field)
+		}
+		return true, applyFormFieldConflictValue(&form.Fields[index], leaf, raw, field)
+	}
+	return false, nil
+}
+
+func applyFormFieldConflictValue(
+	field *spec.FormFieldSpec,
+	leaf string,
+	raw json.RawMessage,
+	fullField string,
+) error {
+	switch leaf {
+	case "key":
+		return decodeRawJSONField(raw, fullField, &field.Key)
+	case "visibleWhen":
+		var value *spec.ConditionSpec
+		if err := decodeRawJSONField(raw, fullField, &value); err != nil {
+			return err
+		}
+		field.VisibleWhen = value
+		return nil
+	case "required":
+		var value *bool
+		if err := decodeRawJSONField(raw, fullField, &value); err != nil {
+			return err
+		}
+		field.Required = value
+		return nil
+	case "defaultValue":
+		field.DefaultValue = cloneRawJSON(raw)
+		return nil
+	case "disabled":
+		var value *bool
+		if err := decodeRawJSONField(raw, fullField, &value); err != nil {
+			return err
+		}
+		field.Disabled = value
+		return nil
+	case "widgetProps":
+		var value map[string]json.RawMessage
+		if err := decodeRawJSONField(raw, fullField, &value); err != nil {
+			return err
+		}
+		field.WidgetProps = value
+		return nil
+	case "validationRules":
+		var value []spec.ValidationRule
+		if err := decodeRawJSONField(raw, fullField, &value); err != nil {
+			return err
+		}
+		field.ValidationRules = value
+		return nil
+	default:
+		return errorx.NewValidationError("unsupported manual merge form field: " + fullField)
+	}
+}
+
+func decodeActionListField(raw json.RawMessage, field string, target *[]spec.ActionSpec) error {
+	var value []spec.ActionSpec
+	if err := decodeRawJSONField(raw, field, &value); err != nil {
+		return err
+	}
+	*target = value
+	return nil
+}
+
+func decodeRawJSONField(raw json.RawMessage, field string, target interface{}) error {
+	if len(raw) == 0 {
+		raw = json.RawMessage("null")
+	}
+	if err := json.Unmarshal(raw, target); err != nil {
+		return fmt.Errorf("decode manual merge field %s: %w", field, err)
+	}
+	return nil
+}
+
+func cloneRawJSON(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make([]byte, len(raw))
+	copy(out, raw)
+	return out
+}
+
+func cloneJSONSchema(raw json.RawMessage) spec.JSONSchema {
+	if len(raw) == 0 {
+		return nil
+	}
+	cloned := cloneRawJSON(raw)
+	return spec.JSONSchema(cloned)
+}
+
+func ensureResourcePage(page *spec.PageSpec) *spec.ResourcePageSpec {
+	if page.Resource == nil {
+		page.Resource = &spec.ResourcePageSpec{}
+	}
+	return page.Resource
+}
+
+func ensureResourceListView(page *spec.PageSpec) *spec.ListViewSpec {
+	resource := ensureResourcePage(page)
+	if resource.ListView == nil {
+		resource.ListView = &spec.ListViewSpec{}
+	}
+	return resource.ListView
+}
+
+func ensureResourceDetailView(page *spec.PageSpec) *spec.DetailViewSpec {
+	resource := ensureResourcePage(page)
+	if resource.DetailView == nil {
+		resource.DetailView = &spec.DetailViewSpec{}
+	}
+	return resource.DetailView
+}
+
+func ensureOperationPage(page *spec.PageSpec) *spec.OperationPageSpec {
+	if page.Operation == nil {
+		page.Operation = &spec.OperationPageSpec{}
+	}
+	return page.Operation
+}
+
+func ensureOperationForm(page *spec.PageSpec) *spec.FormPresentationSpec {
+	operation := ensureOperationPage(page)
+	if operation.Form == nil {
+		operation.Form = &spec.FormPresentationSpec{}
+	}
+	return operation.Form
+}
+
+func ensureTaskPage(page *spec.PageSpec) *spec.TaskPageSpec {
+	if page.Task == nil {
+		page.Task = &spec.TaskPageSpec{}
+	}
+	return page.Task
+}
+
+func ensureTaskForm(page *spec.PageSpec) *spec.FormPresentationSpec {
+	task := ensureTaskPage(page)
+	if task.Form == nil {
+		task.Form = &spec.FormPresentationSpec{}
+	}
+	return task.Form
+}
+
+func ensureReportPage(page *spec.PageSpec) *spec.ReportPageSpec {
+	if page.Report == nil {
+		page.Report = &spec.ReportPageSpec{}
+	}
+	return page.Report
+}
+
+func ensureReportQueryForm(page *spec.PageSpec) *spec.FormPresentationSpec {
+	report := ensureReportPage(page)
+	if report.QueryForm == nil {
+		report.QueryForm = &spec.FormPresentationSpec{}
+	}
+	return report.QueryForm
+}
+
+func mustPageSpecFromModel(page *model.PageSpec) spec.PageSpec {
+	pageSpec, err := pageSpecFromModel(page)
+	if err != nil {
+		return spec.PageSpec{}
+	}
+	return pageSpec
+}
+
 func mergeMessage(merged int, conflicts int, changed bool) string {
 	if merged == 0 && conflicts == 0 {
 		return "no contract changes require merge"
@@ -839,6 +1411,41 @@ func mergeMessage(merged int, conflicts int, changed bool) string {
 		return fmt.Sprintf("auto-merged %d safe changes; %d conflicts still require manual review", merged, conflicts)
 	}
 	return fmt.Sprintf("auto-merged %d safe changes", merged)
+}
+
+func diffSummary(changes int, autoMergeItems int, conflicts int) string {
+	if changes == 0 && autoMergeItems == 0 && conflicts == 0 {
+		return "found no changes"
+	}
+	return fmt.Sprintf(
+		"found %d changes, %d safe merge items, %d conflicts",
+		changes,
+		autoMergeItems,
+		conflicts,
+	)
+}
+
+func manualMergeMessage(autoMerged int, resolved int) string {
+	if autoMerged == 0 && resolved == 0 {
+		return "accepted latest proposal snapshot"
+	}
+	if autoMerged == 0 {
+		return fmt.Sprintf("resolved %d conflicts against the latest proposal", resolved)
+	}
+	return fmt.Sprintf("auto-merged %d safe changes and resolved %d conflicts", autoMerged, resolved)
+}
+
+func mergePreviewMessage(autoMerged int, conflicts int, proposalAdvanced bool) string {
+	if autoMerged == 0 && conflicts == 0 {
+		if proposalAdvanced {
+			return "latest proposal snapshot can be accepted without page content changes"
+		}
+		return "no contract changes require merge"
+	}
+	if conflicts > 0 {
+		return fmt.Sprintf("preview: %d safe changes can be auto-merged, %d conflicts require manual resolution", autoMerged, conflicts)
+	}
+	return fmt.Sprintf("preview: %d safe changes can be auto-merged", autoMerged)
 }
 
 func samePageSpec(left spec.PageSpec, right spec.PageSpec) bool {

@@ -62,6 +62,94 @@ func createVersioningTestPage(db *gorm.DB, gameID, env string, page spec.PageSpe
 	return model.NewPageSpecModel(db).Upsert(context.Background(), modelPage)
 }
 
+func createVersioningTestPageVersion(
+	db *gorm.DB,
+	gameID, env string,
+	page spec.PageSpec,
+	version int,
+	message string,
+) error {
+	raw, err := marshalPageSpec(page)
+	if err != nil {
+		return err
+	}
+	return model.NewPageVersionModel(db).UpsertByScopePageKeyVersion(context.Background(), &model.PageVersion{
+		GameID:    gameID,
+		Env:       env,
+		PageKey:   page.PageKey,
+		Version:   version,
+		SpecJSON:  raw,
+		Status:    "draft",
+		Message:   message,
+		CreatedBy: "tester",
+		CreatedAt: time.Now(),
+	})
+}
+
+func seedVersioningMergeFixture(
+	t *testing.T,
+	db *gorm.DB,
+	basePage spec.PageSpec,
+	draftPage spec.PageSpec,
+	latestPage spec.PageSpec,
+) {
+	t.Helper()
+
+	ctx := context.Background()
+	proposalModel := model.NewPageProposalModel(db)
+	proposalVersionModel := model.NewPageProposalVersionModel(db)
+	pageModel := model.NewPageSpecModel(db)
+
+	proposalKey := proposalKeyForPage(basePage.Type, basePage.Bindings[0].FunctionID)
+	proposal := &model.PageProposal{
+		GameID:           "demo-game",
+		Env:              "development",
+		ProposalKey:      proposalKey,
+		PageKey:          basePage.PageKey,
+		PageType:         string(basePage.Type),
+		ResourceKey:      basePage.ResourceKey,
+		Quality:          "basic",
+		GeneratorVersion: "test",
+		FunctionDigest:   "digest-v1",
+		Title:            localizedTextToJSONMap(basePage.Title),
+		Description:      localizedTextToJSONMap(basePage.Description),
+		CategoryKey:      basePage.Category.Key,
+		PageSpec:         jsonValue(basePage),
+		Status:           "pending",
+		UpdatedAt:        time.Now(),
+		UpdatedBy:        "tester",
+	}
+	require.NoError(t, proposalModel.UpsertProposal(ctx, proposal))
+	_, err := createProposalVersionSnapshot(ctx, proposalVersionModel, proposal, "seed base proposal", "tester")
+	require.NoError(t, err)
+
+	proposal.FunctionDigest = "digest-v2"
+	proposal.Title = localizedTextToJSONMap(latestPage.Title)
+	proposal.Description = localizedTextToJSONMap(latestPage.Description)
+	proposal.CategoryKey = latestPage.Category.Key
+	proposal.PageSpec = jsonValue(latestPage)
+	proposal.UpdatedAt = time.Now().Add(time.Second)
+	proposal.UpdatedBy = "tester"
+	require.NoError(t, proposalModel.UpsertProposal(ctx, proposal))
+	_, err = createProposalVersionSnapshot(ctx, proposalVersionModel, proposal, "seed latest proposal", "tester")
+	require.NoError(t, err)
+
+	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", draftPage))
+	pageRecord, err := pageModel.FindByScopeAndPageKey(ctx, "demo-game", "development", draftPage.PageKey)
+	require.NoError(t, err)
+	pageRecord.BaseProposalKey = proposalKey
+	pageRecord.BaseProposalVersion = 1
+	pageRecord.DraftRevision = 1
+	pageRecord.UpdatedBy = "tester"
+	pageRecord.UpdatedAt = time.Now()
+	require.NoError(t, pageModel.Upsert(ctx, pageRecord))
+	require.NoError(t, createVersioningTestPageVersion(db, "demo-game", "development", draftPage, 1, "seed draft"))
+}
+
+func boolPtr(value bool) *bool {
+	return &value
+}
+
 func TestVersioningService_GetChangeChain(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
@@ -173,6 +261,231 @@ func TestVersioningService_MergeAutoNoDraft(t *testing.T) {
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "page draft not found")
+}
+
+func TestVersioningService_MergeManualRequiresExactConflictResolutions(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewService(db)
+
+	basePage := spec.PageSpec{
+		PageKey:  "operation--player.ban",
+		Type:     spec.PageTypeOperation,
+		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Bindings: []spec.PageFunctionBinding{{
+			ID:         "run",
+			FunctionID: "player.ban",
+			Usage:      spec.BindingUsageAction,
+			Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		}},
+		Operation: &spec.OperationPageSpec{
+			Form: &spec.FormPresentationSpec{
+				JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+				Fields: []spec.FormFieldSpec{{
+					Key:      "playerId",
+					Label:    spec.LocalizedText{"zh-CN": "玩家ID"},
+					Required: boolPtr(true),
+				}},
+			},
+			Confirm: &spec.ConfirmActionSpec{
+				Title:       spec.LocalizedText{"zh-CN": "确认封禁"},
+				ConfirmText: spec.LocalizedText{"zh-CN": "确认"},
+				BindingID:   "run",
+			},
+		},
+	}
+	draftPage := basePage
+	draftPage.Operation = &spec.OperationPageSpec{
+		Form: basePage.Operation.Form,
+		Confirm: &spec.ConfirmActionSpec{
+			Title:       spec.LocalizedText{"zh-CN": "人工确认封禁"},
+			ConfirmText: spec.LocalizedText{"zh-CN": "确认"},
+			BindingID:   "run",
+		},
+	}
+	latestPage := basePage
+	latestPage.Title = spec.LocalizedText{"zh-CN": "封禁玩家操作"}
+	latestPage.Operation = &spec.OperationPageSpec{
+		Form: basePage.Operation.Form,
+		Confirm: &spec.ConfirmActionSpec{
+			Title:       spec.LocalizedText{"zh-CN": "封禁前确认"},
+			ConfirmText: spec.LocalizedText{"zh-CN": "确认"},
+			BindingID:   "run",
+		},
+	}
+	seedVersioningMergeFixture(t, db, basePage, draftPage, latestPage)
+
+	_, err := service.Merge(ctx, &MergeRequest{
+		GameID:   "demo-game",
+		Env:      "development",
+		PageKey:  "operation--player.ban",
+		Strategy: MergeStrategyManual,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "manual merge must resolve exactly the current conflicts")
+	assert.Contains(t, err.Error(), "operation.confirm")
+}
+
+func TestVersioningService_MergeManualDryRunReturnsPreview(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewService(db)
+
+	basePage := spec.PageSpec{
+		PageKey:  "operation--player.ban",
+		Type:     spec.PageTypeOperation,
+		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Bindings: []spec.PageFunctionBinding{{
+			ID:         "run",
+			FunctionID: "player.ban",
+			Usage:      spec.BindingUsageAction,
+			Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		}},
+		Operation: &spec.OperationPageSpec{
+			Form: &spec.FormPresentationSpec{
+				JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+				Fields: []spec.FormFieldSpec{{
+					Key:      "playerId",
+					Label:    spec.LocalizedText{"zh-CN": "玩家ID"},
+					Required: boolPtr(true),
+				}},
+			},
+			Confirm: &spec.ConfirmActionSpec{
+				Title:       spec.LocalizedText{"zh-CN": "确认封禁"},
+				ConfirmText: spec.LocalizedText{"zh-CN": "确认"},
+				BindingID:   "run",
+			},
+		},
+	}
+	draftPage := basePage
+	draftPage.Operation = &spec.OperationPageSpec{
+		Form: basePage.Operation.Form,
+		Confirm: &spec.ConfirmActionSpec{
+			Title:       spec.LocalizedText{"zh-CN": "人工确认封禁"},
+			ConfirmText: spec.LocalizedText{"zh-CN": "确认"},
+			BindingID:   "run",
+		},
+	}
+	latestPage := basePage
+	latestPage.Title = spec.LocalizedText{"zh-CN": "封禁玩家操作"}
+	latestPage.Operation = &spec.OperationPageSpec{
+		Form: basePage.Operation.Form,
+		Confirm: &spec.ConfirmActionSpec{
+			Title:       spec.LocalizedText{"zh-CN": "封禁前确认"},
+			ConfirmText: spec.LocalizedText{"zh-CN": "确认"},
+			BindingID:   "run",
+		},
+	}
+	seedVersioningMergeFixture(t, db, basePage, draftPage, latestPage)
+
+	result, err := service.Merge(ctx, &MergeRequest{
+		GameID:   "demo-game",
+		Env:      "development",
+		PageKey:  "operation--player.ban",
+		Strategy: MergeStrategyManual,
+		DryRun:   true,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Merged)
+	assert.Equal(t, 1, result.Conflicts)
+	require.Len(t, result.AutoMergeItems, 1)
+	require.Len(t, result.ConflictItems, 1)
+	assert.Equal(t, "operation.confirm", result.ConflictItems[0].Field)
+
+	pageRecord, err := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "operation--player.ban")
+	require.NoError(t, err)
+	assert.Equal(t, 1, pageRecord.DraftRevision)
+	assert.Equal(t, 1, pageRecord.BaseProposalVersion)
+}
+
+func TestVersioningService_MergeManualAppliesAutoAndConflictResolutions(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewService(db)
+
+	basePage := spec.PageSpec{
+		PageKey:  "operation--player.ban",
+		Type:     spec.PageTypeOperation,
+		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Bindings: []spec.PageFunctionBinding{{
+			ID:         "run",
+			FunctionID: "player.ban",
+			Usage:      spec.BindingUsageAction,
+			Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		}},
+		Operation: &spec.OperationPageSpec{
+			Form: &spec.FormPresentationSpec{
+				JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+				Fields: []spec.FormFieldSpec{{
+					Key:      "playerId",
+					Label:    spec.LocalizedText{"zh-CN": "玩家ID"},
+					Required: boolPtr(true),
+				}},
+			},
+			Confirm: &spec.ConfirmActionSpec{
+				Title:       spec.LocalizedText{"zh-CN": "确认封禁"},
+				ConfirmText: spec.LocalizedText{"zh-CN": "确认"},
+				BindingID:   "run",
+			},
+		},
+	}
+	draftPage := basePage
+	draftPage.Operation = &spec.OperationPageSpec{
+		Form: basePage.Operation.Form,
+		Confirm: &spec.ConfirmActionSpec{
+			Title:       spec.LocalizedText{"zh-CN": "人工确认封禁"},
+			ConfirmText: spec.LocalizedText{"zh-CN": "确认"},
+			BindingID:   "run",
+		},
+	}
+	latestPage := basePage
+	latestPage.Title = spec.LocalizedText{"zh-CN": "封禁玩家操作"}
+	latestPage.Operation = &spec.OperationPageSpec{
+		Form: basePage.Operation.Form,
+		Confirm: &spec.ConfirmActionSpec{
+			Title:       spec.LocalizedText{"zh-CN": "封禁前确认"},
+			ConfirmText: spec.LocalizedText{"zh-CN": "确认"},
+			BindingID:   "run",
+		},
+	}
+	seedVersioningMergeFixture(t, db, basePage, draftPage, latestPage)
+
+	result, err := service.Merge(ctx, &MergeRequest{
+		GameID:   "demo-game",
+		Env:      "development",
+		PageKey:  "operation--player.ban",
+		Strategy: MergeStrategyManual,
+		Conflicts: []ConflictResolution{{
+			Path:      "operation.confirm",
+			AcceptNew: true,
+		}},
+		Reason: "manual review",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.Conflicts)
+	assert.Equal(t, 2, result.DraftRevision)
+	assert.Contains(t, result.Message, "resolved 1 conflicts")
+
+	pageRecord, err := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "operation--player.ban")
+	require.NoError(t, err)
+	assert.Equal(t, 2, pageRecord.DraftRevision)
+	assert.Equal(t, 2, pageRecord.BaseProposalVersion)
+
+	pageSpec, err := pageSpecFromModel(pageRecord)
+	require.NoError(t, err)
+	assert.Equal(t, latestPage.Title["zh-CN"], pageSpec.Title["zh-CN"])
+	require.NotNil(t, pageSpec.Operation)
+	require.NotNil(t, pageSpec.Operation.Confirm)
+	assert.Equal(t, latestPage.Operation.Confirm.Title["zh-CN"], pageSpec.Operation.Confirm.Title["zh-CN"])
+
+	versions, err := model.NewPageVersionModel(db).ListByScopeAndPageKey(ctx, "demo-game", "development", "operation--player.ban")
+	require.NoError(t, err)
+	require.Len(t, versions, 2)
+	assert.Equal(t, 2, versions[0].Version)
+	assert.Equal(t, "manual review", versions[0].Message)
 }
 
 func TestVersioningService_RollbackDraftNoData(t *testing.T) {

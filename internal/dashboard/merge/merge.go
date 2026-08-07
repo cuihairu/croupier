@@ -100,28 +100,64 @@ var AutoMergeFields = map[string]bool{
 // ConflictFields defines fields that require explicit resolution.
 // These affect execution semantics and cannot be auto-merged.
 var ConflictFields = map[string]bool{
-	"bindings":                      true,
-	"bindings[].id":                 true,
-	"bindings[].functionId":         true,
-	"bindings[].usage":              true,
-	"bindings[].selectors":          true,
-	"bindings[].execution":          true,
-	"resource.createForm":           true,
-	"resource.updateForm":           true,
-	"resource.deleteAction":         true,
-	"resource.actions":              true,
-	"resource.actions[].bindingId":  true,
-	"resource.actions[].confirm":    true,
-	"resource.actions[].risk":       true,
-	"resource.actions[].permission": true,
-	"operation.confirm":             true,
-	"operation.resultView":          true,
-	"task.taskView":                 true,
-	"task.resultView":               true,
-	"report.dataset":                true,
-	"report.table":                  true,
-	"permission":                    true,
-	"risk":                          true,
+	"type":                                      true,
+	"resourceKey":                               true,
+	"category.key":                              true,
+	"bindings":                                  true,
+	"bindings[].id":                             true,
+	"bindings[].functionId":                     true,
+	"bindings[].usage":                          true,
+	"bindings[].selectors":                      true,
+	"bindings[].execution":                      true,
+	"resource.listView.identityKey":             true,
+	"resource.listView.rowSchema":               true,
+	"resource.listView.defaultSort":             true,
+	"resource.listView.filters":                 true,
+	"resource.listView.pagination":              true,
+	"resource.listView.rowActions":              true,
+	"resource.listView.batchActions":            true,
+	"resource.listView.toolbarActions":          true,
+	"resource.detailView.actions":               true,
+	"resource.createForm":                       true,
+	"resource.updateForm":                       true,
+	"resource.deleteAction":                     true,
+	"resource.actions":                          true,
+	"resource.actions[].bindingId":              true,
+	"resource.actions[].confirm":                true,
+	"resource.actions[].risk":                   true,
+	"resource.actions[].permission":             true,
+	"operation.form.jsonSchema":                 true,
+	"operation.form.fields[].key":               true,
+	"operation.form.fields[].visibleWhen":       true,
+	"operation.form.fields[].required":          true,
+	"operation.form.fields[].defaultValue":      true,
+	"operation.form.fields[].disabled":          true,
+	"operation.form.fields[].widgetProps":       true,
+	"operation.form.fields[].validationRules":   true,
+	"operation.confirm":                         true,
+	"operation.resultView":                      true,
+	"task.form.jsonSchema":                      true,
+	"task.form.fields[].key":                    true,
+	"task.form.fields[].visibleWhen":            true,
+	"task.form.fields[].required":               true,
+	"task.form.fields[].defaultValue":           true,
+	"task.form.fields[].disabled":               true,
+	"task.form.fields[].widgetProps":            true,
+	"task.form.fields[].validationRules":        true,
+	"task.taskView":                             true,
+	"task.resultView":                           true,
+	"report.queryForm.jsonSchema":               true,
+	"report.queryForm.fields[].key":             true,
+	"report.queryForm.fields[].visibleWhen":     true,
+	"report.queryForm.fields[].required":        true,
+	"report.queryForm.fields[].defaultValue":    true,
+	"report.queryForm.fields[].disabled":        true,
+	"report.queryForm.fields[].widgetProps":     true,
+	"report.queryForm.fields[].validationRules": true,
+	"report.dataset":                            true,
+	"report.table":                              true,
+	"permission":                                true,
+	"risk":                                      true,
 }
 
 // ThreeWayMerge performs a three-way merge of PageSpec proposals.
@@ -147,8 +183,11 @@ func ThreeWayMerge(
 	compareField("", "description", toJSON(base.Description), toJSON(draft.Description), toJSON(latest.Description), &result)
 	compareField("", "icon", toJSON(base.Icon), toJSON(draft.Icon), toJSON(latest.Icon), &result)
 	compareField("", "order", toJSON(base.Order), toJSON(draft.Order), toJSON(latest.Order), &result)
+	compareField("", "type", toJSON(base.Type), toJSON(draft.Type), toJSON(latest.Type), &result)
+	compareField("", "resourceKey", toJSON(base.ResourceKey), toJSON(draft.ResourceKey), toJSON(latest.ResourceKey), &result)
 
 	// Compare category
+	compareField("", "category.key", toJSON(base.Category.Key), toJSON(draft.Category.Key), toJSON(latest.Category.Key), &result)
 	compareField("", "category.labels", toJSON(base.Category.Labels), toJSON(draft.Category.Labels), toJSON(latest.Category.Labels), &result)
 	compareField("", "category.order", toJSON(base.Category.Order), toJSON(draft.Category.Order), toJSON(latest.Category.Order), &result)
 
@@ -248,43 +287,63 @@ func compareField(prefix, field string, base, draft, latest json.RawMessage, res
 func compareResourceFields(base, draft, latest *spec.ResourcePageSpec, result *MergeResult) {
 	// Compare list view columns (auto-merge for display fields)
 	if base.ListView != nil && draft.ListView != nil && latest.ListView != nil {
+		compareField("resource.listView", "identityKey", toJSON(base.ListView.IdentityKey), toJSON(draft.ListView.IdentityKey), toJSON(latest.ListView.IdentityKey), result)
+		compareField("resource.listView", "rowSchema", toJSON(base.ListView.RowSchema), toJSON(draft.ListView.RowSchema), toJSON(latest.ListView.RowSchema), result)
+		compareField("resource.listView", "defaultSort", toJSON(base.ListView.DefaultSort), toJSON(draft.ListView.DefaultSort), toJSON(latest.ListView.DefaultSort), result)
+		compareField("resource.listView", "filters", toJSON(base.ListView.Filters), toJSON(draft.ListView.Filters), toJSON(latest.ListView.Filters), result)
+		compareField("resource.listView", "pagination", toJSON(base.ListView.Pagination), toJSON(draft.ListView.Pagination), toJSON(latest.ListView.Pagination), result)
+		compareField("resource.listView", "rowActions", toJSON(base.ListView.RowActions), toJSON(draft.ListView.RowActions), toJSON(latest.ListView.RowActions), result)
+		compareField("resource.listView", "batchActions", toJSON(base.ListView.BatchActions), toJSON(draft.ListView.BatchActions), toJSON(latest.ListView.BatchActions), result)
+		compareField("resource.listView", "toolbarActions", toJSON(base.ListView.ToolbarActions), toJSON(draft.ListView.ToolbarActions), toJSON(latest.ListView.ToolbarActions), result)
 		compareColumns(base.ListView.Columns, draft.ListView.Columns, latest.ListView.Columns, result)
 	}
 
 	// Compare detail view fields (auto-merge for display fields)
 	if base.DetailView != nil && draft.DetailView != nil && latest.DetailView != nil {
+		compareField("resource.detailView", "actions", toJSON(base.DetailView.Actions), toJSON(draft.DetailView.Actions), toJSON(latest.DetailView.Actions), result)
 		compareDetailFields(base.DetailView.Fields, draft.DetailView.Fields, latest.DetailView.Fields, result)
 	}
 
 	// Compare actions (conflict field)
 	compareField("resource", "actions", toJSON(base.Actions), toJSON(draft.Actions), toJSON(latest.Actions), result)
+	compareField("resource", "createForm", toJSON(base.CreateForm), toJSON(draft.CreateForm), toJSON(latest.CreateForm), result)
+	compareField("resource", "updateForm", toJSON(base.UpdateForm), toJSON(draft.UpdateForm), toJSON(latest.UpdateForm), result)
+	compareField("resource", "deleteAction", toJSON(base.DeleteAction), toJSON(draft.DeleteAction), toJSON(latest.DeleteAction), result)
 }
 
 func compareOperationFields(base, draft, latest *spec.OperationPageSpec, result *MergeResult) {
 	// Compare form fields (auto-merge for display fields)
 	if base.Form != nil && draft.Form != nil && latest.Form != nil {
+		compareField("operation.form", "jsonSchema", toJSON(base.Form.JSONSchema), toJSON(draft.Form.JSONSchema), toJSON(latest.Form.JSONSchema), result)
 		compareFormFields(base.Form.Fields, draft.Form.Fields, latest.Form.Fields, "operation.form", result)
 	}
 
 	// Compare confirm (conflict field)
 	compareField("operation", "confirm", toJSON(base.Confirm), toJSON(draft.Confirm), toJSON(latest.Confirm), result)
+	compareField("operation", "resultView", toJSON(base.ResultView), toJSON(draft.ResultView), toJSON(latest.ResultView), result)
 }
 
 func compareTaskFields(base, draft, latest *spec.TaskPageSpec, result *MergeResult) {
 	// Compare form fields (auto-merge for display fields)
 	if base.Form != nil && draft.Form != nil && latest.Form != nil {
+		compareField("task.form", "jsonSchema", toJSON(base.Form.JSONSchema), toJSON(draft.Form.JSONSchema), toJSON(latest.Form.JSONSchema), result)
 		compareFormFields(base.Form.Fields, draft.Form.Fields, latest.Form.Fields, "task.form", result)
 	}
+	compareField("task", "taskView", toJSON(base.TaskView), toJSON(draft.TaskView), toJSON(latest.TaskView), result)
+	compareField("task", "resultView", toJSON(base.ResultView), toJSON(draft.ResultView), toJSON(latest.ResultView), result)
 }
 
 func compareReportFields(base, draft, latest *spec.ReportPageSpec, result *MergeResult) {
 	// Compare query form fields (auto-merge for display fields)
 	if base.QueryForm != nil && draft.QueryForm != nil && latest.QueryForm != nil {
+		compareField("report.queryForm", "jsonSchema", toJSON(base.QueryForm.JSONSchema), toJSON(draft.QueryForm.JSONSchema), toJSON(latest.QueryForm.JSONSchema), result)
 		compareFormFields(base.QueryForm.Fields, draft.QueryForm.Fields, latest.QueryForm.Fields, "report.queryForm", result)
 	}
 
 	// Compare charts (auto-merge for titles)
 	compareCharts(base.Charts, draft.Charts, latest.Charts, result)
+	compareField("report", "dataset", toJSON(base.Dataset), toJSON(draft.Dataset), toJSON(latest.Dataset), result)
+	compareField("report", "table", toJSON(base.Table), toJSON(draft.Table), toJSON(latest.Table), result)
 }
 
 func compareColumns(base, draft, latest []spec.ColumnSpec, result *MergeResult) {
@@ -377,6 +436,13 @@ func compareFormFields(base, draft, latest []spec.FormFieldSpec, prefix string, 
 			compareField(fieldPrefix, "description", toJSON(baseField.Description), toJSON(draftField.Description), toJSON(latestField.Description), result)
 			compareField(fieldPrefix, "order", toJSON(baseField.Order), toJSON(draftField.Order), toJSON(latestField.Order), result)
 			compareField(fieldPrefix, "widget", toJSON(baseField.Widget), toJSON(draftField.Widget), toJSON(latestField.Widget), result)
+			compareField(fieldPrefix, "key", toJSON(baseField.Key), toJSON(draftField.Key), toJSON(latestField.Key), result)
+			compareField(fieldPrefix, "visibleWhen", toJSON(baseField.VisibleWhen), toJSON(draftField.VisibleWhen), toJSON(latestField.VisibleWhen), result)
+			compareField(fieldPrefix, "required", toJSON(baseField.Required), toJSON(draftField.Required), toJSON(latestField.Required), result)
+			compareField(fieldPrefix, "defaultValue", toJSON(baseField.DefaultValue), toJSON(draftField.DefaultValue), toJSON(latestField.DefaultValue), result)
+			compareField(fieldPrefix, "disabled", toJSON(baseField.Disabled), toJSON(draftField.Disabled), toJSON(latestField.Disabled), result)
+			compareField(fieldPrefix, "widgetProps", toJSON(baseField.WidgetProps), toJSON(draftField.WidgetProps), toJSON(latestField.WidgetProps), result)
+			compareField(fieldPrefix, "validationRules", toJSON(baseField.ValidationRules), toJSON(draftField.ValidationRules), toJSON(latestField.ValidationRules), result)
 		}
 	}
 }

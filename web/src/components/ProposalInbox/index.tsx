@@ -7,6 +7,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  App,
   Button,
   Card,
   Descriptions,
@@ -42,6 +43,7 @@ import type {
   ProposalQuality,
   ProposalStatus,
 } from '@/types/dashboard';
+import MergeConflictModal from '@/components/MergeConflictModal';
 import {
   acceptAndPublishProposal,
   acceptProposal,
@@ -52,6 +54,7 @@ import {
   rejectProposal,
   republish,
 } from '@/services/dashboard';
+import type { ConflictResolution, MergeResponse } from '@/services/api/versioning';
 import { publishPageDraft } from '@/services/api/pages';
 import PageRenderer from '@/components/PageRenderer';
 
@@ -112,7 +115,9 @@ const pageTypeColors: Record<PageType, string> = {
 
 function localizedText(text: Record<string, string> | undefined, fallback: string): string {
   if (!text) return fallback;
-  return text['zh-CN'] || text['en-US'] || Object.values(text).find((value) => value.trim()) || fallback;
+  return (
+    text['zh-CN'] || text['en-US'] || Object.values(text).find((value) => value.trim()) || fallback
+  );
 }
 
 function formatDate(value?: string): string {
@@ -165,6 +170,7 @@ function navigateTo(path: string) {
 }
 
 export default function ProposalInbox() {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [inbox, setInbox] = useState<ProposalInboxData>(emptyInbox);
   const [query, setQuery] = useState('');
@@ -174,6 +180,10 @@ export default function ProposalInbox() {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [resourceKey] = useState(currentResourceKey);
   const [contractActionKey, setContractActionKey] = useState('');
+  const [manualMergeVisible, setManualMergeVisible] = useState(false);
+  const [manualMergeLoading, setManualMergeLoading] = useState(false);
+  const [manualMergePreview, setManualMergePreview] = useState<MergeResponse | null>(null);
+  const [manualMergeRecord, setManualMergeRecord] = useState<ContractChangeInfo | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -232,7 +242,9 @@ export default function ProposalInbox() {
   const handleReviewProposal = useCallback(
     async (proposal: PageProposal) => {
       if (proposal.resourceKey) {
-        navigateTo(`/system/functions/resource-catalog?resourceKey=${encodeURIComponent(proposal.resourceKey)}`);
+        navigateTo(
+          `/system/functions/resource-catalog?resourceKey=${encodeURIComponent(proposal.resourceKey)}`,
+        );
         return;
       }
       await handleViewDetail(proposal.proposalKey);
@@ -276,6 +288,52 @@ export default function ProposalInbox() {
     [runContractAction],
   );
 
+  const handleOpenManualMerge = useCallback(
+    async (record: ContractChangeInfo) => {
+      setManualMergeLoading(true);
+      try {
+        const preview = await mergeChanges(record.pageKey, { strategy: 'manual', dryRun: true });
+        setManualMergeRecord(record);
+        setManualMergePreview(preview);
+        setManualMergeVisible(true);
+      } catch {
+        message.error('加载冲突预览失败');
+      } finally {
+        setManualMergeLoading(false);
+      }
+    },
+    [message],
+  );
+
+  const handleManualMergeSubmit = useCallback(
+    async (payload: { conflicts: ConflictResolution[]; reason?: string }) => {
+      if (!manualMergeRecord) {
+        return;
+      }
+      setManualMergeLoading(true);
+      try {
+        const result = await mergeChanges(manualMergeRecord.pageKey, {
+          strategy: 'manual',
+          conflicts: payload.conflicts,
+          reason: payload.reason,
+        });
+        setManualMergeVisible(false);
+        setManualMergePreview(null);
+        setManualMergeRecord(null);
+        await fetchData();
+        Modal.success({
+          title: '冲突已处理',
+          content: `页面 ${manualMergeRecord.pageKey} 的草稿已更新到版本 ${result.draftRevision || '-'}，请确认后重新发布。`,
+        });
+      } catch {
+        message.error('手动合并失败');
+      } finally {
+        setManualMergeLoading(false);
+      }
+    },
+    [fetchData, manualMergeRecord, message],
+  );
+
   const handleRepublish = useCallback(
     async (record: ContractChangeInfo) => {
       await runContractAction(`republish:${record.pageKey}`, async () => {
@@ -317,7 +375,9 @@ export default function ProposalInbox() {
       dataIndex: 'pageType',
       key: 'pageType',
       width: 90,
-      render: (type: PageType) => <Tag color={pageTypeColors[type]}>{pageTypeLabels[type] || type}</Tag>,
+      render: (type: PageType) => (
+        <Tag color={pageTypeColors[type]}>{pageTypeLabels[type] || type}</Tag>
+      ),
     },
     {
       title: '资源',
@@ -331,14 +391,18 @@ export default function ProposalInbox() {
       dataIndex: 'quality',
       key: 'quality',
       width: 120,
-      render: (quality: ProposalQuality) => <Tag color={qualityColors[quality]}>{qualityLabels[quality]}</Tag>,
+      render: (quality: ProposalQuality) => (
+        <Tag color={qualityColors[quality]}>{qualityLabels[quality]}</Tag>
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (status: ProposalStatus) => <Tag color={statusColors[status]}>{statusLabels[status]}</Tag>,
+      render: (status: ProposalStatus) => (
+        <Tag color={statusColors[status]}>{statusLabels[status]}</Tag>
+      ),
     },
     {
       title: '诊断',
@@ -360,10 +424,18 @@ export default function ProposalInbox() {
       width: 260,
       render: (_, record) => (
         <Space>
-          <Button type="link" icon={<EyeOutlined />} onClick={() => handleViewDetail(record.proposalKey)}>
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewDetail(record.proposalKey)}
+          >
             查看
           </Button>
-          <Button type="link" icon={<FileTextOutlined />} onClick={() => handlePreview(record.proposalKey)}>
+          <Button
+            type="link"
+            icon={<FileTextOutlined />}
+            onClick={() => handlePreview(record.proposalKey)}
+          >
             预览
           </Button>
           {record.status === 'pending' && (
@@ -385,7 +457,11 @@ export default function ProposalInbox() {
                 </Button>
               </Popconfirm>
               {record.quality === 'needs_review' && (
-                <Button type="link" icon={<ExclamationCircleOutlined />} onClick={() => handleReviewProposal(record)}>
+                <Button
+                  type="link"
+                  icon={<ExclamationCircleOutlined />}
+                  onClick={() => handleReviewProposal(record)}
+                >
                   处理
                 </Button>
               )}
@@ -442,12 +518,20 @@ export default function ProposalInbox() {
           <Button
             type="link"
             icon={<ExclamationCircleOutlined />}
-            onClick={() => navigateTo(`/system/functions/resource-catalog?resourceKey=${encodeURIComponent(record.resourceKey || '')}`)}
+            onClick={() =>
+              navigateTo(
+                `/system/functions/resource-catalog?resourceKey=${encodeURIComponent(record.resourceKey || '')}`,
+              )
+            }
           >
             修复语义
           </Button>
         ) : (
-          <Button type="link" icon={<ExclamationCircleOutlined />} onClick={() => navigateTo('/system/functions/resource-catalog')}>
+          <Button
+            type="link"
+            icon={<ExclamationCircleOutlined />}
+            onClick={() => navigateTo('/system/functions/resource-catalog')}
+          >
             查看目录
           </Button>
         ),
@@ -471,7 +555,9 @@ export default function ProposalInbox() {
       dataIndex: 'pageType',
       key: 'pageType',
       width: 90,
-      render: (type: PageType) => <Tag color={pageTypeColors[type]}>{pageTypeLabels[type] || type}</Tag>,
+      render: (type: PageType) => (
+        <Tag color={pageTypeColors[type]}>{pageTypeLabels[type] || type}</Tag>
+      ),
     },
     {
       title: '对象',
@@ -486,7 +572,9 @@ export default function ProposalInbox() {
       key: 'kind',
       width: 100,
       render: (kind: ContractChangeInfo['kind']) => (
-        <Tag color={kind === 'published' ? 'error' : 'warning'}>{kind === 'published' ? '已发布' : '草稿'}</Tag>
+        <Tag color={kind === 'published' ? 'error' : 'warning'}>
+          {kind === 'published' ? '已发布' : '草稿'}
+        </Tag>
       ),
     },
     {
@@ -508,7 +596,7 @@ export default function ProposalInbox() {
     {
       title: '操作',
       key: 'action',
-      width: 360,
+      width: 460,
       render: (_, record) => (
         <Space>
           <Button
@@ -525,7 +613,10 @@ export default function ProposalInbox() {
             loading={contractActionKey === `merge:${record.pageKey}`}
             onClick={() => handleAutoMerge(record)}
           >
-            合并
+            自动合并
+          </Button>
+          <Button type="link" onClick={() => handleOpenManualMerge(record)}>
+            处理冲突
           </Button>
           <Popconfirm title="确认重新发布当前草稿快照？" onConfirm={() => handleRepublish(record)}>
             <Button
@@ -536,7 +627,12 @@ export default function ProposalInbox() {
               重发布
             </Button>
           </Popconfirm>
-          <Button type="link" onClick={() => navigateTo(`/system/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)}>
+          <Button
+            type="link"
+            onClick={() =>
+              navigateTo(`/system/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)
+            }
+          >
             编辑
           </Button>
         </Space>
@@ -647,30 +743,50 @@ export default function ProposalInbox() {
         ]}
       />
 
-      <Modal title="提案详情" open={detailVisible} onCancel={() => setDetailVisible(false)} footer={null} width={920}>
+      <Modal
+        title="提案详情"
+        open={detailVisible}
+        onCancel={() => setDetailVisible(false)}
+        footer={null}
+        width={920}
+      >
         {selectedProposal && (
           <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <Descriptions column={2} bordered>
               <Descriptions.Item label="提案">{selectedProposal.proposalKey}</Descriptions.Item>
               <Descriptions.Item label="页面">{selectedProposal.pageKey}</Descriptions.Item>
-              <Descriptions.Item label="标题">{localizedText(selectedProposal.title, selectedProposal.pageKey)}</Descriptions.Item>
+              <Descriptions.Item label="标题">
+                {localizedText(selectedProposal.title, selectedProposal.pageKey)}
+              </Descriptions.Item>
               <Descriptions.Item label="类型">
-                <Tag color={pageTypeColors[selectedProposal.pageType]}>{pageTypeLabels[selectedProposal.pageType]}</Tag>
+                <Tag color={pageTypeColors[selectedProposal.pageType]}>
+                  {pageTypeLabels[selectedProposal.pageType]}
+                </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="质量">
-                <Tag color={qualityColors[selectedProposal.quality]}>{qualityLabels[selectedProposal.quality]}</Tag>
+                <Tag color={qualityColors[selectedProposal.quality]}>
+                  {qualityLabels[selectedProposal.quality]}
+                </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="状态">
-                <Tag color={statusColors[selectedProposal.status]}>{statusLabels[selectedProposal.status]}</Tag>
+                <Tag color={statusColors[selectedProposal.status]}>
+                  {statusLabels[selectedProposal.status]}
+                </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="函数摘要">{selectedProposal.functionDigest || '-'}</Descriptions.Item>
-              <Descriptions.Item label="语义摘要">{selectedProposal.semanticsDigest || '-'}</Descriptions.Item>
+              <Descriptions.Item label="函数摘要">
+                {selectedProposal.functionDigest || '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="语义摘要">
+                {selectedProposal.semanticsDigest || '-'}
+              </Descriptions.Item>
             </Descriptions>
             {selectedProposal.diagnostics && selectedProposal.diagnostics.length > 0 && (
               <Table
                 size="small"
                 dataSource={selectedProposal.diagnostics}
-                rowKey={(record) => `${record.code}:${record.field || ''}:${record.functionId || ''}`}
+                rowKey={(record) =>
+                  `${record.code}:${record.field || ''}:${record.functionId || ''}`
+                }
                 pagination={false}
                 columns={[
                   { title: '代码', dataIndex: 'code', key: 'code' },
@@ -679,22 +795,44 @@ export default function ProposalInbox() {
                     dataIndex: 'severity',
                     key: 'severity',
                     render: (severity: DiagnosticInfo['severity']) => (
-                      <Tag color={severity === 'error' ? 'error' : severity === 'warning' ? 'warning' : 'blue'}>{severity}</Tag>
+                      <Tag
+                        color={
+                          severity === 'error'
+                            ? 'error'
+                            : severity === 'warning'
+                              ? 'warning'
+                              : 'blue'
+                        }
+                      >
+                        {severity}
+                      </Tag>
                     ),
                   },
-                  { title: '字段', dataIndex: 'field', key: 'field', render: (value) => value || '-' },
+                  {
+                    title: '字段',
+                    dataIndex: 'field',
+                    key: 'field',
+                    render: (value) => value || '-',
+                  },
                   { title: '说明', dataIndex: 'message', key: 'message' },
                 ]}
               />
             )}
             <Paragraph type="secondary">
-              PageSpec 为发布快照输入，不在正常路径手工编辑 JSON；如需调整请进入 Page Studio 编辑器。
+              PageSpec 为发布快照输入，不在正常路径手工编辑 JSON；如需调整请进入 Page Studio
+              编辑器。
             </Paragraph>
           </Space>
         )}
       </Modal>
 
-      <Modal title="默认页面预览" open={previewVisible} onCancel={() => setPreviewVisible(false)} footer={null} width={1100}>
+      <Modal
+        title="默认页面预览"
+        open={previewVisible}
+        onCancel={() => setPreviewVisible(false)}
+        footer={null}
+        width={1100}
+      >
         {selectedProposal?.pageSpec ? (
           <PageRenderer
             pageSpec={selectedProposal.pageSpec}
@@ -707,6 +845,14 @@ export default function ProposalInbox() {
           <Empty description="暂无可预览页面" />
         )}
       </Modal>
+
+      <MergeConflictModal
+        open={manualMergeVisible}
+        loading={manualMergeLoading}
+        preview={manualMergePreview}
+        onCancel={() => setManualMergeVisible(false)}
+        onSubmit={handleManualMergeSubmit}
+      />
     </Space>
   );
 }

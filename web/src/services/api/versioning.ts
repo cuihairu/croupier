@@ -59,6 +59,8 @@ export interface DiffChange {
 export interface DiffResponse {
   changes: DiffChange[];
   summary: string;
+  autoMergeItems?: MergeItemInfo[];
+  conflictItems?: MergeConflictInfo[];
 }
 
 /** 合并策略 */
@@ -74,6 +76,7 @@ export interface ConflictResolution {
 /** 合并请求 */
 export interface MergeRequest {
   strategy: MergeStrategy;
+  dryRun?: boolean;
   conflicts?: ConflictResolution[];
   reason?: string;
 }
@@ -134,7 +137,7 @@ export async function getChangeChain(pageKey: string): Promise<ChangeChain> {
  */
 export async function getDiff(
   pageKey: string,
-  params?: { baseVersion?: number; targetVersion?: number }
+  params?: { baseVersion?: number; targetVersion?: number },
 ): Promise<DiffResponse> {
   return request<DiffResponse>(`/api/v1/versioning/pages/${pageKey}/diff`, {
     method: 'GET',
@@ -145,10 +148,7 @@ export async function getDiff(
 /**
  * 合并变更
  */
-export async function mergeChanges(
-  pageKey: string,
-  data: MergeRequest
-): Promise<MergeResponse> {
+export async function mergeChanges(pageKey: string, data: MergeRequest): Promise<MergeResponse> {
   return request<MergeResponse>(`/api/v1/versioning/pages/${pageKey}/merge`, {
     method: 'POST',
     data,
@@ -160,7 +160,7 @@ export async function mergeChanges(
  */
 export async function rollbackDraft(
   pageKey: string,
-  data?: RollbackRequest
+  data?: RollbackRequest,
 ): Promise<RollbackResponse> {
   return request<RollbackResponse>(`/api/v1/versioning/pages/${pageKey}/rollback-draft`, {
     method: 'POST',
@@ -173,7 +173,7 @@ export async function rollbackDraft(
  */
 export async function rollbackPublish(
   pageKey: string,
-  data?: RollbackRequest
+  data?: RollbackRequest,
 ): Promise<RollbackResponse> {
   return request<RollbackResponse>(`/api/v1/versioning/pages/${pageKey}/rollback-publish`, {
     method: 'POST',
