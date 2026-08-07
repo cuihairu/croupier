@@ -433,7 +433,7 @@ export default function OpsNodesPage() {
                       <Space direction="vertical" size={8} style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Text>使用率</Text>
-                          <Text strong>{detailNode.cpu.usagePercent}</Text>
+                          <Text strong>{detailNode.cpu.usagePercent.toFixed(2)}%</Text>
                         </div>
                         <Progress percent={detailNode.cpu.usagePercent} size="small" />
                         <Descriptions column={2} size="small">
@@ -456,7 +456,7 @@ export default function OpsNodesPage() {
                       <Space direction="vertical" size={8} style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Text>使用率</Text>
-                          <Text strong>{detailNode.memory.usagePercent}</Text>
+                          <Text strong>{detailNode.memory.usagePercent.toFixed(2)}%</Text>
                         </div>
                         <Progress percent={detailNode.memory.usagePercent} size="small" />
                         <Descriptions column={2} size="small">
@@ -492,7 +492,7 @@ export default function OpsNodesPage() {
                               }}
                             >
                               <Text>{disk.mountPoint}</Text>
-                              <Text strong>{disk.usagePercent}</Text>
+                              <Text strong>{disk.usagePercent.toFixed(2)}%</Text>
                             </div>
                             <Progress percent={disk.usagePercent} size="small" />
                             <Descriptions column={2} size="small" style={{ marginTop: 4 }}>
