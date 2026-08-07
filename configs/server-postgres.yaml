@@ -1,0 +1,72 @@
+# Croupier Server Configuration (PostgreSQL)
+server:
+  host: 0.0.0.0
+  port: 18780
+  timeout: 600000
+  mode: dev
+
+database:
+  driver: postgres
+  dataSource: "host=localhost port=5432 user=postgres password=postgres dbname=croupier_meta sslmode=disable TimeZone=Asia/Shanghai"
+  # multiGame: true  # Enable database-per-game architecture.
+  # Each (game_id, env) gets its own database
+  # (e.g. game_demo_prod, game_demo_staging).
+  # The dataSource above is the meta database.
+
+sse:
+  updateInterval: 2
+  keepAliveInterval: 30
+
+control:
+  addr: ":19090"
+  ipcAddr: ""
+  cert: ""
+  key: ""
+  ca: ""
+
+registry:
+  assignmentsPath: "data/assignments.json"
+  analyticsFiltersPath: "schemas/analytics_filters.json"
+  rateLimitsPath: "data/rate_limits.json"
+
+agentDispatch:
+  jobRoutingDir: "data"
+  jobRoutingTTL: ""
+  toAgentTLS:
+    enabled: false
+    certFile: ""
+    keyFile: ""
+    caFile: ""
+    serverName: ""
+    insecureSkipVerify: false
+
+auth:
+  jwtSecret: "localdevsecret-change-me"
+  rbacConfig: "configs/rbac.json"
+  usersConfig: "configs/users.json"
+  gamesConfig: "configs/games.json"
+
+bootstrapData:
+  baseDir: "configs"
+
+descriptors:
+  dir: "descriptors"
+
+schemas:
+  dir: "schemas"
+
+storage:
+  driver: "file"
+  baseDir: "data/uploads"
+
+cache:
+  enabled: false
+
+log:
+  level: "info"
+  format: "console"
+  output: "stdout"
+
+metrics:
+  perFunction: true
+  perGameDenies: false
