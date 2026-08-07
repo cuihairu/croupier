@@ -46,13 +46,15 @@ type MetricsStore struct {
 }
 
 // NewMetricsStore creates a new metrics store.
+// Memory: 10 entries per agent (5 minutes @ 30s interval)
+// Database: 7 days retention for historical queries
 func NewMetricsStore() *MetricsStore {
 	return &MetricsStore{
-		entries:   make([]MetricsEntry, 5000),
+		entries:   make([]MetricsEntry, 2000),
 		byAgent:   make(map[string][]int),
-		maxMemory: 120,                // 1 hour @ 30s interval
+		maxMemory: 10,                 // 5 minutes @ 30s interval
 		retention: 7 * 24 * time.Hour, // 7 days
-		maxTotal:  5000,
+		maxTotal:  2000,
 	}
 }
 
