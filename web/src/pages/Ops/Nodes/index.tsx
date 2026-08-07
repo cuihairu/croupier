@@ -27,6 +27,7 @@ import {
 } from '@/services/api/ops';
 import { fetchRegistry, type RegistryAgent } from '@/services/api/registry';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
+import { formatBytes, formatPercent, formatDuration } from '@/utils/format';
 
 const { Text } = Typography;
 
@@ -94,21 +95,6 @@ function normalizeOpsNode(node: OpsNode): NodeRow {
     lastSeen: node.lastSeen || '',
     nodeStatus: node.status || 'active',
   };
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-function formatUptime(seconds: number): string {
-  if (seconds < 60) return `${seconds}秒`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}分钟`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}小时`;
-  return `${Math.floor(seconds / 86400)}天`;
 }
 
 export default function OpsNodesPage() {
@@ -443,7 +429,7 @@ export default function OpsNodesPage() {
                       <Space direction="vertical" size={8} style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Text>使用率</Text>
-                          <Text strong>{detailNode.cpu.usagePercent.toFixed(1)}%</Text>
+                          <Text strong>{detailNode.cpu.usagePercent}</Text>
                         </div>
                         <Progress percent={detailNode.cpu.usagePercent} size="small" />
                         <Descriptions column={2} size="small">
@@ -466,7 +452,7 @@ export default function OpsNodesPage() {
                       <Space direction="vertical" size={8} style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Text>使用率</Text>
-                          <Text strong>{detailNode.memory.usagePercent.toFixed(1)}%</Text>
+                          <Text strong>{detailNode.memory.usagePercent}</Text>
                         </div>
                         <Progress percent={detailNode.memory.usagePercent} size="small" />
                         <Descriptions column={2} size="small">
@@ -502,7 +488,7 @@ export default function OpsNodesPage() {
                               }}
                             >
                               <Text>{disk.mountPoint}</Text>
-                              <Text strong>{disk.usagePercent.toFixed(1)}%</Text>
+                              <Text strong>{disk.usagePercent}</Text>
                             </div>
                             <Progress percent={disk.usagePercent} size="small" />
                             <Descriptions column={2} size="small" style={{ marginTop: 4 }}>
