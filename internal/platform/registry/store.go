@@ -84,6 +84,7 @@ type Store struct {
 		RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error
 		RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
 		RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
+		RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
 	}
 }
 
@@ -143,6 +144,7 @@ func (s *Store) SetContractService(svc interface {
 	RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error
 	RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
 	RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
+	RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
 }) {
 	s.contractService = svc
 }
@@ -213,9 +215,12 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 
 		// Rebuild resource capabilities for unique resources
 		resources := make(map[string]bool)
-		for _, meta := range a.Functions {
+		standaloneFunctions := make(map[string]bool)
+		for functionID, meta := range a.Functions {
 			if meta.Resource != "" {
 				resources[meta.Resource] = true
+			} else {
+				standaloneFunctions[functionID] = true
 			}
 		}
 		for resource := range resources {
@@ -230,6 +235,14 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 				slog.Error("failed to rebuild page proposals",
 					"agent_id", a.AgentID,
 					"resource", resource,
+					"error", err)
+			}
+		}
+		for functionID := range standaloneFunctions {
+			if err := s.contractService.RebuildProposalForFunction(context.Background(), a.GameID, a.Env, functionID); err != nil {
+				slog.Error("failed to rebuild standalone page proposal",
+					"agent_id", a.AgentID,
+					"function_id", functionID,
 					"error", err)
 			}
 		}

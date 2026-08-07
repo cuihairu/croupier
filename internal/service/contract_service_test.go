@@ -206,6 +206,60 @@ func TestContractService_RebuildProposalsForResource(t *testing.T) {
 	assert.Len(t, proposal.SemanticsDigest, 64)
 }
 
+func TestContractService_RebuildProposalForFunctionWithoutResource(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	meta := FunctionMetaInput{
+		ID:           "player.ban",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Operation:    "ban",
+		Capability:   "action",
+		Execution:    "sync",
+		Summary:      "Ban player",
+		InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+	}
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	require.NoError(t, service.RebuildProposalForFunction(ctx, "demo-game", "development", "player.ban"))
+
+	proposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.ban")
+	require.NoError(t, err)
+	assert.Equal(t, "operation--player.ban", proposal.PageKey)
+	assert.Equal(t, "operation", proposal.PageType)
+	assert.Equal(t, "", proposal.ResourceKey)
+	assert.NotEmpty(t, proposal.PageSpec)
+	assert.Len(t, proposal.FunctionDigest, 64)
+	assert.Len(t, proposal.SemanticsDigest, 64)
+}
+
+func TestContractService_RebuildProposalForCRUDFunctionWithoutResource(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	meta := FunctionMetaInput{
+		ID:           "player.create",
+		Version:      "1.0.0",
+		Enabled:      true,
+		Operation:    "create",
+		Capability:   "create",
+		Execution:    "sync",
+		InputSchema:  `{"type":"object","properties":{"name":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`,
+	}
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	require.NoError(t, service.RebuildProposalForFunction(ctx, "demo-game", "development", "player.create"))
+
+	proposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.create")
+	require.NoError(t, err)
+	assert.Equal(t, "operation--player.create", proposal.PageKey)
+	assert.Equal(t, "operation", proposal.PageType)
+	assert.Equal(t, "", proposal.ResourceKey)
+}
+
 func TestContractService_RebuildProposalsPreservesAcceptedStatus(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()

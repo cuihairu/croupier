@@ -174,6 +174,7 @@ func runServer() error {
 
 	// 创建服务上下文
 	svcCtx := svc.NewServiceContext(c)
+	wireDashboardRegistrationPipeline(svcCtx)
 	if telemetrySvc, err := svc.NewTelemetryService(c, "croupier-server", slog.Default()); err != nil {
 		return fmt.Errorf("初始化遥测服务失败: %w", err)
 	} else if telemetrySvc != nil {

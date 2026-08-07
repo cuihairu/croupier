@@ -528,6 +528,49 @@ func (s *ContractService) RebuildProposalsForResource(ctx context.Context, gameI
 	return nil
 }
 
+// RebuildProposalForFunction creates or refreshes the standalone page proposal
+// for a function that cannot be safely grouped into a ResourcePage.
+func (s *ContractService) RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error {
+	functionID = strings.TrimSpace(functionID)
+	if functionID == "" {
+		return nil
+	}
+	contract, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return fmt.Errorf("find function contract %s: %w", functionID, err)
+	}
+	if contract == nil {
+		return nil
+	}
+	if isCRUDCapability(contract.Capability) && strings.TrimSpace(contract.ResourceKey) != "" {
+		return nil
+	}
+	functions := map[string]spec.FunctionSpec{
+		functionID: functionSpecFromContract(contract),
+	}
+	var taskSemantics map[string]spec.TaskSemantic
+	var reportSemantics map[string]spec.ReportSemantic
+	if resourceKey := strings.TrimSpace(contract.ResourceKey); resourceKey != "" {
+		if semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, gameID, env, resourceKey); err == nil {
+			taskSemantics = taskSemanticsByStartFunction(semantics)
+			reportSemantics = reportSemanticsByQueryFunction(semantics)
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("find capability semantics for %s: %w", resourceKey, err)
+		}
+	}
+	generated := generator.GenerateForOperation(operationSpecFromContract(contract), generator.GenerateOptions{
+		DefaultLocale:   "zh-CN",
+		Functions:       functions,
+		TaskSemantics:   taskSemantics,
+		ReportSemantics: reportSemantics,
+	})
+	proposalKey := standaloneProposalKey(generated.Type, contract.FunctionID)
+	return s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, []*model.FunctionContract{contract}, generated)
+}
+
 func (s *ContractService) upsertResourceProposal(
 	ctx context.Context,
 	gameID string,
