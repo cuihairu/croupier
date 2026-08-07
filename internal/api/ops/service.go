@@ -28,6 +28,10 @@ func (s *Service) OpsAgentMetrics(ctx context.Context, req *OpsAgentMetricsReque
 	return opsAgentMetrics(ctx, s.svcCtx, req)
 }
 
+func (s *Service) AgentMetricsHistory(ctx context.Context, req *AgentMetricsHistoryRequest) (*AgentMetricsHistoryResponse, error) {
+	return agentMetricsHistory(ctx, s.svcCtx, req)
+}
+
 func (s *Service) OpsAgentProcesses(ctx context.Context, req *OpsAgentProcessesRequest) (*OpsAgentProcessesResponse, error) {
 	return opsAgentProcesses(ctx, s.svcCtx, req)
 }

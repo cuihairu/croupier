@@ -364,6 +364,7 @@ func registerOpsRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContex
 		group.GET("/silences", handler.Silences)
 		group.GET("/agent/meta", handler.AgentMeta)
 		group.GET("/agent/metrics", handler.AgentMetrics)
+		group.GET("/agent/metrics/history", handler.AgentMetricsHistory)
 		group.GET("/agent/processes", handler.AgentProcesses)
 		group.GET("/agent/system-info", handler.AgentSystemInfo)
 		group.POST("/agent/exec", handler.AgentExecCommand)

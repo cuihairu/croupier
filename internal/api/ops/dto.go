@@ -565,6 +565,27 @@ type OpsMetricsRequest struct {
 	Aggregation string `json:"aggregation"`
 }
 
+// AgentMetricsHistoryRequest is used to query historical metrics for an agent
+type AgentMetricsHistoryRequest struct {
+	AgentID string `json:"agentId" binding:"required"`
+	Since   string `json:"since"` // ISO 8601 timestamp
+	Limit   int    `json:"limit"` // Max entries to return (default: 100)
+}
+
+// AgentMetricsHistoryResponse is the response for historical metrics
+type AgentMetricsHistoryResponse struct {
+	AgentID string                `json:"agentId"`
+	Entries []MetricsHistoryEntry `json:"entries"`
+}
+
+// MetricsHistoryEntry represents a single historical metrics entry
+type MetricsHistoryEntry struct {
+	Timestamp string         `json:"timestamp"`
+	CPU       *CpuMetrics    `json:"cpu,omitempty"`
+	Memory    *MemoryMetrics `json:"memory,omitempty"`
+	Disks     []DiskMetrics  `json:"disks,omitempty"`
+}
+
 // OpsNodeCommandsRequest is used to get node commands
 type OpsNodeCommandsRequest struct {
 	NodeId string `json:"nodeId" binding:"required"`

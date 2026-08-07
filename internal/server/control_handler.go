@@ -25,6 +25,7 @@ import (
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
+	"gorm.io/gorm"
 )
 
 var (
@@ -147,6 +148,14 @@ func (s *ControlService) Store() *reg.Store { return s.registry }
 
 // MetricsStore returns the metrics store.
 func (s *ControlService) MetricsStore() *reg.MetricsStore { return s.metricsStore }
+
+// SetMetricsDB sets the database for metrics persistence.
+func (s *ControlService) SetMetricsDB(db *gorm.DB) {
+	if s.metricsStore != nil {
+		s.metricsStore.SetDB(db)
+		s.metricsStore.StartCleanupRoutine(s.ctx, 1*time.Hour)
+	}
+}
 
 // SystemInfoCache returns the system info cache.
 func (s *ControlService) SystemInfoCache() *reg.SystemInfoCache { return s.systemInfoCache }

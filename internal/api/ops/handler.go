@@ -578,6 +578,21 @@ func (h *Handler) AgentMetrics(c *gin.Context) {
 	h.OpsAgentMetrics(c)
 }
 
+func (h *Handler) AgentMetricsHistory(c *gin.Context) {
+	var req AgentMetricsHistoryRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	resp, err := h.service.AgentMetricsHistory(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) AgentProcesses(c *gin.Context) {
 	h.OpsAgentProcesses(c)
 }
