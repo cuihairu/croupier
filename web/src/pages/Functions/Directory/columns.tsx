@@ -60,7 +60,16 @@ export const buildDirectoryColumns = ({
         dataIndex: 'summary',
         width: col.width,
         ellipsis: true,
-        render: (_, record) => record.summary?.zh || record.summary?.en || '-',
+        render: (_, record) => {
+          const text = record.summary?.zh || record.summary?.en || '';
+          if (!text) return '-';
+          const truncated = text.length > 10 ? text.slice(0, 10) + '...' : text;
+          return (
+            <Tooltip title={text}>
+              <span>{truncated}</span>
+            </Tooltip>
+          );
+        },
       } as ProColumns<SummaryRow>;
     }
     if (col.key === 'resource') {
