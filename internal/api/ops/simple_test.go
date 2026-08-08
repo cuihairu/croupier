@@ -362,7 +362,7 @@ func TestServiceOpsNodeDrain(t *testing.T) {
 
 	_, err := s.OpsNodeDrain(ctx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "registry store unavailable")
+	assert.Contains(t, err.Error(), "session resolver unavailable")
 }
 
 func TestServiceOpsNodeMeta(t *testing.T) {
@@ -408,7 +408,7 @@ func TestServiceOpsNodeRestart(t *testing.T) {
 
 	_, err := s.OpsNodeRestart(ctx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "registry store unavailable")
+	assert.Contains(t, err.Error(), "session resolver unavailable")
 }
 
 func TestServiceOpsNodeUndrain(t *testing.T) {
@@ -420,7 +420,7 @@ func TestServiceOpsNodeUndrain(t *testing.T) {
 
 	_, err := s.OpsNodeUndrain(ctx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "registry store unavailable")
+	assert.Contains(t, err.Error(), "session resolver unavailable")
 }
 
 // Health operations tests
