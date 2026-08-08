@@ -29,12 +29,14 @@ type FunctionMeta struct {
 	InputSchema  string
 	OutputSchema string
 
-	Resource   string
-	Operation  string
-	Capability string
-	Execution  string
-	Risk       string
-	Permission string
+	Resource          string
+	Operation         string
+	Capability        string
+	Execution         string
+	ApprovalRequired  bool
+	ApprovalPolicyKey string
+	Risk              string
+	Permission        string
 }
 
 // ProviderSession represents a single provider registered to an agent (via SDK->Agent local registry).
@@ -192,35 +194,39 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 		var rebuildErrors []error
 		for funcID, meta := range a.Functions {
 			input := struct {
-				ID           string
-				Version      string
-				Enabled      bool
-				Summary      string
-				Description  string
-				InputSchema  string
-				OutputSchema string
-				Resource     string
-				Operation    string
-				Capability   string
-				Execution    string
-				Risk         string
-				Permission   string
-				Tags         []string
+				ID                string
+				Version           string
+				Enabled           bool
+				Summary           string
+				Description       string
+				InputSchema       string
+				OutputSchema      string
+				Resource          string
+				Operation         string
+				Capability        string
+				Execution         string
+				ApprovalRequired  bool
+				ApprovalPolicyKey string
+				Risk              string
+				Permission        string
+				Tags              []string
 			}{
-				ID:           funcID,
-				Version:      meta.Version,
-				Enabled:      meta.Enabled,
-				Summary:      meta.Summary,
-				Description:  meta.Description,
-				InputSchema:  meta.InputSchema,
-				OutputSchema: meta.OutputSchema,
-				Resource:     meta.Resource,
-				Operation:    meta.Operation,
-				Capability:   meta.Capability,
-				Execution:    meta.Execution,
-				Risk:         meta.Risk,
-				Permission:   meta.Permission,
-				Tags:         meta.Tags,
+				ID:                funcID,
+				Version:           meta.Version,
+				Enabled:           meta.Enabled,
+				Summary:           meta.Summary,
+				Description:       meta.Description,
+				InputSchema:       meta.InputSchema,
+				OutputSchema:      meta.OutputSchema,
+				Resource:          meta.Resource,
+				Operation:         meta.Operation,
+				Capability:        meta.Capability,
+				Execution:         meta.Execution,
+				ApprovalRequired:  meta.ApprovalRequired,
+				ApprovalPolicyKey: meta.ApprovalPolicyKey,
+				Risk:              meta.Risk,
+				Permission:        meta.Permission,
+				Tags:              meta.Tags,
 			}
 			if err := s.contractService.RebuildContractFromFunctionMeta(scopeCtx, a.GameID, a.Env, "sdk", input); err != nil {
 				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild function contract %s: %w", funcID, err))

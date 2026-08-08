@@ -48,21 +48,25 @@ func TestWireDashboardRegistrationPipelineGeneratesProposal(t *testing.T) {
 		LastSeen: time.Now(),
 		Functions: map[string]reg.FunctionMeta{
 			"player.ban": {
-				Enabled:      true,
-				Version:      "1.0.0",
-				Summary:      "Ban player",
-				Operation:    "ban",
-				Capability:   "action",
-				Execution:    "sync",
-				InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
-				OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+				Enabled:           true,
+				Version:           "1.0.0",
+				Summary:           "Ban player",
+				Operation:         "ban",
+				Capability:        "action",
+				Execution:         "sync",
+				ApprovalRequired:  true,
+				ApprovalPolicyKey: "two_person",
+				InputSchema:       `{"type":"object","properties":{"player_id":{"type":"string"}}}`,
+				OutputSchema:      `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
 			},
 		},
 	})
 
 	ctx := context.Background()
-	_, err = model.NewFunctionContractModel(db).FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.ban")
+	contract, err := model.NewFunctionContractModel(db).FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.ban")
 	require.NoError(t, err)
+	require.Equal(t, true, contract.Approval["required"])
+	require.Equal(t, "two_person", contract.Approval["policyKey"])
 	proposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.ban")
 	require.NoError(t, err)
 	require.Equal(t, "operation--player.ban", proposal.PageKey)

@@ -272,10 +272,12 @@ func TestToOpenAPIOperation(t *testing.T) {
 					"success": {"type": "boolean"}
 				}
 			}`,
-			Resource:   "player",
-			Risk:       "high",
-			Operation:  "ban",
-			Permission: "player.ban",
+			Resource:          "player",
+			Risk:              "high",
+			Operation:         "ban",
+			Permission:        "player.ban",
+			ApprovalRequired:  true,
+			ApprovalPolicyKey: "two_person",
 		}
 
 		op, err := ToOpenAPIOperation(descriptor)
@@ -309,6 +311,10 @@ func TestToOpenAPIOperation(t *testing.T) {
 		assert.Equal(t, "high", op.Extensions["x-risk"])
 		assert.Equal(t, "ban", op.Extensions["x-operation"])
 		assert.Equal(t, "player.ban", op.Extensions["x-permission"])
+		assert.Equal(t, map[string]interface{}{
+			"required":  true,
+			"policyKey": "two_person",
+		}, op.Extensions["x-approval"])
 	})
 
 	t.Run("convert minimal descriptor", func(t *testing.T) {

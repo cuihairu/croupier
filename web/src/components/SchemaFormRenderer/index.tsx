@@ -5,7 +5,14 @@
  * memory only and must not be persisted into SDK/OpenAPI/PageSpec snapshots.
  */
 
-import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Form from '@rjsf/antd';
 import type CoreForm from '@rjsf/core';
 import type { IChangeEvent } from '@rjsf/core';
@@ -16,6 +23,7 @@ import type {
   FormPresentationSpec,
   FormValues,
   FormWidget,
+  ConditionSpec,
   JSONSchema,
   JSONValue,
 } from '@/types/dashboard';
@@ -66,10 +74,7 @@ function normalizeFormValues(value: unknown): FormValues {
   );
 }
 
-function getLocalizedText(
-  value: Record<string, string> | undefined,
-  fallback: string,
-): string {
+function getLocalizedText(value: Record<string, string> | undefined, fallback: string): string {
   if (!value) return fallback;
   return value['zh-CN'] || value.zh || value.en || value['en-US'] || fallback;
 }
@@ -79,6 +84,43 @@ function getFieldSchema(schema: JSONSchema, key: string): JSONSchema {
   if (!isObject(properties)) return {};
   const child = properties[key];
   return isObject(child) ? child : {};
+}
+
+function valueAtPointer(value: JSONValue | undefined, pointer: string): JSONValue | undefined {
+  if (value === undefined || !pointer.startsWith('/')) return undefined;
+  let current = value;
+  for (const token of pointer.slice(1).split('/')) {
+    const key = token.replace(/~1/g, '/').replace(/~0/g, '~');
+    if (Array.isArray(current)) {
+      const index = Number(key);
+      if (!Number.isInteger(index) || index < 0 || index >= current.length) return undefined;
+      current = current[index];
+      continue;
+    }
+    if (!isObject(current) || !Object.prototype.hasOwnProperty.call(current, key)) return undefined;
+    current = current[key];
+  }
+  return current;
+}
+
+function sameJsonValue(left: JSONValue | undefined, right: JSONValue): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function matchesCondition(condition: ConditionSpec | undefined, values: FormValues): boolean {
+  if (!condition) return true;
+  switch (condition.kind) {
+    case 'equals':
+      return sameJsonValue(valueAtPointer(values, condition.path), condition.value);
+    case 'notEquals':
+      return !sameJsonValue(valueAtPointer(values, condition.path), condition.value);
+    case 'exists':
+      return valueAtPointer(values, condition.path) !== undefined;
+    case 'all':
+      return condition.conditions.every((item) => matchesCondition(item, values));
+    case 'any':
+      return condition.conditions.some((item) => matchesCondition(item, values));
+  }
 }
 
 function getEnumNames(field: FormFieldSpec | undefined): string[] | undefined {
@@ -138,7 +180,7 @@ function applyFieldPresentation(
   uiSchema: UiSchema,
   field: FormFieldSpec,
   rootSchema: JSONSchema,
-) {
+): boolean {
   const fieldSchema = getFieldSchema(rootSchema, field.key);
   const nextUi = (uiSchema[field.key] || {}) as UiSchema;
   const widget = widgetToRjsf(field.widget, fieldSchema);
@@ -174,15 +216,24 @@ function applyFieldPresentation(
   if (field.placeholder) nextUi['ui:placeholder'] = getLocalizedText(field.placeholder, '');
   if (widget) nextUi['ui:widget'] = widget;
   if (field.widget === 'MultiSelect') nextUi['ui:widget'] = 'select';
-  if (field.widgetProps) nextUi['ui:options'] = { ...(nextUi['ui:options'] || {}), ...field.widgetProps };
+  if (field.widgetProps)
+    nextUi['ui:options'] = { ...(nextUi['ui:options'] || {}), ...field.widgetProps };
   uiSchema[field.key] = nextUi;
+  return field.visible !== false;
 }
 
-function deriveRuntimeSchema(spec: FormPresentationSpec): {
+function cloneSchema(schema: JSONSchema): RJSFSchema {
+  return JSON.parse(JSON.stringify(schema || {})) as RJSFSchema;
+}
+
+function deriveRuntimeSchema(
+  spec: FormPresentationSpec,
+  values: FormValues,
+): {
   schema: RJSFSchema;
   uiSchema: UiSchema;
 } {
-  const schema = { ...(spec.jsonSchema || {}) } as RJSFSchema;
+  const schema = cloneSchema(spec.jsonSchema);
   const uiSchema: UiSchema = {
     'ui:submitButtonOptions': {
       submitText: getLocalizedText(spec.submitButton?.text, '提交'),
@@ -194,11 +245,28 @@ function deriveRuntimeSchema(spec: FormPresentationSpec): {
   if (!schema.properties) schema.properties = {};
 
   const rootSchema = spec.jsonSchema || {};
+  const hiddenFields = new Set<string>();
   for (const field of spec.fields || []) {
-    applyFieldPresentation(schema, uiSchema, field, rootSchema);
+    const visible =
+      matchesCondition(field.visibleWhen, values) &&
+      applyFieldPresentation(schema, uiSchema, field, rootSchema);
+    if (!visible) hiddenFields.add(field.key);
   }
 
-  const order = spec.fields?.map((field) => field.key).filter(Boolean);
+  if (hiddenFields.size > 0) {
+    const properties = schema.properties as Record<string, RJSFSchema> | undefined;
+    for (const key of hiddenFields) {
+      delete properties?.[key];
+      delete uiSchema[key];
+    }
+    if (Array.isArray(schema.required)) {
+      schema.required = schema.required.filter((key) => !hiddenFields.has(key));
+    }
+  }
+
+  const order = spec.fields
+    ?.map((field) => field.key)
+    .filter((key) => Boolean(key) && !hiddenFields.has(key));
   if (order?.length) {
     uiSchema['ui:order'] = [...order, '*'];
   }
@@ -221,13 +289,15 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
   ) => {
     const formRef = useRef<RJSFFormRef | null>(null);
     const currentValuesRef = useRef<FormValues>(initialValues || {});
+    const [formValues, setFormValues] = useState<FormValues>(initialValues || {});
 
     useEffect(() => {
       currentValuesRef.current = initialValues || {};
+      setFormValues(initialValues || {});
     }, [initialValues]);
 
     const { schema, uiSchema } = useMemo(() => {
-      const derived = deriveRuntimeSchema(spec);
+      const derived = deriveRuntimeSchema(spec, formValues);
       if (hideSubmit || readonly) {
         derived.uiSchema['ui:submitButtonOptions'] = {
           ...(derived.uiSchema['ui:submitButtonOptions'] || {}),
@@ -235,7 +305,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         };
       }
       return derived;
-    }, [hideSubmit, readonly, spec]);
+    }, [formValues, hideSubmit, readonly, spec]);
 
     useImperativeHandle(ref, () => ({
       submit: () => {
@@ -251,7 +321,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         schema={schema}
         uiSchema={uiSchema}
         validator={validator}
-        formData={initialValues || {}}
+        formData={formValues}
         readonly={readonly}
         disabled={disabled}
         liveValidate={false}
@@ -260,6 +330,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         onChange={(event: IChangeEvent<FormValues>) => {
           const next = normalizeFormValues(event.formData);
           currentValuesRef.current = next;
+          setFormValues(next);
           onValuesChange?.({}, next);
         }}
         onSubmit={async (event: IChangeEvent<FormValues>) => {

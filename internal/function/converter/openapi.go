@@ -293,6 +293,16 @@ func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Opera
 		}
 		op.Extensions["x-execution"] = descriptor.Execution
 	}
+	if descriptor.ApprovalRequired || descriptor.ApprovalPolicyKey != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		approval := map[string]interface{}{"required": descriptor.ApprovalRequired}
+		if descriptor.ApprovalPolicyKey != "" {
+			approval["policyKey"] = descriptor.ApprovalPolicyKey
+		}
+		op.Extensions["x-approval"] = approval
+	}
 	if descriptor.Permission != "" {
 		if op.Extensions == nil {
 			op.Extensions = make(map[string]interface{})
@@ -305,21 +315,23 @@ func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Opera
 
 // LocalFunctionDescriptorDesc represents a LocalFunctionDescriptor for conversion
 type LocalFunctionDescriptorDesc struct {
-	ID           string
-	Version      string
-	Tags         []string
-	Summary      string
-	Description  string
-	OperationID  string
-	Deprecated   bool
-	InputSchema  string
-	OutputSchema string
-	Resource     string
-	Operation    string
-	Capability   string
-	Execution    string
-	Risk         string
-	Permission   string
+	ID                string
+	Version           string
+	Tags              []string
+	Summary           string
+	Description       string
+	OperationID       string
+	Deprecated        bool
+	InputSchema       string
+	OutputSchema      string
+	Resource          string
+	Operation         string
+	Capability        string
+	Execution         string
+	ApprovalRequired  bool
+	ApprovalPolicyKey string
+	Risk              string
+	Permission        string
 }
 
 // ExtractExtension extracts an extension value without the x- prefix
