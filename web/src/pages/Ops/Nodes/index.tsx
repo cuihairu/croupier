@@ -116,6 +116,7 @@ export default function OpsNodesPage() {
   const [detailNode, setDetailNode] = useState<NodeRow | null>(null);
   const [metricsHistory, setMetricsHistory] = useState<MetricsHistoryEntry[]>([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsMinutes, setMetricsMinutes] = useState(5);
 
   const load = async () => {
     setLoading(true);
@@ -162,19 +163,25 @@ export default function OpsNodesPage() {
   }, [rows]);
 
   // Load metrics history when detail node changes
-  const loadMetricsHistory = useCallback(async (agentId: string) => {
-    if (!agentId) return;
-    setMetricsLoading(true);
-    try {
-      const entries = await getAgentMetricsHistory(agentId, { limit: 50 });
-      setMetricsHistory(entries || []);
-    } catch (error) {
-      console.error('Failed to load metrics history:', error);
-      setMetricsHistory([]);
-    } finally {
-      setMetricsLoading(false);
-    }
-  }, []);
+  const loadMetricsHistory = useCallback(
+    async (agentId: string, since?: string, limit?: number) => {
+      if (!agentId) return;
+      setMetricsLoading(true);
+      try {
+        const entries = await getAgentMetricsHistory(agentId, {
+          since: since || new Date(Date.now() - metricsMinutes * 60 * 1000).toISOString(),
+          limit: limit || 50,
+        });
+        setMetricsHistory(entries || []);
+      } catch (error) {
+        console.error('Failed to load metrics history:', error);
+        setMetricsHistory([]);
+      } finally {
+        setMetricsLoading(false);
+      }
+    },
+    [metricsMinutes],
+  );
 
   // Load metrics when detail node changes
   useEffect(() => {
@@ -557,9 +564,49 @@ export default function OpsNodesPage() {
 
             {/* 历史指标趋势图 */}
             <div>
-              <Text strong style={{ fontSize: 16, marginBottom: 16, display: 'block' }}>
-                指标趋势
-              </Text>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                }}
+              >
+                <Text strong style={{ fontSize: 16 }}>
+                  指标趋势
+                </Text>
+                <Space>
+                  {[
+                    { label: '5分钟', value: 5 },
+                    { label: '1小时', value: 60 },
+                    { label: '6小时', value: 360 },
+                    { label: '24小时', value: 1440 },
+                    { label: '3天', value: 4320 },
+                    { label: '7天', value: 10080 },
+                  ].map((range) => (
+                    <Button
+                      key={range.value}
+                      size="small"
+                      type={metricsMinutes === range.value ? 'primary' : 'default'}
+                      onClick={() => {
+                        setMetricsMinutes(range.value);
+                        if (detailNode?.agentId) {
+                          const since = new Date(
+                            Date.now() - range.value * 60 * 1000,
+                          ).toISOString();
+                          loadMetricsHistory(
+                            detailNode.agentId,
+                            since,
+                            range.value === 5 ? 50 : range.value === 60 ? 120 : 200,
+                          );
+                        }
+                      }}
+                    >
+                      {range.label}
+                    </Button>
+                  ))}
+                </Space>
+              </div>
               {metricsLoading ? (
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
                   <Spin size="small" />
