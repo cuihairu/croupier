@@ -377,8 +377,8 @@ const file_croupier_sdk_v1_invocation_proto_rawDesc = "" +
 	"\bprogress\x18\x04 \x01(\x05R\bprogress\x12\x18\n" +
 	"\apayload\x18\x05 \x01(\fR\apayload\",\n" +
 	"\x11CancelTaskRequest\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskIdB\xc7\x01\n" +
-	"\x13com.croupier.sdk.v1B\x0fInvocationProtoP\x01ZAgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1;sdkv1\xa2\x02\x03CSX\xaa\x02\x0fCroupier.Sdk.V1\xca\x02\x0fCroupier\\Sdk\\V1\xe2\x02\x1bCroupier\\Sdk\\V1\\GPBMetadata\xea\x02\x11Croupier::Sdk::V1b\x06proto3"
+	"\atask_id\x18\x01 \x01(\tR\x06taskIdBa\n" +
+	"\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3"
 
 var (
 	file_croupier_sdk_v1_invocation_proto_rawDescOnce sync.Once

@@ -245,7 +245,7 @@ type FunctionMetadata struct {
 	Tags       []string `protobuf:"bytes,4,rep,name=tags,proto3" json:"tags,omitempty"`              // Tags for grouping and filtering
 	Capability string   `protobuf:"bytes,12,opt,name=capability,proto3" json:"capability,omitempty"` // collection_query|item_query|create|update|delete|action|task|report
 	Operation  string   `protobuf:"bytes,13,opt,name=operation,proto3" json:"operation,omitempty"`   // Business action key, e.g. "ban", "send", "list"
-	Execution  string   `protobuf:"bytes,14,opt,name=execution,proto3" json:"execution,omitempty"`   // sync|task|approval
+	Execution  string   `protobuf:"bytes,14,opt,name=execution,proto3" json:"execution,omitempty"`   // sync|task
 	// Documentation fields
 	Name        string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`               // Short technical name, not a UI label
 	Description string `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"` // Detailed description (supports markdown)
@@ -860,8 +860,8 @@ const file_croupier_function_v1_metadata_proto_rawDesc = "" +
 	"\tfunctions\x18\x01 \x03(\v2&.croupier.function.v1.FunctionMetadataR\tfunctions\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCountB\xea\x01\n" +
-	"\x18com.croupier.function.v1B\rMetadataProtoP\x01ZKgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/function/v1;functionv1\xa2\x02\x03CFX\xaa\x02\x14Croupier.Function.V1\xca\x02\x15Croupier\\Function_\\V1\xe2\x02!Croupier\\Function_\\V1\\GPBMetadata\xea\x02\x16Croupier::Function::V1b\x06proto3"
+	"totalCountBp\n" +
+	"'io.github.cuihairu.croupier.function.v1P\x01ZCgithub.com/cuihairu/croupier/pkg/pb/croupier/function/v1;functionv1b\x06proto3"
 
 var (
 	file_croupier_function_v1_metadata_proto_rawDescOnce sync.Once

@@ -34,7 +34,10 @@ type FunctionDescriptor struct {
 	Permission string                 `protobuf:"bytes,6,opt,name=permission,proto3" json:"permission,omitempty"` // optional permission identifier
 	Enabled    bool                   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`      // whether this function is currently enabled
 	Capability string                 `protobuf:"bytes,8,opt,name=capability,proto3" json:"capability,omitempty"` // collection_query|item_query|create|update|delete|action|task|report
-	Execution  string                 `protobuf:"bytes,9,opt,name=execution,proto3" json:"execution,omitempty"`   // sync|task|approval
+	Execution  string                 `protobuf:"bytes,9,opt,name=execution,proto3" json:"execution,omitempty"`   // sync|task
+	// Approval policy (independent of execution mode)
+	ApprovalRequired  bool   `protobuf:"varint,10,opt,name=approval_required,json=approvalRequired,proto3" json:"approval_required,omitempty"`     // whether approval is required
+	ApprovalPolicyKey string `protobuf:"bytes,11,opt,name=approval_policy_key,json=approvalPolicyKey,proto3" json:"approval_policy_key,omitempty"` // optional policy key (e.g., "two_person")
 	// OpenAPI 3.0.3 Operation Object fields for catalog/search.
 	Summary     string   `protobuf:"bytes,25,opt,name=summary,proto3" json:"summary,omitempty"`
 	Description string   `protobuf:"bytes,26,opt,name=description,proto3" json:"description,omitempty"`
@@ -136,6 +139,20 @@ func (x *FunctionDescriptor) GetCapability() string {
 func (x *FunctionDescriptor) GetExecution() string {
 	if x != nil {
 		return x.Execution
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetApprovalRequired() bool {
+	if x != nil {
+		return x.ApprovalRequired
+	}
+	return false
+}
+
+func (x *FunctionDescriptor) GetApprovalPolicyKey() string {
+	if x != nil {
+		return x.ApprovalPolicyKey
 	}
 	return ""
 }
@@ -731,7 +748,7 @@ var File_croupier_agent_v1_register_proto protoreflect.FileDescriptor
 
 const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\n" +
-	" croupier/agent/v1/register.proto\x12\x11croupier.agent.v1\"\xbc\x03\n" +
+	" croupier/agent/v1/register.proto\x12\x11croupier.agent.v1\"\x99\x04\n" +
 	"\x12FunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
@@ -745,7 +762,10 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\n" +
 	"capability\x18\b \x01(\tR\n" +
 	"capability\x12\x1c\n" +
-	"\texecution\x18\t \x01(\tR\texecution\x12\x18\n" +
+	"\texecution\x18\t \x01(\tR\texecution\x12+\n" +
+	"\x11approval_required\x18\n" +
+	" \x01(\bR\x10approvalRequired\x12.\n" +
+	"\x13approval_policy_key\x18\v \x01(\tR\x11approvalPolicyKey\x12\x18\n" +
 	"\asummary\x18\x19 \x01(\tR\asummary\x12 \n" +
 	"\vdescription\x18\x1a \x01(\tR\vdescription\x12\x12\n" +
 	"\x04tags\x18\x1b \x03(\tR\x04tags\x12\x1e\n" +
@@ -802,8 +822,8 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\x1bRegisterCapabilitiesRequest\x12;\n" +
 	"\bprovider\x18\x01 \x01(\v2\x1f.croupier.agent.v1.ProviderMetaR\bprovider\x12(\n" +
 	"\x10manifest_json_gz\x18\x02 \x01(\fR\x0emanifestJsonGz\"\x1e\n" +
-	"\x1cRegisterCapabilitiesResponseB\xd3\x01\n" +
-	"\x15com.croupier.agent.v1B\rRegisterProtoP\x01ZEgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/v1;agentv1\xa2\x02\x03CAX\xaa\x02\x11Croupier.Agent.V1\xca\x02\x11Croupier\\Agent\\V1\xe2\x02\x1dCroupier\\Agent\\V1\\GPBMetadata\xea\x02\x13Croupier::Agent::V1b\x06proto3"
+	"\x1cRegisterCapabilitiesResponseBg\n" +
+	"$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_croupier_agent_v1_register_proto_rawDescOnce sync.Once
