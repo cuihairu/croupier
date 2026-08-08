@@ -1,45 +1,67 @@
+/**
+ * 函数调试页面 - 类似 Postman 的专业调试界面
+ */
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
-import { Alert, App, Button, Card, Drawer, Empty, Space, Tag, Typography } from 'antd';
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { history, useLocation, getLocale, useModel } from '@umijs/max';
-import SchemaFormRenderer, {
-  type SchemaFormRendererHandle,
-} from '@/components/SchemaFormRenderer';
 import {
-  invokeFunction,
-  listDescriptors,
-  startTask,
-  type FunctionDescriptor,
-} from '@/services/api';
+  Alert,
+  App,
+  Button,
+  Card,
+  Col,
+  Collapse,
+  Divider,
+  Empty,
+  Input,
+  Row,
+  Select,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
+import {
+  ClockCircleOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  HistoryOutlined,
+  InfoCircleOutlined,
+  PlayCircleOutlined,
+  SendOutlined,
+} from '@ant-design/icons';
+import { history, useLocation, getLocale, useModel } from '@umijs/max';
+import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
+import { invokeFunction, listDescriptors, type FunctionDescriptor } from '@/services/api';
 import { extractErrorMessage } from '@/utils/errors';
 import { parseInputSchema, type JSONSchemaType } from '@/utils/json';
 import type { FormPresentationSpec, FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
+const { TextArea } = Input;
+
+// Types
+interface RequestHistory {
+  id: string;
+  functionId: string;
+  timestamp: string;
+  duration: number;
+  status: 'success' | 'error';
+  request: JSONValue;
+  response?: JSONValue;
+  error?: string;
+}
 
 type FormSchemaState =
-  | {
-      status: 'idle' | 'loading';
-      schema?: undefined;
-      detail?: undefined;
-      error?: undefined;
-    }
-  | {
-      status: 'ready';
-      spec: FormPresentationSpec;
-      detail?: string;
-      error?: undefined;
-    }
-  | {
-      status: 'error';
-      schema?: undefined;
-      detail?: string;
-      error: string;
-    };
+  | { status: 'idle' | 'loading'; schema?: undefined; error?: undefined }
+  | { status: 'ready'; spec: FormPresentationSpec; error?: undefined }
+  | { status: 'error'; schema?: undefined; error: string };
 
 const EMPTY_FORM_STATE: FormSchemaState = { status: 'idle' };
 
+// Helpers
 const resolveName = (descriptor: FunctionDescriptor, locale: string) => {
   const zh = descriptor.displayName?.zh || descriptor.summary?.zh;
   const en = descriptor.displayName?.en || descriptor.summary?.en;
@@ -71,27 +93,24 @@ function resolveInputSchema(descriptor: FunctionDescriptor): JSONSchemaType | nu
   );
 }
 
-function toJSONValue(values: FormValues): JSONValue {
-  return JSON.parse(JSON.stringify(values)) as JSONValue;
-}
-
 function buildFormPresentationSpec(schema: JSONSchemaType): FormPresentationSpec {
   return {
     jsonSchema: schema as JSONSchema,
     layout: 'vertical',
-    submitButton: {
-      text: { 'zh-CN': '执行', en: 'Invoke' },
-    },
   };
 }
 
-type InitialStateWithAccess = {
-  currentUser?: {
-    access?: string;
-  };
-};
+function toJSONValue(values: FormValues): JSONValue {
+  return JSON.parse(JSON.stringify(values)) as JSONValue;
+}
 
-export default function FunctionRuntimeUIPage() {
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
+// Main component
+export default function FunctionInvokePage() {
   const { message } = App.useApp();
   const location = useLocation();
   const locale = getLocale();
@@ -105,22 +124,19 @@ export default function FunctionRuntimeUIPage() {
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
   const [formState, setFormState] = useState<FormSchemaState>(EMPTY_FORM_STATE);
   const [formValues, setFormValues] = useState<FormValues>({});
-  const [infoOpen, setInfoOpen] = useState(false);
-  const [result, setResult] = useState<unknown>(undefined);
+  const [rawJson, setRawJson] = useState<string>('{}');
+  const [inputMode, setInputMode] = useState<'form' | 'json'>('form');
+  const [result, setResult] = useState<JSONValue | undefined>(undefined);
+  const [resultRaw, setResultRaw] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [duration, setDuration] = useState<number>(0);
+  const [statusCode, setStatusCode] = useState<number>(0);
+  const [history, setHistory] = useState<RequestHistory[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   const selected = useMemo(
-    () => descriptors.find((descriptor) => descriptor.id === fid) || descriptors[0],
+    () => descriptors.find((d) => d.id === fid) || descriptors[0],
     [descriptors, fid],
-  );
-
-  const permissions = useMemo(
-    () =>
-      String((initialState as InitialStateWithAccess | undefined)?.currentUser?.access || '')
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean),
-    [initialState],
   );
 
   useEffect(() => {
@@ -139,196 +155,357 @@ export default function FunctionRuntimeUIPage() {
   }, [message]);
 
   useEffect(() => {
-    let active = true;
-
-    const buildRuntimeFormSchema = () => {
-      if (!selected?.id) {
-        setFormState(EMPTY_FORM_STATE);
-        return;
-      }
-
-      formRef.current = null;
-      setFormValues({});
-      setResult(undefined);
-      setError('');
-      setFormState({ status: 'loading' });
-
-      try {
-        const inputSchema = resolveInputSchema(selected);
-        if (!inputSchema) {
-          throw new Error('当前函数没有 inputSchema，无法生成调用测试表单');
-        }
-        if (!active) return;
-        setFormState({
-          status: 'ready',
-          spec: buildFormPresentationSpec(inputSchema),
-          detail: '由函数 inputSchema 临时生成，仅用于调用测试，不会保存为页面 UI。',
-        });
-      } catch (err: unknown) {
-        if (!active) return;
-        setFormState({
-          status: 'error',
-          error: extractErrorMessage(err, '调用测试表单生成失败'),
-        });
-      }
-    };
-
-    buildRuntimeFormSchema();
-    return () => {
-      active = false;
-    };
+    if (!selected?.id) {
+      setFormState(EMPTY_FORM_STATE);
+      return;
+    }
+    const inputSchema = resolveInputSchema(selected);
+    if (!inputSchema) {
+      setFormState({ status: 'error', error: '当前函数没有 inputSchema' });
+      return;
+    }
+    setFormState({
+      status: 'ready',
+      spec: buildFormPresentationSpec(inputSchema),
+    });
+    setFormValues({});
+    setRawJson('{}');
+    setResult(undefined);
+    setError('');
   }, [selected]);
 
-  const submitWithValues = useCallback(
-    async (mode: 'invoke' | 'task') => {
-      if (!selected?.id || formState.status !== 'ready') return;
-      setExecuting(true);
-      setError('');
-      setResult(undefined);
-      try {
+  const executeRequest = useCallback(async () => {
+    if (!selected?.id) return;
+    setExecuting(true);
+    setError('');
+    setResult(undefined);
+    setDuration(0);
+    setStatusCode(0);
+
+    const startTime = Date.now();
+    let payload: JSONValue;
+
+    try {
+      if (inputMode === 'form') {
         if (!formRef.current?.validate()) {
-          throw new Error('表单校验失败，请修正参数后再执行');
+          throw new Error('表单校验失败');
         }
         const values = formRef.current?.getValues() || formValues;
-        const payload = toJSONValue(values);
-        const response =
-          mode === 'invoke'
-            ? await invokeFunction(selected.id, payload)
-            : await startTask(selected.id, payload);
-        setResult(response);
-        message.success(mode === 'invoke' ? '执行成功' : '任务已创建');
-      } catch (err: unknown) {
-        const msg = extractErrorMessage(err, mode === 'invoke' ? '执行失败' : '创建任务失败');
-        setError(msg);
-        message.error(msg);
-      } finally {
-        setExecuting(false);
+        payload = toJSONValue(values);
+      } else {
+        payload = JSON.parse(rawJson);
       }
-    },
-    [formValues, message, selected?.id, formState],
-  );
+    } catch (err) {
+      setError(`参数解析失败: ${err instanceof Error ? err.message : String(err)}`);
+      setExecuting(false);
+      return;
+    }
 
-  if (!loading && descriptors.length === 0) {
-    return (
-      <PageContainer title="游戏管理">
-        <Empty description="暂无可用函数" />
-      </PageContainer>
-    );
-  }
+    try {
+      const response = await invokeFunction(selected.id, payload);
+      const elapsed = Date.now() - startTime;
+      setDuration(elapsed);
+      setStatusCode(200);
+      setResult(response);
+      setResultRaw(JSON.stringify(response, null, 2));
+      message.success('执行成功');
 
-  if (!selected) {
-    return (
-      <PageContainer title="游戏管理">
-        <Empty description="未找到函数，请从函数目录重新进入" />
-      </PageContainer>
-    );
-  }
+      // Add to history
+      setHistory((prev) => [
+        {
+          id: `${Date.now()}`,
+          functionId: selected.id,
+          timestamp: new Date().toISOString(),
+          duration: elapsed,
+          status: 'success',
+          request: payload,
+          response,
+        },
+        ...prev.slice(0, 49),
+      ]);
+    } catch (err: unknown) {
+      const elapsed = Date.now() - startTime;
+      setDuration(elapsed);
+      setStatusCode(500);
+      const msg = extractErrorMessage(err, '执行失败');
+      setError(msg);
+      message.error(msg);
+
+      // Add to history
+      setHistory((prev) => [
+        {
+          id: `${Date.now()}`,
+          functionId: selected.id,
+          timestamp: new Date().toISOString(),
+          duration: elapsed,
+          status: 'error',
+          request: payload,
+          error: msg,
+        },
+        ...prev.slice(0, 49),
+      ]);
+    } finally {
+      setExecuting(false);
+    }
+  }, [selected?.id, inputMode, formValues, rawJson, message]);
+
+  const handleFunctionChange = (functionId: string) => {
+    history.push(`/system/functions/invoke?fid=${functionId}`);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    message.success('已复制到剪贴板');
+  };
 
   return (
     <PageContainer
-      title={resolveName(selected, locale)}
-      subTitle={resolveSummary(selected, locale)}
+      title="函数调试"
+      subTitle="类似 Postman 的函数调试工具"
       extra={[
-        <Button key="info" icon={<InfoCircleOutlined />} onClick={() => setInfoOpen(true)}>
-          函数信息
+        <Button
+          key="history"
+          icon={<HistoryOutlined />}
+          onClick={() => setShowHistory(!showHistory)}
+        >
+          历史记录
         </Button>,
         <Button key="catalog" onClick={() => history.push('/system/functions/catalog')}>
           函数目录
         </Button>,
       ]}
     >
-      <Card
-        title="参数配置"
-        loading={formState.status === 'loading'}
-        extra={
-          <Space>
-            <Button
-              type="primary"
-              loading={executing}
-              disabled={formState.status !== 'ready'}
-              onClick={() => submitWithValues('invoke')}
+      <Row gutter={16}>
+        {/* Left panel - Request */}
+        <Col span={showHistory ? 16 : 24}>
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            {/* Function selector */}
+            <Card size="small">
+              <Space.Compact style={{ width: '100%' }}>
+                <Select
+                  showSearch
+                  placeholder="选择函数"
+                  value={selected?.id}
+                  onChange={handleFunctionChange}
+                  style={{ width: '100%' }}
+                  options={descriptors.map((d) => ({
+                    label: `${d.id} - ${resolveName(d, locale)}`,
+                    value: d.id,
+                  }))}
+                  loading={loading}
+                />
+              </Space.Compact>
+              {selected && (
+                <div style={{ marginTop: 8 }}>
+                  <Space wrap>
+                    {selected.resource && <Tag color="blue">{selected.resource}</Tag>}
+                    {selected.operation && <Tag color="purple">{selected.operation}</Tag>}
+                    {selected.capability && <Tag color="green">{selected.capability}</Tag>}
+                    {selected.execution && <Tag>{selected.execution}</Tag>}
+                    {selected.tags?.map((tag) => (
+                      <Tag key={tag}>{tag}</Tag>
+                    ))}
+                  </Space>
+                  {resolveSummary(selected, locale) && (
+                    <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+                      {resolveSummary(selected, locale)}
+                    </Text>
+                  )}
+                </div>
+              )}
+            </Card>
+
+            {/* Input tabs */}
+            <Card
+              size="small"
+              title="请求参数"
+              extra={
+                <Space>
+                  <Button
+                    type="primary"
+                    icon={<SendOutlined />}
+                    loading={executing}
+                    disabled={formState.status !== 'ready'}
+                    onClick={executeRequest}
+                  >
+                    发送
+                  </Button>
+                </Space>
+              }
             >
-              执行
-            </Button>
-            <Button
-              loading={executing}
-              disabled={formState.status !== 'ready'}
-              onClick={() => submitWithValues('task')}
-            >
-              创建任务
-            </Button>
+              <Tabs
+                activeKey={inputMode}
+                onChange={(key) => setInputMode(key as 'form' | 'json')}
+                items={[
+                  {
+                    key: 'form',
+                    label: '表单',
+                    children:
+                      formState.status === 'ready' ? (
+                        <SchemaFormRenderer
+                          ref={formRef}
+                          spec={formState.spec}
+                          initialValues={formValues}
+                          onValuesChange={(_, allValues) => {
+                            setFormValues(allValues);
+                            setRawJson(JSON.stringify(allValues, null, 2));
+                          }}
+                          hideSubmit
+                        />
+                      ) : formState.status === 'error' ? (
+                        <Alert type="error" message={formState.error} />
+                      ) : (
+                        <Empty description="请选择函数" />
+                      ),
+                  },
+                  {
+                    key: 'json',
+                    label: 'JSON',
+                    children: (
+                      <TextArea
+                        value={rawJson}
+                        onChange={(e) => {
+                          setRawJson(e.target.value);
+                          try {
+                            const parsed = JSON.parse(e.target.value);
+                            setFormValues(parsed);
+                          } catch {
+                            // Ignore parse errors
+                          }
+                        }}
+                        rows={15}
+                        style={{ fontFamily: 'monospace' }}
+                        placeholder='{"key": "value"}'
+                      />
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+
+            {/* Response */}
+            {(result !== undefined || error) && (
+              <Card
+                size="small"
+                title="响应"
+                extra={
+                  <Space>
+                    {statusCode > 0 && (
+                      <Tag color={statusCode < 400 ? 'green' : 'red'}>{statusCode}</Tag>
+                    )}
+                    {duration > 0 && (
+                      <Tag icon={<ClockCircleOutlined />}>{formatDuration(duration)}</Tag>
+                    )}
+                    {resultRaw && (
+                      <Tooltip title="复制响应">
+                        <Button
+                          size="small"
+                          icon={<CopyOutlined />}
+                          onClick={() => copyToClipboard(resultRaw)}
+                        />
+                      </Tooltip>
+                    )}
+                  </Space>
+                }
+              >
+                <Tabs
+                  defaultActiveKey="pretty"
+                  items={[
+                    {
+                      key: 'pretty',
+                      label: '格式化',
+                      children: error ? (
+                        <Alert type="error" showIcon message="执行失败" description={error} />
+                      ) : (
+                        <pre
+                          style={{
+                            margin: 0,
+                            padding: 16,
+                            background: '#f5f5f5',
+                            borderRadius: 8,
+                            maxHeight: 400,
+                            overflow: 'auto',
+                            fontSize: 13,
+                            fontFamily: 'monospace',
+                          }}
+                        >
+                          {resultRaw}
+                        </pre>
+                      ),
+                    },
+                    {
+                      key: 'raw',
+                      label: '原始数据',
+                      children: (
+                        <TextArea
+                          value={resultRaw || error || ''}
+                          readOnly
+                          rows={10}
+                          style={{ fontFamily: 'monospace' }}
+                        />
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            )}
           </Space>
-        }
-      >
-        {formState.status === 'ready' && (
-          <Alert
-            style={{ marginBottom: 12 }}
-            type="success"
-            showIcon
-            message="已根据函数契约生成调用测试表单"
-            description={formState.detail}
-          />
-        )}
-        {formState.status === 'error' && (
-          <Alert
-            type="error"
-            showIcon
-            message="调用测试表单无法生成"
-            description={`${formState.error}。请先修正函数注册中的 inputSchema；业务页面展示请在 Page Studio 中处理。`}
-          />
-        )}
-        {formState.status === 'ready' ? (
-          <SchemaFormRenderer
-            ref={formRef}
-            spec={formState.spec}
-            initialValues={formValues}
-            onValuesChange={(_, allValues) => setFormValues(allValues)}
-            hideSubmit
-          />
-        ) : formState.status === 'idle' ? (
-          <Empty description="请选择函数" />
-        ) : null}
-      </Card>
+        </Col>
 
-      {(error || result !== undefined) && (
-        <Card title="执行结果" style={{ marginTop: 16 }}>
-          {error && <Alert type="error" showIcon message="执行失败" description={error} />}
-          {result !== undefined && (
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {JSON.stringify(result, null, 2)}
-            </pre>
-          )}
-        </Card>
-      )}
-
-      <Drawer
-        title="函数信息"
-        placement="right"
-        width={420}
-        open={infoOpen}
-        onClose={() => setInfoOpen(false)}
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <Text code>{selected.id}</Text>
-          {selected.resource && <Tag color="blue">Resource: {selected.resource}</Tag>}
-          {selected.operation && <Tag color="purple">Operation: {selected.operation}</Tag>}
-          {selected.version && <Tag>v{selected.version}</Tag>}
-          {formState.status !== 'idle' && (
-            <Tag color={formState.status === 'ready' ? 'green' : 'red'}>
-              调用表单: {formState.status === 'ready' ? 'json-schema' : 'invalid'}
-            </Tag>
-          )}
-          {permissions.length > 0 && <Tag>权限: {permissions.length}</Tag>}
-          {resolveSummary(selected, locale) && (
-            <Alert
-              type="info"
-              showIcon
-              message="说明"
-              description={resolveSummary(selected, locale)}
-            />
-          )}
-        </Space>
-      </Drawer>
+        {/* Right panel - History */}
+        {showHistory && (
+          <Col span={8}>
+            <Card
+              size="small"
+              title="请求历史"
+              extra={
+                <Button size="small" icon={<DeleteOutlined />} onClick={() => setHistory([])}>
+                  清空
+                </Button>
+              }
+              style={{ maxHeight: 'calc(100vh - 200px)', overflow: 'auto' }}
+            >
+              {history.length === 0 ? (
+                <Empty description="暂无历史记录" />
+              ) : (
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  {history.map((item) => (
+                    <Card
+                      key={item.id}
+                      size="small"
+                      hoverable
+                      onClick={() => {
+                        setFormValues(item.request as FormValues);
+                        setRawJson(JSON.stringify(item.request, null, 2));
+                        if (item.response) {
+                          setResult(item.response);
+                          setResultRaw(JSON.stringify(item.response, null, 2));
+                        }
+                        if (item.error) {
+                          setError(item.error);
+                        }
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <Space>
+                        <Tag color={item.status === 'success' ? 'green' : 'red'}>{item.status}</Tag>
+                        <Text code>{item.functionId}</Text>
+                        <Text type="secondary">{formatDuration(item.duration)}</Text>
+                      </Space>
+                      <Text
+                        type="secondary"
+                        style={{ display: 'block', fontSize: 12, marginTop: 4 }}
+                      >
+                        {new Date(item.timestamp).toLocaleString()}
+                      </Text>
+                    </Card>
+                  ))}
+                </Space>
+              )}
+            </Card>
+          </Col>
+        )}
+      </Row>
     </PageContainer>
   );
 }
