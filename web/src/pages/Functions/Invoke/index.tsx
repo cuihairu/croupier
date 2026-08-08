@@ -131,7 +131,7 @@ export default function FunctionInvokePage() {
   const [error, setError] = useState<string>('');
   const [duration, setDuration] = useState<number>(0);
   const [statusCode, setStatusCode] = useState<number>(0);
-  const [history, setHistory] = useState<RequestHistory[]>([]);
+  const [requestHistory, setRequestHistory] = useState<RequestHistory[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
   const selected = useMemo(
@@ -211,7 +211,7 @@ export default function FunctionInvokePage() {
       message.success('执行成功');
 
       // Add to history
-      setHistory((prev) => [
+      setRequestHistory((prev) => [
         {
           id: `${Date.now()}`,
           functionId: selected.id,
@@ -232,7 +232,7 @@ export default function FunctionInvokePage() {
       message.error(msg);
 
       // Add to history
-      setHistory((prev) => [
+      setRequestHistory((prev) => [
         {
           id: `${Date.now()}`,
           functionId: selected.id,
@@ -300,8 +300,6 @@ export default function FunctionInvokePage() {
                   <Space wrap>
                     {selected.resource && <Tag color="blue">{selected.resource}</Tag>}
                     {selected.operation && <Tag color="purple">{selected.operation}</Tag>}
-                    {selected.capability && <Tag color="green">{selected.capability}</Tag>}
-                    {selected.execution && <Tag>{selected.execution}</Tag>}
                     {selected.tags?.map((tag) => (
                       <Tag key={tag}>{tag}</Tag>
                     ))}
@@ -459,17 +457,21 @@ export default function FunctionInvokePage() {
               size="small"
               title="请求历史"
               extra={
-                <Button size="small" icon={<DeleteOutlined />} onClick={() => setHistory([])}>
+                <Button
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  onClick={() => setRequestHistory([])}
+                >
                   清空
                 </Button>
               }
               style={{ maxHeight: 'calc(100vh - 200px)', overflow: 'auto' }}
             >
-              {history.length === 0 ? (
+              {requestHistory.length === 0 ? (
                 <Empty description="暂无历史记录" />
               ) : (
                 <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                  {history.map((item) => (
+                  {requestHistory.map((item) => (
                     <Card
                       key={item.id}
                       size="small"
