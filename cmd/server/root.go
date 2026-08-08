@@ -194,7 +194,11 @@ func runServer() error {
 	// 初始化 Agent Ops 客户端并注入 session resolver
 	ops.InitAgentOpsClient()
 	opsClient := ops.GetAgentOpsClient()
-	opsClient.SetSessionResolver(server.NewSessionResolverAdapter(sessionStore))
+	sessionResolver := server.NewSessionResolverAdapter(sessionStore)
+	opsClient.SetSessionResolver(sessionResolver)
+
+	// Set session resolver on ServiceContext for ops API
+	svcCtx.AgentSessionResolver = sessionResolver
 
 	// 检查数据库连接
 	dbHealth := svc.NewDBHealth(svcCtx)

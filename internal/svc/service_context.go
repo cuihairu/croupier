@@ -66,8 +66,9 @@ type ServiceContext struct {
 	Telemetry   *telemetry.GameTelemetryService
 
 	// Agent Ops support
-	MetricsStore    *reg.MetricsStore
-	SystemInfoCache *reg.SystemInfoCache
+	MetricsStore         *reg.MetricsStore
+	SystemInfoCache      *reg.SystemInfoCache
+	AgentSessionResolver dispatch.AgentSessionResolver
 
 	AdminModel         *model.AdminModel
 	AlertModel         *model.AlertModel

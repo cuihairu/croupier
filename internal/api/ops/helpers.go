@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
 const officialNotificationID = "official.notification"
@@ -373,28 +375,30 @@ func opsNodeDrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeC
 		return nil, errorx.NewBadRequest("nodeId is required")
 	}
 
-	// Verify node exists in registry
-	store := svcCtx.RegistryStore
-	if store == nil {
-		return nil, errors.New("registry store unavailable")
+	// Verify node exists and get connection
+	if svcCtx.AgentSessionResolver == nil {
+		return nil, errors.New("session resolver unavailable")
 	}
-	store.Mu().RLock()
-	found := false
-	for _, sess := range store.AgentsUnsafe() {
-		if sess != nil && sess.AgentID == nodeID {
-			found = true
-			break
-		}
+
+	caller, ok := svcCtx.AgentSessionResolver.ResolveAgentConn(nodeID)
+	if !ok {
+		return nil, errorx.NewNotFound("node not found or no active connection: " + nodeID)
 	}
-	store.Mu().RUnlock()
-	if !found {
-		return nil, errorx.NewNotFound("node not found: " + nodeID)
+
+	// Send drain command to agent via TCP
+	_, _, err := caller.Call(ctx, protocol.MsgProviderDrainRequest, []byte(`{}`))
+	if err != nil {
+		slog.Warn("failed to send drain command to agent", "agent_id", nodeID, "error", err)
+		// Continue anyway - record the drain state
 	}
 
 	// Record drain state in OpsStateStore for persistence
 	if svcCtx.OpsStateStore != nil {
 		_, _ = svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
-			// Mark node as drained in audit trail
+			if state.Nodes.Drained == nil {
+				state.Nodes.Drained = make(map[string]time.Time)
+			}
+			state.Nodes.Drained[nodeID] = time.Now()
 			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
 				ID:        fmt.Sprintf("drain-%s-%d", nodeID, time.Now().UnixNano()),
 				Action:    "node.drain",
@@ -438,22 +442,21 @@ func opsNodeRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 		return nil, errorx.NewBadRequest("nodeId is required")
 	}
 
-	// Verify node exists
-	store := svcCtx.RegistryStore
-	if store == nil {
-		return nil, errors.New("registry store unavailable")
+	// Verify node exists and get connection
+	if svcCtx.AgentSessionResolver == nil {
+		return nil, errors.New("session resolver unavailable")
 	}
-	store.Mu().RLock()
-	found := false
-	for _, sess := range store.AgentsUnsafe() {
-		if sess != nil && sess.AgentID == nodeID {
-			found = true
-			break
-		}
+
+	caller, ok := svcCtx.AgentSessionResolver.ResolveAgentConn(nodeID)
+	if !ok {
+		return nil, errorx.NewNotFound("node not found or no active connection: " + nodeID)
 	}
-	store.Mu().RUnlock()
-	if !found {
-		return nil, errorx.NewNotFound("node not found: " + nodeID)
+
+	// Send restart command to agent via TCP
+	_, _, err := caller.Call(ctx, protocol.MsgRestartProcessRequest, []byte(`{}`))
+	if err != nil {
+		slog.Warn("failed to send restart command to agent", "agent_id", nodeID, "error", err)
+		// Continue anyway - record the restart
 	}
 
 	// Record restart in audit trail
@@ -482,27 +485,29 @@ func opsNodeUndrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 		return nil, errorx.NewBadRequest("nodeId is required")
 	}
 
-	// Verify node exists
-	store := svcCtx.RegistryStore
-	if store == nil {
-		return nil, errors.New("registry store unavailable")
-	}
-	store.Mu().RLock()
-	found := false
-	for _, sess := range store.AgentsUnsafe() {
-		if sess != nil && sess.AgentID == nodeID {
-			found = true
-			break
-		}
-	}
-	store.Mu().RUnlock()
-	if !found {
-		return nil, errorx.NewNotFound("node not found: " + nodeID)
+	// Verify node exists and get connection
+	if svcCtx.AgentSessionResolver == nil {
+		return nil, errors.New("session resolver unavailable")
 	}
 
-	// Record undrain in audit trail
+	caller, ok := svcCtx.AgentSessionResolver.ResolveAgentConn(nodeID)
+	if !ok {
+		return nil, errorx.NewNotFound("node not found or no active connection: " + nodeID)
+	}
+
+	// Send undrain command to agent via TCP
+	_, _, err := caller.Call(ctx, protocol.MsgProviderDrainRequest, []byte(`{"undrain": true}`))
+	if err != nil {
+		slog.Warn("failed to send undrain command to agent", "agent_id", nodeID, "error", err)
+		// Continue anyway - record the undrain
+	}
+
+	// Record undrain in audit trail and clear drain state
 	if svcCtx.OpsStateStore != nil {
 		_, _ = svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
+			if state.Nodes.Drained != nil {
+				delete(state.Nodes.Drained, nodeID)
+			}
 			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
 				ID:        fmt.Sprintf("undrain-%s-%d", nodeID, time.Now().UnixNano()),
 				Action:    "node.undrain",
