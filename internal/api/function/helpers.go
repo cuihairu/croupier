@@ -87,6 +87,8 @@ func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Functio
 			Version:     version,
 			Instances:   fn.Instances,
 			SpecFormat:  specFormat,
+			Tags:        getStringSliceFromMetadata(dbFn.Metadata, "tags"),
+			Summary:     getLocalizedTextFromMetadata(dbFn.Metadata, "summary"),
 			OpenAPISpec: openAPISpec,
 			CreatedAt:   createdAt,
 			UpdatedAt:   updatedAt,
@@ -966,4 +968,28 @@ func buildBroadcastResponse(b *dispatch.BroadcastInvocation) *FunctionInvokeResp
 	}
 
 	return out
+}
+
+// getLocalizedTextFromMetadata gets a localized text map from metadata
+func getLocalizedTextFromMetadata(metadata map[string]interface{}, key string) map[string]string {
+	if metadata == nil {
+		return nil
+	}
+	val, ok := metadata[key]
+	if !ok {
+		return nil
+	}
+	switch v := val.(type) {
+	case map[string]string:
+		return v
+	case map[string]interface{}:
+		result := make(map[string]string, len(v))
+		for k, item := range v {
+			if str, ok := item.(string); ok {
+				result[k] = str
+			}
+		}
+		return result
+	}
+	return nil
 }

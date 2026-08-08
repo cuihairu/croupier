@@ -7,18 +7,20 @@ import "encoding/json"
 
 // Function represents a registered executable capability record.
 type Function struct {
-	Id          string          `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Resource    string          `json:"resource"`
-	GameId      string          `json:"gameId"`
-	Status      int             `json:"status"`
-	Version     string          `json:"version"`
-	Instances   int             `json:"instances"`
-	SpecFormat  string          `json:"specFormat"`
-	OpenAPISpec json.RawMessage `json:"openapiSpec,omitempty"`
-	CreatedAt   string          `json:"createdAt"`
-	UpdatedAt   string          `json:"updatedAt"`
+	Id          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Resource    string            `json:"resource"`
+	GameId      string            `json:"gameId"`
+	Status      int               `json:"status"`
+	Version     string            `json:"version"`
+	Instances   int               `json:"instances"`
+	SpecFormat  string            `json:"specFormat"`
+	Tags        []string          `json:"tags,omitempty"`
+	Summary     map[string]string `json:"summary,omitempty"`
+	OpenAPISpec json.RawMessage   `json:"openapiSpec,omitempty"`
+	CreatedAt   string            `json:"createdAt"`
+	UpdatedAt   string            `json:"updatedAt"`
 }
 
 // FunctionActionRequest represents an action request on a function
