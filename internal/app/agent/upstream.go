@@ -480,7 +480,12 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 			desc.Permission = meta.Permission
 			desc.InputSchema = meta.InputSchema
 			desc.OutputSchema = meta.OutputSchema
-			desc.Tags = meta.Tags
+			// Ensure tags is never nil
+			if meta.Tags != nil {
+				desc.Tags = meta.Tags
+			} else {
+				desc.Tags = []string{}
+			}
 			desc.Summary = meta.Summary
 			desc.Description = meta.Description
 		}
