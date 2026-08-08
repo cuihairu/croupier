@@ -117,7 +117,10 @@ func resourceBinding(contract *model.FunctionContract, suffix string, usage spec
 		ID:         suffix,
 		FunctionID: strings.TrimSpace(contract.FunctionID),
 		Usage:      usage,
-		Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		Execution: spec.PageBindingExecution{
+			Mode:           spec.PageExecutionModeSync,
+			RequireConfirm: resourceOperationRequiresConfirmation(contract),
+		},
 	}
 	selectors := &spec.BindingSelectors{}
 	if len(contract.InputSchema) > 0 {
@@ -864,7 +867,23 @@ func buildDeleteAction(contract *model.FunctionContract, locale string) *spec.Co
 		ConfirmText: spec.LocalizedText{locale: "确认删除"},
 		CancelText:  spec.LocalizedText{locale: "取消"},
 		BindingID:   "delete",
-		Risk:        "high",
+		Permission:  strings.TrimSpace(contract.Permission),
+		Risk:        strings.TrimSpace(contract.Risk),
+	}
+}
+
+func resourceOperationRequiresConfirmation(contract *model.FunctionContract) bool {
+	if contract == nil {
+		return false
+	}
+	if jsonMapToApprovalPolicy(contract.Approval).Required {
+		return true
+	}
+	switch spec.RiskLevel(contract.Risk) {
+	case spec.RiskHigh, spec.RiskDanger:
+		return true
+	default:
+		return false
 	}
 }
 

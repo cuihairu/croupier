@@ -64,7 +64,8 @@ func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptio
 				Title: title,
 			},
 			Operation: &spec.OperationPageSpec{
-				Form: buildFormPresentation(op, opts),
+				Form:    buildFormPresentation(op, opts),
+				Confirm: buildOperationConfirm(op, locale),
 				ResultView: &spec.ResultViewSpec{
 					Fields:         buildResultFields(fn.OutputSchema, locale),
 					SuccessMessage: spec.LocalizedText{locale: "操作成功"},
@@ -75,6 +76,33 @@ func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptio
 		},
 		Quality:     operationQuality(op, diags),
 		Diagnostics: diags,
+	}
+}
+
+func buildOperationConfirm(op spec.OperationSpec, locale string) *spec.ConfirmActionSpec {
+	if !operationRequiresConfirmation(op) {
+		return nil
+	}
+	return &spec.ConfirmActionSpec{
+		Title:       spec.LocalizedText{locale: "确认操作"},
+		Description: spec.LocalizedText{locale: "此操作可能影响线上数据，请确认后继续。"},
+		ConfirmText: spec.LocalizedText{locale: "确认执行"},
+		CancelText:  spec.LocalizedText{locale: "取消"},
+		BindingID:   bindingIDForOperationWithSuffix(op, "main"),
+		Permission:  strings.TrimSpace(op.Permission),
+		Risk:        string(op.Risk),
+	}
+}
+
+func operationRequiresConfirmation(op spec.OperationSpec) bool {
+	if op.Approval.Required {
+		return true
+	}
+	switch op.Risk {
+	case spec.RiskHigh, spec.RiskDanger:
+		return true
+	default:
+		return false
 	}
 }
 
