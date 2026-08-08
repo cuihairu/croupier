@@ -954,6 +954,27 @@ func assessResourceSemantics(semantics *model.CapabilitySemantics) []spec.Diagno
 			Message:  "collection_query function not found; list view cannot be generated",
 		})
 	}
+	var conflicts []spec.SemanticConflict
+	if len(semantics.Conflicts) > 0 {
+		if err := json.Unmarshal(semantics.Conflicts, &conflicts); err != nil {
+			diags = append(diags, spec.Diagnostic{
+				Code:     "semantic_conflicts_invalid",
+				Severity: spec.SeverityError,
+				Message:  "capability semantics conflicts cannot be decoded",
+				Field:    "capabilitySemantics.conflicts",
+			})
+		}
+	}
+	for _, conflict := range conflicts {
+		if conflict.Resolution == "" {
+			diags = append(diags, spec.Diagnostic{
+				Code:     "semantic_conflict_unresolved",
+				Severity: spec.SeverityError,
+				Message:  "capability semantic conflict requires platform review before publishing",
+				Field:    strings.TrimSpace(conflict.Field),
+			})
+		}
+	}
 	return diags
 }
 
@@ -1006,15 +1027,12 @@ func resourceQuality(semantics *model.CapabilitySemantics, diags []spec.Diagnost
 }
 
 func findResourceContract(contracts []*model.FunctionContract, id uint, capability spec.CapabilityKind) *model.FunctionContract {
-	if id > 0 {
-		if contract := findContractByID(contracts, id); contract != nil {
-			return contract
-		}
+	if id == 0 {
+		return nil
 	}
-	for _, contract := range contracts {
-		if contract != nil && spec.CapabilityKind(contract.Capability) == capability {
-			return contract
-		}
+	contract := findContractByID(contracts, id)
+	if contract != nil && spec.CapabilityKind(contract.Capability) == capability {
+		return contract
 	}
 	return nil
 }
