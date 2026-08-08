@@ -5,10 +5,7 @@ import {
   type LocalizedText,
   type RawFunctionInstance,
 } from './functions-enhanced';
-import {
-  normalizeFunctionOpenAPIResponse,
-  type OpenAPIOperation,
-} from './openapi';
+import { normalizeFunctionOpenAPIResponse, type OpenAPIOperation } from './openapi';
 import type { JSONValue } from '@/types/dashboard';
 
 // Source: backend function descriptor endpoints and registry-derived descriptors.
@@ -33,10 +30,7 @@ export type FunctionDescriptor = {
   outputSchema?: string; // JSON Schema for response body (from proto)
 };
 
-type RawFunctionDescriptor = Omit<
-  FunctionDescriptor,
-  'displayName' | 'summary'
-> & {
+type RawFunctionDescriptor = Omit<FunctionDescriptor, 'displayName' | 'summary'> & {
   displayName?: LocalizedText | string;
   display_name?: LocalizedText | string;
   summary?: LocalizedText | string;
@@ -148,7 +142,16 @@ export type FunctionInvokeResponse = {
 };
 
 export async function listDescriptors() {
-  const response = await request<RawFunctionDescriptor[]>('/api/v1/functions/descriptors');
+  const gameId =
+    typeof window !== 'undefined' ? localStorage.getItem('game_id') || undefined : undefined;
+  const env = typeof window !== 'undefined' ? localStorage.getItem('env') || undefined : undefined;
+  const params: Record<string, string> = {};
+  if (gameId) params.gameId = gameId;
+  if (env) params.env = env;
+
+  const response = await request<RawFunctionDescriptor[]>('/api/v1/functions/descriptors', {
+    params,
+  });
   return Array.isArray(response) ? response.map(normalizeFunctionDescriptor) : [];
 }
 
