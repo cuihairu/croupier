@@ -24,6 +24,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.CapabilitySemanticVersion{},
 		&model.PageProposal{},
 		&model.PageProposalVersion{},
+		&model.BlockedProposalIssue{},
 		&model.PageSpec{},
 		&model.PublishedPageSpec{},
 		&model.PageVersion{},
@@ -688,4 +689,35 @@ func TestGeneratedProposalChanged(t *testing.T) {
 	}
 	changed = generatedProposalChanged(existing2, next2)
 	assert.False(t, changed)
+}
+
+func TestContractService_BlockedIssueIsScopedToFunction(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "player.ban", Version: "1.0.0", Enabled: false, Resource: "player", Operation: "ban",
+		Capability: "action", Execution: "sync",
+	}))
+	require.NoError(t, service.RebuildProposalForFunction(ctx, "demo-game", "development", "player.ban"))
+
+	issues, err := model.NewBlockedProposalIssueModel(db).ListByScopeAndResourceKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+	require.Len(t, issues, 1)
+	assert.Equal(t, "player.ban", issues[0].FunctionID)
+
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "player.mail", Version: "1.0.0", Enabled: true, Resource: "player", Operation: "mail",
+		Capability: "action", Execution: "sync",
+	}))
+	require.NoError(t, service.RebuildProposalForFunction(ctx, "demo-game", "development", "player.mail"))
+
+	issues, err = model.NewBlockedProposalIssueModel(db).ListByScopeAndResourceKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+	require.Len(t, issues, 1)
+	assert.Equal(t, "player.ban", issues[0].FunctionID)
+
+	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.ban")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 }

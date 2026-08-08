@@ -29,6 +29,7 @@ type ContractService struct {
 	versionModel     *model.CapabilitySemanticVersionModel
 	proposalModel    *model.PageProposalModel
 	proposalVersions *model.PageProposalVersionModel
+	blockedIssues    *model.BlockedProposalIssueModel
 }
 
 // NewContractService creates the service.
@@ -41,6 +42,7 @@ func NewContractService(db *gorm.DB) *ContractService {
 		versionModel:     model.NewCapabilitySemanticVersionModel(db),
 		proposalModel:    model.NewPageProposalModel(db),
 		proposalVersions: model.NewPageProposalVersionModel(db),
+		blockedIssues:    model.NewBlockedProposalIssueModel(db),
 	}
 }
 
@@ -608,8 +610,14 @@ func (s *ContractService) RebuildProposalForFunction(ctx context.Context, gameID
 		TaskSemantics:   taskSemantics,
 		ReportSemantics: reportSemantics,
 	})
+	if generator.ShouldBlockProposal(generated.Diagnostics) {
+		return s.upsertBlockedIssue(ctx, gameID, env, contract.ResourceKey, contract.FunctionID, generated.Diagnostics, contractsForIssue(contract))
+	}
 	proposalKey := standaloneProposalKey(generated.Type, contract.FunctionID)
-	return s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, []*model.FunctionContract{contract}, generated)
+	if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, []*model.FunctionContract{contract}, generated); err != nil {
+		return err
+	}
+	return s.resolveBlockedIssue(ctx, gameID, env, contract.ResourceKey, contract.FunctionID)
 }
 
 func (s *ContractService) upsertResourceProposal(
@@ -623,8 +631,20 @@ func (s *ContractService) upsertResourceProposal(
 	if !ok {
 		return map[string]struct{}{}, nil
 	}
+	if generator.ShouldBlockProposal(generated.Diagnostics) {
+		if err := s.upsertBlockedIssue(ctx, gameID, env, semantics.ResourceKey, "", generated.Diagnostics, contracts); err != nil {
+			return nil, err
+		}
+		return map[string]struct{}{}, nil
+	}
 	consumed := consumedPageBindings(generated.Bindings, contracts)
-	return consumed, s.upsertGeneratedProposal(ctx, gameID, env, resourceProposalKey(semantics.ResourceKey), semantics, contracts, generated)
+	if err := s.upsertGeneratedProposal(ctx, gameID, env, resourceProposalKey(semantics.ResourceKey), semantics, contracts, generated); err != nil {
+		return nil, err
+	}
+	if err := s.resolveBlockedIssue(ctx, gameID, env, semantics.ResourceKey, ""); err != nil {
+		return nil, err
+	}
+	return consumed, nil
 }
 
 func (s *ContractService) upsertStandaloneProposals(
@@ -658,10 +678,48 @@ func (s *ContractService) upsertStandaloneProposals(
 			TaskSemantics:   taskSemantics,
 			ReportSemantics: reportSemantics,
 		})
+		if generator.ShouldBlockProposal(generated.Diagnostics) {
+			if err := s.upsertBlockedIssue(ctx, gameID, env, contract.ResourceKey, functionID, generated.Diagnostics, contractsForIssue(contract)); err != nil {
+				return err
+			}
+			continue
+		}
 		proposalKey := standaloneProposalKey(generated.Type, contract.FunctionID)
 		if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, []*model.FunctionContract{contract}, generated); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func contractsForIssue(contract *model.FunctionContract) []*model.FunctionContract {
+	if contract == nil {
+		return nil
+	}
+	return []*model.FunctionContract{contract}
+}
+
+func (s *ContractService) upsertBlockedIssue(ctx context.Context, gameID, env, resourceKey, functionID string, diagnostics []spec.Diagnostic, contracts []*model.FunctionContract) error {
+	issue := generator.CreateBlockedProposalIssue(gameID, env, resourceKey, functionID, diagnostics, "zh-CN")
+	if err := s.blockedIssues.Upsert(ctx, &model.BlockedProposalIssue{
+		GameID:        issue.GameID,
+		Env:           issue.Env,
+		ResourceKey:   issue.ResourceKey,
+		FunctionID:    issue.FunctionID,
+		SourceDigests: toJSON([]string{computeDigest(contracts)}),
+		Diagnostics:   toJSON(issue.Diagnostics),
+		RepairHint:    toJSONMap(issue.RepairHint),
+		Status:        issue.Status,
+		UpdatedBy:     "system",
+	}); err != nil {
+		return fmt.Errorf("upsert blocked proposal issue: %w", err)
+	}
+	return nil
+}
+
+func (s *ContractService) resolveBlockedIssue(ctx context.Context, gameID, env, resourceKey, functionID string) error {
+	if err := s.blockedIssues.Resolve(ctx, gameID, env, resourceKey, functionID, "system"); err != nil {
+		return fmt.Errorf("resolve blocked proposal issue: %w", err)
 	}
 	return nil
 }

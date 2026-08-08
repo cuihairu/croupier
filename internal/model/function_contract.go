@@ -12,11 +12,11 @@ import (
 // governance, and execution mode. It does NOT contain UI or page configuration.
 type FunctionContract struct {
 	gorm.Model
-	GameID       string            `gorm:"size:64;uniqueIndex:idx_function_contract_scope"`
-	Env          string            `gorm:"size:64;uniqueIndex:idx_function_contract_scope"`
-	FunctionID   string            `gorm:"size:128;uniqueIndex:idx_function_contract_scope"`
-	Version      string            `gorm:"size:32"`
-	Enabled      bool              `gorm:"default:true"`
+	GameID       string `gorm:"size:64;uniqueIndex:idx_function_contract_scope"`
+	Env          string `gorm:"size:64;uniqueIndex:idx_function_contract_scope"`
+	FunctionID   string `gorm:"size:128;uniqueIndex:idx_function_contract_scope"`
+	Version      string `gorm:"size:32"`
+	Enabled      bool
 	Deprecated   bool              `gorm:"default:false"`
 	ResourceKey  string            `gorm:"size:64;index"`
 	OperationKey string            `gorm:"size:64"`

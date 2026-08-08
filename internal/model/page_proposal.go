@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
@@ -92,6 +93,37 @@ func NewBlockedProposalIssueModel(db *gorm.DB) *BlockedProposalIssueModel {
 // Create creates a new blocked proposal issue.
 func (m *BlockedProposalIssueModel) Create(ctx context.Context, issue *BlockedProposalIssue) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(issue).Error
+}
+
+// Upsert replaces the current open issue for the same scope/resource/function.
+// Blocked issues are diagnostics, not page proposals, so only one current
+// issue is kept while history remains available through the model timestamps.
+func (m *BlockedProposalIssueModel) Upsert(ctx context.Context, issue *BlockedProposalIssue) error {
+	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
+	var current BlockedProposalIssue
+	err := db.Where("game_id = ? AND env = ? AND resource_key = ? AND function_id = ? AND status = ?",
+		issue.GameID, issue.Env, issue.ResourceKey, issue.FunctionID, "open").First(&current).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return db.Create(issue).Error
+	}
+	if err != nil {
+		return err
+	}
+	return db.Model(&current).Updates(map[string]interface{}{
+		"source_digests": issue.SourceDigests,
+		"diagnostics":    issue.Diagnostics,
+		"repair_hint":    issue.RepairHint,
+		"updated_by":     issue.UpdatedBy,
+	}).Error
+}
+
+// Resolve closes the current issue for one materialization target. Resource
+// pages use an empty functionID; standalone proposals use their function ID.
+func (m *BlockedProposalIssueModel) Resolve(ctx context.Context, gameID, env, resourceKey, functionID, updatedBy string) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&BlockedProposalIssue{}).
+		Where("game_id = ? AND env = ? AND resource_key = ? AND function_id = ? AND status = ?", gameID, env, resourceKey, functionID, "open").
+		Updates(map[string]interface{}{"status": "resolved", "updated_by": updatedBy}).Error
 }
 
 // FindByScopeAndResourceKey finds a blocked issue by scope and resource key.
