@@ -46,7 +46,13 @@ function buildResourcePage(resourceKey: string) {
       },
       actions: [
         { key: 'edit', title: { 'zh-CN': '编辑' }, type: 'link', bindingId: 'update' },
-        { key: 'delete', title: { 'zh-CN': '删除' }, type: 'danger', confirm: true, bindingId: 'delete' },
+        {
+          key: 'delete',
+          title: { 'zh-CN': '删除' },
+          type: 'danger',
+          confirm: true,
+          bindingId: 'delete',
+        },
       ],
       createForm: {
         jsonSchema: {
@@ -67,10 +73,30 @@ function buildResourcePage(resourceKey: string) {
       },
     },
     bindings: [
-      { id: 'list', functionId: `${resourceKey}.list`, usage: 'query', execution: { mode: 'sync' } },
-      { id: 'create', functionId: `${resourceKey}.create`, usage: 'action', execution: { mode: 'sync' } },
-      { id: 'update', functionId: `${resourceKey}.update`, usage: 'action', execution: { mode: 'sync' } },
-      { id: 'delete', functionId: `${resourceKey}.delete`, usage: 'action', execution: { mode: 'sync' } },
+      {
+        id: 'list',
+        functionId: `${resourceKey}.list`,
+        usage: 'query',
+        execution: { mode: 'sync' },
+      },
+      {
+        id: 'create',
+        functionId: `${resourceKey}.create`,
+        usage: 'action',
+        execution: { mode: 'sync' },
+      },
+      {
+        id: 'update',
+        functionId: `${resourceKey}.update`,
+        usage: 'action',
+        execution: { mode: 'sync' },
+      },
+      {
+        id: 'delete',
+        functionId: `${resourceKey}.delete`,
+        usage: 'action',
+        execution: { mode: 'sync' },
+      },
     ],
   };
 }
@@ -104,9 +130,7 @@ function buildOperationPage(functionId: string) {
         errorMessage: { 'zh-CN': '邮件发送失败' },
       },
     },
-    bindings: [
-      { id: 'main', functionId, usage: 'action', execution: { mode: 'sync' } },
-    ],
+    bindings: [{ id: 'main', functionId, usage: 'action', execution: { mode: 'sync' } }],
   };
 }
 
@@ -139,9 +163,7 @@ function buildTaskPage(functionId: string) {
         errorMessage: { 'zh-CN': '批量发奖失败' },
       },
     },
-    bindings: [
-      { id: 'start', functionId, usage: 'task', execution: { mode: 'task' } },
-    ],
+    bindings: [{ id: 'start', functionId, usage: 'task', execution: { mode: 'task' } }],
   };
 }
 
@@ -163,16 +185,16 @@ function buildReportPage(functionId: string) {
       },
       dataset: {
         dimensions: [{ key: 'date', title: { 'zh-CN': '日期' }, dataType: 'date' }],
-        metrics: [{ key: 'retention', title: { 'zh-CN': '留存率' }, dataType: 'number', format: 'percent' }],
+        metrics: [
+          { key: 'retention', title: { 'zh-CN': '留存率' }, dataType: 'number', format: 'percent' },
+        ],
       },
       charts: [
         { type: 'line', title: { 'zh-CN': '留存趋势' }, xField: 'date', yField: 'retention' },
       ],
       exportable: true,
     },
-    bindings: [
-      { id: 'query', functionId, usage: 'report', execution: { mode: 'sync' } },
-    ],
+    bindings: [{ id: 'query', functionId, usage: 'report', execution: { mode: 'sync' } }],
   };
 }
 
@@ -185,7 +207,7 @@ function findPage(pageKey: string) {
     buildTaskPage('reward.batchGrant'),
     buildReportPage('analytics.retention'),
   ];
-  return pages.find(p => p.pageKey === pageKey);
+  return pages.find((p) => p.pageKey === pageKey);
 }
 
 // ---------------------------------------------------------------------------
@@ -201,9 +223,7 @@ export default {
           key: 'players',
           labels: { 'zh-CN': '玩家管理', en: 'Players' },
           order: 1,
-          pages: [
-            { pageKey: 'resource--players', title: { 'zh-CN': '玩家列表', en: 'Players' } },
-          ],
+          pages: [{ pageKey: 'resource--players', title: { 'zh-CN': '玩家列表', en: 'Players' } }],
         },
         {
           key: 'inventory',
@@ -226,7 +246,10 @@ export default {
           labels: { 'zh-CN': '奖励系统', en: 'Rewards' },
           order: 4,
           pages: [
-            { pageKey: 'task--reward.batchGrant', title: { 'zh-CN': '批量发奖', en: 'Batch Grant' } },
+            {
+              pageKey: 'task--reward.batchGrant',
+              title: { 'zh-CN': '批量发奖', en: 'Batch Grant' },
+            },
           ],
         },
         {
@@ -234,7 +257,10 @@ export default {
           labels: { 'zh-CN': '数据分析', en: 'Analytics' },
           order: 5,
           pages: [
-            { pageKey: 'report--analytics.retention', title: { 'zh-CN': '留存分析', en: 'Retention' } },
+            {
+              pageKey: 'report--analytics.retention',
+              title: { 'zh-CN': '留存分析', en: 'Retention' },
+            },
           ],
         },
         {
@@ -242,7 +268,10 @@ export default {
           labels: { 'zh-CN': '系统', en: 'System' },
           order: 6,
           pages: [
-            { pageKey: 'operation--system.dangerous-op', title: { 'zh-CN': '危险操作', en: 'Dangerous Op' } },
+            {
+              pageKey: 'operation--system.dangerous-op',
+              title: { 'zh-CN': '危险操作', en: 'Dangerous Op' },
+            },
           ],
         },
       ],
@@ -271,7 +300,10 @@ export default {
     res.send({ page });
   },
 
-  'POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute': (req: Request, res: Response) => {
+  'POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute': (
+    req: Request,
+    res: Response,
+  ) => {
     const { pageKey, bindingId } = req.params;
     const { context } = req.body;
 
@@ -435,9 +467,7 @@ export default {
 
   'GET /api/v1/resource-catalog/:resourceKey/semantics/versions': (req: Request, res: Response) => {
     res.send({
-      versions: [
-        { version: 1, source: 'sdk_explicit', createdAt: '2024-01-01T00:00:00Z' },
-      ],
+      versions: [{ version: 1, source: 'sdk_explicit', createdAt: '2024-01-01T00:00:00Z' }],
     });
   },
 
@@ -468,11 +498,36 @@ export default {
   'GET /api/v1/proposals': (req: Request, res: Response) => {
     res.send({
       items: [
-        { proposalKey: 'resource:players', pageKey: 'resource--players', quality: 'ready', status: 'pending' },
-        { proposalKey: 'resource:inventory', pageKey: 'resource--inventory', quality: 'ready', status: 'pending' },
-        { proposalKey: 'operation:mail.send', pageKey: 'operation--mail.send', quality: 'basic', status: 'pending' },
-        { proposalKey: 'task:reward.batchGrant', pageKey: 'task--reward.batchGrant', quality: 'needs_review', status: 'pending' },
-        { proposalKey: 'report:analytics.retention', pageKey: 'report--analytics.retention', quality: 'needs_review', status: 'pending' },
+        {
+          proposalKey: 'resource:players',
+          pageKey: 'resource--players',
+          quality: 'ready',
+          status: 'pending',
+        },
+        {
+          proposalKey: 'resource:inventory',
+          pageKey: 'resource--inventory',
+          quality: 'ready',
+          status: 'pending',
+        },
+        {
+          proposalKey: 'operation:mail.send',
+          pageKey: 'operation--mail.send',
+          quality: 'basic',
+          status: 'pending',
+        },
+        {
+          proposalKey: 'task:reward.batchGrant',
+          pageKey: 'task--reward.batchGrant',
+          quality: 'needs_review',
+          status: 'pending',
+        },
+        {
+          proposalKey: 'report:analytics.retention',
+          pageKey: 'report--analytics.retention',
+          quality: 'needs_review',
+          status: 'pending',
+        },
       ],
     });
   },
@@ -484,8 +539,16 @@ export default {
         { proposalKey: 'resource:inventory', pageKey: 'resource--inventory', quality: 'ready' },
       ],
       needsReview: [
-        { proposalKey: 'task:reward.batchGrant', pageKey: 'task--reward.batchGrant', quality: 'needs_review' },
-        { proposalKey: 'report:analytics.retention', pageKey: 'report--analytics.retention', quality: 'needs_review' },
+        {
+          proposalKey: 'task:reward.batchGrant',
+          pageKey: 'task--reward.batchGrant',
+          quality: 'needs_review',
+        },
+        {
+          proposalKey: 'report:analytics.retention',
+          pageKey: 'report--analytics.retention',
+          quality: 'needs_review',
+        },
       ],
       stale: [],
     });
@@ -577,6 +640,85 @@ export default {
       status: 'draft',
       version: 1,
       draftRevision: 1,
+    });
+  },
+
+  // Function API mocks
+  'GET /api/v1/functions/descriptors': (req: Request, res: Response) => {
+    res.send([
+      {
+        id: 'player.list',
+        name: 'player.list',
+        displayName: { 'zh-CN': '查询玩家列表', en: 'List Players' },
+        summary: {
+          'zh-CN': '查询玩家列表，支持分页和筛选',
+          en: 'Query player list with pagination',
+        },
+        description: 'Query player list with pagination',
+        resource: 'player',
+        operation: 'list',
+        capability: 'collection_query',
+        execution: 'sync',
+        inputSchema: JSON.stringify({
+          type: 'object',
+          properties: {
+            page: { type: 'integer', title: '页码', default: 1 },
+            pageSize: { type: 'integer', title: '每页数量', default: 20 },
+            keyword: { type: 'string', title: '搜索关键词' },
+          },
+        }),
+        tags: ['player', 'query'],
+      },
+      {
+        id: 'player.create',
+        name: 'player.create',
+        displayName: { 'zh-CN': '创建玩家', en: 'Create Player' },
+        summary: { 'zh-CN': '创建新玩家账号', en: 'Create a new player account' },
+        resource: 'player',
+        operation: 'create',
+        capability: 'create',
+        execution: 'sync',
+        inputSchema: JSON.stringify({
+          type: 'object',
+          properties: {
+            name: { type: 'string', title: '玩家名称' },
+            level: { type: 'integer', title: '初始等级', default: 1 },
+          },
+          required: ['name'],
+        }),
+        tags: ['player', 'create'],
+      },
+      {
+        id: 'mail.send',
+        name: 'mail.send',
+        displayName: { 'zh-CN': '发送邮件', en: 'Send Mail' },
+        summary: { 'zh-CN': '向玩家发送邮件', en: 'Send mail to player' },
+        resource: 'mail',
+        operation: 'send',
+        capability: 'action',
+        execution: 'sync',
+        inputSchema: JSON.stringify({
+          type: 'object',
+          properties: {
+            to: { type: 'string', title: '收件人' },
+            subject: { type: 'string', title: '主题' },
+            content: { type: 'string', title: '内容' },
+          },
+          required: ['to', 'subject', 'content'],
+        }),
+        tags: ['mail', 'send'],
+      },
+    ]);
+  },
+
+  'POST /api/v1/functions/:id/invoke': (req: Request, res: Response) => {
+    const { id } = req.params;
+    res.send({
+      success: true,
+      data: {
+        message: `Function ${id} executed successfully`,
+        timestamp: new Date().toISOString(),
+      },
     });
   },
 };
