@@ -87,8 +87,8 @@ func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Functio
 			Version:     version,
 			Instances:   fn.Instances,
 			SpecFormat:  specFormat,
-			Tags:        getStringSliceFromMetadata(dbFn.Metadata, "tags"),
-			Summary:     getLocalizedTextFromMetadata(dbFn.Metadata, "summary"),
+			Tags:        firstNonEmptySlice(getStringSliceFromMetadata(dbFn.Metadata, "tags"), fn.Tags),
+			Summary:     firstNonEmptyMap(getLocalizedTextFromMetadata(dbFn.Metadata, "summary"), fn.Summary),
 			OpenAPISpec: openAPISpec,
 			CreatedAt:   createdAt,
 			UpdatedAt:   updatedAt,
@@ -992,4 +992,20 @@ func getLocalizedTextFromMetadata(metadata map[string]interface{}, key string) m
 		return result
 	}
 	return nil
+}
+
+// firstNonEmptySlice returns the first non-empty slice, or nil if both are empty.
+func firstNonEmptySlice(a, b []string) []string {
+	if len(a) > 0 {
+		return a
+	}
+	return b
+}
+
+// firstNonEmptyMap returns the first non-empty map, or nil if both are empty.
+func firstNonEmptyMap(a, b map[string]string) map[string]string {
+	if len(a) > 0 {
+		return a
+	}
+	return b
 }
