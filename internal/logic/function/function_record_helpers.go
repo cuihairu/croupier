@@ -73,7 +73,39 @@ func backfillFromRegistry(svcCtx *svc.ServiceContext, functionID string, fn *mod
 		return
 	}
 
-	operations := svcCtx.RegistryStore.ListOpenAPIOperations()
+	// First try to get metadata from the registry store (SDK registration)
+	store := svcCtx.RegistryStore
+	store.Mu().RLock()
+	for _, sess := range store.AgentsUnsafe() {
+		if sess == nil {
+			continue
+		}
+		if meta, ok := sess.Functions[functionID]; ok {
+			// Found the function in the registry store
+			if meta.Summary != "" && fn.Description == "" {
+				fn.Description = meta.Summary
+			}
+			if len(meta.Tags) > 0 {
+				// Store tags in metadata
+				if fn.Metadata == nil {
+					fn.Metadata = make(datatypes.JSONMap)
+				}
+				fn.Metadata["tags"] = meta.Tags
+				fn.Metadata["summary"] = meta.Summary
+			}
+			if meta.Resource != "" && fn.Resource == "" {
+				fn.Resource = meta.Resource
+			}
+			if meta.Version != "" && fn.Version == "" {
+				fn.Version = meta.Version
+			}
+			break
+		}
+	}
+	store.Mu().RUnlock()
+
+	// Also try OpenAPI operations for additional metadata
+	operations := store.ListOpenAPIOperations()
 	op, ok := operations[functionID]
 	if !ok || op == nil {
 		return
