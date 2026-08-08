@@ -10,18 +10,20 @@ import (
 
 // Function represents a function in the system
 type Function struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	GameId      string          `json:"gameId"`
-	Status      int             `json:"status"`
-	Version     string          `json:"version"`
-	Instances   int             `json:"instances"`
-	Resource    string          `json:"resource"`
-	SpecFormat  string          `json:"specFormat"`
-	OpenAPISpec json.RawMessage `json:"openapiSpec,omitempty"`
-	CreatedAt   string          `json:"createdAt"`
-	UpdatedAt   string          `json:"updatedAt"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	GameId      string            `json:"gameId"`
+	Status      int               `json:"status"`
+	Version     string            `json:"version"`
+	Instances   int               `json:"instances"`
+	Resource    string            `json:"resource"`
+	SpecFormat  string            `json:"specFormat"`
+	Tags        []string          `json:"tags,omitempty"`
+	Summary     map[string]string `json:"summary,omitempty"`
+	OpenAPISpec json.RawMessage   `json:"openapiSpec,omitempty"`
+	CreatedAt   string            `json:"createdAt"`
+	UpdatedAt   string            `json:"updatedAt"`
 }
 
 // FunctionsListRequest represents a request to list functions

@@ -142,6 +142,11 @@ func (l *FunctionsListLogic) runtimeFunctions(req *FunctionsListRequest) []Funct
 			}
 			item := index[fid]
 			if item.ID == "" {
+				summaryMap := make(map[string]string)
+				if meta.Summary != "" {
+					summaryMap["zh"] = meta.Summary
+					summaryMap["en"] = meta.Summary
+				}
 				item = Function{
 					ID:       fid,
 					Name:     fid,
@@ -149,6 +154,8 @@ func (l *FunctionsListLogic) runtimeFunctions(req *FunctionsListRequest) []Funct
 					Status:   1,
 					Version:  meta.Version,
 					Resource: strings.TrimSpace(meta.Resource),
+					Tags:     meta.Tags,
+					Summary:  summaryMap,
 				}
 			}
 			if req.Status != 0 && item.Status != req.Status {
