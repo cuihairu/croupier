@@ -472,7 +472,10 @@ export default function OpsNodesPage() {
                           <Text>使用率</Text>
                           <Text strong>{detailNode.cpu.usagePercent.toFixed(2)}%</Text>
                         </div>
-                        <Progress percent={detailNode.cpu.usagePercent} size="small" />
+                        <Progress
+                          percent={Math.round(detailNode.cpu.usagePercent * 100) / 100}
+                          size="small"
+                        />
                         <Descriptions column={2} size="small">
                           <Descriptions.Item label="核心数">
                             {detailNode.cpu.cores}
@@ -495,7 +498,10 @@ export default function OpsNodesPage() {
                           <Text>使用率</Text>
                           <Text strong>{detailNode.memory.usagePercent.toFixed(2)}%</Text>
                         </div>
-                        <Progress percent={detailNode.memory.usagePercent} size="small" />
+                        <Progress
+                          percent={Math.round(detailNode.memory.usagePercent * 100) / 100}
+                          size="small"
+                        />
                         <Descriptions column={2} size="small">
                           <Descriptions.Item label="总量">
                             {formatBytes(detailNode.memory.totalBytes)}
@@ -531,7 +537,10 @@ export default function OpsNodesPage() {
                               <Text>{disk.mountPoint}</Text>
                               <Text strong>{disk.usagePercent.toFixed(2)}%</Text>
                             </div>
-                            <Progress percent={disk.usagePercent} size="small" />
+                            <Progress
+                              percent={Math.round(disk.usagePercent * 100) / 100}
+                              size="small"
+                            />
                             <Descriptions column={2} size="small" style={{ marginTop: 4 }}>
                               <Descriptions.Item label="设备">
                                 {disk.device || '-'}
@@ -618,7 +627,7 @@ export default function OpsNodesPage() {
                     <Line
                       data={metricsHistory.map((entry) => ({
                         time: new Date(entry.timestamp).toLocaleTimeString(),
-                        value: entry.cpu?.usagePercent ?? 0,
+                        value: Math.round((entry.cpu?.usagePercent ?? 0) * 100) / 100,
                       }))}
                       xField="time"
                       yField="value"
@@ -638,7 +647,7 @@ export default function OpsNodesPage() {
                     <Line
                       data={metricsHistory.map((entry) => ({
                         time: new Date(entry.timestamp).toLocaleTimeString(),
-                        value: entry.memory?.usagePercent ?? 0,
+                        value: Math.round((entry.memory?.usagePercent ?? 0) * 100) / 100,
                       }))}
                       xField="time"
                       yField="value"
@@ -661,7 +670,7 @@ export default function OpsNodesPage() {
                           (entry.disks || []).map(
                             (disk: NonNullable<MetricsHistoryEntry['disks']>[number]) => ({
                               time: new Date(entry.timestamp).toLocaleTimeString(),
-                              value: disk.usagePercent ?? 0,
+                              value: Math.round((disk.usagePercent ?? 0) * 100) / 100,
                               series: disk.mountPoint,
                             }),
                           ),
