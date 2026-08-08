@@ -19,7 +19,15 @@ export type DirectoryPageSchema = {
     icon: 'info' | 'code' | 'play';
   }>;
   columns: Array<{
-    key: 'id' | 'displayName' | 'summary' | 'resource' | 'operation' | 'tags' | 'enabled' | 'actions';
+    key:
+      | 'id'
+      | 'displayName'
+      | 'summary'
+      | 'resource'
+      | 'operation'
+      | 'tags'
+      | 'enabled'
+      | 'actions';
     title: string;
     width?: number;
     copyable?: boolean;
@@ -62,7 +70,6 @@ export const DIRECTORY_PAGE_SCHEMA: DirectoryPageSchema = {
     { key: 'displayName', title: '函数名称', width: 200 },
     { key: 'summary', title: '函数摘要', width: 300 },
     { key: 'resource', title: '资源', width: 160 },
-    { key: 'operation', title: '操作', width: 140 },
     { key: 'tags', title: '标签', width: 200 },
     { key: 'enabled', title: '状态', width: 80 },
     { key: 'actions', title: '操作', width: 200 },
