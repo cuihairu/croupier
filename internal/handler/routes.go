@@ -382,6 +382,9 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/nodes/:nodeId/drain", opsHandler.NodeDrain)
 	g.POST("/nodes/:nodeId/undrain", opsHandler.NodeUndrain)
 	g.POST("/nodes/:nodeId/restart", opsHandler.NodeRestart)
+
+	// Agent Metrics History
+	g.GET("/agent/metrics/history", opsHandler.AgentMetricsHistory)
 }
 
 // ============================================================================
