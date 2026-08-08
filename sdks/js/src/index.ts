@@ -31,7 +31,7 @@ const PROVIDER_PROTO = `
 syntax = "proto3";
 package croupier.sdk.v1;
 
-message LocalFunctionDescriptor {
+message ProviderFunctionDescriptor {
   string id = 1;
   string version = 2;
   repeated string tags = 3;
@@ -53,7 +53,7 @@ message LocalFunctionDescriptor {
 message ProviderConnectRequest {
   string service_id = 1;
   string version = 2;
-  repeated LocalFunctionDescriptor functions = 3;
+  repeated ProviderFunctionDescriptor functions = 3;
   string sdk_language = 4;
   string sdk_version = 5;
   string sdk_name = 6;
@@ -353,7 +353,7 @@ export interface ClientConfig {
   logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR" | "OFF";
 }
 
-interface LocalFunctionDescriptor {
+interface ProviderFunctionDescriptor {
   id: string;
   version: string;
   tags?: string[];
@@ -685,7 +685,7 @@ export class BasicClient implements CroupierClient {
 
   getFunctionDescriptor(
     functionId: string,
-  ): LocalFunctionDescriptor | undefined {
+  ): ProviderFunctionDescriptor | undefined {
     const desc = this.descriptors.get(functionId);
     if (!desc) {
       return undefined;

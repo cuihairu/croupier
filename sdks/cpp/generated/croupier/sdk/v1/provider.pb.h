@@ -65,10 +65,6 @@ class GetTaskResultResponse;
 struct GetTaskResultResponseDefaultTypeInternal;
 extern GetTaskResultResponseDefaultTypeInternal _GetTaskResultResponse_default_instance_;
 extern const ::google::protobuf::internal::ClassDataFull GetTaskResultResponse_class_data_;
-class LocalFunctionDescriptor;
-struct LocalFunctionDescriptorDefaultTypeInternal;
-extern LocalFunctionDescriptorDefaultTypeInternal _LocalFunctionDescriptor_default_instance_;
-extern const ::google::protobuf::internal::ClassDataFull LocalFunctionDescriptor_class_data_;
 class ProviderConnectRequest;
 struct ProviderConnectRequestDefaultTypeInternal;
 extern ProviderConnectRequestDefaultTypeInternal _ProviderConnectRequest_default_instance_;
@@ -85,6 +81,10 @@ class ProviderDrainResponse;
 struct ProviderDrainResponseDefaultTypeInternal;
 extern ProviderDrainResponseDefaultTypeInternal _ProviderDrainResponse_default_instance_;
 extern const ::google::protobuf::internal::ClassDataFull ProviderDrainResponse_class_data_;
+class ProviderFunctionDescriptor;
+struct ProviderFunctionDescriptorDefaultTypeInternal;
+extern ProviderFunctionDescriptorDefaultTypeInternal _ProviderFunctionDescriptor_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull ProviderFunctionDescriptor_class_data_;
 class ProviderHeartbeatRequest;
 struct ProviderHeartbeatRequestDefaultTypeInternal;
 extern ProviderHeartbeatRequestDefaultTypeInternal _ProviderHeartbeatRequest_default_instance_;
@@ -463,6 +463,462 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderHeartbeatRequest final : pu
 };
 
 extern const ::google::protobuf::internal::ClassDataFull ProviderHeartbeatRequest_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderFunctionDescriptor final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.sdk.v1.ProviderFunctionDescriptor) */ {
+ public:
+  inline ProviderFunctionDescriptor() : ProviderFunctionDescriptor(nullptr) {}
+  ~ProviderFunctionDescriptor() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ProviderFunctionDescriptor* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ProviderFunctionDescriptor));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr ProviderFunctionDescriptor(::google::protobuf::internal::ConstantInitialized);
+
+  inline ProviderFunctionDescriptor(const ProviderFunctionDescriptor& from) : ProviderFunctionDescriptor(nullptr, from) {}
+  inline ProviderFunctionDescriptor(ProviderFunctionDescriptor&& from) noexcept
+      : ProviderFunctionDescriptor(nullptr, ::std::move(from)) {}
+  inline ProviderFunctionDescriptor& operator=(const ProviderFunctionDescriptor& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ProviderFunctionDescriptor& operator=(ProviderFunctionDescriptor&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const ProviderFunctionDescriptor& default_instance() {
+    return *reinterpret_cast<const ProviderFunctionDescriptor*>(
+        &_ProviderFunctionDescriptor_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 0;
+  friend void swap(ProviderFunctionDescriptor& a, ProviderFunctionDescriptor& b) { a.Swap(&b); }
+  inline void Swap(ProviderFunctionDescriptor* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ProviderFunctionDescriptor* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] ProviderFunctionDescriptor* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<ProviderFunctionDescriptor>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ProviderFunctionDescriptor& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ProviderFunctionDescriptor& from) { ProviderFunctionDescriptor::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ProviderFunctionDescriptor* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.sdk.v1.ProviderFunctionDescriptor"; }
+
+  explicit ProviderFunctionDescriptor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  ProviderFunctionDescriptor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ProviderFunctionDescriptor& from);
+  ProviderFunctionDescriptor(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, ProviderFunctionDescriptor&& from) noexcept
+      : ProviderFunctionDescriptor(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kTagsFieldNumber = 3,
+    kIdFieldNumber = 1,
+    kVersionFieldNumber = 2,
+    kSummaryFieldNumber = 4,
+    kDescriptionFieldNumber = 5,
+    kOperationIdFieldNumber = 6,
+    kInputSchemaFieldNumber = 8,
+    kOutputSchemaFieldNumber = 9,
+    kResourceFieldNumber = 10,
+    kOperationFieldNumber = 11,
+    kRiskFieldNumber = 12,
+    kPermissionFieldNumber = 14,
+    kCapabilityFieldNumber = 15,
+    kExecutionFieldNumber = 16,
+    kDeprecatedFieldNumber = 7,
+    kEnabledFieldNumber = 13,
+  };
+  // repeated string tags = 3 [json_name = "tags"];
+  [[nodiscard]] int tags_size()
+      const;
+  private:
+  int _internal_tags_size() const;
+
+  public:
+  void clear_tags() ;
+  [[nodiscard]] const ::std::string& tags(int index) const;
+  ::std::string* PROTOBUF_NONNULL mutable_tags(int index);
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_tags(int index, Arg_&& value, Args_... args);
+  ::std::string* PROTOBUF_NONNULL add_tags();
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void add_tags(Arg_&& value, Args_... args);
+  [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::std::string>&
+  tags() const;
+  [[nodiscard]] ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+  mutable_tags();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::std::string>& _internal_tags() const;
+  ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL _internal_mutable_tags();
+
+  public:
+  // string id = 1 [json_name = "id"];
+  void clear_id() ;
+  [[nodiscard]] const ::std::string& id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_id();
+  void set_allocated_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_id();
+
+  public:
+  // string version = 2 [json_name = "version"];
+  void clear_version() ;
+  [[nodiscard]] const ::std::string& version() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_version(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_version();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_version();
+  void set_allocated_version(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_version() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_version(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_version();
+
+  public:
+  // string summary = 4 [json_name = "summary"];
+  void clear_summary() ;
+  [[nodiscard]] const ::std::string& summary() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_summary(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_summary();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_summary();
+  void set_allocated_summary(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_summary() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_summary(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_summary();
+
+  public:
+  // string description = 5 [json_name = "description"];
+  void clear_description() ;
+  [[nodiscard]] const ::std::string& description() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_description(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_description();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_description();
+  void set_allocated_description(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_description() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_description(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_description();
+
+  public:
+  // string operation_id = 6 [json_name = "operationId"];
+  void clear_operation_id() ;
+  [[nodiscard]] const ::std::string& operation_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_operation_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_operation_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_operation_id();
+  void set_allocated_operation_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_operation_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_operation_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_operation_id();
+
+  public:
+  // string input_schema = 8 [json_name = "inputSchema"];
+  void clear_input_schema() ;
+  [[nodiscard]] const ::std::string& input_schema() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_input_schema(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_input_schema();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_input_schema();
+  void set_allocated_input_schema(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_input_schema() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_input_schema(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_input_schema();
+
+  public:
+  // string output_schema = 9 [json_name = "outputSchema"];
+  void clear_output_schema() ;
+  [[nodiscard]] const ::std::string& output_schema() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_output_schema(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_output_schema();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_output_schema();
+  void set_allocated_output_schema(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_output_schema() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_output_schema(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_output_schema();
+
+  public:
+  // string resource = 10 [json_name = "resource"];
+  void clear_resource() ;
+  [[nodiscard]] const ::std::string& resource() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_resource(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_resource();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_resource();
+  void set_allocated_resource(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_resource() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_resource(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_resource();
+
+  public:
+  // string operation = 11 [json_name = "operation"];
+  void clear_operation() ;
+  [[nodiscard]] const ::std::string& operation() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_operation(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_operation();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_operation();
+  void set_allocated_operation(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_operation() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_operation(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_operation();
+
+  public:
+  // string risk = 12 [json_name = "risk"];
+  void clear_risk() ;
+  [[nodiscard]] const ::std::string& risk() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_risk(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_risk();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_risk();
+  void set_allocated_risk(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_risk() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_risk(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_risk();
+
+  public:
+  // string permission = 14 [json_name = "permission"];
+  void clear_permission() ;
+  [[nodiscard]] const ::std::string& permission() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_permission(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_permission();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_permission();
+  void set_allocated_permission(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_permission() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_permission(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_permission();
+
+  public:
+  // string capability = 15 [json_name = "capability"];
+  void clear_capability() ;
+  [[nodiscard]] const ::std::string& capability() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_capability(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_capability();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_capability();
+  void set_allocated_capability(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_capability() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_capability(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_capability();
+
+  public:
+  // string execution = 16 [json_name = "execution"];
+  void clear_execution() ;
+  [[nodiscard]] const ::std::string& execution() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_execution(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_execution();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_execution();
+  void set_allocated_execution(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_execution() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_execution(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_execution();
+
+  public:
+  // bool deprecated = 7 [json_name = "deprecated"];
+  void clear_deprecated() ;
+  [[nodiscard]] bool deprecated() const;
+  void set_deprecated(bool value);
+
+  private:
+  bool _internal_deprecated() const;
+  void _internal_set_deprecated(bool value);
+
+  public:
+  // bool enabled = 13 [json_name = "enabled"];
+  void clear_enabled() ;
+  [[nodiscard]] bool enabled() const;
+  void set_enabled(bool value);
+
+  private:
+  bool _internal_enabled() const;
+  void _internal_set_enabled(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.sdk.v1.ProviderFunctionDescriptor)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<4, 16,
+                                   0, 185,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const ProviderFunctionDescriptor& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField<::std::string> tags_;
+    ::google::protobuf::internal::ArenaStringPtr id_;
+    ::google::protobuf::internal::ArenaStringPtr version_;
+    ::google::protobuf::internal::ArenaStringPtr summary_;
+    ::google::protobuf::internal::ArenaStringPtr description_;
+    ::google::protobuf::internal::ArenaStringPtr operation_id_;
+    ::google::protobuf::internal::ArenaStringPtr input_schema_;
+    ::google::protobuf::internal::ArenaStringPtr output_schema_;
+    ::google::protobuf::internal::ArenaStringPtr resource_;
+    ::google::protobuf::internal::ArenaStringPtr operation_;
+    ::google::protobuf::internal::ArenaStringPtr risk_;
+    ::google::protobuf::internal::ArenaStringPtr permission_;
+    ::google::protobuf::internal::ArenaStringPtr capability_;
+    ::google::protobuf::internal::ArenaStringPtr execution_;
+    bool deprecated_;
+    bool enabled_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fsdk_2fv1_2fprovider_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull ProviderFunctionDescriptor_class_data_;
 // -------------------------------------------------------------------
 
 class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderDrainResponse final : public ::google::protobuf::internal::ZeroFieldsBase
@@ -1087,462 +1543,6 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectResponse final : pub
 extern const ::google::protobuf::internal::ClassDataFull ProviderConnectResponse_class_data_;
 // -------------------------------------------------------------------
 
-class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED LocalFunctionDescriptor final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:croupier.sdk.v1.LocalFunctionDescriptor) */ {
- public:
-  inline LocalFunctionDescriptor() : LocalFunctionDescriptor(nullptr) {}
-  ~LocalFunctionDescriptor() PROTOBUF_FINAL;
-
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-  void operator delete(LocalFunctionDescriptor* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
-    SharedDtor(*msg);
-    ::google::protobuf::internal::SizedDelete(msg, sizeof(LocalFunctionDescriptor));
-  }
-#endif
-
-  template <typename = void>
-  explicit constexpr LocalFunctionDescriptor(::google::protobuf::internal::ConstantInitialized);
-
-  inline LocalFunctionDescriptor(const LocalFunctionDescriptor& from) : LocalFunctionDescriptor(nullptr, from) {}
-  inline LocalFunctionDescriptor(LocalFunctionDescriptor&& from) noexcept
-      : LocalFunctionDescriptor(nullptr, ::std::move(from)) {}
-  inline LocalFunctionDescriptor& operator=(const LocalFunctionDescriptor& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline LocalFunctionDescriptor& operator=(LocalFunctionDescriptor&& from) noexcept {
-    if (this == &from) return *this;
-    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
-      InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
-      ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
-  }
-  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
-  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
-  }
-
-  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
-    return GetDescriptor();
-  }
-  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
-  GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  [[nodiscard]] static const LocalFunctionDescriptor& default_instance() {
-    return *reinterpret_cast<const LocalFunctionDescriptor*>(
-        &_LocalFunctionDescriptor_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages = 0;
-  friend void swap(LocalFunctionDescriptor& a, LocalFunctionDescriptor& b) { a.Swap(&b); }
-  inline void Swap(LocalFunctionDescriptor* PROTOBUF_NONNULL other) {
-    if (other == this) return;
-    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
-      InternalSwap(other);
-    } else {
-      ::google::protobuf::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(LocalFunctionDescriptor* PROTOBUF_NONNULL other) {
-    if (other == this) return;
-    ABSL_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  [[nodiscard]] LocalFunctionDescriptor* PROTOBUF_NONNULL
-  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
-    return ::google::protobuf::Message::DefaultConstruct<LocalFunctionDescriptor>(arena);
-  }
-  using ::google::protobuf::Message::CopyFrom;
-  void CopyFrom(const LocalFunctionDescriptor& from);
-  using ::google::protobuf::Message::MergeFrom;
-  void MergeFrom(const LocalFunctionDescriptor& from) { LocalFunctionDescriptor::MergeImpl(*this, from); }
-
-  private:
-  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
-                        const ::google::protobuf::MessageLite& from_msg);
-
-  public:
-  [[nodiscard]] bool IsInitialized() const {
-    return true;
-  }
-  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
-  #if defined(PROTOBUF_CUSTOM_VTABLE)
-  private:
-  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
-  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
-      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
-      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
-
-  public:
-  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
-  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
-      ::uint8_t* PROTOBUF_NONNULL target,
-      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
-    return _InternalSerialize(*this, target, stream);
-  }
-  #else   // PROTOBUF_CUSTOM_VTABLE
-  [[nodiscard]] ::size_t ByteSizeLong() const final;
-  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
-      ::uint8_t* PROTOBUF_NONNULL target,
-      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
-  #endif  // PROTOBUF_CUSTOM_VTABLE
-  [[nodiscard]] int GetCachedSize() const {
-    return _impl_._cached_size_.Get();
-  }
-
-  private:
-  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
-  static void SharedDtor(MessageLite& self);
-  void InternalSwap(LocalFunctionDescriptor* PROTOBUF_NONNULL other);
- private:
-  template <typename T>
-  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
-  static ::absl::string_view FullMessageName() { return "croupier.sdk.v1.LocalFunctionDescriptor"; }
-
-  explicit LocalFunctionDescriptor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
-  LocalFunctionDescriptor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const LocalFunctionDescriptor& from);
-  LocalFunctionDescriptor(
-      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, LocalFunctionDescriptor&& from) noexcept
-      : LocalFunctionDescriptor(arena) {
-    *this = ::std::move(from);
-  }
-  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
-  static void* PROTOBUF_NONNULL PlacementNew_(
-      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
-      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
-  static constexpr auto InternalNewImpl_();
-
- public:
-  static constexpr auto InternalGenerateClassData_();
-
-  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
-  // nested types ----------------------------------------------------
-
-  // accessors -------------------------------------------------------
-  enum : int {
-    kTagsFieldNumber = 3,
-    kIdFieldNumber = 1,
-    kVersionFieldNumber = 2,
-    kSummaryFieldNumber = 4,
-    kDescriptionFieldNumber = 5,
-    kOperationIdFieldNumber = 6,
-    kInputSchemaFieldNumber = 8,
-    kOutputSchemaFieldNumber = 9,
-    kResourceFieldNumber = 10,
-    kOperationFieldNumber = 11,
-    kRiskFieldNumber = 12,
-    kPermissionFieldNumber = 14,
-    kCapabilityFieldNumber = 15,
-    kExecutionFieldNumber = 16,
-    kDeprecatedFieldNumber = 7,
-    kEnabledFieldNumber = 13,
-  };
-  // repeated string tags = 3 [json_name = "tags"];
-  [[nodiscard]] int tags_size()
-      const;
-  private:
-  int _internal_tags_size() const;
-
-  public:
-  void clear_tags() ;
-  [[nodiscard]] const ::std::string& tags(int index) const;
-  ::std::string* PROTOBUF_NONNULL mutable_tags(int index);
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_tags(int index, Arg_&& value, Args_... args);
-  ::std::string* PROTOBUF_NONNULL add_tags();
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void add_tags(Arg_&& value, Args_... args);
-  [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::std::string>&
-  tags() const;
-  [[nodiscard]] ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
-  mutable_tags();
-
-  private:
-  const ::google::protobuf::RepeatedPtrField<::std::string>& _internal_tags() const;
-  ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL _internal_mutable_tags();
-
-  public:
-  // string id = 1 [json_name = "id"];
-  void clear_id() ;
-  [[nodiscard]] const ::std::string& id() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_id(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_id();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_id();
-  void set_allocated_id(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_id() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_id(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_id();
-
-  public:
-  // string version = 2 [json_name = "version"];
-  void clear_version() ;
-  [[nodiscard]] const ::std::string& version() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_version(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_version();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_version();
-  void set_allocated_version(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_version() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_version(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_version();
-
-  public:
-  // string summary = 4 [json_name = "summary"];
-  void clear_summary() ;
-  [[nodiscard]] const ::std::string& summary() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_summary(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_summary();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_summary();
-  void set_allocated_summary(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_summary() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_summary(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_summary();
-
-  public:
-  // string description = 5 [json_name = "description"];
-  void clear_description() ;
-  [[nodiscard]] const ::std::string& description() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_description(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_description();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_description();
-  void set_allocated_description(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_description() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_description(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_description();
-
-  public:
-  // string operation_id = 6 [json_name = "operationId"];
-  void clear_operation_id() ;
-  [[nodiscard]] const ::std::string& operation_id() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_operation_id(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_operation_id();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_operation_id();
-  void set_allocated_operation_id(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_operation_id() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_operation_id(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_operation_id();
-
-  public:
-  // string input_schema = 8 [json_name = "inputSchema"];
-  void clear_input_schema() ;
-  [[nodiscard]] const ::std::string& input_schema() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_input_schema(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_input_schema();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_input_schema();
-  void set_allocated_input_schema(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_input_schema() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_input_schema(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_input_schema();
-
-  public:
-  // string output_schema = 9 [json_name = "outputSchema"];
-  void clear_output_schema() ;
-  [[nodiscard]] const ::std::string& output_schema() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_output_schema(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_output_schema();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_output_schema();
-  void set_allocated_output_schema(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_output_schema() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_output_schema(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_output_schema();
-
-  public:
-  // string resource = 10 [json_name = "resource"];
-  void clear_resource() ;
-  [[nodiscard]] const ::std::string& resource() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_resource(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_resource();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_resource();
-  void set_allocated_resource(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_resource() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_resource(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_resource();
-
-  public:
-  // string operation = 11 [json_name = "operation"];
-  void clear_operation() ;
-  [[nodiscard]] const ::std::string& operation() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_operation(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_operation();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_operation();
-  void set_allocated_operation(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_operation() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_operation(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_operation();
-
-  public:
-  // string risk = 12 [json_name = "risk"];
-  void clear_risk() ;
-  [[nodiscard]] const ::std::string& risk() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_risk(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_risk();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_risk();
-  void set_allocated_risk(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_risk() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_risk(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_risk();
-
-  public:
-  // string permission = 14 [json_name = "permission"];
-  void clear_permission() ;
-  [[nodiscard]] const ::std::string& permission() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_permission(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_permission();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_permission();
-  void set_allocated_permission(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_permission() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_permission(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_permission();
-
-  public:
-  // string capability = 15 [json_name = "capability"];
-  void clear_capability() ;
-  [[nodiscard]] const ::std::string& capability() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_capability(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_capability();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_capability();
-  void set_allocated_capability(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_capability() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_capability(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_capability();
-
-  public:
-  // string execution = 16 [json_name = "execution"];
-  void clear_execution() ;
-  [[nodiscard]] const ::std::string& execution() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_execution(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_execution();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_execution();
-  void set_allocated_execution(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_execution() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_execution(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_execution();
-
-  public:
-  // bool deprecated = 7 [json_name = "deprecated"];
-  void clear_deprecated() ;
-  [[nodiscard]] bool deprecated() const;
-  void set_deprecated(bool value);
-
-  private:
-  bool _internal_deprecated() const;
-  void _internal_set_deprecated(bool value);
-
-  public:
-  // bool enabled = 13 [json_name = "enabled"];
-  void clear_enabled() ;
-  [[nodiscard]] bool enabled() const;
-  void set_enabled(bool value);
-
-  private:
-  bool _internal_enabled() const;
-  void _internal_set_enabled(bool value);
-
-  public:
-  // @@protoc_insertion_point(class_scope:croupier.sdk.v1.LocalFunctionDescriptor)
- private:
-  class _Internal;
-  friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 16,
-                                   0, 182,
-                                   2>
-      _table_;
-
-  friend class ::google::protobuf::MessageLite;
-  friend class ::google::protobuf::Arena;
-  friend ::google::protobuf::internal::PrivateAccess;
-  template <typename T>
-  friend class ::google::protobuf::Arena::InternalHelper;
-  using InternalArenaConstructable_ = void;
-  using DestructorSkippable_ = void;
-  struct Impl_ {
-    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
-                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
-    inline explicit Impl_(
-        ::google::protobuf::internal::InternalVisibility visibility,
-        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
-    inline explicit Impl_(
-        ::google::protobuf::internal::InternalVisibility visibility,
-        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
-        const LocalFunctionDescriptor& from_msg);
-    ::google::protobuf::internal::HasBits<1> _has_bits_;
-    ::google::protobuf::internal::CachedSize _cached_size_;
-    ::google::protobuf::RepeatedPtrField<::std::string> tags_;
-    ::google::protobuf::internal::ArenaStringPtr id_;
-    ::google::protobuf::internal::ArenaStringPtr version_;
-    ::google::protobuf::internal::ArenaStringPtr summary_;
-    ::google::protobuf::internal::ArenaStringPtr description_;
-    ::google::protobuf::internal::ArenaStringPtr operation_id_;
-    ::google::protobuf::internal::ArenaStringPtr input_schema_;
-    ::google::protobuf::internal::ArenaStringPtr output_schema_;
-    ::google::protobuf::internal::ArenaStringPtr resource_;
-    ::google::protobuf::internal::ArenaStringPtr operation_;
-    ::google::protobuf::internal::ArenaStringPtr risk_;
-    ::google::protobuf::internal::ArenaStringPtr permission_;
-    ::google::protobuf::internal::ArenaStringPtr capability_;
-    ::google::protobuf::internal::ArenaStringPtr execution_;
-    bool deprecated_;
-    bool enabled_;
-    PROTOBUF_TSAN_DECLARE_MEMBER
-  };
-  union { Impl_ _impl_; };
-  friend struct ::TableStruct_croupier_2fsdk_2fv1_2fprovider_2eproto;
-};
-
-extern const ::google::protobuf::internal::ClassDataFull LocalFunctionDescriptor_class_data_;
-// -------------------------------------------------------------------
-
 class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetTaskResultResponse final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:croupier.sdk.v1.GetTaskResultResponse) */ {
  public:
@@ -2138,7 +2138,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
     kGameIdFieldNumber = 11,
     kEnvFieldNumber = 12,
   };
-  // repeated .croupier.sdk.v1.LocalFunctionDescriptor functions = 3 [json_name = "functions"];
+  // repeated .croupier.sdk.v1.ProviderFunctionDescriptor functions = 3 [json_name = "functions"];
   [[nodiscard]] int functions_size()
       const;
   private:
@@ -2146,17 +2146,17 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
 
   public:
   void clear_functions() ;
-  [[nodiscard]] ::croupier::sdk::v1::LocalFunctionDescriptor* PROTOBUF_NONNULL mutable_functions(int index);
-  [[nodiscard]] ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::LocalFunctionDescriptor>* PROTOBUF_NONNULL
+  [[nodiscard]] ::croupier::sdk::v1::ProviderFunctionDescriptor* PROTOBUF_NONNULL mutable_functions(int index);
+  [[nodiscard]] ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::ProviderFunctionDescriptor>* PROTOBUF_NONNULL
   mutable_functions();
 
   private:
-  const ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::LocalFunctionDescriptor>& _internal_functions() const;
-  ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::LocalFunctionDescriptor>* PROTOBUF_NONNULL _internal_mutable_functions();
+  const ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::ProviderFunctionDescriptor>& _internal_functions() const;
+  ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::ProviderFunctionDescriptor>* PROTOBUF_NONNULL _internal_mutable_functions();
   public:
-  [[nodiscard]] const ::croupier::sdk::v1::LocalFunctionDescriptor& functions(int index) const;
-  ::croupier::sdk::v1::LocalFunctionDescriptor* PROTOBUF_NONNULL add_functions();
-  [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::LocalFunctionDescriptor>& functions()
+  [[nodiscard]] const ::croupier::sdk::v1::ProviderFunctionDescriptor& functions(int index) const;
+  ::croupier::sdk::v1::ProviderFunctionDescriptor* PROTOBUF_NONNULL add_functions();
+  [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::ProviderFunctionDescriptor>& functions()
       const;
   // repeated string supported_capabilities = 8 [json_name = "supportedCapabilities"];
   [[nodiscard]] int supported_capabilities_size()
@@ -2371,7 +2371,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderConnectRequest final : publ
         const ProviderConnectRequest& from_msg);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
-    ::google::protobuf::RepeatedPtrField< ::croupier::sdk::v1::LocalFunctionDescriptor > functions_;
+    ::google::protobuf::RepeatedPtrField< ::croupier::sdk::v1::ProviderFunctionDescriptor > functions_;
     ::google::protobuf::RepeatedPtrField<::std::string> supported_capabilities_;
     ::google::protobuf::RepeatedPtrField<::std::string> supported_transports_;
     ::google::protobuf::internal::ArenaStringPtr service_id_;
@@ -2405,49 +2405,49 @@ extern const ::google::protobuf::internal::ClassDataFull ProviderConnectRequest_
 #endif  // __GNUC__
 // -------------------------------------------------------------------
 
-// LocalFunctionDescriptor
+// ProviderFunctionDescriptor
 
 // string id = 1 [json_name = "id"];
-inline void LocalFunctionDescriptor::clear_id() {
+inline void ProviderFunctionDescriptor::clear_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.id_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000002U);
 }
-inline const ::std::string& LocalFunctionDescriptor::id() const
+inline const ::std::string& ProviderFunctionDescriptor::id() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.id)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.id)
   return _internal_id();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_id(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_id(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   _impl_.id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.id)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.id)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_id()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_id()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   ::std::string* _s = _internal_mutable_id();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.id)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.id)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_id() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_id() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.id_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_id(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_id(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.id_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_id() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.id_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_id() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.id)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.id)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
     return nullptr;
   }
@@ -2458,7 +2458,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_id() {
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_id(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_id(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000002U);
@@ -2469,50 +2469,50 @@ inline void LocalFunctionDescriptor::set_allocated_id(::std::string* PROTOBUF_NU
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.id_.IsDefault()) {
     _impl_.id_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.id)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.id)
 }
 
 // string version = 2 [json_name = "version"];
-inline void LocalFunctionDescriptor::clear_version() {
+inline void ProviderFunctionDescriptor::clear_version() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.version_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000004U);
 }
-inline const ::std::string& LocalFunctionDescriptor::version() const
+inline const ::std::string& ProviderFunctionDescriptor::version() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.version)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.version)
   return _internal_version();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_version(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_version(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   _impl_.version_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.version)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.version)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_version()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_version()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   ::std::string* _s = _internal_mutable_version();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.version)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.version)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_version() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_version() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.version_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_version(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_version(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.version_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_version() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_version() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.version_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_version() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_version() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.version)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.version)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
     return nullptr;
   }
@@ -2523,7 +2523,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_version
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_version(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_version(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000004U);
@@ -2534,122 +2534,122 @@ inline void LocalFunctionDescriptor::set_allocated_version(::std::string* PROTOB
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.version_.IsDefault()) {
     _impl_.version_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.version)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.version)
 }
 
 // repeated string tags = 3 [json_name = "tags"];
-inline int LocalFunctionDescriptor::_internal_tags_size() const {
+inline int ProviderFunctionDescriptor::_internal_tags_size() const {
   return _internal_tags().size();
 }
-inline int LocalFunctionDescriptor::tags_size() const {
+inline int ProviderFunctionDescriptor::tags_size() const {
   return _internal_tags_size();
 }
-inline void LocalFunctionDescriptor::clear_tags() {
+inline void ProviderFunctionDescriptor::clear_tags() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.tags_.Clear();
   ClearHasBitForRepeated(_impl_._has_bits_[0],
                   0x00000001U);
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::add_tags()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::add_tags()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   ::std::string* _s =
       _internal_mutable_tags()->InternalAddWithArena(
           ::google::protobuf::MessageLite::internal_visibility(), GetArena());
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
-  // @@protoc_insertion_point(field_add_mutable:croupier.sdk.v1.LocalFunctionDescriptor.tags)
+  // @@protoc_insertion_point(field_add_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.tags)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::tags(int index) const
+inline const ::std::string& ProviderFunctionDescriptor::tags(int index) const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.tags)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.tags)
   return _internal_tags().Get(index);
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_tags(int index)
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_tags(int index)
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.tags)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.tags)
   return _internal_mutable_tags()->Mutable(index);
 }
 template <typename Arg_, typename... Args_>
-inline void LocalFunctionDescriptor::set_tags(int index, Arg_&& value, Args_... args) {
+inline void ProviderFunctionDescriptor::set_tags(int index, Arg_&& value, Args_... args) {
   ::google::protobuf::internal::AssignToString(*_internal_mutable_tags()->Mutable(index), ::std::forward<Arg_>(value),
                         args... );
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.tags)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.tags)
 }
 template <typename Arg_, typename... Args_>
-inline void LocalFunctionDescriptor::add_tags(Arg_&& value, Args_... args) {
+inline void ProviderFunctionDescriptor::add_tags(Arg_&& value, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   ::google::protobuf::internal::AddToRepeatedPtrField(
       ::google::protobuf::MessageLite::internal_visibility(), GetArena(),
       *_internal_mutable_tags(), ::std::forward<Arg_>(value),
       args... );
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
-  // @@protoc_insertion_point(field_add:croupier.sdk.v1.LocalFunctionDescriptor.tags)
+  // @@protoc_insertion_point(field_add:croupier.sdk.v1.ProviderFunctionDescriptor.tags)
 }
-inline const ::google::protobuf::RepeatedPtrField<::std::string>& LocalFunctionDescriptor::tags()
+inline const ::google::protobuf::RepeatedPtrField<::std::string>& ProviderFunctionDescriptor::tags()
     const ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_list:croupier.sdk.v1.LocalFunctionDescriptor.tags)
+  // @@protoc_insertion_point(field_list:croupier.sdk.v1.ProviderFunctionDescriptor.tags)
   return _internal_tags();
 }
 inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
-LocalFunctionDescriptor::mutable_tags() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+ProviderFunctionDescriptor::mutable_tags() ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
-  // @@protoc_insertion_point(field_mutable_list:croupier.sdk.v1.LocalFunctionDescriptor.tags)
+  // @@protoc_insertion_point(field_mutable_list:croupier.sdk.v1.ProviderFunctionDescriptor.tags)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _internal_mutable_tags();
 }
 inline const ::google::protobuf::RepeatedPtrField<::std::string>&
-LocalFunctionDescriptor::_internal_tags() const {
+ProviderFunctionDescriptor::_internal_tags() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.tags_;
 }
 inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
-LocalFunctionDescriptor::_internal_mutable_tags() {
+ProviderFunctionDescriptor::_internal_mutable_tags() {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return &_impl_.tags_;
 }
 
 // string summary = 4 [json_name = "summary"];
-inline void LocalFunctionDescriptor::clear_summary() {
+inline void ProviderFunctionDescriptor::clear_summary() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.summary_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000008U);
 }
-inline const ::std::string& LocalFunctionDescriptor::summary() const
+inline const ::std::string& ProviderFunctionDescriptor::summary() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.summary)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.summary)
   return _internal_summary();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_summary(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_summary(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   _impl_.summary_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.summary)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.summary)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_summary()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_summary()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   ::std::string* _s = _internal_mutable_summary();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.summary)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.summary)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_summary() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_summary() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.summary_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_summary(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_summary(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.summary_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_summary() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_summary() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.summary_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_summary() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_summary() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.summary)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.summary)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
     return nullptr;
   }
@@ -2660,7 +2660,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_summary
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_summary(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_summary(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000008U);
@@ -2671,50 +2671,50 @@ inline void LocalFunctionDescriptor::set_allocated_summary(::std::string* PROTOB
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.summary_.IsDefault()) {
     _impl_.summary_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.summary)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.summary)
 }
 
 // string description = 5 [json_name = "description"];
-inline void LocalFunctionDescriptor::clear_description() {
+inline void ProviderFunctionDescriptor::clear_description() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.description_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000010U);
 }
-inline const ::std::string& LocalFunctionDescriptor::description() const
+inline const ::std::string& ProviderFunctionDescriptor::description() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.description)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.description)
   return _internal_description();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_description(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_description(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   _impl_.description_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.description)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.description)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_description()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_description()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   ::std::string* _s = _internal_mutable_description();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.description)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.description)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_description() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_description() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.description_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_description(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_description(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.description_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_description() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_description() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.description_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_description() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_description() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.description)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.description)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000010U)) {
     return nullptr;
   }
@@ -2725,7 +2725,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_descrip
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_description(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_description(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000010U);
@@ -2736,50 +2736,50 @@ inline void LocalFunctionDescriptor::set_allocated_description(::std::string* PR
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.description_.IsDefault()) {
     _impl_.description_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.description)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.description)
 }
 
 // string operation_id = 6 [json_name = "operationId"];
-inline void LocalFunctionDescriptor::clear_operation_id() {
+inline void ProviderFunctionDescriptor::clear_operation_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.operation_id_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000020U);
 }
-inline const ::std::string& LocalFunctionDescriptor::operation_id() const
+inline const ::std::string& ProviderFunctionDescriptor::operation_id() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.operation_id)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.operation_id)
   return _internal_operation_id();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_operation_id(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_operation_id(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   _impl_.operation_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.operation_id)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.operation_id)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_operation_id()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_operation_id()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   ::std::string* _s = _internal_mutable_operation_id();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.operation_id)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.operation_id)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_operation_id() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_operation_id() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.operation_id_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_operation_id(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_operation_id(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.operation_id_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_operation_id() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_operation_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.operation_id_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_operation_id() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_operation_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.operation_id)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.operation_id)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000020U)) {
     return nullptr;
   }
@@ -2790,7 +2790,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_operati
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_operation_id(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_operation_id(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000020U);
@@ -2801,75 +2801,75 @@ inline void LocalFunctionDescriptor::set_allocated_operation_id(::std::string* P
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.operation_id_.IsDefault()) {
     _impl_.operation_id_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.operation_id)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.operation_id)
 }
 
 // bool deprecated = 7 [json_name = "deprecated"];
-inline void LocalFunctionDescriptor::clear_deprecated() {
+inline void ProviderFunctionDescriptor::clear_deprecated() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.deprecated_ = false;
   ClearHasBit(_impl_._has_bits_[0],
                   0x00004000U);
 }
-inline bool LocalFunctionDescriptor::deprecated() const {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.deprecated)
+inline bool ProviderFunctionDescriptor::deprecated() const {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.deprecated)
   return _internal_deprecated();
 }
-inline void LocalFunctionDescriptor::set_deprecated(bool value) {
+inline void ProviderFunctionDescriptor::set_deprecated(bool value) {
   _internal_set_deprecated(value);
   SetHasBit(_impl_._has_bits_[0], 0x00004000U);
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.deprecated)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.deprecated)
 }
-inline bool LocalFunctionDescriptor::_internal_deprecated() const {
+inline bool ProviderFunctionDescriptor::_internal_deprecated() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.deprecated_;
 }
-inline void LocalFunctionDescriptor::_internal_set_deprecated(bool value) {
+inline void ProviderFunctionDescriptor::_internal_set_deprecated(bool value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.deprecated_ = value;
 }
 
 // string input_schema = 8 [json_name = "inputSchema"];
-inline void LocalFunctionDescriptor::clear_input_schema() {
+inline void ProviderFunctionDescriptor::clear_input_schema() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.input_schema_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000040U);
 }
-inline const ::std::string& LocalFunctionDescriptor::input_schema() const
+inline const ::std::string& ProviderFunctionDescriptor::input_schema() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.input_schema)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.input_schema)
   return _internal_input_schema();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_input_schema(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_input_schema(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   _impl_.input_schema_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.input_schema)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.input_schema)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_input_schema()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_input_schema()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   ::std::string* _s = _internal_mutable_input_schema();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.input_schema)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.input_schema)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_input_schema() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_input_schema() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.input_schema_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_input_schema(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_input_schema(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.input_schema_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_input_schema() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_input_schema() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.input_schema_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_input_schema() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_input_schema() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.input_schema)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.input_schema)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
     return nullptr;
   }
@@ -2880,7 +2880,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_input_s
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_input_schema(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_input_schema(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000040U);
@@ -2891,50 +2891,50 @@ inline void LocalFunctionDescriptor::set_allocated_input_schema(::std::string* P
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.input_schema_.IsDefault()) {
     _impl_.input_schema_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.input_schema)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.input_schema)
 }
 
 // string output_schema = 9 [json_name = "outputSchema"];
-inline void LocalFunctionDescriptor::clear_output_schema() {
+inline void ProviderFunctionDescriptor::clear_output_schema() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.output_schema_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000080U);
 }
-inline const ::std::string& LocalFunctionDescriptor::output_schema() const
+inline const ::std::string& ProviderFunctionDescriptor::output_schema() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.output_schema)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.output_schema)
   return _internal_output_schema();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_output_schema(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_output_schema(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   _impl_.output_schema_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.output_schema)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.output_schema)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_output_schema()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_output_schema()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::std::string* _s = _internal_mutable_output_schema();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.output_schema)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.output_schema)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_output_schema() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_output_schema() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.output_schema_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_output_schema(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_output_schema(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.output_schema_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_output_schema() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_output_schema() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.output_schema_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_output_schema() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_output_schema() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.output_schema)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.output_schema)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000080U)) {
     return nullptr;
   }
@@ -2945,7 +2945,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_output_
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_output_schema(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_output_schema(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000080U);
@@ -2956,50 +2956,50 @@ inline void LocalFunctionDescriptor::set_allocated_output_schema(::std::string* 
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.output_schema_.IsDefault()) {
     _impl_.output_schema_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.output_schema)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.output_schema)
 }
 
 // string resource = 10 [json_name = "resource"];
-inline void LocalFunctionDescriptor::clear_resource() {
+inline void ProviderFunctionDescriptor::clear_resource() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.resource_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000100U);
 }
-inline const ::std::string& LocalFunctionDescriptor::resource() const
+inline const ::std::string& ProviderFunctionDescriptor::resource() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.resource)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.resource)
   return _internal_resource();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_resource(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_resource(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   _impl_.resource_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.resource)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.resource)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_resource()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_resource()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::std::string* _s = _internal_mutable_resource();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.resource)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.resource)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_resource() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_resource() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.resource_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_resource(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_resource(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.resource_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_resource() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_resource() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.resource_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_resource() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_resource() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.resource)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.resource)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000100U)) {
     return nullptr;
   }
@@ -3010,7 +3010,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_resourc
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_resource(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_resource(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000100U);
@@ -3021,50 +3021,50 @@ inline void LocalFunctionDescriptor::set_allocated_resource(::std::string* PROTO
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.resource_.IsDefault()) {
     _impl_.resource_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.resource)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.resource)
 }
 
 // string operation = 11 [json_name = "operation"];
-inline void LocalFunctionDescriptor::clear_operation() {
+inline void ProviderFunctionDescriptor::clear_operation() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.operation_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000200U);
 }
-inline const ::std::string& LocalFunctionDescriptor::operation() const
+inline const ::std::string& ProviderFunctionDescriptor::operation() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.operation)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.operation)
   return _internal_operation();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_operation(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_operation(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   _impl_.operation_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.operation)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.operation)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_operation()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_operation()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   ::std::string* _s = _internal_mutable_operation();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.operation)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.operation)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_operation() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_operation() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.operation_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_operation(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_operation(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.operation_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_operation() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_operation() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.operation_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_operation() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_operation() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.operation)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.operation)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000200U)) {
     return nullptr;
   }
@@ -3075,7 +3075,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_operati
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_operation(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_operation(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000200U);
@@ -3086,50 +3086,50 @@ inline void LocalFunctionDescriptor::set_allocated_operation(::std::string* PROT
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.operation_.IsDefault()) {
     _impl_.operation_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.operation)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.operation)
 }
 
 // string risk = 12 [json_name = "risk"];
-inline void LocalFunctionDescriptor::clear_risk() {
+inline void ProviderFunctionDescriptor::clear_risk() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.risk_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000400U);
 }
-inline const ::std::string& LocalFunctionDescriptor::risk() const
+inline const ::std::string& ProviderFunctionDescriptor::risk() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.risk)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.risk)
   return _internal_risk();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_risk(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_risk(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000400U);
   _impl_.risk_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.risk)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.risk)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_risk()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_risk()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000400U);
   ::std::string* _s = _internal_mutable_risk();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.risk)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.risk)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_risk() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_risk() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.risk_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_risk(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_risk(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.risk_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_risk() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_risk() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.risk_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_risk() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_risk() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.risk)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.risk)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000400U)) {
     return nullptr;
   }
@@ -3140,7 +3140,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_risk() 
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_risk(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_risk(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000400U);
@@ -3151,75 +3151,75 @@ inline void LocalFunctionDescriptor::set_allocated_risk(::std::string* PROTOBUF_
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.risk_.IsDefault()) {
     _impl_.risk_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.risk)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.risk)
 }
 
 // bool enabled = 13 [json_name = "enabled"];
-inline void LocalFunctionDescriptor::clear_enabled() {
+inline void ProviderFunctionDescriptor::clear_enabled() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.enabled_ = false;
   ClearHasBit(_impl_._has_bits_[0],
                   0x00008000U);
 }
-inline bool LocalFunctionDescriptor::enabled() const {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.enabled)
+inline bool ProviderFunctionDescriptor::enabled() const {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.enabled)
   return _internal_enabled();
 }
-inline void LocalFunctionDescriptor::set_enabled(bool value) {
+inline void ProviderFunctionDescriptor::set_enabled(bool value) {
   _internal_set_enabled(value);
   SetHasBit(_impl_._has_bits_[0], 0x00008000U);
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.enabled)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.enabled)
 }
-inline bool LocalFunctionDescriptor::_internal_enabled() const {
+inline bool ProviderFunctionDescriptor::_internal_enabled() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.enabled_;
 }
-inline void LocalFunctionDescriptor::_internal_set_enabled(bool value) {
+inline void ProviderFunctionDescriptor::_internal_set_enabled(bool value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.enabled_ = value;
 }
 
 // string permission = 14 [json_name = "permission"];
-inline void LocalFunctionDescriptor::clear_permission() {
+inline void ProviderFunctionDescriptor::clear_permission() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.permission_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00000800U);
 }
-inline const ::std::string& LocalFunctionDescriptor::permission() const
+inline const ::std::string& ProviderFunctionDescriptor::permission() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.permission)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.permission)
   return _internal_permission();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_permission(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_permission(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000800U);
   _impl_.permission_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.permission)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.permission)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_permission()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_permission()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000800U);
   ::std::string* _s = _internal_mutable_permission();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.permission)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.permission)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_permission() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_permission() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.permission_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_permission(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_permission(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.permission_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_permission() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_permission() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.permission_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_permission() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_permission() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.permission)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.permission)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000800U)) {
     return nullptr;
   }
@@ -3230,7 +3230,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_permiss
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_permission(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_permission(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00000800U);
@@ -3241,50 +3241,50 @@ inline void LocalFunctionDescriptor::set_allocated_permission(::std::string* PRO
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.permission_.IsDefault()) {
     _impl_.permission_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.permission)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.permission)
 }
 
 // string capability = 15 [json_name = "capability"];
-inline void LocalFunctionDescriptor::clear_capability() {
+inline void ProviderFunctionDescriptor::clear_capability() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.capability_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00001000U);
 }
-inline const ::std::string& LocalFunctionDescriptor::capability() const
+inline const ::std::string& ProviderFunctionDescriptor::capability() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.capability)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.capability)
   return _internal_capability();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_capability(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_capability(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00001000U);
   _impl_.capability_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.capability)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.capability)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_capability()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_capability()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00001000U);
   ::std::string* _s = _internal_mutable_capability();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.capability)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.capability)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_capability() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_capability() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.capability_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_capability(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_capability(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.capability_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_capability() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_capability() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.capability_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_capability() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_capability() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.capability)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.capability)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00001000U)) {
     return nullptr;
   }
@@ -3295,7 +3295,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_capabil
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_capability(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_capability(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00001000U);
@@ -3306,50 +3306,50 @@ inline void LocalFunctionDescriptor::set_allocated_capability(::std::string* PRO
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.capability_.IsDefault()) {
     _impl_.capability_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.capability)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.capability)
 }
 
 // string execution = 16 [json_name = "execution"];
-inline void LocalFunctionDescriptor::clear_execution() {
+inline void ProviderFunctionDescriptor::clear_execution() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.execution_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
                   0x00002000U);
 }
-inline const ::std::string& LocalFunctionDescriptor::execution() const
+inline const ::std::string& ProviderFunctionDescriptor::execution() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.sdk.v1.LocalFunctionDescriptor.execution)
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.execution)
   return _internal_execution();
 }
 template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void LocalFunctionDescriptor::set_execution(Arg_&& arg, Args_... args) {
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_execution(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00002000U);
   _impl_.execution_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.sdk.v1.LocalFunctionDescriptor.execution)
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.execution)
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::mutable_execution()
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_execution()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00002000U);
   ::std::string* _s = _internal_mutable_execution();
-  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.LocalFunctionDescriptor.execution)
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.execution)
   return _s;
 }
-inline const ::std::string& LocalFunctionDescriptor::_internal_execution() const {
+inline const ::std::string& ProviderFunctionDescriptor::_internal_execution() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.execution_.Get();
 }
-inline void LocalFunctionDescriptor::_internal_set_execution(const ::std::string& value) {
+inline void ProviderFunctionDescriptor::_internal_set_execution(const ::std::string& value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.execution_.Set(value, GetArena());
 }
-inline ::std::string* PROTOBUF_NONNULL LocalFunctionDescriptor::_internal_mutable_execution() {
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_execution() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _impl_.execution_.Mutable( GetArena());
 }
-inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_execution() {
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_execution() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.sdk.v1.LocalFunctionDescriptor.execution)
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.execution)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00002000U)) {
     return nullptr;
   }
@@ -3360,7 +3360,7 @@ inline ::std::string* PROTOBUF_NULLABLE LocalFunctionDescriptor::release_executi
   }
   return released;
 }
-inline void LocalFunctionDescriptor::set_allocated_execution(::std::string* PROTOBUF_NULLABLE value) {
+inline void ProviderFunctionDescriptor::set_allocated_execution(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
     SetHasBit(_impl_._has_bits_[0], 0x00002000U);
@@ -3371,7 +3371,7 @@ inline void LocalFunctionDescriptor::set_allocated_execution(::std::string* PROT
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.execution_.IsDefault()) {
     _impl_.execution_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.LocalFunctionDescriptor.execution)
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.execution)
 }
 
 // -------------------------------------------------------------------
@@ -3508,7 +3508,7 @@ inline void ProviderConnectRequest::set_allocated_version(::std::string* PROTOBU
   // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderConnectRequest.version)
 }
 
-// repeated .croupier.sdk.v1.LocalFunctionDescriptor functions = 3 [json_name = "functions"];
+// repeated .croupier.sdk.v1.ProviderFunctionDescriptor functions = 3 [json_name = "functions"];
 inline int ProviderConnectRequest::_internal_functions_size() const {
   return _internal_functions().size();
 }
@@ -3521,44 +3521,44 @@ inline void ProviderConnectRequest::clear_functions() {
   ClearHasBitForRepeated(_impl_._has_bits_[0],
                   0x00000001U);
 }
-inline ::croupier::sdk::v1::LocalFunctionDescriptor* PROTOBUF_NONNULL ProviderConnectRequest::mutable_functions(int index)
+inline ::croupier::sdk::v1::ProviderFunctionDescriptor* PROTOBUF_NONNULL ProviderConnectRequest::mutable_functions(int index)
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderConnectRequest.functions)
   return _internal_mutable_functions()->Mutable(index);
 }
-inline ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::LocalFunctionDescriptor>* PROTOBUF_NONNULL ProviderConnectRequest::mutable_functions()
+inline ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::ProviderFunctionDescriptor>* PROTOBUF_NONNULL ProviderConnectRequest::mutable_functions()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
   // @@protoc_insertion_point(field_mutable_list:croupier.sdk.v1.ProviderConnectRequest.functions)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _internal_mutable_functions();
 }
-inline const ::croupier::sdk::v1::LocalFunctionDescriptor& ProviderConnectRequest::functions(int index) const
+inline const ::croupier::sdk::v1::ProviderFunctionDescriptor& ProviderConnectRequest::functions(int index) const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderConnectRequest.functions)
   return _internal_functions().Get(index);
 }
-inline ::croupier::sdk::v1::LocalFunctionDescriptor* PROTOBUF_NONNULL ProviderConnectRequest::add_functions()
+inline ::croupier::sdk::v1::ProviderFunctionDescriptor* PROTOBUF_NONNULL ProviderConnectRequest::add_functions()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  ::croupier::sdk::v1::LocalFunctionDescriptor* _add =
+  ::croupier::sdk::v1::ProviderFunctionDescriptor* _add =
       _internal_mutable_functions()->InternalAddWithArena(
           ::google::protobuf::MessageLite::internal_visibility(), GetArena());
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
   // @@protoc_insertion_point(field_add:croupier.sdk.v1.ProviderConnectRequest.functions)
   return _add;
 }
-inline const ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::LocalFunctionDescriptor>& ProviderConnectRequest::functions() const
+inline const ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::ProviderFunctionDescriptor>& ProviderConnectRequest::functions() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   // @@protoc_insertion_point(field_list:croupier.sdk.v1.ProviderConnectRequest.functions)
   return _internal_functions();
 }
-inline const ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::LocalFunctionDescriptor>&
+inline const ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::ProviderFunctionDescriptor>&
 ProviderConnectRequest::_internal_functions() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.functions_;
 }
-inline ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::LocalFunctionDescriptor>* PROTOBUF_NONNULL
+inline ::google::protobuf::RepeatedPtrField<::croupier::sdk::v1::ProviderFunctionDescriptor>* PROTOBUF_NONNULL
 ProviderConnectRequest::_internal_mutable_functions() {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return &_impl_.functions_;

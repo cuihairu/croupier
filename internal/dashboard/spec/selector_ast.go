@@ -66,11 +66,9 @@ type TransformSpec struct {
 type TransformType string
 
 const (
-	TransformDefault TransformType = "default"
-	TransformFormat  TransformType = "format"
-	TransformConvert TransformType = "convert"
-	TransformPick    TransformType = "pick"
-	TransformMap     TransformType = "map"
+	// TransformPick extracts one declared field from every selected row. It is
+	// the only transform implemented by the controlled execute boundary.
+	TransformPick TransformType = "pick"
 )
 
 // SelectorValidationResult holds validation results for a selector.
@@ -196,6 +194,10 @@ func ValidateSelector(selector SelectorAST, schema JSONSchema, context SelectorC
 			result.addError(assignment.Target, ErrCodeInvalidSource, "source kind not allowed in this context")
 			continue
 		}
+		if !isSupportedTransform(assignment.Source) {
+			result.addError(assignment.Target, ErrCodeInvalidSource, "selector transform is not supported for this source")
+			continue
+		}
 		validateInputSource(assignment, context, &result)
 		if !isAssignable(schema, assignment.Target, assignment.Source, context) {
 			result.addError(assignment.Target, ErrCodeTypeMismatch, "source type is not assignable to target")
@@ -206,6 +208,13 @@ func ValidateSelector(selector SelectorAST, schema JSONSchema, context SelectorC
 		result.addError(field, ErrCodeMissingRequired, "required field not assigned")
 	}
 	return result
+}
+
+func isSupportedTransform(source ValueSource) bool {
+	if source.Transform == nil {
+		return true
+	}
+	return source.Kind == SourceSelection && source.Transform.Type == TransformPick
 }
 
 func bindingUsesRowSource(binding PageFunctionBinding) bool {

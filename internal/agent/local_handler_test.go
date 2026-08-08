@@ -1010,7 +1010,7 @@ func TestLocalHandler_PickInstance_WithInstances(t *testing.T) {
 	}
 
 	// Register an instance
-	store.Register("provider-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("provider-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "game.player.get", Version: "1.0.0"},
 	}, nil)
 
@@ -1239,7 +1239,7 @@ func TestLocalHandler_HandleProviderConnect_WithFunctions(t *testing.T) {
 	req := &sdkv1.ProviderConnectRequest{
 		ServiceId: "svc-1",
 		Version:   "1.0.0",
-		Functions: []*sdkv1.LocalFunctionDescriptor{
+		Functions: []*sdkv1.ProviderFunctionDescriptor{
 			{Id: "func-1", Version: "1.0.0"},
 			{Id: "func-2", Version: "2.0.0"},
 		},
@@ -1263,7 +1263,7 @@ func TestLocalHandler_HandleProviderConnect_PreservesDescriptorMetadata(t *testi
 	req := &sdkv1.ProviderConnectRequest{
 		ServiceId: "svc-1",
 		Version:   "1.0.0",
-		Functions: []*sdkv1.LocalFunctionDescriptor{
+		Functions: []*sdkv1.ProviderFunctionDescriptor{
 			{
 				Id:          "game.player.ban",
 				Version:     "1.2.3",
@@ -1469,7 +1469,7 @@ func TestLocalHandler_HandleProviderHeartbeat_WithRegisteredProvider(t *testing.
 	handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
 
 	// Register a provider first
-	store.Register("session-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("session-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "func-1", Version: "1.0.0"},
 	}, nil)
 
@@ -1511,7 +1511,7 @@ func TestLocalHandler_PickInstance_WithMetadata(t *testing.T) {
 	}
 
 	// Register an instance
-	store.Register("provider-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("provider-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "game.player.get", Version: "1.0.0"},
 	}, nil)
 

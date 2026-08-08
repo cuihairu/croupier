@@ -27,7 +27,7 @@ type ProviderSession struct {
 	Version string
 
 	// Functions are the function descriptors registered by this Provider.
-	Functions []*sdkv1.LocalFunctionDescriptor
+	Functions []*sdkv1.ProviderFunctionDescriptor
 
 	// ConnectedAt is the time the session was established.
 	ConnectedAt time.Time

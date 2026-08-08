@@ -40,7 +40,7 @@ struct FunctionDescriptor {
 };
 
 // Local function descriptor matching agent/local/v1/local.proto
-struct LocalFunctionDescriptor {
+struct ProviderFunctionDescriptor {
     std::string id;       // function id
     std::string version;  // function version
 };

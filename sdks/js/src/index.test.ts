@@ -23,7 +23,7 @@ syntax = "proto3";
 package croupier.sdk.v1;
 message ProviderConnectResponse { string session_id = 1; }
 message HeartbeatResponse {}
-message LocalFunctionDescriptor {
+message ProviderFunctionDescriptor {
   string id = 1;
   string version = 2;
   repeated string tags = 3;
@@ -42,7 +42,7 @@ message LocalFunctionDescriptor {
 message ProviderConnectRequest {
   string service_id = 1;
   string version = 2;
-  repeated LocalFunctionDescriptor functions = 3;
+  repeated ProviderFunctionDescriptor functions = 3;
   string sdk_language = 4;
   string sdk_version = 5;
   string sdk_name = 6;

@@ -208,8 +208,8 @@ func ValidateFunctionDescriptor(descriptor *FunctionDescriptor) error {
 	return nil
 }
 
-// ValidateLocalFunctionDescriptor validates a local function descriptor
-func ValidateLocalFunctionDescriptor(descriptor *LocalFunctionDescriptor) error {
+// ValidateProviderFunctionDescriptor validates a local function descriptor
+func ValidateProviderFunctionDescriptor(descriptor *ProviderFunctionDescriptor) error {
 	if descriptor.ID == "" {
 		return fmt.Errorf("function ID is required")
 	}

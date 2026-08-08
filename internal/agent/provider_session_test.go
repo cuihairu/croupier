@@ -52,7 +52,7 @@ func TestProviderSession_FunctionIDs(t *testing.T) {
 	t.Run("with functions", func(t *testing.T) {
 		sess := &ProviderSession{
 			SessionID: "session-1",
-			Functions: []*sdkv1.LocalFunctionDescriptor{
+			Functions: []*sdkv1.ProviderFunctionDescriptor{
 				{Id: "func-1"},
 				{Id: "func-2"},
 				{Id: "func-3"},
@@ -69,7 +69,7 @@ func TestProviderSession_FunctionIDs(t *testing.T) {
 	t.Run("with nil functions", func(t *testing.T) {
 		sess := &ProviderSession{
 			SessionID: "session-1",
-			Functions: []*sdkv1.LocalFunctionDescriptor{
+			Functions: []*sdkv1.ProviderFunctionDescriptor{
 				nil,
 				{Id: "func-1"},
 				{Id: ""},
@@ -84,7 +84,7 @@ func TestProviderSession_FunctionIDs(t *testing.T) {
 	t.Run("with empty functions", func(t *testing.T) {
 		sess := &ProviderSession{
 			SessionID: "session-1",
-			Functions: []*sdkv1.LocalFunctionDescriptor{},
+			Functions: []*sdkv1.ProviderFunctionDescriptor{},
 		}
 
 		ids := sess.FunctionIDs()

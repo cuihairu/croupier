@@ -196,6 +196,7 @@ func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contra
 		ItemsFieldName:    "items",
 		TotalFieldName:    "total",
 	}
+	tracker := normalizer.NewSemanticProvenanceTracker()
 
 	for _, c := range contracts {
 		if c == nil {
@@ -203,21 +204,51 @@ func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contra
 		}
 		switch c.Capability {
 		case "collection_query":
-			sem.CollectionQueryID = c.ID
-			inferCollectionFields(sem, c)
+			if trackSemanticBinding(tracker, "collectionQueryID", c) {
+				sem.CollectionQueryID = c.ID
+				inferCollectionFields(sem, c)
+			}
 		case "item_query":
-			sem.ItemQueryID = c.ID
+			if trackSemanticBinding(tracker, "itemQueryID", c) {
+				sem.ItemQueryID = c.ID
+			}
 		case "create":
-			sem.CreateID = c.ID
+			if trackSemanticBinding(tracker, "createID", c) {
+				sem.CreateID = c.ID
+			}
 		case "update":
-			sem.UpdateID = c.ID
+			if trackSemanticBinding(tracker, "updateID", c) {
+				sem.UpdateID = c.ID
+			}
 		case "delete":
-			sem.DeleteID = c.ID
+			if trackSemanticBinding(tracker, "deleteID", c) {
+				sem.DeleteID = c.ID
+			}
 		}
 	}
 	inferIdentityField(sem, contracts)
+	if provenance, err := json.Marshal(tracker.GetProvenance()); err == nil {
+		sem.Provenance = provenance
+	}
+	if conflicts, err := json.Marshal(tracker.GetConflicts()); err == nil {
+		sem.Conflicts = conflicts
+	}
 
 	return sem
+}
+
+func trackSemanticBinding(tracker *normalizer.SemanticProvenanceTracker, field string, contract *model.FunctionContract) bool {
+	if tracker == nil || contract == nil {
+		return false
+	}
+	return tracker.TrackField(field, contract.ID, semanticSourceForContract(contract), contract.SourceDigest, "system")
+}
+
+func semanticSourceForContract(contract *model.FunctionContract) spec.SemanticSource {
+	if contract != nil && strings.TrimSpace(contract.Source) == "openapi" {
+		return spec.SemanticSourceOpenAPIRest
+	}
+	return spec.SemanticSourceSDKExplicit
 }
 
 func semanticSourceForContracts(contracts []*model.FunctionContract) string {
@@ -248,9 +279,10 @@ func preserveReviewedSemantics(next *model.CapabilitySemantics, existing *model.
 	if next == nil || existing == nil {
 		return
 	}
-	if strings.TrimSpace(existing.Source) == "platform_review" {
-		next.Source = existing.Source
+	if strings.TrimSpace(existing.Source) != string(spec.SemanticSourcePlatformReview) {
+		return
 	}
+	next.Source = existing.Source
 	next.UpdatedBy = existing.UpdatedBy
 	next.Provenance = existing.Provenance
 	next.Conflicts = existing.Conflicts

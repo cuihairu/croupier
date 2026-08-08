@@ -77,7 +77,7 @@ func TestHandlerWithDescriptor_Handle(t *testing.T) {
 			called = true
 			return []byte("result"), nil
 		},
-		Descriptor: &LocalFunctionDescriptor{
+		Descriptor: &ProviderFunctionDescriptor{
 			ID:      "test.func",
 			Version: "1.0.0",
 		},
@@ -96,7 +96,7 @@ func TestHandlerWithDescriptor_Handle(t *testing.T) {
 }
 
 func TestHandlerWithDescriptor_GetDescriptor(t *testing.T) {
-	desc := &LocalFunctionDescriptor{
+	desc := &ProviderFunctionDescriptor{
 		ID:      "test.func",
 		Version: "1.0.0",
 	}
@@ -129,8 +129,8 @@ func TestTypes_FunctionDescriptor_Fields(t *testing.T) {
 	}
 }
 
-func TestLocalFunctionDescriptor_Fields(t *testing.T) {
-	lfd := LocalFunctionDescriptor{
+func TestProviderFunctionDescriptor_Fields(t *testing.T) {
+	lfd := ProviderFunctionDescriptor{
 		ID:           "player.ban",
 		Version:      "1.0.0",
 		Tags:         []string{"player", "admin"},

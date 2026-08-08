@@ -5,8 +5,11 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // TestGenerateOperationPageGolden tests that the generator produces stable output
@@ -104,12 +107,184 @@ func TestGenerateOperationPageGolden(t *testing.T) {
 
 // TestGenerateResourcePageGolden tests resource page generation stability.
 func TestGenerateResourcePageGolden(t *testing.T) {
-	// This test requires CapabilitySemantics which is not yet available
-	// in the test environment. Skip for now.
-	t.Skip("requires CapabilitySemantics")
+	collection := &model.FunctionContract{
+		Model:        gormModelWithID(101),
+		FunctionID:   "player.list",
+		ResourceKey:  "player",
+		Capability:   string(spec.CapabilityCollectionQuery),
+		Execution:    string(spec.FunctionExecutionSync),
+		Enabled:      true,
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"page":{"type":"integer"},"page_size":{"type":"integer"}}}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}},"total":{"type":"integer"}}}`),
+	}
+	semantics := &model.CapabilitySemantics{
+		ResourceKey:       "player",
+		CollectionQueryID: collection.ID,
+		IdentityField:     "id",
+		ItemsFieldName:    "items",
+		TotalFieldName:    "total",
+		PageFieldName:     "page",
+		PageSizeFieldName: "page_size",
+	}
 
-	// TODO: Add golden test for resource page generation when
-	// CapabilitySemantics is available in test fixtures
+	first, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection}, DefaultGenerateOptions())
+	require.True(t, ok)
+	second, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection}, DefaultGenerateOptions())
+	require.True(t, ok)
+
+	firstJSON, err := json.Marshal(first)
+	require.NoError(t, err)
+	secondJSON, err := json.Marshal(second)
+	require.NoError(t, err)
+	assert.Equal(t, string(firstJSON), string(secondJSON))
+	assert.Equal(t, spec.PageTypeResource, first.Type)
+	assert.Equal(t, spec.GeneratedPageQualityReady, first.Quality)
+	require.NotNil(t, first.Resource)
+	require.NotNil(t, first.Resource.ListView)
+	assert.Equal(t, "id", first.Resource.ListView.IdentityKey)
+	assert.Len(t, first.Bindings, 1)
+	assert.Equal(t, spec.BindingUsageQuery, first.Bindings[0].Usage)
+	assert.Nil(t, first.Resource.CreateForm)
+	assert.Nil(t, first.Resource.UpdateForm)
+	assert.Nil(t, first.Resource.DeleteAction)
+}
+
+func TestGenerateResourcePageCRUDGovernance(t *testing.T) {
+	collection := &model.FunctionContract{Model: gormModelWithID(201), FunctionID: "player.list", ResourceKey: "player", Capability: "collection_query", Enabled: true,
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`)}
+	create := &model.FunctionContract{Model: gormModelWithID(202), FunctionID: "player.create", ResourceKey: "player", Capability: "create", Enabled: true,
+		InputSchema: datatypes.JSON(`{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`)}
+	update := &model.FunctionContract{Model: gormModelWithID(203), FunctionID: "player.update", ResourceKey: "player", Capability: "update", Enabled: true,
+		InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id","name"]}`)}
+	deleteContract := &model.FunctionContract{Model: gormModelWithID(204), FunctionID: "player.delete", ResourceKey: "player", Capability: "delete", Enabled: true, Risk: "danger", Permission: "player:delete",
+		Approval: datatypes.JSONMap{"required": true}, InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`)}
+	semantics := &model.CapabilitySemantics{ResourceKey: "player", CollectionQueryID: collection.ID, CreateID: create.ID, UpdateID: update.ID, DeleteID: deleteContract.ID, IdentityField: "id", ItemsFieldName: "items"}
+
+	generated, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection, create, update, deleteContract}, DefaultGenerateOptions())
+	require.True(t, ok)
+	require.NotNil(t, generated.Resource)
+	require.NotNil(t, generated.Resource.CreateForm)
+	require.NotNil(t, generated.Resource.UpdateForm)
+	assert.NotContains(t, string(generated.Resource.UpdateForm.JSONSchema), `"id"`)
+	require.NotNil(t, generated.Resource.DeleteAction)
+	assert.Equal(t, "danger", generated.Resource.DeleteAction.Risk)
+	assert.Equal(t, "player:delete", generated.Resource.DeleteAction.Permission)
+	for _, binding := range generated.Bindings {
+		if binding.ID == "update" {
+			assertSelectorAssignment(t, binding.Selectors.Input, "/id", spec.SourceRow, "/id")
+		}
+		if binding.ID == "delete" {
+			assert.True(t, binding.Execution.RequireConfirm)
+			assertSelectorAssignment(t, binding.Selectors.Input, "/id", spec.SourceRow, "/id")
+		}
+	}
+}
+
+func TestGenerateResourcePageDetailSources(t *testing.T) {
+	collection := &model.FunctionContract{Model: gormModelWithID(301), FunctionID: "player.list", ResourceKey: "player", Capability: "collection_query", Enabled: true,
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}}}}`)}
+	item := &model.FunctionContract{Model: gormModelWithID(302), FunctionID: "player.get", ResourceKey: "player", Capability: "item_query", Enabled: true,
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"}}}`)}
+	semantics := &model.CapabilitySemantics{ResourceKey: "player", CollectionQueryID: collection.ID, ItemQueryID: item.ID, IdentityField: "id", ItemsFieldName: "items"}
+
+	generated, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection, item}, DefaultGenerateOptions())
+	require.True(t, ok)
+	require.NotNil(t, generated.Resource)
+	require.NotNil(t, generated.Resource.DetailView)
+	assert.Len(t, generated.Resource.DetailView.Fields, 3)
+	assert.Contains(t, bindingIDs(generated.Bindings), "detail")
+
+	semantics.ItemQueryID = 0
+	generated, ok = GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection}, DefaultGenerateOptions())
+	require.True(t, ok)
+	require.NotNil(t, generated.Resource.DetailView)
+	assert.Len(t, generated.Resource.DetailView.Fields, 2)
+	assert.NotContains(t, bindingIDs(generated.Bindings), "detail")
+}
+
+func TestGenerateResourcePageInlineActions(t *testing.T) {
+	collection := &model.FunctionContract{
+		Model: gormModelWithID(401), FunctionID: "player.list", ResourceKey: "player", Capability: "collection_query", Enabled: true,
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}}}}`),
+	}
+	itemAction := &model.FunctionContract{
+		Model: gormModelWithID(402), FunctionID: "player.ban", ResourceKey: "player", OperationKey: "ban", Capability: "action", Enabled: true,
+		InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
+	}
+	selectionAction := &model.FunctionContract{
+		Model: gormModelWithID(403), FunctionID: "player.notice", ResourceKey: "player", OperationKey: "notice", Capability: "action", Enabled: true,
+		InputSchema: datatypes.JSON(`{"type":"object","properties":{"ids":{"type":"array","items":{"type":"string"}}},"required":["ids"]}`),
+	}
+	toolbarAction := &model.FunctionContract{
+		Model: gormModelWithID(404), FunctionID: "player.refresh", ResourceKey: "player", OperationKey: "refresh", Capability: "action", Enabled: true,
+		InputSchema: datatypes.JSON(`{"type":"object","properties":{"force":{"type":"boolean"}}}`),
+	}
+	semantics := &model.CapabilitySemantics{
+		ResourceKey: "player", CollectionQueryID: collection.ID, IdentityField: "id", ItemsFieldName: "items",
+		Actions: datatypes.JSON(`[
+			{"functionId":"player.ban","subject":"resource_item","identityInput":"/id"},
+			{"functionId":"player.notice","subject":"resource_selection","identityInput":"/ids"},
+			{"functionId":"player.refresh","subject":"none"}
+		]`),
+	}
+
+	generated, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection, itemAction, selectionAction, toolbarAction}, DefaultGenerateOptions())
+	require.True(t, ok)
+	require.NotNil(t, generated.Resource)
+	require.Len(t, generated.Resource.ListView.RowActions, 1)
+	require.Len(t, generated.Resource.ListView.BatchActions, 1)
+	require.Len(t, generated.Resource.ListView.ToolbarActions, 1)
+	assert.Equal(t, "action.ban", generated.Resource.ListView.RowActions[0].BindingID)
+	assert.Equal(t, "action.notice", generated.Resource.ListView.BatchActions[0].BindingID)
+	assert.Equal(t, "action.refresh", generated.Resource.ListView.ToolbarActions[0].BindingID)
+
+	bindings := make(map[string]spec.PageFunctionBinding, len(generated.Bindings))
+	for _, binding := range generated.Bindings {
+		bindings[binding.ID] = binding
+	}
+	require.NotNil(t, bindings["action.ban"].Selectors)
+	assert.Equal(t, spec.SourceRow, bindings["action.ban"].Selectors.Input.Assignments[0].Source.Kind)
+	assert.Equal(t, "/id", bindings["action.ban"].Selectors.Input.Assignments[0].Source.Path)
+	require.NotNil(t, bindings["action.notice"].Selectors)
+	selectionSource := bindings["action.notice"].Selectors.Input.Assignments[0].Source
+	assert.Equal(t, spec.SourceSelection, selectionSource.Kind)
+	require.NotNil(t, selectionSource.Transform)
+	assert.Equal(t, spec.TransformPick, selectionSource.Transform.Type)
+}
+
+func TestGenerateResourcePageUnsafeActionStaysStandalone(t *testing.T) {
+	collection := &model.FunctionContract{
+		Model: gormModelWithID(411), FunctionID: "player.list", ResourceKey: "player", Capability: "collection_query", Enabled: true,
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`),
+	}
+	unsafeAction := &model.FunctionContract{
+		Model: gormModelWithID(412), FunctionID: "player.ban", ResourceKey: "player", OperationKey: "ban", Capability: "action", Enabled: true,
+		InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string"}},"required":["id","reason"]}`),
+	}
+	semantics := &model.CapabilitySemantics{
+		ResourceKey: "player", CollectionQueryID: collection.ID, IdentityField: "id", ItemsFieldName: "items",
+		Actions: datatypes.JSON(`[{"functionId":"player.ban","subject":"resource_item","identityInput":"/id"}]`),
+	}
+
+	generated, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection, unsafeAction}, DefaultGenerateOptions())
+	require.True(t, ok)
+	assert.Empty(t, generated.Resource.ListView.RowActions)
+	assert.NotContains(t, bindingIDs(generated.Bindings), "action.ban")
+	require.Len(t, generated.Diagnostics, 1)
+	assert.Equal(t, "resource_action_requires_operation_page", generated.Diagnostics[0].Code)
+}
+
+func bindingIDs(bindings []spec.PageFunctionBinding) []string {
+	ids := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		ids = append(ids, binding.ID)
+	}
+	return ids
+}
+
+func gormModelWithID(id uint) gorm.Model {
+	return gorm.Model{ID: id}
 }
 
 // TestGeneratePageKeyStability tests that page keys are deterministic.

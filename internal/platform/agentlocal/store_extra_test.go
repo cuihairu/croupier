@@ -16,7 +16,7 @@ func TestLocalStore_OnUpdate(t *testing.T) {
 		called <- struct{}{}
 	})
 
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 	}, nil)
 
@@ -32,7 +32,7 @@ func TestLocalStore_Heartbeat(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 	}, nil)
 
@@ -53,7 +53,7 @@ func TestLocalStore_Heartbeat_UnknownProvider(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 	}, nil)
 
@@ -175,7 +175,7 @@ func TestLocalStore_Register_NilFunction(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.ProviderFunctionDescriptor{
 		nil,
 		{Id: "", Version: "1.0.0"},
 		{Id: "f1", Version: "1.0.0"},
@@ -191,11 +191,11 @@ func TestLocalStore_Register_ReplaceProvider(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 	}, nil)
 
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v2", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v2", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "2.0.0"},
 		{Id: "f2", Version: "1.0.0"},
 	}, nil)
@@ -213,7 +213,7 @@ func TestLocalStore_Register_EmptyDoesNotClear(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 		{Id: "f2", Version: "1.0.0"},
 	}, nil)
@@ -223,7 +223,7 @@ func TestLocalStore_Register_EmptyDoesNotClear(t *testing.T) {
 	// handleProviderHeartbeat used Register(nil) to "update LastSeen" and
 	// wiped every function.
 	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", nil, nil)
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{}, nil)
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.ProviderFunctionDescriptor{}, nil)
 
 	list := store.List()
 	if len(list) != 2 {
@@ -241,11 +241,11 @@ func TestLocalStore_RemoveProvider(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 		{Id: "f2", Version: "1.0.0"},
 	}, nil)
-	store.Register("svc-2", "service-2", "127.0.0.1:19091", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-2", "service-2", "127.0.0.1:19091", "v1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f3", Version: "1.0.0"},
 	}, nil)
 
@@ -267,7 +267,7 @@ func TestLocalStore_RemoveProvider_Unknown(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "v1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 	}, nil)
 

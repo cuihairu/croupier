@@ -43,14 +43,12 @@ type FunctionMeta struct {
 	InputSchema  string // JSON Schema for request body (OpenAPI 3.0.3)
 	OutputSchema string // JSON Schema for response body (OpenAPI 3.0.3)
 
-	Resource          string // x-resource extension
-	Operation         string // x-operation extension (business action key)
-	Capability        string // x-capability extension
-	Execution         string // x-execution extension
-	ApprovalRequired  bool   // x-approval.required extension
-	ApprovalPolicyKey string // x-approval.policyKey extension
-	Risk              string // x-risk extension
-	Permission        string // x-permission extension
+	Resource   string // x-resource extension
+	Operation  string // x-operation extension (business action key)
+	Capability string // x-capability extension
+	Execution  string // x-execution extension
+	Risk       string // x-risk extension
+	Permission string // x-permission extension
 
 	// Full OpenAPI operation as JSON (optional, for advanced use cases)
 	OpenAPIOperation string // Complete OpenAPI 3.0.3 Operation object as JSON string
@@ -99,7 +97,7 @@ func (s *LocalStore) OnUpdate(fn func()) {
 
 // Register replaces instances for the provided function ids for a provider.
 // Uses double-index: function_id -> service_id -> instances (Nacos style)
-func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs []*sdkv1.LocalFunctionDescriptor, metadata map[string]string) {
+func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs []*sdkv1.ProviderFunctionDescriptor, metadata map[string]string) {
 	// An empty function list is a no-op, NOT a clear. Registering nothing
 	// must never silently wipe a provider's existing functions — that was the
 	// demo-site "nothing works" root cause (heartbeat called Register(nil) to
@@ -139,42 +137,38 @@ func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs
 		}
 		// Store function metadata including OpenAPI schema
 		meta := &FunctionMeta{
-			ID:                fid,
-			Version:           fn.GetVersion(),
-			Tags:              fn.GetTags(),
-			Summary:           fn.GetSummary(),
-			Description:       fn.GetDescription(),
-			OperationID:       fn.GetOperationId(),
-			Deprecated:        fn.GetDeprecated(),
-			InputSchema:       fn.GetInputSchema(),
-			OutputSchema:      fn.GetOutputSchema(),
-			Resource:          fn.GetResource(),
-			Operation:         fn.GetOperation(),
-			Capability:        fn.GetCapability(),
-			Execution:         fn.GetExecution(),
-			ApprovalRequired:  fn.GetApprovalRequired(),
-			ApprovalPolicyKey: fn.GetApprovalPolicyKey(),
-			Risk:              fn.GetRisk(),
-			Permission:        fn.GetPermission(),
+			ID:           fid,
+			Version:      fn.GetVersion(),
+			Tags:         fn.GetTags(),
+			Summary:      fn.GetSummary(),
+			Description:  fn.GetDescription(),
+			OperationID:  fn.GetOperationId(),
+			Deprecated:   fn.GetDeprecated(),
+			InputSchema:  fn.GetInputSchema(),
+			OutputSchema: fn.GetOutputSchema(),
+			Resource:     fn.GetResource(),
+			Operation:    fn.GetOperation(),
+			Capability:   fn.GetCapability(),
+			Execution:    fn.GetExecution(),
+			Risk:         fn.GetRisk(),
+			Permission:   fn.GetPermission(),
 		}
-		if op, err := converter.ToOpenAPIOperation(converter.LocalFunctionDescriptorDesc{
-			ID:                meta.ID,
-			Version:           meta.Version,
-			Tags:              meta.Tags,
-			Summary:           meta.Summary,
-			Description:       meta.Description,
-			OperationID:       meta.OperationID,
-			Deprecated:        meta.Deprecated,
-			InputSchema:       meta.InputSchema,
-			OutputSchema:      meta.OutputSchema,
-			Resource:          meta.Resource,
-			Operation:         meta.Operation,
-			Capability:        meta.Capability,
-			Execution:         meta.Execution,
-			ApprovalRequired:  meta.ApprovalRequired,
-			ApprovalPolicyKey: meta.ApprovalPolicyKey,
-			Risk:              meta.Risk,
-			Permission:        meta.Permission,
+		if op, err := converter.ToOpenAPIOperation(converter.ProviderFunctionDescriptorDesc{
+			ID:           meta.ID,
+			Version:      meta.Version,
+			Tags:         meta.Tags,
+			Summary:      meta.Summary,
+			Description:  meta.Description,
+			OperationID:  meta.OperationID,
+			Deprecated:   meta.Deprecated,
+			InputSchema:  meta.InputSchema,
+			OutputSchema: meta.OutputSchema,
+			Resource:     meta.Resource,
+			Operation:    meta.Operation,
+			Capability:   meta.Capability,
+			Execution:    meta.Execution,
+			Risk:         meta.Risk,
+			Permission:   meta.Permission,
 		}); err == nil {
 			if opJSON, marshalErr := json.Marshal(op); marshalErr == nil {
 				meta.OpenAPIOperation = string(opJSON)

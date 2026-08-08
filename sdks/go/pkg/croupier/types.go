@@ -28,10 +28,10 @@ type FunctionDescriptor struct {
 	Enabled      bool     `json:"enabled"`       // whether this function is currently enabled
 }
 
-// LocalFunctionDescriptor defines a local function descriptor for SDK->Agent registration
+// ProviderFunctionDescriptor defines a function descriptor for SDK->Agent registration
 // Aligned with OpenAPI 3.0.3 Operation Object specification
 // See: proto/croupier/sdk/v1/provider.proto
-type LocalFunctionDescriptor struct {
+type ProviderFunctionDescriptor struct {
 	// Core identity fields
 	ID      string `json:"id"`      // Unique function identifier (e.g., "player.ban")
 	Version string `json:"version"` // Function version (semver, e.g., "1.0.0")
@@ -66,13 +66,13 @@ type FunctionHandler func(ctx context.Context, payload []byte) ([]byte, error)
 // Note: Since FunctionHandler is a function type, handlers cannot directly implement interfaces.
 // Users should use RegisterFunctionWithDescriptor to register functions with descriptors.
 type FunctionDescriptorProvider interface {
-	GetDescriptor() *LocalFunctionDescriptor
+	GetDescriptor() *ProviderFunctionDescriptor
 }
 
 // HandlerWithDescriptor wraps a function handler with its descriptor
 type HandlerWithDescriptor struct {
 	Handler    FunctionHandler
-	Descriptor *LocalFunctionDescriptor
+	Descriptor *ProviderFunctionDescriptor
 }
 
 // Handle implements the FunctionHandler signature
@@ -81,7 +81,7 @@ func (hwd *HandlerWithDescriptor) Handle(ctx context.Context, payload []byte) ([
 }
 
 // GetDescriptor returns the associated descriptor
-func (hwd *HandlerWithDescriptor) GetDescriptor() *LocalFunctionDescriptor {
+func (hwd *HandlerWithDescriptor) GetDescriptor() *ProviderFunctionDescriptor {
 	return hwd.Descriptor
 }
 

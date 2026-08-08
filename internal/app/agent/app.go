@@ -524,8 +524,8 @@ func (a *App) syncExtensionFunctionsFromRuntime() {
 	a.extensionMu.Unlock()
 }
 
-func discoverExtensionFunctions(item RuntimeInstallation) []*sdkv1.LocalFunctionDescriptor {
-	out := make([]*sdkv1.LocalFunctionDescriptor, 0)
+func discoverExtensionFunctions(item RuntimeInstallation) []*sdkv1.ProviderFunctionDescriptor {
+	out := make([]*sdkv1.ProviderFunctionDescriptor, 0)
 	seen := map[string]bool{}
 	pushWithResource := func(id, operation, resource string, tags []string) {
 		fid := strings.TrimSpace(id)
@@ -533,7 +533,7 @@ func discoverExtensionFunctions(item RuntimeInstallation) []*sdkv1.LocalFunction
 			return
 		}
 		seen[fid] = true
-		out = append(out, &sdkv1.LocalFunctionDescriptor{
+		out = append(out, &sdkv1.ProviderFunctionDescriptor{
 			Id:          fid,
 			Version:     item.ReleaseVersion,
 			Risk:        "unknown",

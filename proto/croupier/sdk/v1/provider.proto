@@ -8,7 +8,7 @@ option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1";
 
 // Provider function declaration from embedded SDK to Agent.
 // Based on OpenAPI 3.0.3 Operation Object fields.
-message LocalFunctionDescriptor {
+message ProviderFunctionDescriptor {
   string id = 1;                          // Unique function identifier
   string version = 2;                     // Function version
 
@@ -32,17 +32,13 @@ message LocalFunctionDescriptor {
   string permission = 14;                 // x-permission: optional permission identifier
   string capability = 15;                 // x-capability: collection_query|item_query|create|update|delete|action|task|report
   string execution = 16;                  // x-execution: sync|task
-
-  // Approval policy (independent of execution mode)
-  bool approval_required = 17;            // x-approval.required: whether approval is required
-  string approval_policy_key = 18;        // x-approval.policyKey: optional policy key (e.g., "two_person")
 }
 
 // ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.
 message ProviderConnectRequest {
   string service_id = 1;                     // Provider / process identifier
   string version = 2;                        // Provider version
-  repeated LocalFunctionDescriptor functions = 3;
+  repeated ProviderFunctionDescriptor functions = 3;
   string sdk_language = 4;                   // e.g. "go", "java", "csharp"
   string sdk_version = 5;                    // SDK release version
   string sdk_name = 6;                       // SDK display name, e.g. "croupier-js-sdk"; user-overridable

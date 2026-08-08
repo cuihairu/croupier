@@ -8,18 +8,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-class LocalFunctionDescriptorTest {
+class ProviderFunctionDescriptorTest {
 
     @Test
     void defaultConstructorCreatesEmptyDescriptor() {
-        LocalFunctionDescriptor desc = new LocalFunctionDescriptor();
+        ProviderFunctionDescriptor desc = new ProviderFunctionDescriptor();
 
         assertNotNull(desc);
     }
 
     @Test
     void constructorWithIdAndVersion() {
-        LocalFunctionDescriptor desc = new LocalFunctionDescriptor("local-func", "1.0.0");
+        ProviderFunctionDescriptor desc = new ProviderFunctionDescriptor("local-func", "1.0.0");
 
         assertEquals("local-func", desc.getId());
         assertEquals("1.0.0", desc.getVersion());
@@ -27,7 +27,7 @@ class LocalFunctionDescriptorTest {
 
     @Test
     void settersWork() {
-        LocalFunctionDescriptor desc = new LocalFunctionDescriptor("f", "1.0");
+        ProviderFunctionDescriptor desc = new ProviderFunctionDescriptor("f", "1.0");
 
         desc.setId("updated-f");
         assertEquals("updated-f", desc.getId());
@@ -38,7 +38,7 @@ class LocalFunctionDescriptorTest {
 
     @Test
     void toStringContainsIdAndVersion() {
-        LocalFunctionDescriptor desc = new LocalFunctionDescriptor("test-local", "1.0.0");
+        ProviderFunctionDescriptor desc = new ProviderFunctionDescriptor("test-local", "1.0.0");
         String str = desc.toString();
 
         assertTrue(str.contains("test-local"));
@@ -47,8 +47,8 @@ class LocalFunctionDescriptorTest {
 
     @Test
     void equalsReturnsTrueForSameValues() {
-        LocalFunctionDescriptor desc1 = new LocalFunctionDescriptor("func", "1.0.0");
-        LocalFunctionDescriptor desc2 = new LocalFunctionDescriptor("func", "1.0.0");
+        ProviderFunctionDescriptor desc1 = new ProviderFunctionDescriptor("func", "1.0.0");
+        ProviderFunctionDescriptor desc2 = new ProviderFunctionDescriptor("func", "1.0.0");
 
         assertEquals(desc1, desc2);
         assertEquals(desc1.hashCode(), desc2.hashCode());
@@ -56,29 +56,29 @@ class LocalFunctionDescriptorTest {
 
     @Test
     void equalsReturnsFalseForDifferentValues() {
-        LocalFunctionDescriptor desc1 = new LocalFunctionDescriptor("func1", "1.0.0");
-        LocalFunctionDescriptor desc2 = new LocalFunctionDescriptor("func2", "1.0.0");
+        ProviderFunctionDescriptor desc1 = new ProviderFunctionDescriptor("func1", "1.0.0");
+        ProviderFunctionDescriptor desc2 = new ProviderFunctionDescriptor("func2", "1.0.0");
 
         assertNotEquals(desc1, desc2);
     }
 
     @Test
     void equalsReturnsFalseForNull() {
-        LocalFunctionDescriptor desc = new LocalFunctionDescriptor("func", "1.0.0");
+        ProviderFunctionDescriptor desc = new ProviderFunctionDescriptor("func", "1.0.0");
 
         assertFalse(desc.equals(null));
     }
 
     @Test
     void equalsReturnsTrueForSameObject() {
-        LocalFunctionDescriptor desc = new LocalFunctionDescriptor("func", "1.0.0");
+        ProviderFunctionDescriptor desc = new ProviderFunctionDescriptor("func", "1.0.0");
 
         assertTrue(desc.equals(desc));
     }
 
     @Test
-    void canExtendLocalFunctionDescriptor() {
-        class CustomDescriptor extends LocalFunctionDescriptor {
+    void canExtendProviderFunctionDescriptor() {
+        class CustomDescriptor extends ProviderFunctionDescriptor {
             private String customField;
 
             CustomDescriptor(String id, String version) {

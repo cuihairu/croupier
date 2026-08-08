@@ -23,7 +23,7 @@ const (
 
 // Provider function declaration from embedded SDK to Agent.
 // Based on OpenAPI 3.0.3 Operation Object fields.
-type LocalFunctionDescriptor struct {
+type ProviderFunctionDescriptor struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`           // Unique function identifier
 	Version string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"` // Function version
@@ -38,34 +38,31 @@ type LocalFunctionDescriptor struct {
 	OutputSchema string `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body
 	// Croupier capability fields. These are business/governance contract fields,
 	// not Dashboard page, menu, Formily, label, or placement fields.
-	Resource   string `protobuf:"bytes,10,opt,name=resource,proto3" json:"resource,omitempty"`     // x-resource: business resource/capability key (e.g., "player", "mail")
-	Operation  string `protobuf:"bytes,11,opt,name=operation,proto3" json:"operation,omitempty"`   // x-operation: business action key (e.g., "ban", "send", "list")
-	Risk       string `protobuf:"bytes,12,opt,name=risk,proto3" json:"risk,omitempty"`             // x-risk: risk level (e.g., "safe", "warning", "high", "danger")
-	Enabled    bool   `protobuf:"varint,13,opt,name=enabled,proto3" json:"enabled,omitempty"`      // x-enabled: whether this function is enabled
-	Permission string `protobuf:"bytes,14,opt,name=permission,proto3" json:"permission,omitempty"` // x-permission: optional permission identifier
-	Capability string `protobuf:"bytes,15,opt,name=capability,proto3" json:"capability,omitempty"` // x-capability: collection_query|item_query|create|update|delete|action|task|report
-	Execution  string `protobuf:"bytes,16,opt,name=execution,proto3" json:"execution,omitempty"`   // x-execution: sync|task
-	// Approval policy (independent of execution mode)
-	ApprovalRequired  bool   `protobuf:"varint,17,opt,name=approval_required,json=approvalRequired,proto3" json:"approval_required,omitempty"`     // x-approval.required: whether approval is required
-	ApprovalPolicyKey string `protobuf:"bytes,18,opt,name=approval_policy_key,json=approvalPolicyKey,proto3" json:"approval_policy_key,omitempty"` // x-approval.policyKey: optional policy key (e.g., "two_person")
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	Resource      string `protobuf:"bytes,10,opt,name=resource,proto3" json:"resource,omitempty"`     // x-resource: business resource/capability key (e.g., "player", "mail")
+	Operation     string `protobuf:"bytes,11,opt,name=operation,proto3" json:"operation,omitempty"`   // x-operation: business action key (e.g., "ban", "send", "list")
+	Risk          string `protobuf:"bytes,12,opt,name=risk,proto3" json:"risk,omitempty"`             // x-risk: risk level (e.g., "safe", "warning", "high", "danger")
+	Enabled       bool   `protobuf:"varint,13,opt,name=enabled,proto3" json:"enabled,omitempty"`      // x-enabled: whether this function is enabled
+	Permission    string `protobuf:"bytes,14,opt,name=permission,proto3" json:"permission,omitempty"` // x-permission: optional permission identifier
+	Capability    string `protobuf:"bytes,15,opt,name=capability,proto3" json:"capability,omitempty"` // x-capability: collection_query|item_query|create|update|delete|action|task|report
+	Execution     string `protobuf:"bytes,16,opt,name=execution,proto3" json:"execution,omitempty"`   // x-execution: sync|task
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LocalFunctionDescriptor) Reset() {
-	*x = LocalFunctionDescriptor{}
+func (x *ProviderFunctionDescriptor) Reset() {
+	*x = ProviderFunctionDescriptor{}
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LocalFunctionDescriptor) String() string {
+func (x *ProviderFunctionDescriptor) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LocalFunctionDescriptor) ProtoMessage() {}
+func (*ProviderFunctionDescriptor) ProtoMessage() {}
 
-func (x *LocalFunctionDescriptor) ProtoReflect() protoreflect.Message {
+func (x *ProviderFunctionDescriptor) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -77,152 +74,138 @@ func (x *LocalFunctionDescriptor) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LocalFunctionDescriptor.ProtoReflect.Descriptor instead.
-func (*LocalFunctionDescriptor) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProviderFunctionDescriptor.ProtoReflect.Descriptor instead.
+func (*ProviderFunctionDescriptor) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *LocalFunctionDescriptor) GetId() string {
+func (x *ProviderFunctionDescriptor) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetVersion() string {
+func (x *ProviderFunctionDescriptor) GetVersion() string {
 	if x != nil {
 		return x.Version
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetTags() []string {
+func (x *ProviderFunctionDescriptor) GetTags() []string {
 	if x != nil {
 		return x.Tags
 	}
 	return nil
 }
 
-func (x *LocalFunctionDescriptor) GetSummary() string {
+func (x *ProviderFunctionDescriptor) GetSummary() string {
 	if x != nil {
 		return x.Summary
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetDescription() string {
+func (x *ProviderFunctionDescriptor) GetDescription() string {
 	if x != nil {
 		return x.Description
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetOperationId() string {
+func (x *ProviderFunctionDescriptor) GetOperationId() string {
 	if x != nil {
 		return x.OperationId
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetDeprecated() bool {
+func (x *ProviderFunctionDescriptor) GetDeprecated() bool {
 	if x != nil {
 		return x.Deprecated
 	}
 	return false
 }
 
-func (x *LocalFunctionDescriptor) GetInputSchema() string {
+func (x *ProviderFunctionDescriptor) GetInputSchema() string {
 	if x != nil {
 		return x.InputSchema
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetOutputSchema() string {
+func (x *ProviderFunctionDescriptor) GetOutputSchema() string {
 	if x != nil {
 		return x.OutputSchema
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetResource() string {
+func (x *ProviderFunctionDescriptor) GetResource() string {
 	if x != nil {
 		return x.Resource
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetOperation() string {
+func (x *ProviderFunctionDescriptor) GetOperation() string {
 	if x != nil {
 		return x.Operation
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetRisk() string {
+func (x *ProviderFunctionDescriptor) GetRisk() string {
 	if x != nil {
 		return x.Risk
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetEnabled() bool {
+func (x *ProviderFunctionDescriptor) GetEnabled() bool {
 	if x != nil {
 		return x.Enabled
 	}
 	return false
 }
 
-func (x *LocalFunctionDescriptor) GetPermission() string {
+func (x *ProviderFunctionDescriptor) GetPermission() string {
 	if x != nil {
 		return x.Permission
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetCapability() string {
+func (x *ProviderFunctionDescriptor) GetCapability() string {
 	if x != nil {
 		return x.Capability
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetExecution() string {
+func (x *ProviderFunctionDescriptor) GetExecution() string {
 	if x != nil {
 		return x.Execution
 	}
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetApprovalRequired() bool {
-	if x != nil {
-		return x.ApprovalRequired
-	}
-	return false
-}
-
-func (x *LocalFunctionDescriptor) GetApprovalPolicyKey() string {
-	if x != nil {
-		return x.ApprovalPolicyKey
-	}
-	return ""
-}
-
 // ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.
 type ProviderConnectRequest struct {
-	state                 protoimpl.MessageState     `protogen:"open.v1"`
-	ServiceId             string                     `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"` // Provider / process identifier
-	Version               string                     `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                      // Provider version
-	Functions             []*LocalFunctionDescriptor `protobuf:"bytes,3,rep,name=functions,proto3" json:"functions,omitempty"`
-	SdkLanguage           string                     `protobuf:"bytes,4,opt,name=sdk_language,json=sdkLanguage,proto3" json:"sdk_language,omitempty"`             // e.g. "go", "java", "csharp"
-	SdkVersion            string                     `protobuf:"bytes,5,opt,name=sdk_version,json=sdkVersion,proto3" json:"sdk_version,omitempty"`                // SDK release version
-	SdkName               string                     `protobuf:"bytes,6,opt,name=sdk_name,json=sdkName,proto3" json:"sdk_name,omitempty"`                         // SDK display name, e.g. "croupier-js-sdk"; user-overridable
-	ProtocolVersion       string                     `protobuf:"bytes,7,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"` // Wire protocol semantic version string
-	SupportedCapabilities []string                   `protobuf:"bytes,8,rep,name=supported_capabilities,json=supportedCapabilities,proto3" json:"supported_capabilities,omitempty"`
-	TransportSecurityMode string                     `protobuf:"bytes,9,opt,name=transport_security_mode,json=transportSecurityMode,proto3" json:"transport_security_mode,omitempty"` // "plaintext" | "tls"
-	SupportedTransports   []string                   `protobuf:"bytes,10,rep,name=supported_transports,json=supportedTransports,proto3" json:"supported_transports,omitempty"`        // currently fixed to "tcp"
-	GameId                string                     `protobuf:"bytes,11,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                                               // game scope the provider belongs to (validated against agent)
-	Env                   string                     `protobuf:"bytes,12,opt,name=env,proto3" json:"env,omitempty"`                                                                   // logical environment (prod/stage/dev)
+	state                 protoimpl.MessageState        `protogen:"open.v1"`
+	ServiceId             string                        `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"` // Provider / process identifier
+	Version               string                        `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                      // Provider version
+	Functions             []*ProviderFunctionDescriptor `protobuf:"bytes,3,rep,name=functions,proto3" json:"functions,omitempty"`
+	SdkLanguage           string                        `protobuf:"bytes,4,opt,name=sdk_language,json=sdkLanguage,proto3" json:"sdk_language,omitempty"`             // e.g. "go", "java", "csharp"
+	SdkVersion            string                        `protobuf:"bytes,5,opt,name=sdk_version,json=sdkVersion,proto3" json:"sdk_version,omitempty"`                // SDK release version
+	SdkName               string                        `protobuf:"bytes,6,opt,name=sdk_name,json=sdkName,proto3" json:"sdk_name,omitempty"`                         // SDK display name, e.g. "croupier-js-sdk"; user-overridable
+	ProtocolVersion       string                        `protobuf:"bytes,7,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"` // Wire protocol semantic version string
+	SupportedCapabilities []string                      `protobuf:"bytes,8,rep,name=supported_capabilities,json=supportedCapabilities,proto3" json:"supported_capabilities,omitempty"`
+	TransportSecurityMode string                        `protobuf:"bytes,9,opt,name=transport_security_mode,json=transportSecurityMode,proto3" json:"transport_security_mode,omitempty"` // "plaintext" | "tls"
+	SupportedTransports   []string                      `protobuf:"bytes,10,rep,name=supported_transports,json=supportedTransports,proto3" json:"supported_transports,omitempty"`        // currently fixed to "tcp"
+	GameId                string                        `protobuf:"bytes,11,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                                               // game scope the provider belongs to (validated against agent)
+	Env                   string                        `protobuf:"bytes,12,opt,name=env,proto3" json:"env,omitempty"`                                                                   // logical environment (prod/stage/dev)
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -271,7 +254,7 @@ func (x *ProviderConnectRequest) GetVersion() string {
 	return ""
 }
 
-func (x *ProviderConnectRequest) GetFunctions() []*LocalFunctionDescriptor {
+func (x *ProviderConnectRequest) GetFunctions() []*ProviderFunctionDescriptor {
 	if x != nil {
 		return x.Functions
 	}
@@ -695,8 +678,8 @@ var File_croupier_sdk_v1_provider_proto protoreflect.FileDescriptor
 
 const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\n" +
-	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\xc1\x04\n" +
-	"\x17LocalFunctionDescriptor\x12\x0e\n" +
+	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\xe7\x03\n" +
+	"\x1aProviderFunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
 	"\x04tags\x18\x03 \x03(\tR\x04tags\x12\x18\n" +
@@ -719,14 +702,12 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\n" +
 	"capability\x18\x0f \x01(\tR\n" +
 	"capability\x12\x1c\n" +
-	"\texecution\x18\x10 \x01(\tR\texecution\x12+\n" +
-	"\x11approval_required\x18\x11 \x01(\bR\x10approvalRequired\x12.\n" +
-	"\x13approval_policy_key\x18\x12 \x01(\tR\x11approvalPolicyKey\"\xf0\x03\n" +
+	"\texecution\x18\x10 \x01(\tR\texecution\"\xf3\x03\n" +
 	"\x16ProviderConnectRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\x12F\n" +
-	"\tfunctions\x18\x03 \x03(\v2(.croupier.sdk.v1.LocalFunctionDescriptorR\tfunctions\x12!\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x12I\n" +
+	"\tfunctions\x18\x03 \x03(\v2+.croupier.sdk.v1.ProviderFunctionDescriptorR\tfunctions\x12!\n" +
 	"\fsdk_language\x18\x04 \x01(\tR\vsdkLanguage\x12\x1f\n" +
 	"\vsdk_version\x18\x05 \x01(\tR\n" +
 	"sdkVersion\x12\x19\n" +
@@ -777,18 +758,18 @@ func file_croupier_sdk_v1_provider_proto_rawDescGZIP() []byte {
 
 var file_croupier_sdk_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_croupier_sdk_v1_provider_proto_goTypes = []any{
-	(*LocalFunctionDescriptor)(nil),   // 0: croupier.sdk.v1.LocalFunctionDescriptor
-	(*ProviderConnectRequest)(nil),    // 1: croupier.sdk.v1.ProviderConnectRequest
-	(*ProviderConnectResponse)(nil),   // 2: croupier.sdk.v1.ProviderConnectResponse
-	(*ProviderHeartbeatRequest)(nil),  // 3: croupier.sdk.v1.ProviderHeartbeatRequest
-	(*ProviderHeartbeatResponse)(nil), // 4: croupier.sdk.v1.ProviderHeartbeatResponse
-	(*ProviderDrainRequest)(nil),      // 5: croupier.sdk.v1.ProviderDrainRequest
-	(*ProviderDrainResponse)(nil),     // 6: croupier.sdk.v1.ProviderDrainResponse
-	(*GetTaskResultRequest)(nil),      // 7: croupier.sdk.v1.GetTaskResultRequest
-	(*GetTaskResultResponse)(nil),     // 8: croupier.sdk.v1.GetTaskResultResponse
+	(*ProviderFunctionDescriptor)(nil), // 0: croupier.sdk.v1.ProviderFunctionDescriptor
+	(*ProviderConnectRequest)(nil),     // 1: croupier.sdk.v1.ProviderConnectRequest
+	(*ProviderConnectResponse)(nil),    // 2: croupier.sdk.v1.ProviderConnectResponse
+	(*ProviderHeartbeatRequest)(nil),   // 3: croupier.sdk.v1.ProviderHeartbeatRequest
+	(*ProviderHeartbeatResponse)(nil),  // 4: croupier.sdk.v1.ProviderHeartbeatResponse
+	(*ProviderDrainRequest)(nil),       // 5: croupier.sdk.v1.ProviderDrainRequest
+	(*ProviderDrainResponse)(nil),      // 6: croupier.sdk.v1.ProviderDrainResponse
+	(*GetTaskResultRequest)(nil),       // 7: croupier.sdk.v1.GetTaskResultRequest
+	(*GetTaskResultResponse)(nil),      // 8: croupier.sdk.v1.GetTaskResultResponse
 }
 var file_croupier_sdk_v1_provider_proto_depIdxs = []int32{
-	0, // 0: croupier.sdk.v1.ProviderConnectRequest.functions:type_name -> croupier.sdk.v1.LocalFunctionDescriptor
+	0, // 0: croupier.sdk.v1.ProviderConnectRequest.functions:type_name -> croupier.sdk.v1.ProviderFunctionDescriptor
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

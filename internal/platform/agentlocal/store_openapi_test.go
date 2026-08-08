@@ -12,7 +12,7 @@ func TestFunctionMetaOpenAPIFields(t *testing.T) {
 	store := NewLocalStore()
 
 	// Create a function descriptor with OpenAPI 3.0.3 fields
-	funcs := []*sdkv1.LocalFunctionDescriptor{
+	funcs := []*sdkv1.ProviderFunctionDescriptor{
 		{
 			Id:           "player.ban",
 			Version:      "1.0.0",
@@ -106,7 +106,7 @@ func TestFunctionMetaOpenAPIFields(t *testing.T) {
 
 func TestFunctionMetaOpenAPIOperationInvalidSchemaFallback(t *testing.T) {
 	store := NewLocalStore()
-	funcs := []*sdkv1.LocalFunctionDescriptor{
+	funcs := []*sdkv1.ProviderFunctionDescriptor{
 		{
 			Id:          "bad.schema.func",
 			Version:     "1.0.0",
@@ -128,7 +128,7 @@ func TestFunctionMetaOpenAPIOperationInvalidSchemaFallback(t *testing.T) {
 func TestFunctionMetadataImmutability(t *testing.T) {
 	store := NewLocalStore()
 
-	funcs := []*sdkv1.LocalFunctionDescriptor{
+	funcs := []*sdkv1.ProviderFunctionDescriptor{
 		{
 			Id:          "test.func",
 			Version:     "1.0.0",
@@ -163,7 +163,7 @@ func TestFunctionMetadataImmutability(t *testing.T) {
 func TestMultipleFunctionsMetadata(t *testing.T) {
 	store := NewLocalStore()
 
-	funcs := []*sdkv1.LocalFunctionDescriptor{
+	funcs := []*sdkv1.ProviderFunctionDescriptor{
 		{
 			Id:           "func1",
 			Version:      "1.0.0",
@@ -226,7 +226,7 @@ func TestFunctionMetadataUpdate(t *testing.T) {
 	store := NewLocalStore()
 
 	// Initial registration
-	funcs1 := []*sdkv1.LocalFunctionDescriptor{
+	funcs1 := []*sdkv1.ProviderFunctionDescriptor{
 		{
 			Id:          "test.func",
 			Version:     "1.0.0",
@@ -238,7 +238,7 @@ func TestFunctionMetadataUpdate(t *testing.T) {
 	store.Register("service-1", "service-1", "localhost:18780", "1.0.0", funcs1, nil)
 
 	// Update with new version
-	funcs2 := []*sdkv1.LocalFunctionDescriptor{
+	funcs2 := []*sdkv1.ProviderFunctionDescriptor{
 		{
 			Id:          "test.func",
 			Version:     "2.0.0",

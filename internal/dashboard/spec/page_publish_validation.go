@@ -8,7 +8,11 @@ import (
 // ValidatePublishablePageShape checks product-level requirements that only
 // apply when a PageSpec is published into the runtime console.
 func ValidatePublishablePageShape(page PageSpec) []Diagnostic {
-	diags := validateRequiredPrimaryBinding(page)
+	diags := validatePageVariant(page)
+	if len(diags) > 0 {
+		return diags
+	}
+	diags = append(diags, validateRequiredPrimaryBinding(page)...)
 	switch page.Type {
 	case PageTypeResource:
 		diags = append(diags, validatePublishableResourcePage(page.Resource)...)
@@ -22,6 +26,49 @@ func ValidatePublishablePageShape(page PageSpec) []Diagnostic {
 		return diags
 	}
 	return diags
+}
+
+// validatePageVariant keeps the JSON DTO aligned with the frontend
+// discriminated union: exactly one page body must match page.type.
+func validatePageVariant(page PageSpec) []Diagnostic {
+	variantCount := 0
+	if page.Resource != nil {
+		variantCount++
+	}
+	if page.Operation != nil {
+		variantCount++
+	}
+	if page.Task != nil {
+		variantCount++
+	}
+	if page.Report != nil {
+		variantCount++
+	}
+	if variantCount != 1 {
+		return []Diagnostic{publishShapeDiagnostic("page_variant_invalid", "page must contain exactly one page body matching type", "type")}
+	}
+
+	switch page.Type {
+	case PageTypeResource:
+		if page.Resource != nil {
+			return nil
+		}
+	case PageTypeOperation:
+		if page.Operation != nil {
+			return nil
+		}
+	case PageTypeTask:
+		if page.Task != nil {
+			return nil
+		}
+	case PageTypeReport:
+		if page.Report != nil {
+			return nil
+		}
+	default:
+		return []Diagnostic{publishShapeDiagnostic("page_type_invalid", "page type must be resource, operation, task, or report", "type")}
+	}
+	return []Diagnostic{publishShapeDiagnostic("page_variant_type_mismatch", "page body must match page type", "type")}
 }
 
 func validateRequiredPrimaryBinding(page PageSpec) []Diagnostic {

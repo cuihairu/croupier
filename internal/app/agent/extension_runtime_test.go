@@ -210,7 +210,7 @@ func TestDiscoverExternalPlatformFunctions(t *testing.T) {
 	}
 	funcs := discoverExtensionFunctions(item)
 	ids := map[string]bool{}
-	byID := map[string]*sdkv1.LocalFunctionDescriptor{}
+	byID := map[string]*sdkv1.ProviderFunctionDescriptor{}
 	for _, f := range funcs {
 		ids[f.GetId()] = true
 		byID[f.GetId()] = f

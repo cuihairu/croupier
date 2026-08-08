@@ -194,8 +194,8 @@ public final class SdkWireMessages {
         return encode(out -> {
             writeString(out, 1, message.serviceId);
             writeString(out, 2, message.version);
-            for (LocalFunctionDescriptor function : message.functions) {
-                writeMessage(out, 3, encodeLocalFunctionDescriptor(function));
+            for (ProviderFunctionDescriptor function : message.functions) {
+                writeMessage(out, 3, encodeProviderFunctionDescriptor(function));
             }
             writeString(out, 4, message.sdkLanguage);
             writeString(out, 5, message.sdkVersion);
@@ -207,7 +207,7 @@ public final class SdkWireMessages {
     public static ProviderConnectRequest decodeProviderConnectRequest(byte[] data) {
         String serviceId = "";
         String version = "";
-        java.util.List<LocalFunctionDescriptor> functions = new java.util.ArrayList<>();
+        java.util.List<ProviderFunctionDescriptor> functions = new java.util.ArrayList<>();
         String sdkLanguage = "";
         String sdkVersion = "";
         String sdkName = "";
@@ -222,7 +222,7 @@ public final class SdkWireMessages {
                 switch (WireFormat.getTagFieldNumber(tag)) {
                     case 1 -> serviceId = input.readString();
                     case 2 -> version = input.readString();
-                    case 3 -> functions.add(decodeLocalFunctionDescriptor(input.readByteArray()));
+                    case 3 -> functions.add(decodeProviderFunctionDescriptor(input.readByteArray()));
                     case 4 -> sdkLanguage = input.readString();
                     case 5 -> sdkVersion = input.readString();
                     case 6 -> sdkName = input.readString();
@@ -343,7 +343,7 @@ public final class SdkWireMessages {
         });
     }
 
-    private static byte[] encodeLocalFunctionDescriptor(LocalFunctionDescriptor message) {
+    private static byte[] encodeProviderFunctionDescriptor(ProviderFunctionDescriptor message) {
         return encode(out -> {
             writeString(out, 1, message.id);
             writeString(out, 2, message.version);
@@ -366,7 +366,7 @@ public final class SdkWireMessages {
         });
     }
 
-    private static LocalFunctionDescriptor decodeLocalFunctionDescriptor(byte[] data) {
+    private static ProviderFunctionDescriptor decodeProviderFunctionDescriptor(byte[] data) {
         String id = "";
         String version = "";
         java.util.List<String> tags = new java.util.ArrayList<>();
@@ -411,9 +411,9 @@ public final class SdkWireMessages {
                 }
             }
         } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to decode LocalFunctionDescriptor", e);
+            throw new IllegalArgumentException("Failed to decode ProviderFunctionDescriptor", e);
         }
-        return new LocalFunctionDescriptor(
+        return new ProviderFunctionDescriptor(
             id,
             version,
             tags,
@@ -547,19 +547,19 @@ public final class SdkWireMessages {
         public final String serviceId;
         public final String version;
         public final String rpcAddr;
-        public final java.util.List<LocalFunctionDescriptor> functions;
+        public final java.util.List<ProviderFunctionDescriptor> functions;
         public final String sdkLanguage;
         public final String sdkVersion;
         public final String sdkName;
         public final String protocolVersion;
 
         public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
-                                    java.util.List<LocalFunctionDescriptor> functions) {
+                                    java.util.List<ProviderFunctionDescriptor> functions) {
             this(serviceId, version, rpcAddr, functions, "java", "1.0.0", "croupier-java-sdk", "1.0.0");
         }
 
         public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
-                                    java.util.List<LocalFunctionDescriptor> functions,
+                                    java.util.List<ProviderFunctionDescriptor> functions,
                                     String sdkLanguage, String sdkVersion, String sdkName, String protocolVersion) {
             this.serviceId = serviceId == null ? "" : serviceId;
             this.version = version == null ? "" : version;
@@ -590,7 +590,7 @@ public final class SdkWireMessages {
         }
     }
 
-    public static final class LocalFunctionDescriptor {
+    public static final class ProviderFunctionDescriptor {
         public final String id;
         public final String version;
         public final java.util.List<String> tags;
@@ -608,7 +608,7 @@ public final class SdkWireMessages {
         public final boolean enabled;
         public final String permission;
 
-        public LocalFunctionDescriptor(String id, String version, java.util.List<String> tags, String summary,
+        public ProviderFunctionDescriptor(String id, String version, java.util.List<String> tags, String summary,
                                        String description, String operationId, boolean deprecated,
                                        String inputSchema, String outputSchema, String resource, String operation,
                                        String risk, boolean enabled, String permission) {
@@ -616,7 +616,7 @@ public final class SdkWireMessages {
                 resource, operation, "", "", risk, enabled, permission);
         }
 
-        public LocalFunctionDescriptor(String id, String version, java.util.List<String> tags, String summary,
+        public ProviderFunctionDescriptor(String id, String version, java.util.List<String> tags, String summary,
                                        String description, String operationId, boolean deprecated,
                                        String inputSchema, String outputSchema, String resource, String operation,
                                        String capability, String execution, String risk, boolean enabled,

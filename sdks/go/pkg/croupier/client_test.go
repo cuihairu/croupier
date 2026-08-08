@@ -256,7 +256,7 @@ func TestClient_convertToLocalFunctions(t *testing.T) {
 		t.Fatalf("expected 2 functions, got %d", len(funcs))
 	}
 
-	funcByID := make(map[string]LocalFunctionDescriptor)
+	funcByID := make(map[string]ProviderFunctionDescriptor)
 	for _, f := range funcs {
 		funcByID[f.ID] = f
 	}
@@ -562,11 +562,11 @@ func TestInvokeOptions(t *testing.T) {
 	}
 }
 
-// Test LocalFunctionDescriptor
-func TestLocalFunctionDescriptor(t *testing.T) {
+// Test ProviderFunctionDescriptor
+func TestProviderFunctionDescriptor(t *testing.T) {
 	t.Parallel()
 
-	desc := LocalFunctionDescriptor{
+	desc := ProviderFunctionDescriptor{
 		ID:      "player.get",
 		Version: "1.0.0",
 	}
@@ -706,7 +706,7 @@ func TestClient_convertToLocalFunctionsWithMultipleDescriptors(t *testing.T) {
 	}
 
 	// Check each function
-	funcMap := make(map[string]LocalFunctionDescriptor)
+	funcMap := make(map[string]ProviderFunctionDescriptor)
 	for _, fn := range localFuncs {
 		funcMap[fn.ID] = fn
 	}
@@ -747,7 +747,7 @@ func TestClient_convertToLocalFunctionsWithEmptyVersion(t *testing.T) {
 	}
 
 	// Check that empty version gets default "1.0.0"
-	funcMap := make(map[string]LocalFunctionDescriptor)
+	funcMap := make(map[string]ProviderFunctionDescriptor)
 	for _, fn := range localFuncs {
 		funcMap[fn.ID] = fn
 	}
@@ -847,7 +847,7 @@ func TestClient_convertToLocalFunctionsWithMixedHandlers(t *testing.T) {
 		t.Errorf("expected 2 functions (only those with handlers), got %d", len(funcs))
 	}
 
-	funcByID := make(map[string]LocalFunctionDescriptor)
+	funcByID := make(map[string]ProviderFunctionDescriptor)
 	for _, f := range funcs {
 		funcByID[f.ID] = f
 	}

@@ -122,7 +122,7 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 
 	// Register methods as functions in LocalStore
 	methods := p.SupportedMethods()
-	funcs := make([]*sdkv1.LocalFunctionDescriptor, 0, len(methods))
+	funcs := make([]*sdkv1.ProviderFunctionDescriptor, 0, len(methods))
 
 	// Try to get method details from OpenAPI provider (if available)
 	var methodDetails map[string]*openapi.MethodDetails
@@ -134,8 +134,8 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 		// Create function ID: provider.method
 		funcID := fmt.Sprintf("%s.%s", name, method)
 
-		// Create LocalFunctionDescriptor with OpenAPI-compatible fields
-		desc := &sdkv1.LocalFunctionDescriptor{
+		// Create ProviderFunctionDescriptor with OpenAPI-compatible fields
+		desc := &sdkv1.ProviderFunctionDescriptor{
 			Id:      funcID,
 			Version: "1.0.0",
 		}

@@ -301,7 +301,7 @@ public class CroupierClientImpl implements CroupierClient {
     }
 
     private SdkWireMessages.ProviderConnectRequest buildProviderConnectRequest() {
-        List<SdkWireMessages.LocalFunctionDescriptor> functions = descriptors.values().stream()
+        List<SdkWireMessages.ProviderFunctionDescriptor> functions = descriptors.values().stream()
             .map(this::toWireDescriptor)
             .collect(Collectors.toList());
         return new SdkWireMessages.ProviderConnectRequest(
@@ -312,8 +312,8 @@ public class CroupierClientImpl implements CroupierClient {
         );
     }
 
-    private SdkWireMessages.LocalFunctionDescriptor toWireDescriptor(FunctionDescriptor descriptor) {
-        return new SdkWireMessages.LocalFunctionDescriptor(
+    private SdkWireMessages.ProviderFunctionDescriptor toWireDescriptor(FunctionDescriptor descriptor) {
+        return new SdkWireMessages.ProviderFunctionDescriptor(
             descriptor.getId(),
             descriptor.getVersion(),
             descriptor.getTags(),
@@ -645,9 +645,9 @@ public class CroupierClientImpl implements CroupierClient {
     /**
      * Get local function descriptors for registration.
      */
-    public List<LocalFunctionDescriptor> getLocalFunctions() {
+    public List<ProviderFunctionDescriptor> getLocalFunctions() {
         return descriptors.values().stream()
-                .map(desc -> new LocalFunctionDescriptor(
+                .map(desc -> new ProviderFunctionDescriptor(
                     desc.getId(),
                     desc.getVersion(),
                     desc.getCapability(),

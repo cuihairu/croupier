@@ -25,62 +25,64 @@ namespace Croupier.Function.V1 {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "CiNjcm91cGllci9mdW5jdGlvbi92MS9tZXRhZGF0YS5wcm90bxIUY3JvdXBp",
-            "ZXIuZnVuY3Rpb24udjEiiQQKEEZ1bmN0aW9uTWV0YWRhdGESDgoCaWQYASAB",
+            "ZXIuZnVuY3Rpb24udjEi5QQKEEZ1bmN0aW9uTWV0YWRhdGESDgoCaWQYASAB",
             "KAlSAmlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24SGgoIcmVzb3VyY2UY",
-            "AyABKAlSCHJlc291cmNlEhIKBHRhZ3MYBCADKAlSBHRhZ3MSEgoEbmFtZRgF",
-            "IAEoCVIEbmFtZRIgCgtkZXNjcmlwdGlvbhgGIAEoCVILZGVzY3JpcHRpb24S",
-            "IQoMaW5wdXRfc2NoZW1hGAcgASgJUgtpbnB1dFNjaGVtYRIjCg1vdXRwdXRf",
-            "c2NoZW1hGAggASgJUgxvdXRwdXRTY2hlbWESQgoIYmVoYXZpb3IYCSABKAsy",
-            "Ji5jcm91cGllci5mdW5jdGlvbi52MS5GdW5jdGlvbkJlaGF2aW9yUghiZWhh",
-            "dmlvchJCCghzZWN1cml0eRgKIAEoCzImLmNyb3VwaWVyLmZ1bmN0aW9uLnYx",
-            "LkZ1bmN0aW9uU2VjdXJpdHlSCHNlY3VyaXR5ElYKCmV4dGVuc2lvbnMYCyAD",
-            "KAsyNi5jcm91cGllci5mdW5jdGlvbi52MS5GdW5jdGlvbk1ldGFkYXRhLkV4",
-            "dGVuc2lvbnNFbnRyeVIKZXh0ZW5zaW9ucxo9Cg9FeHRlbnNpb25zRW50cnkS",
-            "EAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4ASLQ",
-            "BAoQRnVuY3Rpb25CZWhhdmlvchI/CgRtb2RlGAEgASgOMisuY3JvdXBpZXIu",
-            "ZnVuY3Rpb24udjEuRnVuY3Rpb25CZWhhdmlvci5Nb2RlUgRtb2RlEh4KCmlk",
-            "ZW1wb3RlbnQYAiABKAhSCmlkZW1wb3RlbnQSOAoYc3VwcG9ydHNfaWRlbXBv",
-            "dGVuY3lfa2V5GAMgASgIUhZzdXBwb3J0c0lkZW1wb3RlbmN5S2V5Eh0KCnRp",
-            "bWVvdXRfbXMYBCABKAVSCXRpbWVvdXRNcxJbCg5yb3V0ZV9zdHJhdGVneRgF",
-            "IAEoDjI0LmNyb3VwaWVyLmZ1bmN0aW9uLnYxLkZ1bmN0aW9uQmVoYXZpb3Iu",
-            "Um91dGVTdHJhdGVneVINcm91dGVTdHJhdGVneRIcCgljYWNoZWFibGUYBiAB",
-            "KAhSCWNhY2hlYWJsZRIqChFjYWNoZV90dGxfc2Vjb25kcxgHIAEoBVIPY2Fj",
-            "aGVUdGxTZWNvbmRzIj4KBE1vZGUSFAoQTU9ERV9VTlNQRUNJRklFRBAAEg4K",
-            "Ck1PREVfUVVFUlkQARIQCgxNT0RFX0NPTU1BTkQQAiKaAQoNUm91dGVTdHJh",
-            "dGVneRIeChpST1VURV9TVFJBVEVHWV9VTlNQRUNJRklFRBAAEhUKEVJPVVRF",
-            "X1NUUkFURUdZX0xCEAESHAoYUk9VVEVfU1RSQVRFR1lfQlJPQURDQVNUEAIS",
-            "GwoXUk9VVEVfU1RSQVRFR1lfVEFSR0VURUQQAxIXChNST1VURV9TVFJBVEVH",
-            "WV9IQVNIEAQi4wQKEEZ1bmN0aW9uU2VjdXJpdHkSTwoKcmlza19sZXZlbBgB",
-            "IAEoDjIwLmNyb3VwaWVyLmZ1bmN0aW9uLnYxLkZ1bmN0aW9uU2VjdXJpdHku",
-            "Umlza0xldmVsUglyaXNrTGV2ZWwSHgoKcGVybWlzc2lvbhgCIAEoCVIKcGVy",
-            "bWlzc2lvbhIrChFyZXF1aXJlc19hcHByb3ZhbBgDIAEoCFIQcmVxdWlyZXNB",
-            "cHByb3ZhbBJYCg1hcHByb3ZhbF90eXBlGAQgASgOMjMuY3JvdXBpZXIuZnVu",
-            "Y3Rpb24udjEuRnVuY3Rpb25TZWN1cml0eS5BcHByb3ZhbFR5cGVSDGFwcHJv",
-            "dmFsVHlwZRIjCg1hbGxvd2VkX3JvbGVzGAUgAygJUgxhbGxvd2VkUm9sZXMS",
-            "GwoJYXVkaXRfbG9nGAYgASgIUghhdWRpdExvZxIuChNtYXNrX3NlbnNpdGl2",
-            "ZV9kYXRhGAcgASgIUhFtYXNrU2Vuc2l0aXZlRGF0YSJ+CglSaXNrTGV2ZWwS",
-            "GgoWUklTS19MRVZFTF9VTlNQRUNJRklFRBAAEhIKDlJJU0tfTEVWRUxfTE9X",
-            "EAESFQoRUklTS19MRVZFTF9NRURJVU0QAhITCg9SSVNLX0xFVkVMX0hJR0gQ",
-            "AxIVChFSSVNLX0xFVkVMX0RBTkdFUhAEImUKDEFwcHJvdmFsVHlwZRIdChlB",
-            "UFBST1ZBTF9UWVBFX1VOU1BFQ0lGSUVEEAASGAoUQVBQUk9WQUxfVFlQRV9T",
-            "SU5HTEUQARIcChhBUFBST1ZBTF9UWVBFX1RXT19QRVJTT04QAiJcChRGdW5j",
-            "dGlvbk1ldGFkYXRhTGlzdBJECglmdW5jdGlvbnMYASADKAsyJi5jcm91cGll",
-            "ci5mdW5jdGlvbi52MS5GdW5jdGlvbk1ldGFkYXRhUglmdW5jdGlvbnMirwEK",
-            "DkZ1bmN0aW9uRmlsdGVyEhoKCHJlc291cmNlGAEgASgJUghyZXNvdXJjZRIS",
-            "CgR0YWdzGAIgAygJUgR0YWdzEh0KCnJpc2tfbGV2ZWwYAyABKAlSCXJpc2tM",
-            "ZXZlbBISCgRtb2RlGAQgASgJUgRtb2RlEhsKCXBhZ2Vfc2l6ZRgFIAEoBVII",
-            "cGFnZVNpemUSHQoKcGFnZV90b2tlbhgGIAEoCVIJcGFnZVRva2VuIqUBChRG",
-            "dW5jdGlvbkxpc3RSZXNwb25zZRJECglmdW5jdGlvbnMYASADKAsyJi5jcm91",
-            "cGllci5mdW5jdGlvbi52MS5GdW5jdGlvbk1ldGFkYXRhUglmdW5jdGlvbnMS",
-            "JgoPbmV4dF9wYWdlX3Rva2VuGAIgASgJUg1uZXh0UGFnZVRva2VuEh8KC3Rv",
-            "dGFsX2NvdW50GAMgASgFUgp0b3RhbENvdW50QnAKJ2lvLmdpdGh1Yi5jdWlo",
-            "YWlydS5jcm91cGllci5mdW5jdGlvbi52MVABWkNnaXRodWIuY29tL2N1aWhh",
-            "aXJ1L2Nyb3VwaWVyL3BrZy9wYi9jcm91cGllci9mdW5jdGlvbi92MTtmdW5j",
-            "dGlvbnYxYgZwcm90bzM="));
+            "AyABKAlSCHJlc291cmNlEhIKBHRhZ3MYBCADKAlSBHRhZ3MSHgoKY2FwYWJp",
+            "bGl0eRgMIAEoCVIKY2FwYWJpbGl0eRIcCglvcGVyYXRpb24YDSABKAlSCW9w",
+            "ZXJhdGlvbhIcCglleGVjdXRpb24YDiABKAlSCWV4ZWN1dGlvbhISCgRuYW1l",
+            "GAUgASgJUgRuYW1lEiAKC2Rlc2NyaXB0aW9uGAYgASgJUgtkZXNjcmlwdGlv",
+            "bhIhCgxpbnB1dF9zY2hlbWEYByABKAlSC2lucHV0U2NoZW1hEiMKDW91dHB1",
+            "dF9zY2hlbWEYCCABKAlSDG91dHB1dFNjaGVtYRJCCghiZWhhdmlvchgJIAEo",
+            "CzImLmNyb3VwaWVyLmZ1bmN0aW9uLnYxLkZ1bmN0aW9uQmVoYXZpb3JSCGJl",
+            "aGF2aW9yEkIKCHNlY3VyaXR5GAogASgLMiYuY3JvdXBpZXIuZnVuY3Rpb24u",
+            "djEuRnVuY3Rpb25TZWN1cml0eVIIc2VjdXJpdHkSVgoKZXh0ZW5zaW9ucxgL",
+            "IAMoCzI2LmNyb3VwaWVyLmZ1bmN0aW9uLnYxLkZ1bmN0aW9uTWV0YWRhdGEu",
+            "RXh0ZW5zaW9uc0VudHJ5UgpleHRlbnNpb25zGj0KD0V4dGVuc2lvbnNFbnRy",
+            "eRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgB",
+            "ItAEChBGdW5jdGlvbkJlaGF2aW9yEj8KBG1vZGUYASABKA4yKy5jcm91cGll",
+            "ci5mdW5jdGlvbi52MS5GdW5jdGlvbkJlaGF2aW9yLk1vZGVSBG1vZGUSHgoK",
+            "aWRlbXBvdGVudBgCIAEoCFIKaWRlbXBvdGVudBI4ChhzdXBwb3J0c19pZGVt",
+            "cG90ZW5jeV9rZXkYAyABKAhSFnN1cHBvcnRzSWRlbXBvdGVuY3lLZXkSHQoK",
+            "dGltZW91dF9tcxgEIAEoBVIJdGltZW91dE1zElsKDnJvdXRlX3N0cmF0ZWd5",
+            "GAUgASgOMjQuY3JvdXBpZXIuZnVuY3Rpb24udjEuRnVuY3Rpb25CZWhhdmlv",
+            "ci5Sb3V0ZVN0cmF0ZWd5Ug1yb3V0ZVN0cmF0ZWd5EhwKCWNhY2hlYWJsZRgG",
+            "IAEoCFIJY2FjaGVhYmxlEioKEWNhY2hlX3R0bF9zZWNvbmRzGAcgASgFUg9j",
+            "YWNoZVR0bFNlY29uZHMiPgoETW9kZRIUChBNT0RFX1VOU1BFQ0lGSUVEEAAS",
+            "DgoKTU9ERV9RVUVSWRABEhAKDE1PREVfQ09NTUFORBACIpoBCg1Sb3V0ZVN0",
+            "cmF0ZWd5Eh4KGlJPVVRFX1NUUkFURUdZX1VOU1BFQ0lGSUVEEAASFQoRUk9V",
+            "VEVfU1RSQVRFR1lfTEIQARIcChhST1VURV9TVFJBVEVHWV9CUk9BRENBU1QQ",
+            "AhIbChdST1VURV9TVFJBVEVHWV9UQVJHRVRFRBADEhcKE1JPVVRFX1NUUkFU",
+            "RUdZX0hBU0gQBCLjBAoQRnVuY3Rpb25TZWN1cml0eRJPCgpyaXNrX2xldmVs",
+            "GAEgASgOMjAuY3JvdXBpZXIuZnVuY3Rpb24udjEuRnVuY3Rpb25TZWN1cml0",
+            "eS5SaXNrTGV2ZWxSCXJpc2tMZXZlbBIeCgpwZXJtaXNzaW9uGAIgASgJUgpw",
+            "ZXJtaXNzaW9uEisKEXJlcXVpcmVzX2FwcHJvdmFsGAMgASgIUhByZXF1aXJl",
+            "c0FwcHJvdmFsElgKDWFwcHJvdmFsX3R5cGUYBCABKA4yMy5jcm91cGllci5m",
+            "dW5jdGlvbi52MS5GdW5jdGlvblNlY3VyaXR5LkFwcHJvdmFsVHlwZVIMYXBw",
+            "cm92YWxUeXBlEiMKDWFsbG93ZWRfcm9sZXMYBSADKAlSDGFsbG93ZWRSb2xl",
+            "cxIbCglhdWRpdF9sb2cYBiABKAhSCGF1ZGl0TG9nEi4KE21hc2tfc2Vuc2l0",
+            "aXZlX2RhdGEYByABKAhSEW1hc2tTZW5zaXRpdmVEYXRhIn4KCVJpc2tMZXZl",
+            "bBIaChZSSVNLX0xFVkVMX1VOU1BFQ0lGSUVEEAASEgoOUklTS19MRVZFTF9M",
+            "T1cQARIVChFSSVNLX0xFVkVMX01FRElVTRACEhMKD1JJU0tfTEVWRUxfSElH",
+            "SBADEhUKEVJJU0tfTEVWRUxfREFOR0VSEAQiZQoMQXBwcm92YWxUeXBlEh0K",
+            "GUFQUFJPVkFMX1RZUEVfVU5TUEVDSUZJRUQQABIYChRBUFBST1ZBTF9UWVBF",
+            "X1NJTkdMRRABEhwKGEFQUFJPVkFMX1RZUEVfVFdPX1BFUlNPThACIlwKFEZ1",
+            "bmN0aW9uTWV0YWRhdGFMaXN0EkQKCWZ1bmN0aW9ucxgBIAMoCzImLmNyb3Vw",
+            "aWVyLmZ1bmN0aW9uLnYxLkZ1bmN0aW9uTWV0YWRhdGFSCWZ1bmN0aW9ucyKv",
+            "AQoORnVuY3Rpb25GaWx0ZXISGgoIcmVzb3VyY2UYASABKAlSCHJlc291cmNl",
+            "EhIKBHRhZ3MYAiADKAlSBHRhZ3MSHQoKcmlza19sZXZlbBgDIAEoCVIJcmlz",
+            "a0xldmVsEhIKBG1vZGUYBCABKAlSBG1vZGUSGwoJcGFnZV9zaXplGAUgASgF",
+            "UghwYWdlU2l6ZRIdCgpwYWdlX3Rva2VuGAYgASgJUglwYWdlVG9rZW4ipQEK",
+            "FEZ1bmN0aW9uTGlzdFJlc3BvbnNlEkQKCWZ1bmN0aW9ucxgBIAMoCzImLmNy",
+            "b3VwaWVyLmZ1bmN0aW9uLnYxLkZ1bmN0aW9uTWV0YWRhdGFSCWZ1bmN0aW9u",
+            "cxImCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAlSDW5leHRQYWdlVG9rZW4SHwoL",
+            "dG90YWxfY291bnQYAyABKAVSCnRvdGFsQ291bnRCcAonaW8uZ2l0aHViLmN1",
+            "aWhhaXJ1LmNyb3VwaWVyLmZ1bmN0aW9uLnYxUAFaQ2dpdGh1Yi5jb20vY3Vp",
+            "aGFpcnUvY3JvdXBpZXIvcGtnL3BiL2Nyb3VwaWVyL2Z1bmN0aW9uL3YxO2Z1",
+            "bmN0aW9udjFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionMetadata), global::Croupier.Function.V1.FunctionMetadata.Parser, new[]{ "Id", "Version", "Resource", "Tags", "Name", "Description", "InputSchema", "OutputSchema", "Behavior", "Security", "Extensions" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionMetadata), global::Croupier.Function.V1.FunctionMetadata.Parser, new[]{ "Id", "Version", "Resource", "Tags", "Capability", "Operation", "Execution", "Name", "Description", "InputSchema", "OutputSchema", "Behavior", "Security", "Extensions" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionBehavior), global::Croupier.Function.V1.FunctionBehavior.Parser, new[]{ "Mode", "Idempotent", "SupportsIdempotencyKey", "TimeoutMs", "RouteStrategy", "Cacheable", "CacheTtlSeconds" }, null, new[]{ typeof(global::Croupier.Function.V1.FunctionBehavior.Types.Mode), typeof(global::Croupier.Function.V1.FunctionBehavior.Types.RouteStrategy) }, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionSecurity), global::Croupier.Function.V1.FunctionSecurity.Parser, new[]{ "RiskLevel", "Permission", "RequiresApproval", "ApprovalType", "AllowedRoles", "AuditLog", "MaskSensitiveData" }, null, new[]{ typeof(global::Croupier.Function.V1.FunctionSecurity.Types.RiskLevel), typeof(global::Croupier.Function.V1.FunctionSecurity.Types.ApprovalType) }, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Function.V1.FunctionMetadataList), global::Croupier.Function.V1.FunctionMetadataList.Parser, new[]{ "Functions" }, null, null, null, null),
@@ -136,6 +138,9 @@ namespace Croupier.Function.V1 {
       version_ = other.version_;
       resource_ = other.resource_;
       tags_ = other.tags_.Clone();
+      capability_ = other.capability_;
+      operation_ = other.operation_;
+      execution_ = other.execution_;
       name_ = other.name_;
       description_ = other.description_;
       inputSchema_ = other.inputSchema_;
@@ -209,6 +214,51 @@ namespace Croupier.Function.V1 {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<string> Tags {
       get { return tags_; }
+    }
+
+    /// <summary>Field number for the "capability" field.</summary>
+    public const int CapabilityFieldNumber = 12;
+    private string capability_ = "";
+    /// <summary>
+    /// collection_query|item_query|create|update|delete|action|task|report
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Capability {
+      get { return capability_; }
+      set {
+        capability_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "operation" field.</summary>
+    public const int OperationFieldNumber = 13;
+    private string operation_ = "";
+    /// <summary>
+    /// Business action key, e.g. "ban", "send", "list"
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Operation {
+      get { return operation_; }
+      set {
+        operation_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "execution" field.</summary>
+    public const int ExecutionFieldNumber = 14;
+    private string execution_ = "";
+    /// <summary>
+    /// sync|task
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Execution {
+      get { return execution_; }
+      set {
+        execution_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
     }
 
     /// <summary>Field number for the "name" field.</summary>
@@ -334,6 +384,9 @@ namespace Croupier.Function.V1 {
       if (Version != other.Version) return false;
       if (Resource != other.Resource) return false;
       if(!tags_.Equals(other.tags_)) return false;
+      if (Capability != other.Capability) return false;
+      if (Operation != other.Operation) return false;
+      if (Execution != other.Execution) return false;
       if (Name != other.Name) return false;
       if (Description != other.Description) return false;
       if (InputSchema != other.InputSchema) return false;
@@ -352,6 +405,9 @@ namespace Croupier.Function.V1 {
       if (Version.Length != 0) hash ^= Version.GetHashCode();
       if (Resource.Length != 0) hash ^= Resource.GetHashCode();
       hash ^= tags_.GetHashCode();
+      if (Capability.Length != 0) hash ^= Capability.GetHashCode();
+      if (Operation.Length != 0) hash ^= Operation.GetHashCode();
+      if (Execution.Length != 0) hash ^= Execution.GetHashCode();
       if (Name.Length != 0) hash ^= Name.GetHashCode();
       if (Description.Length != 0) hash ^= Description.GetHashCode();
       if (InputSchema.Length != 0) hash ^= InputSchema.GetHashCode();
@@ -415,6 +471,18 @@ namespace Croupier.Function.V1 {
         output.WriteMessage(Security);
       }
       extensions_.WriteTo(output, _map_extensions_codec);
+      if (Capability.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(Capability);
+      }
+      if (Operation.Length != 0) {
+        output.WriteRawTag(106);
+        output.WriteString(Operation);
+      }
+      if (Execution.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(Execution);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -463,6 +531,18 @@ namespace Croupier.Function.V1 {
         output.WriteMessage(Security);
       }
       extensions_.WriteTo(ref output, _map_extensions_codec);
+      if (Capability.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(Capability);
+      }
+      if (Operation.Length != 0) {
+        output.WriteRawTag(106);
+        output.WriteString(Operation);
+      }
+      if (Execution.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(Execution);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -483,6 +563,15 @@ namespace Croupier.Function.V1 {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Resource);
       }
       size += tags_.CalculateSize(_repeated_tags_codec);
+      if (Capability.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Capability);
+      }
+      if (Operation.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Operation);
+      }
+      if (Execution.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Execution);
+      }
       if (Name.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Name);
       }
@@ -524,6 +613,15 @@ namespace Croupier.Function.V1 {
         Resource = other.Resource;
       }
       tags_.Add(other.tags_);
+      if (other.Capability.Length != 0) {
+        Capability = other.Capability;
+      }
+      if (other.Operation.Length != 0) {
+        Operation = other.Operation;
+      }
+      if (other.Execution.Length != 0) {
+        Execution = other.Execution;
+      }
       if (other.Name.Length != 0) {
         Name = other.Name;
       }
@@ -614,6 +712,18 @@ namespace Croupier.Function.V1 {
             extensions_.AddEntriesFrom(input, _map_extensions_codec);
             break;
           }
+          case 98: {
+            Capability = input.ReadString();
+            break;
+          }
+          case 106: {
+            Operation = input.ReadString();
+            break;
+          }
+          case 114: {
+            Execution = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -677,6 +787,18 @@ namespace Croupier.Function.V1 {
           }
           case 90: {
             extensions_.AddEntriesFrom(ref input, _map_extensions_codec);
+            break;
+          }
+          case 98: {
+            Capability = input.ReadString();
+            break;
+          }
+          case 106: {
+            Operation = input.ReadString();
+            break;
+          }
+          case 114: {
+            Execution = input.ReadString();
             break;
           }
         }

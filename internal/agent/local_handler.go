@@ -702,28 +702,26 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 	// Use sessionID as providerID for tracking
 	// Register all functions from the provider in a single call
 	if h.store != nil && len(req.Functions) > 0 {
-		// Convert proto functions to LocalFunctionDescriptor
-		funcs := make([]*sdkv1.LocalFunctionDescriptor, len(req.Functions))
+		// Convert proto functions to ProviderFunctionDescriptor
+		funcs := make([]*sdkv1.ProviderFunctionDescriptor, len(req.Functions))
 		for i, fn := range req.Functions {
-			funcs[i] = &sdkv1.LocalFunctionDescriptor{
-				Id:                fn.Id,
-				Version:           fn.Version,
-				Tags:              fn.Tags,
-				Summary:           fn.Summary,
-				Description:       fn.Description,
-				OperationId:       fn.OperationId,
-				Deprecated:        fn.Deprecated,
-				InputSchema:       fn.InputSchema,
-				OutputSchema:      fn.OutputSchema,
-				Resource:          fn.Resource,
-				Operation:         fn.Operation,
-				Capability:        fn.Capability,
-				Execution:         fn.Execution,
-				ApprovalRequired:  fn.ApprovalRequired,
-				ApprovalPolicyKey: fn.ApprovalPolicyKey,
-				Risk:              fn.Risk,
-				Enabled:           fn.Enabled,
-				Permission:        fn.Permission,
+			funcs[i] = &sdkv1.ProviderFunctionDescriptor{
+				Id:           fn.Id,
+				Version:      fn.Version,
+				Tags:         fn.Tags,
+				Summary:      fn.Summary,
+				Description:  fn.Description,
+				OperationId:  fn.OperationId,
+				Deprecated:   fn.Deprecated,
+				InputSchema:  fn.InputSchema,
+				OutputSchema: fn.OutputSchema,
+				Resource:     fn.Resource,
+				Operation:    fn.Operation,
+				Capability:   fn.Capability,
+				Execution:    fn.Execution,
+				Risk:         fn.Risk,
+				Enabled:      fn.Enabled,
+				Permission:   fn.Permission,
 			}
 		}
 		// 提取元数据（参考 Nacos metadata）

@@ -14,7 +14,7 @@ type Manager interface {
 	Disconnect()
 
 	// RegisterWithAgent registers functions with the agent
-	RegisterWithAgent(ctx context.Context, serviceID, serviceVersion string, functions []LocalFunctionDescriptor) (string, error)
+	RegisterWithAgent(ctx context.Context, serviceID, serviceVersion string, functions []ProviderFunctionDescriptor) (string, error)
 
 	// IsConnected returns true if connected to agent
 	IsConnected() bool

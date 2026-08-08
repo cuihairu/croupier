@@ -388,14 +388,14 @@ func TestEnabled_flag(t *testing.T) {
 	})
 }
 
-func TestLocalFunctionDescriptor_tags(t *testing.T) {
+func TestProviderFunctionDescriptor_tags(t *testing.T) {
 	t.Run("empty vs nil tags", func(t *testing.T) {
-		emptyTags := LocalFunctionDescriptor{
+		emptyTags := ProviderFunctionDescriptor{
 			ID:   "test.func",
 			Tags: []string{},
 		}
 
-		nilTags := LocalFunctionDescriptor{
+		nilTags := ProviderFunctionDescriptor{
 			ID:   "test.func",
 			Tags: nil,
 		}
@@ -412,7 +412,7 @@ func TestLocalFunctionDescriptor_tags(t *testing.T) {
 	t.Run("tags with duplicates", func(t *testing.T) {
 		tags := []string{"tag1", "tag2", "tag1", "tag3", "tag2"}
 
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:   "test.func",
 			Tags: tags,
 		}
@@ -431,7 +431,7 @@ func TestLocalFunctionDescriptor_tags(t *testing.T) {
 			"tag/with/slash",
 		}
 
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:   "test.func",
 			Tags: tags,
 		}

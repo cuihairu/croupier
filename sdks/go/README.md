@@ -61,30 +61,30 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ## 主项目
 
-| 项目 | 描述 | 链接 |
-|------|------|------|
-| **Croupier** | 游戏后端平台主项目（包含所有 SDK） | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
-| **Proto 文件** | Protobuf 协议定义 | [proto/](https://github.com/cuihairu/croupier/tree/main/proto) |
+| 项目           | 描述                               | 链接                                                           |
+| -------------- | ---------------------------------- | -------------------------------------------------------------- |
+| **Croupier**   | 游戏后端平台主项目（包含所有 SDK） | [cuihairu/croupier](https://github.com/cuihairu/croupier)      |
+| **Proto 文件** | Protobuf 协议定义                  | [proto/](https://github.com/cuihairu/croupier/tree/main/proto) |
 
 ## 其他语言 SDK
 
 所有 SDK 现已整合到主 monorepo 的 `sdks/` 目录下：
 
-| 语言 | 目录 | CI | Docs |
-| --- | --- | --- | --- |
-| C++ | [sdks/cpp/](https://github.com/cuihairu/croupier/tree/main/sdks/cpp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml) | [README](../cpp/README.md) |
-| Java | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml) | [README](../java/README.md) |
-| JS/TS | [sdks/js/](https://github.com/cuihairu/croupier/tree/main/sdks/js) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml) | [README](../js/README.md) |
+| 语言   | 目录                                                                       | CI                                                                                                                                                                    | Docs                          |
+| ------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| C++    | [sdks/cpp/](https://github.com/cuihairu/croupier/tree/main/sdks/cpp)       | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [README](../cpp/README.md)    |
+| Java   | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java)     | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [README](../java/README.md)   |
+| JS/TS  | [sdks/js/](https://github.com/cuihairu/croupier/tree/main/sdks/js)         | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml)         | [README](../js/README.md)     |
 | Python | [sdks/python/](https://github.com/cuihairu/croupier/tree/main/sdks/python) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [README](../python/README.md) |
-| C# | [sdks/csharp/](https://github.com/cuihairu/croupier/tree/main/sdks/csharp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [README](../csharp/README.md) |
+| C#     | [sdks/csharp/](https://github.com/cuihairu/croupier/tree/main/sdks/csharp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [README](../csharp/README.md) |
 
 ## 支持平台
 
-| 平台 | 架构 | 状态 |
-|------|------|------|
-| **Windows** | x64 | ✅ 支持 |
-| **Linux** | x64, ARM64 | ✅ 支持 |
-| **macOS** | x64, ARM64 (Apple Silicon) | ✅ 支持 |
+| 平台        | 架构                       | 状态    |
+| ----------- | -------------------------- | ------- |
+| **Windows** | x64                        | ✅ 支持 |
+| **Linux**   | x64, ARM64                 | ✅ 支持 |
+| **macOS**   | x64, ARM64 (Apple Silicon) | ✅ 支持 |
 
 ## 核心特性
 
@@ -225,7 +225,7 @@ CROUPIER_ENV=development
 
 ### 函数描述符
 
-跨语言统一的 `LocalFunctionDescriptor` 字段（对应 `proto/croupier/sdk/v1/provider.proto`）：
+跨语言统一的 `ProviderFunctionDescriptor` 字段（对应 `proto/croupier/sdk/v1/provider.proto`）：
 
 ```go
 type FunctionDescriptor struct {
@@ -241,10 +241,10 @@ type FunctionDescriptor struct {
 
 ### 本地函数描述符
 
-`sdk-agent subprotocol` 上承载的函数描述符（对应 `proto/croupier/sdk/v1/provider.proto` 的 `LocalFunctionDescriptor`）：
+`sdk-agent subprotocol` 上承载的函数描述符（对应 `proto/croupier/sdk/v1/provider.proto` 的 `ProviderFunctionDescriptor`）：
 
 ```go
-type LocalFunctionDescriptor struct {
+type ProviderFunctionDescriptor struct {
     ID      string // 函数 ID
     Version string // 函数版本
     // 扩展字段：tags / summary / description / operation_id / deprecated /

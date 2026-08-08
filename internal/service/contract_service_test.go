@@ -6,9 +6,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -350,6 +352,50 @@ func TestContractService_RebuildProposalsForResourceConsumesCRUDInResourcePropos
 
 	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.create")
 	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
+}
+
+func TestContractService_RebuildProposalsForResourceKeepsUnsafeActionStandalone(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "player.list", Version: "1.0.0", Enabled: true, Resource: "player", Operation: "list", Capability: "collection_query", Execution: "sync",
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`,
+	}))
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "player.ban", Version: "1.0.0", Enabled: true, Resource: "player", Operation: "ban", Capability: "action", Execution: "sync",
+		InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string"}},"required":["id","reason"]}`,
+	}))
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+
+	semantics, err := model.NewCapabilitySemanticsModel(db).FindByScopeAndResourceKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+	semantics.Actions = datatypes.JSON(`[{"functionId":"player.ban","subject":"resource_item","identityInput":"/id"}]`)
+	require.NoError(t, model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, semantics))
+	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "player"))
+
+	proposalModel := model.NewPageProposalModel(db)
+	resourceProposal, err := proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
+	require.NoError(t, err)
+	var resourcePage spec.PageSpec
+	require.NoError(t, json.Unmarshal(resourceProposal.PageSpec, &resourcePage))
+	require.NotNil(t, resourcePage.Resource)
+	assert.Empty(t, resourcePage.Resource.ListView.RowActions)
+	assert.False(t, pageHasBinding(resourcePage.Bindings, "action.ban"))
+
+	operationProposal, err := proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.ban")
+	require.NoError(t, err)
+	assert.Equal(t, "operation", operationProposal.PageType)
+}
+
+func pageHasBinding(bindings []spec.PageFunctionBinding, bindingID string) bool {
+	for _, binding := range bindings {
+		if binding.ID == bindingID {
+			return true
+		}
+	}
+	return false
 }
 
 func TestContractService_RebuildProposalsPreservesAcceptedStatus(t *testing.T) {
@@ -720,4 +766,41 @@ func TestContractService_BlockedIssueIsScopedToFunction(t *testing.T) {
 
 	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.ban")
 	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
+}
+
+func TestContractService_RebuildResourceCapabilityRecordsSourceConflict(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "openapi", FunctionMetaInput{
+		ID: "player.list.rest", Version: "1.0.0", Enabled: true, Resource: "player", Operation: "list-rest",
+		Capability: "collection_query", Execution: "sync",
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`,
+	}))
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "player.list.sdk", Version: "1.0.0", Enabled: true, Resource: "player", Operation: "list-sdk",
+		Capability: "collection_query", Execution: "sync",
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"player_id":{"type":"string"}}}}}}`,
+	}))
+
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+	semantics, err := model.NewCapabilitySemanticsModel(db).FindByScopeAndResourceKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+
+	contracts, err := model.NewFunctionContractModel(db).ListByResourceKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+	var sdkID uint
+	for _, contract := range contracts {
+		if contract.FunctionID == "player.list.sdk" {
+			sdkID = contract.ID
+		}
+	}
+	assert.Equal(t, sdkID, semantics.CollectionQueryID)
+
+	var conflicts []spec.SemanticConflict
+	require.NoError(t, json.Unmarshal(semantics.Conflicts, &conflicts))
+	require.Len(t, conflicts, 1)
+	assert.Equal(t, "collectionQueryID", conflicts[0].Field)
+	assert.Empty(t, conflicts[0].Resolution)
 }

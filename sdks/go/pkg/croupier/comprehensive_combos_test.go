@@ -93,7 +93,7 @@ func TestComprehensive_descriptorCombinations(t *testing.T) {
 	})
 
 	t.Run("local descriptor with all OpenAPI fields", func(t *testing.T) {
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:           "comprehensive.test",
 			Version:      "1.0.0",
 			Tags:         []string{"comprehensive", "test", "openapi"},

@@ -221,7 +221,7 @@ class CroupierClient:
             self._session_id = ""
             self._connected = False
 
-    def get_function_descriptor(self, function_id: str) -> Optional[provider_pb2.LocalFunctionDescriptor]:  # type: ignore[name-defined]
+    def get_function_descriptor(self, function_id: str) -> Optional[provider_pb2.ProviderFunctionDescriptor]:  # type: ignore[name-defined]
         """Get a protobuf function descriptor for the given function ID."""
         desc = self._descriptors.get(function_id)
         if desc is None:
@@ -236,7 +236,7 @@ class CroupierClient:
             if isinstance(desc.output_schema, dict)
             else (desc.output_schema or "")
         )
-        return provider_pb2.LocalFunctionDescriptor(
+        return provider_pb2.ProviderFunctionDescriptor(
             id=desc.id,
             version=desc.version,
             tags=desc.tags,

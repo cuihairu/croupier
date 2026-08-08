@@ -5,6 +5,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSemanticProvenanceTracker_TrackField(t *testing.T) {
@@ -79,7 +80,10 @@ func TestSemanticProvenanceTracker_PriorityOverride(t *testing.T) {
 	assert.Equal(t, "\"player_id\"", string(provenance["identityField"].Value))
 	assert.Equal(t, spec.SemanticSourceSDKExplicit, provenance["identityField"].Source)
 	assert.Equal(t, "\"id\"", string(provenance["identityField"].OverriddenValue))
-	assert.False(t, tracker.HasConflicts())
+	assert.True(t, tracker.HasConflicts())
+	conflicts := tracker.GetConflicts()
+	require.Len(t, conflicts, 1)
+	assert.Equal(t, "identityField", conflicts[0].Field)
 }
 
 func TestSemanticProvenanceTracker_ResolveConflict(t *testing.T) {

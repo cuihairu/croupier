@@ -315,8 +315,8 @@ export type ValueSourceKind = 'form' | 'row' | 'selection' | 'detail' | 'page_st
 
 /** 选择器转换 */
 export interface TransformSpec {
-  type: 'default' | 'format' | 'convert' | 'pick' | 'map';
-  params?: Record<string, JSONValue>;
+  /** 执行边界唯一实现的受控转换：从选择行中提取指定字段。 */
+  type: 'pick';
 }
 
 /** 页面 binding 执行策略 */
@@ -325,10 +325,9 @@ export interface PageBindingExecution {
   requireConfirm?: boolean;
 }
 
-/** 完整页面编排规格 */
-export interface PageSpec {
+/** 四类页面共享的编排字段。 */
+interface PageSpecBase {
   pageKey: string;
-  type: PageType;
   resourceKey?: string;
   title: LocalizedText;
   description?: LocalizedText;
@@ -336,12 +335,39 @@ export interface PageSpec {
   order?: number;
   icon?: string;
   navigation?: NavigationSpec;
-  resource?: ResourcePageSpec;
-  operation?: OperationPageSpec;
-  task?: TaskPageSpec;
-  report?: ReportPageSpec;
   bindings: PageFunctionBinding[];
 }
+
+/** 完整页面编排规格。页面类型与页面主体必须一一对应。 */
+export type PageSpec =
+  | (PageSpecBase & {
+      type: 'resource';
+      resource: ResourcePageSpec;
+      operation?: never;
+      task?: never;
+      report?: never;
+    })
+  | (PageSpecBase & {
+      type: 'operation';
+      resource?: never;
+      operation: OperationPageSpec;
+      task?: never;
+      report?: never;
+    })
+  | (PageSpecBase & {
+      type: 'task';
+      resource?: never;
+      operation?: never;
+      task: TaskPageSpec;
+      report?: never;
+    })
+  | (PageSpecBase & {
+      type: 'report';
+      resource?: never;
+      operation?: never;
+      task?: never;
+      report: ReportPageSpec;
+    });
 
 /** 页面导航规格 */
 export interface NavigationSpec {
@@ -649,7 +675,7 @@ export interface FormButtonSpec {
 // ---------------------------------------------------------------------------
 
 /** 已发布的不可变页面快照 */
-export interface PublishedPageSpec extends PageSpec {
+export type PublishedPageSpec = PageSpec & {
   gameId?: string;
   env?: string;
   version: number;
@@ -663,7 +689,7 @@ export interface PublishedPageSpec extends PageSpec {
   generatorVersion?: string;
   bindingContracts: BindingContractSnapshot[];
   bindingFreshness?: BindingFreshnessDiagnostic[];
-}
+};
 
 /** 已发布页面 binding 的函数契约快照 */
 export interface BindingContractSnapshot {
@@ -741,7 +767,7 @@ export interface PageSpecDraftSummary {
 }
 
 /** 页面草稿详情 */
-export interface PageSpecDraft extends PageSpec {
+export type PageSpecDraft = PageSpec & {
   gameId?: string;
   env?: string;
   status: PageDraftStatus;
@@ -751,7 +777,7 @@ export interface PageSpecDraft extends PageSpec {
   bindingFreshness?: BindingFreshnessDiagnostic[];
   updatedAt: string;
   updatedBy?: string;
-}
+};
 
 /** 页面版本记录 */
 export interface PageVersionItem {

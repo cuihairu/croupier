@@ -11,7 +11,7 @@ func TestLocalStore_RegisterAndList(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "sv1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "sv1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 		{Id: "f2", Version: "2.0.0"},
 	}, nil)
@@ -34,7 +34,7 @@ func TestLocalStore_Prune(t *testing.T) {
 	t.Parallel()
 
 	store := NewLocalStore()
-	store.Register("svc-1", "service-1", "127.0.0.1:19090", "sv1", []*sdkv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "service-1", "127.0.0.1:19090", "sv1", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 	}, nil)
 

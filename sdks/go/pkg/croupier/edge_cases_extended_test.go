@@ -249,10 +249,10 @@ func TestReconnectConfig_BoundaryValues(t *testing.T) {
 	})
 }
 
-// TestLocalFunctionDescriptor_AllFieldCombinations tests various field combinations
-func TestLocalFunctionDescriptor_AllFieldCombinations(t *testing.T) {
+// TestProviderFunctionDescriptor_AllFieldCombinations tests various field combinations
+func TestProviderFunctionDescriptor_AllFieldCombinations(t *testing.T) {
 	t.Run("minimal descriptor", func(t *testing.T) {
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:      "minimal",
 			Version: "1.0.0",
 		}
@@ -264,7 +264,7 @@ func TestLocalFunctionDescriptor_AllFieldCombinations(t *testing.T) {
 
 	t.Run("descriptor with tags", func(t *testing.T) {
 		tags := []string{"tag1", "tag2", "tag3"}
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:      "tagged",
 			Version: "1.0.0",
 			Tags:    tags,
@@ -276,7 +276,7 @@ func TestLocalFunctionDescriptor_AllFieldCombinations(t *testing.T) {
 	})
 
 	t.Run("descriptor with all OpenAPI fields", func(t *testing.T) {
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:           "full",
 			Version:      "1.0.0",
 			Tags:         []string{"test"},

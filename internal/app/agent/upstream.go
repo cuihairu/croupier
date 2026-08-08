@@ -475,8 +475,6 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 			desc.Operation = meta.Operation
 			desc.Capability = meta.Capability
 			desc.Execution = meta.Execution
-			desc.ApprovalRequired = meta.ApprovalRequired
-			desc.ApprovalPolicyKey = meta.ApprovalPolicyKey
 			desc.Permission = meta.Permission
 			desc.InputSchema = meta.InputSchema
 			desc.OutputSchema = meta.OutputSchema

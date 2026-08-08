@@ -12,10 +12,10 @@ import (
 	"testing"
 )
 
-// TestLocalFunctionDescriptor_comprehensive tests LocalFunctionDescriptor
-func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
+// TestProviderFunctionDescriptor_comprehensive tests ProviderFunctionDescriptor
+func TestProviderFunctionDescriptor_comprehensive(t *testing.T) {
 	t.Run("minimal valid descriptor", func(t *testing.T) {
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:      "player.ban",
 			Version: "1.0.0",
 		}
@@ -30,7 +30,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 	})
 
 	t.Run("full descriptor with all fields", func(t *testing.T) {
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:           "player.create",
 			Version:      "2.1.0",
 			Tags:         []string{"player", "crud"},
@@ -67,7 +67,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 	})
 
 	t.Run("descriptor with empty tags", func(t *testing.T) {
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:      "test.func",
 			Version: "1.0.0",
 			Tags:    []string{},
@@ -83,7 +83,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 	})
 
 	t.Run("descriptor with nil tags", func(t *testing.T) {
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:      "test.func",
 			Version: "1.0.0",
 			Tags:    nil,
@@ -96,7 +96,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 
 	t.Run("descriptor with multiple tags", func(t *testing.T) {
 		tags := []string{"player", "inventory", "admin", "crud", "async"}
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:      "player.update",
 			Version: "1.0.0",
 			Tags:    tags,
@@ -114,7 +114,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 	})
 
 	t.Run("descriptor deprecated and not deprecated", func(t *testing.T) {
-		deprecatedDesc := LocalFunctionDescriptor{
+		deprecatedDesc := ProviderFunctionDescriptor{
 			ID:         "old.func",
 			Version:    "1.0.0",
 			Deprecated: true,
@@ -124,7 +124,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 			t.Error("Deprecated descriptor should have Deprecated=true")
 		}
 
-		activeDesc := LocalFunctionDescriptor{
+		activeDesc := ProviderFunctionDescriptor{
 			ID:         "new.func",
 			Version:    "1.0.0",
 			Deprecated: false,
@@ -139,7 +139,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 		risks := []string{"safe", "warning", "danger"}
 
 		for _, risk := range risks {
-			desc := LocalFunctionDescriptor{
+			desc := ProviderFunctionDescriptor{
 				ID:      "test.func",
 				Version: "1.0.0",
 				Risk:    risk,
@@ -155,7 +155,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 		operations := []string{"ban", "send", "grant", "reload", "retention"}
 
 		for _, op := range operations {
-			desc := LocalFunctionDescriptor{
+			desc := ProviderFunctionDescriptor{
 				ID:        "test.func",
 				Version:   "1.0.0",
 				Operation: op,
@@ -171,7 +171,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 		resources := []string{"game", "system", "player", "monitoring", "inventory"}
 
 		for _, resource := range resources {
-			desc := LocalFunctionDescriptor{
+			desc := ProviderFunctionDescriptor{
 				ID:       "test.func",
 				Version:  "1.0.0",
 				Resource: resource,
@@ -184,7 +184,7 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 	})
 
 	t.Run("descriptor with empty and whitespace strings", func(t *testing.T) {
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:          "",
 			Version:     "",
 			Summary:     "",
@@ -211,7 +211,7 @@ This is a **markdown** description with:
 - [Links](https://example.com)
 `
 
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:          "markdown.func",
 			Version:     "1.0.0",
 			Description: markdownDesc,
@@ -246,7 +246,7 @@ This is a **markdown** description with:
   }
 }`
 
-		desc := LocalFunctionDescriptor{
+		desc := ProviderFunctionDescriptor{
 			ID:           "schema.func",
 			Version:      "1.0.0",
 			InputSchema:  inputSchema,

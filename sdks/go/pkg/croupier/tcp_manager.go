@@ -34,7 +34,7 @@ type TCPManager struct {
 	heartbeatStop  context.CancelFunc
 
 	// Stored function descriptors for re-registration after reconnect
-	functions []*sdkv1.LocalFunctionDescriptor
+	functions []*sdkv1.ProviderFunctionDescriptor
 
 	// Server for handling incoming RPC calls
 	rpcHandler *tcpRPCHandler
@@ -147,7 +147,7 @@ func (m *TCPManager) Disconnect() {
 	logInfof("Disconnected from Croupier Agent")
 }
 
-func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVersion string, functions []LocalFunctionDescriptor) (string, error) {
+func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVersion string, functions []ProviderFunctionDescriptor) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -157,9 +157,9 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 
 	logInfof("Registering service %s@%s with %d functions", serviceID, serviceVersion, len(functions))
 
-	descriptors := make([]*sdkv1.LocalFunctionDescriptor, len(functions))
+	descriptors := make([]*sdkv1.ProviderFunctionDescriptor, len(functions))
 	for i, f := range functions {
-		descriptors[i] = &sdkv1.LocalFunctionDescriptor{
+		descriptors[i] = &sdkv1.ProviderFunctionDescriptor{
 			Id:           f.ID,
 			Version:      f.Version,
 			Tags:         f.Tags,

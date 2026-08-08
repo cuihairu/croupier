@@ -376,10 +376,10 @@ func (c *client) Close() error {
 	return nil
 }
 
-// convertToLocalFunctions converts FunctionDescriptors to LocalFunctionDescriptors
+// convertToLocalFunctions converts FunctionDescriptors to ProviderFunctionDescriptors
 // Note: This method must be called while holding c.mu (either read or write lock)
-func (c *client) convertToLocalFunctions() []LocalFunctionDescriptor {
-	var localFuncs []LocalFunctionDescriptor
+func (c *client) convertToLocalFunctions() []ProviderFunctionDescriptor {
+	var localFuncs []ProviderFunctionDescriptor
 	for funcID := range c.handlers {
 		desc, ok := c.descriptors[funcID]
 		if !ok {
@@ -390,8 +390,8 @@ func (c *client) convertToLocalFunctions() []LocalFunctionDescriptor {
 			version = "1.0.0"
 		}
 
-		// Convert FunctionDescriptor to LocalFunctionDescriptor with OpenAPI 3.0.3 fields
-		localDesc := LocalFunctionDescriptor{
+		// Convert FunctionDescriptor to ProviderFunctionDescriptor with OpenAPI 3.0.3 fields
+		localDesc := ProviderFunctionDescriptor{
 			ID:           funcID,
 			Version:      version,
 			Tags:         desc.Tags,

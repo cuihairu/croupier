@@ -111,6 +111,38 @@ func TestValidateSelectorAcceptsJSONPointerAndRequired(t *testing.T) {
 	assert.Empty(t, result.Errors)
 }
 
+func TestValidateSelectorRejectsUnsupportedSourceAndTransform(t *testing.T) {
+	targetSchema := JSONSchema(`{"type":"object","properties":{"ids":{"type":"array","items":{"type":"string"}}},"required":["ids"]}`)
+	rowSchema := JSONSchema(`{"type":"object","properties":{"id":{"type":"string"}}}`)
+
+	bareRow := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+		Target: "/ids", Source: ValueSource{Kind: SourceRow, Path: "/id"},
+	}}}, targetSchema, SelectorContext{RowSchema: rowSchema})
+	assert.False(t, bareRow.Valid)
+	assert.Equal(t, ErrCodeInvalidSource, bareRow.Errors[0].Code)
+
+	unknownSource := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+		Target: "/ids", Source: ValueSource{Kind: ValueSourceKind("raw_row"), Path: "/id"},
+	}}}, targetSchema, SelectorContext{RowSchema: rowSchema, IsBatchAction: true})
+	assert.False(t, unknownSource.Valid)
+	assert.Equal(t, ErrCodeInvalidSource, unknownSource.Errors[0].Code)
+
+	unsupportedTransform := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+		Target: "/ids", Source: ValueSource{
+			Kind: SourceSelection, Path: "/id", Transform: &TransformSpec{Type: TransformType("map")},
+		},
+	}}}, targetSchema, SelectorContext{RowSchema: rowSchema, IsBatchAction: true})
+	assert.False(t, unsupportedTransform.Valid)
+	assert.Equal(t, ErrCodeInvalidSource, unsupportedTransform.Errors[0].Code)
+
+	validPick := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+		Target: "/ids", Source: ValueSource{
+			Kind: SourceSelection, Path: "/id", Transform: &TransformSpec{Type: TransformPick},
+		},
+	}}}, targetSchema, SelectorContext{RowSchema: rowSchema, IsBatchAction: true})
+	assert.True(t, validPick.Valid)
+}
+
 func TestValidateSelectorRequiresPageStateKey(t *testing.T) {
 	result := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
 		Target: "/playerId",

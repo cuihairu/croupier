@@ -133,6 +133,15 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 			"capability",
 		))
 	} else {
+		if !taskSemanticComplete(op, taskSemantic) {
+			diags = append(diags, diagnostic(
+				"task_semantics_incomplete",
+				spec.SeverityWarning,
+				"task capability requires start, task ID, status, events, result, and cancel semantics before it can be safely published",
+				op.FunctionID,
+				"capability",
+			))
+		}
 		startBinding = buildTaskStartBinding(op, fn, taskSemantic)
 		bindings[0] = startBinding
 		taskView.TaskIDStateKey = "taskId"
@@ -199,6 +208,28 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 	}
 }
 
+func taskSemanticComplete(op spec.OperationSpec, semantic spec.TaskSemantic) bool {
+	if strings.TrimSpace(semantic.Start.FunctionID) != strings.TrimSpace(op.FunctionID) ||
+		strings.TrimSpace(semantic.TaskID.ResultPath) == "" ||
+		strings.TrimSpace(semantic.Status.Function.FunctionID) == "" ||
+		strings.TrimSpace(semantic.Status.TaskIDInput) == "" ||
+		strings.TrimSpace(semantic.Status.StatePath) == "" ||
+		semantic.Events == nil ||
+		strings.TrimSpace(semantic.Events.Function.FunctionID) == "" ||
+		strings.TrimSpace(semantic.Events.TaskIDInput) == "" ||
+		strings.TrimSpace(semantic.Events.EventsPath) == "" ||
+		semantic.Result == nil ||
+		strings.TrimSpace(semantic.Result.Function.FunctionID) == "" ||
+		strings.TrimSpace(semantic.Result.TaskIDInput) == "" ||
+		strings.TrimSpace(semantic.Result.ResultPath) == "" ||
+		semantic.Cancel == nil ||
+		strings.TrimSpace(semantic.Cancel.Function.FunctionID) == "" ||
+		strings.TrimSpace(semantic.Cancel.TaskIDInput) == "" {
+		return false
+	}
+	return true
+}
+
 // GenerateReportPageForOperation creates a report candidate. Without dataset,
 // dimension, metric, and chart semantics it must be reviewed before publication.
 func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions) spec.GeneratedPageSpec {
@@ -214,15 +245,14 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 	locale := opts.DefaultLocale
 	title := localizedTitle(op, pageKey, locale, opts)
 	reportSemantic, hasReportSemantic := opts.ReportSemantics[strings.TrimSpace(op.FunctionID)]
-	dataset := buildDatasetSpecFromSemantic(fn.OutputSchema, reportSemantic, locale)
-	if dataset == nil {
-		dataset = buildDatasetSpec(fn.OutputSchema, locale)
-	}
-	charts := buildChartSpecs(dataset, title, locale)
-	if hasReportSemantic {
+	validSemantic := hasReportSemantic && reportSemanticComplete(op, reportSemantic)
+	var dataset *spec.DatasetSpec
+	if validSemantic {
+		dataset = buildDatasetSpecFromSemantic(fn.OutputSchema, reportSemantic, locale)
 		applyReportSemantic(&binding, reportSemantic)
 	}
-	if !hasReportSemantic || dataset == nil || len(dataset.Dimensions) == 0 || len(dataset.Metrics) == 0 {
+	charts := buildChartSpecs(dataset, title, locale)
+	if !validSemantic || dataset == nil || len(dataset.Dimensions) == 0 || len(dataset.Metrics) == 0 {
 		diags = append(diags, diagnostic(
 			"report_dataset_missing",
 			spec.SeverityWarning,
@@ -258,6 +288,13 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 		Quality:     qualityFromDiagnostics(diags),
 		Diagnostics: diags,
 	}
+}
+
+func reportSemanticComplete(op spec.OperationSpec, semantic spec.ReportSemantic) bool {
+	return strings.TrimSpace(semantic.Query.FunctionID) == strings.TrimSpace(op.FunctionID) &&
+		strings.TrimSpace(semantic.DatasetPath) != "" &&
+		len(compactPointers(semantic.Dimensions)) > 0 &&
+		len(compactPointers(semantic.Metrics)) > 0
 }
 
 func operationPageKey(op spec.OperationSpec, opts GenerateOptions) string {

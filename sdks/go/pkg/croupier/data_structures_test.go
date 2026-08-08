@@ -19,9 +19,9 @@ func TestStruct_initialization(t *testing.T) {
 			desc.ID, desc.Version, desc.Enabled)
 	})
 
-	t.Run("LocalFunctionDescriptor zero value", func(t *testing.T) {
-		var desc LocalFunctionDescriptor
-		t.Logf("Zero LocalFunctionDescriptor: ID='%s', Version='%s', Deprecated=%v",
+	t.Run("ProviderFunctionDescriptor zero value", func(t *testing.T) {
+		var desc ProviderFunctionDescriptor
+		t.Logf("Zero ProviderFunctionDescriptor: ID='%s', Version='%s', Deprecated=%v",
 			desc.ID, desc.Version, desc.Deprecated)
 	})
 

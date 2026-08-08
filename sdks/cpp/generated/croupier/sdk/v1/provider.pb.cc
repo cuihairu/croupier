@@ -77,6 +77,81 @@ struct ProviderHeartbeatRequestDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ProviderHeartbeatRequestDefaultTypeInternal _ProviderHeartbeatRequest_default_instance_;
+
+inline constexpr ProviderFunctionDescriptor::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
+        tags_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::sdk::v1::ProviderFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.tags_)>()
+        }
+        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
+        tags_ {}
+        #endif
+        ,
+        id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        version_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        summary_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        description_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        operation_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        input_schema_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        output_schema_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        resource_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        operation_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        risk_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        permission_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        capability_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        execution_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        deprecated_{false},
+        enabled_{false} {}
+
+template <typename>
+constexpr ProviderFunctionDescriptor::ProviderFunctionDescriptor(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(ProviderFunctionDescriptor_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct ProviderFunctionDescriptorDefaultTypeInternal {
+  constexpr ProviderFunctionDescriptorDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ProviderFunctionDescriptorDefaultTypeInternal() {}
+  union {
+    ProviderFunctionDescriptor _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ProviderFunctionDescriptorDefaultTypeInternal _ProviderFunctionDescriptor_default_instance_;
 template <typename>
 constexpr ProviderDrainResponse::ProviderDrainResponse(::_pbi::ConstantInitialized)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
@@ -173,81 +248,6 @@ struct ProviderConnectResponseDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ProviderConnectResponseDefaultTypeInternal _ProviderConnectResponse_default_instance_;
-
-inline constexpr LocalFunctionDescriptor::Impl_::Impl_(
-    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
-    ::_pbi::ConstantInitialized) noexcept
-      : _cached_size_{0},
-        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        tags_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::sdk::v1::LocalFunctionDescriptor,
-            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.tags_)>()
-        }
-        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-        tags_ {}
-        #endif
-        ,
-        id_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        version_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        summary_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        description_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        operation_id_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        input_schema_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        output_schema_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        resource_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        operation_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        risk_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        permission_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        capability_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        execution_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        deprecated_{false},
-        enabled_{false} {}
-
-template <typename>
-constexpr LocalFunctionDescriptor::LocalFunctionDescriptor(::_pbi::ConstantInitialized)
-#if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::Message(LocalFunctionDescriptor_class_data_.base()),
-#else   // PROTOBUF_CUSTOM_VTABLE
-    : ::google::protobuf::Message(),
-#endif  // PROTOBUF_CUSTOM_VTABLE
-      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
-}
-struct LocalFunctionDescriptorDefaultTypeInternal {
-  constexpr LocalFunctionDescriptorDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~LocalFunctionDescriptorDefaultTypeInternal() {}
-  union {
-    LocalFunctionDescriptor _instance;
-  };
-};
-
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 LocalFunctionDescriptorDefaultTypeInternal _LocalFunctionDescriptor_default_instance_;
 
 inline constexpr GetTaskResultResponse::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
@@ -400,24 +400,24 @@ const ::uint32_t
     TableStruct_croupier_2fsdk_2fv1_2fprovider_2eproto::offsets[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
         protodesc_cold) = {
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_._has_bits_),
         19, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.id_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.version_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.tags_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.summary_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.description_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.operation_id_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.deprecated_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.input_schema_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.output_schema_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.resource_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.operation_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.risk_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.enabled_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.permission_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.capability_),
-        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.execution_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.id_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.version_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.tags_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.summary_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.description_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.operation_id_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.deprecated_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.input_schema_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.output_schema_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.resource_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.operation_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.risk_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.enabled_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.permission_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.capability_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.execution_),
         1,
         2,
         0,
@@ -506,7 +506,7 @@ const ::uint32_t
 
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
-        {0, sizeof(::croupier::sdk::v1::LocalFunctionDescriptor)},
+        {0, sizeof(::croupier::sdk::v1::ProviderFunctionDescriptor)},
         {35, sizeof(::croupier::sdk::v1::ProviderConnectRequest)},
         {62, sizeof(::croupier::sdk::v1::ProviderConnectResponse)},
         {71, sizeof(::croupier::sdk::v1::ProviderHeartbeatRequest)},
@@ -517,7 +517,7 @@ static const ::_pbi::MigrationSchema
         {94, sizeof(::croupier::sdk::v1::GetTaskResultResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
-    &::croupier::sdk::v1::_LocalFunctionDescriptor_default_instance_._instance,
+    &::croupier::sdk::v1::_ProviderFunctionDescriptor_default_instance_._instance,
     &::croupier::sdk::v1::_ProviderConnectRequest_default_instance_._instance,
     &::croupier::sdk::v1::_ProviderConnectResponse_default_instance_._instance,
     &::croupier::sdk::v1::_ProviderHeartbeatRequest_default_instance_._instance,
@@ -530,54 +530,54 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 const char descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n\036croupier/sdk/v1/provider.proto\022\017croupi"
-    "er.sdk.v1\"\344\003\n\027LocalFunctionDescriptor\022\016\n"
-    "\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 \001(\tR\007version\022"
-    "\022\n\004tags\030\003 \003(\tR\004tags\022\030\n\007summary\030\004 \001(\tR\007su"
-    "mmary\022 \n\013description\030\005 \001(\tR\013description\022"
-    "!\n\014operation_id\030\006 \001(\tR\013operationId\022\036\n\nde"
-    "precated\030\007 \001(\010R\ndeprecated\022!\n\014input_sche"
-    "ma\030\010 \001(\tR\013inputSchema\022#\n\routput_schema\030\t"
-    " \001(\tR\014outputSchema\022\032\n\010resource\030\n \001(\tR\010re"
-    "source\022\034\n\toperation\030\013 \001(\tR\toperation\022\022\n\004"
-    "risk\030\014 \001(\tR\004risk\022\030\n\007enabled\030\r \001(\010R\007enabl"
-    "ed\022\036\n\npermission\030\016 \001(\tR\npermission\022\036\n\nca"
-    "pability\030\017 \001(\tR\ncapability\022\034\n\texecution\030"
-    "\020 \001(\tR\texecution\"\360\003\n\026ProviderConnectRequ"
-    "est\022\035\n\nservice_id\030\001 \001(\tR\tserviceId\022\030\n\007ve"
-    "rsion\030\002 \001(\tR\007version\022F\n\tfunctions\030\003 \003(\0132"
-    "(.croupier.sdk.v1.LocalFunctionDescripto"
-    "rR\tfunctions\022!\n\014sdk_language\030\004 \001(\tR\013sdkL"
-    "anguage\022\037\n\013sdk_version\030\005 \001(\tR\nsdkVersion"
-    "\022\031\n\010sdk_name\030\006 \001(\tR\007sdkName\022)\n\020protocol_"
-    "version\030\007 \001(\tR\017protocolVersion\0225\n\026suppor"
-    "ted_capabilities\030\010 \003(\tR\025supportedCapabil"
-    "ities\0226\n\027transport_security_mode\030\t \001(\tR\025"
-    "transportSecurityMode\0221\n\024supported_trans"
-    "ports\030\n \003(\tR\023supportedTransports\022\027\n\007game"
-    "_id\030\013 \001(\tR\006gameId\022\020\n\003env\030\014 \001(\tR\003env\"\211\001\n\027"
-    "ProviderConnectResponse\022\035\n\nsession_id\030\001 "
-    "\001(\tR\tsessionId\0223\n\025accepted_capabilities\030"
-    "\002 \003(\tR\024acceptedCapabilities\022\032\n\010warnings\030"
-    "\003 \003(\tR\010warnings\"X\n\030ProviderHeartbeatRequ"
-    "est\022\035\n\nservice_id\030\001 \001(\tR\tserviceId\022\035\n\nse"
-    "ssion_id\030\002 \001(\tR\tsessionId\"\033\n\031ProviderHea"
-    "rtbeatResponse\"s\n\024ProviderDrainRequest\022\035"
-    "\n\nsession_id\030\001 \001(\tR\tsessionId\022\026\n\006reason\030"
-    "\002 \001(\tR\006reason\022$\n\016retry_after_ms\030\003 \001(\rR\014r"
-    "etryAfterMs\"\027\n\025ProviderDrainResponse\"/\n\024"
-    "GetTaskResultRequest\022\027\n\007task_id\030\001 \001(\tR\006t"
-    "askId\"]\n\025GetTaskResultResponse\022\024\n\005state\030"
-    "\001 \001(\tR\005state\022\030\n\007payload\030\002 \001(\014R\007payload\022\024"
-    "\n\005error\030\003 \001(\tR\005errorBa\n\"io.github.cuihai"
-    "ru.croupier.sdk.v1P\001Z9github.com/cuihair"
-    "u/croupier/pkg/pb/croupier/sdk/v1;sdkv1b"
-    "\006proto3"
+    "er.sdk.v1\"\347\003\n\032ProviderFunctionDescriptor"
+    "\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 \001(\tR\007versi"
+    "on\022\022\n\004tags\030\003 \003(\tR\004tags\022\030\n\007summary\030\004 \001(\tR"
+    "\007summary\022 \n\013description\030\005 \001(\tR\013descripti"
+    "on\022!\n\014operation_id\030\006 \001(\tR\013operationId\022\036\n"
+    "\ndeprecated\030\007 \001(\010R\ndeprecated\022!\n\014input_s"
+    "chema\030\010 \001(\tR\013inputSchema\022#\n\routput_schem"
+    "a\030\t \001(\tR\014outputSchema\022\032\n\010resource\030\n \001(\tR"
+    "\010resource\022\034\n\toperation\030\013 \001(\tR\toperation\022"
+    "\022\n\004risk\030\014 \001(\tR\004risk\022\030\n\007enabled\030\r \001(\010R\007en"
+    "abled\022\036\n\npermission\030\016 \001(\tR\npermission\022\036\n"
+    "\ncapability\030\017 \001(\tR\ncapability\022\034\n\texecuti"
+    "on\030\020 \001(\tR\texecution\"\363\003\n\026ProviderConnectR"
+    "equest\022\035\n\nservice_id\030\001 \001(\tR\tserviceId\022\030\n"
+    "\007version\030\002 \001(\tR\007version\022I\n\tfunctions\030\003 \003"
+    "(\0132+.croupier.sdk.v1.ProviderFunctionDes"
+    "criptorR\tfunctions\022!\n\014sdk_language\030\004 \001(\t"
+    "R\013sdkLanguage\022\037\n\013sdk_version\030\005 \001(\tR\nsdkV"
+    "ersion\022\031\n\010sdk_name\030\006 \001(\tR\007sdkName\022)\n\020pro"
+    "tocol_version\030\007 \001(\tR\017protocolVersion\0225\n\026"
+    "supported_capabilities\030\010 \003(\tR\025supportedC"
+    "apabilities\0226\n\027transport_security_mode\030\t"
+    " \001(\tR\025transportSecurityMode\0221\n\024supported"
+    "_transports\030\n \003(\tR\023supportedTransports\022\027"
+    "\n\007game_id\030\013 \001(\tR\006gameId\022\020\n\003env\030\014 \001(\tR\003en"
+    "v\"\211\001\n\027ProviderConnectResponse\022\035\n\nsession"
+    "_id\030\001 \001(\tR\tsessionId\0223\n\025accepted_capabil"
+    "ities\030\002 \003(\tR\024acceptedCapabilities\022\032\n\010war"
+    "nings\030\003 \003(\tR\010warnings\"X\n\030ProviderHeartbe"
+    "atRequest\022\035\n\nservice_id\030\001 \001(\tR\tserviceId"
+    "\022\035\n\nsession_id\030\002 \001(\tR\tsessionId\"\033\n\031Provi"
+    "derHeartbeatResponse\"s\n\024ProviderDrainReq"
+    "uest\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\026\n\006r"
+    "eason\030\002 \001(\tR\006reason\022$\n\016retry_after_ms\030\003 "
+    "\001(\rR\014retryAfterMs\"\027\n\025ProviderDrainRespon"
+    "se\"/\n\024GetTaskResultRequest\022\027\n\007task_id\030\001 "
+    "\001(\tR\006taskId\"]\n\025GetTaskResultResponse\022\024\n\005"
+    "state\030\001 \001(\tR\005state\022\030\n\007payload\030\002 \001(\014R\007pay"
+    "load\022\024\n\005error\030\003 \001(\tR\005errorBa\n\"io.github."
+    "cuihairu.croupier.sdk.v1P\001Z9github.com/c"
+    "uihairu/croupier/pkg/pb/croupier/sdk/v1;"
+    "sdkv1b\006proto3"
 };
 static ::absl::once_flag descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto = {
     false,
     false,
-    1687,
+    1693,
     descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto,
     "croupier/sdk/v1/provider.proto",
     &descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto_once,
@@ -595,33 +595,33 @@ namespace sdk {
 namespace v1 {
 // ===================================================================
 
-class LocalFunctionDescriptor::_Internal {
+class ProviderFunctionDescriptor::_Internal {
  public:
   using HasBits =
-      decltype(::std::declval<LocalFunctionDescriptor>()._impl_._has_bits_);
+      decltype(::std::declval<ProviderFunctionDescriptor>()._impl_._has_bits_);
   static constexpr ::int32_t kHasBitsOffset =
-      8 * PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_._has_bits_);
+      8 * PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_._has_bits_);
 };
 
-LocalFunctionDescriptor::LocalFunctionDescriptor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+ProviderFunctionDescriptor::ProviderFunctionDescriptor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::Message(arena, LocalFunctionDescriptor_class_data_.base()) {
+    : ::google::protobuf::Message(arena, ProviderFunctionDescriptor_class_data_.base()) {
 #else   // PROTOBUF_CUSTOM_VTABLE
     : ::google::protobuf::Message(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
   SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:croupier.sdk.v1.LocalFunctionDescriptor)
+  // @@protoc_insertion_point(arena_constructor:croupier.sdk.v1.ProviderFunctionDescriptor)
 }
-PROTOBUF_NDEBUG_INLINE LocalFunctionDescriptor::Impl_::Impl_(
+PROTOBUF_NDEBUG_INLINE ProviderFunctionDescriptor::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
-    [[maybe_unused]] const ::croupier::sdk::v1::LocalFunctionDescriptor& from_msg)
+    [[maybe_unused]] const ::croupier::sdk::v1::ProviderFunctionDescriptor& from_msg)
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
         #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
         tags_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::sdk::v1::LocalFunctionDescriptor,
-            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.tags_)>()
+            ::croupier::sdk::v1::ProviderFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.tags_)>()
         , from.tags_}
         #else
         tags_ { visibility, arena, from.tags_ }
@@ -641,15 +641,15 @@ PROTOBUF_NDEBUG_INLINE LocalFunctionDescriptor::Impl_::Impl_(
         capability_(arena, from.capability_),
         execution_(arena, from.execution_) {}
 
-LocalFunctionDescriptor::LocalFunctionDescriptor(
+ProviderFunctionDescriptor::ProviderFunctionDescriptor(
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
-    const LocalFunctionDescriptor& from)
+    const ProviderFunctionDescriptor& from)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::Message(arena, LocalFunctionDescriptor_class_data_.base()) {
+    : ::google::protobuf::Message(arena, ProviderFunctionDescriptor_class_data_.base()) {
 #else   // PROTOBUF_CUSTOM_VTABLE
     : ::google::protobuf::Message(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  LocalFunctionDescriptor* const _this = this;
+  ProviderFunctionDescriptor* const _this = this;
   (void)_this;
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
@@ -662,16 +662,16 @@ LocalFunctionDescriptor::LocalFunctionDescriptor(
                offsetof(Impl_, deprecated_) +
                sizeof(Impl_::enabled_));
 
-  // @@protoc_insertion_point(copy_constructor:croupier.sdk.v1.LocalFunctionDescriptor)
+  // @@protoc_insertion_point(copy_constructor:croupier.sdk.v1.ProviderFunctionDescriptor)
 }
-PROTOBUF_NDEBUG_INLINE LocalFunctionDescriptor::Impl_::Impl_(
+PROTOBUF_NDEBUG_INLINE ProviderFunctionDescriptor::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
       : _cached_size_{0},
         #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
         tags_{visibility, ::_pbi::InternalMetadataOffset::Build<
-            ::croupier::sdk::v1::LocalFunctionDescriptor,
-            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::LocalFunctionDescriptor, _impl_.tags_)>()
+            ::croupier::sdk::v1::ProviderFunctionDescriptor,
+            PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.tags_)>()
         }
         #else
         tags_ { visibility, arena }
@@ -691,7 +691,7 @@ PROTOBUF_NDEBUG_INLINE LocalFunctionDescriptor::Impl_::Impl_(
         capability_(arena),
         execution_(arena) {}
 
-inline void LocalFunctionDescriptor::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+inline void ProviderFunctionDescriptor::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, deprecated_),
@@ -700,12 +700,12 @@ inline void LocalFunctionDescriptor::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE 
                offsetof(Impl_, deprecated_) +
                sizeof(Impl_::enabled_));
 }
-LocalFunctionDescriptor::~LocalFunctionDescriptor() {
-  // @@protoc_insertion_point(destructor:croupier.sdk.v1.LocalFunctionDescriptor)
+ProviderFunctionDescriptor::~ProviderFunctionDescriptor() {
+  // @@protoc_insertion_point(destructor:croupier.sdk.v1.ProviderFunctionDescriptor)
   SharedDtor(*this);
 }
-inline void LocalFunctionDescriptor::SharedDtor(MessageLite& self) {
-  LocalFunctionDescriptor& this_ = static_cast<LocalFunctionDescriptor&>(self);
+inline void ProviderFunctionDescriptor::SharedDtor(MessageLite& self) {
+  ProviderFunctionDescriptor& this_ = static_cast<ProviderFunctionDescriptor&>(self);
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     this_.CheckHasBitConsistency();
   }
@@ -727,71 +727,71 @@ inline void LocalFunctionDescriptor::SharedDtor(MessageLite& self) {
   this_._impl_.~Impl_();
 }
 
-inline void* PROTOBUF_NONNULL LocalFunctionDescriptor::PlacementNew_(
+inline void* PROTOBUF_NONNULL ProviderFunctionDescriptor::PlacementNew_(
     const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
-  return ::new (mem) LocalFunctionDescriptor(arena);
+  return ::new (mem) ProviderFunctionDescriptor(arena);
 }
 #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-constexpr auto LocalFunctionDescriptor::InternalNewImpl_() {
-  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(LocalFunctionDescriptor),
-                                            alignof(LocalFunctionDescriptor));
+constexpr auto ProviderFunctionDescriptor::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(ProviderFunctionDescriptor),
+                                            alignof(ProviderFunctionDescriptor));
 }
 #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
-constexpr auto LocalFunctionDescriptor::InternalNewImpl_() {
+constexpr auto ProviderFunctionDescriptor::InternalNewImpl_() {
   constexpr auto arena_bits = ::google::protobuf::internal::EncodePlacementArenaOffsets({
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.tags_) +
-          decltype(LocalFunctionDescriptor::_impl_.tags_)::
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.tags_) +
+          decltype(ProviderFunctionDescriptor::_impl_.tags_)::
               InternalGetArenaOffset(
                   ::google::protobuf::Message::internal_visibility()),
   });
   if (arena_bits.has_value()) {
     return ::google::protobuf::internal::MessageCreator::CopyInit(
-        sizeof(LocalFunctionDescriptor), alignof(LocalFunctionDescriptor), *arena_bits);
+        sizeof(ProviderFunctionDescriptor), alignof(ProviderFunctionDescriptor), *arena_bits);
   } else {
-    return ::google::protobuf::internal::MessageCreator(&LocalFunctionDescriptor::PlacementNew_,
-                                 sizeof(LocalFunctionDescriptor),
-                                 alignof(LocalFunctionDescriptor));
+    return ::google::protobuf::internal::MessageCreator(&ProviderFunctionDescriptor::PlacementNew_,
+                                 sizeof(ProviderFunctionDescriptor),
+                                 alignof(ProviderFunctionDescriptor));
   }
 }
 #endif
-constexpr auto LocalFunctionDescriptor::InternalGenerateClassData_() {
+constexpr auto ProviderFunctionDescriptor::InternalGenerateClassData_() {
   return ::google::protobuf::internal::ClassDataFull{
       ::google::protobuf::internal::ClassData{
-          &_LocalFunctionDescriptor_default_instance_._instance,
+          &_ProviderFunctionDescriptor_default_instance_._instance,
           &_table_.header,
           nullptr,  // IsInitialized
-          &LocalFunctionDescriptor::MergeImpl,
-          ::google::protobuf::Message::GetNewImpl<LocalFunctionDescriptor>(),
+          &ProviderFunctionDescriptor::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<ProviderFunctionDescriptor>(),
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-          &LocalFunctionDescriptor::SharedDtor,
-          ::google::protobuf::Message::GetClearImpl<LocalFunctionDescriptor>(), &LocalFunctionDescriptor::ByteSizeLong,
-              &LocalFunctionDescriptor::_InternalSerialize,
+          &ProviderFunctionDescriptor::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<ProviderFunctionDescriptor>(), &ProviderFunctionDescriptor::ByteSizeLong,
+              &ProviderFunctionDescriptor::_InternalSerialize,
 #endif  // PROTOBUF_CUSTOM_VTABLE
-          PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_._cached_size_),
+          PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_._cached_size_),
           false,
       },
-      &LocalFunctionDescriptor::kDescriptorMethods,
+      &ProviderFunctionDescriptor::kDescriptorMethods,
       &descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto,
       nullptr,  // tracker
   };
 }
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
-    ::google::protobuf::internal::ClassDataFull LocalFunctionDescriptor_class_data_ =
-        LocalFunctionDescriptor::InternalGenerateClassData_();
+    ::google::protobuf::internal::ClassDataFull ProviderFunctionDescriptor_class_data_ =
+        ProviderFunctionDescriptor::InternalGenerateClassData_();
 
 PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
-LocalFunctionDescriptor::GetClassData() const {
-  ::google::protobuf::internal::PrefetchToLocalCache(&LocalFunctionDescriptor_class_data_);
-  ::google::protobuf::internal::PrefetchToLocalCache(LocalFunctionDescriptor_class_data_.tc_table);
-  return LocalFunctionDescriptor_class_data_.base();
+ProviderFunctionDescriptor::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&ProviderFunctionDescriptor_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(ProviderFunctionDescriptor_class_data_.tc_table);
+  return ProviderFunctionDescriptor_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 16, 0, 182, 2>
-LocalFunctionDescriptor::_table_ = {
+const ::_pbi::TcParseTable<4, 16, 0, 185, 2>
+ProviderFunctionDescriptor::_table_ = {
   {
-    PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_._has_bits_),
+    PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_._has_bits_),
     0, // no _extensions_
     16, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
@@ -800,117 +800,117 @@ LocalFunctionDescriptor::_table_ = {
     16,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
-    LocalFunctionDescriptor_class_data_.base(),
+    ProviderFunctionDescriptor_class_data_.base(),
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::croupier::sdk::v1::LocalFunctionDescriptor>(),  // to_prefetch
+    ::_pbi::TcParser::GetTable<::croupier::sdk::v1::ProviderFunctionDescriptor>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
     // string execution = 16 [json_name = "execution"];
     {::_pbi::TcParser::FastUS2,
      {386, 13, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.execution_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.execution_)}},
     // string id = 1 [json_name = "id"];
     {::_pbi::TcParser::FastUS1,
      {10, 1, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.id_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.id_)}},
     // string version = 2 [json_name = "version"];
     {::_pbi::TcParser::FastUS1,
      {18, 2, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.version_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.version_)}},
     // repeated string tags = 3 [json_name = "tags"];
     {::_pbi::TcParser::FastUR1,
      {26, 0, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.tags_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.tags_)}},
     // string summary = 4 [json_name = "summary"];
     {::_pbi::TcParser::FastUS1,
      {34, 3, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.summary_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.summary_)}},
     // string description = 5 [json_name = "description"];
     {::_pbi::TcParser::FastUS1,
      {42, 4, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.description_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.description_)}},
     // string operation_id = 6 [json_name = "operationId"];
     {::_pbi::TcParser::FastUS1,
      {50, 5, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_id_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.operation_id_)}},
     // bool deprecated = 7 [json_name = "deprecated"];
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(LocalFunctionDescriptor, _impl_.deprecated_), 14>(),
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(ProviderFunctionDescriptor, _impl_.deprecated_), 14>(),
      {56, 14, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.deprecated_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.deprecated_)}},
     // string input_schema = 8 [json_name = "inputSchema"];
     {::_pbi::TcParser::FastUS1,
      {66, 6, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.input_schema_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.input_schema_)}},
     // string output_schema = 9 [json_name = "outputSchema"];
     {::_pbi::TcParser::FastUS1,
      {74, 7, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.output_schema_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.output_schema_)}},
     // string resource = 10 [json_name = "resource"];
     {::_pbi::TcParser::FastUS1,
      {82, 8, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.resource_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.resource_)}},
     // string operation = 11 [json_name = "operation"];
     {::_pbi::TcParser::FastUS1,
      {90, 9, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.operation_)}},
     // string risk = 12 [json_name = "risk"];
     {::_pbi::TcParser::FastUS1,
      {98, 10, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.risk_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.risk_)}},
     // bool enabled = 13 [json_name = "enabled"];
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(LocalFunctionDescriptor, _impl_.enabled_), 15>(),
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(ProviderFunctionDescriptor, _impl_.enabled_), 15>(),
      {104, 15, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.enabled_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.enabled_)}},
     // string permission = 14 [json_name = "permission"];
     {::_pbi::TcParser::FastUS1,
      {114, 11, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.permission_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.permission_)}},
     // string capability = 15 [json_name = "capability"];
     {::_pbi::TcParser::FastUS1,
      {122, 12, 0,
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.capability_)}},
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.capability_)}},
   }}, {{
     65535, 65535
   }}, {{
     // string id = 1 [json_name = "id"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string version = 2 [json_name = "version"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.version_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.version_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // repeated string tags = 3 [json_name = "tags"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.tags_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.tags_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
     // string summary = 4 [json_name = "summary"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.summary_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.summary_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string description = 5 [json_name = "description"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.description_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.description_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string operation_id = 6 [json_name = "operationId"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_id_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.operation_id_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // bool deprecated = 7 [json_name = "deprecated"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.deprecated_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.deprecated_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // string input_schema = 8 [json_name = "inputSchema"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.input_schema_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.input_schema_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string output_schema = 9 [json_name = "outputSchema"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.output_schema_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.output_schema_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string resource = 10 [json_name = "resource"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.resource_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.resource_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string operation = 11 [json_name = "operation"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.operation_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.operation_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string risk = 12 [json_name = "risk"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.risk_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.risk_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // bool enabled = 13 [json_name = "enabled"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.enabled_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.enabled_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // string permission = 14 [json_name = "permission"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.permission_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.permission_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string capability = 15 [json_name = "capability"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.capability_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.capability_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string execution = 16 [json_name = "execution"];
-    {PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.execution_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.execution_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
   {{
-    "\47\2\7\4\7\13\14\0\14\15\10\11\4\0\12\12\11\0\0\0\0\0\0\0"
-    "croupier.sdk.v1.LocalFunctionDescriptor"
+    "\52\2\7\4\7\13\14\0\14\15\10\11\4\0\12\12\11\0\0\0\0\0\0\0"
+    "croupier.sdk.v1.ProviderFunctionDescriptor"
     "id"
     "version"
     "tags"
@@ -927,8 +927,8 @@ LocalFunctionDescriptor::_table_ = {
     "execution"
   }},
 };
-PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
-// @@protoc_insertion_point(message_clear_start:croupier.sdk.v1.LocalFunctionDescriptor)
+PROTOBUF_NOINLINE void ProviderFunctionDescriptor::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.sdk.v1.ProviderFunctionDescriptor)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   ::uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
@@ -989,20 +989,20 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
 }
 
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-::uint8_t* PROTOBUF_NONNULL LocalFunctionDescriptor::_InternalSerialize(
+::uint8_t* PROTOBUF_NONNULL ProviderFunctionDescriptor::_InternalSerialize(
     const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
     ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
-  const LocalFunctionDescriptor& this_ = static_cast<const LocalFunctionDescriptor&>(base);
+  const ProviderFunctionDescriptor& this_ = static_cast<const ProviderFunctionDescriptor&>(base);
 #else   // PROTOBUF_CUSTOM_VTABLE
-::uint8_t* PROTOBUF_NONNULL LocalFunctionDescriptor::_InternalSerialize(
+::uint8_t* PROTOBUF_NONNULL ProviderFunctionDescriptor::_InternalSerialize(
     ::uint8_t* PROTOBUF_NONNULL target,
     ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
-  const LocalFunctionDescriptor& this_ = *this;
+  const ProviderFunctionDescriptor& this_ = *this;
 #endif  // PROTOBUF_CUSTOM_VTABLE
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     this_.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(serialize_to_array_start:croupier.sdk.v1.LocalFunctionDescriptor)
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.sdk.v1.ProviderFunctionDescriptor)
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
@@ -1012,7 +1012,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_id().empty()) {
       const ::std::string& _s = this_._internal_id();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.id");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.id");
       target = stream->WriteStringMaybeAliased(1, _s, target);
     }
   }
@@ -1022,7 +1022,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_version().empty()) {
       const ::std::string& _s = this_._internal_version();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.version");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.version");
       target = stream->WriteStringMaybeAliased(2, _s, target);
     }
   }
@@ -1032,7 +1032,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     for (int i = 0, n = this_._internal_tags_size(); i < n; ++i) {
       const auto& s = this_._internal_tags().Get(i);
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.tags");
+          s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.tags");
       target = stream->WriteString(3, s, target);
     }
   }
@@ -1042,7 +1042,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_summary().empty()) {
       const ::std::string& _s = this_._internal_summary();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.summary");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.summary");
       target = stream->WriteStringMaybeAliased(4, _s, target);
     }
   }
@@ -1052,7 +1052,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_description().empty()) {
       const ::std::string& _s = this_._internal_description();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.description");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.description");
       target = stream->WriteStringMaybeAliased(5, _s, target);
     }
   }
@@ -1062,7 +1062,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_operation_id().empty()) {
       const ::std::string& _s = this_._internal_operation_id();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.operation_id");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.operation_id");
       target = stream->WriteStringMaybeAliased(6, _s, target);
     }
   }
@@ -1081,7 +1081,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_input_schema().empty()) {
       const ::std::string& _s = this_._internal_input_schema();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.input_schema");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.input_schema");
       target = stream->WriteStringMaybeAliased(8, _s, target);
     }
   }
@@ -1091,7 +1091,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_output_schema().empty()) {
       const ::std::string& _s = this_._internal_output_schema();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.output_schema");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.output_schema");
       target = stream->WriteStringMaybeAliased(9, _s, target);
     }
   }
@@ -1101,7 +1101,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_resource().empty()) {
       const ::std::string& _s = this_._internal_resource();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.resource");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.resource");
       target = stream->WriteStringMaybeAliased(10, _s, target);
     }
   }
@@ -1111,7 +1111,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_operation().empty()) {
       const ::std::string& _s = this_._internal_operation();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.operation");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.operation");
       target = stream->WriteStringMaybeAliased(11, _s, target);
     }
   }
@@ -1121,7 +1121,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_risk().empty()) {
       const ::std::string& _s = this_._internal_risk();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.risk");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.risk");
       target = stream->WriteStringMaybeAliased(12, _s, target);
     }
   }
@@ -1140,7 +1140,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_permission().empty()) {
       const ::std::string& _s = this_._internal_permission();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.permission");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.permission");
       target = stream->WriteStringMaybeAliased(14, _s, target);
     }
   }
@@ -1150,7 +1150,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_capability().empty()) {
       const ::std::string& _s = this_._internal_capability();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.capability");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.capability");
       target = stream->WriteStringMaybeAliased(15, _s, target);
     }
   }
@@ -1160,7 +1160,7 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
     if (!this_._internal_execution().empty()) {
       const ::std::string& _s = this_._internal_execution();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.LocalFunctionDescriptor.execution");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.execution");
       target = stream->WriteStringMaybeAliased(16, _s, target);
     }
   }
@@ -1170,18 +1170,18 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
             this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:croupier.sdk.v1.LocalFunctionDescriptor)
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.sdk.v1.ProviderFunctionDescriptor)
   return target;
 }
 
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-::size_t LocalFunctionDescriptor::ByteSizeLong(const MessageLite& base) {
-  const LocalFunctionDescriptor& this_ = static_cast<const LocalFunctionDescriptor&>(base);
+::size_t ProviderFunctionDescriptor::ByteSizeLong(const MessageLite& base) {
+  const ProviderFunctionDescriptor& this_ = static_cast<const ProviderFunctionDescriptor&>(base);
 #else   // PROTOBUF_CUSTOM_VTABLE
-::size_t LocalFunctionDescriptor::ByteSizeLong() const {
-  const LocalFunctionDescriptor& this_ = *this;
+::size_t ProviderFunctionDescriptor::ByteSizeLong() const {
+  const ProviderFunctionDescriptor& this_ = *this;
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  // @@protoc_insertion_point(message_byte_size_start:croupier.sdk.v1.LocalFunctionDescriptor)
+  // @@protoc_insertion_point(message_byte_size_start:croupier.sdk.v1.ProviderFunctionDescriptor)
   ::size_t total_size = 0;
 
   ::uint32_t cached_has_bits = 0;
@@ -1310,16 +1310,16 @@ PROTOBUF_NOINLINE void LocalFunctionDescriptor::Clear() {
                                              &this_._impl_._cached_size_);
 }
 
-void LocalFunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
+void ProviderFunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
                             const ::google::protobuf::MessageLite& from_msg) {
    auto* const _this =
-      static_cast<LocalFunctionDescriptor*>(&to_msg);
-  auto& from = static_cast<const LocalFunctionDescriptor&>(from_msg);
+      static_cast<ProviderFunctionDescriptor*>(&to_msg);
+  auto& from = static_cast<const ProviderFunctionDescriptor&>(from_msg);
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     from.CheckHasBitConsistency();
   }
   ::google::protobuf::Arena* arena = _this->GetArena();
-  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.sdk.v1.LocalFunctionDescriptor)
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.sdk.v1.ProviderFunctionDescriptor)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
@@ -1466,15 +1466,15 @@ void LocalFunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
       from._internal_metadata_);
 }
 
-void LocalFunctionDescriptor::CopyFrom(const LocalFunctionDescriptor& from) {
-  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.sdk.v1.LocalFunctionDescriptor)
+void ProviderFunctionDescriptor::CopyFrom(const ProviderFunctionDescriptor& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.sdk.v1.ProviderFunctionDescriptor)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
 
-void LocalFunctionDescriptor::InternalSwap(LocalFunctionDescriptor* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+void ProviderFunctionDescriptor::InternalSwap(ProviderFunctionDescriptor* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
   using ::std::swap;
   auto* arena = GetArena();
   ABSL_DCHECK_EQ(arena, other->GetArena());
@@ -1495,14 +1495,14 @@ void LocalFunctionDescriptor::InternalSwap(LocalFunctionDescriptor* PROTOBUF_RES
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.capability_, &other->_impl_.capability_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.execution_, &other->_impl_.execution_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.enabled_)
-      + sizeof(LocalFunctionDescriptor::_impl_.enabled_)
-      - PROTOBUF_FIELD_OFFSET(LocalFunctionDescriptor, _impl_.deprecated_)>(
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.enabled_)
+      + sizeof(ProviderFunctionDescriptor::_impl_.enabled_)
+      - PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.deprecated_)>(
           reinterpret_cast<char*>(&_impl_.deprecated_),
           reinterpret_cast<char*>(&other->_impl_.deprecated_));
 }
 
-::google::protobuf::Metadata LocalFunctionDescriptor::GetMetadata() const {
+::google::protobuf::Metadata ProviderFunctionDescriptor::GetMetadata() const {
   return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // ===================================================================
@@ -1747,7 +1747,7 @@ ProviderConnectRequest::_table_ = {
     {::_pbi::TcParser::FastUS1,
      {18, 4, 0,
       PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.version_)}},
-    // repeated .croupier.sdk.v1.LocalFunctionDescriptor functions = 3 [json_name = "functions"];
+    // repeated .croupier.sdk.v1.ProviderFunctionDescriptor functions = 3 [json_name = "functions"];
     {::_pbi::TcParser::FastMtR1,
      {26, 0, 0,
       PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.functions_)}},
@@ -1797,7 +1797,7 @@ ProviderConnectRequest::_table_ = {
     {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.service_id_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string version = 2 [json_name = "version"];
     {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.version_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // repeated .croupier.sdk.v1.LocalFunctionDescriptor functions = 3 [json_name = "functions"];
+    // repeated .croupier.sdk.v1.ProviderFunctionDescriptor functions = 3 [json_name = "functions"];
     {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.functions_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
     // string sdk_language = 4 [json_name = "sdkLanguage"];
     {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.sdk_language_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
@@ -1819,7 +1819,7 @@ ProviderConnectRequest::_table_ = {
     {PROTOBUF_FIELD_OFFSET(ProviderConnectRequest, _impl_.env_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   {{
-      {::_pbi::TcParser::GetTable<::croupier::sdk::v1::LocalFunctionDescriptor>()},
+      {::_pbi::TcParser::GetTable<::croupier::sdk::v1::ProviderFunctionDescriptor>()},
   }},
   {{
     "\46\12\7\0\14\13\10\20\26\27\24\7\3\0\0\0"
@@ -1928,7 +1928,7 @@ PROTOBUF_NOINLINE void ProviderConnectRequest::Clear() {
     }
   }
 
-  // repeated .croupier.sdk.v1.LocalFunctionDescriptor functions = 3 [json_name = "functions"];
+  // repeated .croupier.sdk.v1.ProviderFunctionDescriptor functions = 3 [json_name = "functions"];
   if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
     for (unsigned i = 0, n = static_cast<unsigned>(
                              this_._internal_functions_size());
@@ -2057,7 +2057,7 @@ PROTOBUF_NOINLINE void ProviderConnectRequest::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
-    // repeated .croupier.sdk.v1.LocalFunctionDescriptor functions = 3 [json_name = "functions"];
+    // repeated .croupier.sdk.v1.ProviderFunctionDescriptor functions = 3 [json_name = "functions"];
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
       total_size += 1UL * this_._internal_functions_size();
       for (const auto& msg : this_._internal_functions()) {

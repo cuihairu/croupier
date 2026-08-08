@@ -74,6 +74,7 @@ func (t *SemanticProvenanceTracker) TrackField(
 
 	if newPriority > existingPriority {
 		// New source has higher priority - override
+		t.addConflict(field, existing.Source, existing.Value, source, valueJSON)
 		existing.OverriddenValue = existing.Value
 		existing.Value = valueJSON
 		existing.Source = source

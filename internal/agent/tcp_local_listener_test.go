@@ -274,7 +274,7 @@ func TestTCPLocalListenerProviderSessionLifecycle(t *testing.T) {
 		Version:         "1.0.0",
 		SdkLanguage:     "go",
 		SdkVersion:      "test",
-		Functions:       []*sdkv1.LocalFunctionDescriptor{{Id: "player.ban", Version: "1.0.0"}},
+		Functions:       []*sdkv1.ProviderFunctionDescriptor{{Id: "player.ban", Version: "1.0.0"}},
 		ProtocolVersion: "v1",
 	}
 	connectBody, err := proto.Marshal(connectReq)
@@ -528,12 +528,12 @@ func TestConvertProtoFunctions(t *testing.T) {
 	})
 
 	t.Run("empty slice", func(t *testing.T) {
-		result := convertProtoFunctions([]*sdkv1.LocalFunctionDescriptor{})
+		result := convertProtoFunctions([]*sdkv1.ProviderFunctionDescriptor{})
 		assert.Empty(t, result)
 	})
 
 	t.Run("with functions", func(t *testing.T) {
-		funcs := []*sdkv1.LocalFunctionDescriptor{
+		funcs := []*sdkv1.ProviderFunctionDescriptor{
 			{Id: "func-1", Version: "1.0.0"},
 			{Id: "func-2", Version: "2.0.0"},
 		}

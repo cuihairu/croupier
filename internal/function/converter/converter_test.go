@@ -252,7 +252,7 @@ func ptr[T any](v T) *T {
 
 func TestToOpenAPIOperation(t *testing.T) {
 	t.Run("convert descriptor with input and output schemas", func(t *testing.T) {
-		descriptor := LocalFunctionDescriptorDesc{
+		descriptor := ProviderFunctionDescriptorDesc{
 			OperationID: "player.ban",
 			Summary:     "Ban Player",
 			Description: "Permanently ban a player from the game",
@@ -272,12 +272,10 @@ func TestToOpenAPIOperation(t *testing.T) {
 					"success": {"type": "boolean"}
 				}
 			}`,
-			Resource:          "player",
-			Risk:              "high",
-			Operation:         "ban",
-			Permission:        "player.ban",
-			ApprovalRequired:  true,
-			ApprovalPolicyKey: "two_person",
+			Resource:   "player",
+			Risk:       "high",
+			Operation:  "ban",
+			Permission: "player.ban",
 		}
 
 		op, err := ToOpenAPIOperation(descriptor)
@@ -311,14 +309,11 @@ func TestToOpenAPIOperation(t *testing.T) {
 		assert.Equal(t, "high", op.Extensions["x-risk"])
 		assert.Equal(t, "ban", op.Extensions["x-operation"])
 		assert.Equal(t, "player.ban", op.Extensions["x-permission"])
-		assert.Equal(t, map[string]interface{}{
-			"required":  true,
-			"policyKey": "two_person",
-		}, op.Extensions["x-approval"])
+		assert.Nil(t, op.Extensions["x-approval"])
 	})
 
 	t.Run("convert minimal descriptor", func(t *testing.T) {
-		descriptor := LocalFunctionDescriptorDesc{
+		descriptor := ProviderFunctionDescriptorDesc{
 			OperationID: "test.simple",
 			Summary:     "Simple Test",
 		}
@@ -333,7 +328,7 @@ func TestToOpenAPIOperation(t *testing.T) {
 	})
 
 	t.Run("convert descriptor with invalid input schema", func(t *testing.T) {
-		descriptor := LocalFunctionDescriptorDesc{
+		descriptor := ProviderFunctionDescriptorDesc{
 			OperationID: "test.invalid",
 			InputSchema: `{invalid json`,
 		}
@@ -343,7 +338,7 @@ func TestToOpenAPIOperation(t *testing.T) {
 	})
 
 	t.Run("convert descriptor with invalid output schema", func(t *testing.T) {
-		descriptor := LocalFunctionDescriptorDesc{
+		descriptor := ProviderFunctionDescriptorDesc{
 			OperationID:  "test.invalid",
 			OutputSchema: `{invalid json`,
 		}
@@ -353,7 +348,7 @@ func TestToOpenAPIOperation(t *testing.T) {
 	})
 
 	t.Run("convert deprecated descriptor", func(t *testing.T) {
-		descriptor := LocalFunctionDescriptorDesc{
+		descriptor := ProviderFunctionDescriptorDesc{
 			OperationID: "legacy.endpoint",
 			Summary:     "Legacy Endpoint",
 			Deprecated:  true,
@@ -366,7 +361,7 @@ func TestToOpenAPIOperation(t *testing.T) {
 	})
 
 	t.Run("convert descriptor with only resource extension", func(t *testing.T) {
-		descriptor := LocalFunctionDescriptorDesc{
+		descriptor := ProviderFunctionDescriptorDesc{
 			OperationID: "game.create",
 			Resource:    "game",
 		}
@@ -508,7 +503,7 @@ func TestGetBoolExtension_ErrorCases(t *testing.T) {
 }
 
 func TestToOpenAPIOperation_WithCompleteSchema(t *testing.T) {
-	descriptor := LocalFunctionDescriptorDesc{
+	descriptor := ProviderFunctionDescriptorDesc{
 		OperationID: "test.complex",
 		Summary:     "Complex Test",
 		Description: "A complex test function",

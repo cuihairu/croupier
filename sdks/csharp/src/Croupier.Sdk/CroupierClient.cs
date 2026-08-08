@@ -541,7 +541,7 @@ public partial class CroupierClient : IDisposable
 
         foreach (var descriptor in _descriptors.Values)
         {
-            var function = new LocalFunctionDescriptor
+            var function = new ProviderFunctionDescriptor
             {
                 Id = descriptor.Id,
                 Version = descriptor.Version,

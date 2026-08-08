@@ -341,9 +341,9 @@ func (h *providerSessionHandler) handleDrain(ctx context.Context, body []byte) (
 	return proto.Marshal(resp)
 }
 
-// convertProtoFunctions converts proto LocalFunctionDescriptor slices to the compat struct.
+// convertProtoFunctions converts proto ProviderFunctionDescriptor slices to the compat struct.
 // The proto definition is the same type since we use the generated Go struct.
-func convertProtoFunctions(funcs []*sdkv1.LocalFunctionDescriptor) []*sdkv1.LocalFunctionDescriptor {
+func convertProtoFunctions(funcs []*sdkv1.ProviderFunctionDescriptor) []*sdkv1.ProviderFunctionDescriptor {
 	if funcs == nil {
 		return nil
 	}

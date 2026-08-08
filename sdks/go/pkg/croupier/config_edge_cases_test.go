@@ -1903,11 +1903,11 @@ func TestFunctionDescriptor_Validation(t *testing.T) {
 	}
 }
 
-// TestLocalFunctionDescriptor_OpenAPICompliance tests OpenAPI 3.0.3 compliance
-func TestLocalFunctionDescriptor_OpenAPICompliance(t *testing.T) {
+// TestProviderFunctionDescriptor_OpenAPICompliance tests OpenAPI 3.0.3 compliance
+func TestProviderFunctionDescriptor_OpenAPICompliance(t *testing.T) {
 	t.Parallel()
 
-	descriptor := &LocalFunctionDescriptor{
+	descriptor := &ProviderFunctionDescriptor{
 		ID:           "player.create",
 		Version:      "1.0.0",
 		Tags:         []string{"player", "crud"},
@@ -1922,7 +1922,7 @@ func TestLocalFunctionDescriptor_OpenAPICompliance(t *testing.T) {
 		Operation:    "create",
 	}
 
-	err := ValidateLocalFunctionDescriptor(descriptor)
+	err := ValidateProviderFunctionDescriptor(descriptor)
 	if err != nil {
 		t.Errorf("Expected no error for valid descriptor, got %v", err)
 	}

@@ -333,7 +333,7 @@ func main() {
 	regReq := &sdkv1.ProviderConnectRequest{
 		ServiceId: serviceID,
 		Version:   version,
-		Functions: []*sdkv1.LocalFunctionDescriptor{
+		Functions: []*sdkv1.ProviderFunctionDescriptor{
 			{
 				Id:           "http.generic_invoke",
 				Version:      version,

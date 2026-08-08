@@ -195,8 +195,8 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 	return result, nil
 }
 
-// ToOpenAPIOperation converts a LocalFunctionDescriptor to an OpenAPI 3.0.3 Operation object
-func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Operation, error) {
+// ToOpenAPIOperation converts a ProviderFunctionDescriptor to an OpenAPI 3.0.3 Operation object
+func ToOpenAPIOperation(descriptor ProviderFunctionDescriptorDesc) (*openapi3.Operation, error) {
 	op := &openapi3.Operation{
 		OperationID: descriptor.OperationID,
 		Summary:     descriptor.Summary,
@@ -293,16 +293,6 @@ func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Opera
 		}
 		op.Extensions["x-execution"] = descriptor.Execution
 	}
-	if descriptor.ApprovalRequired || descriptor.ApprovalPolicyKey != "" {
-		if op.Extensions == nil {
-			op.Extensions = make(map[string]interface{})
-		}
-		approval := map[string]interface{}{"required": descriptor.ApprovalRequired}
-		if descriptor.ApprovalPolicyKey != "" {
-			approval["policyKey"] = descriptor.ApprovalPolicyKey
-		}
-		op.Extensions["x-approval"] = approval
-	}
 	if descriptor.Permission != "" {
 		if op.Extensions == nil {
 			op.Extensions = make(map[string]interface{})
@@ -313,25 +303,23 @@ func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Opera
 	return op, nil
 }
 
-// LocalFunctionDescriptorDesc represents a LocalFunctionDescriptor for conversion
-type LocalFunctionDescriptorDesc struct {
-	ID                string
-	Version           string
-	Tags              []string
-	Summary           string
-	Description       string
-	OperationID       string
-	Deprecated        bool
-	InputSchema       string
-	OutputSchema      string
-	Resource          string
-	Operation         string
-	Capability        string
-	Execution         string
-	ApprovalRequired  bool
-	ApprovalPolicyKey string
-	Risk              string
-	Permission        string
+// ProviderFunctionDescriptorDesc represents a ProviderFunctionDescriptor for conversion
+type ProviderFunctionDescriptorDesc struct {
+	ID           string
+	Version      string
+	Tags         []string
+	Summary      string
+	Description  string
+	OperationID  string
+	Deprecated   bool
+	InputSchema  string
+	OutputSchema string
+	Resource     string
+	Operation    string
+	Capability   string
+	Execution    string
+	Risk         string
+	Permission   string
 }
 
 // ExtractExtension extracts an extension value without the x- prefix
