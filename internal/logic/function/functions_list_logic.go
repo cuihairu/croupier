@@ -147,6 +147,11 @@ func (l *FunctionsListLogic) runtimeFunctions(req *FunctionsListRequest) []Funct
 					summaryMap["zh"] = meta.Summary
 					summaryMap["en"] = meta.Summary
 				}
+				// Ensure tags is never nil
+				tags := meta.Tags
+				if tags == nil {
+					tags = []string{}
+				}
 				item = Function{
 					ID:       fid,
 					Name:     fid,
@@ -154,7 +159,7 @@ func (l *FunctionsListLogic) runtimeFunctions(req *FunctionsListRequest) []Funct
 					Status:   1,
 					Version:  meta.Version,
 					Resource: strings.TrimSpace(meta.Resource),
-					Tags:     meta.Tags,
+					Tags:     tags,
 					Summary:  summaryMap,
 				}
 			}
