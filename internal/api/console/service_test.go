@@ -108,6 +108,38 @@ func TestGenerateMenuFromPagesUsesLowestPublishedPageOrderForCategory(t *testing
 	assert.Equal(t, "/console/player%20ops/player.ban", consolePagePath("player ops", "player.ban"))
 }
 
+func TestBuildBindingPayloadFromSelectorsProjectsOnlyReferencedJSON(t *testing.T) {
+	binding := spec.PageFunctionBinding{
+		ID: "player.ban",
+		Selectors: &spec.BindingSelectors{
+			Input: spec.SelectorAST{Assignments: []spec.InputAssignment{
+				{Target: "/player/id", Source: spec.ValueSource{Kind: spec.SourceRow, Path: "/id"}},
+				{Target: "/reason/enabled", Source: spec.ValueSource{Kind: spec.SourceForm, Path: "/enabled"}},
+				{Target: "/reason/retries", Source: spec.ValueSource{Kind: spec.SourceForm, Path: "/retries"}},
+				{Target: "/reason/note", Source: spec.ValueSource{Kind: spec.SourceForm, Path: "/note"}},
+				{Target: "/playerIds", Source: spec.ValueSource{
+					Kind:      spec.SourceSelection,
+					Path:      "/id",
+					Transform: &spec.TransformSpec{Type: spec.TransformPick},
+				}},
+			}},
+		},
+	}
+
+	payload, err := buildBindingPayloadFromSelectors(binding, ConsoleBindingExecutionContext{
+		Row:       json.RawMessage(`{"id":"p-1","secret":"must-not-leak"}`),
+		Form:      json.RawMessage(`{"enabled":false,"retries":0,"note":"","secret":"must-not-leak"}`),
+		Selection: json.RawMessage(`[{"id":"p-1","token":"private"},{"id":"p-2","token":"private"}]`),
+	})
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"player":{"id":"p-1"},
+		"reason":{"enabled":false,"retries":0,"note":""},
+		"playerIds":["p-1","p-2"]
+	}`, string(payload))
+}
+
 func TestServiceExecuteBindingRequiresFunctionInvokePermission(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read", "pages:read")
 	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
@@ -535,7 +567,7 @@ func seedConsolePublishedPage(svcCtx *svc.ServiceContext, ctx context.Context) e
 }
 
 func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Context, pageKey string, categoryKey string, categoryTitle string, order int) error {
-	gameID, env := svc.GameScopeFromContext(ctx)
+	scope := svc.GameScopeFromContext(ctx)
 	page := spec.PageSpec{
 		PageKey:     pageKey,
 		Type:        spec.PageTypeOperation,
@@ -575,8 +607,8 @@ func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Co
 		return err
 	}
 	return svcCtx.PublishedPageSpecModel.Create(ctx, &model.PublishedPageSpec{
-		GameID:                gameID,
-		Env:                   env,
+		GameID:                scope.GameID,
+		Env:                   scope.Env,
 		PageKey:               pageKey,
 		Version:               1,
 		SpecJSON:              string(specJSON),
@@ -613,7 +645,7 @@ func seedConsolePublishedPageWithSchema(svcCtx *svc.ServiceContext, ctx context.
 }
 
 func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, ctx context.Context, inputSchema string, outputSchema string, selector spec.SelectorAST) error {
-	gameID, env := svc.GameScopeFromContext(ctx)
+	scope := svc.GameScopeFromContext(ctx)
 	inputDigest := testDigestRaw([]byte(inputSchema))
 	outputDigest := testDigestRaw([]byte(outputSchema))
 	if err := upsertConsoleFunctionContract(svcCtx, ctx, inputSchema, outputSchema, "safe", "player:query"); err != nil {
@@ -662,8 +694,8 @@ func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, c
 		return err
 	}
 	return svcCtx.PublishedPageSpecModel.Create(ctx, &model.PublishedPageSpec{
-		GameID:                gameID,
-		Env:                   env,
+		GameID:                scope.GameID,
+		Env:                   scope.Env,
 		PageKey:               "player.manage",
 		Version:               1,
 		SpecJSON:              string(specJSON),
@@ -681,8 +713,8 @@ func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, c
 }
 
 func upsertConsoleFunctionContract(svcCtx *svc.ServiceContext, ctx context.Context, inputSchema string, outputSchema string, risk string, permission string) error {
-	gameID, env := svc.GameScopeFromContext(ctx)
-	return contractsvc.NewContractService(svcCtx.DB).RebuildContractFromFunctionMeta(ctx, gameID, env, "sdk", contractsvc.FunctionMetaInput{
+	scope := svc.GameScopeFromContext(ctx)
+	return contractsvc.NewContractService(svcCtx.DB).RebuildContractFromFunctionMeta(ctx, scope.GameID, scope.Env, "sdk", contractsvc.FunctionMetaInput{
 		ID:           "player.query",
 		Version:      "1.0.0",
 		Enabled:      true,

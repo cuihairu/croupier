@@ -71,7 +71,9 @@ func (l *DescriptorsLogic) DescriptorsV2(req *DescriptorsRequest) (*DescriptorsV
 }
 
 func (l *DescriptorsLogic) requireScope(req *DescriptorsRequest) (string, string, error) {
-	gameID, env := svc.GameScopeFromContext(l.ctx)
+	scope := svc.GameScopeFromContext(l.ctx)
+	gameID := scope.GameID
+	env := scope.Env
 	if req != nil && strings.TrimSpace(req.GameId) != "" {
 		gameID = strings.TrimSpace(req.GameId)
 	}

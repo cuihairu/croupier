@@ -1,6 +1,7 @@
 package console
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -310,7 +311,7 @@ func buildBindingPayloadFromSelectors(binding spec.PageFunctionBinding, execCtx 
 	if binding.Selectors == nil {
 		return nil, errorx.NewValidationError("binding selectors are required for console execution")
 	}
-	payload := map[string]any{}
+	payload := map[string]json.RawMessage{}
 	for _, assignment := range binding.Selectors.Input.Assignments {
 		value, found, err := resolveSelectorValue(assignment.Source, execCtx)
 		if err != nil {
@@ -334,17 +335,16 @@ func buildBindingPayloadFromSelectors(binding spec.PageFunctionBinding, execCtx 
 	return json.RawMessage(raw), nil
 }
 
-func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecutionContext) (any, bool, error) {
+func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecutionContext) (json.RawMessage, bool, error) {
 	if source.Transform != nil && source.Transform.Type != spec.TransformPick {
 		return nil, false, errorx.NewValidationError("binding selector transform is not supported: " + string(source.Transform.Type))
 	}
 	switch source.Kind {
 	case spec.SourceLiteral:
 		if len(source.Value) == 0 {
-			return nil, true, nil
+			return json.RawMessage("null"), true, nil
 		}
-		value, err := decodeRawJSONValue(source.Value, "literal")
-		return value, err == nil, err
+		return validRawJSON(source.Value, "literal")
 	case spec.SourceForm:
 		return valueFromRawContext(execCtx.Form, source.Path, "form")
 	case spec.SourceRow:
@@ -374,19 +374,22 @@ func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecuti
 	}
 }
 
-func pickSelectionValues(raw json.RawMessage, path string) (any, bool, error) {
+func pickSelectionValues(raw json.RawMessage, path string) (json.RawMessage, bool, error) {
 	if len(raw) == 0 {
 		return nil, false, nil
 	}
-	value, err := decodeRawJSONValue(raw, "selection")
+	value, found, err := validRawJSON(raw, "selection")
 	if err != nil {
 		return nil, false, err
 	}
-	rows, ok := value.([]any)
-	if !ok {
+	if !found {
+		return nil, false, nil
+	}
+	var rows []json.RawMessage
+	if err := json.Unmarshal(value, &rows); err != nil {
 		return nil, false, errorx.NewBadRequest("selection context must be an array")
 	}
-	values := make([]any, 0, len(rows))
+	values := make([]json.RawMessage, 0, len(rows))
 	for _, row := range rows {
 		selected, ok := getJSONPointerValue(row, path)
 		if !ok {
@@ -394,16 +397,23 @@ func pickSelectionValues(raw json.RawMessage, path string) (any, bool, error) {
 		}
 		values = append(values, selected)
 	}
-	return values, true, nil
+	result, err := json.Marshal(values)
+	if err != nil {
+		return nil, false, err
+	}
+	return result, true, nil
 }
 
-func valueFromRawContext(raw json.RawMessage, path string, sourceName string) (any, bool, error) {
+func valueFromRawContext(raw json.RawMessage, path string, sourceName string) (json.RawMessage, bool, error) {
 	if len(raw) == 0 {
 		return nil, false, nil
 	}
-	value, err := decodeRawJSONValue(raw, sourceName)
+	value, found, err := validRawJSON(raw, sourceName)
 	if err != nil {
 		return nil, false, err
+	}
+	if !found {
+		return nil, false, nil
 	}
 	if path == "" {
 		return value, true, nil
@@ -412,36 +422,47 @@ func valueFromRawContext(raw json.RawMessage, path string, sourceName string) (a
 	return selected, ok, nil
 }
 
-func decodeRawJSONValue(raw json.RawMessage, sourceName string) (any, error) {
+func validRawJSON(raw json.RawMessage, sourceName string) (json.RawMessage, bool, error) {
+	if len(raw) == 0 {
+		return nil, false, nil
+	}
 	if !json.Valid(raw) {
-		return nil, errorx.NewBadRequest(sourceName + " context must be valid JSON")
+		return nil, false, errorx.NewBadRequest(sourceName + " context must be valid JSON")
 	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, errorx.NewBadRequest(sourceName + " context must be valid JSON")
-	}
-	return value, nil
+	return append(json.RawMessage(nil), raw...), true, nil
 }
 
-func getJSONPointerValue(value any, path string) (any, bool) {
+func getJSONPointerValue(value json.RawMessage, path string) (json.RawMessage, bool) {
 	if !isJSONPointer(path) {
 		return nil, false
 	}
 	current := value
 	for _, token := range jsonPointerTokens(path) {
-		switch typed := current.(type) {
-		case map[string]any:
-			next, ok := typed[token]
+		trimmed := bytes.TrimSpace(current)
+		if len(trimmed) == 0 {
+			return nil, false
+		}
+		switch trimmed[0] {
+		case '{':
+			var object map[string]json.RawMessage
+			if err := json.Unmarshal(trimmed, &object); err != nil {
+				return nil, false
+			}
+			next, ok := object[token]
 			if !ok {
 				return nil, false
 			}
 			current = next
-		case []any:
-			index, err := strconv.Atoi(token)
-			if err != nil || index < 0 || index >= len(typed) {
+		case '[':
+			var array []json.RawMessage
+			if err := json.Unmarshal(trimmed, &array); err != nil {
 				return nil, false
 			}
-			current = typed[index]
+			index, err := strconv.Atoi(token)
+			if err != nil || index < 0 || index >= len(array) {
+				return nil, false
+			}
+			current = array[index]
 		default:
 			return nil, false
 		}
@@ -449,33 +470,36 @@ func getJSONPointerValue(value any, path string) (any, bool) {
 	return current, true
 }
 
-func setJSONPointerValue(payload map[string]any, path string, value any) error {
+func setJSONPointerValue(payload map[string]json.RawMessage, path string, value json.RawMessage) error {
 	if !isJSONPointer(path) || path == "" {
 		return errorx.NewValidationError("target must be a non-empty JSON Pointer")
 	}
-	current := payload
-	tokens := jsonPointerTokens(path)
-	for i, token := range tokens {
-		if token == "" {
-			return errorx.NewValidationError("target contains an empty object key")
-		}
-		if i == len(tokens)-1 {
-			current[token] = value
-			return nil
-		}
-		next, ok := current[token]
-		if !ok {
-			child := map[string]any{}
-			current[token] = child
-			current = child
-			continue
-		}
-		child, ok := next.(map[string]any)
-		if !ok {
+	return setJSONObjectPointer(payload, jsonPointerTokens(path), value)
+}
+
+func setJSONObjectPointer(object map[string]json.RawMessage, tokens []string, value json.RawMessage) error {
+	if len(tokens) == 0 || tokens[0] == "" {
+		return errorx.NewValidationError("target contains an empty object key")
+	}
+	key := tokens[0]
+	if len(tokens) == 1 {
+		object[key] = value
+		return nil
+	}
+	child := map[string]json.RawMessage{}
+	if existing, ok := object[key]; ok {
+		if err := json.Unmarshal(existing, &child); err != nil {
 			return errorx.NewValidationError("target conflicts with a non-object parent")
 		}
-		current = child
 	}
+	if err := setJSONObjectPointer(child, tokens[1:], value); err != nil {
+		return err
+	}
+	raw, err := json.Marshal(child)
+	if err != nil {
+		return err
+	}
+	object[key] = raw
 	return nil
 }
 
@@ -946,9 +970,9 @@ func (s *Service) requireConsoleExecute(ctx context.Context) error {
 }
 
 func requireScope(ctx context.Context) (string, string, error) {
-	gameID, env := svc.GameScopeFromContext(ctx)
-	gameID = strings.TrimSpace(gameID)
-	env = strings.TrimSpace(env)
+	scope := svc.GameScopeFromContext(ctx)
+	gameID := strings.TrimSpace(scope.GameID)
+	env := strings.TrimSpace(scope.Env)
 	if gameID == "" {
 		return "", "", errorx.NewBadRequest("X-Game-ID is required")
 	}

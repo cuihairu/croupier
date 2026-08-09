@@ -115,16 +115,16 @@ func (e *gameScopeNotFoundError) Error() string { return "game scope not found" 
 
 var errGameScopeNotFound = &gameScopeNotFoundError{}
 
-// GameScopeFromContext extracts the (gameID, env) pair stored by
-// GameDBMiddleware from a standard context. Returns empty values when absent.
-func GameScopeFromContext(ctx context.Context) (gameID, env string) {
+// GameScopeFromContext extracts the GameScope stored by GameDBMiddleware
+// from a standard context. Returns a zero-value GameScope when absent.
+func GameScopeFromContext(ctx context.Context) GameScope {
 	if ctx == nil {
-		return "", ""
+		return GameScope{}
 	}
 	if v, ok := ctx.Value(gameScopeCtxKey{}).(GameScope); ok {
-		return v.GameID, v.Env
+		return v
 	}
-	return "", ""
+	return GameScope{}
 }
 
 // WithGameScope stores a GameScope in ctx. Useful for background jobs and

@@ -282,9 +282,9 @@ func matchesResourceQuery(resource spec.ResourceSpec, query string) bool {
 }
 
 func requireScope(ctx context.Context) (string, string, error) {
-	gameID, env := svc.GameScopeFromContext(ctx)
-	gameID = strings.TrimSpace(gameID)
-	env = strings.TrimSpace(env)
+	scope := svc.GameScopeFromContext(ctx)
+	gameID := strings.TrimSpace(scope.GameID)
+	env := strings.TrimSpace(scope.Env)
 	if gameID == "" {
 		return "", "", errorx.NewBadRequest("X-Game-ID is required")
 	}

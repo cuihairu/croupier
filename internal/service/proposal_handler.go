@@ -18,8 +18,8 @@ func NewProposalHandler(service *ProposalService) *ProposalHandler {
 
 // ListProposals handles GET /api/proposals
 func (h *ProposalHandler) ListProposals(c *gin.Context) {
-	gameID, env := svc.GameScopeFromContext(c.Request.Context())
-	resp, err := h.service.ListProposalDTOs(c.Request.Context(), gameID, env, ProposalListFilter{
+	scope := svc.GameScopeFromContext(c.Request.Context())
+	resp, err := h.service.ListProposalDTOs(c.Request.Context(), scope.GameID, scope.Env, ProposalListFilter{
 		Status:      c.Query("status"),
 		ResourceKey: c.Query("resourceKey"),
 	})
@@ -34,8 +34,8 @@ func (h *ProposalHandler) ListProposals(c *gin.Context) {
 
 // Inbox handles GET /api/proposals/inbox.
 func (h *ProposalHandler) Inbox(c *gin.Context) {
-	gameID, env := svc.GameScopeFromContext(c.Request.Context())
-	resp, err := h.service.Inbox(c.Request.Context(), gameID, env, ProposalListFilter{
+	scope := svc.GameScopeFromContext(c.Request.Context())
+	resp, err := h.service.Inbox(c.Request.Context(), scope.GameID, scope.Env, ProposalListFilter{
 		ResourceKey: c.Query("resourceKey"),
 	})
 	if err != nil {
@@ -49,9 +49,9 @@ func (h *ProposalHandler) Inbox(c *gin.Context) {
 // GetProposal handles GET /api/proposals/:proposalKey
 func (h *ProposalHandler) GetProposal(c *gin.Context) {
 	proposalKey := c.Param("proposalKey")
-	gameID, env := svc.GameScopeFromContext(c.Request.Context())
+	scope := svc.GameScopeFromContext(c.Request.Context())
 
-	resp, err := h.service.GetProposalDTO(c.Request.Context(), gameID, env, proposalKey)
+	resp, err := h.service.GetProposalDTO(c.Request.Context(), scope.GameID, scope.Env, proposalKey)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -63,9 +63,9 @@ func (h *ProposalHandler) GetProposal(c *gin.Context) {
 // AcceptProposal handles POST /api/proposals/:proposalKey/accept
 func (h *ProposalHandler) AcceptProposal(c *gin.Context) {
 	proposalKey := c.Param("proposalKey")
-	gameID, env := svc.GameScopeFromContext(c.Request.Context())
+	scope := svc.GameScopeFromContext(c.Request.Context())
 
-	err := h.service.AcceptProposal(c.Request.Context(), gameID, env, proposalKey)
+	err := h.service.AcceptProposal(c.Request.Context(), scope.GameID, scope.Env, proposalKey)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -77,9 +77,9 @@ func (h *ProposalHandler) AcceptProposal(c *gin.Context) {
 // AcceptAndPublishProposal handles POST /api/proposals/:proposalKey/accept-and-publish
 func (h *ProposalHandler) AcceptAndPublishProposal(c *gin.Context) {
 	proposalKey := c.Param("proposalKey")
-	gameID, env := svc.GameScopeFromContext(c.Request.Context())
+	scope := svc.GameScopeFromContext(c.Request.Context())
 
-	resp, err := h.service.AcceptAndPublishProposal(c.Request.Context(), gameID, env, proposalKey)
+	resp, err := h.service.AcceptAndPublishProposal(c.Request.Context(), scope.GameID, scope.Env, proposalKey)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -91,9 +91,9 @@ func (h *ProposalHandler) AcceptAndPublishProposal(c *gin.Context) {
 // RejectProposal handles POST /api/proposals/:proposalKey/reject
 func (h *ProposalHandler) RejectProposal(c *gin.Context) {
 	proposalKey := c.Param("proposalKey")
-	gameID, env := svc.GameScopeFromContext(c.Request.Context())
+	scope := svc.GameScopeFromContext(c.Request.Context())
 
-	err := h.service.RejectProposal(c.Request.Context(), gameID, env, proposalKey)
+	err := h.service.RejectProposal(c.Request.Context(), scope.GameID, scope.Env, proposalKey)
 	if err != nil {
 		response.Error(c, err)
 		return

@@ -3,6 +3,7 @@ package versioning
 import (
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 )
 
@@ -196,7 +197,6 @@ func (h *Handler) Republish(c *gin.Context) {
 
 // getScope extracts game_id and env from context.
 func getScope(c *gin.Context) (string, string) {
-	gameID := c.GetString("game_id")
-	env := c.GetString("env")
-	return gameID, env
+	scope := svc.GameScopeFromContext(c.Request.Context())
+	return scope.GameID, scope.Env
 }
