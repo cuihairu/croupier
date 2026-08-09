@@ -193,6 +193,8 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	if s.contractService != nil && a.Functions != nil {
 		scopeCtx := s.rebuildContext(a.GameID, a.Env)
 		var rebuildErrors []error
+		resources := make(map[string]bool)
+		standaloneFunctions := make(map[string]bool)
 		for funcID, meta := range a.Functions {
 			// Infer Resource/Operation/Capability from function ID when not provided.
 			InferResourceAndCapability(funcID, &meta)
@@ -219,16 +221,12 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 			if err := s.contractService.RebuildContractFromFunctionMeta(scopeCtx, a.GameID, a.Env, "sdk", input); err != nil {
 				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild function contract %s: %w", funcID, err))
 			}
-		}
 
-		// Rebuild resource capabilities for unique resources
-		resources := make(map[string]bool)
-		standaloneFunctions := make(map[string]bool)
-		for functionID, meta := range a.Functions {
+			// Collect unique resources from the inferred meta (not the original).
 			if meta.Resource != "" {
 				resources[meta.Resource] = true
 			} else {
-				standaloneFunctions[functionID] = true
+				standaloneFunctions[funcID] = true
 			}
 		}
 		for resource := range resources {
