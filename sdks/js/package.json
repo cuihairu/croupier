@@ -20,20 +20,13 @@
     "url": "https://github.com/cuihairu/croupier-sdk-js/issues"
   },
   "packageManager": "pnpm@11.11.0",
-  "overrides": {
-    "handlebars": "^4.7.9",
-    "brace-expansion": "^2.1.2",
-    "flatted": "^3.4.2",
-    "picomatch": "^2.3.2",
-    "@babel/core": "^7.29.6",
-    "js-yaml": ">=4.3.0 <5.0.0"
-  },
   "engines": {
     "node": ">=24.0.0",
     "npm": ">=7.0.0"
   },
   "scripts": {
     "build": "tsc",
+    "build:bundle": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/croupier-sdk.js --external:node:* && esbuild examples/game_demo.ts --bundle --platform=node --format=cjs --outfile=dist/examples/game_demo.js --external:node:*",
     "build:watch": "tsc --watch",
     "clean": "rimraf dist",
     "prepublishOnly": "npm run clean && npm run build",
@@ -56,6 +49,7 @@
     "@types/node": "^22.10.0",
     "@typescript-eslint/eslint-plugin": "^8.59.0",
     "@typescript-eslint/parser": "^8.59.0",
+    "esbuild": "^0.28.1",
     "eslint": "^9.39.2",
     "eslint-config-airbnb-typescript": "^18.0.0",
     "eslint-plugin-import": "^2.32.0",
