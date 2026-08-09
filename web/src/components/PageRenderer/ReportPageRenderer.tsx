@@ -11,19 +11,8 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  ProTable,
-} from '@ant-design/pro-components';
-import {
-  Card,
-  Button,
-  Space,
-  message,
-  Typography,
-  Tabs,
-  Empty,
-  Result,
-} from 'antd';
+import { ProTable } from '@ant-design/pro-components';
+import { Card, Button, Space, message, Typography, Tabs, Empty, Result } from 'antd';
 import {
   LineChartOutlined,
   TableOutlined,
@@ -32,11 +21,7 @@ import {
 } from '@ant-design/icons';
 import { Line, Column, Pie, Area } from '@ant-design/charts';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
-import {
-  getPageStateArray,
-  mergePageState,
-  outputPatchFromResult,
-} from './runtime';
+import { getPageStateArray, mergePageState, outputPatchFromResult } from './runtime';
 import type {
   ReportPageSpec,
   ChartSpec,
@@ -47,6 +32,31 @@ import type {
 import type { ProColumns } from '@ant-design/pro-components';
 
 const { Text } = Typography;
+
+function formatCsvCell(value: FormValues[string] | undefined): string {
+  if (value === undefined || value === null) {
+    return '';
+  }
+  const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadDatasetCsv(
+  rows: FormValues[],
+  columns: Array<{ key: string; title: string }>,
+): void {
+  const header = columns.map((column) => formatCsvCell(column.title)).join(',');
+  const body = rows
+    .map((row) => columns.map((column) => formatCsvCell(row[column.key])).join(','))
+    .join('\n');
+  const blob = new Blob([`\uFEFF${header}\n${body}`], { type: 'text/csv;charset=utf-8' });
+  const href = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = href;
+  link.download = 'report.csv';
+  link.click();
+  URL.revokeObjectURL(href);
+}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -114,9 +124,7 @@ const ChartRenderer: React.FC<{ chart: ChartSpec; data: FormValues[] }> = ({ cha
               type: 'outer',
               content: '{name}: {percentage}',
             }}
-            interactions={[
-              { type: 'element-active' },
-            ]}
+            interactions={[{ type: 'element-active' }]}
           />
         );
       default:
@@ -153,15 +161,17 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<FormValues[]>([]);
-  const [activeTab, setActiveTab] = useState(spec.charts && spec.charts.length > 0 ? 'chart' : 'table');
+  const [activeTab, setActiveTab] = useState(
+    spec.charts && spec.charts.length > 0 ? 'chart' : 'table',
+  );
 
   // 查找主绑定
-  const mainBinding = bindings.find((b) => b.usage === 'report') || bindings[0];
-  const hasDatasetSemantics = spec.dataset?.dimensions?.length > 0 && spec.dataset?.metrics?.length > 0;
+  const mainBinding = bindings.find((b) => b.usage === 'report');
+  const dataset = spec.dataset;
+  const hasDatasetSemantics = dataset.dimensions.length > 0 && dataset.metrics.length > 0;
   const hasDatasetOutputSelector = !!mainBinding?.selectors?.output?.some(
     (assignment) => assignment.stateKey === 'dataset' && assignment.shape === 'dataset',
   );
-  const dataset = spec.dataset || { dimensions: [], metrics: [] };
 
   // 处理查询
   const handleQuery = useCallback(
@@ -195,18 +205,38 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         setLoading(false);
       }
     },
-    [mainBinding, onExecute, preview]
+    [mainBinding, onExecute, preview],
   );
 
   // 处理导出
   const handleExport = useCallback(
     async (format: 'csv' | 'excel') => {
-      if (!onExport) {
-        message.warning('导出功能未配置');
-        return;
-      }
       if (preview) {
         message.info('预览模式不导出数据');
+        return;
+      }
+
+      if (!onExport) {
+        if (format !== 'csv') {
+          message.warning('当前页面仅支持 CSV 导出');
+          return;
+        }
+        if (!data.length) {
+          message.warning('没有可导出的数据');
+          return;
+        }
+        const exportColumns = [
+          ...dataset.dimensions.map((dimension) => ({
+            key: dimension.key,
+            title: dimension.title['zh-CN'] || dimension.title['en'] || dimension.key,
+          })),
+          ...dataset.metrics.map((metric) => ({
+            key: metric.key,
+            title: metric.title['zh-CN'] || metric.title['en'] || metric.key,
+          })),
+        ];
+        downloadDatasetCsv(data, exportColumns);
+        message.success('导出成功');
         return;
       }
 
@@ -218,7 +248,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         message.error('导出失败: ' + msg);
       }
     },
-    [onExport, preview]
+    [data, dataset, onExport, preview],
   );
 
   // 构建表格列
@@ -295,24 +325,17 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
             <Space>
               {spec.exportable && (
                 <>
-                  <Button
-                    icon={<DownloadOutlined />}
-                    onClick={() => handleExport('csv')}
-                  >
+                  <Button icon={<DownloadOutlined />} onClick={() => handleExport('csv')}>
                     导出 CSV
                   </Button>
-                  <Button
-                    icon={<DownloadOutlined />}
-                    onClick={() => handleExport('excel')}
-                  >
-                    导出 Excel
-                  </Button>
+                  {onExport ? (
+                    <Button icon={<DownloadOutlined />} onClick={() => handleExport('excel')}>
+                      导出 Excel
+                    </Button>
+                  ) : null}
                 </>
               )}
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={() => setData([])}
-              >
+              <Button icon={<ReloadOutlined />} onClick={() => setData([])}>
                 清空
               </Button>
             </Space>

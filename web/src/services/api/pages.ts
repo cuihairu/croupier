@@ -77,7 +77,9 @@ type PageRegenerateResponse = {
   quality: 'ready' | 'basic' | 'needs_review';
 };
 
-export async function listPageDrafts(params?: PageDraftListParams): Promise<PageSpecDraftSummary[]> {
+export async function listPageDrafts(
+  params?: PageDraftListParams,
+): Promise<PageSpecDraftSummary[]> {
   const response = await request<PageDraftListResponse>(BASE, {
     method: 'GET',
     params,
@@ -115,9 +117,12 @@ export async function validatePageDraft(pageKey: string): Promise<PageValidateRe
 }
 
 export async function previewPageDraft(pageKey: string): Promise<PageSpec> {
-  const response = await request<PagePreviewResponse>(`${BASE}/${encodeURIComponent(pageKey)}/preview`, {
-    method: 'POST',
-  });
+  const response = await request<PagePreviewResponse>(
+    `${BASE}/${encodeURIComponent(pageKey)}/preview`,
+    {
+      method: 'POST',
+    },
+  );
   if (!response?.page) {
     throw new Error(`page preview returned empty page: ${pageKey}`);
   }
@@ -146,16 +151,23 @@ export async function listPageVersions(pageKey: string): Promise<PageVersionsRes
   });
 }
 
-export async function getPageVersion(pageKey: string, version: number): Promise<PageVersionDetailResponse> {
+export async function getPageVersion(
+  pageKey: string,
+  version: number,
+): Promise<PageVersionDetailResponse> {
   return request<PageVersionDetailResponse>(
     `${BASE}/${encodeURIComponent(pageKey)}/versions/${encodeURIComponent(String(version))}`,
     { method: 'GET' },
   );
 }
 
-export async function rollbackPageDraft(pageKey: string, version: number): Promise<PageRollbackResponse> {
+export async function rollbackPageDraft(
+  pageKey: string,
+  version: number,
+  expectedDraftRevision: number,
+): Promise<PageRollbackResponse> {
   return request<PageRollbackResponse>(`${BASE}/${encodeURIComponent(pageKey)}/rollback`, {
     method: 'POST',
-    data: { versionId: String(version) },
+    data: { versionId: String(version), expectedDraftRevision },
   });
 }

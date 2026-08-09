@@ -17,7 +17,7 @@ func ValidatePublishablePageShape(page PageSpec) []Diagnostic {
 	case PageTypeResource:
 		diags = append(diags, validatePublishableResourcePage(page.Resource)...)
 	case PageTypeOperation:
-		diags = append(diags, validatePublishableResultView(page.Operation.ResultView, "operation.resultView")...)
+		diags = append(diags, validatePublishableOperationPage(page.Operation, page.Bindings)...)
 	case PageTypeTask:
 		diags = append(diags, validatePublishableTaskPage(page.Task, page.Bindings)...)
 	case PageTypeReport:
@@ -109,6 +109,21 @@ func validatePublishableResourcePage(resource *ResourcePageSpec) []Diagnostic {
 		}
 	}
 	return []Diagnostic{publishShapeDiagnostic("resource_identity_key_invalid", "resource listView.identityKey must reference a list column", "resource.listView.identityKey")}
+}
+
+func validatePublishableOperationPage(operation *OperationPageSpec, bindings []PageFunctionBinding) []Diagnostic {
+	if operation == nil {
+		return nil
+	}
+	diags := validatePublishableResultView(operation.ResultView, "operation.resultView")
+	if operation.Confirm != nil && !hasBindingUsage(bindings, operation.Confirm.BindingID, BindingUsageAction) {
+		diags = append(diags, publishShapeDiagnostic(
+			"operation_confirm_binding_invalid",
+			"operation.confirm.bindingId must reference an action binding",
+			"operation.confirm.bindingId",
+		))
+	}
+	return diags
 }
 
 func validatePublishableTaskPage(task *TaskPageSpec, bindings []PageFunctionBinding) []Diagnostic {

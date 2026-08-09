@@ -48,3 +48,20 @@ func TestValidatePublishablePageShapeAcceptsSingleMatchingVariant(t *testing.T) 
 	})
 	assert.Empty(t, diagnostics)
 }
+
+func TestValidatePublishableOperationPageRequiresActionConfirmBinding(t *testing.T) {
+	page := PageSpec{
+		Type: PageTypeOperation,
+		Operation: &OperationPageSpec{
+			Confirm: &ConfirmActionSpec{BindingID: "missing"},
+		},
+		Bindings: []PageFunctionBinding{{ID: "main", Usage: BindingUsageAction}},
+	}
+
+	diagnostics := ValidatePublishablePageShape(page)
+	assert.Len(t, diagnostics, 1)
+	assert.Equal(t, "operation_confirm_binding_invalid", diagnostics[0].Code)
+
+	page.Operation.Confirm.BindingID = "main"
+	assert.Empty(t, ValidatePublishablePageShape(page))
+}

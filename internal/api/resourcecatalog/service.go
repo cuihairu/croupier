@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -367,14 +368,14 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 			return
 		}
 		changedFields = append(changedFields, field)
-		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(mustJSON(value)), "high", "effective", actor)
+		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, rawJSONString(value), "high", "effective", actor)
 	}
 	trackUint := func(field string, value uint) {
 		if value == 0 {
 			return
 		}
 		changedFields = append(changedFields, field)
-		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(mustJSON(value)), "high", "effective", actor)
+		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, rawJSONUint(value), "high", "effective", actor)
 	}
 
 	// Validate function IDs exist
@@ -1706,9 +1707,12 @@ func parseProvenance(raw []byte) map[string]*spec.SemanticProvenance {
 	return provenance
 }
 
-func mustJSON(value interface{}) []byte {
-	raw, _ := json.Marshal(value)
-	return raw
+func rawJSONString(value string) json.RawMessage {
+	return json.RawMessage(strconv.Quote(value))
+}
+
+func rawJSONUint(value uint) json.RawMessage {
+	return json.RawMessage(strconv.FormatUint(uint64(value), 10))
 }
 
 func applySemanticFieldValue(semantics *model.CapabilitySemantics, field string, raw json.RawMessage) error {
@@ -1778,7 +1782,7 @@ func (s *Service) createSemanticVersion(ctx context.Context, semantics *model.Ca
 	version := &model.CapabilitySemanticVersion{
 		SemanticsID:  semantics.ID,
 		Version:      semantics.Version,
-		Semantics:    toDatatypesJSON(semantics),
+		Semantics:    capabilitySemanticsJSON(semantics),
 		SourceDigest: semantics.SourceDigest,
 		ChangeReason: strings.TrimSpace(reason),
 		CreatedBy:    actor,
@@ -1792,8 +1796,11 @@ func (s *Service) createSemanticVersion(ctx context.Context, semantics *model.Ca
 	return nil
 }
 
-func toDatatypesJSON(value interface{}) datatypes.JSON {
-	raw, _ := json.Marshal(value)
+func capabilitySemanticsJSON(value *model.CapabilitySemantics) datatypes.JSON {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil
+	}
 	return datatypes.JSON(raw)
 }
 

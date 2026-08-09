@@ -1,7 +1,9 @@
 package normalizer
 
 import (
+	"bytes"
 	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -29,19 +31,36 @@ func NewSemanticProvenanceTracker() *SemanticProvenanceTracker {
 	}
 }
 
-// TrackField records a field value from a specific source and detects conflicts.
+// TrackString records a string field value from a specific source and detects conflicts.
 // Returns true if the value was accepted (no conflict or higher priority).
-func (t *SemanticProvenanceTracker) TrackField(
+func (t *SemanticProvenanceTracker) TrackString(
 	field string,
-	value interface{},
+	value string,
 	source spec.SemanticSource,
 	sourceDigest string,
 	updatedBy string,
 ) bool {
-	valueJSON, err := json.Marshal(value)
-	if err != nil {
-		return false
-	}
+	return t.trackRaw(field, json.RawMessage(strconv.Quote(value)), source, sourceDigest, updatedBy)
+}
+
+// TrackUint records an unsigned integer field value from a specific source.
+func (t *SemanticProvenanceTracker) TrackUint(
+	field string,
+	value uint,
+	source spec.SemanticSource,
+	sourceDigest string,
+	updatedBy string,
+) bool {
+	return t.trackRaw(field, json.RawMessage(strconv.FormatUint(uint64(value), 10)), source, sourceDigest, updatedBy)
+}
+
+func (t *SemanticProvenanceTracker) trackRaw(
+	field string,
+	valueJSON json.RawMessage,
+	source spec.SemanticSource,
+	sourceDigest string,
+	updatedBy string,
+) bool {
 
 	existing, exists := t.provenance[field]
 	if !exists {
@@ -193,16 +212,56 @@ func valuesEqual(a, b json.RawMessage) bool {
 		return false
 	}
 
-	var va, vb interface{}
-	if err := json.Unmarshal(a, &va); err != nil {
+	canonicalA, err := canonicalJSON(a)
+	if err != nil {
 		return false
 	}
-	if err := json.Unmarshal(b, &vb); err != nil {
+	canonicalB, err := canonicalJSON(b)
+	if err != nil {
 		return false
+	}
+	return bytes.Equal(canonicalA, canonicalB)
+}
+
+// canonicalJSON normalizes object key order without decoding into untyped values.
+func canonicalJSON(value json.RawMessage) (json.RawMessage, error) {
+	trimmed := bytes.TrimSpace(value)
+	if len(trimmed) == 0 {
+		return nil, nil
 	}
 
-	// Compare by marshaling to canonical form
-	ca, _ := json.Marshal(va)
-	cb, _ := json.Marshal(vb)
-	return string(ca) == string(cb)
+	switch trimmed[0] {
+	case '{':
+		var object map[string]json.RawMessage
+		if err := json.Unmarshal(trimmed, &object); err != nil {
+			return nil, err
+		}
+		for key, item := range object {
+			canonical, err := canonicalJSON(item)
+			if err != nil {
+				return nil, err
+			}
+			object[key] = canonical
+		}
+		return json.Marshal(object)
+	case '[':
+		var array []json.RawMessage
+		if err := json.Unmarshal(trimmed, &array); err != nil {
+			return nil, err
+		}
+		for index, item := range array {
+			canonical, err := canonicalJSON(item)
+			if err != nil {
+				return nil, err
+			}
+			array[index] = canonical
+		}
+		return json.Marshal(array)
+	default:
+		var compact bytes.Buffer
+		if err := json.Compact(&compact, trimmed); err != nil {
+			return nil, err
+		}
+		return compact.Bytes(), nil
+	}
 }

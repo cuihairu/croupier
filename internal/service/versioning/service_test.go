@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dashboardmerge "github.com/cuihairu/croupier/internal/dashboard/merge"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
@@ -254,10 +255,11 @@ func TestVersioningService_MergeAutoNoDraft(t *testing.T) {
 
 	// Test auto merge without draft should fail
 	_, err := service.Merge(ctx, &MergeRequest{
-		GameID:   "demo-game",
-		Env:      "development",
-		PageKey:  "resource--player",
-		Strategy: MergeStrategyAuto,
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "resource--player",
+		ExpectedDraftRevision: 1,
+		Strategy:              MergeStrategyAuto,
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "page draft not found")
@@ -317,10 +319,11 @@ func TestVersioningService_MergeManualRequiresExactConflictResolutions(t *testin
 	seedVersioningMergeFixture(t, db, basePage, draftPage, latestPage)
 
 	_, err := service.Merge(ctx, &MergeRequest{
-		GameID:   "demo-game",
-		Env:      "development",
-		PageKey:  "operation--player.ban",
-		Strategy: MergeStrategyManual,
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "operation--player.ban",
+		ExpectedDraftRevision: 1,
+		Strategy:              MergeStrategyManual,
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "manual merge must resolve exactly the current conflicts")
@@ -454,10 +457,11 @@ func TestVersioningService_MergeManualAppliesAutoAndConflictResolutions(t *testi
 	seedVersioningMergeFixture(t, db, basePage, draftPage, latestPage)
 
 	result, err := service.Merge(ctx, &MergeRequest{
-		GameID:   "demo-game",
-		Env:      "development",
-		PageKey:  "operation--player.ban",
-		Strategy: MergeStrategyManual,
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "operation--player.ban",
+		ExpectedDraftRevision: 1,
+		Strategy:              MergeStrategyManual,
 		Conflicts: []ConflictResolution{{
 			Path:      "operation.confirm",
 			AcceptNew: true,
@@ -488,36 +492,114 @@ func TestVersioningService_MergeManualAppliesAutoAndConflictResolutions(t *testi
 	assert.Equal(t, "manual review", versions[0].Message)
 }
 
-func TestVersioningService_RollbackDraftNoData(t *testing.T) {
+func TestVersioningService_RollbackDraftRejectsStaleRevision(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
+	page := spec.PageSpec{
+		PageKey:     "resource--player",
+		Type:        spec.PageTypeResource,
+		ResourceKey: "player",
+		Title:       spec.LocalizedText{"zh-CN": "玩家"},
+		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+	}
+	restored := page
+	restored.Title = spec.LocalizedText{"zh-CN": "旧版玩家"}
+	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", page))
+	require.NoError(t, createVersioningTestPageVersion(db, "demo-game", "development", restored, 2, "old draft"))
 
-	// Rollback draft without data should fail
 	_, err := service.RollbackDraft(ctx, &RollbackRequest{
-		GameID:  "demo-game",
-		Env:     "development",
-		PageKey: "resource--player",
-		Version: 1,
-		Reason:  "test rollback",
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "resource--player",
+		ExpectedDraftRevision: 2,
+		Version:               2,
+		Reason:                "test rollback",
 	})
-	assert.Error(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page draft revision conflict")
+
+	current, findErr := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "resource--player")
+	require.NoError(t, findErr)
+	assert.Equal(t, 1, current.DraftRevision)
+	assert.Equal(t, page.Title["zh-CN"], current.GetTitle()["zh-CN"])
 }
 
-func TestVersioningService_RollbackPublishNoData(t *testing.T) {
+func TestVersioningService_RollbackPublishRejectsStaleRevision(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewService(db)
+	page := spec.PageSpec{
+		PageKey:     "resource--player",
+		Type:        spec.PageTypeResource,
+		ResourceKey: "player",
+		Title:       spec.LocalizedText{"zh-CN": "玩家"},
+		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+	}
+	published := page
+	published.Title = spec.LocalizedText{"zh-CN": "已发布旧版玩家"}
+	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", page))
+	publishedJSON, err := marshalPageSpec(published)
+	require.NoError(t, err)
+	require.NoError(t, model.NewPublishedPageSpecModel(db).Create(ctx, &model.PublishedPageSpec{
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "resource--player",
+		Version:               1,
+		SpecJSON:              publishedJSON,
+		RendererSchemaVersion: "page-spec:1",
+		Active:                true,
+		PublishedAt:           time.Now(),
+		PublishedBy:           "tester",
+	}))
+
+	_, err = service.RollbackPublish(ctx, &RollbackRequest{
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "resource--player",
+		ExpectedDraftRevision: 2,
+		Version:               1,
+		Reason:                "test rollback",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page draft revision conflict")
+
+	current, findErr := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "resource--player")
+	require.NoError(t, findErr)
+	assert.Equal(t, 1, current.DraftRevision)
+	assert.Equal(t, page.Title["zh-CN"], current.GetTitle()["zh-CN"])
+}
+
+func TestVersioningService_MergeRejectsStaleRevision(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
 
-	// Rollback publish without data should fail
-	_, err := service.RollbackPublish(ctx, &RollbackRequest{
-		GameID:  "demo-game",
-		Env:     "development",
-		PageKey: "resource--player",
-		Version: 1,
-		Reason:  "test rollback",
+	basePage := spec.PageSpec{
+		PageKey:  "operation--player.ban",
+		Type:     spec.PageTypeOperation,
+		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Bindings: []spec.PageFunctionBinding{{
+			ID: "run", FunctionID: "player.ban", Usage: spec.BindingUsageAction,
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		}},
+		Operation: &spec.OperationPageSpec{},
+	}
+	draftPage := basePage
+	latestPage := basePage
+	latestPage.Title = spec.LocalizedText{"zh-CN": "新版封禁玩家"}
+	seedVersioningMergeFixture(t, db, basePage, draftPage, latestPage)
+
+	_, err := service.Merge(ctx, &MergeRequest{
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               basePage.PageKey,
+		ExpectedDraftRevision: 2,
+		Strategy:              MergeStrategyAuto,
 	})
-	assert.Error(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page draft revision conflict")
 }
 
 func TestVersioningService_RegenerateProposal(t *testing.T) {
@@ -703,6 +785,25 @@ func TestSamePageSpecV3(t *testing.T) {
 	spec5 := spec.PageSpec{PageKey: "test1"}
 	spec6 := spec.PageSpec{PageKey: "test2"}
 	assert.False(t, samePageSpec(spec5, spec6))
+}
+
+func TestApplyAutoMergeItemsAppliesResourceDefaultSort(t *testing.T) {
+	page := spec.PageSpec{
+		Type: spec.PageTypeResource,
+		Resource: &spec.ResourcePageSpec{ListView: &spec.ListViewSpec{
+			DefaultSort: &spec.SortSpec{Field: "name", Order: "asc"},
+		}},
+	}
+	merged, err := applyAutoMergeItems(page, []dashboardmerge.MergeItem{{
+		Field:       "resource.listView.defaultSort",
+		MergedValue: json.RawMessage(`{"field":"level","order":"desc"}`),
+	}})
+	require.NoError(t, err)
+	require.NotNil(t, merged.Resource)
+	require.NotNil(t, merged.Resource.ListView)
+	require.NotNil(t, merged.Resource.ListView.DefaultSort)
+	assert.Equal(t, "level", merged.Resource.ListView.DefaultSort.Field)
+	assert.Equal(t, "desc", merged.Resource.ListView.DefaultSort.Order)
 }
 
 func TestNewService(t *testing.T) {

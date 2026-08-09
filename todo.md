@@ -250,7 +250,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/dashboard/spec -count=1` 与共享 selector vector 测试通过。
       Handoff: `C-002` 至 `C-011` 和 `G-003` 使用校验器。
 
-- [ ] `D-003` 发布冻结 BindingContractSnapshot
+- [x] `D-003` 发布冻结 BindingContractSnapshot
       Owner: unassigned
       Depends: [`D-001`, `C-001`]
       Scope: `internal/service/proposal_service.go`, `internal/model/page_spec.go`。
@@ -259,7 +259,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: proposal publish 服务测试验证 snapshot 内容。
       Handoff: `D-004`、`G-003` 使用同一 snapshot。
 
-- [ ] `D-004` stale 检测与执行拒绝
+- [x] `D-004` stale 检测与执行拒绝
       Owner: unassigned
       Depends: [`D-003`, `D-002`]
       Scope: `internal/dashboard/freshness/`, `internal/api/console/`。
@@ -268,7 +268,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: freshness 与 console stale execute 服务测试。
       Handoff: `F-003` 展示契约变更队列。
 
-- [ ] `D-005` 三方合并安全集
+- [x] `D-005` 三方合并安全集
       Owner: unassigned
       Depends: [`D-004`]
       Scope: `internal/dashboard/merge/`, `internal/service/versioning/`。
@@ -277,7 +277,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: merge 服务测试覆盖 safe 与 conflict 字段。
       Handoff: `F-004` 可请求自动合并。
 
-- [ ] `D-006` 三方合并人工决策与回滚
+- [x] `D-006` 三方合并人工决策与回滚
       Owner: unassigned
       Depends: [`D-005`]
       Scope: `internal/service/versioning/`, `internal/api/page/`。
@@ -288,7 +288,7 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## E. 唯一前端运行时
 
-- [ ] `E-001` 唯一 SchemaFormRenderer
+- [x] `E-001` 唯一 SchemaFormRenderer
       Owner: unassigned
       Depends: [`D-001`]
       Scope: `web/src/components/SchemaFormRenderer/`, `web/package.json`。

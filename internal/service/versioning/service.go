@@ -372,13 +372,14 @@ const (
 
 // MergeRequest is the request for merging changes.
 type MergeRequest struct {
-	GameID    string               `json:"-"`
-	Env       string               `json:"-"`
-	PageKey   string               `json:"-"`
-	Strategy  MergeStrategy        `json:"strategy"`
-	DryRun    bool                 `json:"dryRun,omitempty"`
-	Conflicts []ConflictResolution `json:"conflicts,omitempty"`
-	Reason    string               `json:"reason,omitempty"`
+	GameID                string               `json:"-"`
+	Env                   string               `json:"-"`
+	PageKey               string               `json:"-"`
+	ExpectedDraftRevision int                  `json:"expectedDraftRevision,omitempty"`
+	Strategy              MergeStrategy        `json:"strategy"`
+	DryRun                bool                 `json:"dryRun,omitempty"`
+	Conflicts             []ConflictResolution `json:"conflicts,omitempty"`
+	Reason                string               `json:"reason,omitempty"`
 }
 
 // ConflictResolution represents how to resolve a specific conflict.
@@ -396,6 +397,13 @@ type MergeResponse struct {
 	DraftRevision  int                            `json:"draftRevision,omitempty"`
 	AutoMergeItems []dashboardmerge.MergeItem     `json:"autoMergeItems,omitempty"`
 	ConflictItems  []dashboardmerge.MergeConflict `json:"conflictItems,omitempty"`
+}
+
+func draftRevisionConflict(expected, current int) error {
+	return errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+		"expected": expected,
+		"current":  current,
+	})
 }
 
 // Merge applies changes with the given strategy.
@@ -416,10 +424,16 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 	if req.Strategy == MergeStrategyAccept {
 		return nil, errorx.NewValidationError("accept-all merge is forbidden; resolve execution-affecting conflicts explicitly")
 	}
+	if !req.DryRun && req.ExpectedDraftRevision <= 0 {
+		return nil, errorx.NewBadRequest("expectedDraftRevision is required")
+	}
 
 	page, err := s.pageModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
 	if err != nil {
 		return nil, errorx.NewNotFound("page draft not found")
+	}
+	if !req.DryRun && page.DraftRevision != req.ExpectedDraftRevision {
+		return nil, draftRevisionConflict(req.ExpectedDraftRevision, page.DraftRevision)
 	}
 	proposalKey := strings.TrimSpace(page.BaseProposalKey)
 	if proposalKey == "" || page.BaseProposalVersion <= 0 {
@@ -775,6 +789,13 @@ func applyAutoMergeItem(page *spec.PageSpec, item dashboardmerge.MergeItem) erro
 			page.Navigation = &spec.NavigationSpec{}
 		}
 		return decodeMergeValue(item, &page.Navigation.Breadcrumb)
+	case "resource.listView.defaultSort":
+		var value *spec.SortSpec
+		if err := decodeMergeValue(item, &value); err != nil {
+			return err
+		}
+		ensureResourceListView(page).DefaultSort = value
+		return nil
 	}
 	if handled, err := applyIndexedAutoMergeItem(page, item); handled || err != nil {
 		return err
@@ -820,6 +841,9 @@ func (s *Service) persistMergedDraft(ctx context.Context, params persistMergedDr
 		latestCurrent, err := pageModel.FindByScopeAndPageKey(txCtx, params.Request.GameID, params.Request.Env, params.PageKey)
 		if err != nil {
 			return err
+		}
+		if latestCurrent.DraftRevision != params.Request.ExpectedDraftRevision {
+			return draftRevisionConflict(params.Request.ExpectedDraftRevision, latestCurrent.DraftRevision)
 		}
 		if writeRevision {
 			nextRevision, err = versionModel.GetNextVersion(txCtx, params.Request.GameID, params.Request.Env, params.PageKey)
@@ -1455,11 +1479,12 @@ func samePageSpec(left spec.PageSpec, right spec.PageSpec) bool {
 
 // RollbackRequest is the request for rollback.
 type RollbackRequest struct {
-	GameID  string `json:"-"`
-	Env     string `json:"-"`
-	PageKey string `json:"-"`
-	Version int    `json:"version"`
-	Reason  string `json:"reason,omitempty"`
+	GameID                string `json:"-"`
+	Env                   string `json:"-"`
+	PageKey               string `json:"-"`
+	ExpectedDraftRevision int    `json:"expectedDraftRevision"`
+	Version               int    `json:"version"`
+	Reason                string `json:"reason,omitempty"`
 }
 
 // RollbackResponse is the response for rollback.
@@ -1474,6 +1499,9 @@ type RollbackResponse struct {
 func (s *Service) RollbackDraft(ctx context.Context, req *RollbackRequest) (*RollbackResponse, error) {
 	if req.Version <= 0 {
 		return nil, errorx.NewBadRequest("version is required")
+	}
+	if req.ExpectedDraftRevision <= 0 {
+		return nil, errorx.NewBadRequest("expectedDraftRevision is required")
 	}
 	pageKey := strings.TrimSpace(req.PageKey)
 	if pageKey == "" {
@@ -1501,12 +1529,10 @@ func (s *Service) RollbackDraft(ctx context.Context, req *RollbackRequest) (*Rol
 			return err
 		}
 		if page == nil {
-			page = &model.PageSpec{
-				GameID:    req.GameID,
-				Env:       req.Env,
-				PageKey:   pageKey,
-				CreatedAt: now,
-			}
+			return errorx.NewNotFound("page draft not found")
+		}
+		if page.DraftRevision != req.ExpectedDraftRevision {
+			return draftRevisionConflict(req.ExpectedDraftRevision, page.DraftRevision)
 		}
 		nextRevision, err = versionModel.GetNextVersion(txCtx, req.GameID, req.Env, pageKey)
 		if err != nil {
@@ -1555,6 +1581,9 @@ func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*R
 	if req.Version <= 0 {
 		return nil, errorx.NewBadRequest("version is required")
 	}
+	if req.ExpectedDraftRevision <= 0 {
+		return nil, errorx.NewBadRequest("expectedDraftRevision is required")
+	}
 	pageKey := strings.TrimSpace(req.PageKey)
 	if pageKey == "" {
 		return nil, errorx.NewBadRequest("pageKey is required")
@@ -1587,7 +1616,10 @@ func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*R
 			return err
 		}
 		if page == nil {
-			page = &model.PageSpec{GameID: req.GameID, Env: req.Env, PageKey: pageKey, CreatedAt: now}
+			return errorx.NewNotFound("page draft not found")
+		}
+		if page.DraftRevision != req.ExpectedDraftRevision {
+			return draftRevisionConflict(req.ExpectedDraftRevision, page.DraftRevision)
 		}
 		if err := applyPageSpecToModel(page, pageSpec); err != nil {
 			return err
@@ -1803,7 +1835,7 @@ func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*Republ
 }
 
 const rendererSchemaVersion = "page-spec:1"
-const pageProposalGeneratorVersion = "dashboard-vnext-1"
+const pageProposalGeneratorVersion = "page-generator:1"
 
 func (s *Service) findPageVersion(ctx context.Context, gameID, env, pageKey string, version int) (*model.PageVersion, error) {
 	versions, err := s.pageVersionModel.ListByScopeAndPageKey(ctx, gameID, env, pageKey)

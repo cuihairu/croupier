@@ -226,7 +226,7 @@ function cloneSchema(schema: JSONSchema): RJSFSchema {
   return JSON.parse(JSON.stringify(schema || {})) as RJSFSchema;
 }
 
-function deriveRuntimeSchema(
+export function deriveRuntimeSchema(
   spec: FormPresentationSpec,
   values: FormValues,
 ): {

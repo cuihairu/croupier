@@ -33,34 +33,40 @@ func collectUnsupportedSchemaFeatures(raw json.RawMessage, reasons map[string]st
 	if len(raw) == 0 {
 		return
 	}
-	var value interface{}
-	if err := json.Unmarshal(raw, &value); err != nil {
+	if !json.Valid(raw) {
 		reasons["invalid_json"] = struct{}{}
 		return
 	}
-	collectUnsupportedSchemaValue(value, reasons)
+	collectUnsupportedSchemaValue(raw, reasons)
 }
 
-func collectUnsupportedSchemaValue(value interface{}, reasons map[string]struct{}) {
-	switch typed := value.(type) {
-	case map[string]interface{}:
-		if _, ok := typed["oneOf"]; ok {
+func collectUnsupportedSchemaValue(raw json.RawMessage, reasons map[string]struct{}) {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err == nil {
+		if object == nil {
+			return
+		}
+		if _, ok := object["oneOf"]; ok {
 			reasons["oneOf"] = struct{}{}
 		}
-		if _, ok := typed["anyOf"]; ok {
+		if _, ok := object["anyOf"]; ok {
 			reasons["anyOf"] = struct{}{}
 		}
-		if _, ok := typed["discriminator"]; ok {
+		if _, ok := object["discriminator"]; ok {
 			reasons["discriminator"] = struct{}{}
 		}
-		if ref, ok := typed["$ref"].(string); ok && isRemoteRef(ref) {
+		var ref string
+		if refRaw, ok := object["$ref"]; ok && json.Unmarshal(refRaw, &ref) == nil && isRemoteRef(ref) {
 			reasons["remote_$ref"] = struct{}{}
 		}
-		for _, child := range typed {
+		for _, child := range object {
 			collectUnsupportedSchemaValue(child, reasons)
 		}
-	case []interface{}:
-		for _, child := range typed {
+		return
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(raw, &items); err == nil {
+		for _, child := range items {
 			collectUnsupportedSchemaValue(child, reasons)
 		}
 	}

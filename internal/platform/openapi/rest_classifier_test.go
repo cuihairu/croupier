@@ -35,7 +35,7 @@ func TestRESTCapabilityClassifier_ClassifyOperation(t *testing.T) {
 			path:           "/api/v1/players",
 			wantCapability: spec.CapabilityCollectionQuery,
 			wantConfidence: "high",
-			wantResource:   "api",
+			wantResource:   "players",
 		},
 
 		// Item query patterns
@@ -103,7 +103,15 @@ func TestRESTCapabilityClassifier_ClassifyOperation(t *testing.T) {
 			method:         "POST",
 			path:           "/players/{playerId}/ban",
 			wantCapability: spec.CapabilityAction,
-			wantConfidence: "medium",
+			wantConfidence: "low",
+			wantResource:   "players",
+		},
+		{
+			name:           "GET nested resource path -> action",
+			method:         "GET",
+			path:           "/players/{playerId}/inventory",
+			wantCapability: spec.CapabilityAction,
+			wantConfidence: "low",
 			wantResource:   "players",
 		},
 		{
@@ -111,7 +119,7 @@ func TestRESTCapabilityClassifier_ClassifyOperation(t *testing.T) {
 			method:         "DELETE",
 			path:           "/players",
 			wantCapability: spec.CapabilityAction,
-			wantConfidence: "medium",
+			wantConfidence: "low",
 			wantResource:   "players",
 		},
 

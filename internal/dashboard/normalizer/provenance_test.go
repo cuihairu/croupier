@@ -12,7 +12,7 @@ func TestSemanticProvenanceTracker_TrackField(t *testing.T) {
 	tracker := NewSemanticProvenanceTracker()
 
 	// Test tracking a new field
-	accepted := tracker.TrackField(
+	accepted := tracker.TrackString(
 		"identityField",
 		"player_id",
 		spec.SemanticSourceSDKExplicit,
@@ -29,7 +29,7 @@ func TestSemanticProvenanceTracker_TrackField(t *testing.T) {
 	assert.Equal(t, "high", provenance["identityField"].Confidence)
 
 	// Test tracking same field with same value from different source
-	accepted = tracker.TrackField(
+	accepted = tracker.TrackString(
 		"identityField",
 		"player_id",
 		spec.SemanticSourceOpenAPIRest,
@@ -39,7 +39,7 @@ func TestSemanticProvenanceTracker_TrackField(t *testing.T) {
 	assert.True(t, accepted) // Same value, accepted
 
 	// Test tracking same field with different value from lower priority source
-	accepted = tracker.TrackField(
+	accepted = tracker.TrackString(
 		"identityField",
 		"id",
 		spec.SemanticSourceOpenAPIRest,
@@ -58,7 +58,7 @@ func TestSemanticProvenanceTracker_PriorityOverride(t *testing.T) {
 	tracker := NewSemanticProvenanceTracker()
 
 	// Track with low priority first
-	tracker.TrackField(
+	tracker.TrackString(
 		"identityField",
 		"id",
 		spec.SemanticSourceOpenAPIRest,
@@ -67,7 +67,7 @@ func TestSemanticProvenanceTracker_PriorityOverride(t *testing.T) {
 	)
 
 	// Track with higher priority - should override
-	accepted := tracker.TrackField(
+	accepted := tracker.TrackString(
 		"identityField",
 		"player_id",
 		spec.SemanticSourceSDKExplicit,
@@ -90,8 +90,8 @@ func TestSemanticProvenanceTracker_ResolveConflict(t *testing.T) {
 	tracker := NewSemanticProvenanceTracker()
 
 	// Create a conflict with same priority sources
-	tracker.TrackField("identityField", "player_id", spec.SemanticSourceSDKExplicit, "d1", "user1")
-	tracker.TrackField("identityField", "id", spec.SemanticSourceSDKExplicit, "d2", "user2")
+	tracker.TrackString("identityField", "player_id", spec.SemanticSourceSDKExplicit, "d1", "user1")
+	tracker.TrackString("identityField", "id", spec.SemanticSourceSDKExplicit, "d2", "user2")
 
 	assert.True(t, tracker.HasConflicts())
 

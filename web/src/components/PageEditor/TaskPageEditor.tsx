@@ -6,31 +6,10 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import {
-  Button,
-  Card,
-  Collapse,
-  Form,
-  Input,
-  Select,
-  Space,
-  Switch,
-  Tag,
-  Typography,
-} from 'antd';
-import {
-  DeleteOutlined,
-  FileTextOutlined,
-  PlusOutlined,
-  ProfileOutlined,
-  ScheduleOutlined,
-} from '@ant-design/icons';
-import type {
-  ResultFieldSpec,
-  ResultViewSpec,
-  TaskPageSpec,
-  TaskViewSpec,
-} from '@/types/dashboard';
+import { Card, Collapse, Form, Input, Select, Space, Switch, Tag, Typography } from 'antd';
+import { FileTextOutlined, ProfileOutlined, ScheduleOutlined } from '@ant-design/icons';
+import type { ResultViewSpec, TaskPageSpec, TaskViewSpec } from '@/types/dashboard';
+import FormPresentationEditor from './FormPresentationEditor';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -41,20 +20,7 @@ export interface TaskPageEditorProps {
   readonly?: boolean;
 }
 
-const updateResultField = (
-  fields: ResultFieldSpec[],
-  index: number,
-  updates: Partial<ResultFieldSpec>,
-): ResultFieldSpec[] =>
-  fields.map((field, currentIndex) =>
-    currentIndex === index ? { ...field, ...updates } : field,
-  );
-
-export default function TaskPageEditor({
-  value,
-  onChange,
-  readonly = false,
-}: TaskPageEditorProps) {
+export default function TaskPageEditor({ value, onChange, readonly = false }: TaskPageEditorProps) {
   const [activeKey, setActiveKey] = useState<string[]>(['taskView']);
 
   const handleTaskViewChange = useCallback(
@@ -81,29 +47,6 @@ export default function TaskPageEditor({
       });
     },
     [onChange, value],
-  );
-
-  const handleAddResultField = useCallback(() => {
-    const fields = value.resultView?.fields || [];
-    handleResultViewChange({
-      fields: [
-        ...fields,
-        {
-          key: `field_${fields.length + 1}`,
-          title: { 'zh-CN': '新字段' },
-          dataType: 'string',
-        },
-      ],
-    });
-  }, [handleResultViewChange, value.resultView?.fields]);
-
-  const handleDeleteResultField = useCallback(
-    (index: number) => {
-      const fields = [...(value.resultView?.fields || [])];
-      fields.splice(index, 1);
-      handleResultViewChange({ fields });
-    },
-    [handleResultViewChange, value.resultView?.fields],
   );
 
   return (
@@ -195,17 +138,11 @@ export default function TaskPageEditor({
         }
         key="form"
       >
-        <Text type="secondary">
-          启动表单来自 JSON Schema + FormPresentationSpec，运行时统一由 SchemaFormRenderer 渲染。
-        </Text>
-        <div style={{ marginTop: 16 }}>
-          {value.form?.fields?.map((field) => (
-            <Tag key={field.key} style={{ marginBottom: 4 }}>
-              {field.label?.['zh-CN'] || field.key}
-              {field.widget && <Text type="secondary"> ({field.widget})</Text>}
-            </Tag>
-          ))}
-        </div>
+        <FormPresentationEditor
+          value={value.form}
+          onChange={(form) => onChange({ ...value, form })}
+          readonly={readonly}
+        />
       </Panel>
 
       <Panel
@@ -218,16 +155,7 @@ export default function TaskPageEditor({
         }
         key="resultView"
       >
-        <div style={{ marginBottom: 16 }}>
-          <Button
-            type="dashed"
-            icon={<PlusOutlined />}
-            onClick={handleAddResultField}
-            disabled={readonly}
-          >
-            添加结果字段
-          </Button>
-        </div>
+        <Text type="secondary">结果字段来自已发布输出映射；这里只调整展示标题和格式。</Text>
 
         {value.resultView?.fields?.map((field, index) => (
           <Card
@@ -240,16 +168,6 @@ export default function TaskPageEditor({
                 <Tag>{field.dataType}</Tag>
               </Space>
             }
-            extra={
-              !readonly && (
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleDeleteResultField(index)}
-                />
-              )
-            }
           >
             <Form layout="inline" disabled={readonly}>
               <Form.Item label="标题">
@@ -257,9 +175,11 @@ export default function TaskPageEditor({
                   size="small"
                   value={field.title?.['zh-CN'] || ''}
                   onChange={(event) => {
-                    const fields = updateResultField(value.resultView?.fields || [], index, {
-                      title: { ...field.title, 'zh-CN': event.target.value },
-                    });
+                    const fields = (value.resultView?.fields || []).map((current, currentIndex) =>
+                      currentIndex === index
+                        ? { ...current, title: { ...field.title, 'zh-CN': event.target.value } }
+                        : current,
+                    );
                     handleResultViewChange({ fields });
                   }}
                 />
@@ -269,9 +189,9 @@ export default function TaskPageEditor({
                   size="small"
                   value={field.dataType}
                   onChange={(dataType) => {
-                    const fields = updateResultField(value.resultView?.fields || [], index, {
-                      dataType,
-                    });
+                    const fields = (value.resultView?.fields || []).map((current, currentIndex) =>
+                      currentIndex === index ? { ...current, dataType } : current,
+                    );
                     handleResultViewChange({ fields });
                   }}
                   style={{ width: 120 }}

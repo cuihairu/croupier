@@ -1133,6 +1133,8 @@ export interface ConflictResolution {
 
 /** 合并请求 */
 export interface MergeRequest {
+  /** 非 dry-run 写操作必须携带当前草稿 revision。 */
+  expectedDraftRevision?: number;
   strategy: MergeStrategy;
   dryRun?: boolean;
   conflicts?: ConflictResolution[];

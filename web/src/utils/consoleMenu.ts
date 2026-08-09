@@ -58,14 +58,10 @@ export function buildMenuFromConsoleSpec(
   consoleMenu: ConsoleMenuSpec,
   locale: string,
 ): MenuDataItem[] {
-  if (!consoleMenu?.items || consoleMenu.items.length === 0) {
-    return defaultMenuData;
-  }
-
   return defaultMenuData.map((item): RuntimeMenuItem => {
     if (item.path === '/console' || item.key === '/console') {
       const homeChild = (item.children || []).find((child) => child.path === '/console/home');
-      const dynamicChildren: RuntimeMenuItem[] = consoleMenu.items.map((category) => ({
+      const dynamicChildren: RuntimeMenuItem[] = (consoleMenu?.items || []).map((category) => ({
         key: category.path,
         path: category.path,
         name: resolveLocalizedText(category.title, locale, category.key),

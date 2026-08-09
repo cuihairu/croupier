@@ -239,14 +239,15 @@ export default function PageStudio() {
       setDiffVisible(true);
       setDiffLoading(true);
       try {
-        setDiffData(await getDiff(pageKey));
+        const [_, diff] = await Promise.all([loadDraftDetail(pageKey), getDiff(pageKey)]);
+        setDiffData(diff);
       } catch {
         message.error('加载 Diff 失败');
       } finally {
         setDiffLoading(false);
       }
     },
-    [message],
+    [loadDraftDetail, message],
   );
 
   const loadVersionHistory = useCallback(
@@ -270,16 +271,26 @@ export default function PageStudio() {
     async (pageKey: string) => {
       setSelectedPageKey(pageKey);
       setVersionsVisible(true);
-      await loadVersionHistory(pageKey);
+      await Promise.all([loadDraftDetail(pageKey), loadVersionHistory(pageKey)]);
     },
-    [loadVersionHistory],
+    [loadDraftDetail, loadVersionHistory],
   );
 
   const handleMerge = useCallback(
     async (strategy: MergeStrategy) => {
+      if (!selectedPageKey || selectedDraftRevision <= 0) {
+        message.error('页面草稿版本无效，请刷新后重试');
+        return;
+      }
       setMergeLoading(true);
       try {
-        const result = await mergeChanges(selectedPageKey, { strategy });
+        const result = await mergeChanges(selectedPageKey, {
+          expectedDraftRevision: selectedDraftRevision,
+          strategy,
+        });
+        if (result.draftRevision) {
+          setSelectedDraftRevision(result.draftRevision);
+        }
         message.success(`合并完成：${result.merged} 项自动合并，${result.conflicts} 项冲突`);
         setMergeVisible(false);
         loadDrafts();
@@ -289,7 +300,7 @@ export default function PageStudio() {
         setMergeLoading(false);
       }
     },
-    [loadDrafts, message, selectedPageKey],
+    [loadDrafts, message, selectedDraftRevision, selectedPageKey],
   );
 
   const handleOpenManualMerge = useCallback(async () => {
@@ -319,10 +330,14 @@ export default function PageStudio() {
       setMergeLoading(true);
       try {
         const result = await mergeChanges(selectedPageKey, {
+          expectedDraftRevision: selectedDraftRevision,
           strategy: 'manual',
           conflicts: payload.conflicts,
           reason: payload.reason,
         });
+        if (result.draftRevision) {
+          setSelectedDraftRevision(result.draftRevision);
+        }
         message.success(`合并完成：草稿已更新到版本 ${result.draftRevision || '-'}`);
         setManualMergeVisible(false);
         setManualMergePreview(null);
@@ -333,7 +348,7 @@ export default function PageStudio() {
         setMergeLoading(false);
       }
     },
-    [loadDrafts, manualMergePreview, message, selectedPageKey],
+    [loadDrafts, manualMergePreview, message, selectedDraftRevision, selectedPageKey],
   );
 
   const handleRollbackDraftVersion = useCallback(
@@ -343,16 +358,18 @@ export default function PageStudio() {
       }
       try {
         const result = await rollbackDraft(selectedPageKey, {
+          expectedDraftRevision: selectedDraftRevision,
           version,
           reason: 'rollback draft from page studio',
         });
+        setSelectedDraftRevision(result.draftRevision);
         message.success(result.message);
         await Promise.all([loadDrafts(), loadVersionHistory(selectedPageKey)]);
       } catch {
         message.error('回滚草稿失败');
       }
     },
-    [loadDrafts, loadVersionHistory, message, selectedPageKey],
+    [loadDrafts, loadVersionHistory, message, selectedDraftRevision, selectedPageKey],
   );
 
   const handleRollbackPublishedVersion = useCallback(
@@ -362,16 +379,18 @@ export default function PageStudio() {
       }
       try {
         const result = await rollbackPublish(selectedPageKey, {
+          expectedDraftRevision: selectedDraftRevision,
           version,
           reason: 'rollback published page from page studio',
         });
+        setSelectedDraftRevision(result.draftRevision);
         message.success(result.message);
         await Promise.all([loadDrafts(), loadVersionHistory(selectedPageKey)]);
       } catch {
         message.error('回滚发布失败');
       }
     },
-    [loadDrafts, loadVersionHistory, message, selectedPageKey],
+    [loadDrafts, loadVersionHistory, message, selectedDraftRevision, selectedPageKey],
   );
 
   const columns: ProColumns<PageSpecDraftSummary>[] = [

@@ -430,6 +430,16 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 	now := time.Now()
 	publishedVersion := p.DraftRevision
 	err = s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, publishedModel *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
+		latestPage, err := pageModel.FindByScopeAndPageKey(txCtx, gameID, env, req.PageKey)
+		if err != nil {
+			return ErrPageNotFound(req.PageKey)
+		}
+		if latestPage.DraftRevision != *req.DraftRevision {
+			return errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+				"expected": *req.DraftRevision,
+				"current":  latestPage.DraftRevision,
+			})
+		}
 		if err := publishedModel.DeactivatePage(txCtx, gameID, env, req.PageKey, now); err != nil {
 			return err
 		}
@@ -452,11 +462,11 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 		}); err != nil {
 			return err
 		}
-		p.Status = "published"
-		p.PublishedActive = true
-		p.PublishedVersion = publishedVersion
-		p.UpdatedAt = now
-		if err := pageModel.Upsert(txCtx, p); err != nil {
+		latestPage.Status = "published"
+		latestPage.PublishedActive = true
+		latestPage.PublishedVersion = publishedVersion
+		latestPage.UpdatedAt = now
+		if err := pageModel.Upsert(txCtx, latestPage); err != nil {
 			return err
 		}
 		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
@@ -607,33 +617,43 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 	if target == nil {
 		return nil, errorx.NewNotFound("page version not found")
 	}
-	p, err := s.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, gameID, env, req.PageKey)
-	if err != nil {
-		return nil, ErrPageNotFound(req.PageKey)
+	if req.ExpectedDraftRevision == nil {
+		return nil, errorx.NewBadRequest("expectedDraftRevision is required")
 	}
 	var rolledBack spec.PageSpec
 	if err := json.Unmarshal([]byte(target.SpecJSON), &rolledBack); err != nil {
 		return nil, fmt.Errorf("decode page version: %w", err)
 	}
-	if err := applyPageSpecToModel(p, rolledBack); err != nil {
-		return nil, err
-	}
-	p.GameID = gameID
-	p.Env = env
-	p.DraftRevision++
-	p.Status = "draft"
-	p.UpdatedAt = time.Now()
-	p.BaseProposalKey = ""
-	p.BaseProposalVersion = 0
-	specJSON, err := buildPageSpecJSON(p)
-	if err != nil {
-		return nil, err
-	}
+	nextRevision := 0
 	err = s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
+		p, err := pageModel.FindByScopeAndPageKey(txCtx, gameID, env, req.PageKey)
+		if err != nil {
+			return ErrPageNotFound(req.PageKey)
+		}
+		if p.DraftRevision != *req.ExpectedDraftRevision {
+			return errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+				"expected": *req.ExpectedDraftRevision,
+				"current":  p.DraftRevision,
+			})
+		}
+		if err := applyPageSpecToModel(p, rolledBack); err != nil {
+			return err
+		}
+		p.GameID = gameID
+		p.Env = env
+		p.DraftRevision++
+		p.Status = "draft"
+		p.UpdatedAt = time.Now()
+		p.BaseProposalKey = ""
+		p.BaseProposalVersion = 0
+		specJSON, err := buildPageSpecJSON(p)
+		if err != nil {
+			return err
+		}
 		if err := pageModel.Upsert(txCtx, p); err != nil {
 			return err
 		}
-		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
+		if err := versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
 			GameID:    gameID,
 			Env:       env,
 			PageKey:   req.PageKey,
@@ -643,16 +663,20 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 			Message:   "rollback to version " + strconv.Itoa(target.Version),
 			CreatedBy: actor,
 			CreatedAt: p.UpdatedAt,
-		})
+		}); err != nil {
+			return err
+		}
+		nextRevision = p.DraftRevision
+		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.auditPageEvent(ctx, audit.EventPageRollback, gameID, env, req.PageKey, map[string]interface{}{
 		"from_version":       target.Version,
-		"new_draft_revision": p.DraftRevision,
+		"new_draft_revision": nextRevision,
 	})
-	return &PageRollbackResponse{PageKey: req.PageKey, DraftRevision: p.DraftRevision}, nil
+	return &PageRollbackResponse{PageKey: req.PageKey, DraftRevision: nextRevision}, nil
 }
 
 func (s *Service) findDraft(ctx context.Context, pageKey string) (*model.PageSpec, error) {

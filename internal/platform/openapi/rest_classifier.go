@@ -58,8 +58,9 @@ func (c *RESTCapabilityClassifier) ClassifyOperation(
 	method = strings.ToUpper(method)
 	path = strings.TrimSuffix(path, "/")
 
-	// Extract path segments
-	segments := extractPathSegments(path)
+	// Only classify unambiguous REST collection/item paths. Version prefixes do
+	// not identify a resource and nested paths remain actions for review.
+	segments := stripAPIVersionPrefix(extractPathSegments(path))
 	if len(segments) == 0 {
 		return ClassificationResult{
 			Capability:  spec.CapabilityAction,
@@ -68,114 +69,72 @@ func (c *RESTCapabilityClassifier) ClassifyOperation(
 		}
 	}
 
-	// Check for path parameters (e.g., {playerId})
-	hasPathParam := false
-	pathParamName := ""
-	for _, seg := range segments {
-		if strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}") {
-			hasPathParam = true
-			pathParamName = strings.TrimPrefix(strings.TrimSuffix(seg, "}"), "{")
-			break
-		}
-	}
-
-	// Extract resource key from first segment
+	// The first non-version segment is the resource key. Only /resource and
+	// /resource/{id} are lifecycle candidates; deeper paths are actions.
 	resourceKey := segments[0]
+	isCollection := len(segments) == 1
+	isItem := len(segments) == 2 && isPathParameter(segments[1])
 
 	// Classify based on method and path pattern
 	switch method {
 	case "GET":
-		if hasPathParam {
-			// GET /{resource}/{id} -> item_query
+		if isItem {
 			return ClassificationResult{
 				Capability:  spec.CapabilityItemQuery,
 				ResourceKey: resourceKey,
 				Confidence:  "high",
 			}
 		}
-		// GET /{resource} -> collection_query
-		return ClassificationResult{
-			Capability:  spec.CapabilityCollectionQuery,
-			ResourceKey: resourceKey,
-			Confidence:  "high",
+		if isCollection {
+			return ClassificationResult{Capability: spec.CapabilityCollectionQuery, ResourceKey: resourceKey, Confidence: "high"}
 		}
 
 	case "POST":
-		if hasPathParam {
-			// POST /{resource}/{id} -> action (e.g., POST /players/{id}/ban)
-			return ClassificationResult{
-				Capability:  spec.CapabilityAction,
-				ResourceKey: resourceKey,
-				Confidence:  "medium",
-				Diagnostics: []spec.Diagnostic{{
-					Code:     "post_with_path_param",
-					Severity: spec.SeverityInfo,
-					Message:  "POST with path parameter classified as action: " + pathParamName,
-				}},
-			}
-		}
-		// POST /{resource} -> create
-		return ClassificationResult{
-			Capability:  spec.CapabilityCreate,
-			ResourceKey: resourceKey,
-			Confidence:  "high",
+		if isCollection {
+			return ClassificationResult{Capability: spec.CapabilityCreate, ResourceKey: resourceKey, Confidence: "high"}
 		}
 
 	case "PUT", "PATCH":
-		if hasPathParam {
-			// PUT/PATCH /{resource}/{id} -> update
+		if isItem {
 			return ClassificationResult{
 				Capability:  spec.CapabilityUpdate,
 				ResourceKey: resourceKey,
 				Confidence:  "high",
 			}
 		}
-		// PUT/PATCH /{resource} -> action (unusual pattern)
-		return ClassificationResult{
-			Capability:  spec.CapabilityAction,
-			ResourceKey: resourceKey,
-			Confidence:  "low",
-			Diagnostics: []spec.Diagnostic{{
-				Code:     "put_without_path_param",
-				Severity: spec.SeverityWarning,
-				Message:  "PUT/PATCH without path parameter, classified as action",
-			}},
-		}
 
 	case "DELETE":
-		if hasPathParam {
-			// DELETE /{resource}/{id} -> delete
+		if isItem {
 			return ClassificationResult{
 				Capability:  spec.CapabilityDelete,
 				ResourceKey: resourceKey,
 				Confidence:  "high",
 			}
 		}
-		// DELETE /{resource} -> action (batch delete)
-		return ClassificationResult{
-			Capability:  spec.CapabilityAction,
-			ResourceKey: resourceKey,
-			Confidence:  "medium",
-			Diagnostics: []spec.Diagnostic{{
-				Code:     "delete_without_path_param",
-				Severity: spec.SeverityInfo,
-				Message:  "DELETE without path parameter, classified as batch action",
-			}},
-		}
-
-	default:
-		// Unknown method -> action
-		return ClassificationResult{
-			Capability:  spec.CapabilityAction,
-			ResourceKey: resourceKey,
-			Confidence:  "low",
-			Diagnostics: []spec.Diagnostic{{
-				Code:     "unknown_method",
-				Severity: spec.SeverityWarning,
-				Message:  "Unknown HTTP method: " + method,
-			}},
-		}
 	}
+
+	return ClassificationResult{
+		Capability:  spec.CapabilityAction,
+		ResourceKey: resourceKey,
+		Confidence:  "low",
+		Diagnostics: []spec.Diagnostic{{
+			Code:     "rest_shape_ambiguous",
+			Severity: spec.SeverityWarning,
+			Message:  "method/path is not an unambiguous REST lifecycle operation",
+		}},
+	}
+}
+
+func isPathParameter(segment string) bool {
+	return strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}")
+}
+
+func stripAPIVersionPrefix(segments []string) []string {
+	if len(segments) >= 3 && strings.EqualFold(segments[0], "api") && len(segments[1]) > 1 &&
+		(segments[1][0] == 'v' || segments[1][0] == 'V') {
+		return segments[2:]
+	}
+	return segments
 }
 
 // extractPathSegments extracts non-empty segments from a path.

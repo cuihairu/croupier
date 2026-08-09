@@ -33,12 +33,8 @@ import {
   FormOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
-import type {
-  ResourcePageSpec,
-  ListViewSpec,
-  ColumnSpec,
-  ActionSpec,
-} from '@/types/dashboard';
+import type { ResourcePageSpec, ListViewSpec, ColumnSpec, ActionSpec } from '@/types/dashboard';
+import FormPresentationEditor from './FormPresentationEditor';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -78,7 +74,7 @@ export default function ResourcePageEditor({
         } as ListViewSpec,
       });
     },
-    [value, onChange]
+    [value, onChange],
   );
 
   // 添加列
@@ -101,7 +97,7 @@ export default function ResourcePageEditor({
       columns.splice(index, 1);
       handleListViewChange({ columns });
     },
-    [value, handleListViewChange]
+    [value, handleListViewChange],
   );
 
   // 更新列
@@ -111,7 +107,7 @@ export default function ResourcePageEditor({
       columns[index] = { ...columns[index], ...updates };
       handleListViewChange({ columns });
     },
-    [value, handleListViewChange]
+    [value, handleListViewChange],
   );
 
   const handleActionChange = useCallback(
@@ -147,7 +143,11 @@ export default function ResourcePageEditor({
                   title={
                     <Space>
                       <Text code>{action.key}</Text>
-                      {action.bindingId ? <Tag color="blue">{action.bindingId}</Tag> : <Tag color="red">缺少 binding</Tag>}
+                      {action.bindingId ? (
+                        <Tag color="blue">{action.bindingId}</Tag>
+                      ) : (
+                        <Tag color="red">缺少 binding</Tag>
+                      )}
                     </Space>
                   }
                 >
@@ -185,7 +185,15 @@ export default function ResourcePageEditor({
                       />
                     </Form.Item>
                     <Form.Item label="风险">
-                      <Tag color={action.risk === 'danger' ? 'red' : action.risk === 'high' ? 'orange' : 'default'}>
+                      <Tag
+                        color={
+                          action.risk === 'danger'
+                            ? 'red'
+                            : action.risk === 'high'
+                              ? 'orange'
+                              : 'default'
+                        }
+                      >
                         {action.risk || '未声明'}
                       </Tag>
                     </Form.Item>
@@ -200,11 +208,7 @@ export default function ResourcePageEditor({
   };
 
   return (
-    <Collapse
-      activeKey={activeKey}
-      onChange={setActiveKey}
-      bordered={false}
-    >
+    <Collapse activeKey={activeKey} onChange={setActiveKey} bordered={false}>
       {/* 导航配置 */}
       <Panel
         header={
@@ -216,9 +220,7 @@ export default function ResourcePageEditor({
         key="navigation"
       >
         <div>
-          <Text type="secondary">
-            导航配置（标题、分类）在页面级别设置，不在此编辑器中配置。
-          </Text>
+          <Text type="secondary">导航配置（标题、分类）在页面级别设置，不在此编辑器中配置。</Text>
         </div>
       </Panel>
 
@@ -321,14 +323,20 @@ export default function ResourcePageEditor({
           <Space>
             <UnorderedListOutlined />
             <Text strong>操作配置</Text>
-            <Tag>{(value.listView?.rowActions?.length || 0) + (value.listView?.batchActions?.length || 0) + (value.listView?.toolbarActions?.length || 0)} 个</Tag>
+            <Tag>
+              {(value.listView?.rowActions?.length || 0) +
+                (value.listView?.batchActions?.length || 0) +
+                (value.listView?.toolbarActions?.length || 0)}{' '}
+              个
+            </Tag>
           </Space>
         }
         key="actions"
       >
         <Space direction="vertical" style={{ width: '100%' }}>
           <Text type="secondary">
-            动作能力来自 Resource Catalog 的 ActionSemantic；这里只能调整已生成动作的展示文案、样式和确认，不创建新函数绑定。
+            动作能力来自 Resource Catalog 的
+            ActionSemantic；这里只能调整已生成动作的展示文案、样式和确认，不创建新函数绑定。
           </Text>
           {renderActionGroup('行操作', 'rowActions')}
           <Divider style={{ margin: '8px 0' }} />
@@ -344,7 +352,9 @@ export default function ResourcePageEditor({
           <Space>
             <FormOutlined />
             <Text strong>表单配置</Text>
-            <Tag>{value.createForm ? '创建' : ''} {value.updateForm ? '更新' : ''}</Tag>
+            <Tag>
+              {value.createForm ? '创建' : ''} {value.updateForm ? '更新' : ''}
+            </Tag>
           </Space>
         }
         key="forms"
@@ -354,7 +364,11 @@ export default function ResourcePageEditor({
             <Text type="secondary">创建表单</Text>
             <div style={{ marginTop: 8 }}>
               {value.createForm ? (
-                <Tag color="success">已配置</Tag>
+                <FormPresentationEditor
+                  value={value.createForm}
+                  onChange={(createForm) => onChange({ ...value, createForm })}
+                  readonly={readonly}
+                />
               ) : (
                 <Tag color="default">未配置</Tag>
               )}
@@ -364,7 +378,11 @@ export default function ResourcePageEditor({
             <Text type="secondary">更新表单</Text>
             <div style={{ marginTop: 8 }}>
               {value.updateForm ? (
-                <Tag color="success">已配置</Tag>
+                <FormPresentationEditor
+                  value={value.updateForm}
+                  onChange={(updateForm) => onChange({ ...value, updateForm })}
+                  readonly={readonly}
+                />
               ) : (
                 <Tag color="default">未配置</Tag>
               )}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -836,11 +837,11 @@ func generateMenuFromPages(pages []spec.PublishedPageSpec, lang string) spec.Con
 			categories[catKey] = &categoryGroup{
 				key:    catKey,
 				labels: page.Category.Labels,
-				order:  page.Category.Order,
+				order:  page.Order,
 			}
 		}
-		if page.Category.Order < categories[catKey].order {
-			categories[catKey].order = page.Category.Order
+		if page.Order < categories[catKey].order {
+			categories[catKey].order = page.Order
 		}
 		categories[catKey].pages = append(categories[catKey].pages, pageEntry{
 			key:   page.PageKey,
@@ -867,7 +868,7 @@ func generateMenuFromPages(pages []spec.PublishedPageSpec, lang string) spec.Con
 		for _, p := range cat.pages {
 			children = append(children, spec.ConsoleMenuItem{
 				Key:    p.key,
-				Path:   "/console/" + cat.key + "/" + p.key,
+				Path:   consolePagePath(cat.key, p.key),
 				Title:  p.title,
 				Locale: false,
 				Icon:   p.icon,
@@ -876,7 +877,7 @@ func generateMenuFromPages(pages []spec.PublishedPageSpec, lang string) spec.Con
 		}
 		items = append(items, spec.ConsoleMenuItem{
 			Key:      cat.key,
-			Path:     "/console/" + cat.key,
+			Path:     consoleCategoryPath(cat.key),
 			Title:    cat.labels,
 			Locale:   false,
 			Order:    cat.order,
@@ -895,6 +896,14 @@ func generateMenuFromPages(pages []spec.PublishedPageSpec, lang string) spec.Con
 		return items[i].Key < items[j].Key
 	})
 	return spec.ConsoleMenuSpec{Items: items}
+}
+
+func consoleCategoryPath(categoryKey string) string {
+	return "/console/" + url.PathEscape(categoryKey)
+}
+
+func consolePagePath(categoryKey string, pageKey string) string {
+	return consoleCategoryPath(categoryKey) + "/" + url.PathEscape(pageKey)
 }
 
 func findBinding(bindings []spec.PageFunctionBinding, bindingID string) (spec.PageFunctionBinding, bool) {

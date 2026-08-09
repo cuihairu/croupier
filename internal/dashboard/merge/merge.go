@@ -79,6 +79,7 @@ var AutoMergeFields = map[string]bool{
 	"resource.listView.columns[].visible":    true,
 	"resource.listView.columns[].sortable":   true,
 	"resource.listView.columns[].filterable": true,
+	"resource.listView.defaultSort":          true,
 	"resource.detailView.fields[].title":     true,
 	"resource.detailView.fields[].span":      true,
 	"resource.detailView.fields[].visible":   true,
@@ -111,7 +112,6 @@ var ConflictFields = map[string]bool{
 	"bindings[].execution":                      true,
 	"resource.listView.identityKey":             true,
 	"resource.listView.rowSchema":               true,
-	"resource.listView.defaultSort":             true,
 	"resource.listView.filters":                 true,
 	"resource.listView.pagination":              true,
 	"resource.listView.rowActions":              true,
@@ -527,10 +527,7 @@ func matchPattern(pattern, field string) bool {
 	return err == nil
 }
 
-func toJSON(v interface{}) json.RawMessage {
-	if v == nil {
-		return nil
-	}
+func toJSON[T any](v T) json.RawMessage {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return nil

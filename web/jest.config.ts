@@ -11,6 +11,9 @@ export default async () => {
         },
       ],
     },
+    transformIgnorePatterns: [
+      '/node_modules/(?!(?:@rjsf|@x0k|@ant-design|antd)/|\\.pnpm/(?:@rjsf\\+|@x0k\\+|@ant-design\\+|antd@))',
+    ],
     moduleNameMapper: {
       '^@/(.*)$': '<rootDir>/src/$1',
       '^@@/(.*)$': '<rootDir>/tests/umi/$1',

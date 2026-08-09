@@ -73,6 +73,41 @@ func TestServiceMenuUsesPublishedPageScopeAndLabels(t *testing.T) {
 	assert.Equal(t, "/console/player/player.manage", resp.Items[0].Children[0].Path)
 }
 
+func TestGenerateMenuFromPagesUsesLowestPublishedPageOrderForCategory(t *testing.T) {
+	menu := generateMenuFromPages([]spec.PublishedPageSpec{
+		{
+			PageSpec: spec.PageSpec{
+				PageKey: "late.page",
+				Title:   spec.LocalizedText{"zh-CN": "后"},
+				Order:   100,
+				Category: spec.PageCategorySpec{
+					Key:    "late",
+					Labels: spec.LocalizedText{"zh-CN": "后分类"},
+					Order:  1,
+				},
+			},
+		},
+		{
+			PageSpec: spec.PageSpec{
+				PageKey: "early.page",
+				Title:   spec.LocalizedText{"zh-CN": "前"},
+				Order:   10,
+				Category: spec.PageCategorySpec{
+					Key:    "early",
+					Labels: spec.LocalizedText{"zh-CN": "前分类"},
+					Order:  999,
+				},
+			},
+		},
+	}, "zh-CN")
+
+	require.Len(t, menu.Items, 2)
+	assert.Equal(t, "early", menu.Items[0].Key)
+	assert.Equal(t, 10, menu.Items[0].Order)
+	assert.Equal(t, "/console/early", menu.Items[0].Path)
+	assert.Equal(t, "/console/player%20ops/player.ban", consolePagePath("player ops", "player.ban"))
+}
+
 func TestServiceExecuteBindingRequiresFunctionInvokePermission(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read", "pages:read")
 	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
@@ -151,7 +186,7 @@ func TestServiceExecuteBindingWritesAuditWithPageContext(t *testing.T) {
 	assert.Equal(t, 7, record.Details["base_proposal_version"])
 	assert.Equal(t, "function-digest-1", record.Details["function_digest"])
 	assert.Equal(t, "semantics-digest-1", record.Details["semantics_digest"])
-	assert.Equal(t, "dashboard-vnext-test", record.Details["generator_version"])
+	assert.Equal(t, "page-generator:test", record.Details["generator_version"])
 	assert.Equal(t, "agent-1", record.Resource.Metadata["target"])
 	require.NotNil(t, caller.lastRequest)
 	assert.Equal(t, "player.manage", caller.lastRequest.Metadata["page_key"])
@@ -160,7 +195,7 @@ func TestServiceExecuteBindingWritesAuditWithPageContext(t *testing.T) {
 	assert.Equal(t, "7", caller.lastRequest.Metadata["base_proposal_version"])
 	assert.Equal(t, "function-digest-1", caller.lastRequest.Metadata["function_digest"])
 	assert.Equal(t, "semantics-digest-1", caller.lastRequest.Metadata["semantics_digest"])
-	assert.Equal(t, "dashboard-vnext-test", caller.lastRequest.Metadata["generator_version"])
+	assert.Equal(t, "page-generator:test", caller.lastRequest.Metadata["generator_version"])
 	assert.Equal(t, "agent-1", caller.lastRequest.Metadata["agent_id"])
 	assert.Equal(t, resp.Result.RequestID, caller.lastRequest.Metadata["page_request_id"])
 	assert.Equal(t, resp.Result.TraceID, caller.lastRequest.Metadata["trace_id"])
@@ -178,7 +213,7 @@ func TestServiceExecuteBindingWritesAuditWithPageContext(t *testing.T) {
 	assertSpanIntAttr(t, pageSpan, "page.base_proposal_version", 7)
 	assertSpanStringAttr(t, pageSpan, "page.function_digest", "function-digest-1")
 	assertSpanStringAttr(t, pageSpan, "page.semantics_digest", "semantics-digest-1")
-	assertSpanStringAttr(t, pageSpan, "page.generator_version", "dashboard-vnext-test")
+	assertSpanStringAttr(t, pageSpan, "page.generator_version", "page-generator:test")
 	assertSpanStringAttr(t, pageSpan, "page.binding_id", "player.query")
 	assertSpanStringAttr(t, pageSpan, "page.binding_usage", string(spec.BindingUsageQuery))
 	assertSpanStringAttr(t, pageSpan, "page.execution_mode", string(spec.PageExecutionModeSync))
@@ -551,7 +586,7 @@ func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Co
 		BaseProposalVersion:   7,
 		FunctionDigest:        "function-digest-1",
 		SemanticsDigest:       "semantics-digest-1",
-		GeneratorVersion:      "dashboard-vnext-test",
+		GeneratorVersion:      "page-generator:test",
 		Active:                true,
 		PublishedAt:           time.Now(),
 		PublishedBy:           "console_tester",
@@ -638,7 +673,7 @@ func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, c
 		BaseProposalVersion:   7,
 		FunctionDigest:        "function-digest-1",
 		SemanticsDigest:       "semantics-digest-1",
-		GeneratorVersion:      "dashboard-vnext-test",
+		GeneratorVersion:      "page-generator:test",
 		Active:                true,
 		PublishedAt:           time.Now(),
 		PublishedBy:           "console_tester",

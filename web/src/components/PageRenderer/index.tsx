@@ -17,7 +17,12 @@ import ResourcePageRenderer from './ResourcePageRenderer';
 import OperationPageRenderer from './OperationPageRenderer';
 import TaskPageRenderer from './TaskPageRenderer';
 import ReportPageRenderer from './ReportPageRenderer';
-import { contextWithPageState, mergePageState, outputPatchFromResult } from './runtime';
+import {
+  contextWithPageState,
+  mergePageState,
+  outputPatchFromResult,
+  projectBindingContext,
+} from './runtime';
 import type { PageState } from './runtime';
 import type {
   PageSpec,
@@ -78,7 +83,10 @@ const PageRenderer: React.FC<PageRendererProps> = ({
   const executeWithPageState = useCallback<PageExecuteFn>(
     async (bindingId: string, context: BindingExecutionContext): Promise<PageExecutionResult> => {
       const binding = bindings.find((item) => item.id === bindingId);
-      const result = await onExecute(bindingId, contextWithPageState(context, pageStateRef.current));
+      const result = await onExecute(
+        bindingId,
+        projectBindingContext(binding, contextWithPageState(context, pageStateRef.current)),
+      );
       const patch = outputPatchFromResult(binding, result);
       setPageState((current) => {
         const next = mergePageState(current, patch);

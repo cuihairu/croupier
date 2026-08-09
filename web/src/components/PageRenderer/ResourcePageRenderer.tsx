@@ -11,15 +11,13 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import {
-  ProTable,
-  ProDescriptions,
-} from '@ant-design/pro-components';
+import { ProTable, ProDescriptions } from '@ant-design/pro-components';
 import {
   Button,
   Space,
   Modal,
   message,
+  Alert,
   Drawer,
   Tag,
   Popconfirm,
@@ -33,9 +31,7 @@ import {
   ReloadOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
-import SchemaFormRenderer, {
-  type SchemaFormRendererHandle,
-} from '@/components/SchemaFormRenderer';
+import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import { renderJSONValueSummary } from './ResultViewRenderer';
 import {
   getPageStateArray,
@@ -55,6 +51,10 @@ import type {
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 
 const { Text } = Typography;
+
+function localizedText(value: Record<string, string> | undefined, fallback: string): string {
+  return value?.['zh-CN'] || value?.['en-US'] || value?.en || fallback;
+}
 
 type TableRequestParams = FormValues & {
   current?: number;
@@ -113,13 +113,16 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
       break;
     case 'enum':
       column.valueType = 'select';
-      column.valueEnum = col.enum?.reduce((acc, opt) => {
-        acc[opt.value] = {
-          text: opt.label['zh-CN'] || opt.label['en'] || opt.value,
-          status: opt.color === 'green' ? 'Success' : opt.color === 'red' ? 'Error' : 'Default',
-        };
-        return acc;
-      }, {} as Record<string, { text: string; status?: string }>);
+      column.valueEnum = col.enum?.reduce(
+        (acc, opt) => {
+          acc[opt.value] = {
+            text: opt.label['zh-CN'] || opt.label['en'] || opt.value,
+            status: opt.color === 'green' ? 'Success' : opt.color === 'red' ? 'Error' : 'Default',
+          };
+          return acc;
+        },
+        {} as Record<string, { text: string; status?: string }>,
+      );
       break;
     case 'number':
       column.valueType = 'digit';
@@ -134,7 +137,11 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
       const value = record[col.key];
       const opt = col.enum?.find((e) => e.value === value);
       if (opt) {
-        return <Tag color={opt.color || 'default'}>{opt.label['zh-CN'] || opt.label['en'] || String(value)}</Tag>;
+        return (
+          <Tag color={opt.color || 'default'}>
+            {opt.label['zh-CN'] || opt.label['en'] || String(value)}
+          </Tag>
+        );
       }
       return String(value ?? '-');
     };
@@ -170,26 +177,42 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const [selectedRows, setSelectedRows] = useState<FormValues[]>([]);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   // 查找绑定
   const listBinding = bindings.find((b) => b.usage === 'query');
   const detailBinding = bindings.find((b) => b.usage === 'detail');
   const createBinding = bindings.find((b) => b.id === 'create');
   const updateBinding = bindings.find((b) => b.id === 'update');
-  const deleteBinding = bindings.find((b) => b.id === 'delete');
-  const rowIdentityKey = spec.listView?.identityKey || spec.listView?.columns.find((column) => column.fixed === 'left')?.key || 'id';
+  const deleteBinding = bindings.find((b) => b.id === spec.deleteAction?.bindingId);
+  const hasBinding = useCallback(
+    (action: ActionSpec) =>
+      Boolean(action.bindingId && bindings.some((binding) => binding.id === action.bindingId)),
+    [bindings],
+  );
+  const rowActions = (spec.listView?.rowActions || []).filter(hasBinding);
+  const batchActions = (spec.listView?.batchActions || []).filter(hasBinding);
+  const toolbarActions = (spec.listView?.toolbarActions || []).filter(hasBinding);
+  const rowIdentityKey =
+    spec.listView?.identityKey ||
+    spec.listView?.columns.find((column) => column.fixed === 'left')?.key ||
+    'id';
 
   // 处理列表数据请求
   const handleRequest = useCallback(
     async (params: TableRequestParams) => {
       if (!listBinding) {
+        setListError('资源页面缺少列表查询绑定');
         return { data: [], total: 0 };
       }
       if (preview) {
+        setListError(null);
         return { data: [], total: 0 };
       }
       try {
         const result = await onExecute(listBinding.id, { form: params });
+        setListError(null);
         const nextState = mergePageState({}, outputPatchFromResult(listBinding, result));
         const rows = getPageStateArray(nextState, 'items');
         const total = getPageStateNumber(nextState, 'total');
@@ -198,11 +221,12 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           total: total ?? rows.length,
         };
       } catch {
+        setListError('获取资源列表失败，请检查查询绑定或稍后重试');
         message.error('获取数据失败');
         return { data: [], total: 0 };
       }
     },
-    [listBinding, onExecute, preview]
+    [listBinding, onExecute, preview],
   );
 
   // 处理创建
@@ -228,7 +252,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [createBinding, onExecute, preview]
+    [createBinding, onExecute, preview],
   );
 
   // 处理编辑
@@ -255,7 +279,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [updateBinding, currentRecord, onExecute, preview]
+    [updateBinding, currentRecord, onExecute, preview],
   );
 
   const submitCreateForm = useCallback(async () => {
@@ -298,13 +322,14 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         message.error('删除失败');
       }
     },
-    [deleteBinding, onExecute, preview]
+    [deleteBinding, onExecute, preview],
   );
 
   // 处理行操作
   const handleRowAction = useCallback(
     async (action: ActionSpec, record: FormValues) => {
-      if (!action.bindingId) {
+      const binding = bindings.find((item) => item.id === action.bindingId);
+      if (!binding) {
         message.error('未配置操作绑定');
         return;
       }
@@ -312,14 +337,13 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         message.info('预览模式不执行资源动作');
         return;
       }
-      if (action.confirm) {
+      if (action.confirm || binding.execution.requireConfirm) {
         Modal.confirm({
           title: action.confirmTitle?.['zh-CN'] || '确认操作',
           content: action.confirmDescription?.['zh-CN'] || '确定要执行此操作吗？',
           onOk: async () => {
-            if (!action.bindingId) return;
             try {
-              await onExecute(action.bindingId, { row: record });
+              await onExecute(binding.id, { row: record });
               message.success('操作成功');
               setSelectedRows([]);
               actionRef.current?.reload();
@@ -330,7 +354,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         });
       } else {
         try {
-          await onExecute(action.bindingId, { row: record });
+          await onExecute(binding.id, { row: record });
           message.success('操作成功');
           setSelectedRows([]);
           actionRef.current?.reload();
@@ -339,12 +363,13 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         }
       }
     },
-    [onExecute, preview]
+    [bindings, onExecute, preview],
   );
 
   const executeListAction = useCallback(
     async (action: ActionSpec, context: { row?: FormValues; selection?: FormValues[] }) => {
-      if (!action.bindingId) {
+      const binding = bindings.find((item) => item.id === action.bindingId);
+      if (!binding) {
         message.error('未配置操作绑定');
         return;
       }
@@ -354,7 +379,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       const run = async () => {
         try {
-          await onExecute(action.bindingId!, context);
+          await onExecute(binding.id, context);
           message.success('操作成功');
           setSelectedRows([]);
           actionRef.current?.reload();
@@ -362,7 +387,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           message.error('操作失败');
         }
       };
-      if (action.confirm) {
+      if (action.confirm || binding.execution.requireConfirm) {
         Modal.confirm({
           title: action.confirmTitle?.['zh-CN'] || '确认操作',
           content: action.confirmDescription?.['zh-CN'] || '确定要执行此操作吗？',
@@ -372,13 +397,14 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       await run();
     },
-    [onExecute, preview],
+    [bindings, onExecute, preview],
   );
 
   const openDetail = useCallback(
     async (record: FormValues) => {
       setCurrentRecord(record);
       setDetailRecord(record);
+      setDetailError(null);
       setDetailDrawerVisible(true);
       if (!detailBinding || preview) {
         return;
@@ -394,6 +420,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         }
         message.error('详情绑定未映射到 pageState.detail');
       } catch {
+        setDetailError('加载详情失败，请稍后重试');
         message.error('加载详情失败');
       } finally {
         setDetailLoading(false);
@@ -406,7 +433,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const columns: ProColumns<FormValues>[] = spec.listView?.columns.map(columnSpecToProColumn) || [];
 
   // 添加操作列
-  if (spec.detailView || (spec.listView?.rowActions && spec.listView.rowActions.length > 0) || deleteBinding) {
+  if (spec.detailView || rowActions.length > 0 || deleteBinding) {
     columns.push({
       title: '操作',
       valueType: 'option',
@@ -423,7 +450,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               查看
             </Button>
           ) : null}
-          {(spec.listView?.rowActions || []).map((action) => (
+          {rowActions.map((action) => (
             <Button
               key={action.key}
               type={action.type === 'primary' ? 'primary' : 'link'}
@@ -431,7 +458,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               danger={action.type === 'danger'}
               icon={action.key === 'edit' ? <EditOutlined /> : undefined}
               onClick={() => {
-                if (action.key === 'edit') {
+                if (action.bindingId === updateBinding?.id && spec.updateForm) {
                   setCurrentRecord(record);
                   setEditModalVisible(true);
                 } else {
@@ -442,16 +469,19 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               {action.title['zh-CN'] || action.title['en'] || action.key}
             </Button>
           ))}
-          {deleteBinding && (
+          {deleteBinding && spec.deleteAction ? (
             <Popconfirm
-              title="确定要删除吗？"
+              title={localizedText(spec.deleteAction.title, '确认删除')}
+              description={localizedText(spec.deleteAction.description, '确认删除此记录？')}
+              okText={localizedText(spec.deleteAction.confirmText, '确认')}
+              cancelText={localizedText(spec.deleteAction.cancelText, '取消')}
               onConfirm={() => void handleDelete(record)}
             >
               <Button type="link" size="small" danger icon={<DeleteOutlined />}>
                 删除
               </Button>
             </Popconfirm>
-          )}
+          ) : null}
         </Space>
       ),
     });
@@ -459,6 +489,16 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
   return (
     <div>
+      {listError ? (
+        <Alert
+          type="error"
+          showIcon
+          message={listError}
+          closable
+          onClose={() => setListError(null)}
+          style={{ marginBottom: 16 }}
+        />
+      ) : null}
       {/* 列表视图 */}
       <ProTable<FormValues, TableRequestParams>
         headerTitle={title || spec.listView?.columns[0]?.title?.['zh-CN'] || '资源列表'}
@@ -470,7 +510,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           labelWidth: 'auto',
         }}
         toolBarRender={() => [
-          createBinding && (
+          createBinding && spec.createForm ? (
             <Button
               key="create"
               type="primary"
@@ -480,8 +520,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             >
               新建
             </Button>
-          ),
-          ...(spec.listView?.toolbarActions || []).map((action) => (
+          ) : null,
+          ...toolbarActions.map((action) => (
             <Button
               key={action.key}
               danger={action.type === 'danger'}
@@ -493,7 +533,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             </Button>
           )),
           ...(selectedRows.length > 0
-            ? (spec.listView?.batchActions || []).map((action) => (
+            ? batchActions.map((action) => (
                 <Button
                   key={action.key}
                   danger={action.type === 'danger'}
@@ -514,7 +554,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           </Button>,
         ]}
         rowSelection={
-          spec.listView?.batchActions && spec.listView.batchActions.length > 0
+          batchActions.length > 0
             ? {
                 onChange: (_, rows) => {
                   setSelectedRows(rows);
@@ -527,7 +567,12 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             ? {
                 defaultPageSize: spec.listView.pagination.defaultSize || 20,
                 showSizeChanger: true,
-                pageSizeOptions: spec.listView.pagination.pageSizes?.map(String) || ['10', '20', '50', '100'],
+                pageSizeOptions: spec.listView.pagination.pageSizes?.map(String) || [
+                  '10',
+                  '20',
+                  '50',
+                  '100',
+                ],
               }
             : false
         }
@@ -543,11 +588,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           confirmLoading={formSubmitting}
           destroyOnClose
         >
-          <SchemaFormRenderer
-            ref={createFormRef}
-            spec={spec.createForm}
-            hideSubmit
-          />
+          <SchemaFormRenderer ref={createFormRef} spec={spec.createForm} hideSubmit />
         </Modal>
       )}
 
@@ -582,19 +623,22 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           width={640}
         >
           <Skeleton active loading={detailLoading}>
-            <ProDescriptions column={spec.detailView.layout === 'horizontal' ? 2 : 1}>
-              {spec.detailView.fields
-                .filter((f) => f.visible !== false)
-                .map((field) => (
-                  <ProDescriptions.Item
-                    key={field.key}
-                    label={field.title['zh-CN'] || field.title['en'] || field.key}
-                    span={field.span}
-                  >
-                    {renderJSONValueSummary((detailRecord || currentRecord)[field.key])}
-                  </ProDescriptions.Item>
-                ))}
-            </ProDescriptions>
+            {detailError ? <Alert type="error" showIcon message={detailError} /> : null}
+            {!detailError ? (
+              <ProDescriptions column={spec.detailView.layout === 'horizontal' ? 2 : 1}>
+                {spec.detailView.fields
+                  .filter((f) => f.visible !== false)
+                  .map((field) => (
+                    <ProDescriptions.Item
+                      key={field.key}
+                      label={field.title['zh-CN'] || field.title['en'] || field.key}
+                      span={field.span}
+                    >
+                      {renderJSONValueSummary((detailRecord || currentRecord)[field.key])}
+                    </ProDescriptions.Item>
+                  ))}
+              </ProDescriptions>
+            ) : null}
           </Skeleton>
         </Drawer>
       )}

@@ -35,11 +35,7 @@ export interface PageEditorProps {
 // PageEditor Component
 // ---------------------------------------------------------------------------
 
-export default function PageEditor({
-  value,
-  onChange,
-  readonly = false,
-}: PageEditorProps) {
+export default function PageEditor({ value, onChange, readonly = false }: PageEditorProps) {
   const category = value.category || { key: '', labels: {} };
   const renderBody = () => {
     switch (value.type) {
@@ -96,7 +92,8 @@ export default function PageEditor({
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
       <Card title="页面与菜单信息">
         <Text type="secondary">
-          这些字段会进入 PublishedPageSpec，并作为运行控制台动态菜单的唯一文本来源；函数注册和静态 locale 不提供页面显示文案。
+          这些字段会进入 PublishedPageSpec，并作为运行控制台动态菜单的唯一文本来源；函数注册和静态
+          locale 不提供页面显示文案。
         </Text>
         <Form layout="vertical" disabled={readonly} style={{ marginTop: 16 }}>
           <Form.Item label="页面标题 zh-CN" required>
@@ -156,17 +153,6 @@ export default function PageEditor({
                     ...category,
                     labels: { ...category.labels, 'en-US': event.target.value },
                   },
-                })
-              }
-            />
-          </Form.Item>
-          <Form.Item label="分类排序">
-            <InputNumber
-              value={category.order}
-              onChange={(order) =>
-                onChange({
-                  ...value,
-                  category: { ...category, order: order ?? undefined },
                 })
               }
             />

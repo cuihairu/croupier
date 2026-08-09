@@ -260,9 +260,9 @@ func listQuerySchema(resource *ResourcePageSpec) JSONSchema {
 	}
 	root := map[string]json.RawMessage{
 		"type":       json.RawMessage(`"object"`),
-		"properties": mustMarshalRaw(properties),
+		"properties": marshalRawObject(properties),
 	}
-	return JSONSchema(mustMarshalRaw(root))
+	return JSONSchema(marshalRawObject(root))
 }
 
 func schemaForFilter(filter FilterSpec) json.RawMessage {
@@ -276,7 +276,7 @@ func schemaForFilter(filter FilterSpec) json.RawMessage {
 	}
 }
 
-func mustMarshalRaw(value interface{}) json.RawMessage {
+func marshalRawObject(value map[string]json.RawMessage) json.RawMessage {
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return json.RawMessage(`null`)

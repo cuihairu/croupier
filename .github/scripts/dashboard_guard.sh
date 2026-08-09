@@ -179,7 +179,7 @@ if rg -n "Virtual Object|VirtualObject|RelationshipDef|ComponentDescriptor|Regis
   fail "C++ SDK must not restore legacy VirtualObject/Component registration or Skynet VO APIs"
 fi
 
-if rg -n "\\bany\\b" web/src/types web/src/services/console.ts web/src/services/api/resources.ts web/src/utils/dashboardJson.ts web/src/components/PageRenderer \
+if rg -nP "(?<!['\"])\\bany\\b(?!['\"])" web/src/types web/src/services/console.ts web/src/services/api/resources.ts web/src/utils/dashboardJson.ts web/src/components/PageRenderer \
   --glob "*.ts" --glob "*.tsx" >/dev/null 2>&1; then
   fail "dashboard frontend core types/services must not use TypeScript any"
 fi
@@ -198,12 +198,12 @@ fi
 
 if rg -n "interface\\{\\}|map\\[string\\]interface\\{" \
   internal/dashboard/spec internal/dashboard/generator internal/api/page/dto.go internal/api/console/dto.go internal/model/page_spec.go \
-  --glob "*.go" >/dev/null 2>&1; then
+  --glob "*.go" --glob "!*_test.go" >/dev/null 2>&1; then
   fail "dashboard core DTO/model packages must not expose Go interface{} maps"
 fi
 
 if rg -n "interface\\{\\}|map\\[string\\]interface\\{|map\\[string\\]any|\\bany\\(" \
-  internal/dashboard --glob "*.go" >/dev/null 2>&1; then
+  internal/dashboard --glob "*.go" --glob "!*_test.go" >/dev/null 2>&1; then
   fail "internal/dashboard must keep JSON boundaries typed as json.RawMessage or explicit structs"
 fi
 

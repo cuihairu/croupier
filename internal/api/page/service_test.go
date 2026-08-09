@@ -193,6 +193,76 @@ func TestServicePublishUpdatesDraftVersionRecord(t *testing.T) {
 	assert.True(t, versions.Items[0].IsCurrentPublished)
 }
 
+func TestServicePublishRejectsStaleDraftRevision(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	revision := saveTestPageDraft(t, service, ctx)
+	staleRevision := revision
+
+	updated, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "玩家管理（已更新）"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.Publish(ctx, &PagePublishRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &staleRevision,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page draft revision conflict")
+
+	_, err = service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", "player.manage")
+	assert.Error(t, err)
+
+	draft, err := service.GetDraft(ctx, &PageDraftRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	assert.Equal(t, updated.DraftRevision, draft.DraftRevision)
+	assert.Equal(t, "玩家管理（已更新）", draft.Title["zh-CN"])
+}
+
+func TestServiceRollbackRejectsStaleDraftRevision(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:rollback", "pages:read")
+	revision := saveTestPageDraft(t, service, ctx)
+	staleRevision := revision
+
+	updated, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "player.manage",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		ResourceKey:   "player",
+		Title:         map[string]string{"zh-CN": "玩家管理（已更新）"},
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.Rollback(ctx, &PageRollbackRequest{
+		PageKey:               "player.manage",
+		VersionID:             "1",
+		ExpectedDraftRevision: &staleRevision,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page draft revision conflict")
+
+	draft, err := service.GetDraft(ctx, &PageDraftRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	assert.Equal(t, updated.DraftRevision, draft.DraftRevision)
+	assert.Equal(t, "玩家管理（已更新）", draft.Title["zh-CN"])
+}
+
 func TestServicePublishRejectsMissingBindingSelector(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
 	revision := 0

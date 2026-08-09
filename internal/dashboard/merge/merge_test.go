@@ -99,6 +99,7 @@ func TestAutoMergeFields_ContainsExpectedFields(t *testing.T) {
 	assert.True(t, AutoMergeFields["category.labels"])
 	assert.True(t, AutoMergeFields["navigation.title"])
 	assert.True(t, AutoMergeFields["resource.listView.columns[].title"])
+	assert.True(t, AutoMergeFields["resource.listView.defaultSort"])
 	assert.True(t, AutoMergeFields["operation.form.fields[].label"])
 	assert.True(t, AutoMergeFields["report.charts[].title"])
 }
@@ -112,4 +113,30 @@ func TestConflictFields_ContainsExpectedFields(t *testing.T) {
 	assert.True(t, ConflictFields["operation.confirm"])
 	assert.True(t, ConflictFields["task.taskView"])
 	assert.True(t, ConflictFields["report.dataset"])
+}
+
+func TestThreeWayMergeAutoMergesSortButConflictsExecution(t *testing.T) {
+	base := spec.PageSpec{
+		Type: spec.PageTypeResource,
+		Resource: &spec.ResourcePageSpec{ListView: &spec.ListViewSpec{
+			DefaultSort: &spec.SortSpec{Field: "name", Order: "asc"},
+		}},
+		Bindings: []spec.PageFunctionBinding{{ID: "list", FunctionID: "player.list"}},
+	}
+	draft := base
+	draft.Resource = &spec.ResourcePageSpec{ListView: &spec.ListViewSpec{
+		DefaultSort: &spec.SortSpec{Field: "level", Order: "desc"},
+	}}
+	draft.Bindings = []spec.PageFunctionBinding{{ID: "list", FunctionID: "player.list.v2"}}
+	latest := base
+	latest.Resource = &spec.ResourcePageSpec{ListView: &spec.ListViewSpec{
+		DefaultSort: &spec.SortSpec{Field: "createdAt", Order: "desc"},
+	}}
+	latest.Bindings = []spec.PageFunctionBinding{{ID: "list", FunctionID: "player.list.v3"}}
+
+	result := ThreeWayMerge(base, draft, latest)
+	assert.Len(t, result.AutoMerge, 1)
+	assert.Equal(t, "resource.listView.defaultSort", result.AutoMerge[0].Field)
+	assert.Len(t, result.Conflicts, 1)
+	assert.Equal(t, "bindings", result.Conflicts[0].Field)
 }

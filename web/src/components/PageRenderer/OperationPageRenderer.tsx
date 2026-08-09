@@ -10,16 +10,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  Card,
-  Button,
-  Modal,
-  message,
-  Result,
-  Alert,
-  Space,
-  Typography,
-} from 'antd';
+import { Card, Button, Modal, message, Result, Alert, Space, Typography } from 'antd';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -72,7 +63,8 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
 
   // 查找主绑定
-  const mainBinding = bindings.find((b) => b.usage === 'action') || bindings[0];
+  const mainBinding = bindings.find((b) => b.usage === 'action');
+  const requiresConfirm = Boolean(spec.confirm || mainBinding?.execution.requireConfirm);
 
   // 处理表单提交
   const handleSubmit = useCallback(
@@ -87,7 +79,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       }
 
       // 如果需要确认
-      if (spec.confirm) {
+      if (requiresConfirm) {
         setPendingValues(values);
         setConfirmVisible(true);
         return;
@@ -108,9 +100,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         } else if (response.kind === 'task') {
           message.success('任务已提交');
         } else if (spec.resultView?.successMessage) {
-          message.success(
-            spec.resultView.successMessage['zh-CN'] || '操作成功'
-          );
+          message.success(spec.resultView.successMessage['zh-CN'] || '操作成功');
         } else {
           message.success('操作成功');
         }
@@ -119,9 +109,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         setError(msg);
 
         if (spec.resultView?.errorMessage) {
-          message.error(
-            spec.resultView.errorMessage['zh-CN'] || '操作失败'
-          );
+          message.error(spec.resultView.errorMessage['zh-CN'] || '操作失败');
         } else {
           message.error('操作失败');
         }
@@ -129,7 +117,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         setLoading(false);
       }
     },
-    [mainBinding, spec.confirm, spec.resultView, onExecute, preview]
+    [mainBinding, requiresConfirm, spec.resultView, onExecute, preview],
   );
 
   // 处理确认后执行
@@ -229,22 +217,20 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       </Card>
 
       {/* 确认对话框 */}
-      {spec.confirm && (
+      {requiresConfirm && (
         <Modal
-          title={spec.confirm.title['zh-CN'] || '确认操作'}
+          title={spec.confirm?.title['zh-CN'] || '确认操作'}
           open={confirmVisible}
           onOk={handleConfirm}
           onCancel={() => {
             setConfirmVisible(false);
             setPendingValues(null);
           }}
-          okText={spec.confirm.confirmText['zh-CN'] || '确定'}
-          cancelText={spec.confirm.cancelText?.['zh-CN'] || '取消'}
+          okText={spec.confirm?.confirmText['zh-CN'] || '确定'}
+          cancelText={spec.confirm?.cancelText?.['zh-CN'] || '取消'}
           confirmLoading={loading}
         >
-          {spec.confirm.description && (
-            <p>{spec.confirm.description['zh-CN']}</p>
-          )}
+          {spec.confirm?.description && <p>{spec.confirm.description['zh-CN']}</p>}
           {pendingValues && (
             <Space direction="vertical" style={{ width: '100%' }}>
               {Object.entries(pendingValues).map(([key, value]) => (
@@ -286,7 +272,13 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                   {approvalStatus ? (
                     <>
                       <Alert
-                        type={approvalStatus.status === 'rejected' ? 'error' : approvalStatus.status === 'approved' ? 'success' : 'info'}
+                        type={
+                          approvalStatus.status === 'rejected'
+                            ? 'error'
+                            : approvalStatus.status === 'approved'
+                              ? 'success'
+                              : 'info'
+                        }
                         showIcon
                         message={`审批状态：${approvalStatus.status}`}
                         description={approvalStatus.reason || approvalStatus.updatedAt || undefined}

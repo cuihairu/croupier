@@ -63,6 +63,26 @@ describe('console menu model', () => {
     expect(dynamicPage?.locale).toBe(false);
   });
 
+  it('空的已发布菜单不会回退到静态 Console 页面', () => {
+    const menu = buildMenuFromConsoleSpec(
+      [
+        {
+          key: '/console',
+          path: '/console',
+          name: 'ControlConsole',
+          children: [
+            { key: '/console/home', path: '/console/home', name: 'ConsoleHome' },
+            { key: '/console/legacy', path: '/console/legacy', name: 'LegacyConsolePage' },
+          ],
+        },
+      ],
+      { items: [] },
+      'zh-CN',
+    );
+
+    expect(menu[0].children?.map((item) => item.path)).toEqual(['/console/home']);
+  });
+
   it('按语言回退解析动态菜单标题', () => {
     expect(resolveLocalizedText({ 'en-US': 'Mail' }, 'zh-CN', 'mail')).toBe('Mail');
     expect(resolveLocalizedText({ 'zh-CN': '邮件' }, 'en-US', 'mail')).toBe('邮件');
@@ -90,7 +110,9 @@ describe('console menu model', () => {
       bindingContracts: [],
     };
 
-    expect(buildConsolePagePath('player ops', 'player.ban')).toBe('/console/player%20ops/player.ban');
+    expect(buildConsolePagePath('player ops', 'player.ban')).toBe(
+      '/console/player%20ops/player.ban',
+    );
     expect(resolveConsolePageRoute(page, 'player')).toEqual({
       canonicalPath: '/console/player%20ops/player.ban',
       shouldRedirect: true,

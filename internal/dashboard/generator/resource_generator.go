@@ -7,6 +7,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
+	"gorm.io/datatypes"
 )
 
 type resourceActionSemantic struct {
@@ -1098,7 +1099,7 @@ func contractToFunctionSpec(c *model.FunctionContract) spec.FunctionSpec {
 	}
 }
 
-func jsonMapToApprovalPolicy(values map[string]interface{}) spec.ApprovalPolicy {
+func jsonMapToApprovalPolicy(values datatypes.JSONMap) spec.ApprovalPolicy {
 	if len(values) == 0 {
 		return spec.ApprovalPolicy{}
 	}
@@ -1113,7 +1114,7 @@ func jsonMapToApprovalPolicy(values map[string]interface{}) spec.ApprovalPolicy 
 	}
 }
 
-func jsonMapToLocalizedText(values map[string]interface{}) spec.LocalizedText {
+func jsonMapToLocalizedText(values datatypes.JSONMap) spec.LocalizedText {
 	if len(values) == 0 {
 		return nil
 	}

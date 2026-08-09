@@ -11,17 +11,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  Card,
-  Button,
-  Space,
-  message,
-  Typography,
-  Timeline,
-  Progress,
-  Tag,
-  Alert,
-} from 'antd';
+import { Card, Button, Space, message, Typography, Timeline, Progress, Tag, Alert } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -199,17 +189,20 @@ function extractTaskEvents(value: JSONValue | undefined): TaskEvent[] {
     if (!isJsonRecord(item)) {
       return [];
     }
-    const timestamp = readString(item.timestamp) || readString(item.createdAt) || readString(item.created_at);
+    const timestamp =
+      readString(item.timestamp) || readString(item.createdAt) || readString(item.created_at);
     const message = readString(item.message) || '';
     if (!timestamp || !message) {
       return [];
     }
-    return [{
-      timestamp,
-      type: normalizeTaskEventType(readString(item.type)),
-      message,
-      data: item.data ?? item.payload,
-    }];
+    return [
+      {
+        timestamp,
+        type: normalizeTaskEventType(readString(item.type)),
+        message,
+        data: item.data ?? item.payload,
+      },
+    ];
   });
 }
 
@@ -257,7 +250,10 @@ function normalizeTaskStatusFromExecution(
   return previous ? { ...previous, taskId } : { taskId, status: 'pending' };
 }
 
-function resolveTaskResultFromExecution(executionData: JSONValue | undefined, previous?: JSONValue): JSONValue | undefined {
+function resolveTaskResultFromExecution(
+  executionData: JSONValue | undefined,
+  previous?: JSONValue,
+): JSONValue | undefined {
   const result = extractTaskResult(executionData);
   return result !== undefined ? result : previous;
 }
@@ -266,7 +262,11 @@ function pageStateForTask(taskId: string, key: string): Record<string, JSONValue
   return { [key || 'taskId']: taskId };
 }
 
-function patchValue(binding: PageFunctionBinding, result: Awaited<ReturnType<PageExecuteFn>>, stateKey: string): JSONValue | undefined {
+function patchValue(
+  binding: PageFunctionBinding,
+  result: Awaited<ReturnType<PageExecuteFn>>,
+  stateKey: string,
+): JSONValue | undefined {
   const patch = outputPatchFromResult(binding, result);
   return Object.prototype.hasOwnProperty.call(patch, stateKey) ? patch[stateKey] : undefined;
 }
@@ -298,7 +298,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   }, [taskStatus]);
 
   // 查找主绑定
-  const mainBinding = bindings.find((b) => b.usage === 'task') || bindings[0];
+  const mainBinding = bindings.find((b) => b.usage === 'task');
   const statusBinding = spec.taskView.statusBindingId
     ? bindings.find((binding) => binding.id === spec.taskView.statusBindingId)
     : bindings.find((binding) => binding.usage === 'task_status');
@@ -313,6 +313,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
     : bindings.find((binding) => binding.usage === 'task_cancel');
   const taskIdStateKey = spec.taskView.taskIdStateKey || 'taskId';
   const statusStatePath = spec.taskView.statusStatePath || '';
+  const canQueryTaskStatus = Boolean(statusBinding || onQueryStatus);
 
   // 轮询任务状态
   const pollTaskStatus = useCallback(
@@ -361,7 +362,11 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           };
           taskStatusRef.current = next;
           setTaskStatus(next);
-          if (next.status === 'completed' || next.status === 'failed' || next.status === 'cancelled') {
+          if (
+            next.status === 'completed' ||
+            next.status === 'failed' ||
+            next.status === 'cancelled'
+          ) {
             setPolling(false);
             if (pollingRef.current) {
               clearInterval(pollingRef.current);
@@ -393,7 +398,11 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         setTaskStatus(next);
 
         // 如果任务完成或失败，停止轮询
-        if (status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled') {
+        if (
+          status.status === 'completed' ||
+          status.status === 'failed' ||
+          status.status === 'cancelled'
+        ) {
           setPolling(false);
           if (pollingRef.current) {
             clearInterval(pollingRef.current);
@@ -404,18 +413,30 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         console.error('Failed to poll task status:', error);
       }
     },
-    [eventsBinding, onExecute, onQueryStatus, resultBinding, statusBinding, statusStatePath, taskIdStateKey]
+    [
+      eventsBinding,
+      onExecute,
+      onQueryStatus,
+      resultBinding,
+      statusBinding,
+      statusStatePath,
+      taskIdStateKey,
+    ],
   );
 
   // 开始轮询
   const startPolling = useCallback(
     (taskId: string) => {
+      if (!canQueryTaskStatus) {
+        message.warning('任务已提交，但页面未配置状态查询绑定');
+        return;
+      }
       setPolling(true);
       pollingRef.current = setInterval(() => pollTaskStatus(taskId), 2000);
       // 立即查询一次
       pollTaskStatus(taskId);
     },
-    [pollTaskStatus]
+    [canQueryTaskStatus, pollTaskStatus],
   );
 
   // 停止轮询
@@ -490,7 +511,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         setLoading(false);
       }
     },
-    [mainBinding, onExecute, preview, startPolling]
+    [mainBinding, onExecute, preview, startPolling, taskIdStateKey],
   );
 
   // 取消任务
@@ -512,7 +533,9 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       }
       message.success('任务已取消');
       stopPolling();
-      const next = taskStatusRef.current ? { ...taskStatusRef.current, status: 'cancelled' as const } : null;
+      const next = taskStatusRef.current
+        ? { ...taskStatusRef.current, status: 'cancelled' as const }
+        : null;
       taskStatusRef.current = next;
       setTaskStatus(next);
     } catch (error) {
@@ -581,45 +604,57 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           {spec.taskView.showProgress && taskStatus.progress !== undefined && (
             <Progress
               percent={taskStatus.progress}
-              status={taskStatus.status === 'failed' ? 'exception' : taskStatus.status === 'completed' ? 'success' : 'active'}
+              status={
+                taskStatus.status === 'failed'
+                  ? 'exception'
+                  : taskStatus.status === 'completed'
+                    ? 'success'
+                    : 'active'
+              }
             />
           )}
 
           {/* 消息 */}
-          {taskStatus.message && (
-            <Alert message={taskStatus.message} type="info" />
-          )}
+          {taskStatus.message && <Alert message={taskStatus.message} type="info" />}
 
           {approvalId ? (
             <Alert
               message={approvalStatus ? `审批状态：${approvalStatus.status}` : '等待审批'}
               description={approvalStatus?.reason || approvalStatus?.updatedAt}
-              type={approvalStatus?.status === 'rejected' ? 'error' : approvalStatus?.status === 'approved' ? 'success' : 'info'}
+              type={
+                approvalStatus?.status === 'rejected'
+                  ? 'error'
+                  : approvalStatus?.status === 'approved'
+                    ? 'success'
+                    : 'info'
+              }
               showIcon
             />
           ) : null}
 
           {/* 错误信息 */}
-          {taskStatus.error && (
-            <Alert message={taskStatus.error} type="error" />
-          )}
+          {taskStatus.error && <Alert message={taskStatus.error} type="error" />}
 
           {/* 操作按钮 */}
           <Space>
-            {spec.taskView.cancelable && taskStatus.status === 'running' && (cancelBinding || onCancelTask) && (
-              <Button danger icon={<StopOutlined />} onClick={handleCancel}>
-                取消
-              </Button>
-            )}
-            {!approvalId ? (
-              <Button icon={<SyncOutlined />} onClick={() => pollTaskStatus(taskStatus.taskId)} loading={polling}>
+            {spec.taskView.cancelable &&
+              taskStatus.status === 'running' &&
+              (cancelBinding || onCancelTask) && (
+                <Button danger icon={<StopOutlined />} onClick={handleCancel}>
+                  取消
+                </Button>
+              )}
+            {!approvalId && canQueryTaskStatus ? (
+              <Button
+                icon={<SyncOutlined />}
+                onClick={() => pollTaskStatus(taskStatus.taskId)}
+                loading={polling}
+              >
                 刷新
               </Button>
             ) : null}
             {approvalId && onQueryApprovalStatus ? (
-              <Button onClick={refreshApproval}>
-                刷新审批状态
-              </Button>
+              <Button onClick={refreshApproval}>刷新审批状态</Button>
             ) : null}
           </Space>
         </Space>
@@ -644,9 +679,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
                 <br />
                 <Text>{event.message}</Text>
                 {event.data ? (
-                  <div style={{ marginTop: 8 }}>
-                    {renderJSONValueSummary(event.data)}
-                  </div>
+                  <div style={{ marginTop: 8 }}>{renderJSONValueSummary(event.data)}</div>
                 ) : null}
               </div>
             ),

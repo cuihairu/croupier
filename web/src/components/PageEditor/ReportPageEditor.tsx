@@ -6,18 +6,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import {
-  Button,
-  Card,
-  Collapse,
-  Form,
-  Input,
-  Select,
-  Space,
-  Switch,
-  Tag,
-  Typography,
-} from 'antd';
+import { Button, Card, Collapse, Form, Input, Select, Space, Switch, Tag, Typography } from 'antd';
 import {
   BarChartOutlined,
   DeleteOutlined,
@@ -26,12 +15,8 @@ import {
   ProfileOutlined,
   TableOutlined,
 } from '@ant-design/icons';
-import type {
-  ChartSpec,
-  DimensionSpec,
-  MetricSpec,
-  ReportPageSpec,
-} from '@/types/dashboard';
+import type { ChartSpec, DimensionSpec, MetricSpec, ReportPageSpec } from '@/types/dashboard';
+import FormPresentationEditor from './FormPresentationEditor';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -65,9 +50,7 @@ const updateChart = (
   index: number,
   updates: Partial<ChartSpec>,
 ): ChartSpec[] =>
-  charts.map((chart, currentIndex) =>
-    currentIndex === index ? { ...chart, ...updates } : chart,
-  );
+  charts.map((chart, currentIndex) => (currentIndex === index ? { ...chart, ...updates } : chart));
 
 export default function ReportPageEditor({
   value,
@@ -99,35 +82,6 @@ export default function ReportPageEditor({
     [onChange, value],
   );
 
-  const handleAddDimension = useCallback(() => {
-    const dimensions = value.dataset.dimensions || [];
-    handleDatasetChange({
-      dimensions: [
-        ...dimensions,
-        {
-          key: `dimension_${dimensions.length + 1}`,
-          title: { 'zh-CN': '新维度' },
-          dataType: 'string',
-        },
-      ],
-    });
-  }, [handleDatasetChange, value.dataset.dimensions]);
-
-  const handleAddMetric = useCallback(() => {
-    const metrics = value.dataset.metrics || [];
-    handleDatasetChange({
-      metrics: [
-        ...metrics,
-        {
-          key: `metric_${metrics.length + 1}`,
-          title: { 'zh-CN': '新指标' },
-          dataType: 'number',
-          aggType: 'sum',
-        },
-      ],
-    });
-  }, [handleDatasetChange, value.dataset.metrics]);
-
   const handleAddChart = useCallback(() => {
     const charts = value.charts || [];
     handleChartsChange([
@@ -151,17 +105,11 @@ export default function ReportPageEditor({
         }
         key="queryForm"
       >
-        <Text type="secondary">
-          查询表单来自 JSON Schema + FormPresentationSpec，运行时统一由 SchemaFormRenderer 渲染。
-        </Text>
-        <div style={{ marginTop: 16 }}>
-          {value.queryForm?.fields?.map((field) => (
-            <Tag key={field.key} style={{ marginBottom: 4 }}>
-              {field.label?.['zh-CN'] || field.key}
-              {field.widget && <Text type="secondary"> ({field.widget})</Text>}
-            </Tag>
-          ))}
-        </div>
+        <FormPresentationEditor
+          value={value.queryForm}
+          onChange={(queryForm) => onChange({ ...value, queryForm })}
+          readonly={readonly}
+        />
       </Panel>
 
       <Panel
@@ -179,36 +127,14 @@ export default function ReportPageEditor({
           <div>
             <Space style={{ marginBottom: 8 }}>
               <Text strong>维度</Text>
-              <Button
-                type="dashed"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={handleAddDimension}
-                disabled={readonly}
-              >
-                添加维度
-              </Button>
             </Space>
+            <Text type="secondary">维度 key 来自已审核的报表语义，页面只调整展示文本和类型。</Text>
             {value.dataset.dimensions.map((dimension, index) => (
               <Card
                 key={dimension.key}
                 size="small"
                 style={{ marginBottom: 8 }}
                 title={<Text code>{dimension.key}</Text>}
-                extra={
-                  !readonly && (
-                    <Button
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => {
-                        const dimensions = [...value.dataset.dimensions];
-                        dimensions.splice(index, 1);
-                        handleDatasetChange({ dimensions });
-                      }}
-                    />
-                  )
-                }
               >
                 <Form layout="inline" disabled={readonly}>
                   <Form.Item label="标题">
@@ -251,36 +177,14 @@ export default function ReportPageEditor({
           <div>
             <Space style={{ marginBottom: 8 }}>
               <Text strong>指标</Text>
-              <Button
-                type="dashed"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={handleAddMetric}
-                disabled={readonly}
-              >
-                添加指标
-              </Button>
             </Space>
+            <Text type="secondary">指标 key 来自已审核的报表语义，页面只调整展示格式。</Text>
             {value.dataset.metrics.map((metric, index) => (
               <Card
                 key={metric.key}
                 size="small"
                 style={{ marginBottom: 8 }}
                 title={<Text code>{metric.key}</Text>}
-                extra={
-                  !readonly && (
-                    <Button
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => {
-                        const metrics = [...value.dataset.metrics];
-                        metrics.splice(index, 1);
-                        handleDatasetChange({ metrics });
-                      }}
-                    />
-                  )
-                }
               >
                 <Form layout="inline" disabled={readonly}>
                   <Form.Item label="标题">
@@ -392,9 +296,11 @@ export default function ReportPageEditor({
                   size="small"
                   value={chart.title?.['zh-CN'] || ''}
                   onChange={(event) =>
-                    handleChartsChange(updateChart(value.charts || [], index, {
-                      title: { ...chart.title, 'zh-CN': event.target.value },
-                    }))
+                    handleChartsChange(
+                      updateChart(value.charts || [], index, {
+                        title: { ...chart.title, 'zh-CN': event.target.value },
+                      }),
+                    )
                   }
                 />
               </Form.Item>
@@ -420,9 +326,11 @@ export default function ReportPageEditor({
                   size="small"
                   value={chart.xField}
                   onChange={(event) =>
-                    handleChartsChange(updateChart(value.charts || [], index, {
-                      xField: event.target.value,
-                    }))
+                    handleChartsChange(
+                      updateChart(value.charts || [], index, {
+                        xField: event.target.value,
+                      }),
+                    )
                   }
                 />
               </Form.Item>
@@ -431,9 +339,11 @@ export default function ReportPageEditor({
                   size="small"
                   value={chart.yField}
                   onChange={(event) =>
-                    handleChartsChange(updateChart(value.charts || [], index, {
-                      yField: event.target.value,
-                    }))
+                    handleChartsChange(
+                      updateChart(value.charts || [], index, {
+                        yField: event.target.value,
+                      }),
+                    )
                   }
                 />
               </Form.Item>

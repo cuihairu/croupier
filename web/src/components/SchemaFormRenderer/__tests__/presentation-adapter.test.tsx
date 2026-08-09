@@ -4,25 +4,8 @@
  * 验证 FormPresentationSpec 能正确派生 renderer presentation config
  */
 
+import { deriveRuntimeSchema } from '@/components/SchemaFormRenderer';
 import type { FormPresentationSpec } from '@/types/dashboard';
-
-// FormPresentationSpec 到 renderer config 的派生逻辑
-function deriveRendererConfig(spec: FormPresentationSpec) {
-  return {
-    layout: spec.layout || 'vertical',
-    groups: spec.groups || [],
-    fields: (spec.fields || []).map((f) => ({
-      key: f.key,
-      widget: f.widget || 'Input',
-      label: f.label,
-      placeholder: f.placeholder,
-      disabled: f.disabled || false,
-      visible: f.visible !== false,
-    })),
-    submitButton: spec.submitButton || { text: '提交', type: 'primary' },
-    cancelButton: spec.cancelButton || { text: '取消' },
-  };
-}
 
 describe('P0-0: FormPresentationSpec adapter', () => {
   test('基础表单派生', () => {
@@ -36,9 +19,9 @@ describe('P0-0: FormPresentationSpec adapter', () => {
       layout: 'vertical',
     };
 
-    const config = deriveRendererConfig(spec);
-    expect(config.layout).toBe('vertical');
-    expect(config.submitButton.text).toBe('提交');
+    const { schema, uiSchema } = deriveRuntimeSchema(spec, {});
+    expect(schema.type).toBe('object');
+    expect(uiSchema['ui:submitButtonOptions']).toEqual({ submitText: '提交', norender: false });
   });
 
   test('带分组的表单派生', () => {
@@ -53,9 +36,9 @@ describe('P0-0: FormPresentationSpec adapter', () => {
       groups: [{ key: 'basic', title: { 'zh-CN': '基本信息' }, fields: ['name', 'email'] }],
     };
 
-    const config = deriveRendererConfig(spec);
-    expect(config.groups).toHaveLength(1);
-    expect(config.groups[0].key).toBe('basic');
+    const { schema, uiSchema } = deriveRuntimeSchema(spec, {});
+    expect(schema.properties).toHaveProperty('name');
+    expect(uiSchema['ui:order']).toBeUndefined();
   });
 
   test('带字段覆盖的表单派生', () => {
@@ -76,9 +59,9 @@ describe('P0-0: FormPresentationSpec adapter', () => {
       ],
     };
 
-    const config = deriveRendererConfig(spec);
-    expect(config.fields[0].widget).toBe('TextArea');
-    expect(config.fields[0].label?.['zh-CN']).toBe('玩家名称');
+    const { schema, uiSchema } = deriveRuntimeSchema(spec, {});
+    expect((schema.properties as Record<string, { title?: string }>).name.title).toBe('玩家名称');
+    expect((uiSchema.name as Record<string, string>)['ui:widget']).toBe('textarea');
   });
 
   test('renderer 私有配置不持久化', () => {
@@ -91,9 +74,30 @@ describe('P0-0: FormPresentationSpec adapter', () => {
       },
     };
 
-    // 验证派生的配置不包含持久化字段
-    const config = deriveRendererConfig(spec);
-    expect(config).not.toHaveProperty('persistedId');
-    expect(config).not.toHaveProperty('databaseId');
+    const { uiSchema } = deriveRuntimeSchema(spec, {});
+    expect(JSON.stringify(uiSchema)).not.toContain('persistedId');
+    expect(JSON.stringify(uiSchema)).not.toContain('databaseId');
+  });
+
+  test('保留 JSON Schema 默认值及嵌套、数组、枚举与格式定义', () => {
+    const spec: FormPresentationSpec = {
+      jsonSchema: {
+        type: 'object',
+        properties: {
+          mode: { type: 'string', enum: ['all', 'single'], default: 'all' },
+          startAt: { type: 'string', format: 'date-time' },
+          targets: { type: 'array', items: { type: 'string' } },
+          filter: { type: 'object', properties: { level: { type: 'integer', default: 1 } } },
+        },
+      },
+    };
+
+    const { schema } = deriveRuntimeSchema(spec, {});
+    const properties = schema.properties as Record<string, Record<string, unknown>>;
+    expect(properties.mode.default).toBe('all');
+    expect(properties.mode.enum).toEqual(['all', 'single']);
+    expect(properties.startAt.format).toBe('date-time');
+    expect(properties.targets.items).toEqual({ type: 'string' });
+    expect(properties.filter.properties).toEqual({ level: { type: 'integer', default: 1 } });
   });
 });

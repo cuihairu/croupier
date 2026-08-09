@@ -67,11 +67,11 @@ SDK / OpenAPI
 
 因此自动生成分为两层：
 
-| 层 | 输入 | 产物 | 是否可由 SDK/OpenAPI 提供 |
-| --- | --- | --- | --- |
-| 数据契约 | JSON Schema、HTTP method/path、函数版本和治理字段 | FunctionContract | 可以 |
-| 能力语义 | CRUD 意图、对象标识、任务/报表执行特征 | CapabilitySemantics | 可从 REST 推导；SDK 可显式提供有限语义 |
-| 页面编排 | 分类、标题、列、筛选、动作位置、映射和表单展示 | PageProposal / PageSpec | 不可以；只由 Server/Page Studio 产生 |
+| 层       | 输入                                              | 产物                    | 是否可由 SDK/OpenAPI 提供              |
+| -------- | ------------------------------------------------- | ----------------------- | -------------------------------------- |
+| 数据契约 | JSON Schema、HTTP method/path、函数版本和治理字段 | FunctionContract        | 可以                                   |
+| 能力语义 | CRUD 意图、对象标识、任务/报表执行特征            | CapabilitySemantics     | 可从 REST 推导；SDK 可显式提供有限语义 |
+| 页面编排 | 分类、标题、列、筛选、动作位置、映射和表单展示    | PageProposal / PageSpec | 不可以；只由 Server/Page Studio 产生   |
 
 `CapabilitySemantics` 不是 UI。它不含菜单、路由、标题、表格列或按钮位置；它只回答“该函数在资源生命周期中做什么”。
 
@@ -92,7 +92,7 @@ interface FunctionContract {
   outputSchema?: JSONSchema;
   risk: RiskLevel;
   permission?: string;
-  execution: 'sync' | 'task';
+  execution: "sync" | "task";
   approval: ApprovalPolicy;
   resourceKey?: string;
   operationKey?: string;
@@ -101,11 +101,11 @@ interface FunctionContract {
 
 type LocaleCode = string;
 type LocalizedText = Readonly<Record<LocaleCode, string>>;
-type JsonPointer = '' | `/${string}`;
+type JsonPointer = "" | `/${string}`;
 type JSONPrimitive = string | number | boolean | null;
 type JSONValue = JSONPrimitive | JSONValue[] | { [key: string]: JSONValue };
 type JSONSchema = boolean | { [key: string]: JSONValue };
-type RiskLevel = 'low' | 'medium' | 'high' | 'danger';
+type RiskLevel = "low" | "medium" | "high" | "danger";
 
 interface Scope {
   gameId: string;
@@ -120,14 +120,14 @@ interface FunctionRef {
 }
 
 interface SourceDigest {
-  kind: 'function_contract' | 'capability_semantics';
+  kind: "function_contract" | "capability_semantics";
   id: string;
   digest: string;
 }
 
 interface Diagnostic {
   code: string;
-  severity: 'info' | 'warning' | 'error';
+  severity: "info" | "warning" | "error";
   message: LocalizedText;
   path?: JsonPointer;
 }
@@ -138,14 +138,14 @@ interface ApprovalPolicy {
 }
 
 type CapabilityKind =
-  | 'collection_query'
-  | 'item_query'
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'action'
-  | 'task'
-  | 'report';
+  | "collection_query"
+  | "item_query"
+  | "create"
+  | "update"
+  | "delete"
+  | "action"
+  | "task"
+  | "report";
 ```
 
 `execution` 与 `approval` 正交：`execution: 'task'` 且 `approval.required: true` 表示审批通过后才启动异步任务；同步操作也可以要求审批。`approval.policyKey` 只引用平台已配置的治理策略，缺失时由 Server 按风险策略解析默认值；它不是页面 UI，不能由浏览器覆盖。
@@ -169,7 +169,7 @@ interface CapabilitySemantics {
   identity?: IdentitySemantic;
   collection?: CollectionSemantic;
   item?: ItemSemantic;
-  lifecycle: Partial<Record<'create' | 'update' | 'delete', FunctionRef>>;
+  lifecycle: Partial<Record<"create" | "update" | "delete", FunctionRef>>;
   actions: ActionSemantic[];
   tasks: TaskSemantic[];
   reports: ReportSemantic[];
@@ -183,7 +183,7 @@ interface IdentitySemantic {
   valueType: JsonScalarType;
 }
 
-type JsonScalarType = 'string' | 'number' | 'integer' | 'boolean';
+type JsonScalarType = "string" | "number" | "integer" | "boolean";
 
 interface CollectionSemantic {
   query: FunctionRef;
@@ -199,29 +199,45 @@ interface ItemSemantic {
 }
 
 interface OffsetPaginationSemantic {
-  kind: 'offset';
+  kind: "offset";
   request: { offset: JsonPointer; limit: JsonPointer };
   response: { total?: JsonPointer; hasMore?: JsonPointer };
 }
 
 interface CursorPaginationSemantic {
-  kind: 'cursor';
+  kind: "cursor";
   request: { cursor: JsonPointer; limit?: JsonPointer };
-  response: { nextCursor: JsonPointer; previousCursor?: JsonPointer; hasMore?: JsonPointer };
+  response: {
+    nextCursor: JsonPointer;
+    previousCursor?: JsonPointer;
+    hasMore?: JsonPointer;
+  };
 }
 
 interface ActionSemantic {
   function: FunctionRef;
-  subject: 'resource_item' | 'resource_selection' | 'none';
+  subject: "resource_item" | "resource_selection" | "none";
   identityInput?: JsonPointer;
 }
 
 interface TaskSemantic {
   start: FunctionRef;
   taskId: { resultPath: JsonPointer; valueType: JsonScalarType };
-  status: { function: FunctionRef; taskIdInput: JsonPointer; statePath: JsonPointer };
-  events?: { function: FunctionRef; taskIdInput: JsonPointer; eventsPath: JsonPointer };
-  result?: { function: FunctionRef; taskIdInput: JsonPointer; resultPath: JsonPointer };
+  status: {
+    function: FunctionRef;
+    taskIdInput: JsonPointer;
+    statePath: JsonPointer;
+  };
+  events?: {
+    function: FunctionRef;
+    taskIdInput: JsonPointer;
+    eventsPath: JsonPointer;
+  };
+  result?: {
+    function: FunctionRef;
+    taskIdInput: JsonPointer;
+    resultPath: JsonPointer;
+  };
   cancel?: { function: FunctionRef; taskIdInput: JsonPointer };
   retry?: { function: FunctionRef; taskIdInput: JsonPointer };
 }
@@ -235,10 +251,10 @@ interface ReportSemantic {
 
 interface SemanticProvenance {
   field: string;
-  source: 'openapi_rest' | 'sdk_explicit' | 'platform_review';
+  source: "openapi_rest" | "sdk_explicit" | "platform_review";
   sourceDigest: string;
-  confidence: 'high' | 'low';
-  status: 'effective' | 'overridden' | 'conflict';
+  confidence: "high" | "low";
+  status: "effective" | "overridden" | "conflict";
 }
 ```
 
@@ -269,7 +285,7 @@ interface PageProposal {
   proposalKey: string;
   pageKey: string;
   spec: PageSpec;
-  quality: 'ready' | 'basic' | 'needs_review';
+  quality: "ready" | "basic" | "needs_review";
   generatorVersion: string;
   sourceDigests: SourceDigest[];
   diagnostics: Diagnostic[];
@@ -300,7 +316,11 @@ PageDraft 是用户接受 Proposal 后形成的可编辑页面；PublishedPageSp
 PageSpec 是平台唯一的页面编排协议。它不持久化 `ProTable`、`ProForm` 等具体组件名，而是强类型的业务级 DSL：
 
 ```ts
-type PageSpec = ResourcePageSpec | OperationPageSpec | TaskPageSpec | ReportPageSpec;
+type PageSpec =
+  | ResourcePageSpec
+  | OperationPageSpec
+  | TaskPageSpec
+  | ReportPageSpec;
 
 interface PageBase {
   pageKey: string;
@@ -311,7 +331,7 @@ interface PageBase {
 }
 
 interface ResourcePageSpec extends PageBase {
-  kind: 'resource';
+  kind: "resource";
   resourceKey: string;
   list?: ListViewSpec;
   detail?: DetailViewSpec;
@@ -323,20 +343,20 @@ interface ResourcePageSpec extends PageBase {
 }
 
 interface OperationPageSpec extends PageBase {
-  kind: 'operation';
+  kind: "operation";
   action: FormActionSpec | ConfirmActionSpec;
   result: ResultViewSpec;
 }
 
 interface TaskPageSpec extends PageBase {
-  kind: 'task';
+  kind: "task";
   start: FormActionSpec;
   task: TaskViewSpec;
   result?: ResultViewSpec;
 }
 
 interface ReportPageSpec extends PageBase {
-  kind: 'report';
+  kind: "report";
   query: QueryViewSpec;
   visualizations: ReportViewSpec[];
 }
@@ -416,7 +436,7 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 - Renderer 只能消费 PublishedPageSpec，不能从最新函数目录或运行结果临时补字段。
 - 动态菜单文本来自 PublishedPageSpec 的 NavigationSpec，不能依赖静态 locale 或字典事实源。
 - 浏览器只能通过 published binding execute API 执行，不能选择 function、target、route 或 scope。
-- 历史页面配置无自动迁移路径。旧 WorkspaceConfig、objectKey、layout 等模型的数据只能导出、备份和人工重建；不提供自动转换桥。
+- 历史页面配置无自动迁移路径。旧页面配置模型的数据只能导出、备份和人工重建；不提供自动转换桥。
 
 ## 完成定义
 

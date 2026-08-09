@@ -75,6 +75,8 @@ export interface ConflictResolution {
 
 /** 合并请求 */
 export interface MergeRequest {
+  /** 非 dry-run 写操作必须携带当前草稿 revision。 */
+  expectedDraftRevision?: number;
   strategy: MergeStrategy;
   dryRun?: boolean;
   conflicts?: ConflictResolution[];
@@ -110,12 +112,17 @@ export interface MergeConflictInfo {
 
 /** 回滚请求 */
 export interface RollbackRequest {
+  /** 回滚必须携带当前草稿 revision，避免覆盖并发编辑。 */
+  expectedDraftRevision: number;
   version?: number;
   reason?: string;
 }
 
 /** 回滚响应 */
 export interface RollbackResponse {
+  pageKey: string;
+  draftRevision: number;
+  version?: number;
   message: string;
 }
 

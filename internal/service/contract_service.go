@@ -18,7 +18,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const pageProposalGeneratorVersion = "dashboard-vnext-1"
+const pageProposalGeneratorVersion = "page-generator:1"
 
 // ContractService manages FunctionContract persistence and semantic rebuilding.
 type ContractService struct {
@@ -241,7 +241,7 @@ func trackSemanticBinding(tracker *normalizer.SemanticProvenanceTracker, field s
 	if tracker == nil || contract == nil {
 		return false
 	}
-	return tracker.TrackField(field, contract.ID, semanticSourceForContract(contract), contract.SourceDigest, "system")
+	return tracker.TrackUint(field, contract.ID, semanticSourceForContract(contract), contract.SourceDigest, "system")
 }
 
 func semanticSourceForContract(contract *model.FunctionContract) spec.SemanticSource {

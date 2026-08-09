@@ -115,6 +115,68 @@ func TestProposalService_AcceptProposal(t *testing.T) {
 	assert.Contains(t, versions[0].Message, "accept generated proposal")
 }
 
+func TestProposalService_AcceptAndPublishFreezesBindingContractSnapshot(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := proposalTestContext()
+	service := NewProposalService(db)
+
+	contract := &model.FunctionContract{
+		GameID:       "demo-game",
+		Env:          "development",
+		FunctionID:   "mail.send",
+		Version:      "2.3.4",
+		Enabled:      true,
+		Capability:   "action",
+		Execution:    "sync",
+		Risk:         "high",
+		Permission:   "mail:send",
+		Approval:     datatypes.JSONMap{"required": true, "policyKey": "two_person"},
+		InputSchema:  datatypes.JSON(`{"type":"object"}`),
+		OutputSchema: datatypes.JSON(`{"type":"object"}`),
+	}
+	require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, contract))
+
+	page := spec.PageSpec{
+		PageKey: "operation--mail.send",
+		Type:    spec.PageTypeOperation,
+		Title:   spec.LocalizedText{"zh-CN": "发送邮件"},
+		Category: spec.PageCategorySpec{
+			Key: "mail", Labels: spec.LocalizedText{"zh-CN": "邮件"},
+		},
+		Operation: &spec.OperationPageSpec{Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object"}`)}},
+		Bindings: []spec.PageFunctionBinding{{
+			ID: "main", FunctionID: "mail.send", Usage: spec.BindingUsageAction,
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		}},
+	}
+	pageJSON, err := json.Marshal(page)
+	require.NoError(t, err)
+	require.NoError(t, service.proposalModel.UpsertProposal(ctx, &model.PageProposal{
+		GameID: "demo-game", Env: "development", ProposalKey: "operation:mail.send",
+		PageKey: page.PageKey, PageType: string(page.Type), Quality: "basic", Status: "pending", PageSpec: pageJSON,
+	}))
+
+	_, err = service.AcceptAndPublishProposal(ctx, "demo-game", "development", "operation:mail.send")
+	require.NoError(t, err)
+	published, err := model.NewPublishedPageSpecModel(db).FindLatestByScopeAndPageKey(ctx, "demo-game", "development", page.PageKey)
+	require.NoError(t, err)
+	assert.Equal(t, rendererSchemaVersion, published.RendererSchemaVersion)
+	var snapshots []spec.BindingContractSnapshot
+	require.NoError(t, json.Unmarshal([]byte(published.BindingContractsJSON), &snapshots))
+	require.Len(t, snapshots, 1)
+	snapshot := snapshots[0]
+	assert.Equal(t, "main", snapshot.BindingID)
+	assert.Equal(t, contract.FunctionID, snapshot.FunctionID)
+	assert.Equal(t, contract.Version, snapshot.FunctionVersion)
+	assert.Equal(t, digestJSON(contract.InputSchema), snapshot.InputSchemaDigest)
+	assert.Equal(t, digestJSON(contract.OutputSchema), snapshot.OutputSchemaDigest)
+	assert.Equal(t, spec.RiskHigh, snapshot.Risk)
+	assert.Equal(t, contract.Permission, snapshot.Permission)
+	assert.Equal(t, spec.ApprovalPolicy{Required: true, PolicyKey: "two_person"}, snapshot.Approval)
+	assert.Equal(t, spec.PageExecutionModeSync, snapshot.ExecutionMode)
+	assert.Equal(t, rendererSchemaVersion, snapshot.RendererSchemaVersion)
+}
+
 func TestProposalService_AcceptProposalRequiresCanonicalPageSpec(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := proposalTestContext()

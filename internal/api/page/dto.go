@@ -126,8 +126,9 @@ type PageVersionDetailResponse struct {
 }
 
 type PageRollbackRequest struct {
-	PageKey   string `uri:"pageKey" binding:"required"`
-	VersionID string `json:"versionId" binding:"required"`
+	PageKey               string `uri:"pageKey" binding:"required"`
+	VersionID             string `json:"versionId" binding:"required"`
+	ExpectedDraftRevision *int   `json:"expectedDraftRevision" binding:"required"`
 }
 
 type PageRollbackResponse struct {

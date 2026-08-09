@@ -8,31 +8,10 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  Card,
-  Collapse,
-  Form,
-  Input,
-  Switch,
-  Select,
-  Button,
-  Space,
-  Tag,
-  Typography,
-} from 'antd';
-import {
-  FormOutlined,
-  CheckCircleOutlined,
-  FileTextOutlined,
-  PlusOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons';
-import type {
-  OperationPageSpec,
-  ConfirmActionSpec,
-  ResultViewSpec,
-  ResultFieldSpec,
-} from '@/types/dashboard';
+import { Card, Collapse, Form, Input, Select, Space, Tag, Typography } from 'antd';
+import { FormOutlined, CheckCircleOutlined, FileTextOutlined } from '@ant-design/icons';
+import type { OperationPageSpec, ConfirmActionSpec, ResultViewSpec } from '@/types/dashboard';
+import FormPresentationEditor from './FormPresentationEditor';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -72,7 +51,7 @@ export default function OperationPageEditor({
         } as ConfirmActionSpec,
       });
     },
-    [value, onChange]
+    [value, onChange],
   );
 
   // 更新结果视图
@@ -86,37 +65,11 @@ export default function OperationPageEditor({
         } as ResultViewSpec,
       });
     },
-    [value, onChange]
-  );
-
-  // 添加结果字段
-  const handleAddResultField = useCallback(() => {
-    const newField: ResultFieldSpec = {
-      key: `field_${(value.resultView?.fields?.length || 0) + 1}`,
-      title: { 'zh-CN': '新字段' },
-      dataType: 'string',
-    };
-    handleResultViewChange({
-      fields: [...(value.resultView?.fields || []), newField],
-    });
-  }, [value, handleResultViewChange]);
-
-  // 删除结果字段
-  const handleDeleteResultField = useCallback(
-    (index: number) => {
-      const fields = [...(value.resultView?.fields || [])];
-      fields.splice(index, 1);
-      handleResultViewChange({ fields });
-    },
-    [value, handleResultViewChange]
+    [value, onChange],
   );
 
   return (
-    <Collapse
-      activeKey={activeKey}
-      onChange={setActiveKey}
-      bordered={false}
-    >
+    <Collapse activeKey={activeKey} onChange={setActiveKey} bordered={false}>
       {/* 表单配置 */}
       <Panel
         header={
@@ -128,20 +81,11 @@ export default function OperationPageEditor({
         }
         key="form"
       >
-        <div>
-          <Text type="secondary">
-            表单由 JSON Schema 和 FormPresentationSpec 自动生成。
-            在此查看表单字段配置。
-          </Text>
-          <div style={{ marginTop: 16 }}>
-            {value.form?.fields?.map((field) => (
-              <Tag key={field.key} style={{ marginBottom: 4 }}>
-                {field.label?.['zh-CN'] || field.key}
-                {field.widget && <Text type="secondary"> ({field.widget})</Text>}
-              </Tag>
-            ))}
-          </div>
-        </div>
+        <FormPresentationEditor
+          value={value.form}
+          onChange={(form) => onChange({ ...value, form })}
+          readonly={readonly}
+        />
       </Panel>
 
       {/* 确认配置 */}
@@ -156,19 +100,6 @@ export default function OperationPageEditor({
         key="confirm"
       >
         <Form layout="vertical" disabled={readonly}>
-          <Form.Item label="启用确认">
-            <Switch
-              checked={!!value.confirm}
-              onChange={(checked) =>
-                onChange({
-                  ...value,
-                  confirm: checked
-                    ? { title: { 'zh-CN': '确认操作' }, confirmText: { 'zh-CN': '确认' }, bindingId: '' }
-                    : undefined,
-                })
-              }
-            />
-          </Form.Item>
           {value.confirm && (
             <>
               <Form.Item label="确认标题">
@@ -193,6 +124,11 @@ export default function OperationPageEditor({
               </Form.Item>
             </>
           )}
+          {!value.confirm && (
+            <Text type="secondary">
+              确认要求由已发布 binding 的风险与审批策略决定，不能在页面编辑器中新增或移除。
+            </Text>
+          )}
         </Form>
       </Panel>
 
@@ -207,16 +143,7 @@ export default function OperationPageEditor({
         }
         key="resultView"
       >
-        <div style={{ marginBottom: 16 }}>
-          <Button
-            type="dashed"
-            icon={<PlusOutlined />}
-            onClick={handleAddResultField}
-            disabled={readonly}
-          >
-            添加结果字段
-          </Button>
-        </div>
+        <Text type="secondary">结果字段来自已发布输出映射；这里只调整展示标题和格式。</Text>
 
         {value.resultView?.fields?.map((field, index) => (
           <Card
@@ -228,16 +155,6 @@ export default function OperationPageEditor({
                 <Text code>{field.key}</Text>
                 <Tag>{field.dataType}</Tag>
               </Space>
-            }
-            extra={
-              !readonly && (
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleDeleteResultField(index)}
-                />
-              )
             }
           >
             <Form layout="inline" disabled={readonly}>
