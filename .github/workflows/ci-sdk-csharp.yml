@@ -42,12 +42,12 @@ jobs:
         run: python3 .github/scripts/normalize_csharp_coverage.py
       - name: Verify C# coverage contains repo-relative SDK paths
         run: |
-          test -n "$(find "sdks/csharp/TestResults/codecov" -name "coverage-*.cobertura.xml" -print -quit)"
-          grep -R -q 'filename="sdks/csharp/src/Croupier.Sdk/' "sdks/csharp/TestResults/codecov"
+          test -f "sdks/csharp/TestResults/codecov/coverage.xml"
+          grep -q 'filename="sdks/csharp/src/Croupier.Sdk/' "sdks/csharp/TestResults/codecov/coverage.xml"
       - uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: sdks/csharp/TestResults/codecov/coverage-*.cobertura.xml
+          files: sdks/csharp/TestResults/codecov/coverage.xml
           flags: csharp-sdk
           disable_search: true
           fail_ci_if_error: true
