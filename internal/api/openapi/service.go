@@ -21,6 +21,7 @@ import (
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	platformopenapi "github.com/cuihairu/croupier/internal/platform/openapi"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	dashboardservice "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -765,14 +766,35 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 		capability = ""
 	}
 
+	// Use new REST classifier for more comprehensive classification
+	classifier := platformopenapi.NewRESTCapabilityClassifier()
+	var classificationResult *platformopenapi.ClassificationResult
 	inferredCapability := spec.CapabilityKind("")
+
 	// If capability is not provided, try to infer from REST method/path
 	if capability == "" {
-		inferred := classifyRESTCapability(candidate.method, candidate.path)
-		if inferred != "" {
-			inferredCapability = inferred
-			capability = inferred
-			*diags = append(*diags, restClassificationDiagnostic(candidate.method, candidate.path, inferred))
+		hasRequestBody := candidate.op.RequestBody != nil && candidate.op.RequestBody.Value != nil
+		responseIsArray := false // TODO: check response schema if needed
+
+		result := classifier.ClassifyOperation(
+			candidate.method,
+			candidate.path,
+			hasRequestBody,
+			responseIsArray,
+		)
+
+		if result.Capability != "" {
+			classificationResult = &result
+			inferredCapability = result.Capability
+			capability = result.Capability
+
+			// Add classification diagnostic with confidence info
+			*diags = append(*diags, restClassificationDiagnosticWithConfidence(
+				candidate.method, candidate.path, result.Capability, result.Confidence,
+			))
+
+			// Add any additional diagnostics from classification
+			*diags = append(*diags, result.Diagnostics...)
 		}
 	}
 
@@ -788,8 +810,8 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 	}
 	approval := approvalPolicyFromExtensions(extensions, candidate, diags)
 	resourceKey := extensionString(extensions, "x-resource")
-	if resourceKey == "" && inferredCapability != "" {
-		resourceKey = inferResourceFromPath(candidate.path)
+	if resourceKey == "" && classificationResult != nil && classificationResult.ResourceKey != "" {
+		resourceKey = classificationResult.ResourceKey
 	}
 	operationKey := extensionString(extensions, "x-operation")
 	if operationKey == "" && inferredCapability != "" {
