@@ -106,6 +106,7 @@ sdks/js/.next/
 sdks/js/out/
 sdks/js/build/
 sdks/js/dist/
+sdks/js/examples/game_demo.js
 sdks/js/coverage/
 sdks/js/.pnp.js
 sdks/js/.umi/

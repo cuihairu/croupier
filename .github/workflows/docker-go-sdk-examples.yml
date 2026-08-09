@@ -99,6 +99,10 @@ jobs:
           pnpm rebuild esbuild
           pnpm build:bundle
 
+      - name: Prepare JS SDK Docker context
+        if: matrix.language == 'js'
+        run: cp sdks/js/dist/examples/game_demo.js sdks/js/examples/game_demo.js
+
       - name: Build and push Docker image
         timeout-minutes: 45
         uses: docker/build-push-action@v7
