@@ -3,11 +3,11 @@ name: CI - JavaScript SDK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
-    paths: [ 'sdks/js/**' ]
+    branches: [main]
+    paths: ["sdks/js/**"]
   pull_request:
-    branches: [ main ]
-    paths: [ 'sdks/js/**' ]
+    branches: [main]
+    paths: ["sdks/js/**"]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -23,10 +23,12 @@ jobs:
           package_json_file: sdks/js/package.json
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
-          cache: 'pnpm'
-          cache-dependency-path: 'sdks/js/pnpm-lock.yaml'
-      - run: pnpm install --frozen-lockfile
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "sdks/js/pnpm-lock.yaml"
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: sdks/js
+      - run: pnpm rebuild esbuild
         working-directory: sdks/js
       - run: pnpm test:coverage
         working-directory: sdks/js

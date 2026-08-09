@@ -197,7 +197,8 @@ jobs:
         timeout-minutes: 15
         working-directory: ./sdks/js
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm rebuild esbuild
           pnpm run build
 
       - name: Package JS SDK
