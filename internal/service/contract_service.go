@@ -126,8 +126,18 @@ func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID,
 		return fmt.Errorf("list contracts: %w", err)
 	}
 	if len(contracts) == 0 {
+		slog.Warn("RebuildResourceCapability: no contracts found",
+			"game_id", gameID,
+			"env", env,
+			"resource_key", resourceKey)
 		return nil
 	}
+
+	slog.Info("RebuildResourceCapability: found contracts",
+		"game_id", gameID,
+		"env", env,
+		"resource_key", resourceKey,
+		"contract_count", len(contracts))
 
 	// 2. Build capability aggregation
 	cap := &model.ResourceCapability{
@@ -140,6 +150,11 @@ func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID,
 	if err := s.capabilityModel.UpsertCapability(ctx, cap); err != nil {
 		return fmt.Errorf("upsert resource capability: %w", err)
 	}
+
+	slog.Info("RebuildResourceCapability: upserted capability",
+		"game_id", gameID,
+		"env", env,
+		"resource_key", resourceKey)
 
 	// 3. Build capability semantics. Existing platform_review fields are
 	// preserved because registration only provides capability hints, not the

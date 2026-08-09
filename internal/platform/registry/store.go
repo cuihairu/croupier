@@ -194,6 +194,9 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 		scopeCtx := s.rebuildContext(a.GameID, a.Env)
 		var rebuildErrors []error
 		for funcID, meta := range a.Functions {
+			// Infer Resource/Operation/Capability from function ID when not provided.
+			InferResourceAndCapability(funcID, &meta)
+
 			input := spec.FunctionContractInput{
 				ID:                funcID,
 				Version:           meta.Version,

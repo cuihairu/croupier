@@ -421,6 +421,15 @@ func (s *Service) rebuildContractForSourceBinding(
 	if err != nil {
 		return err
 	}
+
+	slog.Info("rebuilding contract for source binding",
+		"game_id", gameID,
+		"env", env,
+		"function_id", functionID,
+		"resource", meta.Resource,
+		"capability", meta.Capability,
+		"operation", meta.Operation)
+
 	contractService := dashboardservice.NewContractService(s.svcCtx.DB)
 	if err := contractService.RebuildContractFromFunctionMeta(ctx, gameID, env, "openapi", meta); err != nil {
 		return fmt.Errorf("rebuild OpenAPI function contract %s: %w", functionID, err)
