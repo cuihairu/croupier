@@ -46,24 +46,10 @@ func NewContractService(db *gorm.DB) *ContractService {
 	}
 }
 
-// RebuildContractFromFunctionMeta rebuilds a FunctionContract from raw function metadata.
-// This is called when a function is registered or updated.
-// meta can be FunctionMetaInput or any struct with matching JSON tags.
-func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error {
-	// Convert meta to FunctionMetaInput via JSON round-trip to support
-	// anonymous structs from the registry store.
-	var input FunctionMetaInput
-	if m, ok := meta.(FunctionMetaInput); ok {
-		input = m
-	} else {
-		b, err := json.Marshal(meta)
-		if err != nil {
-			return fmt.Errorf("marshal meta: %w", err)
-		}
-		if err := json.Unmarshal(b, &input); err != nil {
-			return fmt.Errorf("unmarshal meta: %w", err)
-		}
-	}
+// RebuildContractFromFunctionMeta rebuilds a FunctionContract from the
+// explicit registration contract. This is called when a function is
+// registered or updated.
+func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, input spec.FunctionContractInput) error {
 
 	// 1. Normalize the descriptor
 	normInput := normalizer.DescriptorInput{
@@ -478,26 +464,9 @@ func schemaString(raw json.RawMessage) string {
 	return strings.TrimSpace(out)
 }
 
-// FunctionMetaInput is the input for contract rebuilding.
-type FunctionMetaInput struct {
-	ID                string
-	Version           string
-	Enabled           bool
-	Deprecated        bool
-	Summary           string
-	Description       string
-	InputSchema       string
-	OutputSchema      string
-	Resource          string
-	Operation         string
-	Capability        string
-	Execution         string
-	ApprovalRequired  bool
-	ApprovalPolicyKey string
-	Risk              string
-	Permission        string
-	Tags              []string
-}
+// FunctionMetaInput remains a concise service-level alias for the canonical
+// registration contract. It does not create a second DTO or conversion path.
+type FunctionMetaInput = spec.FunctionContractInput
 
 func computeDigest(v interface{}) string {
 	b, _ := json.Marshal(v)

@@ -25,6 +25,29 @@ type JSONValue = json.RawMessage
 // draft-07 / 2020-12 but the type itself does not enforce validation.
 type JSONSchema json.RawMessage
 
+// FunctionContractInput is the complete non-presentation registration input
+// accepted before normalization. SDK and OpenAPI adapters must construct this
+// type explicitly; page and menu presentation are intentionally absent.
+type FunctionContractInput struct {
+	ID                string
+	Version           string
+	Enabled           bool
+	Deprecated        bool
+	Summary           string
+	Description       string
+	InputSchema       string
+	OutputSchema      string
+	Resource          string
+	Operation         string
+	Capability        string
+	Execution         string
+	ApprovalRequired  bool
+	ApprovalPolicyKey string
+	Risk              string
+	Permission        string
+	Tags              []string
+}
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------

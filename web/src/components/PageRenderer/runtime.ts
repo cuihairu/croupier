@@ -91,7 +91,7 @@ export function projectBindingContext(
     if (source.kind === 'page_state') {
       const key = source.key || '';
       const value = projectValueAtPointer(sourceValue, source.path);
-      if (value) {
+      if (value !== undefined) {
         projected.pageState = {
           ...(projected.pageState || {}),
           [key]: mergeProjectedValue(projected.pageState?.[key], value),
@@ -108,7 +108,7 @@ export function projectBindingContext(
       continue;
     }
     const value = projectValueAtPointer(sourceValue, source.path);
-    if (value) {
+    if (value !== undefined) {
       assignContextValue(projected, source.kind, value);
     }
   }

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/getkin/kin-openapi/openapi3"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -29,12 +30,14 @@ type FunctionMeta struct {
 	InputSchema  string
 	OutputSchema string
 
-	Resource   string
-	Operation  string
-	Capability string
-	Execution  string
-	Risk       string
-	Permission string
+	Resource          string
+	Operation         string
+	Capability        string
+	Execution         string
+	ApprovalRequired  bool
+	ApprovalPolicyKey string
+	Risk              string
+	Permission        string
 }
 
 // ProviderSession represents a single provider registered to an agent (via SDK->Agent local registry).
@@ -85,7 +88,7 @@ type Store struct {
 	scopeContext func(gameID, env string) context.Context
 	// Contract service for FunctionContract persistence (optional)
 	contractService interface {
-		RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error
+		RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta spec.FunctionContractInput) error
 		RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
 		RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
 		RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
@@ -147,7 +150,7 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 
 // SetContractService sets the contract service for FunctionContract persistence.
 func (s *Store) SetContractService(svc interface {
-	RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error
+	RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta spec.FunctionContractInput) error
 	RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
 	RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
 	RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
@@ -191,36 +194,24 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 		scopeCtx := s.rebuildContext(a.GameID, a.Env)
 		var rebuildErrors []error
 		for funcID, meta := range a.Functions {
-			input := struct {
-				ID           string
-				Version      string
-				Enabled      bool
-				Summary      string
-				Description  string
-				InputSchema  string
-				OutputSchema string
-				Resource     string
-				Operation    string
-				Capability   string
-				Execution    string
-				Risk         string
-				Permission   string
-				Tags         []string
-			}{
-				ID:           funcID,
-				Version:      meta.Version,
-				Enabled:      meta.Enabled,
-				Summary:      meta.Summary,
-				Description:  meta.Description,
-				InputSchema:  meta.InputSchema,
-				OutputSchema: meta.OutputSchema,
-				Resource:     meta.Resource,
-				Operation:    meta.Operation,
-				Capability:   meta.Capability,
-				Execution:    meta.Execution,
-				Risk:         meta.Risk,
-				Permission:   meta.Permission,
-				Tags:         meta.Tags,
+			input := spec.FunctionContractInput{
+				ID:                funcID,
+				Version:           meta.Version,
+				Enabled:           meta.Enabled,
+				Deprecated:        meta.Deprecated,
+				Summary:           meta.Summary,
+				Description:       meta.Description,
+				InputSchema:       meta.InputSchema,
+				OutputSchema:      meta.OutputSchema,
+				Resource:          meta.Resource,
+				Operation:         meta.Operation,
+				Capability:        meta.Capability,
+				Execution:         meta.Execution,
+				ApprovalRequired:  meta.ApprovalRequired,
+				ApprovalPolicyKey: meta.ApprovalPolicyKey,
+				Risk:              meta.Risk,
+				Permission:        meta.Permission,
+				Tags:              meta.Tags,
 			}
 			if err := s.contractService.RebuildContractFromFunctionMeta(scopeCtx, a.GameID, a.Env, "sdk", input); err != nil {
 				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild function contract %s: %w", funcID, err))

@@ -902,22 +902,7 @@ func findAuditRecordByDetail(records []*audit.AuditRecord, key string, value int
 
 func rebuildFunctionContract(t *testing.T, db *gorm.DB, ctx context.Context, functionID string, meta reg.FunctionMeta) {
 	t.Helper()
-	input := struct {
-		ID           string
-		Version      string
-		Enabled      bool
-		Summary      string
-		Description  string
-		InputSchema  string
-		OutputSchema string
-		Resource     string
-		Operation    string
-		Capability   string
-		Execution    string
-		Risk         string
-		Permission   string
-		Tags         []string
-	}{
+	input := spec.FunctionContractInput{
 		ID:           functionID,
 		Version:      meta.Version,
 		Enabled:      meta.Enabled,

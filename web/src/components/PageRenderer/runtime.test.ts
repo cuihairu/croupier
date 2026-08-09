@@ -55,4 +55,17 @@ describe('projectBindingContext', () => {
 
     expect(context).toEqual({ pageState: { task: { id: 'task-1' } } });
   });
+
+  test('保留 selector 引用的 falsy JSON 值', () => {
+    const context = projectBindingContext(
+      binding([
+        { target: '/enabled', source: { kind: 'form', path: '/enabled' } },
+        { target: '/retryCount', source: { kind: 'form', path: '/retryCount' } },
+        { target: '/note', source: { kind: 'form', path: '/note' } },
+      ]),
+      { form: { enabled: false, retryCount: 0, note: '', secret: 'must-not-leak' } },
+    );
+
+    expect(context).toEqual({ form: { enabled: false, retryCount: 0, note: '' } });
+  });
 });

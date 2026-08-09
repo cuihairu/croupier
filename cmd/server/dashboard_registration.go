@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	dashboardservice "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
@@ -21,7 +22,7 @@ type registrationContractPipeline struct {
 	svcCtx *svc.ServiceContext
 }
 
-func (p *registrationContractPipeline) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error {
+func (p *registrationContractPipeline) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta spec.FunctionContractInput) error {
 	contractSvc, err := p.contractService(ctx, gameID, env)
 	if err != nil {
 		return err

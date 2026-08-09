@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -102,7 +103,7 @@ type seenScope struct {
 
 type registryTestScopeKey struct{}
 
-func (r *recordingContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta interface{}) error {
+func (r *recordingContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta spec.FunctionContractInput) error {
 	r.record(ctx)
 	return nil
 }
@@ -155,7 +156,7 @@ type failingContractService struct {
 	err error
 }
 
-func (f failingContractService) RebuildContractFromFunctionMeta(context.Context, string, string, string, interface{}) error {
+func (f failingContractService) RebuildContractFromFunctionMeta(context.Context, string, string, string, spec.FunctionContractInput) error {
 	return f.err
 }
 

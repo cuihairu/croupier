@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -319,9 +320,11 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			Version: "1.0.0",
 			Functions: []*agentv1.FunctionDescriptor{
 				{
-					Id:      "game.player.get",
-					Version: "1.0.0",
-					Enabled: true,
+					Id:                "game.player.get",
+					Version:           "1.0.0",
+					Enabled:           true,
+					ApprovalRequired:  true,
+					ApprovalPolicyKey: "two_person",
 				},
 			},
 		}
@@ -338,6 +341,9 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		assert.NotNil(t, agent)
 		assert.Equal(t, "game-1", agent.GameID)
 		assert.Equal(t, "prod", agent.Env)
+		meta := agent.Functions["game.player.get"]
+		assert.True(t, meta.ApprovalRequired)
+		assert.Equal(t, "two_person", meta.ApprovalPolicyKey)
 	})
 
 	t.Run("with custom TTL", func(t *testing.T) {
@@ -1708,7 +1714,7 @@ type failingRegisterContractService struct {
 	err error
 }
 
-func (f failingRegisterContractService) RebuildContractFromFunctionMeta(context.Context, string, string, string, interface{}) error {
+func (f failingRegisterContractService) RebuildContractFromFunctionMeta(context.Context, string, string, string, spec.FunctionContractInput) error {
 	return f.err
 }
 
