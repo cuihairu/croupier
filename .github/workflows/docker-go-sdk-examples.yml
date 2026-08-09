@@ -90,6 +90,14 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Build JS SDK bundle
+        if: matrix.language == 'js'
+        working-directory: sdks/js
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm build:bundle
+
       - name: Build and push Docker image
         timeout-minutes: 45
         uses: docker/build-push-action@v7
