@@ -1,36 +1,36 @@
 # Carryforward flags: when only some SDKs are tested,
 # use previous coverage data for untested flags
-coverage:
-  flags:
-    go-sdk:
-      paths:
-        - sdks/go/**
-      carryforward: true
-    js-sdk:
-      paths:
-        - sdks/js/**
-      carryforward: true
-    cpp-sdk:
-      paths:
-        - sdks/cpp/**
-      carryforward: true
-    python-sdk:
-      paths:
-        - sdks/python/**
-      carryforward: true
-    java-sdk:
-      paths:
-        - sdks/java/**
-      carryforward: true
-    csharp-sdk:
-      paths:
-        - sdks/csharp/**
-      carryforward: true
-    server:
-      paths:
-        - internal/**
-      carryforward: true
+flags:
+  go-sdk:
+    paths:
+      - sdks/go/**
+    carryforward: true
+  js-sdk:
+    paths:
+      - sdks/js/**
+    carryforward: true
+  cpp-sdk:
+    paths:
+      - sdks/cpp/**
+    carryforward: true
+  python-sdk:
+    paths:
+      - sdks/python/**
+    carryforward: true
+  java-sdk:
+    paths:
+      - sdks/java/**
+    carryforward: true
+  csharp-sdk:
+    paths:
+      - sdks/csharp/**
+    carryforward: true
+  server:
+    paths:
+      - internal/**
+    carryforward: true
 
+coverage:
   status:
     project:
       default:
