@@ -95,7 +95,7 @@ jobs:
         working-directory: sdks/js
         run: |
           corepack enable
-          pnpm install --frozen-lockfile
+          pnpm install --config.onlyBuiltDependencies='["esbuild"]'
           pnpm build:bundle
 
       - name: Build and push Docker image
