@@ -39,6 +39,8 @@ type RawGameEnvMeta = {
 type RawGame = {
   id?: number;
   ID?: number;
+  gameId?: string;
+  game_id?: string;
   name?: string;
   Name?: string;
   displayName?: string;
@@ -89,7 +91,7 @@ const normalizeEnvMeta = (envs: RawGameEnvMeta[] | undefined): GameEnvMeta[] | u
 };
 
 function normalizeGame(raw: RawGame): Game {
-  const name = raw?.name ?? raw?.Name;
+  const name = raw?.gameId ?? raw?.name ?? raw?.Name;
   const aliasName =
     raw?.aliasName ??
     raw?.alias_name ??
@@ -103,8 +105,8 @@ function normalizeGame(raw: RawGame): Game {
     Array.isArray(raw?.envs) && raw.envs.length > 0
       ? raw.envs
       : Array.isArray(envMeta)
-      ? envMeta.map((env) => env.env)
-      : undefined;
+        ? envMeta.map((env) => env.env)
+        : undefined;
 
   return {
     id: raw?.id ?? raw?.ID,
