@@ -132,7 +132,7 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 	games := make([]ProfileGame, 0, len(gameModels))
 	seen := make(map[string]struct{}, len(gameModels))
 	for _, game := range gameModels {
-		gameID := strings.TrimSpace(game.Name)
+		gameID := strings.TrimSpace(game.GameID)
 		if gameID == "" {
 			continue
 		}
