@@ -34,6 +34,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/rate_limit"
 	apiregistry "github.com/cuihairu/croupier/internal/api/registry"
 	"github.com/cuihairu/croupier/internal/api/resource"
+	"github.com/cuihairu/croupier/internal/api/resourcecatalog"
 	"github.com/cuihairu/croupier/internal/api/role"
 	"github.com/cuihairu/croupier/internal/api/routes"
 	"github.com/cuihairu/croupier/internal/api/schema"
@@ -91,6 +92,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
 		registerConfigRoutes(protected.Group("/configs"), serverCtx)
 		registerResourceRoutes(protected.Group("/resources"), serverCtx)
+		registerResourceCatalogRoutes(protected.Group("/resource-catalog"), serverCtx)
 		registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
 		registerProposalRoutes(protected.Group("/proposals"), serverCtx)
 		registerVersioningRoutes(protected.Group("/versioning"), serverCtx)
@@ -712,6 +714,20 @@ func registerResourceRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/", resourceHandler.List)
 	g.GET("/:resourceKey", resourceHandler.Detail)
 	g.GET("/:resourceKey/operations", resourceHandler.Operations)
+}
+
+// ============================================================================
+// Resource Catalog 路由注册
+// ============================================================================
+func registerResourceCatalogRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	service := resourcecatalog.NewService(ctx.DB, ctx.AuditService)
+	handler := resourcecatalog.NewHandler(service)
+	g.GET("", handler.List)
+	g.GET("/:resourceKey", handler.Detail)
+	g.PUT("/:resourceKey/semantics", handler.UpdateSemantics)
+	g.GET("/:resourceKey/semantics/versions", handler.ListSemanticVersions)
+	g.GET("/:resourceKey/conflicts", handler.ListConflicts)
+	g.POST("/:resourceKey/conflicts/:field/resolve", handler.ResolveConflict)
 }
 
 // ============================================================================
