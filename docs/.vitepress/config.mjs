@@ -103,6 +103,7 @@ const config = defineConfig({
             { text: '页面生成与运行时', link: '/architecture/ui-generation' },
             { text: 'Console 动态菜单', link: '/architecture/console-dynamic-menu' },
             { text: 'Dashboard 术语表', link: '/architecture/dashboard-glossary' },
+            { text: '旧模型删除清单', link: '/architecture/legacy-deletion-inventory' },
           ],
         },
         {
