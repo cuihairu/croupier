@@ -715,6 +715,29 @@ func TestTaskSemanticsByStartFunction(t *testing.T) {
 	result = taskSemanticsByStartFunction(sem2)
 	assert.Len(t, result, 1)
 	assert.Contains(t, result, "task.start")
+
+	// Test with invalid JSON
+	sem3 := &model.CapabilitySemantics{
+		Tasks: []byte(`invalid json`),
+	}
+	result = taskSemanticsByStartFunction(sem3)
+	assert.Empty(t, result)
+
+	// Test with empty function ID
+	sem4 := &model.CapabilitySemantics{
+		Tasks: []byte(`[{"start":{"functionId":""},"taskId":{"resultPath":"/id"}}]`),
+	}
+	result = taskSemanticsByStartFunction(sem4)
+	assert.Empty(t, result)
+
+	// Test with multiple tasks
+	sem5 := &model.CapabilitySemantics{
+		Tasks: []byte(`[{"start":{"functionId":"task1"},"taskId":{"resultPath":"/id"}},{"start":{"functionId":"task2"},"taskId":{"resultPath":"/id"}}]`),
+	}
+	result = taskSemanticsByStartFunction(sem5)
+	assert.Len(t, result, 2)
+	assert.Contains(t, result, "task1")
+	assert.Contains(t, result, "task2")
 }
 
 func TestReportSemanticsByQueryFunction(t *testing.T) {
@@ -736,6 +759,29 @@ func TestReportSemanticsByQueryFunction(t *testing.T) {
 	result = reportSemanticsByQueryFunction(sem2)
 	assert.Len(t, result, 1)
 	assert.Contains(t, result, "report.query")
+
+	// Test with invalid JSON
+	sem3 := &model.CapabilitySemantics{
+		Reports: []byte(`invalid json`),
+	}
+	result = reportSemanticsByQueryFunction(sem3)
+	assert.Empty(t, result)
+
+	// Test with empty function ID
+	sem4 := &model.CapabilitySemantics{
+		Reports: []byte(`[{"query":{"functionId":""},"datasetPath":"/data"}]`),
+	}
+	result = reportSemanticsByQueryFunction(sem4)
+	assert.Empty(t, result)
+
+	// Test with multiple reports
+	sem5 := &model.CapabilitySemantics{
+		Reports: []byte(`[{"query":{"functionId":"report1"},"datasetPath":"/data1"},{"query":{"functionId":"report2"},"datasetPath":"/data2"}]`),
+	}
+	result = reportSemanticsByQueryFunction(sem5)
+	assert.Len(t, result, 2)
+	assert.Contains(t, result, "report1")
+	assert.Contains(t, result, "report2")
 }
 
 func TestGeneratedProposalChanged(t *testing.T) {
@@ -826,4 +872,538 @@ func TestContractService_RebuildResourceCapabilityRecordsSourceConflict(t *testi
 	require.Len(t, conflicts, 1)
 	assert.Equal(t, "collectionQueryID", conflicts[0].Field)
 	assert.Empty(t, conflicts[0].Resolution)
+}
+
+func TestContractsForIssue(t *testing.T) {
+	// Test nil contract
+	result := contractsForIssue(nil)
+	assert.Nil(t, result)
+
+	// Test with contract
+	contract := &model.FunctionContract{
+		FunctionID: "player.ban",
+	}
+	result = contractsForIssue(contract)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "player.ban", result[0].FunctionID)
+}
+
+func TestFindContractByFunctionID(t *testing.T) {
+	// Test empty contracts
+	result := findContractByFunctionID(nil, "player.list")
+	assert.Nil(t, result)
+
+	// Test with contracts
+	contracts := []*model.FunctionContract{
+		{FunctionID: "player.list"},
+		{FunctionID: "player.get"},
+		{FunctionID: "player.create"},
+	}
+
+	result = findContractByFunctionID(contracts, "player.list")
+	assert.NotNil(t, result)
+	assert.Equal(t, "player.list", result.FunctionID)
+
+	result = findContractByFunctionID(contracts, "player.get")
+	assert.NotNil(t, result)
+	assert.Equal(t, "player.get", result.FunctionID)
+
+	result = findContractByFunctionID(contracts, "player.delete")
+	assert.Nil(t, result)
+
+	// Test with nil contract in list
+	contracts2 := []*model.FunctionContract{
+		nil,
+		{FunctionID: "player.list"},
+	}
+	result = findContractByFunctionID(contracts2, "player.list")
+	assert.NotNil(t, result)
+	assert.Equal(t, "player.list", result.FunctionID)
+
+	// Test with empty function ID
+	result = findContractByFunctionID(contracts, "")
+	assert.Nil(t, result)
+
+	// Test with whitespace function ID
+	result = findContractByFunctionID(contracts, "  player.list  ")
+	assert.NotNil(t, result)
+	assert.Equal(t, "player.list", result.FunctionID)
+}
+
+func TestConsumedPageBindings(t *testing.T) {
+	// Test empty bindings
+	result := consumedPageBindings(nil, nil)
+	assert.Empty(t, result)
+
+	// Test with bindings and contracts
+	bindings := []spec.PageFunctionBinding{
+		{FunctionID: "player.list"},
+		{FunctionID: "player.get"},
+	}
+	contracts := []*model.FunctionContract{
+		{FunctionID: "player.list"},
+		{FunctionID: "player.get"},
+		{FunctionID: "player.create"},
+	}
+	result = consumedPageBindings(bindings, contracts)
+	assert.Len(t, result, 2)
+	assert.Contains(t, result, "player.list")
+	assert.Contains(t, result, "player.get")
+	assert.NotContains(t, result, "player.create")
+
+	// Test with binding not in contracts
+	bindings2 := []spec.PageFunctionBinding{
+		{FunctionID: "player.delete"},
+	}
+	result = consumedPageBindings(bindings2, contracts)
+	assert.Empty(t, result)
+
+	// Test with nil contract in list
+	contracts2 := []*model.FunctionContract{
+		nil,
+		{FunctionID: "player.list"},
+	}
+	bindings3 := []spec.PageFunctionBinding{
+		{FunctionID: "player.list"},
+	}
+	result = consumedPageBindings(bindings3, contracts2)
+	assert.Len(t, result, 1)
+	assert.Contains(t, result, "player.list")
+}
+
+func TestContractService_RebuildContractFromFunctionMeta_WithTags(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Test with tags
+	meta := FunctionMetaInput{
+		ID:         "player.ban",
+		Version:    "1.0.0",
+		Enabled:    true,
+		Resource:   "player",
+		Operation:  "ban",
+		Capability: "action",
+		Execution:  "sync",
+		Tags:       []string{"admin", "moderation"},
+	}
+
+	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta)
+	require.NoError(t, err)
+
+	contract, err := service.GetContract(ctx, "demo-game", "development", "player.ban")
+	require.NoError(t, err)
+	assert.NotNil(t, contract.Tags)
+}
+
+func TestContractService_RebuildContractFromFunctionMeta_WithApproval(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Test with approval required
+	meta := FunctionMetaInput{
+		ID:                "player.ban",
+		Version:           "1.0.0",
+		Enabled:           true,
+		Resource:          "player",
+		Operation:         "ban",
+		Capability:        "action",
+		Execution:         "sync",
+		ApprovalRequired:  true,
+		ApprovalPolicyKey: "two_person",
+	}
+
+	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta)
+	require.NoError(t, err)
+
+	contract, err := service.GetContract(ctx, "demo-game", "development", "player.ban")
+	require.NoError(t, err)
+	assert.Equal(t, true, contract.Approval["required"])
+	assert.Equal(t, "two_person", contract.Approval["policyKey"])
+}
+
+func TestContractService_RebuildContractFromFunctionMeta_UpdateExisting(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Create initial contract
+	meta := FunctionMetaInput{
+		ID:         "player.ban",
+		Version:    "1.0.0",
+		Enabled:    true,
+		Resource:   "player",
+		Operation:  "ban",
+		Capability: "action",
+		Execution:  "sync",
+	}
+	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta)
+	require.NoError(t, err)
+
+	// Update contract
+	meta.Version = "2.0.0"
+	meta.Enabled = false
+	err = service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta)
+	require.NoError(t, err)
+
+	contract, err := service.GetContract(ctx, "demo-game", "development", "player.ban")
+	require.NoError(t, err)
+	assert.Equal(t, "2.0.0", contract.Version)
+	assert.Equal(t, false, contract.Enabled)
+}
+
+func TestContractService_RebuildResourceCapability_EmptyResource(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Rebuild for non-existent resource
+	err := service.RebuildResourceCapability(ctx, "demo-game", "development", "nonexistent")
+	require.NoError(t, err)
+
+	// Verify no capability was created
+	caps, err := service.ListResourceCapabilities(ctx, "demo-game", "development")
+	require.NoError(t, err)
+	assert.Empty(t, caps)
+}
+
+func TestContractService_RebuildProposalsForResource_NoSemantics(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Create contract but no semantics
+	meta := FunctionMetaInput{
+		ID:         "player.list",
+		Version:    "1.0.0",
+		Enabled:    true,
+		Resource:   "player",
+		Operation:  "list",
+		Capability: "collection_query",
+		Execution:  "sync",
+	}
+	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta)
+	require.NoError(t, err)
+
+	// Rebuild proposals without semantics
+	err = service.RebuildProposalsForResource(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+}
+
+func TestContractService_RebuildProposalForFunction_EmptyFunctionID(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Test with empty function ID
+	err := service.RebuildProposalForFunction(ctx, "demo-game", "development", "")
+	require.NoError(t, err)
+
+	// Test with whitespace function ID
+	err = service.RebuildProposalForFunction(ctx, "demo-game", "development", "  ")
+	require.NoError(t, err)
+}
+
+func TestContractService_RebuildProposalForFunction_NonExistentFunction(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Test with non-existent function
+	err := service.RebuildProposalForFunction(ctx, "demo-game", "development", "nonexistent")
+	require.NoError(t, err)
+}
+
+func TestContractService_RebuildProposalForFunction_CRUDWithResource(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Create CRUD function with resource
+	meta := FunctionMetaInput{
+		ID:         "player.list",
+		Version:    "1.0.0",
+		Enabled:    true,
+		Resource:   "player",
+		Operation:  "list",
+		Capability: "collection_query",
+		Execution:  "sync",
+	}
+	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta)
+	require.NoError(t, err)
+
+	// Rebuild proposal for CRUD function with resource
+	err = service.RebuildProposalForFunction(ctx, "demo-game", "development", "player.list")
+	require.NoError(t, err)
+
+	// Verify no standalone proposal was created (CRUD with resource should be skipped)
+	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.list")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
+}
+
+func TestFunctionSpecsByScope(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	contractModel := model.NewFunctionContractModel(db)
+
+	// Create some contracts
+	require.NoError(t, contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID:      "demo-game",
+		Env:         "development",
+		FunctionID:  "player.list",
+		Version:     "1.0.0",
+		Enabled:     true,
+		ResourceKey: "player",
+	}))
+	require.NoError(t, contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID:      "demo-game",
+		Env:         "development",
+		FunctionID:  "player.get",
+		Version:     "1.0.0",
+		Enabled:     true,
+		ResourceKey: "player",
+	}))
+
+	// Test FunctionSpecsByScope
+	specs, err := FunctionSpecsByScope(ctx, contractModel, "demo-game", "development")
+	require.NoError(t, err)
+	assert.Len(t, specs, 2)
+	assert.Contains(t, specs, "player.list")
+	assert.Contains(t, specs, "player.get")
+	assert.Equal(t, "1.0.0", specs["player.list"].Version)
+	assert.Equal(t, "player", specs["player.list"].Resource)
+
+	// Test with empty scope
+	specs, err = FunctionSpecsByScope(ctx, contractModel, "nonexistent", "development")
+	require.NoError(t, err)
+	assert.Empty(t, specs)
+}
+
+func TestFunctionSpecsFromContracts(t *testing.T) {
+	// Test nil contracts
+	specs := FunctionSpecsFromContracts(nil)
+	assert.Empty(t, specs)
+
+	// Test with contracts
+	contracts := []*model.FunctionContract{
+		{FunctionID: "player.list", Version: "1.0.0", Enabled: true, ResourceKey: "player"},
+		{FunctionID: "player.get", Version: "1.0.0", Enabled: true, ResourceKey: "player"},
+	}
+	specs = FunctionSpecsFromContracts(contracts)
+	assert.Len(t, specs, 2)
+	assert.Contains(t, specs, "player.list")
+	assert.Contains(t, specs, "player.get")
+
+	// Test with nil contract in list
+	contracts2 := []*model.FunctionContract{
+		nil,
+		{FunctionID: "player.list", Version: "1.0.0", Enabled: true, ResourceKey: "player"},
+	}
+	specs = FunctionSpecsFromContracts(contracts2)
+	assert.Len(t, specs, 1)
+	assert.Contains(t, specs, "player.list")
+
+	// Test with empty function ID
+	contracts3 := []*model.FunctionContract{
+		{FunctionID: "", Version: "1.0.0", Enabled: true, ResourceKey: "player"},
+		{FunctionID: "  ", Version: "1.0.0", Enabled: true, ResourceKey: "player"},
+	}
+	specs = FunctionSpecsFromContracts(contracts3)
+	assert.Empty(t, specs)
+}
+
+func TestContractService_RebuildAllProposals(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Create contracts for multiple resources
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "player.list", Version: "1.0.0", Enabled: true, Resource: "player", Operation: "list",
+		Capability: "collection_query", Execution: "sync",
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}},"total":{"type":"integer"}}}`,
+	}))
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "order.list", Version: "1.0.0", Enabled: true, Resource: "order", Operation: "list",
+		Capability: "collection_query", Execution: "sync",
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}},"total":{"type":"integer"}}}`,
+	}))
+
+	// Build resource capabilities
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "order"))
+
+	// Rebuild all proposals
+	err := service.RebuildAllProposals(ctx, "demo-game", "development")
+	require.NoError(t, err)
+
+	// Verify proposals were created for both resources
+	playerProposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
+	require.NoError(t, err)
+	assert.Equal(t, "resource", playerProposal.PageType)
+
+	orderProposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "resource:order")
+	require.NoError(t, err)
+	assert.Equal(t, "resource", orderProposal.PageType)
+}
+
+func TestContractService_RebuildAllProposals_EmptyScope(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Rebuild all proposals for empty scope
+	err := service.RebuildAllProposals(ctx, "nonexistent", "development")
+	require.NoError(t, err)
+}
+
+func TestExportHandler_NewExportHandler(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewDataExportService(db)
+	handler := NewExportHandler(service)
+	assert.NotNil(t, handler)
+	assert.NotNil(t, handler.service)
+}
+
+func TestContractService_InferIdentityField(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// Create contract with identity field in input schema
+	meta := FunctionMetaInput{
+		ID:          "player.get",
+		Version:     "1.0.0",
+		Enabled:     true,
+		Resource:    "player",
+		Operation:   "get",
+		Capability:  "item_query",
+		Execution:   "sync",
+		InputSchema: `{"type":"object","properties":{"player_id":{"type":"string"}},"required":["player_id"]}`,
+	}
+	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta)
+	require.NoError(t, err)
+
+	// Build resource capability
+	err = service.RebuildResourceCapability(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+
+	// Check semantics
+	semantics, err := model.NewCapabilitySemanticsModel(db).FindByScopeAndResourceKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+	// Identity field inference depends on the schema structure
+	// The test verifies the function runs without error
+	assert.NotNil(t, semantics)
+}
+
+func TestContractService_SemanticSourceForContract(t *testing.T) {
+	// Test with different sources
+	tests := []struct {
+		source   string
+		expected spec.SemanticSource
+	}{
+		{"sdk", "sdk_explicit"},
+		{"openapi", "openapi_rest"},
+		{"manual", "sdk_explicit"}, // non-openapi defaults to sdk_explicit
+		{"", "sdk_explicit"},       // empty defaults to sdk_explicit
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.source, func(t *testing.T) {
+			contract := &model.FunctionContract{
+				Source: tt.source,
+			}
+			result := semanticSourceForContract(contract)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestContractService_SemanticSourceForContracts(t *testing.T) {
+	// Test empty contracts - default is sdk_explicit
+	result := semanticSourceForContracts(nil)
+	assert.Equal(t, "sdk_explicit", result)
+
+	// Test with single source
+	contracts := []*model.FunctionContract{
+		{Source: "sdk"},
+	}
+	result = semanticSourceForContracts(contracts)
+	assert.Equal(t, "sdk_explicit", result)
+
+	// Test with multiple same sources
+	contracts2 := []*model.FunctionContract{
+		{Source: "sdk"},
+		{Source: "sdk"},
+	}
+	result = semanticSourceForContracts(contracts2)
+	assert.Equal(t, "sdk_explicit", result)
+
+	// Test with mixed sources (priority: sdk > openapi > manual)
+	contracts3 := []*model.FunctionContract{
+		{Source: "manual"},
+		{Source: "openapi"},
+		{Source: "sdk"},
+	}
+	result = semanticSourceForContracts(contracts3)
+	assert.Equal(t, "sdk_explicit", result)
+
+	contracts4 := []*model.FunctionContract{
+		{Source: "manual"},
+		{Source: "openapi"},
+	}
+	result = semanticSourceForContracts(contracts4)
+	assert.Equal(t, "openapi_rest", result)
+
+	contracts5 := []*model.FunctionContract{
+		{Source: "manual"},
+	}
+	result = semanticSourceForContracts(contracts5)
+	assert.Equal(t, "sdk_explicit", result) // default is sdk_explicit
+}
+
+func TestContractService_PreserveReviewedSemantics(t *testing.T) {
+	// Test preserving platform_review source with all fields
+	next := &model.CapabilitySemantics{
+		Source: "sdk_explicit",
+	}
+	existing := &model.CapabilitySemantics{
+		Source:            "platform_review",
+		UpdatedBy:         "admin",
+		IdentityField:     "player_id",
+		IdentityFieldType: "string",
+		CollectionQueryID: 1,
+		CollectionPath:    "/items",
+		PageFieldName:     "page",
+		PageSizeFieldName: "page_size",
+	}
+	preserveReviewedSemantics(next, existing)
+	assert.Equal(t, "platform_review", next.Source)
+	assert.Equal(t, "admin", next.UpdatedBy)
+	assert.Equal(t, "player_id", next.IdentityField)
+	assert.Equal(t, "string", next.IdentityFieldType)
+	assert.Equal(t, uint(1), next.CollectionQueryID)
+	assert.Equal(t, "/items", next.CollectionPath)
+	assert.Equal(t, "page", next.PageFieldName)
+	assert.Equal(t, "page_size", next.PageSizeFieldName)
+
+	// Test not preserving non-platform_review source
+	next2 := &model.CapabilitySemantics{
+		Source: "sdk_explicit",
+	}
+	existing2 := &model.CapabilitySemantics{
+		Source:            "sdk",
+		UpdatedBy:         "developer",
+		IdentityField:     "order_id",
+		IdentityFieldType: "string",
+		CollectionQueryID: 2,
+		CollectionPath:    "/orders",
+		PageFieldName:     "page_num",
+		PageSizeFieldName: "limit",
+	}
+	preserveReviewedSemantics(next2, existing2)
+	assert.Equal(t, "sdk_explicit", next2.Source)
+	assert.Empty(t, next2.UpdatedBy)
+	assert.Empty(t, next2.IdentityField)
 }
