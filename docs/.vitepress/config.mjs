@@ -119,6 +119,7 @@ const config = defineConfig({
           text: '提案与迁移设计',
           collapsed: true,
           items: [
+            { text: '游戏环境作用域 API 传输设计', link: '/architecture/game-env-scope-api-transport' },
             { text: 'SDK-Agent 传输重构', link: '/architecture/sdk-agent-transport-redesign' },
             { text: 'Agent-Server Session', link: '/architecture/agent-server-session-transport-redesign' },
             { text: '扩展统一模式', link: '/architecture/official-extension-unified-pattern' },

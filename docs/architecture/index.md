@@ -191,6 +191,7 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [ProComponents 页面生成与运行时](./ui-generation.md) — 能力语义、默认 Proposal、Page Studio 与运行时边界
 - [运行控制台动态菜单](./console-dynamic-menu.md) — PublishedPageSpec 到 ConsoleMenuSpec 的菜单唯一来源与分类仲裁
 - [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
+- [游戏环境作用域 API 传输设计](./game-env-scope-api-transport.md) — scope 通过 Header/Query/Body 传递的选型与统一规范（提案）
 - [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
 - [Session 生命周期](./session-lifecycle.md)
 - [SDK Wire Protocol](./sdk-wire-protocol.md)
