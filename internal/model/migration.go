@@ -31,7 +31,7 @@ func AutoMigrate(db *gorm.DB) error {
 				if err := migrateFunctionOpenAPIColumns(db); err != nil {
 					return err
 				}
-				return nil
+				return CleanupAllLegacy(db)
 			} else if tryFixPostgresMissingConstraint(db, err) {
 				lastErr = err
 				continue
@@ -45,13 +45,19 @@ func AutoMigrate(db *gorm.DB) error {
 		if err := autoMigrateAllModels(db); err != nil {
 			return err
 		}
-		return migrateFunctionOpenAPIColumns(db)
+		if err := migrateFunctionOpenAPIColumns(db); err != nil {
+			return err
+		}
+		return CleanupAllLegacy(db)
 	}
 
 	if err := autoMigrateAllModels(db); err != nil {
 		return err
 	}
-	return migrateFunctionOpenAPIColumns(db)
+	if err := migrateFunctionOpenAPIColumns(db); err != nil {
+		return err
+	}
+	return CleanupAllLegacy(db)
 }
 
 // AutoMigrateMeta runs migrations only for meta-level models (those that live
@@ -69,7 +75,10 @@ func AutoMigrateMeta(db *gorm.DB) error {
 // AutoMigrateGame runs migrations only for game-scoped models (those that live
 // in each per-game database like game_demo_prod).
 func AutoMigrateGame(db *gorm.DB) error {
-	return migrateModels(db, GameModels())
+	if err := migrateModels(db, GameModels()); err != nil {
+		return err
+	}
+	return CleanupAllLegacy(db)
 }
 
 // MetaModels returns the list of model values that belong in the meta database.

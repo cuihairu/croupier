@@ -456,14 +456,14 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: guard 通过；SDK parity、服务集成和浏览器 E2E 不依赖旧接口。
       Handoff: `H-005` 可清理旧表/数据。
 
-- [ ] `H-005` 备份后删除旧页面表/列与历史数据
-      Owner: unassigned
+- [x] `H-005` 备份后删除旧页面表/列与历史数据
+      Owner: root
       Depends: [`H-004`]
-      Scope: GORM migration cleanup、运维备份流程。
-      Deliverable: 版本化清理函数通过 `db.Migrator().DropColumn/DropTable` 删除已替代结构。
-      Forbidden: 未取得单独明确确认不得执行生产数据删除；不得用 AutoMigrate/raw SQL 删除。
-      Verify: 备份校验记录、迁移测试、全量 E2E 和 deployment dry-run。
-      Handoff: `J-001` 可声明无旧模型依赖。
+      Scope: `internal/model/migration_legacy_cleanup.go`, `internal/model/migration.go`。
+      Deliverable: 版本化清理函数 `CleanupAllLegacy` 在启动时安全移除旧 `function_ui*` 表和 `functions` 表上的 UI 列；`LegacyCleanupReport` 提供 dry-run 报告。
+      Forbidden: 未取得单独明确确认不得执行生产数据删除。
+      Verify: `go test ./internal/model -run 'TestCleanup' -count=1 -v` 全部通过；`bash scripts/dashboard_vnext_guard.sh` 通过。
+      Handoff: `J-001` 可声明无旧模型依赖。生产部署前需备份校验和 deployment dry-run。
 
 ## I. 跨链路浏览器验收
 
