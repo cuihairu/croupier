@@ -88,7 +88,9 @@ assert_not_contains() {
         fi
     else
         # Fallback to grep when rg is not available
-        if grep -rn "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+        # Exclude test files and common non-production paths
+        local grep_args="--include=*.go --include=*.ts --include=*.tsx --include=*.proto --exclude=*_test.go --exclude=*.test.ts --exclude=*.test.tsx --exclude-dir=test --exclude-dir=tests --exclude-dir=vendor --exclude-dir=node_modules"
+        if grep -rn $grep_args "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
             fail "$label"
             sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
         else
@@ -131,11 +133,21 @@ assert_not_contains "\\b(PageSpecV2|GeneratedPageSpecV2|PageTypeV2|PageFunctionB
 assert_not_contains "\\b(inputMapping|outputMapping|SchemaJSON|PageSpecJSON|FormPresentationJSON|PageSpecVersion)\\b" "legacy page storage/mapping fields absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
 assert_not_contains "\\b(WorkspaceRenderer|PageGenerator|FunctionUIManager|FunctionFormRenderer|XUISchema)\\b" "legacy page runtime references absent" "web/src" "web/package.json"
 assert_not_contains "dashboard/descriptors|descriptors\\.Collect" "legacy descriptor collector imports absent" "internal" "web/src"
-if rg -nP "(?<![\"'])\\bany\\b(?![\"'])" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
-    fail "core Dashboard TypeScript code has no any"
-    sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+if command -v rg &> /dev/null; then
+    if rg -nP "(?<![\"'])\\bany\\b(?![\"'])" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+        fail "core Dashboard TypeScript code has no any"
+        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+    else
+        ok "core Dashboard TypeScript code has no any"
+    fi
 else
-    ok "core Dashboard TypeScript code has no any"
+    # Fallback to grep - exclude test files
+    if grep -rn --include="*.ts" --include="*.tsx" --exclude="*.test.ts" --exclude="*.test.tsx" "any" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts" 2>/dev/null | grep -v "test" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+        fail "core Dashboard TypeScript code has no any"
+        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+    else
+        ok "core Dashboard TypeScript code has no any"
+    fi
 fi
 
 echo ""
@@ -151,17 +163,31 @@ assert_not_contains "FunctionExecutionApproval|GenerateApprovalPageForOperation|
 
 echo ""
 echo "Checking registration-side UI fields stay rejected..."
-if rg -n "category_display|entity_display|operation_display|operation_kind|page_hint|x-labels" \
-    proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
-    internal/agent internal/app/agent internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
-    --glob "*.proto" --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
-    --glob "!**/test/**" --glob "!**/tests/**" --glob "!**/*Test.java" --glob "!**/*.test.ts" \
-    --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" \
-    --glob "!internal/function/registrationguard/reject.go" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
-    fail "registration-side UI/display fields must not reappear in SDK/OpenAPI registration sources"
-    sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+if command -v rg &> /dev/null; then
+    if rg -n "category_display|entity_display|operation_display|operation_kind|page_hint|x-labels" \
+        proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
+        internal/agent internal/app/agent internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
+        --glob "*.proto" --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
+        --glob "!**/test/**" --glob "!**/tests/**" --glob "!**/*Test.java" --glob "!**/*.test.ts" \
+        --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" \
+        --glob "!internal/function/registrationguard/reject.go" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+        fail "registration-side UI/display fields must not reappear in SDK/OpenAPI registration sources"
+        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+    else
+        ok "registration-side UI/display fields absent from SDK/OpenAPI registration sources"
+    fi
 else
-    ok "registration-side UI/display fields absent from SDK/OpenAPI registration sources"
+    # Fallback to grep - exclude test files
+    local grep_args="--include=*.proto --include=*.go --include=*.ts --include=*.tsx --include=*.py --include=*.java --include=*.cs --include=*.h --include=*.cpp --exclude=*_test.go --exclude=*.test.ts --exclude=*.test.tsx --exclude-dir=test --exclude-dir=tests --exclude-dir=build --exclude-dir=obj --exclude-dir=bin"
+    if grep -rn $grep_args "category_display\|entity_display\|operation_display\|operation_kind\|page_hint\|x-labels" \
+        proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
+        internal/agent internal/app/agent internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
+        2>/dev/null | grep -v "registrationguard/reject.go" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+        fail "registration-side UI/display fields must not reappear in SDK/OpenAPI registration sources"
+        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+    else
+        ok "registration-side UI/display fields absent from SDK/OpenAPI registration sources"
+    fi
 fi
 
 echo ""
