@@ -17,6 +17,14 @@ NC='\033[0m'
 
 ERRORS=0
 
+# Check for rg (ripgrep) availability, fallback to grep if not found
+if ! command -v rg &> /dev/null; then
+    echo "WARNING: rg (ripgrep) not found, using grep as fallback"
+    rg() {
+        grep -r "$@"
+    }
+fi
+
 fail() {
     echo -e "${RED}ERROR: $1${NC}"
     ERRORS=$((ERRORS + 1))
@@ -71,11 +79,21 @@ assert_not_contains() {
     local pattern="$1"
     local label="$2"
     shift 2
-    if rg -n "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
-        fail "$label"
-        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+    if command -v rg &> /dev/null; then
+        if rg -n "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+            fail "$label"
+            sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+        else
+            ok "$label"
+        fi
     else
-        ok "$label"
+        # Fallback to grep when rg is not available
+        if grep -rn "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+            fail "$label"
+            sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+        else
+            ok "$label"
+        fi
     fi
 }
 
