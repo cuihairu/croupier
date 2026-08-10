@@ -30,6 +30,9 @@ jobs:
       - name: API response guard
         timeout-minutes: 5
         run: bash .github/scripts/api_response_guard.sh
+      - name: Dashboard vNext guard
+        timeout-minutes: 5
+        run: bash scripts/dashboard_vnext_guard.sh
       - name: SDK matrix conformance
         timeout-minutes: 5
         run: bash scripts/check-sdk-matrix.sh

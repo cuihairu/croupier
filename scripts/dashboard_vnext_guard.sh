@@ -131,6 +131,21 @@ echo "Checking execution and approval boundary..."
 assert_not_contains "FunctionExecutionApproval|GenerateApprovalPageForOperation|isApprovalOperation|execution must be one of sync, task, approval|x-execution must be one of sync, task, approval|sync\\|task\\|approval|sync/task/approval|execution === 'approval'" "approval is not a FunctionContract execution mode" "internal/dashboard" "internal/api/openapi" "internal/platform/openapi" "internal/model" "proto/croupier" "web/src/types/dashboard.ts" "web/src/pages/OpenAPISources" "sdks/go/pkg/croupier" "sdks/java/src/main" "sdks/cpp/include"
 
 echo ""
+echo "Checking registration-side UI fields stay rejected..."
+if rg -n "category_display|entity_display|operation_display|operation_kind|page_hint|x-labels" \
+    proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
+    internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
+    --glob "*.proto" --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
+    --glob "!**/test/**" --glob "!**/tests/**" --glob "!**/*Test.java" --glob "!**/*.test.ts" \
+    --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" \
+    --glob "!internal/function/registrationguard/reject.go" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+    fail "registration-side UI/display fields must not reappear in SDK/OpenAPI registration sources"
+    sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
+else
+    ok "registration-side UI/display fields absent from SDK/OpenAPI registration sources"
+fi
+
+echo ""
 echo "Checking dependencies..."
 if grep -q '"@formily/' web/package.json; then
     fail "Formily runtime dependency must not be used"
