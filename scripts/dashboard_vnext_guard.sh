@@ -89,8 +89,8 @@ assert_not_contains() {
     else
         # Fallback to grep when rg is not available
         # Exclude test files and common non-production paths
-        local grep_args="--include=*.go --include=*.ts --include=*.tsx --include=*.proto --exclude=*_test.go --exclude=*.test.ts --exclude=*.test.tsx --exclude-dir=test --exclude-dir=tests --exclude-dir=vendor --exclude-dir=node_modules"
-        if grep -rn $grep_args "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+        local grep_args="--include=*.go --include=*.ts --include=*.tsx --include=*.proto --include=*.py --include=*.java --include=*.cs --include=*.h --include=*.cpp --exclude=*_test.go --exclude=*.test.ts --exclude=*.test.tsx --exclude=*Test.java --exclude-dir=test --exclude-dir=tests --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=build --exclude-dir=obj --exclude-dir=bin"
+        if grep -rn $grep_args "$pattern" "$@" 2>/dev/null | grep -v "_test\.go:" | grep -v "\.test\.ts:" | grep -v "\.test\.tsx:" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
             fail "$label"
             sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
         else
