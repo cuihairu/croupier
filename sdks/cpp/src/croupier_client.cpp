@@ -558,6 +558,10 @@ public:
             if (!desc.execution.empty()) {
                 fn->set_execution(desc.execution);
             }
+            fn->set_approval_required(desc.approval_required);
+            if (!desc.approval_policy_key.empty()) {
+                fn->set_approval_policy_key(desc.approval_policy_key);
+            }
             if (!desc.risk.empty()) {
                 fn->set_risk(desc.risk);
             }

@@ -32,6 +32,10 @@ message ProviderFunctionDescriptor {
   string permission = 14;                 // x-permission: optional permission identifier
   string capability = 15;                 // x-capability: collection_query|item_query|create|update|delete|action|task|report
   string execution = 16;                  // x-execution: sync|task
+
+  // Approval policy is governance metadata independent of execution mode.
+  bool approval_required = 17;
+  string approval_policy_key = 18;
 }
 
 // ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.

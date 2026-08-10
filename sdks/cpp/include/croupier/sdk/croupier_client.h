@@ -34,6 +34,8 @@ struct FunctionDescriptor {
     std::string operation;   // business action key, e.g. "ban", "send", "list"
     std::string capability;  // collection_query|item_query|create|update|delete|action|task|report
     std::string execution;   // sync|task
+    bool approval_required = false;  // whether an approval workflow must complete before execution
+    std::string approval_policy_key; // optional approval workflow key
     std::string risk;        // "safe"|"warning"|"high"|"danger"
     bool enabled = true;     // whether this function is currently enabled
     std::string permission;  // optional permission identifier

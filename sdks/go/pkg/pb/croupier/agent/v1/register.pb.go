@@ -822,8 +822,8 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\x1bRegisterCapabilitiesRequest\x12;\n" +
 	"\bprovider\x18\x01 \x01(\v2\x1f.croupier.agent.v1.ProviderMetaR\bprovider\x12(\n" +
 	"\x10manifest_json_gz\x18\x02 \x01(\fR\x0emanifestJsonGz\"\x1e\n" +
-	"\x1cRegisterCapabilitiesResponseBg\n" +
-	"$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1b\x06proto3"
+	"\x1cRegisterCapabilitiesResponseB\xd3\x01\n" +
+	"\x15com.croupier.agent.v1B\rRegisterProtoP\x01ZEgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/v1;agentv1\xa2\x02\x03CAX\xaa\x02\x11Croupier.Agent.V1\xca\x02\x11Croupier\\Agent\\V1\xe2\x02\x1dCroupier\\Agent\\V1\\GPBMetadata\xea\x02\x13Croupier::Agent::V1b\x06proto3"
 
 var (
 	file_croupier_agent_v1_register_proto_rawDescOnce sync.Once

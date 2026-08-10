@@ -363,6 +363,8 @@ public final class SdkWireMessages {
             writeString(out, 14, message.permission);
             writeString(out, 15, message.capability);
             writeString(out, 16, message.execution);
+            writeBool(out, 17, message.approvalRequired);
+            writeString(out, 18, message.approvalPolicyKey);
         });
     }
 
@@ -383,6 +385,8 @@ public final class SdkWireMessages {
         String permission = "";
         String capability = "";
         String execution = "";
+        boolean approvalRequired = false;
+        String approvalPolicyKey = "";
         CodedInputStream input = newInput(data);
         try {
             while (!input.isAtEnd()) {
@@ -407,6 +411,8 @@ public final class SdkWireMessages {
                     case 14 -> permission = input.readString();
                     case 15 -> capability = input.readString();
                     case 16 -> execution = input.readString();
+                    case 17 -> approvalRequired = input.readBool();
+                    case 18 -> approvalPolicyKey = input.readString();
                     default -> input.skipField(tag);
                 }
             }
@@ -427,6 +433,8 @@ public final class SdkWireMessages {
             operation,
             capability,
             execution,
+            approvalRequired,
+            approvalPolicyKey,
             risk,
             enabled,
             permission
@@ -604,6 +612,8 @@ public final class SdkWireMessages {
         public final String operation;
         public final String capability;
         public final String execution;
+        public final boolean approvalRequired;
+        public final String approvalPolicyKey;
         public final String risk;
         public final boolean enabled;
         public final String permission;
@@ -613,13 +623,14 @@ public final class SdkWireMessages {
                                        String inputSchema, String outputSchema, String resource, String operation,
                                        String risk, boolean enabled, String permission) {
             this(id, version, tags, summary, description, operationId, deprecated, inputSchema, outputSchema,
-                resource, operation, "", "", risk, enabled, permission);
+                resource, operation, "", "", false, "", risk, enabled, permission);
         }
 
         public ProviderFunctionDescriptor(String id, String version, java.util.List<String> tags, String summary,
                                        String description, String operationId, boolean deprecated,
                                        String inputSchema, String outputSchema, String resource, String operation,
-                                       String capability, String execution, String risk, boolean enabled,
+                                       String capability, String execution, boolean approvalRequired,
+                                       String approvalPolicyKey, String risk, boolean enabled,
                                        String permission) {
             this.id = id == null ? "" : id;
             this.version = version == null ? "" : version;
@@ -634,6 +645,8 @@ public final class SdkWireMessages {
             this.operation = operation == null ? "" : operation;
             this.capability = capability == null ? "" : capability;
             this.execution = execution == null ? "" : execution;
+            this.approvalRequired = approvalRequired;
+            this.approvalPolicyKey = approvalPolicyKey == null ? "" : approvalPolicyKey;
             this.risk = risk == null ? "" : risk;
             this.enabled = enabled;
             this.permission = permission == null ? "" : permission;

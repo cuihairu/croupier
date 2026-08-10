@@ -130,8 +130,12 @@ inline constexpr ProviderFunctionDescriptor::Impl_::Impl_(
         execution_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        approval_policy_key_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         deprecated_{false},
-        enabled_{false} {}
+        enabled_{false},
+        approval_required_{false} {}
 
 template <typename>
 constexpr ProviderFunctionDescriptor::ProviderFunctionDescriptor(::_pbi::ConstantInitialized)
@@ -401,7 +405,7 @@ const ::uint32_t
         protodesc_cold) = {
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_._has_bits_),
-        19, // hasbit index offset
+        21, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.id_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.version_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.tags_),
@@ -418,22 +422,26 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.permission_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.capability_),
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.execution_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.approval_required_),
+        PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderFunctionDescriptor, _impl_.approval_policy_key_),
         1,
         2,
         0,
         3,
         4,
         5,
-        14,
+        15,
         6,
         7,
         8,
         9,
         10,
-        15,
+        16,
         11,
         12,
         13,
+        17,
+        14,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::sdk::v1::ProviderConnectRequest, _impl_._has_bits_),
         15, // hasbit index offset
@@ -507,14 +515,14 @@ const ::uint32_t
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, sizeof(::croupier::sdk::v1::ProviderFunctionDescriptor)},
-        {35, sizeof(::croupier::sdk::v1::ProviderConnectRequest)},
-        {62, sizeof(::croupier::sdk::v1::ProviderConnectResponse)},
-        {71, sizeof(::croupier::sdk::v1::ProviderHeartbeatRequest)},
-        {78, sizeof(::croupier::sdk::v1::ProviderHeartbeatResponse)},
-        {79, sizeof(::croupier::sdk::v1::ProviderDrainRequest)},
-        {88, sizeof(::croupier::sdk::v1::ProviderDrainResponse)},
-        {89, sizeof(::croupier::sdk::v1::GetTaskResultRequest)},
-        {94, sizeof(::croupier::sdk::v1::GetTaskResultResponse)},
+        {39, sizeof(::croupier::sdk::v1::ProviderConnectRequest)},
+        {66, sizeof(::croupier::sdk::v1::ProviderConnectResponse)},
+        {75, sizeof(::croupier::sdk::v1::ProviderHeartbeatRequest)},
+        {82, sizeof(::croupier::sdk::v1::ProviderHeartbeatResponse)},
+        {83, sizeof(::croupier::sdk::v1::ProviderDrainRequest)},
+        {92, sizeof(::croupier::sdk::v1::ProviderDrainResponse)},
+        {93, sizeof(::croupier::sdk::v1::GetTaskResultRequest)},
+        {98, sizeof(::croupier::sdk::v1::GetTaskResultResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::sdk::v1::_ProviderFunctionDescriptor_default_instance_._instance,
@@ -530,7 +538,7 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 const char descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n\036croupier/sdk/v1/provider.proto\022\017croupi"
-    "er.sdk.v1\"\347\003\n\032ProviderFunctionDescriptor"
+    "er.sdk.v1\"\304\004\n\032ProviderFunctionDescriptor"
     "\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 \001(\tR\007versi"
     "on\022\022\n\004tags\030\003 \003(\tR\004tags\022\030\n\007summary\030\004 \001(\tR"
     "\007summary\022 \n\013description\030\005 \001(\tR\013descripti"
@@ -542,42 +550,44 @@ const char descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto[] AB
     "\022\n\004risk\030\014 \001(\tR\004risk\022\030\n\007enabled\030\r \001(\010R\007en"
     "abled\022\036\n\npermission\030\016 \001(\tR\npermission\022\036\n"
     "\ncapability\030\017 \001(\tR\ncapability\022\034\n\texecuti"
-    "on\030\020 \001(\tR\texecution\"\363\003\n\026ProviderConnectR"
-    "equest\022\035\n\nservice_id\030\001 \001(\tR\tserviceId\022\030\n"
-    "\007version\030\002 \001(\tR\007version\022I\n\tfunctions\030\003 \003"
-    "(\0132+.croupier.sdk.v1.ProviderFunctionDes"
-    "criptorR\tfunctions\022!\n\014sdk_language\030\004 \001(\t"
-    "R\013sdkLanguage\022\037\n\013sdk_version\030\005 \001(\tR\nsdkV"
-    "ersion\022\031\n\010sdk_name\030\006 \001(\tR\007sdkName\022)\n\020pro"
-    "tocol_version\030\007 \001(\tR\017protocolVersion\0225\n\026"
-    "supported_capabilities\030\010 \003(\tR\025supportedC"
-    "apabilities\0226\n\027transport_security_mode\030\t"
-    " \001(\tR\025transportSecurityMode\0221\n\024supported"
-    "_transports\030\n \003(\tR\023supportedTransports\022\027"
-    "\n\007game_id\030\013 \001(\tR\006gameId\022\020\n\003env\030\014 \001(\tR\003en"
-    "v\"\211\001\n\027ProviderConnectResponse\022\035\n\nsession"
-    "_id\030\001 \001(\tR\tsessionId\0223\n\025accepted_capabil"
-    "ities\030\002 \003(\tR\024acceptedCapabilities\022\032\n\010war"
-    "nings\030\003 \003(\tR\010warnings\"X\n\030ProviderHeartbe"
-    "atRequest\022\035\n\nservice_id\030\001 \001(\tR\tserviceId"
-    "\022\035\n\nsession_id\030\002 \001(\tR\tsessionId\"\033\n\031Provi"
-    "derHeartbeatResponse\"s\n\024ProviderDrainReq"
-    "uest\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\026\n\006r"
-    "eason\030\002 \001(\tR\006reason\022$\n\016retry_after_ms\030\003 "
-    "\001(\rR\014retryAfterMs\"\027\n\025ProviderDrainRespon"
-    "se\"/\n\024GetTaskResultRequest\022\027\n\007task_id\030\001 "
-    "\001(\tR\006taskId\"]\n\025GetTaskResultResponse\022\024\n\005"
-    "state\030\001 \001(\tR\005state\022\030\n\007payload\030\002 \001(\014R\007pay"
-    "load\022\024\n\005error\030\003 \001(\tR\005errorBa\n\"io.github."
-    "cuihairu.croupier.sdk.v1P\001Z9github.com/c"
-    "uihairu/croupier/pkg/pb/croupier/sdk/v1;"
-    "sdkv1b\006proto3"
+    "on\030\020 \001(\tR\texecution\022+\n\021approval_required"
+    "\030\021 \001(\010R\020approvalRequired\022.\n\023approval_pol"
+    "icy_key\030\022 \001(\tR\021approvalPolicyKey\"\363\003\n\026Pro"
+    "viderConnectRequest\022\035\n\nservice_id\030\001 \001(\tR"
+    "\tserviceId\022\030\n\007version\030\002 \001(\tR\007version\022I\n\t"
+    "functions\030\003 \003(\0132+.croupier.sdk.v1.Provid"
+    "erFunctionDescriptorR\tfunctions\022!\n\014sdk_l"
+    "anguage\030\004 \001(\tR\013sdkLanguage\022\037\n\013sdk_versio"
+    "n\030\005 \001(\tR\nsdkVersion\022\031\n\010sdk_name\030\006 \001(\tR\007s"
+    "dkName\022)\n\020protocol_version\030\007 \001(\tR\017protoc"
+    "olVersion\0225\n\026supported_capabilities\030\010 \003("
+    "\tR\025supportedCapabilities\0226\n\027transport_se"
+    "curity_mode\030\t \001(\tR\025transportSecurityMode"
+    "\0221\n\024supported_transports\030\n \003(\tR\023supporte"
+    "dTransports\022\027\n\007game_id\030\013 \001(\tR\006gameId\022\020\n\003"
+    "env\030\014 \001(\tR\003env\"\211\001\n\027ProviderConnectRespon"
+    "se\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\0223\n\025acc"
+    "epted_capabilities\030\002 \003(\tR\024acceptedCapabi"
+    "lities\022\032\n\010warnings\030\003 \003(\tR\010warnings\"X\n\030Pr"
+    "oviderHeartbeatRequest\022\035\n\nservice_id\030\001 \001"
+    "(\tR\tserviceId\022\035\n\nsession_id\030\002 \001(\tR\tsessi"
+    "onId\"\033\n\031ProviderHeartbeatResponse\"s\n\024Pro"
+    "viderDrainRequest\022\035\n\nsession_id\030\001 \001(\tR\ts"
+    "essionId\022\026\n\006reason\030\002 \001(\tR\006reason\022$\n\016retr"
+    "y_after_ms\030\003 \001(\rR\014retryAfterMs\"\027\n\025Provid"
+    "erDrainResponse\"/\n\024GetTaskResultRequest\022"
+    "\027\n\007task_id\030\001 \001(\tR\006taskId\"]\n\025GetTaskResul"
+    "tResponse\022\024\n\005state\030\001 \001(\tR\005state\022\030\n\007paylo"
+    "ad\030\002 \001(\014R\007payload\022\024\n\005error\030\003 \001(\tR\005errorB"
+    "a\n\"io.github.cuihairu.croupier.sdk.v1P\001Z"
+    "9github.com/cuihairu/croupier/pkg/pb/cro"
+    "upier/sdk/v1;sdkv1b\006proto3"
 };
 static ::absl::once_flag descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto = {
     false,
     false,
-    1693,
+    1786,
     descriptor_table_protodef_croupier_2fsdk_2fv1_2fprovider_2eproto,
     "croupier/sdk/v1/provider.proto",
     &descriptor_table_croupier_2fsdk_2fv1_2fprovider_2eproto_once,
@@ -639,7 +649,8 @@ PROTOBUF_NDEBUG_INLINE ProviderFunctionDescriptor::Impl_::Impl_(
         risk_(arena, from.risk_),
         permission_(arena, from.permission_),
         capability_(arena, from.capability_),
-        execution_(arena, from.execution_) {}
+        execution_(arena, from.execution_),
+        approval_policy_key_(arena, from.approval_policy_key_) {}
 
 ProviderFunctionDescriptor::ProviderFunctionDescriptor(
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
@@ -658,9 +669,9 @@ ProviderFunctionDescriptor::ProviderFunctionDescriptor(
                offsetof(Impl_, deprecated_),
            reinterpret_cast<const char*>(&from._impl_) +
                offsetof(Impl_, deprecated_),
-           offsetof(Impl_, enabled_) -
+           offsetof(Impl_, approval_required_) -
                offsetof(Impl_, deprecated_) +
-               sizeof(Impl_::enabled_));
+               sizeof(Impl_::approval_required_));
 
   // @@protoc_insertion_point(copy_constructor:croupier.sdk.v1.ProviderFunctionDescriptor)
 }
@@ -689,16 +700,17 @@ PROTOBUF_NDEBUG_INLINE ProviderFunctionDescriptor::Impl_::Impl_(
         risk_(arena),
         permission_(arena),
         capability_(arena),
-        execution_(arena) {}
+        execution_(arena),
+        approval_policy_key_(arena) {}
 
 inline void ProviderFunctionDescriptor::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, deprecated_),
            0,
-           offsetof(Impl_, enabled_) -
+           offsetof(Impl_, approval_required_) -
                offsetof(Impl_, deprecated_) +
-               sizeof(Impl_::enabled_));
+               sizeof(Impl_::approval_required_));
 }
 ProviderFunctionDescriptor::~ProviderFunctionDescriptor() {
   // @@protoc_insertion_point(destructor:croupier.sdk.v1.ProviderFunctionDescriptor)
@@ -724,6 +736,7 @@ inline void ProviderFunctionDescriptor::SharedDtor(MessageLite& self) {
   this_._impl_.permission_.Destroy();
   this_._impl_.capability_.Destroy();
   this_._impl_.execution_.Destroy();
+  this_._impl_.approval_policy_key_.Destroy();
   this_._impl_.~Impl_();
 }
 
@@ -788,16 +801,16 @@ ProviderFunctionDescriptor::GetClassData() const {
   return ProviderFunctionDescriptor_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 16, 0, 185, 2>
+const ::_pbi::TcParseTable<5, 18, 0, 204, 2>
 ProviderFunctionDescriptor::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_._has_bits_),
     0, // no _extensions_
-    16, 120,  // max_field_number, fast_idx_mask
+    18, 248,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294901760,  // skipmap
+    4294705152,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    16,  // num_field_entries
+    18,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     ProviderFunctionDescriptor_class_data_.base(),
@@ -807,10 +820,7 @@ ProviderFunctionDescriptor::_table_ = {
     ::_pbi::TcParser::GetTable<::croupier::sdk::v1::ProviderFunctionDescriptor>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // string execution = 16 [json_name = "execution"];
-    {::_pbi::TcParser::FastUS2,
-     {386, 13, 0,
-      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.execution_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string id = 1 [json_name = "id"];
     {::_pbi::TcParser::FastUS1,
      {10, 1, 0,
@@ -836,8 +846,8 @@ ProviderFunctionDescriptor::_table_ = {
      {50, 5, 0,
       PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.operation_id_)}},
     // bool deprecated = 7 [json_name = "deprecated"];
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(ProviderFunctionDescriptor, _impl_.deprecated_), 14>(),
-     {56, 14, 0,
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(ProviderFunctionDescriptor, _impl_.deprecated_), 15>(),
+     {56, 15, 0,
       PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.deprecated_)}},
     // string input_schema = 8 [json_name = "inputSchema"];
     {::_pbi::TcParser::FastUS1,
@@ -860,8 +870,8 @@ ProviderFunctionDescriptor::_table_ = {
      {98, 10, 0,
       PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.risk_)}},
     // bool enabled = 13 [json_name = "enabled"];
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(ProviderFunctionDescriptor, _impl_.enabled_), 15>(),
-     {104, 15, 0,
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(ProviderFunctionDescriptor, _impl_.enabled_), 16>(),
+     {104, 16, 0,
       PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.enabled_)}},
     // string permission = 14 [json_name = "permission"];
     {::_pbi::TcParser::FastUS1,
@@ -871,6 +881,31 @@ ProviderFunctionDescriptor::_table_ = {
     {::_pbi::TcParser::FastUS1,
      {122, 12, 0,
       PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.capability_)}},
+    // string execution = 16 [json_name = "execution"];
+    {::_pbi::TcParser::FastUS2,
+     {386, 13, 0,
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.execution_)}},
+    // bool approval_required = 17 [json_name = "approvalRequired"];
+    {::_pbi::TcParser::FastV8S2,
+     {392, 17, 0,
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.approval_required_)}},
+    // string approval_policy_key = 18 [json_name = "approvalPolicyKey"];
+    {::_pbi::TcParser::FastUS2,
+     {402, 14, 0,
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.approval_policy_key_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -887,7 +922,7 @@ ProviderFunctionDescriptor::_table_ = {
     // string operation_id = 6 [json_name = "operationId"];
     {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.operation_id_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // bool deprecated = 7 [json_name = "deprecated"];
-    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.deprecated_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.deprecated_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // string input_schema = 8 [json_name = "inputSchema"];
     {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.input_schema_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string output_schema = 9 [json_name = "outputSchema"];
@@ -899,17 +934,21 @@ ProviderFunctionDescriptor::_table_ = {
     // string risk = 12 [json_name = "risk"];
     {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.risk_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // bool enabled = 13 [json_name = "enabled"];
-    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.enabled_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.enabled_), _Internal::kHasBitsOffset + 16, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // string permission = 14 [json_name = "permission"];
     {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.permission_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string capability = 15 [json_name = "capability"];
     {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.capability_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string execution = 16 [json_name = "execution"];
     {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.execution_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool approval_required = 17 [json_name = "approvalRequired"];
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.approval_required_), _Internal::kHasBitsOffset + 17, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // string approval_policy_key = 18 [json_name = "approvalPolicyKey"];
+    {PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.approval_policy_key_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
   {{
-    "\52\2\7\4\7\13\14\0\14\15\10\11\4\0\12\12\11\0\0\0\0\0\0\0"
+    "\52\2\7\4\7\13\14\0\14\15\10\11\4\0\12\12\11\0\23\0\0\0\0\0"
     "croupier.sdk.v1.ProviderFunctionDescriptor"
     "id"
     "version"
@@ -925,6 +964,7 @@ ProviderFunctionDescriptor::_table_ = {
     "permission"
     "capability"
     "execution"
+    "approval_policy_key"
   }},
 };
 PROTOBUF_NOINLINE void ProviderFunctionDescriptor::Clear() {
@@ -961,7 +1001,7 @@ PROTOBUF_NOINLINE void ProviderFunctionDescriptor::Clear() {
       _impl_.output_schema_.ClearNonDefaultToEmpty();
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00007f00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       _impl_.resource_.ClearNonDefaultToEmpty();
     }
@@ -980,10 +1020,14 @@ PROTOBUF_NOINLINE void ProviderFunctionDescriptor::Clear() {
     if (CheckHasBit(cached_has_bits, 0x00002000U)) {
       _impl_.execution_.ClearNonDefaultToEmpty();
     }
+    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+      _impl_.approval_policy_key_.ClearNonDefaultToEmpty();
+    }
   }
-  ::memset(&_impl_.deprecated_, 0, static_cast<::size_t>(
-      reinterpret_cast<char*>(&_impl_.enabled_) -
-      reinterpret_cast<char*>(&_impl_.deprecated_)) + sizeof(_impl_.enabled_));
+  _impl_.deprecated_ = false;
+  ::memset(&_impl_.enabled_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.approval_required_) -
+      reinterpret_cast<char*>(&_impl_.enabled_)) + sizeof(_impl_.approval_required_));
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -1068,7 +1112,7 @@ PROTOBUF_NOINLINE void ProviderFunctionDescriptor::Clear() {
   }
 
   // bool deprecated = 7 [json_name = "deprecated"];
-  if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+  if (CheckHasBit(cached_has_bits, 0x00008000U)) {
     if (this_._internal_deprecated() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteBoolToArray(
@@ -1127,7 +1171,7 @@ PROTOBUF_NOINLINE void ProviderFunctionDescriptor::Clear() {
   }
 
   // bool enabled = 13 [json_name = "enabled"];
-  if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+  if (CheckHasBit(cached_has_bits, 0x00010000U)) {
     if (this_._internal_enabled() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteBoolToArray(
@@ -1162,6 +1206,25 @@ PROTOBUF_NOINLINE void ProviderFunctionDescriptor::Clear() {
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.execution");
       target = stream->WriteStringMaybeAliased(16, _s, target);
+    }
+  }
+
+  // bool approval_required = 17 [json_name = "approvalRequired"];
+  if (CheckHasBit(cached_has_bits, 0x00020000U)) {
+    if (this_._internal_approval_required() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteBoolToArray(
+          17, this_._internal_approval_required(), target);
+    }
+  }
+
+  // string approval_policy_key = 18 [json_name = "approvalPolicyKey"];
+  if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+    if (!this_._internal_approval_policy_key().empty()) {
+      const ::std::string& _s = this_._internal_approval_policy_key();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.sdk.v1.ProviderFunctionDescriptor.approval_policy_key");
+      target = stream->WriteStringMaybeAliased(18, _s, target);
     }
   }
 
@@ -1293,16 +1356,31 @@ PROTOBUF_NOINLINE void ProviderFunctionDescriptor::Clear() {
                                         this_._internal_execution());
       }
     }
-    // bool deprecated = 7 [json_name = "deprecated"];
+    // string approval_policy_key = 18 [json_name = "approvalPolicyKey"];
     if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+      if (!this_._internal_approval_policy_key().empty()) {
+        total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_approval_policy_key());
+      }
+    }
+    // bool deprecated = 7 [json_name = "deprecated"];
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
       if (this_._internal_deprecated() != 0) {
         total_size += 2;
       }
     }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00030000U)) {
     // bool enabled = 13 [json_name = "enabled"];
-    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00010000U)) {
       if (this_._internal_enabled() != 0) {
         total_size += 2;
+      }
+    }
+    // bool approval_required = 17 [json_name = "approvalRequired"];
+    if (CheckHasBit(cached_has_bits, 0x00020000U)) {
+      if (this_._internal_approval_required() != 0) {
+        total_size += 3;
       }
     }
   }
@@ -1451,13 +1529,29 @@ void ProviderFunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_m
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+      if (!from._internal_approval_policy_key().empty()) {
+        _this->_internal_set_approval_policy_key(from._internal_approval_policy_key());
+      } else {
+        if (_this->_impl_.approval_policy_key_.IsDefault()) {
+          _this->_internal_set_approval_policy_key("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
       if (from._internal_deprecated() != 0) {
         _this->_impl_.deprecated_ = from._impl_.deprecated_;
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00030000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00010000U)) {
       if (from._internal_enabled() != 0) {
         _this->_impl_.enabled_ = from._impl_.enabled_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00020000U)) {
+      if (from._internal_approval_required() != 0) {
+        _this->_impl_.approval_required_ = from._impl_.approval_required_;
       }
     }
   }
@@ -1494,9 +1588,10 @@ void ProviderFunctionDescriptor::InternalSwap(ProviderFunctionDescriptor* PROTOB
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.permission_, &other->_impl_.permission_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.capability_, &other->_impl_.capability_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.execution_, &other->_impl_.execution_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.approval_policy_key_, &other->_impl_.approval_policy_key_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.enabled_)
-      + sizeof(ProviderFunctionDescriptor::_impl_.enabled_)
+      PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.approval_required_)
+      + sizeof(ProviderFunctionDescriptor::_impl_.approval_required_)
       - PROTOBUF_FIELD_OFFSET(ProviderFunctionDescriptor, _impl_.deprecated_)>(
           reinterpret_cast<char*>(&_impl_.deprecated_),
           reinterpret_cast<char*>(&other->_impl_.deprecated_));

@@ -50,6 +50,16 @@ public class FunctionDescriptor
     public string? Execution { get; set; }
 
     /// <summary>
+    /// 是否必须在执行前完成审批。
+    /// </summary>
+    public bool ApprovalRequired { get; set; }
+
+    /// <summary>
+    /// 可选审批流程标识。
+    /// </summary>
+    public string? ApprovalPolicyKey { get; set; }
+
+    /// <summary>
     /// 风险级别 (safe, warning, high, danger)
     /// </summary>
     public string? Risk { get; set; } = "warning";

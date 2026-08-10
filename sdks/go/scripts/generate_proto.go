@@ -115,21 +115,21 @@ func findProjectRoot() (string, error) {
 
 	for {
 		// Check if we're in the Go SDK directory
-		if _, err := os.Stat("go.mod"); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			// Check if we're in sdks/go subdirectory
-			if _, err := os.Stat("../go.mod"); err == nil {
+			if _, err := os.Stat(filepath.Join(dir, "..", "go.mod")); err == nil {
 				// Parent has go.mod, we might be in sdks/go
-				if _, err := os.Stat("../../proto"); err == nil {
+				if _, err := os.Stat(filepath.Join(dir, "..", "..", "proto")); err == nil {
 					// Found proto/ two levels up
 					return filepath.Join(dir, "../.."), nil
 				}
 			}
 			// Check if proto exists in parent (we're in sdks/go)
-			if _, err := os.Stat("../proto"); err == nil {
+			if _, err := os.Stat(filepath.Join(dir, "..", "proto")); err == nil {
 				return filepath.Join(dir, ".."), nil
 			}
 			// Check if proto exists in current directory (we're in root)
-			if _, err := os.Stat("proto"); err == nil {
+			if _, err := os.Stat(filepath.Join(dir, "proto")); err == nil {
 				return dir, nil
 			}
 		}

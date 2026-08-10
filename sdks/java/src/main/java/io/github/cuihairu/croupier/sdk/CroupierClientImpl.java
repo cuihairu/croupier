@@ -327,6 +327,8 @@ public class CroupierClientImpl implements CroupierClient {
             descriptor.getOperation(),
             descriptor.getCapability(),
             descriptor.getExecution(),
+            descriptor.isApprovalRequired(),
+            descriptor.getApprovalPolicyKey(),
             descriptor.getRisk(),
             descriptor.isEnabled(),
             descriptor.getPermission()

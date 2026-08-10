@@ -457,8 +457,8 @@ const file_croupier_agent_v1_task_proto_rawDesc = "" +
 	"\x12TASK_STATUS_FAILED\x10\x04\x12\x19\n" +
 	"\x15TASK_STATUS_CANCELLED\x10\x05\x12 \n" +
 	"\x1cTASK_STATUS_CANCEL_REQUESTED\x10\x06\x12\x19\n" +
-	"\x15TASK_STATUS_TIMED_OUT\x10\aBg\n" +
-	"$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1b\x06proto3"
+	"\x15TASK_STATUS_TIMED_OUT\x10\aB\xcf\x01\n" +
+	"\x15com.croupier.agent.v1B\tTaskProtoP\x01ZEgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/v1;agentv1\xa2\x02\x03CAX\xaa\x02\x11Croupier.Agent.V1\xca\x02\x11Croupier\\Agent\\V1\xe2\x02\x1dCroupier\\Agent\\V1\\GPBMetadata\xea\x02\x13Croupier::Agent::V1b\x06proto3"
 
 var (
 	file_croupier_agent_v1_task_proto_rawDescOnce sync.Once

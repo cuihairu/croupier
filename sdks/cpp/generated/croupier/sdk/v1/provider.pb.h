@@ -625,8 +625,10 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderFunctionDescriptor final : 
     kPermissionFieldNumber = 14,
     kCapabilityFieldNumber = 15,
     kExecutionFieldNumber = 16,
+    kApprovalPolicyKeyFieldNumber = 18,
     kDeprecatedFieldNumber = 7,
     kEnabledFieldNumber = 13,
+    kApprovalRequiredFieldNumber = 17,
   };
   // repeated string tags = 3 [json_name = "tags"];
   [[nodiscard]] int tags_size()
@@ -848,6 +850,21 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderFunctionDescriptor final : 
   ::std::string* PROTOBUF_NONNULL _internal_mutable_execution();
 
   public:
+  // string approval_policy_key = 18 [json_name = "approvalPolicyKey"];
+  void clear_approval_policy_key() ;
+  [[nodiscard]] const ::std::string& approval_policy_key() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_approval_policy_key(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_approval_policy_key();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_approval_policy_key();
+  void set_allocated_approval_policy_key(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_approval_policy_key() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_approval_policy_key(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_approval_policy_key();
+
+  public:
   // bool deprecated = 7 [json_name = "deprecated"];
   void clear_deprecated() ;
   [[nodiscard]] bool deprecated() const;
@@ -868,12 +885,22 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderFunctionDescriptor final : 
   void _internal_set_enabled(bool value);
 
   public:
+  // bool approval_required = 17 [json_name = "approvalRequired"];
+  void clear_approval_required() ;
+  [[nodiscard]] bool approval_required() const;
+  void set_approval_required(bool value);
+
+  private:
+  bool _internal_approval_required() const;
+  void _internal_set_approval_required(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:croupier.sdk.v1.ProviderFunctionDescriptor)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 16,
-                                   0, 185,
+  static const ::google::protobuf::internal::TcParseTable<5, 18,
+                                   0, 204,
                                    2>
       _table_;
 
@@ -910,8 +937,10 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderFunctionDescriptor final : 
     ::google::protobuf::internal::ArenaStringPtr permission_;
     ::google::protobuf::internal::ArenaStringPtr capability_;
     ::google::protobuf::internal::ArenaStringPtr execution_;
+    ::google::protobuf::internal::ArenaStringPtr approval_policy_key_;
     bool deprecated_;
     bool enabled_;
+    bool approval_required_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -2809,7 +2838,7 @@ inline void ProviderFunctionDescriptor::clear_deprecated() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.deprecated_ = false;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00004000U);
+                  0x00008000U);
 }
 inline bool ProviderFunctionDescriptor::deprecated() const {
   // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.deprecated)
@@ -2817,7 +2846,7 @@ inline bool ProviderFunctionDescriptor::deprecated() const {
 }
 inline void ProviderFunctionDescriptor::set_deprecated(bool value) {
   _internal_set_deprecated(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00004000U);
+  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
   // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.deprecated)
 }
 inline bool ProviderFunctionDescriptor::_internal_deprecated() const {
@@ -3159,7 +3188,7 @@ inline void ProviderFunctionDescriptor::clear_enabled() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.enabled_ = false;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00008000U);
+                  0x00010000U);
 }
 inline bool ProviderFunctionDescriptor::enabled() const {
   // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.enabled)
@@ -3167,7 +3196,7 @@ inline bool ProviderFunctionDescriptor::enabled() const {
 }
 inline void ProviderFunctionDescriptor::set_enabled(bool value) {
   _internal_set_enabled(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
+  SetHasBit(_impl_._has_bits_[0], 0x00010000U);
   // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.enabled)
 }
 inline bool ProviderFunctionDescriptor::_internal_enabled() const {
@@ -3372,6 +3401,96 @@ inline void ProviderFunctionDescriptor::set_allocated_execution(::std::string* P
     _impl_.execution_.Set("", GetArena());
   }
   // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.execution)
+}
+
+// bool approval_required = 17 [json_name = "approvalRequired"];
+inline void ProviderFunctionDescriptor::clear_approval_required() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.approval_required_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00020000U);
+}
+inline bool ProviderFunctionDescriptor::approval_required() const {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.approval_required)
+  return _internal_approval_required();
+}
+inline void ProviderFunctionDescriptor::set_approval_required(bool value) {
+  _internal_set_approval_required(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00020000U);
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.approval_required)
+}
+inline bool ProviderFunctionDescriptor::_internal_approval_required() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.approval_required_;
+}
+inline void ProviderFunctionDescriptor::_internal_set_approval_required(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.approval_required_ = value;
+}
+
+// string approval_policy_key = 18 [json_name = "approvalPolicyKey"];
+inline void ProviderFunctionDescriptor::clear_approval_policy_key() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.approval_policy_key_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00004000U);
+}
+inline const ::std::string& ProviderFunctionDescriptor::approval_policy_key() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.approval_policy_key)
+  return _internal_approval_policy_key();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_approval_policy_key(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00004000U);
+  _impl_.approval_policy_key_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.approval_policy_key)
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_approval_policy_key()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00004000U);
+  ::std::string* _s = _internal_mutable_approval_policy_key();
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.approval_policy_key)
+  return _s;
+}
+inline const ::std::string& ProviderFunctionDescriptor::_internal_approval_policy_key() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.approval_policy_key_.Get();
+}
+inline void ProviderFunctionDescriptor::_internal_set_approval_policy_key(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.approval_policy_key_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_approval_policy_key() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.approval_policy_key_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_approval_policy_key() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.approval_policy_key)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00004000U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00004000U);
+  auto* released = _impl_.approval_policy_key_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.approval_policy_key_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProviderFunctionDescriptor::set_allocated_approval_policy_key(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00004000U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00004000U);
+  }
+  _impl_.approval_policy_key_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.approval_policy_key_.IsDefault()) {
+    _impl_.approval_policy_key_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.approval_policy_key)
 }
 
 // -------------------------------------------------------------------

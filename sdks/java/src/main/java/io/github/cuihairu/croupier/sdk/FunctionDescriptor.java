@@ -20,6 +20,8 @@ public class FunctionDescriptor {
     private String operation; // business action key, e.g. "ban", "send", "list"
     private String capability; // collection_query|item_query|create|update|delete|action|task|report
     private String execution;  // sync|task
+    private boolean approvalRequired;
+    private String approvalPolicyKey;
     private String risk;      // "safe"|"warning"|"high"|"danger"
     private String permission;
     private boolean enabled = true; // whether this function is currently enabled
@@ -49,6 +51,8 @@ public class FunctionDescriptor {
         this.operation = other.operation;
         this.capability = other.capability;
         this.execution = other.execution;
+        this.approvalRequired = other.approvalRequired;
+        this.approvalPolicyKey = other.approvalPolicyKey;
         this.risk = other.risk;
         this.permission = other.permission;
         this.enabled = other.enabled;
@@ -96,6 +100,12 @@ public class FunctionDescriptor {
 
     public String getExecution() { return execution; }
     public void setExecution(String execution) { this.execution = execution; }
+
+    public boolean isApprovalRequired() { return approvalRequired; }
+    public void setApprovalRequired(boolean approvalRequired) { this.approvalRequired = approvalRequired; }
+
+    public String getApprovalPolicyKey() { return approvalPolicyKey; }
+    public void setApprovalPolicyKey(String approvalPolicyKey) { this.approvalPolicyKey = approvalPolicyKey; }
 
     public String getPermission() { return permission; }
     public void setPermission(String permission) { this.permission = permission; }

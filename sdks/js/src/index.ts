@@ -48,6 +48,8 @@ message ProviderFunctionDescriptor {
   string permission = 14;
   string capability = 15;
   string execution = 16;
+  bool approval_required = 17;
+  string approval_policy_key = 18;
 }
 
 message ProviderConnectRequest {
@@ -289,6 +291,8 @@ export interface FunctionDescriptor {
   operation?: string;
   capability?: string;
   execution?: string;
+  approval_required?: boolean;
+  approval_policy_key?: string;
   permission?: string;
   enabled?: boolean;
 }
@@ -736,6 +740,8 @@ export class BasicClient implements CroupierClient {
         operation: desc.operation || "",
         capability: desc.capability || "",
         execution: desc.execution || "",
+        approval_required: desc.approval_required ?? false,
+        approval_policy_key: desc.approval_policy_key || "",
         risk: desc.risk || "",
         enabled: desc.enabled ?? true,
         permission: desc.permission || "",
@@ -1420,6 +1426,8 @@ export class BasicClient implements CroupierClient {
         operation: fn.operation,
         capability: fn.capability,
         execution: fn.execution,
+        approvalRequired: fn.approval_required,
+        approvalPolicyKey: fn.approval_policy_key,
         risk: fn.risk,
         enabled: fn.enabled,
         permission: fn.permission,

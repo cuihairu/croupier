@@ -38,15 +38,18 @@ type ProviderFunctionDescriptor struct {
 	OutputSchema string `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body
 	// Croupier capability fields. These are business/governance contract fields,
 	// not Dashboard page, menu, Formily, label, or placement fields.
-	Resource      string `protobuf:"bytes,10,opt,name=resource,proto3" json:"resource,omitempty"`     // x-resource: business resource/capability key (e.g., "player", "mail")
-	Operation     string `protobuf:"bytes,11,opt,name=operation,proto3" json:"operation,omitempty"`   // x-operation: business action key (e.g., "ban", "send", "list")
-	Risk          string `protobuf:"bytes,12,opt,name=risk,proto3" json:"risk,omitempty"`             // x-risk: risk level (e.g., "safe", "warning", "high", "danger")
-	Enabled       bool   `protobuf:"varint,13,opt,name=enabled,proto3" json:"enabled,omitempty"`      // x-enabled: whether this function is enabled
-	Permission    string `protobuf:"bytes,14,opt,name=permission,proto3" json:"permission,omitempty"` // x-permission: optional permission identifier
-	Capability    string `protobuf:"bytes,15,opt,name=capability,proto3" json:"capability,omitempty"` // x-capability: collection_query|item_query|create|update|delete|action|task|report
-	Execution     string `protobuf:"bytes,16,opt,name=execution,proto3" json:"execution,omitempty"`   // x-execution: sync|task
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Resource   string `protobuf:"bytes,10,opt,name=resource,proto3" json:"resource,omitempty"`     // x-resource: business resource/capability key (e.g., "player", "mail")
+	Operation  string `protobuf:"bytes,11,opt,name=operation,proto3" json:"operation,omitempty"`   // x-operation: business action key (e.g., "ban", "send", "list")
+	Risk       string `protobuf:"bytes,12,opt,name=risk,proto3" json:"risk,omitempty"`             // x-risk: risk level (e.g., "safe", "warning", "high", "danger")
+	Enabled    bool   `protobuf:"varint,13,opt,name=enabled,proto3" json:"enabled,omitempty"`      // x-enabled: whether this function is enabled
+	Permission string `protobuf:"bytes,14,opt,name=permission,proto3" json:"permission,omitempty"` // x-permission: optional permission identifier
+	Capability string `protobuf:"bytes,15,opt,name=capability,proto3" json:"capability,omitempty"` // x-capability: collection_query|item_query|create|update|delete|action|task|report
+	Execution  string `protobuf:"bytes,16,opt,name=execution,proto3" json:"execution,omitempty"`   // x-execution: sync|task
+	// Approval policy is governance metadata independent of execution mode.
+	ApprovalRequired  bool   `protobuf:"varint,17,opt,name=approval_required,json=approvalRequired,proto3" json:"approval_required,omitempty"`
+	ApprovalPolicyKey string `protobuf:"bytes,18,opt,name=approval_policy_key,json=approvalPolicyKey,proto3" json:"approval_policy_key,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ProviderFunctionDescriptor) Reset() {
@@ -187,6 +190,20 @@ func (x *ProviderFunctionDescriptor) GetCapability() string {
 func (x *ProviderFunctionDescriptor) GetExecution() string {
 	if x != nil {
 		return x.Execution
+	}
+	return ""
+}
+
+func (x *ProviderFunctionDescriptor) GetApprovalRequired() bool {
+	if x != nil {
+		return x.ApprovalRequired
+	}
+	return false
+}
+
+func (x *ProviderFunctionDescriptor) GetApprovalPolicyKey() string {
+	if x != nil {
+		return x.ApprovalPolicyKey
 	}
 	return ""
 }
@@ -678,7 +695,7 @@ var File_croupier_sdk_v1_provider_proto protoreflect.FileDescriptor
 
 const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\n" +
-	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\xe7\x03\n" +
+	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\xc4\x04\n" +
 	"\x1aProviderFunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
@@ -702,7 +719,9 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\n" +
 	"capability\x18\x0f \x01(\tR\n" +
 	"capability\x12\x1c\n" +
-	"\texecution\x18\x10 \x01(\tR\texecution\"\xf3\x03\n" +
+	"\texecution\x18\x10 \x01(\tR\texecution\x12+\n" +
+	"\x11approval_required\x18\x11 \x01(\bR\x10approvalRequired\x12.\n" +
+	"\x13approval_policy_key\x18\x12 \x01(\tR\x11approvalPolicyKey\"\xf3\x03\n" +
 	"\x16ProviderConnectRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +
@@ -741,8 +760,8 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\x15GetTaskResultResponse\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x18\n" +
 	"\apayload\x18\x02 \x01(\fR\apayload\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05errorBa\n" +
-	"\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3"
+	"\x05error\x18\x03 \x01(\tR\x05errorB\xc5\x01\n" +
+	"\x13com.croupier.sdk.v1B\rProviderProtoP\x01ZAgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1;sdkv1\xa2\x02\x03CSX\xaa\x02\x0fCroupier.Sdk.V1\xca\x02\x0fCroupier\\Sdk\\V1\xe2\x02\x1bCroupier\\Sdk\\V1\\GPBMetadata\xea\x02\x11Croupier::Sdk::V1b\x06proto3"
 
 var (
 	file_croupier_sdk_v1_provider_proto_rawDescOnce sync.Once

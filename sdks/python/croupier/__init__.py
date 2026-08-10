@@ -96,6 +96,8 @@ class FunctionDescriptor:
     operation: Optional[str] = None
     capability: Optional[str] = None
     execution: Optional[str] = None
+    approval_required: bool = False
+    approval_policy_key: Optional[str] = None
     risk: Optional[str] = None
     enabled: bool = True
     permission: Optional[str] = None
@@ -250,6 +252,8 @@ class CroupierClient:
             operation=desc.operation or "",
             capability=desc.capability or "",
             execution=desc.execution or "",
+            approval_required=desc.approval_required,
+            approval_policy_key=desc.approval_policy_key or "",
             risk=desc.risk or "",
             enabled=desc.enabled,
             permission=desc.permission or "",
@@ -423,6 +427,10 @@ class CroupierClient:
                 entry["capability"] = descriptor.capability
             if descriptor.execution:
                 entry["execution"] = descriptor.execution
+            if descriptor.approval_required:
+                entry["approval_required"] = True  # type: ignore[assignment]
+            if descriptor.approval_policy_key:
+                entry["approval_policy_key"] = descriptor.approval_policy_key
             if descriptor.permission:
                 entry["permission"] = descriptor.permission
             if descriptor.enabled:

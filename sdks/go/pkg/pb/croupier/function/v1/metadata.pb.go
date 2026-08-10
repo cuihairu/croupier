@@ -860,8 +860,8 @@ const file_croupier_function_v1_metadata_proto_rawDesc = "" +
 	"\tfunctions\x18\x01 \x03(\v2&.croupier.function.v1.FunctionMetadataR\tfunctions\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCountBp\n" +
-	"'io.github.cuihairu.croupier.function.v1P\x01ZCgithub.com/cuihairu/croupier/pkg/pb/croupier/function/v1;functionv1b\x06proto3"
+	"totalCountB\xea\x01\n" +
+	"\x18com.croupier.function.v1B\rMetadataProtoP\x01ZKgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/function/v1;functionv1\xa2\x02\x03CFX\xaa\x02\x14Croupier.Function.V1\xca\x02\x15Croupier\\Function_\\V1\xe2\x02!Croupier\\Function_\\V1\\GPBMetadata\xea\x02\x16Croupier::Function::V1b\x06proto3"
 
 var (
 	file_croupier_function_v1_metadata_proto_rawDescOnce sync.Once

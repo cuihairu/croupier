@@ -10,22 +10,24 @@ import (
 
 // FunctionDescriptor defines the executable function capability contract.
 type FunctionDescriptor struct {
-	ID           string   `json:"id"`            // function id, e.g. "player.ban"
-	Version      string   `json:"version"`       // semver, e.g. "1.2.0"
-	Tags         []string `json:"tags"`          // tags for grouping and search
-	Summary      string   `json:"summary"`       // short summary for catalogs and search
-	Description  string   `json:"description"`   // detailed description, supports Markdown
-	OperationID  string   `json:"operation_id"`  // stable operation identifier
-	Deprecated   bool     `json:"deprecated"`    // whether this function is deprecated
-	InputSchema  string   `json:"input_schema"`  // JSON Schema for request body validation
-	OutputSchema string   `json:"output_schema"` // JSON Schema for response body validation
-	Resource     string   `json:"resource"`      // business resource/capability key
-	Operation    string   `json:"operation"`     // business action key, e.g. "ban", "send", "list"
-	Capability   string   `json:"capability"`    // collection_query|item_query|create|update|delete|action|task|report
-	Execution    string   `json:"execution"`     // sync|task
-	Risk         string   `json:"risk"`          // "safe"|"warning"|"high"|"danger"
-	Permission   string   `json:"permission"`    // optional permission identifier
-	Enabled      bool     `json:"enabled"`       // whether this function is currently enabled
+	ID                string   `json:"id"`            // function id, e.g. "player.ban"
+	Version           string   `json:"version"`       // semver, e.g. "1.2.0"
+	Tags              []string `json:"tags"`          // tags for grouping and search
+	Summary           string   `json:"summary"`       // short summary for catalogs and search
+	Description       string   `json:"description"`   // detailed description, supports Markdown
+	OperationID       string   `json:"operation_id"`  // stable operation identifier
+	Deprecated        bool     `json:"deprecated"`    // whether this function is deprecated
+	InputSchema       string   `json:"input_schema"`  // JSON Schema for request body validation
+	OutputSchema      string   `json:"output_schema"` // JSON Schema for response body validation
+	Resource          string   `json:"resource"`      // business resource/capability key
+	Operation         string   `json:"operation"`     // business action key, e.g. "ban", "send", "list"
+	Capability        string   `json:"capability"`    // collection_query|item_query|create|update|delete|action|task|report
+	Execution         string   `json:"execution"`     // sync|task
+	ApprovalRequired  bool     `json:"approval_required"`
+	ApprovalPolicyKey string   `json:"approval_policy_key"`
+	Risk              string   `json:"risk"`       // "safe"|"warning"|"high"|"danger"
+	Permission        string   `json:"permission"` // optional permission identifier
+	Enabled           bool     `json:"enabled"`    // whether this function is currently enabled
 }
 
 // ProviderFunctionDescriptor defines a function descriptor for SDK->Agent registration
@@ -48,13 +50,15 @@ type ProviderFunctionDescriptor struct {
 	OutputSchema string `json:"output_schema"` // JSON Schema for response body validation
 
 	// Croupier capability fields.
-	Resource   string `json:"resource"`   // x-resource: business resource/capability key
-	Operation  string `json:"operation"`  // x-operation: business action key
-	Capability string `json:"capability"` // x-capability: collection_query|item_query|create|update|delete|action|task|report
-	Execution  string `json:"execution"`  // x-execution: sync|task
-	Risk       string `json:"risk"`       // x-risk: risk level ("safe", "warning", "high", "danger")
-	Enabled    bool   `json:"enabled"`    // x-enabled: whether this function is enabled
-	Permission string `json:"permission"` // x-permission: optional permission identifier
+	Resource          string `json:"resource"`            // x-resource: business resource/capability key
+	Operation         string `json:"operation"`           // x-operation: business action key
+	Capability        string `json:"capability"`          // x-capability: collection_query|item_query|create|update|delete|action|task|report
+	Execution         string `json:"execution"`           // x-execution: sync|task
+	ApprovalRequired  bool   `json:"approval_required"`   // approval is independent of execution mode
+	ApprovalPolicyKey string `json:"approval_policy_key"` // optional approval workflow key
+	Risk              string `json:"risk"`                // x-risk: risk level ("safe", "warning", "high", "danger")
+	Enabled           bool   `json:"enabled"`             // x-enabled: whether this function is enabled
+	Permission        string `json:"permission"`          // x-permission: optional permission identifier
 }
 
 // FunctionHandler defines the signature for game function handlers

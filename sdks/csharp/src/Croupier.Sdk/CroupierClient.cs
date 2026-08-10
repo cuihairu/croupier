@@ -555,6 +555,8 @@ public partial class CroupierClient : IDisposable
                 Operation = descriptor.Operation ?? string.Empty,
                 Capability = descriptor.Capability ?? string.Empty,
                 Execution = descriptor.Execution ?? string.Empty,
+                ApprovalRequired = descriptor.ApprovalRequired,
+                ApprovalPolicyKey = descriptor.ApprovalPolicyKey ?? string.Empty,
                 Risk = descriptor.Risk,
                 Enabled = descriptor.Enabled,
                 Permission = descriptor.Permission ?? string.Empty

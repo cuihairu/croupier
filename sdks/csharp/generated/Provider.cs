@@ -25,7 +25,7 @@ namespace Croupier.Sdk.V1 {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "Ch5jcm91cGllci9zZGsvdjEvcHJvdmlkZXIucHJvdG8SD2Nyb3VwaWVyLnNk",
-            "ay52MSLnAwoaUHJvdmlkZXJGdW5jdGlvbkRlc2NyaXB0b3ISDgoCaWQYASAB",
+            "ay52MSLEBAoaUHJvdmlkZXJGdW5jdGlvbkRlc2NyaXB0b3ISDgoCaWQYASAB",
             "KAlSAmlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24SEgoEdGFncxgDIAMo",
             "CVIEdGFncxIYCgdzdW1tYXJ5GAQgASgJUgdzdW1tYXJ5EiAKC2Rlc2NyaXB0",
             "aW9uGAUgASgJUgtkZXNjcmlwdGlvbhIhCgxvcGVyYXRpb25faWQYBiABKAlS",
@@ -35,37 +35,39 @@ namespace Croupier.Sdk.V1 {
             "CHJlc291cmNlEhwKCW9wZXJhdGlvbhgLIAEoCVIJb3BlcmF0aW9uEhIKBHJp",
             "c2sYDCABKAlSBHJpc2sSGAoHZW5hYmxlZBgNIAEoCFIHZW5hYmxlZBIeCgpw",
             "ZXJtaXNzaW9uGA4gASgJUgpwZXJtaXNzaW9uEh4KCmNhcGFiaWxpdHkYDyAB",
-            "KAlSCmNhcGFiaWxpdHkSHAoJZXhlY3V0aW9uGBAgASgJUglleGVjdXRpb24i",
-            "8wMKFlByb3ZpZGVyQ29ubmVjdFJlcXVlc3QSHQoKc2VydmljZV9pZBgBIAEo",
-            "CVIJc2VydmljZUlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24SSQoJZnVu",
-            "Y3Rpb25zGAMgAygLMisuY3JvdXBpZXIuc2RrLnYxLlByb3ZpZGVyRnVuY3Rp",
-            "b25EZXNjcmlwdG9yUglmdW5jdGlvbnMSIQoMc2RrX2xhbmd1YWdlGAQgASgJ",
-            "UgtzZGtMYW5ndWFnZRIfCgtzZGtfdmVyc2lvbhgFIAEoCVIKc2RrVmVyc2lv",
-            "bhIZCghzZGtfbmFtZRgGIAEoCVIHc2RrTmFtZRIpChBwcm90b2NvbF92ZXJz",
-            "aW9uGAcgASgJUg9wcm90b2NvbFZlcnNpb24SNQoWc3VwcG9ydGVkX2NhcGFi",
-            "aWxpdGllcxgIIAMoCVIVc3VwcG9ydGVkQ2FwYWJpbGl0aWVzEjYKF3RyYW5z",
-            "cG9ydF9zZWN1cml0eV9tb2RlGAkgASgJUhV0cmFuc3BvcnRTZWN1cml0eU1v",
-            "ZGUSMQoUc3VwcG9ydGVkX3RyYW5zcG9ydHMYCiADKAlSE3N1cHBvcnRlZFRy",
-            "YW5zcG9ydHMSFwoHZ2FtZV9pZBgLIAEoCVIGZ2FtZUlkEhAKA2VudhgMIAEo",
-            "CVIDZW52IokBChdQcm92aWRlckNvbm5lY3RSZXNwb25zZRIdCgpzZXNzaW9u",
-            "X2lkGAEgASgJUglzZXNzaW9uSWQSMwoVYWNjZXB0ZWRfY2FwYWJpbGl0aWVz",
-            "GAIgAygJUhRhY2NlcHRlZENhcGFiaWxpdGllcxIaCgh3YXJuaW5ncxgDIAMo",
-            "CVIId2FybmluZ3MiWAoYUHJvdmlkZXJIZWFydGJlYXRSZXF1ZXN0Eh0KCnNl",
-            "cnZpY2VfaWQYASABKAlSCXNlcnZpY2VJZBIdCgpzZXNzaW9uX2lkGAIgASgJ",
-            "UglzZXNzaW9uSWQiGwoZUHJvdmlkZXJIZWFydGJlYXRSZXNwb25zZSJzChRQ",
-            "cm92aWRlckRyYWluUmVxdWVzdBIdCgpzZXNzaW9uX2lkGAEgASgJUglzZXNz",
-            "aW9uSWQSFgoGcmVhc29uGAIgASgJUgZyZWFzb24SJAoOcmV0cnlfYWZ0ZXJf",
-            "bXMYAyABKA1SDHJldHJ5QWZ0ZXJNcyIXChVQcm92aWRlckRyYWluUmVzcG9u",
-            "c2UiLwoUR2V0VGFza1Jlc3VsdFJlcXVlc3QSFwoHdGFza19pZBgBIAEoCVIG",
-            "dGFza0lkIl0KFUdldFRhc2tSZXN1bHRSZXNwb25zZRIUCgVzdGF0ZRgBIAEo",
-            "CVIFc3RhdGUSGAoHcGF5bG9hZBgCIAEoDFIHcGF5bG9hZBIUCgVlcnJvchgD",
-            "IAEoCVIFZXJyb3JCYQoiaW8uZ2l0aHViLmN1aWhhaXJ1LmNyb3VwaWVyLnNk",
-            "ay52MVABWjlnaXRodWIuY29tL2N1aWhhaXJ1L2Nyb3VwaWVyL3BrZy9wYi9j",
-            "cm91cGllci9zZGsvdjE7c2RrdjFiBnByb3RvMw=="));
+            "KAlSCmNhcGFiaWxpdHkSHAoJZXhlY3V0aW9uGBAgASgJUglleGVjdXRpb24S",
+            "KwoRYXBwcm92YWxfcmVxdWlyZWQYESABKAhSEGFwcHJvdmFsUmVxdWlyZWQS",
+            "LgoTYXBwcm92YWxfcG9saWN5X2tleRgSIAEoCVIRYXBwcm92YWxQb2xpY3lL",
+            "ZXki8wMKFlByb3ZpZGVyQ29ubmVjdFJlcXVlc3QSHQoKc2VydmljZV9pZBgB",
+            "IAEoCVIJc2VydmljZUlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb24SSQoJ",
+            "ZnVuY3Rpb25zGAMgAygLMisuY3JvdXBpZXIuc2RrLnYxLlByb3ZpZGVyRnVu",
+            "Y3Rpb25EZXNjcmlwdG9yUglmdW5jdGlvbnMSIQoMc2RrX2xhbmd1YWdlGAQg",
+            "ASgJUgtzZGtMYW5ndWFnZRIfCgtzZGtfdmVyc2lvbhgFIAEoCVIKc2RrVmVy",
+            "c2lvbhIZCghzZGtfbmFtZRgGIAEoCVIHc2RrTmFtZRIpChBwcm90b2NvbF92",
+            "ZXJzaW9uGAcgASgJUg9wcm90b2NvbFZlcnNpb24SNQoWc3VwcG9ydGVkX2Nh",
+            "cGFiaWxpdGllcxgIIAMoCVIVc3VwcG9ydGVkQ2FwYWJpbGl0aWVzEjYKF3Ry",
+            "YW5zcG9ydF9zZWN1cml0eV9tb2RlGAkgASgJUhV0cmFuc3BvcnRTZWN1cml0",
+            "eU1vZGUSMQoUc3VwcG9ydGVkX3RyYW5zcG9ydHMYCiADKAlSE3N1cHBvcnRl",
+            "ZFRyYW5zcG9ydHMSFwoHZ2FtZV9pZBgLIAEoCVIGZ2FtZUlkEhAKA2VudhgM",
+            "IAEoCVIDZW52IokBChdQcm92aWRlckNvbm5lY3RSZXNwb25zZRIdCgpzZXNz",
+            "aW9uX2lkGAEgASgJUglzZXNzaW9uSWQSMwoVYWNjZXB0ZWRfY2FwYWJpbGl0",
+            "aWVzGAIgAygJUhRhY2NlcHRlZENhcGFiaWxpdGllcxIaCgh3YXJuaW5ncxgD",
+            "IAMoCVIId2FybmluZ3MiWAoYUHJvdmlkZXJIZWFydGJlYXRSZXF1ZXN0Eh0K",
+            "CnNlcnZpY2VfaWQYASABKAlSCXNlcnZpY2VJZBIdCgpzZXNzaW9uX2lkGAIg",
+            "ASgJUglzZXNzaW9uSWQiGwoZUHJvdmlkZXJIZWFydGJlYXRSZXNwb25zZSJz",
+            "ChRQcm92aWRlckRyYWluUmVxdWVzdBIdCgpzZXNzaW9uX2lkGAEgASgJUglz",
+            "ZXNzaW9uSWQSFgoGcmVhc29uGAIgASgJUgZyZWFzb24SJAoOcmV0cnlfYWZ0",
+            "ZXJfbXMYAyABKA1SDHJldHJ5QWZ0ZXJNcyIXChVQcm92aWRlckRyYWluUmVz",
+            "cG9uc2UiLwoUR2V0VGFza1Jlc3VsdFJlcXVlc3QSFwoHdGFza19pZBgBIAEo",
+            "CVIGdGFza0lkIl0KFUdldFRhc2tSZXN1bHRSZXNwb25zZRIUCgVzdGF0ZRgB",
+            "IAEoCVIFc3RhdGUSGAoHcGF5bG9hZBgCIAEoDFIHcGF5bG9hZBIUCgVlcnJv",
+            "chgDIAEoCVIFZXJyb3JCYQoiaW8uZ2l0aHViLmN1aWhhaXJ1LmNyb3VwaWVy",
+            "LnNkay52MVABWjlnaXRodWIuY29tL2N1aWhhaXJ1L2Nyb3VwaWVyL3BrZy9w",
+            "Yi9jcm91cGllci9zZGsvdjE7c2RrdjFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderFunctionDescriptor), global::Croupier.Sdk.V1.ProviderFunctionDescriptor.Parser, new[]{ "Id", "Version", "Tags", "Summary", "Description", "OperationId", "Deprecated", "InputSchema", "OutputSchema", "Resource", "Operation", "Risk", "Enabled", "Permission", "Capability", "Execution" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderFunctionDescriptor), global::Croupier.Sdk.V1.ProviderFunctionDescriptor.Parser, new[]{ "Id", "Version", "Tags", "Summary", "Description", "OperationId", "Deprecated", "InputSchema", "OutputSchema", "Resource", "Operation", "Risk", "Enabled", "Permission", "Capability", "Execution", "ApprovalRequired", "ApprovalPolicyKey" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderConnectRequest), global::Croupier.Sdk.V1.ProviderConnectRequest.Parser, new[]{ "ServiceId", "Version", "Functions", "SdkLanguage", "SdkVersion", "SdkName", "ProtocolVersion", "SupportedCapabilities", "TransportSecurityMode", "SupportedTransports", "GameId", "Env" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderConnectResponse), global::Croupier.Sdk.V1.ProviderConnectResponse.Parser, new[]{ "SessionId", "AcceptedCapabilities", "Warnings" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Croupier.Sdk.V1.ProviderHeartbeatRequest), global::Croupier.Sdk.V1.ProviderHeartbeatRequest.Parser, new[]{ "ServiceId", "SessionId" }, null, null, null, null),
@@ -135,6 +137,8 @@ namespace Croupier.Sdk.V1 {
       permission_ = other.permission_;
       capability_ = other.capability_;
       execution_ = other.execution_;
+      approvalRequired_ = other.approvalRequired_;
+      approvalPolicyKey_ = other.approvalPolicyKey_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -384,6 +388,33 @@ namespace Croupier.Sdk.V1 {
       }
     }
 
+    /// <summary>Field number for the "approval_required" field.</summary>
+    public const int ApprovalRequiredFieldNumber = 17;
+    private bool approvalRequired_;
+    /// <summary>
+    /// Approval policy is governance metadata independent of execution mode.
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool ApprovalRequired {
+      get { return approvalRequired_; }
+      set {
+        approvalRequired_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "approval_policy_key" field.</summary>
+    public const int ApprovalPolicyKeyFieldNumber = 18;
+    private string approvalPolicyKey_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ApprovalPolicyKey {
+      get { return approvalPolicyKey_; }
+      set {
+        approvalPolicyKey_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -415,6 +446,8 @@ namespace Croupier.Sdk.V1 {
       if (Permission != other.Permission) return false;
       if (Capability != other.Capability) return false;
       if (Execution != other.Execution) return false;
+      if (ApprovalRequired != other.ApprovalRequired) return false;
+      if (ApprovalPolicyKey != other.ApprovalPolicyKey) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -438,6 +471,8 @@ namespace Croupier.Sdk.V1 {
       if (Permission.Length != 0) hash ^= Permission.GetHashCode();
       if (Capability.Length != 0) hash ^= Capability.GetHashCode();
       if (Execution.Length != 0) hash ^= Execution.GetHashCode();
+      if (ApprovalRequired != false) hash ^= ApprovalRequired.GetHashCode();
+      if (ApprovalPolicyKey.Length != 0) hash ^= ApprovalPolicyKey.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -517,6 +552,14 @@ namespace Croupier.Sdk.V1 {
         output.WriteRawTag(130, 1);
         output.WriteString(Execution);
       }
+      if (ApprovalRequired != false) {
+        output.WriteRawTag(136, 1);
+        output.WriteBool(ApprovalRequired);
+      }
+      if (ApprovalPolicyKey.Length != 0) {
+        output.WriteRawTag(146, 1);
+        output.WriteString(ApprovalPolicyKey);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -588,6 +631,14 @@ namespace Croupier.Sdk.V1 {
         output.WriteRawTag(130, 1);
         output.WriteString(Execution);
       }
+      if (ApprovalRequired != false) {
+        output.WriteRawTag(136, 1);
+        output.WriteBool(ApprovalRequired);
+      }
+      if (ApprovalPolicyKey.Length != 0) {
+        output.WriteRawTag(146, 1);
+        output.WriteString(ApprovalPolicyKey);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -643,6 +694,12 @@ namespace Croupier.Sdk.V1 {
       }
       if (Execution.Length != 0) {
         size += 2 + pb::CodedOutputStream.ComputeStringSize(Execution);
+      }
+      if (ApprovalRequired != false) {
+        size += 2 + 1;
+      }
+      if (ApprovalPolicyKey.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(ApprovalPolicyKey);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -701,6 +758,12 @@ namespace Croupier.Sdk.V1 {
       }
       if (other.Execution.Length != 0) {
         Execution = other.Execution;
+      }
+      if (other.ApprovalRequired != false) {
+        ApprovalRequired = other.ApprovalRequired;
+      }
+      if (other.ApprovalPolicyKey.Length != 0) {
+        ApprovalPolicyKey = other.ApprovalPolicyKey;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -781,6 +844,14 @@ namespace Croupier.Sdk.V1 {
             Execution = input.ReadString();
             break;
           }
+          case 136: {
+            ApprovalRequired = input.ReadBool();
+            break;
+          }
+          case 146: {
+            ApprovalPolicyKey = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -858,6 +929,14 @@ namespace Croupier.Sdk.V1 {
           }
           case 130: {
             Execution = input.ReadString();
+            break;
+          }
+          case 136: {
+            ApprovalRequired = input.ReadBool();
+            break;
+          }
+          case 146: {
+            ApprovalPolicyKey = input.ReadString();
             break;
           }
         }
