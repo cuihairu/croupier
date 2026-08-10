@@ -33,6 +33,9 @@ jobs:
       - name: Dashboard vNext guard
         timeout-minutes: 5
         run: bash scripts/dashboard_vnext_guard.sh
+      - name: Dashboard vNext guard regression test
+        timeout-minutes: 5
+        run: bash scripts/dashboard_vnext_guard_test.sh
       - name: SDK matrix conformance
         timeout-minutes: 5
         run: bash scripts/check-sdk-matrix.sh

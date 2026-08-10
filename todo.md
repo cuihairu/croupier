@@ -47,7 +47,7 @@ SDK / OpenAPI 注册 FunctionContract
 ## A. 基线与防回流
 
 - [ ] `A-001` 建立 Dashboard vNext guard 基线
-      Owner: unassigned
+      Owner: root
       Depends: []
       Scope: `scripts/dashboard_vnext_guard.sh`, guard 测试/CI 调用。
       Deliverable: guard 拒绝 Formily、form-render、旧 Function Form、注册侧 UI、旧页面 runtime 新增引用。

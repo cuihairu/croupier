@@ -111,6 +111,7 @@ echo ""
 echo "Checking legacy Page protocol terms do not return..."
 assert_not_contains "\\b(PageSpecV2|GeneratedPageSpecV2|PageTypeV2|PageFunctionBindingV2|PageSchemaEditor|PageStudioV2)\\b|formily-page:1|formily-page/v1|dashboard-vnext" "legacy split/page-schema identifiers absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
 assert_not_contains "\\b(inputMapping|outputMapping|SchemaJSON|PageSpecJSON|FormPresentationJSON|PageSpecVersion)\\b" "legacy page storage/mapping fields absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
+assert_not_contains "\\b(WorkspaceRenderer|PageGenerator|FunctionUIManager|FunctionFormRenderer|XUISchema)\\b" "legacy page runtime references absent" "web/src" "web/package.json"
 assert_not_contains "dashboard/descriptors|descriptors\\.Collect" "legacy descriptor collector imports absent" "internal" "web/src"
 if rg -nP "(?<![\"'])\\bany\\b(?![\"'])" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
     fail "core Dashboard TypeScript code has no any"
@@ -134,7 +135,7 @@ echo ""
 echo "Checking registration-side UI fields stay rejected..."
 if rg -n "category_display|entity_display|operation_display|operation_kind|page_hint|x-labels" \
     proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
-    internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
+    internal/agent internal/app/agent internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
     --glob "*.proto" --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
     --glob "!**/test/**" --glob "!**/tests/**" --glob "!**/*Test.java" --glob "!**/*.test.ts" \
     --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" \
