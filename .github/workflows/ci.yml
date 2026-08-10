@@ -21,6 +21,11 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
+      - name: Install ripgrep
+        timeout-minutes: 2
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+          rg --version
       - name: Architecture guard
         timeout-minutes: 5
         run: bash .github/scripts/architecture_guard.sh

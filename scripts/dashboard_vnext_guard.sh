@@ -17,12 +17,10 @@ NC='\033[0m'
 
 ERRORS=0
 
-# Check for rg (ripgrep) availability, fallback to grep if not found
+# rg (ripgrep) is required — installed by CI workflow
 if ! command -v rg &> /dev/null; then
-    echo "WARNING: rg (ripgrep) not found, using grep as fallback"
-    rg() {
-        grep -r "$@"
-    }
+    echo "ERROR: rg (ripgrep) is required but not found. Install it first."
+    exit 1
 fi
 
 fail() {
@@ -79,47 +77,13 @@ assert_not_contains() {
     local pattern="$1"
     local label="$2"
     shift 2
-    if command -v rg &> /dev/null; then
-        if rg -n "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
-            fail "$label"
-            sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
-        else
-            ok "$label"
-        fi
+    if rg -n "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+        fail "$label"
+        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
     else
-        # Fallback to grep when rg is not available
-        # Use find + grep to exclude test files more reliably
-        local found=0
-        for dir in "$@"; do
-            if [ -d "$dir" ]; then
-                # Search non-test Go files and other source files
-                while IFS= read -r -d '' file; do
-                    if grep -q "$pattern" "$file" 2>/dev/null; then
-                        echo "$file:$(grep -n "$pattern" "$file" | head -1)" >>/tmp/croupier-dashboard-guard-match.txt
-                        found=1
-                    fi
-                done < <(find "$dir" -type f \( -name "*.go" -o -name "*.ts" -o -name "*.tsx" -o -name "*.proto" -o -name "*.py" -o -name "*.java" -o -name "*.cs" -o -name "*.h" -o -name "*.cpp" \) ! -name "*_test.go" ! -name "*.test.ts" ! -name "*.test.tsx" ! -name "*Test.java" -print0 2>/dev/null)
-            elif [ -f "$dir" ]; then
-                # Single file - skip if it's a test file
-                case "$dir" in
-                    *_test.go|*.test.ts|*.test.tsx|*Test.java)
-                        continue
-                        ;;
-                esac
-                if grep -q "$pattern" "$dir" 2>/dev/null; then
-                    echo "$dir:$(grep -n "$pattern" "$dir" | head -1)" >>/tmp/croupier-dashboard-guard-match.txt
-                    found=1
-                fi
-            fi
-        done
-        if [ $found -eq 1 ]; then
-            fail "$label"
-            sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
-        else
-            ok "$label"
-        fi
-        rm -f /tmp/croupier-dashboard-guard-match.txt
+        ok "$label"
     fi
+    rm -f /tmp/croupier-dashboard-guard-match.txt
 }
 
 echo "Checking canonical model entry points..."
@@ -156,22 +120,13 @@ assert_not_contains "\\b(PageSpecV2|GeneratedPageSpecV2|PageTypeV2|PageFunctionB
 assert_not_contains "\\b(inputMapping|outputMapping|SchemaJSON|PageSpecJSON|FormPresentationJSON|PageSpecVersion)\\b" "legacy page storage/mapping fields absent" "internal/dashboard" "internal/api/page" "internal/model" "web/src/types" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/components/PageRenderer" "web/src/services/dashboard.ts"
 assert_not_contains "\\b(WorkspaceRenderer|PageGenerator|FunctionUIManager|FunctionFormRenderer|XUISchema)\\b" "legacy page runtime references absent" "web/src" "web/package.json"
 assert_not_contains "dashboard/descriptors|descriptors\\.Collect" "legacy descriptor collector imports absent" "internal" "web/src"
-if command -v rg &> /dev/null; then
-    if rg -nP "(?<![\"'])\\bany\\b(?![\"'])" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
-        fail "core Dashboard TypeScript code has no any"
-        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
-    else
-        ok "core Dashboard TypeScript code has no any"
-    fi
+if rg -nP "(?<![\"'])\\bany\\b(?![\"'])" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+    fail "core Dashboard TypeScript code has no any"
+    sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
 else
-    # Fallback to grep - exclude test files
-    if grep -rn --include="*.ts" --include="*.tsx" --exclude="*.test.ts" --exclude="*.test.tsx" "any" "web/src/types/dashboard.ts" "web/src/components/PageRenderer" "web/src/pages/PageStudio" "web/src/pages/Console" "web/src/services/dashboard.ts" 2>/dev/null | grep -v "test" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
-        fail "core Dashboard TypeScript code has no any"
-        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
-    else
-        ok "core Dashboard TypeScript code has no any"
-    fi
+    ok "core Dashboard TypeScript code has no any"
 fi
+rm -f /tmp/croupier-dashboard-guard-match.txt
 
 echo ""
 echo "Checking form runtime boundary..."
@@ -186,32 +141,19 @@ assert_not_contains "FunctionExecutionApproval|GenerateApprovalPageForOperation|
 
 echo ""
 echo "Checking registration-side UI fields stay rejected..."
-if command -v rg &> /dev/null; then
-    if rg -n "category_display|entity_display|operation_display|operation_kind|page_hint|x-labels" \
-        proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
-        internal/agent internal/app/agent internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
-        --glob "*.proto" --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
-        --glob "!**/test/**" --glob "!**/tests/**" --glob "!**/*Test.java" --glob "!**/*.test.ts" \
-        --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" \
-        --glob "!internal/function/registrationguard/reject.go" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
-        fail "registration-side UI/display fields must not reappear in SDK/OpenAPI registration sources"
-        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
-    else
-        ok "registration-side UI/display fields absent from SDK/OpenAPI registration sources"
-    fi
+if rg -n "category_display|entity_display|operation_display|operation_kind|page_hint|x-labels" \
+    proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
+    internal/agent internal/app/agent internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
+    --glob "*.proto" --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
+    --glob "!**/test/**" --glob "!**/tests/**" --glob "!**/*Test.java" --glob "!**/*.test.ts" \
+    --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" \
+    --glob "!internal/function/registrationguard/reject.go" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+    fail "registration-side UI/display fields must not reappear in SDK/OpenAPI registration sources"
+    sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
 else
-    # Fallback to grep - exclude test files
-    local grep_args="--include=*.proto --include=*.go --include=*.ts --include=*.tsx --include=*.py --include=*.java --include=*.cs --include=*.h --include=*.cpp --exclude=*_test.go --exclude=*.test.ts --exclude=*.test.tsx --exclude-dir=test --exclude-dir=tests --exclude-dir=build --exclude-dir=obj --exclude-dir=bin"
-    if grep -rn $grep_args "category_display\|entity_display\|operation_display\|operation_kind\|page_hint\|x-labels" \
-        proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
-        internal/agent internal/app/agent internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
-        2>/dev/null | grep -v "registrationguard/reject.go" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
-        fail "registration-side UI/display fields must not reappear in SDK/OpenAPI registration sources"
-        sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
-    else
-        ok "registration-side UI/display fields absent from SDK/OpenAPI registration sources"
-    fi
+    ok "registration-side UI/display fields absent from SDK/OpenAPI registration sources"
 fi
+rm -f /tmp/croupier-dashboard-guard-match.txt
 
 echo ""
 echo "Checking dependencies..."
