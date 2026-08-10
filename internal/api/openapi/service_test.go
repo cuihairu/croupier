@@ -494,7 +494,7 @@ func TestService_CreateSource_RejectsUIExtensions(t *testing.T) {
 func TestService_CreateSource_RejectsPresentationContractFields(t *testing.T) {
 	t.Parallel()
 
-	for _, field := range []string{"x-page-contract", "inputMapping", "outputMapping", "pagination", "table"} {
+	for _, field := range []string{"x-page-contract", "inputMapping", "outputMapping", "pagination", "table", "title", "labels", "columns"} {
 		field := field
 		t.Run(field, func(t *testing.T) {
 			t.Parallel()
@@ -526,6 +526,83 @@ func TestService_CreateSource_RejectsPresentationContractFields(t *testing.T) {
 			assertOpenAPISourceDiagnostic(t, err, "openapi_presentation_field_forbidden", dashspec.SeverityError, "."+field)
 		})
 	}
+}
+
+func TestService_CreateSource_AllowsSchemaPropertiesNamedAfterPresentationTerms(t *testing.T) {
+	t.Parallel()
+
+	service := setupOpenAPITestService(t)
+	specDoc := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Business Payload API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/users": map[string]interface{}{
+				"post": map[string]interface{}{
+					"operationId": "createUser",
+					"requestBody": map[string]interface{}{
+						"content": map[string]interface{}{
+							"application/json": map[string]interface{}{
+								"schema": map[string]interface{}{
+									"type": "object",
+									"properties": map[string]interface{}{
+										"menu":  map[string]interface{}{"type": "string"},
+										"table": map[string]interface{}{"type": "string"},
+									},
+								},
+							},
+						},
+					},
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{"description": "Success"},
+					},
+				},
+			},
+		},
+	}
+
+	created, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, specDoc)})
+	require.NoError(t, err)
+	assert.Equal(t, 1, created.Source.OperationCount)
+}
+
+func TestService_CreateSource_RejectsFormilySchemaKeyword(t *testing.T) {
+	t.Parallel()
+
+	service := setupOpenAPITestService(t)
+	specDoc := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Invalid Schema API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/users": map[string]interface{}{
+				"post": map[string]interface{}{
+					"operationId": "createUser",
+					"requestBody": map[string]interface{}{
+						"content": map[string]interface{}{
+							"application/json": map[string]interface{}{
+								"schema": map[string]interface{}{
+									"type":    "object",
+									"formily": map[string]interface{}{"schema": map[string]interface{}{}},
+								},
+							},
+						},
+					},
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{"description": "Success"},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, specDoc)})
+	require.Error(t, err)
+	assertOpenAPISourceDiagnostic(t, err, "openapi_presentation_field_forbidden", dashspec.SeverityError, ".formily")
 }
 
 func TestService_CreateSource_RejectsInvalidCapabilityAndExecution(t *testing.T) {

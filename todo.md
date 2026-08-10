@@ -66,7 +66,7 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## B. FunctionContract 与 CapabilitySemantics
 
-- [ ] `B-001` 注册边界只接受 FunctionContract 字段
+- [x] `B-001` 注册边界只接受 FunctionContract 字段
       Owner: root
       Depends: []
       Scope: `internal/platform/registry/`, `internal/api/openapi/`, SDK descriptor adapter。

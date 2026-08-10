@@ -13,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	"github.com/cuihairu/croupier/internal/model"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -50,6 +51,9 @@ func NewContractService(db *gorm.DB) *ContractService {
 // explicit registration contract. This is called when a function is
 // registered or updated.
 func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, input spec.FunctionContractInput) error {
+	if violation, ok := registrationguard.FindPresentationViolation(nil, input.InputSchema, input.OutputSchema); ok {
+		return fmt.Errorf("function contract contains forbidden presentation field %q at %s", violation.Field, violation.Location)
+	}
 
 	// 1. Normalize the descriptor
 	normInput := normalizer.DescriptorInput{

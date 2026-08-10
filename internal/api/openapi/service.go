@@ -948,11 +948,20 @@ func scanOpenAPISourceRaw(raw []byte) []spec.Diagnostic {
 		return []spec.Diagnostic{sourceDiagnostic("openapi_json_decode_failed", spec.SeverityError, err.Error(), "$")}
 	}
 	var diags []spec.Diagnostic
-	scanOpenAPIValue(value, "$", &diags)
+	scanOpenAPIValue(value, "$", openAPIScanRoot, &diags)
 	return diags
 }
 
-func scanOpenAPIValue(value interface{}, path string, diags *[]spec.Diagnostic) {
+type openAPIScanContext uint8
+
+const (
+	openAPIScanRoot openAPIScanContext = iota
+	openAPIScanPaths
+	openAPIScanPathItem
+	openAPIScanOperation
+)
+
+func scanOpenAPIValue(value interface{}, path string, context openAPIScanContext, diags *[]spec.Diagnostic) {
 	switch v := value.(type) {
 	case map[string]interface{}:
 		for key, child := range v {
@@ -968,7 +977,7 @@ func scanOpenAPIValue(value interface{}, path string, diags *[]spec.Diagnostic) 
 					))
 				}
 			}
-			if forbiddenOpenAPIPresentationField(key) {
+			if forbiddenOpenAPIPresentationField(key, context == openAPIScanOperation) {
 				*diags = append(*diags, sourceDiagnostic(
 					"openapi_presentation_field_forbidden",
 					spec.SeverityError,
@@ -976,26 +985,55 @@ func scanOpenAPIValue(value interface{}, path string, diags *[]spec.Diagnostic) 
 					childPath,
 				))
 			}
-			scanOpenAPIValue(child, childPath, diags)
+			scanOpenAPIValue(child, childPath, nextOpenAPIScanContext(context, key), diags)
 		}
 	case []interface{}:
 		for i, child := range v {
-			scanOpenAPIValue(child, fmt.Sprintf("%s[%d]", path, i), diags)
+			scanOpenAPIValue(child, fmt.Sprintf("%s[%d]", path, i), openAPIScanRoot, diags)
 		}
 	}
 }
 
-func forbiddenOpenAPIPresentationField(key string) bool {
-	normalized := strings.TrimSpace(strings.ToLower(strings.ReplaceAll(key, "_", "-")))
-	if _, ok := registrationguard.ForbiddenPresentationField(normalized); ok {
-		return ok
+func nextOpenAPIScanContext(context openAPIScanContext, key string) openAPIScanContext {
+	switch context {
+	case openAPIScanRoot:
+		if key == "paths" {
+			return openAPIScanPaths
+		}
+	case openAPIScanPaths:
+		return openAPIScanPathItem
+	case openAPIScanPathItem:
+		if isOpenAPIMethod(key) {
+			return openAPIScanOperation
+		}
 	}
-	switch normalized {
-	case "x-menu", "x-route", "x-routes", "x-page", "x-page-schema", "x-table-columns", "x-columns":
+	return openAPIScanRoot
+}
+
+func isOpenAPIMethod(key string) bool {
+	switch strings.ToLower(key) {
+	case "get", "put", "post", "delete", "options", "head", "patch", "trace":
 		return true
 	default:
 		return false
 	}
+}
+
+func forbiddenOpenAPIPresentationField(key string, operationObject bool) bool {
+	normalized := strings.TrimSpace(strings.ToLower(strings.ReplaceAll(key, "_", "-")))
+	if strings.HasPrefix(normalized, "x-") {
+		_, forbidden := registrationguard.ForbiddenPresentationField(normalized)
+		return forbidden
+	}
+	if normalized == "formily" {
+		_, forbidden := registrationguard.ForbiddenPresentationField(normalized)
+		return forbidden
+	}
+	if !operationObject {
+		return false
+	}
+	_, forbidden := registrationguard.ForbiddenRegistrationExtensionField(normalized)
+	return forbidden
 }
 
 func hasErrorDiagnostic(diags []spec.Diagnostic) bool {

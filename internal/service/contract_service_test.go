@@ -101,6 +101,29 @@ func TestContractService_RebuildContractRejectsUnstableKeys(t *testing.T) {
 	assert.Empty(t, contracts)
 }
 
+func TestContractService_RebuildContractRejectsPresentationSchema(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	err := service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID:          "player.list",
+		Version:     "1.0.0",
+		Enabled:     true,
+		Resource:    "player",
+		Operation:   "list",
+		Capability:  "collection_query",
+		Execution:   "sync",
+		InputSchema: `{"type":"object","x-menu":"Players"}`,
+	})
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, `forbidden presentation field "x-menu" at input_schema.x-menu`)
+	contracts, listErr := service.ListContracts(ctx, "demo-game", "development")
+	require.NoError(t, listErr)
+	assert.Empty(t, contracts)
+}
+
 func TestContractService_RebuildResourceCapability(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
