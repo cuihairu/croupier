@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/function/converter"
+	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
@@ -649,6 +650,16 @@ func descriptorPresentationField(f *agentv1.FunctionDescriptor) (string, bool) {
 	// page/UI extension into FunctionContract.
 	if unknown := f.ProtoReflect().GetUnknown(); len(unknown) > 0 {
 		return "unknown_proto_fields", true
+	}
+	// Schemas belong to the executable capability contract, but they must not
+	// carry dashboard presentation extensions (x-menu, x-table-columns,
+	// formily, ...). Reject the whole descriptor instead of silently
+	// persisting a smuggled UI hint.
+	if field, _, ok := registrationguard.ScanJSON(f.GetInputSchema()); ok {
+		return "input_schema." + field, true
+	}
+	if field, _, ok := registrationguard.ScanJSON(f.GetOutputSchema()); ok {
+		return "output_schema." + field, true
 	}
 	return "", false
 }

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/telemetry"
@@ -703,26 +704,32 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 	// Register all functions from the provider in a single call
 	if h.store != nil && len(req.Functions) > 0 {
 		// Convert proto functions to ProviderFunctionDescriptor
-		funcs := make([]*sdkv1.ProviderFunctionDescriptor, len(req.Functions))
-		for i, fn := range req.Functions {
-			funcs[i] = &sdkv1.ProviderFunctionDescriptor{
-				Id:           fn.Id,
-				Version:      fn.Version,
-				Tags:         fn.Tags,
-				Summary:      fn.Summary,
-				Description:  fn.Description,
-				OperationId:  fn.OperationId,
-				Deprecated:   fn.Deprecated,
-				InputSchema:  fn.InputSchema,
-				OutputSchema: fn.OutputSchema,
-				Resource:     fn.Resource,
-				Operation:    fn.Operation,
-				Capability:   fn.Capability,
-				Execution:    fn.Execution,
-				Risk:         fn.Risk,
-				Enabled:      fn.Enabled,
-				Permission:   fn.Permission,
+		funcs := make([]*sdkv1.ProviderFunctionDescriptor, 0, len(req.Functions))
+		for _, fn := range req.Functions {
+			if violation, ok := providerDescriptorPresentationViolation(fn); ok {
+				warning := fmt.Sprintf("function_id=%q registers forbidden presentation field %q at %s and is skipped", fn.GetId(), violation.Field, violation.Location)
+				warnings = append(warnings, warning)
+				h.logger.Warn("provider function registration rejected", "service_id", req.ServiceId, "function_id", fn.GetId(), "field", violation.Field, "location", violation.Location)
+				continue
 			}
+			funcs = append(funcs, &sdkv1.ProviderFunctionDescriptor{
+				Id:           fn.GetId(),
+				Version:      fn.GetVersion(),
+				Tags:         fn.GetTags(),
+				Summary:      fn.GetSummary(),
+				Description:  fn.GetDescription(),
+				OperationId:  fn.GetOperationId(),
+				Deprecated:   fn.GetDeprecated(),
+				InputSchema:  fn.GetInputSchema(),
+				OutputSchema: fn.GetOutputSchema(),
+				Resource:     fn.GetResource(),
+				Operation:    fn.GetOperation(),
+				Capability:   fn.GetCapability(),
+				Execution:    fn.GetExecution(),
+				Risk:         fn.GetRisk(),
+				Enabled:      fn.GetEnabled(),
+				Permission:   fn.GetPermission(),
+			})
 		}
 		// 提取元数据（参考 Nacos metadata）
 		metadata := map[string]string{
@@ -755,6 +762,13 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		Warnings:  warnings,
 	}
 	return proto.Marshal(resp)
+}
+
+func providerDescriptorPresentationViolation(fn *sdkv1.ProviderFunctionDescriptor) (registrationguard.PresentationViolation, bool) {
+	if fn == nil {
+		return registrationguard.PresentationViolation{}, false
+	}
+	return registrationguard.FindPresentationViolation(nil, fn.GetInputSchema(), fn.GetOutputSchema())
 }
 
 // handleProviderHeartbeat handles ProviderHeartbeatRequest from SDK Providers.

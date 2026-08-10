@@ -1281,6 +1281,70 @@ func TestValidateAndNormalizeFunctions(t *testing.T) {
 		assert.Equal(t, "game.player.get", functions[0].Id)
 		assert.Empty(t, warnings)
 	})
+
+	t.Run("presentation extension in input schema is rejected", func(t *testing.T) {
+		items := []*agentv1.FunctionDescriptor{
+			{
+				Id:      "game.player.get",
+				Version: "1.0.0",
+				InputSchema: `{
+					"type": "object",
+					"properties": {
+						"player_id": {"type": "string", "x-table-columns": ["name"]}
+					}
+				}`,
+			},
+		}
+
+		functions, warnings := validateAndNormalizeFunctions(items)
+		assert.Empty(t, functions)
+		assert.Len(t, warnings, 1)
+		assert.Equal(t, "function_presentation_field_not_allowed", warnings[0].Code)
+		assert.Equal(t, "game.player.get", warnings[0].FunctionID)
+		assert.Contains(t, warnings[0].Message, "input_schema.x-table-columns")
+	})
+
+	t.Run("presentation extension in output schema is rejected", func(t *testing.T) {
+		items := []*agentv1.FunctionDescriptor{
+			{
+				Id:           "game.player.list",
+				Version:      "1.0.0",
+				OutputSchema: `{"type": "object", "x-menu": "Players"}`,
+			},
+		}
+
+		functions, warnings := validateAndNormalizeFunctions(items)
+		assert.Empty(t, functions)
+		assert.Len(t, warnings, 1)
+		assert.Equal(t, "function_presentation_field_not_allowed", warnings[0].Code)
+		assert.Contains(t, warnings[0].Message, "output_schema.x-menu")
+	})
+
+	t.Run("full capability contract fields pass", func(t *testing.T) {
+		items := []*agentv1.FunctionDescriptor{
+			{
+				Id:                "game.player.ban",
+				Version:           "1.2.0",
+				Resource:          "player",
+				Operation:         "ban",
+				Capability:        "action",
+				Execution:         "sync",
+				Risk:              "high",
+				Permission:        "player.ban.invoke",
+				ApprovalRequired:  true,
+				ApprovalPolicyKey: "two_person",
+				Summary:           "Ban player",
+				Description:       "Ban a player by id",
+				Tags:              []string{"moderation"},
+				InputSchema:       `{"type": "object", "properties": {"player_id": {"type": "string"}}, "required": ["player_id"]}`,
+				OutputSchema:      `{"type": "object", "properties": {"ok": {"type": "boolean"}}}`,
+			},
+		}
+
+		functions, warnings := validateAndNormalizeFunctions(items)
+		assert.Len(t, functions, 1)
+		assert.Empty(t, warnings)
+	})
 }
 
 // --- Tests for isValidSemver ---

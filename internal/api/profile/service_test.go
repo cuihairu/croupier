@@ -498,7 +498,9 @@ func TestService_GetUserGames_GameWithNoName(t *testing.T) {
 
 	createTestAdminWithRole(t, db, "nonameuser", "password123", "admin")
 
-	// Create a game with empty name
+	// Create a game with empty name. GameID is the canonical identifier and
+	// BeforeCreate auto-derives it, so the game is still listed and falls
+	// back to the derived GameID as its display name.
 	game := &model.Game{
 		Name:      "",
 		AliasName: "",
@@ -514,8 +516,9 @@ func TestService_GetUserGames_GameWithNoName(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	// Games with empty names should be filtered out
-	assert.Empty(t, resp.Games)
+	require.Len(t, resp.Games, 1)
+	assert.Equal(t, "game", resp.Games[0].GameId)
+	assert.Equal(t, "game", resp.Games[0].GameName)
 }
 
 func TestService_UpdateProfile_WithAllFields(t *testing.T) {

@@ -152,6 +152,30 @@ func TestStore_UpsertAgentFailsWhenContractRebuildFails(t *testing.T) {
 	assert.Nil(t, store.AgentsUnsafe()["agent-1"])
 }
 
+func TestStore_UpsertAgentRejectsPresentationSchemaBeforePersistence(t *testing.T) {
+	store := NewStore()
+	recorder := &recordingContractService{}
+	store.SetContractService(recorder)
+
+	err := store.UpsertAgent(&AgentSession{
+		AgentID: "agent-1",
+		GameID:  "demo-game",
+		Env:     "development",
+		Functions: map[string]FunctionMeta{
+			"player.list": {
+				Enabled:     true,
+				InputSchema: `{"type":"object","x-menu":"Players"}`,
+			},
+		},
+	})
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, `function "player.list" input_schema.x-menu`)
+	assert.ErrorContains(t, err, `forbidden presentation field "x-menu"`)
+	assert.Empty(t, store.AgentsUnsafe())
+	assert.Empty(t, recorder.scopes)
+}
+
 type failingContractService struct {
 	err error
 }

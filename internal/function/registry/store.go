@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/protobuf/proto"
 )
@@ -49,6 +50,9 @@ func (s *Store) Register(ctx context.Context, metadata *functionv1.FunctionMetad
 	}
 	if metadata.Id == "" {
 		return fmt.Errorf("function ID is required")
+	}
+	if violation, ok := registrationguard.FindPresentationViolation(metadata.Extensions, metadata.InputSchema, metadata.OutputSchema); ok {
+		return fmt.Errorf("function registration contains forbidden presentation field %q at %s", violation.Field, violation.Location)
 	}
 
 	// Clone the metadata to avoid external modifications

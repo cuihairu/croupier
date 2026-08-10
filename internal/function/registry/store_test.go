@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStore_Register(t *testing.T) {
@@ -52,6 +54,27 @@ func TestStore_Register(t *testing.T) {
 	if retrieved.Resource != metadata.Resource {
 		t.Errorf("Expected resource %s, got %s", metadata.Resource, retrieved.Resource)
 	}
+}
+
+func TestStore_RegisterRejectsPresentationFields(t *testing.T) {
+	store := NewStore()
+
+	for _, metadata := range []*functionv1.FunctionMetadata{
+		{
+			Id:          "player.list",
+			InputSchema: `{"type":"object","x-menu":"Players"}`,
+		},
+		{
+			Id:         "player.ban",
+			Extensions: map[string]string{"x-title": "Ban Player"},
+		},
+	} {
+		err := store.Register(context.Background(), metadata)
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "forbidden presentation field")
+	}
+
+	assert.Zero(t, store.Count(context.Background()))
 }
 
 func TestStore_RegisterBatch(t *testing.T) {

@@ -88,6 +88,11 @@ func (h *Handler) RegisterFunction(c *gin.Context) {
 		return
 	}
 
+	if err := validateRegistrationBoundary(req.Extensions, req.InputSchema, req.OutputSchema); err != nil {
+		response.Error(c, err)
+		return
+	}
+
 	// Convert to proto
 	metadata := MetadataToProto(&FunctionMetadata{
 		ID:           req.ID,
@@ -135,6 +140,18 @@ func (h *Handler) UpdateFunction(c *gin.Context) {
 
 	var body updateFunctionBody
 	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	var inputSchema, outputSchema string
+	if body.InputSchema != nil {
+		inputSchema = *body.InputSchema
+	}
+	if body.OutputSchema != nil {
+		outputSchema = *body.OutputSchema
+	}
+	if err := validateRegistrationBoundary(body.Extensions, inputSchema, outputSchema); err != nil {
 		response.Error(c, err)
 		return
 	}

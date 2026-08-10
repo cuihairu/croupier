@@ -1256,6 +1256,32 @@ func TestLocalHandler_HandleProviderConnect_WithFunctions(t *testing.T) {
 	assert.NotEmpty(t, snap["func-2"])
 }
 
+func TestLocalHandler_HandleProviderConnect_RejectsPresentationSchema(t *testing.T) {
+	store := agentlocal.NewLocalStore()
+	handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
+
+	req := &sdkv1.ProviderConnectRequest{
+		ServiceId: "svc-1",
+		Functions: []*sdkv1.ProviderFunctionDescriptor{
+			{Id: "player.list", Version: "1.0.0", InputSchema: `{"type":"object","x-menu":"Players"}`},
+			{Id: "player.get", Version: "1.0.0", InputSchema: `{"type":"object"}`},
+		},
+	}
+	data, err := proto.Marshal(req)
+	assert.NoError(t, err)
+
+	respData, err := handler.handleProviderConnect(context.Background(), data)
+	assert.NoError(t, err)
+	resp := &sdkv1.ProviderConnectResponse{}
+	assert.NoError(t, proto.Unmarshal(respData, resp))
+	assert.Len(t, resp.Warnings, 1)
+	assert.Contains(t, resp.Warnings[0], "x-menu")
+
+	snapshot := store.List()
+	assert.NotContains(t, snapshot, "player.list")
+	assert.NotEmpty(t, snapshot["player.get"])
+}
+
 func TestLocalHandler_HandleProviderConnect_PreservesDescriptorMetadata(t *testing.T) {
 	store := agentlocal.NewLocalStore()
 	handler := NewLocalHandler(store, "/tmp", "agent-1", nil)

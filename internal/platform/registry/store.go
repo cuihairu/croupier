@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	"github.com/getkin/kin-openapi/openapi3"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -181,6 +182,9 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	if a == nil || a.AgentID == "" {
 		return nil
 	}
+	if err := validateAgentFunctionContracts(a.Functions); err != nil {
+		return err
+	}
 
 	// Dual-write: database first (if enabled)
 	if s.db != nil {
@@ -277,6 +281,25 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	}
 	cur.ExpireAt = a.ExpireAt
 	cur.LastSeen = a.LastSeen
+	return nil
+}
+
+// validateAgentFunctionContracts keeps the registry write boundary aligned
+// with the SDK and OpenAPI adapters. A caller that bypasses the control
+// handler must not persist a dashboard presentation extension in a schema.
+func validateAgentFunctionContracts(functions map[string]FunctionMeta) error {
+	functionIDs := make([]string, 0, len(functions))
+	for functionID := range functions {
+		functionIDs = append(functionIDs, functionID)
+	}
+	sort.Strings(functionIDs)
+
+	for _, functionID := range functionIDs {
+		meta := functions[functionID]
+		if violation, ok := registrationguard.FindPresentationViolation(nil, meta.InputSchema, meta.OutputSchema); ok {
+			return fmt.Errorf("function %q %s contains forbidden presentation field %q", functionID, violation.Location, violation.Field)
+		}
+	}
 	return nil
 }
 
