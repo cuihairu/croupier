@@ -88,14 +88,37 @@ assert_not_contains() {
         fi
     else
         # Fallback to grep when rg is not available
-        # Exclude test files and common non-production paths
-        local grep_args="--include=*.go --include=*.ts --include=*.tsx --include=*.proto --include=*.py --include=*.java --include=*.cs --include=*.h --include=*.cpp --exclude=*_test.go --exclude=*.test.ts --exclude=*.test.tsx --exclude=*Test.java --exclude-dir=test --exclude-dir=tests --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=build --exclude-dir=obj --exclude-dir=bin"
-        if grep -rn $grep_args "$pattern" "$@" 2>/dev/null | grep -v "_test\.go:" | grep -v "\.test\.ts:" | grep -v "\.test\.tsx:" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
+        # Use find + grep to exclude test files more reliably
+        local found=0
+        for dir in "$@"; do
+            if [ -d "$dir" ]; then
+                # Search non-test Go files and other source files
+                while IFS= read -r -d '' file; do
+                    if grep -q "$pattern" "$file" 2>/dev/null; then
+                        echo "$file:$(grep -n "$pattern" "$file" | head -1)" >>/tmp/croupier-dashboard-guard-match.txt
+                        found=1
+                    fi
+                done < <(find "$dir" -type f \( -name "*.go" -o -name "*.ts" -o -name "*.tsx" -o -name "*.proto" -o -name "*.py" -o -name "*.java" -o -name "*.cs" -o -name "*.h" -o -name "*.cpp" \) ! -name "*_test.go" ! -name "*.test.ts" ! -name "*.test.tsx" ! -name "*Test.java" -print0 2>/dev/null)
+            elif [ -f "$dir" ]; then
+                # Single file - skip if it's a test file
+                case "$dir" in
+                    *_test.go|*.test.ts|*.test.tsx|*Test.java)
+                        continue
+                        ;;
+                esac
+                if grep -q "$pattern" "$dir" 2>/dev/null; then
+                    echo "$dir:$(grep -n "$pattern" "$dir" | head -1)" >>/tmp/croupier-dashboard-guard-match.txt
+                    found=1
+                fi
+            fi
+        done
+        if [ $found -eq 1 ]; then
             fail "$label"
             sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
         else
             ok "$label"
         fi
+        rm -f /tmp/croupier-dashboard-guard-match.txt
     fi
 }
 
