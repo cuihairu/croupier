@@ -12,6 +12,7 @@ import (
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -143,6 +144,7 @@ func (s *Service) resourceSpecFromCapability(ctx context.Context, gameID, env st
 			Key:    categoryKey,
 			Labels: spec.LocalizedText{"zh-CN": humanizeKey(categoryKey), "en-US": humanizeKey(categoryKey)},
 		},
+		Tags:        parseTagsFromJSON(capability.Tags),
 		Operations:  operationSpecsFromContracts(contracts),
 		Diagnostics: resourceDiagnostics(contracts, semantics),
 	}
@@ -238,6 +240,34 @@ func localizedFromJSONMap(values map[string]interface{}, fallback string) spec.L
 		out["en-US"] = text
 	}
 	return out
+}
+
+func parseTagsFromJSON(raw datatypes.JSON) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var tags []string
+	if err := json.Unmarshal(raw, &tags); err != nil {
+		return nil
+	}
+	// 去重并过滤空字符串
+	seen := make(map[string]struct{})
+	result := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		if _, exists := seen[tag]; exists {
+			continue
+		}
+		seen[tag] = struct{}{}
+		result = append(result, tag)
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 func categoryFromResourceKey(resourceKey string) string {

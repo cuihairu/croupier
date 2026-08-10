@@ -101,7 +101,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 				Message:  "input_schema is not valid JSON: " + err.Error(),
 			})
 		} else {
-			inputSchema = spec.JSONSchema(input.InputSchema)
+			inputSchema = spec.JSONSchema([]byte(input.InputSchema))
 		}
 	} else {
 		diags = append(diags, spec.Diagnostic{
@@ -121,7 +121,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 				Message:  "output_schema is not valid JSON: " + err.Error(),
 			})
 		} else {
-			outputSchema = spec.JSONSchema(input.OutputSchema)
+			outputSchema = spec.JSONSchema([]byte(input.OutputSchema))
 		}
 	}
 

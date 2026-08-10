@@ -29,6 +29,8 @@ export default {
   'menu.FunctionsAndPages.FunctionInstances': '实例管理',
   'menu.FunctionsAndPages.FunctionWarnings': '注册告警',
   'menu.FunctionsAndPages.FunctionAssignments': '权限分配',
+  'menu.FunctionsAndPages.ResourceCatalog': '资源目录',
+  'menu.FunctionsAndPages.Proposals': '页面提案',
   'menu.ControlConsole': '运行控制台',
   'menu.ControlConsole.ConsoleHome': '运行入口',
   'menu.ControlConsole.ConsoleCategory': '运行分类',
