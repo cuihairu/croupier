@@ -467,8 +467,8 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## I. 跨链路浏览器验收
 
-- [ ] `I-001` SDK Operation 直接发布链路
-      Owner: unassigned
+- [x] `I-001` SDK Operation 直接发布链路
+      Owner: root
       Depends: [`C-007`, `C-008`, `D-003`, `E-005`, `F-002`, `G-001`]
       Scope: Playwright/server integration fixtures。
       Deliverable: `mail.send -> basic Proposal -> preview -> publish -> Console -> structured result`。
@@ -476,8 +476,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 命名 Playwright E2E 和 server integration test 均通过。
       Handoff: 证明最小产品主链路。
 
-- [ ] `I-002` OpenAPI CRUD 直接发布链路
-      Owner: unassigned
+- [x] `I-002` OpenAPI CRUD 直接发布链路
+      Owner: root
       Depends: [`B-003`, `C-002`, `C-003`, `C-004`, `C-005`, `C-006`, `D-003`, `E-004`, `F-002`, `G-001`]
       Scope: Playwright/server integration fixtures。
       Deliverable: OpenAPI `/players` + provider binding -> ready Resource Proposal -> publish -> list/detail/CRUD/row action。
@@ -485,8 +485,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 命名 Playwright E2E 和 server integration test 均通过。
       Handoff: 证明游戏 CRUD 主路径。
 
-- [ ] `I-003` 合同变化到重新发布链路
-      Owner: unassigned
+- [x] `I-003` 合同变化到重新发布链路
+      Owner: root
       Depends: [`D-004`, `D-005`, `D-006`, `F-004`, `G-003`]
       Scope: Playwright/server integration fixtures。
       Deliverable: schema/risk/identity 变化 -> stale -> execute 拒绝 -> diff/merge -> republish -> execute 恢复。
@@ -496,8 +496,8 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## J. 最终门禁
 
-- [ ] `J-001` vNext 发布候选验收
-      Owner: unassigned
+- [x] `J-001` vNext 发布候选验收
+      Owner: root
       Depends: [`A-001`, `A-002`, `B-001`, `B-002`, `B-003`, `B-004`, `B-005`, `B-006`, `B-007`, `C-001`, `C-002`, `C-003`, `C-004`, `C-005`, `C-006`, `C-007`, `C-008`, `C-009`, `C-010`, `C-011`, `D-001`, `D-002`, `D-003`, `D-004`, `D-005`, `D-006`, `E-001`, `E-002`, `E-003`, `E-004`, `E-005`, `E-006`, `E-007`, `F-001`, `F-002`, `F-003`, `F-004`, `G-001`, `G-002`, `G-003`, `H-001`, `H-002`, `H-003`, `H-004`, `I-001`, `I-002`, `I-003`]
       Scope: CI、部署验证、SDK parity、docs build。
       Deliverable: 所有产品链路、质量门禁和物理清理任务完成，可声明 vNext 重构完成。
