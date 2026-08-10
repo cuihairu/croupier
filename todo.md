@@ -46,7 +46,7 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## A. 基线与防回流
 
-- [ ] `A-001` 建立 Dashboard vNext guard 基线
+- [x] `A-001` 建立 Dashboard vNext guard 基线
       Owner: root
       Depends: []
       Scope: `scripts/dashboard_vnext_guard.sh`, guard 测试/CI 调用。
@@ -55,13 +55,13 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `bash "scripts/dashboard_vnext_guard.sh"` 返回 0；人为新增受禁标记时 guard 返回非 0。
       Handoff: 后续删除任务可依赖该 guard 防回流。
 
-- [ ] `A-002` 建立旧模型删除清单
-      Owner: unassigned
+- [x] `A-002` 建立旧模型删除清单
+      Owner: root
       Depends: []
       Scope: `docs/architecture/`, `scripts/`。
       Deliverable: 每个旧文件、路由、DTO、API、表/列有替代任务 ID 和删除前置条件。
-      Forbidden: 不得把“废弃”当作删除完成，不得删除生产数据。
-      Verify: 清单中每项均有替代任务、owner、E2E 前置条件；`bash "scripts/dashboard_vnext_guard.sh"` 通过。
+      Forbidden: 不得把”废弃”当作删除完成，不得删除生产数据。
+      Verify: 清单中每项均有替代任务、owner、E2E 前置条件；`bash “scripts/dashboard_vnext_guard.sh”` 通过。
       Handoff: `H-*` 删除任务逐项引用清单项。
 
 ## B. FunctionContract 与 CapabilitySemantics
@@ -84,8 +84,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/service -run TestContractService_BlockedIssueIsScopedToFunction -count=1`。
       Handoff: `C-008` 可将 disabled 生成隔离为 blocked issue。
 
-- [ ] `B-003` OpenAPI REST 分类 collection/item/create/update/delete
-      Owner: unassigned
+- [x] `B-003` OpenAPI REST 分类 collection/item/create/update/delete
+      Owner: root
       Depends: [`B-001`]
       Scope: `internal/platform/openapi/`。
       Deliverable: method/path/schema 仅生成 capability semantic 与诊断。
@@ -93,8 +93,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/platform/openapi -count=1`。
       Handoff: `B-006` 可使用 openapi_rest 来源。
 
-- [ ] `B-004` SDK 显式 capability 贯通所有 SDK 描述符
-      Owner: unassigned
+- [x] `B-004` SDK 显式 capability 贯通所有 SDK 描述符
+      Owner: root
       Depends: [`B-001`]
       Scope: `proto/`, 非生成 SDK 源码、descriptor adapter。
       Deliverable: Go/JS/Python/Java/C#/C++ 都能表达受控 capability 与 sync/task execution。
@@ -102,8 +102,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 各 SDK descriptor/parity 测试与生成命令通过。
       Handoff: `B-006` 可使用 sdk_explicit 来源。
 
-- [ ] `B-005` Resource Catalog 语义编辑不含 UI
-      Owner: unassigned
+- [x] `B-005` Resource Catalog 语义编辑不含 UI
+      Owner: root
       Depends: [`B-001`]
       Scope: `internal/api/resourcecatalog/`, `web/src/pages/ResourceCatalog/`。
       Deliverable: 管理员可编辑 identity、lifecycle binding、action subject、task/report semantic。
@@ -120,8 +120,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/dashboard/normalizer ./internal/service -run 'TestSemanticProvenanceTracker|TestContractService_RebuildResourceCapabilityRecordsSourceConflict' -count=1`。
       Handoff: `C-009` 将 unresolved conflict 降级 Proposal。
 
-- [ ] `B-007` 平台审核解决语义冲突并触发重算
-      Owner: unassigned
+- [x] `B-007` 平台审核解决语义冲突并触发重算
+      Owner: root
       Depends: [`B-005`, `B-006`]
       Scope: `internal/api/resourcecatalog/`, `web/src/pages/ResourceCatalog/`。
       Deliverable: 管理员选择冲突来源后更新 provenance/conflict resolution，并重建受影响 Proposal。
@@ -131,8 +131,8 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## C. Proposal 生成与质量
 
-- [ ] `C-001` Proposal 幂等身份与持久化
-      Owner: unassigned
+- [x] `C-001` Proposal 幂等身份与持久化
+      Owner: root
       Depends: [`B-001`]
       Scope: `internal/model/page_proposal*`, `internal/service/contract_service.go`。
       Deliverable: proposalKey 固定为 `resource:<resourceKey>` 或 `<kind>:<functionId>`，pageKey 固定为 `resource--<resourceKey>` 或 `<kind>--<functionId>`。
@@ -297,8 +297,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: SchemaFormRenderer Jest 测试覆盖 array/object/enum/format/default/嵌套；`rg` 无第二 runtime 命中。
       Handoff: `E-003` 至 `E-007` 复用此组件。
 
-- [ ] `E-002` Resource list/detail runtime
-      Owner: unassigned
+- [x] `E-002` Resource list/detail runtime
+      Owner: root
       Depends: [`C-002`, `C-003`, `D-002`, `E-001`]
       Scope: `web/src/components/PageRenderer/ResourcePageRenderer.tsx`。
       Deliverable: ProTable query/filter/pagination/empty/error/refresh 与 ProDescriptions detail 只消费 page state patch。
@@ -306,8 +306,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: Resource renderer 单测和浏览器 POC：只读资源 list/detail/pagination。
       Handoff: `E-003`、`E-004` 在同一页面状态模型上扩展。
 
-- [ ] `E-003` Resource create/update/delete runtime
-      Owner: unassigned
+- [x] `E-003` Resource create/update/delete runtime
+      Owner: root
       Depends: [`C-004`, `C-005`, `E-002`]
       Scope: `web/src/components/PageRenderer/ResourcePageRenderer.tsx`。
       Deliverable: create/update 使用 SchemaFormRenderer；delete/high-risk 使用确认；全部经 binding execute。
@@ -315,8 +315,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 浏览器 POC：CRUD 页面 create/update/delete 均成功并刷新列表。
       Handoff: `I-002` 可删除旧资源运行路径。
 
-- [ ] `E-004` Resource row/batch/toolbar action runtime
-      Owner: unassigned
+- [x] `E-004` Resource row/batch/toolbar action runtime
+      Owner: root
       Depends: [`C-006`, `E-002`]
       Scope: `web/src/components/PageRenderer/ResourcePageRenderer.tsx`。
       Deliverable: 三类 action 使用 typed row/selection/form context 调 binding execute。
@@ -324,8 +324,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 浏览器 POC：row、batch、toolbar 各执行一次；不安全 action 不出现。
       Handoff: `G-003` 可审计 action context。
 
-- [ ] `E-005` Operation 与 Approval runtime
-      Owner: unassigned
+- [x] `E-005` Operation 与 Approval runtime
+      Owner: root
       Depends: [`C-007`, `C-008`, `E-001`]
       Scope: `web/src/components/PageRenderer/OperationPageRenderer.tsx`。
       Deliverable: 表单、确认、结构化结果、pending/approved/rejected/expired 审批状态与 continuation。
@@ -333,8 +333,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 浏览器 POC：`mail.send` 与 high-risk approval operation。
       Handoff: `G-003` 接管最终执行。
 
-- [ ] `E-006` Task runtime
-      Owner: unassigned
+- [x] `E-006` Task runtime
+      Owner: root
       Depends: [`C-010`, `E-001`]
       Scope: `web/src/components/PageRenderer/TaskPageRenderer.tsx`。
       Deliverable: 真实 start/status/events/result/cancel；仅有显式 retry semantic 才显示 retry。
@@ -342,8 +342,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 浏览器 POC：任务启动、事件、失败/完成、取消与结果。
       Handoff: `G-003` 记录 taskId/traceId。
 
-- [ ] `E-007` Report runtime
-      Owner: unassigned
+- [x] `E-007` Report runtime
+      Owner: root
       Depends: [`C-011`, `E-001`]
       Scope: `web/src/components/PageRenderer/ReportPageRenderer.tsx`。
       Deliverable: QueryForm、真实 dataset table、line/bar/pie/area chart、空态/错误态和导出。
@@ -353,8 +353,8 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## F. Page Studio 与 Resource Catalog 产品路径
 
-- [ ] `F-001` Proposal Inbox 三队列
-      Owner: unassigned
+- [x] `F-001` Proposal Inbox 三队列
+      Owner: root
       Depends: [`C-009`, `D-004`]
       Scope: `internal/service/proposal_service.go`, `internal/api/`, `web/src/components/ProposalInbox/`。
       Deliverable: publishable(ready/basic)、needs_review、blocked issue、contract changes 分队列返回和展示。
@@ -362,8 +362,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: inbox 服务测试；浏览器 POC 显示四类记录与计数。
       Handoff: `F-002`、`F-004` 使用队列记录。
 
-- [ ] `F-002` Proposal 预览、接受与直接发布
-      Owner: unassigned
+- [x] `F-002` Proposal 预览、接受与直接发布
+      Owner: root
       Depends: [`F-001`, `D-003`]
       Scope: `internal/service/proposal_service.go`, `web/src/components/ProposalInbox/`。
       Deliverable: ready/basic 可预览、接受、直接发布；发布后刷新菜单并进入 Console 页面。
@@ -371,8 +371,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 浏览器 E2E：`mail.send -> preview -> publish -> Console`。
       Handoff: `G-001` 消费发布快照。
 
-- [ ] `F-003` Resource Catalog 解释生成原因
-      Owner: unassigned
+- [x] `F-003` Resource Catalog 解释生成原因
+      Owner: root
       Depends: [`B-005`, `C-009`]
       Scope: `web/src/pages/ResourceCatalog/`。
       Deliverable: 显示资源函数、来源、置信度、冲突、诊断、版本、Proposal 入口和受影响页面。
@@ -380,8 +380,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 浏览器 POC：缺 identity、来源冲突、blocked issue 三种状态。
       Handoff: `B-007`、`F-001` 的用户处理入口完整。
 
-- [ ] `F-004` Page Studio 语义化编辑与变更处理
-      Owner: unassigned
+- [x] `F-004` Page Studio 语义化编辑与变更处理
+      Owner: root
       Depends: [`D-006`, `F-001`, `E-001`]
       Scope: `web/src/pages/PageStudio/`, `web/src/components/PageEditor/`。
       Deliverable: 按 PageType 编辑导航、视图、展示字段、form presentation、action 与治理字段；显示 diff/merge/rollback/re-publish。
@@ -391,8 +391,8 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## G. Console 执行、菜单、审计与 OTel
 
-- [ ] `G-001` PublishedPageSpec 派生 Console 左侧菜单
-      Owner: unassigned
+- [x] `G-001` PublishedPageSpec 派生 Console 左侧菜单
+      Owner: root
       Depends: [`D-003`, `F-002`]
       Scope: `internal/api/console/`, `web/src/app.tsx`, `web/src/utils/consoleMenu.ts`。
       Deliverable: 左侧菜单只读取 active published pages；路由为 `/console/:categoryKey/:pageKey`。
@@ -400,8 +400,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 浏览器 E2E：发布/取消发布/重新发布后菜单立即刷新。
       Handoff: `G-002` 只排序已发布菜单。
 
-- [ ] `G-002` 菜单 scope、分类与本地化规则
-      Owner: unassigned
+- [x] `G-002` 菜单 scope、分类与本地化规则
+      Owner: root
       Depends: [`G-001`]
       Scope: `internal/api/console/`, `web/src/utils/consoleMenu.ts`。
       Deliverable: scope 切换失效旧菜单；同 category key labels 发布校验一致；category order 为已发布页面最小 order；显示当前 locale 后退系统默认语言。
@@ -409,8 +409,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: menu 服务测试和浏览器 POC：两 scope、同分类、locale fallback。
       Handoff: Console 导航规则冻结。
 
-- [ ] `G-003` 受控 binding execute 与可观测性
-      Owner: unassigned
+- [x] `G-003` 受控 binding execute 与可观测性
+      Owner: root
       Depends: [`D-002`, `D-004`, `E-003`, `E-004`, `E-005`, `E-006`, `E-007`]
       Scope: `internal/api/console/`, `internal/api/approval/`, telemetry/audit。
       Deliverable: execute 校验 binding/snapshot/stale/permission/risk/approval/task dispatch；audit/span 记录 scope/page/binding/function/semantic digest/proposal version/result/task/approval/trace。
@@ -420,8 +420,8 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## H. 旧路径物理清理
 
-- [ ] `H-001` 删除 Formily 与 form-render 依赖和源文件
-      Owner: unassigned
+- [x] `H-001` 删除 Formily 与 form-render 依赖和源文件
+      Owner: root
       Depends: [`A-001`, `E-001`]
       Scope: `web/package.json`, `web/src/` 旧表单文件。
       Deliverable: 无 Formily/form-render runtime、类型、文案、lockfile 依赖。
@@ -429,8 +429,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `rg "@formily|components/formily|Formily|formily|form-render|FormRender" "web/src" "web/package.json"` 无命中；web build 通过。
       Handoff: guard 防止回流。
 
-- [ ] `H-002` 删除旧 Page renderer 与旧运行 registry
-      Owner: unassigned
+- [x] `H-002` 删除旧 Page renderer 与旧运行 registry
+      Owner: root
       Depends: [`A-002`, `E-002`, `E-003`, `E-004`, `E-005`, `E-006`, `E-007`]
       Scope: 旧 renderer、旧运行 registry、旧页面路由。
       Deliverable: Console 仅使用 vNext PageRenderer。
@@ -438,8 +438,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 全量浏览器 E2E 与 `bash "scripts/dashboard_vnext_guard.sh"` 通过。
       Handoff: `H-004` 可删除旧 API/DTO。
 
-- [ ] `H-003` 删除旧 Page schema validator/editor
-      Owner: unassigned
+- [x] `H-003` 删除旧 Page schema validator/editor
+      Owner: root
       Depends: [`A-002`, `D-002`, `F-004`]
       Scope: 旧 PageSchemaEditor、旧 validator、JSON page editor API。
       Deliverable: 页面编辑只使用强类型 DTO 与语义面板。
@@ -447,8 +447,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: 浏览器 E2E 编辑/发布通过；`rg` 无旧 editor/validator 引用。
       Handoff: `H-004` 可删除旧 API/DTO。
 
-- [ ] `H-004` 删除旧注册 UI 扩展、页面 API 与 DTO
-      Owner: unassigned
+- [x] `H-004` 删除旧注册 UI 扩展、页面 API 与 DTO
+      Owner: root
       Depends: [`B-001`, `H-002`, `H-003`]
       Scope: SDK/OpenAPI 页面扩展、旧页面 API/DTO、旧 workspace/object-page 配置。
       Deliverable: 注册与运行路径只剩 vNext 合同、语义、Proposal、PublishedPageSpec。

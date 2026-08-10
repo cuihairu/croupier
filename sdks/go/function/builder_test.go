@@ -111,12 +111,16 @@ func TestMetadataBuilder_WithCapabilityFields(t *testing.T) {
 		SetName("Custom Function").
 		SetResource("player").
 		SetOperation("delete").
+		SetCapability("delete").
+		SetExecution("sync").
 		SetPermission("player.delete").
 		Build()
 
 	assert.NoError(t, err)
 	assert.Equal(t, "player", metadata.Resource)
 	assert.Equal(t, "delete", metadata.Operation)
+	assert.Equal(t, "delete", metadata.Capability)
+	assert.Equal(t, "sync", metadata.Execution)
 	assert.Equal(t, "player.delete", metadata.Permission)
 }
 

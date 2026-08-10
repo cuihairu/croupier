@@ -158,6 +158,65 @@ func TestRESTCapabilityClassifier_ClassifyOperation(t *testing.T) {
 	}
 }
 
+func TestRESTCapabilityClassifier_DoesNotUseOperationID(t *testing.T) {
+	classifier := NewRESTCapabilityClassifier()
+
+	// Verify classifier only uses method/path, never operationId
+	// This ensures we don't guess CRUD from operationId like "getPlayer" or "listUsers"
+	tests := []struct {
+		name           string
+		method         string
+		path           string
+		wantCapability spec.CapabilityKind
+	}{
+		{
+			name:           "GET /data with operationId=getPlayer -> collection_query (not item_query)",
+			method:         "GET",
+			path:           "/data",
+			wantCapability: spec.CapabilityCollectionQuery,
+		},
+		{
+			name:           "POST /data with operationId=updateItem -> create (not update)",
+			method:         "POST",
+			path:           "/data",
+			wantCapability: spec.CapabilityCreate,
+		},
+		{
+			name:           "PUT /data/{id} with operationId=createPlayer -> update (not create)",
+			method:         "PUT",
+			path:           "/data/{id}",
+			wantCapability: spec.CapabilityUpdate,
+		},
+		{
+			name:           "DELETE /data/{id} with operationId=getItem -> delete (not item_query)",
+			method:         "DELETE",
+			path:           "/data/{id}",
+			wantCapability: spec.CapabilityDelete,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := classifier.ClassifyOperation(tt.method, tt.path, false, false)
+			assert.Equal(t, tt.wantCapability, result.Capability)
+		})
+	}
+}
+
+func TestRESTCapabilityClassifier_ProducesOnlyCapabilitySemantics(t *testing.T) {
+	classifier := NewRESTCapabilityClassifier()
+
+	result := classifier.ClassifyOperation("GET", "/players", false, true)
+
+	// Verify result only contains capability semantics
+	assert.NotEmpty(t, result.Capability)
+	assert.NotEmpty(t, result.ResourceKey)
+	assert.NotEmpty(t, result.Confidence)
+
+	// Verify no UI/layout fields
+	assert.Nil(t, result.Diagnostics) // No diagnostics for clean classification
+}
+
 func TestExtractPathSegments(t *testing.T) {
 	tests := []struct {
 		path string

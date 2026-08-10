@@ -111,11 +111,11 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 | SDK | Descriptor v2 字段 | `RegisterFromOpenAPI` 等价 helper | 备注 |
 | --- | --- | --- | --- |
 | Go | ✅ 已接 builder / OpenAPI helper | ✅ 可验证 | 作为当前基准实现 |
-| JS/TS | ⏳ 待验收 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
-| Python | ⏳ 待验收 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
-| Java | ⏳ 待验收 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
-| C++ | ⏳ 待验收 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
-| C# | ⏳ 待验收 | ❌ 未实现 | 生成 proto 已含字段，手写 API/示例仍需验收 |
+| JS/TS | ✅ 已含 capability/execution 字段 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
+| Python | ✅ 已含 capability/execution 字段 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
+| Java | ✅ 已含 capability/execution 字段 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
+| C++ | ✅ 生成 proto 已含字段 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
+| C# | ✅ 生成 proto 已含字段 | ❌ 未实现 | 生成 proto 已含字段，手写 API/示例仍需验收 |
 
 验收前禁止在 README 或集成文档中写“所有 SDK 支持 OpenAPI 解析/上传注册”。Server 侧 OpenAPI Source 上传是控制台能力，不等于每个 SDK 都有本地 OpenAPI helper。
 

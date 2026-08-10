@@ -2,8 +2,10 @@ package resourcecatalog
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -212,4 +214,58 @@ func TestService_SearchFilter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, result.Items, 1)
 	assert.Equal(t, "player", result.Items[0].ResourceKey)
+}
+
+func TestService_ResolveConflict(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewService(db, nil)
+
+	// Create resource capability
+	capModel := model.NewResourceCapabilityModel(db)
+	err := capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID:      "demo-game",
+		Env:         "development",
+		ResourceKey: "player",
+		Labels:      map[string]interface{}{"zh-CN": "玩家"},
+	})
+	require.NoError(t, err)
+
+	// Create semantics with conflict
+	semanticsModel := model.NewCapabilitySemanticsModel(db)
+	conflicts := []spec.SemanticConflict{
+		{
+			Field: "identityField",
+			Values: map[spec.SemanticSource]json.RawMessage{
+				spec.SemanticSourceSDKExplicit: json.RawMessage(`"player_id"`),
+				spec.SemanticSourceOpenAPIRest: json.RawMessage(`"id"`),
+			},
+		},
+	}
+	conflictsJSON, _ := json.Marshal(conflicts)
+	err = semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+		GameID:      "demo-game",
+		Env:         "development",
+		ResourceKey: "player",
+		Source:      "sdk_explicit",
+		Conflicts:   conflictsJSON,
+	})
+	require.NoError(t, err)
+
+	// Resolve conflict
+	result, err := service.ResolveConflict(ctx, &ResolveConflictRequest{
+		GameID:       "demo-game",
+		Env:          "development",
+		ResourceKey:  "player",
+		Field:        "identityField",
+		ChosenSource: "openapi_rest",
+		Reason:       "choose openapi source",
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+
+	// Verify conflict resolved
+	semantics, err := semanticsModel.FindByScopeAndResourceKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+	assert.Equal(t, "id", semantics.IdentityField)
 }

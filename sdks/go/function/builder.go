@@ -53,6 +53,20 @@ func (b *MetadataBuilder) SetPermission(permission string) *MetadataBuilder {
 	return b
 }
 
+// SetCapability sets the capability kind.
+// Valid values: collection_query, item_query, create, update, delete, action, task, report
+func (b *MetadataBuilder) SetCapability(capability string) *MetadataBuilder {
+	b.metadata.Capability = capability
+	return b
+}
+
+// SetExecution sets the execution mode.
+// Valid values: sync, task
+func (b *MetadataBuilder) SetExecution(execution string) *MetadataBuilder {
+	b.metadata.Execution = execution
+	return b
+}
+
 // SetTags sets the function tags.
 func (b *MetadataBuilder) SetTags(tags ...string) *MetadataBuilder {
 	b.metadata.Tags = tags

@@ -36,6 +36,8 @@ type FunctionMetadata struct {
 
 	Resource   string `json:"resource,omitempty"`   // Business resource/capability key.
 	Operation  string `json:"operation,omitempty"`  // Business action key.
+	Capability string `json:"capability,omitempty"` // collection_query|item_query|create|update|delete|action|task|report
+	Execution  string `json:"execution,omitempty"`  // sync|task
 	Permission string `json:"permission,omitempty"` // Optional permission identifier.
 }
 
@@ -366,6 +368,8 @@ func (r *Registry) toFunctionDescriptor(metadata *FunctionMetadata) croupier.Fun
 		OutputSchema: metadata.OutputSchema,
 		Resource:     metadata.Resource,
 		Operation:    metadata.Operation,
+		Capability:   metadata.Capability,
+		Execution:    metadata.Execution,
 		Permission:   metadata.Permission,
 		Enabled:      true,
 	}
