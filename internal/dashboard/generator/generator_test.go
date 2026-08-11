@@ -1048,3 +1048,92 @@ func TestResourceQuality(t *testing.T) {
 		})
 	}
 }
+
+func TestPointerTokens(t *testing.T) {
+	tests := []struct {
+		name     string
+		pointer  string
+		expected []string
+	}{
+		{"empty pointer", "", nil},
+		{"root pointer", "/", []string{""}},
+		{"single token", "/name", []string{"name"}},
+		{"multiple tokens", "/a/b/c", []string{"a", "b", "c"}},
+		{"escaped slash", "/a~1b", []string{"a/b"}},
+		{"escaped tilde", "/a~0b", []string{"a~b"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pointerTokens(tt.pointer)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestKeyFromPointer(t *testing.T) {
+	tests := []struct {
+		name     string
+		pointer  string
+		expected string
+	}{
+		{"empty pointer returns value", "", "value"},
+		{"single token", "/name", "name"},
+		{"multiple tokens returns last", "/a/b/c", "c"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := keyFromPointer(tt.pointer)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestDataTypeFromSchema(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   map[string]json.RawMessage
+		expected string
+	}{
+		{"integer type", map[string]json.RawMessage{"type": json.RawMessage(`"integer"`)}, "number"},
+		{"number type", map[string]json.RawMessage{"type": json.RawMessage(`"number"`)}, "number"},
+		{"boolean type", map[string]json.RawMessage{"type": json.RawMessage(`"boolean"`)}, "boolean"},
+		{"array type", map[string]json.RawMessage{"type": json.RawMessage(`"array"`)}, "array"},
+		{"object type", map[string]json.RawMessage{"type": json.RawMessage(`"object"`)}, "object"},
+		{"string type", map[string]json.RawMessage{"type": json.RawMessage(`"string"`)}, "string"},
+		{"string with date-time format", map[string]json.RawMessage{"type": json.RawMessage(`"string"`), "format": json.RawMessage(`"date-time"`)}, "datetime"},
+		{"string with date format", map[string]json.RawMessage{"type": json.RawMessage(`"string"`), "format": json.RawMessage(`"date"`)}, "date"},
+		{"unknown type defaults to string", map[string]json.RawMessage{}, "string"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := dataTypeFromSchema(tt.schema)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFirstNonEmpty(t *testing.T) {
+	tests := []struct {
+		name     string
+		values   []string
+		expected string
+	}{
+		{"all empty", []string{"", "", ""}, ""},
+		{"first non-empty", []string{"a", "b", "c"}, "a"},
+		{"second non-empty", []string{"", "b", "c"}, "b"},
+		{"third non-empty", []string{"", "", "c"}, "c"},
+		{"with whitespace", []string{"  ", "b", "c"}, "b"},
+		{"single value", []string{"hello"}, "hello"},
+		{"empty slice", []string{}, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := firstNonEmpty(tt.values...)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
