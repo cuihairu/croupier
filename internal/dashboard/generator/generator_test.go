@@ -820,3 +820,44 @@ func TestContractToFunctionSpec(t *testing.T) {
 		assert.Empty(t, result.Approval)
 	})
 }
+
+func TestOutputShapeForSchema(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   spec.JSONSchema
+		expected spec.OutputResultShape
+	}{
+		{
+			name:     "empty schema",
+			schema:   nil,
+			expected: spec.OutputShapeScalar,
+		},
+		{
+			name:     "array schema",
+			schema:   spec.JSONSchema(`{"type":"array"}`),
+			expected: spec.OutputShapeCollection,
+		},
+		{
+			name:     "object schema",
+			schema:   spec.JSONSchema(`{"type":"object"}`),
+			expected: spec.OutputShapeObject,
+		},
+		{
+			name:     "string schema",
+			schema:   spec.JSONSchema(`{"type":"string"}`),
+			expected: spec.OutputShapeScalar,
+		},
+		{
+			name:     "integer schema",
+			schema:   spec.JSONSchema(`{"type":"integer"}`),
+			expected: spec.OutputShapeScalar,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := outputShapeForSchema(tt.schema)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
