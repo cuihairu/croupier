@@ -335,3 +335,68 @@ func TestAddWarning(t *testing.T) {
 	assert.Equal(t, "test_code", result.Warnings[0].Code)
 	assert.Equal(t, "test warning message", result.Warnings[0].Message)
 }
+
+func TestIsIdentityPath(t *testing.T) {
+	tests := []struct {
+		name          string
+		sourcePath    string
+		identityField string
+		expected      bool
+	}{
+		{
+			name:          "matching path",
+			sourcePath:    "/player_id",
+			identityField: "player_id",
+			expected:      true,
+		},
+		{
+			name:          "non-matching path",
+			sourcePath:    "/name",
+			identityField: "player_id",
+			expected:      false,
+		},
+		{
+			name:          "empty identity field",
+			sourcePath:    "/player_id",
+			identityField: "",
+			expected:      false,
+		},
+		{
+			name:          "empty source path",
+			sourcePath:    "",
+			identityField: "player_id",
+			expected:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isIdentityPath(tt.sourcePath, tt.identityField)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestValidateSelectorSemantics(t *testing.T) {
+	t.Run("nil semantics returns valid", func(t *testing.T) {
+		result := ValidateSelectorSemantics(SelectorAST{}, nil, PageTypeResource, BindingUsageQuery)
+		assert.True(t, result.Valid)
+	})
+
+	t.Run("resource page without identity field", func(t *testing.T) {
+		semantics := &SemanticContext{
+			IdentityField: "",
+		}
+		result := ValidateSelectorSemantics(SelectorAST{}, semantics, PageTypeResource, BindingUsageQuery)
+		assert.True(t, result.Valid)
+	})
+
+	t.Run("resource page with identity field", func(t *testing.T) {
+		semantics := &SemanticContext{
+			IdentityField: "player_id",
+		}
+		result := ValidateSelectorSemantics(SelectorAST{}, semantics, PageTypeResource, BindingUsageAction)
+		assert.True(t, result.Valid)
+		assert.NotEmpty(t, result.Warnings)
+	})
+}
