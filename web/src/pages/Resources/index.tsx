@@ -4,6 +4,7 @@ import { ProColumns, PageContainer, ProTable } from '@ant-design/pro-components'
 import { FileSearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
 import { listResourceOperations, listResources } from '@/services/api/resources';
+import { getScope, subscribeScope } from '@/stores/scope';
 import type { OperationSpec, ResourceSpec } from '@/types/dashboard';
 
 function localizedText(text: Record<string, string> | undefined, fallback: string): string {
@@ -29,6 +30,19 @@ export default function ResourcesPage() {
   const [selectedResource, setSelectedResource] = useState<ResourceSpec | null>(null);
   const [operations, setOperations] = useState<OperationSpec[]>([]);
 
+  // Subscribe to scope (game_id/env) changes so data reloads when scope is set
+  const [scopeKey, setScopeKey] = useState(() => {
+    const s = getScope();
+    return `${s.gameId || ''}:${s.env || ''}`;
+  });
+
+  useEffect(() => {
+    const off = subscribeScope((scope) => {
+      setScopeKey(`${scope.gameId || ''}:${scope.env || ''}`);
+    });
+    return off;
+  }, []);
+
   const loadResources = useCallback(async () => {
     setLoading(true);
     try {
@@ -36,7 +50,7 @@ export default function ResourcesPage() {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, scopeKey]);
 
   useEffect(() => {
     loadResources();
