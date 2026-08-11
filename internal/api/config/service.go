@@ -23,8 +23,8 @@ func (s *Service) ListConfigs(ctx context.Context, req *ListConfigsRequest) (*Li
 		req = &ListConfigsRequest{}
 	}
 	records, err := s.svcCtx.ConfigVersionModel.ListLatest(ctx, model.ConfigListOptions{
-		GameID: req.GameID,
-		Env:    req.Env,
+		GameID: svc.ResolveGameID(ctx, req.GameID),
+		Env:    svc.ResolveEnv(ctx, req.Env),
 		Format: req.Format,
 		IDLike: req.IDLike,
 	})
@@ -121,8 +121,8 @@ func (s *Service) SaveConfig(ctx context.Context, id string, req *SaveConfigRequ
 		Key:         key,
 		Content:     req.Content,
 		Format:      strings.TrimSpace(req.Format),
-		GameID:      strings.TrimSpace(req.GameID),
-		Env:         strings.TrimSpace(req.Env),
+		GameID:      svc.ResolveGameID(ctx, req.GameID),
+		Env:         svc.ResolveEnv(ctx, req.Env),
 		Message:     strings.TrimSpace(req.Message),
 		BaseVersion: req.BaseVersion,
 	}, configAuthor(ctx))

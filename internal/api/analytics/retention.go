@@ -36,8 +36,8 @@ func retention(ctx context.Context, svcCtx *svc.ServiceContext, req *RetentionRe
 		return nil, err
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
-	env := strings.TrimSpace(req.Env)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
+	env := svc.ResolveEnv(ctx, req.Env)
 	cohortName := strings.TrimSpace(req.Cohort)
 
 	cohorts, err := svcCtx.RetentionModel.ListCohorts(ctx, gameID, env, cohortName)

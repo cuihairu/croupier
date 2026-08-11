@@ -38,8 +38,8 @@ func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequ
 	if err != nil {
 		return nil, err
 	}
-	gameID := strings.TrimSpace(req.GameId)
-	env := strings.TrimSpace(req.Env)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
+	env := svc.ResolveEnv(ctx, req.Env)
 
 	dauStart := end.Add(-24 * time.Hour)
 	mauStart := end.Add(-30 * 24 * time.Hour)
@@ -112,8 +112,8 @@ func realtime(ctx context.Context, svcCtx *svc.ServiceContext, req *RealtimeRequ
 	gameID := ""
 	env := ""
 	if req != nil {
-		gameID = strings.TrimSpace(req.GameId)
-		env = strings.TrimSpace(req.Env)
+		gameID = svc.ResolveGameID(ctx, req.GameId)
+		env = svc.ResolveEnv(ctx, req.Env)
 	}
 
 	end := time.Now().UTC()
@@ -156,8 +156,8 @@ func realtimeSeries(ctx context.Context, svcCtx *svc.ServiceContext, req *Realti
 	gameID := ""
 	env := ""
 	if req != nil {
-		gameID = strings.TrimSpace(req.GameId)
-		env = strings.TrimSpace(req.Env)
+		gameID = svc.ResolveGameID(ctx, req.GameId)
+		env = svc.ResolveEnv(ctx, req.Env)
 	}
 
 	interval := resolveRealtimeInterval("")
@@ -215,11 +215,11 @@ func ingest(ctx context.Context, svcCtx *svc.ServiceContext, req *IngestRequest)
 		return nil, errors.New("请求参数不能为空")
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
 	if gameID == "" {
 		return nil, errors.New("gameId 不能为空")
 	}
-	env := strings.TrimSpace(req.Env)
+	env := svc.ResolveEnv(ctx, req.Env)
 
 	rawEvents, err := decodeEventsPayload(req.Events)
 	if err != nil {
@@ -250,7 +250,7 @@ func ingest(ctx context.Context, svcCtx *svc.ServiceContext, req *IngestRequest)
 func filtersGet(ctx context.Context, svcCtx *svc.ServiceContext, req *FiltersGetRequest) (*FiltersGetResponse, error) {
 	gameID := ""
 	if req != nil {
-		gameID = strings.TrimSpace(req.GameId)
+		gameID = svc.ResolveGameID(ctx, req.GameId)
 	}
 
 	if items, ok, err := loadAnalyticsFiltersFromExtensionInstallation(ctx, svcCtx); err != nil {
@@ -299,7 +299,7 @@ func filtersUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *Filters
 		return nil, errors.New("请求参数不能为空")
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
 	if gameID == "" {
 		return nil, errors.New("gameId 不能为空")
 	}

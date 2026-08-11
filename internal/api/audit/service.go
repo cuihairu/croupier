@@ -64,8 +64,8 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 	if userFilter == "" {
 		userFilter = strings.TrimSpace(req.Actor)
 	}
-	gameFilter := strings.TrimSpace(req.GameID)
-	envFilter := strings.TrimSpace(req.Env)
+	gameFilter := svc.ResolveGameID(ctx, req.GameID)
+	envFilter := svc.ResolveEnv(ctx, req.Env)
 	ipFilter := strings.TrimSpace(req.IP)
 
 	actionSet := make(map[string]struct{})

@@ -34,8 +34,8 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 	tasks, err := s.taskSvc.List(ctx, &taskapi.ListRequest{
 		Status:     req.Status,
 		FunctionID: req.FunctionID,
-		GameID:     req.GameID,
-		Env:        req.Env,
+		GameID:     svc.ResolveGameID(ctx, req.GameID),
+		Env:        svc.ResolveEnv(ctx, req.Env),
 		Page:       page,
 		Size:       pageSize,
 	})

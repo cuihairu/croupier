@@ -30,8 +30,8 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		PaginationOptions: model.NewPagination(req.Page, req.Size),
 		FunctionID:        req.FunctionID,
 		Status:            req.Status,
-		GameID:            req.GameID,
-		Env:               req.Env,
+		GameID:            svc.ResolveGameID(ctx, req.GameID),
+		Env:               svc.ResolveEnv(ctx, req.Env),
 	})
 	if err != nil {
 		return nil, err
@@ -64,8 +64,8 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 		return nil, err
 	}
 
-	gameID := strings.TrimSpace(req.GameID)
-	env := strings.TrimSpace(req.Env)
+	gameID := svc.ResolveGameID(ctx, req.GameID)
+	env := svc.ResolveEnv(ctx, req.Env)
 	if err := utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
 		return nil, err
 	}

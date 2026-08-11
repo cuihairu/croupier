@@ -29,8 +29,8 @@ func behaviorAnalytics(ctx context.Context, svcCtx *svc.ServiceContext, req *Beh
 
 	opts := model.BehaviorEventOptions{
 		PaginationOptions: model.NewPagination(1, 3000),
-		GameID:            strings.TrimSpace(req.GameId),
-		Env:               strings.TrimSpace(req.Env),
+		GameID:            svc.ResolveGameID(ctx, req.GameId),
+		Env:               svc.ResolveEnv(ctx, req.Env),
 		StartTime:         start,
 		EndTime:           end,
 	}
@@ -78,8 +78,8 @@ func behaviorEvents(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavi
 
 	opts := model.BehaviorEventOptions{
 		PaginationOptions: model.NewPagination(1, limit),
-		GameID:            strings.TrimSpace(req.GameId),
-		Env:               strings.TrimSpace(req.Env),
+		GameID:            svc.ResolveGameID(ctx, req.GameId),
+		Env:               svc.ResolveEnv(ctx, req.Env),
 		EventType:         strings.TrimSpace(req.EventType),
 		StartTime:         start,
 		EndTime:           end,
@@ -119,8 +119,8 @@ func behaviorAdoption(ctx context.Context, svcCtx *svc.ServiceContext, req *Beha
 		return nil, errors.New("缺少请求参数")
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
-	env := strings.TrimSpace(req.Env)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
+	env := svc.ResolveEnv(ctx, req.Env)
 	items, err := svcCtx.BehaviorModel.ListFeatureAdoptions(ctx, gameID, env)
 	if err != nil {
 		return nil, err
@@ -155,8 +155,8 @@ func behaviorAdoptionBreakdown(ctx context.Context, svcCtx *svc.ServiceContext, 
 		return nil, errors.New("feature 参数不能为空")
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
-	env := strings.TrimSpace(req.Env)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
+	env := svc.ResolveEnv(ctx, req.Env)
 	feature := strings.TrimSpace(req.Feature)
 
 	start, end, err := helper.NormalizeDateRange(req.StartDate, req.EndDate)
@@ -233,8 +233,8 @@ func behaviorFunnel(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavi
 
 	opts := model.BehaviorEventOptions{
 		PaginationOptions: model.NewPagination(1, 5000),
-		GameID:            strings.TrimSpace(req.GameId),
-		Env:               strings.TrimSpace(req.Env),
+		GameID:            svc.ResolveGameID(ctx, req.GameId),
+		Env:               svc.ResolveEnv(ctx, req.Env),
 		StartTime:         start,
 		EndTime:           end,
 	}
@@ -321,8 +321,8 @@ func behaviorPaths(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavio
 
 	opts := model.BehaviorEventOptions{
 		PaginationOptions: model.NewPagination(1, 5000),
-		GameID:            strings.TrimSpace(req.GameId),
-		Env:               strings.TrimSpace(req.Env),
+		GameID:            svc.ResolveGameID(ctx, req.GameId),
+		Env:               svc.ResolveEnv(ctx, req.Env),
 		StartTime:         start,
 		EndTime:           end,
 	}

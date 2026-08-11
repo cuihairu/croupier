@@ -32,7 +32,7 @@ func (s *Service) List(ctx context.Context, req *FeedbackListRequest) (*Feedback
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
 		Status:            strings.TrimSpace(req.Status),
 		Category:          strings.TrimSpace(req.Category),
-		GameID:            strings.TrimSpace(req.GameId),
+		GameID:            svc.ResolveGameID(ctx, req.GameId),
 	}
 
 	entries, total, err := s.svcCtx.FeedbackModel.List(ctx, opts)
@@ -86,8 +86,8 @@ func (s *Service) Create(ctx context.Context, req *FeedbackCreateRequest) (*Feed
 		Status:   "open",
 		Rating:   utils.NormalizeFeedbackRating(req.Rating),
 		Attach:   strings.TrimSpace(req.Attach),
-		GameID:   strings.TrimSpace(req.GameId),
-		Env:      strings.TrimSpace(req.Env),
+		GameID:   svc.ResolveGameID(ctx, req.GameId),
+		Env:      svc.ResolveEnv(ctx, req.Env),
 	}
 
 	if err := s.svcCtx.FeedbackModel.Create(ctx, feedback); err != nil {
@@ -180,7 +180,7 @@ func (s *Service) Stats(ctx context.Context, req *FeedbackStatsRequest) (*Feedba
 	}
 
 	stats, err := s.svcCtx.FeedbackModel.Stats(ctx, model.FeedbackStatsOptions{
-		GameID: strings.TrimSpace(req.GameId),
+		GameID: svc.ResolveGameID(ctx, req.GameId),
 		Days:   days,
 	})
 	if err != nil {

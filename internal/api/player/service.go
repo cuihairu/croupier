@@ -23,7 +23,7 @@ func (s *Service) List(ctx context.Context, req *PlayersListRequest) (*PlayersLi
 	opts := model.ListPlayersOptions{
 		Page:     req.Page,
 		PageSize: req.PageSize,
-		GameID:   strings.TrimSpace(req.GameId),
+		GameID:   svc.ResolveGameID(ctx, req.GameId),
 		Search:   strings.TrimSpace(req.Search),
 	}
 	if req.Status != 0 {
@@ -67,7 +67,7 @@ func (s *Service) Create(ctx context.Context, req *PlayerCreateRequest) (*Player
 	if password == "" {
 		return nil, errors.New("密码不能为空")
 	}
-	gameID := strings.TrimSpace(req.GameId)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
 	if gameID == "" {
 		return nil, errors.New("Game ID 不能为空")
 	}

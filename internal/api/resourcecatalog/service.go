@@ -18,6 +18,7 @@ import (
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	contractsvc "github.com/cuihairu/croupier/internal/service"
+	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -160,7 +161,7 @@ type ListResponse struct {
 // List returns resource catalog items from persistent storage.
 func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, error) {
 	// Get all resource capabilities
-	capabilities, err := s.capabilityModel.ListByScope(ctx, req.GameID, req.Env)
+	capabilities, err := s.capabilityModel.ListByScope(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env))
 	if err != nil {
 		return nil, fmt.Errorf("list resource capabilities: %w", err)
 	}
@@ -173,13 +174,13 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		}
 
 		// Get contracts for this resource
-		contracts, err := s.contractModel.ListByResourceKey(ctx, req.GameID, req.Env, cap.ResourceKey)
+		contracts, err := s.contractModel.ListByResourceKey(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), cap.ResourceKey)
 		if err != nil {
 			return nil, fmt.Errorf("list contracts for resource %s: %w", cap.ResourceKey, err)
 		}
 
 		// Get semantics
-		semantics, err := s.findSemanticsOptional(ctx, req.GameID, req.Env, cap.ResourceKey)
+		semantics, err := s.findSemanticsOptional(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), cap.ResourceKey)
 		if err != nil {
 			return nil, err
 		}
@@ -230,19 +231,19 @@ type DetailRequest struct {
 // Detail returns a single resource catalog item.
 func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*ResourceCatalogItem, error) {
 	// Get resource capability
-	cap, err := s.capabilityModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	cap, err := s.capabilityModel.FindByScopeAndResourceKey(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {
 		return nil, fmt.Errorf("resource not found: %w", err)
 	}
 
 	// Get contracts
-	contracts, err := s.contractModel.ListByResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	contracts, err := s.contractModel.ListByResourceKey(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {
 		return nil, fmt.Errorf("list contracts: %w", err)
 	}
 
 	// Get semantics
-	semantics, err := s.findSemanticsOptional(ctx, req.GameID, req.Env, req.ResourceKey)
+	semantics, err := s.findSemanticsOptional(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +258,7 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*ResourceCata
 		Semantics:   buildSemanticsInfo(semantics),
 		Diagnostics: buildDiagnostics(contracts, semantics),
 	}
-	affectedPages, err := s.buildAffectedPages(ctx, req.GameID, req.Env, req.ResourceKey)
+	affectedPages, err := s.buildAffectedPages(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -338,25 +339,25 @@ type ListSemanticVersionsResponse struct {
 // This allows admins to supplement semantics that cannot be auto-detected.
 func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsRequest) (*UpdateSemanticsResponse, error) {
 	actor := actorFromContext(ctx)
-	if err := s.requireResourceCapability(ctx, req.GameID, req.Env, req.ResourceKey); err != nil {
+	if err := s.requireResourceCapability(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey); err != nil {
 		return nil, err
 	}
 	// Get or create semantics
-	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("find semantics: %w", err)
 		}
 		// Create new semantics
 		semantics = &model.CapabilitySemantics{
-			GameID:      req.GameID,
-			Env:         req.Env,
+			GameID:      svc.ResolveGameID(ctx, req.GameID),
+			Env:         svc.ResolveEnv(ctx, req.Env),
 			ResourceKey: req.ResourceKey,
 			Source:      "platform_review",
 			UpdatedBy:   actor,
 		}
 	}
-	sourceDigest := semanticSourceDigest(ctx, s.contractModel, req.GameID, req.Env, req.ResourceKey)
+	sourceDigest := semanticSourceDigest(ctx, s.contractModel, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if sourceDigest != "" {
 		semantics.SourceDigest = sourceDigest
 	}
@@ -380,42 +381,42 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 
 	// Validate function IDs exist
 	if req.CollectionQueryID > 0 {
-		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.CollectionQueryID, "collection_query"); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey, req.CollectionQueryID, "collection_query"); err != nil {
 			return nil, fmt.Errorf("invalid collectionQueryId: %w", err)
 		}
 		semantics.CollectionQueryID = req.CollectionQueryID
 		trackUint("collectionQueryID", req.CollectionQueryID)
 	}
 	if req.ItemQueryID > 0 {
-		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.ItemQueryID, "item_query"); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey, req.ItemQueryID, "item_query"); err != nil {
 			return nil, fmt.Errorf("invalid itemQueryId: %w", err)
 		}
 		semantics.ItemQueryID = req.ItemQueryID
 		trackUint("itemQueryID", req.ItemQueryID)
 	}
 	if req.CreateID > 0 {
-		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.CreateID, "create"); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey, req.CreateID, "create"); err != nil {
 			return nil, fmt.Errorf("invalid createId: %w", err)
 		}
 		semantics.CreateID = req.CreateID
 		trackUint("createID", req.CreateID)
 	}
 	if req.UpdateID > 0 {
-		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.UpdateID, "update"); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey, req.UpdateID, "update"); err != nil {
 			return nil, fmt.Errorf("invalid updateId: %w", err)
 		}
 		semantics.UpdateID = req.UpdateID
 		trackUint("updateID", req.UpdateID)
 	}
 	if req.DeleteID > 0 {
-		if _, err := s.validateFunctionBinding(ctx, req.GameID, req.Env, req.ResourceKey, req.DeleteID, "delete"); err != nil {
+		if _, err := s.validateFunctionBinding(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey, req.DeleteID, "delete"); err != nil {
 			return nil, fmt.Errorf("invalid deleteId: %w", err)
 		}
 		semantics.DeleteID = req.DeleteID
 		trackUint("deleteID", req.DeleteID)
 	}
 	if req.Actions != nil {
-		actions, err := s.validateActionSemantics(ctx, req.GameID, req.Env, req.ResourceKey, req.Actions)
+		actions, err := s.validateActionSemantics(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey, req.Actions)
 		if err != nil {
 			return nil, err
 		}
@@ -428,7 +429,7 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		provenance["actions"] = provenanceRecord("actions", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
 	}
 	if req.Tasks != nil {
-		tasks, err := s.validateTaskSemantics(ctx, req.GameID, req.Env, req.ResourceKey, req.Tasks)
+		tasks, err := s.validateTaskSemantics(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey, req.Tasks)
 		if err != nil {
 			return nil, err
 		}
@@ -441,7 +442,7 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		provenance["tasks"] = provenanceRecord("tasks", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
 	}
 	if req.Reports != nil {
-		reports, err := s.validateReportSemantics(ctx, req.GameID, req.Env, req.ResourceKey, req.Reports)
+		reports, err := s.validateReportSemantics(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey, req.Reports)
 		if err != nil {
 			return nil, err
 		}
@@ -513,7 +514,7 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 	if err := s.createSemanticVersion(ctx, semantics, req.ChangeReason, actor); err != nil {
 		return nil, err
 	}
-	if err := s.rebuildProposals(ctx, req.GameID, req.Env, req.ResourceKey); err != nil {
+	if err := s.rebuildProposals(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey); err != nil {
 		return nil, err
 	}
 
@@ -544,7 +545,7 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 
 // ListSemanticVersions returns semantic version history for a resource.
 func (s *Service) ListSemanticVersions(ctx context.Context, req *ListSemanticVersionsRequest) (*ListSemanticVersionsResponse, error) {
-	semantics, err := s.findSemanticsOptional(ctx, req.GameID, req.Env, req.ResourceKey)
+	semantics, err := s.findSemanticsOptional(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -1468,7 +1469,7 @@ type ListConflictsResponse struct {
 
 // ListConflicts returns conflicts and provenance for a resource.
 func (s *Service) ListConflicts(ctx context.Context, req *ListConflictsRequest) (*ListConflictsResponse, error) {
-	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &ListConflictsResponse{
@@ -1547,11 +1548,11 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	if !isValidSemanticSource(chosenSource) {
 		return nil, fmt.Errorf("invalid chosenSource %s", req.ChosenSource)
 	}
-	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, req.GameID, req.Env, req.ResourceKey)
+	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {
 		return nil, fmt.Errorf("find semantics: %w", err)
 	}
-	if sourceDigest := semanticSourceDigest(ctx, s.contractModel, req.GameID, req.Env, req.ResourceKey); sourceDigest != "" {
+	if sourceDigest := semanticSourceDigest(ctx, s.contractModel, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey); sourceDigest != "" {
 		semantics.SourceDigest = sourceDigest
 	}
 
@@ -1626,7 +1627,7 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	if err := s.createSemanticVersion(ctx, semantics, req.Reason, actor); err != nil {
 		return nil, err
 	}
-	if err := s.rebuildProposals(ctx, req.GameID, req.Env, req.ResourceKey); err != nil {
+	if err := s.rebuildProposals(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey); err != nil {
 		return nil, err
 	}
 

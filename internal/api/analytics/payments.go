@@ -34,8 +34,8 @@ func payments(ctx context.Context, svcCtx *svc.ServiceContext, req *PaymentsRequ
 		return nil, err
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
-	env := strings.TrimSpace(req.Env)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
+	env := svc.ResolveEnv(ctx, req.Env)
 
 	agg, err := svcCtx.PaymentsModel.AggregateRevenue(ctx, gameID, env, start, end)
 	if err != nil {
@@ -81,12 +81,12 @@ func paymentsIngest(ctx context.Context, svcCtx *svc.ServiceContext, req *Paymen
 	if req == nil {
 		return nil, errors.New("请求参数不能为空")
 	}
-	gameID := strings.TrimSpace(req.GameId)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
 	if gameID == "" {
 		return nil, errors.New("gameId 不能为空")
 	}
 
-	env := strings.TrimSpace(req.Env)
+	env := svc.ResolveEnv(ctx, req.Env)
 
 	rawEntries, err := decodeTransactionsPayload(req.Transactions)
 	if err != nil {
@@ -132,7 +132,7 @@ func paymentsProductTrend(ctx context.Context, svcCtx *svc.ServiceContext, req *
 		limit = 10
 	}
 
-	items, err := svcCtx.PaymentsModel.ListProductTrends(ctx, strings.TrimSpace(req.GameId), strings.TrimSpace(req.Env))
+	items, err := svcCtx.PaymentsModel.ListProductTrends(ctx, svc.ResolveGameID(ctx, req.GameId), svc.ResolveEnv(ctx, req.Env))
 	if err != nil {
 		return nil, err
 	}
@@ -175,8 +175,8 @@ func paymentsSummary(ctx context.Context, svcCtx *svc.ServiceContext, req *Payme
 		return nil, err
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
-	env := strings.TrimSpace(req.Env)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
+	env := svc.ResolveEnv(ctx, req.Env)
 
 	stats, err := svcCtx.PaymentsModel.DailyRevenue(ctx, gameID, env, start, end)
 	if err != nil {
@@ -213,8 +213,8 @@ func paymentsTransactions(ctx context.Context, svcCtx *svc.ServiceContext, req *
 
 	opts := model.PaymentQueryOptions{
 		PaginationOptions: model.NewPagination(page, size),
-		GameID:            strings.TrimSpace(req.GameId),
-		Env:               strings.TrimSpace(req.Env),
+		GameID:            svc.ResolveGameID(ctx, req.GameId),
+		Env:               svc.ResolveEnv(ctx, req.Env),
 		Status:            strings.TrimSpace(req.Status),
 		StartTime:         start,
 		EndTime:           end,

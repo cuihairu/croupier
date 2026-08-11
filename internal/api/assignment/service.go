@@ -29,7 +29,9 @@ func (s *Service) List(ctx context.Context, req *AssignmentsListRequest) (*Assig
 		return nil, errorx.NewInternalError("读取分配数据失败")
 	}
 
-	filtered := filterAssignments(assignments, strings.TrimSpace(req.GameId), strings.TrimSpace(req.Env))
+	gameID := svc.ResolveGameID(ctx, req.GameId)
+	env := svc.ResolveEnv(ctx, req.Env)
+	filtered := filterAssignments(assignments, gameID, env)
 	return &AssignmentsListResponse{
 		Assignments: filtered,
 		Total:       len(filtered),
@@ -56,8 +58,8 @@ func (s *Service) History(ctx context.Context, req *AssignmentsHistoryRequest) (
 		pageSize = 100
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
-	env := strings.TrimSpace(req.Env)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
+	env := svc.ResolveEnv(ctx, req.Env)
 	action := strings.TrimSpace(req.Action)
 	path := assignmentHistoryPath(s.svcCtx)
 	items, err := loadAssignmentHistory(path)
@@ -103,11 +105,11 @@ func (s *Service) Update(ctx context.Context, req *AssignmentsUpdateRequest) (*A
 		return nil, err
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
+	gameID := svc.ResolveGameID(ctx, req.GameId)
 	if gameID == "" {
 		return nil, errorx.NewBadRequest("game_id不能为空")
 	}
-	env := strings.TrimSpace(req.Env)
+	env := svc.ResolveEnv(ctx, req.Env)
 	action := strings.TrimSpace(req.Action)
 
 	functions := normalizeFunctions(req.Functions)
