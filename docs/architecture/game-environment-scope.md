@@ -247,3 +247,101 @@ Croupier 通过 `database.multiGame` 配置项支持两种运行模式：
 - 游戏数据模型直接使用 ServiceContext.DB（meta DB 兼作 game DB）
 
 两种模式下，API 层和模型层代码完全一致，差异仅在连接管理。
+
+## 12. Scope 统一传递迁移方案
+
+### 12.1 目标
+
+前端统一通过 `X-Game-ID` / `X-Env` HTTP headers 传递 scope，由 request interceptor 自动添加。后端 handler 统一从 `GameScopeFromContext(ctx)` 读取，不再从 query params 或 request body 读取。
+
+### 12.2 Scope 解析优先级
+
+```
+GameDBMiddleware 解析流程：
+  1. 读取 X-Game-ID / X-Env headers
+  2. 如果 header 为空 → 读取 admins.last_game_id / last_env（上次选择）
+  3. 如果仍然为空 → 使用第一个授权的游戏/env
+  4. 验证 (gameId, env) 是否在用户的授权范围内
+  5. 写入 context → GameScopeFromContext(ctx) 获取
+```
+
+### 12.3 接口分类
+
+**需要 scope 的接口**（必须有 X-Game-ID/X-Env）：
+- functions, assignments, configs, analytics, players
+- resource catalog, pages, approvals
+
+**不需要 scope 的接口**（忽略 X-Game-ID/X-Env）：
+- SSE: `/api/v1/messages/stream` — 拉取用户所有授权游戏的消息
+- profile, auth, admin, roles — scope 无关
+
+**可选 scope 的接口**（有 scope 则过滤，无 scope 则显示所有授权数据）：
+- audit, tasks, function-calls
+
+### 12.4 「上次选择」持久化
+
+**admins 表新增字段：**
+- `last_game_id VARCHAR(64)` — 上次选择的游戏 ID
+- `last_env VARCHAR(64)` — 上次选择的环境
+
+**API：**
+- `PATCH /api/v1/profile/scope` — 持久化当前选择
+- 登录响应增加 `lastGameId` / `lastEnv` 字段
+
+**前端流程：**
+1. 登录 → 获取 `lastGameId`/`lastEnv` → 恢复 scope
+2. 用户切换 game/env → 调用 `PATCH /api/v1/profile/scope` 持久化
+3. 页面加载 → request interceptor 从 `getScope()` 读取，通过 headers 发送
+
+### 12.5 后端 handler 改造
+
+所有 handler 从 `GameScopeFromContext(ctx)` 读取 scope，而非从 query params：
+
+```go
+// 改造前
+func (h *Handler) List(c *gin.Context) {
+    var req ListRequest
+    c.ShouldBindQuery(&req) // req.GameID 从 query params 读取
+    ...
+}
+
+// 改造后
+func (h *Handler) List(c *gin.Context) {
+    scope := svc.GameScopeFromContext(c.Request.Context())
+    gameID := scope.GameID  // 从 context 读取（middleware 从 header 解析）
+    env := scope.Env
+    ...
+}
+```
+
+保留 `form` tag 作为向后兼容（旧客户端），但 handler 优先使用 context 值。
+
+### 12.6 SSE 不受 scope 限制
+
+`/api/v1/messages/stream` 查询用户所有授权游戏的消息，不依赖 `X-Game-ID`/`X-Env`。后端根据 `admin_game_scopes` 表过滤消息。
+
+### 12.7 前端统一改造
+
+- 移除所有 API 函数中的 `gameId`/`env` query params 和 body 字段
+- 统一由 request interceptor 通过 headers 发送
+- `functions.ts` 已改用 `getScope()` 替代直接读 localStorage
+- `scopeReady` 机制确保 GameSelector 验证后才发请求
+
+### 12.8 迁移步骤
+
+1. **后端**: Admin model 新增 `last_game_id`/`last_env`，migration
+2. **后端**: `GameDBMiddleware` 增加 fallback 逻辑（header → last → first authorized）
+3. **后端**: 新增 `PATCH /api/v1/profile/scope` API
+4. **后端**: 登录响应增加 `lastGameId`/`lastEnv`
+5. **后端**: handler 逐步改为从 context 读取 scope
+6. **前端**: 登录后恢复 `lastGameId`/`lastEnv`
+7. **前端**: scope 变更时调用 `PATCH /api/v1/profile/scope` 持久化
+8. **前端**: 移除 API 函数中的 gameId/env query params
+9. **前端**: SSE 接口确认不传 scope
+
+### 12.9 潜在问题
+
+- `admin_game_scopes` 使用 numeric GameID（DB 主键），而 headers 使用 string GameID（业务标识如 "demo_game"）。需要通过 `games` 表关联。
+- 首次登录没有 `last_game_id`，需要 fallback 到第一个授权游戏。
+- 授权变更后 `last_game_id` 可能失效，middleware 需要验证授权范围并 fallback。
+- SSE 消息过滤需要后端根据用户授权的游戏列表实现，而非依赖 header。
