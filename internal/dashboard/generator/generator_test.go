@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 )
 
 func TestGenerateForOperationCreatesBasicPage(t *testing.T) {
@@ -765,4 +767,56 @@ func TestGenerateRepairHint(t *testing.T) {
 			assert.Equal(t, tt.expected, result[tt.locale])
 		})
 	}
+}
+
+func TestContractToFunctionSpec(t *testing.T) {
+	t.Run("nil contract returns empty spec", func(t *testing.T) {
+		result := contractToFunctionSpec(nil)
+		assert.Empty(t, result.ID)
+	})
+
+	t.Run("contract with all fields", func(t *testing.T) {
+		contract := &model.FunctionContract{
+			FunctionID:   "player.ban",
+			Version:      "1.0.0",
+			Enabled:      true,
+			Deprecated:   false,
+			InputSchema:  datatypes.JSON(`{"type":"object"}`),
+			OutputSchema: datatypes.JSON(`{"type":"object"}`),
+			Summary:      datatypes.JSONMap{"zh-CN": "封禁玩家"},
+			Description:  datatypes.JSONMap{"zh-CN": "封禁指定玩家"},
+			ResourceKey:  "player",
+			OperationKey: "ban",
+			Capability:   "action",
+			Execution:    "sync",
+			Risk:         "high",
+			Permission:   "player:ban",
+		}
+
+		result := contractToFunctionSpec(contract)
+
+		assert.Equal(t, "player.ban", result.ID)
+		assert.Equal(t, "1.0.0", result.Version)
+		assert.True(t, result.Enabled)
+		assert.False(t, result.Deprecated)
+		assert.Equal(t, "player", result.Resource)
+		assert.Equal(t, "ban", result.Operation)
+		assert.Equal(t, spec.CapabilityKind("action"), result.Capability)
+		assert.Equal(t, spec.FunctionExecution("sync"), result.Execution)
+		assert.Equal(t, spec.RiskLevel("high"), result.Risk)
+		assert.Equal(t, "player:ban", result.Permission)
+	})
+
+	t.Run("contract with nil maps", func(t *testing.T) {
+		contract := &model.FunctionContract{
+			FunctionID: "test",
+		}
+
+		result := contractToFunctionSpec(contract)
+
+		assert.Equal(t, "test", result.ID)
+		assert.Nil(t, result.Summary)
+		assert.Nil(t, result.Description)
+		assert.Empty(t, result.Approval)
+	})
 }
