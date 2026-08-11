@@ -218,3 +218,110 @@ func TestService_List_FilterByResource(t *testing.T) {
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "function", resp.Items[0].Resource)
 }
+
+func TestNormalizeRules(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload interface{}
+		want    map[string]interface{}
+		wantErr bool
+	}{
+		{"nil payload", nil, nil, false},
+		{"map payload", map[string]interface{}{"key": "value"}, map[string]interface{}{"key": "value"}, false},
+		{"struct payload", struct{ Name string }{Name: "test"}, map[string]interface{}{"Name": "test"}, false},
+		{"invalid payload", make(chan int), nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := normalizeRules(tt.payload)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestGenerateRateLimitID(t *testing.T) {
+	tests := []struct {
+		name     string
+		resource string
+		nameArg  string
+		want     string
+	}{
+		{"simple", "function", "login", "function-login"},
+		{"with spaces", " function ", " login ", "function-login"},
+		{"with special chars", "function@name", "login@test", "function-name-login-test"},
+		{"empty", "", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := generateRateLimitID(tt.resource, tt.nameArg)
+			if tt.want == "" {
+				// Empty input generates UUID
+				assert.NotEmpty(t, got)
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestEncodeRules(t *testing.T) {
+	tests := []struct {
+		name  string
+		rules map[string]interface{}
+		want  int
+	}{
+		{"nil rules", nil, 0},
+		{"empty rules", map[string]interface{}{}, 0},
+		{"with rules", map[string]interface{}{"key": "value"}, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := encodeRules(tt.rules)
+			assert.Len(t, got, tt.want)
+		})
+	}
+}
+
+func TestSummarizeRuleKeys(t *testing.T) {
+	tests := []struct {
+		name  string
+		rules map[string]interface{}
+		want  []string
+	}{
+		{"nil rules", nil, nil},
+		{"empty rules", map[string]interface{}{}, nil},
+		{"with rules", map[string]interface{}{"b": 1, "a": 2}, []string{"a", "b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := summarizeRuleKeys(tt.rules)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestClassifyComplexity(t *testing.T) {
+	tests := []struct {
+		name string
+		keys int
+		want string
+	}{
+		{"low complexity", 0, "low"},
+		{"low complexity 1 key", 1, "low"},
+		{"medium complexity 2 keys", 2, "medium"},
+		{"medium complexity 3 keys", 3, "medium"},
+		{"high complexity 4 keys", 4, "high"},
+		{"high complexity 5 keys", 5, "high"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifyComplexity(tt.keys)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
