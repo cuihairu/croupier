@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"math"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -48,11 +49,13 @@ func appendPermissionIDs(permissionIDs []string, values ...string) []string {
 	}
 
 	// 检查内存分配是否会溢出
-	totalLen := len(permissionIDs) + len(values)
-	if totalLen < len(permissionIDs) || totalLen < len(values) {
+	lenA := len(permissionIDs)
+	lenB := len(values)
+	if lenA > math.MaxInt-lenB {
 		// 溢出，返回原切片
 		return permissionIDs
 	}
+	totalLen := lenA + lenB
 
 	seen := make(map[string]struct{}, totalLen)
 	out := make([]string, 0, totalLen)

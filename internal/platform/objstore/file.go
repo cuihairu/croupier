@@ -39,19 +39,20 @@ func OpenFile(_ context.Context, c Config) (Store, error) {
 
 func (s *fileStore) Put(_ context.Context, key string, r ReadSeeker, _ int64, _ string) error {
 	key = sanitizeKey(key)
-	path := filepath.Join(s.base, filepath.FromSlash(key))
+	rawPath := filepath.Join(s.base, filepath.FromSlash(key))
 
 	// 确保路径在 base 目录内，防止路径遍历攻击
-	if err := s.validatePath(path); err != nil {
+	safePath, err := s.validateAndCleanPath(rawPath)
+	if err != nil {
 		return err
 	}
 
 	// 确保父目录存在
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(safePath), 0o755); err != nil {
 		return err
 	}
 
-	f, err := os.Create(path)
+	f, err := os.Create(safePath)
 	if err != nil {
 		return err
 	}
@@ -83,21 +84,23 @@ func (s *fileStore) Delete(_ context.Context, key string) error {
 
 	// 如果是文件夹（以 / 结尾），需要递归删除
 	if strings.HasSuffix(key, "/") {
-		path := filepath.Join(s.base, filepath.FromSlash(key))
+		rawPath := filepath.Join(s.base, filepath.FromSlash(key))
 		// 确保路径在 base 目录内，防止路径遍历攻击
-		if err := s.validatePath(path); err != nil {
+		safePath, err := s.validateAndCleanPath(rawPath)
+		if err != nil {
 			return err
 		}
-		return os.RemoveAll(path)
+		return os.RemoveAll(safePath)
 	}
 
 	// 否则删除单个文件
-	path := filepath.Join(s.base, filepath.FromSlash(key))
+	rawPath := filepath.Join(s.base, filepath.FromSlash(key))
 	// 确保路径在 base 目录内，防止路径遍历攻击
-	if err := s.validatePath(path); err != nil {
+	safePath, err := s.validateAndCleanPath(rawPath)
+	if err != nil {
 		return err
 	}
-	return os.Remove(path)
+	return os.Remove(safePath)
 }
 
 func (s *fileStore) List(_ context.Context, prefix, marker, delimiter string, limit int) (ListResult, error) {
@@ -181,12 +184,13 @@ func (s *fileStore) CreatePrefix(_ context.Context, prefix string) error {
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
-	dirPath := filepath.Join(s.base, filepath.FromSlash(prefix))
+	rawPath := filepath.Join(s.base, filepath.FromSlash(prefix))
 	// 确保路径在 base 目录内，防止路径遍历攻击
-	if err := s.validatePath(dirPath); err != nil {
+	safePath, err := s.validateAndCleanPath(rawPath)
+	if err != nil {
 		return err
 	}
-	return os.MkdirAll(dirPath, 0o755)
+	return os.MkdirAll(safePath, 0o755)
 }
 
 func (s *fileStore) RenamePrefix(_ context.Context, oldPrefix, newPrefix string) error {
@@ -200,33 +204,42 @@ func (s *fileStore) RenamePrefix(_ context.Context, oldPrefix, newPrefix string)
 		newPrefix += "/"
 	}
 
-	oldPath := filepath.Join(s.base, filepath.FromSlash(oldPrefix))
-	newPath := filepath.Join(s.base, filepath.FromSlash(newPrefix))
+	oldRawPath := filepath.Join(s.base, filepath.FromSlash(oldPrefix))
+	newRawPath := filepath.Join(s.base, filepath.FromSlash(newPrefix))
 
 	// 确保路径在 base 目录内，防止路径遍历攻击
-	if err := s.validatePath(oldPath); err != nil {
+	oldSafePath, err := s.validateAndCleanPath(oldRawPath)
+	if err != nil {
 		return err
 	}
-	if err := s.validatePath(newPath); err != nil {
+	newSafePath, err := s.validateAndCleanPath(newRawPath)
+	if err != nil {
 		return err
 	}
 
 	// 使用系统 rename 命令移动目录
-	return os.Rename(oldPath, newPath)
+	return os.Rename(oldSafePath, newSafePath)
 }
 
-// validatePath ensures the path stays within the base directory to prevent path traversal attacks.
-func (s *fileStore) validatePath(path string) error {
+// validateAndCleanPath ensures the path stays within the base directory and returns the cleaned path.
+func (s *fileStore) validateAndCleanPath(path string) (string, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("invalid path: %w", err)
+		return "", fmt.Errorf("invalid path: %w", err)
 	}
 	absBase, err := filepath.Abs(s.base)
 	if err != nil {
-		return fmt.Errorf("invalid base path: %w", err)
+		return "", fmt.Errorf("invalid base path: %w", err)
 	}
 	if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) && absPath != absBase {
-		return fmt.Errorf("path traversal detected: %s is outside base directory", path)
+		return "", fmt.Errorf("path traversal detected: %s is outside base directory", path)
 	}
-	return nil
+	return absPath, nil
+}
+
+// validatePath ensures the path stays within the base directory to prevent path traversal attacks.
+// Deprecated: Use validateAndCleanPath instead for CodeQL compatibility.
+func (s *fileStore) validatePath(path string) error {
+	_, err := s.validateAndCleanPath(path)
+	return err
 }
