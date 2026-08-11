@@ -255,3 +255,43 @@ func TestCreateSyncsBackupToExtensionConfig(t *testing.T) {
 		t.Fatalf("unexpected backups config: %+v", items)
 	}
 }
+
+func TestResolveBackupPath(t *testing.T) {
+	s := &Service{}
+
+	tests := []struct {
+		name     string
+		location string
+		wantPath string
+		wantErr  bool
+	}{
+		{"file protocol", "file:///tmp/backup.tar.gz", "/tmp/backup.tar.gz", false},
+		{"absolute path", "/tmp/backup.tar.gz", "/tmp/backup.tar.gz", false},
+		{"relative path", "backups/backup.tar.gz", "backups/backup.tar.gz", false},
+		{"invalid file protocol", "file://[invalid", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := s.resolveBackupPath(tt.location)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("resolveBackupPath() error = nil, wantErr %v", tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("resolveBackupPath() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.name == "relative path" {
+				// Relative paths get resolved to absolute
+				if got == "" {
+					t.Error("resolveBackupPath() returned empty string for relative path")
+				}
+			} else if got != tt.wantPath {
+				t.Errorf("resolveBackupPath() = %v, want %v", got, tt.wantPath)
+			}
+		})
+	}
+}
