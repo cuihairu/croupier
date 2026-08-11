@@ -333,3 +333,22 @@ func TestResourceSpecFromCapability_NilCapability(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "resource capability not found")
 }
+
+func TestErrResourceNotFound(t *testing.T) {
+	err := ErrResourceNotFound("test-key")
+	assert.Error(t, err)
+
+	var notFoundErr *ResourceNotFoundError
+	assert.ErrorAs(t, err, &notFoundErr)
+	assert.Equal(t, "test-key", notFoundErr.Key)
+}
+
+func TestResourceNotFoundError_Error(t *testing.T) {
+	err := &ResourceNotFoundError{Key: "player.list"}
+	assert.Equal(t, "resource not found: player.list", err.Error())
+}
+
+func TestResourceNotFoundError_NilKey(t *testing.T) {
+	err := &ResourceNotFoundError{}
+	assert.Equal(t, "resource not found: ", err.Error())
+}
