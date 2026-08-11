@@ -861,3 +861,59 @@ func TestOutputShapeForSchema(t *testing.T) {
 		})
 	}
 }
+
+func TestInferDataType(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   json.RawMessage
+		expected string
+	}{
+		{
+			name:     "integer type",
+			schema:   json.RawMessage(`{"type":"integer"}`),
+			expected: "number",
+		},
+		{
+			name:     "number type",
+			schema:   json.RawMessage(`{"type":"number"}`),
+			expected: "number",
+		},
+		{
+			name:     "boolean type",
+			schema:   json.RawMessage(`{"type":"boolean"}`),
+			expected: "boolean",
+		},
+		{
+			name:     "string type",
+			schema:   json.RawMessage(`{"type":"string"}`),
+			expected: "string",
+		},
+		{
+			name:     "string with date-time format",
+			schema:   json.RawMessage(`{"type":"string","format":"date-time"}`),
+			expected: "datetime",
+		},
+		{
+			name:     "string with date format",
+			schema:   json.RawMessage(`{"type":"string","format":"date"}`),
+			expected: "datetime",
+		},
+		{
+			name:     "unknown type defaults to string",
+			schema:   json.RawMessage(`{"type":"array"}`),
+			expected: "string",
+		},
+		{
+			name:     "empty schema",
+			schema:   json.RawMessage(`{}`),
+			expected: "string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := inferDataType(tt.schema)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
