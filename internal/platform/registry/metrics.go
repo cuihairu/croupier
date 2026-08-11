@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"sync"
 	"time"
 
@@ -210,6 +211,11 @@ func (s *MetricsStore) getFromMemory(agentID string, since time.Time, limit int)
 
 	if limit <= 0 || limit > len(indices) {
 		limit = len(indices)
+	}
+
+	// 限制最大分配大小，防止内存分配过大
+	if limit > math.MaxInt/1024 {
+		limit = math.MaxInt / 1024
 	}
 
 	result := make([]MetricsEntry, 0, limit)

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,9 @@ func ParseRoleID(id string) (uint, error) {
 	}
 	if value == 0 {
 		return 0, errorx.NewBadRequest("角色ID必须大于0")
+	}
+	if value > math.MaxUint {
+		return 0, errorx.NewBadRequest("角色ID超出范围")
 	}
 	return uint(value), nil
 }

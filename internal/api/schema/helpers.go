@@ -86,6 +86,12 @@ func loadSchema(cfg config.Config, id string) (*schemaDocument, error) {
 		return nil, errorx.NewBadRequest("schema ID 不能为空")
 	}
 	path := schemaFilePath(cfg, id)
+
+	// 确保路径在 schemas 目录内，防止路径遍历攻击
+	if err := validateSchemaPath(cfg, path); err != nil {
+		return nil, err
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -105,6 +111,12 @@ func deleteSchemaByID(cfg config.Config, id string) error {
 		return errorx.NewBadRequest("schema ID 不能为空")
 	}
 	path := schemaFilePath(cfg, id)
+
+	// 确保路径在 schemas 目录内，防止路径遍历攻击
+	if err := validateSchemaPath(cfg, path); err != nil {
+		return err
+	}
+
 	if err := os.Remove(path); err != nil {
 		if os.IsNotExist(err) {
 			return errorx.NewNotFound("schema 不存在: " + id)
@@ -279,4 +291,24 @@ func extractErrors(err *jsonschema.ValidationError) []string {
 		errors = append(errors, extractErrors(cause)...)
 	}
 	return errors
+}
+
+// validateSchemaPath ensures the path stays within the schemas directory to prevent path traversal attacks.
+func validateSchemaPath(cfg config.Config, path string) error {
+	schemasDir, err := ensureSchemasDir(cfg)
+	if err != nil {
+		return err
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+	absSchemasDir, err := filepath.Abs(schemasDir)
+	if err != nil {
+		return fmt.Errorf("invalid schemas dir: %w", err)
+	}
+	if !strings.HasPrefix(absPath, absSchemasDir+string(filepath.Separator)) {
+		return fmt.Errorf("path traversal detected: path is outside schemas directory")
+	}
+	return nil
 }

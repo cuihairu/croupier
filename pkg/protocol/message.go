@@ -17,6 +17,7 @@ package protocol
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 const (
@@ -139,7 +140,12 @@ func ParseMessageFromBody(body []byte) (version uint8, msgID uint32, reqID uint3
 
 // NewMessageBody creates a body with protocol header prefix and data.
 func NewMessageBody(msgID uint32, reqID uint32, data []byte) []byte {
-	body := make([]byte, HeaderSize+len(data))
+	totalLen := HeaderSize + len(data)
+	if totalLen < HeaderSize || totalLen < len(data) || totalLen > math.MaxInt {
+		// 溢出，返回 nil
+		return nil
+	}
+	body := make([]byte, totalLen)
 	body[0] = Version1
 	PutMsgID(body[1:4], msgID)
 	binary.BigEndian.PutUint32(body[4:8], reqID)

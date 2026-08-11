@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -549,6 +550,10 @@ func parseAdminID(id string) (uint, error) {
 
 	if value == 0 {
 		return 0, errorx.NewBadRequest("管理员ID必须大于0")
+	}
+
+	if value > math.MaxUint {
+		return 0, errorx.NewBadRequest("管理员ID超出范围")
 	}
 
 	return uint(value), nil

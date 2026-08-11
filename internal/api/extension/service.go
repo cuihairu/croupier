@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -1160,6 +1161,9 @@ func (s *Service) requireWritePermission(ctx context.Context, message string) er
 
 func (s *Service) ResolveInstallationID(ctx context.Context, identifier string) (uint, error) {
 	if id, err := strconv.ParseUint(strings.TrimSpace(identifier), 10, 64); err == nil {
+		if id > math.MaxUint {
+			return 0, errorx.NewBadRequest("installation ID 超出范围")
+		}
 		return uint(id), nil
 	}
 	item, err := s.findActiveInstallationByExtension(ctx, identifier)

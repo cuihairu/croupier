@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -18,6 +19,9 @@ func ParseUintID(id, label string) (uint, error) {
 	}
 	if value == 0 {
 		return 0, errorx.NewBadRequest(label + "必须大于0")
+	}
+	if value > math.MaxUint {
+		return 0, errorx.NewBadRequest(label + "超出范围")
 	}
 	return uint(value), nil
 }

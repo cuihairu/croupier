@@ -3,6 +3,7 @@ package role
 import (
 	"context"
 	"errors"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -265,6 +266,9 @@ func (s *Service) parseRoleID(id string) (uint, error) {
 	}
 	if value == 0 {
 		return 0, errorx.NewBadRequest("角色ID必须大于0")
+	}
+	if value > math.MaxUint {
+		return 0, errorx.NewBadRequest("角色ID超出范围")
 	}
 	return uint(value), nil
 }

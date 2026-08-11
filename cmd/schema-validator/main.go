@@ -275,7 +275,12 @@ func extractTarGz(src, dest string) error {
 			return fmt.Errorf("tar iteration error: %w", err)
 		}
 
-		target := filepath.Join(destAbs, hdr.Name)
+		// Clean the name and reject path traversal attempts before joining
+		cleanName := filepath.Clean(hdr.Name)
+		if strings.HasPrefix(cleanName, "..") || strings.Contains(cleanName, ".."+string(os.PathSeparator)) {
+			return fmt.Errorf("path traversal detected in archive: %s", hdr.Name)
+		}
+		target := filepath.Join(destAbs, cleanName)
 		if !strings.HasPrefix(target, destAbs+string(os.PathSeparator)) && target != destAbs {
 			return fmt.Errorf("invalid path in archive: %s", hdr.Name)
 		}

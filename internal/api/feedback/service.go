@@ -3,6 +3,7 @@ package feedback
 import (
 	"context"
 	"errors"
+	"math"
 	"strconv"
 	"strings"
 
@@ -112,6 +113,9 @@ func (s *Service) Update(ctx context.Context, req *FeedbackUpdateRequest) (*Feed
 	if err != nil {
 		return nil, errors.New("反馈ID格式不正确")
 	}
+	if id > math.MaxUint {
+		return nil, errors.New("反馈ID超出范围")
+	}
 
 	updates := map[string]interface{}{}
 	if status := strings.TrimSpace(req.Status); status != "" {
@@ -156,6 +160,9 @@ func (s *Service) Delete(ctx context.Context, req *FeedbackDeleteRequest) error 
 	id, err := strconv.ParseUint(req.ID, 10, 64)
 	if err != nil {
 		return errors.New("反馈ID格式不正确")
+	}
+	if id > math.MaxUint {
+		return errors.New("反馈ID超出范围")
 	}
 
 	if _, err := s.svcCtx.FeedbackModel.FindByID(ctx, uint(id)); err != nil {

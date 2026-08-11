@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -185,6 +186,9 @@ func (s *Service) SilenceDelete(ctx context.Context, req *SilenceDeleteRequest) 
 	id, err := strconv.ParseUint(req.ID, 10, 64)
 	if err != nil {
 		return errors.New("静默ID格式不正确")
+	}
+	if id > math.MaxUint {
+		return errors.New("静默ID超出范围")
 	}
 
 	if err := s.svcCtx.AlertModel.DeleteSilence(ctx, uint(id)); err != nil {

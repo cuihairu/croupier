@@ -1,6 +1,7 @@
 package extension
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -509,6 +510,9 @@ func parseUintParam(c *gin.Context, key string) (uint, error) {
 	value, err := strconv.ParseUint(c.Param(key), 10, 64)
 	if err != nil {
 		return 0, errorx.NewBadRequest("invalid path parameter: " + key)
+	}
+	if value > math.MaxUint {
+		return 0, errorx.NewBadRequest("parameter value too large: " + key)
 	}
 	return uint(value), nil
 }

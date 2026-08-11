@@ -41,6 +41,11 @@ func (s *fileStore) Put(_ context.Context, key string, r ReadSeeker, _ int64, _ 
 	key = sanitizeKey(key)
 	path := filepath.Join(s.base, filepath.FromSlash(key))
 
+	// 确保路径在 base 目录内，防止路径遍历攻击
+	if err := s.validatePath(path); err != nil {
+		return err
+	}
+
 	// 确保父目录存在
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -79,11 +84,19 @@ func (s *fileStore) Delete(_ context.Context, key string) error {
 	// 如果是文件夹（以 / 结尾），需要递归删除
 	if strings.HasSuffix(key, "/") {
 		path := filepath.Join(s.base, filepath.FromSlash(key))
+		// 确保路径在 base 目录内，防止路径遍历攻击
+		if err := s.validatePath(path); err != nil {
+			return err
+		}
 		return os.RemoveAll(path)
 	}
 
 	// 否则删除单个文件
 	path := filepath.Join(s.base, filepath.FromSlash(key))
+	// 确保路径在 base 目录内，防止路径遍历攻击
+	if err := s.validatePath(path); err != nil {
+		return err
+	}
 	return os.Remove(path)
 }
 
@@ -169,6 +182,10 @@ func (s *fileStore) CreatePrefix(_ context.Context, prefix string) error {
 		prefix += "/"
 	}
 	dirPath := filepath.Join(s.base, filepath.FromSlash(prefix))
+	// 确保路径在 base 目录内，防止路径遍历攻击
+	if err := s.validatePath(dirPath); err != nil {
+		return err
+	}
 	return os.MkdirAll(dirPath, 0o755)
 }
 
@@ -186,6 +203,30 @@ func (s *fileStore) RenamePrefix(_ context.Context, oldPrefix, newPrefix string)
 	oldPath := filepath.Join(s.base, filepath.FromSlash(oldPrefix))
 	newPath := filepath.Join(s.base, filepath.FromSlash(newPrefix))
 
+	// 确保路径在 base 目录内，防止路径遍历攻击
+	if err := s.validatePath(oldPath); err != nil {
+		return err
+	}
+	if err := s.validatePath(newPath); err != nil {
+		return err
+	}
+
 	// 使用系统 rename 命令移动目录
 	return os.Rename(oldPath, newPath)
+}
+
+// validatePath ensures the path stays within the base directory to prevent path traversal attacks.
+func (s *fileStore) validatePath(path string) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+	absBase, err := filepath.Abs(s.base)
+	if err != nil {
+		return fmt.Errorf("invalid base path: %w", err)
+	}
+	if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) && absPath != absBase {
+		return fmt.Errorf("path traversal detected: %s is outside base directory", path)
+	}
+	return nil
 }

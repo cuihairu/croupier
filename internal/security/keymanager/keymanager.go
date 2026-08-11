@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"sync"
 	"time"
 )
@@ -636,7 +637,12 @@ func generateKeyID(purpose string) string {
 
 func pkcs7Pad(data []byte, blockSize int) []byte {
 	padding := blockSize - len(data)%blockSize
-	padded := make([]byte, len(data)+padding)
+	totalLen := len(data) + padding
+	if totalLen < len(data) || totalLen < padding || totalLen > math.MaxInt {
+		// 溢出，返回原数据
+		return data
+	}
+	padded := make([]byte, totalLen)
 	copy(padded, data)
 	for i := len(data); i < len(padded); i++ {
 		padded[i] = byte(padding)

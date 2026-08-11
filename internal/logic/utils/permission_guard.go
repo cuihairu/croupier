@@ -47,8 +47,15 @@ func appendPermissionIDs(permissionIDs []string, values ...string) []string {
 		return permissionIDs
 	}
 
-	seen := make(map[string]struct{}, len(permissionIDs)+len(values))
-	out := make([]string, 0, len(permissionIDs)+len(values))
+	// 检查内存分配是否会溢出
+	totalLen := len(permissionIDs) + len(values)
+	if totalLen < len(permissionIDs) || totalLen < len(values) {
+		// 溢出，返回原切片
+		return permissionIDs
+	}
+
+	seen := make(map[string]struct{}, totalLen)
+	out := make([]string, 0, totalLen)
 	for _, permissionID := range permissionIDs {
 		key := strings.ToLower(strings.TrimSpace(permissionID))
 		if key == "" {

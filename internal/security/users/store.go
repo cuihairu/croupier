@@ -8,6 +8,8 @@ import (
 	"os"
 )
 
+// TODO: migrate to bcrypt/scrypt/argon2 for production password hashing.
+// sha256(salt+password) is used only for legacy local dev user store.
 type User struct {
 	Username  string   `json:"username"`
 	Salt      string   `json:"salt"`
