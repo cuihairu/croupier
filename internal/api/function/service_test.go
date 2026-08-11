@@ -998,7 +998,8 @@ func TestService_FunctionHistory(t *testing.T) {
 	req := &FunctionHistoryRequest{ID: "func1"}
 	resp, err := svc.FunctionHistory(ctx, req)
 	require.NoError(t, err)
-	assert.Empty(t, resp.Items)
+	require.NotEmpty(t, resp.Items)
+	assert.Equal(t, "function_created", resp.Items[0].Action)
 }
 
 func TestService_FunctionPublish(t *testing.T) {
@@ -1827,10 +1828,10 @@ func TestHandlers_Success(t *testing.T) {
 		},
 		{
 			name:       "FunctionHistory",
-			method:     http.MethodPost,
+			method:     http.MethodGet,
 			url:        "/api/v1/functions/func1/history",
-			body:       `{}`,
-			statusCode: http.StatusOK, // returns empty even without proper URI binding
+			body:       ``,
+			statusCode: http.StatusBadRequest, // raw context has no URI params, ShouldBindUri fails
 			handler:    h.FunctionHistory,
 		},
 		{

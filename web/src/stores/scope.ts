@@ -17,12 +17,9 @@ const listeners = new Set<ScopeListener>();
 
 // Promise that resolves when GameSelector has validated the scope.
 // API services can await this to avoid firing requests with stale values.
-export const scopeReadyPromise =
-  typeof Promise !== 'undefined'
-    ? new Promise<void>((resolve) => {
-        resolveScopeReady = resolve;
-      })
-    : Promise.resolve();
+export const scopeReadyPromise = new Promise<void>((resolve) => {
+  resolveScopeReady = resolve;
+});
 
 const readFromStorage = (): Scope => {
   if (typeof window === 'undefined') return {};
