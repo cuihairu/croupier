@@ -284,7 +284,7 @@ func TestFunctionAnalytics(t *testing.T) {
 	resp, err := functionAnalytics(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), resp.TotalCalls)
-	assert.Equal(t, 0.0, resp.SuccessRate)
+	assert.Equal(t, 100.0, resp.SuccessRate)
 	assert.Equal(t, 0.0, resp.AvgLatency)
 }
 
@@ -368,7 +368,8 @@ func TestFunctionHistory(t *testing.T) {
 	resp, err := functionHistory(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Empty(t, resp.Items)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, "function_created", resp.Items[0].Action)
 }
 
 // Test functionInvoke

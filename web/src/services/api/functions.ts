@@ -425,15 +425,16 @@ export async function getFunctionDetail(functionId: string) {
 }
 
 export async function getFunctionHistory(functionId: string) {
-  return request<
-    Array<{
+  const response = await request<{
+    items?: Array<{
       id: string;
       action: string;
       operator?: string;
       timestamp: string;
       details?: JSONValue;
-    }>
-  >(`/api/v1/functions/${encodeURIComponent(functionId)}/history`);
+    }>;
+  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/history`);
+  return Array.isArray(response?.items) ? response.items : [];
 }
 
 export async function getFunctionAnalytics(functionId: string) {

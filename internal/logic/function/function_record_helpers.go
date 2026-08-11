@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -19,6 +20,9 @@ func getOrCreateFunctionRecord(ctx context.Context, svcCtx *svc.ServiceContext, 
 }
 
 func getOrCreateFunctionRecordWithRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, riskLevel string) (*model.Function, error) {
+	if svcCtx == nil || svcCtx.FunctionModel == nil {
+		return nil, errorx.NewInternalError("FunctionModel 未初始化")
+	}
 	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, functionID)
 	if err == nil {
 		return fn, nil

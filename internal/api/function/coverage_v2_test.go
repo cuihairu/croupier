@@ -349,12 +349,12 @@ func TestFunctionsPending_V2(t *testing.T) {
 
 func TestFunctionAnalytics_V2(t *testing.T) {
 	t.Parallel()
-	svcCtx := &svc.ServiceContext{}
+	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 	resp, err := functionAnalytics(ctx, svcCtx, &FunctionAnalyticsRequest{ID: "x"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), resp.TotalCalls)
-	assert.Equal(t, 0.0, resp.SuccessRate)
+	assert.Equal(t, 100.0, resp.SuccessRate)
 }
 
 // ---- functionCopy ----
@@ -394,11 +394,12 @@ func TestFunctionWarnings_V2(t *testing.T) {
 
 func TestFunctionHistory_V2(t *testing.T) {
 	t.Parallel()
-	svcCtx := &svc.ServiceContext{}
+	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 	resp, err := functionHistory(ctx, svcCtx, &FunctionHistoryRequest{ID: "f1"})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Items)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, "function_created", resp.Items[0].Action)
 }
 
 // ---- batchCopyFunctions ----

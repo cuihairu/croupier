@@ -142,14 +142,19 @@ func functionDetail(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 }
 
 func functionAnalytics(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionAnalyticsRequest) (*FunctionAnalyticsResponse, error) {
-	// Implementation would query analytics data
+	stats, err := logicfunction.NewFunctionAnalyticsLogic(ctx, svcCtx).FunctionAnalytics(
+		&logicfunction.FunctionAnalyticsRequest{ID: req.ID},
+	)
+	if err != nil {
+		return nil, err
+	}
 	return &FunctionAnalyticsResponse{
-		TotalCalls:     0,
-		SuccessRate:    0,
-		AvgLatency:     0,
-		CallsToday:     0,
-		CallsThisWeek:  0,
-		CallsThisMonth: 0,
+		TotalCalls:     stats.TotalCalls,
+		SuccessRate:    stats.SuccessRate,
+		AvgLatency:     stats.AvgLatency,
+		CallsToday:     stats.CallsToday,
+		CallsThisWeek:  stats.CallsThisWeek,
+		CallsThisMonth: stats.CallsThisMonth,
 	}, nil
 }
 
@@ -176,10 +181,20 @@ func functionEnable(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 }
 
 func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionHistoryRequest) (*FunctionHistoryResponse, error) {
-	// Implementation would query function history
-	return &FunctionHistoryResponse{
-		Items: []FunctionHistoryItem{},
-	}, nil
+	items, err := logicfunction.NewFunctionHistoryLogic(ctx, svcCtx).FunctionHistory(
+		&logicfunction.FunctionHistoryRequest{ID: req.ID},
+	)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]FunctionHistoryItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, FunctionHistoryItem{
+			ID: item.ID, Action: item.Action, Operator: item.Operator,
+			Timestamp: item.Timestamp, Details: rawJSONFromBytes(item.Details),
+		})
+	}
+	return &FunctionHistoryResponse{Items: result}, nil
 }
 
 func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) (*FunctionInvokeResponse, error) {
