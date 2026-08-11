@@ -314,3 +314,24 @@ func assertRenameCandidate(t *testing.T, candidates []FieldRenameCandidate, oldP
 	}
 	t.Fatalf("rename candidate %s -> %s not found in %#v", oldPath, newPath, candidates)
 }
+
+func TestInvalidSelectorResult(t *testing.T) {
+	result := invalidSelectorResult("test error message")
+	assert.False(t, result.Valid)
+	require.Len(t, result.Errors, 1)
+	assert.Equal(t, ErrCodeInvalidPath, result.Errors[0].Code)
+	assert.Equal(t, "test error message", result.Errors[0].Message)
+}
+
+func TestAddWarning(t *testing.T) {
+	result := &SelectorValidationResult{
+		Valid:    true,
+		Warnings: []SelectorWarning{},
+	}
+	result.addWarning("test.field", "test_code", "test warning message")
+	assert.True(t, result.Valid)
+	require.Len(t, result.Warnings, 1)
+	assert.Equal(t, "test.field", result.Warnings[0].Field)
+	assert.Equal(t, "test_code", result.Warnings[0].Code)
+	assert.Equal(t, "test warning message", result.Warnings[0].Message)
+}
