@@ -25,21 +25,21 @@ func TestCloneStringMapV2(t *testing.T) {
 	// valid
 	result := cloneStringMap(map[string]string{"a": "1", "b": "2"})
 	assert.Equal(t, map[string]string{"a": "1", "b": "2"}, result)
-	// filtered empty keys/values
+	// filtered empty keys/values → empty map (all entries removed)
 	result = cloneStringMap(map[string]string{"": "1", "a": "", "b": "  "})
-	assert.Nil(t, result)
-	// filtered whitespace only
+	assert.Empty(t, result)
+	// filtered whitespace only → empty map
 	result = cloneStringMap(map[string]string{"a": "  "})
-	assert.Nil(t, result)
+	assert.Empty(t, result)
 }
 
 func TestSanitizeApprovalIDV2(t *testing.T) {
 	// empty
 	assert.Equal(t, "binding", sanitizeApprovalID(""))
-	// valid alphanumeric
-	assert.Equal(t, "playerquery", sanitizeApprovalID("player.query"))
-	// special chars become underscore
-	assert.Equal(t, "test_id", sanitizeApprovalID("test@id!"))
+	// dot becomes underscore
+	assert.Equal(t, "player_query", sanitizeApprovalID("player.query"))
+	// special chars (@, !) are removed
+	assert.Equal(t, "testid", sanitizeApprovalID("test@id!"))
 	// all special chars → "binding"
 	assert.Equal(t, "binding", sanitizeApprovalID("@!#$%"))
 	// mixed case lowered

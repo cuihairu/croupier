@@ -163,6 +163,9 @@ func (w *Worker) Run(ctx context.Context) error {
 		}
 	}()
 	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		streams := []string{w.streamEvents, w.streamPayments}
 		streamIDs := make([]string, len(streams))
 		for i := range streamIDs {
@@ -175,11 +178,13 @@ func (w *Worker) Run(ctx context.Context) error {
 			Count:    200,
 			Block:    2 * time.Second,
 		}).Result()
-		if err != nil && err != redis.Nil {
-			slog.Warn("xreadgroup", "err", err)
-			continue
-		}
-		if err == redis.Nil {
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err != redis.Nil {
+				slog.Warn("xreadgroup", "err", err)
+			}
 			continue
 		}
 		for _, str := range res {

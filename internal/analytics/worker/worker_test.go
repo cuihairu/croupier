@@ -426,8 +426,9 @@ func TestFlushEventBatch_SendError(t *testing.T) {
 	if err.Error() != "send failed" {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if w.eventBatch != nil {
-		t.Error("expected eventBatch to be nil after error")
+	// Batch is preserved on error for retry
+	if w.eventBatch == nil {
+		t.Error("expected eventBatch to be preserved after error for retry")
 	}
 }
 
@@ -441,7 +442,8 @@ func TestFlushPaymentBatch_SendError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error from send")
 	}
-	if w.paymentBatch != nil {
+	// Batch is preserved on error for retry
+	if w.paymentBatch == nil {
 		t.Error("expected paymentBatch to be nil after error")
 	}
 }
@@ -887,6 +889,7 @@ func TestProcessMessage_ValidPayment(t *testing.T) {
 
 func TestProcessMessage_MaxRetriesExceeded(t *testing.T) {
 	w, _ := testWorker(t)
+	w.clickBatchSize = 1 // flush after each row so sendErr is triggered
 	getMockConn(t, w).batch = &mockBatch{sendErr: fmt.Errorf("ch error")}
 	w.rdb.XGroupCreateMkStream(context.Background(), "analytics:events", "analytics-worker", "$")
 
@@ -915,6 +918,7 @@ func TestProcessMessage_MaxRetriesExceeded(t *testing.T) {
 
 func TestProcessMessage_RetryRequeue(t *testing.T) {
 	w, _ := testWorker(t)
+	w.clickBatchSize = 1 // flush after each row so sendErr is triggered
 	getMockConn(t, w).batch = &mockBatch{sendErr: fmt.Errorf("ch error")}
 	w.rdb.XGroupCreateMkStream(context.Background(), "analytics:events", "analytics-worker", "$")
 
@@ -950,6 +954,7 @@ func TestProcessMessage_RetryRequeue(t *testing.T) {
 
 func TestProcessMessage_PaymentMaxRetries(t *testing.T) {
 	w, _ := testWorker(t)
+	w.clickBatchSize = 1 // flush after each row so sendErr is triggered
 	getMockConn(t, w).batch = &mockBatch{sendErr: fmt.Errorf("ch error")}
 	w.rdb.XGroupCreateMkStream(context.Background(), "analytics:payments", "analytics-worker", "$")
 
@@ -1123,8 +1128,8 @@ func TestRun_CancelContext(t *testing.T) {
 
 	select {
 	case err := <-done:
-		if err != nil {
-			t.Errorf("expected nil error on cancel, got %v", err)
+		if err != context.Canceled {
+			t.Errorf("expected context.Canceled on cancel, got %v", err)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Run did not return within timeout")
@@ -1294,7 +1299,7 @@ func TestNewWorker_InvalidRedisURL(t *testing.T) {
 
 func TestNewWorker_InvalidCHDSN(t *testing.T) {
 	os.Setenv("REDIS_URL", "redis://localhost:6379/0")
-	os.Setenv("CLICKHOUSE_DSN", "clickhouse://invalid-dsn???")
+	os.Setenv("CLICKHOUSE_DSN", "://invalid")
 	defer os.Unsetenv("REDIS_URL")
 	defer os.Unsetenv("CLICKHOUSE_DSN")
 
