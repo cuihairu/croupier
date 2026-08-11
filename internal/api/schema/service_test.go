@@ -214,3 +214,123 @@ func TestService_RawValidate(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.True(t, resp.Valid)
 }
+
+func TestGenerateSchemaID(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"simple name", "Player List", "player-list"},
+		{"with special chars", "Player@List!", "player-list"},
+		{"with spaces", "  Player List  ", "player-list"},
+		{"lowercase", "PLAYER", "player"},
+		{"mixed case", "PlayerList", "playerlist"},
+		{"empty string", "", ""},
+		{"numbers", "schema123", "schema123"},
+		{"special chars only", "@#$%", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := generateSchemaID(tt.input)
+			if tt.expected == "" {
+				// Empty input generates UUID
+				assert.NotEmpty(t, got)
+			} else {
+				assert.Equal(t, tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestSchemaFilePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		dir      string
+		id       string
+		expected string
+	}{
+		{"custom dir", "/tmp/schemas", "test", "/tmp/schemas/custom/test.json"},
+		{"empty dir", "", "test", "schemas/custom/test.json"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.Config{
+				Schemas: config.SchemasConfig{Dir: tt.dir},
+			}
+			got := schemaFilePath(cfg, tt.id)
+			assert.Contains(t, got, tt.id+".json")
+		})
+	}
+}
+
+func TestResolveSchemasDir(t *testing.T) {
+	tests := []struct {
+		name     string
+		dir      string
+		expected string
+	}{
+		{"custom dir", "/tmp/schemas", "/tmp/schemas/custom"},
+		{"empty dir", "", "schemas/custom"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.Config{
+				Schemas: config.SchemasConfig{Dir: tt.dir},
+			}
+			got := resolveSchemasDir(cfg)
+			assert.Contains(t, got, "custom")
+		})
+	}
+}
+
+func TestValidateSchemaDefinition(t *testing.T) {
+	tests := []struct {
+		name    string
+		schema  interface{}
+		wantErr bool
+	}{
+		{"valid schema", map[string]interface{}{"type": "object"}, false},
+		{"invalid schema", "not a schema", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSchemaDefinition(tt.schema)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidatePayloadAgainst(t *testing.T) {
+	schema := map[string]interface{}{
+		"type":       "object",
+		"properties": map[string]interface{}{"name": map[string]interface{}{"type": "string"}},
+	}
+
+	tests := []struct {
+		name      string
+		schema    interface{}
+		payload   interface{}
+		wantValid bool
+		wantErr   bool
+	}{
+		{"valid payload", schema, map[string]interface{}{"name": "test"}, true, false},
+		{"invalid payload", schema, map[string]interface{}{}, true, false},
+		{"invalid schema", "not a schema", map[string]interface{}{}, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			valid, _, err := validatePayloadAgainst(tt.schema, tt.payload)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantValid, valid)
+			}
+		})
+	}
+}
