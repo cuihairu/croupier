@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import { getScope } from '@/stores/scope';
 import {
   normalizeFunctionInstance,
   type FunctionInstance,
@@ -143,12 +144,10 @@ export type FunctionInvokeResponse = {
 };
 
 export async function listDescriptors() {
-  const gameId =
-    typeof window !== 'undefined' ? localStorage.getItem('game_id') || undefined : undefined;
-  const env = typeof window !== 'undefined' ? localStorage.getItem('env') || undefined : undefined;
+  const scope = getScope();
   const params: Record<string, string> = {};
-  if (gameId) params.gameId = gameId;
-  if (env) params.env = env;
+  if (scope.gameId) params.gameId = scope.gameId;
+  if (scope.env) params.env = scope.env;
 
   const response = await request<RawFunctionDescriptor[]>('/api/v1/functions/descriptors', {
     params,
@@ -186,13 +185,10 @@ export async function invokeFunction(
   payload: JSONValue,
   opts?: InvokeFunctionOptions,
 ): Promise<FunctionInvokeResponse> {
+  const scope = getScope();
   const data: FunctionInvokeRequestDTO = { payload };
-  const gameId =
-    opts?.gameId ??
-    (typeof window !== 'undefined' ? localStorage.getItem('game_id') || undefined : undefined);
-  const env =
-    opts?.env ??
-    (typeof window !== 'undefined' ? localStorage.getItem('env') || undefined : undefined);
+  const gameId = opts?.gameId ?? scope.gameId;
+  const env = opts?.env ?? scope.env;
   if (gameId) data.gameId = gameId;
   if (env) data.env = env;
   if (opts?.route) data.route = opts.route;
@@ -213,13 +209,10 @@ export async function startTask(
   payload: JSONValue,
   opts?: InvokeFunctionOptions,
 ): Promise<FunctionInvokeResponse> {
+  const scope = getScope();
   const data: FunctionInvokeRequestDTO = { payload, mode: 'async' };
-  const gameId =
-    opts?.gameId ??
-    (typeof window !== 'undefined' ? localStorage.getItem('game_id') || undefined : undefined);
-  const env =
-    opts?.env ??
-    (typeof window !== 'undefined' ? localStorage.getItem('env') || undefined : undefined);
+  const gameId = opts?.gameId ?? scope.gameId;
+  const env = opts?.env ?? scope.env;
   if (gameId) data.gameId = gameId;
   if (env) data.env = env;
   if (opts?.route) data.route = opts.route;

@@ -4,6 +4,7 @@ import { history } from '@umijs/max';
 // Use App.useApp() instances (see app.tsx) to avoid AntD static message warnings
 import { getMessage, getNotification } from './utils/antdApp';
 import { normalizeApiUrl, API_V1_PREFIX } from './utils/api';
+import { getScope, isScopeReady } from './stores/scope';
 import type { JSONValue } from '@/types/dashboard';
 
 // Defer message/notification to avoid calling during render (React 18 concurrent mode)
@@ -189,11 +190,13 @@ export const errorConfig: RequestConfig = {
       const isASCII = (s?: string | null) => !!s && /^[\x00-\x7F]*$/.test(s);
       const token = localStorage.getItem('token');
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const gid = localStorage.getItem('game_id');
-      const env = localStorage.getItem('env');
-      // HTTP header values must be ASCII per XHR spec; skip if contains non-ASCII to avoid runtime error
-      if (isASCII(gid)) headers['X-Game-ID'] = gid as string;
-      if (isASCII(env)) headers['X-Env'] = env as string;
+      // Only add game-scope headers after GameSelector has validated them.
+      // Before that, localStorage values may be stale (wrong env for the game).
+      if (isScopeReady()) {
+        const scope = getScope();
+        if (isASCII(scope.gameId)) headers['X-Game-ID'] = scope.gameId as string;
+        if (isASCII(scope.env)) headers['X-Env'] = scope.env as string;
+      }
       const nextUrl = typeof config.url === 'string' ? normalizeApiUrl(config.url) : config.url;
       return { ...config, headers, url: nextUrl ?? config.url };
     },

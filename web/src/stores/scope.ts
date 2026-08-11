@@ -12,7 +12,17 @@ const STORAGE_KEYS = {
 
 let currentScope: Scope = {};
 let scopeReady = false;
+let resolveScopeReady: () => void;
 const listeners = new Set<ScopeListener>();
+
+// Promise that resolves when GameSelector has validated the scope.
+// API services can await this to avoid firing requests with stale values.
+export const scopeReadyPromise =
+  typeof Promise !== 'undefined'
+    ? new Promise<void>((resolve) => {
+        resolveScopeReady = resolve;
+      })
+    : Promise.resolve();
 
 const readFromStorage = (): Scope => {
   if (typeof window === 'undefined') return {};
@@ -81,6 +91,12 @@ export const subscribeScope = (listener: ScopeListener) => {
 // Initialize from storage on module load.
 hydrateScope();
 
+// If there is no auth token, the GameSelector will never load — resolve
+// immediately so API calls are not blocked forever.
+if (typeof window !== 'undefined' && !localStorage.getItem('token')) {
+  markScopeReady();
+}
+
 // isScopeReady reports whether the GameSelector has finished its initial
 // load and validated the scope (gameId + env). Until then, localStorage
 // values may be stale and API calls should be deferred.
@@ -93,6 +109,7 @@ export function isScopeReady(): boolean {
 export function markScopeReady(): void {
   if (!scopeReady) {
     scopeReady = true;
+    resolveScopeReady();
     emitScopeChange(currentScope);
   }
 }
