@@ -303,11 +303,12 @@ func TestApplyAutoMergeItemNavigationBreadcrumbV2(t *testing.T) {
 	page := spec.PageSpec{}
 	item := dashboardmerge.MergeItem{
 		Field:       "navigation.breadcrumb",
-		MergedValue: json.RawMessage(`{"zh-CN":"面包屑"}`),
+		MergedValue: json.RawMessage(`[{"title":{"zh-CN":"首页"},"path":"/"}]`),
 	}
 	err := applyAutoMergeItem(&page, item)
 	require.NoError(t, err)
 	assert.NotNil(t, page.Navigation)
+	assert.Len(t, page.Navigation.Breadcrumb, 1)
 }
 
 func TestApplyAutoMergeItemUnsupportedFieldV2(t *testing.T) {
@@ -426,14 +427,14 @@ func TestApplyConflictFieldResourceActionsV2(t *testing.T) {
 
 func TestApplyConflictFieldResourceCreateFormV2(t *testing.T) {
 	page := spec.PageSpec{}
-	err := applyConflictField(&page, "resource.createForm", json.RawMessage(`{"jsonSchema":"{}","fields":[]}`))
+	err := applyConflictField(&page, "resource.createForm", json.RawMessage(`{}`))
 	require.NoError(t, err)
 	assert.NotNil(t, page.Resource.CreateForm)
 }
 
 func TestApplyConflictFieldResourceUpdateFormV2(t *testing.T) {
 	page := spec.PageSpec{}
-	err := applyConflictField(&page, "resource.updateForm", json.RawMessage(`{"jsonSchema":"{}","fields":[]}`))
+	err := applyConflictField(&page, "resource.updateForm", json.RawMessage(`{}`))
 	require.NoError(t, err)
 	assert.NotNil(t, page.Resource.UpdateForm)
 }

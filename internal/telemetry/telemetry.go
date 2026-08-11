@@ -144,11 +144,15 @@ func (r *MetricsRegistry) GaugeDec(name string, labels map[string]string) {
 // Histogram operations
 func (r *MetricsRegistry) Observe(name string, value float64, labels map[string]string) {
 	r.mu.RLock()
-	histogram, exists := r.histograms[name]
+	histogram, hExists := r.histograms[name]
+	summary, sExists := r.summaries[name]
 	r.mu.RUnlock()
 
-	if exists {
+	if hExists {
 		histogram.Observe(labels, value)
+	}
+	if sExists {
+		summary.Observe(labels, value)
 	}
 }
 
