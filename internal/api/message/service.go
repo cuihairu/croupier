@@ -85,8 +85,8 @@ func (s *Service) Send(ctx context.Context, req *MessageSendRequest) (*MessageSe
 	return buildMessageItemResponse(msg), nil
 }
 
-// Detail returns the details of a message
-func (s *Service) Detail(ctx context.Context, req *MessageDetailRequest) (*MessageDetailResponse, error) {
+// Detail returns the details of a message owned by the current user.
+func (s *Service) Detail(ctx context.Context, username string, req *MessageDetailRequest) (*MessageDetailResponse, error) {
 	id, err := utils.ParseUintID(req.ID, "消息ID")
 	if err != nil {
 		return nil, err
@@ -97,21 +97,34 @@ func (s *Service) Detail(ctx context.Context, req *MessageDetailRequest) (*Messa
 		return nil, err
 	}
 
+	if strings.TrimSpace(msg.To) != "" && strings.TrimSpace(msg.To) != strings.TrimSpace(username) {
+		return nil, errors.New("无权查看此消息")
+	}
+
 	return buildMessageItemResponse(msg), nil
 }
 
-// Read marks a message as read
-func (s *Service) Read(ctx context.Context, req *MessageReadRequest) (*MessageReadResponse, error) {
+// Read marks a message as read, verifying ownership.
+func (s *Service) Read(ctx context.Context, username string, req *MessageReadRequest) (*MessageReadResponse, error) {
 	id, err := utils.ParseUintID(req.ID, "消息ID")
 	if err != nil {
 		return nil, err
+	}
+
+	msg, err := s.svcCtx.MessageModel.FindOne(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.TrimSpace(msg.To) != "" && strings.TrimSpace(msg.To) != strings.TrimSpace(username) {
+		return nil, errors.New("无权操作此消息")
 	}
 
 	if err := s.svcCtx.MessageModel.MarkRead(ctx, id); err != nil {
 		return nil, err
 	}
 
-	msg, err := s.svcCtx.MessageModel.FindOne(ctx, id)
+	msg, err = s.svcCtx.MessageModel.FindOne(ctx, id)
 	if err != nil {
 		return nil, err
 	}

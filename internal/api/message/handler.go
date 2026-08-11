@@ -1,6 +1,12 @@
 package message
 
 import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"time"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -62,7 +68,7 @@ func (h *Handler) Detail(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.Detail(c.Request.Context(), &req)
+	resp, err := h.service.Detail(c.Request.Context(), currentUsername(c), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -78,7 +84,7 @@ func (h *Handler) Read(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.Read(c.Request.Context(), &req)
+	resp, err := h.service.Read(c.Request.Context(), currentUsername(c), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -102,20 +108,49 @@ func (h *Handler) UnreadCount(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Stream handles the request to stream messages
+// Stream handles the SSE stream for messages.
 func (h *Handler) Stream(c *gin.Context) {
-	var req StreamMessagesRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Error(c, err)
+	username := currentUsername(c)
+	if username == "" {
+		response.Unauthorized(c, "未授权")
 		return
 	}
 
-	resp, err := h.service.Stream(c.Request.Context(), currentUsername(c), &req)
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Status(http.StatusOK)
+
+	// Use the request context — gin cancels it when the client disconnects.
+	ctx := c.Request.Context()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	h.sendMessagesEvent(c, username)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			h.sendMessagesEvent(c, username)
+		}
+	}
+}
+
+func (h *Handler) sendMessagesEvent(c *gin.Context, username string) {
+	resp, err := h.service.Stream(c.Request.Context(), username, &StreamMessagesRequest{})
 	if err != nil {
-		response.Error(c, err)
+		slog.ErrorContext(c.Request.Context(), "SSE message stream error", "error", err)
 		return
 	}
-	response.Success(c, resp)
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return
+	}
+	fmt.Fprintf(c.Writer, "event: messages\ndata: %s\n\n", data)
+	c.Writer.Flush()
 }
 
 // Get alias for route compatibility

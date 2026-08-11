@@ -1,6 +1,7 @@
 package message
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -81,6 +83,7 @@ func TestHandler_SendAndDetail_RoundTrip(t *testing.T) {
 
 	// List reflects the new message.
 	listCtx, listRec := newMessageRequest(http.MethodGet, "/api/v1/messages?page=1&pageSize=10", "")
+	listCtx.Set("username", "user-1")
 	handler.List(listCtx)
 	require.Equal(t, http.StatusOK, listRec.Code)
 	var listResp MessagesListResponse
@@ -91,6 +94,7 @@ func TestHandler_SendAndDetail_RoundTrip(t *testing.T) {
 	// Fetch detail by id.
 	detailCtx, detailRec := newMessageRequest(http.MethodGet, fmt.Sprintf("/api/v1/messages/%v", sent.ID), "")
 	detailCtx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(sent.ID)}}
+	detailCtx.Set("username", "user-1")
 	handler.Detail(detailCtx)
 	require.Equal(t, http.StatusOK, detailRec.Code, detailRec.Body.String())
 }
@@ -181,11 +185,29 @@ func TestHandler_Stream_Success(t *testing.T) {
 	handler.Send(sendCtx)
 	require.Equal(t, http.StatusOK, sendRec.Code)
 
-	ctx, rec := newMessageRequest(http.MethodGet, "/api/v1/messages/stream", "")
-	handler.Stream(ctx)
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/messages/stream", nil).WithContext(cancelCtx)
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = req
+	ctx.Set("username", "u")
+
+	done := make(chan struct{})
+	go func() {
+		handler.Stream(ctx)
+		close(done)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Stream handler did not exit")
+	}
 
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	var resp StreamMessagesResponse
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	assert.NotNil(t, resp.Items)
 }

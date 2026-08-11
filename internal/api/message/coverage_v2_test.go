@@ -1,9 +1,12 @@
 package message
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -95,6 +98,7 @@ func TestHandler_Read_V2(t *testing.T) {
 	// Read the message
 	readCtx, readRec := newMessageRequest(http.MethodGet, "/api/v1/messages/"+jsonStr(sent.ID), "")
 	readCtx.Params = gin.Params{{Key: "id", Value: jsonStr(sent.ID)}}
+	readCtx.Set("username", "u")
 	handler.Read(readCtx)
 	require.Equal(t, http.StatusOK, readRec.Code, readRec.Body.String())
 
@@ -150,6 +154,7 @@ func TestHandler_Get_Alias_V2(t *testing.T) {
 	// Get via alias
 	getCtx, getRec := newMessageRequest(http.MethodGet, "/api/v1/messages/"+jsonStr(sent.ID), "")
 	getCtx.Params = gin.Params{{Key: "id", Value: jsonStr(sent.ID)}}
+	getCtx.Set("username", "u")
 	handler.Get(getCtx)
 	require.Equal(t, http.StatusOK, getRec.Code, getRec.Body.String())
 }
@@ -252,13 +257,32 @@ func TestHandler_Stream_Empty_V2(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	ctx, rec := newMessageRequest(http.MethodGet, "/api/v1/messages/stream", "")
-	handler.Stream(ctx)
-	require.Equal(t, http.StatusOK, rec.Code)
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/messages/stream", nil).WithContext(cancelCtx)
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = req
+	ctx.Set("username", "testuser")
 
-	var resp StreamMessagesResponse
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	assert.Empty(t, resp.Items)
+	done := make(chan struct{})
+	go func() {
+		handler.Stream(ctx)
+		close(done)
+	}()
+
+	// Cancel after first event
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Stream handler did not exit")
+	}
+
+	require.Equal(t, http.StatusOK, rec.Code)
 }
 
 // ---- UnreadCount ----
