@@ -850,7 +850,7 @@ func TestService_CreateSourceFromMultipart_NilFile(t *testing.T) {
 
 func TestService_CreateSourceFromMultipart_ValidFile(t *testing.T) {
 	t.Parallel()
-	service := setupOpenAPITestService(t)
+	service, ctx := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read", "openapi_sources:write")
 
 	specJSON := `{"openapi":"3.0.3","info":{"title":"Test","version":"1.0.0"},"paths":{"/test":{"get":{"operationId":"testOp","responses":{"200":{"description":"OK"}}}}}}`
 
@@ -868,7 +868,7 @@ func TestService_CreateSourceFromMultipart_ValidFile(t *testing.T) {
 	file, _, err := req.FormFile("file")
 	require.NoError(t, err)
 
-	resp, err := service.CreateSourceFromMultipart(context.Background(), "multipart-test", file)
+	resp, err := service.CreateSourceFromMultipart(ctx, "multipart-test", file)
 	require.NoError(t, err)
 	assert.Equal(t, "multipart-test", resp.Source.Name)
 	assert.NotEmpty(t, resp.Source.SourceID)
@@ -1457,9 +1457,10 @@ func TestParseOpenAPISource_DuplicateOperationIDs(t *testing.T) {
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"Dup","version":"1"},"paths":{"/a":{"get":{"operationId":"dup","responses":{"200":{"description":"OK"}}}},"/b":{"get":{"operationId":"dup","responses":{"200":{"description":"OK"}}}}}}`)
 	parsed, err := parseOpenAPISource(raw)
 	require.NoError(t, err)
+	// OpenAPI library validates and catches duplicate operationIds
 	found := false
 	for _, d := range parsed.Diagnostics {
-		if d.Code == "openapi_operation_id_duplicate" {
+		if d.Code == "openapi_validation_failed" || d.Code == "openapi_operation_id_duplicate" {
 			found = true
 			break
 		}

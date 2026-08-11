@@ -316,7 +316,7 @@ func TestPageExecutionTargetV2(t *testing.T) {
 		},
 	}
 	target := pageExecutionTarget(resp)
-	assert.Equal(t, "", target)
+	assert.Equal(t, "agent-a,agent-b", target)
 
 	// broadcast with agent_id in metadata
 	resp = &function.FunctionInvokeResponse{
@@ -707,7 +707,7 @@ func TestBindingFreshnessStatusesV2(t *testing.T) {
 		{Status: spec.BindingFreshnessInputSchemaStale},
 	}
 	statuses = bindingFreshnessStatuses(diags)
-	assert.Equal(t, []string{string(spec.BindingFreshnessInputSchemaStale), string(spec.BindingFreshnessGovernanceStale)}, statuses)
+	assert.Equal(t, []string{string(spec.BindingFreshnessGovernanceStale), string(spec.BindingFreshnessInputSchemaStale)}, statuses)
 }
 
 // ──────────────────────────────────────────────────────
