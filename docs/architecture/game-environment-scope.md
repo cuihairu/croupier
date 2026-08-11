@@ -12,7 +12,7 @@ tag:
 
 # 游戏与环境作用域
 
-> **状态**：Current — 当前实现/规范，可作为实现依据。
+> **状态**：Target — 游戏环境 scope 的目标规范。实现完成前，代码现状不能反向改变本规范；迁移完成后应以本文的验收条件核验。
 
 ## 1. 设计前提
 
@@ -51,9 +51,11 @@ scope = game_id + env
 - 告警与观测维度
 - 函数路由
 
-## 3. 数据库架构：按游戏分库
+## 3. 数据库架构：按游戏环境路由
 
-Croupier 采用 **数据库-per-game 架构**，每个游戏完全独立的数据库。
+Croupier 的业务隔离单位始终是 `(game_id, env)`。部署可选择单库行级隔离或按游戏环境物理分库；两种模式不能改变 API、授权和审计的 scope 语义。
+
+在 `multiGame: true` 时，采用 **database-per-game-environment 架构**，每个游戏环境使用独立物理数据库。
 
 ### 3.1 架构示意
 
@@ -222,8 +224,8 @@ GROUP BY server_id;
 
 1. 不再用 "tenant / multi-tenant" 描述 `game_id + env`
 2. API、SDK、权限、审计统一以 `game_id + env` 为标准作用域
-3. **数据库层采用按游戏分库架构，每个 `(game_id, env)` 对应独立数据库**
-4. 存储层不需要 `game_id` 和 `env` 字段（已在数据库/表名称中体现）
+3. `multiGame: true` 时，数据库层按 `(game_id, env)` 路由到独立数据库；`multiGame: false` 时，使用单库行级隔离
+4. 所有游戏业务记录都保留 `game_id` 和 `env` 两列；物理分库时它们是冗余校验与审计字段，单库时它们是隔离条件
 5. **新增 `server_id` 作为核心字段**，支持 MMORPG 多服务器架构
 6. 需要表达部署位置时，使用 `target`、`agent`、`node`、`cluster` 等单独字段
 
@@ -248,100 +250,158 @@ Croupier 通过 `database.multiGame` 配置项支持两种运行模式：
 
 两种模式下，API 层和模型层代码完全一致，差异仅在连接管理。
 
-## 12. Scope 统一传递迁移方案
+## 12. 授权与请求 scope 解析
 
-### 12.1 目标
+### 12.1 授权的最小单位
 
-前端统一通过 `X-Game-ID` / `X-Env` HTTP headers 传递 scope，由 request interceptor 自动添加。后端 handler 统一从 `GameScopeFromContext(ctx)` 读取，不再从 query params 或 request body 读取。
+管理员可访问范围以 `(admin_id, game_id, env)` 为最小授权单元。元数据库使用 `admin_game_env_scopes` 表作为唯一的环境级授权来源：
 
-### 12.2 Scope 解析优先级
+```sql
+admin_game_env_scopes
+├─ admin_id       -- admins.id
+├─ game_id        -- games.game_id，业务游戏标识，和 API 中的 game_id 一致
+├─ env
+├─ created_at
+└─ updated_at
 
+UNIQUE (admin_id, game_id, env)
+INDEX  (admin_id, game_id, env)
 ```
-GameDBMiddleware 解析流程：
-  1. 读取 X-Game-ID / X-Env headers
-  2. 如果 header 为空 → 读取 admins.last_game_id / last_env（上次选择）
-  3. 如果仍然为空 → 使用第一个授权的游戏/env
-  4. 验证 (gameId, env) 是否在用户的授权范围内
-  5. 写入 context → GameScopeFromContext(ctx) 获取
+
+约束如下：
+
+- `game_id` 使用稳定的业务标识，不使用容易与 API 含义混淆的内部游戏主键；如实现必须引用内部主键，应单独命名为 `game_pk`。
+- `game_id` 和 `env` 必须都对应已登记、启用的游戏环境。
+- 普通管理员没有授权记录即没有任何游戏环境访问权，**不得**以”没有记录”解释为”可访问全部”。
+- 全局管理员访问权只能来自明确的全局角色或权限；其绕过授权表的规则必须集中在授权服务中，不能散落在 handler 或 SQL 的空记录分支中。
+- 不引入 `env = '*'`、空 `env` 等通配语义。需要授予多个环境时，显式写入多个授权行，保持查询和撤权语义简单、可审计。
+
+游戏级授权如果仍因管理界面而存在，只能作为批量维护 `admin_game_env_scopes` 的辅助数据，不能成为运行时授权的第二真相来源。
+
+### 12.2 已确定方案：无状态 JWT 与持久化默认 scope
+
+Croupier 采用 **无状态 JWT + 持久化默认 scope + 可选请求覆盖**，不引入服务端 session。
+
+```text
+登录 / 任意受保护请求
+  → JWT 验签并解析 admin_id
+  → 游戏环境相关请求：解析本次完整 header，或读取数据库默认 scope
+  → 校验 (admin_id, game_id, env) 授权
+  → 将 ResolvedScope 写入本次 request context
 ```
 
-### 12.3 接口分类
+职责边界如下：
 
-**需要 scope 的接口**（必须有 X-Game-ID/X-Env）：
-- functions, assignments, configs, analytics, players
-- resource catalog, pages, approvals
+| 数据                           | 职责                                     | 生命周期                         |
+| ------------------------------ | ---------------------------------------- | -------------------------------- |
+| JWT                            | 认证调用方身份（`admin_id`、角色等）     | token 有效期内；服务端不保存会话 |
+| `admin_game_env_scopes`        | 判断用户可访问哪些游戏环境               | 持久化授权数据                   |
+| `admins.last_game_id/last_env` | 用户未显式指定时的默认 scope             | 持久化用户偏好，不授予权限       |
+| `X-Game-ID` / `X-Env`          | 对单次请求显式覆盖默认 scope             | 仅当前 HTTP 请求                 |
+| `ResolvedScope`                | 业务服务、审计和 DB 路由使用的唯一 scope | 仅当前 request context           |
 
-**不需要 scope 的接口**（忽略 X-Game-ID/X-Env）：
-- SSE: `/api/v1/messages/stream` — 拉取用户所有授权游戏的消息
-- profile, auth, admin, roles — scope 无关
+该方案保持 HTTP/JWT 的无状态特性：服务端不在内存或 Redis 中维护”当前游戏环境”，因此可水平扩展且重启不丢失默认选择。持久化的是用户偏好，而不是会话状态。
 
-**可选 scope 的接口**（有 scope 则过滤，无 scope 则显示所有授权数据）：
-- audit, tasks, function-calls
+不采用”仅依赖服务端唯一当前 scope”的原因是多标签页和多终端会互相覆盖：用户可以在标签页 A 查看 `game-a/prod`，同时在标签页 B 查看 `game-b/test`。可选的完整 header 仅描述本次请求，避免将该并发上下文写回用户默认选择。
 
-### 12.4 「上次选择」持久化
+### 12.3 备选方案比较
 
-**admins 表新增字段：**
-- `last_game_id VARCHAR(64)` — 上次选择的游戏 ID
-- `last_env VARCHAR(64)` — 上次选择的环境
+| 方案                                       | scope 来源                           | 优点                                           | 不采用或限制原因                                                                   |
+| ------------------------------------------ | ------------------------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 纯 header                                  | 每个请求的 `X-Game-ID/X-Env`         | 无服务端状态，便于单次切换                     | 默认选择只在前端，登录与跨设备恢复不可靠；每个请求都依赖客户端状态                 |
+| 有状态 session                             | 内存或 Redis 中的用户当前 scope      | 客户端可以不发送 scope                         | 水平扩展需共享 session；重启与过期要恢复；多标签页/多终端的单一当前 scope 相互覆盖 |
+| **已确定：JWT + 默认 scope + 可选 header** | 数据库默认 scope；完整 header 可覆盖 | 无服务端 session、可恢复、支持多标签页和多终端 | 需要一次授权校验与清晰的 header 优先级；这是可接受且必要的复杂度                   |
 
-**API：**
-- `PATCH /api/v1/profile/scope` — 持久化当前选择
-- 登录响应增加 `lastGameId` / `lastEnv` 字段
+### 12.4 上次选择的持久化
 
-**前端流程：**
-1. 登录 → 获取 `lastGameId`/`lastEnv` → 恢复 scope
-2. 用户切换 game/env → 调用 `PATCH /api/v1/profile/scope` 持久化
-3. 页面加载 → request interceptor 从 `getScope()` 读取，通过 headers 发送
+`admins` 表增加可空字段：
 
-### 12.5 后端 handler 改造
+```text
+last_game_id
+last_env
+```
 
-所有 handler 从 `GameScopeFromContext(ctx)` 读取 scope，而非从 query params：
+它们只表示用户界面上最近一次成功选择的 scope，不授予任何权限。必须满足以下不变量：
 
-```go
-// 改造前
-func (h *Handler) List(c *gin.Context) {
-    var req ListRequest
-    c.ShouldBindQuery(&req) // req.GameID 从 query params 读取
-    ...
+- 两字段要么同时为空，要么组成一个完整的 `(game_id, env)`；不得保存半个 scope。
+- 保存前必须验证该 scope 仍在当前管理员的授权集合内。
+- 撤销该 scope 的授权时，必须同步清空匹配的上次选择；即使清理遗漏，读取时也必须再次校验，不能恢复失效 scope。
+
+登录响应返回已验证的上次选择：
+
+```json
+{
+  “scope”: { “gameId”: “demo”, “env”: “prod” }
 }
-
-// 改造后
-func (h *Handler) List(c *gin.Context) {
-    scope := svc.GameScopeFromContext(c.Request.Context())
-    gameID := scope.GameID  // 从 context 读取（middleware 从 header 解析）
-    env := scope.Env
-    ...
-}
 ```
 
-保留 `form` tag 作为向后兼容（旧客户端），但 handler 优先使用 context 值。
+无有效上次选择时返回 `null`。切换成功后由 `PATCH /api/v1/profile/scope` 持久化，body 必须同时包含 `gameId` 与 `env`；接口在认证身份下重新校验授权后才更新这两个字段。
 
-### 12.6 SSE 不受 scope 限制
+### 12.5 游戏环境接口的 scope 优先级
 
-`/api/v1/messages/stream` 查询用户所有授权游戏的消息，不依赖 `X-Game-ID`/`X-Env`。后端根据 `admin_game_scopes` 表过滤消息。
+只有声明为”游戏环境相关”的接口才解析 scope。解析顺序固定为：
 
-### 12.7 前端统一改造
+```text
+完整 X-Game-ID + X-Env
+  → 已授权的 last_game_id + last_env
+  → 按稳定顺序（game_id, env）选择第一个已授权 scope
+  → 无可访问 scope
+```
 
-- 移除所有 API 函数中的 `gameId`/`env` query params 和 body 字段
-- 统一由 request interceptor 通过 headers 发送
-- `functions.ts` 已改用 `getScope()` 替代直接读 localStorage
-- `scopeReady` 机制确保 GameSelector 验证后才发请求
+规则：
 
-### 12.8 迁移步骤
+- 两个 header 都存在时，必须作为一个整体校验其格式、环境登记状态和当前用户授权；通过后仅覆盖本次请求，**不**更新 `last_game_id/last_env`。校验失败返回 `403`，不泄露目标 scope 是否存在。
+- 两个 header 都缺失时，才允许使用持久化的上次选择或首个已授权 scope。
+- 只传其中一个 header 是不完整请求，返回 `400`；不得将 header 与上次选择拼接成一个 scope。
+- 不从 query 参数或请求 body 补齐请求 scope。它们可以表达某个业务资源的标识，但不能替代本请求的访问上下文。
+- 没有任何可访问 scope 时返回明确的无授权错误；前端据此显示无可访问游戏环境，而不是任选一个游戏。
 
-1. **后端**: Admin model 新增 `last_game_id`/`last_env`，migration
-2. **后端**: `GameDBMiddleware` 增加 fallback 逻辑（header → last → first authorized）
-3. **后端**: 新增 `PATCH /api/v1/profile/scope` API
-4. **后端**: 登录响应增加 `lastGameId`/`lastEnv`
-5. **后端**: handler 逐步改为从 context 读取 scope
-6. **前端**: 登录后恢复 `lastGameId`/`lastEnv`
-7. **前端**: scope 变更时调用 `PATCH /api/v1/profile/scope` 持久化
-8. **前端**: 移除 API 函数中的 gameId/env query params
-9. **前端**: SSE 接口确认不传 scope
+解析器在认证之后执行，向 request context 写入唯一的 `ResolvedScope`；数据库路由、权限检查、审计标签和业务服务均只读取该值。数据库 Router 不应自行再解析 header，避免一个请求出现两个 scope 来源。
 
-### 12.9 潜在问题
+### 12.6 scope 中立接口
 
-- `admin_game_scopes` 使用 numeric GameID（DB 主键），而 headers 使用 string GameID（业务标识如 "demo_game"）。需要通过 `games` 表关联。
-- 首次登录没有 `last_game_id`，需要 fallback 到第一个授权游戏。
-- 授权变更后 `last_game_id` 可能失效，middleware 需要验证授权范围并 fallback。
-- SSE 消息过滤需要后端根据用户授权的游戏列表实现，而非依赖 header。
+认证不等于必须解析游戏环境。接口按路由分组：
+
+```text
+所有受保护接口        → 认证中间件
+游戏环境相关接口      → ScopeResolver → 授权校验 → 数据库路由
+scope 中立接口        → 不读取、不恢复、不校验 game_id / env
+```
+
+登录、个人资料、可选游戏列表、授权管理，以及全局通知流均为 scope 中立接口。即使客户端统一附带 scope header，这些接口也必须忽略它，不能因它触发数据库路由或授权失败。
+
+## 13. API 传输与 SSE
+
+### 13.1 HTTP API
+
+游戏环境相关 API 的请求上下文由 `ResolvedScope` 表达，服务层只从 request context 取值。`X-Game-ID` 和 `X-Env` 是可选的、成对出现的单次请求覆盖；两者缺失时，服务端使用已验证的默认 scope。
+
+前端可以在当前页面需要固定 scope（特别是多标签页）时由 request interceptor 统一附带这两个 header，但不得把”每次必传 header”作为正确性前提。单标签页的默认流程可只使用服务端恢复的默认 scope。
+
+不得为了兼容而同时在 query、body、header 重复传递同一个请求 scope。例外是”管理游戏或环境”这一类 scope 中立 API：其中的 `gameId`、`env` 是要操作的业务资源字段，不是调用方当前 scope，必须在 DTO 中以清晰的语义命名并单独授权。
+
+前端在登录或刷新授权信息后，先恢复服务端返回的 scope，再发起游戏环境相关请求；没有可用 scope 时不得发起这类请求。scope 中立请求不依赖这一步。
+
+### 13.2 SSE 不受当前 scope 限制
+
+`/api/v1/messages/stream` 是 scope 中立接口：它需要认证，但**不读取** `X-Game-ID`、`X-Env`，也不使用上次选择回退。它返回当前用户在其全部授权游戏环境中的消息，而非仅返回当前选中游戏环境的消息。
+
+通知消息保存在元数据库，避免为一条 SSE 连接跨多个游戏数据库聚合。消息需要具备以下归属语义：
+
+- 游戏环境消息必须同时写入 `game_id` 与 `env`；推送和历史查询均按当前用户的授权 scope 集合过滤。
+- 全局消息的 `game_id` 与 `env` 同时为空；其可见范围必须有明确策略（例如全体已认证管理员），不得把只缺一个字段的消息视作全局消息。
+- 建议在数据库增加约束：两个字段要么同时为空，要么同时非空。
+
+用户的游戏环境授权发生变化时，SSE 权限不能停留在建连时刻。授权变更必须使该用户的授权缓存失效，并主动断开其 SSE 连接；客户端重连后按新的授权集合重新订阅。消息 fan-out 也必须以当前授权集合过滤，不能仅依赖客户端传入的 scope。
+
+原生浏览器 `EventSource` 不能自定义请求 header。SSE 认证应使用受保护的同源会话 Cookie 或项目统一的安全认证机制；不得将长期 JWT 放入 URL query。由于 SSE 不解析 scope，客户端无需也不应为它传递 scope。
+
+## 14. 迁移与验收顺序
+
+1. 建立 `admin_game_env_scopes` 的唯一约束和授权查询；迁移现有授权数据时，显式展开为环境级授权行。
+2. 为 `admins` 增加 `last_game_id`、`last_env`，并清理不完整或不再授权的历史值。
+3. 实现并测试 scope 中立路由组、`ScopeResolver`、授权校验和数据库路由的固定顺序。
+4. 新增 `PATCH /api/v1/profile/scope`，登录响应返回已验证的 scope；验证完整、缺失、撤权和无授权用户的全部分支。
+5. 将游戏环境相关 API 移除 request scope 的 query/body 重复传递；保留业务资源字段并明确命名。
+6. 为消息增加 scope 归属规则，完成 SSE 的全授权范围过滤、撤权断连与重连测试。
+7. 验收：伪造 header、半个 header、失效上次选择、撤权后 SSE、无授权用户、全局消息与跨多个授权环境的消息均必须有自动化测试。
