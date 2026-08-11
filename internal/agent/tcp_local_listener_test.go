@@ -3,9 +3,11 @@ package agent
 import (
 	"context"
 	"log/slog"
+	"net"
 	"testing"
 	"time"
 
+	transportcore "github.com/cuihairu/croupier/internal/transport"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -13,6 +15,48 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
+
+func TestTCPLocalListener_InvokesProviderOverEstablishedSession(t *testing.T) {
+	listener, err := NewTCPLocalListener(&TCPLocalListenerConfig{Address: "127.0.0.1:0"}, nil, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, listener.Close()) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = listener.Serve(ctx) }()
+
+	conn, err := net.Dial("tcp", listener.Addr())
+	require.NoError(t, err)
+	provider := tcptr.NewMuxConn(conn, nil, transportcore.HandlerFunc(func(_ context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
+		require.EqualValues(t, protocol.MsgInvokeRequest, msgID)
+		request := &sdkv1.InvokeRequest{}
+		require.NoError(t, proto.Unmarshal(body, request))
+		require.Equal(t, "mail.send", request.GetFunctionId())
+		return proto.Marshal(&sdkv1.InvokeResponse{Payload: []byte(`{"accepted":true}`)})
+	}))
+	go func() { _ = provider.Run(ctx) }()
+	t.Cleanup(func() { _ = provider.Close() })
+
+	connectBody, err := proto.Marshal(&sdkv1.ProviderConnectRequest{
+		ServiceId: "mail-provider",
+		Version:   "1.0.0",
+		Functions: []*sdkv1.ProviderFunctionDescriptor{{Id: "mail.send", Version: "1.0.0"}},
+	})
+	require.NoError(t, err)
+	_, _, err = provider.Call(ctx, protocol.MsgProviderConnectRequest, connectBody)
+	require.NoError(t, err)
+
+	session, ok := listener.SessionStore().GetByServiceID("mail-provider")
+	require.True(t, ok)
+	invokeBody, err := proto.Marshal(&sdkv1.InvokeRequest{FunctionId: "mail.send", Payload: []byte(`{"to":"a@example.com"}`)})
+	require.NoError(t, err)
+	responseID, responseBody, err := session.Conn().Call(ctx, protocol.MsgInvokeRequest, invokeBody)
+	require.NoError(t, err)
+	require.EqualValues(t, protocol.MsgInvokeResponse, responseID)
+	response := &sdkv1.InvokeResponse{}
+	require.NoError(t, proto.Unmarshal(responseBody, response))
+	require.JSONEq(t, `{"accepted":true}`, string(response.GetPayload()))
+}
 
 // --- Unit Tests for NewTCPLocalListener ---
 

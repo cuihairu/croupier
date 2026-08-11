@@ -54,18 +54,27 @@ type OpsServerWrapper interface {
 // LocalHandler contains the business logic for handling agent requests
 // without any transport-specific dependencies.
 type LocalHandler struct {
-	store          *agentlocal.LocalStore
-	tasks          *TaskRunner
-	pm             ProviderManager // Use field name `pm` to avoid conflict with existing providerManager in app.go
-	opsServer      OpsServerWrapper
-	reporter       TaskEventReporter
-	tlsCfg         *tlsutil.ClientTLSConfig
-	logger         *slog.Logger
-	configDir      string
-	agentID        string
-	expectedGameID string // Agent 配置的 gameId，用于校验 SDK 注册
-	expectedEnv    string // Agent 配置的 env，用于校验 SDK 注册
-	mu             sync.RWMutex
+	store            *agentlocal.LocalStore
+	tasks            *TaskRunner
+	pm               ProviderManager // Use field name `pm` to avoid conflict with existing providerManager in app.go
+	opsServer        OpsServerWrapper
+	reporter         TaskEventReporter
+	providerSessions *ProviderSessionStore
+	tlsCfg           *tlsutil.ClientTLSConfig
+	logger           *slog.Logger
+	configDir        string
+	agentID          string
+	expectedGameID   string // Agent 配置的 gameId，用于校验 SDK 注册
+	expectedEnv      string // Agent 配置的 env，用于校验 SDK 注册
+	mu               sync.RWMutex
+}
+
+// SetProviderSessionStore enables callback over the Provider's established
+// TCP session instead of dialing an address supplied by the Provider.
+func (h *LocalHandler) SetProviderSessionStore(store *ProviderSessionStore) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.providerSessions = store
 }
 
 // NewLocalHandler creates a new LocalHandler instance
@@ -225,7 +234,7 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 		return nil, err
 	}
 
-	respBytes, err := h.callLocalProvider(callCtx, addr, protocol.MsgInvokeRequest, reqBytes)
+	respBytes, err := h.callProvider(callCtx, functionID, req.GetMetadata(), addr, protocol.MsgInvokeRequest, reqBytes)
 	if err != nil {
 		err = fmt.Errorf("invoke local provider at %s: %w", addr, err)
 		recordSpanResult(span, err)
@@ -242,6 +251,30 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 	out, err := proto.Marshal(resp)
 	recordSpanResult(span, err)
 	return out, err
+}
+
+func (h *LocalHandler) callProvider(ctx context.Context, functionID string, metadata map[string]string, fallbackAddr string, msgID uint32, data []byte) ([]byte, error) {
+	h.mu.RLock()
+	sessions := h.providerSessions
+	h.mu.RUnlock()
+	if sessions != nil {
+		serviceID := metadata["service_id"]
+		if serviceID != "" {
+			if session, ok := sessions.GetByServiceID(serviceID); ok && session.Conn() != nil {
+				_, response, err := session.Conn().Call(ctx, msgID, data)
+				return response, err
+			}
+		}
+		for _, session := range sessions.List() {
+			for _, id := range session.FunctionIDs() {
+				if id == functionID && session.Conn() != nil {
+					_, response, err := session.Conn().Call(ctx, msgID, data)
+					return response, err
+				}
+			}
+		}
+	}
+	return h.callLocalProvider(ctx, fallbackAddr, msgID, data)
 }
 
 // callLocalProvider calls a local provider using TCP transport only

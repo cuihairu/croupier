@@ -113,6 +113,9 @@ func (m *TCPManager) Connect(ctx context.Context) error {
 		Address:     m.config.AgentAddr,
 		Insecure:    m.config.Insecure,
 		DialTimeout: 30 * time.Second,
+		InboundHandler: func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+			return m.rpcHandler.Handle(ctx, msgID, reqID, body)
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("create TCP client: %w", err)

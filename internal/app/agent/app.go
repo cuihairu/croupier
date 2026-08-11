@@ -19,7 +19,6 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -137,16 +136,29 @@ func (a *App) StartLocalServer() error {
 	opsWrapper := &opsServerWrapper{ops: a.opsServer}
 	a.localHandler.SetOpsServer(opsWrapper)
 
-	// Start TCP server with local handler
-	tcpServer, err := tcptr.NewServer(&tcptr.Config{
+	// Keep each SDK Provider's established TCP session so invocations can be
+	// forwarded over that session instead of dialing a provider-supplied address.
+	providerSessions := agent.NewProviderSessionStore()
+	a.localHandler.SetProviderSessionStore(providerSessions)
+	tcpServer, err := agent.NewTCPLocalListener(&agent.TCPLocalListenerConfig{
 		Address:     a.localAddr,
-		Insecure:    true,
 		RecvTimeout: 30 * time.Second,
 		SendTimeout: 30 * time.Second,
-	}, a.localHandler)
+	}, providerSessions, slog.Default())
 	if err != nil {
 		return fmt.Errorf("failed to create TCP local server: %w", err)
 	}
+	tcpServer.SetLocalHandler(a.localHandler)
+	tcpServer.SetOnConnect(func(session *agent.ProviderSession) {
+		a.store.Register(session.SessionID, session.ServiceID, session.ServiceID, session.Version, session.Functions, map[string]string{
+			"sdk_language": session.SDKLanguage,
+			"sdk_version":  session.SDKVersion,
+			"sdk_name":     session.SDKName,
+		})
+	})
+	tcpServer.SetOnDisconnect(func(session *agent.ProviderSession) {
+		a.store.RemoveProvider(session.SessionID)
+	})
 	a.localServer = tcpServer
 	go func() {
 		if err := tcpServer.Serve(context.Background()); err != nil && !errors.Is(err, context.Canceled) {

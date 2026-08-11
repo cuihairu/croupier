@@ -1,512 +1,330 @@
-/**
- * 函数调试页面 - 类似 Postman 的专业调试界面
- */
-
+/** 函数调用工作台：编排状态和调用，展示逻辑由子组件承担。 */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
+import { Alert, App, Button, Card, Col, Row, Select, Space, Tag, Typography } from 'antd';
+import { HistoryOutlined, ReloadOutlined, SendOutlined } from '@ant-design/icons';
+import { getLocale, history, useLocation } from '@umijs/max';
+import { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import {
-  Alert,
-  App,
-  Button,
-  Card,
-  Col,
-  Collapse,
-  Divider,
-  Empty,
-  Input,
-  Row,
-  Select,
-  Space,
-  Table,
-  Tabs,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd';
-import {
-  ClockCircleOutlined,
-  CopyOutlined,
-  DeleteOutlined,
-  HistoryOutlined,
-  InfoCircleOutlined,
-  PlayCircleOutlined,
-  SendOutlined,
-} from '@ant-design/icons';
-import { history, useLocation, getLocale, useModel } from '@umijs/max';
-import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
-import { invokeFunction, listDescriptors, type FunctionDescriptor } from '@/services/api';
+  invokeFunction,
+  listDescriptors,
+  type FunctionDescriptor,
+  type InvokeFunctionOptions,
+} from '@/services/api';
 import { extractErrorMessage } from '@/utils/errors';
 import { parseInputSchema, type JSONSchemaType } from '@/utils/json';
-import type { FormPresentationSpec, FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
+import type { FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
+import ExecutionOptions from './ExecutionOptions';
+import InvocationResponse from './InvocationResponse';
+import RequestBodyEditor from './RequestBodyEditor';
+import RequestHistory from './RequestHistory';
+import type { FormSchemaState, RequestHistoryItem } from './types';
 
-const { Text, Title } = Typography;
-const { TextArea } = Input;
-
-// Types
-interface RequestHistory {
-  id: string;
-  functionId: string;
-  timestamp: string;
-  duration: number;
-  status: 'success' | 'error';
-  request: JSONValue;
-  response?: JSONValue;
-  error?: string;
-}
-
-type FormSchemaState =
-  | { status: 'idle' | 'loading'; schema?: undefined; error?: undefined }
-  | { status: 'ready'; spec: FormPresentationSpec; error?: undefined }
-  | { status: 'error'; schema?: undefined; error: string };
-
+const { Text } = Typography;
+const HISTORY_KEY = 'croupier.function-invoke.history.v1';
 const EMPTY_FORM_STATE: FormSchemaState = { status: 'idle' };
 
-// Helpers
-const resolveName = (descriptor: FunctionDescriptor, locale: string) => {
+function displayName(descriptor: FunctionDescriptor, locale: string) {
   const zh = descriptor.displayName?.zh || descriptor.summary?.zh;
   const en = descriptor.displayName?.en || descriptor.summary?.en;
-  if (locale.toLowerCase().startsWith('zh')) return zh || en || descriptor.id;
-  return en || zh || descriptor.id;
-};
+  return locale.toLowerCase().startsWith('zh')
+    ? zh || en || descriptor.id
+    : en || zh || descriptor.id;
+}
 
-const resolveSummary = (descriptor: FunctionDescriptor, locale: string) => {
-  const zh = descriptor.summary?.zh || descriptor.displayName?.zh;
-  const en = descriptor.summary?.en || descriptor.displayName?.en;
-  if (locale.toLowerCase().startsWith('zh')) {
-    return zh || en || descriptor.description || descriptor.id;
+function resolveSchema(descriptor: FunctionDescriptor): JSONSchemaType | null {
+  for (const value of [descriptor.inputSchema, descriptor.schema, descriptor.params]) {
+    if (typeof value === 'string') {
+      const schema = parseInputSchema(value);
+      if (schema) return schema;
+    } else if (value && typeof value === 'object' && !Array.isArray(value))
+      return value as JSONSchemaType;
   }
-  return en || zh || descriptor.description || descriptor.id;
-};
-
-function parseDescriptorSchema(value: unknown): JSONSchemaType | null {
-  if (!value) return null;
-  if (typeof value === 'string') return parseInputSchema(value);
-  if (typeof value === 'object' && !Array.isArray(value)) return value as JSONSchemaType;
   return null;
 }
 
-function resolveInputSchema(descriptor: FunctionDescriptor): JSONSchemaType | null {
-  return (
-    parseDescriptorSchema(descriptor.inputSchema) ||
-    parseDescriptorSchema(descriptor.schema) ||
-    parseDescriptorSchema(descriptor.params)
-  );
+function loadHistory(): RequestHistoryItem[] {
+  try {
+    const historyItems = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    return Array.isArray(historyItems) ? historyItems.slice(0, 50) : [];
+  } catch {
+    return [];
+  }
 }
 
-function buildFormPresentationSpec(schema: JSONSchemaType): FormPresentationSpec {
-  return {
-    jsonSchema: schema as JSONSchema,
-    layout: 'vertical',
-  };
-}
-
-function toJSONValue(values: FormValues): JSONValue {
-  return JSON.parse(JSON.stringify(values)) as JSONValue;
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-// Main component
 export default function FunctionInvokePage() {
   const { message } = App.useApp();
-  const location = useLocation();
   const locale = getLocale();
-  const { initialState } = useModel('@@initialState');
+  const fid = new URLSearchParams(useLocation().search).get('fid') || '';
   const formRef = useRef<SchemaFormRendererHandle | null>(null);
-  const searchParams = new URLSearchParams(location.search);
-  const fid = searchParams.get('fid') || searchParams.get('id') || '';
-
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
   const [formState, setFormState] = useState<FormSchemaState>(EMPTY_FORM_STATE);
   const [formValues, setFormValues] = useState<FormValues>({});
-  const [rawJson, setRawJson] = useState<string>('{}');
-  const [inputMode, setInputMode] = useState<'form' | 'json'>('form');
-  const [result, setResult] = useState<JSONValue | undefined>(undefined);
-  const [resultRaw, setResultRaw] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const [duration, setDuration] = useState<number>(0);
-  const [statusCode, setStatusCode] = useState<number>(0);
-  const [requestHistory, setRequestHistory] = useState<RequestHistory[]>([]);
+  const [rawJson, setRawJson] = useState('{}');
+  const [inputMode, setInputMode] = useState<'form' | 'json'>('json');
+  const [route, setRoute] = useState<NonNullable<InvokeFunctionOptions['route']>>('lb');
+  const [targetServiceId, setTargetServiceId] = useState('');
+  const [hashKey, setHashKey] = useState('');
+  const [asyncMode, setAsyncMode] = useState(false);
+  const [response, setResponse] = useState<JSONValue>();
+  const [error, setError] = useState('');
+  const [duration, setDuration] = useState(0);
+  const [historyItems, setHistoryItems] = useState<RequestHistoryItem[]>(loadHistory);
   const [showHistory, setShowHistory] = useState(false);
+  const selected = useMemo(() => descriptors.find((item) => item.id === fid), [descriptors, fid]);
 
-  const selected = useMemo(
-    () => descriptors.find((d) => d.id === fid) || descriptors[0],
-    [descriptors, fid],
-  );
-
-  useEffect(() => {
-    const loadDescriptors = async () => {
-      setLoading(true);
-      try {
-        const response = await listDescriptors();
-        setDescriptors(Array.isArray(response) ? response : []);
-      } catch (err: unknown) {
-        message.error(extractErrorMessage(err, '加载函数列表失败'));
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadDescriptors();
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setDescriptors(await listDescriptors());
+    } catch (err) {
+      message.error(extractErrorMessage(err, '加载函数列表失败'));
+    } finally {
+      setLoading(false);
+    }
   }, [message]);
-
   useEffect(() => {
-    if (!selected?.id) {
-      setFormState(EMPTY_FORM_STATE);
-      return;
-    }
-    const inputSchema = resolveInputSchema(selected);
-    if (!inputSchema) {
-      setFormState({ status: 'error', error: '当前函数没有 inputSchema' });
-      return;
-    }
-    setFormState({
-      status: 'ready',
-      spec: buildFormPresentationSpec(inputSchema),
-    });
+    refresh();
+  }, [refresh]);
+  useEffect(() => {
+    if (!selected) return setFormState(EMPTY_FORM_STATE);
+    const schema = resolveSchema(selected);
+    setFormState(
+      schema
+        ? { status: 'ready', spec: { jsonSchema: schema as JSONSchema, layout: 'vertical' } }
+        : { status: 'unavailable', error: '该函数未声明输入 Schema；请使用原始 JSON 调用。' },
+    );
     setFormValues({});
     setRawJson('{}');
-    setResult(undefined);
+    setResponse(undefined);
     setError('');
   }, [selected]);
-
-  const executeRequest = useCallback(async () => {
-    if (!selected?.id) return;
-    setExecuting(true);
-    setError('');
-    setResult(undefined);
-    setDuration(0);
-    setStatusCode(0);
-
-    const startTime = Date.now();
-    let payload: JSONValue;
-
+  useEffect(() => {
     try {
-      if (inputMode === 'form') {
-        if (!formRef.current?.validate()) {
-          throw new Error('表单校验失败');
-        }
-        const values = formRef.current?.getValues() || formValues;
-        payload = toJSONValue(values);
-      } else {
-        payload = JSON.parse(rawJson);
-      }
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(historyItems.slice(0, 50)));
+    } catch {
+      /* 存储失败不阻断调用 */
+    }
+  }, [historyItems]);
+
+  const execute = useCallback(async () => {
+    if (!selected) return;
+    let payload: JSONValue;
+    try {
+      payload =
+        inputMode === 'form' && formState.status === 'ready'
+          ? (JSON.parse(JSON.stringify(formRef.current?.getValues() || formValues)) as JSONValue)
+          : (JSON.parse(rawJson) as JSONValue);
+      if (inputMode === 'form' && formState.status === 'ready' && !formRef.current?.validate())
+        throw new Error('表单校验失败');
     } catch (err) {
-      setError(`参数解析失败: ${err instanceof Error ? err.message : String(err)}`);
-      setExecuting(false);
+      setError(`请求体不是有效 JSON：${err instanceof Error ? err.message : String(err)}`);
       return;
     }
-
+    const options: InvokeFunctionOptions = {
+      route,
+      ...(route === 'targeted' && targetServiceId.trim()
+        ? { targetServiceId: targetServiceId.trim() }
+        : {}),
+      ...(route === 'hash' && hashKey.trim() ? { hashKey: hashKey.trim() } : {}),
+      ...(asyncMode ? { mode: 'async' } : {}),
+    };
+    setExecuting(true);
+    setError('');
+    setResponse(undefined);
+    setDuration(0);
+    const startedAt = Date.now();
     try {
-      const response = await invokeFunction(selected.id, payload);
-      const elapsed = Date.now() - startTime;
+      const result = await invokeFunction(selected.id, payload, options);
+      const item: RequestHistoryItem = {
+        id: `${startedAt}`,
+        functionId: selected.id,
+        timestamp: new Date().toISOString(),
+        duration: Date.now() - startedAt,
+        status: 'success',
+        request: payload,
+        options,
+        response: (result.result ?? result) as JSONValue,
+      };
+      setDuration(item.duration);
+      setResponse(item.response);
+      setHistoryItems((items) => [item, ...items].slice(0, 50));
+      message.success(asyncMode && result.taskId ? `任务已创建：${result.taskId}` : '调用成功');
+    } catch (err) {
+      const detail = extractErrorMessage(err, '调用失败');
+      const elapsed = Date.now() - startedAt;
+      const item: RequestHistoryItem = {
+        id: `${startedAt}`,
+        functionId: selected.id,
+        timestamp: new Date().toISOString(),
+        duration: elapsed,
+        status: 'error',
+        request: payload,
+        options,
+        error: detail,
+      };
       setDuration(elapsed);
-      setStatusCode(200);
-      setResult(response);
-      setResultRaw(JSON.stringify(response, null, 2));
-      message.success('执行成功');
-
-      // Add to history
-      setRequestHistory((prev) => [
-        {
-          id: `${Date.now()}`,
-          functionId: selected.id,
-          timestamp: new Date().toISOString(),
-          duration: elapsed,
-          status: 'success',
-          request: payload,
-          response,
-        },
-        ...prev.slice(0, 49),
-      ]);
-    } catch (err: unknown) {
-      const elapsed = Date.now() - startTime;
-      setDuration(elapsed);
-      setStatusCode(500);
-      const msg = extractErrorMessage(err, '执行失败');
-      setError(msg);
-      message.error(msg);
-
-      // Add to history
-      setRequestHistory((prev) => [
-        {
-          id: `${Date.now()}`,
-          functionId: selected.id,
-          timestamp: new Date().toISOString(),
-          duration: elapsed,
-          status: 'error',
-          request: payload,
-          error: msg,
-        },
-        ...prev.slice(0, 49),
-      ]);
+      setError(detail);
+      setHistoryItems((items) => [item, ...items].slice(0, 50));
+      message.error(detail);
     } finally {
       setExecuting(false);
     }
-  }, [selected?.id, inputMode, formValues, rawJson, message]);
+  }, [
+    asyncMode,
+    formState.status,
+    formValues,
+    hashKey,
+    inputMode,
+    message,
+    rawJson,
+    route,
+    selected,
+    targetServiceId,
+  ]);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        execute();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [execute]);
 
-  const handleFunctionChange = (functionId: string) => {
-    history.push(`/system/functions/invoke?fid=${functionId}`);
+  const restore = (item: RequestHistoryItem) => {
+    history.push(`/system/functions/invoke?fid=${encodeURIComponent(item.functionId)}`);
+    setRawJson(JSON.stringify(item.request, null, 2));
+    setInputMode('json');
+    setRoute(item.options.route || 'lb');
+    setTargetServiceId(item.options.targetServiceId || '');
+    setHashKey(item.options.hashKey || '');
+    setResponse(item.response);
+    setError(item.error || '');
+    setDuration(item.duration);
   };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    message.success('已复制到剪贴板');
-  };
-
+  const responseRaw = response === undefined ? '' : JSON.stringify(response, null, 2);
   return (
     <PageContainer
-      title="函数调试"
-      subTitle="类似 Postman 的函数调试工具"
+      title="函数调用工作台"
+      subTitle="构造请求、选择路由并直接查看真实执行结果"
       extra={[
+        <Button key="refresh" icon={<ReloadOutlined />} onClick={refresh} loading={loading}>
+          刷新函数
+        </Button>,
         <Button
           key="history"
           icon={<HistoryOutlined />}
-          onClick={() => setShowHistory(!showHistory)}
+          onClick={() => setShowHistory((value) => !value)}
         >
           历史记录
-        </Button>,
-        <Button key="catalog" onClick={() => history.push('/system/functions/catalog')}>
-          函数目录
         </Button>,
       ]}
     >
       <Row gutter={16}>
-        {/* Left panel - Request */}
-        <Col span={showHistory ? 16 : 24}>
+        <Col xs={24} xl={showHistory ? 17 : 24}>
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            {/* Function selector */}
-            <Card size="small">
+            <Card size="small" bodyStyle={{ padding: 12 }}>
               <Space.Compact style={{ width: '100%' }}>
+                <Button style={{ width: 88 }} disabled>
+                  POST
+                </Button>
                 <Select
                   showSearch
-                  placeholder="选择函数"
-                  value={selected?.id}
-                  onChange={handleFunctionChange}
-                  style={{ width: '100%' }}
-                  options={descriptors.map((d) => ({
-                    label: `${d.id} - ${resolveName(d, locale)}`,
-                    value: d.id,
-                  }))}
                   loading={loading}
+                  value={selected?.id}
+                  placeholder="选择已注册函数"
+                  style={{ width: '100%' }}
+                  optionFilterProp="label"
+                  onChange={(id) =>
+                    history.push(`/system/functions/invoke?fid=${encodeURIComponent(id)}`)
+                  }
+                  options={descriptors.map((item) => ({
+                    value: item.id,
+                    label: `${item.id}  ·  ${displayName(item, locale)}`,
+                  }))}
                 />
+                <Button
+                  type="primary"
+                  icon={<SendOutlined />}
+                  loading={executing}
+                  disabled={!selected}
+                  onClick={execute}
+                >
+                  发送
+                </Button>
               </Space.Compact>
-              {selected && (
-                <div style={{ marginTop: 8 }}>
-                  <Space wrap>
-                    {selected.resource && <Tag color="blue">{selected.resource}</Tag>}
-                    {selected.operation && <Tag color="purple">{selected.operation}</Tag>}
-                    {selected.tags?.map((tag) => (
-                      <Tag key={tag}>{tag}</Tag>
-                    ))}
-                  </Space>
-                  {resolveSummary(selected, locale) && (
-                    <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-                      {resolveSummary(selected, locale)}
-                    </Text>
-                  )}
-                </div>
-              )}
-            </Card>
-
-            {/* Input tabs */}
-            <Card
-              size="small"
-              title="请求参数"
-              extra={
-                <Space>
-                  <Button
-                    type="primary"
-                    icon={<SendOutlined />}
-                    loading={executing}
-                    disabled={formState.status !== 'ready'}
-                    onClick={executeRequest}
-                  >
-                    发送
-                  </Button>
+              {selected ? (
+                <Space wrap style={{ marginTop: 8 }}>
+                  <Text strong>{displayName(selected, locale)}</Text>
+                  {selected.resource ? <Tag color="blue">{selected.resource}</Tag> : null}
+                  <Text type="secondary">{selected.description}</Text>
                 </Space>
-              }
-            >
-              <Tabs
-                activeKey={inputMode}
-                onChange={(key) => setInputMode(key as 'form' | 'json')}
-                items={[
-                  {
-                    key: 'form',
-                    label: '表单',
-                    children:
-                      formState.status === 'ready' ? (
-                        <SchemaFormRenderer
-                          ref={formRef}
-                          spec={formState.spec}
-                          initialValues={formValues}
-                          onValuesChange={(_, allValues) => {
-                            setFormValues(allValues);
-                            setRawJson(JSON.stringify(allValues, null, 2));
-                          }}
-                          hideSubmit
-                        />
-                      ) : formState.status === 'error' ? (
-                        <Alert type="error" message={formState.error} />
-                      ) : (
-                        <Empty description="请选择函数" />
-                      ),
-                  },
-                  {
-                    key: 'json',
-                    label: 'JSON',
-                    children: (
-                      <TextArea
-                        value={rawJson}
-                        onChange={(e) => {
-                          setRawJson(e.target.value);
-                          try {
-                            const parsed = JSON.parse(e.target.value);
-                            setFormValues(parsed);
-                          } catch {
-                            // Ignore parse errors
-                          }
-                        }}
-                        rows={15}
-                        style={{ fontFamily: 'monospace' }}
-                        placeholder='{"key": "value"}'
-                      />
-                    ),
-                  },
-                ]}
+              ) : !loading ? (
+                <Alert
+                  style={{ marginTop: 12 }}
+                  type="info"
+                  showIcon
+                  message="请选择一个已注册函数后再发送请求"
+                />
+              ) : null}
+            </Card>
+            <Card size="small" title="执行选项">
+              <ExecutionOptions
+                route={route}
+                targetServiceId={targetServiceId}
+                hashKey={hashKey}
+                asyncMode={asyncMode}
+                onRouteChange={setRoute}
+                onTargetServiceIdChange={setTargetServiceId}
+                onHashKeyChange={setHashKey}
+                onAsyncModeChange={setAsyncMode}
               />
             </Card>
-
-            {/* Response */}
-            {(result !== undefined || error) && (
-              <Card
-                size="small"
-                title="响应"
-                extra={
-                  <Space>
-                    {statusCode > 0 && (
-                      <Tag color={statusCode < 400 ? 'green' : 'red'}>{statusCode}</Tag>
-                    )}
-                    {duration > 0 && (
-                      <Tag icon={<ClockCircleOutlined />}>{formatDuration(duration)}</Tag>
-                    )}
-                    {resultRaw && (
-                      <Tooltip title="复制响应">
-                        <Button
-                          size="small"
-                          icon={<CopyOutlined />}
-                          onClick={() => copyToClipboard(resultRaw)}
-                        />
-                      </Tooltip>
-                    )}
-                  </Space>
+            <RequestBodyEditor
+              mode={inputMode}
+              rawJson={rawJson}
+              formState={formState}
+              formValues={formValues}
+              formRef={formRef}
+              onModeChange={setInputMode}
+              onRawJsonChange={setRawJson}
+              onFormValuesChange={(values) => {
+                setFormValues(values);
+                setRawJson(JSON.stringify(values, null, 2));
+              }}
+              onFormat={() => {
+                try {
+                  setRawJson(JSON.stringify(JSON.parse(rawJson), null, 2));
+                } catch {
+                  message.error('请求体不是有效 JSON');
                 }
-              >
-                <Tabs
-                  defaultActiveKey="pretty"
-                  items={[
-                    {
-                      key: 'pretty',
-                      label: '格式化',
-                      children: error ? (
-                        <Alert type="error" showIcon message="执行失败" description={error} />
-                      ) : (
-                        <pre
-                          style={{
-                            margin: 0,
-                            padding: 16,
-                            background: '#f5f5f5',
-                            borderRadius: 8,
-                            maxHeight: 400,
-                            overflow: 'auto',
-                            fontSize: 13,
-                            fontFamily: 'monospace',
-                          }}
-                        >
-                          {resultRaw}
-                        </pre>
-                      ),
-                    },
-                    {
-                      key: 'raw',
-                      label: '原始数据',
-                      children: (
-                        <TextArea
-                          value={resultRaw || error || ''}
-                          readOnly
-                          rows={10}
-                          style={{ fontFamily: 'monospace' }}
-                        />
-                      ),
-                    },
-                  ]}
-                />
-              </Card>
-            )}
+              }}
+            />
+            {response !== undefined || error ? (
+              <InvocationResponse
+                responseRaw={responseRaw}
+                error={error}
+                duration={duration}
+                onCopy={(value) =>
+                  navigator.clipboard.writeText(value).then(() => message.success('已复制'))
+                }
+              />
+            ) : null}
           </Space>
         </Col>
-
-        {/* Right panel - History */}
-        {showHistory && (
-          <Col span={8}>
-            <Card
-              size="small"
-              title="请求历史"
-              extra={
-                <Button
-                  size="small"
-                  icon={<DeleteOutlined />}
-                  onClick={() => setRequestHistory([])}
-                >
-                  清空
-                </Button>
-              }
-              style={{ maxHeight: 'calc(100vh - 200px)', overflow: 'auto' }}
-            >
-              {requestHistory.length === 0 ? (
-                <Empty description="暂无历史记录" />
-              ) : (
-                <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                  {requestHistory.map((item) => (
-                    <Card
-                      key={item.id}
-                      size="small"
-                      hoverable
-                      onClick={() => {
-                        setFormValues(item.request as FormValues);
-                        setRawJson(JSON.stringify(item.request, null, 2));
-                        if (item.response) {
-                          setResult(item.response);
-                          setResultRaw(JSON.stringify(item.response, null, 2));
-                        }
-                        if (item.error) {
-                          setError(item.error);
-                        }
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <Space>
-                        <Tag color={item.status === 'success' ? 'green' : 'red'}>{item.status}</Tag>
-                        <Text code>{item.functionId}</Text>
-                        <Text type="secondary">{formatDuration(item.duration)}</Text>
-                      </Space>
-                      <Text
-                        type="secondary"
-                        style={{ display: 'block', fontSize: 12, marginTop: 4 }}
-                      >
-                        {new Date(item.timestamp).toLocaleString()}
-                      </Text>
-                    </Card>
-                  ))}
-                </Space>
-              )}
-            </Card>
+        {showHistory ? (
+          <Col xs={24} xl={7}>
+            <RequestHistory
+              items={historyItems}
+              onClear={() => setHistoryItems([])}
+              onSelect={restore}
+            />
           </Col>
-        )}
+        ) : null}
       </Row>
     </PageContainer>
   );

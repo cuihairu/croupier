@@ -30,6 +30,8 @@ type TCPClient struct {
 	once       sync.Once
 	readLoopWg sync.WaitGroup
 	onClose    func(err error)
+	inbound    InboundHandler
+	writeMu    sync.Mutex
 }
 
 type responseTuple struct {
@@ -89,6 +91,7 @@ func NewTCPClient(config *Config) (*TCPClient, error) {
 		pending:   make(map[uint32]chan responseTuple),
 		nextReqID: 1,
 		closing:   make(chan struct{}),
+		inbound:   config.InboundHandler,
 	}
 
 	// Start receive loop
@@ -166,7 +169,9 @@ func (c *TCPClient) Call(ctx context.Context, msgID uint32, reqBody []byte) (res
 	copy(frame[12:], reqBody)
 
 	// Send frame
+	c.writeMu.Lock()
 	_, err = c.conn.Write(frame)
+	c.writeMu.Unlock()
 	if err != nil {
 		return 0, nil, fmt.Errorf("send: %w", err)
 	}
@@ -243,6 +248,11 @@ func (c *TCPClient) receiveLoop() {
 		reqID := binary.BigEndian.Uint32(payload[4:8])
 		body := payload[8:]
 
+		if !protocol.IsResponse(msgID) {
+			c.handleInboundRequest(msgID, reqID, body)
+			continue
+		}
+
 		// Route to pending request
 		c.mu.RLock()
 		ch, ok := c.pending[reqID]
@@ -256,8 +266,24 @@ func (c *TCPClient) receiveLoop() {
 				return
 			}
 		}
-		// Inbound requests (invoke/task from agent) would be handled here
 	}
+}
+
+func (c *TCPClient) handleInboundRequest(msgID uint32, reqID uint32, body []byte) {
+	if c.inbound == nil || !protocol.IsRequest(msgID) {
+		return
+	}
+	respBody, err := c.inbound(context.Background(), msgID, reqID, body)
+	if err != nil {
+		return
+	}
+	frameBody := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, respBody)
+	frame := make([]byte, frameHeaderBytes+len(frameBody))
+	binary.BigEndian.PutUint32(frame[:frameHeaderBytes], uint32(len(frameBody)))
+	copy(frame[frameHeaderBytes:], frameBody)
+	c.writeMu.Lock()
+	_, _ = c.conn.Write(frame)
+	c.writeMu.Unlock()
 }
 
 // Close closes the client connection.

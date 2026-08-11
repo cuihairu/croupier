@@ -2,6 +2,7 @@
 package transport
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -10,6 +11,10 @@ import (
 	"strings"
 	"time"
 )
+
+// InboundHandler handles an Agent request received over an established
+// Provider connection and returns the protobuf response body.
+type InboundHandler func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error)
 
 // Config holds the configuration for the transport layer.
 type Config struct {
@@ -49,6 +54,10 @@ type Config struct {
 	// Backpressure
 	ReadQLen  int // receive queue length (default 128)
 	WriteQLen int // send queue length (default 64)
+
+	// InboundHandler enables bidirectional Provider sessions. When present,
+	// requests sent by the Agent over this connection are handled in place.
+	InboundHandler InboundHandler
 }
 
 // DefaultConfig returns a default configuration for the transport layer.

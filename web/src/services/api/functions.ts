@@ -70,6 +70,7 @@ export type InvokeFunctionOptions = {
   hashKey?: string;
   gameId?: string;
   env?: string;
+  mode?: 'async';
 };
 
 // JSON request body sent to POST /api/v1/functions/:id/invoke.
@@ -197,6 +198,7 @@ export async function invokeFunction(
   if (opts?.route) data.route = opts.route;
   if (opts?.targetServiceId) data.target_service_id = opts.targetServiceId;
   if (opts?.hashKey) data.hash_key = opts.hashKey;
+  if (opts?.mode) data.mode = opts.mode;
   return request<FunctionInvokeResponse>(
     `/api/v1/functions/${encodeURIComponent(functionId)}/invoke`,
     {
