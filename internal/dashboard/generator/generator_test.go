@@ -917,3 +917,62 @@ func TestInferDataType(t *testing.T) {
 		})
 	}
 }
+
+func TestInlineActionNeedsConfirm(t *testing.T) {
+	tests := []struct {
+		name     string
+		contract *model.FunctionContract
+		expected bool
+	}{
+		{
+			name: "high risk needs confirm",
+			contract: &model.FunctionContract{
+				Risk: "high",
+			},
+			expected: true,
+		},
+		{
+			name: "danger risk needs confirm",
+			contract: &model.FunctionContract{
+				Risk: "danger",
+			},
+			expected: true,
+		},
+		{
+			name: "safe risk no confirm",
+			contract: &model.FunctionContract{
+				Risk: "safe",
+			},
+			expected: false,
+		},
+		{
+			name: "warning risk no confirm",
+			contract: &model.FunctionContract{
+				Risk: "warning",
+			},
+			expected: false,
+		},
+		{
+			name: "empty risk no confirm",
+			contract: &model.FunctionContract{
+				Risk: "",
+			},
+			expected: false,
+		},
+		{
+			name: "approval required needs confirm",
+			contract: &model.FunctionContract{
+				Approval: datatypes.JSONMap{"required": true},
+				Risk:     "safe",
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := inlineActionNeedsConfirm(tt.contract)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
