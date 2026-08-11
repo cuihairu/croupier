@@ -154,8 +154,8 @@ func TestTCPClient_Call_Success(t *testing.T) {
 		t.Fatalf("Call failed: %v", err)
 	}
 
-	if respMsgID != 0x010201 {
-		t.Errorf("Expected response msg ID 0x010201, got 0x%06X", respMsgID)
+	if respMsgID != protocol.GetResponseMsgID(msgID) {
+		t.Errorf("Expected response msg ID 0x%06X, got 0x%06X", protocol.GetResponseMsgID(msgID), respMsgID)
 	}
 
 	if string(respBody) != string(reqBody) {
@@ -191,8 +191,8 @@ func TestTCPClient_Call_EmptyBody(t *testing.T) {
 		t.Fatalf("Call failed: %v", err)
 	}
 
-	if respMsgID != 0x010201 {
-		t.Errorf("Expected response msg ID 0x010201, got 0x%06X", respMsgID)
+	if respMsgID != protocol.GetResponseMsgID(msgID) {
+		t.Errorf("Expected response msg ID 0x%06X, got 0x%06X", protocol.GetResponseMsgID(msgID), respMsgID)
 	}
 
 	if len(respBody) != 0 {
@@ -1381,6 +1381,7 @@ func (s *mockServer) handleConnection(conn net.Conn) {
 			continue
 		}
 
+		reqMsgID := protocol.GetMsgID(payload[1:4])
 		reqID := binary.BigEndian.Uint32(payload[4:8])
 		body := payload[8:]
 
@@ -1388,11 +1389,11 @@ func (s *mockServer) handleConnection(conn net.Conn) {
 			time.Sleep(delay)
 		}
 
-		// Send response
+		// Send response — use even (response) msgID derived from request
 		responseFrame := make([]byte, 4+8+len(body))
 		binary.BigEndian.PutUint32(responseFrame[0:4], uint32(8+len(body)))
 		responseFrame[4] = protocol.Version1
-		protocol.PutMsgID(responseFrame[5:8], 0x010201) // Response msg ID
+		protocol.PutMsgID(responseFrame[5:8], protocol.GetResponseMsgID(reqMsgID))
 		binary.BigEndian.PutUint32(responseFrame[8:12], reqID)
 		copy(responseFrame[12:], body)
 
