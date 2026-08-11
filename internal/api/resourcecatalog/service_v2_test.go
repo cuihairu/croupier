@@ -28,6 +28,7 @@ func setupTestDBWithPages(t *testing.T) *gorm.DB {
 		&model.PageSpec{},
 		&model.PublishedPageSpec{},
 		&model.PageProposalVersion{},
+		&model.BlockedProposalIssue{},
 	)
 	require.NoError(t, err)
 	return db
