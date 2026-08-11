@@ -18,6 +18,8 @@ type Admin struct {
 	Status       int        `gorm:"default:1;index"` // 1:active 0:disabled
 	OTPSecret    string     `gorm:"size:64"`
 	LastLoginAt  *time.Time `gorm:"index"`
+	LastGameID   string     `gorm:"size:64;index"` // 上次选择的游戏 ID（业务标识）
+	LastEnv      string     `gorm:"size:64"`       // 上次选择的环境
 	CreatedBy    uint       `gorm:"index"`
 	UpdatedBy    uint
 }

@@ -235,3 +235,37 @@ func (m *AdminModel) GetAdminGames(ctx context.Context, adminID uint) ([]AdminGa
 		Find(&scopes).Error
 	return scopes, err
 }
+
+// GetAdminEnvScopes returns all game-env scopes for an admin.
+func (m *AdminModel) GetAdminEnvScopes(ctx context.Context, adminID uint) ([]AdminGameEnvScope, error) {
+	var scopes []AdminGameEnvScope
+	err := m.db.WithContext(ctx).
+		Where("admin_id = ?", adminID).
+		Find(&scopes).Error
+	return scopes, err
+}
+
+// LastScope holds the last-selected game/env for an admin.
+type LastScope struct {
+	GameID string
+	Env    string
+}
+
+// GetLastScope returns the admin's last-selected game/env.
+func (m *AdminModel) GetLastScope(ctx context.Context, adminID uint) (LastScope, error) {
+	var admin Admin
+	err := m.db.WithContext(ctx).Select("last_game_id", "last_env").Where("id = ?", adminID).First(&admin).Error
+	if err != nil {
+		return LastScope{}, err
+	}
+	return LastScope{GameID: admin.LastGameID, Env: admin.LastEnv}, nil
+}
+
+// UpdateLastScope persists the admin's game/env selection.
+func (m *AdminModel) UpdateLastScope(ctx context.Context, adminID uint, gameID, env string) error {
+	return m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", adminID).
+		Updates(map[string]interface{}{
+			"last_game_id": gameID,
+			"last_env":     env,
+		}).Error
+}

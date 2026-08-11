@@ -34,6 +34,11 @@ type GameScope struct {
 // dbctx.Resolve. When the router is nil (legacy single-DB mode) the middleware
 // is a pass-through.
 //
+// Scope resolution priority:
+//  1. X-Game-ID / X-Env headers (explicit per-request override)
+//  2. admins.last_game_id / last_env (user's persisted default)
+//  3. First authorized game/env from admin_game_env_scopes
+//
 // SECURITY: When the database-per-game router is enabled, this middleware
 // validates that the (gameID, env) pair exists in the meta database's
 // game_envs table before opening or creating any database connection.
@@ -42,6 +47,26 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		gameID := strings.TrimSpace(c.GetHeader(GameDBHeader))
 		env := strings.TrimSpace(c.GetHeader(EnvHeader))
+
+		// Fallback: if no header, try admin's last-selected scope
+		if gameID == "" && svcCtx != nil && svcCtx.AdminModel != nil {
+			if adminID := getAdminIDFromGinContext(c); adminID > 0 {
+				last, err := svcCtx.AdminModel.GetLastScope(c.Request.Context(), adminID)
+				if err == nil && last.GameID != "" {
+					gameID = last.GameID
+					if env == "" {
+						env = last.Env
+					}
+				}
+			}
+		}
+
+		// Fallback: if still no scope, use first authorized game
+		if gameID == "" && svcCtx != nil && svcCtx.AdminModel != nil && svcCtx.GameModel != nil {
+			if adminID := getAdminIDFromGinContext(c); adminID > 0 {
+				gameID, env = resolveFirstAuthorizedGame(c.Request.Context(), svcCtx, adminID)
+			}
+		}
 
 		scope := GameScope{GameID: gameID, Env: env}
 		if gameID != "" {
@@ -83,6 +108,68 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
+}
+
+// getAdminIDFromGinContext extracts the admin ID set by AuthMiddleware.
+func getAdminIDFromGinContext(c *gin.Context) uint {
+	if v, ok := c.Get("adminID"); ok {
+		if id, ok := v.(uint); ok {
+			return id
+		}
+	}
+	return 0
+}
+
+// resolveFirstAuthorizedGame returns the first game/env from the admin's
+// authorized scope list. Returns empty strings if none found.
+func resolveFirstAuthorizedGame(ctx context.Context, svcCtx *ServiceContext, adminID uint) (string, string) {
+	// Check if admin has "admin" role (full access)
+	roles, err := svcCtx.AdminModel.GetAdminRoles(ctx, adminID)
+	if err == nil {
+		for _, r := range roles {
+			if strings.EqualFold(strings.TrimSpace(r.Name), "admin") || strings.EqualFold(strings.TrimSpace(r.Name), "super_admin") {
+				// Admin role: use first game from games table
+				games, err := svcCtx.GameModel.ListAll(ctx)
+				if err == nil && len(games) > 0 {
+					gameID := strings.TrimSpace(games[0].GameID)
+					envs, _ := games[0].GetEnvs()
+					env := ""
+					if len(envs) > 0 {
+						env = strings.TrimSpace(envs[0].Env)
+					}
+					return gameID, env
+				}
+				return "", ""
+			}
+		}
+	}
+
+	// Non-admin: use first from admin_game_env_scopes
+	envScopes, err := svcCtx.AdminModel.GetAdminEnvScopes(ctx, adminID)
+	if err == nil && len(envScopes) > 0 {
+		// Look up the game's string ID from the numeric game ID
+		game, err := svcCtx.GameModel.FindByGameID(ctx, envScopes[0].GameID)
+		if err == nil && game != nil {
+			return strings.TrimSpace(game.GameID), strings.TrimSpace(envScopes[0].Env)
+		}
+	}
+
+	// No scopes found, try game scopes only
+	gameScopes, err := svcCtx.AdminModel.GetAdminGames(ctx, adminID)
+	if err == nil && len(gameScopes) > 0 {
+		game, err := svcCtx.GameModel.FindByGameID(ctx, gameScopes[0].GameID)
+		if err == nil && game != nil {
+			gameID := strings.TrimSpace(game.GameID)
+			envs, _ := game.GetEnvs()
+			env := ""
+			if len(envs) > 0 {
+				env = strings.TrimSpace(envs[0].Env)
+			}
+			return gameID, env
+		}
+	}
+
+	return "", ""
 }
 
 // validateGameScope checks that the (gameID, env) pair exists in the meta
