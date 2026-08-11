@@ -1617,3 +1617,81 @@ func TestFunctionsList_NoAdminRoles(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 }
+
+func TestTermDisplay_Extended(t *testing.T) {
+	displayMap := map[string]map[string]map[string]string{
+		"resource": {
+			"player": {
+				"zh": "玩家",
+				"en": "Player",
+			},
+		},
+		"action": {
+			"ban": {
+				"zh": "封禁",
+				"en": "Ban",
+			},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		domain   string
+		key      string
+		expected map[string]string
+	}{
+		{
+			name:     "valid domain and key",
+			domain:   "resource",
+			key:      "player",
+			expected: map[string]string{"zh": "玩家", "en": "Player"},
+		},
+		{
+			name:     "valid domain, missing key",
+			domain:   "resource",
+			key:      "unknown",
+			expected: nil,
+		},
+		{
+			name:     "missing domain",
+			domain:   "unknown",
+			key:      "player",
+			expected: nil,
+		},
+		{
+			name:     "empty domain",
+			domain:   "",
+			key:      "player",
+			expected: nil,
+		},
+		{
+			name:     "empty key",
+			domain:   "resource",
+			key:      "",
+			expected: nil,
+		},
+		{
+			name:     "case insensitive",
+			domain:   "RESOURCE",
+			key:      "PLAYER",
+			expected: map[string]string{"zh": "玩家", "en": "Player"},
+		},
+		{
+			name:     "partial display",
+			domain:   "action",
+			key:      "ban",
+			expected: map[string]string{"zh": "封禁", "en": "Ban"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := termDisplay(displayMap, tt.domain, tt.key)
+			if tt.expected == nil {
+				assert.Nil(t, result)
+			} else {
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}

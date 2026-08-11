@@ -2,12 +2,14 @@ package function
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
 	policymgr "github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -278,6 +280,321 @@ func TestFunctionPolicy_RiskLevelDefaults(t *testing.T) {
 			if len(policy.AllowedRoles) != len(tt.allowedRoles) {
 				t.Errorf("AllowedRoles length: got %d, want %d", len(policy.AllowedRoles), len(tt.allowedRoles))
 			}
+		})
+	}
+}
+
+func TestCloneMetadata(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata map[string]string
+		wantNil  bool
+	}{
+		{
+			name:     "nil",
+			metadata: nil,
+			wantNil:  true,
+		},
+		{
+			name:     "empty",
+			metadata: map[string]string{},
+			wantNil:  true,
+		},
+		{
+			name:     "with values",
+			metadata: map[string]string{"key1": "value1", "key2": "value2"},
+			wantNil:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := cloneMetadata(tt.metadata)
+			if tt.wantNil {
+				if result != nil {
+					t.Errorf("expected nil, got %v", result)
+				}
+				return
+			}
+			if result == nil {
+				t.Fatal("expected non-nil result")
+			}
+			if len(result) != len(tt.metadata) {
+				t.Errorf("expected %d keys, got %d", len(tt.metadata), len(result))
+			}
+			for k, v := range tt.metadata {
+				if result[k] != v {
+					t.Errorf("key %s: expected %s, got %s", k, v, result[k])
+				}
+			}
+		})
+	}
+}
+
+func TestIsApprovedContinuation(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata map[string]string
+		want     bool
+	}{
+		{
+			name:     "nil",
+			metadata: nil,
+			want:     false,
+		},
+		{
+			name:     "approved",
+			metadata: map[string]string{"approval_bypass": "approved"},
+			want:     true,
+		},
+		{
+			name:     "approved uppercase",
+			metadata: map[string]string{"approval_bypass": "APPROVED"},
+			want:     true,
+		},
+		{
+			name:     "approved with spaces",
+			metadata: map[string]string{"approval_bypass": "  approved  "},
+			want:     true,
+		},
+		{
+			name:     "not approved",
+			metadata: map[string]string{"approval_bypass": "pending"},
+			want:     false,
+		},
+		{
+			name:     "empty value",
+			metadata: map[string]string{"approval_bypass": ""},
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isApprovedContinuation(tt.metadata)
+			if got != tt.want {
+				t.Errorf("isApprovedContinuation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsPageSnapshotGoverned(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata map[string]string
+		want     bool
+	}{
+		{
+			name:     "nil",
+			metadata: nil,
+			want:     false,
+		},
+		{
+			name:     "validated",
+			metadata: map[string]string{"page_snapshot_governance": "validated"},
+			want:     true,
+		},
+		{
+			name:     "validated uppercase",
+			metadata: map[string]string{"page_snapshot_governance": "VALIDATED"},
+			want:     true,
+		},
+		{
+			name:     "validated with spaces",
+			metadata: map[string]string{"page_snapshot_governance": "  validated  "},
+			want:     true,
+		},
+		{
+			name:     "not validated",
+			metadata: map[string]string{"page_snapshot_governance": "pending"},
+			want:     false,
+		},
+		{
+			name:     "empty value",
+			metadata: map[string]string{"page_snapshot_governance": ""},
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPageSnapshotGoverned(tt.metadata)
+			if got != tt.want {
+				t.Errorf("isPageSnapshotGoverned() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInvokePayload(t *testing.T) {
+	tests := []struct {
+		name     string
+		req      *FunctionInvokeRequest
+		expected string
+	}{
+		{
+			name:     "nil request",
+			req:      nil,
+			expected: "null",
+		},
+		{
+			name: "with payload",
+			req: &FunctionInvokeRequest{
+				Payload: json.RawMessage(`{"key":"value"}`),
+			},
+			expected: `{"key":"value"}`,
+		},
+		{
+			name: "with params",
+			req: &FunctionInvokeRequest{
+				Params: json.RawMessage(`{"param1":"val1"}`),
+			},
+			expected: `{"param1":"val1"}`,
+		},
+		{
+			name:     "empty request",
+			req:      &FunctionInvokeRequest{},
+			expected: "{}",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := invokePayload(tt.req)
+			assert.JSONEq(t, tt.expected, string(result))
+		})
+	}
+}
+
+func TestRawJSONFromAny(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    interface{}
+		expected string
+	}{
+		{
+			name:     "nil",
+			value:    nil,
+			expected: "",
+		},
+		{
+			name:     "json.RawMessage",
+			value:    json.RawMessage(`{"key":"value"}`),
+			expected: `{"key":"value"}`,
+		},
+		{
+			name:     "[]byte",
+			value:    []byte(`{"key":"value"}`),
+			expected: `{"key":"value"}`,
+		},
+		{
+			name:     "string",
+			value:    `{"key":"value"}`,
+			expected: `{"key":"value"}`,
+		},
+		{
+			name:     "struct",
+			value:    struct{ Name string }{Name: "test"},
+			expected: `{"Name":"test"}`,
+		},
+		{
+			name:     "map",
+			value:    map[string]int{"a": 1},
+			expected: `{"a":1}`,
+		},
+		{
+			name:     "invalid value",
+			value:    make(chan int),
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := rawJSONFromAny(tt.value)
+			if tt.expected == "" {
+				assert.Nil(t, result)
+			} else {
+				assert.JSONEq(t, tt.expected, string(result))
+			}
+		})
+	}
+}
+
+func TestParseRolesFromJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     datatypes.JSON
+		expected []string
+	}{
+		{
+			name:     "empty",
+			data:     datatypes.JSON{},
+			expected: []string{},
+		},
+		{
+			name:     "json array",
+			data:     datatypes.JSON(`["admin","viewer"]`),
+			expected: []string{"admin", "viewer"},
+		},
+		{
+			name:     "comma separated string",
+			data:     datatypes.JSON(`"admin,viewer"`),
+			expected: []string{"admin", "viewer"},
+		},
+		{
+			name:     "single string",
+			data:     datatypes.JSON(`"admin"`),
+			expected: []string{"admin"},
+		},
+		{
+			name:     "empty string",
+			data:     datatypes.JSON(`""`),
+			expected: []string{},
+		},
+		{
+			name:     "invalid json",
+			data:     datatypes.JSON(`{invalid}`),
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseRolesFromJSON(tt.data)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestParseActionsFromJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     datatypes.JSON
+		expected []string
+	}{
+		{
+			name:     "empty",
+			data:     datatypes.JSON{},
+			expected: []string{},
+		},
+		{
+			name:     "json array",
+			data:     datatypes.JSON(`["read","write"]`),
+			expected: []string{"read", "write"},
+		},
+		{
+			name:     "comma separated string",
+			data:     datatypes.JSON(`"read,write"`),
+			expected: []string{"read", "write"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseActionsFromJSON(tt.data)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

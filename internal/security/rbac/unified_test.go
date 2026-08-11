@@ -279,3 +279,64 @@ func TestUnifiedPolicyEngine_ConditionalTwoPersonRule(t *testing.T) {
 		t.Error("Expected approval to be required for high-value item")
 	}
 }
+
+func TestParseExpiryDuration(t *testing.T) {
+	engine := &UnifiedPolicyEngine{}
+
+	tests := []struct {
+		name   string
+		input  string
+		expect time.Duration
+	}{
+		{"1 hour", "1h", time.Hour},
+		{"1 hour verbose", "1 hour", time.Hour},
+		{"24 hours", "24h", 24 * time.Hour},
+		{"1 day", "1 day", 24 * time.Hour},
+		{"1 week", "1w", 7 * 24 * time.Hour},
+		{"1 week verbose", "1 week", 7 * 24 * time.Hour},
+		{"30 minutes", "30m", 30 * time.Minute},
+		{"empty", "", 0},
+		{"invalid", "invalid", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := engine.parseExpiryDuration(tt.input)
+			if result != tt.expect {
+				t.Errorf("parseExpiryDuration(%q) = %v, want %v", tt.input, result, tt.expect)
+			}
+		})
+	}
+}
+
+func TestToFloat64(t *testing.T) {
+	evaluator := NewEnhancedEvaluator(NewPolicy())
+
+	tests := []struct {
+		name     string
+		val      any
+		expected float64
+		ok       bool
+	}{
+		{"float64", 3.14, 3.14, true},
+		{"float32", float32(2.5), 2.5, true},
+		{"int", 42, 42.0, true},
+		{"int64", int64(100), 100.0, true},
+		{"string valid", "123.45", 123.45, true},
+		{"string invalid", "abc", 0, false},
+		{"nil", nil, 0, false},
+		{"bool", true, 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, ok := evaluator.toFloat64(tt.val)
+			if ok != tt.ok {
+				t.Errorf("toFloat64() ok = %v, want %v", ok, tt.ok)
+			}
+			if ok && val != tt.expected {
+				t.Errorf("toFloat64() = %v, want %v", val, tt.expected)
+			}
+		})
+	}
+}

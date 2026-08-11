@@ -350,7 +350,7 @@ func removeDBFromPostgresDSN(dsn, replacementDB string) string {
 	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
 		// 替换数据库名
 		re := regexp.MustCompile(`^(postgres(?:ql)?://[^/]+/)[^/?]+`)
-		result := re.ReplaceAllString(dsn, "$1"+replacementDB)
+		result := re.ReplaceAllString(dsn, "${1}"+replacementDB)
 		// 确保查询参数保留
 		if idx := strings.Index(dsn, "?"); idx > 0 && !strings.Contains(result, "?") {
 			result += dsn[idx:]
@@ -566,7 +566,7 @@ func replaceMySQLDSNDB(dsn, dbName string) string {
 	}
 	re := regexp.MustCompile(`/([^/?]*)(\?)`)
 	if loc := re.FindStringSubmatchIndex(dsn); loc != nil {
-		return dsn[:loc[2]+1] + dbName + dsn[loc[3]:]
+		return dsn[:loc[2]] + dbName + dsn[loc[3]:]
 	}
 	// No query string: the path segment is everything after the last '/'.
 	if idx := strings.LastIndexByte(dsn, '/'); idx >= 0 {

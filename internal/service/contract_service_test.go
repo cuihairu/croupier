@@ -804,6 +804,18 @@ func TestGeneratedProposalChanged(t *testing.T) {
 	}
 	changed = generatedProposalChanged(existing2, next2)
 	assert.False(t, changed)
+
+	// Test with nil existing
+	changed = generatedProposalChanged(nil, &model.PageProposal{})
+	assert.True(t, changed)
+
+	// Test with nil next
+	changed = generatedProposalChanged(&model.PageProposal{}, nil)
+	assert.True(t, changed)
+
+	// Test with both nil
+	changed = generatedProposalChanged(nil, nil)
+	assert.True(t, changed)
 }
 
 func TestContractService_BlockedIssueIsScopedToFunction(t *testing.T) {
@@ -1406,4 +1418,18 @@ func TestContractService_PreserveReviewedSemantics(t *testing.T) {
 	assert.Equal(t, "sdk_explicit", next2.Source)
 	assert.Empty(t, next2.UpdatedBy)
 	assert.Empty(t, next2.IdentityField)
+}
+
+func TestContractValidationErrorV2(t *testing.T) {
+	// Test empty diagnostics
+	result := contractValidationError(nil)
+	assert.Nil(t, result)
+
+	// Test with diagnostics
+	diags := []spec.Diagnostic{
+		{Severity: spec.SeverityError, Message: "error"},
+	}
+	result2 := contractValidationError(diags)
+	assert.NotNil(t, result2)
+	assert.Contains(t, result2.Error(), "error")
 }

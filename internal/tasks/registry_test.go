@@ -161,3 +161,37 @@ func TestRegistryUpdate(t *testing.T) {
 	}
 	t.Errorf("Get() returned unexpected runtime")
 }
+
+func TestRuntimeIsCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r := &Runtime{
+		taskID: "test-task",
+		ctx:    ctx,
+		cancel: cancel,
+	}
+
+	if r.IsCancelled() {
+		t.Error("IsCancelled() = true before cancel, want false")
+	}
+
+	r.RequestCancel()
+
+	if !r.IsCancelled() {
+		t.Error("IsCancelled() = false after cancel, want true")
+	}
+}
+
+func TestRuntimeIsCancelledNoCancel(t *testing.T) {
+	r := &Runtime{
+		taskID: "test-task-no-cancel",
+		ctx:    context.Background(),
+	}
+
+	r.RequestCancel()
+
+	if !r.IsCancelled() {
+		t.Error("IsCancelled() = false after cancel, want true")
+	}
+}

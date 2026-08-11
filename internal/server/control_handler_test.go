@@ -1793,3 +1793,41 @@ func (f failingRegisterContractService) RebuildProposalsForResource(context.Cont
 func (f failingRegisterContractService) RebuildProposalForFunction(context.Context, string, string, string) error {
 	return f.err
 }
+
+func TestDescriptorPresentationField(t *testing.T) {
+	// Test nil descriptor
+	field, ok := descriptorPresentationField(nil)
+	assert.False(t, ok)
+	assert.Empty(t, field)
+
+	// Test valid descriptor
+	desc := &agentv1.FunctionDescriptor{
+		Id:          "player.list",
+		Version:     "1.0.0",
+		InputSchema: `{"type":"object","properties":{"game_id":{"type":"string"}}}`,
+	}
+	field, ok = descriptorPresentationField(desc)
+	assert.False(t, ok)
+	assert.Empty(t, field)
+}
+
+func TestCloneStringMap(t *testing.T) {
+	// Test nil map
+	result := cloneStringMap(nil)
+	assert.Nil(t, result)
+
+	// Test empty map
+	result2 := cloneStringMap(map[string]string{})
+	assert.Nil(t, result2)
+
+	// Test with values
+	input := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+	}
+	result3 := cloneStringMap(input)
+	assert.Equal(t, input, result3)
+	// Verify it's a copy
+	result3["key3"] = "value3"
+	assert.NotEqual(t, input, result3)
+}

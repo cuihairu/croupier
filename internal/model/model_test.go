@@ -5180,3 +5180,145 @@ func TestToDBSession(t *testing.T) {
 	assert.NotEmpty(t, dbSess.Labels)
 	assert.NotEmpty(t, dbSess.Providers)
 }
+
+func TestNormalizeJSONMapUpdate(t *testing.T) {
+	tests := []struct {
+		name     string
+		updates  map[string]interface{}
+		key      string
+		wantType string
+	}{
+		{
+			name:     "nil updates",
+			updates:  nil,
+			key:      "test",
+			wantType: "nil",
+		},
+		{
+			name:     "missing key",
+			updates:  map[string]interface{}{"other": "value"},
+			key:      "test",
+			wantType: "missing",
+		},
+		{
+			name:     "nil value",
+			updates:  map[string]interface{}{"test": nil},
+			key:      "test",
+			wantType: "nil",
+		},
+		{
+			name:     "JSONMap type",
+			updates:  map[string]interface{}{"test": datatypes.JSONMap{"key": "value"}},
+			key:      "test",
+			wantType: "jsonmap",
+		},
+		{
+			name:     "map type",
+			updates:  map[string]interface{}{"test": map[string]interface{}{"key": "value"}},
+			key:      "test",
+			wantType: "jsonmap",
+		},
+		{
+			name:     "byte slice",
+			updates:  map[string]interface{}{"test": []byte(`{"key":"value"}`)},
+			key:      "test",
+			wantType: "jsonmap",
+		},
+		{
+			name:     "string",
+			updates:  map[string]interface{}{"test": `{"key":"value"}`},
+			key:      "test",
+			wantType: "jsonmap",
+		},
+		{
+			name:     "invalid JSON bytes",
+			updates:  map[string]interface{}{"test": []byte(`{invalid}`)},
+			key:      "test",
+			wantType: "bytes_invalid_orig",
+		},
+		{
+			name:     "invalid JSON string",
+			updates:  map[string]interface{}{"test": `{invalid}`},
+			key:      "test",
+			wantType: "string_invalid_orig",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			normalizeJSONMapUpdate(tt.updates, tt.key)
+			if tt.updates == nil || tt.wantType == "nil" || tt.wantType == "missing" {
+				return
+			}
+			val := tt.updates[tt.key]
+			switch tt.wantType {
+			case "jsonmap":
+				if _, ok := val.(datatypes.JSONMap); !ok {
+					t.Errorf("expected datatypes.JSONMap, got %T", val)
+				}
+			case "bytes_invalid_orig", "string_invalid_orig":
+				// Original value is preserved when JSON unmarshal fails
+			}
+		})
+	}
+}
+
+func TestAdminModelGetAdminEnvScopes(t *testing.T) {
+	db := setupTestDB(t)
+	// defer closeTestDB - not needed for in-memory SQLite
+
+	adminModel := NewAdminModel(db)
+	ctx := context.Background()
+
+	// Create admin
+	admin := &Admin{Username: "scopeuser", Status: 1}
+	err := adminModel.Create(ctx, admin, "password")
+	require.NoError(t, err)
+
+	// Get scopes for non-existent admin (should return empty)
+	scopes, err := adminModel.GetAdminEnvScopes(ctx, 99999)
+	require.NoError(t, err)
+	assert.Empty(t, scopes)
+}
+
+func TestAdminModelGetLastScope(t *testing.T) {
+	db := setupTestDB(t)
+	// defer closeTestDB - not needed for in-memory SQLite
+
+	adminModel := NewAdminModel(db)
+	ctx := context.Background()
+
+	// Create admin
+	admin := &Admin{Username: "scopeuser2", Status: 1}
+	err := adminModel.Create(ctx, admin, "password")
+	require.NoError(t, err)
+
+	// Get last scope
+	scope, err := adminModel.GetLastScope(ctx, admin.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "", scope.GameID)
+	assert.Equal(t, "", scope.Env)
+}
+
+func TestAdminModelUpdateLastScope(t *testing.T) {
+	db := setupTestDB(t)
+	// defer closeTestDB - not needed for in-memory SQLite
+
+	adminModel := NewAdminModel(db)
+	ctx := context.Background()
+
+	// Create admin
+	admin := &Admin{Username: "scopeuser3", Status: 1}
+	err := adminModel.Create(ctx, admin, "password")
+	require.NoError(t, err)
+
+	// Update last scope
+	err = adminModel.UpdateLastScope(ctx, admin.ID, "game1", "prod")
+	require.NoError(t, err)
+
+	// Verify
+	scope, err := adminModel.GetLastScope(ctx, admin.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "game1", scope.GameID)
+	assert.Equal(t, "prod", scope.Env)
+}

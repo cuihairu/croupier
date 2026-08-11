@@ -7,6 +7,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSanitizeEnvListFallsBackToDefaults(t *testing.T) {
@@ -135,5 +136,302 @@ func TestLoadGamesBootstrapConfigAndResolvePath(t *testing.T) {
 	}
 	if len(loaded.Games) != 1 || loaded.Games[0].GameID != "demo" {
 		t.Fatalf("unexpected loaded games: %#v", loaded.Games)
+	}
+}
+
+func TestSanitizeGameID_Extended(t *testing.T) {
+	tests := []struct {
+		name   string
+		values []string
+		expect string
+	}{
+		{"single value", []string{"MyGame"}, "mygame"},
+		{"with spaces", []string{"My Game"}, "my_game"},
+		{"empty first", []string{"", "valid"}, "valid"},
+		{"all empty", []string{"", ""}, ""},
+		{"no args", []string{}, ""},
+		{"trims whitespace", []string{"  Game  "}, "game"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeGameID(tt.values...)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestSanitizeAlias_Extended(t *testing.T) {
+	tests := []struct {
+		name   string
+		values []string
+		expect string
+	}{
+		{"single value", []string{"My Game"}, "My Game"},
+		{"empty first", []string{"", "valid"}, "valid"},
+		{"all empty", []string{"", ""}, ""},
+		{"no args", []string{}, ""},
+		{"trims whitespace", []string{"  Game  "}, "Game"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeAlias(tt.values...)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestHumanizeGameID_Extended(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{"with underscores", "my_game", "My Game"},
+		{"with dashes", "my-game", "My Game"},
+		{"single word", "game", "Game"},
+		{"empty", "", ""},
+		{"already capitalized", "My_Game", "My Game"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := humanizeGameID(tt.input)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestPickGameColor_Extended(t *testing.T) {
+	tests := []struct {
+		name   string
+		index  int
+		expect string
+	}{
+		{"first", 0, fallbackGameColorCycle[0]},
+		{"second", 1, fallbackGameColorCycle[1]},
+		{"overflow", len(fallbackGameColorCycle), fallbackGameColorCycle[0]},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pickGameColor(tt.index)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestPickEnvColor_Extended(t *testing.T) {
+	defaults := map[string]model.GameEnv{
+		"prod": {Color: "#FF0000"},
+	}
+	tests := []struct {
+		name     string
+		envName  string
+		defaults map[string]model.GameEnv
+		expect   string
+	}{
+		{"found in defaults", "prod", defaults, "#FF0000"},
+		{"fallback name", "dev", defaults, fallbackEnvColors["dev"]},
+		{"unknown name", "unknown", defaults, defaultGameColor},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pickEnvColor(tt.envName, tt.defaults)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestDefaultEnvColor_Extended(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{"known", "dev", fallbackEnvColors["dev"]},
+		{"unknown", "unknown", defaultGameColor},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := defaultEnvColor(tt.input)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestNormalizeColor_Extended(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		fallback string
+		expect   string
+	}{
+		{"empty", "", "#000", "#000"},
+		{"with hash", "#FF0000", "#000", "#ff0000"},
+		{"without hash", "red", "#000", "red"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeColor(tt.value, tt.fallback)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestBoolPtr_Extended(t *testing.T) {
+	truePtr := boolPtr(true)
+	falsePtr := boolPtr(false)
+	assert.True(t, *truePtr)
+	assert.False(t, *falsePtr)
+}
+
+func TestDefaultBootstrapGamesConfig_Extended(t *testing.T) {
+	cfg := defaultBootstrapGamesConfig()
+	assert.NotNil(t, cfg)
+	assert.NotEmpty(t, cfg.DefaultEnvs)
+	assert.Len(t, cfg.Games, 1)
+	assert.Equal(t, "default", cfg.Games[0].GameID)
+}
+
+func TestDefaultBootstrapGame_Extended(t *testing.T) {
+	envs := []model.GameEnv{
+		{Env: "dev", Color: "#00FF00"},
+		{Env: "prod", Color: "#FF0000"},
+	}
+	game := defaultBootstrapGame(envs)
+	assert.Equal(t, "default", game.GameID)
+	assert.Equal(t, "Default Game", game.AliasName)
+	assert.Len(t, game.Envs, 2)
+}
+
+func TestResolveGamesConfigPath_Empty_Extended(t *testing.T) {
+	cfg := config.Config{}
+	result := resolveGamesConfigPath(cfg)
+	assert.Equal(t, "", result)
+}
+
+func TestSanitizeGameEnvs_Extended(t *testing.T) {
+	defaults := []model.GameEnv{
+		{Env: "dev", Color: "#00FF00"},
+		{Env: "prod", Color: "#FF0000"},
+	}
+	tests := []struct {
+		name     string
+		envs     []model.GameEnv
+		defaults []model.GameEnv
+		expect   int
+	}{
+		{"empty input", nil, defaults, 0},
+		{"with input", []model.GameEnv{{Env: "dev"}}, defaults, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeGameEnvs(tt.envs, tt.defaults)
+			assert.Len(t, result, tt.expect)
+		})
+	}
+}
+
+func TestEnsureSeedEnvs_Extended(t *testing.T) {
+	tests := []struct {
+		name     string
+		entry    bootstrapGameSeedEntry
+		defaults []model.GameEnv
+		expect   int
+	}{
+		{
+			name:     "with legacy env",
+			entry:    bootstrapGameSeedEntry{Env: "prod"},
+			defaults: fallbackDefaultEnvs,
+			expect:   1,
+		},
+		{
+			name:     "with envs",
+			entry:    bootstrapGameSeedEntry{Envs: []model.GameEnv{{Env: "dev"}, {Env: "prod"}}},
+			defaults: fallbackDefaultEnvs,
+			expect:   2,
+		},
+		{
+			name:     "with both legacy and envs",
+			entry:    bootstrapGameSeedEntry{Env: "staging", Envs: []model.GameEnv{{Env: "dev"}}},
+			defaults: fallbackDefaultEnvs,
+			expect:   1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ensureSeedEnvs(tt.entry, tt.defaults)
+			assert.Len(t, result, tt.expect)
+		})
+	}
+}
+
+func TestBuildGameFromSeed_Extended(t *testing.T) {
+	tests := []struct {
+		name    string
+		entry   bootstrapGameSeedEntry
+		wantErr bool
+	}{
+		{
+			name: "valid entry",
+			entry: bootstrapGameSeedEntry{
+				GameID:    "test_game",
+				AliasName: "Test Game",
+				Status:    "dev",
+				Enabled:   boolPtr(true),
+			},
+			wantErr: false,
+		},
+		{
+			name:    "empty game id",
+			entry:   bootstrapGameSeedEntry{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			game, err := buildGameFromSeed(tt.entry, fallbackDefaultEnvs, 0)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, game)
+				assert.Equal(t, tt.entry.GameID, game.Name)
+			}
+		})
+	}
+}
+
+func TestSanitizeEnvList_Extended(t *testing.T) {
+	tests := []struct {
+		name  string
+		envs  []model.GameEnv
+		count int
+	}{
+		{
+			name:  "nil",
+			envs:  nil,
+			count: len(fallbackDefaultEnvs),
+		},
+		{
+			name:  "empty",
+			envs:  []model.GameEnv{},
+			count: len(fallbackDefaultEnvs),
+		},
+		{
+			name: "with duplicates",
+			envs: []model.GameEnv{
+				{Env: "dev", Color: "#00FF00"},
+				{Env: "DEV", Color: "#FF0000"},
+			},
+			count: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeEnvList(tt.envs)
+			assert.Len(t, result, tt.count)
+		})
 	}
 }

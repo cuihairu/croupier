@@ -212,6 +212,32 @@ func TestCheckType(t *testing.T) {
 	}
 }
 
+func TestSchemaDeclaresObjectProperties(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema map[string]any
+		want   bool
+	}{
+		{"no properties", map[string]any{"type": "object"}, false},
+		{"properties but no type", map[string]any{"properties": map[string]any{"name": map[string]any{"type": "string"}}}, true},
+		{"properties with type object", map[string]any{"type": "object", "properties": map[string]any{}}, true},
+		{"properties with type string", map[string]any{"type": "string", "properties": map[string]any{}}, false},
+		{"properties with type array containing object", map[string]any{"type": []any{"array", "object"}, "properties": map[string]any{}}, true},
+		{"properties with type array not containing object", map[string]any{"type": []any{"array", "string"}, "properties": map[string]any{}}, false},
+		{"properties with non-string non-array type", map[string]any{"type": 123, "properties": map[string]any{}}, false},
+		{"properties wrong type", map[string]any{"type": "object", "properties": "not_a_map"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := schemaDeclaresObjectProperties(tt.schema)
+			if got != tt.want {
+				t.Errorf("schemaDeclaresObjectProperties() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func BenchmarkValidateJSON(b *testing.B) {
 	schema := map[string]any{
 		"type": "object",

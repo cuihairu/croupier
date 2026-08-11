@@ -965,3 +965,592 @@ func TestResolveConflictRawValueKeepOldV2(t *testing.T) {
 	result := resolveConflictRawValue(conflict, resolution)
 	assert.Equal(t, `"old"`, string(result))
 }
+
+// ---------------------------------------------------------------------------
+// applyIndexedAutoMergeItem
+// ---------------------------------------------------------------------------
+
+func TestApplyIndexedAutoMergeItem_ColumnTitle(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			ListView: &spec.ListViewSpec{
+				Columns: []spec.ColumnSpec{
+					{Title: spec.LocalizedText{"zh-CN": "旧"}},
+				},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.listView.columns[0].title",
+		MergedValue: json.RawMessage(`{"zh-CN":"新"}`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	assert.Equal(t, "新", page.Resource.ListView.Columns[0].Title["zh-CN"])
+}
+
+func TestApplyIndexedAutoMergeItem_ColumnWidth(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			ListView: &spec.ListViewSpec{
+				Columns: []spec.ColumnSpec{{Width: 100}},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.listView.columns[0].width",
+		MergedValue: json.RawMessage(`200`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	assert.Equal(t, 200, page.Resource.ListView.Columns[0].Width)
+}
+
+func TestApplyIndexedAutoMergeItem_ColumnVisible(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			ListView: &spec.ListViewSpec{
+				Columns: []spec.ColumnSpec{{Visible: true}},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.listView.columns[0].visible",
+		MergedValue: json.RawMessage(`false`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	assert.Equal(t, false, page.Resource.ListView.Columns[0].Visible)
+}
+
+func TestApplyIndexedAutoMergeItem_ColumnSortable(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			ListView: &spec.ListViewSpec{
+				Columns: []spec.ColumnSpec{{Sortable: false}},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.listView.columns[0].sortable",
+		MergedValue: json.RawMessage(`true`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	assert.Equal(t, true, page.Resource.ListView.Columns[0].Sortable)
+}
+
+func TestApplyIndexedAutoMergeItem_ColumnFilterable(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			ListView: &spec.ListViewSpec{
+				Columns: []spec.ColumnSpec{{Filterable: false}},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.listView.columns[0].filterable",
+		MergedValue: json.RawMessage(`true`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	assert.Equal(t, true, page.Resource.ListView.Columns[0].Filterable)
+}
+
+func TestApplyIndexedAutoMergeItem_ColumnUnsupportedLeaf(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			ListView: &spec.ListViewSpec{
+				Columns: []spec.ColumnSpec{{}},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.listView.columns[0].unknownField",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_ColumnOutOfRange(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			ListView: &spec.ListViewSpec{
+				Columns: []spec.ColumnSpec{},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.listView.columns[5].title",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_ColumnNilResource(t *testing.T) {
+	page := &spec.PageSpec{}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.listView.columns[0].title",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_DetailViewTitle(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			DetailView: &spec.DetailViewSpec{
+				Fields: []spec.DetailFieldSpec{
+					{Title: spec.LocalizedText{"zh-CN": "旧"}},
+				},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.detailView.fields[0].title",
+		MergedValue: json.RawMessage(`{"zh-CN":"新"}`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_DetailViewSpan(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			DetailView: &spec.DetailViewSpec{
+				Fields: []spec.DetailFieldSpec{{Span: 6}},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.detailView.fields[0].span",
+		MergedValue: json.RawMessage(`12`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	assert.Equal(t, 12, page.Resource.DetailView.Fields[0].Span)
+}
+
+func TestApplyIndexedAutoMergeItem_DetailViewUnsupportedLeaf(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			DetailView: &spec.DetailViewSpec{
+				Fields: []spec.DetailFieldSpec{{}},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.detailView.fields[0].unknownLeaf",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_DetailViewOutOfRange(t *testing.T) {
+	page := &spec.PageSpec{
+		Resource: &spec.ResourcePageSpec{
+			DetailView: &spec.DetailViewSpec{
+				Fields: []spec.DetailFieldSpec{},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "resource.detailView.fields[5].title",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_OperationFormFields(t *testing.T) {
+	page := &spec.PageSpec{
+		Operation: &spec.OperationPageSpec{
+			Form: &spec.FormPresentationSpec{
+				Fields: []spec.FormFieldSpec{
+					{Label: spec.LocalizedText{"zh-CN": "旧"}},
+				},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "operation.form.fields[0].label",
+		MergedValue: json.RawMessage(`{"zh-CN":"新"}`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_OperationFormOutOfRange(t *testing.T) {
+	page := &spec.PageSpec{
+		Operation: &spec.OperationPageSpec{
+			Form: &spec.FormPresentationSpec{
+				Fields: []spec.FormFieldSpec{},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "operation.form.fields[5].label",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_TaskFormFields(t *testing.T) {
+	page := &spec.PageSpec{
+		Task: &spec.TaskPageSpec{
+			Form: &spec.FormPresentationSpec{
+				Fields: []spec.FormFieldSpec{
+					{Label: spec.LocalizedText{"zh-CN": "旧"}},
+				},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "task.form.fields[0].label",
+		MergedValue: json.RawMessage(`{"zh-CN":"新"}`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_TaskFormOutOfRange(t *testing.T) {
+	page := &spec.PageSpec{
+		Task: &spec.TaskPageSpec{
+			Form: &spec.FormPresentationSpec{
+				Fields: []spec.FormFieldSpec{},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "task.form.fields[5].label",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_ReportQueryFormFields(t *testing.T) {
+	page := &spec.PageSpec{
+		Report: &spec.ReportPageSpec{
+			QueryForm: &spec.FormPresentationSpec{
+				Fields: []spec.FormFieldSpec{
+					{Label: spec.LocalizedText{"zh-CN": "旧"}},
+				},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "report.queryForm.fields[0].label",
+		MergedValue: json.RawMessage(`{"zh-CN":"新"}`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_ReportQueryFormOutOfRange(t *testing.T) {
+	page := &spec.PageSpec{
+		Report: &spec.ReportPageSpec{
+			QueryForm: &spec.FormPresentationSpec{
+				Fields: []spec.FormFieldSpec{},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "report.queryForm.fields[5].label",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_ReportChartsTitle(t *testing.T) {
+	page := &spec.PageSpec{
+		Report: &spec.ReportPageSpec{
+			Charts: []spec.ChartSpec{
+				{Title: spec.LocalizedText{"zh-CN": "旧"}},
+			},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "report.charts[0].title",
+		MergedValue: json.RawMessage(`{"zh-CN":"新"}`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_ReportChartsUnsupportedLeaf(t *testing.T) {
+	page := &spec.PageSpec{
+		Report: &spec.ReportPageSpec{
+			Charts: []spec.ChartSpec{{}},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "report.charts[0].unknownLeaf",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_ReportChartsOutOfRange(t *testing.T) {
+	page := &spec.PageSpec{
+		Report: &spec.ReportPageSpec{
+			Charts: []spec.ChartSpec{},
+		},
+	}
+	item := dashboardmerge.MergeItem{
+		Field:       "report.charts[5].title",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestApplyIndexedAutoMergeItem_UnmatchedField(t *testing.T) {
+	page := &spec.PageSpec{}
+	item := dashboardmerge.MergeItem{
+		Field:       "unknown.path.field",
+		MergedValue: json.RawMessage(`"x"`),
+	}
+	ok, err := applyIndexedAutoMergeItem(page, item)
+	assert.False(t, ok)
+	assert.NoError(t, err)
+}
+
+func testBoolPtr(v bool) *bool { return &v }
+
+// ---------------------------------------------------------------------------
+// decodeMergeValue
+// ---------------------------------------------------------------------------
+
+func TestDecodeMergeValue_Empty(t *testing.T) {
+	var s string
+	item := dashboardmerge.MergeItem{Field: "test"}
+	assert.NoError(t, decodeMergeValue(item, &s))
+}
+
+func TestDecodeMergeValue_Null(t *testing.T) {
+	var s string
+	item := dashboardmerge.MergeItem{Field: "test", MergedValue: json.RawMessage(`null`)}
+	assert.NoError(t, decodeMergeValue(item, &s))
+}
+
+func TestDecodeMergeValue_String(t *testing.T) {
+	var s string
+	item := dashboardmerge.MergeItem{Field: "test", MergedValue: json.RawMessage(`"hello"`)}
+	assert.NoError(t, decodeMergeValue(item, &s))
+	assert.Equal(t, "hello", s)
+}
+
+func TestDecodeMergeValue_Int(t *testing.T) {
+	var n int
+	item := dashboardmerge.MergeItem{Field: "test", MergedValue: json.RawMessage(`42`)}
+	assert.NoError(t, decodeMergeValue(item, &n))
+	assert.Equal(t, 42, n)
+}
+
+func TestDecodeMergeValue_Bool(t *testing.T) {
+	var b bool
+	item := dashboardmerge.MergeItem{Field: "test", MergedValue: json.RawMessage(`true`)}
+	assert.NoError(t, decodeMergeValue(item, &b))
+	assert.True(t, b)
+}
+
+func TestDecodeMergeValue_InvalidJSON(t *testing.T) {
+	var s string
+	item := dashboardmerge.MergeItem{Field: "test.field", MergedValue: json.RawMessage(`{invalid`)}
+	err := decodeMergeValue(item, &s)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "test.field")
+}
+
+func TestDecodeMergeValue_Map(t *testing.T) {
+	var m map[string]string
+	item := dashboardmerge.MergeItem{Field: "test", MergedValue: json.RawMessage(`{"key":"value"}`)}
+	assert.NoError(t, decodeMergeValue(item, &m))
+	assert.Equal(t, "value", m["key"])
+}
+
+// ---------------------------------------------------------------------------
+// applyConflictResolutions
+// ---------------------------------------------------------------------------
+
+func TestApplyConflictResolutions_Empty(t *testing.T) {
+	page := spec.PageSpec{PageKey: "test"}
+	result, err := applyConflictResolutions(page, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "test", result.PageKey)
+}
+
+func TestApplyConflictResolutions_MissingResolution(t *testing.T) {
+	page := spec.PageSpec{}
+	conflicts := []dashboardmerge.MergeConflict{
+		{Field: "title"},
+	}
+	_, err := applyConflictResolutions(page, conflicts, map[string]ConflictResolution{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "title")
+}
+
+func TestApplyConflictResolutions_AcceptNew(t *testing.T) {
+	page := spec.PageSpec{}
+	conflicts := []dashboardmerge.MergeConflict{
+		{Field: "type", LatestValue: json.RawMessage(`"operation"`), DraftValue: json.RawMessage(`"resource"`)},
+	}
+	resolutions := map[string]ConflictResolution{
+		"type": {AcceptNew: true},
+	}
+	result, err := applyConflictResolutions(page, conflicts, resolutions)
+	require.NoError(t, err)
+	assert.Equal(t, spec.PageTypeOperation, result.Type)
+}
+
+func TestApplyConflictResolutions_KeepOld(t *testing.T) {
+	page := spec.PageSpec{}
+	conflicts := []dashboardmerge.MergeConflict{
+		{Field: "type", LatestValue: json.RawMessage(`"operation"`), DraftValue: json.RawMessage(`"resource"`)},
+	}
+	resolutions := map[string]ConflictResolution{
+		"type": {AcceptNew: false},
+	}
+	result, err := applyConflictResolutions(page, conflicts, resolutions)
+	require.NoError(t, err)
+	assert.Equal(t, spec.PageTypeResource, result.Type)
+}
+
+func TestApplyConflictResolutions_CustomValue(t *testing.T) {
+	page := spec.PageSpec{}
+	conflicts := []dashboardmerge.MergeConflict{
+		{Field: "resourceKey", LatestValue: json.RawMessage(`"item"`), DraftValue: json.RawMessage(`"player"`)},
+	}
+	resolutions := map[string]ConflictResolution{
+		"resourceKey": {Value: json.RawMessage(`"guild"`)},
+	}
+	result, err := applyConflictResolutions(page, conflicts, resolutions)
+	require.NoError(t, err)
+	assert.Equal(t, "guild", result.ResourceKey)
+}
+
+func TestApplyConflictResolutions_InvalidField(t *testing.T) {
+	page := spec.PageSpec{}
+	conflicts := []dashboardmerge.MergeConflict{
+		{Field: "unsupported.field"},
+	}
+	resolutions := map[string]ConflictResolution{
+		"unsupported.field": {AcceptNew: true},
+	}
+	_, err := applyConflictResolutions(page, conflicts, resolutions)
+	assert.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// applyAutoMergeItems
+// ---------------------------------------------------------------------------
+
+func TestApplyAutoMergeItems_Empty(t *testing.T) {
+	page := spec.PageSpec{PageKey: "test"}
+	result, err := applyAutoMergeItems(page, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "test", result.PageKey)
+}
+
+func TestApplyAutoMergeItems_WithItems(t *testing.T) {
+	page := spec.PageSpec{}
+	items := []dashboardmerge.MergeItem{
+		{Field: "title", MergedValue: json.RawMessage(`{"zh-CN":"标题"}`)},
+		{Field: "icon", MergedValue: json.RawMessage(`"icon-name"`)},
+	}
+	result, err := applyAutoMergeItems(page, items)
+	require.NoError(t, err)
+	assert.Equal(t, "标题", result.Title["zh-CN"])
+	assert.Equal(t, "icon-name", result.Icon)
+}
+
+func TestApplyAutoMergeItems_Error(t *testing.T) {
+	page := spec.PageSpec{}
+	items := []dashboardmerge.MergeItem{
+		{Field: "unsupported.field", MergedValue: json.RawMessage(`"value"`)},
+	}
+	_, err := applyAutoMergeItems(page, items)
+	assert.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// applyFormFieldConflictValue
+// ---------------------------------------------------------------------------
+
+func TestApplyFormFieldConflictValue_ValidationRules(t *testing.T) {
+	field := &spec.FormFieldSpec{}
+	raw := json.RawMessage(`[{"type":"required"}]`)
+	err := applyFormFieldConflictValue(field, "validationRules", raw, "operation.form.fields[0].validationRules")
+	require.NoError(t, err)
+	assert.NotNil(t, field.ValidationRules)
+}
+
+func TestApplyFormFieldConflictValue_UnsupportedLeaf(t *testing.T) {
+	field := &spec.FormFieldSpec{}
+	raw := json.RawMessage(`"value"`)
+	err := applyFormFieldConflictValue(field, "unsupportedLeaf", raw, "operation.form.fields[0].unsupportedLeaf")
+	assert.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// applyIndexedConflictField
+// ---------------------------------------------------------------------------
+
+func TestApplyIndexedConflictField_OperationFormFieldKey(t *testing.T) {
+	page := &spec.PageSpec{
+		Operation: &spec.OperationPageSpec{
+			Form: &spec.FormPresentationSpec{
+				Fields: []spec.FormFieldSpec{
+					{Key: "old"},
+				},
+			},
+		},
+	}
+	ok, err := applyIndexedConflictField(page, "operation.form.fields[0].key", json.RawMessage(`"new"`))
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	assert.Equal(t, "new", page.Operation.Form.Fields[0].Key)
+}
+
+func TestApplyIndexedConflictField_OperationFormFieldOutOfRange(t *testing.T) {
+	page := &spec.PageSpec{}
+	_, err := applyIndexedConflictField(page, "operation.form.fields[5].key", json.RawMessage(`"new"`))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "out of range")
+}
+
+func TestApplyIndexedConflictField_UnmatchedField(t *testing.T) {
+	page := &spec.PageSpec{}
+	ok, err := applyIndexedConflictField(page, "unmatched.field", json.RawMessage(`"value"`))
+	assert.False(t, ok)
+	assert.NoError(t, err)
+}

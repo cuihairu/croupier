@@ -986,3 +986,245 @@ func grantPermission(t *testing.T, db *gorm.DB, roleID uint, permissionID string
 	require.NoError(t, db.Where("id = ?", permission.ID).FirstOrCreate(&permission).Error)
 	require.NoError(t, db.Create(&model.RolePermission{RoleID: roleID, PermissionID: permissionID}).Error)
 }
+
+func TestValidatePublishBindingSelectors_NilSelectors_RequiresInput(t *testing.T) {
+	binding := spec.PageFunctionBinding{
+		ID:         "b1",
+		FunctionID: "f1",
+		Usage:      spec.BindingUsageAction,
+	}
+	fn := spec.FunctionSpec{
+		InputSchema: spec.JSONSchema(`{"type":"object","properties":{"name":{"type":"string"}}}`),
+		Enabled:     true,
+	}
+	page := spec.PageSpec{
+		Type: spec.PageTypeResource,
+	}
+
+	diags := validatePublishBindingSelectors("operations[0].bindings[0]", binding, fn, page)
+	assertNotEmpty := false
+	for _, d := range diags {
+		if d.Code == "binding_selector_missing" {
+			assertNotEmpty = true
+		}
+	}
+	assert.True(t, assertNotEmpty, "expected binding_selector_missing diagnostic")
+}
+
+func TestValidatePublishBindingSelectors_NilSelectors_RequiresOutput(t *testing.T) {
+	binding := spec.PageFunctionBinding{
+		ID:         "b1",
+		FunctionID: "f1",
+		Usage:      spec.BindingUsageQuery,
+	}
+	fn := spec.FunctionSpec{
+		InputSchema: spec.JSONSchema(`{}`),
+		Enabled:     true,
+	}
+	page := spec.PageSpec{
+		Type: spec.PageTypeResource,
+	}
+
+	diags := validatePublishBindingSelectors("operations[0].bindings[0]", binding, fn, page)
+	assertNotEmpty := false
+	for _, d := range diags {
+		if d.Code == "binding_output_selector_missing" {
+			assertNotEmpty = true
+		}
+	}
+	assert.True(t, assertNotEmpty, "expected binding_output_selector_missing diagnostic")
+}
+
+func TestValidatePublishBindingSelectors_NoInputRequired(t *testing.T) {
+	binding := spec.PageFunctionBinding{
+		ID:         "b1",
+		FunctionID: "f1",
+		Usage:      spec.BindingUsageAction,
+	}
+	fn := spec.FunctionSpec{
+		InputSchema: spec.JSONSchema(`{}`),
+		Enabled:     true,
+	}
+	page := spec.PageSpec{
+		Type: spec.PageTypeResource,
+	}
+
+	diags := validatePublishBindingSelectors("operations[0].bindings[0]", binding, fn, page)
+	assert.Empty(t, diags)
+}
+
+func TestBindingRequiresOutputSelectors(t *testing.T) {
+	tests := []struct {
+		name    string
+		binding spec.PageFunctionBinding
+		page    spec.PageSpec
+		expect  bool
+	}{
+		{
+			name:    "query on resource",
+			binding: spec.PageFunctionBinding{Usage: spec.BindingUsageQuery},
+			page:    spec.PageSpec{Type: spec.PageTypeResource},
+			expect:  true,
+		},
+		{
+			name:    "query on operation",
+			binding: spec.PageFunctionBinding{Usage: spec.BindingUsageQuery},
+			page:    spec.PageSpec{Type: spec.PageTypeOperation},
+			expect:  false,
+		},
+		{
+			name:    "report on report page",
+			binding: spec.PageFunctionBinding{Usage: spec.BindingUsageReport},
+			page:    spec.PageSpec{Type: spec.PageTypeReport},
+			expect:  true,
+		},
+		{
+			name:    "task_status on task page",
+			binding: spec.PageFunctionBinding{Usage: spec.BindingUsageTaskStatus},
+			page:    spec.PageSpec{Type: spec.PageTypeTask},
+			expect:  true,
+		},
+		{
+			name:    "task_events on task page",
+			binding: spec.PageFunctionBinding{Usage: spec.BindingUsageTaskEvents},
+			page:    spec.PageSpec{Type: spec.PageTypeTask},
+			expect:  true,
+		},
+		{
+			name:    "task_result on task page",
+			binding: spec.PageFunctionBinding{Usage: spec.BindingUsageTaskResult},
+			page:    spec.PageSpec{Type: spec.PageTypeTask},
+			expect:  true,
+		},
+		{
+			name:    "action on resource",
+			binding: spec.PageFunctionBinding{Usage: spec.BindingUsageAction},
+			page:    spec.PageSpec{Type: spec.PageTypeResource},
+			expect:  false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := bindingRequiresOutputSelectors(tt.binding, tt.page)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestSchemaHasFields(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema spec.JSONSchema
+		expect bool
+	}{
+		{"empty", nil, false},
+		{"empty object", spec.JSONSchema(`{}`), false},
+		{"with properties", spec.JSONSchema(`{"properties":{"name":{"type":"string"}}}`), true},
+		{"with required", spec.JSONSchema(`{"required":["name"]}`), true},
+		{"invalid json", spec.JSONSchema(`{invalid}`), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := schemaHasFields(tt.schema)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestIsValidUsage(t *testing.T) {
+	validUsages := []spec.PageBindingUsage{
+		spec.BindingUsageQuery,
+		spec.BindingUsageDetail,
+		spec.BindingUsageAction,
+		spec.BindingUsageTask,
+		spec.BindingUsageTaskStatus,
+		spec.BindingUsageTaskEvents,
+		spec.BindingUsageTaskResult,
+		spec.BindingUsageTaskCancel,
+		spec.BindingUsageTaskRetry,
+		spec.BindingUsageReport,
+	}
+	for _, usage := range validUsages {
+		assert.True(t, isValidUsage(usage), "expected %s to be valid", usage)
+	}
+	assert.False(t, isValidUsage("invalid"), "expected invalid to be false")
+}
+
+func TestIsValidExecutionMode(t *testing.T) {
+	assert.True(t, isValidExecutionMode(spec.PageExecutionModeSync))
+	assert.True(t, isValidExecutionMode(spec.PageExecutionModeTask))
+	assert.False(t, isValidExecutionMode("invalid"))
+}
+
+func TestBindingsByID(t *testing.T) {
+	bindings := []spec.PageFunctionBinding{
+		{ID: "b1", FunctionID: "f1"},
+		{ID: "b2", FunctionID: "f2"},
+		{ID: "", FunctionID: "f3"},
+	}
+	result := bindingsByID(bindings)
+	assert.Len(t, result, 2)
+	assert.Equal(t, "f1", result["b1"].FunctionID)
+	assert.Equal(t, "f2", result["b2"].FunctionID)
+	_, ok := result[""]
+	assert.False(t, ok)
+}
+
+func TestValidatePageShape(t *testing.T) {
+	tests := []struct {
+		name    string
+		page    spec.PageSpec
+		wantErr bool
+	}{
+		{
+			name:    "resource with resource",
+			page:    spec.PageSpec{Type: spec.PageTypeResource, Resource: &spec.ResourcePageSpec{}},
+			wantErr: false,
+		},
+		{
+			name:    "resource without resource",
+			page:    spec.PageSpec{Type: spec.PageTypeResource},
+			wantErr: true,
+		},
+		{
+			name:    "operation with operation",
+			page:    spec.PageSpec{Type: spec.PageTypeOperation, Operation: &spec.OperationPageSpec{}},
+			wantErr: false,
+		},
+		{
+			name:    "operation without operation",
+			page:    spec.PageSpec{Type: spec.PageTypeOperation},
+			wantErr: true,
+		},
+		{
+			name:    "task with task",
+			page:    spec.PageSpec{Type: spec.PageTypeTask, Task: &spec.TaskPageSpec{}},
+			wantErr: false,
+		},
+		{
+			name:    "task without task",
+			page:    spec.PageSpec{Type: spec.PageTypeTask},
+			wantErr: true,
+		},
+		{
+			name:    "report with report",
+			page:    spec.PageSpec{Type: spec.PageTypeReport, Report: &spec.ReportPageSpec{}},
+			wantErr: false,
+		},
+		{
+			name:    "report without report",
+			page:    spec.PageSpec{Type: spec.PageTypeReport},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			diags := validatePageShape(tt.page)
+			if tt.wantErr {
+				assert.NotEmpty(t, diags)
+			} else {
+				assert.Empty(t, diags)
+			}
+		})
+	}
+}

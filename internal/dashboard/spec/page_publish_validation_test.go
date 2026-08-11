@@ -65,3 +65,83 @@ func TestValidatePublishableOperationPageRequiresActionConfirmBinding(t *testing
 	page.Operation.Confirm.BindingID = "main"
 	assert.Empty(t, ValidatePublishablePageShape(page))
 }
+
+func TestValidatePublishableResultView(t *testing.T) {
+	tests := []struct {
+		name     string
+		result   *ResultViewSpec
+		field    string
+		wantDiag int
+	}{
+		{
+			name:     "nil result view",
+			result:   nil,
+			field:    "report.resultView",
+			wantDiag: 0,
+		},
+		{
+			name:     "empty fields",
+			result:   &ResultViewSpec{Fields: []ResultFieldSpec{}},
+			field:    "report.resultView",
+			wantDiag: 0,
+		},
+		{
+			name: "missing key",
+			result: &ResultViewSpec{
+				Fields: []ResultFieldSpec{
+					{Key: "", Title: LocalizedText{"zh-CN": "标题"}, DataType: "string"},
+				},
+			},
+			field:    "report.resultView",
+			wantDiag: 1,
+		},
+		{
+			name: "duplicate keys",
+			result: &ResultViewSpec{
+				Fields: []ResultFieldSpec{
+					{Key: "name", Title: LocalizedText{"zh-CN": "名称1"}, DataType: "string"},
+					{Key: "name", Title: LocalizedText{"zh-CN": "名称2"}, DataType: "string"},
+				},
+			},
+			field:    "report.resultView",
+			wantDiag: 1,
+		},
+		{
+			name: "missing title locale",
+			result: &ResultViewSpec{
+				Fields: []ResultFieldSpec{
+					{Key: "name", Title: LocalizedText{}, DataType: "string"},
+				},
+			},
+			field:    "report.resultView",
+			wantDiag: 1,
+		},
+		{
+			name: "missing data type",
+			result: &ResultViewSpec{
+				Fields: []ResultFieldSpec{
+					{Key: "name", Title: LocalizedText{"zh-CN": "名称"}},
+				},
+			},
+			field:    "report.resultView",
+			wantDiag: 1,
+		},
+		{
+			name: "valid field",
+			result: &ResultViewSpec{
+				Fields: []ResultFieldSpec{
+					{Key: "name", Title: LocalizedText{"zh-CN": "名称"}, DataType: "string"},
+				},
+			},
+			field:    "report.resultView",
+			wantDiag: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			diags := validatePublishableResultView(tt.result, tt.field)
+			assert.Len(t, diags, tt.wantDiag)
+		})
+	}
+}
