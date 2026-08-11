@@ -176,10 +176,18 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     if (!isGameControlled) {
       setGameState(next);
     }
-    setScope({ gameId: next }, { persist: true, emit: true });
+    // When switching games, reset env to first available for the new game.
+    // envOptions recomputes when gameState changes, but we need the value now.
+    const targetGame = games.find((g) => g.name === next);
+    const targetEnvs = buildEnvOptions(targetGame);
+    const newEnv = targetEnvs[0]?.value;
+    if (!isEnvControlled && newEnv) {
+      setEnvState(newEnv);
+    }
+    const scopeUpdate = { gameId: next, env: newEnv };
+    setScope(scopeUpdate, { persist: true, emit: true });
     onChange?.(next);
-    const scope = getScope();
-    if (next && scope.env) persistMyScope(next, scope.env).catch(() => {});
+    if (newEnv) persistMyScope(next, newEnv).catch(() => {});
   };
 
   const handleEnvChange = (next?: string) => {

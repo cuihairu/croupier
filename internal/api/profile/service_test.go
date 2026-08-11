@@ -665,8 +665,8 @@ func TestService_GetUserGames_AdminWithViewerRole(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	// Viewer role should see all games (no scope check)
-	assert.GreaterOrEqual(t, len(resp.Games), 1)
+	// Viewer role with no scope entries sees 0 games (must have explicit scope)
+	assert.Equal(t, 0, len(resp.Games))
 }
 
 func TestService_GetProfile_EmptyEmail(t *testing.T) {

@@ -85,26 +85,29 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 		// read it.
 		ctx := context.WithValue(c.Request.Context(), gameScopeCtxKey{}, scope)
 
-		if svcCtx != nil && svcCtx.Router != nil && gameID != "" {
-			// SECURITY: Validate that the (gameID, env) pair exists AND the
-			// user is authorized to access it.
-			if err := validateGameScope(ctx, svcCtx, gameID, env); err != nil {
-				slog.WarnContext(ctx, "game scope validation failed",
-					"gameId", gameID, "env", env, "error", err)
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-					"error":   "invalid_game_scope",
-					"message": "游戏环境不存在或无权访问",
-				})
-				return
-			}
-
-			// SECURITY: Verify user is authorized for this specific scope.
+		// SECURITY: User authorization must run in ALL modes (single-DB and
+		// multi-DB). Only the game_envs existence check is Router-dependent.
+		if gameID != "" && svcCtx != nil {
 			if err := authorizeScope(ctx, svcCtx, c, gameID, env); err != nil {
 				slog.WarnContext(ctx, "scope authorization failed",
 					"gameId", gameID, "env", env, "error", err)
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 					"error":   "scope_not_authorized",
 					"message": "无权访问该游戏环境",
+				})
+				return
+			}
+		}
+
+		if svcCtx != nil && svcCtx.Router != nil && gameID != "" {
+			// SECURITY: Validate that the (gameID, env) pair exists in
+			// game_envs before opening a database connection.
+			if err := validateGameScope(ctx, svcCtx, gameID, env); err != nil {
+				slog.WarnContext(ctx, "game scope validation failed",
+					"gameId", gameID, "env", env, "error", err)
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+					"error":   "invalid_game_scope",
+					"message": "游戏环境不存在或无权访问",
 				})
 				return
 			}

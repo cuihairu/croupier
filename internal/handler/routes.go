@@ -62,48 +62,38 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerMetaRoutes(v1, serverCtx)
 	registerMonitoringPublicRoutes(r, v1.Group("/monitoring"), serverCtx)
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
-	registerAuditRoutes(v1, serverCtx)                       // 审计日志在 v1 根路径
 	registerOpenAPIReadRoutes(v1, serverCtx)                 // OpenAPI 只保留契约查看公开路由
 
 	// 需要认证的路由（使用 Authority 中间件）
 	protected := v1.Group("/")
 	protected.Use(serverCtx.Authority)
+
+	// Scope-dependent 路由：需要 X-Game-ID/X-Env 的接口。
+	// GameDBMiddleware 仅挂在此组，解析 scope 并注入 context。
+	scoped := protected.Group("/")
+	scoped.Use(svc.GameDBMiddleware(serverCtx))
+
+	// Scope-independent 路由：不需要 game/env scope。
 	{
 		registerAdminRoutes(protected.Group("/admin"), serverCtx)
-		registerFunctionRoutes(protected.Group("/functions"), serverCtx)
-		registerFunctionCallRoutes(protected.Group("/function-calls"), serverCtx)
-		registerFunctionMetadataRoutes(protected.Group("/metadata"), serverCtx)
 		registerGameRoutes(protected.Group("/games"), serverCtx)
 		registerNodeRoutes(protected.Group("/nodes"), serverCtx)
-		registerOpsRoutes(protected.Group("/ops"), serverCtx)
-		registerPageRoutes(protected.Group("/pages"), serverCtx)
 		registerConsoleRoutes(protected.Group("/console"), serverCtx)
 		registerOpenAPISourceRoutes(protected.Group("/openapi"), serverCtx)
 		registerStorageRoutes(protected.Group("/storage"), serverCtx)
-		registerTaskRoutes(protected.Group("/tasks"), serverCtx)
-
-		// 剩余模块路由
 		registerAgentRoutes(protected.Group("/agent"), serverCtx)
 		registerAlertRoutes(protected.Group("/alerts"), serverCtx)
-		registerAnalyticsRoutes(protected.Group("/analytics"), serverCtx)
-		registerApprovalRoutes(protected.Group("/approvals"), serverCtx)
-		registerAssignmentRoutes(protected.Group("/assignments"), serverCtx)
 		registerBackupRoutes(protected.Group("/backups"), serverCtx)
 		registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
-		registerConfigRoutes(protected.Group("/configs"), serverCtx)
-		registerResourceRoutes(protected.Group("/resources"), serverCtx)
-		registerResourceCatalogRoutes(protected.Group("/resource-catalog"), serverCtx)
 		registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
 		registerProposalRoutes(protected.Group("/proposals"), serverCtx)
 		registerVersioningRoutes(protected.Group("/versioning"), serverCtx)
 		registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
 		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
-		registerFeedbackRoutes(protected.Group("/feedback"), serverCtx)
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
 		registerMonitoringProtectedRoutes(protected.Group("/monitoring"), serverCtx)
 		registerPermissionRoutes(protected.Group("/permissions"), serverCtx)
 		registerPlatformRoutes(protected.Group("/platforms"), serverCtx)
-		registerPlayerRoutes(protected.Group("/players"), serverCtx)
 		registerProfileRoutes(protected.Group("/profile"), serverCtx)
 		registerProviderRoutes(protected.Group("/providers"), serverCtx)
 		registerRateLimitRoutes(protected.Group("/rate-limits"), serverCtx)
@@ -111,8 +101,26 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerSchemaRoutes(protected.Group("/schemas"), serverCtx)
 		registerTermsRoutes(protected.Group("/terms"), serverCtx)
 		registerTicketRoutes(protected.Group("/tickets"), serverCtx)
-		// 非 Dashboard 内部模块快捷路由
 		registerRegistryShortcutRoutes(protected, serverCtx)
+	}
+
+	// Scope-dependent 路由
+	{
+		registerFunctionRoutes(scoped.Group("/functions"), serverCtx)
+		registerFunctionCallRoutes(scoped.Group("/function-calls"), serverCtx)
+		registerFunctionMetadataRoutes(scoped.Group("/metadata"), serverCtx)
+		registerOpsRoutes(scoped.Group("/ops"), serverCtx)
+		registerPageRoutes(scoped.Group("/pages"), serverCtx)
+		registerAnalyticsRoutes(scoped.Group("/analytics"), serverCtx)
+		registerApprovalRoutes(scoped.Group("/approvals"), serverCtx)
+		registerAssignmentRoutes(scoped.Group("/assignments"), serverCtx)
+		registerConfigRoutes(scoped.Group("/configs"), serverCtx)
+		registerResourceRoutes(scoped.Group("/resources"), serverCtx)
+		registerResourceCatalogRoutes(scoped.Group("/resource-catalog"), serverCtx)
+		registerFeedbackRoutes(scoped.Group("/feedback"), serverCtx)
+		registerPlayerRoutes(scoped.Group("/players"), serverCtx)
+		registerTaskRoutes(scoped.Group("/tasks"), serverCtx)
+		registerAuditRoutes(v1, serverCtx)
 	}
 }
 

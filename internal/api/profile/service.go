@@ -112,13 +112,20 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 		return nil, errors.New("获取游戏列表失败")
 	}
 
+	envScopes, err := s.adminModel.GetAdminEnvScopes(ctx, admin.ID)
+	if err != nil {
+		return nil, errors.New("获取游戏环境列表失败")
+	}
+
 	var gameModels []model.Game
-	if hasProfileAdminRole(roleModels) || len(adminGames) == 0 {
+	envScopeFilter := make(map[uint]map[string]struct{}) // gameID -> set of envs
+
+	if hasProfileAdminRole(roleModels) {
 		gameModels, err = s.gameModel.ListAll(ctx)
 		if err != nil {
 			return nil, errors.New("获取游戏列表失败")
 		}
-	} else {
+	} else if len(adminGames) > 0 {
 		gameModels = make([]model.Game, 0, len(adminGames))
 		for _, ag := range adminGames {
 			game, err := s.gameModel.FindByGameID(ctx, ag.GameID)
@@ -126,6 +133,22 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 				continue
 			}
 			gameModels = append(gameModels, *game)
+		}
+	} else if len(envScopes) > 0 {
+		// User has only env-level scopes — show only those games/envs
+		seen := make(map[uint]bool)
+		for _, es := range envScopes {
+			if seen[es.GameID] {
+				envScopeFilter[es.GameID][es.Env] = struct{}{}
+				continue
+			}
+			game, err := s.gameModel.FindByGameID(ctx, es.GameID)
+			if err != nil || game == nil {
+				continue
+			}
+			gameModels = append(gameModels, *game)
+			seen[es.GameID] = true
+			envScopeFilter[es.GameID] = map[string]struct{}{es.Env: {}}
 		}
 	}
 
@@ -145,6 +168,12 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 		envs := make([]string, 0, len(envMeta))
 		for _, env := range envMeta {
 			if trimmed := strings.TrimSpace(env.Env); trimmed != "" {
+				// If env-level filter exists for this game, only include authorized envs
+				if envFilter, ok := envScopeFilter[game.ID]; ok {
+					if _, authorized := envFilter[trimmed]; !authorized {
+						continue
+					}
+				}
 				envs = append(envs, trimmed)
 			}
 		}
@@ -304,7 +333,60 @@ func (s *Service) GetPermissions(ctx context.Context, username string) (*Profile
 	}, nil
 }
 
-// UpdateScope persists the user's game/env selection.
+// UpdateScope persists the user's game/env selection after validating
+// that the game/env exists and the user is authorized.
 func (s *Service) UpdateScope(ctx context.Context, adminID uint, gameID, env string) error {
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	if gameID == "" || env == "" {
+		return errors.New("gameId 和 env 不能为空")
+	}
+
+	// Validate game/env exists
+	game, err := s.gameModel.FindByGameIDString(ctx, gameID)
+	if err != nil || game == nil {
+		return errors.New("游戏不存在")
+	}
+
+	// Validate user authorization
+	roles, err := s.adminModel.GetAdminRoles(ctx, adminID)
+	isAdmin := false
+	if err == nil {
+		for _, r := range roles {
+			name := strings.ToLower(strings.TrimSpace(r.Name))
+			if name == "admin" || name == "super_admin" {
+				isAdmin = true
+				break
+			}
+		}
+	}
+
+	if !isAdmin {
+		authorized := false
+		envScopes, err := s.adminModel.GetAdminEnvScopes(ctx, adminID)
+		if err == nil {
+			for _, s := range envScopes {
+				if s.GameID == game.ID && strings.EqualFold(strings.TrimSpace(s.Env), env) {
+					authorized = true
+					break
+				}
+			}
+		}
+		if !authorized {
+			gameScopes, err := s.adminModel.GetAdminGames(ctx, adminID)
+			if err == nil {
+				for _, s := range gameScopes {
+					if s.GameID == game.ID {
+						authorized = true
+						break
+					}
+				}
+			}
+		}
+		if !authorized {
+			return errors.New("无权访问该游戏环境")
+		}
+	}
+
 	return s.adminModel.UpdateLastScope(ctx, adminID, gameID, env)
 }
