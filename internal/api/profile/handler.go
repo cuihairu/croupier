@@ -111,3 +111,25 @@ func (h *Handler) GetPermissions(c *gin.Context) {
 
 	response.Success(c, resp)
 }
+
+// UpdateScope 持久化当前游戏/环境选择
+func (h *Handler) UpdateScope(c *gin.Context) {
+	adminID := c.GetUint("adminID")
+	if adminID == 0 {
+		response.Unauthorized(c, "未授权")
+		return
+	}
+
+	var req ScopeUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+
+	if err := h.service.UpdateScope(c.Request.Context(), adminID, req.GameID, req.Env); err != nil {
+		response.InternalServerError(c, err.Error())
+		return
+	}
+
+	response.Success(c, ScopeUpdateResponse{Ok: true})
+}

@@ -82,6 +82,8 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 			Nickname: admin.Nickname,
 			Roles:    roles,
 		},
+		LastGameID: admin.LastGameID,
+		LastEnv:    admin.LastEnv,
 	}, nil
 }
 

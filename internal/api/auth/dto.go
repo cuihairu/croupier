@@ -10,8 +10,10 @@ type LoginRequest struct {
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	Token string   `json:"token"`
-	User  UserInfo `json:"user"`
+	Token      string   `json:"token"`
+	User       UserInfo `json:"user"`
+	LastGameID string   `json:"lastGameId,omitempty"`
+	LastEnv    string   `json:"lastEnv,omitempty"`
 }
 
 // UserInfo 用户信息

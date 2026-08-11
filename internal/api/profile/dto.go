@@ -100,3 +100,14 @@ type GameInfo struct {
 	GameID   string `json:"gameId"`
 	GameName string `json:"gameName"`
 }
+
+// ScopeUpdateRequest 更新当前游戏/环境选择请求
+type ScopeUpdateRequest struct {
+	GameID string `json:"gameId" binding:"required"`
+	Env    string `json:"env" binding:"required"`
+}
+
+// ScopeUpdateResponse 更新当前游戏/环境选择响应
+type ScopeUpdateResponse struct {
+	Ok bool `json:"ok"`
+}

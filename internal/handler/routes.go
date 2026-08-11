@@ -686,6 +686,7 @@ func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/password", profileHandler.ChangePassword)
 	g.GET("/permissions", profileHandler.GetPermissions)
 	g.GET("/games", profileHandler.GetGames)
+	g.PATCH("/scope", profileHandler.UpdateScope)
 }
 
 // ============================================================================

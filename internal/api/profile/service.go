@@ -303,3 +303,8 @@ func (s *Service) GetPermissions(ctx context.Context, username string) (*Profile
 		PermissionIDs: permissionIDs,
 	}, nil
 }
+
+// UpdateScope persists the user's game/env selection.
+func (s *Service) UpdateScope(ctx context.Context, adminID uint, gameID, env string) error {
+	return s.adminModel.UpdateLastScope(ctx, adminID, gameID, env)
+}
