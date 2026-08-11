@@ -976,3 +976,75 @@ func TestInlineActionNeedsConfirm(t *testing.T) {
 		})
 	}
 }
+
+func TestResourceQuality(t *testing.T) {
+	tests := []struct {
+		name      string
+		semantics *model.CapabilitySemantics
+		diags     []spec.Diagnostic
+		expected  spec.GeneratedPageQuality
+	}{
+		{
+			name:      "nil semantics with no diags",
+			semantics: nil,
+			diags:     nil,
+			expected:  spec.GeneratedPageQualityBasic,
+		},
+		{
+			name:      "error diagnostic returns needs review",
+			semantics: nil,
+			diags: []spec.Diagnostic{
+				{Code: "some_error", Severity: spec.SeverityError},
+			},
+			expected: spec.GeneratedPageQualityNeedsReview,
+		},
+		{
+			name:      "unsupported schema returns needs review",
+			semantics: nil,
+			diags: []spec.Diagnostic{
+				{Code: "json_schema_generation_subset_unsupported", Severity: spec.SeverityWarning},
+			},
+			expected: spec.GeneratedPageQualityNeedsReview,
+		},
+		{
+			name:      "warning diagnostic returns basic",
+			semantics: nil,
+			diags: []spec.Diagnostic{
+				{Code: "some_warning", Severity: spec.SeverityWarning},
+			},
+			expected: spec.GeneratedPageQualityBasic,
+		},
+		{
+			name: "semantics with collection and identity returns ready",
+			semantics: &model.CapabilitySemantics{
+				CollectionQueryID: 1,
+				IdentityField:     "id",
+			},
+			diags:    nil,
+			expected: spec.GeneratedPageQualityReady,
+		},
+		{
+			name: "semantics without collection returns basic",
+			semantics: &model.CapabilitySemantics{
+				IdentityField: "id",
+			},
+			diags:    nil,
+			expected: spec.GeneratedPageQualityBasic,
+		},
+		{
+			name: "semantics without identity returns basic",
+			semantics: &model.CapabilitySemantics{
+				CollectionQueryID: 1,
+			},
+			diags:    nil,
+			expected: spec.GeneratedPageQualityBasic,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := resourceQuality(tt.semantics, tt.diags)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
