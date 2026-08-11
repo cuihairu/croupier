@@ -1663,3 +1663,33 @@ func TestService_ResolveLastLoginAt_AuthLoginAction(t *testing.T) {
 	result := service.resolveLastLoginAt("admin", nil)
 	assert.NotEmpty(t, result, "Should recognize 'auth.login' action")
 }
+
+func TestHasProfileAdminRole(t *testing.T) {
+	tests := []struct {
+		name     string
+		roles    []model.Role
+		expected bool
+	}{
+		{"nil roles", nil, false},
+		{"empty roles", []model.Role{}, false},
+		{"admin role", []model.Role{{Name: "admin"}}, true},
+		{"super_admin role", []model.Role{{Name: "super_admin"}}, true},
+		{"Admin role uppercase", []model.Role{{Name: "Admin"}}, true},
+		{"ADMIN role uppercase", []model.Role{{Name: "ADMIN"}}, true},
+		{"admin with spaces", []model.Role{{Name: "  admin  "}}, true},
+		{"super_admin with spaces", []model.Role{{Name: "  super_admin  "}}, true},
+		{"operator role", []model.Role{{Name: "operator"}}, false},
+		{"viewer role", []model.Role{{Name: "viewer"}}, false},
+		{"multiple roles with admin", []model.Role{{Name: "viewer"}, {Name: "admin"}}, true},
+		{"multiple roles without admin", []model.Role{{Name: "viewer"}, {Name: "operator"}}, false},
+		{"partial match", []model.Role{{Name: "admin_read"}}, false},
+		{"admin substring", []model.Role{{Name: "myadmin"}}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasProfileAdminRole(tt.roles)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
