@@ -145,3 +145,122 @@ func TestValidatePublishableResultView(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateOutputStateKeyAnyShape(t *testing.T) {
+	tests := []struct {
+		name     string
+		binding  PageFunctionBinding
+		stateKey string
+		message  string
+		wantDiag int
+	}{
+		{
+			name:     "nil selectors",
+			binding:  PageFunctionBinding{ID: "main"},
+			stateKey: "myState",
+			message:  "test message",
+			wantDiag: 1,
+		},
+		{
+			name:     "empty output selectors",
+			binding:  PageFunctionBinding{ID: "main", Selectors: &BindingSelectors{Output: []OutputAssignment{}}},
+			stateKey: "myState",
+			message:  "test message",
+			wantDiag: 1,
+		},
+		{
+			name: "matching state key",
+			binding: PageFunctionBinding{
+				ID:        "main",
+				Selectors: &BindingSelectors{Output: []OutputAssignment{{StateKey: "myState", Shape: OutputShapeScalar}}},
+			},
+			stateKey: "myState",
+			message:  "test message",
+			wantDiag: 0,
+		},
+		{
+			name: "non-matching state key",
+			binding: PageFunctionBinding{
+				ID:        "main",
+				Selectors: &BindingSelectors{Output: []OutputAssignment{{StateKey: "otherState", Shape: OutputShapeScalar}}},
+			},
+			stateKey: "myState",
+			message:  "test message",
+			wantDiag: 1,
+		},
+		{
+			name: "whitespace state key ignored",
+			binding: PageFunctionBinding{
+				ID:        "main",
+				Selectors: &BindingSelectors{Output: []OutputAssignment{{StateKey: "  myState  ", Shape: OutputShapeScalar}}},
+			},
+			stateKey: "myState",
+			message:  "test message",
+			wantDiag: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			diags := validateOutputStateKeyAnyShape(tt.binding, tt.stateKey, tt.message)
+			assert.Len(t, diags, tt.wantDiag)
+		})
+	}
+}
+
+func TestValidateOutputStateKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		binding  PageFunctionBinding
+		stateKey string
+		shape    OutputResultShape
+		message  string
+		wantDiag int
+	}{
+		{
+			name:     "nil selectors",
+			binding:  PageFunctionBinding{ID: "main"},
+			stateKey: "myState",
+			shape:    OutputShapeScalar,
+			message:  "test message",
+			wantDiag: 1,
+		},
+		{
+			name:     "empty output selectors",
+			binding:  PageFunctionBinding{ID: "main", Selectors: &BindingSelectors{Output: []OutputAssignment{}}},
+			stateKey: "myState",
+			shape:    OutputShapeScalar,
+			message:  "test message",
+			wantDiag: 1,
+		},
+		{
+			name: "matching state key and shape",
+			binding: PageFunctionBinding{
+				ID:        "main",
+				Selectors: &BindingSelectors{Output: []OutputAssignment{{StateKey: "myState", Shape: OutputShapeScalar}}},
+			},
+			stateKey: "myState",
+			shape:    OutputShapeScalar,
+			message:  "test message",
+			wantDiag: 0,
+		},
+		{
+			name: "matching state key wrong shape",
+			binding: PageFunctionBinding{
+				ID:        "main",
+				Selectors: &BindingSelectors{Output: []OutputAssignment{{StateKey: "myState", Shape: OutputShapeCollection}}},
+			},
+			stateKey: "myState",
+			shape:    OutputShapeScalar,
+			message:  "test message",
+			wantDiag: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			diags := validateOutputStateKey(tt.binding, tt.stateKey, tt.shape, tt.message)
+			assert.Len(t, diags, tt.wantDiag)
+		})
+	}
+}
