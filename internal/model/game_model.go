@@ -196,6 +196,15 @@ func (m *GameModel) ListEnvBindings(ctx context.Context, gameID string) ([]GameE
 	return bindings, err
 }
 
+// ListAllEnvBindings returns all environment bindings across all games.
+func (m *GameModel) ListAllEnvBindings(ctx context.Context) ([]GameEnvBinding, error) {
+	var bindings []GameEnvBinding
+	err := m.db.WithContext(ctx).
+		Order("game_id ASC, env ASC").
+		Find(&bindings).Error
+	return bindings, err
+}
+
 // LookupDatabaseName returns the physical database name for (gameID, env),
 // or "" when no binding exists.
 func (m *GameModel) LookupDatabaseName(ctx context.Context, gameID, env string) (string, error) {

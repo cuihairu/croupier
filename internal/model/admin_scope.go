@@ -17,9 +17,9 @@ func (AdminGameScope) TableName() string {
 // AdminGameEnvScope limits admins to particular game environments.
 type AdminGameEnvScope struct {
 	gorm.Model
-	AdminID uint   `gorm:"index:idx_admin_game_env_scopes_admin_id;not null"`
-	GameID  uint   `gorm:"index:idx_admin_game_env_scopes_game_id;not null"`
-	Env     string `gorm:"index:idx_admin_game_env_scopes_env;size:64;not null"`
+	AdminID uint   `gorm:"uniqueIndex:idx_admin_game_env_scope;not null"`
+	GameID  uint   `gorm:"uniqueIndex:idx_admin_game_env_scope;not null"`
+	Env     string `gorm:"uniqueIndex:idx_admin_game_env_scope;size:64;not null"`
 }
 
 // TableName implements gorm's tabler interface.

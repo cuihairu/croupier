@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
@@ -140,51 +141,53 @@ func getAdminIDFromGinContext(c *gin.Context) uint {
 }
 
 // resolveFirstAuthorizedGame returns the first game/env from the admin's
-// authorized scope list. Returns empty strings if none found.
+// admin_game_env_scopes (the only env-level authorization source).
+// Admin/super_admin: first game from game_envs binding (stable by game name).
+// Non-admin: first entry from admin_game_env_scopes (ordered by ID).
 func resolveFirstAuthorizedGame(ctx context.Context, svcCtx *ServiceContext, adminID uint) (string, string) {
-	// Check if admin has "admin" role (full access)
+	// Admin role: use first game_envs binding (stable order by game name)
 	roles, err := svcCtx.AdminModel.GetAdminRoles(ctx, adminID)
+	isAdmin := false
 	if err == nil {
 		for _, r := range roles {
-			if strings.EqualFold(strings.TrimSpace(r.Name), "admin") || strings.EqualFold(strings.TrimSpace(r.Name), "super_admin") {
-				// Admin role: use first game from games table
-				games, err := svcCtx.GameModel.ListAll(ctx)
-				if err == nil && len(games) > 0 {
-					gameID := strings.TrimSpace(games[0].GameID)
-					envs, _ := games[0].GetEnvs()
-					env := ""
-					if len(envs) > 0 {
-						env = strings.TrimSpace(envs[0].Env)
-					}
-					return gameID, env
-				}
-				return "", ""
+			name := strings.ToLower(strings.TrimSpace(r.Name))
+			if name == "admin" || name == "super_admin" {
+				isAdmin = true
+				break
 			}
 		}
 	}
 
-	// Non-admin: use first from admin_game_env_scopes
+	if isAdmin {
+		// Use game_envs table for authoritative env binding
+		bindings, err := svcCtx.GameModel.ListAllEnvBindings(ctx)
+		if err == nil && len(bindings) > 0 {
+			// Sort by game_id, env for stable ordering
+			sort.Slice(bindings, func(i, j int) bool {
+				if bindings[i].GameID != bindings[j].GameID {
+					return bindings[i].GameID < bindings[j].GameID
+				}
+				return bindings[i].Env < bindings[j].Env
+			})
+			b := bindings[0]
+			game, err := svcCtx.GameModel.FindByGameIDString(ctx, b.GameID)
+			if err == nil && game != nil {
+				return strings.TrimSpace(game.GameID), strings.TrimSpace(b.Env)
+			}
+		}
+		return "", ""
+	}
+
+	// Non-admin: use first from admin_game_env_scopes (ordered by ID)
 	envScopes, err := svcCtx.AdminModel.GetAdminEnvScopes(ctx, adminID)
 	if err == nil && len(envScopes) > 0 {
-		// Look up the game's string ID from the numeric game ID
+		// Sort by ID for stable ordering
+		sort.Slice(envScopes, func(i, j int) bool {
+			return envScopes[i].ID < envScopes[j].ID
+		})
 		game, err := svcCtx.GameModel.FindByGameID(ctx, envScopes[0].GameID)
 		if err == nil && game != nil {
 			return strings.TrimSpace(game.GameID), strings.TrimSpace(envScopes[0].Env)
-		}
-	}
-
-	// No scopes found, try game scopes only
-	gameScopes, err := svcCtx.AdminModel.GetAdminGames(ctx, adminID)
-	if err == nil && len(gameScopes) > 0 {
-		game, err := svcCtx.GameModel.FindByGameID(ctx, gameScopes[0].GameID)
-		if err == nil && game != nil {
-			gameID := strings.TrimSpace(game.GameID)
-			envs, _ := game.GetEnvs()
-			env := ""
-			if len(envs) > 0 {
-				env = strings.TrimSpace(envs[0].Env)
-			}
-			return gameID, env
 		}
 	}
 
@@ -220,21 +223,11 @@ func authorizeScope(ctx context.Context, svcCtx *ServiceContext, c *gin.Context,
 		return fmt.Errorf("game not found: %s", gameID)
 	}
 
-	// Check admin_game_env_scopes for this specific (gameID, env)
+	// Check admin_game_env_scopes — the ONLY source of env-level authorization.
 	envScopes, err := svcCtx.AdminModel.GetAdminEnvScopes(ctx, adminID)
 	if err == nil {
 		for _, s := range envScopes {
 			if s.GameID == game.ID && strings.EqualFold(strings.TrimSpace(s.Env), strings.TrimSpace(env)) {
-				return nil
-			}
-		}
-	}
-
-	// Check admin_game_scopes (game-level access, any env)
-	gameScopes, err := svcCtx.AdminModel.GetAdminGames(ctx, adminID)
-	if err == nil {
-		for _, s := range gameScopes {
-			if s.GameID == game.ID {
 				return nil
 			}
 		}
