@@ -2,6 +2,7 @@ package svc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -48,15 +49,22 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 		gameID := strings.TrimSpace(c.GetHeader(GameDBHeader))
 		env := strings.TrimSpace(c.GetHeader(EnvHeader))
 
-		// Fallback: if no header, try admin's last-selected scope
+		// Atomicity: half header is an error — both or neither.
+		if (gameID == "") != (env == "") {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error":   "incomplete_scope",
+				"message": "X-Game-ID 和 X-Env 必须同时提供或同时缺失",
+			})
+			return
+		}
+
+		// Fallback: if no headers, try admin's last-selected scope (atomic read)
 		if gameID == "" && svcCtx != nil && svcCtx.AdminModel != nil {
 			if adminID := getAdminIDFromGinContext(c); adminID > 0 {
 				last, err := svcCtx.AdminModel.GetLastScope(c.Request.Context(), adminID)
-				if err == nil && last.GameID != "" {
+				if err == nil && last.GameID != "" && last.Env != "" {
 					gameID = last.GameID
-					if env == "" {
-						env = last.Env
-					}
+					env = last.Env
 				}
 			}
 		}
@@ -78,17 +86,25 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 		ctx := context.WithValue(c.Request.Context(), gameScopeCtxKey{}, scope)
 
 		if svcCtx != nil && svcCtx.Router != nil && gameID != "" {
-			// SECURITY: Validate that the (gameID, env) pair is registered in
-			// the meta database before allowing access. This prevents:
-			// 1. Unauthenticated/unknown game IDs from triggering database creation
-			// 2. Environment spoofing (accessing non-existent envs)
-			// 3. Database name injection via crafted headers
+			// SECURITY: Validate that the (gameID, env) pair exists AND the
+			// user is authorized to access it.
 			if err := validateGameScope(ctx, svcCtx, gameID, env); err != nil {
 				slog.WarnContext(ctx, "game scope validation failed",
 					"gameId", gameID, "env", env, "error", err)
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 					"error":   "invalid_game_scope",
 					"message": "游戏环境不存在或无权访问",
+				})
+				return
+			}
+
+			// SECURITY: Verify user is authorized for this specific scope.
+			if err := authorizeScope(ctx, svcCtx, c, gameID, env); err != nil {
+				slog.WarnContext(ctx, "scope authorization failed",
+					"gameId", gameID, "env", env, "error", err)
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+					"error":   "scope_not_authorized",
+					"message": "无权访问该游戏环境",
 				})
 				return
 			}
@@ -170,6 +186,58 @@ func resolveFirstAuthorizedGame(ctx context.Context, svcCtx *ServiceContext, adm
 	}
 
 	return "", ""
+}
+
+// authorizeScope checks that the current user is authorized to access the
+// given (gameID, env) pair. Admin/super_admin roles bypass this check.
+func authorizeScope(ctx context.Context, svcCtx *ServiceContext, c *gin.Context, gameID, env string) error {
+	if svcCtx == nil || svcCtx.AdminModel == nil || svcCtx.GameModel == nil {
+		return nil // legacy mode, skip
+	}
+
+	adminID := getAdminIDFromGinContext(c)
+	if adminID == 0 {
+		return nil // no user context (public endpoint), skip
+	}
+
+	// Admin role has full access
+	roles, err := svcCtx.AdminModel.GetAdminRoles(ctx, adminID)
+	if err == nil {
+		for _, r := range roles {
+			name := strings.ToLower(strings.TrimSpace(r.Name))
+			if name == "admin" || name == "super_admin" {
+				return nil
+			}
+		}
+	}
+
+	// Look up numeric game ID from string game ID
+	game, err := svcCtx.GameModel.FindByGameIDString(ctx, gameID)
+	if err != nil || game == nil {
+		return fmt.Errorf("game not found: %s", gameID)
+	}
+
+	// Check admin_game_env_scopes for this specific (gameID, env)
+	envScopes, err := svcCtx.AdminModel.GetAdminEnvScopes(ctx, adminID)
+	if err == nil {
+		for _, s := range envScopes {
+			if s.GameID == game.ID && strings.EqualFold(strings.TrimSpace(s.Env), strings.TrimSpace(env)) {
+				return nil
+			}
+		}
+	}
+
+	// Check admin_game_scopes (game-level access, any env)
+	gameScopes, err := svcCtx.AdminModel.GetAdminGames(ctx, adminID)
+	if err == nil {
+		for _, s := range gameScopes {
+			if s.GameID == game.ID {
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("user %d not authorized for game=%s env=%s", adminID, gameID, env)
 }
 
 // validateGameScope checks that the (gameID, env) pair exists in the meta
