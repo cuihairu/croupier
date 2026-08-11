@@ -598,3 +598,28 @@ func TestParseActionsFromJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestRawJSONFromBytes(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    []byte
+		expected json.RawMessage
+	}{
+		{"nil bytes", nil, nil},
+		{"empty bytes", []byte{}, nil},
+		{"valid JSON", []byte(`{"key":"value"}`), json.RawMessage(`{"key":"value"}`)},
+		{"invalid JSON", []byte(`not json`), json.RawMessage(`"not json"`)},
+		{"string value", []byte(`hello`), json.RawMessage(`"hello"`)},
+		{"number value", []byte(`123`), json.RawMessage(`123`)},
+		{"boolean value", []byte(`true`), json.RawMessage(`true`)},
+		{"null value", []byte(`null`), json.RawMessage(`null`)},
+		{"array value", []byte(`[1,2,3]`), json.RawMessage(`[1,2,3]`)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := rawJSONFromBytes(tt.value)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
