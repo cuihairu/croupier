@@ -1174,21 +1174,25 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 		return
 	}
 
-	// 获取 Authorization header
+	// 获取 Authorization header，fallback 到 ?token= query param
+	// （EventSource 不支持自定义 headers，SSE 前端通过 ?token= 传递 JWT）
+	var token string
 	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header", "message": "未授权"})
-		return
+	if authHeader != "" {
+		tokenParts := strings.SplitN(authHeader, " ", 2)
+		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format", "message": "授权头格式错误"})
+			return
+		}
+		token = tokenParts[1]
+	} else {
+		token = c.Query("token")
 	}
 
-	// 解析 Bearer token
-	tokenParts := strings.SplitN(authHeader, " ", 2)
-	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format", "message": "授权头格式错误"})
+	if token == "" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization", "message": "未授权"})
 		return
 	}
-
-	token := tokenParts[1]
 
 	// 验证 JWT token
 	username, roles, adminID, err := m.authenticate(c.Request.Context(), token)

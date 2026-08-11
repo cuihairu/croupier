@@ -5,6 +5,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func currentUsername(c *gin.Context) string {
+	if u, ok := c.Get("username"); ok {
+		if s, ok := u.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
 type Handler struct {
 	service *Service
 }
@@ -21,7 +30,7 @@ func (h *Handler) List(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.List(c.Request.Context(), &req)
+	resp, err := h.service.List(c.Request.Context(), currentUsername(c), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -85,7 +94,7 @@ func (h *Handler) UnreadCount(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.UnreadCount(c.Request.Context(), &req)
+	resp, err := h.service.UnreadCount(c.Request.Context(), currentUsername(c), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -101,7 +110,7 @@ func (h *Handler) Stream(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.Stream(c.Request.Context(), &req)
+	resp, err := h.service.Stream(c.Request.Context(), currentUsername(c), &req)
 	if err != nil {
 		response.Error(c, err)
 		return

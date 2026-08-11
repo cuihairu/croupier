@@ -19,13 +19,14 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
-// List returns the list of messages
-func (s *Service) List(ctx context.Context, req *MessagesListRequest) (*MessagesListResponse, error) {
+// List returns the list of messages for the current user.
+func (s *Service) List(ctx context.Context, username string, req *MessagesListRequest) (*MessagesListResponse, error) {
 	opts := model.ListMessagesOptions{
 		Page:     req.Page,
 		PageSize: req.PageSize,
 		Type:     strings.TrimSpace(req.Type),
 		Status:   strings.TrimSpace(req.Status),
+		To:       strings.TrimSpace(username),
 	}
 
 	messages, total, err := s.svcCtx.MessageModel.List(ctx, opts)
@@ -118,9 +119,9 @@ func (s *Service) Read(ctx context.Context, req *MessageReadRequest) (*MessageRe
 	return buildMessageItemResponse(msg), nil
 }
 
-// UnreadCount returns the count of unread messages
-func (s *Service) UnreadCount(ctx context.Context, req *MessagesUnreadCountRequest) (*MessagesUnreadCountResponse, error) {
-	count, err := s.svcCtx.MessageModel.CountUnread(ctx, "")
+// UnreadCount returns the count of unread messages for the current user.
+func (s *Service) UnreadCount(ctx context.Context, username string, req *MessagesUnreadCountRequest) (*MessagesUnreadCountResponse, error) {
+	count, err := s.svcCtx.MessageModel.CountUnread(ctx, strings.TrimSpace(username))
 	if err != nil {
 		return nil, err
 	}
@@ -130,9 +131,9 @@ func (s *Service) UnreadCount(ctx context.Context, req *MessagesUnreadCountReque
 	}, nil
 }
 
-// Stream returns recent messages for streaming
-func (s *Service) Stream(ctx context.Context, req *StreamMessagesRequest) (*StreamMessagesResponse, error) {
-	messages, err := s.svcCtx.MessageModel.Recent(ctx, 20, "")
+// Stream returns recent messages for the current user (SSE).
+func (s *Service) Stream(ctx context.Context, username string, req *StreamMessagesRequest) (*StreamMessagesResponse, error) {
+	messages, err := s.svcCtx.MessageModel.Recent(ctx, 20, strings.TrimSpace(username))
 	if err != nil {
 		return nil, err
 	}
