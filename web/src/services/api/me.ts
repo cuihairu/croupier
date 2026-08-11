@@ -179,3 +179,12 @@ export async function changeMyPassword(body: { current: string; password: string
     },
   });
 }
+
+// Persist the user's game/env scope selection to the server.
+// Best-effort: called on scope change, errors are silently ignored.
+export async function persistMyScope(gameId: string, env: string): Promise<void> {
+  await request<void>('/api/v1/profile/scope', {
+    method: 'PATCH',
+    data: { gameId, env },
+  });
+}

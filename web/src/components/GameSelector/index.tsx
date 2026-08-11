@@ -1,22 +1,11 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Drawer, Empty, Select, Spin } from 'antd';
 import classNames from 'classnames';
-import { request } from '@umijs/max';
 import { listMyGames, type Game, type GameEnvMeta } from '@/services/api';
+import { persistMyScope } from '@/services/api/me';
 import { getScope, markScopeReady, setScope } from '@/stores/scope';
 import styles from './index.less';
-
-// Persist scope selection to server (best-effort, fire-and-forget)
-function persistScopeToServer(gameId?: string, env?: string) {
-  if (!gameId || !env) return;
-  request('/api/v1/profile/scope', {
-    method: 'PATCH',
-    data: { gameId, env },
-  }).catch(() => {
-    /* best-effort, ignore errors */
-  });
-}
 
 type GameSelectorProps = {
   value?: string;
@@ -190,7 +179,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     setScope({ gameId: next }, { persist: true, emit: true });
     onChange?.(next);
     const scope = getScope();
-    persistScopeToServer(next, scope.env);
+    if (next && scope.env) persistMyScope(next, scope.env).catch(() => {});
   };
 
   const handleEnvChange = (next?: string) => {
@@ -203,7 +192,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     setScope({ env: next }, { persist: true, emit: true });
     onEnvChange?.(next);
     const scope = getScope();
-    persistScopeToServer(scope.gameId, next);
+    if (scope.gameId && next) persistMyScope(scope.gameId, next).catch(() => {});
   };
 
   const currentEnv = (isEnvControlled ? envValue : envState) ?? envOptions[0]?.value;
