@@ -21,6 +21,8 @@ export type SessionUser = {
 export type SessionResponse = {
   token: string;
   user: SessionUser;
+  lastGameId?: string;
+  lastEnv?: string;
 };
 
 // Compatibility projection used by runtime bootstrap.

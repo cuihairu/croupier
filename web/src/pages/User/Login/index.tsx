@@ -104,17 +104,19 @@ const Login: React.FC = () => {
       const res = await createSession({ username: values.username, password: values.password });
       localStorage.setItem('token', res.token);
       try {
-        const gamesResp = await fetchCurrentUserGames();
-        const games = Array.isArray(gamesResp?.games) ? gamesResp.games : [];
-        const firstGame = games[0];
-        const gameId = firstGame?.gameId;
-        const env = firstGame?.envs?.[0];
+        // Restore last-selected scope from server, or fall back to first authorized game
+        let gameId = res.lastGameId;
+        let env = res.lastEnv;
+        if (!gameId) {
+          const gamesResp = await fetchCurrentUserGames();
+          const games = Array.isArray(gamesResp?.games) ? gamesResp.games : [];
+          const firstGame = games[0];
+          gameId = firstGame?.gameId;
+          env = env || firstGame?.envs?.[0];
+        }
         if (gameId || env) {
           setScope(
-            {
-              gameId: gameId || undefined,
-              env: env || undefined,
-            },
+            { gameId: gameId || undefined, env: env || undefined },
             { persist: true, emit: true },
           );
         }
