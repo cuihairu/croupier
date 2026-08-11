@@ -376,3 +376,14 @@ func BenchmarkErrorData(b *testing.B) {
 		_, _ = err.Data()
 	}
 }
+
+// TestNewNotImplemented 测试创建 NotImplemented 错误
+func TestNewNotImplemented(t *testing.T) {
+	err := NewNotImplemented("feature not yet implemented")
+	if err.Code != http.StatusNotImplemented {
+		t.Errorf("Wrong code: got %d, want %d", err.Code, http.StatusNotImplemented)
+	}
+	if err.Message != "feature not yet implemented" {
+		t.Errorf("Wrong message: got %s, want 'feature not yet implemented'", err.Message)
+	}
+}

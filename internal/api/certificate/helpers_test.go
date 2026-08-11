@@ -407,3 +407,85 @@ func TestFormatIssuerEdgeCases(t *testing.T) {
 		t.Errorf("FormatIssuer() with only Country = %q, want %q", got2, want2)
 	}
 }
+
+func TestParseUintID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		idStr     string
+		fieldName string
+		want      uint
+		wantErr   bool
+	}{
+		{
+			name:      "valid number",
+			idStr:     "123",
+			fieldName: "id",
+			want:      123,
+			wantErr:   false,
+		},
+		{
+			name:      "zero",
+			idStr:     "0",
+			fieldName: "id",
+			want:      0,
+			wantErr:   false,
+		},
+		{
+			name:      "large number",
+			idStr:     "4294967295",
+			fieldName: "id",
+			want:      4294967295,
+			wantErr:   false,
+		},
+		{
+			name:      "negative number",
+			idStr:     "-1",
+			fieldName: "id",
+			want:      0,
+			wantErr:   true,
+		},
+		{
+			name:      "non-numeric string",
+			idStr:     "abc",
+			fieldName: "id",
+			want:      0,
+			wantErr:   true,
+		},
+		{
+			name:      "empty string",
+			idStr:     "",
+			fieldName: "id",
+			want:      0,
+			wantErr:   true,
+		},
+		{
+			name:      "float number",
+			idStr:     "12.34",
+			fieldName: "id",
+			want:      0,
+			wantErr:   true,
+		},
+		{
+			name:      "overflow",
+			idStr:     "4294967296",
+			fieldName: "id",
+			want:      0,
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseUintID(tt.idStr, tt.fieldName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseUintID() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("parseUintID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

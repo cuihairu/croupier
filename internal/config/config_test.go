@@ -192,3 +192,41 @@ database:
 		t.Fatalf("Database.GameDBPrefix = %q, want empty default", cfg.Database.GameDBPrefix)
 	}
 }
+
+func TestCanonicalLogConfig_ToCommon(t *testing.T) {
+	c := canonicalLogConfig{
+		Level:      "debug",
+		Format:     "json",
+		Output:     "stdout",
+		File:       "/var/log/app.log",
+		MaxSize:    100,
+		MaxBackups: 3,
+		MaxAge:     7,
+		Compress:   true,
+	}
+	result := c.toCommon()
+	if result.Level != "debug" {
+		t.Errorf("Level = %q, want debug", result.Level)
+	}
+	if result.Format != "json" {
+		t.Errorf("Format = %q, want json", result.Format)
+	}
+	if result.Output != "stdout" {
+		t.Errorf("Output = %q, want stdout", result.Output)
+	}
+	if result.File != "/var/log/app.log" {
+		t.Errorf("File = %q, want /var/log/app.log", result.File)
+	}
+	if result.MaxSize != 100 {
+		t.Errorf("MaxSize = %d, want 100", result.MaxSize)
+	}
+	if result.MaxBackups != 3 {
+		t.Errorf("MaxBackups = %d, want 3", result.MaxBackups)
+	}
+	if result.MaxAge != 7 {
+		t.Errorf("MaxAge = %d, want 7", result.MaxAge)
+	}
+	if !result.Compress {
+		t.Error("Compress = false, want true")
+	}
+}

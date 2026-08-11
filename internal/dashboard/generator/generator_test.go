@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -229,4 +230,419 @@ func assertSelectorAssignment(t *testing.T, selector spec.SelectorAST, target st
 		}
 	}
 	t.Fatalf("selector assignment %s <- %s:%s not found in %#v", target, sourceKind, sourcePath, selector.Assignments)
+}
+
+func TestHasDiagnosticCode(t *testing.T) {
+	diags := []spec.Diagnostic{
+		{Code: "error_1", Severity: spec.SeverityError},
+		{Code: "warning_1", Severity: spec.SeverityWarning},
+	}
+
+	assert.True(t, hasDiagnosticCode(diags, "error_1"))
+	assert.True(t, hasDiagnosticCode(diags, "warning_1"))
+	assert.False(t, hasDiagnosticCode(diags, "not_found"))
+	assert.False(t, hasDiagnosticCode(nil, "error_1"))
+	assert.False(t, hasDiagnosticCode([]spec.Diagnostic{}, "error_1"))
+}
+
+func TestBindingIDForOperationWithSuffix(t *testing.T) {
+	tests := []struct {
+		name       string
+		op         spec.OperationSpec
+		suffix     string
+		expectedID string
+	}{
+		{
+			name:       "with suffix",
+			op:         spec.OperationSpec{FunctionID: "player.ban", Operation: "ban"},
+			suffix:     "confirm",
+			expectedID: "player.ban.confirm",
+		},
+		{
+			name:       "empty suffix defaults to main",
+			op:         spec.OperationSpec{FunctionID: "player.ban", Operation: "ban"},
+			suffix:     "",
+			expectedID: "player.ban.main",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := bindingIDForOperationWithSuffix(tt.op, tt.suffix)
+			assert.Equal(t, tt.expectedID, result)
+		})
+	}
+}
+
+func TestSanitizeBindingID(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"simple", "player.ban", "player.ban"},
+		{"with spaces", "player ban", "player.ban"},
+		{"with special chars", "player@ban#run", "player.ban.run"},
+		{"multiple spaces", "player   ban", "player.ban"},
+		{"leading/trailing spaces", "  player.ban  ", "player.ban"},
+		{"empty returns binding", "", "binding"},
+		{"only spaces", "   ", "binding"},
+		{"with hyphens", "player-ban", "player.ban"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeBindingID(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestLocalizedTitle(t *testing.T) {
+	tests := []struct {
+		name     string
+		op       spec.OperationSpec
+		pageKey  string
+		locale   string
+		opts     GenerateOptions
+		expected spec.LocalizedText
+	}{
+		{
+			name:     "with locale",
+			op:       spec.OperationSpec{FunctionID: "player.ban"},
+			pageKey:  "ops",
+			locale:   "zh-CN",
+			expected: spec.LocalizedText{"zh-CN": "Player Ban"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := localizedTitle(tt.op, tt.pageKey, tt.locale, tt.opts)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExecutionModeForOperation(t *testing.T) {
+	tests := []struct {
+		name     string
+		op       spec.OperationSpec
+		expected spec.PageExecutionMode
+	}{
+		{
+			name:     "sync execution",
+			op:       spec.OperationSpec{Execution: spec.FunctionExecutionSync},
+			expected: spec.PageExecutionModeSync,
+		},
+		{
+			name:     "task execution",
+			op:       spec.OperationSpec{Execution: spec.FunctionExecutionTask},
+			expected: spec.PageExecutionModeTask,
+		},
+		{
+			name:     "empty execution",
+			op:       spec.OperationSpec{},
+			expected: spec.PageExecutionModeSync,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := executionModeForOperation(tt.op)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestTaskOutputShapeForPointer(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   spec.JSONSchema
+		pointer  string
+		expected spec.OutputResultShape
+	}{
+		{
+			name:     "empty pointer returns shape for schema",
+			schema:   spec.JSONSchema(`{"type":"object"}`),
+			pointer:  "",
+			expected: spec.OutputShapeObject,
+		},
+		{
+			name:     "invalid pointer returns scalar",
+			schema:   spec.JSONSchema(`{"type":"object"}`),
+			pointer:  "/nonexistent",
+			expected: spec.OutputShapeScalar,
+		},
+		{
+			name:     "array pointer",
+			schema:   spec.JSONSchema(`{"type":"object","properties":{"items":{"type":"array"}}}`),
+			pointer:  "/items",
+			expected: spec.OutputShapeCollection,
+		},
+		{
+			name:     "object pointer",
+			schema:   spec.JSONSchema(`{"type":"object","properties":{"data":{"type":"object"}}}`),
+			pointer:  "/data",
+			expected: spec.OutputShapeObject,
+		},
+		{
+			name:     "string pointer",
+			schema:   spec.JSONSchema(`{"type":"object","properties":{"name":{"type":"string"}}}`),
+			pointer:  "/name",
+			expected: spec.OutputShapeScalar,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := taskOutputShapeForPointer(tt.schema, tt.pointer)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestBuildDatasetSpec(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   spec.JSONSchema
+		locale   string
+		expected bool // has result
+	}{
+		{
+			name:     "empty schema returns nil",
+			schema:   nil,
+			locale:   "zh-CN",
+			expected: false,
+		},
+		{
+			name:     "array with number and string fields",
+			schema:   spec.JSONSchema(`{"type":"array","items":{"type":"object","properties":{"count":{"type":"integer"},"name":{"type":"string"}}}}`),
+			locale:   "zh-CN",
+			expected: true,
+		},
+		{
+			name:     "array with only strings returns nil",
+			schema:   spec.JSONSchema(`{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}`),
+			locale:   "zh-CN",
+			expected: false,
+		},
+		{
+			name:     "array with only numbers returns nil",
+			schema:   spec.JSONSchema(`{"type":"array","items":{"type":"object","properties":{"count":{"type":"integer"}}}}`),
+			locale:   "zh-CN",
+			expected: false,
+		},
+		{
+			name:     "boolean and number fields",
+			schema:   spec.JSONSchema(`{"type":"array","items":{"type":"object","properties":{"active":{"type":"boolean"},"score":{"type":"number"}}}}`),
+			locale:   "zh-CN",
+			expected: true,
+		},
+		{
+			name:     "date and number fields",
+			schema:   spec.JSONSchema(`{"type":"array","items":{"type":"object","properties":{"created":{"type":"string","format":"date"},"score":{"type":"number"}}}}`),
+			locale:   "zh-CN",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildDatasetSpec(tt.schema, tt.locale)
+			if tt.expected {
+				assert.NotNil(t, result)
+			} else {
+				assert.Nil(t, result)
+			}
+		})
+	}
+}
+
+func TestDatasetItemSchema(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   spec.JSONSchema
+		expected bool // has result
+	}{
+		{
+			name:     "empty schema returns nil",
+			schema:   nil,
+			expected: false,
+		},
+		{
+			name:     "array schema returns items",
+			schema:   spec.JSONSchema(`{"type":"array","items":{"type":"object","properties":{"id":{"type":"integer"}}}}`),
+			expected: true,
+		},
+		{
+			name:     "object with items property",
+			schema:   spec.JSONSchema(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object"}}}}`),
+			expected: true,
+		},
+		{
+			name:     "object with dataset property",
+			schema:   spec.JSONSchema(`{"type":"object","properties":{"dataset":{"type":"array","items":{"type":"object"}}}}`),
+			expected: true,
+		},
+		{
+			name:     "object without array properties",
+			schema:   spec.JSONSchema(`{"type":"object","properties":{"name":{"type":"string"}}}`),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := datasetItemSchema(tt.schema)
+			if tt.expected {
+				assert.NotNil(t, result)
+			} else {
+				assert.Nil(t, result)
+			}
+		})
+	}
+}
+
+func TestExtractString(t *testing.T) {
+	tests := []struct {
+		name     string
+		obj      map[string]json.RawMessage
+		key      string
+		expected string
+	}{
+		{
+			name:     "nil map",
+			obj:      nil,
+			key:      "name",
+			expected: "",
+		},
+		{
+			name:     "empty map",
+			obj:      map[string]json.RawMessage{},
+			key:      "name",
+			expected: "",
+		},
+		{
+			name:     "key exists",
+			obj:      map[string]json.RawMessage{"name": json.RawMessage(`"test"`)},
+			key:      "name",
+			expected: "test",
+		},
+		{
+			name:     "key with whitespace",
+			obj:      map[string]json.RawMessage{"name": json.RawMessage(`"  test  "`)},
+			key:      "name",
+			expected: "test",
+		},
+		{
+			name:     "key not found",
+			obj:      map[string]json.RawMessage{"other": json.RawMessage(`"test"`)},
+			key:      "name",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractString(tt.obj, tt.key)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestInferFilterType(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   json.RawMessage
+		expected string
+	}{
+		{
+			name:     "integer type",
+			schema:   json.RawMessage(`{"type":"integer"}`),
+			expected: "number",
+		},
+		{
+			name:     "number type",
+			schema:   json.RawMessage(`{"type":"number"}`),
+			expected: "number",
+		},
+		{
+			name:     "string type",
+			schema:   json.RawMessage(`{"type":"string"}`),
+			expected: "text",
+		},
+		{
+			name:     "string with date format",
+			schema:   json.RawMessage(`{"type":"string","format":"date"}`),
+			expected: "date",
+		},
+		{
+			name:     "string with datetime format",
+			schema:   json.RawMessage(`{"type":"string","format":"date-time"}`),
+			expected: "date",
+		},
+		{
+			name:     "enum field",
+			schema:   json.RawMessage(`{"type":"string","enum":["a","b","c"]}`),
+			expected: "select",
+		},
+		{
+			name:     "unknown type defaults to text",
+			schema:   json.RawMessage(`{"type":"boolean"}`),
+			expected: "text",
+		},
+		{
+			name:     "empty schema",
+			schema:   json.RawMessage(`{}`),
+			expected: "text",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := inferFilterType(tt.schema)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestEnumOptionsFromSchema(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   json.RawMessage
+		expected int
+	}{
+		{
+			name:     "no enum returns nil",
+			schema:   json.RawMessage(`{"type":"string"}`),
+			expected: -1, // nil
+		},
+		{
+			name:     "with enum values",
+			schema:   json.RawMessage(`{"type":"string","enum":["active","inactive"]}`),
+			expected: 2,
+		},
+		{
+			name:     "empty enum returns empty slice",
+			schema:   json.RawMessage(`{"type":"string","enum":[]}`),
+			expected: 0,
+		},
+		{
+			name:     "invalid enum returns nil",
+			schema:   json.RawMessage(`{"type":"string","enum":"invalid"}`),
+			expected: -1, // nil
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := enumOptionsFromSchema(tt.schema)
+			if tt.expected == -1 {
+				assert.Nil(t, result)
+			} else {
+				assert.Len(t, result, tt.expected)
+			}
+		})
+	}
 }

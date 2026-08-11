@@ -236,3 +236,52 @@ func TestExtractPathSegments(t *testing.T) {
 		})
 	}
 }
+
+func TestIsPathParameter(t *testing.T) {
+	tests := []struct {
+		name    string
+		segment string
+		want    bool
+	}{
+		{"path parameter", "{playerId}", true},
+		{"plain text", "players", false},
+		{"empty", "", false},
+		{"open brace only", "{playerId", false},
+		{"close brace only", "playerId}", false},
+		{"nested braces", "{{id}}", true},
+		{"simple param", "{id}", true},
+		{"param with spaces", "{ player id }", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPathParameter(tt.segment)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestStripAPIVersionPrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		segments []string
+		want     []string
+	}{
+		{"with api version", []string{"api", "v1", "players"}, []string{"players"}},
+		{"with api V2", []string{"api", "V2", "players"}, []string{"players"}},
+		{"without api prefix", []string{"players", "stats"}, []string{"players", "stats"}},
+		{"api only", []string{"api"}, []string{"api"}},
+		{"api with short version", []string{"api", "v", "players"}, []string{"api", "v", "players"}},
+		{"empty", nil, nil},
+		{"single element", []string{"api"}, []string{"api"}},
+		{"two elements", []string{"api", "v1"}, []string{"api", "v1"}},
+		{"api with numeric version", []string{"api", "1", "players"}, []string{"api", "1", "players"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stripAPIVersionPrefix(tt.segments)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
