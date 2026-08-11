@@ -646,3 +646,123 @@ func TestEnumOptionsFromSchema(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldBlockProposal(t *testing.T) {
+	tests := []struct {
+		name     string
+		diags    []spec.Diagnostic
+		expected bool
+	}{
+		{
+			name:     "empty diagnostics",
+			diags:    nil,
+			expected: false,
+		},
+		{
+			name: "warning only",
+			diags: []spec.Diagnostic{
+				{Code: "some_warning", Severity: spec.SeverityWarning},
+			},
+			expected: false,
+		},
+		{
+			name: "error but not blocking",
+			diags: []spec.Diagnostic{
+				{Code: "some_error", Severity: spec.SeverityError},
+			},
+			expected: false,
+		},
+		{
+			name: "function_id_missing blocks",
+			diags: []spec.Diagnostic{
+				{Code: "function_id_missing", Severity: spec.SeverityError},
+			},
+			expected: true,
+		},
+		{
+			name: "function_disabled blocks",
+			diags: []spec.Diagnostic{
+				{Code: "function_disabled", Severity: spec.SeverityError},
+			},
+			expected: true,
+		},
+		{
+			name: "mixed diagnostics with blocking",
+			diags: []spec.Diagnostic{
+				{Code: "some_warning", Severity: spec.SeverityWarning},
+				{Code: "function_disabled", Severity: spec.SeverityError},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ShouldBlockProposal(tt.diags)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCreateBlockedProposalIssue(t *testing.T) {
+	diags := []spec.Diagnostic{
+		{Code: "function_id_missing", Severity: spec.SeverityError, Message: "Function ID is required"},
+	}
+
+	issue := CreateBlockedProposalIssue("game1", "prod", "player", "player.ban", diags, "zh-CN")
+
+	assert.Equal(t, "game1", issue.GameID)
+	assert.Equal(t, "prod", issue.Env)
+	assert.Equal(t, "player", issue.ResourceKey)
+	assert.Equal(t, "player.ban", issue.FunctionID)
+	assert.Equal(t, "open", issue.Status)
+	assert.Len(t, issue.Diagnostics, 1)
+	assert.NotEmpty(t, issue.RepairHint)
+}
+
+func TestGenerateRepairHint(t *testing.T) {
+	tests := []struct {
+		name     string
+		diags    []spec.Diagnostic
+		locale   string
+		expected string
+	}{
+		{
+			name:     "empty diagnostics",
+			diags:    nil,
+			locale:   "zh-CN",
+			expected: "No issues found",
+		},
+		{
+			name: "function_id_missing",
+			diags: []spec.Diagnostic{
+				{Code: "function_id_missing"},
+			},
+			locale:   "zh-CN",
+			expected: "Function ID is required. Please register the function first.",
+		},
+		{
+			name: "function_disabled",
+			diags: []spec.Diagnostic{
+				{Code: "function_disabled"},
+			},
+			locale:   "zh-CN",
+			expected: "Function is disabled. Please enable it before creating a page.",
+		},
+		{
+			name: "other error code",
+			diags: []spec.Diagnostic{
+				{Code: "other_error", Message: "Something went wrong"},
+			},
+			locale:   "zh-CN",
+			expected: "Something went wrong",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := generateRepairHint(tt.diags, tt.locale)
+			assert.Equal(t, tt.expected, result[tt.locale])
+		})
+	}
+}
