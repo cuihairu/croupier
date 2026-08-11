@@ -3,6 +3,7 @@ export default async () => {
     rootDir: '.',
     testEnvironment: 'jsdom',
     testMatch: ['**/?(*.)+(spec|test).[jt]s?(x)'],
+    testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
     transform: {
       '^.+\\.(t|j)sx?$': [
         'ts-jest',
