@@ -502,7 +502,7 @@ func TestSQLDelegationStore_CRUD(t *testing.T) {
 
 	list, total, err = store.List(DelegationFilter{State: DelegationStateActive}, Page{})
 	require.NoError(t, err)
-	assert.Equal(t, 1, total) // still active since we updated before list
+	assert.Equal(t, 0, total) // del1 was revoked at line 478
 
 	// GetActiveDelegationsForUser
 	d2 := &Delegation{
