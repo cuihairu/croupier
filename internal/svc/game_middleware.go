@@ -222,3 +222,22 @@ func WithGameScope(ctx context.Context, scope GameScope) context.Context {
 	}
 	return context.WithValue(ctx, gameScopeCtxKey{}, scope)
 }
+
+// ResolveGameID returns the gameID from context scope, falling back to the
+// provided fallback value. Intended for handlers migrating from query-param
+// scope to header-based scope.
+func ResolveGameID(ctx context.Context, fallback string) string {
+	if scope := GameScopeFromContext(ctx); scope.GameID != "" {
+		return scope.GameID
+	}
+	return strings.TrimSpace(fallback)
+}
+
+// ResolveEnv returns the env from context scope, falling back to the
+// provided fallback value.
+func ResolveEnv(ctx context.Context, fallback string) string {
+	if scope := GameScopeFromContext(ctx); scope.Env != "" {
+		return scope.Env
+	}
+	return strings.TrimSpace(fallback)
+}
