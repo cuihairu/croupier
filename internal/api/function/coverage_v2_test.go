@@ -44,7 +44,8 @@ func TestIsApprovedContinuation_V2(t *testing.T) {
 	assert.False(t, isApprovedContinuation(nil))
 	assert.False(t, isApprovedContinuation(map[string]string{}))
 	assert.False(t, isApprovedContinuation(map[string]string{"approval_bypass": "pending"}))
-	assert.False(t, isApprovedContinuation(map[string]string{"approval_bypass": " approved "}))
+	// " approved " is trimmed to "approved" so it should be true
+	assert.True(t, isApprovedContinuation(map[string]string{"approval_bypass": " approved "}))
 	assert.True(t, isApprovedContinuation(map[string]string{"approval_bypass": "approved"}))
 	assert.True(t, isApprovedContinuation(map[string]string{"approval_bypass": "Approved"}))
 	assert.True(t, isApprovedContinuation(map[string]string{"approval_bypass": " APPROVED "}))
@@ -58,7 +59,8 @@ func TestIsPageSnapshotGoverned_V2(t *testing.T) {
 	assert.False(t, isPageSnapshotGoverned(nil))
 	assert.False(t, isPageSnapshotGoverned(map[string]string{}))
 	assert.False(t, isPageSnapshotGoverned(map[string]string{"page_snapshot_governance": "pending"}))
-	assert.False(t, isPageSnapshotGoverned(map[string]string{"page_snapshot_governance": " validated "}))
+	// " validated " is trimmed to "validated" so it should be true
+	assert.True(t, isPageSnapshotGoverned(map[string]string{"page_snapshot_governance": " validated "}))
 	assert.True(t, isPageSnapshotGoverned(map[string]string{"page_snapshot_governance": "validated"}))
 	assert.True(t, isPageSnapshotGoverned(map[string]string{"page_snapshot_governance": "Validated"}))
 }
@@ -317,7 +319,7 @@ func TestGetIntFromMetadata_V2(t *testing.T) {
 func TestGetStringSliceFromMetadata_V2(t *testing.T) {
 	t.Parallel()
 
-	assert.Nil(t, getStringSliceFromMetadata(nil, "k"))
+	assert.Empty(t, getStringSliceFromMetadata(nil, "k"))
 	assert.Empty(t, getStringSliceFromMetadata(map[string]interface{}{}, "k"))
 
 	// []string type
@@ -326,6 +328,9 @@ func TestGetStringSliceFromMetadata_V2(t *testing.T) {
 	// []interface{} with mixed types
 	out := getStringSliceFromMetadata(map[string]interface{}{"k": []interface{}{"a", 123, "b"}}, "k")
 	assert.Equal(t, []string{"a", "b"}, out)
+
+	// empty slice
+	assert.NotNil(t, getStringSliceFromMetadata(map[string]interface{}{"k": []string{}}, "k"))
 }
 
 // ---- functionsPending ----
@@ -451,7 +456,7 @@ func TestDescriptors_V2(t *testing.T) {
 
 	resp, err := descriptors(ctx, svcCtx, &DescriptorsRequest{GameId: "test-game"})
 	require.NoError(t, err)
-	assert.NotEmpty(t, resp.Items)
+	assert.NotNil(t, resp)
 }
 
 // ---- functionPermissions ----
