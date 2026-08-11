@@ -4,7 +4,7 @@ import { ProColumns, PageContainer, ProTable } from '@ant-design/pro-components'
 import { FileSearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
 import { listResourceOperations, listResources } from '@/services/api/resources';
-import { getScope, subscribeScope } from '@/stores/scope';
+import { getScope, isScopeReady, subscribeScope } from '@/stores/scope';
 import type { OperationSpec, ResourceSpec } from '@/types/dashboard';
 
 function localizedText(text: Record<string, string> | undefined, fallback: string): string {
@@ -53,6 +53,11 @@ export default function ResourcesPage() {
   }, [query, scopeKey]);
 
   useEffect(() => {
+    // Skip initial request until GameSelector has validated the scope.
+    // localStorage may hold a stale env that doesn't match the game's
+    // configured environments; markScopeReady() fires subscribeScope
+    // which updates scopeKey and re-triggers this effect.
+    if (!isScopeReady()) return;
     loadResources();
   }, [loadResources]);
 

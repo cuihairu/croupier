@@ -3,7 +3,7 @@ import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Drawer, Empty, Select, Spin } from 'antd';
 import classNames from 'classnames';
 import { listMyGames, type Game, type GameEnvMeta } from '@/services/api';
-import { getScope, setScope } from '@/stores/scope';
+import { getScope, markScopeReady, setScope } from '@/stores/scope';
 import styles from './index.less';
 
 type GameSelectorProps = {
@@ -164,6 +164,8 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         onEnvChange?.(fallback);
       }
     }
+    // Scope is now validated — pages can safely make API calls
+    markScopeReady();
   }, [envOptions, envState, envValue, isEnvControlled, onEnvChange]);
 
   const handleGameChange = (next?: string) => {

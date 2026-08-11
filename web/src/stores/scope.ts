@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
 };
 
 let currentScope: Scope = {};
+let scopeReady = false;
 const listeners = new Set<ScopeListener>();
 
 const readFromStorage = (): Scope => {
@@ -79,3 +80,19 @@ export const subscribeScope = (listener: ScopeListener) => {
 
 // Initialize from storage on module load.
 hydrateScope();
+
+// isScopeReady reports whether the GameSelector has finished its initial
+// load and validated the scope (gameId + env). Until then, localStorage
+// values may be stale and API calls should be deferred.
+export function isScopeReady(): boolean {
+  return scopeReady;
+}
+
+// markScopeReady signals that the GameSelector has completed its initial
+// validation. It is called once after the first successful games load.
+export function markScopeReady(): void {
+  if (!scopeReady) {
+    scopeReady = true;
+    emitScopeChange(currentScope);
+  }
+}
