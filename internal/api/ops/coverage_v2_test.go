@@ -1059,11 +1059,11 @@ func TestOfflineDatabaseNode_V2(t *testing.T) {
 		node := offlineDatabaseNode(model.Node{
 			NodeID: "n1",
 			Name:   "Node 1",
+			Type:   "agent",
 			Meta: map[string]interface{}{
 				"hostname": "host1",
 				"gameId":   "g1",
 				"env":      "prod",
-				"type":     "agent",
 			},
 		})
 		assert.Equal(t, "host1", node.Hostname)

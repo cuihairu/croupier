@@ -23,6 +23,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.CapabilitySemantics{},
 		&model.CapabilitySemanticVersion{},
 		&model.PageProposal{},
+		&model.PageProposalVersion{},
 	)
 	require.NoError(t, err)
 

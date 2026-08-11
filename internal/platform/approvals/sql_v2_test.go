@@ -433,6 +433,7 @@ func TestNewSQLDelegationStore_NilDB(t *testing.T) {
 
 func TestSQLDelegationStore_CRUD(t *testing.T) {
 	db := openTestDB(t)
+	require.NoError(t, db.AutoMigrate(&DelegationModel{}))
 	store, err := NewSQLDelegationStore(db)
 	require.NoError(t, err)
 
@@ -539,6 +540,7 @@ func TestSQLDelegationStore_CRUD(t *testing.T) {
 
 func TestSQLDelegationStore_NilConstraints(t *testing.T) {
 	db := openTestDB(t)
+	require.NoError(t, db.AutoMigrate(&DelegationModel{}))
 	store, err := NewSQLDelegationStore(db)
 	require.NoError(t, err)
 
@@ -569,6 +571,7 @@ func TestNewSQLNotificationStore_NilDB(t *testing.T) {
 
 func TestSQLNotificationStore_CRUD(t *testing.T) {
 	db := openTestDB(t)
+	require.NoError(t, db.AutoMigrate(&NotificationModel{}))
 	store, err := NewSQLNotificationStore(db)
 	require.NoError(t, err)
 

@@ -177,10 +177,7 @@ func (h *Handler) SourceDiagnostics(c *gin.Context) {
 
 func (h *Handler) CreateBinding(c *gin.Context) {
 	var req OpenAPISourceBindingCreateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	req.SourceID = c.Param("sourceId")
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
