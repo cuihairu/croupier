@@ -126,10 +126,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerPlayerRoutes(scoped.Group("/players"), serverCtx)
 		registerTaskRoutes(scoped.Group("/tasks"), serverCtx)
 		registerOpenAPISourceRoutes(scoped.Group("/openapi"), serverCtx)
-<<<<<<< HEAD
 		registerAuditRoutes(v1, serverCtx)
-=======
->>>>>>> 00f57f914 (feat: add tests for profile and backup helpers)
 	}
 }
 
