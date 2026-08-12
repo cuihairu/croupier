@@ -124,7 +124,7 @@ func (h *Handler) Stream(c *gin.Context) {
 	// Use the request context — gin cancels it when the client disconnects.
 	ctx := c.Request.Context()
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
 	h.sendMessagesEvent(c, username)
