@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -29,6 +30,23 @@ func FunctionSpecsFromContracts(contracts []*model.FunctionContract) map[string]
 	return out
 }
 
+// unwrapJSONString checks if raw is a JSON string (e.g. a base64-encoded schema
+// stored as a JSON string value) and returns the inner value. If raw is already
+// a JSON object/array, it is returned as-is.
+func unwrapJSONString(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return raw
+	}
+	// If it starts with a quote, it's a JSON string — try to unwrap
+	if raw[0] == '"' {
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil {
+			return json.RawMessage(s)
+		}
+	}
+	return raw
+}
+
 func FunctionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpec {
 	if contract == nil {
 		return spec.FunctionSpec{}
@@ -38,8 +56,8 @@ func FunctionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpe
 		Version:      strings.TrimSpace(contract.Version),
 		Enabled:      contract.Enabled,
 		Deprecated:   contract.Deprecated,
-		InputSchema:  spec.JSONSchema(contract.InputSchema),
-		OutputSchema: spec.JSONSchema(contract.OutputSchema),
+		InputSchema:  spec.JSONSchema(unwrapJSONString(json.RawMessage(contract.InputSchema))),
+		OutputSchema: spec.JSONSchema(unwrapJSONString(json.RawMessage(contract.OutputSchema))),
 		Summary:      LocalizedTextFromJSONMap(contract.Summary),
 		Description:  LocalizedTextFromJSONMap(contract.Description),
 		Resource:     strings.TrimSpace(contract.ResourceKey),
