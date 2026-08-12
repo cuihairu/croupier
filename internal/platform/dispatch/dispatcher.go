@@ -346,7 +346,13 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 	)
 	defer span.End()
 
-	agents := d.listAgentsForFunction(req.GetFunctionId())
+	gameID, env, scoped, err := routingScopeFromMetadata(req.Metadata)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	}
+	agents := d.listAgentsForFunctionInScope(req.GetFunctionId(), gameID, env, scoped)
 	if len(agents) == 0 {
 		err := fmt.Errorf("no live agent for function %s", req.GetFunctionId())
 		span.RecordError(err)
@@ -427,9 +433,16 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 	return result, nil
 }
 
-// listAgentsForFunction returns live agents that currently expose the given
-// function. The registry read lock is taken internally.
+// listAgentsForFunction returns every live agent that currently exposes the
+// given function. It is kept for scope-neutral diagnostics and legacy callers.
 func (d *Dispatcher) listAgentsForFunction(functionID string) []*reg.AgentSession {
+	return d.listAgentsForFunctionInScope(functionID, "", "", false)
+}
+
+// listAgentsForFunctionInScope returns live agents that expose functionID in
+// the requested game/environment. Scoped invocations must never be delivered
+// to an Agent registered by another game or environment.
+func (d *Dispatcher) listAgentsForFunctionInScope(functionID, gameID, env string, scoped bool) []*reg.AgentSession {
 	now := time.Now()
 
 	d.store.Mu().RLock()
@@ -437,11 +450,7 @@ func (d *Dispatcher) listAgentsForFunction(functionID string) []*reg.AgentSessio
 
 	var out []*reg.AgentSession
 	for _, agent := range d.store.AgentsUnsafe() {
-		if agent == nil || !agent.ExpireAt.After(now) {
-			continue
-		}
-		meta, ok := agent.Functions[functionID]
-		if !ok || !meta.Enabled {
+		if !agentCanInvoke(agent, functionID, now, gameID, env, scoped) {
 			continue
 		}
 		out = append(out, agent)
@@ -793,30 +802,20 @@ func (d *Dispatcher) TaskAgentID(taskID string) (string, bool) {
 	return agentID, ok
 }
 
-// pickAgent returns a live agent that owns the function.
+// pickAgent returns a live agent that owns the function without a scope
+// constraint. Scoped HTTP execution always uses pickAgentWithRouting.
 func (d *Dispatcher) pickAgent(functionID string) (*reg.AgentSession, error) {
-	now := time.Now()
-	d.store.Mu().RLock()
-	defer d.store.Mu().RUnlock()
+	return d.pickAgentInScope(functionID, "", "", false)
+}
 
-	// Collect all candidates
-	var candidates []*reg.AgentSession
-	for _, agent := range d.store.AgentsUnsafe() {
-		if agent == nil {
-			continue
-		}
-		if !agent.ExpireAt.After(now) {
-			continue
-		}
-		meta, ok := agent.Functions[functionID]
-		if !ok || !meta.Enabled {
-			continue
-		}
-		candidates = append(candidates, agent)
-	}
+func (d *Dispatcher) pickAgentInScope(functionID, gameID, env string, scoped bool) (*reg.AgentSession, error) {
+	candidates := d.listAgentsForFunctionInScope(functionID, gameID, env, scoped)
+	return d.selectAgent(functionID, candidates, gameID, env, scoped)
+}
 
+func (d *Dispatcher) selectAgent(functionID string, candidates []*reg.AgentSession, gameID, env string, scoped bool) (*reg.AgentSession, error) {
 	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no live agent for function %s", functionID)
+		return nil, noLiveAgentError(functionID, gameID, env, scoped)
 	}
 
 	// Use load balancer if HA is enabled
@@ -829,7 +828,7 @@ func (d *Dispatcher) pickAgent(functionID string) (*reg.AgentSession, error) {
 		// Build candidates with health state
 		candidateList := d.loadBalancer.BuildCandidates(candidates, functionID)
 		if len(candidateList) == 0 {
-			return nil, fmt.Errorf("no healthy agents available for function %s", functionID)
+			return nil, noHealthyAgentError(functionID, gameID, env, scoped)
 		}
 
 		selected, err := d.loadBalancer.Select(functionID, candidateList)
@@ -850,58 +849,88 @@ func (d *Dispatcher) pickAgent(functionID string) (*reg.AgentSession, error) {
 }
 
 func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string]string) (*reg.AgentSession, error) {
-	if metadata == nil {
-		return d.pickAgent(functionID)
+	gameID, env, scoped, err := routingScopeFromMetadata(metadata)
+	if err != nil {
+		return nil, err
 	}
 
 	serviceID := strings.TrimSpace(metadata["target_service_id"])
 	hashKey := strings.TrimSpace(metadata["hash_key"])
-
-	now := time.Now()
-	d.store.Mu().RLock()
-	defer d.store.Mu().RUnlock()
+	candidates := d.listAgentsForFunctionInScope(functionID, gameID, env, scoped)
+	if len(candidates) == 0 {
+		return nil, noLiveAgentError(functionID, gameID, env, scoped)
+	}
 
 	// Targeted: choose the agent that owns the service_id.
 	if serviceID != "" {
-		for _, agent := range d.store.AgentsUnsafe() {
-			if agent == nil || !agent.ExpireAt.After(now) {
-				continue
-			}
-			meta, ok := agent.Functions[functionID]
-			if !ok || !meta.Enabled {
-				continue
-			}
+		var chosen *reg.AgentSession
+		for _, agent := range candidates {
 			if agentHasService(agent, serviceID, functionID) {
-				return agent, nil
+				if chosen == nil || agent.AgentID < chosen.AgentID {
+					chosen = agent
+				}
 			}
 		}
-		return nil, fmt.Errorf("no live agent for function %s with service_id %s", functionID, serviceID)
+		if chosen != nil {
+			return chosen, nil
+		}
+		return nil, fmt.Errorf("no live agent for function %s%s with service_id %s", functionID, formatRoutingScope(gameID, env, scoped), serviceID)
 	}
 
-	// Hash: choose a stable agent among all candidates.
+	// Hash: choose a stable agent among the already scope-filtered candidates.
 	if hashKey != "" {
-		cands := make([]*reg.AgentSession, 0)
-		for _, agent := range d.store.AgentsUnsafe() {
-			if agent == nil || !agent.ExpireAt.After(now) {
-				continue
-			}
-			meta, ok := agent.Functions[functionID]
-			if !ok || !meta.Enabled {
-				continue
-			}
-			cands = append(cands, agent)
-		}
-		sort.Slice(cands, func(i, j int) bool {
-			return cands[i].AgentID < cands[j].AgentID
+		sort.Slice(candidates, func(i, j int) bool {
+			return candidates[i].AgentID < candidates[j].AgentID
 		})
-		chosen := pickAgentByHash(cands, hashKey)
+		chosen := pickAgentByHash(candidates, hashKey)
 		if chosen == nil {
-			return nil, fmt.Errorf("no live agent for function %s", functionID)
+			return nil, noLiveAgentError(functionID, gameID, env, scoped)
 		}
 		return chosen, nil
 	}
 
-	return d.pickAgent(functionID)
+	return d.selectAgent(functionID, candidates, gameID, env, scoped)
+}
+
+func routingScopeFromMetadata(metadata map[string]string) (gameID, env string, scoped bool, err error) {
+	if len(metadata) == 0 {
+		return "", "", false, nil
+	}
+	gameID = strings.TrimSpace(metadata["game_id"])
+	env = strings.TrimSpace(metadata["env"])
+	if gameID == "" && env == "" {
+		return "", "", false, nil
+	}
+	if gameID == "" || env == "" {
+		return "", "", false, fmt.Errorf("game_id and env must be supplied together for agent routing")
+	}
+	return gameID, env, true, nil
+}
+
+func agentCanInvoke(agent *reg.AgentSession, functionID string, now time.Time, gameID, env string, scoped bool) bool {
+	if agent == nil || !agent.ExpireAt.After(now) {
+		return false
+	}
+	if scoped && (strings.TrimSpace(agent.GameID) != gameID || strings.TrimSpace(agent.Env) != env) {
+		return false
+	}
+	meta, ok := agent.Functions[functionID]
+	return ok && meta.Enabled
+}
+
+func formatRoutingScope(gameID, env string, scoped bool) string {
+	if !scoped {
+		return ""
+	}
+	return fmt.Sprintf(" in game_id %s env %s", gameID, env)
+}
+
+func noLiveAgentError(functionID, gameID, env string, scoped bool) error {
+	return fmt.Errorf("no live agent for function %s%s", functionID, formatRoutingScope(gameID, env, scoped))
+}
+
+func noHealthyAgentError(functionID, gameID, env string, scoped bool) error {
+	return fmt.Errorf("no healthy agents available for function %s%s", functionID, formatRoutingScope(gameID, env, scoped))
 }
 
 // callAgent sends a request to an Agent via its established TCP session.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/config"
@@ -82,4 +83,31 @@ func TestService_Root_Deterministic(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, []string{"a", "b", "c"}, resp.Profiles)
+}
+
+func TestReadVersionFile(t *testing.T) {
+	// Test when VERSION file doesn't exist
+	result := readVersionFile()
+	// The result depends on whether VERSION file exists in the test directory
+	// We just verify it doesn't panic
+	_ = result
+}
+
+func TestCurrentAPIVersion(t *testing.T) {
+	// Reset the singleton for testing
+	versionOnce = sync.Once{}
+	apiVersion = ""
+
+	// Test with environment variable
+	t.Setenv("CROUPIER_VERSION", "1.2.3")
+	result := currentAPIVersion()
+	assert.Equal(t, "1.2.3", result)
+
+	// Reset and test without environment variable
+	versionOnce = sync.Once{}
+	apiVersion = ""
+	t.Setenv("CROUPIER_VERSION", "")
+	result = currentAPIVersion()
+	// Should return either VERSION file content or "dev"
+	assert.NotEmpty(t, result)
 }
