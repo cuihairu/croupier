@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -33,7 +34,7 @@ func newMessageTestDB(t *testing.T) *gorm.DB {
 
 func newMessageHandler(db *gorm.DB) *Handler {
 	svcCtx := &svc.ServiceContext{MessageModel: model.NewMessageModel(db)}
-	return NewHandler(NewService(svcCtx))
+	return NewHandler(NewService(svcCtx), config.SSEConfig{})
 }
 
 func newMessageRequest(method, target, body string) (*gin.Context, *httptest.ResponseRecorder) {

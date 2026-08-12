@@ -634,7 +634,7 @@ func registerFeedbackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 // ============================================================================
 func registerMessageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	messageSvc := message.NewService(ctx)
-	messageHandler := message.NewHandler(messageSvc)
+	messageHandler := message.NewHandler(messageSvc, ctx.Config.SSE)
 	g.GET("", messageHandler.List)
 	g.GET("/", messageHandler.List)
 	g.POST("", messageHandler.Send)

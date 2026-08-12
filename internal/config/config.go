@@ -786,8 +786,17 @@ func (c *CacheConfig) UnmarshalYAML(value *yaml.Node) error {
 
 // SSEConfig 配置 Server-Sent Events (SSE) 推送
 type SSEConfig struct {
-	UpdateInterval    int `json:"updateInterval,omitempty" yaml:"updateInterval,omitempty"`       // 消息更新间隔（秒），默认 2
+	UpdateInterval    int `json:"updateInterval,omitempty" yaml:"updateInterval,omitempty"`       // 消息更新间隔（秒），默认 60
 	KeepAliveInterval int `json:"keepAliveInterval,omitempty" yaml:"keepAliveInterval,omitempty"` // Keep-alive 间隔（秒），默认 30
+}
+
+// GetUpdateInterval returns the configured update interval in seconds,
+// defaulting to 60 if not set.
+func (c *SSEConfig) GetUpdateInterval() int {
+	if c.UpdateInterval > 0 {
+		return c.UpdateInterval
+	}
+	return 60
 }
 
 func (c *SSEConfig) UnmarshalYAML(value *yaml.Node) error {

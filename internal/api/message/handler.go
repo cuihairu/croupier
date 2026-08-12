@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,10 +23,11 @@ func currentUsername(c *gin.Context) string {
 
 type Handler struct {
 	service *Service
+	sse     config.SSEConfig
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, sse config.SSEConfig) *Handler {
+	return &Handler{service: service, sse: sse}
 }
 
 // List handles the request to list messages
@@ -124,7 +126,7 @@ func (h *Handler) Stream(c *gin.Context) {
 	// Use the request context — gin cancels it when the client disconnects.
 	ctx := c.Request.Context()
 
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(time.Duration(h.sse.GetUpdateInterval()) * time.Second)
 	defer ticker.Stop()
 
 	h.sendMessagesEvent(c, username)
