@@ -297,3 +297,110 @@ func TestBindQueryCompatNilPointer(t *testing.T) {
 		t.Logf("BindQueryCompat() with nil pointer error = %v", err)
 	}
 }
+
+// TestBindQueryCompatWithNoTags tests struct with no form or json tags
+type testNoTagsRequest struct {
+	Name string
+	Age  int
+}
+
+func TestBindQueryCompatWithNoTags(t *testing.T) {
+	t.Parallel()
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+
+	u, _ := url.Parse("?Name=test&Age=25")
+	c.Request = &http.Request{
+		URL: u,
+	}
+
+	var req testNoTagsRequest
+	err := BindQueryCompat(c, &req)
+
+	if err != nil {
+		t.Logf("BindQueryCompat() with no tags error = %v", err)
+	}
+
+	// Fields without tags may or may not be bound depending on gin's behavior
+	// This test documents the actual behavior
+	t.Logf("Name=%q, Age=%d", req.Name, req.Age)
+}
+
+// TestBindQueryCompatWithDashTag tests struct with dash tag
+type testDashTagRequest struct {
+	Name string `form:"-" json:"-"`
+	Age  int    `form:"age"`
+}
+
+func TestBindQueryCompatWithDashTag(t *testing.T) {
+	t.Parallel()
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+
+	u, _ := url.Parse("?Name=ignored&age=25")
+	c.Request = &http.Request{
+		URL: u,
+	}
+
+	var req testDashTagRequest
+	err := BindQueryCompat(c, &req)
+
+	if err != nil {
+		t.Logf("BindQueryCompat() with dash tag error = %v", err)
+	}
+
+	// Name should not be bound (dash tag)
+	if req.Name != "" {
+		t.Errorf("Name should be empty for dash tag")
+	}
+	if req.Age != 25 {
+		t.Errorf("Age = %d, want 25", req.Age)
+	}
+}
+
+// TestBindQueryCompatWithEmptyQueryString tests empty query string
+func TestBindQueryCompatWithEmptyQueryString(t *testing.T) {
+	t.Parallel()
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+
+	u, _ := url.Parse("")
+	c.Request = &http.Request{
+		URL: u,
+	}
+
+	var req testQueryRequest
+	err := BindQueryCompat(c, &req)
+
+	if err != nil {
+		t.Logf("BindQueryCompat() with empty query error = %v", err)
+	}
+}
+
+// TestBindQueryCompatWithInvalidBoolValue tests invalid bool value
+func TestBindQueryCompatWithInvalidBoolValue(t *testing.T) {
+	t.Parallel()
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+
+	u, _ := url.Parse("?admin=invalid")
+	c.Request = &http.Request{
+		URL: u,
+	}
+
+	var req testQueryRequest
+	err := BindQueryCompat(c, &req)
+
+	if err != nil {
+		t.Logf("BindQueryCompat() with invalid bool error = %v", err)
+	}
+
+	// Invalid bool should remain false
+	if req.Admin {
+		t.Error("Admin should be false for invalid bool value")
+	}
+}
