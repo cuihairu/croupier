@@ -21,6 +21,23 @@ import (
 
 const pageProposalGeneratorVersion = "page-generator:1"
 
+// normalizeSchemaToJSON ensures schema is stored as a native JSON object,
+// not as a JSON string value. This prevents the API from returning schemas
+// as strings instead of objects.
+func normalizeSchemaToJSON(raw json.RawMessage) datatypes.JSON {
+	if len(raw) == 0 {
+		return nil
+	}
+	// If it starts with a quote, it's a JSON string — unwrap it
+	if raw[0] == '"' {
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil {
+			return datatypes.JSON(s)
+		}
+	}
+	return datatypes.JSON(raw)
+}
+
 // ContractService manages FunctionContract persistence and semantic rebuilding.
 type ContractService struct {
 	db               *gorm.DB
@@ -97,8 +114,8 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		Approval:     approvalPolicyToJSONMap(result.Function.Approval),
 		Risk:         string(result.Function.Risk),
 		Permission:   result.Function.Permission,
-		InputSchema:  datatypes.JSON(result.Function.InputSchema),
-		OutputSchema: datatypes.JSON(result.Function.OutputSchema),
+		InputSchema:  normalizeSchemaToJSON(json.RawMessage(result.Function.InputSchema)),
+		OutputSchema: normalizeSchemaToJSON(json.RawMessage(result.Function.OutputSchema)),
 		Summary:      toJSONMap(result.Function.Summary),
 		Description:  toJSONMap(result.Function.Description),
 		Tags:         toJSON(result.Function.Tags),

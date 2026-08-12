@@ -30,14 +30,14 @@ func FunctionSpecsFromContracts(contracts []*model.FunctionContract) map[string]
 	return out
 }
 
-// unwrapJSONString checks if raw is a JSON string (e.g. a base64-encoded schema
-// stored as a JSON string value) and returns the inner value. If raw is already
-// a JSON object/array, it is returned as-is.
-func unwrapJSONString(raw json.RawMessage) json.RawMessage {
+// normalizeJSONSchema ensures raw is a native JSON object, not a JSON string.
+// Some code paths store schema as a JSON string value (e.g. "{\"type\":\"object\"}")
+// instead of native JSON ({\"type\":\"object\"}). This function unwraps such strings.
+func normalizeJSONSchema(raw json.RawMessage) json.RawMessage {
 	if len(raw) == 0 {
 		return raw
 	}
-	// If it starts with a quote, it's a JSON string — try to unwrap
+	// If it starts with a quote, it's a JSON string — unwrap it
 	if raw[0] == '"' {
 		var s string
 		if err := json.Unmarshal(raw, &s); err == nil {
@@ -56,8 +56,8 @@ func FunctionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpe
 		Version:      strings.TrimSpace(contract.Version),
 		Enabled:      contract.Enabled,
 		Deprecated:   contract.Deprecated,
-		InputSchema:  spec.JSONSchema(unwrapJSONString(json.RawMessage(contract.InputSchema))),
-		OutputSchema: spec.JSONSchema(unwrapJSONString(json.RawMessage(contract.OutputSchema))),
+		InputSchema:  spec.JSONSchema(normalizeJSONSchema(json.RawMessage(contract.InputSchema))),
+		OutputSchema: spec.JSONSchema(normalizeJSONSchema(json.RawMessage(contract.OutputSchema))),
 		Summary:      LocalizedTextFromJSONMap(contract.Summary),
 		Description:  LocalizedTextFromJSONMap(contract.Description),
 		Resource:     strings.TrimSpace(contract.ResourceKey),
