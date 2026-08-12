@@ -371,3 +371,25 @@ func TestTracerProvider_EndSpan(t *testing.T) {
 
 	assert.NotNil(t, span.EndTime)
 }
+
+// ---------------------------------------------------------------------------
+// context.go tests
+// ---------------------------------------------------------------------------
+
+func TestTraceIDFromMetadata(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata map[string]string
+		want     string
+	}{
+		{"nil", nil, ""},
+		{"empty", map[string]string{}, ""},
+		{"with trace_id", map[string]string{MetadataTraceID: "abc123"}, "abc123"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := TraceIDFromMetadata(tt.metadata)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}

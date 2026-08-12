@@ -6,6 +6,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestApprovalPolicyFromJSONMap(t *testing.T) {
@@ -98,4 +99,50 @@ func TestResourceDiagnostics(t *testing.T) {
 			assert.Len(t, result, tt.wantLen)
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// operationSpecsFromContracts
+// ---------------------------------------------------------------------------
+
+func TestOperationSpecsFromContractsV2(t *testing.T) {
+	tests := []struct {
+		name      string
+		contracts []*model.FunctionContract
+		wantLen   int
+	}{
+		{"nil", nil, 0},
+		{"empty", []*model.FunctionContract{}, 0},
+		{"single", []*model.FunctionContract{
+			{FunctionID: "player.ban", ResourceKey: "player", OperationKey: "ban", Capability: "action", Enabled: true},
+		}, 1},
+		{"nil contract skipped", []*model.FunctionContract{nil, {FunctionID: "fn1"}}, 1},
+		{"with approval policy", []*model.FunctionContract{
+			{FunctionID: "player.ban", Approval: map[string]interface{}{"required": true, "policyKey": "admin"}},
+		}, 1},
+		{"with diagnostics", []*model.FunctionContract{
+			{FunctionID: "player.ban", Diagnostics: []byte(`[{"code":"test","severity":"info","message":"ok"}]`)},
+		}, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := operationSpecsFromContracts(tt.contracts)
+			assert.Len(t, result, tt.wantLen)
+		})
+	}
+}
+
+func TestOperationSpecsFromContracts_Sorting(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{FunctionID: "player.b", ResourceKey: "player"},
+		{FunctionID: "item.a", ResourceKey: "item"},
+		{FunctionID: "player.a", ResourceKey: "player"},
+	}
+	result := operationSpecsFromContracts(contracts)
+	require.Len(t, result, 3)
+	// item comes before player
+	assert.Equal(t, "item", result[0].ResourceKey)
+	// player.a before player.b
+	assert.Equal(t, "player.a", result[1].FunctionID)
+	assert.Equal(t, "player.b", result[2].FunctionID)
 }

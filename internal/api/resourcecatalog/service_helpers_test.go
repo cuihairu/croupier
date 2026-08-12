@@ -497,3 +497,353 @@ func TestAssignUint(t *testing.T) {
 	err = assignUint(json.RawMessage(`"not a number"`), &dst)
 	assert.Error(t, err)
 }
+
+// ---------------------------------------------------------------------------
+// decodeDiagnostics
+// ---------------------------------------------------------------------------
+
+func TestDecodeDiagnostics(t *testing.T) {
+	tests := []struct {
+		name               string
+		raw                []byte
+		fallbackFunctionID string
+		wantLen            int
+	}{
+		{"nil", nil, "", 0},
+		{"empty", []byte{}, "", 0},
+		{"invalid", []byte(`{invalid`), "fn1", 1},
+		{"valid", []byte(`[{"code":"test","severity":"info","message":"ok"}]`), "", 1},
+		{"fallback applied", []byte(`[{"code":"test","severity":"info","message":"ok"}]`), "fn1", 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := decodeDiagnostics(tt.raw, tt.fallbackFunctionID)
+			assert.Len(t, result, tt.wantLen)
+			if tt.wantLen == 1 && tt.fallbackFunctionID != "" && len(tt.raw) > 0 && tt.raw[0] == '[' {
+				assert.Equal(t, tt.fallbackFunctionID, result[0].FunctionID)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// parsePublishedPageSpec
+// ---------------------------------------------------------------------------
+
+func TestParsePublishedPageSpec(t *testing.T) {
+	tests := []struct {
+		name      string
+		published model.PublishedPageSpec
+		wantKey   string
+	}{
+		{
+			name: "empty",
+			published: model.PublishedPageSpec{
+				PageKey: "test-page",
+			},
+			wantKey: "test-page",
+		},
+		{
+			name: "with data",
+			published: model.PublishedPageSpec{
+				PageKey:  "player.manage",
+				SpecJSON: `{"pageKey":"player.manage","type":"resource","title":{"zh-CN":"玩家管理"}}`,
+			},
+			wantKey: "player.manage",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parsePublishedPageSpec(tt.published)
+			assert.Equal(t, tt.wantKey, result.PageKey)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// parseBindingContracts
+// ---------------------------------------------------------------------------
+
+func TestParseBindingContracts(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		wantLen int
+	}{
+		{"empty", "", 0},
+		{"invalid json", "{invalid", 0},
+		{"valid", `[{"functionId":"player.list","usage":"query"}]`, 1},
+		{"multiple", `[{"functionId":"player.list"},{"functionId":"player.get"}]`, 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseBindingContracts(tt.raw)
+			assert.Len(t, result, tt.wantLen)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// matchesQuery
+// ---------------------------------------------------------------------------
+
+func TestMatchesQuery(t *testing.T) {
+	tests := []struct {
+		name  string
+		item  ResourceCatalogItem
+		query string
+		want  bool
+	}{
+		{
+			name:  "empty query matches all",
+			item:  ResourceCatalogItem{ResourceKey: "player"},
+			query: "",
+			want:  true,
+		},
+		{
+			name:  "match by key",
+			item:  ResourceCatalogItem{ResourceKey: "player"},
+			query: "player",
+			want:  true,
+		},
+		{
+			name:  "no match",
+			item:  ResourceCatalogItem{ResourceKey: "player"},
+			query: "order",
+			want:  false,
+		},
+		{
+			name:  "match by label",
+			item:  ResourceCatalogItem{ResourceKey: "player", Labels: map[string]string{"zh-CN": "玩家"}},
+			query: "玩家",
+			want:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matchesQuery(tt.item, tt.query)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// isValidSemanticSource
+// ---------------------------------------------------------------------------
+
+func TestIsValidSemanticSource(t *testing.T) {
+	tests := []struct {
+		source spec.SemanticSource
+		want   bool
+	}{
+		{spec.SemanticSourceSDKExplicit, true},
+		{spec.SemanticSourceOpenAPIRest, true},
+		{spec.SemanticSourcePlatformReview, true},
+		{"unknown", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.source), func(t *testing.T) {
+			result := isValidSemanticSource(tt.source)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// confidenceForSource
+// ---------------------------------------------------------------------------
+
+func TestConfidenceForSource(t *testing.T) {
+	tests := []struct {
+		source spec.SemanticSource
+		want   string
+	}{
+		{spec.SemanticSourceSDKExplicit, "high"},
+		{spec.SemanticSourcePlatformReview, "high"},
+		{spec.SemanticSourceOpenAPIRest, "low"},
+		{"unknown", "low"},
+		{"", "low"},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.source), func(t *testing.T) {
+			result := confidenceForSource(tt.source)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// sha256Bytes
+// ---------------------------------------------------------------------------
+
+func TestSha256Bytes(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  []byte
+	}{
+		{"nil", nil},
+		{"empty", []byte{}},
+		{"data", []byte(`{"key":"value"}`)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sha256Bytes(tt.raw)
+			// sha256 always returns a hash, even for nil/empty input
+			assert.NotNil(t, result)
+			if tt.raw == nil || len(tt.raw) == 0 {
+				// For nil/empty, we still get a hash (of empty input)
+				assert.Len(t, result, 32) // SHA256 is 32 bytes
+			} else {
+				assert.NotEmpty(t, result)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// rawJSONString
+// ---------------------------------------------------------------------------
+
+func TestRawJSONString(t *testing.T) {
+	assert.Equal(t, json.RawMessage(`"hello"`), rawJSONString("hello"))
+	assert.Equal(t, json.RawMessage(`""`), rawJSONString(""))
+}
+
+// ---------------------------------------------------------------------------
+// applySemanticFieldValue
+// ---------------------------------------------------------------------------
+
+func TestApplySemanticFieldValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		sem     *model.CapabilitySemantics
+		field   string
+		value   json.RawMessage
+		wantErr bool
+	}{
+		{"identity field", &model.CapabilitySemantics{}, "identityField", json.RawMessage(`"id"`), false},
+		{"identity field type", &model.CapabilitySemantics{}, "identityFieldType", json.RawMessage(`"string"`), false},
+		{"identity path", &model.CapabilitySemantics{}, "identityPath", json.RawMessage(`"/id"`), false},
+		{"collection query id", &model.CapabilitySemantics{}, "collectionQueryID", json.RawMessage(`1`), false},
+		{"collection path", &model.CapabilitySemantics{}, "collectionPath", json.RawMessage(`"/items"`), false},
+		{"page field name", &model.CapabilitySemantics{}, "pageFieldName", json.RawMessage(`"page"`), false},
+		{"page size field name", &model.CapabilitySemantics{}, "pageSizeFieldName", json.RawMessage(`"pageSize"`), false},
+		{"items field name", &model.CapabilitySemantics{}, "itemsFieldName", json.RawMessage(`"items"`), false},
+		{"total field name", &model.CapabilitySemantics{}, "totalFieldName", json.RawMessage(`"total"`), false},
+		{"item query id", &model.CapabilitySemantics{}, "itemQueryID", json.RawMessage(`2`), false},
+		{"item path", &model.CapabilitySemantics{}, "itemPath", json.RawMessage(`"/item"`), false},
+		{"create id", &model.CapabilitySemantics{}, "createID", json.RawMessage(`3`), false},
+		{"update id", &model.CapabilitySemantics{}, "updateID", json.RawMessage(`4`), false},
+		{"delete id", &model.CapabilitySemantics{}, "deleteID", json.RawMessage(`5`), false},
+		{"source", &model.CapabilitySemantics{}, "source", json.RawMessage(`"sdk"`), true},
+		{"source digest", &model.CapabilitySemantics{}, "sourceDigest", json.RawMessage(`"abc123"`), true},
+		{"version", &model.CapabilitySemantics{}, "version", json.RawMessage(`1`), true},
+		{"unsupported field", &model.CapabilitySemantics{}, "unknownField", json.RawMessage(`"value"`), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := applySemanticFieldValue(tt.sem, tt.field, tt.value)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// compactJSONPointers
+// ---------------------------------------------------------------------------
+
+func TestCompactJSONPointers(t *testing.T) {
+	tests := []struct {
+		name   string
+		values []string
+		want   []string
+	}{
+		{"nil", nil, []string{}},
+		{"empty", []string{}, []string{}},
+		{"single", []string{"/a"}, []string{"/a"}},
+		{"duplicates", []string{"/a", "/a", "/b"}, []string{"/a", "/b"}},
+		{"invalid skipped", []string{"/a", "invalid", "/b"}, []string{"/a", "/b"}},
+		{"whitespace trimmed", []string{" /a ", "/b"}, []string{"/a", "/b"}},
+		{"empty string skipped", []string{"", "/a"}, []string{"/a"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := compactJSONPointers(tt.values)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// validateJSONPointerList
+// ---------------------------------------------------------------------------
+
+func TestValidateJSONPointerList(t *testing.T) {
+	tests := []struct {
+		name    string
+		values  []string
+		field   string
+		wantLen int
+		wantErr bool
+	}{
+		{"valid", []string{"/a", "/b"}, "test", 2, false},
+		{"empty", nil, "test", 0, true},
+		{"invalid pointer", []string{"invalid"}, "test", 0, true},
+		{"empty string", []string{""}, "test", 0, true},
+		{"duplicates removed", []string{"/a", "/a", "/b"}, "test", 2, false},
+		{"non-pointer prefix", []string{"a/b"}, "test", 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := validateJSONPointerList(tt.values, tt.field)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Len(t, result, tt.wantLen)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// validateTaskInputPointer
+// ---------------------------------------------------------------------------
+
+func TestValidateTaskInputPointer(t *testing.T) {
+	tests := []struct {
+		name    string
+		pointer string
+		wantErr bool
+	}{
+		{"valid pointer", "/id", false},
+		{"invalid pointer", "id", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateTaskInputPointer(nil, tt.pointer, "test")
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// rebuildProposals
+// ---------------------------------------------------------------------------
