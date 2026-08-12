@@ -10,7 +10,7 @@ import (
 // Message represents system/user notifications.
 type Message struct {
 	gorm.Model
-	To      string         `gorm:"size:255;not null;index:idx_messages_to_status,priority:1;index:idx_messages_to_created"`
+	To      string         `gorm:"column:recipient;size:255;not null;index:idx_messages_to_status,priority:1;index:idx_messages_to_created"`
 	Type    string         `gorm:"size:64;not null;index"`
 	Title   string         `gorm:"size:255"`
 	Content string         `gorm:"type:text"`

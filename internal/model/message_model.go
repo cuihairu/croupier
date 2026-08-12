@@ -47,7 +47,7 @@ func (m *MessageModel) List(ctx context.Context, opts ListMessagesOptions) ([]Me
 		query = query.Where("status = ?", opts.Status)
 	}
 	if opts.To != "" {
-		query = query.Where("`to` = ?", opts.To)
+		query = query.Where("recipient = ?", opts.To)
 	}
 
 	var total int64
@@ -96,7 +96,7 @@ func (m *MessageModel) MarkRead(ctx context.Context, id uint) error {
 func (m *MessageModel) CountUnread(ctx context.Context, to string) (int64, error) {
 	query := m.db.WithContext(ctx).Model(&Message{}).Where("status = ?", "unread")
 	if to != "" {
-		query = query.Where("`to` = ?", to)
+		query = query.Where("recipient = ?", to)
 	}
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
@@ -112,7 +112,7 @@ func (m *MessageModel) Recent(ctx context.Context, limit int, to string) ([]Mess
 	}
 	query := m.db.WithContext(ctx).Model(&Message{}).Order("id DESC").Limit(limit)
 	if to != "" {
-		query = query.Where("`to` = ?", to)
+		query = query.Where("recipient = ?", to)
 	}
 	var messages []Message
 	if err := query.Find(&messages).Error; err != nil {
