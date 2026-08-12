@@ -78,7 +78,6 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerAdminRoutes(protected.Group("/admin"), serverCtx)
 		registerGameRoutes(protected.Group("/games"), serverCtx)
 		registerNodeRoutes(protected.Group("/nodes"), serverCtx)
-		registerConsoleRoutes(protected.Group("/console"), serverCtx)
 		registerOpenAPISourceRoutes(protected.Group("/openapi"), serverCtx)
 		registerStorageRoutes(protected.Group("/storage"), serverCtx)
 		registerAgentRoutes(protected.Group("/agent"), serverCtx)
@@ -106,6 +105,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 
 	// Scope-dependent 路由
 	{
+		registerConsoleRoutes(scoped.Group("/console"), serverCtx)
 		registerFunctionRoutes(scoped.Group("/functions"), serverCtx)
 		registerFunctionCallRoutes(scoped.Group("/function-calls"), serverCtx)
 		registerFunctionMetadataRoutes(scoped.Group("/metadata"), serverCtx)
