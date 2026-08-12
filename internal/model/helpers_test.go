@@ -108,3 +108,37 @@ func TestQuoteIdentRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// TestUniqueStrings tests the uniqueStrings function
+func TestUniqueStrings(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{"nil input", nil, nil},
+		{"empty input", []string{}, nil},
+		{"single element", []string{"a"}, []string{"a"}},
+		{"no duplicates", []string{"a", "b", "c"}, []string{"a", "b", "c"}},
+		{"with duplicates", []string{"a", "b", "a", "c", "b"}, []string{"a", "b", "c"}},
+		{"with empty strings", []string{"a", "", "b", ""}, []string{"a", "b"}},
+		{"with whitespace", []string{"  a  ", "a", " b "}, []string{"a", "b"}},
+		{"all empty", []string{"", "", ""}, nil},
+		{"all duplicates", []string{"x", "x", "x"}, []string{"x"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := uniqueStrings(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("uniqueStrings(%v) returned %d elements, want %d", tt.input, len(result), len(tt.expected))
+				return
+			}
+			for i, v := range result {
+				if v != tt.expected[i] {
+					t.Errorf("uniqueStrings(%v)[%d] = %q, want %q", tt.input, i, v, tt.expected[i])
+				}
+			}
+		})
+	}
+}
