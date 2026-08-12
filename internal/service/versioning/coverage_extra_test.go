@@ -1554,3 +1554,13 @@ func TestApplyIndexedConflictField_UnmatchedField(t *testing.T) {
 	assert.False(t, ok)
 	assert.NoError(t, err)
 }
+
+// ---------------------------------------------------------------------------
+// draftRevisionConflict
+// ---------------------------------------------------------------------------
+
+func TestDraftRevisionConflict(t *testing.T) {
+	err := draftRevisionConflict(1, 2)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "page draft revision conflict")
+}
