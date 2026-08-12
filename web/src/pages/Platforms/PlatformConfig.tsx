@@ -43,6 +43,7 @@ export default function PlatformConfig() {
             </Descriptions.Item>
           </Descriptions>
 
+          {/* @ts-expect-error antd v6 Divider orientation type change */}
           <Divider orientation="left">配置参数</Divider>
 
           <Card size="small" type="inner" title="环境变量配置">

@@ -154,6 +154,7 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
       dataIndex: 'summary',
       width: compact ? 200 : 300,
       ellipsis: true,
+      // @ts-expect-error ProComponents v3 type change
       hideInSearch: compact,
       render: (_, record) => (
         <Text type="secondary">{record.summary?.zh || record.summary?.en || '-'}</Text>

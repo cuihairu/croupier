@@ -60,8 +60,8 @@ export default () => {
   const [selectedCall, setSelectedCall] = useState<FunctionCallItem | null>(null);
   const [stats, setStats] = useState<FunctionCallStatsResponse | null>(null);
   const [filters, setFilters] = useState<Record<string, JSONValue>>({});
-  const actionRef = useRef<ActionType>();
-  const timerRef = useRef<NodeJS.Timeout>();
+  const actionRef = useRef<ActionType>(null);
+  const timerRef = useRef<NodeJS.Timeout>(null);
 
   // 加载数据
   const fetchData = useCallback(async (page = currentPage, size = pageSize) => {

@@ -289,7 +289,7 @@ export default function FunctionInvokePage() {
               rawJson={rawJson}
               formState={formState}
               formValues={formValues}
-              formRef={formRef}
+              formRef={formRef as React.RefObject<SchemaFormRendererHandle>}
               onModeChange={setInputMode}
               onRawJsonChange={setRawJson}
               onFormValuesChange={(values) => {

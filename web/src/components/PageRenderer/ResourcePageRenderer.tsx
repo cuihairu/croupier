@@ -90,6 +90,7 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
     width: col.width,
     fixed: col.fixed,
     sorter: col.sortable,
+    // @ts-expect-error ProComponents v3 type change
     hideInSearch: !col.filterable,
     hideInTable: col.visible === false,
   };
@@ -166,7 +167,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   preview = false,
   title,
 }) => {
-  const actionRef = useRef<ActionType>();
+  const actionRef = useRef<ActionType>(null);
   const createFormRef = useRef<SchemaFormRendererHandle | null>(null);
   const updateFormRef = useRef<SchemaFormRendererHandle | null>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);

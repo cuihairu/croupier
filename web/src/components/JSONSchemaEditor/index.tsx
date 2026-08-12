@@ -568,31 +568,15 @@ export default function JSONSchemaEditor({ value, onChange }: JSONSchemaEditorPr
 
           <Dropdown
             trigger={['click']}
-            overlay={
-              <Menu>
-                <Menu.Item onClick={() => loadTemplate('player')}>
-                  <Space>
-                    <FunctionOutlined /> Player Entity
-                  </Space>
-                </Menu.Item>
-                <Menu.Item onClick={() => loadTemplate('item')}>
-                  <Space>
-                    <AppstoreOutlined /> Item Entity
-                  </Space>
-                </Menu.Item>
-                <Menu.Item onClick={() => loadTemplate('guild')}>
-                  <Space>
-                    <SettingOutlined /> Guild Entity
-                  </Space>
-                </Menu.Item>
-                <Menu.Divider />
-                <Menu.Item onClick={() => loadTemplate('basic')}>
-                  <Space>
-                    <FileTextOutlined /> Basic Entity
-                  </Space>
-                </Menu.Item>
-              </Menu>
-            }
+            menu={{
+              items: [
+                { key: 'player', label: <Space><FunctionOutlined /> Player Entity</Space>, onClick: () => loadTemplate('player') },
+                { key: 'item', label: <Space><AppstoreOutlined /> Item Entity</Space>, onClick: () => loadTemplate('item') },
+                { key: 'guild', label: <Space><SettingOutlined /> Guild Entity</Space>, onClick: () => loadTemplate('guild') },
+                { type: 'divider' as const },
+                { key: 'basic', label: <Space><FileTextOutlined /> Basic Entity</Space>, onClick: () => loadTemplate('basic') },
+              ],
+            }}
           >
             <Button icon={<FileTextOutlined />}>Load Template</Button>
           </Dropdown>

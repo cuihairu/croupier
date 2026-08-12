@@ -316,6 +316,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     }));
 
     return (
+      // @ts-expect-error rjsf types not yet compatible with React 19
       <Form
         ref={formRef as React.Ref<RJSFFormRef>}
         schema={schema}
