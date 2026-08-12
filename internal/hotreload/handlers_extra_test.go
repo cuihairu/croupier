@@ -398,7 +398,7 @@ func TestRegisterGameConfigHandler_JSON(t *testing.T) {
 		handler(context.Background(), ReloadEvent{
 			Type:    ReloadTypeConfig,
 			Path:    "/game.json",
-			Content: []byte(`{"balance":{"player_hp":100},"rules":{"max_players":4}}`),
+			Content: []byte(`{"balance":{"playerHp":100},"rules":{"maxPlayers":4}}`),
 		})
 	}
 

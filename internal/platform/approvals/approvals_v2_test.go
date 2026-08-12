@@ -846,7 +846,7 @@ func TestMarshalJSON_WithCompletedAndExpires(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(data)
-	if !contains(s, "started_at") || !contains(s, "completed_at") || !contains(s, "expires_at") {
+	if !contains(s, "startedAt") || !contains(s, "completedAt") || !contains(s, "expiresAt") {
 		t.Errorf("missing time fields: %s", s)
 	}
 }
