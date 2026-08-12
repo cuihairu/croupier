@@ -78,7 +78,6 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerAdminRoutes(protected.Group("/admin"), serverCtx)
 		registerGameRoutes(protected.Group("/games"), serverCtx)
 		registerNodeRoutes(protected.Group("/nodes"), serverCtx)
-		registerOpenAPISourceRoutes(protected.Group("/openapi"), serverCtx)
 		registerStorageRoutes(protected.Group("/storage"), serverCtx)
 		registerAgentRoutes(protected.Group("/agent"), serverCtx)
 		registerAlertRoutes(protected.Group("/alerts"), serverCtx)
@@ -120,6 +119,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerFeedbackRoutes(scoped.Group("/feedback"), serverCtx)
 		registerPlayerRoutes(scoped.Group("/players"), serverCtx)
 		registerTaskRoutes(scoped.Group("/tasks"), serverCtx)
+		registerOpenAPISourceRoutes(scoped.Group("/openapi"), serverCtx)
 		registerAuditRoutes(v1, serverCtx)
 	}
 }
