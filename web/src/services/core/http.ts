@@ -1,5 +1,5 @@
 import { apiUrl } from '@/utils/api';
-import { getScope } from '@/stores/scope';
+import { applyScopeHeaders, needsResolvedScope, waitForResolvedScope } from './scope';
 import type { JSONValue } from '@/types/dashboard';
 
 interface HttpError extends Error {
@@ -21,40 +21,30 @@ function getToken() {
   }
 }
 
-function getScopeValue(key: string) {
-  const scope = getScope();
-  if (key === 'game_id') return scope.gameId;
-  if (key === 'env') return scope.env;
-  return undefined;
-}
-
-function isASCII(s?: string | null) {
-  return !!s && /^[\x00-\x7F]*$/.test(s);
-}
-
 function buildHeaders(
   init?: HeadersInit,
-  opts?: { skipAuth?: boolean; skipScopeHeaders?: boolean },
+  opts?: { skipAuth?: boolean; includeScopeHeaders?: boolean },
 ) {
   const headers = new Headers(init || {});
   if (!opts?.skipAuth) {
     const token = getToken();
     if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
   }
-  if (!opts?.skipScopeHeaders) {
-    const gid = getScopeValue('game_id');
-    const env = getScopeValue('env');
-    if (isASCII(gid) && !headers.has('X-Game-ID')) headers.set('X-Game-ID', gid as string);
-    if (isASCII(env) && !headers.has('X-Env')) headers.set('X-Env', env as string);
+  if (opts?.includeScopeHeaders) {
+    applyScopeHeaders(headers);
   }
   return headers;
 }
 
 export async function fetchJSON<T = JSONValue>(path: string, init: JsonInit = {}): Promise<T> {
   const url = apiUrl(path);
+  const includeScopeHeaders = !init.skipScopeHeaders && needsResolvedScope(url);
+  if (includeScopeHeaders) {
+    await waitForResolvedScope(url);
+  }
   const headers = buildHeaders(init.headers, {
     skipAuth: init.skipAuth,
-    skipScopeHeaders: init.skipScopeHeaders,
+    includeScopeHeaders,
   });
   if (!headers.has('Accept')) headers.set('Accept', 'application/json');
   if (!headers.has('Content-Type') && init.body && typeof init.body === 'string') {

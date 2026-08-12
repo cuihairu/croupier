@@ -38,9 +38,13 @@ const persistToStorage = (scope: Scope) => {
   try {
     if (scope.gameId) {
       localStorage.setItem(STORAGE_KEYS.gameId, scope.gameId);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.gameId);
     }
     if (scope.env) {
       localStorage.setItem(STORAGE_KEYS.env, scope.env);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.env);
     }
   } catch {
     // ignore persistence errors

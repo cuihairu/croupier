@@ -23,7 +23,8 @@ func TestService_UpdateScope_Success(t *testing.T) {
 		Name:   "Test Game",
 		Status: "dev",
 	}
-	require.NoError(t, db.Create(game).Error)
+	require.NoError(t, svcCtx.GameModel.Create(context.Background(), game))
+	require.NoError(t, svcCtx.GameModel.AddEnvBinding(context.Background(), game.GameID, "production", "test", "", ""))
 
 	svc := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel)
 	err := svc.UpdateScope(context.Background(), adminID, "test-game", "production")
@@ -82,7 +83,8 @@ func TestService_UpdateScope_NonAdminUnauthorized(t *testing.T) {
 		Name:   "Test Game",
 		Status: "dev",
 	}
-	require.NoError(t, db.Create(game).Error)
+	require.NoError(t, svcCtx.GameModel.Create(context.Background(), game))
+	require.NoError(t, svcCtx.GameModel.AddEnvBinding(context.Background(), game.GameID, "production", "test", "", ""))
 
 	svc := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel)
 	err := svc.UpdateScope(context.Background(), adminID, "test-game", "production")
@@ -103,16 +105,18 @@ func TestService_UpdateScope_NonAdminWithGameScope(t *testing.T) {
 		Name:   "Test Game",
 		Status: "dev",
 	}
-	require.NoError(t, db.Create(game).Error)
+	require.NoError(t, svcCtx.GameModel.Create(context.Background(), game))
+	require.NoError(t, svcCtx.GameModel.AddEnvBinding(context.Background(), game.GameID, "production", "test", "", ""))
 
-	// Grant game scope to admin
+	// A game-level scope is not environment authorization.
 	adminModel := model.NewAdminModel(db)
 	err := adminModel.SetGameScope(context.Background(), adminID, game.ID)
 	require.NoError(t, err)
 
 	svc := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel)
 	err = svc.UpdateScope(context.Background(), adminID, "test-game", "production")
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "无权访问该游戏环境")
 }
 
 func TestService_UpdateScope_NonAdminWithEnvScope(t *testing.T) {
@@ -128,7 +132,8 @@ func TestService_UpdateScope_NonAdminWithEnvScope(t *testing.T) {
 		Name:   "Test Game",
 		Status: "dev",
 	}
-	require.NoError(t, db.Create(game).Error)
+	require.NoError(t, svcCtx.GameModel.Create(context.Background(), game))
+	require.NoError(t, svcCtx.GameModel.AddEnvBinding(context.Background(), game.GameID, "production", "test", "", ""))
 
 	// Grant env scope to admin
 	adminModel := model.NewAdminModel(db)

@@ -84,7 +84,6 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerBackupRoutes(protected.Group("/backups"), serverCtx)
 		registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
 		registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
-		registerProposalRoutes(protected.Group("/proposals"), serverCtx)
 		registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
 		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
@@ -99,11 +98,18 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerTermsRoutes(protected.Group("/terms"), serverCtx)
 		registerTicketRoutes(protected.Group("/tickets"), serverCtx)
 		registerRegistryShortcutRoutes(protected, serverCtx)
+		registerAuditRoutes(protected, serverCtx)
 	}
 
 	// Scope-dependent 路由
 	{
 		registerConsoleRoutes(scoped.Group("/console"), serverCtx)
+		// Proposals are materialized per game/environment. They must use the
+		// same resolved scope as registration, pages, and console execution.
+		registerProposalRoutes(scoped.Group("/proposals"), serverCtx)
+		// Proposals are materialized per game/environment. They must use the
+		// same resolved scope as registration, pages, and console execution.
+		registerProposalRoutes(scoped.Group("/proposals"), serverCtx)
 		registerFunctionRoutes(scoped.Group("/functions"), serverCtx)
 		registerFunctionCallRoutes(scoped.Group("/function-calls"), serverCtx)
 		registerFunctionMetadataRoutes(scoped.Group("/metadata"), serverCtx)
@@ -120,7 +126,10 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerPlayerRoutes(scoped.Group("/players"), serverCtx)
 		registerTaskRoutes(scoped.Group("/tasks"), serverCtx)
 		registerOpenAPISourceRoutes(scoped.Group("/openapi"), serverCtx)
+<<<<<<< HEAD
 		registerAuditRoutes(v1, serverCtx)
+=======
+>>>>>>> 00f57f914 (feat: add tests for profile and backup helpers)
 	}
 }
 
@@ -134,7 +143,8 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 			jwtSecret = jwtutil.DevSecret()
 		}
 	}
-	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), jwtSecret, ctx.OpsStateStore)
+	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), jwtSecret, ctx.OpsStateStore).
+		WithGameModel(ctx.GameModel)
 	authHandler := auth.NewHandler(authSvc)
 	g.POST("/login", authHandler.Login)
 	g.POST("/logout", authHandler.Logout)

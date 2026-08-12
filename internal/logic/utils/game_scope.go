@@ -27,7 +27,7 @@ func RequireGameEnvScope(ctx context.Context, svcCtx *svc.ServiceContext, adminI
 		return errorx.NewInternalError("scope checker not initialized")
 	}
 
-	game, err := svcCtx.GameModel.FindByName(ctx, gameID)
+	game, err := svcCtx.GameModel.FindByGameIDString(ctx, gameID)
 	if err != nil || game == nil {
 		return errorx.NewNotFound("game not found")
 	}

@@ -176,3 +176,9 @@ func TestService_SignedUrl_OK(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.NotEmpty(t, resp.URL)
 }
+
+func TestNormalizeStoragePath_RemovesTraversalSegments(t *testing.T) {
+	assert.Equal(t, "safe/file.txt", normalizeStoragePath("/../safe/./file.txt"))
+	assert.Equal(t, "safe/", normalizeStoragePath("../safe//"))
+	assert.Equal(t, "", normalizeStoragePath("../../"))
+}

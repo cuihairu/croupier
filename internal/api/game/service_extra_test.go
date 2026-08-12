@@ -550,6 +550,104 @@ func TestService_EnvDelete_Success_Extra(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Len(t, resp.Envs, 0)
+	binding, err := gameModel.FindEnvBinding(ctx, game.GameID, "prod")
+	require.NoError(t, err)
+	assert.Nil(t, binding)
+}
+
+func TestService_EnvChangesKeepBindingsSynchronized_Extra(t *testing.T) {
+	db, svcCtx := setupGameTestDB(t)
+	ctx := createGameTestContext(t, db)
+	gameModel := svcCtx.GameModel
+	game := &model.Game{Name: "envbindingsync", AliasName: "EnvBindingSync", Status: "dev"}
+	require.NoError(t, gameModel.Create(ctx, game))
+
+	service := NewService(svcCtx)
+	_, err := service.EnvAdd(ctx, &GameEnvAddRequest{
+		ID:   strconv.FormatUint(uint64(game.ID), 10),
+		Name: "prod",
+		Type: "Production",
+	})
+	require.NoError(t, err)
+
+	binding, err := gameModel.FindEnvBinding(ctx, game.GameID, "prod")
+	require.NoError(t, err)
+	require.NotNil(t, binding)
+	originalDBName := binding.DatabaseName
+	assert.Equal(t, "Production", binding.Description)
+
+	_, err = service.EnvUpdate(ctx, &GameEnvUpdateRequest{
+		ID:    strconv.FormatUint(uint64(game.ID), 10),
+		EnvID: "prod",
+		Type:  "Primary production",
+	})
+	require.NoError(t, err)
+	binding, err = gameModel.FindEnvBinding(ctx, game.GameID, "prod")
+	require.NoError(t, err)
+	require.NotNil(t, binding)
+	assert.Equal(t, originalDBName, binding.DatabaseName)
+	assert.Equal(t, "Primary production", binding.Description)
+
+	_, err = service.EnvUpdate(ctx, &GameEnvUpdateRequest{
+		ID:    strconv.FormatUint(uint64(game.ID), 10),
+		EnvID: "prod",
+		Name:  "stage",
+	})
+	require.NoError(t, err)
+	oldBinding, err := gameModel.FindEnvBinding(ctx, game.GameID, "prod")
+	require.NoError(t, err)
+	assert.Nil(t, oldBinding)
+	binding, err = gameModel.FindEnvBinding(ctx, game.GameID, "stage")
+	require.NoError(t, err)
+	require.NotNil(t, binding)
+	assert.Equal(t, service.deriveGameDBName(game.GameID, "stage"), binding.DatabaseName)
+
+	updated, err := gameModel.FindOne(ctx, game.ID)
+	require.NoError(t, err)
+	envs, err := updated.GetEnvs()
+	require.NoError(t, err)
+	require.Len(t, envs, 1)
+	assert.Equal(t, "stage", envs[0].Env)
+}
+
+func TestGameModel_BackfillEnvBindingsIsIdempotent_Extra(t *testing.T) {
+	db, svcCtx := setupGameTestDB(t)
+	ctx := createGameTestContext(t, db)
+	game := &model.Game{Name: "legacyenvgame", AliasName: "LegacyEnv", Status: "dev"}
+	require.NoError(t, game.SetEnvs([]model.GameEnv{
+		{Env: "prod", Description: "Production", Color: "#111111"},
+		{Env: "stage", Description: "Staging", Color: "#222222"},
+	}))
+	require.NoError(t, svcCtx.GameModel.Create(ctx, game))
+	require.NoError(t, svcCtx.GameModel.AddEnvBinding(
+		ctx, game.GameID, "prod", "custom_legacy_prod", "Existing", "#333333",
+	))
+
+	created, err := svcCtx.GameModel.BackfillEnvBindings(ctx, func(gameID, env string) string {
+		return "game_" + gameID + "_" + env
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, created)
+
+	prod, err := svcCtx.GameModel.FindEnvBinding(ctx, game.GameID, "prod")
+	require.NoError(t, err)
+	require.NotNil(t, prod)
+	assert.Equal(t, "custom_legacy_prod", prod.DatabaseName)
+	assert.Equal(t, "Existing", prod.Description)
+	stage, err := svcCtx.GameModel.FindEnvBinding(ctx, game.GameID, "stage")
+	require.NoError(t, err)
+	require.NotNil(t, stage)
+	assert.Equal(t, "game_legacyenvgame_stage", stage.DatabaseName)
+	assert.Equal(t, "Staging", stage.Description)
+
+	created, err = svcCtx.GameModel.BackfillEnvBindings(ctx, func(gameID, env string) string {
+		return "changed_" + gameID + "_" + env
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 0, created)
+	stage, err = svcCtx.GameModel.FindEnvBinding(ctx, game.GameID, "stage")
+	require.NoError(t, err)
+	assert.Equal(t, "game_legacyenvgame_stage", stage.DatabaseName)
 }
 
 func TestService_EnvDelete_NotFound_Extra(t *testing.T) {

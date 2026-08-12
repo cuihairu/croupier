@@ -4,7 +4,7 @@ import { history } from '@umijs/max';
 // Use App.useApp() instances (see app.tsx) to avoid AntD static message warnings
 import { getMessage, getNotification } from './utils/antdApp';
 import { normalizeApiUrl, API_V1_PREFIX } from './utils/api';
-import { getScope, isScopeReady } from './stores/scope';
+import { getScopeHeaders, needsResolvedScope, waitForResolvedScope } from './services/core/scope';
 import type { JSONValue } from '@/types/dashboard';
 
 // Defer message/notification to avoid calling during render (React 18 concurrent mode)
@@ -183,21 +183,25 @@ export const errorConfig: RequestConfig = {
 
   // 请求拦截器
   requestInterceptors: [
-    (config: RequestOptions) => {
-      const headers = {
-        ...(config.headers || {}),
-      } as Record<string, string>;
-      const isASCII = (s?: string | null) => !!s && /^[\x00-\x7F]*$/.test(s);
-      const token = localStorage.getItem('token');
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      // Only add game-scope headers after GameSelector has validated them.
-      // Before that, localStorage values may be stale (wrong env for the game).
-      if (isScopeReady()) {
-        const scope = getScope();
-        if (isASCII(scope.gameId)) headers['X-Game-ID'] = scope.gameId as string;
-        if (isASCII(scope.env)) headers['X-Env'] = scope.env as string;
-      }
+    async (config: RequestOptions) => {
       const nextUrl = typeof config.url === 'string' ? normalizeApiUrl(config.url) : config.url;
+      // /profile/games is intentionally outside the scoped paths: GameSelector
+      // uses it to validate scope, so waiting here would deadlock startup.
+      await waitForResolvedScope(nextUrl);
+      const headers = { ...(config.headers || {}) } as Record<string, string>;
+      const token = localStorage.getItem('token');
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (needsResolvedScope(nextUrl)) {
+        Object.keys(headers).forEach((key) => {
+          if (key.toLowerCase() === 'x-game-id' || key.toLowerCase() === 'x-env')
+            delete headers[key];
+        });
+        const scope = getScopeHeaders();
+        if (scope) {
+          headers['X-Game-ID'] = scope.gameID;
+          headers['X-Env'] = scope.env;
+        }
+      }
       return { ...config, headers, url: nextUrl ?? config.url };
     },
   ],

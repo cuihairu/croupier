@@ -46,6 +46,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	testProfileDB.Exec("DELETE FROM permissions")
 	testProfileDB.Exec("DELETE FROM admin_game_scopes")
 	testProfileDB.Exec("DELETE FROM admin_game_env_scopes")
+	testProfileDB.Exec("DELETE FROM game_envs")
 	testProfileDB.Exec("DELETE FROM games")
 
 	return testProfileDB
@@ -90,6 +91,20 @@ func createTestAdminWithRole(t *testing.T, db *gorm.DB, username, password, role
 	require.NoError(t, err)
 
 	return admin.ID
+}
+
+// createProfileTestGame persists both the legacy UI metadata and the
+// authoritative game_envs records used by scope resolution.
+func createProfileTestGame(t *testing.T, gameModel *model.GameModel, game *model.Game) {
+	t.Helper()
+	ctx := context.Background()
+	require.NoError(t, gameModel.Create(ctx, game))
+
+	envs, err := game.GetEnvs()
+	require.NoError(t, err)
+	for _, env := range envs {
+		require.NoError(t, gameModel.AddEnvBinding(ctx, game.GameID, env.Env, "test", env.Description, env.Color))
+	}
 }
 
 func TestService_GetProfile_Success(t *testing.T) {
@@ -162,8 +177,7 @@ func TestService_GetUserGames_AdminWithScopes(t *testing.T) {
 	}
 	err := game1.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game1)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game1)
 
 	// Assign game scope to admin
 	err = adminModel.SetGameEnvScope(context.Background(), adminID, game1.ID, "prod")
@@ -197,8 +211,7 @@ func TestService_GetUserGames_AdminNoScopes(t *testing.T) {
 	}
 	err := game1.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game1)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game1)
 
 	resp, err := service.GetUserGames(context.Background(), "noscopeuser")
 
@@ -468,8 +481,7 @@ func TestService_GetUserGames_SortsGamesByName(t *testing.T) {
 	for _, game := range []*model.Game{game2, game1} {
 		err := game.SetEnvs([]model.GameEnv{{Env: "prod"}})
 		require.NoError(t, err)
-		err = gameModel.Create(context.Background(), game)
-		require.NoError(t, err)
+		createProfileTestGame(t, gameModel, game)
 	}
 
 	resp, err := service.GetUserGames(context.Background(), "sortuser")
@@ -509,8 +521,7 @@ func TestService_GetUserGames_GameWithNoName(t *testing.T) {
 	}
 	err := game.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game)
 
 	resp, err := service.GetUserGames(context.Background(), "nonameuser")
 
@@ -590,8 +601,7 @@ func TestService_GetUserGames_AdminWithSuperAdminRole(t *testing.T) {
 	for _, game := range []*model.Game{game1, game2} {
 		err := game.SetEnvs([]model.GameEnv{{Env: "prod"}})
 		require.NoError(t, err)
-		err = gameModel.Create(context.Background(), game)
-		require.NoError(t, err)
+		createProfileTestGame(t, gameModel, game)
 	}
 
 	resp, err := service.GetUserGames(context.Background(), "superadminuser")
@@ -626,8 +636,7 @@ func TestService_GetUserGames_GameWithEnvs(t *testing.T) {
 	}
 	err := game.SetEnvs(envs)
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game)
 
 	resp, err := service.GetUserGames(context.Background(), "envsuser")
 
@@ -658,8 +667,7 @@ func TestService_GetUserGames_AdminWithViewerRole(t *testing.T) {
 	}
 	err := game1.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game1)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game1)
 
 	resp, err := service.GetUserGames(context.Background(), "vieweruser")
 
@@ -1020,8 +1028,7 @@ func TestService_GetUserGames_WithMultipleScopes(t *testing.T) {
 	}
 	err := game1.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game1)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game1)
 
 	game2 := &model.Game{
 		Name:      "game2_multi",
@@ -1031,8 +1038,7 @@ func TestService_GetUserGames_WithMultipleScopes(t *testing.T) {
 	}
 	err = game2.SetEnvs([]model.GameEnv{{Env: "staging"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game2)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game2)
 
 	// Assign both games to admin
 	err = adminModel.SetGameEnvScope(context.Background(), adminID, game1.ID, "prod")
@@ -1129,8 +1135,7 @@ func TestService_GetUserGames_GameStatusStopped(t *testing.T) {
 	}
 	err := game.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game)
 
 	resp, err := service.GetUserGames(context.Background(), "stoppedgameuser")
 
@@ -1222,8 +1227,7 @@ func TestService_GetUserGames_GameWithWhitespaceName(t *testing.T) {
 	}
 	err := game.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game)
 
 	resp, err := service.GetUserGames(context.Background(), "whitespaceuser2")
 
@@ -1255,8 +1259,7 @@ func TestService_GetUserGames_GameWithEmptyAliasName(t *testing.T) {
 	}
 	err := game.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game)
 
 	resp, err := service.GetUserGames(context.Background(), "noaliasuser")
 
@@ -1299,8 +1302,7 @@ func TestService_GetUserGames_GameEnvWithWhitespace(t *testing.T) {
 	}
 	err := game.SetEnvs(envs)
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game)
 
 	resp, err := service.GetUserGames(context.Background(), "envwhitespaceuser")
 
@@ -1343,8 +1345,7 @@ func TestService_GetUserGames_DuplicateGames(t *testing.T) {
 	}
 	err := game.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game)
 
 	resp, err := service.GetUserGames(context.Background(), "dupuser")
 
@@ -1429,8 +1430,7 @@ func TestService_GetUserGames_GameWithNilColor(t *testing.T) {
 	}
 	err := game.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game)
 
 	resp, err := service.GetUserGames(context.Background(), "nocoloruser")
 
@@ -1468,8 +1468,7 @@ func TestService_GetUserGames_GameWithWhitespaceAlias(t *testing.T) {
 	}
 	err := game.SetEnvs([]model.GameEnv{{Env: "prod"}})
 	require.NoError(t, err)
-	err = gameModel.Create(context.Background(), game)
-	require.NoError(t, err)
+	createProfileTestGame(t, gameModel, game)
 
 	resp, err := service.GetUserGames(context.Background(), "wsaliasuser")
 

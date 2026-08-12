@@ -1431,7 +1431,6 @@ func TestNewAuthMiddlewareImpl(t *testing.T) {
 	assert.NotNil(t, middleware.allowPaths)
 	assert.NotNil(t, middleware.allowPref)
 	assert.NotNil(t, middleware.publicReadPrefixes)
-	assert.NotNil(t, middleware.publicReadExactPaths)
 }
 
 func TestNewAuthMiddleware(t *testing.T) {
@@ -1470,18 +1469,25 @@ func TestAuthMiddleware_ShouldBypass(t *testing.T) {
 		assert.True(t, middleware.shouldBypass(req))
 	})
 
-	t.Run("public read prefix", func(t *testing.T) {
+	t.Run("configs read requires authentication", func(t *testing.T) {
 		t.Parallel()
 
 		req := httptest.NewRequest("GET", "/api/v1/configs", nil)
-		assert.True(t, middleware.shouldBypass(req))
+		assert.False(t, middleware.shouldBypass(req))
 	})
 
-	t.Run("public read exact path", func(t *testing.T) {
+	t.Run("functions list requires authentication", func(t *testing.T) {
 		t.Parallel()
 
 		req := httptest.NewRequest("GET", "/api/v1/functions", nil)
-		assert.True(t, middleware.shouldBypass(req))
+		assert.False(t, middleware.shouldBypass(req))
+	})
+
+	t.Run("function descriptors require authentication", func(t *testing.T) {
+		t.Parallel()
+
+		req := httptest.NewRequest("GET", "/api/v1/functions/descriptors", nil)
+		assert.False(t, middleware.shouldBypass(req))
 	})
 
 	t.Run("POST to public read prefix should not bypass", func(t *testing.T) {

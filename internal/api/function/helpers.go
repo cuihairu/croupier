@@ -25,10 +25,15 @@ import (
 // Function management implementations
 
 func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionsListRequest) (*FunctionsListResponse, error) {
+	scope := currentFunctionScope(ctx)
+	gameID := strings.TrimSpace(req.GameId)
+	if scope.GameID != "" {
+		gameID = scope.GameID
+	}
 	logicResp, err := logicfunction.NewFunctionsListLogic(ctx, svcCtx).FunctionsList(&logicfunction.FunctionsListRequest{
 		Page:     1,
 		PageSize: 10000,
-		GameId:   req.GameId,
+		GameId:   gameID,
 		Resource: req.Resource,
 		Status:   req.Status,
 	})
@@ -38,7 +43,7 @@ func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Functio
 
 	dbItems, _, err := svcCtx.FunctionModel.List(ctx, model.ListFunctionsOptions{
 		PaginationOptions: model.NewPagination(1, 10000),
-		GameID:            strings.TrimSpace(req.GameId),
+		GameID:            gameID,
 	})
 	if err != nil {
 		return nil, err
@@ -198,6 +203,14 @@ func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 }
 
 func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) (*FunctionInvokeResponse, error) {
+	scope, err := svc.CurrentScope(ctx)
+	if err != nil {
+		return nil, errorx.NewBadRequest("游戏环境 scope 缺失")
+	}
+	// Scope is resolved and authorized by middleware. Request body values are
+	// ignored so they can never redirect an invocation to another agent scope.
+	req.GameID = scope.GameID
+	req.Env = scope.Env
 	startedAt := time.Now()
 	var spanErr error
 	if svcCtx != nil && svcCtx.Telemetry != nil {
@@ -491,6 +504,7 @@ func functionPublish(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 // Instance management implementations
 
 func functionInstances(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInstancesRequest) (*FunctionInstancesResponse, error) {
+	scope := currentFunctionScope(ctx)
 	store := svcCtx.RegistryStore
 	if store == nil {
 		return &FunctionInstancesResponse{Items: []FunctionInstance{}}, nil
@@ -502,6 +516,10 @@ func functionInstances(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 	instances := []FunctionInstance{}
 	for _, sess := range store.AgentsUnsafe() {
 		if sess == nil {
+			continue
+		}
+		if scope.GameID != "" && (!strings.EqualFold(strings.TrimSpace(sess.GameID), scope.GameID) ||
+			!strings.EqualFold(strings.TrimSpace(sess.Env), scope.Env)) {
 			continue
 		}
 		if _, ok := sess.Functions[req.ID]; ok {
@@ -520,6 +538,7 @@ func functionInstances(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 }
 
 func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInstancesAllRequest) (*FunctionInstancesAllResponse, error) {
+	scope := currentFunctionScope(ctx)
 	store := svcCtx.RegistryStore
 	if store == nil {
 		return &FunctionInstancesAllResponse{Instances: []FunctionInstanceSummary{}}, nil
@@ -531,6 +550,10 @@ func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *
 	instances := []FunctionInstanceSummary{}
 	for _, sess := range store.AgentsUnsafe() {
 		if sess == nil {
+			continue
+		}
+		if scope.GameID != "" && (!strings.EqualFold(strings.TrimSpace(sess.GameID), scope.GameID) ||
+			!strings.EqualFold(strings.TrimSpace(sess.Env), scope.Env)) {
 			continue
 		}
 		for fid := range sess.Functions {
@@ -604,7 +627,12 @@ func functionWarnings(ctx context.Context, svcCtx *svc.ServiceContext, req *Func
 // Descriptors implementations
 
 func descriptors(ctx context.Context, svcCtx *svc.ServiceContext, req *DescriptorsRequest) (*DescriptorsResponse, error) {
-	descs, err := svcCtx.FunctionModel.ListDescriptors(ctx, req.GameId)
+	scope := currentFunctionScope(ctx)
+	gameID := strings.TrimSpace(req.GameId)
+	if scope.GameID != "" {
+		gameID = scope.GameID
+	}
+	descs, err := svcCtx.FunctionModel.ListDescriptors(ctx, gameID)
 	if err != nil {
 		return nil, err
 	}
@@ -623,6 +651,10 @@ func descriptors(ctx context.Context, svcCtx *svc.ServiceContext, req *Descripto
 	return &DescriptorsResponse{
 		Items: items,
 	}, nil
+}
+
+func currentFunctionScope(ctx context.Context) svc.GameScope {
+	return svc.GameScopeFromContext(ctx)
 }
 
 // Batch operations implementations

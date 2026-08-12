@@ -199,22 +199,17 @@ func (s *Service) Delete(ctx context.Context, req *GameDeleteRequest) error {
 	// Delete anyway (it is idempotent) and skip Router/binding cleanup.
 	game, findErr := s.svcCtx.GameModel.FindOne(ctx, id)
 
-	if err := s.svcCtx.GameModel.Delete(ctx, id); err != nil {
-		return err
-	}
-
 	if findErr == nil && game != nil {
-		// Clean up all GameEnvBinding records for this game.
-		if envs, err := game.GetEnvs(); err == nil {
-			for _, env := range envs {
-				_ = s.svcCtx.GameModel.RemoveEnvBinding(ctx, game.GameID, env.Env)
-			}
+		if err := s.svcCtx.GameModel.DeleteWithEnvBindings(ctx, id, game.GameID); err != nil {
+			return err
 		}
 
 		// Close and forget all cached per-game DB connections for this game.
 		if s.svcCtx.Router != nil {
 			_ = s.svcCtx.Router.ForgetGame(game.GameID)
 		}
+	} else if err := s.svcCtx.GameModel.Delete(ctx, id); err != nil {
+		return err
 	}
 
 	s.svcCtx.InvalidateGameCache(ctx, id)
@@ -294,17 +289,19 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 		return nil, err
 	}
 
-	if err := s.svcCtx.GameModel.Update(ctx, id, map[string]interface{}{"envs": game.Envs}); err != nil {
+	if err := s.svcCtx.GameModel.UpdateEnvsAndBindings(
+		ctx,
+		game.GameID,
+		id,
+		game.Envs,
+		nil,
+		[]model.GameEnvBinding{{
+			Env:          newEnv,
+			DatabaseName: s.deriveGameDBName(game.GameID, newEnv),
+			Description:  strings.TrimSpace(req.Type),
+		}},
+	); err != nil {
 		return nil, err
-	}
-
-	// Sync GameEnvBinding so the database-per-game router can resolve this
-	// (gameID, env) to the correct physical database.
-	dbName := s.deriveGameDBName(game.GameID, newEnv)
-	if err := s.svcCtx.GameModel.AddEnvBinding(ctx, game.GameID, newEnv, dbName, strings.TrimSpace(req.Type), ""); err != nil {
-		// Best-effort: log but don't fail the env-add — the JSON envs list is
-		// already updated and is the primary UI source of truth.
-		_ = err
 	}
 
 	s.svcCtx.InvalidateGameCache(ctx, id)
@@ -356,17 +353,33 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 	if err := game.SetEnvs(envs); err != nil {
 		return nil, err
 	}
-	if err := s.svcCtx.GameModel.Update(ctx, id, map[string]interface{}{"envs": game.Envs}); err != nil {
+	newEnvName := target.Env
+	currentBinding, err := s.svcCtx.GameModel.FindEnvBinding(ctx, game.GameID, oldEnvName)
+	if err != nil {
 		return nil, err
 	}
-
-	// Sync GameEnvBinding: if the env name changed, remove the old binding and
-	// create a new one with the updated name.
-	newEnvName := target.Env
-	if oldEnvName != newEnvName || strings.TrimSpace(req.Type) != "" {
-		_ = s.svcCtx.GameModel.RemoveEnvBinding(ctx, game.GameID, oldEnvName)
-		dbName := s.deriveGameDBName(game.GameID, newEnvName)
-		_ = s.svcCtx.GameModel.AddEnvBinding(ctx, game.GameID, newEnvName, dbName, target.Description, target.Color)
+	databaseName := s.deriveGameDBName(game.GameID, newEnvName)
+	if oldEnvName == newEnvName && currentBinding != nil {
+		databaseName = currentBinding.DatabaseName
+	}
+	removeEnvs := []string(nil)
+	if oldEnvName != newEnvName {
+		removeEnvs = []string{oldEnvName}
+	}
+	if err := s.svcCtx.GameModel.UpdateEnvsAndBindings(
+		ctx,
+		game.GameID,
+		id,
+		game.Envs,
+		removeEnvs,
+		[]model.GameEnvBinding{{
+			Env:          newEnvName,
+			DatabaseName: databaseName,
+			Description:  target.Description,
+			Color:        target.Color,
+		}},
+	); err != nil {
+		return nil, err
 	}
 
 	s.svcCtx.InvalidateGameCache(ctx, id)
@@ -407,13 +420,16 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 	if err := game.SetEnvs(envs); err != nil {
 		return nil, err
 	}
-	if err := s.svcCtx.GameModel.Update(ctx, id, map[string]interface{}{"envs": game.Envs}); err != nil {
+	if err := s.svcCtx.GameModel.UpdateEnvsAndBindings(
+		ctx,
+		game.GameID,
+		id,
+		game.Envs,
+		[]string{removedEnv},
+		nil,
+	); err != nil {
 		return nil, err
 	}
-
-	// Remove the corresponding GameEnvBinding so the router no longer routes
-	// to the deleted environment's database.
-	_ = s.svcCtx.GameModel.RemoveEnvBinding(ctx, game.GameID, removedEnv)
 
 	// Close and forget the cached per-game DB connection for this env.
 	if s.svcCtx.Router != nil {

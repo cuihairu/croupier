@@ -67,6 +67,7 @@ func setupAssignmentTestDB(t *testing.T) (*gorm.DB, *svc.ServiceContext) {
 	svcCtx := &svc.ServiceContext{
 		DB:                db,
 		AdminModel:        adminModel,
+		GameModel:         model.NewGameModel(db),
 		RoleModel:         roleModel,
 		PermissionService: permSvc,
 		Cache:             nullCache,
@@ -79,6 +80,35 @@ func setupAssignmentTestDB(t *testing.T) (*gorm.DB, *svc.ServiceContext) {
 	}
 
 	return db, svcCtx
+}
+
+func TestService_Update_CloneUsesScopedSourceAndExplicitTarget(t *testing.T) {
+	db, svcCtx := setupAssignmentTestDB(t)
+	ctx := createAssignmentTestContext(t, db)
+	ctx = svc.WithGameScope(ctx, svc.GameScope{GameID: "game1", Env: "prod"})
+
+	game := &model.Game{GameID: "game1", Name: "Game One"}
+	require.NoError(t, svcCtx.GameModel.Create(ctx, game))
+	require.NoError(t, svcCtx.GameModel.AddEnvBinding(ctx, "game1", "prod", "game1_prod", "", ""))
+	require.NoError(t, svcCtx.GameModel.AddEnvBinding(ctx, "game1", "stage", "game1_stage", "", ""))
+
+	service := NewService(svcCtx)
+	resp, err := service.Update(ctx, &AssignmentsUpdateRequest{
+		GameId:    "forbidden-game",
+		Env:       "dev",
+		Action:    "clone",
+		TargetEnv: "stage",
+		Functions: []string{"func1"},
+	})
+	require.NoError(t, err)
+	assert.True(t, resp.OK)
+	assert.Equal(t, []string{"func1"}, resp.Assignments["game1|stage"])
+	assert.NotContains(t, resp.Assignments, "forbidden-game|dev")
+
+	assignments, err := loadAssignments(svcCtx.Config.Registry.AssignmentsPath)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"func1"}, assignments["game1|stage"])
+	assert.NotContains(t, assignments, "game1|prod")
 }
 
 func createAssignmentTestContext(t *testing.T, db *gorm.DB) context.Context {

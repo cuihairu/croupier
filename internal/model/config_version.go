@@ -58,6 +58,21 @@ func (m *ConfigVersionModel) List(ctx context.Context, key string) ([]ConfigVers
 	return records, nil
 }
 
+// ListByScope returns all versions for a key in one game environment.
+func (m *ConfigVersionModel) ListByScope(ctx context.Context, key, gameID, env string) ([]ConfigVersion, error) {
+	key = strings.TrimSpace(key)
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	if key == "" || gameID == "" || env == "" {
+		return []ConfigVersion{}, nil
+	}
+	var records []ConfigVersion
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("key = ? AND game_id = ? AND env = ?", key, gameID, env).
+		Order("version DESC").Find(&records).Error
+	return records, err
+}
+
 // Find returns the requested key/version pair.
 func (m *ConfigVersionModel) Find(ctx context.Context, key string, version int) (*ConfigVersion, error) {
 	key = strings.TrimSpace(key)
@@ -67,6 +82,23 @@ func (m *ConfigVersionModel) Find(ctx context.Context, key string, version int) 
 	var record ConfigVersion
 	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("key = ? AND version = ?", key, version).
+		First(&record).Error; err != nil {
+		return nil, err
+	}
+	return &record, nil
+}
+
+// FindByScope returns one config version within a game environment.
+func (m *ConfigVersionModel) FindByScope(ctx context.Context, key string, version int, gameID, env string) (*ConfigVersion, error) {
+	key = strings.TrimSpace(key)
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	if key == "" || version <= 0 || gameID == "" || env == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var record ConfigVersion
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("key = ? AND version = ? AND game_id = ? AND env = ?", key, version, gameID, env).
 		First(&record).Error; err != nil {
 		return nil, err
 	}
@@ -95,6 +127,7 @@ func (m *ConfigVersionModel) CreateWithMeta(ctx context.Context, payload ConfigV
 	var version int
 	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("key = ?", key).
+		Scopes(configScopeWhere(payload.GameID, payload.Env)).
 		Order("version DESC").
 		Take(&latest).Error
 	switch {
@@ -133,7 +166,7 @@ func (m *ConfigVersionModel) ListLatest(ctx context.Context, opts ConfigListOpti
 	// 先应用过滤条件到子查询
 	sub := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&ConfigVersion{}).
-		Select("key, MAX(version) AS version")
+		Select("key, game_id, env, MAX(version) AS version")
 
 	if v := strings.TrimSpace(opts.GameID); v != "" {
 		sub = sub.Where("game_id = ?", v)
@@ -148,13 +181,13 @@ func (m *ConfigVersionModel) ListLatest(ctx context.Context, opts ConfigListOpti
 		sub = sub.Where("key LIKE ?", "%"+v+"%")
 	}
 
-	sub = sub.Group("key")
+	sub = sub.Group("key, game_id, env")
 
 	// 查询完整记录
 	var records []ConfigVersion
 	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Table("config_versions").
-		Joins("JOIN (?) AS latest ON config_versions.key = latest.key AND config_versions.version = latest.version", sub)
+		Joins("JOIN (?) AS latest ON config_versions.key = latest.key AND config_versions.game_id = latest.game_id AND config_versions.env = latest.env AND config_versions.version = latest.version", sub)
 
 	if err := query.Order("config_versions.updated_at DESC").Find(&records).Error; err != nil {
 		return nil, err
@@ -183,4 +216,35 @@ func (m *ConfigVersionModel) FindLatest(ctx context.Context, key string) (*Confi
 		return nil, err
 	}
 	return &record, nil
+}
+
+// FindLatestByScope returns the newest version for a key in one environment.
+func (m *ConfigVersionModel) FindLatestByScope(ctx context.Context, key, gameID, env string) (*ConfigVersion, error) {
+	key = strings.TrimSpace(key)
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	if key == "" || gameID == "" || env == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var record ConfigVersion
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("key = ? AND game_id = ? AND env = ?", key, gameID, env).
+		Order("version DESC").First(&record).Error; err != nil {
+		return nil, err
+	}
+	return &record, nil
+}
+
+func configScopeWhere(gameID, env string) func(*gorm.DB) *gorm.DB {
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	return func(query *gorm.DB) *gorm.DB {
+		if gameID != "" {
+			query = query.Where("game_id = ?", gameID)
+		}
+		if env != "" {
+			query = query.Where("env = ?", env)
+		}
+		return query
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -101,6 +102,9 @@ func (s *Service) Detail(ctx context.Context, req *PlayerDetailRequest) (*Player
 	if err != nil {
 		return nil, err
 	}
+	if err := requirePlayerScope(ctx, player); err != nil {
+		return nil, err
+	}
 
 	return &PlayerDetailResponse{
 		Player: buildPlayer(player),
@@ -111,6 +115,14 @@ func (s *Service) Detail(ctx context.Context, req *PlayerDetailRequest) (*Player
 func (s *Service) Update(ctx context.Context, req *PlayerUpdateRequest) (*PlayerUpdateResponse, error) {
 	id, err := utils.ParseUintID(req.ID, "玩家ID")
 	if err != nil {
+		return nil, err
+	}
+
+	player, err := s.svcCtx.PlayerModel.FindOne(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := requirePlayerScope(ctx, player); err != nil {
 		return nil, err
 	}
 
@@ -147,7 +159,7 @@ func (s *Service) Update(ctx context.Context, req *PlayerUpdateRequest) (*Player
 		return nil, err
 	}
 
-	player, err := s.svcCtx.PlayerModel.FindOne(ctx, id)
+	player, err = s.svcCtx.PlayerModel.FindOne(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -161,6 +173,13 @@ func (s *Service) Update(ctx context.Context, req *PlayerUpdateRequest) (*Player
 func (s *Service) Delete(ctx context.Context, req *PlayerDeleteRequest) error {
 	id, err := utils.ParseUintID(req.ID, "玩家ID")
 	if err != nil {
+		return err
+	}
+	player, err := s.svcCtx.PlayerModel.FindOne(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := requirePlayerScope(ctx, player); err != nil {
 		return err
 	}
 	return s.svcCtx.PlayerModel.Delete(ctx, id)
@@ -179,7 +198,14 @@ func (s *Service) Balance(ctx context.Context, req *PlayerBalanceRequest) (*Play
 	if reason == "" {
 		return nil, errors.New("调整原因不能为空")
 	}
-	player, err := s.svcCtx.PlayerModel.UpdateBalance(ctx, id, req.Amount, reason)
+	player, err := s.svcCtx.PlayerModel.FindOne(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := requirePlayerScope(ctx, player); err != nil {
+		return nil, err
+	}
+	player, err = s.svcCtx.PlayerModel.UpdateBalance(ctx, id, req.Amount, reason)
 	if err != nil {
 		return nil, err
 	}
@@ -187,6 +213,22 @@ func (s *Service) Balance(ctx context.Context, req *PlayerBalanceRequest) (*Play
 	return &PlayerBalanceResponse{
 		Player: buildPlayer(player),
 	}, nil
+}
+
+func currentPlayerScope(ctx context.Context) (svc.GameScope, error) {
+	scope, err := svc.CurrentScope(ctx)
+	if err != nil {
+		return svc.GameScope{}, errorx.NewBadRequest("游戏环境 scope 缺失")
+	}
+	return scope, nil
+}
+
+func requirePlayerScope(ctx context.Context, player *model.Player) error {
+	scope := svc.GameScopeFromContext(ctx)
+	if player == nil || ((scope.GameID != "" || scope.Env != "") && !svc.ScopeMatchesGame(ctx, player.GameID)) {
+		return errorx.NewForbidden("无权访问该玩家")
+	}
+	return nil
 }
 
 func buildPlayer(player *model.Player) Player {

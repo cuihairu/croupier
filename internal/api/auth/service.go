@@ -15,9 +15,17 @@ import (
 
 type Service struct {
 	adminModel *model.AdminModel
+	gameModel  *model.GameModel
 	permSvc    *permissionservice.PermissionService
 	opsStore   *svc.OpsStateStore
 	jwtSecret  string
+}
+
+// WithGameModel enables validation of persisted scope before login returns it
+// to the frontend. It is optional for legacy callers that do not manage games.
+func (s *Service) WithGameModel(gameModel *model.GameModel) *Service {
+	s.gameModel = gameModel
+	return s
 }
 
 func NewService(adminModel *model.AdminModel, permSvc *permissionservice.PermissionService, jwtSecret string, opsStore ...*svc.OpsStateStore) *Service {
@@ -75,6 +83,8 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 
 	s.recordLoginAudit(admin.Username, "auth.login", "success", req, "")
 
+	lastGameID, lastEnv := s.validLastScope(ctx, admin.ID, roles, admin.LastGameID, admin.LastEnv)
+
 	return &LoginResponse{
 		Token: token,
 		User: UserInfo{
@@ -82,9 +92,42 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 			Nickname: admin.Nickname,
 			Roles:    roles,
 		},
-		LastGameID: admin.LastGameID,
-		LastEnv:    admin.LastEnv,
+		LastGameID: lastGameID,
+		LastEnv:    lastEnv,
 	}, nil
+}
+
+func (s *Service) validLastScope(ctx context.Context, adminID uint, roles []string, gameID, env string) (string, string) {
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	if gameID == "" || env == "" || s.gameModel == nil {
+		return "", ""
+	}
+
+	game, err := s.gameModel.FindByGameIDString(ctx, gameID)
+	if err != nil || game == nil {
+		return "", ""
+	}
+	bound, err := s.gameModel.HasEnvBinding(ctx, gameID, env)
+	if err != nil || !bound {
+		return "", ""
+	}
+	for _, role := range roles {
+		name := strings.ToLower(strings.TrimSpace(role))
+		if name == "admin" || name == "super_admin" {
+			return gameID, env
+		}
+	}
+	scopes, err := s.adminModel.GetAdminEnvScopes(ctx, adminID)
+	if err != nil {
+		return "", ""
+	}
+	for _, scope := range scopes {
+		if scope.GameID == game.ID && strings.EqualFold(strings.TrimSpace(scope.Env), env) {
+			return gameID, env
+		}
+	}
+	return "", ""
 }
 
 func (s *Service) recordLoginAudit(username, action, result string, req *LoginRequest, reason string) {

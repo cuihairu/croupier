@@ -127,7 +127,7 @@ func (h *Handler) UpdateScope(c *gin.Context) {
 	}
 
 	if err := h.service.UpdateScope(c.Request.Context(), adminID, req.GameID, req.Env); err != nil {
-		response.InternalServerError(c, err.Error())
+		response.Error(c, err)
 		return
 	}
 

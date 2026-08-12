@@ -6,8 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // Singleton test store with proper cleanup
@@ -34,6 +38,55 @@ func setupTestAuditStore(t *testing.T) *svc.OpsStateStore {
 	})
 
 	return testAuditStore
+}
+
+func TestService_GetAuditLogs_LimitsNonAdminToAuthorizedScopes(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, model.AutoMigrate(db))
+
+	adminModel := model.NewAdminModel(db)
+	roleModel := model.NewRoleModel(db)
+	gameModel := model.NewGameModel(db)
+	admin := &model.Admin{Username: "auditor", Status: 1}
+	require.NoError(t, adminModel.Create(context.Background(), admin, "password123"))
+	role := &model.Role{Name: "auditor"}
+	require.NoError(t, roleModel.Create(context.Background(), role))
+	require.NoError(t, db.Create(&model.Permission{
+		ID: "audit:read", Name: "Audit Read", Resource: "audit", Action: "read", Category: "audit",
+	}).Error)
+	require.NoError(t, roleModel.ReplacePermissions(context.Background(), role.ID, []string{"audit:read"}))
+	require.NoError(t, adminModel.AssignRole(context.Background(), admin.ID, role.ID))
+
+	game := &model.Game{GameID: "game-a", Name: "Game A"}
+	require.NoError(t, gameModel.Create(context.Background(), game))
+	require.NoError(t, gameModel.AddEnvBinding(context.Background(), "game-a", "prod", "game_a_prod", "", ""))
+	require.NoError(t, adminModel.SetGameEnvScope(context.Background(), admin.ID, game.ID, "prod"))
+
+	store := setupTestAuditStore(t)
+	store.Update(func(state *svc.OpsState) {
+		state.Audit.Entries = []svc.OpsAuditEntry{
+			{ID: "allowed", GameID: "game-a", Env: "prod", CreatedAt: time.Now()},
+			{ID: "blocked", GameID: "game-b", Env: "dev", CreatedAt: time.Now()},
+			{ID: "global", CreatedAt: time.Now()},
+		}
+	})
+
+	service := NewService(&svc.ServiceContext{
+		AdminModel:    adminModel,
+		RoleModel:     roleModel,
+		GameModel:     gameModel,
+		OpsStateStore: store,
+	})
+	ctx := context.WithValue(context.Background(), "username", admin.Username)
+	resp, err := service.GetAuditLogs(ctx, &AuditRequest{Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, "allowed", resp.Items[0].ID)
+
+	resp, err = service.GetAuditLogs(ctx, &AuditRequest{GameID: "game-b", Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	assert.Empty(t, resp.Items)
 }
 
 func TestService_GetAuditLogs_Success(t *testing.T) {

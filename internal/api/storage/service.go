@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"path"
 	"strings"
 	"time"
 
@@ -31,8 +32,25 @@ func (s *Service) requireStore() (objstore.Store, error) {
 func normalizeStoragePath(raw string) string {
 	raw = strings.TrimSpace(raw)
 	raw = strings.ReplaceAll(raw, "\\", "/")
-	raw = strings.TrimPrefix(raw, "/")
-	return raw
+	hadTrailingSlash := strings.HasSuffix(raw, "/")
+	raw = strings.TrimLeft(raw, "/")
+
+	parts := strings.Split(raw, "/")
+	cleanParts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			continue
+		}
+		cleanParts = append(cleanParts, part)
+	}
+	clean := path.Join(cleanParts...)
+	if clean == "." {
+		clean = ""
+	}
+	if clean != "" && hadTrailingSlash {
+		clean += "/"
+	}
+	return clean
 }
 
 // SignedUrl generates a signed URL for object access

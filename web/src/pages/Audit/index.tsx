@@ -22,7 +22,7 @@ export default function AuditPage() {
   const [data, setData] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<{
-    game_id?: string;
+    gameId?: string;
     env?: string;
     actor?: string;
     kind?: string;
@@ -48,7 +48,7 @@ export default function AuditPage() {
     try {
       const params: Record<string, string | number> = { ...filters, page, size: pageSize };
       if (!useScope) {
-        delete params.game_id;
+        delete params.gameId;
         delete params.env;
       }
       if (timeRange && timeRange[0]) {
@@ -83,7 +83,7 @@ export default function AuditPage() {
     const onStorage = () =>
       setFilters((f) => ({
         ...f,
-        game_id: localStorage.getItem('game_id') || undefined,
+        gameId: localStorage.getItem('game_id') || undefined,
         env: localStorage.getItem('env') || undefined,
       }));
     onStorage();
@@ -221,7 +221,7 @@ export default function AuditPage() {
             ))}
           </Space>
           <Button
-            onClick={() => setFilters({ limit: 200, game_id: filters.game_id, env: filters.env })}
+            onClick={() => setFilters({ limit: 200, gameId: filters.gameId, env: filters.env })}
           >
             清空
           </Button>

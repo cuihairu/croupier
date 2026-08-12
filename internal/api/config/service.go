@@ -23,8 +23,8 @@ func (s *Service) ListConfigs(ctx context.Context, req *ListConfigsRequest) (*Li
 		req = &ListConfigsRequest{}
 	}
 	records, err := s.svcCtx.ConfigVersionModel.ListLatest(ctx, model.ConfigListOptions{
-		GameID: svc.ResolveGameID(ctx, req.GameID),
-		Env:    svc.ResolveEnv(ctx, req.Env),
+		GameID: configScopeValue(ctx, req.GameID, true),
+		Env:    configScopeValue(ctx, req.Env, false),
 		Format: req.Format,
 		IDLike: req.IDLike,
 	})
@@ -52,7 +52,7 @@ func (s *Service) GetConfig(ctx context.Context, req *GetConfigRequest) (*GetCon
 	if req == nil {
 		return nil, errors.New("request parameters cannot be empty")
 	}
-	record, err := s.svcCtx.ConfigVersionModel.FindLatest(ctx, req.ID)
+	record, err := findLatestConfig(ctx, s.svcCtx.ConfigVersionModel, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,12 @@ func (s *Service) Upsert(ctx context.Context, req *UpsertRequest) (*UpsertRespon
 		return nil, errors.New("config key cannot be empty")
 	}
 
-	record, err := s.svcCtx.ConfigVersionModel.Create(ctx, key, req.Value, configAuthor(ctx))
+	record, err := s.svcCtx.ConfigVersionModel.CreateWithMeta(ctx, model.ConfigVersionPayload{
+		Key:     key,
+		Content: req.Value,
+		GameID:  configScopeValue(ctx, "", true),
+		Env:     configScopeValue(ctx, "", false),
+	}, configAuthor(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -121,8 +126,8 @@ func (s *Service) SaveConfig(ctx context.Context, id string, req *SaveConfigRequ
 		Key:         key,
 		Content:     req.Content,
 		Format:      strings.TrimSpace(req.Format),
-		GameID:      svc.ResolveGameID(ctx, req.GameID),
-		Env:         svc.ResolveEnv(ctx, req.Env),
+		GameID:      configScopeValue(ctx, req.GameID, true),
+		Env:         configScopeValue(ctx, req.Env, false),
 		Message:     strings.TrimSpace(req.Message),
 		BaseVersion: req.BaseVersion,
 	}, configAuthor(ctx))
@@ -153,7 +158,7 @@ func (s *Service) ListVersions(ctx context.Context, req *ListVersionsRequest) (*
 		return nil, errors.New("config key cannot be empty")
 	}
 
-	versions, err := s.svcCtx.ConfigVersionModel.List(ctx, key)
+	versions, err := listConfigVersions(ctx, s.svcCtx.ConfigVersionModel, key)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +210,7 @@ func (s *Service) GetVersion(ctx context.Context, req *GetVersionRequest) (*GetV
 		return nil, errors.New("version number must be greater than 0")
 	}
 
-	record, err := s.svcCtx.ConfigVersionModel.Find(ctx, key, req.Version)
+	record, err := findConfigVersion(ctx, s.svcCtx.ConfigVersionModel, key, req.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -235,4 +240,40 @@ func (s *Service) GetVersion(ctx context.Context, req *GetVersionRequest) (*GetV
 			Value:     versionData["value"].(string),
 		},
 	}, nil
+}
+
+func configScopeValue(ctx context.Context, fallback string, game bool) string {
+	scope := svc.GameScopeFromContext(ctx)
+	if game {
+		if scope.GameID != "" {
+			return scope.GameID
+		}
+	} else if scope.Env != "" {
+		return scope.Env
+	}
+	return strings.TrimSpace(fallback)
+}
+
+func findLatestConfig(ctx context.Context, model *model.ConfigVersionModel, key string) (*model.ConfigVersion, error) {
+	scope := svc.GameScopeFromContext(ctx)
+	if scope.GameID != "" && scope.Env != "" {
+		return model.FindLatestByScope(ctx, key, scope.GameID, scope.Env)
+	}
+	return model.FindLatest(ctx, key)
+}
+
+func listConfigVersions(ctx context.Context, model *model.ConfigVersionModel, key string) ([]model.ConfigVersion, error) {
+	scope := svc.GameScopeFromContext(ctx)
+	if scope.GameID != "" && scope.Env != "" {
+		return model.ListByScope(ctx, key, scope.GameID, scope.Env)
+	}
+	return model.List(ctx, key)
+}
+
+func findConfigVersion(ctx context.Context, model *model.ConfigVersionModel, key string, version int) (*model.ConfigVersion, error) {
+	scope := svc.GameScopeFromContext(ctx)
+	if scope.GameID != "" && scope.Env != "" {
+		return model.FindByScope(ctx, key, version, scope.GameID, scope.Env)
+	}
+	return model.Find(ctx, key, version)
 }

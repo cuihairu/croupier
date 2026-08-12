@@ -59,14 +59,28 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 			return
 		}
 
-		// Fallback: if no headers, try admin's last-selected scope (atomic read)
+		// Fallback: if no headers, try admin's last-selected scope (atomic read).
+		// A stale or revoked persisted scope is discarded below before selecting
+		// the first currently authorized scope.
+		usedPersistedScope := false
 		if gameID == "" && svcCtx != nil && svcCtx.AdminModel != nil {
 			if adminID := getAdminIDFromGinContext(c); adminID > 0 {
 				last, err := svcCtx.AdminModel.GetLastScope(c.Request.Context(), adminID)
 				if err == nil && last.GameID != "" && last.Env != "" {
 					gameID = last.GameID
 					env = last.Env
+					usedPersistedScope = true
 				}
+			}
+		}
+
+		// Persisted state is only a convenience. It must still be an existing
+		// binding the current user may access; otherwise use the normal default.
+		if usedPersistedScope && svcCtx != nil {
+			ctx := context.WithValue(c.Request.Context(), gameScopeCtxKey{}, GameScope{GameID: gameID, Env: env})
+			if authorizeScope(ctx, svcCtx, c, gameID, env) != nil || validateGameScope(ctx, svcCtx, gameID, env) != nil {
+				gameID = ""
+				env = ""
 			}
 		}
 
@@ -75,6 +89,17 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 			if adminID := getAdminIDFromGinContext(c); adminID > 0 {
 				gameID, env = resolveFirstAuthorizedGame(c.Request.Context(), svcCtx, adminID)
 			}
+		}
+
+		// Every route in the scoped group requires a complete resolved scope.
+		// Do not let handlers fall back to query/body gameId/env values: those
+		// values have not passed the middleware authorization check.
+		if gameID == "" || env == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error":   "scope_required",
+				"message": "无法解析有效的游戏环境 scope",
+			})
+			return
 		}
 
 		scope := GameScope{GameID: gameID, Env: env}
@@ -100,9 +125,9 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 			}
 		}
 
-		if svcCtx != nil && svcCtx.Router != nil && gameID != "" {
-			// SECURITY: Validate that the (gameID, env) pair exists in
-			// game_envs before opening a database connection.
+		// The binding is authoritative in both single-DB and multi-DB modes.
+		// Router selection only controls which database is opened afterwards.
+		if svcCtx != nil && gameID != "" {
 			if err := validateGameScope(ctx, svcCtx, gameID, env); err != nil {
 				slog.WarnContext(ctx, "game scope validation failed",
 					"gameId", gameID, "env", env, "error", err)
@@ -112,6 +137,9 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 				})
 				return
 			}
+		}
+
+		if svcCtx != nil && svcCtx.Router != nil && gameID != "" {
 
 			gameDB, err := svcCtx.Router.GameDB(ctx, gameID, env)
 			if err != nil {
@@ -304,4 +332,37 @@ func ResolveEnv(ctx context.Context, fallback string) string {
 		return scope.Env
 	}
 	return strings.TrimSpace(fallback)
+}
+
+// CurrentScope returns the scope resolved by GameDBMiddleware. Scoped
+// services must use this value rather than request parameters.
+func CurrentScope(ctx context.Context) (GameScope, error) {
+	scope := GameScopeFromContext(ctx)
+	if strings.TrimSpace(scope.GameID) == "" || strings.TrimSpace(scope.Env) == "" {
+		return GameScope{}, fmt.Errorf("game scope is required")
+	}
+	scope.GameID = strings.TrimSpace(scope.GameID)
+	scope.Env = strings.TrimSpace(scope.Env)
+	return scope, nil
+}
+
+// ScopeMatches reports whether an object belongs to the current request
+// scope. It deliberately does not accept a fallback scope from the request.
+func ScopeMatches(ctx context.Context, gameID, env string) bool {
+	scope, err := CurrentScope(ctx)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(scope.GameID, strings.TrimSpace(gameID)) &&
+		strings.EqualFold(scope.Env, strings.TrimSpace(env))
+}
+
+// ScopeMatchesGame reports whether a game-level object belongs to the current
+// scope. Some legacy records, such as players, are keyed by game but not env.
+func ScopeMatchesGame(ctx context.Context, gameID string) bool {
+	scope, err := CurrentScope(ctx)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(scope.GameID, strings.TrimSpace(gameID))
 }

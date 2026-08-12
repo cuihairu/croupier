@@ -389,6 +389,28 @@ func TestFunctionInvoke_MissingPayload(t *testing.T) {
 	assert.Error(t, err) // Should fail due to missing auth
 }
 
+func TestFunctionInvoke_UsesContextScopeInsteadOfRequestScope(t *testing.T) {
+	t.Parallel()
+
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{
+		GameID: "authorized-game",
+		Env:    "prod",
+	})
+	req := &FunctionInvokeRequest{
+		ID:      "func1",
+		GameID:  "forbidden-game",
+		Env:     "dev",
+		Payload: json.RawMessage(`{"test":"data"}`),
+	}
+
+	// The service context deliberately lacks an admin model, so invocation
+	// stops after the scope has been applied and before any dispatch occurs.
+	_, err := functionInvoke(ctx, &svc.ServiceContext{}, req)
+	require.Error(t, err)
+	assert.Equal(t, "authorized-game", req.GameID)
+	assert.Equal(t, "prod", req.Env)
+}
+
 // Test functionPublish
 
 func TestFunctionPublish(t *testing.T) {

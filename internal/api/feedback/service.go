@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -28,12 +29,12 @@ func (s *Service) List(ctx context.Context, req *FeedbackListRequest) (*Feedback
 	if req == nil {
 		req = &FeedbackListRequest{}
 	}
-
 	opts := model.ListFeedbackOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
 		Status:            strings.TrimSpace(req.Status),
 		Category:          strings.TrimSpace(req.Category),
 		GameID:            svc.ResolveGameID(ctx, req.GameId),
+		Env:               svc.GameScopeFromContext(ctx).Env,
 	}
 
 	entries, total, err := s.svcCtx.FeedbackModel.List(ctx, opts)
@@ -62,7 +63,6 @@ func (s *Service) Create(ctx context.Context, req *FeedbackCreateRequest) (*Feed
 	if req == nil {
 		return nil, errors.New("请求体不能为空")
 	}
-
 	contact := strings.TrimSpace(req.Contact)
 	if contact == "" {
 		return nil, errors.New("联系方式不能为空")
@@ -134,6 +134,17 @@ func (s *Service) Update(ctx context.Context, req *FeedbackUpdateRequest) (*Feed
 		return nil, errors.New("没有需要更新的字段")
 	}
 
+	// Validate the update before loading the record. Besides avoiding an
+	// unnecessary query, this keeps malformed no-op updates independent of
+	// whether the target record happens to exist.
+	record, err := s.svcCtx.FeedbackModel.FindByID(ctx, uint(id))
+	if err != nil {
+		return nil, err
+	}
+	if err := requireFeedbackScope(ctx, record); err != nil {
+		return nil, err
+	}
+
 	if err := s.svcCtx.FeedbackModel.Update(ctx, uint(id), updates); err != nil {
 		return nil, err
 	}
@@ -165,11 +176,31 @@ func (s *Service) Delete(ctx context.Context, req *FeedbackDeleteRequest) error 
 		return errors.New("反馈ID超出范围")
 	}
 
-	if _, err := s.svcCtx.FeedbackModel.FindByID(ctx, uint(id)); err != nil {
+	record, err := s.svcCtx.FeedbackModel.FindByID(ctx, uint(id))
+	if err != nil {
+		return err
+	}
+	if err := requireFeedbackScope(ctx, record); err != nil {
 		return err
 	}
 
 	return s.svcCtx.FeedbackModel.Delete(ctx, uint(id))
+}
+
+func currentFeedbackScope(ctx context.Context) (svc.GameScope, error) {
+	scope, err := svc.CurrentScope(ctx)
+	if err != nil {
+		return svc.GameScope{}, errorx.NewBadRequest("游戏环境 scope 缺失")
+	}
+	return scope, nil
+}
+
+func requireFeedbackScope(ctx context.Context, feedback *model.Feedback) error {
+	scope := svc.GameScopeFromContext(ctx)
+	if feedback == nil || ((scope.GameID != "" || scope.Env != "") && !svc.ScopeMatches(ctx, feedback.GameID, feedback.Env)) {
+		return errorx.NewForbidden("无权访问该反馈")
+	}
+	return nil
 }
 
 // Stats retrieves feedback statistics

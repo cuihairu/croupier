@@ -33,15 +33,15 @@ const DEFAULT_ENV_OPTIONS: EnvOption[] = [
 const FALLBACK_COLOR = '#8c8c8c';
 
 const buildEnvOptions = (game?: Game): EnvOption[] => {
-  if (!game) return DEFAULT_ENV_OPTIONS;
+  if (!game) return [];
   const fromMeta =
     Array.isArray(game.envMeta) && game.envMeta.length > 0
       ? game.envMeta
       : Array.isArray(game.envs) && game.envs.length > 0
-      ? game.envs.map((env) => ({ env }))
-      : null;
+        ? game.envs.map((env) => ({ env }))
+        : null;
 
-  const source = (fromMeta ?? DEFAULT_ENV_OPTIONS) as (GameEnvMeta | EnvOption)[];
+  const source = (fromMeta ?? []) as (GameEnvMeta | EnvOption)[];
   return source
     .map((env) => {
       const name = (env as GameEnvMeta).env || (env as EnvOption).value;
@@ -73,10 +73,14 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoadFinished, setInitialLoadFinished] = useState(!canListGames);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const reloadGames = useCallback(async () => {
-    if (!canListGames) return;
+    if (!canListGames) {
+      setInitialLoadFinished(true);
+      return;
+    }
     setLoading(true);
     try {
       const res = await listMyGames();
@@ -89,11 +93,13 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       }
     } catch (err) {
       console.error('Failed to load games', err);
-      // Unblock pages so they surface their own errors instead of
-      // staying blank forever.
-      markScopeReady();
+      setGames([]);
+      // Do not let a stale local scope be sent after the authoritative list
+      // could not be loaded. Scoped requests will then show scope_required.
+      setScope({ gameId: undefined, env: undefined }, { persist: true, emit: true });
     } finally {
       setLoading(false);
+      setInitialLoadFinished(true);
     }
   }, [canListGames]);
 
@@ -149,9 +155,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     if (!gameState || !games.some((g) => g.name === gameState)) {
       const fallback = games[0]?.name;
       if (fallback) {
+        const fallbackEnv = buildEnvOptions(games[0])[0]?.value;
         if (!isGameControlled) {
           setGameState(fallback);
-          setScope({ gameId: fallback }, { persist: true, emit: true });
+          setScope({ gameId: fallback, env: fallbackEnv }, { persist: true, emit: true });
         }
         onChange?.(fallback);
       }
@@ -162,12 +169,23 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   }, [games, gameState, isGameControlled, onChange]);
 
   useEffect(() => {
+    if (initialLoadFinished && games.length === 0) {
+      setScope({ gameId: undefined, env: undefined }, { persist: true, emit: true });
+      markScopeReady();
+    }
+  }, [games.length, initialLoadFinished]);
+
+  useEffect(() => {
     if (!games.length) {
       // Wait for games: before that, envOptions falls back to
       // DEFAULT_ENV_OPTIONS and cannot detect a stale env.
       return;
     }
     if (!envOptions.length) {
+      if (initialLoadFinished && activeGame) {
+        setScope({ gameId: undefined, env: undefined }, { persist: true, emit: true });
+        markScopeReady();
+      }
       return;
     }
     const currentEnv = isEnvControlled ? envValue : envState;

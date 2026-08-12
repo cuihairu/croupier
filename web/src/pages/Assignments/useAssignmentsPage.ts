@@ -83,7 +83,7 @@ export default function useAssignmentsPage() {
       setDescs(toDescriptorArray(d as DescriptorListResponse));
       if (gameId) {
         try {
-          const res = await fetchAssignments({ game_id: gameId, env });
+          const res = await fetchAssignments();
           const m = res?.assignments || {};
           setSelected(Object.values(m).flat() || []);
         } catch {
@@ -121,7 +121,7 @@ export default function useAssignmentsPage() {
     setLoading(true);
     try {
       const action = selected.length === 0 ? 'remove' : 'assign';
-      const res = await setAssignments({ game_id: gameId, env, action, functions: selected });
+      const res = await setAssignments({ action, functions: selected });
       const unknown = res?.unknown || [];
       if (unknown.length > 0) {
         message.warning(
@@ -160,12 +160,7 @@ export default function useAssignmentsPage() {
       }
       setLoading(true);
       try {
-        await setAssignments({
-          game_id: gameId,
-          env: targetEnv,
-          action: 'clone',
-          functions: selected,
-        });
+        await setAssignments({ action: 'clone', target_env: targetEnv, functions: selected });
         message.success(`已克隆分配到 ${targetEnv} 环境`);
         return true;
       } catch (e: unknown) {
@@ -187,8 +182,6 @@ export default function useAssignmentsPage() {
       setHistoryLoading(true);
       try {
         const res = await fetchAssignmentsHistory({
-          game_id: gameId,
-          env,
           action: action === 'all' ? undefined : action,
           page,
           pageSize,
@@ -221,7 +214,9 @@ export default function useAssignmentsPage() {
         setEditingAssignment,
         setCanaryModalVisible,
         onOpenDetail: (id) => {
-          routerHistory.push(`/system/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`);
+          routerHistory.push(
+            `/system/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`,
+          );
         },
       }),
     [canWrite, selected],

@@ -74,9 +74,6 @@ func (l *DescriptorsLogic) requireScope(req *DescriptorsRequest) (string, string
 	scope := svc.GameScopeFromContext(l.ctx)
 	gameID := scope.GameID
 	env := scope.Env
-	if req != nil && strings.TrimSpace(req.GameId) != "" {
-		gameID = strings.TrimSpace(req.GameId)
-	}
 	gameID = strings.TrimSpace(gameID)
 	env = strings.TrimSpace(env)
 	if gameID == "" {

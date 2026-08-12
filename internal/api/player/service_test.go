@@ -550,8 +550,9 @@ func Test_Delete_NotFound(t *testing.T) {
 		ID: "99999",
 	})
 
-	// Delete is idempotent - no error even if player doesn't exist
-	assert.NoError(t, err)
+	// Object-level scope validation must first load the player. A missing
+	// player therefore returns not-found instead of silently succeeding.
+	assert.Error(t, err)
 }
 
 func Test_Delete_InvalidID(t *testing.T) {

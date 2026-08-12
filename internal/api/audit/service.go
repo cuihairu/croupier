@@ -38,6 +38,10 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 	if req == nil {
 		req = &AuditRequest{}
 	}
+	visibleScopes, unrestricted, err := s.resolveVisibleScopes(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	page := req.Page
 	if page <= 0 {
@@ -64,8 +68,10 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 	if userFilter == "" {
 		userFilter = strings.TrimSpace(req.Actor)
 	}
-	gameFilter := svc.ResolveGameID(ctx, req.GameID)
-	envFilter := svc.ResolveEnv(ctx, req.Env)
+	// Audit is scope-neutral: these are filters over audit records, never a
+	// replacement for the request scope resolved by GameDBMiddleware.
+	gameFilter := strings.TrimSpace(req.GameID)
+	envFilter := strings.TrimSpace(req.Env)
 	ipFilter := strings.TrimSpace(req.IP)
 
 	actionSet := make(map[string]struct{})
@@ -109,6 +115,9 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 
 	filtered := make([]svc.OpsAuditEntry, 0, len(entries))
 	for _, entry := range entries {
+		if !unrestricted && !visibleScopes.allows(entry.GameID, entry.Env) {
+			continue
+		}
 		if len(actionSet) > 0 {
 			if _, ok := actionSet[strings.ToLower(strings.TrimSpace(entry.Action))]; !ok {
 				continue
@@ -207,4 +216,67 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 		Page:     page,
 		PageSize: size,
 	}, nil
+}
+
+// auditScopeSet contains every game/environment pair a non-administrator may
+// inspect through the scope-neutral audit API. Audit access has two layers:
+// audit:read grants entry to the API, while game-environment authorization
+// limits the records that can be observed.
+type auditScopeSet map[string]map[string]struct{}
+
+func (scopes auditScopeSet) allows(gameID, env string) bool {
+	gameID = strings.ToLower(strings.TrimSpace(gameID))
+	env = strings.ToLower(strings.TrimSpace(env))
+	if gameID == "" || env == "" {
+		return false
+	}
+	_, allowed := scopes[gameID][env]
+	return allowed
+}
+
+func (s *Service) resolveVisibleScopes(ctx context.Context) (auditScopeSet, bool, error) {
+	// Direct service calls used by migrations and legacy tests do not carry an
+	// authorization model. HTTP construction always provides these models and
+	// therefore always takes the checked branch below.
+	if s.svcCtx.AdminModel == nil || s.svcCtx.RoleModel == nil {
+		return nil, true, nil
+	}
+
+	roles, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权查看审计日志", "admin:all", "audit:read")
+	if err != nil {
+		return nil, false, err
+	}
+	if utils.HasAdminRole(utils.RoleNamesFromModels(roles)) {
+		return nil, true, nil
+	}
+	if s.svcCtx.GameModel == nil {
+		return nil, false, errors.New("game model unavailable")
+	}
+
+	admin, _, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
+	if err != nil {
+		return nil, false, err
+	}
+	envScopes, err := s.svcCtx.AdminModel.GetAdminEnvScopes(ctx, admin.ID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	visible := make(auditScopeSet, len(envScopes))
+	for _, envScope := range envScopes {
+		game, err := s.svcCtx.GameModel.FindOne(ctx, envScope.GameID)
+		if err != nil || game == nil {
+			continue
+		}
+		gameID := strings.ToLower(strings.TrimSpace(game.GameID))
+		env := strings.ToLower(strings.TrimSpace(envScope.Env))
+		if gameID == "" || env == "" {
+			continue
+		}
+		if visible[gameID] == nil {
+			visible[gameID] = make(map[string]struct{})
+		}
+		visible[gameID][env] = struct{}{}
+	}
+	return visible, false, nil
 }

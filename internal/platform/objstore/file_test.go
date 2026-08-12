@@ -310,6 +310,29 @@ func TestFileStore_List(t *testing.T) {
 	}
 }
 
+func TestFileStore_List_NormalizesTraversalPrefixAndMarker(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := OpenFile(context.Background(), Config{Driver: "file", BaseDir: tmpDir})
+	if err != nil {
+		t.Fatalf("OpenFile() error = %v", err)
+	}
+
+	ctx := context.Background()
+	if err := store.Put(ctx, "safe/file.txt", strings.NewReader("content"), 7, ""); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+
+	// Both fields are normalized before they participate in filesystem paths
+	// or pagination comparisons; neither may escape the configured base.
+	result, err := store.List(ctx, "../safe/", "../safe/file.txt", "", 0)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(result.Objects) != 0 {
+		t.Fatalf("List() returned marker-or-earlier objects: %#v", result.Objects)
+	}
+}
+
 // TestFileStore_CreatePrefix 测试创建前缀目录
 func TestFileStore_CreatePrefix(t *testing.T) {
 	tmpDir := t.TempDir()

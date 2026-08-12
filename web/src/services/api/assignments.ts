@@ -54,9 +54,8 @@ export async function fetchAssignments(params?: {
 }
 
 export async function setAssignments(params: {
-  game_id: string;
-  env?: string;
   action?: 'assign' | 'clone' | 'remove' | string;
+  target_env?: string;
   functions: string[];
 }): Promise<AssignmentsUpdatePayload> {
   const resp = await request<AssignmentsUpdatePayload>('/api/v1/assignments', {

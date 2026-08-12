@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/api/function"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -44,10 +45,12 @@ func (s *Service) List(ctx context.Context, req *ApprovalsListRequest) (*Approva
 	if size <= 0 {
 		size = 20
 	}
+	scope := svc.GameScopeFromContext(ctx)
 	if items, ok, err := s.loadApprovalsFromExtensionInstallation(ctx); err != nil {
 		return nil, err
 	} else if ok {
-		list, total := paginateApprovalSummaries(filterApprovalSummariesByState(toApprovalSummaries(items), strings.TrimSpace(req.Status)), page, size)
+		list, total := paginateApprovalSummaries(filterApprovalSummariesByState(
+			toApprovalSummaries(filterApprovalItemsByScope(items, scope)), strings.TrimSpace(req.Status)), page, size)
 		return &ApprovalsListResponse{
 			Approvals: list,
 			Total:     int64(total),
@@ -60,7 +63,9 @@ func (s *Service) List(ctx context.Context, req *ApprovalsListRequest) (*Approva
 	}
 
 	filter := approvals.Filter{
-		State: strings.TrimSpace(req.Status),
+		State:  strings.TrimSpace(req.Status),
+		GameID: scope.GameID,
+		Env:    scope.Env,
 	}
 	items, total, err := s.svcCtx.ApprovalsStore.List(filter, approvals.Page{
 		Page: page,
@@ -88,12 +93,16 @@ func (s *Service) Get(ctx context.Context, req *ApprovalGetRequest) (*ApprovalGe
 	if req == nil || strings.TrimSpace(req.ID) == "" {
 		return nil, errors.New("id 不能为空")
 	}
+	scope := svc.GameScopeFromContext(ctx)
 	if items, ok, err := s.loadApprovalsFromExtensionInstallation(ctx); err != nil {
 		return nil, err
 	} else if ok {
 		id := strings.TrimSpace(req.ID)
 		for _, item := range items {
 			if strings.TrimSpace(item.ID) == id {
+				if err := requireApprovalScope(scope, item.GameID, item.Env); err != nil {
+					return nil, err
+				}
 				return &ApprovalGetResponse{Approval: item}, nil
 			}
 		}
@@ -105,6 +114,9 @@ func (s *Service) Get(ctx context.Context, req *ApprovalGetRequest) (*ApprovalGe
 
 	approval, err := s.svcCtx.ApprovalsStore.Get(strings.TrimSpace(req.ID))
 	if err != nil {
+		return nil, err
+	}
+	if err := requireApprovalScope(scope, approval.GameID, approval.Env); err != nil {
 		return nil, err
 	}
 
@@ -122,6 +134,14 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	}
 	if req == nil || strings.TrimSpace(req.ID) == "" {
 		return nil, errors.New("id 不能为空")
+	}
+	scope := svc.GameScopeFromContext(ctx)
+	existing, err := s.svcCtx.ApprovalsStore.Get(strings.TrimSpace(req.ID))
+	if err != nil {
+		return nil, err
+	}
+	if err := requireApprovalScope(scope, existing.GameID, existing.Env); err != nil {
+		return nil, err
 	}
 
 	record, err := s.svcCtx.ApprovalsStore.Approve(strings.TrimSpace(req.ID))
@@ -169,6 +189,14 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 	if strings.TrimSpace(req.Reason) == "" {
 		return nil, errors.New("reason 不能为空")
 	}
+	scope := svc.GameScopeFromContext(ctx)
+	existing, err := s.svcCtx.ApprovalsStore.Get(strings.TrimSpace(req.ID))
+	if err != nil {
+		return nil, err
+	}
+	if err := requireApprovalScope(scope, existing.GameID, existing.Env); err != nil {
+		return nil, err
+	}
 
 	record, err := s.svcCtx.ApprovalsStore.Reject(strings.TrimSpace(req.ID), strings.TrimSpace(req.Reason))
 	if err != nil {
@@ -184,6 +212,35 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 		State:  record.State,
 		Reason: record.Reason,
 	}, nil
+}
+
+func currentApprovalScope(ctx context.Context) (svc.GameScope, error) {
+	scope, err := svc.CurrentScope(ctx)
+	if err != nil {
+		return svc.GameScope{}, errorx.NewBadRequest("游戏环境 scope 缺失")
+	}
+	return scope, nil
+}
+
+func requireApprovalScope(scope svc.GameScope, gameID, env string) error {
+	if scope.GameID == "" && scope.Env == "" {
+		return nil
+	}
+	if !strings.EqualFold(scope.GameID, strings.TrimSpace(gameID)) ||
+		!strings.EqualFold(scope.Env, strings.TrimSpace(env)) {
+		return errorx.NewForbidden("无权访问该审批")
+	}
+	return nil
+}
+
+func filterApprovalItemsByScope(items []Approval, scope svc.GameScope) []Approval {
+	filtered := make([]Approval, 0, len(items))
+	for _, item := range items {
+		if requireApprovalScope(scope, item.GameID, item.Env) == nil {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
 }
 
 // Helper functions

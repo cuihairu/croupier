@@ -112,6 +112,9 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*DetailRespon
 	if err != nil {
 		return nil, err
 	}
+	if err := requireTaskScope(ctx, run); err != nil {
+		return nil, err
+	}
 	return buildDetail(run), nil
 }
 
@@ -122,6 +125,9 @@ func (s *Service) Events(ctx context.Context, req *EventsRequest) (*EventsRespon
 	}
 	run, err := s.runtime.GetRun(ctx, taskID)
 	if err != nil {
+		return nil, err
+	}
+	if err := requireTaskScope(ctx, run); err != nil {
 		return nil, err
 	}
 	events, err := s.runtime.ListEvents(ctx, taskID, req.AfterSeq)
@@ -153,6 +159,13 @@ func (s *Service) Cancel(ctx context.Context, req *CancelRequest) error {
 	if taskID == "" {
 		return errorx.NewBadRequest("任务ID不能为空")
 	}
+	run, err := s.runtime.GetRun(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	if err := requireTaskScope(ctx, run); err != nil {
+		return err
+	}
 	now := time.Now()
 	if err := s.runtime.UpdateRun(ctx, taskID, map[string]interface{}{
 		"status":              tasks.StatusCancelRequested,
@@ -172,6 +185,22 @@ func (s *Service) Cancel(ctx context.Context, req *CancelRequest) error {
 	// reflects the requested-cancel state so operators and the SSE stream
 	// see the intent.
 	_ = s.runtime.CancelTask(ctx, taskID)
+	return nil
+}
+
+func currentTaskScope(ctx context.Context) (svc.GameScope, error) {
+	scope, err := svc.CurrentScope(ctx)
+	if err != nil {
+		return svc.GameScope{}, errorx.NewBadRequest("游戏环境 scope 缺失")
+	}
+	return scope, nil
+}
+
+func requireTaskScope(ctx context.Context, run *model.TaskRun) error {
+	scope := svc.GameScopeFromContext(ctx)
+	if run == nil || ((scope.GameID != "" || scope.Env != "") && !svc.ScopeMatches(ctx, run.GameID, run.Env)) {
+		return errorx.NewForbidden("无权访问该任务")
+	}
 	return nil
 }
 

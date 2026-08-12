@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -107,48 +108,44 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 		return nil, errors.New("获取用户角色失败")
 	}
 
-	adminGames, err := s.adminModel.GetAdminGames(ctx, admin.ID)
-	if err != nil {
-		return nil, errors.New("获取游戏列表失败")
-	}
-
 	envScopes, err := s.adminModel.GetAdminEnvScopes(ctx, admin.ID)
 	if err != nil {
 		return nil, errors.New("获取游戏环境列表失败")
 	}
 
-	var gameModels []model.Game
-	envScopeFilter := make(map[uint]map[string]struct{}) // gameID -> set of envs
+	gameModels, err := s.gameModel.ListAll(ctx)
+	if err != nil {
+		return nil, errors.New("获取游戏列表失败")
+	}
+	bindings, err := s.gameModel.ListAllEnvBindings(ctx)
+	if err != nil {
+		return nil, errors.New("获取游戏环境列表失败")
+	}
 
-	if hasProfileAdminRole(roleModels) {
-		gameModels, err = s.gameModel.ListAll(ctx)
-		if err != nil {
-			return nil, errors.New("获取游戏列表失败")
+	// game_envs is the single source of truth for selectable environments.
+	// admin_game_env_scopes only narrows that authoritative set for non-admins.
+	bindingsByGameID := make(map[string][]model.GameEnvBinding)
+	for _, binding := range bindings {
+		gameID := strings.TrimSpace(binding.GameID)
+		env := strings.TrimSpace(binding.Env)
+		if gameID == "" || env == "" {
+			continue
 		}
-	} else if len(adminGames) > 0 {
-		gameModels = make([]model.Game, 0, len(adminGames))
-		for _, ag := range adminGames {
-			game, err := s.gameModel.FindByGameID(ctx, ag.GameID)
-			if err != nil || game == nil {
+		bindingsByGameID[gameID] = append(bindingsByGameID[gameID], binding)
+	}
+
+	isAdmin := hasProfileAdminRole(roleModels)
+	envScopeFilter := make(map[uint]map[string]struct{}, len(envScopes))
+	if !isAdmin {
+		for _, scope := range envScopes {
+			env := strings.ToLower(strings.TrimSpace(scope.Env))
+			if scope.GameID == 0 || env == "" {
 				continue
 			}
-			gameModels = append(gameModels, *game)
-		}
-	} else if len(envScopes) > 0 {
-		// User has only env-level scopes — show only those games/envs
-		seen := make(map[uint]bool)
-		for _, es := range envScopes {
-			if seen[es.GameID] {
-				envScopeFilter[es.GameID][es.Env] = struct{}{}
-				continue
+			if envScopeFilter[scope.GameID] == nil {
+				envScopeFilter[scope.GameID] = make(map[string]struct{})
 			}
-			game, err := s.gameModel.FindByGameID(ctx, es.GameID)
-			if err != nil || game == nil {
-				continue
-			}
-			gameModels = append(gameModels, *game)
-			seen[es.GameID] = true
-			envScopeFilter[es.GameID] = map[string]struct{}{es.Env: {}}
+			envScopeFilter[scope.GameID][env] = struct{}{}
 		}
 	}
 
@@ -159,24 +156,39 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 		if gameID == "" {
 			continue
 		}
+		if !isAdmin && len(envScopeFilter[game.ID]) == 0 {
+			continue
+		}
 		if _, ok := seen[gameID]; ok {
 			continue
 		}
-		seen[gameID] = struct{}{}
 
-		envMeta, _ := game.GetEnvs()
-		envs := make([]string, 0, len(envMeta))
-		for _, env := range envMeta {
-			if trimmed := strings.TrimSpace(env.Env); trimmed != "" {
-				// If env-level filter exists for this game, only include authorized envs
-				if envFilter, ok := envScopeFilter[game.ID]; ok {
-					if _, authorized := envFilter[trimmed]; !authorized {
-						continue
-					}
-				}
-				envs = append(envs, trimmed)
+		gameBindings := bindingsByGameID[gameID]
+		envMeta := make([]model.GameEnv, 0, len(gameBindings))
+		envs := make([]string, 0, len(gameBindings))
+		for _, binding := range gameBindings {
+			env := strings.TrimSpace(binding.Env)
+			if env == "" {
+				continue
 			}
+			if !isAdmin {
+				if _, authorized := envScopeFilter[game.ID][strings.ToLower(env)]; !authorized {
+					continue
+				}
+			}
+			envMeta = append(envMeta, model.GameEnv{
+				Env:         env,
+				Description: binding.Description,
+				Color:       binding.Color,
+			})
+			envs = append(envs, env)
 		}
+		if len(envs) == 0 {
+			// A game without an authoritative environment binding cannot produce
+			// a valid request scope and must not be selectable in the UI.
+			continue
+		}
+		seen[gameID] = struct{}{}
 
 		gameName := strings.TrimSpace(game.AliasName)
 		if gameName == "" {
@@ -339,13 +351,20 @@ func (s *Service) UpdateScope(ctx context.Context, adminID uint, gameID, env str
 	gameID = strings.TrimSpace(gameID)
 	env = strings.TrimSpace(env)
 	if gameID == "" || env == "" {
-		return errors.New("gameId 和 env 不能为空")
+		return errorx.NewBadRequest("gameId 和 env 不能为空")
 	}
 
 	// Validate game/env exists
 	game, err := s.gameModel.FindByGameIDString(ctx, gameID)
 	if err != nil || game == nil {
-		return errors.New("游戏不存在")
+		return errorx.NewNotFound("游戏不存在")
+	}
+	bound, err := s.gameModel.HasEnvBinding(ctx, gameID, env)
+	if err != nil {
+		return err
+	}
+	if !bound {
+		return errorx.NewNotFound("游戏环境不存在")
 	}
 
 	// Validate user authorization
@@ -373,18 +392,7 @@ func (s *Service) UpdateScope(ctx context.Context, adminID uint, gameID, env str
 			}
 		}
 		if !authorized {
-			gameScopes, err := s.adminModel.GetAdminGames(ctx, adminID)
-			if err == nil {
-				for _, s := range gameScopes {
-					if s.GameID == game.ID {
-						authorized = true
-						break
-					}
-				}
-			}
-		}
-		if !authorized {
-			return errors.New("无权访问该游戏环境")
+			return errorx.NewForbidden("无权访问该游戏环境")
 		}
 	}
 

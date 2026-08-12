@@ -38,6 +38,7 @@ type AssignmentsUpdateRequest struct {
 	GameId    string   `json:"gameId"`
 	Env       string   `json:"env"`
 	Action    string   `json:"action"` // assign/clone/remove
+	TargetEnv string   `json:"target_env"`
 	Functions []string `json:"functions"`
 }
 

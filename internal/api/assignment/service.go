@@ -6,6 +6,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -101,7 +102,8 @@ func (s *Service) History(ctx context.Context, req *AssignmentsHistoryRequest) (
 
 // Update updates assignments
 func (s *Service) Update(ctx context.Context, req *AssignmentsUpdateRequest) (*AssignmentsUpdateResponse, error) {
-	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权更新分配", "admin:all", "assignments:write"); err != nil {
+	roles, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权更新分配", "admin:all", "assignments:write")
+	if err != nil {
 		return nil, err
 	}
 
@@ -111,6 +113,16 @@ func (s *Service) Update(ctx context.Context, req *AssignmentsUpdateRequest) (*A
 	}
 	env := svc.ResolveEnv(ctx, req.Env)
 	action := strings.TrimSpace(req.Action)
+	if action == "clone" {
+		targetEnv := strings.TrimSpace(req.TargetEnv)
+		if targetEnv == "" {
+			return nil, errorx.NewBadRequest("target_env不能为空")
+		}
+		if err := s.authorizeCloneTarget(ctx, gameID, targetEnv, roles); err != nil {
+			return nil, err
+		}
+		env = targetEnv
+	}
 
 	functions := normalizeFunctions(req.Functions)
 	path := assignmentsPath(s.svcCtx)
@@ -162,4 +174,27 @@ func (s *Service) Update(ctx context.Context, req *AssignmentsUpdateRequest) (*A
 		Unknown:     unknown,
 		Assignments: map[string][]string{key: accepted},
 	}, nil
+}
+
+// authorizeCloneTarget validates the explicitly requested destination scope.
+// Unlike game_id/env, target_env is an operation parameter and is never used
+// as the source request scope.
+func (s *Service) authorizeCloneTarget(ctx context.Context, gameID, targetEnv string, roles []model.Role) error {
+	if s == nil || s.svcCtx == nil || s.svcCtx.GameModel == nil {
+		return errorx.NewInternalError("游戏环境模型未初始化")
+	}
+
+	bound, err := s.svcCtx.GameModel.HasEnvBinding(ctx, gameID, targetEnv)
+	if err != nil {
+		return errorx.NewInternalError("校验目标环境失败")
+	}
+	if !bound {
+		return errorx.NewBadRequest("目标环境不存在")
+	}
+
+	admin, _, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
+	if err != nil {
+		return err
+	}
+	return utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, utils.RoleNamesFromModels(roles), gameID, targetEnv)
 }

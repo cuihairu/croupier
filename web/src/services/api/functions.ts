@@ -1,5 +1,4 @@
 import { request } from '@umijs/max';
-import { getScope } from '@/stores/scope';
 import {
   normalizeFunctionInstance,
   type FunctionInstance,
@@ -69,8 +68,6 @@ export type InvokeFunctionOptions = {
   route?: 'lb' | 'broadcast' | 'targeted' | 'hash';
   targetServiceId?: string;
   hashKey?: string;
-  gameId?: string;
-  env?: string;
   mode?: 'async';
 };
 
@@ -78,8 +75,6 @@ export type InvokeFunctionOptions = {
 // Source: croupier/internal/api/function/dto.go FunctionInvokeRequest
 type FunctionInvokeRequestDTO = {
   payload: JSONValue;
-  gameId?: string;
-  env?: string;
   route?: 'lb' | 'broadcast' | 'targeted' | 'hash';
   target_service_id?: string;
   hash_key?: string;
@@ -144,14 +139,7 @@ export type FunctionInvokeResponse = {
 };
 
 export async function listDescriptors() {
-  const scope = getScope();
-  const params: Record<string, string> = {};
-  if (scope.gameId) params.gameId = scope.gameId;
-  if (scope.env) params.env = scope.env;
-
-  const response = await request<RawFunctionDescriptor[]>('/api/v1/functions/descriptors', {
-    params,
-  });
+  const response = await request<RawFunctionDescriptor[]>('/api/v1/functions/descriptors');
   return Array.isArray(response) ? response.map(normalizeFunctionDescriptor) : [];
 }
 
@@ -185,12 +173,7 @@ export async function invokeFunction(
   payload: JSONValue,
   opts?: InvokeFunctionOptions,
 ): Promise<FunctionInvokeResponse> {
-  const scope = getScope();
   const data: FunctionInvokeRequestDTO = { payload };
-  const gameId = opts?.gameId ?? scope.gameId;
-  const env = opts?.env ?? scope.env;
-  if (gameId) data.gameId = gameId;
-  if (env) data.env = env;
   if (opts?.route) data.route = opts.route;
   if (opts?.targetServiceId) data.target_service_id = opts.targetServiceId;
   if (opts?.hashKey) data.hash_key = opts.hashKey;
@@ -209,12 +192,7 @@ export async function startTask(
   payload: JSONValue,
   opts?: InvokeFunctionOptions,
 ): Promise<FunctionInvokeResponse> {
-  const scope = getScope();
   const data: FunctionInvokeRequestDTO = { payload, mode: 'async' };
-  const gameId = opts?.gameId ?? scope.gameId;
-  const env = opts?.env ?? scope.env;
-  if (gameId) data.gameId = gameId;
-  if (env) data.env = env;
   if (opts?.route) data.route = opts.route;
   if (opts?.targetServiceId) data.target_service_id = opts.targetServiceId;
   if (opts?.hashKey) data.hash_key = opts.hashKey;
@@ -246,16 +224,11 @@ export async function fetchTaskResult(taskId: string) {
 }
 
 export async function listFunctionInstances(params: {
-  gameId?: string;
   functionId: string;
 }): Promise<{ instances: FunctionInstance[] }> {
   const res = await request<{ items?: RawFunctionInstance[]; instances?: RawFunctionInstance[] }>(
     `/api/v1/functions/${encodeURIComponent(params.functionId)}/instances`,
-    {
-      params: {
-        game_id: params.gameId,
-      },
-    },
+    { method: 'GET' },
   );
   const rawItems = res?.items || res?.instances || [];
   return { instances: rawItems.map(normalizeFunctionInstance) };

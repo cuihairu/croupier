@@ -179,6 +179,19 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
 
+	// game_envs is the authoritative scope and routing registry. Older
+	// deployments stored environments only in games.envs JSON, so backfill
+	// missing rows before any authenticated request can resolve a scope.
+	databaseNameFor := router.DefaultGameDBName
+	if dbRouter != nil {
+		databaseNameFor = dbRouter.NameForGame
+	}
+	if created, err := gameModel.BackfillEnvBindings(context.Background(), databaseNameFor); err != nil {
+		panic(fmt.Sprintf("failed to backfill game environment bindings: %v", err))
+	} else if created > 0 {
+		slog.Default().Info("backfilled game environment bindings", "created", created)
+	}
+
 	// Page Spec models
 	pageSpecModel := model.NewPageSpecModel(db)
 	publishedPageSpecModel := model.NewPublishedPageSpecModel(db)
@@ -1136,11 +1149,10 @@ func (h *DBHealth) Ping() error {
 
 // AuthMiddleware 认证中间件实现
 type AuthMiddleware struct {
-	svcCtx               *ServiceContext
-	allowPaths           map[string]struct{}
-	allowPref            []string
-	publicReadPrefixes   []string
-	publicReadExactPaths map[string]struct{}
+	svcCtx             *ServiceContext
+	allowPaths         map[string]struct{}
+	allowPref          []string
+	publicReadPrefixes []string
 }
 
 // NewAuthMiddlewareImpl 创建认证中间件实例
@@ -1157,12 +1169,7 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 			"/api/v1/auth/login",
 		},
 		publicReadPrefixes: []string{
-			"/api/v1/configs",
-			"/api/v1/registry",              // 公开访问：注册中心（agents、functions）
-			"/api/v1/functions/descriptors", // 公开访问：函数描述符列表
-		},
-		publicReadExactPaths: map[string]struct{}{
-			"/api/v1/functions": {}, // 公开访问：函数列表（精确匹配，子路径需认证）
+			"/api/v1/registry", // 公开访问：注册中心（agents、functions）
 		},
 	}
 }
@@ -1243,10 +1250,6 @@ func (m *AuthMiddleware) shouldBypass(r *http.Request) bool {
 		}
 	}
 	if r.Method == http.MethodGet {
-		// 精确路径匹配
-		if _, ok := m.publicReadExactPaths[path]; ok {
-			return true
-		}
 		// 前缀匹配
 		for _, prefix := range m.publicReadPrefixes {
 			if strings.HasPrefix(path, prefix) {

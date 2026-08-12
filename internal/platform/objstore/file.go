@@ -109,11 +109,17 @@ func (s *fileStore) List(_ context.Context, prefix, marker, delimiter string, li
 		Prefixes: make([]string, 0),
 	}
 
-	// 构建搜索路径
-	searchPath := filepath.Join(s.base, filepath.FromSlash(prefix))
+	// Normalize both values before touching the filesystem. List used to join
+	// the raw prefix directly, which let "../" escape the configured base.
+	prefix = sanitizeKey(prefix)
+	marker = sanitizeKey(marker)
+	searchPath, err := s.validateAndCleanPath(filepath.Join(s.base, filepath.FromSlash(prefix)))
+	if err != nil {
+		return ListResult{}, err
+	}
 
 	// 遍历目录
-	err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
