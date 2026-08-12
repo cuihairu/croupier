@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+
+	taskapi "github.com/cuihairu/croupier/internal/api/task"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {
@@ -170,4 +172,42 @@ func TestService_List_FiltersByFunction(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Equal(t, 1, len(resp.Calls))
 	assert.Equal(t, "player.ban", resp.Calls[0].FunctionID)
+}
+
+func TestFromTask(t *testing.T) {
+	tests := []struct {
+		name   string
+		task   taskapi.Item
+		wantID string
+		wantSt string
+	}{
+		{
+			name:   "with status",
+			task:   taskapi.Item{ID: "t-1", FunctionID: "player.ban", Status: "running"},
+			wantID: "t-1",
+			wantSt: "running",
+		},
+		{
+			name:   "empty status defaults to unknown",
+			task:   taskapi.Item{ID: "t-2", FunctionID: "player.kick", Status: ""},
+			wantID: "t-2",
+			wantSt: "unknown",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := fromTask(tt.task)
+			assert.Equal(t, tt.wantID, result.ID)
+			assert.Equal(t, tt.wantID, result.TaskID)
+			assert.Equal(t, tt.task.FunctionID, result.FunctionID)
+			assert.Equal(t, tt.wantSt, result.Status)
+			assert.Equal(t, tt.task.GameID, result.GameID)
+			assert.Equal(t, tt.task.Env, result.Env)
+			assert.Equal(t, tt.task.AgentID, result.AgentID)
+			assert.Equal(t, tt.task.StartedAt, result.StartedAt)
+			assert.Equal(t, tt.task.FinishedAt, result.FinishedAt)
+			assert.Equal(t, tt.task.Error, result.ErrorMsg)
+			assert.Equal(t, tt.task.CreatedAt, result.CreatedAt)
+		})
+	}
 }

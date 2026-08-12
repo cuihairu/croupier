@@ -107,9 +107,6 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		// Proposals are materialized per game/environment. They must use the
 		// same resolved scope as registration, pages, and console execution.
 		registerProposalRoutes(scoped.Group("/proposals"), serverCtx)
-		// Proposals are materialized per game/environment. They must use the
-		// same resolved scope as registration, pages, and console execution.
-		registerProposalRoutes(scoped.Group("/proposals"), serverCtx)
 		registerFunctionRoutes(scoped.Group("/functions"), serverCtx)
 		registerFunctionCallRoutes(scoped.Group("/function-calls"), serverCtx)
 		registerFunctionMetadataRoutes(scoped.Group("/metadata"), serverCtx)
@@ -126,7 +123,6 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerPlayerRoutes(scoped.Group("/players"), serverCtx)
 		registerTaskRoutes(scoped.Group("/tasks"), serverCtx)
 		registerOpenAPISourceRoutes(scoped.Group("/openapi"), serverCtx)
-		registerAuditRoutes(v1, serverCtx)
 	}
 }
 
