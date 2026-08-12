@@ -781,6 +781,34 @@ func TestDispatcher_pickAgentWithRouting_NilMetadata(t *testing.T) {
 	}
 }
 
+func TestDispatcher_pickAgentWithRouting_FiltersGameEnvironment(t *testing.T) {
+	d := NewDispatcher(nil)
+	now := time.Now().Add(time.Hour)
+	for _, agent := range []*reg.AgentSession{
+		{AgentID: "agent-other-game", GameID: "game-b", Env: "prod", ExpireAt: now, Functions: map[string]reg.FunctionMeta{"test-func": {Enabled: true}}},
+		{AgentID: "agent-other-env", GameID: "game-a", Env: "dev", ExpireAt: now, Functions: map[string]reg.FunctionMeta{"test-func": {Enabled: true}}},
+		{AgentID: "agent-target", GameID: "game-a", Env: "prod", ExpireAt: now, Functions: map[string]reg.FunctionMeta{"test-func": {Enabled: true}}},
+	} {
+		d.store.UpsertAgent(agent)
+	}
+
+	selected, err := d.pickAgentWithRouting("test-func", map[string]string{"game_id": "game-a", "env": "prod"})
+	if err != nil {
+		t.Fatalf("pickAgentWithRouting() error = %v", err)
+	}
+	if selected.AgentID != "agent-target" {
+		t.Fatalf("selected %s, want agent-target", selected.AgentID)
+	}
+}
+
+func TestDispatcher_pickAgentWithRouting_RejectsPartialScope(t *testing.T) {
+	d := NewDispatcher(nil)
+	_, err := d.pickAgentWithRouting("test-func", map[string]string{"game_id": "game-a"})
+	if err == nil {
+		t.Fatal("expected partial game scope to be rejected")
+	}
+}
+
 // TestDispatcher_TaskAgentID_NotFound 测试未找到任务地址
 func TestDispatcher_TaskAgentID_NotFound(t *testing.T) {
 	d := NewDispatcher(nil)

@@ -129,6 +129,201 @@ func TestIsMissingTableErr(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// determineStatus
+// ---------------------------------------------------------------------------
+
+func TestDetermineStatus(t *testing.T) {
+	tests := []struct {
+		name      string
+		contracts []*model.FunctionContract
+		semantics *model.CapabilitySemantics
+		want      string
+	}{
+		{
+			name:      "no contracts",
+			contracts: nil,
+			semantics: nil,
+			want:      "not_executable",
+		},
+		{
+			name:      "empty contracts",
+			contracts: []*model.FunctionContract{},
+			semantics: nil,
+			want:      "not_executable",
+		},
+		{
+			name:      "has contracts but no semantics",
+			contracts: []*model.FunctionContract{{FunctionID: "player.list"}},
+			semantics: nil,
+			want:      "pending",
+		},
+		{
+			name:      "has contracts with conflicts",
+			contracts: []*model.FunctionContract{{FunctionID: "player.list"}},
+			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[{"field":"a"}]`)},
+			want:      "conflict",
+		},
+		{
+			name:      "has contracts without conflicts",
+			contracts: []*model.FunctionContract{{FunctionID: "player.list"}},
+			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[]`)},
+			want:      "pending",
+		},
+		{
+			name: "has query and identity contracts",
+			contracts: []*model.FunctionContract{
+				{FunctionID: "player.list", Capability: "collection_query"},
+				{FunctionID: "player.get", Capability: "item_query"},
+			},
+			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[]`)},
+			want:      "identified",
+		},
+		{
+			name: "has only query contract",
+			contracts: []*model.FunctionContract{
+				{FunctionID: "player.list", Capability: "collection_query"},
+			},
+			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[]`)},
+			want:      "pending",
+		},
+		{
+			name: "has only identity contract",
+			contracts: []*model.FunctionContract{
+				{FunctionID: "player.get", Capability: "item_query"},
+			},
+			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[]`)},
+			want:      "pending",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := determineStatus(tt.contracts, tt.semantics)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildFunctionInfos
+// ---------------------------------------------------------------------------
+
+func TestBuildFunctionInfos(t *testing.T) {
+	tests := []struct {
+		name      string
+		contracts []*model.FunctionContract
+		wantLen   int
+	}{
+		{
+			name:      "nil contracts",
+			contracts: nil,
+			wantLen:   0,
+		},
+		{
+			name:      "empty contracts",
+			contracts: []*model.FunctionContract{},
+			wantLen:   0,
+		},
+		{
+			name: "single contract",
+			contracts: []*model.FunctionContract{
+				{FunctionID: "player.list", Version: "1.0", Capability: "collection_query", Execution: "sync", Risk: "low", Enabled: true, Source: "test"},
+			},
+			wantLen: 1,
+		},
+		{
+			name: "multiple contracts",
+			contracts: []*model.FunctionContract{
+				{FunctionID: "player.list", Capability: "collection_query"},
+				{FunctionID: "player.get", Capability: "item_query"},
+			},
+			wantLen: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildFunctionInfos(tt.contracts)
+			assert.Len(t, result, tt.wantLen)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildSemanticsInfo
+// ---------------------------------------------------------------------------
+
+func TestBuildSemanticsInfo(t *testing.T) {
+	tests := []struct {
+		name      string
+		semantics *model.CapabilitySemantics
+		wantNil   bool
+	}{
+		{
+			name:      "nil semantics",
+			semantics: nil,
+			wantNil:   true,
+		},
+		{
+			name:      "empty semantics",
+			semantics: &model.CapabilitySemantics{},
+			wantNil:   false,
+		},
+		{
+			name: "semantics with identity field",
+			semantics: &model.CapabilitySemantics{
+				IdentityField:     "id",
+				IdentityFieldType: "string",
+				IdentityPath:      "/id",
+				Source:            "test",
+				SourceDigest:      "abc123",
+			},
+			wantNil: false,
+		},
+		{
+			name: "semantics with collection query",
+			semantics: &model.CapabilitySemantics{
+				CollectionQueryID: 1,
+				CollectionPath:    "/items",
+				PageFieldName:     "page",
+				PageSizeFieldName: "pageSize",
+				ItemsFieldName:    "items",
+				TotalFieldName:    "total",
+			},
+			wantNil: false,
+		},
+		{
+			name: "semantics with actions",
+			semantics: &model.CapabilitySemantics{
+				Actions: []byte(`[{"functionId":"player.ban","subject":"resource_item"}]`),
+			},
+			wantNil: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildSemanticsInfo(tt.semantics)
+			if tt.wantNil {
+				assert.Nil(t, result)
+			} else {
+				require.NotNil(t, result)
+				if tt.semantics.IdentityField != "" {
+					assert.True(t, result.HasIdentity)
+					assert.Equal(t, tt.semantics.IdentityField, result.IdentityField)
+				}
+				if tt.semantics.CollectionQueryID > 0 {
+					assert.True(t, result.HasCollection)
+				}
+				if tt.semantics.Actions != nil {
+					assert.True(t, result.HasActions)
+				}
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // compactActionSemantics
 // ---------------------------------------------------------------------------
 
