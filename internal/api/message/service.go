@@ -21,6 +21,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 
 // List returns the list of messages for the current user.
 func (s *Service) List(ctx context.Context, username string, req *MessagesListRequest) (*MessagesListResponse, error) {
+	if s.svcCtx.MessageModel == nil {
+		return &MessagesListResponse{Items: []MessageItem{}, Total: 0, Page: req.Page, PageSize: req.PageSize}, nil
+	}
 	opts := model.ListMessagesOptions{
 		Page:     req.Page,
 		PageSize: req.PageSize,
@@ -49,6 +52,9 @@ func (s *Service) List(ctx context.Context, username string, req *MessagesListRe
 
 // Send sends a new message
 func (s *Service) Send(ctx context.Context, req *MessageSendRequest) (*MessageSendResponse, error) {
+	if s.svcCtx.MessageModel == nil {
+		return nil, errors.New("消息服务未初始化")
+	}
 	to := strings.TrimSpace(req.To)
 	if to == "" {
 		return nil, errors.New("消息接收者不能为空")
@@ -87,6 +93,9 @@ func (s *Service) Send(ctx context.Context, req *MessageSendRequest) (*MessageSe
 
 // Detail returns the details of a message owned by the current user.
 func (s *Service) Detail(ctx context.Context, username string, req *MessageDetailRequest) (*MessageDetailResponse, error) {
+	if s.svcCtx.MessageModel == nil {
+		return nil, errors.New("消息服务未初始化")
+	}
 	id, err := utils.ParseUintID(req.ID, "消息ID")
 	if err != nil {
 		return nil, err
@@ -106,6 +115,9 @@ func (s *Service) Detail(ctx context.Context, username string, req *MessageDetai
 
 // Read marks a message as read, verifying ownership.
 func (s *Service) Read(ctx context.Context, username string, req *MessageReadRequest) (*MessageReadResponse, error) {
+	if s.svcCtx.MessageModel == nil {
+		return nil, errors.New("消息服务未初始化")
+	}
 	id, err := utils.ParseUintID(req.ID, "消息ID")
 	if err != nil {
 		return nil, err
@@ -134,6 +146,9 @@ func (s *Service) Read(ctx context.Context, username string, req *MessageReadReq
 
 // UnreadCount returns the count of unread messages for the current user.
 func (s *Service) UnreadCount(ctx context.Context, username string, req *MessagesUnreadCountRequest) (*MessagesUnreadCountResponse, error) {
+	if s.svcCtx.MessageModel == nil {
+		return &MessagesUnreadCountResponse{Count: 0}, nil
+	}
 	count, err := s.svcCtx.MessageModel.CountUnread(ctx, strings.TrimSpace(username))
 	if err != nil {
 		return nil, err
@@ -146,6 +161,9 @@ func (s *Service) UnreadCount(ctx context.Context, username string, req *Message
 
 // Stream returns recent messages for the current user (SSE).
 func (s *Service) Stream(ctx context.Context, username string, req *StreamMessagesRequest) (*StreamMessagesResponse, error) {
+	if s.svcCtx.MessageModel == nil {
+		return &StreamMessagesResponse{Items: []MessageItem{}}, nil
+	}
 	messages, err := s.svcCtx.MessageModel.Recent(ctx, 20, strings.TrimSpace(username))
 	if err != nil {
 		return nil, err
