@@ -148,6 +148,8 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         onChange?.(fallback);
       }
     }
+    // Scope is validated once games are loaded — pages can safely make API calls
+    markScopeReady();
   }, [games, gameState, isGameControlled, onChange]);
 
   useEffect(() => {
@@ -165,8 +167,6 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         onEnvChange?.(fallback);
       }
     }
-    // Scope is now validated — pages can safely make API calls
-    markScopeReady();
   }, [envOptions, envState, envValue, isEnvControlled, onEnvChange]);
 
   const handleGameChange = (next?: string) => {
