@@ -775,8 +775,8 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 			"game_id":          req.GameId,
 			"env":              req.Env,
 		}
-		// 注册：providerID=sessionID, serviceID=req.ServiceId, addr=req.ServiceId（临时）
-		h.store.Register(sessionID, req.ServiceId, req.ServiceId, req.Version, funcs, metadata)
+		// Use empty addr here; the TCP onConnect path sets the real address.
+		h.store.Register(sessionID, req.ServiceId, "", req.Version, funcs, metadata)
 	}
 
 	h.logger.Info("Provider connected via TCP session",

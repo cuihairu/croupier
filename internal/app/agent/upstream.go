@@ -61,6 +61,20 @@ func (c *UpstreamClient) Connected() bool {
 	return c != nil && c.client != nil && c.client.Connected()
 }
 
+func (c *UpstreamClient) GameID() string {
+	if c == nil {
+		return ""
+	}
+	return c.gameID
+}
+
+func (c *UpstreamClient) Env() string {
+	if c == nil {
+		return ""
+	}
+	return c.env
+}
+
 func (c *UpstreamClient) SendTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error {
 	if c == nil || c.client == nil {
 		return fmt.Errorf("upstream client is nil")

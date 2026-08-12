@@ -50,8 +50,8 @@ type FunctionCopyRequest struct {
 
 // FunctionCopyResponse represents the response of a function copy operation
 type FunctionCopyResponse struct {
-	FunctionId string `json:"function_id"`
-	NewId      string `json:"new_id"`
+	FunctionId string `json:"functionId"`
+	NewId      string `json:"newId"`
 }
 
 // FunctionDescriptor represents the input/output schema of a function
@@ -136,8 +136,8 @@ type FunctionInvokeRequest struct {
 	Env             string            `json:"env"`
 	Mode            string            `json:"mode"`
 	Route           string            `json:"route"`
-	TargetServiceID string            `json:"target_service_id"`
-	HashKey         string            `json:"hash_key"`
+	TargetServiceID string            `json:"targetServiceId"`
+	HashKey         string            `json:"hashKey"`
 	Metadata        map[string]string `json:"-"`
 }
 
@@ -146,9 +146,9 @@ type FunctionInvokeResponse struct {
 	TaskId           string          `json:"taskId"`
 	TaskID           string          `json:"taskID,omitempty"`
 	Result           json.RawMessage `json:"result,omitempty"`
-	ApprovalID       string          `json:"approval_id,omitempty"`
-	ApprovalRequired bool            `json:"approval_required,omitempty"`
-	ApprovalWorkflow string          `json:"approval_workflow,omitempty"`
+	ApprovalID       string          `json:"approvalId,omitempty"`
+	ApprovalRequired bool            `json:"approvalRequired,omitempty"`
+	ApprovalWorkflow string          `json:"approvalWorkflow,omitempty"`
 	// ExecutionMetadata is server-internal dispatch context for audit/tracing.
 	// It is intentionally not serialized to API clients.
 	ExecutionMetadata map[string]string `json:"-"`
@@ -209,14 +209,14 @@ type FunctionPublishResponse struct {
 // FunctionWarningItem represents a warning for a function
 type FunctionWarningItem struct {
 	Key        string `json:"key"`
-	AgentID    string `json:"agent_id"`
-	FunctionID string `json:"function_id"`
+	AgentID    string `json:"agentId"`
+	FunctionID string `json:"functionId"`
 	Version    string `json:"version"`
 	Code       string `json:"code"`
 	Message    string `json:"message"`
 	Count      int    `json:"count"`
-	FirstSeen  string `json:"first_seen"`
-	LastSeen   string `json:"last_seen"`
+	FirstSeen  string `json:"firstSeen"`
+	LastSeen   string `json:"lastSeen"`
 }
 
 // FunctionWarningsRequest represents a request for function warnings

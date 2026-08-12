@@ -150,10 +150,13 @@ func (a *App) StartLocalServer() error {
 	}
 	tcpServer.SetLocalHandler(a.localHandler)
 	tcpServer.SetOnConnect(func(session *agent.ProviderSession) {
-		a.store.Register(session.SessionID, session.ServiceID, session.ServiceID, session.Version, session.Functions, map[string]string{
+		addr := session.Conn().RemoteAddr()
+		a.store.Register(session.SessionID, session.ServiceID, addr, session.Version, session.Functions, map[string]string{
 			"sdk_language": session.SDKLanguage,
 			"sdk_version":  session.SDKVersion,
 			"sdk_name":     session.SDKName,
+			"game_id":      a.upstream.GameID(),
+			"env":          a.upstream.Env(),
 		})
 	})
 	tcpServer.SetOnDisconnect(func(session *agent.ProviderSession) {
