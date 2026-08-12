@@ -55,7 +55,7 @@ func appendPermissionIDs(permissionIDs []string, values ...string) []string {
 		// 溢出，返回原切片
 		return permissionIDs
 	}
-	totalLen := lenA + lenB
+	totalLen := lenA + lenB // lgtm[go/allocation-size-overflow] — overflow guarded above
 
 	seen := make(map[string]struct{}, totalLen)
 	out := make([]string, 0, totalLen)
