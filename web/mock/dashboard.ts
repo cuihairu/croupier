@@ -291,7 +291,7 @@ export default {
   },
 
   'GET /api/v1/console/pages/:pageKey': (req: Request, res: Response) => {
-    const { pageKey } = req.params;
+    const pageKey = req.params.pageKey as string;
     const page = findPage(pageKey);
     if (!page) {
       res.status(404).send({ error: 'not_found', message: `page not found: ${pageKey}` });
@@ -629,7 +629,7 @@ export default {
   },
 
   'GET /api/v1/page-specs/:pageKey': (req: Request, res: Response) => {
-    const { pageKey } = req.params;
+    const pageKey = req.params.pageKey as string;
     const page = findPage(pageKey);
     if (!page) {
       res.status(404).send({ error: 'not_found', message: `page not found: ${pageKey}` });
