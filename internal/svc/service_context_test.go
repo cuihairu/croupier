@@ -1418,6 +1418,53 @@ func TestMin(t *testing.T) {
 }
 
 // ============================================================================
+// Tests for isDevelopmentConfig
+// ============================================================================
+
+func TestIsDevelopmentConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		mode     string
+		envVar   string
+		modeVar  string
+		expected bool
+	}{
+		{"dev mode", "dev", "", "", true},
+		{"development mode", "development", "", "", true},
+		{"debug mode", "debug", "", "", true},
+		{"prod mode", "prod", "", "prod", false},
+		{"production mode", "production", "", "production", false},
+		{"empty mode", "", "", "", true},
+		{"env dev", "", "dev", "", true},
+		{"env development", "", "development", "", true},
+		{"env prod", "", "prod", "prod", false},
+		{"mode prod", "", "", "prod", false},
+		{"mode production", "", "", "production", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.Config{}
+			cfg.Server.Mode = tt.mode
+
+			if tt.envVar != "" {
+				t.Setenv("CROUPIER_ENV", tt.envVar)
+			} else {
+				t.Setenv("CROUPIER_ENV", "")
+			}
+			if tt.modeVar != "" {
+				t.Setenv("CROUPIER_MODE", tt.modeVar)
+			} else {
+				t.Setenv("CROUPIER_MODE", "")
+			}
+
+			result := isDevelopmentConfig(cfg)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// ============================================================================
 // Tests for Auth Middleware
 // ============================================================================
 
