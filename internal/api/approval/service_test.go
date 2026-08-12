@@ -19,6 +19,7 @@ import (
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
 )
 
@@ -429,4 +430,46 @@ func digestApprovalRaw(raw []byte) string {
 	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
+}
+
+// ---------------------------------------------------------------------------
+// requireApprovalScope tests
+// ---------------------------------------------------------------------------
+
+func TestRequireApprovalScope_EmptyScope(t *testing.T) {
+	scope := svc.GameScope{}
+	err := requireApprovalScope(scope, "game", "env")
+	assert.NoError(t, err)
+}
+
+func TestRequireApprovalScope_MatchingScope(t *testing.T) {
+	scope := svc.GameScope{GameID: "game", Env: "env"}
+	err := requireApprovalScope(scope, "game", "env")
+	assert.NoError(t, err)
+}
+
+func TestRequireApprovalScope_MatchingCaseInsensitive(t *testing.T) {
+	scope := svc.GameScope{GameID: "GAME", Env: "ENV"}
+	err := requireApprovalScope(scope, "game", "env")
+	assert.NoError(t, err)
+}
+
+func TestRequireApprovalScope_MismatchedGameID(t *testing.T) {
+	scope := svc.GameScope{GameID: "other", Env: "env"}
+	err := requireApprovalScope(scope, "game", "env")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "无权访问该审批")
+}
+
+func TestRequireApprovalScope_MismatchedEnv(t *testing.T) {
+	scope := svc.GameScope{GameID: "game", Env: "prod"}
+	err := requireApprovalScope(scope, "game", "env")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "无权访问该审批")
+}
+
+func TestRequireApprovalScope_WhitespaceTrimmed(t *testing.T) {
+	scope := svc.GameScope{GameID: "game", Env: "env"}
+	err := requireApprovalScope(scope, "  game  ", "  env  ")
+	assert.NoError(t, err)
 }

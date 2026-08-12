@@ -10,6 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 )
 
 // ---------------------------------------------------------------------------
@@ -1563,4 +1564,234 @@ func TestDraftRevisionConflict(t *testing.T) {
 	err := draftRevisionConflict(1, 2)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "page draft revision conflict")
+}
+
+// ---------------------------------------------------------------------------
+// pageSpecFromProposalSnapshot
+// ---------------------------------------------------------------------------
+
+func TestPageSpecFromProposalSnapshotValid(t *testing.T) {
+	pageSpec := spec.PageSpec{PageKey: "test", Type: spec.PageTypeResource}
+	proposal := model.PageProposal{PageSpec: datatypes.JSON(mustMarshal(t, pageSpec))}
+	raw := mustMarshal(t, proposal)
+	result, err := pageSpecFromProposalSnapshot(raw)
+	require.NoError(t, err)
+	assert.Equal(t, "test", result.PageKey)
+}
+
+func TestPageSpecFromProposalSnapshotInvalidJSON(t *testing.T) {
+	_, err := pageSpecFromProposalSnapshot(json.RawMessage(`invalid`))
+	assert.Error(t, err)
+}
+
+func TestPageSpecFromProposalSnapshotEmptyPageSpec(t *testing.T) {
+	proposal := model.PageProposal{}
+	raw := mustMarshal(t, proposal)
+	result, err := pageSpecFromProposalSnapshot(raw)
+	// When PageSpec is null in JSON, it becomes empty after unmarshal
+	// The function will return an empty PageSpec without error
+	require.NoError(t, err)
+	assert.Empty(t, result.PageKey)
+}
+
+// ---------------------------------------------------------------------------
+// pageSpecFromModel
+// ---------------------------------------------------------------------------
+
+func TestPageSpecFromModelValid(t *testing.T) {
+	pageSpec := spec.PageSpec{PageKey: "test", Type: spec.PageTypeResource}
+	page := &model.PageSpec{
+		PageKey:  "test",
+		Type:     "resource",
+		SpecJSON: string(mustMarshal(t, pageSpec)),
+	}
+	result, err := pageSpecFromModel(page)
+	require.NoError(t, err)
+	assert.Equal(t, "test", result.PageKey)
+}
+
+func TestPageSpecFromModelNil(t *testing.T) {
+	_, err := pageSpecFromModel(nil)
+	assert.Error(t, err)
+}
+
+func TestPageSpecFromModelEmptySpecJSON(t *testing.T) {
+	page := &model.PageSpec{SpecJSON: ""}
+	_, err := pageSpecFromModel(page)
+	assert.Error(t, err)
+}
+
+func TestPageSpecFromModelInvalidJSON(t *testing.T) {
+	page := &model.PageSpec{SpecJSON: "invalid"}
+	_, err := pageSpecFromModel(page)
+	assert.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// normalizePageSpec
+// ---------------------------------------------------------------------------
+
+func TestNormalizePageSpecWhitespace(t *testing.T) {
+	page := spec.PageSpec{
+		PageKey:     "  test  ",
+		ResourceKey: "  player  ",
+		Icon:        "  icon  ",
+		Category: spec.PageCategorySpec{
+			Key:    "  cat  ",
+			Labels: map[string]string{"zh-CN": "  玩家  "},
+		},
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "  run  ", FunctionID: "  player.ban  "},
+		},
+	}
+	result := normalizePageSpec(page)
+	assert.Equal(t, "test", result.PageKey)
+	assert.Equal(t, "player", result.ResourceKey)
+	assert.Equal(t, "icon", result.Icon)
+	assert.Equal(t, "cat", result.Category.Key)
+	assert.Equal(t, "玩家", result.Category.Labels["zh-CN"])
+	assert.Equal(t, "run", result.Bindings[0].ID)
+	assert.Equal(t, "player.ban", result.Bindings[0].FunctionID)
+}
+
+// ---------------------------------------------------------------------------
+// samePageSpec
+// ---------------------------------------------------------------------------
+
+func TestSamePageSpecEqual(t *testing.T) {
+	left := spec.PageSpec{PageKey: "test", Type: spec.PageTypeResource}
+	right := spec.PageSpec{PageKey: "test", Type: spec.PageTypeResource}
+	assert.True(t, samePageSpec(left, right))
+}
+
+func TestSamePageSpecDifferent(t *testing.T) {
+	left := spec.PageSpec{PageKey: "test", Type: spec.PageTypeResource}
+	right := spec.PageSpec{PageKey: "test", Type: spec.PageTypeOperation}
+	assert.False(t, samePageSpec(left, right))
+}
+
+func TestSamePageSpecBothEmpty(t *testing.T) {
+	left := spec.PageSpec{}
+	right := spec.PageSpec{}
+	assert.True(t, samePageSpec(left, right))
+}
+
+// ---------------------------------------------------------------------------
+// applyPageSpecToModel
+// ---------------------------------------------------------------------------
+
+func TestApplyPageSpecToModel(t *testing.T) {
+	page := &model.PageSpec{}
+	pageSpec := spec.PageSpec{
+		PageKey:     "test",
+		Type:        spec.PageTypeResource,
+		ResourceKey: "player",
+		Category: spec.PageCategorySpec{
+			Key:    "player",
+			Labels: map[string]string{"zh-CN": "玩家"},
+		},
+		Order: 10,
+		Icon:  "icon-name",
+		Title: map[string]string{"zh-CN": "测试"},
+	}
+	err := applyPageSpecToModel(page, pageSpec)
+	require.NoError(t, err)
+	assert.Equal(t, "test", page.PageKey)
+	assert.Equal(t, "resource", page.Type)
+	assert.Equal(t, "player", page.ResourceKey)
+	assert.Equal(t, 10, page.Order)
+	assert.Equal(t, "icon-name", page.Icon)
+}
+
+// ---------------------------------------------------------------------------
+// marshalPageSpec
+// ---------------------------------------------------------------------------
+
+func TestMarshalPageSpec(t *testing.T) {
+	page := spec.PageSpec{
+		PageKey: "test",
+		Type:    spec.PageTypeResource,
+	}
+	result, err := marshalPageSpec(page)
+	require.NoError(t, err)
+	assert.Contains(t, result, "test")
+	assert.Contains(t, result, "resource")
+}
+
+// ---------------------------------------------------------------------------
+// pageSpecFromProposalModel more tests
+// ---------------------------------------------------------------------------
+
+func TestPageSpecFromProposalModelInvalidJSON(t *testing.T) {
+	proposal := &model.PageProposal{PageSpec: datatypes.JSON(`invalid`)}
+	_, err := pageSpecFromProposalModel(proposal)
+	assert.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// decodeActionListField
+// ---------------------------------------------------------------------------
+
+func TestDecodeActionListFieldValid(t *testing.T) {
+	raw := json.RawMessage(`[{"key":"edit","title":{"zh-CN":"编辑"}}]`)
+	var actions []spec.ActionSpec
+	err := decodeActionListField(raw, "test", &actions)
+	require.NoError(t, err)
+	assert.Len(t, actions, 1)
+	assert.Equal(t, "edit", actions[0].Key)
+}
+
+func TestDecodeActionListFieldEmpty(t *testing.T) {
+	var actions []spec.ActionSpec
+	err := decodeActionListField(nil, "test", &actions)
+	assert.NoError(t, err)
+}
+
+func TestDecodeActionListFieldInvalidJSON(t *testing.T) {
+	var actions []spec.ActionSpec
+	err := decodeActionListField(json.RawMessage(`invalid`), "test.field", &actions)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "test.field")
+}
+
+// ---------------------------------------------------------------------------
+// applyConflictField more cases
+// ---------------------------------------------------------------------------
+
+func TestApplyConflictFieldListViewSortSpec(t *testing.T) {
+	page := spec.PageSpec{}
+	sortSpec := &spec.SortSpec{Field: "name", Order: "asc"}
+	raw, _ := json.Marshal(sortSpec)
+	err := applyConflictField(&page, "resource.listView.defaultSort", raw)
+	require.NoError(t, err)
+	assert.NotNil(t, page.Resource.ListView.DefaultSort)
+}
+
+func TestApplyConflictFieldListViewFilters(t *testing.T) {
+	page := spec.PageSpec{}
+	filters := []spec.FilterSpec{{Key: "status"}}
+	raw, _ := json.Marshal(filters)
+	err := applyConflictField(&page, "resource.listView.filters", raw)
+	require.NoError(t, err)
+	assert.Len(t, page.Resource.ListView.Filters, 1)
+}
+
+func TestApplyConflictFieldListViewPagination(t *testing.T) {
+	page := spec.PageSpec{}
+	pagination := &spec.PaginationSpec{Enabled: true, DefaultSize: 20}
+	raw, _ := json.Marshal(pagination)
+	err := applyConflictField(&page, "resource.listView.pagination", raw)
+	require.NoError(t, err)
+	assert.NotNil(t, page.Resource.ListView.Pagination)
+}
+
+// ---------------------------------------------------------------------------
+// helper mustMarshal
+// ---------------------------------------------------------------------------
+
+func mustMarshal(t *testing.T, v interface{}) json.RawMessage {
+	t.Helper()
+	raw, err := json.Marshal(v)
+	require.NoError(t, err)
+	return raw
 }
