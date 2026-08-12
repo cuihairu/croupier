@@ -2,12 +2,12 @@ packages:
   - '.'
 
 allowBuilds:
-  '@scarf/scarf': set this to true or false
+  '@scarf/scarf': false
   core-js: false
   core-js-pure: false
   es5-ext: false
   esbuild: true
-  unrs-resolver: set this to true or false
+  unrs-resolver: true
 
 overrides:
   minimatch: '>=5.0.0'
