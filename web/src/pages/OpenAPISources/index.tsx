@@ -39,6 +39,7 @@ import {
   uploadOpenAPISourceFile,
 } from '@/services/api/openapi';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
+import { isScopeReady, subscribeScope } from '@/stores/scope';
 import type { Diagnostic } from '@/types/dashboard';
 
 type ApiErrorLike = {
@@ -161,7 +162,16 @@ export default function OpenAPISourcesPage() {
   const [bindingProviderId, setBindingProviderId] = useState('');
   const [bindingId, setBindingId] = useState('');
   const [sourceDiagnostics, setSourceDiagnostics] = useState<Diagnostic[]>([]);
+  const [scopeKey, setScopeKey] = useState('');
   const isUpdatingSource = sourceModalMode === 'update';
+
+  // Subscribe to scope changes so we reload when game/env changes.
+  useEffect(() => {
+    const off = subscribeScope((scope) => {
+      setScopeKey(`${scope.gameId || ''}:${scope.env || ''}`);
+    });
+    return off;
+  }, []);
 
   const loadSources = async () => {
     setLoading(true);
@@ -190,9 +200,11 @@ export default function OpenAPISourcesPage() {
   };
 
   useEffect(() => {
+    // Skip initial request until GameSelector has validated the scope.
+    if (!isScopeReady()) return;
     loadSources();
     loadFunctions();
-  }, []);
+  }, [scopeKey]);
 
   const functionOptions = useMemo(
     () => functions.map((fn) => ({ label: functionLabel(fn), value: fn.id })),
