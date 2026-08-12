@@ -198,14 +198,14 @@ type FunctionInstancesAllResponse struct {
 
 // RuntimeFunctionInstance captures one function registration on a runtime provider.
 type RuntimeFunctionInstance struct {
-	FunctionID string `json:"function_id"`
-	AgentID    string `json:"agent_id"`
-	ProviderID string `json:"provider_id,omitempty"`
+	FunctionID string `json:"functionId"`
+	AgentID    string `json:"agentId"`
+	ProviderID string `json:"providerId,omitempty"`
 	Addr       string `json:"addr,omitempty"`
 	Version    string `json:"version,omitempty"`
-	LastSeen   string `json:"last_seen,omitempty"`
+	LastSeen   string `json:"lastSeen,omitempty"`
 	Healthy    bool   `json:"healthy"`
-	GameID     string `json:"game_id,omitempty"`
+	GameID     string `json:"gameId,omitempty"`
 	Env        string `json:"env,omitempty"`
 }
 
