@@ -239,7 +239,7 @@ export default function PageStudio() {
       setDiffVisible(true);
       setDiffLoading(true);
       try {
-        const [_, diff] = await Promise.all([loadDraftDetail(pageKey), getDiff(pageKey)]);
+        const [, diff] = await Promise.all([loadDraftDetail(pageKey), getDiff(pageKey)]);
         setDiffData(diff);
       } catch {
         message.error('加载 Diff 失败');
