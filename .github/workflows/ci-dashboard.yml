@@ -209,7 +209,8 @@ jobs:
         run: |
           pnpm run build
           test -s dist/index.html
-          test "$(find dist -maxdepth 1 -name 'umi.*.js' -type f -size +100k | wc -l)" -ge 1
+          # utoopack splits bundles differently; check for any JS chunk >100k
+          test "$(find dist -maxdepth 1 -name '*.js' -type f -size +100k | wc -l)" -ge 1
 
       - name: Build and push Docker image
         timeout-minutes: 15
