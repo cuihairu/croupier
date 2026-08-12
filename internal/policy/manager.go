@@ -17,14 +17,14 @@ import (
 
 // Policy represents the complete security policy for a function.
 type Policy struct {
-	FunctionID       string   `json:"function_id"`
-	RequireApproval  bool     `json:"require_approval"`
-	ApprovalWorkflow string   `json:"approval_workflow"`
-	RequireAudit     bool     `json:"require_audit"`
-	AllowedRoles     []string `json:"allowed_roles"`
-	Source           string   `json:"source"`                       // 'default' or 'manual'
-	IsOverride       bool     `json:"is_override"`                  // true if overrides default risk policy
-	DefaultRiskLevel string   `json:"default_risk_level,omitempty"` // the risk level for default policy
+	FunctionID       string   `json:"functionId"`
+	RequireApproval  bool     `json:"requireApproval"`
+	ApprovalWorkflow string   `json:"approvalWorkflow"`
+	RequireAudit     bool     `json:"requireAudit"`
+	AllowedRoles     []string `json:"allowedRoles"`
+	Source           string   `json:"source"`                     // 'default' or 'manual'
+	IsOverride       bool     `json:"isOverride"`                 // true if overrides default risk policy
+	DefaultRiskLevel string   `json:"defaultRiskLevel,omitempty"` // the risk level for default policy
 }
 
 // RiskLevel represents the risk level of a function.

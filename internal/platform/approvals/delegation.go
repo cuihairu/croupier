@@ -56,19 +56,19 @@ type Delegation struct {
 	Delegator     string                 `json:"delegator"` // User who delegates
 	Delegate      string                 `json:"delegate"`  // User who receives delegation
 	Scope         DelegationScope        `json:"scope"`
-	ScopeValue    string                 `json:"scope_value"` // Value for the scope (e.g., function_id, game_id)
+	ScopeValue    string                 `json:"scopeValue"` // Value for the scope (e.g., function_id, game_id)
 	Permissions   []DelegationPermission `json:"permissions"`
 	State         DelegationState        `json:"state"`
 	Reason        string                 `json:"reason"`
-	StartAt       time.Time              `json:"start_at"`
-	EndAt         *time.Time             `json:"end_at,omitempty"`
-	CreatedAt     time.Time              `json:"created_at"`
-	UpdatedAt     time.Time              `json:"updated_at"`
-	RevokedAt     *time.Time             `json:"revoked_at,omitempty"`
-	RevokedBy     string                 `json:"revoked_by,omitempty"`
-	RevokedReason string                 `json:"revoked_reason,omitempty"`
-	MaxUsages     int                    `json:"max_usages"`  // Maximum number of times this can be used (0 = unlimited)
-	UsageCount    int                    `json:"usage_count"` // Current usage count
+	StartAt       time.Time              `json:"startAt"`
+	EndAt         *time.Time             `json:"endAt,omitempty"`
+	CreatedAt     time.Time              `json:"createdAt"`
+	UpdatedAt     time.Time              `json:"updatedAt"`
+	RevokedAt     *time.Time             `json:"revokedAt,omitempty"`
+	RevokedBy     string                 `json:"revokedBy,omitempty"`
+	RevokedReason string                 `json:"revokedReason,omitempty"`
+	MaxUsages     int                    `json:"maxUsages"`  // Maximum number of times this can be used (0 = unlimited)
+	UsageCount    int                    `json:"usageCount"` // Current usage count
 	Constraints   []DelegationConstraint `json:"constraints,omitempty"`
 }
 
@@ -81,17 +81,17 @@ type DelegationConstraint struct {
 
 // TimeRestrictionConstraint value for time-based restrictions
 type TimeRestrictionConstraint struct {
-	AllowedDays  []int  `json:"allowed_days"`  // 0=Sunday, 1=Monday, etc.
-	AllowedStart string `json:"allowed_start"` // e.g., "09:00"
-	AllowedEnd   string `json:"allowed_end"`   // e.g., "17:00"
+	AllowedDays  []int  `json:"allowedDays"`  // 0=Sunday, 1=Monday, etc.
+	AllowedStart string `json:"allowedStart"` // e.g., "09:00"
+	AllowedEnd   string `json:"allowedEnd"`   // e.g., "17:00"
 	Timezone     string `json:"timezone"`
 }
 
 // AmountLimitConstraint value for amount-based restrictions
 type AmountLimitConstraint struct {
-	MaxAmount  float64 `json:"max_amount"`
+	MaxAmount  float64 `json:"maxAmount"`
 	Currency   string  `json:"currency"`
-	PeriodDays int     `json:"period_days"` // Rolling period in days
+	PeriodDays int     `json:"periodDays"` // Rolling period in days
 }
 
 // DelegationRequest represents a request to create a delegation
@@ -99,11 +99,11 @@ type DelegationRequest struct {
 	Delegator   string                 `json:"delegator"`
 	Delegate    string                 `json:"delegate"`
 	Scope       DelegationScope        `json:"scope"`
-	ScopeValue  string                 `json:"scope_value"`
+	ScopeValue  string                 `json:"scopeValue"`
 	Permissions []DelegationPermission `json:"permissions"`
 	Reason      string                 `json:"reason"`
 	Duration    time.Duration          `json:"duration"`
-	MaxUsages   int                    `json:"max_usages"`
+	MaxUsages   int                    `json:"maxUsages"`
 	Constraints []DelegationConstraint `json:"constraints"`
 }
 
@@ -585,10 +585,10 @@ func (s *DelegationService) CleanupExpiredDelegations(ctx context.Context) (int,
 
 // DelegationChain represents a chain of delegations
 type DelegationChain struct {
-	OriginalDelegator string           `json:"original_delegator"`
-	CurrentDelegate   string           `json:"current_delegate"`
+	OriginalDelegator string           `json:"originalDelegator"`
+	CurrentDelegate   string           `json:"currentDelegate"`
 	Chain             []DelegationLink `json:"chain"`
-	TotalDepth        int              `json:"total_depth"`
+	TotalDepth        int              `json:"totalDepth"`
 }
 
 // DelegationLink represents a link in the delegation chain

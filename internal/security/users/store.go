@@ -16,7 +16,7 @@ type User struct {
 	Password  string   `json:"password"` // sha256(salt+password) hex
 	Roles     []string `json:"roles"`
 	Perms     []string `json:"perms,omitempty"`
-	OTPSecret string   `json:"otp_secret,omitempty"`
+	OTPSecret string   `json:"otpSecret,omitempty"`
 }
 
 type Store struct {

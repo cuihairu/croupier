@@ -10,20 +10,20 @@ type CancelBodyRequest struct {
 
 type Item struct {
 	ID         string `json:"id"`
-	FunctionID string `json:"function_id,omitempty"`
+	FunctionID string `json:"functionId,omitempty"`
 	Status     string `json:"status,omitempty"`
 	Progress   int32  `json:"progress,omitempty"`
 	Message    string `json:"message,omitempty"`
-	GameID     string `json:"game_id,omitempty"`
+	GameID     string `json:"gameId,omitempty"`
 	Env        string `json:"env,omitempty"`
-	AgentID    string `json:"agent_id,omitempty"`
-	Actor      string `json:"actor,omitempty"`       // 操作者
-	Addr       string `json:"addr,omitempty"`        // Agent 服务地址
-	TraceID    string `json:"trace_id,omitempty"`    // 链路追踪 ID
-	DurationMs int64  `json:"duration_ms,omitempty"` // 耗时（毫秒）
-	StartedAt  string `json:"started_at,omitempty"`
-	FinishedAt string `json:"finished_at,omitempty"`
-	CreatedAt  string `json:"created_at,omitempty"`
+	AgentID    string `json:"agentId,omitempty"`
+	Actor      string `json:"actor,omitempty"`      // 操作者
+	Addr       string `json:"addr,omitempty"`       // Agent 服务地址
+	TraceID    string `json:"traceId,omitempty"`    // 链路追踪 ID
+	DurationMs int64  `json:"durationMs,omitempty"` // 耗时（毫秒）
+	StartedAt  string `json:"startedAt,omitempty"`
+	FinishedAt string `json:"finishedAt,omitempty"`
+	CreatedAt  string `json:"createdAt,omitempty"`
 	Error      string `json:"error,omitempty"`
 }
 
@@ -51,28 +51,28 @@ type EventItem struct {
 	Progress  int32       `json:"progress"`
 	Message   string      `json:"message"`
 	Payload   interface{} `json:"payload"`
-	CreatedAt string      `json:"created_at"`
+	CreatedAt string      `json:"createdAt"`
 }
 
 type DetailResponse struct {
 	ID         string      `json:"id"`
-	FunctionID string      `json:"function_id,omitempty"`
+	FunctionID string      `json:"functionId,omitempty"`
 	Status     string      `json:"status,omitempty"`
 	Progress   int32       `json:"progress,omitempty"`
 	Message    string      `json:"message,omitempty"`
-	GameID     string      `json:"game_id,omitempty"`
+	GameID     string      `json:"gameId,omitempty"`
 	Env        string      `json:"env,omitempty"`
-	AgentID    string      `json:"agent_id,omitempty"`
+	AgentID    string      `json:"agentId,omitempty"`
 	Actor      string      `json:"actor,omitempty"`
 	Addr       string      `json:"addr,omitempty"`
-	TraceID    string      `json:"trace_id,omitempty"`
-	DurationMs int64       `json:"duration_ms,omitempty"`
+	TraceID    string      `json:"traceId,omitempty"`
+	DurationMs int64       `json:"durationMs,omitempty"`
 	Result     interface{} `json:"result,omitempty"`
 	Error      string      `json:"error,omitempty"`
-	StartedAt  string      `json:"started_at,omitempty"`
-	FinishedAt string      `json:"finished_at,omitempty"`
-	CreatedAt  string      `json:"created_at,omitempty"`
-	UpdatedAt  string      `json:"updated_at,omitempty"`
+	StartedAt  string      `json:"startedAt,omitempty"`
+	FinishedAt string      `json:"finishedAt,omitempty"`
+	CreatedAt  string      `json:"createdAt,omitempty"`
+	UpdatedAt  string      `json:"updatedAt,omitempty"`
 }
 
 type EventsRequest struct {
@@ -82,18 +82,18 @@ type EventsRequest struct {
 
 type EventsResponse struct {
 	Items   []EventItem `json:"items"`
-	NextSeq int64       `json:"next_seq"`
+	NextSeq int64       `json:"nextSeq"`
 	Done    bool        `json:"done"`
 }
 
 type StartRequest struct {
-	FunctionID string      `json:"function_id"`
+	FunctionID string      `json:"functionId"`
 	Params     interface{} `json:"params"`
-	GameID     string      `json:"game_id,omitempty"`
+	GameID     string      `json:"gameId,omitempty"`
 	Env        string      `json:"env,omitempty"`
 }
 
 type StartResponse struct {
-	TaskID string `json:"task_id"`
+	TaskID string `json:"taskId"`
 	Status string `json:"status"`
 }

@@ -31,35 +31,35 @@ type OpsState struct {
 type OpsNodesState struct {
 	Drained    map[string]time.Time `json:"drained,omitempty"`    // nodeId -> drainedAt
 	Restarting map[string]time.Time `json:"restarting,omitempty"` // nodeId -> restartingAt
-	UpdatedAt  time.Time            `json:"updated_at,omitempty"`
+	UpdatedAt  time.Time            `json:"updatedAt,omitempty"`
 }
 
 type OpsConfigState struct {
-	AlertmanagerURL   string    `json:"alertmanager_url,omitempty"`
-	GrafanaExploreURL string    `json:"grafana_explore_url,omitempty"`
-	JaegerURL         string    `json:"jaeger_url,omitempty"`
-	UpdatedAt         time.Time `json:"updated_at,omitempty"`
+	AlertmanagerURL   string    `json:"alertmanagerUrl,omitempty"`
+	GrafanaExploreURL string    `json:"grafanaExploreUrl,omitempty"`
+	JaegerURL         string    `json:"jaegerUrl,omitempty"`
+	UpdatedAt         time.Time `json:"updatedAt,omitempty"`
 }
 
 type OpsMaintenanceState struct {
 	Windows   []OpsMaintenanceWindow `json:"windows,omitempty"`
-	UpdatedAt time.Time              `json:"updated_at,omitempty"`
+	UpdatedAt time.Time              `json:"updatedAt,omitempty"`
 }
 
 type OpsMaintenanceWindow struct {
 	ID          string `json:"id"`
-	GameID      string `json:"game_id,omitempty"`
+	GameID      string `json:"gameId,omitempty"`
 	Env         string `json:"env,omitempty"`
 	Start       string `json:"start,omitempty"`
 	End         string `json:"end,omitempty"`
 	Message     string `json:"message,omitempty"`
-	BlockWrites bool   `json:"block_writes,omitempty"`
+	BlockWrites bool   `json:"blockWrites,omitempty"`
 }
 
 type OpsNotificationsState struct {
 	Channels  []OpsNotificationChannel `json:"channels,omitempty"`
 	Rules     []OpsNotificationRule    `json:"rules,omitempty"`
-	UpdatedAt time.Time                `json:"updated_at,omitempty"`
+	UpdatedAt time.Time                `json:"updatedAt,omitempty"`
 }
 
 type OpsNotificationChannel struct {
@@ -72,13 +72,13 @@ type OpsNotificationChannel struct {
 type OpsNotificationRule struct {
 	Event         string   `json:"event"`
 	Channels      []string `json:"channels"`
-	ThresholdDays int      `json:"threshold_days,omitempty"`
+	ThresholdDays int      `json:"thresholdDays,omitempty"`
 }
 
 type OpsHealthState struct {
 	Checks    []OpsHealthCheck  `json:"checks,omitempty"`
 	Status    []OpsHealthStatus `json:"status,omitempty"`
-	UpdatedAt time.Time         `json:"updated_at,omitempty"`
+	UpdatedAt time.Time         `json:"updatedAt,omitempty"`
 }
 
 type OpsHealthCheck struct {
@@ -86,17 +86,17 @@ type OpsHealthCheck struct {
 	Kind        string `json:"kind"`
 	Target      string `json:"target"`
 	Expect      string `json:"expect,omitempty"`
-	IntervalSec int    `json:"interval_sec,omitempty"`
-	TimeoutMs   int    `json:"timeout_ms,omitempty"`
+	IntervalSec int    `json:"intervalSec,omitempty"`
+	TimeoutMs   int    `json:"timeoutMs,omitempty"`
 	Region      string `json:"region,omitempty"`
 }
 
 type OpsHealthStatus struct {
 	ID        string    `json:"id"`
 	OK        bool      `json:"ok"`
-	LatencyMS int64     `json:"latency_ms,omitempty"`
+	LatencyMS int64     `json:"latencyMs,omitempty"`
 	Error     string    `json:"error,omitempty"`
-	CheckedAt time.Time `json:"checked_at,omitempty"`
+	CheckedAt time.Time `json:"checkedAt,omitempty"`
 }
 
 type OpsMQState struct {
@@ -105,7 +105,7 @@ type OpsMQState struct {
 	Kafka     *OpsKafkaMQ    `json:"kafka,omitempty"`
 	Lengths   map[string]int `json:"lengths,omitempty"`
 	Groups    []OpsMQGroup   `json:"groups,omitempty"`
-	UpdatedAt time.Time      `json:"updated_at,omitempty"`
+	UpdatedAt time.Time      `json:"updatedAt,omitempty"`
 }
 
 type OpsRedisMQ struct {
@@ -128,17 +128,17 @@ type OpsMQGroup struct {
 
 type OpsAlertState struct {
 	Silences  []OpsSilenceEntry `json:"silences,omitempty"`
-	UpdatedAt time.Time         `json:"updated_at,omitempty"`
+	UpdatedAt time.Time         `json:"updatedAt,omitempty"`
 }
 
 type OpsSilenceEntry struct {
 	ID        string            `json:"id"`
-	AlertID   string            `json:"alert_id,omitempty"`
-	CreatedBy string            `json:"created_by,omitempty"`
+	AlertID   string            `json:"alertId,omitempty"`
+	CreatedBy string            `json:"createdBy,omitempty"`
 	Comment   string            `json:"comment,omitempty"`
 	Matchers  map[string]string `json:"matchers,omitempty"`
-	StartsAt  time.Time         `json:"starts_at"`
-	EndsAt    time.Time         `json:"ends_at"`
+	StartsAt  time.Time         `json:"startsAt"`
+	EndsAt    time.Time         `json:"endsAt"`
 	Status    OpsSilenceStatus  `json:"status"`
 }
 
@@ -148,20 +148,20 @@ type OpsSilenceStatus struct {
 
 type OpsAuditState struct {
 	Entries   []OpsAuditEntry `json:"entries,omitempty"`
-	UpdatedAt time.Time       `json:"updated_at,omitempty"`
+	UpdatedAt time.Time       `json:"updatedAt,omitempty"`
 }
 
 type OpsAuditEntry struct {
 	ID        string                 `json:"id"`
 	Action    string                 `json:"action"`
-	UserID    string                 `json:"user_id,omitempty"`
-	GameID    string                 `json:"game_id,omitempty"`
+	UserID    string                 `json:"userId,omitempty"`
+	GameID    string                 `json:"gameId,omitempty"`
 	Env       string                 `json:"env,omitempty"`
 	Target    string                 `json:"target,omitempty"`
 	Result    string                 `json:"result,omitempty"`
-	TraceID   string                 `json:"trace_id,omitempty"`
+	TraceID   string                 `json:"traceId,omitempty"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
-	CreatedAt time.Time              `json:"created_at"`
+	CreatedAt time.Time              `json:"createdAt"`
 }
 
 func NewOpsStateStore(baseDir string) *OpsStateStore {

@@ -27,8 +27,8 @@ type ListObjectsRequest struct {
 type ListObjectsResponse struct {
 	Objects     []ObjectInfo `json:"objects"`
 	Prefixes    []string     `json:"prefixes"`
-	IsTruncated bool         `json:"is_truncated"`
-	NextMarker  string       `json:"next_marker"`
+	IsTruncated bool         `json:"isTruncated"`
+	NextMarker  string       `json:"nextMarker"`
 }
 
 // UploadObjectRequest represents a request to upload an object
@@ -106,9 +106,9 @@ type RenameDirectoryResponse struct {
 type ObjectInfo struct {
 	Key          string `json:"key"`
 	Size         int64  `json:"size"`
-	LastModified string `json:"last_modified"`
+	LastModified string `json:"lastModified"`
 	ETag         string `json:"etag"`
-	StorageClass string `json:"storage_class"`
+	StorageClass string `json:"storageClass"`
 }
 
 // ObjectsData represents the data returned when listing objects

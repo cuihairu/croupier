@@ -73,10 +73,10 @@ type OpsServiceMetadata struct {
 
 // OpsServiceProcess Ops服务进程信息
 type OpsServiceProcess struct {
-	ServiceID    string   `json:"service_id"`
+	ServiceID    string   `json:"serviceId"`
 	Addr         string   `json:"addr"`
 	Version      string   `json:"version"`
-	LastSeenUnix int64    `json:"last_seen_unix"`
-	FunctionIDs  []string `json:"function_ids"`
+	LastSeenUnix int64    `json:"lastSeenUnix"`
+	FunctionIDs  []string `json:"functionIds"`
 	Functions    int      `json:"functions"`
 }

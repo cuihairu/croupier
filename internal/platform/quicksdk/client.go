@@ -47,14 +47,14 @@ type Client struct {
 
 // Config holds the QuickSDK client configuration.
 type Config struct {
-	OpenID            string        `yaml:"open_id" json:"open_id"`
-	OpenKey           string        `yaml:"open_key" json:"open_key"`
-	APIBaseURL        string        `yaml:"api_base_url" json:"api_base_url"`
+	OpenID            string        `yaml:"open_id" json:"openId"`
+	OpenKey           string        `yaml:"open_key" json:"openKey"`
+	APIBaseURL        string        `yaml:"api_base_url" json:"apiBaseUrl"`
 	Timeout           time.Duration `yaml:"timeout" json:"timeout"`
-	RetryCount        int           `yaml:"retry_count" json:"retry_count"`
-	EnableCache       bool          `yaml:"enable_cache" json:"enable_cache"`
-	CacheDuration     time.Duration `yaml:"cache_duration" json:"cache_duration"`
-	RequestsPerMinute int           `yaml:"requests_per_minute" json:"requests_per_minute"`
+	RetryCount        int           `yaml:"retry_count" json:"retryCount"`
+	EnableCache       bool          `yaml:"enable_cache" json:"enableCache"`
+	CacheDuration     time.Duration `yaml:"cache_duration" json:"cacheDuration"`
+	RequestsPerMinute int           `yaml:"requests_per_minute" json:"requestsPerMinute"`
 }
 
 // NewClient creates a new QuickSDK client.

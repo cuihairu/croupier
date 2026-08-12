@@ -35,7 +35,7 @@ type AssignmentsHistoryResponse struct {
 
 // AssignmentsUpdateRequest represents a request to update assignments.
 type AssignmentsUpdateRequest struct {
-	GameId    string   `json:"game_id"`
+	GameId    string   `json:"gameId"`
 	Env       string   `json:"env"`
 	Action    string   `json:"action"` // assign/clone/remove
 	Functions []string `json:"functions"`

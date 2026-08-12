@@ -23,7 +23,7 @@ type APIResponse[T any] struct {
 	Error     *ErrorInfo   `json:"error,omitempty"`
 	Metadata  *Metadata    `json:"metadata,omitempty"`
 	Timestamp time.Time    `json:"timestamp"`
-	RequestID string       `json:"request_id"`
+	RequestID string       `json:"requestId"`
 }
 
 // ErrorInfo 错误信息
@@ -32,16 +32,16 @@ type ErrorInfo struct {
 	Message    string                 `json:"message"`
 	Details    string                 `json:"details,omitempty"`
 	Operation  string                 `json:"operation,omitempty"`
-	TraceID    string                 `json:"trace_id,omitempty"`
+	TraceID    string                 `json:"traceId,omitempty"`
 	Severity   ErrorSeverity          `json:"severity,omitempty"`
 	Retryable  bool                   `json:"retryable,omitempty"`
-	RetryDelay *time.Duration         `json:"retry_delay,omitempty"`
+	RetryDelay *time.Duration         `json:"retryDelay,omitempty"`
 	Context    map[string]interface{} `json:"context,omitempty"`
 }
 
 // Metadata 响应元数据
 type Metadata struct {
-	RequestID   string        `json:"request_id"`
+	RequestID   string        `json:"requestId"`
 	Version     string        `json:"version"`
 	Duration    time.Duration `json:"duration,omitempty"`
 	Timestamp   time.Time     `json:"timestamp"`
@@ -52,21 +52,21 @@ type Metadata struct {
 // Pagination 分页信息
 type Pagination struct {
 	Page       int   `json:"page"`
-	PageSize   int   `json:"page_size"`
+	PageSize   int   `json:"pageSize"`
 	Total      int64 `json:"total"`
-	TotalPages int   `json:"total_pages"`
-	HasNext    bool  `json:"has_next"`
-	HasPrev    bool  `json:"has_prev"`
+	TotalPages int   `json:"totalPages"`
+	HasNext    bool  `json:"hasNext"`
+	HasPrev    bool  `json:"hasPrev"`
 }
 
 // Performance 性能信息
 type Performance struct {
-	DatabaseQueries int           `json:"database_queries,omitempty"`
-	DatabaseTime    time.Duration `json:"database_time,omitempty"`
-	CacheHits       int           `json:"cache_hits,omitempty"`
-	CacheMisses     int           `json:"cache_misses,omitempty"`
-	ExternalCalls   int           `json:"external_calls,omitempty"`
-	ExternalTime    time.Duration `json:"external_time,omitempty"`
+	DatabaseQueries int           `json:"databaseQueries,omitempty"`
+	DatabaseTime    time.Duration `json:"databaseTime,omitempty"`
+	CacheHits       int           `json:"cacheHits,omitempty"`
+	CacheMisses     int           `json:"cacheMisses,omitempty"`
+	ExternalCalls   int           `json:"externalCalls,omitempty"`
+	ExternalTime    time.Duration `json:"externalTime,omitempty"`
 }
 
 // ResponseBuilder 响应构建器

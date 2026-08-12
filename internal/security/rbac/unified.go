@@ -9,26 +9,26 @@ import (
 // AuthDescriptor represents the auth configuration from function descriptors
 type AuthDescriptor struct {
 	Permission    string               `json:"permission"`
-	AllowIf       string               `json:"allow_if"`
+	AllowIf       string               `json:"allowIf"`
 	Risk          *RiskPolicy          `json:"risk"`
-	TwoPersonRule *TwoPersonRulePolicy `json:"two_person_rule"`
+	TwoPersonRule *TwoPersonRulePolicy `json:"twoPersonRule"`
 }
 
 // RiskPolicy defines risk-based authorization requirements
 type RiskPolicy struct {
-	Level       string   `json:"level"`        // low, medium, high, critical
-	RequiresMFA bool     `json:"requires_mfa"` // Multi-factor authentication
-	TimeWindow  string   `json:"time_window"`  // e.g., "business_hours"
-	Conditions  []string `json:"conditions"`   // Additional risk conditions
+	Level       string   `json:"level"`       // low, medium, high, critical
+	RequiresMFA bool     `json:"requiresMfa"` // Multi-factor authentication
+	TimeWindow  string   `json:"timeWindow"`  // e.g., "business_hours"
+	Conditions  []string `json:"conditions"`  // Additional risk conditions
 }
 
 // TwoPersonRulePolicy defines two-person authorization requirements
 type TwoPersonRulePolicy struct {
 	Required   bool     `json:"required"`
-	Approvers  []string `json:"approvers"`   // List of required approver roles
-	Threshold  int      `json:"threshold"`   // Minimum number of approvals needed
-	ExpiryTime string   `json:"expiry_time"` // How long approval is valid
-	Conditions []string `json:"conditions"`  // When two-person rule applies
+	Approvers  []string `json:"approvers"`  // List of required approver roles
+	Threshold  int      `json:"threshold"`  // Minimum number of approvals needed
+	ExpiryTime string   `json:"expiryTime"` // How long approval is valid
+	Conditions []string `json:"conditions"` // When two-person rule applies
 }
 
 // AuthorizationRequest represents a request for authorization
@@ -38,13 +38,13 @@ type AuthorizationRequest struct {
 	Parameters  map[string]any `json:"parameters"`
 	Context     map[string]any `json:"context"`
 	Approvals   []Approval     `json:"approvals"`
-	RequestTime time.Time      `json:"request_time"`
+	RequestTime time.Time      `json:"requestTime"`
 }
 
 // Approval represents an approval from another user
 type Approval struct {
-	ApproverID   string    `json:"approver_id"`
-	ApproverRole string    `json:"approver_role"`
+	ApproverID   string    `json:"approverId"`
+	ApproverRole string    `json:"approverRole"`
 	Timestamp    time.Time `json:"timestamp"`
 	Signature    string    `json:"signature"` // Optional cryptographic signature
 }
@@ -52,14 +52,14 @@ type Approval struct {
 // AuthorizationResult represents the result of authorization check
 type AuthorizationResult struct {
 	Allowed           bool       `json:"allowed"`
-	RequiresApproval  bool       `json:"requires_approval"`
-	RequiresMFA       bool       `json:"requires_mfa"`
-	RiskLevel         string     `json:"risk_level"`
+	RequiresApproval  bool       `json:"requiresApproval"`
+	RequiresMFA       bool       `json:"requiresMfa"`
+	RiskLevel         string     `json:"riskLevel"`
 	Reason            string     `json:"reason"`
-	RequiredApprovals int        `json:"required_approvals"`
-	ExistingApprovals int        `json:"existing_approvals"`
+	RequiredApprovals int        `json:"requiredApprovals"`
+	ExistingApprovals int        `json:"existingApprovals"`
 	Conditions        []string   `json:"conditions"`
-	ExpiresAt         *time.Time `json:"expires_at,omitempty"`
+	ExpiresAt         *time.Time `json:"expiresAt,omitempty"`
 }
 
 // UnifiedPolicyEngine provides centralized authorization decisions

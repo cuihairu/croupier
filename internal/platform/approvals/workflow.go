@@ -72,16 +72,16 @@ type ApprovalStep struct {
 	Name           string           `json:"name"`
 	Description    string           `json:"description"`
 	Type           StepType         `json:"type"`
-	Approvers      []string         `json:"approvers"`      // User IDs or role IDs
-	RequiredCount  int              `json:"required_count"` // For percentage type
-	Conditions     []ConditionGroup `json:"conditions"`     // Conditions to enter this step
+	Approvers      []string         `json:"approvers"`     // User IDs or role IDs
+	RequiredCount  int              `json:"requiredCount"` // For percentage type
+	Conditions     []ConditionGroup `json:"conditions"`    // Conditions to enter this step
 	Timeout        time.Duration    `json:"timeout"`
-	TimeoutAction  string           `json:"timeout_action"` // "approve", "reject", "escalate"
-	EscalateTo     string           `json:"escalate_to"`    // Step ID to escalate to
+	TimeoutAction  string           `json:"timeoutAction"` // "approve", "reject", "escalate"
+	EscalateTo     string           `json:"escalateTo"`    // Step ID to escalate to
 	Order          int              `json:"order"`
-	AllowDelegate  bool             `json:"allow_delegate"`
-	AllowComment   bool             `json:"allow_comment"`
-	RequireComment bool             `json:"require_comment"`
+	AllowDelegate  bool             `json:"allowDelegate"`
+	AllowComment   bool             `json:"allowComment"`
+	RequireComment bool             `json:"requireComment"`
 }
 
 // WorkflowDefinition defines an approval workflow template
@@ -92,38 +92,38 @@ type WorkflowDefinition struct {
 	Version     string         `json:"version"`
 	Active      bool           `json:"active"`
 	Steps       []ApprovalStep `json:"steps"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	CreatedBy   string         `json:"created_by"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	CreatedBy   string         `json:"createdBy"`
 }
 
 // WorkflowInstance represents a running workflow instance
 type WorkflowInstance struct {
 	ID            string                 `json:"id"`
-	DefinitionID  string                 `json:"definition_id"`
+	DefinitionID  string                 `json:"definitionId"`
 	Definition    *WorkflowDefinition    `json:"definition,omitempty"`
 	State         WorkflowState          `json:"state"`
-	CurrentStep   int                    `json:"current_step"`
-	Context       map[string]interface{} `json:"context"`     // Workflow context data
-	ApprovalID    string                 `json:"approval_id"` // Reference to original approval
+	CurrentStep   int                    `json:"currentStep"`
+	Context       map[string]interface{} `json:"context"`    // Workflow context data
+	ApprovalID    string                 `json:"approvalId"` // Reference to original approval
 	Initiator     string                 `json:"initiator"`
-	StartedAt     time.Time              `json:"started_at"`
-	CompletedAt   *time.Time             `json:"completed_at,omitempty"`
-	ExpiresAt     *time.Time             `json:"expires_at,omitempty"`
-	StepApprovals []StepApproval         `json:"step_approvals"`
+	StartedAt     time.Time              `json:"startedAt"`
+	CompletedAt   *time.Time             `json:"completedAt,omitempty"`
+	ExpiresAt     *time.Time             `json:"expiresAt,omitempty"`
+	StepApprovals []StepApproval         `json:"stepApprovals"`
 	History       []WorkflowHistoryEntry `json:"history"`
 }
 
 // StepApproval represents an approval at a specific step
 type StepApproval struct {
-	StepID      string    `json:"step_id"`
+	StepID      string    `json:"stepId"`
 	Approver    string    `json:"approver"`
-	DelegatedBy string    `json:"delegated_by,omitempty"`
+	DelegatedBy string    `json:"delegatedBy,omitempty"`
 	Decision    string    `json:"decision"` // "approved", "rejected"
 	Comment     string    `json:"comment,omitempty"`
-	DecidedAt   time.Time `json:"decided_at"`
-	IPAddress   string    `json:"ip_address,omitempty"`
-	UserAgent   string    `json:"user_agent,omitempty"`
+	DecidedAt   time.Time `json:"decidedAt"`
+	IPAddress   string    `json:"ipAddress,omitempty"`
+	UserAgent   string    `json:"userAgent,omitempty"`
 }
 
 // WorkflowHistoryEntry represents a history entry for workflow state changes
@@ -905,9 +905,9 @@ func (i *WorkflowInstance) MarshalJSON() ([]byte, error) {
 	type Alias WorkflowInstance
 	return json.Marshal(&struct {
 		*Alias
-		StartedAt   string  `json:"started_at"`
-		CompletedAt *string `json:"completed_at,omitempty"`
-		ExpiresAt   *string `json:"expires_at,omitempty"`
+		StartedAt   string  `json:"startedAt"`
+		CompletedAt *string `json:"completedAt,omitempty"`
+		ExpiresAt   *string `json:"expiresAt,omitempty"`
 	}{
 		Alias:     (*Alias)(i),
 		StartedAt: i.StartedAt.Format(time.RFC3339),

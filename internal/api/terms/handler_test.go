@@ -68,7 +68,7 @@ func TestHandler_UpsertAndList_RoundTrip(t *testing.T) {
 	handler := newTermsHandler(db)
 
 	upsertCtx, upsertRec := newTermsRequest(http.MethodPost, "/api/v1/terms",
-		`{"domain":"resource","term_key":"player","alias":"玩家","display_zh":"玩家","display_en":"Player","order":1}`)
+		`{"domain":"resource","termKey":"player","alias":"玩家","displayZh":"玩家","displayEn":"Player","order":1}`)
 	handler.Upsert(upsertCtx)
 	require.Equal(t, http.StatusOK, upsertRec.Code, upsertRec.Body.String())
 

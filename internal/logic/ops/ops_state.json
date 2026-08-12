@@ -1,16 +1,16 @@
 {
   "config": {
-    "alertmanager_url": "http://test",
-    "updated_at": "2026-05-01T07:40:58.682133+08:00"
+    "alertmanagerUrl": "http://test",
+    "updatedAt": "0001-01-01T00:00:00Z"
   },
   "maintenance": {
-    "updated_at": "0001-01-01T00:00:00Z"
+    "updatedAt": "0001-01-01T00:00:00Z"
   },
   "notifications": {
-    "updated_at": "0001-01-01T00:00:00Z"
+    "updatedAt": "0001-01-01T00:00:00Z"
   },
   "health": {
-    "updated_at": "0001-01-01T00:00:00Z"
+    "updatedAt": "0001-01-01T00:00:00Z"
   },
   "mq": {
     "type": "redis",
@@ -20,28 +20,26 @@
         "payments": "payments"
       }
     },
-    "updated_at": "2026-05-01T07:40:58.682133+08:00"
+    "updatedAt": "0001-01-01T00:00:00Z"
   },
   "alerts": {
-    "updated_at": "2026-05-01T07:40:58.682133+08:00"
+    "updatedAt": "0001-01-01T00:00:00Z"
   },
   "audit": {
     "entries": [
       {
         "id": "seed-login",
         "action": "auth.login",
-        "user_id": "admin",
         "result": "success",
         "metadata": {
           "ip": "127.0.0.1",
           "user_agent": "dev-cli"
         },
-        "created_at": "2026-05-01T05:40:58.682133+08:00"
+        "createdAt": "0001-01-01T00:00:00Z"
       },
       {
         "id": "seed-assignments",
         "action": "assignments.update",
-        "user_id": "ops",
         "target": "game-demo/prod",
         "result": "success",
         "metadata": {
@@ -50,12 +48,12 @@
             "http.post"
           ]
         },
-        "created_at": "2026-05-01T07:10:58.682133+08:00"
+        "createdAt": "0001-01-01T00:00:00Z"
       }
     ],
-    "updated_at": "2026-05-01T07:40:58.682133+08:00"
+    "updatedAt": "0001-01-01T00:00:00Z"
   },
   "nodes": {
-    "updated_at": "0001-01-01T00:00:00Z"
+    "updatedAt": "0001-01-01T00:00:00Z"
   }
 }

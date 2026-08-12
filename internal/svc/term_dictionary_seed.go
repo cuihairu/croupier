@@ -19,8 +19,8 @@ type termDictionarySeedItem struct {
 	Domain    string   `json:"domain"`
 	Key       string   `json:"key"`
 	Aliases   []string `json:"aliases"`
-	DisplayZh string   `json:"display_zh"`
-	DisplayEn string   `json:"display_en"`
+	DisplayZh string   `json:"displayZh"`
+	DisplayEn string   `json:"displayEn"`
 	Order     int      `json:"order"`
 }
 

@@ -70,15 +70,15 @@ type NodesListResponse struct {
 type ObjectInfo struct {
 	Key          string `json:"key"`
 	Size         int64  `json:"size"`
-	LastModified string `json:"last_modified"`
+	LastModified string `json:"lastModified"`
 	ETag         string `json:"etag"`
-	StorageClass string `json:"storage_class"`
+	StorageClass string `json:"storageClass"`
 }
 
 // ObjectsData represents a paginated list of storage objects.
 type ObjectsData struct {
 	Objects     []ObjectInfo `json:"objects"`
 	Prefixes    []string     `json:"prefixes"`
-	IsTruncated bool         `json:"is_truncated"`
-	NextMarker  string       `json:"next_marker"`
+	IsTruncated bool         `json:"isTruncated"`
+	NextMarker  string       `json:"nextMarker"`
 }

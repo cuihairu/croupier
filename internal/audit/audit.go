@@ -130,7 +130,7 @@ const (
 type AuditRecord struct {
 	ID           string                 `json:"id"`
 	Timestamp    time.Time              `json:"timestamp"`
-	EventType    AuditEventType         `json:"event_type"`
+	EventType    AuditEventType         `json:"eventType"`
 	Category     AuditCategory          `json:"category"`
 	Severity     AuditSeverity          `json:"severity"`
 	Actor        ActorInfo              `json:"actor"`
@@ -140,8 +140,8 @@ type AuditRecord struct {
 	Changes      *ChangeInfo            `json:"changes,omitempty"`
 	Context      AuditContext           `json:"context"`
 	Outcome      string                 `json:"outcome"` // success, failure, pending
-	ErrorMessage string                 `json:"error_message,omitempty"`
-	ChainInfo    ChainInfo              `json:"chain_info"`
+	ErrorMessage string                 `json:"errorMessage,omitempty"`
+	ChainInfo    ChainInfo              `json:"chainInfo"`
 }
 
 // ActorInfo contains information about the actor performing the action
@@ -151,11 +151,11 @@ type ActorInfo struct {
 	Name        string            `json:"name,omitempty"`
 	Email       string            `json:"email,omitempty"`
 	Roles       []string          `json:"roles,omitempty"`
-	IPAddress   string            `json:"ip_address,omitempty"`
-	UserAgent   string            `json:"user_agent,omitempty"`
-	SessionID   string            `json:"session_id,omitempty"`
-	MFAUsed     bool              `json:"mfa_used,omitempty"`
-	DelegatedBy string            `json:"delegated_by,omitempty"`
+	IPAddress   string            `json:"ipAddress,omitempty"`
+	UserAgent   string            `json:"userAgent,omitempty"`
+	SessionID   string            `json:"sessionId,omitempty"`
+	MFAUsed     bool              `json:"mfaUsed,omitempty"`
+	DelegatedBy string            `json:"delegatedBy,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
@@ -164,7 +164,7 @@ type ResourceInfo struct {
 	Type        string            `json:"type"`
 	ID          string            `json:"id"`
 	Name        string            `json:"name,omitempty"`
-	GameID      string            `json:"game_id,omitempty"`
+	GameID      string            `json:"gameId,omitempty"`
 	Environment string            `json:"environment,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
 }
@@ -173,14 +173,14 @@ type ResourceInfo struct {
 type ChangeInfo struct {
 	Before     map[string]interface{} `json:"before,omitempty"`
 	After      map[string]interface{} `json:"after,omitempty"`
-	DiffFields []string               `json:"diff_fields,omitempty"`
+	DiffFields []string               `json:"diffFields,omitempty"`
 }
 
 // AuditContext contains contextual information about the audit
 type AuditContext struct {
-	RequestID     string            `json:"request_id,omitempty"`
-	TraceID       string            `json:"trace_id,omitempty"`
-	CorrelationID string            `json:"correlation_id,omitempty"`
+	RequestID     string            `json:"requestId,omitempty"`
+	TraceID       string            `json:"traceId,omitempty"`
+	CorrelationID string            `json:"correlationId,omitempty"`
 	Service       string            `json:"service,omitempty"`
 	Version       string            `json:"version,omitempty"`
 	Environment   string            `json:"environment,omitempty"`
@@ -190,9 +190,9 @@ type AuditContext struct {
 // ChainInfo contains blockchain-like chain information for integrity
 type ChainInfo struct {
 	Hash      string `json:"hash"`
-	PrevHash  string `json:"prev_hash"`
+	PrevHash  string `json:"prevHash"`
 	Sequence  int64  `json:"sequence"`
-	SignerID  string `json:"signer_id,omitempty"`
+	SignerID  string `json:"signerId,omitempty"`
 	Signature string `json:"signature,omitempty"`
 }
 
@@ -223,20 +223,20 @@ type AuditPage struct {
 
 // AuditStats contains statistics about audit records
 type AuditStats struct {
-	TotalRecords    int64                  `json:"total_records"`
-	RecordsToday    int64                  `json:"records_today"`
-	RecordsThisWeek int64                  `json:"records_this_week"`
-	ByEventType     map[AuditEventType]int `json:"by_event_type"`
-	ByCategory      map[AuditCategory]int  `json:"by_category"`
-	BySeverity      map[AuditSeverity]int  `json:"by_severity"`
-	ByActor         map[string]int         `json:"by_actor"`
-	TopActors       []ActorStat            `json:"top_actors"`
-	FailureRate     float64                `json:"failure_rate"`
+	TotalRecords    int64                  `json:"totalRecords"`
+	RecordsToday    int64                  `json:"recordsToday"`
+	RecordsThisWeek int64                  `json:"recordsThisWeek"`
+	ByEventType     map[AuditEventType]int `json:"byEventType"`
+	ByCategory      map[AuditCategory]int  `json:"byCategory"`
+	BySeverity      map[AuditSeverity]int  `json:"bySeverity"`
+	ByActor         map[string]int         `json:"byActor"`
+	TopActors       []ActorStat            `json:"topActors"`
+	FailureRate     float64                `json:"failureRate"`
 }
 
 // ActorStat contains statistics for an actor
 type ActorStat struct {
-	ActorID string `json:"actor_id"`
+	ActorID string `json:"actorId"`
 	Count   int    `json:"count"`
 }
 
@@ -645,7 +645,7 @@ func (s *AuditService) ValidateChain(startSeq, endSeq int64) (*ChainValidationRe
 // ChainValidationResult contains the result of chain validation
 type ChainValidationResult struct {
 	Valid        bool         `json:"valid"`
-	TotalRecords int          `json:"total_records"`
+	TotalRecords int          `json:"totalRecords"`
 	Errors       []ChainError `json:"errors,omitempty"`
 }
 

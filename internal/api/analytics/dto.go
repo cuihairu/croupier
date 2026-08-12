@@ -381,7 +381,7 @@ type AnalyticsQuery struct {
 
 type analyticsFiltersDocument struct {
 	Items     []AnalyticsFilters `json:"items"`
-	UpdatedAt string             `json:"updated_at,omitempty"`
+	UpdatedAt string             `json:"updatedAt,omitempty"`
 }
 
 // LoadAnalyticsFilters reads the stored filters from a JSON file

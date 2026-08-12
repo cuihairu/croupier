@@ -5,33 +5,33 @@ type ExtensionCatalogListRequest struct {
 	Kind     string `form:"kind" json:"kind"`
 	Status   string `form:"status" json:"status"`
 	Page     int    `form:"page,default=1" json:"page"`
-	PageSize int    `form:"page_size,default=20" json:"page_size"`
+	PageSize int    `form:"page_size,default=20" json:"pageSize"`
 }
 
 type ExtensionAgentSyncRequest struct {
-	AgentID string `path:"agentId" json:"agent_id"`
+	AgentID string `path:"agentId" json:"agentId"`
 }
 
 type ExtensionCatalogItem struct {
 	ID             string   `json:"id"`
 	Name           string   `json:"name"`
-	DisplayName    string   `json:"display_name"`
+	DisplayName    string   `json:"displayName"`
 	Vendor         string   `json:"vendor"`
 	Kind           string   `json:"kind"`
 	Summary        string   `json:"summary"`
-	IconURL        string   `json:"icon_url"`
+	IconURL        string   `json:"iconUrl"`
 	Status         string   `json:"status"`
-	LatestVersion  string   `json:"latest_version"`
+	LatestVersion  string   `json:"latestVersion"`
 	Installed      bool     `json:"installed"`
-	DefaultInstall bool     `json:"default_install"`
+	DefaultInstall bool     `json:"defaultInstall"`
 	Tags           []string `json:"tags"`
 }
 
 type ExtensionReleaseItem struct {
 	Version        string `json:"version"`
-	ReleaseChannel string `json:"release_channel"`
-	MinCoreVersion string `json:"min_core_version"`
-	PublishedAt    int64  `json:"published_at"`
+	ReleaseChannel string `json:"releaseChannel"`
+	MinCoreVersion string `json:"minCoreVersion"`
+	PublishedAt    int64  `json:"publishedAt"`
 	Changelog      string `json:"changelog"`
 }
 
@@ -59,51 +59,51 @@ type ExtensionCatalogReleasesResponse struct {
 }
 
 type ExtensionInstallRequest struct {
-	ExtensionID    string            `json:"extension_id" binding:"required"`
-	ReleaseVersion string            `json:"release_version" binding:"required"`
-	ScopeType      string            `json:"scope_type" binding:"required"`
-	ScopeID        string            `json:"scope_id" binding:"required"`
-	TargetType     string            `json:"target_type" binding:"required"`
-	TargetID       string            `json:"target_id"`
+	ExtensionID    string            `json:"extensionId" binding:"required"`
+	ReleaseVersion string            `json:"releaseVersion" binding:"required"`
+	ScopeType      string            `json:"scopeType" binding:"required"`
+	ScopeID        string            `json:"scopeId" binding:"required"`
+	TargetType     string            `json:"targetType" binding:"required"`
+	TargetID       string            `json:"targetId"`
 	Config         map[string]any    `json:"config"`
-	SecretRefs     map[string]string `json:"secret_refs"`
+	SecretRefs     map[string]string `json:"secretRefs"`
 }
 
 type ExtensionInstallationListRequest struct {
-	ExtensionID string `form:"extension_id" json:"extension_id"`
-	ScopeType   string `form:"scope_type" json:"scope_type"`
-	ScopeID     string `form:"scope_id" json:"scope_id"`
-	TargetType  string `form:"target_type" json:"target_type"`
-	TargetID    string `form:"target_id" json:"target_id"`
+	ExtensionID string `form:"extension_id" json:"extensionId"`
+	ScopeType   string `form:"scope_type" json:"scopeType"`
+	ScopeID     string `form:"scope_id" json:"scopeId"`
+	TargetType  string `form:"target_type" json:"targetType"`
+	TargetID    string `form:"target_id" json:"targetId"`
 	Status      string `form:"status" json:"status"`
 	Enabled     *bool  `form:"enabled" json:"enabled"`
 	Page        int    `form:"page,default=1" json:"page"`
-	PageSize    int    `form:"page_size,default=20" json:"page_size"`
+	PageSize    int    `form:"page_size,default=20" json:"pageSize"`
 }
 
 type ExtensionInstallResponse struct {
 	Code           int    `json:"code"`
 	Message        string `json:"message"`
-	InstallationID uint   `json:"installation_id"`
+	InstallationID uint   `json:"installationId"`
 	Status         string `json:"status"`
 }
 
 type ExtensionInstallationItem struct {
 	ID              uint   `json:"id"`
-	InstallationKey string `json:"installation_key"`
-	ExtensionID     string `json:"extension_id"`
-	DisplayName     string `json:"display_name"`
-	ReleaseVersion  string `json:"release_version"`
-	ScopeType       string `json:"scope_type"`
-	ScopeID         string `json:"scope_id"`
-	TargetType      string `json:"target_type"`
-	TargetID        string `json:"target_id"`
+	InstallationKey string `json:"installationKey"`
+	ExtensionID     string `json:"extensionId"`
+	DisplayName     string `json:"displayName"`
+	ReleaseVersion  string `json:"releaseVersion"`
+	ScopeType       string `json:"scopeType"`
+	ScopeID         string `json:"scopeId"`
+	TargetType      string `json:"targetType"`
+	TargetID        string `json:"targetId"`
 	Status          string `json:"status"`
-	DesiredState    string `json:"desired_state"`
+	DesiredState    string `json:"desiredState"`
 	Enabled         bool   `json:"enabled"`
-	HealthStatus    string `json:"health_status"`
-	LastError       string `json:"last_error"`
-	UpdatedAt       int64  `json:"updated_at"`
+	HealthStatus    string `json:"healthStatus"`
+	LastError       string `json:"lastError"`
+	UpdatedAt       int64  `json:"updatedAt"`
 }
 
 type ExtensionInstallationListResponse struct {
@@ -114,40 +114,40 @@ type ExtensionInstallationListResponse struct {
 }
 
 type ExtensionBindingItem struct {
-	BindingType string `json:"binding_type"`
-	BindingKey  string `json:"binding_key"`
-	TargetRef   string `json:"target_ref"`
+	BindingType string `json:"bindingType"`
+	BindingKey  string `json:"bindingKey"`
+	TargetRef   string `json:"targetRef"`
 	Status      string `json:"status"`
-	LastError   string `json:"last_error"`
+	LastError   string `json:"lastError"`
 }
 
 type ExtensionEventItem struct {
-	EventType string `json:"event_type"`
+	EventType string `json:"eventType"`
 	Level     string `json:"level"`
 	Message   string `json:"message"`
 	Payload   string `json:"payload"`
-	CreatedBy string `json:"created_by"`
-	CreatedAt int64  `json:"created_at"`
+	CreatedBy string `json:"createdBy"`
+	CreatedAt int64  `json:"createdAt"`
 }
 
 type ExtensionInstallationDetailResponse struct {
 	Code         int                        `json:"code"`
 	Message      string                     `json:"message"`
 	Installation *ExtensionInstallationItem `json:"installation"`
-	ConfigSchema map[string]any             `json:"config_schema"`
+	ConfigSchema map[string]any             `json:"configSchema"`
 	Config       map[string]any             `json:"config"`
-	SecretRefs   map[string]string          `json:"secret_refs"`
+	SecretRefs   map[string]string          `json:"secretRefs"`
 	Bindings     []ExtensionBindingItem     `json:"bindings"`
 	Events       []ExtensionEventItem       `json:"events"`
 }
 
 type ExtensionConfigUpdateRequest struct {
 	Config     map[string]any    `json:"config"`
-	SecretRefs map[string]string `json:"secret_refs"`
+	SecretRefs map[string]string `json:"secretRefs"`
 }
 
 type ExtensionUpgradeRequest struct {
-	ReleaseVersion string `json:"release_version" binding:"required"`
+	ReleaseVersion string `json:"releaseVersion" binding:"required"`
 }
 
 type ExtensionActionResponse struct {
@@ -174,7 +174,7 @@ type ExtensionConfigResponse struct {
 	Code       int               `json:"code"`
 	Message    string            `json:"message"`
 	Config     map[string]any    `json:"config"`
-	SecretRefs map[string]string `json:"secret_refs"`
+	SecretRefs map[string]string `json:"secretRefs"`
 }
 
 type ExtensionTestConnectionResponse struct {
@@ -197,7 +197,7 @@ type ExtensionCapabilityDetail struct {
 	Provider    string            `json:"provider"`
 	Operations  []string          `json:"operations"`
 	Permissions map[string]string `json:"permissions,omitempty"`
-	ConfigKeys  []string          `json:"config_keys,omitempty"`
+	ConfigKeys  []string          `json:"configKeys,omitempty"`
 	Source      string            `json:"source"`
 }
 
@@ -209,7 +209,7 @@ type ExtensionPageItem struct {
 	Icon               string         `json:"icon"`
 	Group              string         `json:"group"`
 	Order              int            `json:"order"`
-	RequiredPermission string         `json:"required_permission,omitempty"`
+	RequiredPermission string         `json:"requiredPermission,omitempty"`
 	Source             string         `json:"source"`
 	Schema             map[string]any `json:"schema"`
 }
@@ -224,7 +224,7 @@ type ExtensionHealthCheckResponse struct {
 	Code      int    `json:"code"`
 	Message   string `json:"message"`
 	Status    string `json:"status"`
-	CheckedAt int64  `json:"checked_at"`
+	CheckedAt int64  `json:"checkedAt"`
 }
 
 type ExtensionEventListResponse struct {
@@ -238,7 +238,7 @@ type ExtensionEventListRequest struct {
 	Level    string `form:"level" json:"level"`
 	Keyword  string `form:"keyword" json:"keyword"`
 	Page     int    `form:"page,default=1" json:"page"`
-	PageSize int    `form:"page_size,default=20" json:"page_size"`
+	PageSize int    `form:"page_size,default=20" json:"pageSize"`
 }
 
 type ExtensionAgentSyncResponse struct {

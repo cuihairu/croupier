@@ -17,10 +17,10 @@ type WorkflowDefinitionModel struct {
 	Description string    `gorm:"type:text" json:"description"`
 	Version     string    `gorm:"type:varchar(50);not null" json:"version"`
 	Active      bool      `gorm:"default:true" json:"active"`
-	StepsJSON   []byte    `gorm:"type:json;not null" json:"steps_json"`
-	CreatedAt   time.Time `gorm:"not null" json:"created_at"`
-	UpdatedAt   time.Time `gorm:"not null" json:"updated_at"`
-	CreatedBy   string    `gorm:"type:varchar(255);not null" json:"created_by"`
+	StepsJSON   []byte    `gorm:"type:json;not null" json:"stepsJson"`
+	CreatedAt   time.Time `gorm:"not null" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"not null" json:"updatedAt"`
+	CreatedBy   string    `gorm:"type:varchar(255);not null" json:"createdBy"`
 }
 
 // TableName returns the table name
@@ -71,18 +71,18 @@ func FromDefinition(d *WorkflowDefinition) (*WorkflowDefinitionModel, error) {
 // WorkflowInstanceModel is the GORM model for workflow instances
 type WorkflowInstanceModel struct {
 	ID           string     `gorm:"primaryKey;type:varchar(255)" json:"id"`
-	DefinitionID string     `gorm:"type:varchar(255);not null;index" json:"definition_id"`
+	DefinitionID string     `gorm:"type:varchar(255);not null;index" json:"definitionId"`
 	State        string     `gorm:"type:varchar(50);not null;index" json:"state"`
-	CurrentStep  int        `gorm:"not null" json:"current_step"`
-	ContextJSON  []byte     `gorm:"type:json" json:"context_json"`
-	ApprovalID   string     `gorm:"type:varchar(255);not null;index" json:"approval_id"`
+	CurrentStep  int        `gorm:"not null" json:"currentStep"`
+	ContextJSON  []byte     `gorm:"type:json" json:"contextJson"`
+	ApprovalID   string     `gorm:"type:varchar(255);not null;index" json:"approvalId"`
 	Initiator    string     `gorm:"type:varchar(255);not null;index" json:"initiator"`
-	StartedAt    time.Time  `gorm:"not null;index" json:"started_at"`
-	CompletedAt  *time.Time `json:"completed_at"`
-	ExpiresAt    *time.Time `json:"expires_at"`
-	HistoryJSON  []byte     `gorm:"type:json" json:"history_json"`
-	CreatedAt    time.Time  `gorm:"not null" json:"created_at"`
-	UpdatedAt    time.Time  `gorm:"not null" json:"updated_at"`
+	StartedAt    time.Time  `gorm:"not null;index" json:"startedAt"`
+	CompletedAt  *time.Time `json:"completedAt"`
+	ExpiresAt    *time.Time `json:"expiresAt"`
+	HistoryJSON  []byte     `gorm:"type:json" json:"historyJson"`
+	CreatedAt    time.Time  `gorm:"not null" json:"createdAt"`
+	UpdatedAt    time.Time  `gorm:"not null" json:"updatedAt"`
 }
 
 // TableName returns the table name
@@ -159,16 +159,16 @@ func FromInstance(i *WorkflowInstance) (*WorkflowInstanceModel, error) {
 // StepApprovalModel is the GORM model for step approvals
 type StepApprovalModel struct {
 	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	InstanceID  string    `gorm:"type:varchar(255);not null;index" json:"instance_id"`
-	StepID      string    `gorm:"type:varchar(255);not null;index" json:"step_id"`
+	InstanceID  string    `gorm:"type:varchar(255);not null;index" json:"instanceId"`
+	StepID      string    `gorm:"type:varchar(255);not null;index" json:"stepId"`
 	Approver    string    `gorm:"type:varchar(255);not null;index" json:"approver"`
-	DelegatedBy string    `gorm:"type:varchar(255)" json:"delegated_by"`
+	DelegatedBy string    `gorm:"type:varchar(255)" json:"delegatedBy"`
 	Decision    string    `gorm:"type:varchar(50);not null" json:"decision"`
 	Comment     string    `gorm:"type:text" json:"comment"`
-	DecidedAt   time.Time `gorm:"not null" json:"decided_at"`
-	IPAddress   string    `gorm:"type:varchar(50)" json:"ip_address"`
-	UserAgent   string    `gorm:"type:varchar(500)" json:"user_agent"`
-	CreatedAt   time.Time `gorm:"not null" json:"created_at"`
+	DecidedAt   time.Time `gorm:"not null" json:"decidedAt"`
+	IPAddress   string    `gorm:"type:varchar(50)" json:"ipAddress"`
+	UserAgent   string    `gorm:"type:varchar(500)" json:"userAgent"`
+	CreatedAt   time.Time `gorm:"not null" json:"createdAt"`
 }
 
 // TableName returns the table name
@@ -196,21 +196,21 @@ type DelegationModel struct {
 	Delegator     string         `gorm:"type:varchar(255);not null;index" json:"delegator"`
 	Delegate      string         `gorm:"type:varchar(255);not null;index" json:"delegate"`
 	Scope         string         `gorm:"type:varchar(50);not null" json:"scope"`
-	ScopeValue    string         `gorm:"type:varchar(255)" json:"scope_value"`
+	ScopeValue    string         `gorm:"type:varchar(255)" json:"scopeValue"`
 	Permissions   []byte         `gorm:"type:json;not null" json:"permissions"`
 	State         string         `gorm:"type:varchar(50);not null;index" json:"state"`
 	Reason        string         `gorm:"type:text" json:"reason"`
-	StartAt       time.Time      `gorm:"not null" json:"start_at"`
-	EndAt         *time.Time     `json:"end_at"`
-	MaxUsages     int            `gorm:"default:0" json:"max_usages"`
-	UsageCount    int            `gorm:"default:0" json:"usage_count"`
+	StartAt       time.Time      `gorm:"not null" json:"startAt"`
+	EndAt         *time.Time     `json:"endAt"`
+	MaxUsages     int            `gorm:"default:0" json:"maxUsages"`
+	UsageCount    int            `gorm:"default:0" json:"usageCount"`
 	Constraints   []byte         `gorm:"type:json" json:"constraints"`
-	RevokedAt     *time.Time     `json:"revoked_at"`
-	RevokedBy     string         `gorm:"type:varchar(255)" json:"revoked_by"`
-	RevokedReason string         `gorm:"type:text" json:"revoked_reason"`
-	CreatedAt     time.Time      `gorm:"not null" json:"created_at"`
-	UpdatedAt     time.Time      `gorm:"not null" json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at"`
+	RevokedAt     *time.Time     `json:"revokedAt"`
+	RevokedBy     string         `gorm:"type:varchar(255)" json:"revokedBy"`
+	RevokedReason string         `gorm:"type:text" json:"revokedReason"`
+	CreatedAt     time.Time      `gorm:"not null" json:"createdAt"`
+	UpdatedAt     time.Time      `gorm:"not null" json:"updatedAt"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deletedAt"`
 }
 
 // TableName returns the table name
@@ -296,10 +296,10 @@ type NotificationModel struct {
 	ID        uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	Recipient string     `gorm:"type:varchar(255);not null;index" json:"recipient"`
 	Channel   string     `gorm:"type:varchar(50);not null;index" json:"channel"`
-	EventJSON []byte     `gorm:"type:json;not null" json:"event_json"`
+	EventJSON []byte     `gorm:"type:json;not null" json:"eventJson"`
 	Read      bool       `gorm:"default:false;index" json:"read"`
-	ReadAt    *time.Time `json:"read_at"`
-	CreatedAt time.Time  `gorm:"not null;index" json:"created_at"`
+	ReadAt    *time.Time `json:"readAt"`
+	CreatedAt time.Time  `gorm:"not null;index" json:"createdAt"`
 }
 
 // TableName returns the table name

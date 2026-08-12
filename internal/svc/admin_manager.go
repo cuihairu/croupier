@@ -38,8 +38,8 @@ type AdminUser struct {
 	Email    string   `json:"email,omitempty"`
 	Phone    string   `json:"phone,omitempty"`
 	Status   int      `json:"status"` // 1:active 0:disabled
-	CreateAt string   `json:"create_at,omitempty"`
-	UpdateAt string   `json:"update_at,omitempty"`
+	CreateAt string   `json:"createAt,omitempty"`
+	UpdateAt string   `json:"updateAt,omitempty"`
 }
 
 // IsHashedPassword 检查密码是否为 bcrypt 哈希格式

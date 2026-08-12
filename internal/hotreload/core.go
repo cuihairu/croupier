@@ -61,29 +61,29 @@ const (
 // VersionInfo 版本信息
 type VersionInfo struct {
 	Version   string            `json:"version"`
-	BuildTime time.Time         `json:"build_time"`
+	BuildTime time.Time         `json:"buildTime"`
 	Files     map[string]string `json:"files"` // path -> hash
 }
 
 // Config 热更新配置
 type Config struct {
 	// 基础配置
-	ServerURL   string `json:"server_url"`  // Croupier服务器地址
-	GameID      string `json:"game_id"`     // 游戏ID
+	ServerURL   string `json:"serverUrl"`   // Croupier服务器地址
+	GameID      string `json:"gameId"`      // 游戏ID
 	Environment string `json:"environment"` // 环境：dev/test/prod
 
 	// 监听配置
-	WatchDirs      []string `json:"watch_dirs"`      // 监听目录
-	WatchExts      []string `json:"watch_exts"`      // 监听扩展名
-	IgnorePatterns []string `json:"ignore_patterns"` // 忽略模式
+	WatchDirs      []string `json:"watchDirs"`      // 监听目录
+	WatchExts      []string `json:"watchExts"`      // 监听扩展名
+	IgnorePatterns []string `json:"ignorePatterns"` // 忽略模式
 
 	// 行为配置
-	PollInterval  time.Duration `json:"poll_interval"`  // 轮询间隔
-	DebounceTime  time.Duration `json:"debounce_time"`  // 防抖时间
-	MaxRetries    int           `json:"max_retries"`    // 最大重试次数
-	EnableRemote  bool          `json:"enable_remote"`  // 启用远程更新
-	AutoReload    bool          `json:"auto_reload"`    // 自动重载
-	BackupEnabled bool          `json:"backup_enabled"` // 启用备份
+	PollInterval  time.Duration `json:"pollInterval"`  // 轮询间隔
+	DebounceTime  time.Duration `json:"debounceTime"`  // 防抖时间
+	MaxRetries    int           `json:"maxRetries"`    // 最大重试次数
+	EnableRemote  bool          `json:"enableRemote"`  // 启用远程更新
+	AutoReload    bool          `json:"autoReload"`    // 自动重载
+	BackupEnabled bool          `json:"backupEnabled"` // 启用备份
 }
 
 // DefaultConfig 默认配置

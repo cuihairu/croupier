@@ -882,28 +882,28 @@ type bootstrapExtensionCatalogFile struct {
 }
 
 type bootstrapExtensionCatalogItem struct {
-	ExtensionID   string                            `json:"extension_id"`
+	ExtensionID   string                            `json:"extensionId"`
 	Name          string                            `json:"name"`
-	DisplayName   string                            `json:"display_name"`
+	DisplayName   string                            `json:"displayName"`
 	Vendor        string                            `json:"vendor"`
 	Kind          string                            `json:"kind"`
 	Summary       string                            `json:"summary"`
-	IconURL       string                            `json:"icon_url"`
-	HomepageURL   string                            `json:"homepage_url"`
+	IconURL       string                            `json:"iconUrl"`
+	HomepageURL   string                            `json:"homepageUrl"`
 	Status        string                            `json:"status"`
-	LatestVersion string                            `json:"latest_version"`
+	LatestVersion string                            `json:"latestVersion"`
 	Releases      []bootstrapExtensionReleaseRecord `json:"releases"`
 }
 
 type bootstrapExtensionReleaseRecord struct {
 	Version         string         `json:"version"`
-	ReleaseChannel  string         `json:"release_channel"`
-	MinCoreVersion  string         `json:"min_core_version"`
-	PackageRef      string         `json:"package_ref"`
+	ReleaseChannel  string         `json:"releaseChannel"`
+	MinCoreVersion  string         `json:"minCoreVersion"`
+	PackageRef      string         `json:"packageRef"`
 	Checksum        string         `json:"checksum"`
 	Changelog       string         `json:"changelog"`
-	PublishedAt     string         `json:"published_at"`
-	PublishedAtUnix int64          `json:"published_at_unix"`
+	PublishedAt     string         `json:"publishedAt"`
+	PublishedAtUnix int64          `json:"publishedAtUnix"`
 	Manifest        map[string]any `json:"manifest"`
 }
 

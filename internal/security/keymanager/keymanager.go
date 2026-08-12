@@ -64,14 +64,14 @@ type KeyMetadata struct {
 	Purpose      KeyPurpose        `json:"purpose"`
 	State        KeyState          `json:"state"`
 	Version      int               `json:"version"`
-	CreatedAt    time.Time         `json:"created_at"`
-	UpdatedAt    time.Time         `json:"updated_at"`
-	ExpiresAt    *time.Time        `json:"expires_at,omitempty"`
-	RotatedAt    *time.Time        `json:"rotated_at,omitempty"`
-	RotatedFrom  string            `json:"rotated_from,omitempty"`
-	RotationDays int               `json:"rotation_days,omitempty"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	UpdatedAt    time.Time         `json:"updatedAt"`
+	ExpiresAt    *time.Time        `json:"expiresAt,omitempty"`
+	RotatedAt    *time.Time        `json:"rotatedAt,omitempty"`
+	RotatedFrom  string            `json:"rotatedFrom,omitempty"`
+	RotationDays int               `json:"rotationDays,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
-	CreatedBy    string            `json:"created_by"`
+	CreatedBy    string            `json:"createdBy"`
 	Description  string            `json:"description,omitempty"`
 }
 

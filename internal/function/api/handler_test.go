@@ -319,7 +319,7 @@ func TestHandler_UpdateFunctionWithBehavior(t *testing.T) {
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
 
-	reqBody := `{"behavior": {"mode": "command", "timeout_ms": 60000, "cacheable": true}}`
+	reqBody := `{"behavior": {"mode": "command", "timeoutMs": 60000, "cacheable": true}}`
 	req := httptest.NewRequest("PUT", "/api/v1/metadata/functions/player.get", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -343,7 +343,7 @@ func TestHandler_UpdateFunctionWithSecurity(t *testing.T) {
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
 	})
 
-	reqBody := `{"security": {"risk_level": "danger", "permission": "admin.delete.invoke", "requires_approval": true, "audit_log": true}}`
+	reqBody := `{"security": {"riskLevel": "danger", "permission": "admin.delete.invoke", "requiresApproval": true, "auditLog": true}}`
 	req := httptest.NewRequest("PUT", "/api/v1/metadata/functions/admin.delete", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

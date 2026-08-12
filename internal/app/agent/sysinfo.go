@@ -9,30 +9,30 @@ import (
 // ServiceInfo contains information about a system service.
 type ServiceInfo struct {
 	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
-	Status      string `json:"status"`     // running, stopped, paused
-	StartType   string `json:"start_type"` // auto, manual, disabled
-	ProcessID   uint32 `json:"process_id,omitempty"`
+	DisplayName string `json:"displayName"`
+	Status      string `json:"status"`    // running, stopped, paused
+	StartType   string `json:"startType"` // auto, manual, disabled
+	ProcessID   uint32 `json:"processId,omitempty"`
 }
 
 // ServiceStatusDetail contains detailed service status.
 type ServiceStatusDetail struct {
 	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
+	DisplayName string `json:"displayName"`
 	Status      string `json:"status"`
-	StartType   string `json:"start_type"`
-	ProcessID   uint32 `json:"process_id,omitempty"`
-	BinaryPath  string `json:"binary_path,omitempty"`
+	StartType   string `json:"startType"`
+	ProcessID   uint32 `json:"processId,omitempty"`
+	BinaryPath  string `json:"binaryPath,omitempty"`
 	Description string `json:"description,omitempty"`
 }
 
 // CronJob represents a cron job entry.
 type CronJob struct {
-	Schedule   string `json:"schedule"`    // cron expression
-	Command    string `json:"command"`     // command to execute
-	User       string `json:"user"`        // user who runs the job
-	SourceFile string `json:"source_file"` // file where this job is defined
-	Enabled    bool   `json:"enabled"`     // whether the job is active
+	Schedule   string `json:"schedule"`   // cron expression
+	Command    string `json:"command"`    // command to execute
+	User       string `json:"user"`       // user who runs the job
+	SourceFile string `json:"sourceFile"` // file where this job is defined
+	Enabled    bool   `json:"enabled"`    // whether the job is active
 }
 
 // ListServices returns system services based on the platform.

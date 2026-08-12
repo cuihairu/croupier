@@ -31,13 +31,13 @@ func assignmentsPath(ctx *svc.ServiceContext) string {
 
 type assignmentHistoryEntry struct {
 	ID         string                 `json:"id"`
-	GameID     string                 `json:"game_id"`
+	GameID     string                 `json:"gameId"`
 	Env        string                 `json:"env"`
-	FunctionID string                 `json:"function_id"`
+	FunctionID string                 `json:"functionId"`
 	Action     string                 `json:"action"`
 	Count      int                    `json:"count"`
-	OperatedBy string                 `json:"operated_by"`
-	OperatedAt string                 `json:"operated_at"`
+	OperatedBy string                 `json:"operatedBy"`
+	OperatedAt string                 `json:"operatedAt"`
 	Details    map[string]interface{} `json:"details,omitempty"`
 }
 

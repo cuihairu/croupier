@@ -13,33 +13,33 @@ type OpsConfig struct {
 
 	// AllowRestart permits process restart/stop/start operations.
 	// Requires Enabled=true. Default: false
-	AllowRestart bool `json:"allow_restart" yaml:"allow_restart"`
+	AllowRestart bool `json:"allowRestart" yaml:"allow_restart"`
 
 	// AllowExec permits arbitrary command execution.
 	// WARNING: This is extremely dangerous. Use with extreme caution.
 	// Requires Enabled=true. Default: false
-	AllowExec bool `json:"allow_exec" yaml:"allow_exec"`
+	AllowExec bool `json:"allowExec" yaml:"allow_exec"`
 
 	// MetricsInterval defines how often to collect and report metrics.
 	// Default: 30s
-	MetricsInterval time.Duration `json:"metrics_interval" yaml:"metrics_interval"`
+	MetricsInterval time.Duration `json:"metricsInterval" yaml:"metrics_interval"`
 
 	// MetricsEnabled controls whether metrics collection is active.
 	// Default: true (when Enabled=true)
-	MetricsEnabled bool `json:"metrics_enabled" yaml:"metrics_enabled"`
+	MetricsEnabled bool `json:"metricsEnabled" yaml:"metrics_enabled"`
 
 	// ManagedProcesses defines processes that can be managed (restart/stop/start).
 	// Each entry maps a logical name to a process configuration.
-	ManagedProcesses map[string]ManagedProcessConfig `json:"managed_processes" yaml:"managed_processes"`
+	ManagedProcesses map[string]ManagedProcessConfig `json:"managedProcesses" yaml:"managed_processes"`
 
 	// ExecAllowedCommands limits which commands can be executed.
 	// If empty, all commands are allowed (when AllowExec=true).
 	// If non-empty, only commands in this list are allowed.
-	ExecAllowedCommands []string `json:"exec_allowed_commands" yaml:"exec_allowed_commands"`
+	ExecAllowedCommands []string `json:"execAllowedCommands" yaml:"exec_allowed_commands"`
 
 	// ExecTimeout is the maximum execution time for commands.
 	// Default: 60s, Max: 300s
-	ExecTimeout time.Duration `json:"exec_timeout" yaml:"exec_timeout"`
+	ExecTimeout time.Duration `json:"execTimeout" yaml:"exec_timeout"`
 }
 
 // ManagedProcessConfig defines how to manage a process.
@@ -51,22 +51,22 @@ type ManagedProcessConfig struct {
 	Args []string `json:"args" yaml:"args"`
 
 	// WorkingDir is the working directory for the process.
-	WorkingDir string `json:"working_dir" yaml:"working_dir"`
+	WorkingDir string `json:"workingDir" yaml:"working_dir"`
 
 	// Env are environment variables for the process.
 	Env map[string]string `json:"env" yaml:"env"`
 
 	// GracefulTimeout is the time to wait for graceful shutdown.
 	// Default: 30s
-	GracefulTimeout time.Duration `json:"graceful_timeout" yaml:"graceful_timeout"`
+	GracefulTimeout time.Duration `json:"gracefulTimeout" yaml:"graceful_timeout"`
 
 	// RestartDelay is the delay before restarting after a crash.
 	// Default: 5s
-	RestartDelay time.Duration `json:"restart_delay" yaml:"restart_delay"`
+	RestartDelay time.Duration `json:"restartDelay" yaml:"restart_delay"`
 
 	// AutoRestart controls whether to automatically restart on crash.
 	// Default: false
-	AutoRestart bool `json:"auto_restart" yaml:"auto_restart"`
+	AutoRestart bool `json:"autoRestart" yaml:"auto_restart"`
 }
 
 // DefaultOpsConfig returns the default ops configuration.

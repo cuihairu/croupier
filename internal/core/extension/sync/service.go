@@ -15,32 +15,32 @@ type Service struct {
 }
 
 type AgentSyncPayload struct {
-	AgentID       string                     `json:"agent_id"`
-	GeneratedAt   int64                      `json:"generated_at"`
+	AgentID       string                     `json:"agentId"`
+	GeneratedAt   int64                      `json:"generatedAt"`
 	Version       string                     `json:"version"`
 	Installations []AgentInstallationPayload `json:"installations"`
 }
 
 type AgentInstallationPayload struct {
-	InstallationID  uint                  `json:"installation_id"`
-	InstallationKey string                `json:"installation_key"`
-	ExtensionID     string                `json:"extension_id"`
-	ReleaseVersion  string                `json:"release_version"`
+	InstallationID  uint                  `json:"installationId"`
+	InstallationKey string                `json:"installationKey"`
+	ExtensionID     string                `json:"extensionId"`
+	ReleaseVersion  string                `json:"releaseVersion"`
 	Enabled         bool                  `json:"enabled"`
-	ScopeType       string                `json:"scope_type"`
-	ScopeID         string                `json:"scope_id"`
-	TargetType      string                `json:"target_type"`
-	TargetID        string                `json:"target_id"`
-	ConfigJSON      string                `json:"config_json"`
-	SecretRefsJSON  string                `json:"secret_refs_json"`
+	ScopeType       string                `json:"scopeType"`
+	ScopeID         string                `json:"scopeId"`
+	TargetType      string                `json:"targetType"`
+	TargetID        string                `json:"targetId"`
+	ConfigJSON      string                `json:"configJson"`
+	SecretRefsJSON  string                `json:"secretRefsJson"`
 	Bindings        []AgentBindingPayload `json:"bindings"`
 }
 
 type AgentBindingPayload struct {
-	BindingType string `json:"binding_type"`
-	BindingKey  string `json:"binding_key"`
-	TargetRef   string `json:"target_ref"`
-	SpecJSON    string `json:"spec_json"`
+	BindingType string `json:"bindingType"`
+	BindingKey  string `json:"bindingKey"`
+	TargetRef   string `json:"targetRef"`
+	SpecJSON    string `json:"specJson"`
 	Status      string `json:"status"`
 }
 

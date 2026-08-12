@@ -82,8 +82,16 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       const res = await listMyGames();
       const scopedGames = Array.isArray(res?.games) ? res.games : [];
       setGames(scopedGames);
+      if (scopedGames.length === 0) {
+        // No games assigned — unblock pages; requests go without scope
+        // headers and the backend resolves its default scope.
+        markScopeReady();
+      }
     } catch (err) {
       console.error('Failed to load games', err);
+      // Unblock pages so they surface their own errors instead of
+      // staying blank forever.
+      markScopeReady();
     } finally {
       setLoading(false);
     }
@@ -148,11 +156,17 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         onChange?.(fallback);
       }
     }
-    // Scope is validated once games are loaded — pages can safely make API calls
-    markScopeReady();
+    // Do NOT mark scope ready here — env has not been validated against
+    // the game's real env list yet. markScopeReady fires in the env
+    // effect below, after both gameId and env are settled.
   }, [games, gameState, isGameControlled, onChange]);
 
   useEffect(() => {
+    if (!games.length) {
+      // Wait for games: before that, envOptions falls back to
+      // DEFAULT_ENV_OPTIONS and cannot detect a stale env.
+      return;
+    }
     if (!envOptions.length) {
       return;
     }
@@ -167,7 +181,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         onEnvChange?.(fallback);
       }
     }
-  }, [envOptions, envState, envValue, isEnvControlled, onEnvChange]);
+    // gameId and env are both validated against the game's real env
+    // list — pages can safely make API calls now.
+    markScopeReady();
+  }, [games, envOptions, envState, envValue, isEnvControlled, onEnvChange]);
 
   const handleGameChange = (next?: string) => {
     if (!next) {

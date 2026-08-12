@@ -20,8 +20,8 @@ type NotificationEvent struct {
 	Type       string                 `json:"type"`
 	Title      string                 `json:"title"`
 	Message    string                 `json:"message"`
-	InstanceID string                 `json:"instance_id,omitempty"`
-	ApprovalID string                 `json:"approval_id,omitempty"`
+	InstanceID string                 `json:"instanceId,omitempty"`
+	ApprovalID string                 `json:"approvalId,omitempty"`
 	Data       map[string]interface{} `json:"data,omitempty"`
 	Priority   string                 `json:"priority"` // low, normal, high, urgent
 }
@@ -45,7 +45,7 @@ type NotificationConfig struct {
 	Channel   NotificationChannel `json:"channel"`
 	Enabled   bool                `json:"enabled"`
 	Config    map[string]string   `json:"config"`
-	RateLimit int                 `json:"rate_limit"` // Max notifications per hour
+	RateLimit int                 `json:"rateLimit"` // Max notifications per hour
 }
 
 // Notifier interface for sending notifications
@@ -171,8 +171,8 @@ type NotificationRecord struct {
 	Channel   NotificationChannel `json:"channel"`
 	Event     NotificationEvent   `json:"event"`
 	Read      bool                `json:"read"`
-	ReadAt    *time.Time          `json:"read_at,omitempty"`
-	CreatedAt time.Time           `json:"created_at"`
+	ReadAt    *time.Time          `json:"readAt,omitempty"`
+	CreatedAt time.Time           `json:"createdAt"`
 }
 
 // InAppNotifier manages in-app notifications

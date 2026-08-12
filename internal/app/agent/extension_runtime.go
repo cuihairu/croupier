@@ -20,42 +20,42 @@ type ExtensionRuntimeApplyResult struct {
 
 // RuntimeBinding is the runtime view of one extension binding.
 type RuntimeBinding struct {
-	BindingType string         `json:"binding_type"`
-	BindingKey  string         `json:"binding_key"`
-	TargetRef   string         `json:"target_ref"`
-	SpecJSON    string         `json:"spec_json"`
+	BindingType string         `json:"bindingType"`
+	BindingKey  string         `json:"bindingKey"`
+	TargetRef   string         `json:"targetRef"`
+	SpecJSON    string         `json:"specJson"`
 	Spec        map[string]any `json:"spec"`
 	Status      string         `json:"status"`
 }
 
 // RuntimeInstallation is the runtime view of one extension installation.
 type RuntimeInstallation struct {
-	InstallationID  uint              `json:"installation_id"`
-	InstallationKey string            `json:"installation_key"`
-	ExtensionID     string            `json:"extension_id"`
-	ReleaseVersion  string            `json:"release_version"`
+	InstallationID  uint              `json:"installationId"`
+	InstallationKey string            `json:"installationKey"`
+	ExtensionID     string            `json:"extensionId"`
+	ReleaseVersion  string            `json:"releaseVersion"`
 	Enabled         bool              `json:"enabled"`
-	ScopeType       string            `json:"scope_type"`
-	ScopeID         string            `json:"scope_id"`
-	TargetType      string            `json:"target_type"`
-	TargetID        string            `json:"target_id"`
+	ScopeType       string            `json:"scopeType"`
+	ScopeID         string            `json:"scopeId"`
+	TargetType      string            `json:"targetType"`
+	TargetID        string            `json:"targetId"`
 	Config          map[string]any    `json:"config"`
-	SecretRefs      map[string]string `json:"secret_refs"`
+	SecretRefs      map[string]string `json:"secretRefs"`
 	Bindings        []RuntimeBinding  `json:"bindings"`
 }
 
 // ExtensionRuntimeSnapshot represents current runtime cache.
 type ExtensionRuntimeSnapshot struct {
-	AgentID         string                `json:"agent_id"`
+	AgentID         string                `json:"agentId"`
 	Version         string                `json:"version"`
-	GeneratedAt     int64                 `json:"generated_at"`
-	AppliedAt       int64                 `json:"applied_at"`
-	LastApplyStatus string                `json:"last_apply_status"`
-	LastError       string                `json:"last_error"`
-	LastErrorAt     int64                 `json:"last_error_at"`
-	LastApplied     int                   `json:"last_applied"`
-	LastRemoved     int                   `json:"last_removed"`
-	LastFailed      int                   `json:"last_failed"`
+	GeneratedAt     int64                 `json:"generatedAt"`
+	AppliedAt       int64                 `json:"appliedAt"`
+	LastApplyStatus string                `json:"lastApplyStatus"`
+	LastError       string                `json:"lastError"`
+	LastErrorAt     int64                 `json:"lastErrorAt"`
+	LastApplied     int                   `json:"lastApplied"`
+	LastRemoved     int                   `json:"lastRemoved"`
+	LastFailed      int                   `json:"lastFailed"`
 	Installations   []RuntimeInstallation `json:"installations"`
 }
 

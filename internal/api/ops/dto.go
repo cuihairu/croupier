@@ -79,8 +79,8 @@ type OpsAlert struct {
 	Service     string                 `json:"service,omitempty"`
 	Instance    string                 `json:"instance,omitempty"`
 	Summary     string                 `json:"summary,omitempty"`
-	StartsAt    string                 `json:"starts_at,omitempty"`
-	EndsAt      string                 `json:"ends_at,omitempty"`
+	StartsAt    string                 `json:"startsAt,omitempty"`
+	EndsAt      string                 `json:"endsAt,omitempty"`
 	Duration    string                 `json:"duration,omitempty"`
 	Silenced    bool                   `json:"silenced,omitempty"`
 	Labels      map[string]interface{} `json:"labels,omitempty"`
@@ -187,9 +187,9 @@ type OpsConfigRequest struct {
 }
 
 type OpsConfigResponse struct {
-	AlertmanagerURL   string `json:"alertmanager_url,omitempty"`
-	GrafanaExploreURL string `json:"grafana_explore_url,omitempty"`
-	JaegerURL         string `json:"jaeger_url,omitempty"`
+	AlertmanagerURL   string `json:"alertmanagerUrl,omitempty"`
+	GrafanaExploreURL string `json:"grafanaExploreUrl,omitempty"`
+	JaegerURL         string `json:"jaegerUrl,omitempty"`
 }
 
 // Metrics DTOs
@@ -496,11 +496,11 @@ type OpsServiceMetadata struct {
 }
 
 type OpsServiceProcess struct {
-	ServiceID    string   `json:"service_id"`
+	ServiceID    string   `json:"serviceId"`
 	Addr         string   `json:"addr"`
 	Version      string   `json:"version"`
-	LastSeenUnix int64    `json:"last_seen_unix"`
-	FunctionIDs  []string `json:"function_ids"`
+	LastSeenUnix int64    `json:"lastSeenUnix"`
+	FunctionIDs  []string `json:"functionIds"`
 	Functions    int      `json:"functions"`
 }
 

@@ -28,9 +28,9 @@ const (
 // RateLimitConfig holds rate limiter configuration
 type RateLimitConfig struct {
 	Strategy       RateLimitStrategy `json:"strategy"`
-	RequestsPerSec float64           `json:"requests_per_sec"`
-	BurstSize      int               `json:"burst_size"`
-	WindowDuration time.Duration     `json:"window_duration"`
+	RequestsPerSec float64           `json:"requestsPerSec"`
+	BurstSize      int               `json:"burstSize"`
+	WindowDuration time.Duration     `json:"windowDuration"`
 	KeyFunc        func(ctx context.Context) string
 	OnLimited      func(ctx context.Context, key string)
 }
@@ -39,8 +39,8 @@ type RateLimitConfig struct {
 type RateLimitResult struct {
 	Allowed    bool          `json:"allowed"`
 	Remaining  int           `json:"remaining"`
-	ResetAt    time.Time     `json:"reset_at"`
-	RetryAfter time.Duration `json:"retry_after"`
+	ResetAt    time.Time     `json:"resetAt"`
+	RetryAfter time.Duration `json:"retryAfter"`
 	Limit      int           `json:"limit"`
 }
 
@@ -57,11 +57,11 @@ type AdvancedLimiter interface {
 // RateLimitStats holds rate limit statistics
 type RateLimitStats struct {
 	Key             string    `json:"key"`
-	TotalRequests   int64     `json:"total_requests"`
-	AllowedRequests int64     `json:"allowed_requests"`
-	DeniedRequests  int64     `json:"denied_requests"`
-	CurrentTokens   int       `json:"current_tokens"`
-	LastRequest     time.Time `json:"last_request"`
+	TotalRequests   int64     `json:"totalRequests"`
+	AllowedRequests int64     `json:"allowedRequests"`
+	DeniedRequests  int64     `json:"deniedRequests"`
+	CurrentTokens   int       `json:"currentTokens"`
+	LastRequest     time.Time `json:"lastRequest"`
 }
 
 // SlidingWindowLimiter implements sliding window rate limiting

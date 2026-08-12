@@ -75,7 +75,7 @@ type Provider struct {
 // Config holds the OpenAPI provider specific configuration.
 type Config struct {
 	// BaseURL is the base URL of the OpenAPI service (e.g., "http://api.example.com")
-	BaseURL string `yaml:"base_url" json:"base_url"`
+	BaseURL string `yaml:"base_url" json:"baseUrl"`
 
 	// Auth specifies the authentication method
 	Auth *AuthConfig `yaml:"auth" json:"auth"`
@@ -86,18 +86,18 @@ type Config struct {
 
 	// OpenAPISpec is the URL or local path to a single OpenAPI/Swagger specification
 	// If provided, the provider will auto-discover available methods
-	OpenAPISpec string `yaml:"openapi_spec" json:"openapi_spec"`
+	OpenAPISpec string `yaml:"openapi_spec" json:"openapiSpec"`
 
 	// OpenAPISpecs is a list of URLs or local paths to multiple OpenAPI specifications
 	// If provided, the provider will merge all specs and auto-discover methods
 	// Takes precedence over OpenAPISpec if both are set
-	OpenAPISpecs []string `yaml:"openapi_specs" json:"openapi_specs"`
+	OpenAPISpecs []string `yaml:"openapi_specs" json:"openapiSpecs"`
 
 	// Timeout for HTTP requests (supports "10s", "1m", "500ms" or seconds as number)
 	Timeout Duration `yaml:"timeout" json:"timeout"`
 
 	// RetryCount specifies how many times to retry on failure
-	RetryCount int `yaml:"retry_count" json:"retry_count"`
+	RetryCount int `yaml:"retry_count" json:"retryCount"`
 
 	// Headers are default headers to include in all requests
 	Headers map[string]string `yaml:"headers" json:"headers"`
@@ -121,10 +121,10 @@ type AuthConfig struct {
 	Password string `yaml:"password" json:"password"`
 
 	// APIKey configuration for "api_key" type
-	APIKey *APIKeyAuth `yaml:"api_key" json:"api_key"`
+	APIKey *APIKeyAuth `yaml:"api_key" json:"apiKey"`
 
 	// Custom header configuration for "custom" type
-	CustomHeaders map[string]string `yaml:"custom_headers" json:"custom_headers"`
+	CustomHeaders map[string]string `yaml:"custom_headers" json:"customHeaders"`
 }
 
 // APIKeyAuth defines API key authentication.
@@ -147,7 +147,7 @@ type APIMethod struct {
 	Name string `yaml:"name" json:"name"`
 
 	// OperationId from OpenAPI spec (unique identifier for the operation)
-	OperationID string `yaml:"operation_id" json:"operation_id"`
+	OperationID string `yaml:"operation_id" json:"operationId"`
 
 	// Summary is a short summary of what the operation does (from OpenAPI)
 	Summary string `yaml:"summary" json:"summary"`
@@ -169,10 +169,10 @@ type APIMethod struct {
 	Parameters []ParameterMapping `yaml:"parameters" json:"parameters"`
 
 	// RequestBody defines how to map the request body
-	RequestBody *RequestBodyMapping `yaml:"request_body" json:"request_body"`
+	RequestBody *RequestBodyMapping `yaml:"request_body" json:"requestBody"`
 
 	// ResponseMapping defines how to transform the response
-	ResponseMapping *ResponseMapping `yaml:"response_mapping" json:"response_mapping"`
+	ResponseMapping *ResponseMapping `yaml:"response_mapping" json:"responseMapping"`
 
 	// Deprecated marks this operation as deprecated (from OpenAPI)
 	Deprecated bool `yaml:"deprecated" json:"deprecated"`
@@ -238,31 +238,31 @@ type RequestBodyMapping struct {
 // ResponseMapping defines how to transform the response.
 type ResponseMapping struct {
 	// ExtractPath is a JSON path to extract from response (e.g., "data.items")
-	ExtractPath string `yaml:"extract_path" json:"extract_path"`
+	ExtractPath string `yaml:"extract_path" json:"extractPath"`
 
 	// Wrap indicates whether to wrap the response in a standard envelope
 	Wrap bool `yaml:"wrap" json:"wrap"`
 
 	// SuccessField is the field that indicates success (e.g., "code == 0")
-	SuccessField string `yaml:"success_field" json:"success_field"`
+	SuccessField string `yaml:"success_field" json:"successField"`
 
 	// SuccessValue is the value that indicates success
-	SuccessValue interface{} `yaml:"success_value" json:"success_value"`
+	SuccessValue interface{} `yaml:"success_value" json:"successValue"`
 }
 
 // TransformConfig defines global response transformation.
 type TransformConfig struct {
 	// SuccessField specifies the field that indicates success
-	SuccessField string `yaml:"success_field" json:"success_field"`
+	SuccessField string `yaml:"success_field" json:"successField"`
 
 	// SuccessValue is the value that indicates success
-	SuccessValue interface{} `yaml:"success_value" json:"success_value"`
+	SuccessValue interface{} `yaml:"success_value" json:"successValue"`
 
 	// DataField specifies the field containing the actual data
-	DataField string `yaml:"data_field" json:"data_field"`
+	DataField string `yaml:"data_field" json:"dataField"`
 
 	// ErrorField specifies the field containing error message
-	ErrorField string `yaml:"error_field" json:"error_field"`
+	ErrorField string `yaml:"error_field" json:"errorField"`
 }
 
 // MethodDetails contains the metadata for a method extracted from OpenAPI.

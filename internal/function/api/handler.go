@@ -131,8 +131,8 @@ func (h *Handler) UpdateFunction(c *gin.Context) {
 	type updateFunctionBody struct {
 		Name         *string           `json:"name"`
 		Description  *string           `json:"description"`
-		InputSchema  *string           `json:"input_schema"`
-		OutputSchema *string           `json:"output_schema"`
+		InputSchema  *string           `json:"inputSchema"`
+		OutputSchema *string           `json:"outputSchema"`
 		Behavior     *FunctionBehavior `json:"behavior"`
 		Security     *FunctionSecurity `json:"security"`
 		Extensions   map[string]string `json:"extensions"`

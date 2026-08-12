@@ -483,7 +483,7 @@ func (s *OpsServer) ListCronJobsJSON(ctx context.Context) ([]byte, error) {
 // ListServicesRequest requests a list of system services.
 type ListServicesRequest struct {
 	State       string `json:"state"`
-	NamePattern string `json:"name_pattern"`
+	NamePattern string `json:"namePattern"`
 	Limit       int32  `json:"limit"`
 }
 
@@ -501,11 +501,11 @@ type GetServiceStatusRequest struct {
 // GetServiceStatusResponse contains detailed service status.
 type GetServiceStatusResponse struct {
 	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
+	DisplayName string `json:"displayName"`
 	Status      string `json:"status"`
-	StartType   string `json:"start_type"`
-	ProcessID   uint32 `json:"process_id"`
-	BinaryPath  string `json:"binary_path"`
+	StartType   string `json:"startType"`
+	ProcessID   uint32 `json:"processId"`
+	BinaryPath  string `json:"binaryPath"`
 	Description string `json:"description"`
 }
 

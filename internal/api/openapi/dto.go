@@ -54,7 +54,7 @@ type GetSpecRequest = OpenAPISpecRequest
 type GetSpecResponse = OpenAPISpecResponse
 
 type BatchGetSpecRequest struct {
-	FunctionIDs []string `json:"function_ids" binding:"required"`
+	FunctionIDs []string `json:"functionIds" binding:"required"`
 }
 
 type BatchGetSpecResponse map[string]json.RawMessage

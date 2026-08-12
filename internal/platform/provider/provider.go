@@ -46,16 +46,16 @@ type ProviderConfig struct {
 	Config map[string]interface{} `yaml:"config" json:"config"`
 
 	// RateLimit configures rate limiting for this provider.
-	RateLimit *RateLimitConfig `yaml:"rate_limit" json:"rate_limit"`
+	RateLimit *RateLimitConfig `yaml:"rate_limit" json:"rateLimit"`
 }
 
 // RateLimitConfig defines rate limiting parameters.
 type RateLimitConfig struct {
 	// RequestsPerMinute is the maximum number of requests allowed per minute.
-	RequestsPerMinute int `yaml:"requests_per_minute" json:"requests_per_minute"`
+	RequestsPerMinute int `yaml:"requests_per_minute" json:"requestsPerMinute"`
 
 	// BurstSize allows temporary bursts above the sustained rate.
-	BurstSize int `yaml:"burst_size" json:"burst_size"`
+	BurstSize int `yaml:"burst_size" json:"burstSize"`
 }
 
 // ProviderNotFoundError is returned when a provider is not found in the registry.

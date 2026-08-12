@@ -61,21 +61,21 @@ type AppError struct {
 	Details   string        `json:"details,omitempty"`
 	Operation string        `json:"operation"`
 	Timestamp time.Time     `json:"timestamp"`
-	TraceID   string        `json:"trace_id"`
+	TraceID   string        `json:"traceId"`
 	Severity  ErrorSeverity `json:"severity"`
 
 	// 错误分类
 	Category  ErrorCategory `json:"category"`
-	UserError bool          `json:"user_error"` // 是否为用户输入错误
+	UserError bool          `json:"userError"` // 是否为用户输入错误
 
 	// HTTP相关
-	HTTPStatusCode int               `json:"http_status_code"`
-	HTTPHeaders    map[string]string `json:"http_headers,omitempty"`
+	HTTPStatusCode int               `json:"httpStatusCode"`
+	HTTPHeaders    map[string]string `json:"httpHeaders,omitempty"`
 
 	// 重试信息
 	Retryable  bool          `json:"retryable"`
-	RetryDelay time.Duration `json:"retry_delay,omitempty"`
-	RetryCount int           `json:"retry_count,omitempty"`
+	RetryDelay time.Duration `json:"retryDelay,omitempty"`
+	RetryCount int           `json:"retryCount,omitempty"`
 
 	// 上下文信息
 	Context map[string]interface{} `json:"context,omitempty"`
@@ -199,8 +199,8 @@ type ErrorMetrics struct {
 	Code      ErrorCode     `json:"code"`
 	Operation string        `json:"operation"`
 	Count     int64         `json:"count"`
-	FirstSeen time.Time     `json:"first_seen"`
-	LastSeen  time.Time     `json:"last_seen"`
+	FirstSeen time.Time     `json:"firstSeen"`
+	LastSeen  time.Time     `json:"lastSeen"`
 	Duration  time.Duration `json:"duration"`
 	Severity  ErrorSeverity `json:"severity"`
 }

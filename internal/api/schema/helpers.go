@@ -30,9 +30,9 @@ type schemaFileModel struct {
 	ID        string      `json:"id"`
 	Name      string      `json:"name"`
 	Schema    interface{} `json:"schema"`
-	UIConfig  interface{} `json:"ui_config,omitempty"`
-	CreatedAt string      `json:"created_at"`
-	UpdatedAt string      `json:"updated_at"`
+	UIConfig  interface{} `json:"uiConfig,omitempty"`
+	CreatedAt string      `json:"createdAt"`
+	UpdatedAt string      `json:"updatedAt"`
 }
 
 func resolveSchemasDir(cfg config.Config) string {

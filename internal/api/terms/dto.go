@@ -14,22 +14,22 @@ type TermDeleteResponse struct {
 // TermItem represents a single term dictionary item
 type TermItem struct {
 	Id        int64  `json:"id"`
-	Domain    string `json:"domain"`     // resource | operation
-	TermKey   string `json:"term_key"`   // 原始术语键
-	Alias     string `json:"alias"`      // 别名
-	DisplayZh string `json:"display_zh"` // 中文显示
-	DisplayEn string `json:"display_en"` // 英文显示
-	Order     int64  `json:"order"`      // 排序
+	Domain    string `json:"domain"`    // resource | operation
+	TermKey   string `json:"termKey"`   // 原始术语键
+	Alias     string `json:"alias"`     // 别名
+	DisplayZh string `json:"displayZh"` // 中文显示
+	DisplayEn string `json:"displayEn"` // 英文显示
+	Order     int64  `json:"order"`     // 排序
 }
 
 // TermUpsertRequest represents the request to create or update a term
 type TermUpsertRequest struct {
-	Domain    string `json:"domain"`     // resource | operation
-	TermKey   string `json:"term_key"`   // 原始术语键
-	Alias     string `json:"alias"`      // 别名
-	DisplayZh string `json:"display_zh"` // 中文显示
-	DisplayEn string `json:"display_en"` // 英文显示
-	Order     int64  `json:"order"`      // 排序
+	Domain    string `json:"domain"`    // resource | operation
+	TermKey   string `json:"termKey"`   // 原始术语键
+	Alias     string `json:"alias"`     // 别名
+	DisplayZh string `json:"displayZh"` // 中文显示
+	DisplayEn string `json:"displayEn"` // 英文显示
+	Order     int64  `json:"order"`     // 排序
 }
 
 // TermUpsertResponse represents the response for term upsert

@@ -42,23 +42,23 @@ var fallbackDefaultEnvs = []model.GameEnv{
 }
 
 type gamesBootstrapConfig struct {
-	DefaultEnvs []model.GameEnv          `json:"default_envs"`
+	DefaultEnvs []model.GameEnv          `json:"defaultEnvs"`
 	Games       []bootstrapGameSeedEntry `json:"games"`
 }
 
 type bootstrapGameSeedEntry struct {
-	GameID      string          `json:"game_id"`
+	GameID      string          `json:"gameId"`
 	Name        string          `json:"name"`
-	AliasName   string          `json:"alias_name"`
-	DisplayName string          `json:"display_name"`
+	AliasName   string          `json:"aliasName"`
+	DisplayName string          `json:"displayName"`
 	Title       string          `json:"title"`
 	Icon        string          `json:"icon"`
 	Description string          `json:"description"`
 	Homepage    string          `json:"homepage"`
 	Status      string          `json:"status"`
 	Enabled     *bool           `json:"enabled"`
-	GameType    string          `json:"game_type"`
-	GenreCode   string          `json:"genre_code"`
+	GameType    string          `json:"gameType"`
+	GenreCode   string          `json:"genreCode"`
 	Color       string          `json:"color"`
 	Env         string          `json:"env"`  // backward-compatible single env
 	Envs        []model.GameEnv `json:"envs"` // preferred, rich metadata

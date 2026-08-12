@@ -10,10 +10,10 @@ import (
 )
 
 type TaskRouting struct {
-	TaskID    string    `json:"task_id"`
-	AgentID   string    `json:"agent_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	TaskID    string    `json:"taskId"`
+	AgentID   string    `json:"agentId"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type TaskRoutingStore interface {

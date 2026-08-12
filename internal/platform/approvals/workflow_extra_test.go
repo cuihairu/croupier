@@ -220,7 +220,7 @@ func TestWorkflowEngine_MarshalJSON_Instance(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, data)
 	assert.Contains(t, string(data), "json-workflow")
-	assert.Contains(t, string(data), "started_at")
+	assert.Contains(t, string(data), "startedAt")
 }
 
 // TestWorkflowEngine_evaluateCondition tests evaluateCondition method

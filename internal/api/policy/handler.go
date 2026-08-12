@@ -116,8 +116,8 @@ func (h *Handler) GetDefaultPolicies(c *gin.Context) {
 // Request/Response types
 
 type SetPolicyRequest struct {
-	RequireApproval  bool     `json:"require_approval"`
-	ApprovalWorkflow string   `json:"approval_workflow"`
-	RequireAudit     bool     `json:"require_audit"`
-	AllowedRoles     []string `json:"allowed_roles"`
+	RequireApproval  bool     `json:"requireApproval"`
+	ApprovalWorkflow string   `json:"approvalWorkflow"`
+	RequireAudit     bool     `json:"requireAudit"`
+	AllowedRoles     []string `json:"allowedRoles"`
 }

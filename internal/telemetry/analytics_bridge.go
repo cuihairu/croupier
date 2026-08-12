@@ -32,16 +32,16 @@ type AnalyticsBridge struct {
 
 // AnalyticsEvent 标准化的游戏分析事件
 type AnalyticsEvent struct {
-	EventType  string                 `json:"event_type"`
-	GameID     string                 `json:"game_id"`
-	UserID     string                 `json:"user_id"`
-	SessionID  string                 `json:"session_id"`
+	EventType  string                 `json:"eventType"`
+	GameID     string                 `json:"gameId"`
+	UserID     string                 `json:"userId"`
+	SessionID  string                 `json:"sessionId"`
 	Platform   string                 `json:"platform"`
 	Region     string                 `json:"region"`
 	Timestamp  int64                  `json:"timestamp"`
 	Attributes map[string]interface{} `json:"attributes"`
-	TraceID    string                 `json:"trace_id,omitempty"`
-	SpanID     string                 `json:"span_id,omitempty"`
+	TraceID    string                 `json:"traceId,omitempty"`
+	SpanID     string                 `json:"spanId,omitempty"`
 }
 
 // AnalyticsBridgeConfig Analytics桥接配置

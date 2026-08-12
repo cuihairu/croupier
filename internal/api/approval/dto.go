@@ -5,22 +5,22 @@ import "encoding/json"
 // ApprovalSummary represents an approval summary
 type ApprovalSummary struct {
 	ID              string `json:"id"`
-	CreatedAt       string `json:"created_at"`
-	UpdatedAt       string `json:"updated_at"`
+	CreatedAt       string `json:"createdAt"`
+	UpdatedAt       string `json:"updatedAt"`
 	Actor           string `json:"actor"`
-	FunctionID      string `json:"function_id"`
-	GameID          string `json:"game_id"`
+	FunctionID      string `json:"functionId"`
+	GameID          string `json:"gameId"`
 	Env             string `json:"env"`
 	State           string `json:"state"`
 	Mode            string `json:"mode"`
 	Route           string `json:"route,omitempty"`
-	IdempotencyKey  string `json:"idempotency_key,omitempty"`
-	TargetServiceID string `json:"target_service_id,omitempty"`
-	HashKey         string `json:"hash_key,omitempty"`
+	IdempotencyKey  string `json:"idempotencyKey,omitempty"`
+	TargetServiceID string `json:"targetServiceId,omitempty"`
+	HashKey         string `json:"hashKey,omitempty"`
 	Reason          string `json:"reason,omitempty"`
 	Continuation    bool   `json:"continuation,omitempty"`
-	ResultKind      string `json:"result_kind,omitempty"`
-	TaskID          string `json:"task_id,omitempty"`
+	ResultKind      string `json:"resultKind,omitempty"`
+	TaskID          string `json:"taskId,omitempty"`
 	Result          string `json:"result,omitempty"`
 }
 
@@ -28,7 +28,7 @@ type ApprovalSummary struct {
 type ApprovalDetail struct {
 	ApprovalSummary
 	Payload        map[string]interface{} `json:"payload,omitempty"`
-	PayloadPreview string                 `json:"payload_preview,omitempty"`
+	PayloadPreview string                 `json:"payloadPreview,omitempty"`
 }
 
 // ApprovalsListRequest represents the request to list approvals
@@ -59,25 +59,25 @@ type ApprovalGetResponse struct {
 // Approval represents an approval (for response)
 type Approval struct {
 	ID              string                 `json:"id"`
-	CreatedAt       string                 `json:"created_at"`
-	UpdatedAt       string                 `json:"updated_at"`
+	CreatedAt       string                 `json:"createdAt"`
+	UpdatedAt       string                 `json:"updatedAt"`
 	Actor           string                 `json:"actor"`
-	FunctionID      string                 `json:"function_id"`
-	GameID          string                 `json:"game_id"`
+	FunctionID      string                 `json:"functionId"`
+	GameID          string                 `json:"gameId"`
 	Env             string                 `json:"env"`
 	State           string                 `json:"state"`
 	Mode            string                 `json:"mode"`
 	Route           string                 `json:"route,omitempty"`
-	IdempotencyKey  string                 `json:"idempotency_key,omitempty"`
-	TargetServiceID string                 `json:"target_service_id,omitempty"`
-	HashKey         string                 `json:"hash_key,omitempty"`
+	IdempotencyKey  string                 `json:"idempotencyKey,omitempty"`
+	TargetServiceID string                 `json:"targetServiceId,omitempty"`
+	HashKey         string                 `json:"hashKey,omitempty"`
 	Reason          string                 `json:"reason,omitempty"`
 	Continuation    bool                   `json:"continuation,omitempty"`
-	ResultKind      string                 `json:"result_kind,omitempty"`
-	TaskID          string                 `json:"task_id,omitempty"`
+	ResultKind      string                 `json:"resultKind,omitempty"`
+	TaskID          string                 `json:"taskId,omitempty"`
 	Result          string                 `json:"result,omitempty"`
 	Payload         map[string]interface{} `json:"payload,omitempty"`
-	PayloadPreview  string                 `json:"payload_preview,omitempty"`
+	PayloadPreview  string                 `json:"payloadPreview,omitempty"`
 }
 
 // ApprovalApproveRequest represents the request to approve an approval
@@ -90,8 +90,8 @@ type ApprovalApproveResponse struct {
 	ID           string          `json:"id"`
 	State        string          `json:"state"`
 	Continuation bool            `json:"continuation"`
-	ResultKind   string          `json:"result_kind,omitempty"`
-	TaskID       string          `json:"task_id,omitempty"`
+	ResultKind   string          `json:"resultKind,omitempty"`
+	TaskID       string          `json:"taskId,omitempty"`
 	Result       json.RawMessage `json:"result,omitempty"`
 }
 

@@ -361,15 +361,15 @@ type GameConfig struct {
 }
 
 type GameBalance struct {
-	PlayerHP     int     `json:"player_hp" yaml:"player_hp"`
-	EnemyDamage  int     `json:"enemy_damage" yaml:"enemy_damage"`
-	CoinDropRate float64 `json:"coin_drop_rate" yaml:"coin_drop_rate"`
+	PlayerHP     int     `json:"playerHp" yaml:"player_hp"`
+	EnemyDamage  int     `json:"enemyDamage" yaml:"enemy_damage"`
+	CoinDropRate float64 `json:"coinDropRate" yaml:"coin_drop_rate"`
 }
 
 type GameRules struct {
-	MaxPlayers   int  `json:"max_players" yaml:"max_players"`
-	EnablePVP    bool `json:"enable_pvp" yaml:"enable_pvp"`
-	MatchTimeout int  `json:"match_timeout" yaml:"match_timeout"`
+	MaxPlayers   int  `json:"maxPlayers" yaml:"max_players"`
+	EnablePVP    bool `json:"enablePvp" yaml:"enable_pvp"`
+	MatchTimeout int  `json:"matchTimeout" yaml:"match_timeout"`
 }
 
 // RegisterGameConfigHandler 注册游戏配置处理器

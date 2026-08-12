@@ -17,25 +17,25 @@ import (
 // AuditModel is the GORM model for audit records
 type AuditModel struct {
 	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	AuditID        string    `gorm:"uniqueIndex;type:varchar(255)" json:"audit_id"`
+	AuditID        string    `gorm:"uniqueIndex;type:varchar(255)" json:"auditId"`
 	Timestamp      time.Time `gorm:"not null;index" json:"timestamp"`
-	EventType      string    `gorm:"type:varchar(100);not null;index" json:"event_type"`
+	EventType      string    `gorm:"type:varchar(100);not null;index" json:"eventType"`
 	Category       string    `gorm:"type:varchar(50);not null;index" json:"category"`
 	Severity       string    `gorm:"type:varchar(20);not null;index" json:"severity"`
-	ActorJSON      []byte    `gorm:"type:json" json:"actor_json"`
+	ActorJSON      []byte    `gorm:"type:json" json:"actorJson"`
 	Action         string    `gorm:"type:varchar(255)" json:"action"`
-	ResourceJSON   []byte    `gorm:"type:json" json:"resource_json"`
-	DetailsJSON    []byte    `gorm:"type:json" json:"details_json"`
-	ChangesJSON    []byte    `gorm:"type:json" json:"changes_json"`
-	ContextJSON    []byte    `gorm:"type:json" json:"context_json"`
+	ResourceJSON   []byte    `gorm:"type:json" json:"resourceJson"`
+	DetailsJSON    []byte    `gorm:"type:json" json:"detailsJson"`
+	ChangesJSON    []byte    `gorm:"type:json" json:"changesJson"`
+	ContextJSON    []byte    `gorm:"type:json" json:"contextJson"`
 	Outcome        string    `gorm:"type:varchar(50);not null;index" json:"outcome"`
-	ErrorMessage   string    `gorm:"type:text" json:"error_message"`
-	ChainHash      string    `gorm:"type:varchar(64);not null;index" json:"chain_hash"`
-	ChainPrevHash  string    `gorm:"type:varchar(64)" json:"chain_prev_hash"`
-	ChainSequence  int64     `gorm:"not null;uniqueIndex" json:"chain_sequence"`
-	ChainSignerID  string    `gorm:"type:varchar(255)" json:"chain_signer_id"`
-	ChainSignature string    `gorm:"type:text" json:"chain_signature"`
-	CreatedAt      time.Time `gorm:"not null" json:"created_at"`
+	ErrorMessage   string    `gorm:"type:text" json:"errorMessage"`
+	ChainHash      string    `gorm:"type:varchar(64);not null;index" json:"chainHash"`
+	ChainPrevHash  string    `gorm:"type:varchar(64)" json:"chainPrevHash"`
+	ChainSequence  int64     `gorm:"not null;uniqueIndex" json:"chainSequence"`
+	ChainSignerID  string    `gorm:"type:varchar(255)" json:"chainSignerId"`
+	ChainSignature string    `gorm:"type:text" json:"chainSignature"`
+	CreatedAt      time.Time `gorm:"not null" json:"createdAt"`
 }
 
 // TableName returns the table name

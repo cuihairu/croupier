@@ -40,8 +40,8 @@ type RegisterFunctionRequest struct {
 	Tags         []string          `json:"tags"`
 	Name         string            `json:"name" binding:"required"`
 	Description  string            `json:"description"`
-	InputSchema  string            `json:"input_schema"`
-	OutputSchema string            `json:"output_schema"`
+	InputSchema  string            `json:"inputSchema"`
+	OutputSchema string            `json:"outputSchema"`
 	Behavior     *FunctionBehavior `json:"behavior"`
 	Security     *FunctionSecurity `json:"security"`
 	Extensions   map[string]string `json:"extensions"`
@@ -57,8 +57,8 @@ type UpdateFunctionRequest struct {
 	ID           string            `uri:"id" binding:"required"`
 	Name         *string           `json:"name"`
 	Description  *string           `json:"description"`
-	InputSchema  *string           `json:"input_schema"`
-	OutputSchema *string           `json:"output_schema"`
+	InputSchema  *string           `json:"inputSchema"`
+	OutputSchema *string           `json:"outputSchema"`
 	Behavior     *FunctionBehavior `json:"behavior"`
 	Security     *FunctionSecurity `json:"security"`
 	Extensions   map[string]string `json:"extensions"`
@@ -82,34 +82,34 @@ type FunctionMetadata struct {
 	Tags         []string          `json:"tags"`
 	Name         string            `json:"name"`
 	Description  string            `json:"description"`
-	InputSchema  string            `json:"input_schema"`
-	OutputSchema string            `json:"output_schema"`
+	InputSchema  string            `json:"inputSchema"`
+	OutputSchema string            `json:"outputSchema"`
 	Behavior     *FunctionBehavior `json:"behavior"`
 	Security     *FunctionSecurity `json:"security"`
 	Extensions   map[string]string `json:"extensions"`
-	CreatedAt    string            `json:"created_at,omitempty"`
-	UpdatedAt    string            `json:"updated_at,omitempty"`
+	CreatedAt    string            `json:"createdAt,omitempty"`
+	UpdatedAt    string            `json:"updatedAt,omitempty"`
 }
 
 // FunctionBehavior represents function behavior in API responses.
 type FunctionBehavior struct {
 	Mode            string `json:"mode"`
 	Idempotent      bool   `json:"idempotent"`
-	TimeoutMs       int32  `json:"timeout_ms"`
-	RouteStrategy   string `json:"route_strategy"`
+	TimeoutMs       int32  `json:"timeoutMs"`
+	RouteStrategy   string `json:"routeStrategy"`
 	Cacheable       bool   `json:"cacheable"`
-	CacheTtlSeconds int32  `json:"cache_ttl_seconds,omitempty"`
+	CacheTtlSeconds int32  `json:"cacheTtlSeconds,omitempty"`
 }
 
 // FunctionSecurity represents function security in API responses.
 type FunctionSecurity struct {
-	RiskLevel         string   `json:"risk_level"`
+	RiskLevel         string   `json:"riskLevel"`
 	Permission        string   `json:"permission,omitempty"`
-	RequiresApproval  bool     `json:"requires_approval"`
-	ApprovalType      string   `json:"approval_type,omitempty"`
-	AllowedRoles      []string `json:"allowed_roles,omitempty"`
-	AuditLog          bool     `json:"audit_log"`
-	MaskSensitiveData bool     `json:"mask_sensitive_data"`
+	RequiresApproval  bool     `json:"requiresApproval"`
+	ApprovalType      string   `json:"approvalType,omitempty"`
+	AllowedRoles      []string `json:"allowedRoles,omitempty"`
+	AuditLog          bool     `json:"auditLog"`
+	MaskSensitiveData bool     `json:"maskSensitiveData"`
 }
 
 // ProtoToMetadata converts a proto FunctionMetadata to API DTO.

@@ -7,12 +7,12 @@ import (
 
 type ExtensionEvent struct {
 	gorm.Model
-	InstallationID uint           `gorm:"not null;index" json:"installation_id"`
-	EventType      string         `gorm:"size:32;not null;index" json:"event_type"`
+	InstallationID uint           `gorm:"not null;index" json:"installationId"`
+	EventType      string         `gorm:"size:32;not null;index" json:"eventType"`
 	Level          string         `gorm:"size:16;not null;index" json:"level"`
 	Message        string         `gorm:"type:text;not null" json:"message"`
-	PayloadJSON    datatypes.JSON `gorm:"type:json" json:"payload_json"`
-	CreatedBy      string         `gorm:"size:128" json:"created_by"`
+	PayloadJSON    datatypes.JSON `gorm:"type:json" json:"payloadJson"`
+	CreatedBy      string         `gorm:"size:128" json:"createdBy"`
 }
 
 func (ExtensionEvent) TableName() string {

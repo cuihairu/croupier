@@ -520,12 +520,12 @@ func (s *Summary) Collect(timestamp time.Time) []Metric {
 
 // Tracing support
 type Span struct {
-	TraceID    string                 `json:"trace_id"`
-	SpanID     string                 `json:"span_id"`
-	ParentID   string                 `json:"parent_id,omitempty"`
+	TraceID    string                 `json:"traceId"`
+	SpanID     string                 `json:"spanId"`
+	ParentID   string                 `json:"parentId,omitempty"`
 	Name       string                 `json:"name"`
-	StartTime  time.Time              `json:"start_time"`
-	EndTime    *time.Time             `json:"end_time,omitempty"`
+	StartTime  time.Time              `json:"startTime"`
+	EndTime    *time.Time             `json:"endTime,omitempty"`
 	Duration   time.Duration          `json:"duration,omitempty"`
 	Status     string                 `json:"status"`
 	Attributes map[string]interface{} `json:"attributes,omitempty"`

@@ -251,10 +251,10 @@ func (s *Store) Delete(id uint) error {
 type DomainInfo struct {
 	Domain           string     `json:"domain"`
 	Registrar        string     `json:"registrar"`
-	RegistrationDate *time.Time `json:"registration_date,omitempty"`
-	ExpirationDate   *time.Time `json:"expiration_date,omitempty"`
-	NameServers      []string   `json:"name_servers"`
-	DaysToExpiry     int        `json:"days_to_expiry"`
+	RegistrationDate *time.Time `json:"registrationDate,omitempty"`
+	ExpirationDate   *time.Time `json:"expirationDate,omitempty"`
+	NameServers      []string   `json:"nameServers"`
+	DaysToExpiry     int        `json:"daysToExpiry"`
 	Status           string     `json:"status"`
 }
 
@@ -288,7 +288,7 @@ type CertificateStats struct {
 	Expiring    int64     `json:"expiring"`
 	Expired     int64     `json:"expired"`
 	Errors      int64     `json:"errors"`
-	LastChecked time.Time `json:"last_checked"`
+	LastChecked time.Time `json:"lastChecked"`
 }
 
 // GetCertificateStats returns certificate statistics

@@ -55,7 +55,7 @@ func TestRegisterFunction_RejectsPresentationFieldInSchema(t *testing.T) {
 		"name": "player.list",
 		"version": "1.0.0",
 		"resource": "player",
-		"input_schema": "{\"type\":\"object\",\"properties\":{\"keyword\":{\"type\":\"string\",\"x-pagination\":{\"pageSize\":20}}}}"
+		"inputSchema": "{\"type\":\"object\",\"properties\":{\"keyword\":{\"type\":\"string\",\"x-pagination\":{\"pageSize\":20}}}}"
 	}`)
 
 	Equal(t, http.StatusBadRequest, w.Code)
@@ -78,10 +78,10 @@ func TestRegisterFunction_AcceptsCapabilityContractFields(t *testing.T) {
 		"resource": "player",
 		"tags": ["moderation"],
 		"description": "Ban a player",
-		"input_schema": "{\"type\":\"object\",\"properties\":{\"player_id\":{\"type\":\"string\"}},\"required\":[\"player_id\"]}",
-		"output_schema": "{\"type\":\"object\",\"properties\":{\"ok\":{\"type\":\"boolean\"}}}",
-		"behavior": {"mode": "command", "idempotent": false, "timeout_ms": 3000, "route_strategy": "lb", "cacheable": false},
-		"security": {"risk_level": "high", "permission": "player.ban.invoke", "requires_approval": true, "approval_type": "two_person", "audit_log": true, "mask_sensitive_data": false},
+		"inputSchema": "{\"type\":\"object\",\"properties\":{\"player_id\":{\"type\":\"string\"}},\"required\":[\"player_id\"]}",
+		"outputSchema": "{\"type\":\"object\",\"properties\":{\"ok\":{\"type\":\"boolean\"}}}",
+		"behavior": {"mode": "command", "idempotent": false, "timeoutMs": 3000, "routeStrategy": "lb", "cacheable": false},
+		"security": {"riskLevel": "high", "permission": "player.ban.invoke", "requiresApproval": true, "approvalType": "two_person", "auditLog": true, "maskSensitiveData": false},
 		"extensions": {"x-vendor-note": "ops-only"}
 	}`)
 
@@ -95,7 +95,7 @@ func TestUpdateFunction_RejectsPresentationFields(t *testing.T) {
 	Equal(t, http.StatusCreated, created.Code)
 
 	req := httptest.NewRequest("PUT", "/api/v1/metadata/functions/player.get", strings.NewReader(`{
-		"output_schema": "{\"type\":\"object\",\"x-route\":\"/console/players\"}"
+		"outputSchema": "{\"type\":\"object\",\"x-route\":\"/console/players\"}"
 	}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

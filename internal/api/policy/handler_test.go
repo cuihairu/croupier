@@ -98,8 +98,8 @@ func TestHandler_GetPolicy(t *testing.T) {
 				var resp map[string]interface{}
 				err := json.Unmarshal(body, &resp)
 				require.NoError(t, err)
-				assert.True(t, resp["require_audit"].(bool))
-				assert.False(t, resp["require_approval"].(bool))
+				assert.True(t, resp["requireAudit"].(bool))
+				assert.False(t, resp["requireApproval"].(bool))
 			},
 		},
 		{
@@ -112,8 +112,8 @@ func TestHandler_GetPolicy(t *testing.T) {
 				var resp map[string]interface{}
 				err := json.Unmarshal(body, &resp)
 				require.NoError(t, err)
-				assert.True(t, resp["require_approval"].(bool))
-				assert.Equal(t, "single_admin", resp["approval_workflow"])
+				assert.True(t, resp["requireApproval"].(bool))
+				assert.Equal(t, "single_admin", resp["approvalWorkflow"])
 			},
 		},
 		{
@@ -126,7 +126,7 @@ func TestHandler_GetPolicy(t *testing.T) {
 				var resp map[string]interface{}
 				err := json.Unmarshal(body, &resp)
 				require.NoError(t, err)
-				assert.True(t, resp["is_override"].(bool))
+				assert.True(t, resp["isOverride"].(bool))
 			},
 		},
 		{
@@ -191,10 +191,10 @@ func TestHandler_SetPolicy(t *testing.T) {
 			name:       "设置策略成功",
 			functionID: "test.function",
 			requestBody: map[string]interface{}{
-				"require_approval":  true,
-				"approval_workflow": "two_person",
-				"require_audit":     true,
-				"allowed_roles":     []string{"admin", "super_admin"},
+				"requireApproval":  true,
+				"approvalWorkflow": "two_person",
+				"requireAudit":     true,
+				"allowedRoles":     []string{"admin", "super_admin"},
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -202,9 +202,9 @@ func TestHandler_SetPolicy(t *testing.T) {
 			name:       "设置简单策略",
 			functionID: "test.simple",
 			requestBody: map[string]interface{}{
-				"require_approval": false,
-				"require_audit":    true,
-				"allowed_roles":    []string{"operator"},
+				"requireApproval": false,
+				"requireAudit":    true,
+				"allowedRoles":    []string{"operator"},
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -363,13 +363,13 @@ func TestHandler_GetDefaultPolicies(t *testing.T) {
 
 	// Check low risk policy
 	low := resp["low"].(map[string]interface{})
-	assert.False(t, low["require_approval"].(bool))
-	assert.False(t, low["require_audit"].(bool))
+	assert.False(t, low["requireApproval"].(bool))
+	assert.False(t, low["requireAudit"].(bool))
 
 	// Check high risk policy
 	high := resp["high"].(map[string]interface{})
-	assert.True(t, high["require_approval"].(bool))
-	assert.Equal(t, "single_admin", high["approval_workflow"])
+	assert.True(t, high["requireApproval"].(bool))
+	assert.Equal(t, "single_admin", high["approvalWorkflow"])
 }
 
 func TestHandler_ReloadConfig(t *testing.T) {

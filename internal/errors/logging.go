@@ -260,12 +260,12 @@ func (dmc *DefaultMetricsCollector) ToJSON() []byte {
 
 // ErrorStats 错误统计信息
 type ErrorStats struct {
-	TotalErrors      int64                   `json:"total_errors"`
-	ErrorsByCode     map[ErrorCode]int64     `json:"errors_by_code"`
-	ErrorsBySeverity map[ErrorSeverity]int64 `json:"errors_by_severity"`
-	ErrorsByCategory map[ErrorCategory]int64 `json:"errors_by_category"`
-	RecentErrors     []*AppError             `json:"recent_errors,omitempty"`
-	TimeRange        TimeRange               `json:"time_range"`
+	TotalErrors      int64                   `json:"totalErrors"`
+	ErrorsByCode     map[ErrorCode]int64     `json:"errorsByCode"`
+	ErrorsBySeverity map[ErrorSeverity]int64 `json:"errorsBySeverity"`
+	ErrorsByCategory map[ErrorCategory]int64 `json:"errorsByCategory"`
+	RecentErrors     []*AppError             `json:"recentErrors,omitempty"`
+	TimeRange        TimeRange               `json:"timeRange"`
 }
 
 // TimeRange 时间范围

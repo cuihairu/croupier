@@ -35,21 +35,21 @@ type DescriptorInput struct {
 	Description string `json:"description"`
 
 	// JSON Schema strings (may be empty)
-	InputSchema  string `json:"input_schema,omitempty"`
-	OutputSchema string `json:"output_schema,omitempty"`
+	InputSchema  string `json:"inputSchema,omitempty"`
+	OutputSchema string `json:"outputSchema,omitempty"`
 
 	Resource          string `json:"resource,omitempty"`
 	Operation         string `json:"operation,omitempty"`
 	Capability        string `json:"capability,omitempty"`
 	Execution         string `json:"execution,omitempty"`
-	ApprovalRequired  bool   `json:"approval_required,omitempty"`
-	ApprovalPolicyKey string `json:"approval_policy_key,omitempty"`
+	ApprovalRequired  bool   `json:"approvalRequired,omitempty"`
+	ApprovalPolicyKey string `json:"approvalPolicyKey,omitempty"`
 	Risk              string `json:"risk,omitempty"`
 	Permission        string `json:"permission,omitempty"`
 	Enabled           bool   `json:"enabled"`
 
-	SummaryMap     map[string]string `json:"summary_map,omitempty"`
-	DescriptionMap map[string]string `json:"description_map,omitempty"`
+	SummaryMap     map[string]string `json:"summaryMap,omitempty"`
+	DescriptionMap map[string]string `json:"descriptionMap,omitempty"`
 
 	// Tags
 	Tags []string `json:"tags,omitempty"`

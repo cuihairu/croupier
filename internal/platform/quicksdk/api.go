@@ -95,7 +95,7 @@ type DayReport struct {
 
 // DayHourReport represents hourly operation report data.
 type DayHourReport struct {
-	DateHour     string  `json:"date_hour"`
+	DateHour     string  `json:"dateHour"`
 	ChannelName  string  `json:"channelName"`
 	NewUser      int     `json:"newUser"`
 	NewDevice    int     `json:"newDevice"`
@@ -114,10 +114,10 @@ type UserLive struct {
 	Date        string `json:"date"`
 	ChannelName string `json:"channelName"`
 	NewUser     int    `json:"newUser"`
-	Live2       int    `json:"live_2"`
-	Live3       int    `json:"live_3"`
-	Live7       int    `json:"live_7"`
-	Live15      int    `json:"live_15"`
+	Live2       int    `json:"live2"`
+	Live3       int    `json:"live3"`
+	Live7       int    `json:"live7"`
+	Live15      int    `json:"live15"`
 }
 
 // ChannelDaysReport represents multi-day channel report.
@@ -154,16 +154,16 @@ type AdReport struct {
 	DAU              int     `json:"dau"`
 	PayNewUser       int     `json:"payNewUser"`
 	PayNewUserAmount float64 `json:"payNewUserAmount"`
-	Pay3             float64 `json:"pay_3"`
-	Pay7             float64 `json:"pay_7"`
-	Pay15            float64 `json:"pay_15"`
-	Pay30            float64 `json:"pay_30"`
-	Pay60            float64 `json:"pay_60"`
+	Pay3             float64 `json:"pay3"`
+	Pay7             float64 `json:"pay7"`
+	Pay15            float64 `json:"pay15"`
+	Pay30            float64 `json:"pay30"`
+	Pay60            float64 `json:"pay60"`
 	PayUser          int     `json:"payUser"`
 	PayAmount        float64 `json:"payAmount"`
 	AdChannel        string  `json:"adChannel"`
-	AdMediaCost      float64 `json:"adMedia_cost"`
-	LiveN            int     `json:"live_N"`
+	AdMediaCost      float64 `json:"adMediaCost"`
+	LiveN            int     `json:"liveN"`
 	LTVN             float64 `json:"ltvN"`
 }
 

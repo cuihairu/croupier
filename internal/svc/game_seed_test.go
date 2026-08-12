@@ -118,7 +118,7 @@ func TestLoadGamesBootstrapConfigAndResolvePath(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "games.json")
-	if err := os.WriteFile(path, []byte(`{"games":[{"game_id":"demo","alias_name":"Demo"}]}`), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(`{"games":[{"gameId":"demo","aliasName":"Demo"}]}`), 0o644); err != nil {
 		t.Fatalf("write games config failed: %v", err)
 	}
 
