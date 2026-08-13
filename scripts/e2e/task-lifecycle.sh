@@ -72,7 +72,7 @@ fi
 BODY='{"functionId":"'"$FUNCTION_ID"'","gameId":"'"$GAME_ID"'","env":"'"$ENV"'"}'
 
 # 3. Task 1 — complete lifecycle: started → ... → completed.
-T1=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.task_id // empty')
+T1=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.taskId // empty')
 if [ -n "$T1" ]; then ok "startTask 1 → $T1"; else fail "startTask 1 (no task_id)"; fi
 EV1=""
 for i in $(seq 1 40); do
@@ -87,7 +87,7 @@ else
 fi
 
 # 4. Task 2 — cancel lifecycle: started → ... → cancel_requested → cancelled.
-T2=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.task_id // empty')
+T2=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.taskId // empty')
 if [ -n "$T2" ]; then ok "startTask 2 → $T2"; else fail "startTask 2 (no task_id)"; fi
 sleep 0.3
 curl -s -X POST "$SERVER_URL/api/v1/tasks/$T2/cancel" "${AUTH[@]}" -H "Content-Type: application/json" -d '{}' >/dev/null
