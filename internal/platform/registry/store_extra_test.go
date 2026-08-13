@@ -92,6 +92,25 @@ func TestStore_UpsertAgentUsesScopedContextForContractRebuild(t *testing.T) {
 	}
 }
 
+func TestUpsertAgentClassifiesFunctionSnapshotDiff(t *testing.T) {
+	previous := map[string]FunctionMeta{
+		"z.removed": {Resource: "z"},
+		"b.changed": {Version: "1", Resource: "old"},
+		"a.same":    {Version: "1", Resource: "same"},
+	}
+	current := map[string]FunctionMeta{
+		"c.added":   {Resource: "new"},
+		"b.changed": {Version: "2", Resource: "new"},
+		"a.same":    {Version: "1", Resource: "same"},
+	}
+	diff := classifyFunctionSnapshot(previous, current)
+	assert.Equal(t, []string{"c.added"}, diff.Added)
+	assert.Equal(t, []string{"b.changed"}, diff.Changed)
+	assert.Equal(t, []string{"z.removed"}, diff.Removed)
+	assert.Equal(t, []string{"new", "old", "same", "z"}, diff.Resources)
+	assert.Empty(t, classifyFunctionSnapshot(previous, nil).Removed)
+}
+
 type recordingContractService struct {
 	scopes []seenScope
 }

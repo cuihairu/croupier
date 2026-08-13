@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -120,6 +122,16 @@ type RegistrationWarningFilter struct {
 	Limit      int
 }
 
+// functionSnapshotDiff is the deterministic difference between two complete
+// registration snapshots. It is intentionally internal to the registry
+// projection path; callers consume the resulting materialized state.
+type functionSnapshotDiff struct {
+	Added     []string
+	Changed   []string
+	Removed   []string
+	Resources []string
+}
+
 // OpenAPIProviderCaps represents provider capabilities in OpenAPI format.
 type OpenAPIProviderCaps struct {
 	ID        string
@@ -193,23 +205,21 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 		return err
 	}
 	previous := s.previousFunctions(a.AgentID)
+	diff := classifyFunctionSnapshot(previous, a.Functions)
 
 	// Rebuild FunctionContracts if contract service is available
 	if s.contractService != nil && a.Functions != nil {
 		scopeCtx := s.rebuildContext(a.GameID, a.Env)
 		var rebuildErrors []error
-		resources := make(map[string]bool)
+		resources := stringSet(diff.Resources)
 		standaloneFunctions := make(map[string]bool)
 		for _, funcID := range sortedFunctionIDs(a.Functions) {
 			meta := a.Functions[funcID]
 			if err := s.rebuildFunctionContract(scopeCtx, a.GameID, a.Env, funcID, meta, resources, standaloneFunctions); err != nil {
 				rebuildErrors = append(rebuildErrors, err)
 			}
-			if previousMeta, ok := previous[funcID]; ok && previousMeta.Resource != "" {
-				resources[previousMeta.Resource] = true
-			}
 		}
-		for _, functionID := range removedFunctionIDs(previous, a.Functions) {
+		for _, functionID := range diff.Removed {
 			if meta, ok := s.survivingFunctionMeta(a.AgentID, a.GameID, a.Env, functionID); ok {
 				if err := s.rebuildFunctionContract(scopeCtx, a.GameID, a.Env, functionID, meta, resources, standaloneFunctions); err != nil {
 					rebuildErrors = append(rebuildErrors, err)
@@ -370,18 +380,48 @@ func sortedFunctionIDs(functions map[string]FunctionMeta) []string {
 	return ids
 }
 
-func removedFunctionIDs(previous, current map[string]FunctionMeta) []string {
+func classifyFunctionSnapshot(previous, current map[string]FunctionMeta) functionSnapshotDiff {
+	// nil means the registration omitted the snapshot; it must not delete all
+	// existing functions during heartbeat-compatible registrations.
 	if current == nil {
-		return nil
+		return functionSnapshotDiff{}
 	}
-	removed := make([]string, 0)
-	for functionID := range previous {
-		if _, ok := current[functionID]; !ok {
-			removed = append(removed, functionID)
+	diff := functionSnapshotDiff{}
+	resources := map[string]struct{}{}
+	for functionID, previousMeta := range previous {
+		currentMeta, ok := current[functionID]
+		if !ok {
+			diff.Removed = append(diff.Removed, functionID)
+			if resource := strings.TrimSpace(previousMeta.Resource); resource != "" {
+				resources[resource] = struct{}{}
+			}
+			continue
+		}
+		if !reflect.DeepEqual(previousMeta, currentMeta) {
+			diff.Changed = append(diff.Changed, functionID)
+		}
+		for _, resource := range []string{previousMeta.Resource, currentMeta.Resource} {
+			if resource = strings.TrimSpace(resource); resource != "" {
+				resources[resource] = struct{}{}
+			}
 		}
 	}
-	sort.Strings(removed)
-	return removed
+	for functionID, currentMeta := range current {
+		if _, ok := previous[functionID]; !ok {
+			diff.Added = append(diff.Added, functionID)
+		}
+		if resource := strings.TrimSpace(currentMeta.Resource); resource != "" {
+			resources[resource] = struct{}{}
+		}
+	}
+	sort.Strings(diff.Added)
+	sort.Strings(diff.Changed)
+	sort.Strings(diff.Removed)
+	for resource := range resources {
+		diff.Resources = append(diff.Resources, resource)
+	}
+	sort.Strings(diff.Resources)
+	return diff
 }
 
 func sortedStringSet(values map[string]bool) []string {
@@ -393,6 +433,16 @@ func sortedStringSet(values map[string]bool) []string {
 	}
 	sort.Strings(items)
 	return items
+}
+
+func stringSet(values []string) map[string]bool {
+	set := make(map[string]bool, len(values))
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			set[value] = true
+		}
+	}
+	return set
 }
 
 // validateAgentFunctionContracts keeps the registry write boundary aligned

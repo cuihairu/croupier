@@ -494,8 +494,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/platform/registry ./internal/service -run 'TestUpsertAgentDoesNotInferSDKResourceOrCapability|TestRegistrationMaterializesDefaultOperationProposal' -count=1`。
       Handoff: `I-022` 使用同一语义规则做真实注册验收。
 
-- [ ] `I-003` 计算 Agent 注册函数快照的新增、变更和删除集
-      Owner: unassigned
+- [x] `I-003` 计算 Agent 注册函数快照的新增、变更和删除集
+      Owner: root
       Depends: []
       Scope: `internal/platform/registry/store.go`, Agent session 持久化读取层、registry 测试。
       Deliverable: 同一 `agentID + gameID + env` 再注册时，系统在写入前确定旧函数集和新函数集，产生稳定、排序的 added/changed/removed 集合及受影响 resource 集合。
