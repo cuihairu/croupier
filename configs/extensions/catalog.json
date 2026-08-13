@@ -1,32 +1,32 @@
 {
   "items": [
     {
-      "extension_id": "official.external-platform",
+      "extensionId": "official.external-platform",
       "name": "external-platform",
-      "display_name": "第三方平台连接器",
+      "displayName": "第三方平台连接器",
       "vendor": "official",
       "kind": "official",
       "summary": "统一接入第三方平台并通过扩展能力下发到 Agent。",
-      "icon_url": "",
-      "homepage_url": "https://github.com/cuihairu/croupier",
+      "iconUrl": "",
+      "homepageUrl": "https://github.com/cuihairu/croupier",
       "status": "active",
-      "latest_version": "1.0.0",
+      "latestVersion": "1.0.0",
       "releases": [
         {
           "version": "1.0.0",
-          "release_channel": "stable",
-          "min_core_version": "1.26.0",
-          "package_ref": "builtin://official.external-platform@1.0.0",
+          "releaseChannel": "stable",
+          "minCoreVersion": "1.26.0",
+          "packageRef": "builtin://official.external-platform@1.0.0",
           "checksum": "",
           "changelog": "Initial official external platform extension.",
-          "published_at": "2026-03-15T00:00:00Z",
+          "publishedAt": "2026-03-15T00:00:00Z",
           "manifest": {
             "id": "official.external-platform",
             "name": "external-platform",
-            "display_name": "第三方平台连接器",
+            "displayName": "第三方平台连接器",
             "version": "1.0.0",
             "kind": "official",
-            "default_install": true,
+            "defaultInstall": true,
             "tags": [
               "official",
               "platform",
