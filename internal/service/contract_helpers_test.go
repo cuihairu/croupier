@@ -734,3 +734,60 @@ func TestBuildSemantics_WithNilContract(t *testing.T) {
 	sem := s.buildSemantics("game1", "prod", "player", contracts)
 	assert.NotNil(t, sem)
 }
+
+// ---------------------------------------------------------------------------
+// normalizeSchemaToJSON
+// ---------------------------------------------------------------------------
+
+func TestNormalizeSchemaToJSONEmpty(t *testing.T) {
+	result := normalizeSchemaToJSON(nil)
+	assert.Nil(t, result)
+}
+
+func TestNormalizeSchemaToJSONEmptyBytes(t *testing.T) {
+	result := normalizeSchemaToJSON(json.RawMessage{})
+	assert.Nil(t, result)
+}
+
+func TestNormalizeSchemaToJSONString(t *testing.T) {
+	// JSON string wrapping a schema
+	input := json.RawMessage(`"{\"type\":\"object\"}"`)
+	result := normalizeSchemaToJSON(input)
+	assert.Equal(t, datatypes.JSON(`{"type":"object"}`), result)
+}
+
+func TestNormalizeSchemaToJSONObject(t *testing.T) {
+	input := json.RawMessage(`{"type":"object","properties":{"name":{"type":"string"}}}`)
+	result := normalizeSchemaToJSON(input)
+	assert.Equal(t, datatypes.JSON(`{"type":"object","properties":{"name":{"type":"string"}}}`), result)
+}
+
+func TestNormalizeSchemaToJSONInvalidString(t *testing.T) {
+	// Starts with quote but is not valid JSON string
+	input := json.RawMessage(`"not closed`)
+	result := normalizeSchemaToJSON(input)
+	// Falls through to returning raw bytes
+	assert.Equal(t, datatypes.JSON(`"not closed`), result)
+}
+
+// ---------------------------------------------------------------------------
+// inferIdentityField - more branches
+// ---------------------------------------------------------------------------
+
+func TestInferIdentityFieldAlreadySet(t *testing.T) {
+	sem := &model.CapabilitySemantics{ResourceKey: "player", IdentityField: "existing"}
+	contracts := []*model.FunctionContract{
+		{
+			FunctionID:   "func1",
+			OutputSchema: datatypes.JSON(`{"type":"object", "properties": {"id": {"type": "integer"}}}`),
+		},
+	}
+	inferIdentityField(sem, contracts)
+	// Should not change
+	assert.Equal(t, "existing", sem.IdentityField)
+}
+
+func TestInferIdentityFieldNilSemantics(t *testing.T) {
+	// Should not panic
+	inferIdentityField(nil, nil)
+}

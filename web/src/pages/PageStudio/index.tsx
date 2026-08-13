@@ -4,6 +4,7 @@ import {
   App,
   Button,
   Card,
+  Collapse,
   Drawer,
   Empty,
   Modal,
@@ -27,6 +28,7 @@ import MergeConflictModal from '@/components/MergeConflictModal';
 import PageEditor from '@/components/PageEditor';
 import PageRenderer from '@/components/PageRenderer';
 import ProposalInbox from '@/components/ProposalInbox';
+import PageWorkflowGuide from '@/components/PageWorkflowGuide';
 import {
   getPageDraft,
   listPageVersions,
@@ -506,32 +508,38 @@ export default function PageStudio() {
   ];
 
   return (
-    <PageContainer title="页面工作室" subTitle="从默认页面提案发布；只有不满意时再编辑页面">
+    <PageContainer
+      title="页面工作台"
+      subTitle="注册能力后自动生成默认页面；预览、发布、运行无需手工创建页面"
+    >
+      <PageWorkflowGuide />
+
       <ProposalInbox />
 
-      <Card
-        title="已接受和编辑中的页面"
+      <Collapse
         style={{ marginTop: 16 }}
-        extra={
-          <Text type="secondary">
-            草稿用于人工调整已接受的 PageSpec；默认生成入口在上方三队列。
-          </Text>
-        }
-      >
-        <ProTable<PageSpecDraftSummary>
-          columns={columns}
-          dataSource={drafts}
-          loading={loading}
-          rowKey="pageKey"
-          search={false}
-          pagination={false}
-          toolBarRender={() => [
-            <Button key="refresh" icon={<ReloadOutlined />} onClick={loadDrafts}>
-              刷新草稿
-            </Button>,
-          ]}
-        />
-      </Card>
+        items={[
+          {
+            key: 'advanced-page-management',
+            label: '高级页面管理（仅在已接受草稿、处理版本或回滚时使用）',
+            children: (
+              <ProTable<PageSpecDraftSummary>
+                columns={columns}
+                dataSource={drafts}
+                loading={loading}
+                rowKey="pageKey"
+                search={false}
+                pagination={false}
+                toolBarRender={() => [
+                  <Button key="refresh" icon={<ReloadOutlined />} onClick={loadDrafts}>
+                    刷新草稿
+                  </Button>,
+                ]}
+              />
+            ),
+          },
+        ]}
+      />
 
       <Drawer
         title="页面预览"

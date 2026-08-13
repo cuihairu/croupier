@@ -1,6 +1,6 @@
 # Dashboard vNext 原子重构看板
 
-更新时间：2026-08-08
+更新时间：2026-08-13
 
 本文件是唯一执行看板，不是架构说明、历史日志或验收报告。领域定义只以
 `docs/architecture/` 下的权威文档为准。任务未通过自身验收前必须保持未勾选；
@@ -467,40 +467,44 @@ SDK / OpenAPI 注册 FunctionContract
 
 ## I. 跨链路浏览器验收
 
-- [x] `I-001` SDK Operation 直接发布链路
+> 当前浏览器测试默认使用 `MOCK=all`，且个别用例在操作按钮不存在时会跳过。
+> 因此以下四项虽然具备代码实现和局部测试，尚未获得 SDK、Agent、Server 与真实浏览器
+> 的闭环证据，必须保持未完成；不得以 mock 页面或跳过式 E2E 代替验收。
+
+- [ ] `I-001` SDK Operation 直接发布链路
       Owner: root
       Depends: [`C-007`, `C-008`, `D-003`, `E-005`, `F-002`, `G-001`]
       Scope: Playwright/server integration fixtures。
       Deliverable: `mail.send -> basic Proposal -> preview -> publish -> Console -> structured result`。
       Forbidden: 不得通过 mock page 或手工插库绕过注册。
-      Verify: 命名 Playwright E2E 和 server integration test 均通过。
+      Verify: 对接真实 SDK 注册、Agent 回调和 Server 的命名 E2E：`mail.send -> preview -> publish -> Console -> structured result`；按钮或接口缺失必须失败，不能跳过。
       Handoff: 证明最小产品主链路。
 
-- [x] `I-002` OpenAPI CRUD 直接发布链路
+- [ ] `I-002` OpenAPI CRUD 直接发布链路
       Owner: root
       Depends: [`B-003`, `C-002`, `C-003`, `C-004`, `C-005`, `C-006`, `D-003`, `E-004`, `F-002`, `G-001`]
       Scope: Playwright/server integration fixtures。
       Deliverable: OpenAPI `/players` + provider binding -> ready Resource Proposal -> publish -> list/detail/CRUD/row action。
       Forbidden: 不得用页面特例、旧对象页或预置 PageSpec。
-      Verify: 命名 Playwright E2E 和 server integration test 均通过。
+      Verify: 对接真实 OpenAPI provider/Agent/Server 的命名 E2E；list/detail/create/update/delete/row action 每一步均有断言，按钮或接口缺失必须失败。
       Handoff: 证明游戏 CRUD 主路径。
 
-- [x] `I-003` 合同变化到重新发布链路
+- [ ] `I-003` 合同变化到重新发布链路
       Owner: root
       Depends: [`D-004`, `D-005`, `D-006`, `F-004`, `G-003`]
       Scope: Playwright/server integration fixtures。
       Deliverable: schema/risk/identity 变化 -> stale -> execute 拒绝 -> diff/merge -> republish -> execute 恢复。
       Forbidden: 不得自动覆盖 draft/published，不得允许 stale execute。
-      Verify: 命名 Playwright E2E 和 server integration test 均通过。
+      Verify: 在真实注册链路中变更 schema/risk/identity，并验证 stale 拒绝、人工处理、重发布和恢复执行；任一步缺失必须失败。
       Handoff: 证明发布快照与变更治理闭环。
 
 ## J. 最终门禁
 
-- [x] `J-001` vNext 发布候选验收
+- [ ] `J-001` vNext 发布候选验收
       Owner: root
       Depends: [`A-001`, `A-002`, `B-001`, `B-002`, `B-003`, `B-004`, `B-005`, `B-006`, `B-007`, `C-001`, `C-002`, `C-003`, `C-004`, `C-005`, `C-006`, `C-007`, `C-008`, `C-009`, `C-010`, `C-011`, `D-001`, `D-002`, `D-003`, `D-004`, `D-005`, `D-006`, `E-001`, `E-002`, `E-003`, `E-004`, `E-005`, `E-006`, `E-007`, `F-001`, `F-002`, `F-003`, `F-004`, `G-001`, `G-002`, `G-003`, `H-001`, `H-002`, `H-003`, `H-004`, `I-001`, `I-002`, `I-003`]
       Scope: CI、部署验证、SDK parity、docs build。
       Deliverable: 所有产品链路、质量门禁和物理清理任务完成，可声明 vNext 重构完成。
       Forbidden: 不得将历史记录、单测通过或未部署构建当最终验收。
       Verify: Go/web/docs/SDK/Playwright/OTel collector/deployment 验收矩阵全部绿，且 `H-005` 的生产删除另有明确确认。
-      Handoff: 产出正式发布候选审计报告。
+      Handoff: 产出正式发布候选审计报告。当前被 `I-001`、`I-002`、`I-003` 的真实环境闭环验收阻塞。

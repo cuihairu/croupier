@@ -1,14 +1,13 @@
-import React from 'react';
-import { PageContainer } from '@ant-design/pro-components';
-import ProposalInbox from '@/components/ProposalInbox';
+import { useEffect } from 'react';
+import { history, useLocation } from '@umijs/max';
 
+/** 兼容旧链接；页面提案只保留在“页面工作台”这一入口。 */
 export default function ProposalsPage() {
-  return (
-    <PageContainer
-      title="默认页面提案"
-      subTitle="查看、预览并发布平台生成的默认页面"
-    >
-      <ProposalInbox />
-    </PageContainer>
-  );
+  const location = useLocation();
+
+  useEffect(() => {
+    history.replace(`/system/functions/pages${location.search}`);
+  }, [location.search]);
+
+  return null;
 }

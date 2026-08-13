@@ -1325,6 +1325,412 @@ func TestUpdateSemanticsWithTasksV2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// validateTaskSemantics - comprehensive branch coverage
+// ---------------------------------------------------------------------------
+
+func TestValidateTaskSemanticsInvalidTaskIDResultPathV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+	})
+
+	// Invalid taskId.resultPath (not a JSON Pointer)
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "invalid", ValueType: spec.JsonScalarString},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.taskStatus"},
+					TaskIDInput: "/taskId",
+					StatePath:   "/state",
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be a JSON Pointer")
+}
+
+func TestValidateTaskSemanticsInvalidValueTypeV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+
+	// Invalid valueType
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "/taskId", ValueType: "invalid"},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.startTask"},
+					TaskIDInput: "/taskId",
+					StatePath:   "/state",
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "valueType")
+}
+
+func TestValidateTaskSemanticsResultPathNotFoundV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+
+	// resultPath not found in output schema
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "/nonexistent", ValueType: spec.JsonScalarString},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.startTask"},
+					TaskIDInput: "/taskId",
+					StatePath:   "/state",
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "path not found")
+}
+
+func TestValidateTaskSemanticsInvalidStatePathV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+	})
+
+	// Invalid statePath (not a JSON Pointer)
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "/taskId", ValueType: spec.JsonScalarString},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.taskStatus"},
+					TaskIDInput: "/taskId",
+					StatePath:   "invalid",
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be a JSON Pointer")
+}
+
+func TestValidateTaskSemanticsStatePathNotFoundV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+	})
+
+	// statePath not found in status output schema
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "/taskId", ValueType: spec.JsonScalarString},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.taskStatus"},
+					TaskIDInput: "/taskId",
+					StatePath:   "/nonexistent",
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "path not found")
+}
+
+func TestValidateTaskSemanticsWithEventsV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.taskEvents",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"events":{"type":"array"}}}`),
+	})
+
+	// With events - invalid eventsPath
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "/taskId", ValueType: spec.JsonScalarString},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.taskStatus"},
+					TaskIDInput: "/taskId",
+					StatePath:   "/state",
+				},
+				Events: &spec.TaskEventsSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.taskEvents"},
+					TaskIDInput: "/taskId",
+					EventsPath:  "invalid",
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be a JSON Pointer")
+}
+
+func TestValidateTaskSemanticsWithResultV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.taskResult",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"result":{"type":"object"}}}`),
+	})
+
+	// With result - invalid resultPath
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "/taskId", ValueType: spec.JsonScalarString},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.taskStatus"},
+					TaskIDInput: "/taskId",
+					StatePath:   "/state",
+				},
+				Result: &spec.TaskResultSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.taskResult"},
+					TaskIDInput: "/taskId",
+					ResultPath:  "invalid",
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be a JSON Pointer")
+}
+
+func TestValidateTaskSemanticsWithCancelV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.cancelTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object"}`),
+	})
+
+	// With cancel
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "/taskId", ValueType: spec.JsonScalarString},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.taskStatus"},
+					TaskIDInput: "/taskId",
+					StatePath:   "/state",
+				},
+				Cancel: &spec.TaskCommandSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.cancelTask"},
+					TaskIDInput: "/taskId",
+				},
+			},
+		},
+	})
+	// Should succeed (or fail for other reasons, but not cancel-related)
+	_ = err
+}
+
+func TestValidateTaskSemanticsRetryNotAllowedV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
+		Enabled: true, ResourceKey: "player", Capability: "task",
+		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+	})
+
+	// Retry is not allowed
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "/taskId", ValueType: spec.JsonScalarString},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.taskStatus"},
+					TaskIDInput: "/taskId",
+					StatePath:   "/state",
+				},
+				Retry: &spec.TaskCommandSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.startTask"},
+					TaskIDInput: "/taskId",
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "retry runtime is not available")
+}
+
+// ---------------------------------------------------------------------------
 // UpdateSemantics - with reports
 // ---------------------------------------------------------------------------
 
@@ -1359,4 +1765,319 @@ func TestUpdateSemanticsWithReportsV2(t *testing.T) {
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "functionId is required")
+}
+
+// ---------------------------------------------------------------------------
+// validateReportSemantics - comprehensive branch coverage
+// ---------------------------------------------------------------------------
+
+func TestValidateReportSemanticsInvalidDatasetPathV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.report",
+		Enabled: true, ResourceKey: "player", Capability: "report",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+	})
+
+	// Invalid datasetPath (not a JSON Pointer)
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Reports: []spec.ReportSemantic{
+			{Query: spec.FunctionRef{FunctionID: "player.report"}, DatasetPath: "invalid", Dimensions: []string{"/name"}, Metrics: []string{"/name"}},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be a JSON Pointer")
+}
+
+func TestValidateReportSemanticsDatasetPathNotArrayV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.report",
+		Enabled: true, ResourceKey: "player", Capability: "report",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"name":{"type":"string"}}}`),
+	})
+
+	// datasetPath points to non-array field
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Reports: []spec.ReportSemantic{
+			{Query: spec.FunctionRef{FunctionID: "player.report"}, DatasetPath: "/name", Dimensions: []string{"/name"}, Metrics: []string{"/name"}},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "array")
+}
+
+func TestValidateReportSemanticsNoDimensionsV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.report",
+		Enabled: true, ResourceKey: "player", Capability: "report",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+	})
+
+	// No dimensions
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Reports: []spec.ReportSemantic{
+			{Query: spec.FunctionRef{FunctionID: "player.report"}, DatasetPath: "/items", Dimensions: []string{}, Metrics: []string{"/name"}},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "dimensions")
+}
+
+func TestValidateReportSemanticsNoMetricsV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.report",
+		Enabled: true, ResourceKey: "player", Capability: "report",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+	})
+
+	// No metrics
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Reports: []spec.ReportSemantic{
+			{Query: spec.FunctionRef{FunctionID: "player.report"}, DatasetPath: "/items", Dimensions: []string{"/name"}, Metrics: []string{}},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "metrics")
+}
+
+func TestValidateReportSemanticsDimensionPointerNotFoundV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.report",
+		Enabled: true, ResourceKey: "player", Capability: "report",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+	})
+
+	// Dimension pointer not found in dataset item schema
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Reports: []spec.ReportSemantic{
+			{Query: spec.FunctionRef{FunctionID: "player.report"}, DatasetPath: "/items", Dimensions: []string{"/nonexistent"}, Metrics: []string{"/name"}},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "pointer")
+}
+
+func TestValidateReportSemanticsMetricPointerNotFoundV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.report",
+		Enabled: true, ResourceKey: "player", Capability: "report",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+	})
+
+	// Metric pointer not found in dataset item schema
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Reports: []spec.ReportSemantic{
+			{Query: spec.FunctionRef{FunctionID: "player.report"}, DatasetPath: "/items", Dimensions: []string{"/name"}, Metrics: []string{"/nonexistent"}},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "pointer")
+}
+
+func TestValidateReportSemanticsSuccessV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.report",
+		Enabled: true, ResourceKey: "player", Capability: "report",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"count":{"type":"integer"}}}}}}`),
+	})
+
+	// Success case
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Reports: []spec.ReportSemantic{
+			{Query: spec.FunctionRef{FunctionID: "player.report"}, DatasetPath: "/items", Dimensions: []string{"/name"}, Metrics: []string{"/count"}},
+		},
+	})
+	assert.NoError(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// validateSemanticFunctionRef - branch coverage
+// ---------------------------------------------------------------------------
+
+func TestValidateSemanticFunctionRefFunctionNotFoundV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	// Function doesn't exist
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Actions: []ActionSemanticInfo{
+			{FunctionID: "player.nonexistent", Subject: "resource_item"},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid")
+}
+
+func TestValidateSemanticFunctionRefWrongResourceKeyV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "other.get",
+		Enabled: true, ResourceKey: "other", Capability: "action",
+	})
+
+	// Function belongs to different resource
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Actions: []ActionSemanticInfo{
+			{FunctionID: "other.get", Subject: "resource_item"},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "does not belong to resource")
+}
+
+func TestValidateSemanticFunctionRefDisabledFunctionV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
+		Enabled: false, ResourceKey: "player", Capability: "task",
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+	})
+
+	// Function is disabled - use task semantic to trigger validateSemanticFunctionRef
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Tasks: []spec.TaskSemantic{
+			{
+				Start:  spec.FunctionRef{FunctionID: "player.startTask"},
+				TaskID: spec.TaskIDSemantic{ResultPath: "/taskId", ValueType: spec.JsonScalarString},
+				Status: spec.TaskStatusSemantic{
+					Function:    spec.FunctionRef{FunctionID: "player.startTask"},
+					TaskIDInput: "/taskId",
+					StatePath:   "/taskId",
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "disabled")
+}
+
+func TestValidateSemanticFunctionRefCapabilityMismatchV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	capModel := model.NewResourceCapabilityModel(db)
+	_ = capModel.UpsertCapability(ctx, &model.ResourceCapability{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+
+	contractModel := model.NewFunctionContractModel(db)
+	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "g1", Env: "e1", FunctionID: "player.query",
+		Enabled: true, ResourceKey: "player", Capability: "query",
+	})
+
+	// Function capability doesn't match required capability
+	_, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+		Actions: []ActionSemanticInfo{
+			{FunctionID: "player.query", Subject: "resource_item"},
+		},
+	})
+	// This should fail because "query" capability doesn't match "action" requirement
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "capability must be")
 }

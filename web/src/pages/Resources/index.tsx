@@ -240,7 +240,7 @@ export default function ResourcesPage() {
                 onClick={() =>
                   selectedResource &&
                   history.push(
-                    `/system/functions/proposals?resourceKey=${encodeURIComponent(selectedResource.key)}`,
+                    `/system/functions/pages?resourceKey=${encodeURIComponent(selectedResource.key)}`,
                   )
                 }
               >

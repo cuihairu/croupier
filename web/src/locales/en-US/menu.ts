@@ -29,7 +29,6 @@ export default {
   'menu.FunctionsAndPages.FunctionWarnings': 'Registration Warnings',
   'menu.FunctionsAndPages.FunctionAssignments': 'Permission Assignments',
   'menu.FunctionsAndPages.ResourceCatalog': 'Resource Catalog',
-  'menu.FunctionsAndPages.Proposals': 'Page Proposals',
   'menu.ControlConsole': 'Runtime Console',
   'menu.ControlConsole.ConsoleHome': 'Runtime Entry',
   'menu.ControlConsole.ConsoleCategory': 'Runtime Category',

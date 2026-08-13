@@ -79,10 +79,9 @@ const functionManagementRoutes = [
   },
   {
     path: '/system/functions/proposals',
-    name: 'Proposals',
     access: 'canPageRead',
     component: './Proposals',
-    icon: 'bulb',
+    hideInMenu: true,
   },
   {
     path: '/system/functions/:id',

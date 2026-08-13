@@ -119,7 +119,7 @@ function proposalInboxPath(proposalKey: string, resourceKey?: string): string {
   const params = new URLSearchParams();
   if (resourceKey) params.set('resourceKey', resourceKey);
   params.set('proposalKey', proposalKey);
-  return `/system/functions/proposals?${params.toString()}`;
+  return `/system/functions/pages?${params.toString()}`;
 }
 
 function parseOpenAPIDocument(text: string): OpenAPIDocument {

@@ -492,7 +492,7 @@ export default function ProposalInbox() {
             <>
               {(record.quality === 'ready' || record.quality === 'basic') && (
                 <Popconfirm
-                  title="直接发布默认页面？"
+                  title="发布默认页面？"
                   description="会创建草稿并发布到运行控制台左侧动态菜单。"
                   onConfirm={() => handleAcceptAndPublish(record)}
                 >
@@ -501,12 +501,9 @@ export default function ProposalInbox() {
                   </Button>
                 </Popconfirm>
               )}
-              <Popconfirm
-                title="接受为草稿并进入 Page Studio？"
-                onConfirm={() => handleAccept(record)}
-              >
+              <Popconfirm title="接受为草稿并自定义页面？" onConfirm={() => handleAccept(record)}>
                 <Button type="link" icon={<CheckOutlined />}>
-                  接受
+                  自定义编辑
                 </Button>
               </Popconfirm>
               {record.quality === 'needs_review' && (
@@ -699,7 +696,7 @@ export default function ProposalInbox() {
   const contractChanges = inbox.contractChanges;
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={16}>
+    <Space direction="vertical" style={{ width: '100%', marginTop: 16 }} size={16}>
       <Alert
         type="info"
         showIcon

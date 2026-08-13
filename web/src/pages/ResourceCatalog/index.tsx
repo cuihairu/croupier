@@ -302,7 +302,8 @@ const ResourceCatalogPage: React.FC = () => {
   const [query, setQuery] = useState<string>('');
   const [selectedResource, setSelectedResource] = useState<ResourceCatalogItem | null>(null);
   const [semanticMeta, setSemanticMeta] = useState<ResourceSemanticConflicts>(emptySemanticMeta);
-  const [semanticVersions, setSemanticVersions] = useState<ResourceSemanticVersions>(emptySemanticVersions);
+  const [semanticVersions, setSemanticVersions] =
+    useState<ResourceSemanticVersions>(emptySemanticVersions);
   const [selectedConflict, setSelectedConflict] = useState<SemanticConflictInfo | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
@@ -352,21 +353,27 @@ const ResourceCatalogPage: React.FC = () => {
     }
   }, []);
 
-  const handleViewDetail = useCallback(async (resourceKey: string) => {
-    const detail = await loadResourceDetail(resourceKey);
-    if (detail) {
-      setDetailVisible(true);
-    }
-  }, [loadResourceDetail]);
+  const handleViewDetail = useCallback(
+    async (resourceKey: string) => {
+      const detail = await loadResourceDetail(resourceKey);
+      if (detail) {
+        setDetailVisible(true);
+      }
+    },
+    [loadResourceDetail],
+  );
 
-  const handleEditSemantics = useCallback(async (resourceKey: string) => {
-    const detail = await loadResourceDetail(resourceKey);
-    if (!detail) {
-      return;
-    }
-    editForm.setFieldsValue(semanticsToFormValues(detail.semantics));
-    setEditVisible(true);
-  }, [editForm, loadResourceDetail]);
+  const handleEditSemantics = useCallback(
+    async (resourceKey: string) => {
+      const detail = await loadResourceDetail(resourceKey);
+      if (!detail) {
+        return;
+      }
+      editForm.setFieldsValue(semanticsToFormValues(detail.semantics));
+      setEditVisible(true);
+    },
+    [editForm, loadResourceDetail],
+  );
 
   const handleSaveSemantics = useCallback(async () => {
     if (!selectedResource) {
@@ -375,10 +382,7 @@ const ResourceCatalogPage: React.FC = () => {
 
     try {
       const values = await editForm.validateFields();
-      await updateResourceSemantics(
-        selectedResource.resourceKey,
-        compactSemanticsPayload(values),
-      );
+      await updateResourceSemantics(selectedResource.resourceKey, compactSemanticsPayload(values));
       message.success('语义更新成功');
       setEditVisible(false);
       await loadResourceDetail(selectedResource.resourceKey);
@@ -389,15 +393,18 @@ const ResourceCatalogPage: React.FC = () => {
     }
   }, [editForm, fetchData, loadResourceDetail, selectedResource]);
 
-  const handleOpenResolve = useCallback((conflict: SemanticConflictInfo) => {
-    const sources = conflictSources(conflict);
-    setSelectedConflict(conflict);
-    resolveForm.setFieldsValue({
-      chosenSource: sources[0],
-      reason: '',
-    });
-    setResolveVisible(true);
-  }, [resolveForm]);
+  const handleOpenResolve = useCallback(
+    (conflict: SemanticConflictInfo) => {
+      const sources = conflictSources(conflict);
+      setSelectedConflict(conflict);
+      resolveForm.setFieldsValue({
+        chosenSource: sources[0],
+        reason: '',
+      });
+      setResolveVisible(true);
+    },
+    [resolveForm],
+  );
 
   const handleResolveConflict = useCallback(async () => {
     if (!selectedResource || !selectedConflict) {
@@ -422,7 +429,7 @@ const ResourceCatalogPage: React.FC = () => {
   }, [fetchData, loadResourceDetail, resolveForm, selectedConflict, selectedResource]);
 
   const handleOpenProposals = useCallback((resourceKey: string) => {
-    history.push(`/system/functions/proposals?resourceKey=${encodeURIComponent(resourceKey)}`);
+    history.push(`/system/functions/pages?resourceKey=${encodeURIComponent(resourceKey)}`);
   }, []);
 
   const renderFunctionSelect = (capability: CapabilityKind, placeholder: string) => (
@@ -441,7 +448,11 @@ const ResourceCatalogPage: React.FC = () => {
     />
   );
 
-  const renderFunctionIdSelect = (placeholder: string, capability?: CapabilityKind, width = 260) => (
+  const renderFunctionIdSelect = (
+    placeholder: string,
+    capability?: CapabilityKind,
+    width = 260,
+  ) => (
     <Select<string>
       allowClear
       placeholder={placeholder}
@@ -512,7 +523,9 @@ const ResourceCatalogPage: React.FC = () => {
           return <Tag color="success">无</Tag>;
         }
         const errors = diagnostics.filter((diagnostic) => diagnostic.severity === 'error').length;
-        const warnings = diagnostics.filter((diagnostic) => diagnostic.severity === 'warning').length;
+        const warnings = diagnostics.filter(
+          (diagnostic) => diagnostic.severity === 'warning',
+        ).length;
         return (
           <Space>
             {errors > 0 && <Tag color="error">{errors} 错误</Tag>}
@@ -617,9 +630,7 @@ const ResourceCatalogPage: React.FC = () => {
             />
 
             <Descriptions column={2} bordered>
-              <Descriptions.Item label="资源标识">
-                {selectedResource.resourceKey}
-              </Descriptions.Item>
+              <Descriptions.Item label="资源标识">{selectedResource.resourceKey}</Descriptions.Item>
               <Descriptions.Item label="名称">
                 {localizedText(selectedResource.labels)}
               </Descriptions.Item>
@@ -684,9 +695,7 @@ const ResourceCatalogPage: React.FC = () => {
                   dataIndex: 'enabled',
                   key: 'enabled',
                   render: (enabled: boolean) => (
-                    <Tag color={enabled ? 'success' : 'default'}>
-                      {enabled ? '启用' : '禁用'}
-                    </Tag>
+                    <Tag color={enabled ? 'success' : 'default'}>{enabled ? '启用' : '禁用'}</Tag>
                   ),
                 },
               ]}
@@ -728,7 +737,9 @@ const ResourceCatalogPage: React.FC = () => {
                   render: (_, record) => (
                     <Space wrap>
                       {record.status ? <Tag>{record.status}</Tag> : null}
-                      {record.proposalQuality ? <Tag color="processing">{record.proposalQuality}</Tag> : null}
+                      {record.proposalQuality ? (
+                        <Tag color="processing">{record.proposalQuality}</Tag>
+                      ) : null}
                       {record.stale ? <Tag color="error">stale</Tag> : null}
                     </Space>
                   ),
@@ -755,7 +766,7 @@ const ResourceCatalogPage: React.FC = () => {
                   title: '更新时间',
                   dataIndex: 'updatedAt',
                   key: 'updatedAt',
-                  render: (value?: string) => value ? new Date(value).toLocaleString() : '-',
+                  render: (value?: string) => (value ? new Date(value).toLocaleString() : '-'),
                 },
               ]}
             />
@@ -808,7 +819,9 @@ const ResourceCatalogPage: React.FC = () => {
                     {selectedResource.semantics.actions?.length ? (
                       <Space wrap>
                         {selectedResource.semantics.actions.map((action) => (
-                          <Tag key={`${action.functionId}:${action.subject}:${action.identityInput || ''}`}>
+                          <Tag
+                            key={`${action.functionId}:${action.subject}:${action.identityInput || ''}`}
+                          >
                             {action.functionId} / {action.subject}
                             {action.identityInput ? ` / ${action.identityInput}` : ''}
                           </Tag>
@@ -837,8 +850,9 @@ const ResourceCatalogPage: React.FC = () => {
                       <Space direction="vertical" size={4}>
                         {selectedResource.semantics.reports.map((report) => (
                           <Text code key={report.query.functionId}>
-                            {report.query.functionId} / dataset: {report.datasetPath || '(root)'} / dims:{' '}
-                            {report.dimensions.join(',')} / metrics: {report.metrics.join(',')}
+                            {report.query.functionId} / dataset: {report.datasetPath || '(root)'} /
+                            dims: {report.dimensions.join(',')} / metrics:{' '}
+                            {report.metrics.join(',')}
                           </Text>
                         ))}
                       </Space>
@@ -898,14 +912,15 @@ const ResourceCatalogPage: React.FC = () => {
                   title: 'Source Digest',
                   dataIndex: 'sourceDigest',
                   key: 'sourceDigest',
-                  render: (value?: string) => value ? <Text code>{value.slice(0, 12)}</Text> : '-',
+                  render: (value?: string) =>
+                    value ? <Text code>{value.slice(0, 12)}</Text> : '-',
                 },
                 { title: '变更原因', dataIndex: 'changeReason', key: 'changeReason' },
                 {
                   title: '创建时间',
                   dataIndex: 'createdAt',
                   key: 'createdAt',
-                  render: (value: string) => value ? new Date(value).toLocaleString() : '-',
+                  render: (value: string) => (value ? new Date(value).toLocaleString() : '-'),
                 },
                 { title: '创建人', dataIndex: 'createdBy', key: 'createdBy' },
               ]}
@@ -985,7 +1000,9 @@ const ResourceCatalogPage: React.FC = () => {
                       dataIndex: 'severity',
                       key: 'severity',
                       render: (text: string) => (
-                        <Tag color={text === 'error' ? 'red' : text === 'warning' ? 'orange' : 'blue'}>
+                        <Tag
+                          color={text === 'error' ? 'red' : text === 'warning' ? 'orange' : 'blue'}
+                        >
                           {text}
                         </Tag>
                       ),
@@ -1085,7 +1102,12 @@ const ResourceCatalogPage: React.FC = () => {
                   description="subject 决定动作针对单行、选中集合或整个资源；按钮位置由 PageProposal 生成器决定，不在这里配置。"
                 />
                 {fields.map((field) => (
-                  <Space key={field.key} align="baseline" wrap style={{ display: 'flex', marginBottom: 8 }}>
+                  <Space
+                    key={field.key}
+                    align="baseline"
+                    wrap
+                    style={{ display: 'flex', marginBottom: 8 }}
+                  >
                     <Form.Item
                       {...field}
                       label="函数"
@@ -1221,10 +1243,16 @@ const ResourceCatalogPage: React.FC = () => {
                       </Form.Item>
                     </Space>
                     <Space align="baseline" wrap style={{ display: 'flex' }}>
-                      <Form.Item label="Events 函数" name={[field.name, 'events', 'function', 'functionId']}>
+                      <Form.Item
+                        label="Events 函数"
+                        name={[field.name, 'events', 'function', 'functionId']}
+                      >
                         {renderFunctionIdSelect('选择 events 函数')}
                       </Form.Item>
-                      <Form.Item label="Events TaskID Input" name={[field.name, 'events', 'taskIdInput']}>
+                      <Form.Item
+                        label="Events TaskID Input"
+                        name={[field.name, 'events', 'taskIdInput']}
+                      >
                         <Input style={{ width: 160 }} placeholder="/taskId" />
                       </Form.Item>
                       <Form.Item label="Events Path" name={[field.name, 'events', 'eventsPath']}>
@@ -1232,10 +1260,16 @@ const ResourceCatalogPage: React.FC = () => {
                       </Form.Item>
                     </Space>
                     <Space align="baseline" wrap style={{ display: 'flex' }}>
-                      <Form.Item label="Result 函数" name={[field.name, 'result', 'function', 'functionId']}>
+                      <Form.Item
+                        label="Result 函数"
+                        name={[field.name, 'result', 'function', 'functionId']}
+                      >
                         {renderFunctionIdSelect('选择 result 函数')}
                       </Form.Item>
-                      <Form.Item label="Result TaskID Input" name={[field.name, 'result', 'taskIdInput']}>
+                      <Form.Item
+                        label="Result TaskID Input"
+                        name={[field.name, 'result', 'taskIdInput']}
+                      >
                         <Input style={{ width: 160 }} placeholder="/taskId" />
                       </Form.Item>
                       <Form.Item label="Result Path" name={[field.name, 'result', 'resultPath']}>
@@ -1243,10 +1277,16 @@ const ResourceCatalogPage: React.FC = () => {
                       </Form.Item>
                     </Space>
                     <Space align="baseline" wrap style={{ display: 'flex' }}>
-                      <Form.Item label="Cancel 函数" name={[field.name, 'cancel', 'function', 'functionId']}>
+                      <Form.Item
+                        label="Cancel 函数"
+                        name={[field.name, 'cancel', 'function', 'functionId']}
+                      >
                         {renderFunctionIdSelect('选择 cancel 函数')}
                       </Form.Item>
-                      <Form.Item label="Cancel TaskID Input" name={[field.name, 'cancel', 'taskIdInput']}>
+                      <Form.Item
+                        label="Cancel TaskID Input"
+                        name={[field.name, 'cancel', 'taskIdInput']}
+                      >
                         <Input style={{ width: 160 }} placeholder="/taskId" />
                       </Form.Item>
                     </Space>
@@ -1281,7 +1321,12 @@ const ResourceCatalogPage: React.FC = () => {
                   description="datasetPath 指向查询结果中的数组；dimensions/metrics 是相对 dataset item 的 JSON Pointer。图表类型和表格展示属于 Page Proposal/Page Studio。"
                 />
                 {fields.map((field) => (
-                  <Space key={field.key} align="baseline" wrap style={{ display: 'flex', marginBottom: 8 }}>
+                  <Space
+                    key={field.key}
+                    align="baseline"
+                    wrap
+                    style={{ display: 'flex', marginBottom: 8 }}
+                  >
                     <Form.Item
                       label="Query 函数"
                       name={[field.name, 'query', 'functionId']}
@@ -1350,7 +1395,8 @@ const ResourceCatalogPage: React.FC = () => {
                 <Space wrap>
                   {conflictSources(selectedConflict).map((source) => (
                     <Tag key={source} color={sourceColors[source]}>
-                      {sourceLabels[source]}: {displaySemanticValue(selectedConflict.values[source])}
+                      {sourceLabels[source]}:{' '}
+                      {displaySemanticValue(selectedConflict.values[source])}
                     </Tag>
                   ))}
                 </Space>
