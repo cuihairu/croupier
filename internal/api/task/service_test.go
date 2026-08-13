@@ -276,6 +276,8 @@ func TestStart_DispatchesAndPersists_HappyPath(t *testing.T) {
 	// Register a live agent that serves the function.
 	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-e2e",
+		GameID:   "test-game",
+		Env:      "prod",
 		ExpireAt: time.Now().Add(time.Hour),
 		Functions: map[string]registry.FunctionMeta{
 			"player.ban": {Enabled: true},

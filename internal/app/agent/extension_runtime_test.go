@@ -138,13 +138,13 @@ func TestAppApplyExtensionSyncPayloadJSON(t *testing.T) {
 		"version":"v1",
 		"installations":[
 			{
-				"installation_id":7,
-				"extension_id":"official.analytics",
-				"release_version":"1.2.0",
-				"config_json":"{}",
+				"installationId":7,
+				"extensionId":"official.analytics",
+				"releaseVersion":"1.2.0",
+				"configJson":"{}",
 				"bindings":[
-					{"binding_type":"function","binding_key":"analytics.query","spec_json":"{\"operation\":\"read\",\"category\":\"analytics\"}"},
-					{"binding_type":"capability","binding_key":"ops.alert","spec_json":"{\"operations\":[\"list\",\"silence\"]}"}
+					{"bindingType":"function","bindingKey":"analytics.query","specJson":"{\"operation\":\"read\",\"category\":\"analytics\"}"},
+					{"bindingType":"capability","bindingKey":"ops.alert","specJson":"{\"operations\":[\"list\",\"silence\"]}"}
 				]
 			}
 		]
@@ -317,15 +317,15 @@ func TestAppApplyExternalPlatformBindingsRegistersFunctions(t *testing.T) {
 		"version":"v1",
 		"installations":[
 			{
-				"installation_id":88,
-				"extension_id":"official.external-platform",
-				"release_version":"1.0.0",
-				"config_json":"{}",
+				"installationId":88,
+				"extensionId":"official.external-platform",
+				"releaseVersion":"1.0.0",
+				"configJson":"{}",
 				"bindings":[
 					{
-						"binding_type":"provider",
-						"binding_key":"acmeops",
-						"spec_json":"{\"provider\":\"acmeops\",\"operations\":[\"invoke\",\"sync_status\"]}"
+						"bindingType":"provider",
+						"bindingKey":"acmeops",
+						"specJson":"{\"provider\":\"acmeops\",\"operations\":[\"invoke\",\"sync_status\"]}"
 					}
 				]
 			}

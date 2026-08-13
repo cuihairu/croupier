@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -63,6 +64,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&SupportComment{},
 		&SupportFAQ{},
 		&SupportFeedback{},
+		&FunctionPolicy{},
+		&Descriptor{},
+		&GameEnvBinding{},
 	)
 	require.NoError(t, err)
 
@@ -5321,4 +5325,777 @@ func TestAdminModelUpdateLastScope(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "game1", scope.GameID)
 	assert.Equal(t, "prod", scope.Env)
+}
+
+// ===== FunctionPolicy Tests =====
+
+func TestFunctionModel_GetPolicy(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewFunctionModel(db)
+	ctx := context.Background()
+
+	// Create a function first
+	fn := &Function{
+		FunctionID: "test.getPolicy",
+		Name:       "Test Function",
+		GameID:     "game1",
+		Status:     1,
+	}
+	err := model.Create(ctx, fn)
+	require.NoError(t, err)
+
+	// Create policy
+	policy := &FunctionPolicy{
+		FunctionID: "test.getPolicy",
+		Source:     "manual",
+	}
+	err = model.UpsertPolicy(ctx, policy)
+	require.NoError(t, err)
+
+	// Get policy
+	got, err := model.GetPolicy(ctx, "test.getPolicy")
+	require.NoError(t, err)
+	assert.Equal(t, "test.getPolicy", got.FunctionID)
+	assert.Equal(t, "manual", got.Source)
+}
+
+func TestFunctionModel_GetPolicy_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewFunctionModel(db)
+	ctx := context.Background()
+
+	_, err := model.GetPolicy(ctx, "nonexistent")
+	assert.Error(t, err)
+}
+
+func TestFunctionModel_UpsertPolicy(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewFunctionModel(db)
+	ctx := context.Background()
+
+	policy := &FunctionPolicy{
+		FunctionID: "test.upsertPolicy",
+		Source:     "auto",
+	}
+	err := model.UpsertPolicy(ctx, policy)
+	require.NoError(t, err)
+
+	// Verify created
+	got, err := model.GetPolicy(ctx, "test.upsertPolicy")
+	require.NoError(t, err)
+	assert.Equal(t, "auto", got.Source)
+
+	// Update policy
+	policy.Source = "manual"
+	err = model.UpsertPolicy(ctx, policy)
+	require.NoError(t, err)
+
+	// Verify updated
+	got, err = model.GetPolicy(ctx, "test.upsertPolicy")
+	require.NoError(t, err)
+	assert.Equal(t, "manual", got.Source)
+}
+
+func TestFunctionModel_DeletePolicy(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewFunctionModel(db)
+	ctx := context.Background()
+
+	// Create policy
+	policy := &FunctionPolicy{
+		FunctionID: "test.deletePolicy",
+		Source:     "manual",
+	}
+	err := model.UpsertPolicy(ctx, policy)
+	require.NoError(t, err)
+
+	// Delete policy
+	err = model.DeletePolicy(ctx, "test.deletePolicy")
+	require.NoError(t, err)
+
+	// Verify deleted
+	_, err = model.GetPolicy(ctx, "test.deletePolicy")
+	assert.Error(t, err)
+}
+
+func TestFunctionModel_ListPolicies(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewFunctionModel(db)
+	ctx := context.Background()
+
+	// Create multiple policies
+	policies := []*FunctionPolicy{
+		{FunctionID: "test.listPolicies1", Source: "manual"},
+		{FunctionID: "test.listPolicies2", Source: "auto"},
+		{FunctionID: "test.listPolicies3", Source: "manual"},
+	}
+	for _, p := range policies {
+		err := model.UpsertPolicy(ctx, p)
+		require.NoError(t, err)
+	}
+
+	// List all policies
+	all, err := model.ListPolicies(ctx, "")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(all), 3)
+
+	// List by source
+	manual, err := model.ListPolicies(ctx, "manual")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(manual), 2)
+
+	auto, err := model.ListPolicies(ctx, "auto")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(auto), 1)
+}
+
+func TestFunctionModel_ListDescriptorTemplates(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewFunctionModel(db)
+	ctx := context.Background()
+
+	// Create descriptors
+	descs := []*Descriptor{
+		{DescriptorID: "desc1", Name: "Form Template", Category: "form"},
+		{DescriptorID: "desc2", Name: "Table Template", Category: "table"},
+		{DescriptorID: "desc3", Name: "Another Form", Category: "form"},
+	}
+	for _, d := range descs {
+		err := db.Create(d).Error
+		require.NoError(t, err)
+	}
+
+	// List all descriptor templates
+	templates, err := model.ListDescriptorTemplates(ctx, "")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(templates), 3)
+
+	// List by category
+	formTemplates, err := model.ListDescriptorTemplates(ctx, "form")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(formTemplates), 2)
+
+	tableTemplates, err := model.ListDescriptorTemplates(ctx, "table")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(tableTemplates), 1)
+}
+
+// ===== OpenAPISource Tests =====
+
+func TestOpenAPISource_GetSetSpec(t *testing.T) {
+	source := &OpenAPISource{
+		SpecJSON: `{"openapi":"3.0.3","info":{"title":"Test"}}`,
+	}
+
+	spec := source.GetSpec()
+	assert.Equal(t, `{"openapi":"3.0.3","info":{"title":"Test"}}`, string(spec))
+
+	newSpec := json.RawMessage(`{"openapi":"3.0.3","info":{"title":"Updated"}}`)
+	source.SetSpec(newSpec)
+	assert.Equal(t, `{"openapi":"3.0.3","info":{"title":"Updated"}}`, source.SpecJSON)
+}
+
+func TestOpenAPISource_GetOperations(t *testing.T) {
+	source := &OpenAPISource{
+		OperationsJSON: `[{"operationId":"getUsers","method":"GET","path":"/users"}]`,
+	}
+
+	var ops []map[string]interface{}
+	err := source.GetOperations(&ops)
+	require.NoError(t, err)
+	assert.Len(t, ops, 1)
+	assert.Equal(t, "getUsers", ops[0]["operationId"])
+}
+
+func TestOpenAPISource_GetOperations_Empty(t *testing.T) {
+	source := &OpenAPISource{
+		OperationsJSON: "",
+	}
+
+	var ops []map[string]interface{}
+	err := source.GetOperations(&ops)
+	require.NoError(t, err)
+	assert.Nil(t, ops)
+}
+
+func TestOpenAPISource_SetOperations(t *testing.T) {
+	source := &OpenAPISource{}
+
+	ops := []map[string]interface{}{
+		{"operationId": "getUsers", "method": "GET", "path": "/users"},
+	}
+	err := source.SetOperations(ops)
+	require.NoError(t, err)
+	assert.NotEmpty(t, source.OperationsJSON)
+
+	// Verify round-trip
+	var decoded []map[string]interface{}
+	err = source.GetOperations(&decoded)
+	require.NoError(t, err)
+	assert.Len(t, decoded, 1)
+}
+
+func TestOpenAPISource_GetDiagnostics(t *testing.T) {
+	source := &OpenAPISource{
+		DiagnosticsJSON: `[{"level":"warning","message":"unused schema"}]`,
+	}
+
+	var diags []map[string]interface{}
+	err := source.GetDiagnostics(&diags)
+	require.NoError(t, err)
+	assert.Len(t, diags, 1)
+	assert.Equal(t, "warning", diags[0]["level"])
+}
+
+func TestOpenAPISource_GetDiagnostics_Empty(t *testing.T) {
+	source := &OpenAPISource{
+		DiagnosticsJSON: "",
+	}
+
+	var diags []map[string]interface{}
+	err := source.GetDiagnostics(&diags)
+	require.NoError(t, err)
+	assert.Nil(t, diags)
+}
+
+func TestOpenAPISource_SetDiagnostics(t *testing.T) {
+	source := &OpenAPISource{}
+
+	diags := []map[string]interface{}{
+		{"level": "error", "message": "invalid spec"},
+	}
+	err := source.SetDiagnostics(diags)
+	require.NoError(t, err)
+	assert.NotEmpty(t, source.DiagnosticsJSON)
+
+	// Verify round-trip
+	var decoded []map[string]interface{}
+	err = source.GetDiagnostics(&decoded)
+	require.NoError(t, err)
+	assert.Len(t, decoded, 1)
+}
+
+func TestOpenAPISource_TableName(t *testing.T) {
+	source := &OpenAPISource{}
+	assert.Equal(t, "openapi_sources", source.TableName())
+}
+
+func TestOpenAPISourceBinding_TableName(t *testing.T) {
+	binding := &OpenAPISourceBinding{}
+	assert.Equal(t, "openapi_source_bindings", binding.TableName())
+}
+
+func TestNewOpenAPISourceModel(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewOpenAPISourceModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestNewOpenAPISourceBindingModel(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewOpenAPISourceBindingModel(db)
+	assert.NotNil(t, model)
+}
+
+// ===== GameEnvBinding Tests =====
+
+func TestGameModel_EnvBindings(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewGameModel(db)
+	ctx := context.Background()
+
+	// Create a game first
+	game := &Game{
+		GameID: "binding-test",
+		Name:   "Binding Test Game",
+		Status: "dev",
+	}
+	err := model.Create(ctx, game)
+	require.NoError(t, err)
+
+	// Add env bindings
+	err = model.AddEnvBinding(ctx, "binding-test", "prod", "game_binding_test_prod", "Production", "#FF0000")
+	require.NoError(t, err)
+
+	err = model.AddEnvBinding(ctx, "binding-test", "dev", "game_binding_test_dev", "Development", "#00FF00")
+	require.NoError(t, err)
+
+	// List env bindings
+	bindings, err := model.ListEnvBindings(ctx, "binding-test")
+	require.NoError(t, err)
+	assert.Len(t, bindings, 2)
+
+	// Find env binding
+	binding, err := model.FindEnvBinding(ctx, "binding-test", "prod")
+	require.NoError(t, err)
+	assert.NotNil(t, binding)
+	assert.Equal(t, "game_binding_test_prod", binding.DatabaseName)
+
+	// Lookup database name
+	dbName, err := model.LookupDatabaseName(ctx, "binding-test", "prod")
+	require.NoError(t, err)
+	assert.Equal(t, "game_binding_test_prod", dbName)
+
+	// Has env binding
+	has, err := model.HasEnvBinding(ctx, "binding-test", "prod")
+	require.NoError(t, err)
+	assert.True(t, has)
+
+	has, err = model.HasEnvBinding(ctx, "binding-test", "staging")
+	require.NoError(t, err)
+	assert.False(t, has)
+
+	// List all env bindings
+	allBindings, err := model.ListAllEnvBindings(ctx)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(allBindings), 2)
+
+	// Remove env binding
+	err = model.RemoveEnvBinding(ctx, "binding-test", "dev")
+	require.NoError(t, err)
+
+	bindings, err = model.ListEnvBindings(ctx, "binding-test")
+	require.NoError(t, err)
+	assert.Len(t, bindings, 1)
+
+	// Remove all env bindings
+	err = model.RemoveAllEnvBindings(ctx, "binding-test")
+	require.NoError(t, err)
+
+	bindings, err = model.ListEnvBindings(ctx, "binding-test")
+	require.NoError(t, err)
+	assert.Len(t, bindings, 0)
+}
+
+func TestGameModel_FindByGameIDString(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewGameModel(db)
+	ctx := context.Background()
+
+	// Create a game with unique alias
+	game := &Game{
+		GameID:    "find-string-test",
+		Name:      "Find String Test",
+		Status:    "dev",
+		AliasName: "find-string-test-alias",
+	}
+	err := model.Create(ctx, game)
+	require.NoError(t, err)
+
+	// Find by game ID string
+	found, err := model.FindByGameIDString(ctx, "find-string-test")
+	require.NoError(t, err)
+	assert.Equal(t, "find-string-test", found.GameID)
+
+	// Not found
+	_, err = model.FindByGameIDString(ctx, "nonexistent")
+	assert.Error(t, err)
+}
+
+func TestBlockedProposalIssueModel(t *testing.T) {
+	db := setupTestDB(t)
+	err := db.AutoMigrate(&BlockedProposalIssue{})
+	require.NoError(t, err)
+
+	model := NewBlockedProposalIssueModel(db)
+	ctx := context.Background()
+
+	// Create
+	issue := &BlockedProposalIssue{
+		GameID:      "bp-game-prod",
+		Env:         "prod",
+		ResourceKey: "player",
+		FunctionID:  "player.ban",
+		Status:      "open",
+	}
+	err = model.Create(ctx, issue)
+	require.NoError(t, err)
+
+	// List by scope
+	issues, err := model.ListByScope(ctx, "bp-game-prod", "prod")
+	require.NoError(t, err)
+	assert.Len(t, issues, 1)
+
+	// Find by scope and resource key
+	found, err := model.FindByScopeAndResourceKey(ctx, "bp-game-prod", "prod", "player")
+	require.NoError(t, err)
+	assert.Equal(t, "player.ban", found.FunctionID)
+
+	// List by scope and resource key
+	issues, err = model.ListByScopeAndResourceKey(ctx, "bp-game-prod", "prod", "player")
+	require.NoError(t, err)
+	assert.Len(t, issues, 1)
+
+	// Update status
+	err = model.UpdateStatus(ctx, issue.ID, "resolved", "admin")
+	require.NoError(t, err)
+
+	// Resolve (already resolved, should be idempotent)
+	err = model.Resolve(ctx, "bp-game-prod", "prod", "player", "player.ban", "admin")
+	require.NoError(t, err)
+}
+
+// ===== OpenAPISource CRUD Tests =====
+
+func TestOpenAPISourceModel_CRUD(t *testing.T) {
+	db := setupTestDB(t)
+	err := db.AutoMigrate(&OpenAPISource{})
+	require.NoError(t, err)
+
+	model := NewOpenAPISourceModel(db)
+	ctx := context.Background()
+
+	// Create
+	source := &OpenAPISource{
+		GameID:         "oss-game1",
+		Env:            "prod",
+		SourceID:       "src-1",
+		Name:           "Test API",
+		Format:         "yaml",
+		OpenAPIVersion: "3.0.3",
+		ContentHash:    "abc123",
+	}
+	err = model.Create(ctx, source)
+	require.NoError(t, err)
+
+	// ListByScope
+	sources, err := model.ListByScope(ctx, "oss-game1", "prod")
+	require.NoError(t, err)
+	assert.Len(t, sources, 1)
+
+	// FindByScopeAndSourceID
+	found, err := model.FindByScopeAndSourceID(ctx, "oss-game1", "prod", "src-1")
+	require.NoError(t, err)
+	assert.Equal(t, "Test API", found.Name)
+
+	// Update
+	found.Name = "Updated API"
+	err = model.Update(ctx, found)
+	require.NoError(t, err)
+
+	// Verify update
+	updated, err := model.FindByScopeAndSourceID(ctx, "oss-game1", "prod", "src-1")
+	require.NoError(t, err)
+	assert.Equal(t, "Updated API", updated.Name)
+}
+
+// ===== PageProposalModel Tests =====
+
+func TestPageProposalModel_UpsertAndFind(t *testing.T) {
+	db := setupTestDB(t)
+	err := db.AutoMigrate(&PageProposal{})
+	require.NoError(t, err)
+
+	model := NewPageProposalModel(db)
+	ctx := context.Background()
+
+	// Create proposal
+	proposal := &PageProposal{
+		GameID:      "pp-game1",
+		Env:         "prod",
+		ProposalKey: "player",
+		PageKey:     "player-dashboard",
+		PageType:    "resource",
+		ResourceKey: "player",
+		Quality:     "ready",
+		Status:      "pending",
+	}
+	err = model.UpsertProposal(ctx, proposal)
+	require.NoError(t, err)
+
+	// Find by scope and key
+	found, err := model.FindByScopeAndKey(ctx, "pp-game1", "prod", "player")
+	require.NoError(t, err)
+	assert.Equal(t, "player-dashboard", found.PageKey)
+
+	// Find by scope and page key
+	found2, err := model.FindByScopeAndPageKey(ctx, "pp-game1", "prod", "player-dashboard")
+	require.NoError(t, err)
+	assert.Equal(t, "player", found2.ProposalKey)
+
+	// List by scope
+	proposals, err := model.ListByScope(ctx, "pp-game1", "prod")
+	require.NoError(t, err)
+	assert.Len(t, proposals, 1)
+
+	// List by status
+	proposals, err = model.ListByStatus(ctx, "pp-game1", "prod", "pending")
+	require.NoError(t, err)
+	assert.Len(t, proposals, 1)
+
+	// List by scope and resource key
+	proposals, err = model.ListByScopeAndResourceKey(ctx, "pp-game1", "prod", "player")
+	require.NoError(t, err)
+	assert.Len(t, proposals, 1)
+
+	// Upsert update
+	proposal.Status = "accepted"
+	proposal.ID = found.ID
+	err = model.UpsertProposal(ctx, proposal)
+	require.NoError(t, err)
+
+	// Verify update
+	found3, err := model.FindByScopeAndKey(ctx, "pp-game1", "prod", "player")
+	require.NoError(t, err)
+	assert.Equal(t, "accepted", found3.Status)
+
+	// ListByScopeStatusAndResourceKey
+	proposals, err = model.ListByScopeStatusAndResourceKey(ctx, "pp-game1", "prod", "accepted", "player")
+	require.NoError(t, err)
+	assert.Len(t, proposals, 1)
+
+	// DeleteByScopeAndKey
+	err = model.DeleteByScopeAndKey(ctx, "pp-game1", "prod", "player")
+	require.NoError(t, err)
+
+	proposals, err = model.ListByScope(ctx, "pp-game1", "prod")
+	require.NoError(t, err)
+	assert.Len(t, proposals, 0)
+}
+
+// ===== PageProposalVersionModel Tests =====
+
+func TestPageProposalVersionModel(t *testing.T) {
+	db := setupTestDB(t)
+	err := db.AutoMigrate(&PageProposal{}, &PageProposalVersion{})
+	require.NoError(t, err)
+
+	proposalModel := NewPageProposalModel(db)
+	versionModel := NewPageProposalVersionModel(db)
+	ctx := context.Background()
+
+	// Create proposal
+	proposal := &PageProposal{
+		GameID:      "ppv-game1",
+		Env:         "prod",
+		ProposalKey: "item",
+		PageKey:     "item-dashboard",
+		Status:      "pending",
+	}
+	err = proposalModel.UpsertProposal(ctx, proposal)
+	require.NoError(t, err)
+
+	// Get next version
+	nextVer, err := versionModel.GetNextVersion(ctx, proposal.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, nextVer)
+
+	// Create version
+	ver := &PageProposalVersion{
+		ProposalID: proposal.ID,
+		Version:    1,
+		Proposal:   datatypes.JSON(`{"type":"resource"}`),
+	}
+	err = versionModel.CreateVersion(ctx, ver)
+	require.NoError(t, err)
+
+	// List versions
+	versions, err := versionModel.ListByProposalID(ctx, proposal.ID)
+	require.NoError(t, err)
+	assert.Len(t, versions, 1)
+
+	// Find by proposal ID and version
+	found, err := versionModel.FindByProposalIDAndVersion(ctx, proposal.ID, 1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, found.Version)
+
+	// Latest by proposal ID
+	latest, err := versionModel.LatestByProposalID(ctx, proposal.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, latest.Version)
+
+	// Get next version again
+	nextVer, err = versionModel.GetNextVersion(ctx, proposal.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, nextVer)
+}
+
+// ===== TaskRunModel Tests =====
+
+func TestTaskRunModel_CRUD(t *testing.T) {
+	db := setupTestDB(t)
+	err := db.AutoMigrate(&TaskRun{}, &TaskEvent{})
+	require.NoError(t, err)
+
+	runModel := NewTaskRunModel(db)
+	_ = NewTaskEventModel(db)
+	ctx := context.Background()
+
+	// Create task run
+	task := &TaskRun{
+		TaskID:     "task-001",
+		FunctionID: "player.ban",
+		GameID:     "game1",
+		Env:        "prod",
+		Status:     "running",
+	}
+	err = runModel.Create(ctx, task)
+	require.NoError(t, err)
+
+	// Find by task ID
+	found, err := runModel.FindByTaskID(ctx, "task-001")
+	require.NoError(t, err)
+	assert.Equal(t, "player.ban", found.FunctionID)
+
+	// Find by task ID not found
+	_, err = runModel.FindByTaskID(ctx, "nonexistent")
+	assert.Error(t, err)
+
+	// Find by empty task ID
+	_, err = runModel.FindByTaskID(ctx, "")
+	assert.Error(t, err)
+
+	// Update by task ID
+	err = runModel.UpdateByTaskID(ctx, "task-001", map[string]interface{}{
+		"status": "succeeded",
+	})
+	require.NoError(t, err)
+
+	// Verify update
+	found, err = runModel.FindByTaskID(ctx, "task-001")
+	require.NoError(t, err)
+	assert.Equal(t, "succeeded", found.Status)
+
+	// Update by empty task ID
+	err = runModel.UpdateByTaskID(ctx, "", map[string]interface{}{"status": "failed"})
+	assert.Error(t, err)
+
+	// List tasks
+	tasks, total, err := runModel.List(ctx, ListTasksOptions{})
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+	assert.Equal(t, int64(1), total)
+
+	// List with filters
+	tasks, total, err = runModel.List(ctx, ListTasksOptions{FunctionID: "player.ban"})
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+
+	tasks, total, err = runModel.List(ctx, ListTasksOptions{Status: "succeeded"})
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+
+	tasks, total, err = runModel.List(ctx, ListTasksOptions{GameID: "game1", Env: "prod"})
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+
+	// List with no results
+	tasks, total, err = runModel.List(ctx, ListTasksOptions{FunctionID: "nonexistent"})
+	require.NoError(t, err)
+	assert.Len(t, tasks, 0)
+	assert.Equal(t, int64(0), total)
+}
+
+// ===== TaskEventModel Tests =====
+
+func TestTaskEventModel_AppendAndList(t *testing.T) {
+	db := setupTestDB(t)
+	err := db.AutoMigrate(&TaskEvent{})
+	require.NoError(t, err)
+
+	model := NewTaskEventModel(db)
+	ctx := context.Background()
+
+	// Append events
+	event1 := &TaskEvent{
+		TaskID:    "task-evt-001",
+		Seq:       1,
+		Type:      "started",
+		Progress:  0,
+		Message:   "Task started",
+		Payload:   []byte(`{}`),
+		CreatedAt: time.Now(),
+	}
+	err = model.Append(ctx, event1)
+	require.NoError(t, err)
+
+	event2 := &TaskEvent{
+		TaskID:    "task-evt-001",
+		Seq:       2,
+		Type:      "progress",
+		Progress:  50,
+		Message:   "Halfway",
+		Payload:   []byte(`{}`),
+		CreatedAt: time.Now(),
+	}
+	err = model.Append(ctx, event2)
+	require.NoError(t, err)
+
+	// List events
+	events, err := model.ListByTaskID(ctx, "task-evt-001", 0)
+	require.NoError(t, err)
+	assert.Len(t, events, 2)
+
+	// List with afterSeq
+	events, err = model.ListByTaskID(ctx, "task-evt-001", 1)
+	require.NoError(t, err)
+	assert.Len(t, events, 1)
+
+	// NextSeq
+	seq, err := model.NextSeq(ctx, "task-evt-001")
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), seq)
+
+	// NextSeq for new task
+	seq, err = model.NextSeq(ctx, "task-evt-002")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), seq)
+
+	// ListByTaskID with empty task ID
+	events, err = model.ListByTaskID(ctx, "", 0)
+	require.NoError(t, err)
+	assert.Len(t, events, 0)
+
+	// NextSeq with empty task ID
+	seq, err = model.NextSeq(ctx, "")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), seq)
+}
+
+// ===== EncodeTaskPayload Tests =====
+
+func TestEncodeTaskPayload(t *testing.T) {
+	// nil
+	result := EncodeTaskPayload(nil)
+	assert.Equal(t, "null", string(result))
+
+	// []byte
+	result = EncodeTaskPayload([]byte(`{"key":"value"}`))
+	assert.Equal(t, `{"key":"value"}`, string(result))
+
+	// string
+	result = EncodeTaskPayload(`{"key":"value"}`)
+	assert.Equal(t, `{"key":"value"}`, string(result))
+
+	// struct
+	type TestStruct struct {
+		Name string `json:"name"`
+	}
+	result = EncodeTaskPayload(TestStruct{Name: "test"})
+	assert.Contains(t, string(result), "test")
+
+	// map
+	result = EncodeTaskPayload(map[string]int{"a": 1})
+	assert.Contains(t, string(result), "1")
+}
+
+func TestMustJSON(t *testing.T) {
+	// nil
+	result := MustJSON(nil)
+	assert.Equal(t, "null", string(result))
+
+	// struct
+	type TestStruct struct {
+		Name string `json:"name"`
+	}
+	result = MustJSON(TestStruct{Name: "test"})
+	assert.Contains(t, string(result), "test")
+
+	// map
+	result = MustJSON(map[string]string{"key": "value"})
+	assert.Contains(t, string(result), "value")
+
+	// slice
+	result = MustJSON([]int{1, 2, 3})
+	assert.Contains(t, string(result), "1")
 }

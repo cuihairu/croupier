@@ -158,7 +158,7 @@ providers:
     enabled: true
     type: openapi
     config:
-      base_url: "` + server.URL + `"
+      baseUrl: "` + server.URL + `"
       methods:
         - name: get_player
           path: /api/player
@@ -570,7 +570,7 @@ func TestProviderManagerSyncExtensionProviders(t *testing.T) {
 			Enabled: true,
 			Type:    "openapi",
 			Config: map[string]interface{}{
-				"base_url": server.URL,
+				"baseUrl": server.URL,
 				"methods": []map[string]interface{}{
 					{"name": "echo", "path": "/echo", "method": "GET"},
 				},
@@ -666,7 +666,7 @@ providers:
     enabled: true
     type: openapi
     config:
-      base_url: "` + staticSrv.URL + `"
+      baseUrl: "` + staticSrv.URL + `"
       methods:
         - name: list_apps
           path: /list_apps
@@ -697,7 +697,7 @@ providers:
 			Enabled: true,
 			Type:    "openapi",
 			Config: map[string]interface{}{
-				"base_url": extSrv.URL,
+				"baseUrl": extSrv.URL,
 				"methods": []map[string]interface{}{
 					{"name": "list_apps", "path": "/list_apps", "method": "GET"},
 				},

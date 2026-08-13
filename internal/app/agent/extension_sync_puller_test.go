@@ -24,7 +24,7 @@ func TestExtensionSyncPullerPullOnce(t *testing.T) {
 				"generated_at":200,
 				"version":"v200",
 				"installations":[
-					{"installation_id":12,"extension_id":"official.analytics","config_json":"{}"}
+					{"installationId":12,"extensionId":"official.analytics","configJson":"{}"}
 				]
 			}
 		}`))

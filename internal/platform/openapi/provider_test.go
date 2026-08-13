@@ -41,7 +41,7 @@ func TestProviderInit(t *testing.T) {
 				Enabled: true,
 				Type:    "openapi",
 				Config: map[string]interface{}{
-					"base_url": "http://example.com",
+					"baseUrl": "http://example.com",
 					"methods": []interface{}{
 						map[string]interface{}{
 							"name":   "get_user",
@@ -59,7 +59,7 @@ func TestProviderInit(t *testing.T) {
 				Enabled: true,
 				Type:    "openapi",
 				Config: map[string]interface{}{
-					"base_url": "http://example.com",
+					"baseUrl": "http://example.com",
 					"auth": map[string]interface{}{
 						"type":  "bearer",
 						"token": "test-token",
@@ -81,8 +81,8 @@ func TestProviderInit(t *testing.T) {
 				Enabled: true,
 				Type:    "openapi",
 				Config: map[string]interface{}{
-					"base_url": "http://example.com",
-					"timeout":  "10s", // Human-readable duration string
+					"baseUrl": "http://example.com",
+					"timeout": "10s", // Human-readable duration string
 					"methods": []interface{}{
 						map[string]interface{}{
 							"name":   "test",
@@ -100,7 +100,7 @@ func TestProviderInit(t *testing.T) {
 				Enabled: true,
 				Type:    "openapi",
 				Config: map[string]interface{}{
-					"base_url": "http://example.com",
+					"baseUrl": "http://example.com",
 				},
 				RateLimit: &provider.RateLimitConfig{
 					RequestsPerMinute: 60,
@@ -139,7 +139,7 @@ func TestProviderIsEnabled(t *testing.T) {
 				Enabled: tt.enabled,
 				Type:    "openapi",
 				Config: map[string]interface{}{
-					"base_url": "http://example.com",
+					"baseUrl": "http://example.com",
 				},
 			})
 			if got := p.IsEnabled(); got != tt.want {
@@ -155,7 +155,7 @@ func TestProviderSupportedMethods(t *testing.T) {
 		Enabled: true,
 		Type:    "openapi",
 		Config: map[string]interface{}{
-			"base_url": "http://example.com",
+			"baseUrl": "http://example.com",
 			"methods": []interface{}{
 				map[string]interface{}{"name": "method1", "path": "/m1", "method": "GET"},
 				map[string]interface{}{"name": "method2", "path": "/m2", "method": "POST"},
@@ -183,17 +183,17 @@ func TestProviderGetMethodDetails(t *testing.T) {
 		Enabled: true,
 		Type:    "openapi",
 		Config: map[string]interface{}{
-			"base_url": "http://example.com",
+			"baseUrl": "http://example.com",
 			"methods": []interface{}{
 				map[string]interface{}{
-					"name":         "get_user",
-					"operation_id": "getUser",
-					"summary":      "Get user info",
-					"description":  "Get user information by ID",
-					"tags":         []interface{}{"user", "info"},
-					"deprecated":   false,
-					"path":         "/api/user",
-					"method":       "GET",
+					"name":        "get_user",
+					"operationId": "getUser",
+					"summary":     "Get user info",
+					"description": "Get user information by ID",
+					"tags":        []interface{}{"user", "info"},
+					"deprecated":  false,
+					"path":        "/api/user",
+					"method":      "GET",
 				},
 			},
 		},
@@ -250,7 +250,7 @@ func TestProviderCall(t *testing.T) {
 		Enabled: true,
 		Type:    "openapi",
 		Config: map[string]interface{}{
-			"base_url": server.URL,
+			"baseUrl": server.URL,
 			"methods": []interface{}{
 				map[string]interface{}{
 					"name":   "get_user",
@@ -355,7 +355,7 @@ func TestProviderCallWithAuth(t *testing.T) {
 			name: "api key header",
 			authConfig: map[string]interface{}{
 				"type": "api_key",
-				"api_key": map[string]interface{}{
+				"apiKey": map[string]interface{}{
 					"name":  "X-API-Key",
 					"value": "secret-key",
 					"in":    "header",
@@ -369,7 +369,7 @@ func TestProviderCallWithAuth(t *testing.T) {
 			name: "custom headers",
 			authConfig: map[string]interface{}{
 				"type": "custom",
-				"custom_headers": map[string]interface{}{
+				"customHeaders": map[string]interface{}{
 					"X-Custom-Auth": "custom-value",
 				},
 			},
@@ -394,8 +394,8 @@ func TestProviderCallWithAuth(t *testing.T) {
 				Enabled: true,
 				Type:    "openapi",
 				Config: map[string]interface{}{
-					"base_url": server.URL,
-					"auth":     tt.authConfig,
+					"baseUrl": server.URL,
+					"auth":    tt.authConfig,
 					"methods": []interface{}{
 						map[string]interface{}{
 							"name":   "test",
@@ -476,13 +476,13 @@ func TestProviderCallWithRequestBody(t *testing.T) {
 				Enabled: true,
 				Type:    "openapi",
 				Config: map[string]interface{}{
-					"base_url": server.URL,
+					"baseUrl": server.URL,
 					"methods": []interface{}{
 						map[string]interface{}{
-							"name":         "test",
-							"path":         "/test",
-							"method":       "POST",
-							"request_body": tt.requestBody,
+							"name":        "test",
+							"path":        "/test",
+							"method":      "POST",
+							"requestBody": tt.requestBody,
 						},
 					},
 				},
@@ -523,12 +523,12 @@ func TestProviderCallWithResponseTransform(t *testing.T) {
 		Enabled: true,
 		Type:    "openapi",
 		Config: map[string]interface{}{
-			"base_url": server.URL,
+			"baseUrl": server.URL,
 			"transform": map[string]interface{}{
-				"success_field": "code",
-				"success_value": float64(0),
-				"data_field":    "data",
-				"error_field":   "message",
+				"successField": "code",
+				"successValue": float64(0),
+				"dataField":    "data",
+				"errorField":   "message",
 			},
 			"methods": []interface{}{
 				map[string]interface{}{
@@ -569,7 +569,7 @@ func TestProviderCallDisabled(t *testing.T) {
 		Enabled: false,
 		Type:    "openapi",
 		Config: map[string]interface{}{
-			"base_url": "http://example.com",
+			"baseUrl": "http://example.com",
 			"methods": []interface{}{
 				map[string]interface{}{
 					"name":   "test",
@@ -596,7 +596,7 @@ func TestProviderClose(t *testing.T) {
 		Enabled: true,
 		Type:    "openapi",
 		Config: map[string]interface{}{
-			"base_url": "http://example.com",
+			"baseUrl": "http://example.com",
 		},
 	})
 
@@ -611,7 +611,7 @@ func TestBuildURL(t *testing.T) {
 		Enabled: true,
 		Type:    "openapi",
 		Config: map[string]interface{}{
-			"base_url": "http://example.com",
+			"baseUrl": "http://example.com",
 		},
 	})
 
@@ -824,7 +824,7 @@ func TestProviderCallWithContext(t *testing.T) {
 		Enabled: true,
 		Type:    "openapi",
 		Config: map[string]interface{}{
-			"base_url": server.URL,
+			"baseUrl": server.URL,
 			"methods": []interface{}{
 				map[string]interface{}{
 					"name":   "slow",

@@ -299,3 +299,71 @@ func newResourceTestServiceContext(t *testing.T, store *reg.Store, permissions .
 	ctx = context.WithValue(ctx, "username", admin.Username)
 	return svcCtx, ctx
 }
+
+func TestServiceDetail_UsesPersistentFunctionContracts(t *testing.T) {
+	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
+	contractService := dashboardservice.NewContractService(svcCtx.DB)
+	require.NoError(t, contractService.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", dashboardservice.FunctionMetaInput{
+		ID:         "player.list",
+		Version:    "1.0.0",
+		Enabled:    true,
+		Summary:    "List players",
+		Resource:   "player",
+		Risk:       "safe",
+		Operation:  "list",
+		Capability: "collection_query",
+		Execution:  "sync",
+		Permission: "player:list",
+	}))
+	require.NoError(t, contractService.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+
+	resp, err := NewService(svcCtx).Detail(ctx, &ResourceDetailRequest{ResourceKey: "player"})
+	require.NoError(t, err)
+	assert.Equal(t, "player", resp.Resource.Key)
+}
+
+func TestServiceDetail_NotFound(t *testing.T) {
+	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
+	_, err := NewService(svcCtx).Detail(ctx, &ResourceDetailRequest{ResourceKey: "nonexistent"})
+	assert.Error(t, err)
+}
+
+func TestServiceOperations_UsesPersistentFunctionContracts(t *testing.T) {
+	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
+	contractService := dashboardservice.NewContractService(svcCtx.DB)
+	require.NoError(t, contractService.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", dashboardservice.FunctionMetaInput{
+		ID:         "player.list",
+		Version:    "1.0.0",
+		Enabled:    true,
+		Resource:   "player",
+		Risk:       "safe",
+		Operation:  "list",
+		Capability: "collection_query",
+		Execution:  "sync",
+		Permission: "player:list",
+	}))
+	require.NoError(t, contractService.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+
+	resp, err := NewService(svcCtx).Operations(ctx, &ResourceOperationsRequest{ResourceKey: "player"})
+	require.NoError(t, err)
+	assert.Len(t, resp.Items, 1)
+	assert.Equal(t, "player.list", resp.Items[0].FunctionID)
+}
+
+func TestServiceOperations_NotFound(t *testing.T) {
+	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
+	_, err := NewService(svcCtx).Operations(ctx, &ResourceOperationsRequest{ResourceKey: "nonexistent"})
+	assert.Error(t, err)
+}
+
+func TestServiceDetail_Unauthorized(t *testing.T) {
+	svcCtx, _ := newResourceTestServiceContext(t, reg.NewStore())
+	_, err := NewService(svcCtx).Detail(context.Background(), &ResourceDetailRequest{ResourceKey: "player"})
+	assert.Error(t, err)
+}
+
+func TestServiceOperations_Unauthorized(t *testing.T) {
+	svcCtx, _ := newResourceTestServiceContext(t, reg.NewStore())
+	_, err := NewService(svcCtx).Operations(context.Background(), &ResourceOperationsRequest{ResourceKey: "player"})
+	assert.Error(t, err)
+}

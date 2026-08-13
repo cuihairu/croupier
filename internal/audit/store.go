@@ -281,7 +281,7 @@ func (s *SQLAuditStore) List(filter AuditFilter, page AuditPage) ([]*AuditRecord
 	}
 
 	if filter.GameID != "" {
-		query = query.Where("json_extract(resource_json, '$.game_id') = ?", filter.GameID)
+		query = query.Where("json_extract(resource_json, '$.gameId') = ?", filter.GameID)
 	}
 
 	if filter.Environment != "" {
