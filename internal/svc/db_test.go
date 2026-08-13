@@ -463,3 +463,45 @@ func TestReplaceDBInSQLServerDSNExtended(t *testing.T) {
 		})
 	}
 }
+
+func TestDSNForDatabase(t *testing.T) {
+	tests := []struct {
+		name     string
+		driver   string
+		metaDSN  string
+		dbName   string
+		contains string
+	}{
+		{"sqlite", "sqlite", "/tmp/meta.db", "game1", "game1"},
+		{"sqlite3", "sqlite3", "/tmp/meta.db", "game1", "game1"},
+		{"postgres", "postgres", "postgres://localhost/meta", "game1", "game1"},
+		{"postgresql", "postgresql", "postgresql://localhost/meta", "game1", "game1"},
+		{"mysql", "mysql", "root:pass@tcp(localhost:3306)/meta", "game1", "game1"},
+		{"sqlserver", "sqlserver", "server=localhost;database=meta", "game1", "game1"},
+		{"unknown defaults to postgres", "unknown", "postgres://localhost/meta", "game1", "game1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dsn := DSNForDatabase(tt.driver, tt.metaDSN, tt.dbName)
+			if dsn == "" {
+				t.Error("DSNForDatabase() returned empty string")
+			}
+			if !contains(dsn, tt.contains) {
+				t.Errorf("DSNForDatabase() = %q, should contain %q", dsn, tt.contains)
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && len(substr) > 0 && searchSubstring(s, substr))
+}
+
+func searchSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

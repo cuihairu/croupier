@@ -3,11 +3,14 @@ package versioning
 import (
 	"context"
 	"encoding/json"
+	"net/http/httptest"
 	"testing"
 
 	dashboardmerge "github.com/cuihairu/croupier/internal/dashboard/merge"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
@@ -1789,9 +1792,413 @@ func TestApplyConflictFieldListViewPagination(t *testing.T) {
 // helper mustMarshal
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// normalizeLocalizedText
+// ---------------------------------------------------------------------------
+
 func mustMarshal(t *testing.T, v interface{}) json.RawMessage {
 	t.Helper()
 	raw, err := json.Marshal(v)
 	require.NoError(t, err)
 	return raw
+}
+
+// ---------------------------------------------------------------------------
+// getScope
+// ---------------------------------------------------------------------------
+
+func TestGetScopeFromContext(t *testing.T) {
+	tests := []struct {
+		name     string
+		gameID   string
+		env      string
+		wantGame string
+		wantEnv  string
+	}{
+		{"normal scope", "game1", "prod", "game1", "prod"},
+		{"empty scope", "", "", "", ""},
+		{"game only", "game1", "", "game1", ""},
+		{"env only", "", "dev", "", "dev"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("GET", "/", nil)
+			ctx := svc.WithGameScope(c.Request.Context(), svc.GameScope{GameID: tt.gameID, Env: tt.env})
+			c.Request = c.Request.WithContext(ctx)
+			gotGame, gotEnv := getScope(c)
+			assert.Equal(t, tt.wantGame, gotGame)
+			assert.Equal(t, tt.wantEnv, gotEnv)
+		})
+	}
+}
+
+func TestGetScopeEmptyContext(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+	gotGame, gotEnv := getScope(c)
+	assert.Equal(t, "", gotGame)
+	assert.Equal(t, "", gotEnv)
+}
+
+// ---------------------------------------------------------------------------
+// buildBindingContracts
+// ---------------------------------------------------------------------------
+
+func TestBuildBindingContractsEmptyBindingsV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	contracts, err := svc.buildBindingContracts(context.Background(), "game1", "prod", []spec.PageFunctionBinding{})
+	require.NoError(t, err)
+	assert.Empty(t, contracts)
+}
+
+func TestBuildBindingContractsEmptyFunctionIDV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	_, err := svc.buildBindingContracts(context.Background(), "game1", "prod", []spec.PageFunctionBinding{
+		{ID: "b1", FunctionID: ""},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "functionId is required")
+}
+
+func TestBuildBindingContractsFunctionNotFoundV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	_, err := svc.buildBindingContracts(context.Background(), "game1", "prod", []spec.PageFunctionBinding{
+		{ID: "b1", FunctionID: "nonexistent"},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "does not exist")
+}
+
+func TestBuildBindingContractsDisabledFunctionV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	// Create a disabled contract
+	contract := &model.FunctionContract{
+		GameID:     "game1",
+		Env:        "prod",
+		FunctionID: "fn1",
+		Enabled:    false,
+		Version:    "1.0.0",
+		Risk:       "medium",
+	}
+	db.Create(contract)
+	_, err := svc.buildBindingContracts(context.Background(), "game1", "prod", []spec.PageFunctionBinding{
+		{ID: "b1", FunctionID: "fn1"},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "disabled")
+}
+
+func TestBuildBindingContractsSuccessV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	// Create an enabled contract
+	contract := &model.FunctionContract{
+		GameID:     "game1",
+		Env:        "prod",
+		FunctionID: "fn1",
+		Enabled:    true,
+		Version:    "1.0.0",
+		Risk:       "medium",
+		Permission: "player:list",
+	}
+	db.Create(contract)
+	contracts, err := svc.buildBindingContracts(context.Background(), "game1", "prod", []spec.PageFunctionBinding{
+		{ID: "b1", FunctionID: "fn1", Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync}},
+	})
+	require.NoError(t, err)
+	assert.Len(t, contracts, 1)
+	assert.Equal(t, "b1", contracts[0].BindingID)
+	assert.Equal(t, "fn1", contracts[0].FunctionID)
+	assert.Equal(t, "1.0.0", contracts[0].FunctionVersion)
+}
+
+// ---------------------------------------------------------------------------
+// bindingContractChanges
+// ---------------------------------------------------------------------------
+
+func TestBindingContractChangesNoPublishedV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "fn1"},
+		},
+	}
+	changes := svc.bindingContractChanges(context.Background(), "game1", "prod", "page1", pageSpec)
+	// No published version, no contract -> function removed
+	assert.Len(t, changes, 1)
+	assert.Equal(t, "removed", changes[0].ChangeType)
+}
+
+func TestBindingContractChangesWithPublishedV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	// Create a published page spec with a frozen contract
+	// Use empty input/output schemas so digest matches
+	contract := &model.FunctionContract{
+		GameID:     "game1",
+		Env:        "prod",
+		FunctionID: "fn1",
+		Enabled:    true,
+		Version:    "1.0.0",
+		Risk:       "medium",
+	}
+	db.Create(contract)
+	// Compute the expected digests from the contract's nil schemas
+	expectedInputDigest := digestRaw(contract.InputSchema)
+	expectedOutputDigest := digestRaw(contract.OutputSchema)
+	bindingContracts := []spec.BindingContractSnapshot{
+		{
+			BindingID:          "b1",
+			FunctionID:         "fn1",
+			FunctionVersion:    "1.0.0",
+			InputSchemaDigest:  expectedInputDigest,
+			OutputSchemaDigest: expectedOutputDigest,
+			Risk:               "medium",
+			Permission:         "",
+		},
+	}
+	contractsJSON, _ := json.Marshal(bindingContracts)
+	db.Create(&model.PublishedPageSpec{
+		GameID:               "game1",
+		Env:                  "prod",
+		PageKey:              "page1",
+		Version:              1,
+		SpecJSON:             "{}",
+		BindingContractsJSON: string(contractsJSON),
+		Active:               true,
+	})
+	pageSpec := spec.PageSpec{
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "fn1"},
+		},
+	}
+	changes := svc.bindingContractChanges(context.Background(), "game1", "prod", "page1", pageSpec)
+	// No changes since contract hasn't changed
+	assert.Empty(t, changes)
+}
+
+// ---------------------------------------------------------------------------
+// draftBindingContractChanges
+// ---------------------------------------------------------------------------
+
+func TestDraftBindingContractChangesEmptyBindingsV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{}
+	changes := svc.draftBindingContractChanges(context.Background(), "game1", "prod", pageSpec)
+	assert.Empty(t, changes)
+}
+
+func TestDraftBindingContractChangesEmptyFunctionIDV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: ""},
+		},
+	}
+	changes := svc.draftBindingContractChanges(context.Background(), "game1", "prod", pageSpec)
+	assert.Empty(t, changes)
+}
+
+func TestDraftBindingContractChangesFunctionNotFoundV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "nonexistent"},
+		},
+	}
+	changes := svc.draftBindingContractChanges(context.Background(), "game1", "prod", pageSpec)
+	assert.Len(t, changes, 1)
+	assert.Equal(t, "removed", changes[0].ChangeType)
+}
+
+func TestDraftBindingContractChangesFunctionExistsV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	contract := &model.FunctionContract{
+		GameID:     "game1",
+		Env:        "prod",
+		FunctionID: "fn1",
+		Enabled:    true,
+		Version:    "1.0.0",
+		Risk:       "medium",
+	}
+	db.Create(contract)
+	pageSpec := spec.PageSpec{
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "fn1"},
+		},
+	}
+	changes := svc.draftBindingContractChanges(context.Background(), "game1", "prod", pageSpec)
+	assert.Empty(t, changes)
+}
+
+// ---------------------------------------------------------------------------
+// mainContractForStandalonePage
+// ---------------------------------------------------------------------------
+
+func TestMainContractForStandalonePageResourceTypeV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{Type: spec.PageTypeResource}
+	_, err := svc.mainContractForStandalonePage(context.Background(), "game1", "prod", pageSpec)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "resource pages")
+}
+
+func TestMainContractForStandalonePageNoActionBindingV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{
+		Type: spec.PageTypeOperation,
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "fn1", Usage: "list"},
+		},
+	}
+	_, err := svc.mainContractForStandalonePage(context.Background(), "game1", "prod", pageSpec)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no main executable binding")
+}
+
+func TestMainContractForStandalonePageContractNotFoundV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{
+		Type: spec.PageTypeOperation,
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "nonexistent", Usage: spec.BindingUsageAction},
+		},
+	}
+	_, err := svc.mainContractForStandalonePage(context.Background(), "game1", "prod", pageSpec)
+	assert.Error(t, err)
+}
+
+func TestMainContractForStandalonePageSuccessV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	contract := &model.FunctionContract{
+		GameID:     "game1",
+		Env:        "prod",
+		FunctionID: "fn1",
+		Enabled:    true,
+		Version:    "1.0.0",
+		Risk:       "medium",
+	}
+	db.Create(contract)
+	pageSpec := spec.PageSpec{
+		Type: spec.PageTypeOperation,
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "fn1", Usage: spec.BindingUsageAction},
+		},
+	}
+	result, err := svc.mainContractForStandalonePage(context.Background(), "game1", "prod", pageSpec)
+	require.NoError(t, err)
+	assert.Equal(t, "fn1", result.FunctionID)
+}
+
+// ---------------------------------------------------------------------------
+// functionSpecsByID
+// ---------------------------------------------------------------------------
+
+func TestFunctionSpecsByIDNoBindingsV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{}
+	specs, err := svc.functionSpecsByID(context.Background(), "game1", "prod", pageSpec)
+	require.NoError(t, err)
+	assert.Empty(t, specs)
+}
+
+func TestFunctionSpecsByIDWithContractV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	contract := &model.FunctionContract{
+		GameID:     "game1",
+		Env:        "prod",
+		FunctionID: "fn1",
+		Enabled:    true,
+		Version:    "1.0.0",
+		Risk:       "medium",
+	}
+	db.Create(contract)
+	pageSpec := spec.PageSpec{
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "fn1"},
+		},
+	}
+	specs, err := svc.functionSpecsByID(context.Background(), "game1", "prod", pageSpec)
+	require.NoError(t, err)
+	assert.NotEmpty(t, specs)
+}
+
+// ---------------------------------------------------------------------------
+// contractsForPage
+// ---------------------------------------------------------------------------
+
+func TestContractsForPageEmptyBindingsV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{}
+	contracts, err := svc.contractsForPage(context.Background(), "game1", "prod", pageSpec)
+	require.NoError(t, err)
+	assert.Empty(t, contracts)
+}
+
+func TestContractsForPageEmptyFunctionIDV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: ""},
+		},
+	}
+	contracts, err := svc.contractsForPage(context.Background(), "game1", "prod", pageSpec)
+	require.NoError(t, err)
+	assert.Empty(t, contracts)
+}
+
+func TestContractsForPageDuplicateFunctionIDV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	contract := &model.FunctionContract{
+		GameID:     "game1",
+		Env:        "prod",
+		FunctionID: "fn1",
+		Enabled:    true,
+		Version:    "1.0.0",
+		Risk:       "medium",
+	}
+	db.Create(contract)
+	pageSpec := spec.PageSpec{
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "fn1"},
+			{ID: "b2", FunctionID: "fn1"},
+		},
+	}
+	contracts, err := svc.contractsForPage(context.Background(), "game1", "prod", pageSpec)
+	require.NoError(t, err)
+	assert.Len(t, contracts, 1)
+}
+
+func TestContractsForPageNotFoundV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db)
+	pageSpec := spec.PageSpec{
+		Bindings: []spec.PageFunctionBinding{
+			{ID: "b1", FunctionID: "nonexistent"},
+		},
+	}
+	contracts, err := svc.contractsForPage(context.Background(), "game1", "prod", pageSpec)
+	require.NoError(t, err)
+	assert.Empty(t, contracts)
 }

@@ -863,3 +863,11 @@ func TestFilterEmpty(t *testing.T) {
 		}
 	}
 }
+
+func TestGetOpenAPIDoc(t *testing.T) {
+	p := NewProvider()
+	doc := p.GetOpenAPIDoc()
+	if doc != nil {
+		t.Error("GetOpenAPIDoc() should return nil before Init")
+	}
+}

@@ -109,6 +109,28 @@ func TestQuoteIdentRoundTrip(t *testing.T) {
 	}
 }
 
+// TestMetaModels tests the MetaModels function returns non-empty list
+func TestMetaModels(t *testing.T) {
+	models := MetaModels()
+	if len(models) == 0 {
+		t.Error("MetaModels() should return non-empty list")
+	}
+	if len(models) < 10 {
+		t.Errorf("MetaModels() should return at least 10 models, got %d", len(models))
+	}
+}
+
+// TestGameModels tests the GameModels function returns non-empty list
+func TestGameModels(t *testing.T) {
+	models := GameModels()
+	if len(models) == 0 {
+		t.Error("GameModels() should return non-empty list")
+	}
+	if len(models) < 5 {
+		t.Errorf("GameModels() should return at least 5 models, got %d", len(models))
+	}
+}
+
 // TestUniqueStrings tests the uniqueStrings function
 func TestUniqueStrings(t *testing.T) {
 	tests := []struct {
