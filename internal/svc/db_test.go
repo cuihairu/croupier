@@ -59,6 +59,9 @@ func TestResolveDriverAndDSN_Extended(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Always clear env overrides so config values are used
+			t.Setenv("DB_DRIVER", "")
+			t.Setenv("DATABASE_URL", "")
 			if tt.envDriver != "" {
 				t.Setenv("DB_DRIVER", tt.envDriver)
 			}
