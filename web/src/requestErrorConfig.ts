@@ -5,6 +5,7 @@ import { history } from '@umijs/max';
 import { getMessage, getNotification } from './utils/antdApp';
 import { normalizeApiUrl, API_V1_PREFIX } from './utils/api';
 import { getScopeHeaders, needsResolvedScope, waitForResolvedScope } from './services/core/scope';
+import { setScope } from './stores/scope';
 import type { JSONValue } from '@/types/dashboard';
 
 // Defer message/notification to avoid calling during render (React 18 concurrent mode)
@@ -112,6 +113,17 @@ export const errorConfig: RequestConfig = {
       const message = resolveRestMessage(payload, status);
 
       if (status === 403) {
+        // Scope 相关的 403 不应跳转到 /403 页面，而是清除无效 scope 让 GameSelector 重新选择
+        if (
+          errorCode === 'scope_not_authorized' ||
+          errorCode === 'invalid_game_scope' ||
+          errorCode === 'scope_required'
+        ) {
+          // 同时清除内存和持久化的 scope
+          setScope({ gameId: undefined, env: undefined }, { persist: true, emit: true });
+          msgWarn('当前选择的游戏环境无效，请重新选择');
+          return;
+        }
         msgWarn(message);
         if (history.location?.pathname !== '/403') history.push('/403');
         return;
