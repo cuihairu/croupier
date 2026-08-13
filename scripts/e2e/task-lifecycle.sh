@@ -22,7 +22,7 @@ DSN="${DSN:-test-data/croupier.db}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
 FUNCTION_ID="${FUNCTION_ID:-e2e.echo}"
-GAME_ID="${GAME_ID:-e2e-game}"
+GAME_ID="${GAME_ID:-default}"
 ENV="${ENV:-dev}"
 PROBE_BIN="${PROBE_BIN:-./bin/e2e-agent-probe}"
 SEED_BIN="${SEED_BIN:-./bin/e2e-function-seed}"
@@ -48,6 +48,7 @@ TOKEN=$(curl -s -X POST "$SERVER_URL/api/v1/auth/login" -H "Content-Type: applic
   -d "{\"username\":\"$ADMIN_USERNAME\",\"password\":\"$ADMIN_PASSWORD\"}" | jq -r '.token // empty')
 if [ -n "$TOKEN" ]; then ok "auth login"; else fail "auth login"; exit 1; fi
 AUTH=(-H "Authorization: Bearer $TOKEN")
+SCOPE=(-H "X-Game-ID: $GAME_ID" -H "X-Env: $ENV")
 
 # 2. Start the mock agent in serve mode. It registers FUNCTION_ID and exits
 #    after handling 2 StartTask requests (exit-after-tasks), so the harness
@@ -72,11 +73,11 @@ fi
 BODY='{"functionId":"'"$FUNCTION_ID"'","gameId":"'"$GAME_ID"'","env":"'"$ENV"'"}'
 
 # 3. Task 1 — complete lifecycle: started → ... → completed.
-T1=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.taskId // empty')
+T1=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" "${SCOPE[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.taskId // empty')
 if [ -n "$T1" ]; then ok "startTask 1 → $T1"; else fail "startTask 1 (no task_id)"; fi
 EV1=""
 for i in $(seq 1 40); do
-  EV1=$(curl -s "$SERVER_URL/api/v1/tasks/$T1/events" "${AUTH[@]}" | jq -r '[.items[].type] | join(",")' 2>/dev/null)
+  EV1=$(curl -s "$SERVER_URL/api/v1/tasks/$T1/events" "${AUTH[@]}" "${SCOPE[@]}" | jq -r '[.items[].type] | join(",")' 2>/dev/null)
   echo "$EV1" | grep -q completed && break
   sleep 0.25
 done
@@ -87,13 +88,13 @@ else
 fi
 
 # 4. Task 2 — cancel lifecycle: started → ... → cancel_requested → cancelled.
-T2=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.taskId // empty')
+T2=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" "${SCOPE[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.taskId // empty')
 if [ -n "$T2" ]; then ok "startTask 2 → $T2"; else fail "startTask 2 (no task_id)"; fi
 sleep 0.3
-curl -s -X POST "$SERVER_URL/api/v1/tasks/$T2/cancel" "${AUTH[@]}" -H "Content-Type: application/json" -d '{}' >/dev/null
+curl -s -X POST "$SERVER_URL/api/v1/tasks/$T2/cancel" "${AUTH[@]}" "${SCOPE[@]}" -H "Content-Type: application/json" -d '{}' >/dev/null
 EV2=""
 for i in $(seq 1 40); do
-  EV2=$(curl -s "$SERVER_URL/api/v1/tasks/$T2/events" "${AUTH[@]}" | jq -r '[.items[].type] | join(",")' 2>/dev/null)
+  EV2=$(curl -s "$SERVER_URL/api/v1/tasks/$T2/events" "${AUTH[@]}" "${SCOPE[@]}" | jq -r '[.items[].type] | join(",")' 2>/dev/null)
   echo "$EV2" | grep -q cancelled && break
   sleep 0.25
 done
