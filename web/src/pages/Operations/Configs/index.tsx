@@ -1,15 +1,5 @@
 import React from 'react';
-import {
-  Card,
-  Table,
-  Space,
-  Select,
-  Input,
-  Button,
-  Modal,
-  Form,
-  Input as AntInput,
-} from 'antd';
+import { Card, Table, Space, Select, Input, Button, Modal, Form, Input as AntInput } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { CodeEditor, DiffEditor as MonacoDiff } from '@/components/MonacoDynamic';
 import useConfigsPage from './useConfigsPage';

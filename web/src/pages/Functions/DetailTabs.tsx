@@ -131,7 +131,19 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
 }
 
 export function WarningsTab({ functionId }: { functionId: string }) {
-  const [warningsData, setWarningsData] = useState<Array<{ key: string; agent_id?: string; function_id?: string; version?: string; code: string; message: string; count: number; first_seen?: string; last_seen?: string }>>([]);
+  const [warningsData, setWarningsData] = useState<
+    Array<{
+      key: string;
+      agent_id?: string;
+      function_id?: string;
+      version?: string;
+      code: string;
+      message: string;
+      count: number;
+      first_seen?: string;
+      last_seen?: string;
+    }>
+  >([]);
   const [warningsLoading, setWarningsLoading] = useState(false);
 
   useEffect(() => {

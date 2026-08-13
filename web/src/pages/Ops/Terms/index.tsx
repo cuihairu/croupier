@@ -141,9 +141,7 @@ export default function TermsPage() {
       >
         <Form form={form} layout="vertical">
           <Form.Item name="domain" label="Domain" rules={[{ required: true }]}>
-            <Select
-              options={domainOptions}
-            />
+            <Select options={domainOptions} />
           </Form.Item>
           <Form.Item name="term_key" label="Key" rules={[{ required: true }]}>
             <Input placeholder="player / read" />

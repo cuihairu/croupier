@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  Descriptions,
-  Space,
-  Tabs,
-  Typography,
-} from 'antd';
+import { Alert, Button, Card, Descriptions, Space, Tabs, Typography } from 'antd';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { JSONSchema } from '@/types/dashboard';
 import { JsonViewer } from './DetailSections';
@@ -154,7 +146,8 @@ export default function DetailConfigTab({
         description={
           <Space wrap>
             <span>
-              函数层只确认能力契约；分类、菜单、列表、详情、动作位置和表单展示都由 PageProposal/PageSpec 决定。
+              函数层只确认能力契约；分类、菜单、列表、详情、动作位置和表单展示都由
+              PageProposal/PageSpec 决定。
             </span>
             <Button type="primary" size="small" onClick={onOpenPageStudio}>
               查看资源/页面候选

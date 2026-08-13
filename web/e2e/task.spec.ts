@@ -23,7 +23,9 @@ test.describe('异步任务', () => {
     await waitForPageReady(page);
 
     // 填写任务参数
-    const playerIdsInput = page.locator('input[name="playerIds"], textarea[name="playerIds"]').first();
+    const playerIdsInput = page
+      .locator('input[name="playerIds"], textarea[name="playerIds"]')
+      .first();
     if (await playerIdsInput.isVisible()) {
       await playerIdsInput.fill('1001,1002,1003');
     }
@@ -34,7 +36,9 @@ test.describe('异步任务', () => {
     }
 
     // 提交任务
-    const submitBtn = page.locator('button:has-text("提交"), button:has-text("开始"), button:has-text("执行")').first();
+    const submitBtn = page
+      .locator('button:has-text("提交"), button:has-text("开始"), button:has-text("执行")')
+      .first();
     if (await submitBtn.isVisible()) {
       await submitBtn.click();
 

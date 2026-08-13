@@ -1,16 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Card,
-  Table,
-  Space,
-  Tag,
-  Button,
-  Select,
-  Input,
-  App,
-  Modal,
-  Drawer,
-} from 'antd';
+import { Card, Table, Space, Tag, Button, Select, Input, App, Modal, Drawer } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -48,7 +37,7 @@ export default function OpsAlertsPage() {
       const r = await fetchOpsAlerts();
       setRows(r.alerts || []);
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '加载失败');
     } finally {
       setLoading(false);
@@ -140,7 +129,7 @@ export default function OpsAlertsPage() {
                       message.success('已静默');
                       load();
                     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+                      const errMsg = e instanceof Error ? e.message : '操作失败';
                       message.error(errMsg || '静默失败');
                     }
                   },
@@ -167,7 +156,7 @@ export default function OpsAlertsPage() {
                       message.success('已静默');
                       load();
                     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+                      const errMsg = e instanceof Error ? e.message : '操作失败';
                       message.error(errMsg || '静默失败');
                     }
                   },
@@ -320,7 +309,7 @@ export default function OpsAlertsPage() {
                             const s = await listSilences();
                             setSilences(s.silences || []);
                           } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+                            const errMsg = e instanceof Error ? e.message : '操作失败';
                             message.error(errMsg || '操作失败');
                           }
                         },
@@ -346,8 +335,8 @@ export default function OpsAlertsPage() {
                   detail.severity === 'critical'
                     ? 'red'
                     : detail.severity === 'warning'
-                    ? 'gold'
-                    : 'blue'
+                      ? 'gold'
+                      : 'blue'
                 }
               >
                 {detail.severity}
@@ -403,7 +392,7 @@ export default function OpsAlertsPage() {
                           load();
                           setDetail(null);
                         } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+                          const errMsg = e instanceof Error ? e.message : '操作失败';
                           message.error(errMsg || '失败');
                         }
                       },
@@ -429,7 +418,7 @@ export default function OpsAlertsPage() {
                           load();
                           setDetail(null);
                         } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+                          const errMsg = e instanceof Error ? e.message : '操作失败';
                           message.error(errMsg || '失败');
                         }
                       },
@@ -455,7 +444,7 @@ export default function OpsAlertsPage() {
                           load();
                           setDetail(null);
                         } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+                          const errMsg = e instanceof Error ? e.message : '操作失败';
                           message.error(errMsg || '失败');
                         }
                       },
@@ -467,7 +456,9 @@ export default function OpsAlertsPage() {
               )}
               {typeof (detail.annotations || {}).runbook_url === 'string' && (
                 <Button
-                  onClick={() => window.open((detail.annotations || {}).runbook_url as string, '_blank')}
+                  onClick={() =>
+                    window.open((detail.annotations || {}).runbook_url as string, '_blank')
+                  }
                 >
                   打开 Runbook
                 </Button>

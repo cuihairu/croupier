@@ -48,8 +48,8 @@ export const buildAssignmentColumns = ({
                 record.status === 'active'
                   ? 'success'
                   : record.status === 'canary'
-                  ? 'processing'
-                  : 'default'
+                    ? 'processing'
+                    : 'default'
               }
             />
             <span>{record.id}</span>

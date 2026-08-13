@@ -25,12 +25,18 @@ test.describe('Scope 隔离', () => {
     await waitForTable(page);
 
     // 尝试切换环境
-    const envSelector = page.locator('[data-testid="env-selector"], .ant-select:has-text("环境"), .ant-select:has-text("Env")').first();
+    const envSelector = page
+      .locator(
+        '[data-testid="env-selector"], .ant-select:has-text("环境"), .ant-select:has-text("Env")',
+      )
+      .first();
     if (await envSelector.isVisible()) {
       await envSelector.click();
 
       // 选择不同的环境
-      const envOption = page.locator('.ant-select-item:has-text("staging"), .ant-select-item:has-text("test")').first();
+      const envOption = page
+        .locator('.ant-select-item:has-text("staging"), .ant-select-item:has-text("test")')
+        .first();
       if (await envOption.isVisible()) {
         await envOption.click();
         await page.waitForTimeout(2000);

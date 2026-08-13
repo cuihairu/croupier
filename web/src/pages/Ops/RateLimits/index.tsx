@@ -235,7 +235,7 @@ export default function OpsRateLimitsPage() {
       });
       setPreview(res);
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '预览失败');
     }
   };

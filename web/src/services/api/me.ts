@@ -84,8 +84,8 @@ function normalizeProfileGame(game: RawProfileGame): ProfileGame {
     envs: Array.isArray(game.envs)
       ? game.envs
       : Array.isArray(game.envMeta)
-      ? game.envMeta.map((env) => env?.env).filter(Boolean) as string[]
-      : [],
+        ? (game.envMeta.map((env) => env?.env).filter(Boolean) as string[])
+        : [],
     permissions: Array.isArray(game.permissions) ? game.permissions : [],
   };
 }

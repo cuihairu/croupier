@@ -48,19 +48,22 @@ export default function GamesEnvsPage() {
       }
     }
   }, [gameId]);
-  const loadEnvs = useCallback(async (gid?: number) => {
-    if (!gid) return;
-    setLoading(true);
-    try {
-      const res = await listGameEnvs(gid);
-      setEnvs(res.envs || []);
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
-      message.error(errMsg || 'Load failed');
-    } finally {
-      setLoading(false);
-    }
-  }, [message]);
+  const loadEnvs = useCallback(
+    async (gid?: number) => {
+      if (!gid) return;
+      setLoading(true);
+      try {
+        const res = await listGameEnvs(gid);
+        setEnvs(res.envs || []);
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : '操作失败';
+        message.error(errMsg || 'Load failed');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [message],
+  );
 
   useEffect(() => {
     loadGames();

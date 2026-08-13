@@ -176,9 +176,7 @@ export async function listProposals(params?: {
 }
 
 /** 获取 Page Studio 三队列入口 */
-export async function listProposalInbox(params?: {
-  resourceKey?: string;
-}): Promise<ProposalInbox> {
+export async function listProposalInbox(params?: { resourceKey?: string }): Promise<ProposalInbox> {
   return request(`${BASE_URL}/proposals/inbox`, {
     method: 'GET',
     params,

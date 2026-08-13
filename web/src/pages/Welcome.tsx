@@ -117,7 +117,8 @@ const Welcome: React.FC = () => {
                   type="secondary"
                   style={{ margin: 0, fontSize: 16, lineHeight: 1.8, maxWidth: 860 }}
                 >
-                  函数目录负责沉淀原子能力，资源/页面候选负责暴露可编排能力，Page Studio 负责最终页面，控制台负责把已发布页面交付给运营和管理用户。
+                  函数目录负责沉淀原子能力，资源/页面候选负责暴露可编排能力，Page Studio
+                  负责最终页面，控制台负责把已发布页面交付给运营和管理用户。
                 </Typography.Paragraph>
                 <Space wrap size={[12, 12]}>
                   <Button

@@ -36,10 +36,7 @@ export default function ConsoleIndex() {
       setError('');
 
       try {
-        const [menuData, pagesData] = await Promise.all([
-          getConsoleMenu(),
-          listPublishedPages(),
-        ]);
+        const [menuData, pagesData] = await Promise.all([getConsoleMenu(), listPublishedPages()]);
 
         if (!mounted) return;
         setMenu(menuData);
@@ -109,9 +106,9 @@ export default function ConsoleIndex() {
             <Space wrap size={[8, 8]}>
               <Typography.Text strong>
                 {item.title
-                  ? (typeof item.title === 'string'
-                      ? item.title
-                      : item.title[intl.locale] || item.title['zh-CN'] || item.key)
+                  ? typeof item.title === 'string'
+                    ? item.title
+                    : item.title[intl.locale] || item.title['zh-CN'] || item.key
                   : item.key}
               </Typography.Text>
               {staleCount > 0 ? (
@@ -179,9 +176,7 @@ export default function ConsoleIndex() {
           </Typography.Text>
           <Space wrap size={[8, 8]}>
             <Tag color="blue">{`已发布 ${pages.length} 个页面`}</Tag>
-            {menu?.items && (
-              <Tag color="green">{`${menu.items.length} 个分类`}</Tag>
-            )}
+            {menu?.items && <Tag color="green">{`${menu.items.length} 个分类`}</Tag>}
           </Space>
         </Space>
       </Card>

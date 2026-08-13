@@ -49,7 +49,8 @@ const PermissionsPage: React.FC = () => {
       const data = await fetchSummary();
       setRows(data);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : intl.formatMessage({ id: 'pages.permissions.load.error' });
+      const msg =
+        e instanceof Error ? e.message : intl.formatMessage({ id: 'pages.permissions.load.error' });
       message.error(msg);
     } finally {
       setLoading(false);
@@ -154,7 +155,10 @@ const PermissionsPage: React.FC = () => {
             reload();
             return true;
           } catch (e) {
-            const msg = e instanceof Error ? e.message : intl.formatMessage({ id: 'pages.permissions.save.error' });
+            const msg =
+              e instanceof Error
+                ? e.message
+                : intl.formatMessage({ id: 'pages.permissions.save.error' });
             message.error(msg);
             return false;
           }

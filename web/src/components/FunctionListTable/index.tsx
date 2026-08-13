@@ -115,7 +115,9 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
 
   // Get categories for filter
   const categories = useMemo(() => {
-    const cats = [...new Set(data.map((item) => item.category).filter((cat): cat is string => Boolean(cat)))];
+    const cats = [
+      ...new Set(data.map((item) => item.category).filter((cat): cat is string => Boolean(cat))),
+    ];
     return cats.map((cat) => ({ text: cat, value: cat }));
   }, [data]);
 
@@ -132,11 +134,7 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
             <Badge status={record.enabled ? 'success' : 'default'} />
             <Text code>{record.id}</Text>
           </Space>
-          {record.version && (
-            <Tag color="blue">
-              v{record.version}
-            </Tag>
-          )}
+          {record.version && <Tag color="blue">v{record.version}</Tag>}
         </Space>
       ),
     },
@@ -183,15 +181,11 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
       dataIndex: 'tags',
       width: 200,
       render: (_, record) => (
-          <Space wrap>
+        <Space wrap>
           {(record.tags || []).slice(0, 3).map((tag) => (
-            <Tag key={tag}>
-              {tag}
-            </Tag>
+            <Tag key={tag}>{tag}</Tag>
           ))}
-          {(record.tags || []).length > 3 && (
-            <Tag>+{(record.tags || []).length - 3}</Tag>
-          )}
+          {(record.tags || []).length > 3 && <Tag>+{(record.tags || []).length - 3}</Tag>}
         </Space>
       ),
     });

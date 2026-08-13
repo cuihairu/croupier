@@ -16,7 +16,11 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
       .filter(Boolean),
   );
   (currentUser?.roles || [])
-    .map((role) => String(role || '').trim().toLowerCase())
+    .map((role) =>
+      String(role || '')
+        .trim()
+        .toLowerCase(),
+    )
     .filter(Boolean)
     .forEach((role) => perms.add(role));
 
@@ -33,7 +37,12 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
   const canPageRollback = hasAny('pages:rollback');
   const canPageDelete = hasAny('pages:delete');
   const canConsoleRead = hasAny('console:read', 'pages:read', 'function:invoke');
-  const canResourcesRead = hasAny('resources:read', 'resources:diagnose', 'functions:read', 'functions:manage');
+  const canResourcesRead = hasAny(
+    'resources:read',
+    'resources:diagnose',
+    'functions:read',
+    'functions:manage',
+  );
   const canFunctionsRead = hasAny('functions:read', 'functions:manage');
   const canOpenAPISourcesRead = hasAny(
     'openapi_sources:read',
@@ -51,17 +60,16 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
     'functions:manage',
     'pages:edit',
   );
-  const canSystemConfigRead =
-    hasAny(
-      'games:read',
-      'games:manage',
-      'ops:read',
-      'ops:manage',
-      'extension:read',
-      'extensions:read',
-      'extension:manage',
-      'extensions:manage',
-    );
+  const canSystemConfigRead = hasAny(
+    'games:read',
+    'games:manage',
+    'ops:read',
+    'ops:manage',
+    'extension:read',
+    'extensions:read',
+    'extension:manage',
+    'extensions:manage',
+  );
   return {
     canSystemConfigRead,
     canAdmin: isAdmin,

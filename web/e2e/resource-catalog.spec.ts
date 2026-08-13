@@ -25,8 +25,16 @@ test.describe('Resource Catalog', () => {
     await waitForPageReady(page);
 
     // 验证有数据展示
-    const hasTable = await page.locator('.ant-pro-table, .ant-table').first().isVisible().catch(() => false);
-    const hasCards = await page.locator('.ant-card').first().isVisible().catch(() => false);
+    const hasTable = await page
+      .locator('.ant-pro-table, .ant-table')
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const hasCards = await page
+      .locator('.ant-card')
+      .first()
+      .isVisible()
+      .catch(() => false);
 
     expect(hasTable || hasCards).toBeTruthy();
   });
@@ -36,12 +44,19 @@ test.describe('Resource Catalog', () => {
     await waitForPageReady(page);
 
     // 点击查看详情
-    const detailBtn = page.locator('button:has-text("查看"), a:has-text("查看"), button:has-text("详情"), a:has-text("详情")').first();
+    const detailBtn = page
+      .locator(
+        'button:has-text("查看"), a:has-text("查看"), button:has-text("详情"), a:has-text("详情")',
+      )
+      .first();
     if (await detailBtn.isVisible()) {
       await detailBtn.click();
 
       // 等待详情展示
-      await page.locator('.ant-drawer, .ant-modal').first().waitFor({ state: 'visible', timeout: 10000 });
+      await page
+        .locator('.ant-drawer, .ant-modal')
+        .first()
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // 关闭详情
       await page.locator('.ant-drawer-close, .ant-modal-close').first().click();
@@ -53,7 +68,11 @@ test.describe('Resource Catalog', () => {
     await waitForPageReady(page);
 
     // 验证状态标签
-    const statusTag = page.locator('.ant-tag:has-text("已识别"), .ant-tag:has-text("identified"), .ant-tag:has-text("待确认")').first();
+    const statusTag = page
+      .locator(
+        '.ant-tag:has-text("已识别"), .ant-tag:has-text("identified"), .ant-tag:has-text("待确认")',
+      )
+      .first();
     const hasStatus = await statusTag.isVisible().catch(() => false);
 
     // 至少有页面内容

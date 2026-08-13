@@ -1782,6 +1782,10 @@ func (f failingRegisterContractService) RebuildContractFromFunctionMeta(context.
 	return f.err
 }
 
+func (f failingRegisterContractService) RemoveFunctionContract(context.Context, string, string, string) (string, error) {
+	return "", f.err
+}
+
 func (f failingRegisterContractService) RebuildResourceCapability(context.Context, string, string, string) error {
 	return f.err
 }

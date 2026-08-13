@@ -157,11 +157,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
       render: (_value, record) => (
         <Space direction="vertical" size="small">
           {getStatusBadge(record.status)}
-          {!compact && record.version && (
-            <Tag color="blue">
-              {record.version}
-            </Tag>
-          )}
+          {!compact && record.version && <Tag color="blue">{record.version}</Tag>}
         </Space>
       ),
     },
@@ -186,9 +182,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
       dataIndex: 'addr',
       width: 250,
       ellipsis: true,
-      render: (value: string) => (
-        <Text copyable={{ text: value }}>{value || '-'}</Text>
-      ),
+      render: (value: string) => <Text copyable={{ text: value }}>{value || '-'}</Text>,
     },
     {
       title: '函数数量',
@@ -217,9 +211,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
       title: '最后心跳',
       dataIndex: 'lastSeen',
       width: 150,
-      render: (_value, record) => (
-        <Text type="secondary">{formatLastSeen(record.lastSeen)}</Text>
-      ),
+      render: (_value, record) => <Text type="secondary">{formatLastSeen(record.lastSeen)}</Text>,
     },
   ];
 
@@ -272,8 +264,8 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
                   stats.coveragePercentage >= 90
                     ? 'success'
                     : stats.coveragePercentage >= 70
-                    ? 'normal'
-                    : 'exception'
+                      ? 'normal'
+                      : 'exception'
                 }
                 strokeColor={{
                   '0%': '#108ee9',

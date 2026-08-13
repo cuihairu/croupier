@@ -44,9 +44,11 @@ export default function OpsTasksPage() {
   const [funcs, setFuncs] = useState<string[]>([]);
   const [detail, setDetail] = useState<OpsTask | null>(null);
   const [stream, setStream] = useState<string[]>([]);
-  const [result, setResult] = useState<{ state?: string; payload?: JSONValue; error?: string } | null>(
-    null,
-  );
+  const [result, setResult] = useState<{
+    state?: string;
+    payload?: JSONValue;
+    error?: string;
+  } | null>(null);
   const subRef = useRef<TaskEventSubscription | null>(null);
 
   const load = useCallback(async () => {
@@ -60,7 +62,7 @@ export default function OpsTasksPage() {
       const r = await listOpsTasks(params);
       setRows(r.tasks || []);
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '加载失败');
     } finally {
       setLoading(false);
@@ -163,7 +165,7 @@ export default function OpsTasksPage() {
       }
       load();
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '取消失败');
     }
   };
@@ -349,7 +351,7 @@ export default function OpsTasksPage() {
                   message.success(`状态：${r?.state}`);
                   load();
                 } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+                  const errMsg = e instanceof Error ? e.message : '操作失败';
                   message.error(errMsg || '查询失败');
                 }
               }}
@@ -383,8 +385,8 @@ export default function OpsTasksPage() {
                 detail.state === 'running'
                   ? '任务仍在运行，优先观察事件流；只有确认需要中止时再取消。'
                   : detail.state === 'failed'
-                  ? '任务已经失败，建议先看错误信息，再核对结果和事件流。'
-                  : '任务已结束，可以直接查看结果和事件流。'
+                    ? '任务已经失败，建议先看错误信息，再核对结果和事件流。'
+                    : '任务已结束，可以直接查看结果和事件流。'
               }
               hintType={detail.state === 'failed' ? 'warning' : 'info'}
             />

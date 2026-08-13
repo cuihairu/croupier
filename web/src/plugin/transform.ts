@@ -59,12 +59,29 @@ function isDirectiveNode(value: TransformInput): value is DirectiveNode {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const keys = Object.keys(value);
   if (keys.length !== 1) return false;
-  const directiveKeys = ['forEach', 'map', 'pluck', 'sum', 'avg', 'number', 'toFixed', 'msFromSec', 'isoFromMs', 'isoFromSec', 'mul', 'div', 'add', 'sub'];
+  const directiveKeys = [
+    'forEach',
+    'map',
+    'pluck',
+    'sum',
+    'avg',
+    'number',
+    'toFixed',
+    'msFromSec',
+    'isoFromMs',
+    'isoFromSec',
+    'mul',
+    'div',
+    'add',
+    'sub',
+  ];
   return directiveKeys.includes(keys[0]);
 }
 
 function isObject(value: TransformInput): value is JSONObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) && !isDirectiveNode(value);
+  return (
+    typeof value === 'object' && value !== null && !Array.isArray(value) && !isDirectiveNode(value)
+  );
 }
 
 export function applyTransform(root: JSONValue, t: Transform | undefined): JSONValue | undefined {
@@ -114,7 +131,11 @@ export function getByPath(obj: JSONValue, expr: string): JSONValue | undefined {
   return cur;
 }
 
-function applyTemplate(root: JSONValue, ctx: JSONValue, tmpl: TransformInput): JSONValue | undefined {
+function applyTemplate(
+  root: JSONValue,
+  ctx: JSONValue,
+  tmpl: TransformInput,
+): JSONValue | undefined {
   if (typeof tmpl === 'string') {
     if (tmpl.startsWith('$$.')) return getByPath(root, tmpl.slice(1)); // '$$.' means root
     if (tmpl.startsWith('$.')) return getByPath(ctx, tmpl);
@@ -141,7 +162,11 @@ function applyTemplate(root: JSONValue, ctx: JSONValue, tmpl: TransformInput): J
   return tmpl;
 }
 
-function applyDirective(root: JSONValue, ctx: JSONValue, dir: DirectiveNode): JSONValue | undefined {
+function applyDirective(
+  root: JSONValue,
+  ctx: JSONValue,
+  dir: DirectiveNode,
+): JSONValue | undefined {
   // forEach mapping
   if (dir.forEach) {
     const spec = dir.forEach;
@@ -162,14 +187,18 @@ function applyDirective(root: JSONValue, ctx: JSONValue, dir: DirectiveNode): JS
     const spec = dir.map;
     const arr = getByPath(ctx, spec.path);
     if (!Array.isArray(arr)) return [];
-    return arr.map((item) => applyTemplate(root, item as JSONValue, spec.template)).filter((r): r is JSONValue => r !== undefined) as JSONValue;
+    return arr
+      .map((item) => applyTemplate(root, item as JSONValue, spec.template))
+      .filter((r): r is JSONValue => r !== undefined) as JSONValue;
   }
   // pluck values
   if (dir.pluck) {
     const spec = dir.pluck;
     const arr = getByPath(ctx, spec.path);
     if (!Array.isArray(arr)) return [];
-    return arr.map((item) => resolveValue(root, item as JSONValue, spec.value)).filter((r): r is JSONValue => r !== undefined) as JSONValue;
+    return arr
+      .map((item) => resolveValue(root, item as JSONValue, spec.value))
+      .filter((r): r is JSONValue => r !== undefined) as JSONValue;
   }
   // sum/avg over array
   if (dir.sum) {
@@ -230,7 +259,10 @@ function applyDirective(root: JSONValue, ctx: JSONValue, dir: DirectiveNode): JS
 }
 
 // Build a simple predicate function from an object like { eq: ['$.x', 1] }
-function buildPredicate(root: JSONValue, where: WhereClause | undefined): ((item: JSONValue) => boolean) | null {
+function buildPredicate(
+  root: JSONValue,
+  where: WhereClause | undefined,
+): ((item: JSONValue) => boolean) | null {
   if (!where || typeof where !== 'object') return null;
   const ops = Object.keys(where);
   if (!ops.length) return null;
@@ -292,7 +324,12 @@ function resolveValue(root: JSONValue, ctx: JSONValue, v: TransformInput): JSONV
   return undefined;
 }
 
-function aggregate(root: JSONValue, ctx: JSONValue, spec: TransformAgg, kind: 'sum' | 'avg'): number {
+function aggregate(
+  root: JSONValue,
+  ctx: JSONValue,
+  spec: TransformAgg,
+  kind: 'sum' | 'avg',
+): number {
   const path = spec.path;
   const value = spec.value;
   const arr = getByPath(ctx, path);

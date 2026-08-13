@@ -77,9 +77,9 @@ export default function ConsolePage() {
 
   // 页面标题
   const pageTitle = page?.title
-    ? (typeof page.title === 'string'
-        ? page.title
-        : page.title[intl.locale] || page.title['zh-CN'] || page.title['en-US'] || pageKey)
+    ? typeof page.title === 'string'
+      ? page.title
+      : page.title[intl.locale] || page.title['zh-CN'] || page.title['en-US'] || pageKey
     : pageKey;
 
   // 404 状态
@@ -172,7 +172,12 @@ export default function ConsolePage() {
         items: [
           { title: '运行控制台', href: '/console' },
           ...(breadcrumbCategoryKey
-            ? [{ title: breadcrumbCategoryKey, href: `/console/${encodeURIComponent(breadcrumbCategoryKey)}` }]
+            ? [
+                {
+                  title: breadcrumbCategoryKey,
+                  href: `/console/${encodeURIComponent(breadcrumbCategoryKey)}`,
+                },
+              ]
             : []),
           { title: pageTitle },
         ],
@@ -190,7 +195,9 @@ export default function ConsolePage() {
                 <Space key={`${item.bindingId}:${item.status}:${item.diagnostic.code}`} wrap>
                   <Tag color="red">{item.status}</Tag>
                   <Typography.Text code>{item.bindingId}</Typography.Text>
-                  {item.functionId ? <Typography.Text code>{item.functionId}</Typography.Text> : null}
+                  {item.functionId ? (
+                    <Typography.Text code>{item.functionId}</Typography.Text>
+                  ) : null}
                   <Typography.Text>{item.diagnostic.message}</Typography.Text>
                 </Space>
               ))}

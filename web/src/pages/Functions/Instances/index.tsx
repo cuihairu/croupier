@@ -165,7 +165,7 @@ export default () => {
         instances_by_game: instancesByGame,
       });
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '加载失败');
     } finally {
       setLoading(false);
@@ -183,14 +183,14 @@ export default () => {
         instance.healthy || instance.status === 'running'
           ? 'success'
           : instance.status === 'error'
-          ? 'error'
-          : 'default',
+            ? 'error'
+            : 'default',
       statusText:
         instance.healthy || instance.status === 'running'
           ? '运行中'
           : instance.status === 'error'
-          ? '错误'
-          : '停止',
+            ? '错误'
+            : '停止',
       lastSeen:
         instance.lastHeartbeat || instance.lastSeen
           ? new Date(instance.lastHeartbeat || instance.lastSeen || '').toLocaleString('zh-CN')
@@ -276,7 +276,7 @@ export default () => {
         logs: [],
       });
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '加载详情失败');
     } finally {
       setDetailLoading(false);
@@ -311,7 +311,7 @@ export default () => {
       });
       message.warning('实例调试接口尚未实现');
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '调试执行失败');
     } finally {
       setDebugLoading(false);
@@ -390,15 +390,15 @@ export default () => {
             record.healthy || record.status === 'running'
               ? 'success'
               : record.status === 'error'
-              ? 'error'
-              : 'default'
+                ? 'error'
+                : 'default'
           }
           text={
             record.healthy || record.status === 'running'
               ? '运行中'
               : record.status === 'error'
-              ? '错误'
-              : '停止'
+                ? '错误'
+                : '停止'
           }
         />
       ),
@@ -777,10 +777,10 @@ export default () => {
                       log.level === 'ERROR'
                         ? '#ef4444'
                         : log.level === 'WARN'
-                        ? '#f59e0b'
-                        : log.level === 'DEBUG'
-                        ? '#8b5cf6'
-                        : '#10b981',
+                          ? '#f59e0b'
+                          : log.level === 'DEBUG'
+                            ? '#8b5cf6'
+                            : '#10b981',
                     marginLeft: 8,
                     marginRight: 8,
                   }}
@@ -847,8 +847,15 @@ export default () => {
                 style={{
                   marginTop: 8,
                   padding: 12,
-                  background: (debugResult && typeof debugResult === 'object' && !Array.isArray(debugResult) && 'success' in debugResult && debugResult.success) ? '#f6ffed' : '#fff2f0',
-                  border: `1px solid ${(debugResult && typeof debugResult === 'object' && !Array.isArray(debugResult) && 'success' in debugResult && debugResult.success) ? '#b7eb8f' : '#ffccc7'}`,
+                  background:
+                    debugResult &&
+                    typeof debugResult === 'object' &&
+                    !Array.isArray(debugResult) &&
+                    'success' in debugResult &&
+                    debugResult.success
+                      ? '#f6ffed'
+                      : '#fff2f0',
+                  border: `1px solid ${debugResult && typeof debugResult === 'object' && !Array.isArray(debugResult) && 'success' in debugResult && debugResult.success ? '#b7eb8f' : '#ffccc7'}`,
                   borderRadius: 4,
                   fontSize: 12,
                   maxHeight: 200,

@@ -11,9 +11,9 @@ const ForbiddenPage: React.FC = () => (
       title="当前页面无访问权限"
       description="抱歉，您没有权限访问此页面。请返回首页或切换到具备权限的入口。"
       actions={
-      <Button type="primary" onClick={() => history.push('/')}>
-        返回首页
-      </Button>
+        <Button type="primary" onClick={() => history.push('/')}>
+          返回首页
+        </Button>
       }
     />
   </div>

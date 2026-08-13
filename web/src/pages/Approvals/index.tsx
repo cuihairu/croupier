@@ -77,8 +77,8 @@ export default function ApprovalsPage() {
       r.State === 'approved'
         ? r.ApproveTime || ''
         : r.State === 'rejected'
-        ? r.RejectTime || ''
-        : '',
+          ? r.RejectTime || ''
+          : '',
     ]);
     rows.unshift([
       '创建时间',
@@ -545,10 +545,8 @@ export default function ApprovalsPage() {
               <Descriptions.Item label="Hash Key">
                 {current.hash_key || current.HashKey}
               </Descriptions.Item>
-              {(current.reason) && (
-                <Descriptions.Item label="原因">
-                  {current.reason}
-                </Descriptions.Item>
+              {current.reason && (
+                <Descriptions.Item label="原因">{current.reason}</Descriptions.Item>
               )}
               {(current.ApproveIP || current.ApproveTime) && (
                 <Descriptions.Item label="批准IP/时间">

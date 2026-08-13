@@ -355,10 +355,12 @@ export default function UsersV2() {
           <Form.Item label="选择游戏" name="game_id">
             <Select
               placeholder="选择一个游戏"
-              options={(games || []).filter((g) => typeof g.id === 'number').map((g) => ({
-                label: g.displayName || g.aliasName || g.name,
-                value: g.id,
-              }))}
+              options={(games || [])
+                .filter((g) => typeof g.id === 'number')
+                .map((g) => ({
+                  label: g.displayName || g.aliasName || g.name,
+                  value: g.id,
+                }))}
               value={selectedGid}
               onChange={async (gid: number) => {
                 setSelectedGid(gid);

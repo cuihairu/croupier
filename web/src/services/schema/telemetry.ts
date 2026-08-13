@@ -6,7 +6,10 @@ export type SchemaTelemetryEvent =
   | 'schema_publish'
   | 'schema_publish_error';
 
-export function trackSchemaEvent(event: SchemaTelemetryEvent, payload?: Record<string, string | number | boolean | null | undefined>) {
+export function trackSchemaEvent(
+  event: SchemaTelemetryEvent,
+  payload?: Record<string, string | number | boolean | null | undefined>,
+) {
   if (typeof window === 'undefined') return;
   const detail = { event, payload, ts: Date.now() };
   try {
@@ -15,7 +18,6 @@ export function trackSchemaEvent(event: SchemaTelemetryEvent, payload?: Record<s
     // Ignore telemetry failures
   }
   if (process.env.NODE_ENV !== 'production') {
-     
     console.info('[schema]', detail);
   }
 }

@@ -441,6 +441,127 @@ func TestService_OpenAPISourceWritesAuditEvents(t *testing.T) {
 	assert.Equal(t, "playerList", byEvent[audit.EventOpenAPISourceBindingDelete].Details["binding_id"])
 }
 
+func TestDeleteBindingRestoresSDKContractAndProposal(t *testing.T) {
+	service, ctx := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read", "openapi_sources:write")
+	service.svcCtx.RegistryStore.Mu().Lock()
+	service.svcCtx.RegistryStore.AgentsUnsafe()["agent-1"].Functions["player.list"] = registry.FunctionMeta{
+		Enabled:      true,
+		Version:      "1.0.0",
+		InputSchema:  `{"type":"object"}`,
+		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+	}
+	service.svcCtx.RegistryStore.Mu().Unlock()
+
+	created, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, map[string]interface{}{
+		"openapi": "3.0.3",
+		"info":    map[string]interface{}{"title": "Player API", "version": "1.0.0"},
+		"paths": map[string]interface{}{
+			"/players": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "player.list",
+					"x-resource":  "player",
+					"x-operation": "list",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	})})
+	require.NoError(t, err)
+	_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
+		SourceID: created.Source.SourceID, OperationID: "player.list", Kind: "provider", FunctionID: "player.list",
+	})
+	require.NoError(t, err)
+
+	contractModel := model.NewFunctionContractModel(service.svcCtx.DB)
+	contract, err := contractModel.FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.list")
+	require.NoError(t, err)
+	assert.Equal(t, "openapi", contract.Source)
+	assert.Equal(t, "player", contract.ResourceKey)
+
+	_, err = service.DeleteBinding(ctx, &OpenAPISourceBindingDeleteRequest{SourceID: created.Source.SourceID, BindingID: "player.list"})
+	require.NoError(t, err)
+	contract, err = contractModel.FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.list")
+	require.NoError(t, err)
+	assert.Equal(t, "sdk", contract.Source)
+	assert.Empty(t, contract.ResourceKey)
+	_, err = model.NewPageProposalModel(service.svcCtx.DB).FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.list")
+	require.NoError(t, err)
+}
+
+func TestDeleteBindingRemovesOnlyOpenAPIContractAndResourceProposal(t *testing.T) {
+	service, ctx := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read", "openapi_sources:write")
+	created, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, map[string]interface{}{
+		"openapi": "3.0.3",
+		"info":    map[string]interface{}{"title": "Player API", "version": "1.0.0"},
+		"paths": map[string]interface{}{
+			"/players": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "player.list",
+					"x-resource":  "player",
+					"x-operation": "list",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	})})
+	require.NoError(t, err)
+	_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
+		SourceID: created.Source.SourceID, OperationID: "player.list", Kind: "provider", FunctionID: "player.list",
+	})
+	require.NoError(t, err)
+	// Exercise the no-runtime fallback branch only after the binding has been
+	// created; CreateBinding correctly requires the function to be registered.
+	service.svcCtx.RegistryStore.Mu().Lock()
+	delete(service.svcCtx.RegistryStore.AgentsUnsafe()["agent-1"].Functions, "player.list")
+	service.svcCtx.RegistryStore.Mu().Unlock()
+
+	_, err = service.DeleteBinding(ctx, &OpenAPISourceBindingDeleteRequest{SourceID: created.Source.SourceID, BindingID: "player.list"})
+	require.NoError(t, err)
+	_, err = model.NewFunctionContractModel(service.svcCtx.DB).FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.list")
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	_, err = model.NewPageProposalModel(service.svcCtx.DB).FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
+func TestDeleteBindingRebuildsContractFromRemainingOpenAPIBinding(t *testing.T) {
+	service, ctx := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read", "openapi_sources:write")
+	created, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, map[string]interface{}{
+		"openapi": "3.0.3",
+		"info":    map[string]interface{}{"title": "Player API", "version": "1.0.0"},
+		"paths": map[string]interface{}{
+			"/players": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "player.list",
+					"x-resource":  "player",
+					"x-operation": "list",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+				"post": map[string]interface{}{
+					"operationId": "player.create",
+					"x-resource":  "player",
+					"x-operation": "create",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	})})
+	require.NoError(t, err)
+	for _, operationID := range []string{"player.list", "player.create"} {
+		_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
+			SourceID: created.Source.SourceID, OperationID: operationID, Kind: "provider", FunctionID: "player.list",
+		})
+		require.NoError(t, err)
+	}
+
+	_, err = service.DeleteBinding(ctx, &OpenAPISourceBindingDeleteRequest{SourceID: created.Source.SourceID, BindingID: "player.list"})
+	require.NoError(t, err)
+	contract, err := model.NewFunctionContractModel(service.svcCtx.DB).FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.list")
+	require.NoError(t, err)
+	assert.Equal(t, "openapi", contract.Source)
+	assert.Equal(t, "player", contract.ResourceKey)
+	assert.Equal(t, "create", contract.OperationKey)
+}
+
 func TestService_CreateSource_InvalidSpec(t *testing.T) {
 	t.Parallel()
 

@@ -12,12 +12,7 @@ import {
   Empty,
   Tooltip,
 } from 'antd';
-import {
-  PlayCircleOutlined,
-  EditOutlined,
-  StopOutlined,
-  CopyOutlined,
-} from '@ant-design/icons';
+import { PlayCircleOutlined, EditOutlined, StopOutlined, CopyOutlined } from '@ant-design/icons';
 import type { FunctionInstance } from '@/services/api';
 import type { JSONSchema } from '@/types/dashboard';
 
@@ -286,15 +281,15 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
                         call.status === 'success'
                           ? 'success'
                           : call.status === 'failed'
-                          ? 'error'
-                          : 'processing'
+                            ? 'error'
+                            : 'processing'
                       }
                       text={
                         call.status === 'success'
                           ? '成功'
                           : call.status === 'failed'
-                          ? '失败'
-                          : '运行中'
+                            ? '失败'
+                            : '运行中'
                       }
                     />
                     {call.user && <Text type="secondary">by {call.user}</Text>}

@@ -93,19 +93,21 @@ export default function StoragePage() {
         }
       });
 
-      (result.objects || []).forEach((obj: { key?: string; size?: number; last_modified?: string }) => {
-        if (obj?.key && !obj.key.endsWith('/')) {
-          const displayName = obj.key.replace(currentPrefix, '');
-          items.push({
-            key: obj.key,
-            name: displayName,
-            size: Number(obj.size || 0),
-            lastModified: obj.last_modified || '',
-            url: obj.key,
-            isDirectory: false,
-          });
-        }
-      });
+      (result.objects || []).forEach(
+        (obj: { key?: string; size?: number; last_modified?: string }) => {
+          if (obj?.key && !obj.key.endsWith('/')) {
+            const displayName = obj.key.replace(currentPrefix, '');
+            items.push({
+              key: obj.key,
+              name: displayName,
+              size: Number(obj.size || 0),
+              lastModified: obj.last_modified || '',
+              url: obj.key,
+              isDirectory: false,
+            });
+          }
+        },
+      );
 
       setFiles(items);
     } catch {

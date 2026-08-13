@@ -52,7 +52,9 @@ function uploadObjectMultipart(file: File, path?: string): Promise<{ path?: stri
     xhr.onload = () => {
       let payload: { path?: string; message?: string } | null = null;
       try {
-        payload = xhr.responseText ? (JSON.parse(xhr.responseText) as { path?: string; message?: string }) : null;
+        payload = xhr.responseText
+          ? (JSON.parse(xhr.responseText) as { path?: string; message?: string })
+          : null;
       } catch {
         reject(new Error('上传响应解析失败'));
         return;

@@ -522,8 +522,8 @@ export default function AnalyticsPaymentsPage() {
               geoDim === 'country'
                 ? summary?.by_country || []
                 : geoDim === 'region'
-                ? summary?.by_region || []
-                : summary?.by_city || []
+                  ? summary?.by_region || []
+                  : summary?.by_city || []
             }
             columns={[
               {
@@ -546,8 +546,8 @@ export default function AnalyticsPaymentsPage() {
               geoDim === 'country'
                 ? summary?.by_country || []
                 : geoDim === 'region'
-                ? summary?.by_region || []
-                : summary?.by_city || []
+                  ? summary?.by_region || []
+                  : summary?.by_city || []
             }
             dimKey={geoDim}
             title={`Top ${
@@ -559,8 +559,8 @@ export default function AnalyticsPaymentsPage() {
               geoDim === 'country'
                 ? summary?.by_country || []
                 : geoDim === 'region'
-                ? summary?.by_region || []
-                : summary?.by_city || []
+                  ? summary?.by_region || []
+                  : summary?.by_city || []
             }
             dimKey={geoDim}
             title={`Top ${
@@ -572,8 +572,8 @@ export default function AnalyticsPaymentsPage() {
               geoDim === 'country'
                 ? summary?.by_country || []
                 : geoDim === 'region'
-                ? summary?.by_region || []
-                : summary?.by_city || []
+                  ? summary?.by_region || []
+                  : summary?.by_city || []
             }
             dimKey={geoDim}
             title={`Top ${
@@ -585,8 +585,8 @@ export default function AnalyticsPaymentsPage() {
               geoDim === 'country'
                 ? summary?.by_country || []
                 : geoDim === 'region'
-                ? summary?.by_region || []
-                : summary?.by_city || []
+                  ? summary?.by_region || []
+                  : summary?.by_city || []
             }
             dimKey={geoDim}
             name={geoDim === 'country' ? 'countries' : geoDim === 'region' ? 'regions' : 'cities'}
@@ -764,13 +764,23 @@ interface DimBase {
   [key: string]: string | number | boolean | undefined;
 }
 
-type DimData = ChannelData | PlatformData | CountryData | RegionData | CityData | ProductData | DimBase;
+type DimData =
+  | ChannelData
+  | PlatformData
+  | CountryData
+  | RegionData
+  | CityData
+  | ProductData
+  | DimBase;
 
 const TopProducts: React.FC<{ data: ProductData[] }> = ({ data }) => {
   try {
     const items = (data || [])
       .slice(0)
-      .sort((a: ProductData, b: ProductData) => Number(b.revenue_cents || 0) - Number(a.revenue_cents || 0))
+      .sort(
+        (a: ProductData, b: ProductData) =>
+          Number(b.revenue_cents || 0) - Number(a.revenue_cents || 0),
+      )
       .slice(0, 10);
     if (!items.length) return null;
     const max = Math.max(...items.map((x: ProductData) => Number(x.revenue_cents || 0)), 1);
@@ -1122,7 +1132,10 @@ const DeltaSection: React.FC<{
     if (!range || !range[0] || !range[1]) return;
     setLoading(true);
     try {
-      const s1: Record<string, string | number> = { start: range[0].toISOString(), end: range[1].toISOString() };
+      const s1: Record<string, string | number> = {
+        start: range[0].toISOString(),
+        end: range[1].toISOString(),
+      };
       if (channel) s1.channel = channel;
       if (platform) s1.platform = platform;
       if (country) s1.country = country;
@@ -1146,7 +1159,10 @@ const DeltaSection: React.FC<{
         pStart = new Date(startDate.getTime() - 365 * 24 * 3600 * 1000);
         pEnd = new Date(endDate.getTime() - 365 * 24 * 3600 * 1000);
       }
-      const s0: Record<string, string | number> = { start: pStart.toISOString(), end: pEnd.toISOString() };
+      const s0: Record<string, string | number> = {
+        start: pStart.toISOString(),
+        end: pEnd.toISOString(),
+      };
       if (channel) s0.channel = channel;
       if (platform) s0.platform = platform;
       if (country) s0.country = country;
@@ -1158,27 +1174,27 @@ const DeltaSection: React.FC<{
         (dim === 'channel'
           ? cur.by_channel
           : dim === 'platform'
-          ? cur.by_platform
-          : dim === 'country'
-          ? cur.by_country
-          : dim === 'region'
-          ? cur.by_region
-          : dim === 'city'
-          ? cur.by_city
-          : cur.by_product) || [];
+            ? cur.by_platform
+            : dim === 'country'
+              ? cur.by_country
+              : dim === 'region'
+                ? cur.by_region
+                : dim === 'city'
+                  ? cur.by_city
+                  : cur.by_product) || [];
       const arrPreIdx: Record<string, Record<string, JSONValue>> = {};
       const arrPre =
         (dim === 'channel'
           ? pre.by_channel
           : dim === 'platform'
-          ? pre.by_platform
-          : dim === 'country'
-          ? pre.by_country
-          : dim === 'region'
-          ? pre.by_region
-          : dim === 'city'
-          ? pre.by_city
-          : pre.by_product) || [];
+            ? pre.by_platform
+            : dim === 'country'
+              ? pre.by_country
+              : dim === 'region'
+                ? pre.by_region
+                : dim === 'city'
+                  ? pre.by_city
+                  : pre.by_product) || [];
       arrPre.forEach((x: Record<string, JSONValue>) => {
         const k = String(dim === 'product' ? x['product_id'] : x[dim]);
         arrPreIdx[k] = x;
@@ -1398,7 +1414,10 @@ const TrendChart: React.FC<{ data: TrendData[] }> = ({ data }) => {
       color: string;
     }) => {
       const d = vals
-        .map((pt: [string, number], idx: number) => `${idx ? 'L' : 'M'}${sx(pt[0])},${yfn(Number(pt[1]))}`)
+        .map(
+          (pt: [string, number], idx: number) =>
+            `${idx ? 'L' : 'M'}${sx(pt[0])},${yfn(Number(pt[1]))}`,
+        )
         .join(' ');
       return <path d={d} fill="none" stroke={color} strokeWidth={2} />;
     };

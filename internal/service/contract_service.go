@@ -147,11 +147,7 @@ func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID,
 		return fmt.Errorf("list contracts: %w", err)
 	}
 	if len(contracts) == 0 {
-		slog.Warn("RebuildResourceCapability: no contracts found",
-			"game_id", gameID,
-			"env", env,
-			"resource_key", resourceKey)
-		return nil
+		return s.removeResourceDerivedState(ctx, gameID, env, resourceKey)
 	}
 
 	slog.Info("RebuildResourceCapability: found contracts",
@@ -203,6 +199,20 @@ func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID,
 		return fmt.Errorf("create semantic version: %w", err)
 	}
 
+	return nil
+}
+
+func (s *ContractService) removeResourceDerivedState(ctx context.Context, gameID, env, resourceKey string) error {
+	resourceKey = strings.TrimSpace(resourceKey)
+	if resourceKey == "" {
+		return nil
+	}
+	if err := s.capabilityModel.DeleteByScopeAndResourceKey(ctx, gameID, env, resourceKey); err != nil {
+		return fmt.Errorf("delete resource capability %s: %w", resourceKey, err)
+	}
+	if err := s.semanticsModel.DeleteByScopeAndResourceKey(ctx, gameID, env, resourceKey); err != nil {
+		return fmt.Errorf("delete capability semantics %s: %w", resourceKey, err)
+	}
 	return nil
 }
 
@@ -556,6 +566,36 @@ func (s *ContractService) GetContract(ctx context.Context, gameID, env, function
 	return s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
 }
 
+// RemoveFunctionContract removes an executable registration contract and its
+// standalone generated proposal. Published snapshots are intentionally kept:
+// freshness then reports binding_function_missing and rejects execution.
+func (s *ContractService) RemoveFunctionContract(ctx context.Context, gameID, env, functionID string) (string, error) {
+	functionID = strings.TrimSpace(functionID)
+	if functionID == "" {
+		return "", nil
+	}
+	contract, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("find function contract %s: %w", functionID, err)
+	}
+	resourceKey := strings.TrimSpace(contract.ResourceKey)
+	if err := s.contractModel.DeleteByScopeAndFunctionID(ctx, gameID, env, functionID); err != nil {
+		return "", fmt.Errorf("delete function contract %s: %w", functionID, err)
+	}
+	for _, pageType := range []spec.PageType{spec.PageTypeOperation, spec.PageTypeTask, spec.PageTypeReport} {
+		if err := s.proposalModel.DeleteByScopeAndKey(ctx, gameID, env, standaloneProposalKey(pageType, functionID)); err != nil {
+			return "", fmt.Errorf("delete standalone proposal for %s: %w", functionID, err)
+		}
+	}
+	if err := s.resolveBlockedIssue(ctx, gameID, env, resourceKey, functionID); err != nil {
+		return "", err
+	}
+	return resourceKey, nil
+}
+
 // ListResourceCapabilities lists all resource capabilities in a scope.
 func (s *ContractService) ListResourceCapabilities(ctx context.Context, gameID, env string) ([]*model.ResourceCapability, error) {
 	return s.capabilityModel.ListByScope(ctx, gameID, env)
@@ -571,14 +611,19 @@ func (s *ContractService) RebuildProposalsForResource(ctx context.Context, gameI
 	// Get current semantics
 	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, gameID, env, resourceKey)
 	if err != nil {
-		// No semantics yet, skip
-		return nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return s.removeResourceProposal(ctx, gameID, env, resourceKey)
+		}
+		return fmt.Errorf("find capability semantics: %w", err)
 	}
 
 	// Get contracts for this resource
 	contracts, err := s.contractModel.ListByResourceKey(ctx, gameID, env, resourceKey)
 	if err != nil {
 		return fmt.Errorf("list contracts: %w", err)
+	}
+	if len(contracts) == 0 {
+		return s.removeResourceProposal(ctx, gameID, env, resourceKey)
 	}
 
 	// Compute new source digest
@@ -606,6 +651,17 @@ func (s *ContractService) RebuildProposalsForResource(ctx context.Context, gameI
 		return err
 	}
 	return nil
+}
+
+func (s *ContractService) removeResourceProposal(ctx context.Context, gameID, env, resourceKey string) error {
+	resourceKey = strings.TrimSpace(resourceKey)
+	if resourceKey == "" {
+		return nil
+	}
+	if err := s.proposalModel.DeleteByScopeAndKey(ctx, gameID, env, resourceProposalKey(resourceKey)); err != nil {
+		return fmt.Errorf("delete resource proposal %s: %w", resourceKey, err)
+	}
+	return s.resolveBlockedIssue(ctx, gameID, env, resourceKey, "")
 }
 
 // RebuildProposalForFunction creates or refreshes the standalone page proposal

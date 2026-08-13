@@ -98,7 +98,11 @@ export default function AnalyticsLevelsPage() {
             <Button
               onClick={async () => {
                 const rows = [['step', 'users', 'rate']].concat(
-                  (data?.funnel || []).map((x) => [String(x.step), String(x.users), String(x.rate || '')]),
+                  (data?.funnel || []).map((x) => [
+                    String(x.step),
+                    String(x.users),
+                    String(x.rate || ''),
+                  ]),
                 );
                 await exportToXLSX('levels_funnel.csv', [{ sheet: 'funnel', rows }]);
               }}
@@ -170,7 +174,11 @@ export default function AnalyticsLevelsPage() {
                 const mk = (name: string, arr: LevelData[]) => ({
                   sheet: `per_level_${name}`,
                   rows: [['level', 'players', 'win_rate']].concat(
-                    (arr || []).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
+                    (arr || []).map((x) => [
+                      String(x.level),
+                      String(x.players),
+                      String(x.win_rate),
+                    ]),
                   ),
                 });
                 const sheets = [{ sheet: 'per_level', rows: allRows }];
@@ -331,7 +339,7 @@ const EpisodeFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = 
       const sheets: { sheet: string; rows: string[][] }[] = [];
       (episodes || []).forEach((e) => {
         const rows = [['level', 'players', 'win_rate']].concat(
-          ((e.per_level || [])).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
+          (e.per_level || []).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
         );
         sheets.push({ sheet: `ep_${String(e.episode || '')}`, rows });
       });
@@ -395,7 +403,7 @@ const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ r
       const sheets: { sheet: string; rows: string[][] }[] = [];
       (maps || []).forEach((e) => {
         const rows = [['level', 'players', 'win_rate']].concat(
-          ((e.per_level || [])).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
+          (e.per_level || []).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
         );
         sheets.push({ sheet: `map_${String(e.map || '')}`, rows });
       });

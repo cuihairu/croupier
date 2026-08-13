@@ -212,53 +212,56 @@ export default function Profile() {
     setActiveTab(initialTab);
   }, [initialTab]);
 
-  const loadExtras = useCallback(async (username?: string) => {
-    setExtrasLoading(true);
-    try {
-      const [gamesRes, permsRes, auditsRes, loginRes, notificationsRes, permissionCatalogRes] =
-        await Promise.allSettled([
-          getMyGames(),
-          getMyPermissions({}),
-          listAudit({ actor: username, size: 8 }),
-          username
-            ? listAudit({
-                actor: username,
-                kinds: 'login,auth_login,login_fail,login_rate_limited',
-                size: 20,
-              })
-            : Promise.resolve({ events: [] }),
-          listMessages({ status: 'all', pageSize: 8 }),
-          listPermissions({ page: 1, pageSize: 500 }),
-        ]);
+  const loadExtras = useCallback(
+    async (username?: string) => {
+      setExtrasLoading(true);
+      try {
+        const [gamesRes, permsRes, auditsRes, loginRes, notificationsRes, permissionCatalogRes] =
+          await Promise.allSettled([
+            getMyGames(),
+            getMyPermissions({}),
+            listAudit({ actor: username, size: 8 }),
+            username
+              ? listAudit({
+                  actor: username,
+                  kinds: 'login,auth_login,login_fail,login_rate_limited',
+                  size: 20,
+                })
+              : Promise.resolve({ events: [] }),
+            listMessages({ status: 'all', pageSize: 8 }),
+            listPermissions({ page: 1, pageSize: 500 }),
+          ]);
 
-      setGames(gamesRes.status === 'fulfilled' ? gamesRes.value?.games || [] : []);
-      if (permsRes.status === 'fulfilled') {
-        const payload = permsRes.value || {};
-        const ids = payload.permissionIDs || [];
-        setPermissions(payload.permissions || []);
-        setPermissionIds(Array.isArray(ids) ? ids : []);
-      } else {
-        setPermissions([]);
-        setPermissionIds([]);
+        setGames(gamesRes.status === 'fulfilled' ? gamesRes.value?.games || [] : []);
+        if (permsRes.status === 'fulfilled') {
+          const payload = permsRes.value || {};
+          const ids = payload.permissionIDs || [];
+          setPermissions(payload.permissions || []);
+          setPermissionIds(Array.isArray(ids) ? ids : []);
+        } else {
+          setPermissions([]);
+          setPermissionIds([]);
+        }
+        setActivities(auditsRes.status === 'fulfilled' ? auditsRes.value?.events || [] : []);
+        setLoginRecords(loginRes.status === 'fulfilled' ? loginRes.value?.events || [] : []);
+        setNotifications(
+          notificationsRes.status === 'fulfilled' ? notificationsRes.value?.items || [] : [],
+        );
+        if (permissionCatalogRes.status === 'fulfilled') {
+          setPermissionCatalog(permissionCatalogRes.value?.items || []);
+          setPermissionCatalogAvailable(true);
+        } else {
+          setPermissionCatalog([]);
+          setPermissionCatalogAvailable(false);
+        }
+      } catch {
+        message.error(formatMessage('profile.extras.error'));
+      } finally {
+        setExtrasLoading(false);
       }
-      setActivities(auditsRes.status === 'fulfilled' ? auditsRes.value?.events || [] : []);
-      setLoginRecords(loginRes.status === 'fulfilled' ? loginRes.value?.events || [] : []);
-      setNotifications(
-        notificationsRes.status === 'fulfilled' ? notificationsRes.value?.items || [] : [],
-      );
-      if (permissionCatalogRes.status === 'fulfilled') {
-        setPermissionCatalog(permissionCatalogRes.value?.items || []);
-        setPermissionCatalogAvailable(true);
-      } else {
-        setPermissionCatalog([]);
-        setPermissionCatalogAvailable(false);
-      }
-    } catch {
-      message.error(formatMessage('profile.extras.error'));
-    } finally {
-      setExtrasLoading(false);
-    }
-  }, [formatMessage]);
+    },
+    [formatMessage],
+  );
 
   const loadProfile = useCallback(async () => {
     try {
@@ -343,7 +346,9 @@ export default function Profile() {
 
     setAvatarUploading(true);
     try {
-      const uploaded = await uploadAsset(file as File, { path: buildAvatarObjectKey(file as File) });
+      const uploaded = await uploadAsset(file as File, {
+        path: buildAvatarObjectKey(file as File),
+      });
       const avatarUrl = uploaded?.URL || '';
       if (!avatarUrl) {
         throw new Error('missing avatar url');
@@ -1063,7 +1068,9 @@ export default function Profile() {
                         {profile?.phone || 'N/A'}
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.joined')}>
-                        {profile?.createdAt ? new Date(String(profile.createdAt)).toLocaleString() : 'N/A'}
+                        {profile?.createdAt
+                          ? new Date(String(profile.createdAt)).toLocaleString()
+                          : 'N/A'}
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.last.login')}>
                         {profile?.lastLoginAt
@@ -1340,7 +1347,10 @@ export default function Profile() {
                     <Card
                       loading={extrasLoading}
                       extra={
-                        <Button type="link" onClick={() => loadExtras(String(profile?.username || ''))}>
+                        <Button
+                          type="link"
+                          onClick={() => loadExtras(String(profile?.username || ''))}
+                        >
                           {formatMessage('profile.activities.refresh')}
                         </Button>
                       }

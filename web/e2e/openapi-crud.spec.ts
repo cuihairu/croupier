@@ -44,7 +44,9 @@ test.describe('OpenAPI CRUD', () => {
     await waitForTable(page);
 
     // 点击新建按钮
-    const createBtn = page.locator('button:has-text("新建"), button:has-text("创建"), button:has-text("新增")').first();
+    const createBtn = page
+      .locator('button:has-text("新建"), button:has-text("创建"), button:has-text("新增")')
+      .first();
     if (await createBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await createBtn.click();
 
@@ -58,7 +60,10 @@ test.describe('OpenAPI CRUD', () => {
       }
 
       // 提交
-      await page.locator('.ant-modal button:has-text("确"), .ant-modal button:has-text("OK")').first().click();
+      await page
+        .locator('.ant-modal button:has-text("确"), .ant-modal button:has-text("OK")')
+        .first()
+        .click();
 
       // 等待一下（不等待 Modal 关闭，因为 mock 可能不完整）
       await page.waitForTimeout(2000);
@@ -71,7 +76,9 @@ test.describe('OpenAPI CRUD', () => {
     await waitForTable(page);
 
     // 点击查看/详情按钮
-    const detailBtn = page.locator('a:has-text("查看"), button:has-text("查看"), a:has-text("详情")').first();
+    const detailBtn = page
+      .locator('a:has-text("查看"), button:has-text("查看"), a:has-text("详情")')
+      .first();
     if (await detailBtn.isVisible()) {
       await detailBtn.click();
 
@@ -105,7 +112,10 @@ test.describe('OpenAPI CRUD', () => {
       await nameInput.fill('更新后的玩家');
 
       // 提交
-      await page.locator('.ant-modal button:has-text("确"), .ant-modal button:has-text("OK")').first().click();
+      await page
+        .locator('.ant-modal button:has-text("确"), .ant-modal button:has-text("OK")')
+        .first()
+        .click();
 
       // 等待 Modal 关闭
       await page.locator('.ant-modal').waitFor({ state: 'hidden', timeout: 10000 });
@@ -123,7 +133,9 @@ test.describe('OpenAPI CRUD', () => {
       await deleteBtn.click();
 
       // 确认删除
-      const confirmBtn = page.locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary').first();
+      const confirmBtn = page
+        .locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary')
+        .first();
       await confirmBtn.waitFor({ state: 'visible', timeout: 5000 });
       await confirmBtn.click();
 
@@ -142,7 +154,9 @@ test.describe('OpenAPI CRUD', () => {
       await banBtn.click();
 
       // 确认操作
-      const confirmBtn = page.locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary').first();
+      const confirmBtn = page
+        .locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary')
+        .first();
       await confirmBtn.waitFor({ state: 'visible', timeout: 5000 });
       await confirmBtn.click();
 

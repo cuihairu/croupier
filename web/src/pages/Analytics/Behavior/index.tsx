@@ -87,7 +87,11 @@ export default function AnalyticsBehaviorPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = { event: eventName, prop_key: propKey, prop_val: propVal };
+      const params: Record<string, string | number> = {
+        event: eventName,
+        prop_key: propKey,
+        prop_val: propVal,
+      };
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsEvents(params);
@@ -109,7 +113,10 @@ export default function AnalyticsBehaviorPage() {
     setLoading(true);
     try {
       const st = overrideSteps && overrideSteps.length > 0 ? overrideSteps : steps;
-      const params: Record<string, string | number> = { steps: st.join(','), sequential: seq ? 1 : 0 };
+      const params: Record<string, string | number> = {
+        steps: st.join(','),
+        sequential: seq ? 1 : 0,
+      };
       if (sameSess) params.same_session = 1;
       if (gapSec && gapSec > 0) params.gap_sec = gapSec;
       if (range && range[0]) params.start = range[0].toISOString();
@@ -178,7 +185,10 @@ export default function AnalyticsBehaviorPage() {
                 onChange={(e) => setPropVal(e.target.value)}
                 style={{ width: 140 }}
               />
-              <DatePicker.RangePicker value={range as [Dayjs, Dayjs]} onChange={(dates) => setRange(dates as [Dayjs | null, Dayjs | null] | null)} />
+              <DatePicker.RangePicker
+                value={range as [Dayjs, Dayjs]}
+                onChange={(dates) => setRange(dates as [Dayjs | null, Dayjs | null] | null)}
+              />
               <Button type="primary" onClick={load}>
                 查询
               </Button>
@@ -273,14 +283,22 @@ export default function AnalyticsBehaviorPage() {
             columns={[
               { title: '步骤', dataIndex: 'step' },
               { title: '人数', dataIndex: 'users' },
-              { title: '转化率', dataIndex: 'rate', render: (v: number) => (v != null ? `${v}%` : '-') },
+              {
+                title: '转化率',
+                dataIndex: 'rate',
+                render: (v: number) => (v != null ? `${v}%` : '-'),
+              },
             ]}
           />
           <div style={{ marginTop: 8 }}>
             <Button
               onClick={async () => {
                 const rowsOut = [['step', 'users', 'rate']].concat(
-                  (funnel || []).map((s: FunnelStep) => [String(s.step), String(s.users), String(s.rate)]),
+                  (funnel || []).map((s: FunnelStep) => [
+                    String(s.step),
+                    String(s.users),
+                    String(s.rate),
+                  ]),
                 );
                 await exportToXLSX('funnel.csv', [{ sheet: 'funnel', rows: rowsOut }]);
               }}
@@ -818,7 +836,12 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
         <Button
           onClick={async () => {
             const rowsOut = [['feature', 'groups', 'rate(%)', 'baseline']].concat(
-              (rows || []).map((r: AdoptionRow) => [r.feature, String(r.groups), String(r.rate), String(baseline)]),
+              (rows || []).map((r: AdoptionRow) => [
+                r.feature,
+                String(r.groups),
+                String(r.rate),
+                String(baseline),
+              ]),
             );
             await exportToXLSX('adoption.csv', [{ sheet: 'adoption', rows: rowsOut }]);
           }}
@@ -837,7 +860,11 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
         columns={[
           { title: '功能事件', dataIndex: 'feature' },
           { title: '分组数', dataIndex: 'groups' },
-          { title: '采用率', dataIndex: 'rate', render: (v: number) => (v != null ? `${v}%` : '-') },
+          {
+            title: '采用率',
+            dataIndex: 'rate',
+            render: (v: number) => (v != null ? `${v}%` : '-'),
+          },
         ]}
         pagination={{ pageSize: 10 }}
       />
@@ -857,7 +884,12 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
         <Button
           onClick={async () => {
             const rowsOut = [['dim', 'baseline', 'groups', 'rate(%)']].concat(
-              (rowsDim || []).map((r: AdoptionBreakdownRow) => [r.dim, String(r.baseline), String(r.groups), String(r.rate)]),
+              (rowsDim || []).map((r: AdoptionBreakdownRow) => [
+                r.dim,
+                String(r.baseline),
+                String(r.groups),
+                String(r.rate),
+              ]),
             );
             await exportToXLSX('adoption_breakdown.csv', [
               { sheet: 'adoption_breakdown', rows: rowsOut },
@@ -876,7 +908,11 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
           { title: '分层', dataIndex: 'dim' },
           { title: '基数', dataIndex: 'baseline' },
           { title: '分组数', dataIndex: 'groups' },
-          { title: '采用率', dataIndex: 'rate', render: (v: number) => (v != null ? `${v}%` : '-') },
+          {
+            title: '采用率',
+            dataIndex: 'rate',
+            render: (v: number) => (v != null ? `${v}%` : '-'),
+          },
         ]}
         pagination={{ pageSize: 10 }}
       />

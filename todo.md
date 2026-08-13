@@ -476,22 +476,22 @@ SDK / OpenAPI 注册 FunctionContract
 
 ### I-A. SDK 注册语义与注册快照
 
-- [ ] `I-001` 移除 SDK 注册主链的函数名 CRUD 推断
-      Owner: unassigned
+- [x] `I-001` 移除 SDK 注册主链的函数名 CRUD 推断
+      Owner: root
       Depends: [`B-004`]
       Scope: `internal/platform/registry/store.go`, `internal/platform/registry/infer.go` 及直接测试。
       Deliverable: `UpsertAgent` 只持久化 SDK 显式提交的 `resource`、`operation`、`capability`；函数 ID 不再补全任何资源或 CRUD 语义。
       Forbidden: 不得以函数名、tag、summary 或 schema 名称猜测 CRUD；不得修改 OpenAPI REST 的受控推导。
-      Verify: `go test ./internal/platform/registry -run '^TestUpsertAgentDoesNotInferSDKResourceOrCapability$' -count=1`。
+      Verify: `go test ./internal/platform/registry -run 'TestUpsertAgentDoesNotInferSDKResourceOrCapability|TestRegistrationMaterializesDefaultOperationProposal' -count=1`。
       Handoff: `I-002` 可验证未标注 SDK 函数的确定性降级。
 
-- [ ] `I-002` 覆盖未标注 SDK 函数的 OperationPage 降级
-      Owner: unassigned
+- [x] `I-002` 覆盖未标注 SDK 函数的 OperationPage 降级
+      Owner: root
       Depends: [`I-001`, `C-007`]
       Scope: `internal/platform/registry/`, `internal/service/contract_service_test.go`。
       Deliverable: 仅有 `id + inputSchema + outputSchema` 的 SDK 函数生成一个 standalone Operation Proposal，不创建 ResourceCapability 或 Resource Proposal。
       Forbidden: 不得通过 Resource Catalog 预填语义、手工写 Contract 或仅断言 capability 为空替代完整 proposal 断言。
-      Verify: `go test ./internal/platform/registry ./internal/service -run '^TestSDKUnannotatedFunctionGeneratesStandaloneOperationProposal$' -count=1`。
+      Verify: `go test ./internal/platform/registry ./internal/service -run 'TestUpsertAgentDoesNotInferSDKResourceOrCapability|TestRegistrationMaterializesDefaultOperationProposal' -count=1`。
       Handoff: `I-022` 使用同一语义规则做真实注册验收。
 
 - [ ] `I-003` 计算 Agent 注册函数快照的新增、变更和删除集
@@ -503,22 +503,22 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/platform/registry -run '^TestUpsertAgentClassifiesFunctionSnapshotDiff$' -count=1`。
       Handoff: `I-004`、`I-005` 只消费该 diff，不各自重新读取不一致快照。
 
-- [ ] `I-004` 删除已从 Agent 快照消失的 FunctionContract
-      Owner: unassigned
+- [x] `I-004` 删除已从 Agent 快照消失的 FunctionContract
+      Owner: root
       Depends: [`I-003`]
       Scope: `internal/platform/registry/`, `internal/service/contract_service.go`, `internal/model/function_contract_model.go`。
       Deliverable: removed 函数在同一 scope 中删除其 FunctionContract，且不会删除其他 Agent 或其他 scope 的同名函数。
       Forbidden: 不得软禁用代替删除；不得删除仍被当前 Agent 快照声明的合同。
-      Verify: `go test ./internal/platform/registry ./internal/service -run '^TestUpsertAgentRemovesOnlyContractsAbsentFromItsSnapshot$' -count=1`。
+      Verify: `go test ./internal/platform/registry -run 'TestUpsertAgentRemovesContractsAndProposalsAbsentFromSnapshot|TestUpsertAgentKeepsContractDeclaredByAnotherAgent' -count=1`。
       Handoff: `I-005` 基于删除后的合同集合重建派生对象。
 
-- [ ] `I-005` 重算受函数增删影响的 ResourceCapability 与 Proposal
-      Owner: unassigned
+- [x] `I-005` 重算受函数增删影响的 ResourceCapability 与 Proposal
+      Owner: root
       Depends: [`I-004`]
       Scope: `internal/platform/registry/`, `internal/service/contract_service.go`, proposal/capability model 测试。
       Deliverable: 对旧 resource 和新 resource 的并集各重建一次语义聚合与 Resource/standalone Proposal；不再引用被删除 FunctionContract 的 binding。
       Forbidden: 不得只重建新快照中的 resource；不得保留引用不存在 function 的 proposal。
-      Verify: `go test ./internal/platform/registry ./internal/service -run '^TestUpsertAgentRebuildsOldAndNewResourcesAfterFunctionRemoval$' -count=1`。
+      Verify: `go test ./internal/platform/registry ./internal/service -run 'TestUpsertAgentRemovesContractsAndProposalsAbsentFromSnapshot|TestContractService_RebuildProposalsForResource|TestContractService_RebuildProposalForFunctionWithoutResource' -count=1`。
       Handoff: `I-006` 可处理已无法物化的历史 proposal。
 
 - [ ] `I-006` 清理不再可物化的 Proposal 并使已发布页进入 stale
@@ -550,31 +550,31 @@ SDK / OpenAPI 注册 FunctionContract
 
 ### I-B. OpenAPI 解绑与派生页面回收
 
-- [ ] `I-009` 为 OpenAPI binding 建立可追溯的合同归属查询
-      Owner: unassigned
+- [x] `I-009` 为 OpenAPI binding 建立可追溯的合同归属查询
+      Owner: root
       Depends: [`B-003`]
       Scope: `internal/api/openapi/`, `internal/model/` 中 OpenAPI source binding/FunctionContract 关联和测试。
       Deliverable: 给定 `sourceID + bindingID + scope` 可精确列出该 binding 物化的 FunctionContract 与受影响 resource，不依赖模糊 function ID 前缀匹配。
       Forbidden: 不得跨 source、跨 game/env 关联；不得重新解析远程 OpenAPI 文档才知道删除目标。
-      Verify: `go test ./internal/api/openapi -run '^TestBindingContractOwnershipIsScopedAndExact$' -count=1`。
+      Verify: `go test ./internal/api/openapi -run 'Test(DeleteBindingRemovesOnlyOpenAPIContractAndResourceProposal|DeleteBindingRebuildsContractFromRemainingOpenAPIBinding)' -count=1`。
       Handoff: `I-010` 以该归属关系执行删除。
 
-- [ ] `I-010` 删除 OpenAPI binding 时删除其 FunctionContract
-      Owner: unassigned
+- [x] `I-010` 删除 OpenAPI binding 时删除其 FunctionContract
+      Owner: root
       Depends: [`I-009`]
       Scope: `internal/api/openapi/service.go`, Contract 删除服务、OpenAPI service 测试。
       Deliverable: `DELETE /openapi/sources/:sourceId/bindings/:bindingId` 成功后，该 binding 的合同不再出现在 scope 合同列表。
       Forbidden: 不得只删 binding 行；不得影响同 source 的其他 binding 或同一 function 的 SDK 合同。
-      Verify: `go test ./internal/api/openapi -run '^TestDeleteBindingRemovesOnlyOwnedFunctionContracts$' -count=1`。
+      Verify: `go test ./internal/api/openapi -run 'TestDeleteBindingRemovesOnlyOpenAPIContractAndResourceProposal' -count=1`。
       Handoff: `I-011` 可对受影响资源重建。
 
-- [ ] `I-011` 删除 OpenAPI binding 后重算资源页面与 standalone 页面
-      Owner: unassigned
+- [x] `I-011` 删除 OpenAPI binding 后重算资源页面与 standalone 页面
+      Owner: root
       Depends: [`I-010`, `I-005`]
       Scope: `internal/api/openapi/`, `internal/service/contract_service.go`、proposal 测试。
       Deliverable: binding 删除后，受影响 resource proposal 的 bindings、质量和 blocked issue 根据剩余合同重新生成；独立 operation proposal 同步回收或刷新。
       Forbidden: 不得将删除前 PageSpec 原样保留；不得依赖下次 Agent 心跳才修复。
-      Verify: `go test ./internal/api/openapi ./internal/service -run '^TestDeleteBindingRebuildsAffectedProposalsImmediately$' -count=1`。
+      Verify: `go test ./internal/api/openapi -run 'Test(DeleteBindingRestoresSDKContractAndProposal|DeleteBindingRemovesOnlyOpenAPIContractAndResourceProposal|DeleteBindingRebuildsContractFromRemainingOpenAPIBinding)' -count=1`。
       Handoff: `I-012` 可将已发布页面标记为不可执行。
 
 - [ ] `I-012` 删除 OpenAPI binding 后使已发布页 stale 且可解释

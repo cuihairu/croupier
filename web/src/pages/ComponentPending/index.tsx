@@ -25,7 +25,7 @@ export default () => {
       const data = await fetchPending();
       setRows(data);
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '加载失败');
     } finally {
       setLoading(false);
@@ -68,7 +68,7 @@ export default () => {
               message.success('已发布到覆盖配置');
               reload();
             } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+              const errMsg = e instanceof Error ? e.message : '操作失败';
               message.error(errMsg || '发布失败');
             }
           }}

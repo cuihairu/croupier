@@ -273,15 +273,18 @@ export async function getFunctionSummary(params?: {
   enabled?: boolean;
 }): Promise<FunctionSummary[]> {
   try {
-    const res = await request<FunctionSummaryListResponse | RawFunctionSummary[]>('/api/v1/functions', {
-      params: {
-        game_id: params?.gameId,
-        env: params?.env,
-        resource: params?.resource,
-        tags: params?.tags,
-        enabled: params?.enabled,
+    const res = await request<FunctionSummaryListResponse | RawFunctionSummary[]>(
+      '/api/v1/functions',
+      {
+        params: {
+          game_id: params?.gameId,
+          env: params?.env,
+          resource: params?.resource,
+          tags: params?.tags,
+          enabled: params?.enabled,
+        },
       },
-    });
+    );
     if (Array.isArray(res)) return res.map(normalizeFunctionSummary);
     if (res?.functions && Array.isArray(res.functions))
       return res.functions.map(normalizeFunctionSummary);
@@ -316,10 +319,9 @@ export async function getFunctionDetail(
     env?: string;
   },
 ): Promise<FunctionDescriptor & { instances?: FunctionInstance[]; metrics?: FunctionMetrics }> {
-  const res = await request<FunctionDescriptor & { instances?: FunctionInstance[]; metrics?: FunctionMetrics }>(
-    `/api/v1/functions/${functionId}`,
-    { method: 'GET' },
-  );
+  const res = await request<
+    FunctionDescriptor & { instances?: FunctionInstance[]; metrics?: FunctionMetrics }
+  >(`/api/v1/functions/${functionId}`, { method: 'GET' });
   return res;
 }
 
@@ -361,7 +363,9 @@ export async function getFunctionCalls(params?: {
  * 获取单个调用详情
  */
 export async function getFunctionCall(callId: string): Promise<FunctionCallRecord> {
-  const item = await request<RawFunctionCallRecord>(`/api/v1/function-calls/${callId}`, { method: 'GET' });
+  const item = await request<RawFunctionCallRecord>(`/api/v1/function-calls/${callId}`, {
+    method: 'GET',
+  });
   return normalizeFunctionCallRecord(item);
 }
 
@@ -651,7 +655,9 @@ export async function getFunctionOpenAPIDetail(functionId: string): Promise<{
  * @param functionIds 函数 ID 列表
  * @returns OpenAPI Operation Object 映射
  */
-export async function batchGetFunctionOpenAPI(functionIds: string[]): Promise<Record<string, JSONValue>> {
+export async function batchGetFunctionOpenAPI(
+  functionIds: string[],
+): Promise<Record<string, JSONValue>> {
   return request('/api/v1/functions/_openapi-batch', {
     method: 'POST',
     data: { function_ids: functionIds },

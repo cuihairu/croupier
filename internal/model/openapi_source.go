@@ -171,6 +171,31 @@ func (m *OpenAPISourceBindingModel) ListBySource(ctx context.Context, gameID, en
 	return items, nil
 }
 
+// FindByScopeSourceAndBindingID resolves one binding before deletion so its
+// materialized FunctionContract can be reconciled deterministically.
+func (m *OpenAPISourceBindingModel) FindByScopeSourceAndBindingID(ctx context.Context, gameID, env, sourceID, bindingID string) (*OpenAPISourceBinding, error) {
+	var binding OpenAPISourceBinding
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND source_id = ? AND binding_id = ?", gameID, env, sourceID, bindingID).
+		First(&binding).Error; err != nil {
+		return nil, err
+	}
+	return &binding, nil
+}
+
+// ListByScopeAndFunctionID returns all bindings that still own one function
+// contract in a scope, independent of source ID.
+func (m *OpenAPISourceBindingModel) ListByScopeAndFunctionID(ctx context.Context, gameID, env, functionID string) ([]OpenAPISourceBinding, error) {
+	var bindings []OpenAPISourceBinding
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND function_id = ?", gameID, env, functionID).
+		Order("source_id ASC, operation_id ASC, binding_id ASC").
+		Find(&bindings).Error; err != nil {
+		return nil, err
+	}
+	return bindings, nil
+}
+
 func (m *OpenAPISourceBindingModel) Delete(ctx context.Context, gameID, env, sourceID, bindingID string) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND source_id = ? AND binding_id = ?", gameID, env, sourceID, bindingID).

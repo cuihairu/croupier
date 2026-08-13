@@ -469,14 +469,18 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		sess.Providers = providers
 	}
 
-	if s.agentSessionLoader != nil {
+	if err := s.registry.UpsertAgent(sess); err != nil {
+		return nil, fmt.Errorf("register agent dashboard contract rebuild failed: %w", err)
+	}
+
+	// NewStoreWithDB persists the session only after contract/proposal
+	// materialization succeeds. Do not duplicate that write through the loader;
+	// the loader remains the persistence path for memory-only registries and is
+	// still used by heartbeat/expiry maintenance.
+	if s.agentSessionLoader != nil && !s.registry.SessionPersistenceEnabled() {
 		if err := s.agentSessionLoader.Upsert(ctx, sess); err != nil {
 			s.logger.Error("failed to write agent session to database", "agent_id", req.AgentId, "error", err)
 		}
-	}
-
-	if err := s.registry.UpsertAgent(sess); err != nil {
-		return nil, fmt.Errorf("register agent dashboard contract rebuild failed: %w", err)
 	}
 
 	s.logger.Info("Agent registered", "agent_id", req.AgentId, "game_id", req.GameId, "functions", len(functions), "warnings", len(warnings))

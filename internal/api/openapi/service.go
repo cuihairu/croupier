@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -29,6 +30,7 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"gopkg.in/yaml.v3"
+	"gorm.io/gorm"
 )
 
 const maxOpenAPISourceBytes = 2 << 20
@@ -508,19 +510,138 @@ func (s *Service) DeleteBinding(ctx context.Context, req *OpenAPISourceBindingDe
 		spanErr = err
 		return nil, errorx.NewNotFound("OpenAPI source not found")
 	}
-	if err := s.svcCtx.OpenAPISourceBindingModel.Delete(ctx, gameID, env, strings.TrimSpace(req.SourceID), strings.TrimSpace(req.BindingID)); err != nil {
+	binding, err := s.svcCtx.OpenAPISourceBindingModel.FindByScopeSourceAndBindingID(ctx, gameID, env, source.SourceID, strings.TrimSpace(req.BindingID))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		spanErr = err
+		return nil, errorx.NewNotFound("OpenAPI source binding not found")
+	}
+	if err != nil {
+		spanErr = err
+		return nil, err
+	}
+	if err := s.svcCtx.OpenAPISourceBindingModel.Delete(ctx, gameID, env, source.SourceID, binding.BindingID); err != nil {
+		spanErr = err
+		return nil, err
+	}
+	if err := s.reconcileContractAfterBindingDelete(ctx, gameID, env, binding); err != nil {
 		spanErr = err
 		return nil, err
 	}
 	finishSpan(nil, attribute.Int("openapi_source.revision", source.Revision))
 	finishSpan = func(error, ...attribute.KeyValue) {}
 	s.auditSourceEvent(ctx, audit.EventOpenAPISourceBindingDelete, gameID, env, source.SourceID, source.Name, map[string]interface{}{
-		"binding_id": strings.TrimSpace(req.BindingID),
+		"binding_id": binding.BindingID,
 		"revision":   source.Revision,
 	})
 	return &OpenAPISourceBindingResponse{Binding: OpenAPISourceBindingDTO{
-		BindingID: strings.TrimSpace(req.BindingID),
+		BindingID: binding.BindingID,
 	}}, nil
+}
+
+func (s *Service) reconcileContractAfterBindingDelete(ctx context.Context, gameID, env string, removed *model.OpenAPISourceBinding) error {
+	if removed == nil {
+		return nil
+	}
+	functionID := strings.TrimSpace(removed.FunctionID)
+	if functionID == "" {
+		return nil
+	}
+	remaining, err := s.svcCtx.OpenAPISourceBindingModel.ListByScopeAndFunctionID(ctx, gameID, env, functionID)
+	if err != nil {
+		return fmt.Errorf("list remaining OpenAPI bindings for %s: %w", functionID, err)
+	}
+	if len(remaining) > 0 {
+		return s.rebuildContractFromRemainingBinding(ctx, gameID, env, remaining[0])
+	}
+	contractService := dashboardservice.NewContractService(s.svcCtx.DB)
+	if runtimeMeta, ok := registeredFunctionMetaInScope(s.svcCtx, gameID, env, functionID); ok {
+		previous, err := contractService.GetContract(ctx, gameID, env, functionID)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("load SDK fallback contract %s: %w", functionID, err)
+		}
+		if err := contractService.RebuildContractFromFunctionMeta(ctx, gameID, env, "sdk", functionMetaInputFromRuntime(functionID, runtimeMeta)); err != nil {
+			return fmt.Errorf("restore SDK function contract %s: %w", functionID, err)
+		}
+		return s.rebuildProposalsAfterContractReconcile(ctx, gameID, env, resourceKeyFromContract(previous, runtimeMeta.Resource), functionID, runtimeMeta.Resource)
+	}
+	resourceKey, err := contractService.RemoveFunctionContract(ctx, gameID, env, functionID)
+	if err != nil {
+		return fmt.Errorf("remove OpenAPI function contract %s: %w", functionID, err)
+	}
+	return s.rebuildProposalsAfterContractReconcile(ctx, gameID, env, resourceKey, functionID, "")
+}
+
+func (s *Service) rebuildProposalsAfterContractReconcile(ctx context.Context, gameID, env, previousResource, functionID, currentResource string) error {
+	contractService := dashboardservice.NewContractService(s.svcCtx.DB)
+	resources := map[string]struct{}{}
+	for _, resourceKey := range []string{previousResource, currentResource} {
+		if resourceKey = strings.TrimSpace(resourceKey); resourceKey != "" {
+			resources[resourceKey] = struct{}{}
+		}
+	}
+	for resourceKey := range resources {
+		if err := contractService.RebuildResourceCapability(ctx, gameID, env, resourceKey); err != nil {
+			return fmt.Errorf("rebuild resource capability after binding delete %s: %w", resourceKey, err)
+		}
+		if err := contractService.RebuildProposalsForResource(ctx, gameID, env, resourceKey); err != nil {
+			return fmt.Errorf("rebuild page proposals after binding delete %s: %w", resourceKey, err)
+		}
+	}
+	if strings.TrimSpace(currentResource) == "" && strings.TrimSpace(functionID) != "" {
+		if err := contractService.RebuildProposalForFunction(ctx, gameID, env, functionID); err != nil {
+			return fmt.Errorf("rebuild standalone proposal after binding delete %s: %w", functionID, err)
+		}
+	}
+	return nil
+}
+
+func functionMetaInputFromRuntime(functionID string, meta reg.FunctionMeta) dashboardservice.FunctionMetaInput {
+	return dashboardservice.FunctionMetaInput{
+		ID:                strings.TrimSpace(functionID),
+		Version:           meta.Version,
+		Enabled:           meta.Enabled,
+		Deprecated:        meta.Deprecated,
+		Summary:           meta.Summary,
+		Description:       meta.Description,
+		InputSchema:       meta.InputSchema,
+		OutputSchema:      meta.OutputSchema,
+		Resource:          meta.Resource,
+		Operation:         meta.Operation,
+		Capability:        meta.Capability,
+		Execution:         meta.Execution,
+		ApprovalRequired:  meta.ApprovalRequired,
+		ApprovalPolicyKey: meta.ApprovalPolicyKey,
+		Risk:              meta.Risk,
+		Permission:        meta.Permission,
+		Tags:              meta.Tags,
+	}
+}
+
+func resourceKeyFromContract(contract *model.FunctionContract, fallback string) string {
+	if contract != nil && strings.TrimSpace(contract.ResourceKey) != "" {
+		return strings.TrimSpace(contract.ResourceKey)
+	}
+	return strings.TrimSpace(fallback)
+}
+
+func (s *Service) rebuildContractFromRemainingBinding(ctx context.Context, gameID, env string, binding model.OpenAPISourceBinding) error {
+	source, err := s.svcCtx.OpenAPISourceModel.FindByScopeAndSourceID(ctx, gameID, env, binding.SourceID)
+	if err != nil {
+		return fmt.Errorf("find remaining binding source %s: %w", binding.SourceID, err)
+	}
+	var operations []OpenAPISourceOperation
+	if err := source.GetOperations(&operations); err != nil {
+		return fmt.Errorf("read remaining binding operations: %w", err)
+	}
+	operation, ok := findSourceOperation(operations, binding.OperationID)
+	if !ok {
+		return fmt.Errorf("remaining binding operation %s is missing from source %s", binding.OperationID, binding.SourceID)
+	}
+	runtimeMeta, ok := registeredFunctionMetaInScope(s.svcCtx, gameID, env, binding.FunctionID)
+	if !ok {
+		return fmt.Errorf("remaining binding function %s is not registered in current runtime", binding.FunctionID)
+	}
+	return s.rebuildContractForSourceBinding(ctx, gameID, env, source, operation, &binding, runtimeMeta)
 }
 
 func (s *Service) loadSourceWithBindings(ctx context.Context, sourceID string) (*model.OpenAPISource, []model.OpenAPISourceBinding, error) {

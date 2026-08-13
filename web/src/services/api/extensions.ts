@@ -345,7 +345,9 @@ export async function updateExtensionConfig(
 }
 
 export async function getExtensionConfigSchema(id: number) {
-  return request<{ schema: Record<string, JSONValue> }>(`${BASE}/installations/${id}/config-schema`);
+  return request<{ schema: Record<string, JSONValue> }>(
+    `${BASE}/installations/${id}/config-schema`,
+  );
 }
 
 export async function getExtensionConfig(id: number) {
@@ -429,7 +431,9 @@ export async function listExtensionEvents(
 }
 
 export async function getAgentSyncPayload(agentId: string) {
-  return request<{ payload: JSONValue }>(`${BASE}/agents/${encodeURIComponent(agentId)}/sync-payload`);
+  return request<{ payload: JSONValue }>(
+    `${BASE}/agents/${encodeURIComponent(agentId)}/sync-payload`,
+  );
 }
 
 export async function listExtensionPages(id: string | number) {

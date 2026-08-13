@@ -99,39 +99,42 @@ export default function AnalyticsRealtimePage() {
     [ptsOnline, ptsA5, ptsA15, ptsRev5],
   );
 
-  const pushRealtime = useCallback((r: RealtimeData) => {
-    const normalized = normalizeRealtime(r || {});
-    setData(normalized);
-    setLastMessageAt(Date.now());
-    setStreamStatus('connected');
-    const now = Date.now();
-    const online = Number(normalized.online || 0);
-    const a5 = Number(normalized.active_5m || 0);
-    const a15 = Number(normalized.active_15m || 0);
-    const rev5 = Number(normalized.rev_5m || 0);
-    const keep = (arr: [number, number][]) =>
-      arr.length > 120 ? arr.slice(arr.length - 120) : arr;
-    setPtsOnline((prev) => {
-      const next = keep(prev.concat([[now, online]]));
-      tryPersist(next, undefined, undefined, undefined);
-      return next;
-    });
-    setPtsA5((prev) => {
-      const next = keep(prev.concat([[now, a5]]));
-      tryPersist(undefined, next, undefined, undefined);
-      return next;
-    });
-    setPtsA15((prev) => {
-      const next = keep(prev.concat([[now, a15]]));
-      tryPersist(undefined, undefined, next, undefined);
-      return next;
-    });
-    setPtsRev5((prev) => {
-      const next = keep(prev.concat([[now, rev5 / 100]]));
-      tryPersist(undefined, undefined, undefined, next);
-      return next;
-    });
-  }, [tryPersist]);
+  const pushRealtime = useCallback(
+    (r: RealtimeData) => {
+      const normalized = normalizeRealtime(r || {});
+      setData(normalized);
+      setLastMessageAt(Date.now());
+      setStreamStatus('connected');
+      const now = Date.now();
+      const online = Number(normalized.online || 0);
+      const a5 = Number(normalized.active_5m || 0);
+      const a15 = Number(normalized.active_15m || 0);
+      const rev5 = Number(normalized.rev_5m || 0);
+      const keep = (arr: [number, number][]) =>
+        arr.length > 120 ? arr.slice(arr.length - 120) : arr;
+      setPtsOnline((prev) => {
+        const next = keep(prev.concat([[now, online]]));
+        tryPersist(next, undefined, undefined, undefined);
+        return next;
+      });
+      setPtsA5((prev) => {
+        const next = keep(prev.concat([[now, a5]]));
+        tryPersist(undefined, next, undefined, undefined);
+        return next;
+      });
+      setPtsA15((prev) => {
+        const next = keep(prev.concat([[now, a15]]));
+        tryPersist(undefined, undefined, next, undefined);
+        return next;
+      });
+      setPtsRev5((prev) => {
+        const next = keep(prev.concat([[now, rev5 / 100]]));
+        tryPersist(undefined, undefined, undefined, next);
+        return next;
+      });
+    },
+    [tryPersist],
+  );
 
   const resetStaleTimer = () => {
     if (staleTimerRef.current) {
@@ -151,42 +154,45 @@ export default function AnalyticsRealtimePage() {
     }
   };
 
-  const connect = useCallback((singleShot = false) => {
-    closeStream();
-    setLoading(true);
-    setStreamStatus('connecting');
-    const es = openAnalyticsRealtimeEventSource();
-    esRef.current = es;
-    es.onopen = () => {
-      setLoading(false);
-      setStreamStatus('connected');
-      resetStaleTimer();
-    };
-    es.addEventListener('connected', () => {
-      setLoading(false);
-      setStreamStatus('connected');
-      resetStaleTimer();
-    });
-    es.addEventListener('message', (event: MessageEvent) => {
-      try {
-        const payload = JSON.parse(event.data || '{}');
-        pushRealtime(payload);
-        resetStaleTimer();
-        if (singleShot) {
-          closeStream();
-          if (esRef.current === es) {
-            esRef.current = null;
-          }
-        }
-      } finally {
+  const connect = useCallback(
+    (singleShot = false) => {
+      closeStream();
+      setLoading(true);
+      setStreamStatus('connecting');
+      const es = openAnalyticsRealtimeEventSource();
+      esRef.current = es;
+      es.onopen = () => {
         setLoading(false);
-      }
-    });
-    es.addEventListener('error', () => {
-      setLoading(false);
-      setStreamStatus('error');
-    });
-  }, [pushRealtime]);
+        setStreamStatus('connected');
+        resetStaleTimer();
+      };
+      es.addEventListener('connected', () => {
+        setLoading(false);
+        setStreamStatus('connected');
+        resetStaleTimer();
+      });
+      es.addEventListener('message', (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data || '{}');
+          pushRealtime(payload);
+          resetStaleTimer();
+          if (singleShot) {
+            closeStream();
+            if (esRef.current === es) {
+              esRef.current = null;
+            }
+          }
+        } finally {
+          setLoading(false);
+        }
+      });
+      es.addEventListener('error', () => {
+        setLoading(false);
+        setStreamStatus('error');
+      });
+    },
+    [pushRealtime],
+  );
 
   const load = async () => {
     connect(!auto);
@@ -313,11 +319,20 @@ export default function AnalyticsRealtimePage() {
                   const params: Record<string, string> = {};
                   if (expRange && expRange[0]) params.start = expRange[0].toISOString();
                   if (expRange && expRange[1]) params.end = expRange[1].toISOString();
-                  const s = await fetchRealtimeSeries(params) as RealtimeSeriesResponse;
+                  const s = (await fetchRealtimeSeries(params)) as RealtimeSeriesResponse;
                   const rows: ExportRow[] = [
                     ['ts', 'online', 'active_5m_sum', 'active_15m_sum', 'revenue_cents'],
                   ];
-                  const idx: Record<string, { ts: string | number; online?: number; a5?: number; a15?: number; rev?: number }> = {};
+                  const idx: Record<
+                    string,
+                    {
+                      ts: string | number;
+                      online?: number;
+                      a5?: number;
+                      a15?: number;
+                      rev?: number;
+                    }
+                  > = {};
                   (s?.online || []).forEach((x) => {
                     idx[String(x[0])] = { ts: x[0], online: x[1] };
                   });
@@ -363,7 +378,9 @@ export default function AnalyticsRealtimePage() {
                     return (arr || []).filter((p) => p[0] >= t);
                   };
                   // revenue column exported in Yuan (to match UI/spark)
-                  const csvRows: string[][] = [['ts', 'online', 'active_5m', 'active_15m', 'rev_5m_yuan']];
+                  const csvRows: string[][] = [
+                    ['ts', 'online', 'active_5m', 'active_15m', 'rev_5m_yuan'],
+                  ];
                   const o = last10(ptsOnline),
                     a5 = last10(ptsA5),
                     a15 = last10(ptsA15),
@@ -410,8 +427,8 @@ export default function AnalyticsRealtimePage() {
             streamStatus === 'error'
               ? '实时流连接异常'
               : streamStatus === 'stale'
-              ? '实时流已连接，但当前暂未收到新的数据帧'
-              : '实时流已连接；当前没有业务事件时，指标显示为 0 属于正常情况'
+                ? '实时流已连接，但当前暂未收到新的数据帧'
+                : '实时流已连接；当前没有业务事件时，指标显示为 0 属于正常情况'
           }
         />
         <Row gutter={[16, 16]}>

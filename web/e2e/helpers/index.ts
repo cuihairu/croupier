@@ -17,14 +17,18 @@ export async function login(page: Page): Promise<void> {
   await page.waitForTimeout(5000);
 
   // 等待登录表单
-  const usernameInput = page.locator('input[id="username"], input[placeholder*="admin"], input[placeholder*="用户名"]').first();
+  const usernameInput = page
+    .locator('input[id="username"], input[placeholder*="admin"], input[placeholder*="用户名"]')
+    .first();
   await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
 
   await usernameInput.fill('admin');
   await page.locator('input[type="password"]').fill('ant.design');
 
   // 点击登录按钮
-  const loginBtn = page.locator('button[type="submit"], button:has-text("Login"), button:has-text("登录")').first();
+  const loginBtn = page
+    .locator('button[type="submit"], button:has-text("Login"), button:has-text("登录")')
+    .first();
   await loginBtn.click();
 
   // 等待登录成功
@@ -35,7 +39,11 @@ export async function login(page: Page): Promise<void> {
 /**
  * 导航到控制台页面
  */
-export async function navigateToConsole(page: Page, categoryKey: string, pageKey: string): Promise<void> {
+export async function navigateToConsole(
+  page: Page,
+  categoryKey: string,
+  pageKey: string,
+): Promise<void> {
   await page.goto(`${BASE_URL}/console/${categoryKey}/${pageKey}`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);

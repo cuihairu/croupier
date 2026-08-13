@@ -64,26 +64,29 @@ export default () => {
   const timerRef = useRef<NodeJS.Timeout>(null);
 
   // 加载数据
-  const fetchData = useCallback(async (page = currentPage, size = pageSize) => {
-    setLoading(true);
-    try {
-      const params = {
-        page,
-        pageSize: size,
-        ...filters,
-      };
-      const response = await listFunctionCalls(params);
-      setDataSource(response.calls || []);
-      setTotal(response.total || 0);
-      setCurrentPage(response.page || 1);
-      setPageSize(response.pageSize || 20);
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : '加载调用历史失败';
-      message.error(errMsg);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, pageSize, filters, message]);
+  const fetchData = useCallback(
+    async (page = currentPage, size = pageSize) => {
+      setLoading(true);
+      try {
+        const params = {
+          page,
+          pageSize: size,
+          ...filters,
+        };
+        const response = await listFunctionCalls(params);
+        setDataSource(response.calls || []);
+        setTotal(response.total || 0);
+        setCurrentPage(response.page || 1);
+        setPageSize(response.pageSize || 20);
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : '加载调用历史失败';
+        message.error(errMsg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentPage, pageSize, filters, message],
+  );
 
   // 加载统计数据
   const fetchStats = useCallback(async () => {
@@ -406,7 +409,7 @@ export default () => {
                 });
               } else {
                 const rest = Object.fromEntries(
-                  Object.entries(filters).filter(([k]) => k !== 'start_time' && k !== 'end_time')
+                  Object.entries(filters).filter(([k]) => k !== 'start_time' && k !== 'end_time'),
                 );
                 setFilters(rest);
               }
@@ -451,7 +454,14 @@ export default () => {
               </Descriptions.Item>
               <Descriptions.Item label="状态">
                 <Badge
-                  status={(statusConfig[selectedCall.status]?.color || 'default') as 'success' | 'error' | 'processing' | 'default' | 'warning'}
+                  status={
+                    (statusConfig[selectedCall.status]?.color || 'default') as
+                      | 'success'
+                      | 'error'
+                      | 'processing'
+                      | 'default'
+                      | 'warning'
+                  }
                   text={statusConfig[selectedCall.status]?.text || selectedCall.status}
                 />
               </Descriptions.Item>

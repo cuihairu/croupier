@@ -85,10 +85,7 @@ export default function useDirectoryPage() {
     reload();
   }, [reload]);
 
-  const processedData = useMemo(
-    () => rows,
-    [rows],
-  );
+  const processedData = useMemo(() => rows, [rows]);
 
   const handleViewDetail = useCallback(
     async (record: SummaryRow) => {

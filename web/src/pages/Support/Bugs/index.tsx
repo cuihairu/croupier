@@ -115,15 +115,19 @@ export default function SupportBugsPage() {
 
   const priTag = (v?: string) => {
     if (!v) return '-';
-    return <Tag color={isTicketPriority(v) ? priorityColors[v] : 'default'}>
-      {isTicketPriority(v) ? priorityLabels[v] : v}
-    </Tag>;
+    return (
+      <Tag color={isTicketPriority(v) ? priorityColors[v] : 'default'}>
+        {isTicketPriority(v) ? priorityLabels[v] : v}
+      </Tag>
+    );
   };
   const stTag = (v?: string) => {
     if (!v) return '-';
-    return <Tag color={isTicketStatus(v) ? statusColors[v] : 'default'}>
-      {isTicketStatus(v) ? statusLabels[v] : v}
-    </Tag>;
+    return (
+      <Tag color={isTicketStatus(v) ? statusColors[v] : 'default'}>
+        {isTicketStatus(v) ? statusLabels[v] : v}
+      </Tag>
+    );
   };
 
   const openAdd = () => {
@@ -238,7 +242,10 @@ export default function SupportBugsPage() {
             { title: '严重级别', dataIndex: 'priority', render: priTag },
             { title: '状态', dataIndex: 'status', render: stTag },
             { title: '处理人', dataIndex: 'assignee' },
-            { title: '游戏/环境', render: (_, r: SupportTicket) => `${r.game_id || ''}/${r.env || ''}` },
+            {
+              title: '游戏/环境',
+              render: (_, r: SupportTicket) => `${r.game_id || ''}/${r.env || ''}`,
+            },
             {
               title: '更新时间',
               dataIndex: 'updated_at',

@@ -90,9 +90,9 @@ export default function useFunctionDetailPage(functionId?: string) {
     const requestBody = openapiOperation?.requestBody;
     const bodySchema =
       requestBody && typeof requestBody === 'object' && 'content' in requestBody
-        ? ((requestBody as { content?: Record<string, { schema?: JSONSchema }> }).content?.[
+        ? (requestBody as { content?: Record<string, { schema?: JSONSchema }> }).content?.[
             'application/json'
-          ]?.schema)
+          ]?.schema
         : undefined;
     return (
       parseMaybeJSON(detailDesc?.inputSchema) ||

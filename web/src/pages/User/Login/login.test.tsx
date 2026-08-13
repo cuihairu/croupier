@@ -27,7 +27,11 @@ interface MockServer {
 
 let server: MockServer;
 
-function TestComponent({ onHistoryRef }: { onHistoryRef: (ref: React.MutableRefObject<MemoryHistory | undefined>) => void }) {
+function TestComponent({
+  onHistoryRef,
+}: {
+  onHistoryRef: (ref: React.MutableRefObject<MemoryHistory | undefined>) => void;
+}) {
   const historyRef = useRef<MemoryHistory>();
   React.useEffect(() => {
     onHistoryRef(historyRef);
@@ -57,7 +61,11 @@ describe('Login Page', () => {
   it('should show login form', async () => {
     let historyRef: React.MutableRefObject<MemoryHistory | undefined>;
     const rootContainer = render(
-      <TestComponent onHistoryRef={(ref) => { historyRef = ref; }} />
+      <TestComponent
+        onHistoryRef={(ref) => {
+          historyRef = ref;
+        }}
+      />,
     );
 
     await rootContainer.findAllByText(BRAND.title);
@@ -75,9 +83,7 @@ describe('Login Page', () => {
   });
 
   it('should login success', async () => {
-    const rootContainer = render(
-      <TestComponent onHistoryRef={() => {}} />
-    );
+    const rootContainer = render(<TestComponent onHistoryRef={() => {}} />);
 
     await rootContainer.findAllByText(BRAND.title);
 

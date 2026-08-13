@@ -45,7 +45,9 @@ test.describe('只读资源', () => {
     await waitForTable(page);
 
     // 点击查看详情
-    const detailBtn = page.locator('a:has-text("查看"), button:has-text("查看"), a:has-text("详情")').first();
+    const detailBtn = page
+      .locator('a:has-text("查看"), button:has-text("查看"), a:has-text("详情")')
+      .first();
     if (await detailBtn.isVisible()) {
       await detailBtn.click();
 

@@ -88,7 +88,9 @@ export default function DirectoryPage() {
                 先确认函数能力，再进入 Page Studio 编排页面
               </Typography.Title>
               <Typography.Text type="secondary">
-                函数目录负责 descriptor、入参表单、实例覆盖和调用校验，不决定菜单、页面分类、表格、分页或多函数组合。页面发布后的菜单只来自 PublishedPageSpec。
+                函数目录负责
+                descriptor、入参表单、实例覆盖和调用校验，不决定菜单、页面分类、表格、分页或多函数组合。页面发布后的菜单只来自
+                PublishedPageSpec。
               </Typography.Text>
             </Space>
             <Row gutter={[12, 12]}>
@@ -104,7 +106,8 @@ export default function DirectoryPage() {
                       <Typography.Text strong>当前建议动作</Typography.Text>
                     </Space>
                     <Typography.Text type="secondary">
-                      如果函数能力已经可用，下一步应到资源/页面候选中检查 PageSpec 生成质量，再进入 Page Studio 修改并发布。
+                      如果函数能力已经可用，下一步应到资源/页面候选中检查 PageSpec 生成质量，再进入
+                      Page Studio 修改并发布。
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
                       <Button
@@ -138,7 +141,8 @@ export default function DirectoryPage() {
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Typography.Text strong>这里适合确认什么</Typography.Text>
                     <Typography.Text type="secondary">
-                      重点检查函数是否启用、是否有可调用实例、资源和操作声明是否清晰，以及是否有足够 schema 支撑后续 PageSpec 编排。
+                      重点检查函数是否启用、是否有可调用实例、资源和操作声明是否清晰，以及是否有足够
+                      schema 支撑后续 PageSpec 编排。
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
                       <Badge status="success" text="函数定义与摘要" />
@@ -169,10 +173,7 @@ export default function DirectoryPage() {
           message="函数目录只展示能力供给，不承载页面 UI"
           description="如果目标是做运营人员真正访问的页面，不要在函数层配置菜单或页面布局；请到资源/页面候选中进入 Page Studio。"
           action={
-            <Button
-              type="primary"
-              onClick={() => history.push('/system/functions/resources')}
-            >
+            <Button type="primary" onClick={() => history.push('/system/functions/resources')}>
               查看资源
             </Button>
           }
@@ -274,9 +275,7 @@ export default function DirectoryPage() {
 
             <Card size="small" style={{ marginTop: 16 }}>
               <Space wrap>
-                <Button
-                  onClick={() => history.push('/system/functions/resources')}
-                >
+                <Button onClick={() => history.push('/system/functions/resources')}>
                   查看资源/页面候选
                 </Button>
                 <Button

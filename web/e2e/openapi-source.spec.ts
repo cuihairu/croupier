@@ -25,12 +25,17 @@ test.describe('OpenAPI Source', () => {
     await waitForPageReady(page);
 
     // 检查上传按钮
-    const uploadBtn = page.locator('button:has-text("上传"), button:has-text("导入"), button:has-text("Upload")').first();
+    const uploadBtn = page
+      .locator('button:has-text("上传"), button:has-text("导入"), button:has-text("Upload")')
+      .first();
     if (await uploadBtn.isVisible()) {
       await uploadBtn.click();
 
       // 等待上传对话框
-      await page.locator('.ant-modal, .ant-drawer').first().waitFor({ state: 'visible', timeout: 10000 });
+      await page
+        .locator('.ant-modal, .ant-drawer')
+        .first()
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // 取消上传
       await page.locator('button:has-text("取"), button:has-text("Cancel")').first().click();
@@ -42,12 +47,17 @@ test.describe('OpenAPI Source', () => {
     await waitForPageReady(page);
 
     // 检查绑定按钮
-    const bindBtn = page.locator('button:has-text("绑定"), a:has-text("绑定"), button:has-text("Bind")').first();
+    const bindBtn = page
+      .locator('button:has-text("绑定"), a:has-text("绑定"), button:has-text("Bind")')
+      .first();
     if (await bindBtn.isVisible()) {
       await bindBtn.click();
 
       // 等待绑定对话框
-      await page.locator('.ant-modal, .ant-drawer').first().waitFor({ state: 'visible', timeout: 10000 });
+      await page
+        .locator('.ant-modal, .ant-drawer')
+        .first()
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // 取消绑定
       await page.locator('button:has-text("取"), button:has-text("Cancel")').first().click();

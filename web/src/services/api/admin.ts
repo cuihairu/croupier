@@ -53,7 +53,10 @@ export async function getAdminFunctionPermissions(functionId: string) {
   return res?.permissions || {};
 }
 
-export async function setAdminFunctionPermissions(functionId: string, permissions: Record<string, JSONValue>) {
+export async function setAdminFunctionPermissions(
+  functionId: string,
+  permissions: Record<string, JSONValue>,
+) {
   return request<void>(`/api/v1/functions/${encodeURIComponent(functionId)}/permissions`, {
     method: 'PUT',
     data: permissions,

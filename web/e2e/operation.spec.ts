@@ -34,7 +34,9 @@ test.describe('独立操作', () => {
     }
 
     // 点击执行按钮
-    const submitBtn = page.locator('button:has-text("发送"), button:has-text("执行"), button:has-text("提交")').first();
+    const submitBtn = page
+      .locator('button:has-text("发送"), button:has-text("执行"), button:has-text("提交")')
+      .first();
     if (await submitBtn.isVisible()) {
       await submitBtn.click();
 
@@ -59,7 +61,9 @@ test.describe('独立操作', () => {
       await submitBtn.click();
 
       // 确认弹窗
-      const confirmBtn = page.locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary').first();
+      const confirmBtn = page
+        .locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary')
+        .first();
       if (await confirmBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
         await confirmBtn.click();
       }

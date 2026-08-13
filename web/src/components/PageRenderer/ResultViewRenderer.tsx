@@ -87,10 +87,7 @@ const ResultViewRenderer: React.FC<ResultViewRendererProps> = ({
   return (
     <Descriptions column={1} bordered>
       {resultView.fields.map((field) => (
-        <Descriptions.Item
-          key={field.key}
-          label={displayText(field.title, field.key)}
-        >
+        <Descriptions.Item key={field.key} label={displayText(field.title, field.key)}>
           {renderJSONValueSummary(data[field.key])}
         </Descriptions.Item>
       ))}

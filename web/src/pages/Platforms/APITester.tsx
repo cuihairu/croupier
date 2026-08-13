@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Form,
-  Select,
-  Input,
-  Button,
-  Card,
-  Space,
-  Alert,
-  Spin,
-  Tag,
-} from 'antd';
+import { Form, Select, Input, Button, Card, Space, Alert, Spin, Tag } from 'antd';
 import { PlayCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import type { PlatformInfo } from '@/services/api/platforms';
 import { callPlatform, listPlatformMethods } from '@/services/api/platforms';

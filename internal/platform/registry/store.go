@@ -88,12 +88,17 @@ type Store struct {
 	// contract rebuilds triggered outside an HTTP request.
 	scopeContext func(gameID, env string) context.Context
 	// Contract service for FunctionContract persistence (optional)
-	contractService interface {
-		RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta spec.FunctionContractInput) error
-		RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
-		RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
-		RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
-	}
+	contractService contractMaterializer
+}
+
+// contractMaterializer is the registration-side projection boundary. It keeps
+// registry snapshots independent from persistence and page-generation details.
+type contractMaterializer interface {
+	RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta spec.FunctionContractInput) error
+	RemoveFunctionContract(ctx context.Context, gameID, env, functionID string) (resourceKey string, err error)
+	RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
+	RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
+	RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
 }
 
 type FunctionRegistrationWarning struct {
@@ -150,13 +155,15 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 }
 
 // SetContractService sets the contract service for FunctionContract persistence.
-func (s *Store) SetContractService(svc interface {
-	RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta spec.FunctionContractInput) error
-	RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
-	RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
-	RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
-}) {
+func (s *Store) SetContractService(svc contractMaterializer) {
 	s.contractService = svc
+}
+
+// SessionPersistenceEnabled reports whether the registry itself persists
+// AgentSession records. ControlService uses this to avoid writing the same
+// session twice when it also receives an AgentSessionLoader.
+func (s *Store) SessionPersistenceEnabled() bool {
+	return s != nil && s.db != nil
 }
 
 // SetScopeContextResolver configures how background registration rebuilds
@@ -185,13 +192,7 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	if err := validateAgentFunctionContracts(a.Functions); err != nil {
 		return err
 	}
-
-	// Dual-write: database first (if enabled)
-	if s.db != nil {
-		if err := s.writeToDB(context.Background(), a); err != nil {
-			return fmt.Errorf("write agent session to database: %w", err)
-		}
-	}
+	previous := s.previousFunctions(a.AgentID)
 
 	// Rebuild FunctionContracts if contract service is available
 	if s.contractService != nil && a.Functions != nil {
@@ -199,41 +200,32 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 		var rebuildErrors []error
 		resources := make(map[string]bool)
 		standaloneFunctions := make(map[string]bool)
-		for funcID, meta := range a.Functions {
-			// Infer Resource/Operation/Capability from function ID when not provided.
-			InferResourceAndCapability(funcID, &meta)
-
-			input := spec.FunctionContractInput{
-				ID:                funcID,
-				Version:           meta.Version,
-				Enabled:           meta.Enabled,
-				Deprecated:        meta.Deprecated,
-				Summary:           meta.Summary,
-				Description:       meta.Description,
-				InputSchema:       meta.InputSchema,
-				OutputSchema:      meta.OutputSchema,
-				Resource:          meta.Resource,
-				Operation:         meta.Operation,
-				Capability:        meta.Capability,
-				Execution:         meta.Execution,
-				ApprovalRequired:  meta.ApprovalRequired,
-				ApprovalPolicyKey: meta.ApprovalPolicyKey,
-				Risk:              meta.Risk,
-				Permission:        meta.Permission,
-				Tags:              meta.Tags,
+		for _, funcID := range sortedFunctionIDs(a.Functions) {
+			meta := a.Functions[funcID]
+			if err := s.rebuildFunctionContract(scopeCtx, a.GameID, a.Env, funcID, meta, resources, standaloneFunctions); err != nil {
+				rebuildErrors = append(rebuildErrors, err)
 			}
-			if err := s.contractService.RebuildContractFromFunctionMeta(scopeCtx, a.GameID, a.Env, "sdk", input); err != nil {
-				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild function contract %s: %w", funcID, err))
-			}
-
-			// Collect unique resources from the inferred meta (not the original).
-			if meta.Resource != "" {
-				resources[meta.Resource] = true
-			} else {
-				standaloneFunctions[funcID] = true
+			if previousMeta, ok := previous[funcID]; ok && previousMeta.Resource != "" {
+				resources[previousMeta.Resource] = true
 			}
 		}
-		for resource := range resources {
+		for _, functionID := range removedFunctionIDs(previous, a.Functions) {
+			if meta, ok := s.survivingFunctionMeta(a.AgentID, a.GameID, a.Env, functionID); ok {
+				if err := s.rebuildFunctionContract(scopeCtx, a.GameID, a.Env, functionID, meta, resources, standaloneFunctions); err != nil {
+					rebuildErrors = append(rebuildErrors, err)
+				}
+				continue
+			}
+			resourceKey, err := s.contractService.RemoveFunctionContract(scopeCtx, a.GameID, a.Env, functionID)
+			if err != nil {
+				rebuildErrors = append(rebuildErrors, fmt.Errorf("remove function contract %s: %w", functionID, err))
+				continue
+			}
+			if resourceKey != "" {
+				resources[resourceKey] = true
+			}
+		}
+		for _, resource := range sortedStringSet(resources) {
 			if err := s.contractService.RebuildResourceCapability(scopeCtx, a.GameID, a.Env, resource); err != nil {
 				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild resource capability %s: %w", resource, err))
 				continue
@@ -242,13 +234,21 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild page proposals for %s: %w", resource, err))
 			}
 		}
-		for functionID := range standaloneFunctions {
+		for _, functionID := range sortedStringSet(standaloneFunctions) {
 			if err := s.contractService.RebuildProposalForFunction(scopeCtx, a.GameID, a.Env, functionID); err != nil {
 				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild standalone page proposal %s: %w", functionID, err))
 			}
 		}
 		if len(rebuildErrors) > 0 {
 			return fmt.Errorf("agent registration contract rebuild failed: %w", errors.Join(rebuildErrors...))
+		}
+	}
+
+	// Persist only after contract/proposal materialization succeeds. The
+	// in-memory snapshot is likewise updated only after durable persistence.
+	if s.db != nil {
+		if err := s.writeToDB(context.Background(), a); err != nil {
+			return fmt.Errorf("write agent session to database: %w", err)
 		}
 	}
 
@@ -282,6 +282,117 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	cur.ExpireAt = a.ExpireAt
 	cur.LastSeen = a.LastSeen
 	return nil
+}
+
+func (s *Store) rebuildFunctionContract(
+	ctx context.Context,
+	gameID string,
+	env string,
+	functionID string,
+	meta FunctionMeta,
+	resources map[string]bool,
+	standaloneFunctions map[string]bool,
+) error {
+	input := spec.FunctionContractInput{
+		ID:                functionID,
+		Version:           meta.Version,
+		Enabled:           meta.Enabled,
+		Deprecated:        meta.Deprecated,
+		Summary:           meta.Summary,
+		Description:       meta.Description,
+		InputSchema:       meta.InputSchema,
+		OutputSchema:      meta.OutputSchema,
+		Resource:          meta.Resource,
+		Operation:         meta.Operation,
+		Capability:        meta.Capability,
+		Execution:         meta.Execution,
+		ApprovalRequired:  meta.ApprovalRequired,
+		ApprovalPolicyKey: meta.ApprovalPolicyKey,
+		Risk:              meta.Risk,
+		Permission:        meta.Permission,
+		Tags:              meta.Tags,
+	}
+	if err := s.contractService.RebuildContractFromFunctionMeta(ctx, gameID, env, "sdk", input); err != nil {
+		return fmt.Errorf("rebuild function contract %s: %w", functionID, err)
+	}
+	if meta.Resource != "" {
+		resources[meta.Resource] = true
+	} else {
+		standaloneFunctions[functionID] = true
+	}
+	return nil
+}
+
+func (s *Store) previousFunctions(agentID string) map[string]FunctionMeta {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	current := s.agents[agentID]
+	if current == nil || current.Functions == nil {
+		return nil
+	}
+	functions := make(map[string]FunctionMeta, len(current.Functions))
+	for functionID, meta := range current.Functions {
+		functions[functionID] = meta
+	}
+	return functions
+}
+
+func (s *Store) survivingFunctionMeta(agentID, gameID, env, functionID string) (FunctionMeta, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	agentIDs := make([]string, 0, len(s.agents))
+	for id := range s.agents {
+		agentIDs = append(agentIDs, id)
+	}
+	sort.Strings(agentIDs)
+	for _, id := range agentIDs {
+		if id == agentID {
+			continue
+		}
+		session := s.agents[id]
+		if session == nil || session.GameID != gameID || session.Env != env {
+			continue
+		}
+		meta, ok := session.Functions[functionID]
+		if ok {
+			return meta, true
+		}
+	}
+	return FunctionMeta{}, false
+}
+
+func sortedFunctionIDs(functions map[string]FunctionMeta) []string {
+	ids := make([]string, 0, len(functions))
+	for functionID := range functions {
+		ids = append(ids, functionID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func removedFunctionIDs(previous, current map[string]FunctionMeta) []string {
+	if current == nil {
+		return nil
+	}
+	removed := make([]string, 0)
+	for functionID := range previous {
+		if _, ok := current[functionID]; !ok {
+			removed = append(removed, functionID)
+		}
+	}
+	sort.Strings(removed)
+	return removed
+}
+
+func sortedStringSet(values map[string]bool) []string {
+	items := make([]string, 0, len(values))
+	for value := range values {
+		if value != "" {
+			items = append(items, value)
+		}
+	}
+	sort.Strings(items)
+	return items
 }
 
 // validateAgentFunctionContracts keeps the registry write boundary aligned

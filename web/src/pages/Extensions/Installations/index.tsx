@@ -86,9 +86,9 @@ export default function ExtensionsInstallationsPage() {
     undefined,
   );
   const [detailBindings, setDetailBindings] = useState<ExtensionBindingItem[]>([]);
-  const [detailConfigSchema, setDetailConfigSchema] = useState<Record<string, JSONValue> | undefined>(
-    undefined,
-  );
+  const [detailConfigSchema, setDetailConfigSchema] = useState<
+    Record<string, JSONValue> | undefined
+  >(undefined);
   const [detailConfig, setDetailConfig] = useState('{}');
   const [detailSecretRefs, setDetailSecretRefs] = useState('{}');
   const [savingConfig, setSavingConfig] = useState(false);

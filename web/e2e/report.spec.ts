@@ -15,9 +15,21 @@ test.describe('报表', () => {
     await waitForPageReady(page);
 
     // 验证页面加载（表单或其他内容）
-    const hasForm = await page.locator('.ant-form, form').first().isVisible({ timeout: 5000 }).catch(() => false);
-    const hasCard = await page.locator('.ant-card').first().isVisible({ timeout: 5000 }).catch(() => false);
-    const hasContent = await page.locator('main, .ant-layout-content').first().isVisible({ timeout: 5000 }).catch(() => false);
+    const hasForm = await page
+      .locator('.ant-form, form')
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    const hasCard = await page
+      .locator('.ant-card')
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    const hasContent = await page
+      .locator('main, .ant-layout-content')
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
     // 页面应该有内容
     expect(hasForm || hasCard || hasContent).toBeTruthy();
@@ -39,7 +51,9 @@ test.describe('报表', () => {
     }
 
     // 点击查询
-    const queryBtn = page.locator('button:has-text("查询"), button:has-text("搜索"), button:has-text("Query")').first();
+    const queryBtn = page
+      .locator('button:has-text("查询"), button:has-text("搜索"), button:has-text("Query")')
+      .first();
     if (await queryBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await queryBtn.click();
       await page.waitForTimeout(2000);
@@ -51,7 +65,11 @@ test.describe('报表', () => {
     await waitForPageReady(page);
 
     // 验证页面加载
-    const hasContent = await page.locator('.ant-form, form, .ant-card, main').first().isVisible({ timeout: 5000 }).catch(() => false);
+    const hasContent = await page
+      .locator('.ant-form, form, .ant-card, main')
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
     expect(hasContent).toBeTruthy();
   });
 
@@ -64,7 +82,11 @@ test.describe('报表', () => {
     const hasExport = await exportBtn.isVisible({ timeout: 3000 }).catch(() => false);
 
     // 页面应该正常加载
-    const hasContent = await page.locator('.ant-form, form, .ant-card, main').first().isVisible({ timeout: 5000 }).catch(() => false);
+    const hasContent = await page
+      .locator('.ant-form, form, .ant-card, main')
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
     expect(hasContent).toBeTruthy();
   });
 });

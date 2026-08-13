@@ -252,7 +252,7 @@ function buildFAQPayload(data: FAQPayload): Record<string, JSONValue> {
     ...data,
     tags: splitTags(data.tags),
     visible: typeof data.visible === 'boolean' ? data.visible : Boolean(data.visible),
-    sort: typeof data.sort === 'string' ? Number(data.sort) || 0 : data.sort ?? 0,
+    sort: typeof data.sort === 'string' ? Number(data.sort) || 0 : (data.sort ?? 0),
   };
 }
 
@@ -269,19 +269,21 @@ function buildFeedbackPayload(data: FeedbackPayload): Record<string, JSONValue> 
 // ---------------------------------------------------------------------------
 
 export async function listTickets(params?: TicketListParams) {
-  const resp = await request<{ items?: Record<string, JSONValue>[]; total?: number; page?: number; pageSize?: number }>(
-    TICKETS_BASE,
-    {
-      params: {
-        page: params?.page,
-        pageSize: params?.pageSize || params?.size,
-        status: params?.status,
-        category: params?.category,
-        priority: params?.priority,
-        assignee: params?.assignee,
-      },
+  const resp = await request<{
+    items?: Record<string, JSONValue>[];
+    total?: number;
+    page?: number;
+    pageSize?: number;
+  }>(TICKETS_BASE, {
+    params: {
+      page: params?.page,
+      pageSize: params?.pageSize || params?.size,
+      status: params?.status,
+      category: params?.category,
+      priority: params?.priority,
+      assignee: params?.assignee,
     },
-  );
+  });
   const tickets = toArray(resp?.items).map(normalizeTicket);
   return {
     tickets,
@@ -293,7 +295,10 @@ export async function listTickets(params?: TicketListParams) {
 }
 
 export async function createTicket(data: TicketPayload) {
-  const resp = await request<Record<string, JSONValue>>(TICKETS_BASE, { method: 'POST', data: buildTicketPayload(data) });
+  const resp = await request<Record<string, JSONValue>>(TICKETS_BASE, {
+    method: 'POST',
+    data: buildTicketPayload(data),
+  });
   return normalizeTicket(resp);
 }
 
@@ -319,7 +324,10 @@ export async function getTicket(id: string | number) {
 }
 
 export async function listTicketComments(id: string | number) {
-  const resp = await request<{ items?: Record<string, JSONValue>[]; comments?: Record<string, JSONValue>[] }>(`${TICKETS_BASE}/${id}/comments`);
+  const resp = await request<{
+    items?: Record<string, JSONValue>[];
+    comments?: Record<string, JSONValue>[];
+  }>(`${TICKETS_BASE}/${id}/comments`);
   const comments = toArray(resp?.items ?? resp?.comments).map(normalizeComment);
   return { comments, items: comments };
 }
@@ -328,13 +336,13 @@ export async function addTicketComment(
   id: string | number,
   data: { content: string; attach?: JSONValue; note?: string },
 ) {
-  const resp = await request<{ items?: Record<string, JSONValue>[]; comments?: Record<string, JSONValue>[] }>(
-    `${TICKETS_BASE}/${id}/comments`,
-    {
-      method: 'POST',
-      data: { content: data.content },
-    },
-  );
+  const resp = await request<{
+    items?: Record<string, JSONValue>[];
+    comments?: Record<string, JSONValue>[];
+  }>(`${TICKETS_BASE}/${id}/comments`, {
+    method: 'POST',
+    data: { content: data.content },
+  });
   const comments = toArray(resp?.items ?? resp?.comments).map(normalizeComment);
   return { comments, items: comments };
 }
@@ -357,18 +365,20 @@ export async function transitionTicket(
 // ---------------------------------------------------------------------------
 
 export async function listFAQ(params?: FAQListParams) {
-  const resp = await request<{ items?: Record<string, JSONValue>[]; total?: number; page?: number; pageSize?: number }>(
-    FAQ_BASE,
-    {
-      params: {
-        page: params?.page,
-        pageSize: params?.pageSize || params?.size,
-        category: params?.category,
-        keyword: params?.keyword ?? params?.q,
-        visible: parseVisible(params?.visible),
-      },
+  const resp = await request<{
+    items?: Record<string, JSONValue>[];
+    total?: number;
+    page?: number;
+    pageSize?: number;
+  }>(FAQ_BASE, {
+    params: {
+      page: params?.page,
+      pageSize: params?.pageSize || params?.size,
+      category: params?.category,
+      keyword: params?.keyword ?? params?.q,
+      visible: parseVisible(params?.visible),
     },
-  );
+  });
   const faq = toArray(resp?.items).map(normalizeFAQ);
   return {
     faq,
@@ -380,7 +390,10 @@ export async function listFAQ(params?: FAQListParams) {
 }
 
 export async function createFAQ(data: FAQPayload) {
-  const resp = await request<Record<string, JSONValue>>(FAQ_BASE, { method: 'POST', data: buildFAQPayload(data) });
+  const resp = await request<Record<string, JSONValue>>(FAQ_BASE, {
+    method: 'POST',
+    data: buildFAQPayload(data),
+  });
   return normalizeFAQ(resp);
 }
 
@@ -401,18 +414,20 @@ export async function deleteFAQ(id: number) {
 // ---------------------------------------------------------------------------
 
 export async function listFeedback(params?: FeedbackListParams) {
-  const resp = await request<{ items?: Record<string, JSONValue>[]; total?: number; page?: number; pageSize?: number }>(
-    FEEDBACK_BASE,
-    {
-      params: {
-        page: params?.page,
-        pageSize: params?.pageSize || params?.size,
-        status: params?.status,
-        category: params?.category,
-        gameId: params?.gameId ?? params?.game_id,
-      },
+  const resp = await request<{
+    items?: Record<string, JSONValue>[];
+    total?: number;
+    page?: number;
+    pageSize?: number;
+  }>(FEEDBACK_BASE, {
+    params: {
+      page: params?.page,
+      pageSize: params?.pageSize || params?.size,
+      status: params?.status,
+      category: params?.category,
+      gameId: params?.gameId ?? params?.game_id,
     },
-  );
+  });
   const feedback = toArray(resp?.items).map(normalizeFeedback);
   return {
     feedback,

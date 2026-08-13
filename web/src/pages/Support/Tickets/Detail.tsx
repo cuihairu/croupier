@@ -50,10 +50,30 @@ interface InitialState {
   };
 }
 
-const priColorMap: Record<string, string> = { urgent: 'red', high: 'volcano', normal: 'blue', low: 'default' };
-const priTextMap: Record<string, string> = { urgent: '紧急', high: '高', normal: '普通', low: '低' };
-const stColorMap: Record<string, string> = { open: 'gold', in_progress: 'blue', resolved: 'green', closed: 'default' };
-const stTextMap: Record<string, string> = { open: '打开', in_progress: '处理中', resolved: '已解决', closed: '已关闭' };
+const priColorMap: Record<string, string> = {
+  urgent: 'red',
+  high: 'volcano',
+  normal: 'blue',
+  low: 'default',
+};
+const priTextMap: Record<string, string> = {
+  urgent: '紧急',
+  high: '高',
+  normal: '普通',
+  low: '低',
+};
+const stColorMap: Record<string, string> = {
+  open: 'gold',
+  in_progress: 'blue',
+  resolved: 'green',
+  closed: 'default',
+};
+const stTextMap: Record<string, string> = {
+  open: '打开',
+  in_progress: '处理中',
+  resolved: '已解决',
+  closed: '已关闭',
+};
 
 export default function TicketDetailPage() {
   const { id } = useParams();
@@ -82,7 +102,7 @@ export default function TicketDetailPage() {
       };
       setFiles((prev) => [...prev, next]);
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       getMessage()?.error(errMsg || '上传失败');
     }
   };
@@ -111,14 +131,18 @@ export default function TicketDetailPage() {
   const submitComment = async () => {
     try {
       const attach = files
-        .map((f) => ({ name: f.name, url: f.url || (f.response as { URL?: string })?.URL, key: (f.response as { Key?: string })?.Key }))
+        .map((f) => ({
+          name: f.name,
+          url: f.url || (f.response as { URL?: string })?.URL,
+          key: (f.response as { Key?: string })?.Key,
+        }))
         .filter((x) => x.url);
       await addTicketComment(mid, { content: cmt, attach: JSON.stringify(attach) });
       setCmt('');
       setFiles([]);
       load();
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       getMessage()?.error(errMsg || '评论失败');
     }
   };
@@ -134,7 +158,7 @@ export default function TicketDetailPage() {
       setTransComment('');
       load();
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       getMessage()?.error(errMsg || '流转失败');
     }
   };
@@ -164,7 +188,7 @@ export default function TicketDetailPage() {
       setEditOpen(false);
       load();
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       getMessage()?.error(errMsg || '更新失败');
     }
   };
@@ -190,7 +214,7 @@ export default function TicketDetailPage() {
       getMessage()?.success('已指派给我');
       load();
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       getMessage()?.error(errMsg || '指派失败');
     }
   };

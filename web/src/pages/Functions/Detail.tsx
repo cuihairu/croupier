@@ -50,7 +50,9 @@ export default function FunctionDetailPage() {
     handleSavePermissions,
   } = useFunctionDetailPage(params.id);
   const pageStudioPath = '/system/functions/resources';
-  const invokePath = params.id ? `/system/functions/invoke?fid=${encodeURIComponent(params.id)}` : '';
+  const invokePath = params.id
+    ? `/system/functions/invoke?fid=${encodeURIComponent(params.id)}`
+    : '';
 
   const buildSearch = (tab: string, subTab?: string) => {
     const search = new URLSearchParams(location.search);
@@ -168,9 +170,7 @@ export default function FunctionDetailPage() {
       subTitle="这里处理单个函数的能力定义与契约核对；页面、菜单和分类在 Page Studio 中确定。"
       extra={[
         <Space key="actions">
-          <Button onClick={() => history.push(pageStudioPath)}>
-            查看资源/页面候选
-          </Button>
+          <Button onClick={() => history.push(pageStudioPath)}>查看资源/页面候选</Button>
           {FUNCTION_DETAIL_SCHEMA.actions.map((action) => (
             <Button
               key={action.key}
@@ -238,7 +238,8 @@ export default function FunctionDetailPage() {
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Typography.Text strong>当前建议动作</Typography.Text>
                     <Typography.Text type="secondary">
-                      函数能力确认无误后，下一步应该去资源/页面候选检查 PageSpec 质量，而不是把这里当成最终业务界面。
+                      函数能力确认无误后，下一步应该去资源/页面候选检查 PageSpec
+                      质量，而不是把这里当成最终业务界面。
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
                       <Button
@@ -268,7 +269,8 @@ export default function FunctionDetailPage() {
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Typography.Text strong>这里适合确认什么</Typography.Text>
                     <Typography.Text type="secondary">
-                      重点检查函数摘要、入参 schema、资源/操作归属、权限、调用历史和告警配置，确认它是否足够稳定地支撑后续页面装配与发布验证。
+                      重点检查函数摘要、入参
+                      schema、资源/操作归属、权限、调用历史和告警配置，确认它是否足够稳定地支撑后续页面装配与发布验证。
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
                       <Badge status="processing" text="函数定义与 schema" />

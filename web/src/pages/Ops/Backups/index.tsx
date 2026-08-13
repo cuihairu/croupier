@@ -43,7 +43,7 @@ export default function OpsBackupsPage() {
       message.success('已删除');
       load();
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "操作失败";
+      const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '失败');
     }
   };

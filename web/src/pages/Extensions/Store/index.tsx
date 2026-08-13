@@ -123,9 +123,9 @@ export default function ExtensionsStorePage() {
   const [installOpen, setInstallOpen] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [installItem, setInstallItem] = useState<ExtensionCatalogItem | undefined>(undefined);
-  const [installConfigSchema, setInstallConfigSchema] = useState<Record<string, JSONValue> | undefined>(
-    undefined,
-  );
+  const [installConfigSchema, setInstallConfigSchema] = useState<
+    Record<string, JSONValue> | undefined
+  >(undefined);
   const [installForm] = Form.useForm<InstallFormValues>();
 
   const loadCatalog = useCallback(async () => {

@@ -30,6 +30,14 @@ func (p *registrationContractPipeline) RebuildContractFromFunctionMeta(ctx conte
 	return contractSvc.RebuildContractFromFunctionMeta(ctx, gameID, env, source, meta)
 }
 
+func (p *registrationContractPipeline) RemoveFunctionContract(ctx context.Context, gameID, env, functionID string) (string, error) {
+	contractSvc, err := p.contractService(ctx, gameID, env)
+	if err != nil {
+		return "", err
+	}
+	return contractSvc.RemoveFunctionContract(ctx, gameID, env, functionID)
+}
+
 func (p *registrationContractPipeline) RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {
 	contractSvc, err := p.contractService(ctx, gameID, env)
 	if err != nil {

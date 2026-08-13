@@ -33,20 +33,23 @@ export default function OpsCertificatesPage() {
   const [status, setStatus] = useState<string>('');
   const [addOpen, setAddOpen] = useState(false);
 
-  const load = useCallback(async (p = page, s = size, st = status) => {
-    setLoading(true);
-    try {
-      const r = await listCertificates({ page: p, size: s, status: st });
-      setRows(r.certificates || []);
-      setTotal(r.total || 0);
-      setPage(r.page || p);
-      setSize(r.size || s);
-    } catch {
-      message.error('加载失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, size, status, message]);
+  const load = useCallback(
+    async (p = page, s = size, st = status) => {
+      setLoading(true);
+      try {
+        const r = await listCertificates({ page: p, size: s, status: st });
+        setRows(r.certificates || []);
+        setTotal(r.total || 0);
+        setPage(r.page || p);
+        setSize(r.size || s);
+      } catch {
+        message.error('加载失败');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [page, size, status, message],
+  );
   useEffect(() => {
     load(1, size, status);
   }, [load, size, status]);

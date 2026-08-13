@@ -12,27 +12,30 @@ export default function OperationLogsPage() {
   );
   const [ip, setIP] = useState<string>('');
   // 默认展示常见操作类事件，不含登录
-  const defaultKinds = useMemo(() => [
-    'invoke',
-    'start_job',
-    'cancel_job',
-    'assignments.update',
-    'user_create',
-    'user_update',
-    'user_delete',
-    'user_set_password',
-    'user_set_games',
-    'message_send',
-    'message_broadcast',
-    'approval_approve',
-    'approval_reject',
-    // support ops
-    'support.ticket_create',
-    'support.ticket_update',
-    'support.ticket_delete',
-    'support.ticket_comment',
-    'support.ticket_transition',
-  ], []);
+  const defaultKinds = useMemo(
+    () => [
+      'invoke',
+      'start_job',
+      'cancel_job',
+      'assignments.update',
+      'user_create',
+      'user_update',
+      'user_delete',
+      'user_set_password',
+      'user_set_games',
+      'message_send',
+      'message_broadcast',
+      'approval_approve',
+      'approval_reject',
+      // support ops
+      'support.ticket_create',
+      'support.ticket_update',
+      'support.ticket_delete',
+      'support.ticket_comment',
+      'support.ticket_transition',
+    ],
+    [],
+  );
   const [kinds, setKinds] = useState<string[]>(defaultKinds);
   const [timeRange, setTimeRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [page, setPage] = useState<number>(1);

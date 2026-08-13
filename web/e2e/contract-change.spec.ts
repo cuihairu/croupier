@@ -15,7 +15,9 @@ test.describe('契约变化', () => {
     await waitForPageReady(page);
 
     // 检查是否有 stale 警告
-    const staleAlert = page.locator('text=页面绑定的函数契约已变化, text=stale, text=契约变化').first();
+    const staleAlert = page
+      .locator('text=页面绑定的函数契约已变化, text=stale, text=契约变化')
+      .first();
     const hasStale = await staleAlert.isVisible().catch(() => false);
 
     if (hasStale) {
@@ -42,8 +44,16 @@ test.describe('契约变化', () => {
     await page.waitForTimeout(2000);
 
     // 检查页面状态
-    const hasError = await page.locator('.ant-result-error, text=加载失败').first().isVisible().catch(() => false);
-    const hasTable = await page.locator('.ant-pro-table, .ant-table').first().isVisible().catch(() => false);
+    const hasError = await page
+      .locator('.ant-result-error, text=加载失败')
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const hasTable = await page
+      .locator('.ant-pro-table, .ant-table')
+      .first()
+      .isVisible()
+      .catch(() => false);
 
     // 页面应该正常加载（有表格或有错误提示）
     expect(hasTable || hasError).toBeTruthy();

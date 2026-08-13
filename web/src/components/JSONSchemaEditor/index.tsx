@@ -309,7 +309,9 @@ const InlinePropertyEditor: React.FC<{
               placeholder="Items Type"
               value={config.items?.type}
               onChange={(type) => {
-                updateConfig({ items: type ? { type: type as PropertyConfig['type'] } : undefined });
+                updateConfig({
+                  items: type ? { type: type as PropertyConfig['type'] } : undefined,
+                });
               }}
               style={{ width: 120 }}
             >
@@ -438,12 +440,12 @@ const ObjectPropertyEditor: React.FC<{
                     config.type === 'string'
                       ? 'blue'
                       : config.type === 'number'
-                      ? 'green'
-                      : config.type === 'boolean'
-                      ? 'orange'
-                      : config.type === 'array'
-                      ? 'purple'
-                      : 'geekblue'
+                        ? 'green'
+                        : config.type === 'boolean'
+                          ? 'orange'
+                          : config.type === 'array'
+                            ? 'purple'
+                            : 'geekblue'
                   }
                 >
                   {config.type}
@@ -570,11 +572,43 @@ export default function JSONSchemaEditor({ value, onChange }: JSONSchemaEditorPr
             trigger={['click']}
             menu={{
               items: [
-                { key: 'player', label: <Space><FunctionOutlined /> Player Entity</Space>, onClick: () => loadTemplate('player') },
-                { key: 'item', label: <Space><AppstoreOutlined /> Item Entity</Space>, onClick: () => loadTemplate('item') },
-                { key: 'guild', label: <Space><SettingOutlined /> Guild Entity</Space>, onClick: () => loadTemplate('guild') },
+                {
+                  key: 'player',
+                  label: (
+                    <Space>
+                      <FunctionOutlined /> Player Entity
+                    </Space>
+                  ),
+                  onClick: () => loadTemplate('player'),
+                },
+                {
+                  key: 'item',
+                  label: (
+                    <Space>
+                      <AppstoreOutlined /> Item Entity
+                    </Space>
+                  ),
+                  onClick: () => loadTemplate('item'),
+                },
+                {
+                  key: 'guild',
+                  label: (
+                    <Space>
+                      <SettingOutlined /> Guild Entity
+                    </Space>
+                  ),
+                  onClick: () => loadTemplate('guild'),
+                },
                 { type: 'divider' as const },
-                { key: 'basic', label: <Space><FileTextOutlined /> Basic Entity</Space>, onClick: () => loadTemplate('basic') },
+                {
+                  key: 'basic',
+                  label: (
+                    <Space>
+                      <FileTextOutlined /> Basic Entity
+                    </Space>
+                  ),
+                  onClick: () => loadTemplate('basic'),
+                },
               ],
             }}
           >

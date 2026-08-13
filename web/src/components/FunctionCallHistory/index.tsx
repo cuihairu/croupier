@@ -149,14 +149,17 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
     return new Date(dateString).toLocaleString('zh-CN');
   };
 
-  const decorateCall = useCallback((call: FunctionCall): FunctionCallView => ({
-    ...call,
-    durationText: formatDuration(call.durationMs),
-    startedText: formatDate(call.startedAt || call.createdAt),
-    completedText: call.finishedAt ? formatDate(call.finishedAt) : '-',
-    actorText: call.actorId || '-',
-    errorText: call.errorMessage,
-  }), []);
+  const decorateCall = useCallback(
+    (call: FunctionCall): FunctionCallView => ({
+      ...call,
+      durationText: formatDuration(call.durationMs),
+      startedText: formatDate(call.startedAt || call.createdAt),
+      completedText: call.finishedAt ? formatDate(call.finishedAt) : '-',
+      actorText: call.actorId || '-',
+      errorText: call.errorMessage,
+    }),
+    [],
+  );
 
   const processedCalls = useMemo(() => {
     return calls.map(decorateCall);

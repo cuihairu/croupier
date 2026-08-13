@@ -127,6 +127,14 @@ func (m *ResourceCapabilityModel) ListByScope(ctx context.Context, gameID, env s
 	return caps, nil
 }
 
+// DeleteByScopeAndResourceKey removes the derived capability when no
+// executable contracts remain for the resource in this scope.
+func (m *ResourceCapabilityModel) DeleteByScopeAndResourceKey(ctx context.Context, gameID, env, resourceKey string) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND resource_key = ?", gameID, env, resourceKey).
+		Delete(&ResourceCapability{}).Error
+}
+
 // CapabilitySemanticsModel wraps data access for capability semantics.
 type CapabilitySemanticsModel struct {
 	db *gorm.DB
@@ -182,6 +190,15 @@ func (m *CapabilitySemanticsModel) ListByScope(ctx context.Context, gameID, env 
 // Update updates a capability semantics record.
 func (m *CapabilitySemanticsModel) Update(ctx context.Context, sem *CapabilitySemantics) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Save(sem).Error
+}
+
+// DeleteByScopeAndResourceKey removes the current semantic aggregate when
+// the resource has no remaining contracts. Historical semantic versions are
+// intentionally retained for auditability.
+func (m *CapabilitySemanticsModel) DeleteByScopeAndResourceKey(ctx context.Context, gameID, env, resourceKey string) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND resource_key = ?", gameID, env, resourceKey).
+		Delete(&CapabilitySemantics{}).Error
 }
 
 // CapabilitySemanticVersionModel wraps data access for semantic versions.

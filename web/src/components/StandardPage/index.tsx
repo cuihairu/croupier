@@ -209,7 +209,11 @@ export function PageStatePanel({
           </Typography.Title>
           <Typography.Text type="secondary">{description}</Typography.Text>
         </Space>
-        {actions ? <Space wrap size={[8, 8]}>{actions}</Space> : null}
+        {actions ? (
+          <Space wrap size={[8, 8]}>
+            {actions}
+          </Space>
+        ) : null}
       </Space>
     </Card>
   );

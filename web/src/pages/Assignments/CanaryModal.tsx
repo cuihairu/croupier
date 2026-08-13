@@ -1,9 +1,7 @@
 import React from 'react';
 import { Modal } from 'antd';
 import type { AssignmentItem } from './types';
-import SchemaFormRenderer, {
-  type SchemaFormRendererHandle,
-} from '@/components/SchemaFormRenderer';
+import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import type { FormValues } from '@/types/dashboard';
 import { CANARY_FORM_SPEC } from './schemas';
 

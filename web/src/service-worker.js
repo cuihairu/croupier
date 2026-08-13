@@ -1,5 +1,3 @@
- 
- 
 /* globals workbox */
 workbox.core.setCacheNameDetails({
   prefix: 'antd-pro',

@@ -3,7 +3,10 @@ import React from 'react';
 import type { JSONValue } from '@/types/dashboard';
 
 // Renderer function type
-type Renderer = (props: { data: JSONValue; options?: Record<string, JSONValue> }) => React.ReactNode;
+type Renderer = (props: {
+  data: JSONValue;
+  options?: Record<string, JSONValue>;
+}) => React.ReactNode;
 
 // Registry of renderers
 const renderers: Record<string, Renderer> = {};

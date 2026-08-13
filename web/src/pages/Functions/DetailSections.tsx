@@ -161,15 +161,15 @@ export function BasicInfoTab({
               functionDetail?.health === 'healthy'
                 ? 'green'
                 : functionDetail?.health === 'unhealthy'
-                ? 'red'
-                : 'gray'
+                  ? 'red'
+                  : 'gray'
             }
           >
             {functionDetail?.health === 'healthy'
               ? '健康'
               : functionDetail?.health === 'unhealthy'
-              ? '异常'
-              : '未知'}
+                ? '异常'
+                : '未知'}
           </Tag>
         </Descriptions.Item>
         <Descriptions.Item label="Agent 数量">{functionDetail?.agentCount || 0}</Descriptions.Item>

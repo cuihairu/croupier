@@ -31,8 +31,8 @@ export default function AnalyticsFiltersPage() {
             envs: Array.isArray(g.envs)
               ? g.envs
               : Array.isArray(g.envMeta)
-              ? g.envMeta.map((env) => env?.env).filter(Boolean)
-              : [],
+                ? g.envMeta.map((env) => env?.env).filter(Boolean)
+                : [],
           }))
           .filter((g: GameOption) => Boolean(g.gameId));
         setGames(arr);

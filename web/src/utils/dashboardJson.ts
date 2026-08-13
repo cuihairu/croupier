@@ -16,7 +16,7 @@ export function isJSONValue(value: unknown): value is JSONValue {
 
 export function toJSONValue(value: unknown): JSONValue {
   if (value === undefined) return null;
-  return isJSONValue(value) ? value : JSON.parse(JSON.stringify(value)) as JSONValue;
+  return isJSONValue(value) ? value : (JSON.parse(JSON.stringify(value)) as JSONValue);
 }
 
 export function toJSONRecord(value: unknown): JSONRecord {

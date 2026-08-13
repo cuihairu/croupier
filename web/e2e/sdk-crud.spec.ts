@@ -29,7 +29,10 @@ test.describe('SDK CRUD', () => {
     if (await createBtn.isVisible()) {
       await createBtn.click();
       await page.locator('.ant-modal').waitFor({ state: 'visible', timeout: 10000 });
-      await page.locator('.ant-modal button:has-text("取"), .ant-modal button:has-text("Cancel")').first().click();
+      await page
+        .locator('.ant-modal button:has-text("取"), .ant-modal button:has-text("Cancel")')
+        .first()
+        .click();
       await page.locator('.ant-modal').waitFor({ state: 'hidden', timeout: 5000 });
     }
   });

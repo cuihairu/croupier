@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Space, Tabs, Tag, Tooltip, Input } from 'antd';
+import { Alert, Button, Card, Empty, Space, Tabs, Tag, Tooltip, Input } from 'antd';
 import { ClockCircleOutlined, CopyOutlined } from '@ant-design/icons';
 import { CodeEditor } from '@/components/MonacoDynamic';
 import { formatDuration } from './types';
@@ -18,15 +18,17 @@ export default function InvocationResponse({
   duration,
   onCopy,
 }: InvocationResponseProps) {
+  const hasResponse = responseRaw || error;
+
   return (
     <Card
       size="small"
       title="响应"
       extra={
-        <Space>
-          {error ? <Tag color="red">失败</Tag> : <Tag color="green">成功</Tag>}
-          {duration ? <Tag icon={<ClockCircleOutlined />}>{formatDuration(duration)}</Tag> : null}
-          {responseRaw || error ? (
+        hasResponse ? (
+          <Space>
+            {error ? <Tag color="red">失败</Tag> : <Tag color="green">成功</Tag>}
+            {duration ? <Tag icon={<ClockCircleOutlined />}>{formatDuration(duration)}</Tag> : null}
             <Tooltip title="复制响应">
               <Button
                 size="small"
@@ -34,13 +36,13 @@ export default function InvocationResponse({
                 onClick={() => onCopy(responseRaw || error)}
               />
             </Tooltip>
-          ) : null}
-        </Space>
+          </Space>
+        ) : null
       }
     >
       {error ? (
         <Alert type="error" showIcon message="调用失败" description={error} />
-      ) : (
+      ) : hasResponse ? (
         <Tabs
           items={[
             {
@@ -70,6 +72,12 @@ export default function InvocationResponse({
               ),
             },
           ]}
+        />
+      ) : (
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description="发送请求后，响应结果将显示在这里"
+          style={{ padding: '40px 0' }}
         />
       )}
     </Card>

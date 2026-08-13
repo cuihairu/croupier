@@ -13,6 +13,7 @@ import {
 } from '@/services/api';
 import { extractErrorMessage } from '@/utils/errors';
 import { parseInputSchema, type JSONSchemaType } from '@/utils/json';
+import { isScopeReady, subscribeScope } from '@/stores/scope';
 import type { FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
 import ExecutionOptions from './ExecutionOptions';
 import InvocationResponse from './InvocationResponse';
@@ -73,9 +74,20 @@ export default function FunctionInvokePage() {
   const [duration, setDuration] = useState(0);
   const [historyItems, setHistoryItems] = useState<RequestHistoryItem[]>(loadHistory);
   const [showHistory, setShowHistory] = useState(false);
+  const [scopeKey, setScopeKey] = useState('');
   const selected = useMemo(() => descriptors.find((item) => item.id === fid), [descriptors, fid]);
 
+  // 订阅 scope 变化，scope 变更时重新加载函数列表
+  useEffect(() => {
+    const off = subscribeScope((scope) => {
+      setScopeKey(`${scope.gameId || ''}:${scope.env || ''}`);
+    });
+    return off;
+  }, []);
+
   const refresh = useCallback(async () => {
+    // 等待 scope 就绪后再加载
+    if (!isScopeReady()) return;
     setLoading(true);
     try {
       setDescriptors(await listDescriptors());
@@ -87,7 +99,7 @@ export default function FunctionInvokePage() {
   }, [message]);
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, scopeKey]);
   useEffect(() => {
     if (!selected) return setFormState(EMPTY_FORM_STATE);
     const schema = resolveSchema(selected);
@@ -304,16 +316,14 @@ export default function FunctionInvokePage() {
                 }
               }}
             />
-            {response !== undefined || error ? (
-              <InvocationResponse
-                responseRaw={responseRaw}
-                error={error}
-                duration={duration}
-                onCopy={(value) =>
-                  navigator.clipboard.writeText(value).then(() => message.success('已复制'))
-                }
-              />
-            ) : null}
+            <InvocationResponse
+              responseRaw={responseRaw}
+              error={error}
+              duration={duration}
+              onCopy={(value) =>
+                navigator.clipboard.writeText(value).then(() => message.success('已复制'))
+              }
+            />
           </Space>
         </Col>
         {showHistory ? (

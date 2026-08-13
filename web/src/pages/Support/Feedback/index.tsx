@@ -155,7 +155,10 @@ export default function SupportFeedbackPage() {
             { title: '分类', dataIndex: 'category' },
             { title: '优先级', dataIndex: 'priority' },
             { title: '状态', dataIndex: 'status' },
-            { title: '游戏/环境', render: (_: unknown, r: FeedbackItem) => `${r.game_id || ''}/${r.env || ''}` },
+            {
+              title: '游戏/环境',
+              render: (_: unknown, r: FeedbackItem) => `${r.game_id || ''}/${r.env || ''}`,
+            },
             { title: '内容', dataIndex: 'content', ellipsis: true },
             {
               title: '更新时间',
@@ -185,7 +188,7 @@ export default function SupportFeedbackPage() {
                         await updateFeedback(r.id, { status: 'triaged' });
                         getMessage()?.success(`已转工单 #${res.id}`);
                       } catch (e) {
-                        const errMsg = e instanceof Error ? e.message : "操作失败";
+                        const errMsg = e instanceof Error ? e.message : '操作失败';
                         getMessage()?.error(errMsg || '转工单失败');
                       }
                     }}

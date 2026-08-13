@@ -108,6 +108,11 @@ func (r *recordingContractService) RebuildContractFromFunctionMeta(ctx context.C
 	return nil
 }
 
+func (r *recordingContractService) RemoveFunctionContract(ctx context.Context, gameID, env, functionID string) (string, error) {
+	r.record(ctx)
+	return "", nil
+}
+
 func (r *recordingContractService) RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {
 	r.record(ctx)
 	return nil
@@ -182,6 +187,10 @@ type failingContractService struct {
 
 func (f failingContractService) RebuildContractFromFunctionMeta(context.Context, string, string, string, spec.FunctionContractInput) error {
 	return f.err
+}
+
+func (f failingContractService) RemoveFunctionContract(context.Context, string, string, string) (string, error) {
+	return "", f.err
 }
 
 func (f failingContractService) RebuildResourceCapability(context.Context, string, string, string) error {
