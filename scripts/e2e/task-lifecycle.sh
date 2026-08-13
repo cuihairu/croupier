@@ -69,7 +69,7 @@ else
   echo ""; echo "==> result: $PASS passed, $FAIL failed"; exit 1
 fi
 
-BODY='{"function_id":"'"$FUNCTION_ID"'","game_id":"'"$GAME_ID"'","env":"'"$ENV"'"}'
+BODY='{"functionId":"'"$FUNCTION_ID"'","gameId":"'"$GAME_ID"'","env":"'"$ENV"'"}'
 
 # 3. Task 1 — complete lifecycle: started → ... → completed.
 T1=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.task_id // empty')
