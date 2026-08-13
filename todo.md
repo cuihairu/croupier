@@ -465,46 +465,417 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/model -run 'TestCleanup' -count=1 -v` 全部通过；`bash scripts/dashboard_vnext_guard.sh` 通过。
       Handoff: `J-001` 可声明无旧模型依赖。生产部署前需备份校验和 deployment dry-run。
 
-## I. 跨链路浏览器验收
+## I. 注册一致性、运行时契约与真实浏览器闭环
 
-> 当前浏览器测试默认使用 `MOCK=all`，且个别用例在操作按钮不存在时会跳过。
-> 因此以下四项虽然具备代码实现和局部测试，尚未获得 SDK、Agent、Server 与真实浏览器
-> 的闭环证据，必须保持未完成；不得以 mock 页面或跳过式 E2E 代替验收。
+> 这是针对已发现失效链路的修复与验收清单，不是“补几个页面”的清单。原 `I-001`～`I-003`
+> 被拆为不可再以 mock、手工插库、按钮存在或单测替代的原子项。每个真实链路测试都必须启动
+> Server、真实 Agent/SDK 或真实 OpenAPI provider，并通过 HTTP/UI 操作系统；fixture 可以提供
+> 确定性业务数据，但不得预置 FunctionContract、CapabilitySemantics、Proposal 或 PageSpec。
+>
+> 以下任务完成前，不得宣称“函数注册后可自动生成可用 UI”。
 
-- [ ] `I-001` SDK Operation 直接发布链路
-      Owner: root
-      Depends: [`C-007`, `C-008`, `D-003`, `E-005`, `F-002`, `G-001`]
-      Scope: Playwright/server integration fixtures。
-      Deliverable: `mail.send -> basic Proposal -> preview -> publish -> Console -> structured result`。
-      Forbidden: 不得通过 mock page 或手工插库绕过注册。
-      Verify: 对接真实 SDK 注册、Agent 回调和 Server 的命名 E2E：`mail.send -> preview -> publish -> Console -> structured result`；按钮或接口缺失必须失败，不能跳过。
-      Handoff: 证明最小产品主链路。
+### I-A. SDK 注册语义与注册快照
 
-- [ ] `I-002` OpenAPI CRUD 直接发布链路
-      Owner: root
-      Depends: [`B-003`, `C-002`, `C-003`, `C-004`, `C-005`, `C-006`, `D-003`, `E-004`, `F-002`, `G-001`]
-      Scope: Playwright/server integration fixtures。
-      Deliverable: OpenAPI `/players` + provider binding -> ready Resource Proposal -> publish -> list/detail/CRUD/row action。
-      Forbidden: 不得用页面特例、旧对象页或预置 PageSpec。
-      Verify: 对接真实 OpenAPI provider/Agent/Server 的命名 E2E；list/detail/create/update/delete/row action 每一步均有断言，按钮或接口缺失必须失败。
-      Handoff: 证明游戏 CRUD 主路径。
+- [ ] `I-001` 移除 SDK 注册主链的函数名 CRUD 推断
+      Owner: unassigned
+      Depends: [`B-004`]
+      Scope: `internal/platform/registry/store.go`, `internal/platform/registry/infer.go` 及直接测试。
+      Deliverable: `UpsertAgent` 只持久化 SDK 显式提交的 `resource`、`operation`、`capability`；函数 ID 不再补全任何资源或 CRUD 语义。
+      Forbidden: 不得以函数名、tag、summary 或 schema 名称猜测 CRUD；不得修改 OpenAPI REST 的受控推导。
+      Verify: `go test ./internal/platform/registry -run '^TestUpsertAgentDoesNotInferSDKResourceOrCapability$' -count=1`。
+      Handoff: `I-002` 可验证未标注 SDK 函数的确定性降级。
 
-- [ ] `I-003` 合同变化到重新发布链路
-      Owner: root
-      Depends: [`D-004`, `D-005`, `D-006`, `F-004`, `G-003`]
-      Scope: Playwright/server integration fixtures。
-      Deliverable: schema/risk/identity 变化 -> stale -> execute 拒绝 -> diff/merge -> republish -> execute 恢复。
-      Forbidden: 不得自动覆盖 draft/published，不得允许 stale execute。
-      Verify: 在真实注册链路中变更 schema/risk/identity，并验证 stale 拒绝、人工处理、重发布和恢复执行；任一步缺失必须失败。
-      Handoff: 证明发布快照与变更治理闭环。
+- [ ] `I-002` 覆盖未标注 SDK 函数的 OperationPage 降级
+      Owner: unassigned
+      Depends: [`I-001`, `C-007`]
+      Scope: `internal/platform/registry/`, `internal/service/contract_service_test.go`。
+      Deliverable: 仅有 `id + inputSchema + outputSchema` 的 SDK 函数生成一个 standalone Operation Proposal，不创建 ResourceCapability 或 Resource Proposal。
+      Forbidden: 不得通过 Resource Catalog 预填语义、手工写 Contract 或仅断言 capability 为空替代完整 proposal 断言。
+      Verify: `go test ./internal/platform/registry ./internal/service -run '^TestSDKUnannotatedFunctionGeneratesStandaloneOperationProposal$' -count=1`。
+      Handoff: `I-022` 使用同一语义规则做真实注册验收。
+
+- [ ] `I-003` 计算 Agent 注册函数快照的新增、变更和删除集
+      Owner: unassigned
+      Depends: []
+      Scope: `internal/platform/registry/store.go`, Agent session 持久化读取层、registry 测试。
+      Deliverable: 同一 `agentID + gameID + env` 再注册时，系统在写入前确定旧函数集和新函数集，产生稳定、排序的 added/changed/removed 集合及受影响 resource 集合。
+      Forbidden: 不得把 `nil` functions 当作空快照删除所有函数；不得只比较函数数量或 map 遍历顺序。
+      Verify: `go test ./internal/platform/registry -run '^TestUpsertAgentClassifiesFunctionSnapshotDiff$' -count=1`。
+      Handoff: `I-004`、`I-005` 只消费该 diff，不各自重新读取不一致快照。
+
+- [ ] `I-004` 删除已从 Agent 快照消失的 FunctionContract
+      Owner: unassigned
+      Depends: [`I-003`]
+      Scope: `internal/platform/registry/`, `internal/service/contract_service.go`, `internal/model/function_contract_model.go`。
+      Deliverable: removed 函数在同一 scope 中删除其 FunctionContract，且不会删除其他 Agent 或其他 scope 的同名函数。
+      Forbidden: 不得软禁用代替删除；不得删除仍被当前 Agent 快照声明的合同。
+      Verify: `go test ./internal/platform/registry ./internal/service -run '^TestUpsertAgentRemovesOnlyContractsAbsentFromItsSnapshot$' -count=1`。
+      Handoff: `I-005` 基于删除后的合同集合重建派生对象。
+
+- [ ] `I-005` 重算受函数增删影响的 ResourceCapability 与 Proposal
+      Owner: unassigned
+      Depends: [`I-004`]
+      Scope: `internal/platform/registry/`, `internal/service/contract_service.go`, proposal/capability model 测试。
+      Deliverable: 对旧 resource 和新 resource 的并集各重建一次语义聚合与 Resource/standalone Proposal；不再引用被删除 FunctionContract 的 binding。
+      Forbidden: 不得只重建新快照中的 resource；不得保留引用不存在 function 的 proposal。
+      Verify: `go test ./internal/platform/registry ./internal/service -run '^TestUpsertAgentRebuildsOldAndNewResourcesAfterFunctionRemoval$' -count=1`。
+      Handoff: `I-006` 可处理已无法物化的历史 proposal。
+
+- [ ] `I-006` 清理不再可物化的 Proposal 并使已发布页进入 stale
+      Owner: unassigned
+      Depends: [`I-005`, `D-004`]
+      Scope: `internal/service/contract_service.go`, `internal/service/proposal_service.go`, proposal/page model、freshness 测试。
+      Deliverable: 函数删除后，不再可物化的 draft/proposal 被删除或转为明确 blocked issue；所有引用该函数的 PublishedPageSpec 返回 `binding_function_missing` 并拒绝 execute。
+      Forbidden: 不得保留空壳 ResourcePage；不得自动以其他同 capability 函数替换 binding；不得静默重写 PublishedPageSpec。
+      Verify: `go test ./internal/service ./internal/api/console -run '^TestRemovedRegisteredFunctionInvalidatesProposalAndStalesPublishedPage$' -count=1`。
+      Handoff: `I-012` 和 `I-039` 可验证删除/变化后的用户可见治理状态。
+
+- [ ] `I-007` 使 Agent session 与派生注册状态持久化原子提交
+      Owner: unassigned
+      Depends: []
+      Scope: `internal/platform/registry/store.go`, 事务/DB context 传递、相关 model/service 测试。
+      Deliverable: Session snapshot、FunctionContract、CapabilitySemantics、Proposal/BlockedIssue 的本次注册变更要么全部提交，要么全部回滚；内存 registry 仅在提交后更新。
+      Forbidden: 不得先写 `agent_sessions` 再尝试重建；不得用日志告警替代回滚；不得跨 scope 使用事务。
+      Verify: `go test ./internal/platform/registry -run '^TestUpsertAgentRollsBackPersistentStateWhenMaterializationFails$' -count=1`。
+      Handoff: `I-008` 可在失败路径验证重试一致性。
+
+- [ ] `I-008` 覆盖注册失败后的重试与重启恢复一致性
+      Owner: unassigned
+      Depends: [`I-007`]
+      Scope: `internal/platform/registry/`, session loader、server integration test。
+      Deliverable: 强制一次合同/Proposal 重建失败后，同快照重试与进程重启恢复都得到单一一致的 Session、Contract 和 Proposal 集合。
+      Forbidden: 不得通过清库、手工修复行或忽略失败实现测试通过。
+      Verify: `go test ./internal/platform/registry ./cmd/server -run '^TestFailedAgentRegistrationRetryAndRestartAreConsistent$' -count=1`。
+      Handoff: `I-023` 可安全使用真实 SDK fixture 重复注册。
+
+### I-B. OpenAPI 解绑与派生页面回收
+
+- [ ] `I-009` 为 OpenAPI binding 建立可追溯的合同归属查询
+      Owner: unassigned
+      Depends: [`B-003`]
+      Scope: `internal/api/openapi/`, `internal/model/` 中 OpenAPI source binding/FunctionContract 关联和测试。
+      Deliverable: 给定 `sourceID + bindingID + scope` 可精确列出该 binding 物化的 FunctionContract 与受影响 resource，不依赖模糊 function ID 前缀匹配。
+      Forbidden: 不得跨 source、跨 game/env 关联；不得重新解析远程 OpenAPI 文档才知道删除目标。
+      Verify: `go test ./internal/api/openapi -run '^TestBindingContractOwnershipIsScopedAndExact$' -count=1`。
+      Handoff: `I-010` 以该归属关系执行删除。
+
+- [ ] `I-010` 删除 OpenAPI binding 时删除其 FunctionContract
+      Owner: unassigned
+      Depends: [`I-009`]
+      Scope: `internal/api/openapi/service.go`, Contract 删除服务、OpenAPI service 测试。
+      Deliverable: `DELETE /openapi/sources/:sourceId/bindings/:bindingId` 成功后，该 binding 的合同不再出现在 scope 合同列表。
+      Forbidden: 不得只删 binding 行；不得影响同 source 的其他 binding 或同一 function 的 SDK 合同。
+      Verify: `go test ./internal/api/openapi -run '^TestDeleteBindingRemovesOnlyOwnedFunctionContracts$' -count=1`。
+      Handoff: `I-011` 可对受影响资源重建。
+
+- [ ] `I-011` 删除 OpenAPI binding 后重算资源页面与 standalone 页面
+      Owner: unassigned
+      Depends: [`I-010`, `I-005`]
+      Scope: `internal/api/openapi/`, `internal/service/contract_service.go`、proposal 测试。
+      Deliverable: binding 删除后，受影响 resource proposal 的 bindings、质量和 blocked issue 根据剩余合同重新生成；独立 operation proposal 同步回收或刷新。
+      Forbidden: 不得将删除前 PageSpec 原样保留；不得依赖下次 Agent 心跳才修复。
+      Verify: `go test ./internal/api/openapi ./internal/service -run '^TestDeleteBindingRebuildsAffectedProposalsImmediately$' -count=1`。
+      Handoff: `I-012` 可将已发布页面标记为不可执行。
+
+- [ ] `I-012` 删除 OpenAPI binding 后使已发布页 stale 且可解释
+      Owner: unassigned
+      Depends: [`I-011`, `D-004`, `F-001`]
+      Scope: `internal/api/openapi/`, `internal/service/proposal_service.go`, `internal/api/console/`、服务测试。
+      Deliverable: 已发布页在 inbox/console 中显示明确的 missing binding/function 诊断，execute 返回 stale 拒绝而非空结果或 500。
+      Forbidden: 不得自动取消发布、替换到最新 binding 或隐藏诊断。
+      Verify: `go test ./internal/api/openapi ./internal/api/console ./internal/service -run '^TestDeleteBindingStalesPublishedPageAndRejectsExecution$' -count=1`。
+      Handoff: `I-039` 使用同一 stale 行为做真实浏览器验收。
+
+### I-C. 前后端协议、页面解析与测试可信度
+
+- [ ] `I-013` 统一 Console menu mock 与真实 `ConsoleMenuSpec`
+      Owner: unassigned
+      Depends: [`D-001`, `G-001`]
+      Scope: `web/mock/dashboard.ts`, `web/src/types/dashboard.ts`、mock contract 测试。
+      Deliverable: mock 和真实 `/api/v1/console/menu` 都返回 `{ items: [...] }` 的同一 DTO；mock 只作为开发替身，不再定义第二种 `categories` 协议。
+      Forbidden: 不得在前端添加 `items ?? categories` 兼容分支；不得改动服务端协议以迁就 mock。
+      Verify: `pnpm --dir "web" exec jest --runInBand mock/dashboard.contract.test.ts`。
+      Handoff: `I-020` 的非 mock 测试可使用同一解析器。
+
+- [ ] `I-014` 修正页面 regenerate 客户端与后端路由的唯一契约
+      Owner: unassigned
+      Depends: []
+      Scope: `web/src/services/api/pages.ts`, Page Studio 调用方、`internal/handler/routes.go`/`internal/router/router.go` 及 API contract 测试。
+      Deliverable: 页面再生成只保留一个已注册 API 路径、request/response DTO 和调用方；从浏览器发起的请求不再 404 或命中语义不同的 handler。
+      Forbidden: 不得保留双路由、前端 fallback 或“未使用所以不修”的死接口。
+      Verify: `go test ./internal/api/page ./internal/service/versioning -run '^TestRegenerateRouteMatchesWebClientContract$' -count=1`。
+      Handoff: Page Studio 的重新生成按钮可纳入真实 E2E。
+
+- [ ] `I-015` 处理未注册的 OpenAPI validate 客户端接口
+      Owner: unassigned
+      Depends: []
+      Scope: `web/src/services/api/openapi.ts`, OpenAPI routes/handler、调用方和契约测试。
+      Deliverable: `validateOpenAPISpec` 要么调用一个已注册且有测试的后端验证端点，要么连同所有调用方删除；仓库不存在悬空 API helper。
+      Forbidden: 不得保留会返回 404 的 helper；不得用前端假成功掩盖缺路由。
+      Verify: `rg -n '/api/v1/openapi/validate' "web/src" "internal"` 的命中要么同时含注册路由与 handler 测试，要么为 0。
+      Handoff: OpenAPI 导入 UI 的错误反馈可被真实 E2E 断言。
+
+- [ ] `I-016` 为 ResourcePage 输出 selector 缺失建立显式失败态
+      Owner: unassigned
+      Depends: [`D-002`, `E-002`]
+      Scope: `web/src/components/PageRenderer/ResourcePageRenderer.tsx`, selector/runtime 测试。
+      Deliverable: list/detail 结果无法按 PublishedPageSpec selector 映射时，页面显示可定位诊断并保持空/错误态；有效 `items`、`total`、detail selector 映射出真实数据。
+      Forbidden: 不得猜 `response.data.items`、吞掉 selector 错误或只渲染空表格。
+      Verify: `pnpm --dir "web" exec jest --runInBand src/components/PageRenderer/ResourcePageRenderer.test.tsx`。
+      Handoff: `I-032`、`I-033` 可断言列表和详情的数据而非 DOM 空壳。
+
+- [ ] `I-017` 修复 Jest TypeScript 项目边界并恢复运行时单测
+      Owner: unassigned
+      Depends: []
+      Scope: `web/tsconfig.jest.json`, `web/jest.config.ts`，不包含业务页面重写。
+      Deliverable: Jest 不再因 `TS5011 rootDir` 在测试执行前失败，且只包含 unit/integration test 所需的源码与 setup 文件。
+      Forbidden: 不得用关闭 ts-jest 诊断、`--passWithNoTests` 或移除测试文件伪造通过。
+      Verify: `pnpm --dir "web" exec jest --runInBand src/components/PageRenderer src/components/SchemaFormRenderer`。
+      Handoff: `E-001`、`E-002` 的既有 Verify 可重新获得有效证据。
+
+- [ ] `I-018` 消除同名真实页与 Placeholder 页的路由歧义
+      Owner: unassigned
+      Depends: []
+      Scope: `web/config/routes.ts`, `web/src/pages/Admin/`, `web/src/pages/Support/Tickets/` 及路由测试。
+      Deliverable: 每个配置路由都显式解析到唯一实际组件；`Admin/LoginLogs`、`Admin/OperationLogs`、`Support/Tickets/Detail` 不会因同名目录 `index.tsx` 命中占位页面。
+      Forbidden: 不得通过修改路由顺序碰巧规避；不得保留无法到达的重复页面实现。
+      Verify: `pnpm --dir "web" exec jest --runInBand src/pages/routes-resolution.test.tsx`，并断言三个路由均未显示“建设中”占位内容。
+      Handoff: 后台页面可与 Console 生成页面分开诊断，不再混淆为空壳 UI 问题。
+
+- [ ] `I-019` 建立不启用 Mock 的 Playwright 启动配置
+      Owner: unassigned
+      Depends: []
+      Scope: `web/playwright.config.ts`, E2E 启动脚本、测试环境变量文档。
+      Deliverable: 提供命名的真实链路项目/命令，启动 Web 时不设置 `MOCK=all`，并要求显式 Server 基地址和 fixture 生命周期。
+      Forbidden: 不得修改默认 mock 项目来冒充真实项目；不得让真实项目在 Server 不可达时降级到 mock。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard --list`，输出的 webServer command 不含 `MOCK=all`。
+      Handoff: `I-021` 至 `I-043` 统一使用 `real-dashboard` 项目。
+
+- [ ] `I-020` 禁止 E2E 跳过式与空数据式成功断言
+      Owner: unassigned
+      Depends: [`I-019`]
+      Scope: `web/e2e/`, E2E helper、review guard 测试。
+      Deliverable: Dashboard 真实链路 spec 中不存在 `test.skip`、元素缺失后提前 return、`rows >= 0` 或只断言容器存在；每一步断言具体按钮、HTTP 成功、可识别业务记录或期望错误码。
+      Forbidden: 不得把断言移到 mock 专用 spec；不得以截图存在替代状态/数据断言。
+      Verify: `rg -n 'test\\.skip|\\.skip\\(|rows\\s*>=\\s*0|if \\(!.*button.*\\).*return' "web/e2e"` 无命中，且 `pnpm --dir "web" exec playwright test --project=real-dashboard --list` 成功。
+      Handoff: 所有后续浏览器任务的失败都具有诊断价值。
+
+### I-D. 真实 SDK、OpenAPI 与 stale 浏览器验收
+
+- [ ] `I-021` 提供可重复清理的真实 Server/Agent/Provider E2E fixture
+      Owner: unassigned
+      Depends: [`I-007`, `I-019`]
+      Scope: server integration fixture、测试 Agent/SDK、测试 OpenAPI provider、Playwright global setup/teardown。
+      Deliverable: 一个命名 fixture 能以干净 scope 启动 Server、连接真实 Agent、暴露确定性 SDK 与 `/players` provider 数据，并在测试结束后仅清理本 fixture 的 scope。
+      Forbidden: 不得访问生产服务；不得直接插入 dashboard 派生表；不得清空共享数据库或使用宽泛删除。
+      Verify: `go test ./cmd/server -run '^TestRealDashboardFixtureHealth$' -count=1` 与 `pnpm --dir "web" exec playwright test --project=real-dashboard --grep '@fixture-health'`。
+      Handoff: `I-022` 至 `I-043` 可在同一受控环境运行。
+
+- [ ] `I-022` 真实 SDK 未标注函数注册并生成 Operation Proposal
+      Owner: unassigned
+      Depends: [`I-002`, `I-021`]
+      Scope: SDK fixture、Server registration integration、`web/e2e/operation.spec.ts`。
+      Deliverable: fixture 调用真实 SDK 注册 `mail.send`（仅 ID/schema）后，Server API 返回唯一 `operation--mail.send` basic Proposal，且不存在 `resource--mail`。
+      Forbidden: 不得调用 Contract/Proposal repository 建数据；不得给该 fixture 额外 capability 或 Resource Catalog 语义。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/operation.spec.ts --grep '@sdk-unannotated-proposal'`。
+      Handoff: `I-023` 可从真实 proposal 而非 mock 页面预览。
+
+- [ ] `I-023` 真实 SDK Operation Proposal 的预览与发布
+      Owner: unassigned
+      Depends: [`I-022`, `F-002`]
+      Scope: `web/e2e/operation.spec.ts`, fixture API 断言。
+      Deliverable: 用户在 Proposal Inbox 预览并发布 `operation--mail.send`；发布后 PublishedPageSpec 含冻结 binding snapshot。
+      Forbidden: 不得用页面 API 直接发布预置 PageSpec；不得仅检查 toast。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/operation.spec.ts --grep '@sdk-operation-publish'`，断言 preview API、publish API 和 snapshot 内容。
+      Handoff: `I-024` 可验证菜单与路由。
+
+- [ ] `I-024` 真实 SDK 发布后菜单和 Console 路由可达
+      Owner: unassigned
+      Depends: [`I-023`, `G-001`]
+      Scope: `web/e2e/operation.spec.ts`, Console menu/route 断言。
+      Deliverable: 发布的 `mail.send` 仅通过 Console menu 返回并可导航至其 published Console 页面。
+      Forbidden: 不得从静态导航、proposal 列表或 mock 菜单进入；不得只验证 URL 变化。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/operation.spec.ts --grep '@sdk-operation-menu'`，断言 `/api/v1/console/menu` 的 item 与页面标题一致。
+      Handoff: `I-025` 可从 published binding 执行。
+
+- [ ] `I-025` 真实 SDK Operation 执行并渲染结构化结果
+      Owner: unassigned
+      Depends: [`I-024`, `G-003`]
+      Scope: SDK fixture、`web/e2e/operation.spec.ts`、必要的 Console API 断言。
+      Deliverable: 用户提交 `mail.send` 表单后，fixture 收到 published binding execute，请求和响应按 selector 映射为可见结构化结果。
+      Forbidden: 不得从浏览器提交 functionId/target/scope；不得只断言执行按钮或网络 200；不得展示原始 JSON 作为正式结果。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/operation.spec.ts --grep '@sdk-operation-execute'`，断言 fixture 调用计数、audit binding ID 和结果字段文本。
+      Handoff: 证明最小 SDK Operation 产品链路。
+
+- [ ] `I-026` 真实 SDK 显式资源能力生成 Resource Proposal
+      Owner: unassigned
+      Depends: [`I-021`, `B-004`, `C-002`]
+      Scope: SDK fixture、Server registration integration、`web/e2e/sdk-crud.spec.ts`。
+      Deliverable: 显式 `resource + capability` 且 identity 可验证的 SDK 合同，生成 Resource Proposal；缺必要 identity 时降级/blocked，而非名称猜测。
+      Forbidden: 不得复用 OpenAPI path 推导；不得以手工语义覆盖 fixture 的 SDK 输入。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/sdk-crud.spec.ts --grep '@sdk-explicit-resource-proposal'`。
+      Handoff: 证明 SDK 与 OpenAPI 以同一页面模型收敛。
+
+- [ ] `I-027` 提供符合 schema 的真实 OpenAPI `/players` provider 数据
+      Owner: unassigned
+      Depends: [`I-021`]
+      Scope: OpenAPI provider fixture、OpenAPI document fixture、fixture health tests。
+      Deliverable: fixture 提供 list/detail/create/update/delete 和一个 row action；每个响应符合导入的 request/response schema，并至少含两条可区分 player 记录。
+      Forbidden: 不得将 provider 响应写进前端 mock；不得缺少 identity、分页或 action 所需数据后仍标称 CRUD fixture。
+      Verify: `go test ./cmd/server -run '^TestPlayersOpenAPIProviderFixtureContract$' -count=1`。
+      Handoff: `I-028` 可真实导入与绑定该 provider。
+
+- [ ] `I-028` 从真实 OpenAPI source 导入并绑定 `/players`
+      Owner: unassigned
+      Depends: [`I-027`, `B-003`]
+      Scope: OpenAPI source integration fixture、`web/e2e/openapi-source.spec.ts`。
+      Deliverable: 经 OpenAPI API/界面导入文档并建立 provider binding，Server 物化对应 FunctionContract；未预置 Contract、CapabilitySemantics 或 Proposal。
+      Forbidden: 不得绕过 source/binding 路由；不得在导入后手工修改数据库以补充 CRUD。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-source.spec.ts --grep '@openapi-import-bind'`。
+      Handoff: `I-029` 可检查生成质量。
+
+- [ ] `I-029` 真实 OpenAPI `/players` 生成 ready Resource Proposal
+      Owner: unassigned
+      Depends: [`I-028`, `C-002`, `C-003`, `C-004`, `C-005`, `C-006`]
+      Scope: `web/e2e/openapi-crud.spec.ts`, proposal API 断言。
+      Deliverable: `/players` 的 REST 语义、identity 和 selector 通过验证后生成单一 ready `resource--players` Proposal，包含 list/detail/create/update/delete/row action binding。
+      Forbidden: 不得预置 PageSpec；不得把缺 selector 的 proposal 标记 ready；不得将每个 CRUD operation 生成为独立资源页面。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-ready-proposal'`。
+      Handoff: `I-030` 可发布同一个 proposal。
+
+- [ ] `I-030` 发布真实 OpenAPI Resource Proposal 并确认菜单来源
+      Owner: unassigned
+      Depends: [`I-029`, `F-002`, `G-001`]
+      Scope: `web/e2e/openapi-crud.spec.ts`, Console menu API 断言。
+      Deliverable: Inbox 发布 `resource--players` 后，Console 菜单包含此 published page，且没有通过 source/contract 直接生成的额外菜单项。
+      Forbidden: 不得由静态 locale 或 OpenAPI tag 构造菜单；不得只检查 publish 成功提示。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-resource-publish'`。
+      Handoff: `I-031` 至 `I-036` 从 published Console 页面操作。
+
+- [ ] `I-031` 真实 OpenAPI 列表、分页和刷新渲染业务数据
+      Owner: unassigned
+      Depends: [`I-030`, `I-016`]
+      Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 调用记录。
+      Deliverable: Console 列表显示 fixture 的两条 player 数据、正确 total 和分页；刷新发起新的 published list binding execute。
+      Forbidden: 不得仅断言表格节点、行数非负或 mock 数据；不得从 lastResult 读取整行。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-list-pagination'`。
+      Handoff: `I-032` 可选择真实行 identity。
+
+- [ ] `I-032` 真实 OpenAPI 详情按 row identity 获取并渲染
+      Owner: unassigned
+      Depends: [`I-031`]
+      Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 请求记录。
+      Deliverable: 点击指定 player 后，detail binding 只接收该行 selector 提取的 identity，页面展示 provider 返回的详情字段。
+      Forbidden: 不得透传整行 JSON；不得把 collection 响应伪装成 detail 成功。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-detail-identity'`。
+      Handoff: 详情 selector 已获真实证据。
+
+- [ ] `I-033` 真实 OpenAPI create 后刷新列表
+      Owner: unassigned
+      Depends: [`I-031`, `E-003`]
+      Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 状态。
+      Deliverable: 填写生成表单创建 player，provider 持久化该记录，成功后 Console 列表出现新 identity 和名称。
+      Forbidden: 不得使用第二套表单；不得靠前端乐观插行或 fixture 预先含有该记录。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-create-refresh'`。
+      Handoff: `I-034` 可编辑刚创建的真实记录。
+
+- [ ] `I-034` 真实 OpenAPI update 只提交 selector identity 与可编辑字段
+      Owner: unassigned
+      Depends: [`I-033`, `E-003`]
+      Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 请求断言。
+      Deliverable: 更新表单不暴露 identity 输入；execute payload 包含 row selector 的 identity 和已修改字段，刷新后页面显示 provider 的更新值。
+      Forbidden: 不得让用户编辑 identity；不得传递整行或未修改的隐藏字段作为 payload。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-update-selector'`。
+      Handoff: CRUD 更新路径已获真实证据。
+
+- [ ] `I-035` 真实 OpenAPI delete 经确认后移除记录
+      Owner: unassigned
+      Depends: [`I-034`, `E-003`]
+      Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 状态。
+      Deliverable: 删除动作先展示生成的确认信息，确认后仅删除选中 identity，列表刷新后不再显示该记录。
+      Forbidden: 不得跳过确认；不得删错行或用前端隐藏代替 provider 删除。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-delete-confirm'`。
+      Handoff: delete 治理和数据刷新已获真实证据。
+
+- [ ] `I-036` 真实 OpenAPI row action 只接收受控上下文
+      Owner: unassigned
+      Depends: [`I-031`, `E-004`, `G-003`]
+      Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture/audit 断言。
+      Deliverable: 对指定 player 执行 row action 时，provider 和 audit 收到 published binding ID 与 selector 派生 identity，结果反馈到该页面。
+      Forbidden: 不得由浏览器传 functionId、target、scope 或整行 payload；不得把 action 误生成为 toolbar action。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-row-action'`。
+      Handoff: OpenAPI CRUD 真实主路径完成。
+
+- [ ] `I-037` 真实重注册 schema 变化使页面进入 stale
+      Owner: unassigned
+      Depends: [`I-025`, `I-021`, `D-004`]
+      Scope: SDK fixture、`web/e2e/contract-change.spec.ts`、proposal/console API 断言。
+      Deliverable: 真实 Agent 对已发布 `mail.send` 更改 input 或 output schema 后，Server 生成新 proposal，published page 显示对应 schema stale diagnostic。
+      Forbidden: 不得直接 update FunctionContract；不得自动覆盖 draft 或 PublishedPageSpec。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@schema-change-stale'`。
+      Handoff: `I-038` 可验证 UI 执行拒绝。
+
+- [ ] `I-038` 真实 risk/approval 变化使页面进入 governance stale
+      Owner: unassigned
+      Depends: [`I-025`, `I-021`, `D-004`]
+      Scope: SDK fixture、`web/e2e/contract-change.spec.ts`、console API 断言。
+      Deliverable: 真实 Agent 更改已发布函数的 risk 或 approval 后，页面显示 governance/approval stale diagnostic，不能继续沿用旧治理快照。
+      Forbidden: 不得只测试 version 字符串变化；不得自动接受更高风险或审批要求。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@governance-change-stale'`。
+      Handoff: `I-039` 可测试统一的 stale 拒绝。
+
+- [ ] `I-039` 真实 stale 页面执行被拒绝且保留处理入口
+      Owner: unassigned
+      Depends: [`I-037`, `I-038`, `G-003`, `F-001`]
+      Scope: `web/e2e/contract-change.spec.ts`, Console/inbox API 断言。
+      Deliverable: stale 页的 execute 返回明确 stale 错误，不调用 Agent；用户能从 Console 或 Inbox 打开 diff/merge/re-publish 处理入口。
+      Forbidden: 不得仅禁用按钮而不校验服务端；不得返回泛化 500 或静默执行最新合同。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@stale-execute-rejected'`，断言 Agent 调用计数保持不变。
+      Handoff: `I-040`、`I-041` 可处理变化。
+
+- [ ] `I-040` 真实展示类变化自动合并并保留执行快照边界
+      Owner: unassigned
+      Depends: [`I-039`, `D-005`, `F-004`]
+      Scope: `web/e2e/contract-change.spec.ts`, versioning API 断言。
+      Deliverable: 仅列 label/order 等安全展示字段变化时，Page Studio 显示自动合并结果；bindings/selectors/risk/permission 未被改写。
+      Forbidden: 不得将任何执行字段归入安全集；不得直接覆盖 published 版本。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@safe-auto-merge'`。
+      Handoff: `I-042` 可重新发布安全合并结果。
+
+- [ ] `I-041` 真实 identity 或 selector 变化要求人工冲突决策
+      Owner: unassigned
+      Depends: [`I-039`, `D-006`, `F-004`]
+      Scope: SDK/OpenAPI fixture、`web/e2e/contract-change.spec.ts`、versioning API 断言。
+      Deliverable: identity、binding 或 selector 变化出现在人工冲突列表；未选择解决方案前不能发布。
+      Forbidden: 不得自动合并、隐式替换 identity 或让 stale 页恢复执行。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@identity-conflict-manual'`。
+      Handoff: `I-042` 可基于用户显式决策产生新版本。
+
+- [ ] `I-042` 真实重发布后恢复执行且使用新快照
+      Owner: unassigned
+      Depends: [`I-040`, `I-041`, `D-003`, `G-003`]
+      Scope: `web/e2e/contract-change.spec.ts`, Agent fixture、snapshot/audit 断言。
+      Deliverable: 自动合并或人工决策后的新版本发布成功，旧 stale snapshot 不再执行，新 binding snapshot 的 schema/governance 生效并可完成一次真实 execute。
+      Forbidden: 不得通过取消 stale 标记恢复；不得复用旧 snapshot 或跳过 publish。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@republish-restores-execution'`，断言执行 audit 的 proposal/page version 已更新。
+      Handoff: 证明变更治理闭环。
+
+- [ ] `I-043` 真实链路回归套件以零 Mock、零跳过方式运行
+      Owner: unassigned
+      Depends: [`I-020`, `I-025`, `I-026`, `I-036`, `I-042`]
+      Scope: `web/e2e/`, fixture lifecycle、CI workflow。
+      Deliverable: SDK Operation、SDK 显式 Resource、OpenAPI CRUD、合同 stale/merge/re-publish 四组命名场景可在干净环境连续运行，任一失败使 CI 失败。
+      Forbidden: 不得并入 mock 项目、不允许 retry 掩盖确定性失败、不允许选择性跳过 scenario。
+      Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard --grep '@sdk-|@openapi-|@schema-change|@governance-change|@stale-|@safe-|@identity-|@republish-'`。
+      Handoff: `J-001` 获得真实产品闭环的浏览器证据。
 
 ## J. 最终门禁
 
 - [ ] `J-001` vNext 发布候选验收
       Owner: root
-      Depends: [`A-001`, `A-002`, `B-001`, `B-002`, `B-003`, `B-004`, `B-005`, `B-006`, `B-007`, `C-001`, `C-002`, `C-003`, `C-004`, `C-005`, `C-006`, `C-007`, `C-008`, `C-009`, `C-010`, `C-011`, `D-001`, `D-002`, `D-003`, `D-004`, `D-005`, `D-006`, `E-001`, `E-002`, `E-003`, `E-004`, `E-005`, `E-006`, `E-007`, `F-001`, `F-002`, `F-003`, `F-004`, `G-001`, `G-002`, `G-003`, `H-001`, `H-002`, `H-003`, `H-004`, `I-001`, `I-002`, `I-003`]
+      Depends: [`A-001`, `A-002`, `B-001`, `B-002`, `B-003`, `B-004`, `B-005`, `B-006`, `B-007`, `C-001`, `C-002`, `C-003`, `C-004`, `C-005`, `C-006`, `C-007`, `C-008`, `C-009`, `C-010`, `C-011`, `D-001`, `D-002`, `D-003`, `D-004`, `D-005`, `D-006`, `E-001`, `E-002`, `E-003`, `E-004`, `E-005`, `E-006`, `E-007`, `F-001`, `F-002`, `F-003`, `F-004`, `G-001`, `G-002`, `G-003`, `H-001`, `H-002`, `H-003`, `H-004`, `I-001`, `I-002`, `I-003`, `I-004`, `I-005`, `I-006`, `I-007`, `I-008`, `I-009`, `I-010`, `I-011`, `I-012`, `I-013`, `I-014`, `I-015`, `I-016`, `I-017`, `I-018`, `I-019`, `I-020`, `I-021`, `I-022`, `I-023`, `I-024`, `I-025`, `I-026`, `I-027`, `I-028`, `I-029`, `I-030`, `I-031`, `I-032`, `I-033`, `I-034`, `I-035`, `I-036`, `I-037`, `I-038`, `I-039`, `I-040`, `I-041`, `I-042`, `I-043`]
       Scope: CI、部署验证、SDK parity、docs build。
       Deliverable: 所有产品链路、质量门禁和物理清理任务完成，可声明 vNext 重构完成。
       Forbidden: 不得将历史记录、单测通过或未部署构建当最终验收。
       Verify: Go/web/docs/SDK/Playwright/OTel collector/deployment 验收矩阵全部绿，且 `H-005` 的生产删除另有明确确认。
-      Handoff: 产出正式发布候选审计报告。当前被 `I-001`、`I-002`、`I-003` 的真实环境闭环验收阻塞。
+      Handoff: 产出正式发布候选审计报告。当前被 `I-001` 至 `I-043` 的注册一致性、协议可信度与真实环境闭环验收阻塞。
