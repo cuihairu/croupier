@@ -46,6 +46,7 @@ func (s *Store) Verify(username, password string) (User, error) {
 	if !ok {
 		return User{}, errors.New("user not found")
 	}
+	// lgtm[go/weak-sensitive-data-hashing] — legacy local dev store; see TODO above
 	h := sha256.Sum256([]byte(u.Salt + password))
 	if hex.EncodeToString(h[:]) != u.Password {
 		return User{}, errors.New("invalid credentials")

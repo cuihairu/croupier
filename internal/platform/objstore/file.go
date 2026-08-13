@@ -48,11 +48,13 @@ func (s *fileStore) Put(_ context.Context, key string, r ReadSeeker, _ int64, _ 
 	}
 
 	// 确保父目录存在
-	if err := os.MkdirAll(filepath.Dir(safePath), 0o755); err != nil { // lgtm[path-injection] — safePath validated by validateAndCleanPath
+	// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
+	if err := os.MkdirAll(filepath.Dir(safePath), 0o755); err != nil {
 		return err
 	}
 
-	f, err := os.Create(safePath) // lgtm[path-injection] — safePath validated by validateAndCleanPath
+	// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
+	f, err := os.Create(safePath)
 	if err != nil {
 		return err
 	}
@@ -90,7 +92,8 @@ func (s *fileStore) Delete(_ context.Context, key string) error {
 		if err != nil {
 			return err
 		}
-		return os.RemoveAll(safePath) // lgtm[path-injection] — safePath validated by validateAndCleanPath
+		// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
+		return os.RemoveAll(safePath)
 	}
 
 	// 否则删除单个文件
@@ -100,7 +103,8 @@ func (s *fileStore) Delete(_ context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	return os.Remove(safePath) // lgtm[path-injection] — safePath validated by validateAndCleanPath
+	// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
+	return os.Remove(safePath)
 }
 
 func (s *fileStore) List(_ context.Context, prefix, marker, delimiter string, limit int) (ListResult, error) {
@@ -196,7 +200,8 @@ func (s *fileStore) CreatePrefix(_ context.Context, prefix string) error {
 	if err != nil {
 		return err
 	}
-	return os.MkdirAll(safePath, 0o755) // lgtm[path-injection] — safePath validated by validateAndCleanPath
+	// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
+	return os.MkdirAll(safePath, 0o755)
 }
 
 func (s *fileStore) RenamePrefix(_ context.Context, oldPrefix, newPrefix string) error {
@@ -224,7 +229,8 @@ func (s *fileStore) RenamePrefix(_ context.Context, oldPrefix, newPrefix string)
 	}
 
 	// 使用系统 rename 命令移动目录
-	return os.Rename(oldSafePath, newSafePath) // lgtm[path-injection] — both paths validated by validateAndCleanPath
+	// lgtm[go/path-injection] — both paths validated by validateAndCleanPath
+	return os.Rename(oldSafePath, newSafePath)
 }
 
 // validateAndCleanPath ensures the path stays within the base directory and returns the cleaned path.
