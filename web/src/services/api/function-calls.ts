@@ -59,35 +59,22 @@ export type FunctionCallsListParams = {
 
 type RawFunctionCallItem = {
   id: string;
-  task_id?: string;
   taskId?: string;
-  function_id?: string;
   functionId?: string;
-  game_id?: string;
   gameId?: string;
   env?: string;
-  actor_id?: string;
   actorId?: string;
-  actor_type?: string;
   actorType?: string;
   status: string;
-  agent_id?: string;
   agentId?: string;
-  service_id?: string;
   serviceId?: string;
-  started_at?: string;
   startedAt?: string;
-  finished_at?: string;
   finishedAt?: string;
-  duration_ms?: number;
   durationMs?: number;
   payload?: JSONValue;
   result?: JSONValue;
-  error_msg?: string;
-  errorMessage?: string;
-  retry_count?: number;
+  errorMsg?: string;
   retryCount?: number;
-  created_at?: string;
   createdAt?: string;
 };
 
@@ -95,7 +82,6 @@ type RawFunctionCallsListResponse = {
   calls?: RawFunctionCallItem[];
   total?: number;
   page?: number;
-  page_size?: number;
   pageSize?: number;
 };
 
@@ -114,23 +100,23 @@ type RawFunctionCallStatsResponse = {
 function normalizeFunctionCallItem(item: RawFunctionCallItem): FunctionCallItem {
   return {
     id: item.id,
-    taskId: item.task_id || item.taskId || '',
-    functionId: item.function_id || item.functionId || '',
-    gameId: item.game_id || item.gameId,
+    taskId: item.taskId || '',
+    functionId: item.functionId || '',
+    gameId: item.gameId,
     env: item.env,
-    actorId: item.actor_id || item.actorId,
-    actorType: item.actor_type || item.actorType,
+    actorId: item.actorId,
+    actorType: item.actorType,
     status: item.status,
-    agentId: item.agent_id || item.agentId,
-    serviceId: item.service_id || item.serviceId,
-    startedAt: item.started_at || item.startedAt,
-    finishedAt: item.finished_at || item.finishedAt,
-    durationMs: item.duration_ms || item.durationMs,
+    agentId: item.agentId,
+    serviceId: item.serviceId,
+    startedAt: item.startedAt,
+    finishedAt: item.finishedAt,
+    durationMs: item.durationMs,
     payload: item.payload,
     result: item.result,
-    errorMessage: item.error_msg || item.errorMessage,
-    retryCount: item.retry_count || item.retryCount,
-    createdAt: item.created_at || item.createdAt || '',
+    errorMessage: item.errorMsg,
+    retryCount: item.retryCount,
+    createdAt: item.createdAt || '',
   };
 }
 

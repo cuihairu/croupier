@@ -11,9 +11,7 @@ const FEEDBACK_BASE = '/api/v1/feedback';
 
 export interface Ticket {
   id: number;
-  player_id: string;
   playerId: string;
-  game_id: string;
   gameId: string;
   title: string;
   content?: string;
@@ -22,9 +20,7 @@ export interface Ticket {
   priority?: string;
   assignee?: string;
   tags: string[];
-  created_at: string;
   createdAt: string;
-  updated_at: string;
   updatedAt: string;
   comments?: TicketComment[];
 }
@@ -33,7 +29,6 @@ export interface TicketComment {
   id: number;
   content: string;
   author?: string;
-  created_at: string;
   createdAt: string;
 }
 
@@ -45,25 +40,19 @@ export interface FAQ {
   tags: string[];
   visible?: boolean;
   sort?: number;
-  created_at: string;
   createdAt: string;
-  updated_at: string;
   updatedAt: string;
 }
 
 export interface Feedback {
   id: number;
-  player_id: string;
   playerId: string;
-  game_id: string;
   gameId: string;
   title: string;
   content?: string;
   status: string;
   category?: string;
-  created_at: string;
   createdAt: string;
-  updated_at: string;
   updatedAt: string;
 }
 
@@ -77,7 +66,6 @@ export interface TicketListParams {
   assignee?: string;
   q?: string;
   gameId?: string;
-  game_id?: string;
   env?: string;
 }
 
@@ -176,10 +164,8 @@ function parseVisible(value: unknown): boolean | undefined {
 function normalizeTicket(item: Record<string, JSONValue>): Ticket {
   return {
     id: Number(item.id ?? 0),
-    player_id: String(item.player_id ?? item.playerId ?? ''),
-    playerId: String(item.playerId ?? item.player_id ?? ''),
-    game_id: String(item.game_id ?? item.gameId ?? ''),
-    gameId: String(item.gameId ?? item.game_id ?? ''),
+    playerId: String(item.playerId ?? ''),
+    gameId: String(item.gameId ?? ''),
     title: String(item.title ?? ''),
     content: item.content ? String(item.content) : undefined,
     status: String(item.status ?? ''),
@@ -187,10 +173,8 @@ function normalizeTicket(item: Record<string, JSONValue>): Ticket {
     priority: item.priority ? String(item.priority) : undefined,
     assignee: item.assignee ? String(item.assignee) : undefined,
     tags: splitTags(item.tags),
-    created_at: String(item.created_at ?? item.createdAt ?? ''),
-    createdAt: String(item.createdAt ?? item.created_at ?? ''),
-    updated_at: String(item.updated_at ?? item.updatedAt ?? ''),
-    updatedAt: String(item.updatedAt ?? item.updated_at ?? ''),
+    createdAt: String(item.createdAt ?? ''),
+    updatedAt: String(item.updatedAt ?? ''),
   };
 }
 
@@ -199,8 +183,7 @@ function normalizeComment(item: Record<string, JSONValue>): TicketComment {
     id: Number(item.id ?? 0),
     content: String(item.content ?? ''),
     author: item.author ? String(item.author) : undefined,
-    created_at: String(item.created_at ?? item.createdAt ?? ''),
-    createdAt: String(item.createdAt ?? item.created_at ?? ''),
+    createdAt: String(item.createdAt ?? ''),
   };
 }
 
@@ -213,36 +196,30 @@ function normalizeFAQ(item: Record<string, JSONValue>): FAQ {
     tags: splitTags(item.tags),
     visible: typeof item.visible === 'boolean' ? item.visible : undefined,
     sort: typeof item.sort === 'number' ? item.sort : undefined,
-    created_at: String(item.created_at ?? item.createdAt ?? ''),
-    createdAt: String(item.createdAt ?? item.created_at ?? ''),
-    updated_at: String(item.updated_at ?? item.updatedAt ?? ''),
-    updatedAt: String(item.updatedAt ?? item.updated_at ?? ''),
+    createdAt: String(item.createdAt ?? ''),
+    updatedAt: String(item.updatedAt ?? ''),
   };
 }
 
 function normalizeFeedback(item: Record<string, JSONValue>): Feedback {
   return {
     id: Number(item.id ?? 0),
-    player_id: String(item.player_id ?? item.playerId ?? ''),
-    playerId: String(item.playerId ?? item.player_id ?? ''),
-    game_id: String(item.game_id ?? item.gameId ?? ''),
-    gameId: String(item.gameId ?? item.game_id ?? ''),
+    playerId: String(item.playerId ?? ''),
+    gameId: String(item.gameId ?? ''),
     title: String(item.title ?? ''),
     content: item.content ? String(item.content) : undefined,
     status: String(item.status ?? ''),
     category: item.category ? String(item.category) : undefined,
-    created_at: String(item.created_at ?? item.createdAt ?? ''),
-    createdAt: String(item.createdAt ?? item.created_at ?? ''),
-    updated_at: String(item.updated_at ?? item.updatedAt ?? ''),
-    updatedAt: String(item.updatedAt ?? item.updated_at ?? ''),
+    createdAt: String(item.createdAt ?? ''),
+    updatedAt: String(item.updatedAt ?? ''),
   };
 }
 
 function buildTicketPayload(data: TicketPayload): Record<string, JSONValue> {
   return {
     ...data,
-    playerId: data.playerId ?? data.player_id ?? '',
-    gameId: data.gameId ?? data.game_id ?? '',
+    playerId: data.playerId ?? '',
+    gameId: data.gameId ?? '',
     tags: splitTags(data.tags),
   };
 }
@@ -259,8 +236,8 @@ function buildFAQPayload(data: FAQPayload): Record<string, JSONValue> {
 function buildFeedbackPayload(data: FeedbackPayload): Record<string, JSONValue> {
   return {
     ...data,
-    playerId: data.playerId ?? data.player_id ?? '',
-    gameId: data.gameId ?? data.game_id ?? '',
+    playerId: data.playerId ?? '',
+    gameId: data.gameId ?? '',
   };
 }
 

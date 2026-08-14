@@ -35,12 +35,8 @@ export type ProfilePermission = {
 // Raw profile game from backend
 type RawProfileGame = {
   gameId?: string;
-  game_id?: string;
   name?: string;
   gameName?: string;
-  game_name?: string;
-  display_name?: string;
-  alias_name?: string;
   envs?: string[];
   envMeta?: Array<{ env?: string }>;
   permissions?: string[];
@@ -51,7 +47,6 @@ type RawProfilePermission = {
   resource?: string;
   actions?: string[];
   gameId?: string;
-  game_id?: string;
   env?: string;
 };
 
@@ -61,26 +56,22 @@ type RawProfile = {
   username?: string;
   nickname?: string;
   displayName?: string;
-  display_name?: string;
   email?: string;
   phone?: string;
   avatar?: string;
   active?: boolean;
   roles?: string[];
   createdAt?: string;
-  created_at?: string;
   updatedAt?: string;
-  updated_at?: string;
   lastLoginAt?: string;
-  last_login_at?: string;
   profileInfo?: RawProfile;
 };
 
 // Normalize profile game payloads from backend DTO variants into one frontend shape.
 function normalizeProfileGame(game: RawProfileGame): ProfileGame {
   return {
-    gameId: game.gameId ?? game.game_id ?? game.name,
-    gameName: game.gameName ?? game.game_name ?? game.display_name ?? game.alias_name,
+    gameId: game.gameId ?? game.name,
+    gameName: game.gameName,
     envs: Array.isArray(game.envs)
       ? game.envs
       : Array.isArray(game.envMeta)
@@ -95,7 +86,7 @@ function normalizeProfilePermission(permission: RawProfilePermission): ProfilePe
   return {
     resource: permission.resource ?? '',
     actions: Array.isArray(permission.actions) ? permission.actions : [],
-    gameId: permission.gameId ?? permission.game_id,
+    gameId: permission.gameId,
     env: permission.env,
   };
 }
@@ -107,15 +98,15 @@ function normalizeMyProfile(profile: RawProfile): MeProfile {
     id: source?.id,
     username: source?.username ?? '',
     nickname: source?.nickname,
-    displayName: source?.displayName ?? source?.display_name ?? source?.nickname,
+    displayName: source?.displayName ?? source?.nickname,
     email: source?.email,
     phone: source?.phone,
     avatar: source?.avatar,
     active: typeof source?.active === 'boolean' ? source.active : undefined,
     roles: Array.isArray(source?.roles) ? source.roles : [],
-    createdAt: source?.createdAt ?? source?.created_at,
-    updatedAt: source?.updatedAt ?? source?.updated_at,
-    lastLoginAt: source?.lastLoginAt ?? source?.last_login_at,
+    createdAt: source?.createdAt,
+    updatedAt: source?.updatedAt,
+    lastLoginAt: source?.lastLoginAt,
   };
 }
 

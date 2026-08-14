@@ -11,13 +11,13 @@ export type AssignmentsListPayload = {
 // Source: croupier/internal/api/assignment/service.go assignmentHistoryEntry
 export type AssignmentHistoryItem = {
   id: string;
-  game_id: string;
+  gameId: string;
   env: string;
-  function_id: string;
+  functionId: string;
   action: string;
   count: number;
-  operated_by: string;
-  operated_at: string;
+  operatedBy: string;
+  operatedAt: string;
   details?: Record<string, string | number | boolean | null | undefined>;
 };
 
@@ -37,7 +37,7 @@ export type AssignmentsUpdatePayload = {
 };
 
 export async function fetchAssignments(params?: {
-  game_id?: string;
+  gameId?: string;
   env?: string;
 }): Promise<AssignmentsListPayload> {
   const resp = await request<AssignmentsListPayload>('/api/v1/assignments', {
@@ -55,7 +55,7 @@ export async function fetchAssignments(params?: {
 
 export async function setAssignments(params: {
   action?: 'assign' | 'clone' | 'remove' | string;
-  target_env?: string;
+  targetEnv?: string;
   functions: string[];
 }): Promise<AssignmentsUpdatePayload> {
   const resp = await request<AssignmentsUpdatePayload>('/api/v1/assignments', {
@@ -66,7 +66,7 @@ export async function setAssignments(params: {
 }
 
 export async function fetchAssignmentsHistory(params?: {
-  game_id?: string;
+  gameId?: string;
   env?: string;
   action?: string;
   page?: number;

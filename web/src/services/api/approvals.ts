@@ -3,22 +3,22 @@ import { request } from '@umijs/max';
 // Source: croupier/internal/api/approval/dto.go ApprovalSummary / Approval
 export type ApprovalRow = {
   id: string;
-  created_at: string;
-  updated_at?: string;
+  createdAt: string;
+  updatedAt?: string;
   actor: string;
-  function_id: string;
-  game_id?: string;
+  functionId: string;
+  gameId?: string;
   env?: string;
   state: 'pending' | 'approved' | 'rejected';
   mode: 'invoke' | 'start_job';
   route?: string;
   reason?: string;
-  idempotency_key?: string;
-  target_service_id?: string;
-  hash_key?: string;
+  idempotencyKey?: string;
+  targetServiceId?: string;
+  hashKey?: string;
   // Detail-only fields
   payload?: string | number | boolean | null | Record<string, unknown> | unknown[];
-  payload_preview?: string;
+  payloadPreview?: string;
 };
 
 // Source: croupier/internal/api/approval/dto.go ApprovalsListRequest
