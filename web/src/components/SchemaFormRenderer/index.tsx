@@ -232,6 +232,7 @@ export function deriveRuntimeSchema(
 ): {
   schema: RJSFSchema;
   uiSchema: UiSchema;
+  formContext: Record<string, unknown>;
 } {
   const schema = cloneSchema(spec.jsonSchema);
   const uiSchema: UiSchema = {
@@ -240,6 +241,29 @@ export function deriveRuntimeSchema(
       norender: false,
     },
   };
+
+  // 从 spec.layout 推导 formContext 布局配置
+  const formContext: Record<string, unknown> = {};
+  switch (spec.layout) {
+    case 'horizontal':
+      formContext.labelCol = { span: 6 };
+      formContext.wrapperCol = { span: 18 };
+      formContext.labelAlign = 'right';
+      break;
+    case 'inline':
+      formContext.labelCol = { flex: '80px' };
+      formContext.wrapperCol = { flex: 'auto' };
+      formContext.labelAlign = 'right';
+      break;
+    case 'grid':
+      formContext.colSpan = 12;
+      formContext.rowGutter = 16;
+      break;
+    case 'vertical':
+    default:
+      // vertical 是默认布局，不需要额外配置
+      break;
+  }
 
   if (!schema.type) schema.type = 'object';
   if (!schema.properties) schema.properties = {};
@@ -271,7 +295,7 @@ export function deriveRuntimeSchema(
     uiSchema['ui:order'] = [...order, '*'];
   }
 
-  return { schema, uiSchema };
+  return { schema, uiSchema, formContext };
 }
 
 const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRendererProps>(
@@ -296,7 +320,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       setFormValues(initialValues || {});
     }, [initialValues]);
 
-    const { schema, uiSchema } = useMemo(() => {
+    const { schema, uiSchema, formContext } = useMemo(() => {
       const derived = deriveRuntimeSchema(spec, formValues);
       if (hideSubmit || readonly) {
         derived.uiSchema['ui:submitButtonOptions'] = {
@@ -321,6 +345,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         ref={formRef as React.Ref<RJSFFormRef>}
         schema={schema}
         uiSchema={uiSchema}
+        formContext={formContext}
         validator={validator}
         formData={formValues}
         readonly={readonly}
