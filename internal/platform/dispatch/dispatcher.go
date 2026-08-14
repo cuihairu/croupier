@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	apperrors "github.com/cuihairu/croupier/internal/errors"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/telemetry"
@@ -354,7 +355,7 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 	}
 	agents := d.listAgentsForFunctionInScope(req.GetFunctionId(), gameID, env, scoped)
 	if len(agents) == 0 {
-		err := fmt.Errorf("no live agent for function %s", req.GetFunctionId())
+		err := noLiveAgentError(req.GetFunctionId(), gameID, env, scoped)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
@@ -874,7 +875,8 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 		if chosen != nil {
 			return chosen, nil
 		}
-		return nil, fmt.Errorf("no live agent for function %s%s with service_id %s", functionID, formatRoutingScope(gameID, env, scoped), serviceID)
+		return nil, apperrors.Newf(apperrors.ErrCodeServiceUnavailable, "select_agent", nil,
+			"no live agent for function %s%s with service_id %s", functionID, formatRoutingScope(gameID, env, scoped), serviceID)
 	}
 
 	// Hash: choose a stable agent among the already scope-filtered candidates.
@@ -926,11 +928,13 @@ func formatRoutingScope(gameID, env string, scoped bool) string {
 }
 
 func noLiveAgentError(functionID, gameID, env string, scoped bool) error {
-	return fmt.Errorf("no live agent for function %s%s", functionID, formatRoutingScope(gameID, env, scoped))
+	return apperrors.Newf(apperrors.ErrCodeServiceUnavailable, "invoke", nil,
+		"no live agent for function %s%s", functionID, formatRoutingScope(gameID, env, scoped))
 }
 
 func noHealthyAgentError(functionID, gameID, env string, scoped bool) error {
-	return fmt.Errorf("no healthy agents available for function %s%s", functionID, formatRoutingScope(gameID, env, scoped))
+	return apperrors.Newf(apperrors.ErrCodeServiceUnavailable, "invoke", nil,
+		"no healthy agents available for function %s%s", functionID, formatRoutingScope(gameID, env, scoped))
 }
 
 // callAgent sends a request to an Agent via its established TCP session.
