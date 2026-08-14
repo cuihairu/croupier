@@ -3,11 +3,11 @@ name: CI - Go SDK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
-    paths: [ 'sdks/go/**' ]
+    branches: [main]
+    paths: ["sdks/go/**"]
   pull_request:
-    branches: [ main ]
-    paths: [ 'sdks/go/**' ]
+    branches: [main]
+    paths: ["sdks/go/**"]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: '1.26.5'
+          go-version: "1.26.6"
       - run: go test -count=1 -coverprofile=coverage.out -covermode=atomic ./...
         working-directory: sdks/go
       - uses: codecov/codecov-action@v7

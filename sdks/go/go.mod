@@ -1,6 +1,6 @@
 module github.com/cuihairu/croupier/sdks/go
 
-go 1.26.2
+go 1.26.6
 
 require (
 	// Testing

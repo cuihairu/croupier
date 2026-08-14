@@ -53,8 +53,8 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
       CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
     ports:
-      - "8123:8123"   # HTTP
-      - "9000:9000"   # Native
+      - "8123:8123" # HTTP
+      - "9000:9000" # Native
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
@@ -64,7 +64,11 @@ services:
         soft: 262144
         hard: 262144
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/?query=SELECT%201 || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8123/?query=SELECT%201 || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -80,7 +84,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.server
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
         # Optional: include sqlite support by setting BUILD_TAGS to "pg sqlite"
         BUILD_TAGS: ${SERVER_BUILD_TAGS:-"pg ip2location"}
@@ -113,7 +117,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.agent
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     volumes:
       - ./configs/agent.yaml:/app/configs/agent.yaml:ro
@@ -148,7 +152,7 @@ services:
       context: ../sdks/go
       dockerfile: examples/Dockerfile
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
         EXAMPLE_DIR: demo
     container_name: croupier-sdk-demo-go
@@ -171,7 +175,7 @@ services:
       context: ..
       dockerfile: sdks/go/examples/Dockerfile
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
         EXAMPLE_DIR: basic
     container_name: croupier-sdk-basic
@@ -194,7 +198,7 @@ services:
       context: ..
       dockerfile: sdks/go/examples/Dockerfile
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
         EXAMPLE_DIR: comprehensive
     container_name: croupier-sdk-comprehensive
@@ -382,7 +386,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.analytics-worker
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -399,14 +403,14 @@ services:
       - croupier-network
     profiles:
       - stream
-  
+
   # Analytics Ingestion (Public HTTP/JSON with HMAC signature)
   ingestion:
     build:
       context: ..
       dockerfile: docker/Dockerfile.ingest
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -434,7 +438,7 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@croupier.local
       PGADMIN_DEFAULT_PASSWORD: admin123
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
       - "8082:80"
     volumes:

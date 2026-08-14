@@ -55,8 +55,8 @@ go version
 
 ```bash
 # 下载并安装
-wget https://go.dev/dl/go1.26.2.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.26.2.linux-amd64.tar.gz
+wget https://go.dev/dl/go1.26.6.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.26.6.linux-amd64.tar.gz
 
 # 配置 PATH
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc

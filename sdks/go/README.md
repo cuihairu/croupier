@@ -16,7 +16,7 @@
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License">
   </a>
   <a href="https://go.dev/">
-    <img src="https://img.shields.io/badge/Go-1.26.5+-00ADD8.svg" alt="Go Version">
+    <img src="https://img.shields.io/badge/Go-1.26.6+-00ADD8.svg" alt="Go Version">
   </a>
 </p>
 
@@ -113,7 +113,7 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ### 系统要求
 
-- **Go 1.26.5+**
+- **Go 1.26.6+**
 
 > 运行时只需 Go：SDK 通过单条 TCP session（`sdk-agent subprotocol`）接入 Agent，不依赖任何 RPC 框架。
 > 仅在修改主仓库 `proto/` 后重新生成 Protobuf 消息类型时才需要 protoc 工具链（见下文「Protobuf 代码生成」）。
