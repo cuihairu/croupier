@@ -29,48 +29,27 @@ export type Game = {
 
 type RawGameEnvMeta = {
   env?: string;
-  Env?: string;
   description?: string;
-  Description?: string;
   color?: string;
-  Color?: string;
 };
 
 type RawGame = {
   id?: number;
-  ID?: number;
   gameId?: string;
-  game_id?: string;
   name?: string;
-  Name?: string;
   displayName?: string;
-  display_name?: string;
   aliasName?: string;
-  alias_name?: string;
-  AliasName?: string;
   gameName?: string;
-  game_name?: string;
   icon?: string;
-  Icon?: string;
   description?: string;
-  Description?: string;
   homepage?: string;
-  Homepage?: string;
   status?: string;
-  Status?: string;
   enabled?: boolean;
-  Enabled?: boolean;
   createdAt?: string;
-  created_at?: string;
-  CreatedAt?: string;
   updatedAt?: string;
-  updated_at?: string;
-  UpdatedAt?: string;
   color?: string;
-  Color?: string;
   envs?: string[];
   envMeta?: RawGameEnvMeta[];
-  env_meta?: RawGameEnvMeta[];
   gameType?: string;
   genreCode?: string;
 };
@@ -100,7 +79,7 @@ function normalizeGame(raw: RawGame): Game {
     raw?.display_name ??
     raw?.gameName ??
     raw?.game_name;
-  const envMeta = normalizeEnvMeta(raw?.envMeta ?? raw?.env_meta);
+  const envMeta = normalizeEnvMeta(raw?.envMeta);
   const envs =
     Array.isArray(raw?.envs) && raw.envs.length > 0
       ? raw.envs
@@ -109,18 +88,18 @@ function normalizeGame(raw: RawGame): Game {
         : undefined;
 
   return {
-    id: raw?.id ?? raw?.ID,
+    id: raw?.id,
     name,
     displayName: aliasName ?? name,
-    icon: raw?.icon ?? raw?.Icon,
-    description: raw?.description ?? raw?.Description,
+    icon: raw?.icon,
+    description: raw?.description,
     aliasName,
-    homepage: raw?.homepage ?? raw?.Homepage,
-    status: raw?.status ?? raw?.Status,
-    enabled: typeof raw?.enabled === 'boolean' ? raw.enabled : raw?.Enabled,
-    createdAt: raw?.createdAt ?? raw?.created_at ?? raw?.CreatedAt,
-    updatedAt: raw?.updatedAt ?? raw?.updated_at ?? raw?.UpdatedAt,
-    color: raw?.color ?? raw?.Color,
+    homepage: raw?.homepage,
+    status: raw?.status,
+    enabled: typeof raw?.enabled === 'boolean' ? raw.enabled : undefined,
+    createdAt: raw?.createdAt,
+    updatedAt: raw?.updatedAt,
+    color: raw?.color,
     envs,
     envMeta,
     gameType: raw?.gameType,

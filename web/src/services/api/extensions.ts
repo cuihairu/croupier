@@ -233,7 +233,7 @@ export async function listExtensionCatalog(params?: ExtensionCatalogListParams) 
         kind: params?.kind,
         status: params?.status,
         page: params?.page,
-        page_size: params?.pageSize,
+        pageSize: params?.pageSize,
       },
     },
   );
@@ -273,15 +273,15 @@ export async function listExtensionInstallations(params?: ExtensionInstallationL
     `${BASE}/installations`,
     {
       params: {
-        extension_id: params?.extensionId,
-        scope_type: params?.scopeType,
-        scope_id: params?.scopeId,
-        target_type: params?.targetType,
-        target_id: params?.targetId,
+        extensionId: params?.extensionId,
+        scopeType: params?.scopeType,
+        scopeId: params?.scopeId,
+        targetType: params?.targetType,
+        targetId: params?.targetId,
         status: params?.status,
         enabled: params?.enabled,
         page: params?.page,
-        page_size: params?.pageSize,
+        pageSize: params?.pageSize,
       },
     },
   );
@@ -295,17 +295,17 @@ export async function installExtension(data: ExtensionInstallRequest) {
   return request<{ installationId: number; status: string }>(`${BASE}/install`, {
     method: 'POST',
     data: {
-      extension_id: data.extensionId,
-      release_version: data.releaseVersion,
-      scope_type: data.scopeType,
-      scope_id: data.scopeId,
-      target_type: data.targetType,
-      target_id: data.targetId,
+      extensionId: data.extensionId,
+      releaseVersion: data.releaseVersion,
+      scopeType: data.scopeType,
+      scopeId: data.scopeId,
+      targetType: data.targetType,
+      targetId: data.targetId,
       config: data.config,
-      secret_refs: data.secretRefs,
+      secretRefs: data.secretRefs,
     },
   }).then((response: Record<string, JSONValue>) => ({
-    installationId: response?.installation_id ?? response?.installationId ?? 0,
+    installationId: response?.installationId ?? 0,
     status: response?.status ?? '',
   }));
 }
@@ -420,7 +420,7 @@ export async function listExtensionEvents(
         level: params?.level,
         keyword: params?.keyword,
         page: params?.page,
-        page_size: params?.pageSize,
+        pageSize: params?.pageSize,
       },
     },
   );
@@ -445,7 +445,7 @@ export async function listExtensionPages(id: string | number) {
       icon?: string;
       order?: number;
       category?: string;
-      extension_id?: string;
+      extensionId?: string;
     }>;
   }>(`${BASE}/${encodeURIComponent(String(id))}/pages`);
   return {
@@ -456,7 +456,7 @@ export async function listExtensionPages(id: string | number) {
       icon: item.icon,
       order: item.order,
       category: item.category,
-      extensionId: item.extension_id,
+      extensionId: item.extensionId,
     })),
   };
 }

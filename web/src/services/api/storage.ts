@@ -4,11 +4,11 @@ type StorageObjectsPayload = {
   objects?: Array<{
     key?: string;
     size?: number;
-    last_modified?: string;
+    lastModified?: string;
   }>;
   prefixes?: string[];
-  is_truncated?: boolean;
-  next_marker?: string;
+  isTruncated?: boolean;
+  nextMarker?: string;
 };
 
 type UploadAssetOptions = {
@@ -95,8 +95,8 @@ export async function listObjects(params: {
   return {
     objects: Array.isArray(payload?.objects) ? payload.objects : [],
     prefixes: Array.isArray(payload?.prefixes) ? payload.prefixes : [],
-    is_truncated: Boolean(payload?.is_truncated),
-    next_marker: payload?.next_marker || '',
+    isTruncated: Boolean(payload?.isTruncated),
+    nextMarker: payload?.nextMarker || '',
   };
 }
 

@@ -26,6 +26,7 @@ require (
 )
 
 require (
+	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/getkin/kin-openapi v0.144.0
@@ -54,7 +55,6 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/ClickHouse/ch-go v0.71.0 // indirect
-	github.com/alicebob/miniredis/v2 v2.38.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.5 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8 // indirect
@@ -186,3 +186,4 @@ require (
 exclude github.com/mattn/go-sqlite3 v1.14.22
 
 exclude github.com/mattn/go-sqlite3 v1.14.33
+

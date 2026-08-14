@@ -5,7 +5,7 @@ type ExtensionCatalogListRequest struct {
 	Kind     string `form:"kind" json:"kind"`
 	Status   string `form:"status" json:"status"`
 	Page     int    `form:"page,default=1" json:"page"`
-	PageSize int    `form:"page_size,default=20" json:"pageSize"`
+	PageSize int    `form:"pageSize,default=20" json:"pageSize"`
 }
 
 type ExtensionAgentSyncRequest struct {
@@ -70,15 +70,15 @@ type ExtensionInstallRequest struct {
 }
 
 type ExtensionInstallationListRequest struct {
-	ExtensionID string `form:"extension_id" json:"extensionId"`
-	ScopeType   string `form:"scope_type" json:"scopeType"`
-	ScopeID     string `form:"scope_id" json:"scopeId"`
-	TargetType  string `form:"target_type" json:"targetType"`
-	TargetID    string `form:"target_id" json:"targetId"`
+	ExtensionID string `form:"extensionId" json:"extensionId"`
+	ScopeType   string `form:"scopeType" json:"scopeType"`
+	ScopeID     string `form:"scopeId" json:"scopeId"`
+	TargetType  string `form:"targetType" json:"targetType"`
+	TargetID    string `form:"targetId" json:"targetId"`
 	Status      string `form:"status" json:"status"`
 	Enabled     *bool  `form:"enabled" json:"enabled"`
 	Page        int    `form:"page,default=1" json:"page"`
-	PageSize    int    `form:"page_size,default=20" json:"pageSize"`
+	PageSize    int    `form:"pageSize,default=20" json:"pageSize"`
 }
 
 type ExtensionInstallResponse struct {
@@ -238,7 +238,7 @@ type ExtensionEventListRequest struct {
 	Level    string `form:"level" json:"level"`
 	Keyword  string `form:"keyword" json:"keyword"`
 	Page     int    `form:"page,default=1" json:"page"`
-	PageSize int    `form:"page_size,default=20" json:"pageSize"`
+	PageSize int    `form:"pageSize,default=20" json:"pageSize"`
 }
 
 type ExtensionAgentSyncResponse struct {
