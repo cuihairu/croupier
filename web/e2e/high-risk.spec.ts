@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, navigateToConsole, waitForPageReady } from './helpers';
+import { login, navigateToConsole, waitForPageReady, expectFormVisible } from './helpers';
 
 test.describe('高风险动作', () => {
   test.beforeEach(async ({ page }) => {
@@ -14,25 +14,16 @@ test.describe('高风险动作', () => {
     await navigateToConsole(page, 'system', 'operation--system.dangerous-op');
     await waitForPageReady(page);
 
-    // 验证页面加载（表单或其他内容）
-    const hasForm = await page
-      .locator('.ant-form, form')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    const hasCard = await page
-      .locator('.ant-card')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    const hasContent = await page
-      .locator('main, .ant-layout-content')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
+    // 验证页面加载 - 高风险操作应该有表单
+    const form = page.locator('.ant-form, form').first();
+    const card = page.locator('.ant-card').first();
+    const main = page.locator('main, .ant-layout-content').first();
 
-    // 页面应该有内容
-    expect(hasForm || hasCard || hasContent).toBeTruthy();
+    const formVisible = await form.isVisible().catch(() => false);
+    const cardVisible = await card.isVisible().catch(() => false);
+    const mainVisible = await main.isVisible().catch(() => false);
+
+    expect(formVisible || cardVisible || mainVisible).toBeTruthy();
   });
 
   test('高风险操作确认流程', async ({ page }) => {
@@ -43,28 +34,33 @@ test.describe('高风险动作', () => {
     const reasonInput = page
       .locator('input[name="reason"], textarea[name="reason"], input[id*="reason"]')
       .first();
-    if (await reasonInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const hasReasonInput = await reasonInput.isVisible().catch(() => false);
+
+    if (hasReasonInput) {
       await reasonInput.fill('测试高风险操作原因');
-    }
 
-    // 点击执行按钮
-    const submitBtn = page
-      .locator('button:has-text("执行"), button:has-text("提交"), button:has-text("Execute")')
-      .first();
-    if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await submitBtn.click();
+      // 点击执行按钮
+      const submitBtn = page
+        .locator('button:has-text("执行"), button:has-text("提交"), button:has-text("Execute")')
+        .first();
+      const hasSubmit = await submitBtn.isVisible().catch(() => false);
 
-      // 等待确认弹窗
-      const confirmModal = page.locator('.ant-popconfirm, .ant-modal-confirm').first();
-      const hasConfirm = await confirmModal.isVisible({ timeout: 5000 }).catch(() => false);
+      if (hasSubmit) {
+        await submitBtn.click();
 
-      if (hasConfirm) {
-        // 确认操作
-        const confirmBtn = page
-          .locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary')
-          .first();
-        await confirmBtn.click();
-        await page.waitForTimeout(2000);
+        // 等待确认弹窗
+        const confirmModal = page.locator('.ant-popconfirm, .ant-modal-confirm').first();
+        const hasConfirm = await confirmModal.isVisible({ timeout: 5000 }).catch(() => false);
+
+        if (hasConfirm) {
+          // 确认操作
+          const confirmBtn = page
+            .locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary')
+            .first();
+          await expect(confirmBtn).toBeVisible();
+          await confirmBtn.click();
+          await page.waitForTimeout(2000);
+        }
       }
     }
   });
@@ -73,12 +69,8 @@ test.describe('高风险动作', () => {
     await navigateToConsole(page, 'system', 'operation--system.dangerous-op');
     await waitForPageReady(page);
 
-    // 页面应该正常加载
-    const hasContent = await page
-      .locator('.ant-form, form, .ant-card, main')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    expect(hasContent).toBeTruthy();
+    // 验证页面正常加载
+    const content = page.locator('.ant-form, form, .ant-card, main').first();
+    await expect(content).toBeVisible();
   });
 });

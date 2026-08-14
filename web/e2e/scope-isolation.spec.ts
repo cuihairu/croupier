@@ -3,7 +3,13 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, navigateToConsole, waitForPageReady, waitForTable } from './helpers';
+import {
+  login,
+  navigateToConsole,
+  waitForPageReady,
+  waitForTable,
+  expectTableVisible,
+} from './helpers';
 
 test.describe('Scope 隔离', () => {
   test.beforeEach(async ({ page }) => {
@@ -16,6 +22,7 @@ test.describe('Scope 隔离', () => {
 
     // 验证页面正常加载
     await waitForTable(page);
+    await expectTableVisible(page);
   });
 
   test('切换环境后页面重新加载', async ({ page }) => {
@@ -30,19 +37,24 @@ test.describe('Scope 隔离', () => {
         '[data-testid="env-selector"], .ant-select:has-text("环境"), .ant-select:has-text("Env")',
       )
       .first();
-    if (await envSelector.isVisible()) {
+    const hasEnvSelector = await envSelector.isVisible().catch(() => false);
+
+    if (hasEnvSelector) {
       await envSelector.click();
 
       // 选择不同的环境
       const envOption = page
         .locator('.ant-select-item:has-text("staging"), .ant-select-item:has-text("test")')
         .first();
-      if (await envOption.isVisible()) {
+      const hasOption = await envOption.isVisible().catch(() => false);
+
+      if (hasOption) {
         await envOption.click();
         await page.waitForTimeout(2000);
 
         // 验证页面重新加载
         await waitForPageReady(page);
+        await expectTableVisible(page);
       }
     }
   });
@@ -58,19 +70,21 @@ test.describe('Scope 隔离', () => {
 
     // 切换环境
     const envSelector = page.locator('[data-testid="env-selector"], .ant-select').first();
-    if (await envSelector.isVisible()) {
+    const hasEnvSelector = await envSelector.isVisible().catch(() => false);
+
+    if (hasEnvSelector) {
       await envSelector.click();
       const envOption = page.locator('.ant-select-item').nth(1);
-      if (await envOption.isVisible()) {
+      const hasOption = await envOption.isVisible().catch(() => false);
+
+      if (hasOption) {
         await envOption.click();
         await page.waitForTimeout(2000);
         await waitForPageReady(page);
 
-        // 数据可能不同（mock 中相同，但测试逻辑正确）
+        // 验证新环境的数据也加载成功
         const secondEnvData = await page.locator('td').allTextContents();
-
-        // 至少验证页面正常加载
-        expect(secondEnvData.length).toBeGreaterThanOrEqual(0);
+        expect(secondEnvData.length).toBeGreaterThan(0);
       }
     }
   });

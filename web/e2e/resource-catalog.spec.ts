@@ -3,7 +3,13 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, waitForPageReady } from './helpers';
+import {
+  login,
+  waitForPageReady,
+  expectTableVisible,
+  expectDrawerVisible,
+  expectModalVisible,
+} from './helpers';
 
 test.describe('Resource Catalog', () => {
   test.beforeEach(async ({ page }) => {
@@ -15,7 +21,8 @@ test.describe('Resource Catalog', () => {
     await waitForPageReady(page);
 
     // 验证资源列表
-    await expect(page.locator('.ant-pro-table, .ant-table, .ant-card').first()).toBeVisible();
+    const content = page.locator('.ant-pro-table, .ant-table, .ant-card').first();
+    await expect(content).toBeVisible();
   });
 
   test('资源列表展示', async ({ page }) => {
@@ -23,18 +30,13 @@ test.describe('Resource Catalog', () => {
     await waitForPageReady(page);
 
     // 验证有数据展示
-    const hasTable = await page
-      .locator('.ant-pro-table, .ant-table')
-      .first()
-      .isVisible()
-      .catch(() => false);
-    const hasCards = await page
-      .locator('.ant-card')
-      .first()
-      .isVisible()
-      .catch(() => false);
+    const table = page.locator('.ant-pro-table, .ant-table').first();
+    const cards = page.locator('.ant-card').first();
 
-    expect(hasTable || hasCards).toBeTruthy();
+    const tableVisible = await table.isVisible().catch(() => false);
+    const cardsVisible = await cards.isVisible().catch(() => false);
+
+    expect(tableVisible || cardsVisible).toBeTruthy();
   });
 
   test('资源详情查看', async ({ page }) => {
@@ -47,17 +49,26 @@ test.describe('Resource Catalog', () => {
         'button:has-text("查看"), a:has-text("查看"), button:has-text("详情"), a:has-text("详情")',
       )
       .first();
-    if (await detailBtn.isVisible()) {
+    const hasDetail = await detailBtn.isVisible().catch(() => false);
+
+    if (hasDetail) {
       await detailBtn.click();
 
       // 等待详情展示
-      await page
-        .locator('.ant-drawer, .ant-modal')
-        .first()
-        .waitFor({ state: 'visible', timeout: 10000 });
+      const drawer = page.locator('.ant-drawer').first();
+      const modal = page.locator('.ant-modal').first();
+
+      const drawerVisible = await drawer.isVisible({ timeout: 10000 }).catch(() => false);
+      const modalVisible = await modal.isVisible({ timeout: 10000 }).catch(() => false);
+
+      expect(drawerVisible || modalVisible).toBeTruthy();
 
       // 关闭详情
-      await page.locator('.ant-drawer-close, .ant-modal-close').first().click();
+      if (drawerVisible) {
+        await page.locator('.ant-drawer-close').first().click();
+      } else if (modalVisible) {
+        await page.locator('.ant-modal-close').first().click();
+      }
     }
   });
 
@@ -73,7 +84,8 @@ test.describe('Resource Catalog', () => {
       .first();
     const hasStatus = await statusTag.isVisible().catch(() => false);
 
-    // 至少有页面内容
-    await expect(page.locator('body')).toBeVisible();
+    // 验证页面有内容
+    const content = page.locator('.ant-pro-table, .ant-table, .ant-card').first();
+    await expect(content).toBeVisible();
   });
 });

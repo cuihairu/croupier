@@ -134,3 +134,62 @@ export async function selectEnv(page: Page, env: string): Promise<void> {
     await page.waitForTimeout(1000);
   }
 }
+
+/**
+ * 断言表格有数据行
+ */
+export async function expectTableHasRows(page: Page, minRows = 1): Promise<void> {
+  const rows = await page.locator('tbody tr, .ant-table-row').count();
+  expect(rows).toBeGreaterThanOrEqual(minRows);
+}
+
+/**
+ * 断言页面有可见的表格
+ */
+export async function expectTableVisible(page: Page): Promise<void> {
+  await expect(page.locator('.ant-pro-table, .ant-table').first()).toBeVisible();
+}
+
+/**
+ * 断言页面有表单
+ */
+export async function expectFormVisible(page: Page): Promise<void> {
+  await expect(page.locator('.ant-form, form').first()).toBeVisible();
+}
+
+/**
+ * 断言 Toast/Message 消息出现
+ */
+export async function expectMessageVisible(
+  page: Page,
+  text: string,
+  timeout = 10000,
+): Promise<void> {
+  await expect(page.locator(`.ant-message:has-text("${text}")`).first()).toBeVisible({ timeout });
+}
+
+/**
+ * 断言 Modal 出现
+ */
+export async function expectModalVisible(page: Page, timeout = 10000): Promise<void> {
+  await expect(page.locator('.ant-modal').first()).toBeVisible({ timeout });
+}
+
+/**
+ * 断言 Drawer 出现
+ */
+export async function expectDrawerVisible(page: Page, timeout = 10000): Promise<void> {
+  await expect(page.locator('.ant-drawer').first()).toBeVisible({ timeout });
+}
+
+/**
+ * 断言没有错误页面
+ */
+export async function expectNoErrorPage(page: Page): Promise<void> {
+  const hasError = await page
+    .locator('.ant-result-error, text=加载失败, text=Error')
+    .first()
+    .isVisible()
+    .catch(() => false);
+  expect(hasError).toBeFalsy();
+}

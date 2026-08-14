@@ -14,7 +14,7 @@ test.describe('契约变化', () => {
     await navigateToConsole(page, 'players', 'resource--players');
     await waitForPageReady(page);
 
-    // 检查是否有 stale 警告
+    // 检查是否有 stale 警告或正常表格
     const staleAlert = page
       .locator('text=页面绑定的函数契约已变化, text=stale, text=契约变化')
       .first();
@@ -26,13 +26,11 @@ test.describe('契约变化', () => {
 
       // 验证执行按钮被禁用或有阻断提示
       const blockedMsg = page.locator('text=执行被阻断, text=阻断, .ant-alert-error').first();
-      const isBlocked = await blockedMsg.isVisible().catch(() => false);
-
-      // 至少应该有警告信息
-      expect(hasStale || isBlocked).toBeTruthy();
+      await expect(blockedMsg).toBeVisible();
     } else {
-      // 如果没有 stale，页面应该正常工作
+      // 如果没有 stale，页面应该正常显示表格
       await waitForTable(page);
+      await expect(page.locator('.ant-pro-table, .ant-table').first()).toBeVisible();
     }
   });
 
@@ -40,22 +38,25 @@ test.describe('契约变化', () => {
     await navigateToConsole(page, 'players', 'resource--players');
     await waitForPageReady(page);
 
-    // 验证页面加载
-    await page.waitForTimeout(2000);
-
-    // 检查页面状态
-    const hasError = await page
-      .locator('.ant-result-error, text=加载失败')
-      .first()
-      .isVisible()
-      .catch(() => false);
+    // 验证页面加载 - 应该有表格或明确的错误
     const hasTable = await page
       .locator('.ant-pro-table, .ant-table')
       .first()
       .isVisible()
       .catch(() => false);
+    const hasError = await page
+      .locator('.ant-result-error, text=加载失败')
+      .first()
+      .isVisible()
+      .catch(() => false);
 
-    // 页面应该正常加载（有表格或有错误提示）
+    // 必须有表格或错误，不能两者都没有
     expect(hasTable || hasError).toBeTruthy();
+
+    // 如果有表格，验证有数据行
+    if (hasTable) {
+      const rows = await page.locator('tbody tr, .ant-table-row').count();
+      expect(rows).toBeGreaterThan(0);
+    }
   });
 });

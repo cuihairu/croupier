@@ -3,7 +3,14 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, navigateToConsole, waitForPageReady, waitForTable } from './helpers';
+import {
+  login,
+  navigateToConsole,
+  waitForPageReady,
+  waitForTable,
+  expectTableVisible,
+  expectModalVisible,
+} from './helpers';
 
 test.describe('SDK CRUD', () => {
   test.beforeEach(async ({ page }) => {
@@ -16,7 +23,7 @@ test.describe('SDK CRUD', () => {
     await waitForTable(page);
 
     // 验证 ProTable 渲染
-    await expect(page.locator('.ant-pro-table, .ant-table').first()).toBeVisible();
+    await expectTableVisible(page);
   });
 
   test('背包资源 CRUD 操作', async ({ page }) => {
@@ -26,13 +33,22 @@ test.describe('SDK CRUD', () => {
 
     // 测试新建
     const createBtn = page.locator('button:has-text("新建"), button:has-text("创建")').first();
-    if (await createBtn.isVisible()) {
+    const hasCreate = await createBtn.isVisible().catch(() => false);
+
+    if (hasCreate) {
       await createBtn.click();
-      await page.locator('.ant-modal').waitFor({ state: 'visible', timeout: 10000 });
-      await page
+
+      // 等待 Modal 出现
+      await expectModalVisible(page);
+
+      // 取消创建
+      const cancelBtn = page
         .locator('.ant-modal button:has-text("取"), .ant-modal button:has-text("Cancel")')
-        .first()
-        .click();
+        .first();
+      await expect(cancelBtn).toBeVisible();
+      await cancelBtn.click();
+
+      // 等待 Modal 关闭
       await page.locator('.ant-modal').waitFor({ state: 'hidden', timeout: 5000 });
     }
   });

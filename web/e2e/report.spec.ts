@@ -3,7 +3,13 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, navigateToConsole, waitForPageReady } from './helpers';
+import {
+  login,
+  navigateToConsole,
+  waitForPageReady,
+  expectFormVisible,
+  expectTableVisible,
+} from './helpers';
 
 test.describe('报表', () => {
   test.beforeEach(async ({ page }) => {
@@ -14,25 +20,17 @@ test.describe('报表', () => {
     await navigateToConsole(page, 'analytics', 'report--analytics.retention');
     await waitForPageReady(page);
 
-    // 验证页面加载（表单或其他内容）
-    const hasForm = await page
-      .locator('.ant-form, form')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    const hasCard = await page
-      .locator('.ant-card')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    const hasContent = await page
-      .locator('main, .ant-layout-content')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
+    // 验证页面加载 - 报表页面应该有表单或卡片
+    const form = page.locator('.ant-form, form').first();
+    const card = page.locator('.ant-card').first();
+    const main = page.locator('main, .ant-layout-content').first();
 
-    // 页面应该有内容
-    expect(hasForm || hasCard || hasContent).toBeTruthy();
+    // 至少有一个可见
+    const formVisible = await form.isVisible().catch(() => false);
+    const cardVisible = await card.isVisible().catch(() => false);
+    const mainVisible = await main.isVisible().catch(() => false);
+
+    expect(formVisible || cardVisible || mainVisible).toBeTruthy();
   });
 
   test('执行查询', async ({ page }) => {
@@ -41,21 +39,25 @@ test.describe('报表', () => {
 
     // 填写查询参数（如果表单存在）
     const startDateInput = page.locator('input[name="startDate"], input[id*="startDate"]').first();
-    if (await startDateInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const hasStartDate = await startDateInput.isVisible().catch(() => false);
+
+    if (hasStartDate) {
       await startDateInput.fill('2024-01-01');
-    }
 
-    const endDateInput = page.locator('input[name="endDate"], input[id*="endDate"]').first();
-    if (await endDateInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await endDateInput.fill('2024-01-07');
-    }
+      const endDateInput = page.locator('input[name="endDate"], input[id*="endDate"]').first();
+      const hasEndDate = await endDateInput.isVisible().catch(() => false);
+      if (hasEndDate) {
+        await endDateInput.fill('2024-01-07');
+      }
 
-    // 点击查询
-    const queryBtn = page
-      .locator('button:has-text("查询"), button:has-text("搜索"), button:has-text("Query")')
-      .first();
-    if (await queryBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      // 点击查询
+      const queryBtn = page
+        .locator('button:has-text("查询"), button:has-text("搜索"), button:has-text("Query")')
+        .first();
+      await expect(queryBtn).toBeVisible();
       await queryBtn.click();
+
+      // 等待响应
       await page.waitForTimeout(2000);
     }
   });
@@ -64,29 +66,26 @@ test.describe('报表', () => {
     await navigateToConsole(page, 'analytics', 'report--analytics.retention');
     await waitForPageReady(page);
 
-    // 验证页面加载
-    const hasContent = await page
-      .locator('.ant-form, form, .ant-card, main')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    expect(hasContent).toBeTruthy();
+    // 验证页面加载 - 报表页面应该有内容
+    const content = page.locator('.ant-form, form, .ant-card, main').first();
+    await expect(content).toBeVisible();
   });
 
   test('导出功能', async ({ page }) => {
     await navigateToConsole(page, 'analytics', 'report--analytics.retention');
     await waitForPageReady(page);
 
+    // 验证页面加载
+    const content = page.locator('.ant-form, form, .ant-card, main').first();
+    await expect(content).toBeVisible();
+
     // 检查导出按钮（如果存在）
     const exportBtn = page.locator('button:has-text("导出"), button:has-text("Export")').first();
-    const hasExport = await exportBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    const hasExport = await exportBtn.isVisible().catch(() => false);
 
-    // 页面应该正常加载
-    const hasContent = await page
-      .locator('.ant-form, form, .ant-card, main')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    expect(hasContent).toBeTruthy();
+    // 如果有导出按钮，验证它可以点击
+    if (hasExport) {
+      await expect(exportBtn).toBeEnabled();
+    }
   });
 });

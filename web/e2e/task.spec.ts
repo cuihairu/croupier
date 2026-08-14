@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, navigateToConsole, waitForPageReady } from './helpers';
+import { login, navigateToConsole, waitForPageReady, expectFormVisible } from './helpers';
 
 test.describe('异步任务', () => {
   test.beforeEach(async ({ page }) => {
@@ -15,7 +15,7 @@ test.describe('异步任务', () => {
     await waitForPageReady(page);
 
     // 验证表单渲染
-    await expect(page.locator('.ant-form, form').first()).toBeVisible();
+    await expectFormVisible(page);
   });
 
   test('提交任务', async ({ page }) => {
@@ -26,12 +26,16 @@ test.describe('异步任务', () => {
     const playerIdsInput = page
       .locator('input[name="playerIds"], textarea[name="playerIds"]')
       .first();
-    if (await playerIdsInput.isVisible()) {
+    const hasPlayerIds = await playerIdsInput.isVisible().catch(() => false);
+
+    if (hasPlayerIds) {
       await playerIdsInput.fill('1001,1002,1003');
     }
 
     const rewardIdInput = page.locator('input[name="rewardId"]').first();
-    if (await rewardIdInput.isVisible()) {
+    const hasRewardId = await rewardIdInput.isVisible().catch(() => false);
+
+    if (hasRewardId) {
       await rewardIdInput.fill('100');
     }
 
@@ -39,7 +43,9 @@ test.describe('异步任务', () => {
     const submitBtn = page
       .locator('button:has-text("提交"), button:has-text("开始"), button:has-text("执行")')
       .first();
-    if (await submitBtn.isVisible()) {
+    const hasSubmit = await submitBtn.isVisible().catch(() => false);
+
+    if (hasSubmit) {
       await submitBtn.click();
 
       // 等待任务状态更新
@@ -51,15 +57,16 @@ test.describe('异步任务', () => {
     await navigateToConsole(page, 'reward', 'task--reward.batchGrant');
     await waitForPageReady(page);
 
-    // 验证进度组件（如果任务已提交）
+    // 验证表单或任务状态展示
+    const form = page.locator('.ant-form, form').first();
     const progress = page.locator('.ant-progress, [data-testid="task-progress"]').first();
     const timeline = page.locator('.ant-timeline, [data-testid="task-timeline"]').first();
 
-    // 至少应该有表单或任务状态展示
-    const hasForm = await page.locator('.ant-form, form').first().isVisible();
-    const hasProgress = await progress.isVisible().catch(() => false);
-    const hasTimeline = await timeline.isVisible().catch(() => false);
+    const formVisible = await form.isVisible().catch(() => false);
+    const progressVisible = await progress.isVisible().catch(() => false);
+    const timelineVisible = await timeline.isVisible().catch(() => false);
 
-    expect(hasForm || hasProgress || hasTimeline).toBeTruthy();
+    // 至少应该有一个可见
+    expect(formVisible || progressVisible || timelineVisible).toBeTruthy();
   });
 });
