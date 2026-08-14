@@ -7,13 +7,13 @@ export type CanaryConfig = {
 
 export type AssignmentHistory = {
   id: string;
-  game_id: string;
+  gameId: string;
   env: string;
-  function_id: string;
+  functionId: string;
   action: 'assign' | 'remove' | string;
   count: number;
-  operated_by: string;
-  operated_at: string;
+  operatedBy: string;
+  operatedAt: string;
   details?: Record<string, unknown>;
 };
 

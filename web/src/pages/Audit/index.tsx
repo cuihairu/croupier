@@ -134,11 +134,11 @@ export default function AuditPage() {
       e.kind,
       e.actor,
       e.target,
-      e.meta?.game_id || '',
+      e.meta?.gameId || '',
       e.meta?.env || '',
-      e.meta?.trace_id || '',
+      e.meta?.traceId || '',
     ]);
-    rows.unshift(['time', 'kind', 'actor', 'target', 'game_id', 'env', 'trace_id']);
+    rows.unshift(['time', 'kind', 'actor', 'target', 'gameId', 'env', 'traceId']);
     const content = rows
       .map((r) =>
         r
@@ -245,10 +245,10 @@ export default function AuditPage() {
             { title: '类型', dataIndex: 'kind' },
             { title: '操作者', dataIndex: 'actor' },
             { title: '目标', dataIndex: 'target' },
-            { title: '游戏', dataIndex: ['meta', 'game_id'] },
+            { title: '游戏', dataIndex: ['meta', 'gameId'] },
             { title: '环境', dataIndex: ['meta', 'env'] },
             { title: 'IP', dataIndex: ['meta', 'ip'] },
-            { title: 'Trace', dataIndex: ['meta', 'trace_id'] },
+            { title: 'Trace', dataIndex: ['meta', 'traceId'] },
             {
               title: '元信息',
               render: (_, r) => (

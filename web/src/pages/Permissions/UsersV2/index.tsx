@@ -352,7 +352,7 @@ export default function UsersV2() {
         destroyOnHidden
       >
         <Form form={scopeForm} layout="vertical">
-          <Form.Item label="选择游戏" name="game_id">
+          <Form.Item label="选择游戏" name="gameId">
             <Select
               placeholder="选择一个游戏"
               options={(games || [])

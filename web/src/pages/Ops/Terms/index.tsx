@@ -49,10 +49,10 @@ export default function TermsPage() {
           <Tag color={row.domain === 'resource' ? 'blue' : 'purple'}>{row.domain}</Tag>
         ),
       },
-      { title: 'Key', dataIndex: 'term_key', width: 140 },
+      { title: 'Key', dataIndex: 'termKey', width: 140 },
       { title: 'Alias', dataIndex: 'alias', width: 160 },
-      { title: '中文', dataIndex: 'display_zh', width: 160 },
-      { title: 'English', dataIndex: 'display_en', width: 180 },
+      { title: '中文', dataIndex: 'displayZh', width: 160 },
+      { title: 'English', dataIndex: 'displayEn', width: 180 },
       { title: 'Order', dataIndex: 'order', width: 80 },
       {
         title: '操作',
@@ -65,10 +65,10 @@ export default function TermsPage() {
               setEditing(row);
               form.setFieldsValue({
                 domain: row.domain,
-                term_key: row.term_key,
+                termKey: row.termKey,
                 alias: row.alias,
-                display_zh: row.display_zh,
-                display_en: row.display_en,
+                displayZh: row.displayZh,
+                displayEn: row.displayEn,
                 order: row.order ?? 100,
               });
               setOpen(true);
@@ -143,17 +143,17 @@ export default function TermsPage() {
           <Form.Item name="domain" label="Domain" rules={[{ required: true }]}>
             <Select options={domainOptions} />
           </Form.Item>
-          <Form.Item name="term_key" label="Key" rules={[{ required: true }]}>
+          <Form.Item name="termKey" label="Key" rules={[{ required: true }]}>
             <Input placeholder="player / read" />
           </Form.Item>
           <Form.Item name="alias" label="Alias" rules={[{ required: true }]}>
             <Input placeholder="players / list" />
           </Form.Item>
           <Space style={{ width: '100%' }} size="middle">
-            <Form.Item name="display_zh" label="中文">
+            <Form.Item name="displayZh" label="中文">
               <Input placeholder="玩家 / 查询" />
             </Form.Item>
-            <Form.Item name="display_en" label="English">
+            <Form.Item name="displayEn" label="English">
               <Input placeholder="Player / Query" />
             </Form.Item>
           </Space>

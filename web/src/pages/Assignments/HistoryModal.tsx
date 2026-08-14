@@ -78,14 +78,14 @@ export default function HistoryModal({
                   >
                     {item.action === 'assign' ? '分配' : item.action === 'clone' ? '克隆' : '移除'}
                   </Tag>
-                  <span>{item.function_id}</span>
+                  <span>{item.functionId}</span>
                   <span>({item.count} 个函数)</span>
                 </Space>
               }
               description={
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <span>
-                    操作人: {item.operated_by} | 时间: {formatDateTime(item.operated_at)}
+                    操作人: {item.operatedBy} | 时间: {formatDateTime(item.operatedAt)}
                   </span>
                   {item.details && (
                     <Descriptions size="small" column={1} bordered>

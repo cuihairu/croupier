@@ -14,15 +14,15 @@ import type { JSONValue } from '@/types/dashboard';
 
 interface FeedbackItem {
   id: number;
-  player_id?: string;
+  playerId?: string;
   contact?: string;
   category?: string;
   priority?: string;
   status?: string;
-  game_id?: string;
+  gameId?: string;
   env?: string;
   content?: string;
-  updated_at?: string;
+  updatedAt?: string;
   [key: string]: JSONValue | undefined;
 }
 
@@ -49,7 +49,7 @@ export default function SupportFeedbackPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listFeedback({ q, category, status, game_id: gameId, env, page, size });
+      const res = await listFeedback({ q, category, status, gameId, env, page, size });
       setList((res.feedback || []) as unknown as FeedbackItem[]);
       setTotal(res.total || 0);
     } finally {
@@ -150,19 +150,19 @@ export default function SupportFeedbackPage() {
           loading={loading}
           dataSource={list}
           columns={[
-            { title: '玩家ID', dataIndex: 'player_id' },
+            { title: '玩家ID', dataIndex: 'playerId' },
             { title: '联系方式', dataIndex: 'contact' },
             { title: '分类', dataIndex: 'category' },
             { title: '优先级', dataIndex: 'priority' },
             { title: '状态', dataIndex: 'status' },
             {
               title: '游戏/环境',
-              render: (_: unknown, r: FeedbackItem) => `${r.game_id || ''}/${r.env || ''}`,
+              render: (_: unknown, r: FeedbackItem) => `${r.gameId || ''}/${r.env || ''}`,
             },
             { title: '内容', dataIndex: 'content', ellipsis: true },
             {
               title: '更新时间',
-              dataIndex: 'updated_at',
+              dataIndex: 'updatedAt',
               render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
             },
             {
@@ -173,13 +173,13 @@ export default function SupportFeedbackPage() {
                     size="small"
                     onClick={async () => {
                       try {
-                        const title = `玩家反馈-${r.player_id || ''}`.trim();
+                        const title = `玩家反馈-${r.playerId || ''}`.trim();
                         const data = {
                           title,
                           content: r.content || '',
                           category: 'feedback',
                           priority: r.priority || 'normal',
-                          game_id: r.game_id || '',
+                          gameId: r.gameId || '',
                           env: r.env || '',
                           contact: r.contact || '',
                           source: 'feedback',
@@ -229,7 +229,7 @@ export default function SupportFeedbackPage() {
           destroyOnHidden
         >
           <Form form={form} layout="vertical" initialValues={{ priority: 'normal', status: 'new' }}>
-            <Form.Item label="玩家ID" name="player_id">
+            <Form.Item label="玩家ID" name="playerId">
               {' '}
               <Input />{' '}
             </Form.Item>
@@ -273,7 +273,7 @@ export default function SupportFeedbackPage() {
               {' '}
               <Input.TextArea rows={2} />{' '}
             </Form.Item>
-            <Form.Item label="游戏" name="game_id">
+            <Form.Item label="游戏" name="gameId">
               {' '}
               <Input />{' '}
             </Form.Item>

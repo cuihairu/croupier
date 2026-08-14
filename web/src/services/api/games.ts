@@ -58,27 +58,20 @@ const normalizeEnvMeta = (envs: RawGameEnvMeta[] | undefined): GameEnvMeta[] | u
   if (!Array.isArray(envs)) return undefined;
   return envs
     .map((env) => {
-      const name = env?.env ?? env?.Env;
+      const name = env?.env;
       if (!name) return undefined;
       return {
         env: name,
-        description: env?.description ?? env?.Description,
-        color: env?.color ?? env?.Color,
+        description: env?.description,
+        color: env?.color,
       } as GameEnvMeta;
     })
     .filter((env): env is GameEnvMeta => Boolean(env?.env));
 };
 
 function normalizeGame(raw: RawGame): Game {
-  const name = raw?.gameId ?? raw?.name ?? raw?.Name;
-  const aliasName =
-    raw?.aliasName ??
-    raw?.alias_name ??
-    raw?.AliasName ??
-    raw?.displayName ??
-    raw?.display_name ??
-    raw?.gameName ??
-    raw?.game_name;
+  const name = raw?.gameId ?? raw?.name;
+  const aliasName = raw?.aliasName ?? raw?.displayName ?? raw?.gameName;
   const envMeta = normalizeEnvMeta(raw?.envMeta);
   const envs =
     Array.isArray(raw?.envs) && raw.envs.length > 0

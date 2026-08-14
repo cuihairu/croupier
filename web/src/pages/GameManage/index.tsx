@@ -47,8 +47,8 @@ export default function GameManagePage() {
       const v = await form.validateFields();
       setSubmitting(true);
       await upsertGame({
-        name: String(v.game_id || '').trim(),
-        aliasName: String(v.alias_name || '').trim() || undefined,
+        name: String(v.gameId || '').trim(),
+        aliasName: String(v.aliasName || '').trim() || undefined,
         description: String(v.description || '').trim() || undefined,
       });
       form.resetFields();
@@ -64,7 +64,7 @@ export default function GameManagePage() {
   const onEdit = (row: Game) => {
     setEditing(row);
     editForm.setFieldsValue({
-      alias_name: row.aliasName || '',
+      aliasName: row.aliasName || '',
       description: row.description || '',
     });
   };
@@ -88,10 +88,10 @@ export default function GameManagePage() {
       <Space direction="vertical" style={{ width: '100%' }}>
         <Form form={form} layout="inline">
           <Form.Item
-            name="game_id"
-            label="game_id"
+            name="gameId"
+            label="gameId"
             rules={[
-              { required: true, message: '请输入 game_id' },
+              { required: true, message: '请输入 gameId' },
               { pattern: GAME_ID_PATTERN, message: '仅支持字母、数字和 _ - @' },
               {
                 validator: async (_, value) => {
@@ -106,7 +106,7 @@ export default function GameManagePage() {
                         .toLowerCase() === next,
                   );
                   if (exists) {
-                    throw new Error('game_id 已存在');
+                    throw new Error('gameId 已存在');
                   }
                 },
               },
@@ -124,7 +124,7 @@ export default function GameManagePage() {
               }
             />
           </Form.Item>
-          <Form.Item name="alias_name" label="alias">
+          <Form.Item name="aliasName" label="alias">
             <Input style={{ width: 180 }} placeholder="显示名（可选）" />
           </Form.Item>
           <Form.Item name="description" label="desc">
@@ -198,7 +198,7 @@ export default function GameManagePage() {
         okText="Save"
       >
         <Form form={editForm} layout="vertical">
-          <Form.Item name="alias_name" label="alias">
+          <Form.Item name="aliasName" label="alias">
             <Input placeholder="显示名（可选）" />
           </Form.Item>
           <Form.Item name="description" label="desc">

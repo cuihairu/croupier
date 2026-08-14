@@ -13,7 +13,7 @@ interface FAQItem {
   tags?: string[];
   visible?: boolean;
   sort?: number;
-  updated_at?: string;
+  updatedAt?: string;
   [key: string]: JSONValue | undefined;
 }
 
@@ -125,7 +125,7 @@ export default function SupportFAQPage() {
             { title: '排序', dataIndex: 'sort' },
             {
               title: '更新时间',
-              dataIndex: 'updated_at',
+              dataIndex: 'updatedAt',
               render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
             },
             {

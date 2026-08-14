@@ -173,9 +173,9 @@ export default function TicketDetailPage() {
       status: ticket.status,
       assignee: ticket.assignee,
       tags: ticket.tags,
-      player_id: ticket.player_id,
+      playerId: ticket.playerId,
       contact: ticket.contact,
-      game_id: ticket.game_id,
+      gameId: ticket.gameId,
       env: ticket.env,
       source: ticket.source,
     });
@@ -252,19 +252,19 @@ export default function TicketDetailPage() {
               <Descriptions.Item label="优先级">{priTag(ticket.priority)}</Descriptions.Item>
               <Descriptions.Item label="处理人">{ticket.assignee || '-'}</Descriptions.Item>
               <Descriptions.Item label="标签">{ticket.tags || '-'}</Descriptions.Item>
-              <Descriptions.Item label="玩家ID">{ticket.player_id || '-'}</Descriptions.Item>
+              <Descriptions.Item label="玩家ID">{ticket.playerId || '-'}</Descriptions.Item>
               <Descriptions.Item label="联系方式" span={2}>
                 {ticket.contact || '-'}
               </Descriptions.Item>
               <Descriptions.Item label="游戏/环境">
-                {(ticket.game_id || '') + '/' + (ticket.env || '')}
+                {(ticket.gameId || '') + '/' + (ticket.env || '')}
               </Descriptions.Item>
               <Descriptions.Item label="来源">{ticket.source || '-'}</Descriptions.Item>
               <Descriptions.Item label="创建时间">
-                {ticket.created_at ? new Date(ticket.created_at).toLocaleString() : '-'}
+                {ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="更新时间">
-                {ticket.updated_at ? new Date(ticket.updated_at).toLocaleString() : '-'}
+                {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleString() : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="内容" span={2}>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{ticket.content || '-'}</div>
@@ -285,9 +285,7 @@ export default function TicketDetailPage() {
                       title={
                         <Space>
                           <strong>{it.author || '-'}</strong>
-                          <span>
-                            {it.created_at ? new Date(it.created_at).toLocaleString() : ''}
-                          </span>
+                          <span>{it.createdAt ? new Date(it.createdAt).toLocaleString() : ''}</span>
                         </Space>
                       }
                       description={<div style={{ whiteSpace: 'pre-wrap' }}>{it.content || ''}</div>}
@@ -444,7 +442,7 @@ export default function TicketDetailPage() {
             {' '}
             <Input />{' '}
           </Form.Item>
-          <Form.Item label="玩家ID" name="player_id">
+          <Form.Item label="玩家ID" name="playerId">
             {' '}
             <Input />{' '}
           </Form.Item>
@@ -452,7 +450,7 @@ export default function TicketDetailPage() {
             {' '}
             <Input />{' '}
           </Form.Item>
-          <Form.Item label="游戏" name="game_id">
+          <Form.Item label="游戏" name="gameId">
             {' '}
             <Input />{' '}
           </Form.Item>

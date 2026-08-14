@@ -13,13 +13,13 @@ import type { FunctionDescriptor } from '@/services/api/functions';
 type Approval = {
   id: string;
   ID?: string;
-  created_at: string;
+  createdAt: string;
   CreatedAt?: string;
   actor: string;
   Actor?: string;
-  function_id: string;
+  functionId: string;
   FunctionID?: string;
-  game_id?: string;
+  gameId?: string;
   GameID?: string;
   env?: string;
   Env?: string;
@@ -30,14 +30,14 @@ type Approval = {
   route?: string;
   Route?: string;
   reason?: string;
-  idempotency_key?: string;
+  idempotencyKey?: string;
   IdempotencyKey?: string;
-  target_service_id?: string;
+  targetServiceId?: string;
   TargetServiceID?: string;
-  hash_key?: string;
+  hashKey?: string;
   HashKey?: string;
   payload?: unknown;
-  payload_preview?: string;
+  payloadPreview?: string;
   // optional audit enrichment (when with_audit=1)
   ApproveIP?: string;
   ApproveTime?: string;
@@ -125,8 +125,8 @@ export default function ApprovalsPage() {
     setLoading(true);
     const qs = new URLSearchParams();
     if (state) qs.set('state', state);
-    if (functionId) qs.set('function_id', functionId);
-    if (gameId) qs.set('game_id', gameId);
+    if (functionId) qs.set('functionId', functionId);
+    if (gameId) qs.set('gameId', gameId);
     if (env) qs.set('env', env);
     if (actor) qs.set('actor', actor);
     if (riskFilter) qs.set('risk', riskFilter);
@@ -178,13 +178,13 @@ export default function ApprovalsPage() {
       return;
     }
     setCurrent(json);
-    setPreview(json.payload_preview || '');
+    setPreview(json.payloadPreview || '');
     setOpen(true);
   }
 
   async function approve(id: string) {
     const a = data.find((x) => x.ID === id || x.id === id);
-    const funcId = a?.FunctionID || a?.function_id || '';
+    const funcId = a?.FunctionID || a?.functionId || '';
     const desc = funcId ? descMap[funcId] : undefined;
     const risk = (desc?.risk || '').toString().toLowerCase();
     const needConfirm = risk === 'high';
@@ -228,17 +228,17 @@ export default function ApprovalsPage() {
     const v: Approval = current;
     const obj = {
       id: v.id || v.ID,
-      created_at: v.created_at || v.CreatedAt,
+      createdAt: v.createdAt || v.CreatedAt,
       actor: v.actor || v.Actor,
-      function_id: v.function_id || v.FunctionID,
-      game_id: v.game_id || v.GameID,
+      functionId: v.functionId || v.FunctionID,
+      gameId: v.gameId || v.GameID,
       env: v.env || v.Env,
       state: v.state || v.State,
       mode: v.mode || v.Mode,
       route: v.route || v.Route,
-      idempotency_key: v.idempotency_key || v.IdempotencyKey,
-      target_service_id: v.target_service_id || v.TargetServiceID,
-      hash_key: v.hash_key || v.HashKey,
+      idempotencyKey: v.idempotencyKey || v.IdempotencyKey,
+      targetServiceId: v.targetServiceId || v.TargetServiceID,
+      hashKey: v.hashKey || v.HashKey,
       approve_ip: v.ApproveIP,
       approve_time: v.ApproveTime,
       reject_ip: v.RejectIP,
@@ -523,27 +523,27 @@ export default function ApprovalsPage() {
             <Descriptions size="small" column={1} bordered>
               <Descriptions.Item label="操作者">{current.actor || current.Actor}</Descriptions.Item>
               <Descriptions.Item label="函数">
-                {current.function_id || current.FunctionID}
+                {current.functionId || current.FunctionID}
               </Descriptions.Item>
               <Descriptions.Item label="游戏/环境">
-                {current.game_id || current.GameID || ''}/{current.env || current.Env || ''}
+                {current.gameId || current.GameID || ''}/{current.env || current.Env || ''}
               </Descriptions.Item>
               <Descriptions.Item label="状态">
                 {(current.state || current.State) as string}
               </Descriptions.Item>
               <Descriptions.Item label="模式">{current.mode || current.Mode}</Descriptions.Item>
               <Descriptions.Item label="创建时间">
-                {current.created_at || current.CreatedAt}
+                {current.createdAt || current.CreatedAt}
               </Descriptions.Item>
               <Descriptions.Item label="幂等键">
-                {current.idempotency_key || current.IdempotencyKey}
+                {current.idempotencyKey || current.IdempotencyKey}
               </Descriptions.Item>
               <Descriptions.Item label="路由">{current.route || current.Route}</Descriptions.Item>
               <Descriptions.Item label="目标服务">
-                {current.target_service_id || current.TargetServiceID}
+                {current.targetServiceId || current.TargetServiceID}
               </Descriptions.Item>
               <Descriptions.Item label="Hash Key">
-                {current.hash_key || current.HashKey}
+                {current.hashKey || current.HashKey}
               </Descriptions.Item>
               {current.reason && (
                 <Descriptions.Item label="原因">{current.reason}</Descriptions.Item>

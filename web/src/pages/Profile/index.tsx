@@ -1195,7 +1195,7 @@ export default function Profile() {
                         ) : (
                           <Form form={form} layout="vertical" onFinish={handleProfileSubmit}>
                             <Form.Item
-                              name="display_name"
+                              name="displayName"
                               label={formatMessage('profile.info.display.name')}
                               rules={[
                                 {

@@ -25,12 +25,12 @@ type SupportTicket = {
   status?: TicketStatus | string;
   assignee?: string;
   tags?: string[];
-  player_id?: string;
+  playerId?: string;
   contact?: string;
-  game_id?: string;
+  gameId?: string;
   env?: string;
   source?: string;
-  updated_at?: string;
+  updatedAt?: string;
 };
 
 type SupportAccess = {
@@ -103,7 +103,7 @@ export default function SupportTicketsPage() {
         priority,
         category,
         assignee,
-        game_id: gameId,
+        gameId,
         env,
         page,
         size,
@@ -274,11 +274,11 @@ export default function SupportTicketsPage() {
             { title: '处理人', dataIndex: 'assignee' },
             {
               title: '游戏/环境',
-              render: (_, r: SupportTicket) => `${r.game_id || ''}/${r.env || ''}`,
+              render: (_, r: SupportTicket) => `${r.gameId || ''}/${r.env || ''}`,
             },
             {
               title: '更新时间',
-              dataIndex: 'updated_at',
+              dataIndex: 'updatedAt',
               render: (v?: string) => (v ? new Date(v).toLocaleString() : '-'),
             },
             {
@@ -392,7 +392,7 @@ export default function SupportTicketsPage() {
               {' '}
               <Input placeholder="," />{' '}
             </Form.Item>
-            <Form.Item label="玩家ID" name="player_id">
+            <Form.Item label="玩家ID" name="playerId">
               {' '}
               <Input />{' '}
             </Form.Item>
@@ -400,7 +400,7 @@ export default function SupportTicketsPage() {
               {' '}
               <Input />{' '}
             </Form.Item>
-            <Form.Item label="游戏" name="game_id">
+            <Form.Item label="游戏" name="gameId">
               {' '}
               <Input />{' '}
             </Form.Item>

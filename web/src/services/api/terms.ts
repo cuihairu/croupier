@@ -3,10 +3,10 @@ import { request } from '@umijs/max';
 export type TermItem = {
   id?: number;
   domain: 'resource' | 'operation';
-  term_key: string;
+  termKey: string;
   alias: string;
-  display_zh?: string;
-  display_en?: string;
+  displayZh?: string;
+  displayEn?: string;
   order?: number;
 };
 

@@ -142,7 +142,7 @@ export async function listFunctionCalls(params: FunctionCallsListParams = {}) {
     calls: (response.calls || []).map(normalizeFunctionCallItem),
     total: response.total || 0,
     page: response.page || 1,
-    pageSize: response.page_size || response.pageSize || params.pageSize || 20,
+    pageSize: response.pageSize || params.pageSize || 20,
   };
 }
 
