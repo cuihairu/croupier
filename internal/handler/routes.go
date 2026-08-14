@@ -746,19 +746,7 @@ func registerResourceCatalogRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) 
 // Page 路由注册
 // ============================================================================
 func registerPageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	pageSvc := page.NewService(ctx)
-	pageHandler := page.NewHandler(pageSvc)
-	g.GET("", pageHandler.ListDrafts)
-	g.GET("/", pageHandler.ListDrafts)
-	g.GET("/:pageKey", pageHandler.GetDraft)
-	g.PUT("/:pageKey", pageHandler.SaveDraft)
-	g.POST("/:pageKey/validate", pageHandler.Validate)
-	g.POST("/:pageKey/preview", pageHandler.Preview)
-	g.POST("/:pageKey/publish", pageHandler.Publish)
-	g.POST("/:pageKey/unpublish", pageHandler.Unpublish)
-	g.GET("/:pageKey/versions", pageHandler.Versions)
-	g.GET("/:pageKey/versions/:versionId", pageHandler.VersionDetail)
-	g.POST("/:pageKey/rollback", pageHandler.Rollback)
+	page.RegisterDraftRoutes(g, ctx)
 }
 
 func registerProposalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

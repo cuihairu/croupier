@@ -4,13 +4,11 @@
 
 import type { Page, BrowserContext } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
-
 /**
  * 登录并保存认证状态
  */
 export async function login(page: Page): Promise<void> {
-  await page.goto(`${BASE_URL}/user/login`);
+  await page.goto('/user/login');
   await page.waitForLoadState('domcontentloaded');
 
   // 等待页面完全加载（可能需要等待 bundling）
@@ -44,7 +42,7 @@ export async function navigateToConsole(
   categoryKey: string,
   pageKey: string,
 ): Promise<void> {
-  await page.goto(`${BASE_URL}/console/${categoryKey}/${pageKey}`);
+  await page.goto(`/console/${categoryKey}/${pageKey}`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);
 }
@@ -53,7 +51,7 @@ export async function navigateToConsole(
  * 导航到系统功能页面
  */
 export async function navigateToSystem(page: Page, path: string): Promise<void> {
-  await page.goto(`${BASE_URL}/system/functions/${path}`);
+  await page.goto(`/system/functions/${path}`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);
 }

@@ -5,15 +5,13 @@
 import { test, expect } from '@playwright/test';
 import { login, waitForPageReady } from './helpers';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
-
 test.describe('OpenAPI Source', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });
 
   test('OpenAPI Source 页面加载', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/openapi-sources`);
+    await page.goto('/system/functions/openapi-sources');
     await waitForPageReady(page);
 
     // 验证页面加载
@@ -21,7 +19,7 @@ test.describe('OpenAPI Source', () => {
   });
 
   test('上传 OpenAPI 文档', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/openapi-sources`);
+    await page.goto('/system/functions/openapi-sources');
     await waitForPageReady(page);
 
     // 检查上传按钮
@@ -43,7 +41,7 @@ test.describe('OpenAPI Source', () => {
   });
 
   test('Provider 绑定', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/openapi-sources`);
+    await page.goto('/system/functions/openapi-sources');
     await waitForPageReady(page);
 
     // 检查绑定按钮

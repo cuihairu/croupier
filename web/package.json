@@ -29,6 +29,7 @@
     "start:dev": "cross-env REACT_APP_ENV=dev MOCK=none UMI_ENV=dev max dev",
     "start:no-mock": "cross-env MOCK=none UMI_ENV=dev max dev",
     "test:e2e": "playwright test",
+    "test:e2e:real": "playwright test --project=real-dashboard",
     "test:e2e:ui": "playwright test --ui",
     "start:pre": "cross-env REACT_APP_ENV=pre UMI_ENV=dev max dev",
     "start:test": "cross-env REACT_APP_ENV=test MOCK=none UMI_ENV=dev max dev",

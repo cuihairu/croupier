@@ -13,7 +13,7 @@ export default {
   // 本地开发代理到 Server 后端 API
   dev: {
     '/api/': {
-      target: 'http://localhost:18780',
+      target: process.env.CROUPIER_SERVER_BASE_URL || 'http://localhost:18780',
       changeOrigin: true,
     },
   },

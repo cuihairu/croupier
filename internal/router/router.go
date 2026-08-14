@@ -437,21 +437,7 @@ func registerConsoleRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceCo
 }
 
 func registerPageRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
-	handler := pageapi.NewHandler(pageapi.NewService(svcCtx))
-	group := authenticated.Group("/pages")
-	{
-		group.GET("", handler.ListDrafts)
-		group.GET("/:pageKey", handler.GetDraft)
-		group.PUT("/:pageKey", handler.SaveDraft)
-		group.POST("/:pageKey/regenerate", handler.RegenerateDraft)
-		group.POST("/:pageKey/validate", handler.Validate)
-		group.POST("/:pageKey/preview", handler.Preview)
-		group.POST("/:pageKey/publish", handler.Publish)
-		group.POST("/:pageKey/unpublish", handler.Unpublish)
-		group.GET("/:pageKey/versions", handler.Versions)
-		group.GET("/:pageKey/versions/:versionId", handler.VersionDetail)
-		group.POST("/:pageKey/rollback", handler.Rollback)
-	}
+	pageapi.RegisterDraftRoutes(authenticated.Group("/pages"), svcCtx)
 }
 
 func registerPolicyRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {

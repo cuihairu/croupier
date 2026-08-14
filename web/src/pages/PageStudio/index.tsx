@@ -34,6 +34,7 @@ import {
   listPageVersions,
   listPageDrafts,
   publishPageDraft,
+  regeneratePageDraft,
   savePageDraft,
   unpublishPage,
 } from '@/services/api/pages';
@@ -104,6 +105,7 @@ export default function PageStudio() {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [editorVisible, setEditorVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [regeneratingPageKey, setRegeneratingPageKey] = useState('');
   const [changeChainVisible, setChangeChainVisible] = useState(false);
   const [changeChain, setChangeChain] = useState<ChangeChain | null>(null);
   const [changeChainLoading, setChangeChainLoading] = useState(false);
@@ -218,6 +220,26 @@ export default function PageStudio() {
       setSaving(false);
     }
   }, [loadDrafts, message, selectedDraft, selectedDraftRevision]);
+
+  const handleRegenerate = useCallback(
+    async (pageKey: string, draftRevision: number) => {
+      setRegeneratingPageKey(pageKey);
+      try {
+        const result = await regeneratePageDraft(pageKey, draftRevision);
+        if (selectedDraft?.pageKey === pageKey) {
+          setSelectedDraft(result.page);
+          setSelectedDraftRevision(result.draftRevision);
+        }
+        message.success('已按最新 Proposal 重新生成草稿');
+        await loadDrafts();
+      } catch {
+        message.error('重新生成草稿失败');
+      } finally {
+        setRegeneratingPageKey('');
+      }
+    },
+    [loadDrafts, message, selectedDraft?.pageKey],
+  );
 
   const handleChangeChain = useCallback(
     async (pageKey: string) => {
@@ -464,6 +486,20 @@ export default function PageStudio() {
           >
             预览
           </Button>
+          <Popconfirm
+            title="确认按最新 Proposal 重新生成草稿？"
+            description="当前草稿修改将被最新 Proposal 覆盖，已发布版本不会变更。"
+            onConfirm={() => handleRegenerate(record.pageKey, record.draftRevision)}
+          >
+            <Button
+              type="link"
+              size="small"
+              icon={<ReloadOutlined />}
+              loading={regeneratingPageKey === record.pageKey}
+            >
+              重新生成
+            </Button>
+          </Popconfirm>
           <Button
             type="link"
             size="small"

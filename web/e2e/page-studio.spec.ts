@@ -5,15 +5,13 @@
 import { test, expect } from '@playwright/test';
 import { login, waitForPageReady } from './helpers';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
-
 test.describe('Page Studio', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });
 
   test('页面列表加载', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/pages`);
+    await page.goto('/system/functions/pages');
     await waitForPageReady(page);
 
     // 验证页面加载 - 检查页面标题或内容
@@ -33,7 +31,7 @@ test.describe('Page Studio', () => {
   });
 
   test('Proposal Inbox 展示', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/pages`);
+    await page.goto('/system/functions/pages');
     await waitForPageReady(page);
 
     // 验证页面加载成功（没有错误）
@@ -48,7 +46,7 @@ test.describe('Page Studio', () => {
   });
 
   test('预览功能', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/pages`);
+    await page.goto('/system/functions/pages');
     await waitForPageReady(page);
 
     // 点击预览
@@ -67,7 +65,7 @@ test.describe('Page Studio', () => {
   });
 
   test('发布功能', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/pages`);
+    await page.goto('/system/functions/pages');
     await waitForPageReady(page);
 
     // 点击发布

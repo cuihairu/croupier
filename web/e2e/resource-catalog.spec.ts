@@ -5,15 +5,13 @@
 import { test, expect } from '@playwright/test';
 import { login, waitForPageReady } from './helpers';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
-
 test.describe('Resource Catalog', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });
 
   test('资源目录页面加载', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/resource-catalog`);
+    await page.goto('/system/functions/resource-catalog');
     await waitForPageReady(page);
 
     // 验证资源列表
@@ -21,7 +19,7 @@ test.describe('Resource Catalog', () => {
   });
 
   test('资源列表展示', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/resource-catalog`);
+    await page.goto('/system/functions/resource-catalog');
     await waitForPageReady(page);
 
     // 验证有数据展示
@@ -40,7 +38,7 @@ test.describe('Resource Catalog', () => {
   });
 
   test('资源详情查看', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/resource-catalog`);
+    await page.goto('/system/functions/resource-catalog');
     await waitForPageReady(page);
 
     // 点击查看详情
@@ -64,7 +62,7 @@ test.describe('Resource Catalog', () => {
   });
 
   test('语义信息展示', async ({ page }) => {
-    await page.goto(`${BASE_URL}/system/functions/resource-catalog`);
+    await page.goto('/system/functions/resource-catalog');
     await waitForPageReady(page);
 
     // 验证状态标签

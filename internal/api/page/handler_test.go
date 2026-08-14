@@ -53,6 +53,19 @@ func TestNewHandler(t *testing.T) {
 	assert.NotNil(t, handler.service)
 }
 
+func TestRegenerateRouteMatchesWebClientContract(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	RegisterDraftRoutes(engine.Group("/api/v1/pages"), &svc.ServiceContext{})
+
+	for _, route := range engine.Routes() {
+		if route.Method == http.MethodPost && route.Path == "/api/v1/pages/:pageKey/regenerate" {
+			return
+		}
+	}
+	t.Fatal("POST /api/v1/pages/:pageKey/regenerate is not registered")
+}
+
 func TestHandler_ListDrafts_BindError(t *testing.T) {
 	handler := setupTestHandler(t)
 

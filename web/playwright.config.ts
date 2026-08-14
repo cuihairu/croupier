@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const mockWebBaseURL = process.env.MOCK_DASHBOARD_WEB_BASE_URL || 'http://localhost:8000';
+const realWebBaseURL = process.env.REAL_DASHBOARD_WEB_BASE_URL || 'http://localhost:8001';
+const realServerBaseURL = process.env.REAL_DASHBOARD_SERVER_BASE_URL || 'http://localhost:18780';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false, // 顺序执行以避免登录状态冲突
@@ -18,14 +22,28 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'mock-dashboard',
+      use: { ...devices['Desktop Chrome'], baseURL: mockWebBaseURL },
+    },
+    {
+      // This project must always traverse the real Server API. Fixture setup
+      // for this project is added separately and owns the Server/Agent data.
+      name: 'real-dashboard',
+      use: { ...devices['Desktop Chrome'], baseURL: realWebBaseURL },
     },
   ],
-  webServer: {
-    command: 'cross-env REACT_APP_ENV=dev MOCK=all UMI_ENV=dev max dev',
-    url: 'http://localhost:8000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 180000,
-  },
+  webServer: [
+    {
+      command: 'cross-env REACT_APP_ENV=dev MOCK=all UMI_ENV=dev max dev --port 8000',
+      url: mockWebBaseURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180000,
+    },
+    {
+      command: `cross-env REACT_APP_ENV=dev MOCK=none UMI_ENV=dev CROUPIER_SERVER_BASE_URL=${realServerBaseURL} max dev --port 8001`,
+      url: realWebBaseURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180000,
+    },
+  ],
 });
