@@ -597,8 +597,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec jest --runInBand mock/dashboard.contract.test.ts`。
       Handoff: `I-020` 的非 mock 测试可使用同一解析器。
 
-- [ ] `I-014` 修正页面 regenerate 客户端与后端路由的唯一契约
-      Owner: unassigned
+- [x] `I-014` 修正页面 regenerate 客户端与后端路由的唯一契约
+      Owner: root
       Depends: []
       Scope: `web/src/services/api/pages.ts`, Page Studio 调用方、`internal/handler/routes.go`/`internal/router/router.go` 及 API contract 测试。
       Deliverable: 页面再生成只保留一个已注册 API 路径、request/response DTO 和调用方；从浏览器发起的请求不再 404 或命中语义不同的 handler。
@@ -606,8 +606,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/api/page ./internal/service/versioning -run '^TestRegenerateRouteMatchesWebClientContract$' -count=1`。
       Handoff: Page Studio 的重新生成按钮可纳入真实 E2E。
 
-- [ ] `I-015` 处理未注册的 OpenAPI validate 客户端接口
-      Owner: unassigned
+- [x] `I-015` 处理未注册的 OpenAPI validate 客户端接口
+      Owner: root
       Depends: []
       Scope: `web/src/services/api/openapi.ts`, OpenAPI routes/handler、调用方和契约测试。
       Deliverable: `validateOpenAPISpec` 要么调用一个已注册且有测试的后端验证端点，要么连同所有调用方删除；仓库不存在悬空 API helper。
@@ -633,8 +633,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec jest --runInBand src/components/PageRenderer src/components/SchemaFormRenderer`。
       Handoff: `E-001`、`E-002` 的既有 Verify 可重新获得有效证据。
 
-- [ ] `I-018` 消除同名真实页与 Placeholder 页的路由歧义
-      Owner: unassigned
+- [x] `I-018` 消除同名真实页与 Placeholder 页的路由歧义
+      Owner: root
       Depends: []
       Scope: `web/config/routes.ts`, `web/src/pages/Admin/`, `web/src/pages/Support/Tickets/` 及路由测试。
       Deliverable: 每个配置路由都显式解析到唯一实际组件；`Admin/LoginLogs`、`Admin/OperationLogs`、`Support/Tickets/Detail` 不会因同名目录 `index.tsx` 命中占位页面。
@@ -642,8 +642,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec jest --runInBand src/pages/routes-resolution.test.tsx`，并断言三个路由均未显示“建设中”占位内容。
       Handoff: 后台页面可与 Console 生成页面分开诊断，不再混淆为空壳 UI 问题。
 
-- [ ] `I-019` 建立不启用 Mock 的 Playwright 启动配置
-      Owner: unassigned
+- [x] `I-019` 建立不启用 Mock 的 Playwright 启动配置
+      Owner: root
       Depends: []
       Scope: `web/playwright.config.ts`, E2E 启动脚本、测试环境变量文档。
       Deliverable: 提供命名的真实链路项目/命令，启动 Web 时不设置 `MOCK=all`，并要求显式 Server 基地址和 fixture 生命周期。
