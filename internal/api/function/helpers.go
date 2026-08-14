@@ -622,6 +622,10 @@ func functionPermissionsUpdate(ctx context.Context, svcCtx *svc.ServiceContext, 
 func functionWarnings(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionWarningsRequest) (*FunctionWarningsResponse, error) {
 	scope := currentFunctionScope(ctx)
 
+	if svcCtx.RegistryStore == nil {
+		return &FunctionWarningsResponse{Items: []FunctionWarningItem{}}, nil
+	}
+
 	filter := reg.RegistrationWarningFilter{
 		GameID:     scope.GameID,
 		Env:        scope.Env,
