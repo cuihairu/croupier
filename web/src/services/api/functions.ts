@@ -371,15 +371,15 @@ export async function batchUpdateFunctions(data: { functionIds: string[]; enable
 }
 
 export async function copyFunction(functionId: string) {
-  const response = await request<{ function_id: string; new_id: string }>(
+  const response = await request<{ functionId: string; newId: string }>(
     `/api/v1/functions/${encodeURIComponent(functionId)}/copy`,
     {
       method: 'POST',
     },
   );
   return {
-    functionId: response.function_id,
-    newId: response.new_id,
+    functionId: response.functionId,
+    newId: response.newId,
   };
 }
 

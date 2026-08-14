@@ -129,12 +129,12 @@ export async function previewRateLimit(params: {
     params: {
       scope: params.scope,
       key: params.key,
-      limit_qps: params.limitQps,
+      limitQps: params.limitQps,
       percent: params.percent,
-      match_game_id: params.matchGameId,
-      match_env: params.matchEnv,
-      match_region: params.matchRegion,
-      match_zone: params.matchZone,
+      matchGameId: params.matchGameId,
+      matchEnv: params.matchEnv,
+      matchRegion: params.matchRegion,
+      matchZone: params.matchZone,
     },
   });
   return {

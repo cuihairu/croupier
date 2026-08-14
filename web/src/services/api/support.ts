@@ -86,16 +86,13 @@ export interface FeedbackListParams {
   status?: string;
   category?: string;
   gameId?: string;
-  game_id?: string;
   q?: string;
   env?: string;
 }
 
 export interface TicketPayload {
   playerId?: string;
-  player_id?: string;
   gameId?: string;
-  game_id?: string;
   title?: string;
   content?: string;
   status?: string;
@@ -118,9 +115,7 @@ export interface FAQPayload {
 
 export interface FeedbackPayload {
   playerId?: string;
-  player_id?: string;
   gameId?: string;
-  game_id?: string;
   title?: string;
   content?: string;
   status?: string;
@@ -402,7 +397,7 @@ export async function listFeedback(params?: FeedbackListParams) {
       pageSize: params?.pageSize || params?.size,
       status: params?.status,
       category: params?.category,
-      gameId: params?.gameId ?? params?.game_id,
+      gameId: params?.gameId,
     },
   });
   const feedback = toArray(resp?.items).map(normalizeFeedback);

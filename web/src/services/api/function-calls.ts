@@ -126,16 +126,16 @@ function normalizeFunctionCallItem(item: RawFunctionCallItem): FunctionCallItem 
 export async function listFunctionCalls(params: FunctionCallsListParams = {}) {
   const response = await request<RawFunctionCallsListResponse>('/api/v1/function-calls', {
     params: {
-      function_id: params.functionId,
-      game_id: params.gameId,
+      functionId: params.functionId,
+      gameId: params.gameId,
       env: params.env,
       status: params.status,
-      actor_id: params.actorId,
-      agent_id: params.agentId,
-      start_time: params.startTime,
-      end_time: params.endTime,
+      actorId: params.actorId,
+      agentId: params.agentId,
+      startTime: params.startTime,
+      endTime: params.endTime,
       page: params.page,
-      page_size: params.pageSize,
+      pageSize: params.pageSize,
     },
   });
   return {

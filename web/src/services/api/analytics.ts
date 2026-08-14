@@ -203,7 +203,7 @@ function normalizeAnalyticsFilters(raw?: RawAnalyticsFilters): AnalyticsFilters 
 export async function fetchAnalyticsFilters(params: { gameId: string; env: string }) {
   const response = await request<RawAnalyticsFilters>('/api/v1/analytics/filters', {
     params: {
-      game_id: params.gameId,
+      gameId: params.gameId,
       env: params.env,
     },
   });

@@ -43,12 +43,12 @@ function normalizeAuditEvent(item: AuditItem): AuditEvent {
     target: item?.target ?? '',
     meta: {
       ...metadata,
-      trace_id: (metadata.trace_id as string) ?? item?.traceId,
-      game_id: (metadata.game_id as string) ?? item?.gameId,
+      traceId: (metadata.traceId as string) ?? item?.traceId,
+      gameId: (metadata.gameId as string) ?? item?.gameId,
       env: (metadata.env as string) ?? item?.env,
       ip: metadata.ip as string,
-      ua: (metadata.ua as string) ?? (metadata.user_agent as string),
-      user_agent: (metadata.user_agent as string) ?? (metadata.ua as string),
+      ua: (metadata.ua as string) ?? (metadata.userAgent as string),
+      userAgent: (metadata.userAgent as string) ?? (metadata.ua as string),
     },
     hash: item?.id ?? '',
     prev: '',
@@ -57,7 +57,6 @@ function normalizeAuditEvent(item: AuditItem): AuditEvent {
 
 export async function listAudit(params?: {
   gameId?: string;
-  game_id?: string;
   env?: string;
   actor?: string;
   kind?: string;
@@ -82,7 +81,7 @@ export async function listAudit(params?: {
       end: params?.end,
       page: params?.page,
       pageSize: params?.pageSize ?? params?.size ?? params?.limit,
-      gameId: params?.gameId ?? params?.game_id,
+      gameId: params?.gameId,
     },
   });
 
