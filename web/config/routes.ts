@@ -468,6 +468,12 @@ export default [
         access: 'canAuditRead',
         component: './Admin/LoginLogs',
       },
+      {
+        path: '/admin/operation-logs',
+        name: 'OperationLogs',
+        access: 'canAuditRead',
+        component: './Admin/OperationLogs',
+      },
     ],
   },
   {

@@ -18,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
@@ -345,14 +346,12 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		FunctionID:  functionID,
 		ProviderID:  strings.TrimSpace(req.ProviderID),
 	}
-	if err := s.svcCtx.OpenAPISourceBindingModel.Upsert(ctx, binding); err != nil {
-		spanErr = err
-		return nil, err
-	}
-	if err := s.rebuildContractForSourceBinding(ctx, gameID, env, source, operation, binding, runtimeMeta); err != nil {
-		if rollbackErr := s.svcCtx.OpenAPISourceBindingModel.Delete(ctx, gameID, env, source.SourceID, binding.BindingID); rollbackErr != nil {
-			err = fmt.Errorf("%w; rollback OpenAPI source binding failed: %v", err, rollbackErr)
+	if err := s.scopedTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.svcCtx.OpenAPISourceBindingModel.Upsert(txCtx, binding); err != nil {
+			return err
 		}
+		return s.rebuildContractForSourceBinding(txCtx, gameID, env, source, operation, binding, runtimeMeta)
+	}); err != nil {
 		spanErr = err
 		return nil, err
 	}
@@ -510,21 +509,22 @@ func (s *Service) DeleteBinding(ctx context.Context, req *OpenAPISourceBindingDe
 		spanErr = err
 		return nil, errorx.NewNotFound("OpenAPI source not found")
 	}
-	binding, err := s.svcCtx.OpenAPISourceBindingModel.FindByScopeSourceAndBindingID(ctx, gameID, env, source.SourceID, strings.TrimSpace(req.BindingID))
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	var binding *model.OpenAPISourceBinding
+	if err := s.scopedTransaction(ctx, func(txCtx context.Context) error {
+		var err error
+		binding, err = s.svcCtx.OpenAPISourceBindingModel.FindByScopeSourceAndBindingID(txCtx, gameID, env, source.SourceID, strings.TrimSpace(req.BindingID))
+		if err != nil {
+			return err
+		}
+		if err := s.svcCtx.OpenAPISourceBindingModel.Delete(txCtx, gameID, env, source.SourceID, binding.BindingID); err != nil {
+			return err
+		}
+		return s.reconcileContractAfterBindingDelete(txCtx, gameID, env, binding)
+	}); err != nil {
 		spanErr = err
-		return nil, errorx.NewNotFound("OpenAPI source binding not found")
-	}
-	if err != nil {
-		spanErr = err
-		return nil, err
-	}
-	if err := s.svcCtx.OpenAPISourceBindingModel.Delete(ctx, gameID, env, source.SourceID, binding.BindingID); err != nil {
-		spanErr = err
-		return nil, err
-	}
-	if err := s.reconcileContractAfterBindingDelete(ctx, gameID, env, binding); err != nil {
-		spanErr = err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.NewNotFound("OpenAPI source binding not found")
+		}
 		return nil, err
 	}
 	finishSpan(nil, attribute.Int("openapi_source.revision", source.Revision))
@@ -536,6 +536,16 @@ func (s *Service) DeleteBinding(ctx context.Context, req *OpenAPISourceBindingDe
 	return &OpenAPISourceBindingResponse{Binding: OpenAPISourceBindingDTO{
 		BindingID: binding.BindingID,
 	}}, nil
+}
+
+func (s *Service) scopedTransaction(ctx context.Context, work func(context.Context) error) error {
+	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
+		return errorx.NewInternalError("OpenAPI source database is not initialized")
+	}
+	db := dbctx.Resolve(ctx, s.svcCtx.DB)
+	return db.Transaction(func(tx *gorm.DB) error {
+		return work(dbctx.WithDB(ctx, tx))
+	})
 }
 
 func (s *Service) reconcileContractAfterBindingDelete(ctx context.Context, gameID, env string, removed *model.OpenAPISourceBinding) error {

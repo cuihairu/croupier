@@ -243,22 +243,6 @@ export async function deleteOpenAPISourceBinding(sourceId: string, bindingId: st
 }
 
 /**
- * 验证 OpenAPI 规范
- * @param spec OpenAPI Document
- * @returns 验证结果
- */
-export async function validateOpenAPISpec(spec: OpenAPIDocument) {
-  return request<{
-    valid: boolean;
-    errors: string[];
-    warnings: string[];
-  }>('/api/v1/openapi/validate', {
-    method: 'POST',
-    data: { spec },
-  });
-}
-
-/**
  * 将函数描述符转换为 OpenAPI 规范
  * @param descriptor 函数描述符
  * @returns OpenAPI Operation Object

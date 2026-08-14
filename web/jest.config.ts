@@ -13,7 +13,7 @@ export default async () => {
       ],
     },
     transformIgnorePatterns: [
-      '/node_modules/(?!(?:@rjsf|@x0k|@ant-design|antd)/|\\.pnpm/(?:@rjsf\\+|@x0k\\+|@ant-design\\+|antd@))',
+      '/node_modules/(?!(?:@rjsf|@x0k|@ant-design|antd|lodash-es)/|\\.pnpm/(?:@rjsf\\+|@x0k\\+|@ant-design\\+|antd@|lodash-es@))',
     ],
     moduleNameMapper: {
       '^@/(.*)$': '<rootDir>/src/$1',

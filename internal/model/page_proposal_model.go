@@ -22,7 +22,7 @@ func NewPageProposalModel(db *gorm.DB) *PageProposalModel {
 func (m *PageProposalModel) UpsertProposal(ctx context.Context, proposal *PageProposal) error {
 	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
 	var existing PageProposal
-	err := db.Where("game_id = ? AND env = ? AND proposal_key = ?",
+	err := db.Unscoped().Where("game_id = ? AND env = ? AND proposal_key = ?",
 		proposal.GameID, proposal.Env, proposal.ProposalKey).First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return db.Create(proposal).Error
@@ -32,6 +32,7 @@ func (m *PageProposalModel) UpsertProposal(ctx context.Context, proposal *PagePr
 	}
 	proposal.ID = existing.ID
 	proposal.CreatedAt = existing.CreatedAt
+	proposal.DeletedAt = gorm.DeletedAt{}
 	return db.Save(proposal).Error
 }
 

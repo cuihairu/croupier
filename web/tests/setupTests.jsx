@@ -28,6 +28,37 @@ class Worker {
 }
 window.Worker = Worker;
 
+if (!global.ResizeObserver) {
+  global.ResizeObserver = class ResizeObserver {
+    observe() {}
+
+    unobserve() {}
+
+    disconnect() {}
+  };
+}
+
+if (!global.MessageChannel) {
+  global.MessageChannel = class MessageChannel {
+    constructor() {
+      const port = {
+        onmessage: null,
+        start() {},
+        close() {},
+        postMessage: (data) => {
+          queueMicrotask(() => port.onmessage?.({ data }));
+        },
+      };
+      this.port1 = port;
+      this.port2 = port;
+    }
+  };
+}
+
+const getComputedStyle = window.getComputedStyle;
+window.getComputedStyle = (element, pseudoElement) =>
+  pseudoElement ? getComputedStyle(element) : getComputedStyle(element);
+
 if (typeof window !== 'undefined') {
   // ref: https://github.com/ant-design/ant-design/issues/18774
   if (!window.matchMedia) {

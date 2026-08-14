@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	dashboardservice "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
@@ -73,6 +74,11 @@ func (p *registrationContractPipeline) contractService(ctx context.Context, game
 func (p *registrationContractPipeline) scopedDB(ctx context.Context, gameID, env string) (*gorm.DB, error) {
 	if p == nil || p.svcCtx == nil || p.svcCtx.DB == nil {
 		return nil, fmt.Errorf("dashboard registration pipeline is not initialized")
+	}
+	// Store materialization may already be inside a scoped game transaction.
+	// Preserve that transaction instead of re-resolving the base game DB.
+	if scoped := dbctx.Get(ctx); scoped != nil {
+		return scoped, nil
 	}
 	if p.svcCtx.Router == nil {
 		return p.svcCtx.DB, nil

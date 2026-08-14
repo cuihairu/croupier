@@ -426,6 +426,40 @@ func TestServicePageReturnsBindingFreshnessDiagnostics(t *testing.T) {
 	assert.Equal(t, spec.BindingFreshnessInputSchemaStale, pagesResp.Items[0].BindingFreshness[0].Status)
 }
 
+func TestRemovedRegisteredFunctionInvalidatesProposalAndStalesPublishedPage(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "console:read", "function:invoke", "player:query")
+	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))
+
+	// Use the production registration projection, rather than merely changing
+	// the in-memory registry: Console freshness is intentionally based on the
+	// persisted FunctionContract snapshot.
+	service.svcCtx.RegistryStore.SetContractService(contractsvc.NewContractService(service.svcCtx.DB))
+	require.NoError(t, service.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+		AgentID:   "agent-1",
+		GameID:    "demo-game",
+		Env:       "development",
+		Functions: map[string]reg.FunctionMeta{},
+	}))
+	_, err := model.NewFunctionContractModel(service.svcCtx.DB).FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.query")
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+
+	pageResp, err := service.Page(ctx, &ConsolePageRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	require.Len(t, pageResp.Page.BindingFreshness, 1)
+	assert.Equal(t, spec.BindingFreshnessFunctionMissing, pageResp.Page.BindingFreshness[0].Status)
+	assert.Equal(t, "binding_function_missing", pageResp.Page.BindingFreshness[0].Diagnostic.Code)
+
+	caller := &fakeConsoleSessionCaller{payload: []byte(`{"ok":true}`)}
+	service.svcCtx.Dispatcher.SetSessionResolver(fakeConsoleSessionResolver{caller: caller})
+	_, err = service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
+		PageKey:   "player.manage",
+		BindingID: "player.query",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "binding_stale")
+	assert.Nil(t, caller.lastRequest)
+}
+
 func newConsoleTestService(t *testing.T, permissions ...string) (*Service, context.Context) {
 	service, ctx, _ := newConsoleTestServiceWithAudit(t, permissions...)
 	return service, ctx

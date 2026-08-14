@@ -1,9 +1,19 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "rootDir": ".",
     "jsx": "react-jsx",
     "allowJs": true,
     "isolatedModules": true,
     "types": ["jest", "@testing-library/jest-dom"]
-  }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "tests/**/*.js",
+    "tests/**/*.jsx"
+  ],
+  "exclude": ["node_modules", "e2e", ".umi", ".turbopack"]
 }

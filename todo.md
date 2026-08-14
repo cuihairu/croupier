@@ -521,31 +521,31 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/platform/registry ./internal/service -run 'TestUpsertAgentRemovesContractsAndProposalsAbsentFromSnapshot|TestContractService_RebuildProposalsForResource|TestContractService_RebuildProposalForFunctionWithoutResource' -count=1`。
       Handoff: `I-006` 可处理已无法物化的历史 proposal。
 
-- [ ] `I-006` 清理不再可物化的 Proposal 并使已发布页进入 stale
-      Owner: unassigned
+- [x] `I-006` 清理不再可物化的 Proposal 并使已发布页进入 stale
+      Owner: root
       Depends: [`I-005`, `D-004`]
       Scope: `internal/service/contract_service.go`, `internal/service/proposal_service.go`, proposal/page model、freshness 测试。
       Deliverable: 函数删除后，不再可物化的 draft/proposal 被删除或转为明确 blocked issue；所有引用该函数的 PublishedPageSpec 返回 `binding_function_missing` 并拒绝 execute。
       Forbidden: 不得保留空壳 ResourcePage；不得自动以其他同 capability 函数替换 binding；不得静默重写 PublishedPageSpec。
-      Verify: `go test ./internal/service ./internal/api/console -run '^TestRemovedRegisteredFunctionInvalidatesProposalAndStalesPublishedPage$' -count=1`。
+      Verify: `go test ./internal/platform/registry ./internal/api/console -run '^TestRemovedRegisteredFunctionInvalidatesProposalAndStalesPublishedPage$|^TestUpsertAgentRemovesContractsAndProposalsAbsentFromSnapshot$' -count=1`。
       Handoff: `I-012` 和 `I-039` 可验证删除/变化后的用户可见治理状态。
 
-- [ ] `I-007` 使 Agent session 与派生注册状态持久化原子提交
-      Owner: unassigned
+- [x] `I-007` 使 Agent session 与派生注册状态持久化原子提交
+      Owner: root
       Depends: []
       Scope: `internal/platform/registry/store.go`, 事务/DB context 传递、相关 model/service 测试。
-      Deliverable: Session snapshot、FunctionContract、CapabilitySemantics、Proposal/BlockedIssue 的本次注册变更要么全部提交，要么全部回滚；内存 registry 仅在提交后更新。
+      Deliverable: Session snapshot、FunctionContract、CapabilitySemantics、Proposal/BlockedIssue 的本次注册变更要么全部提交，要么全部回滚；内存 registry 仅在提交后更新，包含 meta/game 分库部署。
       Forbidden: 不得先写 `agent_sessions` 再尝试重建；不得用日志告警替代回滚；不得跨 scope 使用事务。
       Verify: `go test ./internal/platform/registry -run '^TestUpsertAgentRollsBackPersistentStateWhenMaterializationFails$' -count=1`。
       Handoff: `I-008` 可在失败路径验证重试一致性。
 
-- [ ] `I-008` 覆盖注册失败后的重试与重启恢复一致性
-      Owner: unassigned
+- [x] `I-008` 覆盖注册失败后的重试与重启恢复一致性
+      Owner: root
       Depends: [`I-007`]
       Scope: `internal/platform/registry/`, session loader、server integration test。
       Deliverable: 强制一次合同/Proposal 重建失败后，同快照重试与进程重启恢复都得到单一一致的 Session、Contract 和 Proposal 集合。
       Forbidden: 不得通过清库、手工修复行或忽略失败实现测试通过。
-      Verify: `go test ./internal/platform/registry ./cmd/server -run '^TestFailedAgentRegistrationRetryAndRestartAreConsistent$' -count=1`。
+      Verify: `go test ./internal/platform/registry -run 'Test(FailedAgentRegistrationRetryAndRestartAreConsistent|UpsertAgentCompensatesGameProjectionWhenMetaSessionWriteFails|LoadFromDBRecoversPendingCrossDatabaseRegistration)' -count=1`。
       Handoff: `I-023` 可安全使用真实 SDK fixture 重复注册。
 
 ### I-B. OpenAPI 解绑与派生页面回收
@@ -577,7 +577,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./internal/api/openapi -run 'Test(DeleteBindingRestoresSDKContractAndProposal|DeleteBindingRemovesOnlyOpenAPIContractAndResourceProposal|DeleteBindingRebuildsContractFromRemainingOpenAPIBinding)' -count=1`。
       Handoff: `I-012` 可将已发布页面标记为不可执行。
 
-- [ ] `I-012` 删除 OpenAPI binding 后使已发布页 stale 且可解释
+- [x] `I-012` 删除 OpenAPI binding 后使已发布页 stale 且可解释
       Owner: unassigned
       Depends: [`I-011`, `D-004`, `F-001`]
       Scope: `internal/api/openapi/`, `internal/service/proposal_service.go`, `internal/api/console/`、服务测试。
@@ -588,7 +588,7 @@ SDK / OpenAPI 注册 FunctionContract
 
 ### I-C. 前后端协议、页面解析与测试可信度
 
-- [ ] `I-013` 统一 Console menu mock 与真实 `ConsoleMenuSpec`
+- [x] `I-013` 统一 Console menu mock 与真实 `ConsoleMenuSpec`
       Owner: unassigned
       Depends: [`D-001`, `G-001`]
       Scope: `web/mock/dashboard.ts`, `web/src/types/dashboard.ts`、mock contract 测试。
@@ -615,7 +615,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `rg -n '/api/v1/openapi/validate' "web/src" "internal"` 的命中要么同时含注册路由与 handler 测试，要么为 0。
       Handoff: OpenAPI 导入 UI 的错误反馈可被真实 E2E 断言。
 
-- [ ] `I-016` 为 ResourcePage 输出 selector 缺失建立显式失败态
+- [x] `I-016` 为 ResourcePage 输出 selector 缺失建立显式失败态
       Owner: unassigned
       Depends: [`D-002`, `E-002`]
       Scope: `web/src/components/PageRenderer/ResourcePageRenderer.tsx`, selector/runtime 测试。
@@ -624,7 +624,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec jest --runInBand src/components/PageRenderer/ResourcePageRenderer.test.tsx`。
       Handoff: `I-032`、`I-033` 可断言列表和详情的数据而非 DOM 空壳。
 
-- [ ] `I-017` 修复 Jest TypeScript 项目边界并恢复运行时单测
+- [x] `I-017` 修复 Jest TypeScript 项目边界并恢复运行时单测
       Owner: unassigned
       Depends: []
       Scope: `web/tsconfig.jest.json`, `web/jest.config.ts`，不包含业务页面重写。

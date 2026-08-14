@@ -29,6 +29,30 @@ type AgentSessionDB struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
+// AgentRegistrationOperationDB is the durable recovery record for a
+// registration that updates the meta session database and a per-game
+// projection database. A pending row means the session write did not commit;
+// startup recovery restores the recorded previous projection before accepting
+// another registration for the same agent.
+type AgentRegistrationOperationDB struct {
+	ID              uint      `gorm:"primaryKey"`
+	OperationID     string    `gorm:"size:64;uniqueIndex;not null"`
+	AgentID         string    `gorm:"size:64;index;not null"`
+	GameID          string    `gorm:"size:64;index;not null"`
+	Env             string    `gorm:"size:32;index;not null"`
+	PreviousSession string    `gorm:"type:json"`
+	TargetSession   string    `gorm:"type:json;not null"`
+	Status          string    `gorm:"size:32;index;not null"`
+	LastError       string    `gorm:"type:text"`
+	CreatedAt       time.Time `gorm:"index"`
+	UpdatedAt       time.Time
+}
+
+// TableName specifies the durable registration recovery table name.
+func (AgentRegistrationOperationDB) TableName() string {
+	return "agent_registration_operations"
+}
+
 // TableName specifies the table name for AgentSessionDB.
 func (AgentSessionDB) TableName() string {
 	return "agent_sessions"
@@ -47,7 +71,7 @@ func NewAgentSessionModel(db *gorm.DB) *AgentSessionModel {
 
 // MigrateAgentSessions runs auto migration for agent sessions table.
 func MigrateAgentSessions(db *gorm.DB) error {
-	if err := db.AutoMigrate(&AgentSessionDB{}); err != nil {
+	if err := db.AutoMigrate(&AgentSessionDB{}, &AgentRegistrationOperationDB{}); err != nil {
 		return err
 	}
 	// Drop the legacy rpc_addr column. The agent's reachable address now comes

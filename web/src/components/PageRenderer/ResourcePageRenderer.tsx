@@ -213,9 +213,24 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       try {
         const result = await onExecute(listBinding.id, { form: params });
-        setListError(null);
         const nextState = mergePageState({}, outputPatchFromResult(listBinding, result));
+        const itemsAssignment = listBinding.selectors?.output?.find(
+          (assignment) => assignment.stateKey === 'items',
+        );
+        if (!itemsAssignment) {
+          setListError('列表绑定缺少 pageState.items 输出 selector，无法渲染查询结果');
+          return { data: [], total: 0 };
+        }
+        if (!Object.prototype.hasOwnProperty.call(nextState, 'items')) {
+          setListError(`列表结果未命中 items selector：${itemsAssignment.source}`);
+          return { data: [], total: 0 };
+        }
         const rows = getPageStateArray(nextState, 'items');
+        if (!Array.isArray(nextState.items)) {
+          setListError('列表 items selector 的结果不是数组，无法渲染资源行');
+          return { data: [], total: 0 };
+        }
+        setListError(null);
         const total = getPageStateNumber(nextState, 'total');
         return {
           data: rows,
@@ -414,15 +429,25 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       try {
         const result = await onExecute(detailBinding.id, { row: record });
         const patch = outputPatchFromResult(detailBinding, result);
-        const detail = getPageStateObject(patch, 'detail');
-        if (detail) {
-          setDetailRecord(detail);
+        const detailAssignment = detailBinding.selectors?.output?.find(
+          (assignment) => assignment.stateKey === 'detail',
+        );
+        if (!detailAssignment) {
+          setDetailError('详情绑定缺少 pageState.detail 输出 selector，无法渲染详情结果');
           return;
         }
-        message.error('详情绑定未映射到 pageState.detail');
+        if (!Object.prototype.hasOwnProperty.call(patch, 'detail')) {
+          setDetailError(`详情结果未命中 detail selector：${detailAssignment.source}`);
+          return;
+        }
+        const detail = getPageStateObject(patch, 'detail');
+        if (!detail) {
+          setDetailError('详情 detail selector 的结果不是对象，无法渲染详情字段');
+          return;
+        }
+        setDetailRecord(detail);
       } catch {
         setDetailError('加载详情失败，请稍后重试');
-        message.error('加载详情失败');
       } finally {
         setDetailLoading(false);
       }
@@ -494,7 +519,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         <Alert
           type="error"
           showIcon
-          message={listError}
+          title={listError}
           closable
           onClose={() => setListError(null)}
           style={{ marginBottom: 16 }}
@@ -621,10 +646,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             setDetailDrawerVisible(false);
             setDetailRecord(null);
           }}
-          width={640}
+          size={640}
         >
           <Skeleton active loading={detailLoading}>
-            {detailError ? <Alert type="error" showIcon message={detailError} /> : null}
+            {detailError ? <Alert type="error" showIcon title={detailError} /> : null}
             {!detailError ? (
               <ProDescriptions column={spec.detailView.layout === 'horizontal' ? 2 : 1}>
                 {spec.detailView.fields

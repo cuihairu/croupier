@@ -2,6 +2,8 @@ package openapi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,18 +12,24 @@ import (
 	"testing"
 	"time"
 
+	consoleapi "github.com/cuihairu/croupier/internal/api/console"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	dashspec "github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/internal/transport"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -523,6 +531,69 @@ func TestDeleteBindingRemovesOnlyOpenAPIContractAndResourceProposal(t *testing.T
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
+func TestDeleteBindingStalesPublishedPageAndRejectsExecution(t *testing.T) {
+	service, ctx := setupOpenAPITestServiceWithPermissions(t,
+		"openapi_sources:read",
+		"openapi_sources:write",
+		"console:read",
+		"function:invoke",
+	)
+	created, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, map[string]interface{}{
+		"openapi": "3.0.3",
+		"info":    map[string]interface{}{"title": "Player API", "version": "1.0.0"},
+		"paths": map[string]interface{}{
+			"/players": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "player.list",
+					"x-resource":  "player",
+					"x-operation": "list",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	})})
+	require.NoError(t, err)
+	_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
+		SourceID: created.Source.SourceID, OperationID: "player.list", Kind: "provider", FunctionID: "player.list",
+	})
+	require.NoError(t, err)
+
+	contract, err := model.NewFunctionContractModel(service.svcCtx.DB).
+		FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.list")
+	require.NoError(t, err)
+	require.NoError(t, createOpenAPITestPublishedPage(service.svcCtx, ctx, contract))
+
+	caller := &openAPITestSessionCaller{}
+	service.svcCtx.Dispatcher = dispatch.NewDispatcher(service.svcCtx.RegistryStore)
+	service.svcCtx.Dispatcher.SetSessionResolver(openAPITestSessionResolver{caller: caller})
+	// Once the OpenAPI binding is the only contract source, its removal must
+	// leave the immutable published snapshot explicitly non-executable.
+	service.svcCtx.RegistryStore.Mu().Lock()
+	delete(service.svcCtx.RegistryStore.AgentsUnsafe()["agent-1"].Functions, "player.list")
+	service.svcCtx.RegistryStore.Mu().Unlock()
+
+	_, err = service.DeleteBinding(ctx, &OpenAPISourceBindingDeleteRequest{
+		SourceID:  created.Source.SourceID,
+		BindingID: "player.list",
+	})
+	require.NoError(t, err)
+
+	consoleService := consoleapi.NewService(service.svcCtx)
+	page, err := consoleService.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	require.Len(t, page.Page.BindingFreshness, 1)
+	assert.Equal(t, dashspec.BindingFreshnessFunctionMissing, page.Page.BindingFreshness[0].Status)
+	assert.Equal(t, "binding_function_missing", page.Page.BindingFreshness[0].Diagnostic.Code)
+
+	_, err = consoleService.ExecuteBinding(ctx, &consoleapi.ConsoleExecuteBindingRequest{
+		PageKey:   "player.manage",
+		BindingID: "player.list",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "binding_stale")
+	assert.Zero(t, caller.calls)
+}
+
 func TestDeleteBindingRebuildsContractFromRemainingOpenAPIBinding(t *testing.T) {
 	service, ctx := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read", "openapi_sources:write")
 	created, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, map[string]interface{}{
@@ -560,6 +631,141 @@ func TestDeleteBindingRebuildsContractFromRemainingOpenAPIBinding(t *testing.T) 
 	assert.Equal(t, "openapi", contract.Source)
 	assert.Equal(t, "player", contract.ResourceKey)
 	assert.Equal(t, "create", contract.OperationKey)
+}
+
+func TestDeleteBindingRollsBackWhenRemainingBindingCannotMaterialize(t *testing.T) {
+	service, ctx := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read", "openapi_sources:write")
+	created, err := service.CreateSource(ctx, &OpenAPISourceCreateRequest{Spec: rawSpec(t, map[string]interface{}{
+		"openapi": "3.0.3",
+		"info":    map[string]interface{}{"title": "Player API", "version": "1.0.0"},
+		"paths": map[string]interface{}{
+			"/players": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "player.list",
+					"x-resource":  "player",
+					"x-operation": "list",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+				"post": map[string]interface{}{
+					"operationId": "player.create",
+					"x-resource":  "player",
+					"x-operation": "create",
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			},
+		},
+	})})
+	require.NoError(t, err)
+	for _, operationID := range []string{"player.list", "player.create"} {
+		_, err = service.CreateBinding(ctx, &OpenAPISourceBindingCreateRequest{
+			SourceID: created.Source.SourceID, OperationID: operationID, Kind: "provider", FunctionID: "player.list",
+		})
+		require.NoError(t, err)
+	}
+
+	// The remaining binding now cannot be materialized. A failed delete must
+	// restore the binding row and leave the existing OpenAPI contract intact.
+	service.svcCtx.RegistryStore.Mu().Lock()
+	delete(service.svcCtx.RegistryStore.AgentsUnsafe()["agent-1"].Functions, "player.list")
+	service.svcCtx.RegistryStore.Mu().Unlock()
+	_, err = service.DeleteBinding(ctx, &OpenAPISourceBindingDeleteRequest{SourceID: created.Source.SourceID, BindingID: "player.list"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "remaining binding function player.list is not registered")
+
+	bindings, err := service.svcCtx.OpenAPISourceBindingModel.ListBySource(ctx, "demo-game", "development", created.Source.SourceID)
+	require.NoError(t, err)
+	assert.Len(t, bindings, 2)
+	contract, err := model.NewFunctionContractModel(service.svcCtx.DB).FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.list")
+	require.NoError(t, err)
+	assert.Equal(t, "openapi", contract.Source)
+}
+
+func createOpenAPITestPublishedPage(svcCtx *svc.ServiceContext, ctx context.Context, contract *model.FunctionContract) error {
+	if contract == nil {
+		return errors.New("function contract is required")
+	}
+	page := dashspec.PageSpec{
+		PageKey:     "player.manage",
+		Type:        dashspec.PageTypeOperation,
+		ResourceKey: "player",
+		Title:       dashspec.LocalizedText{"zh-CN": "玩家管理"},
+		Category: dashspec.PageCategorySpec{
+			Key:    "player",
+			Labels: dashspec.LocalizedText{"zh-CN": "玩家"},
+		},
+		Operation: &dashspec.OperationPageSpec{},
+		Bindings: []dashspec.PageFunctionBinding{{
+			ID:         "player.list",
+			FunctionID: "player.list",
+			Usage:      dashspec.BindingUsageQuery,
+			Execution:  dashspec.PageBindingExecution{Mode: dashspec.PageExecutionModeSync},
+		}},
+	}
+	specJSON, err := json.Marshal(page)
+	if err != nil {
+		return err
+	}
+	contractsJSON, err := json.Marshal([]dashspec.BindingContractSnapshot{{
+		BindingID:             "player.list",
+		FunctionID:            "player.list",
+		FunctionVersion:       contract.Version,
+		InputSchemaDigest:     openAPITestDigest(contract.InputSchema),
+		OutputSchemaDigest:    openAPITestDigest(contract.OutputSchema),
+		Risk:                  dashspec.RiskLevel(contract.Risk),
+		Permission:            contract.Permission,
+		ExecutionMode:         dashspec.PageExecutionModeSync,
+		RendererSchemaVersion: "page-spec:1",
+	}})
+	if err != nil {
+		return err
+	}
+	scope := svc.GameScopeFromContext(ctx)
+	return svcCtx.PublishedPageSpecModel.Create(ctx, &model.PublishedPageSpec{
+		GameID:                scope.GameID,
+		Env:                   scope.Env,
+		PageKey:               page.PageKey,
+		Version:               1,
+		SpecJSON:              string(specJSON),
+		BindingContractsJSON:  string(contractsJSON),
+		RendererSchemaVersion: "page-spec:1",
+		BaseProposalKey:       "resource:player",
+		BaseProposalVersion:   1,
+		FunctionDigest:        "test-function-digest",
+		SemanticsDigest:       "test-semantics-digest",
+		GeneratorVersion:      "test",
+		Active:                true,
+		PublishedAt:           time.Now(),
+		PublishedBy:           "openapi_tester",
+	})
+}
+
+func openAPITestDigest(raw []byte) string {
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
+type openAPITestSessionResolver struct {
+	caller transport.SessionCaller
+}
+
+func (r openAPITestSessionResolver) ResolveAgentConn(string) (transport.SessionCaller, bool) {
+	return r.caller, r.caller != nil
+}
+
+type openAPITestSessionCaller struct {
+	calls int
+}
+
+func (c *openAPITestSessionCaller) Call(_ context.Context, _ uint32, request []byte) (uint32, []byte, error) {
+	c.calls++
+	if err := proto.Unmarshal(request, &sdkv1.InvokeRequest{}); err != nil {
+		return 0, nil, err
+	}
+	response, err := proto.Marshal(&sdkv1.InvokeResponse{Payload: []byte(`{"ok":true}`)})
+	if err != nil {
+		return 0, nil, err
+	}
+	return protocol.MsgInvokeResponse, response, nil
 }
 
 func TestService_CreateSource_InvalidSpec(t *testing.T) {

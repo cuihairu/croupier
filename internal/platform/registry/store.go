@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -78,8 +80,12 @@ type AgentSession struct {
 
 // Store keeps lightweight agent registry state in-memory.
 type Store struct {
-	mu     sync.RWMutex
-	agents map[string]*AgentSession // agent_id -> session
+	mu sync.RWMutex
+	// registrationMu serializes local registration projection changes. It keeps
+	// snapshot classification and cross-database compensation based on one
+	// coherent in-memory agent view.
+	registrationMu sync.Mutex
+	agents         map[string]*AgentSession // agent_id -> session
 	// OpenAPI operations storage (replaces legacy manifest)
 	openapiOperations    map[string]*openapi3.Operation  // function_id -> OpenAPI operation
 	openapiProviders     map[string]*OpenAPIProviderCaps // provider_id -> OpenAPI caps
@@ -204,61 +210,77 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	if err := validateAgentFunctionContracts(a.Functions); err != nil {
 		return err
 	}
-	previous := s.previousFunctions(a.AgentID)
+	s.registrationMu.Lock()
+	defer s.registrationMu.Unlock()
+
+	previousSession := s.previousAgentSession(a.AgentID)
+	previous := functionSnapshot(previousSession)
 	diff := classifyFunctionSnapshot(previous, a.Functions)
+	scopeCtx := s.rebuildContext(a.GameID, a.Env)
 
-	// Rebuild FunctionContracts if contract service is available
-	if s.contractService != nil && a.Functions != nil {
-		scopeCtx := s.rebuildContext(a.GameID, a.Env)
-		var rebuildErrors []error
-		resources := stringSet(diff.Resources)
-		standaloneFunctions := make(map[string]bool)
-		for _, funcID := range sortedFunctionIDs(a.Functions) {
-			meta := a.Functions[funcID]
-			if err := s.rebuildFunctionContract(scopeCtx, a.GameID, a.Env, funcID, meta, resources, standaloneFunctions); err != nil {
-				rebuildErrors = append(rebuildErrors, err)
+	materialize := s.materializeAgent
+
+	// A single-database deployment can use one database transaction. A
+	// database-per-game deployment uses a durable operation record plus
+	// compensation: the game projection commits first, then the meta session
+	// and operation status commit together. Any meta failure restores the
+	// previous game projection immediately or leaves an explicit recovery row.
+	if s.db != nil && dbctx.Get(scopeCtx) == nil {
+		if err := s.db.Transaction(func(tx *gorm.DB) error {
+			txCtx := dbctx.WithDB(scopeCtx, tx)
+			if err := materialize(txCtx, a, diff); err != nil {
+				return err
 			}
+			if err := s.writeToDB(txCtx, a); err != nil {
+				return fmt.Errorf("write agent session to database: %w", err)
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
-		for _, functionID := range diff.Removed {
-			if meta, ok := s.survivingFunctionMeta(a.AgentID, a.GameID, a.Env, functionID); ok {
-				if err := s.rebuildFunctionContract(scopeCtx, a.GameID, a.Env, functionID, meta, resources, standaloneFunctions); err != nil {
-					rebuildErrors = append(rebuildErrors, err)
+	} else if s.db != nil && dbctx.Get(scopeCtx) != nil && s.contractService != nil && a.Functions != nil {
+		operation, err := s.prepareRegistrationOperation(a, previousSession)
+		if err != nil {
+			return err
+		}
+		if err := s.materializeScopedTransaction(scopeCtx, a, materialize, diff); err != nil {
+			s.markRegistrationOperation(operation.OperationID, "aborted", err)
+			return err
+		}
+		metaErr := s.db.Transaction(func(tx *gorm.DB) error {
+			txCtx := dbctx.WithDB(context.Background(), tx)
+			if err := s.writeToDB(txCtx, a); err != nil {
+				return fmt.Errorf("write agent session to database: %w", err)
+			}
+			return s.markRegistrationOperationWithDB(tx, operation.OperationID, "committed", "")
+		})
+		if metaErr != nil {
+			previousForRestore := previousSession
+			if previousForRestore == nil {
+				previousForRestore = &AgentSession{
+					AgentID:   a.AgentID,
+					GameID:    a.GameID,
+					Env:       a.Env,
+					Functions: map[string]FunctionMeta{},
 				}
-				continue
 			}
-			resourceKey, err := s.contractService.RemoveFunctionContract(scopeCtx, a.GameID, a.Env, functionID)
-			if err != nil {
-				rebuildErrors = append(rebuildErrors, fmt.Errorf("remove function contract %s: %w", functionID, err))
-				continue
+			reverseDiff := classifyFunctionSnapshot(a.Functions, previousForRestore.Functions)
+			compensationErr := s.materializeScopedTransaction(scopeCtx, previousForRestore, materialize, reverseDiff)
+			if compensationErr != nil {
+				s.markRegistrationOperation(operation.OperationID, "compensation_required", compensationErr)
+				return fmt.Errorf("write agent session to database: %w; registration compensation failed: %w", metaErr, compensationErr)
 			}
-			if resourceKey != "" {
-				resources[resourceKey] = true
-			}
+			s.markRegistrationOperation(operation.OperationID, "compensated", metaErr)
+			return metaErr
 		}
-		for _, resource := range sortedStringSet(resources) {
-			if err := s.contractService.RebuildResourceCapability(scopeCtx, a.GameID, a.Env, resource); err != nil {
-				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild resource capability %s: %w", resource, err))
-				continue
-			}
-			if err := s.contractService.RebuildProposalsForResource(scopeCtx, a.GameID, a.Env, resource); err != nil {
-				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild page proposals for %s: %w", resource, err))
-			}
+	} else {
+		if err := materialize(scopeCtx, a, diff); err != nil {
+			return err
 		}
-		for _, functionID := range sortedStringSet(standaloneFunctions) {
-			if err := s.contractService.RebuildProposalForFunction(scopeCtx, a.GameID, a.Env, functionID); err != nil {
-				rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild standalone page proposal %s: %w", functionID, err))
+		if s.db != nil {
+			if err := s.writeToDB(context.Background(), a); err != nil {
+				return fmt.Errorf("write agent session to database: %w", err)
 			}
-		}
-		if len(rebuildErrors) > 0 {
-			return fmt.Errorf("agent registration contract rebuild failed: %w", errors.Join(rebuildErrors...))
-		}
-	}
-
-	// Persist only after contract/proposal materialization succeeds. The
-	// in-memory snapshot is likewise updated only after durable persistence.
-	if s.db != nil {
-		if err := s.writeToDB(context.Background(), a); err != nil {
-			return fmt.Errorf("write agent session to database: %w", err)
 		}
 	}
 
@@ -292,6 +314,148 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	cur.ExpireAt = a.ExpireAt
 	cur.LastSeen = a.LastSeen
 	return nil
+}
+
+func (s *Store) materializeScopedTransaction(
+	scopeCtx context.Context,
+	session *AgentSession,
+	materialize func(context.Context, *AgentSession, functionSnapshotDiff) error,
+	diff functionSnapshotDiff,
+) error {
+	scopeDB := dbctx.Resolve(scopeCtx, s.db)
+	if scopeDB == nil {
+		return fmt.Errorf("registration projection database is not initialized")
+	}
+	return scopeDB.Transaction(func(tx *gorm.DB) error {
+		return materialize(dbctx.WithDB(scopeCtx, tx), session, diff)
+	})
+}
+
+func (s *Store) materializeAgent(ctx context.Context, session *AgentSession, sessionDiff functionSnapshotDiff) error {
+	if s.contractService == nil || session == nil || session.Functions == nil {
+		return nil
+	}
+	var rebuildErrors []error
+	resources := stringSet(sessionDiff.Resources)
+	standaloneFunctions := make(map[string]bool)
+	for _, functionID := range sortedFunctionIDs(session.Functions) {
+		meta := session.Functions[functionID]
+		if err := s.rebuildFunctionContract(ctx, session.GameID, session.Env, functionID, meta, resources, standaloneFunctions); err != nil {
+			rebuildErrors = append(rebuildErrors, err)
+		}
+	}
+	for _, functionID := range sessionDiff.Removed {
+		if meta, ok := s.survivingFunctionMeta(session.AgentID, session.GameID, session.Env, functionID); ok {
+			if err := s.rebuildFunctionContract(ctx, session.GameID, session.Env, functionID, meta, resources, standaloneFunctions); err != nil {
+				rebuildErrors = append(rebuildErrors, err)
+			}
+			continue
+		}
+		resourceKey, err := s.contractService.RemoveFunctionContract(ctx, session.GameID, session.Env, functionID)
+		if err != nil {
+			rebuildErrors = append(rebuildErrors, fmt.Errorf("remove function contract %s: %w", functionID, err))
+			continue
+		}
+		if resourceKey != "" {
+			resources[resourceKey] = true
+		}
+	}
+	for _, resource := range sortedStringSet(resources) {
+		if err := s.contractService.RebuildResourceCapability(ctx, session.GameID, session.Env, resource); err != nil {
+			rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild resource capability %s: %w", resource, err))
+			continue
+		}
+		if err := s.contractService.RebuildProposalsForResource(ctx, session.GameID, session.Env, resource); err != nil {
+			rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild page proposals for %s: %w", resource, err))
+		}
+	}
+	for _, functionID := range sortedStringSet(standaloneFunctions) {
+		if err := s.contractService.RebuildProposalForFunction(ctx, session.GameID, session.Env, functionID); err != nil {
+			rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild standalone page proposal %s: %w", functionID, err))
+		}
+	}
+	if len(rebuildErrors) > 0 {
+		return fmt.Errorf("agent registration contract rebuild failed: %w", errors.Join(rebuildErrors...))
+	}
+	return nil
+}
+
+func (s *Store) previousAgentSession(agentID string) *AgentSession {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return cloneAgentSession(s.agents[agentID])
+}
+
+func functionSnapshot(session *AgentSession) map[string]FunctionMeta {
+	if session == nil || session.Functions == nil {
+		return nil
+	}
+	functions := make(map[string]FunctionMeta, len(session.Functions))
+	for functionID, meta := range session.Functions {
+		functions[functionID] = meta
+	}
+	return functions
+}
+
+func cloneAgentSession(session *AgentSession) *AgentSession {
+	if session == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(session)
+	if err != nil {
+		return nil
+	}
+	var clone AgentSession
+	if err := json.Unmarshal(encoded, &clone); err != nil {
+		return nil
+	}
+	return &clone
+}
+
+func (s *Store) prepareRegistrationOperation(target, previous *AgentSession) (*AgentRegistrationOperationDB, error) {
+	targetJSON, err := json.Marshal(target)
+	if err != nil {
+		return nil, fmt.Errorf("marshal target registration session: %w", err)
+	}
+	previousJSON, err := json.Marshal(previous)
+	if err != nil {
+		return nil, fmt.Errorf("marshal previous registration session: %w", err)
+	}
+	operation := &AgentRegistrationOperationDB{
+		OperationID:     uuid.NewString(),
+		AgentID:         target.AgentID,
+		GameID:          target.GameID,
+		Env:             target.Env,
+		PreviousSession: string(previousJSON),
+		TargetSession:   string(targetJSON),
+		Status:          "pending",
+	}
+	if err := s.db.Create(operation).Error; err != nil {
+		return nil, fmt.Errorf("create registration recovery operation: %w", err)
+	}
+	return operation, nil
+}
+
+func (s *Store) markRegistrationOperation(operationID, status string, cause error) {
+	if s == nil || s.db == nil || strings.TrimSpace(operationID) == "" {
+		return
+	}
+	lastError := ""
+	if cause != nil {
+		lastError = cause.Error()
+	}
+	if err := s.markRegistrationOperationWithDB(s.db, operationID, status, lastError); err != nil {
+		slog.Default().Error("failed to update registration recovery operation", "operation_id", operationID, "status", status, "error", err)
+	}
+}
+
+func (s *Store) markRegistrationOperationWithDB(db *gorm.DB, operationID, status, lastError string) error {
+	if db == nil {
+		return fmt.Errorf("registration recovery database is not initialized")
+	}
+	return db.Model(&AgentRegistrationOperationDB{}).
+		Where("operation_id = ?", operationID).
+		Updates(map[string]interface{}{"status": status, "last_error": lastError}).Error
 }
 
 func (s *Store) rebuildFunctionContract(
@@ -535,7 +699,7 @@ func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
 	}
 
 	// Perform upsert using GORM
-	return s.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, s.db).WithContext(ctx).
 		Table("agent_sessions").
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "agent_id"}},
@@ -803,6 +967,9 @@ func (s *Store) LoadFromDB(ctx context.Context, loader AgentSessionLoader) error
 	if s.db == nil {
 		return fmt.Errorf("database not enabled")
 	}
+	if loader == nil {
+		return fmt.Errorf("agent session loader is required")
+	}
 
 	sessions, err := loader.LoadActiveSessions(ctx)
 	if err != nil {
@@ -810,14 +977,86 @@ func (s *Store) LoadFromDB(ctx context.Context, loader AgentSessionLoader) error
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	for _, sess := range sessions {
 		s.agents[sess.AgentID] = sess
+	}
+	s.mu.Unlock()
+
+	if err := s.recoverPendingRegistrationOperations(ctx); err != nil {
+		return err
 	}
 
 	slog.Info("loaded agent sessions from database", "count", len(sessions))
 	return nil
+}
+
+func (s *Store) recoverPendingRegistrationOperations(ctx context.Context) error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+	if s.contractService == nil {
+		return nil
+	}
+	var operations []AgentRegistrationOperationDB
+	if err := s.db.WithContext(ctx).
+		Where("status IN ?", []string{"pending", "compensation_required"}).
+		Order("created_at, id").
+		Find(&operations).Error; err != nil {
+		return fmt.Errorf("list pending registration recovery operations: %w", err)
+	}
+	for _, operation := range operations {
+		previous, err := decodeRegistrationSession(operation.PreviousSession)
+		if err != nil {
+			s.markRegistrationOperation(operation.OperationID, "compensation_required", err)
+			return fmt.Errorf("decode previous registration session %s: %w", operation.OperationID, err)
+		}
+		target, err := decodeRegistrationSession(operation.TargetSession)
+		if err != nil || target == nil {
+			if err == nil {
+				err = fmt.Errorf("target session is empty")
+			}
+			s.markRegistrationOperation(operation.OperationID, "compensation_required", err)
+			return fmt.Errorf("decode target registration session %s: %w", operation.OperationID, err)
+		}
+		if previous == nil {
+			previous = &AgentSession{
+				AgentID:   target.AgentID,
+				GameID:    target.GameID,
+				Env:       target.Env,
+				Functions: map[string]FunctionMeta{},
+			}
+		}
+		if previous.AgentID == "" {
+			previous.AgentID = target.AgentID
+		}
+		if previous.GameID == "" {
+			previous.GameID = target.GameID
+		}
+		if previous.Env == "" {
+			previous.Env = target.Env
+		}
+
+		scopeCtx := s.rebuildContext(target.GameID, target.Env)
+		reverseDiff := classifyFunctionSnapshot(target.Functions, previous.Functions)
+		if err := s.materializeScopedTransaction(scopeCtx, previous, s.materializeAgent, reverseDiff); err != nil {
+			s.markRegistrationOperation(operation.OperationID, "compensation_required", err)
+			return fmt.Errorf("recover registration operation %s: %w", operation.OperationID, err)
+		}
+		s.markRegistrationOperation(operation.OperationID, "compensated", nil)
+	}
+	return nil
+}
+
+func decodeRegistrationSession(raw string) (*AgentSession, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "null" {
+		return nil, nil
+	}
+	var session AgentSession
+	if err := json.Unmarshal([]byte(raw), &session); err != nil {
+		return nil, err
+	}
+	return &session, nil
 }
 
 // StartCleanupRoutine 启动后台清理过期 Session 的 goroutine

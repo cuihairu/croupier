@@ -27,12 +27,19 @@ const mockInventory = [
 // ---------------------------------------------------------------------------
 
 function buildResourcePage(resourceKey: string) {
+  const isPlayers = resourceKey === 'players';
   return {
     pageKey: `resource--${resourceKey}`,
     type: 'resource',
     resourceKey,
     title: { 'zh-CN': resourceKey === 'players' ? '玩家列表' : '背包物品' },
-    category: { key: resourceKey, labels: { 'zh-CN': resourceKey } },
+    category: {
+      key: resourceKey,
+      labels: {
+        'zh-CN': isPlayers ? '玩家管理' : '背包管理',
+        en: isPlayers ? 'Players' : 'Inventory',
+      },
+    },
     resource: {
       listView: {
         columns: [
@@ -77,6 +84,13 @@ function buildResourcePage(resourceKey: string) {
         id: 'list',
         functionId: `${resourceKey}.list`,
         usage: 'query',
+        selectors: {
+          input: { assignments: [] },
+          output: [
+            { stateKey: 'items', source: '/items', shape: 'collection' },
+            { stateKey: 'total', source: '/total', shape: 'scalar' },
+          ],
+        },
         execution: { mode: 'sync' },
       },
       {
@@ -199,15 +213,58 @@ function buildReportPage(functionId: string) {
 }
 
 function findPage(pageKey: string) {
-  const pages = [
+  return mockConsolePages().find((page) => page.pageKey === pageKey);
+}
+
+type MockConsolePage =
+  | ReturnType<typeof buildResourcePage>
+  | ReturnType<typeof buildOperationPage>
+  | ReturnType<typeof buildTaskPage>
+  | ReturnType<typeof buildReportPage>;
+
+function mockConsolePages(): MockConsolePage[] {
+  return [
     buildResourcePage('players'),
     buildResourcePage('inventory'),
     buildOperationPage('mail.send'),
-    buildOperationPage('system.dangerous-op'),
     buildTaskPage('reward.batchGrant'),
     buildReportPage('analytics.retention'),
   ];
-  return pages.find((p) => p.pageKey === pageKey);
+}
+
+function buildMockConsoleMenu() {
+  type MockConsoleMenuItem = {
+    key: string;
+    path: string;
+    title: Record<string, string>;
+    locale: boolean;
+    order: number;
+    children: MockConsoleMenuPageItem[];
+  };
+  type MockConsoleMenuPageItem = Omit<MockConsoleMenuItem, 'children'>;
+  const categories = new Map<string, MockConsoleMenuItem>();
+
+  mockConsolePages().forEach((page, index) => {
+    const categoryKey = page.category.key;
+    const category: MockConsoleMenuItem = categories.get(categoryKey) || {
+      key: categoryKey,
+      path: `/console/${encodeURIComponent(categoryKey)}`,
+      title: page.category.labels,
+      locale: false,
+      order: index + 1,
+      children: [],
+    };
+    category.children.push({
+      key: page.pageKey,
+      path: `${category.path}/${encodeURIComponent(page.pageKey)}`,
+      title: page.title,
+      locale: false,
+      order: index + 1,
+    });
+    categories.set(categoryKey, category);
+  });
+
+  return { items: Array.from(categories.values()) };
 }
 
 // ---------------------------------------------------------------------------
@@ -217,76 +274,12 @@ function findPage(pageKey: string) {
 export default {
   // Console API
   'GET /api/v1/console/menu': (req: Request, res: Response) => {
-    res.send({
-      categories: [
-        {
-          key: 'players',
-          labels: { 'zh-CN': '玩家管理', en: 'Players' },
-          order: 1,
-          pages: [{ pageKey: 'resource--players', title: { 'zh-CN': '玩家列表', en: 'Players' } }],
-        },
-        {
-          key: 'inventory',
-          labels: { 'zh-CN': '背包管理', en: 'Inventory' },
-          order: 2,
-          pages: [
-            { pageKey: 'resource--inventory', title: { 'zh-CN': '背包物品', en: 'Inventory' } },
-          ],
-        },
-        {
-          key: 'mail',
-          labels: { 'zh-CN': '邮件系统', en: 'Mail' },
-          order: 3,
-          pages: [
-            { pageKey: 'operation--mail.send', title: { 'zh-CN': '发送邮件', en: 'Send Mail' } },
-          ],
-        },
-        {
-          key: 'reward',
-          labels: { 'zh-CN': '奖励系统', en: 'Rewards' },
-          order: 4,
-          pages: [
-            {
-              pageKey: 'task--reward.batchGrant',
-              title: { 'zh-CN': '批量发奖', en: 'Batch Grant' },
-            },
-          ],
-        },
-        {
-          key: 'analytics',
-          labels: { 'zh-CN': '数据分析', en: 'Analytics' },
-          order: 5,
-          pages: [
-            {
-              pageKey: 'report--analytics.retention',
-              title: { 'zh-CN': '留存分析', en: 'Retention' },
-            },
-          ],
-        },
-        {
-          key: 'system',
-          labels: { 'zh-CN': '系统', en: 'System' },
-          order: 6,
-          pages: [
-            {
-              pageKey: 'operation--system.dangerous-op',
-              title: { 'zh-CN': '危险操作', en: 'Dangerous Op' },
-            },
-          ],
-        },
-      ],
-    });
+    res.send(buildMockConsoleMenu());
   },
 
   'GET /api/v1/console/pages': (req: Request, res: Response) => {
     res.send({
-      items: [
-        buildResourcePage('players'),
-        buildResourcePage('inventory'),
-        buildOperationPage('mail.send'),
-        buildTaskPage('reward.batchGrant'),
-        buildReportPage('analytics.retention'),
-      ],
+      items: mockConsolePages(),
     });
   },
 

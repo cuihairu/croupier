@@ -22,7 +22,7 @@ func NewFunctionContractModel(db *gorm.DB) *FunctionContractModel {
 func (m *FunctionContractModel) UpsertContract(ctx context.Context, contract *FunctionContract) error {
 	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
 	var existing FunctionContract
-	err := db.Where("game_id = ? AND env = ? AND function_id = ?",
+	err := db.Unscoped().Where("game_id = ? AND env = ? AND function_id = ?",
 		contract.GameID, contract.Env, contract.FunctionID).First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return db.Create(contract).Error
@@ -32,6 +32,7 @@ func (m *FunctionContractModel) UpsertContract(ctx context.Context, contract *Fu
 	}
 	contract.ID = existing.ID
 	contract.CreatedAt = existing.CreatedAt
+	contract.DeletedAt = gorm.DeletedAt{}
 	return db.Save(contract).Error
 }
 
