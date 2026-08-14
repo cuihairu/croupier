@@ -16,6 +16,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
@@ -619,8 +620,38 @@ func functionPermissionsUpdate(ctx context.Context, svcCtx *svc.ServiceContext, 
 }
 
 func functionWarnings(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionWarningsRequest) (*FunctionWarningsResponse, error) {
+	scope := currentFunctionScope(ctx)
+
+	filter := reg.RegistrationWarningFilter{
+		GameID:     scope.GameID,
+		Env:        scope.Env,
+		FunctionID: req.FunctionID,
+		AgentID:    req.AgentID,
+		Code:       req.Code,
+		Limit:      req.Limit,
+	}
+
+	warnings := svcCtx.RegistryStore.ListRegistrationWarnings(filter)
+
+	items := make([]FunctionWarningItem, 0, len(warnings))
+	for _, w := range warnings {
+		items = append(items, FunctionWarningItem{
+			Key:        w.Key,
+			GameID:     w.GameID,
+			Env:        w.Env,
+			AgentID:    w.AgentID,
+			FunctionID: w.FunctionID,
+			Version:    w.Version,
+			Code:       w.Code,
+			Message:    w.Message,
+			Count:      w.Count,
+			FirstSeen:  w.FirstSeen.Format(time.RFC3339),
+			LastSeen:   w.LastSeen.Format(time.RFC3339),
+		})
+	}
+
 	return &FunctionWarningsResponse{
-		Items: []FunctionWarningItem{},
+		Items: items,
 	}, nil
 }
 

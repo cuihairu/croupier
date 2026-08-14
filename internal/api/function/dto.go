@@ -209,6 +209,8 @@ type FunctionPublishResponse struct {
 // FunctionWarningItem represents a warning for a function
 type FunctionWarningItem struct {
 	Key        string `json:"key"`
+	GameID     string `json:"gameId"`
+	Env        string `json:"env"`
 	AgentID    string `json:"agentId"`
 	FunctionID string `json:"functionId"`
 	Version    string `json:"version"`

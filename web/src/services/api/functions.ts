@@ -52,6 +52,8 @@ export type FunctionPermission = {
 // Source should be kept aligned with croupier/internal/api/function/dto.go FunctionWarningItem / response types.
 export type FunctionRegistrationWarning = {
   key: string;
+  gameId: string;
+  env: string;
   agentId: string;
   functionId: string;
   version?: string;
@@ -83,14 +85,16 @@ type FunctionInvokeRequestDTO = {
 
 type RawFunctionRegistrationWarning = {
   key: string;
-  agent_id?: string;
-  function_id?: string;
+  gameId?: string;
+  env?: string;
+  agentId?: string;
+  functionId?: string;
   version?: string;
   code: string;
   message: string;
   count: number;
-  first_seen?: string;
-  last_seen?: string;
+  firstSeen?: string;
+  lastSeen?: string;
 };
 
 function normalizeFunctionRegistrationWarning(
@@ -98,14 +102,16 @@ function normalizeFunctionRegistrationWarning(
 ): FunctionRegistrationWarning {
   return {
     key: raw.key,
-    agentId: raw.agent_id ?? '',
-    functionId: raw.function_id ?? '',
+    gameId: raw.gameId ?? '',
+    env: raw.env ?? '',
+    agentId: raw.agentId ?? '',
+    functionId: raw.functionId ?? '',
     version: raw.version,
     code: raw.code,
     message: raw.message,
     count: raw.count,
-    firstSeen: raw.first_seen ?? '',
-    lastSeen: raw.last_seen ?? '',
+    firstSeen: raw.firstSeen ?? '',
+    lastSeen: raw.lastSeen ?? '',
   };
 }
 
