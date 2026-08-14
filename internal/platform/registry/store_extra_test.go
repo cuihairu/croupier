@@ -12,9 +12,10 @@ import (
 
 func TestStore_UpsertRegistrationWarning(t *testing.T) {
 	store := NewStore()
+	ctx := context.Background()
 
 	t.Run("empty message is ignored", func(t *testing.T) {
-		store.UpsertRegistrationWarning(FunctionRegistrationWarning{
+		store.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
 			Message: "",
 		})
 		warnings := store.ListRegistrationWarnings(RegistrationWarningFilter{})
@@ -22,7 +23,7 @@ func TestStore_UpsertRegistrationWarning(t *testing.T) {
 	})
 
 	t.Run("new warning is added", func(t *testing.T) {
-		store.UpsertRegistrationWarning(FunctionRegistrationWarning{
+		store.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
 			AgentID:    "agent-1",
 			FunctionID: "func-1",
 			Code:       "ERR_001",
@@ -38,7 +39,7 @@ func TestStore_UpsertRegistrationWarning(t *testing.T) {
 	})
 
 	t.Run("duplicate warning increments count", func(t *testing.T) {
-		store.UpsertRegistrationWarning(FunctionRegistrationWarning{
+		store.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
 			AgentID:    "agent-1",
 			FunctionID: "func-1",
 			Code:       "ERR_001",
@@ -50,7 +51,7 @@ func TestStore_UpsertRegistrationWarning(t *testing.T) {
 	})
 
 	t.Run("warning with explicit key", func(t *testing.T) {
-		store.UpsertRegistrationWarning(FunctionRegistrationWarning{
+		store.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
 			Key:     "custom-key",
 			AgentID: "agent-2",
 			Message: "custom key warning",
@@ -226,21 +227,22 @@ func (f failingContractService) RebuildProposalForFunction(context.Context, stri
 
 func TestStore_ListRegistrationWarnings_Filter(t *testing.T) {
 	store := NewStore()
+	ctx := context.Background()
 
 	// Add multiple warnings
-	store.UpsertRegistrationWarning(FunctionRegistrationWarning{
+	store.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
 		AgentID:    "agent-1",
 		FunctionID: "func-1",
 		Code:       "ERR_001",
 		Message:    "error 1",
 	})
-	store.UpsertRegistrationWarning(FunctionRegistrationWarning{
+	store.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
 		AgentID:    "agent-2",
 		FunctionID: "func-2",
 		Code:       "ERR_002",
 		Message:    "error 2",
 	})
-	store.UpsertRegistrationWarning(FunctionRegistrationWarning{
+	store.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
 		AgentID:    "agent-1",
 		FunctionID: "func-3",
 		Code:       "ERR_001",
@@ -363,9 +365,10 @@ func TestStore_LoadFromDB_NoDB(t *testing.T) {
 
 func TestStore_UpsertRegistrationWarning_UpdateExisting(t *testing.T) {
 	store := NewStore()
+	ctx := context.Background()
 
 	// Add initial warning
-	store.UpsertRegistrationWarning(FunctionRegistrationWarning{
+	store.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
 		AgentID:    "agent-1",
 		FunctionID: "func-1",
 		Code:       "ERR_001",
@@ -374,7 +377,7 @@ func TestStore_UpsertRegistrationWarning_UpdateExisting(t *testing.T) {
 	})
 
 	// Update with version info
-	store.UpsertRegistrationWarning(FunctionRegistrationWarning{
+	store.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
 		AgentID:    "agent-1",
 		FunctionID: "func-1",
 		Code:       "ERR_001",

@@ -377,13 +377,17 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	for _, warnMsg := range warnings {
 		warningTexts = append(warningTexts, warnMsg.Message)
 		s.logger.Warn("register validation warning", "agent_id", req.AgentId, "warning", warnMsg.Message, "code", warnMsg.Code, "function_id", warnMsg.FunctionID, "version", warnMsg.Version)
-		s.registry.UpsertRegistrationWarning(reg.FunctionRegistrationWarning{
+		if err := s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+			GameID:     req.GameId,
+			Env:        req.Env,
 			AgentID:    req.AgentId,
 			FunctionID: warnMsg.FunctionID,
 			Version:    warnMsg.Version,
 			Code:       warnMsg.Code,
 			Message:    warnMsg.Message,
-		})
+		}); err != nil {
+			s.logger.Error("failed to upsert registration warning", "error", err)
+		}
 	}
 
 	sess := &reg.AgentSession{

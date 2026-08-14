@@ -2,6 +2,8 @@ package registry
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -111,6 +113,8 @@ type contractMaterializer interface {
 
 type FunctionRegistrationWarning struct {
 	Key        string
+	GameID     string
+	Env        string
 	AgentID    string
 	FunctionID string
 	Version    string
@@ -122,9 +126,12 @@ type FunctionRegistrationWarning struct {
 }
 
 type RegistrationWarningFilter struct {
+	GameID     string
+	Env        string
 	AgentID    string
 	FunctionID string
 	Code       string
+	Status     string
 	Limit      int
 }
 
@@ -883,13 +890,15 @@ func (s *Store) DeleteOpenAPIProvider(providerID string) error {
 	return nil
 }
 
-func (s *Store) UpsertRegistrationWarning(item FunctionRegistrationWarning) {
+func (s *Store) UpsertRegistrationWarning(ctx context.Context, item FunctionRegistrationWarning) error {
 	if item.Message == "" {
-		return
+		return nil
 	}
 	key := item.Key
 	if key == "" {
-		key = fmt.Sprintf("%s|%s|%s|%s", item.AgentID, item.FunctionID, item.Code, item.Message)
+		// Use SHA-256 hash for fixed-length key, include game_id and env for isolation
+		h := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s|%s|%s|%s", item.GameID, item.Env, item.AgentID, item.FunctionID, item.Code, item.Message)))
+		key = hex.EncodeToString(h[:16]) // Use first 16 bytes (32 hex chars) for brevity
 	}
 	now := time.Now()
 
@@ -913,7 +922,7 @@ func (s *Store) UpsertRegistrationWarning(item FunctionRegistrationWarning) {
 			cp.Count = 1
 		}
 		s.registrationWarnings[key] = &cp
-		return
+		return nil
 	}
 	existing.Count++
 	existing.LastSeen = now
@@ -926,6 +935,7 @@ func (s *Store) UpsertRegistrationWarning(item FunctionRegistrationWarning) {
 	if existing.FunctionID == "" && item.FunctionID != "" {
 		existing.FunctionID = item.FunctionID
 	}
+	return nil
 }
 
 func (s *Store) ListRegistrationWarnings(filter RegistrationWarningFilter) []FunctionRegistrationWarning {
@@ -934,6 +944,12 @@ func (s *Store) ListRegistrationWarnings(filter RegistrationWarningFilter) []Fun
 	out := make([]FunctionRegistrationWarning, 0, len(s.registrationWarnings))
 	for _, item := range s.registrationWarnings {
 		if item == nil {
+			continue
+		}
+		if filter.GameID != "" && item.GameID != filter.GameID {
+			continue
+		}
+		if filter.Env != "" && item.Env != filter.Env {
 			continue
 		}
 		if filter.AgentID != "" && item.AgentID != filter.AgentID {
