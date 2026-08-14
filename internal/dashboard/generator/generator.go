@@ -578,7 +578,61 @@ func buildFormPresentation(op spec.OperationSpec, opts GenerateOptions) *spec.Fo
 	if !ok || len(fn.InputSchema) == 0 {
 		return spec.DefaultFormPresentation(spec.JSONSchema(`{"type":"object","properties":{}}`))
 	}
-	return spec.DefaultFormPresentation(fn.InputSchema)
+	fp := spec.DefaultFormPresentation(fn.InputSchema)
+	// 自动生成字段展示信息（如果 schema 中没有 title）
+	fp.Fields = buildFormFields(fn.InputSchema, opts.DefaultLocale)
+	return fp
+}
+
+// buildFormFields 从 JSON Schema 自动生成 FormFieldSpec 列表。
+// 只为 schema 中没有 title 的字段生成标签。
+func buildFormFields(schema spec.JSONSchema, locale string) []spec.FormFieldSpec {
+	if len(schema) == 0 {
+		return nil
+	}
+	root := parseJSONObject(jsonRaw(schema))
+	if schemaTypeFromObject(root) != "object" {
+		return nil
+	}
+	properties := objectProperty(root, "properties")
+	if len(properties) == 0 {
+		return nil
+	}
+	keys := sortedRawMapKeys(properties)
+	fields := make([]spec.FormFieldSpec, 0, len(keys))
+	for _, key := range keys {
+		prop := parseJSONObject(properties[key])
+		// 如果 schema 已经有 title，跳过自动生成
+		if title := rawString(prop["title"]); title != "" {
+			continue
+		}
+		field := spec.FormFieldSpec{
+			Key: key,
+			Label: spec.LocalizedText{
+				locale: humanizeKey(key),
+			},
+		}
+		// 根据类型推断 widget 和 placeholder
+		switch schemaTypeFromObject(prop) {
+		case "string":
+			if format := rawString(prop["format"]); format == "textarea" || rawInt(prop["maxLength"]) > 120 {
+				field.Widget = spec.FormWidgetTextArea
+			}
+			field.Placeholder = spec.LocalizedText{
+				locale: "请输入" + humanizeKey(key),
+			}
+		case "integer", "number":
+			field.Widget = spec.FormWidgetNumber
+		case "boolean":
+			field.Widget = spec.FormWidgetSwitch
+		}
+		// 有 enum 的字段用 Select
+		if enumArr := objectProperty(prop, "enum"); len(enumArr) > 0 {
+			field.Widget = spec.FormWidgetSelect
+		}
+		fields = append(fields, field)
+	}
+	return fields
 }
 
 func executionModeForOperation(op spec.OperationSpec) spec.PageExecutionMode {
@@ -1112,6 +1166,17 @@ func sortedRawMapKeys(input map[string]json.RawMessage) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func rawInt(raw json.RawMessage) int {
+	if len(raw) == 0 {
+		return 0
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return 0
+	}
+	return value
 }
 
 func dataTypeFromSchema(obj map[string]json.RawMessage) string {
