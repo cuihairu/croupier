@@ -289,14 +289,10 @@ type RawOpsNotificationRule = {
 type RawOpsSilence = {
   id: string;
   alertType?: string;
-  alert_type?: string;
   matchers?: JSONValue;
   startAt?: string;
-  start_at?: string;
   endAt?: string;
-  end_at?: string;
   createdBy?: string;
-  created_by?: string;
 };
 
 type RawOpsNode = {
@@ -397,11 +393,11 @@ function normalizeOpsNotifications(raw: Record<string, JSONValue>): OpsNotificat
 function normalizeOpsSilence(raw: RawOpsSilence): OpsSilence {
   return {
     id: raw?.id ?? '',
-    alertType: raw?.alertType ?? raw?.alert_type,
+    alertType: raw?.alertType,
     matchers: raw?.matchers,
-    startAt: raw?.startAt ?? raw?.start_at,
-    endAt: raw?.endAt ?? raw?.end_at,
-    createdBy: raw?.createdBy ?? raw?.created_by,
+    startAt: raw?.startAt,
+    endAt: raw?.endAt,
+    createdBy: raw?.createdBy,
   };
 }
 

@@ -101,74 +101,74 @@ export type ExtensionInstallRequest = {
 type RawExtensionCatalogItem = {
   id: string;
   name: string;
-  display_name: string;
+  displayName: string;
   vendor: string;
   kind: string;
   summary: string;
-  icon_url: string;
+  iconUrl: string;
   status: string;
-  latest_version: string;
+  latestVersion: string;
   installed: boolean;
-  default_install: boolean;
+  defaultInstall: boolean;
   tags: string[];
 };
 
 type RawExtensionReleaseItem = {
   version: string;
-  release_channel: string;
-  min_core_version: string;
-  published_at: number;
+  releaseChannel: string;
+  minCoreVersion: string;
+  publishedAt: number;
   changelog: string;
 };
 
 type RawExtensionInstallationItem = {
   id: number;
-  installation_key: string;
-  extension_id: string;
-  display_name: string;
-  release_version: string;
-  scope_type: string;
-  scope_id: string;
-  target_type: string;
-  target_id: string;
+  installationKey: string;
+  extensionId: string;
+  displayName: string;
+  releaseVersion: string;
+  scopeType: string;
+  scopeId: string;
+  targetType: string;
+  targetId: string;
   status: string;
-  desired_state: string;
+  desiredState: string;
   enabled: boolean;
-  health_status: string;
-  last_error: string;
-  updated_at: number;
+  healthStatus: string;
+  lastError: string;
+  updatedAt: number;
 };
 
 type RawExtensionBindingItem = {
-  binding_type: string;
-  binding_key: string;
-  target_ref: string;
+  bindingType: string;
+  bindingKey: string;
+  targetRef: string;
   status: string;
-  last_error: string;
+  lastError: string;
 };
 
 type RawExtensionEventItem = {
-  event_type: string;
+  eventType: string;
   level: string;
   message: string;
   payload: string;
-  created_by: string;
-  created_at: number;
+  createdBy: string;
+  createdAt: number;
 };
 
 function normalizeCatalogItem(raw: RawExtensionCatalogItem): ExtensionCatalogItem {
   return {
     id: raw.id,
     name: raw.name,
-    displayName: raw.display_name,
+    displayName: raw.displayName,
     vendor: raw.vendor,
     kind: raw.kind,
     summary: raw.summary,
-    iconUrl: raw.icon_url,
+    iconUrl: raw.iconUrl,
     status: raw.status,
-    latestVersion: raw.latest_version,
+    latestVersion: raw.latestVersion,
     installed: !!raw.installed,
-    defaultInstall: !!raw.default_install,
+    defaultInstall: !!raw.defaultInstall,
     tags: Array.isArray(raw.tags) ? raw.tags : [],
   };
 }
@@ -176,9 +176,9 @@ function normalizeCatalogItem(raw: RawExtensionCatalogItem): ExtensionCatalogIte
 function normalizeReleaseItem(raw: RawExtensionReleaseItem): ExtensionReleaseItem {
   return {
     version: raw.version,
-    releaseChannel: raw.release_channel,
-    minCoreVersion: raw.min_core_version,
-    publishedAt: raw.published_at,
+    releaseChannel: raw.releaseChannel,
+    minCoreVersion: raw.minCoreVersion,
+    publishedAt: raw.publishedAt,
     changelog: raw.changelog,
   };
 }
@@ -186,41 +186,41 @@ function normalizeReleaseItem(raw: RawExtensionReleaseItem): ExtensionReleaseIte
 function normalizeInstallationItem(raw: RawExtensionInstallationItem): ExtensionInstallationItem {
   return {
     id: raw.id,
-    installationKey: raw.installation_key,
-    extensionId: raw.extension_id,
-    displayName: raw.display_name,
-    releaseVersion: raw.release_version,
-    scopeType: raw.scope_type,
-    scopeId: raw.scope_id,
-    targetType: raw.target_type,
-    targetId: raw.target_id,
+    installationKey: raw.installationKey,
+    extensionId: raw.extensionId,
+    displayName: raw.displayName,
+    releaseVersion: raw.releaseVersion,
+    scopeType: raw.scopeType,
+    scopeId: raw.scopeId,
+    targetType: raw.targetType,
+    targetId: raw.targetId,
     status: raw.status,
-    desiredState: raw.desired_state,
+    desiredState: raw.desiredState,
     enabled: !!raw.enabled,
-    healthStatus: raw.health_status,
-    lastError: raw.last_error,
-    updatedAt: raw.updated_at,
+    healthStatus: raw.healthStatus,
+    lastError: raw.lastError,
+    updatedAt: raw.updatedAt,
   };
 }
 
 function normalizeBindingItem(raw: RawExtensionBindingItem): ExtensionBindingItem {
   return {
-    bindingType: raw.binding_type,
-    bindingKey: raw.binding_key,
-    targetRef: raw.target_ref,
+    bindingType: raw.bindingType,
+    bindingKey: raw.bindingKey,
+    targetRef: raw.targetRef,
     status: raw.status,
-    lastError: raw.last_error,
+    lastError: raw.lastError,
   };
 }
 
 function normalizeEventItem(raw: RawExtensionEventItem): ExtensionEventItem {
   return {
-    eventType: raw.event_type,
+    eventType: raw.eventType,
     level: raw.level,
     message: raw.message,
     payload: raw.payload,
-    createdBy: raw.created_by,
-    createdAt: raw.created_at,
+    createdBy: raw.createdBy,
+    createdAt: raw.createdAt,
   };
 }
 
