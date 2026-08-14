@@ -651,8 +651,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard --list`，输出的 webServer command 不含 `MOCK=all`。
       Handoff: `I-021` 至 `I-043` 统一使用 `real-dashboard` 项目。
 
-- [ ] `I-020` 禁止 E2E 跳过式与空数据式成功断言
-      Owner: unassigned
+- [x] `I-020` 禁止 E2E 跳过式与空数据式成功断言
+      Owner: root
       Depends: [`I-019`]
       Scope: `web/e2e/`, E2E helper、review guard 测试。
       Deliverable: Dashboard 真实链路 spec 中不存在 `test.skip`、元素缺失后提前 return、`rows >= 0` 或只断言容器存在；每一步断言具体按钮、HTTP 成功、可识别业务记录或期望错误码。
