@@ -25,6 +25,23 @@ type JSONValue = json.RawMessage
 // draft-07 / 2020-12 but the type itself does not enforce validation.
 type JSONSchema json.RawMessage
 
+// MarshalJSON implements json.Marshaler to serialize JSONSchema as inline JSON
+// rather than base64-encoded bytes. Without this method, Go's default encoder
+// treats the underlying []byte as binary data and base64-encodes it.
+func (s JSONSchema) MarshalJSON() ([]byte, error) {
+	if len(s) == 0 {
+		return []byte("null"), nil
+	}
+	return []byte(s), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler to deserialize JSONSchema from
+// inline JSON.
+func (s *JSONSchema) UnmarshalJSON(data []byte) error {
+	*s = data
+	return nil
+}
+
 // FunctionContractInput is the complete non-presentation registration input
 // accepted before normalization. SDK and OpenAPI adapters must construct this
 // type explicitly; page and menu presentation are intentionally absent.
