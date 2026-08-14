@@ -2,6 +2,7 @@
  * E2E 测试辅助函数
  */
 
+import { expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
 /**
@@ -21,7 +22,7 @@ export async function login(page: Page): Promise<void> {
   await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
 
   await usernameInput.fill('admin');
-  await page.locator('input[type="password"]').fill('ant.design');
+  await page.locator('input[type="password"]').fill('admin123');
 
   // 点击登录按钮
   const loginBtn = page
