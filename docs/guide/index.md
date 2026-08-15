@@ -34,3 +34,5 @@ actions:
 2. [安装指南](./installation.md)
 3. [配置管理](./configuration.md)
 4. [部署指南](./deployment.md)
+5. 核心概念：[系统概述](./concepts/overview.md) → [函数管理](./concepts/function-management.md) → [Page Studio](./concepts/function-registration-ui.md) → [权限控制](./concepts/permissions.md)
+6. 集成指南：[OpenAPI 注册](./integrations/openapi-registration.md)、[第三方平台](./integrations/third-party-platforms.md)

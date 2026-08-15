@@ -1,3 +1,14 @@
+---
+title: 设计态 / 运行态 导航隔离方案设计
+icon: columns-2
+order: 20
+category:
+  - 系统架构
+tag:
+  - 导航
+  - 设计提案
+---
+
 # 设计态 / 运行态 导航隔离方案设计
 
 > **状态**：已评审 — 待决策（评审推荐方案 C）
@@ -34,16 +45,16 @@ URL、路由、Layout 全部保持不变，仅在现有 `menu.request` 返回前
 
 ## 3. 方案对比
 
-| 维度 | 现状 | 方案 B（双 Layout） | 方案 C（菜单分组） |
-|---|---|---|---|
-| 解决核心痛点 | — | 彻底 | 解决 |
-| URL 变更 | 无 | 全量变更 + redirect 层 | 无 |
-| 后端改动 | 无 | ConsoleMenuSpec 路径前缀 | 无 |
-| e2e / 文档 / 书签 | 无影响 | 全部需更新 | 无影响 |
-| Layout 维护 | 1 份 | 2 份 ProLayout chrome | 1 份 |
-| 权限语义 | 不变 | 需新增 Layout 级派生权限 | 不变 |
-| 工作量 | — | 周级（含修复阻塞问题） | 天级 |
-| 回滚成本 | — | 中（URL 已变更） | 低（纯前端菜单层） |
+| 维度              | 现状   | 方案 B（双 Layout）      | 方案 C（菜单分组） |
+| ----------------- | ------ | ------------------------ | ------------------ |
+| 解决核心痛点      | —      | 彻底                     | 解决               |
+| URL 变更          | 无     | 全量变更 + redirect 层   | 无                 |
+| 后端改动          | 无     | ConsoleMenuSpec 路径前缀 | 无                 |
+| e2e / 文档 / 书签 | 无影响 | 全部需更新               | 无影响             |
+| Layout 维护       | 1 份   | 2 份 ProLayout chrome    | 1 份               |
+| 权限语义          | 不变   | 需新增 Layout 级派生权限 | 不变               |
+| 工作量            | —      | 周级（含修复阻塞问题）   | 天级               |
+| 回滚成本          | —      | 中（URL 已变更）         | 低（纯前端菜单层） |
 
 ## 4. 方案 B 评审发现
 
@@ -52,18 +63,21 @@ URL、路由、Layout 全部保持不变，仅在现有 `menu.request` 返回前
 **B1. `layout: 'DesignLayout'` 是无效 API。**
 @umijs/max 路由配置的 `layout` 属性只支持 `false`（禁用布局），不支持指定自定义 Layout。
 当前全局启用了 plugin-layout（`web/config/config.ts:80`），正确做法是分支顶层 `layout: false`
-+ 自定义 wrapper 组件（渲染自己的 ProLayout + `<Outlet/>`）。
-更重要的是：`web/src/app.tsx:108` 的整个 `RunTimeLayoutConfig`（menu.request 动态菜单、
-avatarProps、actionsRender、childrenRender、SettingDrawer）如何拆分/复用到两个 Layout，
-原文档完全未覆盖——这才是方案 B 最大的工程量。
+
+- 自定义 wrapper 组件（渲染自己的 ProLayout + `<Outlet/>`）。
+  更重要的是：`web/src/app.tsx:108` 的整个 `RunTimeLayoutConfig`（menu.request 动态菜单、
+  avatarProps、actionsRender、childrenRender、SettingDrawer）如何拆分/复用到两个 Layout，
+  原文档完全未覆盖——这才是方案 B 最大的工程量。
 
 **B2. 示例代码 API 错误。**
+
 - `useHistory()` 是 react-router v5 API，Umi 4 / @umijs/max 中不存在，
   应用 `import { history } from '@umijs/max'` 或 `useNavigate()`
 - `const { currentUser } = useModel('@@initialState')` 错误，该 model 返回
   `{ initialState, setInitialState, loading, refresh }`，应为 `initialState?.currentUser`
 
 **B3. 现有功能在新路由体系中丢失。**
+
 - `/admin/account/center`（Profile：改密码、TOTP 绑定、安全设置）和
   `/admin/account/messages` 在新体系中无家可归，AvatarDropdown 依赖这些页面
 - `/ops/notifications`（事件通知）在路由表和第 6 节配置中都丢失
@@ -72,6 +86,7 @@ avatarProps、actionsRender、childrenRender、SettingDrawer）如何拆分/复�
 - 现有 `/account/*` redirect 链未提及如何处理
 
 **B4. 文档内部自相矛盾。**
+
 - 2.2 节称函数目录为 `/design/functions`，第 6 节实际配置为
   `/design/functions` → redirect → `/design/functions/catalog`
 - 2.2 节 extensions 为单层路径，第 6 节为 store/installations/agent-sync 三层嵌套
@@ -87,6 +102,7 @@ avatarProps、actionsRender、childrenRender、SettingDrawer）如何拆分/复�
 ### 4.2 中等问题
 
 **B6. "权限模型不变"的论断不准确。**
+
 - `canConsoleRead = hasAny('console:read', 'pages:read', 'function:invoke')`
   （`web/src/access.ts:35`）——设计态的 `pages:read` 用户天然能看到运行态控制台，
   "物理隔离"在权限层并不干净；ModeSwitcher 对谁显示需要明确规则
@@ -95,6 +111,7 @@ avatarProps、actionsRender、childrenRender、SettingDrawer）如何拆分/复�
   与"不需要新增权限点"的说法矛盾
 
 **B7. 旧路径重定向方案不完整且技术细节有误。**
+
 - 带参数路径（`/system/functions/:id`、`/console/:categoryKey/:pageKey`）无法用
   Umi 静态 `redirect` 配置，需通配符路由 + 组件内 `history.replace`
 - "301 重定向"说法不准确——SPA 是客户端跳转，不是 HTTP 301；若后端通知/邮件中
@@ -119,9 +136,9 @@ avatarProps、actionsRender、childrenRender、SettingDrawer）如何拆分/复�
 
 顶层菜单项按 path 精确匹配分入两组，未匹配的项原样保留在分组之后：
 
-| 分组 | 包含的顶层菜单 |
-|---|---|
-| 设计 | `/system`（系统管理）、`/system/functions`（函数与页面）、`/admin`（权限与账号） |
+| 分组 | 包含的顶层菜单                                                                                 |
+| ---- | ---------------------------------------------------------------------------------------------- |
+| 设计 | `/system`（系统管理）、`/system/functions`（函数与页面）、`/admin`（权限与账号）               |
 | 运行 | `/console`（运行控制台）、`/analytics`（分析中心）、`/ops`（运维中心）、`/support`（客服系统） |
 
 分组节点为无 path 的 MenuDataItem（`locale: false` + 本地化名称），ProLayout 将其渲染为
@@ -133,6 +150,7 @@ avatarProps、actionsRender、childrenRender、SettingDrawer）如何拆分/复�
 结合设计态的 PageStudio 能力，运行态菜单应完全由后端驱动：
 
 **当前状态：**
+
 ```
 routes.ts 硬编码 → ProLayout 渲染
   /console（动态子菜单来自 ConsoleMenuSpec）
@@ -142,6 +160,7 @@ routes.ts 硬编码 → ProLayout 渲染
 ```
 
 **目标状态：**
+
 ```
 后端 API 返回完整运行态菜单 → ProLayout 渲染
   /console（业务页面，PageStudio 创建后自动入菜单）
@@ -152,10 +171,10 @@ routes.ts 硬编码 → ProLayout 渲染
 
 **两类菜单来源：**
 
-| 来源 | 说明 | 存储位置 |
-|---|---|---|
-| 系统模块 | analytics、ops、support 等内置模块 | `configs/server.yaml` 的 `console.modules` |
-| 业务页面 | 通过 PageStudio 创建，发布后自动生成 | `page_specs` / `published_page_specs` 表 |
+| 来源     | 说明                                 | 存储位置                                   |
+| -------- | ------------------------------------ | ------------------------------------------ |
+| 系统模块 | analytics、ops、support 等内置模块   | `configs/server.yaml` 的 `console.modules` |
+| 业务页面 | 通过 PageStudio 创建，发布后自动生成 | `page_specs` / `published_page_specs` 表   |
 
 **后端扩展 `ConsoleMenuSpec`：**
 
@@ -214,14 +233,12 @@ request: async (params, defaultMenuData) => {
 
   // 设计态菜单：保持静态（从 defaultMenuData 过滤）
   // 运行态菜单：完全从 consoleMenu 渲染
-  const designMenu = defaultMenuData.filter(item =>
-    isDesignRoute(item.path)
-  );
+  const designMenu = defaultMenuData.filter((item) => isDesignRoute(item.path));
   const runtimeMenu = buildRuntimeMenuFromSpec(consoleMenu, locale);
 
   // 分组
   return groupMenuByMode([...designMenu, ...runtimeMenu], locale);
-}
+};
 ```
 
 **业务页面自动入菜单流程：**
@@ -257,6 +274,7 @@ request: async (params, defaultMenuData) => {
 **评审推荐：先实施方案 C，方案 B 暂缓。**
 
 理由：
+
 1. 核心痛点（全权限用户菜单冗长）用方案 C 即可解决，成本为天级且零外部影响
 2. 方案 B 的 5 个阻塞问题使其真实成本远超原文档预估
 3. 方案 C 不阻塞方案 B——菜单分组的映射表与未来双 Layout 的分组语义一致，是平滑过渡
@@ -269,6 +287,7 @@ request: async (params, defaultMenuData) => {
 3. Welcome 页是否保留为落地页，还是改为按角色自动跳转？
 
 **方案 B 的演进触发条件**（满足其一即重启评估）：
+
 - 运行态需要独立的头部布局/品牌/发布节奏
 - 出现第三类功能簇，菜单分组无法容纳
 - 需要按人群做完全不同的大数据屏/移动形态
@@ -385,20 +404,22 @@ Layout 切换（⚠️ `useHistory` 为无效 API，应使用 `history` 或 `use
 
 ```tsx
 // components/ModeSwitcher.tsx
-import { history, useLocation } from '@umijs/max';
+import { history, useLocation } from "@umijs/max";
 
 const ModeSwitcher: React.FC = () => {
   const location = useLocation();
-  const isDesign = location.pathname.startsWith('/design');
+  const isDesign = location.pathname.startsWith("/design");
 
   return (
     <Segmented
       options={[
-        { label: '设计态', value: 'design', icon: <ToolOutlined /> },
-        { label: '运行态', value: 'runtime', icon: <AppstoreOutlined /> },
+        { label: "设计态", value: "design", icon: <ToolOutlined /> },
+        { label: "运行态", value: "runtime", icon: <AppstoreOutlined /> },
       ]}
-      value={isDesign ? 'design' : 'runtime'}
-      onChange={(val) => history.push(val === 'design' ? '/design' : '/runtime')}
+      value={isDesign ? "design" : "runtime"}
+      onChange={(val) =>
+        history.push(val === "design" ? "/design" : "/runtime")
+      }
     />
   );
 };
@@ -409,13 +430,15 @@ const ModeSwitcher: React.FC = () => {
 ```tsx
 // pages/Home/index.tsx
 const HomePage: React.FC = () => {
-  const { initialState, loading } = useModel('@@initialState');
+  const { initialState, loading } = useModel("@@initialState");
 
   useEffect(() => {
     if (loading) return;
     const roles = initialState?.currentUser?.roles || [];
-    const isAdmin = roles.some((r) => ['admin', 'super_admin'].includes(String(r).toLowerCase()));
-    history.replace(isAdmin ? '/design' : '/runtime');
+    const isAdmin = roles.some((r) =>
+      ["admin", "super_admin"].includes(String(r).toLowerCase()),
+    );
+    history.replace(isAdmin ? "/design" : "/runtime");
   }, [loading]);
 
   return <Spin />;
@@ -427,7 +450,7 @@ const HomePage: React.FC = () => {
 ```tsx
 // wrappers/DesignAccess.tsx
 const DesignAccess: React.FC<React.PropsWithChildren> = ({ children }) => {
-  const { initialState } = useModel('@@initialState');
+  const { initialState } = useModel("@@initialState");
   const access = useAccess(); // 需在 access.ts 新增 canDesignAccess 派生权限
   if (!access.canDesignAccess) return <Navigate to="/403" />;
   return <>{children}</>;
@@ -477,38 +500,45 @@ web/src/
 ```typescript
 // config/routes.ts
 export default [
-  { path: '/user', layout: false, routes: [
-    { path: '/user/login', component: './User/Login' },
-  ]},
-  { path: '/', component: './Home' },
+  {
+    path: "/user",
+    layout: false,
+    routes: [{ path: "/user/login", component: "./User/Login" }],
+  },
+  { path: "/", component: "./Home" },
 
   // 设计态：layout:false 禁用全局 plugin-layout，由自定义 Layout 组件接管
   {
-    path: '/design',
+    path: "/design",
     layout: false,
-    component: '@/layouts/DesignLayout',
-    wrappers: ['@/wrappers/DesignAccess'],
+    component: "@/layouts/DesignLayout",
+    wrappers: ["@/wrappers/DesignAccess"],
     routes: [
-      { path: '/design', redirect: '/design/functions/catalog' },
-      { path: '/design/functions/catalog', name: 'FunctionCatalog', access: 'canFunctionsRead', component: './Functions/Directory' },
+      { path: "/design", redirect: "/design/functions/catalog" },
+      {
+        path: "/design/functions/catalog",
+        name: "FunctionCatalog",
+        access: "canFunctionsRead",
+        component: "./Functions/Directory",
+      },
       // ... 其余设计态路由（access key 与现状一致）
     ],
   },
 
   // 运行态同理
   {
-    path: '/runtime',
+    path: "/runtime",
     layout: false,
-    component: '@/layouts/RuntimeLayout',
-    wrappers: ['@/wrappers/RuntimeAccess'],
+    component: "@/layouts/RuntimeLayout",
+    wrappers: ["@/wrappers/RuntimeAccess"],
     routes: [
-      { path: '/runtime', redirect: '/runtime/console' },
+      { path: "/runtime", redirect: "/runtime/console" },
       // ... 其余运行态路由
     ],
   },
 
-  { path: '/403', layout: false, component: './403' },
-  { path: '*', layout: false, component: './404' },
+  { path: "/403", layout: false, component: "./403" },
+  { path: "*", layout: false, component: "./404" },
 ];
 ```
 
@@ -526,6 +556,7 @@ canRuntimeAccess: canConsoleRead || canAnalyticsRead || canOpsRead || canSupport
 是否收紧该权限是独立决策。
 
 访问控制规则：
+
 - 管理员：两个 Layout 都可访问，默认进设计态
 - 运营人员：仅运行态可见，进 `/runtime`
 - 无权限用户：跳转 `/403`
@@ -537,12 +568,12 @@ canRuntimeAccess: canConsoleRead || canAnalyticsRead || canOpsRead || canSupport
 ```typescript
 // 1. 静态顶层 redirect（Umi redirect 配置即可）
 const legacyRedirects = [
-  { from: '/system/functions', to: '/design/functions' },
-  { from: '/console', to: '/runtime/console' },
-  { from: '/analytics', to: '/runtime/analytics' },
-  { from: '/ops', to: '/runtime/ops' },
-  { from: '/support', to: '/runtime/support' },
-  { from: '/admin', to: '/design/admin' },
+  { from: "/system/functions", to: "/design/functions" },
+  { from: "/console", to: "/runtime/console" },
+  { from: "/analytics", to: "/runtime/analytics" },
+  { from: "/ops", to: "/runtime/ops" },
+  { from: "/support", to: "/runtime/support" },
+  { from: "/admin", to: "/design/admin" },
 ];
 
 // 2. 带参数路径：通配符路由 + 组件内 history.replace（保留参数与 query）

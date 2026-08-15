@@ -13,7 +13,7 @@ tag:
 
 # Dashboard Resource/Page 模型
 
-> **状态**：Target -- 本文定义下一版 Dashboard 的权威模型。实现、文档和 SDK 必须以本文的正向模型为准；不符合本文边界的旧实现按根目录 `todo.md` 物理清理。
+> **状态**：Current -- 本文是 Dashboard 页面模型的权威定义。实现、文档和 SDK 以本文的正向模型为准；旧模型已按 [旧模型删除清单](./legacy-deletion-inventory.md) 物理删除，并由 `scripts/dashboard_vnext_guard.sh` 防回流。
 
 ## 决策
 
@@ -105,7 +105,7 @@ type JsonPointer = "" | `/${string}`;
 type JSONPrimitive = string | number | boolean | null;
 type JSONValue = JSONPrimitive | JSONValue[] | { [key: string]: JSONValue };
 type JSONSchema = boolean | { [key: string]: JSONValue };
-type RiskLevel = "low" | "medium" | "high" | "danger";
+type RiskLevel = "safe" | "warning" | "high" | "danger";
 
 interface Scope {
   gameId: string;
@@ -299,6 +299,7 @@ interface BlockedProposalIssue {
   sourceDigests: SourceDigest[];
   diagnostics: Diagnostic[];
   repairHint: string;
+  status: "open" | "resolved" | "dismissed";
 }
 ```
 
@@ -315,56 +316,25 @@ PageDraft 是用户接受 Proposal 后形成的可编辑页面；PublishedPageSp
 
 PageSpec 是平台唯一的页面编排协议。它不持久化 `ProTable`、`ProForm` 等具体组件名，而是强类型的业务级 DSL：
 
-```ts
-type PageSpec =
-  | ResourcePageSpec
-  | OperationPageSpec
-  | TaskPageSpec
-  | ReportPageSpec;
-
-interface PageBase {
-  pageKey: string;
-  scope: Scope;
-  navigation: NavigationSpec;
-  bindings: PageBinding[];
-  permissions: PagePermissionSpec;
-}
-
-interface ResourcePageSpec extends PageBase {
-  kind: "resource";
-  resourceKey: string;
-  list?: ListViewSpec;
-  detail?: DetailViewSpec;
-  create?: FormActionSpec;
-  update?: FormActionSpec;
-  delete?: ConfirmActionSpec;
-  rowActions: ResourceActionSpec[];
-  toolbarActions: ResourceActionSpec[];
-}
-
-interface OperationPageSpec extends PageBase {
-  kind: "operation";
-  action: FormActionSpec | ConfirmActionSpec;
-  result: ResultViewSpec;
-}
-
-interface TaskPageSpec extends PageBase {
-  kind: "task";
-  start: FormActionSpec;
-  task: TaskViewSpec;
-  result?: ResultViewSpec;
-}
-
-interface ReportPageSpec extends PageBase {
-  kind: "report";
-  query: QueryViewSpec;
-  visualizations: ReportViewSpec[];
-}
+```text
+PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
+            navigation?, resource? | operation? | task? | report?, bindings[])
 ```
 
-`PageBinding` 只引用发布期允许执行的 FunctionContract。输入输出映射必须使用受控的 typed selector AST，禁止保存无约束 JSON mapping、裸整行透传或运行时猜路径；AST 定义与校验规则见 [UI Schema 与 PageSpec 规范](./ui-schema-spec.md)。
+四种页面类型的视图编排：
 
-`NavigationSpec` 承载 `category.key`、`category.labels`、`title`、排序和图标。它只在 PageProposal/PageSpec 中确定，注册侧不能提供菜单事实。
+| 页面类型    | 视图节点（实际 DTO）                                                                                                                                                                                            |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resource`  | `ListViewSpec`（columns/filters/pagination/rowActions/batchActions/toolbarActions）、`DetailViewSpec`（fields/actions）、`CreateForm`/`UpdateForm`（FormPresentationSpec）、`DeleteAction`（ConfirmActionSpec） |
+| `operation` | `Form`（FormPresentationSpec）+ `Confirm`（ConfirmActionSpec）+ `ResultViewSpec`                                                                                                                                |
+| `task`      | `Form`（FormPresentationSpec）+ `TaskViewSpec`（status/events/result/cancel 的 bindingId 引用）+ `ResultViewSpec`                                                                                               |
+| `report`    | `QueryForm`（FormPresentationSpec）+ `DatasetSpec` + `ChartSpec[]` + 表格 `ListViewSpec`                                                                                                                        |
+
+字段级的 wire 契约（含 FormPresentationSpec、Selector AST、Binding usage 枚举与 ABI 版本）以 [PageSpec 协议规范](./pagespec-protocol.md) 为唯一出处；其权威实现是 `internal/dashboard/spec`（Go DTO）与 `web/src/types/dashboard.ts`（前端共享类型），两侧逐项对应。
+
+`PageBinding` 只引用发布期允许执行的 FunctionContract。输入输出映射必须使用受控的 typed selector AST，禁止保存无约束 JSON mapping、裸整行透传或运行时猜路径。
+
+分类、标题、图标与排序是 PageSpec 的顶层强类型字段；`NavigationSpec` 仅承载面包屑与返回行为（breadcrumb、showBack、backPath）。它们只在 PageProposal/PageSpec 中确定，注册侧不能提供菜单事实。页面没有独立的 permissions 字段：权限由 binding 级治理（合同 permission/risk/approval 快照）与 action 级 permission 字段承载。
 
 ## CRUD 是主路径，非 CRUD 是一等扩展
 
@@ -382,7 +352,7 @@ JSON Schema 为列表列、详情项和表单字段生成候选。`CapabilitySem
 
 异步函数生成 TaskPage；报告语义生成 ReportPage。TaskPage 必须接入真实 task 状态、事件、取消/重试和结果，不得只显示 taskId。
 
-TaskPage 的生命周期能力来自 `TaskSemantic`，生成器把 `start/status/events/result/cancel` 转成 PageSpec binding，并在 `TaskViewSpec` 中保存 bindingId 引用、固定 `taskId` page state key 与 `status.statePath`。运行时仍统一走 `POST /console/pages/:pageKey/bindings/:bindingId/execute`，浏览器只提交 `page_state.taskId` 作为 selector source，不传 functionId、target、gameId 或 env。缺少 `status` binding 或 `statusStatePath` 的 TaskPage 不可发布；`events/result/cancel` 只有存在对应真实函数语义时才显示入口；retry 在真实 runtime 闭环前禁止发布。
+TaskPage 的生命周期能力来自 `TaskSemantic`，生成器把 `start/status/events/result/cancel` 转成 PageSpec binding，并在 `TaskViewSpec` 中保存 bindingId 引用、固定 `taskId` page state key 与 `status.statePath`。运行时仍统一走 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute`，浏览器只提交 `page_state.taskId` 作为 selector source，不传 functionId、target、gameId 或 env。缺少 `status` binding 或 `statusStatePath` 的 TaskPage 不可发布；`events/result/cancel` 只有存在对应真实函数语义时才显示入口；retry 在真实 runtime 闭环前禁止发布。
 
 ReportPage 必须使用已验证的数据集、指标和图表字段，不得只显示 JSON。
 
@@ -390,13 +360,13 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 
 页面运行时固定使用 Ant Design Pro/ProComponents；PageSpec 节点与运行时组件的对应关系见 [ProComponents 页面生成与运行时](./ui-generation.md)。
 
-Renderer 只接受 PublishedPageSpec，并只通过 `POST /console/pages/:pageKey/bindings/:bindingId/execute` 执行。浏览器不得传 functionId、route、target、gameId 或 env 来选择执行目标。
+Renderer 只接受 PublishedPageSpec，并只通过 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute` 执行。浏览器不得传 functionId、route、target、gameId 或 env 来选择执行目标。
 
 PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 renderer adapter，不迁移 FunctionContract、PageSpec、菜单、发布快照或审计。
 
 ## 表单策略
 
-JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [UI Schema 与 PageSpec 规范](./ui-schema-spec.md)，渲染链路与唯一 runtime 约束见 [ProComponents 页面生成与运行时](./ui-generation.md)。
+JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 [ProComponents 页面生成与运行时](./ui-generation.md)。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。
 
@@ -440,7 +410,7 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 
 ## 完成定义
 
-下一版只有满足以下条件才可宣称可发布：
+模型已按以下条件交付验收（真实浏览器 E2E 覆盖，见 `web/e2e/` 与 [真实 Dashboard E2E](../development/real-dashboard-e2e.md)）：
 
 1. 一个 OpenAPI REST Resource 可自动生成并直接发布 ResourcePage；声明写 capability 时提供完整 CRUD，未声明写 capability 时提供只读查询/详情页面。
 2. 一个 SDK 显式能力 Resource 可自动生成并直接发布同等 ResourcePage。
@@ -449,4 +419,4 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 5. Page Studio 的常用路径不要求编辑原始 PageSpec JSON 或自定义 mapping。
 6. 发布、动态菜单、scope、权限、审批、审计、OTel 和函数变更 stale 在真实浏览器 E2E 中闭环。
 
-详细迁移顺序、删除清单、验收场景和交接责任见根目录 `todo.md`。
+旧模型的删除记录与防回流证据见 [旧模型删除清单](./legacy-deletion-inventory.md)。

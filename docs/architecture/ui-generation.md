@@ -12,19 +12,19 @@ tag:
 
 # ProComponents 页面生成与运行时
 
-> **状态**：Target -- Croupier 的页面运行时使用 Ant Design Pro/ProComponents。
+> **状态**：Current -- 页面生成器（`internal/dashboard/generator/`）与唯一前端运行时（`web/src/components/PageRenderer/`、`SchemaFormRenderer`）均已落地并被真实浏览器 E2E（`web/e2e/`）覆盖。
 
-## 为什么不集成 React Admin
+## 为什么不集成 React Admin（决策记录）
 
 React Admin 的可借鉴之处是“资源语义 -> 默认后台页面 -> 局部覆盖”，而不是它的 UI 组件或 `DataProvider` 协议。Croupier 已有 Ant Design Pro/ProComponents，表格、表单、详情、抽屉、步骤、权限和布局能力足够且更贴合现有系统。
 
-| React Admin 概念 | Croupier 对应实现 |
-| --- | --- |
-| `Resource` | ResourceCapability + CapabilitySemantics |
-| `getList/getOne/create/update/delete` | PublishedPageSpec 的受控 PageBinding |
-| List/Edit/Create/Show | ProTable、SchemaFormRenderer、Modal/Drawer、ProDescriptions |
-| DataProvider | 服务端 controlled binding execute API |
-| 自动路由/菜单 | PublishedPageSpec -> ConsoleMenuSpec -> ProLayout |
+| React Admin 概念                      | Croupier 对应实现                                           |
+| ------------------------------------- | ----------------------------------------------------------- |
+| `Resource`                            | ResourceCapability + CapabilitySemantics                    |
+| `getList/getOne/create/update/delete` | PublishedPageSpec 的受控 PageBinding                        |
+| List/Edit/Create/Show                 | ProTable、SchemaFormRenderer、Modal/Drawer、ProDescriptions |
+| DataProvider                          | 服务端 controlled binding execute API                       |
+| 自动路由/菜单                         | PublishedPageSpec -> ConsoleMenuSpec -> ProLayout           |
 
 不能照搬 React Admin 的 CRUD-only 模型；Croupier 在同一平台中还必须支持 Operation、Task、Report 和审批动作。
 
@@ -41,7 +41,7 @@ React Admin 的可借鉴之处是“资源语义 -> 默认后台页面 -> 局部
 ```text
 collection_query -> ListViewSpec -> ProTable
 item_query       -> DetailViewSpec -> ProDescriptions
-create/update    -> FormActionSpec -> Modal / Drawer + SchemaFormRenderer
+create/update    -> FormPresentationSpec（CreateForm/UpdateForm） -> Modal / Drawer + SchemaFormRenderer
 delete           -> ConfirmActionSpec -> Popconfirm
 action           -> row / toolbar / batch action
 ```
@@ -50,12 +50,12 @@ action           -> row / toolbar / batch action
 
 ### 非 CRUD 模板
 
-| 能力 | 默认页面 | 必须是真实实现 |
-| --- | --- | --- |
-| `action` / 无 resource 的同步函数 | OperationPage | 表单、确认、受控执行、结构化结果 |
-| `task` | TaskPage | 启动、状态、事件、取消/重试、结果 |
-| `report` | ReportPage | 查询、数据集、指标/维度、图表或表格 |
-| `approval.required=true` | Operation/Task Page | 等待态、approvalId、审批状态，以及审批通过后的同步结果或任务状态；不得显示为完成 |
+| 能力                              | 默认页面            | 必须是真实实现                                                                   |
+| --------------------------------- | ------------------- | -------------------------------------------------------------------------------- |
+| `action` / 无 resource 的同步函数 | OperationPage       | 表单、确认、受控执行、结构化结果                                                 |
+| `task`                            | TaskPage            | 启动、状态、事件、取消/重试、结果                                                |
+| `report`                          | ReportPage          | 查询、数据集、指标/维度、图表或表格                                              |
+| `approval.required=true`          | Operation/Task Page | 等待态、approvalId、审批状态，以及审批通过后的同步结果或任务状态；不得显示为完成 |
 
 ## Page Studio
 
@@ -72,15 +72,17 @@ Page Studio 的第一屏是 Proposal Inbox，而不是 JSON 编辑器：
 
 PageSpec 节点到 ProComponents 的对应关系固定如下（renderer adapter 的唯一映射表）：
 
-| PageSpec 概念 | 运行时实现 |
-| --- | --- |
-| `ListViewSpec` | `ProTable`，包含筛选、分页、列设置、批量选择和 toolbar |
-| `DetailViewSpec` | `ProDescriptions` / `Descriptions` |
-| `FormActionSpec` / `QueryViewSpec` | `SchemaFormRenderer`，基于 `@rjsf/antd + @rjsf/validator-ajv8` |
-| `ConfirmActionSpec` | `Popconfirm` / `Modal.confirm` + 后端风险与审批策略 |
-| `TaskViewSpec` | 真实 Task API 的状态、事件和结果视图 |
-| `ReportViewSpec` | `@ant-design/charts` 或等价 AntV renderer；表格用 `ProTable` |
-| `ConsoleMenuSpec` | ProLayout 的动态左侧菜单 |
+| PageSpec 概念                                                          | 运行时实现                                                             |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `ListViewSpec`                                                         | `ProTable`，包含筛选、分页、列设置、批量选择和 toolbar                 |
+| `DetailViewSpec`                                                       | `ProDescriptions` / `Descriptions`                                     |
+| `FormPresentationSpec`（create/update/operation/task/report 查询表单） | `SchemaFormRenderer`，基于 `@rjsf/antd + @rjsf/validator-ajv8`         |
+| `ConfirmActionSpec`                                                    | `Popconfirm` / `Modal.confirm` + 后端风险与审批策略                    |
+| `ActionSpec`（row/batch/toolbar）                                      | 表格行内按钮 / 批量栏 / 工具栏按钮，经 binding execute                 |
+| `TaskViewSpec`                                                         | 真实 Task binding（status/events/result/cancel）的状态、事件和结果视图 |
+| `DatasetSpec` + `ChartSpec[]`                                          | `@ant-design/charts` 或等价 AntV renderer；表格用 `ProTable`           |
+| `ResultViewSpec`                                                       | 结构化结果区（键值/集合/标量），禁止原始 JSON 直出                     |
+| `ConsoleMenuSpec`                                                      | ProLayout 的动态左侧菜单                                               |
 
 ## 运行时约束
 
@@ -104,13 +106,13 @@ JSON Schema + FormPresentationSpec
 
 这层不得耦合 PageSpec 的页面布局。renderer 私有 `uiSchema` 只能由 FormPresentationSpec 在前端临时派生，不能持久化、不能进入 SDK/OpenAPI、不能成为第二套页面协议。项目内禁止保留 Formily、form-render 或自研 ProForm field factory 作为并行运行时。
 
-## 真实验收
+## 真实验收（已落地）
 
-以下项目必须在浏览器 E2E 中验证，服务层单测不能替代：
+以下项目已由真实浏览器 E2E（`web/e2e/`，`real-dashboard` Playwright 项目）验证，回归入口见 [真实 Dashboard E2E](../development/real-dashboard-e2e.md)：
 
-- OpenAPI REST 和 SDK capability 各生成一个 ResourcePage，并可发布执行；至少覆盖一个完整 CRUD 和一个只读资源页面。
+- OpenAPI REST 和 SDK capability 各生成一个 ResourcePage，并可发布执行；覆盖完整 CRUD（`@openapi-*`）与 SDK 显式资源（`@sdk-*`）。
 - 无 CRUD 语义函数生成 `basic` OperationPage，并可直接发布。
 - 任务页能持续显示真实状态和事件。
 - 报表页渲染真实图表或表格数据。
-- 函数变更后页面被 stale 阻断，用户完成 diff、合并和重新发布。
+- 函数变更后页面被 stale 阻断，用户完成 diff、合并和重新发布（`@schema-change-*`、`@stale-*`、`@safe-auto-merge`、`@republish-*`）。
 - 切换 game/env 后菜单、页面和执行严格隔离。

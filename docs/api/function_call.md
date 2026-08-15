@@ -36,7 +36,7 @@ type ListResponse struct {
 	Calls    []Item `json:"calls"`
 	Total    int    `json:"total"`
 	Page     int    `json:"page"`
-	PageSize int    `json:"page_size"`
+	PageSize int    `json:"pageSize"`
 }
 ```
 

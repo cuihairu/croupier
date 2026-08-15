@@ -88,8 +88,13 @@ curl http://localhost:18780/healthz
 
 ### 检查 Agent 是否已连上 Server
 
+Agent 列表需要认证与 scope 头：
+
 ```bash
-curl http://localhost:18780/api/v1/agents
+curl http://localhost:18780/api/v1/ops/agents \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Game-ID: default" \
+  -H "X-Env: prod"
 ```
 
 ### 检查 Dashboard

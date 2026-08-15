@@ -1,6 +1,18 @@
+---
+title: 运行控制台动态菜单
+icon: menu
+order: 9
+category:
+  - 系统架构
+tag:
+  - Console
+  - 动态菜单
+  - PublishedPageSpec
+---
+
 # 运行控制台动态菜单
 
-> **状态**：Target — 运行控制台菜单只消费已发布 PageSpec。详细模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。本规范依赖 PublishedPageSpec 全链落地，在端到端验收通过前不得标记为 Current。
+> **状态**：Current — 运行控制台菜单只消费已发布 PageSpec。详细模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。实现索引：菜单生成 `internal/api/console/`（`GET /api/v1/console/menu`）、前端路由 `web/config/routes.ts`、菜单组装 `web/src/utils/consoleMenu.ts`、发布期分类 labels 仲裁 `internal/service/proposal_service.go`。
 
 ## 结论
 
@@ -23,16 +35,18 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 3. 生成器创建的独立 Operation/Task/Report 页面必须显式写入由主 binding 原始 `functionId` 第一个 `.` 前缀推导的分类。
 4. 仅供手工创建且缺少上述来源的 PageSpec 使用 `pageKey` 的第一个 `.` 前缀；没有 `.` 时使用完整 key。
 
+其中第 2/3 条的生成器默认值定义见 [ProComponents 页面生成与运行时](./ui-generation.md)（唯一出处）；本节只保留菜单侧的仲裁与兜底规则。
+
 示例：
 
-| 输入 | 最终分类 |
-| --- | --- |
-| `category.key = support`, `resourceKey = player` | `support` |
-| `resourceKey = player.ban` | `player` |
-| `resourceKey = mail.send` | `mail` |
-| `resourceKey = mail` | `mail` |
-| `functionId = analytics.retention` | `analytics` |
-| `pageKey = custom.page`（手工创建） | `custom` |
+| 输入                                             | 最终分类    |
+| ------------------------------------------------ | ----------- |
+| `category.key = support`, `resourceKey = player` | `support`   |
+| `resourceKey = player.ban`                       | `player`    |
+| `resourceKey = mail.send`                        | `mail`      |
+| `resourceKey = mail`                             | `mail`      |
+| `functionId = analytics.retention`               | `analytics` |
+| `pageKey = custom.page`（手工创建）              | `custom`    |
 
 ## 分类仲裁
 

@@ -12,7 +12,7 @@ tag:
 
 # OpenAPI 函数注册
 
-> **状态**：Target -- OpenAPI 是 FunctionContract 和 CRUD capability 的输入，不是 PageSpec 或 UI schema。
+> **状态**：Current -- OpenAPI 是 FunctionContract 和 CRUD capability 的输入，不是 PageSpec 或 UI schema。
 
 OpenAPI 可以通过 SDK 本地解析或 Dashboard OpenAPI Source 上传接入。两种方式都先得到 FunctionContract，再由 Server 生成 CapabilitySemantics 和 PageProposal。
 
@@ -27,33 +27,33 @@ OpenAPI
 
 ## 字段映射
 
-| Croupier 字段 | OpenAPI 字段 | 说明 |
-| --- | --- | --- |
-| `id` | `operationId` | 稳定函数 ID |
-| `version` | `x-version` | 契约版本 |
-| `summary` / `description` | 标准字段 | 目录和诊断说明 |
-| `input_schema` | request body schema | 输入 JSON Schema |
-| `output_schema` | response schema | 输出 JSON Schema |
-| `resource` | REST path 推导或 `x-resource` | 资源 key |
-| `operation` | method/path 推导或 `x-operation` | 动作 key |
-| `capability` | REST 推导或 `x-capability` | 受控能力语义 |
-| `execution` | `x-execution` | `sync` 或 `task` |
-| `approval` | `x-approval` | `required` 与可选 `policyKey`；可与同步/异步执行组合 |
-| `risk` / `permission` | `x-risk` / `x-permission` | 治理字段 |
+| Croupier 字段             | OpenAPI 字段                     | 说明                                                 |
+| ------------------------- | -------------------------------- | ---------------------------------------------------- |
+| `id`                      | `operationId`                    | 稳定函数 ID                                          |
+| `version`                 | `x-version`                      | 契约版本                                             |
+| `summary` / `description` | 标准字段                         | 目录和诊断说明                                       |
+| `input_schema`            | request body schema              | 输入 JSON Schema                                     |
+| `output_schema`           | response schema                  | 输出 JSON Schema                                     |
+| `resource`                | REST path 推导或 `x-resource`    | 资源 key                                             |
+| `operation`               | method/path 推导或 `x-operation` | 动作 key                                             |
+| `capability`              | REST 推导或 `x-capability`       | 受控能力语义                                         |
+| `execution`               | `x-execution`                    | `sync` 或 `task`                                     |
+| `approval`                | `x-approval`                     | `required` 与可选 `policyKey`；可与同步/异步执行组合 |
+| `risk` / `permission`     | `x-risk` / `x-permission`        | 治理字段                                             |
 
 REST 自动识别示例：
 
 ```yaml
 paths:
   /players:
-    get:  # collection_query
+    get: # collection_query
       operationId: player.list
     post: # create
       operationId: player.create
   /players/{playerId}:
-    get:    # item_query
+    get: # item_query
       operationId: player.get
-    patch:  # update
+    patch: # update
       operationId: player.update
     delete: # delete
       operationId: player.delete
@@ -82,6 +82,38 @@ Provider binding / controlled HTTP connector -> executable FunctionContract
 ```
 
 未绑定 Provider 或受控 connector 的 Source 只能展示契约、语义和 diagnostics，不能发布可执行页面。Provider binding 按 `game_id + env` 隔离，浏览器不会看到 URL、Secret 或 target。
+
+### Dashboard OpenAPI Source API
+
+Source 与 Provider binding 由以下端点管理（认证 + `X-Game-ID`/`X-Env` scope）：
+
+```http
+GET    /api/v1/openapi/sources                           # Source 列表
+POST   /api/v1/openapi/sources                           # 创建 Source（body: { name, spec }，≤2MiB；也支持 multipart 文件上传）
+GET    /api/v1/openapi/sources/{sourceId}                # Source 详情（operations 分类结果、bindings、diagnostics）
+PUT    /api/v1/openapi/sources/{sourceId}                # 更新 Source 文档
+GET    /api/v1/openapi/sources/{sourceId}/diagnostics    # 仅诊断
+POST   /api/v1/openapi/sources/{sourceId}/bindings       # 创建 Provider binding
+DELETE /api/v1/openapi/sources/{sourceId}/bindings/{bindingId}
+```
+
+创建 binding 的请求体：
+
+```json
+{
+  "operationId": "player.list",
+  "kind": "provider",
+  "functionId": "players.player.list",
+  "bindingId": "player.list"
+}
+```
+
+要点：
+
+- `functionId` 必须已在当前 game/env 运行时注册（通常来自 Agent 侧 openapi provider 自动注册的 `players.player.list` 形式），否则返回 400。
+- 绑定成功后同步物化 FunctionContract（source=`openapi`）、CapabilitySemantics 与受影响 Proposal；响应携带生成的 proposal 摘要。
+- 删除最后一个 binding 后，该 Source 物化的合同回收，其余来源（如 SDK）的合同按剩余来源重建；已发布页面进入 stale。
+- 不支持 URL 导入：文档必须内联提交（`spec` 字段或文件上传）；外部 `$ref` 被拒绝。
 
 ## 页面结果
 

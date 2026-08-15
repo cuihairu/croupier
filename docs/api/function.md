@@ -28,8 +28,6 @@ type OpenAPIOperation = json.RawMessage
 
 2. request definition
 
-
-
 ```go
 type FunctionsListRequest struct {
 	Page int `form:"page,optional,default=1"`
@@ -40,10 +38,7 @@ type FunctionsListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FunctionsListResponse struct {
@@ -65,18 +60,13 @@ type FunctionsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FunctionDetailResponse struct {
@@ -124,17 +114,13 @@ type FunctionDescriptor struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionActionRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 4. "复制函数"
 
@@ -147,23 +133,18 @@ type FunctionActionRequest struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionCopyRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FunctionCopyResponse struct {
-	FunctionId string `json:"function_id"`
-	NewId string `json:"new_id"`
+	FunctionId string `json:"functionId"`
+	NewId string `json:"newId"`
 }
 ```
 
@@ -178,17 +159,13 @@ type FunctionCopyResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionActionRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 6. "启用函数"
 
@@ -201,17 +178,13 @@ type FunctionActionRequest struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionActionRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 7. "获取函数实例"
 
@@ -224,18 +197,13 @@ type FunctionActionRequest struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionInstancesRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FunctionInstancesResponse struct {
@@ -254,15 +222,13 @@ type FunctionInstancesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionInvokeRequest struct {
 	ID string `path:"id"`
 	Params JSONValue `json:"params,optional"`
 	Payload JSONValue `json:"payload,optional"`
-	GameID string `json:"gameId,optional"`
-	Env string `json:"env,optional"`
+	GameID string `json:"gameId,optional"` // 兼容字段；生效 scope 以 X-Game-ID/X-Env 请求头为准
+	Env string `json:"env,optional"`     // 兼容字段；生效 scope 以 X-Game-ID/X-Env 请求头为准
 	Mode string `json:"mode,optional"`
 	Route string `json:"route,optional"`
 	TargetServiceID string `json:"target_service_id,optional"`
@@ -270,10 +236,7 @@ type FunctionInvokeRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FunctionInvokeResponse struct {
@@ -287,6 +250,7 @@ type FunctionInvokeResponse struct {
 ```
 
 **说明：**
+
 - 当函数政策需要审批时（`RequireApproval=true`），调用会创建审批请求并返回 `ApprovalID`
 - 需要审批的调用不会立即执行，需等待审批通过后执行
 - `ApprovalWorkflow` 表示审批流程类型：
@@ -304,18 +268,13 @@ type FunctionInvokeResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionPermissionsRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FunctionPermissionsResponse struct {
@@ -334,8 +293,6 @@ type FunctionPermissionsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionPermissionsUpdateRequest struct {
 	ID string `path:"id"`
@@ -343,10 +300,7 @@ type FunctionPermissionsUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FunctionPermissionsResponse struct {
@@ -365,18 +319,13 @@ type FunctionPermissionsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionPublishRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FunctionPublishResponse struct {
@@ -396,18 +345,13 @@ type FunctionPublishResponse struct {
 
 2. request definition
 
-
-
 ```go
 type BatchCopyFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BatchCopyFunctionsResponse struct {
@@ -428,18 +372,13 @@ type BatchCopyFunctionsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type BatchDeleteFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BatchDeleteFunctionsResponse struct {
@@ -459,8 +398,6 @@ type BatchDeleteFunctionsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type BatchUpdateFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
@@ -468,10 +405,7 @@ type BatchUpdateFunctionsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BatchUpdateFunctionsResponse struct {
@@ -491,8 +425,6 @@ type BatchUpdateFunctionsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type DescriptorsRequest struct {
 	Type string `form:"type,optional"`
@@ -500,10 +432,7 @@ type DescriptorsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type DescriptorsResponse struct {
@@ -522,17 +451,12 @@ type DescriptorsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FunctionsPendingRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FunctionsPendingResponse struct {
@@ -544,7 +468,7 @@ type FunctionsPendingResponse struct {
 
 1. route definition
 
-- Url: /api/v1/functions/_openapi-batch
+- Url: /api/v1/functions/\_openapi-batch
 - Method: POST
 - Request: `BatchGetSpecRequest`
 - Response: `map[string]OpenAPIOperation`
@@ -569,173 +493,19 @@ map[string]OpenAPIOperation
 - 该接口用于 Dashboard 批量读取函数 OpenAPI，避免逐个请求。
 - 当前返回值直接透传注册表中的 OpenAPI operation 对象。
 
-## 函数政策 API
+## 函数政策 API（未接线）
 
-### 22. "获取函数政策"
+函数政策（`GET/PUT/DELETE /api/v1/functions/:function_id/policy`）与系统政策（`/api/v1/policies/*`）端点当前**未在生效路由**（`internal/handler/routes.go`）注册，仅存在于并行注册文件 `internal/router/router.go` 中，不对外提供。政策行为由函数合同的 risk/approval 字段与执行链路治理承载；本节历史文档已删除，待端点接线后再恢复。
 
-1. route definition
+## 补充端点
 
-- Url: /api/v1/functions/:function_id/policy
-- Method: GET
-- Request: -
-- Response: `Policy`
+以下已注册端点是函数域 canonical 集合的一部分：
 
-2. request definition
-
+```http
+GET /api/v1/functions/{id}/analytics   # 函数调用分析
+GET /api/v1/functions/instances        # 全量函数实例
+GET /api/v1/functions/warnings         # 注册警告列表
+GET /api/v1/functions/:id/openapi      # 函数 OpenAPI spec（公开）
+POST /api/v1/functions/_openapi-batch  # 批量获取 OpenAPI spec（公开）
+GET /api/v1/openapi/spec               # 全局 OpenAPI 文档（公开）
 ```
-function_id: path parameter
-risk_level: query parameter (optional, default: medium)
-```
-
-3. response definition
-
-```go
-type Policy struct {
-	FunctionID       string   `json:"function_id"`
-	RequireApproval  bool     `json:"require_approval"`
-	ApprovalWorkflow string   `json:"approval_workflow"`
-	RequireAudit     bool     `json:"require_audit"`
-	AllowedRoles     []string `json:"allowed_roles"`
-	Source           string   `json:"source"`       // "default" 或 "manual"
-	IsOverride       bool     `json:"is_override"`
-	DefaultRiskLevel string   `json:"default_risk_level"`
-}
-```
-
-**说明：**
-- 返回函数的有效政策（优先使用数据库覆盖，否则使用默认风险等级政策）
-- 风险等级可选值：`low`、`medium`、`high`、`danger`
-
-### 23. "设置函数政策覆盖"
-
-1. route definition
-
-- Url: /api/v1/functions/:function_id/policy
-- Method: PUT
-- Request: `SetPolicyRequest`
-- Response: `Policy`
-
-2. request definition
-
-```go
-type SetPolicyRequest struct {
-	RequireApproval  bool     `json:"require_approval"`
-	ApprovalWorkflow string   `json:"approval_workflow"`
-	RequireAudit     bool     `json:"require_audit"`
-	AllowedRoles     []string `json:"allowed_roles"`
-}
-```
-
-3. response definition
-
-```go
-type Policy struct {
-	FunctionID       string   `json:"function_id"`
-	RequireApproval  bool     `json:"require_approval"`
-	ApprovalWorkflow string   `json:"approval_workflow"`
-	RequireAudit     bool     `json:"require_audit"`
-	AllowedRoles     []string `json:"allowed_roles"`
-	Source           string   `json:"source"`
-	IsOverride       bool     `json:"is_override"`
-}
-```
-
-**说明：**
-- 为函数设置数据库覆盖政策，覆盖默认风险等级政策
-- `AllowedRoles` 为空时表示无角色限制
-- 设置后，`Source` 为 `"manual"`，`IsOverride` 为 `true`
-
-### 24. "删除函数政策覆盖"
-
-1. route definition
-
-- Url: /api/v1/functions/:function_id/policy
-- Method: DELETE
-- Request: -
-- Response: `{"message": "..."}`
-
-2. request definition
-
-```
-function_id: path parameter
-```
-
-3. response definition
-
-```go
-{
-  "message": "Policy deleted, using default risk-based policy"
-}
-```
-
-**说明：**
-- 删除函数的数据库覆盖政策
-- 删除后，函数将恢复使用默认风险等级政策
-
-## 系统政策 API
-
-### 25. "获取所有政策覆盖"
-
-1. route definition
-
-- Url: /api/v1/policies/overrides
-- Method: GET
-- Request: -
-- Response: `{"policies": [...]}`
-
-2. response definition
-
-```go
-{
-  "policies": []Policy  // 所有手动设置的覆盖政策
-}
-```
-
-**说明：**
-- 返回所有手动设置的函数政策覆盖列表
-- 不包括默认风险等级政策
-
-### 26. "获取默认政策配置"
-
-1. route definition
-
-- Url: /api/v1/policies/defaults
-- Method: GET
-- Request: -
-- Response: `{"low": ..., "medium": ..., "high": ..., "danger": ...}`
-
-2. response definition
-
-```go
-{
-  "low": Policy,    // 低风险默认政策
-  "medium": Policy, // 中风险默认政策
-  "high": Policy,   // 高风险默认政策
-  "danger": Policy  // 危险风险默认政策
-}
-```
-
-**说明：**
-- 返回所有风险等级的默认政策配置
-- 这些配置来自 `configs/default-policies.yaml` 文件
-
-### 27. "重新加载政策配置"
-
-1. route definition
-
-- Url: /api/v1/policies/reload
-- Method: POST
-- Request: -
-- Response: `{"message": "..."}`
-
-2. response definition
-
-```go
-{
-  "message": "Configuration reloaded"
-}
-```
-
-**说明：**
-- 重新从 `configs/default-policies.yaml` 加载默认政策配置
-- 不影响已设置的数据库覆盖政策

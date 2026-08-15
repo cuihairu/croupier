@@ -13,7 +13,7 @@ tag:
 
 # OpenAPI / SDK Descriptor v2
 
-> **状态**：Target -- 本文是函数注册与页面自动生成的权威契约。SDK/OpenAPI 只负责可执行能力，不负责页面设计。
+> **状态**：Current -- 本文是函数注册与页面自动生成的权威契约，已由各 SDK parity 测试与注册边界 guard（`internal/function/registrationguard/`）守护。SDK/OpenAPI 只负责可执行能力，不负责页面设计。
 
 ## 目的
 
@@ -33,19 +33,21 @@ OpenAPI operation / SDK descriptor
 
 所有 SDK 必须收敛到同一 FunctionContract：
 
-| 字段 | OpenAPI 来源 | SDK 字段 | 说明 |
-| --- | --- | --- | --- |
-| `id` | `operationId` | `id` | 稳定函数 ID |
-| `version` | 文档/服务版本 | `version` | 函数契约版本 |
-| `summary` / `description` | 标准字段 | 同名字段 | 目录和诊断说明，非菜单事实 |
-| `inputSchema` | request body schema | `inputSchema` | 请求 JSON Schema |
-| `outputSchema` | response schema | `outputSchema` | 响应 JSON Schema |
-| `resourceKey` | REST path 推导或 `x-resource` | `resource` | 稳定业务资源 key |
-| `operationKey` | REST operation 或 `x-operation` | `operation` | 业务动作 key |
-| `capability` | REST 形态推导或 `x-capability` | `capability` | 受控业务语义，非 UI |
-| `execution` | 标准响应/`x-execution` | `execution` | `sync` 或 `task` |
-| `approval` | `x-approval` | `approval` | 是否需要审批及可选 policyKey，与 execution 正交 |
-| `risk` / `permission` | `x-risk` / `x-permission` | 同名字段 | 治理约束 |
+| 字段                      | OpenAPI 来源                    | SDK 字段       | 说明                                                        |
+| ------------------------- | ------------------------------- | -------------- | ----------------------------------------------------------- |
+| `id`                      | `operationId`                   | `id`           | 稳定函数 ID                                                 |
+| `version`                 | 文档/服务版本                   | `version`      | 函数契约版本                                                |
+| `summary` / `description` | 标准字段                        | 同名字段       | 目录和诊断说明，非菜单事实                                  |
+| `inputSchema`             | request body schema             | `inputSchema`  | 请求 JSON Schema                                            |
+| `outputSchema`            | response schema                 | `outputSchema` | 响应 JSON Schema                                            |
+| `resourceKey`             | REST path 推导或 `x-resource`   | `resource`     | 稳定业务资源 key                                            |
+| `operationKey`            | REST operation 或 `x-operation` | `operation`    | 业务动作 key                                                |
+| `capability`              | REST 形态推导或 `x-capability`  | `capability`   | 受控业务语义，非 UI                                         |
+| `execution`               | 标准响应/`x-execution`          | `execution`    | `sync` 或 `task`                                            |
+| `approval`                | `x-approval`                    | `approval`     | 是否需要审批及可选 policyKey，与 execution 正交             |
+| `risk` / `permission`     | `x-risk` / `x-permission`       | 同名字段       | 治理约束；risk 为 `safe/warning/high/danger`                |
+| `enabled` / `deprecated`  | 标准字段                        | 同名字段       | 目录与执行开关；disabled 合同持久化保留但不可执行、不可发布 |
+| `tags`                    | 标准字段                        | `tags`         | 目录与检索用途，非菜单事实                                  |
 
 `capability` 只允许：
 
@@ -63,14 +65,14 @@ collection_query | item_query | create | update | delete | action | task | repor
 
 当 OpenAPI 同时满足稳定 path 和 schema 条件时，Server 必须产生高置信度 CRUD 语义：
 
-| OpenAPI 操作 | 默认 capability | 额外验证 |
-| --- | --- | --- |
-| `GET /players` | `collection_query` | 可识别 collection schema；分页为可选能力 |
-| `POST /players` | `create` | request body 对应资源输入 |
-| `GET /players/{playerId}` | `item_query` | path parameter 是资源 identity 候选 |
-| `PUT/PATCH /players/{playerId}` | `update` | request body 与 identity 可关联 |
-| `DELETE /players/{playerId}` | `delete` | identity 可关联 |
-| 其他 REST 操作 | `action` / `task` / `report` | 需显式 execution 或可验证响应特征 |
+| OpenAPI 操作                    | 默认 capability              | 额外验证                                 |
+| ------------------------------- | ---------------------------- | ---------------------------------------- |
+| `GET /players`                  | `collection_query`           | 可识别 collection schema；分页为可选能力 |
+| `POST /players`                 | `create`                     | request body 对应资源输入                |
+| `GET /players/{playerId}`       | `item_query`                 | path parameter 是资源 identity 候选      |
+| `PUT/PATCH /players/{playerId}` | `update`                     | request body 与 identity 可关联          |
+| `DELETE /players/{playerId}`    | `delete`                     | identity 可关联                          |
+| 其他 REST 操作                  | `action` / `task` / `report` | 需显式 execution 或可验证响应特征        |
 
 推导出的语义必须记录来源和置信度。REST path 不满足规范、identity 不可验证或 schema 矛盾时，平台降级为 OperationPage Proposal 并给出诊断，不得猜测成 Resource CRUD。
 
@@ -89,13 +91,13 @@ SDK 没有 HTTP method/path，不能只凭函数名生成完整 CRUD 页面。SD
 
 ```ts
 registerFunction({
-  id: 'player.update',
-  resource: 'player',
-  operation: 'update',
-  capability: 'update',
+  id: "player.update",
+  resource: "player",
+  operation: "update",
+  capability: "update",
   inputSchema: PlayerUpdateSchema,
   outputSchema: PlayerSchema,
-  risk: 'warning',
+  risk: "warning",
 });
 ```
 

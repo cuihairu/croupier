@@ -97,13 +97,13 @@ const config = defineConfig({
           text: 'Dashboard 页面模型',
           collapsed: false,
           items: [
+            { text: 'Dashboard 术语表', link: '/architecture/dashboard-glossary' },
             { text: 'Resource/Page 模型', link: '/architecture/dashboard-page-model' },
             { text: 'Descriptor v2 注册契约', link: '/architecture/openapi-sdk-descriptor-v2' },
-            { text: 'UI Schema 与 PageSpec 规范', link: '/architecture/ui-schema-spec' },
+            { text: 'PageSpec 协议规范', link: '/architecture/pagespec-protocol' },
             { text: '页面生成与运行时', link: '/architecture/ui-generation' },
             { text: 'Console 动态菜单', link: '/architecture/console-dynamic-menu' },
-            { text: 'Dashboard 术语表', link: '/architecture/dashboard-glossary' },
-            { text: '旧模型删除清单', link: '/architecture/legacy-deletion-inventory' },
+            { text: '旧模型删除清单（存档）', link: '/architecture/legacy-deletion-inventory' },
           ],
         },
         {
@@ -124,6 +124,7 @@ const config = defineConfig({
             { text: 'SDK-Agent 传输重构', link: '/architecture/sdk-agent-transport-redesign' },
             { text: 'Agent-Server Session', link: '/architecture/agent-server-session-transport-redesign' },
             { text: '扩展统一模式', link: '/architecture/official-extension-unified-pattern' },
+            { text: '双布局设计（待决策）', link: '/architecture/dual-layout-design' },
           ],
         },
         {
@@ -196,12 +197,19 @@ const config = defineConfig({
           ],
         },
         {
+          text: '页面产品域',
+          collapsed: false,
+          items: [
+            { text: '页面与控制台', link: '/api/page' },
+            { text: 'Resource Catalog', link: '/api/resource' },
+            { text: 'OpenAPI 注册指南', link: '/guide/integrations/openapi-registration' },
+          ],
+        },
+        {
           text: '控制台域',
           collapsed: true,
           items: [
             { text: '管理员', link: '/api/admin' },
-            { text: '页面管理', link: '/api/page' },
-            { text: '资源管理', link: '/api/resource' },
             { text: 'Profile', link: '/api/profile' },
           ],
         },

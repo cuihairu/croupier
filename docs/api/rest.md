@@ -43,61 +43,61 @@ X-Game-ID: {game_id}
 X-Env: {env}
 ```
 
+`X-Game-ID` / `X-Env` 是 scope 的唯一传递方式：业务路由按这两个 header 解析 game/env 并路由到对应游戏数据库，payload 与 URL 中不可覆盖 scope。
+
 ### 通用响应格式
 
-**成功响应**：
+成功响应直接返回业务 payload，不使用 envelope：
+
+```json
+{ "id": 1, "name": "admin" }
+```
+
+列表返回业务对象本身（如 `{ "items": [...], "total": 10 }`）。`201` 创建成功、`204` 无 body。
+
+错误响应使用统一错误对象，`error` 为稳定的 snake_case 错误码：
+
 ```json
 {
-  "success": true,
-  "data": {...}
+  "error": "validation_failed",
+  "message": "请求参数无效",
+  "details": { "gameId": "不能为空" }
 }
 ```
 
-**错误响应**：
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "错误描述",
-    "details": {...}
-  }
-}
-```
+显式例外：SSE 端点返回 `text/event-stream`；健康检查返回最小 payload；文件下载遵循 content-type 要求。
 
 ## 函数调用
 
-### 调用函数（同步）
+### 调用函数（同步，管理/调试路径）
 
 ```http
-POST /api/invoke
+POST /api/v1/functions/{function_id}/invoke
 ```
 
 **请求体**：
+
 ```json
 {
-  "function_id": "player.ban",
   "payload": {
     "player_id": "player_123",
     "duration": 24,
     "reason": "作弊"
   },
-  "options": {
-    "idempotency_key": "unique-key-123"
-  }
+  "idempotencyKey": "unique-key-123"
 }
 ```
 
-**响应**：
+**响应**（直接返回函数结果）：
+
 ```json
 {
-  "success": true,
-  "result": {
-    "ban_id": "ban_456",
-    "expires_at": "2024-12-02T10:30:00Z"
-  }
+  "ban_id": "ban_456",
+  "expires_at": "2026-12-02T10:30:00Z"
 }
 ```
+
+运营页面的受控执行主路径是 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute`（见 [页面与控制台 API](./page.md)），浏览器不得直接调用函数目录。
 
 ### 启动任务
 
@@ -106,471 +106,137 @@ POST /api/v1/tasks
 ```
 
 **请求体**：
+
 ```json
 {
-  "function_id": "data.export",
-  "payload": {...}
+  "functionId": "data.export",
+  "payload": {}
 }
 ```
 
 **响应**：
+
 ```json
 {
-  "success": true,
-  "task_id": "task_abc123",
+  "taskId": "task_abc123",
   "status": "queued"
 }
 ```
 
-### 获取任务详情
+### 获取任务详情 / 事件 / 取消
 
 ```http
-GET /api/v1/tasks/{task_id}
-```
-
-**响应**：
-```json
-{
-  "task_id": "task_abc123",
-  "status": "running",
-  "progress": 0.5,
-  "started_at": "2024-12-01T10:00:00Z",
-  "result": null
-}
-```
-
-### 获取任务事件
-
-```http
-GET /api/v1/tasks/{task_id}/events
-```
-
-```json
-{
-  "items": [
-    {"seq": 1, "type": "queued", "progress": 0, "message": "任务已创建"},
-    {"seq": 2, "type": "progress", "progress": 50, "message": "处理中"}
-  ],
-  "next_seq": 3,
-  "done": false
-}
-```
-
-### 取消任务
-
-```http
+GET  /api/v1/tasks/{task_id}
+GET  /api/v1/tasks/{task_id}/events
 POST /api/v1/tasks/{task_id}/cancel
-```
-
-**请求体**：
-```json
-{
-  "reason": "用户取消"
-}
+POST /api/v1/tasks/cancel
 ```
 
 ## 函数管理
 
-### 获取函数列表
+### 获取函数描述符列表
 
 ```http
-GET /api/v1/functions/descriptors?resource={resource}
+GET /api/v1/functions/descriptors?type={type}&gameId={gameId}
 ```
 
 **查询参数**：
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `resource` | string | 可选，业务资源或能力域 key |
+| `type` | string | 可选，按类型过滤 |
+| `gameId` | string | 可选，按游戏过滤 |
 
-**响应**：
-```json
-[
-  {
-    "id": "player.ban",
-    "version": "1.0.0",
-    "summary": { "zh-CN": "封禁玩家", "en-US": "Ban player" },
-    "resource": "player",
-    "operation": "ban",
-    "risk": "danger"
-  }
-]
-```
-
-### 获取函数详情
+### 获取/删除函数
 
 ```http
-GET /api/v1/functions/{function_id}
-```
-
-**响应**：
-```json
-{
-  "id": "player.ban",
-  "version": "1.0.0",
-  "summary": "封禁玩家",
-  "description": "封禁指定玩家账号",
-  "resource": "player",
-  "operation": "ban",
-  "inputSchema": {...},
-  "outputSchema": {...},
-  "risk": "danger"
-}
-```
-
-### 注册函数
-
-```http
-POST /api/v1/metadata/functions
-```
-
-**请求体**：
-```json
-{
-  "id": "player.ban",
-  "version": "1.0.0",
-  "summary": "封禁玩家",
-  "description": "封禁指定玩家账号",
-  "resource": "player",
-  "operation": "ban",
-  "risk": "danger",
-  "inputSchema": "{...}",
-  "outputSchema": "{...}"
-}
-```
-
-函数注册字段以 [OpenAPI / SDK Descriptor v2](../architecture/openapi-sdk-descriptor-v2.md) 为准。
-
-### 注销函数
-
-```http
+GET    /api/v1/functions/{function_id}
 DELETE /api/v1/functions/{function_id}
 ```
 
-`game_id` 和 `env` 应由统一请求头、登录上下文或显式作用域字段确定，不在路径外再定义一套查询参数语义。
+函数注册由 SDK / OpenAPI provider 经 Agent session 完成，或通过 `POST /api/v1/metadata/functions` 登记元数据；注册字段以 [OpenAPI / SDK Descriptor v2](../architecture/openapi-sdk-descriptor-v2.md) 为准。OpenAPI 文档导入见 [OpenAPI 注册](../guide/integrations/openapi-registration.md)。
 
 ## Agent 管理
 
 ### 获取 Agent 列表
 
 ```http
-GET /api/agents?game_id={game_id}&env={env}
+GET /api/v1/ops/agents
 ```
 
-**响应**：
-```json
-{
-  "agents": [
-    {
-      "agent_id": "agent_1",
-      "game_id": "my-game",
-      "env": "prod",
-      "status": "online",
-      "last_heartbeat": "2024-12-01T10:00:00Z",
-      "functions": ["player.ban", "player.kick"]
-    }
-  ]
-}
-```
-
-### 获取 Agent 详情
-
-```http
-GET /api/agents/{agent_id}
-```
-
-### 获取 Agent 分配配置
-
-```http
-GET /api/agents/{agent_id}/assignments
-```
+需要 Bearer 认证与 `X-Game-ID` / `X-Env` scope 头。运维命令（system-info、processes、exec 等）见[运维 API](./ops.md)。
 
 ## 审批流程
 
-### 创建审批请求
+审批请求由执行链路按治理策略自动创建（如 `approval.required=true` 的 binding execute），不提供手工创建端点。
 
 ```http
-POST /api/approvals
-```
-
-**请求体**：
-```json
-{
-  "function_id": "player.ban",
-  "game_id": "my-game",
-  "env": "prod",
-  "payload": {
-    "player_id": "player_123",
-    "duration": 24
-  },
-  "reason": "玩家使用外挂"
-}
-```
-
-**响应**：
-```json
-{
-  "approval_id": "approval_123",
-  "status": "pending",
-  "required_approvals": 2,
-  "current_approvals": 0
-}
-```
-
-### 获取审批列表
-
-```http
-GET /api/approvals?state=pending&game_id={game_id}
-```
-
-**查询参数**：
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `state` | string | 状态：pending/approved/rejected |
-| `game_id` | string | 游戏 ID |
-| `function_id` | string | 函数 ID |
-| `page` | int | 页码 |
-| `size` | int | 每页数量 |
-
-### 获取审批详情
-
-```http
-GET /api/approvals/{approval_id}
-```
-
-### 审批通过
-
-```http
-POST /api/approvals/{approval_id}/approve
-```
-
-**请求体**：
-```json
-{
-  "comment": "确认封禁"
-}
-```
-
-### 审批拒绝
-
-```http
-POST /api/approvals/{approval_id}/reject
-```
-
-**请求体**：
-```json
-{
-  "reason": "证据不足"
-}
+GET  /api/v1/approvals          # 审批列表
+GET  /api/v1/approvals/{id}     # 审批详情
+POST /api/v1/approvals/{id}/approve
+POST /api/v1/approvals/{id}/reject
 ```
 
 ## 审计日志
 
-### 查询审计日志
+```http
+GET  /api/v1/audit     # 查询审计（支持过滤与分页参数）
+POST /api/v1/audit     # 同上，复杂过滤走 body
+```
+
+页面执行的审计记录包含 scope/page/binding/function/版本/结果与 trace 关联。
+
+## 认证与当前用户
 
 ```http
-POST /api/audit/query
-```
-
-**请求体**：
-```json
-{
-  "game_id": "my-game",
-  "env": "prod",
-  "start_time": "2024-12-01T00:00:00Z",
-  "end_time": "2024-12-02T00:00:00Z",
-  "filters": {
-    "user_id": "user_123",
-    "function_id": "player.ban",
-    "action": "function.invoke"
-  },
-  "page": 1,
-  "size": 50
-}
-```
-
-**响应**：
-```json
-{
-  "audits": [
-    {
-      "audit_id": "audit_001",
-      "timestamp": "2024-12-01T10:30:00Z",
-      "user": {
-        "user_id": "user_123",
-        "username": "admin"
-      },
-      "action": "function.invoke",
-      "function_id": "player.ban",
-      "payload_preview": {...},
-      "result": "success",
-      "ip": "192.168.1.100",
-      "ip_region": "中国 上海"
-    }
-  ],
-  "total": 1000,
-  "page": 1,
-  "size": 50
-}
-```
-
-### 获取审计详情
-
-```http
-GET /api/audit/{audit_id}
-```
-
-## 用户管理
-
-### 登录
-
-```http
-POST /api/auth/login
-```
-
-**请求体**：
-```json
-{
-  "username": "admin",
-  "password": "password",
-  "totp": "123456"  // 可选，双因素认证
-}
-```
-
-**响应**：
-```json
-{
-  "success": true,
-  "token": "eyJhbGciOiJIUzI1NiIs...",
-  "user": {
-    "user_id": "user_123",
-    "username": "admin",
-    "roles": ["admin"]
-  }
-}
-```
-
-### 登出
-
-```http
-POST /api/auth/logout
-```
-
-### 获取当前用户信息
-
-```http
-GET /api/auth/me
-```
-
-**响应**：
-```json
-{
-  "user_id": "user_123",
-  "username": "admin",
-  "email": "admin@example.com",
-  "roles": ["admin"],
-  "permissions": ["*.*"]
-}
+POST /api/v1/auth/login     # { "username", "password", "totp"? } -> { "token" }
+POST /api/v1/auth/logout
+POST /api/v1/auth/check     # 权限检查
+GET  /api/v1/profile        # 当前用户信息
+GET  /api/v1/profile/permissions
+GET  /api/v1/profile/games
+PATCH /api/v1/profile/scope # 切换当前 scope
 ```
 
 ## 健康检查
 
-### 健康检查
-
 ```http
 GET /healthz
+GET /api/v1/monitoring/healthz
 ```
 
 **响应**：
+
 ```json
-{
-  "status": "ok"
-}
-```
-
-### 就绪检查
-
-```http
-GET /readyz
-```
-
-**响应**：
-```json
-{
-  "status": "ready"
-}
-```
-
-### 版本信息
-
-```http
-GET /version
-```
-
-**响应**：
-```json
-{
-  "version": "1.0.0",
-  "commit": "abc123",
-  "build_time": "2024-12-01T10:00:00Z"
-}
+{ "status": "ok" }
 ```
 
 ## 错误码
 
-| 错误码 | HTTP 状态 | 说明 |
-|--------|-----------|------|
-| `OK` | 200 | 成功 |
-| `INVALID_ARGUMENT` | 400 | 参数错误 |
-| `UNAUTHENTICATED` | 401 | 未认证 |
-| `PERMISSION_DENIED` | 403 | 权限不足 |
-| `NOT_FOUND` | 404 | 资源不存在 |
-| `ALREADY_EXISTS` | 409 | 资源已存在 |
-| `RESOURCE_EXHAUSTED` | 429 | 请求过于频繁 |
-| `INTERNAL` | 500 | 内部错误 |
-| `NOT_IMPLEMENTED` | 501 | 未实现 |
-| `UNAVAILABLE` | 503 | 服务不可用 |
+`error` 字段为稳定 snake_case 错误码，前端逻辑应按 `error` 分支、UI 文案取 `message`：
+
+| error                 | HTTP 状态 | 说明                           |
+| --------------------- | --------- | ------------------------------ |
+| `bad_request`         | 400       | 参数错误                       |
+| `unauthorized`        | 401       | 未认证 / token 无效            |
+| `forbidden`           | 403       | 已认证但无权限                 |
+| `not_found`           | 404       | 资源不存在                     |
+| `conflict`            | 409       | 通用冲突                       |
+| `binding_stale`       | 409       | 页面绑定合同已变化，执行被阻断 |
+| `validation_failed`   | 422       | 语义校验失败                   |
+| `internal_error`      | 500       | 内部错误                       |
+| `not_implemented`     | 501       | 未实现                         |
+| `service_unavailable` | 503       | 服务不可用                     |
+
+业务错误可定义更细的稳定码（如 `binding_stale`）覆盖同状态的通用码。
 
 ### 错误响应示例
 
 ```json
 {
-  "success": false,
-  "error": {
-    "code": "PERMISSION_DENIED",
-    "message": "没有权限执行该操作",
-    "details": {
-      "required_permission": "player.ban",
-      "user_permissions": ["player.view"]
-    }
-  }
-}
-```
-
-## 限流
-
-### 速率限制
-
-API 实施速率限制：
-
-| 级别 | 限制 |
-|------|------|
-| 默认 | 100 req/min |
-| 认证用户 | 1000 req/min |
-| 管理员 | 无限制 |
-
-### 限流响应
-
-```http
-HTTP/1.1 429 Too Many Requests
-X-RateLimit-Limit: 1000
-X-RateLimit-Remaining: 0
-X-RateLimit-Reset: 1701427200
-
-{
-  "success": false,
-  "error": {
-    "code": "RESOURCE_EXHAUSTED",
-    "message": "请求过于频繁，请稍后再试"
+  "error": "forbidden",
+  "message": "没有权限执行该操作",
+  "details": {
+    "requiredPermission": "player:ban"
   }
 }
 ```
@@ -580,11 +246,12 @@ X-RateLimit-Reset: 1701427200
 ### cURL
 
 ```bash
-curl -X POST http://localhost:18780/api/invoke \
+curl -X POST http://localhost:18780/api/v1/functions/player.ban/invoke \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
+  -H "X-Game-ID: my-game" \
+  -H "X-Env: prod" \
   -d '{
-    "function_id": "player.ban",
     "payload": {
       "player_id": "player_123",
       "duration": 24
@@ -595,20 +262,21 @@ curl -X POST http://localhost:18780/api/invoke \
 ### JavaScript
 
 ```javascript
-const response = await fetch('http://localhost:18780/api/invoke', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
-  },
-  body: JSON.stringify({
-    function_id: 'player.ban',
-    payload: {
-      player_id: 'player_123',
-      duration: 24,
+const response = await fetch(
+  "http://localhost:18780/api/v1/functions/player.ban/invoke",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      "X-Game-ID": gameId,
+      "X-Env": env,
     },
-  }),
-});
+    body: JSON.stringify({
+      payload: { player_id: "player_123", duration: 24 },
+    }),
+  },
+);
 
 const result = await response.json();
 ```
@@ -619,18 +287,14 @@ const result = await response.json();
 import requests
 
 response = requests.post(
-    'http://localhost:18780/api/invoke',
+    'http://localhost:18780/api/v1/functions/player.ban/invoke',
     headers={
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {token}',
+        'X-Game-ID': game_id,
+        'X-Env': env,
     },
-    json={
-        'function_id': 'player.ban',
-        'payload': {
-            'player_id': 'player_123',
-            'duration': 24,
-        },
-    },
+    json={'payload': {'player_id': 'player_123', 'duration': 24}},
 )
 
 result = response.json()
@@ -639,3 +303,4 @@ result = response.json()
 ## 相关文档
 
 - [API 概览](./)
+- [页面与控制台 API](./page.md)

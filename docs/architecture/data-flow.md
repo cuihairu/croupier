@@ -16,22 +16,48 @@ tag:
 
 本文档只描述当前目标架构下的主要调用流，不再使用历史 `gRPC/旧传输 回拨` 模型。
 
-## 1. Dashboard 到业务函数
+## 1. 页面发布与受控执行（vNext 主路径）
+
+运营页面的执行主路径经过发布快照，而不是直接调用函数目录：
 
 ```mermaid
 sequenceDiagram
-    participant UI as Dashboard
+    participant SDK as SDK / OpenAPI Provider
+    participant Server as Server
+    participant Admin as 管理员（Proposal Inbox / Page Studio）
+    participant UI as Console 运行时
+
+    SDK->>Server: 注册 FunctionContract（无 UI 字段）
+    Server->>Server: 聚合 CapabilitySemantics、生成 PageProposal
+    Admin->>Server: 预览 / accept-and-publish（冻结 BindingContractSnapshot）
+    Server-->>UI: GET /api/v1/console/menu（只含 active PublishedPageSpec）
+    UI->>Server: POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute
+    Server->>Server: binding/snapshot/stale/permission/approval 校验
+    Note over Server: 合同变化未重新发布时返回 409 binding_stale
+    Server->>Server: 按 selector 组装 payload 并 dispatch（同第 2 节）
+    Server-->>UI: PageExecutionResult（sync data / taskId / approvalId）
+```
+
+要点：
+
+- 浏览器只提交 `bindingId` 与 selector context（form/row/selection/page state），不传 functionId、target、gameId、env。
+- 发布快照冻结函数版本、schema digest、risk、permission、approval 与 renderer 版本；函数重注册只产生新 Proposal 与 stale 诊断，绝不静默改写已发布页面。
+- 合同变化后的恢复路径：`GET /api/v1/versioning/pages/:pageKey/diff` → 三方合并（展示字段自动合并、执行字段人工决策）→ 重新发布。
+- 函数直调 `POST /api/v1/functions/:id/invoke` 仍存在，但定位是调试/管理面路径，不是运营页面主路径。
+
+## 2. Server 到业务函数（dispatch）
+
+```mermaid
+sequenceDiagram
     participant Server as Server
     participant Agent as Agent
     participant App as Game Server / SDK
 
-    UI->>Server: POST /api/invoke
     Server->>Server: 鉴权 / RBAC / 审批 / 路由
     Server->>Agent: InvokeRequest over agent-server session
     Agent->>App: InvokeRequest over local session
     App-->>Agent: InvokeResponse
     Agent-->>Server: InvokeResponse
-    Server-->>UI: result
 ```
 
 要点：
@@ -48,7 +74,7 @@ sequenceDiagram
 - **调用期**：`pickInstance`（`internal/agent/local_handler.go`）先按 `functionId` 取 service 索引；若 invoke metadata 带 `service_id` 则精确落到该 service 的实例集合，否则合并该函数下所有 service 的实例；再按 `LastSeen` 过滤健康实例并做负载均衡。
 - `Instance.Metadata` 负责透传 SDK 元信息（`sdk_language`/`sdk_version` 等），最终经 `AgentProcess → ProviderSession` 暴露到 opsNodes。
 
-## 2. SDK 注册到 Agent
+## 3. SDK 注册到 Agent
 
 ```mermaid
 sequenceDiagram
@@ -61,7 +87,7 @@ sequenceDiagram
     Agent-->>SDK: ProviderHeartbeatResponse
 ```
 
-## 3. Agent 注册到 Server
+## 4. Agent 注册到 Server
 
 ```mermaid
 sequenceDiagram
@@ -74,7 +100,7 @@ sequenceDiagram
     Server-->>Agent: HeartbeatResponse
 ```
 
-## 4. 作业流
+## 5. 作业流
 
 ```mermaid
 sequenceDiagram
@@ -92,7 +118,9 @@ sequenceDiagram
     Server-->>UI: SSE / WebSocket / Polling
 ```
 
-## 5. 核心原则
+运营侧的 TaskPage 也走第 1 节的 binding execute：`task_status/task_events/task_result/task_cancel` 各自对应一个 binding，页面模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。
+
+## 6. 核心原则
 
 当前数据流遵循以下原则：
 

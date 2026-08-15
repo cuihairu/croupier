@@ -154,11 +154,11 @@ game_rpg_prod
 
 Server 根据 `game_id + env` 路由到对应的数据库：
 
-| game_id | env | database |
-|---------|-----|----------|
-| demo | prod | game_demo_prod |
-| demo | staging | game_demo_staging |
-| rpg | prod | game_rpg_prod |
+| game_id | env     | database          |
+| ------- | ------- | ----------------- |
+| demo    | prod    | game_demo_prod    |
+| demo    | staging | game_demo_staging |
+| rpg     | prod    | game_rpg_prod     |
 
 存储层不需要 `game_id` 和 `env` 字段，这些信息已在数据库/表名称中体现。
 
@@ -173,28 +173,49 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 
 ## 文档索引
 
-当前目录同时包含当前规范、已接受设计、迁移提案和参考资料。阅读顺序应以导航分组为准：
+当前目录同时包含当前规范、Dashboard 页面模型、决策与边界、提案与迁移设计和参考资料。阅读顺序以导航分组为准：
 
 - **当前规范**：可作为实现和评审依据。
+- **Dashboard 页面模型**：vNext 页面产品链路的权威定义，建议按术语表 → 模型 → 注册契约 → 协议 → 生成/运行时 → 菜单的顺序阅读。
 - **决策与边界**：描述架构取舍、扩展边界和契约基线。
 - **提案与迁移设计**：描述目标设计或迁移方案，不代表代码已全部实现。
 - **参考资料**：调研、模板、历史背景，不作为规范入口。
 
+### 当前规范
+
 - [分层设计](./layers.md)
-- [游戏与环境作用域](./game-environment-scope.md)
 - [术语与分层](./terms-and-layering.md)
 - [数据流](./data-flow.md)
-- [Dashboard Resource/Page 模型](./dashboard-page-model.md) — 函数注册、资源归一化、默认页面生成、PageSpec、动态菜单的权威模型
-- [Dashboard 术语表](./dashboard-glossary.md) — FunctionContract、CapabilitySemantics、PageProposal 与 PageSpec 的统一定义
-- [OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md) — OpenAPI 扩展字段、SDK descriptor 与 PageSpec 生成之间的统一契约
-- [UI Schema 与 PageSpec 规范](./ui-schema-spec.md) — JSON Schema 表单、强类型 PageSpec 与 typed selector 规范
-- [ProComponents 页面生成与运行时](./ui-generation.md) — 能力语义、默认 Proposal、Page Studio 与运行时边界
-- [运行控制台动态菜单](./console-dynamic-menu.md) — PublishedPageSpec 到 ConsoleMenuSpec 的菜单唯一来源与分类仲裁
-- [旧模型删除清单](./legacy-deletion-inventory.md) — H-001~H-005 物理删除任务的逐项依据：替代任务、owner、E2E 前置条件与防回流证据
-- [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
-- [游戏环境作用域 API 传输设计](./game-env-scope-api-transport.md) — scope 通过 Header/Query/Body 传递的选型与统一规范（提案）
-- [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
+- [游戏与环境作用域](./game-environment-scope.md)
 - [Session 生命周期](./session-lifecycle.md)
-- [SDK Wire Protocol](./sdk-wire-protocol.md)
-- [Session Runtime 参考实现](./session-runtime-landscape.md)
+- [SDK Wire 协议](./sdk-wire-protocol.md)
+
+### Dashboard 页面模型
+
+- [Dashboard 术语表](./dashboard-glossary.md) — FunctionContract、CapabilitySemantics、PageProposal、PageSpec 与 freshness/merge 的统一定义，建议首先阅读
+- [Dashboard Resource/Page 模型](./dashboard-page-model.md) — 注册、语义聚合、Proposal、发布快照与执行治理的权威模型
+- [OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md) — OpenAPI 扩展字段、SDK descriptor 与 FunctionContract 的统一注册契约
+- [PageSpec 协议规范](./pagespec-protocol.md) — PageSpec/FormPresentationSpec/typed selector 的 wire 契约唯一出处
+- [ProComponents 页面生成与运行时](./ui-generation.md) — 生成器默认值、Page Studio 与唯一运行时边界
+- [运行控制台动态菜单](./console-dynamic-menu.md) — PublishedPageSpec 到 ConsoleMenuSpec 的菜单唯一来源与分类仲裁
+- [旧模型删除清单](./legacy-deletion-inventory.md) — 旧模型删除的历史记录与防回流 guard 索引
+
+### 决策与边界
+
+- [传输层决策（不使用 gRPC）](./transport-no-grpc.md)
+- [扩展安装模型](./extension-installation-model.md)
 - [核心与扩展边界映射](./core-extension-mapping.md)
+- [扩展 API 契约基线](./extensions-api-contract-baseline.md)
+
+### 提案与迁移设计
+
+- [游戏环境作用域 API 传输设计](./game-env-scope-api-transport.md) — scope 通过 Header/Query/Body 传递的选型与统一规范（提案）
+- [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
+- [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
+- [扩展统一模式](./official-extension-unified-pattern.md)
+- [双布局设计（设计态/运行态导航隔离）](./dual-layout-design.md) — 已评审待决策
+
+### 参考资料
+
+- [Session Runtime 参考实现](./session-runtime-landscape.md)
+- [前端 Adapter 模板](./frontend-adapter-layer-template.md)
