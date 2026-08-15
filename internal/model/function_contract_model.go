@@ -131,7 +131,11 @@ func (m *ResourceCapabilityModel) ListByScope(ctx context.Context, gameID, env s
 // DeleteByScopeAndResourceKey removes the derived capability when no
 // executable contracts remain for the resource in this scope.
 func (m *ResourceCapabilityModel) DeleteByScopeAndResourceKey(ctx context.Context, gameID, env, resourceKey string) error {
+	// Physically delete: this is rebuildable derived state and the scope
+	// unique index does not include deleted_at, so soft-deleted rows would
+	// block re-creation after contract removal.
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Unscoped().
 		Where("game_id = ? AND env = ? AND resource_key = ?", gameID, env, resourceKey).
 		Delete(&ResourceCapability{}).Error
 }
@@ -197,7 +201,10 @@ func (m *CapabilitySemanticsModel) Update(ctx context.Context, sem *CapabilitySe
 // the resource has no remaining contracts. Historical semantic versions are
 // intentionally retained for auditability.
 func (m *CapabilitySemanticsModel) DeleteByScopeAndResourceKey(ctx context.Context, gameID, env, resourceKey string) error {
+	// Physically delete: rebuildable derived state; the scope unique index
+	// does not include deleted_at so soft-deleted rows would block re-creation.
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Unscoped().
 		Where("game_id = ? AND env = ? AND resource_key = ?", gameID, env, resourceKey).
 		Delete(&CapabilitySemantics{}).Error
 }

@@ -860,8 +860,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@republish-restores-execution'`，断言执行 audit 的 proposal/page version 已更新。
       Handoff: 证明变更治理闭环。
 
-- [ ] `I-043` 真实链路回归套件以零 Mock、零跳过方式运行
-      Owner: unassigned
+- [x] `I-043` 真实链路回归套件以零 Mock、零跳过方式运行
+      Owner: opencode
       Depends: [`I-020`, `I-025`, `I-026`, `I-036`, `I-042`]
       Scope: `web/e2e/`, fixture lifecycle、CI workflow。
       Deliverable: SDK Operation、SDK 显式 Resource、OpenAPI CRUD、合同 stale/merge/re-publish 四组命名场景可在干净环境连续运行，任一失败使 CI 失败。

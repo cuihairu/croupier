@@ -263,6 +263,9 @@ test.describe('真实 OpenAPI Source 导入与绑定链路', () => {
           },
         },
       );
+      if (bindResponse.status() !== 200) {
+        console.log('bind error body:', await bindResponse.text());
+      }
       expect(bindResponse.status()).toBe(200);
       const body = (await bindResponse.json()) as {
         binding: { bindingId: string; operationId: string; kind: string; functionId: string };
