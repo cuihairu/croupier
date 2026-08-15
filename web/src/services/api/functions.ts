@@ -123,7 +123,8 @@ function normalizeLocalizedText(value?: LocalizedText | string): LocalizedText |
   return value;
 }
 
-function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): FunctionDescriptor {
+// Exported for testing
+export function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): FunctionDescriptor {
   return {
     ...raw,
     displayName: normalizeLocalizedText(raw.displayName || raw.display_name),

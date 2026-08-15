@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -458,6 +459,68 @@ func TestDescriptors_V2(t *testing.T) {
 	resp, err := descriptors(ctx, svcCtx, &DescriptorsRequest{GameId: "test-game"})
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
+}
+
+// TestDescriptors_V2_FieldNames verifies that descriptors API returns 'input' and 'output' fields
+// (not 'inputSchema' or 'output_schema'). This is important because frontend expects these exact field names.
+func TestDescriptors_V2_FieldNames(t *testing.T) {
+	t.Parallel()
+	svcCtx := setupTestServiceContext(t)
+	ctx := context.Background()
+
+	// Create function with input/output schemas
+	fn := &model.Function{
+		FunctionID:  "field-test",
+		Name:        "Field Test",
+		Description: "Test field names",
+		GameID:      "test-game",
+		Status:      1,
+		Version:     "1.0.0",
+		Resource:    "test",
+	}
+	require.NoError(t, svcCtx.DB.Create(fn).Error)
+
+	// Create descriptor with input/output
+	desc := &model.FunctionDescriptor{
+		FunctionID: "field-test",
+		Version:    "1.0.0",
+		Input:      map[string]interface{}{"type": "object", "properties": map[string]interface{}{"name": map[string]interface{}{"type": "string"}}},
+		Output:     map[string]interface{}{"type": "object", "properties": map[string]interface{}{"result": map[string]interface{}{"type": "string"}}},
+	}
+	require.NoError(t, svcCtx.DB.Create(desc).Error)
+
+	// Note: ListDescriptors filters by function_id, not game_id
+	resp, err := descriptors(ctx, svcCtx, &DescriptorsRequest{GameId: "field-test"})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+
+	item := resp.Items[0]
+	assert.Equal(t, "field-test", item.Id)
+	assert.NotNil(t, item.Input, "Input field should not be nil")
+	assert.NotNil(t, item.Output, "Output field should not be nil")
+
+	// Verify the field names in JSON serialization
+	data, err := json.Marshal(item)
+	require.NoError(t, err)
+
+	var jsonMap map[string]interface{}
+	require.NoError(t, json.Unmarshal(data, &jsonMap))
+
+	// Must have 'input' field, NOT 'inputSchema' or 'input_schema'
+	_, hasInput := jsonMap["input"]
+	_, hasInputSchema := jsonMap["inputSchema"]
+	_, hasInputSchemaSnake := jsonMap["input_schema"]
+	assert.True(t, hasInput, "Response must have 'input' field")
+	assert.False(t, hasInputSchema, "Response must NOT have 'inputSchema' field")
+	assert.False(t, hasInputSchemaSnake, "Response must NOT have 'input_schema' field")
+
+	// Must have 'output' field, NOT 'outputSchema' or 'output_schema'
+	_, hasOutput := jsonMap["output"]
+	_, hasOutputSchema := jsonMap["outputSchema"]
+	_, hasOutputSchemaSnake := jsonMap["output_schema"]
+	assert.True(t, hasOutput, "Response must have 'output' field")
+	assert.False(t, hasOutputSchema, "Response must NOT have 'outputSchema' field")
+	assert.False(t, hasOutputSchemaSnake, "Response must NOT have 'output_schema' field")
 }
 
 // ---- functionPermissions ----
