@@ -355,7 +355,7 @@ func TestListBlockedIssueDTOsV3_WithIssues(t *testing.T) {
 		Env:           "dev",
 		ResourceKey:   "player",
 		FunctionID:    "player.ban",
-		Status:        "blocked",
+		Status:        "open",
 		Diagnostics:   datatypes.JSON(`[{"code":"test","severity":"error","message":"test"}]`),
 		SourceDigests: datatypes.JSON(`["digest1"]`),
 		RepairHint:    datatypes.JSONMap{"zh-CN": "请修复"},
@@ -366,7 +366,7 @@ func TestListBlockedIssueDTOsV3_WithIssues(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, dtos, 1)
 	assert.Equal(t, "player.ban", dtos[0].FunctionID)
-	assert.Equal(t, "blocked", dtos[0].Status)
+	assert.Equal(t, "open", dtos[0].Status)
 }
 
 // ===========================================================================
@@ -493,7 +493,7 @@ func TestInboxV3_WithBlockedIssues(t *testing.T) {
 		Env:         "dev",
 		ResourceKey: "player",
 		FunctionID:  "player.ban",
-		Status:      "blocked",
+		Status:      "open",
 		Diagnostics: datatypes.JSON(`[{"code":"test","severity":"error","message":"blocked"}]`),
 		UpdatedBy:   "system",
 	}))
@@ -784,8 +784,20 @@ func TestAcceptAndPublishProposalV3_Success(t *testing.T) {
 		Capability: "collection_query", Execution: "sync",
 		InputSchema: `{"type":"object"}`, OutputSchema: `{"type":"object"}`,
 	}))
+	require.NoError(t, contractSvc.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "player.ban", Version: "1.0.0", Enabled: true, Resource: "player", Operation: "ban",
+		Capability: "action", Execution: "sync",
+		InputSchema: `{"type":"object"}`, OutputSchema: `{"type":"object"}`,
+	}))
 
 	page := testProposalPageSpec("operation--mail.send")
+	// Add an action binding so publish validation passes
+	page.Bindings = append(page.Bindings, spec.PageFunctionBinding{
+		ID:         "run",
+		FunctionID: "player.ban",
+		Usage:      spec.BindingUsageAction,
+		Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+	})
 	pageJSON, err := json.Marshal(page)
 	require.NoError(t, err)
 
@@ -863,7 +875,7 @@ func TestBlockedIssueDTOFromModelV3(t *testing.T) {
 		Env:           "dev",
 		ResourceKey:   "player",
 		FunctionID:    "player.ban",
-		Status:        "blocked",
+		Status:        "open",
 		Diagnostics:   datatypes.JSON(`[{"code":"test","severity":"error","message":"blocked"}]`),
 		SourceDigests: datatypes.JSON(`["digest1"]`),
 		RepairHint:    datatypes.JSONMap{"zh-CN": "请修复"},
@@ -874,7 +886,7 @@ func TestBlockedIssueDTOFromModelV3(t *testing.T) {
 	require.Len(t, dtos, 1)
 	assert.Equal(t, "player", dtos[0].ResourceKey)
 	assert.Equal(t, "player.ban", dtos[0].FunctionID)
-	assert.Equal(t, "blocked", dtos[0].Status)
+	assert.Equal(t, "open", dtos[0].Status)
 	assert.Equal(t, "system", dtos[0].UpdatedBy)
 }
 

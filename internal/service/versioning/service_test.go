@@ -31,6 +31,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.CapabilitySemanticVersion{},
 		&model.PageProposal{},
 		&model.PageProposalVersion{},
+		&model.BlockedProposalIssue{},
 		&model.PageSpec{},
 		&model.PublishedPageSpec{},
 		&model.PageVersion{},
