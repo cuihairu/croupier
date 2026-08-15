@@ -18,7 +18,7 @@ import {
   queryTaskStatus,
 } from '@/services/console';
 import type { PublishedPageSpec } from '@/types/dashboard';
-import { resolveConsolePageRoute } from '@/utils/consoleMenu';
+import { resolveConsolePageRoute, resolveLocalizedText } from '@/utils/consoleMenu';
 
 export default function ConsolePage() {
   const params = useParams<{ categoryKey?: string; pageKey: string }>();
@@ -75,12 +75,16 @@ export default function ConsolePage() {
     history.replace(canonicalPath);
   }, [canonicalPath, page, shouldRedirect]);
 
-  // 页面标题
-  const pageTitle = page?.title
-    ? typeof page.title === 'string'
-      ? page.title
-      : page.title[intl.locale] || page.title['zh-CN'] || page.title['en-US'] || pageKey
-    : pageKey;
+  // 面包屑分类 key：以发布分类为准，缺失时回退路由参数
+  const breadcrumbCategoryKey = page?.category?.key || categoryKey;
+  // 页面标题：按当前语言解析发布 PageSpec 的 LocalizedText
+  const pageTitle = resolveLocalizedText(page?.title, intl.locale, pageKey);
+  // 面包屑分类：优先用发布分类的本地化 labels，缺失时回退原始 key
+  const breadcrumbCategoryTitle = resolveLocalizedText(
+    page?.category?.labels,
+    intl.locale,
+    breadcrumbCategoryKey,
+  );
 
   // 404 状态
   if (!loading && errorCode === 'not_found') {
@@ -161,7 +165,6 @@ export default function ConsolePage() {
   }
 
   // 渲染页面
-  const breadcrumbCategoryKey = page?.category?.key || categoryKey;
   const bindingFreshness = page?.bindingFreshness || [];
 
   return (
@@ -170,11 +173,11 @@ export default function ConsolePage() {
       subTitle={pageKey}
       breadcrumb={{
         items: [
-          { title: '运行控制台', href: '/console' },
+          { title: intl.formatMessage({ id: 'menu.ControlConsole' }), href: '/console' },
           ...(breadcrumbCategoryKey
             ? [
                 {
-                  title: breadcrumbCategoryKey,
+                  title: breadcrumbCategoryTitle,
                   href: `/console/${encodeURIComponent(breadcrumbCategoryKey)}`,
                 },
               ]

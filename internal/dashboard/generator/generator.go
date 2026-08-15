@@ -18,6 +18,29 @@ type GenerateOptions struct {
 	Functions       map[string]spec.FunctionSpec
 	TaskSemantics   map[string]spec.TaskSemantic
 	ReportSemantics map[string]spec.ReportSemantic
+	// Terms maps "domain/alias" to localized display text sourced from the
+	// platform term dictionary. The generator uses it to localize generated
+	// category labels and title fallbacks; it never overrides explicit
+	// summaries from registration.
+	Terms TermDictionary
+}
+
+// TermDictionary maps term aliases to localized display labels, keyed by
+// "domain/alias" (both lowercased). Domain is "resource" or "operation".
+type TermDictionary map[string]spec.LocalizedText
+
+// Lookup resolves a term by domain and alias.
+func (t TermDictionary) Lookup(domain, alias string) (spec.LocalizedText, bool) {
+	if t == nil {
+		return nil, false
+	}
+	domain = strings.ToLower(strings.TrimSpace(domain))
+	alias = strings.ToLower(strings.TrimSpace(alias))
+	if domain == "" || alias == "" {
+		return nil, false
+	}
+	text, ok := t[domain+"/"+alias]
+	return text, ok
 }
 
 // DefaultGenerateOptions returns default options.
@@ -59,7 +82,7 @@ func GenerateOperationPageForOperation(op spec.OperationSpec, opts GenerateOptio
 			Type:        spec.PageTypeOperation,
 			ResourceKey: resourceKey,
 			Title:       title,
-			Category:    categoryForOperation(op.FunctionID, locale),
+			Category:    categoryForOperation(op.FunctionID, locale, opts.Terms),
 			Navigation: &spec.NavigationSpec{
 				Title: title,
 			},
@@ -188,7 +211,7 @@ func GenerateTaskPageForOperation(op spec.OperationSpec, opts GenerateOptions) s
 			Type:        spec.PageTypeTask,
 			ResourceKey: resourceKey,
 			Title:       title,
-			Category:    categoryForOperation(op.FunctionID, locale),
+			Category:    categoryForOperation(op.FunctionID, locale, opts.Terms),
 			Navigation: &spec.NavigationSpec{
 				Title: title,
 			},
@@ -273,7 +296,7 @@ func GenerateReportPageForOperation(op spec.OperationSpec, opts GenerateOptions)
 			Type:        spec.PageTypeReport,
 			ResourceKey: resourceKey,
 			Title:       title,
-			Category:    categoryForOperation(op.FunctionID, locale),
+			Category:    categoryForOperation(op.FunctionID, locale, opts.Terms),
 			Navigation: &spec.NavigationSpec{
 				Title: title,
 			},
@@ -650,24 +673,29 @@ func isReportOperation(op spec.OperationSpec) bool {
 	return op.Capability == spec.CapabilityReport
 }
 
-func categoryForResource(resourceKey string, locale string) spec.PageCategorySpec {
+func categoryForResource(resourceKey string, locale string, terms TermDictionary) spec.PageCategorySpec {
 	categoryKey := InferCategoryFromKey(resourceKey)
 	return spec.PageCategorySpec{
-		Key: categoryKey,
-		Labels: spec.LocalizedText{
-			locale: humanizeKey(categoryKey),
-		},
+		Key:    categoryKey,
+		Labels: localizedKeyLabels(categoryKey, locale, "resource", terms),
 	}
 }
 
-func categoryForOperation(functionID string, locale string) spec.PageCategorySpec {
+func categoryForOperation(functionID string, locale string, terms TermDictionary) spec.PageCategorySpec {
 	categoryKey := InferCategoryFromKey(functionID)
 	return spec.PageCategorySpec{
-		Key: categoryKey,
-		Labels: spec.LocalizedText{
-			locale: humanizeKey(categoryKey),
-		},
+		Key:    categoryKey,
+		Labels: localizedKeyLabels(categoryKey, locale, "resource", terms),
 	}
+}
+
+// localizedKeyLabels resolves a key through the term dictionary first and
+// falls back to humanizing the raw key in the system default locale.
+func localizedKeyLabels(key string, locale string, domain string, terms TermDictionary) spec.LocalizedText {
+	if text, ok := terms.Lookup(domain, key); ok && len(text) > 0 {
+		return text
+	}
+	return spec.LocalizedText{locale: humanizeKey(key)}
 }
 
 func localizedTitle(op spec.OperationSpec, pageKey string, locale string, opts GenerateOptions) spec.LocalizedText {
@@ -676,8 +704,15 @@ func localizedTitle(op spec.OperationSpec, pageKey string, locale string, opts G
 			return spec.LocalizedText{locale: summary}
 		}
 	}
+	fallbackKey := firstNonEmpty(op.Operation, op.FunctionID, pageKey)
+	if text, ok := opts.Terms.Lookup("operation", op.Operation); ok && len(text) > 0 {
+		return text
+	}
+	if text, ok := opts.Terms.Lookup("resource", fallbackKey); ok && len(text) > 0 {
+		return text
+	}
 	return spec.LocalizedText{
-		locale: humanizeKey(firstNonEmpty(op.Operation, op.FunctionID, pageKey)),
+		locale: humanizeKey(fallbackKey),
 	}
 }
 

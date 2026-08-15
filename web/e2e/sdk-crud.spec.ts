@@ -35,6 +35,7 @@ type ProposalDTO = {
   resourceKey?: string;
   quality: string;
   pageSpec: {
+    category?: { key?: string; labels?: Record<string, string> };
     resource?: {
       listView?: {
         identityKey?: string;
@@ -263,6 +264,11 @@ test.describe('真实 SDK Resource Proposal 链路', () => {
       resourceKey: 'inventory',
       quality: 'ready',
       pageSpec: {
+        category: {
+          key: 'inventory',
+          // 术语字典（term_dictionary）把 inventory 本地化为「道具」。
+          labels: expect.objectContaining({ 'zh-CN': '道具', 'en-US': 'Item' }),
+        },
         resource: {
           listView: {
             identityKey: 'id',

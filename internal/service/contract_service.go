@@ -772,6 +772,34 @@ func (s *ContractService) removeResourceProposal(ctx context.Context, gameID, en
 
 // RebuildProposalForFunction creates or refreshes the standalone page proposal
 // for a function that cannot be safely grouped into a ResourcePage.
+// loadTermDictionary loads the platform term dictionary for generated
+// category labels and title fallbacks. A nil/empty result keeps generation
+// on the humanize fallback path.
+func (s *ContractService) loadTermDictionary(ctx context.Context) generator.TermDictionary {
+	if s == nil || s.db == nil {
+		return nil
+	}
+	items, err := model.NewTermDictionaryModel(s.db).List(ctx, "")
+	if err != nil {
+		return nil
+	}
+	out := make(generator.TermDictionary, len(items))
+	for _, item := range items {
+		text := spec.LocalizedText{}
+		if zh := strings.TrimSpace(item.DisplayZh); zh != "" {
+			text["zh-CN"] = zh
+		}
+		if en := strings.TrimSpace(item.DisplayEn); en != "" {
+			text["en-US"] = en
+		}
+		if len(text) == 0 {
+			continue
+		}
+		out[strings.ToLower(strings.TrimSpace(item.Domain))+"/"+strings.ToLower(strings.TrimSpace(item.Alias))] = text
+	}
+	return out
+}
+
 func (s *ContractService) RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error {
 	functionID = strings.TrimSpace(functionID)
 	if functionID == "" {
@@ -808,6 +836,7 @@ func (s *ContractService) RebuildProposalForFunction(ctx context.Context, gameID
 		Functions:       functions,
 		TaskSemantics:   taskSemantics,
 		ReportSemantics: reportSemantics,
+		Terms:           s.loadTermDictionary(ctx),
 	})
 	if generator.ShouldBlockProposal(generated.Diagnostics) {
 		return s.upsertBlockedIssue(ctx, gameID, env, contract.ResourceKey, contract.FunctionID, generated.Diagnostics, contractsForIssue(contract))
@@ -826,7 +855,9 @@ func (s *ContractService) upsertResourceProposal(
 	semantics *model.CapabilitySemantics,
 	contracts []*model.FunctionContract,
 ) (map[string]struct{}, error) {
-	generated, ok := generator.GenerateResourcePageProposal(semantics, contracts, generator.DefaultGenerateOptions())
+	resourceOptions := generator.DefaultGenerateOptions()
+	resourceOptions.Terms = s.loadTermDictionary(ctx)
+	generated, ok := generator.GenerateResourcePageProposal(semantics, contracts, resourceOptions)
 	if !ok {
 		if err := s.removeResourceProposal(ctx, gameID, env, semantics.ResourceKey); err != nil {
 			return nil, err
@@ -885,6 +916,7 @@ func (s *ContractService) upsertStandaloneProposals(
 			Functions:       functions,
 			TaskSemantics:   taskSemantics,
 			ReportSemantics: reportSemantics,
+			Terms:           s.loadTermDictionary(ctx),
 		})
 		if generator.ShouldBlockProposal(generated.Diagnostics) {
 			if err := s.upsertBlockedIssue(ctx, gameID, env, contract.ResourceKey, functionID, generated.Diagnostics, contractsForIssue(contract)); err != nil {

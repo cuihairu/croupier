@@ -1137,3 +1137,82 @@ func TestFirstNonEmpty(t *testing.T) {
 		})
 	}
 }
+
+func TestTermDictionaryLocalization(t *testing.T) {
+	terms := TermDictionary{
+		"resource/inventory": spec.LocalizedText{"zh-CN": "道具", "en-US": "Item"},
+		"operation/consume":  spec.LocalizedText{"zh-CN": "消耗", "en-US": "Consume"},
+	}
+
+	t.Run("category labels resolve through resource terms", func(t *testing.T) {
+		page := GenerateForOperation(spec.OperationSpec{
+			FunctionID: "inventory.consume",
+			Operation:  "consume",
+			Enabled:    true,
+		}, GenerateOptions{DefaultLocale: "zh-CN", Terms: terms})
+		assert.Equal(t, "inventory", page.Category.Key)
+		assert.Equal(t, "道具", page.Category.Labels["zh-CN"])
+		assert.Equal(t, "Item", page.Category.Labels["en-US"])
+	})
+
+	t.Run("title falls back to operation term when summary missing", func(t *testing.T) {
+		page := GenerateForOperation(spec.OperationSpec{
+			FunctionID: "inventory.consume",
+			Operation:  "consume",
+			Enabled:    true,
+		}, GenerateOptions{DefaultLocale: "zh-CN", Terms: terms})
+		require.NotNil(t, page.Operation)
+		assert.Equal(t, "消耗", page.Title["zh-CN"])
+	})
+
+	t.Run("summary still wins over terms", func(t *testing.T) {
+		page := GenerateForOperation(spec.OperationSpec{
+			FunctionID: "inventory.consume",
+			Operation:  "consume",
+			Enabled:    true,
+		}, GenerateOptions{
+			DefaultLocale: "zh-CN",
+			Terms:         terms,
+			Functions: map[string]spec.FunctionSpec{
+				"inventory.consume": {ID: "inventory.consume", Summary: spec.LocalizedText{"zh-CN": "消耗背包道具"}},
+			},
+		})
+		assert.Equal(t, "消耗背包道具", page.Title["zh-CN"])
+	})
+
+	t.Run("missing terms keep humanize fallback", func(t *testing.T) {
+		page := GenerateForOperation(spec.OperationSpec{
+			FunctionID: "unknown.zone",
+			Operation:  "zone",
+			Enabled:    true,
+		}, GenerateOptions{DefaultLocale: "zh-CN", Terms: terms})
+		assert.Equal(t, "unknown", page.Category.Key)
+		assert.Equal(t, "Unknown", page.Category.Labels["zh-CN"])
+	})
+}
+
+func TestResourcePageProposalUsesResourceTerm(t *testing.T) {
+	terms := TermDictionary{
+		"resource/inventory": spec.LocalizedText{"zh-CN": "道具", "en-US": "Item"},
+	}
+	collection := &model.FunctionContract{
+		Model:        gormModelWithID(501),
+		FunctionID:   "inventory.list",
+		ResourceKey:  "inventory",
+		Capability:   "collection_query",
+		Enabled:      true,
+		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id"]}},"total":{"type":"integer"}},"required":["items","total"]}`),
+	}
+	semantics := &model.CapabilitySemantics{
+		ResourceKey:       "inventory",
+		CollectionQueryID: collection.ID,
+		IdentityField:     "id",
+		ItemsFieldName:    "items",
+		TotalFieldName:    "total",
+	}
+	generated, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection}, GenerateOptions{DefaultLocale: "zh-CN", Terms: terms})
+	require.True(t, ok)
+	assert.Equal(t, "道具", generated.Title["zh-CN"])
+	assert.Equal(t, "Item", generated.Title["en-US"])
+	assert.Equal(t, "道具", generated.Category.Labels["zh-CN"])
+}

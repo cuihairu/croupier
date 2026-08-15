@@ -30,6 +30,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.PageSpec{},
 		&model.PublishedPageSpec{},
 		&model.PageVersion{},
+		&model.TermDictionary{},
 	)
 	require.NoError(t, err)
 
@@ -1482,4 +1483,47 @@ func TestContractValidationErrorV2(t *testing.T) {
 	result2 := contractValidationError(diags)
 	assert.NotNil(t, result2)
 	assert.Contains(t, result2.Error(), "error")
+}
+
+func TestContractService_GeneratedProposalUsesTermDictionary(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	require.NoError(t, db.Create(&model.TermDictionary{
+		Domain: "resource", TermKey: "item", Alias: "inventory",
+		DisplayZh: "道具", DisplayEn: "Item", SortOrder: 30,
+	}).Error)
+	require.NoError(t, db.Create(&model.TermDictionary{
+		Domain: "operation", TermKey: "consume", Alias: "consume",
+		DisplayZh: "消耗", DisplayEn: "Consume", SortOrder: 100,
+	}).Error)
+
+	meta := FunctionMetaInput{
+		ID:           "inventory.consume",
+		Version:      "1.0.0",
+		Enabled:      true,
+		InputSchema:  `{"type":"object","properties":{"playerId":{"type":"string"},"itemId":{"type":"string"}},"required":["playerId","itemId"]}`,
+		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+		Resource:     "inventory",
+		Operation:    "consume",
+		Capability:   "action",
+		Execution:    "sync",
+		Risk:         "safe",
+	}
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	require.NoError(t, service.RebuildProposalForFunction(ctx, "demo-game", "development", "inventory.consume"))
+
+	proposalModel := model.NewPageProposalModel(db)
+	proposal, err := proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "operation:inventory.consume")
+	require.NoError(t, err)
+
+	var page spec.PageSpec
+	require.NoError(t, json.Unmarshal(proposal.PageSpec, &page))
+	assert.Equal(t, "inventory", page.Category.Key)
+	assert.Equal(t, "道具", page.Category.Labels["zh-CN"])
+	assert.Equal(t, "Item", page.Category.Labels["en-US"])
+	// title 没有 summary，回退到 operation 术语
+	assert.Equal(t, "消耗", page.Title["zh-CN"])
+	assert.Equal(t, "Consume", page.Title["en-US"])
 }

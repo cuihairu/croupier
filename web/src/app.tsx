@@ -180,6 +180,8 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         gameId: initialState?.scope?.gameId || '',
         env: initialState?.scope?.env || '',
         consoleMenuRevision: initialState?.consoleMenuRevision || 0,
+        // 语言切换时重新请求并按新 locale 解析动态菜单标签。
+        locale: typeof getLocale === 'function' ? getLocale() : '',
       },
       request: async (params, defaultMenuData) => {
         if (!params.authed) return defaultMenuData;

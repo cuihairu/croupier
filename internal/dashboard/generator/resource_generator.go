@@ -46,6 +46,9 @@ func GenerateResourcePageProposal(
 	pageKey := "resource--" + sanitizeSourceKey(resourceKey)
 	locale := opts.DefaultLocale
 	title := spec.LocalizedText{locale: humanizeKey(resourceKey)}
+	if term, ok := opts.Terms.Lookup("resource", resourceKey); ok && len(term) > 0 {
+		title = term
+	}
 	listView := buildListViewFromContract(collectionContract, semantics)
 	detailView := buildDetailViewFromContracts(collectionContract, itemContract, semantics)
 
@@ -95,7 +98,7 @@ func GenerateResourcePageProposal(
 			Type:        spec.PageTypeResource,
 			ResourceKey: resourceKey,
 			Title:       title,
-			Category:    categoryForResource(resourceKey, locale),
+			Category:    categoryForResource(resourceKey, locale, opts.Terms),
 			Navigation: &spec.NavigationSpec{
 				Title: title,
 			},
