@@ -37,6 +37,8 @@ type RawFunctionDescriptor = Omit<FunctionDescriptor, 'displayName' | 'summary'>
   resource?: string;
   input_schema?: string;
   output_schema?: string;
+  input?: string;
+  output?: string;
 };
 
 // Source: croupier/internal/api/function/dto.go FunctionPermission
@@ -126,8 +128,14 @@ function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): FunctionDescri
     ...raw,
     displayName: normalizeLocalizedText(raw.displayName || raw.display_name),
     summary: normalizeLocalizedText(raw.summary),
-    inputSchema: raw.inputSchema || raw.input_schema,
-    outputSchema: raw.outputSchema || raw.output_schema,
+    inputSchema:
+      raw.inputSchema ||
+      raw.input_schema ||
+      (typeof raw.input === 'string' ? raw.input : undefined),
+    outputSchema:
+      raw.outputSchema ||
+      raw.output_schema ||
+      (typeof raw.output === 'string' ? raw.output : undefined),
   };
 }
 
