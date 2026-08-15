@@ -38,6 +38,20 @@ export default function DetailConfigTab({
       ? formDescriptor.outputSchema
       : JSON.stringify(formDescriptor.outputSchema || {}, null, 2);
 
+  // Parse outputSchema string back to object for JsonViewer
+  // so it displays as valid JSON {} instead of stringified "{}"
+  let parsedOutputSchema: Record<string, unknown> = {};
+  if (outputSchema) {
+    try {
+      const parsed = JSON.parse(outputSchema);
+      if (typeof parsed === 'object' && parsed !== null) {
+        parsedOutputSchema = parsed;
+      }
+    } catch {
+      // If parsing fails, keep as empty object
+    }
+  }
+
   const jsonTabItems = [
     {
       key: 'json-detail',
@@ -126,7 +140,7 @@ export default function DetailConfigTab({
           </Card>
           <Card size="small" title="Output JSON Schema">
             <JsonViewer
-              data={outputSchema ? outputSchema : {}}
+              data={parsedOutputSchema}
               onCopySuccess={onJsonCopySuccess}
               onCopyError={onJsonCopyError}
             />
