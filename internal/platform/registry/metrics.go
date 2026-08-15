@@ -212,14 +212,15 @@ func (s *MetricsStore) getFromMemory(agentID string, since time.Time, limit int)
 		limit = len(indices)
 	}
 
-	// 限制最大分配大小，防止内存分配过大
+	// Size the allocation from stored data (internal, bounded) instead of
+	// the caller-provided limit, so the request cannot drive the allocation.
 	const maxAllocation = 10000
-	if limit > maxAllocation {
-		limit = maxAllocation
+	allocHint := len(indices)
+	if allocHint > maxAllocation {
+		allocHint = maxAllocation
 	}
 
-	// lgtm[go/uncontrolled-allocation-size] — limit capped at maxAllocation above
-	result := make([]MetricsEntry, 0, limit)
+	result := make([]MetricsEntry, 0, allocHint)
 	start := len(indices) - limit
 	for i := start; i < len(indices); i++ {
 		idx := indices[i]

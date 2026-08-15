@@ -47,7 +47,8 @@ overrides:
   path-to-regexp@>=0.2.0 <1.9.0: '>=1.9.0'
   path-to-regexp@>=8.0.0 <8.4.0: '>=8.4.0'
   # Fix Umi mock system: force path-to-regexp to 1.x for @umijs/preset-umi
-  path-to-regexp: '1.7.0'
+  # (1.9.0 fixes the ReDoS reported for >=0.2.0 <1.9.0)
+  path-to-regexp: '1.9.0'
   postcss@<8.4.31: '>=8.4.31'
   qs@<6.14.1: '>=6.14.1'
   qs@>=6.7.0 <6.7.3: '>=6.7.3'
@@ -101,3 +102,6 @@ overrides:
   # 保留不修复（2026-08-02 评估）：
   # - react-router/react-router-dom 6.x：无 6.x 补丁版本，7.x 与 umi 4.6.x 不兼容（medium，运行态但需 umi 大版本升级）
   # - @hono/node-server 2.x：@hono/node-ws@1.3.0 peer 约束 ^1.19.2，强制升级会破坏 utoopack dev server（medium，仅构建时依赖）
+  # 保留不修复（2026-08-15 评估）：
+  # - elliptic <=6.6.1（#77，low）：上游无补丁版本（所有已发布版本均在受影响范围），
+  #   仅经 umi bundler 的 node-libs-browser crypto polyfill 引入，构建期浏览器 polyfill，不处理服务端密钥。

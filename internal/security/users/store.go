@@ -1,22 +1,32 @@
 package users
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
-// TODO: migrate to bcrypt/scrypt/argon2 for production password hashing.
-// sha256(salt+password) is used only for legacy local dev user store.
+// User is a local file-based account entry. Password stores a bcrypt hash;
+// Salt is kept only for JSON backward compatibility with legacy files and is
+// ignored by verification (bcrypt hashes embed their own salt).
 type User struct {
 	Username  string   `json:"username"`
-	Salt      string   `json:"salt"`
-	Password  string   `json:"password"` // sha256(salt+password) hex
+	Salt      string   `json:"salt,omitempty"`
+	Password  string   `json:"password"` // bcrypt hash
 	Roles     []string `json:"roles"`
 	Perms     []string `json:"perms,omitempty"`
 	OTPSecret string   `json:"otpSecret,omitempty"`
+}
+
+// HashPassword derives the bcrypt hash to store in a users file.
+func HashPassword(password string) (string, error) {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashed), nil
 }
 
 type Store struct {
@@ -46,9 +56,7 @@ func (s *Store) Verify(username, password string) (User, error) {
 	if !ok {
 		return User{}, errors.New("user not found")
 	}
-	// lgtm[go/weak-sensitive-data-hashing] — legacy local dev store; see TODO above
-	h := sha256.Sum256([]byte(u.Salt + password))
-	if hex.EncodeToString(h[:]) != u.Password {
+	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
 		return User{}, errors.New("invalid credentials")
 	}
 	return u, nil

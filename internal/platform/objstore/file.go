@@ -48,12 +48,10 @@ func (s *fileStore) Put(_ context.Context, key string, r ReadSeeker, _ int64, _ 
 	}
 
 	// 确保父目录存在
-	// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
 	if err := os.MkdirAll(filepath.Dir(safePath), 0o755); err != nil {
 		return err
 	}
 
-	// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
 	f, err := os.Create(safePath)
 	if err != nil {
 		return err
@@ -92,7 +90,6 @@ func (s *fileStore) Delete(_ context.Context, key string) error {
 		if err != nil {
 			return err
 		}
-		// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
 		return os.RemoveAll(safePath)
 	}
 
@@ -103,7 +100,6 @@ func (s *fileStore) Delete(_ context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
 	return os.Remove(safePath)
 }
 
@@ -200,7 +196,6 @@ func (s *fileStore) CreatePrefix(_ context.Context, prefix string) error {
 	if err != nil {
 		return err
 	}
-	// lgtm[go/path-injection] — safePath validated by validateAndCleanPath
 	return os.MkdirAll(safePath, 0o755)
 }
 
@@ -228,8 +223,6 @@ func (s *fileStore) RenamePrefix(_ context.Context, oldPrefix, newPrefix string)
 		return err
 	}
 
-	// 使用系统 rename 命令移动目录
-	// lgtm[go/path-injection] — both paths validated by validateAndCleanPath
 	return os.Rename(oldSafePath, newSafePath)
 }
 

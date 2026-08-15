@@ -1,8 +1,6 @@
 package users
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -139,16 +137,15 @@ func TestStore_Verify(t *testing.T) {
 		users: map[string]User{},
 	}
 
-	// 实际测试：我们需要创建一个真实的哈希
+	hashed, err := HashPassword("password")
+	if err != nil {
+		t.Fatalf("HashPassword() error = %v", err)
+	}
 	store.users["test"] = User{
 		Username: "test",
-		Salt:     "salt",
+		Password: hashed,
+		Roles:    []string{"user"},
 	}
-	h := sha256.Sum256([]byte(store.users["test"].Salt + "password"))
-	testUser := store.users["test"]
-	testUser.Password = hex.EncodeToString(h[:])
-	testUser.Roles = []string{"user"}
-	store.users["test"] = testUser
 
 	// 测试正确密码
 	user, err := store.Verify("test", "password")
@@ -354,18 +351,15 @@ func BenchmarkVerify(b *testing.B) {
 		users: make(map[string]User),
 	}
 
-	// 创建一个正确哈希的用户
-	salt := "testsalt"
-	password := "testpassword"
-	h := sha256.Sum256([]byte(salt + password))
-
-	testUser := User{
+	hashed, err := HashPassword("testpassword")
+	if err != nil {
+		b.Fatalf("HashPassword() error = %v", err)
+	}
+	store.users["testuser"] = User{
 		Username: "testuser",
-		Salt:     salt,
-		Password: hex.EncodeToString(h[:]),
+		Password: hashed,
 		Roles:    []string{"user"},
 	}
-	store.users["testuser"] = testUser
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -415,15 +409,17 @@ func TestStore_Verify_EmptyPassword(t *testing.T) {
 		users: map[string]User{},
 	}
 
+	hashed, err := HashPassword("")
+	if err != nil {
+		t.Fatalf("HashPassword() error = %v", err)
+	}
 	testUser := User{
 		Username: "test",
-		Salt:     "salt",
+		Password: hashed,
 	}
-	h := sha256.Sum256([]byte(testUser.Salt + ""))
-	testUser.Password = hex.EncodeToString(h[:])
 	store.users["test"] = testUser
 
-	_, err := store.Verify("test", "")
+	_, err = store.Verify("test", "")
 	if err != nil {
 		t.Errorf("Verify() with empty password should work, got error: %v", err)
 	}

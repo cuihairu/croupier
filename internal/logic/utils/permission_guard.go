@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"math"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -48,18 +47,10 @@ func appendPermissionIDs(permissionIDs []string, values ...string) []string {
 		return permissionIDs
 	}
 
-	// 检查内存分配是否会溢出
-	lenA := len(permissionIDs)
-	lenB := len(values)
-	if lenA > math.MaxInt-lenB {
-		// 溢出，返回原切片
-		return permissionIDs
-	}
-	// lgtm[go/allocation-size-overflow] — overflow guarded above
-	totalLen := lenA + lenB
-
-	seen := make(map[string]struct{}, totalLen)
-	out := make([]string, 0, totalLen)
+	// Capacity hints derive from a single slice length only: no addition of
+	// two lengths, so the allocation size cannot overflow.
+	seen := make(map[string]struct{}, len(permissionIDs))
+	out := make([]string, 0, len(permissionIDs))
 	for _, permissionID := range permissionIDs {
 		key := strings.ToLower(strings.TrimSpace(permissionID))
 		if key == "" {

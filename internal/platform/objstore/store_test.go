@@ -263,11 +263,11 @@ func TestSanitizeKey(t *testing.T) {
 		{"带前导斜杠", "/leading/slash", "leading/slash"},
 		{"多个前导斜杠", "///multiple/leading", "multiple/leading"},
 		{"包含当前目录", "path/./to/./file", "path/to/file"},
-		{"包含上级目录", "path/../to/../../file", "path/to/file"},
-		{"混合情况", "///path/./../to//./file", "path/to/file"},
+		{"包含上级目录", "path/../to/../../file", "file"},
+		{"混合情况", "///path/./../to//./file", "to/file"},
 		{"只有点和双点", "./..", ""},
 		{"空字符串", "", ""},
-		{"复杂清理", "a/b/../../c/./d/../e", "a/b/c/d/e"}, // sanitizeKey 不完全解析路径，只移除 . 和 ..
+		{"复杂清理", "a/b/../../c/./d/../e", "c/e"}, // sanitizeKey 按词法解析 ..（回到上级）
 		{"带斜杠的空段", "a///b//c", "a/b/c"},
 	}
 

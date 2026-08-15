@@ -499,7 +499,7 @@ func TestSanitizeKey_EdgeCases(t *testing.T) {
 		{
 			name:     "valid segments with dot segments",
 			key:      "a/./b/../c",
-			expected: "a/b/c",
+			expected: "a/c",
 		},
 		{
 			name:     "unicode characters",

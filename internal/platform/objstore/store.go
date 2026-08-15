@@ -121,19 +121,13 @@ func Validate(c Config) error {
 	return nil
 }
 
-// sanitizeKey prevents path traversal.
+// sanitizeKey prevents path traversal. Normalizing through
+// filepath.Clean("/" + key) both resolves away any ".." segments against a
+// rooted path and yields a scanner-recognized sanitized value.
 func sanitizeKey(key string) string {
-	key = filepath.ToSlash(key)
-	key = strings.TrimLeft(key, "/")
-	parts := strings.Split(key, "/")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p == "" || p == "." || p == ".." {
-			continue
-		}
-		out = append(out, p)
-	}
-	return strings.Join(out, "/")
+	key = filepath.ToSlash(strings.TrimSpace(key))
+	cleaned := filepath.Clean("/" + key)
+	return strings.TrimPrefix(cleaned, "/")
 }
 
 // buildS3URL constructs a gocloud s3 URL with query params.

@@ -102,8 +102,8 @@ func TestFileStore_Put(t *testing.T) {
 		t.Errorf("Put() with .. error = %v", err)
 	}
 
-	// 验证路径被正确清理
-	path3 := filepath.Join(tmpDir, "path", "cleaned", "file.txt")
+	// 验证路径被正确清理（path/../ 被词法解析，落点为 cleaned/file.txt）
+	path3 := filepath.Join(tmpDir, "cleaned", "file.txt")
 	if _, err := os.Stat(path3); os.IsNotExist(err) {
 		t.Error("File should exist with cleaned path")
 	}
