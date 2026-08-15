@@ -3,6 +3,7 @@ package versioning
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,7 +17,11 @@ import (
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	t.Helper()
+	// Use a unique temp file per test to guarantee full isolation.
+	// In-memory SQLite can share state across GORM connections.
+	tmpFile := filepath.Join(t.TempDir(), "test.db")
+	db, err := gorm.Open(sqlite.Open(tmpFile), &gorm.Config{})
 	require.NoError(t, err)
 
 	err = db.AutoMigrate(

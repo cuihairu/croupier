@@ -106,23 +106,27 @@ func TestVersioningService_RollbackPublish_Success(t *testing.T) {
 	ctx := context.Background()
 	service := NewService(db)
 
+	// Use unique game_id to avoid UNIQUE constraint conflicts across tests.
+	const testGame = "rollback_publish_test"
 	page := spec.PageSpec{
 		PageKey: "resource--player", Type: spec.PageTypeResource,
 		Title:    spec.LocalizedText{"zh-CN": "玩家"},
 		Category: spec.PageCategorySpec{Key: "player"},
 	}
-	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", page))
+	require.NoError(t, createVersioningTestPage(db, testGame, "development", page))
+	// Seed page_versions so GetNextVersion returns 2 (not 1).
+	require.NoError(t, createVersioningTestPageVersion(db, testGame, "development", page, 1, "initial"))
 
 	publishedJSON, err := marshalPageSpec(page)
 	require.NoError(t, err)
 	require.NoError(t, model.NewPublishedPageSpecModel(db).Create(ctx, &model.PublishedPageSpec{
-		GameID: "demo-game", Env: "development", PageKey: "resource--player",
+		GameID: testGame, Env: "development", PageKey: "resource--player",
 		Version: 1, SpecJSON: publishedJSON,
 		Active: true, PublishedAt: time.Now(), PublishedBy: "tester",
 	}))
 
 	resp, err := service.RollbackPublish(ctx, &RollbackRequest{
-		GameID: "demo-game", Env: "development", PageKey: "resource--player",
+		GameID: testGame, Env: "development", PageKey: "resource--player",
 		ExpectedDraftRevision: 1, Version: 1, Reason: "test rollback publish",
 	})
 	require.NoError(t, err)
@@ -185,9 +189,11 @@ func TestVersioningService_Republish_Success(t *testing.T) {
 	ctx := context.Background()
 	service := NewService(db)
 
+	// Use unique game_id to avoid UNIQUE constraint conflicts across tests.
+	const testGame = "republish_test"
 	contractModel := model.NewFunctionContractModel(db)
 	require.NoError(t, contractModel.UpsertContract(ctx, &model.FunctionContract{
-		GameID: "demo-game", Env: "development", FunctionID: "player.list",
+		GameID: testGame, Env: "development", FunctionID: "player.list",
 		Version: "1.0.0", Enabled: true, UpdatedAt: time.Now(),
 	}))
 
@@ -200,10 +206,21 @@ func TestVersioningService_Republish_Success(t *testing.T) {
 			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
 		}},
 	}
-	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", page))
+	require.NoError(t, createVersioningTestPage(db, testGame, "development", page))
+	// Seed page_versions so GetNextVersion returns 2 (not 1).
+	require.NoError(t, createVersioningTestPageVersion(db, testGame, "development", page, 1, "initial"))
+
+	// Seed an initial published spec so Republish creates version 2.
+	publishedJSON, err := marshalPageSpec(page)
+	require.NoError(t, err)
+	require.NoError(t, model.NewPublishedPageSpecModel(db).Create(ctx, &model.PublishedPageSpec{
+		GameID: testGame, Env: "development", PageKey: "resource--player",
+		Version: 1, SpecJSON: publishedJSON,
+		Active: true, PublishedAt: time.Now(), PublishedBy: "tester",
+	}))
 
 	resp, err := service.Republish(ctx, &RepublishRequest{
-		GameID: "demo-game", Env: "development", PageKey: "resource--player",
+		GameID: testGame, Env: "development", PageKey: "resource--player",
 		Reason: "test republish",
 	})
 	require.NoError(t, err)
@@ -480,8 +497,10 @@ func TestVersioningService_BindingContractChanges_WithPublished(t *testing.T) {
 	ctx := context.Background()
 	service := NewService(db)
 
+	// Use unique game_id to avoid UNIQUE constraint conflicts across tests.
+	const testGame = "binding_changes_with_pub_test"
 	require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, &model.FunctionContract{
-		GameID: "demo-game", Env: "development", FunctionID: "player.list",
+		GameID: testGame, Env: "development", FunctionID: "player.list",
 		Version: "1.0.0", Enabled: true,
 		InputSchema:  datatypes.JSON(`{"type":"object"}`),
 		OutputSchema: datatypes.JSON(`{"type":"object"}`),
@@ -490,13 +509,13 @@ func TestVersioningService_BindingContractChanges_WithPublished(t *testing.T) {
 
 	publishedJSON, _ := json.Marshal(spec.PageSpec{PageKey: "resource--player", Type: spec.PageTypeResource})
 	require.NoError(t, model.NewPublishedPageSpecModel(db).Create(ctx, &model.PublishedPageSpec{
-		GameID: "demo-game", Env: "development", PageKey: "resource--player",
+		GameID: testGame, Env: "development", PageKey: "resource--player",
 		Version: 1, SpecJSON: string(publishedJSON),
 		BindingContractsJSON: `[{"bindingId":"query","functionId":"player.list","inputSchemaDigest":"old","outputSchemaDigest":"old","risk":"high","permission":"ops:read"}]`,
 		Active:               true, PublishedAt: time.Now(),
 	}))
 
-	changes := service.bindingContractChanges(ctx, "demo-game", "development", "resource--player", spec.PageSpec{
+	changes := service.bindingContractChanges(ctx, testGame, "development", "resource--player", spec.PageSpec{
 		PageKey: "resource--player", Type: spec.PageTypeResource,
 		Bindings: []spec.PageFunctionBinding{{ID: "query", FunctionID: "player.list"}},
 	})
@@ -508,15 +527,17 @@ func TestVersioningService_BindingContractChanges_FunctionRemoved(t *testing.T) 
 	ctx := context.Background()
 	service := NewService(db)
 
+	// Use unique game_id to avoid UNIQUE constraint conflicts across tests.
+	const testGame = "binding_changes_func_removed_test"
 	publishedJSON, _ := json.Marshal(spec.PageSpec{PageKey: "resource--player", Type: spec.PageTypeResource})
 	require.NoError(t, model.NewPublishedPageSpecModel(db).Create(ctx, &model.PublishedPageSpec{
-		GameID: "demo-game", Env: "development", PageKey: "resource--player",
+		GameID: testGame, Env: "development", PageKey: "resource--player",
 		Version: 1, SpecJSON: string(publishedJSON),
 		BindingContractsJSON: `[{"bindingId":"query","functionId":"deleted.func","inputSchemaDigest":"","outputSchemaDigest":"","risk":"low","permission":""}]`,
 		Active:               true, PublishedAt: time.Now(),
 	}))
 
-	changes := service.bindingContractChanges(ctx, "demo-game", "development", "resource--player", spec.PageSpec{
+	changes := service.bindingContractChanges(ctx, testGame, "development", "resource--player", spec.PageSpec{
 		PageKey: "resource--player", Type: spec.PageTypeResource,
 		Bindings: []spec.PageFunctionBinding{{ID: "query", FunctionID: "deleted.func"}},
 	})

@@ -84,19 +84,19 @@ func TestNormalizeJSONSchemaV3_Empty(t *testing.T) {
 func TestNormalizeJSONSchemaV3_StringWrapped(t *testing.T) {
 	input := []byte(`"{\"type\":\"object\"}"`)
 	result := normalizeJSONSchema(input)
-	assert.Equal(t, []byte(`{"type":"object"}`), result)
+	assert.Equal(t, json.RawMessage(`{"type":"object"}`), result)
 }
 
 func TestNormalizeJSONSchemaV3_NativeJSON(t *testing.T) {
 	input := []byte(`{"type":"object"}`)
 	result := normalizeJSONSchema(input)
-	assert.Equal(t, input, result)
+	assert.Equal(t, json.RawMessage(input), result)
 }
 
 func TestNormalizeJSONSchemaV3_InvalidString(t *testing.T) {
 	input := []byte(`"not closed`)
 	result := normalizeJSONSchema(input)
-	assert.Equal(t, input, result)
+	assert.Equal(t, json.RawMessage(input), result)
 }
 
 // ===========================================================================
