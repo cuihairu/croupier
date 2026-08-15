@@ -29,6 +29,19 @@ func TestRealDashboardFixtureHealth(t *testing.T) {
 	defer cancel()
 	require.NoError(t, fixture.WaitReady(ctx))
 
+	// The fixture scope is also valid UI metadata, so the real dashboard can
+	// select the exact scope where the SDK and provider registered.
+	game, err := fixture.ServiceContext().GameModel.FindByGameIDString(ctx, fixture.GameID)
+	require.NoError(t, err)
+	require.Equal(t, fixture.GameID, game.GameID)
+	binding, err := fixture.ServiceContext().GameModel.FindEnvBinding(ctx, fixture.GameID, fixture.Env)
+	require.NoError(t, err)
+	require.NotNil(t, binding)
+	admin, err := fixture.ServiceContext().AdminModel.FindByUsername(ctx, "admin")
+	require.NoError(t, err)
+	require.Equal(t, fixture.GameID, admin.LastGameID)
+	require.Equal(t, fixture.Env, admin.LastEnv)
+
 	// Server HTTP health endpoint responds.
 	resp, err := http.Get(fmt.Sprintf("http://%s/healthz", fixture.HTTPAddr))
 	require.NoError(t, err)
@@ -123,6 +136,15 @@ func TestRealDashboardFixtureHealth(t *testing.T) {
 		Where("game_id = ? AND env = ? AND function_id = ?", "other-game", "other-env", "canary.fn").
 		Count(&remaining).Error)
 	require.Equal(t, int64(1), remaining, "other scopes must survive fixture cleanup")
+	_, err = fixture.ServiceContext().GameModel.FindByGameIDString(ctx, fixture.GameID)
+	require.Error(t, err, "fixture-created game metadata must be cleaned")
+	binding, err = fixture.ServiceContext().GameModel.FindEnvBinding(ctx, fixture.GameID, fixture.Env)
+	require.NoError(t, err)
+	require.Nil(t, binding, "fixture-created environment binding must be cleaned")
+	admin, err = fixture.ServiceContext().AdminModel.FindByUsername(ctx, "admin")
+	require.NoError(t, err)
+	require.Empty(t, admin.LastGameID, "fixture admin scope must be restored")
+	require.Empty(t, admin.LastEnv, "fixture admin environment must be restored")
 
 	require.NoError(t, fixture.Close(ctx))
 }

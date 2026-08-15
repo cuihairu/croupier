@@ -30,14 +30,8 @@ test.describe('只读资源', () => {
     await waitForPageReady(page);
     await waitForTable(page);
 
-    // 检查新建按钮 - 只读资源不应该有，或者被禁用
-    const createBtn = page.locator('button:has-text("新建"), button:has-text("创建")').first();
-    const hasCreate = await createBtn.isVisible().catch(() => false);
-
-    if (hasCreate) {
-      // 如果有新建按钮，它应该被禁用
-      await expect(createBtn).toBeDisabled();
-    }
+    // 只读资源不允许渲染写操作入口。
+    await expect(page.getByRole('button', { name: /新建|创建/ })).toHaveCount(0);
 
     // 验证表格正常显示
     await expectTableVisible(page);
@@ -73,13 +67,8 @@ test.describe('只读资源', () => {
     // 验证表格正常显示
     await expectTableVisible(page);
 
-    // 检查筛选表单是否存在
+    // 筛选是只读资源的核心交互，必须实际渲染。
     const filterForm = page.locator('.ant-pro-table .ant-form, .ant-table-filter').first();
-    const hasFilter = await filterForm.isVisible().catch(() => false);
-
-    // 如果有筛选表单，验证它可见
-    if (hasFilter) {
-      await expect(filterForm).toBeVisible();
-    }
+    await expect(filterForm).toBeVisible();
   });
 });

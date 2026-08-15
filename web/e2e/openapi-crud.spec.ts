@@ -62,23 +62,24 @@ test.describe('OpenAPI CRUD', () => {
     // 等待 Modal 出现
     await expectModalVisible(page);
 
-    // 填写表单（如果表单字段存在）
+    // 生成表单必须包含 OpenAPI request schema 中的 name 字段。
     const nameInput = page.locator('.ant-modal input[name="name"], .ant-modal #name').first();
-    const hasNameInput = await nameInput.isVisible().catch(() => false);
-
-    if (hasNameInput) {
-      await nameInput.fill('测试玩家');
-    }
+    await expect(nameInput).toBeVisible();
+    await nameInput.fill('测试玩家');
 
     // 提交
     const submitBtn = page
       .locator('.ant-modal button:has-text("确"), .ant-modal button:has-text("OK")')
       .first();
     await expect(submitBtn).toBeVisible();
+    const executeResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/bindings/create/execute') &&
+        response.request().method() === 'POST',
+    );
     await submitBtn.click();
-
-    // 等待 Modal 关闭或操作完成
-    await page.waitForTimeout(2000);
+    expect((await executeResponse).status()).toBe(200);
+    await expect(page.getByText('创建成功')).toBeVisible();
   });
 
   test('查看详情', async ({ page }) => {
@@ -146,9 +147,14 @@ test.describe('OpenAPI CRUD', () => {
       .locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary')
       .first();
     await expect(confirmBtn).toBeVisible();
+    const executeResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/bindings/delete/execute') &&
+        response.request().method() === 'POST',
+    );
     await confirmBtn.click();
-
-    await page.waitForTimeout(1000);
+    expect((await executeResponse).status()).toBe(200);
+    await expect(page.getByText('删除成功')).toBeVisible();
   });
 
   test('行操作 - 封禁', async ({ page }) => {
@@ -166,8 +172,11 @@ test.describe('OpenAPI CRUD', () => {
       .locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary')
       .first();
     await expect(confirmBtn).toBeVisible();
+    const executeResponse = page.waitForResponse(
+      (response) => response.url().includes('/bindings/') && response.request().method() === 'POST',
+    );
     await confirmBtn.click();
-
-    await page.waitForTimeout(1000);
+    expect((await executeResponse).status()).toBe(200);
+    await expect(page.locator('.ant-message-success')).toBeVisible();
   });
 });

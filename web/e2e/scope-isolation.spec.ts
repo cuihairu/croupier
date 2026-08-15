@@ -6,6 +6,7 @@ import { test, expect } from '@playwright/test';
 import {
   login,
   navigateToConsole,
+  selectEnv,
   waitForPageReady,
   waitForTable,
   expectTableVisible,
@@ -31,32 +32,14 @@ test.describe('Scope 隔离', () => {
     await waitForPageReady(page);
     await waitForTable(page);
 
-    // 尝试切换环境
-    const envSelector = page
-      .locator(
-        '[data-testid="env-selector"], .ant-select:has-text("环境"), .ant-select:has-text("Env")',
-      )
-      .first();
-    const hasEnvSelector = await envSelector.isVisible().catch(() => false);
-
-    if (hasEnvSelector) {
-      await envSelector.click();
-
-      // 选择不同的环境
-      const envOption = page
-        .locator('.ant-select-item:has-text("staging"), .ant-select-item:has-text("test")')
-        .first();
-      const hasOption = await envOption.isVisible().catch(() => false);
-
-      if (hasOption) {
-        await envOption.click();
-        await page.waitForTimeout(2000);
-
-        // 验证页面重新加载
-        await waitForPageReady(page);
-        await expectTableVisible(page);
-      }
-    }
+    const listResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/bindings/list/execute') &&
+        response.request().headers()['x-env'] === 'staging',
+    );
+    await selectEnv(page, 'staging');
+    expect((await listResponse).status()).toBe(200);
+    await expectTableVisible(page);
   });
 
   test('不同环境数据不串', async ({ page }) => {
@@ -65,27 +48,24 @@ test.describe('Scope 隔离', () => {
     await waitForPageReady(page);
     await waitForTable(page);
 
-    // 记录当前数据
-    const firstEnvData = await page.locator('td').allTextContents();
+    await expect(page.getByText('玩家A')).toBeVisible();
 
-    // 切换环境
-    const envSelector = page.locator('[data-testid="env-selector"], .ant-select').first();
-    const hasEnvSelector = await envSelector.isVisible().catch(() => false);
+    const stagingResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/bindings/list/execute') &&
+        response.request().headers()['x-env'] === 'staging',
+    );
+    await selectEnv(page, 'staging');
+    expect((await stagingResponse).status()).toBe(200);
+    await expect(page.getByText('玩家A')).toBeVisible();
 
-    if (hasEnvSelector) {
-      await envSelector.click();
-      const envOption = page.locator('.ant-select-item').nth(1);
-      const hasOption = await envOption.isVisible().catch(() => false);
-
-      if (hasOption) {
-        await envOption.click();
-        await page.waitForTimeout(2000);
-        await waitForPageReady(page);
-
-        // 验证新环境的数据也加载成功
-        const secondEnvData = await page.locator('td').allTextContents();
-        expect(secondEnvData.length).toBeGreaterThan(0);
-      }
-    }
+    const defaultResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/bindings/list/execute') &&
+        response.request().headers()['x-env'] !== 'staging',
+    );
+    await selectEnv(page, 'development');
+    expect((await defaultResponse).status()).toBe(200);
+    await expect(page.getByText('玩家A')).toBeVisible();
   });
 });

@@ -22,51 +22,39 @@ test.describe('异步任务', () => {
     await navigateToConsole(page, 'reward', 'task--reward.batchGrant');
     await waitForPageReady(page);
 
-    // 填写任务参数
+    // 任务参数来自发布 PageSpec 的 schema，字段缺失必须使测试失败。
     const playerIdsInput = page
       .locator('input[name="playerIds"], textarea[name="playerIds"]')
       .first();
-    const hasPlayerIds = await playerIdsInput.isVisible().catch(() => false);
-
-    if (hasPlayerIds) {
-      await playerIdsInput.fill('1001,1002,1003');
-    }
+    await expect(playerIdsInput).toBeVisible();
+    await playerIdsInput.fill('1001,1002,1003');
 
     const rewardIdInput = page.locator('input[name="rewardId"]').first();
-    const hasRewardId = await rewardIdInput.isVisible().catch(() => false);
-
-    if (hasRewardId) {
-      await rewardIdInput.fill('100');
-    }
+    await expect(rewardIdInput).toBeVisible();
+    await rewardIdInput.fill('100');
 
     // 提交任务
     const submitBtn = page
       .locator('button:has-text("提交"), button:has-text("开始"), button:has-text("执行")')
       .first();
-    const hasSubmit = await submitBtn.isVisible().catch(() => false);
-
-    if (hasSubmit) {
-      await submitBtn.click();
-
-      // 等待任务状态更新
-      await page.waitForTimeout(3000);
-    }
+    await expect(submitBtn).toBeVisible();
+    const executeResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/bindings/start/execute') &&
+        response.request().method() === 'POST',
+    );
+    await submitBtn.click();
+    expect((await executeResponse).status()).toBe(200);
+    await expect(page.getByText('任务已提交', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/^task-/)).toBeVisible();
   });
 
   test('任务进度展示', async ({ page }) => {
     await navigateToConsole(page, 'reward', 'task--reward.batchGrant');
     await waitForPageReady(page);
 
-    // 验证表单或任务状态展示
-    const form = page.locator('.ant-form, form').first();
-    const progress = page.locator('.ant-progress, [data-testid="task-progress"]').first();
-    const timeline = page.locator('.ant-timeline, [data-testid="task-timeline"]').first();
-
-    const formVisible = await form.isVisible().catch(() => false);
-    const progressVisible = await progress.isVisible().catch(() => false);
-    const timelineVisible = await timeline.isVisible().catch(() => false);
-
-    // 至少应该有一个可见
-    expect(formVisible || progressVisible || timelineVisible).toBeTruthy();
+    await expect(page.getByRole('heading', { name: '批量发奖' })).toBeVisible();
+    await expectFormVisible(page);
+    await expect(page.getByRole('button', { name: '提交' })).toBeVisible();
   });
 });

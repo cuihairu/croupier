@@ -112,6 +112,7 @@ func TestInferIdentityFieldV3_WithResourceID(t *testing.T) {
 				`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"player_id":{"type":"integer"}}}}}}`),
 		},
 	}
+	contracts[0].ID = 1
 	inferIdentityField(sem, contracts)
 	assert.Equal(t, "player_id", sem.IdentityField)
 	assert.Equal(t, "integer", sem.IdentityFieldType)
@@ -126,11 +127,12 @@ func TestInferIdentityFieldV3_WithResourceId(t *testing.T) {
 				`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"orderId":{"type":"string"}}}}}}`),
 		},
 	}
+	contracts[0].ID = 1
 	inferIdentityField(sem, contracts)
 	assert.Equal(t, "orderId", sem.IdentityField)
 }
 
-func TestInferIdentityFieldV3_NoIDField_FallsBack(t *testing.T) {
+func TestInferIdentityFieldV3_NoIDFieldDoesNotGuess(t *testing.T) {
 	sem := &model.CapabilitySemantics{ResourceKey: "player", CollectionQueryID: 1}
 	contracts := []*model.FunctionContract{
 		{
@@ -139,8 +141,10 @@ func TestInferIdentityFieldV3_NoIDField_FallsBack(t *testing.T) {
 				`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"alpha":{"type":"string"},"beta":{"type":"integer"}}}}}}`),
 		},
 	}
+	contracts[0].ID = 1
 	inferIdentityField(sem, contracts)
-	assert.Equal(t, "alpha", sem.IdentityField)
+	assert.Empty(t, sem.IdentityField)
+	assert.Contains(t, string(sem.Diagnostics), "resource_identity_not_verifiable")
 }
 
 func TestInferIdentityFieldV3_NoCollectionQuery(t *testing.T) {

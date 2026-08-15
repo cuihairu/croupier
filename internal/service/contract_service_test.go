@@ -340,6 +340,56 @@ func TestContractService_RebuildProposalsForResourceFallsBackToStandaloneCRUDPro
 	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 }
 
+func TestContractService_RebuildProposalsForResourceRequiresVerifiableIdentity(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+	meta := FunctionMetaInput{
+		ID:          "inventory.list",
+		Version:     "1.0.0",
+		Enabled:     true,
+		Resource:    "inventory",
+		Operation:   "list",
+		Capability:  "collection_query",
+		Execution:   "sync",
+		InputSchema: `{"type":"object","properties":{"page":{"type":"integer"},"page_size":{"type":"integer"}}}`,
+	}
+
+	meta.OutputSchema = `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}},"total":{"type":"integer"}}}`
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "inventory"))
+	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "inventory"))
+	_, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "resource:inventory")
+	require.NoError(t, err)
+
+	meta.OutputSchema = `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"quantity":{"type":"integer"}}}},"total":{"type":"integer"}}}`
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "inventory"))
+	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "inventory"))
+
+	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "resource:inventory")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "stale Resource Proposal must be removed when identity is no longer verifiable")
+	standalone, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:inventory.list")
+	require.NoError(t, err)
+	assert.Equal(t, "operation", standalone.PageType)
+	assert.Equal(t, "basic", standalone.Quality)
+	semantics, err := model.NewCapabilitySemanticsModel(db).FindByScopeAndResourceKey(ctx, "demo-game", "development", "inventory")
+	require.NoError(t, err)
+	assert.Empty(t, semantics.IdentityField)
+	assert.Contains(t, string(semantics.Diagnostics), "resource_identity_not_verifiable")
+
+	meta.OutputSchema = `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}},"total":{"type":"integer"}}}`
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	require.NoError(t, service.RebuildResourceCapability(ctx, "demo-game", "development", "inventory"))
+	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "inventory"))
+
+	resourceProposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "resource:inventory")
+	require.NoError(t, err)
+	assert.Equal(t, "ready", resourceProposal.Quality)
+	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:inventory.list")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "standalone fallback must be removed after the function is consumed by a Resource Proposal")
+}
+
 func TestContractService_RebuildProposalsForResourceConsumesCRUDInResourceProposal(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()

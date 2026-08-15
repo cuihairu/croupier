@@ -614,18 +614,14 @@ func determineStatus(contracts []*model.FunctionContract, semantics *model.Capab
 	if countUnresolvedConflicts(semantics.Conflicts) > 0 {
 		return "conflict"
 	}
-	// Check if we have a complete CRUD set
-	hasQuery := false
-	hasIdentity := false
-	for _, c := range contracts {
-		if c.Capability == "collection_query" {
-			hasQuery = true
-		}
-		if c.Capability == "item_query" {
-			hasIdentity = true
+	hasCollectionContract := false
+	for _, contract := range contracts {
+		if contract != nil && contract.Capability == "collection_query" {
+			hasCollectionContract = true
+			break
 		}
 	}
-	if hasQuery && hasIdentity {
+	if hasCollectionContract && semantics.CollectionQueryID > 0 && strings.TrimSpace(semantics.IdentityField) != "" {
 		return "identified"
 	}
 	return "pending"

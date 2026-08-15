@@ -3,7 +3,7 @@
  */
 
 import { expect } from '@playwright/test';
-import type { Page, BrowserContext } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 /**
  * 登录并保存认证状态
@@ -128,12 +128,14 @@ export async function waitForTable(page: Page, timeout = 15000): Promise<void> {
  * 选择环境
  */
 export async function selectEnv(page: Page, env: string): Promise<void> {
-  const envSelector = page.locator('[data-testid="env-selector"], .ant-select').first();
-  if (await envSelector.isVisible()) {
-    await envSelector.click();
-    await page.locator(`.ant-select-item:has-text("${env}")`).click();
-    await page.waitForTimeout(1000);
-  }
+  const envSelector = page.getByTestId('env-selector');
+  await expect(envSelector).toBeVisible();
+  await envSelector.click();
+
+  const envOption = page.locator('.ant-select-item-option').filter({ hasText: env }).first();
+  await expect(envOption).toBeVisible();
+  await envOption.click();
+  await expect(envSelector).toContainText(new RegExp(env, 'i'));
 }
 
 /**
@@ -187,10 +189,5 @@ export async function expectDrawerVisible(page: Page, timeout = 10000): Promise<
  * 断言没有错误页面
  */
 export async function expectNoErrorPage(page: Page): Promise<void> {
-  const hasError = await page
-    .locator('.ant-result-error, text=加载失败, text=Error')
-    .first()
-    .isVisible()
-    .catch(() => false);
-  expect(hasError).toBeFalsy();
+  await expect(page.locator('.ant-result-error, text=加载失败')).toHaveCount(0);
 }

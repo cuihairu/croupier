@@ -161,11 +161,14 @@ export default defineConfig({
   esbuildMinifyIIFE: true,
   requestRecord: {},
   // utoo pack bundler configuration (ant-design-pro v6 default)
-  utoopack: {
-    module: {
-      rules: {},
-    },
-  },
+  utoopack:
+    process.env.PLAYWRIGHT_BUNDLER === 'webpack'
+      ? false
+      : {
+          module: {
+            rules: {},
+          },
+        },
   // Monaco editor: enable by default when dependency exists; fallback to shim if
   // not installed or explicitly disabled via DISABLE_MONACO=1.
   alias: (() => {

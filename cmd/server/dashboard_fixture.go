@@ -15,7 +15,9 @@ import (
 	"time"
 
 	agentcore "github.com/cuihairu/croupier/internal/app/agent"
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/handler"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
@@ -99,11 +101,18 @@ type DashboardFixture struct {
 	agent       *agentcore.App
 	provider    *playersProvider
 
+	scopeGameCreated       bool
+	scopeBindingCreated    bool
+	scopeAdminID           uint
+	scopeAdminPrevious     model.LastScope
+	scopeAdminScopeUpdated bool
+
 	mu       sync.Mutex
 	sdkCmd   *exec.Cmd
 	sdkFns   []FixtureSDKFunction
 	sdkCalls []fixtureSDKCall
 
+	rootCtx    context.Context
 	rootCancel context.CancelFunc
 	closed     bool
 }
@@ -230,6 +239,7 @@ func StartDashboardFixture(ctx context.Context, opts DashboardFixtureOptions) (*
 	}
 
 	rootCtx, rootCancel := context.WithCancel(context.Background())
+	f.rootCtx = rootCtx
 	f.rootCancel = rootCancel
 
 	cleanupOnError := func() {
@@ -300,6 +310,10 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 
 	svcCtx := svc.NewServiceContext(cfg)
 	wireDashboardRegistrationPipeline(svcCtx)
+	f.svcCtx = svcCtx
+	if err := f.ensureUIScope(ctx); err != nil {
+		return err
+	}
 
 	sessionStore := server.NewAgentSessionStore()
 	sessionResolver := server.NewSessionResolverAdapter(sessionStore)
@@ -311,7 +325,6 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 		svcCtx.Dispatcher.SetTaskEventQuery(dispatch.NewTaskEventQueryAdapter(taskEventModel, taskRunModel))
 		svcCtx.Dispatcher.SetTaskRunWriter(dispatch.NewTaskRunWriterAdapter(taskRunModel))
 	}
-	f.svcCtx = svcCtx
 	f.control = startControlServer(ctx, &cfg, svcCtx, sessionStore)
 	go startRegistryCleanup(ctx, svcCtx)
 
@@ -334,6 +347,73 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 			slog.Default().Error("fixture http server stopped", "error", err)
 		}
 	}()
+	return nil
+}
+
+// ensureUIScope makes the fixture's dedicated registration scope selectable
+// by the real dashboard. Registration data alone is intentionally not enough:
+// the UI only exposes scopes backed by games + game_envs metadata.
+func (f *DashboardFixture) ensureUIScope(ctx context.Context) error {
+	if f.svcCtx == nil || f.svcCtx.GameModel == nil || f.svcCtx.AdminModel == nil {
+		return fmt.Errorf("fixture scope models are unavailable")
+	}
+
+	game, err := f.svcCtx.GameModel.FindByGameIDString(ctx, f.GameID)
+	if err != nil {
+		game = &model.Game{
+			GameID:      f.GameID,
+			Name:        f.GameID,
+			AliasName:   "Real Dashboard E2E",
+			Description: "Isolated game scope owned by the real-dashboard fixture.",
+			Enabled:     true,
+			Status:      "test",
+			Color:       "#1677ff",
+		}
+		if err := game.SetEnvs([]model.GameEnv{{
+			Env:         f.Env,
+			Description: "Real dashboard E2E environment",
+			Color:       "#1677ff",
+		}}); err != nil {
+			return fmt.Errorf("encode fixture game environments: %w", err)
+		}
+		if err := f.svcCtx.GameModel.Create(ctx, game); err != nil {
+			return fmt.Errorf("create fixture game %s: %w", f.GameID, err)
+		}
+		f.scopeGameCreated = true
+	}
+
+	binding, err := f.svcCtx.GameModel.FindEnvBinding(ctx, f.GameID, f.Env)
+	if err != nil {
+		return fmt.Errorf("find fixture environment binding: %w", err)
+	}
+	if binding == nil {
+		databaseName := router.DefaultGameDBName(f.GameID, f.Env)
+		if f.svcCtx.Router != nil {
+			databaseName = f.svcCtx.Router.NameForGame(f.GameID, f.Env)
+		}
+		if err := f.svcCtx.GameModel.AddEnvBinding(
+			ctx,
+			f.GameID,
+			f.Env,
+			databaseName,
+			"Real dashboard E2E environment",
+			"#1677ff",
+		); err != nil {
+			return fmt.Errorf("create fixture environment binding: %w", err)
+		}
+		f.scopeBindingCreated = true
+	}
+
+	admin, err := f.svcCtx.AdminModel.FindByUsername(ctx, "admin")
+	if err != nil {
+		return fmt.Errorf("find fixture admin: %w", err)
+	}
+	f.scopeAdminID = admin.ID
+	f.scopeAdminPrevious = model.LastScope{GameID: admin.LastGameID, Env: admin.LastEnv}
+	if err := f.svcCtx.AdminModel.UpdateLastScope(ctx, admin.ID, f.GameID, f.Env); err != nil {
+		return fmt.Errorf("select fixture scope for admin: %w", err)
+	}
+	f.scopeAdminScopeUpdated = true
 	return nil
 }
 
@@ -471,7 +551,11 @@ func (f *DashboardFixture) ReplaceSDKFunctions(ctx context.Context, functions []
 	defer f.mu.Unlock()
 	f.stopSDKLocked()
 	f.sdkFns = functions
-	return f.startSDKLocked(ctx, functions)
+	providerCtx := f.rootCtx
+	if providerCtx == nil {
+		providerCtx = context.WithoutCancel(ctx)
+	}
+	return f.startSDKLocked(providerCtx, functions)
 }
 
 func (f *DashboardFixture) stopSDKLocked() {
@@ -598,6 +682,29 @@ func (f *DashboardFixture) CleanupScope(ctx context.Context) error {
 			return fmt.Errorf("cleanup %T: %w", m, err)
 		}
 	}
+	if f.scopeAdminScopeUpdated && f.svcCtx.AdminModel != nil {
+		if err := f.svcCtx.AdminModel.UpdateLastScope(
+			ctx,
+			f.scopeAdminID,
+			f.scopeAdminPrevious.GameID,
+			f.scopeAdminPrevious.Env,
+		); err != nil {
+			return fmt.Errorf("restore fixture admin scope: %w", err)
+		}
+		f.scopeAdminScopeUpdated = false
+	}
+	if f.scopeBindingCreated && f.svcCtx.GameModel != nil {
+		if err := f.svcCtx.GameModel.RemoveEnvBinding(ctx, f.GameID, f.Env); err != nil {
+			return fmt.Errorf("cleanup fixture environment binding: %w", err)
+		}
+		f.scopeBindingCreated = false
+	}
+	if f.scopeGameCreated {
+		if err := db.WithContext(ctx).Unscoped().Where("game_id = ?", f.GameID).Delete(&model.Game{}).Error; err != nil {
+			return fmt.Errorf("cleanup fixture game: %w", err)
+		}
+		f.scopeGameCreated = false
+	}
 	return nil
 }
 
@@ -716,6 +823,40 @@ func (f *DashboardFixture) startFixtureAPI() error {
 		default:
 			writeFixtureJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
 		}
+	})
+	mux.HandleFunc("/__fixture__/audit/page-execute", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeFixtureJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
+			return
+		}
+		if f.DB() == nil {
+			writeFixtureJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "database_unavailable"})
+			return
+		}
+		var stored audit.AuditModel
+		if err := f.DB().WithContext(r.Context()).
+			Where("event_type = ?", string(audit.EventPageExecute)).
+			Order("id DESC").
+			First(&stored).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				writeFixtureJSON(w, http.StatusNotFound, map[string]string{"error": "page_execute_audit_not_found"})
+				return
+			}
+			writeFixtureJSON(w, http.StatusInternalServerError, map[string]string{"error": "audit_query_failed", "message": err.Error()})
+			return
+		}
+		record, err := stored.ToRecord()
+		if err != nil {
+			writeFixtureJSON(w, http.StatusInternalServerError, map[string]string{"error": "audit_decode_failed", "message": err.Error()})
+			return
+		}
+		writeFixtureJSON(w, http.StatusOK, map[string]interface{}{
+			"eventType": record.EventType,
+			"outcome":   record.Outcome,
+			"gameId":    record.Resource.GameID,
+			"env":       record.Resource.Environment,
+			"details":   record.Details,
+		})
 	})
 	mux.HandleFunc("/__fixture__/provider/calls", func(w http.ResponseWriter, r *http.Request) {
 		writeFixtureJSON(w, http.StatusOK, map[string]interface{}{"calls": f.provider.calls()})

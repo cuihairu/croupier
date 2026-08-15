@@ -20,66 +20,48 @@ test.describe('OpenAPI Source', () => {
     await page.goto('/system/functions/openapi-sources');
     await waitForPageReady(page);
 
-    // 验证页面加载
-    const content = page.locator('.ant-pro-table, .ant-table, .ant-card').first();
-    await expect(content).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'OpenAPI Sources' })).toBeVisible();
+    await expect(page.getByText('Source 不是 UI，也不是自动注册')).toBeVisible();
+    await expectTableVisible(page);
   });
 
   test('上传 OpenAPI 文档', async ({ page }) => {
     await page.goto('/system/functions/openapi-sources');
     await waitForPageReady(page);
 
-    // 检查上传按钮
-    const uploadBtn = page
-      .locator('button:has-text("上传"), button:has-text("导入"), button:has-text("Upload")')
-      .first();
-    const hasUpload = await uploadBtn.isVisible().catch(() => false);
+    const uploadBtn = page.getByRole('button', { name: '上传 Source' });
+    await expect(uploadBtn).toBeVisible();
+    await uploadBtn.click();
 
-    if (hasUpload) {
-      await uploadBtn.click();
+    await expectModalVisible(page);
+    await expect(page.getByRole('dialog').getByText('不要在 OpenAPI 中写 UI')).toBeVisible();
 
-      // 等待上传对话框
-      const modal = page.locator('.ant-modal').first();
-      const drawer = page.locator('.ant-drawer').first();
-
-      const modalVisible = await modal.isVisible({ timeout: 10000 }).catch(() => false);
-      const drawerVisible = await drawer.isVisible({ timeout: 10000 }).catch(() => false);
-
-      expect(modalVisible || drawerVisible).toBeTruthy();
-
-      // 取消上传
-      const cancelBtn = page.locator('button:has-text("取"), button:has-text("Cancel")').first();
-      await expect(cancelBtn).toBeVisible();
-      await cancelBtn.click();
-    }
+    const cancelBtn = page.getByRole('dialog').getByRole('button', { name: '取消' });
+    await expect(cancelBtn).toBeVisible();
+    await cancelBtn.click();
+    await expect(page.getByRole('dialog')).toBeHidden();
   });
 
   test('Provider 绑定', async ({ page }) => {
     await page.goto('/system/functions/openapi-sources');
     await waitForPageReady(page);
 
-    // 检查绑定按钮
-    const bindBtn = page
-      .locator('button:has-text("绑定"), a:has-text("绑定"), button:has-text("Bind")')
-      .first();
-    const hasBind = await bindBtn.isVisible().catch(() => false);
+    const openBtn = page.getByRole('button', { name: '打开' }).first();
+    await expect(openBtn).toBeVisible();
+    await openBtn.click();
+    await expectDrawerVisible(page);
+    await expect(page.getByText('Operations', { exact: true })).toBeVisible();
 
-    if (hasBind) {
-      await bindBtn.click();
+    const bindBtn = page.getByRole('button', { name: '绑定', exact: true }).first();
+    await expect(bindBtn).toBeVisible();
+    await bindBtn.click();
 
-      // 等待绑定对话框
-      const modal = page.locator('.ant-modal').first();
-      const drawer = page.locator('.ant-drawer').first();
+    await expectModalVisible(page);
+    await expect(page.getByRole('dialog').getByText('当前只启用 Provider binding')).toBeVisible();
 
-      const modalVisible = await modal.isVisible({ timeout: 10000 }).catch(() => false);
-      const drawerVisible = await drawer.isVisible({ timeout: 10000 }).catch(() => false);
-
-      expect(modalVisible || drawerVisible).toBeTruthy();
-
-      // 取消绑定
-      const cancelBtn = page.locator('button:has-text("取"), button:has-text("Cancel")').first();
-      await expect(cancelBtn).toBeVisible();
-      await cancelBtn.click();
-    }
+    const cancelBtn = page.getByRole('dialog').getByRole('button', { name: '取消' });
+    await expect(cancelBtn).toBeVisible();
+    await cancelBtn.click();
+    await expect(page.getByRole('dialog')).toBeHidden();
   });
 });

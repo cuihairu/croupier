@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sort"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
@@ -400,31 +399,59 @@ func inferIdentityField(sem *model.CapabilitySemantics, contracts []*model.Funct
 	itemSchema := collectionItemSchema(sem, contracts)
 	props := schemaObjectProperty(itemSchema, "properties")
 	if len(props) == 0 {
+		setIdentityDiagnostic(sem, "resource_identity_not_verifiable", "collection item schema does not expose a verifiable resource identity")
 		return
 	}
-	candidates := []string{"id", sem.ResourceKey + "_id", sem.ResourceKey + "Id"}
-	for _, key := range candidates {
-		if raw, ok := props[key]; ok {
-			sem.IdentityField = key
-			sem.IdentityFieldType = schemaScalarType(parseJSONSchema(raw))
-			sem.IdentityPath = key
-			return
+	candidateKeys := []string{"id", sem.ResourceKey + "_id", sem.ResourceKey + "Id"}
+	type identityCandidate struct {
+		field     string
+		valueType string
+	}
+	candidates := make([]identityCandidate, 0, len(candidateKeys))
+	seen := make(map[string]struct{}, len(candidateKeys))
+	for _, key := range candidateKeys {
+		if _, duplicate := seen[key]; duplicate {
+			continue
 		}
-	}
-	keys := make([]string, 0, len(props))
-	for key := range props {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		prop := parseJSONSchema(props[key])
-		if typ := schemaScalarType(prop); typ != "" {
-			sem.IdentityField = key
-			sem.IdentityFieldType = typ
-			sem.IdentityPath = key
-			return
+		seen[key] = struct{}{}
+		raw, ok := props[key]
+		if !ok {
+			continue
 		}
+		valueType := schemaScalarType(parseJSONSchema(raw))
+		if valueType == "" {
+			continue
+		}
+		candidates = append(candidates, identityCandidate{field: key, valueType: valueType})
 	}
+	if len(candidates) == 0 {
+		setIdentityDiagnostic(sem, "resource_identity_not_verifiable", "collection item schema has no supported explicit identity field")
+		return
+	}
+	if len(candidates) > 1 {
+		setIdentityDiagnostic(sem, "resource_identity_ambiguous", "collection item schema exposes multiple identity candidates")
+		return
+	}
+	sem.IdentityField = candidates[0].field
+	sem.IdentityFieldType = candidates[0].valueType
+	sem.IdentityPath = "/" + escapeJSONPointerToken(candidates[0].field)
+}
+
+func setIdentityDiagnostic(sem *model.CapabilitySemantics, code, message string) {
+	if sem == nil {
+		return
+	}
+	sem.Diagnostics = toJSON([]spec.Diagnostic{{
+		Code:     code,
+		Severity: spec.SeverityWarning,
+		Message:  message,
+		Field:    "identityField",
+	}})
+}
+
+func escapeJSONPointerToken(token string) string {
+	token = strings.ReplaceAll(token, "~", "~0")
+	return strings.ReplaceAll(token, "/", "~1")
 }
 
 func collectionItemSchema(sem *model.CapabilitySemantics, contracts []*model.FunctionContract) map[string]json.RawMessage {
@@ -585,10 +612,8 @@ func (s *ContractService) RemoveFunctionContract(ctx context.Context, gameID, en
 	if err := s.contractModel.DeleteByScopeAndFunctionID(ctx, gameID, env, functionID); err != nil {
 		return "", fmt.Errorf("delete function contract %s: %w", functionID, err)
 	}
-	for _, pageType := range []spec.PageType{spec.PageTypeOperation, spec.PageTypeTask, spec.PageTypeReport} {
-		if err := s.proposalModel.DeleteByScopeAndKey(ctx, gameID, env, standaloneProposalKey(pageType, functionID)); err != nil {
-			return "", fmt.Errorf("delete standalone proposal for %s: %w", functionID, err)
-		}
+	if err := s.removeStandaloneProposalsForFunction(ctx, gameID, env, functionID); err != nil {
+		return "", err
 	}
 	if err := s.resolveBlockedIssue(ctx, gameID, env, resourceKey, functionID); err != nil {
 		return "", err
@@ -722,9 +747,15 @@ func (s *ContractService) upsertResourceProposal(
 ) (map[string]struct{}, error) {
 	generated, ok := generator.GenerateResourcePageProposal(semantics, contracts, generator.DefaultGenerateOptions())
 	if !ok {
+		if err := s.removeResourceProposal(ctx, gameID, env, semantics.ResourceKey); err != nil {
+			return nil, err
+		}
 		return map[string]struct{}{}, nil
 	}
 	if generator.ShouldBlockProposal(generated.Diagnostics) {
+		if err := s.removeResourceProposal(ctx, gameID, env, semantics.ResourceKey); err != nil {
+			return nil, err
+		}
 		if err := s.upsertBlockedIssue(ctx, gameID, env, semantics.ResourceKey, "", generated.Diagnostics, contracts); err != nil {
 			return nil, err
 		}
@@ -763,6 +794,9 @@ func (s *ContractService) upsertStandaloneProposals(
 		}
 		functionID := strings.TrimSpace(contract.FunctionID)
 		if _, ok := consumed[functionID]; ok {
+			if err := s.removeStandaloneProposalsForFunction(ctx, gameID, env, functionID); err != nil {
+				return err
+			}
 			continue
 		}
 		generated := generator.GenerateForOperation(OperationSpecFromContract(contract), generator.GenerateOptions{
@@ -780,6 +814,15 @@ func (s *ContractService) upsertStandaloneProposals(
 		proposalKey := standaloneProposalKey(generated.Type, contract.FunctionID)
 		if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, []*model.FunctionContract{contract}, generated); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (s *ContractService) removeStandaloneProposalsForFunction(ctx context.Context, gameID, env, functionID string) error {
+	for _, pageType := range []spec.PageType{spec.PageTypeOperation, spec.PageTypeTask, spec.PageTypeReport} {
+		if err := s.proposalModel.DeleteByScopeAndKey(ctx, gameID, env, standaloneProposalKey(pageType, functionID)); err != nil {
+			return fmt.Errorf("delete standalone proposal for %s: %w", functionID, err)
 		}
 	}
 	return nil

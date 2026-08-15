@@ -4,6 +4,53 @@ const mockWebBaseURL = process.env.MOCK_DASHBOARD_WEB_BASE_URL || 'http://localh
 const realWebBaseURL = process.env.REAL_DASHBOARD_WEB_BASE_URL || 'http://localhost:8001';
 const realServerBaseURL = process.env.REAL_DASHBOARD_SERVER_BASE_URL || 'http://localhost:28780';
 
+function selectedProjects(argv: string[]): Set<string> {
+  const result = new Set<string>();
+  argv.forEach((arg, index) => {
+    if (arg.startsWith('--project=')) {
+      result.add(arg.slice('--project='.length));
+      return;
+    }
+    if ((arg === '--project' || arg === '-p') && argv[index + 1]) {
+      result.add(argv[index + 1]);
+    }
+  });
+  return result;
+}
+
+function devServerPort(baseURL: string, fallback: number): string {
+  const url = new URL(baseURL);
+  if (url.port) return url.port;
+  return url.protocol === 'https:' ? '443' : String(fallback);
+}
+
+const requestedProjects = selectedProjects(process.argv);
+const startMockWeb = requestedProjects.size === 0 || requestedProjects.has('mock-dashboard');
+const startRealWeb = requestedProjects.size === 0 || requestedProjects.has('real-dashboard');
+
+const webServers = [
+  ...(startMockWeb
+    ? [
+        {
+          command: `cross-env PORT=${devServerPort(mockWebBaseURL, 8000)} PLAYWRIGHT_BUNDLER=webpack REACT_APP_ENV=dev MOCK=all UMI_ENV=dev max dev`,
+          url: mockWebBaseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 180000,
+        },
+      ]
+    : []),
+  ...(startRealWeb
+    ? [
+        {
+          command: `cross-env PORT=${devServerPort(realWebBaseURL, 8001)} PLAYWRIGHT_BUNDLER=webpack REACT_APP_ENV=dev MOCK=none UMI_ENV=dev CROUPIER_SERVER_BASE_URL=${realServerBaseURL} max dev`,
+          url: realWebBaseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 180000,
+        },
+      ]
+    : []),
+];
+
 export default defineConfig({
   testDir: './e2e',
   globalSetup: './e2e/helpers/globalSetup.ts',
@@ -25,6 +72,7 @@ export default defineConfig({
   projects: [
     {
       name: 'mock-dashboard',
+      testIgnore: /fixture-health\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], baseURL: mockWebBaseURL },
     },
     {
@@ -34,18 +82,5 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: realWebBaseURL },
     },
   ],
-  webServer: [
-    {
-      command: 'cross-env REACT_APP_ENV=dev MOCK=all UMI_ENV=dev max dev --port 8000',
-      url: mockWebBaseURL,
-      reuseExistingServer: !process.env.CI,
-      timeout: 180000,
-    },
-    {
-      command: `cross-env REACT_APP_ENV=dev MOCK=none UMI_ENV=dev CROUPIER_SERVER_BASE_URL=${realServerBaseURL} max dev --port 8001`,
-      url: realWebBaseURL,
-      reuseExistingServer: !process.env.CI,
-      timeout: 180000,
-    },
-  ],
+  webServer: webServers,
 });

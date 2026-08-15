@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { login, waitForPageReady, expectDrawerVisible } from './helpers';
+import { login, waitForPageReady } from './helpers';
 
 test.describe('Page Studio', () => {
   test.beforeEach(async ({ page }) => {
@@ -14,75 +14,56 @@ test.describe('Page Studio', () => {
     await page.goto('/system/functions/pages');
     await waitForPageReady(page);
 
-    // 验证页面加载 - 检查页面标题或内容
-    const content = page
-      .locator('.ant-pro-table, .ant-table, .ant-card, .ant-tabs, main, [class*="page"]')
-      .first();
-    const title = page.locator('h1, h2, h3, .ant-page-header').first();
-
-    const contentVisible = await content.isVisible().catch(() => false);
-    const titleVisible = await title.isVisible().catch(() => false);
-
-    // 页面应该有内容
-    expect(contentVisible || titleVisible).toBeTruthy();
+    await expect(page.getByRole('heading', { name: '页面工作台' })).toBeVisible();
+    await expect(page.getByText('默认页面先生成 Proposal')).toBeVisible();
+    await expect(page.getByRole('tab', { name: /可直接发布/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /需要处理/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /契约变更/ })).toBeVisible();
   });
 
   test('Proposal Inbox 展示', async ({ page }) => {
     await page.goto('/system/functions/pages');
     await waitForPageReady(page);
 
-    // 验证页面加载成功（没有错误）
-    const error = page.locator('.ant-result-error, text=加载失败, text=Error').first();
-    const hasError = await error.isVisible().catch(() => false);
-
-    // 页面应该正常加载（没有错误）
-    expect(hasError).toBeFalsy();
+    await expect(page.getByPlaceholder('搜索提案、页面或资源')).toBeVisible();
+    await expect(page.getByRole('button', { name: '刷新' }).first()).toBeVisible();
+    await expect(page.locator('.ant-result-error, text=加载失败')).toHaveCount(0);
   });
 
   test('预览功能', async ({ page }) => {
     await page.goto('/system/functions/pages');
     await waitForPageReady(page);
 
-    // 点击预览
     const previewBtn = page
       .locator('button:has-text("预览"), a:has-text("预览"), button:has-text("Preview")')
       .first();
-    const hasPreview = await previewBtn.isVisible().catch(() => false);
+    await expect(previewBtn).toBeVisible();
+    await previewBtn.click();
 
-    if (hasPreview) {
-      await previewBtn.click();
-
-      // 等待 Drawer 出现
-      await expectDrawerVisible(page);
-
-      // 关闭预览
-      await page.locator('.ant-drawer-close').first().click();
-    }
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog').getByText('默认页面预览')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
   });
 
   test('发布功能', async ({ page }) => {
     await page.goto('/system/functions/pages');
     await waitForPageReady(page);
 
-    // 点击发布
     const publishBtn = page
       .locator('button:has-text("发布"), a:has-text("发布"), button:has-text("Publish")')
       .first();
-    const hasPublish = await publishBtn.isVisible().catch(() => false);
+    await expect(publishBtn).toBeVisible();
+    await publishBtn.click();
 
-    if (hasPublish) {
-      await publishBtn.click();
-
-      // 确认发布
-      const confirmBtn = page
-        .locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary')
-        .first();
-      const hasConfirm = await confirmBtn.isVisible({ timeout: 5000 }).catch(() => false);
-
-      if (hasConfirm) {
-        await confirmBtn.click();
-        await page.waitForTimeout(2000);
-      }
-    }
+    const confirmBtn = page.locator('.ant-popconfirm .ant-btn-primary').first();
+    await expect(confirmBtn).toBeVisible();
+    const publishResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/accept-and-publish') && response.request().method() === 'POST',
+    );
+    await confirmBtn.click();
+    expect((await publishResponse).status()).toBe(200);
+    await expect(page.getByText('已直接发布')).toBeVisible();
   });
 });

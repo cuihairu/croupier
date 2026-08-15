@@ -403,16 +403,16 @@ func TestDetermineStatusV2(t *testing.T) {
 	semantics := &model.CapabilitySemantics{Conflicts: conflicts}
 	assert.Equal(t, "conflict", determineStatus(contracts, semantics))
 
-	// Contracts + semantics without conflicts, has query + identity → identified
+	// Contracts + verified semantics → identified
 	contracts2 := []*model.FunctionContract{
 		{Capability: "collection_query"},
 		{Capability: "item_query"},
 	}
-	semantics2 := &model.CapabilitySemantics{}
+	semantics2 := &model.CapabilitySemantics{CollectionQueryID: 1, IdentityField: "id"}
 	assert.Equal(t, "identified", determineStatus(contracts2, semantics2))
 
-	// Contracts + semantics, only collection_query → pending
-	assert.Equal(t, "pending", determineStatus(contracts2[:1], semantics2))
+	// A read-only collection with verified identity is already identified.
+	assert.Equal(t, "identified", determineStatus(contracts2[:1], semantics2))
 }
 
 // ---------------------------------------------------------------------------
@@ -1275,7 +1275,7 @@ func TestDetermineStatusConflictV2(t *testing.T) {
 		{Capability: "collection_query"},
 		{Capability: "item_query"},
 	}
-	semantics := &model.CapabilitySemantics{Conflicts: resolvedJSON}
+	semantics := &model.CapabilitySemantics{Conflicts: resolvedJSON, CollectionQueryID: 1, IdentityField: "id"}
 	assert.Equal(t, "identified", determineStatus(contracts, semantics))
 
 	// Unresolved conflict → conflict

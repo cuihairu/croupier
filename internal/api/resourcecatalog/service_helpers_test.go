@@ -175,7 +175,7 @@ func TestDetermineStatus(t *testing.T) {
 				{FunctionID: "player.list", Capability: "collection_query"},
 				{FunctionID: "player.get", Capability: "item_query"},
 			},
-			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[]`)},
+			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[]`), CollectionQueryID: 1, IdentityField: "id"},
 			want:      "identified",
 		},
 		{

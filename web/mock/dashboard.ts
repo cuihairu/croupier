@@ -116,26 +116,31 @@ function buildResourcePage(resourceKey: string) {
 }
 
 function buildOperationPage(functionId: string) {
+  const dangerous = functionId === 'system.dangerous-op';
   return {
     pageKey: `operation--${functionId}`,
     type: 'operation',
-    title: { 'zh-CN': '发送邮件' },
-    category: { key: 'mail', labels: { 'zh-CN': '邮件系统' } },
+    title: { 'zh-CN': dangerous ? '高风险操作' : '发送邮件' },
+    category: dangerous
+      ? { key: 'system', labels: { 'zh-CN': '系统管理' } }
+      : { key: 'mail', labels: { 'zh-CN': '邮件系统' } },
     operation: {
       form: {
         jsonSchema: {
           type: 'object',
-          properties: {
-            to: { type: 'string', title: '收件人' },
-            subject: { type: 'string', title: '主题' },
-            content: { type: 'string', title: '内容' },
-          },
-          required: ['to', 'content'],
+          properties: dangerous
+            ? { reason: { type: 'string', title: '操作原因' } }
+            : {
+                to: { type: 'string', title: '收件人' },
+                subject: { type: 'string', title: '主题' },
+                content: { type: 'string', title: '内容' },
+              },
+          required: dangerous ? ['reason'] : ['to', 'content'],
         },
       },
       confirm: {
-        title: { 'zh-CN': '确认发送' },
-        description: { 'zh-CN': '确认发送此邮件？' },
+        title: { 'zh-CN': dangerous ? '确认高风险操作' : '确认发送' },
+        description: { 'zh-CN': dangerous ? '此操作风险较高，确认继续？' : '确认发送此邮件？' },
         confirmText: { 'zh-CN': '确认' },
         bindingId: 'main',
       },
@@ -144,7 +149,26 @@ function buildOperationPage(functionId: string) {
         errorMessage: { 'zh-CN': '邮件发送失败' },
       },
     },
-    bindings: [{ id: 'main', functionId, usage: 'action', execution: { mode: 'sync' } }],
+    bindings: [
+      {
+        id: 'main',
+        functionId,
+        usage: 'action',
+        selectors: {
+          input: {
+            assignments: dangerous
+              ? [{ target: '/reason', source: { kind: 'form', path: '/reason' } }]
+              : [
+                  { target: '/to', source: { kind: 'form', path: '/to' } },
+                  { target: '/subject', source: { kind: 'form', path: '/subject' } },
+                  { target: '/content', source: { kind: 'form', path: '/content' } },
+                ],
+          },
+          output: [],
+        },
+        execution: { mode: 'sync', requireConfirm: true },
+      },
+    ],
   };
 }
 
@@ -208,7 +232,23 @@ function buildReportPage(functionId: string) {
       ],
       exportable: true,
     },
-    bindings: [{ id: 'query', functionId, usage: 'report', execution: { mode: 'sync' } }],
+    bindings: [
+      {
+        id: 'query',
+        functionId,
+        usage: 'report',
+        selectors: {
+          input: {
+            assignments: [
+              { target: '/startDate', source: { kind: 'form', path: '/startDate' } },
+              { target: '/endDate', source: { kind: 'form', path: '/endDate' } },
+            ],
+          },
+          output: [{ stateKey: 'dataset', source: '/dataset', shape: 'dataset' }],
+        },
+        execution: { mode: 'sync' },
+      },
+    ],
   };
 }
 
@@ -227,6 +267,7 @@ function mockConsolePages(): MockConsolePage[] {
     buildResourcePage('players'),
     buildResourcePage('inventory'),
     buildOperationPage('mail.send'),
+    buildOperationPage('system.dangerous-op'),
     buildTaskPage('reward.batchGrant'),
     buildReportPage('analytics.retention'),
   ];
@@ -348,8 +389,11 @@ export default {
           kind: 'sync',
           requestId: `req-${Date.now()}`,
           data: {
-            dimensions: ['2024-01-01', '2024-01-02', '2024-01-03'],
-            metrics: { retention: [0.8, 0.6, 0.4] },
+            dataset: [
+              { date: '2024-01-01', retention: 0.8 },
+              { date: '2024-01-02', retention: 0.6 },
+              { date: '2024-01-03', retention: 0.4 },
+            ],
           },
         },
       });

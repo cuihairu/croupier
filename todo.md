@@ -662,7 +662,7 @@ SDK / OpenAPI 注册 FunctionContract
 
 ### I-D. 真实 SDK、OpenAPI 与 stale 浏览器验收
 
-- [ ] `I-021` 提供可重复清理的真实 Server/Agent/Provider E2E fixture
+- [x] `I-021` 提供可重复清理的真实 Server/Agent/Provider E2E fixture
       Owner: unassigned
       Depends: [`I-007`, `I-019`]
       Scope: server integration fixture、测试 Agent/SDK、测试 OpenAPI provider、Playwright global setup/teardown。
@@ -671,7 +671,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./cmd/server -run '^TestRealDashboardFixtureHealth$' -count=1` 与 `pnpm --dir "web" exec playwright test --project=real-dashboard --grep '@fixture-health'`。
       Handoff: `I-022` 至 `I-043` 可在同一受控环境运行。
 
-- [ ] `I-022` 真实 SDK 未标注函数注册并生成 Operation Proposal
+- [x] `I-022` 真实 SDK 未标注函数注册并生成 Operation Proposal
       Owner: unassigned
       Depends: [`I-002`, `I-021`]
       Scope: SDK fixture、Server registration integration、`web/e2e/operation.spec.ts`。
@@ -680,7 +680,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/operation.spec.ts --grep '@sdk-unannotated-proposal'`。
       Handoff: `I-023` 可从真实 proposal 而非 mock 页面预览。
 
-- [ ] `I-023` 真实 SDK Operation Proposal 的预览与发布
+- [x] `I-023` 真实 SDK Operation Proposal 的预览与发布
       Owner: unassigned
       Depends: [`I-022`, `F-002`]
       Scope: `web/e2e/operation.spec.ts`, fixture API 断言。
@@ -689,7 +689,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/operation.spec.ts --grep '@sdk-operation-publish'`，断言 preview API、publish API 和 snapshot 内容。
       Handoff: `I-024` 可验证菜单与路由。
 
-- [ ] `I-024` 真实 SDK 发布后菜单和 Console 路由可达
+- [x] `I-024` 真实 SDK 发布后菜单和 Console 路由可达
       Owner: unassigned
       Depends: [`I-023`, `G-001`]
       Scope: `web/e2e/operation.spec.ts`, Console menu/route 断言。
@@ -698,7 +698,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/operation.spec.ts --grep '@sdk-operation-menu'`，断言 `/api/v1/console/menu` 的 item 与页面标题一致。
       Handoff: `I-025` 可从 published binding 执行。
 
-- [ ] `I-025` 真实 SDK Operation 执行并渲染结构化结果
+- [x] `I-025` 真实 SDK Operation 执行并渲染结构化结果
       Owner: unassigned
       Depends: [`I-024`, `G-003`]
       Scope: SDK fixture、`web/e2e/operation.spec.ts`、必要的 Console API 断言。
@@ -716,7 +716,7 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/sdk-crud.spec.ts --grep '@sdk-explicit-resource-proposal'`。
       Handoff: 证明 SDK 与 OpenAPI 以同一页面模型收敛。
 
-- [ ] `I-027` 提供符合 schema 的真实 OpenAPI `/players` provider 数据
+- [x] `I-027` 提供符合 schema 的真实 OpenAPI `/players` provider 数据
       Owner: unassigned
       Depends: [`I-021`]
       Scope: OpenAPI provider fixture、OpenAPI document fixture、fixture health tests。

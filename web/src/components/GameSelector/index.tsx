@@ -302,6 +302,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
           />
         ) : (
           <Select
+            data-testid="game-selector"
             className={styles.gameSelect}
             value={gameState}
             placeholder="选择游戏"
@@ -324,6 +325,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
           <span className={styles.emptyHint}>未配置可用环境</span>
         ) : (
           <Select
+            data-testid="env-selector"
             className={styles.envSelect}
             value={currentEnv}
             placeholder="选择环境"
