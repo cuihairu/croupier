@@ -10,6 +10,10 @@ type CodeError struct {
 	Code    int            `json:"code"`
 	Message string         `json:"message"`
 	Details map[string]any `json:"details,omitempty"`
+
+	// StableCode overrides the generic per-status error string so business
+	// errors expose a stable snake_case code (e.g. "binding_stale").
+	StableCode string `json:"-"`
 }
 
 func (e *CodeError) Error() string {
@@ -30,6 +34,9 @@ func (e *CodeError) Data() (int, interface{}) {
 
 // ErrorCode 返回错误码字符串
 func (e *CodeError) ErrorCode() string {
+	if e.StableCode != "" {
+		return e.StableCode
+	}
 	return errorCodeMap[e.Code]
 }
 
@@ -95,6 +102,17 @@ func NewConflictWithDetails(message string, details map[string]any) *CodeError {
 		Code:    http.StatusConflict,
 		Message: message,
 		Details: details,
+	}
+}
+
+// NewConflictWithCode returns a 409 error exposing a stable snake_case
+// business error code instead of the generic "conflict".
+func NewConflictWithCode(code, message string, details map[string]any) *CodeError {
+	return &CodeError{
+		Code:       http.StatusConflict,
+		Message:    message,
+		Details:    details,
+		StableCode: code,
 	}
 }
 

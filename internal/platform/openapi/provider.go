@@ -820,7 +820,9 @@ func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, reqDa
 			body = bytes.NewReader(bodyBytes)
 			contentType = ct
 		} else if len(reqData) > 0 {
-			data, _ := json.Marshal(reqData)
+			// OpenAPI semantics: parameters consumed by path/query/header
+			// addressing must not leak into the request body.
+			data, _ := json.Marshal(filterConsumedParams(apiMethod.Parameters, reqData))
 			body = bytes.NewReader(data)
 			contentType = "application/json"
 		}
@@ -929,6 +931,37 @@ func (p *Provider) getParamValue(reqData map[string]interface{}, param Parameter
 	}
 
 	return ""
+}
+
+// filterConsumedParams returns a copy of reqData without fields already
+// consumed by path/query/header parameter mappings, so auto-discovered
+// methods without an explicit request body mapping do not leak addressing
+// parameters into the JSON body.
+func filterConsumedParams(parameters []ParameterMapping, reqData map[string]interface{}) map[string]interface{} {
+	if len(reqData) == 0 {
+		return reqData
+	}
+	consumed := make(map[string]struct{}, len(parameters))
+	for _, param := range parameters {
+		from := param.From
+		if from == "" {
+			from = param.Name
+		}
+		if from != "" {
+			consumed[from] = struct{}{}
+		}
+	}
+	if len(consumed) == 0 {
+		return reqData
+	}
+	filtered := make(map[string]interface{}, len(reqData))
+	for key, value := range reqData {
+		if _, ok := consumed[key]; ok {
+			continue
+		}
+		filtered[key] = value
+	}
+	return filtered
 }
 
 // addAuth adds authentication to the request.

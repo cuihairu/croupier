@@ -208,6 +208,21 @@ test.describe('真实 SDK Operation 链路', () => {
   });
 
   test('@sdk-operation-publish 从 Inbox 预览并发布冻结快照', async ({ page }) => {
+    // 套件中 contract-change 等先行 spec 可能已发布该页面；先经 unpublish 路由
+    // 回到未发布状态，保证本测试验证完整的 Inbox 发布 UI 流程。
+    const api = await authenticatedAPI(page.request);
+    const existing = await page.request.get(
+      `${api.baseURL}/api/v1/console/pages/operation--mail.send`,
+      { headers: api.headers },
+    );
+    if (existing.status() === 200) {
+      const unpublish = await page.request.post(
+        `${api.baseURL}/api/v1/pages/operation--mail.send/unpublish`,
+        { headers: api.headers, data: {} },
+      );
+      expect(unpublish.status()).toBe(200);
+    }
+
     await login(page);
     await page.goto('/system/functions/pages');
     await waitForPageReady(page);
@@ -241,7 +256,7 @@ test.describe('真实 SDK Operation 链路', () => {
     const successDialog = page.getByRole('dialog').filter({ hasText: '已直接发布' });
     await expect(successDialog).toHaveCount(1);
     await expect(
-      successDialog.getByText(/页面 operation--mail\.send 已发布，版本 1/),
+      successDialog.getByText(/页面 operation--mail\.send 已发布，版本 \d+/),
     ).toBeVisible();
     await expectMailOperationPublished(page);
   });

@@ -707,8 +707,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/operation.spec.ts --grep '@sdk-operation-execute'`，断言 fixture 调用计数、audit binding ID 和结果字段文本。
       Handoff: 证明最小 SDK Operation 产品链路。
 
-- [ ] `I-026` 真实 SDK 显式资源能力生成 Resource Proposal
-      Owner: unassigned
+- [x] `I-026` 真实 SDK 显式资源能力生成 Resource Proposal
+      Owner: opencode
       Depends: [`I-021`, `B-004`, `C-002`]
       Scope: SDK fixture、Server registration integration、`web/e2e/sdk-crud.spec.ts`。
       Deliverable: 显式 `resource + capability` 且 identity 可验证的 SDK 合同，生成 Resource Proposal；缺必要 identity 时降级/blocked，而非名称猜测。
@@ -725,8 +725,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `go test ./cmd/server -run '^TestPlayersOpenAPIProviderFixtureContract$' -count=1`。
       Handoff: `I-028` 可真实导入与绑定该 provider。
 
-- [ ] `I-028` 从真实 OpenAPI source 导入并绑定 `/players`
-      Owner: unassigned
+- [x] `I-028` 从真实 OpenAPI source 导入并绑定 `/players`
+      Owner: opencode
       Depends: [`I-027`, `B-003`]
       Scope: OpenAPI source integration fixture、`web/e2e/openapi-source.spec.ts`。
       Deliverable: 经 OpenAPI API/界面导入文档并建立 provider binding，Server 物化对应 FunctionContract；未预置 Contract、CapabilitySemantics 或 Proposal。
@@ -734,8 +734,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-source.spec.ts --grep '@openapi-import-bind'`。
       Handoff: `I-029` 可检查生成质量。
 
-- [ ] `I-029` 真实 OpenAPI `/players` 生成 ready Resource Proposal
-      Owner: unassigned
+- [x] `I-029` 真实 OpenAPI `/players` 生成 ready Resource Proposal
+      Owner: opencode
       Depends: [`I-028`, `C-002`, `C-003`, `C-004`, `C-005`, `C-006`]
       Scope: `web/e2e/openapi-crud.spec.ts`, proposal API 断言。
       Deliverable: `/players` 的 REST 语义、identity 和 selector 通过验证后生成单一 ready `resource--players` Proposal，包含 list/detail/create/update/delete/row action binding。
@@ -743,8 +743,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-ready-proposal'`。
       Handoff: `I-030` 可发布同一个 proposal。
 
-- [ ] `I-030` 发布真实 OpenAPI Resource Proposal 并确认菜单来源
-      Owner: unassigned
+- [x] `I-030` 发布真实 OpenAPI Resource Proposal 并确认菜单来源
+      Owner: opencode
       Depends: [`I-029`, `F-002`, `G-001`]
       Scope: `web/e2e/openapi-crud.spec.ts`, Console menu API 断言。
       Deliverable: Inbox 发布 `resource--players` 后，Console 菜单包含此 published page，且没有通过 source/contract 直接生成的额外菜单项。
@@ -752,8 +752,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-resource-publish'`。
       Handoff: `I-031` 至 `I-036` 从 published Console 页面操作。
 
-- [ ] `I-031` 真实 OpenAPI 列表、分页和刷新渲染业务数据
-      Owner: unassigned
+- [x] `I-031` 真实 OpenAPI 列表、分页和刷新渲染业务数据
+      Owner: opencode
       Depends: [`I-030`, `I-016`]
       Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 调用记录。
       Deliverable: Console 列表显示 fixture 的两条 player 数据、正确 total 和分页；刷新发起新的 published list binding execute。
@@ -761,8 +761,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-list-pagination'`。
       Handoff: `I-032` 可选择真实行 identity。
 
-- [ ] `I-032` 真实 OpenAPI 详情按 row identity 获取并渲染
-      Owner: unassigned
+- [x] `I-032` 真实 OpenAPI 详情按 row identity 获取并渲染
+      Owner: opencode
       Depends: [`I-031`]
       Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 请求记录。
       Deliverable: 点击指定 player 后，detail binding 只接收该行 selector 提取的 identity，页面展示 provider 返回的详情字段。
@@ -770,8 +770,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-detail-identity'`。
       Handoff: 详情 selector 已获真实证据。
 
-- [ ] `I-033` 真实 OpenAPI create 后刷新列表
-      Owner: unassigned
+- [x] `I-033` 真实 OpenAPI create 后刷新列表
+      Owner: opencode
       Depends: [`I-031`, `E-003`]
       Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 状态。
       Deliverable: 填写生成表单创建 player，provider 持久化该记录，成功后 Console 列表出现新 identity 和名称。
@@ -779,8 +779,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-create-refresh'`。
       Handoff: `I-034` 可编辑刚创建的真实记录。
 
-- [ ] `I-034` 真实 OpenAPI update 只提交 selector identity 与可编辑字段
-      Owner: unassigned
+- [x] `I-034` 真实 OpenAPI update 只提交 selector identity 与可编辑字段
+      Owner: opencode
       Depends: [`I-033`, `E-003`]
       Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 请求断言。
       Deliverable: 更新表单不暴露 identity 输入；execute payload 包含 row selector 的 identity 和已修改字段，刷新后页面显示 provider 的更新值。
@@ -788,8 +788,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-update-selector'`。
       Handoff: CRUD 更新路径已获真实证据。
 
-- [ ] `I-035` 真实 OpenAPI delete 经确认后移除记录
-      Owner: unassigned
+- [x] `I-035` 真实 OpenAPI delete 经确认后移除记录
+      Owner: opencode
       Depends: [`I-034`, `E-003`]
       Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture 状态。
       Deliverable: 删除动作先展示生成的确认信息，确认后仅删除选中 identity，列表刷新后不再显示该记录。
@@ -797,8 +797,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-delete-confirm'`。
       Handoff: delete 治理和数据刷新已获真实证据。
 
-- [ ] `I-036` 真实 OpenAPI row action 只接收受控上下文
-      Owner: unassigned
+- [x] `I-036` 真实 OpenAPI row action 只接收受控上下文
+      Owner: opencode
       Depends: [`I-031`, `E-004`, `G-003`]
       Scope: `web/e2e/openapi-crud.spec.ts`, provider fixture/audit 断言。
       Deliverable: 对指定 player 执行 row action 时，provider 和 audit 收到 published binding ID 与 selector 派生 identity，结果反馈到该页面。
@@ -806,8 +806,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/openapi-crud.spec.ts --grep '@openapi-row-action'`。
       Handoff: OpenAPI CRUD 真实主路径完成。
 
-- [ ] `I-037` 真实重注册 schema 变化使页面进入 stale
-      Owner: unassigned
+- [x] `I-037` 真实重注册 schema 变化使页面进入 stale
+      Owner: opencode
       Depends: [`I-025`, `I-021`, `D-004`]
       Scope: SDK fixture、`web/e2e/contract-change.spec.ts`、proposal/console API 断言。
       Deliverable: 真实 Agent 对已发布 `mail.send` 更改 input 或 output schema 后，Server 生成新 proposal，published page 显示对应 schema stale diagnostic。
@@ -815,8 +815,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@schema-change-stale'`。
       Handoff: `I-038` 可验证 UI 执行拒绝。
 
-- [ ] `I-038` 真实 risk/approval 变化使页面进入 governance stale
-      Owner: unassigned
+- [x] `I-038` 真实 risk/approval 变化使页面进入 governance stale
+      Owner: opencode
       Depends: [`I-025`, `I-021`, `D-004`]
       Scope: SDK fixture、`web/e2e/contract-change.spec.ts`、console API 断言。
       Deliverable: 真实 Agent 更改已发布函数的 risk 或 approval 后，页面显示 governance/approval stale diagnostic，不能继续沿用旧治理快照。
@@ -833,8 +833,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@stale-execute-rejected'`，断言 Agent 调用计数保持不变。
       Handoff: `I-040`、`I-041` 可处理变化。
 
-- [ ] `I-040` 真实展示类变化自动合并并保留执行快照边界
-      Owner: unassigned
+- [x] `I-040` 真实展示类变化自动合并并保留执行快照边界
+      Owner: opencode
       Depends: [`I-039`, `D-005`, `F-004`]
       Scope: `web/e2e/contract-change.spec.ts`, versioning API 断言。
       Deliverable: 仅列 label/order 等安全展示字段变化时，Page Studio 显示自动合并结果；bindings/selectors/risk/permission 未被改写。
@@ -842,8 +842,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@safe-auto-merge'`。
       Handoff: `I-042` 可重新发布安全合并结果。
 
-- [ ] `I-041` 真实 identity 或 selector 变化要求人工冲突决策
-      Owner: unassigned
+- [x] `I-041` 真实 identity 或 selector 变化要求人工冲突决策
+      Owner: opencode
       Depends: [`I-039`, `D-006`, `F-004`]
       Scope: SDK/OpenAPI fixture、`web/e2e/contract-change.spec.ts`、versioning API 断言。
       Deliverable: identity、binding 或 selector 变化出现在人工冲突列表；未选择解决方案前不能发布。
@@ -851,8 +851,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@identity-conflict-manual'`。
       Handoff: `I-042` 可基于用户显式决策产生新版本。
 
-- [ ] `I-042` 真实重发布后恢复执行且使用新快照
-      Owner: unassigned
+- [x] `I-042` 真实重发布后恢复执行且使用新快照
+      Owner: opencode
       Depends: [`I-040`, `I-041`, `D-003`, `G-003`]
       Scope: `web/e2e/contract-change.spec.ts`, Agent fixture、snapshot/audit 断言。
       Deliverable: 自动合并或人工决策后的新版本发布成功，旧 stale snapshot 不再执行，新 binding snapshot 的 schema/governance 生效并可完成一次真实 execute。

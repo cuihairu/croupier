@@ -443,8 +443,8 @@ func (f *DashboardFixture) startAgent(ctx context.Context) error {
     game_id: %q
     env: %q
     config:
-      base_url: "http://%s"
-      openapi_spec: "http://%s/openapi.json"
+      baseUrl: "http://%s"
+      openapiSpec: "http://%s/openapi.json"
       timeout: "5s"
 `, f.GameID, f.Env, f.ProviderAddr, f.ProviderAddr)
 	if err := os.WriteFile(filepath.Join(agentDir, "providers.yaml"), []byte(providersYAML), 0o644); err != nil {

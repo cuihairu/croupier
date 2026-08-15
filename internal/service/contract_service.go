@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
@@ -258,6 +259,7 @@ func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contra
 		}
 	}
 	inferIdentityField(sem, contracts)
+	inferActionSemantics(sem, contracts)
 	if provenance, err := json.Marshal(tracker.GetProvenance()); err == nil {
 		sem.Provenance = provenance
 	}
@@ -266,6 +268,85 @@ func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contra
 	}
 
 	return sem
+}
+
+// inferActionSemantics derives default action subjects from action contract
+// input schemas so registered row/batch/toolbar actions can be inlined into
+// the generated ResourcePage without manual Resource Catalog edits. Actions
+// whose identity input cannot be statically verified stay standalone; the
+// generator re-validates before inlining.
+func inferActionSemantics(sem *model.CapabilitySemantics, contracts []*model.FunctionContract) {
+	if sem == nil {
+		return
+	}
+	type inferredAction struct {
+		FunctionID    string `json:"functionId"`
+		Subject       string `json:"subject"`
+		IdentityInput string `json:"identityInput,omitempty"`
+	}
+	actions := make([]inferredAction, 0)
+	for _, contract := range contracts {
+		if contract == nil || strings.TrimSpace(contract.Capability) != "action" {
+			continue
+		}
+		functionID := strings.TrimSpace(contract.FunctionID)
+		if functionID == "" {
+			continue
+		}
+		root := parseJSONSchema(contract.InputSchema)
+		props := schemaObjectProperty(root, "properties")
+		required := requiredSchemaFields(root)
+		if len(props) == 0 {
+			actions = append(actions, inferredAction{FunctionID: functionID, Subject: "none"})
+			continue
+		}
+		if len(required) == 1 {
+			field := required[0]
+			prop := parseJSONSchema(props[field])
+			if schemaScalarType(prop) != "" {
+				actions = append(actions, inferredAction{
+					FunctionID:    functionID,
+					Subject:       "resource_item",
+					IdentityInput: "/" + escapeJSONPointerToken(field),
+				})
+				continue
+			}
+			if schemaString(prop["type"]) == "array" {
+				actions = append(actions, inferredAction{
+					FunctionID:    functionID,
+					Subject:       "resource_selection",
+					IdentityInput: "/" + escapeJSONPointerToken(field),
+				})
+				continue
+			}
+		}
+		// Identity input cannot be statically verified: keep the action as a
+		// standalone operation by not registering an action semantic.
+	}
+	if len(actions) == 0 {
+		return
+	}
+	sort.Slice(actions, func(i, j int) bool { return actions[i].FunctionID < actions[j].FunctionID })
+	if raw, err := json.Marshal(actions); err == nil {
+		sem.Actions = raw
+	}
+}
+
+func requiredSchemaFields(root map[string]json.RawMessage) []string {
+	if root == nil || len(root["required"]) == 0 {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal(root["required"], &out); err != nil {
+		return nil
+	}
+	filtered := make([]string, 0, len(out))
+	for _, name := range out {
+		if strings.TrimSpace(name) != "" {
+			filtered = append(filtered, name)
+		}
+	}
+	return filtered
 }
 
 func trackSemanticBinding(tracker *normalizer.SemanticProvenanceTracker, field string, contract *model.FunctionContract) bool {

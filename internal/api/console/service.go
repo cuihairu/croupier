@@ -196,11 +196,13 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 func (s *Service) ensureBindingFresh(binding spec.PageFunctionBinding, contract spec.BindingContractSnapshot, functions map[string]spec.FunctionSpec) error {
 	diags := freshness.EvaluateBinding(binding, contract, functions)
 	if len(diags) > 0 {
-		return errorx.NewConflictWithDetails("binding_stale", map[string]any{
-			"bindingId":  binding.ID,
-			"functionId": binding.FunctionID,
-			"statuses":   bindingFreshnessStatuses(diags),
-		})
+		return errorx.NewConflictWithCode("binding_stale",
+			"页面绑定的函数契约已变化，执行已被阻断；请审阅变更并发布新版本",
+			map[string]any{
+				"bindingId":  binding.ID,
+				"functionId": binding.FunctionID,
+				"statuses":   bindingFreshnessStatuses(diags),
+			})
 	}
 	return nil
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
@@ -264,7 +265,7 @@ func TestServiceExecuteBindingWritesAuditOnBindingStale(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "binding_stale")
+	assert.Equal(t, "binding_stale", err.(*errorx.CodeError).ErrorCode())
 
 	records, total, listErr := auditStore.List(audit.AuditFilter{
 		EventType: []audit.AuditEventType{audit.EventPageExecute},
@@ -400,7 +401,7 @@ func TestServiceExecuteBindingRejectsChangedRiskOrPermission(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "binding_stale")
+	assert.Equal(t, "binding_stale", err.(*errorx.CodeError).ErrorCode())
 }
 
 func TestServicePageReturnsBindingFreshnessDiagnostics(t *testing.T) {
@@ -456,7 +457,7 @@ func TestRemovedRegisteredFunctionInvalidatesProposalAndStalesPublishedPage(t *t
 		BindingID: "player.query",
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "binding_stale")
+	assert.Equal(t, "binding_stale", err.(*errorx.CodeError).ErrorCode())
 	assert.Nil(t, caller.lastRequest)
 }
 

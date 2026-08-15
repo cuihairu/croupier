@@ -602,6 +602,12 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 	if err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(req.VersionID) == "" {
+		return nil, errorx.NewBadRequest("versionId is required")
+	}
+	if req.ExpectedDraftRevision == nil {
+		return nil, errorx.NewBadRequest("expectedDraftRevision is required")
+	}
 	versions, err := s.svcCtx.PageVersionModel.ListByScopeAndPageKey(ctx, gameID, env, req.PageKey)
 	if err != nil {
 		return nil, err

@@ -30,12 +30,12 @@ type PageDraftResponse struct {
 
 type PageSaveRequest struct {
 	PageKey       string                     `uri:"pageKey" binding:"required"`
-	DraftRevision *int                       `json:"draftRevision" binding:"required"`
-	Type          spec.PageType              `json:"type" binding:"required"`
+	DraftRevision *int                       `json:"draftRevision"`
+	Type          spec.PageType              `json:"type"`
 	ResourceKey   string                     `json:"resourceKey,omitempty"`
-	Title         map[string]string          `json:"title" binding:"required"`
+	Title         map[string]string          `json:"title"`
 	Description   map[string]string          `json:"description,omitempty"`
-	Category      spec.PageCategorySpec      `json:"category" binding:"required"`
+	Category      spec.PageCategorySpec      `json:"category"`
 	Order         int                        `json:"order,omitempty"`
 	Icon          string                     `json:"icon,omitempty"`
 	Navigation    *spec.NavigationSpec       `json:"navigation,omitempty"`
@@ -53,7 +53,7 @@ type PageSaveResponse struct {
 
 type PageRegenerateRequest struct {
 	PageKey       string `uri:"pageKey" binding:"required"`
-	DraftRevision *int   `json:"draftRevision" binding:"required"`
+	DraftRevision *int   `json:"draftRevision"`
 }
 
 type PageRegenerateResponse struct {
@@ -83,7 +83,7 @@ type PagePreviewResponse struct {
 
 type PagePublishRequest struct {
 	PageKey       string `uri:"pageKey" binding:"required"`
-	DraftRevision *int   `json:"draftRevision" binding:"required"`
+	DraftRevision *int   `json:"draftRevision"`
 }
 
 type PagePublishResponse struct {
@@ -127,8 +127,8 @@ type PageVersionDetailResponse struct {
 
 type PageRollbackRequest struct {
 	PageKey               string `uri:"pageKey" binding:"required"`
-	VersionID             string `json:"versionId" binding:"required"`
-	ExpectedDraftRevision *int   `json:"expectedDraftRevision" binding:"required"`
+	VersionID             string `json:"versionId"`
+	ExpectedDraftRevision *int   `json:"expectedDraftRevision"`
 }
 
 type PageRollbackResponse struct {

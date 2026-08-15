@@ -374,7 +374,7 @@ const (
 type MergeRequest struct {
 	GameID                string               `json:"-"`
 	Env                   string               `json:"-"`
-	PageKey               string               `json:"-"`
+	PageKey               string               `uri:"pageKey" json:"-"`
 	ExpectedDraftRevision int                  `json:"expectedDraftRevision,omitempty"`
 	Strategy              MergeStrategy        `json:"strategy"`
 	DryRun                bool                 `json:"dryRun,omitempty"`
@@ -1481,7 +1481,7 @@ func samePageSpec(left spec.PageSpec, right spec.PageSpec) bool {
 type RollbackRequest struct {
 	GameID                string `json:"-"`
 	Env                   string `json:"-"`
-	PageKey               string `json:"-"`
+	PageKey               string `uri:"pageKey" json:"-"`
 	ExpectedDraftRevision int    `json:"expectedDraftRevision"`
 	Version               int    `json:"version"`
 	Reason                string `json:"reason,omitempty"`
@@ -1689,7 +1689,7 @@ func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*R
 type RegenerateProposalRequest struct {
 	GameID  string `json:"-"`
 	Env     string `json:"-"`
-	PageKey string `json:"-"`
+	PageKey string `uri:"pageKey" json:"-"`
 	Force   bool   `json:"force,omitempty"`
 }
 
@@ -1735,7 +1735,7 @@ func (s *Service) RegenerateProposal(ctx context.Context, req *RegenerateProposa
 type RepublishRequest struct {
 	GameID  string `json:"-"`
 	Env     string `json:"-"`
-	PageKey string `json:"-"`
+	PageKey string `uri:"pageKey" json:"-"`
 	Reason  string `json:"reason,omitempty"`
 }
 

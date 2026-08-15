@@ -1403,16 +1403,117 @@ func openAPIOperationsByID(raw json.RawMessage) map[string]*openapi3.Operation {
 		if candidate.op == nil || strings.TrimSpace(candidate.op.OperationID) == "" {
 			continue
 		}
+		mergePathLevelParameters(doc.Paths.Find(candidate.path), candidate.op)
 		out[strings.TrimSpace(candidate.op.OperationID)] = candidate.op
 	}
 	return out
 }
 
+// mergePathLevelParameters appends path-item level parameters that the
+// operation does not override so request schemas see shared path params.
+func mergePathLevelParameters(pathItem *openapi3.PathItem, op *openapi3.Operation) {
+	if pathItem == nil || op == nil {
+		return
+	}
+	seen := map[string]bool{}
+	for _, paramRef := range op.Parameters {
+		if paramRef == nil || paramRef.Value == nil {
+			continue
+		}
+		seen[strings.ToLower(paramRef.Value.In+":"+paramRef.Value.Name)] = true
+	}
+	for _, paramRef := range pathItem.Parameters {
+		if paramRef == nil || paramRef.Value == nil {
+			continue
+		}
+		key := strings.ToLower(paramRef.Value.In + ":" + paramRef.Value.Name)
+		if seen[key] {
+			continue
+		}
+		op.Parameters = append(op.Parameters, paramRef)
+	}
+}
+
 func openAPIRequestSchema(op *openapi3.Operation) string {
-	if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
+	if op == nil {
 		return ""
 	}
-	return openAPIMediaSchemaJSON(op.RequestBody.Value.Content)
+	properties := map[string]json.RawMessage{}
+	required := make([]string, 0)
+	for _, paramRef := range op.Parameters {
+		if paramRef == nil || paramRef.Value == nil {
+			continue
+		}
+		param := paramRef.Value
+		if param.In != "path" && param.In != "query" {
+			continue
+		}
+		name := strings.TrimSpace(param.Name)
+		if name == "" {
+			continue
+		}
+		schemaRef := param.Schema
+		if schemaRef == nil {
+			schemaRef = &openapi3.SchemaRef{Value: openapi3.NewStringSchema()}
+		}
+		schemaJSON := json.RawMessage(openAPISchemaRefJSON(schemaRef))
+		if len(schemaJSON) == 0 {
+			continue
+		}
+		properties[name] = schemaJSON
+		if param.Required {
+			required = append(required, name)
+		}
+	}
+	bodySchema := ""
+	if op.RequestBody != nil && op.RequestBody.Value != nil {
+		bodySchema = openAPIMediaSchemaJSON(op.RequestBody.Value.Content)
+	}
+	if len(properties) == 0 {
+		return bodySchema
+	}
+	if bodySchema != "" {
+		var body map[string]interface{}
+		if err := json.Unmarshal([]byte(bodySchema), &body); err == nil {
+			if bodyProps, ok := body["properties"].(map[string]interface{}); ok {
+				for name, prop := range bodyProps {
+					raw, err := json.Marshal(prop)
+					if err == nil {
+						properties[name] = raw
+					}
+				}
+			}
+			if bodyRequired, ok := body["required"].([]interface{}); ok {
+				for _, item := range bodyRequired {
+					if name, ok := item.(string); ok {
+						required = append(required, name)
+					}
+				}
+			}
+		}
+	}
+	root := map[string]interface{}{
+		"type":       "object",
+		"properties": properties,
+	}
+	seen := map[string]bool{}
+	deduped := make([]string, 0, len(required))
+	for _, name := range required {
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		deduped = append(deduped, name)
+	}
+	sort.Strings(deduped)
+	if len(deduped) > 0 {
+		root["required"] = deduped
+	}
+	raw, err := json.Marshal(root)
+	if err != nil {
+		return ""
+	}
+	return string(raw)
 }
 
 func openAPIResponseSchema(op *openapi3.Operation) string {

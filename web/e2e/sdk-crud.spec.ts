@@ -273,11 +273,11 @@ test.describe('真实 SDK Resource Proposal 链路', () => {
     });
     expect(inventory[0].pageSpec.bindings).toEqual(
       expect.arrayContaining([
-        { id: 'list', functionId: 'inventory.list' },
-        { id: 'detail', functionId: 'inventory.get' },
-        { id: 'create', functionId: 'inventory.create' },
-        { id: 'update', functionId: 'inventory.update' },
-        { id: 'delete', functionId: 'inventory.delete' },
+        expect.objectContaining({ id: 'list', functionId: 'inventory.list' }),
+        expect.objectContaining({ id: 'detail', functionId: 'inventory.get' }),
+        expect.objectContaining({ id: 'create', functionId: 'inventory.create' }),
+        expect.objectContaining({ id: 'update', functionId: 'inventory.update' }),
+        expect.objectContaining({ id: 'delete', functionId: 'inventory.delete' }),
       ]),
     );
     expect(
