@@ -3,95 +3,145 @@
     {
       "domain": "resource",
       "key": "player",
-      "aliases": ["players", "user", "users", "role"],
+      "aliases": [
+        "players",
+        "user",
+        "users",
+        "role"
+      ],
       "displayZh": "玩家",
       "displayEn": "Player",
       "order": 10
     },
     {
+      "domain": "operation",
+      "key": "create",
+      "aliases": [
+        "add",
+        "new"
+      ],
+      "displayZh": "创建",
+      "displayEn": "Create",
+      "order": 10
+    },
+    {
       "domain": "resource",
       "key": "guild",
-      "aliases": ["clan", "alliance"],
+      "aliases": [
+        "clan",
+        "alliance"
+      ],
       "displayZh": "公会",
       "displayEn": "Guild",
       "order": 20
     },
     {
+      "domain": "operation",
+      "key": "read",
+      "aliases": [
+        "get",
+        "list",
+        "query",
+        "search",
+        "detail"
+      ],
+      "displayZh": "查询",
+      "displayEn": "Query",
+      "order": 20
+    },
+    {
       "domain": "resource",
       "key": "item",
-      "aliases": ["bag", "inventory"],
+      "aliases": [],
       "displayZh": "道具",
       "displayEn": "Item",
       "order": 30
     },
     {
+      "domain": "operation",
+      "key": "update",
+      "aliases": [
+        "edit",
+        "patch",
+        "modify"
+      ],
+      "displayZh": "更新",
+      "displayEn": "Update",
+      "order": 30
+    },
+    {
+      "domain": "resource",
+      "key": "inventory",
+      "aliases": [
+        "bag"
+      ],
+      "displayZh": "背包",
+      "displayEn": "Inventory",
+      "order": 31
+    },
+    {
       "domain": "resource",
       "key": "mail",
-      "aliases": ["message", "messages"],
+      "aliases": [
+        "message",
+        "messages"
+      ],
       "displayZh": "邮件",
       "displayEn": "Mail",
       "order": 40
     },
     {
+      "domain": "operation",
+      "key": "delete",
+      "aliases": [
+        "remove"
+      ],
+      "displayZh": "删除",
+      "displayEn": "Delete",
+      "order": 40
+    },
+    {
       "domain": "resource",
       "key": "order",
-      "aliases": ["payment", "payments", "transaction"],
+      "aliases": [
+        "payment",
+        "payments",
+        "transaction"
+      ],
       "displayZh": "订单",
       "displayEn": "Order",
       "order": 50
     },
     {
+      "domain": "operation",
+      "key": "ban",
+      "aliases": [
+        "mute",
+        "unban",
+        "unmute"
+      ],
+      "displayZh": "风控",
+      "displayEn": "Risk Control",
+      "order": 50
+    },
+    {
       "domain": "resource",
       "key": "match",
-      "aliases": ["battle", "arena"],
+      "aliases": [
+        "battle",
+        "arena"
+      ],
       "displayZh": "对局",
       "displayEn": "Match",
       "order": 60
     },
     {
       "domain": "operation",
-      "key": "create",
-      "aliases": ["add", "new"],
-      "displayZh": "创建",
-      "displayEn": "Create",
-      "order": 10
-    },
-    {
-      "domain": "operation",
-      "key": "read",
-      "aliases": ["get", "list", "query", "search", "detail"],
-      "displayZh": "查询",
-      "displayEn": "Query",
-      "order": 20
-    },
-    {
-      "domain": "operation",
-      "key": "update",
-      "aliases": ["edit", "patch", "modify"],
-      "displayZh": "更新",
-      "displayEn": "Update",
-      "order": 30
-    },
-    {
-      "domain": "operation",
-      "key": "delete",
-      "aliases": ["remove"],
-      "displayZh": "删除",
-      "displayEn": "Delete",
-      "order": 40
-    },
-    {
-      "domain": "operation",
-      "key": "ban",
-      "aliases": ["mute", "unban", "unmute"],
-      "displayZh": "风控",
-      "displayEn": "Risk Control",
-      "order": 50
-    },
-    {
-      "domain": "operation",
       "key": "execute",
-      "aliases": ["invoke", "run"],
+      "aliases": [
+        "invoke",
+        "run"
+      ],
       "displayZh": "执行",
       "displayEn": "Execute",
       "order": 60

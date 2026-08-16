@@ -86,7 +86,8 @@ func defaultTermDictionaryConfig() termDictionarySeedConfig {
 		Items: []termDictionarySeedItem{
 			{Domain: "resource", Key: "player", Aliases: []string{"players", "user", "users", "role"}, DisplayZh: "玩家", DisplayEn: "Player", Order: 10},
 			{Domain: "resource", Key: "guild", Aliases: []string{"clan", "alliance"}, DisplayZh: "公会", DisplayEn: "Guild", Order: 20},
-			{Domain: "resource", Key: "item", Aliases: []string{"bag", "inventory"}, DisplayZh: "道具", DisplayEn: "Item", Order: 30},
+			{Domain: "resource", Key: "item", Aliases: nil, DisplayZh: "道具", DisplayEn: "Item", Order: 30},
+			{Domain: "resource", Key: "inventory", Aliases: []string{"bag"}, DisplayZh: "背包", DisplayEn: "Inventory", Order: 31},
 			{Domain: "resource", Key: "mail", Aliases: []string{"message", "messages"}, DisplayZh: "邮件", DisplayEn: "Mail", Order: 40},
 			{Domain: "resource", Key: "order", Aliases: []string{"payment", "payments", "transaction"}, DisplayZh: "订单", DisplayEn: "Order", Order: 50},
 			{Domain: "resource", Key: "match", Aliases: []string{"battle", "arena"}, DisplayZh: "对局", DisplayEn: "Match", Order: 60},
