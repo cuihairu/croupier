@@ -362,10 +362,12 @@ public sealed class TCPTransport : IClientTransport
             }
         }
 
-        // Fail all pending requests
+        // Fail all pending requests with an error (NOT cancellation): callers
+        // like the heartbeat loop treat OperationCanceledException as normal
+        // shutdown and would silently exit instead of reconnecting.
         foreach (var (reqId, tcs) in _pending)
         {
-            tcs.SetCanceled(cancellationToken);
+            tcs.TrySetException(new InvalidOperationException("connection closed"));
         }
         _pending.Clear();
     }

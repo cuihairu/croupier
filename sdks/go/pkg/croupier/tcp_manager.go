@@ -412,7 +412,9 @@ func (m *TCPManager) sendHeartbeat(ctx context.Context) error {
 		return fmt.Errorf("marshal heartbeat: %w", err)
 	}
 
-	_, _, err = client.Call(ctx, protocol.MsgProviderHeartbeatRequest, reqBody)
+	hbCtx, hbCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer hbCancel()
+	_, _, err = client.Call(hbCtx, protocol.MsgProviderHeartbeatRequest, reqBody)
 	return err
 }
 

@@ -22,6 +22,11 @@ COPY --from=build /out/croupier-java-sdk.jar /app/lib/croupier-java-sdk.jar
 COPY --from=build /out/classes /app/classes
 COPY --from=build /out/lib /app/lib
 
+# The demo only ships slf4j-api; without a binding every log line is silently
+# swallowed (NOP logger), making the container look dead. Add slf4j-simple so
+# demo logs (connect/register/reconnect) are visible on stdout.
+ADD --chmod=644 https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/2.0.16/slf4j-simple-2.0.16.jar /app/lib/slf4j-simple.jar
+
 # The game-demo build occasionally bundles the SDK's own classes (io/github/.../wire)
 # into target/classes. Since the classpath puts /app/classes before the SDK jar,
 # those shadow copies would override the jar and pin stale wire encoding. Strip

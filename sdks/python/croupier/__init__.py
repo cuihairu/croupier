@@ -646,7 +646,7 @@ class CroupierClient:
                 return
             transport = self._transport
 
-        # ProviderDrainCompleteRequest body is empty (no proto definition needed).
+        # Network call outside the state lock.
         transport.call(protocol.MSG_PROVIDER_DRAIN_COMPLETE_REQUEST, b"")
         LOG.info("DrainComplete sent to Agent")
 
@@ -673,23 +673,32 @@ class CroupierClient:
                 self._recover_connection()
 
     def _send_heartbeat(self) -> None:
+        # Snapshot state under the lock, then perform the network call
+        # WITHOUT holding _state_lock: a blocked socket write must never
+        # stall every other state user (observed as a permanent futex wait
+        # on the heartbeat thread after the agent restarts).
         with self._state_lock:
             if not self._transport or not self._session_id:
                 raise RuntimeError("Client is not registered")
             transport = self._transport
-            request = provider_pb2.ProviderHeartbeatRequest(
-                service_id=self._config.service_id,
-                session_id=self._session_id,
-            )
-            req_data = request.SerializeToString()
+            session_id = self._session_id
+            service_id = self._config.service_id
+
+        request = provider_pb2.ProviderHeartbeatRequest(
+            service_id=service_id,
+            session_id=session_id,
+        )
+        req_data = request.SerializeToString()
 
         transport.call(protocol.MSG_PROVIDER_HEARTBEAT_REQUEST, req_data)
 
     def _recover_connection(self) -> None:
         while not self._heartbeat_stop.is_set():
             try:
+                # Do NOT hold _state_lock across the (blocking) dial/register
+                # network calls; only take it to publish the new state.
+                self._connect_and_register()
                 with self._state_lock:
-                    self._connect_and_register()
                     self._connected = True
                 LOG.info("Reconnected and re-registered service %s", self._config.service_id)
                 return

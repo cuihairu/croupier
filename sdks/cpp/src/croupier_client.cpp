@@ -22,6 +22,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include <optional>
 #include <unordered_map>
 
 // Logging macros with configuration support
@@ -329,6 +330,7 @@ public:
     std::string session_id_;
     std::thread heartbeat_thread_;
     std::atomic<bool> should_stop_heartbeat_{false};
+    std::optional<std::thread::id> heartbeat_thread_id_;
     std::string last_error_;
 
     // Reconnection state
@@ -612,7 +614,11 @@ public:
     void startHeartbeatLoop() {
         stopHeartbeatLoop();
         should_stop_heartbeat_ = false;
+        // detach: the heartbeat thread may run the reconnect loop, and
+        // Connect() inside it calls startHeartbeatLoop() again — a join there
+        // would self-deadlock. Ownership is tracked via heartbeat_thread_id_.
         heartbeat_thread_ = std::thread([this]() {
+            heartbeat_thread_id_ = std::this_thread::get_id();
             const auto interval = std::max(1, config_.heartbeat_interval);
             while (!should_stop_heartbeat_) {
                 for (int elapsed = 0; elapsed < interval * 10 && !should_stop_heartbeat_; ++elapsed) {
@@ -628,10 +634,51 @@ public:
                     last_error_ = e.what();
                     connected_ = false;
                     SDK_LOG_WARN("Heartbeat failed: " + last_error_);
+                    if (!should_stop_heartbeat_ && running_) {
+                        reconnectLoop();
+                    }
                     break;
                 }
             }
         });
+        heartbeat_thread_.detach();
+    }
+
+    void stopHeartbeatLoop() {
+        should_stop_heartbeat_ = true;
+        // Cannot join from the heartbeat thread itself (reconnect path calls
+        // Connect() -> startHeartbeatLoop() -> stopHeartbeatLoop()).
+        if (heartbeat_thread_.joinable()) {
+            if (heartbeat_thread_id_.has_value() &&
+                *heartbeat_thread_id_ == std::this_thread::get_id()) {
+                return;  // self-stop: thread will exit via should_stop_heartbeat_
+            }
+            heartbeat_thread_.join();
+        }
+    }
+
+    // Blocking reconnect loop used after a heartbeat/connection failure.
+    // Retries with a fixed interval until Stop() is called or the
+    // connection is re-established. Runs on the heartbeat thread.
+    void reconnectLoop() {
+        std::lock_guard<std::mutex> lock(reconnect_mutex_);
+        if (is_reconnecting_.exchange(true)) {
+            return;  // another thread is already reconnecting
+        }
+        int attempt = 0;
+        while (!should_stop_heartbeat_ && running_) {
+            ++attempt;
+            SDK_LOG_INFO("Reconnecting to agent (attempt " + std::to_string(attempt) + ")...");
+            if (Connect()) {
+                SDK_LOG_INFO("Reconnected and re-registered after " + std::to_string(attempt) + " attempt(s)");
+                is_reconnecting_ = false;
+                return;
+            }
+            for (int waited = 0; waited < 5 * 10 && !should_stop_heartbeat_ && running_; ++waited) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+        is_reconnecting_ = false;
     }
 
     void stopHeartbeatLoop() {

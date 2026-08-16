@@ -719,9 +719,17 @@ public partial class CroupierClient : IDisposable
             try
             {
                 await Task.Delay(interval, cancellationToken);
+
+                // The read loop may have marked the transport disconnected
+                // without this loop observing a failed heartbeat yet.
+                if (_transport is not { IsConnected: true })
+                {
+                    throw new InvalidOperationException("Not connected to Agent");
+                }
+
                 await SendHeartbeatAsync(cancellationToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 break;
             }
