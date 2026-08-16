@@ -42,7 +42,9 @@ public class ClientConfig {
     private String providerSdk = "croupier-java-sdk";
 
     // ========== Reconnection Configuration ==========
-    private ReconnectConfig reconnect; // Reconnection config with exponential backoff
+    // Defaults to an enabled config (infinite attempts, 1s→30s backoff) so a
+    // plain `new ClientConfig()` recovers after the agent restarts.
+    private ReconnectConfig reconnect = ReconnectConfig.builder().build();
 
     // ========== File Transfer Configuration ==========
     private boolean enableFileTransfer = false;  // Enable file transfer functionality (default: false)
