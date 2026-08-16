@@ -384,9 +384,18 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// 检查客户端是否可用，未连接时跳过本次心跳
+			// 检查客户端是否可用。断连时必须主动重连，而不是跳过心跳：
+			// 否则 client 永远停留在未连接状态，没有任何路径会恢复连接。
 			if c.client == nil || !c.client.Connected() {
-				slog.Debug("heartbeat skipped: client not connected")
+				slog.Warn("upstream disconnected, attempting re-connect and register...")
+				if dialErr := c.dialServer(ctx); dialErr != nil {
+					slog.Error("re-connect dial failed", "error", dialErr)
+				} else {
+					slog.Info("✅ re-connected and registered successfully")
+					if c.onConnected != nil {
+						c.onConnected()
+					}
+				}
 				continue
 			}
 			// 心跳调用设置超时，避免 server 关闭后一直阻塞
