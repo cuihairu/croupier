@@ -204,6 +204,20 @@ export default function ConsolePage() {
                   <Typography.Text>{item.diagnostic.message}</Typography.Text>
                 </Space>
               ))}
+              <Space size={8} style={{ marginTop: 8 }} wrap>
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={() =>
+                    history.push(`/system/functions/pages?focus=${encodeURIComponent(pageKey)}`)
+                  }
+                >
+                  前往处理（diff / 合并 / 重新发布）
+                </Button>
+                <Button size="small" onClick={() => history.push('/system/functions/pages')}>
+                  打开 Proposal Inbox
+                </Button>
+              </Space>
             </Space>
           }
         />
