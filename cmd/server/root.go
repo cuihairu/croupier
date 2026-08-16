@@ -446,11 +446,27 @@ func applyRuntimeDefaults(c *config.Config) {
 
 	// ✅ Auto-adjust timeout based on SSE configuration to prevent premature disconnection
 	validateAndAdjustTimeout(c)
+	applyStorageEnvironmentOverrides(c)
 
 	if strings.EqualFold(strings.TrimSpace(c.Storage.Driver), "file") {
 		if strings.TrimSpace(c.Storage.BaseDir) == "" {
 			c.Storage.BaseDir = filepath.Join("data", "uploads")
 		}
+	}
+}
+
+// applyStorageEnvironmentOverrides makes file storage relocatable in CI and
+// ephemeral deployments. Database overrides are resolved in svc; storage must
+// be applied here before ServiceContext initializes the object store.
+func applyStorageEnvironmentOverrides(c *config.Config) {
+	if c == nil {
+		return
+	}
+	if driver := strings.TrimSpace(os.Getenv("STORAGE_DRIVER")); driver != "" {
+		c.Storage.Driver = driver
+	}
+	if baseDir := strings.TrimSpace(os.Getenv("STORAGE_BASE_DIR")); baseDir != "" {
+		c.Storage.BaseDir = baseDir
 	}
 }
 

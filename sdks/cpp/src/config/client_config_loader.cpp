@@ -176,7 +176,7 @@ ClientConfig ClientConfigLoader::CreateDefaultConfig() {
     config.game_id = "default-game";
     config.env = "development";
     config.service_id = "cpp-service";
-    config.agent_addr = "127.0.0.1:19090";
+    config.agent_addr = "127.0.0.1:19091";
     config.provider_lang = "cpp";
     config.provider_sdk = "croupier-cpp-sdk";
     config.insecure = true;
@@ -198,7 +198,7 @@ std::string ClientConfigLoader::GenerateExampleConfig(const std::string& environ
     config["game_id"] = "your-game-id";
     config["env"] = environment;
     config["service_id"] = "backend-service-01";
-    config["agent_addr"] = "127.0.0.1:19090";
+    config["agent_addr"] = "127.0.0.1:19091";
     config["control_addr"] = "127.0.0.1:18080";
     config["timeout_seconds"] = 30;
     config["auto_reconnect"] = true;
@@ -231,7 +231,7 @@ std::string ClientConfigLoader::GenerateExampleConfig(const std::string& environ
   "env": ")" +
            environment + R"(",
   "service_id": "backend-service-01",
-  "agent_addr": "127.0.0.1:19090",
+  "agent_addr": "127.0.0.1:19091",
   "control_addr": "127.0.0.1:18080",
   "insecure": true,
   "timeout_seconds": 30,
@@ -457,7 +457,7 @@ ClientConfig ClientConfigLoader::ParseJsonToClientConfig(const nlohmann::json& c
     config.game_id = utils::JsonUtils::GetStringValue(config_json, "game_id", "default-game");
     config.env = utils::JsonUtils::GetStringValue(config_json, "env", "development");
     config.service_id = utils::JsonUtils::GetStringValue(config_json, "service_id", "");
-    config.agent_addr = utils::JsonUtils::GetStringValue(config_json, "agent_addr", "127.0.0.1:19090");
+    config.agent_addr = utils::JsonUtils::GetStringValue(config_json, "agent_addr", "127.0.0.1:19091");
     config.control_addr = utils::JsonUtils::GetStringValue(config_json, "control_addr", "");
     config.insecure = utils::JsonUtils::GetBoolValue(config_json, "insecure", true);
     config.timeout_seconds = utils::JsonUtils::GetIntValue(config_json, "timeout_seconds", 30);
@@ -508,7 +508,7 @@ ClientConfig ClientConfigLoader::ParseSimpleJsonToClientConfig(const utils::Json
     config.game_id = utils::JsonUtils::GetStringValue(config_json, "game_id", "default-game");
     config.env = utils::JsonUtils::GetStringValue(config_json, "env", "development");
     config.service_id = utils::JsonUtils::GetStringValue(config_json, "service_id", "");
-    config.agent_addr = utils::JsonUtils::GetStringValue(config_json, "agent_addr", "127.0.0.1:19090");
+    config.agent_addr = utils::JsonUtils::GetStringValue(config_json, "agent_addr", "127.0.0.1:19091");
     config.control_addr = utils::JsonUtils::GetStringValue(config_json, "control_addr", "");
     config.insecure = utils::JsonUtils::GetBoolValue(config_json, "insecure", true);
     config.timeout_seconds = utils::JsonUtils::GetIntValue(config_json, "timeout_seconds", 30);

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <atomic>
 #include <future>
 #include <thread>

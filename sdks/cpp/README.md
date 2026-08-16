@@ -26,7 +26,7 @@ cmake -B build \
 cmake --build build --parallel
 ```
 
-运行示例前请先启动 Croupier Agent，默认地址为 `127.0.0.1:19090`。
+运行示例前请先启动 Croupier Agent，本地 SDK gateway 默认地址为 `127.0.0.1:19091`。
 
 ```bash
 ./build/bin/croupier-example
@@ -51,7 +51,7 @@ int main() {
     config.game_id = "demo-game";
     config.env = "development";
     config.service_id = "cpp-provider";
-    config.agent_addr = "127.0.0.1:19090";
+    config.agent_addr = "127.0.0.1:19091";
 
     CroupierClient client(config);
 
@@ -92,12 +92,12 @@ int main() {
 
 ## 示例程序
 
-| 示例 | 说明 | 命令 |
-| --- | --- | --- |
-| `example.cpp` | 最小函数 Provider 示例 | `./build/bin/croupier-example` |
-| `game_demo.cpp` | 游戏后台函数注册示例 | `./build/bin/croupier-game-demo` |
-| `config_example.cpp` | 客户端配置示例 | `./build/bin/croupier-config-example` |
-| `plugin_demo.cpp` | 动态插件注册函数示例 | `./build/bin/croupier-plugin-demo` |
+| 示例                 | 说明                   | 命令                                  |
+| -------------------- | ---------------------- | ------------------------------------- |
+| `example.cpp`        | 最小函数 Provider 示例 | `./build/bin/croupier-example`        |
+| `game_demo.cpp`      | 游戏后台函数注册示例   | `./build/bin/croupier-game-demo`      |
+| `config_example.cpp` | 客户端配置示例         | `./build/bin/croupier-config-example` |
+| `plugin_demo.cpp`    | 动态插件注册函数示例   | `./build/bin/croupier-plugin-demo`    |
 
 ## 主要 API
 
@@ -129,13 +129,13 @@ public:
 
 ## 构建选项
 
-| 选项 | 默认值 | 说明 |
-| --- | --- | --- |
-| `BUILD_SHARED_LIBS` | `OFF` | 构建动态库 |
-| `BUILD_STATIC_LIBS` | `ON` | 构建静态库 |
-| `BUILD_EXAMPLES` | `ON` | 构建示例程序 |
-| `BUILD_TESTS` | `OFF` | 构建测试 |
-| `ENABLE_LUA_BINDING` | `OFF` | 构建 Lua/Skynet 绑定 |
+| 选项                 | 默认值 | 说明                 |
+| -------------------- | ------ | -------------------- |
+| `BUILD_SHARED_LIBS`  | `OFF`  | 构建动态库           |
+| `BUILD_STATIC_LIBS`  | `ON`   | 构建静态库           |
+| `BUILD_EXAMPLES`     | `ON`   | 构建示例程序         |
+| `BUILD_TESTS`        | `OFF`  | 构建测试             |
+| `ENABLE_LUA_BINDING` | `OFF`  | 构建 Lua/Skynet 绑定 |
 
 ## 依赖
 

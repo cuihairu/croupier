@@ -17,7 +17,7 @@ function CMD.start(address, auth_token)
         return false, "already started"
     end
 
-    server_address = address or "127.0.0.1:19090"
+    server_address = address or "127.0.0.1:19091"
     client = croupier.Client.new(server_address)
 
     if auth_token then

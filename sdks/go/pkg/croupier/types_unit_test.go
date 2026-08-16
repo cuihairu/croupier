@@ -26,8 +26,8 @@ func TestGenerateUUID(t *testing.T) {
 func TestTypes_DefaultClientConfig(t *testing.T) {
 	cfg := DefaultClientConfig()
 
-	if cfg.AgentAddr != "localhost:19090" {
-		t.Errorf("expected AgentAddr=localhost:19090, got %s", cfg.AgentAddr)
+	if cfg.AgentAddr != "localhost:19091" {
+		t.Errorf("expected AgentAddr=localhost:19091, got %s", cfg.AgentAddr)
 	}
 	if cfg.Env != "development" {
 		t.Errorf("expected Env=development, got %s", cfg.Env)

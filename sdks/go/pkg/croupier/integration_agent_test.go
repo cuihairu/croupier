@@ -12,11 +12,11 @@ import (
 )
 
 // TestIntegrationWithAgent tests real connection to croupier-agent.
-// These tests run when agent is available (detected via connection attempt).
-// They are skipped (not failed) when agent is not available.
+// These tests run only when CROUPIER_RUN_INTEGRATION_TESTS=1. In that mode a
+// missing Agent local SDK gateway is a test failure, never a false success.
 
 const (
-	defaultAgentAddr    = "localhost:19090"
+	defaultAgentAddr    = "localhost:19091"
 	connectTimeout      = 5 * time.Second
 	testServiceID       = "go-integration-test"
 	testFunctionID      = "test.ping"
@@ -30,10 +30,25 @@ func getAgentAddr() string {
 	return defaultAgentAddr
 }
 
+func integrationTestsEnabled() bool {
+	return os.Getenv("CROUPIER_RUN_INTEGRATION_TESTS") == "1"
+}
+
+func requireAgent(t *testing.T) {
+	t.Helper()
+	if !integrationTestsEnabled() {
+		t.Skip("set CROUPIER_RUN_INTEGRATION_TESTS=1 to run integration tests")
+	}
+	if !isAgentAvailable(t) {
+		t.Fatalf("croupier-agent local SDK gateway not available at %s", getAgentAddr())
+	}
+}
+
 // isAgentAvailable attempts to connect to the agent and returns true if successful
 func isAgentAvailable(t *testing.T) bool {
 	config := &ClientConfig{
 		AgentAddr:      getAgentAddr(),
+		ServiceID:      "go-sdk-integration-probe",
 		Insecure:       true,
 		TimeoutSeconds: int(connectTimeout.Seconds()),
 	}
@@ -64,9 +79,7 @@ func isAgentAvailable(t *testing.T) bool {
 
 // TestIntegrationConnectToAgent tests real connection to agent
 func TestIntegrationConnectToAgent(t *testing.T) {
-	if !isAgentAvailable(t) {
-		t.Skip("croupier-agent not available at", getAgentAddr())
-	}
+	requireAgent(t)
 
 	config := &ClientConfig{
 		AgentAddr:         getAgentAddr(),
@@ -109,9 +122,7 @@ func TestIntegrationConnectToAgent(t *testing.T) {
 
 // TestIntegrationConnectWithoutFunctions fails when no functions registered
 func TestIntegrationConnectWithoutFunctions(t *testing.T) {
-	if !isAgentAvailable(t) {
-		t.Skip("croupier-agent not available")
-	}
+	requireAgent(t)
 
 	config := &ClientConfig{
 		AgentAddr:      getAgentAddr(),
@@ -164,9 +175,7 @@ func TestIntegrationInvalidAddress(t *testing.T) {
 
 // TestIntegrationReconnect tests reconnecting after disconnect
 func TestIntegrationReconnect(t *testing.T) {
-	if !isAgentAvailable(t) {
-		t.Skip("croupier-agent not available")
-	}
+	requireAgent(t)
 
 	config := &ClientConfig{
 		AgentAddr:         getAgentAddr(),
@@ -212,9 +221,7 @@ func TestIntegrationReconnect(t *testing.T) {
 
 // TestIntegrationHeartbeat verifies heartbeat is sent
 func TestIntegrationHeartbeat(t *testing.T) {
-	if !isAgentAvailable(t) {
-		t.Skip("croupier-agent not available")
-	}
+	requireAgent(t)
 
 	config := &ClientConfig{
 		AgentAddr:         getAgentAddr(),
@@ -253,9 +260,7 @@ func TestIntegrationHeartbeat(t *testing.T) {
 
 // TestIntegrationMultipleFunctions tests registering multiple functions
 func TestIntegrationMultipleFunctions(t *testing.T) {
-	if !isAgentAvailable(t) {
-		t.Skip("croupier-agent not available")
-	}
+	requireAgent(t)
 
 	config := &ClientConfig{
 		AgentAddr:         getAgentAddr(),
@@ -321,9 +326,7 @@ func TestIntegrationMultipleFunctions(t *testing.T) {
 
 // TestIntegrationIdempotentConnect tests that multiple connect calls are safe
 func TestIntegrationIdempotentConnect(t *testing.T) {
-	if !isAgentAvailable(t) {
-		t.Skip("croupier-agent not available")
-	}
+	requireAgent(t)
 
 	config := &ClientConfig{
 		AgentAddr:         getAgentAddr(),

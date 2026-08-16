@@ -2,7 +2,7 @@ import { createClient, FunctionDescriptor, FunctionHandler } from "../src";
 
 // 创建基础客户端配置
 const config = {
-  agentAddr: "127.0.0.1:19090",
+  agentAddr: "127.0.0.1:19091",
   timeout: 30000,
   retryAttempts: 3,
 };

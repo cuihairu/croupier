@@ -545,9 +545,14 @@ class TCPTransportTest {
     @Test
     @DisplayName("Connect timeout should fail appropriately")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
-    void testConnectTimeout() {
-        // Use an unreachable IP
-        transport = new TCPTransport("192.0.2.1", 1, 1000);
+    void testConnectTimeout() throws IOException {
+        // Reserve then release a loopback port. Unlike a public test-net address,
+        // this remains deterministic when CI provides outbound network routing.
+        int closedPort;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            closedPort = reservation.getLocalPort();
+        }
+        transport = new TCPTransport("127.0.0.1", closedPort, 1000);
 
         assertThrows(RuntimeException.class, () -> transport.connect());
         assertFalse(transport.isConnected());

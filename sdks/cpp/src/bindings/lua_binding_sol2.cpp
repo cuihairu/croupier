@@ -47,7 +47,7 @@ public:
     }
 
     explicit LuaClient(const sol::table& options) {
-        config_.agent_addr = options["server"].get_or(std::string("127.0.0.1:19090"));
+        config_.agent_addr = options["server"].get_or(std::string("127.0.0.1:19091"));
         config_.service_id = options["service_id"].get_or(std::string("lua-client"));
         config_.game_id = options["game_id"].get_or(std::string("default-game"));
         config_.env = options["env"].get_or(std::string("development"));

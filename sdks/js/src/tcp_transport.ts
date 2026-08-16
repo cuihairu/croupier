@@ -18,6 +18,7 @@ import {
   createConnection,
   TcpSocketConnectOpts,
 } from "net";
+import { getResponseMsgId } from "./protocol";
 
 /** Frame constants */
 const FRAME_HEADER_BYTES = 4; // 4-byte big-endian length prefix
@@ -130,7 +131,7 @@ export class TCPTransport {
   private handler: RequestHandler | null = null;
 
   constructor(config: TCPTransportConfig = {}) {
-    this.address = config.address ?? "127.0.0.1:19090";
+    this.address = config.address ?? "127.0.0.1:19091";
     this.timeoutMs = config.timeoutMs ?? 30000;
     this.connectTimeoutMs = config.connectTimeoutMs ?? 5000;
     this.tlsEnabled = config.tlsEnabled ?? false;
@@ -162,35 +163,53 @@ export class TCPTransport {
     const port = parseInt(portStr, 10);
 
     // Create a promise that resolves when connection is established
+    let socket: Socket | null = null;
+    let timeout: NodeJS.Timeout | null = null;
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+      socket?.removeListener("connect", onConnect);
+      socket?.removeListener("error", onError);
+    };
+    const onConnect = () => {
+      cleanup();
+      if (!socket) {
+        return;
+      }
+      this.socket = socket;
+      this.connected = true;
+      this.running = true;
+      this.startReader();
+      resolveConnect?.();
+    };
+    const onError = (err: Error) => {
+      cleanup();
+      socket?.destroy();
+      rejectConnect?.(new Error(`Failed to connect to ${this.address}: ${err.message}`));
+    };
+    let resolveConnect: (() => void) | null = null;
+    let rejectConnect: ((reason?: Error) => void) | null = null;
     const connectionPromise = new Promise<void>((resolve, reject) => {
-      const socket = createConnection(
+      resolveConnect = resolve;
+      rejectConnect = reject;
+      socket = createConnection(
         { host, port, family: 4 } as TcpSocketConnectOpts,
-        () => {
-          this.socket = socket;
-          this.connected = true;
-          this.running = true;
-          this.startReader();
-          resolve();
-        },
       );
-
-      // Handle connection errors
-      socket.once("error", (err: Error) => {
-        reject(new Error(`Failed to connect to ${this.address}: ${err.message}`));
-      });
-
-      // Set read timeout (not connection timeout)
+      socket.once("connect", onConnect);
+      socket.once("error", onError);
       socket.setTimeout(this.timeoutMs);
     });
 
-    // Create a timeout promise
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+    const timeoutPromise = new Promise<void>((_, reject) => {
+      timeout = setTimeout(() => {
+        cleanup();
+        socket?.destroy();
         reject(new Error(`Connection timeout to ${this.address} after ${this.connectTimeoutMs}ms`));
       }, this.connectTimeoutMs);
     });
 
-    // Race between connection and timeout
     await Promise.race([connectionPromise, timeoutPromise]);
   }
 
@@ -261,11 +280,18 @@ export class TCPTransport {
       })();
 
       // wait for response
+      let timeout: NodeJS.Timeout | null = null;
       const timeoutPromise = new Promise<void>((_, reject) => {
-        setTimeout(() => reject(new Error("timeout")), this.timeoutMs);
+        timeout = setTimeout(() => reject(new Error("timeout")), this.timeoutMs);
       });
 
-      await Promise.race([donePromise, timeoutPromise]);
+      try {
+        await Promise.race([donePromise, timeoutPromise]);
+      } finally {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+      }
 
       if (pending.error) {
         throw pending.error;
@@ -399,9 +425,4 @@ function isResponse(msgId: number): boolean {
 /** Check if message ID is a request (odd number) */
 function isRequest(msgId: number): boolean {
   return (msgId & 0x01) === 0x01;
-}
-
-/** Get response message ID from request message ID */
-function getResponseMsgId(msgId: number): number {
-  return msgId | 0x01;
 }

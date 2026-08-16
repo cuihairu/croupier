@@ -2,7 +2,7 @@ const HotReloadableClient = require("./src/hotreload-client");
 
 // 基础配置
 const config = {
-  agentAddr: "127.0.0.1:19090",
+  agentAddr: "127.0.0.1:19091",
   autoReconnect: true,
   reconnectDelay: 5000,
   maxRetryAttempts: 5,

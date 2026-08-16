@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	agentAddr = flag.String("agent-addr", "127.0.0.1:19090", "agent local TCP address")
+	agentAddr = flag.String("agent-addr", "127.0.0.1:19091", "agent local SDK gateway address")
 	gameID    = flag.String("game-id", "", "game scope")
 	env       = flag.String("env", "", "environment scope")
 	serviceID = flag.String("service-id", "real-dashboard-sdk", "service id")

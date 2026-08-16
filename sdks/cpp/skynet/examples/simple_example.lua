@@ -2,7 +2,7 @@
 
 local skynet = require "skynet"
 
-local CROUPIER_AGENT = skynet.getenv("croupier_server") or "127.0.0.1:19090"
+local CROUPIER_AGENT = skynet.getenv("croupier_server") or "127.0.0.1:19091"
 local AUTH_TOKEN = skynet.getenv("auth_token")
 
 print("========================================")

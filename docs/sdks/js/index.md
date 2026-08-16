@@ -29,7 +29,7 @@ npm install @croupier/sdk
 import { CroupierClient } from "@croupier/sdk";
 
 const client = new CroupierClient({
-  agentAddr: "127.0.0.1:19090",
+  agentAddr: "127.0.0.1:19091",
   gameId: "my-game",
   env: "development",
   insecure: true,

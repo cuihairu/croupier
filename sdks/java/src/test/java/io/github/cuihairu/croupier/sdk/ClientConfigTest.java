@@ -19,7 +19,7 @@ class ClientConfigTest {
         assertEquals("game1", config.getGameId());
         assertEquals("svc1", config.getServiceId());
         assertEquals("development", config.getEnv());
-        assertEquals("127.0.0.1:19090", config.getAgentAddr());
+        assertEquals("127.0.0.1:19091", config.getAgentAddr());
         assertTrue(config.isInsecure());
     }
 
@@ -95,7 +95,7 @@ class ClientConfigTest {
         ClientConfig config = new ClientConfig("game3", "svc3");
 
         assertEquals("development", config.getEnv());
-        assertEquals("127.0.0.1:19090", config.getAgentAddr());
+        assertEquals("127.0.0.1:19091", config.getAgentAddr());
         assertEquals(30, config.getTimeoutSeconds());
         assertTrue(config.isInsecure());
         assertEquals("1.0.0", config.getServiceVersion());

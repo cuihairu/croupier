@@ -11,14 +11,14 @@ import (
 func TestConfigValidation_DefaultValues(t *testing.T) {
 	cfg := DefaultConfig()
 
-	if cfg.Address != "127.0.0.1:19090" {
-		t.Errorf("expected Address 127.0.0.1:19090, got %s", cfg.Address)
+	if cfg.Address != "127.0.0.1:19091" {
+		t.Errorf("expected Address 127.0.0.1:19091, got %s", cfg.Address)
 	}
 	if cfg.Host != "127.0.0.1" {
 		t.Errorf("expected Host 127.0.0.1, got %s", cfg.Host)
 	}
-	if cfg.Port != 19090 {
-		t.Errorf("expected Port 19090, got %d", cfg.Port)
+	if cfg.Port != 19091 {
+		t.Errorf("expected Port 19091, got %d", cfg.Port)
 	}
 	if !cfg.Insecure {
 		t.Error("expected Insecure true")
@@ -113,7 +113,7 @@ func TestDialAddr(t *testing.T) {
 		{
 			name:     "default config",
 			cfg:      DefaultConfig(),
-			expected: "tcp://127.0.0.1:19090",
+			expected: "tcp://127.0.0.1:19091",
 		},
 		{
 			name: "custom address",
@@ -139,7 +139,7 @@ func TestDialAddr_EmptyAddresses(t *testing.T) {
 	cfg := &Config{}
 
 	result := dialAddr(cfg)
-	if result != "tcp://127.0.0.1:19090" {
+	if result != "tcp://127.0.0.1:19091" {
 		t.Errorf("expected default address, got %s", result)
 	}
 }

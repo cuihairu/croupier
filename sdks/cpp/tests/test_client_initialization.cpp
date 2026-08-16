@@ -59,7 +59,7 @@ TEST_F(ClientInitializationTest, InitializeClientDefaultConfig) {
     // 验证默认配置已创建
     EXPECT_FALSE(config.game_id.empty());
     EXPECT_EQ(config.env, "development");
-    EXPECT_EQ(config.agent_addr, "127.0.0.1:19090");
+    EXPECT_EQ(config.agent_addr, "127.0.0.1:19091");
 
     // 创建客户端实例（不连接，仅测试构造）
     EXPECT_NO_THROW({

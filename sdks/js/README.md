@@ -64,21 +64,21 @@ Croupier Node.js SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏
 
 ## 主项目
 
-| 项目         | 描述                 | 链接                                                              |
-| ------------ | -------------------- | ----------------------------------------------------------------- |
-| **Croupier** | 游戏后端平台主项目    | [cuihairu/croupier](https://github.com/cuihairu/croupier)       |
+| 项目         | 描述               | 链接                                                      |
+| ------------ | ------------------ | --------------------------------------------------------- |
+| **Croupier** | 游戏后端平台主项目 | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
 
 ## 其他语言 SDK
 
 所有 SDK 现已整合到主 monorepo 的 `sdks/` 目录下：
 
-| 语言 | 目录 | CI | Docs |
-| --- | --- | --- | --- |
-| Go | [sdks/go/](https://github.com/cuihairu/croupier/tree/main/sdks/go) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml) | [README](../go/README.md) |
-| C++ | [sdks/cpp/](https://github.com/cuihairu/croupier/tree/main/sdks/cpp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml) | [README](../cpp/README.md) |
-| Java | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml) | [README](../java/README.md) |
+| 语言   | 目录                                                                       | CI                                                                                                                                                                    | Docs                          |
+| ------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Go     | [sdks/go/](https://github.com/cuihairu/croupier/tree/main/sdks/go)         | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml)         | [README](../go/README.md)     |
+| C++    | [sdks/cpp/](https://github.com/cuihairu/croupier/tree/main/sdks/cpp)       | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [README](../cpp/README.md)    |
+| Java   | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java)     | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [README](../java/README.md)   |
 | Python | [sdks/python/](https://github.com/cuihairu/croupier/tree/main/sdks/python) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [README](../python/README.md) |
-| C# | [sdks/csharp/](https://github.com/cuihairu/croupier/tree/main/sdks/csharp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [README](../csharp/README.md) |
+| C#     | [sdks/csharp/](https://github.com/cuihairu/croupier/tree/main/sdks/csharp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [README](../csharp/README.md) |
 
 ## 支持平台
 
@@ -130,7 +130,7 @@ pnpm run build
 import { createClient, FunctionDescriptor, FunctionHandler } from "./src";
 
 const config = {
-  agentAddr: "127.0.0.1:19090",
+  agentAddr: "127.0.0.1:19091",
   controlAddr: "127.0.0.1:19100", // 可选：上传 provider manifest
   serviceId: "inventory-service",
   serviceVersion: "1.2.3",
@@ -175,7 +175,7 @@ pnpm install
 pnpm dev
 ```
 
-示例注册三个处理器（`player.ban`、`wallet.transfer`、`shop.buy`）并记录调用日志。默认连接到 `127.0.0.1:19090` 的 Agent。
+示例注册三个处理器（`player.ban`、`wallet.transfer`、`shop.buy`）并记录调用日志。默认连接到 `127.0.0.1:19091` 的 Agent 本地 SDK gateway。
 
 ### 函数描述符
 

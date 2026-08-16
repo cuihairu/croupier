@@ -523,7 +523,7 @@ export class BasicClient implements CroupierClient {
   constructor(config: ClientConfig = {}) {
     this.config = {
       // Connection
-      agentAddr: "tcp://127.0.0.1:19090",
+      agentAddr: "tcp://127.0.0.1:19091",
       timeout: 30000,
       connectTimeout: 5000,
       controlAddr: "",

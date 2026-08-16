@@ -18,7 +18,7 @@ class ClientConfigCoverageTest {
     void defaultConstructor() {
         ClientConfig config = new ClientConfig();
 
-        assertEquals("127.0.0.1:19090", config.getAgentAddr());
+        assertEquals("127.0.0.1:19091", config.getAgentAddr());
         assertNull(config.getAgentId());
         assertNull(config.getGameId());
         assertEquals("development", config.getEnv());

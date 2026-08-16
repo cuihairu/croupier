@@ -1,7 +1,7 @@
 """
 Integration tests for Croupier Python SDK
 
-These tests require a running croupier-agent on localhost:19090.
+These tests require a running croupier-agent local SDK gateway on localhost:19091.
 They test real TCP connection, function registration, and heartbeat.
 """
 
@@ -13,8 +13,9 @@ import croupier
 import pytest
 
 # Agent address configuration
-AGENT_ADDR = os.getenv("CROUPIER_AGENT_ADDR", "127.0.0.1:19090")
+AGENT_ADDR = os.getenv("CROUPIER_AGENT_ADDR", "127.0.0.1:19091")
 INTEGRATION_TEST_TIMEOUT = 15  # seconds
+RUN_INTEGRATION_TESTS = os.getenv("CROUPIER_RUN_INTEGRATION_TESTS") == "1"
 
 
 def is_agent_available() -> bool:
@@ -31,9 +32,11 @@ def is_agent_available() -> bool:
 
 @pytest.fixture(scope="module", autouse=True)
 def check_agent() -> None:
-    """Skip all integration tests if agent is not available."""
+    """Make disabled integration tests visible and enabled tests authoritative."""
+    if not RUN_INTEGRATION_TESTS:
+        pytest.skip("set CROUPIER_RUN_INTEGRATION_TESTS=1 to run integration tests")
     if not is_agent_available():
-        pytest.skip(f"croupier-agent not available at {AGENT_ADDR}")
+        pytest.fail(f"croupier-agent local SDK gateway is unavailable at {AGENT_ADDR}")
 
 
 @pytest.mark.integration

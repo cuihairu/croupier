@@ -8,7 +8,7 @@ local croupier = require "croupier"
 print("=== Croupier SDK Lua Function Example ===")
 print("SDK Version: " .. croupier.SDK_VERSION)
 
-local client = croupier.Client.new("127.0.0.1:19090")
+local client = croupier.Client.new("127.0.0.1:19091")
 print("Client created: " .. tostring(client))
 
 local ok = client:register_function("lua.demo.echo", function(_, payload)

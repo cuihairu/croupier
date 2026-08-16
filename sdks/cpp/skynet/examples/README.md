@@ -30,29 +30,29 @@ cd /tmp/skynet/croupier-sdk
 
 ## 文件
 
-| 文件 | 说明 |
-| --- | --- |
+| 文件                 | 说明                                         |
+| -------------------- | -------------------------------------------- |
 | `simple_example.lua` | 启动服务、注册一个函数、连接 Agent、查询状态 |
-| `main.lua` | 注册多个游戏后台函数并暴露 Skynet 控制命令 |
-| `config.lua` | Skynet 配置 |
-| `start.sh` | 安装脚本 |
+| `main.lua`           | 注册多个游戏后台函数并暴露 Skynet 控制命令   |
+| `config.lua`         | Skynet 配置                                  |
+| `start.sh`           | 安装脚本                                     |
 
 ## 服务命令
 
-| 命令 | 参数 | 说明 |
-| --- | --- | --- |
-| `start` | `address, auth_token` | 创建 Croupier Provider Client |
-| `register_function` | `function_id, response_json` | 注册示例函数 |
-| `connect` | 无 | 连接 Croupier Agent |
-| `status` | 无 | 查看服务状态 |
-| `stop` | 无 | 关闭客户端 |
+| 命令                | 参数                         | 说明                          |
+| ------------------- | ---------------------------- | ----------------------------- |
+| `start`             | `address, auth_token`        | 创建 Croupier Provider Client |
+| `register_function` | `function_id, response_json` | 注册示例函数                  |
+| `connect`           | 无                           | 连接 Croupier Agent           |
+| `status`            | 无                           | 查看服务状态                  |
+| `stop`              | 无                           | 关闭客户端                    |
 
 ## 函数注册示例
 
 ```lua
 local croupier_service = skynet.newservice("croupier_service")
 
-skynet.call(croupier_service, "lua", "start", "127.0.0.1:19090")
+skynet.call(croupier_service, "lua", "start", "127.0.0.1:19091")
 skynet.call(
     croupier_service,
     "lua",

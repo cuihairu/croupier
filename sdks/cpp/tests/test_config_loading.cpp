@@ -89,7 +89,7 @@ TEST_F(ConfigLoadingTest, LoadFromFileEmptyJson) {
     EXPECT_NO_THROW({
         ClientConfig config = loader->LoadFromFile(config_file);
         // 验证默认值
-        EXPECT_EQ(config.agent_addr, "127.0.0.1:19090");
+        EXPECT_EQ(config.agent_addr, "127.0.0.1:19091");
         EXPECT_EQ(config.service_id, "cpp-service");
         EXPECT_EQ(config.env, "development");
     });

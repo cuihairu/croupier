@@ -50,9 +50,9 @@
 Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 .NET 客户端实现。支持 .NET 10+，提供两类能力：
 
 - **Provider 端（`CroupierClient`）**：注册函数、被平台调用（核心能力）
-- **Invoker 端（`CroupierInvoker`）**：作为调用方发起同步 / 异步调用（独立能力）
+- **Invoker 端（`CroupierInvoker`）**：作为调用方通过 Server HTTP API 发起同步 / 异步调用（独立能力）
 
-两者通过 **单条 TCP session**（`sdk-agent subprotocol`）与 Agent 通信，不监听本地端口。
+Provider 通过 **单条 TCP session**（`sdk-agent subprotocol`）与 Agent 通信，不监听本地端口；Invoker 则独立连接 Server HTTP API，不复用 Provider session。
 
 ## 正式文档
 
@@ -63,30 +63,30 @@ Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ## 主项目
 
-| 项目 | 描述 | 链接 |
-|------|------|------|
-| **Croupier** | 游戏后端平台主项目（包含 Proto 定义） | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
-| **Proto 文件** | 协议定义（Protobuf） | [proto/](https://github.com/cuihairu/croupier/tree/main/proto) |
+| 项目           | 描述                                  | 链接                                                           |
+| -------------- | ------------------------------------- | -------------------------------------------------------------- |
+| **Croupier**   | 游戏后端平台主项目（包含 Proto 定义） | [cuihairu/croupier](https://github.com/cuihairu/croupier)      |
+| **Proto 文件** | 协议定义（Protobuf）                  | [proto/](https://github.com/cuihairu/croupier/tree/main/proto) |
 
 ## 其他语言 SDK
 
 所有 SDK 现已整合到主 monorepo 的 `sdks/` 目录下：
 
-| 语言 | 目录 | CI | Docs |
-| --- | --- | --- | --- |
-| Go | [sdks/go/](https://github.com/cuihairu/croupier/tree/main/sdks/go) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml) | [README](../go/README.md) |
-| C++ | [sdks/cpp/](https://github.com/cuihairu/croupier/tree/main/sdks/cpp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml) | [README](../cpp/README.md) |
-| Java | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml) | [README](../java/README.md) |
-| JS/TS | [sdks/js/](https://github.com/cuihairu/croupier/tree/main/sdks/js) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml) | [README](../js/README.md) |
+| 语言   | 目录                                                                       | CI                                                                                                                                                                    | Docs                          |
+| ------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Go     | [sdks/go/](https://github.com/cuihairu/croupier/tree/main/sdks/go)         | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml)         | [README](../go/README.md)     |
+| C++    | [sdks/cpp/](https://github.com/cuihairu/croupier/tree/main/sdks/cpp)       | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [README](../cpp/README.md)    |
+| Java   | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java)     | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [README](../java/README.md)   |
+| JS/TS  | [sdks/js/](https://github.com/cuihairu/croupier/tree/main/sdks/js)         | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml)         | [README](../js/README.md)     |
 | Python | [sdks/python/](https://github.com/cuihairu/croupier/tree/main/sdks/python) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [README](../python/README.md) |
 
 ## 支持平台
 
-| 平台 | 架构 | 状态 |
-|------|------|------|
-| **Windows** | x64 | ✅ 支持 |
-| **Linux** | x64, ARM64 | ✅ 支持 |
-| **macOS** | x64, ARM64 (Apple Silicon) | ✅ 支持 |
+| 平台        | 架构                       | 状态    |
+| ----------- | -------------------------- | ------- |
+| **Windows** | x64                        | ✅ 支持 |
+| **Linux**   | x64, ARM64                 | ✅ 支持 |
+| **macOS**   | x64, ARM64 (Apple Silicon) | ✅ 支持 |
 
 ## 核心特性
 
@@ -108,8 +108,8 @@ Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 **L3 Invoker（`CroupierInvoker`，独立调用方）**
 
-- 同步调用、异步任务、结果查询
-- 独立 `InvokerConfig`，不与 Provider 共享生命周期
+- 通过 Server HTTP API 进行同步调用、异步任务、状态查询与事件轮询
+- 独立 `InvokerConfig`，不与 Provider 共享配置、DI 注册或生命周期
 
 **L4 语言/引擎扩展（仅 C# 提供）**
 
@@ -148,7 +148,7 @@ using Croupier.Sdk.Models;
 
 var config = new ClientConfig
 {
-    AgentAddr = "127.0.0.1:19090",
+    AgentAddr = "127.0.0.1:19091",
     ServiceId = "my-service",
     GameId = "my-game",
     Env = "production"
@@ -184,10 +184,16 @@ await client.ServeAsync(); // 阻塞直到停止
 
 ### Invoker 端：调用远程函数（独立能力）
 
-`CroupierInvoker` 是独立的调用方能力，不在 Provider 主流程中：
+`CroupierInvoker` 是独立的调用方能力，不在 Provider 主流程中。它需要 Server REST API 地址与调用权限的 Bearer Token：
 
 ```csharp
-var invoker = new CroupierInvoker("127.0.0.1:19090", "my-game", "production");
+var invoker = new CroupierInvoker(new InvokerConfig
+{
+    ServerBaseUrl = "https://croupier.example/api/v1",
+    AuthToken = Environment.GetEnvironmentVariable("CROUPIER_TOKEN"),
+    GameId = "my-game",
+    Env = "production"
+});
 
 var result = await invoker.InvokeAsync("player.ban", "{\"player_id\":\"123\"}");
 
@@ -199,6 +205,13 @@ else
 {
     Console.WriteLine($"Error: {result.Error}");
 }
+```
+
+若使用依赖注入，Provider 与 Invoker 必须显式、分开注册：
+
+```csharp
+services.AddCroupier(provider => provider.AgentAddr = "127.0.0.1:19091");
+services.AddCroupierInvoker(invoker => invoker.ServerBaseUrl = "https://croupier.example/api/v1");
 ```
 
 ### 完整游戏后台 Demo
@@ -240,18 +253,18 @@ var client = serviceProvider.GetRequiredService<CroupierClient>();
 
 ### 环境变量
 
-| 变量名 | 说明 | 默认值 |
-|--------|------|--------|
-| `CROUPIER_AGENT_ADDR` | Agent 地址 | 127.0.0.1:19090 |
-| `CROUPIER_SERVICE_ID` | 服务 ID | csharp-service |
-| `CROUPIER_GAME_ID` | 游戏 ID | default-game |
-| `CROUPIER_ENV` | 环境 | dev |
-| `CROUPIER_INSECURE` | 跳过 TLS 验证 | false |
-| `CROUPIER_CERT_FILE` | 客户端证书路径 | - |
-| `CROUPIER_KEY_FILE` | 客户端私钥路径 | - |
-| `CROUPIER_CA_FILE` | CA 证书路径 | - |
-| `CROUPIER_TIMEOUT_SECONDS` | 连接超时（秒） | 30 |
-| `CROUPIER_AUTO_RECONNECT` | 自动重连 | true |
+| 变量名                     | 说明                        | 默认值          |
+| -------------------------- | --------------------------- | --------------- |
+| `CROUPIER_AGENT_ADDR`      | Agent 本地 SDK gateway 地址 | 127.0.0.1:19091 |
+| `CROUPIER_SERVICE_ID`      | 服务 ID                     | csharp-service  |
+| `CROUPIER_GAME_ID`         | 游戏 ID                     | default-game    |
+| `CROUPIER_ENV`             | 环境                        | dev             |
+| `CROUPIER_INSECURE`        | 跳过 TLS 验证               | false           |
+| `CROUPIER_CERT_FILE`       | 客户端证书路径              | -               |
+| `CROUPIER_KEY_FILE`        | 客户端私钥路径              | -               |
+| `CROUPIER_CA_FILE`         | CA 证书路径                 | -               |
+| `CROUPIER_TIMEOUT_SECONDS` | 连接超时（秒）              | 30              |
+| `CROUPIER_AUTO_RECONNECT`  | 自动重连                    | true            |
 
 ### 从环境变量加载配置
 

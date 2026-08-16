@@ -11,7 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * croupier:
  *   game-id: my-game
  *   service-id: my-service
- *   agent-address: 127.0.0.1:19090
+ *   agent-address: 127.0.0.1:19091
  *   local-listen: 127.0.0.1:0
  *   env: production
  *   insecure: false
@@ -31,9 +31,9 @@ public class CroupierProperties {
     private String serviceId;
 
     /**
-     * Agent gRPC address.
+     * Agent local SDK gateway address.
      */
-    private String agentAddress = "127.0.0.1:19090";
+    private String agentAddress = "127.0.0.1:19091";
 
     /**
      * Environment: development, staging, or production.

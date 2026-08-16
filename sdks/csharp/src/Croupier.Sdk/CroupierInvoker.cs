@@ -1,122 +1,70 @@
 // Copyright 2025 Croupier Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Licensed under the Apache License, Version 2.0
 
+using System.Net;
+using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Json;
 using Croupier.Sdk.Logging;
 using Croupier.Sdk.Models;
-using Croupier.Sdk.Transport;
-using Croupier.Sdk.V1;
 using Microsoft.Extensions.Logging;
 
 namespace Croupier.Sdk;
 
 /// <summary>
-/// Croupier 调用器 - 用于调用远程注册的函数
+/// L3 调用方：通过 Server HTTP API 调用函数和管理任务。
 /// </summary>
-public class CroupierInvoker : IDisposable
+/// <remarks>
+/// Provider 使用 <see cref="CroupierClient"/> 连接 Agent 本地 SDK gateway；调用方不复用
+/// Provider session 或 <see cref="ClientConfig"/>，以避免绕过 Server 的鉴权、审计和 scope 校验。
+/// </remarks>
+public sealed class CroupierInvoker : IDisposable
 {
-    private readonly string _agentAddr;
-    private readonly string _gameId;
-    private readonly string _env;
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly InvokerConfig _config;
     private readonly ICroupierLogger _logger;
-    private readonly int _timeoutMs;
-    private readonly int _connectTimeoutMs;
-
-    private TCPTransport? _transport;
+    private readonly HttpClient _httpClient;
+    private readonly bool _ownsHttpClient;
     private bool _isDisposed;
 
-    /// <summary>
-    /// Agent 地址
-    /// </summary>
-    public string AgentAddr => _agentAddr;
+    /// <summary>调用目标的 Server REST API 基地址。</summary>
+    public string ServerBaseUrl => _config.ServerBaseUrl;
+
+    /// <summary>默认游戏作用域。</summary>
+    public string? GameId => _config.GameId;
+
+    /// <summary>默认环境作用域。</summary>
+    public string? Env => _config.Env;
 
     /// <summary>
-    /// 游戏 ID
+    /// 创建独立调用方。
     /// </summary>
-    public string GameId => _gameId;
-
-    /// <summary>
-    /// 环境
-    /// </summary>
-    public string Env => _env;
-
-    /// <summary>
-    /// 创建调用器实例
-    /// </summary>
-    /// <param name="agentAddr">Agent 地址 (e.g., "tcp://127.0.0.1:19090")</param>
-    /// <param name="gameId">游戏 ID</param>
-    /// <param name="env">环境</param>
-    /// <param name="timeoutMs">请求超时时间（毫秒）</param>
-    /// <param name="connectTimeoutMs">连接超时时间（毫秒）</param>
-    /// <param name="logger">日志记录器</param>
-    public CroupierInvoker(
-        string agentAddr = "tcp://127.0.0.1:19090",
-        string? gameId = null,
-        string? env = null,
-        int timeoutMs = 5000,
-        int connectTimeoutMs = 5000,
-        ICroupierLogger? logger = null)
+    public CroupierInvoker(InvokerConfig config, ICroupierLogger? logger = null)
+        : this(config, new HttpClient { Timeout = Timeout.InfiniteTimeSpan }, true, logger)
     {
-        _agentAddr = agentAddr;
-        _gameId = gameId ?? "default-game";
-        _env = env ?? "dev";
-        _timeoutMs = timeoutMs;
-        _connectTimeoutMs = connectTimeoutMs;
+    }
+
+    /// <summary>
+    /// 创建带 Microsoft ILogger 的独立调用方。
+    /// </summary>
+    public CroupierInvoker(InvokerConfig config, ILogger logger)
+        : this(config, new CroupierLogger(logger))
+    {
+    }
+
+    internal CroupierInvoker(InvokerConfig config, HttpClient httpClient, bool ownsHttpClient = false, ICroupierLogger? logger = null)
+    {
+        _config = NormalizeConfig(config);
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _httpClient.Timeout = Timeout.InfiniteTimeSpan;
+        _ownsHttpClient = ownsHttpClient;
         _logger = logger ?? new ConsoleCroupierLogger("Invoker");
-
-        _logger.LogInfo("CroupierInvoker", $"Invoker created for {_gameId}/{_env}");
     }
 
     /// <summary>
-    /// 从客户端配置创建调用器
+    /// 同步调用函数并返回函数结果的 JSON 文本。
     /// </summary>
-    /// <param name="config">客户端配置</param>
-    /// <param name="logger">日志记录器</param>
-    public CroupierInvoker(ClientConfig config, ICroupierLogger? logger = null)
-        : this(
-            config.AgentAddr,
-            config.GameId,
-            config.Env,
-            config.TimeoutSeconds * 1000,
-            config.ConnectTimeoutSeconds * 1000,
-            logger)
-    {
-    }
-
-    /// <summary>
-    /// 创建带 ILogger 的调用器
-    /// </summary>
-    /// <param name="agentAddr">Agent 地址</param>
-    /// <param name="gameId">游戏 ID</param>
-    /// <param name="env">环境</param>
-    /// <param name="logger">Microsoft ILogger</param>
-    public CroupierInvoker(
-        string agentAddr,
-        string gameId,
-        string env,
-        ILogger logger)
-        : this(agentAddr, gameId, env, 5000, 5000, new CroupierLogger(logger))
-    {
-    }
-
-    /// <summary>
-    /// 调用远程函数
-    /// </summary>
-    /// <param name="functionId">函数 ID（格式: category.entity.operation）</param>
-    /// <param name="payload">请求负载（JSON 字符串）</param>
-    /// <param name="options">调用选项</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>调用结果</returns>
     public async Task<InvokeResult> InvokeAsync(
         string functionId,
         string payload,
@@ -124,369 +72,444 @@ public class CroupierInvoker : IDisposable
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-
-        if (string.IsNullOrWhiteSpace(functionId))
-            throw new ArgumentException("Function ID cannot be empty", nameof(functionId));
-
-        if (payload == null)
-            throw new ArgumentNullException(nameof(payload));
-
-        options ??= new InvokeOptions
-        {
-            GameId = _gameId,
-            Env = _env
-        };
-
-        var startTime = DateTime.UtcNow;
+        ValidateFunctionAndPayload(functionId, payload);
+        var startedAt = DateTime.UtcNow;
 
         try
         {
-            _logger.LogDebug("CroupierInvoker", $"Invoking {functionId}");
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri($"functions/{Uri.EscapeDataString(functionId)}/invoke"));
+            request.Content = CreateJsonContent(new { @params = ParseJson(payload) });
+            ApplyHeaders(request, options);
 
-            // Ensure transport is connected
-            EnsureTransportConnected();
+            using var response = await SendAsync(request, options, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, content);
 
-            // Build protobuf request
-            var request = new InvokeRequest
-            {
-                FunctionId = functionId,
-                Payload = Google.Protobuf.ByteString.CopyFromUtf8(payload)
-            };
-
-            if (!string.IsNullOrEmpty(options.IdempotencyKey))
-            {
-                request.IdempotencyKey = options.IdempotencyKey;
-            }
-
-            if (options.Metadata != null)
-            {
-                foreach (var kvp in options.Metadata)
-                {
-                    request.Metadata.Add(kvp.Key, kvp.Value);
-                }
-            }
-
-            // Serialize and send via TCP
-            var requestData = request.ToByteArray();
-            var responseData = await _transport!.CallAsync(
-                Protocol.MsgInvokeRequest,
-                requestData,
-                cancellationToken);
-
-            // Parse response
-            var response = InvokeResponse.Parser.ParseFrom(responseData);
-            var resultPayload = response.Payload.ToStringUtf8();
-
-            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
-
-            _logger.LogDebug("CroupierInvoker", $"Invoke {functionId} completed ({duration}ms)");
-
-            return InvokeResult.Succeeded(resultPayload, duration);
+            return InvokeResult.Succeeded(ExtractResult(content), ElapsedMilliseconds(startedAt));
         }
         catch (OperationCanceledException)
         {
-            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
-            _logger.LogWarning("CroupierInvoker", $"Invoke {functionId} canceled");
-            return InvokeResult.Failed("Operation canceled", "CANCELED", duration);
+            return InvokeResult.Failed("Operation canceled", "CANCELED", ElapsedMilliseconds(startedAt));
         }
         catch (Exception ex)
         {
-            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
             _logger.LogError("CroupierInvoker", $"Invoke {functionId} failed: {ex.Message}", ex);
-            return InvokeResult.Failed(ex.Message, null, duration);
+            return InvokeResult.Failed(ex.Message, null, ElapsedMilliseconds(startedAt));
         }
     }
 
     /// <summary>
-    /// Ensure transport is connected.
+    /// 批量调用函数。每个请求保留独立的幂等键。
     /// </summary>
-    private void EnsureTransportConnected()
-    {
-        if (_transport == null)
-        {
-            _transport = new TCPTransport(_agentAddr, _timeoutMs, _connectTimeoutMs, _logger);
-            _transport.Connect();
-        }
-        else if (!_transport.IsConnected)
-        {
-            _transport.Connect();
-        }
-    }
-
-    /// <summary>
-    /// 批量调用多个函数
-    /// </summary>
-    /// <param name="requests">请求列表</param>
-    /// <param name="options">调用选项</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>调用结果列表</returns>
     public async Task<List<InvokeResult>> BatchInvokeAsync(
         List<BatchInvokeRequest> requests,
         InvokeOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-
-        if (requests == null)
-            throw new ArgumentNullException(nameof(requests));
-
+        ArgumentNullException.ThrowIfNull(requests);
         if (requests.Count == 0)
+        {
             throw new ArgumentException("Requests list cannot be empty", nameof(requests));
+        }
 
-        _logger.LogDebug("CroupierInvoker", $"Batch invoking {requests.Count} functions");
-
-        var results = new List<InvokeResult>();
-        var tasks = requests.Select(r =>
-            InvokeAsync(r.FunctionId, r.Payload, options, cancellationToken));
-
-        var invokeResults = await Task.WhenAll(tasks);
-        results.AddRange(invokeResults);
-
-        return results;
+        var calls = requests.Select(request => InvokeAsync(
+            request.FunctionId,
+            request.Payload,
+            MergeOptions(options, request.IdempotencyKey),
+            cancellationToken));
+        return (await Task.WhenAll(calls).ConfigureAwait(false)).ToList();
     }
 
     /// <summary>
-    /// 启动异步任务（不需要等待响应的调用）
+    /// 启动异步任务并返回 Server 分配的任务 ID。
     /// </summary>
-    /// <param name="functionId">函数 ID</param>
-    /// <param name="payload">请求负载</param>
-    /// <param name="options">调用选项</param>
-    /// <returns>任务 ID</returns>
     public async Task<string> StartTaskAsync(
         string functionId,
         string payload,
-        InvokeOptions? options = null)
-    {
-        ThrowIfDisposed();
-
-        if (string.IsNullOrWhiteSpace(functionId))
-            throw new ArgumentException("Function ID cannot be empty", nameof(functionId));
-
-        if (payload == null)
-            throw new ArgumentNullException(nameof(payload));
-
-        options ??= new InvokeOptions
-        {
-            GameId = _gameId,
-            Env = _env
-        };
-
-        _logger.LogDebug("CroupierInvoker", $"Starting task: {functionId}");
-
-        // Ensure transport is connected
-        EnsureTransportConnected();
-
-        // Build protobuf request
-        var request = new InvokeRequest
-        {
-            FunctionId = functionId,
-            Payload = Google.Protobuf.ByteString.CopyFromUtf8(payload)
-        };
-
-        if (!string.IsNullOrEmpty(options.IdempotencyKey))
-        {
-            request.IdempotencyKey = options.IdempotencyKey;
-        }
-
-        // Send via TCP
-        var requestData = request.ToByteArray();
-        var responseData = await _transport!.CallAsync(
-            Protocol.MsgStartTaskRequest,
-            requestData);
-
-        // Parse response
-        var response = StartTaskResponse.Parser.ParseFrom(responseData);
-        _logger.LogInfo("CroupierInvoker", $"Task started: {response.TaskId}");
-
-        return response.TaskId;
-    }
-
-    /// <summary>
-    /// 取消正在运行的任务
-    /// </summary>
-    /// <param name="taskId">任务 ID</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>是否成功取消</returns>
-    public async Task<bool> CancelTaskAsync(
-        string taskId,
+        InvokeOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
+        ValidateFunctionAndPayload(functionId, payload);
 
-        if (string.IsNullOrWhiteSpace(taskId))
-            throw new ArgumentException("Task ID cannot be empty", nameof(taskId));
-
-        _logger.LogDebug("CroupierInvoker", $"Canceling task: {taskId}");
-
-        // Ensure transport is connected
-        EnsureTransportConnected();
-
-        // Build protobuf request
-        var request = new CancelTaskRequest
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri("tasks"));
+        request.Content = CreateJsonContent(new
         {
-            TaskId = taskId
+            functionId,
+            @params = ParseJson(payload),
+            gameId = ResolveGameId(options),
+            env = ResolveEnv(options),
+        });
+        ApplyHeaders(request, options);
+
+        using var response = await SendAsync(request, options, cancellationToken).ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        EnsureSuccess(response, content);
+
+        using var document = JsonDocument.Parse(content);
+        if (!document.RootElement.TryGetProperty("taskId", out var taskId) || string.IsNullOrWhiteSpace(taskId.GetString()))
+        {
+            throw new InvalidOperationException("Server did not return a taskId");
+        }
+        return taskId.GetString()!;
+    }
+
+    /// <summary>
+    /// 取消任务。Server 接受后才返回 <c>true</c>。
+    /// </summary>
+    public async Task<bool> CancelTaskAsync(string taskId, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ValidateTaskId(taskId);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri($"tasks/{Uri.EscapeDataString(taskId)}/cancel"))
+        {
+            Content = CreateJsonContent(new { }),
         };
+        ApplyHeaders(request, null);
 
-        // Send via TCP
-        var requestData = request.ToByteArray();
-        await _transport!.CallAsync(
-            Protocol.MsgCancelTaskRequest,
-            requestData,
-            cancellationToken);
-
-        _logger.LogInfo("CroupierInvoker", $"Task canceled: {taskId}");
+        using var response = await SendAsync(request, null, cancellationToken).ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        EnsureSuccess(response, content);
         return true;
     }
 
     /// <summary>
-    /// 获取任务状态
+    /// 获取任务当前状态。
     /// </summary>
-    /// <param name="taskId">任务 ID</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>任务状态</returns>
-    public async Task<TaskStatus?> GetTaskStatusAsync(
-        string taskId,
-        CancellationToken cancellationToken = default)
+    public async Task<TaskStatus> GetTaskStatusAsync(string taskId, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
+        ValidateTaskId(taskId);
 
-        if (string.IsNullOrWhiteSpace(taskId))
-            throw new ArgumentException("Task ID cannot be empty", nameof(taskId));
+        using var request = new HttpRequestMessage(HttpMethod.Get, BuildUri($"tasks/{Uri.EscapeDataString(taskId)}"));
+        ApplyHeaders(request, null);
 
-        // Ensure transport is connected
-        EnsureTransportConnected();
+        using var response = await SendAsync(request, null, cancellationToken).ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        EnsureSuccess(response, content);
+        return ParseTaskStatus(taskId, content);
+    }
 
-        // Build protobuf request
-        var request = new TaskStreamRequest
+    /// <summary>
+    /// 轮询 Server 任务事件，直到 Server 返回完成状态或取消令牌被触发。
+    /// </summary>
+    public async IAsyncEnumerable<TaskEvent> StreamTaskAsync(
+        string taskId,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ValidateTaskId(taskId);
+
+        var afterSeq = 0L;
+        while (true)
         {
-            TaskId = taskId
-        };
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildUri($"tasks/{Uri.EscapeDataString(taskId)}/events?after_seq={afterSeq}"));
+            ApplyHeaders(request, null);
 
-        // Send via TCP
-        var requestData = request.ToByteArray();
-        var responseData = await _transport!.CallAsync(
-            Protocol.MsgStreamTaskRequest,
-            requestData,
-            cancellationToken);
+            using var response = await SendAsync(request, null, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, content);
 
-        // Parse response
-        var taskEvent = TaskEvent.Parser.ParseFrom(responseData);
-        var normalizedStatus = NormalizeTaskEventType(taskEvent.Type, taskEvent.Message);
+            using var document = JsonDocument.Parse(content);
+            var root = document.RootElement;
+            var done = root.TryGetProperty("done", out var doneElement) && doneElement.ValueKind == JsonValueKind.True;
+            var emitted = false;
 
-        return new TaskStatus
+            if (root.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in items.EnumerateArray())
+                {
+                    var taskEvent = ParseTaskEvent(item);
+                    afterSeq = Math.Max(afterSeq, taskEvent.Seq);
+                    emitted = true;
+                    yield return taskEvent;
+                    done |= IsTerminal(taskEvent.Type);
+                }
+            }
+
+            if (done)
+            {
+                yield break;
+            }
+
+            if (!emitted)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(_config.TaskPollIntervalMilliseconds), cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 释放 HTTP 客户端（仅释放由本实例创建的客户端）。
+    /// </summary>
+    public void Dispose()
+    {
+        if (_isDisposed)
         {
-            TaskId = taskId,
-            Status = normalizedStatus,
-            Progress = taskEvent.Progress,
-            Message = taskEvent.Message,
-            Result = taskEvent.Payload.Length > 0 ? taskEvent.Payload.ToStringUtf8() : null
+            return;
+        }
+
+        _isDisposed = true;
+        if (_ownsHttpClient)
+        {
+            _httpClient.Dispose();
+        }
+        GC.SuppressFinalize(this);
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, InvokeOptions? options, CancellationToken cancellationToken)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(options?.TimeoutSeconds ?? _config.TimeoutSeconds, 1)));
+        return await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token).ConfigureAwait(false);
+    }
+
+    private void ApplyHeaders(HttpRequestMessage request, InvokeOptions? options)
+    {
+        foreach (var (key, value) in _config.Headers)
+        {
+            request.Headers.TryAddWithoutValidation(key, value);
+        }
+        if (options?.Metadata != null)
+        {
+            foreach (var (key, value) in options.Metadata)
+            {
+                request.Headers.Remove(key);
+                request.Headers.TryAddWithoutValidation(key, value);
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(_config.AuthToken) && !request.Headers.Contains("Authorization"))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.AuthToken);
+        }
+        if (!string.IsNullOrWhiteSpace(ResolveGameId(options)))
+        {
+            request.Headers.TryAddWithoutValidation("X-Game-ID", ResolveGameId(options));
+        }
+        if (!string.IsNullOrWhiteSpace(ResolveEnv(options)))
+        {
+            request.Headers.TryAddWithoutValidation("X-Env", ResolveEnv(options));
+        }
+        if (!string.IsNullOrWhiteSpace(options?.RequestId))
+        {
+            request.Headers.TryAddWithoutValidation("X-Request-ID", options.RequestId);
+        }
+        if (!string.IsNullOrWhiteSpace(options?.UserId))
+        {
+            request.Headers.TryAddWithoutValidation("X-User-ID", options.UserId);
+        }
+        if (!string.IsNullOrWhiteSpace(options?.IdempotencyKey))
+        {
+            request.Headers.TryAddWithoutValidation("Idempotency-Key", options.IdempotencyKey);
+        }
+    }
+
+    private Uri BuildUri(string relativePath) => new(new Uri(_config.ServerBaseUrl, UriKind.Absolute), relativePath);
+
+    private string? ResolveGameId(InvokeOptions? options) => options?.GameId ?? _config.GameId;
+
+    private string? ResolveEnv(InvokeOptions? options) => options?.Env ?? _config.Env;
+
+    private static InvokerConfig NormalizeConfig(InvokerConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        if (!Uri.TryCreate(config.ServerBaseUrl, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new ArgumentException("ServerBaseUrl must be an absolute HTTP(S) URL", nameof(config));
+        }
+
+        return new InvokerConfig
+        {
+            ServerBaseUrl = uri.ToString().TrimEnd('/') + "/",
+            AuthToken = config.AuthToken,
+            GameId = config.GameId,
+            Env = config.Env,
+            TimeoutSeconds = Math.Max(config.TimeoutSeconds, 1),
+            TaskPollIntervalMilliseconds = Math.Max(config.TaskPollIntervalMilliseconds, 1),
+            Headers = new Dictionary<string, string>(config.Headers ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase),
         };
     }
 
-    private static string NormalizeTaskEventType(string type, string? message)
+    private static StringContent CreateJsonContent(object body) => new(JsonSerializer.Serialize(body, JsonOptions), Encoding.UTF8, "application/json");
+
+    private static JsonElement ParseJson(string payload)
     {
-        if (string.Equals(type, "done", StringComparison.OrdinalIgnoreCase))
+        using var document = JsonDocument.Parse(payload);
+        return document.RootElement.Clone();
+    }
+
+    private static void ValidateFunctionAndPayload(string functionId, string payload)
+    {
+        if (string.IsNullOrWhiteSpace(functionId))
         {
-            return "completed";
+            throw new ArgumentException("Function ID cannot be empty", nameof(functionId));
+        }
+        ArgumentNullException.ThrowIfNull(payload);
+    }
+
+    private static void ValidateTaskId(string taskId)
+    {
+        if (string.IsNullOrWhiteSpace(taskId))
+        {
+            throw new ArgumentException("Task ID cannot be empty", nameof(taskId));
+        }
+    }
+
+    private static void EnsureSuccess(HttpResponseMessage response, string content)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
         }
 
-        if (string.Equals(type, "error", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(message) &&
-            message.Contains("cancel", StringComparison.OrdinalIgnoreCase))
-        {
-            return "cancelled";
-        }
+        throw new HttpRequestException(ExtractErrorMessage(content, response.StatusCode), null, response.StatusCode);
+    }
 
-        return type.ToLowerInvariant();
+    private static string ExtractResult(string content)
+    {
+        using var document = JsonDocument.Parse(content);
+        if (document.RootElement.TryGetProperty("result", out var result) && result.ValueKind != JsonValueKind.Null)
+        {
+            return result.GetRawText();
+        }
+        return document.RootElement.GetRawText();
+    }
+
+    private static string ExtractErrorMessage(string content, HttpStatusCode statusCode)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(content);
+            if (document.RootElement.TryGetProperty("message", out var message) && !string.IsNullOrWhiteSpace(message.GetString()))
+            {
+                return message.GetString()!;
+            }
+        }
+        catch (JsonException)
+        {
+            // Preserve a non-JSON upstream response below.
+        }
+        return string.IsNullOrWhiteSpace(content) ? $"HTTP {(int)statusCode}" : content;
+    }
+
+    private static TaskStatus ParseTaskStatus(string requestedTaskId, string content)
+    {
+        using var document = JsonDocument.Parse(content);
+        var root = document.RootElement;
+        return new TaskStatus
+        {
+            TaskId = GetString(root, "id") ?? requestedTaskId,
+            Status = GetString(root, "status") ?? "unknown",
+            Progress = GetDouble(root, "progress"),
+            Message = GetString(root, "message"),
+            Error = GetString(root, "error"),
+            Result = GetRawJson(root, "result"),
+            StartTime = GetDateTime(root, "startedAt"),
+            EndTime = GetDateTime(root, "finishedAt"),
+        };
+    }
+
+    private static TaskEvent ParseTaskEvent(JsonElement item) => new()
+    {
+        Seq = GetLong(item, "seq"),
+        Type = GetString(item, "type") ?? "unknown",
+        Progress = GetInt(item, "progress"),
+        Message = GetString(item, "message"),
+        Payload = GetRawJson(item, "payload"),
+        CreatedAt = GetDateTimeOffset(item, "createdAt"),
+    };
+
+    private static string? GetString(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static string? GetRawJson(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.ValueKind != JsonValueKind.Null ? value.GetRawText() : null;
+
+    private static int GetInt(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.TryGetInt32(out var result) ? result : 0;
+
+    private static long GetLong(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.TryGetInt64(out var result) ? result : 0;
+
+    private static double GetDouble(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.TryGetDouble(out var result) ? result : 0;
+
+    private static DateTime? GetDateTime(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.TryGetDateTime(out var result) ? result : null;
+
+    private static DateTimeOffset? GetDateTimeOffset(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.TryGetDateTimeOffset(out var result) ? result : null;
+
+    private static bool IsTerminal(string type) => type is "completed" or "failed" or "cancelled" or "timed_out";
+
+    private static long ElapsedMilliseconds(DateTime startedAt) => (long)(DateTime.UtcNow - startedAt).TotalMilliseconds;
+
+    private static InvokeOptions? MergeOptions(InvokeOptions? options, string? idempotencyKey)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return options;
+        }
+        return new InvokeOptions
+        {
+            GameId = options?.GameId,
+            Env = options?.Env,
+            TimeoutSeconds = options?.TimeoutSeconds ?? 30,
+            RequestId = options?.RequestId,
+            UserId = options?.UserId,
+            Metadata = options?.Metadata,
+            IdempotencyKey = idempotencyKey,
+        };
     }
 
     private void ThrowIfDisposed()
     {
         if (_isDisposed)
+        {
             throw new ObjectDisposedException(nameof(CroupierInvoker));
-    }
-
-    /// <summary>
-    /// 释放资源
-    /// </summary>
-    public void Dispose()
-    {
-        if (_isDisposed)
-            return;
-
-        _logger.LogInfo("CroupierInvoker", "Disposing...");
-
-        _transport?.Dispose();
-        _transport = null;
-
-        _isDisposed = true;
-        GC.SuppressFinalize(this);
+        }
     }
 }
 
-/// <summary>
-/// 批量调用请求
-/// </summary>
-public class BatchInvokeRequest
+/// <summary>批量调用请求。</summary>
+public sealed class BatchInvokeRequest
 {
-    /// <summary>
-    /// 函数 ID
-    /// </summary>
+    /// <summary>函数 ID。</summary>
     public required string FunctionId { get; init; }
 
-    /// <summary>
-    /// 请求负载
-    /// </summary>
+    /// <summary>JSON 请求负载。</summary>
     public required string Payload { get; init; }
 
-    /// <summary>
-    /// 幂等性键（可选）
-    /// </summary>
+    /// <summary>可选幂等键。</summary>
     public string? IdempotencyKey { get; init; }
 }
 
-/// <summary>
-/// 任务状态
-/// </summary>
-public class TaskStatus
+/// <summary>任务当前状态。</summary>
+public sealed class TaskStatus
 {
-    /// <summary>
-    /// 任务 ID
-    /// </summary>
+    /// <summary>任务 ID。</summary>
     public required string TaskId { get; init; }
 
-    /// <summary>
-    /// 状态: pending, running, completed, failed, canceled
-    /// </summary>
+    /// <summary>任务状态。</summary>
     public required string Status { get; init; }
 
-    /// <summary>
-    /// 进度 (0.0 - 1.0)
-    /// </summary>
+    /// <summary>进度。</summary>
     public double Progress { get; init; }
 
-    /// <summary>
-    /// 消息
-    /// </summary>
+    /// <summary>状态消息。</summary>
     public string? Message { get; init; }
 
-    /// <summary>
-    /// 错误信息（如果失败）
-    /// </summary>
+    /// <summary>错误信息。</summary>
     public string? Error { get; init; }
 
-    /// <summary>
-    /// 结果数据（如果完成）
-    /// </summary>
+    /// <summary>结果 JSON。</summary>
     public string? Result { get; init; }
 
-    /// <summary>
-    /// 开始时间
-    /// </summary>
+    /// <summary>开始时间。</summary>
     public DateTime? StartTime { get; init; }
 
-    /// <summary>
-    /// 结束时间
-    /// </summary>
+    /// <summary>结束时间。</summary>
     public DateTime? EndTime { get; init; }
 }

@@ -18,7 +18,7 @@ import (
 
 func main() {
     client := croupier.NewClient(&croupier.ClientConfig{
-        AgentAddr: "localhost:19090",
+        AgentAddr: "localhost:19091",
         GameID:    "demo-game",
         Env:       "development",
         Insecure:  true,

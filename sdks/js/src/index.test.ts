@@ -445,7 +445,7 @@ describe("BasicClient", () => {
     const client = new BasicClient();
     const config = (client as any).config;
 
-    expect(config.agentAddr).toBe("tcp://127.0.0.1:19090");
+    expect(config.agentAddr).toBe("tcp://127.0.0.1:19091");
     expect(config.timeout).toBe(30000);
     expect(config.agentId).toBe("");
     expect(config.env).toBe("development");

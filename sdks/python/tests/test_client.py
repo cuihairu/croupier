@@ -241,7 +241,7 @@ def test_cancel_task_does_nothing_for_unknown_task():
 def test_client_config_defaults():
     """Test ClientConfig has correct defaults."""
     config = croupier.ClientConfig()
-    assert config.agent_addr == "127.0.0.1:19090"
+    assert config.agent_addr == "127.0.0.1:19091"
     assert config.insecure is True
     assert config.service_version == "1.0.0"
     assert config.game_id == ""

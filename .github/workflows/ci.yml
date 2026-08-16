@@ -2,9 +2,9 @@ name: CI - Core
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -20,7 +20,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Install ripgrep
         timeout-minutes: 2
         run: |
@@ -59,7 +59,7 @@ jobs:
         timeout-minutes: 5
         shell: bash
         env:
-          BUF_VERSION: '1.47.2'
+          BUF_VERSION: "1.47.2"
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/bin"
@@ -106,7 +106,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash
@@ -146,7 +146,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash
@@ -207,7 +207,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash
@@ -225,6 +225,7 @@ jobs:
       - name: Start Server (SQLite, no external DB)
         timeout-minutes: 15
         run: |
+          set -euo pipefail
           go build -o bin/croupier-server ./cmd/server
           # Build the agent registration probe so happy-path.sh can exercise
           # the Agent→Server TCP handshake (Register + Heartbeat). Without it,
@@ -233,17 +234,23 @@ jobs:
           # Function-seed helper: inserts the function metadata row that the
           # task-lifecycle E2E's POST /tasks requires (no create API exists).
           go build -o bin/e2e-function-seed ./examples/cmd/e2e-function-seed
-          # Fresh DB every run: a stale test-data/croupier.db with an older
-          # schema makes AutoMigrate fail (sqlite cannot ALTER ADD a NOT NULL
-          # column). Remove any leftover state before booting.
-          rm -rf data test-data
-          mkdir -p data/uploads test-data
+          # Each run owns an isolated directory under RUNNER_TEMP. Never
+          # delete repository data/ or test-data/: CI may run in a worktree
+          # containing useful local SQLite fixtures.
+          E2E_DIR="$RUNNER_TEMP/croupier-e2e-${{ github.run_id }}-${{ github.run_attempt }}"
+          mkdir -p "$E2E_DIR/uploads"
+          echo "E2E_DIR=$E2E_DIR" >> "$GITHUB_ENV"
+          echo "E2E_DSN=$E2E_DIR/croupier.db" >> "$GITHUB_ENV"
           # Use the SQLite test config so the server boots without a database
           # service. Admin/games are seeded from configs/*.json. Redirect
           # output to a log file so failures (panic/migrate errors) are
           # visible in the failed step instead of being lost to the background.
-          : > server.log
-          ./bin/croupier-server --config configs/test-sqlite.yaml >> server.log 2>&1 &
+          : > "$E2E_DIR/server.log"
+          DB_DRIVER=sqlite \
+          DATABASE_URL="$E2E_DIR/croupier.db" \
+          STORAGE_DRIVER=file \
+          STORAGE_BASE_DIR="$E2E_DIR/uploads" \
+          ./bin/croupier-server --config configs/test-sqlite.yaml >> "$E2E_DIR/server.log" 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           # Wait for server REST to be ready (deterministic readiness probe).
@@ -263,14 +270,14 @@ jobs:
           done
           if [ "$ready" -ne 1 ]; then
             echo "::error::server did not become ready within 60s; server log:"
-            cat server.log
+            cat "$E2E_DIR/server.log"
             exit 1
           fi
       - name: Run E2E tests
         timeout-minutes: 10
         env:
           SERVER_URL: http://localhost:18780
-          DSN: test-data/croupier.db
+          DSN: ${{ env.E2E_DSN }}
         run: |
           bash scripts/e2e/happy-path.sh
           bash scripts/e2e/task-lifecycle.sh
@@ -279,6 +286,5 @@ jobs:
         if: always()
         run: |
           if [ -n "${SERVER_PID:-}" ]; then
-            kill $SERVER_PID 2>/dev/null || true
+            kill "$SERVER_PID" 2>/dev/null || true
           fi
-

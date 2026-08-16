@@ -157,7 +157,7 @@ import (
 func main() {
     // 创建客户端配置
     config := &croupier.ClientConfig{
-        AgentAddr:      "localhost:19090",
+        AgentAddr:      "localhost:19091",
         GameID:         "my-game",
         Env:            "development",
         ServiceID:      "my-service",

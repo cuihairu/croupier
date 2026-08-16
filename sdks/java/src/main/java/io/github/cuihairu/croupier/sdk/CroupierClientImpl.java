@@ -66,7 +66,7 @@ public class CroupierClientImpl implements CroupierClient {
         return (address, timeout) -> {
             String[] parts = address.replace("tcp://", "").split(":");
             String host = parts[0];
-            int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 19090;
+            int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 19091;
             return new TCPTransport(host, port, timeout);
         };
     }

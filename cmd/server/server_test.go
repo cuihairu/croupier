@@ -181,6 +181,17 @@ func TestApplyRuntimeDefaults_NonFileStorage(t *testing.T) {
 	assert.Equal(t, "", c.Storage.BaseDir)
 }
 
+func TestApplyRuntimeDefaults_StorageEnvironmentOverrides(t *testing.T) {
+	t.Setenv("STORAGE_DRIVER", "file")
+	t.Setenv("STORAGE_BASE_DIR", "/tmp/croupier-e2e/uploads")
+	c := &config.Config{Storage: config.StorageConfig{Driver: "s3", BaseDir: "bucket-prefix"}}
+
+	applyRuntimeDefaults(c)
+
+	assert.Equal(t, "file", c.Storage.Driver)
+	assert.Equal(t, "/tmp/croupier-e2e/uploads", c.Storage.BaseDir)
+}
+
 // ---------------------------------------------------------------------------
 // PrintVersionInfo
 // ---------------------------------------------------------------------------

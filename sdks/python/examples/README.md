@@ -103,7 +103,7 @@ for file_info in files:
 
 ```python
 config = {
-    "agent_addr": "127.0.0.1:19090",
+    "agent_addr": "127.0.0.1:19091",
     "timeout": 30000,
     "retry_attempts": 3,
     "chunk_size": 1024 * 1024,  # 1MB chunks
@@ -162,16 +162,20 @@ async def handle_server_status(payload: Dict[str, Any]) -> Dict[str, Any]:
 ### 常见问题
 
 1. **连接问题**
+
    ```
    Connection refused: [Errno 111] Connection refused
    ```
+
    - 确保Croupier Agent正在运行
    - 检查网络连接和端口配置
 
 2. **文件权限问题**
+
    ```
    Permission denied: 'functions/test.py'
    ```
+
    - 检查文件路径权限
    - 确保有写入权限
 
@@ -179,6 +183,7 @@ async def handle_server_status(payload: Dict[str, Any]) -> Dict[str, Any]:
    ```
    ModuleNotFoundError: No module named 'psutil'
    ```
+
    - 安装可选依赖：`pip install psutil`
 
 ### 最佳实践
@@ -201,12 +206,14 @@ async def handle_server_status(payload: Dict[str, Any]) -> Dict[str, Any]:
 ## 📚 依赖说明
 
 ### 核心依赖
+
 ```bash
 # 基础异步支持
 asyncio          # Python 3.7+ 内置
 ```
 
 ### 可选依赖
+
 ```bash
 # 系统监控
 psutil           # 系统资源监控
@@ -223,4 +230,4 @@ aiofiles         # 异步文件操作
 
 ---
 
-*📡 为服务器热重载提供强大的文件传输支持！*
+_📡 为服务器热重载提供强大的文件传输支持！_

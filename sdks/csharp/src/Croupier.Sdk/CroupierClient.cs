@@ -118,6 +118,11 @@ public partial class CroupierClient : IDisposable
             return;
         }
 
+        if (_handlers.IsEmpty)
+        {
+            throw new InvalidOperationException("Register at least one function before connecting");
+        }
+
         _logger.LogInfo("CroupierClient", $"Connecting to Agent at {_config.AgentAddr}...");
 
         try

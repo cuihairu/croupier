@@ -31,13 +31,12 @@ public class ServiceCollectionExtensionsTests
         // Assert
         var provider = services.BuildServiceProvider();
         var client = provider.GetService<CroupierClient>();
-        var invoker = provider.GetService<CroupierInvoker>();
         var options = provider.GetService<IOptions<ClientConfig>>();
 
         client.Should().NotBeNull();
-        invoker.Should().NotBeNull();
+        provider.GetService<CroupierInvoker>().Should().BeNull();
         options.Should().NotBeNull();
-        options!.Value.AgentAddr.Should().Be("127.0.0.1:19090");
+        options!.Value.AgentAddr.Should().Be("127.0.0.1:19091");
     }
 
     [Fact]
@@ -172,10 +171,9 @@ public class ServiceCollectionExtensionsTests
         // Assert
         var provider = services.BuildServiceProvider();
         var client = provider.GetService<CroupierClient>();
-        var invoker = provider.GetService<CroupierInvoker>();
 
         client.Should().NotBeNull();
-        invoker.Should().NotBeNull();
+        provider.GetService<CroupierInvoker>().Should().BeNull();
     }
 
     [Fact]
@@ -241,10 +239,9 @@ public class ServiceCollectionExtensionsTests
         // Assert
         var provider = services.BuildServiceProvider();
         var client = provider.GetService<CroupierClient>();
-        var invoker = provider.GetService<CroupierInvoker>();
 
         client.Should().NotBeNull();
-        invoker.Should().NotBeNull();
+        provider.GetService<CroupierInvoker>().Should().BeNull();
     }
 
     #endregion
@@ -288,11 +285,8 @@ public class ServiceCollectionExtensionsTests
 
         var client1 = provider.GetRequiredService<CroupierClient>();
         var client2 = provider.GetRequiredService<CroupierClient>();
-        var invoker1 = provider.GetRequiredService<CroupierInvoker>();
-        var invoker2 = provider.GetRequiredService<CroupierInvoker>();
 
         client1.Should().BeSameAs(client2);
-        invoker1.Should().BeSameAs(invoker2);
     }
 
     #endregion
@@ -356,7 +350,7 @@ public class ServiceCollectionExtensionsTests
 
         // All registered services should be resolvable
         provider.GetService<CroupierClient>().Should().NotBeNull();
-        provider.GetService<CroupierInvoker>().Should().NotBeNull();
+        provider.GetService<CroupierInvoker>().Should().BeNull();
         provider.GetService<IOptions<ClientConfig>>().Should().NotBeNull();
     }
 
@@ -396,9 +390,55 @@ public class ServiceCollectionExtensionsTests
         var provider = services.BuildServiceProvider();
 
         provider.GetService<CroupierClient>().Should().NotBeNull();
-        provider.GetService<CroupierInvoker>().Should().NotBeNull();
+        provider.GetService<CroupierInvoker>().Should().BeNull();
         provider.GetService<ILogger>().Should().NotBeNull();
         provider.GetService<IHelperService>().Should().NotBeNull();
+    }
+
+    #endregion
+
+    #region AddCroupierInvoker Tests
+
+    [Fact]
+    public void AddCroupierInvoker_RegistersIndependentInvokerConfiguration()
+    {
+        var services = new ServiceCollection();
+
+        services.AddCroupierInvoker(config =>
+        {
+            config.ServerBaseUrl = "https://server.example/api/v1";
+            config.GameId = "game-a";
+            config.Env = "production";
+        });
+
+        var provider = services.BuildServiceProvider();
+        var config = provider.GetRequiredService<InvokerConfig>();
+        var invoker = provider.GetRequiredService<CroupierInvoker>();
+
+        config.ServerBaseUrl.Should().Be("https://server.example/api/v1");
+        invoker.ServerBaseUrl.Should().Be("https://server.example/api/v1/");
+        invoker.GameId.Should().Be("game-a");
+        invoker.Env.Should().Be("production");
+    }
+
+    [Fact]
+    public void AddCroupierInvoker_RegistersSingleton()
+    {
+        var services = new ServiceCollection();
+        services.AddCroupierInvoker();
+
+        var provider = services.BuildServiceProvider();
+
+        provider.GetRequiredService<CroupierInvoker>().Should().BeSameAs(provider.GetRequiredService<CroupierInvoker>());
+    }
+
+    [Fact]
+    public void AddCroupierInvoker_WithNullServices_ThrowsArgumentNullException()
+    {
+        IServiceCollection? services = null;
+
+        Action action = () => services!.AddCroupierInvoker();
+        action.Should().Throw<ArgumentNullException>();
     }
 
     #endregion

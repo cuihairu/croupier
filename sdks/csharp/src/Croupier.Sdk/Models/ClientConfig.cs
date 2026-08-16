@@ -20,9 +20,9 @@ namespace Croupier.Sdk.Models;
 public class ClientConfig
 {
     /// <summary>
-    /// Agent 服务器地址
+    /// Agent 本地 SDK gateway 地址
     /// </summary>
-    public string AgentAddr { get; set; } = "127.0.0.1:19090";
+    public string AgentAddr { get; set; } = "127.0.0.1:19091";
 
     /// <summary>
     /// 服务标识符

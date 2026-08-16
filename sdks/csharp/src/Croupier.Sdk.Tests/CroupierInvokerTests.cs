@@ -1,984 +1,233 @@
 // Copyright 2025 Croupier Authors
 // Licensed under the Apache License, Version 2.0
 
-using Croupier.Sdk.Logging;
+using System.Net;
+using System.Text;
 using Croupier.Sdk.Models;
 using FluentAssertions;
-using Moq;
 using Xunit;
 
 namespace Croupier.Sdk.Tests;
 
 /// <summary>
-/// Tests for CroupierInvoker
+/// Tests for the independent Server HTTP invoker.
 /// </summary>
-public class CroupierInvokerTests
+public sealed class CroupierInvokerTests
 {
-    /// <summary>
-    /// Check if integration tests should be skipped (no agent running).
-    /// </summary>
-    private static bool ShouldSkipIntegrationTests()
-    {
-        // Only run integration tests if explicitly enabled
-        var runIntegrationTests = Environment.GetEnvironmentVariable("CROUPIER_RUN_INTEGRATION_TESTS");
-        return string.IsNullOrEmpty(runIntegrationTests) || runIntegrationTests != "1";
-    }
-
-    /// <summary>
-    /// Check if an exception is a connection error (indicating no agent is running).
-    /// </summary>
-    private static bool IsConnectionError(Exception ex)
-    {
-        var message = ex.Message.ToLower();
-        return message.Contains("connect") ||
-               message.Contains("connection") ||
-               message.Contains("timeout") ||
-               message.Contains("refused") ||
-               message.Contains("unreachable");
-    }
-
-    private static ClientConfig CreateTestConfig()
-    {
-        return new ClientConfig
-        {
-            AgentAddr = "127.0.0.1:19090",
-            ServiceId = "test-invoker",
-            GameId = "test-game",
-            Env = "test",
-            Insecure = true,
-            TimeoutSeconds = 30,
-            ConnectTimeoutSeconds = 10  // Increased for CI environment
-        };
-    }
-
-    #region Constructor Tests
-
     [Fact]
-    public void CroupierInvoker_CanBeCreatedWithConfig()
+    public void Constructor_RejectsNonHttpServerUrl()
     {
-        // Arrange
-        var config = CreateTestConfig();
+        var action = () => new CroupierInvoker(new InvokerConfig { ServerBaseUrl = "127.0.0.1:19090" });
 
-        // Act
-        var invoker = new CroupierInvoker(config);
-
-        // Assert
-        invoker.Should().NotBeNull();
-        invoker.AgentAddr.Should().Be("127.0.0.1:19090");
-        invoker.GameId.Should().Be("test-game");
-        invoker.Env.Should().Be("test");
+        action.Should().Throw<ArgumentException>();
     }
 
     [Fact]
-    public void CroupierInvoker_CanBeCreatedWithLogger()
+    public async Task InvokeAsync_UsesServerFunctionEndpointAndReturnsResult()
     {
-        // Arrange
-        var config = CreateTestConfig();
-        var logger = new ConsoleCroupierLogger();
+        var handler = new RecordingHandler(_ => JsonResponse("{\"result\":{\"ok\":true}}"));
+        using var invoker = CreateInvoker(handler);
 
-        // Act
-        var invoker = new CroupierInvoker(config, logger);
-
-        // Assert
-        invoker.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void CroupierInvoker_CanBeCreatedWithDefaultParameters()
-    {
-        // Act
-        var invoker = new CroupierInvoker();
-
-        // Assert
-        invoker.Should().NotBeNull();
-        invoker.AgentAddr.Should().Be("tcp://127.0.0.1:19090");
-        invoker.GameId.Should().Be("default-game");
-        invoker.Env.Should().Be("dev");
-    }
-
-    [Fact]
-    public void CroupierInvoker_CanBeCreatedWithCustomParameters()
-    {
-        // Act
-        var invoker = new CroupierInvoker(
-            agentAddr: "192.168.1.100:9090",
-            gameId: "custom-game",
-            env: "production",
-            timeoutMs: 10000);
-
-        // Assert
-        invoker.AgentAddr.Should().Be("192.168.1.100:9090");
-        invoker.GameId.Should().Be("custom-game");
-        invoker.Env.Should().Be("production");
-    }
-
-    #endregion
-
-    #region InvokeOptions Tests
-
-    [Fact]
-    public void InvokeOptions_Default_HasReasonableTimeout()
-    {
-        // Arrange
-        var options = new InvokeOptions();
-
-        // Assert
-        options.TimeoutSeconds.Should().BeGreaterThan(0);
-        options.TimeoutSeconds.Should().Be(30);
-    }
-
-    [Fact]
-    public void InvokeOptions_CustomTimeout_IsRespected()
-    {
-        // Arrange
-        var options = new InvokeOptions { TimeoutSeconds = 120 };
-
-        // Assert
-        options.TimeoutSeconds.Should().Be(120);
-    }
-
-    [Fact]
-    public void InvokeOptions_IdempotencyKey_CanBeGenerated()
-    {
-        // Arrange
-        var key = Guid.NewGuid().ToString();
-        var options = new InvokeOptions { IdempotencyKey = key };
-
-        // Assert
-        options.IdempotencyKey.Should().Be(key);
-        options.IdempotencyKey.Should().NotBeNullOrEmpty();
-    }
-
-    #endregion
-
-    #region Dispose Tests
-
-    [Fact]
-    public void CroupierInvoker_ImplementsIDisposable()
-    {
-        // Assert
-        typeof(CroupierInvoker).Should().Implement<IDisposable>();
-    }
-
-    [Fact]
-    public void CroupierInvoker_Dispose_CanBeCalledMultipleTimes()
-    {
-        // Arrange
-        var invoker = new CroupierInvoker(CreateTestConfig());
-
-        // Act & Assert
-        var action = () =>
+        var result = await invoker.InvokeAsync("player.ban", "{\"playerId\":\"42\"}", new InvokeOptions
         {
-            invoker.Dispose();
-            invoker.Dispose();
-        };
-        action.Should().NotThrow();
-    }
+            GameId = "game-a",
+            Env = "staging",
+            IdempotencyKey = "idempotency-1",
+        });
 
-    [Fact]
-    public void CroupierInvoker_AfterDispose_ThrowsObjectDisposedException()
-    {
-        // Arrange
-        var invoker = new CroupierInvoker(CreateTestConfig());
-        invoker.Dispose();
-
-        // Act & Assert
-        var action = () => invoker.InvokeAsync("test.func", "{}").GetAwaiter().GetResult();
-        action.Should().Throw<ObjectDisposedException>();
-    }
-
-    #endregion
-
-    #region Invoke Tests
-
-    [Fact]
-    public async Task CroupierInvoker_InvokeAsync_ReturnsResult()
-    {
-        // Skip integration test if no agent is running
-        if (ShouldSkipIntegrationTests())
-        {
-            Assert.True(true, "Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
-        // Arrange - Create a provider to register the test function
-        var providerConfig = new ClientConfig
-        {
-            AgentAddr = "127.0.0.1:19090",
-            ServiceId = "test-provider",
-            GameId = "test-game",
-            Env = "test",
-            Insecure = true,
-            TimeoutSeconds = 30,
-            ConnectTimeoutSeconds = 10
-        };
-
-        using var provider = new CroupierClient(providerConfig);
-        var descriptor = new FunctionDescriptor
-        {
-            Id = "test.function",
-            Resource = "test",
-            Operation = "test"
-        };
-
-        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"result: {payload}");
-        provider.RegisterFunction(descriptor, handler);
-        await provider.ConnectAsync();
-
-        // Wait a bit for Agent to process registration
-        await Task.Delay(500);
-
-        try
-        {
-            // Arrange - Create invoker
-            var invoker = new CroupierInvoker(CreateTestConfig());
-
-            // Act
-            var result = await invoker.InvokeAsync("test.function", "{\"input\":\"test\"}");
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Success.Should().BeTrue();
-        }
-        catch (Exception ex)
-        {
-            // Log the error for debugging
-            if (IsConnectionError(ex))
-            {
-                Assert.True(true, $"Connection failed - test skipped: {ex.Message}");
-            }
-            else
-            {
-                // For other errors, still mark as passed in CI (might be environment issues)
-                Assert.True(true, $"Test failed with: {ex.Message}");
-            }
-        }
-        finally
-        {
-            provider.Disconnect();
-        }
-    }
-
-    [Fact]
-    public async Task CroupierInvoker_InvokeAsync_WithOptions()
-    {
-        // Skip integration test if no agent is running
-        if (ShouldSkipIntegrationTests())
-        {
-            Assert.True(true, "Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
-        // Arrange - Create a provider to register the test function
-        var providerConfig = new ClientConfig
-        {
-            AgentAddr = "127.0.0.1:19090",
-            ServiceId = "test-provider-options",
-            GameId = "test-game",
-            Env = "test",
-            Insecure = true,
-            TimeoutSeconds = 30,
-            ConnectTimeoutSeconds = 10
-        };
-
-        using var provider = new CroupierClient(providerConfig);
-        var descriptor = new FunctionDescriptor
-        {
-            Id = "test.function",
-            Resource = "test",
-            Operation = "options"
-        };
-
-        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"result: {payload}");
-        provider.RegisterFunction(descriptor, handler);
-        await provider.ConnectAsync();
-
-        // Wait a bit for Agent to process registration
-        await Task.Delay(500);
-
-        try
-        {
-            // Arrange - Create invoker
-            var invoker = new CroupierInvoker(CreateTestConfig());
-            var options = new InvokeOptions
-            {
-                GameId = "custom-game",
-                Env = "staging",
-                TimeoutSeconds = 60,
-                IdempotencyKey = "test-key"
-            };
-
-            // Act
-            var result = await invoker.InvokeAsync("test.function", "{}", options);
-
-            // Assert
-            result.Should().NotBeNull();
-        }
-        catch (Exception ex)
-        {
-            // Log the error for debugging
-            if (IsConnectionError(ex))
-            {
-                Assert.True(true, $"Connection failed - test skipped: {ex.Message}");
-            }
-            else
-            {
-                // For other errors, still mark as passed in CI (might be environment issues)
-                Assert.True(true, $"Test failed with: {ex.Message}");
-            }
-        }
-        finally
-        {
-            provider.Disconnect();
-        }
-    }
-
-    [Fact]
-    public async Task CroupierInvoker_InvokeAsync_CanBeCanceled()
-    {
-        // Skip integration test if no agent is running
-        if (ShouldSkipIntegrationTests())
-        {
-            Assert.True(true, "Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
-        // Arrange - Create a provider to register the test function
-        var providerConfig = new ClientConfig
-        {
-            AgentAddr = "127.0.0.1:19090",
-            ServiceId = "test-provider-cancel",
-            GameId = "test-game",
-            Env = "test",
-            Insecure = true,
-            TimeoutSeconds = 30,
-            ConnectTimeoutSeconds = 10
-        };
-
-        using var provider = new CroupierClient(providerConfig);
-        var descriptor = new FunctionDescriptor
-        {
-            Id = "test.function",
-            Resource = "test",
-            Operation = "cancel"
-        };
-
-        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"result: {payload}");
-        provider.RegisterFunction(descriptor, handler);
-        await provider.ConnectAsync();
-
-        // Wait a bit for Agent to process registration
-        await Task.Delay(500);
-
-        try
-        {
-            // Arrange - Create invoker with cancelled token
-            var invoker = new CroupierInvoker(CreateTestConfig());
-            var cts = new CancellationTokenSource();
-            cts.Cancel();
-
-            // Act
-            var result = await invoker.InvokeAsync("test.function", "{}", cancellationToken: cts.Token);
-
-            // Assert
-            result.Success.Should().BeFalse();
-            // The important part is that the invocation fails when cancelled
-            result.ErrorCode.Should().BeOneOf("CANCELED", null);
-            result.Error.Should().NotBeNullOrEmpty();
-        }
-        catch (Exception ex)
-        {
-            // Log the error for debugging
-            if (IsConnectionError(ex))
-            {
-                Assert.True(true, $"Connection failed - test skipped: {ex.Message}");
-            }
-            else
-            {
-                // For other errors, still mark as passed in CI (might be environment issues)
-                Assert.True(true, $"Test failed with: {ex.Message}");
-            }
-        }
-        finally
-        {
-            provider.Disconnect();
-        }
-    }
-
-    #endregion
-
-    #region BatchInvoke Tests
-
-    [Fact]
-    public async Task CroupierInvoker_BatchInvokeAsync_ReturnsResults()
-    {
-        // Skip integration test if no agent is running
-        if (ShouldSkipIntegrationTests())
-        {
-            Assert.True(true, "Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
-        // Arrange - Create a provider to register the test functions
-        var providerConfig = new ClientConfig
-        {
-            AgentAddr = "127.0.0.1:19090",
-            ServiceId = "test-provider-batch",
-            GameId = "test-game",
-            Env = "test",
-            Insecure = true,
-            TimeoutSeconds = 30,
-            ConnectTimeoutSeconds = 10
-        };
-
-        using var provider = new CroupierClient(providerConfig);
-        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"result: {payload}");
-
-        provider.RegisterFunction(new FunctionDescriptor { Id = "batch.func1", Resource = "batch", Operation = "test" }, handler);
-        provider.RegisterFunction(new FunctionDescriptor { Id = "batch.func2", Resource = "batch", Operation = "test" }, handler);
-        provider.RegisterFunction(new FunctionDescriptor { Id = "batch.func3", Resource = "batch", Operation = "test" }, handler);
-        await provider.ConnectAsync();
-
-        try
-        {
-            // Arrange - Create invoker
-            var invoker = new CroupierInvoker(CreateTestConfig());
-            var requests = new List<BatchInvokeRequest>
-            {
-                new() { FunctionId = "batch.func1", Payload = "{\"id\":1}" },
-                new() { FunctionId = "batch.func2", Payload = "{\"id\":2}" },
-                new() { FunctionId = "batch.func3", Payload = "{\"id\":3}" }
-            };
-
-            // Act
-            var results = await invoker.BatchInvokeAsync(requests);
-
-            // Assert
-            results.Should().HaveCount(3);
-            results.Should().OnlyContain(r => r.Success);
-        }
-        catch (Exception ex) when (IsConnectionError(ex))
-        {
-            // Skip if connection fails (no agent running)
-            Assert.True(true, $"Connection failed - test skipped: {ex.Message}");
-        }
-        finally
-        {
-            provider.Disconnect();
-        }
-    }
-
-    #endregion
-
-    #region Task Tests
-
-    [Fact]
-    public async Task CroupierInvoker_StartTaskAsync_ReturnsTaskId()
-    {
-        // Skip integration test if no agent is running
-        if (ShouldSkipIntegrationTests())
-        {
-            Assert.True(true, "Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
-        // Arrange - Create a provider to register the test function
-        var providerConfig = new ClientConfig
-        {
-            AgentAddr = "127.0.0.1:19090",
-            ServiceId = "test-provider-task",
-            GameId = "test-game",
-            Env = "test",
-            Insecure = true,
-            TimeoutSeconds = 30,
-            ConnectTimeoutSeconds = 10
-        };
-
-        using var provider = new CroupierClient(providerConfig);
-        var descriptor = new FunctionDescriptor
-        {
-            Id = "long.running.function",
-            Resource = "long",
-            Operation = "function"
-        };
-
-        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"task result: {payload}");
-        provider.RegisterFunction(descriptor, handler);
-        await provider.ConnectAsync();
-
-        try
-        {
-            // Arrange - Create invoker
-            var invoker = new CroupierInvoker(CreateTestConfig());
-
-            // Act
-            var taskId = await invoker.StartTaskAsync("long.running.function", "{}");
-
-            // Assert
-            taskId.Should().NotBeNullOrEmpty();
-            // Agent returns task IDs with "task-" prefix (internal naming)
-            taskId.Should().StartWith("task-");
-        }
-        catch (Exception ex) when (IsConnectionError(ex))
-        {
-            // Skip if connection fails (no agent running)
-            Assert.True(true, $"Connection failed - test skipped: {ex.Message}");
-        }
-        finally
-        {
-            provider.Disconnect();
-        }
-    }
-
-    [Fact]
-    public async Task CroupierInvoker_CancelTaskAsync_ReturnsSuccess()
-    {
-        // Skip integration test if no agent is running
-        if (ShouldSkipIntegrationTests())
-        {
-            Assert.True(true, "Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
-        try
-        {
-            // Arrange
-            var invoker = new CroupierInvoker(CreateTestConfig());
-
-            // Act
-            var result = await invoker.CancelTaskAsync("task_123");
-
-            // Assert
-            result.Should().BeTrue();
-        }
-        catch (Exception ex) when (IsConnectionError(ex))
-        {
-            // Skip if connection fails (no agent running)
-            Assert.True(true, $"Connection failed - test skipped: {ex.Message}");
-        }
-    }
-
-    [Fact]
-    public async Task CroupierInvoker_GetTaskStatusAsync_ReturnsStatus()
-    {
-        // Skip integration test if no agent is running
-        if (ShouldSkipIntegrationTests())
-        {
-            Assert.True(true, "Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
-        // Arrange - Create a provider to register the test function
-        var providerConfig = new ClientConfig
-        {
-            AgentAddr = "127.0.0.1:19090",
-            ServiceId = "test-provider-status",
-            GameId = "test-game",
-            Env = "test",
-            Insecure = true,
-            TimeoutSeconds = 30,
-            ConnectTimeoutSeconds = 10
-        };
-
-        using var provider = new CroupierClient(providerConfig);
-        var descriptor = new FunctionDescriptor
-        {
-            Id = "long.running.function",
-            Resource = "long",
-            Operation = "function"
-        };
-
-        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"task result: {payload}");
-        provider.RegisterFunction(descriptor, handler);
-        await provider.ConnectAsync();
-
-        try
-        {
-            // Arrange - Create invoker
-            var invoker = new CroupierInvoker(CreateTestConfig());
-
-            // Act - Note: This will likely fail since Agent doesn't implement MsgStreamTaskRequest
-            // The test is kept to document the expected behavior
-            try
-            {
-                var status = await invoker.GetTaskStatusAsync("task-123");
-
-                // Assert
-                status.Should().NotBeNull();
-                status!.TaskId.Should().Be("task-123");
-            }
-            catch (Exception ex)
-            {
-                // Expected to fail since Agent doesn't implement task streaming
-                Assert.True(true, $"GetTaskStatusAsync not yet fully implemented: {ex.Message}");
-            }
-        }
-        catch (Exception ex) when (IsConnectionError(ex))
-        {
-            // Skip if connection fails (no agent running)
-            Assert.True(true, $"Connection failed - test skipped: {ex.Message}");
-        }
-        finally
-        {
-            provider.Disconnect();
-        }
-    }
-
-    #endregion
-
-    #region Metadata Tests
-
-    [Fact]
-    public void InvokeOptions_Metadata_CanContainMultipleValues()
-    {
-        // Arrange
-        var options = new InvokeOptions
-        {
-            Metadata = new Dictionary<string, string>
-            {
-                ["X-Request-Id"] = Guid.NewGuid().ToString(),
-                ["X-Correlation-Id"] = "corr-123",
-                ["X-User-Id"] = "user-456",
-                ["Authorization"] = "Bearer token123"
-            }
-        };
-
-        // Assert
-        options.Metadata.Should().HaveCount(4);
-        options.Metadata.Should().ContainKey("Authorization");
-    }
-
-    #endregion
-
-    #region Parameter Validation Tests
-
-    [Fact]
-    public async Task InvokeAsync_EmptyFunctionId_ThrowsArgumentException()
-    {
-        // Arrange
-        using var invoker = new CroupierInvoker();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            invoker.InvokeAsync("", "{}"));
-    }
-
-    [Fact]
-    public async Task InvokeAsync_WhitespaceFunctionId_ThrowsArgumentException()
-    {
-        // Arrange
-        using var invoker = new CroupierInvoker();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            invoker.InvokeAsync("   ", "{}"));
-    }
-
-    [Fact]
-    public async Task InvokeAsync_NullPayload_ThrowsArgumentNullException()
-    {
-        // Arrange
-        using var invoker = new CroupierInvoker();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            invoker.InvokeAsync("test.function", null!));
-    }
-
-    [Fact]
-    public async Task BatchInvokeAsync_NullRequests_ThrowsArgumentNullException()
-    {
-        // Arrange
-        using var invoker = new CroupierInvoker();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            invoker.BatchInvokeAsync(null!));
-    }
-
-    [Fact]
-    public async Task BatchInvokeAsync_EmptyRequests_ThrowsArgumentException()
-    {
-        // Arrange
-        using var invoker = new CroupierInvoker();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            invoker.BatchInvokeAsync(new List<BatchInvokeRequest>()));
-    }
-
-    [Fact]
-    public async Task StartTaskAsync_EmptyFunctionId_ThrowsArgumentException()
-    {
-        // Arrange
-        using var invoker = new CroupierInvoker();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            invoker.StartTaskAsync("", "{}"));
-    }
-
-    [Fact]
-    public async Task StartTaskAsync_NullPayload_ThrowsArgumentNullException()
-    {
-        // Arrange
-        using var invoker = new CroupierInvoker();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            invoker.StartTaskAsync("test.function", null!));
-    }
-
-    [Fact]
-    public async Task CancelTaskAsync_EmptyTaskId_ThrowsArgumentException()
-    {
-        // Arrange
-        using var invoker = new CroupierInvoker();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            invoker.CancelTaskAsync(""));
-    }
-
-    [Fact]
-    public async Task GetTaskStatusAsync_EmptyTaskId_ThrowsArgumentException()
-    {
-        // Arrange
-        using var invoker = new CroupierInvoker();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            invoker.GetTaskStatusAsync(""));
-    }
-
-    #endregion
-
-    #region Disposed State Tests
-
-    [Fact]
-    public async Task InvokeAsync_AfterDispose_ThrowsObjectDisposedException()
-    {
-        // Arrange
-        var invoker = new CroupierInvoker();
-        invoker.Dispose();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            invoker.InvokeAsync("test.function", "{}"));
-    }
-
-    [Fact]
-    public async Task BatchInvokeAsync_AfterDispose_ThrowsObjectDisposedException()
-    {
-        // Arrange
-        var invoker = new CroupierInvoker();
-        invoker.Dispose();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            invoker.BatchInvokeAsync(new List<BatchInvokeRequest>
-            {
-                new BatchInvokeRequest { FunctionId = "test", Payload = "{}" }
-            }));
-    }
-
-    [Fact]
-    public async Task StartTaskAsync_AfterDispose_ThrowsObjectDisposedException()
-    {
-        // Arrange
-        var invoker = new CroupierInvoker();
-        invoker.Dispose();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            invoker.StartTaskAsync("test.function", "{}"));
-    }
-
-    [Fact]
-    public async Task CancelTaskAsync_AfterDispose_ThrowsObjectDisposedException()
-    {
-        // Arrange
-        var invoker = new CroupierInvoker();
-        invoker.Dispose();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            invoker.CancelTaskAsync("task-123"));
-    }
-
-    [Fact]
-    public async Task GetTaskStatusAsync_AfterDispose_ThrowsObjectDisposedException()
-    {
-        // Arrange
-        var invoker = new CroupierInvoker();
-        invoker.Dispose();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            invoker.GetTaskStatusAsync("task-123"));
-    }
-
-    #endregion
-
-    #region Configuration Tests
-
-    [Fact]
-    public void InvokeOptions_DefaultGameId_IsApplied()
-    {
-        // Arrange
-        var options = new InvokeOptions
-        {
-            GameId = "my-game",
-            Env = "production"
-        };
-
-        // Assert
-        options.GameId.Should().Be("my-game");
-        options.Env.Should().Be("production");
-    }
-
-    [Fact]
-    public void InvokeOptions_IdempotencyKey_CanBeCustom()
-    {
-        // Arrange
-        var customKey = "custom-key-123";
-        var options = new InvokeOptions
-        {
-            IdempotencyKey = customKey
-        };
-
-        // Assert
-        options.IdempotencyKey.Should().Be(customKey);
-    }
-
-    [Fact]
-    public void InvokeOptions_Timeout_CanBeConfigured()
-    {
-        // Arrange
-        var options = new InvokeOptions
-        {
-            TimeoutSeconds = 30
-        };
-
-        // Assert
-        options.TimeoutSeconds.Should().Be(30);
-    }
-
-    [Fact]
-    public void CroupierInvoker_GameId_DefaultValue()
-    {
-        // Arrange & Act
-        using var invoker = new CroupierInvoker();
-
-        // Assert
-        invoker.GameId.Should().Be("default-game");
-    }
-
-    [Fact]
-    public void CroupierInvoker_Env_DefaultValue()
-    {
-        // Arrange & Act
-        using var invoker = new CroupierInvoker();
-
-        // Assert
-        invoker.Env.Should().Be("dev");
-    }
-
-    [Fact]
-    public void CroupierInvoker_AgentAddr_DefaultValue()
-    {
-        // Arrange & Act
-        using var invoker = new CroupierInvoker();
-
-        // Assert
-        invoker.AgentAddr.Should().Be("tcp://127.0.0.1:19090");
-    }
-
-    [Fact]
-    public void CroupierInvoker_CustomGameId_IsPreserved()
-    {
-        // Arrange & Act
-        using var invoker = new CroupierInvoker(
-            agentAddr: "tcp://192.168.1.100:9090",
-            gameId: "custom-game",
-            env: "staging");
-
-        // Assert
-        invoker.GameId.Should().Be("custom-game");
-        invoker.Env.Should().Be("staging");
-        invoker.AgentAddr.Should().Be("tcp://192.168.1.100:9090");
-    }
-
-    #endregion
-
-    #region Edge Case Tests
-
-    [Fact]
-    public void InvokeOptions_Metadata_CanBeEmpty()
-    {
-        // Arrange
-        var options = new InvokeOptions
-        {
-            Metadata = new Dictionary<string, string>()
-        };
-
-        // Assert
-        options.Metadata.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void InvokeOptions_Metadata_CanBeNull()
-    {
-        // Arrange
-        var options = new InvokeOptions
-        {
-            Metadata = null
-        };
-
-        // Assert
-        options.Metadata.Should().BeNull();
-    }
-
-    [Fact]
-    public void BatchInvokeRequest_CanBeCreated()
-    {
-        // Arrange
-        var request = new BatchInvokeRequest
-        {
-            FunctionId = "test.function",
-            Payload = "{\"input\": \"test\"}"
-        };
-
-        // Assert
-        request.FunctionId.Should().Be("test.function");
-        request.Payload.Should().Be("{\"input\": \"test\"}");
-    }
-
-    [Fact]
-    public void InvokeResult_Success_HasCorrectProperties()
-    {
-        // Arrange & Act
-        var result = InvokeResult.Succeeded("{\"output\": \"ok\"}", 150);
-
-        // Assert
         result.Success.Should().BeTrue();
-        result.Data.Should().Be("{\"output\": \"ok\"}");
-        result.DurationMs.Should().Be(150);
-        result.ErrorCode.Should().BeNull();
+        result.Data.Should().Be("{\"ok\":true}");
+        handler.Requests.Should().ContainSingle();
+        var request = handler.Requests.Single();
+        request.Method.Should().Be(HttpMethod.Post);
+        request.PathAndQuery.Should().Be("/api/v1/functions/player.ban/invoke");
+        request.Headers["X-Game-ID"].Should().Be("game-a");
+        request.Headers["X-Env"].Should().Be("staging");
+        request.Headers["Idempotency-Key"].Should().Be("idempotency-1");
+        request.Body.Should().Be("{\"params\":{\"playerId\":\"42\"}}");
     }
 
     [Fact]
-    public void InvokeResult_Failed_HasCorrectProperties()
+    public async Task InvokeAsync_ReturnsFailureWhenServerRejectsRequest()
     {
-        // Arrange & Act
-        var result = InvokeResult.Failed("Connection timeout", "TIMEOUT", 5000);
+        using var invoker = CreateInvoker(new RecordingHandler(_ => JsonResponse("{\"error\":\"forbidden\",\"message\":\"denied\"}", HttpStatusCode.Forbidden)));
 
-        // Assert
+        var result = await invoker.InvokeAsync("player.ban", "{}");
+
         result.Success.Should().BeFalse();
-        result.Error.Should().Be("Connection timeout");
-        result.ErrorCode.Should().Be("TIMEOUT");
-        result.DurationMs.Should().Be(5000);
+        result.Error.Should().Contain("denied");
     }
 
-    #endregion
+    [Fact]
+    public async Task StartTaskAsync_CancelTaskAsync_AndGetTaskStatusAsync_UseTaskEndpoints()
+    {
+        var handler = new RecordingHandler(request => request.Method.Method switch
+        {
+            "POST" when request.Uri.AbsolutePath.EndsWith("/tasks", StringComparison.Ordinal) => JsonResponse("{\"taskId\":\"task-1\",\"status\":\"dispatching\"}"),
+            "POST" when request.Uri.AbsolutePath.EndsWith("/cancel", StringComparison.Ordinal) => JsonResponse("{\"message\":\"操作成功\"}"),
+            "GET" => JsonResponse("{\"id\":\"task-1\",\"status\":\"running\",\"progress\":50,\"message\":\"working\"}"),
+            _ => JsonResponse("{\"message\":\"unexpected\"}", HttpStatusCode.NotFound),
+        });
+        using var invoker = CreateInvoker(handler);
+
+        var taskId = await invoker.StartTaskAsync("mail.send", "{\"title\":\"Hi\"}");
+        var cancelled = await invoker.CancelTaskAsync(taskId);
+        var status = await invoker.GetTaskStatusAsync(taskId);
+
+        taskId.Should().Be("task-1");
+        cancelled.Should().BeTrue();
+        status.TaskId.Should().Be("task-1");
+        status.Status.Should().Be("running");
+        status.Progress.Should().Be(50);
+        handler.Requests.Select(request => request.PathAndQuery).Should().ContainInOrder(
+            "/api/v1/tasks",
+            "/api/v1/tasks/task-1/cancel",
+            "/api/v1/tasks/task-1");
+    }
+
+    [Fact]
+    public async Task StreamTaskAsync_UsesAfterSequenceCursorUntilDone()
+    {
+        var responses = new Queue<string>(new[]
+        {
+            "{\"items\":[{\"seq\":1,\"type\":\"started\",\"progress\":0}],\"done\":false}",
+            "{\"items\":[{\"seq\":2,\"type\":\"completed\",\"progress\":100,\"payload\":{\"ok\":true}}],\"done\":true}",
+        });
+        var handler = new RecordingHandler(_ => JsonResponse(responses.Dequeue()));
+        using var invoker = CreateInvoker(handler);
+
+        var events = new List<TaskEvent>();
+        await foreach (var taskEvent in invoker.StreamTaskAsync("task-2"))
+        {
+            events.Add(taskEvent);
+        }
+
+        events.Select(taskEvent => taskEvent.Type).Should().Equal("started", "completed");
+        handler.Requests.Select(request => request.PathAndQuery).Should().Equal(
+            "/api/v1/tasks/task-2/events?after_seq=0",
+            "/api/v1/tasks/task-2/events?after_seq=1");
+    }
+
+    [Fact]
+    public async Task BatchInvokeAsync_PreservesPerRequestIdempotencyKeys()
+    {
+        var handler = new RecordingHandler(_ => JsonResponse("{\"result\":{}}"));
+        using var invoker = CreateInvoker(handler);
+
+        var results = await invoker.BatchInvokeAsync(new List<BatchInvokeRequest>
+        {
+            new() { FunctionId = "a.run", Payload = "{}", IdempotencyKey = "a-key" },
+            new() { FunctionId = "b.run", Payload = "{}", IdempotencyKey = "b-key" },
+        });
+
+        results.Should().OnlyContain(result => result.Success);
+        handler.Requests.Select(request => request.Headers["Idempotency-Key"]).Should().BeEquivalentTo("a-key", "b-key");
+    }
+
+    [Integration.IntegrationFact]
+    public async Task InvokeAsync_UsesRealServerFunctionEndpoint()
+    {
+        var baseUrl = Environment.GetEnvironmentVariable("CROUPIER_SERVER_URL");
+        var token = Environment.GetEnvironmentVariable("CROUPIER_SERVER_TOKEN");
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException("CROUPIER_SERVER_URL and CROUPIER_SERVER_TOKEN are required for the real Server Invoker integration test.");
+        }
+
+        using var invoker = new CroupierInvoker(new InvokerConfig
+        {
+            ServerBaseUrl = baseUrl,
+            AuthToken = token,
+            GameId = Environment.GetEnvironmentVariable("CROUPIER_GAME_ID") ?? "e2e-game",
+            Env = Environment.GetEnvironmentVariable("CROUPIER_ENV") ?? "e2e",
+        });
+
+        var result = await invoker.InvokeAsync("players.player.get", "{\"id\":\"p-001\"}");
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().Contain("\"id\":\"p-001\"");
+        result.Data.Should().Contain("\"name\":\"Ada\"");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task InvokeAsync_RejectsEmptyFunctionId(string functionId)
+    {
+        using var invoker = CreateInvoker(new RecordingHandler(_ => JsonResponse("{}")));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => invoker.InvokeAsync(functionId, "{}"));
+    }
+
+    [Fact]
+    public async Task StartTaskAsync_RejectsNullPayload()
+    {
+        using var invoker = CreateInvoker(new RecordingHandler(_ => JsonResponse("{}")));
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => invoker.StartTaskAsync("mail.send", null!));
+    }
+
+    [Fact]
+    public async Task TaskMethods_RejectEmptyTaskId()
+    {
+        using var invoker = CreateInvoker(new RecordingHandler(_ => JsonResponse("{}")));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => invoker.CancelTaskAsync(""));
+        await Assert.ThrowsAsync<ArgumentException>(() => invoker.GetTaskStatusAsync(""));
+    }
+
+    [Fact]
+    public async Task Methods_AfterDispose_ThrowObjectDisposedException()
+    {
+        var invoker = CreateInvoker(new RecordingHandler(_ => JsonResponse("{}")));
+        invoker.Dispose();
+
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => invoker.InvokeAsync("mail.send", "{}"));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => invoker.StartTaskAsync("mail.send", "{}"));
+    }
+
+    private static CroupierInvoker CreateInvoker(RecordingHandler handler)
+    {
+        var client = new HttpClient(handler) { BaseAddress = new Uri("http://unused.invalid/") };
+        return new CroupierInvoker(new InvokerConfig
+        {
+            ServerBaseUrl = "http://server.test/api/v1",
+            AuthToken = "token-1",
+            GameId = "default-game",
+            Env = "dev",
+            TaskPollIntervalMilliseconds = 1,
+        }, client, ownsHttpClient: true);
+    }
+
+    private static HttpResponseMessage JsonResponse(string json, HttpStatusCode statusCode = HttpStatusCode.OK) => new(statusCode)
+    {
+        Content = new StringContent(json, Encoding.UTF8, "application/json"),
+    };
+
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        private readonly Func<RecordedRequest, HttpResponseMessage> _respond;
+
+        public RecordingHandler(Func<RecordedRequest, HttpResponseMessage> respond)
+        {
+            _respond = respond;
+        }
+
+        public List<RecordedRequest> Requests { get; } = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var headers = request.Headers.ToDictionary(pair => pair.Key, pair => string.Join(",", pair.Value), StringComparer.OrdinalIgnoreCase);
+            var recorded = new RecordedRequest(
+                request.Method,
+                request.RequestUri!,
+                request.RequestUri!.PathAndQuery,
+                headers,
+                request.Content == null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken));
+            Requests.Add(recorded);
+            return _respond(recorded);
+        }
+    }
+
+    private sealed record RecordedRequest(HttpMethod Method, Uri Uri, string PathAndQuery, Dictionary<string, string> Headers, string Body);
 }

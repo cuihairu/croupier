@@ -159,7 +159,9 @@ export default {
   'POST /api/v1/auth/login': async (req: Request, res: Response) => {
     const { password, username } = req.body;
     await waitTime(1000);
-    if (password === 'ant.design' && username === 'admin') {
+    const validAdmin =
+      username === 'admin' && (password === 'ant.design' || password === 'admin123');
+    if (validAdmin) {
       res.send({
         token: 'mock-jwt-token-admin',
         user: {

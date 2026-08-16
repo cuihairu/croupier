@@ -272,7 +272,7 @@ public class ConfigurationProviderTests
 
             // Assert - should use defaults
             config.Should().NotBeNull();
-            config.AgentAddr.Should().Be("127.0.0.1:19090");
+            config.AgentAddr.Should().Be("127.0.0.1:19091");
         }
         finally
         {

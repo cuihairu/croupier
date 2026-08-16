@@ -12,7 +12,7 @@ python -m pip install -e ./sdks/python
 import json
 from croupier import CroupierClient, ClientConfig, FunctionDescriptor
 
-config = ClientConfig(agent_addr="127.0.0.1:19090", service_id="python-demo")
+config = ClientConfig(agent_addr="127.0.0.1:19091", service_id="python-demo")
 client = CroupierClient(config)
 
 def player_ban(_context: str, payload: bytes) -> str:

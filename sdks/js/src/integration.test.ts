@@ -1,53 +1,58 @@
 /**
  * Integration tests for Croupier JavaScript SDK
  *
- * These tests require a running croupier-agent on localhost:19090.
+ * These tests require a running croupier-agent local SDK gateway on localhost:19091.
  * They test real TCP connection, function registration, and heartbeat.
  */
 
+import net from "node:net";
+
 import { BasicClient, FunctionDescriptor } from "./index";
 
-// Check if agent is available
-const AGENT_ADDR = process.env.CROUPIER_AGENT_ADDR || "tcp://127.0.0.1:19090";
+const RUN_INTEGRATION_TESTS = process.env.CROUPIER_RUN_INTEGRATION_TESTS === "1";
+const AGENT_ADDR = process.env.CROUPIER_AGENT_ADDR || "tcp://127.0.0.1:19091";
 const INTEGRATION_TEST_TIMEOUT = 15000; // 15 seconds
+const integrationDescribe = RUN_INTEGRATION_TESTS ? describe : describe.skip;
 
 async function isAgentAvailable(): Promise<boolean> {
-  try {
-    const client = new BasicClient({ agentAddr: AGENT_ADDR });
-    // Try to connect with minimal timeout
-    const timeoutPromise = new Promise<boolean>((_resolve, reject) => {
-      setTimeout(() => reject(new Error("timeout")), 2000);
-    });
-    const connectPromise = client.connect().then(() => true, () => false);
-    const result = await Promise.race([connectPromise, timeoutPromise]);
-    await client.disconnect().catch(() => {});
-    return result === true;
-  } catch {
+  const address = AGENT_ADDR.replace(/^[a-z+]+:\/\//i, "");
+  const lastColon = address.lastIndexOf(":");
+  if (lastColon <= 0 || lastColon === address.length - 1) {
     return false;
   }
+
+  const host = address.slice(0, lastColon).replace(/^\[|\]$/g, "");
+  const port = Number(address.slice(lastColon + 1));
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    return false;
+  }
+
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    const finish = (available: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(available);
+    };
+    socket.setTimeout(2000);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", () => finish(false));
+  });
 }
 
-describe("Integration Tests (requires croupier-agent)", () => {
-  let agentAvailable = false;
-
+integrationDescribe("Integration Tests (requires croupier-agent)", () => {
   beforeAll(async () => {
-    agentAvailable = await isAgentAvailable();
-    if (!agentAvailable) {
-      console.warn(
-        "⚠️  croupier-agent not available, skipping integration tests",
+    if (!(await isAgentAvailable())) {
+      throw new Error(
+        `croupier-agent local SDK gateway is unavailable at ${AGENT_ADDR}`,
       );
-      console.warn(`   Expected agent at: ${AGENT_ADDR}`);
     }
   });
 
   test(
     "connect to agent and register function",
     async () => {
-      if (!agentAvailable) {
-        console.warn("Skipping test: agent not available");
-        return;
-      }
-
       const client = new BasicClient({
         agentAddr: AGENT_ADDR,
         serviceId: "js-integration-test",
@@ -107,11 +112,6 @@ describe("Integration Tests (requires croupier-agent)", () => {
   test(
     "connect requires at least one function",
     async () => {
-      if (!agentAvailable) {
-        console.warn("Skipping test: agent not available");
-        return;
-      }
-
       const client = new BasicClient({
         agentAddr: AGENT_ADDR,
       });
@@ -127,11 +127,6 @@ describe("Integration Tests (requires croupier-agent)", () => {
   test(
     "heartbeat is sent periodically",
     async () => {
-      if (!agentAvailable) {
-        console.warn("Skipping test: agent not available");
-        return;
-      }
-
       const client = new BasicClient({
         agentAddr: AGENT_ADDR,
         serviceId: "js-integration-test-heartbeat",
@@ -161,11 +156,6 @@ describe("Integration Tests (requires croupier-agent)", () => {
   test(
     "disconnect is idempotent",
     async () => {
-      if (!agentAvailable) {
-        console.warn("Skipping test: agent not available");
-        return;
-      }
-
       const client = new BasicClient({
         agentAddr: AGENT_ADDR,
         serviceId: "js-integration-test-disconnect",
@@ -191,11 +181,6 @@ describe("Integration Tests (requires croupier-agent)", () => {
   test(
     "reconnect after disconnect",
     async () => {
-      if (!agentAvailable) {
-        console.warn("Skipping test: agent not available");
-        return;
-      }
-
       const client = new BasicClient({
         agentAddr: AGENT_ADDR,
         serviceId: "js-integration-test-reconnect",

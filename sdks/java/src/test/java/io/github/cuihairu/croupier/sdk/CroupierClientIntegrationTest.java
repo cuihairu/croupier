@@ -15,7 +15,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 /**
  * Integration tests for Croupier Java SDK.
  *
- * <p>These tests require a running croupier-agent on localhost:19090.
+ * <p>These tests require a running croupier-agent local SDK gateway on localhost:19091.
  * They test real TCP connection, function registration, and heartbeat.
  *
  * <p>To run these tests:
@@ -27,7 +27,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 @EnabledIfSystemProperty(named = "integration", matches = "true")
 class CroupierClientIntegrationTest {
 
-    private static final String AGENT_ADDR = System.getProperty("croupier.agent.addr", "tcp://127.0.0.1:19090");
+    private static final String AGENT_ADDR = System.getProperty("croupier.agent.addr", "tcp://127.0.0.1:19091");
     private static final int CONNECT_TIMEOUT_SECONDS = 10;
 
     @Test

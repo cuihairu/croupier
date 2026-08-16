@@ -59,7 +59,7 @@ func TestNewClient(t *testing.T) {
 			t.Fatal("config should be set to default")
 		}
 
-		if c.config.AgentAddr != "localhost:19090" {
+		if c.config.AgentAddr != "localhost:19091" {
 			t.Errorf("expected default AgentAddr, got %q", c.config.AgentAddr)
 		}
 
@@ -320,8 +320,8 @@ func TestDefaultClientConfig(t *testing.T) {
 
 	config := DefaultClientConfig()
 
-	if config.AgentAddr != "localhost:19090" {
-		t.Errorf("expected AgentAddr localhost:19090, got %q", config.AgentAddr)
+	if config.AgentAddr != "localhost:19091" {
+		t.Errorf("expected AgentAddr localhost:19091, got %q", config.AgentAddr)
 	}
 
 	if config.Env != "development" {

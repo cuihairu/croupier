@@ -44,21 +44,21 @@ Croupier Python SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏�
 
 ## 主项目
 
-| 项目 | 描述 | 链接 |
-|------|------|------|
+| 项目         | 描述               | 链接                                                      |
+| ------------ | ------------------ | --------------------------------------------------------- |
 | **Croupier** | 游戏后端平台主项目 | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
 
 ## 其他语言 SDK
 
 所有 SDK 现已整合到主 monorepo 的 `sdks/` 目录下：
 
-| 语言 | 目录 | CI | Docs |
-| --- | --- | --- | --- |
-| Go | [sdks/go/](https://github.com/cuihairu/croupier/tree/main/sdks/go) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml) | [README](../go/README.md) |
-| C++ | [sdks/cpp/](https://github.com/cuihairu/croupier/tree/main/sdks/cpp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml) | [README](../cpp/README.md) |
-| Java | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml) | [README](../java/README.md) |
-| JS/TS | [sdks/js/](https://github.com/cuihairu/croupier/tree/main/sdks/js) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml) | [README](../js/README.md) |
-| C# | [sdks/csharp/](https://github.com/cuihairu/croupier/tree/main/sdks/csharp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [README](../csharp/README.md) |
+| 语言  | 目录                                                                       | CI                                                                                                                                                                    | Docs                          |
+| ----- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Go    | [sdks/go/](https://github.com/cuihairu/croupier/tree/main/sdks/go)         | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml)         | [README](../go/README.md)     |
+| C++   | [sdks/cpp/](https://github.com/cuihairu/croupier/tree/main/sdks/cpp)       | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [README](../cpp/README.md)    |
+| Java  | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java)     | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [README](../java/README.md)   |
+| JS/TS | [sdks/js/](https://github.com/cuihairu/croupier/tree/main/sdks/js)         | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml)         | [README](../js/README.md)     |
+| C#    | [sdks/csharp/](https://github.com/cuihairu/croupier/tree/main/sdks/csharp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [README](../csharp/README.md) |
 
 ## 核心特性
 
@@ -83,11 +83,11 @@ Croupier Python SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏�
 
 ## 支持平台
 
-| 平台 | 架构 | 状态 |
-|------|------|------|
-| **Windows** | x64 | ✅ 支持 |
-| **Linux** | x64, ARM64 | ✅ 支持 |
-| **macOS** | x64, ARM64 (Apple Silicon) | ✅ 支持 |
+| 平台        | 架构                       | 状态    |
+| ----------- | -------------------------- | ------- |
+| **Windows** | x64                        | ✅ 支持 |
+| **Linux**   | x64, ARM64                 | ✅ 支持 |
+| **macOS**   | x64, ARM64 (Apple Silicon) | ✅ 支持 |
 
 ## 系统要求
 
@@ -116,7 +116,7 @@ import json
 from croupier import CroupierClient, ClientConfig, FunctionDescriptor
 
 config = ClientConfig(
-    agent_addr="127.0.0.1:19090",
+    agent_addr="127.0.0.1:19091",
     service_id="python-demo",
     service_version="1.0.0",
 )

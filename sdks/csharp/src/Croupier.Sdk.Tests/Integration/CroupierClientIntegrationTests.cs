@@ -10,7 +10,7 @@ namespace Croupier.Sdk.Tests.Integration;
 
 /// <summary>
 /// Integration tests for CroupierClient.
-/// These tests require a running croupier-agent on localhost:19090.
+/// These tests require a running croupier-agent local SDK gateway.
 /// </summary>
 [Trait("Category", "Integration")]
 public class CroupierClientIntegrationTests
@@ -22,20 +22,11 @@ public class CroupierClientIntegrationTests
         _output = output;
     }
 
-    /// <summary>
-    /// Check if integration tests should be skipped (no agent running).
-    /// </summary>
-    private static bool ShouldSkipIntegrationTests()
-    {
-        var runIntegrationTests = Environment.GetEnvironmentVariable("CROUPIER_RUN_INTEGRATION_TESTS");
-        return string.IsNullOrEmpty(runIntegrationTests) || runIntegrationTests != "1";
-    }
-
     private static ClientConfig CreateTestConfig(string serviceId)
     {
         return new ClientConfig
         {
-            AgentAddr = "127.0.0.1:19090",
+            AgentAddr = Environment.GetEnvironmentVariable("CROUPIER_AGENT_ADDR") ?? "127.0.0.1:19091",
             ServiceId = serviceId,
             GameId = "test-game",
             Env = "test",
@@ -45,15 +36,9 @@ public class CroupierClientIntegrationTests
         };
     }
 
-    [Fact]
+    [IntegrationFact]
     public async Task ConnectToAgentAndRegisterFunction_Succeeds()
     {
-        if (ShouldSkipIntegrationTests())
-        {
-            _output.WriteLine("Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
         // Arrange
         var config = CreateTestConfig("csharp-integration-test");
         using var client = new CroupierClient(config);
@@ -81,15 +66,9 @@ public class CroupierClientIntegrationTests
         client.IsConnected.Should().BeFalse();
     }
 
-    [Fact]
+    [IntegrationFact]
     public async Task ConnectFailsWithInvalidAgentAddress()
     {
-        if (ShouldSkipIntegrationTests())
-        {
-            _output.WriteLine("Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
         // Arrange
         var config = new ClientConfig
         {
@@ -118,35 +97,21 @@ public class CroupierClientIntegrationTests
         _output.WriteLine($"Expected connection failure: {exception.Message}");
     }
 
-    [Fact]
+    [IntegrationFact]
     public async Task ConnectRequiresAtLeastOneFunction()
     {
-        if (ShouldSkipIntegrationTests())
-        {
-            _output.WriteLine("Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
         // Arrange
         var config = CreateTestConfig("csharp-integration-test-no-func");
         using var client = new CroupierClient(config);
 
         // Act & Assert
-        // Should not fail at ConnectAsync, but registration may fail
-        // The SDK allows connecting without functions, but ProviderConnect handshake will fail
-        var exception = await Record.ExceptionAsync(() => client.ConnectAsync());
-        _output.WriteLine($"Connect result: {exception?.Message ?? "Success"}");
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => client.ConnectAsync());
+        exception.Message.Should().Contain("Register at least one function");
     }
 
-    [Fact]
+    [IntegrationFact]
     public async Task ConnectIsIdempotent()
     {
-        if (ShouldSkipIntegrationTests())
-        {
-            _output.WriteLine("Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
         // Arrange
         var config = CreateTestConfig("csharp-integration-test-idempotent");
         using var client = new CroupierClient(config);
@@ -171,15 +136,9 @@ public class CroupierClientIntegrationTests
         client.Disconnect();
     }
 
-    [Fact]
+    [IntegrationFact]
     public async Task ReconnectAfterDisconnect_Succeeds()
     {
-        if (ShouldSkipIntegrationTests())
-        {
-            _output.WriteLine("Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
         // Arrange
         var config = CreateTestConfig("csharp-integration-test-reconnect");
         using var client = new CroupierClient(config);
@@ -208,15 +167,9 @@ public class CroupierClientIntegrationTests
         client.Disconnect();
     }
 
-    [Fact]
+    [IntegrationFact]
     public async Task DisconnectIsIdempotent()
     {
-        if (ShouldSkipIntegrationTests())
-        {
-            _output.WriteLine("Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
         // Arrange
         var config = CreateTestConfig("csharp-integration-test-disconnect");
         using var client = new CroupierClient(config);
@@ -237,15 +190,9 @@ public class CroupierClientIntegrationTests
         client.IsConnected.Should().BeFalse();
     }
 
-    [Fact]
+    [IntegrationFact]
     public async Task RegisterMultipleFunctions_Succeeds()
     {
-        if (ShouldSkipIntegrationTests())
-        {
-            _output.WriteLine("Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
         // Arrange
         var config = CreateTestConfig("csharp-integration-test-multi");
         using var client = new CroupierClient(config);

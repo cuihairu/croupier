@@ -496,6 +496,74 @@ public class TCPTransportTests
         await serverTask;
     }
 
+    [Fact]
+    public async Task CallAsync_ProcessesInboundRequestWhileAwaitingResponse()
+    {
+        using var server = new TcpListener(IPAddress.Loopback, 0);
+        server.Start();
+        var port = ((IPEndPoint)server.LocalEndpoint).Port;
+
+        var serverTask = Task.Run(async () =>
+        {
+            using var peer = await server.AcceptTcpClientAsync();
+            using var stream = peer.GetStream();
+
+            var request = await ReadFrameAsync(stream);
+            var callback = Protocol.NewMessage(
+                Protocol.MsgStartTaskRequest,
+                request.ReqId + 1,
+                Encoding.UTF8.GetBytes("callback"));
+            await WriteFrameAsync(stream, callback);
+
+            var callbackResponse = await ReadFrameAsync(stream);
+            callbackResponse.MsgId.Should().Be(Protocol.MsgStartTaskResponse);
+            callbackResponse.ReqId.Should().Be(request.ReqId + 1);
+            Encoding.UTF8.GetString(callbackResponse.Body).Should().Be("handled:callback");
+
+            var response = Protocol.NewMessage(
+                Protocol.MsgInvokeResponse,
+                request.ReqId,
+                callbackResponse.Body);
+            await WriteFrameAsync(stream, response);
+        });
+
+        using var transport = new TCPTransport($"127.0.0.1:{port}", timeoutMs: 5000, connectTimeoutMs: 5000);
+        transport.SetInboundRequestHandler((msgId, _, body) =>
+        {
+            msgId.Should().Be(Protocol.MsgStartTaskRequest);
+            return Task.FromResult(Encoding.UTF8.GetBytes($"handled:{Encoding.UTF8.GetString(body)}"));
+        });
+        transport.Connect();
+
+        var response = await transport.CallAsync(Protocol.MsgInvokeRequest, Encoding.UTF8.GetBytes("request"));
+
+        Encoding.UTF8.GetString(response).Should().Be("handled:callback");
+        await serverTask;
+    }
+
+    private static async Task<(int MsgId, int ReqId, byte[] Body)> ReadFrameAsync(NetworkStream stream)
+    {
+        var header = new byte[4];
+        await ReadExactAsync(stream, header);
+        var length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3];
+        var payload = new byte[length];
+        await ReadExactAsync(stream, payload);
+        var parsed = Protocol.ParseMessage(payload);
+        return (parsed.MsgId, parsed.ReqId, parsed.Body);
+    }
+
+    private static async Task WriteFrameAsync(NetworkStream stream, byte[] payload)
+    {
+        var header = new byte[4];
+        header[0] = (byte)(payload.Length >> 24);
+        header[1] = (byte)(payload.Length >> 16);
+        header[2] = (byte)(payload.Length >> 8);
+        header[3] = (byte)payload.Length;
+        await stream.WriteAsync(header);
+        await stream.WriteAsync(payload);
+        await stream.FlushAsync();
+    }
+
     private static async Task ReadExactAsync(NetworkStream stream, byte[] buffer)
     {
         int offset = 0;

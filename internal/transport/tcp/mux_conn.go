@@ -182,9 +182,12 @@ func (c *MuxConn) Run(ctx context.Context) error {
 			return NewProtocolError(fmt.Errorf("no request handler configured for %s", protocol.MsgIDString(msgID)))
 		}
 
-		if err := c.handleInboundRequest(ctx, msgID, reqID, body); err != nil {
-			return err
-		}
+		// A peer may issue an RPC while this side is waiting for a response to
+		// its own RPC. Handle requests independently so the read loop can still
+		// receive and fulfill that pending response. Processing the request inline
+		// deadlocks a bidirectional Provider session: the Agent waits for the
+		// Provider callback response while the read loop is unable to read it.
+		go c.handleInboundRequestAsync(ctx, msgID, reqID, body)
 	}
 }
 
@@ -298,6 +301,15 @@ func (c *MuxConn) handleInboundRequest(ctx context.Context, msgID uint32, reqID 
 	}
 
 	return c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody)
+}
+
+func (c *MuxConn) handleInboundRequestAsync(ctx context.Context, msgID uint32, reqID uint32, body []byte) {
+	if err := c.handleInboundRequest(ctx, msgID, reqID, body); err != nil {
+		// A protocol error cannot be represented as an RPC response; terminate
+		// the session just as the synchronous read loop did. Other write errors
+		// also make the connection unusable, and Close unblocks any pending calls.
+		_ = c.Close()
+	}
 }
 
 func (c *MuxConn) writeFrame(reqID uint32, msgID uint32, body []byte) error {

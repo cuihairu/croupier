@@ -102,7 +102,7 @@ TEST_F(ConfigMergeTest, MergeConfigsPartialOverride) {
     EXPECT_EQ(result.game_id, "overlay-game");  // 被覆盖
     EXPECT_EQ(result.env, "development");  // 保留 base 值
     EXPECT_EQ(result.service_id, "base-service");  // 保留 base 值
-    EXPECT_EQ(result.agent_addr, "127.0.0.1:19090");  // 保留 base 值
+    EXPECT_EQ(result.agent_addr, "127.0.0.1:19091");  // 保留 base 值
     EXPECT_EQ(result.timeout_seconds, 60);  // 被覆盖
 }
 
@@ -137,7 +137,7 @@ TEST_F(ConfigMergeTest, MergeConfigsEmptyOverlay) {
     EXPECT_EQ(result.game_id, "base-game");
     EXPECT_EQ(result.env, "development");
     EXPECT_EQ(result.service_id, "base-service");
-    EXPECT_EQ(result.agent_addr, "127.0.0.1:19090");
+    EXPECT_EQ(result.agent_addr, "127.0.0.1:19091");
     EXPECT_EQ(result.timeout_seconds, 30);
 }
 
@@ -256,7 +256,7 @@ TEST_F(ConfigMergeTest, MergeConfigsAllEmptyFields) {
     // 结果应该也是默认值
     EXPECT_TRUE(result.game_id.empty());
     EXPECT_TRUE(result.env.empty() || result.env == "development");  // 可能有默认值
-    EXPECT_TRUE(result.agent_addr.empty() || result.agent_addr == "127.0.0.1:19090");  // 可能有默认值
+    EXPECT_TRUE(result.agent_addr.empty() || result.agent_addr == "127.0.0.1:19091");  // 可能有默认值
 }
 
 TEST_F(ConfigMergeTest, MergeConfigsNumericValues) {
@@ -333,7 +333,7 @@ TEST_F(ConfigMergeTest, MergeConfigsPreservesBaseDefaults) {
     // 未被覆盖的字段应该保留
     EXPECT_EQ(result.env, "development");
     EXPECT_EQ(result.service_id, "base-service");
-    EXPECT_EQ(result.agent_addr, "127.0.0.1:19090");
+    EXPECT_EQ(result.agent_addr, "127.0.0.1:19091");
     EXPECT_EQ(result.timeout_seconds, 30);
     EXPECT_TRUE(result.insecure);
 

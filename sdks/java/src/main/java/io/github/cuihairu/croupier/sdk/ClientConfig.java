@@ -8,7 +8,7 @@ import java.util.Map;
  */
 public class ClientConfig {
     // ========== Agent Connection Settings ==========
-    private String agentAddr = "127.0.0.1:19090"; // Agent TCP address
+    private String agentAddr = "127.0.0.1:19091"; // Agent local SDK gateway address
     private String agentId;                       // Agent unique identifier (auto-generated if empty)
 
     // ========== Service Identification (single-company, multi-game scope) ==========

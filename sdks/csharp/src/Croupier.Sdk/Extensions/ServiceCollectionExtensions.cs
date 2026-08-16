@@ -49,7 +49,6 @@ public static class ServiceCollectionExtensions
 
         // 注册核心服务
         services.AddSingleton<CroupierClient>();
-        services.AddSingleton<CroupierInvoker>();
 
         return services;
     }
@@ -66,7 +65,6 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<ClientConfig>(section);
         services.AddSingleton<CroupierClient>();
-        services.AddSingleton<CroupierInvoker>();
 
         return services;
     }
@@ -94,8 +92,27 @@ public static class ServiceCollectionExtensions
         var config = configProvider.GetConfig();
         services.AddSingleton(Options.Create(config));
         services.AddSingleton<CroupierClient>();
-        services.AddSingleton<CroupierInvoker>();
 
+        return services;
+    }
+
+    /// <summary>
+    /// 注册 L3 调用方。调用方使用独立的 <see cref="InvokerConfig"/> 连接 Server HTTP API，
+    /// 不复用 Provider 的 <see cref="ClientConfig"/> 或 Agent gateway。
+    /// </summary>
+    /// <param name="services">服务集合。</param>
+    /// <param name="configAction">调用方配置操作。</param>
+    /// <returns>服务集合（链式调用）。</returns>
+    /// <exception cref="ArgumentNullException">Thrown when services is null.</exception>
+    public static IServiceCollection AddCroupierInvoker(
+        this IServiceCollection services,
+        Action<InvokerConfig>? configAction = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        var config = new InvokerConfig();
+        configAction?.Invoke(config);
+        services.AddSingleton(config);
+        services.AddSingleton<CroupierInvoker>();
         return services;
     }
 }

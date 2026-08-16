@@ -95,12 +95,13 @@ public class TCPTransport implements TransportClient {
 
         LOG.info("Connecting to TCP server at {}:{}", host, port);
 
+        Socket nextSocket = new Socket();
         try {
-            socket = new Socket();
-            socket.connect(new InetSocketAddress(host, port), timeoutMs);
-            socket.setSoTimeout(timeoutMs);
-            outputStream = socket.getOutputStream();
-            inputStream = socket.getInputStream();
+            nextSocket.connect(new InetSocketAddress(host, port), timeoutMs);
+            nextSocket.setSoTimeout(timeoutMs);
+            outputStream = nextSocket.getOutputStream();
+            inputStream = nextSocket.getInputStream();
+            socket = nextSocket;
 
             // Start read loop
             closing = false;
@@ -110,6 +111,14 @@ public class TCPTransport implements TransportClient {
 
             LOG.info("Connected to TCP server");
         } catch (IOException e) {
+            try {
+                nextSocket.close();
+            } catch (IOException closeError) {
+                e.addSuppressed(closeError);
+            }
+            socket = null;
+            inputStream = null;
+            outputStream = null;
             throw new RuntimeException("Failed to connect to " + host + ":" + port, e);
         }
     }

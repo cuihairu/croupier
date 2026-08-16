@@ -861,7 +861,7 @@ func TestBuildDialAddrs(t *testing.T) {
 			config: &Config{
 				Insecure: true,
 			},
-			expectAddrs: []string{"tcp://127.0.0.1:19090"},
+			expectAddrs: []string{"tcp://127.0.0.1:19091"},
 		},
 	}
 

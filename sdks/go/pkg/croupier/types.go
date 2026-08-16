@@ -92,7 +92,7 @@ func (hwd *HandlerWithDescriptor) GetDescriptor() *ProviderFunctionDescriptor {
 // ClientConfig holds configuration for the Croupier client
 type ClientConfig struct {
 	// Agent connection settings
-	AgentAddr    string `json:"agent_addr"`     // Agent address, e.g. "localhost:19090" or "ipc://croupier-agent,localhost:19090"
+	AgentAddr    string `json:"agent_addr"`     // Agent local SDK gateway, e.g. "localhost:19091" or "ipc://croupier-agent,localhost:19091"
 	AgentIPCAddr string `json:"agent_ipc_addr"` // IPC address for local high-performance connection (e.g., "ipc://croupier-agent")
 
 	// Service identification (single-company, multi-game scope)
@@ -150,7 +150,7 @@ func generateUUID() string {
 func DefaultClientConfig() *ClientConfig {
 	return &ClientConfig{
 		ServiceID:          fmt.Sprintf("go-sdk-%s", generateUUID()),
-		AgentAddr:          "localhost:19090",
+		AgentAddr:          "localhost:19091",
 		Env:                "development",
 		ServiceVersion:     "1.0.0",
 		TimeoutSeconds:     30,

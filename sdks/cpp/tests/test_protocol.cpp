@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+
 #include "croupier/sdk/protocol.h"
 
 #include <vector>

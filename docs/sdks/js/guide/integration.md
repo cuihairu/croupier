@@ -17,7 +17,7 @@ import {
 
 async function main() {
   const config: ClientConfig = {
-    agentAddr: "127.0.0.1:19090",
+    agentAddr: "127.0.0.1:19091",
     serviceId: "my-service",
   };
 

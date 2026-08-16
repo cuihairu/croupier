@@ -330,8 +330,11 @@ public sealed class TCPTransport : IClientTransport
                 }
                 else if (Protocol.IsRequest(parsed.MsgId))
                 {
-                    // Handle inbound requests (invoke/task from agent)
-                    await HandleInboundRequest(parsed.MsgId, parsed.ReqId, parsed.Body, cancellationToken).ConfigureAwait(false);
+                    // The Agent can call a Provider while this transport is
+                    // awaiting a response to its own request. Do not await the
+                    // callback in the sole read loop, otherwise its response
+                    // cannot be read and both peers time out.
+                    _ = HandleInboundRequestAsync(parsed.MsgId, parsed.ReqId, parsed.Body, cancellationToken);
                 }
             }
             catch (OperationCanceledException)
@@ -365,6 +368,22 @@ public sealed class TCPTransport : IClientTransport
             tcs.SetCanceled(cancellationToken);
         }
         _pending.Clear();
+    }
+
+    private async Task HandleInboundRequestAsync(int msgId, int reqId, byte[] body, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await HandleInboundRequest(msgId, reqId, body, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Normal shutdown.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("TCPTransport", $"Inbound request processing failed: {ex.Message}", ex);
+        }
     }
 
     /// <summary>

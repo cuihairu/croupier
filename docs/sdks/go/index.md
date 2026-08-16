@@ -31,7 +31,7 @@ import "github.com/cuihairu/croupier/sdks/go/pkg/croupier"
 
 func main() {
 	cfg := &croupier.ClientConfig{
-		AgentAddr: "127.0.0.1:19090",
+        AgentAddr: "127.0.0.1:19091",
 		GameID:    "my-game",
 		Env:       "development",
 	}

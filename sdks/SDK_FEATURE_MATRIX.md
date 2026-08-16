@@ -14,12 +14,12 @@
 
 ## 一、能力分层原则
 
-| 层级 | 含义 | 跨语言一致性要求 |
-| --- | --- | --- |
-| **L1 Core Provider** | SDK 作为被调用方接入平台的最小集合 | **必须**，所有 SDK 一致实现 |
-| **L2 Provider 扩展** | 增强注册/治理的可选项 | 可选，但若实现需遵循统一字段语义 |
-| **L3 Invoker** | SDK 作为调用方的独立能力 | 独立模块、独立配置、独立示例 |
-| **L4 语言/引擎扩展** | 与语言生态深度耦合的能力 | 不要求跨语言对齐，仅在所属 SDK 文档化 |
+| 层级                 | 含义                               | 跨语言一致性要求                      |
+| -------------------- | ---------------------------------- | ------------------------------------- |
+| **L1 Core Provider** | SDK 作为被调用方接入平台的最小集合 | **必须**，所有 SDK 一致实现           |
+| **L2 Provider 扩展** | 增强注册/治理的可选项              | 可选，但若实现需遵循统一字段语义      |
+| **L3 Invoker**       | SDK 作为调用方的独立能力           | 独立模块、独立配置、独立示例          |
+| **L4 语言/引擎扩展** | 与语言生态深度耦合的能力           | 不要求跨语言对齐，仅在所属 SDK 文档化 |
 
 ---
 
@@ -29,13 +29,13 @@
 
 ### 2.1 生命周期 API
 
-| 能力 | 说明 |
-| --- | --- |
-| `Client(config)` | 构造客户端，注入配置 |
-| `registerFunction(descriptor, handler)` | 注册函数及其描述符 |
-| `connect()` | TCP 拨号 + 发送 `ProviderConnectRequest` + 启动心跳 |
-| `serve()` / `serveAsync()` | 持续接受入站调用直到 `stop` |
-| `stop()` / `close()` | 优雅关闭：完成在途请求 → 发送 drain → 关闭连接 |
+| 能力                                    | 说明                                                |
+| --------------------------------------- | --------------------------------------------------- |
+| `Client(config)`                        | 构造客户端，注入配置                                |
+| `registerFunction(descriptor, handler)` | 注册函数及其描述符                                  |
+| `connect()`                             | TCP 拨号 + 发送 `ProviderConnectRequest` + 启动心跳 |
+| `serve()` / `serveAsync()`              | 持续接受入站调用直到 `stop`                         |
+| `stop()` / `close()`                    | 优雅关闭：完成在途请求 → 发送 drain → 关闭连接      |
 
 ### 2.2 传输与会话
 
@@ -48,10 +48,10 @@
 
 ### 2.3 FunctionDescriptor（核心字段，所有 SDK 必须支持）
 
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| `id` | string | 是 | 函数 ID，例如 `player.ban` |
-| `version` | string | 是 | 语义化版本 |
+| 字段      | 类型   | 必填 | 说明                       |
+| --------- | ------ | ---- | -------------------------- |
+| `id`      | string | 是   | 函数 ID，例如 `player.ban` |
+| `version` | string | 是   | 语义化版本                 |
 
 扩展字段（见 L2）：`tags` `summary` `description` `operation_id` `input_schema` `output_schema` `resource` `operation` `capability` `execution` `risk` `enabled` `permission`。
 
@@ -67,27 +67,27 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 各语言本地化形态：
 
-| 语言 | handler 签名 |
-| --- | --- |
-| Go | `func(ctx context.Context, payload []byte) ([]byte, error)` |
-| Python | `Callable[[str, bytes], str \| bytes]` |
-| Java | `FunctionHandler.handle(context: String, payload: byte[]) -> String` |
-| JS/TS | `(context: string, payload: string) => Promise<string> \| string` |
-| C++ | `std::function<std::string(const std::string&, const std::string&)>` |
-| C# | `Func<string, string, Task<string>>` 或同步等价物 |
+| 语言   | handler 签名                                                         |
+| ------ | -------------------------------------------------------------------- |
+| Go     | `func(ctx context.Context, payload []byte) ([]byte, error)`          |
+| Python | `Callable[[str, bytes], str \| bytes]`                               |
+| Java   | `FunctionHandler.handle(context: String, payload: byte[]) -> String` |
+| JS/TS  | `(context: string, payload: string) => Promise<string> \| string`    |
+| C++    | `std::function<std::string(const std::string&, const std::string&)>` |
+| C#     | `Func<string, string, Task<string>>` 或同步等价物                    |
 
 ### 2.5 ClientConfig（核心字段）
 
-| 字段（canonical snake_case） | 必填 | 说明 |
-| --- | --- | --- |
-| `agent_addr` | 是 | Agent TCP 地址 |
-| `service_id` | 是 | Provider / 进程标识 |
-| `service_version` | 否 | Provider 版本，默认 `1.0.0` |
-| `game_id` | 否 | 游戏作用域标识（game scope） |
-| `env` | 否 | `development` / `staging` / `production` |
-| `insecure` | 否 | 是否跳过 TLS，默认 `true`（开发友好） |
-| `auto_reconnect` | 否 | 默认 `true` |
-| `heartbeat_interval_seconds` | 否 | 默认 60 |
+| 字段（canonical snake_case） | 必填 | 说明                                     |
+| ---------------------------- | ---- | ---------------------------------------- |
+| `agent_addr`                 | 是   | Agent TCP 地址                           |
+| `service_id`                 | 是   | Provider / 进程标识                      |
+| `service_version`            | 否   | Provider 版本，默认 `1.0.0`              |
+| `game_id`                    | 否   | 游戏作用域标识（game scope）             |
+| `env`                        | 否   | `development` / `staging` / `production` |
+| `insecure`                   | 否   | 是否跳过 TLS，默认 `true`（开发友好）    |
+| `auto_reconnect`             | 否   | 默认 `true`                              |
+| `heartbeat_interval_seconds` | 否   | 默认 60                                  |
 
 > 字段在 Go/C# 用 PascalCase 导出字段、在 Java/JS 用 camelCase、在 Python/C++ 用 snake_case，这是**语言本地规范**，不是命名漂移。
 
@@ -95,27 +95,27 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 ## 三、L2 Provider 扩展（可选但语义统一）
 
-| 能力 | 触发条件 | 统一字段/语义 |
-| --- | --- | --- |
-| JSON Schema 校验 | 描述符含 `input_schema` / `output_schema` | 默认 JSON Schema 格式，校验失败返回标准错误 |
-| Dashboard 能力契约 | 需要让 Server 归一化 Resource/Operation 候选 | 只使用 `resource` / `operation` / `capability` / `execution` / `risk` / `enabled` / `permission`；`summary` / `description` 只用于目录搜索和说明，不作为菜单或页面标题事实源 |
-| OpenAPI 注册 helper | 从 OpenAPI 文档批量注册 Provider 函数 | 只解析标准 `operationId/tags/summary/description/requestBody/responses` 和 `x-resource` / `x-operation` / `x-capability` / `x-execution` / `x-risk` / `x-enabled` / `x-permission`；遇到页面 schema、菜单、路由、页面分类、显示文案、组件树或布局 DSL 必须报错 |
-| 平台 drain 处理 | Agent 发送 `ProviderDrainRequest` | 停止接收新请求 → 完成在途 → 返回 `ProviderDrainResponse` |
-| 控制面 manifest 上传 | 配置 `control_addr` | 通过 `RegisterCapabilitiesRequest` 推送压缩 manifest |
-| TLS | `insecure=false` | `ca_file` / `cert_file` / `key_file` / `server_name` |
-| 鉴权 | 配置 `auth_token` | Bearer token，附加到握手 metadata |
-| 文件传输 | `enable_file_transfer=true` | 受白名单（`allowed_extensions` / `allowed_mime_types`）与上限（`max_file_size`）约束 |
+| 能力                 | 触发条件                                     | 统一字段/语义                                                                                                                                                                                                                                                  |
+| -------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| JSON Schema 校验     | 描述符含 `input_schema` / `output_schema`    | 默认 JSON Schema 格式，校验失败返回标准错误                                                                                                                                                                                                                    |
+| Dashboard 能力契约   | 需要让 Server 归一化 Resource/Operation 候选 | 只使用 `resource` / `operation` / `capability` / `execution` / `risk` / `enabled` / `permission`；`summary` / `description` 只用于目录搜索和说明，不作为菜单或页面标题事实源                                                                                   |
+| OpenAPI 注册 helper  | 从 OpenAPI 文档批量注册 Provider 函数        | 只解析标准 `operationId/tags/summary/description/requestBody/responses` 和 `x-resource` / `x-operation` / `x-capability` / `x-execution` / `x-risk` / `x-enabled` / `x-permission`；遇到页面 schema、菜单、路由、页面分类、显示文案、组件树或布局 DSL 必须报错 |
+| 平台 drain 处理      | Agent 发送 `ProviderDrainRequest`            | 停止接收新请求 → 完成在途 → 返回 `ProviderDrainResponse`                                                                                                                                                                                                       |
+| 控制面 manifest 上传 | 配置 `control_addr`                          | 通过 `RegisterCapabilitiesRequest` 推送压缩 manifest                                                                                                                                                                                                           |
+| TLS                  | `insecure=false`                             | `ca_file` / `cert_file` / `key_file` / `server_name`                                                                                                                                                                                                           |
+| 鉴权                 | 配置 `auth_token`                            | Bearer token，附加到握手 metadata                                                                                                                                                                                                                              |
+| 文件传输             | `enable_file_transfer=true`                  | 受白名单（`allowed_extensions` / `allowed_mime_types`）与上限（`max_file_size`）约束                                                                                                                                                                           |
 
 当前 Descriptor v2 / OpenAPI helper 实现状态：
 
-| SDK | Descriptor v2 字段 | `RegisterFromOpenAPI` 等价 helper | 备注 |
-| --- | --- | --- | --- |
-| Go | ✅ 已接 builder / OpenAPI helper | ✅ 可验证 | 作为当前基准实现 |
-| JS/TS | ✅ 已含 capability/execution 字段 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
-| Python | ✅ 已含 capability/execution 字段 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
-| Java | ✅ 已含 capability/execution 字段 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
-| C++ | ✅ 生成 proto 已含字段 | ❌ 未实现 | 示例需补齐 v2 字段后才能标完成 |
-| C# | ✅ 生成 proto 已含字段 | ❌ 未实现 | 生成 proto 已含字段，手写 API/示例仍需验收 |
+| SDK    | Descriptor v2 字段                | `RegisterFromOpenAPI` 等价 helper | 备注                                       |
+| ------ | --------------------------------- | --------------------------------- | ------------------------------------------ |
+| Go     | ✅ 已接 builder / OpenAPI helper  | ✅ 可验证                         | 作为当前基准实现                           |
+| JS/TS  | ✅ 已含 capability/execution 字段 | ❌ 未实现                         | 示例需补齐 v2 字段后才能标完成             |
+| Python | ✅ 已含 capability/execution 字段 | ❌ 未实现                         | 示例需补齐 v2 字段后才能标完成             |
+| Java   | ✅ 已含 capability/execution 字段 | ❌ 未实现                         | 示例需补齐 v2 字段后才能标完成             |
+| C++    | ✅ 生成 proto 已含字段            | ❌ 未实现                         | 示例需补齐 v2 字段后才能标完成             |
+| C#     | ✅ 生成 proto 已含字段            | ❌ 未实现                         | 生成 proto 已含字段，手写 API/示例仍需验收 |
 
 验收前禁止在 README 或集成文档中写“所有 SDK 支持 OpenAPI 解析/上传注册”。Server 侧 OpenAPI Source 上传是控制台能力，不等于每个 SDK 都有本地 OpenAPI helper。
 
@@ -127,24 +127,24 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 统一最小 API：
 
-| 能力 | 说明 |
-| --- | --- |
-| `Invoker(config)` | 独立构造，使用 HTTP/gRPC 调 Server，不再走 Provider session |
-| `invoke(function_id, payload, options)` | 同步调用，返回 payload 或错误 |
-| `startTask(function_id, payload, options)` | 异步作业，返回 `task_id` |
-| `streamTask(task_id)` | 流式订阅 `TaskEvent` |
-| `cancelTask(task_id)` | 取消运行中作业 |
+| 能力                                       | 说明                                                        |
+| ------------------------------------------ | ----------------------------------------------------------- |
+| `Invoker(config)`                          | 独立构造，使用 HTTP/gRPC 调 Server，不再走 Provider session |
+| `invoke(function_id, payload, options)`    | 同步调用，返回 payload 或错误                               |
+| `startTask(function_id, payload, options)` | 异步作业，返回 `task_id`                                    |
+| `streamTask(task_id)`                      | 流式订阅 `TaskEvent`                                        |
+| `cancelTask(task_id)`                      | 取消运行中作业                                              |
 
 当前实现状态：
 
-| SDK | Invoker 实现 |
-| --- | --- |
-| Go | ✅ `pkg/croupier/invoker.go` |
-| Python | ✅ `croupier/invoker.py` |
-| Java | ✅ `invoker/Invoker.java` |
-| JS | ✅ `src/invoker.ts` |
-| C++ | ✅ `CroupierInvoker` |
-| C# | ✅ `CroupierInvoker` |
+| SDK    | Invoker 实现                                |
+| ------ | ------------------------------------------- |
+| Go     | ⚠️ 历史 TCP 实现，待迁移至 Server HTTP/gRPC |
+| Python | ⚠️ 历史 TCP 实现，待迁移至 Server HTTP/gRPC |
+| Java   | ⚠️ 历史 TCP 实现，待迁移至 Server HTTP/gRPC |
+| JS     | ✅ `src/invoker.ts`                         |
+| C++    | ⚠️ 历史 TCP 实现，待迁移至 Server HTTP/gRPC |
+| C#     | ✅ `CroupierInvoker`（Server HTTP API）     |
 
 ---
 
@@ -152,16 +152,16 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 仅在所属 SDK 内文档化，不进入跨语言一致性矩阵：
 
-| SDK | 扩展能力 | 入口 |
-| --- | --- | --- |
-| C++ | VirtualObject 注册 | `RegisterVirtualObject` |
-| C++ | Component 注册 | `RegisterComponent` / `LoadComponentFromFile` |
-| C++ | 动态插件 | `plugin/dynamic_loader` |
-| C++ | Lua / Sol2 绑定 | `bindings/lua_binding_sol2` |
-| C++ | Skynet 集成 | `skynet/` |
-| C# | DI 集成 | `Extensions/ServiceCollectionExtensions` |
-| C# | Unity 适配 | `Unity/CroupierUnityBehaviour` |
-| Java | Spring Boot starter | `spring-boot-starter/` |
+| SDK  | 扩展能力            | 入口                                          |
+| ---- | ------------------- | --------------------------------------------- |
+| C++  | VirtualObject 注册  | `RegisterVirtualObject`                       |
+| C++  | Component 注册      | `RegisterComponent` / `LoadComponentFromFile` |
+| C++  | 动态插件            | `plugin/dynamic_loader`                       |
+| C++  | Lua / Sol2 绑定     | `bindings/lua_binding_sol2`                   |
+| C++  | Skynet 集成         | `skynet/`                                     |
+| C#   | DI 集成             | `Extensions/ServiceCollectionExtensions`      |
+| C#   | Unity 适配          | `Unity/CroupierUnityBehaviour`                |
+| Java | Spring Boot starter | `spring-boot-starter/`                        |
 
 ---
 
@@ -181,26 +181,26 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 > 命名风格遵循各语言本地规范；矩阵校验只要求**符号存在**，不要求命名一致。
 
-| L1 能力 | Go | Python | Java | JS/TS | C++ | C# |
-| --- | --- | --- | --- | --- | --- | --- |
-| 构造 | `NewClient` | `CroupierClient` | `CroupierSDK.createClient` | `createClient` | `CroupierClient` ctor | `CroupierClient` ctor |
-| 注册 | `RegisterFunction` | `register_function` | `registerFunction` | `registerFunction` | `RegisterFunction` | `RegisterFunction` |
-| 建立会话 | `Connect` | `connect` | `connect` | `connect` | `Connect` | `ConnectAsync` |
-| 服务循环 | `Serve` | `connect` 内联 | `serve` / `serveAsync` | `serve` / `serveAsync` | `Serve` | `ServeAsync` |
-| 停止 | `Stop` | `disconnect` | `stop` | `disconnect` | `Stop` | `Stop` |
-| 关闭 | `Close` | `disconnect` | `close` | `disconnect` | `Close` | `Close` |
+| L1 能力  | Go                 | Python              | Java                       | JS/TS                  | C++                   | C#                    |
+| -------- | ------------------ | ------------------- | -------------------------- | ---------------------- | --------------------- | --------------------- |
+| 构造     | `NewClient`        | `CroupierClient`    | `CroupierSDK.createClient` | `createClient`         | `CroupierClient` ctor | `CroupierClient` ctor |
+| 注册     | `RegisterFunction` | `register_function` | `registerFunction`         | `registerFunction`     | `RegisterFunction`    | `RegisterFunction`    |
+| 建立会话 | `Connect`          | `connect`           | `connect`                  | `connect`              | `Connect`             | `ConnectAsync`        |
+| 服务循环 | `Serve`            | `connect` 内联      | `serve` / `serveAsync`     | `serve` / `serveAsync` | `Serve`               | `ServeAsync`          |
+| 停止     | `Stop`             | `disconnect`        | `stop`                     | `disconnect`           | `Stop`                | `Stop`                |
+| 关闭     | `Close`            | `disconnect`        | `close`                    | `disconnect`           | `Close`               | `Close`               |
 
 ### L1 配置字段映射
 
-| 字段（canonical snake_case） | Go | Python | Java | JS | C++ | C# |
-| --- | --- | --- | --- | --- | --- | --- |
-| `agent_addr` | `AgentAddr` | `agent_addr` | `agentAddr` | `agentAddr` | `agent_addr` | `AgentAddr` |
-| `service_id` | `ServiceID` | `service_id` | `serviceId` | `serviceId` | `service_id` | `ServiceId` |
-| `service_version` | `ServiceVersion` | `service_version` | `serviceVersion` | `serviceVersion` | `service_version` | `ServiceVersion` |
-| `game_id` | `GameID` | `game_id` | `gameId` | `gameId` | `game_id` | `GameId` |
-| `env` | `Env` | `env` | `env` | `env` | `env` | `Env` |
-| `insecure` | `Insecure` | `insecure` | `insecure` | `insecure` | `insecure` | `Insecure` |
-| `auto_reconnect` | `Reconnect.Enabled` | `auto_reconnect` | `reconnect` | `autoReconnect` | `auto_reconnect` | `AutoReconnect` |
+| 字段（canonical snake_case） | Go                  | Python               | Java                | JS                         | C++                  | C#                         |
+| ---------------------------- | ------------------- | -------------------- | ------------------- | -------------------------- | -------------------- | -------------------------- |
+| `agent_addr`                 | `AgentAddr`         | `agent_addr`         | `agentAddr`         | `agentAddr`                | `agent_addr`         | `AgentAddr`                |
+| `service_id`                 | `ServiceID`         | `service_id`         | `serviceId`         | `serviceId`                | `service_id`         | `ServiceId`                |
+| `service_version`            | `ServiceVersion`    | `service_version`    | `serviceVersion`    | `serviceVersion`           | `service_version`    | `ServiceVersion`           |
+| `game_id`                    | `GameID`            | `game_id`            | `gameId`            | `gameId`                   | `game_id`            | `GameId`                   |
+| `env`                        | `Env`               | `env`                | `env`               | `env`                      | `env`                | `Env`                      |
+| `insecure`                   | `Insecure`          | `insecure`           | `insecure`          | `insecure`                 | `insecure`           | `Insecure`                 |
+| `auto_reconnect`             | `Reconnect.Enabled` | `auto_reconnect`     | `reconnect`         | `autoReconnect`            | `auto_reconnect`     | `AutoReconnect`            |
 | `heartbeat_interval_seconds` | `HeartbeatInterval` | `heartbeat_interval` | `heartbeatInterval` | `heartbeatIntervalSeconds` | `heartbeat_interval` | `HeartbeatIntervalSeconds` |
 
 ### L3 Invoker 能力映射
@@ -208,16 +208,17 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 > 命名统一为 `task` 系列（`startTask` / `streamTask` / `cancelTask`），与 `proto/croupier/sdk/v1/invocation.proto` 对齐。
 > 本阶段不保留过期命名：发现后直接删除，不保留别名。
 
-| SDK | 入口文件 | 同步调用 | 异步任务 | 流式事件 | 取消 |
-| --- | --- | --- | --- | --- | --- |
-| Go | `pkg/croupier/invoker.go` | `Invoker.Invoke` | `StartTask` | `StreamTask` | `CancelTask` |
-| Python | `croupier/invoker.py` | `Invoker.invoke` | `start_task` | `stream_task` | `cancel_task` |
-| Java | `invoker/Invoker.java` | `invoke` | `startTask` | `streamTask` | `cancelTask` |
-| JS | `src/invoker.ts` | `invoke` | `startTask` | `streamTask` | `cancelTask` |
-| C++ | `CroupierInvoker` | `Invoke` | `StartTask` | `StreamTask` | `CancelTask` |
-| C# | `CroupierInvoker` | `InvokeAsync` | `StartTaskAsync` | `StreamTaskAsync` | `CancelTaskAsync` |
+| SDK    | 入口文件                  | 同步调用         | 异步任务         | 流式事件          | 取消              |
+| ------ | ------------------------- | ---------------- | ---------------- | ----------------- | ----------------- |
+| Go     | `pkg/croupier/invoker.go` | `Invoker.Invoke` | `StartTask`      | `StreamTask`      | `CancelTask`      |
+| Python | `croupier/invoker.py`     | `Invoker.invoke` | `start_task`     | `stream_task`     | `cancel_task`     |
+| Java   | `invoker/Invoker.java`    | `invoke`         | `startTask`      | `streamTask`      | `cancelTask`      |
+| JS     | `src/invoker.ts`          | `invoke`         | `startTask`      | `streamTask`      | `cancelTask`      |
+| C++    | `CroupierInvoker`         | `Invoke`         | `StartTask`      | `StreamTask`      | `CancelTask`      |
+| C#     | `CroupierInvoker`         | `InvokeAsync`    | `StartTaskAsync` | `StreamTaskAsync` | `CancelTaskAsync` |
 
 **命名规则**：
+
 - 所有 SDK 必须使用 `Task` 系列，禁止保留 `Job` 系列入口。
 - `scripts/check-sdk-matrix.sh` 的 wire 检查将过期命名视为失败。
 

@@ -142,7 +142,7 @@ public class GameServer {
     public static void main(String[] args) throws Exception {
         // 创建客户端配置
         ClientConfig config = new ClientConfig("my-game", "my-service");
-        config.setAgentAddr("localhost:19090");
+        config.setAgentAddr("localhost:19091");
         config.setControlAddr("localhost:18080"); // 控制面用于 manifest 上传
         config.setEnv("development");
         config.setInsecure(true); // 开发环境
@@ -254,7 +254,7 @@ SDK 是 `sdk-agent subprotocol` 上的 Provider 端：
 
 ```java
 ClientConfig config = new ClientConfig();
-config.setAgentAddr("localhost:19090");     // Agent 地址
+config.setAgentAddr("localhost:19091");     // Agent 本地 SDK gateway 地址
 config.setGameId("my-game");                // 游戏标识符
 config.setEnv("development");               // 环境
 config.setServiceId("my-service");          // 服务标识符
@@ -303,7 +303,7 @@ public interface CroupierClient {
 CroupierClient client = CroupierSDK.createClient("game-id", "service-id");
 
 // 带 Agent 地址
-CroupierClient client = CroupierSDK.createClient("game-id", "service-id", "localhost:19090");
+CroupierClient client = CroupierSDK.createClient("game-id", "service-id", "localhost:19091");
 
 // 完整配置
 CroupierClient client = CroupierSDK.createClient(config);

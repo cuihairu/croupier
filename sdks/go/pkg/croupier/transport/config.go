@@ -20,7 +20,7 @@ type InboundHandler func(ctx context.Context, msgID uint32, reqID uint32, body [
 type Config struct {
 	// Address is the server address to connect to.
 	// Can be a single address or comma-separated multiple addresses.
-	// Examples: "127.0.0.1:19090" or "ipc://croupier-server,127.0.0.1:19090"
+	// Examples: "127.0.0.1:19091" or "ipc://croupier-agent,127.0.0.1:19091"
 	Address string
 
 	// Addresses is a list of addresses to try (optional, takes precedence over Address)
@@ -63,9 +63,9 @@ type Config struct {
 // DefaultConfig returns a default configuration for the transport layer.
 func DefaultConfig() *Config {
 	return &Config{
-		Address:     "127.0.0.1:19090",
+		Address:     "127.0.0.1:19091",
 		Host:        "127.0.0.1",
-		Port:        19090,
+		Port:        19091,
 		Insecure:    true,
 		DialTimeout: 30 * time.Second,
 		RecvTimeout: 30 * time.Second,
@@ -122,7 +122,7 @@ func dialAddr(cfg *Config) string {
 	if len(addrs) > 0 {
 		return addrs[0]
 	}
-	return "tcp://127.0.0.1:19090"
+	return "tcp://127.0.0.1:19091"
 }
 
 // buildDialAddrs builds a list of addresses to try for dialing.
@@ -166,7 +166,7 @@ func buildDialAddrs(cfg *Config) []string {
 
 	// Default if no addresses specified
 	if len(addrs) == 0 {
-		addrs = []string{"tcp://127.0.0.1:19090"}
+		addrs = []string{"tcp://127.0.0.1:19091"}
 	}
 
 	return addrs

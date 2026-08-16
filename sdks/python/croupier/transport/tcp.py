@@ -95,7 +95,7 @@ class TCPTransport:
 
     Usage::
 
-        transport = TCPTransport(address="127.0.0.1:19090", timeout_ms=30000)
+        transport = TCPTransport(address="127.0.0.1:19091", timeout_ms=30000)
         transport.set_handler(my_handler)
         transport.connect()
 
@@ -107,7 +107,7 @@ class TCPTransport:
 
     def __init__(
         self,
-        address: str = "127.0.0.1:19090",
+        address: str = "127.0.0.1:19091",
         timeout_ms: int = 30000,
         *,
         tls_enabled: bool = False,

@@ -20,34 +20,11 @@ namespace Croupier.Sdk.Tests;
 /// </summary>
 public class CroupierClientTests
 {
-    /// <summary>
-    /// Check if integration tests should be skipped (no agent running).
-    /// </summary>
-    private static bool ShouldSkipIntegrationTests()
-    {
-        // Only run integration tests if explicitly enabled
-        var runIntegrationTests = Environment.GetEnvironmentVariable("CROUPIER_RUN_INTEGRATION_TESTS");
-        return string.IsNullOrEmpty(runIntegrationTests) || runIntegrationTests != "1";
-    }
-
-    /// <summary>
-    /// Check if an exception is a connection error (indicating no agent is running).
-    /// </summary>
-    private static bool IsConnectionError(Exception ex)
-    {
-        var message = ex.Message.ToLower();
-        return message.Contains("connect") ||
-               message.Contains("connection") ||
-               message.Contains("timeout") ||
-               message.Contains("refused") ||
-               message.Contains("unreachable");
-    }
-
     private static ClientConfig CreateTestConfig()
     {
         return new ClientConfig
         {
-            AgentAddr = "127.0.0.1:19090",
+            AgentAddr = Environment.GetEnvironmentVariable("CROUPIER_AGENT_ADDR") ?? "127.0.0.1:19091",
             ServiceId = "test-service",
             GameId = "test-game",
             Env = "test",
@@ -403,64 +380,24 @@ public class CroupierClientTests
 
     #region Invoke Tests
 
-    [Fact]
+    [Integration.IntegrationFact]
     public async Task CroupierClient_InvokeAsync_WhenConnected()
     {
-        // Skip integration test if no agent is running
-        if (ShouldSkipIntegrationTests())
-        {
-            Assert.True(true, "Integration test skipped - set CROUPIER_RUN_INTEGRATION_TESTS=1 to run");
-            return;
-        }
-
-        try
-        {
-            // Arrange
-            var client = new CroupierClient(CreateTestConfig());
-
-            // Register a test function before connecting
-            var descriptor = new FunctionDescriptor
+        using var client = new CroupierClient(CreateTestConfig());
+        client.RegisterFunction(
+            new FunctionDescriptor
             {
                 Id = "test.function",
                 Resource = "test",
                 Operation = "invoke"
-            };
+            },
+            (ctx, payload) => Task.FromResult($"result: {payload}"));
 
-            FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"result: {payload}");
-            client.RegisterFunction(descriptor, handler);
+        await client.ConnectAsync();
+        var result = await client.InvokeAsync("test.function", "{}");
 
-            await client.ConnectAsync();
-
-            // Wait for Agent to process registration
-            await Task.Delay(500);
-
-            // Act - call the function via self-invocation
-            var result = await client.InvokeAsync("test.function", "{}");
-
-            // Assert
-            result.Should().NotBeNullOrEmpty();
-        }
-        catch (Exception ex) when (IsConnectionError(ex))
-        {
-            // Skip if connection fails (no agent running)
-            Assert.True(true, $"Connection failed - test skipped: {ex.Message}");
-        }
-        finally
-        {
-            // Ensure client is disconnected
-            try
-            {
-                var client = new CroupierClient(CreateTestConfig());
-                if (client.IsConnected)
-                {
-                    client.Disconnect();
-                }
-            }
-            catch
-            {
-                // Ignore cleanup errors
-            }
-        }
+        result.Should().Be("result: {}");
+        client.Disconnect();
     }
 
     #endregion

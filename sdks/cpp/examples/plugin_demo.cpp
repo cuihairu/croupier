@@ -145,7 +145,7 @@ int main(int /* argc */, char* /* argv */[]) {
             config.game_id = "plugin-demo-game";
             config.env = "development";
             config.service_id = "plugin-demo-service";
-            config.agent_addr = "127.0.0.1:19090";
+            config.agent_addr = "127.0.0.1:19091";
             config.insecure = true;
 
             CroupierClient client(config);

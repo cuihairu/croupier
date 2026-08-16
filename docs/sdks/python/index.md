@@ -29,7 +29,7 @@ from croupier import CroupierClient, ClientConfig
 
 client = CroupierClient(
     ClientConfig(
-        agent_addr="127.0.0.1:19090",
+        agent_addr="127.0.0.1:19091",
         service_id="python-demo",
         service_version="1.0.0",
     )

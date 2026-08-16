@@ -141,7 +141,7 @@ interface FileTransferConfig {
 
 ```typescript
 const config: FileTransferConfig = {
-  agentAddr: "127.0.0.1:19090",
+  agentAddr: "127.0.0.1:19091",
   timeout: 30000,
   retryAttempts: 3,
   chunkSize: 1024 * 1024, // 1MB chunks
@@ -234,7 +234,7 @@ const walletTransferHandler: FunctionHandler = async (
 1. **连接问题**
 
    ```
-   Error: connect ECONNREFUSED 127.0.0.1:19090
+   Error: connect ECONNREFUSED 127.0.0.1:19091
    ```
 
    - 确保Croupier Agent正在运行
@@ -252,6 +252,7 @@ const walletTransferHandler: FunctionHandler = async (
    - 验证文件路径正确性
 
 3. **TypeScript编译错误**
+
    ```
    error TS2304: Cannot find name 'FileTransferConfig'
    ```

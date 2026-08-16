@@ -19,7 +19,7 @@ public class ClientConfigTests
         var config = new ClientConfig();
 
         // Assert
-        config.AgentAddr.Should().Be("127.0.0.1:19090");
+        config.AgentAddr.Should().Be("127.0.0.1:19091");
         config.ServiceId.Should().Be("csharp-service");
         config.ServiceVersion.Should().Be("1.0.0");
         config.GameId.Should().Be("default-game");

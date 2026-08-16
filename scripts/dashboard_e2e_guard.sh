@@ -5,8 +5,21 @@ set -euo pipefail
 e2e_dir="${1:-web/e2e}"
 errors=0
 
-if ! command -v rg >/dev/null 2>&1; then
-  echo "ERROR: dashboard E2E guard requires rg (ripgrep)" >&2
+# Prefer ripgrep; fall back to GNU grep -P (PCRE) which GitHub-hosted Ubuntu
+# runners ship by default. Both support the patterns used below.
+if command -v rg >/dev/null 2>&1; then
+  search() {
+    local pattern="$1" dir="$2"
+    rg -n --pcre2 "${pattern}" "${dir}" --glob '*.spec.ts' --glob 'helpers/index.ts'
+  }
+elif command -v grep >/dev/null 2>&1 && grep -P '' /dev/null >/dev/null 2>&1; then
+  search() {
+    local pattern="$1" dir="$2"
+    find "${dir}" \( -name '*.spec.ts' -o -name 'index.ts' \) -type f -print0 |
+      xargs -0 grep -nP "${pattern}" 2>/dev/null
+  }
+else
+  echo "ERROR: dashboard E2E guard requires rg (ripgrep) or GNU grep with PCRE support" >&2
   exit 1
 fi
 
@@ -20,7 +33,7 @@ check_absent() {
   local pattern="$2"
   local output
 
-  if output=$(rg -n --pcre2 "${pattern}" "${e2e_dir}" --glob '*.spec.ts' --glob 'helpers/index.ts'); then
+  if output=$(search "${pattern}" "${e2e_dir}"); then
     echo "ERROR: ${label}" >&2
     printf '%s\n' "${output}" >&2
     errors=$((errors + 1))

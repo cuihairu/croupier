@@ -49,7 +49,7 @@ struct ProviderFunctionDescriptor {
 
 // Client configuration
 struct ClientConfig {
-    std::string agent_addr = "127.0.0.1:19090";
+    std::string agent_addr = "127.0.0.1:19091";
     std::string service_id;  // No default - must be explicitly set
     std::string service_version = "1.0.0";
     std::string control_addr;  // optional control-plane endpoint

@@ -107,7 +107,7 @@ class FunctionDescriptor:
 class ClientConfig:
     """Runtime configuration for the Python SDK client."""
 
-    agent_addr: str = "127.0.0.1:19090"
+    agent_addr: str = "127.0.0.1:19091"
     insecure: bool = True
     service_id: str = field(default_factory=lambda: f"python-sdk-{uuid.uuid4().hex[:8]}")
     service_version: str = "1.0.0"

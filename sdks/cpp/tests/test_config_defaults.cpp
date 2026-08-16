@@ -39,7 +39,7 @@ TEST_F(ConfigDefaultsTest, DefaultConfigValues) {
     EXPECT_TRUE(config.insecure);
 
     // 网络配置默认值
-    EXPECT_EQ(config.agent_addr, "127.0.0.1:19090");
+    EXPECT_EQ(config.agent_addr, "127.0.0.1:19091");
     EXPECT_EQ(config.timeout_seconds, 30);
     EXPECT_EQ(config.heartbeat_interval, 60);
 
@@ -97,7 +97,7 @@ TEST_F(ConfigDefaultsTest, DefaultConfigNetworkingDefaults) {
     ClientConfig config = loader->CreateDefaultConfig();
 
     // Agent 地址
-    EXPECT_EQ(config.agent_addr, "127.0.0.1:19090");
+    EXPECT_EQ(config.agent_addr, "127.0.0.1:19091");
 
     // 超时配置
     EXPECT_EQ(config.timeout_seconds, 30);
@@ -178,7 +178,7 @@ TEST_F(ConfigDefaultsTest, DefaultConfigPartialFields) {
     // 其他字段应该使用默认值
     EXPECT_EQ(config.env, "development");
     EXPECT_TRUE(config.insecure);
-    EXPECT_EQ(config.agent_addr, "127.0.0.1:19090");
+    EXPECT_EQ(config.agent_addr, "127.0.0.1:19091");
     EXPECT_EQ(config.provider_lang, "cpp");
 
     // 重连配置默认值

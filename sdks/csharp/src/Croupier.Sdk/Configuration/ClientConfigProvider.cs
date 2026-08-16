@@ -50,7 +50,7 @@ public class EnvironmentConfigProvider : ICroupierConfigProvider
     {
         return new ClientConfig
         {
-            AgentAddr = GetEnv("AGENT_ADDR", "127.0.0.1:19090") ?? "127.0.0.1:19090",
+            AgentAddr = GetEnv("AGENT_ADDR", "127.0.0.1:19091") ?? "127.0.0.1:19091",
             ServiceId = GetEnv("SERVICE_ID", "csharp-service") ?? "csharp-service",
             AgentId = GetEnv("AGENT_ID"),
             ServiceVersion = GetEnv("SERVICE_VERSION", "1.0.0") ?? "1.0.0",

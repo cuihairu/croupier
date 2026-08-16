@@ -10,17 +10,17 @@ class TransportAddressesTest {
 
     @Test
     void normalizeAddress_withNull_returnsDefault() {
-        assertEquals("tcp://127.0.0.1:19090", TransportAddresses.normalizeAddress(null));
+        assertEquals("tcp://127.0.0.1:19091", TransportAddresses.normalizeAddress(null));
     }
 
     @Test
     void normalizeAddress_withEmpty_returnsDefault() {
-        assertEquals("tcp://127.0.0.1:19090", TransportAddresses.normalizeAddress(""));
+        assertEquals("tcp://127.0.0.1:19091", TransportAddresses.normalizeAddress(""));
     }
 
     @Test
     void normalizeAddress_withWhitespace_returnsDefault() {
-        assertEquals("tcp://127.0.0.1:19090", TransportAddresses.normalizeAddress("   "));
+        assertEquals("tcp://127.0.0.1:19091", TransportAddresses.normalizeAddress("   "));
     }
 
     @Test

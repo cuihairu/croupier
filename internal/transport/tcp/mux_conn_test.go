@@ -468,3 +468,58 @@ func TestMuxConn_Run_InvalidFrame(t *testing.T) {
 		t.Error("expected error for invalid frame")
 	}
 }
+
+func TestMuxConn_Run_ProcessesInboundRequestWhileAwaitingCallbackResponse(t *testing.T) {
+	serverConn, clientConn := net.Pipe()
+	defer serverConn.Close()
+	defer clientConn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var server *MuxConn
+	server = NewMuxConn(serverConn, nil, transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
+		if msgID != protocol.MsgInvokeRequest {
+			t.Fatalf("server received %s, want InvokeRequest", protocol.MsgIDString(msgID))
+		}
+
+		responseMsgID, responseBody, err := server.Call(ctx, protocol.MsgStartTaskRequest, append([]byte("callback:"), body...))
+		if err != nil {
+			return nil, err
+		}
+		if responseMsgID != protocol.MsgStartTaskResponse {
+			return nil, fmt.Errorf("callback response message = %s, want %s", protocol.MsgIDString(responseMsgID), protocol.MsgIDString(protocol.MsgStartTaskResponse))
+		}
+		return responseBody, nil
+	}))
+
+	client := NewMuxConn(clientConn, nil, transportcore.HandlerFunc(func(_ context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
+		if msgID != protocol.MsgStartTaskRequest {
+			t.Fatalf("client received %s, want StartTaskRequest", protocol.MsgIDString(msgID))
+		}
+		return append([]byte("handled:"), body...), nil
+	}))
+	defer server.Close()
+	defer client.Close()
+
+	serverDone := make(chan error, 1)
+	clientDone := make(chan error, 1)
+	go func() { serverDone <- server.Run(ctx) }()
+	go func() { clientDone <- client.Run(ctx) }()
+
+	responseMsgID, responseBody, err := client.Call(ctx, protocol.MsgInvokeRequest, []byte("request"))
+	if err != nil {
+		t.Fatalf("invoke over bidirectional connection: %v", err)
+	}
+	if responseMsgID != protocol.MsgInvokeResponse {
+		t.Fatalf("response message = %s, want %s", protocol.MsgIDString(responseMsgID), protocol.MsgIDString(protocol.MsgInvokeResponse))
+	}
+	if got, want := string(responseBody), "handled:callback:request"; got != want {
+		t.Fatalf("response body = %q, want %q", got, want)
+	}
+
+	_ = server.Close()
+	_ = client.Close()
+	<-serverDone
+	<-clientDone
+}

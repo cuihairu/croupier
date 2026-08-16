@@ -37,7 +37,7 @@ def server_status(_context: str, _payload: bytes) -> str:
 
 def main() -> None:
     config = ClientConfig(
-        agent_addr="127.0.0.1:19090",
+        agent_addr="127.0.0.1:19091",
         service_id="python-example",
         service_version="1.0.0",
     )
@@ -58,7 +58,7 @@ def main() -> None:
     )
 
     client.connect()
-    print("Connected to agent at 127.0.0.1:19090")
+    print("Connected to Agent local SDK gateway at 127.0.0.1:19091")
     print("Press Ctrl+C to stop.\n")
 
     def _shutdown(_sig, _frame):

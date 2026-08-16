@@ -27,7 +27,7 @@ int main() {
         config.game_id = "example-game";
         config.env = "development";
         config.service_id = "basic-example";
-        config.agent_addr = "127.0.0.1:19090";
+        config.agent_addr = "127.0.0.1:19091";
         config.insecure = true;
 
         std::cout << "📋 ConfigurationInfo:" << std::endl;
