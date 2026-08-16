@@ -637,6 +637,33 @@ func (s *Service) contractsForPage(ctx context.Context, gameID, env string, page
 	return contracts, nil
 }
 
+// loadTermDictionary loads platform term dictionary entries for generated
+// labels. Nil result keeps the humanize fallback path.
+func (s *Service) loadTermDictionary(ctx context.Context) generator.TermDictionary {
+	if s == nil || s.db == nil {
+		return nil
+	}
+	items, err := model.NewTermDictionaryModel(s.db).List(ctx, "resource")
+	if err != nil {
+		return nil
+	}
+	out := make(generator.TermDictionary, len(items))
+	for _, item := range items {
+		text := spec.LocalizedText{}
+		if zh := strings.TrimSpace(item.DisplayZh); zh != "" {
+			text["zh-CN"] = zh
+		}
+		if en := strings.TrimSpace(item.DisplayEn); en != "" {
+			text["en-US"] = en
+		}
+		if len(text) == 0 {
+			continue
+		}
+		out[strings.ToLower(strings.TrimSpace(item.Domain))+"/"+strings.ToLower(strings.TrimSpace(item.Alias))] = text
+	}
+	return out
+}
+
 func (s *Service) regenerateStandaloneProposal(ctx context.Context, gameID, env string, pageSpec spec.PageSpec) error {
 	mainContract, err := s.mainContractForStandalonePage(ctx, gameID, env, pageSpec)
 	if err != nil {
@@ -649,6 +676,7 @@ func (s *Service) regenerateStandaloneProposal(ctx context.Context, gameID, env 
 	generated := generator.GenerateForOperation(service.OperationSpecFromContract(mainContract), generator.GenerateOptions{
 		DefaultLocale: "zh-CN",
 		Functions:     functions,
+		Terms:         s.loadTermDictionary(ctx),
 	})
 	if strings.TrimSpace(generated.PageKey) != strings.TrimSpace(pageSpec.PageKey) {
 		return errorx.NewConflict("regenerated proposal pageKey does not match current page")
