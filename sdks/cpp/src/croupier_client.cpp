@@ -681,13 +681,6 @@ public:
         is_reconnecting_ = false;
     }
 
-    void stopHeartbeatLoop() {
-        should_stop_heartbeat_ = true;
-        if (heartbeat_thread_.joinable()) {
-            heartbeat_thread_.join();
-        }
-    }
-
     void sendHeartbeat() {
         ::croupier::sdk::v1::ProviderHeartbeatRequest request;
         request.set_service_id(config_.service_id);
