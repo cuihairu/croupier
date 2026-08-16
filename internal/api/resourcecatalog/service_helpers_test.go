@@ -423,6 +423,34 @@ func TestService_ListSemanticVersions(t *testing.T) {
 	assert.Equal(t, "abc", resp.Items[0].SourceDigest)
 }
 
+func TestService_ListSemanticVersions_PreservesHistoryAfterRebuild(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewService(db, nil)
+	semModel := model.NewCapabilitySemanticsModel(db)
+	versionModel := model.NewCapabilitySemanticVersionModel(db)
+
+	sem := &model.CapabilitySemantics{GameID: "g", Env: "e", ResourceKey: "player", Source: "sdk"}
+	require.NoError(t, semModel.UpsertSemantics(ctx, sem))
+	require.NoError(t, versionModel.CreateVersion(ctx, &model.CapabilitySemanticVersion{
+		SemanticsID: sem.ID, Version: sem.Version, SourceDigest: "before",
+	}))
+	require.NoError(t, semModel.DeleteByScopeAndResourceKey(ctx, "g", "e", "player"))
+
+	rebuilt := &model.CapabilitySemantics{GameID: "g", Env: "e", ResourceKey: "player", Source: "sdk", IdentityField: "id"}
+	require.NoError(t, semModel.UpsertSemantics(ctx, rebuilt))
+	require.NoError(t, versionModel.CreateVersion(ctx, &model.CapabilitySemanticVersion{
+		SemanticsID: rebuilt.ID, Version: rebuilt.Version, SourceDigest: "after",
+	}))
+
+	resp, err := service.ListSemanticVersions(ctx, &ListSemanticVersionsRequest{
+		GameID: "g", Env: "e", ResourceKey: "player",
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 2)
+	assert.Equal(t, []int{2, 1}, []int{resp.Items[0].Version, resp.Items[1].Version})
+}
+
 // ---------------------------------------------------------------------------
 // ListConflicts
 // ---------------------------------------------------------------------------

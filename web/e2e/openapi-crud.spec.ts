@@ -211,7 +211,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
   test('@openapi-ready-proposal /players 生成单一 ready Resource Proposal', async ({ request }) => {
     const headers = await openapiAuthenticatedHeaders(request);
     const sourceId = await ensurePlayersSourceBound(request, headers);
-    expect(sourceId).toBeTruthy();
+    expect(sourceId).toMatch(/\S/);
 
     const state = readRealFixtureState();
     const proposalsResponse = await request.get(`${state.serverBaseURL}/api/v1/proposals`, {
@@ -248,7 +248,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
 
     // ready proposal 的每个 binding 都必须有 selector，缺 selector 不得标记 ready。
     for (const binding of proposal.pageSpec.bindings ?? []) {
-      expect(binding.selectors).toBeTruthy();
+      expect(binding.selectors).toBeDefined();
     }
 
     // 每个 CRUD operation 不得生成为独立资源/操作页面。

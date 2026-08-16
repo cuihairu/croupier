@@ -240,6 +240,21 @@ func TestResourceCapabilityModel_ListByScope(t *testing.T) {
 	assert.Len(t, caps, 2)
 }
 
+func TestResourceCapabilityModel_UpsertCapability_RestoresSoftDeletedRecord(t *testing.T) {
+	db := setupContractTestDB(t)
+	m := NewResourceCapabilityModel(db)
+	ctx := context.Background()
+
+	cap := &ResourceCapability{GameID: "game1", Env: "prod", ResourceKey: "player"}
+	require.NoError(t, m.UpsertCapability(ctx, cap))
+	originalID := cap.ID
+	require.NoError(t, m.DeleteByScopeAndResourceKey(ctx, "game1", "prod", "player"))
+
+	recreated := &ResourceCapability{GameID: "game1", Env: "prod", ResourceKey: "player"}
+	require.NoError(t, m.UpsertCapability(ctx, recreated))
+	assert.Equal(t, originalID, recreated.ID)
+}
+
 // ===== CapabilitySemanticsModel Tests =====
 
 func TestNewCapabilitySemanticsModel(t *testing.T) {
@@ -335,6 +350,35 @@ func TestCapabilitySemanticsModel_Update(t *testing.T) {
 	found, err := m.FindByScopeAndResourceKey(ctx, "game1", "prod", "player")
 	require.NoError(t, err)
 	assert.Equal(t, "player_id", found.IdentityField)
+}
+
+func TestCapabilitySemanticsModel_UpsertSemantics_RestoresHistoryAfterDelete(t *testing.T) {
+	db := setupContractTestDB(t)
+	semModel := NewCapabilitySemanticsModel(db)
+	versionModel := NewCapabilitySemanticVersionModel(db)
+	ctx := context.Background()
+
+	sem := &CapabilitySemantics{GameID: "game1", Env: "prod", ResourceKey: "player"}
+	require.NoError(t, semModel.UpsertSemantics(ctx, sem))
+	originalID := sem.ID
+	require.NoError(t, versionModel.CreateVersion(ctx, &CapabilitySemanticVersion{
+		SemanticsID: originalID, Version: sem.Version, Semantics: datatypes.JSON(`{}`),
+	}))
+	require.NoError(t, semModel.DeleteByScopeAndResourceKey(ctx, "game1", "prod", "player"))
+
+	rebuilt := &CapabilitySemantics{GameID: "game1", Env: "prod", ResourceKey: "player", IdentityField: "id"}
+	require.NoError(t, semModel.UpsertSemantics(ctx, rebuilt))
+	assert.Equal(t, originalID, rebuilt.ID)
+	assert.Equal(t, 2, rebuilt.Version)
+	require.NoError(t, versionModel.CreateVersion(ctx, &CapabilitySemanticVersion{
+		SemanticsID: rebuilt.ID, Version: rebuilt.Version, Semantics: datatypes.JSON(`{}`),
+	}))
+
+	versions, err := versionModel.ListBySemanticsID(ctx, rebuilt.ID)
+	require.NoError(t, err)
+	assert.Len(t, versions, 2)
+	assert.Equal(t, 2, versions[0].Version)
+	assert.Equal(t, 1, versions[1].Version)
 }
 
 // ===== CapabilitySemanticVersionModel Tests =====

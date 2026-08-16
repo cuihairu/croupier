@@ -207,3 +207,5 @@ schema-validator
 web/test-results/
 web/playwright-report/
 web/.turbopack/
+web/e2e/.fixture-bin/
+web/e2e/.real-fixture-state.json

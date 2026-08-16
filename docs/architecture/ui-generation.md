@@ -12,7 +12,7 @@ tag:
 
 # ProComponents 页面生成与运行时
 
-> **状态**：Current -- 页面生成器（`internal/dashboard/generator/`）与唯一前端运行时（`web/src/components/PageRenderer/`、`SchemaFormRenderer`）均已落地并被真实浏览器 E2E（`web/e2e/`）覆盖。
+> **状态**：In progress -- 页面生成器（`internal/dashboard/generator/`）与唯一前端运行时（`web/src/components/PageRenderer/`、`SchemaFormRenderer`）已落地；真实浏览器 E2E 的 CI 门禁和全部场景验收仍以根目录 `todo.md` 为准。
 
 ## 为什么不集成 React Admin（决策记录）
 
@@ -106,9 +106,9 @@ JSON Schema + FormPresentationSpec
 
 这层不得耦合 PageSpec 的页面布局。renderer 私有 `uiSchema` 只能由 FormPresentationSpec 在前端临时派生，不能持久化、不能进入 SDK/OpenAPI、不能成为第二套页面协议。项目内禁止保留 Formily、form-render 或自研 ProForm field factory 作为并行运行时。
 
-## 真实验收（已落地）
+## 真实验收
 
-以下项目已由真实浏览器 E2E（`web/e2e/`，`real-dashboard` Playwright 项目）验证，回归入口见 [真实 Dashboard E2E](../development/real-dashboard-e2e.md)：
+以下项目必须由真实浏览器 E2E（`web/e2e/`，`real-dashboard` Playwright 项目）验证，回归入口见 [真实 Dashboard E2E](../development/real-dashboard-e2e.md)：
 
 - OpenAPI REST 和 SDK capability 各生成一个 ResourcePage，并可发布执行；覆盖完整 CRUD（`@openapi-*`）与 SDK 显式资源（`@sdk-*`）。
 - 无 CRUD 语义函数生成 `basic` OperationPage，并可直接发布。

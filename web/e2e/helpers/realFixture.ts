@@ -8,6 +8,7 @@
 
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 export interface RealFixtureState {
@@ -27,7 +28,9 @@ export interface RealFixtureState {
 
 const repoRoot = path.resolve(__dirname, '..', '..', '..');
 const stateFile = path.resolve(__dirname, '..', '.real-fixture-state.json');
-const binDir = path.resolve(__dirname, '..', '.fixture-bin');
+// The fixture binary is a run-time artifact. Keep it outside the repository
+// so running real E2E never dirties a tracked source file.
+const binDir = path.join(os.tmpdir(), 'croupier-dashboard-e2e');
 
 function serverBaseURL(): string {
   return process.env.REAL_DASHBOARD_SERVER_BASE_URL || 'http://localhost:28780';
@@ -45,7 +48,17 @@ export function readRealFixtureState(): RealFixtureState {
 export function shouldStartRealFixture(): boolean {
   if (process.env.REAL_DASHBOARD_FIXTURE === '1') return true;
   if (process.env.REAL_DASHBOARD_FIXTURE === '0') return false;
-  return process.argv.some((arg) => arg.includes('real-dashboard'));
+  for (let index = 0; index < process.argv.length; index += 1) {
+    const arg = process.argv[index];
+    if (arg.startsWith('--project=') && arg.includes('real-dashboard')) return true;
+    if ((arg === '--project' || arg === '-p') && process.argv[index + 1] === 'real-dashboard') {
+      return true;
+    }
+  }
+  // No project selection means Playwright will run both configured projects.
+  return !process.argv.some(
+    (arg) => arg.startsWith('--project=') || arg === '--project' || arg === '-p',
+  );
 }
 
 async function waitFor(

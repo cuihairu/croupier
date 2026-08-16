@@ -824,8 +824,8 @@ SDK / OpenAPI 注册 FunctionContract
       Verify: `pnpm --dir "web" exec playwright test --project=real-dashboard web/e2e/contract-change.spec.ts --grep '@governance-change-stale'`。
       Handoff: `I-039` 可测试统一的 stale 拒绝。
 
-- [ ] `I-039` 真实 stale 页面执行被拒绝且保留处理入口
-      Owner: unassigned
+- [x] `I-039` 真实 stale 页面执行被拒绝且保留处理入口
+      Owner: codex
       Depends: [`I-037`, `I-038`, `G-003`, `F-001`]
       Scope: `web/e2e/contract-change.spec.ts`, Console/inbox API 断言。
       Deliverable: stale 页的 execute 返回明确 stale 错误，不调用 Agent；用户能从 Console 或 Inbox 打开 diff/merge/re-publish 处理入口。
@@ -834,7 +834,7 @@ SDK / OpenAPI 注册 FunctionContract
       Handoff: `I-040`、`I-041` 可处理变化。
 
 - [x] `I-040` 真实展示类变化自动合并并保留执行快照边界
-      Owner: opencode
+      Owner: codex
       Depends: [`I-039`, `D-005`, `F-004`]
       Scope: `web/e2e/contract-change.spec.ts`, versioning API 断言。
       Deliverable: 仅列 label/order 等安全展示字段变化时，Page Studio 显示自动合并结果；bindings/selectors/risk/permission 未被改写。
@@ -843,7 +843,7 @@ SDK / OpenAPI 注册 FunctionContract
       Handoff: `I-042` 可重新发布安全合并结果。
 
 - [x] `I-041` 真实 identity 或 selector 变化要求人工冲突决策
-      Owner: opencode
+      Owner: codex
       Depends: [`I-039`, `D-006`, `F-004`]
       Scope: SDK/OpenAPI fixture、`web/e2e/contract-change.spec.ts`、versioning API 断言。
       Deliverable: identity、binding 或 selector 变化出现在人工冲突列表；未选择解决方案前不能发布。
@@ -852,7 +852,7 @@ SDK / OpenAPI 注册 FunctionContract
       Handoff: `I-042` 可基于用户显式决策产生新版本。
 
 - [x] `I-042` 真实重发布后恢复执行且使用新快照
-      Owner: opencode
+      Owner: codex
       Depends: [`I-040`, `I-041`, `D-003`, `G-003`]
       Scope: `web/e2e/contract-change.spec.ts`, Agent fixture、snapshot/audit 断言。
       Deliverable: 自动合并或人工决策后的新版本发布成功，旧 stale snapshot 不再执行，新 binding snapshot 的 schema/governance 生效并可完成一次真实 execute。
@@ -861,7 +861,7 @@ SDK / OpenAPI 注册 FunctionContract
       Handoff: 证明变更治理闭环。
 
 - [x] `I-043` 真实链路回归套件以零 Mock、零跳过方式运行
-      Owner: opencode
+      Owner: codex
       Depends: [`I-020`, `I-025`, `I-026`, `I-036`, `I-042`]
       Scope: `web/e2e/`, fixture lifecycle、CI workflow。
       Deliverable: SDK Operation、SDK 显式 Resource、OpenAPI CRUD、合同 stale/merge/re-publish 四组命名场景可在干净环境连续运行，任一失败使 CI 失败。

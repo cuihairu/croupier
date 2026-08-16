@@ -13,7 +13,7 @@ tag:
 
 # Dashboard Resource/Page 模型
 
-> **状态**：Current -- 本文是 Dashboard 页面模型的权威定义。实现、文档和 SDK 以本文的正向模型为准；旧模型已按 [旧模型删除清单](./legacy-deletion-inventory.md) 物理删除，并由 `scripts/dashboard_vnext_guard.sh` 防回流。
+> **状态**：In progress -- 本文是 Dashboard 页面模型的权威定义。实现、文档和 SDK 以本文的正向模型为准；旧模型按 [旧模型删除清单](./legacy-deletion-inventory.md) 清理，并由 `scripts/dashboard_vnext_guard.sh` 防回流；真实浏览器回归仍以根目录 `todo.md` 的未完成项目为准。
 
 ## 决策
 
@@ -410,7 +410,7 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 
 ## 完成定义
 
-模型已按以下条件交付验收（真实浏览器 E2E 覆盖，见 `web/e2e/` 与 [真实 Dashboard E2E](../development/real-dashboard-e2e.md)）：
+满足以下条件后才可验收发布（真实浏览器 E2E 回归入口见 `web/e2e/` 与 [真实 Dashboard E2E](../development/real-dashboard-e2e.md)）：
 
 1. 一个 OpenAPI REST Resource 可自动生成并直接发布 ResourcePage；声明写 capability 时提供完整 CRUD，未声明写 capability 时提供只读查询/详情页面。
 2. 一个 SDK 显式能力 Resource 可自动生成并直接发布同等 ResourcePage。

@@ -6,6 +6,9 @@ on:
     paths:
       - ".github/workflows/ci-dashboard.yml"
       - ".github/scripts/dashboard_guard.sh"
+      - "scripts/dashboard_e2e_guard.sh"
+      - "cmd/server/**"
+      - "internal/**"
       - "web/**"
   push:
     branches: [main]
@@ -13,6 +16,9 @@ on:
     paths:
       - ".github/workflows/ci-dashboard.yml"
       - ".github/scripts/dashboard_guard.sh"
+      - "scripts/dashboard_e2e_guard.sh"
+      - "cmd/server/**"
+      - "internal/**"
       - "web/**"
   workflow_dispatch:
     inputs:
@@ -88,7 +94,7 @@ jobs:
         timeout-minutes: 5
         run: pnpm exec tsc --noEmit
 
-  e2e-tests:
+  mock-e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -128,9 +134,9 @@ jobs:
         timeout-minutes: 10
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run E2E tests
+      - name: Run Mock E2E tests
         timeout-minutes: 15
-        run: pnpm exec playwright test --reporter=list
+        run: pnpm exec playwright test --project=mock-dashboard --reporter=list
         env:
           CI: true
 
@@ -138,7 +144,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-mock
           path: web/playwright-report/
           retention-days: 7
 
@@ -146,7 +152,82 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-screenshots
+          name: playwright-screenshots-mock
+          path: web/test-results/
+          retention-days: 7
+
+  real-dashboard-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ./web
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - timeout-minutes: 5
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - timeout-minutes: 3
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.11.0
+
+      - timeout-minutes: 5
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "web/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Install Playwright browsers
+        timeout-minutes: 10
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Dashboard E2E guard
+        timeout-minutes: 2
+        working-directory: .
+        run: bash scripts/dashboard_e2e_guard.sh web/e2e
+
+      - name: Run real Dashboard scenarios
+        timeout-minutes: 25
+        run: >-
+          pnpm exec playwright test --project=real-dashboard --retries=0 --reporter=list
+          --grep '@sdk-|@openapi-|@schema-change|@governance-change|@stale-|@safe-|@identity-|@republish-'
+        env:
+          CI: true
+          REAL_DASHBOARD_FIXTURE: "1"
+
+      - name: Upload real test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-real-dashboard
+          path: web/playwright-report/
+          retention-days: 7
+
+      - name: Upload real test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-screenshots-real-dashboard
           path: web/test-results/
           retention-days: 7
 

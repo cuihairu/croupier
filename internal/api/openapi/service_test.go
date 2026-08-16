@@ -590,6 +590,7 @@ func TestDeleteBindingStalesPublishedPageAndRejectsExecution(t *testing.T) {
 		BindingID: "player.list",
 	})
 	require.Error(t, err)
+	require.IsType(t, &errorx.CodeError{}, err)
 	assert.Equal(t, "binding_stale", err.(*errorx.CodeError).ErrorCode())
 	assert.Zero(t, caller.calls)
 }

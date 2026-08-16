@@ -206,7 +206,7 @@ test.describe('真实 OpenAPI Source 导入与绑定链路', () => {
     });
     expect(createResponse.status()).toBe(201);
     const created = ((await createResponse.json()) as OpenAPISourceDetail).source;
-    expect(created.sourceId).toBeTruthy();
+    expect(created.sourceId).toMatch(/\S/);
     expect(created.revision).toBe(1);
     expect(created.operationCount).toBe(6);
     expect((created.operations ?? []).map((op) => op.operationId).sort()).toEqual(
@@ -243,8 +243,8 @@ test.describe('真实 OpenAPI Source 导入与绑定链路', () => {
     );
     expect(rejectedBind.status()).toBe(400);
     const rejectedBody = (await rejectedBind.json()) as { error?: string; message?: string };
-    expect(rejectedBody.error).toBeTruthy();
-    expect(rejectedBody.message).toBeTruthy();
+    expect(rejectedBody.error).toMatch(/\S/);
+    expect(rejectedBody.message).toMatch(/\S/);
 
     // 绑定全部 6 个 operation；collection_query 首个绑定的响应同步返回物化的 proposal。
     const bindOrder = [

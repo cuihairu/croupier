@@ -62,7 +62,7 @@ async function authenticatedHeaders(request: APIRequestContext): Promise<Record<
   });
   expect(response.status()).toBe(200);
   const session = (await response.json()) as { token?: string };
-  expect(session.token).toBeTruthy();
+  expect(session.token).toMatch(/^eyJ/);
   return {
     Authorization: `Bearer ${session.token}`,
     'X-Game-ID': state.gameId,
@@ -316,7 +316,7 @@ test.describe('真实契约变化链路', () => {
     const mailProposal = proposals.find(
       (item) => (item as { proposalKey?: string }).proposalKey === 'operation:ops.restart',
     );
-    expect(mailProposal).toBeTruthy();
+    expect(mailProposal).toBeDefined();
     expect(JSON.stringify(mailProposal)).toContain('priority');
 
     const after = await fetchOpsConsolePage(request, headers);

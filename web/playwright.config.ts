@@ -27,6 +27,8 @@ function devServerPort(baseURL: string, fallback: number): string {
 const requestedProjects = selectedProjects(process.argv);
 const startMockWeb = requestedProjects.size === 0 || requestedProjects.has('mock-dashboard');
 const startRealWeb = requestedProjects.size === 0 || requestedProjects.has('real-dashboard');
+const realDashboardScenarios =
+  /@(?:fixture-health|sdk-|openapi-|schema-change|governance-change|stale-|safe-|identity-|republish-)/;
 
 const webServers = [
   ...(startMockWeb
@@ -57,7 +59,9 @@ export default defineConfig({
   globalTeardown: './e2e/helpers/globalTeardown.ts',
   fullyParallel: false, // 顺序执行以避免登录状态冲突
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // Dashboard scenarios mutate a shared fixture and must expose deterministic
+  // failures. Retrying would mask ordering and lifecycle defects.
+  retries: 0,
   workers: 1, // 单 worker 避免并发问题
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   timeout: 60000, // 每个测试 60 秒超时
@@ -73,12 +77,14 @@ export default defineConfig({
     {
       name: 'mock-dashboard',
       testIgnore: /fixture-health\.spec\.ts/,
+      grepInvert: realDashboardScenarios,
       use: { ...devices['Desktop Chrome'], baseURL: mockWebBaseURL },
     },
     {
       // This project must always traverse the real Server API. Fixture setup
       // for this project is added separately and owns the Server/Agent data.
       name: 'real-dashboard',
+      grep: realDashboardScenarios,
       use: { ...devices['Desktop Chrome'], baseURL: realWebBaseURL },
     },
   ],
