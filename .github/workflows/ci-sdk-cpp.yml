@@ -3,15 +3,15 @@ name: CI - C++ SDK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
-    paths: [ 'sdks/cpp/**', '.github/workflows/ci-sdk-cpp.yml' ]
+    branches: [main]
+    paths: ["sdks/cpp/**", ".github/workflows/ci-sdk-cpp.yml"]
   pull_request:
-    branches: [ main ]
-    paths: [ 'sdks/cpp/**', '.github/workflows/ci-sdk-cpp.yml' ]
+    branches: [main]
+    paths: ["sdks/cpp/**", ".github/workflows/ci-sdk-cpp.yml"]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  VCPKG_COMMIT: ce613c41372b23b1f51333815feb3edd87ef8a8b
+  VCPKG_COMMIT: 66c0373dc7fca549e5803087b9487edfe3aca0a1
 
 jobs:
   test:

@@ -3,7 +3,7 @@
   "version-string": "0.1.0",
   "description": "Croupier C++ SDK for Function Provider and Invoker",
   "homepage": "https://github.com/cuihairu/croupier-sdk-cpp",
-  "builtin-baseline": "ce613c41372b23b1f51333815feb3edd87ef8a8b",
+  "builtin-baseline": "66c0373dc7fca549e5803087b9487edfe3aca0a1",
   "supports": "windows | linux | osx",
   "dependencies": [
     {

@@ -371,7 +371,7 @@ jobs:
         run: |
           $scriptPath = Join-Path "${{ github.workspace }}" "sdks/cpp/scripts/bootstrap-vcpkg.ps1"
           $vcpkgRoot = Join-Path "${{ github.workspace }}" "sdks/cpp/vcpkg"
-          & $scriptPath -VcpkgRoot $vcpkgRoot -VcpkgCommit "2025.04.09"
+          & $scriptPath -VcpkgRoot $vcpkgRoot -VcpkgCommit "2026.01.16"
 
       - name: Bootstrap vcpkg (Unix)
         if: runner.os != 'Windows'
@@ -380,7 +380,7 @@ jobs:
         run: |
           bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
             "${{ github.workspace }}/sdks/cpp/vcpkg" \
-            "2025.04.09"
+            "2026.01.16"
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
