@@ -21,6 +21,10 @@ RUN mkdir -p /out/logs /out/data/uploads /out/data/components/staging
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
+# busybox-static 提供最小 shell/网络工具（sh/cat/netstat/ps），便于容器运维排查；
+# 仍保持 distroless 基底，不引入包管理器。
+COPY --from=busybox:1.37-uclibc /bin/busybox /bin/busybox
+RUN ["/bin/busybox", "--install", "/bin"]
 COPY --from=build /out/croupier-server /app/
 COPY --from=build --chown=nonroot:nonroot /src/configs /app/configs
 COPY --from=build --chown=nonroot:nonroot /out/data /app/data
