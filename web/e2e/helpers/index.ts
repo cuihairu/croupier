@@ -17,7 +17,13 @@ export async function login(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
   const hasToken = await page.evaluate(() => Boolean(window.localStorage.getItem('token')));
   if (hasToken && !page.url().includes('/user/login')) {
-    return; // 已认证（storageState 注入的会话有效）
+    // 已认证。GameSelector 需完成 scope 解析（游戏/环境加载），否则
+    // Console 页面会在 scope 未定时卡 loading。
+    await page
+      .getByTestId('game-selector')
+      .waitFor({ state: 'visible', timeout: 30000 })
+      .catch(() => {});
+    return;
   }
 
   await page.goto('/user/login');
