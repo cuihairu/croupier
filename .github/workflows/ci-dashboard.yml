@@ -201,6 +201,13 @@ jobs:
         timeout-minutes: 10
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Install ripgrep
+        timeout-minutes: 2
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y ripgrep
+          fi
+
       - name: Dashboard E2E guard
         timeout-minutes: 2
         working-directory: .
