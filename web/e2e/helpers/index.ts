@@ -152,7 +152,7 @@ export async function waitForTable(
 ): Promise<void> {
   // .ant-pro-table 根容器可能存在被折叠/隐藏的实例（first() 命中即挂）。
   // 等待真实表格体。
-  await page.locator('.ant-table-container, table').first().waitFor({ state: 'visible', timeout });
+  await page.locator('.ant-table-tbody').first().waitFor({ state: 'visible', timeout });
 }
 
 /**
@@ -181,7 +181,7 @@ export async function expectTableHasRows(page: Page, minRows = 1): Promise<void>
  * 断言页面有可见的表格
  */
 export async function expectTableVisible(page: Page): Promise<void> {
-  await expect(page.locator('.ant-table-container, table').first()).toBeVisible();
+  await expect(page.locator('.ant-table-tbody').first()).toBeVisible();
 }
 
 /**
