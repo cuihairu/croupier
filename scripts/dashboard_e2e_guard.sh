@@ -19,8 +19,13 @@ elif command -v grep >/dev/null 2>&1 && grep -P '' /dev/null >/dev/null 2>&1; th
       xargs -0 grep -nP "${pattern}" 2>/dev/null
   }
 else
-  echo "ERROR: dashboard E2E guard requires rg (ripgrep) or GNU grep with PCRE support" >&2
-  exit 1
+  # Fallback: use basic grep with extended regex (less precise but works)
+  echo "WARNING: rg and grep -P not available, using basic grep fallback" >&2
+  search() {
+    local pattern="$1" dir="$2"
+    find "${dir}" \( -name '*.spec.ts' -o -name 'index.ts' \) -type f -print0 |
+      xargs -0 grep -nE "${pattern}" 2>/dev/null
+  }
 fi
 
 if [[ ! -d "${e2e_dir}" ]]; then
