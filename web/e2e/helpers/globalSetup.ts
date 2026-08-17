@@ -68,6 +68,23 @@ async function prepareMockAuthState(config: FullConfig): Promise<void> {
     );
     await context.storageState({ path: mockAuthState });
     console.log('[mock-auth] pre-login state saved (token + scope)');
+
+    // 预热 Console 页面：触发 dev server 完成相关 chunk 编译，
+    // 避免首个访问页面的用例在导航阶段超时。
+    for (const warmPath of [
+      '/console/players/resource--players',
+      '/console/system/operation--system.dangerous-op',
+    ]) {
+      await page
+        .goto(warmPath, { waitUntil: 'domcontentloaded', timeout: 60000 })
+        .catch(() => undefined);
+      await page
+        .locator('.ant-pro-table, .ant-table, .ant-form, form')
+        .first()
+        .waitFor({ state: 'visible', timeout: 60000 })
+        .catch(() => undefined);
+    }
+    console.log('[mock-auth] console pages warmed');
   } finally {
     await browser.close();
   }
