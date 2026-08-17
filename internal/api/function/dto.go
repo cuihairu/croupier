@@ -109,10 +109,21 @@ type FunctionInstancesAllResponse struct {
 }
 
 // FunctionInstanceSummary represents one function registration on an agent.
+// ServiceID/Addr/Version/SDK fields identify the provider (SDK service)
+// instance that serves the function; a function can have multiple instances
+// from different providers behind the same agent.
 type FunctionInstanceSummary struct {
 	FunctionID string `json:"functionId"`
 	AgentID    string `json:"agentId"`
 	AgentName  string `json:"agentName"`
+	ServiceID  string `json:"serviceId"`
+	Addr       string `json:"addr"`
+	Version    string `json:"version"`
+	SDKName    string `json:"sdkName"`
+	SDKLang    string `json:"sdkLang"`
+	SDKVersion string `json:"sdkVersion"`
+	GameID     string `json:"gameId"`
+	Env        string `json:"env"`
 	Status     string `json:"status"`
 	UpdatedAt  string `json:"updatedAt"`
 }
@@ -223,8 +234,8 @@ type FunctionWarningItem struct {
 
 // FunctionWarningsRequest represents a request for function warnings
 type FunctionWarningsRequest struct {
-	FunctionID string `form:"function_id"`
-	AgentID    string `form:"agent_id"`
+	FunctionID string `form:"functionId"`
+	AgentID    string `form:"agentId"`
 	Code       string `form:"code"`
 	Limit      int    `form:"limit,optional,default=100"`
 }

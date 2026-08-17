@@ -1,16 +1,16 @@
 package functioncall
 
 type ListRequest struct {
-	FunctionID string `form:"function_id"`
-	GameID     string `form:"game_id"`
+	FunctionID string `form:"functionId"`
+	GameID     string `form:"gameId"`
 	Env        string `form:"env"`
 	Status     string `form:"status"`
-	ActorID    string `form:"actor_id"`
-	AgentID    string `form:"agent_id"`
-	StartTime  string `form:"start_time"`
-	EndTime    string `form:"end_time"`
+	ActorID    string `form:"actorId"`
+	AgentID    string `form:"agentId"`
+	StartTime  string `form:"startTime"`
+	EndTime    string `form:"endTime"`
 	Page       int    `form:"page"`
-	PageSize   int    `form:"page_size"`
+	PageSize   int    `form:"pageSize"`
 }
 
 type Item struct {

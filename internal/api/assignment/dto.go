@@ -4,7 +4,7 @@ package assignment
 type AssignmentsListRequest struct {
 	Page     int    `form:"page"`
 	PageSize int    `form:"pageSize"`
-	GameId   string `form:"game_id"`
+	GameId   string `form:"gameId"`
 	Env      string `form:"env"`
 }
 
@@ -20,7 +20,7 @@ type AssignmentsListResponse struct {
 type AssignmentsHistoryRequest struct {
 	Page     int    `form:"page"`
 	PageSize int    `form:"pageSize"`
-	GameId   string `form:"game_id"`
+	GameId   string `form:"gameId"`
 	Env      string `form:"env"`
 	Action   string `form:"action"`
 }

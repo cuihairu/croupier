@@ -636,8 +636,8 @@ export default function ExtensionsInstallationsPage() {
             if (uiErr.code === EXTENSION_ERROR_CODES.VERSION_MISMATCH) {
               message.error(
                 `升级失败，依赖版本不匹配：${details.dependency || 'unknown'}，要求 ${
-                  details.required_version || '-'
-                }，当前 ${details.current_version || '-'}`,
+                  details.requiredVersion || '-'
+                }，当前 ${details.currentVersion || '-'}`,
               );
               return;
             }

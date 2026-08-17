@@ -145,7 +145,7 @@ function pickAuditMetaValue(meta: Record<string, JSONValue> | undefined, keys: s
 }
 
 interface ProfileData {
-  display_name?: string;
+  displayName?: string;
   email?: string;
   phone?: string;
   avatar?: string;
@@ -268,7 +268,7 @@ export default function Profile() {
       const p = await getMyProfile();
       setProfile(p);
       form.setFieldsValue({
-        display_name: p.displayName || p.nickname,
+        displayName: p.displayName || p.nickname,
         email: p.email,
         phone: p.phone,
       });
@@ -286,7 +286,7 @@ export default function Profile() {
     setLoading(true);
     try {
       await updateMyProfile({
-        displayName: values.display_name,
+        displayName: values.displayName,
         email: values.email,
         phone: values.phone,
       });
@@ -1153,7 +1153,7 @@ export default function Profile() {
                               <Button
                                 onClick={() => {
                                   form.setFieldsValue({
-                                    display_name: profile?.displayName || profile?.nickname,
+                                    displayName: profile?.displayName || profile?.nickname,
                                     email: profile?.email,
                                     phone: profile?.phone,
                                   });

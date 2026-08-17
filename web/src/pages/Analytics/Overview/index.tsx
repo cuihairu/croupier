@@ -10,20 +10,20 @@ interface OverviewData {
   dau?: number;
   wau?: number;
   mau?: number;
-  new_users?: number;
-  registered_total?: number;
-  peak_online?: number;
-  revenue_cents?: number;
+  newUsers?: number;
+  registeredTotal?: number;
+  peakOnline?: number;
+  revenueCents?: number;
   d1?: number;
   d7?: number;
   d30?: number;
-  pay_rate?: number;
+  payRate?: number;
   arpu?: number;
   arppu?: number;
   series?: {
-    new_users?: [string | number, number][];
-    peak_online?: [string | number, number][];
-    revenue_cents?: [string | number, number][];
+    newUsers?: [string | number, number][];
+    peakOnline?: [string | number, number][];
+    revenueCents?: [string | number, number][];
   };
 }
 
@@ -61,32 +61,29 @@ export default function AnalyticsOverviewPage() {
       ['dau', data?.dau || 0],
       ['wau', data?.wau || 0],
       ['mau', data?.mau || 0],
-      ['new_users', data?.new_users || 0],
-      ['registered_total', data?.registered_total || 0],
+      ['new_users', data?.newUsers || 0],
+      ['registered_total', data?.registeredTotal || 0],
       ['retention_d1', data?.d1 || 0],
       ['retention_d7', data?.d7 || 0],
       ['retention_d30', data?.d30 || 0],
-      ['pay_rate', data?.pay_rate || 0],
+      ['pay_rate', data?.payRate || 0],
       ['arpu', data?.arpu || 0],
       ['arppu', data?.arppu || 0],
-      ['revenue_cents', data?.revenue_cents || 0],
+      ['revenue_cents', data?.revenueCents || 0],
     ];
     const ser = data?.series || {};
     const seriesRows = [['time', 'new_users', 'peak_online', 'revenue_cents']];
     const len = Math.max(
-      ser?.new_users?.length || 0,
-      ser?.peak_online?.length || 0,
-      ser?.revenue_cents?.length || 0,
+      ser?.newUsers?.length || 0,
+      ser?.peakOnline?.length || 0,
+      ser?.revenueCents?.length || 0,
     );
     for (let i = 0; i < len; i++) {
       const t =
-        ser?.new_users?.[i]?.[0] ||
-        ser?.peak_online?.[i]?.[0] ||
-        ser?.revenue_cents?.[i]?.[0] ||
-        '';
-      const nu = ser?.new_users?.[i]?.[1] ?? '';
-      const po = ser?.peak_online?.[i]?.[1] ?? '';
-      const rv = ser?.revenue_cents?.[i]?.[1] ?? '';
+        ser?.newUsers?.[i]?.[0] || ser?.peakOnline?.[i]?.[0] || ser?.revenueCents?.[i]?.[0] || '';
+      const nu = ser?.newUsers?.[i]?.[1] ?? '';
+      const po = ser?.peakOnline?.[i]?.[1] ?? '';
+      const rv = ser?.revenueCents?.[i]?.[1] ?? '';
       seriesRows.push([String(t), String(nu), String(po), String(rv)]);
     }
     await exportToXLSX('overview.csv', [
@@ -139,24 +136,24 @@ export default function AnalyticsOverviewPage() {
             </Col>
             <Col span={4}>
               <Card loading={loading}>
-                <Statistic title="新增" value={data?.new_users || 0} />
+                <Statistic title="新增" value={data?.newUsers || 0} />
               </Card>
             </Col>
             <Col span={4}>
               <Card loading={loading}>
-                <Statistic title="注册用户总数" value={data?.registered_total || 0} />
+                <Statistic title="注册用户总数" value={data?.registeredTotal || 0} />
               </Card>
             </Col>
             <Col span={4}>
               <Card loading={loading}>
-                <Statistic title="收入(分)" value={data?.revenue_cents || 0} />
+                <Statistic title="收入(分)" value={data?.revenueCents || 0} />
               </Card>
             </Col>
           </Row>
           <Row gutter={[16, 16]}>
             <Col span={8}>
               <Card loading={loading}>
-                <Statistic title="付费率" suffix="%" value={data?.pay_rate || 0} />
+                <Statistic title="付费率" suffix="%" value={data?.payRate || 0} />
               </Card>
             </Col>
             <Col span={8}>
@@ -192,17 +189,17 @@ export default function AnalyticsOverviewPage() {
           <Row gutter={[16, 16]}>
             <Col span={8}>
               <Card size="small" title="每日新增（曲线）">
-                <Spark data={data?.series?.new_users || []} />
+                <Spark data={data?.series?.newUsers || []} />
               </Card>
             </Col>
             <Col span={8}>
               <Card size="small" title="每日峰值在线（曲线）">
-                <Spark data={data?.series?.peak_online || []} />
+                <Spark data={data?.series?.peakOnline || []} />
               </Card>
             </Col>
             <Col span={8}>
               <Card size="small" title="每日充值(分)（曲线）">
-                <Spark data={data?.series?.revenue_cents || []} />
+                <Spark data={data?.series?.revenueCents || []} />
               </Card>
             </Col>
           </Row>

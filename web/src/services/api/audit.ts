@@ -13,6 +13,8 @@ export type AuditItem = {
   traceId?: string;
   metadata?: Record<string, JSONValue>;
   createdAt: string;
+  hash?: string;
+  prevHash?: string;
 };
 
 // Source: croupier/internal/api/audit/dto.go AuditListResponse
@@ -41,6 +43,8 @@ function normalizeAuditEvent(item: AuditItem): AuditEvent {
     kind: item?.action ?? '',
     actor: item?.userId ?? '',
     target: item?.target ?? '',
+    hash: item?.hash ?? '',
+    prev: item?.prevHash ?? '',
     meta: {
       ...metadata,
       traceId: (metadata.traceId as string) ?? item?.traceId,
@@ -50,8 +54,6 @@ function normalizeAuditEvent(item: AuditItem): AuditEvent {
       ua: (metadata.ua as string) ?? (metadata.userAgent as string),
       userAgent: (metadata.userAgent as string) ?? (metadata.ua as string),
     },
-    hash: item?.id ?? '',
-    prev: '',
   };
 }
 

@@ -54,37 +54,37 @@ export type RateLimitPreviewAgent = {
 type RawRateLimitRule = {
   scope: 'function' | 'service';
   key: string;
-  limit_qps: number;
+  limitQps: number;
   match?: Record<string, string>;
   percent?: number;
 };
 type RawRateLimitPreviewAgent = {
-  agent_id: string;
-  game_id?: string;
+  agentId: string;
+  gameId?: string;
   env?: string;
   region?: string;
   zone?: string;
   qps: number;
-  qps_1m?: number;
+  qps1M?: number;
 };
 function normalizeRateLimitRule(raw: RawRateLimitRule): RateLimitRule {
   return {
     scope: raw.scope,
     key: raw.key,
-    limitQps: raw.limit_qps,
+    limitQps: raw.limitQps,
     match: raw.match,
     percent: raw.percent,
   };
 }
 function normalizeRateLimitPreviewAgent(raw: RawRateLimitPreviewAgent): RateLimitPreviewAgent {
   return {
-    agentId: raw.agent_id,
-    gameId: raw.game_id,
+    agentId: raw.agentId,
+    gameId: raw.gameId,
     env: raw.env,
     region: raw.region,
     zone: raw.zone,
     qps: raw.qps,
-    qps1m: raw.qps_1m,
+    qps1m: raw.qps1M,
   };
 }
 const RATE_LIMIT_BASE = '/api/v1/rate-limits';
@@ -99,7 +99,7 @@ export async function putRateLimits(rules: RateLimitRule[]) {
       rules: rules.map((rule) => ({
         scope: rule.scope,
         key: rule.key,
-        limit_qps: rule.limitQps,
+        limitQps: rule.limitQps,
         match: rule.match,
         percent: rule.percent,
       })),
@@ -274,16 +274,15 @@ export type OpsMetrics = {
 };
 
 type RawOpsConfig = {
-  alertmanager_url?: string;
-  grafana_explore_url?: string;
-  jaeger_url?: string;
+  alertmanagerUrl?: string;
+  grafanaExploreUrl?: string;
+  jaegerUrl?: string;
 };
 
 type RawOpsNotificationRule = {
   event: string;
   channels: string[];
   thresholdDays?: number;
-  threshold_days?: number;
 };
 
 type RawOpsSilence = {
@@ -300,12 +299,10 @@ type RawOpsNode = {
   hostname?: string;
   addr?: string;
   gameId?: string;
-  game_id?: string;
   env?: string;
   status?: string;
   labels?: Record<string, string>;
   lastSeen?: string;
-  last_seen?: string;
   sdkLanguage?: string;
   sdkVersion?: string;
   sdkName?: string;
@@ -321,8 +318,8 @@ type RawOpsAlert = {
   instance?: string;
   service?: string;
   summary?: string;
-  starts_at?: string;
-  ends_at?: string;
+  startsAt?: string;
+  endsAt?: string;
   duration?: string;
   silenced?: boolean;
   labels?: Record<string, JSONValue>;
@@ -330,34 +327,28 @@ type RawOpsAlert = {
 };
 type RawOpsTask = {
   id: string;
-  function_id?: string;
   functionId?: string;
   actor?: string;
-  game_id?: string;
   gameId?: string;
   env?: string;
   // The canonical task endpoint exposes `status` (see internal/api/task/dto.go
   // Item). Legacy/ops payloads used `state`; accept both.
   status?: string;
   state?: 'running' | 'succeeded' | 'failed' | 'canceled' | string;
-  started_at?: string;
   startedAt?: string;
-  finished_at?: string;
-  ended_at?: string;
+  finishedAt?: string;
   endedAt?: string;
-  duration_ms?: number;
   durationMs?: number;
   error?: string;
   addr?: string;
-  trace_id?: string;
   traceId?: string;
 };
 
 function normalizeOpsConfig(raw?: RawOpsConfig): OpsConfig {
   return {
-    alertmanagerUrl: raw?.alertmanager_url,
-    grafanaExploreUrl: raw?.grafana_explore_url,
-    jaegerUrl: raw?.jaeger_url,
+    alertmanagerUrl: raw?.alertmanagerUrl,
+    grafanaExploreUrl: raw?.grafanaExploreUrl,
+    jaegerUrl: raw?.jaegerUrl,
   };
 }
 
@@ -368,7 +359,7 @@ function normalizeOpsBackup(raw: Record<string, JSONValue>): OpsBackup {
     type: raw.type ? String(raw.type) : undefined,
     status: raw.status ? String(raw.status) : undefined,
     size: typeof raw.size === 'number' ? raw.size : undefined,
-    createdAt: String(raw.createdAt ?? raw.created_at ?? ''),
+    createdAt: String(raw.createdAt ?? raw.createdAt ?? ''),
   };
 }
 
@@ -376,7 +367,7 @@ function normalizeOpsNotificationRule(raw: RawOpsNotificationRule): OpsNotificat
   return {
     event: raw?.event ?? '',
     channels: Array.isArray(raw?.channels) ? raw.channels : [],
-    thresholdDays: raw?.thresholdDays ?? raw?.threshold_days,
+    thresholdDays: raw?.thresholdDays ?? raw?.thresholdDays,
   };
 }
 
@@ -406,11 +397,11 @@ function normalizeOpsNode(raw: RawOpsNode): OpsNode {
     id: raw?.id ?? '',
     hostname: raw?.hostname,
     addr: raw?.addr,
-    gameId: raw?.gameId ?? raw?.game_id,
+    gameId: raw?.gameId,
     env: raw?.env,
     status: raw?.status,
     labels: raw?.labels,
-    lastSeen: raw?.lastSeen ?? raw?.last_seen,
+    lastSeen: raw?.lastSeen,
     sdkLanguage: raw?.sdkLanguage,
     sdkVersion: raw?.sdkVersion,
     sdkName: raw?.sdkName,
@@ -428,8 +419,8 @@ function normalizeOpsAlert(raw: RawOpsAlert): OpsAlert {
     instance: raw.instance,
     service: raw.service,
     summary: raw.summary,
-    startsAt: raw.starts_at,
-    endsAt: raw.ends_at,
+    startsAt: raw.startsAt,
+    endsAt: raw.endsAt,
     duration: raw.duration,
     silenced: raw.silenced,
     labels: raw.labels,
@@ -439,17 +430,17 @@ function normalizeOpsAlert(raw: RawOpsAlert): OpsAlert {
 function normalizeOpsTask(raw: RawOpsTask): OpsTask {
   return {
     id: raw.id,
-    functionId: raw.function_id || raw.functionId || '',
+    functionId: raw.functionId || '',
     actor: raw.actor,
-    gameId: raw.game_id || raw.gameId,
+    gameId: raw.gameId,
     env: raw.env,
     state: raw.state ?? raw.status ?? '',
-    startedAt: raw.started_at || raw.startedAt,
-    endedAt: raw.ended_at || raw.endedAt || raw.finished_at,
-    durationMs: raw.duration_ms ?? raw.durationMs,
+    startedAt: raw.startedAt,
+    endedAt: raw.endedAt || raw.finishedAt,
+    durationMs: raw?.durationMs,
     error: raw.error,
     addr: raw.addr,
-    traceId: raw.trace_id || raw.traceId,
+    traceId: raw.traceId,
   };
 }
 export async function listOpsTasks(params?: {
@@ -469,9 +460,9 @@ export async function listOpsTasks(params?: {
     {
       params: {
         status: params?.status,
-        function_id: params?.functionId,
+        functionId: params?.functionId,
         actor: params?.actor,
-        game_id: params?.gameId,
+        gameId: params?.gameId,
         env: params?.env,
         page: params?.page,
         size: params?.size,
@@ -485,13 +476,13 @@ export async function listOpsTasks(params?: {
 export async function fetchOpsMetrics(params: { instance: string; range?: string; step?: string }) {
   const response = await request<{
     qps: [number, string][];
-    err_rate: [number, string][];
-    p95_ms: [number, string][];
+    errRate: [number, string][];
+    p95Ms: [number, string][];
   }>('/api/v1/ops/metrics', { params });
   return {
     qps: response.qps || [],
-    errRate: response.err_rate || [],
-    p95Ms: response.p95_ms || [],
+    errRate: response.errRate || [],
+    p95Ms: response.p95Ms || [],
   } satisfies OpsMetrics;
 }
 
@@ -549,21 +540,21 @@ type RawCertificate = {
   Subject?: string;
   algorithm?: string;
   Algorithm?: string;
-  key_usage?: string;
+  keyUsage?: string;
   KeyUsage?: string;
-  valid_from?: string;
+  validFrom?: string;
   ValidFrom?: string;
-  valid_to?: string;
+  validTo?: string;
   ValidTo?: string;
-  days_left?: number;
+  daysLeft?: number;
   DaysLeft?: number;
   status?: Certificate['status'];
   Status?: Certificate['status'];
-  last_checked?: string;
+  lastChecked?: string;
   LastChecked?: string;
-  error_msg?: string;
+  errorMsg?: string;
   ErrorMsg?: string;
-  alert_days?: number;
+  alertDays?: number;
   AlertDays?: number;
 };
 
@@ -575,14 +566,14 @@ function normalizeCertificate(raw: RawCertificate): Certificate {
     issuer: raw.issuer ?? raw.Issuer,
     subject: raw.subject ?? raw.Subject,
     algorithm: raw.algorithm ?? raw.Algorithm,
-    keyUsage: raw.key_usage ?? raw.KeyUsage,
-    validFrom: raw.valid_from ?? raw.ValidFrom,
-    validTo: raw.valid_to ?? raw.ValidTo,
-    daysLeft: raw.days_left ?? raw.DaysLeft,
+    keyUsage: raw.keyUsage ?? raw.KeyUsage,
+    validFrom: raw.validFrom ?? raw.ValidFrom,
+    validTo: raw.validTo ?? raw.ValidTo,
+    daysLeft: raw.daysLeft ?? raw.DaysLeft,
     status: raw.status ?? raw.Status,
-    lastChecked: raw.last_checked ?? raw.LastChecked,
-    errorMessage: raw.error_msg ?? raw.ErrorMsg,
-    alertDays: raw.alert_days ?? raw.AlertDays,
+    lastChecked: raw.lastChecked ?? raw.LastChecked,
+    errorMessage: raw.errorMsg ?? raw.ErrorMsg,
+    alertDays: raw.alertDays ?? raw.AlertDays,
   };
 }
 
@@ -607,7 +598,7 @@ export async function addCertificate(data: { domain: string; port?: number; aler
     data: {
       domain: data.domain,
       port: data.port,
-      alert_days: data.alertDays,
+      alertDays: data.alertDays,
     },
   });
 }

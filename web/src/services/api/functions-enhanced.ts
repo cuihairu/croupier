@@ -50,6 +50,9 @@ export interface FunctionInstance {
   providerId?: string;
   addr: string;
   version: string;
+  sdkName?: string;
+  sdkLang?: string;
+  sdkVersion?: string;
   functionId: string;
   status?: 'running' | 'stopped' | 'error' | 'unknown';
   lastHeartbeat?: string;
@@ -64,29 +67,23 @@ export interface FunctionInstance {
 // Raw backend payload observed from function instance endpoints.
 // Source: croupier/internal/api/function/dto.go and function/helpers.go
 export interface RawFunctionInstance {
-  agent_id?: string;
   agentId?: string;
-  agent_name?: string;
   agentName?: string;
-  service_id?: string;
   serviceId?: string;
-  provider_id?: string;
   providerId?: string;
   addr?: string;
   address?: string;
   version?: string;
-  function_id?: string;
   functionId?: string;
   status?: string;
-  last_heartbeat?: string;
   lastHeartbeat?: string;
-  functions_count?: number;
+  functionsCount?: number;
   healthy?: boolean;
-  last_seen?: string;
   lastSeen?: string;
-  updated_at?: string;
   updatedAt?: string;
-  game_id?: string;
+  sdkName?: string;
+  sdkLang?: string;
+  sdkVersion?: string;
   gameId?: string;
   env?: string;
   metadata?: Record<string, unknown>;
@@ -98,22 +95,25 @@ export function normalizeFunctionInstance(raw: RawFunctionInstance): FunctionIns
   const status =
     raw.status === 'active' ? 'running' : raw.status === 'inactive' ? 'stopped' : raw.status;
   return {
-    agentId: raw.agent_id || raw.agentId || '',
-    agentName: raw.agent_name || raw.agentName || '',
-    serviceId: raw.service_id || raw.serviceId || raw.provider_id || raw.providerId || '',
-    providerId: raw.provider_id || raw.providerId || '',
+    agentId: raw.agentId || '',
+    agentName: raw.agentName || '',
+    serviceId: raw.serviceId || raw.providerId || '',
+    providerId: raw.providerId || '',
     addr: raw.addr || raw.address || '',
     version: raw.version || '',
-    functionId: raw.function_id || raw.functionId || '',
+    sdkName: raw.sdkName || '',
+    sdkLang: raw.sdkLang || '',
+    sdkVersion: raw.sdkVersion || '',
+    functionId: raw.functionId || '',
     status:
       status === 'running' || status === 'stopped' || status === 'error' || status === 'unknown'
         ? status
         : 'unknown',
-    lastHeartbeat: raw.last_heartbeat || raw.lastHeartbeat || '',
-    functionsCount: raw.functions_count,
+    lastHeartbeat: raw.lastHeartbeat || '',
+    functionsCount: raw.functionsCount,
     healthy: raw.healthy,
-    lastSeen: raw.last_seen || raw.lastSeen || raw.updated_at || raw.updatedAt || '',
-    gameId: raw.game_id || raw.gameId || '',
+    lastSeen: raw.lastSeen || raw.updatedAt || '',
+    gameId: raw.gameId || '',
     env: raw.env || '',
     metadata: raw.metadata,
   };
@@ -137,11 +137,10 @@ export interface FunctionMetrics {
 
 type RawFunctionSummary = {
   id?: string;
-  function_id?: string;
+  functionId?: string;
   version?: string;
   status?: number;
   enabled?: boolean;
-  display_name?: LocalizedText;
   displayName?: LocalizedText;
   summary?: LocalizedText;
   tags?: string[];
@@ -155,54 +154,40 @@ type FunctionSummaryListResponse = {
 };
 
 type RawFunctionDescriptor = FunctionDescriptor & {
-  display_name?: LocalizedText;
   displayName?: LocalizedText;
 };
 
 type RawFunctionCallRecord = {
   id?: string;
-  function_id?: string;
   functionId?: string;
   user?: string;
   status?: FunctionCallRecord['status'];
-  started_at?: string;
   startedAt?: string;
-  completed_at?: string;
   completedAt?: string;
   duration?: number;
   payload?: JSONValue;
   result?: JSONValue;
   error?: string;
-  agent_id?: string;
   agentId?: string;
-  service_id?: string;
   serviceId?: string;
-  game_id?: string;
   gameId?: string;
   env?: string;
-  task_id?: string;
   taskId?: string;
-  retry_count?: number;
   retryCount?: number;
 };
 
 type FunctionCallsResponse = {
   calls?: RawFunctionCallRecord[];
   total?: number;
-  has_more?: boolean;
   hasMore?: boolean;
 };
 
 type RawRegistryService = {
-  service_id?: string;
   serviceId?: string;
   addr?: string;
   status?: RegistryService['status'];
-  last_seen?: string;
   lastSeen?: string;
-  functions_count?: number;
   functionsCount?: number;
-  game_id?: string;
   gameId?: string;
   env?: string;
   version?: string;
@@ -216,10 +201,10 @@ type RegistryServicesResponse = {
 
 function normalizeFunctionSummary(item: RawFunctionSummary): FunctionSummary {
   return {
-    id: item.id || item.function_id || '',
+    id: item.id || item.functionId || '',
     version: item.version,
     enabled: item.status === 1 || item.enabled === true,
-    displayName: item.display_name || item.displayName,
+    displayName: item.displayName,
     summary: item.summary,
     tags: item.tags || [],
     resource: item.resource,
@@ -230,32 +215,32 @@ function normalizeFunctionSummary(item: RawFunctionSummary): FunctionSummary {
 function normalizeFunctionCallRecord(item: RawFunctionCallRecord): FunctionCallRecord {
   return {
     id: item.id || '',
-    functionId: item.function_id || item.functionId || '',
+    functionId: item.functionId || '',
     user: item.user,
     status: item.status || 'failed',
-    startedAt: item.started_at || item.startedAt || '',
-    completedAt: item.completed_at || item.completedAt,
+    startedAt: item.startedAt || '',
+    completedAt: item.completedAt,
     duration: item.duration,
     payload: item.payload,
     result: item.result,
     error: item.error,
-    agentId: item.agent_id || item.agentId,
-    serviceId: item.service_id || item.serviceId,
-    gameId: item.game_id || item.gameId,
+    agentId: item.agentId,
+    serviceId: item.serviceId,
+    gameId: item.gameId,
     env: item.env,
-    taskId: item.task_id || item.taskId,
-    retryCount: item.retry_count || item.retryCount,
+    taskId: item.taskId,
+    retryCount: item.retryCount,
   };
 }
 
 function normalizeRegistryService(item: RawRegistryService): RegistryService {
   return {
-    serviceId: item.service_id || item.serviceId || '',
+    serviceId: item.serviceId || '',
     addr: item.addr || '',
     status: item.status || 'unknown',
-    lastSeen: item.last_seen || item.lastSeen || '',
-    functionsCount: item.functions_count || item.functionsCount || 0,
-    gameId: item.game_id || item.gameId,
+    lastSeen: item.lastSeen || '',
+    functionsCount: item.functionsCount || 0,
+    gameId: item.gameId,
     env: item.env,
     version: item.version,
     metadata: item.metadata,
@@ -277,7 +262,7 @@ export async function getFunctionSummary(params?: {
       '/api/v1/functions',
       {
         params: {
-          game_id: params?.gameId,
+          gameId: params?.gameId,
           env: params?.env,
           resource: params?.resource,
           tags: params?.tags,
@@ -300,7 +285,7 @@ export async function getFunctionSummary(params?: {
       id: desc.id,
       version: desc.version,
       enabled: true,
-      displayName: desc.display_name || desc.displayName,
+      displayName: desc.displayName,
       summary: desc.summary,
       tags: desc.tags || [],
       resource: desc.resource,
@@ -341,13 +326,13 @@ export async function getFunctionCalls(params?: {
 }): Promise<{ calls: FunctionCallRecord[]; total: number; hasMore: boolean }> {
   const res = await request<FunctionCallsResponse>('/api/v1/function-calls', {
     params: {
-      function_id: params?.functionId,
-      user_id: params?.userId,
-      game_id: params?.gameId,
+      functionId: params?.functionId,
+      userId: params?.userId,
+      gameId: params?.gameId,
       env: params?.env,
       status: params?.status,
-      start_time: params?.startTime,
-      end_time: params?.endTime,
+      startTime: params?.startTime,
+      endTime: params?.endTime,
       limit: params?.limit,
       offset: params?.offset,
     },
@@ -355,7 +340,7 @@ export async function getFunctionCalls(params?: {
   return {
     calls: (res.calls || []).map(normalizeFunctionCallRecord),
     total: res.total || 0,
-    hasMore: res.has_more || res.hasMore || false,
+    hasMore: res.hasMore || false,
   };
 }
 
@@ -377,7 +362,7 @@ export async function rerunFunctionCall(callId: string): Promise<{ taskId: strin
     `/api/v1/function-calls/${callId}/rerun`,
     { method: 'POST' },
   );
-  return { taskId: response.task_id || response.taskId || '' };
+  return { taskId: response.taskId || '' };
 }
 
 /**
@@ -405,7 +390,7 @@ export async function getFunctionInstances(params?: {
     const res = await request(url, {
       params: {
         ...queryParams,
-        game_id: params?.gameId,
+        gameId: params?.gameId,
       },
     });
     const rawItems = (res.items || res.instances || []) as RawFunctionInstance[];
@@ -430,7 +415,7 @@ export async function getRegistryServices(params?: {
 }): Promise<{ services: RegistryService[]; total: number }> {
   const res = await request<RegistryServicesResponse>('/api/v1/registry/services', {
     params: {
-      game_id: params?.gameId,
+      gameId: params?.gameId,
       env: params?.env,
       status: params?.status,
     },
@@ -466,9 +451,9 @@ export async function batchUpdateFunctions(params: {
       {
         method: 'POST',
         data: {
-          function_ids: params.functionIds,
+          functionIds: params.functionIds,
           enabled,
-          game_id: params.gameId,
+          gameId: params.gameId,
           env: params.env,
         },
       },
@@ -660,6 +645,6 @@ export async function batchGetFunctionOpenAPI(
 ): Promise<Record<string, JSONValue>> {
   return request('/api/v1/functions/_openapi-batch', {
     method: 'POST',
-    data: { function_ids: functionIds },
+    data: { functionIds: functionIds },
   });
 }

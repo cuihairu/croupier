@@ -239,11 +239,11 @@ export default function ApprovalsPage() {
       idempotencyKey: v.idempotencyKey || v.IdempotencyKey,
       targetServiceId: v.targetServiceId || v.TargetServiceID,
       hashKey: v.hashKey || v.HashKey,
-      approve_ip: v.ApproveIP,
-      approve_time: v.ApproveTime,
-      reject_ip: v.RejectIP,
-      reject_time: v.RejectTime,
-      payload_preview: preview,
+      approveIp: v.ApproveIP,
+      approveTime: v.ApproveTime,
+      rejectIp: v.RejectIP,
+      rejectTime: v.RejectTime,
+      payloadPreview: preview,
     };
     const blob = new Blob([JSON.stringify(obj, null, 2)], {
       type: 'application/json;charset=utf-8;',

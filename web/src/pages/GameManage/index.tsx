@@ -74,7 +74,7 @@ export default function GameManagePage() {
     const v = await editForm.validateFields();
     await updateGame(editing.id, {
       name: editing.name,
-      aliasName: String(v.alias_name || '').trim(),
+      aliasName: String(v.aliasName || '').trim(),
       description: String(v.description || '').trim(),
     });
     message.success('已保存');

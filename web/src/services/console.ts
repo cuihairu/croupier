@@ -45,7 +45,6 @@ type TaskEventsResponse = {
     progress?: number;
     message?: string;
     payload?: JSONValue;
-    created_at?: string;
     createdAt?: string;
   }>;
 };
@@ -53,14 +52,13 @@ type TaskEventsResponse = {
 type ApprovalDetailResponse = {
   id: string;
   state?: string;
-  function_id?: string;
+  functionId?: string;
   actor?: string;
   reason?: string;
   continuation?: boolean;
-  result_kind?: 'sync' | 'task';
-  task_id?: string;
+  resultKind?: 'sync' | 'task';
+  taskId?: string;
   result?: JSONValue | string;
-  updated_at?: string;
   updatedAt?: string;
 };
 
@@ -162,14 +160,14 @@ export async function queryApprovalStatus(approvalId: string): Promise<ApprovalS
   return {
     approvalId: detail.id || approvalId,
     status: normalizeApprovalStatus(detail.state),
-    functionId: detail.function_id,
+    functionId: detail.functionId,
     actor: detail.actor,
     reason: detail.reason,
     continuation: detail.continuation,
-    resultKind: detail.result_kind,
-    taskId: detail.task_id,
+    resultKind: detail.resultKind,
+    taskId: detail.taskId,
     result: normalizeApprovalResult(detail.result),
-    updatedAt: detail.updatedAt || detail.updated_at,
+    updatedAt: detail.updatedAt || detail.updatedAt,
   };
 }
 
@@ -210,7 +208,7 @@ function normalizeTaskStatus(status?: string): TaskStatusResult['status'] {
 
 function normalizeTaskEvent(event: NonNullable<TaskEventsResponse['items']>[number]): TaskEvent {
   return {
-    timestamp: event.createdAt || event.created_at || '',
+    timestamp: event.createdAt || event.createdAt || '',
     type: normalizeTaskEventType(event.type),
     message: event.message || '',
     data: event.payload,

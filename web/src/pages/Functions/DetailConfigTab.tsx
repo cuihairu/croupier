@@ -11,9 +11,9 @@ export type ConfigTabProps = {
   activeSubTab: string;
   onSubTabChange: (key: string) => void;
   jsonViewData: {
-    descriptor_from_detail_api?: FunctionDescriptor | null;
-    descriptor_from_index_api?: FunctionDescriptor | null;
-    openapi_operation?: unknown;
+    descriptorFromDetailApi?: FunctionDescriptor | null;
+    descriptorFromIndexApi?: FunctionDescriptor | null;
+    openapiOperation?: unknown;
   };
   onJsonCopySuccess: () => void;
   onJsonCopyError: () => void;
@@ -58,7 +58,7 @@ export default function DetailConfigTab({
       label: 'Detail API',
       children: (
         <JsonViewer
-          data={jsonViewData.descriptor_from_detail_api || {}}
+          data={jsonViewData.descriptorFromDetailApi || {}}
           onCopySuccess={onJsonCopySuccess}
           onCopyError={onJsonCopyError}
         />
@@ -69,7 +69,7 @@ export default function DetailConfigTab({
       label: 'Descriptor Index',
       children: (
         <JsonViewer
-          data={jsonViewData.descriptor_from_index_api || {}}
+          data={jsonViewData.descriptorFromIndexApi || {}}
           onCopySuccess={onJsonCopySuccess}
           onCopyError={onJsonCopyError}
         />
@@ -80,7 +80,7 @@ export default function DetailConfigTab({
       label: 'OpenAPI',
       children: (
         <JsonViewer
-          data={jsonViewData.openapi_operation || {}}
+          data={jsonViewData.openapiOperation || {}}
           onCopySuccess={onJsonCopySuccess}
           onCopyError={onJsonCopyError}
         />

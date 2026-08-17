@@ -31,14 +31,14 @@ import type { JSONValue } from '@/types/dashboard';
 const { Text } = Typography;
 
 type CoverageData = {
-  total_functions: number;
-  covered_functions: number;
-  coverage_percentage: number;
-  total_instances: number;
-  active_instances: number;
-  inactive_instances: number;
-  functions_by_resource_prefix: Record<string, number>;
-  instances_by_game: Record<string, number>;
+  totalFunctions: number;
+  coveredFunctions: number;
+  coveragePercentage: number;
+  totalInstances: number;
+  activeInstances: number;
+  inactiveInstances: number;
+  functionsByResourcePrefix: Record<string, number>;
+  instancesByGame: Record<string, number>;
 };
 
 type InstanceDetail = {
@@ -154,15 +154,15 @@ export default () => {
       });
 
       setCoverage({
-        total_functions: totalFunctions,
-        covered_functions: coveredFunctions,
-        coverage_percentage:
+        totalFunctions: totalFunctions,
+        coveredFunctions: coveredFunctions,
+        coveragePercentage:
           totalFunctions > 0 ? Math.round((coveredFunctions / totalFunctions) * 100) : 0,
-        total_instances: instanceList.length,
-        active_instances: activeCount,
-        inactive_instances: inactiveCount,
-        functions_by_resource_prefix: functionsByResourcePrefix,
-        instances_by_game: instancesByGame,
+        totalInstances: instanceList.length,
+        activeInstances: activeCount,
+        inactiveInstances: inactiveCount,
+        functionsByResourcePrefix: functionsByResourcePrefix,
+        instancesByGame: instancesByGame,
       });
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : '操作失败';
@@ -213,13 +213,13 @@ export default () => {
 
   const summary = useMemo(() => {
     return {
-      totalInstances: coverage?.total_instances || processedData.length,
-      activeInstances: coverage?.active_instances || 0,
-      inactiveInstances: coverage?.inactive_instances || 0,
-      totalFunctions: coverage?.total_functions || functionOptions.length,
-      resourcePrefixCount: Object.keys(coverage?.functions_by_resource_prefix || {}).length,
-      gameCount: Object.keys(coverage?.instances_by_game || {}).length,
-      coveragePercentage: coverage?.coverage_percentage || 0,
+      totalInstances: coverage?.totalInstances || processedData.length,
+      activeInstances: coverage?.activeInstances || 0,
+      inactiveInstances: coverage?.inactiveInstances || 0,
+      totalFunctions: coverage?.totalFunctions || functionOptions.length,
+      resourcePrefixCount: Object.keys(coverage?.functionsByResourcePrefix || {}).length,
+      gameCount: Object.keys(coverage?.instancesByGame || {}).length,
+      coveragePercentage: coverage?.coveragePercentage || 0,
     };
   }, [coverage, functionOptions.length, processedData.length]);
 
@@ -362,6 +362,19 @@ export default () => {
       dataIndex: 'version',
       width: 100,
       render: (_, record) => <Tag color="blue">{record.version || '-'}</Tag>,
+    },
+    {
+      title: 'SDK',
+      dataIndex: 'sdkName',
+      width: 170,
+      render: (_, record) =>
+        record.sdkName || record.sdkLang ? (
+          <Tooltip title={`${record.sdkLang || ''} ${record.sdkVersion || ''}`.trim()}>
+            <Tag color="geekblue">{record.sdkName || record.sdkLang}</Tag>
+          </Tooltip>
+        ) : (
+          <Text type="secondary">-</Text>
+        ),
     },
     {
       title: 'Game/Env',

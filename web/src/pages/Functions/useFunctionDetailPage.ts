@@ -132,9 +132,9 @@ export default function useFunctionDetailPage(functionId?: string) {
             provider: functionDetail.provider,
           }
         : null,
-      descriptor_from_detail_api: functionDetail?.descriptor || null,
-      descriptor_from_index_api: descriptorIndexItem || null,
-      openapi_operation: openapiOperation || null,
+      descriptorFromDetailApi: functionDetail?.descriptor || null,
+      descriptorFromIndexApi: descriptorIndexItem || null,
+      openapiOperation: openapiOperation || null,
     }),
     [functionDetail, descriptorIndexItem, openapiOperation, effectiveResource],
   );

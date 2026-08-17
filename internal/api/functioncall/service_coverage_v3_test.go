@@ -231,8 +231,8 @@ func TestHandler_List_BindQueryError(t *testing.T) {
 	handler := NewHandler(s)
 	router := newRouter(handler)
 
-	// page_size=abc is not a valid int, should cause bind error
-	rec := doReq(t, router, "GET", "/calls?page=1&page_size=abc", "")
+	// pageSize=abc is not a valid int, should cause bind error
+	rec := doReq(t, router, "GET", "/calls?page=1&pageSize=abc", "")
 	assert.NotEqual(t, 200, rec.Code)
 }
 

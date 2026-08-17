@@ -43,7 +43,6 @@ export type RoleRecord = {
 export async function listPermissions(params?: {
   page?: number;
   pageSize?: number;
-  category?: string;
   resource?: string;
 }) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';

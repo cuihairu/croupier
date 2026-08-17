@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -557,16 +558,63 @@ func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *
 			!strings.EqualFold(strings.TrimSpace(sess.Env), scope.Env)) {
 			continue
 		}
+
+		// Provider (SDK service) sessions carry serviceId/addr/SDK metadata.
+		// Emit one row per (function, provider) pair so each SDK instance
+		// backing a function is visible; fall back to the agent-level entry
+		// when no provider session claims the function.
+		claimed := map[string]struct{}{}
+		for i := range sess.Providers {
+			prov := sess.Providers[i]
+			seen := map[string]struct{}{}
+			for _, fid := range prov.FunctionIDs {
+				if _, ok := seen[fid]; ok {
+					continue
+				}
+				seen[fid] = struct{}{}
+				if scope.GameID != "" && !strings.EqualFold(strings.TrimSpace(prov.GameID), scope.GameID) {
+					continue
+				}
+				instances = append(instances, FunctionInstanceSummary{
+					FunctionID: fid,
+					AgentID:    sess.AgentID,
+					AgentName:  sess.AgentID,
+					ServiceID:  prov.ProviderID,
+					Addr:       prov.Addr,
+					Version:    prov.Version,
+					SDKName:    prov.SDKName,
+					SDKLang:    prov.SDKLanguage,
+					SDKVersion: prov.SDKVersion,
+					GameID:     sess.GameID,
+					Env:        sess.Env,
+					Status:     "active",
+					UpdatedAt:  utils.FormatTimestamp(sess.LastSeen),
+				})
+				claimed[fid] = struct{}{}
+			}
+		}
 		for fid := range sess.Functions {
+			if _, ok := claimed[fid]; ok {
+				continue
+			}
 			instances = append(instances, FunctionInstanceSummary{
 				FunctionID: fid,
 				AgentID:    sess.AgentID,
 				AgentName:  sess.AgentID,
+				GameID:     sess.GameID,
+				Env:        sess.Env,
 				Status:     "active",
 				UpdatedAt:  utils.FormatTimestamp(sess.LastSeen),
 			})
 		}
 	}
+
+	sort.Slice(instances, func(i, j int) bool {
+		if instances[i].FunctionID != instances[j].FunctionID {
+			return instances[i].FunctionID < instances[j].FunctionID
+		}
+		return instances[i].ServiceID < instances[j].ServiceID
+	})
 
 	return &FunctionInstancesAllResponse{
 		Instances: instances,

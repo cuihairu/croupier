@@ -134,14 +134,14 @@ export function WarningsTab({ functionId }: { functionId: string }) {
   const [warningsData, setWarningsData] = useState<
     Array<{
       key: string;
-      agent_id?: string;
-      function_id?: string;
+      agentId?: string;
+      functionId?: string;
       version?: string;
       code: string;
       message: string;
       count: number;
-      first_seen?: string;
-      last_seen?: string;
+      firstSeen?: string;
+      lastSeen?: string;
     }>
   >([]);
   const [warningsLoading, setWarningsLoading] = useState(false);

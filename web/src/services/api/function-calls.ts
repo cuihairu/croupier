@@ -93,7 +93,6 @@ type RawFunctionCallStatsResponse = {
   cancelled?: number;
   timeout?: number;
   other?: number;
-  avg_duration_ms?: number;
   avgDurationMs?: number;
 };
 
@@ -170,7 +169,7 @@ export async function rerunFunctionCall(id: string, payload?: JSONValue) {
       data: { payload },
     },
   );
-  return { taskId: response.task_id || response.taskId || '' };
+  return { taskId: response.taskId || '' };
 }
 
 /**
@@ -188,12 +187,12 @@ export async function getFunctionCallStats(
 ) {
   const response = await request<RawFunctionCallStatsResponse>('/api/v1/function-calls/stats', {
     params: {
-      function_id: params.functionId,
-      game_id: params.gameId,
+      functionId: params.functionId,
+      gameId: params.gameId,
       env: params.env,
-      actor_id: params.actorId,
-      start_time: params.startTime,
-      end_time: params.endTime,
+      actorId: params.actorId,
+      startTime: params.startTime,
+      endTime: params.endTime,
     },
   });
   return {
@@ -204,6 +203,6 @@ export async function getFunctionCallStats(
     cancelled: response.cancelled || 0,
     timeout: response.timeout || 0,
     other: response.other || 0,
-    avgDurationMs: response.avg_duration_ms || response.avgDurationMs || 0,
+    avgDurationMs: response.avgDurationMs || 0,
   };
 }

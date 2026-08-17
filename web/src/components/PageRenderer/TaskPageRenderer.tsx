@@ -190,7 +190,7 @@ function extractTaskEvents(value: JSONValue | undefined): TaskEvent[] {
       return [];
     }
     const timestamp =
-      readString(item.timestamp) || readString(item.createdAt) || readString(item.created_at);
+      readString(item.timestamp) || readString(item.createdAt) || readString(item.createdAt);
     const message = readString(item.message) || '';
     if (!timestamp || !message) {
       return [];

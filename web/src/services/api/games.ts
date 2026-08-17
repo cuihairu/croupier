@@ -62,8 +62,6 @@ const normalizeEnvMeta = (envs: RawGameEnvMeta[] | undefined): GameEnvMeta[] | u
       if (!name) return undefined;
       return {
         env: name,
-        description: env?.description,
-        color: env?.color,
       } as GameEnvMeta;
     })
     .filter((env): env is GameEnvMeta => Boolean(env?.env));
@@ -81,22 +79,10 @@ function normalizeGame(raw: RawGame): Game {
         : undefined;
 
   return {
-    id: raw?.id,
     name,
-    displayName: aliasName ?? name,
-    icon: raw?.icon,
-    description: raw?.description,
     aliasName,
-    homepage: raw?.homepage,
-    status: raw?.status,
-    enabled: typeof raw?.enabled === 'boolean' ? raw.enabled : undefined,
-    createdAt: raw?.createdAt,
-    updatedAt: raw?.updatedAt,
-    color: raw?.color,
     envs,
     envMeta,
-    gameType: raw?.gameType,
-    genreCode: raw?.genreCode,
   };
 }
 

@@ -13,6 +13,7 @@ import React, { useEffect } from 'react';
 import { App as AntdApp, Grid } from 'antd';
 import { setAppApi } from './utils/antdApp';
 import { getConsoleMenu } from './services/console';
+import type { ProfilePermission } from '@/services/api/me';
 import { loadAuthedInitialState, type InitialCurrentUser } from './services/initialState';
 import { getScope, subscribeScope, type Scope } from './stores/scope';
 import {
@@ -25,9 +26,8 @@ const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
 
 type PermissionResponse = {
+  permissions?: ProfilePermission[];
   permissionIDs?: string[];
-  permissionIds?: string[];
-  permission_ids?: string[];
 };
 
 type InitialState = {
@@ -40,7 +40,7 @@ type InitialState = {
 };
 
 function normalizePermissionIDs(perms: PermissionResponse | undefined): string[] {
-  const ids = perms?.permissionIDs || perms?.permissionIds || perms?.permission_ids || [];
+  const ids = perms?.permissionIDs || [];
   return Array.isArray(ids) ? ids : [];
 }
 

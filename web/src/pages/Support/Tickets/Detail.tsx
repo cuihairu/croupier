@@ -64,13 +64,13 @@ const priTextMap: Record<string, string> = {
 };
 const stColorMap: Record<string, string> = {
   open: 'gold',
-  in_progress: 'blue',
+  inProgress: 'blue',
   resolved: 'green',
   closed: 'default',
 };
 const stTextMap: Record<string, string> = {
   open: '打开',
-  in_progress: '处理中',
+  inProgress: '处理中',
   resolved: '已解决',
   closed: '已关闭',
 };

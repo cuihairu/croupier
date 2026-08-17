@@ -53,12 +53,7 @@ export type SaveConfigInput = {
 
 const BASE = '/api/v1/configs';
 
-export async function listConfigs(params?: {
-  gameId?: string;
-  env?: string;
-  format?: string;
-  idLike?: string;
-}) {
+export async function listConfigs(params?: { idLike?: string }) {
   return request<{ items: ConfigItem[] }>(BASE, { params });
 }
 

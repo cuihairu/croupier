@@ -29,7 +29,7 @@ interface EventRow {
   id?: string;
   event?: string;
   time?: string;
-  user_id?: string;
+  userId?: string;
   [key: string]: JSONValue | undefined;
 }
 
@@ -61,8 +61,8 @@ interface FunnelPreset {
   name: string;
   steps: string;
   sequential: number;
-  same_session: number;
-  gap_sec: number;
+  sameSession: number;
+  gapSec: number;
   start?: string;
   end?: string;
   lastUsed?: string;
@@ -89,8 +89,8 @@ export default function AnalyticsBehaviorPage() {
     try {
       const params: Record<string, string | number> = {
         event: eventName,
-        prop_key: propKey,
-        prop_val: propVal,
+        propKey: propKey,
+        propVal: propVal,
       };
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
@@ -117,8 +117,8 @@ export default function AnalyticsBehaviorPage() {
         steps: st.join(','),
         sequential: seq ? 1 : 0,
       };
-      if (sameSess) params.same_session = 1;
-      if (gapSec && gapSec > 0) params.gap_sec = gapSec;
+      if (sameSess) params.sameSession = 1;
+      if (gapSec && gapSec > 0) params.gapSec = gapSec;
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsFunnel(params);
@@ -210,7 +210,7 @@ export default function AnalyticsBehaviorPage() {
             <Button
               onClick={async () => {
                 const rowsOut = [['time', 'event', 'user_id']].concat(
-                  (rows || []).map((r: EventRow) => [r.time || '', r.event || '', r.user_id || '']),
+                  (rows || []).map((r: EventRow) => [r.time || '', r.event || '', r.userId || '']),
                 );
                 await exportToXLSX('events.csv', [{ sheet: 'events', rows: rowsOut }]);
               }}
@@ -351,10 +351,10 @@ const PathControls: React.FC<{
       const params: Record<string, string | number> = { per, steps, limit };
       if (include.length > 0) params.include = include.join(',');
       if (exclude.length > 0) params.exclude = exclude.join(',');
-      if (sameSess) params.same_session = 1;
-      if (gapSec && gapSec > 0) params.gap_sec = gapSec;
-      if (pathRe.trim()) params.path_re = pathRe.trim();
-      if (pathNotRe.trim()) params.path_not_re = pathNotRe.trim();
+      if (sameSess) params.sameSession = 1;
+      if (gapSec && gapSec > 0) params.gapSec = gapSec;
+      if (pathRe.trim()) params.pathRe = pathRe.trim();
+      if (pathNotRe.trim()) params.pathNotRe = pathNotRe.trim();
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsPaths(params);
@@ -542,8 +542,8 @@ const PresetBar: React.FC<{
         name,
         steps: steps.join(','),
         sequential: seq ? 1 : 0,
-        same_session: sameSess ? 1 : 0,
-        gap_sec: gapSec,
+        sameSession: sameSess ? 1 : 0,
+        gapSec: gapSec,
         start: range?.[0]?.toISOString?.(),
         end: range?.[1]?.toISOString?.(),
         lastUsed: new Date().toISOString(),

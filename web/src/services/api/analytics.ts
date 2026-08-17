@@ -56,7 +56,7 @@ export async function fetchRealtimeSeries(params: AnalyticsParams) {
       params: withAnalyticsScope(params),
     });
   } catch {
-    return { online: [], revenue_cents: [] };
+    return { online: [], revenueCents: [] };
   }
 }
 
@@ -119,7 +119,7 @@ export async function fetchAnalyticsPaymentsSummary(params?: AnalyticsParams) {
       params: withAnalyticsScope(params),
     });
   } catch {
-    return { totals: {}, by_channel: [], by_product: [] };
+    return { totals: {}, byChannel: [], byProduct: [] };
   }
 }
 export async function fetchAnalyticsTransactions(params?: AnalyticsParams) {
@@ -137,7 +137,7 @@ export async function fetchAnalyticsLevels(params?: AnalyticsParams) {
   try {
     return await request('/api/v1/analytics/levels', { params: withAnalyticsScope(params) });
   } catch {
-    return { funnel: [], per_level: [] };
+    return { funnel: [], perLevel: [] };
   }
 }
 export async function fetchAnalyticsLevelsEpisodes(params?: AnalyticsParams) {
@@ -181,22 +181,19 @@ export type AnalyticsFilters = {
 
 type RawAnalyticsFilters = {
   gameId?: string;
-  game_id?: string;
   env?: string;
   events?: string[];
   paymentsEnabled?: boolean;
-  payments_enabled?: boolean;
   sampleGlobal?: number;
-  sample_global?: number;
 };
 
 function normalizeAnalyticsFilters(raw?: RawAnalyticsFilters): AnalyticsFilters {
   return {
-    gameId: raw?.gameId ?? raw?.game_id ?? '',
+    gameId: raw?.gameId ?? '',
     env: raw?.env ?? '',
     events: Array.isArray(raw?.events) ? raw.events.map((item) => String(item)) : [],
-    paymentsEnabled: raw?.paymentsEnabled ?? raw?.payments_enabled ?? true,
-    sampleGlobal: Number(raw?.sampleGlobal ?? raw?.sample_global ?? 100),
+    paymentsEnabled: raw?.paymentsEnabled ?? true,
+    sampleGlobal: Number(raw?.sampleGlobal ?? 100),
   };
 }
 
@@ -214,11 +211,11 @@ export async function saveAnalyticsFilters(data: AnalyticsFilters) {
   return request<void>('/api/v1/analytics/filters', {
     method: 'PUT',
     data: {
-      game_id: data.gameId,
+      gameId: data.gameId,
       env: data.env,
       events: data.events,
-      payments_enabled: data.paymentsEnabled,
-      sample_global: data.sampleGlobal,
+      paymentsEnabled: data.paymentsEnabled,
+      sampleGlobal: data.sampleGlobal,
     },
   });
 }

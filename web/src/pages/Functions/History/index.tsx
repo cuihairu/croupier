@@ -404,8 +404,8 @@ export default () => {
               if (dates && dates[0] && dates[1]) {
                 setFilters({
                   ...filters,
-                  start_time: dates[0].toISOString(),
-                  end_time: dates[1].toISOString(),
+                  startTime: dates[0].toISOString(),
+                  endTime: dates[1].toISOString(),
                 });
               } else {
                 const rest = Object.fromEntries(

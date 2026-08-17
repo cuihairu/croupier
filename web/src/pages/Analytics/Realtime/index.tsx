@@ -8,29 +8,29 @@ import { fetchRealtimeSeries, openAnalyticsRealtimeEventSource } from '@/service
 type SeriesPoint = [number | string, number];
 type RealtimeSeriesResponse = {
   online?: SeriesPoint[];
-  active_5m_sum?: SeriesPoint[];
-  active_15m_sum?: SeriesPoint[];
-  revenue_cents?: SeriesPoint[];
+  active5MSum?: SeriesPoint[];
+  active15MSum?: SeriesPoint[];
+  revenueCents?: SeriesPoint[];
 };
 type ExportRow = Array<string | number>;
 
 interface RealtimeData {
   online?: number;
-  active_1m?: number;
-  active_5m?: number;
-  active_15m?: number;
+  active1M?: number;
+  active5M?: number;
+  active15M?: number;
   qps?: number;
-  avg_latency?: number;
-  error_rate?: number;
-  top_events?: { event: string; count: number }[];
-  rev_5m?: number;
-  online_peak_today?: number;
-  online_peak_all_time?: number;
-  dau_today?: number;
-  new_today?: number;
-  registered_total?: number;
-  pay_succ_rate?: number;
-  rev_today?: number;
+  avgLatency?: number;
+  errorRate?: number;
+  topEvents?: { event: string; count: number }[];
+  rev5M?: number;
+  onlinePeakToday?: number;
+  onlinePeakAllTime?: number;
+  dauToday?: number;
+  newToday?: number;
+  registeredTotal?: number;
+  paySuccRate?: number;
+  revToday?: number;
   realtimeMetrics?: {
     onlineUsers?: number;
     activeSessions?: number;
@@ -65,13 +65,13 @@ export default function AnalyticsRealtimePage() {
     return {
       ...payload,
       online: payload?.online ?? metrics.onlineUsers ?? 0,
-      active_1m: payload?.active_1m ?? metrics.activeSessions ?? 0,
-      active_5m: payload?.active_5m ?? metrics.activeSessions ?? 0,
-      active_15m: payload?.active_15m ?? metrics.activeSessions ?? 0,
+      active1M: payload?.active1M ?? metrics.activeSessions ?? 0,
+      active5M: payload?.active5M ?? metrics.activeSessions ?? 0,
+      active15M: payload?.active15M ?? metrics.activeSessions ?? 0,
       qps: payload?.qps ?? metrics.qps ?? 0,
-      avg_latency: payload?.avg_latency ?? metrics.avgLatency ?? 0,
-      error_rate: payload?.error_rate ?? metrics.errorRate ?? 0,
-      top_events: payload?.top_events ?? metrics.topEvents ?? [],
+      avgLatency: payload?.avgLatency ?? metrics.avgLatency ?? 0,
+      errorRate: payload?.errorRate ?? metrics.errorRate ?? 0,
+      topEvents: payload?.topEvents ?? metrics.topEvents ?? [],
     };
   };
 
@@ -107,9 +107,9 @@ export default function AnalyticsRealtimePage() {
       setStreamStatus('connected');
       const now = Date.now();
       const online = Number(normalized.online || 0);
-      const a5 = Number(normalized.active_5m || 0);
-      const a15 = Number(normalized.active_15m || 0);
-      const rev5 = Number(normalized.rev_5m || 0);
+      const a5 = Number(normalized.active5M || 0);
+      const a15 = Number(normalized.active15M || 0);
+      const rev5 = Number(normalized.rev5M || 0);
       const keep = (arr: [number, number][]) =>
         arr.length > 120 ? arr.slice(arr.length - 120) : arr;
       setPtsOnline((prev) => {
@@ -336,17 +336,17 @@ export default function AnalyticsRealtimePage() {
                   (s?.online || []).forEach((x) => {
                     idx[String(x[0])] = { ts: x[0], online: x[1] };
                   });
-                  (s?.active_5m_sum || []).forEach((x) => {
+                  (s?.active5MSum || []).forEach((x) => {
                     const k = String(x[0]);
                     idx[k] = idx[k] || { ts: x[0] };
                     idx[k].a5 = x[1];
                   });
-                  (s?.active_15m_sum || []).forEach((x) => {
+                  (s?.active15MSum || []).forEach((x) => {
                     const k = String(x[0]);
                     idx[k] = idx[k] || { ts: x[0] };
                     idx[k].a15 = x[1];
                   });
-                  (s?.revenue_cents || []).forEach((x) => {
+                  (s?.revenueCents || []).forEach((x) => {
                     const k = String(x[0]);
                     idx[k] = idx[k] || { ts: x[0] };
                     idx[k].rev = x[1];
@@ -450,7 +450,7 @@ export default function AnalyticsRealtimePage() {
           </Col>
           <Col span={6}>
             <Card loading={loading}>
-              <Statistic title="1分钟活跃" value={data?.active_1m || 0} />
+              <Statistic title="1分钟活跃" value={data?.active1M || 0} />
               <div style={{ marginTop: 6 }}>
                 <Spark data={[]} />
               </div>
@@ -460,9 +460,9 @@ export default function AnalyticsRealtimePage() {
             <Card loading={loading}>
               <Statistic
                 title="5分钟活跃"
-                value={data?.active_5m || 0}
+                value={data?.active5M || 0}
                 valueStyle={
-                  thrA5 > 0 && Number(data?.active_5m || 0) < thrA5
+                  thrA5 > 0 && Number(data?.active5M || 0) < thrA5
                     ? { color: '#cf1322' }
                     : undefined
                 }
@@ -474,7 +474,7 @@ export default function AnalyticsRealtimePage() {
           </Col>
           <Col span={6}>
             <Card loading={loading}>
-              <Statistic title="15分钟活跃" value={data?.active_15m || 0} />
+              <Statistic title="15分钟活跃" value={data?.active15M || 0} />
               <div style={{ marginTop: 6 }}>
                 <Spark data={ptsA15} />
               </div>
@@ -484,7 +484,7 @@ export default function AnalyticsRealtimePage() {
         <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
           <Col span={6}>
             <Card loading={loading}>
-              <Statistic title="今日峰值在线" value={data?.online_peak_today || 0} />
+              <Statistic title="今日峰值在线" value={data?.onlinePeakToday || 0} />
               <div style={{ marginTop: 6 }}>
                 <Spark data={[]} />
               </div>
@@ -492,7 +492,7 @@ export default function AnalyticsRealtimePage() {
           </Col>
           <Col span={6}>
             <Card loading={loading}>
-              <Statistic title="历史峰值在线" value={data?.online_peak_all_time || 0} />
+              <Statistic title="历史峰值在线" value={data?.onlinePeakAllTime || 0} />
               <div style={{ marginTop: 6 }}>
                 <Spark data={[]} />
               </div>
@@ -500,7 +500,7 @@ export default function AnalyticsRealtimePage() {
           </Col>
           <Col span={6}>
             <Card loading={loading}>
-              <Statistic title="今日DAU" value={data?.dau_today || 0} />
+              <Statistic title="今日DAU" value={data?.dauToday || 0} />
               <div style={{ marginTop: 6 }}>
                 <Spark data={[]} />
               </div>
@@ -508,7 +508,7 @@ export default function AnalyticsRealtimePage() {
           </Col>
           <Col span={6}>
             <Card loading={loading}>
-              <Statistic title="今日新增" value={data?.new_today || 0} />
+              <Statistic title="今日新增" value={data?.newToday || 0} />
               <div style={{ marginTop: 6 }}>
                 <Spark data={[]} />
               </div>
@@ -518,7 +518,7 @@ export default function AnalyticsRealtimePage() {
         <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
           <Col span={6}>
             <Card loading={loading}>
-              <Statistic title="注册用户总数" value={data?.registered_total || 0} />
+              <Statistic title="注册用户总数" value={data?.registeredTotal || 0} />
               <div style={{ marginTop: 6 }}>
                 <Spark data={[]} />
               </div>
@@ -528,7 +528,7 @@ export default function AnalyticsRealtimePage() {
             <Card loading={loading}>
               <Statistic
                 title="5分钟订单额(元)"
-                value={Number(data?.rev_5m || 0) / 100}
+                value={Number(data?.rev5M || 0) / 100}
                 precision={2}
                 prefix="¥"
               />
@@ -541,7 +541,7 @@ export default function AnalyticsRealtimePage() {
             <Card loading={loading}>
               <Statistic
                 title="支付成功率"
-                value={data?.pay_succ_rate || 0}
+                value={data?.paySuccRate || 0}
                 precision={2}
                 suffix="%"
               />
@@ -554,7 +554,7 @@ export default function AnalyticsRealtimePage() {
             <Card loading={loading}>
               <Statistic
                 title="今日充值(元)"
-                value={Number(data?.rev_today || 0) / 100}
+                value={Number(data?.revToday || 0) / 100}
                 precision={2}
                 prefix="¥"
               />

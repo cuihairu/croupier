@@ -94,14 +94,14 @@ export default function StoragePage() {
       });
 
       (result.objects || []).forEach(
-        (obj: { key?: string; size?: number; last_modified?: string }) => {
+        (obj: { key?: string; size?: number; lastModified?: string }) => {
           if (obj?.key && !obj.key.endsWith('/')) {
             const displayName = obj.key.replace(currentPrefix, '');
             items.push({
               key: obj.key,
               name: displayName,
               size: Number(obj.size || 0),
-              lastModified: obj.last_modified || '',
+              lastModified: obj.lastModified || '',
               url: obj.key,
               isDirectory: false,
             });

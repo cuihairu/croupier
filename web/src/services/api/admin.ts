@@ -14,21 +14,18 @@ export type PendingFunctionRow = {
 };
 
 type RawPendingFunctionRow = {
-  function_id?: string;
   functionId?: string;
-  display_name?: LocalizedText;
   displayName?: LocalizedText;
   summary?: LocalizedText;
-  suggested_permissions?: { verbs?: string[]; scopes?: string[] };
   suggestedPermissions?: { verbs?: string[]; scopes?: string[] };
 };
 
 function normalizePendingFunctionRow(raw: RawPendingFunctionRow): PendingFunctionRow {
   return {
-    functionId: raw.function_id || raw.functionId || '',
-    displayName: raw.display_name || raw.displayName,
+    functionId: raw.functionId || '',
+    displayName: raw.displayName,
     summary: raw.summary,
-    suggestedPermissions: raw.suggested_permissions || raw.suggestedPermissions,
+    suggestedPermissions: raw.suggestedPermissions,
   };
 }
 

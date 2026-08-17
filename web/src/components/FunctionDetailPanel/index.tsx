@@ -40,7 +40,7 @@ export type FunctionDetail = {
   params?: JSONSchema;
   outputs?: JSONSchema;
   permissions?: string[];
-  recent_calls?: Array<{
+  recentCalls?: Array<{
     timestamp: string;
     user?: string;
     status: 'success' | 'failed' | 'running';
@@ -264,10 +264,10 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
       )}
 
       {/* Recent Calls */}
-      {func.recent_calls && func.recent_calls.length > 0 && (
+      {func.recentCalls && func.recentCalls.length > 0 && (
         <Card title="最近调用" size={compact ? 'small' : 'default'}>
           <Timeline>
-            {func.recent_calls.map((call, index) => (
+            {func.recentCalls.map((call, index) => (
               <Timeline.Item
                 key={index}
                 color={
@@ -304,7 +304,7 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
       )}
 
       {/* Empty State */}
-      {!func.instances && !func.params && !func.recent_calls && (
+      {!func.instances && !func.params && !func.recentCalls && (
         <Card size="small">
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}

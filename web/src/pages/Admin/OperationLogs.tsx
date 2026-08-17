@@ -28,11 +28,11 @@ export default function OperationLogsPage() {
       'approval_approve',
       'approval_reject',
       // support ops
-      'support.ticket_create',
-      'support.ticket_update',
-      'support.ticket_delete',
-      'support.ticket_comment',
-      'support.ticket_transition',
+      'support.ticketCreate',
+      'support.ticketUpdate',
+      'support.ticketDelete',
+      'support.ticketComment',
+      'support.ticketTransition',
     ],
     [],
   );
@@ -49,7 +49,7 @@ export default function OperationLogsPage() {
       const params: Record<string, string | number> = { page, size };
       if (actor) params.actor = actor;
       if (ip) params.ip = ip;
-      if (gameId) params.game_id = gameId;
+      if (gameId) params.gameId = gameId;
       if (env) params.env = env;
       const want = kinds && kinds.length > 0 ? kinds : defaultKinds;
       params.kinds = want.join(',');
@@ -73,10 +73,10 @@ export default function OperationLogsPage() {
       e.actor,
       e.target,
       e.meta?.ip || '',
-      e.meta?.ip_region || '',
-      e.meta?.game_id || '',
+      e.meta?.ipRegion || '',
+      e.meta?.gameId || '',
       e.meta?.env || '',
-      e.meta?.trace_id || '',
+      e.meta?.traceId || '',
     ]);
     arr.unshift(['time', 'kind', 'actor', 'target', 'ip', 'region', 'game_id', 'env', 'trace_id']);
     const csv = arr
@@ -173,7 +173,7 @@ export default function OperationLogsPage() {
             {
               title: '属地',
               render: (_: unknown, r: AuditEvent) => {
-                const v = String(r?.meta?.ip_region || '');
+                const v = String(r?.meta?.ipRegion || '');
                 if (!v) return '-';
                 if (v === '本地') return <Tag color="blue">本地</Tag>;
                 if (v === '局域网') return <Tag color="geekblue">局域网</Tag>;

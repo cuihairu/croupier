@@ -185,9 +185,9 @@ export default function ExtensionsStorePage() {
       const schema =
         detailResp?.manifest &&
         typeof detailResp.manifest === 'object' &&
-        detailResp.manifest.config_schema &&
-        typeof detailResp.manifest.config_schema === 'object'
-          ? (detailResp.manifest.config_schema as Record<string, JSONValue>)
+        detailResp.manifest.configSchema &&
+        typeof detailResp.manifest.configSchema === 'object'
+          ? (detailResp.manifest.configSchema as Record<string, JSONValue>)
           : undefined;
       setInstallConfigSchema(schema);
       installForm.setFieldsValue({
@@ -240,12 +240,12 @@ export default function ExtensionsStorePage() {
       const uiErr = mapExtensionError(err as Error);
       const details = uiErr.details || {};
       if (uiErr.code === EXTENSION_ERROR_CODES.EXTENSION_ALREADY_INSTALLED) {
-        const existedID = details.installation_id || '-';
-        const scopeType = details.scope_type || '-';
-        const scopeID = details.scope_id || '-';
-        const targetType = details.target_type || '-';
-        const targetID = details.target_id || '-';
-        const releaseVersion = details.release_version || '-';
+        const existedID = details.installationId || '-';
+        const scopeType = details.scopeType || '-';
+        const scopeID = details.scopeId || '-';
+        const targetType = details.targetType || '-';
+        const targetID = details.targetId || '-';
+        const releaseVersion = details.releaseVersion || '-';
         message.error(
           `该扩展已安装（实例 ${existedID}）。范围 ${scopeType}:${scopeID}，目标 ${targetType}:${targetID}，版本 ${releaseVersion}`,
         );
@@ -258,8 +258,8 @@ export default function ExtensionsStorePage() {
       if (uiErr.code === EXTENSION_ERROR_CODES.VERSION_MISMATCH) {
         message.error(
           `依赖版本不匹配：${details.dependency || 'unknown'}，要求 ${
-            details.required_version || '-'
-          }，当前 ${details.current_version || '-'}`,
+            details.requiredVersion || '-'
+          }，当前 ${details.currentVersion || '-'}`,
         );
         return;
       }
@@ -531,7 +531,7 @@ export default function ExtensionsStorePage() {
           </Form.Item>
           {installConfigSchema?.properties &&
             typeof installConfigSchema.properties === 'object' && (
-              <Card size="small" title="配置字段（来自 manifest.config_schema）">
+              <Card size="small" title="配置字段（来自 manifest.configSchema）">
                 <Space direction="vertical" style={{ width: '100%' }}>
                   {Object.entries(installConfigSchema.properties).map(([key, raw]) => {
                     const field = (raw || {}) as Record<string, JSONValue>;

@@ -192,7 +192,7 @@ export default function OpsRateLimitsPage() {
   const onSubmit = async () => {
     const v = await form.validateFields();
     const match: Record<string, string> = {};
-    if (v.matchGameId) match.game_id = v.matchGameId;
+    if (v.matchGameId) match.gameId = v.matchGameId;
     if (v.matchEnv) match.env = v.matchEnv;
     if (v.matchRegion) match.region = v.matchRegion;
     if (v.matchZone) match.zone = v.matchZone;

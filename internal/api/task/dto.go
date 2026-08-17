@@ -29,8 +29,8 @@ type Item struct {
 
 type ListRequest struct {
 	Status     string `form:"status"`
-	FunctionID string `form:"function_id"`
-	GameID     string `form:"game_id"`
+	FunctionID string `form:"functionId"`
+	GameID     string `form:"gameId"`
 	Env        string `form:"env"`
 	Page       int    `form:"page,optional,default=1"`
 	Size       int    `form:"size,optional,default=20"`
@@ -77,7 +77,7 @@ type DetailResponse struct {
 
 type EventsRequest struct {
 	ID       string `uri:"id"`
-	AfterSeq int64  `form:"after_seq"`
+	AfterSeq int64  `form:"afterSeq"`
 }
 
 type EventsResponse struct {

@@ -32,11 +32,7 @@ export type FunctionDescriptor = {
 
 type RawFunctionDescriptor = Omit<FunctionDescriptor, 'displayName' | 'summary'> & {
   displayName?: LocalizedText | string;
-  display_name?: LocalizedText | string;
   summary?: LocalizedText | string;
-  resource?: string;
-  input_schema?: string;
-  output_schema?: string;
   input?: string;
   output?: string;
 };
@@ -80,8 +76,8 @@ export type InvokeFunctionOptions = {
 type FunctionInvokeRequestDTO = {
   payload: JSONValue;
   route?: 'lb' | 'broadcast' | 'targeted' | 'hash';
-  target_service_id?: string;
-  hash_key?: string;
+  targetServiceId?: string;
+  hashKey?: string;
   mode?: 'async';
 };
 
@@ -127,15 +123,12 @@ function normalizeLocalizedText(value?: LocalizedText | string): LocalizedText |
 export function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): FunctionDescriptor {
   return {
     ...raw,
-    displayName: normalizeLocalizedText(raw.displayName || raw.display_name),
+    displayName: normalizeLocalizedText(raw.displayName),
     summary: normalizeLocalizedText(raw.summary),
-    inputSchema:
-      raw.inputSchema ||
-      raw.input_schema ||
-      (typeof raw.input === 'string' ? raw.input : undefined),
+    inputSchema: raw.inputSchema || (typeof raw.input === 'string' ? raw.input : undefined),
     outputSchema:
       raw.outputSchema ||
-      raw.output_schema ||
+      raw.outputSchema ||
       (typeof raw.output === 'string' ? raw.output : undefined),
   };
 }
@@ -169,8 +162,8 @@ export async function listFunctionWarnings(params?: {
     {
       method: 'GET',
       params: {
-        function_id: params?.functionId,
-        agent_id: params?.agentId,
+        functionId: params?.functionId,
+        agentId: params?.agentId,
         code: params?.code,
         limit: params?.limit,
       },
@@ -190,8 +183,8 @@ export async function invokeFunction(
 ): Promise<FunctionInvokeResponse> {
   const data: FunctionInvokeRequestDTO = { payload };
   if (opts?.route) data.route = opts.route;
-  if (opts?.targetServiceId) data.target_service_id = opts.targetServiceId;
-  if (opts?.hashKey) data.hash_key = opts.hashKey;
+  if (opts?.targetServiceId) data.targetServiceId = opts.targetServiceId;
+  if (opts?.hashKey) data.hashKey = opts.hashKey;
   if (opts?.mode) data.mode = opts.mode;
   return request<FunctionInvokeResponse>(
     `/api/v1/functions/${encodeURIComponent(functionId)}/invoke`,
@@ -209,8 +202,8 @@ export async function startTask(
 ): Promise<FunctionInvokeResponse> {
   const data: FunctionInvokeRequestDTO = { payload, mode: 'async' };
   if (opts?.route) data.route = opts.route;
-  if (opts?.targetServiceId) data.target_service_id = opts.targetServiceId;
-  if (opts?.hashKey) data.hash_key = opts.hashKey;
+  if (opts?.targetServiceId) data.targetServiceId = opts.targetServiceId;
+  if (opts?.hashKey) data.hashKey = opts.hashKey;
   return request<FunctionInvokeResponse>(
     `/api/v1/functions/${encodeURIComponent(functionId)}/invoke`,
     {
@@ -317,16 +310,15 @@ export function subscribeTaskEvents(
     try {
       const res = await request<{
         items?: TaskEvent[];
-        next_seq?: number;
         nextSeq?: number;
         done?: boolean;
       }>(`/api/v1/tasks/${encodeURIComponent(taskId)}/events`, {
-        params: { after_seq: afterSeq },
+        params: { afterSeq },
       });
       if (stopped) return;
       const items = res.items || [];
       for (const it of items) handlers.onEvent?.(it);
-      afterSeq = res.next_seq ?? res.nextSeq ?? afterSeq;
+      afterSeq = res?.nextSeq ?? afterSeq;
       if (res.done) {
         handlers.onDone?.();
         return;
@@ -373,7 +365,7 @@ export async function batchUpdateFunctions(data: { functionIds: string[]; enable
   return request<{ updated: number; failed: string[] }>('/api/v1/functions/batch-update', {
     method: 'POST',
     data: {
-      function_ids: data.functionIds,
+      functionIds: data.functionIds,
       enabled: data.enabled,
     },
   });

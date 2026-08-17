@@ -23,7 +23,7 @@ export default function AnalyticsLevelsPage() {
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsLevels(params);
-      setData(r || { funnel: [], per_level: [], per_level_segments: {} });
+      setData(r || { funnel: [], perLevel: [], perLevelSegments: {} });
     } finally {
       setLoading(false);
     }
@@ -35,12 +35,12 @@ export default function AnalyticsLevelsPage() {
   const exportCSV = () => {
     try {
       const rows = [['level', 'players', 'win_rate', 'avg_duration_sec', 'avg_retries']].concat(
-        (data?.per_level || []).map((x) => [
+        (data?.perLevel || []).map((x) => [
           String(x.level),
           String(x.players),
-          String(x.win_rate),
-          String(x.avg_duration_sec || ''),
-          String(x.avg_retries || ''),
+          String(x.winRate),
+          String(x.avgDurationSec || ''),
+          String(x.avgRetries || ''),
         ]),
       );
       const csv = rows.map((r) => r.map((x) => String(x ?? '')).join(',')).join('\n');
@@ -133,7 +133,7 @@ export default function AnalyticsLevelsPage() {
             loading={loading}
             rowKey={(r) => r.level}
             dataSource={
-              seg === 'all' ? data?.per_level || [] : (data?.per_level_segments || {})[seg] || []
+              seg === 'all' ? data?.perLevel || [] : (data?.perLevelSegments || {})[seg] || []
             }
             columns={[
               { title: '关卡', dataIndex: 'level' },
@@ -161,24 +161,20 @@ export default function AnalyticsLevelsPage() {
                 const allRows = [
                   ['level', 'players', 'win_rate', 'avg_duration_sec', 'avg_retries', 'difficulty'],
                 ].concat(
-                  (data?.per_level || []).map((x) => [
+                  (data?.perLevel || []).map((x) => [
                     String(x.level),
                     String(x.players),
-                    String(x.win_rate),
-                    String(x.avg_duration_sec || ''),
-                    String(x.avg_retries || ''),
+                    String(x.winRate),
+                    String(x.avgDurationSec || ''),
+                    String(x.avgRetries || ''),
                     String(x.difficulty || ''),
                   ]),
                 );
-                const segs = data?.per_level_segments || {};
+                const segs = data?.perLevelSegments || {};
                 const mk = (name: string, arr: LevelData[]) => ({
                   sheet: `per_level_${name}`,
                   rows: [['level', 'players', 'win_rate']].concat(
-                    (arr || []).map((x) => [
-                      String(x.level),
-                      String(x.players),
-                      String(x.win_rate),
-                    ]),
+                    (arr || []).map((x) => [String(x.level), String(x.players), String(x.winRate)]),
                   ),
                 });
                 const sheets = [{ sheet: 'per_level', rows: allRows }];
@@ -203,9 +199,9 @@ export default function AnalyticsLevelsPage() {
 interface LevelData {
   level: string;
   players: number;
-  win_rate: number;
-  avg_duration_sec?: number;
-  avg_retries?: number;
+  winRate: number;
+  avgDurationSec?: number;
+  avgRetries?: number;
   difficulty?: number;
 }
 
@@ -216,15 +212,15 @@ interface LevelSegments {
 }
 
 interface LevelsData {
-  per_level?: LevelData[];
-  per_level_segments?: LevelSegments;
+  perLevel?: LevelData[];
+  perLevelSegments?: LevelSegments;
   funnel?: { step: string; users: number; rate?: number }[];
 }
 
 const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) => {
   try {
-    const all = data?.per_level || [];
-    const segs = data?.per_level_segments || {};
+    const all = data?.perLevel || [];
+    const segs = data?.perLevelSegments || {};
     if (!all.length) return null;
     // pick top 10 levels by players from all
     const top = all
@@ -233,13 +229,13 @@ const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) =>
       .slice(0, 10);
     const levels = top.map((x) => String(x.level));
     const find = (arr: LevelData[], lvl: string) =>
-      (arr || []).find((x) => String(x.level) === lvl) || { win_rate: 0 };
+      (arr || []).find((x) => String(x.level) === lvl) || { winRate: 0 };
     const rows = levels.map((lvl) => ({
       lvl,
-      all: Number(find(all, lvl).win_rate || 0),
-      new: Number(find(segs['new'] || [], lvl).win_rate || 0),
-      ret: Number(find(segs['returning'] || [], lvl).win_rate || 0),
-      pay: Number(find(segs['payer'] || [], lvl).win_rate || 0),
+      all: Number(find(all, lvl).winRate || 0),
+      new: Number(find(segs['new'] || [], lvl).winRate || 0),
+      ret: Number(find(segs['returning'] || [], lvl).winRate || 0),
+      pay: Number(find(segs['payer'] || [], lvl).winRate || 0),
     }));
     const w = 720,
       h = 240,
@@ -309,12 +305,12 @@ const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) =>
 
 interface EpisodeData {
   episode: string;
-  per_level?: LevelData[];
+  perLevel?: LevelData[];
 }
 
 interface MapData {
   map: string;
-  per_level?: LevelData[];
+  perLevel?: LevelData[];
 }
 
 const EpisodeFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ range }) => {
@@ -339,7 +335,7 @@ const EpisodeFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = 
       const sheets: { sheet: string; rows: string[][] }[] = [];
       (episodes || []).forEach((e) => {
         const rows = [['level', 'players', 'win_rate']].concat(
-          (e.per_level || []).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
+          (e.perLevel || []).map((x) => [String(x.level), String(x.players), String(x.winRate)]),
         );
         sheets.push({ sheet: `ep_${String(e.episode || '')}`, rows });
       });
@@ -403,7 +399,7 @@ const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ r
       const sheets: { sheet: string; rows: string[][] }[] = [];
       (maps || []).forEach((e) => {
         const rows = [['level', 'players', 'win_rate']].concat(
-          (e.per_level || []).map((x) => [String(x.level), String(x.players), String(x.win_rate)]),
+          (e.perLevel || []).map((x) => [String(x.level), String(x.players), String(x.winRate)]),
         );
         sheets.push({ sheet: `map_${String(e.map || '')}`, rows });
       });
@@ -448,7 +444,7 @@ const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ r
 
 const MapFacet: React.FC<{ item: MapData }> = ({ item }) => {
   try {
-    const arr = item?.per_level || [];
+    const arr = item?.perLevel || [];
     if (!arr.length) return null;
     const w = 300,
       h = 160,
@@ -457,12 +453,10 @@ const MapFacet: React.FC<{ item: MapData }> = ({ item }) => {
       right = 10,
       topm = 16;
     const levels = arr.map((x) => String(x.level));
-    const maxY = Math.max(100, ...arr.map((x) => Number(x.win_rate || 0)));
+    const maxY = Math.max(100, ...arr.map((x) => Number(x.winRate || 0)));
     const sx = (i: number) => left + ((w - left - right) * i) / Math.max(1, levels.length - 1);
     const sy = (v: number) => topm + (h - topm - bottom) * (1 - v / Math.max(1, maxY));
-    const d = arr
-      .map((x, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.win_rate || 0))}`)
-      .join(' ');
+    const d = arr.map((x, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.winRate || 0))}`).join(' ');
     return (
       <Card size="small" title={String(item?.map || '-')}>
         <svg width={w} height={h} style={{ display: 'block' }}>
@@ -484,7 +478,7 @@ const MapFacet: React.FC<{ item: MapData }> = ({ item }) => {
 
 const EpisodeFacet: React.FC<{ episode: EpisodeData }> = ({ episode }) => {
   try {
-    const arr = episode?.per_level || [];
+    const arr = episode?.perLevel || [];
     if (!arr.length) return null;
     const w = 300,
       h = 160,
@@ -493,12 +487,10 @@ const EpisodeFacet: React.FC<{ episode: EpisodeData }> = ({ episode }) => {
       right = 10,
       topm = 16;
     const levels = arr.map((x) => String(x.level));
-    const maxY = Math.max(100, ...arr.map((x) => Number(x.win_rate || 0)));
+    const maxY = Math.max(100, ...arr.map((x) => Number(x.winRate || 0)));
     const sx = (i: number) => left + ((w - left - right) * i) / Math.max(1, levels.length - 1);
     const sy = (v: number) => topm + (h - topm - bottom) * (1 - v / Math.max(1, maxY));
-    const d = arr
-      .map((x, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.win_rate || 0))}`)
-      .join(' ');
+    const d = arr.map((x, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.winRate || 0))}`).join(' ');
     return (
       <Card size="small" title={String(episode?.episode || '-')}>
         <svg width={w} height={h} style={{ display: 'block' }}>

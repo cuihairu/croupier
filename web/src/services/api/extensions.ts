@@ -313,9 +313,9 @@ export async function installExtension(data: ExtensionInstallRequest) {
 export async function getExtensionInstallationDetail(id: number) {
   const response = await request<{
     installation?: RawExtensionInstallationItem;
-    config_schema?: Record<string, JSONValue>;
+    configSchema?: Record<string, JSONValue>;
     config?: Record<string, JSONValue>;
-    secret_refs?: Record<string, string>;
+    secretRefs?: Record<string, string>;
     bindings?: RawExtensionBindingItem[];
     events?: RawExtensionEventItem[];
   }>(`${BASE}/installations/${id}`);
@@ -323,9 +323,9 @@ export async function getExtensionInstallationDetail(id: number) {
     installation: response?.installation
       ? normalizeInstallationItem(response.installation)
       : undefined,
-    configSchema: response?.config_schema,
+    configSchema: response?.configSchema,
     config: response?.config || {},
-    secretRefs: response?.secret_refs || {},
+    secretRefs: response?.secretRefs || {},
     bindings: (response?.bindings || []).map(normalizeBindingItem),
     events: (response?.events || []).map(normalizeEventItem),
   };
@@ -339,7 +339,7 @@ export async function updateExtensionConfig(
     method: 'PUT',
     data: {
       config: data.config,
-      secret_refs: data.secretRefs,
+      secretRefs: data.secretRefs,
     },
   });
 }
@@ -353,11 +353,11 @@ export async function getExtensionConfigSchema(id: number) {
 export async function getExtensionConfig(id: number) {
   const response = await request<{
     config: Record<string, JSONValue>;
-    secret_refs: Record<string, string>;
+    secretRefs: Record<string, string>;
   }>(`${BASE}/installations/${id}/config`);
   return {
     config: response?.config || {},
-    secretRefs: response?.secret_refs || {},
+    secretRefs: response?.secretRefs || {},
   };
 }
 
@@ -377,7 +377,7 @@ export async function runExtensionHealthCheck(id: number) {
     { method: 'POST' },
   ).then((response: Record<string, JSONValue>) => ({
     status: response?.status ?? '',
-    checkedAt: response?.checked_at ?? response?.checkedAt ?? 0,
+    checkedAt: response?.checkedAt ?? 0,
   }));
 }
 
@@ -392,7 +392,7 @@ export async function disableExtension(id: number) {
 export async function upgradeExtension(id: number, releaseVersion: string) {
   return request<{ status: string }>(`${BASE}/installations/${id}/upgrade`, {
     method: 'POST',
-    data: { release_version: releaseVersion },
+    data: { releaseVersion: releaseVersion },
   });
 }
 

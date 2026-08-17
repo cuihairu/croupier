@@ -75,20 +75,20 @@ export CROUPIER_PLATFORM_EXTENSION_ONLY=true`}
               }}
             >
               {`extension_id: official.external-platform
-release_version: main
-scope_type: system
-scope_id: global
-target_type: agent_group
-target_id: default
+releaseVersion: main
+scopeType: system
+scopeId: global
+targetType: agent_group
+targetId: default
 config:
   providers:
     quicksdk:
       enabled: true
-      open_id: "<QUICKSDK_OPEN_ID>"
-      open_key: "<QUICKSDK_OPEN_KEY>"
-      api_base_url: "https://www.quicksdk.com"
+      openId: "<QUICKSDK_OPEN_ID>"
+      openKey: "<QUICKSDK_OPEN_KEY>"
+      apiBaseUrl: "https://www.quicksdk.com"
       timeout: "30s"
-      retry_count: 3`}
+      retryCount: 3`}
             </pre>
           </Card>
         </Card>

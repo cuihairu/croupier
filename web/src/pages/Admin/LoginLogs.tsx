@@ -69,7 +69,7 @@ export default function LoginLogsPage() {
         e.kind,
         e.actor,
         e.meta?.ip || '',
-        e.meta?.ip_region || '',
+        e.meta?.ipRegion || '',
         ua,
         detectOS(ua),
         detectBrowser(ua),
@@ -213,7 +213,7 @@ export default function LoginLogsPage() {
             {
               title: '属地',
               render: (_, r) => {
-                const v = String(r?.meta?.ip_region || '');
+                const v = String(r?.meta?.ipRegion || '');
                 if (!v) return '-';
                 if (v === '本地') return <Tag color="blue">本地</Tag>;
                 if (v === '局域网') return <Tag color="geekblue">局域网</Tag>;
