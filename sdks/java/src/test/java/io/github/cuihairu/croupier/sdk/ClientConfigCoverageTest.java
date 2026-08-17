@@ -37,7 +37,10 @@ class ClientConfigCoverageTest {
         assertTrue(config.getHeaders().isEmpty());
         assertEquals("java", config.getProviderLang());
         assertEquals("croupier-java-sdk", config.getProviderSdk());
-        assertNull(config.getReconnect());
+        // Reconnect defaults to an ENABLED config so a plain ClientConfig
+        // recovers after the agent restarts.
+        assertNotNull(config.getReconnect());
+        assertTrue(config.getReconnect().isEnabled());
         assertFalse(config.isEnableFileTransfer());
         assertEquals(10485760, config.getMaxFileSize());
         assertFalse(config.isDisableLogging());
