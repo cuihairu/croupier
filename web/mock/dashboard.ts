@@ -835,7 +835,7 @@ export default {
   },
 
   'GET /api/v1/proposals/:proposalKey': (req: Request, res: Response) => {
-    const key = req.params.proposalKey;
+    const key = String(req.params.proposalKey);
     const spec =
       key === 'task:reward.batchGrant'
         ? buildTaskPage('reward.batchGrant')
@@ -855,7 +855,7 @@ export default {
   },
 
   'POST /api/v1/proposals/:proposalKey/accept-and-publish': (req: Request, res: Response) => {
-    const key = req.params.proposalKey;
+    const key = String(req.params.proposalKey);
     const pageKey = key.startsWith('resource:')
       ? `resource--${key.split(':')[1]}`
       : key.split(':')[1]
