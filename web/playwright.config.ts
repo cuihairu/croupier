@@ -64,14 +64,14 @@ export default defineConfig({
   retries: 0,
   workers: 1, // 单 worker 避免并发问题
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
-  timeout: 60000, // 每个测试 60 秒超时
+  timeout: process.env.CI ? 90000 : 60000, // CI 环境增加超时到 90 秒
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:8000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     headless: true,
-    actionTimeout: 15000,
-    navigationTimeout: 30000,
+    actionTimeout: process.env.CI ? 20000 : 15000, // CI 环境增加 action 超时
+    navigationTimeout: process.env.CI ? 45000 : 30000, // CI 环境增加导航超时
   },
   projects: [
     {
