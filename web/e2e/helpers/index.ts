@@ -146,7 +146,10 @@ export async function confirmPopconfirm(page: Page): Promise<void> {
 /**
  * 等待表格加载完成
  */
-export async function waitForTable(page: Page, timeout = 15000): Promise<void> {
+export async function waitForTable(
+  page: Page,
+  timeout = process.env.CI ? 45000 : 15000,
+): Promise<void> {
   await page.locator('.ant-pro-table, .ant-table').first().waitFor({ state: 'visible', timeout });
 }
 

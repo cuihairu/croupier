@@ -74,15 +74,24 @@ async function prepareMockAuthState(config: FullConfig): Promise<void> {
     for (const warmPath of [
       '/console/players/resource--players',
       '/console/system/operation--system.dangerous-op',
+      '/console/reward/task--reward.batchGrant',
+      '/console/analytics/report--analytics.retention',
+      '/console/mail/operation--mail.send',
     ]) {
-      await page
-        .goto(warmPath, { waitUntil: 'domcontentloaded', timeout: 60000 })
-        .catch(() => undefined);
+      const warmed = await page
+        .goto(warmPath, { waitUntil: 'domcontentloaded', timeout: 90000 })
+        .then(() => true)
+        .catch((e: unknown) => {
+          console.warn(`[mock-auth] warm goto failed: ${warmPath}`, e);
+          return false;
+        });
+      if (!warmed) continue;
+      // 等“正在加载资源”占位消失且真实表格/表单出现（chunk 编译完成）
       await page
         .locator('.ant-pro-table, .ant-table, .ant-form, form')
         .first()
-        .waitFor({ state: 'visible', timeout: 60000 })
-        .catch(() => undefined);
+        .waitFor({ state: 'visible', timeout: 120000 })
+        .catch(() => console.warn(`[mock-auth] warm content timeout: ${warmPath}`));
     }
     console.log('[mock-auth] console pages warmed');
   } finally {
