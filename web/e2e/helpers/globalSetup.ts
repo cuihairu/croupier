@@ -56,9 +56,18 @@ async function prepareMockAuthState(config: FullConfig): Promise<void> {
       (url) => /\/(console|dashboard)/.test(url.pathname) || url.pathname === '/',
       { timeout: 30000 },
     );
-    await page.waitForFunction(() => Boolean(window.localStorage.getItem('token')));
+    // token + scope（game_id/env）都落盘后才保存：否则每个用例都要重新
+    // 等 GameSelector 解析 games，Console 页面会卡 loading。
+    await page.waitForFunction(
+      () =>
+        Boolean(window.localStorage.getItem('token')) &&
+        Boolean(window.localStorage.getItem('game_id')) &&
+        Boolean(window.localStorage.getItem('env')),
+      undefined,
+      { timeout: 30000, polling: 500 },
+    );
     await context.storageState({ path: mockAuthState });
-    console.log('[mock-auth] pre-login state saved');
+    console.log('[mock-auth] pre-login state saved (token + scope)');
   } finally {
     await browser.close();
   }
