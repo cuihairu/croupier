@@ -148,7 +148,7 @@ test.describe('独立操作', () => {
     await confirmBtn.click();
     expect((await executeResponse).status()).toBe(200);
 
-    await expect(page.getByText('操作成功', { exact: true })).toBeVisible();
+    await expect(page.getByText('操作成功', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('执行结果')).toBeVisible();
   });
 
@@ -302,7 +302,7 @@ test.describe('真实 SDK Operation 链路', () => {
     const executeResponse = await executeResponsePromise;
     expect(executeResponse.status()).toBe(200);
 
-    await expect(page.getByText('操作成功', { exact: true })).toBeVisible();
+    await expect(page.getByText('操作成功', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('mail-0001')).toBeVisible();
 
     const callsResponse = await page.request.get(`${state.fixtureBaseURL}/__fixture__/sdk/calls`);

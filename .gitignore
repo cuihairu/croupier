@@ -209,3 +209,4 @@ web/playwright-report/
 web/.turbopack/
 web/e2e/.fixture-bin/
 web/e2e/.real-fixture-state.json
+web/e2e/.auth/

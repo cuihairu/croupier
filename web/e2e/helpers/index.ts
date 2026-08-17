@@ -6,9 +6,20 @@ import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * 登录并保存认证状态
+ * 登录并保存认证状态。
+ * storageState（globalSetup 预登录）存在时直接复用，跳过 UI 登录；
+ * 否则走完整 UI 登录流程（真实环境/回退路径）。
  */
 export async function login(page: Page): Promise<void> {
+  // storageState 预登录时 token 已在 localStorage：先到应用页再检测，
+  // 避免 about:blank 上访问 localStorage 抛 SecurityError。
+  await page.goto('/');
+  await page.waitForLoadState('domcontentloaded');
+  const hasToken = await page.evaluate(() => Boolean(window.localStorage.getItem('token')));
+  if (hasToken && !page.url().includes('/user/login')) {
+    return; // 已认证（storageState 注入的会话有效）
+  }
+
   await page.goto('/user/login');
   await page.waitForLoadState('domcontentloaded');
 
@@ -22,10 +33,7 @@ export async function login(page: Page): Promise<void> {
     });
   });
 
-  // 等待页面完全加载（可能需要等待 bundling）
-  await page.waitForTimeout(5000);
-
-  // 等待登录表单
+  // 等待登录表单（客户端渲染，替代固定 sleep）
   const usernameInput = page
     .locator('input[id="username"], input[placeholder*="admin"], input[placeholder*="用户名"]')
     .first();
@@ -45,7 +53,7 @@ export async function login(page: Page): Promise<void> {
     (url) => /\/(console|dashboard)/.test(url.pathname) || url.pathname === '/',
     { timeout: 30000 },
   );
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 }
 
 /**
@@ -57,8 +65,7 @@ export async function navigateToConsole(
   pageKey: string,
 ): Promise<void> {
   await page.goto(`/console/${categoryKey}/${pageKey}`);
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(1000);
+  await page.waitForLoadState('domcontentloaded');
 }
 
 /**
@@ -66,16 +73,18 @@ export async function navigateToConsole(
  */
 export async function navigateToSystem(page: Page, path: string): Promise<void> {
   await page.goto(`/system/functions/${path}`);
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(1000);
+  await page.waitForLoadState('domcontentloaded');
 }
 
 /**
  * 等待页面加载完成
  */
 export async function waitForPageReady(page: Page): Promise<void> {
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(500);
+  // 等待 ProLayout 主体渲染（侧栏或主内容），替代 networkidle + 固定 sleep
+  await page
+    .locator('aside, main, .ant-pro-layout-content, .ant-layout')
+    .first()
+    .waitFor({ state: 'visible', timeout: 30000 });
 }
 
 /**
@@ -118,7 +127,7 @@ export async function waitForDrawer(page: Page, timeout = 10000): Promise<void> 
  */
 export async function closeDrawer(page: Page): Promise<void> {
   await page.locator('.ant-drawer-close').click();
-  await page.waitForTimeout(500);
+  await page.locator('.ant-drawer').waitFor({ state: 'hidden', timeout: 5000 });
 }
 
 /**
@@ -126,7 +135,6 @@ export async function closeDrawer(page: Page): Promise<void> {
  */
 export async function confirmPopconfirm(page: Page): Promise<void> {
   await page.locator('.ant-popconfirm .ant-btn-primary').click();
-  await page.waitForTimeout(500);
 }
 
 /**
@@ -134,7 +142,6 @@ export async function confirmPopconfirm(page: Page): Promise<void> {
  */
 export async function waitForTable(page: Page, timeout = 15000): Promise<void> {
   await page.locator('.ant-pro-table, .ant-table').first().waitFor({ state: 'visible', timeout });
-  await page.waitForTimeout(500);
 }
 
 /**

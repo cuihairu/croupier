@@ -1,8 +1,15 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 const mockWebBaseURL = process.env.MOCK_DASHBOARD_WEB_BASE_URL || 'http://localhost:8000';
 const realWebBaseURL = process.env.REAL_DASHBOARD_WEB_BASE_URL || 'http://localhost:8001';
 const realServerBaseURL = process.env.REAL_DASHBOARD_SERVER_BASE_URL || 'http://localhost:28780';
+
+function mockAuthStateFile(): string | undefined {
+  const statePath = path.resolve(__dirname, 'e2e', '.auth', 'mock.json');
+  return fs.existsSync(statePath) ? statePath : undefined;
+}
 
 function selectedProjects(argv: string[]): Set<string> {
   const result = new Set<string>();
@@ -78,7 +85,12 @@ export default defineConfig({
       name: 'mock-dashboard',
       testIgnore: /fixture-health\.spec\.ts/,
       grepInvert: realDashboardScenarios,
-      use: { ...devices['Desktop Chrome'], baseURL: mockWebBaseURL },
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: mockWebBaseURL,
+        // globalSetup 登录一次并持久化 token，用例直接以认证态启动
+        storageState: mockAuthStateFile(),
+      },
     },
     {
       // This project must always traverse the real Server API. Fixture setup
