@@ -189,7 +189,7 @@ test.describe('契约变化', () => {
     await waitForPageReady(page);
 
     await waitForTable(page);
-    await expect(page.locator('.ant-pro-table, .ant-table').first()).toBeVisible();
+    await expect(page.locator('.ant-table-container, table').first()).toBeVisible();
     await expectTableHasRows(page);
     await expect(page.getByText('玩家A')).toBeVisible();
     await expect(page.locator('.ant-result-error')).toHaveCount(0);
