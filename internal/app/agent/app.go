@@ -141,8 +141,12 @@ func (a *App) StartLocalServer() error {
 	providerSessions := agent.NewProviderSessionStore()
 	a.localHandler.SetProviderSessionStore(providerSessions)
 	tcpServer, err := agent.NewTCPLocalListener(&agent.TCPLocalListenerConfig{
-		Address:     a.localAddr,
-		RecvTimeout: 30 * time.Second,
+		Address: a.localAddr,
+		// Go SDK providers heartbeat every 60 seconds by default. The listener
+		// must leave enough idle time for that heartbeat and normal scheduling
+		// jitter, otherwise healthy providers are removed before their first
+		// heartbeat and Server reports no live agent for their functions.
+		RecvTimeout: 2 * time.Minute,
 		SendTimeout: 30 * time.Second,
 	}, providerSessions, slog.Default())
 	if err != nil {

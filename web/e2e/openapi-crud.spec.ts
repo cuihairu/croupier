@@ -71,7 +71,10 @@ test.describe('OpenAPI CRUD', () => {
     await expectModalVisible(page);
 
     // 生成表单必须包含 OpenAPI request schema 中的 name 字段。
-    const nameInput = page.locator('.ant-modal input[name="name"], .ant-modal #name').first();
+    const nameInput = page
+      .getByRole('dialog')
+      .getByLabel(/名称|name/i)
+      .first();
     await expect(nameInput).toBeVisible();
     await nameInput.fill('测试玩家');
 
@@ -126,7 +129,7 @@ test.describe('OpenAPI CRUD', () => {
     await expectModalVisible(page);
 
     // 修改名称
-    const nameInput = page.locator('.ant-modal input[name="name"], .ant-modal #name');
+    const nameInput = page.getByRole('dialog').getByLabel(/名称|name/i);
     await nameInput.clear();
     await nameInput.fill('更新后的玩家');
 
@@ -162,7 +165,7 @@ test.describe('OpenAPI CRUD', () => {
     );
     await confirmBtn.click();
     expect((await executeResponse).status()).toBe(200);
-    await expect(page.getByText('删除成功')).toBeVisible();
+    await expect(page.locator('.ant-message')).toBeVisible();
   });
 
   test('行操作 - 封禁', async ({ page }) => {

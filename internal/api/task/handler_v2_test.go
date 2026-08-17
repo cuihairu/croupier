@@ -140,6 +140,38 @@ func TestHandler_Events_EmptyID(t *testing.T) {
 	assert.True(t, w.Code >= 400, "expected error status code, got %d", w.Code)
 }
 
+func TestHandler_Events_AcceptsServerHTTPAfterSeqQuery(t *testing.T) {
+	t.Parallel()
+	handler, svc := setupHandler(t)
+	run := seedTaskRun(t, svc.svcCtx.DB, "task-after-seq", "report.generate", tasks.StatusSucceeded)
+	require.NoError(t, svc.runtime.AppendEvent(context.Background(), run.TaskID, tasks.EventProgress, 50, "halfway", []byte(`{"count":1}`)))
+	require.NoError(t, svc.runtime.AppendEvent(context.Background(), run.TaskID, tasks.EventCompleted, 100, "done", []byte(`{"ok":true}`)))
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest("GET", "/tasks/task-after-seq/events?after_seq=1", nil)
+	c.Params = []gin.Param{{Key: "id", Value: "task-after-seq"}}
+
+	handler.Events(c)
+	require.Equal(t, http.StatusOK, w.Code)
+	var response EventsResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Len(t, response.Items, 1)
+	assert.Equal(t, int64(2), response.Items[0].Seq)
+}
+
+func TestHandler_Events_RejectsInvalidServerHTTPAfterSeqQuery(t *testing.T) {
+	t.Parallel()
+	handler, _ := setupHandler(t)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest("GET", "/tasks/task-1/events?after_seq=not-a-number", nil)
+	c.Params = []gin.Param{{Key: "id", Value: "task-1"}}
+
+	handler.Events(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 // --- Cancel handler ---
 
 func TestHandler_Cancel_BindURIError(t *testing.T) {

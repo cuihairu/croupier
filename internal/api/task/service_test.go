@@ -31,7 +31,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 }
 
 // setupSvcCtx builds a ServiceContext with everything task.Service.Start needs:
-// function lookup, admin/role loading, and a dispatcher wired to an empty
+// contract lookup, admin/role loading, and a dispatcher wired to an empty
 // registry (so dispatches fail with a routing error rather than hitting a network).
 func setupSvcCtx(t *testing.T) *svc.ServiceContext {
 	t.Helper()
@@ -46,20 +46,16 @@ func setupSvcCtx(t *testing.T) *svc.ServiceContext {
 	}
 }
 
-func createTestFunction(t *testing.T, db *gorm.DB, functionID, name string) *model.Function {
+func createTestFunction(t *testing.T, db *gorm.DB, functionID, name string) *model.FunctionContract {
 	t.Helper()
-	fn := &model.Function{
-		FunctionID:  functionID,
-		Name:        name,
-		Description: "Test function",
+	fn := &model.FunctionContract{
 		GameID:      "test-game",
-		Status:      1,
+		Env:         "test-env",
+		FunctionID:  functionID,
 		Version:     "1.0.0",
-		Metadata: map[string]interface{}{
-			"version":       "1.0.0",
-			"input_schema":  map[string]interface{}{"type": "object"},
-			"output_schema": map[string]interface{}{"type": "object"},
-		},
+		Enabled:     true,
+		Summary:     datatypes.JSONMap{"default": name},
+		InputSchema: datatypes.JSON([]byte(`{"type":"object"}`)),
 	}
 	require.NoError(t, db.Create(fn).Error)
 	return fn
@@ -117,7 +113,7 @@ func TestStart_DispatchReached_AdminRole(t *testing.T) {
 	t.Parallel()
 	svcCtx := setupSvcCtx(t)
 	createTestFunction(t, svcCtx.DB, "player.ban", "Ban Player")
-	ctx := seedAdminWithRole(t, svcCtx.DB, "root", "admin")
+	ctx := svc.WithGameScope(seedAdminWithRole(t, svcCtx.DB, "root", "admin"), svc.GameScope{GameID: "test-game", Env: "test-env"})
 	svc := NewService(svcCtx)
 
 	resp, err := svc.Start(ctx, &StartRequest{FunctionID: "player.ban", Params: map[string]interface{}{"id": 1}})
@@ -277,21 +273,21 @@ func TestStart_DispatchesAndPersists_HappyPath(t *testing.T) {
 	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-e2e",
 		GameID:   "test-game",
-		Env:      "prod",
+		Env:      "test-env",
 		ExpireAt: time.Now().Add(time.Hour),
 		Functions: map[string]registry.FunctionMeta{
 			"player.ban": {Enabled: true},
 		},
 	})
 
-	ctx := seedAdminWithRole(t, svcCtx.DB, "root", "admin")
+	ctx := svc.WithGameScope(seedAdminWithRole(t, svcCtx.DB, "root", "admin"), svc.GameScope{GameID: "test-game", Env: "test-env"})
 	svc := NewService(svcCtx)
 
 	resp, err := svc.Start(ctx, &StartRequest{
 		FunctionID: "player.ban",
 		Params:     map[string]interface{}{"player": "p1"},
-		GameID:     "test-game",
-		Env:        "prod",
+		GameID:     "ignored-by-scope",
+		Env:        "ignored-by-scope",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -310,7 +306,7 @@ func TestStart_DispatchesAndPersists_HappyPath(t *testing.T) {
 	assert.Equal(t, "player.ban", run.FunctionID)
 	assert.Equal(t, "agent-e2e", run.AgentID)
 	assert.Equal(t, "test-game", run.GameID)
-	assert.Equal(t, "prod", run.Env)
+	assert.Equal(t, "test-env", run.Env)
 }
 
 // --- DurationMs calculation and Actor/Addr fields ---

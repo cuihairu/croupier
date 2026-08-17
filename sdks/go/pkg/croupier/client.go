@@ -29,9 +29,11 @@ type Client interface {
 	Close() error
 }
 
-// Invoker represents a Croupier invoker for calling functions
+// Invoker represents an L3 Croupier invoker. Its public implementation calls
+// the Server HTTP API, so function authorization, scope checks, audit and task
+// persistence are always enforced by the Server.
 type Invoker interface {
-	// Connect establishes connection to the server/agent
+	// Connect marks the request-based Server HTTP invoker ready for use.
 	Connect(ctx context.Context) error
 
 	// Invoke synchronously calls a function
@@ -45,6 +47,9 @@ type Invoker interface {
 
 	// CancelTask cancels a running task
 	CancelTask(ctx context.Context, taskID string) error
+
+	// GetTaskStatus gets the current Server-persisted task state.
+	GetTaskStatus(ctx context.Context, taskID string) (*TaskStatus, error)
 
 	// SetSchema sets validation schema for a function
 	SetSchema(functionID string, schema map[string]interface{}) error

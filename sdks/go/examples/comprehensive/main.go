@@ -228,16 +228,16 @@ func demonstrateClientLifecycle(client croupier.Client) error {
 func demonstrateInvokerInterface(ctx context.Context) error {
 	fmt.Println("\n=== 📞 调用器接口演示 (HTTP REST API) ===")
 
-	serverAddr := getenv("CROUPIER_SERVER_HTTP_ADDR", "localhost:18780")
+	serverAddr := getenv("CROUPIER_SERVER_URL", "http://127.0.0.1:18780/api/v1")
 
-	// 创建HTTP调用器配置
+	// 公共 L3 调用器只访问 Server HTTP API，不直连 Provider TCP。
 	invokerConfig := &croupier.InvokerConfig{
-		Address:        serverAddr, // HTTP REST API端口
+		Address:        serverAddr,
 		TimeoutSeconds: 30,
 		Insecure:       true,
 	}
 
-	invoker := croupier.NewHTTPInvoker(invokerConfig)
+	invoker := croupier.NewInvoker(invokerConfig)
 	defer invoker.Close()
 
 	// 1. 连接
@@ -308,7 +308,14 @@ func demonstrateInvokerInterface(ctx context.Context) error {
 	} else {
 		fmt.Printf("🚀 启动异步作业: %s\n", taskID)
 
-		// 5. 流式获取作业事件
+		status, err := invoker.GetTaskStatus(ctx, taskID)
+		if err != nil {
+			log.Printf("❌ 查询作业状态失败: %v", err)
+		} else {
+			fmt.Printf("📊 当前作业状态: %s (%d%%)\n", status.Status, status.Progress)
+		}
+
+		// 5. 轮询获取 Server 持久化的作业事件
 		fmt.Println("📡 监听作业事件...")
 
 		eventChan, err := invoker.StreamTask(ctx, taskID)
@@ -551,7 +558,8 @@ func main() {
 	fmt.Println("   📍 GetLocalAddress - 获取本地地址")
 	fmt.Println("   📞 Invoke - 同步函数调用")
 	fmt.Println("   🚀 StartTask - 启动异步作业")
-	fmt.Println("   📡 StreamTask - 流式作业事件")
+	fmt.Println("   📊 GetTaskStatus - 查询 Server 作业状态")
+	fmt.Println("   📡 StreamTask - 轮询作业事件")
 	fmt.Println("   ⏹️ CancelTask - 取消作业")
 	fmt.Println("   📄 SetSchema - 设置验证模式")
 

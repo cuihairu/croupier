@@ -23,20 +23,16 @@ test.describe('异步任务', () => {
     await waitForPageReady(page);
 
     // 任务参数来自发布 PageSpec 的 schema，字段缺失必须使测试失败。
-    const playerIdsInput = page
-      .locator('input[name="playerIds"], textarea[name="playerIds"]')
-      .first();
+    const playerIdsInput = page.getByLabel(/玩家ID|playerIds/i).first();
     await expect(playerIdsInput).toBeVisible();
     await playerIdsInput.fill('1001,1002,1003');
 
-    const rewardIdInput = page.locator('input[name="rewardId"]').first();
+    const rewardIdInput = page.getByLabel(/奖励ID|rewardId/i).first();
     await expect(rewardIdInput).toBeVisible();
     await rewardIdInput.fill('100');
 
     // 提交任务
-    const submitBtn = page
-      .locator('button:has-text("提交"), button:has-text("开始"), button:has-text("执行")')
-      .first();
+    const submitBtn = page.getByRole('button', { name: /提\s*交|开始|执\s*行/ }).first();
     await expect(submitBtn).toBeVisible();
     const executeResponse = page.waitForResponse(
       (response) =>
@@ -53,8 +49,8 @@ test.describe('异步任务', () => {
     await navigateToConsole(page, 'reward', 'task--reward.batchGrant');
     await waitForPageReady(page);
 
-    await expect(page.getByRole('heading', { name: '批量发奖' })).toBeVisible();
+    await expect(page.getByText('批量发奖').first()).toBeVisible();
     await expectFormVisible(page);
-    await expect(page.getByRole('button', { name: '提交' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /提\s*交/ })).toBeVisible();
   });
 });

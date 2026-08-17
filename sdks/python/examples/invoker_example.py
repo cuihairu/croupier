@@ -29,9 +29,9 @@ async def sync_invoke_example() -> None:
     # Import Invoker (async version)
     from croupier import create_invoker
 
-    # Create Invoker configuration
+    # L3 调用方仅访问 Server HTTP API；Provider TCP 注册链路不用于此处。
     config = InvokerConfig(
-        address="127.0.0.1:19090",
+        address="http://127.0.0.1:18780/api/v1",
         timeout=30000,
         insecure=True,
     )
@@ -79,8 +79,8 @@ async def async_task_example() -> None:
 
     from croupier import create_invoker
 
-    # Create Invoker instance with default config
-    invoker = create_invoker()
+    # 创建独立 Server HTTP Invoker。
+    invoker = create_invoker(InvokerConfig(address="http://127.0.0.1:18780/api/v1"))
 
     try:
         await invoker.connect()
@@ -96,6 +96,9 @@ async def async_task_example() -> None:
 
         task_id = await invoker.start_task(function_id, payload)
         print(f"🚀 任务已启动，Task ID: {task_id}\n")
+
+        status = await invoker.get_task_status(task_id)
+        print(f"📊 当前任务状态: {status.status} ({status.progress or 0}%)\n")
 
         # Stream task events
         print("📡 接收任务事件...")
@@ -134,8 +137,8 @@ async def task_cancel_example() -> None:
 
     from croupier import create_invoker
 
-    # Create Invoker instance
-    invoker = create_invoker()
+    # 创建独立 Server HTTP Invoker。
+    invoker = create_invoker(InvokerConfig(address="http://127.0.0.1:18780/api/v1"))
 
     try:
         await invoker.connect()
@@ -180,8 +183,8 @@ async def schema_validation_example() -> None:
 
     from croupier import create_invoker
 
-    # Create Invoker instance
-    invoker = create_invoker()
+    # 创建独立 Server HTTP Invoker。
+    invoker = create_invoker(InvokerConfig(address="http://127.0.0.1:18780/api/v1"))
 
     try:
         await invoker.connect()
@@ -242,7 +245,7 @@ def sync_wrapper_example():
 
     # Use sync invoker for applications without asyncio
     invoker = create_sync_invoker(InvokerConfig(
-        address="127.0.0.1:19090",
+        address="http://127.0.0.1:18780/api/v1",
         timeout=30000,
         insecure=True,
     ))

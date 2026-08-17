@@ -48,7 +48,11 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.runtime.FindFunction(ctx, functionID); err != nil {
+	scope, err := currentTaskScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.runtime.FindFunctionContract(ctx, scope.GameID, scope.Env, functionID); err != nil {
 		return nil, err
 	}
 
@@ -64,8 +68,8 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 		return nil, err
 	}
 
-	gameID := svc.ResolveGameID(ctx, req.GameID)
-	env := svc.ResolveEnv(ctx, req.Env)
+	gameID := scope.GameID
+	env := scope.Env
 	if err := utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
 		return nil, err
 	}

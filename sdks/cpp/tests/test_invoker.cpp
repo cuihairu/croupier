@@ -1,257 +1,245 @@
 #include <gtest/gtest.h>
 
 #include "croupier/sdk/croupier_client.h"
-#include "croupier/sdk/tcp_transport.h"
-#include "croupier/sdk/protocol.h"
-#include "croupier/sdk/v1/invocation.pb.h"
 
+#include <functional>
+#include <cstdlib>
 #include <chrono>
 #include <memory>
-#include <random>
+#include <mutex>
+#include <stdexcept>
 #include <thread>
-#include <unordered_map>
+#include <utility>
+#include <vector>
 
-namespace croupier {
-namespace sdk {
-namespace test {
-
+namespace croupier::sdk::test {
 namespace {
 
-std::string GetTestAddress() {
-    // Use port 0 to let OS assign an available port
-    // This is more reliable than random ports in CI environments
-    return "tcp://127.0.0.1:0";
+class MockHTTPTransport final : public HTTPTransport {
+public:
+    using Responder = std::function<HTTPResponse(const HTTPRequest&)>;
+
+    explicit MockHTTPTransport(Responder responder) : responder_(std::move(responder)) {}
+
+    HTTPResponse Send(const HTTPRequest& request) override {
+        std::lock_guard<std::mutex> lock(mutex_);
+        requests.push_back(request);
+        return responder_(request);
+    }
+
+    std::vector<HTTPRequest> requests;
+
+private:
+    std::mutex mutex_;
+    Responder responder_;
+};
+
+InvokerConfig Config(const std::shared_ptr<HTTPTransport>& transport) {
+    InvokerConfig config;
+    config.address = "http://server.example";
+    config.auth_token = "server-token";
+    config.game_id = "game-a";
+    config.env = "staging";
+    config.task_poll_interval_ms = 1;
+    config.retry.enabled = false;
+    config.http_transport = transport;
+    config.disable_logging = true;
+    return config;
 }
 
-// Wait for server to be ready with timeout
-// Use longer timeout for CI/Debug environments where startup can be slower
-bool WaitForServerReady(const TCPServer& server, int timeout_ms = 10000) {
-    auto start = std::chrono::steady_clock::now();
-    while (!server.IsRunning()) {
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - start).count();
-        if (elapsed >= timeout_ms) {
-            return false;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+std::string Header(const HTTPRequest& request, const std::string& name) {
+    for (const auto& [key, value] : request.headers) {
+        if (key == name) return value;
     }
-    return true;
-}
-
-std::vector<uint8_t> SerializeMessage(const google::protobuf::Message& message) {
-    std::string bytes;
-    if (!message.SerializeToString(&bytes)) {
-        throw std::runtime_error("failed to serialize protobuf message");
-    }
-    return std::vector<uint8_t>(bytes.begin(), bytes.end());
-}
-
-template <typename T>
-T ParseMessage(const std::vector<uint8_t>& bytes) {
-    T message;
-    if (!message.ParseFromArray(bytes.data(), static_cast<int>(bytes.size()))) {
-        throw std::runtime_error("failed to parse protobuf message");
-    }
-    return message;
+    return "";
 }
 
 }  // namespace
 
-class InvokerTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        server_address_ = GetTestAddress();
-    }
-
-    std::string server_address_;
-};
-
-TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
-    TCPServer server(server_address_);
-    server.SetHandler([](uint32_t msg_type, uint32_t, const std::vector<uint8_t>& body) -> std::vector<uint8_t> {
-        EXPECT_EQ(msg_type, protocol::MSG_INVOKE_REQUEST);
-
-        auto request = ParseMessage<croupier::sdk::v1::InvokeRequest>(body);
-        EXPECT_EQ(request.function_id(), "player.echo");
-        EXPECT_EQ(request.payload(), R"({"name":"alice"})");
-
-        croupier::sdk::v1::InvokeResponse response;
-        response.set_payload(std::string("ok:") + request.payload());
-        return SerializeMessage(response);
+TEST(ServerHTTPInvokerTest, UsesServerHTTPContractForInvokeAndTaskLifecycle) {
+    int events_calls = 0;
+    auto transport = std::make_shared<MockHTTPTransport>([&events_calls](const HTTPRequest& request) {
+        if (request.method == "POST" && request.url == "http://server.example/api/v1/functions/player.ban/invoke") {
+            return HTTPResponse{200, R"({"result":{"status":"banned"}})"};
+        }
+        if (request.method == "POST" && request.url == "http://server.example/api/v1/tasks") {
+            return HTTPResponse{200, R"({"taskId":"task-1","status":"dispatching"})"};
+        }
+        if (request.method == "GET" && request.url == "http://server.example/api/v1/tasks/task-1") {
+            return HTTPResponse{200, R"({"id":"task-1","functionId":"report.generate","status":"running","progress":50,"result":{"partial":true}})"};
+        }
+        if (request.method == "GET" && request.url == "http://server.example/api/v1/tasks/task-1/events?after_seq=0") {
+            ++events_calls;
+            return HTTPResponse{200, R"({"items":[{"seq":1,"type":"progress","progress":50,"message":"halfway","payload":{"count":1}}],"done":false})"};
+        }
+        if (request.method == "GET" && request.url == "http://server.example/api/v1/tasks/task-1/events?after_seq=1") {
+            ++events_calls;
+            return HTTPResponse{200, R"({"items":[{"seq":2,"type":"completed","payload":{"ok":true}}],"done":true})"};
+        }
+        if (request.method == "POST" && request.url == "http://server.example/api/v1/tasks/task-1/cancel") {
+            return HTTPResponse{200, R"({"message":"accepted"})"};
+        }
+        return HTTPResponse{404, R"({"message":"unexpected path"})"};
     });
-    server.Start();
-    ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
-    std::cerr << "[DEBUG] Server started, GetListenAddress()..." << std::endl;
 
-    // Get the actual bound address (port 0 gets assigned a real port)
-    // Note: GetListenAddress() returns "host:port" without "tcp://" prefix,
-    // but ParseTCPAddress will auto-normalize it via NormalizeTCPAddress()
-    std::string actual_address = server.GetListenAddress();
-    std::cerr << "[DEBUG] GetListenAddress() returned: '" << actual_address << "'" << std::endl;
-    ASSERT_FALSE(actual_address.empty()) << "GetListenAddress() returned empty string";
+    CroupierInvoker invoker(Config(transport));
+    ASSERT_TRUE(invoker.Connect());
+    InvokeOptions options;
+    options.idempotency_key = "invoke-1";
+    options.route = "targeted";
+    options.target_service_id = "provider-1";
+    const std::string result = invoker.Invoke("player.ban", R"({"playerId":"p-1"})", options);
+    const std::string task_id = invoker.StartTask("report.generate", R"({"range":"daily"})");
+    const TaskStatus status = invoker.GetTaskStatus(task_id);
+    const std::vector<TaskEvent> events = invoker.StreamTask(task_id).get();
+    EXPECT_TRUE(invoker.CancelTask(task_id));
 
-    {
-        InvokerConfig config;
-        config.address = actual_address;
-        config.game_id = "test-game";
-        config.env = "testing";
-        config.disable_logging = true;
-        config.timeout_seconds = 30;
-        config.connect_timeout_seconds = 30;  // Longer for CI
-        config.retry.enabled = false;  // Disable retry
+    EXPECT_EQ(R"({"status":"banned"})", result);
+    EXPECT_EQ("task-1", task_id);
+    EXPECT_EQ("running", status.status);
+    EXPECT_EQ(R"({"partial":true})", status.result);
+    ASSERT_EQ(2U, events.size());
+    EXPECT_EQ("progress", events[0].event_type);
+    EXPECT_EQ(R"({"count":1})", events[0].payload);
+    EXPECT_FALSE(events[0].done);
+    EXPECT_EQ("completed", events[1].event_type);
+    EXPECT_EQ(R"({"ok":true})", events[1].payload);
+    EXPECT_TRUE(events[1].done);
+    EXPECT_EQ(2, events_calls);
 
-        CroupierInvoker invoker(config);
-        std::cerr << "[DEBUG] Calling invoker.Connect()..." << std::endl;
-        ASSERT_TRUE(invoker.Connect());
-        std::cerr << "[DEBUG] Connect() succeeded, calling Invoke()..." << std::endl;
-
-        InvokeOptions options;
-        std::string result = invoker.Invoke("player.echo", R"({"name":"alice"})", options);
-
-        EXPECT_EQ(result, R"(ok:{"name":"alice"})");
-
-        // Don't explicitly call Close() - let destructor handle it
-    }
-
-    server.Stop();
+    ASSERT_EQ(6U, transport->requests.size());
+    const HTTPRequest& invoke = transport->requests.front();
+    EXPECT_EQ("Bearer server-token", Header(invoke, "Authorization"));
+    EXPECT_EQ("game-a", Header(invoke, "X-Game-ID"));
+    EXPECT_EQ("staging", Header(invoke, "X-Env"));
+    EXPECT_EQ("invoke-1", Header(invoke, "Idempotency-Key"));
+    EXPECT_EQ("application/json", Header(invoke, "Content-Type"));
+    EXPECT_EQ(R"({"params":{"playerId":"p-1"},"route":"targeted","targetServiceId":"provider-1"})", invoke.body);
+    EXPECT_EQ(R"({"functionId":"report.generate","params":{"range":"daily"}})", transport->requests[1].body);
+    EXPECT_EQ("{}", transport->requests.back().body);
 }
 
-TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
-    TCPServer server(server_address_);
-    std::unordered_map<std::string, int> stream_counts;
+TEST(ServerHTTPInvokerTest, RejectsLegacyTCPAndNeverFabricatesSuccessfulResults) {
+    InvokerConfig tcp_config;
+    tcp_config.address = "tcp://127.0.0.1:19090";
+    EXPECT_THROW({
+        CroupierInvoker rejected(tcp_config);
+        (void)rejected;
+    }, std::invalid_argument);
 
-    server.SetHandler([&stream_counts](uint32_t msg_type, uint32_t, const std::vector<uint8_t>& body) -> std::vector<uint8_t> {
-        if (msg_type == protocol::MSG_START_TASK_REQUEST) {
-            auto request = ParseMessage<croupier::sdk::v1::InvokeRequest>(body);
-            EXPECT_EQ(request.function_id(), "player.batch");
-
-            croupier::sdk::v1::StartTaskResponse response;
-            response.set_task_id("job-123");
-            return SerializeMessage(response);
-        }
-
-        if (msg_type == protocol::MSG_STREAM_TASK_REQUEST) {
-            auto request = ParseMessage<croupier::sdk::v1::TaskStreamRequest>(body);
-            int count = ++stream_counts[request.task_id()];
-
-            croupier::sdk::v1::TaskEvent event;
-            if (count == 1) {
-                event.set_type("progress");
-                event.set_message("halfway");
-                event.set_progress(50);
-            } else {
-                event.set_type("done");
-                event.set_message("completed");
-                event.set_progress(100);
-                event.set_payload(R"({"ok":true})");
-            }
-            return SerializeMessage(event);
-        }
-
-        return {};
+    auto transport = std::make_shared<MockHTTPTransport>([](const HTTPRequest&) {
+        return HTTPResponse{503, R"({"message":"temporarily unavailable"})"};
     });
-    server.Start();
-    ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
-    std::cerr << "[DEBUG] Server started, GetListenAddress()..." << std::endl;
-
-    // Get the actual bound address (port 0 gets assigned a real port)
-    // Note: GetListenAddress() returns "host:port" without "tcp://" prefix,
-    // but ParseTCPAddress will auto-normalize it via NormalizeTCPAddress()
-    std::string actual_address = server.GetListenAddress();
-    std::cerr << "[DEBUG] GetListenAddress() returned: '" << actual_address << "'" << std::endl;
-    ASSERT_FALSE(actual_address.empty()) << "GetListenAddress() returned empty string";
-
-    {
-        InvokerConfig config;
-        config.address = actual_address;
-        config.disable_logging = true;
-        config.connect_timeout_seconds = 30;  // Longer for CI
-        CroupierInvoker invoker(config);
-
-        std::string task_id = invoker.StartTask("player.batch", R"({"ids":[1,2,3]})");
-        EXPECT_EQ(task_id, "job-123");
-
-        auto future = invoker.StreamTask(task_id);
-        auto events = future.get();
-
-        ASSERT_GE(events.size(), 3U);
-        EXPECT_EQ(events.front().event_type, "started");
-        EXPECT_EQ(events[1].event_type, "progress");
-        EXPECT_EQ(events.back().event_type, "completed");
-        EXPECT_TRUE(events.back().done);
-        EXPECT_EQ(events.back().payload, R"({"ok":true})");
-    }
-
-    server.Stop();
-}
-
-TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
-    TCPServer server(server_address_);
-    bool cancel_called = false;
-
-    server.SetHandler([&cancel_called](uint32_t msg_type, uint32_t, const std::vector<uint8_t>& body) -> std::vector<uint8_t> {
-        if (msg_type == protocol::MSG_START_TASK_REQUEST) {
-            croupier::sdk::v1::StartTaskResponse response;
-            response.set_task_id("job-cancel");
-            return SerializeMessage(response);
-        }
-
-        if (msg_type == protocol::MSG_CANCEL_TASK_REQUEST) {
-            auto request = ParseMessage<croupier::sdk::v1::CancelTaskRequest>(body);
-            EXPECT_EQ(request.task_id(), "job-cancel");
-            cancel_called = true;
-
-            // Return a non-empty response to ensure the client receives it
-            croupier::sdk::v1::InvokeResponse response;
-            response.set_payload("cancelled");  // Add payload to make it non-empty
-            return SerializeMessage(response);
-        }
-
-        return {};
-    });
-    server.Start();
-    ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
-    std::cerr << "[DEBUG] Server started, GetListenAddress()..." << std::endl;
-
-    // Get the actual bound address (port 0 gets assigned a real port)
-    // Note: GetListenAddress() returns "host:port" without "tcp://" prefix,
-    // but ParseTCPAddress will auto-normalize it via NormalizeTCPAddress()
-    std::string actual_address = server.GetListenAddress();
-    std::cerr << "[DEBUG] GetListenAddress() returned: '" << actual_address << "'" << std::endl;
-    ASSERT_FALSE(actual_address.empty()) << "GetListenAddress() returned empty string";
-
-    {
-        InvokerConfig config;
-        config.address = actual_address;
-        config.disable_logging = true;
-        config.timeout_seconds = 30;
-        config.connect_timeout_seconds = 30;  // Longer for CI
-        CroupierInvoker invoker(config);
-
-        std::string task_id = invoker.StartTask("player.batch", "{}");
-
-        EXPECT_TRUE(invoker.CancelTask(task_id));
-        EXPECT_TRUE(cancel_called);
-    }
-
-    server.Stop();
-}
-
-TEST_F(InvokerTest, SetSchemaValidatesPayloadBeforeSending) {
-    InvokerConfig config;
-    config.address = server_address_;
-    config.disable_logging = true;
+    InvokerConfig config = Config(transport);
+    config.address = "server.example:18780";
     CroupierInvoker invoker(config);
 
-    invoker.SetSchema("player.create", {
-        {"type", "object"},
-        {"required", R"(["name"])"}
-    });
-
-    EXPECT_THROW(invoker.Invoke("player.create", R"({"id":1})"), std::runtime_error);
-    invoker.Close();
+    try {
+        (void)invoker.Invoke("health.check", "{}");
+        FAIL() << "a Server error must not be converted into a local success";
+    } catch (const std::runtime_error& error) {
+        EXPECT_NE(std::string(error.what()).find("503"), std::string::npos);
+        EXPECT_NE(std::string(error.what()).find("temporarily unavailable"), std::string::npos);
+    }
+    ASSERT_EQ(1U, transport->requests.size());
+    EXPECT_EQ("http://server.example:18780/api/v1/functions/health.check/invoke", transport->requests[0].url);
 }
 
-}  // namespace test
-}  // namespace sdk
-}  // namespace croupier
+TEST(ServerHTTPInvokerTest, ValidatesInputAndServerResponsesBeforeReportingSuccess) {
+    int calls = 0;
+    auto transport = std::make_shared<MockHTTPTransport>([&calls](const HTTPRequest&) {
+        ++calls;
+        return HTTPResponse{200, R"({"status":"dispatching"})"};
+    });
+    CroupierInvoker invoker(Config(transport));
+
+    EXPECT_THROW(invoker.Invoke("", "{}"), std::invalid_argument);
+    EXPECT_THROW(invoker.StartTask("report.generate", "not-json"), std::invalid_argument);
+    invoker.SetSchema("report.generate", {{"required", R"(["range"])"}});
+    EXPECT_THROW(invoker.StartTask("report.generate", "{}"), std::runtime_error);
+    EXPECT_EQ(0, calls);
+
+    EXPECT_THROW(invoker.StartTask("report.generate", R"({"range":"daily"})"), std::runtime_error);
+    EXPECT_EQ(1, calls);
+    EXPECT_FALSE(invoker.CancelTask(""));
+}
+
+TEST(ServerHTTPInvokerTest, UsesRealServerForAuthenticatedTaskLifecycle) {
+    const char* server_url = std::getenv("CROUPIER_SERVER_URL");
+    const char* token = std::getenv("CROUPIER_SERVER_TOKEN");
+    if (server_url == nullptr || token == nullptr || *server_url == '\0' || *token == '\0') {
+        GTEST_SKIP() << "CROUPIER_SERVER_URL and CROUPIER_SERVER_TOKEN are required";
+    }
+
+    const std::string game_id = std::getenv("CROUPIER_GAME_ID") == nullptr
+        ? "e2e-game" : std::getenv("CROUPIER_GAME_ID");
+    const std::string env = std::getenv("CROUPIER_ENV") == nullptr
+        ? "e2e" : std::getenv("CROUPIER_ENV");
+
+    InvokerConfig unauthenticated_config;
+    unauthenticated_config.address = server_url;
+    unauthenticated_config.game_id = game_id;
+    unauthenticated_config.env = env;
+    unauthenticated_config.retry.enabled = false;
+    CroupierInvoker unauthenticated(unauthenticated_config);
+    EXPECT_THROW(unauthenticated.Invoke("mail.send", R"({"player_id":"p-001","title":"denied"})"), std::runtime_error);
+
+    InvokerConfig config = unauthenticated_config;
+    config.auth_token = token;
+    config.task_poll_interval_ms = 10;
+    CroupierInvoker invoker(config);
+    ASSERT_TRUE(invoker.Connect());
+
+    const std::string result = invoker.Invoke("mail.send", R"({"player_id":"p-001","title":"C++","content":"body"})");
+    EXPECT_NE(result.find(R"("mail_id":"mail-0001")"), std::string::npos);
+
+    const std::string completed_id = invoker.StartTask("mail.send", R"({"player_id":"p-001","title":"task"})");
+    const auto completed_events = invoker.StreamTask(completed_id).get();
+    ASSERT_FALSE(completed_events.empty());
+    bool saw_started = false;
+    bool saw_completed = false;
+    for (const auto& event : completed_events) {
+        saw_started |= event.event_type == "started";
+        saw_completed |= event.event_type == "completed";
+    }
+    EXPECT_TRUE(saw_started);
+    EXPECT_TRUE(saw_completed);
+
+    TaskStatus completed;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    do {
+        completed = invoker.GetTaskStatus(completed_id);
+        if (completed.status == "succeeded") break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    } while (std::chrono::steady_clock::now() < deadline);
+    EXPECT_EQ("succeeded", completed.status);
+    EXPECT_EQ(completed_id, completed.task_id);
+    EXPECT_NE(completed.result.find(R"("mail_id":"mail-0001")"), std::string::npos);
+
+    const std::string cancelled_id = invoker.StartTask("mail.wait", R"({"wait_ms":30000})");
+    TaskStatus running;
+    const auto running_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    do {
+        running = invoker.GetTaskStatus(cancelled_id);
+        if (running.status == "running") break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    } while (std::chrono::steady_clock::now() < running_deadline);
+    ASSERT_EQ("running", running.status);
+    ASSERT_TRUE(invoker.CancelTask(cancelled_id));
+
+    const auto cancelled_events = invoker.StreamTask(cancelled_id).get();
+    bool saw_cancelled = false;
+    for (const auto& event : cancelled_events) saw_cancelled |= event.event_type == "cancelled";
+    EXPECT_TRUE(saw_cancelled);
+
+    TaskStatus cancelled;
+    const auto cancelled_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    do {
+        cancelled = invoker.GetTaskStatus(cancelled_id);
+        if (cancelled.status == "cancelled") break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    } while (std::chrono::steady_clock::now() < cancelled_deadline);
+    EXPECT_EQ("cancelled", cancelled.status);
+}
+
+}  // namespace croupier::sdk::test

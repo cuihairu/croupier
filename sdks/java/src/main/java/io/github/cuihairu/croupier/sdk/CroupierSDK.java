@@ -4,6 +4,7 @@ import io.github.cuihairu.croupier.sdk.invoker.InvokeOptions;
 import io.github.cuihairu.croupier.sdk.invoker.Invoker;
 import io.github.cuihairu.croupier.sdk.invoker.InvokerConfig;
 import io.github.cuihairu.croupier.sdk.invoker.InvokerImpl;
+import io.github.cuihairu.croupier.sdk.invoker.ServerHttpInvoker;
 
 /**
  * Factory class for creating Croupier SDK instances
@@ -84,7 +85,7 @@ public class CroupierSDK {
         if (config == null) {
             throw new NullPointerException("config cannot be null");
         }
-        return new InvokerImpl(config);
+        return new ServerHttpInvoker(config);
     }
 
     /**
@@ -93,13 +94,13 @@ public class CroupierSDK {
      * @return Invoker instance with default config
      */
     public static Invoker createInvoker() {
-        return new InvokerImpl(InvokerConfig.createDefault());
+        return new ServerHttpInvoker(InvokerConfig.createDefault());
     }
 
     /**
      * Create a new Invoker with a custom server address.
      *
-     * @param address the server address in "host:port" format
+     * @param address the Server HTTP API address, root URL, or "host:port"
      * @return Invoker instance
      * @throws NullPointerException if address is null
      * @throws IllegalArgumentException if address is empty
@@ -114,7 +115,7 @@ public class CroupierSDK {
         InvokerConfig config = InvokerConfig.builder()
             .address(address)
             .build();
-        return new InvokerImpl(config);
+        return new ServerHttpInvoker(config);
     }
 
     /**

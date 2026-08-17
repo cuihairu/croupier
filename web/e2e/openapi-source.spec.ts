@@ -23,7 +23,7 @@ test.describe('OpenAPI Source', () => {
     await page.goto('/system/functions/openapi-sources');
     await waitForPageReady(page);
 
-    await expect(page.getByRole('heading', { name: 'OpenAPI Sources' })).toBeVisible();
+    await expect(page.getByText('OpenAPI Sources').first()).toBeVisible();
     await expect(page.getByText('Source 不是 UI，也不是自动注册')).toBeVisible();
     await expectTableVisible(page);
   });
@@ -39,7 +39,7 @@ test.describe('OpenAPI Source', () => {
     await expectModalVisible(page);
     await expect(page.getByRole('dialog').getByText('不要在 OpenAPI 中写 UI')).toBeVisible();
 
-    const cancelBtn = page.getByRole('dialog').getByRole('button', { name: '取消' });
+    const cancelBtn = page.getByRole('dialog').getByRole('button', { name: /取消|Cancel/i });
     await expect(cancelBtn).toBeVisible();
     await cancelBtn.click();
     await expect(page.getByRole('dialog')).toBeHidden();
@@ -55,17 +55,23 @@ test.describe('OpenAPI Source', () => {
     await expectDrawerVisible(page);
     await expect(page.getByText('Operations', { exact: true })).toBeVisible();
 
-    const bindBtn = page.getByRole('button', { name: '绑定', exact: true }).first();
+    const bindBtn = page
+      .getByRole('row', { name: /player\.create/ })
+      .getByRole('button', { name: /绑定/ });
     await expect(bindBtn).toBeVisible();
     await bindBtn.click();
 
     await expectModalVisible(page);
     await expect(page.getByRole('dialog').getByText('当前只启用 Provider binding')).toBeVisible();
 
-    const cancelBtn = page.getByRole('dialog').getByRole('button', { name: '取消' });
+    // Drawer 与 Modal 都是 dialog role：断言绑定 Modal 关闭（Drawer 仍打开属预期）
+    const bindModal = page
+      .getByRole('dialog', { name: /player\.create/ })
+      .filter({ hasText: '当前只启用 Provider binding' });
+    const cancelBtn = bindModal.getByRole('button', { name: /取消|Cancel/i }).last();
     await expect(cancelBtn).toBeVisible();
     await cancelBtn.click();
-    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(bindModal).toBeHidden();
   });
 });
 

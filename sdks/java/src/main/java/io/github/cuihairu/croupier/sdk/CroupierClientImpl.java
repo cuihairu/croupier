@@ -81,7 +81,8 @@ public class CroupierClientImpl implements CroupierClient {
         logger.info("Initialized CroupierClient for game '{}' in '{}' environment",
                    config.getGameId(), config.getEnv());
 
-        // Initialize invoker for client-side operations
+        // Provider-side helper for Agent TCP task protocol. Public L3 callers
+        // must use CroupierSDK.createInvoker(), which returns ServerHttpInvoker.
         InvokerConfig invokerConfig = InvokerConfig.builder()
             .address(config.getAgentAddr())
             .build();

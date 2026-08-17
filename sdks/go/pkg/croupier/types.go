@@ -219,17 +219,21 @@ func DefaultRetryConfig() *RetryConfig {
 	}
 }
 
-// InvokerConfig holds configuration for the Croupier invoker
+// InvokerConfig holds configuration for the independent Server HTTP invoker.
 type InvokerConfig struct {
-	Address        string           `json:"address"`         // server/agent address
-	TimeoutSeconds int              `json:"timeout_seconds"` // request timeout in seconds
-	Insecure       bool             `json:"insecure"`        // use insecure connection (skip TLS verification)
-	CAFile         string           `json:"ca_file"`         // CA certificate file
-	CertFile       string           `json:"cert_file"`       // client certificate file
-	KeyFile        string           `json:"key_file"`        // client private key file
-	DefaultTimeout time.Duration    `json:"-"`               // computed timeout duration
-	Reconnect      *ReconnectConfig `json:"reconnect"`       // reconnection configuration
-	Retry          *RetryConfig     `json:"retry"`           // retry configuration
+	Address          string           `json:"address"`            // Server HTTP API URL, e.g. https://server.example/api/v1
+	AuthToken        string           `json:"auth_token"`         // optional Bearer token for Server API authentication
+	GameID           string           `json:"game_id"`            // optional default Server game scope
+	Env              string           `json:"env"`                // optional default Server environment scope
+	TaskPollInterval time.Duration    `json:"task_poll_interval"` // interval for polling Server task events
+	TimeoutSeconds   int              `json:"timeout_seconds"`    // request timeout in seconds
+	Insecure         bool             `json:"insecure"`           // use insecure connection (skip TLS verification)
+	CAFile           string           `json:"ca_file"`            // CA certificate file
+	CertFile         string           `json:"cert_file"`          // client certificate file
+	KeyFile          string           `json:"key_file"`           // client private key file
+	DefaultTimeout   time.Duration    `json:"-"`                  // computed timeout duration
+	Reconnect        *ReconnectConfig `json:"reconnect"`          // reconnection configuration
+	Retry            *RetryConfig     `json:"retry"`              // retry configuration
 }
 
 // InvokeOptions provides options for function invocation
@@ -247,4 +251,25 @@ type TaskEvent struct {
 	Payload   string `json:"payload"`    // event payload (JSON)
 	Error     string `json:"error"`      // error message (if any)
 	Done      bool   `json:"done"`       // whether the task is complete
+}
+
+// TaskStatus is the Server-persisted state returned by GET /api/v1/tasks/:id.
+// Result is the raw JSON result emitted by the task, if one is available.
+type TaskStatus struct {
+	TaskID     string `json:"id"`
+	FunctionID string `json:"functionId,omitempty"`
+	Status     string `json:"status"`
+	Progress   int32  `json:"progress,omitempty"`
+	Message    string `json:"message,omitempty"`
+	GameID     string `json:"gameId,omitempty"`
+	Env        string `json:"env,omitempty"`
+	AgentID    string `json:"agentId,omitempty"`
+	Actor      string `json:"actor,omitempty"`
+	TraceID    string `json:"traceId,omitempty"`
+	Result     string `json:"result,omitempty"`
+	Error      string `json:"error,omitempty"`
+	StartedAt  string `json:"startedAt,omitempty"`
+	FinishedAt string `json:"finishedAt,omitempty"`
+	CreatedAt  string `json:"createdAt,omitempty"`
+	UpdatedAt  string `json:"updatedAt,omitempty"`
 }

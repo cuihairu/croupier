@@ -125,7 +125,7 @@ public sealed class CroupierInvokerTests
     }
 
     [Integration.IntegrationFact]
-    public async Task InvokeAsync_UsesRealServerFunctionEndpoint()
+    public async Task RealServerInvoker_CoversAuthenticatedTaskLifecycle()
     {
         var baseUrl = Environment.GetEnvironmentVariable("CROUPIER_SERVER_URL");
         var token = Environment.GetEnvironmentVariable("CROUPIER_SERVER_TOKEN");
@@ -134,19 +134,71 @@ public sealed class CroupierInvokerTests
             throw new InvalidOperationException("CROUPIER_SERVER_URL and CROUPIER_SERVER_TOKEN are required for the real Server Invoker integration test.");
         }
 
+        var scope = new InvokerConfig
+        {
+            ServerBaseUrl = baseUrl,
+            GameId = Environment.GetEnvironmentVariable("CROUPIER_GAME_ID") ?? "e2e-game",
+            Env = Environment.GetEnvironmentVariable("CROUPIER_ENV") ?? "e2e",
+        };
+
+        using (var unauthenticated = new CroupierInvoker(scope))
+        {
+            var denied = await unauthenticated.InvokeAsync("mail.send", "{\"player_id\":\"p-001\",\"title\":\"denied\"}");
+            denied.Success.Should().BeFalse();
+        }
+
         using var invoker = new CroupierInvoker(new InvokerConfig
         {
             ServerBaseUrl = baseUrl,
             AuthToken = token,
-            GameId = Environment.GetEnvironmentVariable("CROUPIER_GAME_ID") ?? "e2e-game",
-            Env = Environment.GetEnvironmentVariable("CROUPIER_ENV") ?? "e2e",
+            GameId = scope.GameId,
+            Env = scope.Env,
+            TaskPollIntervalMilliseconds = 10,
         });
 
-        var result = await invoker.InvokeAsync("players.player.get", "{\"id\":\"p-001\"}");
+        var result = await invoker.InvokeAsync("mail.send", "{\"player_id\":\"p-001\",\"title\":\"CSharp\",\"content\":\"body\"}");
 
         result.Success.Should().BeTrue();
-        result.Data.Should().Contain("\"id\":\"p-001\"");
-        result.Data.Should().Contain("\"name\":\"Ada\"");
+        result.Data.Should().Contain("\"mail_id\":\"mail-0001\"");
+
+        var completedTaskId = await invoker.StartTaskAsync("mail.send", "{\"player_id\":\"p-001\",\"title\":\"task\"}");
+        var completedEvents = new List<TaskEvent>();
+        await foreach (var taskEvent in invoker.StreamTaskAsync(completedTaskId))
+        {
+            completedEvents.Add(taskEvent);
+        }
+        completedEvents.Select(taskEvent => taskEvent.Type).Should().Contain("started");
+        completedEvents.Select(taskEvent => taskEvent.Type).Should().Contain("completed");
+        var completed = await WaitForStatusAsync(invoker, completedTaskId, "succeeded");
+        completed.TaskId.Should().Be(completedTaskId);
+        completed.Result.Should().Contain("\"mail_id\":\"mail-0001\"");
+
+        var cancelledTaskId = await invoker.StartTaskAsync("mail.wait", "{\"wait_ms\":30000}");
+        await WaitForStatusAsync(invoker, cancelledTaskId, "running");
+        (await invoker.CancelTaskAsync(cancelledTaskId)).Should().BeTrue();
+        var cancelledEvents = new List<TaskEvent>();
+        await foreach (var taskEvent in invoker.StreamTaskAsync(cancelledTaskId))
+        {
+            cancelledEvents.Add(taskEvent);
+        }
+        cancelledEvents.Select(taskEvent => taskEvent.Type).Should().Contain("cancelled");
+        (await WaitForStatusAsync(invoker, cancelledTaskId, "cancelled")).Status.Should().Be("cancelled");
+    }
+
+    private static async Task<TaskStatus> WaitForStatusAsync(CroupierInvoker invoker, string taskId, string expected)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        TaskStatus status = new() { TaskId = taskId, Status = "unknown" };
+        while (DateTime.UtcNow < deadline)
+        {
+            status = await invoker.GetTaskStatusAsync(taskId);
+            if (status.Status == expected)
+            {
+                return status;
+            }
+            await Task.Delay(50);
+        }
+        throw new Xunit.Sdk.XunitException($"task {taskId} status={status.Status}, want {expected}");
     }
 
     [Theory]

@@ -3,7 +3,7 @@ package io.github.cuihairu.croupier.sdk.invoker;
 import java.util.Objects;
 
 /**
- * Configuration for the Invoker connection to the Croupier server/agent.
+ * Configuration for the independent L3 connection to the Croupier Server HTTP API.
  *
  * <p>Use {@link #builder()} to create a new configuration with custom settings,
  * or use {@link #createDefault()} for standard development settings.</p>
@@ -11,15 +11,19 @@ import java.util.Objects;
  * <p>Example usage:</p>
  * <pre>{@code
  * InvokerConfig config = InvokerConfig.builder()
- *     .address("127.0.0.1:19090")
+ *     .address("https://server.example/api/v1")
  *     .timeout(30000)
- *     .insecure(true)
+ *     .insecure(false)
  *     .build();
  * }</pre>
  */
 public class InvokerConfig {
 
     private final String address;
+    private final String authToken;
+    private final String gameId;
+    private final String env;
+    private final int taskPollIntervalMs;
     private final int timeout;
     private final boolean insecure;
     private final String caFile;
@@ -31,6 +35,10 @@ public class InvokerConfig {
 
     private InvokerConfig(Builder builder) {
         this.address = builder.address;
+        this.authToken = builder.authToken;
+        this.gameId = builder.gameId;
+        this.env = builder.env;
+        this.taskPollIntervalMs = builder.taskPollIntervalMs;
         this.timeout = builder.timeout;
         this.insecure = builder.insecure;
         this.caFile = builder.caFile;
@@ -53,9 +61,9 @@ public class InvokerConfig {
     /**
      * Creates a default configuration for development.
      * <ul>
-     *   <li>address: 127.0.0.1:19090</li>
+     *   <li>address: http://127.0.0.1:18780/api/v1</li>
      *   <li>timeout: 30000ms</li>
-     *   <li>insecure: true</li>
+     *   <li>insecure: false</li>
      * </ul>
      *
      * @return a default InvokerConfig
@@ -71,6 +79,26 @@ public class InvokerConfig {
      */
     public String getAddress() {
         return address;
+    }
+
+    /** Gets the optional Bearer token used with the Server API. */
+    public String getAuthToken() {
+        return authToken;
+    }
+
+    /** Gets the default Server game scope. */
+    public String getGameId() {
+        return gameId;
+    }
+
+    /** Gets the default Server environment scope. */
+    public String getEnv() {
+        return env;
+    }
+
+    /** Gets task-events polling interval in milliseconds. */
+    public int getTaskPollIntervalMs() {
+        return taskPollIntervalMs;
     }
 
     /**
@@ -151,8 +179,12 @@ public class InvokerConfig {
         if (o == null || getClass() != o.getClass()) return false;
         InvokerConfig that = (InvokerConfig) o;
         return timeout == that.timeout &&
+               taskPollIntervalMs == that.taskPollIntervalMs &&
                insecure == that.insecure &&
                Objects.equals(address, that.address) &&
+               Objects.equals(authToken, that.authToken) &&
+               Objects.equals(gameId, that.gameId) &&
+               Objects.equals(env, that.env) &&
                Objects.equals(caFile, that.caFile) &&
                Objects.equals(certFile, that.certFile) &&
                Objects.equals(keyFile, that.keyFile) &&
@@ -163,13 +195,16 @@ public class InvokerConfig {
 
     @Override
     public int hashCode() {
-        return Objects.hash(address, timeout, insecure, caFile, certFile, keyFile, serverName, reconnect, retry);
+        return Objects.hash(address, authToken, gameId, env, taskPollIntervalMs, timeout, insecure, caFile, certFile, keyFile, serverName, reconnect, retry);
     }
 
     @Override
     public String toString() {
         return "InvokerConfig{" +
                "address='" + address + '\'' +
+               ", gameId='" + gameId + '\'' +
+               ", env='" + env + '\'' +
+               ", taskPollIntervalMs=" + taskPollIntervalMs +
                ", timeout=" + timeout +
                ", insecure=" + insecure +
                ", caFile='" + caFile + '\'' +
@@ -185,9 +220,13 @@ public class InvokerConfig {
      * Builder for creating InvokerConfig instances.
      */
     public static class Builder {
-        private String address = "127.0.0.1:19090";
+        private String address = "http://127.0.0.1:18780/api/v1";
+        private String authToken = "";
+        private String gameId = "";
+        private String env = "";
+        private int taskPollIntervalMs = 500;
         private int timeout = 30000;
-        private boolean insecure = true;
+        private boolean insecure = false;
         private String caFile = "";
         private String certFile = "";
         private String keyFile = "";
@@ -196,13 +235,38 @@ public class InvokerConfig {
         private RetryConfig retry = null;  // Null will use default in constructor
 
         /**
-         * Sets the server/agent address.
+         * Sets the Server HTTP API address. A Server root URL or host:port is
+         * normalized to {@code /api/v1} by the public L3 invoker.
          *
          * @param address the address in "host:port" format
          * @return this builder
          */
         public Builder address(String address) {
             this.address = address;
+            return this;
+        }
+
+        /** Sets the optional Server Bearer token. */
+        public Builder authToken(String authToken) {
+            this.authToken = authToken != null ? authToken : "";
+            return this;
+        }
+
+        /** Sets the default Server game scope. */
+        public Builder gameId(String gameId) {
+            this.gameId = gameId != null ? gameId : "";
+            return this;
+        }
+
+        /** Sets the default Server environment scope. */
+        public Builder env(String env) {
+            this.env = env != null ? env : "";
+            return this;
+        }
+
+        /** Sets the Server task-events polling interval in milliseconds. */
+        public Builder taskPollIntervalMs(int taskPollIntervalMs) {
+            this.taskPollIntervalMs = taskPollIntervalMs;
             return this;
         }
 

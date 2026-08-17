@@ -106,7 +106,23 @@ Croupier Java SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后
 
 **L3 Invoker（独立调用方）**
 
-- 🚀 `Invoker` 提供同步调用 / 异步作业 / 流式事件，独立配置入口
+- 🚀 `CroupierSDK.createInvoker` 返回独立的 `ServerHttpInvoker`，只调用 Server HTTP API，不复用 Provider TCP session
+- 覆盖函数调用、任务创建/查询、事件轮询和取消；鉴权、`gameId/env` scope、审计与任务持久化由 Server 负责
+
+```java
+Invoker invoker = CroupierSDK.createInvoker(InvokerConfig.builder()
+    .address("https://server.example/api/v1")
+    .authToken("server-access-token")
+    .gameId("game-a")
+    .env("production")
+    .build());
+
+String result = invoker.invoke("player.ban", "{\"playerId\":\"p-1\"}");
+String taskId = invoker.startTask("report.generate", "{\"range\":\"daily\"}");
+TaskStatusInfo task = ((TaskStatusInvoker) invoker).getTaskStatus(taskId);
+```
+
+`connect()` 仅标记 HTTP Invoker 就绪，不会建立 Provider 会话。完整示例见 `examples/invoker`。
 
 ## 快速开始
 

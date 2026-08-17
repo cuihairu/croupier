@@ -26,8 +26,9 @@ const mockInventory = [
 // Helper: build mock page specs
 // ---------------------------------------------------------------------------
 
-function buildResourcePage(resourceKey: string) {
+function buildResourcePage(resourceKey: string, options?: { readonly?: boolean }) {
   const isPlayers = resourceKey === 'players';
+  const readonly = options?.readonly ?? false;
   return {
     pageKey: `resource--${resourceKey}`,
     type: 'resource',
@@ -50,33 +51,77 @@ function buildResourcePage(resourceKey: string) {
         ],
         pagination: { enabled: true, defaultSize: 20 },
         identityKey: 'id',
+        ...(readonly
+          ? {}
+          : {
+              rowActions: [
+                ...(isPlayers
+                  ? [
+                      {
+                        key: 'ban',
+                        title: { 'zh-CN': '封禁' },
+                        type: 'danger',
+                        confirm: true,
+                        bindingId: 'action.ban',
+                      },
+                    ]
+                  : []),
+                {
+                  key: 'edit',
+                  title: { 'zh-CN': '编辑' },
+                  type: 'link',
+                  bindingId: 'update',
+                },
+                {
+                  key: 'delete',
+                  title: { 'zh-CN': '删除' },
+                  type: 'danger',
+                  confirm: true,
+                  bindingId: 'delete',
+                },
+              ],
+            }),
       },
-      actions: [
-        { key: 'edit', title: { 'zh-CN': '编辑' }, type: 'link', bindingId: 'update' },
-        {
-          key: 'delete',
-          title: { 'zh-CN': '删除' },
-          type: 'danger',
-          confirm: true,
-          bindingId: 'delete',
-        },
-      ],
-      createForm: {
-        jsonSchema: {
-          type: 'object',
-          properties: {
-            name: { type: 'string', title: '名称' },
-            level: { type: 'number', title: '等级' },
-          },
-          required: ['name'],
-        },
-      },
-      deleteAction: {
-        title: { 'zh-CN': '删除' },
-        description: { 'zh-CN': '确认删除此记录？' },
-        confirmText: { 'zh-CN': '确认删除' },
-        bindingId: 'delete',
-        risk: 'high',
+
+      ...(readonly
+        ? {}
+        : {
+            createForm: {
+              jsonSchema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', title: '名称' },
+                  level: { type: 'number', title: '等级' },
+                },
+                required: ['name'],
+              },
+            },
+            updateForm: {
+              jsonSchema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', title: '名称' },
+                  level: { type: 'number', title: '等级' },
+                },
+                required: ['name'],
+              },
+            },
+            deleteAction: {
+              title: { 'zh-CN': '删除' },
+              description: { 'zh-CN': '确认删除此记录？' },
+              confirmText: { 'zh-CN': '确认删除' },
+              bindingId: 'delete',
+              risk: 'high',
+            },
+          }),
+      // 详情视图对所有资源页开放（只读页也允许查看详情）
+      detailView: {
+        fields: [
+          { key: 'id', title: { 'zh-CN': 'ID' } },
+          { key: 'name', title: { 'zh-CN': '名称' } },
+          { key: 'level', title: { 'zh-CN': '等级' } },
+          { key: 'status', title: { 'zh-CN': '状态' } },
+        ],
       },
     },
     bindings: [
@@ -93,10 +138,42 @@ function buildResourcePage(resourceKey: string) {
         },
         execution: { mode: 'sync' },
       },
+      ...(readonly
+        ? []
+        : [
+            {
+              id: 'create',
+              functionId: `${resourceKey}.create`,
+              usage: 'action',
+              execution: { mode: 'sync' },
+            },
+          ]),
+      ...(isPlayers && !readonly
+        ? [
+            {
+              id: 'action.ban',
+              functionId: 'player.ban',
+              usage: 'action',
+              selectors: {
+                input: {
+                  assignments: [{ target: '/playerId', source: { kind: 'row', path: '/id' } }],
+                },
+                output: [{ stateKey: 'result', source: '', shape: 'object' }],
+              },
+              execution: { mode: 'sync' },
+            },
+          ]
+        : []),
       {
-        id: 'create',
-        functionId: `${resourceKey}.create`,
-        usage: 'action',
+        id: 'detail',
+        functionId: `${resourceKey}.get`,
+        usage: 'detail',
+        selectors: {
+          input: {
+            assignments: [{ target: '/id', source: { kind: 'row', path: '/id' } }],
+          },
+          output: [{ stateKey: 'detail', source: '', shape: 'object' }],
+        },
         execution: { mode: 'sync' },
       },
       {
@@ -266,6 +343,7 @@ function mockConsolePages(): MockConsolePage[] {
   return [
     buildResourcePage('players'),
     buildResourcePage('inventory'),
+    buildResourcePage('orders', { readonly: true }),
     buildOperationPage('mail.send'),
     buildOperationPage('system.dangerous-op'),
     buildTaskPage('reward.batchGrant'),
@@ -341,7 +419,52 @@ export default {
     const { pageKey, bindingId } = req.params;
     const { context } = req.body;
 
-    if (pageKey.includes('players')) {
+    if (pageKey.includes('orders')) {
+      // 只读工单资源：确定性两条记录
+      const items = [
+        { id: 'ord-1', name: '补单#1', level: 1, status: 'done' },
+        { id: 'ord-2', name: '补单#2', level: 2, status: 'pending' },
+      ];
+      if (bindingId === 'list') {
+        res.send({
+          result: {
+            kind: 'sync',
+            requestId: `req-${Date.now()}`,
+            data: { items, total: items.length },
+          },
+        });
+      } else if (bindingId === 'detail') {
+        res.send({ result: { kind: 'sync', requestId: `req-${Date.now()}`, data: items[0] } });
+      } else {
+        res.send({
+          result: { kind: 'sync', requestId: `req-${Date.now()}`, data: { success: true } },
+        });
+      }
+    } else if (pageKey.includes('inventory')) {
+      // 只读背包资源：确定性两条记录
+      const items = [
+        { id: 'inv-1', name: '药水', level: 3, status: 'active' },
+        { id: 'inv-2', name: '卷轴', level: 5, status: 'active' },
+      ];
+      if (bindingId === 'list') {
+        res.send({
+          result: {
+            kind: 'sync',
+            requestId: `req-${Date.now()}`,
+            data: { items, total: items.length },
+          },
+        });
+      } else if (bindingId === 'detail') {
+        const found = items.find((i) => String(i.id) === String(context?.row?.id));
+        res.send({
+          result: { kind: 'sync', requestId: `req-${Date.now()}`, data: found || items[0] },
+        });
+      } else {
+        res.send({
+          result: { kind: 'sync', requestId: `req-${Date.now()}`, data: { success: true } },
+        });
+      }
+    } else if (pageKey.includes('players')) {
       if (bindingId === 'list') {
         res.send({
           result: {
@@ -358,6 +481,24 @@ export default {
             data: { id: '1004', ...context?.form, status: 'active' },
           },
         });
+      } else if (bindingId === 'action.ban') {
+        res.send({
+          result: {
+            kind: 'sync',
+            requestId: `req-${Date.now()}`,
+            data: { success: true, banned: context?.row?.id },
+          },
+        });
+      } else if (bindingId === 'detail') {
+        const rowId = context?.row?.id;
+        const found = mockPlayers.find((p) => String(p.id) === String(rowId));
+        res.send({
+          result: {
+            kind: 'sync',
+            requestId: `req-${Date.now()}`,
+            data: found || { id: rowId, name: '未知玩家', level: 0, status: 'unknown' },
+          },
+        });
       } else {
         res.send({
           result: {
@@ -367,6 +508,15 @@ export default {
           },
         });
       }
+    } else if (bindingId === 'detail') {
+      const rowId = context?.row?.id;
+      res.send({
+        result: {
+          kind: 'sync',
+          requestId: `req-${Date.now()}`,
+          data: { id: rowId, name: '只读项目', level: 1, status: 'active' },
+        },
+      });
     } else if (pageKey.includes('mail')) {
       res.send({
         result: {
@@ -569,26 +719,149 @@ export default {
     });
   },
 
+  // OpenAPI Sources（契约对齐 GET /api/v1/openapi/sources）
+  'GET /api/v1/openapi/sources': (req: Request, res: Response) => {
+    res.send({
+      items: [
+        {
+          sourceId: 'src-demo',
+          name: 'demo-provider',
+          revision: 1,
+          format: 'json',
+          openapiVersion: '3.0.3',
+          infoTitle: 'Players API',
+          infoVersion: '1.0.0',
+          operationCount: 2,
+          diagnosticCount: 0,
+          createdAt: '2026-08-01T00:00:00Z',
+          updatedAt: '2026-08-01T00:00:00Z',
+        },
+      ],
+    });
+  },
+
+  'GET /api/v1/openapi/sources/:sourceId': (req: Request, res: Response) => {
+    res.send({
+      source: {
+        sourceId: req.params.sourceId,
+        name: 'demo-provider',
+        revision: 1,
+        format: 'json',
+        openapiVersion: '3.0.3',
+        infoTitle: 'Players API',
+        infoVersion: '1.0.0',
+        operationCount: 2,
+        diagnosticCount: 0,
+        diagnostics: [],
+        operations: [
+          {
+            operationId: 'player.list',
+            method: 'GET',
+            path: '/players',
+            resource: 'players',
+            operation: 'list',
+            capability: 'collection_query',
+            bound: true,
+          },
+          {
+            operationId: 'player.create',
+            method: 'POST',
+            path: '/players',
+            resource: 'players',
+            operation: 'create',
+            capability: 'create',
+            bound: false,
+          },
+        ],
+        bindings: [
+          {
+            bindingId: 'player.list',
+            operationId: 'player.list',
+            kind: 'provider',
+            functionId: 'players.player.list',
+            providerId: 'players',
+          },
+        ],
+        createdAt: '2026-08-01T00:00:00Z',
+        updatedAt: '2026-08-01T00:00:00Z',
+      },
+    });
+  },
+
+  // 契约对齐 GET /api/v1/proposals/inbox 真实 DTO：
+  // { publishable, needsReview, blockedIssues, contractChanges, summary }
   'GET /api/v1/proposals/inbox': (req: Request, res: Response) => {
     res.send({
-      ready: [
-        { proposalKey: 'resource:players', pageKey: 'resource--players', quality: 'ready' },
-        { proposalKey: 'resource:inventory', pageKey: 'resource--inventory', quality: 'ready' },
+      publishable: [
+        {
+          proposalKey: 'resource:players',
+          pageKey: 'resource--players',
+          pageType: 'resource',
+          quality: 'ready',
+          status: 'pending',
+          title: { 'zh-CN': '玩家列表' },
+        },
+        {
+          proposalKey: 'resource:inventory',
+          pageKey: 'resource--inventory',
+          pageType: 'resource',
+          quality: 'ready',
+          status: 'pending',
+          title: { 'zh-CN': '背包物品' },
+        },
       ],
       needsReview: [
         {
           proposalKey: 'task:reward.batchGrant',
           pageKey: 'task--reward.batchGrant',
+          pageType: 'task',
           quality: 'needs_review',
+          status: 'pending',
+          title: { 'zh-CN': '批量发奖' },
         },
         {
           proposalKey: 'report:analytics.retention',
           pageKey: 'report--analytics.retention',
+          pageType: 'report',
           quality: 'needs_review',
+          status: 'pending',
+          title: { 'zh-CN': '留存分析' },
         },
       ],
-      stale: [],
+      blockedIssues: [],
+      contractChanges: [],
+      summary: { publishable: 2, needsReview: 2, blockedIssues: 0, contractChanges: 0 },
     });
+  },
+
+  'GET /api/v1/proposals/:proposalKey': (req: Request, res: Response) => {
+    const key = req.params.proposalKey;
+    const spec =
+      key === 'task:reward.batchGrant'
+        ? buildTaskPage('reward.batchGrant')
+        : key === 'report:analytics.retention'
+          ? buildReportPage('analytics.retention')
+          : buildResourcePage(key.startsWith('resource:') ? key.split(':')[1] : 'players');
+    res.send({
+      proposalKey: key,
+      pageKey: spec.pageKey,
+      pageType: spec.type,
+      quality: key.startsWith('resource:') ? 'ready' : 'needs_review',
+      status: 'pending',
+      title: spec.title,
+      pageSpec: spec,
+      diagnostics: [],
+    });
+  },
+
+  'POST /api/v1/proposals/:proposalKey/accept-and-publish': (req: Request, res: Response) => {
+    const key = req.params.proposalKey;
+    const pageKey = key.startsWith('resource:')
+      ? `resource--${key.split(':')[1]}`
+      : key.split(':')[1]
+        ? `${key.split(':')[0]}--${key.split(':')[1]}`
+        : key;
+    res.send({ pageKey, draftRevision: 1, publishedVersion: 1 });
   },
 
   'POST /api/v1/proposals/:proposalKey/accept': (req: Request, res: Response) => {

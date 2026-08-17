@@ -2,80 +2,36 @@
 
 #include "croupier/sdk/croupier_client.h"
 
-using namespace croupier::sdk;
+#include <memory>
 
+namespace croupier::sdk::test {
 namespace {
 
-InvokerConfig MakeConfig() {
-    InvokerConfig config;
-    config.address = "127.0.0.1:19090";
-    config.game_id = "test-game";
-    config.env = "testing";
-    config.disable_logging = true;
-    return config;
-}
+class FailingHTTPTransport final : public HTTPTransport {
+public:
+    HTTPResponse Send(const HTTPRequest&) override { return HTTPResponse{403, R"({"message":"scope denied"})"}; }
+};
 
 }  // namespace
 
-TEST(InvokerFallbackTest, ConnectUsesFallbackBehaviorWithoutTCP) {
-    CroupierInvoker invoker(MakeConfig());
+TEST(ServerHTTPInvokerFailureTest, HTTPFailureRemainsAFailureForEveryPublicOperation) {
+    InvokerConfig config;
+    config.address = "http://server.example/api/v1";
+    config.retry.enabled = false;
+    config.http_transport = std::make_shared<FailingHTTPTransport>();
+    config.disable_logging = true;
+    CroupierInvoker invoker(config);
 
-#ifdef CROUPIER_SDK_HAS_TCP
-    SUCCEED();
-#else
-    EXPECT_TRUE(invoker.Connect());
-#endif
+    EXPECT_THROW(invoker.Invoke("player.ban", "{}"), std::runtime_error);
+    EXPECT_THROW(invoker.StartTask("player.ban", "{}"), std::runtime_error);
+    EXPECT_THROW(invoker.GetTaskStatus("task-1"), std::runtime_error);
+    EXPECT_FALSE(invoker.CancelTask("task-1"));
+
+    const std::vector<TaskEvent> events = invoker.StreamTask("task-1").get();
+    ASSERT_EQ(1U, events.size());
+    EXPECT_EQ("error", events.front().event_type);
+    EXPECT_TRUE(events.front().done);
+    EXPECT_NE(events.front().error.find("scope denied"), std::string::npos);
 }
 
-TEST(InvokerFallbackTest, InvokeUsesFallbackBehaviorWithoutTCP) {
-    CroupierInvoker invoker(MakeConfig());
-
-#ifdef CROUPIER_SDK_HAS_TCP
-    SUCCEED();
-#else
-    ASSERT_TRUE(invoker.Connect());
-    const std::string response = invoker.Invoke("player.echo", R"({"ok":true})");
-    EXPECT_NE(response.find("\"status\":\"success\""), std::string::npos);
-    EXPECT_NE(response.find("\"function_id\":\"player.echo\""), std::string::npos);
-#endif
-}
-
-TEST(InvokerFallbackTest, StartTaskUsesFallbackBehaviorWithoutTCP) {
-    CroupierInvoker invoker(MakeConfig());
-
-#ifdef CROUPIER_SDK_HAS_TCP
-    SUCCEED();
-#else
-    ASSERT_TRUE(invoker.Connect());
-    EXPECT_FALSE(invoker.StartTask("player.batch", "{}").empty());
-#endif
-}
-
-TEST(InvokerFallbackTest, StreamTaskUsesFallbackBehaviorWithoutTCP) {
-    CroupierInvoker invoker(MakeConfig());
-
-#ifdef CROUPIER_SDK_HAS_TCP
-    SUCCEED();
-#else
-    ASSERT_TRUE(invoker.Connect());
-    const std::string task_id = invoker.StartTask("player.batch", "{}");
-    auto future = invoker.StreamTask(task_id);
-    auto events = future.get();
-
-    ASSERT_GE(events.size(), 2U);
-    EXPECT_EQ(events.front().event_type, "started");
-    EXPECT_TRUE(events.back().done);
-#endif
-}
-
-TEST(InvokerFallbackTest, CancelTaskUsesFallbackBehaviorWithoutTCP) {
-    CroupierInvoker invoker(MakeConfig());
-
-#ifdef CROUPIER_SDK_HAS_TCP
-    SUCCEED();
-#else
-    ASSERT_TRUE(invoker.Connect());
-    const std::string task_id = invoker.StartTask("player.batch", "{}");
-    EXPECT_TRUE(invoker.CancelTask(task_id));
-#endif
-}
+}  // namespace croupier::sdk::test

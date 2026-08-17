@@ -235,7 +235,7 @@ test.describe('SDK CRUD', () => {
     await expectModalVisible(page);
     await expect(page.getByRole('dialog').getByText('新建', { exact: true })).toBeVisible();
 
-    const cancelBtn = page.getByRole('dialog').getByRole('button', { name: '取消' });
+    const cancelBtn = page.getByRole('dialog').getByRole('button', { name: /取消|Cancel/i });
     await expect(cancelBtn).toBeVisible();
     await cancelBtn.click();
     await expect(page.getByRole('dialog')).toBeHidden();

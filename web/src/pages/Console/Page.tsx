@@ -19,6 +19,7 @@ import {
 } from '@/services/console';
 import type { PublishedPageSpec } from '@/types/dashboard';
 import { resolveConsolePageRoute, resolveLocalizedText } from '@/utils/consoleMenu';
+import { subscribeScope } from '@/stores/scope';
 
 export default function ConsolePage() {
   const params = useParams<{ categoryKey?: string; pageKey: string }>();
@@ -74,6 +75,12 @@ export default function ConsolePage() {
     if (!shouldRedirect) return;
     history.replace(canonicalPath);
   }, [canonicalPath, page, shouldRedirect]);
+
+  // scope 切换后重新加载发布页面：旧 scope 的数据与菜单必须立即失效。
+  useEffect(() => {
+    const unsubscribe = subscribeScope(() => window.location.reload());
+    return unsubscribe;
+  }, []);
 
   // 面包屑分类 key：以发布分类为准，缺失时回退路由参数
   const breadcrumbCategoryKey = page?.category?.key || categoryKey;

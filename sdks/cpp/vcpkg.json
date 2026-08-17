@@ -11,6 +11,9 @@
     },
     {
       "name": "protobuf"
+    },
+    {
+      "name": "curl"
     }
   ],
   "overrides": [

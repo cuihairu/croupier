@@ -12,7 +12,7 @@ Croupier C++ SDK 是 Croupier 的 C++ Provider/Invoker 客户端实现。SDK 只
 ## 能力
 
 - Provider：`CroupierClient` 通过单条 TCP session 接入 Agent，注册本进程提供的函数并处理调用。
-- Invoker：`CroupierInvoker` 调用远端函数，支持同步调用、异步任务、流式事件和取消。
+- Invoker：`CroupierInvoker` 仅调用 Server HTTP API，支持同步调用、异步任务、任务状态、流式事件和取消；不会复用 Provider TCP session。
 - 连接韧性：心跳、自动重连、重注册。
 - 安全配置：TLS、认证头、文件传输白名单。
 - 扩展：动态插件、Lua/Skynet 绑定。
@@ -78,7 +78,7 @@ using namespace croupier::sdk;
 
 int main() {
     InvokerConfig config;
-    config.address = "127.0.0.1:19090";
+    config.address = "http://127.0.0.1:18780/api/v1";
     config.game_id = "demo-game";
     config.env = "development";
 
@@ -86,6 +86,7 @@ int main() {
     invoker.Connect();
 
     std::string result = invoker.Invoke("player.profile.get", R"({"player_id":"p1"})");
+    TaskStatus status = invoker.GetTaskStatus("server-task-id");
     invoker.Close();
 }
 ```
@@ -121,6 +122,7 @@ public:
     std::string StartTask(const std::string& function_id,
                           const std::string& payload,
                           const InvokeOptions& options = {});
+    TaskStatus GetTaskStatus(const std::string& task_id);
     std::future<std::vector<TaskEvent>> StreamTask(const std::string& task_id);
     bool CancelTask(const std::string& task_id);
     void Close();
@@ -143,6 +145,7 @@ public:
 - CMake 3.20+
 - Protobuf 4.25.x
 - nlohmann/json 3.12.x
+- libcurl（Server HTTP transport）
 
 依赖通过 vcpkg 管理，默认 preset 使用 `cmake/vcpkg-bootstrap.cmake` 自动准备仓库内 vcpkg。
 

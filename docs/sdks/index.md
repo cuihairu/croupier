@@ -8,30 +8,30 @@ title: SDK 文档
 
 ## 文档边界
 
-| 位置 | 职责 |
-| --- | --- |
-| `docs/sdks/` | 使用者文档、能力矩阵、跨语言行为约束 |
-| `docs/sdks/<lang>/` | 单语言接入指南、API 概览、示例说明 |
-| `sdks/<lang>/README.md` | 源码目录入口、构建、测试、发布、包管理说明 |
+| 位置                     | 职责                                                               |
+| ------------------------ | ------------------------------------------------------------------ |
+| `docs/sdks/`             | 使用者文档、能力矩阵、跨语言行为约束                               |
+| `docs/sdks/<lang>/`      | 单语言接入指南、API 概览、示例说明                                 |
+| `sdks/<lang>/README.md`  | 源码目录入口、构建、测试、发布、包管理说明                         |
 | `sdks/<lang>/*_GUIDE.md` | 迁移期遗留文档；正式内容应逐步合并回 `docs/sdks/<lang>/` 或 README |
 
 ## 当前统一基线
 
-- `SDK <-> Agent` 默认使用 Agent 本地 gateway 上的 TCP session。
+- L1/L2 Provider 使用 Agent 本地 gateway 上的 TCP session；L3 Invoker 是独立调用方，只调用 Server HTTP API，不复用 Provider session。
 - SDK 不应再暴露 `rpc_addr`、`local_listen` 或本地 server 回拨语义。
 - 跨语言能力以 [SDK 能力矩阵](/sdks/sdk-parity-matrix) 为准。
 - 协议细节以 [SDK Wire Protocol](/architecture/sdk-wire-protocol) 为准。
 
 ## 语言入口
 
-| 语言 | 文档入口 | 源码入口 |
-| --- | --- | --- |
-| C++ | [C++ SDK](/sdks/cpp/) | `sdks/cpp/README.md` |
-| Go | [Go SDK](/sdks/go/) | `sdks/go/README.md` |
-| Java | [Java SDK](/sdks/java/) | `sdks/java/README.md` |
-| JavaScript | [JavaScript SDK](/sdks/js/) | `sdks/js/README.md` |
-| Python | [Python SDK](/sdks/python/) | `sdks/python/README.md` |
-| C# | [C# SDK](/sdks/csharp/) | `sdks/csharp/README.md` |
+| 语言       | 文档入口                    | 源码入口                |
+| ---------- | --------------------------- | ----------------------- |
+| C++        | [C++ SDK](/sdks/cpp/)       | `sdks/cpp/README.md`    |
+| Go         | [Go SDK](/sdks/go/)         | `sdks/go/README.md`     |
+| Java       | [Java SDK](/sdks/java/)     | `sdks/java/README.md`   |
+| JavaScript | [JavaScript SDK](/sdks/js/) | `sdks/js/README.md`     |
+| Python     | [Python SDK](/sdks/python/) | `sdks/python/README.md` |
+| C#         | [C# SDK](/sdks/csharp/)     | `sdks/csharp/README.md` |
 
 ## 迁移要求
 

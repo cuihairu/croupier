@@ -126,7 +126,8 @@ type fixtureSDKCall struct {
 
 // DefaultFixtureSDKFunctions returns the deterministic SDK function set:
 // `mail.send` carries only id + input/output schema (unannotated), which the
-// platform must degrade into a standalone Operation proposal.
+// platform must degrade into a standalone Operation proposal. `mail.wait` is
+// an equally unannotated cancellation canary used by real L3 lifecycle tests.
 func DefaultFixtureSDKFunctions() []FixtureSDKFunction {
 	return []FixtureSDKFunction{
 		{
@@ -135,6 +136,14 @@ func DefaultFixtureSDKFunctions() []FixtureSDKFunction {
 			Summary:      "Send an in-game mail",
 			InputSchema:  `{"type":"object","properties":{"player_id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"}},"required":["player_id","title"]}`,
 			OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"},"mail_id":{"type":"string"}}}`,
+			Enabled:      true,
+		},
+		{
+			ID:           "mail.wait",
+			Version:      "1.0.0",
+			Summary:      "Wait until completion or cancellation",
+			InputSchema:  `{"type":"object","properties":{"wait_ms":{"type":"integer","minimum":1}},"required":["wait_ms"]}`,
+			OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"},"waited_ms":{"type":"integer"}}}`,
 			Enabled:      true,
 		},
 	}
@@ -310,6 +319,11 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 
 	svcCtx := svc.NewServiceContext(cfg)
 	wireDashboardRegistrationPipeline(svcCtx)
+	telemetrySvc, err := svc.NewTelemetryService(cfg, "croupier-server", slog.Default())
+	if err != nil {
+		return fmt.Errorf("initialize fixture telemetry: %w", err)
+	}
+	svcCtx.Telemetry = telemetrySvc
 	f.svcCtx = svcCtx
 	if err := f.ensureUIScope(ctx); err != nil {
 		return err
@@ -341,7 +355,7 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", f.HTTPAddr, err)
 	}
-	f.httpSrv = &http.Server{Handler: r}
+	f.httpSrv = &http.Server{Handler: wrapHTTPHandler(svcCtx, r)}
 	go func() {
 		if err := f.httpSrv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			slog.Default().Error("fixture http server stopped", "error", err)
@@ -741,6 +755,11 @@ func (f *DashboardFixture) Close(ctx context.Context) error {
 	}
 	if f.rootCancel != nil {
 		f.rootCancel()
+	}
+	if f.svcCtx != nil && f.svcCtx.Telemetry != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = f.svcCtx.Telemetry.Shutdown(shutdownCtx)
+		cancel()
 	}
 	if f.svcCtx != nil && f.svcCtx.Router != nil {
 		_ = f.svcCtx.Router.Close()

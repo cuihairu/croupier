@@ -12,6 +12,16 @@ export async function login(page: Page): Promise<void> {
   await page.goto('/user/login');
   await page.waitForLoadState('domcontentloaded');
 
+  // umi dev overlay iframe 偶发拦截点击：移除所有 overlay iframe
+  await page.evaluate(() => {
+    document.querySelectorAll('iframe').forEach((el) => {
+      const style = window.getComputedStyle(el);
+      if (style.position === 'fixed' || el.getAttribute('id')?.includes('overlay')) {
+        el.remove();
+      }
+    });
+  });
+
   // 等待页面完全加载（可能需要等待 bundling）
   await page.waitForTimeout(5000);
 
@@ -31,7 +41,10 @@ export async function login(page: Page): Promise<void> {
   await loginBtn.click();
 
   // 等待登录成功
-  await page.waitForURL(/\/(console|dashboard|$)/, { timeout: 30000 });
+  await page.waitForURL(
+    (url) => /\/(console|dashboard)/.test(url.pathname) || url.pathname === '/',
+    { timeout: 30000 },
+  );
   await page.waitForLoadState('networkidle');
 }
 

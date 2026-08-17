@@ -14,15 +14,15 @@ import (
 func main() {
 	fmt.Println("=== Croupier Go SDK - HTTP Invoker Example ===")
 
-	// Create HTTP invoker configuration
+	// L3 调用方仅经由 Server HTTP API；Provider TCP 注册链路不用于此处。
 	invokerConfig := &croupier.InvokerConfig{
-		Address:        "localhost:18780", // HTTP REST API port
+		Address:        "http://127.0.0.1:18780/api/v1",
 		TimeoutSeconds: 30,
 		Insecure:       true,
 	}
 
-	// Create HTTP invoker (instead of gRPC invoker)
-	invoker := croupier.NewHTTPInvoker(invokerConfig)
+	// NewInvoker 是公共 L3 入口。
+	invoker := croupier.NewInvoker(invokerConfig)
 	defer invoker.Close()
 
 	// Connect to server

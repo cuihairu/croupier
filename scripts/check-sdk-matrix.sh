@@ -133,30 +133,49 @@ check_csharp() {
 }
 
 # ---------------------------------------------------------------------------
-# L3 Invoker presence (required: a missing Invoker fails the matrix).
+# L3 Server HTTP contract. Every SDK must expose independent L3 configuration,
+# all five Server endpoints, and a Mock HTTP contract-test entry. Symbols such
+# as StartTask alone are insufficient because the legacy Provider TCP invoker
+# also had those names.
 # ---------------------------------------------------------------------------
 
-check_invoker_presence() {
-  echo "${DIM}[invoker]${RESET} presence across SDKs"
-  local row=""
-  for sdk in go python java js cpp csharp; do
-    local found=""
-    case "$sdk" in
-      go)     found=$(find sdks/go/pkg/croupier -maxdepth 1 -name 'invoker*.go' ! -name '*_test.go' 2>/dev/null | head -1) ;;
-      python) found=$(find sdks/python/croupier -maxdepth 1 -name 'invoker*.py' 2>/dev/null | head -1) ;;
-      java)   found=$(find sdks/java/src/main -name 'Invoker.java' 2>/dev/null | head -1) ;;
-      js)     found=$(find sdks/js/src -name 'invoker*.ts' 2>/dev/null | head -1) ;;
-      cpp)    found=$(grep -l 'class CroupierInvoker' sdks/cpp/include/croupier/sdk/croupier_client.h 2>/dev/null | head -1) ;;
-      csharp) found=$(find sdks/csharp/src/Croupier.Sdk -name 'CroupierInvoker.cs' 2>/dev/null | head -1) ;;
-    esac
-    if [ -n "$found" ]; then
-      row+="  ${GREEN}${sdk}: yes${RESET}"
+check_l3_server_http_contract() {
+  echo "${DIM}[invoker]${RESET} Server HTTP contract and Mock test entry"
+
+  # sdk|source|test|independent-config|invoke|start|get|events|cancel|mock-test
+  local specs=(
+    "go|sdks/go/pkg/croupier/http_invoker.go|sdks/go/pkg/croupier/http_invoker_test.go|Server HTTP|\[\]string\{\"functions\", functionID, \"invoke\"\}|\[\]string\{\"tasks\"\}|\[\]string\{\"tasks\", taskID\}|\[\]string\{\"tasks\", taskID, \"events\"\}|\[\]string\{\"tasks\", taskID, \"cancel\"\}|TestHTTPInvoker_"
+    "python|sdks/python/croupier/invoker.py|sdks/python/tests/test_invoker.py|class InvokerConfig|\(\"functions\", function_id, \"invoke\"\)|\(\"tasks\",\)|\(\"tasks\", task_id\)|\(\"tasks\", task_id, \"events\"\)|\(\"tasks\", task_id, \"cancel\"\)|MockServer"
+    "java|sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/invoker/ServerHttpInvoker.java|sdks/java/src/test/java/io/github/cuihairu/croupier/sdk/invoker/ServerHttpInvokerTest.java|InvokerConfig config|\"functions\", functionId, \"invoke\"|List\.of\(\"tasks\"\)|List\.of\(\"tasks\", taskId\)|\"tasks\", taskId, \"events\"|\"tasks\", taskId, \"cancel\"|MockServer"
+    "js|sdks/js/src/invoker.ts|sdks/js/src/invoker.test.ts|interface InvokerConfig|functions/.+encodeURIComponent\(functionId\).+/invoke|baseUrl\}/tasks|tasks/.+encodeURIComponent\(taskId\)|tasks/.+encodeURIComponent\(taskId\).+/events|tasks/.+encodeURIComponent\(taskId\).+/cancel|mockFetch"
+    "cpp|sdks/cpp/src/croupier_client.cpp|sdks/cpp/tests/test_invoker.cpp|InvokerConfig config_|\{\"functions\", function_id, \"invoke\"\}|\{\"tasks\"\}|\{\"tasks\", task_id\}|\{\"tasks\", task_id, \"events\"\}|\{\"tasks\", task_id, \"cancel\"\}|MockHTTPTransport"
+    "csharp|sdks/csharp/src/Croupier.Sdk/CroupierInvoker.cs|sdks/csharp/src/Croupier.Sdk.Tests/CroupierInvokerTests.cs|InvokerConfig _config|functions/\{Uri\.EscapeDataString\(functionId\)\}/invoke|BuildUri\(\"tasks\"\)|tasks/\{Uri\.EscapeDataString\(taskId\)\}|/events\?after_seq=|/cancel|RecordingHandler"
+  )
+
+  for spec in "${specs[@]}"; do
+    IFS='|' read -r sdk source test config invoke start status events cancel mock <<< "$spec"
+    local failed=0
+    if [ ! -f "$source" ] || [ ! -f "$test" ]; then
+      echo "${RED}[invoker:${sdk}] missing source or Mock test file${RESET}"
+      errors=$((errors + 1))
+      continue
+    fi
+    for check in "$config" "$invoke" "$start" "$status" "$events" "$cancel"; do
+      if ! grep -qE "$check" "$source"; then
+        echo "${RED}[invoker:${sdk}] missing Server HTTP contract pattern /${check}/${RESET}"
+        failed=$((failed + 1))
+      fi
+    done
+    if ! grep -qE "$mock" "$test"; then
+      echo "${RED}[invoker:${sdk}] missing Mock HTTP contract-test evidence /${mock}/${RESET}"
+      failed=$((failed + 1))
+    fi
+    if [ "$failed" -eq 0 ]; then
+      echo "  ${GREEN}${sdk}: Server HTTP endpoints + independent config + Mock test${RESET}"
     else
-      row+="  ${YELLOW}${sdk}: no${RESET}"
-      warnings=$((warnings + 1))
+      errors=$((errors + failed))
     fi
   done
-  echo "$row"
 }
 
 # ---------------------------------------------------------------------------
@@ -375,7 +394,7 @@ check_js
 check_cpp
 check_csharp
 echo
-check_invoker_presence
+check_l3_server_http_contract
 echo
 check_invoker_naming
 echo

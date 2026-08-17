@@ -6,6 +6,8 @@ import io.github.cuihairu.croupier.sdk.invoker.Invoker;
 import io.github.cuihairu.croupier.sdk.invoker.InvokerConfig;
 import io.github.cuihairu.croupier.sdk.invoker.InvokerException;
 import io.github.cuihairu.croupier.sdk.invoker.TaskEventInfo;
+import io.github.cuihairu.croupier.sdk.invoker.TaskStatusInfo;
+import io.github.cuihairu.croupier.sdk.invoker.TaskStatusInvoker;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
@@ -57,7 +59,7 @@ public class InvokerExample {
 
         // Create invoker with custom configuration
         InvokerConfig config = InvokerConfig.builder()
-            .address("127.0.0.1:8080")
+            .address("http://127.0.0.1:18780/api/v1")
             .timeout(30000)
             .insecure(true)
             .build();
@@ -111,6 +113,8 @@ public class InvokerExample {
 
             String taskId = invoker.startTask(functionId, payload);
             System.out.println("🚀 任务已启动，Task ID: " + taskId);
+            TaskStatusInfo status = ((TaskStatusInvoker) invoker).getTaskStatus(taskId);
+            System.out.printf("📊 当前任务状态: %s (%s%%)%n", status.status(), status.progress());
 
         } catch (InvokerException e) {
             System.out.println("❌ 任务失败: " + e.getMessage());

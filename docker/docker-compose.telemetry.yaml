@@ -1,5 +1,6 @@
-# OpenTelemetry游戏监控系统Docker Compose配置
-# 包含OTel Collector, Jaeger, Prometheus, Redis等服务
+# Local OpenTelemetry validation stack. It is deliberately self-contained:
+# Croupier services export OTLP to the Collector, Jaeger receives traces, and
+# Prometheus scrapes the Collector's Prometheus exporter.
 
 services:
   # OpenTelemetry Collector
@@ -9,9 +10,10 @@ services:
     volumes:
       - ../configs/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - "14317:4317"   # OTLP gRPC receiver
-      - "14318:4318"   # OTLP HTTP receiver
-      - "18888:8888"   # Prometheus metrics endpoint
+      - "14317:4317" # OTLP gRPC receiver
+      - "14318:4318" # OTLP HTTP receiver
+      - "113133:13133" # Collector health endpoint
+      - "18889:8889" # Collector Prometheus exporter
     depends_on:
       - jaeger
       - prometheus
@@ -22,8 +24,8 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     ports:
-      - "17686:16686"  # Jaeger UI
-      - "15250:14250"  # Jaeger gRPC
+      - "17686:16686" # Jaeger UI
+      - "15250:14250" # Jaeger gRPC
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
@@ -33,12 +35,12 @@ services:
   prometheus:
     image: prom/prometheus:latest
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
     ports:
       - "19092:9090"
     volumes:
@@ -63,71 +65,15 @@ services:
     networks:
       - croupier-telemetry
 
-  # Redis - Analytics MQ
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "16379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-    networks:
-      - croupier-telemetry
-
-  # ClickHouse - Analytics数据仓库
-  clickhouse:
-    image: clickhouse/clickhouse-server:latest
-    ports:
-      - "18123:8123"  # HTTP interface
-      - "19000:9000"  # Native interface
-    volumes:
-      - clickhouse-data:/var/lib/clickhouse
-      - ../configs/clickhouse/users.xml:/etc/clickhouse-server/users.d/custom-users.xml:ro
-    environment:
-      - CLICKHOUSE_DB=analytics
-      - CLICKHOUSE_USER=analytics
-      - CLICKHOUSE_PASSWORD=analytics123
-    networks:
-      - croupier-telemetry
-
-  # 可选: OpenTelemetry演示应用
-  croupier-demo:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.demo
-    environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_SERVICE_NAME=croupier-demo
-      - OTEL_SERVICE_VERSION=1.0.0
-      - GAME_ID=tower-defense-demo
-      - ANALYTICS_REDIS_ADDR=redis:6379
-    depends_on:
-      - otel-collector
-      - redis
-    ports:
-      - "18088:8080"
-    networks:
-      - croupier-telemetry
-
 volumes:
   prometheus-storage:
   grafana-storage:
-  redis-data:
-  clickhouse-data:
 
 networks:
   croupier-telemetry:
     driver: bridge
 
-# 使用说明:
-# 1. 启动所有服务: docker-compose up -d
-# 2. 访问Jaeger UI: http://localhost:17686
-# 3. 访问Prometheus: http://localhost:19092
-# 4. 访问Grafana: http://localhost:13000 (admin/admin)
-# 5. 演示应用: http://localhost:18088
-#
-# 配置文件位置:
-# - ../configs/otel-collector-config.yaml
-# - ../configs/prometheus.yml
-# - ../configs/grafana/
-# 注意：服务配置文件位于 services/*/etc/*.yaml
+# Host endpoints: OTLP HTTP :14318, OTLP gRPC :14317, Collector health
+# :113133, Collector metrics :18889, Jaeger :17686, Prometheus :19092, and
+# Grafana :13000 (admin/admin). Run scripts/test-telemetry.sh for the full
+# audit-to-trace validation.

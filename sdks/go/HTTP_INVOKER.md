@@ -1,124 +1,105 @@
-# HTTP Invoker 使用指南
+# Go L3 Invoker
 
-## 背景
+`NewInvoker` 是 Go SDK 面向调用方的 L3 入口。它只调用 Croupier Server 的 HTTP API，不会直连
+Provider TCP；因此鉴权、`game/env` 作用域、审计、路由和任务持久化均由 Server 统一执行。
 
-Croupier server 已从 **gRPC** 迁移到 **TCP** (Nanomsg v3) 协议。原有的 `NewInvoker` 使用 gRPC 协议无法连接到新的 server。
+Provider 注册函数仍使用 SDK 与 Agent 之间的 TCP session。这是独立于 L3 调用方链路的职责，不能把
+Provider TCP Invoker 当作生产调用方 API 使用。
 
-## 解决方案
-
-我们提供了 **HTTP REST API Invoker** (`NewHTTPInvoker`) 作为替代方案。
-
-## 使用方法
-
-### 1. 导入包
+## 创建 Invoker
 
 ```go
-import "github.com/cuihairu/croupier/sdks/go/pkg/croupier"
-```
-
-### 2. 创建 HTTP Invoker
-
-```go
-invokerConfig := &croupier.InvokerConfig{
-    Address:        "localhost:18780", // HTTP REST API 端口
-    TimeoutSeconds: 30,
-    Insecure:       true,
-}
-
-invoker := croupier.NewHTTPInvoker(invokerConfig)
+invoker := croupier.NewInvoker(&croupier.InvokerConfig{
+    // 可传 Server 根地址、完整 API 地址或 host:port。
+    Address:   "https://server.example/api/v1",
+    AuthToken: "server-access-token", // 发送为 Authorization: Bearer ...
+    GameID:    "game-a",              // 默认 X-Game-ID
+    Env:       "production",          // 默认 X-Env
+})
 defer invoker.Close()
-```
 
-### 3. 连接到 Server
-
-```go
-ctx := context.Background()
-if err := invoker.Connect(ctx); err != nil {
-    log.Fatalf("Failed to connect: %v", err)
+if err := invoker.Connect(context.Background()); err != nil {
+    log.Fatal(err)
 }
 ```
 
-### 4. 调用函数
+默认地址是 `http://127.0.0.1:18780/api/v1`。根地址和 `host:port` 会自动补全 `/api/v1`。
+
+`Connect` 仅标记 Invoker 就绪：HTTP 是请求式传输，不建立或绕过 Server 的持久 Provider 会话。
+
+## 同步调用
 
 ```go
-payload := map[string]interface{}{
-    "player_id": "player_123",
-    "reason":    "违规操作",
-}
-payloadJSON, _ := json.Marshal(payload)
-
-options := croupier.InvokeOptions{
-    IdempotencyKey: "unique-key-123",
+result, err := invoker.Invoke(ctx, "player.ban", `{"playerId":"p-1"}`, croupier.InvokeOptions{
+    IdempotencyKey: "ban-p-1-20260817",
     Headers: map[string]string{
-        "X-Game-ID": "your-game-id",
+        "X-Game-ID": "game-a",
         "X-Env":     "production",
     },
-}
-
-result, err := invoker.Invoke(ctx, "player.ban", string(payloadJSON), options)
+})
 if err != nil {
-    log.Fatalf("Invoke failed: %v", err)
+    log.Fatal(err)
 }
-
-fmt.Printf("Result: %s\n", result)
+fmt.Println(result) // Server 返回的 result 原始 JSON
 ```
 
-## 完整示例
+调用会发送 `POST /api/v1/functions/:id/invoke`，请求体为 `{"params": ...}`。可使用 `SetSchema`
+配置可选的本地 JSON Schema 预检；Server 的合同和权限校验始终是最终依据。
 
-参见 `examples/http_invoker_example/main.go`。
+## 异步任务
 
-## 功能支持情况
+```go
+taskID, err := invoker.StartTask(ctx, "report.generate", `{"range":"daily"}`, options)
+if err != nil {
+    log.Fatal(err)
+}
 
-| 功能 | HTTP Invoker | gRPC Invoker |
-|------|--------------|--------------|
-| ✅ 同步调用 (Invoke) | 支持 | 支持 |
-| ⚠️  异步任务 (StartTask) | 部分支持 | 完全支持 |
-| ❌ 任务流式传输 (StreamTask) | 不支持 | 支持 |
-| ❌ 取消任务 (CancelTask) | 不支持 | 支持 |
-| ✅ Schema 验证 (SetSchema) | 支持 | 支持 |
+status, err := invoker.GetTaskStatus(ctx, taskID)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("%s: %s (%d%%)\n", status.TaskID, status.Status, status.Progress)
 
-**注意：** 如需完整功能（异步作业、流式传输等），请继续使用 gRPC invoker 并连接到支持 gRPC 的 server。
+events, err := invoker.StreamTask(ctx, taskID)
+if err != nil {
+    log.Fatal(err)
+}
+for event := range events {
+    fmt.Printf("%s %s\n", event.EventType, event.Payload)
+}
 
-## 端口映射
+if err := invoker.CancelTask(ctx, taskID); err != nil {
+    log.Fatal(err)
+}
+```
 
-| 用途 | 协议 | 端口 |
-|------|------|------|
-| HTTP REST API | HTTP | 18780 |
-| TCP ControlService | TCP (SP) | 19090 |
-| 旧 gRPC 服务 | gRPC | 18443 (已废弃) |
+任务合同如下：
 
-## 迁移指南
+| SDK 方法        | Server HTTP 合同                                            |
+| --------------- | ----------------------------------------------------------- |
+| `StartTask`     | `POST /api/v1/tasks`，由 Server 返回 `taskId`               |
+| `GetTaskStatus` | `GET /api/v1/tasks/:id`                                     |
+| `StreamTask`    | 轮询 `GET /api/v1/tasks/:id/events?after_seq=N` 直至 `done` |
+| `CancelTask`    | `POST /api/v1/tasks/:id/cancel`                             |
 
-如果您之前使用 `NewInvoker`，只需做以下更改：
+`StartTask` 绝不会构造本地任务 ID。`GetTaskStatus` 的 `Result` 是 Server 返回的原始 JSON，以保持业务结果的形状。
 
-1. **更改创建函数：**
-   ```go
-   // 旧代码 (gRPC)
-   invoker := croupier.NewInvoker(config)
+## 请求头、超时与重试
 
-   // 新代码 (HTTP)
-   invoker := croupier.NewHTTPInvoker(config)
-   ```
+- `AuthToken` 自动映射为 `Authorization: Bearer <token>`；`InvokeOptions.Headers["Authorization"]` 可显式覆盖。
+- `GameID`、`Env` 设定默认的 `X-Game-ID`、`X-Env`；`InvokeOptions.Headers` 可逐请求覆盖。
+- `IdempotencyKey` 映射为 `Idempotency-Key` 请求头。
+- `TimeoutSeconds` 为客户端默认请求超时；`InvokeOptions.Timeout` 可覆盖单次调用。
+- `Retry` 只重试网络错误、429 和 5xx；不要对无幂等键的写操作依赖重试。
 
-2. **更新地址：**
-   ```go
-   config := &croupier.InvokerConfig{
-       Address: "localhost:18780", // HTTP 而非 gRPC
-       // ... 其他配置
-   }
-   ```
+## 验证
 
-3. **处理异步功能：**
-   - 如果使用了 `StreamTask` 或 `CancelTask`，需要添加错误处理
-   - 或者继续使用 gRPC invoker（需要 server 支持）
+Mock 合同测试不依赖运行中的 Server：
 
-## 常见问题
+```bash
+cd sdks/go
+go test ./pkg/croupier -count=1
+```
 
-**Q: 为什么不直接更新 Go SDK 使用 TCP？**
-A: TCP 的 Go 绑定尚不成熟。HTTP REST API 是更稳定的跨语言解决方案。
-
-**Q: HTTP invoker 性能如何？**
-A: 对于大多数用例，HTTP REST API 性能足够。如需更高性能，可考虑使用 gRPC invoker。
-
-**Q: 什么时候会完全支持 HTTP 异步作业？**
-A: 我们计划在未来的版本中为 HTTP REST API 添加 SSE (Server-Sent Events) 支持。
+真实 Server 验收需要有授权的测试环境，并设置 `CROUPIER_SERVER_URL`、`CROUPIER_SERVER_TOKEN`、
+`CROUPIER_GAME_ID` 与 `CROUPIER_ENV`。这不是本地 Mock 测试的替代品。

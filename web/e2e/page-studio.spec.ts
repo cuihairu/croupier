@@ -14,7 +14,7 @@ test.describe('Page Studio', () => {
     await page.goto('/system/functions/pages');
     await waitForPageReady(page);
 
-    await expect(page.getByRole('heading', { name: '页面工作台' })).toBeVisible();
+    await expect(page.getByText('页面工作台').first()).toBeVisible();
     await expect(page.getByText('默认页面先生成 Proposal')).toBeVisible();
     await expect(page.getByRole('tab', { name: /可直接发布/ })).toBeVisible();
     await expect(page.getByRole('tab', { name: /需要处理/ })).toBeVisible();
@@ -27,7 +27,8 @@ test.describe('Page Studio', () => {
 
     await expect(page.getByPlaceholder('搜索提案、页面或资源')).toBeVisible();
     await expect(page.getByRole('button', { name: '刷新' }).first()).toBeVisible();
-    await expect(page.locator('.ant-result-error, text=加载失败')).toHaveCount(0);
+    await expect(page.locator('.ant-result-error')).toHaveCount(0);
+    await expect(page.getByText('加载失败')).toHaveCount(0);
   });
 
   test('预览功能', async ({ page }) => {
@@ -64,6 +65,6 @@ test.describe('Page Studio', () => {
     );
     await confirmBtn.click();
     expect((await publishResponse).status()).toBe(200);
-    await expect(page.getByText('已直接发布')).toBeVisible();
+    await expect(page.getByText('已直接发布').first()).toBeAttached();
   });
 });

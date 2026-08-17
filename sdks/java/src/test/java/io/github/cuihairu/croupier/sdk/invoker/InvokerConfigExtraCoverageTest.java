@@ -58,9 +58,9 @@ class InvokerConfigExtraCoverageTest {
     void createDefault() {
         InvokerConfig config = InvokerConfig.createDefault();
 
-        assertEquals("127.0.0.1:19090", config.getAddress());
+        assertEquals(ServerHttpInvoker.DEFAULT_SERVER_API_URL, config.getAddress());
         assertEquals(30000, config.getTimeout());
-        assertTrue(config.isInsecure());
+        assertFalse(config.isInsecure());
         assertEquals("", config.getCaFile());
         assertEquals("", config.getCertFile());
         assertEquals("", config.getKeyFile());

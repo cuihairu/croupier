@@ -20,9 +20,10 @@ import java.util.function.BiFunction;
 import static io.github.cuihairu.croupier.sdk.invoker.InvokerException.ErrorCode;
 
 /**
- * Implementation of the Invoker interface with task management support.
+ * Legacy Provider-TCP task helper used internally by {@code CroupierClientImpl}.
  *
- * <p>This implementation uses the shared SDK wire protocol over transport abstractions.</p>
+ * <p>It is not the public L3 caller: {@link ServerHttpInvoker} is returned by
+ * {@code CroupierSDK.createInvoker} and exclusively uses Server HTTP.</p>
  */
 public class InvokerImpl implements Invoker {
 

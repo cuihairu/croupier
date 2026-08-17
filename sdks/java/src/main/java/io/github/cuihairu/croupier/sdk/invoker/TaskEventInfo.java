@@ -203,7 +203,7 @@ public class TaskEventInfo {
          * @param progress progress from 0-100
          * @return this builder
          */
-        public Builder progress(int progress) {
+        public Builder progress(Integer progress) {
             this.progress = progress;
             return this;
         }

@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewInvoker_NilConfig(t *testing.T) {
-	invoker := NewInvoker(nil)
+	invoker := newTCPInvoker(nil)
 	if invoker == nil {
 		t.Fatal("NewInvoker(nil) returned nil")
 	}
@@ -42,7 +42,7 @@ func TestNewInvoker_WithConfig(t *testing.T) {
 		Reconnect:      DefaultReconnectConfig(),
 		Retry:          DefaultRetryConfig(),
 	}
-	invoker := NewInvoker(config)
+	invoker := newTCPInvoker(config)
 	impl := invoker.(*tcpInvoker)
 
 	if impl.config != config {
@@ -58,7 +58,7 @@ func TestNewInvoker_PartialConfig(t *testing.T) {
 		Address:        "10.0.0.1:19090",
 		TimeoutSeconds: 10,
 	}
-	invoker := NewInvoker(config)
+	invoker := newTCPInvoker(config)
 	impl := invoker.(*tcpInvoker)
 
 	if impl.config.Reconnect == nil {
@@ -73,7 +73,7 @@ func TestNewInvoker_PartialConfig(t *testing.T) {
 }
 
 func TestInvoker_SetSchema(t *testing.T) {
-	invoker := NewInvoker(&InvokerConfig{Address: "localhost:19090", Insecure: true})
+	invoker := newTCPInvoker(&InvokerConfig{Address: "localhost:19090", Insecure: true})
 
 	schema := map[string]interface{}{
 		"type": "object",
@@ -95,7 +95,7 @@ func TestInvoker_SetSchema(t *testing.T) {
 }
 
 func TestInvoker_SetSchema_Multiple(t *testing.T) {
-	invoker := NewInvoker(&InvokerConfig{Address: "localhost:19090", Insecure: true})
+	invoker := newTCPInvoker(&InvokerConfig{Address: "localhost:19090", Insecure: true})
 
 	for i := 0; i < 5; i++ {
 		schema := map[string]interface{}{
@@ -117,7 +117,7 @@ func TestInvoker_SetSchema_Multiple(t *testing.T) {
 }
 
 func TestInvoker_isConnectionError(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
 
 	tests := []struct {
 		name     string
@@ -150,7 +150,7 @@ func TestInvoker_isConnectionError(t *testing.T) {
 }
 
 func TestInvoker_isRetryableError(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
 
 	tests := []struct {
 		name     string
@@ -189,7 +189,7 @@ func TestInvoker_calculateReconnectDelay(t *testing.T) {
 			JitterFactor:      0.2,
 		},
 	}
-	i := NewInvoker(config).(*tcpInvoker)
+	i := newTCPInvoker(config).(*tcpInvoker)
 
 	tests := []struct {
 		name          string
@@ -224,7 +224,7 @@ func TestInvoker_calculateReconnectDelay_ZeroBackoff(t *testing.T) {
 			JitterFactor:      0,
 		},
 	}
-	i := NewInvoker(config).(*tcpInvoker)
+	i := newTCPInvoker(config).(*tcpInvoker)
 
 	delay := i.calculateReconnectDelay(5)
 	if delay > 5*time.Second {
@@ -242,7 +242,7 @@ func TestInvoker_calculateReconnectDelay_HighAttempt(t *testing.T) {
 			JitterFactor:      0,
 		},
 	}
-	i := NewInvoker(config).(*tcpInvoker)
+	i := newTCPInvoker(config).(*tcpInvoker)
 
 	delay := i.calculateReconnectDelay(100)
 	if delay > 5*time.Second {
@@ -258,7 +258,7 @@ func TestInvoker_calculateRetryDelay(t *testing.T) {
 		BackoffMultiplier: 2.0,
 		JitterFactor:      0.1,
 	}
-	i := NewInvoker(&InvokerConfig{Retry: config}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Retry: config}).(*tcpInvoker)
 
 	tests := []struct {
 		name          string
@@ -291,7 +291,7 @@ func TestInvoker_calculateRetryDelay_ZeroBackoff(t *testing.T) {
 		BackoffMultiplier: 0,
 		JitterFactor:      0,
 	}
-	i := NewInvoker(&InvokerConfig{Retry: config}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Retry: config}).(*tcpInvoker)
 
 	delay := i.calculateRetryDelay(5, config)
 	if delay < 0 {
@@ -307,7 +307,7 @@ func TestInvoker_calculateRetryDelay_HighAttempt(t *testing.T) {
 		BackoffMultiplier: 2.0,
 		JitterFactor:      0,
 	}
-	i := NewInvoker(&InvokerConfig{Retry: config}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Retry: config}).(*tcpInvoker)
 
 	delay := i.calculateRetryDelay(100, config)
 	if delay > 1*time.Second {
@@ -316,7 +316,7 @@ func TestInvoker_calculateRetryDelay_HighAttempt(t *testing.T) {
 }
 
 func TestInvoker_validatePayload_EmptySchema(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
 
 	// Empty payload with empty schema should error
 	err := i.validatePayload("", map[string]interface{}{})
@@ -332,7 +332,7 @@ func TestInvoker_validatePayload_EmptySchema(t *testing.T) {
 }
 
 func TestInvoker_validatePayload_JSONSchema(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
 
 	schema := map[string]interface{}{
 		"type": "object",
@@ -356,7 +356,7 @@ func TestInvoker_validatePayload_JSONSchema(t *testing.T) {
 }
 
 func TestInvoker_validatePayload_NestedSchema(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
 
 	schema := map[string]interface{}{
 		"type": "object",
@@ -392,7 +392,7 @@ func TestInvoker_scheduleReconnect_Disabled(t *testing.T) {
 			Enabled: false,
 		},
 	}
-	i := NewInvoker(config).(*tcpInvoker)
+	i := newTCPInvoker(config).(*tcpInvoker)
 
 	i.scheduleReconnectIfNeeded()
 
@@ -410,7 +410,7 @@ func TestInvoker_scheduleReconnect_AlreadyReconnecting(t *testing.T) {
 			InitialDelayMs: 50,
 		},
 	}
-	i := NewInvoker(config).(*tcpInvoker)
+	i := newTCPInvoker(config).(*tcpInvoker)
 	i.isReconnecting = true
 
 	i.scheduleReconnectIfNeeded()
@@ -430,7 +430,7 @@ func TestInvoker_scheduleReconnect_MaxAttemptsReached(t *testing.T) {
 			InitialDelayMs: 50,
 		},
 	}
-	i := NewInvoker(config).(*tcpInvoker)
+	i := newTCPInvoker(config).(*tcpInvoker)
 	i.reconnectAttempts = 2 // Already at max
 
 	i.scheduleReconnectIfNeeded()
@@ -449,7 +449,7 @@ func TestInvoker_scheduleReconnect_Enabled(t *testing.T) {
 			InitialDelayMs: 50,
 		},
 	}
-	i := NewInvoker(config).(*tcpInvoker)
+	i := newTCPInvoker(config).(*tcpInvoker)
 
 	i.scheduleReconnectIfNeeded()
 
@@ -467,7 +467,7 @@ func TestInvoker_scheduleReconnect_Enabled(t *testing.T) {
 }
 
 func TestInvoker_Connect_AlreadyConnected(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
 	i.connected = true
 
 	ctx := context.Background()
@@ -481,7 +481,7 @@ func TestInvoker_Connect_AlreadyConnected(t *testing.T) {
 }
 
 func TestInvoker_Connect_Reconnecting(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
 	i.isReconnecting = true
 
 	ctx := context.Background()
@@ -495,7 +495,7 @@ func TestInvoker_Connect_Reconnecting(t *testing.T) {
 }
 
 func TestInvoker_Connect_FailedConnection(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address:        "127.0.0.1:19999",
 		TimeoutSeconds: 1,
 		Insecure:       true,
@@ -513,7 +513,7 @@ func TestInvoker_Connect_FailedConnection(t *testing.T) {
 }
 
 func TestInvoker_Close(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true})
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true})
 
 	err := i.Close()
 	if err != nil {
@@ -528,7 +528,7 @@ func TestInvoker_Close(t *testing.T) {
 }
 
 func TestInvoker_Close_WithReconnectContext(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address: "127.0.0.1:19090",
 		Reconnect: &ReconnectConfig{
 			Enabled:        true,
@@ -553,7 +553,7 @@ func TestInvoker_Close_WithReconnectContext(t *testing.T) {
 }
 
 func TestInvoker_buildTLSConfig_Insecure(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address:  "localhost:19090",
 		Insecure: true,
 	}).(*tcpInvoker)
@@ -566,7 +566,7 @@ func TestInvoker_buildTLSConfig_Insecure(t *testing.T) {
 }
 
 func TestInvoker_buildTLSConfig_WithCAFile(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address: "localhost:19090",
 		CAFile:  "/nonexistent/ca.crt",
 	}).(*tcpInvoker)
@@ -578,7 +578,7 @@ func TestInvoker_buildTLSConfig_WithCAFile(t *testing.T) {
 }
 
 func TestInvoker_buildTLSConfig_WithCertFiles(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address:  "localhost:19090",
 		CertFile: "/nonexistent/cert.pem",
 		KeyFile:  "/nonexistent/key.pem",
@@ -591,7 +591,7 @@ func TestInvoker_buildTLSConfig_WithCertFiles(t *testing.T) {
 }
 
 func TestInvoker_buildTLSConfig_NoFiles(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address: "localhost:19090",
 	}).(*tcpInvoker)
 
@@ -617,7 +617,7 @@ func TestInvoker_buildTLSConfig_AddressParsing(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			i := NewInvoker(&InvokerConfig{
+			i := newTCPInvoker(&InvokerConfig{
 				Address: tc.address,
 			}).(*tcpInvoker)
 
@@ -633,7 +633,7 @@ func TestInvoker_buildTLSConfig_AddressParsing(t *testing.T) {
 }
 
 func TestInvoker_executeWithRetry_Disabled(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Retry: &RetryConfig{Enabled: false},
 	}).(*tcpInvoker)
 
@@ -655,7 +655,7 @@ func TestInvoker_executeWithRetry_Disabled(t *testing.T) {
 }
 
 func TestInvoker_executeWithRetry_Success(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Retry: &RetryConfig{
 			Enabled:        true,
 			MaxAttempts:    3,
@@ -681,7 +681,7 @@ func TestInvoker_executeWithRetry_Success(t *testing.T) {
 }
 
 func TestInvoker_executeWithRetry_RetryThenSuccess(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Retry: &RetryConfig{
 			Enabled:        true,
 			MaxAttempts:    3,
@@ -712,7 +712,7 @@ func TestInvoker_executeWithRetry_RetryThenSuccess(t *testing.T) {
 }
 
 func TestInvoker_executeWithRetry_NonRetryableError(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Retry: &RetryConfig{
 			Enabled:        true,
 			MaxAttempts:    3,
@@ -736,7 +736,7 @@ func TestInvoker_executeWithRetry_NonRetryableError(t *testing.T) {
 }
 
 func TestInvoker_executeWithRetry_ContextCancelled(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Retry: &RetryConfig{
 			Enabled:        true,
 			MaxAttempts:    5,
@@ -758,7 +758,7 @@ func TestInvoker_executeWithRetry_ContextCancelled(t *testing.T) {
 }
 
 func TestInvoker_executeWithRetry_OptionsRetry(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Retry: &RetryConfig{
 			Enabled:        true,
 			MaxAttempts:    5,
@@ -792,7 +792,7 @@ func TestInvoker_executeWithRetry_OptionsRetry(t *testing.T) {
 }
 
 func TestInvoker_Invoke_NotConnected(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address:        "127.0.0.1:19999",
 		TimeoutSeconds: 1,
 		Insecure:       true,
@@ -810,7 +810,7 @@ func TestInvoker_Invoke_NotConnected(t *testing.T) {
 }
 
 func TestInvoker_StartTask_NotConnected(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address:        "127.0.0.1:19999",
 		TimeoutSeconds: 1,
 		Insecure:       true,
@@ -828,7 +828,7 @@ func TestInvoker_StartTask_NotConnected(t *testing.T) {
 }
 
 func TestInvoker_CancelTask_NotConnected(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address:        "127.0.0.1:19999",
 		TimeoutSeconds: 1,
 		Insecure:       true,
@@ -846,7 +846,7 @@ func TestInvoker_CancelTask_NotConnected(t *testing.T) {
 }
 
 func TestInvoker_StreamTask_NotConnected(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address:        "127.0.0.1:19999",
 		TimeoutSeconds: 1,
 		Insecure:       true,
@@ -875,7 +875,7 @@ func TestInvoker_StreamTask_NotConnected(t *testing.T) {
 }
 
 func TestInvoker_connect_AlreadyConnected(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
 	i.connected = true
 
 	ctx := context.Background()
@@ -886,7 +886,7 @@ func TestInvoker_connect_AlreadyConnected(t *testing.T) {
 }
 
 func TestInvoker_connect_Reconnecting(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
+	i := newTCPInvoker(&InvokerConfig{Address: "127.0.0.1:19090", Insecure: true}).(*tcpInvoker)
 	i.isReconnecting = true
 
 	ctx := context.Background()
@@ -900,7 +900,7 @@ func TestInvoker_connect_Reconnecting(t *testing.T) {
 }
 
 func TestInvoker_connectLocked_Failure(t *testing.T) {
-	i := NewInvoker(&InvokerConfig{
+	i := newTCPInvoker(&InvokerConfig{
 		Address:        "127.0.0.1:19999",
 		TimeoutSeconds: 1,
 		Insecure:       true,

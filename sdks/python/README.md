@@ -79,7 +79,30 @@ Croupier Python SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏�
 
 **L3 Invoker（独立调用方）**
 
-- `croupier.invoker.Invoker`（`croupier/invoker.py`）提供同步调用与异步作业，独立配置入口
+- `croupier.invoker.Invoker`（`croupier/invoker.py`）仅调用 Server HTTP API，独立于 Provider TCP session
+- 覆盖 `POST /api/v1/functions/:id/invoke`、任务创建、查询、事件轮询与取消；鉴权、scope、审计和任务持久化由 Server 执行
+
+### L3 Invoker 快速示例
+
+```python
+from croupier import InvokerConfig, InvokeOptions, create_invoker
+
+invoker = create_invoker(InvokerConfig(
+    address="https://server.example/api/v1",
+    auth_token="server-access-token",
+    game_id="game-a",
+    env="production",
+))
+
+result = await invoker.invoke("player.ban", '{"playerId":"p-1"}', InvokeOptions(
+    idempotency_key="ban-p-1-20260817",
+))
+task_id = await invoker.start_task("report.generate", '{"range":"daily"}')
+status = await invoker.get_task_status(task_id)
+```
+
+`connect()` 只标记 HTTP Invoker 就绪，不会创建 Provider TCP session。完整示例见
+[`examples/invoker_example.py`](examples/invoker_example.py)。
 
 ## 支持平台
 

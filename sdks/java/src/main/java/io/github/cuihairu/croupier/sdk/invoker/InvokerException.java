@@ -88,6 +88,26 @@ public class InvokerException extends Exception {
     }
 
     /**
+     * Creates an exception from an HTTP status returned by the Server API.
+     *
+     * @param httpStatus HTTP response status
+     * @param message Server error message
+     * @return a mapped invoker exception
+     */
+    public static InvokerException fromHttpStatus(int httpStatus, String message) {
+        return new InvokerException(switch (httpStatus) {
+            case 400 -> ErrorCode.INVALID_ARGUMENT;
+            case 401 -> ErrorCode.UNAUTHENTICATED;
+            case 403 -> ErrorCode.PERMISSION_DENIED;
+            case 404 -> ErrorCode.NOT_FOUND;
+            case 409 -> ErrorCode.ALREADY_EXISTS;
+            case 429 -> ErrorCode.RESOURCE_EXHAUSTED;
+            case 408, 504 -> ErrorCode.TIMEOUT;
+            default -> httpStatus >= 500 ? ErrorCode.UNAVAILABLE : ErrorCode.UNKNOWN;
+        }, "server returned HTTP " + httpStatus + ": " + message);
+    }
+
+    /**
      * Creates a new InvokerException from a status code and message.
      * Status codes follow standard error code conventions (compatible with gRPC codes).
      *

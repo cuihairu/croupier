@@ -24,9 +24,9 @@ type TaskRuntime interface {
 	StartTask(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error)
 	// CancelTask forwards a cancellation request to the running task's agent.
 	CancelTask(ctx context.Context, taskID string) error
-	// FindFunction returns function metadata (the existence check used by
-	// Service.Start before RBAC).
-	FindFunction(ctx context.Context, functionID string) (*model.Function, error)
+	// FindFunctionContract resolves an executable function from the scoped
+	// registration source of truth before a task is dispatched.
+	FindFunctionContract(ctx context.Context, gameID, env, functionID string) (*model.FunctionContract, error)
 
 	// Task store operations.
 	GetRun(ctx context.Context, taskID string) (*model.TaskRun, error)
@@ -39,7 +39,7 @@ type TaskRuntime interface {
 // taskRuntime adapts *svc.ServiceContext to TaskRuntime.
 type taskRuntime struct {
 	dispatcher    *dispatch.Dispatcher
-	functionModel *model.FunctionModel
+	contractModel *model.FunctionContractModel
 	store         *tasks.Store
 }
 
@@ -48,7 +48,7 @@ type taskRuntime struct {
 func NewTaskRuntime(svcCtx *svc.ServiceContext) TaskRuntime {
 	return &taskRuntime{
 		dispatcher:    svcCtx.Dispatcher,
-		functionModel: svcCtx.FunctionModel,
+		contractModel: model.NewFunctionContractModel(svcCtx.DB),
 		store: tasks.NewStore(
 			model.NewTaskRunModel(svcCtx.DB),
 			model.NewTaskEventModel(svcCtx.DB),
@@ -70,11 +70,11 @@ func (r *taskRuntime) CancelTask(ctx context.Context, taskID string) error {
 	return r.dispatcher.CancelTask(ctx, taskID)
 }
 
-func (r *taskRuntime) FindFunction(ctx context.Context, functionID string) (*model.Function, error) {
-	if r.functionModel == nil {
-		return nil, fmt.Errorf("function model not configured")
+func (r *taskRuntime) FindFunctionContract(ctx context.Context, gameID, env, functionID string) (*model.FunctionContract, error) {
+	if r.contractModel == nil {
+		return nil, fmt.Errorf("function contract model not configured")
 	}
-	return r.functionModel.FindByFunctionID(ctx, functionID)
+	return r.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
 }
 
 func (r *taskRuntime) GetRun(ctx context.Context, taskID string) (*model.TaskRun, error) {

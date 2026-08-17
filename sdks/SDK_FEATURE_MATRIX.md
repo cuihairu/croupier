@@ -8,7 +8,7 @@
 > **与对齐矩阵的关系**：本表定义 L1–L4 分层与各 SDK 的实现状态（"做了什么"）；
 > [`docs/sdks/sdk-parity-matrix.md`](../docs/sdks/sdk-parity-matrix.md) 定义跨语言统一基线
 > （Required / Optional / Forbidden，"该做什么、禁止做什么"）。两者互补，本表为实现状态主表。
-> SDK 主链路以 `tcp session` 为准，能力矩阵只记录当前实现目标和状态。
+> Provider 主链路以 `tcp session` 为准；L3 Invoker 主链路以 Server HTTP 为准，不能以历史 Provider TCP 调用符号替代。
 
 ---
 
@@ -137,14 +137,14 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 当前实现状态：
 
-| SDK    | Invoker 实现                                |
-| ------ | ------------------------------------------- |
-| Go     | ⚠️ 历史 TCP 实现，待迁移至 Server HTTP/gRPC |
-| Python | ⚠️ 历史 TCP 实现，待迁移至 Server HTTP/gRPC |
-| Java   | ⚠️ 历史 TCP 实现，待迁移至 Server HTTP/gRPC |
-| JS     | ✅ `src/invoker.ts`                         |
-| C++    | ⚠️ 历史 TCP 实现，待迁移至 Server HTTP/gRPC |
-| C#     | ✅ `CroupierInvoker`（Server HTTP API）     |
+| SDK    | Invoker 实现                                           |
+| ------ | ------------------------------------------------------ |
+| Go     | ✅ `NewInvoker` / `NewHTTPInvoker`（Server HTTP API）  |
+| Python | ✅ `Invoker` / `SyncInvoker`（Server HTTP API）        |
+| Java   | ✅ `CroupierSDK.createInvoker` → `ServerHttpInvoker`   |
+| JS     | ✅ `src/invoker.ts`（Server HTTP API）                 |
+| C++    | ✅ `CroupierInvoker`（Server HTTP API；拒绝 `tcp://`） |
+| C#     | ✅ `CroupierInvoker`（Server HTTP API）                |
 
 ---
 
@@ -208,14 +208,14 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 > 命名统一为 `task` 系列（`startTask` / `streamTask` / `cancelTask`），与 `proto/croupier/sdk/v1/invocation.proto` 对齐。
 > 本阶段不保留过期命名：发现后直接删除，不保留别名。
 
-| SDK    | 入口文件                  | 同步调用         | 异步任务         | 流式事件          | 取消              |
-| ------ | ------------------------- | ---------------- | ---------------- | ----------------- | ----------------- |
-| Go     | `pkg/croupier/invoker.go` | `Invoker.Invoke` | `StartTask`      | `StreamTask`      | `CancelTask`      |
-| Python | `croupier/invoker.py`     | `Invoker.invoke` | `start_task`     | `stream_task`     | `cancel_task`     |
-| Java   | `invoker/Invoker.java`    | `invoke`         | `startTask`      | `streamTask`      | `cancelTask`      |
-| JS     | `src/invoker.ts`          | `invoke`         | `startTask`      | `streamTask`      | `cancelTask`      |
-| C++    | `CroupierInvoker`         | `Invoke`         | `StartTask`      | `StreamTask`      | `CancelTask`      |
-| C#     | `CroupierInvoker`         | `InvokeAsync`    | `StartTaskAsync` | `StreamTaskAsync` | `CancelTaskAsync` |
+| SDK    | 入口文件                         | 同步调用         | 异步任务         | 任务状态             | 流式事件          | 取消              |
+| ------ | -------------------------------- | ---------------- | ---------------- | -------------------- | ----------------- | ----------------- |
+| Go     | `pkg/croupier/http_invoker.go`   | `Invoker.Invoke` | `StartTask`      | `GetTaskStatus`      | `StreamTask`      | `CancelTask`      |
+| Python | `croupier/invoker.py`            | `Invoker.invoke` | `start_task`     | `get_task_status`    | `stream_task`     | `cancel_task`     |
+| Java   | `invoker/ServerHttpInvoker.java` | `invoke`         | `startTask`      | `getTaskStatus`      | `streamTask`      | `cancelTask`      |
+| JS     | `src/invoker.ts`                 | `invoke`         | `startTask`      | `getTaskStatus`      | `streamTask`      | `cancelTask`      |
+| C++    | `CroupierInvoker`                | `Invoke`         | `StartTask`      | `GetTaskStatus`      | `StreamTask`      | `CancelTask`      |
+| C#     | `CroupierInvoker`                | `InvokeAsync`    | `StartTaskAsync` | `GetTaskStatusAsync` | `StreamTaskAsync` | `CancelTaskAsync` |
 
 **命名规则**：
 

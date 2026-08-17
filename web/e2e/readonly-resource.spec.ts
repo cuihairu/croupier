@@ -17,7 +17,7 @@ test.describe('只读资源', () => {
   });
 
   test('只读资源列表加载', async ({ page }) => {
-    await navigateToConsole(page, 'inventory', 'resource--inventory');
+    await navigateToConsole(page, 'orders', 'resource--orders');
     await waitForPageReady(page);
     await waitForTable(page);
 
@@ -26,7 +26,7 @@ test.describe('只读资源', () => {
   });
 
   test('只读资源无写操作按钮', async ({ page }) => {
-    await navigateToConsole(page, 'inventory', 'resource--inventory');
+    await navigateToConsole(page, 'orders', 'resource--orders');
     await waitForPageReady(page);
     await waitForTable(page);
 
@@ -38,7 +38,7 @@ test.describe('只读资源', () => {
   });
 
   test('只读资源详情查看', async ({ page }) => {
-    await navigateToConsole(page, 'inventory', 'resource--inventory');
+    await navigateToConsole(page, 'orders', 'resource--orders');
     await waitForPageReady(page);
     await waitForTable(page);
 
@@ -60,7 +60,7 @@ test.describe('只读资源', () => {
   });
 
   test('只读资源筛选功能', async ({ page }) => {
-    await navigateToConsole(page, 'inventory', 'resource--inventory');
+    await navigateToConsole(page, 'orders', 'resource--orders');
     await waitForPageReady(page);
     await waitForTable(page);
 

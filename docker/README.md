@@ -14,20 +14,20 @@ docker/
 ├── Dockerfile.web
 ├── Dockerfile.analytics-worker
 ├── Dockerfile.ingest
-└── Dockerfile.demo
+└── Dockerfile.demo (deprecated; not used by the telemetry stack)
 ```
 
 ## 当前端口语义
 
 当前推荐按“统一 session + 本地 gateway”理解端口，而不是历史 `gRPC` / `旧传输` 命名：
 
-| 端口 | 含义 |
-| --- | --- |
-| `18780` | Server REST API |
-| `19090` | Server session/control 入口，供 Agent 主动连接 |
+| 端口    | 含义                                                         |
+| ------- | ------------------------------------------------------------ |
+| `18780` | Server REST API                                              |
+| `19090` | Server session/control 入口，供 Agent 主动连接               |
 | `19091` | Agent 本地 gateway，供 SDK / GameServer / 第三方本地程序接入 |
-| `8000` | Dashboard |
-| `18081` | Analytics Ingestion |
+| `8000`  | Dashboard                                                    |
+| `18081` | Analytics Ingestion                                          |
 
 说明：
 
@@ -56,26 +56,32 @@ docker-compose up -d
 ### 启动遥测监控栈
 
 ```bash
-cd docker
-docker-compose -f docker-compose.telemetry.yaml up -d
+docker compose -f docker/docker-compose.telemetry.yaml up -d
+
+# 完整的 audit -> trace -> metric 验收（使用独立 Compose project）
+bash scripts/test-telemetry.sh
 ```
 
 ## 服务访问
 
-| 服务 | 地址 | 说明 |
-| --- | --- | --- |
-| Dashboard | http://localhost:8000 | 控制台 |
-| Server REST API | http://localhost:18780 | 管理与查询接口 |
-| Server Session Control | localhost:19090 | Agent 上行 session 入口 |
-| Agent Local Gateway | localhost:19091 | SDK / GameServer 本地接入 |
-| Analytics Ingestion | http://localhost:18081 | 公网/DMZ 摄取入口 |
+| 服务                   | 地址                   | 说明                      |
+| ---------------------- | ---------------------- | ------------------------- |
+| Dashboard              | http://localhost:8000  | 控制台                    |
+| Server REST API        | http://localhost:18780 | 管理与查询接口            |
+| Server Session Control | localhost:19090        | Agent 上行 session 入口   |
+| Agent Local Gateway    | localhost:19091        | SDK / GameServer 本地接入 |
+| Analytics Ingestion    | http://localhost:18081 | 公网/DMZ 摄取入口         |
+
+遥测栈本机端口：OTLP HTTP `14318`、OTLP gRPC `14317`、Collector health
+`113133`、Collector metrics `18889`、Jaeger `17686`、Prometheus `19092`、Grafana
+`13000`。
 
 ## 数据库
 
-| 服务 | 地址 |
-| --- | --- |
-| PostgreSQL | localhost:5432 |
-| Redis | localhost:6379 |
+| 服务       | 地址                  |
+| ---------- | --------------------- |
+| PostgreSQL | localhost:5432        |
+| Redis      | localhost:6379        |
 | ClickHouse | localhost:8123 / 9000 |
 
 ## 常用命令

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "croupier/sdk/http_transport.h"
+
 #include <functional>
 #include <future>
 #include <map>
@@ -135,14 +137,16 @@ struct RetryConfig {
 
 // Invoker configuration
 struct InvokerConfig {
-    std::string address;  // Server/Agent address
+    // Complete Server API URL, Server root URL, or host:port. It normalizes to
+    // http://127.0.0.1:18780/api/v1 by default; tcp:// is rejected.
+    std::string address = "http://127.0.0.1:18780/api/v1";
 
     // ========== Game Environment Configuration ==========
     std::string game_id;              // Required: Game identifier
-    std::string env = "development";  // Environment: "development", "staging", "production"
+    std::string env;                  // Optional default Server environment scope
 
     // ========== TLS Configuration ==========
-    bool insecure = true;     // Use insecure connection for development
+    bool insecure = false;    // Disable TLS verification only when explicitly required
     std::string cert_file;    // Client certificate file path
     std::string key_file;     // Client private key file path
     std::string ca_file;      // CA certificate file path
@@ -155,6 +159,11 @@ struct InvokerConfig {
     // ========== Timeouts ==========
     int timeout_seconds = 30;       // Request timeout
     int connect_timeout_seconds = 5;  // Connection timeout
+    int task_poll_interval_ms = 500;  // Server task-events polling interval
+
+    // Optional HTTP transport injection for contract tests. Production callers
+    // should leave this empty to use the libcurl Server HTTP transport.
+    std::shared_ptr<HTTPTransport> http_transport;
 
     // ========== Retry Configuration ==========
     RetryConfig retry;  // Retry configuration
@@ -198,6 +207,26 @@ struct TaskEvent {
     bool done = false;
 };
 
+// Server-persisted task state returned by GET /api/v1/tasks/:id.
+struct TaskStatus {
+    std::string task_id;
+    std::string function_id;
+    std::string status;
+    int progress = 0;
+    std::string message;
+    std::string result;
+    std::string error;
+    std::string game_id;
+    std::string env;
+    std::string agent_id;
+    std::string actor;
+    std::string trace_id;
+    std::string started_at;
+    std::string finished_at;
+    std::string created_at;
+    std::string updated_at;
+};
+
 // Main SDK client for hosting functions
 class CroupierClient {
 public:
@@ -237,7 +266,8 @@ public:
     explicit CroupierInvoker(const InvokerConfig& config);
     ~CroupierInvoker();
 
-    // Connect to server/agent
+    // Mark the request-based Server HTTP invoker ready. This never opens a
+    // Provider TCP session.
     bool Connect();
 
     // Invoke a function synchronously
@@ -245,6 +275,9 @@ public:
 
     // Start an async task
     std::string StartTask(const std::string& function_id, const std::string& payload, const InvokeOptions& options = {});
+
+    // Query the current Server-persisted task state.
+    TaskStatus GetTaskStatus(const std::string& task_id);
 
     // Stream task events (returns a future that yields events)
     std::future<std::vector<TaskEvent>> StreamTask(const std::string& task_id);

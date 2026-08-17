@@ -6,8 +6,9 @@ import org.reactivestreams.Publisher;
 /**
  * Interface for invoking functions registered with the Croupier platform.
  *
- * <p>The Invoker provides client functionality for calling remote functions,
- * supporting both synchronous calls and asynchronous tasks with event streaming.</p>
+ * <p>The public L3 Invoker calls the Croupier Server HTTP API. It never reuses
+ * the Provider TCP session, so Server authorization, scope checks, audit and
+ * task persistence remain authoritative.</p>
  *
  * <p>Example usage:</p>
  * <pre>{@code
@@ -31,10 +32,10 @@ import org.reactivestreams.Publisher;
 public interface Invoker {
 
     /**
-     * Connects to the server.
+     * Marks the request-based Server invoker ready for use.
      *
-     * <p>This method establishes a connection to the configured server address.
-     * It is automatically called by invoke/startTask if not connected.</p>
+     * <p>HTTP does not open a Provider-like persistent session. Requests may
+     * still be issued without calling this method.</p>
      *
      * @throws InvokerException if connection fails
      */

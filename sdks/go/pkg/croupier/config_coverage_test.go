@@ -37,7 +37,7 @@ func TestInvoker_configurationVariations(t *testing.T) {
 		}
 
 		for _, addr := range addresses {
-			invoker := NewInvoker(&InvokerConfig{
+			invoker := newTCPInvoker(&InvokerConfig{
 				Address:   addr,
 				Retry:     DefaultRetryConfig(),
 				Reconnect: DefaultReconnectConfig(),
@@ -67,7 +67,7 @@ func TestInvoker_configurationVariations(t *testing.T) {
 	})
 
 	t.Run("with TLS enabled", func(t *testing.T) {
-		invoker := NewInvoker(&InvokerConfig{
+		invoker := newTCPInvoker(&InvokerConfig{
 			Address:   "example.com:8443",
 			Insecure:  false,
 			CAFile:    "/path/to/ca.crt",
@@ -111,7 +111,7 @@ func TestRetryConfiguration_variations(t *testing.T) {
 				JitterFactor:      0.1,
 			}
 
-			invoker := NewInvoker(&InvokerConfig{
+			invoker := newTCPInvoker(&InvokerConfig{
 				Address:   "localhost:8080",
 				Retry:     config,
 				Reconnect: DefaultReconnectConfig(),
@@ -163,7 +163,7 @@ func TestRetryConfiguration_variations(t *testing.T) {
 	})
 
 	t.Run("retry disabled", func(t *testing.T) {
-		invoker := NewInvoker(&InvokerConfig{
+		invoker := newTCPInvoker(&InvokerConfig{
 			Address:   "localhost:8080",
 			Retry:     &RetryConfig{Enabled: false},
 			Reconnect: DefaultReconnectConfig(),
@@ -264,7 +264,7 @@ func TestReconnectConfiguration_variations(t *testing.T) {
 
 // TestInvoker_withBothRetryAndReconnect tests interaction between retry and reconnect
 func TestInvoker_withBothRetryAndReconnect(t *testing.T) {
-	invoker := NewInvoker(&InvokerConfig{
+	invoker := newTCPInvoker(&InvokerConfig{
 		Address: "localhost:8080",
 		Retry: &RetryConfig{
 			Enabled:     true,

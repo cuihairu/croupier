@@ -264,10 +264,19 @@ export default {
         {
           gameId: 'test-game',
           gameName: '测试游戏',
-          envs: ['prod', 'staging'],
+          envs: ['development', 'staging', 'prod'],
         },
       ],
     });
+  },
+
+  // 切换 scope（登录态保持）
+  'PATCH /api/v1/profile/scope': (req: Request, res: Response) => {
+    if (!getAccess()) {
+      res.status(401).send({ error: 'unauthorized', message: '未授权' });
+      return;
+    }
+    res.send({ status: 'ok' });
   },
 
   // Mock permissions endpoint

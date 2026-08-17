@@ -1555,6 +1555,7 @@ export {
   type InvokerConfig,
   type InvokeTaskOptions,
   type TaskEvent,
+  type TaskStatus,
   type InvokeResult,
 } from "./invoker";
 

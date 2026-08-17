@@ -42,8 +42,19 @@ type tcpInvoker struct {
 	reconnectCancelFlag bool
 }
 
-// NewInvoker creates a new Croupier invoker using TCP transport
+// NewInvoker creates the independent L3 Server HTTP invoker.
+//
+// Provider TCP is intentionally not used here: a caller must traverse the
+// Server so authorization, scope validation, audit and task persistence cannot
+// be bypassed.
 func NewInvoker(config *InvokerConfig) Invoker {
+	return NewHTTPInvoker(config)
+}
+
+// newTCPInvoker exists only to keep protocol-level TCP implementation tests
+// focused on the legacy transport while the public L3 entry point uses Server
+// HTTP. Product code must use NewInvoker or NewHTTPInvoker.
+func newTCPInvoker(config *InvokerConfig) Invoker {
 	if config == nil {
 		config = &InvokerConfig{
 			Address:        "localhost:19090",
@@ -431,6 +442,13 @@ func (i *tcpInvoker) CancelTask(ctx context.Context, taskID string) error {
 	}
 
 	return nil
+}
+
+// GetTaskStatus is intentionally unavailable on the legacy Provider TCP
+// implementation. Server task state is authoritative and must be queried
+// through the public Server HTTP invoker returned by NewInvoker.
+func (i *tcpInvoker) GetTaskStatus(_ context.Context, _ string) (*TaskStatus, error) {
+	return nil, fmt.Errorf("legacy Provider TCP invoker cannot query Server task status; use NewInvoker")
 }
 
 // SetSchema implements Invoker.SetSchema

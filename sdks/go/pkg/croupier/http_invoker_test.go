@@ -5,994 +5,316 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
-func TestNewHTTPInvoker(t *testing.T) {
+func TestNewInvoker_UsesServerHTTP(t *testing.T) {
 	t.Parallel()
 
-	t.Run("with valid config", func(t *testing.T) {
-		t.Parallel()
-
-		config := &InvokerConfig{
-			Address:        "localhost:18780",
-			TimeoutSeconds: 30,
-			Insecure:       true,
-		}
-		invoker := NewHTTPInvoker(config)
-
-		if invoker == nil {
-			t.Fatal("NewHTTPInvoker returned nil")
-		}
-
-		impl, ok := invoker.(*httpInvoker)
-		if !ok {
-			t.Fatal("NewHTTPInvoker did not return *httpInvoker type")
-		}
-
-		if impl.config != config {
-			t.Error("config not set correctly")
-		}
-
-		if impl.schemas == nil {
-			t.Error("schemas map not initialized")
-		}
-
-		if impl.httpClient == nil {
-			t.Error("httpClient not initialized")
-		}
-	})
-
-	t.Run("with nil config uses defaults", func(t *testing.T) {
-		t.Parallel()
-
-		invoker := NewHTTPInvoker(nil)
-		impl := invoker.(*httpInvoker)
-
-		if impl.config == nil {
-			t.Fatal("config should be set to default")
-		}
-
-		if impl.config.Address != "localhost:18780" {
-			t.Errorf("expected default Address, got %q", impl.config.Address)
-		}
-
-		if !impl.config.Insecure {
-			t.Error("expected default Insecure to be true")
-		}
-	})
-}
-
-func TestHTTPInvoker_Connect(t *testing.T) {
-	t.Parallel()
-
-	t.Run("successful connect", func(t *testing.T) {
-		t.Parallel()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  "localhost:18780",
-			Insecure: true,
-		})
-
-		ctx := context.Background()
-		err := invoker.Connect(ctx)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		impl := invoker.(*httpInvoker)
-		if !impl.connected {
-			t.Error("expected connected to be true")
-		}
-	})
-
-	t.Run("connect is idempotent", func(t *testing.T) {
-		t.Parallel()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  "localhost:18780",
-			Insecure: true,
-		})
-
-		ctx := context.Background()
-		err := invoker.Connect(ctx)
-		if err != nil {
-			t.Fatalf("first connect failed: %v", err)
-		}
-
-		err = invoker.Connect(ctx)
-		if err != nil {
-			t.Fatalf("second connect should not fail: %v", err)
-		}
-	})
-}
-
-func TestHTTPInvoker_Close(t *testing.T) {
-	t.Parallel()
-
-	t.Run("close when connected", func(t *testing.T) {
-		t.Parallel()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  "localhost:18780",
-			Insecure: true,
-		})
-
-		ctx := context.Background()
-		_ = invoker.Connect(ctx)
-
-		err := invoker.Close()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		impl := invoker.(*httpInvoker)
-		if impl.connected {
-			t.Error("expected connected to be false")
-		}
-	})
-
-	t.Run("close when not connected", func(t *testing.T) {
-		t.Parallel()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  "localhost:18780",
-			Insecure: true,
-		})
-
-		err := invoker.Close()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("close is idempotent", func(t *testing.T) {
-		t.Parallel()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  "localhost:18780",
-			Insecure: true,
-		})
-
-		_ = invoker.Connect(context.Background())
-
-		_ = invoker.Close()
-		err := invoker.Close()
-		if err != nil {
-			t.Fatalf("second close should not fail: %v", err)
-		}
-	})
-}
-
-func TestHTTPInvoker_SetSchema(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  "localhost:18780",
-		Insecure: true,
-	})
-
-	schema := map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			"name": map[string]interface{}{"type": "string"},
-		},
-		"required": []interface{}{"name"},
-	}
-
-	err := invoker.SetSchema("test.function", schema)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	impl := invoker.(*httpInvoker)
-	stored, ok := impl.schemas["test.function"]
+	invoker := NewInvoker(nil)
+	impl, ok := invoker.(*httpInvoker)
 	if !ok {
-		t.Error("schema not stored")
+		t.Fatalf("NewInvoker() returned %T, want *httpInvoker", invoker)
 	}
-	if stored == nil {
-		t.Error("stored schema is nil")
+	if got, want := impl.GetAddress(), defaultServerAPIURL; got != want {
+		t.Fatalf("default Server API URL = %q, want %q", got, want)
 	}
-}
-
-func TestHTTPInvoker_IsConnected(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  "localhost:18780",
-		Insecure: true,
-	})
-
-	// Should not be connected initially
-	if invoker.(*httpInvoker).IsConnected() {
-		t.Error("should not be connected initially")
-	}
-
-	// Connect
-	_ = invoker.Connect(context.Background())
-
-	// Should be connected now
-	if !invoker.(*httpInvoker).IsConnected() {
-		t.Error("should be connected after Connect")
+	if impl.config.AuthToken != "" {
+		t.Fatal("default invoker unexpectedly has an auth token")
 	}
 }
 
-func TestHTTPInvoker_GetAddress(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  "localhost:19999",
-		Insecure: true,
-	})
-
-	addr := invoker.(*httpInvoker).GetAddress()
-	if addr == "" {
-		t.Error("expected address to be set")
-	}
-}
-
-func TestHTTPInvoker_SetDefaultGameEnv(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  "localhost:18780",
-		Insecure: true,
-	})
-
-	impl := invoker.(*httpInvoker)
-	impl.SetDefaultGameEnv("test-game", "production")
-
-	if impl.defaultGameID != "test-game" {
-		t.Errorf("expected defaultGameID test-game, got %s", impl.defaultGameID)
-	}
-
-	if impl.defaultEnv != "production" {
-		t.Errorf("expected defaultEnv production, got %s", impl.defaultEnv)
-	}
-}
-
-func TestHTTPInvoker_Invoke_WithMockServer(t *testing.T) {
-	t.Parallel()
-
-	t.Run("successful invocation", func(t *testing.T) {
-		t.Parallel()
-
-		// Create mock server
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Verify request method and path
-			if r.Method != http.MethodPost {
-				t.Errorf("expected POST, got %s", r.Method)
-			}
-
-			// Return success response
-			resp := map[string]interface{}{
-				"code":    0,
-				"message": "success",
-				"data":    map[string]interface{}{"result": "ok"},
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-
-		// Create invoker with server URL
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  server.URL,
-			Insecure: true,
-		})
-
-		ctx := context.Background()
-		_ = invoker.Connect(ctx)
-
-		result, err := invoker.Invoke(ctx, "test.function", `{"input":"data"}`, InvokeOptions{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if result == "" {
-			t.Error("expected non-empty result")
-		}
-	})
-
-	t.Run("invocation with idempotency key", func(t *testing.T) {
-		t.Parallel()
-
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Read request body
-			var reqBody map[string]interface{}
-			_ = json.NewDecoder(r.Body).Decode(&reqBody)
-
-			// Verify idempotency key is present
-			if _, ok := reqBody["idempotencyKey"]; !ok {
-				t.Error("expected idempotencyKey in request")
-			}
-
-			resp := map[string]interface{}{
-				"code":    0,
-				"message": "success",
-				"data":    "ok",
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  server.URL,
-			Insecure: true,
-		})
-
-		ctx := context.Background()
-		_ = invoker.Connect(ctx)
-
-		opts := InvokeOptions{
-			IdempotencyKey: "test-key-123",
-		}
-		_, err := invoker.Invoke(ctx, "test.function", `{}`, opts)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("invocation with server error", func(t *testing.T) {
-		t.Parallel()
-
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			resp := map[string]interface{}{
-				"code":    500,
-				"message": "internal error",
-				"data":    nil,
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  server.URL,
-			Insecure: true,
-			Retry:    &RetryConfig{Enabled: false},
-		})
-
-		ctx := context.Background()
-		_ = invoker.Connect(ctx)
-
-		_, err := invoker.Invoke(ctx, "test.function", `{}`, InvokeOptions{})
-		if err == nil {
-			t.Error("expected error for server error response")
-		}
-	})
-
-	t.Run("invocation with HTTP error status", func(t *testing.T) {
-		t.Parallel()
-
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte("internal server error"))
-		}))
-		defer server.Close()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  server.URL,
-			Insecure: true,
-			Retry:    &RetryConfig{Enabled: false},
-		})
-
-		ctx := context.Background()
-		_ = invoker.Connect(ctx)
-
-		_, err := invoker.Invoke(ctx, "test.function", `{}`, InvokeOptions{})
-		if err == nil {
-			t.Error("expected error for HTTP 500")
-		}
-	})
-}
-
-func TestHTTPInvoker_Invoke_WithSchemaValidation(t *testing.T) {
+func TestHTTPInvoker_Invoke_UsesServerContract(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    "ok",
+		if got, want := r.URL.Path, "/api/v1/functions/player.ban/invoke"; got != want {
+			t.Fatalf("path = %q, want %q", got, want)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		if got, want := r.Method, http.MethodPost; got != want {
+			t.Fatalf("method = %q, want %q", got, want)
+		}
+		if got, want := r.Header.Get("Authorization"), "Bearer server-token"; got != want {
+			t.Fatalf("Authorization = %q, want %q", got, want)
+		}
+		if got, want := r.Header.Get("X-Game-ID"), "game-a"; got != want {
+			t.Fatalf("X-Game-ID = %q, want %q", got, want)
+		}
+		if got, want := r.Header.Get("X-Env"), "staging"; got != want {
+			t.Fatalf("X-Env = %q, want %q", got, want)
+		}
+		if got, want := r.Header.Get("Idempotency-Key"), "invoke-1"; got != want {
+			t.Fatalf("Idempotency-Key = %q, want %q", got, want)
+		}
+
+		var body struct {
+			Params map[string]interface{} `json:"params"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if got, want := body.Params["playerId"], "p-1"; got != want {
+			t.Fatalf("params.playerId = %v, want %v", got, want)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"result": map[string]interface{}{"status": "banned"},
+		})
 	}))
 	defer server.Close()
 
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  server.URL,
-		Insecure: true,
+	invoker := NewInvoker(&InvokerConfig{
+		Address:   server.URL,
+		AuthToken: "server-token",
 	})
-
-	// Set schema
-	schema := map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			"name": map[string]interface{}{"type": "string"},
-		},
-		"required": []interface{}{"name"},
-	}
-	_ = invoker.SetSchema("test.function", schema)
-
-	ctx := context.Background()
-	_ = invoker.Connect(ctx)
-
-	t.Run("valid payload", func(t *testing.T) {
-		_, err := invoker.Invoke(ctx, "test.function", `{"name":"test"}`, InvokeOptions{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("invalid payload - missing required field", func(t *testing.T) {
-		_, err := invoker.Invoke(ctx, "test.function", `{}`, InvokeOptions{})
-		if err == nil {
-			t.Error("expected error for invalid payload")
-		}
-	})
-
-	t.Run("invalid payload - wrong type", func(t *testing.T) {
-		_, err := invoker.Invoke(ctx, "test.function", `{"name":123}`, InvokeOptions{})
-		if err == nil {
-			t.Error("expected error for wrong type")
-		}
-	})
-}
-
-func TestHTTPInvoker_StartTask(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    "task completed",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer server.Close()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  server.URL,
-		Insecure: true,
-	})
-
-	ctx := context.Background()
-	_ = invoker.Connect(ctx)
-
-	taskID, err := invoker.StartTask(ctx, "test.function", `{"input":"data"}`, InvokeOptions{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if taskID == "" {
-		t.Error("expected non-empty task ID")
-	}
-}
-
-func TestHTTPInvoker_StreamTask(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  "localhost:18780",
-		Insecure: true,
-	})
-
-	ctx := context.Background()
-
-	_, err := invoker.StreamTask(ctx, "task-123")
-	if err == nil {
-		t.Error("expected error for StreamTask (not supported)")
-	}
-}
-
-func TestHTTPInvoker_CancelTask(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  "localhost:18780",
-		Insecure: true,
-	})
-
-	ctx := context.Background()
-
-	err := invoker.CancelTask(ctx, "task-123")
-	if err == nil {
-		t.Error("expected error for CancelTask (not supported)")
-	}
-}
-
-func TestHTTPInvoker_parseJSONPayload(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(nil).(*httpInvoker)
-
-	t.Run("valid JSON object", func(t *testing.T) {
-		result := invoker.parseJSONPayload(`{"key":"value"}`)
-		obj, ok := result.(map[string]interface{})
-		if !ok {
-			t.Error("expected map[string]interface{}")
-		}
-		if obj["key"] != "value" {
-			t.Errorf("expected value, got %v", obj["key"])
-		}
-	})
-
-	t.Run("valid JSON array", func(t *testing.T) {
-		result := invoker.parseJSONPayload(`[1,2,3]`)
-		arr, ok := result.([]interface{})
-		if !ok {
-			t.Error("expected []interface{}")
-		}
-		if len(arr) != 3 {
-			t.Errorf("expected 3 elements, got %d", len(arr))
-		}
-	})
-
-	t.Run("invalid JSON returns string", func(t *testing.T) {
-		result := invoker.parseJSONPayload(`not json`)
-		str, ok := result.(string)
-		if !ok {
-			t.Error("expected string")
-		}
-		if str != "not json" {
-			t.Errorf("expected 'not json', got %s", str)
-		}
-	})
-}
-
-func TestHTTPInvoker_ValidatePayload(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(nil).(*httpInvoker)
-
-	schema := map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			"name": map[string]interface{}{"type": "string"},
-		},
-		"required": []interface{}{"name"},
-	}
-
-	t.Run("valid payload", func(t *testing.T) {
-		err := invoker.validatePayload("test.function", `{"name":"test"}`, schema)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("invalid JSON payload", func(t *testing.T) {
-		err := invoker.validatePayload("test.function", `not json`, schema)
-		if err == nil {
-			t.Error("expected error for invalid JSON")
-		}
-	})
-
-	t.Run("missing required field", func(t *testing.T) {
-		err := invoker.validatePayload("test.function", `{}`, schema)
-		if err == nil {
-			t.Error("expected error for missing required field")
-		}
-	})
-}
-
-func TestHTTPInvoker_Invoke_WithHeaders(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check for custom headers
-		if r.Header.Get("X-Custom") != "value" {
-			t.Error("expected X-Custom header")
-		}
-		if r.Header.Get("X-Game-ID") != "test-game" {
-			t.Error("expected X-Game-ID header")
-		}
-
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    "ok",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer server.Close()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  server.URL,
-		Insecure: true,
-	})
-
-	ctx := context.Background()
-	_ = invoker.Connect(ctx)
-
-	opts := InvokeOptions{
+	result, err := invoker.Invoke(context.Background(), "player.ban", `{"playerId":"p-1"}`, InvokeOptions{
+		IdempotencyKey: "invoke-1",
 		Headers: map[string]string{
-			"X-Custom":  "value",
-			"X-Game-ID": "test-game",
-		},
-	}
-	_, err := invoker.Invoke(ctx, "test.function", `{}`, opts)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestHTTPInvoker_Invoke_Timeout(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(200 * time.Millisecond)
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    "ok",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer server.Close()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:        server.URL,
-		Insecure:       true,
-		TimeoutSeconds: 1,
-		Retry:          &RetryConfig{Enabled: false},
-	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-
-	_ = invoker.Connect(ctx)
-
-	_, err := invoker.Invoke(ctx, "test.function", `{}`, InvokeOptions{})
-	if err == nil {
-		t.Error("expected timeout error")
-	}
-}
-
-func TestHTTPInvoker_Retry(t *testing.T) {
-	t.Parallel()
-
-	attempt := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempt++
-		if attempt < 3 {
-			// First 2 attempts fail
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		// Third attempt succeeds
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    "ok",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer server.Close()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address: server.URL,
-		Retry: &RetryConfig{
-			Enabled:        true,
-			MaxAttempts:    3,
-			InitialDelayMs: 10,
-			MaxDelayMs:     100,
+			"X-Game-ID": "game-a",
+			"X-Env":     "staging",
 		},
 	})
-
-	ctx := context.Background()
-	_ = invoker.Connect(ctx)
-
-	_, err := invoker.Invoke(ctx, "test.function", `{}`, InvokeOptions{})
 	if err != nil {
-		t.Fatalf("unexpected error after retries: %v", err)
+		t.Fatalf("Invoke() error = %v", err)
 	}
-
-	if attempt != 3 {
-		t.Errorf("expected 3 attempts, got %d", attempt)
-	}
-}
-
-// TestHTTPInvoker_StartTask_Comprehensive covers edge cases for StartTask
-func TestHTTPInvoker_StartTask_Comprehensive(t *testing.T) {
-	t.Parallel()
-
-	t.Run("returns generated task ID on success", func(t *testing.T) {
-		t.Parallel()
-
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			resp := map[string]interface{}{
-				"code":    0,
-				"message": "success",
-				"data":    map[string]interface{}{"status": "started"},
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  server.URL,
-			Insecure: true,
-		})
-
-		ctx := context.Background()
-		_ = invoker.Connect(ctx)
-
-		taskID, err := invoker.StartTask(ctx, "test.async.function", `{"input":"data"}`, InvokeOptions{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// Verify task ID format (should start with "http-task-")
-		if taskID == "" {
-			t.Error("expected non-empty task ID")
-		}
-		if len(taskID) < 10 {
-			t.Errorf("task ID too short: %s", taskID)
-		}
-	})
-
-	t.Run("propagates invoke errors", func(t *testing.T) {
-		t.Parallel()
-
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			resp := map[string]interface{}{
-				"code":    500,
-				"message": "internal server error",
-				"data":    nil,
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:  server.URL,
-			Insecure: true,
-			Retry:    &RetryConfig{Enabled: false},
-		})
-
-		ctx := context.Background()
-		_ = invoker.Connect(ctx)
-
-		_, err := invoker.StartTask(ctx, "test.function", `{}`, InvokeOptions{})
-		if err == nil {
-			t.Error("expected error for failed invocation")
-		}
-	})
-
-	t.Run("handles timeout during StartTask", func(t *testing.T) {
-		t.Parallel()
-
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(200 * time.Millisecond)
-			resp := map[string]interface{}{
-				"code":    0,
-				"message": "success",
-				"data":    nil,
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-
-		invoker := NewHTTPInvoker(&InvokerConfig{
-			Address:        server.URL,
-			Insecure:       true,
-			TimeoutSeconds: 1,
-			Retry:          &RetryConfig{Enabled: false},
-		})
-
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-		defer cancel()
-
-		_ = invoker.Connect(ctx)
-
-		_, err := invoker.StartTask(ctx, "test.function", `{}`, InvokeOptions{})
-		if err == nil {
-			t.Error("expected timeout error")
-		}
-	})
-}
-
-// TestHTTPInvoker_StreamTask_ErrorCases tests error scenarios for StreamTask
-func TestHTTPInvoker_StreamTask_ErrorCases(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  "localhost:18780",
-		Insecure: true,
-	})
-
-	ctx := context.Background()
-
-	t.Run("returns not supported error", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := invoker.StreamTask(ctx, "any-task-id")
-		if err == nil {
-			t.Error("expected error for StreamTask (not supported)")
-		}
-
-		expectedErr := "not supported for HTTP invoker"
-		if err.Error() == "" || !containsString(err.Error(), expectedErr) {
-			t.Errorf("expected error containing %q, got %q", expectedErr, err.Error())
-		}
-	})
-
-	t.Run("error is consistent across different task IDs", func(t *testing.T) {
-		t.Parallel()
-
-		taskIDs := []string{"", "task-123", "http-task-456", "invalid"}
-
-		for _, taskID := range taskIDs {
-			_, err := invoker.StreamTask(ctx, taskID)
-			if err == nil {
-				t.Errorf("expected error for task ID %q", taskID)
-			}
-		}
-	})
-}
-
-// TestHTTPInvoker_CancelTask_ErrorCases tests error scenarios for CancelTask
-func TestHTTPInvoker_CancelTask_ErrorCases(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  "localhost:18780",
-		Insecure: true,
-	})
-
-	ctx := context.Background()
-
-	t.Run("returns not supported error", func(t *testing.T) {
-		t.Parallel()
-
-		err := invoker.CancelTask(ctx, "any-task-id")
-		if err == nil {
-			t.Error("expected error for CancelTask (not supported)")
-		}
-
-		expectedErr := "not supported for HTTP invoker"
-		if err.Error() == "" || !containsString(err.Error(), expectedErr) {
-			t.Errorf("expected error containing %q, got %q", expectedErr, err.Error())
-		}
-	})
-
-	t.Run("error is consistent across different task IDs", func(t *testing.T) {
-		t.Parallel()
-
-		taskIDs := []string{"", "task-123", "http-task-456", "running-task"}
-
-		for _, taskID := range taskIDs {
-			err := invoker.CancelTask(ctx, taskID)
-			if err == nil {
-				t.Errorf("expected error for task ID %q", taskID)
-			}
-		}
-	})
-
-	t.Run("CancelTask when not connected", func(t *testing.T) {
-		t.Parallel()
-
-		invoker2 := NewHTTPInvoker(&InvokerConfig{
-			Address:  "localhost:18780",
-			Insecure: true,
-		})
-		// Don't connect
-
-		err := invoker2.CancelTask(ctx, "task-123")
-		if err == nil {
-			t.Error("expected error when not connected")
-		}
-	})
-}
-
-// TestHTTPInvoker_TaskOperations_NotSupported tests all unsupported task operations
-func TestHTTPInvoker_TaskOperations_NotSupported(t *testing.T) {
-	t.Parallel()
-
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  "localhost:18780",
-		Insecure: true,
-	})
-
-	ctx := context.Background()
-
-	// Test that both StreamTask and CancelTask return consistent errors
-	streamErrChan := make(chan error, 1)
-	cancelErrChan := make(chan error, 1)
-
-	go func() {
-		_, err := invoker.StreamTask(ctx, "test-task")
-		streamErrChan <- err
-	}()
-
-	go func() {
-		err := invoker.CancelTask(ctx, "test-task")
-		cancelErrChan <- err
-	}()
-
-	streamErr := <-streamErrChan
-	cancelErr := <-cancelErrChan
-
-	if streamErr == nil || cancelErr == nil {
-		t.Error("both operations should return errors")
-	}
-
-	// Both should mention "not supported"
-	if !containsString(streamErr.Error(), "not supported") {
-		t.Errorf("StreamTask error should mention 'not supported', got: %v", streamErr)
-	}
-	if !containsString(cancelErr.Error(), "not supported") {
-		t.Errorf("CancelTask error should mention 'not supported', got: %v", cancelErr)
+	if got, want := result, `{"status":"banned"}`; got != want {
+		t.Fatalf("result = %q, want %q", got, want)
 	}
 }
 
-// TestHTTPInvoker_StartTask_UniqueIdGeneration tests task ID uniqueness
-func TestHTTPInvoker_StartTask_UniqueIdGeneration(t *testing.T) {
+func TestHTTPInvoker_DefaultScopeAndExplicitAuthorization(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    nil,
+		if got, want := r.Header.Get("Authorization"), "Bearer explicit-token"; got != want {
+			t.Fatalf("Authorization = %q, want %q", got, want)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		if got, want := r.Header.Get("X-Game-ID"), "default-game"; got != want {
+			t.Fatalf("X-Game-ID = %q, want %q", got, want)
+		}
+		if got, want := r.Header.Get("X-Env"), "production"; got != want {
+			t.Fatalf("X-Env = %q, want %q", got, want)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"result": "ok"})
 	}))
 	defer server.Close()
 
-	invoker := NewHTTPInvoker(&InvokerConfig{
-		Address:  server.URL,
-		Insecure: true,
-	})
-
-	ctx := context.Background()
-	_ = invoker.Connect(ctx)
-
-	// Generate multiple task IDs and verify they are unique
-	taskIDs := make(map[string]bool)
-	for i := 0; i < 10; i++ {
-		taskID, err := invoker.StartTask(ctx, "test.function", `{}`, InvokeOptions{})
-		if err != nil {
-			t.Fatalf("unexpected error on iteration %d: %v", i, err)
-		}
-
-		if taskIDs[taskID] {
-			t.Errorf("duplicate task ID generated: %s", taskID)
-		}
-		taskIDs[taskID] = true
-	}
-
-	if len(taskIDs) != 10 {
-		t.Errorf("expected 10 unique task IDs, got %d", len(taskIDs))
+	impl := NewHTTPInvoker(&InvokerConfig{
+		Address: server.URL, AuthToken: "configured-token", GameID: "default-game", Env: "production",
+	}).(*httpInvoker)
+	_, err := impl.Invoke(context.Background(), "health.check", `{}`, InvokeOptions{Headers: map[string]string{
+		"Authorization": "Bearer explicit-token",
+	}})
+	if err != nil {
+		t.Fatalf("Invoke() error = %v", err)
 	}
 }
 
-// Helper function for string contains check
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-			findInString(s, substr)))
+func TestHTTPInvoker_StartTask_UsesServerIssuedID(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got, want := r.URL.Path, "/api/v1/tasks"; got != want {
+			t.Fatalf("path = %q, want %q", got, want)
+		}
+		var body struct {
+			FunctionID string                 `json:"functionId"`
+			Params     map[string]interface{} `json:"params"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if got, want := body.FunctionID, "report.generate"; got != want {
+			t.Fatalf("functionId = %q, want %q", got, want)
+		}
+		if got, want := body.Params["range"], "daily"; got != want {
+			t.Fatalf("params.range = %v, want %v", got, want)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"taskId": "server-task-42", "status": "dispatching"})
+	}))
+	defer server.Close()
+
+	invoker := NewHTTPInvoker(&InvokerConfig{Address: server.URL})
+	taskID, err := invoker.StartTask(context.Background(), "report.generate", `{"range":"daily"}`, InvokeOptions{})
+	if err != nil {
+		t.Fatalf("StartTask() error = %v", err)
+	}
+	if got, want := taskID, "server-task-42"; got != want {
+		t.Fatalf("taskID = %q, want %q", got, want)
+	}
 }
 
-func findInString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
+func TestHTTPInvoker_StartTask_RejectsMissingServerTaskID(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "dispatching"})
+	}))
+	defer server.Close()
+
+	_, err := NewHTTPInvoker(&InvokerConfig{Address: server.URL}).StartTask(context.Background(), "report.generate", `{}`, InvokeOptions{})
+	if err == nil || !strings.Contains(err.Error(), "taskId") {
+		t.Fatalf("StartTask() error = %v, want missing taskId error", err)
 	}
-	return false
+}
+
+func TestHTTPInvoker_TaskStatusStreamAndCancelUseServerEndpoints(t *testing.T) {
+	t.Parallel()
+
+	var mu sync.Mutex
+	var eventRequests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/tasks/server-task-42":
+			if got, want := r.Header.Get("Authorization"), "Bearer server-token"; got != want {
+				t.Fatalf("Authorization = %q, want %q", got, want)
+			}
+			if got, want := r.Header.Get("X-Game-ID"), "game-a"; got != want {
+				t.Fatalf("X-Game-ID = %q, want %q", got, want)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":         "server-task-42",
+				"functionId": "report.generate",
+				"status":     "running",
+				"progress":   50,
+				"message":    "halfway",
+				"result":     map[string]bool{"partial": true},
+			})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/tasks/server-task-42/events":
+			mu.Lock()
+			eventRequests++
+			requestNumber := eventRequests
+			mu.Unlock()
+			if requestNumber == 1 {
+				if got, want := r.URL.Query().Get("after_seq"), "0"; got != want {
+					t.Fatalf("first after_seq = %q, want %q", got, want)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"items": []map[string]interface{}{{"seq": 1, "type": "progress", "progress": 50, "message": "halfway", "payload": map[string]int{"count": 1}}},
+					"done":  false,
+				})
+				return
+			}
+			if got, want := r.URL.Query().Get("after_seq"), "1"; got != want {
+				t.Fatalf("second after_seq = %q, want %q", got, want)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"items": []map[string]interface{}{{"seq": 2, "type": "completed", "message": "finished", "payload": map[string]bool{"ok": true}}},
+				"done":  true,
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/tasks/server-task-42/cancel":
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": "accepted"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	impl := NewHTTPInvoker(&InvokerConfig{Address: server.URL, AuthToken: "server-token", TaskPollInterval: time.Millisecond}).(*httpInvoker)
+	impl.SetDefaultGameEnv("game-a", "staging")
+	status, err := impl.GetTaskStatus(context.Background(), "server-task-42")
+	if err != nil {
+		t.Fatalf("GetTaskStatus() error = %v", err)
+	}
+	if status.TaskID != "server-task-42" || status.FunctionID != "report.generate" || status.Status != "running" || status.Progress != 50 {
+		t.Fatalf("unexpected task status: %#v", status)
+	}
+	if got, want := status.Result, `{"partial":true}`; got != want {
+		t.Fatalf("task result = %q, want %q", got, want)
+	}
+	events, err := impl.StreamTask(context.Background(), "server-task-42")
+	if err != nil {
+		t.Fatalf("StreamTask() error = %v", err)
+	}
+	var received []TaskEvent
+	for event := range events {
+		received = append(received, event)
+	}
+	if len(received) != 2 {
+		t.Fatalf("received %d task events, want 2: %#v", len(received), received)
+	}
+	if received[0].Payload != `{"count":1}` || received[0].Done {
+		t.Fatalf("unexpected progress event: %#v", received[0])
+	}
+	if received[1].Payload != `{"ok":true}` || !received[1].Done {
+		t.Fatalf("unexpected terminal event: %#v", received[1])
+	}
+	if err := impl.CancelTask(context.Background(), "server-task-42"); err != nil {
+		t.Fatalf("CancelTask() error = %v", err)
+	}
+}
+
+func TestHTTPInvoker_GetTaskStatusRejectsInvalidTaskIDAndServerError(t *testing.T) {
+	t.Parallel()
+
+	impl := NewHTTPInvoker(nil).(*httpInvoker)
+	if _, err := impl.GetTaskStatus(context.Background(), " "); err == nil {
+		t.Fatal("GetTaskStatus() accepted an empty task ID")
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "task not found"})
+	}))
+	defer server.Close()
+
+	_, err := NewHTTPInvoker(&InvokerConfig{Address: server.URL, Retry: &RetryConfig{Enabled: false}}).GetTaskStatus(context.Background(), "missing")
+	if err == nil || !strings.Contains(err.Error(), "task not found") {
+		t.Fatalf("GetTaskStatus() error = %v, want Server error", err)
+	}
+}
+
+func TestHTTPInvoker_ReportsServerErrorsAndRejectsInvalidPayload(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/api/function/") {
+			t.Fatal("Invoker called removed /api/function endpoint")
+		}
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "scope denied"})
+	}))
+	defer server.Close()
+
+	impl := NewHTTPInvoker(&InvokerConfig{Address: server.URL, Retry: &RetryConfig{Enabled: false}}).(*httpInvoker)
+	if _, err := impl.Invoke(context.Background(), "player.ban", `{}`, InvokeOptions{}); err == nil || !strings.Contains(err.Error(), "scope denied") {
+		t.Fatalf("Invoke() error = %v, want Server error", err)
+	}
+	if err := impl.SetSchema("player.ban", map[string]interface{}{
+		"type": "object", "required": []string{"playerId"},
+	}); err != nil {
+		t.Fatalf("SetSchema() error = %v", err)
+	}
+	if _, err := impl.Invoke(context.Background(), "player.ban", `{}`, InvokeOptions{}); err == nil || !strings.Contains(err.Error(), "payload validation") {
+		t.Fatalf("Invoke() error = %v, want local schema validation error", err)
+	}
+}
+
+func TestHTTPInvoker_ConnectAndClose(t *testing.T) {
+	t.Parallel()
+
+	impl := NewHTTPInvoker(nil).(*httpInvoker)
+	if impl.IsConnected() {
+		t.Fatal("new HTTP invoker is unexpectedly connected")
+	}
+	if err := impl.Connect(context.Background()); err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	if !impl.IsConnected() {
+		t.Fatal("HTTP invoker is not connected after Connect")
+	}
+	if err := impl.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if impl.IsConnected() {
+		t.Fatal("HTTP invoker remains connected after Close")
+	}
+
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := impl.Connect(cancelled); err == nil {
+		t.Fatal("Connect() unexpectedly accepted a cancelled context")
+	}
 }

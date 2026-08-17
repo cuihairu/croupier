@@ -57,7 +57,7 @@ func main() {
 	for _, desc := range descs {
 		desc := desc
 		if err := client.RegisterFunction(desc, func(ctx context.Context, payload []byte) ([]byte, error) {
-			return handleInvoke(*reportURL, desc.ID, payload)
+			return handleInvoke(ctx, *reportURL, desc.ID, payload)
 		}); err != nil {
 			fmt.Fprintf(os.Stderr, "register %s failed: %v\n", desc.ID, err)
 			os.Exit(1)
@@ -81,8 +81,10 @@ func main() {
 }
 
 // handleInvoke produces deterministic structured results and reports the
-// invocation to the fixture control API when configured.
-func handleInvoke(reportURL, functionID string, payload []byte) ([]byte, error) {
+// invocation to the fixture control API when configured. mail.wait is a
+// cancellation canary: it blocks only until its invocation context is
+// cancelled, so the real Agent -> SDK cancellation path is exercised.
+func handleInvoke(ctx context.Context, reportURL, functionID string, payload []byte) ([]byte, error) {
 	if reportURL != "" {
 		report := map[string]interface{}{
 			"functionId": functionID,
@@ -112,6 +114,23 @@ func handleInvoke(reportURL, functionID string, payload []byte) ([]byte, error) 
 			"mail_id": "mail-0001",
 			"title":   req.Title,
 		})
+	case "mail.wait":
+		var req struct {
+			WaitMS int `json:"wait_ms"`
+		}
+		_ = json.Unmarshal(payload, &req)
+		wait := time.Duration(req.WaitMS) * time.Millisecond
+		if wait <= 0 {
+			wait = 30 * time.Second
+		}
+		timer := time.NewTimer(wait)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-timer.C:
+			return json.Marshal(map[string]interface{}{"success": true, "waited_ms": req.WaitMS})
+		}
 	default:
 		return json.Marshal(map[string]interface{}{"success": true})
 	}

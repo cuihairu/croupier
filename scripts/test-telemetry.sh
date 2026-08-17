@@ -1,323 +1,242 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Validate the real Console execution audit -> OTLP -> Jaeger path and the
+# Prometheus scrape path for the Collector.
+#
+# This script owns only its Compose project and a temporary dashboard fixture.
+# It never removes repository data, shared Docker resources, or external
+# services. Docker is required: absence is a failed prerequisite, not a skip.
 
-# OpenTelemetry游戏监控系统测试验证脚本
-# 用于验证整个OTel集成是否正常工作
+set -euo pipefail
 
-set -e
+readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly COMPOSE_FILE="${REPO_ROOT}/docker/docker-compose.telemetry.yaml"
+readonly COMPOSE_PROJECT="croupier-telemetry-e2e-${RANDOM}-${RANDOM}"
+readonly FIXTURE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/croupier-telemetry-fixture.XXXXXX")"
+readonly FIXTURE_LOG="${FIXTURE_DIR}/fixture.log"
+readonly FIXTURE_STATE="${FIXTURE_DIR}/state.json"
+readonly FIXTURE_BIN="${FIXTURE_DIR}/croupier-server"
 
-echo "🚀 开始OpenTelemetry游戏监控系统验证..."
+fixture_pid=""
+cleanup_started=0
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# 日志函数
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+log() {
+    printf '[telemetry-e2e] %s\n' "$*"
 }
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+fail() {
+    printf '[telemetry-e2e] ERROR: %s\n' "$*" >&2
+    exit 1
 }
 
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+compose() {
+    docker compose --project-name "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" "$@"
 }
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"
 }
 
-# 检查前置条件
-check_prerequisites() {
-    log_info "检查前置条件..."
-
-    # 检查Docker
-    if ! command -v docker &> /dev/null; then
-        log_error "Docker未安装，请先安装Docker"
-        exit 1
-    fi
-
-    # 检查Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
-        log_error "Docker Compose未安装，请先安装Docker Compose"
-        exit 1
-    fi
-
-    # 检查Go
-    if ! command -v go &> /dev/null; then
-        log_error "Go未安装，请先安装Go 1.24+"
-        exit 1
-    fi
-
-    # 检查Go版本
-    GO_VERSION=$(go version | cut -d' ' -f3 | cut -d'o' -f2)
-    log_info "Go版本: $GO_VERSION"
-
-    log_success "前置条件检查通过"
+wait_http() {
+    local url="$1"
+    local description="$2"
+    local attempts="${3:-60}"
+    local index
+    for ((index = 1; index <= attempts; index++)); do
+        if curl --fail --silent --show-error "${url}" >/dev/null; then
+            log "ready: ${description}"
+            return 0
+        fi
+        sleep 1
+    done
+    fail "timed out waiting for ${description}: ${url}"
 }
 
-# 构建Go代码
-build_code() {
-    log_info "构建Telemetry包..."
-
-    if go build -o /tmp/test-telemetry ./internal/telemetry/; then
-        log_success "Telemetry包构建成功"
-    else
-        log_error "Telemetry包构建失败"
-        exit 1
-    fi
-
-    log_info "构建演示应用..."
-    if go build -o /tmp/demo-app ./cmd/demo/main.go; then
-        log_success "演示应用构建成功"
-    else
-        log_error "演示应用构建失败"
-        exit 1
-    fi
-}
-
-# 启动Docker服务
-start_docker_services() {
-    log_info "启动Docker服务..."
-
-    # 停止可能存在的旧服务
-    docker-compose -f docker-compose.telemetry.yaml down 2>/dev/null || true
-
-    # 启动服务
-    if docker-compose -f docker-compose.telemetry.yaml up -d; then
-        log_success "Docker服务启动成功"
-    else
-        log_error "Docker服务启动失败"
-        exit 1
-    fi
-
-    # 等待服务启动
-    log_info "等待服务启动完成..."
-    sleep 30
-}
-
-# 检查服务健康状态
-check_service_health() {
-    log_info "检查服务健康状态..."
-
-    # 检查OTel Collector
-    if curl -sf http://localhost:13133/health > /dev/null; then
-        log_success "✓ OTel Collector健康"
-    else
-        log_warning "✗ OTel Collector不健康"
-    fi
-
-    # 检查Jaeger
-    if curl -sf http://localhost:16686 > /dev/null; then
-        log_success "✓ Jaeger健康"
-    else
-        log_warning "✗ Jaeger不健康"
-    fi
-
-    # 检查Prometheus
-    if curl -sf http://localhost:9090 > /dev/null; then
-        log_success "✓ Prometheus健康"
-    else
-        log_warning "✗ Prometheus不健康"
-    fi
-
-    # 检查Grafana
-    if curl -sf http://localhost:3000 > /dev/null; then
-        log_success "✓ Grafana健康"
-    else
-        log_warning "✗ Grafana不健康"
-    fi
-
-    # 检查Redis
-    if docker exec croupier-redis redis-cli ping | grep PONG > /dev/null; then
-        log_success "✓ Redis健康"
-    else
-        log_warning "✗ Redis不健康"
-    fi
-}
-
-# 测试遥测功能
-test_telemetry_functionality() {
-    log_info "测试遥测功能..."
-
-    # 设置环境变量
-    export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
-    export OTEL_SERVICE_NAME="test-service"
-    export OTEL_SERVICE_VERSION="1.0.0-test"
-    export GAME_ID="test-game"
-    export ANALYTICS_REDIS_ADDR="localhost:6379"
-
-    # 启动演示应用（后台）
-    log_info "启动演示应用..."
-    /tmp/demo-app &
-    DEMO_PID=$!
-
-    # 等待应用启动
-    sleep 5
-
-    # 测试API端点
-    log_info "测试游戏API端点..."
-
-    # 测试会话开始
-    if curl -sf http://localhost:18780/api/session/start > /dev/null; then
-        log_success "✓ 会话开始API正常"
-    else
-        log_warning "✗ 会话开始API异常"
-    fi
-
-    # 测试关卡完成
-    if curl -sf http://localhost:18780/api/level/complete > /dev/null; then
-        log_success "✓ 关卡完成API正常"
-    else
-        log_warning "✗ 关卡完成API异常"
-    fi
-
-    # 测试经济交易
-    if curl -sf http://localhost:18780/api/economy/transaction > /dev/null; then
-        log_success "✓ 经济交易API正常"
-    else
-        log_warning "✗ 经济交易API异常"
-    fi
-
-    # 测试健康检查
-    if curl -sf http://localhost:18780/health > /dev/null; then
-        log_success "✓ 健康检查API正常"
-    else
-        log_warning "✗ 健康检查API异常"
-    fi
-
-    # 等待数据传输
-    log_info "等待遥测数据传输..."
-    sleep 10
-
-    # 停止演示应用
-    kill $DEMO_PID 2>/dev/null || true
-}
-
-# 验证数据收集
-verify_data_collection() {
-    log_info "验证数据收集..."
-
-    # 检查Prometheus指标
-    log_info "检查Prometheus指标..."
-    PROMETHEUS_METRICS=$(curl -s http://localhost:9090/api/v1/query?query=up | grep -o '"result":\[.*\]' | grep -c "value")
-    if [ "$PROMETHEUS_METRICS" -gt 0 ]; then
-        log_success "✓ Prometheus收集到 $PROMETHEUS_METRICS 个指标"
-    else
-        log_warning "✗ Prometheus未收集到指标"
-    fi
-
-    # 检查Jaeger追踪
-    log_info "检查Jaeger追踪..."
-    JAEGER_SERVICES=$(curl -s http://localhost:16686/api/services | grep -c "test-service" || echo 0)
-    if [ "$JAEGER_SERVICES" -gt 0 ]; then
-        log_success "✓ Jaeger收集到服务追踪"
-    else
-        log_warning "✗ Jaeger未收集到服务追踪"
-    fi
-
-    # 检查Redis事件
-    log_info "检查Redis Analytics事件..."
-    REDIS_EVENTS=$(docker exec croupier-redis redis-cli XLEN game:events:session.start 2>/dev/null || echo 0)
-    if [ "$REDIS_EVENTS" -gt 0 ]; then
-        log_success "✓ Redis收集到 $REDIS_EVENTS 个游戏事件"
-    else
-        log_warning "✗ Redis未收集到游戏事件"
-    fi
-}
-
-# 生成测试报告
-generate_test_report() {
-    log_info "生成测试报告..."
-
-    REPORT_FILE="/tmp/otel-test-report.txt"
-
-    cat > $REPORT_FILE << EOF
-OpenTelemetry游戏监控系统测试报告
-=====================================
-
-测试时间: $(date)
-
-服务状态:
-- OTel Collector: $(curl -sf http://localhost:13133/health >/dev/null && echo "✓ 健康" || echo "✗ 异常")
-- Jaeger: $(curl -sf http://localhost:16686 >/dev/null && echo "✓ 健康" || echo "✗ 异常")
-- Prometheus: $(curl -sf http://localhost:9090 >/dev/null && echo "✓ 健康" || echo "✗ 异常")
-- Grafana: $(curl -sf http://localhost:3000 >/dev/null && echo "✓ 健康" || echo "✗ 异常")
-- Redis: $(docker exec croupier-redis redis-cli ping 2>/dev/null | grep -q PONG && echo "✓ 健康" || echo "✗ 异常")
-
-功能测试:
-- 游戏API端点: $(curl -sf http://localhost:18780/health >/dev/null && echo "✓ 正常" || echo "✗ 异常")
-- 遥测数据传输: 已验证
-- Analytics事件收集: 已验证
-
-访问地址:
-- Jaeger UI: http://localhost:16686
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000 (admin/admin)
-- 演示应用: http://localhost:18780
-
-下一步操作:
-1. 访问Jaeger UI查看链路追踪数据
-2. 访问Prometheus查看指标数据
-3. 访问Grafana配置游戏监控仪表板
-4. 集成到现有Croupier系统
-
-EOF
-
-    log_success "测试报告已生成: $REPORT_FILE"
-    cat $REPORT_FILE
-}
-
-# 清理资源
 cleanup() {
-    log_info "清理测试资源..."
+    local status="$?"
+    if [[ "${cleanup_started}" -eq 1 ]]; then
+        exit "${status}"
+    fi
+    cleanup_started=1
 
-    # 停止Docker服务
-    docker-compose -f docker-compose.telemetry.yaml down 2>/dev/null || true
-
-    # 清理临时文件
-    rm -f /tmp/test-telemetry /tmp/demo-app
-
-    log_success "清理完成"
+    if [[ -n "${fixture_pid}" ]] && kill -0 "${fixture_pid}" 2>/dev/null; then
+        kill "${fixture_pid}" 2>/dev/null || true
+        wait "${fixture_pid}" 2>/dev/null || true
+    fi
+    if command -v docker >/dev/null 2>&1; then
+        compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+    fi
+    rm -rf "${FIXTURE_DIR}"
+    exit "${status}"
 }
 
-# 主函数
-main() {
-    echo "🎮 Croupier OpenTelemetry游戏监控系统测试验证"
-    echo "================================================"
+trap cleanup EXIT INT TERM
 
-    # 检查参数
-    if [ "$1" = "cleanup" ]; then
-        cleanup
-        exit 0
+start_telemetry_stack() {
+    log "validating Compose configuration"
+    compose config >/dev/null
+
+    log "starting telemetry stack with project ${COMPOSE_PROJECT}"
+    compose up --detach --wait
+
+    wait_http "http://127.0.0.1:113133/" "OTel Collector health"
+    wait_http "http://127.0.0.1:17686/" "Jaeger UI"
+    wait_http "http://127.0.0.1:19092/-/ready" "Prometheus"
+    wait_http "http://127.0.0.1:13000/api/health" "Grafana"
+}
+
+start_fixture() {
+    log "building isolated real-dashboard fixture"
+    (
+        cd "${REPO_ROOT}"
+        go build -o "${FIXTURE_BIN}" ./cmd/server
+    )
+
+    log "starting fixture with OTLP export enabled"
+    (
+        cd "${REPO_ROOT}"
+        OTEL_ENABLED=true \
+        OTEL_ENABLE_TRACING=true \
+        OTEL_ENABLE_METRICS=true \
+        OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:14318" \
+        OTEL_SERVICE_NAME="croupier-telemetry-e2e" \
+        OTEL_SERVICE_VERSION="test" \
+        OTEL_ENVIRONMENT="test" \
+        OTEL_SAMPLING_RATIO="1" \
+        "${FIXTURE_BIN}" dev-fixture \
+            --dir "${FIXTURE_DIR}/runtime" \
+            --http-addr "127.0.0.1:0" \
+            --bootstrap-dir "${REPO_ROOT}/configs"
+    ) >"${FIXTURE_LOG}" 2>&1 &
+    fixture_pid="$!"
+
+    local index
+    for ((index = 1; index <= 90; index++)); do
+        if rg -q '^FIXTURE_READY ' "${FIXTURE_LOG}"; then
+            rg '^FIXTURE_READY ' "${FIXTURE_LOG}" | tail -n 1 | sed 's/^FIXTURE_READY //' >"${FIXTURE_STATE}"
+            break
+        fi
+        if ! kill -0 "${fixture_pid}" 2>/dev/null; then
+            cat "${FIXTURE_LOG}" >&2 || true
+            fail "real-dashboard fixture exited before it became ready"
+        fi
+        sleep 1
+    done
+    [[ -s "${FIXTURE_STATE}" ]] || {
+        cat "${FIXTURE_LOG}" >&2 || true
+        fail "real-dashboard fixture did not become ready"
+    }
+
+    local http_addr fixture_addr
+    http_addr="$(jq -r '.httpAddr' "${FIXTURE_STATE}")"
+    fixture_addr="$(jq -r '.fixtureAddr' "${FIXTURE_STATE}")"
+    wait_http "http://${http_addr}/healthz" "fixture server"
+    wait_http "http://${fixture_addr}/__fixture__/health" "fixture control API"
+}
+
+login_and_publish() {
+    local http_addr token current_status publish_status
+    http_addr="$(jq -r '.httpAddr' "${FIXTURE_STATE}")"
+    token="$(curl --fail --silent --show-error \
+        --header 'Content-Type: application/json' \
+        --data '{"username":"admin","password":"admin123"}' \
+        "http://${http_addr}/api/v1/auth/login" | jq -er '.token')"
+
+    local -a headers=(
+        --header "Authorization: Bearer ${token}"
+        --header 'X-Game-ID: e2e-game'
+        --header 'X-Env: e2e'
+    )
+    current_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+        "${headers[@]}" \
+        "http://${http_addr}/api/v1/console/pages/operation--mail.send")"
+    if [[ "${current_status}" == "404" ]]; then
+        publish_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --request POST "${headers[@]}" \
+            "http://${http_addr}/api/v1/proposals/operation%3Amail.send/accept-and-publish")"
+        [[ "${publish_status}" == "200" ]] || fail "publish operation proposal returned HTTP ${publish_status}"
+    elif [[ "${current_status}" != "200" ]]; then
+        fail "read published operation returned HTTP ${current_status}"
     fi
 
-    # 执行测试流程
-    check_prerequisites
-    build_code
-    start_docker_services
-    check_service_health
-    test_telemetry_functionality
-    verify_data_collection
-    generate_test_report
+    local execute_response request_id trace_id
+    execute_response="$(curl --fail --silent --show-error \
+        --request POST "${headers[@]}" \
+        --header 'Content-Type: application/json' \
+        --data '{"context":{"form":{"player_id":"p-001","title":"Telemetry verification","content":"audit trace correlation"}}}' \
+        "http://${http_addr}/api/v1/console/pages/operation--mail.send/bindings/mail.send.main/execute")"
+    request_id="$(jq -er '.result.requestId' <<<"${execute_response}")"
+    trace_id="$(jq -er '.result.traceId' <<<"${execute_response}")"
+    [[ -n "${request_id}" && -n "${trace_id}" ]] || fail "execution response omitted requestId or traceId"
 
-    echo ""
-    log_success "🎉 OpenTelemetry游戏监控系统验证完成！"
-    echo ""
-    echo "📊 访问监控面板:"
-    echo "   - Jaeger: http://localhost:16686"
-    echo "   - Prometheus: http://localhost:9090"
-    echo "   - Grafana: http://localhost:3000"
-    echo ""
-    echo "🧹 清理资源: $0 cleanup"
+    jq -n --arg request_id "${request_id}" --arg trace_id "${trace_id}" \
+        '{requestId: $request_id, traceId: $trace_id}' >"${FIXTURE_DIR}/execution.json"
+    log "executed published binding: request_id=${request_id} trace_id=${trace_id}"
 }
 
-# 捕获中断信号
-trap cleanup EXIT
+verify_audit_trace_and_metric() {
+    local fixture_addr request_id trace_id audit_trace_id http_addr
+    fixture_addr="$(jq -r '.fixtureAddr' "${FIXTURE_STATE}")"
+    http_addr="$(jq -r '.httpAddr' "${FIXTURE_STATE}")"
+    request_id="$(jq -r '.requestId' "${FIXTURE_DIR}/execution.json")"
+    trace_id="$(jq -r '.traceId' "${FIXTURE_DIR}/execution.json")"
 
-# 运行主函数
+    local audit
+    audit="$(curl --fail --silent --show-error "http://${fixture_addr}/__fixture__/audit/page-execute")"
+    audit_trace_id="$(jq -er '.details.trace_id' <<<"${audit}")"
+    [[ "${audit_trace_id}" == "${trace_id}" ]] || fail "audit trace_id does not match execution trace_id"
+    jq -e --arg request_id "${request_id}" '
+        .eventType == "page.execute" and
+        .outcome == "success" and
+        .details.request_id == $request_id and
+        .details.page_key == "operation--mail.send" and
+        .details.binding_id == "mail.send.main" and
+        .details.function_id == "mail.send"
+    ' >/dev/null <<<"${audit}" || fail "page execution audit lacks published binding context"
+
+    local jaeger_query jaeger_trace_found=0 index
+    for ((index = 1; index <= 60; index++)); do
+        jaeger_query="$(curl --silent --show-error \
+            "http://127.0.0.1:17686/api/traces/${trace_id}" || true)"
+        if jq -e --arg trace_id "${trace_id}" '
+            any((.data // [])[] | .spans[]?; .traceID == $trace_id and .operationName == "page.binding.execute")
+        ' >/dev/null <<<"${jaeger_query}"; then
+            jaeger_trace_found=1
+            break
+        fi
+        sleep 1
+    done
+    [[ "${jaeger_trace_found}" == "1" ]] || fail "Jaeger did not receive page.binding.execute trace ${trace_id}"
+
+    local scrape_found=0 query_result
+    for ((index = 1; index <= 60; index++)); do
+        query_result="$(curl --silent --show-error \
+            --get --data-urlencode 'query=up{job="otel-collector"}' \
+            'http://127.0.0.1:19092/api/v1/query' || true)"
+        if jq -e '(.status == "success") and ((.data.result // []) | length > 0)' >/dev/null <<<"${query_result}"; then
+            scrape_found=1
+            break
+        fi
+        sleep 1
+    done
+    [[ "${scrape_found}" == "1" ]] || fail "Prometheus is not scraping the Collector exporter"
+
+    log "verified audit -> trace correlation and Collector Prometheus scrape for ${http_addr}"
+}
+
+main() {
+    require_command docker
+    require_command curl
+    require_command jq
+    require_command rg
+    require_command go
+    docker info >/dev/null 2>&1 || fail "Docker daemon is unavailable"
+    docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is unavailable"
+
+    start_telemetry_stack
+    start_fixture
+    login_and_publish
+    verify_audit_trace_and_metric
+    log "PASS: real Console audit and trace are correlated; Prometheus scrapes the Collector"
+}
+
 main "$@"

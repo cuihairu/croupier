@@ -41,6 +41,11 @@ describe("Invoker construction", () => {
     const inv = new Invoker({ baseUrl: "https://h:18780/api/v1///" });
     expect((inv as any).config.baseUrl).toBe("https://h:18780/api/v1");
   });
+
+  it("normalizes Server root and rejects legacy TCP addresses", () => {
+    expect((new Invoker({ baseUrl: "server.example:18780" }) as any).config.baseUrl).toBe("http://server.example:18780/api/v1");
+    expect(() => new Invoker({ baseUrl: "tcp://127.0.0.1:19090" })).toThrow("HTTP(S)");
+  });
 });
 
 describe("Invoker.invoke", () => {
@@ -52,7 +57,7 @@ describe("Invoker.invoke", () => {
         body: init?.body as string,
         headers: (init?.headers as Record<string, string>) || {},
       };
-      return jsonResponse({ ok: true, value: 42 });
+      return jsonResponse({ result: { ok: true, value: 42 } });
     });
 
     const inv = createInvoker({
@@ -67,14 +72,14 @@ describe("Invoker.invoke", () => {
     expect(captured!.headers.Authorization).toBe("Bearer tok");
     expect(captured!.headers["X-Game-ID"]).toBe("demo");
     expect(captured!.headers["X-Env"]).toBe("prod");
-    expect(JSON.parse(captured!.body)).toEqual({ userId: 1 });
+    expect(JSON.parse(captured!.body)).toEqual({ params: { userId: 1 } });
   });
 
   it("attaches Idempotency-Key when provided", async () => {
     let headers: Record<string, string> = {};
     mockFetch(async (_url, init) => {
       headers = (init?.headers as Record<string, string>) || {};
-      return jsonResponse({});
+      return jsonResponse({ result: {} });
     });
     const inv = new Invoker({ baseUrl: "https://h/api/v1" });
     await inv.invoke("f", {}, { idempotencyKey: "k-1" });
@@ -106,8 +111,6 @@ describe("Invoker.startTask", () => {
     expect(JSON.parse(body!)).toEqual({
       functionId: "player.kick",
       params: { reason: "afk" },
-      gameId: "g",
-      env: "e",
     });
   });
 
@@ -115,6 +118,22 @@ describe("Invoker.startTask", () => {
     mockFetch(async () => jsonResponse({ status: "dispatching" }));
     const inv = new Invoker({ baseUrl: "https://h/api/v1" });
     await expect(inv.startTask("f")).rejects.toMatchObject({ status: 502 });
+  });
+});
+
+describe("Invoker.getTaskStatus", () => {
+  it("gets Server task status with configured scope", async () => {
+    let captured = "";
+    mockFetch(async (url, init) => {
+      captured = url;
+      expect((init?.headers as Record<string, string>)["X-Game-ID"]).toBe("game-a");
+      expect((init?.headers as Record<string, string>)["X-Env"]).toBe("staging");
+      return jsonResponse({ id: "task-1", status: "running", progress: 50 });
+    });
+    const inv = new Invoker({ baseUrl: "https://h", gameId: "game-a", env: "staging" });
+    const task = await inv.getTaskStatus("task-1");
+    expect(captured).toBe("https://h/api/v1/tasks/task-1");
+    expect(task.status).toBe("running");
   });
 });
 
@@ -127,7 +146,7 @@ describe("Invoker.streamTask", () => {
     ];
     let call = 0;
     mockFetch(async (url) => {
-      expect(url).toContain("/tasks/t-1/events");
+      expect(url).toContain("/tasks/t-1/events?after_seq=");
       const batch = eventBatches[Math.min(call, eventBatches.length - 1)];
       call += 1;
       return jsonResponse(batch);

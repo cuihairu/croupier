@@ -19,7 +19,7 @@ import { EventEmitter } from "events";
 
 /** Configuration for the L3 Invoker. Independent from the Provider Client. */
 export interface InvokerConfig {
-  /** Base URL of the Croupier server REST API, e.g. https://host:18780/api/v1 */
+  /** Server API URL, Server root URL, or host:port; normalized to /api/v1. */
   baseUrl: string;
   /** JWT bearer token (Authorization: Bearer <token>). */
   token?: string;
@@ -48,6 +48,26 @@ export interface TaskEvent {
   message?: string;
   payload?: unknown;
   createdAt?: string;
+}
+
+/** Server-persisted task state returned by GET /tasks/:id. */
+export interface TaskStatus {
+  id: string;
+  functionId?: string;
+  status?: string;
+  progress?: number;
+  message?: string;
+  result?: unknown;
+  error?: string;
+  gameId?: string;
+  env?: string;
+  agentId?: string;
+  actor?: string;
+  traceId?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Result of a synchronous invoke. */
@@ -120,11 +140,23 @@ export class Invoker {
     if (!config || !config.baseUrl) {
       throw new Error("Invoker requires a baseUrl");
     }
+    const rawBaseUrl = config.baseUrl.trim();
+    if (/^tcp:\/\//i.test(rawBaseUrl)) {
+      throw new Error("Invoker baseUrl must be an HTTP(S) Server address");
+    }
+    const withScheme = rawBaseUrl.includes("://") ? rawBaseUrl : `http://${rawBaseUrl}`;
+    const parsed = new URL(withScheme);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Invoker baseUrl must be an HTTP(S) Server address");
+    }
+    const path = parsed.pathname.replace(/\/+$/, "");
+    parsed.pathname = path.endsWith("/api/v1") ? path : `${path || ""}/api/v1`;
+    parsed.search = "";
+    parsed.hash = "";
     this.config = {
       timeout: DEFAULT_TIMEOUT,
       ...config,
-      // strip trailing slash for clean URL composition
-      baseUrl: config.baseUrl.replace(/\/+$/, ""),
+      baseUrl: parsed.toString().replace(/\/$/, ""),
     };
   }
 
@@ -144,12 +176,15 @@ export class Invoker {
       const res = await fetch(`${this.config.baseUrl}/functions/${encodeURIComponent(functionId)}/invoke`, {
         method: "POST",
         headers: buildHeaders(this.config, options, options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined),
-        body: JSON.stringify(payload ?? {}),
+        body: JSON.stringify({ params: payload ?? {} }),
         signal,
       });
       if (!res.ok) throw await parseError(res);
-      const data = await res.json();
-      return { payload: data };
+      const data: unknown = await res.json();
+      if (!data || typeof data !== "object" || !("result" in data)) {
+        throw new InvokerError("server did not return a result", 502, "no_result", data);
+      }
+      return { payload: (data as { result: unknown }).result };
     } finally {
       cancel();
     }
@@ -172,8 +207,6 @@ export class Invoker {
         functionId,
         params: payload ?? {},
       };
-      if (this.config.gameId) body.gameId = this.config.gameId;
-      if (this.config.env) body.env = this.config.env;
       const res = await fetch(`${this.config.baseUrl}/tasks`, {
         method: "POST",
         headers: buildHeaders(this.config, options, options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined),
@@ -185,6 +218,29 @@ export class Invoker {
       const taskId = data?.taskId;
       if (!taskId) throw new InvokerError("server did not return a taskId", 502, "no_task_id", data);
       return taskId as string;
+    } finally {
+      cancel();
+    }
+  }
+
+  /** Get the current Server-persisted task state. GET /tasks/:id */
+  async getTaskStatus(taskId: string, options?: InvokeTaskOptions): Promise<TaskStatus> {
+    if (!taskId) throw new Error("getTaskStatus requires a taskId");
+    const timeout = options?.timeout ?? this.config.timeout ?? DEFAULT_TIMEOUT;
+    const { signal, cancel } = withTimeout(timeout);
+    try {
+      const res = await fetch(`${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}`, {
+        method: "GET",
+        headers: buildHeaders(this.config, options),
+        signal,
+      });
+      if (!res.ok) throw await parseError(res);
+      const data: unknown = await res.json();
+      if (!data || typeof data !== "object") {
+        throw new InvokerError("server task status response must be an object", 502, "invalid_task_status", data);
+      }
+      const status = data as Omit<TaskStatus, "id"> & { id?: unknown };
+      return { ...status, id: typeof status.id === "string" && status.id ? status.id : taskId };
     } finally {
       cancel();
     }
@@ -204,7 +260,7 @@ export class Invoker {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const url = new URL(`${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}/events`);
-      url.searchParams.set("afterSeq", String(afterSeq));
+      url.searchParams.set("after_seq", String(afterSeq));
       const { signal, cancel } = withTimeout(timeout);
       let res: Response;
       try {

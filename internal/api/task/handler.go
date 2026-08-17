@@ -1,6 +1,8 @@
 package task
 
 import (
+	"strconv"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -64,6 +66,16 @@ func (h *Handler) Events(c *gin.Context) {
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, err)
 		return
+	}
+	// L3 SDKs use snake_case query names to match the public Server HTTP
+	// contract. Keep camelCase compatibility for existing console callers.
+	if raw, ok := c.GetQuery("after_seq"); ok {
+		afterSeq, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || afterSeq < 0 {
+			response.BadRequest(c, "after_seq 必须是非负整数")
+			return
+		}
+		req.AfterSeq = afterSeq
 	}
 	resp, err := h.service.Events(c.Request.Context(), &req)
 	if err != nil {

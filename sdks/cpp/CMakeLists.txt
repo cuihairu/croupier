@@ -111,6 +111,7 @@ message(STATUS "Building with TCP transport (gRPC removed)")
 
 # ========== Dependencies ==========
 find_package(Threads REQUIRED)
+find_package(CURL REQUIRED)
 
 # TCP transport is enabled by default (gRPC removed)
 set(tcp_ENABLED ON)
@@ -122,15 +123,11 @@ if(NOT Protobuf_FOUND)
 endif()
 message(STATUS "Found protobuf: ${Protobuf_VERSION}")
 
-# JSON library for better JSON support (via vcpkg)
-find_package(nlohmann_json CONFIG)
-if(nlohmann_json_FOUND)
-    message(STATUS "Found nlohmann_json: ${nlohmann_json_VERSION}")
-    set(JSON_LIBRARY nlohmann_json::nlohmann_json)
-else()
-    message(STATUS "nlohmann_json not found, using built-in JSON utilities")
-    set(JSON_LIBRARY "")
-endif()
+# The Server HTTP invoker sends and receives structured JSON; a placeholder
+# parser would be unsafe because it could fabricate a successful L3 result.
+find_package(nlohmann_json CONFIG REQUIRED)
+message(STATUS "Found nlohmann_json: ${nlohmann_json_VERSION}")
+set(JSON_LIBRARY nlohmann_json::nlohmann_json)
 
 # In current HTTP/JSON mode we do not regenerate proto sources in CI, so fall
 # back to the checked-in generated invocation bindings when they were not
@@ -291,6 +288,7 @@ endif()
 # SDK source and header files
 set(SDK_SOURCES
     src/croupier_client.cpp
+    src/http_transport.cpp
     src/tcp_transport.cpp
     src/utils/json_utils.cpp
     src/utils/file_utils.cpp
@@ -300,6 +298,7 @@ set(SDK_SOURCES
 
 set(SDK_HEADERS
     include/croupier/sdk/croupier_client.h
+    include/croupier/sdk/http_transport.h
     include/croupier/sdk/logger.h
     include/croupier/sdk/tcp_transport.h
     include/croupier/sdk/protocol.h
@@ -385,6 +384,7 @@ if(BUILD_SHARED_LIBS)
     target_link_libraries(croupier-sdk-shared
         PRIVATE
             Threads::Threads
+            CURL::libcurl
     )
 
     if(tcp_ENABLED)
@@ -476,6 +476,7 @@ if(BUILD_STATIC_LIBS)
     target_link_libraries(croupier-sdk-static
         PUBLIC
             Threads::Threads
+            CURL::libcurl
     )
 
     if(tcp_ENABLED)
@@ -677,18 +678,13 @@ if(BUILD_TESTS)
             tests/test_client_connection.cpp
             tests/test_client_lifecycle.cpp
             tests/test_invoker_fallback.cpp
+            tests/test_invoker.cpp
             tests/test_plugin_registry.cpp
             tests/test_tcp_transport_errors.cpp
             tests/test_plugin_manager.cpp
             tests/test_protocol.cpp
             tests/test_logger.cpp
         )
-
-        if(tcp_ENABLED)
-            list(APPEND CROUPIER_TEST_SOURCES
-                tests/test_invoker.cpp
-            )
-        endif()
 
         add_executable(croupier-sdk-tests
             ${CROUPIER_TEST_SOURCES}

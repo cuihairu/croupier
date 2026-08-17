@@ -126,22 +126,20 @@ test.describe('独立操作', () => {
     await expectFormVisible(page);
 
     // 填写表单
-    const toInput = page.locator('input[name="to"], input[id*="to"]').first();
+    const toInput = page.getByLabel(/^收件人|收件/i).first();
     await expect(toInput).toBeVisible();
     await toInput.fill('test@example.com');
 
-    const contentInput = page.locator('textarea[name="content"], textarea[id*="content"]').first();
+    const contentInput = page.getByLabel(/内容|正文/i).first();
     await expect(contentInput).toBeVisible();
     await contentInput.fill('测试邮件内容');
 
     // 点击执行按钮
-    const submitBtn = page
-      .locator('button:has-text("发送"), button:has-text("执行"), button:has-text("提交")')
-      .first();
+    const submitBtn = page.getByRole('button', { name: /发\s*送|执\s*行|提\s*交/ }).first();
     await expect(submitBtn).toBeVisible();
     await submitBtn.click();
 
-    const confirmBtn = page.getByRole('dialog').getByRole('button', { name: '确认' });
+    const confirmBtn = page.getByRole('dialog').getByRole('button', { name: /确\s*定|确\s*认/ });
     await expect(confirmBtn).toBeVisible();
     const executeResponse = page.waitForResponse(
       (response) =>
@@ -162,18 +160,19 @@ test.describe('独立操作', () => {
     await expectFormVisible(page);
 
     // 填写表单
-    const reasonInput = page.locator('input[name="reason"], textarea[name="reason"]').first();
+    const reasonInput = page.getByLabel(/原因|理由/i).first();
     await expect(reasonInput).toBeVisible();
     await reasonInput.fill('测试原因');
 
     // 点击执行
-    const submitBtn = page.locator('button:has-text("执行"), button:has-text("提交")').first();
+    const submitBtn = page.getByRole('button', { name: /执\s*行|提\s*交/ }).first();
     await expect(submitBtn).toBeVisible();
     await submitBtn.click();
 
     // 确认弹窗应该出现
     const confirmBtn = page
-      .locator('.ant-popconfirm .ant-btn-primary, .ant-modal-confirm .ant-btn-primary')
+      .getByRole('dialog')
+      .getByRole('button', { name: /确\s*定|确\s*认|OK/ })
       .first();
     await expect(confirmBtn).toBeVisible({ timeout: 5000 });
     const executeResponse = page.waitForResponse(

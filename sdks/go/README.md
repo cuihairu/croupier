@@ -107,7 +107,7 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 **L3 Invoker（独立调用方）**
 
-- 🚀 **同步调用 / 异步作业** - `pkg/croupier/invoker.go`，独立配置入口
+- 🚀 **Server HTTP 调用 / 异步任务** - `pkg/croupier/http_invoker.go`，使用独立 `InvokerConfig`，不复用 Provider TCP session；支持函数调用、任务创建/查询、事件轮询和取消。详见 [`HTTP_INVOKER.md`](HTTP_INVOKER.md)。
 
 ## 快速开始
 

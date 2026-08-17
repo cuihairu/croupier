@@ -108,7 +108,8 @@ Croupier Node.js SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏
 
 **L3 Invoker**
 
-- ❌ 当前版本未提供独立 Invoker，远程调用请使用平台 HTTP API 或其他语言 SDK
+- ✅ `Invoker` 是独立调用方模块，只访问 Server HTTP API（默认 `http://127.0.0.1:18780/api/v1`），不复用 Provider TCP session。
+- 支持 `invoke`、`startTask`、`getTaskStatus`、`streamTask` 和 `cancelTask`；作用域通过 `X-Game-ID` / `X-Env` 传递。
 
 ## 快速开始
 

@@ -879,3 +879,105 @@ SDK / OpenAPI 注册 FunctionContract
       Forbidden: 不得将历史记录、单测通过或未部署构建当最终验收。
       Verify: Go/web/docs/SDK/Playwright/OTel collector/deployment 验收矩阵全部绿，且 `H-005` 的生产删除另有明确确认。
       Handoff: 产出正式发布候选审计报告。当前被 `I-001` 至 `I-043` 的注册一致性、协议可信度与真实环境闭环验收阻塞。
+
+### J-001 原子验收项
+
+> 以下条目全部完成并复核后，才可勾选 `J-001`。任何需要 Docker、部署环境或生产数据授权的
+> 条目均不得用本地 mock、静态文件或历史日志替代。
+
+- [x] `J-001.01` OTel Collector、Prometheus、Grafana 与 telemetry Compose 配置可被独立解析
+      Scope: `configs/otel-collector-config.yaml`、`configs/prometheus.yml`、Grafana datasource、telemetry Compose。
+      Verify: YAML 解析全部成功；Collector 具有 OTLP HTTP/gRPC receiver、trace exporter 与 metrics exporter；Prometheus 只抓取 Collector 暴露的 metrics endpoint。
+
+- [ ] `J-001.02` OTel 容器链路真实验收
+      Scope: `scripts/test-telemetry.sh`、Docker telemetry Compose。
+      Verify: Docker 可用环境执行 `bash scripts/test-telemetry.sh`；真实 Console execute 产生 audit、OTLP span，且可在 Jaeger 查询到同一 trace。
+
+- [ ] `J-001.03` 发布镜像与部署清单真实验收
+      Scope: Server/Agent 镜像、部署 Compose 或等价部署清单。
+      Verify: 干净 Docker 环境构建并启动 Server、Agent、Web；健康检查、真实注册、生成/发布/执行 UI 链路通过；不得依赖宿主机数据库、`host.docker.internal` 或 demo placeholder。
+
+- [x] `J-001.04` Go L3 Invoker 迁移至 Server HTTP 合同
+      Scope: `sdks/go/pkg/croupier` 的 Invoker 与配置、示例、使用文档。
+      Deliverable: 默认调用方只访问 Server `/api/v1/functions/:id/invoke`、`/tasks`、`/tasks/:id`、`/tasks/:id/events`、`/tasks/:id/cancel`；不复用 Provider TCP session 或 `ClientConfig`。
+
+- [x] `J-001.05` Go L3 Mock HTTP 合同测试
+      Depends: [`J-001.04`]
+      Verify: 覆盖路径、JSON request/response、Bearer、`X-Game-ID`、`X-Env`、幂等键、任务创建/轮询/取消与非 2xx 错误；不得接受历史 `/api/function/*` 路径或伪造 task ID。
+
+- [ ] `J-001.06` Go L3 真实 Server 验收
+      Depends: [`J-001.05`, `I-021`]
+      Verify: 连接真实 Server fixture，以 HTTP 完成同步调用和 task 创建/查询/事件/取消；scope、鉴权与返回 task ID 均由 Server 断言。
+
+- [x] `J-001.07` Python L3 Invoker 迁移至 Server HTTP 合同
+      Scope: `sdks/python/croupier/invoker.py`、独立配置、示例与文档。
+      Deliverable: 移除调用方到 Agent/Provider TCP 的主链依赖，改为统一 Server HTTP 合同。
+
+- [x] `J-001.08` Python L3 Mock HTTP 合同测试
+      Depends: [`J-001.07`]
+      Verify: 覆盖 invoke、task、scope、Bearer、错误与历史 TCP 路径拒绝。
+
+- [ ] `J-001.09` Python L3 真实 Server 验收
+      Depends: [`J-001.08`, `I-021`]
+      Verify: 对真实 fixture 完成同步调用及完整 task 生命周期。
+
+- [x] `J-001.10` Java L3 Invoker 迁移至 Server HTTP 合同
+      Scope: `sdks/java/.../invoker`、独立配置、示例与文档。
+      Deliverable: 调用方不再通过 Provider TCP session 执行函数或作业控制。
+
+- [x] `J-001.11` Java L3 Mock HTTP 合同测试
+      Depends: [`J-001.10`]
+      Verify: 覆盖 invoke、task、scope、Bearer、错误与历史 TCP 路径拒绝。
+
+- [ ] `J-001.12` Java L3 真实 Server 验收
+      Depends: [`J-001.11`, `I-021`]
+      Verify: 对真实 fixture 完成同步调用及完整 task 生命周期。
+
+- [x] `J-001.13` C++ L3 Invoker 迁移至 Server HTTP 合同
+      Scope: `sdks/cpp` 的 `CroupierInvoker`、独立配置、示例与文档。
+      Deliverable: 调用方不再使用 Provider TCP connection 或 `ClientConfig`。
+
+- [x] `J-001.14` C++ L3 Mock HTTP 合同测试
+      Depends: [`J-001.13`]
+      Verify: 覆盖 invoke、task、scope、Bearer、错误与历史 TCP 路径拒绝。
+
+- [ ] `J-001.15` C++ L3 真实 Server 验收
+      Depends: [`J-001.14`, `I-021`]
+      Verify: 对真实 fixture 完成同步调用及完整 task 生命周期。
+
+- [x] `J-001.16` JS L3 Mock HTTP 合同测试
+      Scope: `sdks/js/src/invoker.test.ts`。
+      Verify: 覆盖 Server HTTP invoke/task、scope、Bearer 与错误响应。
+
+- [ ] `J-001.17` JS L3 真实 Server 验收
+      Depends: [`J-001.16`, `I-021`]
+      Verify: JS Invoker 对真实 fixture 完成同步调用及完整 task 生命周期。
+
+- [x] `J-001.18` C# L3 Mock HTTP 合同测试
+      Scope: `sdks/csharp/src/Croupier.Sdk.Tests/CroupierInvokerTests.cs`。
+      Verify: 覆盖 Server HTTP invoke/task、scope、Bearer 与错误响应。
+
+- [x] `J-001.19` C# L3 真实 Server 验收
+      Depends: [`J-001.18`, `I-021`]
+      Verify: C# Invoker 对真实 fixture 成功调用 `/api/v1/functions/:id/invoke`，并由 fixture 校验鉴权和 scope。
+
+- [x] `J-001.20` SDK matrix 防止历史 TCP Invoker 误判为 L3 已完成
+      Scope: `scripts/check-sdk-matrix.sh`、`sdks/SDK_FEATURE_MATRIX.md`。
+      Verify: 矩阵必须验证每种 SDK 的 Server HTTP endpoint、独立 L3 配置与合同测试入口；历史 TCP Invoker 明确失败，不能只因含有 `StartTask` 符号通过。
+
+- [x] `J-001.21` Go 服务端全量回归
+      Verify: `go test ./... -count=1`；所有失败均被定位修复，不得通过跳过、放宽断言或 test-only 分支掩盖。
+
+- [x] `J-001.22` Web 质量、构建与真实浏览器回归
+      Verify: `pnpm --dir "web" lint`、`pnpm --dir "web" build`，以及 `real-dashboard` 的完整命名场景回归全部通过。
+
+- [x] `J-001.23` 文档构建与 SDK 示例回归
+      Verify: docs build 成功；六种 SDK 的 Invoker 文档只描述实际 L3 状态，示例可编译/运行其静态校验；不得宣称未验收的 SDK/部署能力。
+
+- [ ] `J-001.24` 生产旧数据物理删除授权与演练
+      Depends: [`H-005`]
+      Verify: 用户明确确认生产删除后，先完成备份校验和 deployment dry-run，再执行 `CleanupAllLegacy`；本地或 CI 不得代替此授权。
+
+- [ ] `J-001.25` 发布候选审计报告
+      Depends: [`J-001.02`, `J-001.03`, `J-001.06`, `J-001.09`, `J-001.12`, `J-001.15`, `J-001.17`, `J-001.19`, `J-001.20`, `J-001.21`, `J-001.22`, `J-001.23`, `J-001.24`]
+      Verify: 报告逐项链接命令、日志/工件、commit 和环境；任何未完成项保持 `J-001` 未勾选并列为 release blocker。
