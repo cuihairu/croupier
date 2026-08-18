@@ -113,7 +113,7 @@ func registerFunctions(client croupier.Client) error {
 		result := fmt.Sprintf(`{
 			"status": "success",
 			"action": "create",
-			"item_id": "item_%d",
+			"itemId": "item_%d",
 			"timestamp": "%s"
 		}`, time.Now().Unix(), time.Now().Format(time.RFC3339))
 

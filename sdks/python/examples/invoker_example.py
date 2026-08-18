@@ -47,7 +47,7 @@ async def sync_invoke_example() -> None:
         # Prepare invocation payload
         function_id = "player.ban"
         payload = json.dumps({
-            "player_id": "12345",
+            "playerId": "12345",
             "reason": "作弊行为",
             "duration": 86400  # 24 hours
         })
@@ -89,7 +89,7 @@ async def async_task_example() -> None:
         # Start an asynchronous task
         function_id = "player.ban"
         payload = json.dumps({
-            "player_id": "67890",
+            "playerId": "67890",
             "reason": "严重违规",
             "duration": 604800  # 7 days
         })
@@ -147,7 +147,7 @@ async def task_cancel_example() -> None:
         # Start a long-running task
         function_id = "player.ban"
         payload = json.dumps({
-            "player_id": "11111",
+            "playerId": "11111",
             "reason": "测试取消",
             "duration": 9999999  # Very long duration
         })
@@ -194,11 +194,11 @@ async def schema_validation_example() -> None:
         schema = {
             "type": "object",
             "properties": {
-                "player_id": {"type": "string"},
+                "playerId": {"type": "string"},
                 "reason": {"type": "string"},
                 "duration": {"type": "number", "minimum": 0}
             },
-            "required": ["player_id", "reason"]
+            "required": ["playerId", "reason"]
         }
 
         await invoker.set_schema("player.ban", schema)
@@ -206,7 +206,7 @@ async def schema_validation_example() -> None:
 
         # Test valid payload
         valid_payload = json.dumps({
-            "player_id": "22222",
+            "playerId": "22222",
             "reason": "测试验证",
             "duration": 3600
         })
@@ -220,7 +220,7 @@ async def schema_validation_example() -> None:
 
         # Test invalid payload (missing required field)
         invalid_payload = json.dumps({
-            "player_id": "22222"
+            "playerId": "22222"
             # Missing 'reason' field
         })
 
@@ -257,7 +257,7 @@ def sync_wrapper_example():
 
         # Prepare payload
         payload = json.dumps({
-            "player_id": "99999",
+            "playerId": "99999",
             "reason": "同步调用测试",
             "duration": 3600
         })

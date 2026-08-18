@@ -43,7 +43,7 @@ public class ComprehensiveExample {
                 "{\n" +
                 "  \"status\": \"success\",\n" +
                 "  \"action\": \"ban\",\n" +
-                "  \"player_id\": \"player_123\",\n" +
+                "  \"playerId\": \"player_123\",\n" +
                 "  \"reason\": \"违规行为\",\n" +
                 "  \"timestamp\": \"%s\"\n" +
                 "}",
@@ -61,7 +61,7 @@ public class ComprehensiveExample {
                 "{\n" +
                 "  \"status\": \"success\",\n" +
                 "  \"action\": \"create\",\n" +
-                "  \"item_id\": \"item_%d\",\n" +
+                "  \"itemId\": \"item_%d\",\n" +
                 "  \"type\": \"weapon\",\n" +
                 "  \"timestamp\": \"%s\"\n" +
                 "}",
@@ -79,7 +79,7 @@ public class ComprehensiveExample {
             return String.format(
                 "{\n" +
                 "  \"status\": \"success\",\n" +
-                "  \"player_id\": \"player_123\",\n" +
+                "  \"playerId\": \"player_123\",\n" +
                 "  \"level\": 50,\n" +
                 "  \"exp\": 125000,\n" +
                 "  \"timestamp\": \"%s\"\n" +

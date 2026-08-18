@@ -136,7 +136,7 @@ async def handle_player_ban(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "result": "success",
         "message": "Player banned",
-        "player_id": payload.get("player_id"),
+        "playerId": payload.get("playerId"),
         "reason": payload.get("reason"),
         "timestamp": str(asyncio.get_event_loop().time())
     }
@@ -180,6 +180,7 @@ async def handle_server_status(payload: Dict[str, Any]) -> Dict[str, Any]:
    - 确保有写入权限
 
 3. **依赖问题**
+
    ```
    ModuleNotFoundError: No module named 'psutil'
    ```

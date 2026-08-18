@@ -25,53 +25,53 @@ type playerRecord struct {
 	Gold        int64          `json:"gold"`
 	Status      string         `json:"status"`
 	Server      string         `json:"server"`
-	CreatedAt   string         `json:"created_at"`
-	UpdatedAt   string         `json:"updated_at"`
-	LastLoginAt string         `json:"last_login_at"`
+	CreatedAt   string         `json:"createdAt"`
+	UpdatedAt   string         `json:"updatedAt"`
+	LastLoginAt string         `json:"lastLoginAt"`
 	Profile     map[string]any `json:"profile,omitempty"`
 }
 
 type orderRecord struct {
 	ID         string         `json:"id"`
-	PlayerID   string         `json:"player_id"`
-	ProductID  string         `json:"product_id"`
+	PlayerID   string         `json:"playerId"`
+	ProductID  string         `json:"productId"`
 	Amount     int64          `json:"amount"`
 	Currency   string         `json:"currency"`
 	Status     string         `json:"status"`
 	Channel    string         `json:"channel"`
-	CreatedAt  string         `json:"created_at"`
-	UpdatedAt  string         `json:"updated_at"`
+	CreatedAt  string         `json:"createdAt"`
+	UpdatedAt  string         `json:"updatedAt"`
 	Attributes map[string]any `json:"attributes,omitempty"`
 }
 
 type leaderboardEntry struct {
 	ID        string `json:"id"`
-	PlayerID  string `json:"player_id"`
-	Player    string `json:"player_name"`
+	PlayerID  string `json:"playerId"`
+	Player    string `json:"playerName"`
 	Score     int64  `json:"score"`
 	Rank      int    `json:"rank"`
-	UpdatedAt string `json:"updated_at"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type itemRecord struct {
 	ID        string `json:"id"`
-	Template  string `json:"template_id"`
+	Template  string `json:"templateId"`
 	Name      string `json:"name"`
 	Quantity  int64  `json:"quantity"`
 	Rarity    string `json:"rarity"`
-	UpdatedAt string `json:"updated_at"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type mailRecord struct {
 	ID        string         `json:"id"`
-	PlayerID  string         `json:"player_id"`
+	PlayerID  string         `json:"playerId"`
 	Title     string         `json:"title"`
 	Content   string         `json:"content"`
 	Status    string         `json:"status"`
 	Reward    map[string]any `json:"reward,omitempty"`
-	SentAt    string         `json:"sent_at"`
-	UpdatedAt string         `json:"updated_at"`
-	ExpireAt  string         `json:"expire_at,omitempty"`
+	SentAt    string         `json:"sentAt"`
+	UpdatedAt string         `json:"updatedAt"`
+	ExpireAt  string         `json:"expireAt,omitempty"`
 }
 
 type demoStore struct {
@@ -191,7 +191,7 @@ func newDemoStore() *demoStore {
 					Status:   "unread",
 					Reward: map[string]any{
 						"gold": 10000,
-						"item": "hero_ticket",
+						"item": "heroTicket",
 					},
 					SentAt:    now,
 					UpdatedAt: now,
@@ -282,7 +282,7 @@ func inventoryItemID(playerID, templateID string) string {
 
 func paginate[T any](items []T, body map[string]any) ([]T, int, int) {
 	page := intValue(body, 1, "page")
-	pageSize := intValue(body, 20, "page_size")
+	pageSize := intValue(body, 20, "pageSize")
 	if page < 1 {
 		page = 1
 	}
@@ -327,7 +327,7 @@ func (s *demoStore) playerCreate(ctx context.Context, payload []byte) ([]byte, e
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	id := stringValue(body, "id", "player_id")
+	id := stringValue(body, "id", "playerId")
 	if id == "" {
 		id = s.nextPlayerID()
 	}
@@ -355,9 +355,9 @@ func (s *demoStore) playerGet(ctx context.Context, payload []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id", "id")
+	playerID := stringValue(body, "playerId", "id")
 	if playerID == "" {
-		return nil, fmt.Errorf("player_id is required")
+		return nil, fmt.Errorf("playerId is required")
 	}
 
 	s.mu.RLock()
@@ -376,9 +376,9 @@ func (s *demoStore) playerUpdate(ctx context.Context, payload []byte) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id", "id")
+	playerID := stringValue(body, "playerId", "id")
 	if playerID == "" {
-		return nil, fmt.Errorf("player_id is required")
+		return nil, fmt.Errorf("playerId is required")
 	}
 
 	s.mu.Lock()
@@ -420,9 +420,9 @@ func (s *demoStore) playerDelete(ctx context.Context, payload []byte) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id", "id")
+	playerID := stringValue(body, "playerId", "id")
 	if playerID == "" {
-		return nil, fmt.Errorf("player_id is required")
+		return nil, fmt.Errorf("playerId is required")
 	}
 
 	s.mu.Lock()
@@ -453,7 +453,7 @@ func (s *demoStore) playerList(ctx context.Context, payload []byte) ([]byte, err
 
 	total := len(items)
 	items, page, pageSize := paginate(items, body)
-	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "page_size": pageSize})
+	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "pageSize": pageSize})
 }
 
 func (s *demoStore) orderCreate(ctx context.Context, payload []byte) ([]byte, error) {
@@ -465,15 +465,15 @@ func (s *demoStore) orderCreate(ctx context.Context, payload []byte) ([]byte, er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	id := stringValue(body, "order_id", "id")
+	id := stringValue(body, "orderId", "id")
 	if id == "" {
 		id = s.nextOrderID()
 	}
 	now := s.now()
 	record := &orderRecord{
 		ID:         id,
-		PlayerID:   stringValue(body, "player_id"),
-		ProductID:  firstNonEmpty(stringValue(body, "product_id"), "product.demo"),
+		PlayerID:   stringValue(body, "playerId"),
+		ProductID:  firstNonEmpty(stringValue(body, "productId"), "product.demo"),
 		Amount:     int64Value(body, 0, "amount"),
 		Currency:   firstNonEmpty(stringValue(body, "currency"), "CNY"),
 		Status:     firstNonEmpty(stringValue(body, "status"), "created"),
@@ -492,9 +492,9 @@ func (s *demoStore) orderGet(ctx context.Context, payload []byte) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	orderID := stringValue(body, "order_id", "id")
+	orderID := stringValue(body, "orderId", "id")
 	if orderID == "" {
-		return nil, fmt.Errorf("order_id is required")
+		return nil, fmt.Errorf("orderId is required")
 	}
 
 	s.mu.RLock()
@@ -512,9 +512,9 @@ func (s *demoStore) orderUpdate(ctx context.Context, payload []byte) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	orderID := stringValue(body, "order_id", "id")
+	orderID := stringValue(body, "orderId", "id")
 	if orderID == "" {
-		return nil, fmt.Errorf("order_id is required")
+		return nil, fmt.Errorf("orderId is required")
 	}
 
 	s.mu.Lock()
@@ -546,9 +546,9 @@ func (s *demoStore) orderDelete(ctx context.Context, payload []byte) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	orderID := stringValue(body, "order_id", "id")
+	orderID := stringValue(body, "orderId", "id")
 	if orderID == "" {
-		return nil, fmt.Errorf("order_id is required")
+		return nil, fmt.Errorf("orderId is required")
 	}
 
 	s.mu.Lock()
@@ -563,7 +563,7 @@ func (s *demoStore) orderList(ctx context.Context, payload []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id")
+	playerID := stringValue(body, "playerId")
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -579,7 +579,7 @@ func (s *demoStore) orderList(ctx context.Context, payload []byte) ([]byte, erro
 
 	total := len(items)
 	items, page, pageSize := paginate(items, body)
-	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "page_size": pageSize})
+	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "pageSize": pageSize})
 }
 
 func (s *demoStore) leaderboardList(ctx context.Context, payload []byte) ([]byte, error) {
@@ -607,7 +607,7 @@ func (s *demoStore) leaderboardList(ctx context.Context, payload []byte) ([]byte
 
 	total := len(items)
 	items, page, pageSize := paginate(items, body)
-	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "page_size": pageSize})
+	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "pageSize": pageSize})
 }
 
 func (s *demoStore) leaderboardUpsert(ctx context.Context, payload []byte) ([]byte, error) {
@@ -615,9 +615,9 @@ func (s *demoStore) leaderboardUpsert(ctx context.Context, payload []byte) ([]by
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id")
+	playerID := stringValue(body, "playerId")
 	if playerID == "" {
-		return nil, fmt.Errorf("player_id is required")
+		return nil, fmt.Errorf("playerId is required")
 	}
 
 	s.mu.Lock()
@@ -656,9 +656,9 @@ func (s *demoStore) inventoryList(ctx context.Context, payload []byte) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id")
+	playerID := stringValue(body, "playerId")
 	if playerID == "" {
-		return nil, fmt.Errorf("player_id is required")
+		return nil, fmt.Errorf("playerId is required")
 	}
 
 	s.mu.RLock()
@@ -673,7 +673,7 @@ func (s *demoStore) inventoryList(ctx context.Context, payload []byte) ([]byte, 
 
 	total := len(items)
 	items, page, pageSize := paginate(items, body)
-	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "page_size": pageSize})
+	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "pageSize": pageSize})
 }
 
 func (s *demoStore) inventoryGrant(ctx context.Context, payload []byte) ([]byte, error) {
@@ -681,10 +681,10 @@ func (s *demoStore) inventoryGrant(ctx context.Context, payload []byte) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id")
-	templateID := stringValue(body, "template_id", "item_id")
+	playerID := stringValue(body, "playerId")
+	templateID := stringValue(body, "templateId", "itemId")
 	if playerID == "" || templateID == "" {
-		return nil, fmt.Errorf("player_id and template_id are required")
+		return nil, fmt.Errorf("playerId and templateId are required")
 	}
 
 	s.mu.Lock()
@@ -714,11 +714,11 @@ func (s *demoStore) inventoryConsume(ctx context.Context, payload []byte) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id")
-	templateID := stringValue(body, "template_id", "item_id")
+	playerID := stringValue(body, "playerId")
+	templateID := stringValue(body, "templateId", "itemId")
 	quantity := int64Value(body, 1, "quantity")
 	if playerID == "" || templateID == "" {
-		return nil, fmt.Errorf("player_id and template_id are required")
+		return nil, fmt.Errorf("playerId and templateId are required")
 	}
 
 	s.mu.Lock()
@@ -742,9 +742,9 @@ func (s *demoStore) mailSend(ctx context.Context, payload []byte) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id")
+	playerID := stringValue(body, "playerId")
 	if playerID == "" {
-		return nil, fmt.Errorf("player_id is required")
+		return nil, fmt.Errorf("playerId is required")
 	}
 
 	s.mu.Lock()
@@ -760,7 +760,7 @@ func (s *demoStore) mailSend(ctx context.Context, payload []byte) ([]byte, error
 		Reward:    mapValue(body, "reward"),
 		SentAt:    now,
 		UpdatedAt: now,
-		ExpireAt:  stringValue(body, "expire_at"),
+		ExpireAt:  stringValue(body, "expireAt"),
 	}
 	s.mails[playerID] = append(s.mails[playerID], record)
 
@@ -772,9 +772,9 @@ func (s *demoStore) mailList(ctx context.Context, payload []byte) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id")
+	playerID := stringValue(body, "playerId")
 	if playerID == "" {
-		return nil, fmt.Errorf("player_id is required")
+		return nil, fmt.Errorf("playerId is required")
 	}
 
 	s.mu.RLock()
@@ -785,7 +785,7 @@ func (s *demoStore) mailList(ctx context.Context, payload []byte) ([]byte, error
 
 	total := len(items)
 	items, page, pageSize := paginate(items, body)
-	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "page_size": pageSize})
+	return encodeResponse(map[string]any{"items": items, "total": total, "page": page, "pageSize": pageSize})
 }
 
 func (s *demoStore) mailClaim(ctx context.Context, payload []byte) ([]byte, error) {
@@ -793,10 +793,10 @@ func (s *demoStore) mailClaim(ctx context.Context, payload []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	playerID := stringValue(body, "player_id")
-	mailID := stringValue(body, "mail_id", "id")
+	playerID := stringValue(body, "playerId")
+	mailID := stringValue(body, "mailId", "id")
 	if playerID == "" || mailID == "" {
-		return nil, fmt.Errorf("player_id and mail_id are required")
+		return nil, fmt.Errorf("player_id and mailId are required")
 	}
 
 	s.mu.Lock()
@@ -866,17 +866,17 @@ type demoFunctionDefinition struct {
 }
 
 const (
-	playerSchema      = `{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"created_at":{"type":"string","format":"date-time"},"updated_at":{"type":"string","format":"date-time"},"last_login_at":{"type":"string","format":"date-time"},"profile":{"type":"object"}}}`
-	orderSchema       = `{"type":"object","properties":{"id":{"type":"string"},"player_id":{"type":"string"},"product_id":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"created_at":{"type":"string","format":"date-time"},"updated_at":{"type":"string","format":"date-time"},"attributes":{"type":"object"}}}`
-	leaderboardSchema = `{"type":"object","properties":{"id":{"type":"string"},"player_id":{"type":"string"},"player_name":{"type":"string"},"score":{"type":"integer"},"rank":{"type":"integer"},"updated_at":{"type":"string","format":"date-time"}}}`
-	inventorySchema   = `{"type":"object","properties":{"id":{"type":"string"},"template_id":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"},"rarity":{"type":"string"},"updated_at":{"type":"string","format":"date-time"}}}`
-	mailSchema        = `{"type":"object","properties":{"id":{"type":"string"},"player_id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"status":{"type":"string"},"reward":{"type":"object"},"sent_at":{"type":"string","format":"date-time"},"updated_at":{"type":"string","format":"date-time"},"expire_at":{"type":"string","format":"date-time"}}}`
+	playerSchema      = `{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"last_login_at":{"type":"string","format":"date-time"},"profile":{"type":"object"}}}`
+	orderSchema       = `{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"attributes":{"type":"object"}}}`
+	leaderboardSchema = `{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"playerName":{"type":"string"},"score":{"type":"integer"},"rank":{"type":"integer"},"updatedAt":{"type":"string","format":"date-time"}}}`
+	inventorySchema   = `{"type":"object","properties":{"id":{"type":"string"},"templateId":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"},"rarity":{"type":"string"},"updatedAt":{"type":"string","format":"date-time"}}}`
+	mailSchema        = `{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"status":{"type":"string"},"reward":{"type":"object"},"sentAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"expireAt":{"type":"string","format":"date-time"}}}`
 	deleteSchema      = `{"type":"object","properties":{"id":{"type":"string"},"deleted":{"type":"boolean"}},"required":["id","deleted"]}`
 	resetSchema       = `{"type":"object","properties":{"reset":{"type":"boolean"}},"required":["reset"]}`
 )
 
 func demoCollectionSchema(itemSchema string) string {
-	return `{"type":"object","properties":{"items":{"type":"array","items":` + itemSchema + `},"total":{"type":"integer"},"page":{"type":"integer"},"page_size":{"type":"integer"}},"required":["items","total","page","page_size"]}`
+	return `{"type":"object","properties":{"items":{"type":"array","items":` + itemSchema + `},"total":{"type":"integer"},"page":{"type":"integer"},"pageSize":{"type":"integer"}},"required":["items","total","page","pageSize"]}`
 }
 
 func gameDemoFunctionDefinitions(store *demoStore) []demoFunctionDefinition {
@@ -885,25 +885,25 @@ func gameDemoFunctionDefinitions(store *demoStore) []demoFunctionDefinition {
 		{croupier.FunctionDescriptor{ID: "player.get", Version: "1.0.0", Resource: "player", Operation: "get", Capability: "item_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: playerSchema}, store.playerGet},
 		{croupier.FunctionDescriptor{ID: "player.update", Version: "1.0.0", Resource: "player", Operation: "update", Capability: "update", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"profile":{"type":"object"}},"required":["id"]}`, OutputSchema: playerSchema}, store.playerUpdate},
 		{croupier.FunctionDescriptor{ID: "player.delete", Version: "1.0.0", Resource: "player", Operation: "delete", Capability: "delete", Execution: "sync", Risk: "danger", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: deleteSchema}, store.playerDelete},
-		{croupier.FunctionDescriptor{ID: "player.list", Version: "1.0.0", Resource: "player", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"page":{"type":"integer","minimum":1},"page_size":{"type":"integer","minimum":1,"maximum":100}}}`, OutputSchema: demoCollectionSchema(playerSchema)}, store.playerList},
+		{croupier.FunctionDescriptor{ID: "player.list", Version: "1.0.0", Resource: "player", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}}}`, OutputSchema: demoCollectionSchema(playerSchema)}, store.playerList},
 
-		{croupier.FunctionDescriptor{ID: "order.create", Version: "1.0.0", Resource: "order", Operation: "create", Capability: "create", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"player_id":{"type":"string"},"product_id":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"attributes":{"type":"object"}},"required":["player_id"]}`, OutputSchema: orderSchema}, store.orderCreate},
+		{croupier.FunctionDescriptor{ID: "order.create", Version: "1.0.0", Resource: "order", Operation: "create", Capability: "create", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"attributes":{"type":"object"}},"required":["playerId"]}`, OutputSchema: orderSchema}, store.orderCreate},
 		{croupier.FunctionDescriptor{ID: "order.get", Version: "1.0.0", Resource: "order", Operation: "get", Capability: "item_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: orderSchema}, store.orderGet},
 		{croupier.FunctionDescriptor{ID: "order.update", Version: "1.0.0", Resource: "order", Operation: "update", Capability: "update", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"amount":{"type":"integer"},"status":{"type":"string"},"channel":{"type":"string"},"attributes":{"type":"object"}},"required":["id"]}`, OutputSchema: orderSchema}, store.orderUpdate},
 		{croupier.FunctionDescriptor{ID: "order.delete", Version: "1.0.0", Resource: "order", Operation: "delete", Capability: "delete", Execution: "sync", Risk: "danger", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: deleteSchema}, store.orderDelete},
-		{croupier.FunctionDescriptor{ID: "order.list", Version: "1.0.0", Resource: "order", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"player_id":{"type":"string"},"page":{"type":"integer","minimum":1},"page_size":{"type":"integer","minimum":1,"maximum":100}}}`, OutputSchema: demoCollectionSchema(orderSchema)}, store.orderList},
+		{croupier.FunctionDescriptor{ID: "order.list", Version: "1.0.0", Resource: "order", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}}}`, OutputSchema: demoCollectionSchema(orderSchema)}, store.orderList},
 
-		{croupier.FunctionDescriptor{ID: "leaderboard.list", Version: "1.0.0", Resource: "leaderboard", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"page":{"type":"integer","minimum":1},"page_size":{"type":"integer","minimum":1,"maximum":100}}}`, OutputSchema: demoCollectionSchema(leaderboardSchema)}, store.leaderboardList},
-		{croupier.FunctionDescriptor{ID: "leaderboard.upsert", Version: "1.0.0", Resource: "leaderboard", Operation: "upsert", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"player_id":{"type":"string"},"score":{"type":"integer"}},"required":["player_id","score"]}`, OutputSchema: leaderboardSchema}, store.leaderboardUpsert},
+		{croupier.FunctionDescriptor{ID: "leaderboard.list", Version: "1.0.0", Resource: "leaderboard", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}}}`, OutputSchema: demoCollectionSchema(leaderboardSchema)}, store.leaderboardList},
+		{croupier.FunctionDescriptor{ID: "leaderboard.upsert", Version: "1.0.0", Resource: "leaderboard", Operation: "upsert", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"score":{"type":"integer"}},"required":["playerId","score"]}`, OutputSchema: leaderboardSchema}, store.leaderboardUpsert},
 		{croupier.FunctionDescriptor{ID: "leaderboard.reset", Version: "1.0.0", Resource: "leaderboard", Operation: "reset", Capability: "action", Execution: "sync", Risk: "danger", Enabled: true, InputSchema: `{"type":"object","properties":{}}`, OutputSchema: resetSchema}, store.leaderboardReset},
 
-		{croupier.FunctionDescriptor{ID: "inventory.list", Version: "1.0.0", Resource: "inventory", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"player_id":{"type":"string"},"page":{"type":"integer","minimum":1},"page_size":{"type":"integer","minimum":1,"maximum":100}},"required":["player_id"]}`, OutputSchema: demoCollectionSchema(inventorySchema)}, store.inventoryList},
-		{croupier.FunctionDescriptor{ID: "inventory.grant", Version: "1.0.0", Resource: "inventory", Operation: "grant", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"player_id":{"type":"string"},"template_id":{"type":"string"},"quantity":{"type":"integer","minimum":1},"name":{"type":"string"},"rarity":{"type":"string"}},"required":["player_id","template_id"]}`, OutputSchema: inventorySchema}, store.inventoryGrant},
-		{croupier.FunctionDescriptor{ID: "inventory.consume", Version: "1.0.0", Resource: "inventory", Operation: "consume", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"player_id":{"type":"string"},"template_id":{"type":"string"},"quantity":{"type":"integer","minimum":1}},"required":["player_id","template_id"]}`, OutputSchema: inventorySchema}, store.inventoryConsume},
+		{croupier.FunctionDescriptor{ID: "inventory.list", Version: "1.0.0", Resource: "inventory", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}},"required":["playerId"]}`, OutputSchema: demoCollectionSchema(inventorySchema)}, store.inventoryList},
+		{croupier.FunctionDescriptor{ID: "inventory.grant", Version: "1.0.0", Resource: "inventory", Operation: "grant", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"templateId":{"type":"string"},"quantity":{"type":"integer","minimum":1},"name":{"type":"string"},"rarity":{"type":"string"}},"required":["playerId","templateId"]}`, OutputSchema: inventorySchema}, store.inventoryGrant},
+		{croupier.FunctionDescriptor{ID: "inventory.consume", Version: "1.0.0", Resource: "inventory", Operation: "consume", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"templateId":{"type":"string"},"quantity":{"type":"integer","minimum":1}},"required":["playerId","templateId"]}`, OutputSchema: inventorySchema}, store.inventoryConsume},
 
-		{croupier.FunctionDescriptor{ID: "mail.send", Version: "1.0.0", Resource: "mail", Operation: "send", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"player_id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"reward":{"type":"object"},"expire_at":{"type":"string","format":"date-time"}},"required":["player_id"]}`, OutputSchema: mailSchema}, store.mailSend},
-		{croupier.FunctionDescriptor{ID: "mail.list", Version: "1.0.0", Resource: "mail", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"player_id":{"type":"string"},"page":{"type":"integer","minimum":1},"page_size":{"type":"integer","minimum":1,"maximum":100}},"required":["player_id"]}`, OutputSchema: demoCollectionSchema(mailSchema)}, store.mailList},
-		{croupier.FunctionDescriptor{ID: "mail.claim", Version: "1.0.0", Resource: "mail", Operation: "claim", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"player_id":{"type":"string"},"id":{"type":"string"}},"required":["player_id","id"]}`, OutputSchema: mailSchema}, store.mailClaim},
+		{croupier.FunctionDescriptor{ID: "mail.send", Version: "1.0.0", Resource: "mail", Operation: "send", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"reward":{"type":"object"},"expireAt":{"type":"string","format":"date-time"}},"required":["playerId"]}`, OutputSchema: mailSchema}, store.mailSend},
+		{croupier.FunctionDescriptor{ID: "mail.list", Version: "1.0.0", Resource: "mail", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}},"required":["playerId"]}`, OutputSchema: demoCollectionSchema(mailSchema)}, store.mailList},
+		{croupier.FunctionDescriptor{ID: "mail.claim", Version: "1.0.0", Resource: "mail", Operation: "claim", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"id":{"type":"string"}},"required":["playerId","id"]}`, OutputSchema: mailSchema}, store.mailClaim},
 	}
 }
 

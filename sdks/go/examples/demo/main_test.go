@@ -72,21 +72,21 @@ func TestGameDemoLifecycleUsesRegisteredIdentityFields(t *testing.T) {
 	updatedPlayer := invokeDemo(t, definitions["player.update"], map[string]any{"id": "player_contract", "level": 9})
 	assertJSONNumber(t, updatedPlayer, "/level", 9)
 
-	createdOrder := invokeDemo(t, definitions["order.create"], map[string]any{"id": "order_contract", "player_id": "player_contract", "product_id": "sku.contract"})
+	createdOrder := invokeDemo(t, definitions["order.create"], map[string]any{"id": "order_contract", "playerId": "player_contract", "productId": "sku.contract"})
 	assertJSONString(t, createdOrder, "/id", "order_contract")
 
 	updatedOrder := invokeDemo(t, definitions["order.update"], map[string]any{"id": "order_contract", "status": "paid"})
 	assertJSONString(t, updatedOrder, "/status", "paid")
 
-	granted := invokeDemo(t, definitions["inventory.grant"], map[string]any{"player_id": "player_contract", "template_id": "contract_token", "quantity": 2})
+	granted := invokeDemo(t, definitions["inventory.grant"], map[string]any{"playerId": "player_contract", "templateId": "contract_token", "quantity": 2})
 	assertJSONString(t, granted, "/id", inventoryItemID("player_contract", "contract_token"))
 
-	consumed := invokeDemo(t, definitions["inventory.consume"], map[string]any{"player_id": "player_contract", "template_id": "contract_token", "quantity": 1})
+	consumed := invokeDemo(t, definitions["inventory.consume"], map[string]any{"playerId": "player_contract", "templateId": "contract_token", "quantity": 1})
 	assertJSONNumber(t, consumed, "/quantity", 1)
 
-	sentMail := invokeDemo(t, definitions["mail.send"], map[string]any{"player_id": "player_contract", "title": "Contract mail"})
+	sentMail := invokeDemo(t, definitions["mail.send"], map[string]any{"playerId": "player_contract", "title": "Contract mail"})
 	mailID := jsonStringAt(t, sentMail, "/id")
-	claimedMail := invokeDemo(t, definitions["mail.claim"], map[string]any{"player_id": "player_contract", "id": mailID})
+	claimedMail := invokeDemo(t, definitions["mail.claim"], map[string]any{"playerId": "player_contract", "id": mailID})
 	assertJSONString(t, claimedMail, "/status", "claimed")
 }
 
@@ -97,27 +97,27 @@ func demoPayloadFor(functionID string) map[string]any {
 	case "player.get", "player.update", "player.delete":
 		return map[string]any{"id": "player_1001"}
 	case "player.list", "leaderboard.list", "leaderboard.reset":
-		return map[string]any{"page": 1, "page_size": 20}
+		return map[string]any{"page": 1, "pageSize": 20}
 	case "order.create":
-		return map[string]any{"id": "order_schema", "player_id": "player_1001"}
+		return map[string]any{"id": "order_schema", "playerId": "player_1001"}
 	case "order.get", "order.update", "order.delete":
 		return map[string]any{"id": "order_3001"}
 	case "order.list":
-		return map[string]any{"player_id": "player_1001", "page": 1, "page_size": 20}
+		return map[string]any{"playerId": "player_1001", "page": 1, "pageSize": 20}
 	case "leaderboard.upsert":
-		return map[string]any{"player_id": "player_1001", "score": 100000}
+		return map[string]any{"playerId": "player_1001", "score": 100000}
 	case "inventory.list":
-		return map[string]any{"player_id": "player_1001", "page": 1, "page_size": 20}
+		return map[string]any{"playerId": "player_1001", "page": 1, "pageSize": 20}
 	case "inventory.grant":
-		return map[string]any{"player_id": "player_1001", "template_id": "schema_token", "quantity": 1}
+		return map[string]any{"playerId": "player_1001", "templateId": "schema_token", "quantity": 1}
 	case "inventory.consume":
-		return map[string]any{"player_id": "player_1001", "template_id": "gold_coin", "quantity": 1}
+		return map[string]any{"playerId": "player_1001", "templateId": "gold_coin", "quantity": 1}
 	case "mail.send":
-		return map[string]any{"player_id": "player_1001", "title": "Schema mail"}
+		return map[string]any{"playerId": "player_1001", "title": "Schema mail"}
 	case "mail.list":
-		return map[string]any{"player_id": "player_1001", "page": 1, "page_size": 20}
+		return map[string]any{"playerId": "player_1001", "page": 1, "pageSize": 20}
 	case "mail.claim":
-		return map[string]any{"player_id": "player_1001", "id": "mail_5001"}
+		return map[string]any{"playerId": "player_1001", "id": "mail_5001"}
 	default:
 		return map[string]any{}
 	}

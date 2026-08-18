@@ -18,7 +18,7 @@ def player_ban(_context: str, payload: bytes) -> str:
     return json.dumps(
         {
             "status": "success",
-            "player_id": request.get("player_id"),
+            "playerId": request.get("playerId"),
             "reason": request.get("reason", "unspecified"),
             "banned_at": time.time(),
         }

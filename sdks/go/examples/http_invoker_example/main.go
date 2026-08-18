@@ -36,11 +36,11 @@ func main() {
 	banSchema := map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"player_id": map[string]interface{}{"type": "string"},
-			"reason":    map[string]interface{}{"type": "string"},
-			"duration":  map[string]interface{}{"type": "integer"},
+			"playerId": map[string]interface{}{"type": "string"},
+			"reason":   map[string]interface{}{"type": "string"},
+			"duration": map[string]interface{}{"type": "integer"},
 		},
-		"required": []string{"player_id", "reason"},
+		"required": []string{"playerId", "reason"},
 	}
 
 	if err := invoker.SetSchema("player.ban", banSchema); err != nil {
@@ -49,9 +49,9 @@ func main() {
 
 	// Prepare invocation payload
 	payload := map[string]interface{}{
-		"player_id": "player_12345",
-		"reason":    "违规操作",
-		"duration":  3600, // seconds
+		"playerId": "player_12345",
+		"reason":   "违规操作",
+		"duration": 3600, // seconds
 	}
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {

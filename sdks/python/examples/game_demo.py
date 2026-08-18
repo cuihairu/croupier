@@ -30,17 +30,17 @@ class PlayerRecord:
     gold: int = 0
     status: str = "active"
     server: str = "s1"
-    created_at: str = ""
-    updated_at: str = ""
-    last_login_at: str = ""
+    createdAt: str = ""
+    updatedAt: str = ""
+    lastLoginAt: str = ""
     profile: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
             "id": self.id, "name": self.name, "level": self.level,
             "vip": self.vip, "gold": self.gold, "status": self.status,
-            "server": self.server, "created_at": self.created_at,
-            "updated_at": self.updated_at, "last_login_at": self.last_login_at,
+            "server": self.server, "createdAt": self.createdAt,
+            "updatedAt": self.updatedAt, "lastLoginAt": self.lastLoginAt,
         }
         if self.profile:
             d["profile"] = self.profile
@@ -50,21 +50,21 @@ class PlayerRecord:
 @dataclass
 class OrderRecord:
     id: str = ""
-    player_id: str = ""
-    product_id: str = ""
+    playerId: str = ""
+    productId: str = ""
     amount: int = 0
     currency: str = "CNY"
     status: str = "created"
     channel: str = "gm"
-    created_at: str = ""
-    updated_at: str = ""
+    createdAt: str = ""
+    updatedAt: str = ""
     attributes: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
-            "id": self.id, "player_id": self.player_id, "product_id": self.product_id,
+            "id": self.id, "playerId": self.playerId, "productId": self.productId,
             "amount": self.amount, "currency": self.currency, "status": self.status,
-            "channel": self.channel, "created_at": self.created_at, "updated_at": self.updated_at,
+            "channel": self.channel, "createdAt": self.createdAt, "updatedAt": self.updatedAt,
         }
         if self.attributes:
             d["attributes"] = self.attributes
@@ -73,57 +73,57 @@ class OrderRecord:
 
 @dataclass
 class LeaderboardEntry:
-    player_id: str = ""
-    player_name: str = ""
+    playerId: str = ""
+    playerName: str = ""
     score: int = 0
     rank: int = 0
-    updated_at: str = ""
+    updatedAt: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "player_id": self.player_id, "player_name": self.player_name,
-            "score": self.score, "rank": self.rank, "updated_at": self.updated_at,
+            "playerId": self.playerId, "playerName": self.playerName,
+            "score": self.score, "rank": self.rank, "updatedAt": self.updatedAt,
         }
 
 
 @dataclass
 class ItemRecord:
     id: str = ""
-    template_id: str = ""
+    templateId: str = ""
     name: str = ""
     quantity: int = 0
     rarity: str = "common"
-    updated_at: str = ""
+    updatedAt: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "template_id": self.template_id, "name": self.name,
-            "quantity": self.quantity, "rarity": self.rarity, "updated_at": self.updated_at,
+            "id": self.id, "templateId": self.templateId, "name": self.name,
+            "quantity": self.quantity, "rarity": self.rarity, "updatedAt": self.updatedAt,
         }
 
 
 @dataclass
 class MailRecord:
     id: str = ""
-    player_id: str = ""
+    playerId: str = ""
     title: str = ""
     content: str = ""
     status: str = "unread"
     reward: dict[str, Any] | None = None
-    sent_at: str = ""
-    updated_at: str = ""
-    expire_at: str = ""
+    sentAt: str = ""
+    updatedAt: str = ""
+    expireAt: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
-            "id": self.id, "player_id": self.player_id, "title": self.title,
+            "id": self.id, "playerId": self.playerId, "title": self.title,
             "content": self.content, "status": self.status,
-            "sent_at": self.sent_at, "updated_at": self.updated_at,
+            "sentAt": self.sentAt, "updatedAt": self.updatedAt,
         }
         if self.reward:
             d["reward"] = self.reward
-        if self.expire_at:
-            d["expire_at"] = self.expire_at
+        if self.expireAt:
+            d["expireAt"] = self.expireAt
         return d
 
 
@@ -140,43 +140,43 @@ class DemoStore:
         self.players: dict[str, PlayerRecord] = {
             "player_1001": PlayerRecord(
                 id="player_1001", name="Alice", level=35, vip=3, gold=128800,
-                status="active", server="s1", created_at=now, updated_at=now,
-                last_login_at=now, profile={"guild": "星海旅团", "country": "CN", "platform": "ios"},
+                status="active", server="s1", createdAt=now, updatedAt=now,
+                lastLoginAt=now, profile={"guild": "星海旅团", "country": "CN", "platform": "ios"},
             ),
             "player_1002": PlayerRecord(
                 id="player_1002", name="Bob", level=42, vip=5, gold=256000,
-                status="active", server="s2", created_at=now, updated_at=now,
-                last_login_at=now, profile={"guild": "苍穹守卫", "country": "US", "platform": "android"},
+                status="active", server="s2", createdAt=now, updatedAt=now,
+                lastLoginAt=now, profile={"guild": "苍穹守卫", "country": "US", "platform": "android"},
             ),
         }
         self.orders: dict[str, OrderRecord] = {
             "order_3001": OrderRecord(
-                id="order_3001", player_id="player_1001", product_id="com.croupier.gems.648",
+                id="order_3001", playerId="player_1001", productId="com.croupier.gems.648",
                 amount=6480, currency="CNY", status="paid", channel="appstore",
-                created_at=now, updated_at=now, attributes={"region": "cn"},
+                createdAt=now, updatedAt=now, attributes={"region": "cn"},
             ),
             "order_3002": OrderRecord(
-                id="order_3002", player_id="player_1002", product_id="battle.pass.s2",
+                id="order_3002", playerId="player_1002", productId="battle.pass.s2",
                 amount=68, currency="USD", status="pending", channel="googleplay",
-                created_at=now, updated_at=now,
+                createdAt=now, updatedAt=now,
             ),
         }
         self.leaderboard: dict[str, LeaderboardEntry] = {
-            "player_1002": LeaderboardEntry(player_id="player_1002", player_name="Bob", score=98500, rank=1, updated_at=now),
-            "player_1001": LeaderboardEntry(player_id="player_1001", player_name="Alice", score=91200, rank=2, updated_at=now),
+            "player_1002": LeaderboardEntry(playerId="player_1002", playerName="Bob", score=98500, rank=1, updatedAt=now),
+            "player_1001": LeaderboardEntry(playerId="player_1001", playerName="Alice", score=91200, rank=2, updatedAt=now),
         }
         self.inventories: dict[str, dict[str, ItemRecord]] = {
             "player_1001": {
-                "gold_coin": ItemRecord(id="item_gold_coin", template_id="gold_coin", name="金币", quantity=128800, rarity="common", updated_at=now),
-                "hero_ticket": ItemRecord(id="item_hero_ticket", template_id="hero_ticket", name="英雄招募券", quantity=12, rarity="rare", updated_at=now),
+                "gold_coin": ItemRecord(id="item_gold_coin", templateId="gold_coin", name="金币", quantity=128800, rarity="common", updatedAt=now),
+                "hero_ticket": ItemRecord(id="item_hero_ticket", templateId="hero_ticket", name="英雄招募券", quantity=12, rarity="rare", updatedAt=now),
             },
         }
         self.mails: dict[str, list[MailRecord]] = {
             "player_1001": [
-                MailRecord(id="mail_5001", player_id="player_1001", title="开服奖励",
+                MailRecord(id="mail_5001", playerId="player_1001", title="开服奖励",
                            content="欢迎来到 Croupier Demo World", status="unread",
                            reward={"gold": 10000, "item": "hero_ticket"},
-                           sent_at=now, updated_at=now),
+                           sentAt=now, updatedAt=now),
             ],
         }
 
@@ -248,14 +248,14 @@ def make_player_create(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
         with store._lock:
-            pid = _str(body, "id", "player_id") or store._next_player_id()
+            pid = _str(body, "id", "playerId") or store._next_player_id()
             now = store._now()
             r = PlayerRecord(
                 id=pid, name=_non_empty(_str(body, "name"), f"Player-{pid}"),
                 level=_int(body, 1, "level"), vip=_int(body, 0, "vip"),
                 gold=_int(body, 0, "gold"), status=_non_empty(_str(body, "status"), "active"),
                 server=_non_empty(_str(body, "server"), "s1"),
-                created_at=now, updated_at=now, last_login_at=now,
+                createdAt=now, updatedAt=now, lastLoginAt=now,
                 profile=_map(body, "profile"),
             )
             store.players[pid] = r
@@ -266,7 +266,7 @@ def make_player_create(store: DemoStore) -> Callable:
 def make_player_get(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id", "id")
+        pid = _str(body, "playerId", "id")
         with store._lock:
             r = store.players.get(pid)
         if not r:
@@ -278,7 +278,7 @@ def make_player_get(store: DemoStore) -> Callable:
 def make_player_update(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id", "id")
+        pid = _str(body, "playerId", "id")
         with store._lock:
             r = store.players.get(pid)
             if not r:
@@ -301,7 +301,7 @@ def make_player_update(store: DemoStore) -> Callable:
             profile = _map(body, "profile")
             if profile:
                 r.profile = profile
-            r.updated_at = store._now()
+            r.updatedAt = store._now()
         return _resp({"status": "success", "action": "player.update", "player": r.to_dict()})
     return handler
 
@@ -309,13 +309,13 @@ def make_player_update(store: DemoStore) -> Callable:
 def make_player_delete(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id", "id")
+        pid = _str(body, "playerId", "id")
         with store._lock:
             store.players.pop(pid, None)
             store.inventories.pop(pid, None)
             store.mails.pop(pid, None)
             store.leaderboard.pop(pid, None)
-        return _resp({"status": "success", "action": "player.delete", "player_id": pid})
+        return _resp({"status": "success", "action": "player.delete", "playerId": pid})
     return handler
 
 
@@ -331,15 +331,15 @@ def make_order_create(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
         with store._lock:
-            oid = _str(body, "order_id", "id") or store._next_order_id()
+            oid = _str(body, "orderId", "id") or store._next_order_id()
             now = store._now()
             r = OrderRecord(
-                id=oid, player_id=_str(body, "player_id"),
-                product_id=_non_empty(_str(body, "product_id"), "product.demo"),
+                id=oid, playerId=_str(body, "playerId"),
+                productId=_non_empty(_str(body, "productId"), "product.demo"),
                 amount=_int(body, 0, "amount"), currency=_non_empty(_str(body, "currency"), "CNY"),
                 status=_non_empty(_str(body, "status"), "created"),
                 channel=_non_empty(_str(body, "channel"), "gm"),
-                created_at=now, updated_at=now, attributes=_map(body, "attributes"),
+                createdAt=now, updatedAt=now, attributes=_map(body, "attributes"),
             )
             store.orders[oid] = r
         return _resp({"status": "success", "action": "order.create", "order": r.to_dict()})
@@ -349,7 +349,7 @@ def make_order_create(store: DemoStore) -> Callable:
 def make_order_get(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        oid = _str(body, "order_id", "id")
+        oid = _str(body, "orderId", "id")
         with store._lock:
             r = store.orders.get(oid)
         if not r:
@@ -361,7 +361,7 @@ def make_order_get(store: DemoStore) -> Callable:
 def make_order_update(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        oid = _str(body, "order_id", "id")
+        oid = _str(body, "orderId", "id")
         with store._lock:
             r = store.orders.get(oid)
             if not r:
@@ -377,7 +377,7 @@ def make_order_update(store: DemoStore) -> Callable:
             attrs = _map(body, "attributes")
             if attrs:
                 r.attributes = attrs
-            r.updated_at = store._now()
+            r.updatedAt = store._now()
         return _resp({"status": "success", "action": "order.update", "order": r.to_dict()})
     return handler
 
@@ -385,21 +385,21 @@ def make_order_update(store: DemoStore) -> Callable:
 def make_order_delete(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        oid = _str(body, "order_id", "id")
+        oid = _str(body, "orderId", "id")
         with store._lock:
             store.orders.pop(oid, None)
-        return _resp({"status": "success", "action": "order.delete", "order_id": oid})
+        return _resp({"status": "success", "action": "order.delete", "orderId": oid})
     return handler
 
 
 def make_order_list(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        player_id = _str(body, "player_id")
+        playerId = _str(body, "playerId")
         with store._lock:
             items = [
                 r.to_dict() for r in sorted(store.orders.values(), key=lambda o: o.id)
-                if not player_id or r.player_id == player_id
+                if not playerId or r.playerId == playerId
             ]
         return _resp({"status": "success", "action": "order.list", "items": items, "total": len(items)})
     return handler
@@ -420,16 +420,16 @@ def make_leaderboard_list(store: DemoStore) -> Callable:
 def make_leaderboard_upsert(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id")
+        pid = _str(body, "playerId")
         if not pid:
-            raise ValueError("player_id is required")
+            raise ValueError("playerId is required")
         with store._lock:
-            player_name = pid
+            playerName = pid
             p = store.players.get(pid)
             if p and p.name:
-                player_name = p.name
-            e = LeaderboardEntry(player_id=pid, player_name=player_name,
-                                 score=_int(body, 0, "score"), updated_at=store._now())
+                playerName = p.name
+            e = LeaderboardEntry(playerId=pid, playerName=playerName,
+                                 score=_int(body, 0, "score"), updatedAt=store._now())
             store.leaderboard[pid] = e
         return _resp({"status": "success", "action": "leaderboard.upsert", "entry": e.to_dict()})
     return handler
@@ -446,47 +446,47 @@ def make_leaderboard_reset(store: DemoStore) -> Callable:
 def make_inventory_list(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id")
+        pid = _str(body, "playerId")
         if not pid:
-            raise ValueError("player_id is required")
+            raise ValueError("playerId is required")
         with store._lock:
             inv = store.inventories.get(pid, {})
-            items = [r.to_dict() for r in sorted(inv.values(), key=lambda i: i.template_id)]
-        return _resp({"status": "success", "action": "inventory.list", "player_id": pid, "items": items})
+            items = [r.to_dict() for r in sorted(inv.values(), key=lambda i: i.templateId)]
+        return _resp({"status": "success", "action": "inventory.list", "playerId": pid, "items": items})
     return handler
 
 
 def make_inventory_grant(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id")
-        tid = _str(body, "template_id", "item_id")
+        pid = _str(body, "playerId")
+        tid = _str(body, "templateId", "itemId")
         if not pid or not tid:
-            raise ValueError("player_id and template_id are required")
+            raise ValueError("playerId and templateId are required")
         with store._lock:
             inv = store.inventories.setdefault(pid, {})
             r = inv.get(tid)
             if not r:
                 r = ItemRecord(
-                    id=f"item_{tid}", template_id=tid,
+                    id=f"item_{tid}", templateId=tid,
                     name=_non_empty(_str(body, "name"), tid),
                     rarity=_non_empty(_str(body, "rarity"), "common"),
                 )
                 inv[tid] = r
             r.quantity += _int(body, 1, "quantity")
-            r.updated_at = store._now()
-        return _resp({"status": "success", "action": "inventory.grant", "player_id": pid, "item": r.to_dict()})
+            r.updatedAt = store._now()
+        return _resp({"status": "success", "action": "inventory.grant", "playerId": pid, "item": r.to_dict()})
     return handler
 
 
 def make_inventory_consume(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id")
-        tid = _str(body, "template_id", "item_id")
+        pid = _str(body, "playerId")
+        tid = _str(body, "templateId", "itemId")
         qty = _int(body, 1, "quantity")
         if not pid or not tid:
-            raise ValueError("player_id and template_id are required")
+            raise ValueError("playerId and templateId are required")
         with store._lock:
             inv = store.inventories.get(pid, {})
             r = inv.get(tid)
@@ -495,25 +495,25 @@ def make_inventory_consume(store: DemoStore) -> Callable:
             if r.quantity < qty:
                 return _resp({"status": "failed", "message": "insufficient quantity", "item": r.to_dict()})
             r.quantity -= qty
-            r.updated_at = store._now()
-        return _resp({"status": "success", "action": "inventory.consume", "player_id": pid, "item": r.to_dict()})
+            r.updatedAt = store._now()
+        return _resp({"status": "success", "action": "inventory.consume", "playerId": pid, "item": r.to_dict()})
     return handler
 
 
 def make_mail_send(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id")
+        pid = _str(body, "playerId")
         if not pid:
-            raise ValueError("player_id is required")
+            raise ValueError("playerId is required")
         with store._lock:
             now = store._now()
             r = MailRecord(
-                id=store._next_mail_id(), player_id=pid,
+                id=store._next_mail_id(), playerId=pid,
                 title=_non_empty(_str(body, "title"), "系统邮件"),
                 content=_non_empty(_str(body, "content"), "请查收奖励"),
                 status="unread", reward=_map(body, "reward"),
-                sent_at=now, updated_at=now, expire_at=_str(body, "expire_at"),
+                sentAt=now, updatedAt=now, expireAt=_str(body, "expireAt"),
             )
             store.mails.setdefault(pid, []).append(r)
         return _resp({"status": "success", "action": "mail.send", "mail": r.to_dict()})
@@ -523,27 +523,27 @@ def make_mail_send(store: DemoStore) -> Callable:
 def make_mail_list(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id")
+        pid = _str(body, "playerId")
         if not pid:
-            raise ValueError("player_id is required")
+            raise ValueError("playerId is required")
         with store._lock:
             items = [m.to_dict() for m in store.mails.get(pid, [])]
-        return _resp({"status": "success", "action": "mail.list", "player_id": pid, "items": items, "total": len(items)})
+        return _resp({"status": "success", "action": "mail.list", "playerId": pid, "items": items, "total": len(items)})
     return handler
 
 
 def make_mail_claim(store: DemoStore) -> Callable:
     def handler(_ctx: str, payload: bytes) -> str:
         body = _parse(payload)
-        pid = _str(body, "player_id")
-        mid = _str(body, "mail_id", "id")
+        pid = _str(body, "playerId")
+        mid = _str(body, "mailId", "id")
         if not pid or not mid:
-            raise ValueError("player_id and mail_id are required")
+            raise ValueError("playerId and mail_id are required")
         with store._lock:
             for m in store.mails.get(pid, []):
                 if m.id == mid:
                     m.status = "claimed"
-                    m.updated_at = store._now()
+                    m.updatedAt = store._now()
                     return _resp({"status": "success", "action": "mail.claim", "mail": m.to_dict()})
         return _resp({"status": "not_found", "message": "mail not found"})
     return handler
@@ -572,7 +572,7 @@ def enrich_descriptor(desc: FunctionDescriptor) -> FunctionDescriptor:
 
 
 def input_schema_for(resource: str, operation: str) -> dict[str, Any]:
-    id_key = "player_id" if resource == "inventory" else f"{resource}_id"
+    id_key = "playerId" if resource == "inventory" else f"{resource}_id"
     if operation == "create":
         return {
             "type": "object",

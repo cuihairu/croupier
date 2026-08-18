@@ -33,7 +33,7 @@ func playerBanHandler(ctx context.Context, payload []byte) ([]byte, error) {
 	result := map[string]interface{}{
 		"status":    "success",
 		"action":    "ban",
-		"player_id": "player_123",
+		"playerId":  "player_123",
 		"reason":    "违规行为",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
@@ -48,7 +48,7 @@ func itemCreateHandler(ctx context.Context, payload []byte) ([]byte, error) {
 	result := map[string]interface{}{
 		"status":    "success",
 		"action":    "create",
-		"item_id":   fmt.Sprintf("item_%d", time.Now().Unix()),
+		"itemId":    fmt.Sprintf("item_%d", time.Now().Unix()),
 		"type":      "weapon",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
@@ -62,7 +62,7 @@ func playerDataHandler(ctx context.Context, payload []byte) ([]byte, error) {
 
 	result := map[string]interface{}{
 		"status":    "success",
-		"player_id": "player_123",
+		"playerId":  "player_123",
 		"level":     50,
 		"exp":       125000,
 		"timestamp": time.Now().Format(time.RFC3339),
@@ -250,10 +250,10 @@ func demonstrateInvokerInterface(ctx context.Context) error {
 	banSchema := map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"player_id": map[string]interface{}{"type": "string"},
-			"reason":    map[string]interface{}{"type": "string"},
+			"playerId": map[string]interface{}{"type": "string"},
+			"reason":   map[string]interface{}{"type": "string"},
 		},
-		"required": []string{"player_id", "reason"},
+		"required": []string{"playerId", "reason"},
 	}
 
 	if err := invoker.SetSchema("player.ban", banSchema); err != nil {
@@ -273,8 +273,8 @@ func demonstrateInvokerInterface(ctx context.Context) error {
 	}
 
 	payload := map[string]interface{}{
-		"player_id": "player_123",
-		"reason":    "违规聊天",
+		"playerId": "player_123",
+		"reason":   "违规聊天",
 	}
 	payloadJSON, _ := json.Marshal(payload)
 

@@ -19,7 +19,7 @@ const playerBanHandler: FunctionHandler = async (
 
   try {
     const data = JSON.parse(payload);
-    const playerId = data.player_id;
+    const playerId = data.playerId;
     const reason = data.reason || "No reason provided";
 
     // 模拟玩家封禁逻辑
@@ -27,7 +27,7 @@ const playerBanHandler: FunctionHandler = async (
 
     return JSON.stringify({
       status: "success",
-      player_id: playerId,
+      playerId: playerId,
       action: "banned",
       reason: reason,
       banned_at: new Date().toISOString(),
@@ -50,7 +50,7 @@ const walletTransferHandler: FunctionHandler = async (
 
   try {
     const data = JSON.parse(payload);
-    const { from_player_id, to_player_id, amount, currency = "gold" } = data;
+    const { fromPlayerId, toPlayerId, amount, currency = "gold" } = data;
 
     // 模拟转账逻辑
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -58,8 +58,8 @@ const walletTransferHandler: FunctionHandler = async (
     return JSON.stringify({
       status: "success",
       transaction_id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      from_player_id,
-      to_player_id,
+      fromPlayerId,
+      toPlayerId,
       amount: parseFloat(amount),
       currency,
       fee: parseFloat(amount) * 0.02, // 2% 手续费
@@ -83,7 +83,7 @@ const shopBuyHandler: FunctionHandler = async (
 
   try {
     const data = JSON.parse(payload);
-    const { player_id, item_id, quantity = 1 } = data;
+    const { playerId, itemId, quantity = 1 } = data;
 
     // 模拟商店购买逻辑
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -94,12 +94,12 @@ const shopBuyHandler: FunctionHandler = async (
       armor_001: { name: "Leather Armor", price: 200 },
     };
 
-    const item = items[item_id as keyof typeof items];
+    const item = items[itemId as keyof typeof items];
     if (!item) {
       return JSON.stringify({
         status: "error",
         message: "Item not found",
-        item_id,
+        itemId,
       });
     }
 
@@ -108,9 +108,9 @@ const shopBuyHandler: FunctionHandler = async (
     return JSON.stringify({
       status: "success",
       purchase_id: `pur_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      player_id,
+      playerId,
       item: {
-        id: item_id,
+        id: itemId,
         name: item.name,
         quantity,
         unit_price: item.price,
@@ -136,11 +136,11 @@ const playerBanDescriptor: FunctionDescriptor = {
   input_schema: {
     type: "object",
     properties: {
-      player_id: { type: "string" },
+      playerId: { type: "string" },
       reason: { type: "string" },
       duration_hours: { type: "number", default: 24 },
     },
-    required: ["player_id"],
+    required: ["playerId"],
   },
 };
 
@@ -152,12 +152,12 @@ const walletTransferDescriptor: FunctionDescriptor = {
   input_schema: {
     type: "object",
     properties: {
-      from_player_id: { type: "string" },
-      to_player_id: { type: "string" },
+      fromPlayerId: { type: "string" },
+      toPlayerId: { type: "string" },
       amount: { type: "number" },
       currency: { type: "string", default: "gold" },
     },
-    required: ["from_player_id", "to_player_id", "amount"],
+    required: ["fromPlayerId", "toPlayerId", "amount"],
   },
 };
 
@@ -169,11 +169,11 @@ const shopBuyDescriptor: FunctionDescriptor = {
   input_schema: {
     type: "object",
     properties: {
-      player_id: { type: "string" },
-      item_id: { type: "string" },
+      playerId: { type: "string" },
+      itemId: { type: "string" },
       quantity: { type: "number", default: 1 },
     },
-    required: ["player_id", "item_id"],
+    required: ["playerId", "itemId"],
   },
 };
 

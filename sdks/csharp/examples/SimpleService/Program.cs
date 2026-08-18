@@ -54,7 +54,7 @@ client.RegisterFunction(playerGetDescriptor, async (context, payload) =>
     Console.WriteLine($"[player.get] Call: {context.CallId}, Payload: {payload}");
 
     // 解析请求（简化版，实际应使用 JSON 库）
-    // payload: {"player_id": "12345"}
+    // payload: {"playerId": "12345"}
 
     // 模拟处理
     await Task.Delay(10);

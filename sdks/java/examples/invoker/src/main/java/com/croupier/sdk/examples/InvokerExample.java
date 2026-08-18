@@ -73,7 +73,7 @@ public class InvokerExample {
 
             // Prepare invocation payload
             String functionId = "player.ban";
-            String payload = String.format("{\"player_id\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
+            String payload = String.format("{\"playerId\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
                 "12345", "作弊行为", 86400);
 
             // Set invocation options with idempotency key
@@ -108,7 +108,7 @@ public class InvokerExample {
 
             // Start an asynchronous task
             String functionId = "player.ban";
-            String payload = String.format("{\"player_id\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
+            String payload = String.format("{\"playerId\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
                 "67890", "严重违规", 604800);
 
             String taskId = invoker.startTask(functionId, payload);
@@ -137,7 +137,7 @@ public class InvokerExample {
 
             // Start a task
             String functionId = "player.ban";
-            String payload = String.format("{\"player_id\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
+            String payload = String.format("{\"playerId\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
                 "11111", "测试流式", 3600);
 
             String taskId = invoker.startTask(functionId, payload);
@@ -214,7 +214,7 @@ public class InvokerExample {
 
             // Start a long-running task
             String functionId = "player.ban";
-            String payload = String.format("{\"player_id\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
+            String payload = String.format("{\"playerId\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
                 "22222", "测试取消", 9999999);
 
             String taskId = invoker.startTask(functionId, payload);
@@ -254,7 +254,7 @@ public class InvokerExample {
 
             Map<String, Object> playerIdProp = new HashMap<>();
             playerIdProp.put("type", "string");
-            properties.put("player_id", playerIdProp);
+            properties.put("playerId", playerIdProp);
 
             Map<String, Object> reasonProp = new HashMap<>();
             reasonProp.put("type", "string");
@@ -266,13 +266,13 @@ public class InvokerExample {
             properties.put("duration", durationProp);
 
             schema.put("properties", properties);
-            schema.put("required", java.util.List.of("player_id", "reason"));
+            schema.put("required", java.util.List.of("playerId", "reason"));
 
             invoker.setSchema("player.ban", schema);
             System.out.println("✅ Schema 已设置\n");
 
             // Test valid payload
-            String validPayload = String.format("{\"player_id\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
+            String validPayload = String.format("{\"playerId\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
                 "33333", "测试验证", 3600);
 
             System.out.println("测试有效载荷...");
@@ -284,7 +284,7 @@ public class InvokerExample {
             }
 
             // Test invalid payload (missing required field)
-            String invalidPayload = "{\"player_id\":\"33333\"}"; // Missing 'reason'
+            String invalidPayload = "{\"playerId\":\"33333\"}"; // Missing 'reason'
 
             System.out.println("测试无效载荷（缺少必需字段）...");
             try {

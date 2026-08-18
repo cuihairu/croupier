@@ -32,8 +32,8 @@ public class GameDemo {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", id); m.put("name", name); m.put("level", level);
             m.put("vip", vip); m.put("gold", gold); m.put("status", status);
-            m.put("server", server); m.put("created_at", createdAt);
-            m.put("updated_at", updatedAt); m.put("last_login_at", lastLoginAt);
+            m.put("server", server); m.put("createdAt", createdAt);
+            m.put("updatedAt", updatedAt); m.put("last_login_at", lastLoginAt);
             if (profile != null) m.put("profile", profile);
             return m;
         }
@@ -46,10 +46,10 @@ public class GameDemo {
 
         Map<String, Object> toMap() {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id", id); m.put("player_id", playerId); m.put("product_id", productId);
+            m.put("id", id); m.put("playerId", playerId); m.put("productId", productId);
             m.put("amount", amount); m.put("currency", currency); m.put("status", status);
-            m.put("channel", channel); m.put("created_at", createdAt);
-            m.put("updated_at", updatedAt);
+            m.put("channel", channel); m.put("createdAt", createdAt);
+            m.put("updatedAt", updatedAt);
             if (attributes != null) m.put("attributes", attributes);
             return m;
         }
@@ -62,8 +62,8 @@ public class GameDemo {
 
         Map<String, Object> toMap() {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("player_id", playerId); m.put("player_name", playerName);
-            m.put("score", score); m.put("rank", rank); m.put("updated_at", updatedAt);
+            m.put("playerId", playerId); m.put("playerName", playerName);
+            m.put("score", score); m.put("rank", rank); m.put("updatedAt", updatedAt);
             return m;
         }
     }
@@ -74,8 +74,8 @@ public class GameDemo {
 
         Map<String, Object> toMap() {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id", id); m.put("template_id", templateId); m.put("name", name);
-            m.put("quantity", quantity); m.put("rarity", rarity); m.put("updated_at", updatedAt);
+            m.put("id", id); m.put("templateId", templateId); m.put("name", name);
+            m.put("quantity", quantity); m.put("rarity", rarity); m.put("updatedAt", updatedAt);
             return m;
         }
     }
@@ -86,11 +86,11 @@ public class GameDemo {
 
         Map<String, Object> toMap() {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id", id); m.put("player_id", playerId); m.put("title", title);
+            m.put("id", id); m.put("playerId", playerId); m.put("title", title);
             m.put("content", content); m.put("status", status);
             if (reward != null) m.put("reward", reward);
-            m.put("sent_at", sentAt); m.put("updated_at", updatedAt);
-            if (expireAt != null) m.put("expire_at", expireAt);
+            m.put("sentAt", sentAt); m.put("updatedAt", updatedAt);
+            if (expireAt != null) m.put("expireAt", expireAt);
             return m;
         }
     }
@@ -216,7 +216,7 @@ public class GameDemo {
     static FunctionHandler playerCreate(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String id = str(body, "id", "player_id");
+            String id = str(body, "id", "playerId");
             if (id.isEmpty()) id = "player_" + store.playerSeq.incrementAndGet();
             String now = Instant.now().toString();
             PlayerRecord r = new PlayerRecord();
@@ -234,7 +234,7 @@ public class GameDemo {
     static FunctionHandler playerGet(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String id = str(body, "player_id", "id");
+            String id = str(body, "playerId", "id");
             PlayerRecord r = store.players.get(id);
             if (r == null) return toJson(Map.of("status", "not_found", "message", "player not found"));
             return toJson(Map.of("status", "success", "action", "player.get", "player", r.toMap()));
@@ -244,7 +244,7 @@ public class GameDemo {
     static FunctionHandler playerUpdate(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String id = str(body, "player_id", "id");
+            String id = str(body, "playerId", "id");
             PlayerRecord r = store.players.get(id);
             if (r == null) return toJson(Map.of("status", "not_found", "message", "player not found"));
             String name = str(body, "name"); if (!name.isEmpty()) r.name = name;
@@ -262,12 +262,12 @@ public class GameDemo {
     static FunctionHandler playerDelete(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String id = str(body, "player_id", "id");
+            String id = str(body, "playerId", "id");
             store.players.remove(id);
             store.inventories.remove(id);
             store.mails.remove(id);
             store.leaderboard.remove(id);
-            return toJson(Map.of("status", "success", "action", "player.delete", "player_id", id));
+            return toJson(Map.of("status", "success", "action", "player.delete", "playerId", id));
         };
     }
 
@@ -287,8 +287,8 @@ public class GameDemo {
             if (id.isEmpty()) id = "order_" + store.orderSeq.incrementAndGet();
             String now = Instant.now().toString();
             OrderRecord r = new OrderRecord();
-            r.id = id; r.playerId = str(body, "player_id");
-            r.productId = nonEmpty(str(body, "product_id"), "product.demo");
+            r.id = id; r.playerId = str(body, "playerId");
+            r.productId = nonEmpty(str(body, "productId"), "product.demo");
             r.amount = lng(body, 0, "amount"); r.currency = nonEmpty(str(body, "currency"), "CNY");
             r.status = nonEmpty(str(body, "status"), "created");
             r.channel = nonEmpty(str(body, "channel"), "gm");
@@ -335,7 +335,7 @@ public class GameDemo {
     static FunctionHandler orderList(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String playerId = str(body, "player_id");
+            String playerId = str(body, "playerId");
             List<Map<String, Object>> items = store.orders.values().stream()
                 .filter(o -> playerId.isEmpty() || o.playerId.equals(playerId))
                 .sorted(Comparator.comparing(o -> o.id))
@@ -358,7 +358,7 @@ public class GameDemo {
     static FunctionHandler leaderboardUpsert(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String playerId = str(body, "player_id");
+            String playerId = str(body, "playerId");
             if (playerId.isEmpty()) throw new IllegalArgumentException("player_id is required");
             String playerName = playerId;
             PlayerRecord p = store.players.get(playerId);
@@ -381,21 +381,21 @@ public class GameDemo {
     static FunctionHandler inventoryList(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String playerId = str(body, "player_id");
+            String playerId = str(body, "playerId");
             if (playerId.isEmpty()) throw new IllegalArgumentException("player_id is required");
             ConcurrentHashMap<String, ItemRecord> inv = store.inventories.getOrDefault(playerId, new ConcurrentHashMap<>());
             List<Map<String, Object>> items = inv.values().stream()
                 .sorted(Comparator.comparing(i -> i.templateId))
                 .map(ItemRecord::toMap).toList();
-            return toJson(Map.of("status", "success", "action", "inventory.list", "player_id", playerId, "items", items));
+            return toJson(Map.of("status", "success", "action", "inventory.list", "playerId", playerId, "items", items));
         };
     }
 
     static FunctionHandler inventoryGrant(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String playerId = str(body, "player_id");
-            String templateId = str(body, "template_id", "item_id");
+            String playerId = str(body, "playerId");
+            String templateId = str(body, "templateId", "item_id");
             if (playerId.isEmpty() || templateId.isEmpty()) throw new IllegalArgumentException("player_id and template_id are required");
             store.inventories.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
             ConcurrentHashMap<String, ItemRecord> inv = store.inventories.get(playerId);
@@ -409,15 +409,15 @@ public class GameDemo {
             }
             r.quantity += lng(body, 1, "quantity");
             r.updatedAt = Instant.now().toString();
-            return toJson(Map.of("status", "success", "action", "inventory.grant", "player_id", playerId, "item", r.toMap()));
+            return toJson(Map.of("status", "success", "action", "inventory.grant", "playerId", playerId, "item", r.toMap()));
         };
     }
 
     static FunctionHandler inventoryConsume(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String playerId = str(body, "player_id");
-            String templateId = str(body, "template_id", "item_id");
+            String playerId = str(body, "playerId");
+            String templateId = str(body, "templateId", "item_id");
             long quantity = lng(body, 1, "quantity");
             if (playerId.isEmpty() || templateId.isEmpty()) throw new IllegalArgumentException("player_id and template_id are required");
             ConcurrentHashMap<String, ItemRecord> inv = store.inventories.get(playerId);
@@ -428,14 +428,14 @@ public class GameDemo {
                 return toJson(Map.of("status", "failed", "message", "insufficient quantity", "item", r.toMap()));
             r.quantity -= quantity;
             r.updatedAt = Instant.now().toString();
-            return toJson(Map.of("status", "success", "action", "inventory.consume", "player_id", playerId, "item", r.toMap()));
+            return toJson(Map.of("status", "success", "action", "inventory.consume", "playerId", playerId, "item", r.toMap()));
         };
     }
 
     static FunctionHandler mailSend(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String playerId = str(body, "player_id");
+            String playerId = str(body, "playerId");
             if (playerId.isEmpty()) throw new IllegalArgumentException("player_id is required");
             String now = Instant.now().toString();
             MailRecord r = new MailRecord();
@@ -443,7 +443,7 @@ public class GameDemo {
             r.title = nonEmpty(str(body, "title"), "系统邮件");
             r.content = nonEmpty(str(body, "content"), "请查收奖励");
             r.status = "unread"; r.reward = mapVal(body, "reward");
-            r.sentAt = now; r.updatedAt = now; r.expireAt = str(body, "expire_at");
+            r.sentAt = now; r.updatedAt = now; r.expireAt = str(body, "expireAt");
             store.mails.computeIfAbsent(playerId, k -> new CopyOnWriteArrayList<>()).add(r);
             return toJson(Map.of("status", "success", "action", "mail.send", "mail", r.toMap()));
         };
@@ -452,18 +452,18 @@ public class GameDemo {
     static FunctionHandler mailList(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String playerId = str(body, "player_id");
+            String playerId = str(body, "playerId");
             if (playerId.isEmpty()) throw new IllegalArgumentException("player_id is required");
             List<Map<String, Object>> items = store.mails.getOrDefault(playerId, new CopyOnWriteArrayList<>())
                 .stream().map(MailRecord::toMap).toList();
-            return toJson(Map.of("status", "success", "action", "mail.list", "player_id", playerId, "items", items, "total", items.size()));
+            return toJson(Map.of("status", "success", "action", "mail.list", "playerId", playerId, "items", items, "total", items.size()));
         };
     }
 
     static FunctionHandler mailClaim(DemoStore store) {
         return (ctx, payload) -> {
             Map<String, Object> body = parseJson(payload);
-            String playerId = str(body, "player_id");
+            String playerId = str(body, "playerId");
             String mailId = str(body, "mail_id", "id");
             if (playerId.isEmpty() || mailId.isEmpty()) throw new IllegalArgumentException("player_id and mail_id are required");
             List<MailRecord> list = store.mails.get(playerId);
@@ -527,7 +527,7 @@ public class GameDemo {
     }
 
     private static String inputSchemaFor(String resource, String operation) {
-        String idKey = "inventory".equals(resource) ? "player_id" : resource + "_id";
+        String idKey = "inventory".equals(resource) ? "playerId" : resource + "_id";
         return switch (operation) {
             case "create" -> String.format(
                 "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"},\"data\":{\"type\":\"object\"}}}",

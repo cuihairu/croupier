@@ -44,7 +44,7 @@ static std::string json_int(const std::string& key, long long val) {
 }
 
 static std::string input_schema_for(const std::string& resource, const std::string& operation) {
-    const std::string id_key = resource == "inventory" ? "player_id" : resource + "_id";
+    const std::string id_key = resource == "inventory" ? "playerId" : resource + "_id";
     if (operation == "create") {
         return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"},\"data\":{\"type\":\"object\"}}}";
     }
@@ -109,7 +109,7 @@ static std::string resp(std::initializer_list<std::string> fields) {
 // ==================== Data Models ====================
 
 struct PlayerRecord {
-    std::string id, name, status, server, created_at, updated_at, last_login_at;
+    std::string id, name, status, server, createdAt, updatedAt, last_login_at;
     int level = 1, vip = 0;
     long long gold = 0;
     std::string profile; // raw JSON
@@ -118,61 +118,61 @@ struct PlayerRecord {
         return "{" + json_str("id", id) + "," + json_str("name", name) +
                "," + json_int("level", level) + "," + json_int("vip", vip) +
                "," + json_int("gold", gold) + "," + json_str("status", status) +
-               "," + json_str("server", server) + "," + json_str("created_at", created_at) +
-               "," + json_str("updated_at", updated_at) + "," + json_str("last_login_at", last_login_at) +
+               "," + json_str("server", server) + "," + json_str("createdAt", createdAt) +
+               "," + json_str("updatedAt", updatedAt) + "," + json_str("last_login_at", last_login_at) +
                (profile.empty() ? "" : ",\"profile\":" + profile) + "}";
     }
 };
 
 struct OrderRecord {
-    std::string id, player_id, product_id, currency, status, channel, created_at, updated_at;
+    std::string id, playerId, productId, currency, status, channel, createdAt, updatedAt;
     long long amount = 0;
     std::string attributes;
 
     std::string toJson() const {
-        return "{" + json_str("id", id) + "," + json_str("player_id", player_id) +
-               "," + json_str("product_id", product_id) + "," + json_int("amount", amount) +
+        return "{" + json_str("id", id) + "," + json_str("playerId", playerId) +
+               "," + json_str("productId", productId) + "," + json_int("amount", amount) +
                "," + json_str("currency", currency) + "," + json_str("status", status) +
-               "," + json_str("channel", channel) + "," + json_str("created_at", created_at) +
-               "," + json_str("updated_at", updated_at) +
+               "," + json_str("channel", channel) + "," + json_str("createdAt", createdAt) +
+               "," + json_str("updatedAt", updatedAt) +
                (attributes.empty() ? "" : ",\"attributes\":" + attributes) + "}";
     }
 };
 
 struct LBEntry {
-    std::string player_id, player_name, updated_at;
+    std::string playerId, playerName, updatedAt;
     long long score = 0;
     int rank = 0;
 
     std::string toJson() const {
-        return "{" + json_str("player_id", player_id) + "," + json_str("player_name", player_name) +
+        return "{" + json_str("playerId", playerId) + "," + json_str("playerName", playerName) +
                "," + json_int("score", score) + "," + json_int("rank", rank) +
-               "," + json_str("updated_at", updated_at) + "}";
+               "," + json_str("updatedAt", updatedAt) + "}";
     }
 };
 
 struct ItemRecord {
-    std::string id, template_id, name, rarity, updated_at;
+    std::string id, templateId, name, rarity, updatedAt;
     long long quantity = 0;
 
     std::string toJson() const {
-        return "{" + json_str("id", id) + "," + json_str("template_id", template_id) +
+        return "{" + json_str("id", id) + "," + json_str("templateId", templateId) +
                "," + json_str("name", name) + "," + json_int("quantity", quantity) +
-               "," + json_str("rarity", rarity) + "," + json_str("updated_at", updated_at) + "}";
+               "," + json_str("rarity", rarity) + "," + json_str("updatedAt", updatedAt) + "}";
     }
 };
 
 struct MailRecord {
-    std::string id, player_id, title, content, status, sent_at, updated_at, expire_at;
+    std::string id, playerId, title, content, status, sentAt, updatedAt, expireAt;
     std::string reward;
 
     std::string toJson() const {
-        return "{" + json_str("id", id) + "," + json_str("player_id", player_id) +
+        return "{" + json_str("id", id) + "," + json_str("playerId", playerId) +
                "," + json_str("title", title) + "," + json_str("content", content) +
                "," + json_str("status", status) +
                (reward.empty() ? "" : ",\"reward\":" + reward) +
-               "," + json_str("sent_at", sent_at) + "," + json_str("updated_at", updated_at) +
-               (expire_at.empty() ? "" : "," + json_str("expire_at", expire_at)) + "}";
+               "," + json_str("sentAt", sentAt) + "," + json_str("updatedAt", updatedAt) +
+               (expireAt.empty() ? "" : "," + json_str("expireAt", expireAt)) + "}";
     }
 };
 
@@ -244,7 +244,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             std::string id = extract_str(payload, "id");
-            if (id.empty()) id = extract_str(payload, "player_id");
+            if (id.empty()) id = extract_str(payload, "playerId");
             if (id.empty()) id = "player_" + std::to_string(++store.player_seq);
             auto now = now_str();
             std::string name = extract_str(payload, "name");
@@ -261,7 +261,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
     reg("player.get", "safe", "player", "get",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string id = extract_str(payload, "player_id");
+            std::string id = extract_str(payload, "playerId");
             if (id.empty()) id = extract_str(payload, "id");
             auto it = store.players.find(id);
             if (it == store.players.end())
@@ -274,7 +274,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
     reg("player.update", "warning", "player", "update",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string id = extract_str(payload, "player_id");
+            std::string id = extract_str(payload, "playerId");
             if (id.empty()) id = extract_str(payload, "id");
             auto it = store.players.find(id);
             if (it == store.players.end())
@@ -286,7 +286,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
             if (payload.find("\"level\"") != std::string::npos) r.level = (int)extract_int(payload, "level", r.level);
             if (payload.find("\"vip\"") != std::string::npos) r.vip = (int)extract_int(payload, "vip", r.vip);
             if (payload.find("\"gold\"") != std::string::npos) r.gold = extract_int(payload, "gold", r.gold);
-            r.updated_at = now_str();
+            r.updatedAt = now_str();
             return resp({json_str("status", "success"), json_str("action", "player.update"),
                          "\"player\":" + r.toJson()});
         });
@@ -295,12 +295,12 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
     reg("player.delete", "danger", "player", "delete",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string id = extract_str(payload, "player_id");
+            std::string id = extract_str(payload, "playerId");
             if (id.empty()) id = extract_str(payload, "id");
             store.players.erase(id); store.inventories.erase(id);
             store.mails.erase(id); store.leaderboard.erase(id);
             return resp({json_str("status", "success"), json_str("action", "player.delete"),
-                         json_str("player_id", id)});
+                         json_str("playerId", id)});
         });
 
     // player.list
@@ -320,8 +320,8 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
             if (id.empty()) id = extract_str(payload, "id");
             if (id.empty()) id = "order_" + std::to_string(++store.order_seq);
             auto now = now_str();
-            OrderRecord r{id, extract_str(payload, "player_id"),
-                extract_str(payload, "product_id").empty() ? "product.demo" : extract_str(payload, "product_id"),
+            OrderRecord r{id, extract_str(payload, "playerId"),
+                extract_str(payload, "productId").empty() ? "product.demo" : extract_str(payload, "productId"),
                 extract_str(payload, "currency").empty() ? "CNY" : extract_str(payload, "currency"),
                 extract_str(payload, "status").empty() ? "created" : extract_str(payload, "status"),
                 extract_str(payload, "channel").empty() ? "gm" : extract_str(payload, "channel"),
@@ -357,7 +357,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
             auto s = extract_str(payload, "status"); if (!s.empty()) r.status = s;
             auto c = extract_str(payload, "channel"); if (!c.empty()) r.channel = c;
             if (payload.find("\"amount\"") != std::string::npos) r.amount = extract_int(payload, "amount", r.amount);
-            r.updated_at = now_str();
+            r.updatedAt = now_str();
             return resp({json_str("status", "success"), json_str("action", "order.update"),
                          "\"order\":" + r.toJson()});
         });
@@ -377,14 +377,14 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
     reg("order.list", "safe", "order", "list",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string pid = extract_str(payload, "player_id");
+            std::string pid = extract_str(payload, "playerId");
             if (pid.empty()) {
                 return resp({json_str("status", "success"), json_str("action", "order.list"),
                              "\"items\":" + arr_json(store.orders),
                              json_int("total", store.orders.size())});
             }
             std::map<std::string, OrderRecord> filtered;
-            for (auto& [k, v] : store.orders) if (v.player_id == pid) filtered[k] = v;
+            for (auto& [k, v] : store.orders) if (v.playerId == pid) filtered[k] = v;
             return resp({json_str("status", "success"), json_str("action", "order.list"),
                          "\"items\":" + arr_json(filtered),
                          json_int("total", filtered.size())});
@@ -414,8 +414,8 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
     reg("leaderboard.upsert", "warning", "leaderboard", "upsert",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string pid = extract_str(payload, "player_id");
-            if (pid.empty()) return resp({json_str("status", "error"), json_str("message", "player_id is required")});
+            std::string pid = extract_str(payload, "playerId");
+            if (pid.empty()) return resp({json_str("status", "error"), json_str("message", "playerId is required")});
             std::string pname = pid;
             auto pit = store.players.find(pid);
             if (pit != store.players.end() && !pit->second.name.empty()) pname = pit->second.name;
@@ -437,21 +437,21 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
     reg("inventory.list", "safe", "inventory", "list",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string pid = extract_str(payload, "player_id");
+            std::string pid = extract_str(payload, "playerId");
             auto it = store.inventories.find(pid);
             if (it == store.inventories.end())
                 return resp({json_str("status", "success"), json_str("action", "inventory.list"),
-                             json_str("player_id", pid), "\"items\":[]"});
+                             json_str("playerId", pid), "\"items\":[]"});
             return resp({json_str("status", "success"), json_str("action", "inventory.list"),
-                         json_str("player_id", pid), "\"items\":" + arr_json(it->second)});
+                         json_str("playerId", pid), "\"items\":" + arr_json(it->second)});
         });
 
     // inventory.grant
     reg("inventory.grant", "warning", "inventory", "grant",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string pid = extract_str(payload, "player_id");
-            std::string tid = extract_str(payload, "template_id");
+            std::string pid = extract_str(payload, "playerId");
+            std::string tid = extract_str(payload, "templateId");
             if (tid.empty()) tid = extract_str(payload, "item_id");
             auto& inv = store.inventories[pid];
             auto it = inv.find(tid);
@@ -464,17 +464,17 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
                 it = inv.find(tid);
             }
             it->second.quantity += extract_int(payload, "quantity", 1);
-            it->second.updated_at = now_str();
+            it->second.updatedAt = now_str();
             return resp({json_str("status", "success"), json_str("action", "inventory.grant"),
-                         json_str("player_id", pid), "\"item\":" + it->second.toJson()});
+                         json_str("playerId", pid), "\"item\":" + it->second.toJson()});
         });
 
     // inventory.consume
     reg("inventory.consume", "warning", "inventory", "consume",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string pid = extract_str(payload, "player_id");
-            std::string tid = extract_str(payload, "template_id");
+            std::string pid = extract_str(payload, "playerId");
+            std::string tid = extract_str(payload, "templateId");
             if (tid.empty()) tid = extract_str(payload, "item_id");
             long long qty = extract_int(payload, "quantity", 1);
             auto iit = store.inventories.find(pid);
@@ -486,17 +486,17 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
             if (it->second.quantity < qty)
                 return resp({json_str("status", "failed"), json_str("message", "insufficient quantity")});
             it->second.quantity -= qty;
-            it->second.updated_at = now_str();
+            it->second.updatedAt = now_str();
             return resp({json_str("status", "success"), json_str("action", "inventory.consume"),
-                         json_str("player_id", pid), "\"item\":" + it->second.toJson()});
+                         json_str("playerId", pid), "\"item\":" + it->second.toJson()});
         });
 
     // mail.send
     reg("mail.send", "warning", "mail", "send",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string pid = extract_str(payload, "player_id");
-            if (pid.empty()) return resp({json_str("status", "error"), json_str("message", "player_id is required")});
+            std::string pid = extract_str(payload, "playerId");
+            if (pid.empty()) return resp({json_str("status", "error"), json_str("message", "playerId is required")});
             auto now = now_str();
             std::string title = extract_str(payload, "title");
             if (title.empty()) title = "系统邮件";
@@ -526,13 +526,13 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
     reg("mail.list", "safe", "mail", "list",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string pid = extract_str(payload, "player_id");
+            std::string pid = extract_str(payload, "playerId");
             auto it = store.mails.find(pid);
             if (it == store.mails.end())
                 return resp({json_str("status", "success"), json_str("action", "mail.list"),
-                             json_str("player_id", pid), "\"items\":[]", "\"total\":0"});
+                             json_str("playerId", pid), "\"items\":[]", "\"total\":0"});
             return resp({json_str("status", "success"), json_str("action", "mail.list"),
-                         json_str("player_id", pid), "\"items\":" + arr_json_vec(it->second),
+                         json_str("playerId", pid), "\"items\":" + arr_json_vec(it->second),
                          json_int("total", it->second.size())});
         });
 
@@ -540,14 +540,14 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
     reg("mail.claim", "warning", "mail", "claim",
         [&store](const std::string&, const std::string& payload) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
-            std::string pid = extract_str(payload, "player_id");
+            std::string pid = extract_str(payload, "playerId");
             std::string mid = extract_str(payload, "mail_id");
             if (mid.empty()) mid = extract_str(payload, "id");
             auto it = store.mails.find(pid);
             if (it != store.mails.end()) {
                 for (auto& m : it->second) {
                     if (m.id == mid) {
-                        m.status = "claimed"; m.updated_at = now_str();
+                        m.status = "claimed"; m.updatedAt = now_str();
                         return resp({json_str("status", "success"), json_str("action", "mail.claim"),
                                      "\"mail\":" + m.toJson()});
                     }
