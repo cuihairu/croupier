@@ -26,7 +26,9 @@ function toSummaryRow(item: FunctionSummary, descriptor?: FunctionDescriptor): S
     summary: item.summary || descriptor?.summary,
     resource: item.resource || descriptor?.resource,
     operation: item.operation || descriptor?.operation,
-    tags: Array.isArray(item.tags) ? item.tags : descriptor?.tags || [],
+    // item.tags 经过 normalize 后恒为数组（可能是空数组），需按长度判断才能
+    // 让 descriptor 的 tags 兜底生效。
+    tags: item.tags?.length ? item.tags : descriptor?.tags || [],
   };
 }
 

@@ -63,7 +63,7 @@ export const buildDirectoryColumns = ({
         render: (_, record) => {
           const text = record.summary?.zh || record.summary?.en || '';
           if (!text) return '-';
-          const truncated = text.length > 10 ? text.slice(0, 10) + '...' : text;
+          const truncated = text.length > 50 ? text.slice(0, 50) + '...' : text;
           return (
             <Tooltip title={text}>
               <span>{truncated}</span>

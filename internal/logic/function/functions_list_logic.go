@@ -85,6 +85,14 @@ func (l *FunctionsListLogic) FunctionsList(req *FunctionsListRequest) (*Function
 			if existing.GameId == "" && rt.GameId != "" {
 				existing.GameId = rt.GameId
 			}
+			// DB 记录不持久化 tags/summary（见 model.Function），运行时注册
+			// 信息是最新来源，DB 行缺这些字段时用运行时值补齐。
+			if len(existing.Tags) == 0 && len(rt.Tags) > 0 {
+				existing.Tags = rt.Tags
+			}
+			if len(existing.Summary) == 0 && len(rt.Summary) > 0 {
+				existing.Summary = rt.Summary
+			}
 			index[rt.ID] = existing
 			continue
 		}

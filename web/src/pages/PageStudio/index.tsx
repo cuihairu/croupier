@@ -6,12 +6,14 @@ import {
   Card,
   Collapse,
   Drawer,
+  Dropdown,
   Empty,
   Modal,
   Popconfirm,
   Space,
   Tag,
   Timeline,
+  Tooltip,
   Typography,
 } from 'antd';
 import {
@@ -20,6 +22,7 @@ import {
   EyeOutlined,
   HistoryOutlined,
   MergeOutlined,
+  MoreOutlined,
   ReloadOutlined,
   RocketOutlined,
   StopOutlined,
@@ -97,7 +100,7 @@ function currentFocusPageKey(): string {
 }
 
 export default function PageStudio() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [drafts, setDrafts] = useState<PageSpecDraftSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<PageSpec | null>(null);
@@ -467,77 +470,83 @@ export default function PageStudio() {
     {
       title: '操作',
       key: 'actions',
-      width: 400,
+      width: 160,
+      fixed: 'right',
       render: (_, record) => (
-        <Space>
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record.pageKey)}
-          >
-            编辑
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handlePreview(record.pageKey)}
-          >
-            预览
-          </Button>
-          <Popconfirm
-            title="确认按最新 Proposal 重新生成草稿？"
-            description="当前草稿修改将被最新 Proposal 覆盖，已发布版本不会变更。"
-            onConfirm={() => handleRegenerate(record.pageKey, record.draftRevision)}
-          >
+        <Space size={4}>
+          <Tooltip title="编辑">
             <Button
               type="link"
               size="small"
-              icon={<ReloadOutlined />}
-              loading={regeneratingPageKey === record.pageKey}
-            >
-              重新生成
-            </Button>
-          </Popconfirm>
-          <Button
-            type="link"
-            size="small"
-            icon={<HistoryOutlined />}
-            onClick={() => handleChangeChain(record.pageKey)}
-          >
-            变更链
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            icon={<DiffOutlined />}
-            onClick={() => handleDiff(record.pageKey)}
-          >
-            Diff
-          </Button>
-          <Button type="link" size="small" onClick={() => handleVersions(record.pageKey)}>
-            版本
-          </Button>
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record.pageKey)}
+            />
+          </Tooltip>
+          <Tooltip title="预览">
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handlePreview(record.pageKey)}
+            />
+          </Tooltip>
           {record.status === 'draft' ? (
             <Popconfirm
               title="确认发布此页面？"
               onConfirm={() => handlePublish(record.pageKey, record.draftRevision)}
             >
-              <Button type="link" size="small" icon={<RocketOutlined />}>
-                发布
-              </Button>
+              <Tooltip title="发布">
+                <Button type="link" size="small" icon={<RocketOutlined />} />
+              </Tooltip>
             </Popconfirm>
           ) : (
             <Popconfirm
               title="确认取消发布此页面？"
               onConfirm={() => handleUnpublish(record.pageKey)}
             >
-              <Button type="link" size="small" icon={<StopOutlined />} danger>
-                取消发布
-              </Button>
+              <Tooltip title="取消发布">
+                <Button type="link" size="small" icon={<StopOutlined />} danger />
+              </Tooltip>
             </Popconfirm>
           )}
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'regenerate',
+                  icon: <ReloadOutlined />,
+                  label: '重新生成',
+                  onClick: () =>
+                    modal.confirm({
+                      title: '确认按最新 Proposal 重新生成草稿？',
+                      content: '当前草稿修改将被最新 Proposal 覆盖，已发布版本不会变更。',
+                      onOk: () => handleRegenerate(record.pageKey, record.draftRevision),
+                    }),
+                },
+                {
+                  key: 'versions',
+                  icon: <HistoryOutlined />,
+                  label: '版本历史',
+                  onClick: () => handleVersions(record.pageKey),
+                },
+                {
+                  key: 'change-chain',
+                  icon: <HistoryOutlined />,
+                  label: '变更链',
+                  onClick: () => handleChangeChain(record.pageKey),
+                },
+                {
+                  key: 'diff',
+                  icon: <DiffOutlined />,
+                  label: '变更对比',
+                  onClick: () => handleDiff(record.pageKey),
+                },
+              ],
+            }}
+            trigger={['click']}
+          >
+            <Button type="link" size="small" icon={<MoreOutlined />} />
+          </Dropdown>
         </Space>
       ),
     },

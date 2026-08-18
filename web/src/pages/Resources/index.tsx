@@ -1,17 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Drawer, Input, Space, Tag, Typography } from 'antd';
+import { Button, Card, Drawer, Input, Space, Tag, Tooltip, Typography } from 'antd';
 import { ProColumns, PageContainer, ProTable } from '@ant-design/pro-components';
 import { FileSearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
-import { listResourceOperations, listResources } from '@/services/api/resources';
+import { listResources } from '@/services/api/resources';
 import { getScope, isScopeReady, subscribeScope } from '@/stores/scope';
-import type { OperationSpec, ResourceSpec } from '@/types/dashboard';
+import type { ResourceSpec } from '@/types/dashboard';
 
 function localizedText(text: Record<string, string> | undefined, fallback: string): string {
   if (!text) return fallback;
   return (
     text['zh-CN'] || text['en-US'] || Object.values(text).find((value) => value.trim()) || fallback
   );
+}
+
+// 后端在无 labels 时会用 humanizeKey(key) 兜底，导致 label 与 key 成对近重复
+// 显示。两者等价时只显示 label，key 收进 Tooltip。
+function isSameText(label: string, key?: string): boolean {
+  if (!key) return true;
+  return label.trim().toLowerCase() === key.trim().toLowerCase();
 }
 
 function riskColor(risk?: string) {
@@ -25,10 +32,10 @@ export default function ResourcesPage() {
   const [resources, setResources] = useState<ResourceSpec[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
+  // 仅在点击搜索/刷新时生效的查询词，避免输入过程逐字符触发请求。
+  const [appliedQuery, setAppliedQuery] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [selectedResource, setSelectedResource] = useState<ResourceSpec | null>(null);
-  const [operations, setOperations] = useState<OperationSpec[]>([]);
 
   // Subscribe to scope (game_id/env) changes so data reloads when scope is set
   const [scopeKey, setScopeKey] = useState(() => {
@@ -46,11 +53,11 @@ export default function ResourcesPage() {
   const loadResources = useCallback(async () => {
     setLoading(true);
     try {
-      setResources(await listResources(query ? { q: query } : undefined));
+      setResources(await listResources(appliedQuery ? { q: appliedQuery } : undefined));
     } finally {
       setLoading(false);
     }
-  }, [query, scopeKey]);
+  }, [appliedQuery, scopeKey]);
 
   useEffect(() => {
     // Skip initial request until GameSelector has validated the scope.
@@ -61,16 +68,10 @@ export default function ResourcesPage() {
     loadResources();
   }, [loadResources]);
 
-  const openResource = async (resource: ResourceSpec) => {
+  // 列表响应已内嵌 operations，Drawer 直接复用，避免二次请求同一份数据。
+  const openResource = (resource: ResourceSpec) => {
     setSelectedResource(resource);
     setDrawerOpen(true);
-    setDetailLoading(true);
-    try {
-      const nextOperations = await listResourceOperations(resource.key);
-      setOperations(nextOperations);
-    } finally {
-      setDetailLoading(false);
-    }
   };
 
   const totalOperations = useMemo(
@@ -83,25 +84,36 @@ export default function ResourcesPage() {
       title: '资源',
       dataIndex: 'key',
       width: 220,
-      render: (_, record) => (
-        <Space direction="vertical" size={0}>
-          <Typography.Text strong>{localizedText(record.labels, record.key)}</Typography.Text>
-          <Typography.Text code>{record.key}</Typography.Text>
-        </Space>
-      ),
+      render: (_, record) => {
+        const label = localizedText(record.labels, record.key);
+        return isSameText(label, record.key) ? (
+          <Tooltip title={record.key}>
+            <Typography.Text strong>{label}</Typography.Text>
+          </Tooltip>
+        ) : (
+          <Space direction="vertical" size={0}>
+            <Typography.Text strong>{label}</Typography.Text>
+            <Typography.Text code>{record.key}</Typography.Text>
+          </Space>
+        );
+      },
     },
     {
       title: '分类',
       dataIndex: ['category', 'key'],
       width: 180,
-      render: (_, record) => (
-        <Space>
-          <Tag color="blue">
-            {localizedText(record.category?.labels, record.category?.key || '-')}
-          </Tag>
-          <Typography.Text code>{record.category?.key}</Typography.Text>
-        </Space>
-      ),
+      render: (_, record) => {
+        const label = localizedText(record.category?.labels, record.category?.key || '-');
+        const tag = <Tag color="blue">{label}</Tag>;
+        return isSameText(label, record.category?.key) ? (
+          <Tooltip title={record.category?.key}>{tag}</Tooltip>
+        ) : (
+          <Space>
+            {tag}
+            <Typography.Text code>{record.category?.key}</Typography.Text>
+          </Space>
+        );
+      },
     },
     {
       title: '操作数',
@@ -162,7 +174,9 @@ export default function ResourcesPage() {
               placeholder="搜索资源 key 或标题"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              onSearch={loadResources}
+              onSearch={(value) => {
+                setAppliedQuery(value.trim());
+              }}
               style={{ width: 320 }}
             />
             <Button icon={<ReloadOutlined />} onClick={loadResources} loading={loading}>
@@ -208,9 +222,9 @@ export default function ResourcesPage() {
             </Card>
           )}
 
-          <Card size="small" title="操作" loading={detailLoading}>
+          <Card size="small" title="操作">
             <Space direction="vertical" style={{ width: '100%' }}>
-              {operations.map((operation) => (
+              {(selectedResource?.operations || []).map((operation) => (
                 <Card key={operation.functionId} size="small">
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Space wrap>
@@ -223,7 +237,7 @@ export default function ResourcesPage() {
                   </Space>
                 </Card>
               ))}
-              {operations.length === 0 && (
+              {(selectedResource?.operations || []).length === 0 && (
                 <Typography.Text type="secondary">暂无操作</Typography.Text>
               )}
             </Space>
