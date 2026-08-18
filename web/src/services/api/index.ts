@@ -8,7 +8,6 @@ export * from './audit';
 export * from './storage';
 export * from './me';
 export * from './messages';
-export * from './resources';
 export * from './pages';
 export * from './support';
 export * from './permissions';

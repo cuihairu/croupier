@@ -21,7 +21,6 @@ export default {
   'menu.SystemConfig.GameEnvironments': 'Game Environments',
   'menu.FunctionsAndPages': 'Functions & Pages',
   'menu.FunctionsAndPages.FunctionCatalog': 'Function Catalog',
-  'menu.FunctionsAndPages.Resources': 'Resources / Operations',
   'menu.FunctionsAndPages.PageStudio': 'Page Studio',
   'menu.FunctionsAndPages.OpenAPISources': 'OpenAPI Sources',
   'menu.FunctionsAndPages.FunctionInvoke': 'Function Invoke',

@@ -49,7 +49,7 @@ export default function FunctionDetailPage() {
     handleDelete,
     handleSavePermissions,
   } = useFunctionDetailPage(params.id);
-  const pageStudioPath = '/system/functions/resources';
+  const pageStudioPath = '/system/functions/resource-catalog';
   const invokePath = params.id
     ? `/system/functions/invoke?fid=${encodeURIComponent(params.id)}`
     : '';

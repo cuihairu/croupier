@@ -22,11 +22,9 @@ const functionManagementRoutes = [
     component: './Functions/Directory',
   },
   {
+    // 旧「资源/操作」页已并入资源目录（ResourceCatalog），保留重定向兼容书签与旧链接。
     path: '/system/functions/resources',
-    name: 'Resources',
-    access: 'canResourcesRead',
-    component: './Resources',
-    icon: 'apartment',
+    redirect: '/system/functions/resource-catalog',
   },
   {
     path: '/system/functions/pages',
