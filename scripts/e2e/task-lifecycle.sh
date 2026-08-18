@@ -54,7 +54,7 @@ SCOPE=(-H "X-Game-ID: $GAME_ID" -H "X-Env: $ENV")
 #    after handling 2 StartTask requests (exit-after-tasks), so the harness
 #    can wait deterministically instead of guessing timing.
 "$PROBE_BIN" -addr "$AGENT_ADDR" -agent-id e2e-probe -game-id "$GAME_ID" -env "$ENV" \
-  -mock-task "$FUNCTION_ID" -exit-after-tasks 2 -serve-duration 60s -ttl-seconds 120 \
+  -mock-task "$FUNCTION_ID" -exit-after-tasks 2 -serve-duration 60s -ttl-seconds 120 -step-ms 500 \
   >/tmp/e2e-probe.log 2>&1 &
 PROBE_PID=$!
 PROBE_READY=0
@@ -90,7 +90,7 @@ fi
 # 4. Task 2 — cancel lifecycle: started → ... → cancel_requested → cancelled.
 T2=$(curl -s -X POST "$SERVER_URL/api/v1/tasks" "${AUTH[@]}" "${SCOPE[@]}" -H "Content-Type: application/json" -d "$BODY" | jq -r '.taskId // empty')
 if [ -n "$T2" ]; then ok "startTask 2 → $T2"; else fail "startTask 2 (no task_id)"; fi
-sleep 0.3
+# 立即请求取消：mock 任务总时长 ~2.5s（step-ms 500），取消必须落在任务完成前。
 curl -s -X POST "$SERVER_URL/api/v1/tasks/$T2/cancel" "${AUTH[@]}" "${SCOPE[@]}" -H "Content-Type: application/json" -d '{}' >/dev/null
 EV2=""
 for i in $(seq 1 40); do
