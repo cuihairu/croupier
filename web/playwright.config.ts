@@ -37,8 +37,22 @@ const startRealWeb = requestedProjects.size === 0 || requestedProjects.has('real
 const realDashboardScenarios =
   /@(?:fixture-health|sdk-|openapi-|schema-change|governance-change|stale-|safe-|identity-|republish-)/;
 
+// Mock 套件在 CI 用生产构建（无按需编译、无 HMR 开销）；本地默认 dev
+// （迭代快），可 MOCK_E2E_STATIC=1 强制静态。
+const mockStatic = process.env.CI || process.env.MOCK_E2E_STATIC === '1';
+
 const webServers = [
-  ...(startMockWeb
+  ...(startMockWeb && mockStatic
+    ? [
+        {
+          command: `cross-env MOCK=all pnpm exec max build > /dev/null 2>&1; cross-env PORT=${devServerPort(mockWebBaseURL, 8000)} node --import tsx scripts/e2e-static-server.mjs dist`,
+          url: mockWebBaseURL,
+          reuseExistingServer: false,
+          timeout: 600000,
+        },
+      ]
+    : []),
+  ...(startMockWeb && !mockStatic
     ? [
         {
           command: `cross-env PORT=${devServerPort(mockWebBaseURL, 8000)} PLAYWRIGHT_BUNDLER=webpack REACT_APP_ENV=dev MOCK=all UMI_ENV=dev max dev`,
