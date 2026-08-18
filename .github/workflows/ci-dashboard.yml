@@ -316,8 +316,8 @@ jobs:
         timeout-minutes: 15
         uses: docker/build-push-action@v7
         with:
-          context: ./web
-          file: ./web/Dockerfile
+          context: .
+          file: ./docker/Dockerfile.web
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -15,7 +15,11 @@ services:
     networks:
       - croupier-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-croupier} -d ${POSTGRES_DB:-croupier}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-croupier} -d ${POSTGRES_DB:-croupier}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,7 +59,11 @@ services:
         soft: 262144
         hard: 262144
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/?query=SELECT%201 || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8123/?query=SELECT%201 || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -86,6 +94,16 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'wget -qO- http://127.0.0.1:18780/healthz | grep -q ''"ok":true''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     networks:
       - croupier-network
 
@@ -100,7 +118,14 @@ services:
       - "${AGENT_GRPC_PORT:-19090}:19090"
       - "${AGENT_HTTP_PORT:-19091}:19091"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "19091"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     networks:
       - croupier-network
 
@@ -111,7 +136,14 @@ services:
     ports:
       - "${DASHBOARD_PORT:-8000}:80"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     networks:
       - croupier-network
 
@@ -122,12 +154,13 @@ services:
     profiles: ["sdk-examples"]
     environment:
       CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
-      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
       CROUPIER_SERVICE_ID: ${CROUPIER_SDK_GO_EXAMPLE_SERVICE_ID:-game-demo-go}
       CROUPIER_LOCAL_LISTEN: ${CROUPIER_SDK_EXAMPLE_LOCAL_LISTEN:-0.0.0.0:19103}
-      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
 
@@ -138,11 +171,12 @@ services:
     profiles: ["sdk-examples"]
     environment:
       CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
-      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
       CROUPIER_SERVICE_ID: ${CROUPIER_SDK_PYTHON_EXAMPLE_SERVICE_ID:-game-demo-python}
-      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
 
@@ -153,11 +187,12 @@ services:
     profiles: ["sdk-examples"]
     environment:
       CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
-      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
       CROUPIER_SERVICE_ID: ${CROUPIER_SDK_JAVA_EXAMPLE_SERVICE_ID:-game-demo-java}
-      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
 
@@ -168,11 +203,12 @@ services:
     profiles: ["sdk-examples"]
     environment:
       CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
-      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
       CROUPIER_SERVICE_ID: ${CROUPIER_SDK_JS_EXAMPLE_SERVICE_ID:-game-demo-js}
-      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
 
@@ -183,11 +219,12 @@ services:
     profiles: ["sdk-examples"]
     environment:
       CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
-      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
       CROUPIER_SERVICE_ID: ${CROUPIER_SDK_CPP_EXAMPLE_SERVICE_ID:-game-demo-cpp}
-      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
 
@@ -198,11 +235,12 @@ services:
     profiles: ["sdk-examples"]
     environment:
       CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
-      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
       CROUPIER_SERVICE_ID: ${CROUPIER_SDK_CSHARP_EXAMPLE_SERVICE_ID:-game-demo-csharp}
-      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
 

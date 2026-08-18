@@ -9,8 +9,8 @@ WORKDIR /app
 COPY --from=build /out /app
 
 ENV CROUPIER_AGENT_ADDR=agent:19091
-ENV CROUPIER_GAME_ID=demo-game
+ENV CROUPIER_GAME_ID=default
 ENV CROUPIER_SERVICE_ID=game-demo-service
-ENV CROUPIER_ENV=development
+ENV CROUPIER_ENV=dev
 
 CMD ["dotnet", "/app/GameDemo.dll"]

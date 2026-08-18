@@ -101,7 +101,7 @@ jobs:
             croupier-server \
             croupier-agent \
             croupier-dashboard \
-            croupier-sdk-example-demo
+            croupier-sdk-demo-go
           do
             if ! docker container inspect "${name}" >/dev/null 2>&1; then
               continue
@@ -121,9 +121,9 @@ jobs:
         run: |
           COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
           if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
-            docker compose "${COMPOSE_ARGS[@]}" --profile sdk-examples up -d --remove-orphans
+            docker compose "${COMPOSE_ARGS[@]}" --profile sdk-examples up -d --wait --remove-orphans
           else
-            docker compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans
+            docker compose "${COMPOSE_ARGS[@]}" up -d --wait --remove-orphans
           fi
 
       - name: Show running services

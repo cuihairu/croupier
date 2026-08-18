@@ -23,8 +23,13 @@ FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 # busybox-static 提供最小 shell/网络工具（sh/cat/netstat/ps），便于容器运维排查；
 # 仍保持 distroless 基底，不引入包管理器。
+# busybox applet 符号链接必须以 root 安装：distroless 默认 USER nonroot，
+# 否则 --install 在 /bin 下静默失败（Permission denied），healthcheck 的
+# CMD-SHELL wget/sh 找不到可执行文件。
 COPY --from=busybox:1.37-uclibc /bin/busybox /bin/busybox
+USER root:root
 RUN ["/bin/busybox", "--install", "/bin"]
+USER nonroot:nonroot
 COPY --from=build /out/croupier-server /app/
 COPY --from=build --chown=nonroot:nonroot /src/configs /app/configs
 COPY --from=build --chown=nonroot:nonroot /out/data /app/data

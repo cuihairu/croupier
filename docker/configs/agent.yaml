@@ -11,8 +11,8 @@ server:
 
 agent:
   id: "croupier-docker-agent"
-  gameId: "demo-game"
-  env: "development"
+  gameId: "default"
+  env: "dev"
   localAddr: "agent:19091"
   httpAddr: "agent:19091"
   labels: {}

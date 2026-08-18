@@ -34,8 +34,8 @@ ADD --chmod=644 https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/2.0.16/slf
 RUN rm -rf /app/classes/io
 
 ENV CROUPIER_AGENT_ADDR=agent:19091
-ENV CROUPIER_GAME_ID=demo-game
+ENV CROUPIER_GAME_ID=default
 ENV CROUPIER_SERVICE_ID=game-demo-service
-ENV CROUPIER_ENV=development
+ENV CROUPIER_ENV=dev
 
 CMD ["java", "-cp", "/app/classes:/app/lib/*", "com.croupier.sdk.examples.GameDemo"]

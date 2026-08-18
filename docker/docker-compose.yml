@@ -109,6 +109,16 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'wget -qO- http://127.0.0.1:18780/healthz | grep -q ''"ok":true''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     networks:
       - croupier-network
 
@@ -123,6 +133,15 @@ services:
       - ./configs/agent.yaml:/app/configs/agent.yaml:ro
     command: ["agent", "--config", "/app/configs/agent.yaml"]
     ports: ["19090:19090", "19091:19091"]
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "19091"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     networks:
       - croupier-network
 
@@ -132,13 +151,20 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.web
       args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        NODE_IMAGE: ${NODE_IMAGE:-node:24-alpine}
         NGINX_IMAGE: ${NGINX_IMAGE:-nginx:alpine}
         # Optional domestic registry for npm (e.g. https://registry.npmmirror.com)
         NPM_REGISTRY: ${NPM_REGISTRY:-}
     ports: ["8000:80"]
     depends_on:
-      - server
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     networks:
       - croupier-network
 
@@ -159,11 +185,12 @@ services:
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: demo-game
+      CROUPIER_GAME_ID: default
       CROUPIER_SERVICE_ID: game-demo-service
-      CROUPIER_ENV: development
+      CROUPIER_ENV: dev
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
     profiles:
@@ -172,8 +199,8 @@ services:
   # Go SDK - 基础示例（演示函数注册和调用）
   sdk-example-basic:
     build:
-      context: ..
-      dockerfile: sdks/go/examples/Dockerfile
+      context: ../sdks/go
+      dockerfile: examples/Dockerfile
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
@@ -182,11 +209,12 @@ services:
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: example-game
+      CROUPIER_GAME_ID: default
       CROUPIER_SERVICE_ID: example-service
-      CROUPIER_ENV: development
+      CROUPIER_ENV: dev
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
     profiles:
@@ -195,8 +223,8 @@ services:
   # Go SDK - 综合示例（演示所有 SDK 接口）
   sdk-example-comprehensive:
     build:
-      context: ..
-      dockerfile: sdks/go/examples/Dockerfile
+      context: ../sdks/go
+      dockerfile: examples/Dockerfile
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
@@ -205,11 +233,12 @@ services:
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: comprehensive-game
+      CROUPIER_GAME_ID: default
       CROUPIER_SERVICE_ID: comprehensive-service
-      CROUPIER_ENV: development
+      CROUPIER_ENV: dev
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
     profiles:
@@ -224,11 +253,12 @@ services:
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: demo-game
+      CROUPIER_GAME_ID: default
       CROUPIER_SERVICE_ID: game-demo-python
-      CROUPIER_ENV: development
+      CROUPIER_ENV: dev
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
     profiles:
@@ -243,11 +273,12 @@ services:
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: demo-game
+      CROUPIER_GAME_ID: default
       CROUPIER_SERVICE_ID: game-demo-java
-      CROUPIER_ENV: development
+      CROUPIER_ENV: dev
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
     profiles:
@@ -262,11 +293,12 @@ services:
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: demo-game
+      CROUPIER_GAME_ID: default
       CROUPIER_SERVICE_ID: game-demo-js
-      CROUPIER_ENV: development
+      CROUPIER_ENV: dev
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
     profiles:
@@ -281,11 +313,12 @@ services:
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: demo-game
+      CROUPIER_GAME_ID: default
       CROUPIER_SERVICE_ID: game-demo-cpp
-      CROUPIER_ENV: development
+      CROUPIER_ENV: dev
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
     profiles:
@@ -300,11 +333,12 @@ services:
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: demo-game
+      CROUPIER_GAME_ID: default
       CROUPIER_SERVICE_ID: game-demo-csharp
-      CROUPIER_ENV: development
+      CROUPIER_ENV: dev
     depends_on:
-      - agent
+      agent:
+        condition: service_healthy
     networks:
       - croupier-network
     profiles:
