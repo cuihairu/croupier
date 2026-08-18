@@ -313,7 +313,7 @@ func inferActionSemantics(sem *model.CapabilitySemantics, contracts []*model.Fun
 		if len(required) == 1 {
 			field := required[0]
 			prop := parseJSONSchema(props[field])
-			if schemaScalarType(prop) != "" {
+			if schemaScalarType(prop) != "" && field == sem.IdentityField {
 				actions = append(actions, inferredAction{
 					FunctionID:    functionID,
 					Subject:       "resource_item",

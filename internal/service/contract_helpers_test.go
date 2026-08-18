@@ -735,6 +735,25 @@ func TestBuildSemantics_WithNilContract(t *testing.T) {
 	assert.NotNil(t, sem)
 }
 
+func TestInferActionSemanticsOnlyInlinesVerifiedResourceIdentity(t *testing.T) {
+	sem := &model.CapabilitySemantics{IdentityField: "id"}
+	contracts := []*model.FunctionContract{
+		{
+			FunctionID:  "mail.claim",
+			Capability:  "action",
+			InputSchema: datatypes.JSON(`{"type":"object","properties":{"player_id":{"type":"string"}},"required":["player_id"]}`),
+		},
+		{
+			FunctionID:  "mail.retry",
+			Capability:  "action",
+			InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
+		},
+	}
+
+	inferActionSemantics(sem, contracts)
+	assert.JSONEq(t, `[{"functionId":"mail.retry","subject":"resource_item","identityInput":"/id"}]`, string(sem.Actions))
+}
+
 // ---------------------------------------------------------------------------
 // normalizeSchemaToJSON
 // ---------------------------------------------------------------------------
