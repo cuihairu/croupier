@@ -324,6 +324,7 @@ export default () => {
     {
       title: '函数ID',
       dataIndex: 'functionId',
+      width: 260,
       ellipsis: true,
       render: (_, record) => (
         <Space>
@@ -612,9 +613,23 @@ export default () => {
                         <Tag color="blue">{instanceDetail.instance.version || '-'}</Tag>
                       </Descriptions.Item>
                       <Descriptions.Item label="状态">
+                        {/* 列表层 normalize 已把后端 active 映射为 running；
+                            详情与列表保持同一判定，healthy 字段后端并不返回。 */}
                         <Badge
-                          status={instanceDetail.instance.healthy ? 'success' : 'error'}
-                          text={instanceDetail.instance.healthy ? '健康' : '离线'}
+                          status={
+                            instanceDetail.instance.status === 'running'
+                              ? 'success'
+                              : instanceDetail.instance.status === 'error'
+                                ? 'error'
+                                : 'default'
+                          }
+                          text={
+                            instanceDetail.instance.status === 'running'
+                              ? '运行中'
+                              : instanceDetail.instance.status === 'error'
+                                ? '错误'
+                                : '停止'
+                          }
                         />
                       </Descriptions.Item>
                       <Descriptions.Item label="Game">
