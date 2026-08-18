@@ -318,55 +318,27 @@ export default () => {
     }
   };
 
+  // 列表只保留识别实例所需的关键列；Agent ID / Service ID / 地址 /
+  // 最后心跳等长字段与完整元信息收纳到「详情」Drawer，避免横向溢出。
   const columns: ProColumns<FunctionInstance>[] = [
     {
-      title: 'Agent ID',
-      dataIndex: 'agentId',
-      width: 200,
-      copyable: true,
+      title: '函数ID',
+      dataIndex: 'functionId',
       ellipsis: true,
       render: (_, record) => (
         <Space>
           <ClusterOutlined />
-          <Text code>{record.agentId}</Text>
+          <Text code copyable>
+            {record.functionId}
+          </Text>
         </Space>
       ),
-    },
-    {
-      title: 'Service ID',
-      dataIndex: 'serviceId',
-      width: 200,
-      copyable: true,
-      ellipsis: true,
-      render: (_, record) => <Text code>{record.serviceId}</Text>,
-    },
-    {
-      title: '地址',
-      dataIndex: 'addr',
-      width: 200,
-      ellipsis: true,
-      copyable: true,
-    },
-    {
-      title: '函数ID',
-      dataIndex: 'functionId',
-      width: 250,
-      render: (_, record) => (
-        <Text code copyable>
-          {record.functionId}
-        </Text>
-      ),
-    },
-    {
-      title: '版本',
-      dataIndex: 'version',
-      width: 100,
-      render: (_, record) => <Tag color="blue">{record.version || '-'}</Tag>,
     },
     {
       title: 'SDK',
       dataIndex: 'sdkName',
       width: 170,
+      ellipsis: true,
       render: (_, record) =>
         record.sdkName || record.sdkLang ? (
           <Tooltip title={`${record.sdkLang || ''} ${record.sdkVersion || ''}`.trim()}>
@@ -377,9 +349,16 @@ export default () => {
         ),
     },
     {
-      title: 'Game/Env',
-      dataIndex: 'gameId',
+      title: '版本',
+      dataIndex: 'version',
+      width: 90,
+      render: (_, record) => <Tag color="blue">{record.version || '-'}</Tag>,
+    },
+    {
+      title: '环境',
+      dataIndex: 'env',
       width: 150,
+      ellipsis: true,
       render: (_, record) => (
         <Space>
           <Tag color="purple">{record.gameId || '-'}</Tag>
@@ -417,20 +396,8 @@ export default () => {
       ),
     },
     {
-      title: '最后心跳',
-      dataIndex: 'lastHeartbeat',
-      width: 180,
-      render: (_, record) => (
-        <Text type="secondary">
-          {record.lastHeartbeat || record.lastSeen
-            ? new Date(record.lastHeartbeat || record.lastSeen || '').toLocaleString('zh-CN')
-            : '未知'}
-        </Text>
-      ),
-    },
-    {
       title: '操作',
-      width: 180,
+      width: 120,
       render: (_, record) => (
         <Space>
           <Tooltip title="查看详情">
