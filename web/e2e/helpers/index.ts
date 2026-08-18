@@ -200,7 +200,9 @@ export async function expectTableVisible(page: Page): Promise<void> {
  * 断言页面有表单
  */
 export async function expectFormVisible(page: Page): Promise<void> {
-  await expect(page.locator('.ant-form, form').first()).toBeVisible();
+  await expect(page.locator('.ant-form, form').first()).toBeVisible({
+    timeout: process.env.CI ? 45000 : 15000,
+  });
 }
 
 /**

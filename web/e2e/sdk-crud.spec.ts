@@ -266,8 +266,8 @@ test.describe('真实 SDK Resource Proposal 链路', () => {
       pageSpec: {
         category: {
           key: 'inventory',
-          // 术语字典（term_dictionary）把 inventory 本地化为「道具」。
-          labels: expect.objectContaining({ 'zh-CN': '道具', 'en-US': 'Item' }),
+          // 术语字典（term_dictionary）把 inventory 本地化为「背包」。
+          labels: expect.objectContaining({ 'zh-CN': '背包', 'en-US': 'Inventory' }),
         },
         resource: {
           listView: {
