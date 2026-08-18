@@ -160,13 +160,25 @@ export async function waitForTable(
  */
 export async function selectEnv(page: Page, env: string): Promise<void> {
   const envSelector = page.getByTestId('env-selector');
+  // scope 切换会触发整页 reload（Console 页订阅 scope 变化）；
+  // reload 后 env-selector 需重新出现（games 重新校验）。
   await expect(envSelector).toBeVisible();
   await envSelector.click();
 
   const envOption = page.locator('.ant-select-item-option').filter({ hasText: env }).first();
   await expect(envOption).toBeVisible();
   await envOption.click();
-  await expect(envSelector).toContainText(new RegExp(env, 'i'));
+  // 选择后页面可能整页 reload；轮询等待 selector 重新出现且值为目标环境。
+  await expect
+    .poll(
+      async () => {
+        const el = page.getByTestId('env-selector');
+        if (!(await el.isVisible().catch(() => false))) return '';
+        return (await el.innerText().catch(() => '')) || '';
+      },
+      { timeout: 30000 },
+    )
+    .toMatch(new RegExp(env, 'i'));
 }
 
 /**

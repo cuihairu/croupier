@@ -5956,6 +5956,16 @@ func TestTaskRunModel_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "succeeded", found.Status)
 
+	// A late lifecycle event must not undo a terminal task state.
+	updated, err := runModel.UpdateByTaskIDIfStatusNotIn(ctx, "task-001", []string{"succeeded", "failed", "cancelled", "timed_out"}, map[string]interface{}{
+		"status": "cancel_requested",
+	})
+	require.NoError(t, err)
+	assert.False(t, updated)
+	found, err = runModel.FindByTaskID(ctx, "task-001")
+	require.NoError(t, err)
+	assert.Equal(t, "succeeded", found.Status)
+
 	// Update by empty task ID
 	err = runModel.UpdateByTaskID(ctx, "", map[string]interface{}{"status": "failed"})
 	assert.Error(t, err)

@@ -51,6 +51,25 @@ func (m *TaskRunModel) UpdateByTaskID(ctx context.Context, taskID string, update
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&TaskRun{}).Where("task_id = ?", taskID).Updates(updates).Error
 }
 
+// UpdateByTaskIDIfStatusNotIn applies an update only while the task is not in
+// one of the supplied statuses. It returns false when a concurrent terminal
+// transition has already won, allowing callers to ignore late lifecycle
+// events without rolling the task back to an intermediate state.
+func (m *TaskRunModel) UpdateByTaskIDIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error) {
+	if strings.TrimSpace(taskID) == "" {
+		return false, errors.New("task id required")
+	}
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&TaskRun{}).Where("task_id = ?", taskID)
+	if len(blockedStatuses) > 0 {
+		query = query.Where("(status IS NULL OR status NOT IN ?)", blockedStatuses)
+	}
+	result := query.Updates(updates)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
 func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskRun, int64, error) {
 	opts.PaginationOptions.Normalize()
 

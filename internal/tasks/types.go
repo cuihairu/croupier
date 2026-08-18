@@ -13,6 +13,23 @@ const (
 	StatusTimedOut        = "timed_out"
 )
 
+// IsTerminalStatus reports whether a task status cannot transition again.
+func IsTerminalStatus(status string) bool {
+	switch status {
+	case StatusSucceeded, StatusFailed, StatusCancelled, StatusTimedOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// TerminalStatuses returns the statuses protected from late event updates.
+// The returned slice is deliberately new so callers cannot mutate shared
+// state.
+func TerminalStatuses() []string {
+	return []string{StatusSucceeded, StatusFailed, StatusCancelled, StatusTimedOut}
+}
+
 type EventType string
 
 const (

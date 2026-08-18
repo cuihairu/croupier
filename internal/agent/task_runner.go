@@ -77,8 +77,10 @@ func (r *TaskRunner) Start(req *sdkv1.InvokeRequest) string {
 }
 
 // Cancel requests cancellation of a running task. Returns true if a task with
-// the given ID was found and its cancel function invoked. Emits a
-// cancel_requested event when the task exists.
+// the given ID was found and its cancel function invoked. The Server records
+// the cancellation intent before forwarding this request; TaskRunner reports
+// only the eventual cancelled terminal event from run, so an async intent
+// event cannot arrive late and overwrite that terminal state.
 func (r *TaskRunner) Cancel(taskID string) bool {
 	r.mu.RLock()
 	cancel, ok := r.tasks[taskID]
@@ -90,12 +92,6 @@ func (r *TaskRunner) Cancel(taskID string) bool {
 	r.mu.Lock()
 	delete(r.tasks, taskID)
 	r.mu.Unlock()
-	_ = r.report(context.Background(), &sdkv1.TaskEvent{
-		TaskId:  taskID,
-		Type:    "cancel_requested",
-		Message: "已请求取消任务",
-		Payload: []byte("null"),
-	})
 	r.logger.Info("task cancel requested", "task_id", taskID)
 	return true
 }

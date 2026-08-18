@@ -88,7 +88,7 @@ type AgentSessionLoader interface {
 
 // TaskStore defines the interface for task run persistence used by handleTaskEvent.
 type TaskStore interface {
-	UpdateRun(ctx context.Context, taskID string, updates map[string]interface{}) error
+	UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error)
 	AppendEvent(ctx context.Context, taskID string, eventType tasks.EventType, progress int32, message string, payload []byte) error
 }
 
@@ -292,6 +292,7 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 	}
 
 	now := time.Now()
+	blockedStatuses := tasks.TerminalStatuses()
 	updates := map[string]interface{}{
 		"progress": req.GetProgress(),
 		"message":  req.GetMessage(),
@@ -299,9 +300,11 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 
 	switch strings.ToLower(strings.TrimSpace(req.GetType())) {
 	case string(tasks.EventStarted):
+		blockedStatuses = append(blockedStatuses, tasks.StatusCancelRequested)
 		updates["status"] = tasks.StatusRunning
 		updates["started_at"] = &now
 	case string(tasks.EventProgress), string(tasks.EventLog):
+		blockedStatuses = append(blockedStatuses, tasks.StatusCancelRequested)
 		updates["status"] = tasks.StatusRunning
 	case string(tasks.EventCompleted):
 		updates["status"] = tasks.StatusSucceeded
@@ -313,17 +316,26 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 		updates["finished_at"] = &now
 		updates["error_message"] = req.GetMessage()
 	case string(tasks.EventCancelRequested):
+		blockedStatuses = append(blockedStatuses, tasks.StatusCancelRequested)
 		updates["status"] = tasks.StatusCancelRequested
 		updates["cancel_requested_at"] = &now
 	case string(tasks.EventCancelled):
 		updates["status"] = tasks.StatusCancelled
 		updates["finished_at"] = &now
 	default:
+		blockedStatuses = append(blockedStatuses, tasks.StatusCancelRequested)
 		updates["status"] = tasks.StatusRunning
 	}
 
-	if err := taskStore.UpdateRun(ctx, taskID, updates); err != nil {
+	updated, err := taskStore.UpdateRunIfStatusNotIn(ctx, taskID, blockedStatuses, updates)
+	if err != nil {
 		return nil, fmt.Errorf("update task run: %w", err)
+	}
+	if !updated {
+		// A terminal task must remain terminal. Do not append the late event
+		// either: task streams stop at a terminal event and must not expose a
+		// misleading event after that boundary.
+		return nil, nil
 	}
 	if err := taskStore.AppendEvent(ctx, taskID, tasks.EventType(req.GetType()), req.GetProgress(), req.GetMessage(), req.GetPayload()); err != nil {
 		return nil, fmt.Errorf("append task event: %w", err)

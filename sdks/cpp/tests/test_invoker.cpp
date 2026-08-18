@@ -198,12 +198,15 @@ TEST(ServerHTTPInvokerTest, UsesRealServerForAuthenticatedTaskLifecycle) {
     ASSERT_FALSE(completed_events.empty());
     bool saw_started = false;
     bool saw_completed = false;
+    std::string completed_types;
     for (const auto& event : completed_events) {
         saw_started |= event.event_type == "started";
         saw_completed |= event.event_type == "completed";
+        if (!completed_types.empty()) completed_types += ",";
+        completed_types += event.event_type + ":" + event.message;
     }
-    EXPECT_TRUE(saw_started);
-    EXPECT_TRUE(saw_completed);
+    EXPECT_TRUE(saw_started) << completed_types;
+    EXPECT_TRUE(saw_completed) << completed_types;
 
     TaskStatus completed;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);

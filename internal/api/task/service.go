@@ -170,13 +170,20 @@ func (s *Service) Cancel(ctx context.Context, req *CancelRequest) error {
 	if err := requireTaskScope(ctx, run); err != nil {
 		return err
 	}
+	if tasks.IsTerminalStatus(run.Status) {
+		return errorx.NewConflictWithCode("task_terminal", "任务已结束，不能取消", map[string]any{"status": run.Status})
+	}
 	now := time.Now()
-	if err := s.runtime.UpdateRun(ctx, taskID, map[string]interface{}{
+	updated, err := s.runtime.UpdateRunIfStatusNotIn(ctx, taskID, tasks.TerminalStatuses(), map[string]interface{}{
 		"status":              tasks.StatusCancelRequested,
 		"message":             "已请求取消任务",
 		"cancel_requested_at": &now,
-	}); err != nil {
+	})
+	if err != nil {
 		return err
+	}
+	if !updated {
+		return errorx.NewConflictWithCode("task_terminal", "任务已结束，不能取消", nil)
 	}
 	if err := s.runtime.AppendEvent(ctx, taskID, tasks.EventCancelRequested, 0, "已请求取消任务", []byte("null")); err != nil {
 		return err

@@ -106,6 +106,7 @@ func (m *mockAgentSessionLoader) DeleteExpired(ctx context.Context) (int64, erro
 type mockTaskStore struct {
 	updateRunErr    error
 	appendEventErr  error
+	updateAccepted  bool
 	updateRunCalled int
 	appendCalled    int
 	lastUpdates     map[string]interface{}
@@ -113,11 +114,11 @@ type mockTaskStore struct {
 	lastEventType   tasks.EventType
 }
 
-func (m *mockTaskStore) UpdateRun(ctx context.Context, taskID string, updates map[string]interface{}) error {
+func (m *mockTaskStore) UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error) {
 	m.updateRunCalled++
 	m.lastTaskID = taskID
 	m.lastUpdates = updates
-	return m.updateRunErr
+	return m.updateAccepted, m.updateRunErr
 }
 
 func (m *mockTaskStore) AppendEvent(ctx context.Context, taskID string, eventType tasks.EventType, progress int32, message string, payload []byte) error {
@@ -844,7 +845,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("event started", func(t *testing.T) {
-		mock := &mockTaskStore{}
+		mock := &mockTaskStore{updateAccepted: true}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -865,7 +866,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("event progress", func(t *testing.T) {
-		mock := &mockTaskStore{}
+		mock := &mockTaskStore{updateAccepted: true}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -883,7 +884,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("event log", func(t *testing.T) {
-		mock := &mockTaskStore{}
+		mock := &mockTaskStore{updateAccepted: true}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -900,7 +901,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("event completed", func(t *testing.T) {
-		mock := &mockTaskStore{}
+		mock := &mockTaskStore{updateAccepted: true}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -921,7 +922,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("event failed", func(t *testing.T) {
-		mock := &mockTaskStore{}
+		mock := &mockTaskStore{updateAccepted: true}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -940,7 +941,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("event cancel requested", func(t *testing.T) {
-		mock := &mockTaskStore{}
+		mock := &mockTaskStore{updateAccepted: true}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -958,7 +959,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("event cancelled", func(t *testing.T) {
-		mock := &mockTaskStore{}
+		mock := &mockTaskStore{updateAccepted: true}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -976,7 +977,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("unknown event type defaults to running", func(t *testing.T) {
-		mock := &mockTaskStore{}
+		mock := &mockTaskStore{updateAccepted: true}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -993,7 +994,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("update run error", func(t *testing.T) {
-		mock := &mockTaskStore{updateRunErr: fmt.Errorf("db error")}
+		mock := &mockTaskStore{updateAccepted: true, updateRunErr: fmt.Errorf("db error")}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -1008,7 +1009,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("append event error", func(t *testing.T) {
-		mock := &mockTaskStore{appendEventErr: fmt.Errorf("append error")}
+		mock := &mockTaskStore{updateAccepted: true, appendEventErr: fmt.Errorf("append error")}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -1023,7 +1024,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 	})
 
 	t.Run("whitespace task ID trimmed", func(t *testing.T) {
-		mock := &mockTaskStore{}
+		mock := &mockTaskStore{updateAccepted: true}
 		svc := newTestControlService()
 		svc.SetTaskStore(mock)
 
@@ -1036,6 +1037,43 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Nil(t, resp)
 		assert.Equal(t, "task-11", mock.lastTaskID)
+	})
+
+	t.Run("late event after terminal state is ignored", func(t *testing.T) {
+		mock := &mockTaskStore{updateAccepted: false}
+		svc := newTestControlService()
+		svc.SetTaskStore(mock)
+
+		data, _ := proto.Marshal(&sdkv1.TaskEvent{
+			TaskId:  "task-terminal",
+			Type:    string(tasks.EventCancelRequested),
+			Message: "late cancellation intent",
+		})
+
+		resp, err := svc.handleTaskEvent(context.Background(), data)
+		assert.NoError(t, err)
+		assert.Nil(t, resp)
+		assert.Equal(t, 1, mock.updateRunCalled)
+		assert.Equal(t, 0, mock.appendCalled)
+	})
+
+	t.Run("late progress after cancellation intent is ignored", func(t *testing.T) {
+		mock := &mockTaskStore{updateAccepted: false}
+		svc := newTestControlService()
+		svc.SetTaskStore(mock)
+
+		data, _ := proto.Marshal(&sdkv1.TaskEvent{
+			TaskId:   "task-cancelling",
+			Type:     string(tasks.EventProgress),
+			Progress: 50,
+			Message:  "late progress",
+		})
+
+		resp, err := svc.handleTaskEvent(context.Background(), data)
+		assert.NoError(t, err)
+		assert.Nil(t, resp)
+		assert.Equal(t, 1, mock.updateRunCalled)
+		assert.Equal(t, 0, mock.appendCalled)
 	})
 }
 

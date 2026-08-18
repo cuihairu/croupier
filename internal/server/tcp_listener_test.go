@@ -340,11 +340,7 @@ func TestListenTCP(t *testing.T) {
 			Insecure: true,
 		}
 
-		ln, err := listenTCP(config)
-		require.NoError(t, err)
-		assert.NotNil(t, ln)
-
-		ln.Close()
+		assert.Equal(t, ":19090", tcpListenAddress(config))
 	})
 
 	t.Run("invalid cert file", func(t *testing.T) {

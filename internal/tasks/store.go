@@ -30,6 +30,12 @@ func (s *Store) UpdateRun(ctx context.Context, taskID string, updates map[string
 	return s.runs.UpdateByTaskID(ctx, taskID, updates)
 }
 
+// UpdateRunIfStatusNotIn applies a guarded task update for lifecycle
+// transitions with stricter preconditions than terminal protection alone.
+func (s *Store) UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error) {
+	return s.runs.UpdateByTaskIDIfStatusNotIn(ctx, taskID, blockedStatuses, updates)
+}
+
 func (s *Store) ListRuns(ctx context.Context, opts model.ListTasksOptions) ([]model.TaskRun, int64, error) {
 	return s.runs.List(ctx, opts)
 }

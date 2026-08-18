@@ -33,6 +33,7 @@ type TaskRuntime interface {
 	ListRuns(ctx context.Context, opts model.ListTasksOptions) ([]model.TaskRun, int64, error)
 	ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]model.TaskEvent, error)
 	UpdateRun(ctx context.Context, taskID string, updates map[string]interface{}) error
+	UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error)
 	AppendEvent(ctx context.Context, taskID string, eventType tasks.EventType, progress int32, message string, payload []byte) error
 }
 
@@ -91,6 +92,10 @@ func (r *taskRuntime) ListEvents(ctx context.Context, taskID string, afterSeq in
 
 func (r *taskRuntime) UpdateRun(ctx context.Context, taskID string, updates map[string]interface{}) error {
 	return r.store.UpdateRun(ctx, taskID, updates)
+}
+
+func (r *taskRuntime) UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error) {
+	return r.store.UpdateRunIfStatusNotIn(ctx, taskID, blockedStatuses, updates)
 }
 
 func (r *taskRuntime) AppendEvent(ctx context.Context, taskID string, eventType tasks.EventType, progress int32, message string, payload []byte) error {

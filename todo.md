@@ -905,7 +905,7 @@ SDK / OpenAPI 注册 FunctionContract
       Depends: [`J-001.04`]
       Verify: 覆盖路径、JSON request/response、Bearer、`X-Game-ID`、`X-Env`、幂等键、任务创建/轮询/取消与非 2xx 错误；不得接受历史 `/api/function/*` 路径或伪造 task ID。
 
-- [ ] `J-001.06` Go L3 真实 Server 验收
+- [x] `J-001.06` Go L3 真实 Server 验收
       Depends: [`J-001.05`, `I-021`]
       Verify: 连接真实 Server fixture，以 HTTP 完成同步调用和 task 创建/查询/事件/取消；scope、鉴权与返回 task ID 均由 Server 断言。
 
@@ -917,7 +917,7 @@ SDK / OpenAPI 注册 FunctionContract
       Depends: [`J-001.07`]
       Verify: 覆盖 invoke、task、scope、Bearer、错误与历史 TCP 路径拒绝。
 
-- [ ] `J-001.09` Python L3 真实 Server 验收
+- [x] `J-001.09` Python L3 真实 Server 验收
       Depends: [`J-001.08`, `I-021`]
       Verify: 对真实 fixture 完成同步调用及完整 task 生命周期。
 
@@ -929,7 +929,7 @@ SDK / OpenAPI 注册 FunctionContract
       Depends: [`J-001.10`]
       Verify: 覆盖 invoke、task、scope、Bearer、错误与历史 TCP 路径拒绝。
 
-- [ ] `J-001.12` Java L3 真实 Server 验收
+- [x] `J-001.12` Java L3 真实 Server 验收
       Depends: [`J-001.11`, `I-021`]
       Verify: 对真实 fixture 完成同步调用及完整 task 生命周期。
 
@@ -941,7 +941,7 @@ SDK / OpenAPI 注册 FunctionContract
       Depends: [`J-001.13`]
       Verify: 覆盖 invoke、task、scope、Bearer、错误与历史 TCP 路径拒绝。
 
-- [ ] `J-001.15` C++ L3 真实 Server 验收
+- [x] `J-001.15` C++ L3 真实 Server 验收
       Depends: [`J-001.14`, `I-021`]
       Verify: 对真实 fixture 完成同步调用及完整 task 生命周期。
 
@@ -949,7 +949,7 @@ SDK / OpenAPI 注册 FunctionContract
       Scope: `sdks/js/src/invoker.test.ts`。
       Verify: 覆盖 Server HTTP invoke/task、scope、Bearer 与错误响应。
 
-- [ ] `J-001.17` JS L3 真实 Server 验收
+- [x] `J-001.17` JS L3 真实 Server 验收
       Depends: [`J-001.16`, `I-021`]
       Verify: JS Invoker 对真实 fixture 完成同步调用及完整 task 生命周期。
 
@@ -959,7 +959,7 @@ SDK / OpenAPI 注册 FunctionContract
 
 - [x] `J-001.19` C# L3 真实 Server 验收
       Depends: [`J-001.18`, `I-021`]
-      Verify: C# Invoker 对真实 fixture 成功调用 `/api/v1/functions/:id/invoke`，并由 fixture 校验鉴权和 scope。
+      Verify: C# Invoker 对真实 fixture 完成未鉴权拒绝、同步调用、任务创建/查询/事件/取消；鉴权、scope、task ID 与终态均由 Server 断言。
 
 - [x] `J-001.20` SDK matrix 防止历史 TCP Invoker 误判为 L3 已完成
       Scope: `scripts/check-sdk-matrix.sh`、`sdks/SDK_FEATURE_MATRIX.md`。

@@ -218,6 +218,24 @@ func TestCancel_MarksCancelRequested(t *testing.T) {
 	assert.True(t, found, "a cancel_requested event should be appended")
 }
 
+func TestCancel_RejectsTerminalTask(t *testing.T) {
+	t.Parallel()
+	svcCtx := setupSvcCtx(t)
+	seedTaskRun(t, svcCtx.DB, "t-finished", "player.ban", tasks.StatusSucceeded)
+	svc := NewService(svcCtx)
+
+	err := svc.Cancel(context.Background(), &CancelRequest{ID: "t-finished"})
+	require.Error(t, err)
+
+	var run model.TaskRun
+	require.NoError(t, svcCtx.DB.Where("task_id = ?", "t-finished").First(&run).Error)
+	assert.Equal(t, tasks.StatusSucceeded, run.Status)
+
+	var events []model.TaskEvent
+	require.NoError(t, svcCtx.DB.Where("task_id = ?", "t-finished").Find(&events).Error)
+	assert.Empty(t, events)
+}
+
 // --- End-to-end dispatch loop ---
 
 // fakeAgentSessionCaller stands in for a real agent's established TCP session.

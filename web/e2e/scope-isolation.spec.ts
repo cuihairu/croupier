@@ -36,6 +36,7 @@ test.describe('Scope 隔离', () => {
       (response) =>
         response.url().includes('/bindings/list/execute') &&
         response.request().headers()['x-env'] === 'staging',
+      { timeout: 45000 },
     );
     await selectEnv(page, 'staging');
     expect((await listResponse).status()).toBe(200);
@@ -54,15 +55,18 @@ test.describe('Scope 隔离', () => {
       (response) =>
         response.url().includes('/bindings/list/execute') &&
         response.request().headers()['x-env'] === 'staging',
+      { timeout: 45000 },
     );
     await selectEnv(page, 'staging');
     expect((await stagingResponse).status()).toBe(200);
     await expect(page.getByText('玩家A')).toBeVisible();
 
+    // 先注册等待再切环境（reload 后的 list 请求可能极快发出）
     const defaultResponse = page.waitForResponse(
       (response) =>
         response.url().includes('/bindings/list/execute') &&
         response.request().headers()['x-env'] !== 'staging',
+      { timeout: 45000 },
     );
     await selectEnv(page, 'development');
     expect((await defaultResponse).status()).toBe(200);

@@ -376,10 +376,7 @@ func (h *agentSessionHandler) handleHeartbeat(ctx context.Context, body []byte) 
 
 // listenTCP creates a net.Listener based on the config (plain or TLS).
 func listenTCP(config *TCPListenerConfig) (net.Listener, error) {
-	addr := config.Address
-	if addr == "" {
-		addr = ":19090"
-	}
+	addr := tcpListenAddress(config)
 
 	if config.Insecure {
 		return net.Listen("tcp", addr)
@@ -409,4 +406,14 @@ func listenTCP(config *TCPListenerConfig) (net.Listener, error) {
 	}
 
 	return tls.Listen("tcp", addr, tlsConfig)
+}
+
+// tcpListenAddress resolves the configured listener address without opening a
+// socket. Keeping this separate lets callers and tests verify the default
+// without making a fixed production port part of the test environment.
+func tcpListenAddress(config *TCPListenerConfig) string {
+	if config == nil || config.Address == "" {
+		return ":19090"
+	}
+	return config.Address
 }

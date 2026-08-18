@@ -319,6 +319,14 @@ func (h *providerSessionHandler) handleHeartbeat(ctx context.Context, body []byt
 	// Update session last seen
 	if sess, ok := h.listener.sessionStore.GetBySessionID(req.SessionId); ok {
 		sess.UpdateLastSeen()
+		// The session and local function table represent the same Provider.
+		// Refresh both clocks so maintenance does not prune a live provider
+		// between its normal SDK heartbeats.
+		if h.listener.localHandler != nil {
+			if _, err := h.listener.localHandler.Handle(ctx, protocol.MsgProviderHeartbeatRequest, 0, body); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	resp := &sdkv1.ProviderHeartbeatResponse{}

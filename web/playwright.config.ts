@@ -45,7 +45,7 @@ const webServers = [
   ...(startMockWeb && mockStatic
     ? [
         {
-          command: `cross-env MOCK=all pnpm exec max build > /dev/null 2>&1; cross-env PORT=${devServerPort(mockWebBaseURL, 8000)} node --import tsx scripts/e2e-static-server.mjs dist`,
+          command: `cross-env MOCK=all pnpm exec max build > /dev/null 2>&1 && cross-env PORT=${devServerPort(mockWebBaseURL, 8000)} node --import tsx scripts/e2e-static-server.mjs dist`,
           url: mockWebBaseURL,
           reuseExistingServer: false,
           timeout: 600000,

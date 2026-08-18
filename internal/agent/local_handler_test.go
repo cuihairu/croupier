@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -102,11 +103,24 @@ func (m *mockOpsServer) ListCronJobsJSON(ctx context.Context) ([]byte, error) {
 type mockTaskEventReporter struct {
 	reportErr    error
 	reportCalled int
+	eventTypes   []string
+	mu           sync.Mutex
 }
 
 func (m *mockTaskEventReporter) ReportTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.reportCalled++
+	if event != nil {
+		m.eventTypes = append(m.eventTypes, event.GetType())
+	}
 	return m.reportErr
+}
+
+func (m *mockTaskEventReporter) types() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.eventTypes...)
 }
 
 // --- Tests for NewLocalHandler ---
@@ -220,11 +234,12 @@ func TestTaskRunner(t *testing.T) {
 		assert.Equal(t, 0, r.Count())
 	})
 
-	t.Run("Start tracks task and Cancel reports event", func(t *testing.T) {
+	t.Run("Start tracks task and cancellation reports only a terminal event", func(t *testing.T) {
 		reporter := &mockTaskEventReporter{}
-		executed := make(chan struct{})
+		done := make(chan struct{})
 		r := NewTaskRunner(func(ctx context.Context, _ *sdkv1.InvokeRequest) ([]byte, error) {
 			<-ctx.Done() // block until cancelled
+			close(done)
 			return nil, ctx.Err()
 		}, reporter, nil)
 
@@ -234,7 +249,17 @@ func TestTaskRunner(t *testing.T) {
 
 		ok := r.Cancel("task-1")
 		assert.True(t, ok)
-		_ = executed
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("cancelled task did not finish")
+		}
+		deadline := time.Now().Add(time.Second)
+		for r.Count() != 0 && time.Now().Before(deadline) {
+			time.Sleep(time.Millisecond)
+		}
+		assert.Equal(t, 0, r.Count())
+		assert.Equal(t, []string{"started", "cancelled"}, reporter.types())
 	})
 
 	t.Run("Cancel unknown task returns false", func(t *testing.T) {
@@ -706,6 +731,9 @@ func TestLocalHandler_HandleProviderConnect(t *testing.T) {
 func TestLocalHandler_HandleProviderHeartbeat(t *testing.T) {
 	t.Run("with valid request", func(t *testing.T) {
 		store := agentlocal.NewLocalStore()
+		store.Register("session-1", "svc-1", "127.0.0.1:19091", "1.0.0", []*sdkv1.ProviderFunctionDescriptor{{Id: "mail.send"}}, nil)
+		before := store.List()["mail.send"][0].LastSeen
+		time.Sleep(2 * time.Millisecond)
 		handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
 
 		req := &sdkv1.ProviderHeartbeatRequest{
@@ -717,6 +745,7 @@ func TestLocalHandler_HandleProviderHeartbeat(t *testing.T) {
 		resp, err := handler.handleProviderHeartbeat(context.Background(), data)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
+		assert.True(t, store.List()["mail.send"][0].LastSeen.After(before), "heartbeat must refresh the provider function instance")
 	})
 
 	t.Run("with invalid protobuf data", func(t *testing.T) {
@@ -1213,8 +1242,10 @@ func TestLocalHandler_HandleCancelTask_WithExistingTask(t *testing.T) {
 	resp, err := handler.handleCancelTask(context.Background(), data)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	// cancel_requested event is emitted by the runner on Cancel.
-	assert.GreaterOrEqual(t, reporter.reportCalled, 1)
+	// The Server records cancel_requested before forwarding; the agent must
+	// never emit a duplicate intent event that can arrive after its terminal
+	// result and roll the Server state back.
+	assert.NotContains(t, reporter.types(), "cancel_requested")
 }
 
 // --- Tests for task reporting with nil event safety ---
