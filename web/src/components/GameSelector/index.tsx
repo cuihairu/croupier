@@ -94,9 +94,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     } catch (err) {
       console.error('Failed to load games', err);
       setGames([]);
-      // Do not let a stale local scope be sent after the authoritative list
-      // could not be loaded. Scoped requests will then show scope_required.
-      setScope({ gameId: undefined, env: undefined }, { persist: true, emit: true });
+      // 加载失败不得清空已持久化的 scope：那会在慢环境下触发“清 scope →
+      // 页面重载 → 重新校验 → 再失败”的无限重载循环。保留本地 scope 并
+      // 放行页面（后端会做权威校验并返回 scope 错误，比前端死循环安全）。
+      markScopeReady();
     } finally {
       setLoading(false);
       setInitialLoadFinished(true);
