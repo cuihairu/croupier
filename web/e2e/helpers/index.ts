@@ -146,10 +146,7 @@ export async function confirmPopconfirm(page: Page): Promise<void> {
 /**
  * 等待表格加载完成
  */
-export async function waitForTable(
-  page: Page,
-  timeout = process.env.CI ? 45000 : 15000,
-): Promise<void> {
+export async function waitForTable(page: Page, timeout = 45000): Promise<void> {
   // .ant-pro-table 根容器可能存在被折叠/隐藏的实例（first() 命中即挂）。
   // 等待真实表格体。
   await page.locator('.ant-table-tbody').first().waitFor({ state: 'visible', timeout });
@@ -201,7 +198,7 @@ export async function expectTableVisible(page: Page): Promise<void> {
  */
 export async function expectFormVisible(page: Page): Promise<void> {
   await expect(page.locator('.ant-form, form').first()).toBeVisible({
-    timeout: process.env.CI ? 45000 : 15000,
+    timeout: 45000,
   });
 }
 

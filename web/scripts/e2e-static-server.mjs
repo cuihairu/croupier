@@ -1,9 +1,10 @@
 /**
  * Static E2E server for the mock-dashboard project.
  *
- * Serves the production build (dist/) with SPA history fallback and mounts
- * the same umi mock handlers (mock/*.ts) used by `max dev`, so the mock
- * E2E suite can run against compiled assets with zero on-demand bundling.
+ * Serves the production build (dist/) via serve-handler (SPA fallback,
+ * correct mime/streaming) and mounts the umi mock handlers (mock/*.ts)
+ * so the mock E2E suite runs against compiled assets with zero
+ * on-demand bundling.
  *
  * Usage: node scripts/e2e-static-server.mjs <distDir>
  * Env:   PORT (default 8000)
@@ -12,28 +13,16 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import serveHandler from 'serve-handler';
 
 const root = path.resolve(process.argv[2] || 'dist');
 const mockDir = path.resolve(import.meta.dirname, '..', 'mock');
 const port = Number(process.env.PORT || 8000);
 
-const types = {
-  '.js': 'text/javascript',
-  '.css': 'text/css',
-  '.html': 'text/html',
-  '.json': 'application/json',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-  '.map': 'application/json',
-  '.woff2': 'font/woff2',
-};
-
 /** Collect handler maps from every mock/*.ts|js module default export. */
 async function loadMockHandlers() {
   const handlers = new Map();
   if (!fs.existsSync(mockDir)) return handlers;
-  // tsx provides TS loading; fall back to plain .js modules when absent.
   const files = fs
     .readdirSync(mockDir)
     .filter((f) => /\.(ts|js)$/.test(f) && !f.endsWith('.d.ts'))
@@ -54,10 +43,9 @@ async function loadMockHandlers() {
   return handlers;
 }
 
-/** Normalize an incoming path against the express-style route table. */
+/** Match an incoming request against the express-style route table. */
 function matchMock(handlers, method, pathname) {
   for (const [route, handler] of handlers) {
-    // Route format: "METHOD /path/:param"（umi mock 允许省略 METHOD 前缀 = GET）
     let m = 'GET';
     let pattern = route.trim();
     const spaceIdx = pattern.indexOf(' ');
@@ -66,10 +54,11 @@ function matchMock(handlers, method, pathname) {
       pattern = pattern.slice(spaceIdx + 1).trim();
     }
     if (m !== method) continue;
-    // ':param' 段转正则
     const source = pattern
       .split('/')
-      .map((seg) => (seg.startsWith(':') ? '([^/]+)' : seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+      .map((seg) =>
+        seg.startsWith(':') ? '([^/]+)' : seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+      )
       .join('/');
     const match = pathname.match(new RegExp(`^${source}/?$`));
     if (match) {
@@ -87,66 +76,88 @@ function matchMock(handlers, method, pathname) {
 const handlers = await loadMockHandlers();
 console.log(`[e2e-static] mock handlers: ${handlers.size}, dist: ${root}`);
 
-http.createServer((req, res) => {
+function readBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+    });
+    req.on('end', () => resolve(body));
+    req.on('error', () => resolve(body));
+  });
+}
+
+http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://127.0.0.1:${port}`);
   const pathname = decodeURIComponent(url.pathname);
 
   const hit = matchMock(handlers, req.method || 'GET', pathname);
   if (hit) {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk;
-    });
-    req.on('end', () => {
-      const expressLikeReq = {
-        method: req.method,
-        url: req.url,
-        params: hit.params,
-        query: Object.fromEntries(url.searchParams),
-        body: body ? safeJSON(body) : {},
-        headers: req.headers,
-      };
-      const expressLikeRes = {
-        statusCode: 200,
-        status(code) {
-          this.statusCode = code;
-          return this;
-        },
-        send(payload) {
-          res.writeHead(this.statusCode, { 'content-type': typeof payload === 'string' ? 'text/html; charset=utf-8' : 'application/json' });
-          res.end(typeof payload === 'string' ? payload : JSON.stringify(payload));
-        },
-        json(payload) {
-          res.writeHead(this.statusCode, { 'content-type': 'application/json' });
-          res.end(JSON.stringify(payload));
-        },
-        setHeader(name, value) {
-          res.setHeader(name, value);
-        },
-      };
-      try {
-        Promise.resolve(hit.handler(expressLikeReq, expressLikeRes)).catch(() => undefined);
-      } catch {
-        res.writeHead(500);
-        res.end();
-      }
-    });
+    const body = await readBody(req);
+    let sent = false;
+    const finish = (code, payload, type) => {
+      if (sent) return;
+      sent = true;
+      res.writeHead(code, { 'content-type': type });
+      res.end(payload);
+    };
+    const expressLikeReq = {
+      method: req.method,
+      url: req.url,
+      params: hit.params,
+      query: Object.fromEntries(url.searchParams),
+      body: body ? safeJSON(body) : {},
+      headers: req.headers,
+    };
+    const expressLikeRes = {
+      statusCode: 200,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      send(payload) {
+        finish(
+          this.statusCode,
+          typeof payload === 'string' ? payload : JSON.stringify(payload),
+          typeof payload === 'string' ? 'text/html; charset=utf-8' : 'application/json',
+        );
+      },
+      json(payload) {
+        finish(this.statusCode, JSON.stringify(payload), 'application/json');
+      },
+      setHeader(name, value) {
+        res.setHeader(name, value);
+      },
+    };
+    try {
+      await Promise.race([
+        Promise.resolve(hit.handler(expressLikeReq, expressLikeRes)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('mock handler timeout')), 10000)),
+      ]);
+    } catch {
+      finish(500, JSON.stringify({ error: 'mock_handler_failed' }), 'application/json');
+    }
+    if (!sent) finish(200, '{}', 'application/json');
     return;
   }
 
-  // Static assets with SPA fallback
-  let file = path.join(root, pathname);
-  if (!file.startsWith(root)) {
-    res.writeHead(403);
-    res.end();
+  // SPA fallback：请求路径在 dist 中不是真实文件时回退 index.html。
+  // 注意 pageKey 形如 operation--mail.send（含点），不能只看扩展名，
+  // 必须检查文件是否真实存在。
+  let candidate = path.join(root, pathname);
+  if (
+    !candidate.startsWith(root) ||
+    !fs.existsSync(candidate) ||
+    fs.statSync(candidate).isDirectory()
+  ) {
+    candidate = path.join(root, 'index.html');
+  }
+  if (candidate.endsWith('index.html')) {
+    res.writeHead(200, { 'content-type': 'text/html' });
+    fs.createReadStream(candidate).pipe(res);
     return;
   }
-  if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-    file = path.join(root, 'index.html');
-  }
-  const ext = path.extname(file);
-  res.writeHead(200, { 'content-type': types[ext] || 'application/octet-stream' });
-  fs.createReadStream(file).pipe(res);
+  await serveHandler(req, res, { public: root });
 }).listen(port, '127.0.0.1', () => {
   console.log(`[e2e-static] listening on http://127.0.0.1:${port}`);
 });
