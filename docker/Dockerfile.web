@@ -1,6 +1,6 @@
 ## Multi-stage build for the Dashboard UI (Umi Max)
 # Global build args must be declared before any FROM
-ARG NODE_IMAGE=node:24-alpine
+ARG NODE_IMAGE=node:22-alpine
 ARG NGINX_IMAGE=nginx:alpine
 
 # Build stage
@@ -13,7 +13,7 @@ RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
 
 # Install deps (pnpm)
 COPY web/package.json web/pnpm-lock.yaml ./
-RUN corepack enable && corepack prepare pnpm@11.11.0 --activate && pnpm install --frozen-lockfile
+RUN corepack enable && corepack prepare pnpm@10.28.2 --activate && pnpm install --frozen-lockfile
 
 # Build
 COPY web/ .
