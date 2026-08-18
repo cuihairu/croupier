@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"sync"
 
 	"github.com/cuihairu/croupier/sdks/go/pkg/croupier/protocol"
+	sdkv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -275,7 +278,25 @@ func (c *TCPClient) handleInboundRequest(msgID uint32, reqID uint32, body []byte
 	}
 	respBody, err := c.inbound(context.Background(), msgID, reqID, body)
 	if err != nil {
-		return
+		// A failed handler must still answer the Agent. Swallowing the error
+		// here leaves the caller blocked until its timeout with no diagnostic,
+		// which is exactly how "context deadline exceeded" masked provider
+		// validation errors (e.g. missing required payload fields). For
+		// InvokeRequest we can carry the error text inside the InvokeResponse
+		// payload; for other message types an empty body is a valid proto
+		// zero value so the caller sees the failure immediately.
+		if msgID == protocol.MsgInvokeRequest {
+			errResp := &sdkv1.InvokeResponse{
+				Payload: []byte(`{"error":` + strconv.Quote(err.Error()) + `}`),
+			}
+			if marshaled, marshalErr := proto.Marshal(errResp); marshalErr == nil {
+				respBody = marshaled
+			} else {
+				respBody = nil
+			}
+		} else {
+			respBody = nil
+		}
 	}
 	frameBody := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, respBody)
 	frame := make([]byte, frameHeaderBytes+len(frameBody))
