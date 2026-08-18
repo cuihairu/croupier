@@ -40,12 +40,16 @@ const realDashboardScenarios =
 // Mock 套件在 CI 用生产构建（无按需编译、无 HMR 开销）；本地默认 dev
 // （迭代快），可 MOCK_E2E_STATIC=1 强制静态。
 const mockStatic = process.env.CI || process.env.MOCK_E2E_STATIC === '1';
+// 本地静态模式且无 dist 时自动构建；CI 由 workflow 显式构建（日志可见）
+const needLocalBuild = mockStatic && !fs.existsSync(path.resolve(__dirname, 'dist'));
 
 const webServers = [
   ...(startMockWeb && mockStatic
     ? [
         {
-          command: `cross-env MOCK=all pnpm exec max build > /dev/null 2>&1 && cross-env PORT=${devServerPort(mockWebBaseURL, 8000)} node --import tsx scripts/e2e-static-server.mjs dist`,
+          command: needLocalBuild
+            ? `cross-env MOCK=all pnpm exec max build > /dev/null 2>&1 && cross-env PORT=${devServerPort(mockWebBaseURL, 8000)} node --import tsx scripts/e2e-static-server.mjs dist`
+            : `cross-env PORT=${devServerPort(mockWebBaseURL, 8000)} node --import tsx scripts/e2e-static-server.mjs dist`,
           url: mockWebBaseURL,
           reuseExistingServer: false,
           timeout: 600000,

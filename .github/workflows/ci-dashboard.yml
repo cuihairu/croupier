@@ -134,6 +134,18 @@ jobs:
         timeout-minutes: 10
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Build mock web (production, MOCK=all)
+        timeout-minutes: 12
+        run: pnpm exec max build
+        env:
+          MOCK: all
+
+      - name: Verify dist has console chunks
+        run: |
+          ls dist | head -5
+          test -f dist/index.html || (echo "dist/index.html missing" && exit 1)
+          test "$(ls dist/*.async.js 2>/dev/null | wc -l)" -gt 10 || (echo "too few chunks" && exit 1)
+
       - name: Run Mock E2E tests
         timeout-minutes: 15
         run: pnpm exec playwright test --project=mock-dashboard --reporter=list
