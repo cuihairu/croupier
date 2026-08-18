@@ -23,12 +23,45 @@ import {
   HistoryOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { getFunctionInstances, getFunctionDetail, type FunctionInstance } from '@/services/api';
+import {
+  getFunctionInstances,
+  getFunctionDetail,
+  invokeFunction,
+  type FunctionInstance,
+} from '@/services/api';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import type { FunctionDescriptor } from '@/services/api/functions';
+import { deriveSchemaDefaults, parseInputSchema } from '@/utils/json';
 import type { JSONValue } from '@/types/dashboard';
 
 const { Text } = Typography;
+
+// 从 descriptor 提取输入 JSON Schema：兼容顶层 inputSchema（字符串/对象）与
+// descriptor.input / openapiSpec.requestBody.content[...].schema 嵌套形态。
+function resolveDescriptorSchema(
+  descriptor?: FunctionDescriptor | null,
+): ReturnType<typeof parseInputSchema> | null {
+  if (!descriptor) return null;
+  const { inputSchema, schema, params } = descriptor as {
+    inputSchema?: unknown;
+    schema?: unknown;
+    params?: unknown;
+  };
+  const candidates: unknown[] = [inputSchema, schema, params];
+  const input = (descriptor as { input?: unknown }).input;
+  if (input && typeof input === 'object') {
+    candidates.push(input);
+  }
+  for (const value of candidates) {
+    if (typeof value === 'string') {
+      const parsed = parseInputSchema(value);
+      if (parsed) return parsed;
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as ReturnType<typeof parseInputSchema>;
+    }
+  }
+  return null;
+}
 
 type CoverageData = {
   totalFunctions: number;
@@ -89,7 +122,7 @@ export default () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [debugVisible, setDebugVisible] = useState(false);
   const [debugPayload, setDebugPayload] = useState('{\n  \n}');
-  const [debugResult, setDebugResult] = useState<JSONValue>(null);
+  const [debugResult, setDebugResult] = useState<Record<string, JSONValue> | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [logsVisible, setLogsVisible] = useState(false);
   const [logsData, setLogsData] = useState<
@@ -289,30 +322,73 @@ export default () => {
     setLogsData([]);
   };
 
-  const executeDebug = async () => {
+  // 打开调试面板：拉取函数 schema 并按类型派生默认参数骨架
+  const openDebug = async (instance: FunctionInstance) => {
+    setSelectedInstance(instance);
+    setDebugVisible(true);
+    setDebugResult(null);
+    setDebugPayload('{\n  \n}');
+    if (!instance.functionId) return;
+    try {
+      const descriptor = await getFunctionDetail(instance.functionId);
+      const schema = resolveDescriptorSchema(descriptor);
+      if (!schema) return;
+      const defaults = deriveSchemaDefaults(schema);
+      setDebugPayload(JSON.stringify(defaults, null, 2));
+    } catch {
+      // schema 拉取失败不阻断调试，保留空模板由用户手写
+    }
+  };
+
+  const executeDebug = async (dryRun = false) => {
     if (!selectedInstance) return;
 
     setDebugLoading(true);
+    let payload: JSONValue;
     try {
-      try {
-        JSON.parse(debugPayload);
-      } catch {
-        message.error('无效的 JSON 格式');
-        setDebugLoading(false);
-        return;
-      }
+      payload = JSON.parse(debugPayload) as JSONValue;
+    } catch {
+      message.error('无效的 JSON 格式');
+      setDebugLoading(false);
+      return;
+    }
 
+    // 试运行仅做参数校验与目标预览，不发起真实调用
+    if (dryRun) {
+      setDebugResult({
+        success: true,
+        mode: 'dry-run',
+        functionId: selectedInstance.functionId,
+        targetServiceId: selectedInstance.serviceId,
+        agentId: selectedInstance.agentId,
+        payload,
+      });
+      setDebugLoading(false);
+      return;
+    }
+
+    try {
+      const result = await invokeFunction(selectedInstance.functionId, payload, {
+        // 定向到当前选中的实例，避免负载均衡落到其他 provider
+        route: 'targeted',
+        targetServiceId: selectedInstance.serviceId || undefined,
+      });
+      setDebugResult({
+        success: true,
+        mode: 'execute',
+        functionId: selectedInstance.functionId,
+        targetServiceId: selectedInstance.serviceId,
+        traceId: result?.traceId || '',
+        taskId: result?.taskId || '',
+        result: (result?.result ?? result) as JSONValue,
+      });
+    } catch (e) {
       setDebugResult({
         success: false,
         error: {
-          code: 'not_implemented',
-          message: '实例调试接口尚未接入后端，请先完成服务端调试执行链路。',
+          message: e instanceof Error ? e.message : '调试执行失败',
         },
       });
-      message.warning('实例调试接口尚未实现');
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : '操作失败';
-      message.error(errMsg || '调试执行失败');
     } finally {
       setDebugLoading(false);
     }
@@ -422,16 +498,30 @@ export default () => {
               type="link"
               size="small"
               icon={<BugOutlined />}
-              onClick={() => {
-                setSelectedInstance(record);
-                setDebugVisible(true);
-                setDebugResult(null);
-              }}
+              onClick={() => openDebug(record)}
             />
           </Tooltip>
         </Space>
       ),
     },
+  ];
+
+  const debugFooter = [
+    <Button key="cancel" onClick={() => setDebugVisible(false)}>
+      取消
+    </Button>,
+    <Button key="dryRun" onClick={() => executeDebug(true)} loading={debugLoading}>
+      试运行
+    </Button>,
+    <Button
+      key="execute"
+      type="primary"
+      danger
+      onClick={() => executeDebug(false)}
+      loading={debugLoading}
+    >
+      执行
+    </Button>,
   ];
 
   return (
@@ -692,15 +782,15 @@ export default () => {
                   <div>
                     <Alert
                       message="调试模式"
-                      description="调试面板 UI 已保留，但后端调试执行接口还未接通。当前不会伪造执行成功结果。"
-                      type="warning"
+                      description="调试请求会定向到该实例执行；参数模板按函数 Schema 自动生成，建议先试运行确认目标与参数。"
+                      type="info"
                       showIcon
                       style={{ marginBottom: 16 }}
                     />
                     <Button
                       type="primary"
                       onClick={() => {
-                        setDebugVisible(true);
+                        if (instanceDetail?.instance) openDebug(instanceDetail.instance);
                         setDetailVisible(false);
                       }}
                     >
@@ -795,17 +885,7 @@ export default () => {
         open={debugVisible}
         onCancel={() => setDebugVisible(false)}
         width="min(700px, calc(100vw - 16px))"
-        footer={[
-          <Button key="cancel" onClick={() => setDebugVisible(false)}>
-            取消
-          </Button>,
-          <Button key="dryRun" onClick={executeDebug} loading={debugLoading}>
-            试运行
-          </Button>,
-          <Button key="execute" type="primary" danger onClick={executeDebug} loading={debugLoading}>
-            执行
-          </Button>,
-        ]}
+        footer={debugFooter}
       >
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           <Alert

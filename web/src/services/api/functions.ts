@@ -152,8 +152,12 @@ export type FunctionInvokeResponse = {
 };
 
 export async function listDescriptors() {
-  const response = await request<RawFunctionDescriptor[]>('/api/v1/functions/descriptors');
-  return Array.isArray(response) ? response.map(normalizeFunctionDescriptor) : [];
+  // 后端契约：GET /api/v1/functions/descriptors -> { functions: [...] }
+  const response = await request<{ functions?: RawFunctionDescriptor[] } | RawFunctionDescriptor[]>(
+    '/api/v1/functions/descriptors',
+  );
+  const raw = Array.isArray(response) ? response : (response.functions ?? []);
+  return raw.map(normalizeFunctionDescriptor);
 }
 
 export async function listFunctionWarnings(params?: {
