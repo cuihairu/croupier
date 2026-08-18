@@ -13,6 +13,7 @@ RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
 
 # Install deps (pnpm)
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+COPY web/scripts ./scripts
 RUN corepack enable && corepack prepare pnpm@10.28.2 --activate && pnpm install --frozen-lockfile
 
 # Build
