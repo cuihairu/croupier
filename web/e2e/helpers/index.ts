@@ -17,11 +17,11 @@ export async function login(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
   const hasToken = await page.evaluate(() => Boolean(window.localStorage.getItem('token')));
   if (hasToken && !page.url().includes('/user/login')) {
-    // 已认证。GameSelector 需完成 scope 解析（游戏/环境加载），否则
-    // Console 页面会在 scope 未定时卡 loading。
+    // 已认证。等待 scope 解析完成（env selector 出现 = games 校验通过），
+    // 否则 Console 页面会在 scope 未定时卡 loading。
     await page
-      .getByTestId('game-selector')
-      .waitFor({ state: 'visible', timeout: 30000 })
+      .getByTestId('env-selector')
+      .waitFor({ state: 'visible', timeout: 60000 })
       .catch(() => {});
     return;
   }
