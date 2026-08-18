@@ -276,6 +276,7 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 			ApprovalRequired:  true,
 			ApprovalWorkflow:  functionPolicy.ApprovalWorkflow,
 			Result:            nil,
+			TraceID:           telemetry.TraceIDFromContext(ctx),
 			ExecutionMetadata: cloneMetadata(req.Metadata),
 		}, nil
 	}
@@ -325,6 +326,7 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 				TaskId:            taskResp.GetTaskId(),
 				TaskID:            taskResp.GetTaskId(),
 				Result:            nil,
+				TraceID:           telemetry.TraceIDFromContext(ctx),
 				ExecutionMetadata: cloneMetadata(metadata),
 			}
 		}
@@ -334,6 +336,7 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 			invokeErr = err
 		} else {
 			result = buildBroadcastResponse(broadcast)
+			result.TraceID = telemetry.TraceIDFromContext(ctx)
 			result.ExecutionMetadata = cloneMetadata(metadata)
 		}
 	} else {
@@ -341,7 +344,10 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		if err != nil {
 			invokeErr = err
 		} else {
-			result = &FunctionInvokeResponse{ExecutionMetadata: cloneMetadata(metadata)}
+			result = &FunctionInvokeResponse{
+				TraceID:           telemetry.TraceIDFromContext(ctx),
+				ExecutionMetadata: cloneMetadata(metadata),
+			}
 			if resp != nil && len(resp.GetPayload()) > 0 {
 				result.Result = rawJSONFromBytes(resp.GetPayload())
 			}
@@ -356,8 +362,9 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	if invokeErr != nil {
 		spanErr = invokeErr
 		return &FunctionInvokeResponse{
-			TaskId: "",
-			Result: nil,
+			TaskId:  "",
+			Result:  nil,
+			TraceID: telemetry.TraceIDFromContext(ctx),
 		}, invokeErr
 	}
 

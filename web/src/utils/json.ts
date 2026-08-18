@@ -161,6 +161,54 @@ export function parseInputSchema(inputSchema?: string): JSONSchemaType | null {
 }
 
 /**
+ * 根据 JSON Schema 派生调用参数默认值。
+ * 优先级：schema.default > schema.example > enum 首项 > 按类型生成占位值。
+ * 用于调用表单/JSON 模板的初始值，让用户只需改值而不必手写整个结构。
+ */
+export function deriveSchemaDefaults(
+  schema?: JSONSchemaType | null,
+): Record<string, JSONSchemaValue> {
+  if (!schema || schema.type !== 'object' || !schema.properties) {
+    return {};
+  }
+  const out: Record<string, JSONSchemaValue> = {};
+  for (const [key, field] of Object.entries(schema.properties)) {
+    const value = deriveFieldDefault(field);
+    if (value !== undefined) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+function deriveFieldDefault(field: JSONSchemaType): JSONSchemaValue | undefined {
+  if (field.default !== undefined && field.default !== null) {
+    return field.default;
+  }
+  if (field.example !== undefined && field.example !== null) {
+    return field.example;
+  }
+  if (Array.isArray(field.enum) && field.enum.length > 0) {
+    return field.enum[0];
+  }
+  switch (field.type) {
+    case 'string':
+      return '';
+    case 'integer':
+    case 'number':
+      return typeof field.minimum === 'number' ? field.minimum : 0;
+    case 'boolean':
+      return false;
+    case 'array':
+      return [];
+    case 'object':
+      return deriveSchemaDefaults(field);
+    default:
+      return undefined;
+  }
+}
+
+/**
  * 推断字段的默认 Widget 类型
  * @param schema 字段的 JSON Schema
  * @returns Widget 类型字符串

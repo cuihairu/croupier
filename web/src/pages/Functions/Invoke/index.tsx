@@ -12,7 +12,7 @@ import {
   type InvokeFunctionOptions,
 } from '@/services/api';
 import { extractErrorMessage } from '@/utils/errors';
-import { parseInputSchema, type JSONSchemaType } from '@/utils/json';
+import { deriveSchemaDefaults, parseInputSchema, type JSONSchemaType } from '@/utils/json';
 import { isScopeReady, subscribeScope } from '@/stores/scope';
 import type { FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
 import ExecutionOptions from './ExecutionOptions';
@@ -70,6 +70,7 @@ export default function FunctionInvokePage() {
   const [hashKey, setHashKey] = useState('');
   const [asyncMode, setAsyncMode] = useState(false);
   const [response, setResponse] = useState<JSONValue>();
+  const [traceId, setTraceId] = useState('');
   const [error, setError] = useState('');
   const [duration, setDuration] = useState(0);
   const [historyItems, setHistoryItems] = useState<RequestHistoryItem[]>(loadHistory);
@@ -108,8 +109,11 @@ export default function FunctionInvokePage() {
         ? { status: 'ready', spec: { jsonSchema: schema as JSONSchema, layout: 'vertical' } }
         : { status: 'unavailable', error: '该函数未声明输入 Schema；请使用原始 JSON 调用。' },
     );
-    setFormValues({});
-    setRawJson('{}');
+    // 按 Schema 类型派生默认值：default > example > enum 首项 > 类型占位值，
+    // 让表单/JSON 编辑器开箱即得完整参数骨架。
+    const defaults = deriveSchemaDefaults(schema) as FormValues;
+    setFormValues(defaults);
+    setRawJson(JSON.stringify(defaults, null, 2));
     setResponse(undefined);
     setError('');
   }, [selected]);
@@ -146,10 +150,12 @@ export default function FunctionInvokePage() {
     setExecuting(true);
     setError('');
     setResponse(undefined);
+    setTraceId('');
     setDuration(0);
     const startedAt = Date.now();
     try {
       const result = await invokeFunction(selected.id, payload, options);
+      setTraceId(result?.traceId || '');
       const item: RequestHistoryItem = {
         id: `${startedAt}`,
         functionId: selected.id,
@@ -320,6 +326,7 @@ export default function FunctionInvokePage() {
               responseRaw={responseRaw}
               error={error}
               duration={duration}
+              traceId={traceId}
               onCopy={(value) =>
                 navigator.clipboard.writeText(value).then(() => message.success('已复制'))
               }

@@ -13,7 +13,11 @@ function normalizeBaseUrl(url?: string) {
 export default function TracesPage() {
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<OpsConfig>({});
-  const [traceId, setTraceId] = useState('');
+  const [traceId, setTraceId] = useState(() => {
+    // 支持从调用页等入口带 traceId 直接跳转
+    const initial = new URLSearchParams(window.location.search).get('traceId');
+    return initial ? initial.trim() : '';
+  });
 
   const jaegerTraceUrl = useMemo(() => {
     const base = normalizeBaseUrl(config.jaegerUrl);

@@ -243,6 +243,12 @@ export default [
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
       { path: '/ops/jobs', name: 'Jobs', access: 'canOpsRead', component: './Ops/Jobs' },
       {
+        path: '/ops/traces',
+        name: 'Traces',
+        access: 'canOpsRead',
+        component: './Telemetry/Traces',
+      },
+      {
         path: '/ops/alerts',
         name: 'Alerts',
         access: 'canOpsRead',

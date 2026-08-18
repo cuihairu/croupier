@@ -160,6 +160,9 @@ type FunctionInvokeResponse struct {
 	ApprovalID       string          `json:"approvalId,omitempty"`
 	ApprovalRequired bool            `json:"approvalRequired,omitempty"`
 	ApprovalWorkflow string          `json:"approvalWorkflow,omitempty"`
+	// TraceID identifies the OTel trace of this invocation so dashboards can
+	// jump to Jaeger/Grafana for the full request path.
+	TraceID string `json:"traceId,omitempty"`
 	// ExecutionMetadata is server-internal dispatch context for audit/tracing.
 	// It is intentionally not serialized to API clients.
 	ExecutionMetadata map[string]string `json:"-"`

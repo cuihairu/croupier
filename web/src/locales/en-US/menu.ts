@@ -44,6 +44,7 @@ export default {
   'menu.Ops': 'Operations & SRE',
   'menu.Ops.Nodes': 'Node Maintenance',
   'menu.Ops.Jobs': 'Jobs',
+  'menu.Ops.Traces': 'Traces',
   'menu.Ops.Alerts': 'Alerts',
   'menu.Ops.RateLimits': 'Rate Limits',
   'menu.Ops.Terms': 'Terminology',

@@ -45,6 +45,7 @@ export default {
   'menu.Ops': '运维中心',
   'menu.Ops.Nodes': '节点维护',
   'menu.Ops.Jobs': '任务监控',
+  'menu.Ops.Traces': '链路追踪',
   'menu.Ops.Alerts': '告警中心',
   'menu.Ops.RateLimits': '限速管理',
   'menu.Ops.Terms': '术语字典',

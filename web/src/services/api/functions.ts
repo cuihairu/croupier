@@ -144,6 +144,11 @@ export type FunctionInvokeResponse = {
   timestamp?: string;
   taskId?: string;
   taskID?: string;
+  /** OTel trace id of this invocation, for Jaeger/Grafana lookup. */
+  traceId?: string;
+  approvalRequired?: boolean;
+  approvalId?: string;
+  approvalWorkflow?: string;
 };
 
 export async function listDescriptors() {
