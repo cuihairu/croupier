@@ -156,12 +156,20 @@ func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID,
 		"resource_key", resourceKey,
 		"contract_count", len(contracts))
 
-	// 2. Build capability aggregation
+	// 2. Build capability aggregation. Registration is an automated source, so
+	// reviewed presentation fields (labels, description, category, tags) are
+	// preserved from the existing capability instead of being wiped on every
+	// re-registration.
 	cap := &model.ResourceCapability{
 		GameID:      gameID,
 		Env:         env,
 		ResourceKey: resourceKey,
 		Labels:      datatypes.JSONMap{},
+	}
+	if existing, err := s.capabilityModel.FindByScopeAndResourceKey(ctx, gameID, env, resourceKey); err == nil {
+		preserveReviewedCapability(cap, existing)
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find existing resource capability: %w", err)
 	}
 
 	if err := s.capabilityModel.UpsertCapability(ctx, cap); err != nil {
@@ -187,13 +195,15 @@ func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID,
 		return fmt.Errorf("upsert capability semantics: %w", err)
 	}
 
-	// 4. Create version record
+	// 4. Create version record. This rebuild is triggered by automated
+	// registration sync, not a human operator, so the actor is "system".
 	version := &model.CapabilitySemanticVersion{
 		SemanticsID:  semantics.ID,
 		Version:      semantics.Version,
 		Semantics:    toJSON(semantics),
 		SourceDigest: semantics.SourceDigest,
 		ChangeReason: "rebuild from function registration",
+		CreatedBy:    "system",
 	}
 	if err := s.versionModel.CreateVersion(ctx, version); err != nil {
 		return fmt.Errorf("create semantic version: %w", err)
@@ -384,6 +394,31 @@ func semanticSourceForContracts(contracts []*model.FunctionContract) string {
 		return string(spec.SemanticSourceOpenAPIRest)
 	default:
 		return string(spec.SemanticSourceSDKExplicit)
+	}
+}
+
+// preserveReviewedCapability keeps human-maintained presentation fields on
+// rebuilds triggered by function registration. Registration data never
+// carries resource-level presentation, so any stored value is reviewed data
+// and must survive automated re-registration.
+func preserveReviewedCapability(next *model.ResourceCapability, existing *model.ResourceCapability) {
+	if next == nil || existing == nil {
+		return
+	}
+	if len(existing.Labels) > 0 {
+		next.Labels = existing.Labels
+	}
+	if len(existing.Description) > 0 {
+		next.Description = existing.Description
+	}
+	if strings.TrimSpace(existing.CategoryKey) != "" {
+		next.CategoryKey = existing.CategoryKey
+	}
+	if len(existing.Tags) > 0 {
+		next.Tags = existing.Tags
+	}
+	if strings.TrimSpace(existing.UpdatedBy) != "" {
+		next.UpdatedBy = existing.UpdatedBy
 	}
 }
 

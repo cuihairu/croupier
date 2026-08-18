@@ -188,9 +188,9 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		// Build item
 		item := ResourceCatalogItem{
 			ResourceKey: cap.ResourceKey,
-			Labels:      toStringMap(cap.Labels),
+			Labels:      labelsForResource(cap.Labels, cap.ResourceKey),
 			Description: toStringMap(cap.Description),
-			CategoryKey: cap.CategoryKey,
+			CategoryKey: categoryKeyForResource(cap.ResourceKey, cap.CategoryKey),
 			Status:      determineStatus(contracts, semantics),
 			Functions:   buildFunctionInfos(contracts),
 			Semantics:   buildSemanticsInfo(semantics),
@@ -250,9 +250,9 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*ResourceCata
 
 	item := &ResourceCatalogItem{
 		ResourceKey: cap.ResourceKey,
-		Labels:      toStringMap(cap.Labels),
+		Labels:      labelsForResource(cap.Labels, cap.ResourceKey),
 		Description: toStringMap(cap.Description),
-		CategoryKey: cap.CategoryKey,
+		CategoryKey: categoryKeyForResource(cap.ResourceKey, cap.CategoryKey),
 		Status:      determineStatus(contracts, semantics),
 		Functions:   buildFunctionInfos(contracts),
 		Semantics:   buildSemanticsInfo(semantics),
@@ -1380,6 +1380,54 @@ func toStringMap(m map[string]interface{}) map[string]string {
 		}
 	}
 	return result
+}
+
+// humanizeResourceKey turns "inventory" / "player_item" into "Inventory" /
+// "Player Item" so the catalog still shows a readable name before platform
+// review fills in proper localized labels.
+func humanizeResourceKey(key string) string {
+	key = strings.Trim(strings.TrimSpace(key), "._-")
+	if key == "" {
+		return ""
+	}
+	parts := strings.FieldsFunc(key, func(r rune) bool {
+		return r == '.' || r == '_' || r == '-'
+	})
+	for i := range parts {
+		if parts[i] == "" {
+			continue
+		}
+		parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
+	}
+	return strings.Join(parts, " ")
+}
+
+// categoryKeyForResource falls back to the key prefix ("mail.template" ->
+// "mail") when no reviewed category exists, matching the page generator's
+// InferCategoryFromKey behavior.
+func categoryKeyForResource(resourceKey, reviewed string) string {
+	if reviewed != "" {
+		return reviewed
+	}
+	resourceKey = strings.TrimSpace(resourceKey)
+	if idx := strings.Index(resourceKey, "."); idx > 0 {
+		return resourceKey[:idx]
+	}
+	return resourceKey
+}
+
+// labelsForResource returns reviewed labels when present, otherwise a
+// humanized fallback derived from the resource key. Derived values are
+// display-only: the stored capability keeps empty labels until reviewed.
+func labelsForResource(labels map[string]interface{}, resourceKey string) map[string]string {
+	reviewed := toStringMap(labels)
+	if len(reviewed) > 0 {
+		return reviewed
+	}
+	if text := humanizeResourceKey(resourceKey); text != "" {
+		return map[string]string{"zh-CN": text, "en-US": text}
+	}
+	return nil
 }
 
 func matchesQuery(item ResourceCatalogItem, query string) bool {
