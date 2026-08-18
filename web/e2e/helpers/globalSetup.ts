@@ -37,6 +37,15 @@ async function prepareMockAuthState(config: FullConfig): Promise<void> {
   const context = await browser.newContext({ baseURL });
   const page = await context.newPage();
 
+  // 排查辅助：预热失败时输出浏览器 console（CI 上静态模式排障）
+  const consoleErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error' || msg.type() === 'warning') {
+      consoleErrors.push(`[${msg.type()}] ${msg.text().slice(0, 300)}`);
+    }
+  });
+  page.on('pageerror', (err) => consoleErrors.push(`[pageerror] ${String(err).slice(0, 300)}`));
+
   try {
     await page.goto('/user/login');
     // Login form is rendered client-side; wait for the input instead of a
