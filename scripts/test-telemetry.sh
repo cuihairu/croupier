@@ -78,7 +78,7 @@ start_telemetry_stack() {
     log "starting telemetry stack with project ${COMPOSE_PROJECT}"
     compose up --detach --wait
 
-    wait_http "http://127.0.0.1:113133/" "OTel Collector health"
+    wait_http "http://127.0.0.1:13313/" "OTel Collector health"
     wait_http "http://127.0.0.1:17686/" "Jaeger UI"
     wait_http "http://127.0.0.1:19092/-/ready" "Prometheus"
     wait_http "http://127.0.0.1:13000/api/health" "Grafana"

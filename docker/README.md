@@ -73,7 +73,7 @@ bash scripts/test-telemetry.sh
 | Analytics Ingestion    | http://localhost:18081 | 公网/DMZ 摄取入口         |
 
 遥测栈本机端口：OTLP HTTP `14318`、OTLP gRPC `14317`、Collector health
-`113133`、Collector metrics `18889`、Jaeger `17686`、Prometheus `19092`、Grafana
+`13313`、Collector metrics `18889`、Jaeger `17686`、Prometheus `19092`、Grafana
 `13000`。
 
 ## 数据库

@@ -12,7 +12,7 @@ services:
     ports:
       - "14317:4317" # OTLP gRPC receiver
       - "14318:4318" # OTLP HTTP receiver
-      - "113133:13133" # Collector health endpoint
+      - "13313:13133" # Collector health endpoint
       - "18889:8889" # Collector Prometheus exporter
     depends_on:
       - jaeger
