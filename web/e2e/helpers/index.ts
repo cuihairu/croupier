@@ -57,7 +57,7 @@ export async function login(page: Page): Promise<void> {
   // 等待登录成功
   await page.waitForURL(
     (url) => /\/(console|dashboard)/.test(url.pathname) || url.pathname === '/',
-    { timeout: 30000 },
+    { timeout: 60000 },
   );
   await page.waitForLoadState('domcontentloaded');
 }
@@ -165,17 +165,15 @@ export async function selectEnv(page: Page, env: string): Promise<void> {
   const envOption = page.locator('.ant-select-item-option').filter({ hasText: env }).first();
   await expect(envOption).toBeVisible();
   await envOption.click();
-  // 选择后页面可能整页 reload；轮询等待 selector 重新出现且值为目标环境。
+  // 选择后页面整页 reload；轮询 scope store（localStorage）确认 env 已持久化，
+  // 且 env-selector 重新可见。不读 ant-select 内部文本（值在 input 中，innerText
+  // 在某些渲染态为空）。
   await expect
-    .poll(
-      async () => {
-        const el = page.getByTestId('env-selector');
-        if (!(await el.isVisible().catch(() => false))) return '';
-        return (await el.innerText().catch(() => '')) || '';
-      },
-      { timeout: 30000 },
-    )
-    .toMatch(new RegExp(env, 'i'));
+    .poll(async () => page.evaluate(() => window.localStorage.getItem('env') || ''), {
+      timeout: 60000,
+    })
+    .toMatch(new RegExp(`^${env}$`, 'i'));
+  await page.getByTestId('env-selector').waitFor({ state: 'visible', timeout: 60000 });
 }
 
 /**

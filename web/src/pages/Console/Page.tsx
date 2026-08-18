@@ -19,7 +19,7 @@ import {
 } from '@/services/console';
 import type { PublishedPageSpec } from '@/types/dashboard';
 import { resolveConsolePageRoute, resolveLocalizedText } from '@/utils/consoleMenu';
-import { subscribeScope } from '@/stores/scope';
+import { getScope, subscribeScope } from '@/stores/scope';
 
 export default function ConsolePage() {
   const params = useParams<{ categoryKey?: string; pageKey: string }>();
@@ -78,7 +78,15 @@ export default function ConsolePage() {
 
   // scope 切换后重新加载发布页面：旧 scope 的数据与菜单必须立即失效。
   useEffect(() => {
-    const unsubscribe = subscribeScope(() => window.location.reload());
+    // 仅当 scope 实际变化（game/env 任一改变）时才整页刷新；
+    // 等值 emit（登录流程会 setScope 两次）不得触发 reload 循环。
+    let last = JSON.stringify(getScope());
+    const unsubscribe = subscribeScope((next) => {
+      const serialized = JSON.stringify(next);
+      if (serialized === last) return;
+      last = serialized;
+      window.location.reload();
+    });
     return unsubscribe;
   }, []);
 
