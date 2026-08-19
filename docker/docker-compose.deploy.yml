@@ -121,7 +121,9 @@ services:
       server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "nc", "-z", "127.0.0.1", "19091"]
+      # busybox applets 在 agent 镜像中位于 /usr/local/bin（distroless 的
+      # /bin 对 nonroot 不可写）；TCP listener 绑定 0.0.0.0 后 localhost 可达。
+      test: ["CMD", "/usr/local/bin/busybox", "nc", "-z", "127.0.0.1", "19091"]
       interval: 10s
       timeout: 5s
       retries: 12
