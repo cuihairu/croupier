@@ -5,7 +5,7 @@
 # Croupier Platform
 
 [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/Release-v0.1.1-blue.svg)](https://github.com/cuihairu/croupier/releases)
+[![Release](https://img.shields.io/badge/Release-v0.1.0-blue.svg)](https://github.com/cuihairu/croupier/releases)
 [![codecov](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/go-1.26.6+-green.svg)
