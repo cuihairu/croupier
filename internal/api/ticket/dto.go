@@ -82,10 +82,13 @@ type TicketUpdateRequest struct {
 type TicketsListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
+	Query    string `form:"q"`
 	Status   string `form:"status"`
 	Category string `form:"category"`
 	Priority string `form:"priority"`
 	Assignee string `form:"assignee"`
+	GameID   string `form:"gameId"`
+	Env      string `form:"env"`
 }
 
 type TicketsListResponse struct {

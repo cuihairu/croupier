@@ -1,12 +1,20 @@
 package routes
 
 import (
+	"context"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
 
+// routesService decouples the handler from the concrete Service so tests can
+// inject failures (the real Service is a static catalog that never errors).
+type routesService interface {
+	GetRoutes(ctx context.Context) (*GetRoutesResponse, error)
+}
+
 type Handler struct {
-	service *Service
+	service routesService
 }
 
 func NewHandler(service *Service) *Handler {

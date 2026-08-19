@@ -20,10 +20,13 @@ func NewTicketModel(db *gorm.DB) *TicketModel {
 // ListTicketsOptions controls filtering.
 type TicketQueryOptions struct {
 	PaginationOptions
+	Query    string
 	Status   string
 	Category string
 	Priority string
 	Assignee string
+	GameID   string
+	Env      string
 }
 
 // Create inserts a ticket.
@@ -70,6 +73,16 @@ func (m *TicketModel) List(ctx context.Context, opts TicketQueryOptions) ([]Tick
 	}
 	if opts.Assignee != "" {
 		query = query.Where("assignee = ?", opts.Assignee)
+	}
+	if opts.GameID != "" {
+		query = query.Where("game_id = ?", opts.GameID)
+	}
+	if opts.Env != "" {
+		query = query.Where("env = ?", opts.Env)
+	}
+	if opts.Query != "" {
+		like := "%" + opts.Query + "%"
+		query = query.Where("title LIKE ? OR content LIKE ? OR player_id LIKE ?", like, like, like)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

@@ -114,7 +114,13 @@ func TestBundledDockerConfigUsesDedicatedLocalGatewayPort(t *testing.T) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		t.Fatalf("unmarshal config: %v", err)
 	}
-	if cfg.Agent.LocalAddr != "agent:19091" {
-		t.Fatalf("localAddr = %q, want %q", cfg.Agent.LocalAddr, "agent:19091")
+	// localAddr 是监听地址：绑定 0.0.0.0 保证容器 healthcheck（nc 127.0.0.1）可达；
+	// 对外通告地址由 httpAddr（agent:19091）承担。绑定容器名会导致 listener 只
+	// 监听容器 IP，localhost 探测失败（部署验收中实际踩过）。
+	if cfg.Agent.LocalAddr != "0.0.0.0:19091" {
+		t.Fatalf("localAddr = %q, want %q", cfg.Agent.LocalAddr, "0.0.0.0:19091")
+	}
+	if cfg.Agent.HTTPAddr != "agent:19091" {
+		t.Fatalf("httpAddr = %q, want %q", cfg.Agent.HTTPAddr, "agent:19091")
 	}
 }

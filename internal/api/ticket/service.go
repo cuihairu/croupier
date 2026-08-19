@@ -22,10 +22,13 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, error) {
 	opts := model.TicketQueryOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
+		Query:             strings.TrimSpace(req.Query),
 		Status:            strings.TrimSpace(req.Status),
 		Category:          strings.TrimSpace(req.Category),
 		Priority:          strings.TrimSpace(req.Priority),
 		Assignee:          strings.TrimSpace(req.Assignee),
+		GameID:            strings.TrimSpace(req.GameID),
+		Env:               strings.TrimSpace(req.Env),
 	}
 
 	items, total, err := s.svcCtx.TicketModel.List(ctx, opts)

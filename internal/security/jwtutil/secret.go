@@ -70,3 +70,26 @@ func isDevelopmentMode(cfg config.Config) bool {
 func DevSecret() string {
 	return devSecret
 }
+
+// ResetGlobalSecretForTesting re-keys the global JWT secret and returns a
+// restore function. Production code must never call this: InitGlobalSecret
+// is a sync.Once precisely so the key cannot change at runtime. Tests that
+// share a process need it because whichever test initializes first wins and
+// later InitGlobalSecret calls silently no-op, causing order-dependent
+// signature failures.
+//
+// Usage: defer jwtutil.ResetGlobalSecretForTesting(secret)()
+func ResetGlobalSecretForTesting(secret string) (restore func()) {
+	prevSecret := globalSecret
+	prevInitialized := globalSecret != ""
+	secretOnce = sync.Once{}
+	globalSecret = secret
+	return func() {
+		// 不能拷贝 sync.Once；用全新实例并按需回放原值。
+		secretOnce = sync.Once{}
+		globalSecret = prevSecret
+		if !prevInitialized {
+			globalSecret = ""
+		}
+	}
+}

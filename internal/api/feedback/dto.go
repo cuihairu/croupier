@@ -33,6 +33,7 @@ type FeedbackListRequest struct {
 	PageSize int    `form:"pageSize,optional,default=20"`
 	Status   string `form:"status"`
 	Category string `form:"category"`
+	Query    string `form:"q"`
 	GameId   string `form:"gameId"`
 }
 

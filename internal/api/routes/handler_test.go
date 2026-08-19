@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -67,4 +69,21 @@ func TestService_GetRoutes_NoError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Greater(t, len(*resp), 0)
+}
+
+func TestGetRoutesHandlerServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	failing := &failingRoutesService{}
+	h := &Handler{service: failing}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/routes", nil)
+	h.GetRoutes(c)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+type failingRoutesService struct{}
+
+func (f *failingRoutesService) GetRoutes(ctx context.Context) (*GetRoutesResponse, error) {
+	return nil, errors.New("boom")
 }

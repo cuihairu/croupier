@@ -169,9 +169,9 @@ func TestExtractBinaryPath(t *testing.T) {
 // TestRunSystemdCmdFailurePath verifies that runSystemdCmd wraps subprocess
 // failures with the offending arguments for easier debugging. Runs on all
 // platforms via the systemdRunner indirection.
+// TestRunSystemdCmdFailurePath 与 TestRunSystemdCmdSuccess 替换全局 systemdRunner，
+// 不能并行执行（原先 t.Parallel 导致互相覆盖 fake，出现偶发失败）。
 func TestRunSystemdCmdFailurePath(t *testing.T) {
-	t.Parallel()
-
 	original := systemdRunner
 	t.Cleanup(func() { systemdRunner = original })
 
@@ -192,8 +192,6 @@ func TestRunSystemdCmdFailurePath(t *testing.T) {
 }
 
 func TestRunSystemdCmdSuccess(t *testing.T) {
-	t.Parallel()
-
 	original := systemdRunner
 	t.Cleanup(func() { systemdRunner = original })
 

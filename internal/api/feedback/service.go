@@ -29,12 +29,16 @@ func (s *Service) List(ctx context.Context, req *FeedbackListRequest) (*Feedback
 	if req == nil {
 		req = &FeedbackListRequest{}
 	}
+	// Feedback is a scope-dependent endpoint; never allow a query parameter to
+	// override the resolved request scope.
+	env := svc.GameScopeFromContext(ctx).Env
 	opts := model.ListFeedbackOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
 		Status:            strings.TrimSpace(req.Status),
 		Category:          strings.TrimSpace(req.Category),
+		Keyword:           strings.TrimSpace(req.Query),
 		GameID:            svc.ResolveGameID(ctx, req.GameId),
-		Env:               svc.GameScopeFromContext(ctx).Env,
+		Env:               env,
 	}
 
 	entries, total, err := s.svcCtx.FeedbackModel.List(ctx, opts)
