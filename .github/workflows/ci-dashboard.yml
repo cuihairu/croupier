@@ -142,8 +142,12 @@ jobs:
         id: pw_install
         run: pnpm exec playwright install chromium
       - name: Install Playwright system dependencies
-        timeout-minutes: 5
-        run: pnpm exec playwright install-deps chromium
+        timeout-minutes: 8
+        # azure.archive.ubuntu.com 区域镜像今天持续 Ign；切换到主源再装依赖
+        run: |
+          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          sudo apt-get update -qq
+          pnpm exec playwright install-deps chromium
 
       - name: Build mock web (production, MOCK=all)
         timeout-minutes: 12
@@ -225,8 +229,12 @@ jobs:
         id: pw_install
         run: pnpm exec playwright install chromium
       - name: Install Playwright system dependencies
-        timeout-minutes: 5
-        run: pnpm exec playwright install-deps chromium
+        timeout-minutes: 8
+        # azure.archive.ubuntu.com 区域镜像今天持续 Ign；切换到主源再装依赖
+        run: |
+          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          sudo apt-get update -qq
+          pnpm exec playwright install-deps chromium
 
       - name: Install ripgrep
         timeout-minutes: 2
