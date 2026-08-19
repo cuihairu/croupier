@@ -123,6 +123,10 @@ export default function PageStudio() {
   const [versionsVisible, setVersionsVisible] = useState(false);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [versionItems, setVersionItems] = useState<PageVersionItem[]>([]);
+  // 版本历史服务端分页（版本随编辑/重发布无上限增长）
+  const [versionPage, setVersionPage] = useState(1);
+  const [versionPageSize, setVersionPageSize] = useState(5);
+  const [versionTotal, setVersionTotal] = useState(0);
   const [currentDraftVersion, setCurrentDraftVersion] = useState(0);
   const [currentPublishedVersion, setCurrentPublishedVersion] = useState(0);
 
@@ -278,11 +282,15 @@ export default function PageStudio() {
   );
 
   const loadVersionHistory = useCallback(
-    async (pageKey: string) => {
+    async (pageKey: string, page = 1, pageSize = versionPageSize) => {
       setVersionsLoading(true);
       try {
-        const result = await listPageVersions(pageKey);
+        const result = await listPageVersions(pageKey, {
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+        });
         setVersionItems(result.items || []);
+        setVersionTotal(result.total ?? (result.items || []).length);
         setCurrentDraftVersion(result.currentDraftRevision || 0);
         setCurrentPublishedVersion(result.currentPublishedVersion || 0);
       } catch {
@@ -291,7 +299,7 @@ export default function PageStudio() {
         setVersionsLoading(false);
       }
     },
-    [message],
+    [message, versionPageSize],
   );
 
   const handleVersions = useCallback(
@@ -718,7 +726,20 @@ export default function PageStudio() {
             loading={versionsLoading}
             rowKey="version"
             search={false}
-            pagination={false}
+            pagination={{
+              current: versionPage,
+              pageSize: versionPageSize,
+              total: versionTotal,
+              showSizeChanger: true,
+              pageSizeOptions: [5, 10, 20, 50],
+              showTotal: (t) => `共 ${t} 条`,
+              onChange: (page, pageSize) => {
+                if (!selectedPageKey) return;
+                setVersionPage(page);
+                setVersionPageSize(pageSize);
+                loadVersionHistory(selectedPageKey, page, pageSize);
+              },
+            }}
             options={false}
             locale={{ emptyText: <Empty description="暂无版本历史" /> }}
           />

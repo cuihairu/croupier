@@ -428,7 +428,7 @@ func TestFunctionHistoryLogic_FunctionHistory_CreatesFunction(t *testing.T) {
 	}
 
 	logic := NewFunctionHistoryLogic(context.Background(), svcCtx)
-	items, err := logic.FunctionHistory(&FunctionHistoryRequest{ID: "new.function"})
+	items, _, err := logic.FunctionHistory(&FunctionHistoryRequest{ID: "new.function"})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, items)
@@ -453,7 +453,7 @@ func TestFunctionHistoryLogic_FunctionHistory_EmptyID(t *testing.T) {
 	}
 
 	logic := NewFunctionHistoryLogic(context.Background(), svcCtx)
-	items, err := logic.FunctionHistory(&FunctionHistoryRequest{ID: ""})
+	items, _, err := logic.FunctionHistory(&FunctionHistoryRequest{ID: ""})
 
 	assert.Error(t, err)
 	assert.Nil(t, items)

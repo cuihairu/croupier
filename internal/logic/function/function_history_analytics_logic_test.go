@@ -27,7 +27,7 @@ func TestFunctionHistoryAndAnalytics_RuntimeOnly(t *testing.T) {
 	}
 
 	historyLogic := NewFunctionHistoryLogic(context.Background(), svcCtx)
-	items, err := historyLogic.FunctionHistory(&FunctionHistoryRequest{ID: "examples.analytics.player_retention"})
+	items, _, err := historyLogic.FunctionHistory(&FunctionHistoryRequest{ID: "examples.analytics.player_retention"})
 	if err != nil {
 		t.Fatalf("FunctionHistory failed: %v", err)
 	}

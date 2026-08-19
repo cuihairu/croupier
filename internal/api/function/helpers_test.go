@@ -467,6 +467,51 @@ func TestInvokePayload(t *testing.T) {
 	}
 }
 
+func TestValidateInvokeRoute(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		req     *FunctionInvokeRequest
+		wantErr bool
+		want    string
+	}{
+		{name: "defaults to load balancing", req: &FunctionInvokeRequest{}, want: "lb"},
+		{
+			name:    "targeted requires service id",
+			req:     &FunctionInvokeRequest{Route: "targeted"},
+			wantErr: true,
+		},
+		{
+			name:    "hash requires key",
+			req:     &FunctionInvokeRequest{Route: "hash"},
+			wantErr: true,
+		},
+		{
+			name:    "broadcast rejects async",
+			req:     &FunctionInvokeRequest{Route: "broadcast", Mode: "async"},
+			wantErr: true,
+		},
+		{
+			name: "targeted preserves service id",
+			req:  &FunctionInvokeRequest{Route: " TARGETED ", TargetServiceID: " service-1 "},
+			want: "targeted",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateInvokeRoute(tt.req)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateInvokeRoute() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && tt.req.Route != tt.want {
+				t.Fatalf("validateInvokeRoute() route = %q, want %q", tt.req.Route, tt.want)
+			}
+		})
+	}
+}
+
 func TestRawJSONFromAny(t *testing.T) {
 	tests := []struct {
 		name     string

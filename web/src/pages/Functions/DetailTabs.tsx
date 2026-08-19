@@ -33,21 +33,29 @@ const formatDateTime = (value?: string) => {
 export function HistoryTab({ functionId }: { functionId: string }) {
   const [historyData, setHistoryData] = useState<HistoryRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     const loadHistory = async () => {
       setHistoryLoading(true);
       try {
-        const data = await getFunctionHistory(functionId);
-        setHistoryData(data || []);
+        const { items, total: count } = await getFunctionHistory(functionId, {
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+        });
+        setHistoryData(items);
+        setTotal(count);
       } catch {
         setHistoryData([]);
+        setTotal(0);
       } finally {
         setHistoryLoading(false);
       }
     };
     loadHistory();
-  }, [functionId]);
+  }, [functionId, page, pageSize]);
 
   return (
     <Table
@@ -65,7 +73,18 @@ export function HistoryTab({ functionId }: { functionId: string }) {
         },
         { title: '详情', dataIndex: 'details', ellipsis: true },
       ]}
-      pagination={{ pageSize: 10 }}
+      pagination={{
+        current: page,
+        pageSize,
+        total,
+        showSizeChanger: true,
+        pageSizeOptions: [5, 10, 20, 50],
+        showTotal: (t) => `共 ${t} 条`,
+        onChange: (nextPage, nextSize) => {
+          setPage(nextPage);
+          setPageSize(nextSize);
+        },
+      }}
     />
   );
 }

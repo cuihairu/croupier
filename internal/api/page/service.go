@@ -27,6 +27,12 @@ import (
 
 const rendererSchemaVersion = "page-spec:1"
 
+// Page-version history pagination bounds.
+const (
+	pageVersionDefaultLimit = 5
+	pageVersionMaxLimit     = 100
+)
+
 type Service struct {
 	svcCtx *svc.ServiceContext
 }
@@ -534,7 +540,18 @@ func (s *Service) Versions(ctx context.Context, req *PageVersionsRequest) (*Page
 		return nil, err
 	}
 	p, _ := s.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, gameID, env, req.PageKey)
-	versions, err := s.svcCtx.PageVersionModel.ListByScopeAndPageKey(ctx, gameID, env, req.PageKey)
+	// 版本随编辑/重发布无上限增长，历史必须分页拉取
+	limit := req.Limit
+	if limit <= 0 {
+		limit = pageVersionDefaultLimit
+	}
+	if limit > pageVersionMaxLimit {
+		limit = pageVersionMaxLimit
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+	versions, total, err := s.svcCtx.PageVersionModel.ListByScopeAndPageKeyPaged(ctx, gameID, env, req.PageKey, limit, req.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -550,7 +567,7 @@ func (s *Service) Versions(ctx context.Context, req *PageVersionsRequest) (*Page
 			CreatedBy:          v.CreatedBy,
 		})
 	}
-	resp := &PageVersionsResponse{Items: items}
+	resp := &PageVersionsResponse{Items: items, Total: total}
 	if p != nil {
 		resp.CurrentDraftRevision = p.DraftRevision
 		resp.CurrentPublishedVersion = p.PublishedVersion

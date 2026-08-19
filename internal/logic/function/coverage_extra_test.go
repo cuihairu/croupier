@@ -1247,7 +1247,7 @@ func TestFunctionHistory_WithNilConfigVersionModel(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
 	svcCtx.ConfigVersionModel = nil
 	logic := NewFunctionHistoryLogic(ctx, svcCtx)
-	items, err := logic.FunctionHistory(&FunctionHistoryRequest{ID: "test.fn"})
+	items, _, err := logic.FunctionHistory(&FunctionHistoryRequest{ID: "test.fn"})
 	require.NoError(t, err)
 	assert.Len(t, items, 1)
 }

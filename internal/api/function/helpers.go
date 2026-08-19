@@ -188,11 +188,26 @@ func functionEnable(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 }
 
 func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionHistoryRequest) (*FunctionHistoryResponse, error) {
-	items, err := logicfunction.NewFunctionHistoryLogic(ctx, svcCtx).FunctionHistory(
-		&logicfunction.FunctionHistoryRequest{ID: req.ID},
+	// 历史默认取最近一页；limit/offset 由 query 传入
+	limit := req.Limit
+	if limit <= 0 {
+		limit = functionHistoryDefaultLimit
+	}
+	if limit > functionHistoryMaxLimit {
+		limit = functionHistoryMaxLimit
+	}
+	offset := req.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	items, total, err := logicfunction.NewFunctionHistoryLogic(ctx, svcCtx).FunctionHistoryPaged(
+		&logicfunction.FunctionHistoryRequest{ID: req.ID, Limit: limit, Offset: offset},
 	)
 	if err != nil {
 		return nil, err
+	}
+	if items == nil {
+		items = []logicfunction.FunctionHistoryItem{}
 	}
 	result := make([]FunctionHistoryItem, 0, len(items))
 	for _, item := range items {
@@ -201,10 +216,13 @@ func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 			Timestamp: item.Timestamp, Details: rawJSONFromBytes(item.Details),
 		})
 	}
-	return &FunctionHistoryResponse{Items: result}, nil
+	return &FunctionHistoryResponse{Items: result, Total: total}, nil
 }
 
 func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) (*FunctionInvokeResponse, error) {
+	if err := validateInvokeRoute(req); err != nil {
+		return nil, err
+	}
 	scope, err := svc.CurrentScope(ctx)
 	if err != nil {
 		return nil, errorx.NewBadRequest("游戏环境 scope 缺失")
@@ -369,6 +387,41 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	}
 
 	return result, nil
+}
+
+// validateInvokeRoute enforces routing semantics at the HTTP API boundary.
+// The legacy helper dispatches directly and therefore must not rely only on
+// the separate logic-layer validation to prevent targeted calls falling back
+// to load balancing.
+func validateInvokeRoute(req *FunctionInvokeRequest) error {
+	if req == nil {
+		return errorx.NewBadRequest("invoke request is required")
+	}
+
+	route := strings.ToLower(strings.TrimSpace(req.Route))
+	if route == "" {
+		route = "lb"
+	}
+	switch route {
+	case "lb":
+	case "targeted":
+		if strings.TrimSpace(req.TargetServiceID) == "" {
+			return errorx.NewBadRequest("target_service_id is required for route=targeted")
+		}
+	case "hash":
+		if strings.TrimSpace(req.HashKey) == "" {
+			return errorx.NewBadRequest("hash_key is required for route=hash")
+		}
+	case "broadcast":
+		mode := strings.ToLower(strings.TrimSpace(req.Mode))
+		if mode == "async" || mode == "task" || mode == "start_task" {
+			return errorx.NewBadRequest("route=broadcast is only supported for synchronous invoke")
+		}
+	default:
+		return errorx.NewBadRequest("invalid route " + route)
+	}
+	req.Route = route
+	return nil
 }
 
 func cloneMetadata(metadata map[string]string) map[string]string {

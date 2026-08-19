@@ -31,6 +31,9 @@ import { listGameEnvs } from '@/services/api/envs';
 
 export default function UsersV2() {
   const [users, setUsers] = useState<AdminRecord[]>([]);
+  const [userTotal, setUserTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -47,11 +50,16 @@ export default function UsersV2() {
 
   const roleOptions = useMemo(() => roles.map((r) => ({ label: r.name, value: r.name })), [roles]);
 
-  const refresh = async () => {
+  const refresh = async (nextPage = page, nextSize = pageSize) => {
     setLoading(true);
     try {
-      const [u, r, g] = await Promise.all([listAdmins(), listRoles(), listGamesMeta()]);
+      const [u, r, g] = await Promise.all([
+        listAdmins({ page: nextPage, pageSize: nextSize }),
+        listRoles({ pageSize: 200 }),
+        listGamesMeta(),
+      ]);
       setUsers(u.items || []);
+      setUserTotal(u.total ?? (u.items || []).length);
       setRoles((r.items || []).map((x) => ({ id: x.id, name: x.name })));
       setGames(g.games || []);
     } finally {
@@ -59,7 +67,8 @@ export default function UsersV2() {
     }
   };
   useEffect(() => {
-    refresh();
+    refresh(1, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openAdd = () => {
@@ -267,7 +276,19 @@ export default function UsersV2() {
           columns={columns}
           dataSource={users}
           loading={loading}
-          pagination={{ pageSize: 10 }}
+          pagination={{
+            current: page,
+            pageSize,
+            total: userTotal,
+            showSizeChanger: true,
+            pageSizeOptions: [10, 20, 50],
+            showTotal: (t) => `共 ${t} 条`,
+            onChange: (nextPage, nextSize) => {
+              setPage(nextPage);
+              setPageSize(nextSize);
+              refresh(nextPage, nextSize);
+            },
+          }}
         />
       </Card>
 

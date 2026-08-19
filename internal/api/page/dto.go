@@ -103,11 +103,16 @@ type PageUnpublishResponse struct {
 
 type PageVersionsRequest struct {
 	PageKey string `uri:"pageKey" binding:"required"`
+	// Limit caps the page size (default 5, max 100); 0 uses the default.
+	Limit int `form:"limit"`
+	// Offset skips older versions; newest-first ordering is preserved.
+	Offset int `form:"offset"`
 }
 
 type PageVersionsResponse struct {
 	CurrentDraftRevision    int                    `json:"currentDraftRevision"`
 	CurrentPublishedVersion int                    `json:"currentPublishedVersion,omitempty"`
+	Total                   int64                  `json:"total"`
 	Items                   []spec.PageVersionItem `json:"items"`
 }
 

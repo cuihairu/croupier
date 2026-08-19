@@ -84,12 +84,23 @@ type FunctionHistoryItem struct {
 // FunctionHistoryRequest represents a request for function history
 type FunctionHistoryRequest struct {
 	ID string `uri:"id"`
+	// Limit caps the page size (default 5, max 100); 0 uses the default.
+	Limit int `form:"limit"`
+	// Offset skips older entries; newest-first ordering is preserved.
+	Offset int `form:"offset"`
 }
 
 // FunctionHistoryResponse represents the response containing function history
 type FunctionHistoryResponse struct {
 	Items []FunctionHistoryItem `json:"items"`
+	Total int                   `json:"total"`
 }
+
+// Function-history pagination bounds.
+const (
+	functionHistoryDefaultLimit = 5
+	functionHistoryMaxLimit     = 100
+)
 
 // FunctionInstance represents an instance of a function on an agent
 type FunctionInstance struct {

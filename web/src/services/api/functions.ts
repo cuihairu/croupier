@@ -14,8 +14,9 @@ export type FunctionDescriptor = {
   id: string;
   type?: 'function';
   version?: string;
-  resource?: string;
+  name?: string;
   description?: string;
+  resource?: string;
   displayName?: LocalizedText;
   summary?: LocalizedText;
   operation?: string;
@@ -26,15 +27,22 @@ export type FunctionDescriptor = {
   outputs?: JSONValue;
   schema?: JSONValue;
   operations?: JSONValue;
-  inputSchema?: string; // JSON Schema for request body (from proto)
-  outputSchema?: string; // JSON Schema for response body (from proto)
+  inputSchema?: JSONValue; // JSON Schema for request body (from proto)
+  outputSchema?: JSONValue; // JSON Schema for response body (from proto)
 };
 
+type RawLocalizedText = Record<string, string | undefined>;
+
 type RawFunctionDescriptor = Omit<FunctionDescriptor, 'displayName' | 'summary'> & {
-  displayName?: LocalizedText | string;
-  summary?: LocalizedText | string;
-  input?: string;
-  output?: string;
+  displayName?: RawLocalizedText | string;
+  summary?: RawLocalizedText | string;
+  input?: JSONValue;
+  output?: JSONValue;
+  descriptor?: {
+    input?: JSONValue;
+    output?: JSONValue;
+    schema?: JSONValue;
+  };
 };
 
 // Source: croupier/internal/api/function/dto.go FunctionPermission
@@ -116,20 +124,39 @@ function normalizeFunctionRegistrationWarning(
 function normalizeLocalizedText(value?: LocalizedText | string): LocalizedText | undefined {
   if (!value) return undefined;
   if (typeof value === 'string') return { zh: value, en: value };
-  return value;
+  const localized = value as LocalizedText & Record<string, string | undefined>;
+  const zh = localized.zh || localized['zh-CN'] || localized['zh_cn'];
+  const en = localized.en || localized['en-US'] || localized['en_us'];
+  if (!zh && !en) return undefined;
+  return { ...(zh ? { zh } : {}), ...(en ? { en } : {}) };
 }
 
 // Exported for testing
 export function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): FunctionDescriptor {
+  const nested = raw.descriptor;
+  const inputSchema = raw.inputSchema ?? raw.input ?? nested?.input;
+  const outputSchema = raw.outputSchema ?? raw.output ?? nested?.output;
   return {
     ...raw,
     displayName: normalizeLocalizedText(raw.displayName),
     summary: normalizeLocalizedText(raw.summary),
-    inputSchema: raw.inputSchema || (typeof raw.input === 'string' ? raw.input : undefined),
-    outputSchema:
-      raw.outputSchema ||
-      raw.outputSchema ||
-      (typeof raw.output === 'string' ? raw.output : undefined),
+    inputSchema,
+    outputSchema,
+    schema: raw.schema ?? nested?.schema,
+  };
+}
+
+/**
+ * 将详情接口的基础函数信息与嵌套 descriptor 投影为页面统一使用的描述符。
+ * 详情接口返回 { name, description, descriptor: { input, output, schema } }，
+ * 而列表/注册接口通常直接返回 input/output；两者必须在 API 层归一化。
+ */
+export function normalizeFunctionDetail(raw: RawFunctionDescriptor): FunctionDescriptor {
+  const normalized = normalizeFunctionDescriptor(raw);
+  return {
+    ...normalized,
+    displayName: normalized.displayName || normalizeLocalizedText(raw.name),
+    summary: normalized.summary || normalizeLocalizedText(raw.description),
   };
 }
 
@@ -403,20 +430,28 @@ export async function getFunctionDetail(functionId: string) {
   const response = await request<RawFunctionDescriptor>(
     `/api/v1/functions/${encodeURIComponent(functionId)}`,
   );
-  return normalizeFunctionDescriptor(response);
+  return normalizeFunctionDetail(response);
 }
 
-export async function getFunctionHistory(functionId: string) {
+// Source: croupier/internal/api/function/dto.go FunctionHistoryItem
+export type FunctionHistoryItemDTO = {
+  id: string;
+  action: string;
+  operator?: string;
+  timestamp: string;
+  details?: JSONValue;
+};
+
+export async function getFunctionHistory(
+  functionId: string,
+  params?: { limit?: number; offset?: number },
+): Promise<{ items: Array<FunctionHistoryItemDTO>; total: number }> {
   const response = await request<{
-    items?: Array<{
-      id: string;
-      action: string;
-      operator?: string;
-      timestamp: string;
-      details?: JSONValue;
-    }>;
-  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/history`);
-  return Array.isArray(response?.items) ? response.items : [];
+    items?: Array<FunctionHistoryItemDTO>;
+    total?: number;
+  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/history`, { params });
+  const items = Array.isArray(response?.items) ? response.items : [];
+  return { items, total: response?.total ?? items.length };
 }
 
 export async function getFunctionAnalytics(functionId: string) {

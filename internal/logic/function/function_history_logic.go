@@ -25,15 +25,16 @@ func NewFunctionHistoryLogic(ctx context.Context, svcCtx *svc.ServiceContext) *F
 	}
 }
 
-func (l *FunctionHistoryLogic) FunctionHistory(req *FunctionHistoryRequest) ([]FunctionHistoryItem, error) {
+// FunctionHistory returns newest-first history together with the total count
+// for paginated HTTP responses.
+func (l *FunctionHistoryLogic) FunctionHistory(req *FunctionHistoryRequest) ([]FunctionHistoryItem, int, error) {
 	functionID, err := utils.ValidateFunctionID(req.ID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-
 	fn, err := getOrCreateFunctionRecord(l.ctx, l.svcCtx, functionID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	items := []FunctionHistoryItem{
@@ -79,7 +80,7 @@ func (l *FunctionHistoryLogic) FunctionHistory(req *FunctionHistoryRequest) ([]F
 	}
 
 	if err := appendConfigVersions("function_form:"+functionID, "form_config_updated"); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	sort.Slice(items, func(i, j int) bool {
@@ -87,7 +88,24 @@ func (l *FunctionHistoryLogic) FunctionHistory(req *FunctionHistoryRequest) ([]F
 		tj := parseHistoryTime(items[j].Timestamp)
 		return ti.After(tj)
 	})
-	return items, nil
+	total := len(items)
+	// 历史按时间倒序后分页截断，避免长寿命函数的配置历史全量下发
+	if req.Offset > 0 {
+		if req.Offset >= total {
+			return []FunctionHistoryItem{}, total, nil
+		}
+		items = items[req.Offset:]
+	}
+	if req.Limit > 0 && req.Limit < len(items) {
+		items = items[:req.Limit]
+	}
+	return items, total, nil
+}
+
+// FunctionHistoryPaged is an explicit alias for HTTP callers that want to
+// make pagination semantics visible at the call site.
+func (l *FunctionHistoryLogic) FunctionHistoryPaged(req *FunctionHistoryRequest) ([]FunctionHistoryItem, int, error) {
+	return l.FunctionHistory(req)
 }
 
 func parseHistoryTime(raw string) time.Time {

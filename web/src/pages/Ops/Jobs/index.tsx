@@ -42,6 +42,9 @@ export default function OpsTasksPage() {
   const [fid, setFid] = useState<string>('');
   const [actor, setActor] = useState<string>('');
   const [funcs, setFuncs] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
   const [detail, setDetail] = useState<OpsTask | null>(null);
   const [stream, setStream] = useState<string[]>([]);
   const [result, setResult] = useState<{
@@ -54,20 +57,21 @@ export default function OpsTasksPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string> = {};
+      const params: Record<string, string | number> = {};
       if (status) params.status = status;
       if (fid) params.functionId = fid;
       const actorValue = actor.trim();
       if (actorValue) params.actor = actorValue;
-      const r = await listOpsTasks(params);
+      const r = await listOpsTasks({ ...params, page, size: pageSize });
       setRows(r.tasks || []);
+      setTotal(r.total ?? (r.tasks || []).length);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : '操作失败';
       message.error(errMsg || '加载失败');
     } finally {
       setLoading(false);
     }
-  }, [status, fid, actor, message]);
+  }, [status, fid, actor, page, pageSize, message]);
   useEffect(() => {
     load();
   }, [load]);
@@ -304,7 +308,18 @@ export default function OpsTasksPage() {
             loading={loading}
             dataSource={resultRows}
             columns={columns}
-            pagination={{ pageSize: 10 }}
+            pagination={{
+              current: page,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              pageSizeOptions: [10, 20, 50],
+              showTotal: (t) => `共 ${t} 条`,
+              onChange: (nextPage, nextSize) => {
+                setPage(nextPage);
+                setPageSize(nextSize);
+              },
+            }}
             onRow={(rec) => ({ onDoubleClick: () => setDetail(rec) })}
             scroll={{ x: 1280 }}
             locale={{

@@ -14,6 +14,9 @@ import {
 
 export default function RolesV2() {
   const [roles, setRoles] = useState<RoleRecord[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [permsOpen, setPermsOpen] = useState(false);
@@ -21,17 +24,19 @@ export default function RolesV2() {
   const [form] = Form.useForm();
   const [permsForm] = Form.useForm();
 
-  const refresh = async () => {
+  const refresh = async (nextPage = page, nextSize = pageSize) => {
     setLoading(true);
     try {
-      const r = await listRoles();
+      const r = await listRoles({ page: nextPage, pageSize: nextSize });
       setRoles(r.items || []);
+      setTotal(r.total ?? (r.items || []).length);
     } finally {
       setLoading(false);
     }
   };
   useEffect(() => {
-    refresh();
+    refresh(1, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openAdd = () => {
@@ -135,7 +140,19 @@ export default function RolesV2() {
           columns={columns}
           dataSource={roles}
           loading={loading}
-          pagination={{ pageSize: 10 }}
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: [10, 20, 50],
+            showTotal: (t) => `共 ${t} 条`,
+            onChange: (nextPage, nextSize) => {
+              setPage(nextPage);
+              setPageSize(nextSize);
+              refresh(nextPage, nextSize);
+            },
+          }}
         />
       </Card>
 

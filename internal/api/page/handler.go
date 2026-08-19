@@ -194,6 +194,11 @@ func (h *Handler) Versions(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	// limit/offset 走 query string，需要单独绑定
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	resp, err := h.service.Versions(c.Request.Context(), &req)
 	if err != nil {

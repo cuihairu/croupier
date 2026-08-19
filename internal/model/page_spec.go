@@ -301,6 +301,27 @@ func (m *PageVersionModel) ListByScopeAndPageKey(ctx context.Context, gameID, en
 	return items, nil
 }
 
+// ListByScopeAndPageKeyPaged returns one newest-first page of versions plus
+// the total count, so version-history UIs never materialize the full list.
+func (m *PageVersionModel) ListByScopeAndPageKeyPaged(ctx context.Context, gameID, env, pageKey string, limit, offset int) ([]PageVersion, int64, error) {
+	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
+	var total int64
+	if err := db.Model(&PageVersion{}).
+		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var items []PageVersion
+	if err := db.Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
+		Order("version DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
 // UpsertByScopePageKeyVersion stores one logical snapshot per PageIdentity version.
 func (m *PageVersionModel) UpsertByScopePageKeyVersion(ctx context.Context, pv *PageVersion) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Clauses(clause.OnConflict{

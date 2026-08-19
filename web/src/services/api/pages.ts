@@ -52,6 +52,7 @@ type PageUnpublishResponse = {
 type PageVersionsResponse = {
   currentDraftRevision: number;
   currentPublishedVersion?: number;
+  total?: number;
   items: PageVersionItem[];
 };
 
@@ -145,9 +146,13 @@ export async function unpublishPage(pageKey: string): Promise<PageUnpublishRespo
   });
 }
 
-export async function listPageVersions(pageKey: string): Promise<PageVersionsResponse> {
+export async function listPageVersions(
+  pageKey: string,
+  params?: { limit?: number; offset?: number },
+): Promise<PageVersionsResponse> {
   return request<PageVersionsResponse>(`${BASE}/${encodeURIComponent(pageKey)}/versions`, {
     method: 'GET',
+    params,
   });
 }
 

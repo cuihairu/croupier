@@ -23,6 +23,9 @@ interface AccessState {
 
 export default function SupportFAQPage() {
   const [list, setList] = useState<FAQItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
@@ -32,18 +35,24 @@ export default function SupportFAQPage() {
   const [form] = Form.useForm();
   const access: AccessState = useAccess?.() || {};
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listFAQ({ q, category, visible });
-      setList((res.faq || []) as unknown as FAQItem[]);
-    } finally {
-      setLoading(false);
-    }
-  }, [q, category, visible]);
+  const load = useCallback(
+    async (nextPage = page, nextSize = pageSize) => {
+      setLoading(true);
+      try {
+        const res = await listFAQ({ q, category, visible, page: nextPage, pageSize: nextSize });
+        setList((res.faq || res.items || []) as unknown as FAQItem[]);
+        setTotal(res.total ?? (res.faq || res.items || []).length);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [q, category, visible, page, pageSize],
+  );
   useEffect(() => {
-    load();
-  }, [load]);
+    setPage(1);
+    load(1, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, category, visible]);
 
   const openAdd = () => {
     setEditing(null);
@@ -106,7 +115,7 @@ export default function SupportFAQPage() {
               onChange={(e) => setVisible(e.target.value)}
               style={{ width: 180 }}
             />
-            <Button type="primary" onClick={load}>
+            <Button type="primary" onClick={() => void load(1, pageSize)}>
               查询
             </Button>
             {access.canSupportManage && <Button onClick={openAdd}>新建 FAQ</Button>}
@@ -146,6 +155,19 @@ export default function SupportFAQPage() {
               ),
             },
           ]}
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: [10, 20, 50],
+            showTotal: (t) => `共 ${t} 条`,
+            onChange: (nextPage, nextSize) => {
+              setPage(nextPage);
+              setPageSize(nextSize);
+              void load(nextPage, nextSize);
+            },
+          }}
         />
         <Modal
           title={editing ? '编辑 FAQ' : '新建 FAQ'}
