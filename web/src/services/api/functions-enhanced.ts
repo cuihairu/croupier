@@ -141,8 +141,8 @@ type RawFunctionSummary = {
   version?: string;
   status?: number;
   enabled?: boolean;
-  displayName?: LocalizedText;
-  summary?: LocalizedText;
+  displayName?: LocalizedText | Record<string, string>;
+  summary?: LocalizedText | Record<string, string>;
   tags?: string[];
   resource?: string;
   operation?: string;
@@ -151,10 +151,6 @@ type RawFunctionSummary = {
 type FunctionSummaryListResponse = {
   functions?: RawFunctionSummary[];
   items?: RawFunctionSummary[];
-};
-
-type RawFunctionDescriptor = FunctionDescriptor & {
-  displayName?: LocalizedText;
 };
 
 type RawFunctionCallRecord = {
@@ -199,13 +195,24 @@ type RegistryServicesResponse = {
   total?: number;
 };
 
-function normalizeFunctionSummary(item: RawFunctionSummary): FunctionSummary {
+function normalizeLocalizedText(
+  value?: LocalizedText | Record<string, string>,
+): LocalizedText | undefined {
+  if (!value) return undefined;
+  const raw = value as Record<string, string | undefined>;
+  const zh = raw.zh || raw['zh-CN'] || raw.zh_cn;
+  const en = raw.en || raw['en-US'] || raw.en_us;
+  if (!zh && !en) return undefined;
+  return { ...(zh ? { zh } : {}), ...(en ? { en } : {}) };
+}
+
+export function normalizeFunctionSummary(item: RawFunctionSummary): FunctionSummary {
   return {
     id: item.id || item.functionId || '',
     version: item.version,
     enabled: item.status === 1 || item.enabled === true,
-    displayName: item.displayName,
-    summary: item.summary,
+    displayName: normalizeLocalizedText(item.displayName),
+    summary: normalizeLocalizedText(item.summary),
     tags: item.tags || [],
     resource: item.resource,
     operation: item.operation,
@@ -257,41 +264,22 @@ export async function getFunctionSummary(params?: {
   tags?: string[];
   enabled?: boolean;
 }): Promise<FunctionSummary[]> {
-  try {
-    const res = await request<FunctionSummaryListResponse | RawFunctionSummary[]>(
-      '/api/v1/functions',
-      {
-        params: {
-          gameId: params?.gameId,
-          env: params?.env,
-          resource: params?.resource,
-          tags: params?.tags,
-          enabled: params?.enabled,
-        },
+  const res = await request<FunctionSummaryListResponse | RawFunctionSummary[]>(
+    '/api/v1/functions',
+    {
+      params: {
+        gameId: params?.gameId,
+        env: params?.env,
+        resource: params?.resource,
+        tags: params?.tags,
+        enabled: params?.enabled,
       },
-    );
-    if (Array.isArray(res)) return res.map(normalizeFunctionSummary);
-    if (res?.functions && Array.isArray(res.functions))
-      return res.functions.map(normalizeFunctionSummary);
-    if (res?.items && Array.isArray(res.items)) {
-      return res.items.map(normalizeFunctionSummary);
-    }
-    // If empty, fallback to descriptors
-    throw new Error('No functions found, fallback to descriptors');
-  } catch (error) {
-    console.warn('Failed to fetch function summary, falling back to descriptors', error);
-    const descriptors = await request<RawFunctionDescriptor[]>('/api/v1/functions/descriptors');
-    return descriptors.map((desc) => ({
-      id: desc.id,
-      version: desc.version,
-      enabled: true,
-      displayName: desc.displayName,
-      summary: desc.summary,
-      tags: desc.tags || [],
-      resource: desc.resource,
-      operation: desc.operation,
-    }));
-  }
+    },
+  );
+  if (Array.isArray(res)) return res.map(normalizeFunctionSummary);
+  if (Array.isArray(res?.functions)) return res.functions.map(normalizeFunctionSummary);
+  if (Array.isArray(res?.items)) return res.items.map(normalizeFunctionSummary);
+  throw new Error('函数摘要接口返回了无法识别的数据格式');
 }
 
 /**
@@ -383,26 +371,25 @@ export async function getFunctionInstances(params?: {
 }): Promise<{ instances: FunctionInstance[]; total: number }> {
   // 后端 API: GET /api/v1/functions/instances (all) or /api/v1/functions/:id/instances
   const { functionId, ...queryParams } = params || {};
-  try {
-    const url = functionId
-      ? `/api/v1/functions/${functionId}/instances`
-      : `/api/v1/functions/instances`;
-    const res = await request(url, {
-      params: {
-        ...queryParams,
-        gameId: params?.gameId,
-      },
-    });
-    const rawItems = (res.items || res.instances || []) as RawFunctionInstance[];
-    const instances = rawItems.map(normalizeFunctionInstance);
-    return {
-      instances,
-      total: res.total || instances.length,
-    };
-  } catch (error) {
-    console.warn('Failed to fetch function instances:', error);
-    return { instances: [], total: 0 };
-  }
+  const url = functionId
+    ? `/api/v1/functions/${encodeURIComponent(functionId)}/instances`
+    : '/api/v1/functions/instances';
+  const res = await request<{
+    items?: RawFunctionInstance[];
+    instances?: RawFunctionInstance[];
+    total?: number;
+  }>(url, {
+    params: {
+      ...queryParams,
+      gameId: params?.gameId,
+    },
+  });
+  const rawItems = (res.items || res.instances || []) as RawFunctionInstance[];
+  const instances = rawItems.map(normalizeFunctionInstance);
+  return {
+    instances,
+    total: res.total ?? instances.length,
+  };
 }
 
 /**

@@ -67,6 +67,7 @@ interface PaymentSummary {
   byRegion: RegionData[];
   byCity: CityData[];
   byProduct: ProductData[];
+  items: Array<{ date: string; revenue: number; transactions: number; users: number }>;
 }
 
 interface Transaction {
@@ -138,6 +139,7 @@ export default function AnalyticsPaymentsPage() {
     byRegion: [],
     byCity: [],
     byProduct: [],
+    items: [],
   });
   const [tx, setTx] = useState<TransactionsResponse>({ transactions: [], total: 0 });
   const [page, setPage] = useState(1);
@@ -179,6 +181,7 @@ export default function AnalyticsPaymentsPage() {
           byRegion: [],
           byCity: [],
           byProduct: [],
+          items: [],
         },
       );
 
@@ -281,6 +284,14 @@ export default function AnalyticsPaymentsPage() {
         .includes(needle)
     );
   };
+
+  const hasBreakdowns =
+    summary.byChannel.length > 0 ||
+    summary.byPlatform.length > 0 ||
+    summary.byCountry.length > 0 ||
+    summary.byRegion.length > 0 ||
+    summary.byCity.length > 0 ||
+    summary.byProduct.length > 0;
 
   return (
     <PageContainer>
@@ -440,186 +451,215 @@ export default function AnalyticsPaymentsPage() {
         }
       >
         <Space size={16} wrap>
-          <Tag color="blue">收入(分): {summary?.totals?.revenueCents || 0}</Tag>
-          <Tag color="gold">退款(分): {summary?.totals?.refundsCents || 0}</Tag>
-          <Tag color="red">失败数: {summary?.totals?.failed || 0}</Tag>
-          <Tag>成功率: {summary?.totals?.successRate || 0}%</Tag>
+          <Tag color="blue">收入: {summary?.totals?.revenue || 0}</Tag>
+          <Tag color="gold">交易数: {summary?.totals?.transactions || 0}</Tag>
+          <Tag color="green">付费用户: {summary?.totals?.users || 0}</Tag>
         </Space>
-        <div style={{ marginTop: 12 }}>
-          <b>按渠道</b>
-          <Table<ChannelData>
+        <Card size="small" title="按日汇总" style={{ marginTop: 12 }}>
+          <Table
             size="small"
-            rowKey={(r: ChannelData) => String(r.channel || '')}
-            dataSource={summary?.byChannel || []}
-            columns={[
-              { title: '渠道', dataIndex: 'channel' },
-              { title: '收入(分)', dataIndex: 'revenue_cents' },
-              { title: '成功数', dataIndex: 'success' },
-              { title: '总数', dataIndex: 'total' },
-              {
-                title: '成功率',
-                dataIndex: 'success_rate',
-                render: (v: number) => (v != null ? `${v}%` : '-'),
-              },
-            ]}
+            rowKey={(row) => row.date}
+            dataSource={summary.items}
             pagination={false}
-          />
-          <TopDimBar data={summary?.byChannel || []} dimKey="channel" title="Top 渠道（按收入）" />
-          <TopDimCombo
-            data={summary?.byChannel || []}
-            dimKey="channel"
-            title="Top 渠道（收入 & 成功率）"
-          />
-          <ExportDimCSV data={summary?.byChannel || []} dimKey="channel" name="channels" />
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <b>按平台</b>
-          <Table<PlatformData>
-            size="small"
-            rowKey={(r: PlatformData) => String(r.platform || '')}
-            dataSource={summary?.byPlatform || []}
             columns={[
-              { title: '平台', dataIndex: 'platform' },
-              { title: '收入(分)', dataIndex: 'revenue_cents' },
-              { title: '成功数', dataIndex: 'success' },
-              { title: '总数', dataIndex: 'total' },
-              {
-                title: '成功率',
-                dataIndex: 'success_rate',
-                render: (v: number) => (v != null ? `${v}%` : '-'),
-              },
+              { title: '日期', dataIndex: 'date' },
+              { title: '收入', dataIndex: 'revenue' },
+              { title: '交易数', dataIndex: 'transactions' },
+              { title: '付费用户', dataIndex: 'users' },
             ]}
-            pagination={false}
           />
-          <TopDimBar
-            data={summary?.byPlatform || []}
-            dimKey="platform"
-            title="Top 平台（按收入）"
-          />
-          <TopDimRate
-            data={summary?.byPlatform || []}
-            dimKey="platform"
-            title="Top 平台（按成功率）"
-          />
-          <TopDimCombo
-            data={summary?.byPlatform || []}
-            dimKey="platform"
-            title="Top 平台（收入 & 成功率）"
-          />
-          <ExportDimCSV data={summary?.byPlatform || []} dimKey="platform" name="platforms" />
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <b>
-            按地区（{geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市'}）
-          </b>
-          <Table<CountryData | RegionData | CityData>
-            size="small"
-            rowKey={(r) => {
-              const record = r as unknown as Record<string, JSONValue>;
-              return String(record[geoDim] ?? record.country ?? record.region ?? record.city ?? '');
-            }}
-            dataSource={
-              geoDim === 'country'
-                ? summary?.byCountry || []
-                : geoDim === 'region'
-                  ? summary?.byRegion || []
-                  : summary?.byCity || []
-            }
-            columns={[
-              {
-                title: geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市',
-                dataIndex: geoDim,
-              },
-              { title: '收入(分)', dataIndex: 'revenue_cents' },
-              { title: '成功数', dataIndex: 'success' },
-              { title: '总数', dataIndex: 'total' },
-              {
-                title: '成功率',
-                dataIndex: 'success_rate',
-                render: (v: number) => (v != null ? `${v}%` : '-'),
-              },
-            ]}
-            pagination={false}
-          />
-          <TopDimBar
-            data={
-              geoDim === 'country'
-                ? summary?.byCountry || []
-                : geoDim === 'region'
-                  ? summary?.byRegion || []
-                  : summary?.byCity || []
-            }
-            dimKey={geoDim}
-            title={`Top ${
-              geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市'
-            }（按收入）`}
-          />
-          <TopDimRate
-            data={
-              geoDim === 'country'
-                ? summary?.byCountry || []
-                : geoDim === 'region'
-                  ? summary?.byRegion || []
-                  : summary?.byCity || []
-            }
-            dimKey={geoDim}
-            title={`Top ${
-              geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市'
-            }（按成功率）`}
-          />
-          <TopDimCombo
-            data={
-              geoDim === 'country'
-                ? summary?.byCountry || []
-                : geoDim === 'region'
-                  ? summary?.byRegion || []
-                  : summary?.byCity || []
-            }
-            dimKey={geoDim}
-            title={`Top ${
-              geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市'
-            }（收入 & 成功率）`}
-          />
-          <ExportDimCSV
-            data={
-              geoDim === 'country'
-                ? summary?.byCountry || []
-                : geoDim === 'region'
-                  ? summary?.byRegion || []
-                  : summary?.byCity || []
-            }
-            dimKey={geoDim}
-            name={geoDim === 'country' ? 'countries' : geoDim === 'region' ? 'regions' : 'cities'}
-          />
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <b>按商品</b>
-          <Table<ProductData>
-            size="small"
-            rowKey={(r: ProductData) => String(r.productId || '')}
-            dataSource={summary?.byProduct || []}
-            columns={[
-              { title: '商品', dataIndex: 'product_id' },
-              { title: '收入(分)', dataIndex: 'revenue_cents' },
-              { title: '成功数', dataIndex: 'success' },
-              { title: '总数', dataIndex: 'total' },
-              {
-                title: '成功率',
-                dataIndex: 'success_rate',
-                render: (v: number) => (v != null ? `${v}%` : '-'),
-              },
-            ]}
-            pagination={false}
-          />
-          <TopProducts data={summary?.byProduct || []} />
-          <TopProductConv data={summary?.byProduct || []} />
-          <ExportDimCSV
-            data={summary?.byProduct || []}
-            dimKey="product_id"
-            name="products"
-            includeConv
-          />
-        </div>
+        </Card>
+        {hasBreakdowns ? (
+          <>
+            <div style={{ marginTop: 12 }}>
+              <b>按渠道</b>
+              <Table<ChannelData>
+                size="small"
+                rowKey={(r: ChannelData) => String(r.channel || '')}
+                dataSource={summary?.byChannel || []}
+                columns={[
+                  { title: '渠道', dataIndex: 'channel' },
+                  { title: '收入(分)', dataIndex: 'revenue_cents' },
+                  { title: '成功数', dataIndex: 'success' },
+                  { title: '总数', dataIndex: 'total' },
+                  {
+                    title: '成功率',
+                    dataIndex: 'success_rate',
+                    render: (v: number) => (v != null ? `${v}%` : '-'),
+                  },
+                ]}
+                pagination={false}
+              />
+              <TopDimBar
+                data={summary?.byChannel || []}
+                dimKey="channel"
+                title="Top 渠道（按收入）"
+              />
+              <TopDimCombo
+                data={summary?.byChannel || []}
+                dimKey="channel"
+                title="Top 渠道（收入 & 成功率）"
+              />
+              <ExportDimCSV data={summary?.byChannel || []} dimKey="channel" name="channels" />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <b>按平台</b>
+              <Table<PlatformData>
+                size="small"
+                rowKey={(r: PlatformData) => String(r.platform || '')}
+                dataSource={summary?.byPlatform || []}
+                columns={[
+                  { title: '平台', dataIndex: 'platform' },
+                  { title: '收入(分)', dataIndex: 'revenue_cents' },
+                  { title: '成功数', dataIndex: 'success' },
+                  { title: '总数', dataIndex: 'total' },
+                  {
+                    title: '成功率',
+                    dataIndex: 'success_rate',
+                    render: (v: number) => (v != null ? `${v}%` : '-'),
+                  },
+                ]}
+                pagination={false}
+              />
+              <TopDimBar
+                data={summary?.byPlatform || []}
+                dimKey="platform"
+                title="Top 平台（按收入）"
+              />
+              <TopDimRate
+                data={summary?.byPlatform || []}
+                dimKey="platform"
+                title="Top 平台（按成功率）"
+              />
+              <TopDimCombo
+                data={summary?.byPlatform || []}
+                dimKey="platform"
+                title="Top 平台（收入 & 成功率）"
+              />
+              <ExportDimCSV data={summary?.byPlatform || []} dimKey="platform" name="platforms" />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <b>
+                按地区（{geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市'}）
+              </b>
+              <Table<CountryData | RegionData | CityData>
+                size="small"
+                rowKey={(r) => {
+                  const record = r as unknown as Record<string, JSONValue>;
+                  return String(
+                    record[geoDim] ?? record.country ?? record.region ?? record.city ?? '',
+                  );
+                }}
+                dataSource={
+                  geoDim === 'country'
+                    ? summary?.byCountry || []
+                    : geoDim === 'region'
+                      ? summary?.byRegion || []
+                      : summary?.byCity || []
+                }
+                columns={[
+                  {
+                    title: geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市',
+                    dataIndex: geoDim,
+                  },
+                  { title: '收入(分)', dataIndex: 'revenue_cents' },
+                  { title: '成功数', dataIndex: 'success' },
+                  { title: '总数', dataIndex: 'total' },
+                  {
+                    title: '成功率',
+                    dataIndex: 'success_rate',
+                    render: (v: number) => (v != null ? `${v}%` : '-'),
+                  },
+                ]}
+                pagination={false}
+              />
+              <TopDimBar
+                data={
+                  geoDim === 'country'
+                    ? summary?.byCountry || []
+                    : geoDim === 'region'
+                      ? summary?.byRegion || []
+                      : summary?.byCity || []
+                }
+                dimKey={geoDim}
+                title={`Top ${
+                  geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市'
+                }（按收入）`}
+              />
+              <TopDimRate
+                data={
+                  geoDim === 'country'
+                    ? summary?.byCountry || []
+                    : geoDim === 'region'
+                      ? summary?.byRegion || []
+                      : summary?.byCity || []
+                }
+                dimKey={geoDim}
+                title={`Top ${
+                  geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市'
+                }（按成功率）`}
+              />
+              <TopDimCombo
+                data={
+                  geoDim === 'country'
+                    ? summary?.byCountry || []
+                    : geoDim === 'region'
+                      ? summary?.byRegion || []
+                      : summary?.byCity || []
+                }
+                dimKey={geoDim}
+                title={`Top ${
+                  geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市'
+                }（收入 & 成功率）`}
+              />
+              <ExportDimCSV
+                data={
+                  geoDim === 'country'
+                    ? summary?.byCountry || []
+                    : geoDim === 'region'
+                      ? summary?.byRegion || []
+                      : summary?.byCity || []
+                }
+                dimKey={geoDim}
+                name={
+                  geoDim === 'country' ? 'countries' : geoDim === 'region' ? 'regions' : 'cities'
+                }
+              />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <b>按商品</b>
+              <Table<ProductData>
+                size="small"
+                rowKey={(r: ProductData) => String(r.productId || '')}
+                dataSource={summary?.byProduct || []}
+                columns={[
+                  { title: '商品', dataIndex: 'product_id' },
+                  { title: '收入(分)', dataIndex: 'revenue_cents' },
+                  { title: '成功数', dataIndex: 'success' },
+                  { title: '总数', dataIndex: 'total' },
+                  {
+                    title: '成功率',
+                    dataIndex: 'success_rate',
+                    render: (v: number) => (v != null ? `${v}%` : '-'),
+                  },
+                ]}
+                pagination={false}
+              />
+              <TopProducts data={summary?.byProduct || []} />
+              <TopProductConv data={summary?.byProduct || []} />
+              <ExportDimCSV
+                data={summary?.byProduct || []}
+                dimKey="product_id"
+                name="products"
+                includeConv
+              />
+            </div>
+          </>
+        ) : (
+          <Tag color="blue" style={{ marginTop: 12 }}>
+            当前后端仅提供按日支付汇总；渠道、地区和商品维度暂无可用数据。
+          </Tag>
+        )}
         <div style={{ marginTop: 16 }}>
           <Card size="small" title="SKU 转化趋势">
             <Space style={{ marginBottom: 8 }}>

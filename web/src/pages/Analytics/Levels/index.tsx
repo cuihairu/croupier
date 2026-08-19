@@ -1,5 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Space, DatePicker, Input, Button, Table, Tag, Select } from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Card,
+  Space,
+  DatePicker,
+  Input,
+  Button,
+  Table,
+  Tag,
+  Select,
+  Statistic,
+  Row,
+  Col,
+} from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
@@ -16,21 +28,36 @@ export default function AnalyticsLevelsPage() {
   const [data, setData] = useState<LevelsData | null>(null);
   const [seg, setSeg] = useState<'all' | 'new' | 'returning' | 'payer'>('all');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = { episode };
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsLevels(params);
-      setData(r || { funnel: [], perLevel: [], perLevelSegments: {} });
+      const perLevel = (r?.levels || []).map((item) => ({
+        level: item.levelId,
+        players: item.attempts,
+        winRate: item.completionRate * 100,
+        avgDurationSec: item.avgDuration,
+        avgRetries: item.avgRetries,
+      }));
+      setData({
+        perLevel,
+        perLevelSegments: {},
+        funnel: perLevel.map((item) => ({
+          step: item.level,
+          users: item.players,
+          rate: item.winRate,
+        })),
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [episode, range]);
   useEffect(() => {
-    /* do not auto-load */
-  }, []);
+    void load();
+  }, [load]);
 
   const exportCSV = () => {
     try {
@@ -140,11 +167,11 @@ export default function AnalyticsLevelsPage() {
               { title: '参与人数', dataIndex: 'players' },
               {
                 title: '胜率',
-                dataIndex: 'win_rate',
-                render: (v) => (v != null ? `${v}%` : '-'),
+                dataIndex: 'winRate',
+                render: (v: number) => (v != null ? `${v.toFixed(2)}%` : '-'),
               },
-              { title: '平均通关时长(s)', dataIndex: 'avg_duration_sec' },
-              { title: '平均复试次数', dataIndex: 'avg_retries' },
+              { title: '平均通关时长(s)', dataIndex: 'avgDurationSec' },
+              { title: '平均复试次数', dataIndex: 'avgRetries' },
               {
                 title: '难度',
                 render: (_: unknown, r: LevelData) => {
@@ -305,38 +332,51 @@ const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) =>
 
 interface EpisodeData {
   episode: string;
-  perLevel?: LevelData[];
+  players: number;
+  completionRate: number;
+  avgProgress: number;
 }
 
 interface MapData {
   map: string;
-  perLevel?: LevelData[];
+  heatMap: Array<Record<string, number>>;
+  deathSpots: Array<Record<string, number>>;
 }
 
 const EpisodeFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ range }) => {
   const [episodes, setEpisodes] = useState<EpisodeData[]>([]);
   const [loading, setLoading] = useState(false);
   const [limit, setLimit] = useState(6);
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = {};
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsLevelsEpisodes(params);
-      setEpisodes(r?.episodes || []);
+      setEpisodes(
+        (r?.episodes || []).map((item) => ({
+          episode: item.episodeId,
+          players: item.players,
+          completionRate: item.completionRate * 100,
+          avgProgress: item.avgProgress * 100,
+        })),
+      );
     } finally {
       setLoading(false);
     }
-  };
-  useEffect(() => {}, []);
+  }, [range]);
+  useEffect(() => {
+    void load();
+  }, [load]);
   const exportExcel = async () => {
     try {
       const sheets: { sheet: string; rows: string[][] }[] = [];
       (episodes || []).forEach((e) => {
-        const rows = [['level', 'players', 'win_rate']].concat(
-          (e.perLevel || []).map((x) => [String(x.level), String(x.players), String(x.winRate)]),
-        );
+        const rows = [
+          ['episode', 'players', 'completion_rate', 'avg_progress'],
+          [String(e.episode), String(e.players), String(e.completionRate), String(e.avgProgress)],
+        ];
         sheets.push({ sheet: `ep_${String(e.episode || '')}`, rows });
       });
       await exportToXLSX('levels_episodes.csv', sheets);
@@ -382,25 +422,32 @@ const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ r
   const [maps, setMaps] = useState<MapData[]>([]);
   const [loading, setLoading] = useState(false);
   const [limit, setLimit] = useState(6);
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = {};
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsLevelsMaps(params);
-      setMaps(r?.maps || []);
+      setMaps(
+        (r?.maps || []).map((item) => ({
+          map: item.mapId,
+          heatMap: Array.isArray(item.heatMap) ? item.heatMap : [],
+          deathSpots: Array.isArray(item.deathSpots) ? item.deathSpots : [],
+        })),
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [range]);
   const exportExcel = async () => {
     try {
       const sheets: { sheet: string; rows: string[][] }[] = [];
       (maps || []).forEach((e) => {
-        const rows = [['level', 'players', 'win_rate']].concat(
-          (e.perLevel || []).map((x) => [String(x.level), String(x.players), String(x.winRate)]),
-        );
+        const rows = [
+          ['map', 'heat_points', 'death_points'],
+          [String(e.map), String(e.heatMap.length), String(e.deathSpots.length)],
+        ];
         sheets.push({ sheet: `map_${String(e.map || '')}`, rows });
       });
       await exportToXLSX('levels_maps.csv', sheets);
@@ -443,69 +490,34 @@ const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ r
 };
 
 const MapFacet: React.FC<{ item: MapData }> = ({ item }) => {
-  try {
-    const arr = item?.perLevel || [];
-    if (!arr.length) return null;
-    const w = 300,
-      h = 160,
-      left = 30,
-      bottom = 20,
-      right = 10,
-      topm = 16;
-    const levels = arr.map((x) => String(x.level));
-    const maxY = Math.max(100, ...arr.map((x) => Number(x.winRate || 0)));
-    const sx = (i: number) => left + ((w - left - right) * i) / Math.max(1, levels.length - 1);
-    const sy = (v: number) => topm + (h - topm - bottom) * (1 - v / Math.max(1, maxY));
-    const d = arr.map((x, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.winRate || 0))}`).join(' ');
-    return (
-      <Card size="small" title={String(item?.map || '-')}>
-        <svg width={w} height={h} style={{ display: 'block' }}>
-          <line x1={left} y1={topm} x2={left} y2={h - bottom} stroke="#ddd" />
-          <line x1={left} y1={h - bottom} x2={w - right} y2={h - bottom} stroke="#ddd" />
-          <path d={d} fill="none" stroke="#1677ff" strokeWidth={2} />
-          {levels.map((lv, i) => (
-            <text key={lv} x={sx(i)} y={h - bottom + 12} fontSize={10} textAnchor="middle">
-              {lv}
-            </text>
-          ))}
-        </svg>
-      </Card>
-    );
-  } catch {
-    return null;
-  }
+  return (
+    <Card size="small" title={item.map || '-'}>
+      <Row gutter={8}>
+        <Col span={12}>
+          <Statistic title="热力点" value={item.heatMap.length} />
+        </Col>
+        <Col span={12}>
+          <Statistic title="死亡点" value={item.deathSpots.length} />
+        </Col>
+      </Row>
+    </Card>
+  );
 };
 
 const EpisodeFacet: React.FC<{ episode: EpisodeData }> = ({ episode }) => {
-  try {
-    const arr = episode?.perLevel || [];
-    if (!arr.length) return null;
-    const w = 300,
-      h = 160,
-      left = 30,
-      bottom = 20,
-      right = 10,
-      topm = 16;
-    const levels = arr.map((x) => String(x.level));
-    const maxY = Math.max(100, ...arr.map((x) => Number(x.winRate || 0)));
-    const sx = (i: number) => left + ((w - left - right) * i) / Math.max(1, levels.length - 1);
-    const sy = (v: number) => topm + (h - topm - bottom) * (1 - v / Math.max(1, maxY));
-    const d = arr.map((x, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(Number(x.winRate || 0))}`).join(' ');
-    return (
-      <Card size="small" title={String(episode?.episode || '-')}>
-        <svg width={w} height={h} style={{ display: 'block' }}>
-          <line x1={left} y1={topm} x2={left} y2={h - bottom} stroke="#ddd" />
-          <line x1={left} y1={h - bottom} x2={w - right} y2={h - bottom} stroke="#ddd" />
-          <path d={d} fill="none" stroke="#1677ff" strokeWidth={2} />
-          {levels.map((lv, i) => (
-            <text key={lv} x={sx(i)} y={h - bottom + 12} fontSize={10} textAnchor="middle">
-              {lv}
-            </text>
-          ))}
-        </svg>
-      </Card>
-    );
-  } catch {
-    return null;
-  }
+  return (
+    <Card size="small" title={episode.episode || '-'}>
+      <Row gutter={8}>
+        <Col span={8}>
+          <Statistic title="玩家" value={episode.players} />
+        </Col>
+        <Col span={8}>
+          <Statistic title="完成率" value={episode.completionRate} suffix="%" precision={2} />
+        </Col>
+        <Col span={8}>
+          <Statistic title="平均进度" value={episode.avgProgress} suffix="%" precision={2} />
+        </Col>
+      </Row>
+    </Card>
+  );
 };

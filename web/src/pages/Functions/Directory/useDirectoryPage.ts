@@ -33,31 +33,20 @@ function toSummaryRow(item: FunctionSummary, descriptor?: FunctionDescriptor): S
 }
 
 async function fetchSummary(): Promise<SummaryRow[]> {
-  const descriptors = await listDescriptors();
-  const descriptorItems = toDescriptorArray(descriptors as DescriptorListResponse);
+  let descriptorItems: FunctionDescriptor[] = [];
+  try {
+    const descriptors = await listDescriptors();
+    descriptorItems = toDescriptorArray(descriptors as DescriptorListResponse);
+  } catch {
+    // Descriptors enrich the summary only; the summary endpoint remains the source of truth.
+  }
   const descMap = new Map<string, FunctionDescriptor>();
   descriptorItems.forEach((descriptor) => {
     if (descriptor.id) descMap.set(descriptor.id, descriptor);
   });
 
-  try {
-    const res = await getFunctionSummary();
-    if (Array.isArray(res) && res.length > 0) {
-      return res.map((item) => toSummaryRow(item, descMap.get(item.id)));
-    }
-  } catch {
-    // fallback to descriptors
-  }
-  return descriptorItems.map((desc) => ({
-    id: desc.id,
-    version: desc.version,
-    enabled: true,
-    displayName: desc.displayName || { zh: desc.id, en: desc.id },
-    summary: desc.summary || { zh: desc.description, en: desc.description },
-    resource: desc.resource,
-    operation: desc.operation,
-    tags: desc.tags || [],
-  }));
+  const res = await getFunctionSummary();
+  return res.map((item) => toSummaryRow(item, descMap.get(item.id)));
 }
 
 export default function useDirectoryPage() {

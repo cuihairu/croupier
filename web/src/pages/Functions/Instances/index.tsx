@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { PageContainer, ProTable, ProColumns } from '@ant-design/pro-components';
+import validator from '@rjsf/validator-ajv8';
+import type { RJSFSchema } from '@rjsf/utils';
 import {
   App,
   Badge,
@@ -31,16 +33,14 @@ import {
 } from '@/services/api';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import type { FunctionDescriptor } from '@/services/api/functions';
-import { deriveSchemaDefaults, parseInputSchema } from '@/utils/json';
+import { deriveSchemaDefaults, parseInputSchema, type JSONSchemaType } from '@/utils/json';
 import type { JSONValue } from '@/types/dashboard';
 
 const { Text } = Typography;
 
 // 从 descriptor 提取输入 JSON Schema：兼容顶层 inputSchema（字符串/对象）与
 // descriptor.input / openapiSpec.requestBody.content[...].schema 嵌套形态。
-function resolveDescriptorSchema(
-  descriptor?: FunctionDescriptor | null,
-): ReturnType<typeof parseInputSchema> | null {
+function resolveDescriptorSchema(descriptor?: FunctionDescriptor | null): JSONSchemaType | null {
   if (!descriptor) return null;
   const { inputSchema, schema, params } = descriptor as {
     inputSchema?: unknown;
@@ -57,7 +57,7 @@ function resolveDescriptorSchema(
       const parsed = parseInputSchema(value);
       if (parsed) return parsed;
     } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-      return value as ReturnType<typeof parseInputSchema>;
+      return value as JSONSchemaType;
     }
   }
   return null;
@@ -122,6 +122,7 @@ export default () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [debugVisible, setDebugVisible] = useState(false);
   const [debugPayload, setDebugPayload] = useState('{\n  \n}');
+  const [debugSchema, setDebugSchema] = useState<RJSFSchema | null>(null);
   const [debugResult, setDebugResult] = useState<Record<string, JSONValue> | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [logsVisible, setLogsVisible] = useState(false);
@@ -327,12 +328,14 @@ export default () => {
     setSelectedInstance(instance);
     setDebugVisible(true);
     setDebugResult(null);
+    setDebugSchema(null);
     setDebugPayload('{\n  \n}');
     if (!instance.functionId) return;
     try {
       const descriptor = await getFunctionDetail(instance.functionId);
       const schema = resolveDescriptorSchema(descriptor);
       if (!schema) return;
+      setDebugSchema(schema as RJSFSchema);
       const defaults = deriveSchemaDefaults(schema);
       setDebugPayload(JSON.stringify(defaults, null, 2));
     } catch {
@@ -342,6 +345,17 @@ export default () => {
 
   const executeDebug = async (dryRun = false) => {
     if (!selectedInstance) return;
+
+    const targetServiceId = selectedInstance.serviceId?.trim() || '';
+    if (!dryRun && !targetServiceId) {
+      message.error('当前实例缺少 Service ID，无法定向执行；可使用参数预览。');
+      setDebugResult({
+        success: false,
+        mode: 'execute',
+        error: '当前实例缺少 Service ID，已阻止负载均衡调用。',
+      });
+      return;
+    }
 
     setDebugLoading(true);
     let payload: JSONValue;
@@ -353,13 +367,31 @@ export default () => {
       return;
     }
 
-    // 试运行仅做参数校验与目标预览，不发起真实调用
+    if (debugSchema) {
+      const validation = validator.validateFormData(payload, debugSchema);
+      if (validation.errors?.length) {
+        setDebugResult({
+          success: false,
+          mode: 'preview',
+          validation: 'failed',
+          errors: validation.errors.map((error) =>
+            `${error.property || '参数'} ${error.message || '不符合 Schema'}`.trim(),
+          ),
+          payload,
+        });
+        setDebugLoading(false);
+        return;
+      }
+    }
+
+    // 参数预览只做 JSON Schema 校验与目标预览，不发起真实调用。
     if (dryRun) {
       setDebugResult({
         success: true,
-        mode: 'dry-run',
+        mode: 'preview',
+        validation: debugSchema ? 'passed' : 'unavailable',
         functionId: selectedInstance.functionId,
-        targetServiceId: selectedInstance.serviceId,
+        targetServiceId,
         agentId: selectedInstance.agentId,
         payload,
       });
@@ -371,7 +403,7 @@ export default () => {
       const result = await invokeFunction(selectedInstance.functionId, payload, {
         // 定向到当前选中的实例，避免负载均衡落到其他 provider
         route: 'targeted',
-        targetServiceId: selectedInstance.serviceId || undefined,
+        targetServiceId,
       });
       setDebugResult({
         success: true,
@@ -511,13 +543,14 @@ export default () => {
       取消
     </Button>,
     <Button key="dryRun" onClick={() => executeDebug(true)} loading={debugLoading}>
-      试运行
+      参数预览
     </Button>,
     <Button
       key="execute"
       type="primary"
       danger
       onClick={() => executeDebug(false)}
+      disabled={!selectedInstance?.serviceId?.trim()}
       loading={debugLoading}
     >
       执行
@@ -782,7 +815,7 @@ export default () => {
                   <div>
                     <Alert
                       message="调试模式"
-                      description="调试请求会定向到该实例执行；参数模板按函数 Schema 自动生成，建议先试运行确认目标与参数。"
+                      description="调试请求会定向到该实例执行；参数模板按函数 Schema 自动生成，可先做参数预览。缺少 Service ID 时只能预览，不能执行。"
                       type="info"
                       showIcon
                       style={{ marginBottom: 16 }}
@@ -889,8 +922,12 @@ export default () => {
       >
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           <Alert
-            message="调试警告"
-            description="调试模式下发送的请求会在实际环境中执行，请谨慎操作。建议先使用试运行模式。"
+            message="调试请求将真实执行"
+            description={
+              selectedInstance?.serviceId?.trim()
+                ? '参数预览只在浏览器本地校验 JSON Schema，不会调用服务；执行会定向发送到当前 Service ID。'
+                : '当前实例没有 Service ID，已禁用真实执行；参数预览仍可用于检查 JSON 和 Schema。'
+            }
             type="warning"
             showIcon
           />
@@ -917,7 +954,7 @@ export default () => {
 
           {debugResult && (
             <div>
-              <Text strong>执行结果:</Text>
+              <Text strong>调试结果:</Text>
               <pre
                 style={{
                   marginTop: 8,

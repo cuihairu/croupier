@@ -19,7 +19,6 @@ import {
 import {
   ReloadOutlined,
   EyeOutlined,
-  PlayCircleOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -29,7 +28,6 @@ import {
 import {
   listFunctionCalls,
   getFunctionCallDetail,
-  rerunFunctionCall,
   getFunctionCallStats,
   type FunctionCallItem,
   type FunctionCallStatsResponse,
@@ -50,7 +48,7 @@ const statusConfig: Record<string, { color: string; icon: React.ReactNode; text:
 };
 
 export default () => {
-  const { message, modal } = App.useApp();
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<FunctionCallItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -131,25 +129,6 @@ export default () => {
       const errMsg = error instanceof Error ? error.message : '获取详情失败';
       message.error(errMsg);
     }
-  };
-
-  // 重新执行
-  const handleRerun = async (record: FunctionCallItem) => {
-    modal.confirm({
-      title: '确认重新执行',
-      content: `确定要重新执行函数 ${record.functionId} 吗？`,
-      onOk: async () => {
-        try {
-          const response = await rerunFunctionCall(record.taskId);
-          message.success(`已创建新任务: ${response.taskId}`);
-          fetchData();
-          fetchStats();
-        } catch (error) {
-          const errMsg = error instanceof Error ? error.message : '重新执行失败';
-          message.error(errMsg);
-        }
-      },
-    });
   };
 
   // 格式化持续时间
@@ -280,18 +259,6 @@ export default () => {
             onClick={() => handleViewDetail(record)}
           />
         </Tooltip>,
-        (record.status === 'failed' ||
-          record.status === 'timeout' ||
-          record.status === 'cancelled') && (
-          <Tooltip key="rerun" title="重新执行">
-            <Button
-              type="link"
-              size="small"
-              icon={<PlayCircleOutlined />}
-              onClick={() => handleRerun(record)}
-            />
-          </Tooltip>
-        ),
       ],
     },
   ];
@@ -435,18 +402,6 @@ export default () => {
               <Descriptions.Item label="任务ID" span={2}>
                 <Space>
                   <span>{selectedCall.taskId}</span>
-                  {(selectedCall.status === 'failed' ||
-                    selectedCall.status === 'timeout' ||
-                    selectedCall.status === 'cancelled') && (
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<PlayCircleOutlined />}
-                      onClick={() => handleRerun(selectedCall)}
-                    >
-                      重新执行
-                    </Button>
-                  )}
                 </Space>
               </Descriptions.Item>
               <Descriptions.Item label="函数ID" span={2}>

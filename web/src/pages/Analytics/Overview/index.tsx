@@ -8,22 +8,22 @@ import { fetchAnalyticsOverview } from '@/services/api/analytics';
 
 interface OverviewData {
   dau?: number;
-  wau?: number;
+  wau?: number | null;
   mau?: number;
   newUsers?: number;
-  registeredTotal?: number;
+  registeredTotal?: number | null;
   peakOnline?: number;
-  revenueCents?: number;
-  d1?: number;
-  d7?: number;
-  d30?: number;
-  payRate?: number;
+  revenue?: number;
+  d1?: number | null;
+  d7?: number | null;
+  d30?: number | null;
+  payRate?: number | null;
   arpu?: number;
   arppu?: number;
   series?: {
     newUsers?: [string | number, number][];
     peakOnline?: [string | number, number][];
-    revenueCents?: [string | number, number][];
+    revenue?: [string | number, number][];
   };
 }
 
@@ -59,31 +59,31 @@ export default function AnalyticsOverviewPage() {
     const summary = [
       ['metric', 'value'],
       ['dau', data?.dau || 0],
-      ['wau', data?.wau || 0],
+      ['wau', data?.wau ?? ''],
       ['mau', data?.mau || 0],
       ['new_users', data?.newUsers || 0],
-      ['registered_total', data?.registeredTotal || 0],
-      ['retention_d1', data?.d1 || 0],
-      ['retention_d7', data?.d7 || 0],
-      ['retention_d30', data?.d30 || 0],
-      ['pay_rate', data?.payRate || 0],
+      ['registered_total', data?.registeredTotal ?? ''],
+      ['retention_d1', data?.d1 ?? ''],
+      ['retention_d7', data?.d7 ?? ''],
+      ['retention_d30', data?.d30 ?? ''],
+      ['pay_rate', data?.payRate ?? ''],
       ['arpu', data?.arpu || 0],
       ['arppu', data?.arppu || 0],
-      ['revenue_cents', data?.revenueCents || 0],
+      ['revenue', data?.revenue || 0],
     ];
     const ser = data?.series || {};
     const seriesRows = [['time', 'new_users', 'peak_online', 'revenue_cents']];
     const len = Math.max(
       ser?.newUsers?.length || 0,
       ser?.peakOnline?.length || 0,
-      ser?.revenueCents?.length || 0,
+      ser?.revenue?.length || 0,
     );
     for (let i = 0; i < len; i++) {
       const t =
-        ser?.newUsers?.[i]?.[0] || ser?.peakOnline?.[i]?.[0] || ser?.revenueCents?.[i]?.[0] || '';
+        ser?.newUsers?.[i]?.[0] || ser?.peakOnline?.[i]?.[0] || ser?.revenue?.[i]?.[0] || '';
       const nu = ser?.newUsers?.[i]?.[1] ?? '';
       const po = ser?.peakOnline?.[i]?.[1] ?? '';
-      const rv = ser?.revenueCents?.[i]?.[1] ?? '';
+      const rv = ser?.revenue?.[i]?.[1] ?? '';
       seriesRows.push([String(t), String(nu), String(po), String(rv)]);
     }
     await exportToXLSX('overview.csv', [
@@ -126,7 +126,7 @@ export default function AnalyticsOverviewPage() {
             </Col>
             <Col span={4}>
               <Card loading={loading}>
-                <Statistic title="WAU" value={data?.wau || 0} />
+                <Statistic title="WAU" value={data?.wau ?? '-'} />
               </Card>
             </Col>
             <Col span={4}>
@@ -141,19 +141,19 @@ export default function AnalyticsOverviewPage() {
             </Col>
             <Col span={4}>
               <Card loading={loading}>
-                <Statistic title="注册用户总数" value={data?.registeredTotal || 0} />
+                <Statistic title="注册用户总数" value={data?.registeredTotal ?? '-'} />
               </Card>
             </Col>
             <Col span={4}>
               <Card loading={loading}>
-                <Statistic title="收入(分)" value={data?.revenueCents || 0} />
+                <Statistic title="收入" value={data?.revenue || 0} />
               </Card>
             </Col>
           </Row>
           <Row gutter={[16, 16]}>
             <Col span={8}>
               <Card loading={loading}>
-                <Statistic title="付费率" suffix="%" value={data?.payRate || 0} />
+                <Statistic title="付费率" suffix="%" value={data?.payRate ?? '-'} />
               </Card>
             </Col>
             <Col span={8}>
@@ -171,17 +171,29 @@ export default function AnalyticsOverviewPage() {
           <Row gutter={[16, 16]}>
             <Col span={8}>
               <Card loading={loading}>
-                <Statistic title="D1 留存" value={data?.d1 || 0} suffix="%" />
+                <Statistic
+                  title="D1 留存"
+                  value={data?.d1 ?? '-'}
+                  suffix={data?.d1 == null ? '' : '%'}
+                />
               </Card>
             </Col>
             <Col span={8}>
               <Card loading={loading}>
-                <Statistic title="D7 留存" value={data?.d7 || 0} suffix="%" />
+                <Statistic
+                  title="D7 留存"
+                  value={data?.d7 ?? '-'}
+                  suffix={data?.d7 == null ? '' : '%'}
+                />
               </Card>
             </Col>
             <Col span={8}>
               <Card loading={loading}>
-                <Statistic title="D30 留存" value={data?.d30 || 0} suffix="%" />
+                <Statistic
+                  title="D30 留存"
+                  value={data?.d30 ?? '-'}
+                  suffix={data?.d30 == null ? '' : '%'}
+                />
               </Card>
             </Col>
           </Row>
@@ -198,8 +210,8 @@ export default function AnalyticsOverviewPage() {
               </Card>
             </Col>
             <Col span={8}>
-              <Card size="small" title="每日充值(分)（曲线）">
-                <Spark data={data?.series?.revenueCents || []} />
+              <Card size="small" title="每日收入（曲线）">
+                <Spark data={data?.series?.revenue || []} />
               </Card>
             </Col>
           </Row>

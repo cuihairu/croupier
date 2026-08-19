@@ -1,4 +1,4 @@
-import { FunctionDescriptor, normalizeFunctionDescriptor } from './functions';
+import { normalizeFunctionDescriptor, normalizeFunctionDetail } from './functions';
 
 describe('normalizeFunctionDescriptor', () => {
   it('should map input field to inputSchema', () => {
@@ -106,6 +106,15 @@ describe('normalizeFunctionDescriptor', () => {
     expect(result.displayName).toEqual({ en: 'Test Function', zh: '测试函数' });
   });
 
+  it('should normalize BCP-47 locale keys from registered descriptors', () => {
+    const result = normalizeFunctionDescriptor({
+      id: 'test-function',
+      displayName: { 'zh-CN': '测试函数', 'en-US': 'Test Function' },
+    });
+
+    expect(result.displayName).toEqual({ en: 'Test Function', zh: '测试函数' });
+  });
+
   it('should normalize displayName string to LocalizedText', () => {
     const raw = {
       id: 'test-function',
@@ -115,5 +124,31 @@ describe('normalizeFunctionDescriptor', () => {
     const result = normalizeFunctionDescriptor(raw);
 
     expect(result.displayName).toEqual({ en: 'Test Function', zh: 'Test Function' });
+  });
+
+  it('should flatten the nested detail descriptor and map name to displayName', () => {
+    const result = normalizeFunctionDetail({
+      id: 'nested-function',
+      name: 'Nested Function',
+      description: 'Function description',
+      descriptor: {
+        input: {
+          type: 'object',
+          properties: { playerId: { type: 'string' } },
+          required: ['playerId'],
+        },
+        output: { type: 'object', properties: { ok: { type: 'boolean' } } },
+        schema: { type: 'object' },
+      },
+    });
+
+    expect(result.displayName).toEqual({ en: 'Nested Function', zh: 'Nested Function' });
+    expect(result.summary).toEqual({ en: 'Function description', zh: 'Function description' });
+    expect(result.inputSchema).toMatchObject({
+      type: 'object',
+      required: ['playerId'],
+    });
+    expect(result.outputSchema).toMatchObject({ type: 'object' });
+    expect(result.schema).toEqual({ type: 'object' });
   });
 });

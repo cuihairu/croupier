@@ -127,6 +127,14 @@ export default function FunctionInvokePage() {
 
   const execute = useCallback(async () => {
     if (!selected) return;
+    if (route === 'targeted' && !targetServiceId.trim()) {
+      setError('指定实例路由需要填写 service_id');
+      return;
+    }
+    if (route === 'hash' && !hashKey.trim()) {
+      setError('哈希路由需要填写 hash key');
+      return;
+    }
     let payload: JSONValue;
     try {
       payload =
@@ -269,7 +277,11 @@ export default function FunctionInvokePage() {
                   type="primary"
                   icon={<SendOutlined />}
                   loading={executing}
-                  disabled={!selected}
+                  disabled={
+                    !selected ||
+                    (route === 'targeted' && !targetServiceId.trim()) ||
+                    (route === 'hash' && !hashKey.trim())
+                  }
                   onClick={execute}
                 >
                   发送

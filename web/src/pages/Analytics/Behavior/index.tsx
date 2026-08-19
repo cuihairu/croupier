@@ -101,7 +101,9 @@ export default function AnalyticsBehaviorPage() {
     }
   };
   useEffect(() => {
-    /* do not auto-load to avoid 404s before backend ready */
+    void load();
+    // The endpoint is part of the analytics contract; an empty event filter means all events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [steps, setSteps] = useState<string[]>([]);
