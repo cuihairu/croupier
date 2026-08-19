@@ -76,6 +76,9 @@ services:
     restart: unless-stopped
     volumes:
       - ./configs/server.yaml:/app/configs/server.yaml:ro
+      # assignments.json / 历史与上传文件落在容器可写层，up -d 重建即丢；
+      # 挂 named volume 使启用状态跨部署持久化。
+      - server_data:/app/data
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -248,6 +251,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  server_data:
     driver: local
   redis_data:
     driver: local
