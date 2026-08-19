@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/fsutil"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -76,7 +77,7 @@ func saveAssignments(path string, data map[string][]string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, bytes, 0o644)
+	return fsutil.WriteFileAtomic(path, bytes, 0o644)
 }
 
 func loadAssignmentHistory(path string) ([]assignmentHistoryEntry, error) {
@@ -108,7 +109,7 @@ func saveAssignmentHistory(path string, entries []assignmentHistoryEntry) error 
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return fsutil.WriteFileAtomic(path, data, 0o644)
 }
 
 func appendAssignmentHistory(ctx *svc.ServiceContext, entry assignmentHistoryEntry) error {
