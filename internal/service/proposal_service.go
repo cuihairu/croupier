@@ -108,8 +108,13 @@ type ProposalDTO struct {
 	PageSpec         spec.PageSpec      `json:"pageSpec"`
 	Diagnostics      []spec.Diagnostic  `json:"diagnostics,omitempty"`
 	Status           string             `json:"status"`
-	UpdatedAt        string             `json:"updatedAt"`
-	UpdatedBy        string             `json:"updatedBy,omitempty"`
+	// PageExists marks that the proposal's target page has already been
+	// materialized (draft or published). Inbox UIs must offer the Page Studio
+	// edit/republish flow instead of accept-and-publish, which 409s on
+	// existing pages by design.
+	PageExists bool   `json:"pageExists"`
+	UpdatedAt  string `json:"updatedAt"`
+	UpdatedBy  string `json:"updatedBy,omitempty"`
 }
 
 // NewProposalService creates the service.
@@ -156,6 +161,10 @@ func (s *ProposalService) ListProposalDTOs(ctx context.Context, gameID, env stri
 		item, err := proposalDTOFromModel(proposal)
 		if err != nil {
 			return nil, err
+		}
+		// 页面是否已物化：Inbox 需要据此把「发布」换成「去 Page Studio」。
+		if _, err := s.pageModel.FindByScopeAndPageKey(ctx, gameID, env, proposal.PageKey); err == nil {
+			item.PageExists = true
 		}
 		items = append(items, item)
 	}

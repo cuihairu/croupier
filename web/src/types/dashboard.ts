@@ -1048,6 +1048,8 @@ export interface PageProposal {
   pageSpec: PageSpec;
   diagnostics?: DiagnosticInfo[];
   status: ProposalStatus;
+  /** 目标页面已物化（草稿或已发布）：发布入口应切换为 Page Studio 编辑流 */
+  pageExists?: boolean;
   updatedAt: string;
   updatedBy?: string;
 }

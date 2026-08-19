@@ -484,7 +484,7 @@ export default function ProposalInbox() {
           </Button>
           {record.status === 'pending' && (
             <>
-              {(record.quality === 'ready' || record.quality === 'basic') && (
+              {(record.quality === 'ready' || record.quality === 'basic') && !record.pageExists && (
                 <Popconfirm
                   title="发布默认页面？"
                   description="会创建草稿并发布到运行控制台左侧动态菜单。"
@@ -494,6 +494,19 @@ export default function ProposalInbox() {
                     发布
                   </Button>
                 </Popconfirm>
+              )}
+              {record.pageExists && (
+                <Button
+                  type="link"
+                  icon={<RocketOutlined />}
+                  onClick={() =>
+                    navigateTo(
+                      `/system/functions/pages?focus=${encodeURIComponent(record.pageKey)}`,
+                    )
+                  }
+                >
+                  已有页面，去编辑
+                </Button>
               )}
               <Popconfirm title="接受为草稿并自定义页面？" onConfirm={() => handleAccept(record)}>
                 <Button type="link" icon={<CheckOutlined />}>
