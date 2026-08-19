@@ -11,6 +11,7 @@ import {
   Button,
   Card,
   Descriptions,
+  Dropdown,
   Empty,
   Input,
   Modal,
@@ -19,14 +20,15 @@ import {
   Table,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import {
   CheckOutlined,
   CloseOutlined,
   ExclamationCircleOutlined,
-  EyeOutlined,
   FileTextOutlined,
+  MoreOutlined,
   ReloadOutlined,
   RocketOutlined,
   SearchOutlined,
@@ -184,7 +186,7 @@ function navigateTo(path: string) {
 }
 
 export default function ProposalInbox() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [inbox, setInbox] = useState<ProposalInboxData>(emptyInbox);
   const [query, setQuery] = useState('');
@@ -401,12 +403,19 @@ export default function ProposalInbox() {
       title: '提案',
       dataIndex: 'proposalKey',
       key: 'proposalKey',
-      render: (_, record) => (
-        <Space direction="vertical" size={0}>
-          <Text strong>{record.proposalKey}</Text>
-          <Text type="secondary">{record.pageKey}</Text>
-        </Space>
-      ),
+      render: (_, record) => {
+        // proposalKey 形如 operation--mail.send / resource--mail，pageKey 是其去前缀形态；
+        // 两者一致时只显示一行，避免相邻两行看起来是重复字段。
+        const bareKey = record.proposalKey.replace(/^(operation|resource|task|report)--/, '');
+        return (
+          <Space direction="vertical" size={0}>
+            <Text strong>{record.proposalKey}</Text>
+            {record.pageKey && record.pageKey !== bareKey && (
+              <Text type="secondary">{record.pageKey}</Text>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: '标题',
@@ -465,72 +474,85 @@ export default function ProposalInbox() {
     {
       title: '操作',
       key: 'action',
-      width: 260,
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record.proposalKey)}
-          >
-            查看
-          </Button>
-          <Button
-            type="link"
-            icon={<FileTextOutlined />}
-            onClick={() => handlePreview(record.proposalKey)}
-          >
-            预览
-          </Button>
-          {record.status === 'pending' && (
-            <>
-              {(record.quality === 'ready' || record.quality === 'basic') && !record.pageExists && (
+      width: 168,
+      fixed: 'right',
+      render: (_, record) => {
+        // 主操作保留文字按钮；其余收进"更多"下拉，避免操作列被撑到 600px 级别。
+        const moreItems = [];
+        if (record.status === 'pending') {
+          moreItems.push({
+            key: 'customize',
+            icon: <CheckOutlined />,
+            label: '自定义编辑',
+            onClick: () =>
+              modal.confirm({
+                title: '接受为草稿并自定义页面？',
+                onOk: () => handleAccept(record),
+              }),
+          });
+          if (record.quality === 'needs_review') {
+            moreItems.push({
+              key: 'review',
+              icon: <ExclamationCircleOutlined />,
+              label: '处理',
+              onClick: () => handleReviewProposal(record),
+            });
+          }
+          moreItems.push({
+            key: 'reject',
+            icon: <CloseOutlined />,
+            label: '拒绝',
+            danger: true,
+            onClick: () =>
+              modal.confirm({
+                title: '拒绝此提案？',
+                onOk: () => handleReject(record.proposalKey),
+              }),
+          });
+        }
+        return (
+          <Space size={0}>
+            <Button type="link" size="small" onClick={() => handleViewDetail(record.proposalKey)}>
+              查看
+            </Button>
+            <Button type="link" size="small" onClick={() => handlePreview(record.proposalKey)}>
+              预览
+            </Button>
+            {record.status === 'pending' &&
+              (record.quality === 'ready' || record.quality === 'basic') &&
+              !record.pageExists && (
                 <Popconfirm
                   title="发布默认页面？"
                   description="会创建草稿并发布到运行控制台左侧动态菜单。"
                   onConfirm={() => handleAcceptAndPublish(record)}
                 >
-                  <Button type="link" icon={<RocketOutlined />}>
+                  <Button type="link" size="small" icon={<RocketOutlined />}>
                     发布
                   </Button>
                 </Popconfirm>
               )}
-              {record.pageExists && (
-                <Button
-                  type="link"
-                  icon={<RocketOutlined />}
-                  onClick={() =>
-                    navigateTo(
-                      `/system/functions/pages?focus=${encodeURIComponent(record.pageKey)}`,
-                    )
-                  }
-                >
-                  已有页面，去编辑
-                </Button>
-              )}
-              <Popconfirm title="接受为草稿并自定义页面？" onConfirm={() => handleAccept(record)}>
-                <Button type="link" icon={<CheckOutlined />}>
-                  自定义编辑
-                </Button>
-              </Popconfirm>
-              {record.quality === 'needs_review' && (
-                <Button
-                  type="link"
-                  icon={<ExclamationCircleOutlined />}
-                  onClick={() => handleReviewProposal(record)}
-                >
-                  处理
-                </Button>
-              )}
-              <Popconfirm title="拒绝此提案？" onConfirm={() => handleReject(record.proposalKey)}>
-                <Button type="link" danger icon={<CloseOutlined />}>
-                  拒绝
-                </Button>
-              </Popconfirm>
-            </>
-          )}
-        </Space>
-      ),
+            {record.status === 'pending' && record.pageExists && (
+              <Button
+                type="link"
+                size="small"
+                icon={<FileTextOutlined />}
+                onClick={() =>
+                  navigateTo(`/system/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)
+                }
+              >
+                去编辑
+              </Button>
+            )}
+            {moreItems.length > 0 && (
+              <Dropdown menu={{ items: moreItems }} trigger={['click']}>
+                <Tooltip title="更多">
+                  <Button type="link" size="small" icon={<MoreOutlined />} />
+                </Tooltip>
+              </Dropdown>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -653,31 +675,14 @@ export default function ProposalInbox() {
     {
       title: '操作',
       key: 'action',
-      width: 460,
+      width: 208,
+      fixed: 'right',
       render: (_, record) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<ReloadOutlined />}
-            loading={contractActionKey === `regenerate:${record.pageKey}`}
-            onClick={() => handleRegenerateProposal(record)}
-          >
-            重生成
-          </Button>
-          <Button
-            type="link"
-            icon={<SyncOutlined />}
-            loading={contractActionKey === `merge:${record.pageKey}`}
-            onClick={() => handleAutoMerge(record)}
-          >
-            自动合并
-          </Button>
-          <Button type="link" onClick={() => handleOpenManualMerge(record)}>
-            处理冲突
-          </Button>
+        <Space size={0}>
           <Popconfirm title="确认重新发布当前草稿快照？" onConfirm={() => handleRepublish(record)}>
             <Button
               type="link"
+              size="small"
               icon={<RocketOutlined />}
               loading={contractActionKey === `republish:${record.pageKey}`}
             >
@@ -686,12 +691,41 @@ export default function ProposalInbox() {
           </Popconfirm>
           <Button
             type="link"
+            size="small"
             onClick={() =>
               navigateTo(`/system/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)
             }
           >
             编辑
           </Button>
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: [
+                {
+                  key: 'regenerate',
+                  icon: <ReloadOutlined />,
+                  label: '重生成',
+                  onClick: () => handleRegenerateProposal(record),
+                },
+                {
+                  key: 'auto-merge',
+                  icon: <SyncOutlined />,
+                  label: '自动合并',
+                  onClick: () => handleAutoMerge(record),
+                },
+                {
+                  key: 'manual-merge',
+                  label: '处理冲突',
+                  onClick: () => handleOpenManualMerge(record),
+                },
+              ],
+            }}
+          >
+            <Tooltip title="更多">
+              <Button type="link" size="small" icon={<MoreOutlined />} />
+            </Tooltip>
+          </Dropdown>
         </Space>
       ),
     },
@@ -746,6 +780,7 @@ export default function ProposalInbox() {
                 dataSource={publishable}
                 rowKey="proposalKey"
                 loading={loading}
+                scroll={{ x: 'max-content' }}
                 locale={{ emptyText: <Empty description="暂无可直接发布的默认页面" /> }}
               />
             ),
@@ -766,6 +801,7 @@ export default function ProposalInbox() {
                   dataSource={needsReview}
                   rowKey="proposalKey"
                   loading={loading}
+                  scroll={{ x: 'max-content' }}
                   locale={{ emptyText: <Empty description="暂无需要处理的 Proposal" /> }}
                 />
                 <Table
@@ -793,6 +829,7 @@ export default function ProposalInbox() {
                 dataSource={contractChanges}
                 rowKey={(record) => `${record.kind}:${record.pageKey}`}
                 loading={loading}
+                scroll={{ x: 'max-content' }}
                 locale={{ emptyText: <Empty description="暂无 stale 草稿或已发布页面" /> }}
               />
             ),
