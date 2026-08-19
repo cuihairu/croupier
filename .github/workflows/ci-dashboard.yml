@@ -138,8 +138,12 @@ jobs:
             playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
-        timeout-minutes: 10
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 15
+        id: pw_install
+        run: pnpm exec playwright install chromium
+      - name: Install Playwright system dependencies
+        timeout-minutes: 5
+        run: pnpm exec playwright install-deps chromium
 
       - name: Build mock web (production, MOCK=all)
         timeout-minutes: 12
@@ -217,8 +221,12 @@ jobs:
             playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
-        timeout-minutes: 10
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 15
+        id: pw_install
+        run: pnpm exec playwright install chromium
+      - name: Install Playwright system dependencies
+        timeout-minutes: 5
+        run: pnpm exec playwright install-deps chromium
 
       - name: Install ripgrep
         timeout-minutes: 2
