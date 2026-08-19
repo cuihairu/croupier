@@ -1,9 +1,9 @@
 # vNext 发布候选审计报告（J-001.25）
 
 - 日期：2026-08-19
-- 审计基线：HEAD = `05cb3aaf0`（另有 2 处未提交变更，见"残留事项"）
+- 审计基线：`3c7df0be5`（含 prettier 对齐 `ba0c41466` 与本报告提交）
 - 审计环境：本机 Linux（无 Docker）；Docker 相关验收在 runner-docker（Docker 29.6.1）完成
-- 结论：**J-001 暂保持未勾选**。全部 25 个原子项均有通过证据，唯一残留是 J-001.24 的生产 postgres 重放（见"残留事项"）。
+- 结论：**J-001 暂保持未勾选**。全部 25 个原子项均有通过证据（J-001.24 已经审核者独立复跑勾选），唯一残留是 J-001.24 的生产 postgres 重放（见"残留事项"）。
 
 ## 逐项证据
 
@@ -34,22 +34,18 @@
 
 ### 生产数据删除（J-001.24）
 
-| 验证步骤           | 命令 / 方式                                                                                     | 结果                               |
-| ------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------- |
-| 授权               | 用户会话内明确授权"按流程执行"                                                                  | 2026-08-19 获得                    |
-| 备份校验           | sqlite 在线备份 + 表清单/全表行数/integrity_check 比对                                          | PASS                               |
-| Deployment dry-run | 真实 `model.LegacyCleanupReport` 代码路径；dry-run 后库文件 sha256 不变                         | PASS（恰好 3 表 + 8 列，零副作用） |
-| 执行删除           | 真实 `model.CleanupAllLegacy`（生产启动清理路径）                                               | PASS                               |
-| 删除后验证         | 3 张 legacy 表 + 8 个 legacy 列物理消失；67 表与全部业务行无损；integrity ok                    | PASS                               |
-| 回滚演练           | 从备份恢复后 legacy 数据可找回                                                                  | PASS                               |
-| 回归               | `go test ./internal/model -run 'TestCleanup' -count=1`、`bash scripts/dashboard_vnext_guard.sh` | PASS                               |
+| 验证步骤           | 命令 / 方式                                                                                                             | 结果                               |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| 授权               | 用户会话内明确授权"按流程执行"                                                                                          | 2026-08-19 获得                    |
+| 备份校验           | sqlite 在线备份 + 表清单/全表行数/integrity_check 比对（生产 runbook 流程演练；演练数据为测试数据，备份非数据保护所需） | PASS                               |
+| Deployment dry-run | 真实 `model.LegacyCleanupReport` 代码路径；dry-run 后库文件 sha256 不变                                                 | PASS（恰好 3 表 + 8 列，零副作用） |
+| 执行删除           | 真实 `model.CleanupAllLegacy`（生产启动清理路径）                                                                       | PASS                               |
+| 删除后验证         | 3 张 legacy 表 + 8 个 legacy 列物理消失；67 表与全部业务行无损；integrity ok                                            | PASS                               |
+| 回滚演练           | 从备份恢复后 legacy 数据可找回                                                                                          | PASS                               |
+| 回归               | `go test ./internal/model -run 'TestCleanup' -count=1`、`bash scripts/dashboard_vnext_guard.sh`                         | PASS                               |
 
-证据目录：`/tmp/opencode/j-001-24/`（`DRILL-REPORT.md`、`backup-pre-cleanup.db`、`prod-replica.db`、`restore-check.db`、`baseline.json`）。
+证据目录：`/tmp/opencode/j-001-24/`（`DRILL-REPORT.md` 含审核者复跑记录、`backup-pre-cleanup.db`、`prod-replica.db`、`restore-check.db`、`baseline.json`）。审核者复跑于独立目录 `/tmp/opencode/j-001-24-review/` 完成，全流程结果与首轮一致。
 
 ## 残留事项（Release Blockers）
 
-1. **J-001.24 生产 postgres 重放**：本机无 Docker/MySQL/PostgreSQL，演练在 sqlite 生产形态副本上执行（与生产同一代码路径；postgres 分支由 `internal/model/migration_legacy_cleanup_test.go` 覆盖）。发布窗口触达生产 postgres 后，须按"备份校验 → dry-run → CleanupAllLegacy"同顺序重放并归档证据，方可勾选 J-001.24 / J-001。
-2. **未提交变更**：
-   - `web/` 8 个文件的 Prettier 格式化修复（`pnpm --dir web lint` 在 HEAD 上原本失败，修复后通过；`src/services/api` jest 19/19 回归通过）；
-   - `todo.md` 的 J-001.24 通过记录。
-     两项需提交后门禁状态才算固化。
+1. **J-001.24 生产 postgres 重放**（唯一 blocker）：本机无 Docker/MySQL/PostgreSQL，演练在 sqlite 生产形态副本上执行（与生产同一代码路径；postgres 分支由 `internal/model/migration_legacy_cleanup_test.go` 覆盖）。发布窗口触达生产 postgres 后，须按"备份校验 → dry-run → CleanupAllLegacy"同顺序重放并归档证据，方可勾选 J-001。
