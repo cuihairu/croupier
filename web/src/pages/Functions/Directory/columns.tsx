@@ -132,6 +132,7 @@ export const buildDirectoryColumns = ({
       title: col.title,
       valueType: 'option',
       width: col.width,
+      fixed: 'right',
       render: (_, record) =>
         rowActions.map((action) => (
           <Tooltip key={`${record.id}-${action.key}`} title={action.tooltip}>

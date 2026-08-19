@@ -199,6 +199,7 @@ export default function DirectoryPage() {
               showTotal: (total) => `共 ${total} 个函数`,
             }}
             search={{ filterType: 'light', labelWidth: 'auto' }}
+            scroll={{ x: 1390 }}
             dateFormatter="string"
             headerTitle={false}
             options={false}
