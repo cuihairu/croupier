@@ -26,11 +26,19 @@ const HISTORY_KEY = 'croupier.function-invoke.history.v1';
 const EMPTY_FORM_STATE: FormSchemaState = { status: 'idle' };
 
 function displayName(descriptor: FunctionDescriptor, locale: string) {
-  const zh = descriptor.displayName?.zh || descriptor.summary?.zh;
-  const en = descriptor.displayName?.en || descriptor.summary?.en;
-  return locale.toLowerCase().startsWith('zh')
-    ? zh || en || descriptor.id
-    : en || zh || descriptor.id;
+  // 本地化 key 兼容：API 实际下发 {en-US, zh-CN}，normalize 后为 {zh, en}，
+  // 两类形态都要能取到，避免把整个对象渲染进 React child。
+  const pick = (value?: unknown): string | undefined => {
+    if (!value || typeof value !== 'object') return typeof value === 'string' ? value : undefined;
+    const record = value as Record<string, string>;
+    return (
+      record.zh || record['zh-CN'] || record.zh_cn || record.en || record['en-US'] || record.en_us
+    );
+  };
+  const zh = pick(descriptor.displayName) || pick(descriptor.summary);
+  const en = zh;
+  const name = locale.toLowerCase().startsWith('zh') ? zh || en : en || zh;
+  return name || descriptor.id;
 }
 
 function resolveSchema(descriptor: FunctionDescriptor): JSONSchemaType | null {
@@ -291,7 +299,17 @@ export default function FunctionInvokePage() {
                 <Space wrap style={{ marginTop: 8 }}>
                   <Text strong>{displayName(selected, locale)}</Text>
                   {selected.resource ? <Tag color="blue">{selected.resource}</Tag> : null}
-                  <Text type="secondary">{selected.description}</Text>
+                  <Text type="secondary">
+                    {(() => {
+                      const desc = selected.description as unknown;
+                      if (typeof desc === 'string') return desc;
+                      if (desc && typeof desc === 'object') {
+                        const record = desc as Record<string, string>;
+                        return record.zh || record['zh-CN'] || record.en || record['en-US'] || '';
+                      }
+                      return '';
+                    })()}
+                  </Text>
                 </Space>
               ) : !loading ? (
                 <Alert
