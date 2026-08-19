@@ -1254,11 +1254,51 @@ func TestListSemanticVersionsErrorV2(t *testing.T) {
 	}
 
 	resp, err := svc.ListSemanticVersions(ctx, &ListSemanticVersionsRequest{
-		GameID: "g1", Env: "e1", ResourceKey: "player",
+		GameID: "g1", Env: "e1", ResourceKey: "player", Limit: 10,
 	})
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 3)
-	assert.Equal(t, 3, resp.Total)
+	assert.EqualValues(t, 3, resp.Total)
+}
+
+func TestListSemanticVersionsPaginatedV2(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+
+	semModel := model.NewCapabilitySemanticsModel(db)
+	require.NoError(t, semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk",
+	}))
+	sem, err := semModel.FindByScopeAndResourceKey(ctx, "g1", "e1", "player")
+	require.NoError(t, err)
+
+	verModel := model.NewCapabilitySemanticVersionModel(db)
+	for i := 1; i <= 7; i++ {
+		require.NoError(t, verModel.CreateVersion(ctx, &model.CapabilitySemanticVersion{
+			SemanticsID:  sem.ID,
+			Version:      i,
+			SourceDigest: "digest",
+			ChangeReason: "reason",
+		}))
+	}
+
+	// Default request returns only the newest page.
+	resp, err := svc.ListSemanticVersions(ctx, &ListSemanticVersionsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player",
+	})
+	require.NoError(t, err)
+	assert.Len(t, resp.Items, semanticVersionDefaultLimit)
+	assert.EqualValues(t, 7, resp.Total)
+	assert.Equal(t, 7, resp.Items[0].Version, "newest version first")
+
+	// Second page via offset.
+	page2, err := svc.ListSemanticVersions(ctx, &ListSemanticVersionsRequest{
+		GameID: "g1", Env: "e1", ResourceKey: "player", Limit: 5, Offset: 5,
+	})
+	require.NoError(t, err)
+	assert.Len(t, page2.Items, 2)
+	assert.Equal(t, 2, page2.Items[0].Version)
 }
 
 // ---------------------------------------------------------------------------

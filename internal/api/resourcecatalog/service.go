@@ -327,12 +327,21 @@ type ListSemanticVersionsRequest struct {
 	GameID      string `json:"-"`
 	Env         string `json:"-"`
 	ResourceKey string `json:"-" uri:"resourceKey" binding:"required"`
+	// Limit caps the page size; defaults to semanticVersionDefaultLimit when 0.
+	Limit int `form:"limit"`
+	// Offset skips older versions; newest first ordering is preserved.
+	Offset int `form:"offset"`
 }
+
+const (
+	semanticVersionDefaultLimit = 5
+	semanticVersionMaxLimit     = 100
+)
 
 // ListSemanticVersionsResponse is the response for semantic version history.
 type ListSemanticVersionsResponse struct {
 	Items []SemanticVersionInfo `json:"items"`
-	Total int                   `json:"total"`
+	Total int64                 `json:"total"`
 }
 
 // UpdateSemantics updates resource capability semantics.
@@ -543,7 +552,9 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 	}, nil
 }
 
-// ListSemanticVersions returns semantic version history for a resource.
+// ListSemanticVersions returns a paginated semantic version history for a
+// resource, newest first. A resource can accumulate thousands of versions from
+// automated re-registrations, so the endpoint never returns the full list.
 func (s *Service) ListSemanticVersions(ctx context.Context, req *ListSemanticVersionsRequest) (*ListSemanticVersionsResponse, error) {
 	semantics, err := s.findSemanticsOptional(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {
@@ -555,7 +566,17 @@ func (s *Service) ListSemanticVersions(ctx context.Context, req *ListSemanticVer
 			Total: 0,
 		}, nil
 	}
-	versions, err := s.versionModel.ListBySemanticsID(ctx, semantics.ID)
+	limit := req.Limit
+	if limit <= 0 {
+		limit = semanticVersionDefaultLimit
+	}
+	if limit > semanticVersionMaxLimit {
+		limit = semanticVersionMaxLimit
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+	versions, total, err := s.versionModel.ListBySemanticsIDPaged(ctx, semantics.ID, limit, req.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("list semantic versions: %w", err)
 	}
@@ -571,7 +592,7 @@ func (s *Service) ListSemanticVersions(ctx context.Context, req *ListSemanticVer
 	}
 	return &ListSemanticVersionsResponse{
 		Items: items,
-		Total: len(items),
+		Total: total,
 	}, nil
 }
 

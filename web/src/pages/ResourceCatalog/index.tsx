@@ -304,6 +304,9 @@ const ResourceCatalogPage: React.FC = () => {
   const [semanticMeta, setSemanticMeta] = useState<ResourceSemanticConflicts>(emptySemanticMeta);
   const [semanticVersions, setSemanticVersions] =
     useState<ResourceSemanticVersions>(emptySemanticVersions);
+  // 语义版本服务端分页：版本历史可达上万条，必须按页拉取
+  const [versionPage, setVersionPage] = useState(1);
+  const [versionPageSize, setVersionPageSize] = useState(5);
   const [selectedConflict, setSelectedConflict] = useState<SemanticConflictInfo | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
@@ -332,26 +335,44 @@ const ResourceCatalogPage: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  const loadResourceDetail = useCallback(async (resourceKey: string) => {
-    setDetailLoading(true);
-    try {
-      const [detail, meta] = await Promise.all([
-        getResourceDetail(resourceKey),
-        getResourceSemanticConflicts(resourceKey),
-      ]);
-      const versions = await getResourceSemanticVersions(resourceKey);
-      setSelectedResource(detail);
-      setSemanticMeta(meta);
-      setSemanticVersions(versions);
-      return detail;
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : '未知错误';
-      message.error('获取详情失败: ' + errMsg);
-      return null;
-    } finally {
-      setDetailLoading(false);
-    }
-  }, []);
+  const fetchSemanticVersions = useCallback(
+    async (resourceKey: string, page: number, pageSize: number) => {
+      try {
+        const versions = await getResourceSemanticVersions(resourceKey, {
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+        });
+        setSemanticVersions(versions);
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : '未知错误';
+        message.error('获取语义版本失败: ' + errMsg);
+      }
+    },
+    [],
+  );
+
+  const loadResourceDetail = useCallback(
+    async (resourceKey: string) => {
+      setDetailLoading(true);
+      try {
+        const [detail, meta] = await Promise.all([
+          getResourceDetail(resourceKey),
+          getResourceSemanticConflicts(resourceKey),
+        ]);
+        setSelectedResource(detail);
+        setSemanticMeta(meta);
+        await fetchSemanticVersions(resourceKey, versionPage, versionPageSize);
+        return detail;
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : '未知错误';
+        message.error('获取详情失败: ' + errMsg);
+        return null;
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [fetchSemanticVersions, versionPage, versionPageSize],
+  );
 
   const handleViewDetail = useCallback(
     async (resourceKey: string) => {
@@ -898,14 +919,28 @@ const ResourceCatalogPage: React.FC = () => {
 
             <Title level={5} style={{ marginTop: 16 }}>
               <BranchesOutlined /> 语义版本
+              {semanticVersions.total > 0 ? `（共 ${semanticVersions.total} 条）` : ''}
             </Title>
             <Table<ResourceSemanticVersionInfo>
               dataSource={semanticVersions.items}
               rowKey="version"
-              pagination={false}
               size="small"
               loading={detailLoading}
               locale={{ emptyText: '暂无语义版本记录' }}
+              pagination={{
+                current: versionPage,
+                pageSize: versionPageSize,
+                total: semanticVersions.total,
+                showSizeChanger: true,
+                pageSizeOptions: [5, 10, 20, 50],
+                showTotal: (t) => `共 ${t} 条`,
+                onChange: (page, pageSize) => {
+                  if (!selectedResource) return;
+                  setVersionPage(page);
+                  setVersionPageSize(pageSize);
+                  fetchSemanticVersions(selectedResource.resourceKey, page, pageSize);
+                },
+              }}
               columns={[
                 { title: '版本', dataIndex: 'version', key: 'version', width: 90 },
                 {

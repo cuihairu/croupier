@@ -59,12 +59,14 @@ export async function getResourceSemanticConflicts(
   });
 }
 
-/** 获取资源语义版本历史 */
+/** 获取资源语义版本历史（服务端分页，默认最近 5 条） */
 export async function getResourceSemanticVersions(
   resourceKey: string,
+  params?: { limit?: number; offset?: number },
 ): Promise<ResourceSemanticVersions> {
   return request(`${BASE_URL}/resource-catalog/${resourceKey}/semantics/versions`, {
     method: 'GET',
+    params,
   });
 }
 

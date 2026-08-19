@@ -230,3 +230,25 @@ func (m *CapabilitySemanticVersionModel) ListBySemanticsID(ctx context.Context, 
 	}
 	return vers, nil
 }
+
+// ListBySemanticsIDPaged returns one newest-first page of semantic versions
+// plus the total row count, so catalog detail views never materialize the
+// full history (automated re-registrations can accumulate thousands of rows).
+func (m *CapabilitySemanticVersionModel) ListBySemanticsIDPaged(ctx context.Context, semanticsID uint, limit, offset int) ([]*CapabilitySemanticVersion, int64, error) {
+	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
+	var total int64
+	if err := db.Model(&CapabilitySemanticVersion{}).
+		Where("semantics_id = ?", semanticsID).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var vers []*CapabilitySemanticVersion
+	if err := db.Where("semantics_id = ?", semanticsID).
+		Order("version DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&vers).Error; err != nil {
+		return nil, 0, err
+	}
+	return vers, total, nil
+}
