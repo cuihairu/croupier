@@ -40,7 +40,6 @@ export default function SupportFeedbackPage() {
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
   const [gameId, setGameId] = useState('');
-  const [env, setEnv] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FeedbackItem | null>(null);
   const [form] = Form.useForm();
@@ -49,13 +48,15 @@ export default function SupportFeedbackPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listFeedback({ q, category, status, gameId, env, page, size });
+      const res = await listFeedback({ q, category, status, gameId, page, size });
       setList((res.feedback || []) as unknown as FeedbackItem[]);
       setTotal(res.total || 0);
+    } catch (error) {
+      getMessage()?.error(error instanceof Error ? error.message : '加载反馈失败');
     } finally {
       setLoading(false);
     }
-  }, [q, category, status, gameId, env, page, size]);
+  }, [q, category, status, gameId, page, size]);
   useEffect(() => {
     load();
   }, [load]);
@@ -124,12 +125,6 @@ export default function SupportFeedbackPage() {
               placeholder="游戏"
               value={gameId}
               onChange={(e) => setGameId(e.target.value)}
-              style={{ width: 120 }}
-            />
-            <Input
-              placeholder="环境"
-              value={env}
-              onChange={(e) => setEnv(e.target.value)}
               style={{ width: 120 }}
             />
             <Button

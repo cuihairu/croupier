@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Table, Space, Button, Input, Switch, Modal, Form } from 'antd';
+import { App, Card, Table, Space, Button, Input, Switch, Modal, Form } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { listFAQ, createFAQ, updateFAQ, deleteFAQ } from '@/services/api/support';
 import { useAccess } from '@umijs/max';
@@ -22,6 +22,7 @@ interface AccessState {
 }
 
 export default function SupportFAQPage() {
+  const { message } = App.useApp();
   const [list, setList] = useState<FAQItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -42,11 +43,13 @@ export default function SupportFAQPage() {
         const res = await listFAQ({ q, category, visible, page: nextPage, pageSize: nextSize });
         setList((res.faq || res.items || []) as unknown as FAQItem[]);
         setTotal(res.total ?? (res.faq || res.items || []).length);
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '加载 FAQ 失败');
       } finally {
         setLoading(false);
       }
     },
-    [q, category, visible, page, pageSize],
+    [message, q, category, visible, page, pageSize],
   );
   useEffect(() => {
     setPage(1);

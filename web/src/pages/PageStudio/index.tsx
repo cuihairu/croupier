@@ -102,7 +102,6 @@ export default function PageStudio() {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [editorVisible, setEditorVisible] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [regeneratingPageKey, setRegeneratingPageKey] = useState('');
   const [changeChainVisible, setChangeChainVisible] = useState(false);
   const [changeChain, setChangeChain] = useState<ChangeChain | null>(null);
   const [changeChainLoading, setChangeChainLoading] = useState(false);
@@ -224,7 +223,6 @@ export default function PageStudio() {
 
   const handleRegenerate = useCallback(
     async (pageKey: string, draftRevision: number) => {
-      setRegeneratingPageKey(pageKey);
       try {
         const result = await regeneratePageDraft(pageKey, draftRevision);
         if (selectedDraft?.pageKey === pageKey) {
@@ -236,7 +234,6 @@ export default function PageStudio() {
       } catch {
         message.error('重新生成草稿失败');
       } finally {
-        setRegeneratingPageKey('');
       }
     },
     [loadDrafts, message, selectedDraft?.pageKey],

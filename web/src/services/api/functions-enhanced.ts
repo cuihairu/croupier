@@ -348,17 +348,6 @@ export async function getFunctionCall(callId: string): Promise<FunctionCallRecor
 }
 
 /**
- * 重新运行失败的调用
- */
-export async function rerunFunctionCall(callId: string): Promise<{ taskId: string }> {
-  const response = await request<{ task_id?: string; taskId?: string }>(
-    `/api/v1/function-calls/${callId}/rerun`,
-    { method: 'POST' },
-  );
-  return { taskId: response.taskId || '' };
-}
-
-/**
  * 取消正在运行的调用
  */
 export async function cancelFunctionCall(callId: string): Promise<void> {
@@ -528,77 +517,6 @@ export async function getFunctionTags(params?: {
   }
   const tags = Object.keys(counts);
   return { tags: params?.limit ? tags.slice(0, params.limit) : tags, counts };
-}
-
-/**
- * 导出函数配置
- */
-export async function exportFunctions(_params: {
-  functionIds?: string[];
-  format?: 'json' | 'yaml' | 'csv';
-  includeMetadata?: boolean;
-}): Promise<{ downloadUrl: string; expiresAt: string }> {
-  throw new Error('当前后端未提供函数导出接口');
-}
-
-/**
- * 导入函数配置
- */
-export async function importFunctions(_params: {
-  fileUrl: string;
-  format?: 'json' | 'yaml' | 'csv';
-  overwrite?: boolean;
-  gameId?: string;
-  env?: string;
-}): Promise<{ imported: number; skipped: number; errors: string[] }> {
-  throw new Error('当前后端未提供函数导入接口');
-}
-
-/**
- * 验证函数配置
- */
-export async function validateFunctionConfig(_params: {
-  functionConfig: unknown;
-  strict?: boolean;
-}): Promise<{ valid: boolean; errors: string[]; warnings: string[] }> {
-  console.warn('API /api/functions/validate 在后端未提供，返回基础校验结果');
-  return { valid: true, errors: [], warnings: [] };
-}
-
-/**
- * 获取函数依赖关系
- */
-export async function getFunctionDependencies(_functionId: string): Promise<{
-  dependencies: string[];
-  dependents: string[];
-  circularDependencies: string[];
-}> {
-  console.warn('API /api/functions/:id/dependencies 在后端未提供，返回空依赖');
-  return { dependencies: [], dependents: [], circularDependencies: [] };
-}
-
-/**
- * 测试函数
- */
-export async function testFunction(params: {
-  functionId: string;
-  payload: JSONValue;
-  dryRun?: boolean;
-  gameId?: string;
-  env?: string;
-}): Promise<{ valid: boolean; result?: JSONValue; error?: string; duration?: number }> {
-  const result = await request<JSONValue>(
-    `/api/v1/functions/${encodeURIComponent(params.functionId)}/invoke`,
-    {
-      method: 'POST',
-      data: {
-        payload: params.payload,
-        gameId: params.gameId,
-        env: params.env,
-      },
-    },
-  );
-  return { valid: true, result };
 }
 
 /**

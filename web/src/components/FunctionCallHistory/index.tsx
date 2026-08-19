@@ -18,11 +18,9 @@ import {
   ClockCircleOutlined,
   EyeOutlined,
   ReloadOutlined,
-  RedoOutlined,
 } from '@ant-design/icons';
 import {
   listFunctionCalls,
-  rerunFunctionCall,
   type FunctionCallItem,
   type FunctionCallsListParams,
 } from '@/services/api';
@@ -48,7 +46,6 @@ export interface FunctionCallHistoryProps {
   compact?: boolean;
   onRefresh?: () => void;
   onViewDetail?: (call: FunctionCallItem) => void;
-  onRerun?: (call: FunctionCallItem) => void;
 }
 
 export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
@@ -60,7 +57,6 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
   compact = false,
   onRefresh,
   onViewDetail,
-  onRerun,
 }) => {
   const [calls, setCalls] = useState<FunctionCall[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,14 +95,6 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
     setSelectedCall(decorateCall(call));
     setDetailVisible(true);
     onViewDetail?.(call);
-  };
-
-  const handleRerun = (call: FunctionCall) => {
-    if (call.taskId) {
-      // Try to rerun the task
-      rerunFunctionCall(call.id).then(handleRefresh).catch(console.error);
-    }
-    onRerun?.(call);
   };
 
   const getStatusIcon = (status: string) => {
@@ -229,17 +217,6 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
                           handleViewDetail(call);
                         }}
                       />
-                      {call.status === 'failed' && onRerun && (
-                        <Button
-                          size="small"
-                          type="link"
-                          icon={<RedoOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRerun(call);
-                          }}
-                        />
-                      )}
                     </Space>
                   </Space>
                   <Text type="secondary" style={{ fontSize: '12px' }}>
@@ -356,15 +333,6 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
 
             {/* Actions */}
             <Space>
-              {onRerun && selectedCall.status === 'failed' && (
-                <Button
-                  type="primary"
-                  icon={<RedoOutlined />}
-                  onClick={() => handleRerun(selectedCall)}
-                >
-                  重新运行
-                </Button>
-              )}
               <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
                 刷新历史
               </Button>

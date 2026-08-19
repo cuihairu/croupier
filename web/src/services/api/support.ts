@@ -34,8 +34,8 @@ export interface TicketComment {
 
 export interface FAQ {
   id: number;
-  title: string;
-  content: string;
+  question: string;
+  answer: string;
   category?: string;
   tags: string[];
   visible?: boolean;
@@ -47,11 +47,16 @@ export interface FAQ {
 export interface Feedback {
   id: number;
   playerId: string;
-  gameId: string;
-  title: string;
-  content?: string;
+  contact: string;
+  content: string;
+  category: string;
+  priority: string;
   status: string;
-  category?: string;
+  rating: number;
+  attach: string;
+  gameId: string;
+  env: string;
+  reply: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,7 +92,6 @@ export interface FeedbackListParams {
   category?: string;
   gameId?: string;
   q?: string;
-  env?: string;
 }
 
 export interface TicketPayload {
@@ -104,8 +108,8 @@ export interface TicketPayload {
 }
 
 export interface FAQPayload {
-  title?: string;
-  content?: string;
+  question?: string;
+  answer?: string;
   category?: string;
   tags?: string | string[];
   visible?: boolean | string;
@@ -115,11 +119,15 @@ export interface FAQPayload {
 
 export interface FeedbackPayload {
   playerId?: string;
-  gameId?: string;
-  title?: string;
+  contact?: string;
   content?: string;
-  status?: string;
   category?: string;
+  rating?: number;
+  attach?: string;
+  gameId?: string;
+  status?: string;
+  priority?: string;
+  reply?: string;
   [key: string]: JSONValue | undefined;
 }
 
@@ -185,8 +193,8 @@ function normalizeComment(item: Record<string, JSONValue>): TicketComment {
 function normalizeFAQ(item: Record<string, JSONValue>): FAQ {
   return {
     id: Number(item.id ?? 0),
-    title: String(item.title ?? ''),
-    content: String(item.content ?? ''),
+    question: String(item.question ?? ''),
+    answer: String(item.answer ?? ''),
     category: item.category ? String(item.category) : undefined,
     tags: splitTags(item.tags),
     visible: typeof item.visible === 'boolean' ? item.visible : undefined,
@@ -200,11 +208,16 @@ function normalizeFeedback(item: Record<string, JSONValue>): Feedback {
   return {
     id: Number(item.id ?? 0),
     playerId: String(item.playerId ?? ''),
-    gameId: String(item.gameId ?? ''),
-    title: String(item.title ?? ''),
-    content: item.content ? String(item.content) : undefined,
+    contact: String(item.contact ?? ''),
+    content: String(item.content ?? ''),
+    category: String(item.category ?? ''),
+    priority: String(item.priority ?? ''),
     status: String(item.status ?? ''),
-    category: item.category ? String(item.category) : undefined,
+    rating: Number(item.rating ?? 0),
+    attach: String(item.attach ?? ''),
+    gameId: String(item.gameId ?? ''),
+    env: String(item.env ?? ''),
+    reply: String(item.reply ?? ''),
     createdAt: String(item.createdAt ?? ''),
     updatedAt: String(item.updatedAt ?? ''),
   };
@@ -250,10 +263,13 @@ export async function listTickets(params?: TicketListParams) {
     params: {
       page: params?.page,
       pageSize: params?.pageSize || params?.size,
+      q: params?.q,
       status: params?.status,
       category: params?.category,
       priority: params?.priority,
       assignee: params?.assignee,
+      gameId: params?.gameId,
+      env: params?.env,
     },
   });
   const tickets = toArray(resp?.items).map(normalizeTicket);
@@ -397,6 +413,7 @@ export async function listFeedback(params?: FeedbackListParams) {
       pageSize: params?.pageSize || params?.size,
       status: params?.status,
       category: params?.category,
+      q: params?.q,
       gameId: params?.gameId,
     },
   });

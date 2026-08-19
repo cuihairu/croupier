@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Table, Space, Button, Input, Select, Tag, Modal, Form } from 'antd';
+import { App, Card, Table, Space, Button, Input, Select, Tag, Modal, Form } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { listTickets, createTicket, updateTicket, deleteTicket } from '@/services/api/support';
 import { history, useAccess } from '@umijs/max';
@@ -64,6 +64,7 @@ function isTicketStatus(value: string): value is TicketStatus {
 }
 
 export default function SupportBugsPage() {
+  const { message } = App.useApp();
   const [list, setList] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -97,10 +98,12 @@ export default function SupportBugsPage() {
       });
       setList(res.tickets || []);
       setTotal(res.total || 0);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载 Bug 列表失败');
     } finally {
       setLoading(false);
     }
-  }, [q, status, priority, assignee, gameId, env, page, size]);
+  }, [message, q, status, priority, assignee, gameId, env, page, size]);
   useEffect(() => {
     load();
   }, [load]);

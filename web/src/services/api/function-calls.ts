@@ -159,20 +159,6 @@ export async function getFunctionCallDetail(id: string) {
 }
 
 /**
- * 重新执行失败的调用
- */
-export async function rerunFunctionCall(id: string, payload?: JSONValue) {
-  const response = await request<{ task_id?: string; taskId?: string }>(
-    `/api/v1/function-calls/${encodeURIComponent(id)}/rerun`,
-    {
-      method: 'POST',
-      data: { payload },
-    },
-  );
-  return { taskId: response.taskId || '' };
-}
-
-/**
  * 获取调用统计
  */
 export async function getFunctionCallStats(
