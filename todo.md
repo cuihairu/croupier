@@ -979,7 +979,9 @@ SDK / OpenAPI 注册 FunctionContract
 - [ ] `J-001.24` 生产旧数据物理删除授权与演练
       Depends: [`H-005`]
       Verify: 用户明确确认生产删除后，先完成备份校验和 deployment dry-run，再执行 `CleanupAllLegacy`；本地或 CI 不得代替此授权。
+      通过记录: 2026-08-19 用户会话内明确授权后按流程执行。本机无 Docker/MySQL/PostgreSQL，演练在 sqlite 生产形态副本（data/croupier.db 基底 + 注入 3 张 legacy 表与 8 个 legacy 列及业务数据）上走真实代码路径（LegacyCleanupReport dry-run → CleanupAllLegacy 执行）。备份校验（表清单/行数/integrity_check）、dry-run 零副作用（sha256 不变）、删除后 67 表与全部业务行无损、备份回滚演练全部 PASS；`go test ./internal/model -run 'TestCleanup'` 与 `scripts/dashboard_vnext_guard.sh` 回归通过。证据与报告：/tmp/opencode/j-001-24/（DRILL-REPORT.md、备份与恢复工件）。限制：postgres 生产库在本环境不可达，发布窗口触达生产后应按同顺序重放；postgres 分支由 migration_legacy_cleanup_test.go 覆盖。
 
 - [ ] `J-001.25` 发布候选审计报告
       Depends: [`J-001.02`, `J-001.03`, `J-001.06`, `J-001.09`, `J-001.12`, `J-001.15`, `J-001.17`, `J-001.19`, `J-001.20`, `J-001.21`, `J-001.22`, `J-001.23`, `J-001.24`]
       Verify: 报告逐项链接命令、日志/工件、commit 和环境；任何未完成项保持 `J-001` 未勾选并列为 release blocker。
+      通过记录: 2026-08-19 产出 `docs/development/vnext-rc-audit.md`（基线 HEAD=05cb3aaf0）。本会话重跑并归档：J-001.01 配置解析、J-001.20 SDK matrix、J-001.21 `go test ./...`（127 包 ok）、J-001.22 web lint/build 与 real-dashboard 24/24、mock 42/42、J-001.23 docs build、J-001.24 删除演练。报告将 J-001.24 生产 postgres 重放与未提交变更（8 个 web 文件 Prettier 修复 + todo.md 记录 + 本报告）列为 release blocker，`J-001` 保持未勾选。
