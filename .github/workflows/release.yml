@@ -103,11 +103,49 @@ jobs:
           path: release/*
           if-no-files-found: error
 
+  build-sdk-sources:
+    name: Build SDK source packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v7
+      # 六语言 SDK 是库而非二进制。发布中心（npm/PyPI/Maven/NuGet/Go module proxy）
+      # 需要各自凭据与包名占位，超出默认 GITHUB_TOKEN 能力；Release 附件先提供
+      # 确定性源码包：消费方解压后按各 SDK README 构建接入。
+      - name: Pack SDK sources
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p release
+          tar --exclude='node_modules' --exclude='dist' --exclude='build' \
+            --exclude='.gradle' --exclude='TestResults' --exclude='__pycache__' \
+            --exclude='vcpkg' --exclude='vcpkg_installed' \
+            -czf "release/croupier-sdk-go-${VERSION}.tar.gz" -C sdks/go .
+          tar --exclude='node_modules' --exclude='dist' --exclude='coverage' \
+            -czf "release/croupier-sdk-js-${VERSION}.tar.gz" -C sdks/js .
+          tar --exclude='__pycache__' --exclude='*.egg-info' --exclude='dist' --exclude='build' \
+            -czf "release/croupier-sdk-python-${VERSION}.tar.gz" -C sdks/python .
+          tar --exclude='.gradle' --exclude='build' --exclude='TestResults' \
+            -czf "release/croupier-sdk-java-${VERSION}.tar.gz" -C sdks/java .
+          tar --exclude='TestResults' --exclude='bin' --exclude='obj' \
+            -czf "release/croupier-sdk-csharp-${VERSION}.tar.gz" -C sdks/csharp .
+          tar --exclude='vcpkg' --exclude='vcpkg_installed' --exclude='build' \
+            -czf "release/croupier-sdk-cpp-${VERSION}.tar.gz" -C sdks/cpp .
+          ls -lh release/
+      - timeout-minutes: 5
+        uses: actions/upload-artifact@v7
+        with:
+          name: croupier-sdk-sources-${{ github.run_number }}-${{ github.run_attempt }}
+          path: release/*
+          if-no-files-found: error
+
   release:
     name: Create Release
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [build-go]
+    needs: [build-go, build-sdk-sources]
     steps:
       - name: Download artifacts
         timeout-minutes: 3
