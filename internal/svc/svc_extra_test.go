@@ -39,6 +39,11 @@ func TestResolveDriverAndDSN_AutoAndEnv(t *testing.T) {
 		{"explicit driver", config.Config{Database: config.DatabaseConfig{Driver: " MySQL ", DataSource: "d"}}, "mysql", "d"},
 	}
 
+	// CI 全局注入 DB_DRIVER/DATABASE_URL（env 优先于 config）；本用例测的是
+	// config 驱动的 auto 推断，必须清空 env 覆盖。
+	t.Setenv("DB_DRIVER", "")
+	t.Setenv("DATABASE_URL", "")
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			driver, dsn := ResolveDriverAndDSN(tt.cfg)

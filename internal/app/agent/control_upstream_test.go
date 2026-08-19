@@ -321,7 +321,9 @@ func TestMuxControlClientNilGuards(t *testing.T) {
 }
 
 func TestMuxControlClientDirect(t *testing.T) {
-	f := newFakeControlServer(t)
+	// mux client 必须配 mux server：普通 tcptr.Server 只处理 request 帧，
+	// 单向 event 帧会被当作非法并断开连接。
+	f := newFakeMuxControlServer(t)
 	ctx := context.Background()
 
 	mc, err := newMuxControlClient(f.addr(), nil, nil)
@@ -338,8 +340,14 @@ func TestMuxControlClientDirect(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, caps)
 
-	require.NoError(t, mc.SendTaskEvent(ctx, []byte("task")))
-	require.NoError(t, mc.SendMetricEvent(ctx, []byte("metric")))
+	// 事件为单向 Send；CI 高负载下连接建立后的首帧可能与 server 端
+	// handler goroutine 调度竞争，短暂重试规避偶发失败。
+	require.Eventually(t, func() bool {
+		return mc.SendTaskEvent(ctx, []byte("task")) == nil
+	}, 3*time.Second, 50*time.Millisecond, "send task event")
+	require.Eventually(t, func() bool {
+		return mc.SendMetricEvent(ctx, []byte("metric")) == nil
+	}, 3*time.Second, 50*time.Millisecond, "send metric event")
 	require.NoError(t, mc.Close())
 	assert.False(t, mc.Connected())
 }

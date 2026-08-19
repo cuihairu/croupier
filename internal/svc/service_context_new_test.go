@@ -64,6 +64,10 @@ func TestNewServiceContext_MultiGame(t *testing.T) {
 }
 
 func TestNewServiceContext_PanicsOnBadDatabase(t *testing.T) {
+	// env 覆盖优先于 config；清空 CI 注入的 DB_DRIVER/DATABASE_URL，
+	// 否则 "unsupported-driver" 被 sqlite 覆盖、不触发 panic。
+	t.Setenv("DB_DRIVER", "unsupported-driver")
+	t.Setenv("DATABASE_URL", "")
 	cfg := newSvcConfig(t, false)
 	cfg.Database.Driver = "unsupported-driver"
 	assert.Panics(t, func() { NewServiceContext(cfg) })
