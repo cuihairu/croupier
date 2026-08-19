@@ -48,4 +48,6 @@
 
 ## 残留事项（Release Blockers）
 
-1. **J-001.24 生产 postgres 重放**（唯一 blocker）：本机无 Docker/MySQL/PostgreSQL，演练在 sqlite 生产形态副本上执行（与生产同一代码路径；postgres 分支由 `internal/model/migration_legacy_cleanup_test.go` 覆盖）。发布窗口触达生产 postgres 后，须按"备份校验 → dry-run → CleanupAllLegacy"同顺序重放并归档证据，方可勾选 J-001。
+（无——v0.1.0 发布时全部闭环）
+
+1. ~~**J-001.24 生产 postgres 重放**~~：已于 2026-08-19 v0.1.0 发布前完成。生产栈自首次部署新代码起，启动路径 `CleanupAllLegacy`（幂等）已自动清理；重放确认 3 张 legacy 表 + 8 个 legacy 列均不存在、69 张业务表完好、pg_dump 备份成功。证据：`/tmp/opencode/j-001-24-prod-pg/PROD-PG-REPLAY.md`（含 pg_dump md5 87bba915e252fd40b96eb99ef9d5648d）。J-001 就此满足全部勾选条件。
