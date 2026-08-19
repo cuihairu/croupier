@@ -60,7 +60,9 @@ const webServers = [
     ? [
         {
           command: `cross-env PORT=${devServerPort(mockWebBaseURL, 8000)} PLAYWRIGHT_BUNDLER=webpack REACT_APP_ENV=dev MOCK=all UMI_ENV=dev max dev`,
-          url: mockWebBaseURL,
+          // 探测编译产物而非 HTML 外壳：dev 服务器在首次编译完成前会挂起
+          // 对 /umi.js 的请求，避免测试在 bundle 未就绪时开始。
+          url: `${mockWebBaseURL}/umi.js`,
           reuseExistingServer: !process.env.CI,
           timeout: 180000,
         },
@@ -70,7 +72,8 @@ const webServers = [
     ? [
         {
           command: `cross-env PORT=${devServerPort(realWebBaseURL, 8001)} PLAYWRIGHT_BUNDLER=webpack REACT_APP_ENV=dev MOCK=none UMI_ENV=dev CROUPIER_SERVER_BASE_URL=${realServerBaseURL} max dev`,
-          url: realWebBaseURL,
+          // 同上：等待首次编译完成，避免冷启动时页面长时间停在加载屏。
+          url: `${realWebBaseURL}/umi.js`,
           reuseExistingServer: !process.env.CI,
           timeout: 180000,
         },
