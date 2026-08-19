@@ -2,11 +2,11 @@ name: CodeQL (SAST)
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   schedule:
-    - cron: '0 3 * * 1' # weekly at 03:00 UTC (Mon)
+    - cron: "0 3 * * 1" # weekly at 03:00 UTC (Mon)
   workflow_dispatch:
 
 env:
@@ -32,7 +32,7 @@ jobs:
         timeout-minutes: 5
         uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash

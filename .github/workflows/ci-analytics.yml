@@ -3,21 +3,21 @@ on:
   push:
     branches: [main]
     paths:
-      - 'internal/analytics/**'
-      - 'cmd/analytics-worker/**'
-      - 'cmd/ingest/**'
-      - 'docker/**'
-      - 'scripts/e2e/analytics.sh'
-      - '.github/workflows/ci-analytics.yml'
+      - "internal/analytics/**"
+      - "cmd/analytics-worker/**"
+      - "cmd/ingest/**"
+      - "docker/**"
+      - "scripts/e2e/analytics.sh"
+      - ".github/workflows/ci-analytics.yml"
   pull_request:
     branches: [main]
     paths:
-      - 'internal/analytics/**'
-      - 'cmd/analytics-worker/**'
-      - 'cmd/ingest/**'
-      - 'docker/**'
-      - 'scripts/e2e/analytics.sh'
-      - '.github/workflows/ci-analytics.yml'
+      - "internal/analytics/**"
+      - "cmd/analytics-worker/**"
+      - "cmd/ingest/**"
+      - "docker/**"
+      - "scripts/e2e/analytics.sh"
+      - ".github/workflows/ci-analytics.yml"
 jobs:
   analytics-e2e:
     name: Analytics E2E
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Normalize Go toolchain env
         shell: bash
         run: |

@@ -13,11 +13,7 @@ import type { JSONValue } from '@/types/dashboard';
 
 /** 变更类型 */
 export type ChangeType =
-  | 'function_update'
-  | 'semantic_update'
-  | 'proposal_update'
-  | 'draft_update'
-  | 'publish';
+  'function_update' | 'semantic_update' | 'proposal_update' | 'draft_update' | 'publish';
 
 /** 变更项 */
 export interface ChangeItem {

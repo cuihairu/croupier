@@ -8,30 +8,30 @@ title: 文档治理
 
 ## 信息架构
 
-| 目录 | 定位 | 维护规则 |
-| --- | --- | --- |
-| `docs/guide/` | 使用者指南 | 只写当前可操作流程，不放设计草案 |
-| `docs/concepts/` | 业务概念 | 规划目录；现阶段概念文档仍位于 `docs/guide/concepts/` |
-| `docs/architecture/` | 架构与协议 | 当前规范优先；提案必须标明状态 |
-| `docs/api/` | REST API 与兼容 API | 每个业务域一个 canonical 页面 |
-| `docs/analytics/` | 分析系统 | ingest、worker、ClickHouse、指标和 Playbook |
-| `docs/sdks/` | SDK 使用者文档 | 跨语言契约和语言接入指南 |
-| `docs/development/` | 开发者文档 | 仓库、发布、生成、文档治理 |
-| `docs/archive/` | 历史资料 | 规划目录；归档前需要确认批量移动 |
-| `sdks/<lang>/README.md` | SDK 源码入口 | 构建、测试、发布、包管理说明 |
-| `web/docs/` | Dashboard 开发文档 | 只保留 Web 子系统开发资料 |
+| 目录                    | 定位                | 维护规则                                              |
+| ----------------------- | ------------------- | ----------------------------------------------------- |
+| `docs/guide/`           | 使用者指南          | 只写当前可操作流程，不放设计草案                      |
+| `docs/concepts/`        | 业务概念            | 规划目录；现阶段概念文档仍位于 `docs/guide/concepts/` |
+| `docs/architecture/`    | 架构与协议          | 当前规范优先；提案必须标明状态                        |
+| `docs/api/`             | REST API 与兼容 API | 每个业务域一个 canonical 页面                         |
+| `docs/analytics/`       | 分析系统            | ingest、worker、ClickHouse、指标和 Playbook           |
+| `docs/sdks/`            | SDK 使用者文档      | 跨语言契约和语言接入指南                              |
+| `docs/development/`     | 开发者文档          | 仓库、发布、生成、文档治理                            |
+| `docs/archive/`         | 历史资料            | 规划目录；归档前需要确认批量移动                      |
+| `sdks/<lang>/README.md` | SDK 源码入口        | 构建、测试、发布、包管理说明                          |
+| `web/docs/`             | Dashboard 开发文档  | 只保留 Web 子系统开发资料                             |
 
 ## 生命周期
 
 文档必须处于以下状态之一：
 
-| 状态 | 含义 | 要求 |
-| --- | --- | --- |
-| Current | 当前实现或当前规范 | 可作为实现依据 |
+| 状态          | 含义                          | 要求             |
+| ------------- | ----------------------------- | ---------------- |
+| Current       | 当前实现或当前规范            | 可作为实现依据   |
 | Compatibility | 为兼容历史 API 或历史部署保留 | 必须说明替代入口 |
-| Proposal | 已接受或待实现的目标设计 | 不得写成当前事实 |
-| Reference | 调研、模板、背景材料 | 不得作为规范入口 |
-| Archived | 发布材料、阶段报告、过期方案 | 默认不进导航 |
+| Proposal      | 已接受或待实现的目标设计      | 不得写成当前事实 |
+| Reference     | 调研、模板、背景材料          | 不得作为规范入口 |
+| Archived      | 发布材料、阶段报告、过期方案  | 默认不进导航     |
 
 ## Canonical 规则
 

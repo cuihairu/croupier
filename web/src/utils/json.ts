@@ -132,12 +132,7 @@ export type JSONSchemaType = {
 };
 
 export type JSONSchemaValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JSONSchemaValue[]
-  | { [key: string]: JSONSchemaValue };
+  null | boolean | number | string | JSONSchemaValue[] | { [key: string]: JSONSchemaValue };
 
 /**
  * 解析 input_schema 字符串为 JSON Schema 对象

@@ -1,10 +1,5 @@
 export type DetailTabKey =
-  | 'basic'
-  | 'config'
-  | 'permissions'
-  | 'history'
-  | 'analytics'
-  | 'warnings';
+  'basic' | 'config' | 'permissions' | 'history' | 'analytics' | 'warnings';
 
 export type DetailActionKey = 'reload' | 'copy' | 'delete' | 'edit';
 

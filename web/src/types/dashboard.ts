@@ -18,12 +18,7 @@ export type LocalizedText = Record<string, string>;
 
 /** JSON 基础值，避免核心 DTO 使用非约束动态类型 */
 export type JSONValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JSONValue[]
-  | { [key: string]: JSONValue };
+  null | boolean | number | string | JSONValue[] | { [key: string]: JSONValue };
 
 /** JSON Schema 对象 (draft-07 / 2020-12) */
 export type JSONSchema = { [key: string]: JSONValue };
@@ -43,14 +38,7 @@ export type RiskLevel = 'safe' | 'warning' | 'high' | 'danger';
 
 /** 函数在资源生命周期中的能力语义 */
 export type CapabilityKind =
-  | 'collection_query'
-  | 'item_query'
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'action'
-  | 'task'
-  | 'report';
+  'collection_query' | 'item_query' | 'create' | 'update' | 'delete' | 'action' | 'task' | 'report';
 
 /** 函数执行方式 */
 export type FunctionExecution = 'sync' | 'task';
@@ -1088,11 +1076,7 @@ export interface ProposalInbox {
 
 /** 变更类型 */
 export type ChangeType =
-  | 'function_update'
-  | 'semantic_update'
-  | 'proposal_update'
-  | 'draft_update'
-  | 'publish';
+  'function_update' | 'semantic_update' | 'proposal_update' | 'draft_update' | 'publish';
 
 /** 变更项 */
 export interface ChangeItem {

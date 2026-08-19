@@ -805,13 +805,7 @@ interface DimBase {
 }
 
 type DimData =
-  | ChannelData
-  | PlatformData
-  | CountryData
-  | RegionData
-  | CityData
-  | ProductData
-  | DimBase;
+  ChannelData | PlatformData | CountryData | RegionData | CityData | ProductData | DimBase;
 
 const TopProducts: React.FC<{ data: ProductData[] }> = ({ data }) => {
   try {

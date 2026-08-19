@@ -20,14 +20,7 @@ export type DirectoryPageSchema = {
   }>;
   columns: Array<{
     key:
-      | 'id'
-      | 'displayName'
-      | 'summary'
-      | 'resource'
-      | 'operation'
-      | 'tags'
-      | 'enabled'
-      | 'actions';
+      'id' | 'displayName' | 'summary' | 'resource' | 'operation' | 'tags' | 'enabled' | 'actions';
     title: string;
     width?: number;
     copyable?: boolean;

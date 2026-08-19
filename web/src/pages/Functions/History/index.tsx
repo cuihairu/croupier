@@ -411,11 +411,7 @@ export default () => {
                 <Badge
                   status={
                     (statusConfig[selectedCall.status]?.color || 'default') as
-                      | 'success'
-                      | 'error'
-                      | 'processing'
-                      | 'default'
-                      | 'warning'
+                      'success' | 'error' | 'processing' | 'default' | 'warning'
                   }
                   text={statusConfig[selectedCall.status]?.text || selectedCall.status}
                 />

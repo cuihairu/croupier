@@ -9,23 +9,23 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'docs/**'
-      - 'README.md'
-      - 'sdks/**/README.md'
-      - 'scripts/check-docs-links.sh'
-      - 'scripts/check-docs-terms.sh'
-      - 'scripts/docs-terms-baseline.txt'
-      - '.github/workflows/docs-check.yml'
+      - "docs/**"
+      - "README.md"
+      - "sdks/**/README.md"
+      - "scripts/check-docs-links.sh"
+      - "scripts/check-docs-terms.sh"
+      - "scripts/docs-terms-baseline.txt"
+      - ".github/workflows/docs-check.yml"
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'README.md'
-      - 'sdks/**/README.md'
-      - 'scripts/check-docs-links.sh'
-      - 'scripts/check-docs-terms.sh'
-      - 'scripts/docs-terms-baseline.txt'
-      - '.github/workflows/docs-check.yml'
+      - "docs/**"
+      - "README.md"
+      - "sdks/**/README.md"
+      - "scripts/check-docs-links.sh"
+      - "scripts/check-docs-terms.sh"
+      - "scripts/docs-terms-baseline.txt"
+      - ".github/workflows/docs-check.yml"
 
 permissions:
   contents: read

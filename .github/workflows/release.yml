@@ -3,15 +3,15 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   schedule:
-    - cron: '0 2 * * *' # daily at 02:00 UTC (nightly)
+    - cron: "0 2 * * *" # daily at 02:00 UTC (nightly)
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'Release type'
+        description: "Release type"
         required: true
-        default: 'nightly'
+        default: "nightly"
         type: choice
         options:
           - nightly
@@ -44,7 +44,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash

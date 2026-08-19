@@ -100,8 +100,7 @@ export const DiffEditor: React.FC<{
   const mod = Monaco as Record<string, unknown>;
   const defaultMod = mod.default as Record<string, unknown> | undefined;
   const M = (mod.DiffEditor || defaultMod?.DiffEditor) as
-    | React.ComponentType<Record<string, unknown>>
-    | undefined;
+    React.ComponentType<Record<string, unknown>> | undefined;
   if (!M) return null;
   return (
     <M
