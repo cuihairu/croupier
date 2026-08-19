@@ -84,17 +84,39 @@ jobs:
           GOOS=$(go env GOOS)
           GOARCH=$(go env GOARCH)
           TAR="release/croupier-bin-${GOOS}-${GOARCH}.tar.gz"
-          tar -czf "${TAR}" -C bin .
+          # 附带启动必需的默认配置与说明，用户解压即可 ./croupier-server server 起步
+          STAGE="release/stage-${GOOS}-${GOARCH}"
+          mkdir -p "${STAGE}"
+          cp bin/* "${STAGE}/"
+          mkdir -p "${STAGE}/configs"
+          cp configs/server.yaml configs/agent.yaml "${STAGE}/configs/"
+          # bootstrap 数据（管理员/游戏/RBAC 首启种子）
+          cp configs/admins.json configs/games.json configs/permissions.json configs/rbac.json "${STAGE}/configs/" 2>/dev/null || true
+          cp configs/default-policies.yaml "${STAGE}/configs/" 2>/dev/null || true
+          cp README.md "${STAGE}/README.md" 2>/dev/null || true
+          tar -czf "${TAR}" -C "${STAGE}" .
+          rm -rf "${STAGE}"
       - name: Package binaries (Windows, zip)
         if: runner.os == 'Windows'
         timeout-minutes: 5
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          $GOOS = (go env GOOS)
-          $GOARCH = (go env GOARCH)
+          $GOOS = go env GOOS
+          $GOARCH = go env GOARCH
           $ZIP = "release/croupier-bin-$GOOS-$GOARCH.zip"
-          Compress-Archive -Path bin/* -DestinationPath $ZIP -Force
+          # 与 tar.gz 同构：二进制 + configs + README
+          $STAGE = "release/stage-$GOOS-$GOARCH"
+          New-Item -ItemType Directory -Force -Path $STAGE | Out-Null
+          Copy-Item bin/* $STAGE/
+          New-Item -ItemType Directory -Force -Path "$STAGE/configs" | Out-Null
+          Copy-Item configs/server.yaml, configs/agent.yaml "$STAGE/configs/"
+          foreach ($f in @("admins.json","games.json","permissions.json","rbac.json","default-policies.yaml")) {
+            if (Test-Path "configs/$f") { Copy-Item "configs/$f" "$STAGE/configs/" }
+          }
+          if (Test-Path README.md) { Copy-Item README.md "$STAGE/README.md" }
+          Compress-Archive -Path "$STAGE/*" -DestinationPath $ZIP -Force
+          Remove-Item -Recurse -Force $STAGE
       - name: Upload artifact (binaries)
         timeout-minutes: 3
         uses: actions/upload-artifact@v7
