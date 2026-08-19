@@ -21,7 +21,10 @@ control:
   ca: ""
 
 registry:
-  assignmentsPath: "data/assignments.json"
+  # 绝对路径：写入 /app/data volume（docker-compose.deploy.yml 挂载），
+  # 避免相对路径被 bootstrapData.baseDir 解析进容器可写层 /app/configs/data
+  # 而在容器重建时丢失启用状态。
+  assignmentsPath: "/app/data/assignments.json"
   analyticsFiltersPath: "schemas/analytics_filters.json"
   rateLimitsPath: "data/rate_limits.json"
 
