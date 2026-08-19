@@ -55,15 +55,9 @@ import {
 } from '@/services/api/versioning';
 import type { PageSpec, PageSpecDraftSummary, PageType, PageVersionItem } from '@/types/dashboard';
 import { requestConsoleMenuRefresh } from '@/utils/consoleMenu';
+import { localizedText } from '@/utils/localizedText';
 
 const { Paragraph, Text } = Typography;
-
-function localizedText(text: Record<string, string> | undefined, fallback: string): string {
-  if (!text) return fallback;
-  return (
-    text['zh-CN'] || text['en-US'] || Object.values(text).find((value) => value.trim()) || fallback
-  );
-}
 
 function statusColor(status: PageSpecDraftSummary['status']) {
   if (status === 'published') return 'green';

@@ -16,6 +16,7 @@ import {
   type FunctionDescriptor,
 } from '@/services/api/functions';
 import type { JSONSchema, JSONValue } from '@/types/dashboard';
+import { localizedText } from '@/utils/localizedText';
 
 export interface FunctionDetail {
   id: string;
@@ -184,8 +185,12 @@ export default function useFunctionDetailPage(functionId?: string) {
       const indexItem = await loadSourceOfTruth(functionId);
       const normalizedDetail: FunctionDetail = {
         id: detail.id,
-        name: detail.displayName?.zh || detail.displayName?.en || detail.id,
-        description: detail.summary?.zh || detail.summary?.en || detail.description || '',
+        name: localizedText(detail.displayName, 'zh-CN', detail.id),
+        description: localizedText(
+          detail.summary,
+          'zh-CN',
+          localizedText(detail.description, 'zh-CN', ''),
+        ),
         resource: detail.resource || indexItem?.resource,
         operation: detail.operation || indexItem?.operation,
         version: detail.version,
@@ -232,8 +237,12 @@ export default function useFunctionDetailPage(functionId?: string) {
           if (desc) {
             const detailFromDesc: FunctionDetail = {
               id: desc.id,
-              name: desc.displayName?.zh || desc.displayName?.en || desc.id,
-              description: desc.summary?.zh || desc.summary?.en || desc.description || '',
+              name: localizedText(desc.displayName, 'zh-CN', desc.id),
+              description: localizedText(
+                desc.summary,
+                'zh-CN',
+                localizedText(desc.description, 'zh-CN', ''),
+              ),
               resource: desc.resource,
               operation: desc.operation,
               version: desc.version || '1.0.0',

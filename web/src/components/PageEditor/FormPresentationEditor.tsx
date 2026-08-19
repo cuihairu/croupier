@@ -1,5 +1,6 @@
 import { Form, Input, Select, Space, Switch, Tag, Typography } from 'antd';
 import type { FormFieldSpec, FormPresentationSpec, FormWidget } from '@/types/dashboard';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 
@@ -75,7 +76,7 @@ export default function FormPresentationEditor({
           >
             <Form.Item label={<Text code>{field.key}</Text>}>
               <Input
-                value={field.label?.['zh-CN'] || ''}
+                value={localizedText(field.label, 'zh-CN', '')}
                 placeholder="字段标签"
                 onChange={(event) =>
                   applyField(index, { label: { ...field.label, 'zh-CN': event.target.value } })
@@ -93,7 +94,7 @@ export default function FormPresentationEditor({
             </Form.Item>
             <Form.Item label="占位">
               <Input
-                value={field.placeholder?.['zh-CN'] || ''}
+                value={localizedText(field.placeholder, 'zh-CN', '')}
                 onChange={(event) =>
                   applyField(index, {
                     placeholder: { ...field.placeholder, 'zh-CN': event.target.value },

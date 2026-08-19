@@ -17,6 +17,7 @@ import {
 } from '@ant-design/icons';
 import type { ChartSpec, DimensionSpec, MetricSpec, ReportPageSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -140,7 +141,7 @@ export default function ReportPageEditor({
                   <Form.Item label="标题">
                     <Input
                       size="small"
-                      value={dimension.title?.['zh-CN'] || ''}
+                      value={localizedText(dimension.title, 'zh-CN', '')}
                       onChange={(event) =>
                         handleDatasetChange({
                           dimensions: updateDimension(value.dataset.dimensions, index, {
@@ -190,7 +191,7 @@ export default function ReportPageEditor({
                   <Form.Item label="标题">
                     <Input
                       size="small"
-                      value={metric.title?.['zh-CN'] || ''}
+                      value={localizedText(metric.title, 'zh-CN', '')}
                       onChange={(event) =>
                         handleDatasetChange({
                           metrics: updateMetric(value.dataset.metrics, index, {
@@ -272,7 +273,7 @@ export default function ReportPageEditor({
             title={
               <Space>
                 <BarChartOutlined />
-                <Text>{chart.title?.['zh-CN'] || chart.type}</Text>
+                <Text>{localizedText(chart.title, 'zh-CN', chart.type)}</Text>
               </Space>
             }
             extra={
@@ -294,7 +295,7 @@ export default function ReportPageEditor({
               <Form.Item label="标题">
                 <Input
                   size="small"
-                  value={chart.title?.['zh-CN'] || ''}
+                  value={localizedText(chart.title, 'zh-CN', '')}
                   onChange={(event) =>
                     handleChartsChange(
                       updateChart(value.charts || [], index, {

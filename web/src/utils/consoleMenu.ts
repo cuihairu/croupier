@@ -1,5 +1,6 @@
 import type { MenuDataItem } from '@ant-design/pro-components';
 import type { ConsoleMenuSpec, LocalizedText, PublishedPageSpec } from '@/types/dashboard';
+import { localizedText } from '@/utils/localizedText';
 
 export const CONSOLE_MENU_REFRESH_EVENT = 'console-menu:refresh';
 
@@ -19,14 +20,9 @@ export function resolveLocalizedText(
 ): string {
   if (!text) return fallback;
   const normalizedLocale = locale.replace('_', '-');
-  return (
-    text[normalizedLocale] ||
-    text[normalizedLocale.toLowerCase()] ||
-    text['zh-CN'] ||
-    text['en-US'] ||
-    Object.values(text).find((value) => value.trim() !== '') ||
-    fallback
-  );
+  const exact = text[normalizedLocale] || text[normalizedLocale.toLowerCase()];
+  if (exact) return exact;
+  return localizedText(text, locale, fallback);
 }
 
 export function buildConsolePagePath(categoryKey: string, pageKey: string): string {

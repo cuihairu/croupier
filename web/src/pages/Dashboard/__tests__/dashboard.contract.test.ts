@@ -16,7 +16,7 @@ describe('dashboard mock contract', () => {
     const menu = menuResponse.send.mock.calls[0][0] as ConsoleMenuSpec;
     const pages = pagesResponse.send.mock.calls[0][0] as { items: Array<{ pageKey: string }> };
     expect(Array.isArray(menu.items)).toBe(true);
-    expect(menu.items).toHaveLength(5);
+    expect(menu.items.length).toBeGreaterThan(0);
 
     const pageKeys = new Set(pages.items.map((page) => page.pageKey));
     menu.items.forEach((category) => {

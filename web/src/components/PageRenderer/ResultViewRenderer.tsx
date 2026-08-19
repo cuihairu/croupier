@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert, Descriptions, Space, Tag, Typography } from 'antd';
 import type { JSONValue, ResultViewSpec } from '@/types/dashboard';
+import { localizedText } from '@/utils/localizedText';
 
 type JsonRecord = Record<string, JSONValue>;
 
@@ -40,10 +41,6 @@ function isJsonRecord(value: JSONValue | null | undefined): value is JsonRecord 
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function displayText(text: Record<string, string> | undefined, fallback: string): string {
-  return text?.['zh-CN'] || text?.['en-US'] || text?.en || fallback;
-}
-
 const ResultViewRenderer: React.FC<ResultViewRendererProps> = ({
   data,
   resultView,
@@ -68,7 +65,7 @@ const ResultViewRenderer: React.FC<ResultViewRendererProps> = ({
     if (resultView.fields.length === 1 && resultView.fields[0].key === 'result') {
       return (
         <Descriptions column={1} bordered>
-          <Descriptions.Item label={displayText(resultView.fields[0].title, '结果')}>
+          <Descriptions.Item label={localizedText(resultView.fields[0].title, 'zh-CN', '结果')}>
             {renderJSONValueSummary(data)}
           </Descriptions.Item>
         </Descriptions>
@@ -87,7 +84,7 @@ const ResultViewRenderer: React.FC<ResultViewRendererProps> = ({
   return (
     <Descriptions column={1} bordered>
       {resultView.fields.map((field) => (
-        <Descriptions.Item key={field.key} label={displayText(field.title, field.key)}>
+        <Descriptions.Item key={field.key} label={localizedText(field.title, 'zh-CN', field.key)}>
           {renderJSONValueSummary(data[field.key])}
         </Descriptions.Item>
       ))}

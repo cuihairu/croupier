@@ -18,8 +18,8 @@ describe('normalizeFunctionSummary', () => {
     ).toMatchObject({
       id: 'player.list',
       enabled: true,
-      displayName: { zh: '玩家列表', en: 'Player List' },
-      summary: { zh: '查询玩家', en: 'List players' },
+      displayName: { 'zh-CN': '玩家列表', 'en-US': 'Player List' },
+      summary: { 'zh-CN': '查询玩家', 'en-US': 'List players' },
     });
   });
 

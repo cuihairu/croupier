@@ -12,6 +12,7 @@ import { Card, Collapse, Form, Input, Select, Space, Tag, Typography } from 'ant
 import { FormOutlined, CheckCircleOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { OperationPageSpec, ConfirmActionSpec, ResultViewSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -104,7 +105,7 @@ export default function OperationPageEditor({
             <>
               <Form.Item label="确认标题">
                 <Input
-                  value={value.confirm.title?.['zh-CN'] || ''}
+                  value={localizedText(value.confirm.title, 'zh-CN', '')}
                   onChange={(e) =>
                     handleConfirmChange({
                       title: { ...value.confirm?.title, 'zh-CN': e.target.value },
@@ -114,7 +115,7 @@ export default function OperationPageEditor({
               </Form.Item>
               <Form.Item label="确认描述">
                 <Input.TextArea
-                  value={value.confirm.description?.['zh-CN'] || ''}
+                  value={localizedText(value.confirm.description, 'zh-CN', '')}
                   onChange={(e) =>
                     handleConfirmChange({
                       description: { ...value.confirm?.description, 'zh-CN': e.target.value },
@@ -161,7 +162,7 @@ export default function OperationPageEditor({
               <Form.Item label="标题">
                 <Input
                   size="small"
-                  value={field.title?.['zh-CN'] || ''}
+                  value={localizedText(field.title, 'zh-CN', '')}
                   onChange={(e) => {
                     const fields = [...(value.resultView?.fields || [])];
                     fields[index] = {
@@ -195,7 +196,7 @@ export default function OperationPageEditor({
         <Form layout="vertical" disabled={readonly} style={{ marginTop: 16 }}>
           <Form.Item label="成功消息">
             <Input
-              value={value.resultView?.successMessage?.['zh-CN'] || ''}
+              value={localizedText(value.resultView?.successMessage, 'zh-CN', '')}
               onChange={(e) =>
                 handleResultViewChange({
                   successMessage: { ...value.resultView?.successMessage, 'zh-CN': e.target.value },
@@ -205,7 +206,7 @@ export default function OperationPageEditor({
           </Form.Item>
           <Form.Item label="错误消息">
             <Input
-              value={value.resultView?.errorMessage?.['zh-CN'] || ''}
+              value={localizedText(value.resultView?.errorMessage, 'zh-CN', '')}
               onChange={(e) =>
                 handleResultViewChange({
                   errorMessage: { ...value.resultView?.errorMessage, 'zh-CN': e.target.value },

@@ -58,6 +58,7 @@ import type { ConflictResolution, MergeResponse } from '@/services/api/versionin
 import { publishPageDraft } from '@/services/api/pages';
 import PageRenderer from '@/components/PageRenderer';
 import { buildConsolePagePath, requestConsoleMenuRefresh } from '@/utils/consoleMenu';
+import { localizedText } from '@/utils/localizedText';
 
 const { Paragraph, Text } = Typography;
 
@@ -114,13 +115,6 @@ const pageTypeColors: Record<PageType, string> = {
   report: 'purple',
 };
 
-function localizedText(text: Record<string, string> | undefined, fallback: string): string {
-  if (!text) return fallback;
-  return (
-    text['zh-CN'] || text['en-US'] || Object.values(text).find((value) => value.trim()) || fallback
-  );
-}
-
 function formatDate(value?: string): string {
   if (!value) return '-';
   const time = new Date(value);
@@ -150,7 +144,7 @@ function matchesQuery(proposal: PageProposal, query: string): boolean {
     proposal.proposalKey,
     proposal.pageKey,
     proposal.resourceKey || '',
-    localizedText(proposal.title, ''),
+    localizedText(proposal.title, 'zh-CN', ''),
   ]
     .join(' ')
     .toLowerCase()
@@ -543,7 +537,7 @@ export default function ProposalInbox() {
       title: '修复提示',
       dataIndex: 'repairHint',
       key: 'repairHint',
-      render: (_, record) => localizedText(record.repairHint, '-'),
+      render: (_, record) => localizedText(record.repairHint, 'zh-CN', '-'),
     },
     {
       title: '诊断',

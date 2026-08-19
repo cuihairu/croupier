@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Essential Development Commands
 
 **Build System (Makefile-driven):**
+
 ```bash
 make dev          # Clean build from scratch: proto + build
 make build        # Build all binaries (server, agent) to /bin
@@ -15,6 +16,7 @@ make clean        # Remove build artifacts and generated code
 ```
 
 **Local Development Setup:**
+
 ```bash
 git clone --recursive https://github.com/cuihairu/croupier.git
 go mod download && make submodules
@@ -24,6 +26,7 @@ make build               # Build binaries
 ```
 
 **Testing:**
+
 ```bash
 make test                 # All tests with race detection
 go test ./internal/...    # Subset testing
@@ -31,6 +34,7 @@ go test ./internal/...    # Subset testing
 ```
 
 **Code Style:**
+
 ```bash
 gofmt -w .                # Format all Go files
 gofmt -l .                # List files that need formatting
@@ -38,9 +42,19 @@ gofmt -l .                # List files that need formatting
 
 **TypeScript Type Safety (Mandatory):**
 
+**Localized Text Contract (Mandatory):**
+
+后端唯一契约为 `spec.LocalizedText = map[BCP47-locale]string`，即 key 必须是 `"zh-CN"` / `"en-US"`。
+
+- 前端 `web/src/types/dashboard.ts` 的 `LocalizedText` 是唯一类型定义；禁止任何模块再声明自有本地化类型或自造短 key（`zh` / `en` / `zh_cn`）。
+- Service 边界必须经 `normalizeLocalizedText`（`web/src/services/api/functions-enhanced.ts`）归一：任何输入形态（BCP47、遗留短 key、裸字符串）统一输出 `{ "zh-CN", "en-US" }`。
+- 渲染必须走 `web/src/utils/localizedText.ts` 的 `localizedText(value, locale, fallback)`，禁止在组件内内联 `value['zh-CN'] || ...` 之类的取值链。
+- 新增 API/DTO 的本地化字段 review 时按上述三条检查；出现第二份 LocalizedText 定义或组件内取值链视为 review failure。
+
 **NEVER use `any` type in TypeScript/React code.** This is strictly prohibited.
 
 Instead:
+
 - Use proper interface/type definitions from API services
 - Use `unknown` for truly unknown types, then narrow with type guards
 - Use generics like `Record<string, JSONValue>` for dynamic objects
@@ -49,6 +63,7 @@ Instead:
 - Define proper interfaces for component props and state
 
 Examples:
+
 ```typescript
 // ❌ WRONG - never do this
 const handleUpload = async (options: any) => { ... }
@@ -60,11 +75,13 @@ const data: Record<string, JSONValue> = response;
 ```
 
 If you encounter a type error, fix it by:
+
 1. Checking the actual type from the library/API
 2. Defining a proper interface if one doesn't exist
 3. Using type narrowing or assertions with known types
 
 **SDK Conformance:**
+
 ```bash
 ./scripts/check-sdk-matrix.sh   # Verify each SDK exposes L1 APIs from sdks/SDK_FEATURE_MATRIX.md
 ```
@@ -82,17 +99,20 @@ Croupier implements a **three-tier distributed GM backend system**:
 ### Core Components
 
 **Server** (`internal/server/`)
+
 - Central control plane with gRPC (8443) + HTTP REST (18780)
 - Two main services: `ControlService` (agent registration) and `FunctionService` (invocation routing)
 - Features: load balancing, RBAC, audit chain, approval workflows, multi-game scoping
 
 **Agent** (`internal/agent/`)
+
 - Distributed proxy in game networks, outbound mTLS to Server
 - Local gRPC listener (19090) for game server function registration
 - Bidirectional tunnel support for request/response multiplexing
 - Job execution with async streaming, idempotency, cancellation
 
 ### Data Flow Pattern
+
 ```
 Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 ```
@@ -100,11 +120,13 @@ Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 ## Key Development Patterns
 
 **Protocol-First Development:**
+
 - All APIs defined in `proto/` using Buf toolchain
 - Custom protoc plugin (`protoc-gen-croupier`) generates pack artifacts
 - Generated code in `gen/` (ignored in git)
 
 **CRITICAL: Protobuf Code Generation**
+
 - **ALWAYS** use `make proto` to generate protobuf code
 - Buf uses **remote plugins** with fixed versions (e.g., buf.build/protocolbuffers/go:v1.36.11)
 - **NEVER** use local `protoc` directly - it will generate incompatible code
@@ -112,21 +134,25 @@ Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 - Buf config (`buf.gen.yaml`) specifies exact plugin versions to match CI environment
 
 **Descriptor-Driven Architecture:**
+
 - Functions defined via protobuf + JSON Schema descriptors
 - UI auto-generates forms, validation, and permission checks from single source
 - Function packs (`.tgz`) bundle descriptors, schemas, and UI plugins
 
 **Configuration Management:**
+
 - Multi-layer: YAML → includes → profiles → env vars → CLI flags
 - Environment prefixes: `CROUPIER_SERVER_*`, `CROUPIER_AGENT_*`
 - Config validation: `./croupier config test`
 
 **Idempotency & Task Model:**
+
 - All operations support `idempotency-key` to prevent duplicate side effects
 - Async tasks with event streaming (progress/logs/done/error)
 - Task cancellation via `CancelTask` RPC
 
 **Build Tags for Features:**
+
 - `pg` tag: PostgreSQL support for approvals
 - `sqlite` tag: SQLite approvals store
 - Enables flexible deployment options
@@ -153,18 +179,21 @@ examples/                 # Demo game servers and invokers
 ## Important Implementation Details
 
 **Security Architecture:**
+
 - Enforced mTLS for all inter-service communication
 - Field-level masking for sensitive data in audit logs
 - Two-person rule enforcement for high-risk operations
 - Audit chain with hash-based integrity
 
 **Single-Company Scope Model:**
+
 - Croupier is not a SaaS multi-tenant platform; it assumes one game company with multiple games
 - All operations are scoped by `game_id`/`env` for game/environment isolation
 - Registry indexed by `(game_id, function_id)` for function routing
 - HTTP headers `X-Game-ID`/`X-Env` propagated through call chain
 
 **Database-per-Game Architecture:**
+
 - When `database.multiGame: true` is set, each `(game_id, env)` pair gets its own physical database (e.g. `game_demo_prod`)
 - The configured `database.dataSource` is the **meta database** (`croupier_meta`) holding users, roles, games registry, `game_envs` bindings, audit, extensions, etc.
 - `internal/db/router.Router` lazily opens and caches per-game `*gorm.DB` connections, auto-creating and migrating each game database on first use
@@ -175,6 +204,7 @@ examples/                 # Demo game servers and invokers
 - When `multiGame: false` (default for dev/CI), all tables coexist in a single database with `game_id` columns for row-level isolation
 
 **Load Balancing Abstraction:**
+
 - Strategy interface with multiple implementations
 - Health checking integrated with agent selection
 - Supports routing modes: lb, broadcast, targeted, hash
@@ -182,6 +212,7 @@ examples/                 # Demo game servers and invokers
 ## Testing Approach
 
 Unit tests focus on:
+
 - RBAC policy grant/deny logic (`internal/auth/rbac/`)
 - Job executor state transitions and idempotency (`internal/agent/jobs/`)
 - Sensitive field masking (`internal/server/http/`)
@@ -201,6 +232,7 @@ All HTTP APIs must follow one response contract. Do not mix envelope and non-env
 - Do **not** wrap success payload in `{ "code": ..., "message": ..., "data": ... }`.
 
 Examples:
+
 - `200 OK` + `{ "id": 1, "name": "admin" }`
 - `200 OK` + `{ "items": [...], "total": 10 }`
 - `204 No Content` with empty body
@@ -214,6 +246,7 @@ Examples:
   - `details` (optional): structured validation/business detail
 
 Example:
+
 - `401 Unauthorized` + `{ "error": "unauthorized", "message": "未授权" }`
 
 ### 3) Frontend Error Handling Contract

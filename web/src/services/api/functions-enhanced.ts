@@ -1,10 +1,26 @@
 import { request } from '@umijs/max';
-import type { JSONValue } from '@/types/dashboard';
+import type { JSONValue, LocalizedText } from '@/types/dashboard';
 import type { FunctionDescriptor } from './functions';
 
-export interface LocalizedText {
-  zh?: string;
-  en?: string;
+export type { LocalizedText };
+
+/**
+ * 服务边界归一：任何本地化形态（BCP47 key、遗留短 key、裸字符串）
+ * 统一为契约形态 { "zh-CN", "en-US" }。出口不允许其他 key。
+ */
+export function normalizeLocalizedText(
+  value?: LocalizedText | string | Record<string, string>,
+): LocalizedText | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return text ? { 'zh-CN': text, 'en-US': text } : undefined;
+  }
+  const raw = value as Record<string, string | undefined>;
+  const zh = raw['zh-CN'] || raw.zh || raw.zh_cn;
+  const en = raw['en-US'] || raw.en || raw.en_us;
+  if (!zh && !en) return undefined;
+  return { ...(zh ? { 'zh-CN': zh } : {}), ...(en ? { 'en-US': en } : {}) };
 }
 
 // Enhanced types for better type safety.
@@ -141,8 +157,8 @@ type RawFunctionSummary = {
   version?: string;
   status?: number;
   enabled?: boolean;
-  displayName?: LocalizedText | Record<string, string>;
-  summary?: LocalizedText | Record<string, string>;
+  displayName?: LocalizedText | string | Record<string, string>;
+  summary?: LocalizedText | string | Record<string, string>;
   tags?: string[];
   resource?: string;
   operation?: string;
@@ -194,17 +210,6 @@ type RegistryServicesResponse = {
   services?: RawRegistryService[];
   total?: number;
 };
-
-function normalizeLocalizedText(
-  value?: LocalizedText | Record<string, string>,
-): LocalizedText | undefined {
-  if (!value) return undefined;
-  const raw = value as Record<string, string | undefined>;
-  const zh = raw.zh || raw['zh-CN'] || raw.zh_cn;
-  const en = raw.en || raw['en-US'] || raw.en_us;
-  if (!zh && !en) return undefined;
-  return { ...(zh ? { zh } : {}), ...(en ? { en } : {}) };
-}
 
 export function normalizeFunctionSummary(item: RawFunctionSummary): FunctionSummary {
   return {
@@ -475,7 +480,13 @@ export async function searchFunctions(params: {
   const q = params.query.trim().toLowerCase();
   const filtered = q
     ? functions.filter((item) =>
-        [item.id, item.displayName?.zh, item.displayName?.en, item.summary?.zh, item.summary?.en]
+        [
+          item.id,
+          item.displayName?.['zh-CN'],
+          item.displayName?.['en-US'],
+          item.summary?.['zh-CN'],
+          item.summary?.['en-US'],
+        ]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(q)),
       )

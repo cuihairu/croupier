@@ -41,6 +41,7 @@ import {
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import { isScopeReady, subscribeScope } from '@/stores/scope';
 import type { Diagnostic } from '@/types/dashboard';
+import { localizedText } from '@/utils/localizedText';
 
 type ApiErrorLike = {
   response?: {
@@ -107,7 +108,7 @@ function formatDate(value?: string): string {
 
 function functionLabel(fn: FunctionDescriptor): string {
   const title =
-    fn.summary?.zh || fn.summary?.en || fn.displayName?.zh || fn.displayName?.en || fn.id;
+    localizedText(fn.summary, 'zh-CN', '') || localizedText(fn.displayName, 'zh-CN', '') || fn.id;
   return `${title} (${fn.id})`;
 }
 

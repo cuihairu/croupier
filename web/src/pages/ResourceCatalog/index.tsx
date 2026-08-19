@@ -60,6 +60,7 @@ import {
   resolveResourceSemanticConflict,
   updateResourceSemantics,
 } from '@/services/dashboard';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text, Title } = Typography;
 
@@ -131,9 +132,6 @@ const emptySemanticVersions: ResourceSemanticVersions = {
   total: 0,
 };
 
-const localizedText = (text?: Record<string, string>): string =>
-  text?.['zh-CN'] || text?.['en-US'] || text?.en || '-';
-
 const displaySemanticValue = (value?: string): string => {
   if (!value) {
     return '-';
@@ -147,7 +145,7 @@ const displaySemanticValue = (value?: string): string => {
 };
 
 const pageTitleText = (page?: AffectedPageInfo): string =>
-  localizedText(page?.title) || page?.pageKey || '-';
+  localizedText(page?.title, 'zh-CN', '-') || page?.pageKey || '-';
 
 const bindingFreshnessSummary = (page?: AffectedPageInfo): string => {
   if (!page?.bindingFreshness || page.bindingFreshness.length === 0) {
@@ -507,7 +505,7 @@ const ResourceCatalogPage: React.FC = () => {
       title: '名称',
       dataIndex: 'labels',
       key: 'labels',
-      render: localizedText,
+      render: (labels: ResourceCatalogItem['labels']) => localizedText(labels, 'zh-CN', '-'),
     },
     {
       title: '分类',
@@ -653,7 +651,7 @@ const ResourceCatalogPage: React.FC = () => {
             <Descriptions column={2} bordered>
               <Descriptions.Item label="资源标识">{selectedResource.resourceKey}</Descriptions.Item>
               <Descriptions.Item label="名称">
-                {localizedText(selectedResource.labels)}
+                {localizedText(selectedResource.labels, 'zh-CN', '-')}
               </Descriptions.Item>
               <Descriptions.Item label="分类">
                 {selectedResource.categoryKey || '-'}

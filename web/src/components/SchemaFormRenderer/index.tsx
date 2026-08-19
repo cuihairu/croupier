@@ -27,6 +27,7 @@ import type {
   JSONSchema,
   JSONValue,
 } from '@/types/dashboard';
+import { localizedText } from '@/utils/localizedText';
 
 export interface SchemaFormRendererHandle {
   submit: () => void;
@@ -72,11 +73,6 @@ function normalizeFormValues(value: unknown): FormValues {
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [key, normalizeJsonValue(item)]),
   );
-}
-
-function getLocalizedText(value: Record<string, string> | undefined, fallback: string): string {
-  if (!value) return fallback;
-  return value['zh-CN'] || value.zh || value.en || value['en-US'] || fallback;
 }
 
 function getFieldSchema(schema: JSONSchema, key: string): JSONSchema {
@@ -125,7 +121,9 @@ function matchesCondition(condition: ConditionSpec | undefined, values: FormValu
 
 function getEnumNames(field: FormFieldSpec | undefined): string[] | undefined {
   if (!field?.enumOptions?.length) return undefined;
-  return field.enumOptions.map((option) => getLocalizedText(option.label, String(option.value)));
+  return field.enumOptions.map((option) =>
+    localizedText(option.label, 'zh-CN', String(option.value)),
+  );
 }
 
 function shouldUseTextarea(schema: JSONSchema): boolean {
@@ -190,7 +188,7 @@ function applyFieldPresentation(
     if (properties?.[field.key]) {
       properties[field.key] = {
         ...properties[field.key],
-        title: getLocalizedText(field.label, field.key),
+        title: localizedText(field.label, 'zh-CN', field.key),
       };
     }
   }
@@ -199,7 +197,7 @@ function applyFieldPresentation(
     if (properties?.[field.key]) {
       properties[field.key] = {
         ...properties[field.key],
-        description: getLocalizedText(field.description, ''),
+        description: localizedText(field.description, 'zh-CN', ''),
       };
     }
   }
@@ -213,7 +211,7 @@ function applyFieldPresentation(
     }
   }
   if (field.disabled) nextUi['ui:disabled'] = true;
-  if (field.placeholder) nextUi['ui:placeholder'] = getLocalizedText(field.placeholder, '');
+  if (field.placeholder) nextUi['ui:placeholder'] = localizedText(field.placeholder, 'zh-CN', '');
   if (widget) nextUi['ui:widget'] = widget;
   if (field.widget === 'MultiSelect') nextUi['ui:widget'] = 'select';
   if (field.widgetProps)
@@ -237,7 +235,7 @@ export function deriveRuntimeSchema(
   const schema = cloneSchema(spec.jsonSchema);
   const uiSchema: UiSchema = {
     'ui:submitButtonOptions': {
-      submitText: getLocalizedText(spec.submitButton?.text, '提交'),
+      submitText: localizedText(spec.submitButton?.text, 'zh-CN', '提交'),
       norender: false,
     },
   };

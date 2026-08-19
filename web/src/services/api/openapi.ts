@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import { localizedText } from '@/utils/localizedText';
 import type {
   ApprovalPolicy,
   CapabilityKind,
@@ -262,8 +263,12 @@ export function descriptorToOpenAPI(descriptor: {
 }): OpenAPIOperation {
   const operation: OpenAPIOperation = {
     operationId: descriptor.id,
-    summary: descriptor.summary?.zh || descriptor.summary?.en || descriptor.id,
-    description: descriptor.description || descriptor.summary?.zh || descriptor.summary?.en,
+    summary: localizedText(descriptor.summary, 'zh-CN', descriptor.id),
+    description: localizedText(
+      descriptor.description,
+      'zh-CN',
+      localizedText(descriptor.summary, 'zh-CN', ''),
+    ),
     tags: descriptor.tags || (descriptor.resource ? [descriptor.resource] : undefined),
   };
 

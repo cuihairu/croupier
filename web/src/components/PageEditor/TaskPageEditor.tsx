@@ -10,6 +10,7 @@ import { Card, Collapse, Form, Input, Select, Space, Switch, Tag, Typography } f
 import { FileTextOutlined, ProfileOutlined, ScheduleOutlined } from '@ant-design/icons';
 import type { ResultViewSpec, TaskPageSpec, TaskViewSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -173,7 +174,7 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
               <Form.Item label="标题">
                 <Input
                   size="small"
-                  value={field.title?.['zh-CN'] || ''}
+                  value={localizedText(field.title, 'zh-CN', '')}
                   onChange={(event) => {
                     const fields = (value.resultView?.fields || []).map((current, currentIndex) =>
                       currentIndex === index

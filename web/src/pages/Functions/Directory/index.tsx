@@ -18,6 +18,7 @@ import { history } from '@umijs/max';
 import { DASHBOARD_PAGE_TOKENS, StandardListSection, SummaryOverview } from '@/components';
 import type { SummaryRow } from './types';
 import useDirectoryPage from './useDirectoryPage';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 
@@ -254,15 +255,15 @@ export default function DirectoryPage() {
               </Descriptions.Item>
             </Descriptions>
 
-            {(selectedFunction.displayName?.zh || selectedFunction.displayName?.en) && (
+            {localizedText(selectedFunction.displayName, 'zh-CN', '') && (
               <Card size="small" title="显示名称" style={{ marginTop: 16 }}>
-                {selectedFunction.displayName?.zh || selectedFunction.displayName?.en}
+                {localizedText(selectedFunction.displayName, 'zh-CN', '')}
               </Card>
             )}
 
-            {(selectedFunction.summary?.zh || selectedFunction.summary?.en) && (
+            {localizedText(selectedFunction.summary, 'zh-CN', '') && (
               <Card size="small" title="函数描述" style={{ marginTop: 16 }}>
-                {selectedFunction.summary?.zh || selectedFunction.summary?.en}
+                {localizedText(selectedFunction.summary, 'zh-CN', '')}
               </Card>
             )}
 

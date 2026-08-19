@@ -14,7 +14,34 @@
 // ---------------------------------------------------------------------------
 
 /** 多语言文本，locale code -> display text */
-export type LocalizedText = Record<string, string>;
+/**
+ * 本地化文本契约（与后端 spec.LocalizedText 一致）：
+ * key 为 BCP47 locale（"zh-CN" / "en-US"），后端唯一下发形态。
+ * 服务层 normalize 后不允许出现自造短 key（zh/en/zh_cn）；
+ * 字符串裸值只允许存在于 raw DTO，出口必须归一为本类型。
+ */
+export type LocalizedText = {
+  'zh-CN'?: string;
+  'en-US'?: string;
+  [locale: string]: string | undefined;
+};
+
+/** 按当前 locale 提取本地化文本；缺省回退 系统默认语言 → 任一非空值。 */
+export function pickLocalizedText(
+  value: LocalizedText | string | undefined | null,
+  locale: string,
+): string {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  const zh = value['zh-CN'];
+  const en = value['en-US'];
+  const name = locale.toLowerCase().startsWith('zh') ? zh || en : en || zh;
+  if (name) return name;
+  for (const text of Object.values(value)) {
+    if (typeof text === 'string' && text) return text;
+  }
+  return '';
+}
 
 /** JSON 基础值，避免核心 DTO 使用非约束动态类型 */
 export type JSONValue =

@@ -4,6 +4,7 @@ import { Badge, Button, Space, Tag, Tooltip, Typography } from 'antd';
 import { CodeOutlined, InfoCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import type { DirectoryPageSchema } from './schema';
 import type { SummaryRow } from './types';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 
@@ -51,7 +52,7 @@ export const buildDirectoryColumns = ({
         dataIndex: 'displayName',
         width: col.width,
         ellipsis: true,
-        render: (_, record) => record.displayName?.zh || record.displayName?.en || record.id,
+        render: (_, record) => localizedText(record.displayName, 'zh-CN', record.id),
       } as ProColumns<SummaryRow>;
     }
     if (col.key === 'summary') {
@@ -61,7 +62,7 @@ export const buildDirectoryColumns = ({
         width: col.width,
         ellipsis: true,
         render: (_, record) => {
-          const text = record.summary?.zh || record.summary?.en || '';
+          const text = localizedText(record.summary, 'zh-CN', '');
           if (!text) return '-';
           const truncated = text.length > 50 ? text.slice(0, 50) + '...' : text;
           return (

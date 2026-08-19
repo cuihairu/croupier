@@ -51,10 +51,7 @@ import type {
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 
 const { Text } = Typography;
-
-function localizedText(value: Record<string, string> | undefined, fallback: string): string {
-  return value?.['zh-CN'] || value?.['en-US'] || value?.en || fallback;
-}
+import { localizedText } from '@/utils/localizedText';
 
 type TableRequestParams = FormValues & {
   current?: number;
@@ -492,15 +489,19 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                 }
               }}
             >
-              {action.title['zh-CN'] || action.title['en'] || action.key}
+              {localizedText(action.title, 'zh-CN', action.key)}
             </Button>
           ))}
           {deleteBinding && spec.deleteAction ? (
             <Popconfirm
-              title={localizedText(spec.deleteAction.title, '确认删除')}
-              description={localizedText(spec.deleteAction.description, '确认删除此记录？')}
-              okText={localizedText(spec.deleteAction.confirmText, '确认')}
-              cancelText={localizedText(spec.deleteAction.cancelText, '取消')}
+              title={localizedText(spec.deleteAction.title, 'zh-CN', '确认删除')}
+              description={localizedText(
+                spec.deleteAction.description,
+                'zh-CN',
+                '确认删除此记录？',
+              )}
+              okText={localizedText(spec.deleteAction.confirmText, 'zh-CN', '确认')}
+              cancelText={localizedText(spec.deleteAction.cancelText, 'zh-CN', '取消')}
               onConfirm={() => void handleDelete(record)}
             >
               <Button type="link" size="small" danger icon={<DeleteOutlined />}>
@@ -555,7 +556,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               disabled={preview}
               onClick={() => void executeListAction(action, {})}
             >
-              {action.title['zh-CN'] || action.title['en'] || action.key}
+              {localizedText(action.title, 'zh-CN', action.key)}
             </Button>
           )),
           ...(selectedRows.length > 0
@@ -567,7 +568,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                   disabled={preview}
                   onClick={() => void executeListAction(action, { selection: selectedRows })}
                 >
-                  {action.title['zh-CN'] || action.title['en'] || action.key}
+                  {localizedText(action.title, 'zh-CN', action.key)}
                 </Button>
               ))
             : []),

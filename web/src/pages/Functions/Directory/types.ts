@@ -1,4 +1,6 @@
-export type I18N = { zh?: string; en?: string };
+import type { LocalizedText } from '@/types/dashboard';
+
+export type I18N = LocalizedText;
 
 export type SummaryRow = {
   id: string;

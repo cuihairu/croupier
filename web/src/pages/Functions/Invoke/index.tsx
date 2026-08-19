@@ -20,25 +20,18 @@ import InvocationResponse from './InvocationResponse';
 import RequestBodyEditor from './RequestBodyEditor';
 import RequestHistory from './RequestHistory';
 import type { FormSchemaState, RequestHistoryItem } from './types';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 const HISTORY_KEY = 'croupier.function-invoke.history.v1';
 const EMPTY_FORM_STATE: FormSchemaState = { status: 'idle' };
 
 function displayName(descriptor: FunctionDescriptor, locale: string) {
-  // 本地化 key 兼容：API 实际下发 {en-US, zh-CN}，normalize 后为 {zh, en}，
-  // 两类形态都要能取到，避免把整个对象渲染进 React child。
-  const pick = (value?: unknown): string | undefined => {
-    if (!value || typeof value !== 'object') return typeof value === 'string' ? value : undefined;
-    const record = value as Record<string, string>;
-    return (
-      record.zh || record['zh-CN'] || record.zh_cn || record.en || record['en-US'] || record.en_us
-    );
-  };
-  const zh = pick(descriptor.displayName) || pick(descriptor.summary);
-  const en = zh;
-  const name = locale.toLowerCase().startsWith('zh') ? zh || en : en || zh;
-  return name || descriptor.id;
+  return (
+    localizedText(descriptor.displayName, locale, '') ||
+    localizedText(descriptor.summary, locale, '') ||
+    descriptor.id
+  );
 }
 
 function resolveSchema(descriptor: FunctionDescriptor): JSONSchemaType | null {

@@ -15,6 +15,7 @@ import ResourcePageEditor from './ResourcePageEditor';
 import OperationPageEditor from './OperationPageEditor';
 import TaskPageEditor from './TaskPageEditor';
 import ReportPageEditor from './ReportPageEditor';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 
@@ -98,7 +99,7 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
         <Form layout="vertical" disabled={readonly} style={{ marginTop: 16 }}>
           <Form.Item label="页面标题 zh-CN" required>
             <Input
-              value={value.title?.['zh-CN'] || ''}
+              value={localizedText(value.title, 'zh-CN', '')}
               onChange={(event) =>
                 onChange({
                   ...value,
@@ -131,7 +132,7 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
           </Form.Item>
           <Form.Item label="分类标题 zh-CN" required>
             <Input
-              value={category.labels?.['zh-CN'] || ''}
+              value={localizedText(category.labels, 'zh-CN', '')}
               onChange={(event) =>
                 onChange({
                   ...value,

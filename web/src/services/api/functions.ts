@@ -4,6 +4,7 @@ import {
   type FunctionInstance,
   type LocalizedText,
   type RawFunctionInstance,
+  normalizeLocalizedText as normalizeLocalizedTextUnified,
 } from './functions-enhanced';
 import { normalizeFunctionOpenAPIResponse, type OpenAPIOperation } from './openapi';
 import type { JSONValue } from '@/types/dashboard';
@@ -15,7 +16,7 @@ export type FunctionDescriptor = {
   type?: 'function';
   version?: string;
   name?: string;
-  description?: string;
+  description?: LocalizedText;
   resource?: string;
   displayName?: LocalizedText;
   summary?: LocalizedText;
@@ -33,9 +34,10 @@ export type FunctionDescriptor = {
 
 type RawLocalizedText = Record<string, string | undefined>;
 
-type RawFunctionDescriptor = Omit<FunctionDescriptor, 'displayName' | 'summary'> & {
+type RawFunctionDescriptor = Omit<FunctionDescriptor, 'displayName' | 'summary' | 'description'> & {
   displayName?: RawLocalizedText | string;
   summary?: RawLocalizedText | string;
+  description?: RawLocalizedText | string;
   input?: JSONValue;
   output?: JSONValue;
   descriptor?: {
@@ -121,15 +123,8 @@ function normalizeFunctionRegistrationWarning(
   };
 }
 
-function normalizeLocalizedText(value?: LocalizedText | string): LocalizedText | undefined {
-  if (!value) return undefined;
-  if (typeof value === 'string') return { zh: value, en: value };
-  const localized = value as LocalizedText & Record<string, string | undefined>;
-  const zh = localized.zh || localized['zh-CN'] || localized['zh_cn'];
-  const en = localized.en || localized['en-US'] || localized['en_us'];
-  if (!zh && !en) return undefined;
-  return { ...(zh ? { zh } : {}), ...(en ? { en } : {}) };
-}
+// 统一本地化归一（BCP47 契约），与 functions-enhanced 共用同一实现
+const normalizeLocalizedText = normalizeLocalizedTextUnified;
 
 // Exported for testing
 export function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): FunctionDescriptor {
@@ -140,6 +135,7 @@ export function normalizeFunctionDescriptor(raw: RawFunctionDescriptor): Functio
     ...raw,
     displayName: normalizeLocalizedText(raw.displayName),
     summary: normalizeLocalizedText(raw.summary),
+    description: normalizeLocalizedText(raw.description),
     inputSchema,
     outputSchema,
     schema: raw.schema ?? nested?.schema,

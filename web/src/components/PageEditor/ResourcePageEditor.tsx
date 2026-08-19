@@ -35,6 +35,7 @@ import {
 } from '@ant-design/icons';
 import type { ResourcePageSpec, ListViewSpec, ColumnSpec, ActionSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -155,7 +156,7 @@ export default function ResourcePageEditor({
                     <Form.Item label="标题">
                       <Input
                         size="small"
-                        value={action.title?.['zh-CN'] || ''}
+                        value={localizedText(action.title, 'zh-CN', '')}
                         onChange={(event) =>
                           handleActionChange(group, index, {
                             title: { ...action.title, 'zh-CN': event.target.value },
@@ -274,7 +275,7 @@ export default function ResourcePageEditor({
               <Form.Item label="标题">
                 <Input
                   size="small"
-                  value={column.title?.['zh-CN'] || ''}
+                  value={localizedText(column.title, 'zh-CN', '')}
                   onChange={(e) =>
                     handleColumnChange(index, {
                       title: { ...column.title, 'zh-CN': e.target.value },
