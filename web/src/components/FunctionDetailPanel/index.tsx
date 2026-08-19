@@ -15,6 +15,7 @@ import {
 import { PlayCircleOutlined, EditOutlined, StopOutlined, CopyOutlined } from '@ant-design/icons';
 import type { FunctionInstance } from '@/services/api';
 import type { JSONSchema } from '@/types/dashboard';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text, Paragraph } = Typography;
 
@@ -93,7 +94,7 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
         >
           <Space>
             <Badge status={getStatusColor(func.enabled)} />
-            <Text strong>{func.displayName?.zh || func.displayName?.en || func.id}</Text>
+            <Text strong>{localizedText(func.displayName, 'zh-CN', func.id)}</Text>
             {func.version && <Tag color="blue">v{func.version}</Tag>}
             {func.category && <Tag color="geekblue">{func.category}</Tag>}
           </Space>
@@ -160,19 +161,20 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
       </Card>
 
       {/* Description */}
-      {(func.summary?.zh || func.summary?.en || func.description?.zh || func.description?.en) && (
+      {(localizedText(func.summary, 'zh-CN', '') ||
+        localizedText(func.description, 'zh-CN', '')) && (
         <Card title="函数描述" size={compact ? 'small' : 'default'}>
           <Space direction="vertical" style={{ width: '100%' }}>
-            {(func.summary?.zh || func.summary?.en) && (
+            {localizedText(func.summary, 'zh-CN', '') && (
               <div>
                 <Text strong>摘要：</Text>
-                <Paragraph>{func.summary?.zh || func.summary?.en}</Paragraph>
+                <Paragraph>{localizedText(func.summary, 'zh-CN', '')}</Paragraph>
               </div>
             )}
-            {(func.description?.zh || func.description?.en) && (
+            {localizedText(func.description, 'zh-CN', '') && (
               <div>
                 <Text strong>详细描述：</Text>
-                <Paragraph>{func.description?.zh || func.description?.en}</Paragraph>
+                <Paragraph>{localizedText(func.description, 'zh-CN', '')}</Paragraph>
               </div>
             )}
           </Space>

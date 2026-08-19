@@ -1,3 +1,4 @@
+import { localizedText } from '@/utils/localizedText';
 import React, { useState, useMemo } from 'react';
 import { ProTable, ProColumns } from '@ant-design/pro-components';
 import { Button, Space, Tag, Badge, Tooltip, Typography, Popconfirm } from 'antd';
@@ -100,7 +101,7 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
   const processedData = useMemo(() => {
     return data.map((row) => ({
       ...row,
-      displaySummary: row.summary?.zh || row.summary?.en || '-',
+      displaySummary: localizedText(row.summary, 'zh-CN', '-'),
       categoryName: row.category || '未分类',
     }));
   }, [data]);
@@ -144,7 +145,7 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
       width: compact ? 150 : 200,
       ellipsis: true,
       render: (_, record) => (
-        <Text strong>{record.displayName?.zh || record.displayName?.en || record.id}</Text>
+        <Text strong>{localizedText(record.displayName, 'zh-CN', record.id)}</Text>
       ),
     },
     {
@@ -155,7 +156,7 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
       // @ts-expect-error ProComponents v3 type change
       hideInSearch: compact,
       render: (_, record) => (
-        <Text type="secondary">{record.summary?.zh || record.summary?.en || '-'}</Text>
+        <Text type="secondary">{localizedText(record.summary, 'zh-CN', '-')}</Text>
       ),
     },
   ];

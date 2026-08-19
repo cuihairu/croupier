@@ -7,6 +7,7 @@ on:
       - ".github/workflows/ci-dashboard.yml"
       - ".github/scripts/dashboard_guard.sh"
       - "scripts/dashboard_e2e_guard.sh"
+      - "scripts/localized_text_guard.sh"
       - "cmd/server/**"
       - "internal/**"
       - "web/**"
@@ -17,6 +18,7 @@ on:
       - ".github/workflows/ci-dashboard.yml"
       - ".github/scripts/dashboard_guard.sh"
       - "scripts/dashboard_e2e_guard.sh"
+      - "scripts/localized_text_guard.sh"
       - "cmd/server/**"
       - "internal/**"
       - "web/**"
@@ -70,6 +72,11 @@ jobs:
         timeout-minutes: 2
         working-directory: .
         run: bash .github/scripts/dashboard_guard.sh
+
+      - name: LocalizedText contract guard
+        timeout-minutes: 2
+        working-directory: .
+        run: bash scripts/localized_text_guard.sh
 
       - name: Lint dashboard product path
         timeout-minutes: 5

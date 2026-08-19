@@ -1,10 +1,6 @@
 import { request } from '@umijs/max';
-import type { JSONValue } from '@/types/dashboard';
-
-type LocalizedText = {
-  zh?: string;
-  en?: string;
-};
+import type { JSONValue, LocalizedText } from '@/types/dashboard';
+import { normalizeLocalizedText } from './functions-enhanced';
 
 export type PendingFunctionRow = {
   functionId: string;
@@ -15,16 +11,16 @@ export type PendingFunctionRow = {
 
 type RawPendingFunctionRow = {
   functionId?: string;
-  displayName?: LocalizedText;
-  summary?: LocalizedText;
+  displayName?: LocalizedText | string | Record<string, string>;
+  summary?: LocalizedText | string | Record<string, string>;
   suggestedPermissions?: { verbs?: string[]; scopes?: string[] };
 };
 
 function normalizePendingFunctionRow(raw: RawPendingFunctionRow): PendingFunctionRow {
   return {
     functionId: raw.functionId || '',
-    displayName: raw.displayName,
-    summary: raw.summary,
+    displayName: normalizeLocalizedText(raw.displayName),
+    summary: normalizeLocalizedText(raw.summary),
     suggestedPermissions: raw.suggestedPermissions,
   };
 }

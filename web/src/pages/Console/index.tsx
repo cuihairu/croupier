@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppstoreOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { getConsoleMenu, listPublishedPages } from '@/services/console';
 import type { ConsoleMenuItem, ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
+import { localizedText } from '@/utils/localizedText';
 
 type ConsoleAccess = {
   canConsoleRead?: boolean;
@@ -59,7 +60,7 @@ export default function ConsoleIndex() {
   const getCategoryTitle = (item: ConsoleMenuItem): string => {
     if (!item.title) return item.key;
     if (typeof item.title === 'string') return item.title;
-    return item.title[intl.locale] || item.title['zh-CN'] || item.title['en-US'] || item.key;
+    return item.title[intl.locale] || localizedText(item.title, intl.locale, item.key);
   };
 
   const visibleCategories = useMemo(() => {
@@ -105,11 +106,7 @@ export default function ConsoleIndex() {
           title={
             <Space wrap size={[8, 8]}>
               <Typography.Text strong>
-                {item.title
-                  ? typeof item.title === 'string'
-                    ? item.title
-                    : item.title[intl.locale] || item.title['zh-CN'] || item.key
-                  : item.key}
+                {localizedText(item.title, intl.locale, item.key)}
               </Typography.Text>
               {staleCount > 0 ? (
                 <Tag color="error">契约失效 {staleCount}</Tag>

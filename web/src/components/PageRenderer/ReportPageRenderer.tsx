@@ -30,6 +30,7 @@ import type {
   FormValues,
 } from '@/types/dashboard';
 import type { ProColumns } from '@ant-design/pro-components';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 
@@ -82,7 +83,7 @@ export interface ReportPageRendererProps {
 // ---------------------------------------------------------------------------
 
 const ChartRenderer: React.FC<{ chart: ChartSpec; data: FormValues[] }> = ({ chart, data }) => {
-  const title = chart.title['zh-CN'] || chart.title['en'] || chart.type;
+  const title = localizedText(chart.title, 'zh-CN', chart.type);
 
   // 准备图表数据
   const chartData = data.map((item) => ({
@@ -228,11 +229,11 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         const exportColumns = [
           ...dataset.dimensions.map((dimension) => ({
             key: dimension.key,
-            title: dimension.title['zh-CN'] || dimension.title['en'] || dimension.key,
+            title: localizedText(dimension.title, 'zh-CN', dimension.key),
           })),
           ...dataset.metrics.map((metric) => ({
             key: metric.key,
-            title: metric.title['zh-CN'] || metric.title['en'] || metric.key,
+            title: localizedText(metric.title, 'zh-CN', metric.key),
           })),
         ];
         downloadDatasetCsv(data, exportColumns);
@@ -253,7 +254,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
 
   // 构建表格列
   const columns: ProColumns[] = dataset.dimensions.map((dim) => ({
-    title: dim.title['zh-CN'] || dim.title['en'] || dim.key,
+    title: localizedText(dim.title, 'zh-CN', dim.key),
     dataIndex: dim.key,
     key: dim.key,
     valueType: dim.dataType === 'number' ? 'digit' : dim.dataType === 'date' ? 'date' : 'text',
@@ -262,7 +263,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   // 添加指标列
   dataset.metrics.forEach((metric) => {
     columns.push({
-      title: metric.title['zh-CN'] || metric.title['en'] || metric.key,
+      title: localizedText(metric.title, 'zh-CN', metric.key),
       dataIndex: metric.key,
       key: metric.key,
       valueType: 'digit',

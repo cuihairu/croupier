@@ -292,17 +292,7 @@ export default function FunctionInvokePage() {
                 <Space wrap style={{ marginTop: 8 }}>
                   <Text strong>{displayName(selected, locale)}</Text>
                   {selected.resource ? <Tag color="blue">{selected.resource}</Tag> : null}
-                  <Text type="secondary">
-                    {(() => {
-                      const desc = selected.description as unknown;
-                      if (typeof desc === 'string') return desc;
-                      if (desc && typeof desc === 'object') {
-                        const record = desc as Record<string, string>;
-                        return record.zh || record['zh-CN'] || record.en || record['en-US'] || '';
-                      }
-                      return '';
-                    })()}
-                  </Text>
+                  <Text type="secondary">{localizedText(selected.description, locale, '')}</Text>
                 </Space>
               ) : !loading ? (
                 <Alert

@@ -1,3 +1,4 @@
+import { localizedText } from '@/utils/localizedText';
 /**
  * PageRenderer - 页面渲染器统一入口
  *
@@ -117,7 +118,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           bindings={bindings}
           onExecute={executeWithPageState}
           preview={preview}
-          title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
+          title={localizedText(pageSpec.title, 'zh-CN', '')}
         />
       );
 
@@ -139,7 +140,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           onExecute={executeWithPageState}
           preview={preview}
           onQueryApprovalStatus={onQueryApprovalStatus}
-          title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
+          title={localizedText(pageSpec.title, 'zh-CN', '')}
         />
       );
 
@@ -163,7 +164,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           onQueryStatus={onQueryStatus}
           onCancelTask={onCancelTask}
           onQueryApprovalStatus={onQueryApprovalStatus}
-          title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
+          title={localizedText(pageSpec.title, 'zh-CN', '')}
         />
       );
 
@@ -185,7 +186,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           onExecute={executeWithPageState}
           preview={preview}
           onExport={onExport}
-          title={pageSpec.title?.['zh-CN'] || pageSpec.title?.['en']}
+          title={localizedText(pageSpec.title, 'zh-CN', '')}
         />
       );
 

@@ -81,7 +81,7 @@ export interface ResourcePageRendererProps {
 
 function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
   const column: ProColumns<FormValues> = {
-    title: col.title['zh-CN'] || col.title['en'] || col.key,
+    title: localizedText(col.title, 'zh-CN', col.key),
     dataIndex: col.key,
     key: col.key,
     width: col.width,
@@ -114,7 +114,7 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
       column.valueEnum = col.enum?.reduce(
         (acc, opt) => {
           acc[opt.value] = {
-            text: opt.label['zh-CN'] || opt.label['en'] || opt.value,
+            text: localizedText(opt.label, 'zh-CN', opt.value),
             status: opt.color === 'green' ? 'Success' : opt.color === 'red' ? 'Error' : 'Default',
           };
           return acc;
@@ -137,7 +137,7 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
       if (opt) {
         return (
           <Tag color={opt.color || 'default'}>
-            {opt.label['zh-CN'] || opt.label['en'] || String(value)}
+            {localizedText(opt.label, 'zh-CN', String(value))}
           </Tag>
         );
       }
@@ -352,8 +352,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       if (action.confirm || binding.execution.requireConfirm) {
         Modal.confirm({
-          title: action.confirmTitle?.['zh-CN'] || '确认操作',
-          content: action.confirmDescription?.['zh-CN'] || '确定要执行此操作吗？',
+          title: localizedText(action.confirmTitle, 'zh-CN', '确认操作'),
+          content: localizedText(action.confirmDescription, 'zh-CN', '确定要执行此操作吗？'),
           onOk: async () => {
             try {
               await onExecute(binding.id, { row: record });
@@ -402,8 +402,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       };
       if (action.confirm || binding.execution.requireConfirm) {
         Modal.confirm({
-          title: action.confirmTitle?.['zh-CN'] || '确认操作',
-          content: action.confirmDescription?.['zh-CN'] || '确定要执行此操作吗？',
+          title: localizedText(action.confirmTitle, 'zh-CN', '确认操作'),
+          content: localizedText(action.confirmDescription, 'zh-CN', '确定要执行此操作吗？'),
           onOk: run,
         });
         return;
@@ -528,7 +528,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       ) : null}
       {/* 列表视图 */}
       <ProTable<FormValues, TableRequestParams>
-        headerTitle={title || spec.listView?.columns[0]?.title?.['zh-CN'] || '资源列表'}
+        headerTitle={title || localizedText(spec.listView?.columns[0]?.title, 'zh-CN', '资源列表')}
         actionRef={actionRef}
         rowKey={(record) => String(record[rowIdentityKey] ?? record.id ?? record.key ?? '')}
         columns={columns}
@@ -658,7 +658,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                   .map((field) => (
                     <ProDescriptions.Item
                       key={field.key}
-                      label={field.title['zh-CN'] || field.title['en'] || field.key}
+                      label={localizedText(field.title, 'zh-CN', field.key)}
                       span={field.span}
                     >
                       {renderJSONValueSummary((detailRecord || currentRecord)[field.key])}

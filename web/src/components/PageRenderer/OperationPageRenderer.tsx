@@ -1,3 +1,4 @@
+import { localizedText } from '@/utils/localizedText';
 /**
  * OperationPageRenderer - 操作页面渲染器
  *
@@ -100,7 +101,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         } else if (response.kind === 'task') {
           message.success('任务已提交');
         } else if (spec.resultView?.successMessage) {
-          message.success(spec.resultView.successMessage['zh-CN'] || '操作成功');
+          message.success(localizedText(spec.resultView.successMessage, 'zh-CN', '操作成功'));
         } else {
           message.success('操作成功');
         }
@@ -109,7 +110,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         setError(msg);
 
         if (spec.resultView?.errorMessage) {
-          message.error(spec.resultView.errorMessage['zh-CN'] || '操作失败');
+          message.error(localizedText(spec.resultView.errorMessage, 'zh-CN', '操作失败'));
         } else {
           message.error('操作失败');
         }
@@ -219,15 +220,15 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       {/* 确认对话框 */}
       {requiresConfirm && (
         <Modal
-          title={spec.confirm?.title['zh-CN'] || '确认操作'}
+          title={localizedText(spec.confirm?.title, 'zh-CN', '确认操作')}
           open={confirmVisible}
           onOk={handleConfirm}
           onCancel={() => {
             setConfirmVisible(false);
             setPendingValues(null);
           }}
-          okText={spec.confirm?.confirmText['zh-CN'] || '确定'}
-          cancelText={spec.confirm?.cancelText?.['zh-CN'] || '取消'}
+          okText={localizedText(spec.confirm?.confirmText, 'zh-CN', '确定')}
+          cancelText={localizedText(spec.confirm?.cancelText, 'zh-CN', '取消')}
           confirmLoading={loading}
         >
           {spec.confirm?.description && <p>{spec.confirm.description['zh-CN']}</p>}

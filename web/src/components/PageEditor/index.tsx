@@ -110,7 +110,7 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
           </Form.Item>
           <Form.Item label="页面标题 en-US">
             <Input
-              value={value.title?.['en-US'] || ''}
+              value={localizedText(value.title, 'zh-CN', '')}
               onChange={(event) =>
                 onChange({
                   ...value,
@@ -146,7 +146,7 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
           </Form.Item>
           <Form.Item label="分类标题 en-US">
             <Input
-              value={category.labels?.['en-US'] || ''}
+              value={localizedText(category.labels, 'zh-CN', '')}
               onChange={(event) =>
                 onChange({
                   ...value,

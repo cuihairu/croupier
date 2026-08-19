@@ -1,5 +1,6 @@
 import type { FunctionDescriptor } from '@/services/api';
 import type { AssignmentItem } from './types';
+import { localizedText } from '@/utils/localizedText';
 
 export type AssignmentOption = {
   label: string;
@@ -17,7 +18,8 @@ export const buildAssignmentOptions = (descs: FunctionDescriptor[]): AssignmentO
     version: d.version,
     resource: d.resource || 'unassigned',
     operation: d.operation,
-    displayName: d.displayName?.zh || d.displayName?.en || d.summary?.zh || d.summary?.en || d.id,
+    displayName:
+      localizedText(d.displayName, 'zh-CN', '') || localizedText(d.summary, 'zh-CN', '') || d.id,
   }));
 
 export const buildGroupedAssignments = (options: AssignmentOption[], selected: string[]) => {
