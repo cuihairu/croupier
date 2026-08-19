@@ -895,8 +895,8 @@ SDK / OpenAPI 注册 FunctionContract
       通过记录: 2026-08-18 于 runner-docker（Docker 29.6.1）执行 PASS；trace_id=9074dbff4bb38cd346f697cd076897f3，audit trace 关联与 Prometheus 抓取均断言通过；前置修复 compose 非法宿主端口 113133→13313（commit f7cf662a7）。
 
 - [x] `J-001.03` 发布镜像与部署清单真实验收
-      Scope: `Server/Agent 镜像、部署 Compose 或等价部署清单。
-    Verify: 干净 Docker 环境构建并启动 Server、Agent、Web；健康检查、真实注册、生成/发布/执行 UI 链路通过；不得依赖宿主机数据库、`host.docker.internal` 或 demo placeholder。
+      Scope: `Server/Agent 镜像、部署 Compose 或等价部署清单`。
+      Verify: 干净 Docker 环境构建并启动 Server、Agent、Web；健康检查、真实注册、生成/发布/执行 UI 链路通过；不得依赖宿主机数据库、`host.docker.internal` 或 demo placeholder。
       通过记录: 2026-08-18 于 runner-docker（Docker 29.6.1）：git archive HEAD 干净上下文构建 server/agent 镜像，隔离 compose 项目（postgres/redis/clickhouse/server/agent/dashboard 六容器全部 healthy），真实 Go SDK demo 注册 19 函数，proposal 发布 + Console menu/execute（action.send 带 row context 真实执行、list 分页返回真实数据）、stale 拦截（binding_stale）均通过。过程中发现并修复 SDK transport 吞 handler 错误导致 agent 调用超时的缺陷（commit 271ac0a18）。
 
 - [x] `J-001.04` Go L3 Invoker 迁移至 Server HTTP 合同

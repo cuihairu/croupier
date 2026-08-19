@@ -306,6 +306,8 @@ export default function PageStudio() {
     async (pageKey: string) => {
       setSelectedPageKey(pageKey);
       setVersionsVisible(true);
+      setVersionPage(1);
+      setVersionPageSize(5);
       await Promise.all([loadDraftDetail(pageKey), loadVersionHistory(pageKey)]);
     },
     [loadDraftDetail, loadVersionHistory],
