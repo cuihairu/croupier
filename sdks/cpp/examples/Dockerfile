@@ -3,6 +3,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 WORKDIR /src
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates cmake g++ git ninja-build pkg-config unzip zip curl tar \
+    make linux-libc-dev perl \
     && rm -rf /var/lib/apt/lists/*
 COPY sdks/cpp /src/sdks/cpp
 COPY proto /src/proto
