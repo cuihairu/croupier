@@ -83,15 +83,18 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 	}
 
 	notBefore := parsed.NotBefore
+	checkedAt := time.Now()
 	certificate := &model.Certificate{
 		Domain:         domain,
 		Port:           port,
 		CertificatePEM: certPEM,
 		PrivateKeyPEM:  strings.TrimSpace(req.PrivateKey),
 		Issuer:         FormatIssuer(parsed),
+		Subject:        FormatSubject(parsed),
 		StartsAt:       &notBefore,
 		ExpiresAt:      parsed.NotAfter,
 		Status:         model.CertificateStatus(parsed.NotAfter),
+		LastCheckedAt:  &checkedAt,
 	}
 
 	// domain 唯一索引：重复添加视为重新登记/重新探测，更新已有记录并
@@ -106,6 +109,7 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 			"certificate_pem": certPEM,
 			"private_key_pem": certificate.PrivateKeyPEM,
 			"issuer":          certificate.Issuer,
+			"subject":         certificate.Subject,
 			"starts_at":       &notBefore,
 			"expires_at":      certificate.ExpiresAt,
 			"status":          certificate.Status,

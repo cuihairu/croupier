@@ -45,6 +45,17 @@ func FormatIssuer(cert *x509.Certificate) string {
 	return strings.Join(parts, ", ")
 }
 
+// FormatSubject renders a certificate subject as a compact string.
+func FormatSubject(cert *x509.Certificate) string {
+	if cert == nil {
+		return ""
+	}
+	if cert.Subject.CommonName != "" {
+		return cert.Subject.CommonName
+	}
+	return strings.Join(cert.Subject.Organization, ", ")
+}
+
 // certificateDaysLeft returns whole days until expiry (negative once expired).
 func certificateDaysLeft(expiresAt time.Time) *int {
 	if expiresAt.IsZero() {
@@ -61,6 +72,7 @@ func BuildCertificateDTO(cert *model.Certificate) CertificateItem {
 		Domain:        cert.Domain,
 		Port:          cert.Port,
 		Issuer:        cert.Issuer,
+		Subject:       cert.Subject,
 		NotBefore:     utils.FormatTimestampPtr(cert.StartsAt),
 		NotAfter:      utils.FormatTimestamp(cert.ExpiresAt),
 		ExpiresAt:     utils.FormatTimestamp(cert.ExpiresAt),

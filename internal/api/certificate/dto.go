@@ -18,6 +18,8 @@ type CertificateItem struct {
 	Domain string `json:"domain"`
 	Port   int    `json:"port,omitempty"`
 	Issuer string `json:"issuer"`
+	// Subject 为证书主体 CN（页面「主体」列）。
+	Subject string `json:"subject"`
 	// NotBefore/NotAfter 为证书有效期起止（页面「有效期自/至」列），
 	// ExpiresAt 与 NotAfter 同值，保留别名兼容旧消费方。
 	NotBefore     string `json:"validFrom"`
