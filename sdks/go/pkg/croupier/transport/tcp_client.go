@@ -36,6 +36,9 @@ type TCPClient struct {
 	onClose    func(err error)
 	inbound    InboundHandler
 	writeMu    sync.Mutex
+	// dead 在 receiveLoop 退出（连接死亡）后置位；晚于 failAllPending
+	// 到达的 Call 依赖它立即失败，否则只能等 ctx/deadline。
+	dead bool
 }
 
 type responseTuple struct {
@@ -142,8 +145,14 @@ func parseHostPort(addr string) (string, int, error) {
 
 // Call sends a request and waits for the response.
 func (c *TCPClient) Call(ctx context.Context, msgID uint32, reqBody []byte) (respMsgID uint32, respBody []byte, err error) {
-	// Allocate request ID
+	// 连接已死（receiveLoop 已退出）时立即失败；不检查则本调用会在
+	// failAllPending 之后注册 pending，再无人唤醒。
 	c.mu.Lock()
+	if c.dead {
+		c.mu.Unlock()
+		return 0, nil, errConnectionClosed
+	}
+	// Allocate request ID
 	reqID := c.nextReqID
 	c.nextReqID++
 
@@ -324,6 +333,7 @@ func (c *TCPClient) handleInboundRequest(msgID uint32, reqID uint32, body []byte
 // failAllPending wakes every in-flight Call with a connection-dead error.
 func (c *TCPClient) failAllPending() {
 	c.mu.Lock()
+	c.dead = true
 	pending := c.pending
 	c.pending = make(map[uint32]chan responseTuple)
 	c.mu.Unlock()

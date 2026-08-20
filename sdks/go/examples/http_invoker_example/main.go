@@ -1,9 +1,14 @@
-// Simple example demonstrating HTTP invoker usage
+// Simple example demonstrating HTTP invoker usage.
+//
+// runScenario keeps the example testable: main() only wires configuration,
+// while the invocation flow lives in an exported function covered by
+// package tests against an httptest server.
 package main
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -21,14 +26,22 @@ func main() {
 		Insecure:       true,
 	}
 
+	if err := runScenario(invokerConfig); err != nil {
+		log.Fatalf("❌ example failed: %v", err)
+	}
+	fmt.Println("\n=== Example completed successfully ===")
+}
+
+// runScenario executes the full L3 invoke flow against the configured server
+// base URL: connect, optional schema validation, and one idempotent invoke.
+func runScenario(cfg *croupier.InvokerConfig) error {
 	// NewInvoker 是公共 L3 入口。
-	invoker := croupier.NewInvoker(invokerConfig)
+	invoker := croupier.NewInvoker(cfg)
 	defer invoker.Close()
 
-	// Connect to server
 	ctx := context.Background()
 	if err := invoker.Connect(ctx); err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+		return fmt.Errorf("connect: %w", err)
 	}
 	fmt.Println("✅ Connected to server via HTTP REST API")
 
@@ -40,25 +53,22 @@ func main() {
 			"reason":   map[string]interface{}{"type": "string"},
 			"duration": map[string]interface{}{"type": "integer"},
 		},
-		"required": []string{"playerId", "reason"},
+		"required": []interface{}{"playerId", "reason"},
 	}
-
 	if err := invoker.SetSchema("player.ban", banSchema); err != nil {
 		log.Printf("Warning: Failed to set schema: %v", err)
 	}
 
-	// Prepare invocation payload
 	payload := map[string]interface{}{
 		"playerId": "player_12345",
 		"reason":   "违规操作",
-		"duration": 3600, // seconds
+		"duration": 3600,
 	}
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
-		log.Fatalf("Failed to marshal payload: %v", err)
+		return fmt.Errorf("marshal payload: %w", err)
 	}
 
-	// Invoke options
 	options := croupier.InvokeOptions{
 		IdempotencyKey: fmt.Sprintf("key-%d", time.Now().UnixNano()),
 		Timeout:        30 * time.Second,
@@ -68,17 +78,16 @@ func main() {
 		},
 	}
 
-	// Invoke function
 	fmt.Println("\n📞 Invoking player.ban function...")
 	fmt.Printf("Payload: %s\n\n", string(payloadJSON))
 
 	result, err := invoker.Invoke(ctx, "player.ban", string(payloadJSON), options)
 	if err != nil {
-		log.Fatalf("❌ Invoke failed: %v", err)
+		return fmt.Errorf("invoke: %w", err)
 	}
-
-	fmt.Printf("✅ Invoke succeeded!\n")
-	fmt.Printf("Result: %s\n", result)
-
-	fmt.Println("\n=== Example completed successfully ===")
+	fmt.Printf("✅ Invoke succeeded!\nResult: %s\n", result)
+	return nil
 }
+
+// errServerUnreachable marks the failure path used by tests.
+var errServerUnreachable = errors.New("server unreachable")
