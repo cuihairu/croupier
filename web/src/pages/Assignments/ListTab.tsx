@@ -49,6 +49,7 @@ export default function ListTab({
           extra={<Space>{renderResourceActions(group.resource, 'small')}</Space>}
         >
           <ProTable<AssignmentItem>
+            scroll={{ x: 1300 }}
             rowKey="id"
             columns={columns}
             dataSource={group.items}

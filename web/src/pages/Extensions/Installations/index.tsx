@@ -473,6 +473,7 @@ export default function ExtensionsInstallationsPage() {
           ) : null}
 
           <Table<ExtensionInstallationItem>
+            scroll={{ x: 900 }}
             rowKey="id"
             loading={loading}
             dataSource={items}

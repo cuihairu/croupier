@@ -326,6 +326,7 @@ export default () => {
       )}
 
       <ProTable<FunctionCallItem>
+        scroll={{ x: 1700 }}
         rowKey="id"
         actionRef={actionRef}
         loading={loading}

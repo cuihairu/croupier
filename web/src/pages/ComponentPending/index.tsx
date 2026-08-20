@@ -89,6 +89,7 @@ export default () => {
       ]}
     >
       <ProTable<PendingFunctionRow>
+        scroll={{ x: 1200 }}
         rowKey="functionId"
         loading={loading}
         columns={columns}

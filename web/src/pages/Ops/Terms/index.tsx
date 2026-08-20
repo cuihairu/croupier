@@ -119,6 +119,7 @@ export default function TermsPage() {
       ]}
     >
       <ProTable<TermItem>
+        scroll={{ x: 1000 }}
         rowKey={(r) => `${r.domain}:${r.alias}`}
         loading={loading}
         columns={columns}

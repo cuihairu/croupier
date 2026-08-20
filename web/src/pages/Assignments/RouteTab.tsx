@@ -11,6 +11,7 @@ type Props = {
 export default function RouteTab({ data, columns }: Props) {
   return (
     <ProTable<AssignmentItem>
+      scroll={{ x: 1000 }}
       rowKey="id"
       columns={columns}
       dataSource={data}

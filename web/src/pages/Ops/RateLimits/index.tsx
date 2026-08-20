@@ -257,6 +257,7 @@ export default function OpsRateLimitsPage() {
         }
       >
         <Table
+          scroll={{ x: 850 }}
           rowKey={(r) => `${r.scope}:${r.key}`}
           loading={loading}
           dataSource={rules}

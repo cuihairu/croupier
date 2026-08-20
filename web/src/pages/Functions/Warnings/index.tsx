@@ -104,6 +104,7 @@ export default function FunctionWarningsPage() {
         </Form>
       </Card>
       <Table<FunctionRegistrationWarning>
+        scroll={{ x: 1200 }}
         loading={loading}
         rowKey="key"
         dataSource={rows}

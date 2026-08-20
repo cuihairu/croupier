@@ -114,6 +114,7 @@ export const buildAssignmentColumns = ({
     return {
       title: col.title,
       width: col.width,
+      fixed: 'right',
       render: (_, record) => {
         const iconMap = {
           check: <CheckCircleOutlined />,

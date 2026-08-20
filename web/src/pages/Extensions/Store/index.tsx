@@ -412,6 +412,7 @@ export default function ExtensionsStorePage() {
         </Space>
 
         <Table<ExtensionCatalogItem>
+          scroll={{ x: 1000 }}
           rowKey="id"
           loading={loading}
           dataSource={items}

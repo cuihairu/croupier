@@ -610,6 +610,7 @@ export default function OpenAPISourcesPage() {
         ) : null}
         <Card>
           <ProTable<OpenAPISourceSummary>
+            scroll={{ x: 900 }}
             rowKey="sourceId"
             dataSource={sources}
             loading={loading}
@@ -679,6 +680,7 @@ export default function OpenAPISourcesPage() {
             </Card>
             <Card title="Operations" loading={detailLoading}>
               <ProTable<OpenAPISourceOperation>
+                scroll={{ x: 'max-content' }}
                 rowKey="operationId"
                 dataSource={detail.operations || []}
                 columns={operationColumns}
@@ -689,6 +691,7 @@ export default function OpenAPISourcesPage() {
             </Card>
             <Card title="Provider Bindings" loading={detailLoading}>
               <ProTable<OpenAPISourceBinding>
+                scroll={{ x: 'max-content' }}
                 rowKey="bindingId"
                 dataSource={detail.bindings || []}
                 columns={bindingColumns}

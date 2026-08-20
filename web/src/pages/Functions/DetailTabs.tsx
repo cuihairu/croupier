@@ -202,6 +202,7 @@ export function WarningsTab({ functionId }: { functionId: string }) {
         }
       />
       <Table
+        scroll={{ x: 850 }}
         loading={warningsLoading}
         dataSource={warningsData}
         rowKey="key"

@@ -242,6 +242,7 @@ export default function OpsAlertsPage() {
         }
       >
         <Table
+          scroll={{ x: 1000 }}
           rowKey={(r) =>
             `${r.service || ''}|${r.instance || ''}|${r.summary || ''}|${r.startsAt || ''}`
           }
