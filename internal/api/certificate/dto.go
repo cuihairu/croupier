@@ -14,11 +14,17 @@ type Certificate struct {
 
 // CertificateItem represents a certificate in the list
 type CertificateItem struct {
-	ID            uint   `json:"id"`
-	Domain        string `json:"domain"`
-	Issuer        string `json:"issuer"`
+	ID     uint   `json:"id"`
+	Domain string `json:"domain"`
+	Port   int    `json:"port,omitempty"`
+	Issuer string `json:"issuer"`
+	// NotBefore/NotAfter 为证书有效期起止（页面「有效期自/至」列），
+	// ExpiresAt 与 NotAfter 同值，保留别名兼容旧消费方。
+	NotBefore     string `json:"validFrom"`
+	NotAfter      string `json:"validTo"`
 	ExpiresAt     string `json:"expiresAt"`
 	Status        string `json:"status"`
+	DaysLeft      *int   `json:"daysLeft,omitempty"`
 	LastCheckedAt string `json:"lastCheckedAt"`
 	ErrorMessage  string `json:"errorMessage,omitempty"`
 	CreatedAt     string `json:"createdAt"`

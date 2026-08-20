@@ -14,6 +14,7 @@ type Certificate struct {
 	CertificatePEM string     `gorm:"type:text"`
 	PrivateKeyPEM  string     `gorm:"type:text"`
 	Issuer         string     `gorm:"size:255;index"`
+	StartsAt       *time.Time // 证书 NotBefore（有效期自）
 	ExpiresAt      time.Time  `gorm:"index"`
 	Status         string     `gorm:"size:32;index"` // active, expiring, expired
 	LastCheckedAt  *time.Time `gorm:"index"`

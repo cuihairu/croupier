@@ -45,14 +45,27 @@ func FormatIssuer(cert *x509.Certificate) string {
 	return strings.Join(parts, ", ")
 }
 
+// certificateDaysLeft returns whole days until expiry (negative once expired).
+func certificateDaysLeft(expiresAt time.Time) *int {
+	if expiresAt.IsZero() {
+		return nil
+	}
+	days := int(time.Until(expiresAt).Hours() / 24)
+	return &days
+}
+
 // BuildCertificateDTO builds a certificate DTO from model
 func BuildCertificateDTO(cert *model.Certificate) CertificateItem {
 	return CertificateItem{
 		ID:            cert.ID,
 		Domain:        cert.Domain,
+		Port:          cert.Port,
 		Issuer:        cert.Issuer,
+		NotBefore:     utils.FormatTimestampPtr(cert.StartsAt),
+		NotAfter:      utils.FormatTimestamp(cert.ExpiresAt),
 		ExpiresAt:     utils.FormatTimestamp(cert.ExpiresAt),
 		Status:        cert.Status,
+		DaysLeft:      certificateDaysLeft(cert.ExpiresAt),
 		LastCheckedAt: utils.FormatTimestampPtr(cert.LastCheckedAt),
 		ErrorMessage:  cert.ErrorMessage,
 		CreatedAt:     utils.FormatTimestamp(cert.CreatedAt),

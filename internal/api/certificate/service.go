@@ -82,12 +82,14 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 		port = 443
 	}
 
+	notBefore := parsed.NotBefore
 	certificate := &model.Certificate{
 		Domain:         domain,
 		Port:           port,
 		CertificatePEM: certPEM,
 		PrivateKeyPEM:  strings.TrimSpace(req.PrivateKey),
 		Issuer:         FormatIssuer(parsed),
+		StartsAt:       &notBefore,
 		ExpiresAt:      parsed.NotAfter,
 		Status:         model.CertificateStatus(parsed.NotAfter),
 	}
@@ -104,6 +106,7 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 			"certificate_pem": certPEM,
 			"private_key_pem": certificate.PrivateKeyPEM,
 			"issuer":          certificate.Issuer,
+			"starts_at":       &notBefore,
 			"expires_at":      certificate.ExpiresAt,
 			"status":          certificate.Status,
 			"last_checked_at": now,
