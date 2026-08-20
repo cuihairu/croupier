@@ -507,6 +507,7 @@ export default () => {
     {
       title: '操作',
       width: 120,
+      fixed: 'right',
       render: (_, record) => (
         <Space>
           <Tooltip title="查看详情">
@@ -673,6 +674,7 @@ export default () => {
             loading={loading}
             columns={columns}
             dataSource={filteredData}
+            scroll={{ x: 890 }}
             pagination={{
               pageSize: 10,
               showSizeChanger: true,
