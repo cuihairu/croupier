@@ -578,13 +578,14 @@ function normalizeCertificate(raw: RawCertificate): Certificate {
 }
 
 export async function listCertificates(params?: { page?: number; size?: number; status?: string }) {
+  // 契约：GET /api/v1/certificates -> { items, total, page, size }
   const r = await request<{
-    certificates?: RawCertificate[];
+    items?: RawCertificate[];
     total?: number;
     page?: number;
     size?: number;
   }>('/api/v1/certificates', { params });
-  const raw = (r?.certificates || []) as RawCertificate[];
+  const raw = (r?.items || []) as RawCertificate[];
   return {
     certificates: raw.map(normalizeCertificate),
     total: r?.total || 0,
