@@ -237,9 +237,6 @@ func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 }
 
 func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) (*FunctionInvokeResponse, error) {
-	if err := validateInvokeRoute(req); err != nil {
-		return nil, err
-	}
 	scope, err := svc.CurrentScope(ctx)
 	if err != nil {
 		return nil, errorx.NewBadRequest("游戏环境 scope 缺失")
@@ -518,14 +515,21 @@ func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, req
 
 	// Create approval record
 	approval := &approvals.Approval{
-		ID:              approvalID,
-		State:           "pending",
-		FunctionID:      functionID,
-		GameID:          strings.TrimSpace(req.GameID),
-		Env:             strings.TrimSpace(req.Env),
-		Actor:           username,
-		Mode:            strings.TrimSpace(req.Mode),
-		Route:           strings.TrimSpace(req.Route),
+		ID:         approvalID,
+		State:      "pending",
+		FunctionID: functionID,
+		GameID:     strings.TrimSpace(req.GameID),
+		Env:        strings.TrimSpace(req.Env),
+		Actor:      username,
+		Mode:       strings.TrimSpace(req.Mode),
+		// 空路由默认 lb（validateInvokeRoute 同一语义），审批存储需可读路由。
+		Route: func() string {
+			route := strings.TrimSpace(req.Route)
+			if route == "" {
+				return "lb"
+			}
+			return route
+		}(),
 		TargetServiceID: strings.TrimSpace(req.TargetServiceID),
 		HashKey:         strings.TrimSpace(req.HashKey),
 		Payload:         payload,
@@ -635,11 +639,8 @@ func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *
 			!strings.EqualFold(strings.TrimSpace(sess.Env), scope.Env)) {
 			continue
 		}
-
-		// Provider (SDK service) sessions carry serviceId/addr/SDK metadata.
-		// Emit one row per (function, provider) pair so each SDK instance
-		// backing a function is visible; fall back to the agent-level entry
-		// when no provider session claims the function.
+		// Provider 会话优先（携带 ServiceID/SDK/addr 明细）；未被任何
+		// provider 声明的函数仍以 agent 级条目兜底。
 		claimed := map[string]struct{}{}
 		for i := range sess.Providers {
 			prov := sess.Providers[i]

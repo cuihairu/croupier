@@ -160,7 +160,7 @@ export default function useAssignmentsPage() {
       }
       setLoading(true);
       try {
-        await setAssignments({ action: 'clone', targetEnv, functions: selected });
+        await setAssignments({ action: 'clone', target_env: targetEnv, functions: selected });
         message.success(`已克隆分配到 ${targetEnv} 环境`);
         return true;
       } catch (e: unknown) {
