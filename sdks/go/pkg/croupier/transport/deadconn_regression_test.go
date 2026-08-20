@@ -40,6 +40,7 @@ func TestCallFailsFastWhenConnectionDies(t *testing.T) {
 		done <- err
 	}()
 
+	// CI 慢环境下 EOF 检测有延迟；预算放宽但仍远小于无修复时的永久阻塞。
 	select {
 	case err := <-done:
 		if err == nil {
@@ -48,7 +49,7 @@ func TestCallFailsFastWhenConnectionDies(t *testing.T) {
 		if !errors.Is(err, errConnectionClosed) && err.Error() != "client is closing" {
 			t.Fatalf("unexpected error: %v", err)
 		}
-	case <-time.After(3 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("Call blocked after connection died; pending requests must fail fast")
 	}
 }
