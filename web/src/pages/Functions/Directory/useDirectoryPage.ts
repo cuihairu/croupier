@@ -10,11 +10,21 @@ import { DIRECTORY_PAGE_SCHEMA } from './schema';
 import { buildDirectoryColumns } from './columns';
 import type { DetailRow, SummaryRow } from './types';
 
-type DescriptorListResponse = FunctionDescriptor[] | { descriptors?: FunctionDescriptor[] };
+// 契约：GET /api/v1/functions/descriptors -> { functions: [...] }；兼容裸数组。
+type DescriptorListResponse =
+  | FunctionDescriptor[]
+  | { functions?: FunctionDescriptor[] }
+  | { descriptors?: FunctionDescriptor[] };
 
 function toDescriptorArray(input: DescriptorListResponse): FunctionDescriptor[] {
   if (Array.isArray(input)) return input;
-  return Array.isArray(input?.descriptors) ? input.descriptors : [];
+  const envelope = input as {
+    functions?: FunctionDescriptor[];
+    descriptors?: FunctionDescriptor[];
+  };
+  if (Array.isArray(envelope.functions)) return envelope.functions;
+  if (Array.isArray(envelope.descriptors)) return envelope.descriptors;
+  return [];
 }
 
 function toSummaryRow(item: FunctionSummary, descriptor?: FunctionDescriptor): SummaryRow {
