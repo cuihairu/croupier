@@ -114,15 +114,11 @@ export default [
           },
           {
             // 术语字典是 Console 展示文案的生成期数据源（非运维健康类配置），
-            // 归属系统管理-基础配置；保留旧路径重定向兼容书签。
+            // 归属系统管理-基础配置。
             path: '/system/foundation/terms',
             name: 'Terms',
             access: 'canSystemConfigRead',
             component: './Ops/Terms',
-          },
-          {
-            path: '/ops/terms',
-            redirect: '/system/foundation/terms',
           },
         ],
       },
