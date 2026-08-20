@@ -169,11 +169,11 @@ export default function OpsCertificatesPage() {
               value={status || undefined}
               onChange={(v) => setStatus(v || '')}
               options={[
-                { label: 'valid', value: 'valid' },
+                // 与后端 model.CertificateStatus 枚举对齐：active/expiring/expired/unknown
+                { label: 'active', value: 'active' },
                 { label: 'expiring', value: 'expiring' },
                 { label: 'expired', value: 'expired' },
-                { label: 'error', value: 'error' },
-                { label: 'pending', value: 'pending' },
+                { label: 'unknown', value: 'unknown' },
               ]}
             />
             <Button onClick={() => load()}>刷新</Button>
