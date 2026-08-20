@@ -592,11 +592,11 @@ func (r *RetryConfig) IsRetryable(statusCode int32) bool {
 
 // WithDefaults applies default values to invoke options
 func (o *InvokeOptions) WithDefaults() *InvokeOptions {
-	if o == nil {
-		return &InvokeOptions{}
+	// nil 接收者同样返回带默认值的选项（Headers/Timeout），与零值接收者语义一致。
+	result := InvokeOptions{}
+	if o != nil {
+		result = *o
 	}
-
-	result := *o
 
 	if result.Headers == nil {
 		result.Headers = make(map[string]string)

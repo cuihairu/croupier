@@ -5,3 +5,8 @@ ignore:
   - "downloaded_proto/**"
   - "generated/**"
   - "pkg/pb/**"
+  # main() 入口与代码生成脚本不属于 SDK 库 API，不计入库覆盖率
+  - "cmd/**"
+  - "scripts/**"
+  - "examples/basic/**"
+  - "examples/comprehensive/**"
