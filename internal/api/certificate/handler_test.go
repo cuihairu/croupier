@@ -216,6 +216,13 @@ func TestHandler_Add_ProbeModeLocalServer(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), "probe.local")
+
+	// 重复添加同一域名：必须更新已有记录（重新探测），不得 500。
+	req2 := httptest.NewRequest("POST", "/certificates", strings.NewReader(reqBody))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	router.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusOK, w2.Code, w2.Body.String())
 }
 
 func TestHandler_Get_Success(t *testing.T) {

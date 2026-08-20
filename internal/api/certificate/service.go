@@ -92,7 +92,28 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 		Status:         model.CertificateStatus(parsed.NotAfter),
 	}
 
-	if err := s.svcCtx.CertificateModel.Create(ctx, certificate); err != nil {
+	// domain 唯一索引：重复添加视为重新登记/重新探测，更新已有记录并
+	// 刷新检查时间，而不是让唯一约束把 500 抛给用户。
+	if existing, err := s.svcCtx.CertificateModel.FindByDomain(ctx, domain); err == nil && existing != nil {
+		now := time.Now()
+		certificate.ID = existing.ID
+		certificate.CreatedAt = existing.CreatedAt
+		certificate.LastCheckedAt = &now
+		if err := s.svcCtx.CertificateModel.Update(ctx, existing.ID, map[string]interface{}{
+			"port":            port,
+			"certificate_pem": certPEM,
+			"private_key_pem": certificate.PrivateKeyPEM,
+			"issuer":          certificate.Issuer,
+			"expires_at":      certificate.ExpiresAt,
+			"status":          certificate.Status,
+			"last_checked_at": now,
+			"error_message":   "",
+		}); err != nil {
+			return nil, err
+		}
+	} else if err != nil && !strings.Contains(err.Error(), "证书不存在") {
+		return nil, err
+	} else if err := s.svcCtx.CertificateModel.Create(ctx, certificate); err != nil {
 		return nil, err
 	}
 
