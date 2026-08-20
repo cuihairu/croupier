@@ -10,6 +10,7 @@ import (
 type Certificate struct {
 	gorm.Model
 	Domain         string     `gorm:"size:255;uniqueIndex"`
+	Port           int        `gorm:"default:443"` // 探测端口（监控模式）
 	CertificatePEM string     `gorm:"type:text"`
 	PrivateKeyPEM  string     `gorm:"type:text"`
 	Issuer         string     `gorm:"size:255;index"`

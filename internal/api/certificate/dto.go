@@ -29,6 +29,11 @@ type CertificateAddRequest struct {
 	Domain      string `json:"domain"`
 	Certificate string `json:"certificate"`
 	PrivateKey  string `json:"privateKey"`
+	// Port 为在线探测端口；Certificate 为空时按 domain:port 拉取远端证书
+	// （监控模式，页面「新增域名」即此语义），PEM 非空时 Port 被忽略。
+	Port int `json:"port"`
+	// AlertDays 同时登记到期告警阈值（0 表示不建告警）。
+	AlertDays int `json:"alertDays"`
 }
 
 // CertificateAddResponse is the response from adding a certificate

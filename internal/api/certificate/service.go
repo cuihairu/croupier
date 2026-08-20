@@ -2,6 +2,11 @@ package certificate
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +51,12 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 	}, nil
 }
 
-// Add adds a new certificate
+// Add adds a new certificate.
+//
+// 两种模式：
+//   - 登记：certificate PEM 非空，直接解析入库
+//   - 监控：PEM 为空时按 domain:port TLS 拨号在线拉取远端证书（页面
+//     「新增域名监控」表单只收集 domain/port/alertDays，正是此语义）
 func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error) {
 	domain, err := utils.ValidateDomain(req.Domain)
 	if err != nil {
@@ -54,17 +64,27 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 	}
 
 	certPEM := strings.TrimSpace(req.Certificate)
+	var parsed *x509.Certificate
 	if certPEM == "" {
-		return nil, errorx.NewBadRequest("证书内容不能为空")
+		parsed, certPEM, err = s.fetchRemoteCertificate(domain, req.Port)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		parsed, err = ParseCertificatePEM(certPEM)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	parsed, err := ParseCertificatePEM(certPEM)
-	if err != nil {
-		return nil, err
+	port := req.Port
+	if port == 0 {
+		port = 443
 	}
 
 	certificate := &model.Certificate{
 		Domain:         domain,
+		Port:           port,
 		CertificatePEM: certPEM,
 		PrivateKeyPEM:  strings.TrimSpace(req.PrivateKey),
 		Issuer:         FormatIssuer(parsed),
@@ -76,9 +96,44 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 		return nil, err
 	}
 
+	// 告警阈值与证书一并登记（页面表单的 alertDays）。
+	if req.AlertDays > 0 {
+		_ = s.svcCtx.CertificateModel.AddAlert(ctx, &model.CertificateAlert{
+			Domain:        domain,
+			ThresholdDays: req.AlertDays,
+			Active:        true,
+		})
+	}
+
 	return &AddResponse{
 		Certificate: BuildCertificateDTO(certificate),
 	}, nil
+}
+
+// fetchRemoteCertificate 连接 domain:port 并把对端叶子证书编码为 PEM。
+func (s *Service) fetchRemoteCertificate(domain string, port int) (*x509.Certificate, string, error) {
+	if port <= 0 || port > 65535 {
+		port = 443
+	}
+	address := fmt.Sprintf("%s:%d", domain, port)
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	// 探测目的在于读取对端证书事实（有效期/签发者），不做身份验证；
+	// InsecureSkipVerify 只影响本次读取，不会把未验证连接用于其他用途。
+	conn, err := tls.DialWithDialer(dialer, "tcp", address, &tls.Config{
+		InsecureSkipVerify: true, //nolint:gosec // 证书监控探测语义
+	})
+	if err != nil {
+		return nil, "", errorx.NewBadRequest(fmt.Sprintf("连接 %s 获取证书失败: %v", address, err))
+	}
+	defer conn.Close()
+
+	peers := conn.ConnectionState().PeerCertificates
+	if len(peers) == 0 {
+		return nil, "", errorx.NewBadRequest(fmt.Sprintf("%s 未返回证书", address))
+	}
+	leaf := peers[0]
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leaf.Raw})
+	return leaf, string(pemBytes), nil
 }
 
 // Get returns certificate details

@@ -4,10 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,6 +46,25 @@ func setupTestService(t *testing.T) (*Service, *gorm.DB) {
 }
 
 // generateTestCert creates a test certificate PEM
+// generateSelfSignedPEM 生成自签证书与私钥 PEM（探测模式测试用）。
+func generateSelfSignedPEM(t *testing.T, domain string) (certPEM, keyPEM []byte) {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: domain},
+		DNSNames:     []string{domain},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	require.NoError(t, err)
+	certPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM = pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	return
+}
+
 func generateTestCert(t *testing.T, domain string, validDays int) string {
 	t.Helper()
 
@@ -137,7 +159,9 @@ func TestHandler_Add_EmptyCertificate(t *testing.T) {
 	router := gin.New()
 	router.POST("/certificates", handler.Add)
 
-	reqBody := `{"domain": "example.com", "certificate": ""}`
+	// PEM 为空时按 domain:port 在线探测；保留一个不可达的探测目标以
+	// 触发 400（此前空 PEM 直接 400「证书内容不能为空」，现在语义升级）。
+	reqBody := `{"domain": "cert-probe.invalid", "certificate": ""}`
 
 	req := httptest.NewRequest("POST", "/certificates", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -145,6 +169,53 @@ func TestHandler_Add_EmptyCertificate(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "获取证书失败")
+}
+
+func TestHandler_Add_ProbeModeLocalServer(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	service, _ := setupTestService(t)
+	handler := NewHandler(service)
+
+	// 起本地 TLS 服务提供可探测的真实证书。
+	certPEM, keyPEM := generateSelfSignedPEM(t, "probe.local")
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	require.NoError(t, err)
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", &tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
+	})
+	require.NoError(t, err)
+	go func() {
+		// 保持连接打开让 client 完成 TLS 握手并读取叶子证书
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				buf := make([]byte, 16)
+				for {
+					if _, err := c.Read(buf); err != nil {
+						_ = c.Close()
+						return
+					}
+				}
+			}(conn)
+		}
+	}()
+	t.Cleanup(func() { _ = ln.Close() })
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	router := gin.New()
+	router.POST("/certificates", handler.Add)
+	reqBody := fmt.Sprintf(`{"domain": "127.0.0.1", "port": %d, "alertDays": 14}`, port)
+	req := httptest.NewRequest("POST", "/certificates", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Contains(t, w.Body.String(), "probe.local")
 }
 
 func TestHandler_Get_Success(t *testing.T) {
