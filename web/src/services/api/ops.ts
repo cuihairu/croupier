@@ -551,6 +551,7 @@ type RawCertificate = {
   status?: Certificate['status'];
   Status?: Certificate['status'];
   lastChecked?: string;
+  lastCheckedAt?: string;
   LastChecked?: string;
   errorMsg?: string;
   ErrorMsg?: string;
@@ -571,7 +572,7 @@ function normalizeCertificate(raw: RawCertificate): Certificate {
     validTo: raw.validTo ?? raw.ValidTo,
     daysLeft: raw.daysLeft ?? raw.DaysLeft,
     status: raw.status ?? raw.Status,
-    lastChecked: raw.lastChecked ?? raw.LastChecked,
+    lastChecked: raw.lastChecked ?? raw.lastCheckedAt ?? raw.LastChecked,
     errorMessage: raw.errorMsg ?? raw.ErrorMsg,
     alertDays: raw.alertDays ?? raw.AlertDays,
   };
