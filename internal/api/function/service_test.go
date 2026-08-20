@@ -995,9 +995,14 @@ func TestService_FunctionDisable(t *testing.T) {
 	svc := NewService(svcCtx)
 	ctx := context.Background()
 
+	// enable/disable 按外部 function_id 定位；自造数据避免依赖共享种子的存在性
+	require.NoError(t, svcCtx.DB.WithContext(ctx).Create(&model.Function{FunctionID: "func1", Name: "func1", Status: 1}).Error)
 	req := &FunctionDisableRequest{FunctionId: "func1"}
 	err := svc.FunctionDisable(ctx, req)
 	require.NoError(t, err)
+	var after model.Function
+	require.NoError(t, svcCtx.DB.WithContext(ctx).Where("function_id = ?", "func1").First(&after).Error)
+	assert.Equal(t, 0, after.Status)
 }
 
 func TestService_FunctionEnable(t *testing.T) {
@@ -1006,9 +1011,13 @@ func TestService_FunctionEnable(t *testing.T) {
 	svc := NewService(svcCtx)
 	ctx := context.Background()
 
+	require.NoError(t, svcCtx.DB.WithContext(ctx).Create(&model.Function{FunctionID: "func1", Name: "func1", Status: 0}).Error)
 	req := &FunctionEnableRequest{FunctionId: "func1"}
 	err := svc.FunctionEnable(ctx, req)
 	require.NoError(t, err)
+	var after model.Function
+	require.NoError(t, svcCtx.DB.WithContext(ctx).Where("function_id = ?", "func1").First(&after).Error)
+	assert.Equal(t, 1, after.Status)
 }
 
 func TestService_FunctionHistory(t *testing.T) {

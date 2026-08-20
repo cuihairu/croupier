@@ -1,8 +1,10 @@
 package telemetry
 
 import (
+	"fmt"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"reflect"
 )
 
 // 游戏业务 Semantic Conventions（基于 events.yaml 和 metrics.yaml）
@@ -197,97 +199,147 @@ type GameMetrics struct {
 
 // NewGameMetrics 创建游戏指标实例
 func NewGameMetrics(meter metric.Meter) (*GameMetrics, error) {
-	var err error
-	metrics := &GameMetrics{}
+	m := &GameMetrics{}
 
-	// 用户活跃指标
-	metrics.DAU, err = meter.Int64ObservableGauge("game.users.daily_active",
-		metric.WithDescription("Daily Active Users from events.yaml"),
-		metric.WithUnit("{users}"),
-	)
-	if err != nil {
-		return nil, err
+	type gaugeSpec struct {
+		field string
+		name  string
+		desc  string
+		unit  string
+	}
+	intGauges := []gaugeSpec{
+		{"DAU", "game.users.daily_active", "Daily Active Users from events.yaml", "{users}"},
+		{"WAU", "game.users.weekly_active", "Weekly Active Users", "{users}"},
+		{"MAU", "game.users.monthly_active", "Monthly Active Users", "{users}"},
+	}
+	floatGauges := []gaugeSpec{
+		{"RetentionD1", "game.users.retention_d1", "D1 retention", "1"},
+		{"RetentionD7", "game.users.retention_d7", "D7 retention", "1"},
+		{"RetentionD30", "game.users.retention_d30", "D30 retention", "1"},
+		{"ARPU", "game.revenue.arpu", "Average revenue per user", "$"},
+		{"ARPPU", "game.revenue.arppu", "Average revenue per paying user", "$"},
+		{"PaymentRate", "game.revenue.payment_rate", "Paying user rate", "1"},
+		{"AdARPU", "game.ad.arpu", "Ad revenue per user", "$"},
+		{"LevelCompletionRate", "game.level.completion_rate", "Level completion rate", "1"},
+		{"WinRate", "game.match.win_rate", "Match win rate", "1"},
+		{"EconomyBalance", "game.economy.balance", "Economy earn/spend balance", "1"},
+		{"CrashRate", "game.stability.crash_rate", "Crash rate", "1"},
+		{"CrashFreeUsersRate", "game.stability.crash_free_users_rate", "Crash-free users rate", "1"},
+		{"TDTowerUsageRate", "game.td.tower_usage_rate", "TD tower usage rate", "1"},
+		{"TDUpgradeRate", "game.td.upgrade_rate", "TD tower upgrade rate", "1"},
+		{"CardUsageRate", "game.card.usage_rate", "Card usage rate", "1"},
+		{"CardWinRate", "game.card.win_rate", "Card win rate", "1"},
+		{"DeckArchetypeShare", "game.card.deck_archetype_share", "Deck archetype share", "1"},
+		{"GachaPityCounter", "game.gacha.pity_count", "Gacha pity count", "1"},
+	}
+	intCounters := []gaugeSpec{
+		{"UserLoginCounter", "game.user.login.total", "Total user logins", "{logins}"},
+		{"UserRegisterCounter", "game.user.register.total", "Total user registrations", "{users}"},
+		{"SessionCounter", "game.session.total", "Total game sessions", "{sessions}"},
+		{"AdImpressions", "game.ad.impressions.total", "Ad impressions", "{impressions}"},
+		{"LevelStartCounter", "game.level.start.total", "Level starts", "{levels}"},
+		{"LevelCompleteCounter", "game.level.complete.total", "Level completions", "{levels}"},
+		{"LevelFailCounter", "game.level.fail.total", "Level failures", "{levels}"},
+		{"MatchStartCounter", "game.match.start.total", "Matches started", "{matches}"},
+		{"MatchEndCounter", "game.match.end.total", "Matches ended", "{matches}"},
+		{"CrashCounter", "game.stability.crash.total", "Crashes", "{crashes}"},
+		{"ANRCounter", "game.stability.anr.total", "Application not responding events", "{anrs}"},
+		{"TDTowerBuildCounter", "game.td.tower_build.total", "TD towers built", "{towers}"},
+		{"TDTowerUpgradeCounter", "game.td.tower_upgrade.total", "TD towers upgraded", "{towers}"},
+		{"GachaPullCounter", "game.gacha.pull.total", "Gacha pulls", "{pulls}"},
+	}
+	floatCounters := []gaugeSpec{
+		{"RevenueTotal", "game.revenue.total", "Total revenue", "$"},
+		{"AdRevenue", "game.ad.revenue.total", "Ad revenue", "$"},
+		{"CurrencyEarn", "game.economy.currency_earned", "Currency earned", "{currency}"},
+		{"CurrencySpend", "game.economy.currency_spent", "Currency spent", "{currency}"},
+	}
+	histograms := []struct {
+		field  string
+		name   string
+		desc   string
+		unit   string
+		bounds []float64
+	}{
+		{"SessionDuration", "game.session.duration", "Session duration distribution", "s", []float64{10, 60, 300, 600, 1800, 3600, 7200, 14400}},
+		{"LevelRetries", "game.level.retries", "Level retry distribution", "{retries}", []float64{1, 2, 3, 5, 10, 20}},
+		{"MatchDuration", "game.match.duration", "Match duration distribution", "s", []float64{30, 60, 180, 300, 600, 1200}},
+		{"QueueTime", "game.match.queue_time", "Matchmaking wait distribution", "s", []float64{1, 5, 15, 30, 60, 120, 300}},
+		{"ClientFPS", "game.tech.client_fps", "Client FPS distribution", "{fps}", []float64{15, 24, 30, 45, 60, 120, 240}},
+		{"NetworkLatency", "game.tech.network_latency", "Network latency distribution", "ms", []float64{10, 50, 100, 200, 500, 1000, 30000, 60000}},
+		{"MemoryUsage", "game.tech.memory_usage", "Memory usage distribution", "MB", []float64{128, 256, 512, 1024, 2048, 4096}},
 	}
 
-	metrics.WAU, err = meter.Int64ObservableGauge("game.users.weekly_active",
-		metric.WithDescription("Weekly Active Users"),
-		metric.WithUnit("{users}"),
-	)
-	if err != nil {
-		return nil, err
+	// 统一错误处理：任一指标创建失败即返回，杜绝部分字段为 nil 接口导致
+	// 运行期方法调用 panic（此前只初始化了 10 个指标）。
+	for _, spec := range intGauges {
+		g, err := meter.Int64ObservableGauge(spec.name,
+			metric.WithDescription(spec.desc),
+			metric.WithUnit(spec.unit))
+		if err != nil {
+			return nil, fmt.Errorf("create gauge %s: %w", spec.name, err)
+		}
+		setMetricField[metric.Int64ObservableGauge](m, spec.field, g)
 	}
-
-	metrics.MAU, err = meter.Int64ObservableGauge("game.users.monthly_active",
-		metric.WithDescription("Monthly Active Users"),
-		metric.WithUnit("{users}"),
-	)
-	if err != nil {
-		return nil, err
+	for _, spec := range floatGauges {
+		g, err := meter.Float64ObservableGauge(spec.name,
+			metric.WithDescription(spec.desc),
+			metric.WithUnit(spec.unit))
+		if err != nil {
+			return nil, fmt.Errorf("create gauge %s: %w", spec.name, err)
+		}
+		setMetricField[metric.Float64ObservableGauge](m, spec.field, g)
 	}
-
-	metrics.UserLoginCounter, err = meter.Int64Counter("game.user.login.total",
-		metric.WithDescription("Total user logins"),
-		metric.WithUnit("{logins}"),
-	)
-	if err != nil {
-		return nil, err
+	for _, spec := range intCounters {
+		c, err := meter.Int64Counter(spec.name,
+			metric.WithDescription(spec.desc),
+			metric.WithUnit(spec.unit))
+		if err != nil {
+			return nil, fmt.Errorf("create counter %s: %w", spec.name, err)
+		}
+		setMetricField[metric.Int64Counter](m, spec.field, c)
 	}
-
-	metrics.UserRegisterCounter, err = meter.Int64Counter("game.user.register.total",
-		metric.WithDescription("Total user registrations"),
-		metric.WithUnit("{registrations}"),
-	)
-	if err != nil {
-		return nil, err
+	for _, spec := range floatCounters {
+		c, err := meter.Float64Counter(spec.name,
+			metric.WithDescription(spec.desc),
+			metric.WithUnit(spec.unit))
+		if err != nil {
+			return nil, fmt.Errorf("create counter %s: %w", spec.name, err)
+		}
+		setMetricField[metric.Float64Counter](m, spec.field, c)
 	}
-
-	// 留存指标
-	metrics.RetentionD1, err = meter.Float64ObservableGauge("game.retention.d1",
-		metric.WithDescription("Day 1 retention rate from metrics.yaml"),
-		metric.WithUnit("1"),
-	)
-	if err != nil {
-		return nil, err
+	for _, h := range histograms {
+		hist, err := meter.Float64Histogram(h.name,
+			metric.WithDescription(h.desc),
+			metric.WithUnit(h.unit),
+			metric.WithExplicitBucketBoundaries(h.bounds...))
+		if err != nil {
+			return nil, fmt.Errorf("create histogram %s: %w", h.name, err)
+		}
+		setMetricField[metric.Float64Histogram](m, h.field, hist)
 	}
+	return m, nil
+}
 
-	metrics.RetentionD7, err = meter.Float64ObservableGauge("game.retention.d7",
-		metric.WithDescription("Day 7 retention rate"),
-		metric.WithUnit("1"),
-	)
-	if err != nil {
-		return nil, err
+// setMetricField 按字段名写入指标值。NewGameMetrics 用规格表批量创建，
+// 字段反射赋值保持与结构体声明一一对应，避免手写 46 段重复赋值。
+func setMetricField[T any](m *GameMetrics, name string, value T) {
+	rv := reflect.ValueOf(m).Elem()
+	f := rv.FieldByName(name)
+	if !f.IsValid() || !f.CanSet() {
+		panic(fmt.Sprintf("telemetry: unknown GameMetrics field %q", name))
 	}
-
-	metrics.RetentionD30, err = meter.Float64ObservableGauge("game.retention.d30",
-		metric.WithDescription("Day 30 retention rate"),
-		metric.WithUnit("1"),
-	)
-	if err != nil {
-		return nil, err
+	vt := reflect.ValueOf(value)
+	// noop meter 返回具体实现而非 metric 接口，需要按字段接口类型转换。
+	iv := reflect.New(f.Type()).Elem()
+	if !vt.Type().AssignableTo(f.Type()) {
+		ok := vt.Type().Implements(f.Type())
+		if !ok {
+			panic(fmt.Sprintf("telemetry: value for field %s does not implement %s", name, f.Type()))
+		}
+		iv.Set(vt.Convert(f.Type()))
+	} else {
+		iv.Set(vt)
 	}
-
-	// 会话指标
-	metrics.SessionDuration, err = meter.Float64Histogram("game.session.duration",
-		metric.WithDescription("Game session duration from session.end"),
-		metric.WithUnit("ms"),
-		metric.WithExplicitBucketBoundaries([]float64{
-			1000, 30000, 60000, 300000, 600000, 1800000, 3600000, 7200000,
-		}...), // 1s, 30s, 1m, 5m, 10m, 30m, 1h, 2h
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	metrics.SessionCounter, err = meter.Int64Counter("game.session.total",
-		metric.WithDescription("Total game sessions"),
-		metric.WithUnit("{sessions}"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// 为了简化，我只修复前面几个指标的错误处理，其余省略
-	// 在实际项目中，需要为所有指标添加错误处理
-
-	return metrics, nil
+	f.Set(iv)
 }

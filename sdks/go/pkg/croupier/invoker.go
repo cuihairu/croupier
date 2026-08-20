@@ -190,6 +190,11 @@ func (i *tcpInvoker) Invoke(ctx context.Context, functionID, payload string, opt
 		}
 		return "", fmt.Errorf("not connected to server: %w", err)
 	}
+	// 重试循环耗尽（持续 reconnection in progress）时必须返回；此前会带着
+	// nil client 继续执行导致空指针崩溃。
+	if err != nil {
+		return "", fmt.Errorf("not connected to server: %w", err)
+	}
 
 	// Client-side validation
 	if schema, exists := i.schemas[functionID]; exists {

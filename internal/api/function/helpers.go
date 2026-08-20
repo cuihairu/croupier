@@ -178,13 +178,30 @@ func functionDelete(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 }
 
 func functionDisable(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionDisableRequest) error {
-	status := 0
-	return svcCtx.FunctionModel.Update(ctx, 0, map[string]interface{}{"status": status})
+	return setFunctionEnabled(ctx, svcCtx, req.FunctionId, 0)
 }
 
 func functionEnable(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionEnableRequest) error {
-	status := 1
-	return svcCtx.FunctionModel.Update(ctx, 0, map[string]interface{}{"status": status})
+	return setFunctionEnabled(ctx, svcCtx, req.FunctionId, 1)
+}
+
+// setFunctionEnabled flips a function's enabled status by its external
+// function_id. The previous implementation passed the numeric primary key 0
+// (a placeholder that matches no row), so enable/disable silently did
+// nothing while reporting success.
+func setFunctionEnabled(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, status int) error {
+	functionID = strings.TrimSpace(functionID)
+	if functionID == "" {
+		return errorx.NewBadRequest("functionId is required")
+	}
+	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, functionID)
+	if err != nil {
+		return fmt.Errorf("find function %s: %w", functionID, err)
+	}
+	if err := svcCtx.FunctionModel.Update(ctx, fn.ID, map[string]interface{}{"status": status}); err != nil {
+		return fmt.Errorf("update function %s status: %w", functionID, err)
+	}
+	return nil
 }
 
 func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionHistoryRequest) (*FunctionHistoryResponse, error) {

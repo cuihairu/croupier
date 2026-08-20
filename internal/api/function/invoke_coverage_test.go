@@ -435,26 +435,35 @@ func TestBuildBroadcastResponse(t *testing.T) {
 	})
 }
 
-// --- enable/disable no-op bug documentation ---
+// --- enable/disable flip the addressed function ---
 
-func TestFunctionEnableDisable_NoOpDocumentedBug(t *testing.T) {
+func TestFunctionEnableDisable_TogglesStatus(t *testing.T) {
 	f := newInvokeFixture(t)
 	ctx := context.WithValue(context.Background(), "username", "opuser")
 	fn := &model.Function{FunctionID: "toggle.me", Name: "Toggle", Status: 1}
 	require.NoError(t, f.db.WithContext(ctx).Create(fn).Error)
+	other := &model.Function{FunctionID: "keep.me", Name: "Keep", Status: 1}
+	require.NoError(t, f.db.WithContext(ctx).Create(other).Error)
 
-	// BUG (recorded, not fixed): functionDisable/functionEnable pass the
-	// hardcoded primary key 0 to FunctionModel.Update, so the WHERE clause
-	// matches no row and the requested FunctionId is ignored. The calls
-	// succeed while changing nothing.
+	// 修复回归：此前硬编码主键 0 导致 WHERE 不命中、静默无效。
 	require.NoError(t, functionDisable(ctx, f.svcCtx, &FunctionDisableRequest{FunctionId: "toggle.me"}))
 	var after model.Function
 	require.NoError(t, f.db.WithContext(ctx).Where("function_id = ?", "toggle.me").First(&after).Error)
-	assert.Equal(t, 1, after.Status, "disable is a silent no-op (bug: hardcoded id=0)")
+	assert.Equal(t, 0, after.Status, "disable must flip status")
+
+	// 其他函数不受影响
+	var untouched model.Function
+	require.NoError(t, f.db.WithContext(ctx).Where("function_id = ?", "keep.me").First(&untouched).Error)
+	assert.Equal(t, 1, untouched.Status)
 
 	require.NoError(t, functionEnable(ctx, f.svcCtx, &FunctionEnableRequest{FunctionId: "toggle.me"}))
 	require.NoError(t, f.db.WithContext(ctx).Where("function_id = ?", "toggle.me").First(&after).Error)
-	assert.Equal(t, 1, after.Status)
+	assert.Equal(t, 1, after.Status, "enable must restore status")
+
+	// 空 functionId 应显式报错而非静默成功
+	require.Error(t, functionDisable(ctx, f.svcCtx, &FunctionDisableRequest{FunctionId: "  "}))
+	// 不存在的函数应报错
+	require.Error(t, functionDisable(ctx, f.svcCtx, &FunctionDisableRequest{FunctionId: "missing.fn"}))
 }
 
 // --- instances listing with provider sessions ---

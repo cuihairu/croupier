@@ -241,42 +241,67 @@ func (m *flakyMeter) maybeFail() error {
 	return nil
 }
 
-func (m *flakyMeter) Int64Counter(string, ...metric.Int64CounterOption) (metric.Int64Counter, error) {
-	return nil, m.maybeFail()
+// noop 包装：成功分支返回非 nil 实现（直接 return nil, nil 会让反射拿到零值）。
+type noopInt64Counter struct{ metric.Int64Counter }
+type noopFloat64Counter struct{ metric.Float64Counter }
+type noopInt64Gauge struct{ metric.Int64ObservableGauge }
+type noopFloat64Gauge struct{ metric.Float64ObservableGauge }
+type noopFloat64Histogram struct{ metric.Float64Histogram }
+
+func (m *flakyMeter) Int64Counter(name string, opts ...metric.Int64CounterOption) (metric.Int64Counter, error) {
+	if err := m.maybeFail(); err != nil {
+		return nil, err
+	}
+	return metricnoop.NewMeterProvider().Meter("t").Int64Counter(name, opts...)
 }
 
-func (m *flakyMeter) Int64ObservableGauge(string, ...metric.Int64ObservableGaugeOption) (metric.Int64ObservableGauge, error) {
-	return nil, m.maybeFail()
+func (m *flakyMeter) Float64Counter(name string, opts ...metric.Float64CounterOption) (metric.Float64Counter, error) {
+	if err := m.maybeFail(); err != nil {
+		return nil, err
+	}
+	return metricnoop.NewMeterProvider().Meter("t").Float64Counter(name, opts...)
 }
 
-func (m *flakyMeter) Float64ObservableGauge(string, ...metric.Float64ObservableGaugeOption) (metric.Float64ObservableGauge, error) {
-	return nil, m.maybeFail()
+func (m *flakyMeter) Int64ObservableGauge(name string, opts ...metric.Int64ObservableGaugeOption) (metric.Int64ObservableGauge, error) {
+	if err := m.maybeFail(); err != nil {
+		return nil, err
+	}
+	return metricnoop.NewMeterProvider().Meter("t").Int64ObservableGauge(name, opts...)
 }
 
-func (m *flakyMeter) Float64Histogram(string, ...metric.Float64HistogramOption) (metric.Float64Histogram, error) {
-	return nil, m.maybeFail()
+func (m *flakyMeter) Float64ObservableGauge(name string, opts ...metric.Float64ObservableGaugeOption) (metric.Float64ObservableGauge, error) {
+	if err := m.maybeFail(); err != nil {
+		return nil, err
+	}
+	return metricnoop.NewMeterProvider().Meter("t").Float64ObservableGauge(name, opts...)
+}
+
+func (m *flakyMeter) Float64Histogram(name string, opts ...metric.Float64HistogramOption) (metric.Float64Histogram, error) {
+	if err := m.maybeFail(); err != nil {
+		return nil, err
+	}
+	return metricnoop.NewMeterProvider().Meter("t").Float64Histogram(name, opts...)
 }
 
 func TestNewGameMetrics_InstrumentCreationErrors(t *testing.T) {
-	failed := 0
-	for failAfter := 0; ; failAfter++ {
+	// 规格表驱动：任一 instrument 创建失败必须立即返回错误且不产生半初始化
+	// 的 GameMetrics（此前只创建 10 个、其余为 nil 接口，玩法事件一调即 panic）。
+	const totalInstruments = 46
+	for failAfter := 0; failAfter < totalInstruments; failAfter++ {
 		m, err := NewGameMetrics(&flakyMeter{failAfter: failAfter})
-		if err == nil {
-			require.NotNil(t, m)
-			break
-		}
-		require.Nil(t, m)
+		require.Error(t, err, "failAfter=%d", failAfter)
 		require.ErrorContains(t, err, "instrument creation failed")
-		failed++
-		require.LessOrEqual(t, failed, 10, "NewGameMetrics should create at most 10 guarded instruments")
+		require.Nil(t, m)
 	}
-	assert.Equal(t, 10, failed, "each guarded instrument error branch must be hit")
-
+	// 全部成功：46 个字段全部非 nil
 	m, err := NewGameMetrics(metricnoop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.NotNil(t, m)
 	require.NotNil(t, m.SessionCounter)
 	require.NotNil(t, m.SessionDuration)
+	require.NotNil(t, m.LevelStartCounter)
+	require.NotNil(t, m.CurrencyEarn)
+	require.NotNil(t, m.RevenueTotal)
 }
 
 // --- AnalyticsBridge against miniredis ---
@@ -360,18 +385,22 @@ func TestAnalyticsBridge_BatchFlushToRedis(t *testing.T) {
 }
 
 func TestAnalyticsBridge_Shutdown(t *testing.T) {
-	// A manually constructed bridge has no background goroutine, so the
-	// Shutdown flush path can be exercised without racing batchProcessor.
+	// 手工构造无后台协程：预关闭退出信号模拟 processor 已退出，
+	// 验证 Shutdown 会 flush 批次并关闭 Redis。
 	mr := miniredis.RunT(t)
+	processorExited := make(chan struct{})
+	close(processorExited)
 	bridge := &AnalyticsBridge{
-		enabled:        true,
-		logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
-		redisClient:    redis.NewClient(&redis.Options{Addr: mr.Addr()}),
-		gameID:         "game-1",
-		topicPrefix:    "game:events",
-		retentionHours: 1,
-		batchSize:      10,
-		flushInterval:  time.Hour,
+		enabled:         true,
+		logger:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+		redisClient:     redis.NewClient(&redis.Options{Addr: mr.Addr()}),
+		gameID:          "game-1",
+		topicPrefix:     "game:events",
+		retentionHours:  1,
+		batchSize:       10,
+		flushInterval:   time.Hour,
+		stopCh:          make(chan struct{}),
+		processorExited: processorExited,
 		eventBatch: []AnalyticsEvent{{
 			EventType: "session.end", GameID: "game-1",
 			Attributes: map[string]interface{}{"k": "v"},

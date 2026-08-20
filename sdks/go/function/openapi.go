@@ -308,6 +308,9 @@ func schemaToJSONSchema(schema *openapi3.Schema) (string, error) {
 
 // schemaTypeToString converts OpenAPI schema type to string.
 func schemaTypeToString(schema *openapi3.Schema) string {
+	if schema == nil {
+		return "object"
+	}
 	if schema.Type != nil && len(*schema.Type) > 0 {
 		return (*schema.Type)[0]
 	}

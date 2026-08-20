@@ -358,8 +358,13 @@ func (c *client) Stop() error {
 
 	c.logger.Infof("Stopping Croupier client...")
 
-	if c.manager != nil {
-		c.manager.Disconnect()
+	// manager 与 Connect/reconnectWithBackoff 的写入并发；无锁读构成
+	// 数据竞争（-race 实测报警）。取快照时持读锁。
+	c.mu.RLock()
+	manager := c.manager
+	c.mu.RUnlock()
+	if manager != nil {
+		manager.Disconnect()
 	}
 
 	// Safely close stopCh (only close if not already closed)

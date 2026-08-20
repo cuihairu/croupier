@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/cuihairu/croupier/sdks/go/pkg/croupier/protocol"
@@ -40,7 +41,11 @@ type TCPClient struct {
 type responseTuple struct {
 	msgID uint32
 	body  []byte
+	// err 非空表示连接已死、响应永不可达（failAllPending 注入）。
+	err error
 }
+
+var errConnectionClosed = errors.New("connection closed")
 
 // NewTCPClient creates a new TCP client with the given configuration.
 func NewTCPClient(config *Config) (*TCPClient, error) {
@@ -50,10 +55,12 @@ func NewTCPClient(config *Config) (*TCPClient, error) {
 	if host == "" || port == 0 {
 		// Parse from Address (expected format: "host:port" or "tcp://host:port")
 		addr := config.Address
-		if len(addr) > 6 && addr[:6] == "tcp://" {
-			addr = addr[6:]
-		} else if len(addr) > 9 && addr[:9] == "tls+tcp://" {
-			addr = addr[9:]
+		// 前缀剥离：长度必须与字面量一致（"tls+tcp://" 是 10 字节，此前
+		// 按 9 字节比较导致条件永假、前缀永不被剥离、拨号必然失败）。
+		if strings.HasPrefix(addr, "tcp://") {
+			addr = strings.TrimPrefix(addr, "tcp://")
+		} else if strings.HasPrefix(addr, "tls+tcp://") {
+			addr = strings.TrimPrefix(addr, "tls+tcp://")
 		}
 
 		// Validate address is not empty after stripping protocol prefix
@@ -182,6 +189,9 @@ func (c *TCPClient) Call(ctx context.Context, msgID uint32, reqBody []byte) (res
 	// Wait for response
 	select {
 	case resp := <-respCh:
+		if resp.err != nil {
+			return 0, nil, resp.err
+		}
 		return resp.msgID, resp.body, nil
 	case <-ctx.Done():
 		return 0, nil, ctx.Err()
@@ -201,6 +211,10 @@ func (c *TCPClient) SetOnClose(fn func(err error)) {
 // receiveLoop receives frames from the connection and routes them to pending requests.
 func (c *TCPClient) receiveLoop() {
 	defer c.readLoopWg.Done()
+	// 连接死亡时所有在途 Call 的响应永远不会到达；必须显式失败，
+	// 否则等待方阻塞到 ctx deadline（context.Background() 的调用方
+	// 如 RegisterWithAgent 会永久挂起）。
+	defer c.failAllPending()
 	defer c.notifyClose()
 
 	frameHeader := make([]byte, frameHeaderBytes)
@@ -305,6 +319,20 @@ func (c *TCPClient) handleInboundRequest(msgID uint32, reqID uint32, body []byte
 	c.writeMu.Lock()
 	_, _ = c.conn.Write(frame)
 	c.writeMu.Unlock()
+}
+
+// failAllPending wakes every in-flight Call with a connection-dead error.
+func (c *TCPClient) failAllPending() {
+	c.mu.Lock()
+	pending := c.pending
+	c.pending = make(map[uint32]chan responseTuple)
+	c.mu.Unlock()
+	for _, ch := range pending {
+		select {
+		case ch <- responseTuple{msgID: 0, body: nil, err: errConnectionClosed}:
+		default:
+		}
+	}
 }
 
 // Close closes the client connection.

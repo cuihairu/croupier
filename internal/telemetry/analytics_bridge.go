@@ -28,6 +28,12 @@ type AnalyticsBridge struct {
 	// 批量发送缓冲区
 	eventBatch   []AnalyticsEvent
 	batchChannel chan AnalyticsEvent
+
+	// stopCh 结束 batchProcessor；此前该 goroutine 无退出机制（泄漏），
+	// 且 Shutdown 在调用方 goroutine 直接 flushBatch，与 processor 并发
+	// 读写 eventBatch（-race 必报）。
+	stopCh          chan struct{}
+	processorExited chan struct{}
 }
 
 // AnalyticsEvent 标准化的游戏分析事件
@@ -69,20 +75,29 @@ func NewAnalyticsBridge(config AnalyticsBridgeConfig, gameID string, logger *slo
 		DB:       config.RedisDB,
 	})
 
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	bridge := &AnalyticsBridge{
-		redisClient:    rdb,
-		logger:         logger,
-		gameID:         gameID,
-		enabled:        true,
-		topicPrefix:    config.TopicPrefix,
-		retentionHours: config.RetentionHours,
-		batchSize:      config.BatchSize,
-		flushInterval:  config.FlushInterval,
-		batchChannel:   make(chan AnalyticsEvent, config.BatchSize*2),
+		redisClient:     rdb,
+		logger:          logger,
+		gameID:          gameID,
+		enabled:         true,
+		topicPrefix:     config.TopicPrefix,
+		retentionHours:  config.RetentionHours,
+		batchSize:       config.BatchSize,
+		flushInterval:   config.FlushInterval,
+		batchChannel:    make(chan AnalyticsEvent, config.BatchSize*2),
+		stopCh:          make(chan struct{}),
+		processorExited: make(chan struct{}),
 	}
 
 	// 启动批量处理协程
-	go bridge.batchProcessor()
+	go func() {
+		defer close(bridge.processorExited)
+		bridge.batchProcessor()
+	}()
 
 	return bridge
 }
@@ -107,6 +122,18 @@ func (b *AnalyticsBridge) batchProcessor() {
 		case <-ticker.C:
 			if len(b.eventBatch) > 0 {
 				b.flushBatch()
+			}
+
+		case <-b.stopCh:
+			// 退出前清空缓冲与批次，事件不丢
+			for {
+				select {
+				case event := <-b.batchChannel:
+					b.eventBatch = append(b.eventBatch, event)
+				default:
+					b.flushBatch()
+					return
+				}
 			}
 		}
 	}
@@ -302,20 +329,30 @@ func (b *AnalyticsBridge) SendEconomyEvent(ctx context.Context, eventType string
 	b.SendEvent(ctx, eventType, span, attrs)
 }
 
-// Shutdown 优雅关闭
+// Shutdown 优雅关闭：停止批量协程（其退出路径负责最终 flush），再关 Redis。
+// 此前直接在调用方 goroutine flush，与处理器并发读写 eventBatch（数据竞争）。
 func (b *AnalyticsBridge) Shutdown(ctx context.Context) error {
 	if !b.enabled {
 		return nil
 	}
-
-	// 刷新剩余事件
+	// 手工构造（测试）可能没有配套协程；nil channel 的 select 永远阻塞，
+	// 这里对未初始化字段做幂等保护。
+	if b.stopCh != nil {
+		select {
+		case <-b.stopCh:
+		default:
+			close(b.stopCh)
+		}
+	}
+	if b.processorExited != nil {
+		<-b.processorExited
+	}
+	// processor 退出路径已 flush；手工构造（无协程）场景在此兜底。
 	b.flushBatch()
 
-	// 关闭Redis连接
 	if b.redisClient != nil {
 		return b.redisClient.Close()
 	}
-
 	return nil
 }
 
