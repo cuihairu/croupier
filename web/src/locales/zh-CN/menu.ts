@@ -48,7 +48,7 @@ export default {
   'menu.Ops.Traces': '链路追踪',
   'menu.Ops.Alerts': '告警中心',
   'menu.Ops.RateLimits': '限速管理',
-  'menu.Ops.Terms': '术语字典',
+  'menu.SystemConfig.SystemFoundation.Terms': '术语字典',
   'menu.Ops.Certificates': '证书监控',
   'menu.Ops.Notifications': '事件通知',
   'menu.Ops.AnalyticsFilters': '采样控制',
