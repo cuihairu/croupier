@@ -20,6 +20,7 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import {
@@ -557,30 +558,33 @@ const ResourceCatalogPage: React.FC = () => {
       title: '操作',
       key: 'action',
       fixed: 'right',
-      width: 200,
+      width: 120,
       render: (_, record) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record.resourceKey)}
-          >
-            查看
-          </Button>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEditSemantics(record.resourceKey)}
-          >
-            编辑语义
-          </Button>
-          <Button
-            type="link"
-            icon={<BulbOutlined />}
-            onClick={() => handleOpenProposals(record.resourceKey)}
-          >
-            提案
-          </Button>
+        <Space size={0}>
+          <Tooltip title="查看详情">
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewDetail(record.resourceKey)}
+            />
+          </Tooltip>
+          <Tooltip title="编辑语义">
+            <Button
+              type="link"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => handleEditSemantics(record.resourceKey)}
+            />
+          </Tooltip>
+          <Tooltip title="提案">
+            <Button
+              type="link"
+              size="small"
+              icon={<BulbOutlined />}
+              onClick={() => handleOpenProposals(record.resourceKey)}
+            />
+          </Tooltip>
         </Space>
       ),
     },

@@ -31,11 +31,9 @@ test.describe('Resource Catalog', () => {
     await page.goto('/system/functions/resource-catalog');
     await waitForPageReady(page);
 
-    // 点击查看详情
+    // 操作列为紧凑图标按钮（Tooltip 提示），按 aria-label 定位查看
     const detailBtn = page
-      .locator(
-        'button:has-text("查看"), a:has-text("查看"), button:has-text("详情"), a:has-text("详情")',
-      )
+      .locator('button[title="查看详情"], .ant-table-tbody button:has(.anticon-eye)')
       .first();
     await expect(detailBtn).toBeVisible();
     await detailBtn.click();
