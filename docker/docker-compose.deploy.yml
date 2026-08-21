@@ -79,15 +79,9 @@ services:
     command: ["--config=/etc/otel-collector.yaml"]
     volumes:
       - ./configs/otel-collector.yaml:/etc/otel-collector.yaml:ro
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "wget -qO- http://localhost:13133/ >/dev/null 2>&1 || exit 1",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+    # contrib 0.91 是 distroless（无 shell/wget/healthcheck 二进制），
+    # 无法承载 Docker healthcheck；OTLP 发送端自带重连，server 不以
+    # collector 健康为启动前置。
     networks:
       - croupier-network
 
