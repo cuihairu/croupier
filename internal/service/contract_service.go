@@ -186,7 +186,13 @@ func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID,
 	// final reviewed semantics.
 	semantics := s.buildSemantics(gameID, env, resourceKey, contracts)
 	if existing, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, gameID, env, resourceKey); err == nil {
-		preserveReviewedSemantics(semantics, existing)
+		liveIDs := make(map[uint]struct{}, len(contracts))
+		for _, c := range contracts {
+			if c != nil {
+				liveIDs[c.ID] = struct{}{}
+			}
+		}
+		preserveReviewedSemantics(semantics, existing, liveIDs)
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return fmt.Errorf("find existing capability semantics: %w", err)
 	}
@@ -422,7 +428,12 @@ func preserveReviewedCapability(next *model.ResourceCapability, existing *model.
 	}
 }
 
-func preserveReviewedSemantics(next *model.CapabilitySemantics, existing *model.CapabilitySemantics) {
+func idLive(live map[uint]struct{}, id uint) bool {
+	_, ok := live[id]
+	return ok
+}
+
+func preserveReviewedSemantics(next *model.CapabilitySemantics, existing *model.CapabilitySemantics, liveContractIDs map[uint]struct{}) {
 	if next == nil || existing == nil {
 		return
 	}
@@ -439,7 +450,7 @@ func preserveReviewedSemantics(next *model.CapabilitySemantics, existing *model.
 		next.IdentityFieldType = existing.IdentityFieldType
 		next.IdentityPath = existing.IdentityPath
 	}
-	if existing.CollectionQueryID > 0 {
+	if existing.CollectionQueryID > 0 && next.CollectionQueryID == 0 && idLive(liveContractIDs, existing.CollectionQueryID) {
 		next.CollectionQueryID = existing.CollectionQueryID
 	}
 	if strings.TrimSpace(existing.CollectionPath) != "" {
@@ -457,19 +468,19 @@ func preserveReviewedSemantics(next *model.CapabilitySemantics, existing *model.
 	if strings.TrimSpace(existing.TotalFieldName) != "" {
 		next.TotalFieldName = existing.TotalFieldName
 	}
-	if existing.ItemQueryID > 0 {
+	if existing.ItemQueryID > 0 && next.ItemQueryID == 0 && idLive(liveContractIDs, existing.ItemQueryID) {
 		next.ItemQueryID = existing.ItemQueryID
 	}
 	if strings.TrimSpace(existing.ItemPath) != "" {
 		next.ItemPath = existing.ItemPath
 	}
-	if existing.CreateID > 0 {
+	if existing.CreateID > 0 && next.CreateID == 0 && idLive(liveContractIDs, existing.CreateID) {
 		next.CreateID = existing.CreateID
 	}
-	if existing.UpdateID > 0 {
+	if existing.UpdateID > 0 && next.UpdateID == 0 && idLive(liveContractIDs, existing.UpdateID) {
 		next.UpdateID = existing.UpdateID
 	}
-	if existing.DeleteID > 0 {
+	if existing.DeleteID > 0 && next.DeleteID == 0 && idLive(liveContractIDs, existing.DeleteID) {
 		next.DeleteID = existing.DeleteID
 	}
 	if len(existing.Actions) > 0 {

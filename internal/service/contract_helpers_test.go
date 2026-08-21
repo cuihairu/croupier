@@ -540,7 +540,7 @@ func TestPreserveReviewedSemantics_Extended(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Should not panic
-			preserveReviewedSemantics(tt.next, tt.existing)
+			preserveReviewedSemantics(tt.next, tt.existing, map[uint]struct{}{})
 		})
 	}
 }
@@ -559,7 +559,7 @@ func TestPreserveReviewedSemantics_PreservesFields_Extended(t *testing.T) {
 		UpdatedBy:         "admin",
 	}
 
-	preserveReviewedSemantics(next, existing)
+	preserveReviewedSemantics(next, existing, map[uint]struct{}{existing.CollectionQueryID: {}})
 
 	assert.Equal(t, string(spec.SemanticSourcePlatformReview), next.Source)
 	assert.Equal(t, "reviewed_id", next.IdentityField)
@@ -579,7 +579,7 @@ func TestPreserveReviewedSemantics_EmptyIdentityField_Extended(t *testing.T) {
 		IdentityField: "", // Empty - should not overwrite
 	}
 
-	preserveReviewedSemantics(next, existing)
+	preserveReviewedSemantics(next, existing, map[uint]struct{}{existing.CollectionQueryID: {}})
 
 	// next.IdentityField should remain unchanged
 	assert.Equal(t, "new_id", next.IdentityField)
@@ -594,7 +594,7 @@ func TestPreserveReviewedSemantics_ZeroCollectionQueryID_Extended(t *testing.T) 
 		CollectionQueryID: 0, // Zero - should not overwrite
 	}
 
-	preserveReviewedSemantics(next, existing)
+	preserveReviewedSemantics(next, existing, map[uint]struct{}{existing.CollectionQueryID: {}})
 
 	// next.CollectionQueryID should remain unchanged
 	assert.Equal(t, uint(100), next.CollectionQueryID)

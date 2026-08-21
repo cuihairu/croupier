@@ -671,9 +671,9 @@ func TestIsCRUDCapability(t *testing.T) {
 
 func TestPreserveReviewedSemantics(t *testing.T) {
 	// Test nil inputs
-	preserveReviewedSemantics(nil, nil)
-	preserveReviewedSemantics(nil, &model.CapabilitySemantics{})
-	preserveReviewedSemantics(&model.CapabilitySemantics{}, nil)
+	preserveReviewedSemantics(nil, nil, nil)
+	preserveReviewedSemantics(nil, &model.CapabilitySemantics{}, nil)
+	preserveReviewedSemantics(&model.CapabilitySemantics{}, nil, nil)
 
 	// Test preserving platform_review source
 	next := &model.CapabilitySemantics{
@@ -689,7 +689,7 @@ func TestPreserveReviewedSemantics(t *testing.T) {
 		PageFieldName:     "page",
 		PageSizeFieldName: "page_size",
 	}
-	preserveReviewedSemantics(next, existing)
+	preserveReviewedSemantics(next, existing, map[uint]struct{}{existing.CollectionQueryID: {}})
 	assert.Equal(t, "platform_review", next.Source)
 	assert.Equal(t, "admin", next.UpdatedBy)
 	assert.Equal(t, "player_id", next.IdentityField)
@@ -1446,7 +1446,7 @@ func TestContractService_PreserveReviewedSemantics(t *testing.T) {
 		PageFieldName:     "page",
 		PageSizeFieldName: "page_size",
 	}
-	preserveReviewedSemantics(next, existing)
+	preserveReviewedSemantics(next, existing, map[uint]struct{}{existing.CollectionQueryID: {}})
 	assert.Equal(t, "platform_review", next.Source)
 	assert.Equal(t, "admin", next.UpdatedBy)
 	assert.Equal(t, "player_id", next.IdentityField)
@@ -1470,7 +1470,7 @@ func TestContractService_PreserveReviewedSemantics(t *testing.T) {
 		PageFieldName:     "page_num",
 		PageSizeFieldName: "limit",
 	}
-	preserveReviewedSemantics(next2, existing2)
+	preserveReviewedSemantics(next2, existing2, map[uint]struct{}{existing2.CollectionQueryID: {}})
 	assert.Equal(t, "sdk_explicit", next2.Source)
 	assert.Empty(t, next2.UpdatedBy)
 	assert.Empty(t, next2.IdentityField)
