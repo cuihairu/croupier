@@ -556,6 +556,8 @@ const ResourceCatalogPage: React.FC = () => {
     {
       title: '操作',
       key: 'action',
+      fixed: 'right',
+      width: 200,
       render: (_, record) => (
         <Space>
           <Button
@@ -622,6 +624,7 @@ const ResourceCatalogPage: React.FC = () => {
           dataSource={data}
           rowKey="resourceKey"
           loading={loading}
+          scroll={{ x: 1100 }}
           pagination={{
             total,
             pageSize: 20,
