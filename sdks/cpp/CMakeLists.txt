@@ -684,7 +684,29 @@ if(BUILD_TESTS)
             tests/test_plugin_manager.cpp
             tests/test_protocol.cpp
             tests/test_logger.cpp
+            tests/test_http_transport.cpp
+            tests/test_client_provider.cpp
+            tests/test_dynamic_loader_lifecycle.cpp
+            tests/test_json_schema.cpp
+            tests/test_config_generation.cpp
+            tests/test_invoker_retry.cpp
         )
+
+        # Real shared-object plugins used by the dynamic loader tests.
+        if(UNIX)
+            add_library(croupier-sample-plugin SHARED tests/plugins/sample_plugin.cpp)
+            target_include_directories(croupier-sample-plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+            set_target_properties(croupier-sample-plugin PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test-plugins
+                PREFIX "lib"
+            )
+            add_library(croupier-failing-init-plugin SHARED tests/plugins/failing_init_plugin.cpp)
+            target_include_directories(croupier-failing-init-plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+            set_target_properties(croupier-failing-init-plugin PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test-plugins
+                PREFIX "lib"
+            )
+        endif()
 
         add_executable(croupier-sdk-tests
             ${CROUPIER_TEST_SOURCES}
@@ -693,6 +715,12 @@ if(BUILD_TESTS)
         # Ensure TCP tests are compiled when TCP is enabled
         if(tcp_ENABLED)
             target_compile_definitions(croupier-sdk-tests PRIVATE CROUPIER_SDK_HAS_TCP)
+        endif()
+
+        if(UNIX)
+            add_dependencies(croupier-sdk-tests croupier-sample-plugin croupier-failing-init-plugin)
+            target_compile_definitions(croupier-sdk-tests PRIVATE
+                CROUPIER_TEST_PLUGIN_DIR="${CMAKE_BINARY_DIR}/test-plugins")
         endif()
 
         if(TARGET GTest::gtest_main)
