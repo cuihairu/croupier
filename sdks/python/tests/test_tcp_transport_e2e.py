@@ -344,10 +344,11 @@ def _tls_call_with_retry(server: FakePeer, **transport_kwargs) -> tuple[TCPTrans
             transport.connect()
             resp_msg_id, _ = transport.call(protocol.MSG_INVOKE_REQUEST, b"secure-ping")
             return transport, resp_msg_id
-        except TimeoutError as exc:
+        except (TimeoutError, ConnectionError, OSError) as exc:
+            # 竞态的两种表现：帧被静默吞掉（超时）或 reader 判定连接丢失
             last_exc = exc
             transport.close()
-    raise AssertionError(f"TLS roundtrip kept timing out: {last_exc!r}")
+    raise AssertionError(f"TLS roundtrip kept failing: {last_exc!r}")
 
 
 class TestTLS:
