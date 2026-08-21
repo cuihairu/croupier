@@ -60,7 +60,8 @@ test.describe('Resource Catalog', () => {
       )
       .first();
     await expect(statusTag).toBeVisible();
-    await expect(page.getByText('函数数量', { exact: true })).toBeVisible();
-    await expect(page.getByText('语义版本', { exact: true })).toBeVisible();
+    // fixed 操作列会让 antd 克隆表头单元格，同一列标题出现两次，取首个断言
+    await expect(page.getByText('函数数量', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('语义版本', { exact: true }).first()).toBeVisible();
   });
 });
