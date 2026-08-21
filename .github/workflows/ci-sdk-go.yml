@@ -23,6 +23,13 @@ jobs:
           go-version: "1.26.6"
       - run: go test -count=1 -coverprofile=coverage.out -covermode=atomic ./...
         working-directory: sdks/go
+      - name: Filter non-library entrypoints from coverage
+        # codecov action 不读取子目录的 codecov.yml；main() 入口与代码生成
+        # 脚本不属于库 API，先在上传前从 profile 中剔除（与 pkg/pb 同理）。
+        run: |
+          cd sdks/go
+          grep -vE 'cmd/|scripts/|examples/basic/|examples/comprehensive/' coverage.out > coverage.lib.out
+          mv coverage.lib.out coverage.out
       - uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
