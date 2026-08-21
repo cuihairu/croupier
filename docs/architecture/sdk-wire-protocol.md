@@ -191,14 +191,14 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 
 用于 `sdk-agent subprotocol` 的 provider session 控制消息：
 
-| MsgID | 名称 | 说明 |
-| ---: | --- | --- |
-| `0x050101` | `ProviderConnectRequest` | 建立 provider session |
-| `0x050102` | `ProviderConnectResponse` | 返回 `session_id`、协商结果与 `warnings` |
-| `0x050103` | `ProviderHeartbeatRequest` | provider 心跳 |
-| `0x050104` | `ProviderHeartbeatResponse` | 心跳响应 |
-| `0x050105` | `ProviderDrainRequest` | Agent 将 provider session 置为 `draining` |
-| `0x050106` | `ProviderDrainResponse` | provider 确认进入 drain 状态 |
+|      MsgID | 名称                        | 说明                                      |
+| ---------: | --------------------------- | ----------------------------------------- |
+| `0x050101` | `ProviderConnectRequest`    | 建立 provider session                     |
+| `0x050102` | `ProviderConnectResponse`   | 返回 `session_id`、协商结果与 `warnings`  |
+| `0x050103` | `ProviderHeartbeatRequest`  | provider 心跳                             |
+| `0x050104` | `ProviderHeartbeatResponse` | 心跳响应                                  |
+| `0x050105` | `ProviderDrainRequest`      | Agent 将 provider session 置为 `draining` |
+| `0x050106` | `ProviderDrainResponse`     | provider 确认进入 drain 状态              |
 
 `ProviderConnectResponse` 字段语义：
 
@@ -250,6 +250,7 @@ v1 默认规则：
 - `session_id`
 - `idempotency_key`
 - `trace_id`
+  - W3C trace 传播详见 `docs/architecture/sdk-otel-propagation.md`（SDK 只做传播不做导出）
 - `game_id`
 - `env`
 - `timeout_ms`
