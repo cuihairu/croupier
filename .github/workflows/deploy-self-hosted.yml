@@ -72,6 +72,8 @@ jobs:
           rm -rf "${{ inputs.deploy_dir }}/configs"
           mkdir -p "${{ inputs.deploy_dir }}/configs"
           cp docker/configs/server.yaml docker/configs/agent.yaml "${{ inputs.deploy_dir }}/configs/"
+          # OTel collector 配置随部署分发（trace 栈由 deploy compose 固化）
+          cp configs/otel-collector-config.yaml "${{ inputs.deploy_dir }}/configs/otel-collector.yaml"
           # agent.yaml 的 game/env scope 是环境事实（生产 demo-game/development，
           # 全新安装 bootstrap 为 default/dev），部署覆盖会静默改写 scope 导致
           # 函数注册进不可见的游戏。保留线上已有值，仅首次部署落模板。

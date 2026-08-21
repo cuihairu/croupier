@@ -70,6 +70,38 @@ services:
     networks:
       - croupier-network
 
+  # OTel 追踪栈：server/agent 的 span 经 collector 入 Jaeger。
+  # 未部署此栈时 server 不应开启 OTEL_ENABLED（invoke traceId 将为空）。
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    container_name: croupier-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./configs/otel-collector.yaml:/etc/otel-collector.yaml:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:13133/ >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - croupier-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: croupier-jaeger
+    restart: unless-stopped
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "${JAEGER_UI_PORT:-17686}:16686"
+    networks:
+      - croupier-network
+
   server:
     image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-server:${CROUPIER_SERVER_TAG:-main}
     container_name: croupier-server
@@ -86,6 +118,12 @@ services:
       IP2LOCATION_BIN_PATH: /app/configs/IP2LOCATION-LITE-DB3.BIN
       IP2LOCATION_BIN_PATH_V6: /app/configs/IP2LOCATION-LITE-DB3.IPV6.BIN
       GEOIP_TIMEOUT_MS: ${GEOIP_TIMEOUT_MS:-800}
+      # OTel：trace 全链路（server→agent→provider）与 Dashboard 调试页
+      # traceId 展示依赖此配置；未启用时 invoke 响应 traceId 为空。
+      OTEL_ENABLED: "true"
+      OTEL_ENABLE_TRACING: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      CROUPIER_JAEGER_URL: ${CROUPIER_JAEGER_URL:-}
     command: ["server", "--config", "/app/configs/server.yaml"]
     ports:
       - "${SERVER_TLS_PORT:-8443}:8443"
