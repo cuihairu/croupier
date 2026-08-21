@@ -168,6 +168,11 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const createFormRef = useRef<SchemaFormRendererHandle | null>(null);
   const updateFormRef = useRef<SchemaFormRendererHandle | null>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  // 带表单的行操作（如封禁/充值）：identity 由行注入，其余字段弹表单
+  const [actionFormState, setActionFormState] = useState<{
+    action: ActionSpec;
+    record: FormValues;
+  } | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
   const [currentRecord, setCurrentRecord] = useState<FormValues | null>(null);
@@ -295,6 +300,35 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     [updateBinding, currentRecord, onExecute, preview],
   );
 
+  // 提交带表单的行操作：form 值 + 行 identity 一起交给 selector 组装
+  const submitActionForm = useCallback(
+    async (values: FormValues) => {
+      if (!actionFormState) return false;
+      const { action, record } = actionFormState;
+      const binding = bindings.find((item) => item.id === action.bindingId);
+      if (!binding) {
+        message.error('未配置操作绑定');
+        return false;
+      }
+      if (preview) {
+        message.info('预览模式不执行资源动作');
+        return false;
+      }
+      try {
+        await onExecute(binding.id, { form: values, row: record });
+        message.success('操作成功');
+        setActionFormState(null);
+        setSelectedRows([]);
+        actionRef.current?.reload();
+        return true;
+      } catch {
+        message.error('操作失败');
+        return false;
+      }
+    },
+    [actionFormState, bindings, onExecute, preview],
+  );
+
   const submitCreateForm = useCallback(async () => {
     if (!createFormRef.current?.validate()) return;
     setFormSubmitting(true);
@@ -348,6 +382,11 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       if (preview) {
         message.info('预览模式不执行资源动作');
+        return;
+      }
+      // 带表单的操作：先弹 SchemaFormRenderer，提交时合并 row identity
+      if (action.form) {
+        setActionFormState({ action, record });
         return;
       }
       if (action.confirm || binding.execution.requireConfirm) {
@@ -619,6 +658,17 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         </Modal>
       )}
 
+      {/* 带表单的行操作（封禁/充值等）：identity 行注入 + 用户填写附加字段 */}
+      {actionFormState?.action.form && (
+        <ActionFormModal
+          title={localizedText(actionFormState.action.title, 'zh-CN', '执行操作')}
+          formSpec={actionFormState.action.form}
+          submitting={formSubmitting}
+          onCancel={() => setActionFormState(null)}
+          onSubmit={submitActionForm}
+        />
+      )}
+
       {/* 编辑表单 */}
       {spec.updateForm && (
         <Modal
@@ -674,3 +724,37 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 };
 
 export default ResourcePageRenderer;
+
+// ActionFormModal 是"带表单的行操作"弹窗：SchemaFormRenderer 收集附加
+// 字段（identity 已剥离，由行数据注入）。
+const ActionFormModal: React.FC<{
+  title: string;
+  formSpec: NonNullable<ActionSpec['form']>;
+  submitting: boolean;
+  onCancel: () => void;
+  onSubmit: (values: FormValues) => Promise<boolean>;
+}> = ({ title, formSpec, submitting, onCancel, onSubmit }) => {
+  const formRef = useRef<SchemaFormRendererHandle | null>(null);
+  const [values, setValues] = useState<FormValues>({});
+  return (
+    <Modal
+      title={title}
+      open
+      confirmLoading={submitting}
+      destroyOnHidden
+      onCancel={onCancel}
+      onOk={async () => {
+        if (formRef.current && !formRef.current.validate()) return;
+        await onSubmit(values);
+      }}
+    >
+      <SchemaFormRenderer
+        ref={formRef}
+        spec={formSpec}
+        initialValues={values}
+        onValuesChange={(_, allValues) => setValues(allValues)}
+        hideSubmit
+      />
+    </Modal>
+  );
+};

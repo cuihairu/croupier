@@ -268,6 +268,67 @@ func buildUpdateFormFromContract(contract *model.FunctionContract, semantics *mo
 	return form
 }
 
+// schemaCanBindIdentityPlusFields 校验 action 输入是否为「identity 必填字段 +
+// 任意附加字段」形态：identity 可由 row 注入、附加字段留给用户表单。
+// 附加字段全部可选时不构成安全风险；含其他必填字段也可（表单会收集）。
+func schemaCanBindIdentityPlusFields(schema spec.JSONSchema, identityField string) bool {
+	identityField = strings.TrimSpace(identityField)
+	if identityField == "" {
+		return false
+	}
+	root := parseJSONObject(json.RawMessage(schema))
+	if len(root) == 0 {
+		return false
+	}
+	properties := objectProperty(root, "properties")
+	if len(properties) == 0 {
+		return false
+	}
+	if _, ok := properties[identityField]; !ok {
+		return false
+	}
+	// identity 必须是必填（否则无法安全从行注入）
+	for _, required := range requiredFieldNames(root) {
+		if required == identityField {
+			return true
+		}
+	}
+	return false
+}
+
+// buildActionFormPresentation 产出表单行操作的 Form：剥离 identity 字段
+// （row 注入），剩余字段交给 SchemaFormRenderer。
+func buildActionFormPresentation(contract *model.FunctionContract, semantics *model.CapabilitySemantics, action resourceActionSemantic) *spec.FormPresentationSpec {
+	form := buildFormFromContract(contract)
+	if form == nil {
+		return nil
+	}
+	if semantics != nil && strings.TrimSpace(semantics.IdentityField) != "" {
+		// 表单剥离行注入的 identity（与 update form 同一语义）
+		form = buildUpdateFormFromContract(contract, semantics)
+	}
+	// action.IdentityInput 是 selector 实际映射的字段；若与 semantics
+	// identity 不同，同样剥离
+	target := strings.TrimSpace(action.IdentityInput)
+	if target != "" && (semantics == nil || target != strings.TrimSpace(semantics.IdentityField)) {
+		form.JSONSchema = removeTopLevelSchemaField(form.JSONSchema, target)
+	}
+	if form.Fields != nil {
+		remaining := make([]spec.FormFieldSpec, 0, len(form.Fields))
+		for _, f := range form.Fields {
+			if f.Key == target {
+				continue
+			}
+			if semantics != nil && f.Key == strings.TrimSpace(semantics.IdentityField) {
+				continue
+			}
+			remaining = append(remaining, f)
+		}
+		form.Fields = remaining
+	}
+	return form
+}
+
 func removeTopLevelSchemaField(schema spec.JSONSchema, field string) spec.JSONSchema {
 	field = strings.TrimSpace(field)
 	if len(schema) == 0 || field == "" {
@@ -309,6 +370,13 @@ func buildListViewFromContract(contract *model.FunctionContract, semantics *mode
 		return defaultListView()
 	}
 
+	// 分页字段命名变体解析放在最前：filters 的排除列表、selector 重写与
+	// 分页 UI 都消费 semantics 的字段名，必须先对齐 schema 实际命名
+	// （SDK 常用 camelCase pageSize，而语义默认是 page/page_size）。
+	if inProps := objectProperty(parseJSONObject(json.RawMessage(contract.InputSchema)), "properties"); len(inProps) > 0 {
+		resolvePaginationFields(inProps, semantics)
+	}
+
 	itemsSchema := findCollectionItemsSchema(spec.JSONSchema(contract.OutputSchema), semantics)
 	if len(itemsSchema) == 0 {
 		return defaultListView()
@@ -334,9 +402,13 @@ func buildListViewFromContract(contract *model.FunctionContract, semantics *mode
 	columns := make([]spec.ColumnSpec, 0, len(keys))
 	for _, key := range keys {
 		prop := properties[key]
+		humanTitle := humanizeKey(key)
+		if humanTitle == "" {
+			humanTitle = key
+		}
 		col := spec.ColumnSpec{
 			Key:      key,
-			Title:    spec.LocalizedText{"zh-CN": key},
+			Title:    spec.LocalizedText{"zh-CN": humanTitle, "en-US": humanTitle},
 			DataType: inferDataType(prop),
 			Visible:  true,
 		}
@@ -408,7 +480,7 @@ func buildInlineResourceActions(
 			continue
 		}
 		switch placement {
-		case "row":
+		case "row", "row-form":
 			rowActions = append(rowActions, actionSpec)
 		case "batch":
 			batchActions = append(batchActions, actionSpec)
@@ -453,6 +525,10 @@ func buildInlineResourceAction(
 			Output: output,
 		}
 	}
+	actionForm := (*spec.FormPresentationSpec)(nil)
+	if placement == "row-form" {
+		actionForm = buildActionFormPresentation(contract, semantics, action)
+	}
 	return spec.ActionSpec{
 		Key:          inlineActionKey(contract),
 		Title:        inlineActionTitle(contract, locale),
@@ -461,6 +537,7 @@ func buildInlineResourceAction(
 		ConfirmTitle: spec.LocalizedText{locale: "确认操作"},
 		ConfirmDesc:  spec.LocalizedText{locale: "确定要执行此操作吗？"},
 		BindingID:    bindingID,
+		Form:         actionForm,
 		Permission:   strings.TrimSpace(contract.Permission),
 		Risk:         strings.TrimSpace(contract.Risk),
 	}, binding, placement, true, spec.Diagnostic{}
@@ -474,17 +551,32 @@ func buildInlineResourceActionSelector(
 	switch strings.TrimSpace(action.Subject) {
 	case "resource_item":
 		target := topLevelPointerToken(action.IdentityInput)
-		if target == "" || !schemaCanBindBySingleRequiredField(spec.JSONSchema(contract.InputSchema), target) {
+		if target == "" {
 			return spec.SelectorAST{}, "", false
 		}
-		selector := spec.DefaultSelector(spec.JSONSchema(contract.InputSchema))
-		if !replaceSelectorSource(&selector, action.IdentityInput, spec.ValueSource{
-			Kind: spec.SourceRow,
-			Path: pointerForField(semantics.IdentityField),
-		}) {
-			return spec.SelectorAST{}, "", false
+		// 纯 identity 操作：一键执行。
+		if schemaCanBindBySingleRequiredField(spec.JSONSchema(contract.InputSchema), target) {
+			selector := spec.DefaultSelector(spec.JSONSchema(contract.InputSchema))
+			if !replaceSelectorSource(&selector, action.IdentityInput, spec.ValueSource{
+				Kind: spec.SourceRow,
+				Path: pointerForField(semantics.IdentityField),
+			}) {
+				return spec.SelectorAST{}, "", false
+			}
+			return selector, "row", true
 		}
-		return selector, "row", true
+		// identity + 附加字段：表单行操作（identity 注入、其余弹表单）。
+		if schemaCanBindIdentityPlusFields(spec.JSONSchema(contract.InputSchema), target) {
+			selector := spec.DefaultSelector(spec.JSONSchema(contract.InputSchema))
+			if !replaceSelectorSource(&selector, action.IdentityInput, spec.ValueSource{
+				Kind: spec.SourceRow,
+				Path: pointerForField(semantics.IdentityField),
+			}) {
+				return spec.SelectorAST{}, "", false
+			}
+			return selector, "row-form", true
+		}
+		return spec.SelectorAST{}, "", false
 	case "resource_selection":
 		target := topLevelPointerToken(action.IdentityInput)
 		if target == "" || !schemaCanBindBySingleRequiredArrayField(spec.JSONSchema(contract.InputSchema), target) {
@@ -535,9 +627,13 @@ func buildDetailViewFromContracts(
 	sort.Strings(keys)
 	fields := make([]spec.DetailFieldSpec, 0, len(keys))
 	for _, key := range keys {
+		humanTitle := humanizeKey(key)
+		if humanTitle == "" {
+			humanTitle = key
+		}
 		fields = append(fields, spec.DetailFieldSpec{
 			Key:      key,
-			Title:    spec.LocalizedText{"zh-CN": key},
+			Title:    spec.LocalizedText{"zh-CN": humanTitle, "en-US": humanTitle},
 			DataType: inferDataType(properties[key]),
 			Visible:  true,
 		})
@@ -790,9 +886,13 @@ func buildFiltersFromContract(contract *model.FunctionContract, semantics *model
 	filters := make([]spec.FilterSpec, 0, len(keys))
 	for _, key := range keys {
 		prop := properties[key]
+		humanTitle := humanizeKey(key)
+		if humanTitle == "" {
+			humanTitle = key
+		}
 		filters = append(filters, spec.FilterSpec{
 			Key:     key,
-			Title:   spec.LocalizedText{"zh-CN": key},
+			Title:   spec.LocalizedText{"zh-CN": humanTitle, "en-US": humanTitle},
 			Type:    inferFilterType(prop),
 			Options: enumOptionsFromSchema(prop),
 		})
@@ -824,6 +924,53 @@ func paginationFromContract(contract *model.FunctionContract, semantics *model.C
 		DefaultSize: 20,
 		PageSizes:   []int{10, 20, 50, 100},
 	}
+}
+
+// commonPageFieldVariants 是分页字段的常见命名变体。SDK 侧 payload key
+// 命名随游戏方风格（snake/camel），语义聚合的默认 page/page_size 若在
+// 合同 schema 中不存在，按变体表回退探测并回写 semantics，使分页 selector
+// 与 UI 不因命名差异静默失效。
+var (
+	commonPageFieldVariants     = []string{"page", "pageNo", "pageNum", "current", "offset"}
+	commonPageSizeFieldVariants = []string{"page_size", "pageSize", "perPage", "limit"}
+)
+
+// resolvePaginationFields 校正 semantics 的分页字段命名到合同 schema 实际
+// 存在的字段（原地回写），返回是否两者都可用。
+func resolvePaginationFields(properties map[string]json.RawMessage, semantics *model.CapabilitySemantics) bool {
+	if semantics == nil {
+		return false
+	}
+	pageField := strings.TrimSpace(semantics.PageFieldName)
+	if _, ok := properties[pageField]; !ok {
+		for _, candidate := range commonPageFieldVariants {
+			if _, ok := properties[candidate]; ok {
+				pageField = candidate
+				break
+			}
+		}
+	}
+	pageSizeField := strings.TrimSpace(semantics.PageSizeFieldName)
+	if _, ok := properties[pageSizeField]; !ok {
+		for _, candidate := range commonPageSizeFieldVariants {
+			if _, ok := properties[candidate]; ok {
+				pageSizeField = candidate
+				break
+			}
+		}
+	}
+	if pageField == "" || pageSizeField == "" {
+		return false
+	}
+	if _, ok := properties[pageField]; !ok {
+		return false
+	}
+	if _, ok := properties[pageSizeField]; !ok {
+		return false
+	}
+	semantics.PageFieldName = pageField
+	semantics.PageSizeFieldName = pageSizeField
+	return true
 }
 
 func findCollectionItemsSchema(raw spec.JSONSchema, semantics *model.CapabilitySemantics) json.RawMessage {

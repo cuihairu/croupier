@@ -134,3 +134,71 @@ describe('ResourcePageRenderer', () => {
     await screen.findByText('p-2');
   });
 });
+
+describe('ResourcePageRenderer action-form row action', () => {
+  it('opens a form modal for actions carrying form', async () => {
+    const onExecute = jest.fn().mockImplementation((bindingId: string) =>
+      bindingId === 'list'
+        ? Promise.resolve({
+            kind: 'sync' as const,
+            requestId: 'r',
+            data: { payload: { items: [{ id: 'p-1', name: 'Alice' }], total: 1 } },
+          })
+        : Promise.resolve({ kind: 'sync' as const, requestId: 'r', data: {} }),
+    );
+    const spec: ResourcePageSpec = {
+      ...resource,
+      listView: {
+        ...resource.listView,
+        columns: [
+          { key: 'id', title: { 'zh-CN': 'ID' }, dataType: 'string' },
+          { key: 'name', title: { 'zh-CN': 'Name' }, dataType: 'string' },
+        ],
+        rowActions: [
+          {
+            key: 'ban',
+            title: { 'zh-CN': '封禁' },
+            bindingId: 'action.ban',
+            form: {
+              jsonSchema: {
+                type: 'object',
+                properties: { reason: { type: 'string', title: 'Reason' } },
+                required: ['reason'],
+              },
+              layout: 'vertical',
+            },
+          },
+        ],
+      },
+    };
+    const bindings: PageFunctionBinding[] = [
+      listBinding([
+        { stateKey: 'items', source: '/payload/items', shape: 'collection' },
+        { stateKey: 'total', source: '/payload/total', shape: 'scalar' },
+      ]),
+      {
+        id: 'action.ban',
+        functionId: 'player.ban',
+        usage: 'action',
+        execution: { mode: 'sync' },
+        selectors: {
+          input: {
+            assignments: [
+              { target: '/id', source: { kind: 'row', path: '/id' } },
+              { target: '/reason', source: { kind: 'form', path: '/reason' } },
+            ],
+          },
+          output: [],
+        },
+      },
+    ];
+
+    render(<ResourcePageRenderer spec={spec} bindings={bindings} onExecute={onExecute} />);
+
+    // 数据行渲染后按钮才出现
+    await screen.findByText('p-1');
+    fireEvent.click(screen.getByRole('button', { name: /封禁/ }));
+    // 弹出表单操作 Modal，含剥离 identity 后的 reason 字段
+    expect(await screen.findByText('Reason')).toBeInTheDocument();
+  });
+});

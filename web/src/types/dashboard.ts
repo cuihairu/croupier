@@ -493,6 +493,8 @@ export interface ActionSpec {
   bindingId?: string;
   permission?: string;
   risk?: RiskLevel;
+  /** 带表单的行操作：identity 由行注入，其余字段弹出 SchemaFormRenderer 收集 */
+  form?: FormPresentationSpec;
 }
 
 /** 确认操作规格 */

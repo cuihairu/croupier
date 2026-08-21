@@ -455,12 +455,17 @@ func TestContractService_RebuildProposalsForResourceKeepsUnsafeActionStandalone(
 	var resourcePage spec.PageSpec
 	require.NoError(t, json.Unmarshal(resourceProposal.PageSpec, &resourcePage))
 	require.NotNil(t, resourcePage.Resource)
-	assert.Empty(t, resourcePage.Resource.ListView.RowActions)
-	assert.False(t, pageHasBinding(resourcePage.Bindings, "action.ban"))
+	// id(必填 identity) + reason 现以内联表单行操作并入资源页；
+	// 独立 operation 页被回收（CRUD 吞并规则）。
+	require.Len(t, resourcePage.Resource.ListView.RowActions, 1)
+	action := resourcePage.Resource.ListView.RowActions[0]
+	assert.Equal(t, "action.ban", action.BindingID)
+	require.NotNil(t, action.Form, "identity+fields action must carry a form")
+	assert.NotContains(t, string(action.Form.JSONSchema), "\"id\"")
+	assert.True(t, pageHasBinding(resourcePage.Bindings, "action.ban"))
 
-	operationProposal, err := proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.ban")
-	require.NoError(t, err)
-	assert.Equal(t, "operation", operationProposal.PageType)
+	_, err = proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.ban")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound), "standalone operation page should be reclaimed")
 }
 
 func pageHasBinding(bindings []spec.PageFunctionBinding, bindingID string) bool {

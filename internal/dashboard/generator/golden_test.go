@@ -269,10 +269,32 @@ func TestGenerateResourcePageUnsafeActionStaysStandalone(t *testing.T) {
 
 	generated, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection, unsafeAction}, DefaultGenerateOptions())
 	require.True(t, ok)
-	assert.Empty(t, generated.Resource.ListView.RowActions)
-	assert.NotContains(t, bindingIDs(generated.Bindings), "action.ban")
-	require.Len(t, generated.Diagnostics, 1)
-	assert.Equal(t, "resource_action_requires_operation_page", generated.Diagnostics[0].Code)
+	// id(必填 identity) + reason(附加字段) 现以内联表单行操作呈现：
+	// identity 由 row 注入，reason 弹 SchemaFormRenderer 收集。
+	require.Len(t, generated.Resource.ListView.RowActions, 1)
+	action := generated.Resource.ListView.RowActions[0]
+	assert.Equal(t, "action.ban", action.BindingID)
+	require.NotNil(t, action.Form, "identity+fields action must carry a form")
+	// 表单剥离了 identity 字段，只留 reason
+	assert.NotContains(t, string(action.Form.JSONSchema), "\"id\"")
+	assert.Contains(t, string(action.Form.JSONSchema), "\"reason\"")
+	// selector 中 id 映射为 row 源
+	binding := findBindingByID(generated.Bindings, "action.ban")
+	require.NotNil(t, binding)
+	for _, assignment := range binding.Selectors.Input.Assignments {
+		if assignment.Target == "/id" {
+			assert.Equal(t, spec.SourceRow, assignment.Source.Kind)
+		}
+	}
+}
+
+func findBindingByID(bindings []spec.PageFunctionBinding, id string) *spec.PageFunctionBinding {
+	for i := range bindings {
+		if bindings[i].ID == id {
+			return &bindings[i]
+		}
+	}
+	return nil
 }
 
 func bindingIDs(bindings []spec.PageFunctionBinding) []string {

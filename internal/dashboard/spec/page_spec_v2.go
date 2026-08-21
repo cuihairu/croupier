@@ -142,6 +142,10 @@ type ActionSpec struct {
 	BindingID    string        `json:"bindingId,omitempty"` // reference to binding
 	Permission   string        `json:"permission,omitempty"`
 	Risk         string        `json:"risk,omitempty"`
+	// Form 声明"带表单的行操作"：identity 字段由行选择注入（selector 指向
+	// row），其余输入字段由用户在弹出的 SchemaFormRenderer 中填写。
+	// 为空表示一键执行（现状语义）。
+	Form *FormPresentationSpec `json:"form,omitempty"`
 }
 
 // ConfirmActionSpec defines a confirmation action (like delete).
