@@ -175,6 +175,13 @@ export default [
         hideInMenu: true,
       },
       {
+        path: '/console/templates/player-manage',
+        name: 'PlayerManageTemplate',
+        access: 'canConsoleRead',
+        component: './Console/TemplatePlayerManage',
+        hideInMenu: true,
+      },
+      {
         path: '/console/:categoryKey/:pageKey',
         name: 'ConsolePage',
         access: 'canConsoleRead',

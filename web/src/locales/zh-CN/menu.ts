@@ -33,6 +33,7 @@ export default {
   'menu.ControlConsole.ConsoleHome': '运行入口',
   'menu.ControlConsole.ConsoleCategory': '运行分类',
   'menu.ControlConsole.ConsolePage': '运行页面',
+  'menu.ControlConsole.PlayerManageTemplate': '玩家管理模板',
   'menu.SystemConfig.Terms': '术语字典',
   'menu.SystemConfig.Extensions': '扩展中心',
   'menu.SystemConfig.Extensions.ExtensionsStore': '扩展商店',

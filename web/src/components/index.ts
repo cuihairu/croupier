@@ -25,6 +25,10 @@ import OperationPageRenderer from './PageRenderer/OperationPageRenderer';
 import TaskPageRenderer from './PageRenderer/TaskPageRenderer';
 import ReportPageRenderer from './PageRenderer/ReportPageRenderer';
 import SchemaFormRenderer from './SchemaFormRenderer';
+import PlayerManageTemplate, {
+  playerManagePageSpec,
+  createPlayerManageDemoExecute,
+} from './PageRenderer/templates/playerManage';
 
 export {
   Footer,
@@ -44,4 +48,8 @@ export {
   TaskPageRenderer,
   ReportPageRenderer,
   SchemaFormRenderer,
+  // CRUD 模板
+  PlayerManageTemplate,
+  playerManagePageSpec,
+  createPlayerManageDemoExecute,
 };

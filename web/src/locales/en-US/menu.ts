@@ -33,6 +33,7 @@ export default {
   'menu.ControlConsole.ConsoleHome': 'Runtime Entry',
   'menu.ControlConsole.ConsoleCategory': 'Runtime Category',
   'menu.ControlConsole.ConsolePage': 'Runtime Page',
+  'menu.ControlConsole.PlayerManageTemplate': 'Player Management Template',
   'menu.SystemConfig.Terms': 'Terminology',
   'menu.SystemConfig.Extensions': 'Extensions',
   'menu.SystemConfig.Extensions.ExtensionsStore': 'Extension Store',
