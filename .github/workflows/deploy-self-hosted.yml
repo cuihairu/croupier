@@ -81,6 +81,14 @@ jobs:
             cp "${PREV_AGENT_CONFIG}" "${{ inputs.deploy_dir }}/configs/agent.yaml"
           fi
           rm -f "${PREV_AGENT_CONFIG}"
+          # SDK demo 的 game/env scope 与 agent.yaml 一样是环境事实；.env 每次
+          # 重建会回落 default/dev，把 demo 注册进不可见 scope。
+          PREV_GAME="${CROUPIER_SDK_EXAMPLE_GAME_ID_PERSIST:-}"
+          PREV_ENVV="${CROUPIER_SDK_EXAMPLE_ENV_PERSIST:-}"
+          if [ -f "${{ inputs.deploy_dir }}/.env" ]; then
+            PREV_GAME="$(grep -oP '^CROUPIER_SDK_EXAMPLE_GAME_ID=\K.*' "${{ inputs.deploy_dir }}/.env" || true)"
+            PREV_ENVV="$(grep -oP '^CROUPIER_SDK_EXAMPLE_ENV=\K.*' "${{ inputs.deploy_dir }}/.env" || true)"
+          fi
           cat > "${{ inputs.deploy_dir }}/.env" <<EOF
           GHCR_OWNER=${{ inputs.ghcr_owner }}
           CROUPIER_SERVER_TAG=${{ inputs.server_tag }}
@@ -89,6 +97,12 @@ jobs:
           CROUPIER_SDK_EXAMPLE_TAG=${{ inputs.sdk_example_tag }}
           ENABLE_SDK_EXAMPLES=${{ inputs.enable_sdk_examples }}
           EOF
+          if [ -n "${PREV_GAME}" ]; then
+            echo "CROUPIER_SDK_EXAMPLE_GAME_ID=${PREV_GAME}" >> "${{ inputs.deploy_dir }}/.env"
+          fi
+          if [ -n "${PREV_ENVV}" ]; then
+            echo "CROUPIER_SDK_EXAMPLE_ENV=${PREV_ENVV}" >> "${{ inputs.deploy_dir }}/.env"
+          fi
 
       - name: Login GHCR
         timeout-minutes: 2

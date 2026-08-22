@@ -11,7 +11,7 @@ import { localizedText } from '@/utils/localizedText';
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Button, Modal, message, Result, Alert, Space, Typography } from 'antd';
+import { Card, Button, Modal, message, Result, Alert, Space, Typography, Descriptions } from 'antd';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -204,7 +204,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   };
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 880 }}>
       {/* 表单 */}
       <Card title={title || '执行操作'}>
         <SchemaFormRenderer
@@ -212,9 +212,11 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
           onFinish={handleSubmit}
           disabled={loading || preview}
         />
-        <Button style={{ marginTop: 12 }} onClick={handleReset}>
-          重置结果
-        </Button>
+        {(result || error) && (
+          <Button style={{ marginTop: 16 }} onClick={handleReset}>
+            重置结果
+          </Button>
+        )}
       </Card>
 
       {/* 确认对话框 */}
@@ -231,23 +233,28 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
           cancelText={localizedText(spec.confirm?.cancelText, 'zh-CN', '取消')}
           confirmLoading={loading}
         >
-          {spec.confirm?.description && <p>{spec.confirm.description['zh-CN']}</p>}
+          {spec.confirm?.description && (
+            <p>{localizedText(spec.confirm.description, 'zh-CN', '')}</p>
+          )}
           {pendingValues && (
-            <Space direction="vertical" style={{ width: '100%' }}>
-              {Object.entries(pendingValues).map(([key, value]) => (
-                <Space key={key} align="start">
-                  <Typography.Text strong>{key}</Typography.Text>
-                  {renderJSONValueSummary(value)}
-                </Space>
-              ))}
-            </Space>
+            <Descriptions
+              bordered
+              column={1}
+              size="small"
+              style={{ marginTop: 12 }}
+              items={Object.entries(pendingValues).map(([key, value]) => ({
+                key,
+                label: <Typography.Text strong>{key}</Typography.Text>,
+                children: renderJSONValueSummary(value),
+              }))}
+            />
           )}
         </Modal>
       )}
 
       {/* 结果展示 */}
       {(result || error) && (
-        <Card title="执行结果" style={{ marginTop: 16 }}>
+        <Card title="执行结果">
           {error ? (
             <Result
               status="error"

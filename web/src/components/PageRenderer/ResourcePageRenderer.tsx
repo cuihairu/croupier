@@ -554,7 +554,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   }
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {listError ? (
         <Alert
           type="error"
@@ -562,7 +562,6 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           title={listError}
           closable
           onClose={() => setListError(null)}
-          style={{ marginBottom: 16 }}
         />
       ) : null}
       {/* 列表视图 */}
@@ -574,7 +573,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         request={handleRequest}
         search={{
           labelWidth: 'auto',
+          defaultCollapsed: false,
         }}
+        options={{
+          reload: true,
+          density: true,
+          fullScreen: true,
+          setting: true,
+        }}
+        scroll={{ x: 'max-content' }}
         toolBarRender={() => [
           createBinding && spec.createForm ? (
             <Button
@@ -598,19 +605,6 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               {localizedText(action.title, 'zh-CN', action.key)}
             </Button>
           )),
-          ...(selectedRows.length > 0
-            ? batchActions.map((action) => (
-                <Button
-                  key={action.key}
-                  danger={action.type === 'danger'}
-                  type={action.type === 'primary' ? 'primary' : 'default'}
-                  disabled={preview}
-                  onClick={() => void executeListAction(action, { selection: selectedRows })}
-                >
-                  {localizedText(action.title, 'zh-CN', action.key)}
-                </Button>
-              ))
-            : []),
           <Button
             key="refresh"
             icon={<ReloadOutlined />}
@@ -622,10 +616,43 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         rowSelection={
           batchActions.length > 0
             ? {
+                preserveSelectedRowKeys: true,
                 onChange: (_, rows) => {
                   setSelectedRows(rows);
                 },
               }
+            : undefined
+        }
+        tableAlertRender={
+          batchActions.length > 0
+            ? ({ selectedRowKeys, onCleanSelected }) => (
+                <Space size={16}>
+                  <span>已选择 {selectedRowKeys.length} 项</span>
+                  <Button type="link" size="small" onClick={onCleanSelected}>
+                    取消选择
+                  </Button>
+                </Space>
+              )
+            : undefined
+        }
+        tableAlertOptionRender={
+          batchActions.length > 0
+            ? () => (
+                <Space size={8}>
+                  {batchActions.map((action) => (
+                    <Button
+                      key={action.key}
+                      size="small"
+                      danger={action.type === 'danger'}
+                      type={action.type === 'primary' ? 'primary' : 'default'}
+                      disabled={preview}
+                      onClick={() => void executeListAction(action, { selection: selectedRows })}
+                    >
+                      {localizedText(action.title, 'zh-CN', action.key)}
+                    </Button>
+                  ))}
+                </Space>
+              )
             : undefined
         }
         pagination={
@@ -633,6 +660,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             ? {
                 defaultPageSize: spec.listView.pagination.defaultSize || 20,
                 showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total) => `共 ${total} 条`,
                 pageSizeOptions: spec.listView.pagination.pageSizes?.map(String) || [
                   '10',
                   '20',
@@ -652,6 +681,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           onOk={submitCreateForm}
           onCancel={() => setCreateModalVisible(false)}
           confirmLoading={formSubmitting}
+          width={560}
           destroyOnClose
         >
           <SchemaFormRenderer ref={createFormRef} spec={spec.createForm} hideSubmit />
@@ -677,6 +707,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           onOk={submitUpdateForm}
           onCancel={() => setEditModalVisible(false)}
           confirmLoading={formSubmitting}
+          width={560}
           destroyOnClose
         >
           <SchemaFormRenderer
@@ -741,6 +772,7 @@ const ActionFormModal: React.FC<{
       title={title}
       open
       confirmLoading={submitting}
+      width={560}
       destroyOnHidden
       onCancel={onCancel}
       onOk={async () => {
