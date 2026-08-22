@@ -690,6 +690,7 @@ if(BUILD_TESTS)
             tests/test_json_schema.cpp
             tests/test_config_generation.cpp
             tests/test_invoker_retry.cpp
+            tests/test_coverage_boost.cpp
         )
 
         # Real shared-object plugins used by the dynamic loader tests.
