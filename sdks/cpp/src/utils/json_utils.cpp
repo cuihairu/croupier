@@ -1,7 +1,10 @@
 #include "croupier/sdk/utils/json_utils.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
+#include <regex>
+#include <set>
 #include <sstream>
 
 #ifdef CROUPIER_SDK_ENABLE_JSON
@@ -454,17 +457,102 @@ bool JsonUtils::ValidateJsonSchema(const std::string& json_content, const std::s
             }
         }
 
-        // Validate properties
+        // Validate properties (recursively with the full property schema)
         if (json_obj.is_object() && schema_obj.contains("properties") && schema_obj["properties"].is_object()) {
             for (auto& [prop_name, prop_schema] : schema_obj["properties"].items()) {
-                if (json_obj.contains(prop_name)) {
-                    // Create a mini-schema for this property
-                    nlohmann::json prop_mini_schema;
-                    prop_mini_schema["type"] = prop_schema["type"];
-
-                    // Recursively validate property
-                    if (!ValidateJsonSchema(json_obj[prop_name].dump(), prop_mini_schema.dump())) {
+                if (json_obj.contains(prop_name) && prop_schema.is_object()) {
+                    if (!ValidateJsonSchema(json_obj[prop_name].dump(), prop_schema.dump())) {
                         std::cerr << "Schema validation failed for property " << prop_name << std::endl;
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Validate array items (recursive)
+        if (json_obj.is_array() && schema_obj.contains("items") && schema_obj["items"].is_object()) {
+            for (const auto& item : json_obj) {
+                if (!ValidateJsonSchema(item.dump(), schema_obj["items"].dump())) {
+                    std::cerr << "Schema validation failed for array item" << std::endl;
+                    return false;
+                }
+            }
+        }
+
+        // Check const value (Draft-07)
+        if (schema_obj.contains("const") && json_obj != schema_obj["const"]) {
+            std::cerr << "Schema validation failed: value does not match const" << std::endl;
+            return false;
+        }
+
+        // Check string pattern (ECMAScript regex subset via std::regex search)
+        if (json_obj.is_string() && schema_obj.contains("pattern") && schema_obj["pattern"].is_string()) {
+            const std::string text = json_obj.get<std::string>();
+            const std::string pattern = schema_obj["pattern"].get<std::string>();
+            try {
+                if (!std::regex_search(text, std::regex(pattern))) {
+                    std::cerr << "Schema validation failed: string does not match pattern '" << pattern << "'" << std::endl;
+                    return false;
+                }
+            } catch (const std::regex_error&) {
+                // Invalid patterns are ignored; the Server validates authoritatively.
+            }
+        }
+
+        // Check numeric exclusivity and multipleOf (Draft-07)
+        if (json_obj.is_number()) {
+            const double value = json_obj;
+            if (schema_obj.contains("exclusiveMinimum") && schema_obj["exclusiveMinimum"].is_number()) {
+                const double bound = schema_obj["exclusiveMinimum"];
+                if (value <= bound) {
+                    std::cerr << "Schema validation failed: value " << value << " must be greater than " << bound << std::endl;
+                    return false;
+                }
+            }
+            if (schema_obj.contains("exclusiveMaximum") && schema_obj["exclusiveMaximum"].is_number()) {
+                const double bound = schema_obj["exclusiveMaximum"];
+                if (value >= bound) {
+                    std::cerr << "Schema validation failed: value " << value << " must be less than " << bound << std::endl;
+                    return false;
+                }
+            }
+            if (schema_obj.contains("multipleOf") && schema_obj["multipleOf"].is_number()) {
+                const double divisor = schema_obj["multipleOf"];
+                if (divisor != 0.0) {
+                    const double quotient = value / divisor;
+                    if (std::fabs(quotient - std::round(quotient)) > 1e-9) {
+                        std::cerr << "Schema validation failed: value " << value << " is not a multiple of " << divisor << std::endl;
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Check array uniqueness (Draft-07)
+        if (json_obj.is_array() && schema_obj.value("uniqueItems", false)) {
+            std::set<std::string> seen;
+            for (const auto& item : json_obj) seen.insert(item.dump());
+            if (seen.size() != json_obj.size()) {
+                std::cerr << "Schema validation failed: array items are not unique" << std::endl;
+                return false;
+            }
+        }
+
+        // Check additionalProperties (Draft-07: boolean or schema)
+        if (json_obj.is_object() && schema_obj.contains("additionalProperties") &&
+            schema_obj.contains("properties") && schema_obj["properties"].is_object()) {
+            for (auto it = json_obj.begin(); it != json_obj.end(); ++it) {
+                if (schema_obj["properties"].contains(it.key())) {
+                    continue;
+                }
+                if (schema_obj["additionalProperties"].is_boolean()) {
+                    if (!schema_obj["additionalProperties"].get<bool>()) {
+                        std::cerr << "Schema validation failed: additional property '" << it.key() << "' is not allowed" << std::endl;
+                        return false;
+                    }
+                } else if (schema_obj["additionalProperties"].is_object()) {
+                    if (!ValidateJsonSchema(it.value().dump(), schema_obj["additionalProperties"].dump())) {
+                        std::cerr << "Schema validation failed for additional property '" << it.key() << "'" << std::endl;
                         return false;
                     }
                 }

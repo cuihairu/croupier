@@ -570,11 +570,11 @@ public sealed class CroupierClientLifecycleTests : IDisposable
 
         await client.ConnectAsync();
 
-        var body = await _agent.SendUnsupportedInboundAsync(Protocol.MsgProviderDrainRequest);
+        var body = await _agent.SendUnsupportedInboundAsync(Protocol.MsgGetTaskResultRequest);
 
         var text = System.Text.Encoding.UTF8.GetString(body);
         text.Should().Contain("Unsupported message type");
-        text.Should().Contain("ProviderDrainRequest");
+        text.Should().Contain("GetTaskResultRequest");
     }
 
     #endregion

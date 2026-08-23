@@ -407,11 +407,7 @@ class Program
         desc.Summary ??= $"{desc.Resource} {desc.Operation}";
         desc.Description ??= $"Demo function {desc.Id} for {desc.Resource} {desc.Operation} action.";
         desc.OperationId ??= desc.Id;
-        desc.Tags ??= new Dictionary<string, string>
-        {
-            ["resource"] = desc.Resource ?? "",
-            ["operation"] = desc.Operation ?? "",
-        };
+        desc.Tags ??= new List<string> { desc.Resource ?? "", desc.Operation ?? "" };
         desc.InputSchema ??= InputSchemaFor(desc.Resource ?? "payload", desc.Operation ?? "execute");
         desc.OutputSchema ??= "{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}";
     }

@@ -42,6 +42,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "protobufjs": "^7.6.5"
   },
   "devDependencies": {

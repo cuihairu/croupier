@@ -44,11 +44,7 @@ public class FunctionDescriptorTests
             Enabled = true,
             InputSchema = "{\"type\":\"object\"}",
             OutputSchema = "{\"type\":\"object\"}",
-            Tags = new Dictionary<string, string>
-            {
-                ["owner"] = "team-player",
-                ["domain"] = "moderation"
-            }
+            Tags = new List<string> { "team-player", "moderation" }
         };
 
         descriptor.Id.Should().Be("player.ban");
@@ -65,7 +61,8 @@ public class FunctionDescriptorTests
         descriptor.InputSchema.Should().Be("{\"type\":\"object\"}");
         descriptor.OutputSchema.Should().Be("{\"type\":\"object\"}");
         descriptor.Tags.Should().HaveCount(2);
-        descriptor.Tags!["owner"].Should().Be("team-player");
+        descriptor.Tags.Should().Contain("team-player");
+        descriptor.Tags.Should().Contain("moderation");
     }
 
     [Theory]
@@ -89,11 +86,11 @@ public class FunctionDescriptorTests
     }
 
     [Fact]
-    public void FunctionDescriptor_Tags_CanBeEmptyDictionary()
+    public void FunctionDescriptor_Tags_CanBeEmptyList()
     {
         var descriptor = new FunctionDescriptor
         {
-            Tags = new Dictionary<string, string>()
+            Tags = new List<string>()
         };
 
         descriptor.Tags.Should().NotBeNull();

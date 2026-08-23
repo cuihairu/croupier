@@ -1554,9 +1554,16 @@ export {
   InvokerEventSource,
   type InvokerConfig,
   type InvokeTaskOptions,
+  type RetryConfig as InvokerRetryConfig,
   type TaskEvent,
   type TaskStatus,
   type InvokeResult,
 } from "./invoker";
+
+export {
+  registerFromOpenAPI,
+  type ImportOptions,
+  type HandlerResolver as OpenAPIHandlerResolver,
+} from "./openapi";
 
 export { BasicClient as default };

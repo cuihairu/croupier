@@ -56,7 +56,7 @@ class ServerHttpInvokerBoostTest {
                 Response.ok("{\"result\":{}}"))) {
             ServerHttpInvoker invoker = new ServerHttpInvoker(configBuilder(server.baseUrl()).build());
             try {
-                invoker.setSchema("fn", Map.of("required", List.of("playerId")));
+                invoker.setSchema("fn", Map.of("type", "object", "required", List.of("playerId")));
                 InvokerException missing = assertThrows(InvokerException.class,
                     () -> invoker.invoke("fn", "{\"other\":1}"));
                 assertEquals(InvokerException.ErrorCode.INVALID_ARGUMENT, missing.getErrorCode());

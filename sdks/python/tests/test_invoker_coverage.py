@@ -313,19 +313,21 @@ def test_validate_payload_empty_schema_is_noop():
 
 def test_validate_payload_non_object_payload_raises():
     invoker = Invoker()
-    with pytest.raises(ValueError, match="expected a JSON object"):
-        invoker._validate_payload("[1,2]", {"required": ["a"]})
+    with pytest.raises(ValueError, match="payload validation failed"):
+        invoker._validate_payload("[1,2]", {"type": "object", "required": ["a"]})
 
 
 def test_validate_payload_missing_required_field_raises():
     invoker = Invoker()
-    with pytest.raises(ValueError, match="missing required field 'b'"):
+    with pytest.raises(ValueError, match="'b' is a required property"):
         invoker._validate_payload('{"a":1}', {"required": ["b"]})
 
 
-def test_validate_payload_non_list_required_ignored():
+def test_validate_payload_extra_schema_constraints_enforced():
     invoker = Invoker()
-    invoker._validate_payload('{"a":1}', {"required": "not-a-list"})
+    invoker._validate_payload('{"a":1}', {"type": "object"})
+    with pytest.raises(ValueError, match="payload validation failed"):
+        invoker._validate_payload('{"a":1}', {"type": "object", "additionalProperties": False, "properties": {"b": {}}})
 
 
 # ---------------------------------------------------------------------------

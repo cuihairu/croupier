@@ -192,28 +192,26 @@ class ServerHttpInvokerExtraTest {
     void schemaValidation() throws Exception {
         try (MockServer server = new MockServer((exchange, counter) -> Response.ok("{\"result\":\"ok\"}"))) {
             ServerHttpInvoker invoker = new ServerHttpInvoker(config(server.baseUrl()).build());
-            invoker.setSchema("mail.send", Map.of("required", List.of("title", "content")));
+            invoker.setSchema("mail.send", Map.of("type", "object", "required", List.of("title", "content")));
 
             InvokerException missingField = assertThrows(InvokerException.class, () ->
                 invoker.invoke("mail.send", "{\"title\":\"only title\"}"));
-            assertTrue(missingField.getMessage().contains("missing required field 'content'"), missingField.getMessage());
+            assertTrue(missingField.getMessage().contains("missing required property 'content'"), missingField.getMessage());
 
             InvokerException notObject = assertThrows(InvokerException.class, () ->
                 invoker.invoke("mail.send", "[1,2]"));
-            assertTrue(notObject.getMessage().contains("expected JSON object"), notObject.getMessage());
+            assertTrue(notObject.getMessage().contains("expected type"), notObject.getMessage());
 
             InvokerException nullPayload = assertThrows(InvokerException.class, () ->
                 invoker.invoke("mail.send", null));
-            assertTrue(nullPayload.getMessage().contains("missing required field"), nullPayload.getMessage());
+            assertTrue(nullPayload.getMessage().contains("missing required property"), nullPayload.getMessage());
 
             assertEquals("\"ok\"", invoker.invoke("mail.send", "{\"title\":\"t\",\"content\":\"c\"}"));
 
             assertThrows(IllegalArgumentException.class, () -> invoker.setSchema(" ", Map.of()));
             invoker.setSchema("mail.send", null);
-            // A null schema keeps the object-payload requirement but drops required fields.
-            InvokerException stillObject = assertThrows(InvokerException.class, () ->
-                invoker.invoke("mail.send", "[1,2]"));
-            assertTrue(stillObject.getMessage().contains("expected JSON object"), stillObject.getMessage());
+            // A null schema drops local validation entirely (Go HTTP-invoker parity).
+            assertEquals("\"ok\"", invoker.invoke("mail.send", "[1,2]"));
             assertEquals("\"ok\"", invoker.invoke("mail.send", "{}"));
 
             InvokerException invalidJson = assertThrows(InvokerException.class, () ->

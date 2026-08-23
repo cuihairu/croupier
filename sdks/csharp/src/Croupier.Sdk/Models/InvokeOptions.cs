@@ -53,6 +53,11 @@ public class InvokeOptions
     /// 自定义元数据
     /// </summary>
     public Dictionary<string, string>? Metadata { get; set; }
+
+    /// <summary>
+    /// 本次调用的重试配置（覆盖 InvokerConfig.Retry）。
+    /// </summary>
+    public RetryConfig? Retry { get; set; }
 }
 
 /// <summary>

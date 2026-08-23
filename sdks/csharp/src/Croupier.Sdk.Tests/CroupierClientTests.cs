@@ -142,11 +142,7 @@ public class CroupierClientTests
             Description = "封禁指定玩家账号",
             OperationId = "banPlayer",
             Deprecated = true,
-            Tags = new Dictionary<string, string>
-            {
-                ["owner"] = "team-player",
-                ["kind"] = "moderation"
-            },
+            Tags = new List<string> { "team-player", "moderation" },
             InputSchema = "{\"type\":\"object\",\"properties\":{\"player_id\":{\"type\":\"string\"}}}",
             OutputSchema = "{\"type\":\"object\",\"properties\":{\"success\":{\"type\":\"boolean\"}}}"
         };
@@ -164,7 +160,7 @@ public class CroupierClientTests
         function.Description.Should().Be("封禁指定玩家账号");
         function.OperationId.Should().Be("banPlayer");
         function.Deprecated.Should().BeTrue();
-        function.Tags.Should().Contain(new[] { "player", "ban", "owner", "team-player", "kind", "moderation" });
+        function.Tags.Should().Contain(new[] { "player", "ban", "team-player", "moderation" });
         function.InputSchema.Should().Contain("player_id");
         function.OutputSchema.Should().Contain("success");
         function.Resource.Should().Be("player");

@@ -29,6 +29,7 @@ classifiers = [
 # ============================================================================
 dependencies = [
     "protobuf==6.33.5",
+    "jsonschema>=4.0.0",
 ]
 
 [project.optional-dependencies]

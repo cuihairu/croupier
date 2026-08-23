@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using Croupier.Sdk.Logging;
 using Croupier.Sdk.Models;
+using Croupier.Sdk.Validation;
 using Microsoft.Extensions.Logging;
 
 namespace Croupier.Sdk;
@@ -26,6 +27,7 @@ public sealed class CroupierInvoker : IDisposable
     private readonly ICroupierLogger _logger;
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
+    private readonly Dictionary<string, JsonElement> _schemas = new();
     private bool _isDisposed;
 
     /// <summary>调用目标的 Server REST API 基地址。</summary>
@@ -77,13 +79,15 @@ public sealed class CroupierInvoker : IDisposable
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri($"functions/{Uri.EscapeDataString(functionId)}/invoke"));
-            request.Content = CreateJsonContent(new { @params = ParseJson(payload) });
-            ApplyHeaders(request, options);
+            HttpRequestMessage RequestFactory()
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, BuildUri($"functions/{Uri.EscapeDataString(functionId)}/invoke"));
+                request.Content = CreateJsonContent(new { @params = ParseJson(payload) });
+                ApplyHeaders(request, options);
+                return request;
+            }
 
-            using var response = await SendAsync(request, options, cancellationToken).ConfigureAwait(false);
-            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(response, content);
+            var (_, content) = await SendWithRetryAsync(RequestFactory, options, cancellationToken).ConfigureAwait(false);
 
             return InvokeResult.Succeeded(ExtractResult(content), ElapsedMilliseconds(startedAt));
         }
@@ -133,19 +137,21 @@ public sealed class CroupierInvoker : IDisposable
         ThrowIfDisposed();
         ValidateFunctionAndPayload(functionId, payload);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri("tasks"));
-        request.Content = CreateJsonContent(new
+        HttpRequestMessage RequestFactory()
         {
-            functionId,
-            @params = ParseJson(payload),
-            gameId = ResolveGameId(options),
-            env = ResolveEnv(options),
-        });
-        ApplyHeaders(request, options);
+            var request = new HttpRequestMessage(HttpMethod.Post, BuildUri("tasks"));
+            request.Content = CreateJsonContent(new
+            {
+                functionId,
+                @params = ParseJson(payload),
+                gameId = ResolveGameId(options),
+                env = ResolveEnv(options),
+            });
+            ApplyHeaders(request, options);
+            return request;
+        }
 
-        using var response = await SendAsync(request, options, cancellationToken).ConfigureAwait(false);
-        var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        EnsureSuccess(response, content);
+        var (_, content) = await SendWithRetryAsync(RequestFactory, options, cancellationToken).ConfigureAwait(false);
 
         using var document = JsonDocument.Parse(content);
         if (!document.RootElement.TryGetProperty("taskId", out var taskId) || string.IsNullOrWhiteSpace(taskId.GetString()))
@@ -242,6 +248,30 @@ public sealed class CroupierInvoker : IDisposable
     }
 
     /// <summary>
+    /// 为指定函数配置本地 JSON Schema（Draft-07 子集）校验；
+    /// 校验在 invoke/startTask 网络请求前执行。
+    /// </summary>
+    public void SetSchema(string functionId, string schemaJson)
+    {
+        ThrowIfDisposed();
+        if (string.IsNullOrWhiteSpace(functionId))
+        {
+            throw new ArgumentException("Function ID cannot be empty", nameof(functionId));
+        }
+        ArgumentNullException.ThrowIfNull(schemaJson);
+        _schemas[functionId] = ParseJson(schemaJson);
+    }
+
+    /// <summary>
+    /// 移除指定函数的本地 schema 校验。
+    /// </summary>
+    public void ClearSchema(string functionId)
+    {
+        ThrowIfDisposed();
+        _schemas.Remove(functionId);
+    }
+
+    /// <summary>
     /// 释放 HTTP 客户端（仅释放由本实例创建的客户端）。
     /// </summary>
     public void Dispose()
@@ -329,6 +359,7 @@ public sealed class CroupierInvoker : IDisposable
             TimeoutSeconds = Math.Max(config.TimeoutSeconds, 1),
             TaskPollIntervalMilliseconds = Math.Max(config.TaskPollIntervalMilliseconds, 1),
             Headers = new Dictionary<string, string>(config.Headers ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase),
+            Retry = config.Retry,
         };
     }
 
@@ -340,13 +371,32 @@ public sealed class CroupierInvoker : IDisposable
         return document.RootElement.Clone();
     }
 
-    private static void ValidateFunctionAndPayload(string functionId, string payload)
+    private void ValidateFunctionAndPayload(string functionId, string payload)
     {
         if (string.IsNullOrWhiteSpace(functionId))
         {
             throw new ArgumentException("Function ID cannot be empty", nameof(functionId));
         }
         ArgumentNullException.ThrowIfNull(payload);
+
+        if (_schemas.TryGetValue(functionId, out var schema))
+        {
+            JsonElement value;
+            try
+            {
+                value = ParseJson(payload.Length == 0 ? "{}" : payload);
+            }
+            catch (JsonException exception)
+            {
+                throw new ArgumentException($"payload must be valid JSON: {exception.Message}", exception);
+            }
+            var errors = JsonSchemaValidator.Validate(schema, value);
+            if (errors.Count > 0)
+            {
+                throw new ArgumentException(
+                    $"payload validation failed: {string.Join("; ", errors)}");
+            }
+        }
     }
 
     private static void ValidateTaskId(string taskId)
@@ -365,6 +415,61 @@ public sealed class CroupierInvoker : IDisposable
         }
 
         throw new HttpRequestException(ExtractErrorMessage(content, response.StatusCode), null, response.StatusCode);
+    }
+
+    private static void EnsureSuccess(int statusCode, string content)
+    {
+        if (statusCode is >= 200 and < 300)
+        {
+            return;
+        }
+
+        throw new HttpRequestException(
+            ExtractErrorMessage(content, (HttpStatusCode)statusCode), null, (HttpStatusCode)statusCode);
+    }
+
+    /// <summary>
+    /// 执行一次请求并在失败时可按 RetryConfig 自动重试。
+    /// 返回 (状态码, 响应体)；不可重试或达到上限时抛出。
+    /// </summary>
+    private async Task<(int StatusCode, string Content)> SendWithRetryAsync(
+        Func<HttpRequestMessage> requestFactory,
+        InvokeOptions? options,
+        CancellationToken cancellationToken)
+    {
+        var retry = (options?.Retry ?? _config.Retry)?.Normalized();
+        var attempts = retry is { Enabled: true } ? retry.MaxAttempts : 1;
+
+        Exception lastError = new HttpRequestException("Server HTTP request failed");
+        for (var attempt = 0; attempt < attempts; attempt++)
+        {
+            try
+            {
+                using var request = requestFactory();
+                using var response = await SendAsync(request, options, cancellationToken).ConfigureAwait(false);
+                var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                EnsureSuccess((int)response.StatusCode, content);
+                return ((int)response.StatusCode, content);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                lastError = exception;
+                var retryable = exception is HttpRequestException httpRequest
+                    && (retry is null
+                        || httpRequest.StatusCode is null
+                        || retry.IsRetryableStatus((int)httpRequest.StatusCode));
+                if (!retryable || attempt == attempts - 1)
+                {
+                    throw;
+                }
+                await Task.Delay(TimeSpan.FromMilliseconds(retry!.DelayMs(attempt)), cancellationToken).ConfigureAwait(false);
+            }
+        }
+        throw lastError;
     }
 
     private static string ExtractResult(string content)

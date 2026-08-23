@@ -16,6 +16,7 @@
  */
 
 import { EventEmitter } from "events";
+import Ajv, { ValidateFunction } from "ajv";
 
 /** Configuration for the L3 Invoker. Independent from the Provider Client. */
 export interface InvokerConfig {
@@ -31,6 +32,8 @@ export interface InvokerConfig {
   timeout?: number;
   /** Extra fetch headers applied to every request. */
   headers?: Record<string, string>;
+  /** Automatic retry configuration for retryable failures. */
+  retry?: RetryConfig;
 }
 
 /** Options for a single invocation. */
@@ -38,6 +41,89 @@ export interface InvokeTaskOptions {
   idempotencyKey?: string;
   timeout?: number;
   headers?: Record<string, string>;
+  /** Per-request retry override (takes precedence over InvokerConfig.retry). */
+  retry?: RetryConfig;
+}
+
+/** Automatic retry configuration (mirrors the Go/Java SDK RetryConfig). */
+export interface RetryConfig {
+  /** Whether retrying is enabled. Default true. */
+  enabled?: boolean;
+  /** Maximum attempts including the first one. Default 3. */
+  maxAttempts?: number;
+  /** Delay before the first retry in milliseconds. Default 100. */
+  initialDelayMs?: number;
+  /** Upper bound for the computed delay. Default 5000. */
+  maxDelayMs?: number;
+  /** Exponential backoff multiplier. Default 2.0. */
+  backoffMultiplier?: number;
+  /** Jitter factor in [0, 1]. Default 0.1. */
+  jitterFactor?: number;
+  /** Extra HTTP status codes that trigger a retry. */
+  retryableStatusCodes?: number[];
+}
+
+const DEFAULT_RETRY: Required<RetryConfig> = {
+  enabled: true,
+  maxAttempts: 3,
+  initialDelayMs: 100,
+  maxDelayMs: 5000,
+  backoffMultiplier: 2.0,
+  jitterFactor: 0.1,
+  retryableStatusCodes: [],
+};
+
+function mergeRetry(
+  base: RetryConfig | undefined,
+  override: RetryConfig | undefined,
+): Required<RetryConfig> {
+  const merged: Required<RetryConfig> = { ...DEFAULT_RETRY, ...(base || {}), ...(override || {}) };
+  if (merged.maxAttempts < 1) merged.maxAttempts = 1;
+  if (merged.backoffMultiplier <= 0) merged.backoffMultiplier = 2.0;
+  return merged;
+}
+
+function retryDelayMs(attempt: number, retry: Required<RetryConfig>): number {
+  let delay = retry.initialDelayMs * Math.pow(retry.backoffMultiplier, attempt);
+  if (retry.maxDelayMs > 0) delay = Math.min(delay, retry.maxDelayMs);
+  if (retry.jitterFactor > 0) {
+    delay += delay * retry.jitterFactor * (Math.random() * 2 - 1);
+  }
+  return Math.max(0, delay);
+}
+
+function isRetryableFailure(error: unknown, retry: Required<RetryConfig>): boolean {
+  if (error instanceof InvokerError) {
+    if (error.status === 0) return true; // network-level failure
+    if (error.status === 429 || error.status >= 500) return true;
+    return retry.retryableStatusCodes.includes(error.status);
+  }
+  // fetch()/network errors surface as TypeError or AbortError-ish failures.
+  return error instanceof TypeError;
+}
+
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  base: RetryConfig | undefined,
+  override: RetryConfig | undefined,
+): Promise<T> {
+  const retry = mergeRetry(base, override);
+  if (!retry.enabled || retry.maxAttempts <= 1) {
+    return operation();
+  }
+  let lastError: unknown;
+  for (let attempt = 0; attempt < retry.maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt === retry.maxAttempts - 1 || !isRetryableFailure(error, retry)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt, retry)));
+    }
+  }
+  throw lastError;
 }
 
 /** A task lifecycle event streamed from the server. */
@@ -135,6 +221,9 @@ function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
  */
 export class Invoker {
   private readonly config: InvokerConfig;
+  private readonly schemas = new Map<string, object>();
+  private readonly validators = new Map<string, ValidateFunction>();
+  private readonly ajv = new Ajv({ allErrors: true });
 
   constructor(config: InvokerConfig) {
     if (!config || !config.baseUrl) {
@@ -161,6 +250,47 @@ export class Invoker {
   }
 
   /**
+   * Configure local JSON Schema (Draft-07) validation for a function's
+   * payload. Validation runs before invoke/startTask network calls.
+   */
+  setSchema(functionId: string, schema: object): void {
+    if (!functionId) throw new Error("setSchema requires a functionId");
+    if (!schema || typeof schema !== "object") {
+      throw new Error("setSchema requires a schema object");
+    }
+    this.schemas.set(functionId, schema);
+    this.validators.delete(functionId);
+  }
+
+  /** Remove a previously configured schema. */
+  clearSchema(functionId: string): void {
+    this.schemas.delete(functionId);
+    this.validators.delete(functionId);
+  }
+
+  private validatePayload(functionId: string, payload: unknown): void {
+    const schema = this.schemas.get(functionId);
+    if (!schema) return;
+    let validate = this.validators.get(functionId);
+    if (!validate) {
+      validate = this.ajv.compile(schema);
+      this.validators.set(functionId, validate);
+    }
+    const value = payload === undefined ? {} : payload;
+    if (!validate(value)) {
+      const messages = (validate.errors || []).map(
+        (issue) => `${issue.instancePath || "/"} ${issue.message}`,
+      );
+      throw new InvokerError(
+        `payload validation failed: ${messages.join("; ")}`,
+        0,
+        "schema_validation",
+        validate.errors,
+      );
+    }
+  }
+
+  /**
    * Synchronously invoke a function and return its payload.
    * POST /functions/:id/invoke
    */
@@ -170,23 +300,35 @@ export class Invoker {
     options?: InvokeTaskOptions,
   ): Promise<InvokeResult> {
     if (!functionId) throw new Error("invoke requires a functionId");
+    this.validatePayload(functionId, payload);
     const timeout = options?.timeout ?? this.config.timeout ?? DEFAULT_TIMEOUT;
-    const { signal, cancel } = withTimeout(timeout);
     try {
-      const res = await fetch(`${this.config.baseUrl}/functions/${encodeURIComponent(functionId)}/invoke`, {
-        method: "POST",
-        headers: buildHeaders(this.config, options, options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined),
-        body: JSON.stringify({ params: payload ?? {} }),
-        signal,
-      });
-      if (!res.ok) throw await parseError(res);
-      const data: unknown = await res.json();
-      if (!data || typeof data !== "object" || !("result" in data)) {
-        throw new InvokerError("server did not return a result", 502, "no_result", data);
-      }
-      return { payload: (data as { result: unknown }).result };
-    } finally {
-      cancel();
+      return await withRetry(
+        async () => {
+          const { signal, cancel } = withTimeout(timeout);
+          try {
+            const res = await fetch(`${this.config.baseUrl}/functions/${encodeURIComponent(functionId)}/invoke`, {
+              method: "POST",
+              headers: buildHeaders(this.config, options, options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined),
+              body: JSON.stringify({ params: payload ?? {} }),
+              signal,
+            });
+            if (!res.ok) throw await parseError(res);
+            const data: unknown = await res.json();
+            if (!data || typeof data !== "object" || !("result" in data)) {
+              throw new InvokerError("server did not return a result", 502, "no_result", data);
+            }
+            return { payload: (data as { result: unknown }).result };
+          } finally {
+            cancel();
+          }
+        },
+        this.config.retry,
+        options?.retry,
+      );
+    } catch (error) {
+      if (error instanceof InvokerError && error.code === "schema_validation") throw error;
+      throw error;
     }
   }
 
@@ -200,27 +342,34 @@ export class Invoker {
     options?: InvokeTaskOptions,
   ): Promise<string> {
     if (!functionId) throw new Error("startTask requires a functionId");
+    this.validatePayload(functionId, payload);
     const timeout = options?.timeout ?? this.config.timeout ?? DEFAULT_TIMEOUT;
-    const { signal, cancel } = withTimeout(timeout);
-    try {
-      const body: Record<string, unknown> = {
-        functionId,
-        params: payload ?? {},
-      };
-      const res = await fetch(`${this.config.baseUrl}/tasks`, {
-        method: "POST",
-        headers: buildHeaders(this.config, options, options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined),
-        body: JSON.stringify(body),
-        signal,
-      });
-      if (!res.ok) throw await parseError(res);
-      const data: any = await res.json();
-      const taskId = data?.taskId;
-      if (!taskId) throw new InvokerError("server did not return a taskId", 502, "no_task_id", data);
-      return taskId as string;
-    } finally {
-      cancel();
-    }
+    const body: Record<string, unknown> = {
+      functionId,
+      params: payload ?? {},
+    };
+    return withRetry(
+      async () => {
+        const { signal, cancel } = withTimeout(timeout);
+        try {
+          const res = await fetch(`${this.config.baseUrl}/tasks`, {
+            method: "POST",
+            headers: buildHeaders(this.config, options, options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined),
+            body: JSON.stringify(body),
+            signal,
+          });
+          if (!res.ok) throw await parseError(res);
+          const data: any = await res.json();
+          const taskId = data?.taskId;
+          if (!taskId) throw new InvokerError("server did not return a taskId", 502, "no_task_id", data);
+          return taskId as string;
+        } finally {
+          cancel();
+        }
+      },
+      this.config.retry,
+      options?.retry,
+    );
   }
 
   /** Get the current Server-persisted task state. GET /tasks/:id */

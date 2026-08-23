@@ -105,9 +105,9 @@ public class FunctionDescriptor
     public string? OutputSchema { get; set; }
 
     /// <summary>
-    /// 标签
+    /// 标签列表（与其他 SDK 的 string[] 对齐）
     /// </summary>
-    public Dictionary<string, string>? Tags { get; set; }
+    public List<string>? Tags { get; set; }
 
     /// <summary>
     /// 验证描述符是否有效

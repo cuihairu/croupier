@@ -42,6 +42,11 @@ public sealed class InvokerConfig
     /// 附加到每个调用方请求的 HTTP 头。
     /// </summary>
     public Dictionary<string, string> Headers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 可重试失败的自动重试配置（与 Go/Java SDK 对齐）。
+    /// </summary>
+    public RetryConfig? Retry { get; set; }
 }
 
 /// <summary>

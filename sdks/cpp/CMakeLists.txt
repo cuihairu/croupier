@@ -290,6 +290,7 @@ set(SDK_SOURCES
     src/croupier_client.cpp
     src/http_transport.cpp
     src/tcp_transport.cpp
+    src/openapi_importer.cpp
     src/utils/json_utils.cpp
     src/utils/file_utils.cpp
     src/config/client_config_loader.cpp
@@ -302,6 +303,7 @@ set(SDK_HEADERS
     include/croupier/sdk/logger.h
     include/croupier/sdk/tcp_transport.h
     include/croupier/sdk/protocol.h
+    include/croupier/sdk/openapi_importer.h
     include/croupier/sdk/utils/json_utils.h
     include/croupier/sdk/utils/file_utils.h
     include/croupier/sdk/config/client_config_loader.h
@@ -691,6 +693,7 @@ if(BUILD_TESTS)
             tests/test_config_generation.cpp
             tests/test_invoker_retry.cpp
             tests/test_coverage_boost.cpp
+            tests/test_openapi_importer.cpp
         )
 
         # Real shared-object plugins used by the dynamic loader tests.

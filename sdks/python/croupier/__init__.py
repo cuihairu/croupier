@@ -133,6 +133,10 @@ class ClientConfig:
     log_level: str = "INFO"
     enable_file_transfer: bool = False
     max_file_size: int = 10 * 1024 * 1024
+    # Optional RetryConfig (defined in croupier.invoker); aligns the provider
+    # client config surface with the Go/Java SDKs. Typed as Any to avoid a
+    # circular import at module definition time.
+    retry: Any = None
 
     # TLS knobs (forward-compatible)
     tls_enabled: bool = False
@@ -754,3 +758,6 @@ try:
     )
 except ImportError:
     pass
+
+# OpenAPI import helpers (mirrors the Go SDK's RegisterFromOpenAPI).
+from .openapi import ImportOptions, RegisterFromOpenAPI, register_from_openapi  # noqa: E402

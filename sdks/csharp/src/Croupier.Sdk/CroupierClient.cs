@@ -46,6 +46,9 @@ public partial class CroupierClient : IDisposable
     private CancellationTokenSource? _heartbeatCts;
     private Task? _heartbeatTask;
     private string _sessionId = string.Empty;
+    private volatile bool _draining;
+    private int _activeInboundCalls;
+    private CancellationTokenSource? _drainCts;
 
     /// <summary>
     /// 客户端配置
@@ -56,6 +59,17 @@ public partial class CroupierClient : IDisposable
     /// 是否已连接
     /// </summary>
     public bool IsConnected => _isConnected && _transport != null;
+
+    /// <summary>
+    /// 是否处于 drain 状态（收到 Agent 的 ProviderDrainRequest 后为 true，
+    /// 在途调用结束或重连完成后恢复 false）。
+    /// </summary>
+    public bool IsDraining => _draining;
+
+    /// <summary>
+    /// 当前正在处理的入站调用数量。
+    /// </summary>
+    public int ActiveInboundCalls => Volatile.Read(ref _activeInboundCalls);
 
     /// <summary>
     /// 获取当前会话 ID
@@ -431,8 +445,22 @@ public partial class CroupierClient : IDisposable
     /// </summary>
     private async Task<byte[]> HandleInboundRequestAsync(int msgId, int reqId, byte[] body)
     {
+        if (msgId == Protocol.MsgProviderDrainRequest)
+        {
+            return HandleDrainRequest(body);
+        }
+
         if (msgId == Protocol.MsgInvokeRequest)
         {
+            if (_draining)
+            {
+                // drain 期间拒绝新调用，等待 Agent 停止投递。
+                return new InvokeResponse
+                {
+                    Payload = Google.Protobuf.ByteString.CopyFromUtf8("{\"error\":\"provider is draining\"}")
+                }.ToByteArray();
+            }
+
             var request = InvokeRequest.Parser.ParseFrom(body);
             var payload = request.Payload.ToStringUtf8();
 
@@ -455,15 +483,23 @@ public partial class CroupierClient : IDisposable
                 CallerServiceId = callerServiceId
             };
 
-            // Process function call
-            var result = await ProcessFunctionCallAsync(task);
-
-            // Build InvokeResponse
-            var response = new InvokeResponse
+            // Process function call with in-flight tracking for drain handling.
+            Interlocked.Increment(ref _activeInboundCalls);
+            try
             {
-                Payload = Google.Protobuf.ByteString.CopyFromUtf8(result)
-            };
-            return response.ToByteArray();
+                var result = await ProcessFunctionCallAsync(task);
+
+                // Build InvokeResponse
+                var response = new InvokeResponse
+                {
+                    Payload = Google.Protobuf.ByteString.CopyFromUtf8(result)
+                };
+                return response.ToByteArray();
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _activeInboundCalls);
+            }
         }
 
         _logger.LogWarning("CroupierClient", $"Unsupported inbound request: {Protocol.MsgIdString(msgId)}");
@@ -472,6 +508,75 @@ public partial class CroupierClient : IDisposable
             Payload = Google.Protobuf.ByteString.CopyFromUtf8($"{{\"error\":\"Unsupported message type: {Protocol.MsgIdString(msgId)}\"}}")
         };
         return errorResponse.ToByteArray();
+    }
+
+    /// <summary>
+    /// 处理 Agent 下发的 ProviderDrainRequest：立即确认进入 drain 状态，
+    /// 拒绝新调用并等待在途调用结束后按配置重连。
+    /// </summary>
+    private byte[] HandleDrainRequest(byte[] body)
+    {
+        // 幂等：重复的 drain 请求只回确认。
+        var alreadyDraining = _draining;
+        if (!alreadyDraining)
+        {
+            try
+            {
+                var request = ProviderDrainRequest.Parser.ParseFrom(body);
+                _logger.LogWarning("CroupierClient",
+                    $"Drain requested (session={request.SessionId}, reason={request.Reason}, retryAfterMs={request.RetryAfterMs})");
+            }
+            catch (Google.Protobuf.InvalidProtocolBufferException)
+            {
+                _logger.LogWarning("CroupierClient", "Drain requested (unparsable body)");
+            }
+
+            _draining = true;
+            _drainCts = CancellationTokenSource.CreateLinkedTokenSource(
+                _heartbeatCts?.Token ?? CancellationToken.None);
+            _ = Task.Run(() => DrainAndRecoverAsync(_drainCts.Token));
+        }
+
+        // 协议规定：provider 立即回 ProviderDrainResponse（空消息）确认。
+        return new ProviderDrainResponse().ToByteArray();
+    }
+
+    private async Task DrainAndRecoverAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            // 等待在途调用完成（最多 30 秒，超时后仅记录并继续）。
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (ActiveInboundCalls > 0 && DateTime.UtcNow < deadline && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+            }
+            if (ActiveInboundCalls > 0)
+            {
+                _logger.LogWarning("CroupierClient",
+                    $"Drain timeout with {ActiveInboundCalls} in-flight call(s) still running");
+            }
+
+            if (_config.AutoReconnect && !cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInfo("CroupierClient", "Drain complete, reconnecting provider session");
+                await ReconnectAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 客户端停止时中止 drain 恢复。
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("CroupierClient", $"Drain recovery failed: {ex.Message}", ex);
+        }
+        finally
+        {
+            _draining = false;
+            _drainCts?.Dispose();
+            _drainCts = null;
+        }
     }
 
     /// <summary>
@@ -647,14 +752,13 @@ public partial class CroupierClient : IDisposable
     private static IEnumerable<string> DescriptorTags(FunctionDescriptor descriptor)
     {
         IEnumerable<string?> baseTags = new[]
-            {
+        {
                 descriptor.Resource,
                 descriptor.Operation,
             };
 
         return baseTags
-            .Concat(descriptor.Tags?.Keys ?? Enumerable.Empty<string>())
-            .Concat(descriptor.Tags?.Values ?? Enumerable.Empty<string>())
+            .Concat(descriptor.Tags ?? Enumerable.Empty<string>())
             .Where(tag => !string.IsNullOrWhiteSpace(tag))
             .Select(tag => tag!.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase);

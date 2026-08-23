@@ -14,7 +14,7 @@ import logging
 import random
 import ssl
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
@@ -285,15 +285,9 @@ class Invoker:
         if not schema:
             return
         value = _parse_json_payload(payload)
-        if not isinstance(value, dict):
-            raise ValueError("payload validation failed: expected a JSON object")
-        required = schema.get("required", [])
-        if isinstance(required, list):
-            for field_name in required:
-                if field_name not in value:
-                    raise ValueError(
-                        f"payload validation failed: missing required field '{field_name}'"
-                    )
+        errors = _draft7_validation_errors(value, schema)
+        if errors:
+            raise ValueError(f"payload validation failed: {'; '.join(errors)}")
 
     async def _request_json(
         self,
@@ -460,6 +454,33 @@ class SyncInvoker:
 def create_sync_invoker(config: Optional[InvokerConfig] = None) -> SyncInvoker:
     """Create the blocking Server HTTP invoker."""
     return SyncInvoker(config)
+
+
+def _draft7_validation_errors(value: Any, schema: Dict[str, Any]) -> List[str]:
+    """Validate ``value`` against ``schema`` using JSON Schema Draft 7."""
+    try:
+        from jsonschema import Draft7Validator
+    except ImportError:  # pragma: no cover - jsonschema is a declared dependency
+        return _legacy_required_validation_errors(value, schema)
+    validator = Draft7Validator(schema)
+    messages = []
+    for error in sorted(validator.iter_errors(value), key=lambda e: list(e.absolute_path)):
+        location = "$".join(str(part) for part in error.absolute_path) or "root"
+        messages.append(f"{location}: {error.message}")
+    return messages
+
+
+def _legacy_required_validation_errors(value: Any, schema: Dict[str, Any]) -> List[str]:
+    if not isinstance(value, dict):
+        return ["root: expected a JSON object"]
+    required = schema.get("required", [])
+    if isinstance(required, list):
+        return [
+            f"root: missing required field '{field_name}'"
+            for field_name in required
+            if field_name not in value
+        ]
+    return []
 
 
 def _normalize_server_api_url(address: str) -> str:
