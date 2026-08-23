@@ -96,6 +96,10 @@ func demoPayloadFor(functionID string) map[string]any {
 		return map[string]any{"id": "player_schema", "name": "Schema Player"}
 	case "player.get", "player.update", "player.delete":
 		return map[string]any{"id": "player_1001"}
+	case "player.ban", "player.recharge":
+		return map[string]any{"id": "player_1001", "reason": "demo", "amount": 100}
+	case "player.batch_ban":
+		return map[string]any{"ids": []string{"player_1001", "player_1002"}, "reason": "demo"}
 	case "player.list", "leaderboard.list", "leaderboard.reset":
 		return map[string]any{"page": 1, "pageSize": 20}
 	case "order.create":

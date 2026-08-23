@@ -267,6 +267,25 @@ func intValue(body map[string]any, fallback int, keys ...string) int {
 	return int(int64Value(body, int64(fallback), keys...))
 }
 
+func stringSliceValue(body map[string]any, keys ...string) []string {
+	for _, key := range keys {
+		raw, ok := body[key]
+		if !ok {
+			continue
+		}
+		if items, ok := raw.([]any); ok {
+			out := make([]string, 0, len(items))
+			for _, item := range items {
+				if text, ok := item.(string); ok && text != "" {
+					out = append(out, text)
+				}
+			}
+			return out
+		}
+	}
+	return nil
+}
+
 func mapValue(body map[string]any, key string) map[string]any {
 	raw, ok := body[key]
 	if !ok {
@@ -434,6 +453,122 @@ func (s *demoStore) playerDelete(ctx context.Context, payload []byte) ([]byte, e
 	delete(s.leaderboard, playerID)
 
 	return encodeResponse(map[string]any{"id": playerID, "deleted": true})
+}
+
+// playerBan bans a single player (row action with optional form fields).
+func (s *demoStore) playerBan(ctx context.Context, payload []byte) ([]byte, error) {
+	body, err := decodePayload(payload)
+	if err != nil {
+		return nil, err
+	}
+	playerID := stringValue(body, "playerId", "id")
+	if playerID == "" {
+		return nil, fmt.Errorf("playerId is required")
+	}
+	reason := stringValue(body, "reason")
+	durationHours := 0
+	if _, ok := body["durationHours"]; ok {
+		durationHours = intValue(body, 0, "durationHours")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	record, ok := s.players[playerID]
+	if !ok {
+		return nil, fmt.Errorf("player %q not found", playerID)
+	}
+	record.Status = "banned"
+	record.UpdatedAt = s.now()
+
+	response := map[string]any{
+		"id":     playerID,
+		"banned": true,
+		"status": record.Status,
+	}
+	if reason != "" {
+		response["reason"] = reason
+	}
+	if durationHours > 0 {
+		response["durationHours"] = durationHours
+	}
+	return encodeResponse(response)
+}
+
+// playerBatchBan bans multiple players at once (selection/batch action).
+func (s *demoStore) playerBatchBan(ctx context.Context, payload []byte) ([]byte, error) {
+	body, err := decodePayload(payload)
+	if err != nil {
+		return nil, err
+	}
+	ids := stringSliceValue(body, "ids", "playerIds")
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("ids is required")
+	}
+	reason := stringValue(body, "reason")
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	banned := make([]string, 0, len(ids))
+	missing := make([]string, 0)
+	for _, id := range ids {
+		record, ok := s.players[id]
+		if !ok {
+			missing = append(missing, id)
+			continue
+		}
+		record.Status = "banned"
+		record.UpdatedAt = s.now()
+		banned = append(banned, id)
+	}
+
+	response := map[string]any{
+		"banned": banned,
+		"count":  len(banned),
+	}
+	if len(missing) > 0 {
+		response["missing"] = missing
+	}
+	if reason != "" {
+		response["reason"] = reason
+	}
+	return encodeResponse(response)
+}
+
+// playerRecharge grants gold to a single player (row action with form).
+func (s *demoStore) playerRecharge(ctx context.Context, payload []byte) ([]byte, error) {
+	body, err := decodePayload(payload)
+	if err != nil {
+		return nil, err
+	}
+	playerID := stringValue(body, "playerId", "id")
+	if playerID == "" {
+		return nil, fmt.Errorf("playerId is required")
+	}
+	amount := 0
+	if _, ok := body["amount"]; ok {
+		amount = intValue(body, 0, "amount")
+	}
+	if amount <= 0 {
+		return nil, fmt.Errorf("amount must be positive")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	record, ok := s.players[playerID]
+	if !ok {
+		return nil, fmt.Errorf("player %q not found", playerID)
+	}
+	record.Gold += int64(amount)
+	record.UpdatedAt = s.now()
+
+	return encodeResponse(map[string]any{
+		"id":    playerID,
+		"gold":  record.Gold,
+		"added": amount,
+	})
 }
 
 func (s *demoStore) playerList(ctx context.Context, payload []byte) ([]byte, error) {
@@ -886,6 +1021,9 @@ func gameDemoFunctionDefinitions(store *demoStore) []demoFunctionDefinition {
 		{croupier.FunctionDescriptor{ID: "player.update", Version: "1.0.0", Resource: "player", Operation: "update", Capability: "update", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"profile":{"type":"object"}},"required":["id"]}`, OutputSchema: playerSchema}, store.playerUpdate},
 		{croupier.FunctionDescriptor{ID: "player.delete", Version: "1.0.0", Resource: "player", Operation: "delete", Capability: "delete", Execution: "sync", Risk: "danger", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: deleteSchema}, store.playerDelete},
 		{croupier.FunctionDescriptor{ID: "player.list", Version: "1.0.0", Resource: "player", Operation: "list", Capability: "collection_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}}}`, OutputSchema: demoCollectionSchema(playerSchema)}, store.playerList},
+		{croupier.FunctionDescriptor{ID: "player.ban", Version: "1.0.0", Resource: "player", Operation: "ban", Capability: "action", Execution: "sync", Risk: "high", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string","title":"玩家 ID"},"reason":{"type":"string","title":"封禁原因"},"durationHours":{"type":"integer","minimum":1,"maximum":8760,"title":"封禁时长（小时）"}},"required":["id"]}`, OutputSchema: `{"type":"object","properties":{"id":{"type":"string"},"banned":{"type":"boolean"},"status":{"type":"string"},"reason":{"type":"string"},"durationHours":{"type":"integer"}}}`}, store.playerBan},
+		{croupier.FunctionDescriptor{ID: "player.batch_ban", Version: "1.0.0", Resource: "player", Operation: "batch_ban", Capability: "action", Execution: "sync", Risk: "high", Enabled: true, InputSchema: `{"type":"object","properties":{"ids":{"type":"array","items":{"type":"string"},"title":"玩家 ID 列表"},"reason":{"type":"string","title":"封禁原因"}},"required":["ids"]}`, OutputSchema: `{"type":"object","properties":{"banned":{"type":"array","items":{"type":"string"}},"count":{"type":"integer"},"missing":{"type":"array","items":{"type":"string"}},"reason":{"type":"string"}}}`}, store.playerBatchBan},
+		{croupier.FunctionDescriptor{ID: "player.recharge", Version: "1.0.0", Resource: "player", Operation: "recharge", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string","title":"玩家 ID"},"amount":{"type":"integer","minimum":1,"maximum":1000000,"title":"充值金币"}},"required":["id"]}`, OutputSchema: `{"type":"object","properties":{"id":{"type":"string"},"gold":{"type":"integer"},"added":{"type":"integer"}}}`}, store.playerRecharge},
 
 		{croupier.FunctionDescriptor{ID: "order.create", Version: "1.0.0", Resource: "order", Operation: "create", Capability: "create", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"attributes":{"type":"object"}},"required":["playerId"]}`, OutputSchema: orderSchema}, store.orderCreate},
 		{croupier.FunctionDescriptor{ID: "order.get", Version: "1.0.0", Resource: "order", Operation: "get", Capability: "item_query", Execution: "sync", Risk: "safe", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: orderSchema}, store.orderGet},

@@ -36,8 +36,8 @@ func TestRegisterGameDemoFunctions(t *testing.T) {
 	if err := registerGameDemoFunctions(client, newDemoStore()); err != nil {
 		t.Fatalf("registerGameDemoFunctions: %v", err)
 	}
-	if len(client.registered) != 19 {
-		t.Fatalf("registered = %d functions, want 19", len(client.registered))
+	if len(client.registered) != 22 {
+		t.Fatalf("registered = %d functions, want 22", len(client.registered))
 	}
 	for _, desc := range client.registered {
 		if desc.Tags == nil || desc.Summary == "" || desc.Description == "" {
