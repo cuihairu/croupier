@@ -182,16 +182,19 @@ function buildHeaders(
   options?: InvokeTaskOptions,
   extra?: Record<string, string>,
 ): Record<string, string> {
-  const headers: Record<string, string> = {
+  // Request-level headers take precedence over config-level auth/scope.
+  const merged: Record<string, string> = {
     "Content-Type": "application/json",
     ...(config.headers || {}),
     ...(options?.headers || {}),
     ...(extra || {}),
   };
-  if (config.token) headers.Authorization = `Bearer ${config.token}`;
-  if (config.gameId) headers["X-Game-ID"] = config.gameId;
-  if (config.env) headers["X-Env"] = config.env;
-  return headers;
+  const has = (name: string) =>
+    Object.keys(merged).some((key) => key.toLowerCase() === name);
+  if (config.token && !has("authorization")) merged.Authorization = `Bearer ${config.token}`;
+  if (config.gameId && !has("x-game-id")) merged["X-Game-ID"] = config.gameId;
+  if (config.env && !has("x-env")) merged["X-Env"] = config.env;
+  return merged;
 }
 
 async function parseError(res: Response): Promise<InvokerError> {

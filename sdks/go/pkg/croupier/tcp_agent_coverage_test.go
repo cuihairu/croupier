@@ -28,9 +28,10 @@ type fakeAgentServer struct {
 	ln      net.Listener
 	handler func(msgID uint32, reqID uint32, body []byte) (respMsgID uint32, respBody []byte, ok bool)
 
-	mu    sync.Mutex
-	conns map[net.Conn]struct{}
-	wg    sync.WaitGroup
+	mu         sync.Mutex
+	conns      map[net.Conn]struct{}
+	wg         sync.WaitGroup
+	acceptDone chan struct{}
 }
 
 // startFakeAgent binds addr ("127.0.0.1:0" picks a free port) and serves the
@@ -42,10 +43,11 @@ func startFakeAgent(t *testing.T, addr string, handler func(msgID, reqID uint32,
 		t.Fatalf("fake agent listen %s: %v", addr, err)
 	}
 	s := &fakeAgentServer{
-		t:       t,
-		ln:      ln,
-		handler: handler,
-		conns:   map[net.Conn]struct{}{},
+		t:          t,
+		ln:         ln,
+		handler:    handler,
+		conns:      map[net.Conn]struct{}{},
+		acceptDone: make(chan struct{}),
 	}
 	s.wg.Add(1)
 	go s.acceptLoop()
@@ -57,6 +59,7 @@ func (s *fakeAgentServer) addr() string { return s.ln.Addr().String() }
 
 func (s *fakeAgentServer) acceptLoop() {
 	defer s.wg.Done()
+	defer close(s.acceptDone)
 	for {
 		conn, err := s.ln.Accept()
 		if err != nil {
@@ -94,15 +97,31 @@ func (s *fakeAgentServer) serveConn(conn net.Conn) {
 }
 
 // stop closes the listener and all live connections. Safe to call twice.
+//
+// The accept loop is fully drained before connections are closed: callers may
+// still be dialing (e.g. an invoker reconnect loop), and a connection accepted
+// just before the listener closes would otherwise never be closed, deadlocking
+// the final WaitGroup wait.
 func (s *fakeAgentServer) stop() {
 	if s.ln != nil {
 		_ = s.ln.Close()
 	}
-	s.mu.Lock()
-	for conn := range s.conns {
-		_ = conn.Close()
+	<-s.acceptDone
+	for {
+		s.mu.Lock()
+		pending := make([]net.Conn, 0, len(s.conns))
+		for conn := range s.conns {
+			pending = append(pending, conn)
+		}
+		s.mu.Unlock()
+		if len(pending) == 0 {
+			break
+		}
+		for _, conn := range pending {
+			_ = conn.Close()
+		}
+		time.Sleep(2 * time.Millisecond)
 	}
-	s.mu.Unlock()
 	s.wg.Wait()
 }
 

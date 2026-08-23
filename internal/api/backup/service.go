@@ -34,6 +34,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 
 // List retrieves a paginated list of backups
 func (s *Service) List(ctx context.Context, req *BackupsListRequest) (*BackupsListResponse, error) {
+	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
+		return nil, errors.New("备份模型未初始化")
+	}
 	if req == nil {
 		req = &BackupsListRequest{}
 	}
@@ -69,6 +72,9 @@ func (s *Service) List(ctx context.Context, req *BackupsListRequest) (*BackupsLi
 
 // Create creates a new backup
 func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*BackupCreateResponse, error) {
+	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
+		return nil, errors.New("备份模型未初始化")
+	}
 	backupType := strings.ToLower(strings.TrimSpace(req.Type))
 	if backupType == "" {
 		backupType = "full"
@@ -101,6 +107,9 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 
 // Delete deletes a backup
 func (s *Service) Delete(ctx context.Context, req *BackupDeleteRequest) error {
+	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
+		return errors.New("备份模型未初始化")
+	}
 	backupID := strings.TrimSpace(req.ID)
 	if backupID == "" {
 		return errors.New("备份ID不能为空")
@@ -124,6 +133,9 @@ func (s *Service) Delete(ctx context.Context, req *BackupDeleteRequest) error {
 
 // Download downloads a backup file
 func (s *Service) Download(ctx context.Context, req *BackupDownloadRequest) (*DownloadPayload, error) {
+	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
+		return nil, errors.New("备份模型未初始化")
+	}
 	backupID := strings.TrimSpace(req.ID)
 	if backupID == "" {
 		return nil, errors.New("备份ID不能为空")

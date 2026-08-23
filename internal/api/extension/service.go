@@ -595,11 +595,18 @@ func extractPageDetailsFromBindings(bindings []model.ExtensionRuntimeBinding) []
 			continue
 		}
 		seen[key] = true
-		title := strings.TrimSpace(fmt.Sprint(spec["title"]))
-		route := strings.TrimSpace(fmt.Sprint(spec["route"]))
-		icon := strings.TrimSpace(fmt.Sprint(spec["icon"]))
-		group := strings.TrimSpace(fmt.Sprint(spec["group"]))
-		requiredPermission := strings.TrimSpace(fmt.Sprint(spec["required_permission"]))
+		specString := func(field string) string {
+			value := strings.TrimSpace(fmt.Sprint(spec[field]))
+			if value == "<nil>" {
+				return ""
+			}
+			return value
+		}
+		title := specString("title")
+		route := specString("route")
+		icon := specString("icon")
+		group := specString("group")
+		requiredPermission := specString("required_permission")
 		order := 0
 		if rawOrder, ok := spec["order"]; ok {
 			switch v := rawOrder.(type) {

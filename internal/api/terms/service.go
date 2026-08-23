@@ -2,6 +2,7 @@ package terms
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
@@ -18,6 +19,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 
 // List retrieves terms for a given domain
 func (s *Service) List(ctx context.Context, req *TermsListRequest) (*TermsListResponse, error) {
+	if s.svcCtx == nil || s.svcCtx.TermDictModel == nil {
+		return nil, errors.New("术语模型未初始化")
+	}
 	if req == nil {
 		req = &TermsListRequest{}
 	}
@@ -49,6 +53,9 @@ func (s *Service) List(ctx context.Context, req *TermsListRequest) (*TermsListRe
 
 // Upsert creates or updates a term
 func (s *Service) Upsert(ctx context.Context, req *TermUpsertRequest) (*TermUpsertResponse, error) {
+	if s.svcCtx == nil || s.svcCtx.TermDictModel == nil {
+		return nil, errors.New("术语模型未初始化")
+	}
 	if req == nil {
 		return nil, errorx.NewBadRequest("term request is required")
 	}
@@ -76,6 +83,9 @@ func (s *Service) Upsert(ctx context.Context, req *TermUpsertRequest) (*TermUpse
 
 // Delete removes a term by domain and alias
 func (s *Service) Delete(ctx context.Context, req *TermDeleteRequest) (*TermDeleteResponse, error) {
+	if s.svcCtx == nil || s.svcCtx.TermDictModel == nil {
+		return nil, errors.New("术语模型未初始化")
+	}
 	if req == nil {
 		return nil, errorx.NewBadRequest("term delete request is required")
 	}

@@ -34,7 +34,7 @@ from croupier.invoker import (
     _task_poll_interval,
     _timeout_seconds,
 )
-from tests.test_invoker import MockServer, header
+from test_invoker import MockServer, header
 
 
 # ---------------------------------------------------------------------------

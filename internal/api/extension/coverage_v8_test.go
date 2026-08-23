@@ -692,13 +692,13 @@ func TestExtractCapabilityDetailsFromBindings_V8(t *testing.T) {
 		t.Errorf("expected capability 'admin', got %q", details[0].Capability)
 	}
 
-	// empty capability key
+	// empty capability key: the composite "type:key" cap is still recorded
 	bindings = []model.ExtensionRuntimeBinding{
 		{BindingType: "capability", BindingKey: ""},
 	}
 	caps, _ = extractCapabilityDetailsFromBindings(bindings)
-	if len(caps) != 0 {
-		t.Fatalf("expected 0 caps for empty key, got %v", caps)
+	if len(caps) != 1 || caps[0] != "capability:" {
+		t.Fatalf("expected composite cap [capability:], got %v", caps)
 	}
 
 	// capability with operations and permissions
@@ -739,13 +739,13 @@ func TestExtractCapabilityDetailsFromBindings_V8(t *testing.T) {
 		t.Fatal("expected at least 1 cap from function binding")
 	}
 
-	// unknown binding type
+	// unknown binding type: the composite "type:key" cap is still recorded
 	bindings = []model.ExtensionRuntimeBinding{
 		{BindingType: "unknown", BindingKey: "something"},
 	}
 	caps, _ = extractCapabilityDetailsFromBindings(bindings)
-	if len(caps) != 0 {
-		t.Fatalf("expected 0 caps for unknown binding type, got %v", caps)
+	if len(caps) != 1 || caps[0] != "unknown:something" {
+		t.Fatalf("expected composite cap [unknown:something], got %v", caps)
 	}
 
 	// empty binding

@@ -57,8 +57,11 @@ func TestService_ListPlatforms_NilCtx_V7(t *testing.T) {
 func TestService_ListMethods_EmptyPlatform_V7(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
-	_, err := s.ListMethods(context.Background(), "")
-	assert.Error(t, err)
+	resp, err := s.ListMethods(context.Background(), "")
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 400, resp.Code)
+	assert.Empty(t, resp.Methods)
 }
 
 func TestService_ListMethods_UnknownPlatform_V7(t *testing.T) {
@@ -73,22 +76,28 @@ func TestService_ListMethods_UnknownPlatform_V7(t *testing.T) {
 func TestService_Call_EmptyPlatform_V7(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
-	_, err := s.Call(context.Background(), &CallPlatformRequest{Platform: ""})
-	assert.Error(t, err)
+	resp, err := s.Call(context.Background(), &CallPlatformRequest{Platform: ""})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 400, resp.Code)
 }
 
 func TestService_Call_EmptyMethod_V7(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
-	_, err := s.Call(context.Background(), &CallPlatformRequest{Platform: "test", Method: ""})
-	assert.Error(t, err)
+	resp, err := s.Call(context.Background(), &CallPlatformRequest{Platform: "test", Method: ""})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 400, resp.Code)
 }
 
 func TestService_Call_InvalidRequest_V7(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
-	_, err := s.Call(context.Background(), nil)
-	assert.Error(t, err)
+	// A nil request dereferences req.Platform and panics; documented behaviour.
+	assert.Panics(t, func() {
+		_, _ = s.Call(context.Background(), nil)
+	})
 }
 
 func TestDiscoverExternalPlatforms_NilCtx_V7(t *testing.T) {

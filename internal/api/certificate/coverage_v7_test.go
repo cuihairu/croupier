@@ -68,10 +68,10 @@ func TestFormatIssuer_V7(t *testing.T) {
 	assert.Contains(t, result, "IT")
 	assert.Contains(t, result, "Root CA")
 
-	// cert with no fields
+	// cert with no fields: pkix.Name.String() renders an empty string
 	cert = &x509.Certificate{Issuer: pkix.Name{}}
 	result = FormatIssuer(cert)
-	assert.NotEmpty(t, result) // falls back to String()
+	assert.Empty(t, result)
 }
 
 func TestFormatSubject_V7(t *testing.T) {

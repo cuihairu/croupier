@@ -381,7 +381,7 @@ def test_openapi_empty_responses_yields_no_schemas():
 
 
 def test_sync_invoker_schema_and_close_roundtrip():
-    from tests.test_invoker import MockServer
+    from test_invoker import MockServer
 
     with MockServer(lambda method, path, headers, payload: (200, {"result": {}})) as server:
         invoker = SyncInvoker(InvokerConfig(address=server.address))

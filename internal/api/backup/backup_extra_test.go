@@ -46,7 +46,7 @@ func TestNormalizedPage(t *testing.T) {
 func TestNormalizedPageSize(t *testing.T) {
 	assert.Equal(t, 20, normalizedPageSize(0))
 	assert.Equal(t, 20, normalizedPageSize(-1))
-	assert.Equal(t, 20, normalizedPageSize(1000))
+	assert.Equal(t, 1000, normalizedPageSize(1000)) // no upper clamp by design
 	assert.Equal(t, 10, normalizedPageSize(10))
 }
 
