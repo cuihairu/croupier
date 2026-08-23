@@ -14,7 +14,7 @@ server:
 agent:
   # ID is optional; when empty, agent will auto-generate one at runtime.
   id: ""
-  gameId: "dev-game"
+  gameId: "default"
   env: "dev"
   # Local agent address (accessible from server)
   localAddr: "localhost:19091"

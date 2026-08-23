@@ -79,6 +79,7 @@ function normalizeGame(raw: RawGame): Game {
         : undefined;
 
   return {
+    id: raw?.id,
     name,
     aliasName,
     envs,
