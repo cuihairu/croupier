@@ -376,23 +376,29 @@ export class Invoker {
   async getTaskStatus(taskId: string, options?: InvokeTaskOptions): Promise<TaskStatus> {
     if (!taskId) throw new Error("getTaskStatus requires a taskId");
     const timeout = options?.timeout ?? this.config.timeout ?? DEFAULT_TIMEOUT;
-    const { signal, cancel } = withTimeout(timeout);
-    try {
-      const res = await fetch(`${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}`, {
-        method: "GET",
-        headers: buildHeaders(this.config, options),
-        signal,
-      });
-      if (!res.ok) throw await parseError(res);
-      const data: unknown = await res.json();
-      if (!data || typeof data !== "object") {
-        throw new InvokerError("server task status response must be an object", 502, "invalid_task_status", data);
-      }
-      const status = data as Omit<TaskStatus, "id"> & { id?: unknown };
-      return { ...status, id: typeof status.id === "string" && status.id ? status.id : taskId };
-    } finally {
-      cancel();
-    }
+    return withRetry(
+      async () => {
+        const { signal, cancel } = withTimeout(timeout);
+        try {
+          const res = await fetch(`${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}`, {
+            method: "GET",
+            headers: buildHeaders(this.config, options),
+            signal,
+          });
+          if (!res.ok) throw await parseError(res);
+          const data: unknown = await res.json();
+          if (!data || typeof data !== "object") {
+            throw new InvokerError("server task status response must be an object", 502, "invalid_task_status", data);
+          }
+          const status = data as Omit<TaskStatus, "id"> & { id?: unknown };
+          return { ...status, id: typeof status.id === "string" && status.id ? status.id : taskId };
+        } finally {
+          cancel();
+        }
+      },
+      this.config.retry,
+      options?.retry,
+    );
   }
 
   /**

@@ -694,6 +694,7 @@ if(BUILD_TESTS)
             tests/test_invoker_retry.cpp
             tests/test_coverage_boost.cpp
             tests/test_openapi_importer.cpp
+            tests/test_coverage_boost2.cpp
         )
 
         # Real shared-object plugins used by the dynamic loader tests.
