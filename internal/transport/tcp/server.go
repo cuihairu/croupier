@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -177,7 +178,7 @@ func (s *Server) Addr() string {
 func listen(config *Config) (net.Listener, error) {
 	addr := normalizeAddr(config.Address)
 	if addr == "" {
-		addr = "127.0.0.1:19090"
+		addr = defaultAddress()
 	}
 
 	if config.Insecure {
@@ -220,4 +221,14 @@ func createServerTLSConfig(config *Config) (*tls.Config, error) {
 	}
 
 	return tlsConfig, nil
+}
+
+// defaultAddress returns the listen address used when Config.Address is
+// empty. Defaults to 127.0.0.1:19090; CROUPIER_TCP_ADDR overrides it so
+// tests (and constrained environments) can pick a free port.
+func defaultAddress() string {
+	if addr := strings.TrimSpace(os.Getenv("CROUPIER_TCP_ADDR")); addr != "" {
+		return addr
+	}
+	return "127.0.0.1:19090"
 }

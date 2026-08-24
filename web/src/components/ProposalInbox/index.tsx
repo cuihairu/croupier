@@ -185,7 +185,13 @@ function navigateTo(path: string) {
   }
 }
 
-export default function ProposalInbox() {
+export interface ProposalInboxProps {
+  /** 定位高亮的 pageKey（来自 /system/functions/pages?focus=）：命中时切换到对应
+   *  队列 Tab 并高亮相关行；与编辑器 focus 定位配合使用。 */
+  focusPageKey?: string;
+}
+
+export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps) {
   const { message, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [inbox, setInbox] = useState<ProposalInboxData>(emptyInbox);
@@ -215,6 +221,21 @@ export default function ProposalInbox() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // focus 定位：命中某个队列时自动切到对应 Tab（行高亮由 rowClassName 提供）
+  useEffect(() => {
+    if (!focusPageKey || loading) return;
+    const inPublishable = inbox.publishable.some((item) => item.pageKey === focusPageKey);
+    const inNeedsReview = inbox.needsReview.some((item) => item.pageKey === focusPageKey);
+    const inContractChanges = inbox.contractChanges.some((item) => item.pageKey === focusPageKey);
+    if (inNeedsReview) {
+      setActiveTab('needsReview');
+    } else if (inContractChanges) {
+      setActiveTab('contractChanges');
+    } else if (inPublishable) {
+      setActiveTab('publishable');
+    }
+  }, [focusPageKey, inbox, loading]);
 
   useEffect(() => {
     if (!initialProposalKey) {
@@ -779,6 +800,9 @@ export default function ProposalInbox() {
                 columns={proposalColumns}
                 dataSource={publishable}
                 rowKey="proposalKey"
+                rowClassName={(record) =>
+                  record.pageKey === focusPageKey ? 'proposal-inbox-focus-row' : ''
+                }
                 loading={loading}
                 scroll={{ x: 'max-content' }}
                 locale={{ emptyText: <Empty description="暂无可直接发布的默认页面" /> }}
@@ -800,6 +824,9 @@ export default function ProposalInbox() {
                   columns={proposalColumns}
                   dataSource={needsReview}
                   rowKey="proposalKey"
+                  rowClassName={(record) =>
+                    record.pageKey === focusPageKey ? 'proposal-inbox-focus-row' : ''
+                  }
                   loading={loading}
                   scroll={{ x: 'max-content' }}
                   locale={{ emptyText: <Empty description="暂无需要处理的 Proposal" /> }}
@@ -828,6 +855,9 @@ export default function ProposalInbox() {
                 columns={contractColumns}
                 dataSource={contractChanges}
                 rowKey={(record) => `${record.kind}:${record.pageKey}`}
+                rowClassName={(record) =>
+                  record.pageKey === focusPageKey ? 'proposal-inbox-focus-row' : ''
+                }
                 loading={loading}
                 scroll={{ x: 'max-content' }}
                 locale={{ emptyText: <Empty description="暂无 stale 草稿或已发布页面" /> }}

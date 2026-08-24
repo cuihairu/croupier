@@ -1087,7 +1087,9 @@ func TestDefaultOpsState(t *testing.T) {
 	assert.NotNil(t, state.MQ)
 	assert.NotNil(t, state.Alerts)
 	assert.NotNil(t, state.Audit)
-	assert.NotEmpty(t, state.Audit.Entries)
+	// The in-memory audit trail is deprecated (audit_records is the source of
+	// truth), so the seeded snapshot starts with an empty entry list.
+	assert.Empty(t, state.Audit.Entries)
 }
 
 func TestCloneOpsState(t *testing.T) {

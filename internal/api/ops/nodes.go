@@ -3,9 +3,9 @@ package ops
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -55,19 +55,9 @@ func (s *NodeService) Drain(ctx context.Context, nodeId string) error {
 		return errorx.NewNotFound("node not found: " + nodeId)
 	}
 
-	// Record drain in audit trail and update node state
+	// Update transient node state; the audit trail goes to audit_records.
 	if s.svcCtx.OpsStateStore != nil {
 		_, _ = s.svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
-			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
-				ID:        fmt.Sprintf("drain-%s-%d", nodeId, time.Now().UnixNano()),
-				Action:    "node.drain",
-				Target:    nodeId,
-				Result:    "success",
-				CreatedAt: time.Now(),
-			})
-			state.Audit.UpdatedAt = time.Now()
-
-			// Mark node as drained
 			if state.Nodes.Drained == nil {
 				state.Nodes.Drained = make(map[string]time.Time)
 			}
@@ -75,6 +65,7 @@ func (s *NodeService) Drain(ctx context.Context, nodeId string) error {
 			state.Nodes.UpdatedAt = time.Now()
 		})
 	}
+	recordOpsAudit(ctx, s.svcCtx, audit.EventNodeDrain, nodeId, "success", nil)
 
 	return nil
 }
@@ -117,19 +108,8 @@ func (s *NodeService) Restart(ctx context.Context, nodeId string) error {
 		return errorx.NewNotFound("node not found: " + nodeId)
 	}
 
-	// Record restart in audit trail
-	if s.svcCtx.OpsStateStore != nil {
-		_, _ = s.svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
-			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
-				ID:        fmt.Sprintf("restart-%s-%d", nodeId, time.Now().UnixNano()),
-				Action:    "node.restart",
-				Target:    nodeId,
-				Result:    "initiated",
-				CreatedAt: time.Now(),
-			})
-			state.Audit.UpdatedAt = time.Now()
-		})
-	}
+	// Record restart in the persistent audit trail
+	recordOpsAudit(ctx, s.svcCtx, audit.EventNodeRestart, nodeId, "initiated", nil)
 
 	return nil
 }
@@ -154,25 +134,16 @@ func (s *NodeService) Undrain(ctx context.Context, nodeId string) error {
 		return errorx.NewNotFound("node not found: " + nodeId)
 	}
 
-	// Record undrain in audit trail and update node state
+	// Clear transient node state; audit goes to audit_records.
 	if s.svcCtx.OpsStateStore != nil {
 		_, _ = s.svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
-			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
-				ID:        fmt.Sprintf("undrain-%s-%d", nodeId, time.Now().UnixNano()),
-				Action:    "node.undrain",
-				Target:    nodeId,
-				Result:    "success",
-				CreatedAt: time.Now(),
-			})
-			state.Audit.UpdatedAt = time.Now()
-
-			// Remove node from drained state
 			if state.Nodes.Drained != nil {
 				delete(state.Nodes.Drained, nodeId)
 			}
 			state.Nodes.UpdatedAt = time.Now()
 		})
 	}
+	recordOpsAudit(ctx, s.svcCtx, audit.EventNodeUndrain, nodeId, "success", nil)
 
 	return nil
 }

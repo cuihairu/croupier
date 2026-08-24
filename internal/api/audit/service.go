@@ -2,10 +2,8 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
-	"math"
-	"sort"
 	"strings"
 	"time"
 
@@ -30,9 +28,36 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
-// GetAuditLogs retrieves audit logs with filtering and pagination.
+// kindAliases maps frontend "kind" shortcuts to canonical audit event types.
+// Login-logs / operation-logs pages send these; unknown values pass through
+// verbatim (they may already be canonical event types).
+var kindAliases = map[string][]string{
+	"login":              {"auth.login"},
+	"login_fail":         {"auth.login_failed"},
+	"login_failed":       {"auth.login_failed"},
+	"login_rate_limited": {"auth.login_rate_limited"},
+	"logout":             {"auth.logout"},
+	"invoke":             {"function.invoke", "page.execute"},
+	"page_execute":       {"page.execute"},
+	"start_job":          {"job.start"},
+	"cancel_job":         {"job.cancel"},
+	"node_drain":         {"node.drain"},
+	"node_undrain":       {"node.undrain"},
+	"node_restart":       {"node.restart"},
+	"user_create":        {"admin.user_create"},
+	"user_update":        {"admin.user_update"},
+	"user_delete":        {"admin.user_delete"},
+	"user_lock":          {"admin.user_lock"},
+	"user_unlock":        {"admin.user_unlock"},
+	"approval_approve":   {"approval.approved"},
+	"approval_reject":    {"approval.rejected"},
+}
+
+// GetAuditLogs retrieves audit logs from the persistent audit_records table
+// (single source of truth). The legacy in-memory OpsStateStore audit trail
+// was removed — audit history must survive restarts.
 func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditListResponse, error) {
-	if s.svcCtx == nil || s.svcCtx.OpsStateStore == nil {
+	if s.svcCtx == nil || s.svcCtx.DB == nil {
 		return nil, errors.New("audit store unavailable")
 	}
 	if req == nil {
@@ -44,9 +69,10 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 	}
 
 	page := req.Page
-	if page <= 0 {
+	if page < 1 {
 		page = 1
-	} else if page > maxPage {
+	}
+	if page > maxPage {
 		page = maxPage
 	}
 	size := req.PageSize
@@ -60,159 +86,160 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 		size = maxPageSize
 	}
 
-	actionFilter := strings.TrimSpace(req.Action)
-	if actionFilter == "" {
-		actionFilter = strings.TrimSpace(req.Kind)
-	}
-	userFilter := strings.TrimSpace(req.UserID)
-	if userFilter == "" {
-		userFilter = strings.TrimSpace(req.Actor)
-	}
-	// Audit is scope-neutral: these are filters over audit records, never a
-	// replacement for the request scope resolved by GameDBMiddleware.
-	gameFilter := strings.TrimSpace(req.GameID)
-	envFilter := strings.TrimSpace(req.Env)
-	ipFilter := strings.TrimSpace(req.IP)
-
-	actionSet := make(map[string]struct{})
-	addActionAlias := func(value string) {
-		value = strings.ToLower(strings.TrimSpace(value))
+	// Resolve action filter (kind / kinds / action aliases).
+	actionSet := map[string]struct{}{}
+	addAlias := func(value string) {
+		value = strings.TrimSpace(value)
 		if value == "" {
 			return
 		}
 		actionSet[value] = struct{}{}
-		switch value {
-		case "login":
-			actionSet["auth.login"] = struct{}{}
-		case "login_fail":
-			actionSet["auth.login_failed"] = struct{}{}
-		case "login_failed":
-			actionSet["auth.login_failed"] = struct{}{}
+		for _, canonical := range kindAliases[strings.ToLower(value)] {
+			actionSet[canonical] = struct{}{}
 		}
 	}
-	if actionFilter != "" {
-		addActionAlias(actionFilter)
-	}
+	addAlias(req.Action)
 	for _, item := range strings.Split(strings.TrimSpace(req.Kinds), ",") {
-		addActionAlias(item)
+		addAlias(item)
+	}
+	for _, item := range strings.Split(strings.TrimSpace(req.Kind), ",") {
+		addAlias(item)
 	}
 
-	var startAt time.Time
+	query := s.svcCtx.DB.WithContext(ctx).Table("audit_records")
+	// Scope authorization: non-admin viewers only see records within their
+	// game/env scopes. SQL-side so counts and pagination stay correct.
+	if !unrestricted {
+		if len(visibleScopes) == 0 {
+			return &AuditListResponse{Items: []AuditItem{}, Total: 0, Page: page, PageSize: size}, nil
+		}
+		orParts := []string{}
+		orArgs := []interface{}{}
+		for gameID, envs := range visibleScopes {
+			for env := range envs {
+				orParts = append(orParts, "(game_id = ? AND env = ?)")
+				orArgs = append(orArgs, gameID, env)
+			}
+		}
+		query = query.Where(strings.Join(orParts, " OR "), orArgs...)
+	}
+	if len(actionSet) > 0 {
+		types := make([]string, 0, len(actionSet))
+		for t := range actionSet {
+			types = append(types, t)
+		}
+		query = query.Where("event_type IN ?", types)
+	}
+	if actor := strings.TrimSpace(req.Actor); actor != "" {
+		query = query.Where("actor_id = ?", actor)
+	}
+	if userID := strings.TrimSpace(req.UserID); userID != "" {
+		query = query.Where("actor_id = ?", userID)
+	}
+	if ip := strings.TrimSpace(req.IP); ip != "" {
+		query = query.Where("ip = ?", ip)
+	}
+	if gameID := strings.TrimSpace(req.GameID); gameID != "" {
+		query = query.Where("game_id = ?", gameID)
+	}
+	if env := strings.TrimSpace(req.Env); env != "" {
+		query = query.Where("env = ?", env)
+	}
+	var startAt, endAt time.Time
 	if trimmed := strings.TrimSpace(req.Start); trimmed != "" {
 		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
 			startAt = parsed
+			query = query.Where("timestamp >= ?", startAt)
 		}
 	}
-	var endAt time.Time
 	if trimmed := strings.TrimSpace(req.End); trimmed != "" {
 		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
 			endAt = parsed
+			query = query.Where("timestamp <= ?", endAt)
 		}
 	}
 
-	state := s.svcCtx.OpsStateStore.Snapshot()
-	entries := state.Audit.Entries
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
 
-	filtered := make([]svc.OpsAuditEntry, 0, len(entries))
-	for _, entry := range entries {
-		if !unrestricted && !visibleScopes.allows(entry.GameID, entry.Env) {
-			continue
+	type rawRow struct {
+		AuditID      string
+		Timestamp    time.Time
+		EventType    string
+		Outcome      string
+		ActorJSON    []byte
+		ResourceJSON []byte
+		DetailsJSON  []byte
+		ErrorMessage string
+		GameID       string
+		Env          string
+		IP           string
+		ActorID      string
+	}
+	rows := []rawRow{}
+	if err := query.
+		Select("audit_id, timestamp, event_type, outcome, actor_json, resource_json, details_json, error_message, game_id, env, ip, actor_id").
+		Order("timestamp DESC").
+		Offset((page - 1) * size).Limit(size).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]AuditItem, 0, len(rows))
+	for _, r := range rows {
+		var actor, resource, details map[string]interface{}
+		if len(r.ActorJSON) > 0 {
+			_ = json.Unmarshal(r.ActorJSON, &actor)
 		}
-		if len(actionSet) > 0 {
-			if _, ok := actionSet[strings.ToLower(strings.TrimSpace(entry.Action))]; !ok {
-				continue
-			}
+		if len(r.ResourceJSON) > 0 {
+			_ = json.Unmarshal(r.ResourceJSON, &resource)
 		}
-		if userFilter != "" && !strings.EqualFold(entry.UserID, userFilter) {
-			continue
+		if len(r.DetailsJSON) > 0 {
+			_ = json.Unmarshal(r.DetailsJSON, &details)
 		}
-		if gameFilter != "" && !strings.EqualFold(entry.GameID, gameFilter) {
-			continue
+		metadata := map[string]interface{}{}
+		for k, v := range details {
+			metadata[k] = v
 		}
-		if envFilter != "" && !strings.EqualFold(entry.Env, envFilter) {
-			continue
+		if r.IP != "" {
+			metadata["ip"] = r.IP
 		}
-		if ipFilter != "" && !strings.EqualFold(fmt.Sprint(entry.Metadata["ip"]), ipFilter) {
-			continue
+		if ua, ok := actor["userAgent"].(string); ok && ua != "" {
+			metadata["userAgent"] = ua
 		}
-		if !startAt.IsZero() && entry.CreatedAt.Before(startAt) {
-			continue
+		item := AuditItem{
+			ID:        r.AuditID,
+			CreatedAt: r.Timestamp.UTC().Format(time.RFC3339),
+			Action:    r.EventType,
+			Result:    r.Outcome,
+			Metadata:  metadata,
+			UserID:    r.ActorID,
 		}
-		if !endAt.IsZero() && entry.CreatedAt.After(endAt) {
-			continue
+		if id, ok := resource["id"].(string); ok {
+			item.Target = id
 		}
-		filtered = append(filtered, entry)
-	}
-
-	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
-	})
-
-	total := len(filtered)
-	if total == 0 {
-		return &AuditListResponse{
-			Items:    []AuditItem{},
-			Total:    0,
-			Page:     page,
-			PageSize: size,
-		}, nil
-	}
-
-	// Use int64 for pagination arithmetic and validate before converting back to int
-	total64 := int64(total)
-	page64 := int64(page)
-	size64 := int64(size)
-
-	if page64 < 1 {
-		page64 = 1
-	}
-
-	start64 := (page64 - 1) * size64
-	if start64 > total64 {
-		start64 = total64
-	}
-
-	end64 := start64 + size64
-	if end64 > total64 {
-		end64 = total64
-	}
-
-	// Ensure values are within int range before converting
-	if start64 < 0 {
-		start64 = 0
-	}
-	if end64 < start64 {
-		end64 = start64
-	}
-	if start64 > int64(math.MaxInt) {
-		start64 = int64(math.MaxInt)
-	}
-	if end64 > int64(math.MaxInt) {
-		end64 = int64(math.MaxInt)
-	}
-
-	start := int(start64)
-	end := int(end64)
-
-	items := make([]AuditItem, 0, end-start)
-	for _, entry := range filtered[start:end] {
-		items = append(items, AuditItem{
-			ID:        entry.ID,
-			Action:    entry.Action,
-			UserID:    entry.UserID,
-			GameID:    entry.GameID,
-			Env:       entry.Env,
-			Target:    entry.Target,
-			Result:    entry.Result,
-			TraceID:   entry.TraceID,
-			Metadata:  entry.Metadata,
-			CreatedAt: utils.FormatTimestamp(entry.CreatedAt),
-		})
+		if tid, ok := details["traceId"].(string); ok && tid != "" {
+			item.TraceID = tid
+		} else if tid, ok := details["trace_id"].(string); ok {
+			item.TraceID = tid
+		}
+		if r.GameID != "" {
+			item.GameID = r.GameID
+		}
+		if r.Env != "" {
+			item.Env = r.Env
+		}
+		if r.ErrorMessage != "" {
+			metadata["error"] = r.ErrorMessage
+		}
+		items = append(items, item)
 	}
 
 	return &AuditListResponse{
 		Items:    items,
-		Total:    total,
+		Total:    int(total),
 		Page:     page,
 		PageSize: size,
 	}, nil

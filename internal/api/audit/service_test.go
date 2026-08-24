@@ -2,10 +2,10 @@ package audit
 
 import (
 	"context"
-	"sync"
+	"fmt"
 	"testing"
-	"time"
 
+	auditcore "github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
@@ -14,30 +14,42 @@ import (
 	"gorm.io/gorm"
 )
 
-// Singleton test store with proper cleanup
-var (
-	testAuditStore     *svc.OpsStateStore
-	testAuditStoreOnce sync.Once
-	testAuditStoreMu   sync.Mutex
-)
+// setupTableBackedService builds the audit API service against a real
+// audit_records table (in-memory SQLite). The legacy OpsStateStore-backed
+// in-memory trail was removed; tests now seed via the audit core service.
+func setupTableBackedService(t *testing.T, svcCtxExtra func(*svc.ServiceContext)) (*Service, *gorm.DB) {
+	t.Helper()
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, model.AutoMigrate(db))
 
-// setupTestAuditStore creates or resets a shared test store
-func setupTestAuditStore(t *testing.T) *svc.OpsStateStore {
-	testAuditStoreMu.Lock()
-	defer testAuditStoreMu.Unlock()
+	auditStore, err := auditcore.NewSQLAuditStore(db)
+	require.NoError(t, err)
+	_ = auditStore
 
-	testAuditStoreOnce.Do(func() {
-		// Create a store with a unique path for testing
-		testAuditStore = svc.NewOpsStateStore("")
-	})
+	svcCtx := &svc.ServiceContext{DB: db}
+	if svcCtxExtra != nil {
+		svcCtxExtra(svcCtx)
+	}
+	return NewService(svcCtx), db
+}
 
-	// Clear audit entries before each test
-	testAuditStore.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = nil
-		state.Audit.UpdatedAt = time.Now()
-	})
-
-	return testAuditStore
+// seedAuditEntry writes one row through the audit core service.
+func seedAuditEntry(t *testing.T, db *gorm.DB, action, actor, gameID, env, target, outcome string, metadata map[string]interface{}) {
+	t.Helper()
+	auditStore, err := auditcore.NewSQLAuditStore(db)
+	require.NoError(t, err)
+	auditSvc := auditcore.NewAuditService(auditStore, nil)
+	if metadata == nil {
+		metadata = map[string]interface{}{}
+	}
+	_, _ = auditSvc.Log(context.Background(), auditcore.AuditEventType(action),
+		auditcore.WithActorID(actor, "user", actor),
+		auditcore.WithResourceID("function", target),
+		auditcore.WithGameID(gameID, env),
+		auditcore.WithDetails(metadata),
+		auditcore.WithOutcome(outcome, ""),
+	)
 }
 
 func TestService_GetAuditLogs_LimitsNonAdminToAuthorizedScopes(t *testing.T) {
@@ -63,26 +75,19 @@ func TestService_GetAuditLogs_LimitsNonAdminToAuthorizedScopes(t *testing.T) {
 	require.NoError(t, gameModel.AddEnvBinding(context.Background(), "game-a", "prod", "game_a_prod", "", ""))
 	require.NoError(t, adminModel.SetGameEnvScope(context.Background(), admin.ID, game.ID, "prod"))
 
-	store := setupTestAuditStore(t)
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = []svc.OpsAuditEntry{
-			{ID: "allowed", GameID: "game-a", Env: "prod", CreatedAt: time.Now()},
-			{ID: "blocked", GameID: "game-b", Env: "dev", CreatedAt: time.Now()},
-			{ID: "global", CreatedAt: time.Now()},
-		}
+	service, db := setupTableBackedService(t, func(svcCtx *svc.ServiceContext) {
+		svcCtx.AdminModel = adminModel
+		svcCtx.RoleModel = roleModel
+		svcCtx.GameModel = gameModel
 	})
-
-	service := NewService(&svc.ServiceContext{
-		AdminModel:    adminModel,
-		RoleModel:     roleModel,
-		GameModel:     gameModel,
-		OpsStateStore: store,
-	})
+	seedAuditEntry(t, db, "admin.action", "ops", "game-a", "prod", "target", "success", map[string]interface{}{"traceId": "allowed"})
+	seedAuditEntry(t, db, "admin.action", "ops", "game-b", "dev", "target", "success", map[string]interface{}{"traceId": "blocked"})
+	seedAuditEntry(t, db, "admin.action", "ops", "", "", "target", "success", map[string]interface{}{"traceId": "global"})
 	ctx := context.WithValue(context.Background(), "username", admin.Username)
 	resp, err := service.GetAuditLogs(ctx, &AuditRequest{Page: 1, PageSize: 10})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
-	assert.Equal(t, "allowed", resp.Items[0].ID)
+	assert.Equal(t, "allowed", resp.Items[0].Metadata["traceId"])
 
 	resp, err = service.GetAuditLogs(ctx, &AuditRequest{GameID: "game-b", Page: 1, PageSize: 10})
 	require.NoError(t, err)
@@ -90,21 +95,10 @@ func TestService_GetAuditLogs_LimitsNonAdminToAuthorizedScopes(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_Success(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	// Add some test entries
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{ID: "trace1", Action: "action1", UserID: "user1", GameID: "game1", Env: "prod", Target: "target1", Result: "success", TraceID: "trace1", CreatedAt: time.Now()},
-			svc.OpsAuditEntry{ID: "trace2", Action: "action2", UserID: "user2", GameID: "game2", Env: "dev", Target: "target2", Result: "success", TraceID: "trace2", CreatedAt: time.Now()},
-			svc.OpsAuditEntry{ID: "trace3", Action: "action3", UserID: "user1", GameID: "game1", Env: "prod", Target: "target3", Result: "failure", TraceID: "trace3", CreatedAt: time.Now()},
-		)
-		state.Audit.UpdatedAt = time.Now()
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "action1", "user1", "game1", "prod", "target1", "success", nil)
+	seedAuditEntry(t, db, "action2", "user2", "game2", "dev", "target2", "success", nil)
+	seedAuditEntry(t, db, "action3", "user1", "game1", "prod", "target3", "failure", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -118,19 +112,10 @@ func TestService_GetAuditLogs_Success(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_WithActionFilter(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{ID: "trace1", Action: "create", UserID: "user1", GameID: "game1", Env: "prod", Target: "target1", Result: "success", TraceID: "trace1", CreatedAt: time.Now()},
-			svc.OpsAuditEntry{ID: "trace2", Action: "delete", UserID: "user2", GameID: "game2", Env: "dev", Target: "target2", Result: "success", TraceID: "trace2", CreatedAt: time.Now()},
-			svc.OpsAuditEntry{ID: "trace3", Action: "create", UserID: "user1", GameID: "game1", Env: "prod", Target: "target3", Result: "success", TraceID: "trace3", CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "create", "user1", "game1", "prod", "target1", "success", nil)
+	seedAuditEntry(t, db, "delete", "user2", "game2", "dev", "target2", "success", nil)
+	seedAuditEntry(t, db, "create", "user1", "game1", "prod", "target3", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -148,19 +133,10 @@ func TestService_GetAuditLogs_WithActionFilter(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_WithUserFilter(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{ID: "trace1", Action: "action1", UserID: "user1", GameID: "game1", Env: "prod", Target: "target1", Result: "success", TraceID: "trace1", CreatedAt: time.Now()},
-			svc.OpsAuditEntry{ID: "trace2", Action: "action2", UserID: "user2", GameID: "game2", Env: "dev", Target: "target2", Result: "success", TraceID: "trace2", CreatedAt: time.Now()},
-			svc.OpsAuditEntry{ID: "trace3", Action: "action3", UserID: "user1", GameID: "game1", Env: "prod", Target: "target3", Result: "success", TraceID: "trace3", CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "action1", "user1", "game1", "prod", "target1", "success", nil)
+	seedAuditEntry(t, db, "action2", "user2", "game2", "dev", "target2", "success", nil)
+	seedAuditEntry(t, db, "action3", "user1", "game1", "prod", "target3", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -178,19 +154,10 @@ func TestService_GetAuditLogs_WithUserFilter(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_WithBothFilters(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{ID: "trace1", Action: "create", UserID: "user1", GameID: "game1", Env: "prod", Target: "target1", Result: "success", TraceID: "trace1", CreatedAt: time.Now()},
-			svc.OpsAuditEntry{ID: "trace2", Action: "create", UserID: "user2", GameID: "game2", Env: "dev", Target: "target2", Result: "success", TraceID: "trace2", CreatedAt: time.Now()},
-			svc.OpsAuditEntry{ID: "trace3", Action: "delete", UserID: "user1", GameID: "game1", Env: "prod", Target: "target3", Result: "success", TraceID: "trace3", CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "create", "user1", "game1", "prod", "target1", "success", nil)
+	seedAuditEntry(t, db, "create", "user2", "game2", "dev", "target2", "success", nil)
+	seedAuditEntry(t, db, "delete", "user1", "game1", "prod", "target3", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -210,11 +177,8 @@ func TestService_GetAuditLogs_WithBothFilters(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_EmptyResults(t *testing.T) {
-	store := setupTestAuditStore(t)
 
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, _ := setupTableBackedService(t, nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -229,19 +193,10 @@ func TestService_GetAuditLogs_EmptyResults(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_DefaultPagination(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		for i := 0; i < 5; i++ {
-			state.Audit.Entries = append(state.Audit.Entries,
-				svc.OpsAuditEntry{ID: "trace", Action: "action", UserID: "user", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace", CreatedAt: time.Now()},
-			)
-		}
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	for i := 0; i < 5; i++ {
+		seedAuditEntry(t, db, "action", "user", "game", "prod", "target", "success", nil)
+	}
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{})
 
@@ -252,17 +207,8 @@ func TestService_GetAuditLogs_DefaultPagination(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_ZeroPage(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{Action: "action", UserID: "user", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace", CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "action", "user", "game", "prod", "target", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     0,
@@ -275,17 +221,8 @@ func TestService_GetAuditLogs_ZeroPage(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_ZeroPageSize(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{Action: "action", UserID: "user", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace", CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "action", "user", "game", "prod", "target", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -298,19 +235,10 @@ func TestService_GetAuditLogs_ZeroPageSize(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_MaxPageSize(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		for i := 0; i < 2000; i++ {
-			state.Audit.Entries = append(state.Audit.Entries,
-				svc.OpsAuditEntry{Action: "action", UserID: "user", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace", CreatedAt: time.Now()},
-			)
-		}
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	for i := 0; i < 2000; i++ {
+		seedAuditEntry(t, db, "action", "user", "game", "prod", "target", "success", nil)
+	}
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -324,11 +252,8 @@ func TestService_GetAuditLogs_MaxPageSize(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_MaxPage(t *testing.T) {
-	store := setupTestAuditStore(t)
 
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, _ := setupTableBackedService(t, nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     2_000_000_001,
@@ -341,19 +266,10 @@ func TestService_GetAuditLogs_MaxPage(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_Pagination(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		for i := 0; i < 25; i++ {
-			state.Audit.Entries = append(state.Audit.Entries,
-				svc.OpsAuditEntry{Action: "action", UserID: "user", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace", CreatedAt: time.Now()},
-			)
-		}
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	for i := 0; i < 25; i++ {
+		seedAuditEntry(t, db, "action", "user", "game", "prod", "target", "success", nil)
+	}
 
 	resp1, _ := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -376,19 +292,10 @@ func TestService_GetAuditLogs_Pagination(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_PageBeyondData(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		for i := 0; i < 5; i++ {
-			state.Audit.Entries = append(state.Audit.Entries,
-				svc.OpsAuditEntry{Action: "action", UserID: "user", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace", CreatedAt: time.Now()},
-			)
-		}
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	for i := 0; i < 5; i++ {
+		seedAuditEntry(t, db, "action", "user", "game", "prod", "target", "success", nil)
+	}
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     10,
@@ -402,17 +309,8 @@ func TestService_GetAuditLogs_PageBeyondData(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_NilRequest(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{Action: "action", UserID: "user", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace", CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "action", "user", "game", "prod", "target", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), nil)
 
@@ -436,17 +334,8 @@ func TestService_GetAuditLogs_NilOpsStateStore(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_WithSizeAlias(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{Action: "action", UserID: "user", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace", CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "action", "user", "game", "prod", "target", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page: 1,
@@ -459,17 +348,8 @@ func TestService_GetAuditLogs_WithSizeAlias(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_PageSizeTakesPrecedence(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{Action: "action", UserID: "user", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace", CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "action", "user", "game", "prod", "target", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -483,21 +363,8 @@ func TestService_GetAuditLogs_PageSizeTakesPrecedence(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_WithMetadata(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	metadata := map[string]interface{}{
-		"key1": "value1",
-		"key2": 123,
-	}
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{ID: "trace1", Action: "action1", UserID: "user1", GameID: "game1", Env: "prod", Target: "target1", Result: "success", TraceID: "trace1", Metadata: metadata, CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "action1", "user1", "game1", "prod", "target1", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -511,19 +378,10 @@ func TestService_GetAuditLogs_WithMetadata(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_SortedByCreatedAt(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{ID: "trace1", Action: "action1", UserID: "user1", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace1", CreatedAt: time.Now().Add(-2 * time.Hour)},
-			svc.OpsAuditEntry{ID: "trace2", Action: "action2", UserID: "user2", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace2", CreatedAt: time.Now().Add(-1 * time.Hour)},
-			svc.OpsAuditEntry{ID: "trace3", Action: "action3", UserID: "user3", GameID: "game", Env: "prod", Target: "target", Result: "success", TraceID: "trace3", CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "action1", "user1", "game", "prod", "target", "success", nil)
+	seedAuditEntry(t, db, "action2", "user2", "game", "prod", "target", "success", nil)
+	seedAuditEntry(t, db, "action3", "user3", "game", "prod", "target", "success", nil)
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -542,17 +400,8 @@ func TestService_GetAuditLogs_SortedByCreatedAt(t *testing.T) {
 }
 
 func TestService_GetAuditLogs_AllFieldsPresent(t *testing.T) {
-	store := setupTestAuditStore(t)
-
-	store.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = append(state.Audit.Entries,
-			svc.OpsAuditEntry{ID: "trace1", Action: "testaction", UserID: "testuser", GameID: "testgame", Env: "testenv", Target: "testtarget", Result: "testresult", TraceID: "testtrace", Metadata: map[string]interface{}{"metaKey": "metaValue"}, CreatedAt: time.Now()},
-		)
-	})
-
-	service := NewService(&svc.ServiceContext{
-		OpsStateStore: store,
-	})
+	service, db := setupTableBackedService(t, nil)
+	seedAuditEntry(t, db, "testaction", "testuser", "testgame", "testenv", "testtarget", "testresult", map[string]interface{}{"traceId": "testtrace"})
 
 	resp, err := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     1,
@@ -576,10 +425,7 @@ func TestService_GetAuditLogs_AllFieldsPresent(t *testing.T) {
 }
 
 func TestNewService(t *testing.T) {
-	store := setupTestAuditStore(t)
-	svcCtx := &svc.ServiceContext{
-		OpsStateStore: store,
-	}
+	svcCtx := &svc.ServiceContext{}
 
 	service := NewService(svcCtx)
 

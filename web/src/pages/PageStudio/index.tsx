@@ -110,6 +110,7 @@ export default function PageStudio() {
   const [changeChain, setChangeChain] = useState<ChangeChain | null>(null);
   const [changeChainLoading, setChangeChainLoading] = useState(false);
   const [selectedPageKey, setSelectedPageKey] = useState('');
+  const [focusPageKey, setFocusPageKey] = useState('');
   const [diffVisible, setDiffVisible] = useState(false);
   const [diffData, setDiffData] = useState<DiffResponse | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
@@ -200,30 +201,48 @@ export default function PageStudio() {
   );
 
   useEffect(() => {
-    const focusPageKey = currentFocusPageKey();
-    if (focusPageKey) {
-      handleEdit(focusPageKey);
+    const key = currentFocusPageKey();
+    if (key) {
+      setFocusPageKey(key);
+      handleEdit(key);
     }
   }, [handleEdit]);
 
-  const handleSave = useCallback(async () => {
-    if (!selectedDraft) return;
-    setSaving(true);
-    try {
-      const result = await savePageDraft({
-        ...selectedDraft,
-        draftRevision: selectedDraftRevision,
-      });
-      setSelectedDraftRevision(result.draftRevision);
-      message.success('保存成功');
-      setEditorVisible(false);
-      loadDrafts();
-    } catch {
-      message.error('保存失败');
-    } finally {
-      setSaving(false);
-    }
-  }, [loadDrafts, message, selectedDraft, selectedDraftRevision]);
+  const handleSave = useCallback(
+    async (options?: { publishAfterSave?: boolean }) => {
+      if (!selectedDraft) return;
+      const publishAfterSave = options?.publishAfterSave ?? false;
+      setSaving(true);
+      try {
+        const result = await savePageDraft({
+          ...selectedDraft,
+          draftRevision: selectedDraftRevision,
+        });
+        setSelectedDraftRevision(result.draftRevision);
+        if (publishAfterSave) {
+          try {
+            await publishPageDraft(selectedDraft.pageKey, result.draftRevision);
+            requestConsoleMenuRefresh();
+            message.success('已保存并发布');
+          } catch {
+            // 草稿已保存，仅发布失败：保留编辑器打开让用户决定重试或稍后发布
+            message.error('草稿已保存，但发布失败；可稍后在列表或 Proposal Inbox 重试发布');
+            loadDrafts();
+            return;
+          }
+        } else {
+          message.success('保存成功');
+        }
+        setEditorVisible(false);
+        loadDrafts();
+      } catch {
+        message.error('保存失败');
+      } finally {
+        setSaving(false);
+      }
+    },
+    [loadDrafts, message, selectedDraft, selectedDraftRevision],
+  );
 
   const handleRegenerate = useCallback(
     async (pageKey: string, draftRevision: number) => {
@@ -564,7 +583,7 @@ export default function PageStudio() {
     >
       <PageWorkflowGuide />
 
-      <ProposalInbox />
+      <ProposalInbox focusPageKey={focusPageKey} />
 
       <Collapse
         style={{ marginTop: 16 }}
@@ -633,8 +652,15 @@ export default function PageStudio() {
               onChange={setLivePreview}
             />
             <Button onClick={() => setEditorVisible(false)}>取消</Button>
-            <Button type="primary" loading={saving} onClick={handleSave}>
-              保存
+            <Button loading={saving} onClick={() => handleSave()}>
+              仅保存草稿
+            </Button>
+            <Button
+              type="primary"
+              loading={saving}
+              onClick={() => handleSave({ publishAfterSave: true })}
+            >
+              保存并发布
             </Button>
           </Space>
         }

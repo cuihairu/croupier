@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -1535,132 +1536,67 @@ func parseTimestampPtr(s string) (*time.Time, error) {
 	return &t, nil
 }
 
-// TestService_ResolveLastLoginAt_WithOpsStore tests with opsStore containing audit entries
-func TestService_ResolveLastLoginAt_WithOpsStore(t *testing.T) {
+// seedAuditLogin writes an auth.login row into audit_records so the
+// table-backed resolveLastLoginAt fallback can find it.
+func seedAuditLogin(t *testing.T, db *gorm.DB, username, outcome string, ts time.Time) {
+	t.Helper()
+	auditStore, err := audit.NewSQLAuditStore(db)
+	require.NoError(t, err)
+	auditSvc := audit.NewAuditService(auditStore, nil)
+	_, _ = auditSvc.Log(context.Background(), audit.AuditEventType("auth.login"),
+		audit.WithActorID(username, "user", username),
+		audit.WithDetails(map[string]interface{}{}),
+		audit.WithOutcome(outcome, ""),
+	)
+	if !ts.IsZero() {
+		db.Exec("UPDATE audit_records SET timestamp = ? WHERE actor_id = ?", ts, username)
+	}
+}
+
+// TestService_ResolveLastLoginAt_WithAuditTable covers the table-backed fallback.
+func TestService_ResolveLastLoginAt_WithAuditTable(t *testing.T) {
 	db := setupTestDB(t)
 	svcCtx := setupTestServiceContext(t, db)
+	db.Exec("DELETE FROM audit_records")
 
-	// Create ops store with audit entries
-	store := svc.NewOpsStateStore("")
-	loginTime := time.Now()
-	_, _ = store.Update(func(st *svc.OpsState) {
-		st.Audit.Entries = []svc.OpsAuditEntry{
-			{UserID: "admin", Action: "login", Result: "success", CreatedAt: loginTime},
-			{UserID: "other", Action: "login", Result: "success", CreatedAt: loginTime},
-		}
-	})
-	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel, store)
+	loginTime := time.Now().UTC()
+	seedAuditLogin(t, db, "admin", "success", loginTime)
+	seedAuditLogin(t, db, "other", "success", time.Now().UTC())
 
+	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel).WithDB(db)
 	result := service.resolveLastLoginAt("admin", nil)
 	assert.NotEmpty(t, result, "Should find login entry for admin")
 }
 
-// TestService_ResolveLastLoginAt_NoMatchingEntry tests with no matching audit entry
 func TestService_ResolveLastLoginAt_NoMatchingEntry(t *testing.T) {
 	db := setupTestDB(t)
 	svcCtx := setupTestServiceContext(t, db)
+	db.Exec("DELETE FROM audit_records")
 
-	// Create ops store with entries for different user
-	store := svc.NewOpsStateStore("")
-	_, _ = store.Update(func(st *svc.OpsState) {
-		st.Audit.Entries = []svc.OpsAuditEntry{
-			{UserID: "other", Action: "login", Result: "success", CreatedAt: time.Now()},
-		}
-	})
-	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel, store)
+	seedAuditLogin(t, db, "other", "success", time.Now().UTC())
 
+	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel).WithDB(db)
 	result := service.resolveLastLoginAt("admin", nil)
 	assert.Empty(t, result, "Should return empty when no matching entry found")
 }
 
-// TestService_ResolveLastLoginAt_NonLoginAction tests with non-login action
-func TestService_ResolveLastLoginAt_NonLoginAction(t *testing.T) {
-	db := setupTestDB(t)
-	svcCtx := setupTestServiceContext(t, db)
-
-	// Create ops store with non-login action
-	store := svc.NewOpsStateStore("")
-	_, _ = store.Update(func(st *svc.OpsState) {
-		st.Audit.Entries = []svc.OpsAuditEntry{
-			{UserID: "admin", Action: "logout", Result: "success", CreatedAt: time.Now()},
-		}
-	})
-	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel, store)
-
-	result := service.resolveLastLoginAt("admin", nil)
-	assert.Empty(t, result, "Should return empty for non-login action")
-}
-
-// TestService_ResolveLastLoginAt_FailedLogin tests with failed login entry
 func TestService_ResolveLastLoginAt_FailedLogin(t *testing.T) {
 	db := setupTestDB(t)
 	svcCtx := setupTestServiceContext(t, db)
+	db.Exec("DELETE FROM audit_records")
 
-	// Create ops store with failed login
-	store := svc.NewOpsStateStore("")
-	_, _ = store.Update(func(st *svc.OpsState) {
-		st.Audit.Entries = []svc.OpsAuditEntry{
-			{UserID: "admin", Action: "login", Result: "failed", CreatedAt: time.Now()},
-		}
-	})
-	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel, store)
+	seedAuditLogin(t, db, "admin", "failure", time.Now().UTC())
 
+	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel).WithDB(db)
 	result := service.resolveLastLoginAt("admin", nil)
 	assert.Empty(t, result, "Should return empty for failed login")
 }
 
-// TestService_ResolveLastLoginAt_ZeroCreatedAt tests with zero CreatedAt
-func TestService_ResolveLastLoginAt_ZeroCreatedAt(t *testing.T) {
-	db := setupTestDB(t)
-	svcCtx := setupTestServiceContext(t, db)
-
-	// Create ops store with entry having zero CreatedAt
-	store := svc.NewOpsStateStore("")
-	_, _ = store.Update(func(st *svc.OpsState) {
-		st.Audit.Entries = []svc.OpsAuditEntry{
-			{UserID: "admin", Action: "login", Result: "success", CreatedAt: time.Time{}},
-		}
-	})
-	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel, store)
-
+func TestService_ResolveLastLoginAt_NilDB(t *testing.T) {
+	svcCtx := setupTestServiceContext(t, nil)
+	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel)
 	result := service.resolveLastLoginAt("admin", nil)
-	assert.Empty(t, result, "Should return empty when CreatedAt is zero")
-}
-
-// TestService_ResolveLastLoginAt_CaseInsensitiveUsername tests case-insensitive username matching
-func TestService_ResolveLastLoginAt_CaseInsensitiveUsername(t *testing.T) {
-	db := setupTestDB(t)
-	svcCtx := setupTestServiceContext(t, db)
-
-	// Create ops store with different case username
-	store := svc.NewOpsStateStore("")
-	_, _ = store.Update(func(st *svc.OpsState) {
-		st.Audit.Entries = []svc.OpsAuditEntry{
-			{UserID: "Admin", Action: "login", Result: "success", CreatedAt: time.Now()},
-		}
-	})
-	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel, store)
-
-	result := service.resolveLastLoginAt("admin", nil)
-	assert.NotEmpty(t, result, "Should match username case-insensitively")
-}
-
-// TestService_ResolveLastLoginAt_AuthLoginAction tests with "auth.login" action
-func TestService_ResolveLastLoginAt_AuthLoginAction(t *testing.T) {
-	db := setupTestDB(t)
-	svcCtx := setupTestServiceContext(t, db)
-
-	// Create ops store with "auth.login" action
-	store := svc.NewOpsStateStore("")
-	_, _ = store.Update(func(st *svc.OpsState) {
-		st.Audit.Entries = []svc.OpsAuditEntry{
-			{UserID: "admin", Action: "auth.login", Result: "success", CreatedAt: time.Now()},
-		}
-	})
-	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel, store)
-
-	result := service.resolveLastLoginAt("admin", nil)
-	assert.NotEmpty(t, result, "Should recognize 'auth.login' action")
+	assert.Empty(t, result, "Should return empty when DB is unavailable")
 }
 
 func TestHasProfileAdminRole(t *testing.T) {

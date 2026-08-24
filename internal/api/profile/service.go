@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -17,6 +19,7 @@ type Service struct {
 	gameModel  *model.GameModel
 	roleModel  *model.RoleModel
 	opsStore   *svc.OpsStateStore
+	db         *gorm.DB
 }
 
 func NewService(adminModel *model.AdminModel, gameModel *model.GameModel, roleModel *model.RoleModel, opsStore ...*svc.OpsStateStore) *Service {
@@ -30,6 +33,13 @@ func NewService(adminModel *model.AdminModel, gameModel *model.GameModel, roleMo
 		roleModel:  roleModel,
 		opsStore:   store,
 	}
+}
+
+// WithDB attaches the primary DB so profile lookups can consult persistent
+// tables (e.g. audit_records for last-login fallbacks).
+func (s *Service) WithDB(db *gorm.DB) *Service {
+	s.db = db
+	return s
 }
 
 // GetProfile 获取个人资料
@@ -72,28 +82,37 @@ func (s *Service) resolveLastLoginAt(username string, ts *time.Time) string {
 	if ts != nil && !ts.IsZero() {
 		return ts.UTC().Format(time.RFC3339)
 	}
-	if s == nil || s.opsStore == nil {
+	// The legacy in-memory ops audit trail was removed; fall back to the
+	// persistent audit_records table (auth.login by this actor).
+	if s == nil || s.db == nil {
 		return ""
 	}
-	state := s.opsStore.Snapshot()
-	for i := len(state.Audit.Entries) - 1; i >= 0; i-- {
-		entry := state.Audit.Entries[i]
-		if !strings.EqualFold(strings.TrimSpace(entry.UserID), strings.TrimSpace(username)) {
-			continue
-		}
-		action := strings.ToLower(strings.TrimSpace(entry.Action))
-		if action != "auth.login" && action != "login" {
-			continue
-		}
-		if strings.TrimSpace(entry.Result) != "" && !strings.EqualFold(strings.TrimSpace(entry.Result), "success") {
-			continue
-		}
-		if entry.CreatedAt.IsZero() {
-			continue
-		}
-		return entry.CreatedAt.UTC().Format(time.RFC3339)
+	var last string
+	if err := s.db.Table("audit_records").
+		Select("MAX(timestamp)").
+		Where("event_type = ? AND outcome = 'success' AND actor_id = ?", "auth.login", strings.TrimSpace(username)).
+		Scan(&last).Error; err != nil {
+		return ""
 	}
-	return ""
+	last = strings.TrimSpace(last)
+	if last == "" {
+		return ""
+	}
+	parsedAt, err := time.Parse(time.RFC3339Nano, last)
+	if err != nil {
+		// SQLite stores timestamps as "2006-01-02 15:04:05.999999999-07:00".
+		for _, layout := range []string{"2006-01-02 15:04:05.999999999-07:00", "2006-01-02 15:04:05"} {
+			if parsed, parseErr := time.Parse(layout, last); parseErr == nil {
+				parsedAt = parsed
+				err = nil
+				break
+			}
+		}
+	}
+	if err != nil || parsedAt.IsZero() {
+		return ""
+	}
+	return parsedAt.UTC().Format(time.RFC3339)
 }
 
 // GetUserGames 获取用户的游戏列表

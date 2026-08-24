@@ -3,12 +3,11 @@ package auth
 import (
 	"context"
 	"testing"
-	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
-	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -579,40 +578,63 @@ func TestRecordLoginAudit_NilOpsStore(t *testing.T) {
 	assert.True(t, true)
 }
 
-// TestRecordLoginAudit_WithOpsStore tests recordLoginAudit with opsStore
-func TestRecordLoginAudit_WithOpsStore(t *testing.T) {
+// helper: attach a table-backed audit service so recordLoginAudit persists
+// into audit_records (in-memory SQLite).
+func withTableAudit(t *testing.T, db *gorm.DB, s *Service) *Service {
+	t.Helper()
+	auditStore, err := audit.NewSQLAuditStore(db)
+	require.NoError(t, err)
+	return s.WithAuditService(audit.NewAuditService(auditStore, nil))
+}
+
+func lastAuditRow(t *testing.T, db *gorm.DB) map[string]interface{} {
+	t.Helper()
+	var row struct {
+		EventType   string
+		ActorID     string
+		Outcome     string
+		IP          string
+		DetailsJSON string
+	}
+	require.NoError(t, db.Table("audit_records").
+		Select("event_type, actor_id, outcome, ip, details_json").
+		Order("timestamp DESC").Limit(1).
+		Scan(&row).Error)
+	return map[string]interface{}{
+		"event_type":   row.EventType,
+		"actor_id":     row.ActorID,
+		"outcome":      row.Outcome,
+		"ip":           row.IP,
+		"details_json": row.DetailsJSON,
+	}
+}
+
+// TestRecordLoginAudit_WithAuditTable verifies login auditing persists to audit_records.
+func TestRecordLoginAudit_WithAuditTable(t *testing.T) {
 	db := setupTestDB(t)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
+	db.Exec("DELETE FROM audit_records")
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
 
 	req := &LoginRequest{
 		ClientIP:  "127.0.0.1",
 		UserAgent: "test-agent",
 	}
 
-	// Record successful login
 	service.recordLoginAudit("admin", "auth.login", "success", req, "")
 
-	// Verify audit entry was created
-	state := store.Snapshot()
-	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
-	// Find the last entry (the one we just added)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	assert.Equal(t, "auth.login", lastEntry.Action)
-	assert.Equal(t, "admin", lastEntry.UserID)
-	assert.Equal(t, "success", lastEntry.Result)
-	assert.Equal(t, "127.0.0.1", lastEntry.Metadata["ip"])
-	assert.Equal(t, "test-agent", lastEntry.Metadata["user_agent"])
-	assert.Equal(t, "test-agent", lastEntry.Metadata["ua"])
+	row := lastAuditRow(t, db)
+	assert.Equal(t, "auth.login", row["event_type"])
+	assert.Equal(t, "admin", row["actor_id"])
+	assert.Equal(t, "success", row["outcome"])
+	assert.Equal(t, "127.0.0.1", row["ip"])
+	assert.Contains(t, row["details_json"], "test-agent")
 }
 
 // TestRecordLoginAudit_WithReason tests recordLoginAudit with reason parameter
 func TestRecordLoginAudit_WithReason(t *testing.T) {
 	db := setupTestDB(t)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
+	db.Exec("DELETE FROM audit_records")
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
 
 	req := &LoginRequest{
 		ClientIP:  "192.168.1.1",
@@ -621,40 +643,30 @@ func TestRecordLoginAudit_WithReason(t *testing.T) {
 
 	service.recordLoginAudit("user", "auth.login_failed", "failed", req, "invalid_credentials")
 
-	state := store.Snapshot()
-	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	assert.Equal(t, "auth.login_failed", lastEntry.Action)
-	assert.Equal(t, "failed", lastEntry.Result)
-	assert.Equal(t, "invalid_credentials", lastEntry.Metadata["reason"])
+	row := lastAuditRow(t, db)
+	assert.Equal(t, "auth.login_failed", row["event_type"])
+	assert.Equal(t, "failure", row["outcome"])
+	assert.Contains(t, row["details_json"], "invalid_credentials")
 }
 
 // TestRecordLoginAudit_WithNilRequest tests recordLoginAudit with nil request
 func TestRecordLoginAudit_WithNilRequest(t *testing.T) {
 	db := setupTestDB(t)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
+	db.Exec("DELETE FROM audit_records")
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
 
-	// With nil request
 	service.recordLoginAudit("user", "auth.login", "success", nil, "")
 
-	state := store.Snapshot()
-	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	// Metadata should not have ip or user_agent when request is nil
-	_, hasIP := lastEntry.Metadata["ip"]
-	_, hasUA := lastEntry.Metadata["user_agent"]
-	assert.False(t, hasIP)
-	assert.False(t, hasUA)
+	row := lastAuditRow(t, db)
+	assert.Equal(t, "auth.login", row["event_type"])
+	assert.NotContains(t, row["details_json"], "userAgent")
 }
 
 // TestRecordLoginAudit_WithWhitespaceInRequest tests recordLoginAudit with whitespace-only fields
 func TestRecordLoginAudit_WithWhitespaceInRequest(t *testing.T) {
 	db := setupTestDB(t)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
+	db.Exec("DELETE FROM audit_records")
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
 
 	req := &LoginRequest{
 		ClientIP:  "   ",
@@ -663,58 +675,19 @@ func TestRecordLoginAudit_WithWhitespaceInRequest(t *testing.T) {
 
 	service.recordLoginAudit("user", "auth.login", "success", req, "")
 
-	state := store.Snapshot()
-	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	// Whitespace-only values should not be added to metadata
-	_, hasIP := lastEntry.Metadata["ip"]
-	_, hasUA := lastEntry.Metadata["user_agent"]
-	assert.False(t, hasIP)
-	assert.False(t, hasUA)
-}
-
-// TestRecordLoginAudit_AuditEntryLimit tests that audit entries are limited to 2000
-func TestRecordLoginAudit_AuditEntryLimit(t *testing.T) {
-	db := setupTestDB(t)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
-
-	// Pre-populate with 2001 entries
-	store.Update(func(st *svc.OpsState) {
-		for i := 0; i < 2001; i++ {
-			st.Audit.Entries = append(st.Audit.Entries, svc.OpsAuditEntry{
-				ID:        "old-entry-" + string(rune(i)),
-				Action:    "old.action",
-				UserID:    "olduser",
-				Result:    "success",
-				CreatedAt: time.Now(),
-			})
-		}
-	})
-
-	// Record one more audit
-	service.recordLoginAudit("newuser", "auth.login", "success", nil, "")
-
-	state := store.Snapshot()
-	// Should be limited to 2000
-	assert.LessOrEqual(t, len(state.Audit.Entries), 2000)
-	// The newest entry should be at the end
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	assert.Equal(t, "newuser", lastEntry.UserID)
+	row := lastAuditRow(t, db)
+	assert.Equal(t, "", row["ip"])
+	assert.NotContains(t, row["details_json"], "userAgent")
 }
 
 // TestRecordLoginAudit_TrimmedUsername tests that username is trimmed
 func TestRecordLoginAudit_TrimmedUsername(t *testing.T) {
 	db := setupTestDB(t)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
+	db.Exec("DELETE FROM audit_records")
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
 
 	service.recordLoginAudit("  admin  ", "auth.login", "success", nil, "")
 
-	state := store.Snapshot()
-	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	assert.Equal(t, "admin", lastEntry.UserID)
+	row := lastAuditRow(t, db)
+	assert.Equal(t, "admin", row["actor_id"])
 }

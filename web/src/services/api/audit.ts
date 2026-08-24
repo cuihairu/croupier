@@ -51,8 +51,9 @@ function normalizeAuditEvent(item: AuditItem): AuditEvent {
       gameId: (metadata.gameId as string) ?? item?.gameId,
       env: (metadata.env as string) ?? item?.env,
       ip: metadata.ip as string,
-      ua: (metadata.ua as string) ?? (metadata.userAgent as string),
+      ua: (metadata.userAgent as string) ?? (metadata.ua as string),
       userAgent: (metadata.userAgent as string) ?? (metadata.ua as string),
+      ipRegion: (metadata.ipRegion as string) || '',
     },
   };
 }

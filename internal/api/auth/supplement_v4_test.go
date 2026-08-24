@@ -3,11 +3,10 @@ package auth
 import (
 	"context"
 	"testing"
-	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/model"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
-	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -208,12 +207,13 @@ func TestService_Login_WithOpsStore_V4(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
 	permSvc := permissionservice.NewPermissionService(db)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
+	db.Exec("DELETE FROM audit_records")
+	auditStore, err := audit.NewSQLAuditStore(db)
+	require.NoError(t, err)
 
 	createTestAdminWithRole(t, db, "audituser", "password123", "admin")
 
-	service := NewService(adminModel, permSvc, "test-secret-key", store)
+	service := NewService(adminModel, permSvc, "test-secret-key").WithAuditService(audit.NewAuditService(auditStore, nil))
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username:  "audituser",
@@ -227,12 +227,17 @@ func TestService_Login_WithOpsStore_V4(t *testing.T) {
 	assert.NotEmpty(t, resp.Token)
 
 	// Verify audit entry was created
-	state := store.Snapshot()
-	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	assert.Equal(t, "auth.login", lastEntry.Action)
-	assert.Equal(t, "audituser", lastEntry.UserID)
-	assert.Equal(t, "success", lastEntry.Result)
+	var row struct {
+		EventType string
+		ActorID   string
+		Outcome   string
+	}
+	require.NoError(t, db.Table("audit_records").
+		Select("event_type, actor_id, outcome").Order("timestamp DESC").Limit(1).
+		Scan(&row).Error)
+	assert.Equal(t, "auth.login", row.EventType)
+	assert.Equal(t, "audituser", row.ActorID)
+	assert.Equal(t, "success", row.Outcome)
 }
 
 func TestService_Login_FailedPassword_WithOpsStore_V4(t *testing.T) {
@@ -240,14 +245,15 @@ func TestService_Login_FailedPassword_WithOpsStore_V4(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
 	permSvc := permissionservice.NewPermissionService(db)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
+	db.Exec("DELETE FROM audit_records")
+	auditStore, err := audit.NewSQLAuditStore(db)
+	require.NoError(t, err)
 
 	createTestAdminWithRole(t, db, "auditfail", "password123", "admin")
 
-	service := NewService(adminModel, permSvc, "test-secret-key", store)
+	service := NewService(adminModel, permSvc, "test-secret-key").WithAuditService(audit.NewAuditService(auditStore, nil))
 
-	_, err := service.Login(context.Background(), &LoginRequest{
+	_, err = service.Login(context.Background(), &LoginRequest{
 		Username:  "auditfail",
 		Password:  "wrongpassword",
 		ClientIP:  "10.0.0.1",
@@ -256,11 +262,15 @@ func TestService_Login_FailedPassword_WithOpsStore_V4(t *testing.T) {
 	assert.Error(t, err)
 
 	// Verify audit entry was created for failed login
-	state := store.Snapshot()
-	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	assert.Equal(t, "auth.login_failed", lastEntry.Action)
-	assert.Equal(t, "failed", lastEntry.Result)
+	var row struct {
+		EventType string
+		Outcome   string
+	}
+	require.NoError(t, db.Table("audit_records").
+		Select("event_type, outcome").Order("timestamp DESC").Limit(1).
+		Scan(&row).Error)
+	assert.Equal(t, "auth.login_failed", row.EventType)
+	assert.Equal(t, "failure", row.Outcome)
 }
 
 // --- Logout handler error path (covers 66.7% → 100%) ---
@@ -389,22 +399,26 @@ func TestService_Check_WhitespaceResourceAction_V4(t *testing.T) {
 func TestRecordLoginAudit_EmptyReason_V4(t *testing.T) {
 	t.Parallel()
 	db := setupTestDB(t)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret", store)
+	db.Exec("DELETE FROM audit_records")
+	auditStore, err := audit.NewSQLAuditStore(db)
+	require.NoError(t, err)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithAuditService(audit.NewAuditService(auditStore, nil))
 
 	service.recordLoginAudit("testuser", "auth.login", "success", &LoginRequest{
 		ClientIP:  "127.0.0.1",
 		UserAgent: "TestAgent",
 	}, "")
 
-	state := store.Snapshot()
-	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	assert.Equal(t, "auth.login", lastEntry.Action)
+	var row struct {
+		EventType   string
+		DetailsJSON string
+	}
+	require.NoError(t, db.Table("audit_records").
+		Select("event_type, details_json").Order("timestamp DESC").Limit(1).
+		Scan(&row).Error)
+	assert.Equal(t, "auth.login", row.EventType)
 	// No reason in metadata when empty
-	_, hasReason := lastEntry.Metadata["reason"]
-	assert.False(t, hasReason)
+	assert.NotContains(t, row.DetailsJSON, "reason")
 }
 
 // --- recordLoginAudit with nil opsStore ---
@@ -468,9 +482,10 @@ func TestService_Login_EmptyPasswordAfterTrim_V4(t *testing.T) {
 func TestRecordLoginAudit_WhitespaceFields_V4(t *testing.T) {
 	t.Parallel()
 	db := setupTestDB(t)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret", store)
+	db.Exec("DELETE FROM audit_records")
+	auditStore, err := audit.NewSQLAuditStore(db)
+	require.NoError(t, err)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithAuditService(audit.NewAuditService(auditStore, nil))
 
 	req := &LoginRequest{
 		ClientIP:  "   ",
@@ -479,13 +494,15 @@ func TestRecordLoginAudit_WhitespaceFields_V4(t *testing.T) {
 
 	service.recordLoginAudit("user", "auth.login", "success", req, "")
 
-	state := store.Snapshot()
-	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	_, hasIP := lastEntry.Metadata["ip"]
-	_, hasUA := lastEntry.Metadata["user_agent"]
-	assert.False(t, hasIP)
-	assert.False(t, hasUA)
+	var row struct {
+		IP          string
+		DetailsJSON string
+	}
+	require.NoError(t, db.Table("audit_records").
+		Select("ip, details_json").Order("timestamp DESC").Limit(1).
+		Scan(&row).Error)
+	assert.Empty(t, row.IP)
+	assert.NotContains(t, row.DetailsJSON, "userAgent")
 }
 
 // --- recordLoginAudit with large entry count (audit trimming) ---
@@ -493,27 +510,18 @@ func TestRecordLoginAudit_WhitespaceFields_V4(t *testing.T) {
 func TestRecordLoginAudit_AuditTrimming_V4(t *testing.T) {
 	t.Parallel()
 	db := setupTestDB(t)
-	tmpDir := t.TempDir()
-	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret", store)
-
-	// Pre-populate with 2001 entries
-	store.Update(func(st *svc.OpsState) {
-		for i := 0; i < 2001; i++ {
-			st.Audit.Entries = append(st.Audit.Entries, svc.OpsAuditEntry{
-				ID:        "old-" + string(rune('a'+i%26)),
-				Action:    "old.action",
-				UserID:    "olduser",
-				Result:    "success",
-				CreatedAt: time.Now(),
-			})
-		}
-	})
+	db.Exec("DELETE FROM audit_records")
+	auditStore, err := audit.NewSQLAuditStore(db)
+	require.NoError(t, err)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithAuditService(audit.NewAuditService(auditStore, nil))
 
 	service.recordLoginAudit("newuser", "auth.login", "success", nil, "")
 
-	state := store.Snapshot()
-	assert.LessOrEqual(t, len(state.Audit.Entries), 2000)
-	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
-	assert.Equal(t, "newuser", lastEntry.UserID)
+	var row struct {
+		ActorID string
+	}
+	require.NoError(t, db.Table("audit_records").
+		Select("actor_id").Order("timestamp DESC").Limit(1).
+		Scan(&row).Error)
+	assert.Equal(t, "newuser", row.ActorID)
 }

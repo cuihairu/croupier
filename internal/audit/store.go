@@ -43,6 +43,8 @@ type AuditModel struct {
 	Env        string    `gorm:"type:varchar(50);index" json:"env,omitempty"`
 	FunctionID string    `gorm:"type:varchar(255);index" json:"functionId,omitempty"`
 	DurationMs int64     `gorm:"not null;default:0" json:"durationMs,omitempty"`
+	IP         string    `gorm:"type:varchar(64);index" json:"ip,omitempty"`
+	ActorID    string    `gorm:"type:varchar(255);index" json:"actorId,omitempty"`
 	CreatedAt  time.Time `gorm:"not null" json:"createdAt"`
 }
 
@@ -164,6 +166,8 @@ func FromRecord(r *AuditRecord) (*AuditModel, error) {
 	}
 
 	model.GameID, model.Env, model.FunctionID, model.DurationMs = derivePromotedFields(r)
+	model.IP = strings.TrimSpace(r.Actor.IPAddress)
+	model.ActorID = strings.TrimSpace(r.Actor.ID)
 
 	return model, nil
 }

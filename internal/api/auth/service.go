@@ -3,10 +3,11 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/ipgeo"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
@@ -18,6 +19,7 @@ type Service struct {
 	gameModel  *model.GameModel
 	permSvc    *permissionservice.PermissionService
 	opsStore   *svc.OpsStateStore
+	auditSvc   *audit.AuditService
 	jwtSecret  string
 }
 
@@ -25,6 +27,14 @@ type Service struct {
 // to the frontend. It is optional for legacy callers that do not manage games.
 func (s *Service) WithGameModel(gameModel *model.GameModel) *Service {
 	s.gameModel = gameModel
+	return s
+}
+
+// WithAuditService enables persistent login auditing (audit_records table).
+// Without it login audit stays memory-only (OpsStateStore) and is lost on
+// restart.
+func (s *Service) WithAuditService(auditSvc *audit.AuditService) *Service {
+	s.auditSvc = auditSvc
 	return s
 }
 
@@ -130,43 +140,46 @@ func (s *Service) validLastScope(ctx context.Context, adminID uint, roles []stri
 	return "", ""
 }
 
+// recordLoginAudit persists the login audit event to audit_records via the
+// AuditService (hash-chained, survives restarts). The legacy in-memory
+// OpsStateStore audit trail was removed: audit history must outlive the
+// process, and the ops store is for transient state only.
 func (s *Service) recordLoginAudit(username, action, result string, req *LoginRequest, reason string) {
-	if s == nil || s.opsStore == nil {
+	if s == nil || s.auditSvc == nil {
 		return
 	}
 
 	metadata := map[string]interface{}{}
+	ip, ua := "", ""
 	if req != nil {
-		if ip := strings.TrimSpace(req.ClientIP); ip != "" {
+		ip = strings.TrimSpace(req.ClientIP)
+		ua = strings.TrimSpace(req.UserAgent)
+		if ip != "" {
 			metadata["ip"] = ip
+			if region := ipgeo.Region(ip); region != "" {
+				metadata["ipRegion"] = region
+			}
 		}
-		if ua := strings.TrimSpace(req.UserAgent); ua != "" {
-			metadata["user_agent"] = ua
-			metadata["ua"] = ua
+		if ua != "" {
+			metadata["userAgent"] = ua
 		}
 	}
 	if reason != "" {
 		metadata["reason"] = reason
 	}
 
-	_, _ = s.opsStore.Update(func(state *svc.OpsState) {
-		if state == nil {
-			return
-		}
-		entry := svc.OpsAuditEntry{
-			ID:        fmt.Sprintf("audit-%d", time.Now().UnixNano()),
-			Action:    action,
-			UserID:    strings.TrimSpace(username),
-			Result:    result,
-			Metadata:  metadata,
-			CreatedAt: time.Now(),
-		}
-		state.Audit.Entries = append(state.Audit.Entries, entry)
-		if len(state.Audit.Entries) > 2000 {
-			state.Audit.Entries = state.Audit.Entries[len(state.Audit.Entries)-2000:]
-		}
-		state.Audit.UpdatedAt = time.Now()
-	})
+	eventType := audit.EventLogin
+	outcome := "success"
+	if action != string(audit.EventLogin) {
+		eventType = audit.EventLoginFailed
+		outcome = "failure"
+	}
+	_, _ = s.auditSvc.Log(context.Background(), eventType,
+		audit.WithActorID(strings.TrimSpace(username), "user", strings.TrimSpace(username)),
+		audit.WithIPAddress(ip, ua),
+		audit.WithDetails(metadata),
+		audit.WithOutcome(outcome, reason),
+	)
 }
 
 // Logout 用户登出

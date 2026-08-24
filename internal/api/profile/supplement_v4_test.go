@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -517,16 +516,12 @@ func TestHandler_GetProfile_WithLastLoginV4(t *testing.T) {
 	gameModel := svcCtx.GameModel
 	roleModel := svcCtx.RoleModel
 
-	// Create ops store with login entry
-	store := svc.NewOpsStateStore("")
+	// Persist the login in audit_records (table-backed fallback)
+	db.Exec("DELETE FROM audit_records")
 	loginTime := time.Now().Add(-1 * time.Hour)
-	_, _ = store.Update(func(st *svc.OpsState) {
-		st.Audit.Entries = []svc.OpsAuditEntry{
-			{UserID: "loginuser", Action: "auth.login", Result: "success", CreatedAt: loginTime},
-		}
-	})
+	seedAuditLogin(t, db, "loginuser", "success", loginTime)
 
-	service := NewService(adminModel, gameModel, roleModel, store)
+	service := NewService(adminModel, gameModel, roleModel).WithDB(db)
 	handler := NewHandler(service)
 
 	admin := &model.Admin{Username: "loginuser", Nickname: "Login User", Status: 1}

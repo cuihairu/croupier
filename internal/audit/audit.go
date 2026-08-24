@@ -97,6 +97,14 @@ const (
 	EventBackupCreate  AuditEventType = "system.backup_create"
 	EventBackupRestore AuditEventType = "system.backup_restore"
 
+	// Ops node & job events (previously memory-only in OpsStateStore;
+	// promoted to persistent audit records)
+	EventNodeDrain   AuditEventType = "node.drain"
+	EventNodeUndrain AuditEventType = "node.undrain"
+	EventNodeRestart AuditEventType = "node.restart"
+	EventJobStart    AuditEventType = "job.start"
+	EventJobCancel   AuditEventType = "job.cancel"
+
 	// Admin events
 	EventUserCreate AuditEventType = "admin.user_create"
 	EventUserUpdate AuditEventType = "admin.user_update"

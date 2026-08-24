@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -59,7 +61,11 @@ type TCPLocalListener struct {
 // NewTCPLocalListener creates a new local TCP listener for SDK connections.
 func NewTCPLocalListener(config *TCPLocalListenerConfig, sessionStore *ProviderSessionStore, logger *slog.Logger) (*TCPLocalListener, error) {
 	if config == nil {
-		config = &TCPLocalListenerConfig{Address: "127.0.0.1:19091"}
+		addr := os.Getenv("CROUPIER_AGENT_LOCAL_ADDR")
+		if strings.TrimSpace(addr) == "" {
+			addr = "127.0.0.1:19091"
+		}
+		config = &TCPLocalListenerConfig{Address: addr}
 	}
 	if sessionStore == nil {
 		sessionStore = NewProviderSessionStore()

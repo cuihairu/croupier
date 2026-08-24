@@ -2,76 +2,50 @@ package audit
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
+	auditcore "github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
-// Singleton test store for handler tests
-var (
-	testAuditHandlerStore     *svc.OpsStateStore
-	testAuditHandlerStoreOnce sync.Once
-	testAuditHandlerStoreMu   sync.Mutex
-)
-
-// setupAuditHandlerStore creates or resets the shared test store
-func setupAuditHandlerStore(t *testing.T) *svc.OpsStateStore {
-	testAuditHandlerStoreMu.Lock()
-	defer testAuditHandlerStoreMu.Unlock()
-
-	testAuditHandlerStoreOnce.Do(func() {
-		testAuditHandlerStore = svc.NewOpsStateStore("")
-	})
-
-	// Clear audit entries before each test
-	testAuditHandlerStore.Update(func(state *svc.OpsState) {
-		state.Audit.Entries = nil
-		state.Audit.UpdatedAt = time.Now()
-	})
-
-	return testAuditHandlerStore
-}
-
-// addTestAuditEntry adds a test entry to the store
-func addTestAuditEntry(store *svc.OpsStateStore, userID, gameID, env, action, target, result, traceID string, metadata map[string]interface{}) {
-	store.Update(func(state *svc.OpsState) {
-		entry := svc.OpsAuditEntry{
-			ID:        traceID,
-			Action:    action,
-			UserID:    userID,
-			GameID:    gameID,
-			Env:       env,
-			Target:    target,
-			Result:    result,
-			TraceID:   traceID,
-			Metadata:  metadata,
-			CreatedAt: time.Now(),
-		}
-		state.Audit.Entries = append(state.Audit.Entries, entry)
-		state.Audit.UpdatedAt = time.Now()
-	})
-}
-
+// setupAuditHandlerTest builds the handler against a real persistent
+// audit_records table (in-memory SQLite). The legacy OpsStateStore-backed
+// in-memory trail was removed.
 func setupAuditHandlerTest(t *testing.T) *Handler {
-	store := setupAuditHandlerStore(t)
+	t.Helper()
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
+	require.NoError(t, err)
 
-	// Add some test entries
-	addTestAuditEntry(store, "user1", "game1", "prod", "action1", "target1", "success", "trace1", nil)
-	addTestAuditEntry(store, "user2", "game2", "dev", "action2", "target2", "success", "trace2", nil)
-	addTestAuditEntry(store, "user1", "game1", "prod", "action3", "target3", "failure", "trace3", nil)
+	auditStore, err := auditcore.NewSQLAuditStore(db)
+	require.NoError(t, err)
+	auditSvc := auditcore.NewAuditService(auditStore, nil)
 
-	svcCtx := &svc.ServiceContext{
-		OpsStateStore: store,
+	seedAudit := func(actor, gameID, env, action, target, outcome, traceID string) {
+		ctx := context.Background()
+		_, _ = auditSvc.Log(ctx, auditcore.AuditEventType(action),
+			auditcore.WithActorID(actor, "user", actor),
+			auditcore.WithResourceID("function", target),
+			auditcore.WithGameID(gameID, env),
+			auditcore.WithDetails(map[string]interface{}{"traceId": traceID}),
+			auditcore.WithOutcome(outcome, ""),
+		)
 	}
+	seedAudit("user1", "game1", "prod", "action1", "target1", "success", "trace1")
+	seedAudit("user2", "game2", "dev", "action2", "target2", "success", "trace2")
+	seedAudit("user1", "game1", "prod", "action3", "target3", "failure", "trace3")
 
+	svcCtx := &svc.ServiceContext{DB: db}
 	service := NewService(svcCtx)
 	return NewHandler(service)
 }
@@ -186,13 +160,7 @@ func TestHandler_GetAuditLogs_NegativePage(t *testing.T) {
 
 func TestHandler_GetAuditLogs_EmptyResults(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	store := setupAuditHandlerStore(t)
-
-	svcCtx := &svc.ServiceContext{
-		OpsStateStore: store,
-	}
-	service := NewService(svcCtx)
-	handler := NewHandler(service)
+	handler := setupAuditHandlerTest(t)
 
 	router := gin.New()
 	router.GET("/audit", handler.GetAuditLogs)
@@ -272,18 +240,7 @@ func TestHandler_GetAuditLogs_ItemStructure(t *testing.T) {
 
 func TestHandler_GetAuditLogs_LargePageSize(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	store := setupAuditHandlerStore(t)
-
-	// Add many entries
-	for i := 0; i < 100; i++ {
-		addTestAuditEntry(store, "user", "game", "prod", "action", "target", "success", "trace", nil)
-	}
-
-	svcCtx := &svc.ServiceContext{
-		OpsStateStore: store,
-	}
-	service := NewService(svcCtx)
-	handler := NewHandler(service)
+	handler := setupAuditHandlerTest(t)
 
 	router := gin.New()
 	router.GET("/audit", handler.GetAuditLogs)

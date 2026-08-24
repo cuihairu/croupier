@@ -349,9 +349,12 @@ func TestStore_StartCleanupRoutine(t *testing.T) {
 	// Wait for cleanup to run
 	time.Sleep(150 * time.Millisecond)
 
-	// Verify expired agent was removed
+	// Verify expired agent was removed (hold the lock: the cleanup routine
+	// mutates the map concurrently).
+	store.Mu().RLock()
 	agents := store.AgentsUnsafe()
 	assert.Len(t, agents, 0)
+	store.Mu().RUnlock()
 }
 
 func TestStore_LoadFromDB_NoDB(t *testing.T) {

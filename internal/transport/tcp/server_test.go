@@ -488,6 +488,7 @@ func TestServer_RecvSendTimeouts(t *testing.T) {
 }
 
 func TestServer_DefaultAddress(t *testing.T) {
+	t.Setenv("CROUPIER_TCP_ADDR", "127.0.0.1:0")
 	handler := transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 		return body, nil
 	})

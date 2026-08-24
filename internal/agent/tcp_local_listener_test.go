@@ -79,6 +79,9 @@ func TestNewTCPLocalListener(t *testing.T) {
 	})
 
 	t.Run("with nil config", func(t *testing.T) {
+		// The nil-config default binds 127.0.0.1:19091, which may already be
+		// taken by a locally running agent; override via env for the test.
+		t.Setenv("CROUPIER_AGENT_LOCAL_ADDR", "127.0.0.1:0")
 		listener, err := NewTCPLocalListener(nil, nil, nil)
 		require.NoError(t, err)
 		assert.NotNil(t, listener)

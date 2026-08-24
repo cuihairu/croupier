@@ -203,25 +203,9 @@ func defaultOpsState() OpsState {
 			UpdatedAt: now,
 		},
 		Audit: OpsAuditState{
-			Entries: []OpsAuditEntry{
-				{
-					ID:        "seed-login",
-					Action:    "auth.login",
-					UserID:    "admin",
-					Result:    "success",
-					Metadata:  map[string]interface{}{"ip": "127.0.0.1", "user_agent": "dev-cli"},
-					CreatedAt: now.Add(-2 * time.Hour),
-				},
-				{
-					ID:        "seed-assignments",
-					Action:    "assignments.update",
-					UserID:    "ops",
-					Target:    "game-demo/prod",
-					Result:    "success",
-					Metadata:  map[string]interface{}{"functions": []string{"prom.reload", "http.post"}},
-					CreatedAt: now.Add(-30 * time.Minute),
-				},
-			},
+			// The in-memory audit trail is deprecated — audit history lives in
+			// the audit_records table. Kept empty for snapshot compatibility.
+			Entries:   []OpsAuditEntry{},
 			UpdatedAt: now,
 		},
 	}

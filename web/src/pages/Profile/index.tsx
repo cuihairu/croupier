@@ -457,8 +457,8 @@ export default function Profile() {
     return (loginRecords || []).map((item, idx) => {
       const meta = (item.meta || {}) as Record<string, JSONValue>;
       const ip = pickAuditMetaValue(meta, ['ip', 'client_ip', 'remote_ip', 'x_forwarded_for']);
-      const region = pickAuditMetaValue(meta, ['ip_region', 'region', 'geo']);
-      const userAgent = pickAuditMetaValue(meta, ['user_agent', 'ua', 'agent']);
+      const region = pickAuditMetaValue(meta, ['ipRegion', 'region', 'geo']);
+      const userAgent = pickAuditMetaValue(meta, ['userAgent', 'ua', 'agent']);
       const success =
         !String(item.kind || '').includes('fail') &&
         !String(item.kind || '').includes('rate_limited');

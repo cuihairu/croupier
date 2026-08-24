@@ -229,7 +229,12 @@ export default function ConsolePage() {
                 >
                   前往处理（diff / 合并 / 重新发布）
                 </Button>
-                <Button size="small" onClick={() => history.push('/system/functions/pages')}>
+                <Button
+                  size="small"
+                  onClick={() =>
+                    history.push(`/system/functions/pages?focus=${encodeURIComponent(pageKey)}`)
+                  }
+                >
                   打开 Proposal Inbox
                 </Button>
               </Space>

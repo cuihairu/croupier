@@ -13,12 +13,33 @@ import (
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/google/uuid"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
+
+// recordOpsAudit persists an ops audit event (node drain/restart, maintenance
+// changes, ...) to the audit_records table via the AuditService. This
+// replaces the legacy in-memory OpsStateStore audit trail, which was lost on
+// every restart.
+func recordOpsAudit(ctx context.Context, svcCtx *svc.ServiceContext, eventType audit.AuditEventType, target, outcome string, details map[string]interface{}) {
+	if svcCtx == nil || svcCtx.AuditService == nil {
+		return
+	}
+	actor := "system"
+	if username, err := utils.CurrentUsername(ctx); err == nil && strings.TrimSpace(username) != "" {
+		actor = strings.TrimSpace(username)
+	}
+	_, _ = svcCtx.AuditService.Log(ctx, eventType,
+		audit.WithActorID(actor, "user", actor),
+		audit.WithResourceID("node", strings.TrimSpace(target)),
+		audit.WithDetails(details),
+		audit.WithOutcome(outcome, ""),
+	)
+}
 
 const officialNotificationID = "official.notification"
 
@@ -392,23 +413,18 @@ func opsNodeDrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeC
 		// Continue anyway - record the drain state
 	}
 
-	// Record drain state in OpsStateStore for persistence
+	// Record drain state in OpsStateStore (transient node state only) and
+	// persist the audit trail in audit_records.
 	if svcCtx.OpsStateStore != nil {
 		_, _ = svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
 			if state.Nodes.Drained == nil {
 				state.Nodes.Drained = make(map[string]time.Time)
 			}
 			state.Nodes.Drained[nodeID] = time.Now()
-			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
-				ID:        fmt.Sprintf("drain-%s-%d", nodeID, time.Now().UnixNano()),
-				Action:    "node.drain",
-				Target:    nodeID,
-				Result:    "success",
-				CreatedAt: time.Now(),
-			})
-			state.Audit.UpdatedAt = time.Now()
+			state.Nodes.UpdatedAt = time.Now()
 		})
 	}
+	recordOpsAudit(ctx, svcCtx, audit.EventNodeDrain, nodeID, "success", nil)
 
 	return &OpsNodeDrainResponse{
 		NodeId: nodeID,
@@ -459,19 +475,7 @@ func opsNodeRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 		// Continue anyway - record the restart
 	}
 
-	// Record restart in audit trail
-	if svcCtx.OpsStateStore != nil {
-		_, _ = svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
-			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
-				ID:        fmt.Sprintf("restart-%s-%d", nodeID, time.Now().UnixNano()),
-				Action:    "node.restart",
-				Target:    nodeID,
-				Result:    "initiated",
-				CreatedAt: time.Now(),
-			})
-			state.Audit.UpdatedAt = time.Now()
-		})
-	}
+	recordOpsAudit(ctx, svcCtx, audit.EventNodeRestart, nodeID, "initiated", nil)
 
 	return &OpsNodeRestartResponse{
 		NodeId: nodeID,
@@ -502,22 +506,16 @@ func opsNodeUndrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 		// Continue anyway - record the undrain
 	}
 
-	// Record undrain in audit trail and clear drain state
+	// Clear drain state (transient) and persist the audit trail.
 	if svcCtx.OpsStateStore != nil {
 		_, _ = svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
 			if state.Nodes.Drained != nil {
 				delete(state.Nodes.Drained, nodeID)
 			}
-			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
-				ID:        fmt.Sprintf("undrain-%s-%d", nodeID, time.Now().UnixNano()),
-				Action:    "node.undrain",
-				Target:    nodeID,
-				Result:    "success",
-				CreatedAt: time.Now(),
-			})
-			state.Audit.UpdatedAt = time.Now()
+			state.Nodes.UpdatedAt = time.Now()
 		})
 	}
+	recordOpsAudit(ctx, svcCtx, audit.EventNodeUndrain, nodeID, "success", nil)
 
 	return &OpsNodeUndrainResponse{
 		NodeId: nodeID,
@@ -819,20 +817,14 @@ func opsMaintenanceUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *
 	updated, err := svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
 		state.Maintenance.Windows = windows
 		state.Maintenance.UpdatedAt = time.Now()
-		// Audit the change
-		state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
-			ID:        fmt.Sprintf("maintenance-update-%d", time.Now().UnixNano()),
-			Action:    "maintenance.update",
-			Result:    "success",
-			CreatedAt: time.Now(),
-			Metadata:  map[string]interface{}{"windowsCount": len(windows)},
-		})
-		state.Audit.UpdatedAt = time.Now()
 	})
 	if err != nil {
 		return nil, err
 	}
 	_ = updated
+	recordOpsAudit(ctx, svcCtx, audit.AuditEventType("maintenance.update"), "", "success", map[string]interface{}{
+		"windowsCount": len(windows),
+	})
 
 	return &OpsMaintenanceUpdateResponse{
 		Windows: windows,
