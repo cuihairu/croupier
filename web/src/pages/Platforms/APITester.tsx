@@ -356,7 +356,7 @@ export default function APITester({
                     style={{
                       background: '#f5f5f5',
                       padding: 12,
-                      borderRadius: 4,
+                      borderRadius: 8,
                       overflow: 'auto',
                       maxHeight: 400,
                       fontSize: 12,

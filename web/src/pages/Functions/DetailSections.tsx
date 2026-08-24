@@ -84,7 +84,7 @@ export function JsonViewer({
     <div
       style={{
         border: '1px solid #f0f0f0',
-        borderRadius: 6,
+        borderRadius: 8,
         overflow: 'hidden',
         background: '#fafafa',
       }}

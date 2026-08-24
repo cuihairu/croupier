@@ -51,7 +51,7 @@ export default function PlatformConfig() {
               style={{
                 background: '#f5f5f5',
                 padding: 12,
-                borderRadius: 4,
+                borderRadius: 8,
                 overflow: 'auto',
               }}
             >
@@ -70,7 +70,7 @@ export CROUPIER_PLATFORM_EXTENSION_ONLY=true`}
               style={{
                 background: '#f5f5f5',
                 padding: 12,
-                borderRadius: 4,
+                borderRadius: 8,
                 overflow: 'auto',
               }}
             >

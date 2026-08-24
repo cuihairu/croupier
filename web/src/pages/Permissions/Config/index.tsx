@@ -474,9 +474,7 @@ export default function ConfigPage() {
                           </Space>
                         ),
                         children: (
-                          <div
-                            style={{ padding: '16px', background: '#fafafa', borderRadius: '6px' }}
-                          >
+                          <div style={{ padding: '16px', background: '#fafafa', borderRadius: 8 }}>
                             <Title level={5}>权限列表</Title>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                               {domain.permissions.map((permission) => (
@@ -614,7 +612,7 @@ export default function ConfigPage() {
                         style={{
                           background: '#fff2e8',
                           padding: '16px',
-                          borderRadius: '6px',
+                          borderRadius: 8,
                           border: '1px solid #ffbb96',
                         }}
                       >

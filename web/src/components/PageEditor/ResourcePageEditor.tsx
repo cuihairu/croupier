@@ -141,31 +141,18 @@ export default function ResourcePageEditor({
                   key={action.key}
                   size="small"
                   title={
-                    <Space>
+                    <Space size={12} wrap>
                       <Text code>{action.key}</Text>
                       {action.bindingId ? (
                         <Tag color="blue">{action.bindingId}</Tag>
                       ) : (
                         <Tag color="red">缺少 binding</Tag>
                       )}
-                    </Space>
-                  }
-                >
-                  <Form layout="inline" disabled={readonly}>
-                    <Form.Item label="标题">
-                      <LocalizedTextEditor
-                        size="small"
-                        style={{ minWidth: 220 }}
-                        value={action.title}
-                        onChange={(title) => handleActionChange(group, index, { title })}
-                      />
-                    </Form.Item>
-                    <Form.Item label="样式">
                       <Select
                         size="small"
                         value={action.type || 'default'}
                         onChange={(type) => handleActionChange(group, index, { type })}
-                        style={{ width: 110 }}
+                        style={{ width: 100 }}
                         options={[
                           { value: 'default', label: '默认' },
                           { value: 'primary', label: '主按钮' },
@@ -173,15 +160,14 @@ export default function ResourcePageEditor({
                           { value: 'link', label: '链接' },
                         ]}
                       />
-                    </Form.Item>
-                    <Form.Item label="确认">
-                      <Switch
-                        size="small"
-                        checked={Boolean(action.confirm)}
-                        onChange={(confirm) => handleActionChange(group, index, { confirm })}
-                      />
-                    </Form.Item>
-                    <Form.Item label="风险">
+                      <Space size={4}>
+                        <Text type="secondary">确认</Text>
+                        <Switch
+                          size="small"
+                          checked={Boolean(action.confirm)}
+                          onChange={(confirm) => handleActionChange(group, index, { confirm })}
+                        />
+                      </Space>
                       <Tag
                         color={
                           action.risk === 'danger'
@@ -193,6 +179,15 @@ export default function ResourcePageEditor({
                       >
                         {action.risk || '未声明'}
                       </Tag>
+                    </Space>
+                  }
+                >
+                  <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+                    <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                      <LocalizedTextEditor
+                        value={action.title}
+                        onChange={(title) => handleActionChange(group, index, { title })}
+                      />
                     </Form.Item>
                   </Form>
                 </Card>
@@ -251,9 +246,39 @@ export default function ResourcePageEditor({
             size="small"
             style={{ marginBottom: 8 }}
             title={
-              <Space>
+              <Space size={12} wrap>
                 <Text code>{column.key}</Text>
-                <Tag>{column.dataType}</Tag>
+                <Select
+                  size="small"
+                  value={column.dataType}
+                  onChange={(dataType) => handleColumnChange(index, { dataType })}
+                  style={{ width: 100 }}
+                  options={[
+                    { value: 'string', label: '字符串' },
+                    { value: 'number', label: '数字' },
+                    { value: 'boolean', label: '布尔' },
+                    { value: 'date', label: '日期' },
+                    { value: 'datetime', label: '日期时间' },
+                    { value: 'enum', label: '枚举' },
+                  ]}
+                />
+                <Space size={4}>
+                  <Text type="secondary">宽度</Text>
+                  <InputNumber
+                    size="small"
+                    value={column.width}
+                    onChange={(width) => handleColumnChange(index, { width: width || undefined })}
+                    style={{ width: 72 }}
+                  />
+                </Space>
+                <Space size={4}>
+                  <Text type="secondary">可见</Text>
+                  <Switch
+                    size="small"
+                    checked={column.visible !== false}
+                    onChange={(visible) => handleColumnChange(index, { visible })}
+                  />
+                </Space>
               </Space>
             }
             extra={
@@ -267,43 +292,11 @@ export default function ResourcePageEditor({
               )
             }
           >
-            <Form layout="inline" disabled={readonly}>
-              <Form.Item label="标题">
+            <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+              <Form.Item label="标题" style={{ marginBottom: 0 }}>
                 <LocalizedTextEditor
-                  size="small"
-                  style={{ minWidth: 220 }}
                   value={column.title}
                   onChange={(title) => handleColumnChange(index, { title })}
-                />
-              </Form.Item>
-              <Form.Item label="类型">
-                <Select
-                  size="small"
-                  value={column.dataType}
-                  onChange={(dataType) => handleColumnChange(index, { dataType })}
-                  style={{ width: 100 }}
-                >
-                  <Select.Option value="string">字符串</Select.Option>
-                  <Select.Option value="number">数字</Select.Option>
-                  <Select.Option value="boolean">布尔</Select.Option>
-                  <Select.Option value="date">日期</Select.Option>
-                  <Select.Option value="datetime">日期时间</Select.Option>
-                  <Select.Option value="enum">枚举</Select.Option>
-                </Select>
-              </Form.Item>
-              <Form.Item label="宽度">
-                <InputNumber
-                  size="small"
-                  value={column.width}
-                  onChange={(width) => handleColumnChange(index, { width: width || undefined })}
-                  style={{ width: 80 }}
-                />
-              </Form.Item>
-              <Form.Item label="可见">
-                <Switch
-                  size="small"
-                  checked={column.visible !== false}
-                  onChange={(visible) => handleColumnChange(index, { visible })}
                 />
               </Form.Item>
             </Form>

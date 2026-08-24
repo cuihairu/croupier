@@ -100,7 +100,6 @@ ol {
   margin: 16px 16px 0;
   padding: 18px 20px 14px !important;
   border: 1px solid var(--app-panel-border);
-  border-radius: 18px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 251, 252, 0.9));
   box-shadow: var(--app-panel-shadow-soft);
 }
@@ -110,9 +109,10 @@ ol {
   padding-block: 0 !important;
 }
 
+/* 圆角统一走 antd token（config.ts: borderRadius / borderRadiusLG），
+   此处仅保留边框/阴影/间距等视觉加强，不再逐组件覆盖圆角。 */
 .ant-card {
   border: 1px solid var(--app-panel-border);
-  border-radius: 18px;
   background: var(--app-panel-bg);
   box-shadow: var(--app-panel-shadow-soft);
 }
@@ -132,38 +132,12 @@ ol {
   padding: 18px;
 }
 
-.ant-btn {
-  border-radius: 10px;
-}
-
 .ant-btn-primary {
   box-shadow: 0 8px 18px rgba(24, 144, 255, 0.18);
 }
 
-.ant-alert,
-.ant-collapse {
-  border-radius: 14px;
-}
-
-.ant-tag {
-  border-radius: 999px;
-}
-
-.ant-input,
-.ant-input-affix-wrapper,
-.ant-select-selector,
-.ant-segmented,
-.ant-picker {
-  border-radius: 10px !important;
-}
-
 .ant-list .ant-list-item {
   padding-block: 14px;
-}
-
-.ant-modal .ant-modal-content,
-.ant-drawer .ant-drawer-content {
-  border-radius: 18px;
 }
 
 .ant-drawer .ant-drawer-header,
@@ -174,11 +148,6 @@ ol {
 @media (max-width: 768px) {
   .ant-pro-page-container-warp {
     margin-inline: 8px;
-    border-radius: 14px;
-  }
-
-  .ant-card {
-    border-radius: 14px;
   }
 
   .ant-table {

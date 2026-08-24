@@ -136,22 +136,9 @@ export default function ReportPageEditor({
                 key={dimension.key}
                 size="small"
                 style={{ marginBottom: 8 }}
-                title={<Text code>{dimension.key}</Text>}
-              >
-                <Form layout="inline" disabled={readonly}>
-                  <Form.Item label="标题">
-                    <LocalizedTextEditor
-                      size="small"
-                      style={{ minWidth: 220 }}
-                      value={dimension.title}
-                      onChange={(title) =>
-                        handleDatasetChange({
-                          dimensions: updateDimension(value.dataset.dimensions, index, { title }),
-                        })
-                      }
-                    />
-                  </Form.Item>
-                  <Form.Item label="类型">
+                title={
+                  <Space size={12} wrap>
+                    <Text code>{dimension.key}</Text>
                     <Select
                       size="small"
                       value={dimension.dataType}
@@ -162,12 +149,25 @@ export default function ReportPageEditor({
                           }),
                         })
                       }
-                      style={{ width: 110 }}
+                      style={{ width: 100 }}
                       options={[
                         { value: 'string', label: '字符串' },
                         { value: 'number', label: '数字' },
                         { value: 'date', label: '日期' },
                       ]}
+                    />
+                  </Space>
+                }
+              >
+                <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+                  <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                    <LocalizedTextEditor
+                      value={dimension.title}
+                      onChange={(title) =>
+                        handleDatasetChange({
+                          dimensions: updateDimension(value.dataset.dimensions, index, { title }),
+                        })
+                      }
                     />
                   </Form.Item>
                 </Form>
@@ -185,22 +185,9 @@ export default function ReportPageEditor({
                 key={metric.key}
                 size="small"
                 style={{ marginBottom: 8 }}
-                title={<Text code>{metric.key}</Text>}
-              >
-                <Form layout="inline" disabled={readonly}>
-                  <Form.Item label="标题">
-                    <LocalizedTextEditor
-                      size="small"
-                      style={{ minWidth: 220 }}
-                      value={metric.title}
-                      onChange={(title) =>
-                        handleDatasetChange({
-                          metrics: updateMetric(value.dataset.metrics, index, { title }),
-                        })
-                      }
-                    />
-                  </Form.Item>
-                  <Form.Item label="聚合">
+                title={
+                  <Space size={12} wrap>
+                    <Text code>{metric.key}</Text>
                     <Select
                       size="small"
                       value={metric.aggType}
@@ -209,7 +196,7 @@ export default function ReportPageEditor({
                           metrics: updateMetric(value.dataset.metrics, index, { aggType }),
                         })
                       }
-                      style={{ width: 110 }}
+                      style={{ width: 90 }}
                       options={[
                         { value: 'sum', label: 'sum' },
                         { value: 'avg', label: 'avg' },
@@ -218,23 +205,35 @@ export default function ReportPageEditor({
                         { value: 'max', label: 'max' },
                       ]}
                     />
-                  </Form.Item>
-                  <Form.Item label="格式">
                     <Select
                       size="small"
                       value={metric.format}
                       allowClear
+                      placeholder="格式"
                       onChange={(format) =>
                         handleDatasetChange({
                           metrics: updateMetric(value.dataset.metrics, index, { format }),
                         })
                       }
-                      style={{ width: 120 }}
+                      style={{ width: 100 }}
                       options={[
                         { value: 'number', label: 'number' },
                         { value: 'percent', label: 'percent' },
                         { value: 'currency', label: 'currency' },
                       ]}
+                    />
+                  </Space>
+                }
+              >
+                <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+                  <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                    <LocalizedTextEditor
+                      value={metric.title}
+                      onChange={(title) =>
+                        handleDatasetChange({
+                          metrics: updateMetric(value.dataset.metrics, index, { title }),
+                        })
+                      }
                     />
                   </Form.Item>
                 </Form>
@@ -290,59 +289,60 @@ export default function ReportPageEditor({
               )
             }
           >
-            <Form layout="inline" disabled={readonly}>
-              <Form.Item label="标题">
+            <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+              <Form.Item label="标题" style={{ marginBottom: 8 }}>
                 <LocalizedTextEditor
-                  size="small"
-                  style={{ minWidth: 220 }}
                   value={chart.title}
                   onChange={(title) =>
                     handleChartsChange(updateChart(value.charts || [], index, { title }))
                   }
                 />
               </Form.Item>
-              <Form.Item label="类型">
-                <Select
-                  size="small"
-                  value={chart.type}
-                  onChange={(type) =>
-                    handleChartsChange(updateChart(value.charts || [], index, { type }))
-                  }
-                  style={{ width: 110 }}
-                  options={[
-                    { value: 'line', label: 'line' },
-                    { value: 'bar', label: 'bar' },
-                    { value: 'pie', label: 'pie' },
-                    { value: 'area', label: 'area' },
-                    { value: 'scatter', label: 'scatter' },
-                  ]}
-                />
-              </Form.Item>
-              <Form.Item label="X 字段">
-                <Input
-                  size="small"
-                  value={chart.xField}
-                  onChange={(event) =>
-                    handleChartsChange(
-                      updateChart(value.charts || [], index, {
-                        xField: event.target.value,
-                      }),
-                    )
-                  }
-                />
-              </Form.Item>
-              <Form.Item label="Y 字段">
-                <Input
-                  size="small"
-                  value={chart.yField}
-                  onChange={(event) =>
-                    handleChartsChange(
-                      updateChart(value.charts || [], index, {
-                        yField: event.target.value,
-                      }),
-                    )
-                  }
-                />
+              <Form.Item label="图表配置" style={{ marginBottom: 0 }}>
+                <Space size={12} wrap>
+                  <Select
+                    value={chart.type}
+                    onChange={(type) =>
+                      handleChartsChange(updateChart(value.charts || [], index, { type }))
+                    }
+                    style={{ width: 110 }}
+                    options={[
+                      { value: 'line', label: 'line' },
+                      { value: 'bar', label: 'bar' },
+                      { value: 'pie', label: 'pie' },
+                      { value: 'area', label: 'area' },
+                      { value: 'scatter', label: 'scatter' },
+                    ]}
+                  />
+                  <Space size={4}>
+                    <Text type="secondary">X 字段</Text>
+                    <Input
+                      value={chart.xField}
+                      onChange={(event) =>
+                        handleChartsChange(
+                          updateChart(value.charts || [], index, {
+                            xField: event.target.value,
+                          }),
+                        )
+                      }
+                      style={{ width: 140 }}
+                    />
+                  </Space>
+                  <Space size={4}>
+                    <Text type="secondary">Y 字段</Text>
+                    <Input
+                      value={chart.yField}
+                      onChange={(event) =>
+                        handleChartsChange(
+                          updateChart(value.charts || [], index, {
+                            yField: event.target.value,
+                          }),
+                        )
+                      }
+                      style={{ width: 140 }}
+                    />
+                  </Space>
+                </Space>
               </Form.Item>
             </Form>
           </Card>

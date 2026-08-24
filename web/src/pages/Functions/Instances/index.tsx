@@ -883,7 +883,7 @@ export default () => {
               overflow: 'auto',
               background: '#1e1e1e',
               padding: 12,
-              borderRadius: 4,
+              borderRadius: 8,
             }}
           >
             {logsData.map((log, idx) => (
@@ -970,7 +970,7 @@ export default () => {
                       ? '#f6ffed'
                       : '#fff2f0',
                   border: `1px solid ${debugResult && typeof debugResult === 'object' && !Array.isArray(debugResult) && 'success' in debugResult && debugResult.success ? '#b7eb8f' : '#ffccc7'}`,
-                  borderRadius: 4,
+                  borderRadius: 8,
                   fontSize: 12,
                   maxHeight: 200,
                   overflow: 'auto',

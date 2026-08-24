@@ -144,26 +144,8 @@ export default function OperationPageEditor({
             size="small"
             style={{ marginBottom: 8 }}
             title={
-              <Space>
+              <Space size={12} wrap>
                 <Text code>{field.key}</Text>
-                <Tag>{field.dataType}</Tag>
-              </Space>
-            }
-          >
-            <Form layout="inline" disabled={readonly}>
-              <Form.Item label="标题">
-                <LocalizedTextEditor
-                  size="small"
-                  style={{ minWidth: 260 }}
-                  value={field.title}
-                  onChange={(title) => {
-                    const fields = [...(value.resultView?.fields || [])];
-                    fields[index] = { ...fields[index], title };
-                    handleResultViewChange({ fields });
-                  }}
-                />
-              </Form.Item>
-              <Form.Item label="类型">
                 <Select
                   size="small"
                   value={field.dataType}
@@ -173,11 +155,25 @@ export default function OperationPageEditor({
                     handleResultViewChange({ fields });
                   }}
                   style={{ width: 100 }}
-                >
-                  <Select.Option value="string">字符串</Select.Option>
-                  <Select.Option value="number">数字</Select.Option>
-                  <Select.Option value="boolean">布尔</Select.Option>
-                </Select>
+                  options={[
+                    { value: 'string', label: '字符串' },
+                    { value: 'number', label: '数字' },
+                    { value: 'boolean', label: '布尔' },
+                  ]}
+                />
+              </Space>
+            }
+          >
+            <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+              <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                <LocalizedTextEditor
+                  value={field.title}
+                  onChange={(title) => {
+                    const fields = [...(value.resultView?.fields || [])];
+                    fields[index] = { ...fields[index], title };
+                    handleResultViewChange({ fields });
+                  }}
+                />
               </Form.Item>
             </Form>
           </Card>

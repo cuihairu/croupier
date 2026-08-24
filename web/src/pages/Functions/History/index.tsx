@@ -456,7 +456,7 @@ export default () => {
                   style={{
                     background: '#f5f5f5',
                     padding: 8,
-                    borderRadius: 4,
+                    borderRadius: 8,
                     maxHeight: 200,
                     overflow: 'auto',
                   }}
@@ -473,7 +473,7 @@ export default () => {
                   style={{
                     background: '#f5f5f5',
                     padding: 8,
-                    borderRadius: 4,
+                    borderRadius: 8,
                     maxHeight: 200,
                     overflow: 'auto',
                   }}

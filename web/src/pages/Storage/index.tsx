@@ -460,7 +460,7 @@ export default function StoragePage() {
               width={40}
               height={40}
               src={record.url}
-              style={{ objectFit: 'cover', borderRadius: 4 }}
+              style={{ objectFit: 'cover', borderRadius: 8 }}
               fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJF9kT1Iw0AcxV9TpVUqDnYQ6ChOlkQFXGUKhbBQmkrtOpgcukXNGlIUlwcBdeCgx+LVQcXZ10dXAVB8APEydFJ0UVK/F9SaBHjwXE/3t173L0DhHqZqVUptdXL9b2NdI8yg8Xus7BNPvB+0s/eW8+l+EJEswUBHyG+iCC+LwFXrXJhCkijKwoI6dCQbMRwS1nGkYwGDYliYGbEAfCQ5HRQBwHBZj2Sp8ygYgZCiiYLX5uiRNcoOQlhXck6cX580PylUnEhRGNFoFIsaJhGwIgM5qQRklMYJqGPpRnkCQ5oPXP5wg+BxWJtmvfisYzBwDpSE1YwSMA0fGRhxmFkzlMkYfpUCsL2fiFwY6FehxwVROQXl2XgIFlB8K2JXW4xGB3WrXWxUXMTY/aTKImhUD/Zk3zNtKZXQPPJT+Ys4KFYhVPkPi8tViKqDcVi6RqyRBGuPxG5xi1RiKqLTB4yHvL7y5OqWXLUyERxCa0UAM0zR4MND0/wR4MLy6tEE8yDcIGXIM1dvw4ThKS/wR4nYiO0K9M5eBgkIuR/N2uNlpxSqPtVzdPPXpDw8N/ju+dJ+4v4Ua/G/yfBDfzG0RNnggYAlBlPPK7vJEb/kJCx+XBbB9wX8R4oU8p0AAAAJcEhZcwAADsMAAA7DAcdvqGQAAAMaSURBVHja7d0LbBRHFMR/vu9lJtESQIqUEUKECQSQTvffAYqnpI4oJffHQTBRc8HAoKBX8CgeHgKKiIyirhwouKQkHTvXRImTdjN7uzsZu7O6NH5p4aTM2f2mTNn9u6b0qlGo9FoNIQ/0FUqVRKJRNLo6+oqpVQqjUajtZvnUim1Wq1UKkqlSk9HUqm0VCr1er1er7+e25/sipKcnp6oqGqa1k3TdG0tqnrTWmuttbU1NTXZ8/1vWmut7d27d3l5eTqdpqnm6ZomSTrOuCqnKMrzvKOqao6IMsyyrK3RaHTT46/n+yyKyKLn+EQqleF4wXCZHiBCCiqVAcs80yyzKsimEQs4loiwphFBaK2VUnY4wVgxhRWiml7hABdF8aZpmmWcSwRxpLKqUQqGcMcaA1tZSa+1hjDWOqqrL8qcpSyllCKAUhZpQSRhShrbWutAaXUWmtba533lFKYUsoYQoQQhZbRWmtqa8pFSnlFKYUQgghpJRSCmFk/Kr89Pz85PnOCmlCmGM8Szn/fqf//Kfn+lfp1RXk1oSyrlzKf2fY2y2X2oFyhvvXvvb4T34JRjY4wJdyil1FrrWmtvbGwcHR2d7z3zHvPEsm1ba63dbjdMT0+r1SqnDJIZpa2aJlmWNMdYYKaWWA1hba2WwAAghrJQy1lrnAHD0aJrvfW+/wtAfvuYrd/8bAAAAAElFTkSuQmCC"
             />
           ) : (
@@ -675,7 +675,7 @@ export default function StoragePage() {
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           {/* 上传进度统计 */}
           {(fileUploadList.length > 0 || dirUploadList.length > 0) && (
-            <div style={{ padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
+            <div style={{ padding: '12px', background: '#f5f5f5', borderRadius: 8 }}>
               <Space direction="vertical" style={{ width: '100%' }} size="small">
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Text>总文件数: {fileUploadList.length + dirUploadList.length}</Text>

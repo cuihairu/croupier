@@ -299,7 +299,7 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
                   style={{
                     backgroundColor: '#f5f5f5',
                     padding: 12,
-                    borderRadius: 4,
+                    borderRadius: 8,
                     fontSize: '12px',
                   }}
                 >
@@ -315,7 +315,7 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
                   style={{
                     backgroundColor: '#f5f5f5',
                     padding: 12,
-                    borderRadius: 4,
+                    borderRadius: 8,
                     fontSize: '12px',
                   }}
                 >

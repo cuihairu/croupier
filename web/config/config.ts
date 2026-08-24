@@ -110,7 +110,11 @@ export default defineConfig({
   antd: {
     theme: {
       token: {
-        borderRadius: 4,
+        // 全局统一圆角基线：控件 8px。容器级（卡片/弹窗等）用
+        // borderRadiusLG=12，避免与控件同值显扁；global.less 不再
+        // 逐组件覆盖圆角，样式只从这里出。
+        borderRadius: 8,
+        borderRadiusLG: 12,
       },
     },
   },

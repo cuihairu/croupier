@@ -1,4 +1,4 @@
-import { Form, Select, Space, Switch, Tag, Typography } from 'antd';
+import { Card, Col, Form, Row, Select, Space, Switch, Tag, Typography } from 'antd';
 import type { FormFieldSpec, FormPresentationSpec, FormWidget } from '@/types/dashboard';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
 
@@ -51,10 +51,11 @@ export default function FormPresentationEditor({
         字段来自函数 JSON Schema；这里只调整展示，不改变输入结构、binding 或 selector。
       </Text>
       <Form layout="vertical" disabled={readonly}>
-        <Form.Item label="布局">
+        <Form.Item label="布局" style={{ marginBottom: 0 }}>
           <Select
             value={value.layout || 'vertical'}
             onChange={(layout) => onChange({ ...value, layout })}
+            style={{ maxWidth: 200 }}
             options={[
               { value: 'vertical', label: '纵向' },
               { value: 'horizontal', label: '横向' },
@@ -68,48 +69,63 @@ export default function FormPresentationEditor({
         <Tag>Schema 未生成可配置字段</Tag>
       ) : (
         fields.map((field, index) => (
-          <Form
+          <Card
             key={field.key}
-            layout="inline"
-            disabled={readonly}
-            style={{ alignItems: 'center' }}
+            size="small"
+            title={
+              <Space size={12} wrap>
+                <Text code>{field.key}</Text>
+                <Select
+                  size="small"
+                  allowClear
+                  placeholder="组件"
+                  value={field.widget}
+                  style={{ width: 110 }}
+                  options={widgetOptions}
+                  onChange={(widget) => applyField(index, { widget })}
+                />
+                <Space size={4}>
+                  <Text type="secondary">可见</Text>
+                  <Switch
+                    size="small"
+                    checked={field.visible !== false}
+                    onChange={(visible) => applyField(index, { visible })}
+                  />
+                </Space>
+                <Space size={4}>
+                  <Text type="secondary">禁用</Text>
+                  <Switch
+                    size="small"
+                    checked={Boolean(field.disabled)}
+                    onChange={(disabled) => applyField(index, { disabled })}
+                  />
+                </Space>
+              </Space>
+            }
           >
-            <Form.Item label={<Text code>{field.key}</Text>}>
-              <LocalizedTextEditor
-                value={field.label}
-                placeholder="字段标签"
-                onChange={(label) => applyField(index, { label })}
-              />
-            </Form.Item>
-            <Form.Item label="组件">
-              <Select
-                allowClear
-                value={field.widget}
-                style={{ width: 120 }}
-                options={widgetOptions}
-                onChange={(widget) => applyField(index, { widget })}
-              />
-            </Form.Item>
-            <Form.Item label="占位">
-              <LocalizedTextEditor
-                value={field.placeholder}
-                placeholder="占位提示"
-                onChange={(placeholder) => applyField(index, { placeholder })}
-              />
-            </Form.Item>
-            <Form.Item label="可见">
-              <Switch
-                checked={field.visible !== false}
-                onChange={(visible) => applyField(index, { visible })}
-              />
-            </Form.Item>
-            <Form.Item label="禁用">
-              <Switch
-                checked={Boolean(field.disabled)}
-                onChange={(disabled) => applyField(index, { disabled })}
-              />
-            </Form.Item>
-          </Form>
+            <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+              <Row gutter={12}>
+                <Col span={12}>
+                  <Form.Item label="标签" style={{ marginBottom: 0 }}>
+                    <LocalizedTextEditor
+                      value={field.label}
+                      placeholder="字段标签"
+                      onChange={(label) => applyField(index, { label })}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="占位" style={{ marginBottom: 0 }}>
+                    <LocalizedTextEditor
+                      value={field.placeholder}
+                      placeholder="占位提示"
+                      onChange={(placeholder) => applyField(index, { placeholder })}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+          </Card>
         ))
       )}
     </Space>

@@ -36,7 +36,7 @@ function EntryCard({ title, description, hint, icon, actionLabel, path, tone }: 
             style={{
               width: 44,
               height: 44,
-              borderRadius: 14,
+              borderRadius: 12,
               display: 'grid',
               placeItems: 'center',
               background: tone,

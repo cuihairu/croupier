@@ -1,13 +1,12 @@
 import React from 'react';
-import { Alert, Badge, Card, Space, Typography } from 'antd';
+import { Alert, Badge, Card, Space, theme as antdTheme, Typography } from 'antd';
 
+// 圆角统一引用 antd token（config.ts borderRadius=8 / borderRadiusLG=12），
+// 不再自造独立数值，避免同屏多套圆角。
 export const DASHBOARD_PAGE_TOKENS = {
   cardPadding: 20,
   compactCardPadding: 12,
   heroCardPadding: 24,
-  cardRadius: 16,
-  compactRadius: 12,
-  chipRadius: 999,
   sectionGap: 16,
   itemGap: 10,
   mutedTextSize: 12,
@@ -34,6 +33,7 @@ export function SummaryOverview({
   hint?: React.ReactNode;
   hintType?: 'success' | 'info' | 'warning' | 'error';
 }) {
+  const { token } = antdTheme.useToken();
   return (
     <Card
       styles={{
@@ -60,7 +60,7 @@ export function SummaryOverview({
                 gap: 8,
                 minHeight: 36,
                 padding: '6px 12px',
-                borderRadius: DASHBOARD_PAGE_TOKENS.chipRadius,
+                borderRadius: token.borderRadius,
                 background: DASHBOARD_PAGE_TOKENS.softSurface,
               }}
             >
@@ -118,13 +118,14 @@ export function StandardFilterBar({
   controls: React.ReactNode;
   resultText?: React.ReactNode;
 }) {
+  const { token } = antdTheme.useToken();
   return (
     <Space
       style={{
         width: '100%',
         justifyContent: 'space-between',
         padding: DASHBOARD_PAGE_TOKENS.compactCardPadding,
-        borderRadius: DASHBOARD_PAGE_TOKENS.compactRadius,
+        borderRadius: token.borderRadiusLG,
         background: DASHBOARD_PAGE_TOKENS.filterSurface,
       }}
       wrap

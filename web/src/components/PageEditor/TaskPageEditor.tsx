@@ -164,27 +164,8 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
             size="small"
             style={{ marginBottom: 8 }}
             title={
-              <Space>
+              <Space size={12} wrap>
                 <Text code>{field.key}</Text>
-                <Tag>{field.dataType}</Tag>
-              </Space>
-            }
-          >
-            <Form layout="inline" disabled={readonly}>
-              <Form.Item label="标题">
-                <LocalizedTextEditor
-                  size="small"
-                  style={{ minWidth: 220 }}
-                  value={field.title}
-                  onChange={(title) => {
-                    const fields = (value.resultView?.fields || []).map((current, currentIndex) =>
-                      currentIndex === index ? { ...current, title } : current,
-                    );
-                    handleResultViewChange({ fields });
-                  }}
-                />
-              </Form.Item>
-              <Form.Item label="类型">
                 <Select
                   size="small"
                   value={field.dataType}
@@ -194,13 +175,27 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
                     );
                     handleResultViewChange({ fields });
                   }}
-                  style={{ width: 120 }}
+                  style={{ width: 110 }}
                   options={[
                     { value: 'string', label: '字符串' },
                     { value: 'number', label: '数字' },
                     { value: 'boolean', label: '布尔' },
                     { value: 'datetime', label: '日期时间' },
                   ]}
+                />
+              </Space>
+            }
+          >
+            <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+              <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                <LocalizedTextEditor
+                  value={field.title}
+                  onChange={(title) => {
+                    const fields = (value.resultView?.fields || []).map((current, currentIndex) =>
+                      currentIndex === index ? { ...current, title } : current,
+                    );
+                    handleResultViewChange({ fields });
+                  }}
                 />
               </Form.Item>
             </Form>

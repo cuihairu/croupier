@@ -259,7 +259,7 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
       {/* Parameters Schema */}
       {func.params && !compact && (
         <Card title="参数定义" size="default">
-          <pre style={{ backgroundColor: '#f5f5f5', padding: 16, borderRadius: 6 }}>
+          <pre style={{ backgroundColor: '#f5f5f5', padding: 16, borderRadius: 8 }}>
             {JSON.stringify(func.params, null, 2)}
           </pre>
         </Card>
