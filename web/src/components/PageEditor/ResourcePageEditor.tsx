@@ -27,6 +27,7 @@ import {
 import {
   PlusOutlined,
   DeleteOutlined,
+  HolderOutlined,
   SettingOutlined,
   TableOutlined,
   FormOutlined,
@@ -35,6 +36,7 @@ import {
 import type { ResourcePageSpec, ListViewSpec, ColumnSpec, ActionSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
+import { SortableList } from '@/components/SortableList';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -240,68 +242,82 @@ export default function ResourcePageEditor({
           </Space>
         </div>
 
-        {value.listView?.columns?.map((column, index) => (
-          <Card
-            key={column.key}
-            size="small"
-            style={{ marginBottom: 8 }}
-            title={
-              <Space size={12} wrap>
-                <Text code>{column.key}</Text>
-                <Select
-                  size="small"
-                  value={column.dataType}
-                  onChange={(dataType) => handleColumnChange(index, { dataType })}
-                  style={{ width: 100 }}
-                  options={[
-                    { value: 'string', label: '字符串' },
-                    { value: 'number', label: '数字' },
-                    { value: 'boolean', label: '布尔' },
-                    { value: 'date', label: '日期' },
-                    { value: 'datetime', label: '日期时间' },
-                    { value: 'enum', label: '枚举' },
-                  ]}
-                />
-                <Space size={4}>
-                  <Text type="secondary">宽度</Text>
-                  <InputNumber
-                    size="small"
-                    value={column.width}
-                    onChange={(width) => handleColumnChange(index, { width: width || undefined })}
-                    style={{ width: 72 }}
-                  />
-                </Space>
-                <Space size={4}>
-                  <Text type="secondary">可见</Text>
-                  <Switch
-                    size="small"
-                    checked={column.visible !== false}
-                    onChange={(visible) => handleColumnChange(index, { visible })}
-                  />
-                </Space>
-              </Space>
-            }
-            extra={
-              !readonly && (
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleDeleteColumn(index)}
-                />
-              )
-            }
+        {(value.listView?.columns?.length || 0) > 0 ? (
+          <SortableList
+            items={value.listView?.columns || []}
+            getKey={(column) => column.key}
+            onReorder={(columns) => handleListViewChange({ columns })}
           >
-            <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-              <Form.Item label="标题" style={{ marginBottom: 0 }}>
-                <LocalizedTextEditor
-                  value={column.title}
-                  onChange={(title) => handleColumnChange(index, { title })}
-                />
-              </Form.Item>
-            </Form>
-          </Card>
-        ))}
+            {(column, index, dragHandleProps) => (
+              <Card
+                size="small"
+                style={{ marginBottom: 8 }}
+                title={
+                  <Space size={12} wrap>
+                    {!readonly && (
+                      <span {...dragHandleProps}>
+                        <HolderOutlined />
+                      </span>
+                    )}
+                    <Text code>{column.key}</Text>
+                    <Select
+                      size="small"
+                      value={column.dataType}
+                      onChange={(dataType) => handleColumnChange(index, { dataType })}
+                      style={{ width: 100 }}
+                      options={[
+                        { value: 'string', label: '字符串' },
+                        { value: 'number', label: '数字' },
+                        { value: 'boolean', label: '布尔' },
+                        { value: 'date', label: '日期' },
+                        { value: 'datetime', label: '日期时间' },
+                        { value: 'enum', label: '枚举' },
+                      ]}
+                    />
+                    <Space size={4}>
+                      <Text type="secondary">宽度</Text>
+                      <InputNumber
+                        size="small"
+                        value={column.width}
+                        onChange={(width) =>
+                          handleColumnChange(index, { width: width || undefined })
+                        }
+                        style={{ width: 72 }}
+                      />
+                    </Space>
+                    <Space size={4}>
+                      <Text type="secondary">可见</Text>
+                      <Switch
+                        size="small"
+                        checked={column.visible !== false}
+                        onChange={(visible) => handleColumnChange(index, { visible })}
+                      />
+                    </Space>
+                  </Space>
+                }
+                extra={
+                  !readonly && (
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => handleDeleteColumn(index)}
+                    />
+                  )
+                }
+              >
+                <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+                  <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                    <LocalizedTextEditor
+                      value={column.title}
+                      onChange={(title) => handleColumnChange(index, { title })}
+                    />
+                  </Form.Item>
+                </Form>
+              </Card>
+            )}
+          </SortableList>
+        ) : null}
       </Panel>
 
       {/* 操作配置 */}

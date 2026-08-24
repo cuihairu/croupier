@@ -10,6 +10,7 @@ import { Button, Card, Collapse, Form, Input, Select, Space, Switch, Tag, Typogr
 import {
   BarChartOutlined,
   DeleteOutlined,
+  HolderOutlined,
   LineChartOutlined,
   PlusOutlined,
   ProfileOutlined,
@@ -18,6 +19,7 @@ import {
 import type { ChartSpec, DimensionSpec, MetricSpec, ReportPageSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
+import { SortableList } from '@/components/SortableList';
 import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
@@ -131,48 +133,62 @@ export default function ReportPageEditor({
               <Text strong>维度</Text>
             </Space>
             <Text type="secondary">维度 key 来自已审核的报表语义，页面只调整展示文本和类型。</Text>
-            {value.dataset.dimensions.map((dimension, index) => (
-              <Card
-                key={dimension.key}
-                size="small"
-                style={{ marginBottom: 8 }}
-                title={
-                  <Space size={12} wrap>
-                    <Text code>{dimension.key}</Text>
-                    <Select
-                      size="small"
-                      value={dimension.dataType}
-                      onChange={(dataType) =>
-                        handleDatasetChange({
-                          dimensions: updateDimension(value.dataset.dimensions, index, {
-                            dataType,
-                          }),
-                        })
-                      }
-                      style={{ width: 100 }}
-                      options={[
-                        { value: 'string', label: '字符串' },
-                        { value: 'number', label: '数字' },
-                        { value: 'date', label: '日期' },
-                      ]}
-                    />
-                  </Space>
-                }
+            {value.dataset.dimensions.length > 0 ? (
+              <SortableList
+                items={value.dataset.dimensions}
+                getKey={(dimension) => dimension.key}
+                onReorder={(dimensions) => handleDatasetChange({ dimensions })}
               >
-                <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-                  <Form.Item label="标题" style={{ marginBottom: 0 }}>
-                    <LocalizedTextEditor
-                      value={dimension.title}
-                      onChange={(title) =>
-                        handleDatasetChange({
-                          dimensions: updateDimension(value.dataset.dimensions, index, { title }),
-                        })
-                      }
-                    />
-                  </Form.Item>
-                </Form>
-              </Card>
-            ))}
+                {(dimension, index, dragHandleProps) => (
+                  <Card
+                    size="small"
+                    style={{ marginBottom: 8 }}
+                    title={
+                      <Space size={12} wrap>
+                        {!readonly && (
+                          <span {...dragHandleProps}>
+                            <HolderOutlined />
+                          </span>
+                        )}
+                        <Text code>{dimension.key}</Text>
+                        <Select
+                          size="small"
+                          value={dimension.dataType}
+                          onChange={(dataType) =>
+                            handleDatasetChange({
+                              dimensions: updateDimension(value.dataset.dimensions, index, {
+                                dataType,
+                              }),
+                            })
+                          }
+                          style={{ width: 100 }}
+                          options={[
+                            { value: 'string', label: '字符串' },
+                            { value: 'number', label: '数字' },
+                            { value: 'date', label: '日期' },
+                          ]}
+                        />
+                      </Space>
+                    }
+                  >
+                    <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+                      <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                        <LocalizedTextEditor
+                          value={dimension.title}
+                          onChange={(title) =>
+                            handleDatasetChange({
+                              dimensions: updateDimension(value.dataset.dimensions, index, {
+                                title,
+                              }),
+                            })
+                          }
+                        />
+                      </Form.Item>
+                    </Form>
+                  </Card>
+                )}
+              </SortableList>
+            ) : null}
           </div>
 
           <div>
@@ -180,65 +196,77 @@ export default function ReportPageEditor({
               <Text strong>指标</Text>
             </Space>
             <Text type="secondary">指标 key 来自已审核的报表语义，页面只调整展示格式。</Text>
-            {value.dataset.metrics.map((metric, index) => (
-              <Card
-                key={metric.key}
-                size="small"
-                style={{ marginBottom: 8 }}
-                title={
-                  <Space size={12} wrap>
-                    <Text code>{metric.key}</Text>
-                    <Select
-                      size="small"
-                      value={metric.aggType}
-                      onChange={(aggType) =>
-                        handleDatasetChange({
-                          metrics: updateMetric(value.dataset.metrics, index, { aggType }),
-                        })
-                      }
-                      style={{ width: 90 }}
-                      options={[
-                        { value: 'sum', label: 'sum' },
-                        { value: 'avg', label: 'avg' },
-                        { value: 'count', label: 'count' },
-                        { value: 'min', label: 'min' },
-                        { value: 'max', label: 'max' },
-                      ]}
-                    />
-                    <Select
-                      size="small"
-                      value={metric.format}
-                      allowClear
-                      placeholder="格式"
-                      onChange={(format) =>
-                        handleDatasetChange({
-                          metrics: updateMetric(value.dataset.metrics, index, { format }),
-                        })
-                      }
-                      style={{ width: 100 }}
-                      options={[
-                        { value: 'number', label: 'number' },
-                        { value: 'percent', label: 'percent' },
-                        { value: 'currency', label: 'currency' },
-                      ]}
-                    />
-                  </Space>
-                }
+            {value.dataset.metrics.length > 0 ? (
+              <SortableList
+                items={value.dataset.metrics}
+                getKey={(metric) => metric.key}
+                onReorder={(metrics) => handleDatasetChange({ metrics })}
               >
-                <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-                  <Form.Item label="标题" style={{ marginBottom: 0 }}>
-                    <LocalizedTextEditor
-                      value={metric.title}
-                      onChange={(title) =>
-                        handleDatasetChange({
-                          metrics: updateMetric(value.dataset.metrics, index, { title }),
-                        })
-                      }
-                    />
-                  </Form.Item>
-                </Form>
-              </Card>
-            ))}
+                {(metric, index, dragHandleProps) => (
+                  <Card
+                    size="small"
+                    style={{ marginBottom: 8 }}
+                    title={
+                      <Space size={12} wrap>
+                        {!readonly && (
+                          <span {...dragHandleProps}>
+                            <HolderOutlined />
+                          </span>
+                        )}
+                        <Text code>{metric.key}</Text>
+                        <Select
+                          size="small"
+                          value={metric.aggType}
+                          onChange={(aggType) =>
+                            handleDatasetChange({
+                              metrics: updateMetric(value.dataset.metrics, index, { aggType }),
+                            })
+                          }
+                          style={{ width: 90 }}
+                          options={[
+                            { value: 'sum', label: 'sum' },
+                            { value: 'avg', label: 'avg' },
+                            { value: 'count', label: 'count' },
+                            { value: 'min', label: 'min' },
+                            { value: 'max', label: 'max' },
+                          ]}
+                        />
+                        <Select
+                          size="small"
+                          value={metric.format}
+                          allowClear
+                          placeholder="格式"
+                          onChange={(format) =>
+                            handleDatasetChange({
+                              metrics: updateMetric(value.dataset.metrics, index, { format }),
+                            })
+                          }
+                          style={{ width: 100 }}
+                          options={[
+                            { value: 'number', label: 'number' },
+                            { value: 'percent', label: 'percent' },
+                            { value: 'currency', label: 'currency' },
+                          ]}
+                        />
+                      </Space>
+                    }
+                  >
+                    <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+                      <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                        <LocalizedTextEditor
+                          value={metric.title}
+                          onChange={(title) =>
+                            handleDatasetChange({
+                              metrics: updateMetric(value.dataset.metrics, index, { title }),
+                            })
+                          }
+                        />
+                      </Form.Item>
+                    </Form>
+                  </Card>
+                )}
+              </SortableList>
+            ) : null}
           </div>
         </Space>
       </Panel>

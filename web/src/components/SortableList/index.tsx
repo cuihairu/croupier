@@ -21,7 +21,12 @@ export interface SortableListProps<T> {
   items: T[];
   getKey: (item: T) => string;
   onReorder: (items: T[]) => void;
-  children: (item: T, index: number) => React.ReactNode;
+  /** 渲染每个条目；dragHandleProps 需挂到拖拽手柄元素上（通常配合 HolderOutlined） */
+  children: (
+    item: T,
+    index: number,
+    dragHandleProps: React.HTMLAttributes<HTMLElement>,
+  ) => React.ReactNode;
 }
 
 export interface SortableItemProps {
@@ -75,7 +80,7 @@ export function SortableList<T>({ items, getKey, onReorder, children }: Sortable
       <SortableContext items={items.map(getKey)} strategy={verticalListSortingStrategy}>
         {items.map((item, index) => (
           <SortableItem key={getKey(item)} id={getKey(item)}>
-            {(_dragHandleProps) => children(item, index)}
+            {(dragHandleProps) => children(item, index, dragHandleProps)}
           </SortableItem>
         ))}
       </SortableContext>

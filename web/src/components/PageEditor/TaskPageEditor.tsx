@@ -7,10 +7,16 @@
 
 import React, { useCallback, useState } from 'react';
 import { Card, Collapse, Form, Select, Space, Switch, Tag, Typography } from 'antd';
-import { FileTextOutlined, ProfileOutlined, ScheduleOutlined } from '@ant-design/icons';
+import {
+  FileTextOutlined,
+  HolderOutlined,
+  ProfileOutlined,
+  ScheduleOutlined,
+} from '@ant-design/icons';
 import type { ResultViewSpec, TaskPageSpec, TaskViewSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
+import { SortableList } from '@/components/SortableList';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -158,49 +164,63 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
       >
         <Text type="secondary">结果字段来自已发布输出映射；这里只调整展示标题和格式。</Text>
 
-        {value.resultView?.fields?.map((field, index) => (
-          <Card
-            key={field.key}
-            size="small"
-            style={{ marginBottom: 8 }}
-            title={
-              <Space size={12} wrap>
-                <Text code>{field.key}</Text>
-                <Select
-                  size="small"
-                  value={field.dataType}
-                  onChange={(dataType) => {
-                    const fields = (value.resultView?.fields || []).map((current, currentIndex) =>
-                      currentIndex === index ? { ...current, dataType } : current,
-                    );
-                    handleResultViewChange({ fields });
-                  }}
-                  style={{ width: 110 }}
-                  options={[
-                    { value: 'string', label: '字符串' },
-                    { value: 'number', label: '数字' },
-                    { value: 'boolean', label: '布尔' },
-                    { value: 'datetime', label: '日期时间' },
-                  ]}
-                />
-              </Space>
-            }
+        {value.resultView && (value.resultView.fields?.length || 0) > 0 ? (
+          <SortableList
+            items={value.resultView.fields || []}
+            getKey={(field) => field.key}
+            onReorder={(fields) => handleResultViewChange({ fields })}
           >
-            <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-              <Form.Item label="标题" style={{ marginBottom: 0 }}>
-                <LocalizedTextEditor
-                  value={field.title}
-                  onChange={(title) => {
-                    const fields = (value.resultView?.fields || []).map((current, currentIndex) =>
-                      currentIndex === index ? { ...current, title } : current,
-                    );
-                    handleResultViewChange({ fields });
-                  }}
-                />
-              </Form.Item>
-            </Form>
-          </Card>
-        ))}
+            {(field, index, dragHandleProps) => (
+              <Card
+                size="small"
+                style={{ marginBottom: 8 }}
+                title={
+                  <Space size={12} wrap>
+                    {!readonly && (
+                      <span {...dragHandleProps}>
+                        <HolderOutlined />
+                      </span>
+                    )}
+                    <Text code>{field.key}</Text>
+                    <Select
+                      size="small"
+                      value={field.dataType}
+                      onChange={(dataType) => {
+                        const fields = (value.resultView?.fields || []).map(
+                          (current, currentIndex) =>
+                            currentIndex === index ? { ...current, dataType } : current,
+                        );
+                        handleResultViewChange({ fields });
+                      }}
+                      style={{ width: 110 }}
+                      options={[
+                        { value: 'string', label: '字符串' },
+                        { value: 'number', label: '数字' },
+                        { value: 'boolean', label: '布尔' },
+                        { value: 'datetime', label: '日期时间' },
+                      ]}
+                    />
+                  </Space>
+                }
+              >
+                <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+                  <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                    <LocalizedTextEditor
+                      value={field.title}
+                      onChange={(title) => {
+                        const fields = (value.resultView?.fields || []).map(
+                          (current, currentIndex) =>
+                            currentIndex === index ? { ...current, title } : current,
+                        );
+                        handleResultViewChange({ fields });
+                      }}
+                    />
+                  </Form.Item>
+                </Form>
+              </Card>
+            )}
+          </SortableList>
+        ) : null}
       </Panel>
     </Collapse>
   );
