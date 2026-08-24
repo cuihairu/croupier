@@ -4,13 +4,16 @@ import {
   App,
   Button,
   Card,
+  Col,
   Collapse,
   Drawer,
   Dropdown,
   Empty,
   Modal,
   Popconfirm,
+  Row,
   Space,
+  Switch,
   Tag,
   Timeline,
   Tooltip,
@@ -101,6 +104,7 @@ export default function PageStudio() {
   const [selectedDraftRevision, setSelectedDraftRevision] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [editorVisible, setEditorVisible] = useState(false);
+  const [livePreview, setLivePreview] = useState(true);
   const [saving, setSaving] = useState(false);
   const [changeChainVisible, setChangeChainVisible] = useState(false);
   const [changeChain, setChangeChain] = useState<ChangeChain | null>(null);
@@ -606,13 +610,28 @@ export default function PageStudio() {
         )}
       </Drawer>
 
-      <Drawer
-        title="页面编辑"
-        width={900}
-        open={editorVisible}
-        onClose={() => setEditorVisible(false)}
-        extra={
+      <Modal
+        title={
           <Space>
+            <span>页面编辑</span>
+            <Text type="secondary" code>
+              {selectedPageKey || '-'}
+            </Text>
+          </Space>
+        }
+        open={editorVisible}
+        onCancel={() => setEditorVisible(false)}
+        width="100%"
+        style={{ top: 16, maxWidth: 1600, paddingBottom: 0 }}
+        styles={{ body: { height: 'calc(100vh - 120px)', overflow: 'hidden', paddingTop: 12 } }}
+        footer={
+          <Space>
+            <Switch
+              checkedChildren="预览开"
+              unCheckedChildren="预览关"
+              checked={livePreview}
+              onChange={setLivePreview}
+            />
             <Button onClick={() => setEditorVisible(false)}>取消</Button>
             <Button type="primary" loading={saving} onClick={handleSave}>
               保存
@@ -621,11 +640,35 @@ export default function PageStudio() {
         }
       >
         {selectedDraft ? (
-          <PageEditor value={selectedDraft} onChange={setSelectedDraft} />
+          <Row gutter={16} style={{ height: '100%' }}>
+            <Col
+              span={livePreview ? 13 : 24}
+              style={{ height: '100%', overflow: 'auto', paddingRight: 4 }}
+            >
+              <PageEditor value={selectedDraft} onChange={setSelectedDraft} />
+            </Col>
+            {livePreview ? (
+              <Col span={11} style={{ height: '100%', overflow: 'auto' }}>
+                <Card
+                  size="small"
+                  title="实时预览"
+                  extra={<Text type="secondary">预览不执行函数；发布后请在运行控制台执行</Text>}
+                >
+                  <PageRenderer
+                    pageSpec={selectedDraft}
+                    preview
+                    onExecute={async () => {
+                      throw new Error('Page Studio 预览不执行函数；发布后请在运行控制台执行。');
+                    }}
+                  />
+                </Card>
+              </Col>
+            ) : null}
+          </Row>
         ) : (
           <Empty description="请选择页面" />
         )}
-      </Drawer>
+      </Modal>
 
       <Drawer
         title="版本历史"

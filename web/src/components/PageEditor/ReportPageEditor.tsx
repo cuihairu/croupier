@@ -17,6 +17,7 @@ import {
 } from '@ant-design/icons';
 import type { ChartSpec, DimensionSpec, MetricSpec, ReportPageSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
+import LocalizedTextEditor from '@/components/LocalizedTextEditor';
 import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
@@ -139,14 +140,13 @@ export default function ReportPageEditor({
               >
                 <Form layout="inline" disabled={readonly}>
                   <Form.Item label="标题">
-                    <Input
+                    <LocalizedTextEditor
                       size="small"
-                      value={localizedText(dimension.title, 'zh-CN', '')}
-                      onChange={(event) =>
+                      style={{ minWidth: 220 }}
+                      value={dimension.title}
+                      onChange={(title) =>
                         handleDatasetChange({
-                          dimensions: updateDimension(value.dataset.dimensions, index, {
-                            title: { ...dimension.title, 'zh-CN': event.target.value },
-                          }),
+                          dimensions: updateDimension(value.dataset.dimensions, index, { title }),
                         })
                       }
                     />
@@ -189,14 +189,13 @@ export default function ReportPageEditor({
               >
                 <Form layout="inline" disabled={readonly}>
                   <Form.Item label="标题">
-                    <Input
+                    <LocalizedTextEditor
                       size="small"
-                      value={localizedText(metric.title, 'zh-CN', '')}
-                      onChange={(event) =>
+                      style={{ minWidth: 220 }}
+                      value={metric.title}
+                      onChange={(title) =>
                         handleDatasetChange({
-                          metrics: updateMetric(value.dataset.metrics, index, {
-                            title: { ...metric.title, 'zh-CN': event.target.value },
-                          }),
+                          metrics: updateMetric(value.dataset.metrics, index, { title }),
                         })
                       }
                     />
@@ -293,15 +292,12 @@ export default function ReportPageEditor({
           >
             <Form layout="inline" disabled={readonly}>
               <Form.Item label="标题">
-                <Input
+                <LocalizedTextEditor
                   size="small"
-                  value={localizedText(chart.title, 'zh-CN', '')}
-                  onChange={(event) =>
-                    handleChartsChange(
-                      updateChart(value.charts || [], index, {
-                        title: { ...chart.title, 'zh-CN': event.target.value },
-                      }),
-                    )
+                  style={{ minWidth: 220 }}
+                  value={chart.title}
+                  onChange={(title) =>
+                    handleChartsChange(updateChart(value.charts || [], index, { title }))
                   }
                 />
               </Form.Item>

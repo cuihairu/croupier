@@ -15,7 +15,6 @@ import {
   Card,
   Collapse,
   Form,
-  Input,
   InputNumber,
   Switch,
   Select,
@@ -35,7 +34,7 @@ import {
 } from '@ant-design/icons';
 import type { ResourcePageSpec, ListViewSpec, ColumnSpec, ActionSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
-import { localizedText } from '@/utils/localizedText';
+import LocalizedTextEditor from '@/components/LocalizedTextEditor';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -154,14 +153,11 @@ export default function ResourcePageEditor({
                 >
                   <Form layout="inline" disabled={readonly}>
                     <Form.Item label="标题">
-                      <Input
+                      <LocalizedTextEditor
                         size="small"
-                        value={localizedText(action.title, 'zh-CN', '')}
-                        onChange={(event) =>
-                          handleActionChange(group, index, {
-                            title: { ...action.title, 'zh-CN': event.target.value },
-                          })
-                        }
+                        style={{ minWidth: 220 }}
+                        value={action.title}
+                        onChange={(title) => handleActionChange(group, index, { title })}
                       />
                     </Form.Item>
                     <Form.Item label="样式">
@@ -273,14 +269,11 @@ export default function ResourcePageEditor({
           >
             <Form layout="inline" disabled={readonly}>
               <Form.Item label="标题">
-                <Input
+                <LocalizedTextEditor
                   size="small"
-                  value={localizedText(column.title, 'zh-CN', '')}
-                  onChange={(e) =>
-                    handleColumnChange(index, {
-                      title: { ...column.title, 'zh-CN': e.target.value },
-                    })
-                  }
+                  style={{ minWidth: 220 }}
+                  value={column.title}
+                  onChange={(title) => handleColumnChange(index, { title })}
                 />
               </Form.Item>
               <Form.Item label="类型">

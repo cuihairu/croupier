@@ -6,11 +6,11 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { Card, Collapse, Form, Input, Select, Space, Switch, Tag, Typography } from 'antd';
+import { Card, Collapse, Form, Select, Space, Switch, Tag, Typography } from 'antd';
 import { FileTextOutlined, ProfileOutlined, ScheduleOutlined } from '@ant-design/icons';
 import type { ResultViewSpec, TaskPageSpec, TaskViewSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
-import { localizedText } from '@/utils/localizedText';
+import LocalizedTextEditor from '@/components/LocalizedTextEditor';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -172,14 +172,13 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
           >
             <Form layout="inline" disabled={readonly}>
               <Form.Item label="标题">
-                <Input
+                <LocalizedTextEditor
                   size="small"
-                  value={localizedText(field.title, 'zh-CN', '')}
-                  onChange={(event) => {
+                  style={{ minWidth: 220 }}
+                  value={field.title}
+                  onChange={(title) => {
                     const fields = (value.resultView?.fields || []).map((current, currentIndex) =>
-                      currentIndex === index
-                        ? { ...current, title: { ...field.title, 'zh-CN': event.target.value } }
-                        : current,
+                      currentIndex === index ? { ...current, title } : current,
                     );
                     handleResultViewChange({ fields });
                   }}

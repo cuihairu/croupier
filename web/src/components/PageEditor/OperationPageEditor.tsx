@@ -8,11 +8,11 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Collapse, Form, Input, Select, Space, Tag, Typography } from 'antd';
+import { Card, Collapse, Form, Select, Space, Tag, Typography } from 'antd';
 import { FormOutlined, CheckCircleOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { OperationPageSpec, ConfirmActionSpec, ResultViewSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
-import { localizedText } from '@/utils/localizedText';
+import LocalizedTextEditor from '@/components/LocalizedTextEditor';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -103,24 +103,16 @@ export default function OperationPageEditor({
         <Form layout="vertical" disabled={readonly}>
           {value.confirm && (
             <>
-              <Form.Item label="确认标题">
-                <Input
-                  value={localizedText(value.confirm.title, 'zh-CN', '')}
-                  onChange={(e) =>
-                    handleConfirmChange({
-                      title: { ...value.confirm?.title, 'zh-CN': e.target.value },
-                    })
-                  }
+              <Form.Item label="确认标题（多语言）">
+                <LocalizedTextEditor
+                  value={value.confirm.title}
+                  onChange={(title) => handleConfirmChange({ title })}
                 />
               </Form.Item>
-              <Form.Item label="确认描述">
-                <Input.TextArea
-                  value={localizedText(value.confirm.description, 'zh-CN', '')}
-                  onChange={(e) =>
-                    handleConfirmChange({
-                      description: { ...value.confirm?.description, 'zh-CN': e.target.value },
-                    })
-                  }
+              <Form.Item label="确认描述（多语言）">
+                <LocalizedTextEditor
+                  value={value.confirm.description}
+                  onChange={(description) => handleConfirmChange({ description })}
                 />
               </Form.Item>
             </>
@@ -160,15 +152,13 @@ export default function OperationPageEditor({
           >
             <Form layout="inline" disabled={readonly}>
               <Form.Item label="标题">
-                <Input
+                <LocalizedTextEditor
                   size="small"
-                  value={localizedText(field.title, 'zh-CN', '')}
-                  onChange={(e) => {
+                  style={{ minWidth: 260 }}
+                  value={field.title}
+                  onChange={(title) => {
                     const fields = [...(value.resultView?.fields || [])];
-                    fields[index] = {
-                      ...fields[index],
-                      title: { ...fields[index].title, 'zh-CN': e.target.value },
-                    };
+                    fields[index] = { ...fields[index], title };
                     handleResultViewChange({ fields });
                   }}
                 />
@@ -194,24 +184,16 @@ export default function OperationPageEditor({
         ))}
 
         <Form layout="vertical" disabled={readonly} style={{ marginTop: 16 }}>
-          <Form.Item label="成功消息">
-            <Input
-              value={localizedText(value.resultView?.successMessage, 'zh-CN', '')}
-              onChange={(e) =>
-                handleResultViewChange({
-                  successMessage: { ...value.resultView?.successMessage, 'zh-CN': e.target.value },
-                })
-              }
+          <Form.Item label="成功消息（多语言）">
+            <LocalizedTextEditor
+              value={value.resultView?.successMessage}
+              onChange={(successMessage) => handleResultViewChange({ successMessage })}
             />
           </Form.Item>
-          <Form.Item label="错误消息">
-            <Input
-              value={localizedText(value.resultView?.errorMessage, 'zh-CN', '')}
-              onChange={(e) =>
-                handleResultViewChange({
-                  errorMessage: { ...value.resultView?.errorMessage, 'zh-CN': e.target.value },
-                })
-              }
+          <Form.Item label="错误消息（多语言）">
+            <LocalizedTextEditor
+              value={value.resultView?.errorMessage}
+              onChange={(errorMessage) => handleResultViewChange({ errorMessage })}
             />
           </Form.Item>
         </Form>

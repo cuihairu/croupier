@@ -15,7 +15,7 @@ import ResourcePageEditor from './ResourcePageEditor';
 import OperationPageEditor from './OperationPageEditor';
 import TaskPageEditor from './TaskPageEditor';
 import ReportPageEditor from './ReportPageEditor';
-import { localizedText } from '@/utils/localizedText';
+import LocalizedTextEditor from '@/components/LocalizedTextEditor';
 
 const { Text } = Typography;
 
@@ -97,26 +97,10 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
           locale 不提供页面显示文案。
         </Text>
         <Form layout="vertical" disabled={readonly} style={{ marginTop: 16 }}>
-          <Form.Item label="页面标题 zh-CN" required>
-            <Input
-              value={localizedText(value.title, 'zh-CN', '')}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  title: { ...value.title, 'zh-CN': event.target.value },
-                })
-              }
-            />
-          </Form.Item>
-          <Form.Item label="页面标题 en-US">
-            <Input
-              value={localizedText(value.title, 'zh-CN', '')}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  title: { ...value.title, 'en-US': event.target.value },
-                })
-              }
+          <Form.Item label="页面标题（多语言）" required>
+            <LocalizedTextEditor
+              value={value.title}
+              onChange={(title) => onChange({ ...value, title })}
             />
           </Form.Item>
           <Form.Item label="分类 key" required>
@@ -130,32 +114,10 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
               }
             />
           </Form.Item>
-          <Form.Item label="分类标题 zh-CN" required>
-            <Input
-              value={localizedText(category.labels, 'zh-CN', '')}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  category: {
-                    ...category,
-                    labels: { ...category.labels, 'zh-CN': event.target.value },
-                  },
-                })
-              }
-            />
-          </Form.Item>
-          <Form.Item label="分类标题 en-US">
-            <Input
-              value={localizedText(category.labels, 'zh-CN', '')}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  category: {
-                    ...category,
-                    labels: { ...category.labels, 'en-US': event.target.value },
-                  },
-                })
-              }
+          <Form.Item label="分类标题（多语言）" required>
+            <LocalizedTextEditor
+              value={category.labels}
+              onChange={(labels) => onChange({ ...value, category: { ...category, labels } })}
             />
           </Form.Item>
           <Form.Item label="页面排序">
