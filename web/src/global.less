@@ -145,6 +145,16 @@ ol {
   border-bottom-color: rgba(226, 232, 240, 0.85);
 }
 
+/* RJSF ObjectField/ArrayField 模板用原生 fieldset 分组（含根对象），
+   浏览器默认 groove 边框会在预览/发布页渲染成外圈黑线，重置掉。
+   antd 6 自身不渲染 fieldset，全站仅 RJSF 使用，重置安全。 */
+form fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
 @media (max-width: 768px) {
   .ant-pro-page-container-warp {
     margin-inline: 8px;
