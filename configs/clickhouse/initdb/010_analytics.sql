@@ -4,7 +4,7 @@
 --
 -- minute_online: HLL minute-level online counts, summed per (game, env, minute).
 -- daily_users / daily_revenue: worker rewrites the current day's row every
--- flush with version = flush timestamp; ReplacingMergeTree keeps the latest.
+-- flush with version = unix-seconds timestamp; ReplacingMergeTree keeps the max.
 
 CREATE TABLE IF NOT EXISTS analytics.minute_online (
     m        DateTime,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS analytics.daily_users (
     env       LowCardinality(String),
     dau       UInt64,
     new_users UInt64,
-    version   String
+    version   UInt64
 ) ENGINE = ReplacingMergeTree
 ORDER BY (game_id, env, d, version);
 
@@ -31,6 +31,6 @@ CREATE TABLE IF NOT EXISTS analytics.daily_revenue (
     revenue_cents UInt64,
     refunds_cents UInt64,
     failed        UInt64,
-    version       String
+    version       UInt64
 ) ENGINE = ReplacingMergeTree
 ORDER BY (game_id, env, d, version);

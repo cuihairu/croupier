@@ -71,13 +71,18 @@ for ddl in configs/clickhouse/initdb/001_init.sql configs/clickhouse/initdb/010_
 done
 ok "analytics tables created (initdb 001 + 010)"
 
-# --- 3. Build worker ---
-echo "Building analytics-worker..."
-if ! go build -o bin/analytics-worker ./cmd/analytics-worker 2>&1; then
-  fail "build analytics-worker"
-  docker compose -f "$COMPOSE_FILE" down; exit 1
+# --- 3. Build worker (or reuse a prebuilt binary via WORKER_BIN) ---
+if [ -n "${WORKER_BIN:-}" ] && [ -x "$WORKER_BIN" ]; then
+  echo "Using prebuilt worker: $WORKER_BIN"
+  mkdir -p bin && cp "$WORKER_BIN" bin/analytics-worker
+else
+  echo "Building analytics-worker..."
+  if ! go build -o bin/analytics-worker ./cmd/analytics-worker 2>&1; then
+    fail "build analytics-worker"
+    docker compose -f "$COMPOSE_FILE" down; exit 1
+  fi
 fi
-ok "analytics-worker built"
+ok "analytics-worker ready"
 
 # --- 4. Start worker (background) ---
 export CLICKHOUSE_DSN="clickhouse://localhost:9000/analytics"
@@ -126,11 +131,14 @@ def xadd(stream, obj):
         sys.exit(1)
     print(r.stdout.strip())
 
+import time as _time
+_now = _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime())
 xadd('analytics:events', {
     'game_id': 'e2e-game', 'env': 'dev', 'event': 'login',
     'user_id': 'test-user', 'session_id': 's1',
     'channel': 'direct', 'platform': 'linux', 'country': 'US',
     'event_id': str(uuid.uuid4()),
+    'ts': _now,
     'props': {'action': 'login'}
 })
 xadd('analytics:events', {
@@ -138,6 +146,7 @@ xadd('analytics:events', {
     'user_id': 'agg-user', 'session_id': 's2',
     'channel': 'direct', 'platform': 'linux', 'country': 'US',
     'event_id': str(uuid.uuid4()),
+    'ts': _now,
     'props': {}
 })
 xadd('analytics:events', {
@@ -151,7 +160,8 @@ xadd('analytics:payments', {
     'game_id': 'e2e-game', 'env': 'dev', 'user_id': 'test-user',
     'order_id': 'ORD-001', 'amount_cents': 999, 'currency': 'USD',
     'status': 'success', 'channel': 'direct', 'platform': 'linux',
-    'country': 'US', 'region': 'us-west', 'city': 'SF', 'product_id': 'sword'
+    'country': 'US', 'region': 'us-west', 'city': 'SF', 'product_id': 'sword',
+    'ts': _now
 })
 "
 if [ $? -ne 0 ]; then
@@ -213,7 +223,16 @@ else
 fi
 
 # Verify aggregate tables (minute online / daily users / daily revenue).
-# Worker flushes aggregates on the same 15s batch cycle as detail rows.
+# minute_online only flushes minutes that have fully elapsed (t < nowMin),
+# so wait for the next minute boundary (+ one 15s flush cycle) before
+# asserting; otherwise the test flakes depending on wall-clock position.
+echo "Waiting for minute boundary + flush cycle (up to 80s)..."
+python3 - <<'PYEOF'
+import time
+now = time.time()
+wait = 60 - (now % 60) + 20
+time.sleep(min(wait, 80))
+PYEOF
 ONLINE_COUNT=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
   "SELECT count() FROM analytics.minute_online WHERE game_id = 'e2e-game'" 2>/dev/null || echo "0")
 if [ "$ONLINE_COUNT" -ge 1 ]; then
@@ -228,6 +247,8 @@ if [ "$DAU_COUNT" -ge 1 ]; then
   ok "daily_users aggregate (rows=$DAU_COUNT)"
 else
   fail "daily_users aggregate empty (expected >= 1 row)"
+  echo "--- worker log tail (daily_users diagnosis) ---"
+  grep -iE "daily|pfcount|ch " /tmp/e2e-analytics-worker.log | tail -10
 fi
 
 REVENUE_COUNT=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
@@ -236,6 +257,10 @@ if [ "$REVENUE_COUNT" -ge 1 ]; then
   ok "daily_revenue aggregate (rows=$REVENUE_COUNT)"
 else
   fail "daily_revenue aggregate empty (expected >= 1 row; only written for success/refunded/failed payments)"
+  echo "--- worker log tail (daily_revenue diagnosis) ---"
+  grep -iE "daily|revenue|ch " /tmp/e2e-analytics-worker.log | tail -10
+  echo "--- redis hll keys ---"
+  docker exec "$REDIS_CONTAINER" redis-cli --scan --pattern 'hll:*' | head -10
 fi
 
 # --- 8. Cleanup ---

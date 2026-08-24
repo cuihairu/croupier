@@ -12,6 +12,7 @@ import (
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 	chdriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/google/uuid"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -232,12 +233,34 @@ func asFloat(m map[string]any, k string) float64 {
 	return 0
 }
 
+// normalizeTimestamp coerces common wire formats into the ClickHouse
+// datetime layout "2006-01-02 15:04:05" expected by appendEventRow:
+// RFC3339 (bridge/E2E producers), unix seconds, and the layout itself.
+func normalizeTimestamp(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return time.Now().Format("2006-01-02 15:04:05")
+	}
+	if t, err := time.Parse(time.RFC3339, trimmed); err == nil {
+		return t.UTC().Format("2006-01-02 15:04:05")
+	}
+	if _, err := time.Parse("2006-01-02 15:04:05", trimmed); err == nil {
+		return trimmed
+	}
+	if secs, err := strconv.ParseInt(trimmed, 10, 64); err == nil && secs > 0 {
+		if secs > 1e12 { // 13+ digits: milliseconds (quick-start producers)
+			secs /= 1000
+		}
+		return time.Unix(secs, 0).UTC().Format("2006-01-02 15:04:05")
+	}
+	// Unrecognized: fall through with the raw value; ClickHouse Append will
+	// surface a parse error (and the message retries into the dead letter).
+	return trimmed
+}
+
 func (w *Worker) insertEvent(ctx context.Context, m map[string]any) error {
 	// Minimal fields; props_json stays raw
-	ts := asString(m, "ts")
-	if ts == "" {
-		ts = time.Now().Format("2006-01-02 15:04:05")
-	}
+	ts := normalizeTimestamp(asString(m, "ts"))
 	game := asString(m, "game_id")
 	env := asString(m, "env")
 	uid := asString(m, "user_id")
@@ -248,15 +271,17 @@ func (w *Worker) insertEvent(ctx context.Context, m map[string]any) error {
 	country := asString(m, "country")
 	appv := asString(m, "app_version")
 	eid := asString(m, "event_id")
+	if _, err := uuid.Parse(eid); err != nil {
+		// ClickHouse UUID column rejects empty/invalid values; producers that
+		// do not assign event ids still get a dedup-key-grade identifier.
+		eid = uuid.NewString()
+	}
 	propsBytes, _ := json.Marshal(m["props"]) // may be nil
 	return w.appendEventRow(ctx, ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes))
 }
 
 func (w *Worker) insertPayment(ctx context.Context, m map[string]any) error {
-	ts := asString(m, "ts")
-	if ts == "" {
-		ts = time.Now().Format("2006-01-02 15:04:05")
-	}
+	ts := normalizeTimestamp(asString(m, "ts"))
 	game := asString(m, "game_id")
 	env := asString(m, "env")
 	uid := asString(m, "user_id")
