@@ -132,6 +132,14 @@ export default {
   // Analytics Invocations page
   'pages.analytics.invocations.title': '函数调用分析',
 
+  // Analytics Warehouse page
+  'pages.analytics.warehouse.title': '数据仓库',
+  'pages.analytics.warehouse.disabled.title': '分析仓库未启用',
+  'pages.analytics.warehouse.disabled.description':
+    '当前部署未配置 ClickHouse 分析管道（CLICKHOUSE_DSN）。请为 Server 设置 CLICKHOUSE_DSN 并启用 analytics profile 后重试。',
+  'pages.analytics.warehouse.error.title': '数据仓库查询失败',
+  'pages.analytics.warehouse.retry': '重试',
+
   // Analytics pages
   'pages.analytics.realtime.title': '实时大屏',
   'pages.analytics.realtime.refresh': '刷新',

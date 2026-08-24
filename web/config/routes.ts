@@ -246,6 +246,12 @@ export default [
         access: 'canAnalyticsRead',
         component: './Analytics/Invocations',
       },
+      {
+        path: '/analytics/warehouse',
+        name: 'Warehouse',
+        access: 'canAnalyticsRead',
+        component: './Analytics/Warehouse',
+      },
     ],
   },
   // Ops (运维)

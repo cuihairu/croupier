@@ -3,6 +3,7 @@ package analytics
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -448,6 +449,60 @@ func (h *Handler) InvocationsList(c *gin.Context) {
 	resp, err := h.service.InvocationsList(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// warehouseError maps warehouse errors: disabled → 503, query failure → 500.
+func warehouseError(c *gin.Context, err error) {
+	if errors.Is(err, errWarehouseDisabled) {
+		response.ServiceUnavailable(c, "分析仓库未启用")
+		return
+	}
+	response.Error(c, err)
+}
+
+// WarehouseDAU handles GET /analytics/warehouse/dau.
+func (h *Handler) WarehouseDAU(c *gin.Context) {
+	var req WarehouseDAURequest
+	if err := bindAnalyticsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.WarehouseDAU(c.Request.Context(), &req)
+	if err != nil {
+		warehouseError(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// WarehouseOnline handles GET /analytics/warehouse/online.
+func (h *Handler) WarehouseOnline(c *gin.Context) {
+	var req WarehouseOnlineRequest
+	if err := bindAnalyticsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.WarehouseOnline(c.Request.Context(), &req)
+	if err != nil {
+		warehouseError(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// WarehouseRevenue handles GET /analytics/warehouse/revenue.
+func (h *Handler) WarehouseRevenue(c *gin.Context) {
+	var req WarehouseRevenueRequest
+	if err := bindAnalyticsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.WarehouseRevenue(c.Request.Context(), &req)
+	if err != nil {
+		warehouseError(c, err)
 		return
 	}
 	response.Success(c, resp)

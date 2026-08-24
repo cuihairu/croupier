@@ -64,6 +64,7 @@ export default {
   'menu.Analytics.Payments': 'Payments',
   'menu.Analytics.Levels': 'Levels',
   'menu.Analytics.Invocations': 'Invocations',
+  'menu.Analytics.Warehouse': 'Warehouse',
 
   // Support
   'menu.Support': 'Support',

@@ -137,6 +137,14 @@ export default {
   // Analytics Invocations page
   'pages.analytics.invocations.title': 'Function Invocation Analytics',
 
+  // Analytics Warehouse page
+  'pages.analytics.warehouse.title': 'Analytics Warehouse',
+  'pages.analytics.warehouse.disabled.title': 'Analytics warehouse not enabled',
+  'pages.analytics.warehouse.disabled.description':
+    'This deployment has no ClickHouse analytics pipeline configured (CLICKHOUSE_DSN). Set CLICKHOUSE_DSN on the server and enable the analytics profile, then retry.',
+  'pages.analytics.warehouse.error.title': 'Warehouse query failed',
+  'pages.analytics.warehouse.retry': 'Retry',
+
   // Analytics pages
   'pages.analytics.realtime.title': 'Real-time Dashboard',
   'pages.analytics.realtime.refresh': 'Refresh',

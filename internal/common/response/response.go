@@ -123,3 +123,10 @@ func InternalServerError(c *gin.Context, message string) {
 		"message": message,
 	})
 }
+
+func ServiceUnavailable(c *gin.Context, message string) {
+	c.JSON(http.StatusServiceUnavailable, gin.H{
+		"error":   "service_unavailable",
+		"message": message,
+	})
+}

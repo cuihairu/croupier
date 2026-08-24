@@ -478,3 +478,48 @@ export async function fetchInvocationsList(params?: AnalyticsParams) {
     params: analyticsRequestParams(params),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Warehouse (ClickHouse aggregates). 503 when the warehouse is not enabled.
+// Source: croupier/internal/api/analytics/warehouse.go
+// ---------------------------------------------------------------------------
+
+export type WarehouseDAUPoint = {
+  date: string;
+  gameId?: string;
+  env?: string;
+  dau: number;
+  newUsers: number;
+};
+
+export type WarehouseOnlinePoint = {
+  minute: string;
+  online: number;
+};
+
+export type WarehouseRevenuePoint = {
+  date: string;
+  gameId?: string;
+  env?: string;
+  revenueCents: number;
+  refundsCents: number;
+  failed: number;
+};
+
+export async function fetchWarehouseDAU(params?: AnalyticsParams) {
+  return request<{ points?: WarehouseDAUPoint[] }>('/api/v1/analytics/warehouse/dau', {
+    params: analyticsRequestParams(params),
+  });
+}
+
+export async function fetchWarehouseOnline(params?: AnalyticsParams) {
+  return request<{ points?: WarehouseOnlinePoint[] }>('/api/v1/analytics/warehouse/online', {
+    params: analyticsRequestParams(params),
+  });
+}
+
+export async function fetchWarehouseRevenue(params?: AnalyticsParams) {
+  return request<{ points?: WarehouseRevenuePoint[] }>('/api/v1/analytics/warehouse/revenue', {
+    params: analyticsRequestParams(params),
+  });
+}

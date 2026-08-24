@@ -63,6 +63,7 @@ export default {
   'menu.Analytics.Payments': '支付分析',
   'menu.Analytics.Levels': '关卡分析',
   'menu.Analytics.Invocations': '调用分析',
+  'menu.Analytics.Warehouse': '数据仓库',
 
   // 客服系统
   'menu.Support': '客服系统',

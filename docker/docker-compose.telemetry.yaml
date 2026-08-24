@@ -49,25 +49,8 @@ services:
     networks:
       - croupier-telemetry
 
-  # Grafana - 监控仪表板
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "13000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - grafana-storage:/var/lib/grafana
-      - ../configs/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ../configs/grafana/datasources:/etc/grafana/provisioning/datasources:ro
-    depends_on:
-      - prometheus
-    networks:
-      - croupier-telemetry
-
 volumes:
   prometheus-storage:
-  grafana-storage:
 
 networks:
   croupier-telemetry:
