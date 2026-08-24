@@ -414,3 +414,67 @@ export async function saveAnalyticsFilters(data: AnalyticsFilters) {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Invocation analytics (audit-based: function.invoke + page.execute)
+// Source: croupier/internal/api/analytics/invocations.go
+// ---------------------------------------------------------------------------
+
+export type InvocationsTrendPoint = {
+  bucket: string;
+  total: number;
+  failed: number;
+};
+
+export type InvocationFunctionStats = {
+  functionId: string;
+  total: number;
+  failed: number;
+  avgDurationMs: number;
+};
+
+export type InvocationsSummary = {
+  total: number;
+  failed: number;
+  successRate: number;
+  avgDurationMs: number;
+  p95DurationMs: number;
+  topFunctions: InvocationFunctionStats[];
+};
+
+export type InvocationItem = {
+  timestamp: string;
+  functionId: string;
+  actor: string;
+  outcome: string;
+  error?: string;
+  durationMs?: number;
+  traceId?: string;
+  gameId?: string;
+  env?: string;
+};
+
+export type InvocationsList = {
+  items: InvocationItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export async function fetchInvocationsSummary(params?: AnalyticsParams) {
+  return request<InvocationsSummary>('/api/v1/analytics/invocations/summary', {
+    params: analyticsRequestParams(params),
+  });
+}
+
+export async function fetchInvocationsTrend(params?: AnalyticsParams) {
+  return request<{ points?: InvocationsTrendPoint[] }>('/api/v1/analytics/invocations/trend', {
+    params: analyticsRequestParams(params),
+  });
+}
+
+export async function fetchInvocationsList(params?: AnalyticsParams) {
+  return request<InvocationsList>('/api/v1/analytics/invocations', {
+    params: analyticsRequestParams(params),
+  });
+}

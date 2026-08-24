@@ -489,6 +489,10 @@ func registerAnalyticsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 
 	// Overview 模块
 	g.GET("/overview", analyticsHandler.Overview)
+	// Invocation analytics (audit_records aggregation)
+	g.GET("/invocations", analyticsHandler.InvocationsList)
+	g.GET("/invocations/trend", analyticsHandler.InvocationsTrend)
+	g.GET("/invocations/summary", analyticsHandler.InvocationsSummary)
 	g.GET("/realtime", analyticsHandler.Realtime)
 	g.GET("/realtime/series", analyticsHandler.RealtimeSeries)
 	g.POST("/ingest", analyticsHandler.Ingest)

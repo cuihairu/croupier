@@ -129,6 +129,9 @@ export default {
   // Analytics Overview page
   'pages.analytics.overview.title': '概览 KPI',
 
+  // Analytics Invocations page
+  'pages.analytics.invocations.title': '函数调用分析',
+
   // Analytics pages
   'pages.analytics.realtime.title': '实时大屏',
   'pages.analytics.realtime.refresh': '刷新',

@@ -62,6 +62,7 @@ export default {
   'menu.Analytics.Behavior': '行为分析',
   'menu.Analytics.Payments': '支付分析',
   'menu.Analytics.Levels': '关卡分析',
+  'menu.Analytics.Invocations': '调用分析',
 
   // 客服系统
   'menu.Support': '客服系统',

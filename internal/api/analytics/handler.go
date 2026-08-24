@@ -407,3 +407,48 @@ func (h *Handler) LevelsMaps(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// InvocationsTrend handles GET /analytics/invocations/trend.
+func (h *Handler) InvocationsTrend(c *gin.Context) {
+	var req InvocationsTrendRequest
+	if err := bindAnalyticsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.InvocationsTrend(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// InvocationsSummary handles GET /analytics/invocations/summary.
+func (h *Handler) InvocationsSummary(c *gin.Context) {
+	var req InvocationsSummaryRequest
+	if err := bindAnalyticsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.InvocationsSummary(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// InvocationsList handles GET /analytics/invocations.
+func (h *Handler) InvocationsList(c *gin.Context) {
+	var req InvocationsListRequest
+	if err := bindAnalyticsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.InvocationsList(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

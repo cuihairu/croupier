@@ -134,6 +134,9 @@ export default {
   // Analytics Overview page
   'pages.analytics.overview.title': 'Analytics Overview',
 
+  // Analytics Invocations page
+  'pages.analytics.invocations.title': 'Function Invocation Analytics',
+
   // Analytics pages
   'pages.analytics.realtime.title': 'Real-time Dashboard',
   'pages.analytics.realtime.refresh': 'Refresh',

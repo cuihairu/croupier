@@ -240,6 +240,12 @@ export default [
         access: 'canAnalyticsRead',
         component: './Analytics/Levels',
       },
+      {
+        path: '/analytics/invocations',
+        name: 'Invocations',
+        access: 'canAnalyticsRead',
+        component: './Analytics/Invocations',
+      },
     ],
   },
   // Ops (运维)

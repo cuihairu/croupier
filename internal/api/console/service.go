@@ -102,6 +102,7 @@ func (s *Service) Page(ctx context.Context, req *ConsolePageRequest) (*ConsolePa
 }
 
 func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBindingRequest) (resp *ConsoleExecuteBindingResponse, err error) {
+	executeStartedAt := time.Now()
 	if err := s.requireConsoleExecute(ctx); err != nil {
 		return nil, err
 	}
@@ -137,7 +138,7 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, *published, binding, contract, requestID, actor)
 	defer func() {
 		finishSpan(err, result, target)
-		s.auditPageExecute(ctx, gameID, env, *published, binding, contract, requestID, target, result, err)
+		s.auditPageExecute(ctx, gameID, env, *published, binding, contract, requestID, target, result, err, time.Since(executeStartedAt).Milliseconds())
 	}()
 
 	if err := s.ensureBindingFresh(binding, contract, functions); err != nil {
@@ -624,6 +625,7 @@ func (s *Service) auditPageExecute(
 	target string,
 	result spec.PageExecutionResult,
 	executeErr error,
+	elapsedMs int64,
 ) {
 	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil {
 		return
@@ -661,6 +663,7 @@ func (s *Service) auditPageExecute(
 		"snapshot_approval_required": contract.Approval.Required,
 		"snapshot_approval_policy":   strings.TrimSpace(contract.Approval.PolicyKey),
 		"result_kind":                string(result.Kind),
+		"elapsed_ms":                 elapsedMs,
 		"task_id":                    result.TaskID,
 		"approval_id":                result.ApprovalID,
 		"diagnostic_count":           len(result.Diagnostics),
