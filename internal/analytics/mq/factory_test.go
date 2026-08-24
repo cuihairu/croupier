@@ -2,139 +2,144 @@ package mq
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
-// TestNewFromEnv_Default 测试默认环境变量（返回 noop）
-func TestNewFromEnv_Default(t *testing.T) {
-	// 清除环境变量
-	os.Unsetenv("ANALYTICS_MQ_TYPE")
-
-	q := NewFromEnv()
-	if q == nil {
-		t.Fatal("NewFromEnv() should return non-nil Queue")
+// withMQType sets (or unsets with "") ANALYTICS_MQ_TYPE for the test and
+// restores the previous value afterwards.
+func withMQType(t *testing.T, value string) {
+	t.Helper()
+	prev, had := os.LookupEnv("ANALYTICS_MQ_TYPE")
+	if value == "" {
+		os.Unsetenv("ANALYTICS_MQ_TYPE")
+	} else {
+		os.Setenv("ANALYTICS_MQ_TYPE", value)
 	}
+	t.Cleanup(func() {
+		if had {
+			os.Setenv("ANALYTICS_MQ_TYPE", prev)
+		} else {
+			os.Unsetenv("ANALYTICS_MQ_TYPE")
+		}
+	})
+}
 
-	// 默认应该是 Noop
+// TestNewFromEnv_DefaultRedis asserts the fail-fast default: with no
+// ANALYTICS_MQ_TYPE the factory attempts redis. Against an unreachable
+// address it must return an error instead of silently degrading to noop.
+func TestNewFromEnv_DefaultRedis(t *testing.T) {
+	withMQType(t, "")
+	os.Setenv("REDIS_URL", "redis://127.0.0.1:1/0") // nothing listens here
+	t.Cleanup(func() { os.Unsetenv("REDIS_URL") })
+
+	q, err := NewFromEnv()
+	if err == nil {
+		// A reachable local Redis would make construction succeed; then a
+		// non-nil redis publisher is the correct outcome.
+		if q == nil {
+			t.Fatal("NewFromEnv() returned nil queue and nil error")
+		}
+		if _, ok := q.(*Noop); ok {
+			t.Fatal("default must not silently degrade to noop")
+		}
+		return
+	}
+	if q != nil {
+		t.Fatal("error path must return nil queue")
+	}
+	if !strings.Contains(err.Error(), "redis") {
+		t.Errorf("error should mention redis, got: %v", err)
+	}
+}
+
+// TestNewFromEnv_ExplicitNoop keeps the local-debug escape hatch.
+func TestNewFromEnv_ExplicitNoop(t *testing.T) {
+	withMQType(t, "noop")
+
+	q, err := NewFromEnv()
+	if err != nil {
+		t.Fatalf("noop must never fail: %v", err)
+	}
 	if _, ok := q.(*Noop); !ok {
-		t.Error("Default should return Noop queue")
+		t.Fatal("explicit noop should return Noop queue")
+	}
+	if err := q.PublishEvent(map[string]any{"k": "v"}); err != nil {
+		t.Errorf("noop PublishEvent should be nil, got %v", err)
 	}
 }
 
-// TestNewFromEnv_Noop 测试显式指定 noop 类型
-func TestNewFromEnv_Noop(t *testing.T) {
-	os.Setenv("ANALYTICS_MQ_TYPE", "noop")
-	defer os.Unsetenv("ANALYTICS_MQ_TYPE")
+// TestNewFromEnv_UnsupportedTypeFails asserts fail-fast on typos instead
+// of the old silent noop fallback.
+func TestNewFromEnv_UnsupportedTypeFails(t *testing.T) {
+	withMQType(t, "unsupported")
 
-	q := NewFromEnv()
+	q, err := NewFromEnv()
+	if err == nil {
+		t.Fatal("unsupported type must return an error")
+	}
+	if q != nil {
+		t.Fatal("error path must return nil queue")
+	}
+	if !strings.Contains(err.Error(), "unsupported") || !strings.Contains(err.Error(), "redis|kafka|noop") {
+		t.Errorf("error should list supported types, got: %v", err)
+	}
+}
+
+// TestNewFromEnv_CaseSensitive rejects mixed-case values (which previously
+// fell back to noop silently).
+func TestNewFromEnv_CaseSensitive(t *testing.T) {
+	for _, value := range []string{"REDIS", "Kafka", "Noop", "Redis"} {
+		withMQType(t, value)
+		q, err := NewFromEnv()
+		if err == nil {
+			t.Fatalf("type %q must be rejected (case-sensitive)", value)
+		}
+		if q != nil {
+			t.Fatalf("type %q error path must return nil queue", value)
+		}
+	}
+}
+
+// TestNewFromEnv_RedisExplicit mirrors the default path for the explicit
+// value, using an unreachable address to force the error branch.
+func TestNewFromEnv_RedisExplicit(t *testing.T) {
+	withMQType(t, "redis")
+	os.Setenv("REDIS_URL", "redis://127.0.0.1:1/0")
+	t.Cleanup(func() { os.Unsetenv("REDIS_URL") })
+
+	q, err := NewFromEnv()
+	if err == nil {
+		if q == nil {
+			t.Fatal("nil queue with nil error")
+		}
+		return // local redis reachable
+	}
+	if q != nil || !strings.Contains(err.Error(), "redis") {
+		t.Errorf("unexpected result: q=%v err=%v", q, err)
+	}
+}
+
+// TestNewFromEnv_KafkaUnreachableFails asserts kafka also fails fast on
+// unreachable brokers.
+func TestNewFromEnv_KafkaUnreachableFails(t *testing.T) {
+	withMQType(t, "kafka")
+	// kafka-go dials lazily, so construction may succeed; when it does, the
+	// queue must not be nil and must not be a silent noop.
+	q, err := NewFromEnv()
+	if err != nil {
+		if q != nil {
+			t.Fatal("error path must return nil queue")
+		}
+		if !strings.Contains(err.Error(), "kafka") {
+			t.Errorf("error should mention kafka, got: %v", err)
+		}
+		return
+	}
 	if q == nil {
-		t.Fatal("NewFromEnv() should return non-nil Queue")
+		t.Fatal("nil queue with nil error")
 	}
-
-	if _, ok := q.(*Noop); !ok {
-		t.Error("Type 'noop' should return Noop queue")
-	}
-}
-
-// TestNewFromEnv_UnsupportedType 测试不支持的类型（回退到 noop）
-func TestNewFromEnv_UnsupportedType(t *testing.T) {
-	os.Setenv("ANALYTICS_MQ_TYPE", "unsupported")
-	defer os.Unsetenv("ANALYTICS_MQ_TYPE")
-
-	q := NewFromEnv()
-	if q == nil {
-		t.Fatal("NewFromEnv() should return non-nil Queue")
-	}
-
-	// 不支持的类型应该回退到 Noop
-	if _, ok := q.(*Noop); !ok {
-		t.Error("Unsupported type should fallback to Noop")
-	}
-}
-
-// TestNewFromEnv_EmptyType 测试空字符串类型
-func TestNewFromEnv_EmptyType(t *testing.T) {
-	os.Setenv("ANALYTICS_MQ_TYPE", "")
-	defer os.Unsetenv("ANALYTICS_MQ_TYPE")
-
-	q := NewFromEnv()
-	if q == nil {
-		t.Fatal("NewFromEnv() should return non-nil Queue")
-	}
-
-	if _, ok := q.(*Noop); !ok {
-		t.Error("Empty type should return Noop queue")
-	}
-}
-
-// TestNewFromEnv_Redis_NoBuildTag 测试 Redis 类型
-func TestNewFromEnv_Redis_NoBuildTag(t *testing.T) {
-	os.Setenv("ANALYTICS_MQ_TYPE", "redis")
-	defer os.Unsetenv("ANALYTICS_MQ_TYPE")
-
-	q := NewFromEnv()
-	if q == nil {
-		t.Fatal("NewFromEnv() should return non-nil Queue")
-	}
-
-	// Redis 实现存在（不在 Noop 分支）
-	// 验证 Queue 接口方法可以调用
-	err := q.PublishEvent(map[string]any{"test": "data"})
-	// 可能成功或失败，取决于 Redis 连接，但不应该 panic
-	_ = err
-}
-
-// TestNewFromEnv_Kafka_NoBuildTag 测试 Kafka 类型
-func TestNewFromEnv_Kafka_NoBuildTag(t *testing.T) {
-	os.Setenv("ANALYTICS_MQ_TYPE", "kafka")
-	defer os.Unsetenv("ANALYTICS_MQ_TYPE")
-
-	q := NewFromEnv()
-	if q == nil {
-		t.Fatal("NewFromEnv() should return non-nil Queue")
-	}
-
-	// Kafka 可能回退到 Noop（因为没有配置）
-	// 验证 Queue 接口方法可以调用
-	err := q.PublishEvent(map[string]any{"test": "data"})
-	// 应该不 panic
-	_ = err
-}
-
-// TestNewFromEnv_CaseInsensitive 测试类型是否大小写敏感
-func TestNewFromEnv_CaseInsensitive(t *testing.T) {
-	tests := []struct {
-		name       string
-		envType    string
-		expectNoop bool
-	}{
-		{"大写 REDIS 不匹配", "REDIS", true}, // 大写不匹配小写比较，回退到 Noop
-		{"大写 KAFKA 不匹配", "KAFKA", true}, // 大写不匹配小写比较，回退到 Noop
-		{"大写 NOOP 不匹配", "NOOP", true},   // 大写不匹配小写比较，回退到 Noop
-		{"小写 noop 匹配", "noop", true},    // 匹配，返回 Noop
-		{"混合 Redis 不匹配", "Redis", true}, // 不匹配小写比较
-		{"混合 Kafka 不匹配", "Kafka", true}, // 不匹配小写比较
-		{"混合 Noop 不匹配", "Noop", true},   // 不匹配小写比较
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("ANALYTICS_MQ_TYPE", tt.envType)
-			defer os.Unsetenv("ANALYTICS_MQ_TYPE")
-
-			q := NewFromEnv()
-			if q == nil {
-				t.Fatal("NewFromEnv() should return non-nil Queue")
-			}
-
-			if tt.expectNoop {
-				if _, ok := q.(*Noop); !ok {
-					t.Error("Should return Noop for non-matching type case")
-				}
-			}
-			// 验证 Queue 接口可以调用
-			err := q.PublishEvent(map[string]any{"test": "data"})
-			_ = err // 不应该 panic
-		})
+	if _, ok := q.(*Noop); ok {
+		t.Fatal("kafka must not silently degrade to noop")
 	}
 }

@@ -137,7 +137,10 @@ func init() {
 }
 
 func runIngest() error {
-	q := mq.NewFromEnv()
+	q, err := mq.NewFromEnv()
+	if err != nil {
+		return fmt.Errorf("init analytics MQ: %w", err)
+	}
 	defer func() { _ = q.Close() }()
 
 	secret := strings.TrimSpace(sharedSecret)

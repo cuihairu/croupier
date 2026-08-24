@@ -1,35 +1,47 @@
 package mq
 
 import (
-	"log"
+	"errors"
+	"fmt"
 	"os"
 )
 
 // NewFromEnv builds a Queue based on env configuration.
-// ANALYTICS_MQ_TYPE: redis|kafka|noop (default)
-// For redis/kafka, real implementations can be added without changing callers.
-func NewFromEnv() Queue {
+//
+// ANALYTICS_MQ_TYPE: redis|kafka|noop. Defaults to redis: the ingest
+// service exists to forward events to MQ, so silently degrading to noop
+// (dropping every event) is a misconfiguration foot-gun. Explicit
+// ANALYTICS_MQ_TYPE=noop stays available for local debugging without Redis.
+//
+// Construction failures are returned as errors (fail-fast) instead of
+// silently falling back to noop.
+func NewFromEnv() (Queue, error) {
 	t := os.Getenv("ANALYTICS_MQ_TYPE")
+	if t == "" {
+		t = "redis"
+	}
 	switch t {
 	case "redis":
-		if q, err := newRedisFromEnv(); err == nil && q != nil {
-			log.Printf("[analytics-mq] redis publisher enabled")
-			return q
+		q, err := newRedisFromEnv()
+		if err != nil {
+			return nil, fmt.Errorf("analytics redis mq: %w", err)
 		}
-		log.Printf("[analytics-mq] redis requested; fallback to noop (build with -tags redis_mq to enable)")
-		return NewNoop()
+		if q == nil {
+			return nil, errors.New("analytics redis mq: nil publisher")
+		}
+		return q, nil
 	case "kafka":
-		if q, err := newKafkaFromEnv(); err == nil && q != nil {
-			return q
+		q, err := newKafkaFromEnv()
+		if err != nil {
+			return nil, fmt.Errorf("analytics kafka mq: %w", err)
 		}
-		log.Printf("[analytics-mq] kafka requested; fallback to noop")
-		return NewNoop()
+		if q == nil {
+			return nil, errors.New("analytics kafka mq: nil publisher")
+		}
+		return q, nil
+	case "noop":
+		return NewNoop(), nil
 	default:
-		if t == "" {
-			log.Printf("[analytics-mq] ANALYTICS_MQ_TYPE not set; using noop")
-		} else {
-			log.Printf("[analytics-mq] unsupported type %q; using noop", t)
-		}
-		return NewNoop()
+		return nil, fmt.Errorf("unsupported ANALYTICS_MQ_TYPE %q (supported: redis|kafka|noop)", t)
 	}
 }

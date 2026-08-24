@@ -448,6 +448,9 @@ services:
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # Explicit MQ type: the ingest service must publish to Redis Streams,
+      # never silently drop events (noop is only for local debugging).
+      ANALYTICS_MQ_TYPE: ${ANALYTICS_MQ_TYPE:-redis}
       ANALYTICS_INGEST_SECRET: ${ANALYTICS_INGEST_SECRET:-change-me}
       ANALYTICS_REDIS_STREAM_EVENTS: ${ANALYTICS_REDIS_STREAM_EVENTS:-analytics:events}
       ANALYTICS_REDIS_STREAM_PAYMENTS: ${ANALYTICS_REDIS_STREAM_PAYMENTS:-analytics:payments}

@@ -19,26 +19,37 @@ ok()   { echo -e "${GREEN}PASS${NC} — $1"; PASS=$((PASS+1)); }
 fail() { echo -e "${RED}FAIL${NC} — $1"; FAIL=$((FAIL+1)); }
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker/docker-compose.yml}"
+# Container names the script talks to via docker exec. CI gets the compose
+# defaults; hosts running the self-hosted deploy stack side by side can point
+# these at a separate compose project's containers.
+REDIS_CONTAINER="${REDIS_CONTAINER:-croupier-redis}"
+CH_CONTAINER="${CH_CONTAINER:-croupier-clickhouse}"
 
 echo "==> Analytics E2E (simplified: Redis XADD → worker → ClickHouse)"
 echo ""
 
 # --- 1. Docker-compose up (Redis + ClickHouse) ---
-echo "Starting Redis + ClickHouse..."
-docker compose -f "$COMPOSE_FILE" up -d --wait redis clickhouse 2>&1 || { fail "docker-compose up"; exit 1; }
+# SKIP_COMPOSE_UP=1 reuses already-running containers (e.g. the self-hosted
+# deploy stack) instead of starting the dev compose project.
+if [ "${SKIP_COMPOSE_UP:-0}" = "1" ]; then
+  echo "SKIP_COMPOSE_UP=1: reusing running containers ($REDIS_CONTAINER / $CH_CONTAINER)"
+else
+  echo "Starting Redis + ClickHouse..."
+  docker compose -f "$COMPOSE_FILE" up -d --wait redis clickhouse 2>&1 || { fail "docker-compose up"; exit 1; }
+fi
 
 # Verify ClickHouse is responding (HTTP port 8123 is more reliable than
 # clickhouse-client which may not be in PATH in some image variants).
 for i in $(seq 1 60); do
-  if docker exec croupier-clickhouse wget -qO- "http://localhost:8123/?query=SELECT%201" >/dev/null 2>&1; then
+  if docker exec "$CH_CONTAINER" wget -qO- "http://localhost:8123/?query=SELECT%201" >/dev/null 2>&1; then
     break
   fi
   sleep 2
 done
-if ! docker exec croupier-clickhouse wget -qO- "http://localhost:8123/?query=SELECT%201" >/dev/null 2>&1; then
+if ! docker exec "$CH_CONTAINER" wget -qO- "http://localhost:8123/?query=SELECT%201" >/dev/null 2>&1; then
   fail "ClickHouse not ready"
   echo "--- ClickHouse container logs (last 20 lines) ---"
-  docker logs croupier-clickhouse 2>&1 | tail -20
+  docker logs "$CH_CONTAINER" 2>&1 | tail -20
   docker compose -f "$COMPOSE_FILE" down; exit 1
 fi
 ok "ClickHouse ready"
@@ -48,55 +59,17 @@ sleep 3
 
 ok "Redis ready"
 
-# --- 2. Create analytics tables ---
-echo "Creating analytics tables..."
-docker exec -i croupier-clickhouse clickhouse-client --multiquery <<'SQL'
-CREATE DATABASE IF NOT EXISTS analytics;
-
-CREATE TABLE IF NOT EXISTS analytics.events (
-  event_time DateTime DEFAULT now(),
-  game_id LowCardinality(String),
-  env LowCardinality(String),
-  user_id String,
-  session_id String,
-  event LowCardinality(String),
-  channel LowCardinality(String),
-  platform LowCardinality(String),
-  country FixedString(2),
-  app_version String,
-  event_id UUID,
-  props_json String
-) ENGINE = MergeTree
-  PARTITION BY toYYYYMM(event_time)
-  ORDER BY (game_id, env, event, user_id, event_time)
-  TTL event_time + INTERVAL 6 MONTH;
-
-CREATE TABLE IF NOT EXISTS analytics.payments (
-  time DateTime DEFAULT now(),
-  game_id LowCardinality(String),
-  env LowCardinality(String),
-  user_id String,
-  order_id String,
-  amount_cents UInt64,
-  currency String,
-  status LowCardinality(String),
-  channel LowCardinality(String),
-  platform LowCardinality(String),
-  country FixedString(2),
-  region String,
-  city String,
-  product_id String,
-  reason String
-) ENGINE = MergeTree
-  PARTITION BY toYYYYMM(time)
-  ORDER BY (game_id, env, user_id, time)
-  TTL time + INTERVAL 12 MONTH;
-SQL
-if [ $? -ne 0 ]; then
-  fail "create analytics tables"
-  docker compose -f "$COMPOSE_FILE" down; exit 1
-fi
-ok "analytics tables created"
+# --- 2. Create analytics tables (single source of truth: initdb files) ---
+# Reuse configs/clickhouse/initdb/*.sql so the E2E schema can never drift
+# from what a fresh deployment bootstraps (worker INSERT column order).
+echo "Creating analytics tables from initdb files..."
+for ddl in configs/clickhouse/initdb/001_init.sql configs/clickhouse/initdb/010_analytics.sql; do
+  if ! docker exec -i croupier-clickhouse clickhouse-client --multiquery < "$ddl"; then
+    fail "apply $ddl"
+    docker compose -f "$COMPOSE_FILE" down; exit 1
+  fi
+done
+ok "analytics tables created (initdb 001 + 010)"
 
 # --- 3. Build worker ---
 echo "Building analytics-worker..."
@@ -125,7 +98,7 @@ ok "worker started (pid=$WORKER_PID)"
 echo "Waiting for worker consumer group..."
 GROUP_READY=0
 for i in $(seq 1 20); do
-  if docker exec croupier-redis redis-cli XINFO GROUPS analytics:events 2>/dev/null | grep -q "analytics-worker"; then
+  if docker exec "$REDIS_CONTAINER" redis-cli XINFO GROUPS analytics:events 2>/dev/null | grep -q "analytics-worker"; then
     GROUP_READY=1; break
   fi
   sleep 0.5
@@ -161,6 +134,13 @@ xadd('analytics:events', {
     'props': {'action': 'login'}
 })
 xadd('analytics:events', {
+    'game_id': 'e2e-game', 'env': 'dev', 'event': 'session_start',
+    'user_id': 'agg-user', 'session_id': 's2',
+    'channel': 'direct', 'platform': 'linux', 'country': 'US',
+    'event_id': str(uuid.uuid4()),
+    'props': {}
+})
+xadd('analytics:events', {
     'game_id': 'e2e-game', 'env': 'dev', 'event': 'purchase',
     'user_id': 'test-user', 'session_id': 's1',
     'channel': 'direct', 'platform': 'linux', 'country': 'US',
@@ -170,7 +150,7 @@ xadd('analytics:events', {
 xadd('analytics:payments', {
     'game_id': 'e2e-game', 'env': 'dev', 'user_id': 'test-user',
     'order_id': 'ORD-001', 'amount_cents': 999, 'currency': 'USD',
-    'status': 'paid', 'channel': 'direct', 'platform': 'linux',
+    'status': 'success', 'channel': 'direct', 'platform': 'linux',
     'country': 'US', 'region': 'us-west', 'city': 'SF', 'product_id': 'sword'
 })
 "
@@ -180,7 +160,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Verify events are in Redis stream
-EVENTS_LEN=$(docker exec croupier-redis redis-cli XLEN analytics:events 2>/dev/null || echo "0")
+EVENTS_LEN=$(docker exec "$REDIS_CONTAINER" redis-cli XLEN analytics:events 2>/dev/null || echo "0")
 if [ "$EVENTS_LEN" -ge 2 ]; then
   ok "events in Redis stream (count=$EVENTS_LEN)"
 else
@@ -199,7 +179,7 @@ sleep 25
 # --- 7. Verify in ClickHouse ---
 echo "Verifying in ClickHouse..."
 
-EVENTS_COUNT=$(docker exec croupier-clickhouse clickhouse-client --query \
+EVENTS_COUNT=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
   "SELECT count() FROM analytics.events WHERE game_id = 'e2e-game'" 2>/dev/null || echo "0")
 if [ "$EVENTS_COUNT" -ge 2 ]; then
   ok "events in ClickHouse (count=$EVENTS_COUNT)"
@@ -208,14 +188,14 @@ else
   echo "--- worker log (last 20 lines) ---"
   tail -20 /tmp/e2e-analytics-worker.log 2>/dev/null || echo "(no worker log)"
   # XReadGROUP direct test
-  XREADGROUP_OUT=$(docker exec croupier-redis redis-cli XREADGROUP GROUP analytics-worker c1 COUNT 2 STREAMS analytics:events ">" 2>&1)
+  XREADGROUP_OUT=$(docker exec "$REDIS_CONTAINER" redis-cli XREADGROUP GROUP analytics-worker c1 COUNT 2 STREAMS analytics:events ">" 2>&1)
   echo "--- XReadGROUP direct result ---"
   echo "$XREADGROUP_OUT"
   echo "--- Redis stream analytics:events (XLEN) ---"
-  docker exec croupier-redis redis-cli XLEN analytics:events 2>/dev/null || echo "(redis query failed)"
+  docker exec "$REDIS_CONTAINER" redis-cli XLEN analytics:events 2>/dev/null || echo "(redis query failed)"
 fi
 
-PAYMENTS_COUNT=$(docker exec croupier-clickhouse clickhouse-client --query \
+PAYMENTS_COUNT=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
   "SELECT count() FROM analytics.payments WHERE game_id = 'e2e-game'" 2>/dev/null || echo "0")
 if [ "$PAYMENTS_COUNT" -ge 1 ]; then
   ok "payments in ClickHouse (count=$PAYMENTS_COUNT)"
@@ -224,7 +204,7 @@ else
 fi
 
 # Verify event content
-EVENT_TYPES=$(docker exec croupier-clickhouse clickhouse-client --query \
+EVENT_TYPES=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
   "SELECT DISTINCT event FROM analytics.events WHERE game_id = 'e2e-game' ORDER BY event" 2>/dev/null | tr '\n' ',')
 if echo "$EVENT_TYPES" | grep -q "login" && echo "$EVENT_TYPES" | grep -q "purchase"; then
   ok "event types correct: $EVENT_TYPES"
@@ -232,9 +212,37 @@ else
   fail "event types wrong (got: $EVENT_TYPES)"
 fi
 
+# Verify aggregate tables (minute online / daily users / daily revenue).
+# Worker flushes aggregates on the same 15s batch cycle as detail rows.
+ONLINE_COUNT=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT count() FROM analytics.minute_online WHERE game_id = 'e2e-game'" 2>/dev/null || echo "0")
+if [ "$ONLINE_COUNT" -ge 1 ]; then
+  ok "minute_online aggregate (rows=$ONLINE_COUNT)"
+else
+  fail "minute_online aggregate empty (expected >= 1 row)"
+fi
+
+DAU_COUNT=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT count() FROM analytics.daily_users WHERE game_id = 'e2e-game'" 2>/dev/null || echo "0")
+if [ "$DAU_COUNT" -ge 1 ]; then
+  ok "daily_users aggregate (rows=$DAU_COUNT)"
+else
+  fail "daily_users aggregate empty (expected >= 1 row)"
+fi
+
+REVENUE_COUNT=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT count() FROM analytics.daily_revenue WHERE game_id = 'e2e-game'" 2>/dev/null || echo "0")
+if [ "$REVENUE_COUNT" -ge 1 ]; then
+  ok "daily_revenue aggregate (rows=$REVENUE_COUNT)"
+else
+  fail "daily_revenue aggregate empty (expected >= 1 row; only written for success/refunded/failed payments)"
+fi
+
 # --- 8. Cleanup ---
 kill $WORKER_PID 2>/dev/null
-docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1
+if [ "${SKIP_COMPOSE_UP:-0}" != "1" ]; then
+  docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1
+fi
 
 echo ""
 echo "==> Analytics E2E result: $PASS passed, $FAIL failed"

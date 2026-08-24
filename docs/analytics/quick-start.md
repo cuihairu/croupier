@@ -22,9 +22,18 @@ docker compose up -d clickhouse redis
 ```bash
 make build
 ./bin/croupier-server --config configs/server.yaml
-ANALYTICS_INGEST_SECRET=your-secret ./bin/ingest --addr :18080 --secret your-secret
+ANALYTICS_MQ_TYPE=redis REDIS_URL=redis://localhost:6379/0 \
+  ANALYTICS_INGEST_SECRET=your-secret ./bin/ingest --addr :18080 --secret your-secret
 REDIS_URL=redis://localhost:6379/0 ./bin/analytics-worker
 ```
+
+MQ 类型说明：
+
+- `ANALYTICS_MQ_TYPE` 未设置时**默认 `redis`**；构造失败（如 Redis 不可达）会让
+  ingest 启动即报错退出（fail-fast），不会静默丢弃事件
+- 本地无 Redis 调试时显式设 `ANALYTICS_MQ_TYPE=noop`（事件将被丢弃，仅用于联调鉴权/路由）
+- Docker 部署时 `docker/docker-compose.yml` 的 ingestion 服务已显式设置
+  `ANALYTICS_MQ_TYPE=redis`
 
 ## 3. 上报一条事件
 
