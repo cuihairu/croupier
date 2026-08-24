@@ -35,7 +35,15 @@ type AuditModel struct {
 	ChainSequence  int64     `gorm:"not null;uniqueIndex" json:"chainSequence"`
 	ChainSignerID  string    `gorm:"type:varchar(255)" json:"chainSignerId"`
 	ChainSignature string    `gorm:"type:text" json:"chainSignature"`
-	CreatedAt      time.Time `gorm:"not null" json:"createdAt"`
+	// Promoted first-class columns derived from Resource/Details at write
+	// time (and backfilled for legacy rows). They make game/env scoping and
+	// invocation analytics aggregable in plain SQL, keeping queries
+	// dialect-neutral (postgres/sqlite have no portable JSON_EXTRACT).
+	GameID     string    `gorm:"type:varchar(100);index" json:"gameId,omitempty"`
+	Env        string    `gorm:"type:varchar(50);index" json:"env,omitempty"`
+	FunctionID string    `gorm:"type:varchar(255);index" json:"functionId,omitempty"`
+	DurationMs int64     `gorm:"not null;default:0" json:"durationMs,omitempty"`
+	CreatedAt  time.Time `gorm:"not null" json:"createdAt"`
 }
 
 // TableName returns the table name
@@ -155,7 +163,55 @@ func FromRecord(r *AuditRecord) (*AuditModel, error) {
 		model.ContextJSON = data
 	}
 
+	model.GameID, model.Env, model.FunctionID, model.DurationMs = derivePromotedFields(r)
+
 	return model, nil
+}
+
+// derivePromotedFields extracts the queryable dimensions (game/env/
+// function/duration) from a record's Resource and Details payloads so they
+// can be stored as first-class columns. Explicit Resource fields win over
+// Details keys; duration prefers duration_ms and falls back to elapsed_ms
+// (console page.execute semantics).
+func derivePromotedFields(r *AuditRecord) (gameID, env, functionID string, durationMs int64) {
+	if r == nil {
+		return "", "", "", 0
+	}
+	gameID = strings.TrimSpace(r.Resource.GameID)
+	env = strings.TrimSpace(r.Resource.Environment)
+	if r.Details != nil {
+		if gameID == "" {
+			gameID, _ = r.Details["game_id"].(string)
+		}
+		if env == "" {
+			env, _ = r.Details["env"].(string)
+		}
+		if v, ok := r.Details["function_id"].(string); ok {
+			functionID = v
+		}
+		if d, ok := detailsNumeric(r.Details["duration_ms"]); ok {
+			durationMs = int64(d)
+		} else if d, ok := detailsNumeric(r.Details["elapsed_ms"]); ok {
+			durationMs = int64(d)
+		}
+	}
+	if functionID == "" && r.Resource.Type == "function" {
+		functionID = strings.TrimSpace(r.Resource.ID)
+	}
+	return gameID, env, functionID, durationMs
+}
+
+// detailsNumeric coerces JSON numbers (float64 after unmarshal) and ints.
+func detailsNumeric(v interface{}) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case int64:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	}
+	return 0, false
 }
 
 // SQLAuditStore implements AuditStore using SQL
@@ -195,7 +251,61 @@ func NewSQLAuditStore(db *gorm.DB) (*SQLAuditStore, error) {
 		store.memCache.latest = record
 	}
 
+	// Best-effort backfill of promoted columns for legacy invocation rows
+	// (written before game_id/env/function_id/duration_ms were first-class
+	// columns). Dialect-neutral: parse JSON payloads in Go, batched and
+	// capped so startup stays fast.
+	store.backfillPromotedFields()
+
 	return store, nil
+}
+
+// backfillPromotedFields fills game_id/env/function_id/duration_ms for
+// function.invoke / page.execute rows that predate the promoted columns.
+func (s *SQLAuditStore) backfillPromotedFields() {
+	const (
+		batchSize = 500
+		maxRows   = 50000
+	)
+	updated := 0
+	for updated < maxRows {
+		var rows []AuditModel
+		if err := s.db.
+			Where("event_type IN ? AND (function_id = '' OR function_id IS NULL)", []string{string(EventFunctionInvoke), string(EventPageExecute)}).
+			Order("id").Limit(batchSize).
+			Find(&rows).Error; err != nil {
+			return
+		}
+		if len(rows) == 0 {
+			return
+		}
+		fixed := 0
+		for _, m := range rows {
+			record, err := m.ToRecord()
+			if err != nil {
+				continue
+			}
+			gameID, env, functionID, durationMs := derivePromotedFields(record)
+			if functionID == "" {
+				// Nothing derivable; this row would match the SELECT
+				// forever, so don't count it as progress.
+				continue
+			}
+			if err := s.db.Model(&AuditModel{}).Where("id = ?", m.ID).Updates(map[string]interface{}{
+				"game_id":     gameID,
+				"env":         env,
+				"function_id": functionID,
+				"duration_ms": durationMs,
+			}).Error; err != nil {
+				return
+			}
+			fixed++
+			updated++
+		}
+		if len(rows) < batchSize || fixed == 0 {
+			return
+		}
+	}
 }
 
 // Create creates an audit record

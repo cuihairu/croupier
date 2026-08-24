@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Col, Input, Row, Select, Space, Statistic, Table, Tag } from 'antd';
+import { Card, Col, Input, Radio, Row, Select, Space, Statistic, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PageContainer } from '@ant-design/pro-components';
 import { Column } from '@ant-design/charts';
@@ -22,6 +22,12 @@ const DEFAULT_SUMMARY: InvocationsSummary = {
   topFunctions: [],
 };
 
+type WindowKey = '24h' | '30d';
+const WINDOW_CONFIG: Record<WindowKey, { hours: number; interval: string; label: string }> = {
+  '24h': { hours: 24, interval: 'hour', label: '近 24 小时' },
+  '30d': { hours: 24 * 30, interval: 'day', label: '近 30 天' },
+};
+
 export default function AnalyticsInvocationsPage() {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
@@ -33,11 +39,13 @@ export default function AnalyticsInvocationsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [outcome, setOutcome] = useState<string>('');
   const [functionId, setFunctionId] = useState<string>('');
+  const [window, setWindow] = useState<WindowKey>('24h');
 
   const loadSummary = useCallback(async () => {
+    const cfg = WINDOW_CONFIG[window];
     const [s, t] = await Promise.all([
-      fetchInvocationsSummary({ hours: 24 * 30 }),
-      fetchInvocationsTrend({ interval: 'day' }),
+      fetchInvocationsSummary({ hours: cfg.hours }),
+      fetchInvocationsTrend({ interval: cfg.interval }),
     ]);
     setSummary(s || DEFAULT_SUMMARY);
     const points = t?.points || [];
@@ -47,7 +55,7 @@ export default function AnalyticsInvocationsPage() {
         { bucket: p.bucket, value: Number(p.failed || 0), type: 'failed' },
       ]),
     );
-  }, []);
+  }, [window]);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -121,7 +129,22 @@ export default function AnalyticsInvocationsPage() {
   return (
     <PageContainer>
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
-        <Card title={intl.formatMessage({ id: 'pages.analytics.invocations.title' })}>
+        <Card
+          title={intl.formatMessage({ id: 'pages.analytics.invocations.title' })}
+          extra={
+            <Radio.Group
+              value={window}
+              onChange={(e) => setWindow(e.target.value as WindowKey)}
+              optionType="button"
+              buttonStyle="solid"
+              size="small"
+              options={[
+                { value: '24h', label: WINDOW_CONFIG['24h'].label },
+                { value: '30d', label: WINDOW_CONFIG['30d'].label },
+              ]}
+            />
+          }
+        >
           <Row gutter={[16, 16]}>
             <Col span={4}>
               <Statistic title="总调用" value={summary.total} />
@@ -141,7 +164,7 @@ export default function AnalyticsInvocationsPage() {
           </Row>
         </Card>
 
-        <Card title="调用趋势（近 30 天）" size="small">
+        <Card title={`调用趋势（${WINDOW_CONFIG[window].label}）`} size="small">
           <Column
             data={trend}
             xField="bucket"

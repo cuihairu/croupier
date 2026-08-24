@@ -7,6 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -18,19 +20,23 @@ var errInvocationsUnavailable = errors.New("invocation analytics unavailable")
 //
 // Every governed console invocation already writes an audit record; this
 // turns that stream into an analytics view (volume / success rate /
-// latency / Jaeger hop) without any new collection pipeline. Latency and
-// trace ids are only present once auditFunctionInvoke started recording
-// them into details; older records still count toward volume/success.
+// latency / Jaeger hop) without any new collection pipeline.
+//
+// game_id / env / function_id / duration_ms are first-class columns on
+// audit_records (promoted at write time, backfilled for legacy rows), so
+// scoping and aggregation happen in plain, dialect-neutral SQL. Rows
+// written before the promotion (empty game_id) are only visible in
+// unscoped queries.
 // ---------------------------------------------------------------------------
 
 const (
 	invocationEventType = string(audit.EventFunctionInvoke)
 	// Console binding executions audit as page.execute with the same
 	// outcome/duration semantics; both count as "invocations".
-	pageExecuteEventType  = string(audit.EventPageExecute)
-	invocationEventTypes  = "('" + invocationEventType + "','" + pageExecuteEventType + "')"
-	defaultInvocationsCap = 1000
+	pageExecuteEventType = string(audit.EventPageExecute)
 )
+
+var invocationEventTypeList = []string{invocationEventType, pageExecuteEventType}
 
 // InvocationsTrendRequest buckets invocation volume by hour/day.
 type InvocationsTrendRequest struct {
@@ -122,15 +128,25 @@ func (s *Service) InvocationsList(ctx context.Context, req *InvocationsListReque
 // Implementations (raw SQL over audit_records in the meta database)
 // ---------------------------------------------------------------------------
 
-// invocationScope filters constrain aggregation to the audit rows written
-// for function invokes. game/env scoping relies on the details JSON written
-// by auditFunctionInvoke (details.game_id / details.env); rows without those
-// keys (legacy) are only included in unscoped queries.
 func invocationTimeWindow(interval string) (layout string, since time.Time) {
 	if interval == "day" {
 		return "2006-01-02", time.Now().UTC().AddDate(0, 0, -30)
 	}
 	return "2006-01-02 15:00:00", time.Now().UTC().Add(-24 * time.Hour)
+}
+
+// scopedInvocationQuery applies the event-type filter plus optional
+// game/env scoping. Scope params filter on the promoted columns, so a
+// scoped view only contains rows explicitly tagged with that game/env.
+func scopedInvocationQuery(db *gorm.DB, gameID, env string) *gorm.DB {
+	q := db.Table("audit_records").Where("event_type IN ?", invocationEventTypeList)
+	if gameID != "" {
+		q = q.Where("game_id = ?", gameID)
+	}
+	if env != "" {
+		q = q.Where("env = ?", env)
+	}
+	return q
 }
 
 func invocationsTrend(ctx context.Context, svcCtx *svc.ServiceContext, req *InvocationsTrendRequest) (*InvocationsTrendResponse, error) {
@@ -147,9 +163,9 @@ func invocationsTrend(ctx context.Context, svcCtx *svc.ServiceContext, req *Invo
 		Outcome   string
 	}
 	raw := []rawRow{}
-	if err := svcCtx.DB.WithContext(ctx).Table("audit_records").
+	if err := scopedInvocationQuery(svcCtx.DB.WithContext(ctx), req.GameId, req.Env).
 		Select("timestamp, outcome").
-		Where("event_type IN "+invocationEventTypes+" AND timestamp >= ?", since).
+		Where("timestamp >= ?", since).
 		Order("timestamp").Limit(10000).
 		Scan(&raw).Error; err != nil {
 		return nil, err
@@ -177,10 +193,6 @@ func invocationsTrend(ctx context.Context, svcCtx *svc.ServiceContext, req *Invo
 	return &InvocationsTrendResponse{Points: points}, nil
 }
 
-type invocationLatencyRow struct {
-	Duration float64 `json:"duration_ms"`
-}
-
 func invocationsSummary(ctx context.Context, svcCtx *svc.ServiceContext, req *InvocationsSummaryRequest) (*InvocationsSummaryResponse, error) {
 	if svcCtx == nil || svcCtx.DB == nil {
 		return nil, errInvocationsUnavailable
@@ -190,18 +202,19 @@ func invocationsSummary(ctx context.Context, svcCtx *svc.ServiceContext, req *In
 		hours = 24
 	}
 	since := time.Now().UTC().Add(-time.Duration(hours) * time.Hour)
+	db := svcCtx.DB.WithContext(ctx)
 
 	resp := &InvocationsSummaryResponse{TopFunctions: []InvocationFunctionStats{}}
 
-	// Volume + failures. CASE WHEN is portable across postgres/sqlite;
-	// SUM(boolean) is postgres-invalid.
+	// Volume + failures over the full window. CASE WHEN is portable across
+	// postgres/sqlite; SUM(boolean) is postgres-invalid.
 	totals := struct {
 		Total  int64
 		Failed int64
 	}{}
-	if err := svcCtx.DB.WithContext(ctx).Table("audit_records").
+	if err := scopedInvocationQuery(db, req.GameId, req.Env).
+		Where("timestamp >= ?", since).
 		Select("COUNT(*) AS total, COALESCE(SUM(CASE WHEN outcome <> 'success' THEN 1 ELSE 0 END), 0) AS failed").
-		Where("event_type IN "+invocationEventTypes+" AND timestamp >= ?", since).
 		Scan(&totals).Error; err != nil {
 		return nil, err
 	}
@@ -210,109 +223,61 @@ func invocationsSummary(ctx context.Context, svcCtx *svc.ServiceContext, req *In
 		resp.SuccessRate = float64(resp.Total-resp.Failed) / float64(resp.Total)
 	}
 
-	// Latency + per-function stats: parse details JSON in Go so the query
-	// stays dialect-neutral (postgres/sqlite have no JSON_EXTRACT).
-	type detailRow struct {
-		Timestamp   time.Time
-		Outcome     string
-		DetailsJSON []byte
-	}
-	detailRows := []detailRow{}
-	if err := svcCtx.DB.WithContext(ctx).Table("audit_records").
-		Select("timestamp, outcome, details_json").
-		Where("event_type IN "+invocationEventTypes+" AND timestamp >= ?", since).
-		Order("timestamp").Limit(defaultInvocationsCap).
-		Scan(&detailRows).Error; err != nil {
+	// Latency: durations live in the promoted duration_ms column, so a
+	// single-column scan (no JSON parsing) feeds avg + p95 in Go. p95 has
+	// no portable SQL form across postgres/sqlite.
+	latencyRows := []struct {
+		DurationMs int64
+	}{}
+	if err := scopedInvocationQuery(db, req.GameId, req.Env).
+		Where("timestamp >= ? AND duration_ms > 0", since).
+		Select("duration_ms").
+		Scan(&latencyRows).Error; err != nil {
 		return nil, err
 	}
-
-	latencies := []float64{}
-	type fnAgg struct {
-		total, failed int64
-		durSum        float64
-		durCount      int64
-	}
-	fnAggs := map[string]*fnAgg{}
-	fnOrder := []string{}
-	for _, r := range detailRows {
-		var details map[string]interface{}
-		if len(r.DetailsJSON) > 0 {
-			_ = json.Unmarshal(r.DetailsJSON, &details)
+	if len(latencyRows) > 0 {
+		durations := make([]int64, 0, len(latencyRows))
+		sum := int64(0)
+		for _, r := range latencyRows {
+			durations = append(durations, r.DurationMs)
+			sum += r.DurationMs
 		}
-		fnID, _ := details["function_id"].(string)
-		agg, ok := fnAggs[fnID]
-		if !ok {
-			agg = &fnAgg{}
-			fnAggs[fnID] = agg
-			fnOrder = append(fnOrder, fnID)
-		}
-		agg.total++
-		if r.Outcome != "success" {
-			agg.failed++
-		}
-		if d, ok := numericValue(details["duration_ms"]); ok {
-			latencies = append(latencies, d)
-			agg.durSum += d
-			agg.durCount++
-		} else if d, ok := numericValue(details["elapsed_ms"]); ok {
-			latencies = append(latencies, d)
-			agg.durSum += d
-			agg.durCount++
-		}
-	}
-	if len(latencies) > 0 {
-		sum := 0.0
-		for _, d := range latencies {
-			sum += d
-		}
-		resp.AvgDurationMs = sum / float64(len(latencies))
-		sorted := append([]float64(nil), latencies...)
-		for i := 1; i < len(sorted); i++ {
-			for j := i; j > 0 && sorted[j] < sorted[j-1]; j-- {
-				sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-			}
-		}
-		idx := int(float64(len(sorted))*0.95) - 1
+		resp.AvgDurationMs = float64(sum) / float64(len(durations))
+		sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
+		idx := int(float64(len(durations))*0.95) - 1
 		if idx < 0 {
-			idx = len(sorted) - 1
+			idx = 0
 		}
-		resp.P95DurationMs = sorted[idx]
+		resp.P95DurationMs = float64(durations[idx])
 	}
-	sort.Strings(fnOrder)
-	// order top functions by total desc
-	type fnPair struct {
-		id  string
-		agg *fnAgg
+
+	// Top functions: group on the promoted function_id column; AVG over a
+	// NULL-producing CASE keeps "no duration recorded" out of the mean and
+	// stays portable.
+	type fnRow struct {
+		FunctionID string
+		Total      int64
+		Failed     int64
+		AvgDurMs   *float64
 	}
-	pairs := make([]fnPair, 0, len(fnOrder))
-	for _, id := range fnOrder {
-		pairs = append(pairs, fnPair{id, fnAggs[id]})
+	fnRows := []fnRow{}
+	if err := scopedInvocationQuery(db, req.GameId, req.Env).
+		Where("timestamp >= ? AND function_id <> ''", since).
+		Select("function_id, COUNT(*) AS total, COALESCE(SUM(CASE WHEN outcome <> 'success' THEN 1 ELSE 0 END), 0) AS failed, AVG(CASE WHEN duration_ms > 0 THEN duration_ms END) AS avg_dur_ms").
+		Group("function_id").
+		Order("total DESC").
+		Limit(10).
+		Scan(&fnRows).Error; err != nil {
+		return nil, err
 	}
-	sort.Slice(pairs, func(i, j int) bool { return pairs[i].agg.total > pairs[j].agg.total })
-	for i, pr := range pairs {
-		if i >= 10 {
-			break
-		}
-		stats := InvocationFunctionStats{FunctionID: pr.id, Total: pr.agg.total, Failed: pr.agg.failed}
-		if pr.agg.durCount > 0 {
-			stats.AvgDurMs = pr.agg.durSum / float64(pr.agg.durCount)
+	for _, r := range fnRows {
+		stats := InvocationFunctionStats{FunctionID: r.FunctionID, Total: r.Total, Failed: r.Failed}
+		if r.AvgDurMs != nil {
+			stats.AvgDurMs = *r.AvgDurMs
 		}
 		resp.TopFunctions = append(resp.TopFunctions, stats)
 	}
 	return resp, nil
-}
-
-// numericValue coerces JSON numbers (float64 after unmarshal) and ints.
-func numericValue(v interface{}) (float64, bool) {
-	switch n := v.(type) {
-	case float64:
-		return n, true
-	case int64:
-		return float64(n), true
-	case int:
-		return float64(n), true
-	}
-	return 0, false
 }
 
 func invocationsList(ctx context.Context, svcCtx *svc.ServiceContext, req *InvocationsListRequest) (*InvocationsListResponse, error) {
@@ -327,10 +292,14 @@ func invocationsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Invoc
 		size = 20
 	}
 
-	query := svcCtx.DB.WithContext(ctx).Table("audit_records").
-		Where("event_type IN " + invocationEventTypes)
+	// All filters push down to SQL now (promoted columns), so COUNT and the
+	// page window share one consistent filtered set.
+	query := scopedInvocationQuery(svcCtx.DB.WithContext(ctx), req.GameId, req.Env)
 	if req.Outcome != "" {
 		query = query.Where("outcome = ?", req.Outcome)
+	}
+	if req.FunctionId != "" {
+		query = query.Where("function_id = ?", req.FunctionId)
 	}
 
 	var total int64
@@ -338,46 +307,42 @@ func invocationsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Invoc
 		return nil, err
 	}
 
-	// Dialect-neutral: fetch raw columns and parse the JSON payloads in Go
-	// (postgres/sqlite have no JSON_EXTRACT). functionId filtering also
-	// happens here; when set we over-fetch a bounded page window first.
-	fetchLimit := size
-	if req.FunctionId != "" {
-		fetchLimit = defaultInvocationsCap
-	}
 	type rawRow struct {
 		Timestamp    time.Time
 		Outcome      string
-		DetailsJSON  []byte
+		GameID       string
+		Env          string
+		FunctionID   string
+		DurationMs   int64
 		ActorJSON    []byte
+		DetailsJSON  []byte
 		ErrorMessage string
 	}
 	rawRows := []rawRow{}
-	if err := query.Select("timestamp, outcome, details_json, actor_json, error_message").
+	if err := query.Select("timestamp, outcome, game_id, env, function_id, duration_ms, actor_json, details_json, error_message").
 		Order("timestamp DESC").
-		Offset((page - 1) * fetchLimit).Limit(fetchLimit).
+		Offset((page - 1) * size).Limit(size).
 		Scan(&rawRows).Error; err != nil {
 		return nil, err
 	}
 
-	items := make([]InvocationItem, 0, size)
+	items := make([]InvocationItem, 0, len(rawRows))
 	for _, r := range rawRows {
-		var details, actor map[string]interface{}
-		if len(r.DetailsJSON) > 0 {
-			_ = json.Unmarshal(r.DetailsJSON, &details)
-		}
+		var actor, details map[string]interface{}
 		if len(r.ActorJSON) > 0 {
 			_ = json.Unmarshal(r.ActorJSON, &actor)
 		}
-		fnID, _ := details["function_id"].(string)
-		if req.FunctionId != "" && fnID != req.FunctionId {
-			continue
+		if len(r.DetailsJSON) > 0 {
+			_ = json.Unmarshal(r.DetailsJSON, &details)
 		}
 		item := InvocationItem{
 			Timestamp:  r.Timestamp.UTC().Format(time.RFC3339),
-			FunctionID: fnID,
+			FunctionID: r.FunctionID,
 			Outcome:    r.Outcome,
 			Error:      r.ErrorMessage,
+			DurationMs: r.DurationMs,
+			GameId:     r.GameID,
+			Env:        r.Env,
 		}
 		if id, ok := actor["id"].(string); ok {
 			item.Actor = id
@@ -385,21 +350,7 @@ func invocationsList(ctx context.Context, svcCtx *svc.ServiceContext, req *Invoc
 		if traceID, ok := details["trace_id"].(string); ok {
 			item.TraceID = traceID
 		}
-		if gameID, ok := details["game_id"].(string); ok {
-			item.GameId = gameID
-		}
-		if env, ok := details["env"].(string); ok {
-			item.Env = env
-		}
-		if d, ok := numericValue(details["duration_ms"]); ok {
-			item.DurationMs = int64(d)
-		} else if d, ok := numericValue(details["elapsed_ms"]); ok {
-			item.DurationMs = int64(d)
-		}
 		items = append(items, item)
-		if len(items) >= size {
-			break
-		}
 	}
 	return &InvocationsListResponse{Items: items, Total: total, Page: page, Size: size}, nil
 }
