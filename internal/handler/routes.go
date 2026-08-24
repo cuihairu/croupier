@@ -485,7 +485,7 @@ func registerAlertRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 // ============================================================================
 func registerAnalyticsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	analyticsSvc := analytics.NewService(ctx)
-	analyticsHandler := analytics.NewHandler(analyticsSvc)
+	analyticsHandler := analytics.NewHandler(analyticsSvc, ctx.Config.SSE)
 
 	// Overview 模块
 	g.GET("/overview", analyticsHandler.Overview)

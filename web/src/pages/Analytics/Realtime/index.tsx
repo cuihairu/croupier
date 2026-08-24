@@ -41,6 +41,10 @@ interface RealtimeData {
   };
 }
 
+// Server pushes one frame per sse.updateInterval (default 60s); allow two
+// missed frames plus the 30s keep-alive margin before showing "stale".
+const STALE_AFTER_MS = 150_000;
+
 export default function AnalyticsRealtimePage() {
   const intl = useIntl();
   const [data, setData] = useState<RealtimeData>({});
@@ -136,13 +140,17 @@ export default function AnalyticsRealtimePage() {
     [tryPersist],
   );
 
+  // Frame cadence comes from the server SSE config (sse.updateInterval,
+  // default 60s). Mark the stream stale only after missing ~2 frames plus
+  // the keep-alive margin, instead of a hardcoded 15s that would flag a
+  // healthy 60s stream as stale.
   const resetStaleTimer = () => {
     if (staleTimerRef.current) {
       clearTimeout(staleTimerRef.current);
     }
     staleTimerRef.current = setTimeout(() => {
       setStreamStatus((prev) => (prev === 'error' ? prev : 'stale'));
-    }, 15000);
+    }, STALE_AFTER_MS);
   };
 
   const closeStream = () => {

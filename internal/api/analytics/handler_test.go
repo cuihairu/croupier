@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 )
@@ -52,7 +53,7 @@ func TestAnalyticsHandlersRejectMalformedJSON(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	cases := []struct {
 		name string
 		fn   func(*gin.Context)
@@ -97,7 +98,7 @@ func TestOverviewUsesQueryBindingOnGet(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/overview?gameId=tower&env=prod", "")
 	h.Overview(ctx)
 
@@ -113,7 +114,7 @@ func TestRealtimeRejectsMissingRequiredQueryOnGet(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/realtime?env=prod", "")
 	h.Realtime(ctx)
 
@@ -129,7 +130,7 @@ func TestRealtimeRejectsMissingRequiredQueryOnGet(t *testing.T) {
 
 func TestNewHandler(t *testing.T) {
 	service := NewService(&svc.ServiceContext{})
-	handler := NewHandler(service)
+	handler := NewHandler(service, config.SSEConfig{})
 
 	if handler == nil {
 		t.Fatal("expected non-nil handler")
@@ -143,7 +144,7 @@ func TestBehaviorHandler_BindingSuccess(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior", `{"gameId":"tower","env":"prod"}`)
 	h.Behavior(ctx)
 
@@ -157,7 +158,7 @@ func TestBehaviorEventsHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/behavior/events?gameId=tower&env=prod", "")
 	h.BehaviorEvents(ctx)
 
@@ -171,7 +172,7 @@ func TestBehaviorAdoptionHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/behavior/adoption?gameId=tower", "")
 	h.BehaviorAdoption(ctx)
 
@@ -184,7 +185,7 @@ func TestBehaviorFunnelHandler_POSTBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior/funnel", `{"gameId":"tower","steps":["login"]}`)
 	h.BehaviorFunnel(ctx)
 
@@ -197,7 +198,7 @@ func TestBehaviorPathsHandler_POSTBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior/paths", `{"gameId":"tower","eventType":"login"}`)
 	h.BehaviorPaths(ctx)
 
@@ -210,7 +211,7 @@ func TestOverviewHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/overview?gameId=tower&env=prod", "")
 	h.Overview(ctx)
 
@@ -224,7 +225,7 @@ func TestRealtimeSeriesHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/realtime/series?gameId=tower", "")
 	h.RealtimeSeries(ctx)
 
@@ -237,7 +238,7 @@ func TestIngestHandler_JSONBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/ingest", `{"gameId":"tower","events":[]}`)
 	h.Ingest(ctx)
 
@@ -250,7 +251,7 @@ func TestFiltersGetHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/filters?gameId=tower", "")
 	h.FiltersGet(ctx)
 
@@ -263,7 +264,7 @@ func TestFiltersUpdateHandler_JSONBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/filters", `{"gameId":"tower","filters":{}}`)
 	h.FiltersUpdate(ctx)
 
@@ -276,7 +277,7 @@ func TestPaymentsHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/payments?gameId=tower&env=prod", "")
 	h.Payments(ctx)
 
@@ -289,7 +290,7 @@ func TestPaymentsIngestHandler_JSONBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/payments/ingest", `{"gameId":"tower","transactions":[]}`)
 	h.PaymentsIngest(ctx)
 
@@ -302,7 +303,7 @@ func TestPaymentsProductTrendHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/payments/product-trend?gameId=tower", "")
 	h.PaymentsProductTrend(ctx)
 
@@ -315,7 +316,7 @@ func TestPaymentsSummaryHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/payments/summary?gameId=tower", "")
 	h.PaymentsSummary(ctx)
 
@@ -328,7 +329,7 @@ func TestPaymentsTransactionsHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/payments/transactions?gameId=tower&page=1", "")
 	h.PaymentsTransactions(ctx)
 
@@ -341,7 +342,7 @@ func TestRetentionHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/retention?gameId=tower&env=prod", "")
 	h.Retention(ctx)
 
@@ -354,7 +355,7 @@ func TestLevelsHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/levels?gameId=tower", "")
 	h.Levels(ctx)
 
@@ -367,7 +368,7 @@ func TestLevelsEpisodesHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/levels/episodes?gameId=tower&levelId=1", "")
 	h.LevelsEpisodes(ctx)
 
@@ -380,7 +381,7 @@ func TestLevelsMapsHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/levels/maps?gameId=tower&levelId=1", "")
 	h.LevelsMaps(ctx)
 
@@ -395,7 +396,7 @@ func TestBehaviorAdoptionBreakdownHandler_POSTBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior/adoption-breakdown", `{"gameId":"tower","env":"prod","feature":"login_reward"}`)
 	h.BehaviorAdoptionBreakdown(ctx)
 
@@ -408,7 +409,7 @@ func TestBehaviorAdoptionBreakdownHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/behavior/adoption-breakdown?gameId=tower&env=prod&feature=login_reward", "")
 	h.BehaviorAdoptionBreakdown(ctx)
 
@@ -421,7 +422,7 @@ func TestBehaviorFunnelHandler_GETBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/behavior/funnel?gameId=tower&steps=login&steps=pay", "")
 	h.BehaviorFunnel(ctx)
 
@@ -434,7 +435,7 @@ func TestPaymentsIngestHandler_POSTBinding(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/payments/ingest", `{"gameId":"tower","transactions":[]}`)
 	h.PaymentsIngest(ctx)
 
@@ -447,7 +448,7 @@ func TestPaymentsIngestHandler_InvalidJSON(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/payments/ingest", "{invalid")
 	h.PaymentsIngest(ctx)
 
@@ -459,7 +460,7 @@ func TestPaymentsIngestHandler_InvalidJSON(t *testing.T) {
 func TestRealtimeHandler_MissingGameId(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/realtime?env=prod", "")
 	h.Realtime(ctx)
 
@@ -471,7 +472,7 @@ func TestRealtimeHandler_MissingGameId(t *testing.T) {
 func TestRealtimeHandler_EmptyGameId(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/realtime?gameId=", "")
 	h.Realtime(ctx)
 
@@ -486,7 +487,7 @@ func TestBehaviorHandler_WithAllParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior", `{"gameId":"tower","env":"prod","startDate":"2024-01-01","endDate":"2024-01-31"}`)
 	h.Behavior(ctx)
 
@@ -499,7 +500,7 @@ func TestBehaviorEventsHandler_WithAllParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/behavior/events?gameId=tower&env=prod&startDate=2024-01-01", "")
 	h.BehaviorEvents(ctx)
 
@@ -512,7 +513,7 @@ func TestBehaviorPathsHandler_WithAllParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior/paths", `{"gameId":"tower","eventType":"level_complete"}`)
 	h.BehaviorPaths(ctx)
 
@@ -525,7 +526,7 @@ func TestIngestHandler_WithMultipleEvents(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/ingest", `{"gameId":"tower","events":[{"eventName":"test"},{"eventName":"test2"}]}`)
 	h.Ingest(ctx)
 
@@ -538,7 +539,7 @@ func TestPaymentsHandler_WithDateRange(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/payments?gameId=tower&startDate=2024-01-01&endDate=2024-01-31", "")
 	h.Payments(ctx)
 
@@ -551,7 +552,7 @@ func TestPaymentsSummaryHandler_WithAllParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/payments/summary?gameId=tower&env=prod&startDate=2024-01-01", "")
 	h.PaymentsSummary(ctx)
 
@@ -564,7 +565,7 @@ func TestRetentionHandler_WithAllParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/retention?gameId=tower&env=prod&firstOpenDate=2024-01-01", "")
 	h.Retention(ctx)
 
@@ -577,7 +578,7 @@ func TestLevelsHandler_WithAllParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/levels?gameId=tower&env=prod", "")
 	h.Levels(ctx)
 
@@ -590,7 +591,7 @@ func TestLevelsEpisodesHandler_WithAllParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/levels/episodes?gameId=tower&levelId=1&env=prod", "")
 	h.LevelsEpisodes(ctx)
 
@@ -603,7 +604,7 @@ func TestLevelsMapsHandler_WithAllParams(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})
 	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/levels/maps?gameId=tower&levelId=1&episodeId=1", "")
 	h.LevelsMaps(ctx)
 

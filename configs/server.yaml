@@ -9,15 +9,15 @@ database:
   driver: mysql
   dataSource: "root:root@tcp(localhost:3306)/croupier_meta?charset=utf8mb4&parseTime=True&loc=Local"
   # multiGame: true  # Enable database-per-game architecture.
-                      # Each (game_id, env) gets its own database
-                      # (e.g. game_demo_prod, game_demo_staging).
-                      # The dataSource above is the meta database.
+  # Each (game_id, env) gets its own database
+  # (e.g. game_demo_prod, game_demo_staging).
+  # The dataSource above is the meta database.
   # gameDbPrefix: "game_"  # Override the default game database name prefix.
   # For PostgreSQL, change Driver to postgres and DataSource to:
   # DataSource: "host=localhost port=5432 user=postgres password=postgres dbname=croupier_meta sslmode=disable TimeZone=Asia/Shanghai"
 
 sse:
-  updateInterval: 2
+  updateInterval: 60
   keepAliveInterval: 30
 
 control:

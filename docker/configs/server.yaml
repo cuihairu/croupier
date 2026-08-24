@@ -10,7 +10,7 @@ database:
   dataSource: "host=postgres port=5432 user=croupier password=croupier_dev_password dbname=croupier sslmode=disable TimeZone=Asia/Shanghai"
 
 sse:
-  updateInterval: 2
+  updateInterval: 60
   keepAliveInterval: 30
 
 control:

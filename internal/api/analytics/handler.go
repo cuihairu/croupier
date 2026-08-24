@@ -9,6 +9,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,10 +22,11 @@ func bindAnalyticsRequest(c *gin.Context, req interface{}) error {
 
 type Handler struct {
 	service *Service
+	sse     config.SSEConfig
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, sse config.SSEConfig) *Handler {
+	return &Handler{service: service, sse: sse}
 }
 
 // Behavior analytics handlers
@@ -160,8 +162,14 @@ func (h *Handler) Realtime(c *gin.Context) {
 		slog.InfoContext(ctx, "SSE client disconnected", "path", "/analytics/realtime")
 	}()
 
-	// 定时发送数据（每2秒一次）
-	ticker := time.NewTicker(2 * time.Second)
+	// Push cadence follows the global SSE config (yaml sse.updateInterval,
+	// default 60s). Realtime analytics does not need sub-minute freshness;
+	// every push costs three aggregate queries against the behavior store.
+	interval := time.Duration(h.sse.GetUpdateInterval()) * time.Second
+	if interval <= 0 {
+		interval = 60 * time.Second
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	// 发送初始连接成功消息

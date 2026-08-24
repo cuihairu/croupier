@@ -11,7 +11,7 @@ database:
   # SQLite 不支持 multiGame 模式
 
 sse:
-  updateInterval: 2
+  updateInterval: 60
   keepAliveInterval: 30
 
 control:
