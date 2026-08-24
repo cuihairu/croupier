@@ -2,47 +2,26 @@
  * LocalizedTextEditor - 多语言文本编辑器（紧凑型）
  *
  * 契约（types/dashboard.ts LocalizedText）：key 为 BCP47 locale，与后端
- * spec.LocalizedText 一致。默认提供 zh-CN / en-US 两种语言行，可通过
- * "管理语言"气泡启用任意其他 BCP47 locale（ja-JP / ko-KR / ...）或输入
- * 自定义 locale。
+ * spec.LocalizedText 一致。
  *
- * 布局：单行 [locale 切换][输入框][管理语言按钮]，适配 inline 表单；
- * placeholder 为主 locale 文案，方便翻译对照。
+ * 语言选项统一来自全局支持列表（src/locales/supported.ts，与界面语言
+ * 切换器同源），下拉直接展示全集；已录入文案的语言带 ✓ 标记，当前
+ * 界面语言默认选中。全局之外的语言（如 ru-RU）通过 🌐 气泡添加
+ * 自定义 BCP47 locale。
+ *
+ * 布局：单行 [locale 切换][输入框][🌐]，适配 inline 表单；
+ * placeholder 为主语言文案，方便翻译对照。
  */
 
 import React, { useMemo, useState } from 'react';
-import { Button, Input, Popover, Select, Space, Tag, Typography } from 'antd';
-import { CheckOutlined, CloseOutlined, GlobalOutlined } from '@ant-design/icons';
+import { Button, Input, Popover, Select, Space, Typography } from 'antd';
+import { GlobalOutlined } from '@ant-design/icons';
+import { useIntl } from '@umijs/max';
 import type { LocalizedText } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
+import { REQUIRED_LOCALE, SUPPORTED_LOCALES, SUPPORTED_LOCALE_LABELS } from '@/locales/supported';
 
 const { Text } = Typography;
-
-/** 内置常用 BCP47 locale（管理面板候选；zh-CN 为必选基线不可移除） */
-export const COMMON_LOCALES: Array<{ value: string; label: string }> = [
-  { value: 'zh-CN', label: '简体中文' },
-  { value: 'zh-TW', label: '繁體中文' },
-  { value: 'en-US', label: 'English (US)' },
-  { value: 'en-GB', label: 'English (UK)' },
-  { value: 'ja-JP', label: '日本語' },
-  { value: 'ko-KR', label: '한국어' },
-  { value: 'ru-RU', label: 'Русский' },
-  { value: 'es-ES', label: 'Español' },
-  { value: 'pt-BR', label: 'Português (Brasil)' },
-  { value: 'fr-FR', label: 'Français' },
-  { value: 'de-DE', label: 'Deutsch' },
-  { value: 'it-IT', label: 'Italiano' },
-  { value: 'tr-TR', label: 'Türkçe' },
-  { value: 'vi-VN', label: 'Tiếng Việt' },
-  { value: 'th-TH', label: 'ไทย' },
-  { value: 'id-ID', label: 'Bahasa Indonesia' },
-  { value: 'hi-IN', label: 'हिन्दी' },
-  { value: 'ar-SA', label: 'العربية' },
-];
-
-export const DEFAULT_LOCALES = ['zh-CN', 'en-US'];
-/** 必选基线语言（不可移除） */
-export const REQUIRED_LOCALE = 'zh-CN';
 
 // 粗粒度 BCP47 校验：language-REGION / language-SCRIPT-REGION
 const BCP47_PATTERN = /^[a-z]{2,3}(-[A-Za-z]{4})?(-[A-Z]{2}|[0-9]{3})$/i;
@@ -54,7 +33,7 @@ export interface LocalizedTextEditorProps {
   placeholder?: string;
   size?: 'small' | 'middle';
   disabled?: boolean;
-  /** 初始编辑的语言 */
+  /** 初始编辑的语言（默认跟随当前界面语言） */
   defaultLocale?: string;
   style?: React.CSSProperties;
 }
@@ -65,93 +44,61 @@ export default function LocalizedTextEditor({
   placeholder,
   size = 'middle',
   disabled = false,
-  defaultLocale = 'zh-CN',
+  defaultLocale,
   style,
 }: LocalizedTextEditorProps) {
-  const present = useMemo(() => {
-    const keys = Object.keys(value || {}).filter((k) => (value || {})[k] !== undefined);
-    return keys;
-  }, [value]);
+  const { locale: uiLocale } = useIntl();
+
+  const present = useMemo(
+    () => Object.keys(value || {}).filter((k) => (value || {})[k] !== undefined),
+    [value],
+  );
 
   const [activeLocale, setActiveLocale] = useState<string>(() => {
-    if (present.includes(defaultLocale)) return defaultLocale;
-    if (present.includes('zh-CN')) return 'zh-CN';
-    return present[0] || 'zh-CN';
+    if (defaultLocale && present.includes(defaultLocale)) return defaultLocale;
+    if (present.includes(uiLocale)) return uiLocale;
+    if (present.includes(REQUIRED_LOCALE)) return REQUIRED_LOCALE;
+    return present[0] || REQUIRED_LOCALE;
   });
-  const [manageOpen, setManageOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const [customLocale, setCustomLocale] = useState('');
 
-  // 可切换语言 = 已存在 ∪ 默认两语言
+  // 下拉 = 全局支持语言 ∪ 已录入的自定义语言
   const selectableLocales = useMemo(() => {
-    const set = new Set<string>([...present, ...DEFAULT_LOCALES]);
-    return Array.from(set);
+    const extra = present.filter((k) => !SUPPORTED_LOCALE_LABELS[k]);
+    return [...SUPPORTED_LOCALES.map((item) => item.value), ...extra];
   }, [present]);
 
   const setText = (locale: string, text: string) => {
     onChange({ ...(value || {}), [locale]: text });
   };
 
-  const addLocale = (locale: string) => {
+  const addCustomLocale = (locale: string) => {
     if (!locale || (value || {})[locale] !== undefined) return;
     onChange({ ...(value || {}), [locale]: '' });
     setActiveLocale(locale);
   };
 
-  const removeLocale = (locale: string) => {
-    if (locale === REQUIRED_LOCALE) return;
-    const next = { ...(value || {}) };
-    delete next[locale];
-    onChange(next);
-    if (activeLocale === locale) setActiveLocale(REQUIRED_LOCALE);
-  };
+  const primaryHint = localizedText(value, REQUIRED_LOCALE, '');
 
-  const primaryHint = localizedText(value, 'zh-CN', '');
-
-  const manageContent = (
+  const customContent = (
     <div style={{ width: 280 }}>
       <Space direction="vertical" size={4} style={{ width: '100%' }}>
-        {COMMON_LOCALES.map((item) => {
-          const enabled = present.includes(item.value);
-          return (
-            <Space
-              key={item.value}
-              style={{ width: '100%', justifyContent: 'space-between' }}
-              onClick={() => (enabled ? removeLocale(item.value) : addLocale(item.value))}
-            >
-              <Space size={8} style={{ cursor: 'pointer' }}>
-                {enabled ? (
-                  <CheckOutlined style={{ color: '#1677ff' }} />
-                ) : (
-                  <span style={{ display: 'inline-block', width: 14 }} />
-                )}
-                <Text>{item.label}</Text>
-                <Tag style={{ marginInlineEnd: 0 }}>{item.value}</Tag>
-              </Space>
-              {enabled && item.value !== REQUIRED_LOCALE ? (
-                <Button
-                  type="text"
-                  size="small"
-                  danger
-                  icon={<CloseOutlined />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeLocale(item.value);
-                  }}
-                />
-              ) : null}
-            </Space>
-          );
-        })}
-        <Space.Compact style={{ width: '100%', marginTop: 8 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          下方列出平台界面支持的全部 {SUPPORTED_LOCALES.length} 种语言。需要界面之外的语言 （如
+          ru-RU、ko-KR）时，在此输入自定义 BCP47 locale：
+        </Text>
+        <Space.Compact style={{ width: '100%', marginTop: 4 }}>
           <Input
             size="small"
-            placeholder="自定义 BCP47，如 nl-NL"
+            placeholder="自定义 BCP47，如 ko-KR"
             value={customLocale}
             onChange={(e) => setCustomLocale(e.target.value)}
             onPressEnter={() => {
               if (BCP47_PATTERN.test(customLocale.trim())) {
-                addLocale(customLocale.trim());
+                addCustomLocale(customLocale.trim());
                 setCustomLocale('');
+                setPopoverOpen(false);
               }
             }}
           />
@@ -159,15 +106,16 @@ export default function LocalizedTextEditor({
             size="small"
             disabled={!BCP47_PATTERN.test(customLocale.trim())}
             onClick={() => {
-              addLocale(customLocale.trim());
+              addCustomLocale(customLocale.trim());
               setCustomLocale('');
+              setPopoverOpen(false);
             }}
           >
             添加
           </Button>
         </Space.Compact>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          后端契约为 BCP47 locale 键；zh-CN 为必选基线。
+          后端契约为 BCP47 locale 键；{REQUIRED_LOCALE} 为必选基线。清除输入框内容即删除该语言文案。
         </Text>
       </Space>
     </div>
@@ -180,10 +128,18 @@ export default function LocalizedTextEditor({
         disabled={disabled}
         value={selectableLocales.includes(activeLocale) ? activeLocale : REQUIRED_LOCALE}
         onChange={setActiveLocale}
-        style={{ width: 110 }}
+        style={{ minWidth: 130 }}
         options={selectableLocales.map((locale) => ({
           value: locale,
-          label: locale,
+          label: (
+            <Space size={4}>
+              <span>{SUPPORTED_LOCALE_LABELS[locale] || locale}</span>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {locale}
+              </Text>
+              {(value || {})[locale] ? <span style={{ color: '#52c41a' }}>✓</span> : null}
+            </Space>
+          ),
         }))}
       />
       <Input
@@ -194,10 +150,10 @@ export default function LocalizedTextEditor({
         onChange={(e) => setText(activeLocale, e.target.value)}
       />
       <Popover
-        content={manageContent}
+        content={customContent}
         trigger="click"
-        open={manageOpen}
-        onOpenChange={setManageOpen}
+        open={popoverOpen}
+        onOpenChange={setPopoverOpen}
         placement="bottomRight"
       >
         <Button size={size} disabled={disabled} icon={<GlobalOutlined />} />
