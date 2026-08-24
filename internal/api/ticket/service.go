@@ -56,9 +56,17 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 		return nil, err
 	}
 
+	assignee, err := s.validateAssignee(ctx, ticket.Assignee)
+	if err != nil {
+		return nil, errorx.NewBadRequest(err.Error())
+	}
+	ticket.Assignee = assignee
+
 	if err := s.svcCtx.TicketModel.Create(ctx, ticket); err != nil {
 		return nil, err
 	}
+
+	s.notifyAssignee(ctx, ticket, ticket.Assignee, commentAuthor(ctx))
 
 	return &CreateResponse{
 		Ticket: buildTicketDTO(ticket),
@@ -109,7 +117,11 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 		updates["priority"] = sanitizePriority(v)
 	}
 	if v := strings.TrimSpace(req.Assignee); v != "" {
-		updates["assignee"] = v
+		assignee, err := s.validateAssignee(ctx, v)
+		if err != nil {
+			return nil, errorx.NewBadRequest(err.Error())
+		}
+		updates["assignee"] = assignee
 	}
 	if req.Tags != nil {
 		updates["tags"] = encodeTicketTags(req.Tags)
@@ -119,6 +131,12 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 		return nil, errorx.NewBadRequest("请提供需要更新的字段")
 	}
 
+	before, err := s.svcCtx.TicketModel.FindOne(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	prevAssignee := before.Assignee
+
 	if err := s.svcCtx.TicketModel.Update(ctx, id, updates); err != nil {
 		return nil, err
 	}
@@ -126,6 +144,10 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 	ticket, err := s.svcCtx.TicketModel.FindOne(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+
+	if newAssignee, _ := updates["assignee"].(string); newAssignee != prevAssignee {
+		s.notifyAssignee(ctx, ticket, newAssignee, commentAuthor(ctx))
 	}
 
 	return &UpdateResponse{
@@ -173,6 +195,11 @@ func (s *Service) Transition(ctx context.Context, req *TransitionRequest) (*Tran
 		return nil, err
 	}
 
+	actor := commentAuthor(ctx)
+	s.notifyTicketEvent(ctx, ticket, actor,
+		fmt.Sprintf("工单 #%d 状态变更为 %s", ticket.ID, ticket.Status),
+		fmt.Sprintf("【%s】%s", ticket.Category, ticket.Title))
+
 	comments, err := s.svcCtx.TicketModel.ListComments(ctx, id)
 	if err != nil {
 		return nil, err
@@ -216,10 +243,19 @@ func (s *Service) CreateComment(ctx context.Context, req *CreateCommentRequest) 
 		return nil, err
 	}
 
-	comment := addComment(commentAuthor(ctx), content, id)
+	actor := commentAuthor(ctx)
+	comment := addComment(actor, content, id)
 	if err := s.svcCtx.TicketModel.CreateComment(ctx, comment); err != nil {
 		return nil, err
 	}
+
+	ticket, err := s.svcCtx.TicketModel.FindOne(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.notifyTicketEvent(ctx, ticket, actor,
+		fmt.Sprintf("工单 #%d 有新回复", ticket.ID),
+		fmt.Sprintf("%s: %s", actor, truncateContent(content, 120)))
 
 	comments, err := s.svcCtx.TicketModel.ListComments(ctx, id)
 	if err != nil {

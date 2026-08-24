@@ -42,12 +42,13 @@ type TicketCreateRequest struct {
 	Title    string   `json:"title"`
 	Content  string   `json:"content"`
 	Category string   `json:"category"`
-	Priority string   `json:"priority,optional,default=medium"`
+	Priority string   `json:"priority"`
 	Tags     []string `json:"tags"`
 	PlayerId string   `json:"playerId"`
 	Contact  string   `json:"contact"`
 	GameId   string   `json:"gameId"`
 	Env      string   `json:"env"`
+	Assignee string   `json:"assignee"`
 }
 
 type TicketDeleteRequest struct {

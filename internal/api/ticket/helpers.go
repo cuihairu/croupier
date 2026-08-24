@@ -152,7 +152,7 @@ func sanitizeTicketFields(req *CreateRequest) (*model.Ticket, error) {
 		Category: category,
 		Priority: sanitizePriority(req.Priority),
 		Status:   "open",
-		Assignee: "",
+		Assignee: strings.TrimSpace(req.Assignee),
 		Tags:     encodeTicketTags(req.Tags),
 		PlayerID: strings.TrimSpace(req.PlayerId),
 		Contact:  strings.TrimSpace(req.Contact),

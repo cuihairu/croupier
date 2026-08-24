@@ -1,5 +1,7 @@
 # 支持 API
 
+> 响应契约：成功返回业务 JSON（无 `{code,message,data}` 包装），错误使用 HTTP 状态码 + `{ "error": ..., "message": ... }`。本页早期版本中的 envelope 结构已废弃，以下 response 定义已按当前 DTO 修正。
+
 ### 1. "获取FAQ列表"
 
 1. route definition
@@ -11,24 +13,20 @@
 
 2. request definition
 
-
-
 ```go
 type SupportFAQListRequest struct {
 	Category string `form:"category,optional"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportFAQListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
+	Items []FAQ `json:"items"`
+	Total int64 `json:"total"`
+	Page int `json:"page"`
+	Size int `json:"pageSize"`
 }
 ```
 
@@ -43,8 +41,6 @@ type SupportFAQListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportFAQCreateRequest struct {
 	Category string `json:"category"`
@@ -53,16 +49,11 @@ type SupportFAQCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportFAQCreateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
+	FAQ
 }
 ```
 
@@ -77,8 +68,6 @@ type SupportFAQCreateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportFAQUpdateRequest struct {
 	ID string `path:"id"`
@@ -88,16 +77,11 @@ type SupportFAQUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportFAQUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
+	FAQ
 }
 ```
 
@@ -112,24 +96,17 @@ type SupportFAQUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportFAQDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportFAQDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
+	// 204 No Content
 }
 ```
 
@@ -144,8 +121,6 @@ type SupportFAQDeleteResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportFeedbackListRequest struct {
 	Page int `form:"page,optional"`
@@ -153,16 +128,14 @@ type SupportFeedbackListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportFeedbackListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
+	Items []Feedback `json:"items"`
+	Total int64 `json:"total"`
+	Page int `json:"page"`
+	Size int `json:"pageSize"`
 }
 ```
 
@@ -177,8 +150,6 @@ type SupportFeedbackListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportFeedbackCreateRequest struct {
 	Type string `json:"type"`
@@ -186,16 +157,11 @@ type SupportFeedbackCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportFeedbackCreateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
+	Feedback
 }
 ```
 
@@ -210,8 +176,6 @@ type SupportFeedbackCreateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportFeedbackUpdateRequest struct {
 	ID string `path:"id"`
@@ -220,16 +184,11 @@ type SupportFeedbackUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportFeedbackUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
+	Feedback
 }
 ```
 
@@ -244,24 +203,17 @@ type SupportFeedbackUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportFeedbackDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportFeedbackDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
+	// 204 No Content
 }
 ```
 
@@ -276,8 +228,6 @@ type SupportFeedbackDeleteResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportTicketsListRequest struct {
 	Page int `form:"page,optional"`
@@ -286,16 +236,14 @@ type SupportTicketsListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportTicketsListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
+	Items []Ticket `json:"items"`
+	Total int64 `json:"total"`
+	Page int `json:"page"`
+	Size int `json:"pageSize"`
 }
 ```
 
@@ -310,8 +258,6 @@ type SupportTicketsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportTicketCreateRequest struct {
 	Subject string `json:"subject"`
@@ -319,17 +265,12 @@ type SupportTicketCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportTicketCreateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+	Ticket
+} // TODO verify
 ```
 
 ### 11. "获取工单详情"
@@ -343,25 +284,19 @@ type SupportTicketCreateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportTicketDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportTicketDetailResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+	Ticket
+	Comments []Comment `json:"comments,omitempty"`
+} // TODO verify
 ```
 
 ### 12. "更新工单"
@@ -375,8 +310,6 @@ type SupportTicketDetailResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportTicketUpdateRequest struct {
 	ID string `path:"id"`
@@ -385,17 +318,12 @@ type SupportTicketUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportTicketUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+	Ticket
+} // TODO verify
 ```
 
 ### 13. "删除工单"
@@ -409,25 +337,18 @@ type SupportTicketUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportTicketDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportTicketDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+	// 204 No Content
+} // TODO verify
 ```
 
 ### 14. "工单状态转换"
@@ -441,8 +362,6 @@ type SupportTicketDeleteResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportTicketTransitionRequest struct {
 	ID string `path:"id"`
@@ -450,17 +369,13 @@ type SupportTicketTransitionRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportTicketTransitionResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+	Ticket
+	Comments []Comment `json:"comments,omitempty"`
+} // TODO verify
 ```
 
 ### 15. "获取工单评论"
@@ -474,8 +389,6 @@ type SupportTicketTransitionResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportCommentsListRequest struct {
 	TicketID string `path:"ticketId"`
@@ -484,17 +397,12 @@ type SupportCommentsListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportCommentsListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+	Items []Comment `json:"items"`
+} // TODO verify
 ```
 
 ### 16. "创建工单评论"
@@ -508,8 +416,6 @@ type SupportCommentsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SupportCommentCreateRequest struct {
 	TicketID string `path:"ticketId"`
@@ -517,16 +423,10 @@ type SupportCommentCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type SupportCommentCreateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+	Items []Comment `json:"items"`
+} // TODO verify
 ```
-

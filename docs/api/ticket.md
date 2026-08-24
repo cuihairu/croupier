@@ -1,5 +1,15 @@
 # 工单 API
 
+工单系统支持：CRUD、按处理人分配（校验账号存在）、状态机流转（open / in_progress / resolved / closed）、工单内评论。
+
+**站内信通知**（自动触发，无需调用）：
+
+- 工单被分配（创建时带 `assignee` 或更新时变更 `assignee`）→ 向新处理人发送 `ticket.assigned` 消息；自己分配给自己不通知
+- 状态流转（`POST /:id/transition`）→ 向当前处理人发送 `ticket.updated` 消息；操作者本人不通知
+- 新评论（`POST /:id/comments`）→ 向当前处理人发送 `ticket.updated` 消息；评论者本人不通知
+
+消息体 `data` 字段统一为：`{ "ticketId", "status", "category", "priority", "gameId", "env" }`。
+
 ### 1. "获取工单列表"
 
 1. route definition
@@ -11,23 +21,21 @@
 
 2. request definition
 
-
-
 ```go
 type TicketsListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
+	Query string `form:"q,optional"` // 标题/内容模糊查询
 	Status string `form:"status,optional"`
 	Category string `form:"category,optional"`
 	Priority string `form:"priority,optional"`
 	Assignee string `form:"assignee,optional"`
+	GameID string `form:"gameId,optional"`
+	Env string `form:"env,optional"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type TicketsListResponse struct {
@@ -49,8 +57,6 @@ type TicketsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type TicketCreateRequest struct {
 	Title string `json:"title"`
@@ -62,13 +68,11 @@ type TicketCreateRequest struct {
 	Contact string `json:"contact,optional"`
 	GameId string `json:"gameId,optional"`
 	Env string `json:"env,optional"`
+	Assignee string `json:"assignee,optional"` // 处理人账号，必须已存在，否则 400
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type TicketDetailResponse struct {
@@ -120,18 +124,13 @@ type Ticket struct {
 
 2. request definition
 
-
-
 ```go
 type TicketDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type TicketDetailResponse struct {
@@ -183,8 +182,6 @@ type Ticket struct {
 
 2. request definition
 
-
-
 ```go
 type TicketUpdateRequest struct {
 	ID string `path:"id"`
@@ -192,15 +189,12 @@ type TicketUpdateRequest struct {
 	Content string `json:"content,optional"`
 	Category string `json:"category,optional"`
 	Priority string `json:"priority,optional"`
-	Assignee string `json:"assignee,optional"`
+	Assignee string `json:"assignee,optional"` // 处理人账号，必须已存在，否则 400
 	Tags []string `json:"tags,optional"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type TicketDetailResponse struct {
@@ -252,17 +246,13 @@ type Ticket struct {
 
 2. request definition
 
-
-
 ```go
 type TicketDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 6. "工单状态转换"
 
@@ -275,8 +265,6 @@ type TicketDeleteRequest struct {
 
 2. request definition
 
-
-
 ```go
 type TicketTransitionRequest struct {
 	ID string `path:"id"`
@@ -285,10 +273,7 @@ type TicketTransitionRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type TicketDetailResponse struct {
@@ -340,18 +325,13 @@ type Ticket struct {
 
 2. request definition
 
-
-
 ```go
 type TicketCommentsRequest struct {
 	TicketID string `path:"ticketId"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type TicketCommentsResponse struct {
@@ -370,8 +350,6 @@ type TicketCommentsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type TicketCommentCreateRequest struct {
 	TicketID string `path:"ticketId"`
@@ -379,14 +357,10 @@ type TicketCommentCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type TicketCommentsResponse struct {
 	Items []Comment `json:"items"`
 }
 ```
-
