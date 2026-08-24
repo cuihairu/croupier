@@ -397,6 +397,25 @@ type revRow struct {
 	failed  uint64
 }
 
+// otelEventAliases maps the dotted OTel semantic event names emitted by the
+// telemetry bridge (session.start, user.login, ...) onto the underscore
+// names the aggregation matcher understands. Bridge-side naming follows
+// OTel conventions; the worker stays the contract owner for aggregation.
+var otelEventAliases = map[string]string{
+	"session.start": "session_start",
+	"session.end":   "session_end",
+	"user.login":    "login",
+	"user.register": "register",
+}
+
+func normalizeAggEvent(raw string) string {
+	evt := strings.ToLower(strings.TrimSpace(raw))
+	if canonical, ok := otelEventAliases[evt]; ok {
+		return canonical
+	}
+	return evt
+}
+
 func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
 	ts := asString(m, "ts")
 	t, _ := time.Parse(time.RFC3339, ts)
@@ -406,7 +425,7 @@ func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
 	game := asString(m, "game_id")
 	env := asString(m, "env")
 	uid := asString(m, "user_id")
-	evt := strings.ToLower(asString(m, "event"))
+	evt := normalizeAggEvent(asString(m, "event"))
 	// minute online (heartbeat or session_start)
 	if evt == "heartbeat" || evt == "session_start" {
 		min := t.Truncate(time.Minute)

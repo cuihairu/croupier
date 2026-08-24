@@ -54,6 +54,7 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
+      - ./configs/clickhouse/initdb:/docker-entrypoint-initdb.d:ro
     ulimits:
       nofile:
         soft: 262144
@@ -78,7 +79,7 @@ services:
     restart: unless-stopped
     command: ["--config=/etc/otel-collector.yaml"]
     volumes:
-      - ./configs/otel-collector.yaml:/etc/otel-collector.yaml:ro
+      - ./configs/otel-collector.yaml:/etc/otel-collector.yaml:ro # 拷贝自 configs/otel-collector-config.yaml
     # contrib 0.91 是 distroless（无 shell/wget/healthcheck 二进制），
     # 无法承载 Docker healthcheck；OTLP 发送端自带重连，server 不以
     # collector 健康为启动前置。
@@ -277,6 +278,47 @@ services:
       CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
     depends_on:
       agent:
+        condition: service_healthy
+    networks:
+      - croupier-network
+
+  # Analytics pipeline (optional): events ingestion + ClickHouse worker.
+  # Enable with: docker compose --profile analytics up -d
+  ingestion:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-ingest:${CROUPIER_INGEST_TAG:-main}
+    container_name: croupier-ingestion
+    restart: unless-stopped
+    profiles: ["analytics"]
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ANALYTICS_MQ_TYPE: ${ANALYTICS_MQ_TYPE:-redis}
+      ANALYTICS_INGEST_SECRET: ${ANALYTICS_INGEST_SECRET:-change-me}
+      ANALYTICS_REDIS_STREAM_EVENTS: ${ANALYTICS_REDIS_STREAM_EVENTS:-analytics:events}
+      ANALYTICS_REDIS_STREAM_PAYMENTS: ${ANALYTICS_REDIS_STREAM_PAYMENTS:-analytics:payments}
+      ANALYTICS_INGEST_SKEW: ${ANALYTICS_INGEST_SKEW:-300}
+    ports:
+      - "${INGEST_PORT:-18081:8088}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - croupier-network
+
+  analytics-worker:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-analytics-worker:${CROUPIER_ANALYTICS_WORKER_TAG:-main}
+    container_name: croupier-analytics-worker
+    restart: unless-stopped
+    profiles: ["analytics"]
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ANALYTICS_REDIS_STREAM_EVENTS: ${ANALYTICS_REDIS_STREAM_EVENTS:-analytics:events}
+      ANALYTICS_REDIS_STREAM_PAYMENTS: ${ANALYTICS_REDIS_STREAM_PAYMENTS:-analytics:payments}
+      CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://clickhouse:9000/analytics}
+      WORKER_GROUP: ${WORKER_GROUP:-analytics-worker}
+    depends_on:
+      redis:
+        condition: service_healthy
+      clickhouse:
         condition: service_healthy
     networks:
       - croupier-network

@@ -3,8 +3,8 @@ package telemetry
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -48,6 +48,69 @@ type AnalyticsEvent struct {
 	Attributes map[string]interface{} `json:"attributes"`
 	TraceID    string                 `json:"traceId,omitempty"`
 	SpanID     string                 `json:"spanId,omitempty"`
+}
+
+// analyticsEventsStream is the single stream consumed by cmd/analytics-worker.
+// The previous per-event-type streams (game:events:<type>) had no consumer.
+const analyticsEventsStream = "analytics:events"
+
+// workerPayloadFromEvent converts a bridge AnalyticsEvent into the snake_case
+// envelope the analytics worker parses (worker.asString keys). ts uses
+// RFC3339 which both worker.parseEventTime (aggregation) and
+// worker.normalizeTimestamp (detail insert) accept.
+func workerPayloadFromEvent(e AnalyticsEvent) map[string]interface{} {
+	ts := time.Unix(e.Timestamp, 0).UTC().Format(time.RFC3339)
+	payload := map[string]interface{}{
+		"event":      e.EventType,
+		"game_id":    e.GameID,
+		"user_id":    e.UserID,
+		"session_id": e.SessionID,
+		"platform":   e.Platform,
+		"ts":         ts,
+	}
+	props := map[string]interface{}{}
+	for k, v := range e.Attributes {
+		props[k] = v
+	}
+	if e.TraceID != "" {
+		props["trace_id"] = e.TraceID
+	}
+	if e.SpanID != "" {
+		props["span_id"] = e.SpanID
+	}
+	if e.Region != "" {
+		payload["country"] = normalizeCountry(e.Region)
+	}
+	if len(props) > 0 {
+		payload["props"] = props
+	}
+	return payload
+}
+
+// normalizeCountry coerces region/country hints into the ISO-2 form the
+// ClickHouse FixedString(2) country column expects; unknown values are
+// dropped rather than written as an invalid fixed-width string.
+func normalizeCountry(region string) string {
+	trimmed := strings.TrimSpace(region)
+	if len(trimmed) == 2 {
+		return strings.ToUpper(trimmed)
+	}
+	// Common full names seen from platform hints
+	switch strings.ToLower(trimmed) {
+	case "cn", "china":
+		return "CN"
+	case "us", "usa", "united states":
+		return "US"
+	case "jp", "japan":
+		return "JP"
+	case "kr", "korea":
+		return "KR"
+	case "de", "germany":
+		return "DE"
+	case "gb", "uk", "united kingdom":
+		return "GB"
+	}
+	return ""
 }
 
 // AnalyticsBridgeConfig Analytics桥接配置
@@ -148,39 +211,31 @@ func (b *AnalyticsBridge) flushBatch() {
 	ctx := context.Background()
 	pipe := b.redisClient.Pipeline()
 
-	// 按事件类型分组发送
-	eventGroups := make(map[string][]AnalyticsEvent)
+	// All bridge events are behavioral: they flow into the single stream the
+	// analytics worker consumes (analytics:events). The worker normalizes
+	// dotted OTel event names (session.start etc.) via its alias table, so
+	// the bridge keeps OTel semantic naming untouched.
 	for _, event := range b.eventBatch {
-		eventGroups[event.EventType] = append(eventGroups[event.EventType], event)
+		data, err := json.Marshal(workerPayloadFromEvent(event))
+		if err != nil {
+			b.logger.Error("Failed to marshal analytics event",
+				"error", err, "event_type", event.EventType)
+			continue
+		}
+
+		pipe.XAdd(ctx, &redis.XAddArgs{
+			Stream: analyticsEventsStream,
+			Values: map[string]interface{}{
+				"data": string(data),
+			},
+		})
 	}
 
-	for eventType, events := range eventGroups {
-		topic := fmt.Sprintf("%s:%s", b.topicPrefix, eventType)
-
-		for _, event := range events {
-			data, err := json.Marshal(event)
-			if err != nil {
-				b.logger.Error("Failed to marshal analytics event",
-					"error", err, "event_type", eventType)
-				continue
-			}
-
-			// 发送到Redis Stream
-			pipe.XAdd(ctx, &redis.XAddArgs{
-				Stream: topic,
-				Values: map[string]interface{}{
-					"data":      string(data),
-					"game_id":   event.GameID,
-					"user_id":   event.UserID,
-					"timestamp": event.Timestamp,
-				},
-			})
-		}
-
-		// 设置Stream过期时间
-		if b.retentionHours > 0 {
-			pipe.Expire(ctx, topic, time.Duration(b.retentionHours)*time.Hour)
-		}
+	// The consumer (cmd/analytics-worker) owns stream trimming via
+	// ANALYTICS_REDIS_MAXLEN on its publisher side; retention here only
+	// guards against an idle worker leaving the stream to grow.
+	if b.retentionHours > 0 {
+		pipe.Expire(ctx, analyticsEventsStream, time.Duration(b.retentionHours)*time.Hour)
 	}
 
 	// 执行批量操作
@@ -189,7 +244,7 @@ func (b *AnalyticsBridge) flushBatch() {
 			"error", err, "batch_size", len(b.eventBatch))
 	} else {
 		b.logger.Debug("Analytics events sent to Redis",
-			"batch_size", len(b.eventBatch), "event_types", len(eventGroups))
+			"stream", analyticsEventsStream, "batch_size", len(b.eventBatch))
 	}
 
 	// 清空批次

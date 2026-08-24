@@ -388,7 +388,8 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 
 	// Audit logging: log function invocation if policy requires audit
 	if svcCtx.AuditService != nil && functionPolicy != nil && functionPolicy.RequireAudit {
-		auditFunctionInvoke(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), functionPolicy, invokeErr)
+		invokeDurationMs := time.Since(startedAt).Milliseconds()
+		auditFunctionInvoke(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), functionPolicy, invokeErr, invokeDurationMs)
 	}
 
 	if invokeErr != nil {
@@ -464,7 +465,7 @@ func isPageSnapshotGoverned(metadata map[string]string) bool {
 }
 
 // auditFunctionInvoke logs function invocation to audit service
-func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin *model.Admin, userRoles []string, functionPolicy *policy.Policy, invokeErr error) {
+func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin *model.Admin, userRoles []string, functionPolicy *policy.Policy, invokeErr error, durationMs int64) {
 	username := ""
 	if admin != nil {
 		username = admin.Username
@@ -486,6 +487,12 @@ func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functi
 		"policy_source": functionPolicy.Source,
 		"user_roles":    userRoles,
 		"allowed_roles": functionPolicy.AllowedRoles,
+		// Duration and trace id make audit records a data source for
+		// invocation analytics (volume / success rate / latency / Jaeger hop).
+		"duration_ms": durationMs,
+		"trace_id":    telemetry.TraceIDFromContext(ctx),
+		"game_id":     svc.ResolveGameID(ctx, ""),
+		"env":         svc.ResolveEnv(ctx, ""),
 	}
 
 	// Log the audit event

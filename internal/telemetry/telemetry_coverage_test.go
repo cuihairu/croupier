@@ -323,6 +323,15 @@ func newMiniRedisBridge(t *testing.T, batchSize int, flushInterval time.Duration
 	return bridge, mr, client
 }
 
+// decodeWorkerPayload parses a bridge XAdd "data" field as the worker
+// envelope (snake_case map) for assertions.
+func decodeWorkerPayload(t *testing.T, raw string) map[string]interface{} {
+	t.Helper()
+	var payload map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(raw), &payload))
+	return payload
+}
+
 func waitForStreamLength(t *testing.T, client *redis.Client, stream string, want int64) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
@@ -352,22 +361,25 @@ func TestAnalyticsBridge_BatchFlushToRedis(t *testing.T) {
 		attribute.String("custom", "value"),
 	})
 
-	stream := "game:events:session.start"
+	stream := analyticsEventsStream
 	waitForStreamLength(t, client, stream, 2)
 
 	msgs, err := client.XRange(ctx, stream, "-", "+").Result()
 	require.NoError(t, err)
 	require.Len(t, msgs, 2)
 
-	var event AnalyticsEvent
-	require.NoError(t, json.Unmarshal([]byte(msgs[1].Values["data"].(string)), &event))
-	assert.Equal(t, "game-1", event.GameID)
-	assert.Equal(t, "u-1", event.UserID)
-	assert.Equal(t, "s-1", event.SessionID)
-	assert.Equal(t, "ios", event.Platform)
-	assert.Equal(t, "us", event.Region)
-	assert.Equal(t, "value", event.Attributes["custom"])
-	assert.Empty(t, event.TraceID)
+	payload := decodeWorkerPayload(t, msgs[1].Values["data"].(string))
+	assert.Equal(t, "session.start", payload["event"])
+	assert.Equal(t, "game-1", payload["game_id"])
+	assert.Equal(t, "u-1", payload["user_id"])
+	assert.Equal(t, "s-1", payload["session_id"])
+	assert.Equal(t, "ios", payload["platform"])
+	assert.NotEmpty(t, payload["ts"], "worker envelope requires ts")
+	props := payload["props"].(map[string]interface{})
+	assert.Equal(t, "value", props["custom"])
+	assert.Equal(t, "US", payload["country"], "region hint coerced to ISO-2")
+	_, hasTrace := props["trace_id"]
+	assert.False(t, hasTrace)
 
 	// Retention TTL must be applied via Expire.
 	ttl, err := client.TTL(ctx, stream).Result()
@@ -411,7 +423,7 @@ func TestAnalyticsBridge_Shutdown(t *testing.T) {
 
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	defer client.Close()
-	n, err := client.XLen(context.Background(), "game:events:session.end").Result()
+	n, err := client.XLen(context.Background(), analyticsEventsStream).Result()
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), n, "Shutdown must flush pending events")
 
@@ -424,7 +436,7 @@ func TestAnalyticsBridge_TickerFlush(t *testing.T) {
 	ctx := context.Background()
 
 	bridge.SendEvent(ctx, "match.end", nil, nil)
-	waitForStreamLength(t, client, "game:events:match.end", 1)
+	waitForStreamLength(t, client, analyticsEventsStream, 1)
 
 	// Shutdown is not called: it races with the live batchProcessor goroutine.
 }
@@ -472,16 +484,16 @@ func TestAnalyticsBridge_SendEventWithRealSpanContext(t *testing.T) {
 	})
 	span.End()
 
-	stream := "game:events:function.call"
+	stream := analyticsEventsStream
 	waitForStreamLength(t, client, stream, 1)
 
 	msgs, err := client.XRange(ctx, stream, "-", "+").Result()
 	require.NoError(t, err)
-	var event AnalyticsEvent
-	require.NoError(t, json.Unmarshal([]byte(msgs[0].Values["data"].(string)), &event))
-	assert.NotEmpty(t, event.TraceID, "span context trace id must be propagated")
-	assert.NotEmpty(t, event.SpanID)
-	assert.Equal(t, float64(12), event.Attributes["function.duration_ms"])
+	payload := decodeWorkerPayload(t, msgs[0].Values["data"].(string))
+	props := payload["props"].(map[string]interface{})
+	assert.NotEmpty(t, props["trace_id"], "span context trace id must be propagated")
+	assert.NotEmpty(t, props["span_id"])
+	assert.Equal(t, float64(12), props["function.duration_ms"])
 }
 
 func TestAnalyticsBridge_SendSessionEvent_ExtraTypes(t *testing.T) {
@@ -498,19 +510,19 @@ func TestAnalyticsBridge_SendSessionEvent_ExtraTypes(t *testing.T) {
 			"ignored":     struct{}{},
 		})
 
-	stream := "game:events:session.end"
+	stream := analyticsEventsStream
 	waitForStreamLength(t, client, stream, 1)
 	msgs, err := client.XRange(ctx, stream, "-", "+").Result()
 	require.NoError(t, err)
-	var event AnalyticsEvent
-	require.NoError(t, json.Unmarshal([]byte(msgs[0].Values["data"].(string)), &event))
-	assert.Equal(t, "u-9", event.UserID)
-	assert.Equal(t, float64(1500), event.Attributes["duration_ms"])
-	assert.Equal(t, "normal", event.Attributes["cause_end"])
-	assert.Equal(t, float64(3), event.Attributes["count"])
-	assert.Equal(t, 0.5, event.Attributes["ratio"])
-	assert.Equal(t, true, event.Attributes["premium"])
-	_, hasIgnored := event.Attributes["ignored"]
+	payload := decodeWorkerPayload(t, msgs[0].Values["data"].(string))
+	assert.Equal(t, "u-9", payload["user_id"])
+	props := payload["props"].(map[string]interface{})
+	assert.Equal(t, float64(1500), props["duration_ms"])
+	assert.Equal(t, "normal", props["cause_end"])
+	assert.Equal(t, float64(3), props["count"])
+	assert.Equal(t, 0.5, props["ratio"])
+	assert.Equal(t, true, props["premium"])
+	_, hasIgnored := props["ignored"]
 	assert.False(t, hasIgnored, "unsupported extra types must be skipped")
 }
 
@@ -523,16 +535,23 @@ func TestAnalyticsBridge_SendProgressionAndEconomyEvents(t *testing.T) {
 	bridge.SendEconomyEvent(ctx, "economy.earn", nil, "u-1", "gold", 99.5,
 		map[string]interface{}{"source": "quest"})
 
-	waitForStreamLength(t, client, "game:events:progression.complete", 1)
-	waitForStreamLength(t, client, "game:events:economy.earn", 1)
+	waitForStreamLength(t, client, analyticsEventsStream, 2)
 
-	msgs, err := client.XRange(ctx, "game:events:economy.earn", "-", "+").Result()
+	msgs, err := client.XRange(ctx, analyticsEventsStream, "-", "+").Result()
 	require.NoError(t, err)
-	var event AnalyticsEvent
-	require.NoError(t, json.Unmarshal([]byte(msgs[0].Values["data"].(string)), &event))
-	assert.Equal(t, "u-1", event.UserID)
-	assert.Equal(t, float64(99.5), event.Attributes["economy.amount"])
-	assert.Equal(t, "quest", event.Attributes["source"])
+	var economy map[string]interface{}
+	for _, m := range msgs {
+		candidate := decodeWorkerPayload(t, m.Values["data"].(string))
+		if candidate["event"] == "economy.earn" {
+			economy = candidate
+			break
+		}
+	}
+	require.NotNil(t, economy, "economy.earn event must be in the stream")
+	assert.Equal(t, "u-1", economy["user_id"])
+	props := economy["props"].(map[string]interface{})
+	assert.Equal(t, float64(99.5), props["economy.amount"])
+	assert.Equal(t, "quest", props["source"])
 }
 
 // --- GameTracer gameplay events ---

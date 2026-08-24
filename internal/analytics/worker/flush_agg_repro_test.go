@@ -93,3 +93,58 @@ func TestInsertEventGeneratesUUIDWhenMissing(t *testing.T) {
 		t.Fatal("event_id must be generated when payload omits it")
 	}
 }
+
+func TestNormalizeAggEventAliases(t *testing.T) {
+	cases := map[string]string{
+		// OTel dotted names (telemetry bridge producers)
+		"session.start": "session_start",
+		"session.end":   "session_end",
+		"user.login":    "login",
+		"user.register": "register",
+		"USER.LOGIN":    "login", // case-insensitive
+		// Native underscore names pass through
+		"session_start": "session_start",
+		"login":         "login",
+		"heartbeat":     "heartbeat",
+		"register":      "register",
+		"first_active":  "first_active",
+		// Unknown events unchanged (no aggregation, detail insert only)
+		"purchase":      "purchase",
+		"gacha.pull":    "gacha.pull",
+		"":              "",
+		"  user.login ": "login", // whitespace tolerated
+	}
+	for in, want := range cases {
+		if got := normalizeAggEvent(in); got != want {
+			t.Errorf("normalizeAggEvent(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// Dotted OTel events must drive the same HLL aggregations as underscore
+// names: session.start → minute online + DAU, user.register → new users.
+func TestTouchAggDottedEventsDriveAggregation(t *testing.T) {
+	w, mr := testWorker(t)
+	now := time.Now().UTC()
+
+	w.touchAgg(t.Context(), map[string]any{
+		"game_id": "g", "env": "dev", "user_id": "u1",
+		"event": "session.start", "ts": now.Format(time.RFC3339),
+	})
+	if len(w.touchedMinutes) == 0 {
+		t.Error("session.start should touch minute online HLL")
+	}
+	if len(w.touchedDays) == 0 {
+		t.Error("session.start should touch DAU HLL")
+	}
+
+	w.touchAgg(t.Context(), map[string]any{
+		"game_id": "g", "env": "dev", "user_id": "u2",
+		"event": "user.register", "ts": now.Format(time.RFC3339),
+	})
+	// register only touches the new-users HLL → still one distinct day|game|env key
+	if len(w.touchedDays) != 1 {
+		t.Errorf("touchedDays = %v, want 1", w.touchedDays)
+	}
+	_ = mr
+}
