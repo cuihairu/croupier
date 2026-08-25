@@ -64,6 +64,13 @@ type PageRegenerateResponse struct {
 	Quality       spec.GeneratedPageQuality `json:"quality"`
 }
 
+// PageProposalsRebuildResponse reports the scope covered by a bulk proposal
+// rebuild. Per-page results are observable through the proposal list API.
+type PageProposalsRebuildResponse struct {
+	GameID string `json:"gameId"`
+	Env    string `json:"env"`
+}
+
 type PageValidateRequest struct {
 	PageKey string `uri:"pageKey" binding:"required"`
 }

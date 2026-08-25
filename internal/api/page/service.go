@@ -1490,3 +1490,30 @@ type PageNotFoundError struct {
 func (e *PageNotFoundError) Error() string {
 	return "page not found: " + e.Key
 }
+
+// RebuildAllProposals regenerates every page proposal in the current scope
+// from the latest FunctionContract / CapabilitySemantics. Proposals whose
+// content or generator version changed are updated and snapshotted; published
+// pages keep their published snapshot until explicitly republished.
+func (s *Service) RebuildAllProposals(ctx context.Context) (*PageProposalsRebuildResponse, error) {
+	if err := s.requirePageEdit(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(gameID) == "" || strings.TrimSpace(env) == "" {
+		return nil, errorx.NewBadRequest("X-Game-ID/X-Env headers are required")
+	}
+
+	contractSvc := contractsvc.NewContractService(s.svcCtx.DB)
+	if err := contractSvc.RebuildAllProposals(ctx, gameID, env); err != nil {
+		return nil, err
+	}
+	slog.Default().Info("page proposals rebuilt",
+		"game_id", gameID,
+		"env", env,
+	)
+	return &PageProposalsRebuildResponse{GameID: gameID, Env: env}, nil
+}

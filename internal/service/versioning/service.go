@@ -733,7 +733,7 @@ func (s *Service) upsertGeneratedProposal(ctx context.Context, gameID, env, prop
 		PageType:         string(generated.Type),
 		ResourceKey:      generated.ResourceKey,
 		Quality:          string(generated.Quality),
-		GeneratorVersion: pageProposalGeneratorVersion,
+		GeneratorVersion: service.PageProposalGeneratorVersion,
 		FunctionDigest:   computeDigest(contracts),
 		Title:            localizedTextToJSONMap(generated.Title),
 		Description:      localizedTextToJSONMap(generated.Description),
@@ -1864,7 +1864,6 @@ func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*Republ
 }
 
 const rendererSchemaVersion = "page-spec:1"
-const pageProposalGeneratorVersion = "page-generator:1"
 
 func (s *Service) findPageVersion(ctx context.Context, gameID, env, pageKey string, version int) (*model.PageVersion, error) {
 	versions, err := s.pageVersionModel.ListByScopeAndPageKey(ctx, gameID, env, pageKey)

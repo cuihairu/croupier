@@ -99,6 +99,16 @@ func (h *Handler) RegenerateDraft(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// RebuildProposals handles POST /api/v1/pages/proposals/rebuild
+func (h *Handler) RebuildProposals(c *gin.Context) {
+	resp, err := h.service.RebuildAllProposals(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // Validate handles POST /api/v1/pages/:pageKey/validate
 func (h *Handler) Validate(c *gin.Context) {
 	var req PageValidateRequest

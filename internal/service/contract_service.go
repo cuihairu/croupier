@@ -20,7 +20,11 @@ import (
 	"gorm.io/gorm"
 )
 
-const pageProposalGeneratorVersion = "page-generator:1"
+// PageProposalGeneratorVersion identifies the page proposal generator
+// revision. It participates in proposalComparableDigest, so bumping it makes
+// every stored proposal compare as changed on the next rebuild pass and get
+// regenerated from the current generator (e.g. after label-fallback changes).
+const PageProposalGeneratorVersion = "page-generator:2"
 
 // normalizeSchemaToJSON ensures schema is stored as a native JSON object,
 // not as a JSON string value. This prevents the API from returning schemas
@@ -1107,7 +1111,7 @@ func (s *ContractService) upsertGeneratedProposal(
 		PageType:         string(generated.Type),
 		ResourceKey:      generated.ResourceKey,
 		Quality:          string(generated.Quality),
-		GeneratorVersion: pageProposalGeneratorVersion,
+		GeneratorVersion: PageProposalGeneratorVersion,
 		FunctionDigest:   computeDigest(contracts),
 		SemanticsDigest:  computeDigest(semantics),
 		Title:            toJSONMap(generated.Title),
