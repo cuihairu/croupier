@@ -39,16 +39,16 @@ type FixtureSDKFunction struct {
 	Tags              []string `json:"tags,omitempty"`
 	Summary           string   `json:"summary,omitempty"`
 	Description       string   `json:"description,omitempty"`
-	OperationID       string   `json:"operation_id,omitempty"`
+	OperationID       string   `json:"operationId,omitempty"`
 	Deprecated        bool     `json:"deprecated,omitempty"`
-	InputSchema       string   `json:"input_schema,omitempty"`
-	OutputSchema      string   `json:"output_schema,omitempty"`
+	InputSchema       string   `json:"inputSchema,omitempty"`
+	OutputSchema      string   `json:"outputSchema,omitempty"`
 	Resource          string   `json:"resource,omitempty"`
 	Operation         string   `json:"operation,omitempty"`
 	Capability        string   `json:"capability,omitempty"`
 	Execution         string   `json:"execution,omitempty"`
-	ApprovalRequired  bool     `json:"approval_required,omitempty"`
-	ApprovalPolicyKey string   `json:"approval_policy_key,omitempty"`
+	ApprovalRequired  bool     `json:"approvalRequired,omitempty"`
+	ApprovalPolicyKey string   `json:"approvalPolicyKey,omitempty"`
 	Risk              string   `json:"risk,omitempty"`
 	Permission        string   `json:"permission,omitempty"`
 	Enabled           bool     `json:"enabled"`

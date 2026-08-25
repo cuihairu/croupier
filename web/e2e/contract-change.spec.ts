@@ -36,9 +36,9 @@ const defaultMailSend = {
   id: 'mail.send',
   version: '1.0.0',
   summary: 'Send an in-game mail',
-  input_schema:
+  inputSchema:
     '{"type":"object","properties":{"player_id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"}},"required":["player_id","title"]}',
-  output_schema:
+  outputSchema:
     '{"type":"object","properties":{"success":{"type":"boolean"},"mail_id":{"type":"string"}}}',
   enabled: true,
 };
@@ -48,9 +48,9 @@ const defaultOpsRestart = {
   id: 'ops.restart',
   version: '1.0.0',
   summary: 'Restart game server',
-  input_schema:
+  inputSchema:
     '{"type":"object","properties":{"region":{"type":"string"},"reason":{"type":"string"}},"required":["region"]}',
-  output_schema:
+  outputSchema:
     '{"type":"object","properties":{"success":{"type":"boolean"},"job_id":{"type":"string"}}}',
   enabled: true,
 };
@@ -282,7 +282,7 @@ test.describe('真实契约变化链路', () => {
       defaultMailSend,
       {
         ...defaultOpsRestart,
-        input_schema:
+        inputSchema:
           '{"type":"object","properties":{"player_id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"priority":{"type":"integer"}},"required":["player_id","title","priority"]}',
       },
     ]);
@@ -396,7 +396,7 @@ test.describe('真实契约变化链路', () => {
       defaultMailSend,
       {
         ...defaultOpsRestart,
-        input_schema:
+        inputSchema:
           '{"type":"object","properties":{"player_id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"priority":{"type":"integer"}},"required":["player_id","title","priority"]}',
       },
     ]);
@@ -565,7 +565,7 @@ test.describe('真实契约变化链路', () => {
       defaultMailSend,
       {
         ...defaultOpsRestart,
-        input_schema:
+        inputSchema:
           '{"type":"object","properties":{"player_id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"priority":{"type":"integer"}},"required":["player_id","title","priority"]}',
       },
     ]);
@@ -669,7 +669,7 @@ test.describe('真实契约变化链路', () => {
       defaultMailSend,
       {
         ...defaultOpsRestart,
-        input_schema:
+        inputSchema:
           '{"type":"object","properties":{"player_id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"priority":{"type":"integer"}},"required":["player_id","title","priority"]}',
       },
     ]);

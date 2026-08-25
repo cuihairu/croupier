@@ -18,8 +18,8 @@ type SDKFunction = {
   id: string;
   version: string;
   summary: string;
-  input_schema: string;
-  output_schema: string;
+  inputSchema: string;
+  outputSchema: string;
   resource?: string;
   operation?: string;
   capability?: string;
@@ -68,9 +68,9 @@ const mailFunction: SDKFunction = {
   id: 'mail.send',
   version: '1.0.0',
   summary: 'Send an in-game mail',
-  input_schema:
+  inputSchema:
     '{"type":"object","properties":{"player_id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"}},"required":["player_id","title"]}',
-  output_schema:
+  outputSchema:
     '{"type":"object","properties":{"success":{"type":"boolean"},"mail_id":{"type":"string"}}}',
   enabled: true,
 };
@@ -85,9 +85,9 @@ const inventoryFunctions: SDKFunction[] = [
     capability: 'collection_query',
     execution: 'sync',
     risk: 'safe',
-    input_schema:
+    inputSchema:
       '{"type":"object","properties":{"page":{"type":"integer"},"page_size":{"type":"integer"}}}',
-    output_schema:
+    outputSchema:
       '{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"}},"required":["id","name"]}},"total":{"type":"integer"}},"required":["items","total"]}',
     enabled: true,
   },
@@ -100,8 +100,8 @@ const inventoryFunctions: SDKFunction[] = [
     capability: 'item_query',
     execution: 'sync',
     risk: 'safe',
-    input_schema: '{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}',
-    output_schema:
+    inputSchema: '{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}',
+    outputSchema:
       '{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"}},"required":["id","name"]}',
     enabled: true,
   },
@@ -114,9 +114,9 @@ const inventoryFunctions: SDKFunction[] = [
     capability: 'create',
     execution: 'sync',
     risk: 'safe',
-    input_schema:
+    inputSchema:
       '{"type":"object","properties":{"name":{"type":"string"},"quantity":{"type":"integer"}},"required":["name"]}',
-    output_schema:
+    outputSchema:
       '{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"}},"required":["id","name"]}',
     enabled: true,
   },
@@ -129,9 +129,9 @@ const inventoryFunctions: SDKFunction[] = [
     capability: 'update',
     execution: 'sync',
     risk: 'warning',
-    input_schema:
+    inputSchema:
       '{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"}},"required":["id"]}',
-    output_schema:
+    outputSchema:
       '{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"}},"required":["id","name"]}',
     enabled: true,
   },
@@ -144,8 +144,8 @@ const inventoryFunctions: SDKFunction[] = [
     capability: 'delete',
     execution: 'sync',
     risk: 'high',
-    input_schema: '{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}',
-    output_schema: '{"type":"object","properties":{"success":{"type":"boolean"}}}',
+    inputSchema: '{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}',
+    outputSchema: '{"type":"object","properties":{"success":{"type":"boolean"}}}',
     enabled: true,
   },
 ];
@@ -159,8 +159,8 @@ const missingIdentityFunction: SDKFunction = {
   capability: 'collection_query',
   execution: 'sync',
   risk: 'safe',
-  input_schema: '{"type":"object"}',
-  output_schema:
+  inputSchema: '{"type":"object"}',
+  outputSchema:
     '{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"display_name":{"type":"string"},"level":{"type":"integer"}}}},"total":{"type":"integer"}}}',
   enabled: true,
 };
