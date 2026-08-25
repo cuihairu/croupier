@@ -292,8 +292,19 @@ func localizedFallback(value string) map[string]string {
 }
 
 // normalizeRisk validates and normalizes the risk level.
+// The legacy aliases low/medium are accepted to match dbenum.ParseRisk;
+// anything else normalizes to empty (persisted as safe).
 func normalizeRisk(r string) spec.RiskLevel {
 	r = strings.TrimSpace(strings.ToLower(r))
+	// Legacy alias mapping (keep in sync with dbenum.ParseRisk).
+	switch r {
+	case "low":
+		r = "safe"
+	case "medium":
+		r = "warning"
+	case "critical":
+		r = "danger"
+	}
 	switch spec.RiskLevel(r) {
 	case spec.RiskSafe, spec.RiskWarning, spec.RiskHigh, spec.RiskDanger:
 		return spec.RiskLevel(r)
@@ -305,7 +316,17 @@ func normalizeRisk(r string) spec.RiskLevel {
 func normalizeCapability(value string, functionID string) (spec.CapabilityKind, []spec.Diagnostic) {
 	value = strings.TrimSpace(strings.ToLower(value))
 	if value == "" {
-		return "", nil
+		// Missing capability cannot be inferred reliably from the operation
+		// verb, so surface a warning instead of failing silently: functions
+		// without capability never contribute to resource semantics and their
+		// resource pages will not generate.
+		return "", []spec.Diagnostic{{
+			Code:       "capability_missing",
+			Severity:   spec.SeverityWarning,
+			Message:    "capability is not declared; the function will not contribute to resource semantics or resource page generation",
+			FunctionID: functionID,
+			Field:      "capability",
+		}}
 	}
 	capability := spec.CapabilityKind(value)
 	if spec.IsValidCapabilityKind(capability) {

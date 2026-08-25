@@ -528,31 +528,35 @@ async function main(): Promise<void> {
 
   const store = new DemoStore();
 
-  const fns: Array<[string, string, string, string, FunctionHandler]> = [
-    ["player.create", "player", "medium", "create", playerCreate(store)],
-    ["player.get", "player", "low", "get", playerGet(store)],
-    ["player.update", "player", "medium", "update", playerUpdate(store)],
-    ["player.delete", "player", "high", "delete", playerDelete(store)],
-    ["player.list", "player", "low", "list", playerList(store)],
-    ["order.create", "order", "medium", "create", orderCreate(store)],
-    ["order.get", "order", "low", "get", orderGet(store)],
-    ["order.update", "order", "medium", "update", orderUpdate(store)],
-    ["order.delete", "order", "high", "delete", orderDelete(store)],
-    ["order.list", "order", "low", "list", orderList(store)],
-    ["leaderboard.list", "leaderboard", "low", "list", leaderboardList(store)],
-    ["leaderboard.upsert", "leaderboard", "medium", "upsert", leaderboardUpsert(store)],
-    ["leaderboard.reset", "leaderboard", "high", "reset", leaderboardReset(store)],
-    ["inventory.list", "inventory", "low", "list", inventoryList(store)],
-    ["inventory.grant", "inventory", "medium", "grant", inventoryGrant(store)],
-    ["inventory.consume", "inventory", "medium", "consume", inventoryConsume(store)],
-    ["mail.send", "mail", "medium", "send", mailSend(store)],
-    ["mail.list", "mail", "low", "list", mailList(store)],
-    ["mail.claim", "mail", "medium", "claim", mailClaim(store)],
+  // capability/risk 必须使用平台契约词表：
+  //   capability: collection_query|item_query|create|update|delete|action|task|report
+  //   risk:       safe|warning|high|danger（low/medium 是废弃别名，注册时会被丢弃）
+  // 缺 capability 会导致资源语义建模失败，resource 页面提案无法生成。
+  const fns: Array<[string, string, string, string, string, FunctionHandler]> = [
+    ["player.create", "player", "warning", "create", "create", playerCreate(store)],
+    ["player.get", "player", "safe", "get", "item_query", playerGet(store)],
+    ["player.update", "player", "warning", "update", "update", playerUpdate(store)],
+    ["player.delete", "player", "danger", "delete", "delete", playerDelete(store)],
+    ["player.list", "player", "safe", "list", "collection_query", playerList(store)],
+    ["order.create", "order", "warning", "create", "create", orderCreate(store)],
+    ["order.get", "order", "safe", "get", "item_query", orderGet(store)],
+    ["order.update", "order", "warning", "update", "update", orderUpdate(store)],
+    ["order.delete", "order", "danger", "delete", "delete", orderDelete(store)],
+    ["order.list", "order", "safe", "list", "collection_query", orderList(store)],
+    ["leaderboard.list", "leaderboard", "safe", "list", "collection_query", leaderboardList(store)],
+    ["leaderboard.upsert", "leaderboard", "warning", "upsert", "action", leaderboardUpsert(store)],
+    ["leaderboard.reset", "leaderboard", "high", "reset", "action", leaderboardReset(store)],
+    ["inventory.list", "inventory", "safe", "list", "collection_query", inventoryList(store)],
+    ["inventory.grant", "inventory", "warning", "grant", "action", inventoryGrant(store)],
+    ["inventory.consume", "inventory", "warning", "consume", "action", inventoryConsume(store)],
+    ["mail.send", "mail", "warning", "send", "action", mailSend(store)],
+    ["mail.list", "mail", "safe", "list", "collection_query", mailList(store)],
+    ["mail.claim", "mail", "warning", "claim", "action", mailClaim(store)],
   ];
 
-  for (const [id, resource, risk, operation, handler] of fns) {
+  for (const [id, resource, risk, operation, capability, handler] of fns) {
     const desc = enrichDescriptor({
-      id, version: "1.0.0", resource, risk, operation,
+      id, version: "1.0.0", resource, risk, operation, capability,
     });
     client.registerFunction(desc, handler);
     console.log(`  registered: ${id}`);
