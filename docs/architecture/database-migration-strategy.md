@@ -95,7 +95,7 @@ Server/Agent 启动时读取 `schema_migrations` 当前版本:
 2. ✅ 启动兼容校验（`MinimumRequiredVersion`，追平后低于最低版本即拒绝启动）；跨进程会话锁（MySQL `GET_LOCK` / PG advisory lock）覆盖「版本表探测 + baseline + 追平」全程，接入 `EnsureDatabase`（PG 建库竞态容错）与 `MigrateGame`；单库模式（`multiGame: false`）同样经 `EnsureUpToDate` 执行，不再每次启动裸跑 AutoMigrate。
 3. ✅ 存量补偿钩子（enum 回填、legacy 表/列/索引清理、openapi 回填）改写为编号迁移 0002–0004（goose Go 迁移，注册于 `internal/svc/migrations.go`，与 baseline 桥共用同一实现）；钩子从「每次启动执行」收敛为「仅 baseline 一次性」。根目录游离 SQL（001/002）已删除（002 收编为 0002）。
 4. ✅ CI 增加三方言迁移测试（`ci.yml` 的 `migrate-matrix` job：真实 MySQL 8.4 + Postgres 16 services，含并发首开锁验证；SQLite 由单测覆盖）与 Atlas 校验（社区版 `atlas migrate validate` 校验 `atlas.sum` 与文件顺序；注意 `atlas migrate lint` 自 v0.38 起 Pro 付费，规则化 lint 暂不可用）。
-5. ⬜ fan-out 批量滚动工具（读 `game_envs`，逐库追平，输出报告）。当前以运行时懒追平为主：库首开/启动时自动补齐未应用版本。
+5. ✅ fan-out 批量滚动工具：`croupier-server db fanout`（读 `game_envs`，meta + 逐游戏库追平，输出报告表格；`--dry-run` 仅报告版本不执行 DDL；注册表引用但物理缺失的库标记 `missing-database`，运行时懒建不算错误）。
 
 ## Review Checklist
 
@@ -109,10 +109,10 @@ rg -n 'AutoMigrate\(' internal cmd --glob '!**/*_test.go'
 
 ## 已知债务
 
-以下 AutoMigrate 调用位于服务构造函数（启动路径、幂等、非请求路径），对应表尚未纳入版本化 baseline，待后续收敛（需先解决 `internal/model` 对 `internal/audit`、`internal/platform/*` 的依赖方向，或在 svc 层组装完整 baseline 模型清单）：
+构造期 AutoMigrate 已基本收敛（audit / metrics 表并入 `internal/svc` 的 baseline 回调 `migrateAuxModels`，构造函数不再执行 DDL）。当前剩余的 AutoMigrate 调用及其定性：
 
-- `internal/audit/store.go` — `AuditModel`
-- `internal/platform/approvals/` — `ApprovalModel` 及 workflow 表（build tag `pg`/`sqlite`）
-- `internal/platform/registry/metrics.go` — `AgentMetricsHistory`
-- `internal/platform/registry/agent_session_db.go` — `AgentSessionDB`、`AgentRegistrationOperationDB`（svc baseline 回调已显式调用，表结构在 platform 包）
-- `internal/platform/monitoring/certificates/` — `Certificate`、`CertificateAlert`（模型已在 `MetaModels`，方法保留为测试 fixture 入口）
+- `internal/model/migration*.go` — baseline 桥本体，合规。
+- `internal/svc/service_context.go`（autoMigrate / autoMigrateMeta / migrateAuxModels）— baseline 回调，合规。
+- `internal/platform/approvals/` — `ApprovalModel` 及 workflow 表；PG/SQLite store 使用**自有独立 DSN**（非 server meta 库），自建自管属合理形态。
+- `internal/platform/registry/agent_session_db.go` — 由 svc baseline 显式调用（表结构在 platform 包，避免 model→platform 反向依赖）。
+- `internal/platform/monitoring/certificates/` — 模型已在 `MetaModels` baseline；`Store.AutoMigrate` 方法保留为测试 fixture 入口。

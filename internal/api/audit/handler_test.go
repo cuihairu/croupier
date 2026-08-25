@@ -26,6 +26,9 @@ func setupAuditHandlerTest(t *testing.T) *Handler {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
 	require.NoError(t, err)
+	// Schema is normally created by the migration baseline; tests own their
+	// fixtures.
+	require.NoError(t, db.AutoMigrate(&auditcore.AuditModel{}))
 
 	auditStore, err := auditcore.NewSQLAuditStore(db)
 	require.NoError(t, err)

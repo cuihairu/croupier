@@ -236,10 +236,9 @@ func NewSQLAuditStore(db *gorm.DB) (*SQLAuditStore, error) {
 		return nil, errors.New("database connection is required")
 	}
 
-	// Auto migrate
-	if err := db.AutoMigrate(&AuditModel{}); err != nil {
-		return nil, err
-	}
+	// Schema note: the audit table is created by the versioned migration
+	// baseline (internal/svc autoMigrate/autoMigrateMeta). Constructors must
+	// not run DDL (docs/architecture/database-migration-strategy.md).
 
 	store := &SQLAuditStore{
 		db: db,

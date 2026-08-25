@@ -22,6 +22,9 @@ func setupTableBackedService(t *testing.T, svcCtxExtra func(*svc.ServiceContext)
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
+	// Schema is normally created by the migration baseline; tests own their
+	// fixtures.
+	require.NoError(t, db.AutoMigrate(&auditcore.AuditModel{}))
 
 	auditStore, err := auditcore.NewSQLAuditStore(db)
 	require.NoError(t, err)

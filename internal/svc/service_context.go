@@ -507,11 +507,25 @@ func autoMigrate(db *gorm.DB) error {
 		return fmt.Errorf("failed to migrate server models: %w", err)
 	}
 
+	if err := migrateAuxModels(db); err != nil {
+		return err
+	}
+
 	// Migrate Agent Session model
 	if err := reg.MigrateAgentSessions(db); err != nil {
 		return fmt.Errorf("failed to migrate agent sessions: %w", err)
 	}
 
+	return nil
+}
+
+// migrateAuxModels bootstraps tables owned by packages that must not depend
+// on internal/model (audit, registry metrics). It runs as part of the
+// migration baseline only — constructors of these stores never run DDL.
+func migrateAuxModels(db *gorm.DB) error {
+	if err := db.AutoMigrate(&audit.AuditModel{}, &reg.AgentMetricsHistory{}); err != nil {
+		return fmt.Errorf("failed to migrate aux models: %w", err)
+	}
 	return nil
 }
 
@@ -530,6 +544,9 @@ func migrateMeta(ctx context.Context, db *gorm.DB) (int64, error) {
 func autoMigrateMeta(db *gorm.DB) error {
 	if err := model.AutoMigrateMeta(db); err != nil {
 		return fmt.Errorf("failed to migrate meta models: %w", err)
+	}
+	if err := migrateAuxModels(db); err != nil {
+		return err
 	}
 	if err := reg.MigrateAgentSessions(db); err != nil {
 		return fmt.Errorf("failed to migrate agent sessions: %w", err)
@@ -560,26 +577,38 @@ func newGameRouter(c config.Config, metaDB *gorm.DB) *router.Router {
 	}
 	if prefix := strings.TrimSpace(c.Database.GameDBPrefix); prefix != "" {
 		cfg.NameForGame = func(gameID, env string) string {
-			sanitized := func(s string) string {
-				s = strings.ToLower(strings.TrimSpace(s))
-				if s == "" {
-					s = "default"
-				}
-				var b strings.Builder
-				for _, r := range s {
-					switch {
-					case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_', r == '-':
-						b.WriteRune(r)
-					default:
-						b.WriteRune('_')
-					}
-				}
-				return b.String()
-			}
-			return prefix + sanitized(gameID) + "_" + sanitized(env)
+			return prefix + sanitizeGameDBComponent(gameID) + "_" + sanitizeGameDBComponent(env)
 		}
 	}
 	return router.New(cfg, metaDB)
+}
+
+// sanitizeGameDBComponent lowercases and whitelists a game/env identifier for
+// use inside a physical database name.
+func sanitizeGameDBComponent(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		s = "default"
+	}
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
+		}
+	}
+	return b.String()
+}
+
+// gameDBNameFor resolves the physical database name for a game scope using
+// the configured prefix (mirrors the router wiring in newGameRouter).
+func gameDBNameFor(c config.Config, gameID, env string) string {
+	if prefix := strings.TrimSpace(c.Database.GameDBPrefix); prefix != "" {
+		return prefix + sanitizeGameDBComponent(gameID) + "_" + sanitizeGameDBComponent(env)
+	}
+	return router.DefaultGameDBName(gameID, env)
 }
 
 // isDevelopmentConfig checks if the current configuration is in development mode.

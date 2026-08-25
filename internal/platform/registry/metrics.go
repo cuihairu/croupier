@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"sync"
 	"time"
 
@@ -99,13 +98,6 @@ func NewMetricsStoreWithConfig(config MetricsStoreConfig) *MetricsStore {
 // SetDB sets the database connection for persistence.
 func (s *MetricsStore) SetDB(db *gorm.DB) {
 	s.db = db
-	if db != nil {
-		// Idempotent bootstrap of the history table; failures must not be
-		// silently swallowed or the store degrades without a trace.
-		if err := db.AutoMigrate(&AgentMetricsHistory{}); err != nil {
-			log.Printf("registry: agent metrics history automigrate failed: %v", err)
-		}
-	}
 }
 
 // Add adds a metrics report to the store.

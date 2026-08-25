@@ -21,6 +21,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 	err = model.AutoMigrate(db)
 	require.NoError(t, err)
+	// Schema normally created by the migration baseline; tests own their
+	// fixtures.
+	require.NoError(t, db.AutoMigrate(&audit.AuditModel{}))
 
 	return db
 }

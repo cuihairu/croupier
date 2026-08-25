@@ -17,14 +17,15 @@ import (
 )
 
 // setupInvocationsTestDB opens a fresh in-memory SQLite DB per test and
-// runs the audit store migration (which also creates the promoted columns).
+// creates the audit table (which also creates the promoted columns).
 func setupInvocationsTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
 	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
-	_, err = audit.NewSQLAuditStore(db)
-	require.NoError(t, err)
+	// Schema is normally created by the migration baseline; tests own their
+	// fixtures.
+	require.NoError(t, db.AutoMigrate(&audit.AuditModel{}))
 	return db
 }
 

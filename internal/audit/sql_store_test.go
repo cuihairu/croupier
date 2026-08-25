@@ -15,6 +15,9 @@ func newTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	// Schema is normally created by the migration baseline; tests own their
+	// fixtures.
+	require.NoError(t, db.AutoMigrate(&AuditModel{}))
 	return db
 }
 

@@ -37,6 +37,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		if err != nil {
 			panic(err)
 		}
+		// Schema normally created by the migration baseline; tests own
+		// their fixtures.
+		if err := testProfileDB.AutoMigrate(&audit.AuditModel{}); err != nil {
+			panic(err)
+		}
 	})
 
 	// Clean up any existing data before running the test

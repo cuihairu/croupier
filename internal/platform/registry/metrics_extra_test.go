@@ -18,6 +18,9 @@ func openMetricsTestDB(t *testing.T) *gorm.DB {
 	// across every pooled connection used by the async persistence path.
 	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
+	// Schema is normally created by the migration baseline; tests own their
+	// fixtures.
+	require.NoError(t, db.AutoMigrate(&AgentMetricsHistory{}))
 	return db
 }
 
