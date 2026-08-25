@@ -70,6 +70,12 @@ func resolveDriverAndDSN(cfg config.Config) (string, string) {
 	return driver, dsn
 }
 
+// isMemorySQLiteDSN reports whether the DSN selects a private in-memory
+// SQLite database (as opposed to a shared-cache or file-backed one).
+func isMemorySQLiteDSN(dsn string) bool {
+	return dsn == ":memory:" || strings.HasPrefix(dsn, "file::memory:") && !strings.Contains(dsn, "cache=shared")
+}
+
 // openGorm opens a *gorm.DB for the given driver and DSN, auto-creating the
 // physical database when it does not yet exist (for non-sqlite drivers).
 func openGorm(driver, dsn string) (*gorm.DB, error) {
@@ -78,6 +84,18 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 	case "sqlite", "sqlite3":
 		if dsn == "" {
 			dsn = "data/croupier.db"
+		}
+		if isMemorySQLiteDSN(dsn) {
+			// ":memory:" databases are per-connection: pooled connections
+			// would each see a different empty database and break the
+			// versioned migration executor (version table visibility).
+			// Normalize to the shared-cache form so every pooled connection
+			// sees the same database.
+			db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared&_pragma=busy_timeout(5000)"), &gorm.Config{})
+			if err != nil {
+				return nil, err
+			}
+			return db, nil
 		}
 		if err := ensureSQLiteDir(dsn); err != nil {
 			return nil, err
