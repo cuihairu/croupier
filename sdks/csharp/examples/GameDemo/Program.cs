@@ -408,19 +408,39 @@ class Program
         desc.Description ??= $"Demo function {desc.Id} for {desc.Resource} {desc.Operation} action.";
         desc.OperationId ??= desc.Id;
         desc.Tags ??= new List<string> { desc.Resource ?? "", desc.Operation ?? "" };
-        desc.InputSchema ??= InputSchemaFor(desc.Resource ?? "payload", desc.Operation ?? "execute");
-        desc.OutputSchema ??= "{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}";
+        var schemas = SchemasFor(desc.Id ?? "");
+        desc.InputSchema ??= schemas.Input;
+        desc.OutputSchema ??= schemas.Output;
     }
 
-    static string InputSchemaFor(string resource, string operation)
+    // Schemas describe the handlers' real wire contract with camelCase JSON
+    // keys. snake_case is only allowed inside databases, never on the wire.
+    static readonly string SchemaObj = "{\"type\":\"object\"}";
+    static readonly string SchemaStr = "{\"type\":\"string\"}";
+    static readonly string SchemaInt = "{\"type\":\"integer\"}";
+    static readonly string PlayerFields =
+        "{\"id\":" + SchemaStr + ",\"name\":" + SchemaStr + ",\"level\":" + SchemaInt + ",\"vip\":" + SchemaInt +
+        ",\"gold\":" + SchemaInt + ",\"status\":" + SchemaStr + ",\"server\":" + SchemaStr + ",\"profile\":" + SchemaObj + "}";
+
+    static (string Input, string Output) SchemasFor(string id) => id switch
     {
-        var idKey = resource == "inventory" ? "playerId" : $"{resource}_id";
-        return operation switch
+        "player.create" => (BuildObj("{" + PlayerFields + "}"), BuildObj("{\"player\":" + SchemaObj + "}")),
+        "player.get" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj("{\"player\":" + SchemaObj + "}")),
+        "player.update" => (BuildObj("{" + PlayerFields + "}", new[] { "id" }), BuildObj("{\"player\":" + SchemaObj + "}")),
+        "player.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj("{\"playerId\":" + SchemaStr + "}")),
+        "player.list" => (BuildObj("{\"page\":" + SchemaInt + ",\"pageSize\":" + SchemaInt + "}"),
+                          BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
+        _ => (BuildObj("{}"), "{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}"),
+    };
+
+    static string BuildObj(string props, string[]? required = null)
+    {
+        var schema = "{\"type\":\"object\",\"properties\":" + props + "}";
+        if (required != null && required.Length > 0)
         {
-            "create" => $"{{\"type\":\"object\",\"properties\":{{\"{idKey}\":{{\"type\":\"string\"}},\"data\":{{\"type\":\"object\"}}}}}}",
-            "update" => $"{{\"type\":\"object\",\"properties\":{{\"{idKey}\":{{\"type\":\"string\"}},\"patch\":{{\"type\":\"object\"}}}},\"required\":[\"{idKey}\"]}}",
-            "delete" => $"{{\"type\":\"object\",\"properties\":{{\"{idKey}\":{{\"type\":\"string\"}}}},\"required\":[\"{idKey}\"]}}",
-            _ => $"{{\"type\":\"object\",\"properties\":{{\"{idKey}\":{{\"type\":\"string\"}}}}}}",
-        };
+            schema = schema.Substring(0, schema.Length - 1) + ",\"required\":[\"" + string.Join("\",\"", required) + "\"]}";
+        }
+        return schema;
     }
+
 }

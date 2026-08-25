@@ -522,31 +522,80 @@ public class GameDemo {
             desc.getId(), desc.getResource(), desc.getOperation()
         ));
         desc.setOperationId(desc.getId());
-        desc.setInputSchema(inputSchemaFor(desc.getResource(), desc.getOperation()));
+        String[] schemas = SCHEMAS.get(desc.getId());
+        if (schemas != null) {
+            desc.setInputSchema(schemas[0]);
+            desc.setOutputSchema(schemas[1]);
+            return;
+        }
+        desc.setInputSchema("{\"type\":\"object\",\"properties\":{}}");
         desc.setOutputSchema("{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}");
     }
 
-    private static String inputSchemaFor(String resource, String operation) {
-        String idKey = "inventory".equals(resource) ? "playerId" : resource + "_id";
-        return switch (operation) {
-            case "create" -> String.format(
-                "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"},\"data\":{\"type\":\"object\"}}}",
-                idKey
-            );
-            case "update" -> String.format(
-                "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"},\"patch\":{\"type\":\"object\"}},\"required\":[\"%s\"]}",
-                idKey, idKey
-            );
-            case "delete" -> String.format(
-                "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"}},\"required\":[\"%s\"]}",
-                idKey, idKey
-            );
-            default -> String.format(
-                "{\"type\":\"object\",\"properties\":{\"%s\":{\"type\":\"string\"}}}",
-                idKey
-            );
-        };
-    }
+    // Schemas describe the handlers' real wire contract with camelCase JSON
+    // keys. snake_case is only allowed inside databases, never on the wire.
+    private static final String OBJ = "{\"type\":\"object\"}";
+    private static final String STR = "{\"type\":\"string\"}";
+    private static final String INT = "{\"type\":\"integer\"}";
+    private static final String PLAYER_FIELDS = "{\"id\":\" + STR + \",\"name\":\" + STR + \",\"level\":\" + INT + \",\"vip\":\" + INT + \",\"gold\":\" + INT + \",\"status\":\" + STR + \",\"server\":\" + STR + \",\"profile\":\"\" + OBJ + "\"}";
+
+    private static final Map<String, String[]> SCHEMAS = Map.ofEntries(
+        Map.entry("player.create", new String[]{
+            "{\"type\":\"object\",\"properties\":" + PLAYER_FIELDS + "}",
+            "{\"type\":\"object\",\"properties\":{\"player\":" + OBJ + "}}"}),
+        Map.entry("player.get", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
+            "{\"type\":\"object\",\"properties\":{\"player\":" + OBJ + "}}"}),
+        Map.entry("player.update", new String[]{
+            "{\"type\":\"object\",\"properties\":" + PLAYER_FIELDS + ",\"required\":[\"id\"]}",
+            "{\"type\":\"object\",\"properties\":{\"player\":" + OBJ + "}}"}),
+        Map.entry("player.delete", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
+            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + "}}"}),
+        Map.entry("player.list", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"page\":" + INT + ",\"pageSize\":" + INT + "}}",
+            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "},\"total\":" + INT + "}}"}),
+        Map.entry("order.create", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"playerId\":" + STR + ",\"productId\":" + STR + ",\"amount\":" + INT + ",\"currency\":" + STR + ",\"status\":" + STR + ",\"channel\":" + STR + ",\"attributes\":" + OBJ + "}}",
+            "{\"type\":\"object\",\"properties\":{\"order\":" + OBJ + "}}"}),
+        Map.entry("order.get", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
+            "{\"type\":\"object\",\"properties\":{\"order\":" + OBJ + "}}"}),
+        Map.entry("order.update", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"status\":" + STR + ",\"channel\":" + STR + ",\"amount\":" + INT + ",\"attributes\":" + OBJ + "},\"required\":[\"id\"]}",
+            "{\"type\":\"object\",\"properties\":{\"order\":" + OBJ + "}}"}),
+        Map.entry("order.delete", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
+            "{\"type\":\"object\",\"properties\":{\"orderId\":" + STR + "}}"}),
+        Map.entry("order.list", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"page\":" + INT + ",\"pageSize\":" + INT + "}}",
+            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "},\"total\":" + INT + "}}"}),
+        Map.entry("leaderboard.list", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"page\":" + INT + ",\"pageSize\":" + INT + "}}",
+            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "},\"total\":" + INT + "}}"}),
+        Map.entry("leaderboard.upsert", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"score\":" + INT + "},\"required\":[\"playerId\"]}",
+            "{\"type\":\"object\",\"properties\":{\"entry\":" + OBJ + "}}"}),
+        Map.entry("leaderboard.reset", new String[]{"{\"type\":\"object\",\"properties\":{}}", "{\"type\":\"object\",\"properties\":{}}"}),
+        Map.entry("inventory.list", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + "},\"required\":[\"playerId\"]}",
+            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "}}}"}),
+        Map.entry("inventory.grant", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"templateId\":" + STR + ",\"quantity\":" + INT + "},\"required\":[\"playerId\",\"templateId\"]}",
+            "{\"type\":\"object\",\"properties\":{\"item\":" + OBJ + "}}"}),
+        Map.entry("inventory.consume", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"templateId\":" + STR + ",\"quantity\":" + INT + "},\"required\":[\"playerId\",\"templateId\"]}",
+            "{\"type\":\"object\",\"properties\":{\"item\":" + OBJ + "}}"}),
+        Map.entry("mail.send", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"title\":" + STR + ",\"content\":" + STR + ",\"reward\":" + OBJ + ",\"expireAt\":" + STR + "},\"required\":[\"playerId\"]}",
+            "{\"type\":\"object\",\"properties\":{\"mail\":" + OBJ + "}}"}),
+        Map.entry("mail.list", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + "},\"required\":[\"playerId\"]}",
+            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "},\"total\":" + INT + "}}"}),
+        Map.entry("mail.claim", new String[]{
+            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"mailId\":" + STR + "},\"required\":[\"playerId\",\"mailId\"]}",
+            "{\"type\":\"object\",\"properties\":{\"mail\":" + OBJ + "}}"})
+    );
 
     // ==================== Main ====================
 

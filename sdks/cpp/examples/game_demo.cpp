@@ -17,6 +17,7 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <thread>
 #include <vector>
 
@@ -43,18 +44,35 @@ static std::string json_int(const std::string& key, long long val) {
     return "\"" + key + "\":" + std::to_string(val);
 }
 
+// Schemas describe the handlers' real wire contract with camelCase JSON
+// keys. snake_case is only allowed inside databases, never on the wire.
+static const char* SCHEMA_OBJ = "{\"type\":\"object\"}";
+static const char* SCHEMA_STR = "{\"type\":\"string\"}";
+static const char* SCHEMA_INT = "{\"type\":\"integer\"}";
+
+static std::string player_fields_schema(bool with_required) {
+    std::string required = with_required ? ",\"required\":[\"id\"]" : "";
+    return "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) +
+           ",\"name\":" + SCHEMA_STR + ",\"level\":" + SCHEMA_INT + ",\"vip\":" + SCHEMA_INT +
+           ",\"gold\":" + SCHEMA_INT + ",\"status\":" + SCHEMA_STR + ",\"server\":" + SCHEMA_STR +
+           ",\"profile\":" + SCHEMA_OBJ + "}" + required + "}";
+}
+
+static std::pair<std::string, std::string> demo_schema_for(const std::string& id) {
+    const std::string player_out = "{\"type\":\"object\",\"properties\":{\"player\":" + std::string(SCHEMA_OBJ) + "}}";
+    const std::string list_out = "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + std::string(SCHEMA_OBJ) + "},\"total\":" + SCHEMA_INT + "}}";
+    const std::string pagination_in = "{\"type\":\"object\",\"properties\":{\"page\":" + std::string(SCHEMA_INT) + ",\"pageSize\":" + SCHEMA_INT + "}}";
+    const std::string id_required_in = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + "},\"required\":[\"id\"]}";
+    if (id == "player.create") return {player_fields_schema(false), player_out};
+    if (id == "player.get") return {id_required_in, player_out};
+    if (id == "player.update") return {player_fields_schema(true), player_out};
+    if (id == "player.delete") return {id_required_in, "{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + "}}"};
+    if (id == "player.list") return {pagination_in, list_out};
+    return {};
+}
+
 static std::string input_schema_for(const std::string& resource, const std::string& operation) {
-    const std::string id_key = resource == "inventory" ? "playerId" : resource + "_id";
-    if (operation == "create") {
-        return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"},\"data\":{\"type\":\"object\"}}}";
-    }
-    if (operation == "update") {
-        return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"},\"patch\":{\"type\":\"object\"}},\"required\":[\"" + id_key + "\"]}";
-    }
-    if (operation == "delete") {
-        return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"}},\"required\":[\"" + id_key + "\"]}";
-    }
-    return "{\"type\":\"object\",\"properties\":{\"" + id_key + "\":{\"type\":\"string\"}}}";
+    return "{\"type\":\"object\",\"properties\":{}}";
 }
 
 static void enrich_descriptor(FunctionDescriptor& desc) {
@@ -62,6 +80,12 @@ static void enrich_descriptor(FunctionDescriptor& desc) {
     desc.summary = desc.resource + " " + desc.operation;
     desc.description = "Demo function " + desc.id + " for " + desc.resource + " " + desc.operation + " action.";
     desc.operation_id = desc.id;
+    const auto demo_schema = demo_schema_for(desc.id);
+    if (!demo_schema.first.empty()) {
+        desc.input_schema = demo_schema.first;
+        desc.output_schema = demo_schema.second;
+        return;
+    }
     desc.input_schema = input_schema_for(desc.resource, desc.operation);
     desc.output_schema = R"({"type":"object","properties":{"status":{"type":"string"},"action":{"type":"string"}}})";
 }

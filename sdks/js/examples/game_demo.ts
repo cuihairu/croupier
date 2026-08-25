@@ -383,40 +383,90 @@ function enrichDescriptor(desc: FunctionDescriptor): FunctionDescriptor {
       desc.description ||
       `Demo function ${desc.id} for ${desc.resource || "unscoped"} ${desc.operation || "invoke"} operations.`,
     operation_id: desc.operation_id || desc.id,
-    input_schema: desc.input_schema || inputSchemaFor(desc.resource || "object", desc.operation || "invoke"),
-    output_schema: desc.output_schema || {
-      type: "object",
-      properties: {
-        status: { type: "string" },
-        action: { type: "string" },
-      },
-    },
+    input_schema: desc.input_schema || schemasFor(desc.id).input,
+    output_schema: desc.output_schema || schemasFor(desc.id).output,
   };
 }
 
-function inputSchemaFor(resource: string, operation: string): Record<string, unknown> {
-  const idKey = resource === "inventory" ? "playerId" : `${resource}_id`;
-  if (operation === "create") {
-    return {
-      type: "object",
-      properties: { [idKey]: { type: "string" }, data: { type: "object" } },
-    };
-  }
-  if (operation === "update") {
-    return {
-      type: "object",
-      properties: { [idKey]: { type: "string" }, patch: { type: "object" } },
-      required: [idKey],
-    };
-  }
-  if (operation === "delete") {
-    return {
-      type: "object",
-      properties: { [idKey]: { type: "string" } },
-      required: [idKey],
-    };
-  }
-  return { type: "object", properties: { [idKey]: { type: "string" } } };
+// Schemas describe the handlers' real wire contract with camelCase JSON
+// keys. snake_case is only allowed inside databases, never on the wire.
+const s = (): { type: string } => ({ type: "string" });
+const i = (): { type: string } => ({ type: "integer" });
+
+const PLAYER_FIELDS: Record<string, unknown> = {
+  id: s(), name: s(), level: i(), vip: i(),
+  gold: i(), status: s(), server: s(), profile: { type: "object" },
+};
+const ORDER_FIELDS: Record<string, unknown> = {
+  id: s(), playerId: s(), productId: s(), amount: i(),
+  currency: s(), status: s(), channel: s(), attributes: { type: "object" },
+};
+const PAGINATION: Record<string, unknown> = { page: i(), pageSize: i() };
+const LIST_OUTPUT: Record<string, unknown> = {
+  type: "object",
+  properties: { items: { type: "array", items: { type: "object" } }, total: i() },
+};
+
+const SCHEMAS: Record<string, { input: Record<string, unknown>; output: Record<string, unknown> }> = {
+  "player.create": { input: obj({ ...PLAYER_FIELDS }), output: obj({ player: { type: "object" } }) },
+  "player.get": { input: obj({ id: s() }, ["id"]), output: obj({ player: { type: "object" } }) },
+  "player.update": { input: obj({ ...PLAYER_FIELDS }, ["id"]), output: obj({ player: { type: "object" } }) },
+  "player.delete": { input: obj({ id: s() }, ["id"]), output: obj({ playerId: s() }) },
+  "player.list": { input: obj({ ...PAGINATION }), output: LIST_OUTPUT },
+  "order.create": { input: obj({ ...ORDER_FIELDS }), output: obj({ order: { type: "object" } }) },
+  "order.get": { input: obj({ id: s() }, ["id"]), output: obj({ order: { type: "object" } }) },
+  "order.update": {
+    input: obj(pick(ORDER_FIELDS, ["id", "status", "channel", "amount", "attributes"]), ["id"]),
+    output: obj({ order: { type: "object" } }),
+  },
+  "order.delete": { input: obj({ id: s() }, ["id"]), output: obj({ orderId: s() }) },
+  "order.list": { input: obj({ playerId: s(), ...PAGINATION }), output: LIST_OUTPUT },
+  "leaderboard.list": { input: obj({ ...PAGINATION }), output: LIST_OUTPUT },
+  "leaderboard.upsert": {
+    input: obj({ playerId: s(), score: i() }, ["playerId"]),
+    output: obj({ entry: { type: "object" } }),
+  },
+  "leaderboard.reset": { input: obj({}), output: obj({}) },
+  "inventory.list": {
+    input: obj({ playerId: s() }, ["playerId"]),
+    output: obj({ items: { type: "array", items: { type: "object" } } }),
+  },
+  "inventory.grant": {
+    input: obj({ playerId: s(), templateId: s(), quantity: i() }, ["playerId", "templateId"]),
+    output: obj({ item: { type: "object" } }),
+  },
+  "inventory.consume": {
+    input: obj({ playerId: s(), templateId: s(), quantity: i() }, ["playerId", "templateId"]),
+    output: obj({ item: { type: "object" } }),
+  },
+  "mail.send": {
+    input: obj({ playerId: s(), title: s(), content: s(), reward: { type: "object" }, expireAt: s() }, ["playerId"]),
+    output: obj({ mail: { type: "object" } }),
+  },
+  "mail.list": { input: obj({ playerId: s() }, ["playerId"]), output: LIST_OUTPUT },
+  "mail.claim": {
+    input: obj({ playerId: s(), mailId: s() }, ["playerId", "mailId"]),
+    output: obj({ mail: { type: "object" } }),
+  },
+};
+
+function obj(props: Record<string, unknown>, required?: string[]): Record<string, unknown> {
+  const schema: Record<string, unknown> = { type: "object", properties: props };
+  if (required && required.length > 0) schema.required = required;
+  return schema;
+}
+
+function pick(source: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of keys) if (key in source) out[key] = source[key];
+  return out;
+}
+
+function schemasFor(functionId: string): { input: Record<string, unknown>; output: Record<string, unknown> } {
+  return SCHEMAS[functionId] || {
+    input: { type: "object", properties: {} },
+    output: { type: "object", properties: { status: s(), action: s() } },
+  };
 }
 
 // ==================== Main ====================

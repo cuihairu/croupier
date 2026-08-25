@@ -549,6 +549,108 @@ def make_mail_claim(store: DemoStore) -> Callable:
     return handler
 
 
+# Schemas describe the handlers' real wire contract with camelCase JSON
+# keys. snake_case is only allowed inside databases, never on the wire.
+def _obj(props: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
+    schema: dict[str, Any] = {"type": "object", "properties": props}
+    if required:
+        schema["required"] = required
+    return schema
+
+
+def _s() -> dict[str, Any]:
+    return {"type": "string"}
+
+
+def _i() -> dict[str, Any]:
+    return {"type": "integer"}
+
+
+PLAYER_FIELDS: dict[str, Any] = {
+    "id": _s(), "name": _s(), "level": _i(), "vip": _i(),
+    "gold": _i(), "status": _s(), "server": _s(), "profile": {"type": "object"},
+}
+ORDER_FIELDS: dict[str, Any] = {
+    "id": _s(), "playerId": _s(), "productId": _s(), "amount": _i(),
+    "currency": _s(), "status": _s(), "channel": _s(), "attributes": {"type": "object"},
+}
+PAGINATION: dict[str, Any] = {"page": _i(), "pageSize": _i()}
+LIST_OUTPUT: dict[str, Any] = _obj({
+    "items": {"type": "array", "items": {"type": "object"}},
+    "total": _i(),
+})
+
+SCHEMAS: dict[str, dict[str, dict[str, Any]]] = {
+    "player.create": {
+        "input": _obj(dict(PLAYER_FIELDS)),
+        "output": _obj({"player": {"type": "object"}}),
+    },
+    "player.get": {
+        "input": _obj({"id": _s()}, ["id"]),
+        "output": _obj({"player": {"type": "object"}}),
+    },
+    "player.update": {
+        "input": _obj(dict(PLAYER_FIELDS), ["id"]),
+        "output": _obj({"player": {"type": "object"}}),
+    },
+    "player.delete": {
+        "input": _obj({"id": _s()}, ["id"]),
+        "output": _obj({"playerId": _s()}),
+    },
+    "player.list": {"input": _obj(dict(PAGINATION)), "output": LIST_OUTPUT},
+    "order.create": {
+        "input": _obj(dict(ORDER_FIELDS)),
+        "output": _obj({"order": {"type": "object"}}),
+    },
+    "order.get": {
+        "input": _obj({"id": _s()}, ["id"]),
+        "output": _obj({"order": {"type": "object"}}),
+    },
+    "order.update": {
+        "input": _obj({k: ORDER_FIELDS[k] for k in ("id", "status", "channel", "amount", "attributes")}, ["id"]),
+        "output": _obj({"order": {"type": "object"}}),
+    },
+    "order.delete": {
+        "input": _obj({"id": _s()}, ["id"]),
+        "output": _obj({"orderId": _s()}),
+    },
+    "order.list": {
+        "input": _obj({"playerId": _s(), **PAGINATION}),
+        "output": LIST_OUTPUT,
+    },
+    "leaderboard.list": {"input": _obj(dict(PAGINATION)), "output": LIST_OUTPUT},
+    "leaderboard.upsert": {
+        "input": _obj({"playerId": _s(), "score": _i()}, ["playerId"]),
+        "output": _obj({"entry": {"type": "object"}}),
+    },
+    "leaderboard.reset": {"input": _obj({}), "output": _obj({})},
+    "inventory.list": {
+        "input": _obj({"playerId": _s()}, ["playerId"]),
+        "output": _obj({"items": {"type": "array", "items": {"type": "object"}}}),
+    },
+    "inventory.grant": {
+        "input": _obj({"playerId": _s(), "templateId": _s(), "quantity": _i()}, ["playerId", "templateId"]),
+        "output": _obj({"item": {"type": "object"}}),
+    },
+    "inventory.consume": {
+        "input": _obj({"playerId": _s(), "templateId": _s(), "quantity": _i()}, ["playerId", "templateId"]),
+        "output": _obj({"item": {"type": "object"}}),
+    },
+    "mail.send": {
+        "input": _obj({"playerId": _s(), "title": _s(), "content": _s(), "reward": {"type": "object"}, "expireAt": _s()}, ["playerId"]),
+        "output": _obj({"mail": {"type": "object"}}),
+    },
+    "mail.list": {
+        "input": _obj({"playerId": _s()}, ["playerId"]),
+        "output": LIST_OUTPUT,
+    },
+    "mail.claim": {
+        "input": _obj({"playerId": _s(), "mailId": _s()}, ["playerId", "mailId"]),
+        "output": _obj({"mail": {"type": "object"}}),
+    },
+}
+
+
 def enrich_descriptor(desc: FunctionDescriptor) -> FunctionDescriptor:
     if not desc.tags:
         desc.tags = [value for value in (desc.resource, desc.operation) if value]
@@ -558,6 +660,13 @@ def enrich_descriptor(desc: FunctionDescriptor) -> FunctionDescriptor:
         desc.description = (
             f"Demo function {desc.id} for {desc.resource or 'unscoped'} {desc.operation or 'invoke'} operations."
         )
+    schemas = SCHEMAS.get(desc.id)
+    if schemas:
+        if not desc.input_schema:
+            desc.input_schema = schemas["input"]
+        if not desc.output_schema:
+            desc.output_schema = schemas["output"]
+        return desc
     if not desc.input_schema:
         desc.input_schema = input_schema_for(desc.resource or "object", desc.operation or "invoke")
     if not desc.output_schema:
