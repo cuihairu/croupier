@@ -15,6 +15,10 @@ import (
 func fanoutConfig(t *testing.T, multiGame bool) config.Config {
 	t.Helper()
 	dir := t.TempDir()
+	// Pin the env overrides so CI's DATABASE_URL=":memory:" cannot hijack
+	// resolveDriverAndDSN and make every test share one memory database.
+	t.Setenv("DB_DRIVER", "sqlite")
+	t.Setenv("DATABASE_URL", filepath.Join(dir, "meta.db"))
 	return config.Config{
 		Server: config.ServerConfig{Mode: "dev"},
 		Database: config.DatabaseConfig{
