@@ -287,6 +287,29 @@ test-integration:
 	@echo "[test] running integration tests..."
 	go test -v -tags=integration ./...
 
+# Migration matrix tests against real MySQL/Postgres (phase 4 of
+# docs/architecture/database-migration-strategy.md). SQLite is covered by unit
+# tests. Provide admin DSNs; each run creates and drops a throwaway database.
+#   make test-migrate-matrix TEST_MYSQL_DSN="root:root@tcp(127.0.0.1:3306)/" \
+#                           TEST_POSTGRES_DSN="postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
+test-migrate-matrix:
+	@echo "[test] running migration matrix tests..."
+	go test -tags=integration -count=1 -timeout 8m -run 'TestMigrationMatrix' ./internal/svc/ -v
+
+# Validate embedded SQL migrations with Atlas (community edition): checks the
+# migration directory checksum (atlas.sum) and file ordering.
+# Note: `atlas migrate lint` (rule-based analysis) is Pro-only since v0.38;
+# Go migrations (0002-0004, registered in internal/svc/migrations.go) are not
+# visible to Atlas and are covered by test-migrate-matrix instead.
+migrate-validate:
+	@echo "[migrate] validating SQL migrations with atlas..."
+	atlas migrate validate --dir "file://internal/db/migrate/migrations" --dir-format goose
+
+# Regenerate the atlas.sum checksum after adding SQL migrations.
+migrate-hash:
+	@echo "[migrate] rehashing migration directory..."
+	atlas migrate hash --dir "file://internal/db/migrate/migrations" --dir-format goose
+
 # Run all tests including integration
 test-all: test test-integration
 	@echo "[test] all tests completed"

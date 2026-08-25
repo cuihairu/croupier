@@ -141,8 +141,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 			panic(fmt.Sprintf("Failed to migrate meta database: %v", err))
 		}
 	} else {
-		if err := autoMigrate(db); err != nil {
-			panic(fmt.Sprintf("Failed to auto migrate database: %v", err))
+		if _, err := migrate.EnsureUpToDate(migrateCtx, db, migrate.ScopeSingle, autoMigrate); err != nil {
+			panic(fmt.Sprintf("Failed to migrate database: %v", err))
 		}
 	}
 	slog.Default().Info("Database migration completed successfully", "multiGame", multiGame)

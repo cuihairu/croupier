@@ -17,6 +17,10 @@ type enumColumnMigration struct {
 	defaultInt int
 }
 
+// MigrateEnumColumns converts legacy varchar enum columns to int-backed enums
+// (exported for the numbered goose migration; see internal/svc/migrations.go).
+func MigrateEnumColumns(db *gorm.DB) error { return migrateEnumColumns(db) }
+
 // migrateEnumColumns runs after AutoMigrate created the new int columns (the
 // legacy string columns keep their names with a "_legacy" suffix created by
 // gorm? No—) In practice: AutoMigrate alters the column type in place, which

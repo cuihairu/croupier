@@ -71,6 +71,11 @@ func AutoMigrateMeta(db *gorm.DB) error {
 	if err := renameLegacyTables(db); err != nil {
 		return err
 	}
+	// Guard against pre-versioning databases where enum columns are still
+	// varchar: AutoMigrate would alter the type and destroy values.
+	if err := migrateEnumColumns(db); err != nil {
+		return err
+	}
 	if err := dropLegacyPageUniqueIndexes(db); err != nil {
 		return err
 	}
@@ -80,11 +85,31 @@ func AutoMigrateMeta(db *gorm.DB) error {
 // AutoMigrateGame runs migrations only for game-scoped models (those that live
 // in each per-game database like game_demo_prod).
 func AutoMigrateGame(db *gorm.DB) error {
+	// Guard against pre-versioning databases where enum columns are still
+	// varchar: AutoMigrate would alter the type and destroy values.
+	if err := migrateEnumColumns(db); err != nil {
+		return err
+	}
 	if err := migrateModels(db, GameModels()); err != nil {
 		return err
 	}
 	return CleanupAllLegacy(db)
 }
+
+// The exported wrappers below expose the legacy compensation hooks as building
+// blocks for the numbered goose migrations registered in internal/svc.
+// Keeping one implementation avoids drifting between the baseline bridge and
+// the catch-up migrations.
+
+// RenameLegacyTables renames pre-rename legacy meta tables when present.
+func RenameLegacyTables(db *gorm.DB) error { return renameLegacyTables(db) }
+
+// DropLegacyPageUniqueIndexes removes superseded unique indexes on page_specs.
+func DropLegacyPageUniqueIndexes(db *gorm.DB) error { return dropLegacyPageUniqueIndexes(db) }
+
+// MigrateFunctionOpenAPIColumns backfills functions.open_api_spec/spec_format
+// from the legacy openapi_operation column.
+func MigrateFunctionOpenAPIColumns(db *gorm.DB) error { return migrateFunctionOpenAPIColumns(db) }
 
 // MetaModels returns the list of model values that belong in the meta database.
 func MetaModels() []interface{} {

@@ -57,8 +57,9 @@ Proposed(方向已定,分阶段落地中)。**不要再让生产库在启动时�
 规则:
 
 - AutoMigrate **仅允许**出现在"检测到全新空库"的分支里作为基线生成手段;对已有数据的库一律走版本化迁移。
-- 迁移文件命名 `NNN_<描述>.sql`(必要时配 `.go` 数据回填),嵌入二进制,保证 fan-out 工具离线可用。
-- 每条迁移必须幂等或在事务内与版本写入原子提交。
+- 迁移文件命名 `NNN_<描述>.sql`（必要时配 goose Go 迁移做数据回填/方言探测，如 0002–0004），嵌入二进制，保证 fan-out 工具离线可用。
+- 每条迁移必须幂等或在事务内与版本写入原子提交；MySQL DDL 不支持事务，因此探测式幂等（HasTable/HasColumn 探测后执行）是必需形态。
+- 修改 `internal/db/migrate/migrations/*.sql` 后运行 `make migrate-hash` 更新 `atlas.sum`，CI 会用 `atlas migrate validate` 校验。
 
 ## 数据变更规范(Expand → Contract)
 
@@ -90,11 +91,11 @@ Server/Agent 启动时读取 `schema_migrations` 当前版本:
 
 ## 分阶段落地
 
-1. 引入 `schema_migrations` 版本表与统一执行器(meta + 游戏库同路径);AutoMigrate 收敛到全新空库分支。
-2. 启动兼容校验(拒绝低版本库),跨进程锁接入 `EnsureDatabase/MigrateGame`。
-3. 存量补偿钩子(enum 回填、legacy 表清理)逐条改写为编号迁移,删除钩子代码。
-4. CI 增加三方言(MySQL/Postgres/SQLite)迁移测试与 Atlas lint。
-5. fan-out 批量滚动工具(读 `game_envs`,逐库追平,输出报告)。
+1. ✅ 引入 `schema_migrations` 版本表与统一执行器（goose，`internal/db/migrate`，版本表 `goose_db_version`）；AutoMigrate 收敛到全新空库分支（baseline 桥，仅一次性）。
+2. ✅ 启动兼容校验（`MinimumRequiredVersion`，追平后低于最低版本即拒绝启动）；跨进程会话锁（MySQL `GET_LOCK` / PG advisory lock）覆盖「版本表探测 + baseline + 追平」全程，接入 `EnsureDatabase`（PG 建库竞态容错）与 `MigrateGame`；单库模式（`multiGame: false`）同样经 `EnsureUpToDate` 执行，不再每次启动裸跑 AutoMigrate。
+3. ✅ 存量补偿钩子（enum 回填、legacy 表/列/索引清理、openapi 回填）改写为编号迁移 0002–0004（goose Go 迁移，注册于 `internal/svc/migrations.go`，与 baseline 桥共用同一实现）；钩子从「每次启动执行」收敛为「仅 baseline 一次性」。根目录游离 SQL（001/002）已删除（002 收编为 0002）。
+4. ✅ CI 增加三方言迁移测试（`ci.yml` 的 `migrate-matrix` job：真实 MySQL 8.4 + Postgres 16 services，含并发首开锁验证；SQLite 由单测覆盖）与 Atlas 校验（社区版 `atlas migrate validate` 校验 `atlas.sum` 与文件顺序；注意 `atlas migrate lint` 自 v0.38 起 Pro 付费，规则化 lint 暂不可用）。
+5. ⬜ fan-out 批量滚动工具（读 `game_envs`，逐库追平，输出报告）。当前以运行时懒追平为主：库首开/启动时自动补齐未应用版本。
 
 ## Review Checklist
 
@@ -105,3 +106,13 @@ rg -n 'AutoMigrate\(' internal cmd --glob '!**/*_test.go'
 ```
 
 新增 AutoMigrate 调用必须位于"全新空库引导"分支,否则视为 review failure;任何 DDL 变更必须附带编号迁移文件,禁止只在 model struct 上改 tag 了事。
+
+## 已知债务
+
+以下 AutoMigrate 调用位于服务构造函数（启动路径、幂等、非请求路径），对应表尚未纳入版本化 baseline，待后续收敛（需先解决 `internal/model` 对 `internal/audit`、`internal/platform/*` 的依赖方向，或在 svc 层组装完整 baseline 模型清单）：
+
+- `internal/audit/store.go` — `AuditModel`
+- `internal/platform/approvals/` — `ApprovalModel` 及 workflow 表（build tag `pg`/`sqlite`）
+- `internal/platform/registry/metrics.go` — `AgentMetricsHistory`
+- `internal/platform/registry/agent_session_db.go` — `AgentSessionDB`、`AgentRegistrationOperationDB`（svc baseline 回调已显式调用，表结构在 platform 包）
+- `internal/platform/monitoring/certificates/` — `Certificate`、`CertificateAlert`（模型已在 `MetaModels`，方法保留为测试 fixture 入口）

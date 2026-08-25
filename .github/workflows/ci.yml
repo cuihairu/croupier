@@ -288,3 +288,87 @@ jobs:
           if [ -n "${SERVER_PID:-}" ]; then
             kill "$SERVER_PID" 2>/dev/null || true
           fi
+
+  migrate-matrix:
+    name: Migration Matrix (MySQL/Postgres)
+    # Phase 4 of docs/architecture/database-migration-strategy.md: the
+    # versioned migration executor must work on all three dialects. SQLite is
+    # covered by the unit tests in internal/svc/migrations_test.go; this job
+    # runs the integration-tagged matrix against real MySQL and Postgres
+    # servers (fresh DB → baseline + catch-up, concurrent first boot proving
+    # the session lock, idempotent second boot).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [test]
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/"
+      TEST_POSTGRES_DSN: "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v7
+      - timeout-minutes: 5
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+      - name: Normalize Go toolchain env
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
+          go version
+          go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
+      - name: Go mod download
+        timeout-minutes: 5
+        run: |
+          for i in 1 2 3; do
+            go mod download && exit 0
+            echo "go mod download failed (attempt $i/3), retrying in 5s..."
+            sleep 5
+          done
+          exit 1
+      - name: Migration matrix tests
+        timeout-minutes: 10
+        run: |
+          go test -tags=integration -count=1 -timeout 8m \
+            -run 'TestMigrationMatrix' \
+            ./internal/svc/ -v
+      - name: Validate migration directory (atlas)
+        # Community-edition atlas: verifies the atlas.sum checksum and file
+        # ordering of embedded SQL migrations. (Rule-based `migrate lint` is
+        # Pro-only since atlas v0.38.)
+        timeout-minutes: 5
+        uses: ariga/setup-atlas@v0
+        with:
+          cloud-token: ${{ secrets.ATLAS_CLOUD_TOKEN || '' }}
+      - name: atlas migrate validate
+        timeout-minutes: 3
+        run: |
+          atlas migrate validate --dir "file://internal/db/migrate/migrations" --dir-format goose

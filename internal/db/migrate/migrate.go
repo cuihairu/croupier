@@ -7,9 +7,12 @@
 //     records the baseline migration version. This is the only path that may
 //     execute AutoMigrate, and it is reserved for fresh/legacy databases.
 //   - Every subsequent schema change MUST be a numbered SQL file under
-//     migrations/ and is applied in order on the next boot (catch-up).
-//   - A session-level database lock serializes concurrent server processes
-//     during migration on MySQL/Postgres (SQLite is single-writer already).
+//     migrations/ (or a registered Go migration) and is applied in order on
+//     the next boot (catch-up).
+//   - A cross-process session lock guards the whole sequence — version-table
+//     probe, baseline bridge and catch-up — on MySQL/Postgres so concurrent
+//     server processes can never run AutoMigrate or DDL in parallel against
+//     the same database (SQLite is single-writer already).
 package migrate
 
 import (
@@ -20,9 +23,9 @@ import (
 	"fmt"
 	"io/fs"
 	"strings"
+	"time"
 
 	"github.com/pressly/goose/v3"
-	"github.com/pressly/goose/v3/lock"
 	"gorm.io/gorm"
 )
 
@@ -34,8 +37,9 @@ var embeddedMigrations embed.FS
 type Scope string
 
 const (
-	ScopeMeta Scope = "meta"
-	ScopeGame Scope = "game"
+	ScopeMeta   Scope = "meta"
+	ScopeGame   Scope = "game"
+	ScopeSingle Scope = "single"
 )
 
 // VersionTableName is the table goose uses to record applied versions.
@@ -43,7 +47,10 @@ const VersionTableName = "goose_db_version"
 
 // MinimumRequiredVersion is the lowest schema version required by this build.
 // Bump it together with new migration files once the baseline era ends.
-const MinimumRequiredVersion int64 = 1
+//
+// 0001 baseline marker; 0002 openapi backfill; 0003 legacy cleanup;
+// 0004 enum columns (Go migrations registered in internal/svc/migrations.go).
+const MinimumRequiredVersion int64 = 4
 
 func dialectOf(gormDialect string) string {
 	switch strings.ToLower(strings.TrimSpace(gormDialect)) {
@@ -58,34 +65,87 @@ func dialectOf(gormDialect string) string {
 	}
 }
 
-func sessionLockSupported(gooseDialect string) bool {
-	return gooseDialect == "mysql" || gooseDialect == "postgres"
-}
-
-// mysqlSessionLocker implements goose's SessionLocker with MySQL named locks
-// (GET_LOCK/RELEASE_LOCK), serializing concurrent server processes during
-// migration. The lock is bound to the dedicated migration connection.
-type mysqlSessionLocker struct{}
+// sessionLockDeadline bounds how long we wait for a competing process to
+// finish its own migration pass before failing startup.
+const sessionLockDeadline = 60 * time.Second
 
 const mysqlMigrationLockName = "croupier_schema_migration"
 
-func (l *mysqlSessionLocker) SessionLock(ctx context.Context, conn *sql.Conn) error {
-	var result sql.NullInt64
-	if err := conn.QueryRowContext(ctx, "SELECT GET_LOCK(?, 60)", mysqlMigrationLockName).Scan(&result); err != nil {
-		return fmt.Errorf("migrate: GET_LOCK: %w", err)
-	}
-	if !result.Valid || result.Int64 != 1 {
-		return errors.New("migrate: could not acquire MySQL migration lock (another process may be migrating)")
-	}
-	return nil
-}
+// Advisory lock keys for Postgres (two int32 components). Chosen so they spell
+// "crou"+"pier" in ASCII; any stable constant pair works as long as every
+// process uses the same one.
+const (
+	pgAdvisoryLockKey1 = 0x63726f75 // "crou"
+	pgAdvisoryLockKey2 = 0x70696572 // "pier"
+)
 
-func (l *mysqlSessionLocker) SessionUnlock(ctx context.Context, conn *sql.Conn) error {
-	_, err := conn.ExecContext(ctx, "SELECT RELEASE_LOCK(?)", mysqlMigrationLockName)
-	if err != nil {
-		return fmt.Errorf("migrate: RELEASE_LOCK: %w", err)
+// acquireSessionLock takes a cross-process lock bound to a dedicated pooled
+// connection. The returned release func must be called when migration work is
+// done. SQLite returns a no-op release because it is single-writer.
+func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string) (func(), error) {
+	switch gooseDialect {
+	case "mysql", "postgres":
+	default:
+		return func() {}, nil
 	}
-	return nil
+
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("migrate: dial lock connection: %w", err)
+	}
+
+	acquire := func() (bool, error) {
+		switch gooseDialect {
+		case "mysql":
+			var result sql.NullInt64
+			if err := conn.QueryRowContext(ctx, "SELECT GET_LOCK(?, 0)", mysqlMigrationLockName).Scan(&result); err != nil {
+				return false, err
+			}
+			return result.Valid && result.Int64 == 1, nil
+		case "postgres":
+			var ok bool
+			query := fmt.Sprintf("SELECT pg_try_advisory_lock(%d, %d)", pgAdvisoryLockKey1, pgAdvisoryLockKey2)
+			if err := conn.QueryRowContext(ctx, query).Scan(&ok); err != nil {
+				return false, err
+			}
+			return ok, nil
+		}
+		return false, nil
+	}
+
+	deadline := time.Now().Add(sessionLockDeadline)
+	for {
+		ok, err := acquire()
+		if err != nil {
+			conn.Close()
+			return nil, fmt.Errorf("migrate: acquire session lock: %w", err)
+		}
+		if ok {
+			break
+		}
+		if time.Now().After(deadline) {
+			conn.Close()
+			return nil, errors.New("migrate: could not acquire migration lock (another process may be migrating)")
+		}
+		select {
+		case <-ctx.Done():
+			conn.Close()
+			return nil, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+
+	release := func() {
+		switch gooseDialect {
+		case "mysql":
+			_, _ = conn.ExecContext(context.Background(), "SELECT RELEASE_LOCK(?)", mysqlMigrationLockName)
+		case "postgres":
+			query := fmt.Sprintf("SELECT pg_advisory_unlock(%d, %d)", pgAdvisoryLockKey1, pgAdvisoryLockKey2)
+			_, _ = conn.ExecContext(context.Background(), query)
+		}
+		conn.Close()
+	}
+	return release, nil
 }
 
 // EnsureUpToDate brings the given database to the latest embedded migration
@@ -122,6 +182,18 @@ func ensureUpToDate(ctx context.Context, db *gorm.DB, fsys fs.FS, scope Scope, b
 	}
 	gooseDialect := dialectOf(gormDialect)
 
+	// Hold the cross-process lock across the version-table probe, the baseline
+	// bridge and the catch-up run. Without it two processes racing on the same
+	// fresh database would both fail the probe and both run AutoMigrate.
+	// goose's own SessionLocker is intentionally not configured here: this
+	// outer lock already serializes every process, and a second lock on a
+	// different connection would self-deadlock.
+	release, err := acquireSessionLock(ctx, sqlDB, gooseDialect)
+	if err != nil {
+		return 0, err
+	}
+	defer release()
+
 	hasVersions, err := versionTableExists(ctx, sqlDB, gooseDialect)
 	if err != nil {
 		return 0, err
@@ -134,16 +206,7 @@ func ensureUpToDate(ctx context.Context, db *gorm.DB, fsys fs.FS, scope Scope, b
 		}
 	}
 
-	opts := []goose.ProviderOption{}
-	switch gooseDialect {
-	case "postgres":
-		if locker, err := lock.NewPostgresSessionLocker(); err == nil {
-			opts = append(opts, goose.WithSessionLocker(locker))
-		}
-	case "mysql":
-		opts = append(opts, goose.WithSessionLocker(&mysqlSessionLocker{}))
-	}
-	provider, err := goose.NewProvider(goose.Dialect(gooseDialect), sqlDB, fsys, opts...)
+	provider, err := goose.NewProvider(goose.Dialect(gooseDialect), sqlDB, fsys)
 	if err != nil {
 		return 0, fmt.Errorf("migrate: provider: %w", err)
 	}

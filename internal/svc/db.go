@@ -363,11 +363,12 @@ func removeDBFromPostgresDSN(dsn, replacementDB string) string {
 	return result
 }
 
-// createPostgresDatabase 创建 PostgreSQL 数据库
+// createPostgresDatabase creates the PostgreSQL database. Concurrent creators
+// are tolerated: if CREATE DATABASE fails because another process already
+// created it, we verify existence and treat that as success.
 func createPostgresDatabase(dsn, dbName string) error {
-	// 使用 pq 驱动（需要导入）
-	// 这里我们使用标准 database/sql 包
-	db, err := sql.Open("postgres", dsn)
+	// pgx stdlib registers the "pgx" driver name (there is no lib/pq here).
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return err
 	}
@@ -378,8 +379,17 @@ func createPostgresDatabase(dsn, dbName string) error {
 	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(0)
 
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s WITH ENCODING 'UTF8'", quotePostgresIdentifier(dbName)))
-	return err
+	if _, err := db.Exec(fmt.Sprintf("CREATE DATABASE %s WITH ENCODING 'UTF8'", quotePostgresIdentifier(dbName))); err != nil {
+		// Two processes may race on first open of the same game database;
+		// losing the race is fine as long as the database now exists.
+		var exists bool
+		probe := fmt.Sprintf("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = '%s')", strings.ReplaceAll(dbName, "'", "''"))
+		if probeErr := db.QueryRow(probe).Scan(&exists); probeErr == nil && exists {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // quotePostgresIdentifier 引用 PostgreSQL 标识符（处理特殊字符）
