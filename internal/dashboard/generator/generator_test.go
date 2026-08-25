@@ -315,7 +315,7 @@ func TestLocalizedTitle(t *testing.T) {
 			op:       spec.OperationSpec{FunctionID: "player.ban"},
 			pageKey:  "ops",
 			locale:   "zh-CN",
-			expected: spec.LocalizedText{"zh-CN": "Player Ban"},
+			expected: spec.LocalizedText{"zh-CN": "player.ban"},
 		},
 	}
 
@@ -1188,7 +1188,7 @@ func TestTermDictionaryLocalization(t *testing.T) {
 			Enabled:    true,
 		}, GenerateOptions{DefaultLocale: "zh-CN", Terms: terms})
 		assert.Equal(t, "unknown", page.Category.Key)
-		assert.Equal(t, "Unknown", page.Category.Labels["zh-CN"])
+		assert.Equal(t, "unknown", page.Category.Labels["zh-CN"])
 	})
 }
 

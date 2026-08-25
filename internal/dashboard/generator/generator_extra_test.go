@@ -20,19 +20,19 @@ func TestExtraRawInt(t *testing.T) {
 	assert.Equal(t, 7, rawInt(json.RawMessage(`7`)))
 }
 
-func TestExtraHumanizeKey(t *testing.T) {
+func TestExtraFallbackLabel(t *testing.T) {
 	cases := map[string]string{
 		"":            "",
 		"   ":         "",
-		"player_id":   "Player Id",
-		"create-task": "Create Task",
-		"createTask":  "Create Task",
-		"a.b.c":       "A B C",
-		"already ok":  "Already Ok",
-		"ID":          "I D",
+		"player_id":   "player_id",
+		"create-task": "create-task",
+		"createTask":  "createTask",
+		"a.b.c":       "a.b.c",
+		"already ok":  "already ok",
+		"ID":          "ID",
 	}
 	for input, want := range cases {
-		assert.Equal(t, want, humanizeKey(input), "humanizeKey(%q)", input)
+		assert.Equal(t, want, fallbackLabel(input), "fallbackLabel(%q)", input)
 	}
 }
 

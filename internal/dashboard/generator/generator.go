@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
-	"unicode"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 )
@@ -632,7 +631,7 @@ func buildFormFields(schema spec.JSONSchema, locale string) []spec.FormFieldSpec
 		field := spec.FormFieldSpec{
 			Key: key,
 			Label: spec.LocalizedText{
-				locale: humanizeKey(key),
+				locale: fallbackLabel(key),
 			},
 		}
 		// 根据类型推断 widget 和 placeholder
@@ -642,7 +641,7 @@ func buildFormFields(schema spec.JSONSchema, locale string) []spec.FormFieldSpec
 				field.Widget = spec.FormWidgetTextArea
 			}
 			field.Placeholder = spec.LocalizedText{
-				locale: "请输入" + humanizeKey(key),
+				locale: "请输入" + fallbackLabel(key),
 			}
 		case "integer", "number":
 			field.Widget = spec.FormWidgetNumber
@@ -695,7 +694,7 @@ func localizedKeyLabels(key string, locale string, domain string, terms TermDict
 	if text, ok := terms.Lookup(domain, key); ok && len(text) > 0 {
 		return text
 	}
-	return spec.LocalizedText{locale: humanizeKey(key)}
+	return spec.LocalizedText{locale: fallbackLabel(key)}
 }
 
 func localizedTitle(op spec.OperationSpec, pageKey string, locale string, opts GenerateOptions) spec.LocalizedText {
@@ -712,7 +711,7 @@ func localizedTitle(op spec.OperationSpec, pageKey string, locale string, opts G
 		return text
 	}
 	return spec.LocalizedText{
-		locale: humanizeKey(fallbackKey),
+		locale: fallbackLabel(fallbackKey),
 	}
 }
 
@@ -896,7 +895,7 @@ func buildResultFields(outputSchema spec.JSONSchema, locale string) []spec.Resul
 	for _, key := range keys {
 		fields = append(fields, spec.ResultFieldSpec{
 			Key:      key,
-			Title:    spec.LocalizedText{locale: humanizeKey(key)},
+			Title:    spec.LocalizedText{locale: fallbackLabel(key)},
 			DataType: dataTypeFromSchema(parseJSONObject(properties[key])),
 		})
 	}
@@ -923,7 +922,7 @@ func buildDatasetSpec(outputSchema spec.JSONSchema, locale string) *spec.Dataset
 		case "integer", "number":
 			dataset.Metrics = append(dataset.Metrics, spec.MetricSpec{
 				Key:      key,
-				Title:    spec.LocalizedText{locale: humanizeKey(key)},
+				Title:    spec.LocalizedText{locale: fallbackLabel(key)},
 				DataType: "number",
 				AggType:  "sum",
 			})
@@ -934,13 +933,13 @@ func buildDatasetSpec(outputSchema spec.JSONSchema, locale string) *spec.Dataset
 			}
 			dataset.Dimensions = append(dataset.Dimensions, spec.DimensionSpec{
 				Key:      key,
-				Title:    spec.LocalizedText{locale: humanizeKey(key)},
+				Title:    spec.LocalizedText{locale: fallbackLabel(key)},
 				DataType: dimensionType,
 			})
 		case "boolean":
 			dataset.Dimensions = append(dataset.Dimensions, spec.DimensionSpec{
 				Key:      key,
-				Title:    spec.LocalizedText{locale: humanizeKey(key)},
+				Title:    spec.LocalizedText{locale: fallbackLabel(key)},
 				DataType: "string",
 			})
 		}
@@ -987,7 +986,7 @@ func buildDimensionsFromPointers(itemSchema map[string]json.RawMessage, pointers
 		}
 		out = append(out, spec.DimensionSpec{
 			Key:      key,
-			Title:    spec.LocalizedText{locale: humanizeKey(key)},
+			Title:    spec.LocalizedText{locale: fallbackLabel(key)},
 			DataType: dataType,
 		})
 	}
@@ -1007,7 +1006,7 @@ func buildMetricsFromPointers(itemSchema map[string]json.RawMessage, pointers []
 		key := keyFromPointer(pointer)
 		out = append(out, spec.MetricSpec{
 			Key:      key,
-			Title:    spec.LocalizedText{locale: humanizeKey(key)},
+			Title:    spec.LocalizedText{locale: fallbackLabel(key)},
 			DataType: "number",
 			AggType:  "sum",
 		})
@@ -1246,31 +1245,8 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func humanizeKey(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	var words []string
-	var current strings.Builder
-	for i, r := range value {
-		if r == '.' || r == '_' || r == '-' || unicode.IsSpace(r) {
-			flushWord(&words, &current)
-			continue
-		}
-		if i > 0 && unicode.IsUpper(r) && current.Len() > 0 {
-			flushWord(&words, &current)
-		}
-		current.WriteRune(r)
-	}
-	flushWord(&words, &current)
-	if len(words) == 0 {
-		return value
-	}
-	for i, word := range words {
-		words[i] = strings.ToUpper(word[:1]) + word[1:]
-	}
-	return strings.Join(words, " ")
+func fallbackLabel(value string) string {
+	return strings.TrimSpace(value)
 }
 
 func flushWord(words *[]string, current *strings.Builder) {
