@@ -15,6 +15,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	contractsvc "github.com/cuihairu/croupier/internal/service"
@@ -614,8 +615,8 @@ func (s *Service) validateFunctionBinding(ctx context.Context, gameID, env, reso
 	if contract.ResourceKey != resourceKey {
 		return nil, fmt.Errorf("function %s belongs to resource %s, not %s", contract.FunctionID, contract.ResourceKey, resourceKey)
 	}
-	if contract.Capability != capability {
-		return nil, fmt.Errorf("function %s capability is %s, not %s", contract.FunctionID, contract.Capability, capability)
+	if contract.Capability.String() != capability {
+		return nil, fmt.Errorf("function %s capability is %s, not %s", contract.FunctionID, contract.Capability.String(), capability)
 	}
 	if !contract.Enabled {
 		return nil, fmt.Errorf("function %s is disabled", contract.FunctionID)
@@ -637,7 +638,7 @@ func determineStatus(contracts []*model.FunctionContract, semantics *model.Capab
 	}
 	hasCollectionContract := false
 	for _, contract := range contracts {
-		if contract != nil && contract.Capability == "collection_query" {
+		if contract != nil && contract.Capability == dbenum.CapabilityCollectionQuery {
 			hasCollectionContract = true
 			break
 		}
@@ -655,9 +656,9 @@ func buildFunctionInfos(contracts []*model.FunctionContract) []FunctionInfo {
 			ID:         c.ID,
 			FunctionID: c.FunctionID,
 			Version:    c.Version,
-			Capability: c.Capability,
+			Capability: c.Capability.String(),
 			Execution:  c.Execution,
-			Risk:       c.Risk,
+			Risk:       c.Risk.String(),
 			Enabled:    c.Enabled,
 			Source:     c.Source,
 		})
@@ -744,7 +745,7 @@ func (s *Service) validateActionSemantics(
 		if strings.TrimSpace(contract.ResourceKey) != resourceKey {
 			return nil, fmt.Errorf("invalid actions[%d].functionId: function does not belong to resource %s", index, resourceKey)
 		}
-		if contract.Capability != "action" {
+		if contract.Capability != dbenum.CapabilityAction {
 			return nil, fmt.Errorf("invalid actions[%d].functionId: function capability must be action", index)
 		}
 		subject := strings.TrimSpace(action.Subject)
@@ -954,7 +955,7 @@ func (s *Service) validateSemanticFunctionRef(
 	if strings.TrimSpace(contract.ResourceKey) != resourceKey {
 		return semanticFunctionRef{}, fmt.Errorf("invalid %s.functionId: function does not belong to resource %s", field, resourceKey)
 	}
-	if requiredCapability != "" && spec.CapabilityKind(contract.Capability) != requiredCapability {
+	if requiredCapability != "" && spec.CapabilityKind(contract.Capability.String()) != requiredCapability {
 		return semanticFunctionRef{}, fmt.Errorf("invalid %s.functionId: function capability must be %s", field, requiredCapability)
 	}
 	if !contract.Enabled {
@@ -1251,8 +1252,8 @@ func (s *Service) buildAffectedPages(ctx context.Context, gameID, env, resourceK
 			Kind:            "proposal",
 			ProposalKey:     proposal.ProposalKey,
 			ProposalQuality: proposal.Quality,
-			ProposalStatus:  proposal.Status,
-			Status:          proposal.Status,
+			ProposalStatus:  proposal.Status.String(),
+			Status:          proposal.Status.String(),
 			UpdatedAt:       proposal.UpdatedAt.Format(time.RFC3339),
 		}
 	}
@@ -1286,7 +1287,7 @@ func (s *Service) functionSpecsByID(ctx context.Context, gameID, env string) map
 			Enabled:      contract.Enabled,
 			InputSchema:  spec.JSONSchema(contract.InputSchema),
 			OutputSchema: spec.JSONSchema(contract.OutputSchema),
-			Risk:         spec.RiskLevel(contract.Risk),
+			Risk:         spec.RiskLevel(contract.Risk.String()),
 			Permission:   strings.TrimSpace(contract.Permission),
 		}
 	}

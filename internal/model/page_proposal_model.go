@@ -2,7 +2,9 @@ package model
 
 import (
 	"context"
+
 	"errors"
+	"github.com/cuihairu/croupier/internal/dbenum"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
@@ -72,7 +74,7 @@ func (m *PageProposalModel) ListByScope(ctx context.Context, gameID, env string)
 }
 
 // ListByStatus lists proposals by status.
-func (m *PageProposalModel) ListByStatus(ctx context.Context, gameID, env, status string) ([]*PageProposal, error) {
+func (m *PageProposalModel) ListByStatus(ctx context.Context, gameID, env string, status dbenum.ProposalStatus) ([]*PageProposal, error) {
 	var proposals []*PageProposal
 	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND status = ?", gameID, env, status).
@@ -96,7 +98,7 @@ func (m *PageProposalModel) ListByScopeAndResourceKey(ctx context.Context, gameI
 }
 
 // ListByScopeStatusAndResourceKey lists proposals by status and resource in a scope.
-func (m *PageProposalModel) ListByScopeStatusAndResourceKey(ctx context.Context, gameID, env, status, resourceKey string) ([]*PageProposal, error) {
+func (m *PageProposalModel) ListByScopeStatusAndResourceKey(ctx context.Context, gameID, env string, status dbenum.ProposalStatus, resourceKey string) ([]*PageProposal, error) {
 	var proposals []*PageProposal
 	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND status = ? AND resource_key = ?", gameID, env, status, resourceKey).

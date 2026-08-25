@@ -11,6 +11,7 @@ import (
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	dashboardservice "github.com/cuihairu/croupier/internal/service"
@@ -937,7 +938,7 @@ func upsertProposalForRegenerate(t *testing.T, db *gorm.DB, ctx context.Context,
 		Title:            map[string]interface{}{"zh-CN": pageSpec.Title["zh-CN"]},
 		CategoryKey:      pageSpec.Category.Key,
 		PageSpec:         raw,
-		Status:           "pending",
+		Status:           dbenum.ProposalStatusPending,
 		UpdatedBy:        "test",
 	}
 	proposalModel := model.NewPageProposalModel(db)

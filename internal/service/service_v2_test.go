@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -130,12 +131,12 @@ func TestProposalService_ListProposalDTOs(t *testing.T) {
 	// Create proposals with different statuses
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
-		PageType: "resource", Quality: "ready", Status: "pending",
+		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusPending,
 		ResourceKey: "player", PageSpec: []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}))
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "o:m1", PageKey: "pk2",
-		PageType: "operation", Quality: "basic", Status: "accepted",
+		PageType: "operation", Quality: "basic", Status: dbenum.ProposalStatusAccepted,
 		ResourceKey: "mail", PageSpec: []byte(`{"pageKey":"pk2","type":"operation"}`),
 	}))
 
@@ -169,7 +170,7 @@ func TestProposalService_GetProposalDTO(t *testing.T) {
 
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
-		PageType: "resource", Quality: "ready", Status: "pending",
+		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusPending,
 		PageSpec: []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}))
 
@@ -196,14 +197,14 @@ func TestProposalService_Inbox(t *testing.T) {
 	// Create publishable proposal (pending + ready + no error diagnostics)
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
-		PageType: "resource", Quality: "ready", Status: "pending",
+		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusPending,
 		PageSpec: []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}))
 
 	// Create needs_review proposal (pending + basic but has error diagnostics)
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "o:p2", PageKey: "pk2",
-		PageType: "operation", Quality: "basic", Status: "pending",
+		PageType: "operation", Quality: "basic", Status: dbenum.ProposalStatusPending,
 		PageSpec:    []byte(`{"pageKey":"pk2","type":"operation"}`),
 		Diagnostics: datatypes.JSON(`[{"code":"x","severity":"error","message":"err"}]`),
 	}))
@@ -211,7 +212,7 @@ func TestProposalService_Inbox(t *testing.T) {
 	// Create rejected proposal (should not appear in any queue)
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "o:p3", PageKey: "pk3",
-		PageType: "operation", Quality: "ready", Status: "rejected",
+		PageType: "operation", Quality: "ready", Status: dbenum.ProposalStatusRejected,
 		PageSpec: []byte(`{"pageKey":"pk3","type":"operation"}`),
 	}))
 
@@ -347,7 +348,7 @@ func TestProposalService_AcceptProposal_NotPending(t *testing.T) {
 
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
-		PageType: "resource", Quality: "ready", Status: "accepted",
+		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusAccepted,
 		PageSpec: []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}))
 
@@ -363,7 +364,7 @@ func TestProposalService_RejectProposal_NotPending(t *testing.T) {
 
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
-		PageType: "resource", Quality: "ready", Status: "accepted",
+		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusAccepted,
 		PageSpec: []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}))
 
@@ -389,7 +390,7 @@ func TestProposalService_AcceptAndPublishProposal_NotPending(t *testing.T) {
 
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
-		PageType: "resource", Quality: "ready", Status: "accepted",
+		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusAccepted,
 		PageSpec: []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}))
 
@@ -405,7 +406,7 @@ func TestProposalService_AcceptAndPublishProposal_NotReadyOrBasic(t *testing.T) 
 
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
-		PageType: "resource", Quality: "needs_review", Status: "pending",
+		PageType: "resource", Quality: "needs_review", Status: dbenum.ProposalStatusPending,
 		PageSpec: []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}))
 
@@ -421,7 +422,7 @@ func TestProposalService_AcceptAndPublishProposal_HasBlockingDiagnostics(t *test
 
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
-		PageType: "resource", Quality: "ready", Status: "pending",
+		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusPending,
 		PageSpec:    []byte(`{"pageKey":"pk1","type":"resource"}`),
 		Diagnostics: datatypes.JSON(`[{"severity":"error","message":"err"}]`),
 	}))
@@ -452,7 +453,7 @@ func TestProposalService_AcceptProposal_HasBlockingDiagnostics(t *testing.T) {
 
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "resource--player",
-		PageType: "resource", Quality: "ready", Status: "pending",
+		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusPending,
 		PageSpec:    pageJSON,
 		Diagnostics: datatypes.JSON(`[{"severity":"error","message":"blocking"}]`),
 	}))

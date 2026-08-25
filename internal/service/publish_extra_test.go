@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,7 @@ func buildOperationProposal(pageKey, functionID string, mutate func(*spec.PageSp
 		PageType:    "operation",
 		ResourceKey: "player",
 		Quality:     "ready",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 		PageSpec:    pageJSON,
 	}, nil
 }
@@ -130,7 +131,7 @@ func TestAcceptAndPublish_HappyPathFreezesSnapshot(t *testing.T) {
 
 	require.NoError(t, db.Create(&model.FunctionContract{
 		GameID: "demo-game", Env: "development", FunctionID: "player.query", Enabled: true, Version: "2.0.0",
-		Risk:         "low",
+		Risk:         dbenum.RiskSafe,
 		InputSchema:  []byte(`{"type":"object"}`),
 		OutputSchema: []byte(`{"type":"object"}`),
 	}).Error)

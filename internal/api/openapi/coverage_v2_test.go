@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	dashspec "github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
@@ -415,7 +416,7 @@ func TestProposalKeysForContract(t *testing.T) {
 		c := &model.FunctionContract{
 			FunctionID:  "player.list",
 			ResourceKey: "player",
-			Capability:  string(dashspec.CapabilityCollectionQuery),
+			Capability:  dbenum.CapabilityCollectionQuery,
 		}
 		keys := proposalKeysForContract(c)
 		assert.Equal(t, []string{"resource:player"}, keys)
@@ -425,7 +426,7 @@ func TestProposalKeysForContract(t *testing.T) {
 		c := &model.FunctionContract{
 			FunctionID:  "reward.grant",
 			ResourceKey: "",
-			Capability:  string(dashspec.CapabilityTask),
+			Capability:  dbenum.CapabilityTask,
 		}
 		keys := proposalKeysForContract(c)
 		require.Len(t, keys, 1)
@@ -436,7 +437,7 @@ func TestProposalKeysForContract(t *testing.T) {
 		c := &model.FunctionContract{
 			FunctionID:  "stats.daily",
 			ResourceKey: "",
-			Capability:  string(dashspec.CapabilityReport),
+			Capability:  dbenum.CapabilityReport,
 		}
 		keys := proposalKeysForContract(c)
 		require.Len(t, keys, 1)
@@ -447,7 +448,7 @@ func TestProposalKeysForContract(t *testing.T) {
 		c := &model.FunctionContract{
 			FunctionID:  "player.list",
 			ResourceKey: "",
-			Capability:  string(dashspec.CapabilityCollectionQuery),
+			Capability:  dbenum.CapabilityCollectionQuery,
 		}
 		keys := proposalKeysForContract(c)
 		require.Len(t, keys, 1)
@@ -489,7 +490,7 @@ func TestProposalDTOForOpenAPIBinding(t *testing.T) {
 			PageType:    "table",
 			ResourceKey: "player",
 			Quality:     "high",
-			Status:      "active",
+			Status:      dbenum.ProposalStatusAccepted,
 		}
 		dto := proposalDTOForOpenAPIBinding(p)
 		require.NotNil(t, dto)
@@ -498,7 +499,7 @@ func TestProposalDTOForOpenAPIBinding(t *testing.T) {
 		assert.Equal(t, "table", dto.PageType)
 		assert.Equal(t, "player", dto.ResourceKey)
 		assert.Equal(t, "high", dto.Quality)
-		assert.Equal(t, "active", dto.Status)
+		assert.Equal(t, "accepted", dto.Status)
 	})
 }
 

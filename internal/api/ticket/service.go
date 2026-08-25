@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -23,7 +24,7 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 	opts := model.TicketQueryOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
 		Query:             strings.TrimSpace(req.Query),
-		Status:            strings.TrimSpace(req.Status),
+		Status:            parseTicketStatusFilter(strings.TrimSpace(req.Status)),
 		Category:          strings.TrimSpace(req.Category),
 		Priority:          strings.TrimSpace(req.Priority),
 		Assignee:          strings.TrimSpace(req.Assignee),
@@ -265,4 +266,17 @@ func (s *Service) CreateComment(ctx context.Context, req *CreateCommentRequest) 
 	return &CreateCommentResponse{
 		Items: buildCommentsDTO(comments),
 	}, nil
+}
+
+// parseTicketStatusFilter converts a wire status filter into the enum.
+// Unknown values map to -1 so no rows match by accident.
+func parseTicketStatusFilter(value string) dbenum.TicketStatus {
+	if value == "" {
+		return -1
+	}
+	parsed, err := dbenum.ParseTicketStatus(strings.ToLower(value))
+	if err != nil {
+		return -1
+	}
+	return parsed
 }

@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -99,7 +100,7 @@ func TestBuildFeedback_WithRecord(t *testing.T) {
 		Content:  "test content",
 		Category: "bug",
 		Priority: "high",
-		Status:   "open",
+		Status:   dbenum.FeedbackStatusOpen,
 		Rating:   5,
 		Reply:    "thanks",
 		GameID:   "game1",

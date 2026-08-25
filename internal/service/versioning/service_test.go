@@ -9,6 +9,7 @@ import (
 
 	dashboardmerge "github.com/cuihairu/croupier/internal/dashboard/merge"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -122,7 +123,7 @@ func seedVersioningMergeFixture(
 		Description:      localizedTextToJSONMap(basePage.Description),
 		CategoryKey:      basePage.Category.Key,
 		PageSpec:         jsonValue(basePage),
-		Status:           "pending",
+		Status:           dbenum.ProposalStatusPending,
 		UpdatedAt:        time.Now(),
 		UpdatedBy:        "tester",
 	}
@@ -171,7 +172,7 @@ func TestVersioningService_GetChangeChain(t *testing.T) {
 		Version:     "1.0.0",
 		Enabled:     true,
 		ResourceKey: "player",
-		Capability:  "collection_query",
+		Capability:  dbenum.CapabilityCollectionQuery,
 		UpdatedAt:   time.Now(),
 	})
 	require.NoError(t, err)
@@ -630,7 +631,7 @@ func TestVersioningService_RegenerateProposal(t *testing.T) {
 		Version:     "1.0.0",
 		Enabled:     true,
 		ResourceKey: "player",
-		Capability:  "collection_query",
+		Capability:  dbenum.CapabilityCollectionQuery,
 		UpdatedAt:   time.Now(),
 	})
 	require.NoError(t, err)

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -251,9 +252,9 @@ func TestFunctionSpecsByIDV5(t *testing.T) {
 		Version:     "1.0",
 		Enabled:     true,
 		ResourceKey: "r1",
-		Capability:  "action",
+		Capability:  dbenum.CapabilityAction,
 		Execution:   "sync",
-		Risk:        "safe",
+		Risk:        dbenum.RiskSafe,
 		Source:      "sdk",
 		Permission:  "p:q",
 	})
@@ -471,7 +472,7 @@ func TestDetermineStatusV5(t *testing.T) {
 
 	// contracts with semantics, no conflicts but no complete set
 	assert.Equal(t, "pending", determineStatus(
-		[]*model.FunctionContract{{FunctionID: "f1", Capability: "action"}},
+		[]*model.FunctionContract{{FunctionID: "f1", Capability: dbenum.CapabilityAction}},
 		&model.CapabilitySemantics{Conflicts: []byte(`[]`)},
 	))
 }

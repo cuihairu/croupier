@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -31,7 +32,8 @@ func (s *Service) List(ctx context.Context, req *FeedbackListRequest) (*Feedback
 	}
 	opts := model.ListFeedbackOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
-		Status:            strings.TrimSpace(req.Status),
+		Status:            parseFeedbackStatusFilter(strings.TrimSpace(req.Status)),
+		ExcludeStatus:     parseFeedbackStatusFilter(strings.TrimSpace(req.ExcludeStatus)),
 		Category:          strings.TrimSpace(req.Category),
 		Keyword:           strings.TrimSpace(req.Query),
 		GameID:            svc.ResolveGameID(ctx, req.GameId),
@@ -85,7 +87,7 @@ func (s *Service) Create(ctx context.Context, req *FeedbackCreateRequest) (*Feed
 		Content:  content,
 		Category: category,
 		Priority: "normal",
-		Status:   "open",
+		Status:   dbenum.FeedbackStatusOpen,
 		Rating:   utils.NormalizeFeedbackRating(req.Rating),
 		Attach:   strings.TrimSpace(req.Attach),
 		GameID:   svc.ResolveGameID(ctx, req.GameId),
@@ -120,7 +122,11 @@ func (s *Service) Update(ctx context.Context, req *FeedbackUpdateRequest) (*Feed
 
 	updates := map[string]interface{}{}
 	if status := strings.TrimSpace(req.Status); status != "" {
-		updates["status"] = status
+		parsed, err := dbenum.ParseFeedbackStatus(strings.ToLower(status))
+		if err != nil {
+			return nil, errorx.NewBadRequest("反馈状态无效: " + status)
+		}
+		updates["status"] = parsed
 	}
 	if priority := strings.TrimSpace(req.Priority); priority != "" {
 		updates["priority"] = priority
@@ -262,7 +268,7 @@ func buildFeedback(record *model.Feedback) Feedback {
 		Content:   record.Content,
 		Category:  record.Category,
 		Priority:  record.Priority,
-		Status:    record.Status,
+		Status:    record.Status.String(),
 		Rating:    record.Rating,
 		Attach:    record.Attach,
 		GameId:    record.GameID,
@@ -271,4 +277,17 @@ func buildFeedback(record *model.Feedback) Feedback {
 		CreatedAt: utils.FormatTimestamp(record.CreatedAt),
 		UpdatedAt: utils.FormatTimestamp(record.UpdatedAt),
 	}
+}
+
+// parseFeedbackStatusFilter converts a wire status filter into the enum.
+// Unknown values map to -1 so no rows match by accident.
+func parseFeedbackStatusFilter(value string) dbenum.FeedbackStatus {
+	if value == "" {
+		return -1
+	}
+	parsed, err := dbenum.ParseFeedbackStatus(strings.ToLower(value))
+	if err != nil {
+		return -1
+	}
+	return parsed
 }

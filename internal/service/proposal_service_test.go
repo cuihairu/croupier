@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +29,7 @@ func TestProposalService_ListProposals(t *testing.T) {
 			PageType:    "resource",
 			ResourceKey: "player",
 			Quality:     "ready",
-			Status:      "pending",
+			Status:      dbenum.ProposalStatusPending,
 		},
 		{
 			GameID:      "demo-game",
@@ -38,7 +39,7 @@ func TestProposalService_ListProposals(t *testing.T) {
 			PageType:    "operation",
 			ResourceKey: "mail",
 			Quality:     "basic",
-			Status:      "pending",
+			Status:      dbenum.ProposalStatusPending,
 		},
 	}
 
@@ -53,11 +54,11 @@ func TestProposalService_ListProposals(t *testing.T) {
 	assert.Len(t, result, 2)
 
 	// List by status
-	pending, err := service.ListProposalsByStatus(ctx, "demo-game", "development", "pending")
+	pending, err := service.ListProposalsByStatus(ctx, "demo-game", "development", dbenum.ProposalStatusPending)
 	require.NoError(t, err)
 	assert.Len(t, pending, 2)
 
-	accepted, err := service.ListProposalsByStatus(ctx, "demo-game", "development", "accepted")
+	accepted, err := service.ListProposalsByStatus(ctx, "demo-game", "development", dbenum.ProposalStatusAccepted)
 	require.NoError(t, err)
 	assert.Len(t, accepted, 0)
 }
@@ -79,7 +80,7 @@ func TestProposalService_AcceptProposal(t *testing.T) {
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 		PageSpec:    pageJSON,
 	}
 	err = service.proposalModel.UpsertProposal(ctx, proposal)
@@ -92,7 +93,7 @@ func TestProposalService_AcceptProposal(t *testing.T) {
 	// Verify status changed
 	result, err := service.GetProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
-	assert.Equal(t, "accepted", result.Status)
+	assert.Equal(t, dbenum.ProposalStatusAccepted, result.Status)
 	assert.Equal(t, "proposal_tester", result.UpdatedBy)
 
 	draft, err := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "resource--player")
@@ -126,9 +127,9 @@ func TestProposalService_AcceptAndPublishFreezesBindingContractSnapshot(t *testi
 		FunctionID:   "mail.send",
 		Version:      "2.3.4",
 		Enabled:      true,
-		Capability:   "action",
+		Capability:   dbenum.CapabilityAction,
 		Execution:    "sync",
-		Risk:         "high",
+		Risk:         dbenum.RiskHigh,
 		Permission:   "mail:send",
 		Approval:     datatypes.JSONMap{"required": true, "policyKey": "two_person"},
 		InputSchema:  datatypes.JSON(`{"type":"object"}`),
@@ -153,7 +154,7 @@ func TestProposalService_AcceptAndPublishFreezesBindingContractSnapshot(t *testi
 	require.NoError(t, err)
 	require.NoError(t, service.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "demo-game", Env: "development", ProposalKey: "operation:mail.send",
-		PageKey: page.PageKey, PageType: string(page.Type), Quality: "basic", Status: "pending", PageSpec: pageJSON,
+		PageKey: page.PageKey, PageType: string(page.Type), Quality: "basic", Status: dbenum.ProposalStatusPending, PageSpec: pageJSON,
 	}))
 
 	_, err = service.AcceptAndPublishProposal(ctx, "demo-game", "development", "operation:mail.send")
@@ -190,7 +191,7 @@ func TestProposalService_AcceptProposalRequiresCanonicalPageSpec(t *testing.T) {
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 	}
 	err := service.proposalModel.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)
@@ -216,7 +217,7 @@ func TestProposalService_AcceptProposalDoesNotOverwriteExistingDraft(t *testing.
 		PageType:    "operation",
 		ResourceKey: "player",
 		Quality:     "ready",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 		PageSpec:    pageJSON,
 	})
 	require.NoError(t, err)
@@ -263,7 +264,7 @@ func TestProposalService_AcceptProposalRejectsErrorDiagnostics(t *testing.T) {
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "needs_review",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 		PageSpec:    pageJSON,
 		Diagnostics: datatypes.JSON(`[{"code":"function_disabled","severity":"error","message":"function is disabled"}]`),
 	}
@@ -289,7 +290,7 @@ func TestProposalService_RejectProposal(t *testing.T) {
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 	}
 	err := service.proposalModel.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)
@@ -301,7 +302,7 @@ func TestProposalService_RejectProposal(t *testing.T) {
 	// Verify status changed
 	result, err := service.GetProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
-	assert.Equal(t, "rejected", result.Status)
+	assert.Equal(t, dbenum.ProposalStatusRejected, result.Status)
 }
 
 func TestProposalService_ScopeIsolation(t *testing.T) {
@@ -318,7 +319,7 @@ func TestProposalService_ScopeIsolation(t *testing.T) {
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 	}
 	err := service.proposalModel.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)

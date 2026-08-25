@@ -28,6 +28,38 @@ title: 仓库规范
 - TypeScript/React: Prettier + ESLint; 2-space indent; components `PascalCase`; hooks `useX`.
 - Commits: Conventional Commits (`feat(scope): ...`, `fix`, `chore`, `docs`).
 
+## Enumeration Design (Mandatory)
+
+平台状态字段与用户契约枚举采用两套完全不同的机制，禁止混用：
+
+### 1) 平台状态机 → Go int 枚举 + DB int 列
+
+平台自有状态列（词表由平台定义、编译期收敛）一律使用 `internal/dbenum` 的 int 底座枚举：
+
+- 覆盖范围：`function_contracts.capability`/`risk`、`page_proposals.status`、`tickets.status`、`messages.status`、`feedback.status`、`extension_installation.status`、`certificate.status`。
+- Go 层：`type TicketStatus int` + `iota` 常量 + `Parse*/String()`；比较与分支编译期安全。
+- DB 层：列存 small int（比较快、索引便宜）；迁移脚本负责把存量字符串回填为 int（空 capability 按函数名推断，如 `player.list → collection_query`）。
+- JSON/wire 层：枚举实现 `json.Marshaler/Unmarshaler`，REST 输入输出仍是可读字符串（`"open"`、`"accepted"`），对外契约不变。
+- 写入边界统一走 `Parse*`（非法值返回 422），禁止裸字符串直接落库；`Scan` 兼容历史 string 行以便迁移期平滑读取。
+- proto/SDK wire 层保持 string（协议不受 DB 枚举化影响）。
+
+### 2) 用户契约枚举 → JSON Schema `enum` 数组透传
+
+游戏方在 function spec / OpenAPI 里定义的枚举（哪怕字段也叫 status）是**用户数据**，不是平台状态：
+
+- 平台只做三件事：透传（schema 原文存 `input_schema`/`output_schema`，无损）、渲染（property 带 `enum` → 表单生成 Select）、校验（运行时按 schema 拒绝非法值）。
+- 词表随用户 spec 版本漂移，平台代码不得预知、不得转换为 Go 枚举、不得在 DB 层加 CHECK 约束。
+- 用户改 enum 不需要平台发版。
+
+### 3) 判定规则
+
+新增字段时按 owner 判定：词表归平台（状态机/治理语义）→ dbenum int 枚举；词表归游戏方（业务词汇）→ 留在 schema JSON 里。禁止对用户词表新建 Go 枚举，也禁止平台状态继续新增裸字符串列。
+
+豁免记录（保留 string，但必须有词表校验）：
+
+- `extension_installation.status`：状态集含 `uninstalled` 且与 `desired_state` 联动、比较用 EqualFold，涉及扩展生命周期语义重构，暂保留 string + 词表校验。
+- `certificate.status`：由到期时间派生（active/expiring/expired），是监控快照而非状态机，保留 string。
+
 ## Testing Guidelines
 
 - Go unit tests co-locate as `*_test.go`; prefer table-driven tests.

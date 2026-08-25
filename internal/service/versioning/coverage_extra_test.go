@@ -8,6 +8,7 @@ import (
 
 	dashboardmerge "github.com/cuihairu/croupier/internal/dashboard/merge"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -1885,7 +1886,7 @@ func TestBuildBindingContractsDisabledFunctionV2(t *testing.T) {
 		FunctionID: "fn1",
 		Enabled:    false,
 		Version:    "1.0.0",
-		Risk:       "medium",
+		Risk:       dbenum.RiskWarning,
 	}
 	db.Create(contract)
 	_, err := svc.buildBindingContracts(context.Background(), "game1", "prod", []spec.PageFunctionBinding{
@@ -1905,7 +1906,7 @@ func TestBuildBindingContractsSuccessV2(t *testing.T) {
 		FunctionID: "fn1",
 		Enabled:    true,
 		Version:    "1.0.0",
-		Risk:       "medium",
+		Risk:       dbenum.RiskWarning,
 		Permission: "player:list",
 	}
 	db.Create(contract)
@@ -1948,7 +1949,7 @@ func TestBindingContractChangesWithPublishedV2(t *testing.T) {
 		FunctionID: "fn1",
 		Enabled:    true,
 		Version:    "1.0.0",
-		Risk:       "medium",
+		Risk:       dbenum.RiskWarning,
 	}
 	db.Create(contract)
 	// Compute the expected digests from the contract's nil schemas
@@ -1961,7 +1962,7 @@ func TestBindingContractChangesWithPublishedV2(t *testing.T) {
 			FunctionVersion:    "1.0.0",
 			InputSchemaDigest:  expectedInputDigest,
 			OutputSchemaDigest: expectedOutputDigest,
-			Risk:               "medium",
+			Risk:               "warning",
 			Permission:         "",
 		},
 	}
@@ -2031,7 +2032,7 @@ func TestDraftBindingContractChangesFunctionExistsV2(t *testing.T) {
 		FunctionID: "fn1",
 		Enabled:    true,
 		Version:    "1.0.0",
-		Risk:       "medium",
+		Risk:       dbenum.RiskWarning,
 	}
 	db.Create(contract)
 	pageSpec := spec.PageSpec{
@@ -2092,7 +2093,7 @@ func TestMainContractForStandalonePageSuccessV2(t *testing.T) {
 		FunctionID: "fn1",
 		Enabled:    true,
 		Version:    "1.0.0",
-		Risk:       "medium",
+		Risk:       dbenum.RiskWarning,
 	}
 	db.Create(contract)
 	pageSpec := spec.PageSpec{
@@ -2128,7 +2129,7 @@ func TestFunctionSpecsByIDWithContractV2(t *testing.T) {
 		FunctionID: "fn1",
 		Enabled:    true,
 		Version:    "1.0.0",
-		Risk:       "medium",
+		Risk:       dbenum.RiskWarning,
 	}
 	db.Create(contract)
 	pageSpec := spec.PageSpec{
@@ -2176,7 +2177,7 @@ func TestContractsForPageDuplicateFunctionIDV2(t *testing.T) {
 		FunctionID: "fn1",
 		Enabled:    true,
 		Version:    "1.0.0",
-		Risk:       "medium",
+		Risk:       dbenum.RiskWarning,
 	}
 	db.Create(contract)
 	pageSpec := spec.PageSpec{

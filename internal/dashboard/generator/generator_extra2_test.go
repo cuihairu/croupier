@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -341,9 +342,9 @@ func TestExtraValidateGeneratedResourceViews(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestExtraFindContracts(t *testing.T) {
-	query := &model.FunctionContract{Model: gorm.Model{ID: 1}, FunctionID: "player.list", Capability: "collection_query"}
-	item := &model.FunctionContract{Model: gorm.Model{ID: 2}, FunctionID: "player.get", Capability: "item_query"}
-	action := &model.FunctionContract{Model: gorm.Model{ID: 3}, FunctionID: "player.ban", Capability: "action"}
+	query := &model.FunctionContract{Model: gorm.Model{ID: 1}, FunctionID: "player.list", Capability: dbenum.CapabilityCollectionQuery}
+	item := &model.FunctionContract{Model: gorm.Model{ID: 2}, FunctionID: "player.get", Capability: dbenum.CapabilityItemQuery}
+	action := &model.FunctionContract{Model: gorm.Model{ID: 3}, FunctionID: "player.ban", Capability: dbenum.CapabilityAction}
 
 	assert.Nil(t, findResourceContract([]*model.FunctionContract{query}, 0, spec.CapabilityCollectionQuery))
 	assert.Nil(t, findResourceContract([]*model.FunctionContract{query}, 9, spec.CapabilityCollectionQuery))
@@ -406,7 +407,7 @@ func TestExtraInlineActionTitleAndType(t *testing.T) {
 	lowRisk := base
 	assert.Equal(t, "default", inlineActionType(&lowRisk))
 	highRisk := base
-	highRisk.Risk = string(spec.RiskHigh)
+	highRisk.Risk = dbenum.RiskHigh
 	assert.Equal(t, "danger", inlineActionType(&highRisk))
 }
 

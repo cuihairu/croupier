@@ -2,9 +2,11 @@ package model
 
 import (
 	"context"
+
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"time"
 
 	"gorm.io/datatypes"
@@ -26,8 +28,13 @@ type ListMessagesOptions struct {
 	Page     int
 	PageSize int
 	Type     string
-	Status   string
+	Status   dbenum.MessageStatus // -1 = no filter; 0 (unread) IS a valid filter
 	To       string
+}
+
+// NewListMessagesOptions returns options with status unfiltered.
+func NewListMessagesOptions() ListMessagesOptions {
+	return ListMessagesOptions{Status: -1}
 }
 
 // List returns paginated messages with filters applied.
@@ -43,7 +50,7 @@ func (m *MessageModel) List(ctx context.Context, opts ListMessagesOptions) ([]Me
 	if opts.Type != "" {
 		query = query.Where("type = ?", opts.Type)
 	}
-	if opts.Status != "" {
+	if opts.Status >= 0 {
 		query = query.Where("status = ?", opts.Status)
 	}
 	if opts.To != "" {
@@ -87,14 +94,14 @@ func (m *MessageModel) MarkRead(ctx context.Context, id uint) error {
 		Model(&Message{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":  "read",
+			"status":  dbenum.MessageStatusRead,
 			"read_at": now,
 		}).Error
 }
 
 // CountUnread returns number of unread messages (optionally filtered by recipient).
 func (m *MessageModel) CountUnread(ctx context.Context, to string) (int64, error) {
-	query := m.db.WithContext(ctx).Model(&Message{}).Where("status = ?", "unread")
+	query := m.db.WithContext(ctx).Model(&Message{}).Where("status = ?", dbenum.MessageStatusUnread)
 	if to != "" {
 		query = query.Where("recipient = ?", to)
 	}

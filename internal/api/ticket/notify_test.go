@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +53,7 @@ func TestNotifyAssignee_SendsMessage(t *testing.T) {
 	createAdmin(t, am, "alice")
 	createAdmin(t, am, "bob")
 
-	ticket := &model.Ticket{Title: "t", Category: "payment", Status: "open", Assignee: "alice"}
+	ticket := &model.Ticket{Title: "t", Category: "payment", Status: dbenum.TicketStatusOpen, Assignee: "alice"}
 	require.NoError(t, svcTicket.svcCtx.TicketModel.Create(context.Background(), ticket))
 
 	svcTicket.notifyAssignee(withActor(context.Background(), "bob"), ticket, "alice", "bob")
@@ -64,7 +65,7 @@ func TestNotifyAssignee_SendsMessage(t *testing.T) {
 func TestNotifyAssignee_SkipsSelfAssignment(t *testing.T) {
 	svcTicket, _, mm, _ := newNotifyEnv(t)
 
-	ticket := &model.Ticket{Title: "t", Category: "payment", Status: "open", Assignee: "alice"}
+	ticket := &model.Ticket{Title: "t", Category: "payment", Status: dbenum.TicketStatusOpen, Assignee: "alice"}
 	require.NoError(t, svcTicket.svcCtx.TicketModel.Create(context.Background(), ticket))
 
 	svcTicket.notifyAssignee(withActor(context.Background(), "alice"), ticket, "alice", "alice")
@@ -74,7 +75,7 @@ func TestNotifyAssignee_SkipsSelfAssignment(t *testing.T) {
 func TestNotifyTicketEvent_SkipsOperatorAndEmptyAssignee(t *testing.T) {
 	svcTicket, _, mm, _ := newNotifyEnv(t)
 
-	assigned := &model.Ticket{Title: "a", Category: "c", Status: "in_progress", Assignee: "alice"}
+	assigned := &model.Ticket{Title: "a", Category: "c", Status: dbenum.TicketStatusInProgress, Assignee: "alice"}
 	require.NoError(t, svcTicket.svcCtx.TicketModel.Create(context.Background(), assigned))
 	svcTicket.notifyTicketEvent(withActor(context.Background(), "alice"), assigned, "alice", "title", "body")
 	assert.EqualValues(t, 0, countMessages(t, mm, "alice", "ticket.updated"))
@@ -82,7 +83,7 @@ func TestNotifyTicketEvent_SkipsOperatorAndEmptyAssignee(t *testing.T) {
 	svcTicket.notifyTicketEvent(withActor(context.Background(), "bob"), assigned, "bob", "title", "body")
 	assert.EqualValues(t, 1, countMessages(t, mm, "alice", "ticket.updated"))
 
-	unassigned := &model.Ticket{Title: "u", Category: "c", Status: "open"}
+	unassigned := &model.Ticket{Title: "u", Category: "c", Status: dbenum.TicketStatusOpen}
 	require.NoError(t, svcTicket.svcCtx.TicketModel.Create(context.Background(), unassigned))
 	svcTicket.notifyTicketEvent(withActor(context.Background(), "bob"), unassigned, "bob", "title", "body")
 	// alice keeps her single earlier message; the unassigned ticket adds none.
@@ -134,7 +135,7 @@ func TestUpdate_AssigneeChangeNotifiesOnce(t *testing.T) {
 	createAdmin(t, am, "alice")
 	createAdmin(t, am, "carol")
 
-	ticket := &model.Ticket{Title: "t", Category: "payment", Status: "open"}
+	ticket := &model.Ticket{Title: "t", Category: "payment", Status: dbenum.TicketStatusOpen}
 	require.NoError(t, tm.Create(context.Background(), ticket))
 
 	ctx := withActor(context.Background(), "bob")
@@ -155,7 +156,7 @@ func TestUpdate_AssigneeChangeNotifiesOnce(t *testing.T) {
 
 func TestTransition_NotifiesAssignee(t *testing.T) {
 	svcTicket, tm, mm, _ := newNotifyEnv(t)
-	ticket := &model.Ticket{Title: "t", Category: "payment", Status: "open", Assignee: "alice"}
+	ticket := &model.Ticket{Title: "t", Category: "payment", Status: dbenum.TicketStatusOpen, Assignee: "alice"}
 	require.NoError(t, tm.Create(context.Background(), ticket))
 
 	ctx := withActor(context.Background(), "bob")
@@ -168,7 +169,7 @@ func TestTransition_NotifiesAssignee(t *testing.T) {
 
 func TestCreateComment_NotifiesAssigneeNotAuthor(t *testing.T) {
 	svcTicket, tm, mm, _ := newNotifyEnv(t)
-	ticket := &model.Ticket{Title: "t", Category: "payment", Status: "open", Assignee: "alice"}
+	ticket := &model.Ticket{Title: "t", Category: "payment", Status: dbenum.TicketStatusOpen, Assignee: "alice"}
 	require.NoError(t, tm.Create(context.Background(), ticket))
 
 	ctx := withActor(context.Background(), "bob")

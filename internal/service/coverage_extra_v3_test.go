@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -107,7 +108,7 @@ func TestInferIdentityFieldV3_WithResourceID(t *testing.T) {
 	sem := &model.CapabilitySemantics{ResourceKey: "player", CollectionQueryID: 1}
 	contracts := []*model.FunctionContract{
 		{
-			FunctionID: "func1", Capability: "collection_query",
+			FunctionID: "func1", Capability: dbenum.CapabilityCollectionQuery,
 			OutputSchema: datatypes.JSON(
 				`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"player_id":{"type":"integer"}}}}}}`),
 		},
@@ -122,7 +123,7 @@ func TestInferIdentityFieldV3_WithResourceId(t *testing.T) {
 	sem := &model.CapabilitySemantics{ResourceKey: "order", CollectionQueryID: 1}
 	contracts := []*model.FunctionContract{
 		{
-			FunctionID: "func1", Capability: "collection_query",
+			FunctionID: "func1", Capability: dbenum.CapabilityCollectionQuery,
 			OutputSchema: datatypes.JSON(
 				`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"orderId":{"type":"string"}}}}}}`),
 		},
@@ -136,7 +137,7 @@ func TestInferIdentityFieldV3_NoIDFieldDoesNotGuess(t *testing.T) {
 	sem := &model.CapabilitySemantics{ResourceKey: "player", CollectionQueryID: 1}
 	contracts := []*model.FunctionContract{
 		{
-			FunctionID: "func1", Capability: "collection_query",
+			FunctionID: "func1", Capability: dbenum.CapabilityCollectionQuery,
 			OutputSchema: datatypes.JSON(
 				`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"alpha":{"type":"string"},"beta":{"type":"integer"}}}}}}`),
 		},
@@ -511,12 +512,12 @@ func TestInboxV3_WithFilter(t *testing.T) {
 
 	require.NoError(t, p.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
-		PageType: "resource", Quality: "ready", Status: "pending", ResourceKey: "player",
+		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusPending, ResourceKey: "player",
 		PageSpec: []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}))
 	require.NoError(t, p.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "o:p2", PageKey: "pk2",
-		PageType: "operation", Quality: "basic", Status: "pending", ResourceKey: "mail",
+		PageType: "operation", Quality: "basic", Status: dbenum.ProposalStatusPending, ResourceKey: "mail",
 		PageSpec: []byte(`{"pageKey":"pk2","type":"operation"}`),
 	}))
 
@@ -533,7 +534,7 @@ func TestInboxV3_BasicQualityProposal(t *testing.T) {
 
 	require.NoError(t, p.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "o:p1", PageKey: "pk1",
-		PageType: "operation", Quality: "basic", Status: "pending",
+		PageType: "operation", Quality: "basic", Status: dbenum.ProposalStatusPending,
 		PageSpec: []byte(`{"pageKey":"pk1","type":"operation"}`),
 	}))
 
@@ -550,7 +551,7 @@ func TestInboxV3_NonPendingExcluded(t *testing.T) {
 
 	require.NoError(t, p.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "g1", Env: "dev", ProposalKey: "o:p1", PageKey: "pk1",
-		PageType: "operation", Quality: "ready", Status: "accepted",
+		PageType: "operation", Quality: "ready", Status: dbenum.ProposalStatusAccepted,
 		PageSpec: []byte(`{"pageKey":"pk1","type":"operation"}`),
 	}))
 
@@ -577,7 +578,7 @@ func TestCreateProposalVersionSnapshotV3_Success(t *testing.T) {
 		PageKey:     "pk1",
 		PageType:    "resource",
 		Quality:     "ready",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 		PageSpec:    []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}
 	require.NoError(t, proposalModel.UpsertProposal(ctx, proposal))
@@ -615,7 +616,7 @@ func TestBuildBindingContractsV3_WithBindings(t *testing.T) {
 		Version:      "1.0.0",
 		Enabled:      true,
 		ResourceKey:  "player",
-		Capability:   "collection_query",
+		Capability:   dbenum.CapabilityCollectionQuery,
 		Execution:    "sync",
 		InputSchema:  datatypes.JSON(`{"type":"object"}`),
 		OutputSchema: datatypes.JSON(`{"type":"object"}`),
@@ -735,7 +736,7 @@ func TestAcceptProposalV3_Success(t *testing.T) {
 	require.NoError(t, p.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "demo-game", Env: "development", ProposalKey: "resource:player",
 		PageKey: "resource--player", PageType: "resource", Quality: "ready",
-		Status: "pending", PageSpec: pageJSON,
+		Status: dbenum.ProposalStatusPending, PageSpec: pageJSON,
 	}))
 
 	err = p.AcceptProposal(ctx, "demo-game", "development", "resource:player")
@@ -743,7 +744,7 @@ func TestAcceptProposalV3_Success(t *testing.T) {
 
 	proposal, err := p.GetProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
-	assert.Equal(t, "accepted", proposal.Status)
+	assert.Equal(t, dbenum.ProposalStatusAccepted, proposal.Status)
 }
 
 // ===========================================================================
@@ -758,7 +759,7 @@ func TestRejectProposalV3_Success(t *testing.T) {
 	require.NoError(t, p.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "demo-game", Env: "development", ProposalKey: "resource:player",
 		PageKey: "resource--player", PageType: "resource", Quality: "ready",
-		Status: "pending", PageSpec: []byte(`{"pageKey":"resource--player","type":"resource"}`),
+		Status: dbenum.ProposalStatusPending, PageSpec: []byte(`{"pageKey":"resource--player","type":"resource"}`),
 	}))
 
 	err := p.RejectProposal(ctx, "demo-game", "development", "resource:player")
@@ -766,7 +767,7 @@ func TestRejectProposalV3_Success(t *testing.T) {
 
 	proposal, err := p.GetProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
-	assert.Equal(t, "rejected", proposal.Status)
+	assert.Equal(t, dbenum.ProposalStatusRejected, proposal.Status)
 }
 
 // ===========================================================================
@@ -804,7 +805,7 @@ func TestAcceptAndPublishProposalV3_Success(t *testing.T) {
 	require.NoError(t, p.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "demo-game", Env: "development", ProposalKey: "operation:mail.send",
 		PageKey: "operation--mail.send", PageType: "operation", Quality: "basic",
-		Status: "pending", PageSpec: pageJSON,
+		Status: dbenum.ProposalStatusPending, PageSpec: pageJSON,
 	}))
 
 	result, err := p.AcceptAndPublishProposal(ctx, "demo-game", "development", "operation:mail.send")
@@ -930,7 +931,7 @@ func TestProposalDTOFromModelV3_Accepted(t *testing.T) {
 		PageKey:     "pk1",
 		PageType:    "resource",
 		Quality:     "ready",
-		Status:      "accepted",
+		Status:      dbenum.ProposalStatusAccepted,
 		UpdatedBy:   "admin",
 		UpdatedAt:   time.Now(),
 		PageSpec:    []byte(`{"pageKey":"pk1","type":"resource","title":{"zh-CN":"测试"},"category":{"key":"test","labels":{"zh-CN":"测试"}}}`),
@@ -947,7 +948,7 @@ func TestProposalDTOFromModelV3_Rejected(t *testing.T) {
 		PageKey:     "pk2",
 		PageType:    "operation",
 		Quality:     "basic",
-		Status:      "rejected",
+		Status:      dbenum.ProposalStatusRejected,
 		PageSpec:    []byte(`{"pageKey":"pk2","type":"operation","title":{"zh-CN":"操作"},"category":{"key":"test","labels":{"zh-CN":"测试"}}}`),
 	}
 	dto, err := proposalDTOFromModel(proposal)

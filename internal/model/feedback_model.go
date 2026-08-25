@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"gorm.io/gorm"
 )
 
@@ -22,11 +23,12 @@ func NewFeedbackModel(db *gorm.DB) *FeedbackModel {
 // ListFeedbackOptions controls filtering.
 type ListFeedbackOptions struct {
 	PaginationOptions
-	GameID   string
-	Env      string
-	Status   string
-	Category string
-	Keyword  string
+	GameID        string
+	Env           string
+	Status        dbenum.FeedbackStatus
+	ExcludeStatus dbenum.FeedbackStatus
+	Category      string
+	Keyword       string
 }
 
 // Create inserts feedback entry.
@@ -69,8 +71,11 @@ func (m *FeedbackModel) List(ctx context.Context, opts ListFeedbackOptions) ([]F
 	if opts.Env != "" {
 		query = query.Where("env = ?", opts.Env)
 	}
-	if opts.Status != "" {
+	if opts.Status >= 0 {
 		query = query.Where("status = ?", opts.Status)
+	}
+	if opts.ExcludeStatus >= 0 {
+		query = query.Where("status <> ?", opts.ExcludeStatus)
 	}
 	if opts.Category != "" {
 		query = query.Where("category = ?", opts.Category)

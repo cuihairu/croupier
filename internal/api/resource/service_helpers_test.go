@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -114,7 +115,7 @@ func TestOperationSpecsFromContractsV2(t *testing.T) {
 		{"nil", nil, 0},
 		{"empty", []*model.FunctionContract{}, 0},
 		{"single", []*model.FunctionContract{
-			{FunctionID: "player.ban", ResourceKey: "player", OperationKey: "ban", Capability: "action", Enabled: true},
+			{FunctionID: "player.ban", ResourceKey: "player", OperationKey: "ban", Capability: dbenum.CapabilityAction, Enabled: true},
 		}, 1},
 		{"nil contract skipped", []*model.FunctionContract{nil, {FunctionID: "fn1"}}, 1},
 		{"with approval policy", []*model.FunctionContract{

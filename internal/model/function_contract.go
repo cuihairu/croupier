@@ -5,6 +5,8 @@ import (
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+
+	"github.com/cuihairu/croupier/internal/dbenum"
 )
 
 // FunctionContract represents the normalized executable capability contract.
@@ -20,10 +22,10 @@ type FunctionContract struct {
 	Deprecated   bool              `gorm:"default:false"`
 	ResourceKey  string            `gorm:"size:64;index"`
 	OperationKey string            `gorm:"size:64"`
-	Capability   string            `gorm:"size:32"`   // collection_query|item_query|create|update|delete|action|task|report
+	Capability   dbenum.Capability // collection_query|item_query|create|update|delete|action|task|report (int-backed)
 	Execution    string            `gorm:"size:32"`   // sync|task
 	Approval     datatypes.JSONMap `gorm:"type:json"` // ApprovalPolicy
-	Risk         string            `gorm:"size:32"`   // safe|warning|high|danger
+	Risk         dbenum.Risk       // safe|warning|high|danger (int-backed)
 	Permission   string            `gorm:"size:128"`
 	InputSchema  datatypes.JSON    `gorm:"type:json"`
 	OutputSchema datatypes.JSON    `gorm:"type:json"`

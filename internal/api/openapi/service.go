@@ -1262,7 +1262,7 @@ func proposalKeysForContract(contract *model.FunctionContract) []string {
 	}
 	functionID := strings.TrimSpace(contract.FunctionID)
 	resourceKey := strings.TrimSpace(contract.ResourceKey)
-	capability := spec.CapabilityKind(contract.Capability)
+	capability := spec.CapabilityKind(contract.Capability.String())
 	if resourceKey != "" && isOpenAPICRUDCapability(capability) {
 		return []string{"resource:" + strings.Trim(resourceKey, ".")}
 	}
@@ -1317,7 +1317,7 @@ func proposalDTOForOpenAPIBinding(proposal *model.PageProposal) *OpenAPIBindingP
 		PageType:    strings.TrimSpace(proposal.PageType),
 		ResourceKey: strings.TrimSpace(proposal.ResourceKey),
 		Quality:     strings.TrimSpace(proposal.Quality),
-		Status:      strings.TrimSpace(proposal.Status),
+		Status:      strings.TrimSpace(proposal.Status.String()),
 	}
 }
 

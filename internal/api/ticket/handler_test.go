@@ -217,7 +217,7 @@ func TestHandler_CreateComment_AndList(t *testing.T) {
 	// CreateComment binds JSON; ticketId is supplied in the body.
 	commentCtx, commentRec := newTicketRequest(http.MethodPost, "/api/v1/tickets/"+idStr+"/comments",
 		fmt.Sprintf(`{"ticketId":"%s","content":"looks related to auth"}`, idStr))
-	commentCtx.Params = gin.Params{{Key: "ticketId", Value: idStr}}
+	commentCtx.Params = gin.Params{{Key: "id", Value: idStr}}
 	handler.CreateComment(commentCtx)
 	require.Equal(t, http.StatusOK, commentRec.Code, commentRec.Body.String())
 	var commentResp CreateCommentResponse
@@ -226,7 +226,7 @@ func TestHandler_CreateComment_AndList(t *testing.T) {
 
 	// Fetch comments via GetComments (uri: ticketId).
 	getCommentsCtx, getCommentsRec := newTicketRequest(http.MethodGet, "/api/v1/tickets/"+idStr+"/comments", "")
-	getCommentsCtx.Params = gin.Params{{Key: "ticketId", Value: idStr}}
+	getCommentsCtx.Params = gin.Params{{Key: "id", Value: idStr}}
 	handler.GetComments(getCommentsCtx)
 	require.Equal(t, http.StatusOK, getCommentsRec.Code, getCommentsRec.Body.String())
 	var gcResp GetCommentsResponse

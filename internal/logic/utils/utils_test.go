@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"gorm.io/datatypes"
 )
@@ -997,7 +998,7 @@ func TestBuildFeedback(t *testing.T) {
 		Content:  "Great game!",
 		Category: "bug",
 		Priority: "high",
-		Status:   "open",
+		Status:   dbenum.FeedbackStatusOpen,
 		Rating:   5,
 		Attach:   "screenshot.png",
 		GameID:   "game1",

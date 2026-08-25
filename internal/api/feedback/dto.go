@@ -29,12 +29,13 @@ type FeedbackStats struct {
 
 // FeedbackListRequest represents the request to list feedbacks
 type FeedbackListRequest struct {
-	Page     int    `form:"page,optional,default=1"`
-	PageSize int    `form:"pageSize,optional,default=20"`
-	Status   string `form:"status"`
-	Category string `form:"category"`
-	Query    string `form:"q"`
-	GameId   string `form:"gameId"`
+	Page          int    `form:"page,optional,default=1"`
+	PageSize      int    `form:"pageSize,optional,default=20"`
+	Status        string `form:"status"`
+	ExcludeStatus string `form:"excludeStatus"`
+	Category      string `form:"category"`
+	Query         string `form:"q"`
+	GameId        string `form:"gameId"`
 }
 
 // FeedbackListResponse represents the response with a list of feedbacks

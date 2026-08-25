@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/stretchr/testify/assert"
@@ -419,7 +420,7 @@ func TestBuildMessageDTO(t *testing.T) {
 		Title:   "Test Message",
 		Content: "This is a test",
 		Data:    datatypes.JSON(`{"key": "value"}`),
-		Status:  "unread",
+		Status:  dbenum.MessageStatusUnread,
 	}
 
 	result := BuildMessageDTO(msg)
@@ -439,7 +440,7 @@ func TestBuildMessageDTONilData(t *testing.T) {
 		Type:    "notification",
 		Title:   "Test Message",
 		Content: "This is a test",
-		Status:  "unread",
+		Status:  dbenum.MessageStatusUnread,
 	}
 
 	result := BuildMessageDTO(msg)
@@ -454,7 +455,7 @@ func TestBuildMessageDTOInvalidData(t *testing.T) {
 		Title:   "Test Message",
 		Content: "This is a test",
 		Data:    datatypes.JSON(`invalid json`),
-		Status:  "unread",
+		Status:  dbenum.MessageStatusUnread,
 	}
 
 	result := BuildMessageDTO(msg)

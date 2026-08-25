@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -97,7 +98,7 @@ func TestServiceV2_List_WithFilters(t *testing.T) {
 	// Create entries
 	for _, cat := range []string{"bug", "praise", "bug"} {
 		err := fbModel.Create(nil, &model.Feedback{
-			Contact: "x@x.com", Content: "c", Category: cat, Status: "open", Priority: "normal",
+			Contact: "x@x.com", Content: "c", Category: cat, Status: dbenum.FeedbackStatusOpen, Priority: "normal",
 		})
 		require.NoError(t, err)
 	}
@@ -305,7 +306,7 @@ func TestServiceV2_Stats_WithDays(t *testing.T) {
 	s := NewService(&svc.ServiceContext{FeedbackModel: fbModel})
 	for i := 0; i < 3; i++ {
 		err := fbModel.Create(nil, &model.Feedback{
-			Contact: fmt.Sprintf("u%d@x.com", i), Content: "c", Category: "bug", Status: "open", Priority: "normal",
+			Contact: fmt.Sprintf("u%d@x.com", i), Content: "c", Category: "bug", Status: dbenum.FeedbackStatusOpen, Priority: "normal",
 		})
 		require.NoError(t, err)
 	}

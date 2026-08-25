@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,7 @@ import (
 func extraCollectionContract() *model.FunctionContract {
 	return &model.FunctionContract{
 		FunctionID: "player.list",
-		Capability: "collection_query",
+		Capability: dbenum.CapabilityCollectionQuery,
 		InputSchema: datatypes.JSON(`{
 			"type":"object",
 			"properties":{
@@ -225,7 +226,7 @@ func TestExtraBuildInlineResourceActions(t *testing.T) {
 	contracts := []*model.FunctionContract{
 		{
 			FunctionID: "player.ban",
-			Risk:       string(spec.RiskHigh),
+			Risk:       dbenum.RiskHigh,
 			InputSchema: datatypes.JSON(`{
 				"type":"object","required":["player_id"],
 				"properties":{"player_id":{"type":"string"}}

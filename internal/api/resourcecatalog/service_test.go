@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,9 +56,9 @@ func TestService_List(t *testing.T) {
 		Version:     "1.0.0",
 		Enabled:     true,
 		ResourceKey: "player",
-		Capability:  "collection_query",
+		Capability:  dbenum.CapabilityCollectionQuery,
 		Execution:   "sync",
-		Risk:        "safe",
+		Risk:        dbenum.RiskSafe,
 		Source:      "sdk",
 	})
 	require.NoError(t, err)
@@ -69,9 +70,9 @@ func TestService_List(t *testing.T) {
 		Version:     "1.0.0",
 		Enabled:     true,
 		ResourceKey: "player",
-		Capability:  "item_query",
+		Capability:  dbenum.CapabilityItemQuery,
 		Execution:   "sync",
-		Risk:        "safe",
+		Risk:        dbenum.RiskSafe,
 		Source:      "sdk",
 	})
 	require.NoError(t, err)

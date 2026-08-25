@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -787,9 +788,9 @@ func TestContractToFunctionSpec(t *testing.T) {
 			Description:  datatypes.JSONMap{"zh-CN": "封禁指定玩家"},
 			ResourceKey:  "player",
 			OperationKey: "ban",
-			Capability:   "action",
+			Capability:   dbenum.CapabilityAction,
 			Execution:    "sync",
-			Risk:         "high",
+			Risk:         dbenum.RiskHigh,
 			Permission:   "player:ban",
 		}
 
@@ -927,35 +928,35 @@ func TestInlineActionNeedsConfirm(t *testing.T) {
 		{
 			name: "high risk needs confirm",
 			contract: &model.FunctionContract{
-				Risk: "high",
+				Risk: dbenum.RiskHigh,
 			},
 			expected: true,
 		},
 		{
 			name: "danger risk needs confirm",
 			contract: &model.FunctionContract{
-				Risk: "danger",
+				Risk: dbenum.RiskDanger,
 			},
 			expected: true,
 		},
 		{
 			name: "safe risk no confirm",
 			contract: &model.FunctionContract{
-				Risk: "safe",
+				Risk: dbenum.RiskSafe,
 			},
 			expected: false,
 		},
 		{
 			name: "warning risk no confirm",
 			contract: &model.FunctionContract{
-				Risk: "warning",
+				Risk: dbenum.RiskWarning,
 			},
 			expected: false,
 		},
 		{
 			name: "empty risk no confirm",
 			contract: &model.FunctionContract{
-				Risk: "",
+				Risk: dbenum.RiskSafe,
 			},
 			expected: false,
 		},
@@ -963,7 +964,7 @@ func TestInlineActionNeedsConfirm(t *testing.T) {
 			name: "approval required needs confirm",
 			contract: &model.FunctionContract{
 				Approval: datatypes.JSONMap{"required": true},
-				Risk:     "safe",
+				Risk:     dbenum.RiskSafe,
 			},
 			expected: true,
 		},
@@ -1199,7 +1200,7 @@ func TestResourcePageProposalUsesResourceTerm(t *testing.T) {
 		Model:        gormModelWithID(501),
 		FunctionID:   "inventory.list",
 		ResourceKey:  "inventory",
-		Capability:   "collection_query",
+		Capability:   dbenum.CapabilityCollectionQuery,
 		Enabled:      true,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id"]}},"total":{"type":"integer"}},"required":["items","total"]}`),
 	}

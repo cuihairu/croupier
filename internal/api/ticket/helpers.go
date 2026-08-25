@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"gorm.io/datatypes"
@@ -22,16 +23,16 @@ func parseTicketID(id string) (uint, error) {
 	return utils.ParseUintID(id, "工单ID")
 }
 
-func sanitizeTicketStatus(status string) (string, error) {
-	s := strings.TrimSpace(status)
+func sanitizeTicketStatus(status string) (dbenum.TicketStatus, error) {
+	s := strings.ToLower(strings.TrimSpace(status))
 	if s == "" {
-		return "", errorx.NewBadRequest("工单状态不能为空")
+		return 0, errorx.NewBadRequest("工单状态不能为空")
 	}
-	s = strings.ToLower(s)
-	if _, ok := allowedTicketStatuses[s]; !ok {
-		return "", errorx.NewBadRequest("工单状态无效: " + status)
+	parsed, err := dbenum.ParseTicketStatus(s)
+	if err != nil {
+		return 0, errorx.NewBadRequest("工单状态无效: " + status)
 	}
-	return s, nil
+	return parsed, nil
 }
 
 func buildTicketDTO(ticket *model.Ticket) Ticket {
@@ -41,7 +42,7 @@ func buildTicketDTO(ticket *model.Ticket) Ticket {
 		Content:   ticket.Content,
 		Category:  ticket.Category,
 		Priority:  ticket.Priority,
-		Status:    ticket.Status,
+		Status:    ticket.Status.String(),
 		Assignee:  ticket.Assignee,
 		Tags:      decodeTicketTags(ticket.Tags),
 		PlayerId:  ticket.PlayerID,
@@ -151,7 +152,7 @@ func sanitizeTicketFields(req *CreateRequest) (*model.Ticket, error) {
 		Content:  content,
 		Category: category,
 		Priority: sanitizePriority(req.Priority),
-		Status:   "open",
+		Status:   dbenum.TicketStatusOpen,
 		Assignee: strings.TrimSpace(req.Assignee),
 		Tags:     encodeTicketTags(req.Tags),
 		PlayerID: strings.TrimSpace(req.PlayerId),

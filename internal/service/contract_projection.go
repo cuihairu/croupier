@@ -62,10 +62,10 @@ func FunctionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpe
 		Description:  LocalizedTextFromJSONMap(contract.Description),
 		Resource:     strings.TrimSpace(contract.ResourceKey),
 		Operation:    strings.TrimSpace(contract.OperationKey),
-		Capability:   spec.CapabilityKind(contract.Capability),
+		Capability:   spec.CapabilityKind(contract.Capability.String()),
 		Execution:    spec.FunctionExecution(contract.Execution),
 		Approval:     ApprovalPolicyFromJSONMap(contract.Approval),
-		Risk:         spec.RiskLevel(contract.Risk),
+		Risk:         spec.RiskLevel(contract.Risk.String()),
 		Permission:   strings.TrimSpace(contract.Permission),
 	}
 }
@@ -78,10 +78,10 @@ func OperationSpecFromContract(contract *model.FunctionContract) spec.OperationS
 		FunctionID:  strings.TrimSpace(contract.FunctionID),
 		ResourceKey: strings.TrimSpace(contract.ResourceKey),
 		Operation:   strings.TrimSpace(contract.OperationKey),
-		Capability:  spec.CapabilityKind(contract.Capability),
+		Capability:  spec.CapabilityKind(contract.Capability.String()),
 		Execution:   spec.FunctionExecution(contract.Execution),
 		Approval:    ApprovalPolicyFromJSONMap(contract.Approval),
-		Risk:        spec.RiskLevel(contract.Risk),
+		Risk:        spec.RiskLevel(contract.Risk.String()),
 		Permission:  strings.TrimSpace(contract.Permission),
 		Enabled:     contract.Enabled,
 	}

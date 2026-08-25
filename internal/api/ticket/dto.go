@@ -26,12 +26,12 @@ type Ticket struct {
 }
 
 type TicketCommentCreateRequest struct {
-	TicketID string `uri:"ticketId"`
+	TicketID string `uri:"id"`
 	Content  string `json:"content"`
 }
 
 type TicketCommentsRequest struct {
-	TicketID string `uri:"ticketId"`
+	TicketID string `uri:"id"`
 }
 
 type TicketCommentsResponse struct {

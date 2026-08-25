@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -176,11 +177,11 @@ func TestTicketModel_ListFilters(t *testing.T) {
 
 	require.NoError(t, m.Create(ctx, &Ticket{
 		Title: "help me", Content: "cannot login", Category: "account", Priority: "high",
-		Status: "open", Assignee: "op1", PlayerID: "player-7", GameID: "demo", Env: "prod",
+		Status: dbenum.TicketStatusOpen, Assignee: "op1", PlayerID: "player-7", GameID: "demo", Env: "prod",
 	}))
 
 	tickets, total, err := m.List(ctx, TicketQueryOptions{
-		Query: "login", Status: "open", Category: "account", Priority: "high",
+		Query: "login", Status: dbenum.TicketStatusOpen, Category: "account", Priority: "high",
 		Assignee: "op1", GameID: "demo", Env: "prod",
 	})
 	require.NoError(t, err)
@@ -245,12 +246,12 @@ func TestFeedbackModel_ListAndStatsFilters(t *testing.T) {
 
 	require.NoError(t, m.Create(ctx, &Feedback{
 		PlayerID: "p1", Contact: "c1", Content: "great game", Category: "praise",
-		Priority: "low", Status: "new", Rating: 5, Reply: "thanks", GameID: "demo", Env: "prod",
+		Priority: "low", Status: dbenum.FeedbackStatusOpen, Rating: 5, Reply: "thanks", GameID: "demo", Env: "prod",
 	}))
-	require.NoError(t, m.Create(ctx, &Feedback{PlayerID: "p2", Content: "bug", Category: "bug", Status: "closed", Rating: 2}))
+	require.NoError(t, m.Create(ctx, &Feedback{PlayerID: "p2", Content: "bug", Category: "bug", Status: dbenum.FeedbackStatusClosed, Rating: 2}))
 
 	items, total, err := m.List(ctx, ListFeedbackOptions{
-		GameID: "demo", Env: "prod", Status: "new", Category: "praise", Keyword: "great",
+		GameID: "demo", Env: "prod", Status: dbenum.FeedbackStatusOpen, ExcludeStatus: -1, Category: "praise", Keyword: "great",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
@@ -289,7 +290,7 @@ func TestMessageModel_FiltersAndEncodeData(t *testing.T) {
 
 	require.NoError(t, m.Create(ctx, &Message{To: "admin", Type: "system", Title: "hi", Data: payload}))
 
-	msgs, total, err := m.List(ctx, ListMessagesOptions{Type: "system", Status: "unread", To: "admin"})
+	msgs, total, err := m.List(ctx, ListMessagesOptions{Type: "system", Status: dbenum.MessageStatusUnread, To: "admin"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	require.Len(t, msgs, 1)
@@ -821,7 +822,7 @@ func TestContractRelatedModels_ScopeLists(t *testing.T) {
 	pubm := NewPublishedPageSpecModel(db)
 	ctx := context.Background()
 
-	contract := &FunctionContract{GameID: "demo", Env: "prod", FunctionID: "f1", ResourceKey: "player", Capability: "collection_query"}
+	contract := &FunctionContract{GameID: "demo", Env: "prod", FunctionID: "f1", ResourceKey: "player", Capability: dbenum.CapabilityCollectionQuery}
 	require.NoError(t, cm.UpsertContract(ctx, contract))
 
 	byScope, err := cm.ListByScope(ctx, "demo", "prod")
@@ -854,19 +855,19 @@ func TestContractRelatedModels_ScopeLists(t *testing.T) {
 	assert.Equal(t, int64(1), pagedTotal)
 	assert.Len(t, pagedVers, 1)
 
-	proposal := &PageProposal{GameID: "demo", Env: "prod", ProposalKey: "resource:player", PageKey: "player-page", Status: "pending", ResourceKey: "player"}
+	proposal := &PageProposal{GameID: "demo", Env: "prod", ProposalKey: "resource:player", PageKey: "player-page", Status: dbenum.ProposalStatusPending, ResourceKey: "player"}
 	require.NoError(t, ppm.UpsertProposal(ctx, proposal))
 
 	proposals, err := ppm.ListByScope(ctx, "demo", "prod")
 	require.NoError(t, err)
 	assert.Len(t, proposals, 1)
-	byStatus, err := ppm.ListByStatus(ctx, "demo", "prod", "pending")
+	byStatus, err := ppm.ListByStatus(ctx, "demo", "prod", dbenum.ProposalStatusPending)
 	require.NoError(t, err)
 	assert.Len(t, byStatus, 1)
 	byRes, err := ppm.ListByScopeAndResourceKey(ctx, "demo", "prod", "player")
 	require.NoError(t, err)
 	assert.Len(t, byRes, 1)
-	byBoth, err := ppm.ListByScopeStatusAndResourceKey(ctx, "demo", "prod", "pending", "player")
+	byBoth, err := ppm.ListByScopeStatusAndResourceKey(ctx, "demo", "prod", dbenum.ProposalStatusPending, "player")
 	require.NoError(t, err)
 	assert.Len(t, byBoth, 1)
 
@@ -910,7 +911,7 @@ func TestPageProposalHelpers_UpsertAndFind(t *testing.T) {
 	ctx := context.Background()
 
 	m := NewPageProposalModel(db)
-	proposal := &PageProposal{GameID: "demo", Env: "prod", ProposalKey: "operation:f1", PageKey: "f1-page", Status: "pending"}
+	proposal := &PageProposal{GameID: "demo", Env: "prod", ProposalKey: "operation:f1", PageKey: "f1-page", Status: dbenum.ProposalStatusPending}
 	require.NoError(t, m.UpsertProposal(ctx, proposal))
 
 	found, err := m.FindByScopeAndKey(ctx, "demo", "prod", "operation:f1")

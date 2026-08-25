@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -397,7 +398,7 @@ func TestVersioningService_GetChangeChain_WithSemanticsAndProposal(t *testing.T)
 		GameID: "demo-game", Env: "development",
 		ProposalKey: "operation:player.list", PageKey: "resource--player",
 		PageType: "resource", ResourceKey: "player", Quality: "good",
-		PageSpec: datatypes.JSON(pageJSON), Status: "pending",
+		PageSpec: datatypes.JSON(pageJSON), Status: dbenum.ProposalStatusPending,
 		UpdatedAt: time.Now(), UpdatedBy: "admin",
 	}))
 
@@ -504,7 +505,7 @@ func TestVersioningService_BindingContractChanges_WithPublished(t *testing.T) {
 		Version: "1.0.0", Enabled: true,
 		InputSchema:  datatypes.JSON(`{"type":"object"}`),
 		OutputSchema: datatypes.JSON(`{"type":"object"}`),
-		Risk:         "low", Permission: "admin:all", UpdatedAt: time.Now(),
+		Risk:         dbenum.RiskSafe, Permission: "admin:all", UpdatedAt: time.Now(),
 	}))
 
 	publishedJSON, _ := json.Marshal(spec.PageSpec{PageKey: "resource--player", Type: spec.PageTypeResource})
@@ -695,7 +696,7 @@ func TestVersioningService_ProposalForPage_WithBaseProposalKey(t *testing.T) {
 		GameID: "demo-game", Env: "development",
 		ProposalKey: "operation:player.list", PageKey: "resource--player",
 		PageSpec: datatypes.JSON(`{"pageKey":"test"}`),
-		Status:   "pending", UpdatedAt: time.Now(),
+		Status:   dbenum.ProposalStatusPending, UpdatedAt: time.Now(),
 	}))
 	proposal, err := service.proposalForPage(ctx, "demo-game", "development", &model.PageSpec{
 		GameID: "demo-game", Env: "development", PageKey: "resource--player",

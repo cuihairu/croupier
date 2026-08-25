@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,7 +50,7 @@ func seedExtraContract(t *testing.T, db *gorm.DB, functionID string) {
 			Version:     "1.0.0",
 			Enabled:     true,
 			ResourceKey: "player",
-			Capability:  "action",
+			Capability:  dbenum.CapabilityAction,
 			UpdatedAt:   time.Now(),
 		}))
 }
@@ -72,7 +73,7 @@ func TestExtra_GetChangeChain_ProposalVersionsListError(t *testing.T) {
 	require.NoError(t, proposalModel.UpsertProposal(ctx, &model.PageProposal{
 		GameID: "demo-game", Env: "development",
 		ProposalKey: "operation:player.ban", PageKey: page.PageKey,
-		Status: "pending", PageSpec: jsonValue(page), UpdatedBy: "tester",
+		Status: dbenum.ProposalStatusPending, PageSpec: jsonValue(page), UpdatedBy: "tester",
 	}))
 
 	require.NoError(t, db.Exec("DROP TABLE page_proposal_versions").Error)
@@ -145,7 +146,7 @@ func TestExtra_Diff_WithFullSemanticsAndProposal(t *testing.T) {
 		PageKey:     "resource--player",
 		PageType:    string(spec.PageTypeResource),
 		Quality:     "good",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 		PageSpec:    jsonValue(page),
 		UpdatedBy:   "tester",
 	}))
@@ -229,7 +230,7 @@ func TestExtra_Merge_ProposalLookupErrors(t *testing.T) {
 		require.NoError(t, model.NewPageProposalModel(db).UpsertProposal(ctx, &model.PageProposal{
 			GameID: "demo-game", Env: "development",
 			ProposalKey: "operation:player.ban", PageKey: "operation--other.page",
-			Status: "pending", PageSpec: jsonValue(draft), UpdatedBy: "tester",
+			Status: dbenum.ProposalStatusPending, PageSpec: jsonValue(draft), UpdatedBy: "tester",
 		}))
 
 		pageModel := model.NewPageSpecModel(db)
@@ -256,7 +257,7 @@ func TestExtra_Merge_ProposalLookupErrors(t *testing.T) {
 		require.NoError(t, model.NewPageProposalModel(db).UpsertProposal(ctx, &model.PageProposal{
 			GameID: "demo-game", Env: "development",
 			ProposalKey: "operation:player.ban", PageKey: draft.PageKey,
-			Status: "pending", PageSpec: jsonValue(draft), UpdatedBy: "tester",
+			Status: dbenum.ProposalStatusPending, PageSpec: jsonValue(draft), UpdatedBy: "tester",
 		}))
 
 		pageModel := model.NewPageSpecModel(db)

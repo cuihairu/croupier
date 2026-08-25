@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -146,14 +147,14 @@ func TestSanitizeTicketStatus(t *testing.T) {
 		t.Run(status, func(t *testing.T) {
 			got, err := sanitizeTicketStatus(status)
 			require.NoError(t, err)
-			assert.Equal(t, status, got)
+			assert.Equal(t, status, got.String())
 		})
 	}
 
 	t.Run("case_insensitive", func(t *testing.T) {
 		got, err := sanitizeTicketStatus("OPEN")
 		require.NoError(t, err)
-		assert.Equal(t, "open", got)
+		assert.Equal(t, "open", got.String())
 	})
 }
 
@@ -236,7 +237,7 @@ func TestBuildTicketDTO(t *testing.T) {
 		Content:  "Content",
 		Category: "bug",
 		Priority: "high",
-		Status:   "open",
+		Status:   dbenum.TicketStatusOpen,
 		Assignee: "alice",
 		PlayerID: "p1",
 		Contact:  "a@b.com",
@@ -661,7 +662,7 @@ func TestHandler_GetComments_InvalidID(t *testing.T) {
 	handler := newTicketHandler(newTicketTestDB(t))
 
 	ctx, rec := newTicketRequest(http.MethodGet, "/api/v1/tickets/abc/comments", "")
-	ctx.Params = gin.Params{{Key: "ticketId", Value: "abc"}}
+	ctx.Params = gin.Params{{Key: "id", Value: "abc"}}
 	handler.GetComments(ctx)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -683,7 +684,7 @@ func TestHandler_CreateComment_EmptyContent(t *testing.T) {
 	// Create comment with empty content
 	commentCtx, commentRec := newTicketRequest(http.MethodPost, "/api/v1/tickets/"+idStr+"/comments",
 		fmt.Sprintf(`{"ticketId":"%s","content":""}`, idStr))
-	commentCtx.Params = gin.Params{{Key: "ticketId", Value: idStr}}
+	commentCtx.Params = gin.Params{{Key: "id", Value: idStr}}
 	handler.CreateComment(commentCtx)
 
 	assert.NotEqual(t, http.StatusOK, commentRec.Code)
@@ -745,7 +746,7 @@ func TestHandler_GetComments_Success(t *testing.T) {
 
 	// Get comments (empty)
 	getCtx, getRec := newTicketRequest(http.MethodGet, "/api/v1/tickets/"+idStr+"/comments", "")
-	getCtx.Params = gin.Params{{Key: "ticketId", Value: idStr}}
+	getCtx.Params = gin.Params{{Key: "id", Value: idStr}}
 	handler.GetComments(getCtx)
 	require.Equal(t, http.StatusOK, getRec.Code)
 	var gcResp GetCommentsResponse

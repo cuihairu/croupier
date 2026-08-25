@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -84,7 +85,7 @@ func seedHandlerChainFixture(t *testing.T, db *gorm.DB) spec.PageSpec {
 		Version:     "1.0.0",
 		Enabled:     true,
 		ResourceKey: "player",
-		Capability:  "action",
+		Capability:  dbenum.CapabilityAction,
 		UpdatedAt:   time.Now(),
 	}))
 	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", page))
@@ -330,7 +331,7 @@ func TestHandler_RegenerateProposal_StandaloneSuccess(t *testing.T) {
 	proposal, err := model.NewPageProposalModel(db).FindByScopeAndPageKey(context.Background(), "demo-game", "development", "operation--player.ban")
 	require.NoError(t, err)
 	assert.Equal(t, "operation:player.ban", proposal.ProposalKey)
-	assert.Equal(t, "pending", proposal.Status)
+	assert.Equal(t, dbenum.ProposalStatusPending, proposal.Status)
 }
 
 func TestHandler_RegenerateProposal_InvalidBody(t *testing.T) {
@@ -505,7 +506,7 @@ func TestMergePreviewForPage_PageKeyMismatch(t *testing.T) {
 		FunctionDigest: "digest-v1",
 		Title:          localizedTextToJSONMap(basePage.Title),
 		PageSpec:       jsonValue(basePage),
-		Status:         "pending", UpdatedAt: time.Now(),
+		Status:         dbenum.ProposalStatusPending, UpdatedAt: time.Now(),
 	}
 	require.NoError(t, model.NewPageProposalModel(db).UpsertProposal(ctx, proposal))
 	_, err := createProposalVersionSnapshot(ctx, service.proposalVersionModel, proposal, "seed", "tester")
@@ -538,7 +539,7 @@ func TestMergePreviewForPage_BaseSnapshotMissing(t *testing.T) {
 		GameID: "demo-game", Env: "development",
 		ProposalKey: "operation:player.ban", PageKey: basePage.PageKey,
 		PageType: string(basePage.Type), FunctionDigest: "digest-v1",
-		PageSpec: jsonValue(basePage), Status: "pending", UpdatedAt: time.Now(),
+		PageSpec: jsonValue(basePage), Status: dbenum.ProposalStatusPending, UpdatedAt: time.Now(),
 	}
 	require.NoError(t, model.NewPageProposalModel(db).UpsertProposal(ctx, proposal))
 
@@ -567,7 +568,7 @@ func TestMergePreviewForPage_InvalidDraftSpec(t *testing.T) {
 		GameID: "demo-game", Env: "development",
 		ProposalKey: "operation:player.ban", PageKey: basePage.PageKey,
 		PageType: string(basePage.Type), FunctionDigest: "digest-v1",
-		PageSpec: jsonValue(basePage), Status: "pending", UpdatedAt: time.Now(),
+		PageSpec: jsonValue(basePage), Status: dbenum.ProposalStatusPending, UpdatedAt: time.Now(),
 	}
 	require.NoError(t, model.NewPageProposalModel(db).UpsertProposal(ctx, proposal))
 	_, err := createProposalVersionSnapshot(ctx, service.proposalVersionModel, proposal, "seed", "tester")
@@ -624,7 +625,7 @@ func TestRegenerateProposal_StandaloneMismatchedPageKey(t *testing.T) {
 
 	require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, &model.FunctionContract{
 		GameID: "demo-game", Env: "development", FunctionID: "player.kick",
-		Version: "1.0.0", Enabled: true, Capability: "action", UpdatedAt: time.Now(),
+		Version: "1.0.0", Enabled: true, Capability: dbenum.CapabilityAction, UpdatedAt: time.Now(),
 	}))
 	// The page key does not match the generated key for player.kick.
 	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", spec.PageSpec{
@@ -689,7 +690,7 @@ func TestUpsertGeneratedProposal_SnapshotChain(t *testing.T) {
 
 	contract := &model.FunctionContract{
 		GameID: "demo-game", Env: "development", FunctionID: "player.ban",
-		Version: "1.0.0", Enabled: true, Capability: "action",
+		Version: "1.0.0", Enabled: true, Capability: dbenum.CapabilityAction,
 		ResourceKey: "player", UpdatedAt: time.Now(),
 	}
 	require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, contract))
@@ -700,7 +701,7 @@ func TestUpsertGeneratedProposal_SnapshotChain(t *testing.T) {
 
 	proposal, err := service.proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.ban")
 	require.NoError(t, err)
-	assert.Equal(t, "pending", proposal.Status)
+	assert.Equal(t, dbenum.ProposalStatusPending, proposal.Status)
 	versions, err := service.proposalVersionModel.ListByProposalID(ctx, proposal.ID)
 	require.NoError(t, err)
 	assert.Len(t, versions, 1)
@@ -832,7 +833,7 @@ func TestMerge_LatestProposalPageKeyMismatch(t *testing.T) {
 		GameID: "demo-game", Env: "development",
 		ProposalKey: "operation:mail.send", PageKey: other.PageKey,
 		PageType: string(other.Type), FunctionDigest: "digest-other",
-		PageSpec: jsonValue(other), Status: "pending", UpdatedAt: time.Now(),
+		PageSpec: jsonValue(other), Status: dbenum.ProposalStatusPending, UpdatedAt: time.Now(),
 	}
 	require.NoError(t, service.proposalModel.UpsertProposal(ctx, otherProposal))
 

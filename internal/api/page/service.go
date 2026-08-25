@@ -18,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	contractsvc "github.com/cuihairu/croupier/internal/service"
@@ -748,10 +749,10 @@ func (s *Service) proposalReplacementForDraft(ctx context.Context, gameID string
 	if proposal == nil {
 		return proposalReplacement{}, errorx.NewBadRequest("latest PageProposal is required for default regeneration")
 	}
-	if proposal.Status != "pending" && proposal.Status != "accepted" {
+	if proposal.Status != dbenum.ProposalStatusPending && proposal.Status != dbenum.ProposalStatusAccepted {
 		return proposalReplacement{}, errorx.NewBadRequestWithDetails("PageProposal is not usable for regeneration", map[string]any{
 			"proposalKey": proposal.ProposalKey,
-			"status":      proposal.Status,
+			"status":      proposal.Status.String(),
 		})
 	}
 	pageSpec, err := pageSpecFromProposalModel(proposal)

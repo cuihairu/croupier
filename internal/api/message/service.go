@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -28,7 +29,7 @@ func (s *Service) List(ctx context.Context, username string, req *MessagesListRe
 		Page:     req.Page,
 		PageSize: req.PageSize,
 		Type:     strings.TrimSpace(req.Type),
-		Status:   strings.TrimSpace(req.Status),
+		Status:   parseMessageStatusFilter(strings.TrimSpace(req.Status)),
 		To:       strings.TrimSpace(username),
 	}
 
@@ -81,7 +82,7 @@ func (s *Service) Send(ctx context.Context, req *MessageSendRequest) (*MessageSe
 		Title:   strings.TrimSpace(req.Title),
 		Content: content,
 		Data:    dataJSON,
-		Status:  "unread",
+		Status:  dbenum.MessageStatusUnread,
 	}
 
 	if err := s.svcCtx.MessageModel.Create(ctx, msg); err != nil {
@@ -211,4 +212,17 @@ func stringValue(value interface{}) string {
 		return text
 	}
 	return ""
+}
+
+// parseMessageStatusFilter converts a wire status filter into the enum.
+// Unknown values map to -1 (no rows match by accident semantics keep).
+func parseMessageStatusFilter(value string) dbenum.MessageStatus {
+	if value == "" {
+		return -1
+	}
+	parsed, err := dbenum.ParseMessageStatus(strings.ToLower(value))
+	if err != nil {
+		return -1
+	}
+	return parsed
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +54,7 @@ func TestAcceptAndPublish_ResourceQueryRequiresSelectors(t *testing.T) {
 	proposal := &model.PageProposal{
 		GameID: "demo-game", Env: "development", ProposalKey: "operation:res--nosel",
 		PageKey: "res--nosel", PageType: "resource", ResourceKey: "player",
-		Quality: "ready", Status: "pending", PageSpec: mustMarshalPage(t, page),
+		Quality: "ready", Status: dbenum.ProposalStatusPending, PageSpec: mustMarshalPage(t, page),
 	}
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, proposal))
 
@@ -79,7 +80,7 @@ func TestAcceptAndPublish_InvalidSelectorDetails(t *testing.T) {
 	proposal := &model.PageProposal{
 		GameID: "demo-game", Env: "development", ProposalKey: "operation:op--badsel",
 		PageKey: "op--badsel", PageType: "operation", ResourceKey: "player",
-		Quality: "ready", Status: "pending", PageSpec: mustMarshalPage(t, page),
+		Quality: "ready", Status: dbenum.ProposalStatusPending, PageSpec: mustMarshalPage(t, page),
 	}
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, proposal))
 
@@ -118,7 +119,7 @@ func TestAcceptAndPublish_InvalidOutputAssignments(t *testing.T) {
 	proposal := &model.PageProposal{
 		GameID: "demo-game", Env: "development", ProposalKey: "operation:res--badout",
 		PageKey: "res--badout", PageType: "resource", ResourceKey: "player",
-		Quality: "ready", Status: "pending", PageSpec: mustMarshalPage(t, page),
+		Quality: "ready", Status: dbenum.ProposalStatusPending, PageSpec: mustMarshalPage(t, page),
 	}
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, proposal))
 
@@ -173,7 +174,7 @@ func TestAcceptAndPublish_ConflictsWithExistingDraftOrPage(t *testing.T) {
 		p.Bindings[0].ID = "act"
 	})
 	require.NoError(t, err)
-	rejected.Status = "accepted"
+	rejected.Status = dbenum.ProposalStatusAccepted
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, rejected))
 	err = svc.AcceptProposal(ctx, "demo-game", "development", rejected.ProposalKey)
 	assert.Error(t, err)

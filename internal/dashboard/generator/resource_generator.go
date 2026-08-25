@@ -186,11 +186,11 @@ func resourceInputSelector(inputSchema spec.JSONSchema, contract *model.Function
 	if contract == nil || semantics == nil {
 		return selector
 	}
-	if spec.CapabilityKind(contract.Capability) == spec.CapabilityItemQuery {
+	if spec.CapabilityKind(contract.Capability.String()) == spec.CapabilityItemQuery {
 		return applyIdentityRowSelector(selector, semantics)
 	}
-	if spec.CapabilityKind(contract.Capability) != spec.CapabilityUpdate && spec.CapabilityKind(contract.Capability) != spec.CapabilityDelete {
-		if spec.CapabilityKind(contract.Capability) == spec.CapabilityCollectionQuery {
+	if spec.CapabilityKind(contract.Capability.String()) != spec.CapabilityUpdate && spec.CapabilityKind(contract.Capability.String()) != spec.CapabilityDelete {
+		if spec.CapabilityKind(contract.Capability.String()) == spec.CapabilityCollectionQuery {
 			return applyCollectionQuerySelector(selector, semantics)
 		}
 		return selector
@@ -539,7 +539,7 @@ func buildInlineResourceAction(
 		BindingID:    bindingID,
 		Form:         actionForm,
 		Permission:   strings.TrimSpace(contract.Permission),
-		Risk:         strings.TrimSpace(contract.Risk),
+		Risk:         contract.Risk.String(),
 	}, binding, placement, true, spec.Diagnostic{}
 }
 
@@ -839,7 +839,7 @@ func inlineActionTitle(contract *model.FunctionContract, locale string) spec.Loc
 }
 
 func inlineActionType(contract *model.FunctionContract) string {
-	switch spec.RiskLevel(contract.Risk) {
+	switch spec.RiskLevel(contract.Risk.String()) {
 	case spec.RiskHigh, spec.RiskDanger:
 		return "danger"
 	default:
@@ -851,7 +851,7 @@ func inlineActionNeedsConfirm(contract *model.FunctionContract) bool {
 	if jsonMapToApprovalPolicy(contract.Approval).Required {
 		return true
 	}
-	switch spec.RiskLevel(contract.Risk) {
+	switch spec.RiskLevel(contract.Risk.String()) {
 	case spec.RiskHigh, spec.RiskDanger:
 		return true
 	default:
@@ -1019,7 +1019,7 @@ func buildDeleteAction(contract *model.FunctionContract, locale string) *spec.Co
 		CancelText:  spec.LocalizedText{locale: "取消"},
 		BindingID:   "delete",
 		Permission:  strings.TrimSpace(contract.Permission),
-		Risk:        strings.TrimSpace(contract.Risk),
+		Risk:        contract.Risk.String(),
 	}
 }
 
@@ -1030,7 +1030,7 @@ func resourceOperationRequiresConfirmation(contract *model.FunctionContract) boo
 	if jsonMapToApprovalPolicy(contract.Approval).Required {
 		return true
 	}
-	switch spec.RiskLevel(contract.Risk) {
+	switch spec.RiskLevel(contract.Risk.String()) {
 	case spec.RiskHigh, spec.RiskDanger:
 		return true
 	default:
@@ -1201,7 +1201,7 @@ func findResourceContract(contracts []*model.FunctionContract, id uint, capabili
 		return nil
 	}
 	contract := findContractByID(contracts, id)
-	if contract != nil && spec.CapabilityKind(contract.Capability) == capability {
+	if contract != nil && spec.CapabilityKind(contract.Capability.String()) == capability {
 		return contract
 	}
 	return nil
@@ -1241,10 +1241,10 @@ func contractToFunctionSpec(c *model.FunctionContract) spec.FunctionSpec {
 		Description:  jsonMapToLocalizedText(c.Description),
 		Resource:     c.ResourceKey,
 		Operation:    c.OperationKey,
-		Capability:   spec.CapabilityKind(c.Capability),
+		Capability:   spec.CapabilityKind(c.Capability.String()),
 		Execution:    spec.FunctionExecution(c.Execution),
 		Approval:     jsonMapToApprovalPolicy(c.Approval),
-		Risk:         spec.RiskLevel(c.Risk),
+		Risk:         spec.RiskLevel(c.Risk.String()),
 		Permission:   c.Permission,
 	}
 }

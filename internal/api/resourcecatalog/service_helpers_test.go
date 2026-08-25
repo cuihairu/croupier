@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -172,8 +173,8 @@ func TestDetermineStatus(t *testing.T) {
 		{
 			name: "has query and identity contracts",
 			contracts: []*model.FunctionContract{
-				{FunctionID: "player.list", Capability: "collection_query"},
-				{FunctionID: "player.get", Capability: "item_query"},
+				{FunctionID: "player.list", Capability: dbenum.CapabilityCollectionQuery},
+				{FunctionID: "player.get", Capability: dbenum.CapabilityItemQuery},
 			},
 			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[]`), CollectionQueryID: 1, IdentityField: "id"},
 			want:      "identified",
@@ -181,7 +182,7 @@ func TestDetermineStatus(t *testing.T) {
 		{
 			name: "has only query contract",
 			contracts: []*model.FunctionContract{
-				{FunctionID: "player.list", Capability: "collection_query"},
+				{FunctionID: "player.list", Capability: dbenum.CapabilityCollectionQuery},
 			},
 			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[]`)},
 			want:      "pending",
@@ -189,7 +190,7 @@ func TestDetermineStatus(t *testing.T) {
 		{
 			name: "has only identity contract",
 			contracts: []*model.FunctionContract{
-				{FunctionID: "player.get", Capability: "item_query"},
+				{FunctionID: "player.get", Capability: dbenum.CapabilityItemQuery},
 			},
 			semantics: &model.CapabilitySemantics{Conflicts: []byte(`[]`)},
 			want:      "pending",
@@ -227,15 +228,15 @@ func TestBuildFunctionInfos(t *testing.T) {
 		{
 			name: "single contract",
 			contracts: []*model.FunctionContract{
-				{FunctionID: "player.list", Version: "1.0", Capability: "collection_query", Execution: "sync", Risk: "low", Enabled: true, Source: "test"},
+				{FunctionID: "player.list", Version: "1.0", Capability: dbenum.CapabilityCollectionQuery, Execution: "sync", Risk: dbenum.RiskSafe, Enabled: true, Source: "test"},
 			},
 			wantLen: 1,
 		},
 		{
 			name: "multiple contracts",
 			contracts: []*model.FunctionContract{
-				{FunctionID: "player.list", Capability: "collection_query"},
-				{FunctionID: "player.get", Capability: "item_query"},
+				{FunctionID: "player.list", Capability: dbenum.CapabilityCollectionQuery},
+				{FunctionID: "player.get", Capability: dbenum.CapabilityItemQuery},
 			},
 			wantLen: 2,
 		},

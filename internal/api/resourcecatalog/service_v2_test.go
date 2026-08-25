@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -371,7 +372,7 @@ func TestSemanticSourceDigestV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	err := contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "f1", ResourceKey: "r1",
-		Enabled: true, Capability: "action", Execution: "sync", Risk: "safe",
+		Enabled: true, Capability: dbenum.CapabilityAction, Execution: "sync", Risk: dbenum.RiskSafe,
 	})
 	require.NoError(t, err)
 
@@ -394,7 +395,7 @@ func TestDetermineStatusV2(t *testing.T) {
 
 	// Contracts but no semantics → pending
 	contracts := []*model.FunctionContract{
-		{Capability: "action"},
+		{Capability: dbenum.CapabilityAction},
 	}
 	assert.Equal(t, "pending", determineStatus(contracts, nil))
 
@@ -405,8 +406,8 @@ func TestDetermineStatusV2(t *testing.T) {
 
 	// Contracts + verified semantics → identified
 	contracts2 := []*model.FunctionContract{
-		{Capability: "collection_query"},
-		{Capability: "item_query"},
+		{Capability: dbenum.CapabilityCollectionQuery},
+		{Capability: dbenum.CapabilityItemQuery},
 	}
 	semantics2 := &model.CapabilitySemantics{CollectionQueryID: 1, IdentityField: "id"}
 	assert.Equal(t, "identified", determineStatus(contracts2, semantics2))
@@ -621,8 +622,8 @@ func TestFunctionSpecsByIDV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	err := contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.list", Version: "1.0",
-		Enabled: true, Capability: "collection_query", Execution: "sync",
-		Risk: "safe", ResourceKey: "player",
+		Enabled: true, Capability: dbenum.CapabilityCollectionQuery, Execution: "sync",
+		Risk: dbenum.RiskSafe, ResourceKey: "player",
 	})
 	require.NoError(t, err)
 
@@ -944,7 +945,7 @@ func TestDetailWithAffectedPagesV2(t *testing.T) {
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 		Title:       map[string]interface{}{"zh-CN": "玩家列表"},
 	})
 	require.NoError(t, err)
@@ -979,26 +980,26 @@ func TestUpdateSemanticsWithBindingsV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	err = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.list",
-		Enabled: true, ResourceKey: "player", Capability: "collection_query",
-		Execution: "sync", Risk: "safe",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityCollectionQuery,
+		Execution: "sync", Risk: dbenum.RiskSafe,
 	})
 	require.NoError(t, err)
 	err = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.get",
-		Enabled: true, ResourceKey: "player", Capability: "item_query",
-		Execution: "sync", Risk: "safe",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityItemQuery,
+		Execution: "sync", Risk: dbenum.RiskSafe,
 	})
 	require.NoError(t, err)
 	err = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.create",
-		Enabled: true, ResourceKey: "player", Capability: "create",
-		Execution: "sync", Risk: "safe",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityCreate,
+		Execution: "sync", Risk: dbenum.RiskSafe,
 	})
 	require.NoError(t, err)
 	err = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.ban",
-		Enabled: true, ResourceKey: "player", Capability: "action",
-		Execution: "sync", Risk: "danger",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityAction,
+		Execution: "sync", Risk: dbenum.RiskDanger,
 	})
 	require.NoError(t, err)
 
@@ -1058,8 +1059,8 @@ func TestUpdateSemanticsWithActionsV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	err = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.ban",
-		Enabled: true, ResourceKey: "player", Capability: "action",
-		Execution: "sync", Risk: "danger",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityAction,
+		Execution: "sync", Risk: dbenum.RiskDanger,
 	})
 	require.NoError(t, err)
 
@@ -1091,8 +1092,8 @@ func TestUpdateSemanticsWithActionsV2(t *testing.T) {
 	require.NoError(t, err)
 	err = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player2.query",
-		Enabled: true, ResourceKey: "player2", Capability: "collection_query",
-		Execution: "sync", Risk: "safe",
+		Enabled: true, ResourceKey: "player2", Capability: dbenum.CapabilityCollectionQuery,
+		Execution: "sync", Risk: dbenum.RiskSafe,
 	})
 	require.NoError(t, err)
 	_, err = svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
@@ -1312,8 +1313,8 @@ func TestDetermineStatusConflictV2(t *testing.T) {
 	}
 	resolvedJSON, _ := json.Marshal(resolved)
 	contracts := []*model.FunctionContract{
-		{Capability: "collection_query"},
-		{Capability: "item_query"},
+		{Capability: dbenum.CapabilityCollectionQuery},
+		{Capability: dbenum.CapabilityItemQuery},
 	}
 	semantics := &model.CapabilitySemantics{Conflicts: resolvedJSON, CollectionQueryID: 1, IdentityField: "id"}
 	assert.Equal(t, "identified", determineStatus(contracts, semantics))
@@ -1347,8 +1348,8 @@ func TestUpdateSemanticsWithTasksV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	err = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
-		Execution: "sync", Risk: "safe",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
+		Execution: "sync", Risk: dbenum.RiskSafe,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	require.NoError(t, err)
@@ -1381,12 +1382,12 @@ func TestValidateTaskSemanticsInvalidTaskIDResultPathV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
@@ -1423,7 +1424,7 @@ func TestValidateTaskSemanticsInvalidValueTypeV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 
@@ -1459,7 +1460,7 @@ func TestValidateTaskSemanticsResultPathNotFoundV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 
@@ -1495,12 +1496,12 @@ func TestValidateTaskSemanticsInvalidStatePathV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
@@ -1537,12 +1538,12 @@ func TestValidateTaskSemanticsStatePathNotFoundV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
@@ -1579,18 +1580,18 @@ func TestValidateTaskSemanticsWithEventsV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskEvents",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"events":{"type":"array"}}}`),
 	})
@@ -1632,18 +1633,18 @@ func TestValidateTaskSemanticsWithResultV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskResult",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"result":{"type":"object"}}}`),
 	})
@@ -1685,18 +1686,18 @@ func TestValidateTaskSemanticsWithCancelV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.cancelTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object"}`),
 	})
@@ -1737,12 +1738,12 @@ func TestValidateTaskSemanticsRetryNotAllowedV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
-		Enabled: true, ResourceKey: "player", Capability: "task",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
@@ -1790,8 +1791,8 @@ func TestUpdateSemanticsWithReportsV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	err = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
-		Enabled: true, ResourceKey: "player", Capability: "report",
-		Execution: "sync", Risk: "safe",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
+		Execution: "sync", Risk: dbenum.RiskSafe,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"count":{"type":"integer"}}}}}}`),
 	})
 	require.NoError(t, err)
@@ -1824,7 +1825,7 @@ func TestValidateReportSemanticsInvalidDatasetPathV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
-		Enabled: true, ResourceKey: "player", Capability: "report",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
@@ -1852,7 +1853,7 @@ func TestValidateReportSemanticsDatasetPathNotArrayV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
-		Enabled: true, ResourceKey: "player", Capability: "report",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"name":{"type":"string"}}}`),
 	})
 
@@ -1880,7 +1881,7 @@ func TestValidateReportSemanticsNoDimensionsV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
-		Enabled: true, ResourceKey: "player", Capability: "report",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
@@ -1908,7 +1909,7 @@ func TestValidateReportSemanticsNoMetricsV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
-		Enabled: true, ResourceKey: "player", Capability: "report",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
@@ -1936,7 +1937,7 @@ func TestValidateReportSemanticsDimensionPointerNotFoundV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
-		Enabled: true, ResourceKey: "player", Capability: "report",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
@@ -1964,7 +1965,7 @@ func TestValidateReportSemanticsMetricPointerNotFoundV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
-		Enabled: true, ResourceKey: "player", Capability: "report",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
@@ -1992,7 +1993,7 @@ func TestValidateReportSemanticsSuccessV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
-		Enabled: true, ResourceKey: "player", Capability: "report",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"count":{"type":"integer"}}}}}}`),
 	})
 
@@ -2044,7 +2045,7 @@ func TestValidateSemanticFunctionRefWrongResourceKeyV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "other.get",
-		Enabled: true, ResourceKey: "other", Capability: "action",
+		Enabled: true, ResourceKey: "other", Capability: dbenum.CapabilityAction,
 	})
 
 	// Function belongs to different resource
@@ -2071,7 +2072,7 @@ func TestValidateSemanticFunctionRefDisabledFunctionV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
-		Enabled: false, ResourceKey: "player", Capability: "task",
+		Enabled: false, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 
@@ -2107,7 +2108,7 @@ func TestValidateSemanticFunctionRefCapabilityMismatchV2(t *testing.T) {
 	contractModel := model.NewFunctionContractModel(db)
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.query",
-		Enabled: true, ResourceKey: "player", Capability: "query",
+		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityItemQuery,
 	})
 
 	// Function capability doesn't match required capability

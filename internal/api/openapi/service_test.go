@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	dashspec "github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/registry"
@@ -712,7 +713,7 @@ func createOpenAPITestPublishedPage(svcCtx *svc.ServiceContext, ctx context.Cont
 		FunctionVersion:       contract.Version,
 		InputSchemaDigest:     openAPITestDigest(contract.InputSchema),
 		OutputSchemaDigest:    openAPITestDigest(contract.OutputSchema),
-		Risk:                  dashspec.RiskLevel(contract.Risk),
+		Risk:                  dashspec.RiskLevel(contract.Risk.String()),
 		Permission:            contract.Permission,
 		ExecutionMode:         dashspec.PageExecutionModeSync,
 		RendererSchemaVersion: "page-spec:1",
@@ -1161,7 +1162,7 @@ func TestService_CreateBindingRebuildsContractAndProposal(t *testing.T) {
 	assert.Equal(t, "openapi", contract.Source)
 	assert.Equal(t, "player", contract.ResourceKey)
 	assert.Equal(t, "list", contract.OperationKey)
-	assert.Equal(t, string(dashspec.CapabilityCollectionQuery), contract.Capability)
+	assert.Equal(t, dbenum.CapabilityCollectionQuery, contract.Capability)
 
 	semantics, err := model.NewCapabilitySemanticsModel(service.svcCtx.DB).FindByScopeAndResourceKey(openAPITestContext(), "demo-game", "development", "player")
 	require.NoError(t, err)

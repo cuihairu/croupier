@@ -14,6 +14,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"gorm.io/datatypes"
@@ -137,15 +138,20 @@ func (s *ProposalService) ListProposals(ctx context.Context, gameID, env string)
 
 // ListProposalDTOs lists proposals using stable API DTOs.
 func (s *ProposalService) ListProposalDTOs(ctx context.Context, gameID, env string, filter ProposalListFilter) ([]ProposalDTO, error) {
-	status := strings.TrimSpace(filter.Status)
 	resourceKey := strings.TrimSpace(filter.ResourceKey)
+	status := dbenum.ProposalStatus(-1)
+	if raw := strings.TrimSpace(filter.Status); raw != "" {
+		if parsed, err := dbenum.ParseProposalStatus(strings.ToLower(raw)); err == nil {
+			status = parsed
+		}
+	}
 
 	var proposals []*model.PageProposal
 	var err error
 	switch {
-	case status != "" && resourceKey != "":
+	case status >= 0 && resourceKey != "":
 		proposals, err = s.proposalModel.ListByScopeStatusAndResourceKey(ctx, gameID, env, status, resourceKey)
-	case status != "":
+	case status >= 0:
 		proposals, err = s.proposalModel.ListByStatus(ctx, gameID, env, status)
 	case resourceKey != "":
 		proposals, err = s.proposalModel.ListByScopeAndResourceKey(ctx, gameID, env, resourceKey)
@@ -222,7 +228,7 @@ func (s *ProposalService) Inbox(ctx context.Context, gameID, env string, filter 
 }
 
 // ListProposalsByStatus lists proposals by status.
-func (s *ProposalService) ListProposalsByStatus(ctx context.Context, gameID, env, status string) ([]*model.PageProposal, error) {
+func (s *ProposalService) ListProposalsByStatus(ctx context.Context, gameID, env string, status dbenum.ProposalStatus) ([]*model.PageProposal, error) {
 	return s.proposalModel.ListByStatus(ctx, gameID, env, status)
 }
 
@@ -248,7 +254,7 @@ func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, propo
 		return fmt.Errorf("proposal not found: %w", err)
 	}
 
-	if proposal.Status != "pending" {
+	if proposal.Status != dbenum.ProposalStatusPending {
 		return fmt.Errorf("proposal is not pending")
 	}
 
@@ -325,7 +331,7 @@ func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, propo
 		}); err != nil {
 			return fmt.Errorf("create page draft version from proposal: %w", err)
 		}
-		proposal.Status = "accepted"
+		proposal.Status = dbenum.ProposalStatusAccepted
 		proposal.UpdatedBy = actor
 		proposal.UpdatedAt = now
 		return proposalModel.UpsertProposal(txCtx, proposal)
@@ -339,7 +345,7 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 	if err != nil {
 		return ProposalPublishResult{}, fmt.Errorf("proposal not found: %w", err)
 	}
-	if proposal.Status != "pending" {
+	if proposal.Status != dbenum.ProposalStatusPending {
 		return ProposalPublishResult{}, fmt.Errorf("proposal is not pending")
 	}
 	if proposal.Quality != "ready" && proposal.Quality != "basic" {
@@ -464,7 +470,7 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 		}); err != nil {
 			return fmt.Errorf("create page published version from proposal: %w", err)
 		}
-		proposal.Status = "accepted"
+		proposal.Status = dbenum.ProposalStatusAccepted
 		proposal.UpdatedBy = actor
 		proposal.UpdatedAt = now
 		return proposalModel.UpsertProposal(txCtx, proposal)
@@ -482,12 +488,12 @@ func (s *ProposalService) RejectProposal(ctx context.Context, gameID, env, propo
 		return fmt.Errorf("proposal not found: %w", err)
 	}
 
-	if proposal.Status != "pending" {
+	if proposal.Status != dbenum.ProposalStatusPending {
 		return fmt.Errorf("proposal is not pending")
 	}
 
 	// Update status to rejected
-	proposal.Status = "rejected"
+	proposal.Status = dbenum.ProposalStatusRejected
 	return s.proposalModel.UpsertProposal(ctx, proposal)
 }
 
@@ -569,7 +575,7 @@ func proposalDTOFromModel(proposal *model.PageProposal) (ProposalDTO, error) {
 		CategoryKey:      proposal.CategoryKey,
 		PageSpec:         pageSpec,
 		Diagnostics:      diagnosticsFromJSON(proposal.Diagnostics),
-		Status:           proposal.Status,
+		Status:           proposal.Status.String(),
 		UpdatedAt:        proposal.UpdatedAt.Format(time.RFC3339),
 		UpdatedBy:        proposal.UpdatedBy,
 	}, nil
@@ -1234,7 +1240,7 @@ func (s *ProposalService) buildBindingContracts(ctx context.Context, gameID, env
 			FunctionVersion:       strings.TrimSpace(contract.Version),
 			InputSchemaDigest:     digestJSON(contract.InputSchema),
 			OutputSchemaDigest:    digestJSON(contract.OutputSchema),
-			Risk:                  spec.RiskLevel(contract.Risk),
+			Risk:                  spec.RiskLevel(contract.Risk.String()),
 			Permission:            strings.TrimSpace(contract.Permission),
 			Approval:              ApprovalPolicyFromJSONMap(contract.Approval),
 			ExecutionMode:         binding.Execution.Mode,

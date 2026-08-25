@@ -3,9 +3,11 @@ package model
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -2875,10 +2877,16 @@ func TestAlertModel_FindByIDs(t *testing.T) {
 
 func setupMessageTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:msg_%d?mode=memory&cache=shared", time.Now().UnixNano())), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		sqlDB, _ := db.DB()
+		if sqlDB != nil {
+			_ = sqlDB.Close()
+		}
+	})
 	err = db.AutoMigrate(&Message{})
 	require.NoError(t, err)
 	return db
@@ -2900,7 +2908,7 @@ func TestMessageModel_Create(t *testing.T) {
 		Type:    "notification",
 		Title:   "Test Message",
 		Content: "Test content",
-		Status:  "unread",
+		Status:  dbenum.MessageStatusUnread,
 	}
 
 	err := model.Create(ctx, msg)
@@ -2918,7 +2926,7 @@ func TestMessageModel_FindOne(t *testing.T) {
 		Type:    "notification",
 		Title:   "Find Test",
 		Content: "Find test content",
-		Status:  "unread",
+		Status:  dbenum.MessageStatusUnread,
 	}
 	err := model.Create(ctx, msg)
 	require.NoError(t, err)
@@ -2941,9 +2949,9 @@ func TestMessageModel_List(t *testing.T) {
 
 	// Create test messages
 	messages := []*Message{
-		{To: "user1@example.com", Type: "notification", Title: "Msg 1", Content: "Content 1", Status: "unread"},
-		{To: "user1@example.com", Type: "alert", Title: "Msg 2", Content: "Content 2", Status: "read"},
-		{To: "user2@example.com", Type: "notification", Title: "Msg 3", Content: "Content 3", Status: "unread"},
+		{To: "user1@example.com", Type: "notification", Title: "Msg 1", Content: "Content 1", Status: dbenum.MessageStatusUnread},
+		{To: "user1@example.com", Type: "alert", Title: "Msg 2", Content: "Content 2", Status: dbenum.MessageStatusRead},
+		{To: "user2@example.com", Type: "notification", Title: "Msg 3", Content: "Content 3", Status: dbenum.MessageStatusUnread},
 	}
 	for _, m := range messages {
 		err := model.Create(ctx, m)
@@ -2951,12 +2959,12 @@ func TestMessageModel_List(t *testing.T) {
 	}
 
 	// Test list all
-	_, total, err := model.List(ctx, ListMessagesOptions{})
+	_, total, err := model.List(ctx, NewListMessagesOptions())
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(3))
 
 	// Test filter by type
-	items, total, err := model.List(ctx, ListMessagesOptions{Type: "notification"})
+	items, total, err := model.List(ctx, func() ListMessagesOptions { o := NewListMessagesOptions(); o.Type = "notification"; return o }())
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 	_ = items // items is used for verification
@@ -2964,12 +2972,12 @@ func TestMessageModel_List(t *testing.T) {
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Test filter by status
-	items, total, err = model.List(ctx, ListMessagesOptions{Status: "unread"})
+	items, total, err = model.List(ctx, ListMessagesOptions{Status: dbenum.MessageStatusUnread})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Test filter by recipient
-	items, total, err = model.List(ctx, ListMessagesOptions{To: "user1@example.com"})
+	items, total, err = model.List(ctx, func() ListMessagesOptions { o := NewListMessagesOptions(); o.To = "user1@example.com"; return o }())
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 }
@@ -2984,7 +2992,7 @@ func TestMessageModel_MarkRead(t *testing.T) {
 		Type:    "notification",
 		Title:   "Mark Read Test",
 		Content: "Content",
-		Status:  "unread",
+		Status:  dbenum.MessageStatusUnread,
 	}
 	err := model.Create(ctx, msg)
 	require.NoError(t, err)
@@ -2993,11 +3001,14 @@ func TestMessageModel_MarkRead(t *testing.T) {
 	err = model.MarkRead(ctx, msg.ID)
 	require.NoError(t, err)
 
-	// Verify
-	found, err := model.FindOne(ctx, msg.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "read", found.Status)
-	assert.NotNil(t, found.ReadAt)
+	// Verify the enum-scanned value.
+	found, findErr := model.FindOne(ctx, msg.ID)
+	require.NoError(t, findErr)
+	assert.Equal(t, dbenum.MessageStatusRead, found.Status)
+	var readAt *string
+	require.NoError(t, db.Raw("SELECT read_at FROM messages WHERE id = ?", msg.ID).Scan(&readAt).Error)
+	require.NotNil(t, readAt)
+	assert.NotEmpty(t, *readAt)
 }
 
 func TestMessageModel_CountUnread(t *testing.T) {
@@ -3007,24 +3018,23 @@ func TestMessageModel_CountUnread(t *testing.T) {
 
 	// Create messages with unique recipient
 	messages := []*Message{
-		{To: "countuser@example.com", Type: "notification", Title: "Unread 1", Content: "Content", Status: "unread"},
-		{To: "countuser@example.com", Type: "notification", Title: "Unread 2", Content: "Content", Status: "unread"},
-		{To: "countuser@example.com", Type: "notification", Title: "Read", Content: "Content", Status: "read"},
+		{To: "countuser@example.com", Type: "notification", Title: "Unread 1", Content: "Content", Status: dbenum.MessageStatusUnread},
+		{To: "countuser@example.com", Type: "notification", Title: "Unread 2", Content: "Content", Status: dbenum.MessageStatusUnread},
+		{To: "countuser@example.com", Type: "notification", Title: "Read", Content: "Content", Status: dbenum.MessageStatusRead},
 	}
 	for _, m := range messages {
 		err := model.Create(ctx, m)
 		require.NoError(t, err)
 	}
 
-	// Count unread for user
 	count, err := model.CountUnread(ctx, "countuser@example.com")
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), count)
 
-	// Count all unread (should be at least our 2)
+	// Count all unread
 	count, err = model.CountUnread(ctx, "")
 	require.NoError(t, err)
-	assert.GreaterOrEqual(t, count, int64(2))
+	assert.Equal(t, int64(2), count)
 }
 
 func TestMessageModel_Recent(t *testing.T) {
@@ -3039,7 +3049,7 @@ func TestMessageModel_Recent(t *testing.T) {
 			Type:    "notification",
 			Title:   "Recent",
 			Content: "Content",
-			Status:  "unread",
+			Status:  dbenum.MessageStatusUnread,
 		}
 		err := model.Create(ctx, msg)
 		require.NoError(t, err)
@@ -3291,7 +3301,7 @@ func TestTicketModel_Create(t *testing.T) {
 		Content:  "Test ticket content",
 		Category: "bug",
 		Priority: "high",
-		Status:   "open",
+		Status:   dbenum.TicketStatusOpen,
 		Assignee: "admin",
 		GameID:   "game001",
 		Env:      "prod",
@@ -3311,14 +3321,14 @@ func TestTicketModel_Update(t *testing.T) {
 		Title:    "Update Test",
 		Content:  "Content",
 		Category: "bug",
-		Status:   "open",
+		Status:   dbenum.TicketStatusOpen,
 	}
 	err := model.Create(ctx, ticket)
 	require.NoError(t, err)
 
 	// Update
 	updates := map[string]interface{}{
-		"status":   "in_progress",
+		"status":   dbenum.TicketStatusInProgress,
 		"assignee": "developer",
 	}
 	err = model.Update(ctx, ticket.ID, updates)
@@ -3327,7 +3337,7 @@ func TestTicketModel_Update(t *testing.T) {
 	// Verify
 	found, err := model.FindOne(ctx, ticket.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "in_progress", found.Status)
+	assert.Equal(t, dbenum.TicketStatusInProgress, found.Status)
 	assert.Equal(t, "developer", found.Assignee)
 }
 
@@ -3340,7 +3350,7 @@ func TestTicketModel_Delete(t *testing.T) {
 		Title:    "Delete Test",
 		Content:  "Content",
 		Category: "bug",
-		Status:   "open",
+		Status:   dbenum.TicketStatusOpen,
 	}
 	err := model.Create(ctx, ticket)
 	require.NoError(t, err)
@@ -3363,7 +3373,7 @@ func TestTicketModel_FindOne(t *testing.T) {
 		Title:    "Find One Test",
 		Content:  "Content",
 		Category: "bug",
-		Status:   "open",
+		Status:   dbenum.TicketStatusOpen,
 	}
 	err := model.Create(ctx, ticket)
 	require.NoError(t, err)
@@ -3384,9 +3394,9 @@ func TestTicketModel_List(t *testing.T) {
 	ctx := context.Background()
 
 	tickets := []*Ticket{
-		{Title: "Ticket 1", Category: "bug", Priority: "high", Status: "open", Assignee: "admin"},
-		{Title: "Ticket 2", Category: "feature", Priority: "low", Status: "open", Assignee: "user"},
-		{Title: "Ticket 3", Category: "bug", Priority: "medium", Status: "closed", Assignee: "admin"},
+		{Title: "Ticket 1", Category: "bug", Priority: "high", Status: dbenum.TicketStatusOpen, Assignee: "admin"},
+		{Title: "Ticket 2", Category: "feature", Priority: "low", Status: dbenum.TicketStatusOpen, Assignee: "user"},
+		{Title: "Ticket 3", Category: "bug", Priority: "medium", Status: dbenum.TicketStatusClosed, Assignee: "admin"},
 	}
 	for _, tkt := range tickets {
 		err := model.Create(ctx, tkt)
@@ -3399,7 +3409,7 @@ func TestTicketModel_List(t *testing.T) {
 	assert.GreaterOrEqual(t, total, int64(3))
 
 	// Filter by status
-	items, total, err := model.List(ctx, TicketQueryOptions{Status: "open"})
+	items, total, err := model.List(ctx, TicketQueryOptions{Status: dbenum.TicketStatusOpen})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 	_ = items // items is used for verification
@@ -3424,7 +3434,7 @@ func TestTicketModel_CreateComment(t *testing.T) {
 		Title:    "Comment Test",
 		Content:  "Content",
 		Category: "bug",
-		Status:   "open",
+		Status:   dbenum.TicketStatusOpen,
 	}
 	err := model.Create(ctx, ticket)
 	require.NoError(t, err)
@@ -3449,7 +3459,7 @@ func TestTicketModel_ListComments(t *testing.T) {
 		Title:    "List Comments Test",
 		Content:  "Content",
 		Category: "bug",
-		Status:   "open",
+		Status:   dbenum.TicketStatusOpen,
 	}
 	err := model.Create(ctx, ticket)
 	require.NoError(t, err)
@@ -3499,7 +3509,7 @@ func TestFeedbackModel_Create(t *testing.T) {
 		Content:  "Great game!",
 		Category: "general",
 		Priority: "low",
-		Status:   "new",
+		Status:   dbenum.FeedbackStatusOpen,
 		Rating:   5,
 		GameID:   "game001",
 		Env:      "prod",
@@ -3519,14 +3529,14 @@ func TestFeedbackModel_Update(t *testing.T) {
 		PlayerID: "player001",
 		Content:  "Content",
 		Category: "bug",
-		Status:   "new",
+		Status:   dbenum.FeedbackStatusOpen,
 	}
 	err := model.Create(ctx, feedback)
 	require.NoError(t, err)
 
 	// Update
 	updates := map[string]interface{}{
-		"status": "reviewed",
+		"status": dbenum.FeedbackStatusTriaged,
 		"reply":  "Thank you for your feedback",
 	}
 	err = model.Update(ctx, feedback.ID, updates)
@@ -3535,7 +3545,7 @@ func TestFeedbackModel_Update(t *testing.T) {
 	// Verify
 	found, err := model.FindByID(ctx, feedback.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "reviewed", found.Status)
+	assert.Equal(t, dbenum.FeedbackStatusTriaged, found.Status)
 	assert.Equal(t, "Thank you for your feedback", found.Reply)
 }
 
@@ -3548,7 +3558,7 @@ func TestFeedbackModel_Delete(t *testing.T) {
 		PlayerID: "player001",
 		Content:  "Content",
 		Category: "bug",
-		Status:   "new",
+		Status:   dbenum.FeedbackStatusOpen,
 	}
 	err := model.Create(ctx, feedback)
 	require.NoError(t, err)
@@ -3571,7 +3581,7 @@ func TestFeedbackModel_FindByID(t *testing.T) {
 		PlayerID: "player001",
 		Content:  "Find test",
 		Category: "bug",
-		Status:   "new",
+		Status:   dbenum.FeedbackStatusOpen,
 	}
 	err := model.Create(ctx, feedback)
 	require.NoError(t, err)
@@ -3592,9 +3602,9 @@ func TestFeedbackModel_List(t *testing.T) {
 	ctx := context.Background()
 
 	feedbacks := []*Feedback{
-		{PlayerID: "p1", Content: "Content 1", Category: "bug", Status: "new", GameID: "game1", Env: "prod"},
-		{PlayerID: "p2", Content: "Content 2", Category: "feature", Status: "new", GameID: "game1", Env: "prod"},
-		{PlayerID: "p3", Content: "Content 3", Category: "bug", Status: "reviewed", GameID: "game2", Env: "test"},
+		{PlayerID: "p1", Content: "Content 1", Category: "bug", Status: dbenum.FeedbackStatusOpen, GameID: "game1", Env: "prod"},
+		{PlayerID: "p2", Content: "Content 2", Category: "feature", Status: dbenum.FeedbackStatusOpen, GameID: "game1", Env: "prod"},
+		{PlayerID: "p3", Content: "Content 3", Category: "bug", Status: dbenum.FeedbackStatusTriaged, GameID: "game2", Env: "test"},
 	}
 	for _, f := range feedbacks {
 		err := model.Create(ctx, f)
@@ -3602,28 +3612,28 @@ func TestFeedbackModel_List(t *testing.T) {
 	}
 
 	// List all
-	_, total, err := model.List(ctx, ListFeedbackOptions{})
+	_, total, err := model.List(ctx, ListFeedbackOptions{Status: -1, ExcludeStatus: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(3))
 
 	// Filter by game
-	items, total, err := model.List(ctx, ListFeedbackOptions{GameID: "game1"})
+	items, total, err := model.List(ctx, ListFeedbackOptions{GameID: "game1", Status: -1, ExcludeStatus: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 	_ = items // items is used for verification
 
 	// Filter by status
-	items, total, err = model.List(ctx, ListFeedbackOptions{Status: "new"})
+	items, total, err = model.List(ctx, ListFeedbackOptions{Status: dbenum.FeedbackStatusOpen, ExcludeStatus: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Filter by category
-	items, total, err = model.List(ctx, ListFeedbackOptions{Category: "bug"})
+	items, total, err = model.List(ctx, ListFeedbackOptions{Category: "bug", Status: -1, ExcludeStatus: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Filter by keyword
-	items, total, err = model.List(ctx, ListFeedbackOptions{Keyword: "Content 1"})
+	items, total, err = model.List(ctx, ListFeedbackOptions{Keyword: "Content 1", Status: -1, ExcludeStatus: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(1))
 }
@@ -3634,9 +3644,9 @@ func TestFeedbackModel_Stats(t *testing.T) {
 	ctx := context.Background()
 
 	feedbacks := []*Feedback{
-		{PlayerID: "p1", Content: "Content 1", Category: "bug", Status: "new", Rating: 3},
-		{PlayerID: "p2", Content: "Content 2", Category: "bug", Status: "new", Rating: 4},
-		{PlayerID: "p3", Content: "Content 3", Category: "feature", Status: "reviewed", Rating: 5, Reply: "Thanks"},
+		{PlayerID: "p1", Content: "Content 1", Category: "bug", Status: dbenum.FeedbackStatusOpen, Rating: 3},
+		{PlayerID: "p2", Content: "Content 2", Category: "bug", Status: dbenum.FeedbackStatusOpen, Rating: 4},
+		{PlayerID: "p3", Content: "Content 3", Category: "feature", Status: dbenum.FeedbackStatusTriaged, Rating: 5, Reply: "Thanks"},
 	}
 	for _, f := range feedbacks {
 		err := model.Create(ctx, f)
@@ -5798,7 +5808,7 @@ func TestPageProposalModel_UpsertAndFind(t *testing.T) {
 		PageType:    "resource",
 		ResourceKey: "player",
 		Quality:     "ready",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 	}
 	err = model.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)
@@ -5819,7 +5829,7 @@ func TestPageProposalModel_UpsertAndFind(t *testing.T) {
 	assert.Len(t, proposals, 1)
 
 	// List by status
-	proposals, err = model.ListByStatus(ctx, "pp-game1", "prod", "pending")
+	proposals, err = model.ListByStatus(ctx, "pp-game1", "prod", dbenum.ProposalStatusPending)
 	require.NoError(t, err)
 	assert.Len(t, proposals, 1)
 
@@ -5829,7 +5839,7 @@ func TestPageProposalModel_UpsertAndFind(t *testing.T) {
 	assert.Len(t, proposals, 1)
 
 	// Upsert update
-	proposal.Status = "accepted"
+	proposal.Status = dbenum.ProposalStatusAccepted
 	proposal.ID = found.ID
 	err = model.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)
@@ -5837,10 +5847,10 @@ func TestPageProposalModel_UpsertAndFind(t *testing.T) {
 	// Verify update
 	found3, err := model.FindByScopeAndKey(ctx, "pp-game1", "prod", "player")
 	require.NoError(t, err)
-	assert.Equal(t, "accepted", found3.Status)
+	assert.Equal(t, dbenum.ProposalStatusAccepted, found3.Status)
 
 	// ListByScopeStatusAndResourceKey
-	proposals, err = model.ListByScopeStatusAndResourceKey(ctx, "pp-game1", "prod", "accepted", "player")
+	proposals, err = model.ListByScopeStatusAndResourceKey(ctx, "pp-game1", "prod", dbenum.ProposalStatusAccepted, "player")
 	require.NoError(t, err)
 	assert.Len(t, proposals, 1)
 
@@ -5870,7 +5880,7 @@ func TestPageProposalVersionModel(t *testing.T) {
 		Env:         "prod",
 		ProposalKey: "item",
 		PageKey:     "item-dashboard",
-		Status:      "pending",
+		Status:      dbenum.ProposalStatusPending,
 	}
 	err = proposalModel.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -445,7 +446,7 @@ func TestDetail_LabelsFallbackAndStatus(t *testing.T) {
 	require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player_item.list",
 		Version: "1.0.0", Enabled: true, ResourceKey: "player_item",
-		Capability: "collection_query", UpdatedAt: time.Now(),
+		Capability: dbenum.CapabilityCollectionQuery, UpdatedAt: time.Now(),
 	}))
 
 	item, err := service.Detail(ctx, &DetailRequest{GameID: "g1", Env: "e1", ResourceKey: "player_item"})
@@ -478,22 +479,22 @@ func TestValidateFunctionBinding_Branches(t *testing.T) {
 	require.NoError(t, contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.list",
 		Version: "1.0.0", Enabled: true, ResourceKey: "player",
-		Capability: "collection_query", UpdatedAt: time.Now(),
+		Capability: dbenum.CapabilityCollectionQuery, UpdatedAt: time.Now(),
 	}))
 	require.NoError(t, contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "guild.list",
 		Version: "1.0.0", Enabled: true, ResourceKey: "guild",
-		Capability: "collection_query", UpdatedAt: time.Now(),
+		Capability: dbenum.CapabilityCollectionQuery, UpdatedAt: time.Now(),
 	}))
 	require.NoError(t, contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.get",
 		Version: "1.0.0", Enabled: true, ResourceKey: "player",
-		Capability: "item_query", UpdatedAt: time.Now(),
+		Capability: dbenum.CapabilityItemQuery, UpdatedAt: time.Now(),
 	}))
 	require.NoError(t, contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.search",
 		Version: "1.0.0", Enabled: false, ResourceKey: "player",
-		Capability: "collection_query", UpdatedAt: time.Now(),
+		Capability: dbenum.CapabilityCollectionQuery, UpdatedAt: time.Now(),
 	}))
 
 	listContract, err := contractModel.FindByScopeAndFunctionID(ctx, "g1", "e1", "player.list")

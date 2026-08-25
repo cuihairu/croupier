@@ -3,6 +3,8 @@ package model
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
+
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
@@ -21,7 +23,7 @@ func NewTicketModel(db *gorm.DB) *TicketModel {
 type TicketQueryOptions struct {
 	PaginationOptions
 	Query    string
-	Status   string
+	Status   dbenum.TicketStatus // -1 = no filter
 	Category string
 	Priority string
 	Assignee string
@@ -62,7 +64,7 @@ func (m *TicketModel) List(ctx context.Context, opts TicketQueryOptions) ([]Tick
 	)
 
 	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Ticket{})
-	if opts.Status != "" {
+	if opts.Status >= 0 {
 		query = query.Where("status = ?", opts.Status)
 	}
 	if opts.Category != "" {

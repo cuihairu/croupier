@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -72,11 +73,11 @@ func TestContractService_RebuildContractFromFunctionMeta(t *testing.T) {
 	assert.Equal(t, "1.0.0", contract.Version)
 	assert.Equal(t, "player", contract.ResourceKey)
 	assert.Equal(t, "ban", contract.OperationKey)
-	assert.Equal(t, "action", contract.Capability)
+	assert.Equal(t, dbenum.CapabilityAction, contract.Capability)
 	assert.Equal(t, "sync", contract.Execution)
 	assert.Equal(t, true, contract.Approval["required"])
 	assert.Equal(t, "two_person", contract.Approval["policyKey"])
-	assert.Equal(t, "high", contract.Risk)
+	assert.Equal(t, dbenum.RiskHigh, contract.Risk)
 	assert.Equal(t, "sdk", contract.Source)
 }
 
@@ -499,7 +500,7 @@ func TestContractService_RebuildProposalsPreservesAcceptedStatus(t *testing.T) {
 	proposalModel := model.NewPageProposalModel(db)
 	proposal, err := proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
-	proposal.Status = "accepted"
+	proposal.Status = dbenum.ProposalStatusAccepted
 	proposal.UpdatedBy = "operator"
 	require.NoError(t, proposalModel.UpsertProposal(ctx, proposal))
 
@@ -507,7 +508,7 @@ func TestContractService_RebuildProposalsPreservesAcceptedStatus(t *testing.T) {
 
 	proposal, err = proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
-	assert.Equal(t, "accepted", proposal.Status)
+	assert.Equal(t, dbenum.ProposalStatusAccepted, proposal.Status)
 	assert.Equal(t, "operator", proposal.UpdatedBy)
 }
 
@@ -549,9 +550,9 @@ func TestOperationSpecFromContract(t *testing.T) {
 		FunctionID:   "player.list",
 		ResourceKey:  "player",
 		OperationKey: "list",
-		Capability:   "collection_query",
+		Capability:   dbenum.CapabilityCollectionQuery,
 		Execution:    "sync",
-		Risk:         "safe",
+		Risk:         dbenum.RiskSafe,
 		Permission:   "player:list",
 		Enabled:      true,
 	}
@@ -581,9 +582,9 @@ func TestFunctionSpecFromContract(t *testing.T) {
 		OutputSchema: []byte(`{"type":"array"}`),
 		ResourceKey:  "player",
 		OperationKey: "list",
-		Capability:   "collection_query",
+		Capability:   dbenum.CapabilityCollectionQuery,
 		Execution:    "sync",
-		Risk:         "safe",
+		Risk:         dbenum.RiskSafe,
 		Permission:   "player:list",
 	}
 	spec = FunctionSpecFromContract(contract)

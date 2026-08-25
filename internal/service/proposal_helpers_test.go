@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
@@ -178,15 +179,15 @@ func TestProposalComparableDigest(t *testing.T) {
 func TestPreserveGeneratedProposalStatus(t *testing.T) {
 	tests := []struct {
 		name     string
-		status   string
-		expected string
+		status   dbenum.ProposalStatus
+		expected dbenum.ProposalStatus
 	}{
-		{"accepted", "accepted", "accepted"},
-		{"rejected", "rejected", "rejected"},
-		{"pending", "pending", "pending"},
-		{"unknown", "unknown", "pending"},
-		{"empty", "", "pending"},
-		{"generating", "generating", "pending"},
+		{"accepted", dbenum.ProposalStatusAccepted, dbenum.ProposalStatusAccepted},
+		{"rejected", dbenum.ProposalStatusRejected, dbenum.ProposalStatusRejected},
+		{"pending", dbenum.ProposalStatusPending, dbenum.ProposalStatusPending},
+		{"unknown", dbenum.ProposalStatus(42), dbenum.ProposalStatusPending},
+		{"empty", dbenum.ProposalStatus(0), dbenum.ProposalStatusPending},
+		{"generating", dbenum.ProposalStatus(7), dbenum.ProposalStatusPending},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

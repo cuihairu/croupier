@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -36,8 +37,8 @@ type PageProposal struct {
 	// Diagnostics
 	Diagnostics datatypes.JSON `gorm:"type:json"` // Diagnostic array
 
-	// Status
-	Status string `gorm:"size:32;default:'pending'"` // pending|accepted|rejected|expired
+	// Status (int-backed enum; wire strings pending|accepted|rejected)
+	Status dbenum.ProposalStatus
 
 	UpdatedAt time.Time
 	UpdatedBy string `gorm:"size:64"`

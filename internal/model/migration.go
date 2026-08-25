@@ -18,6 +18,11 @@ func AutoMigrate(db *gorm.DB) error {
 	if err := renameLegacyTables(db); err != nil {
 		return err
 	}
+	// Convert legacy varchar status columns to int-backed enums BEFORE
+	// AutoMigrate would alter their types (which would destroy values).
+	if err := migrateEnumColumns(db); err != nil {
+		return err
+	}
 	if err := dropLegacyPageUniqueIndexes(db); err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func contractWithID(id uint, functionID, capability, source string) *model.FunctionContract {
+func contractWithID(id uint, functionID string, capability dbenum.Capability, source string) *model.FunctionContract {
 	c := model.FunctionContract{
 		GameID: "demo-game", Env: "development",
 		FunctionID: functionID, Capability: capability, Source: source,
@@ -84,24 +85,24 @@ func TestInferActionSemantics_Branches(t *testing.T) {
 
 	contracts := []*model.FunctionContract{
 		// Not an action capability.
-		contractWithID(1, "player.query", "collection_query", "sdk"),
+		contractWithID(1, "player.query", dbenum.CapabilityCollectionQuery, "sdk"),
 		// Action without a function id.
-		{Capability: "action", FunctionID: "  ", InputSchema: schema(`{"type":"object"}`)},
+		{Capability: dbenum.CapabilityAction, FunctionID: "  ", InputSchema: schema(`{"type":"object"}`)},
 		// Action with no properties -> subject none.
-		{Capability: "action", FunctionID: "fn.none", InputSchema: schema(`{"type":"object"}`)},
+		{Capability: dbenum.CapabilityAction, FunctionID: "fn.none", InputSchema: schema(`{"type":"object"}`)},
 		// Action whose single required field is the identity -> resource_item.
 		{
-			Capability: "action", FunctionID: "fn.item",
+			Capability: dbenum.CapabilityAction, FunctionID: "fn.item",
 			InputSchema: schema(`{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"]}`),
 		},
 		// Action with an array field -> resource_selection.
 		{
-			Capability: "action", FunctionID: "fn.selection",
+			Capability: dbenum.CapabilityAction, FunctionID: "fn.selection",
 			InputSchema: schema(`{"type":"object","properties":{"ids":{"type":"array"}},"required":["ids"]}`),
 		},
 		// Action whose required field is not statically verifiable -> standalone.
 		{
-			Capability: "action", FunctionID: "fn.unverified",
+			Capability: dbenum.CapabilityAction, FunctionID: "fn.unverified",
 			InputSchema: schema(`{"type":"object","properties":{"id":{"type":"object"}},"required":["id"]}`),
 		},
 	}
@@ -134,7 +135,7 @@ func TestRebuildResourceCapability_EmptyAndPreserved(t *testing.T) {
 	require.NoError(t, svc.removeResourceDerivedState(ctx, "demo-game", "development", "   "))
 
 	// Happy path: contract exists, prior reviewed fields survive the rebuild.
-	require.NoError(t, svc.contractModel.UpsertContract(ctx, contractWithID(0, "player.query", "collection_query", "sdk")))
+	require.NoError(t, svc.contractModel.UpsertContract(ctx, contractWithID(0, "player.query", dbenum.CapabilityCollectionQuery, "sdk")))
 	require.NoError(t, db.Create(&model.ResourceCapability{
 		GameID: "demo-game", Env: "development", ResourceKey: "player",
 		Labels: datatypes.JSONMap{"zh-CN": "玩家"}, CategoryKey: "players", UpdatedBy: "reviewer",
@@ -171,7 +172,7 @@ func TestRebuildProposalsForResource_Paths(t *testing.T) {
 	// the stale resource proposal must be removed instead.
 	itemOnly := &model.CapabilitySemantics{GameID: "demo-game", Env: "development", ResourceKey: "solo"}
 	require.NoError(t, svc.semanticsModel.UpsertSemantics(ctx, itemOnly))
-	require.NoError(t, svc.contractModel.UpsertContract(ctx, contractWithID(0, "player.get", "item_query", "sdk")))
+	require.NoError(t, svc.contractModel.UpsertContract(ctx, contractWithID(0, "player.get", dbenum.CapabilityItemQuery, "sdk")))
 	require.NoError(t, svc.RebuildProposalsForResource(ctx, "demo-game", "development", "solo"))
 
 	proposals, err := svc.proposalModel.ListByScope(ctx, "demo-game", "development")
@@ -197,10 +198,10 @@ func TestUpsertGeneratedProposal_UnchangedKeepsStatus(t *testing.T) {
 
 	stored, err := svc.proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "operation:op--stable")
 	require.NoError(t, err)
-	assert.Equal(t, "pending", stored.Status)
+	assert.Equal(t, dbenum.ProposalStatusPending, stored.Status)
 
 	// Accept it, then regenerate identical content: status and editor survive.
-	stored.Status = "accepted"
+	stored.Status = dbenum.ProposalStatusAccepted
 	stored.UpdatedBy = "human-editor"
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, stored))
 
@@ -210,7 +211,7 @@ func TestUpsertGeneratedProposal_UnchangedKeepsStatus(t *testing.T) {
 	updated, err := svc.proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "operation:op--stable")
 	require.NoError(t, err)
 	if updated.FunctionDigest == "digest-1" {
-		assert.Equal(t, "accepted", updated.Status)
+		assert.Equal(t, dbenum.ProposalStatusAccepted, updated.Status)
 		assert.Equal(t, "human-editor", updated.UpdatedBy)
 	} else {
 		assert.NotEmpty(t, updated.Status)

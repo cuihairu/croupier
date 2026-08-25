@@ -35,7 +35,7 @@ func BuildFeedback(record *model.Feedback) Feedback {
 		Content:   record.Content,
 		Category:  record.Category,
 		Priority:  record.Priority,
-		Status:    record.Status,
+		Status:    record.Status.String(),
 		Rating:    record.Rating,
 		Attach:    record.Attach,
 		GameId:    record.GameID,

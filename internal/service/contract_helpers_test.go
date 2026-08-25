@@ -6,6 +6,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
@@ -702,11 +703,11 @@ func TestInferCollectionFields_WithArrayItems(t *testing.T) {
 func TestBuildSemantics(t *testing.T) {
 	s := &ContractService{}
 	contracts := []*model.FunctionContract{
-		{FunctionID: "player.list", Capability: "collection_query", Source: "sdk"},
-		{FunctionID: "player.get", Capability: "item_query", Source: "sdk"},
-		{FunctionID: "player.create", Capability: "create", Source: "sdk"},
-		{FunctionID: "player.update", Capability: "update", Source: "sdk"},
-		{FunctionID: "player.delete", Capability: "delete", Source: "sdk"},
+		{FunctionID: "player.list", Capability: dbenum.CapabilityCollectionQuery, Source: "sdk"},
+		{FunctionID: "player.get", Capability: dbenum.CapabilityItemQuery, Source: "sdk"},
+		{FunctionID: "player.create", Capability: dbenum.CapabilityCreate, Source: "sdk"},
+		{FunctionID: "player.update", Capability: dbenum.CapabilityUpdate, Source: "sdk"},
+		{FunctionID: "player.delete", Capability: dbenum.CapabilityDelete, Source: "sdk"},
 	}
 
 	sem := s.buildSemantics("game1", "prod", "player", contracts)
@@ -729,7 +730,7 @@ func TestBuildSemantics_WithNilContract(t *testing.T) {
 	s := &ContractService{}
 	contracts := []*model.FunctionContract{
 		nil,
-		{FunctionID: "player.list", Capability: "collection_query", Source: "sdk"},
+		{FunctionID: "player.list", Capability: dbenum.CapabilityCollectionQuery, Source: "sdk"},
 	}
 	sem := s.buildSemantics("game1", "prod", "player", contracts)
 	assert.NotNil(t, sem)
@@ -740,12 +741,12 @@ func TestInferActionSemanticsOnlyInlinesVerifiedResourceIdentity(t *testing.T) {
 	contracts := []*model.FunctionContract{
 		{
 			FunctionID:  "mail.claim",
-			Capability:  "action",
+			Capability:  dbenum.CapabilityAction,
 			InputSchema: datatypes.JSON(`{"type":"object","properties":{"player_id":{"type":"string"}},"required":["player_id"]}`),
 		},
 		{
 			FunctionID:  "mail.retry",
-			Capability:  "action",
+			Capability:  dbenum.CapabilityAction,
 			InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
 		},
 	}

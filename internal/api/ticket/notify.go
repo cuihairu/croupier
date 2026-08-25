@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 )
 
@@ -71,7 +72,7 @@ func (s *Service) sendMessage(ctx context.Context, to, msgType, title, content s
 		Title:   title,
 		Content: content,
 		Data:    dataJSON,
-		Status:  "unread",
+		Status:  dbenum.MessageStatusUnread,
 	}
 	_ = s.svcCtx.MessageModel.Create(ctx, msg)
 }

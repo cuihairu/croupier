@@ -13,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	"github.com/cuihairu/croupier/internal/model"
 	"gorm.io/datatypes"
@@ -109,10 +110,10 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		Deprecated:   input.Deprecated,
 		ResourceKey:  result.Function.Resource,
 		OperationKey: result.Function.Operation,
-		Capability:   string(result.Function.Capability),
+		Capability:   mustParseCapability(string(result.Function.Capability)),
 		Execution:    string(result.Function.Execution),
 		Approval:     approvalPolicyToJSONMap(result.Function.Approval),
-		Risk:         string(result.Function.Risk),
+		Risk:         mustParseRisk(string(result.Function.Risk)),
 		Permission:   result.Function.Permission,
 		InputSchema:  normalizeSchemaToJSON(json.RawMessage(result.Function.InputSchema)),
 		OutputSchema: normalizeSchemaToJSON(json.RawMessage(result.Function.OutputSchema)),
@@ -251,24 +252,24 @@ func (s *ContractService) buildSemantics(gameID, env, resourceKey string, contra
 			continue
 		}
 		switch c.Capability {
-		case "collection_query":
+		case dbenum.CapabilityCollectionQuery:
 			if trackSemanticBinding(tracker, "collectionQueryID", c) {
 				sem.CollectionQueryID = c.ID
 				inferCollectionFields(sem, c)
 			}
-		case "item_query":
+		case dbenum.CapabilityItemQuery:
 			if trackSemanticBinding(tracker, "itemQueryID", c) {
 				sem.ItemQueryID = c.ID
 			}
-		case "create":
+		case dbenum.CapabilityCreate:
 			if trackSemanticBinding(tracker, "createID", c) {
 				sem.CreateID = c.ID
 			}
-		case "update":
+		case dbenum.CapabilityUpdate:
 			if trackSemanticBinding(tracker, "updateID", c) {
 				sem.UpdateID = c.ID
 			}
-		case "delete":
+		case dbenum.CapabilityDelete:
 			if trackSemanticBinding(tracker, "deleteID", c) {
 				sem.DeleteID = c.ID
 			}
@@ -302,7 +303,7 @@ func inferActionSemantics(sem *model.CapabilitySemantics, contracts []*model.Fun
 	}
 	actions := make([]inferredAction, 0)
 	for _, contract := range contracts {
-		if contract == nil || strings.TrimSpace(contract.Capability) != "action" {
+		if contract == nil || contract.Capability != dbenum.CapabilityAction {
 			continue
 		}
 		functionID := strings.TrimSpace(contract.FunctionID)
@@ -861,7 +862,7 @@ func (s *ContractService) RebuildProposalForFunction(ctx context.Context, gameID
 	if contract == nil {
 		return nil
 	}
-	if isCRUDCapability(contract.Capability) && strings.TrimSpace(contract.ResourceKey) != "" {
+	if isCRUDCapability(contract.Capability.String()) && strings.TrimSpace(contract.ResourceKey) != "" {
 		return nil
 	}
 	functions := map[string]spec.FunctionSpec{
@@ -1114,7 +1115,7 @@ func (s *ContractService) upsertGeneratedProposal(
 		CategoryKey:      generated.Category.Key,
 		PageSpec:         datatypes.JSON(pageJSON),
 		Diagnostics:      toJSON(generated.Diagnostics),
-		Status:           "pending",
+		Status:           dbenum.ProposalStatusPending,
 		UpdatedBy:        "system",
 	}
 	changed := true
@@ -1182,12 +1183,12 @@ func proposalComparableDigest(proposal *model.PageProposal) string {
 	})
 }
 
-func preserveGeneratedProposalStatus(status string) string {
+func preserveGeneratedProposalStatus(status dbenum.ProposalStatus) dbenum.ProposalStatus {
 	switch status {
-	case "accepted", "rejected":
+	case dbenum.ProposalStatusAccepted, dbenum.ProposalStatusRejected:
 		return status
 	default:
-		return "pending"
+		return dbenum.ProposalStatusPending
 	}
 }
 
@@ -1211,6 +1212,25 @@ func standaloneProposalKey(pageType spec.PageType, functionID string) string {
 		return ""
 	}
 	return kind + ":" + key
+}
+
+// mustParseCapability converts a normalized wire capability into the DB
+// enum. The normalizer only emits controlled values, so a parse failure is a
+// programming error and gets surfaced instead of silently stored.
+func mustParseCapability(wire string) dbenum.Capability {
+	parsed, err := dbenum.ParseCapability(wire)
+	if err != nil {
+		return dbenum.CapabilityUnknown
+	}
+	return parsed
+}
+
+func mustParseRisk(wire string) dbenum.Risk {
+	parsed, err := dbenum.ParseRisk(wire)
+	if err != nil {
+		return dbenum.RiskSafe
+	}
+	return parsed
 }
 
 func isCRUDCapability(capability string) bool {

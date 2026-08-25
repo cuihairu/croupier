@@ -17,6 +17,7 @@ import (
 	dashboardmerge "github.com/cuihairu/croupier/internal/dashboard/merge"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/service"
@@ -739,7 +740,7 @@ func (s *Service) upsertGeneratedProposal(ctx context.Context, gameID, env, prop
 		CategoryKey:      generated.Category.Key,
 		PageSpec:         datatypes.JSON(pageJSON),
 		Diagnostics:      jsonValue(generated.Diagnostics),
-		Status:           "pending",
+		Status:           dbenum.ProposalStatusPending,
 		UpdatedBy:        actorFromContext(ctx),
 	}
 	if err := s.proposalModel.UpsertProposal(ctx, proposal); err != nil {
@@ -1919,11 +1920,11 @@ func (s *Service) bindingContractChanges(ctx context.Context, gameID, env, pageK
 				IsSemantic: true,
 			})
 		}
-		if strings.TrimSpace(latest.Risk) != string(frozen.Risk) {
+		if latest.Risk.String() != string(frozen.Risk) {
 			changes = append(changes, FieldChange{
 				Path:       "bindings." + frozen.BindingID + ".risk",
 				OldValue:   jsonString(string(frozen.Risk)),
-				NewValue:   jsonString(latest.Risk),
+				NewValue:   jsonString(latest.Risk.String()),
 				ChangeType: "modified",
 				IsSemantic: true,
 			})
@@ -1980,7 +1981,7 @@ func (s *Service) buildBindingContracts(ctx context.Context, gameID, env string,
 			FunctionVersion:       strings.TrimSpace(contract.Version),
 			InputSchemaDigest:     digestRaw(contract.InputSchema),
 			OutputSchemaDigest:    digestRaw(contract.OutputSchema),
-			Risk:                  spec.RiskLevel(contract.Risk),
+			Risk:                  spec.RiskLevel(contract.Risk.String()),
 			Permission:            strings.TrimSpace(contract.Permission),
 			Approval:              service.ApprovalPolicyFromJSONMap(contract.Approval),
 			ExecutionMode:         binding.Execution.Mode,

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,9 +59,9 @@ func TestFunctionContractModel_UpsertContract_Create(t *testing.T) {
 		FunctionID: "player.ban",
 		Version:    "1.0.0",
 		Enabled:    true,
-		Capability: "action",
+		Capability: dbenum.CapabilityAction,
 		Execution:  "task",
-		Risk:       "high",
+		Risk:       dbenum.RiskHigh,
 	}
 	err := m.UpsertContract(ctx, contract)
 	require.NoError(t, err)

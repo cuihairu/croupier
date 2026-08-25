@@ -99,6 +99,10 @@ func (h *Handler) Delete(c *gin.Context) {
 // Transition handles the request to transition ticket status
 func (h *Handler) Transition(c *gin.Context) {
 	var req TransitionRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -131,6 +135,10 @@ func (h *Handler) GetComments(c *gin.Context) {
 // CreateComment handles the request to create a comment
 func (h *Handler) CreateComment(c *gin.Context) {
 	var req CreateCommentRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
