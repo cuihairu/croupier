@@ -24,6 +24,16 @@ type Ticket struct {
 	Env      string              `gorm:"size:64;index:idx_ticket_game_env,priority:2"`
 	Source   string              `gorm:"size:32;index"`
 	DueAt    *time.Time          `gorm:"index"`
+
+	// Player context attached at creation (game-support P1; see
+	// docs/research/game-support-systems.md). Structured columns cover the
+	// common GM triage dimensions; anything else goes into Extra.
+	ServerID    string         `gorm:"size:64;index"`
+	PlayerLevel int            `gorm:"default:0"`
+	DeviceOS    string         `gorm:"size:32"`
+	DeviceModel string         `gorm:"size:128"`
+	Language    string         `gorm:"size:16"`
+	Extra       datatypes.JSON `gorm:"type:json"`
 }
 
 // TicketComment stores comments under /tickets module.

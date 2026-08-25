@@ -80,6 +80,25 @@ func (h *Handler) Delete(c *gin.Context) {
 	response.Success(c, gin.H{"message": "操作成功"})
 }
 
+// Vote handles POST /faqs/:id/vote (player feedback: helpful or not).
+func (h *Handler) Vote(c *gin.Context) {
+	var req FAQVoteRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.Vote(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // Categories handles the request to get FAQ categories
 func (h *Handler) Categories(c *gin.Context) {
 	var req FAQCategoriesRequest

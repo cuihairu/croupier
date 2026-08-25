@@ -8,21 +8,28 @@ type Comment struct {
 }
 
 type Ticket struct {
-	Id        int64    `json:"id"`
-	Title     string   `json:"title"`
-	Content   string   `json:"content"`
-	Category  string   `json:"category"`
-	Priority  string   `json:"priority"`
-	Status    string   `json:"status"`
-	Assignee  string   `json:"assignee"`
-	Tags      []string `json:"tags"`
-	PlayerId  string   `json:"playerId"`
-	Contact   string   `json:"contact"`
-	GameId    string   `json:"gameId"`
-	Env       string   `json:"env"`
-	Source    string   `json:"source"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
+	Id       int64    `json:"id"`
+	Title    string   `json:"title"`
+	Content  string   `json:"content"`
+	Category string   `json:"category"`
+	Priority string   `json:"priority"`
+	Status   string   `json:"status"`
+	Assignee string   `json:"assignee"`
+	Tags     []string `json:"tags"`
+	PlayerId string   `json:"playerId"`
+	Contact  string   `json:"contact"`
+	GameId   string   `json:"gameId"`
+	Env      string   `json:"env"`
+	Source   string   `json:"source"`
+	// 玩家上下文（game-support P1；见 docs/research/game-support-systems.md）
+	ServerId    string                 `json:"serverId,omitempty"`
+	PlayerLevel int                    `json:"playerLevel,omitempty"`
+	DeviceOS    string                 `json:"deviceOs,omitempty"`
+	DeviceModel string                 `json:"deviceModel,omitempty"`
+	Language    string                 `json:"language,omitempty"`
+	Extra       map[string]interface{} `json:"extra,omitempty"`
+	CreatedAt   string                 `json:"createdAt"`
+	UpdatedAt   string                 `json:"updatedAt"`
 }
 
 type TicketCommentCreateRequest struct {
@@ -49,6 +56,13 @@ type TicketCreateRequest struct {
 	GameId   string   `json:"gameId"`
 	Env      string   `json:"env"`
 	Assignee string   `json:"assignee"`
+	// 玩家上下文（game-support P1）
+	ServerId    string                 `json:"serverId,optional"`
+	PlayerLevel int                    `json:"playerLevel,optional"`
+	DeviceOS    string                 `json:"deviceOs,optional"`
+	DeviceModel string                 `json:"deviceModel,optional"`
+	Language    string                 `json:"language,optional"`
+	Extra       map[string]interface{} `json:"extra,optional"`
 }
 
 type TicketDeleteRequest struct {

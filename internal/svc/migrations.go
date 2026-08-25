@@ -24,16 +24,15 @@ import (
 //   0002 (Go)   functions openapi column backfill
 //   0003 (Go)   legacy table/index/column cleanup
 //   0004 (Go)   varchar→int enum column conversion
-//
-// All three are dialect-probing and idempotent: on databases already healed by
-// the baseline bridge they are no-ops. Down migrations only delete the version
-// record (the cleanup/conversion is not reversible).
+//   0005 (Go)   game-support context columns (faqs vote/slug/summary,
+//               tickets player context; docs/research/game-support-systems.md)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
 		openapiBackfillMigration(),
 		legacyCleanupMigration(),
 		enumColumnsMigration(),
+		supportContextMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -79,6 +78,48 @@ func enumColumnsMigration() *goose.Migration {
 				return err
 			}
 			return model.MigrateEnumColumns(db)
+		}},
+		nil,
+	)
+}
+
+// supportContextColumns lists the game-support P1 columns added by migration
+// 0005 (table model → column). GORM's AddColumn(model, columnName) emits the
+// dialect-appropriate DDL from the model tags; HasColumn keeps it idempotent.
+var supportContextColumns = []struct {
+	model  func() interface{}
+	column string
+}{
+	{func() interface{} { return &model.FAQ{} }, "slug"},
+	{func() interface{} { return &model.FAQ{} }, "summary"},
+	{func() interface{} { return &model.FAQ{} }, "helpful_count"},
+	{func() interface{} { return &model.FAQ{} }, "unhelpful_count"},
+	{func() interface{} { return &model.Ticket{} }, "server_id"},
+	{func() interface{} { return &model.Ticket{} }, "player_level"},
+	{func() interface{} { return &model.Ticket{} }, "device_os"},
+	{func() interface{} { return &model.Ticket{} }, "device_model"},
+	{func() interface{} { return &model.Ticket{} }, "language"},
+	{func() interface{} { return &model.Ticket{} }, "extra"},
+}
+
+func supportContextMigration() *goose.Migration {
+	return goose.NewGoMigration(5,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			migrator := db.Migrator()
+			for _, col := range supportContextColumns {
+				mdl := col.model()
+				table := mdl.(interface{ TableName() string }).TableName()
+				if migrator.HasTable(table) && !migrator.HasColumn(mdl, col.column) {
+					if err := migrator.AddColumn(mdl, col.column); err != nil {
+						return fmt.Errorf("migrate: 0005 add %s.%s: %w", table, col.column, err)
+					}
+				}
+			}
+			return nil
 		}},
 		nil,
 	)

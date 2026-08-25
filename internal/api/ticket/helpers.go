@@ -37,22 +37,42 @@ func sanitizeTicketStatus(status string) (dbenum.TicketStatus, error) {
 
 func buildTicketDTO(ticket *model.Ticket) Ticket {
 	return Ticket{
-		Id:        int64(ticket.ID),
-		Title:     ticket.Title,
-		Content:   ticket.Content,
-		Category:  ticket.Category,
-		Priority:  ticket.Priority,
-		Status:    ticket.Status.String(),
-		Assignee:  ticket.Assignee,
-		Tags:      decodeTicketTags(ticket.Tags),
-		PlayerId:  ticket.PlayerID,
-		Contact:   ticket.Contact,
-		GameId:    ticket.GameID,
-		Env:       ticket.Env,
-		Source:    ticket.Source,
-		CreatedAt: utils.FormatTimestamp(ticket.CreatedAt),
-		UpdatedAt: utils.FormatTimestamp(ticket.UpdatedAt),
+		Id:       int64(ticket.ID),
+		Title:    ticket.Title,
+		Content:  ticket.Content,
+		Category: ticket.Category,
+		Priority: ticket.Priority,
+		Status:   ticket.Status.String(),
+		Assignee: ticket.Assignee,
+		Tags:     decodeTicketTags(ticket.Tags),
+		PlayerId: ticket.PlayerID,
+		Contact:  ticket.Contact,
+		GameId:   ticket.GameID,
+		Env:      ticket.Env,
+		Source:   ticket.Source,
+		// 玩家上下文（game-support P1）
+		ServerId:    ticket.ServerID,
+		PlayerLevel: ticket.PlayerLevel,
+		DeviceOS:    ticket.DeviceOS,
+		DeviceModel: ticket.DeviceModel,
+		Language:    ticket.Language,
+		Extra:       decodeTicketExtra(ticket.Extra),
+		CreatedAt:   utils.FormatTimestamp(ticket.CreatedAt),
+		UpdatedAt:   utils.FormatTimestamp(ticket.UpdatedAt),
 	}
+}
+
+// decodeTicketExtra unmarshals the free-form context payload for the API
+// response; nil when absent.
+func decodeTicketExtra(data datatypes.JSON) map[string]interface{} {
+	if len(data) == 0 {
+		return nil
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 func decodeTicketTags(data interface{}) []string {
@@ -160,7 +180,37 @@ func sanitizeTicketFields(req *CreateRequest) (*model.Ticket, error) {
 		GameID:   strings.TrimSpace(req.GameId),
 		Env:      strings.TrimSpace(req.Env),
 		Source:   "api",
+		// 玩家上下文（game-support P1）
+		ServerID:    strings.TrimSpace(req.ServerId),
+		PlayerLevel: sanitizePlayerLevel(req.PlayerLevel),
+		DeviceOS:    strings.TrimSpace(req.DeviceOS),
+		DeviceModel: strings.TrimSpace(req.DeviceModel),
+		Language:    strings.TrimSpace(req.Language),
+		Extra:       encodeTicketExtra(req.Extra),
 	}, nil
+}
+
+// sanitizePlayerLevel clamps the level into a sane range (0 = unknown).
+func sanitizePlayerLevel(level int) int {
+	if level < 0 {
+		return 0
+	}
+	if level > 10000 {
+		return 10000
+	}
+	return level
+}
+
+// encodeTicketExtra marshals the free-form context payload; nil when empty.
+func encodeTicketExtra(extra map[string]interface{}) datatypes.JSON {
+	if len(extra) == 0 {
+		return nil
+	}
+	bytes, err := json.Marshal(extra)
+	if err != nil {
+		return nil
+	}
+	return datatypes.JSON(bytes)
 }
 
 func addComment(author, content string, ticketID uint) *model.TicketComment {

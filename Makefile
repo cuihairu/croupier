@@ -314,16 +314,16 @@ migrate-hash:
 test-all: test test-integration
 	@echo "[test] all tests completed"
 
-# Check test coverage against threshold (80%)
+# Check test coverage against threshold (90%)
 test-coverage-check:
-	@echo "[test] checking coverage threshold (80%)..."
+	@echo "[test] checking coverage threshold (90%)..."
 	@go test -coverprofile=coverage.out -covermode=atomic ./... > /dev/null 2>&1
 	@total=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
-	if [ $$(echo "$$total < 80.0" | bc) -eq 1 ]; then \
-		echo "❌ Coverage $$total% is below 80% threshold"; \
+	if [ $$(echo "$$total < 90.0" | bc) -eq 1 ]; then \
+		echo "❌ Coverage $$total% is below 90% threshold"; \
 		exit 1; \
 	else \
-		echo "✅ Coverage $$total% meets 80% threshold"; \
+		echo "✅ Coverage $$total% meets 90% threshold"; \
 	fi
 
 # Run tests for specific package

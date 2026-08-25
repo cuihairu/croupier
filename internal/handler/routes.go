@@ -627,6 +627,8 @@ func registerFAQRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/", faqHandler.Create)
 	g.PUT("/:id", faqHandler.Update)
 	g.DELETE("/:id", faqHandler.Delete)
+	// 玩家反馈投票（有用/无用），驱动 FAQ 内容治理队列
+	g.POST("/:id/vote", faqHandler.Vote)
 	g.GET("/categories", faqHandler.Categories)
 }
 

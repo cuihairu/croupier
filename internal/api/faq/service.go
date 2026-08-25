@@ -27,7 +27,9 @@ func (s *Service) List(ctx context.Context, req *FAQListRequest) (*FAQListRespon
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
 		Category:          strings.TrimSpace(req.Category),
 		Keyword:           strings.TrimSpace(req.Keyword),
+		Tag:               strings.TrimSpace(req.Tag),
 		Visible:           req.Visible,
+		OrderByHelpful:    strings.EqualFold(strings.TrimSpace(req.OrderBy), "helpful"),
 	}
 
 	items, total, err := s.svcCtx.FAQModel.List(ctx, opts)
@@ -48,6 +50,25 @@ func (s *Service) List(ctx context.Context, req *FAQListRequest) (*FAQListRespon
 	}, nil
 }
 
+// Vote records a helpful/unhelpful vote and returns the updated counters.
+func (s *Service) Vote(ctx context.Context, req *FAQVoteRequest) (*FAQVoteResponse, error) {
+	id, err := utils.ParseUintID(req.ID, "FAQ ID")
+	if err != nil {
+		return nil, err
+	}
+	if err := s.svcCtx.FAQModel.Vote(ctx, id, req.Helpful); err != nil {
+		return nil, err
+	}
+	faq, err := s.svcCtx.FAQModel.FindOne(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &FAQVoteResponse{
+		HelpfulCount:   faq.HelpfulCount,
+		UnhelpfulCount: faq.UnhelpfulCount,
+	}, nil
+}
+
 // Create creates a new FAQ
 func (s *Service) Create(ctx context.Context, req *FAQCreateRequest) (*FAQCreateResponse, error) {
 	question, answer, category, err := sanitizeFAQInput(req.Question, req.Answer, req.Category)
@@ -62,6 +83,16 @@ func (s *Service) Create(ctx context.Context, req *FAQCreateRequest) (*FAQCreate
 		Tags:     encodeTags(req.Tags),
 		Visible:  req.Visible,
 		Sort:     req.Sort,
+		Slug:     slugify(req.Slug),
+		Summary:  strings.TrimSpace(req.Summary),
+	}
+
+	if slug := faq.Slug; slug != "" {
+		if taken, err := s.svcCtx.FAQModel.SlugExists(ctx, slug, 0); err != nil {
+			return nil, err
+		} else if taken {
+			return nil, errorx.NewConflict("slug 已被使用: " + slug)
+		}
 	}
 
 	if err := s.svcCtx.FAQModel.Create(ctx, faq); err != nil {
@@ -98,6 +129,20 @@ func (s *Service) Update(ctx context.Context, req *FAQUpdateRequest) (*FAQUpdate
 	}
 	if req.Sort != nil {
 		updates["sort"] = *req.Sort
+	}
+	if req.Slug != nil {
+		slug := slugify(*req.Slug)
+		if slug != "" {
+			if taken, err := s.svcCtx.FAQModel.SlugExists(ctx, slug, id); err != nil {
+				return nil, err
+			} else if taken {
+				return nil, errorx.NewConflict("slug 已被使用: " + slug)
+			}
+		}
+		updates["slug"] = slug
+	}
+	if req.Summary != nil {
+		updates["summary"] = strings.TrimSpace(*req.Summary)
 	}
 
 	if len(updates) == 0 {
@@ -151,17 +196,27 @@ func (s *Service) Categories(ctx context.Context, req *FAQCategoriesRequest) (*F
 
 func buildFAQResponse(faq *model.FAQ) FAQ {
 	return FAQ{
-		Id:        int64(faq.ID),
-		Question:  faq.Question,
-		Answer:    faq.Answer,
-		Category:  faq.Category,
-		Tags:      decodeTags(faq.Tags),
-		Visible:   faq.Visible,
-		Sort:      faq.Sort,
-		Views:     faq.Views,
-		CreatedAt: utils.FormatTimestamp(faq.CreatedAt),
-		UpdatedAt: utils.FormatTimestamp(faq.UpdatedAt),
+		Id:             int64(faq.ID),
+		Question:       faq.Question,
+		Answer:         faq.Answer,
+		Category:       faq.Category,
+		Tags:           decodeTags(faq.Tags),
+		Visible:        faq.Visible,
+		Sort:           faq.Sort,
+		Views:          faq.Views,
+		Slug:           faq.Slug,
+		Summary:        faq.Summary,
+		HelpfulCount:   faq.HelpfulCount,
+		UnhelpfulCount: faq.UnhelpfulCount,
+		CreatedAt:      utils.FormatTimestamp(faq.CreatedAt),
+		UpdatedAt:      utils.FormatTimestamp(faq.UpdatedAt),
 	}
+}
+
+// slugify trims an explicit slug. Slugs are optional but must be unique:
+// they are the stable reference for AI citations and player-side deep links.
+func slugify(explicit string) string {
+	return strings.TrimSpace(explicit)
 }
 
 func decodeTags(data datatypes.JSON) []string {
