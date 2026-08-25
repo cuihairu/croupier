@@ -22,6 +22,7 @@ import (
 	extensionruntime "github.com/cuihairu/croupier/internal/core/extension/runtime"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"github.com/cuihairu/croupier/internal/db/migrate"
 	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
@@ -134,9 +135,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 自动迁移数据库模型
 	slog.Default().Info("Starting database migration")
 	multiGame := c.Database.MultiGame
+	migrateCtx := context.Background()
 	if multiGame {
-		if err := autoMigrateMeta(db); err != nil {
-			panic(fmt.Sprintf("Failed to auto migrate meta database: %v", err))
+		if _, err := migrateMeta(migrateCtx, db); err != nil {
+			panic(fmt.Sprintf("Failed to migrate meta database: %v", err))
 		}
 	} else {
 		if err := autoMigrate(db); err != nil {
@@ -513,6 +515,16 @@ func autoMigrate(db *gorm.DB) error {
 	return nil
 }
 
+// migrateMeta brings the meta database to the latest schema version via the
+// versioned migration executor. The legacy AutoMigrate path only runs as the
+// one-time baseline bridge on fresh/pre-versioning databases
+// (docs/architecture/database-migration-strategy.md).
+func migrateMeta(ctx context.Context, db *gorm.DB) (int64, error) {
+	return migrate.EnsureUpToDate(ctx, db, migrate.ScopeMeta, func(db *gorm.DB) error {
+		return autoMigrateMeta(db)
+	})
+}
+
 // autoMigrateMeta migrates only meta-level models into the meta database
 // (database-per-game architecture).
 func autoMigrateMeta(db *gorm.DB) error {
@@ -540,8 +552,8 @@ func newGameRouter(c config.Config, metaDB *gorm.DB) *router.Router {
 		EnsureDatabase: EnsureGameDatabase,
 		Open:           OpenGormForRouter,
 		MigrateGame: func(db *gorm.DB) error {
-			if err := model.AutoMigrateGame(db); err != nil {
-				return fmt.Errorf("migrate game models: %w", err)
+			if _, err := migrate.EnsureUpToDate(context.Background(), db, migrate.ScopeGame, model.AutoMigrateGame); err != nil {
+				return err
 			}
 			return nil
 		},
