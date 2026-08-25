@@ -8,6 +8,7 @@ export default {
   'menu.AccessControl.Permissions.Users': 'User Management',
   'menu.AccessControl.Permissions.Config': 'Permission Config',
   'menu.AccessControl.LoginLogs': 'Login Logs',
+  'menu.AccessControl.OperationLogs': 'Operation Logs',
 
   // Security settings
   'menu.Security': 'Security',
@@ -25,6 +26,7 @@ export default {
   'menu.FunctionsAndPages.PageStudio': 'Page Studio',
   'menu.FunctionsAndPages.OpenAPISources': 'OpenAPI Sources',
   'menu.FunctionsAndPages.FunctionInvoke': 'Function Invoke',
+  'menu.FunctionsAndPages.FunctionDetail': 'Function Detail',
   'menu.FunctionsAndPages.FunctionInstances': 'Instance Management',
   'menu.FunctionsAndPages.FunctionWarnings': 'Registration Warnings',
   'menu.FunctionsAndPages.FunctionAssignments': 'Permission Assignments',

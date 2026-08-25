@@ -8,6 +8,7 @@ export default {
   'menu.AccessControl.Permissions.Users': '用户管理',
   'menu.AccessControl.Permissions.Config': '权限配置',
   'menu.AccessControl.LoginLogs': '登录日志',
+  'menu.AccessControl.OperationLogs': '操作日志',
 
   // 安全设置
   'menu.Security': '安全管理',
