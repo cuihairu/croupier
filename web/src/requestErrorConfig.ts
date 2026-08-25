@@ -1,9 +1,11 @@
 ﻿import type { RequestOptions } from '@@/plugin-request/request';
 import type { RequestConfig } from '@umijs/max';
 import { history } from '@umijs/max';
+import { createElement } from 'react';
 // Use App.useApp() instances (see app.tsx) to avoid AntD static message warnings
 import { getMessage, getNotification } from './utils/antdApp';
 import { normalizeApiUrl, API_V1_PREFIX } from './utils/api';
+import { extractErrorDetails } from './utils/errors';
 import { getScopeHeaders, needsResolvedScope, waitForResolvedScope } from './services/core/scope';
 import { setScope } from './stores/scope';
 import type { JSONValue } from '@/types/dashboard';
@@ -27,6 +29,34 @@ function msgWarn(text: string) {
 function notiOpen(message: string | number | undefined, description?: string) {
   const api = getNotification();
   if (api) defer(() => api.open({ message: String(message ?? ''), description }));
+}
+
+function notiError(title: string, details: Array<{ field: string; message: string }>) {
+  const api = getNotification();
+  if (!api) return false;
+  const items = details
+    .slice(0, 20)
+    .map((d, i) =>
+      createElement(
+        'li',
+        { key: `${d.field}-${i}` },
+        d.field ? createElement('code', null, d.field, ': ') : null,
+        d.message,
+      ),
+    );
+  if (details.length > 20) {
+    items.push(createElement('li', { key: 'more' }, `…以及另外 ${details.length - 20} 条`));
+  }
+  const list = createElement(
+    'ul',
+    { style: { margin: 0, paddingLeft: 18, maxHeight: 240, overflowY: 'auto' } },
+    items,
+  );
+  defer(() => {
+    // duration 0 = 不自动关闭，用户需逐条阅读结构化明细
+    api.error({ message: title, description: list, duration: 0 });
+  });
+  return true;
 }
 
 type RestErrorPayload = {
@@ -163,6 +193,9 @@ export const errorConfig: RequestConfig = {
         } else if (errorCode === 'forbidden') {
           if (history.location?.pathname !== '/403') history.push('/403');
         }
+        // 结构化校验明细（details）用常驻 notification 展示，方便用户逐条定位
+        const details = extractErrorDetails(reqError);
+        if (details.length > 0 && notiError(message, details)) return;
         msgError(message);
         return;
       }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -56,9 +57,16 @@ import {
   type MergeResponse,
   type MergeStrategy,
 } from '@/services/api/versioning';
-import type { PageSpec, PageSpecDraftSummary, PageType, PageVersionItem } from '@/types/dashboard';
+import type {
+  PageSpec,
+  PageSpecDraft,
+  PageSpecDraftSummary,
+  PageType,
+  PageVersionItem,
+} from '@/types/dashboard';
 import { requestConsoleMenuRefresh } from '@/utils/consoleMenu';
 import { localizedText } from '@/utils/localizedText';
+import { extractErrorDetails, extractErrorMessage } from '@/utils/errors';
 
 const { Paragraph, Text } = Typography;
 
@@ -96,11 +104,32 @@ function currentFocusPageKey(): string {
   return new URLSearchParams(window.location.search).get('focus') || '';
 }
 
+/** 结构化错误明细列表：展示后端 details（字段路径 → 失败原因）。 */
+function ErrorDetailList({ error }: { error: unknown }) {
+  const details = extractErrorDetails(error);
+  if (details.length === 0) return null;
+  return (
+    <ul style={{ margin: 0, paddingLeft: 18, maxHeight: 260, overflowY: 'auto' }}>
+      {details.map((d, i) => (
+        <li key={`${d.field}-${i}`}>
+          {d.field ? (
+            <>
+              <code>{d.field}</code>
+              {': '}
+            </>
+          ) : null}
+          {d.message}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function PageStudio() {
   const { message, modal } = App.useApp();
   const [drafts, setDrafts] = useState<PageSpecDraftSummary[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedDraft, setSelectedDraft] = useState<PageSpec | null>(null);
+  const [selectedDraft, setSelectedDraft] = useState<PageSpecDraft | null>(null);
   const [selectedDraftRevision, setSelectedDraftRevision] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [editorVisible, setEditorVisible] = useState(false);
@@ -208,6 +237,17 @@ export default function PageStudio() {
     }
   }, [handleEdit]);
 
+  // 编辑器只改页面内容部分；draft 元数据（status/revision/bindingFreshness
+  // 等）保留当前 state 的值。
+  const updateSelectedDraftSpec = useCallback((value: PageSpec) => {
+    setSelectedDraft((prev) => {
+      if (!prev) return null;
+      // spread union 后 TS 无法证明变体互斥字段，此处断言是安全的：
+      // value 是编辑器基于当前 draft 产出的同变体 PageSpec。
+      return { ...prev, ...value } as PageSpecDraft;
+    });
+  }, []);
+
   const handleSave = useCallback(
     async (options?: { publishAfterSave?: boolean }) => {
       if (!selectedDraft) return;
@@ -224,9 +264,22 @@ export default function PageStudio() {
             await publishPageDraft(selectedDraft.pageKey, result.draftRevision);
             requestConsoleMenuRefresh();
             message.success('已保存并发布');
-          } catch {
+          } catch (publishError) {
             // 草稿已保存，仅发布失败：保留编辑器打开让用户决定重试或稍后发布
-            message.error('草稿已保存，但发布失败；可稍后在列表或 Proposal Inbox 重试发布');
+            const reason = extractErrorMessage(publishError, '未知原因');
+            modal.error({
+              title: '发布失败（草稿已保存）',
+              width: 560,
+              content: (
+                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                  <Typography.Text type="secondary">失败原因：{reason}</Typography.Text>
+                  <ErrorDetailList error={publishError} />
+                  <Typography.Text type="warning">
+                    通常是函数契约已变化导致页面绑定失效，可点击「重新生成草稿」按最新契约重建后再发布。
+                  </Typography.Text>
+                </Space>
+              ),
+            });
             loadDrafts();
             return;
           }
@@ -235,13 +288,24 @@ export default function PageStudio() {
         }
         setEditorVisible(false);
         loadDrafts();
-      } catch {
-        message.error('保存失败');
+      } catch (saveError) {
+        modal.error({
+          title: '保存失败',
+          width: 560,
+          content: (
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Typography.Text type="secondary">
+                {extractErrorMessage(saveError, '保存失败，请稍后重试')}
+              </Typography.Text>
+              <ErrorDetailList error={saveError} />
+            </Space>
+          ),
+        });
       } finally {
         setSaving(false);
       }
     },
-    [loadDrafts, message, selectedDraft, selectedDraftRevision],
+    [loadDrafts, message, modal, selectedDraft, selectedDraftRevision],
   );
 
   const handleRegenerate = useCallback(
@@ -671,7 +735,28 @@ export default function PageStudio() {
               span={livePreview ? 13 : 24}
               style={{ height: '100%', overflow: 'auto', paddingRight: 4 }}
             >
-              <PageEditor value={selectedDraft} onChange={setSelectedDraft} />
+              {selectedDraft.bindingFreshness && selectedDraft.bindingFreshness.length > 0 ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="页面绑定与函数契约不一致（发布会校验失败）"
+                  description={
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {selectedDraft.bindingFreshness.slice(0, 8).map((item, i) => (
+                        <li key={i}>
+                          <code>{item.functionId || item.bindingId || '-'}</code>
+                          {item.diagnostic?.message ? `：${item.diagnostic.message}` : ''}
+                        </li>
+                      ))}
+                      {selectedDraft.bindingFreshness.length > 8 ? (
+                        <li>…以及另外 {selectedDraft.bindingFreshness.length - 8} 条</li>
+                      ) : null}
+                    </ul>
+                  }
+                />
+              ) : null}
+              <PageEditor value={selectedDraft} onChange={updateSelectedDraftSpec} />
             </Col>
             {livePreview ? (
               <Col span={11} style={{ height: '100%', overflow: 'auto' }}>

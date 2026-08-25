@@ -219,7 +219,7 @@ func TestServicePublishRejectsStaleDraftRevision(t *testing.T) {
 		DraftRevision: &staleRevision,
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "page draft revision conflict")
+	assert.Contains(t, err.Error(), "草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试")
 
 	_, err = service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", "player.manage")
 	assert.Error(t, err)
@@ -256,7 +256,7 @@ func TestServiceRollbackRejectsStaleDraftRevision(t *testing.T) {
 		ExpectedDraftRevision: &staleRevision,
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "page draft revision conflict")
+	assert.Contains(t, err.Error(), "草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试")
 
 	draft, err := service.GetDraft(ctx, &PageDraftRequest{PageKey: "player.manage"})
 	require.NoError(t, err)
@@ -618,7 +618,7 @@ func TestServiceRegenerateDraftRejectsRevisionConflict(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "page draft revision conflict")
+	assert.Contains(t, err.Error(), "草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试")
 }
 
 func TestServiceRegenerateDraftRejectsMissingProposal(t *testing.T) {

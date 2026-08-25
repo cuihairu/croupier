@@ -454,7 +454,7 @@ func TestServiceSaveDraftRejectsConflictOnNewPage(t *testing.T) {
 		Bindings:  testPageBindings(),
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "page draft revision conflict")
+	assert.Contains(t, err.Error(), "草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试")
 }
 
 // ──────────────────────────────────────────────────────

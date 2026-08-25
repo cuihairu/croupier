@@ -73,7 +73,7 @@ type PageRollbackResponse = {
 type PageRegenerateResponse = {
   pageKey: string;
   draftRevision: number;
-  page: PageSpec;
+  page: PageSpecDraft;
   diagnostics?: Diagnostic[];
   quality: 'ready' | 'basic' | 'needs_review';
 };

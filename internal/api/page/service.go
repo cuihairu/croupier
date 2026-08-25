@@ -172,13 +172,13 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 			return err
 		}
 		if existing == nil && *req.DraftRevision != 0 {
-			return errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+			return errorx.NewConflictWithDetails("草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试", map[string]any{
 				"expected": 0,
 				"current":  0,
 			})
 		}
 		if existing != nil && existing.DraftRevision != *req.DraftRevision {
-			return errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+			return errorx.NewConflictWithDetails("草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试", map[string]any{
 				"expected": existing.DraftRevision,
 				"current":  existing.DraftRevision,
 				"provided": *req.DraftRevision,
@@ -270,7 +270,7 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 		return nil, ErrPageNotFound(req.PageKey)
 	}
 	if p.DraftRevision != *req.DraftRevision {
-		return nil, errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+		return nil, errorx.NewConflictWithDetails("草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试", map[string]any{
 			"expected": p.DraftRevision,
 			"current":  p.DraftRevision,
 			"provided": *req.DraftRevision,
@@ -403,7 +403,7 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 		return nil, ErrPageNotFound(req.PageKey)
 	}
 	if p.DraftRevision != *req.DraftRevision {
-		return nil, errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+		return nil, errorx.NewConflictWithDetails("草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试", map[string]any{
 			"expected": p.DraftRevision,
 			"current":  p.DraftRevision,
 			"provided": *req.DraftRevision,
@@ -442,7 +442,7 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 			return ErrPageNotFound(req.PageKey)
 		}
 		if latestPage.DraftRevision != *req.DraftRevision {
-			return errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+			return errorx.NewConflictWithDetails("草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试", map[string]any{
 				"expected": *req.DraftRevision,
 				"current":  latestPage.DraftRevision,
 			})
@@ -655,7 +655,7 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 			return ErrPageNotFound(req.PageKey)
 		}
 		if p.DraftRevision != *req.ExpectedDraftRevision {
-			return errorx.NewConflictWithDetails("page draft revision conflict", map[string]any{
+			return errorx.NewConflictWithDetails("草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试", map[string]any{
 				"expected": *req.ExpectedDraftRevision,
 				"current":  p.DraftRevision,
 			})
