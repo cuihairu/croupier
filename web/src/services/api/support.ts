@@ -89,6 +89,7 @@ export interface FeedbackListParams {
   pageSize?: number;
   size?: number;
   status?: string;
+  excludeStatus?: string;
   category?: string;
   gameId?: string;
   q?: string;
@@ -412,6 +413,7 @@ export async function listFeedback(params?: FeedbackListParams) {
       page: params?.page,
       pageSize: params?.pageSize || params?.size,
       status: params?.status,
+      excludeStatus: params?.excludeStatus,
       category: params?.category,
       q: params?.q,
       gameId: params?.gameId,

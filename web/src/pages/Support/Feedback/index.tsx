@@ -40,6 +40,7 @@ export default function SupportFeedbackPage() {
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
   const [gameId, setGameId] = useState('');
+  const [pendingOnly, setPendingOnly] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FeedbackItem | null>(null);
   const [form] = Form.useForm();
@@ -48,7 +49,16 @@ export default function SupportFeedbackPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listFeedback({ q, category, status, gameId, page, size });
+      const res = await listFeedback({
+        q,
+        category,
+        status,
+        gameId,
+        page,
+        size,
+        // 分诊队列定位：默认隐藏已转工单的反馈，避免与工单列表重复
+        excludeStatus: pendingOnly && !status ? 'triaged' : undefined,
+      });
       setList((res.feedback || []) as unknown as FeedbackItem[]);
       setTotal(res.total || 0);
     } catch (error) {
@@ -56,7 +66,7 @@ export default function SupportFeedbackPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, category, status, gameId, page, size]);
+  }, [q, category, status, gameId, page, size, pendingOnly]);
   useEffect(() => {
     load();
   }, [load]);
