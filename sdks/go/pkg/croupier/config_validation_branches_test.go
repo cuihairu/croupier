@@ -55,7 +55,7 @@ func TestValidateReconnectConfig_NilAndNegativeMaxDelay(t *testing.T) {
 		t.Fatalf("ValidateReconnectConfig(nil) error = %v, want nil", err)
 	}
 	if err := ValidateReconnectConfig(&ReconnectConfig{MaxDelayMs: -5}); err == nil ||
-		!strings.Contains(err.Error(), "max_delay_ms cannot be negative") {
+		!strings.Contains(err.Error(), "maxDelayMs cannot be negative") {
 		t.Fatalf("ValidateReconnectConfig() error = %v, want negative max delay rejection", err)
 	}
 }
@@ -75,7 +75,7 @@ func TestValidateTaskEvent_NilAndMissingTaskID(t *testing.T) {
 		t.Fatalf("ValidateTaskEvent(nil) error = %v, want nil event rejection", err)
 	}
 	if err := ValidateTaskEvent(&TaskEvent{EventType: "started"}); err == nil ||
-		!strings.Contains(err.Error(), "task_id is required") {
+		!strings.Contains(err.Error(), "taskId is required") {
 		t.Fatalf("ValidateTaskEvent() error = %v, want missing task ID rejection", err)
 	}
 

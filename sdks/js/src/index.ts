@@ -282,17 +282,17 @@ export interface FunctionDescriptor {
   name?: string;
   summary?: string;
   description?: string;
-  operation_id?: string;
+  operationId?: string;
   deprecated?: boolean;
-  input_schema?: Record<string, unknown>;
-  output_schema?: Record<string, unknown>;
+  inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
   resource?: string;
   risk?: string;
   operation?: string;
   capability?: string;
   execution?: string;
-  approval_required?: boolean;
-  approval_policy_key?: string;
+  approvalRequired?: boolean;
+  approvalPolicyKey?: string;
   permission?: string;
   enabled?: boolean;
 }
@@ -363,10 +363,10 @@ interface ProviderFunctionDescriptor {
   tags?: string[];
   summary?: string;
   description?: string;
-  operation_id?: string;
+  operationId?: string;
   deprecated?: boolean;
-  input_schema?: string;
-  output_schema?: string;
+  inputSchema?: string;
+  outputSchema?: string;
   resource?: string;
   risk?: string;
   operation?: string;
@@ -700,13 +700,13 @@ export class BasicClient implements CroupierClient {
       tags: desc.tags,
       summary: desc.summary || desc.name,
       description: desc.description,
-      operation_id: desc.operation_id || desc.id,
+      operationId: desc.operationId || desc.id,
       deprecated: desc.deprecated,
-      input_schema: desc.input_schema
-        ? JSON.stringify(desc.input_schema)
+      inputSchema: desc.inputSchema
+        ? JSON.stringify(desc.inputSchema)
         : undefined,
-      output_schema: desc.output_schema
-        ? JSON.stringify(desc.output_schema)
+      outputSchema: desc.outputSchema
+        ? JSON.stringify(desc.outputSchema)
         : undefined,
       resource: desc.resource,
       risk: desc.risk,
@@ -728,20 +728,20 @@ export class BasicClient implements CroupierClient {
         tags: desc.tags || [],
         summary: desc.summary || desc.name || "",
         description: desc.description || "",
-        operation_id: desc.operation_id || desc.id,
+        operationId: desc.operationId || desc.id,
         deprecated: desc.deprecated || false,
-        input_schema: desc.input_schema
-          ? JSON.stringify(desc.input_schema)
+        inputSchema: desc.inputSchema
+          ? JSON.stringify(desc.inputSchema)
           : "",
-        output_schema: desc.output_schema
-          ? JSON.stringify(desc.output_schema)
+        outputSchema: desc.outputSchema
+          ? JSON.stringify(desc.outputSchema)
           : "",
         resource: desc.resource || "",
         operation: desc.operation || "",
         capability: desc.capability || "",
         execution: desc.execution || "",
-        approval_required: desc.approval_required ?? false,
-        approval_policy_key: desc.approval_policy_key || "",
+        approvalRequired: desc.approvalRequired ?? false,
+        approvalPolicyKey: desc.approvalPolicyKey || "",
         risk: desc.risk || "",
         enabled: desc.enabled ?? true,
         permission: desc.permission || "",
@@ -1420,14 +1420,14 @@ export class BasicClient implements CroupierClient {
         version: fn.version,
         summary: fn.summary,
         description: fn.description,
-        inputSchema: fn.input_schema,
-        outputSchema: fn.output_schema,
+        inputSchema: fn.inputSchema,
+        outputSchema: fn.outputSchema,
         resource: fn.resource,
         operation: fn.operation,
         capability: fn.capability,
         execution: fn.execution,
-        approvalRequired: fn.approval_required,
-        approvalPolicyKey: fn.approval_policy_key,
+        approvalRequired: fn.approvalRequired,
+        approvalPolicyKey: fn.approvalPolicyKey,
         risk: fn.risk,
         enabled: fn.enabled,
         permission: fn.permission,
@@ -1517,8 +1517,8 @@ export class BasicClient implements CroupierClient {
       risk: desc.risk,
       permission: desc.permission,
       description: desc.description,
-      input_schema: desc.input_schema,
-      output_schema: desc.output_schema,
+      inputSchema: desc.inputSchema,
+      outputSchema: desc.outputSchema,
     }));
 
     return {

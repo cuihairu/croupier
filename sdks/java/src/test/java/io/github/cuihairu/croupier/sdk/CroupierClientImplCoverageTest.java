@@ -276,7 +276,7 @@ class CroupierClientImplCoverageTest {
         assertTrue(json.contains("\"tags\":[\"tag1\",\"tag2\"]"));
         assertTrue(json.contains("\"summary\":\"Summary\""));
         assertTrue(json.contains("\"description\":\"Description\""));
-        assertTrue(json.contains("\"operation_id\":\"opId\""));
+        assertTrue(json.contains("\"operationId\":\"opId\""));
         assertTrue(json.contains("\"deprecated\":true"));
         assertTrue(json.contains("\"enabled\":true"));
         assertTrue(json.contains("\"resource\":\"player\""));

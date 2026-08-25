@@ -49,6 +49,10 @@ OpenAPI operation / SDK descriptor
 | `enabled` / `deprecated`  | 标准字段                        | 同名字段       | 目录与执行开关；disabled 合同持久化保留但不可执行、不可发布 |
 | `tags`                    | 标准字段                        | `tags`         | 目录与检索用途，非菜单事实                                  |
 
+### 命名约定
+
+FunctionContract 对外暴露的 SDK / JSON 字段名统一使用 lowerCamelCase（如 `inputSchema`、`outputSchema`、`approvalRequired`）。proto 字段名按 protobuf 规范保留 snake_case，其生成的 `json_name` 即 lowerCamelCase；文档、示例与 SDK 对外表层一律以 lowerCamelCase 指代契约字段，禁止把 proto 字段名直接透传为 JSON/SDK 键名。语言原生标识符遵循各自惯例（如 Python kwargs 为 snake_case），但 SDK 序列化到 JSON/wire 时必须使用本表的 lowerCamelCase 契约键。
+
 `capability` 只允许：
 
 ```text

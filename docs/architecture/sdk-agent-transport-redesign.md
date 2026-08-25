@@ -252,14 +252,14 @@ SDK 与 Agent 建连后，应在该连接上建立 provider session，而不是�
 
 推荐保留 `0x05xx` 分组，但重定义为：
 
-| MsgID | 建议名称 | 说明 |
-|------:|-----------|------|
-| `0x050101` | `ProviderConnectRequest` | SDK 建立 provider session |
-| `0x050102` | `ProviderConnectResponse` | 返回 `session_id` / 能力协商结果 |
-| `0x050103` | `ProviderHeartbeatRequest` | SDK 心跳 |
-| `0x050104` | `ProviderHeartbeatResponse` | Agent 心跳响应 |
-| `0x050105` | `ProviderDrainRequest` | Agent 主动要求 SDK 停止接新请求 |
-| `0x050106` | `ProviderDrainResponse` | SDK 确认 drain 状态 |
+|      MsgID | 建议名称                    | 说明                             |
+| ---------: | --------------------------- | -------------------------------- |
+| `0x050101` | `ProviderConnectRequest`    | SDK 建立 provider session        |
+| `0x050102` | `ProviderConnectResponse`   | 返回 `session_id` / 能力协商结果 |
+| `0x050103` | `ProviderHeartbeatRequest`  | SDK 心跳                         |
+| `0x050104` | `ProviderHeartbeatResponse` | Agent 心跳响应                   |
+| `0x050105` | `ProviderDrainRequest`      | Agent 主动要求 SDK 停止接新请求  |
+| `0x050106` | `ProviderDrainResponse`     | SDK 确认 drain 状态              |
 
 说明：
 
@@ -424,7 +424,7 @@ SDK-Agent v1 的默认业务负载规则为：
 
 ### Schema 规则
 
-`input_schema` / `output_schema` 应定义为可选增强项，而不是默认前置条件。
+`inputSchema` / `outputSchema` 应定义为可选增强项，而不是默认前置条件。
 
 v1 约束：
 
@@ -558,20 +558,20 @@ SDK 收到这些信号后，可以：
 
 所有 SDK 建议统一收敛到以下字段语义：
 
-| Field | 说明 |
-|---|---|
-| `transport.kind` | 固定优先为 `tcp` |
-| `transport.address` | Agent 地址 |
-| `transport.connect_timeout_ms` | 连接超时 |
-| `transport.request_timeout_ms` | 请求超时 |
-| `transport.tls` | TLS 配置 |
-| `reconnect.enabled` | 是否自动重连 |
-| `reconnect.initial_delay_ms` | 初始退避 |
-| `reconnect.max_delay_ms` | 最大退避 |
-| `reconnect.backoff_multiplier` | 指数退避倍率 |
-| `reconnect.jitter_factor` | 抖动因子 |
-| `backpressure.max_concurrency` | 本地并发上限 |
-| `backpressure.max_queue_size` | 本地排队上限 |
+| Field                          | 说明             |
+| ------------------------------ | ---------------- |
+| `transport.kind`               | 固定优先为 `tcp` |
+| `transport.address`            | Agent 地址       |
+| `transport.connect_timeout_ms` | 连接超时         |
+| `transport.request_timeout_ms` | 请求超时         |
+| `transport.tls`                | TLS 配置         |
+| `reconnect.enabled`            | 是否自动重连     |
+| `reconnect.initial_delay_ms`   | 初始退避         |
+| `reconnect.max_delay_ms`       | 最大退避         |
+| `reconnect.backoff_multiplier` | 指数退避倍率     |
+| `reconnect.jitter_factor`      | 抖动因子         |
+| `backpressure.max_concurrency` | 本地并发上限     |
+| `backpressure.max_queue_size`  | 本地排队上限     |
 
 ### 废弃字段
 

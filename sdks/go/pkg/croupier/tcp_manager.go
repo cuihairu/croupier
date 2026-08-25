@@ -526,7 +526,7 @@ func (h *tcpRPCHandler) cancelTask(ctx context.Context, msgID uint32, reqID uint
 
 	// Cancel response uses InvokeResponse format
 	resp := &sdkv1.InvokeResponse{
-		Payload: []byte(fmt.Sprintf(`{"task_id":"%s","cancelled":%v}`, req.TaskId, ok)),
+		Payload: []byte(fmt.Sprintf(`{"taskId":"%s","cancelled":%v}`, req.TaskId, ok)),
 	}
 	return proto.Marshal(resp)
 }

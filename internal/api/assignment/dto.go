@@ -37,10 +37,10 @@ type AssignmentsHistoryResponse struct {
 type AssignmentsUpdateRequest struct {
 	// GameId and Env are retained only for direct legacy service callers. HTTP
 	// requests always take their source scope from GameDBMiddleware.
-	GameId    string   `json:"game_id"`
+	GameId    string   `json:"gameId"`
 	Env       string   `json:"env"`
 	Action    string   `json:"action"` // assign/clone/remove
-	TargetEnv string   `json:"target_env"`
+	TargetEnv string   `json:"targetEnv"`
 	Functions []string `json:"functions"`
 }
 

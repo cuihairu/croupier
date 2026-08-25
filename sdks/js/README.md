@@ -103,7 +103,7 @@ Croupier Node.js SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏
 **L2 Provider 扩展（可选）**
 
 - 🔐 **TLS** - `certFile` / `keyFile` / `caFile` / `serverName`
-- 📋 **JSON Schema 元数据** - `input_schema` / `output_schema`
+- 📋 **JSON Schema 元数据** - `inputSchema` / `outputSchema`
 - 📤 **Provider Manifest 上传** - 配置 `controlAddr` 后自动推送
 
 **L3 Invoker**
@@ -149,7 +149,7 @@ const descriptor: FunctionDescriptor = {
   id: "inventory.add_item",
   version: "1.0.0",
   description: "向玩家背包添加物品",
-  input_schema: {
+  inputSchema: {
     type: "object",
     required: ["player_id", "item_id"],
     properties: {
@@ -185,7 +185,7 @@ const descriptor: FunctionDescriptor = {
   id: "player.ban", // 函数 ID
   version: "1.0.0", // 语义化版本
   description: "封禁玩家", // 描述
-  input_schema: {
+  inputSchema: {
     // JSON Schema（可选）
     type: "object",
     required: ["player_id", "reason"],

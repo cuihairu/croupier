@@ -25,8 +25,8 @@ type FunctionMetadata struct {
 	Summary     string `json:"summary"`     // One-line summary
 
 	// Parameter definitions (JSON Schema)
-	InputSchema  string `json:"input_schema"`  // JSON Schema for request
-	OutputSchema string `json:"output_schema"` // JSON Schema for response
+	InputSchema  string `json:"inputSchema"`  // JSON Schema for request
+	OutputSchema string `json:"outputSchema"` // JSON Schema for response
 
 	// Behavior definition
 	Behavior *FunctionBehavior `json:"behavior"`
@@ -50,14 +50,14 @@ type FunctionBehavior struct {
 	Idempotent bool `json:"idempotent"`
 
 	// Timeout in milliseconds
-	TimeoutMs int32 `json:"timeout_ms"`
+	TimeoutMs int32 `json:"timeoutMs"`
 
 	// Routing strategy
-	RouteStrategy RouteStrategy `json:"route_strategy"`
+	RouteStrategy RouteStrategy `json:"routeStrategy"`
 
 	// Caching
 	Cacheable       bool  `json:"cacheable"`
-	CacheTtlSeconds int32 `json:"cache_ttl_seconds"`
+	CacheTtlSeconds int32 `json:"cacheTtlSeconds"`
 }
 
 // Mode represents the execution mode.

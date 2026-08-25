@@ -1059,13 +1059,13 @@ func TestValidateRetryConfig_Branches(t *testing.T) {
 		cfg  *RetryConfig
 		want string
 	}{
-		{&RetryConfig{InitialDelayMs: -1}, "initial_delay_ms"},
-		{&RetryConfig{MaxDelayMs: -1}, "max_delay_ms"},
-		{&RetryConfig{BackoffMultiplier: 0.5}, "backoff_multiplier"},
-		{&RetryConfig{BackoffMultiplier: 1.0, JitterFactor: -1}, "jitter_factor"},
-		{&RetryConfig{BackoffMultiplier: 1.0, JitterFactor: 2}, "jitter_factor"},
-		{&RetryConfig{Enabled: true, BackoffMultiplier: 1.0}, "max_attempts"},
-		{&RetryConfig{Enabled: true, BackoffMultiplier: 1.0, MaxAttempts: 11}, "max_attempts"},
+		{&RetryConfig{InitialDelayMs: -1}, "initialDelayMs"},
+		{&RetryConfig{MaxDelayMs: -1}, "maxDelayMs"},
+		{&RetryConfig{BackoffMultiplier: 0.5}, "backoffMultiplier"},
+		{&RetryConfig{BackoffMultiplier: 1.0, JitterFactor: -1}, "jitterFactor"},
+		{&RetryConfig{BackoffMultiplier: 1.0, JitterFactor: 2}, "jitterFactor"},
+		{&RetryConfig{Enabled: true, BackoffMultiplier: 1.0}, "maxAttempts"},
+		{&RetryConfig{Enabled: true, BackoffMultiplier: 1.0, MaxAttempts: 11}, "maxAttempts"},
 	}
 	for _, tc := range cases {
 		if err := ValidateRetryConfig(tc.cfg); err == nil || !containsStr(err.Error(), tc.want) {

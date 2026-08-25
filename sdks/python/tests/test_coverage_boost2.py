@@ -118,8 +118,8 @@ def test_build_manifest_includes_optional_fields():
     assert entry["deprecated"] is True
     assert entry["tags"] == ["gm"]
     assert entry["resource"] == "player"
-    assert entry["input_schema"] == {"type": "object"}
-    assert entry["output_schema"] == '{"type":"object"}'
+    assert entry["inputSchema"] == {"type": "object"}
+    assert entry["outputSchema"] == '{"type":"object"}'
     assert manifest["provider"]["id"] == client._config.service_id
     assert manifest["provider"]["lang"] == "python"
 
@@ -131,7 +131,7 @@ def test_build_manifest_omits_unset_optional_fields():
     assert "tags" not in entry
     assert "summary" not in entry
     assert "deprecated" not in entry
-    assert "input_schema" not in entry
+    assert "inputSchema" not in entry
 
 
 def test_descriptor_defaults():

@@ -23,8 +23,8 @@
 - `summary`
 - `description`
 - `tags`
-- `input_schema`
-- `output_schema`
+- `input_schema`（C++ 成员名；对应契约键 `inputSchema`）
+- `output_schema`（C++ 成员名；对应契约键 `outputSchema`）
 
 建议补齐业务与治理信息：
 

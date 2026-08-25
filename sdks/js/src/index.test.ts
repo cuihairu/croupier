@@ -577,8 +577,8 @@ describe("BasicClient", () => {
         risk: "safe",
         permission: "full:invoke",
         description: "A full function descriptor",
-        input_schema: { type: "object" },
-        output_schema: { type: "string" },
+        inputSchema: { type: "object" },
+        outputSchema: { type: "string" },
       },
       async () => "ok",
     );
@@ -593,8 +593,8 @@ describe("BasicClient", () => {
     expect(fn.risk).toBe("safe");
     expect(fn.permission).toBe("full:invoke");
     expect(fn.description).toBe("A full function descriptor");
-    expect(fn.input_schema).toEqual({ type: "object" });
-    expect(fn.output_schema).toEqual({ type: "string" });
+    expect(fn.inputSchema).toEqual({ type: "object" });
+    expect(fn.outputSchema).toEqual({ type: "string" });
   });
 
   test("cancelTask does nothing for unknown task", () => {
@@ -974,8 +974,8 @@ describe("BasicClient", () => {
         tags: ["test"],
         summary: "Test function",
         description: "Detailed test function description",
-        input_schema: { type: "object", properties: { id: { type: "string" } } },
-        output_schema: { type: "object", properties: { ok: { type: "boolean" } } },
+        inputSchema: { type: "object", properties: { id: { type: "string" } } },
+        outputSchema: { type: "object", properties: { ok: { type: "boolean" } } },
         resource: "player",
         risk: "low",
         operation: "ban",
@@ -994,10 +994,10 @@ describe("BasicClient", () => {
       tags: ["test"],
       summary: "Test function",
       description: "Detailed test function description",
-      operation_id: "test.fn",
+      operationId: "test.fn",
       deprecated: undefined,
-      input_schema: JSON.stringify({ type: "object", properties: { id: { type: "string" } } }),
-      output_schema: JSON.stringify({ type: "object", properties: { ok: { type: "boolean" } } }),
+      inputSchema: JSON.stringify({ type: "object", properties: { id: { type: "string" } } }),
+      outputSchema: JSON.stringify({ type: "object", properties: { ok: { type: "boolean" } } }),
       resource: "player",
       risk: "low",
       operation: "ban",
@@ -1181,8 +1181,8 @@ describe("BasicClient", () => {
         risk: "low",
         operation: "health",
         permission: "system:health",
-        input_schema: { type: "object" },
-        output_schema: { type: "string" },
+        inputSchema: { type: "object" },
+        outputSchema: { type: "string" },
       },
       async () => "ok",
     );
@@ -1195,8 +1195,8 @@ describe("BasicClient", () => {
     expect(desc?.risk).toBe("low");
     expect(desc?.operation).toBe("health");
     expect(desc?.permission).toBe("system:health");
-    expect(desc?.input_schema).toBe(JSON.stringify({ type: "object" }));
-    expect(desc?.output_schema).toBe(JSON.stringify({ type: "string" }));
+    expect(desc?.inputSchema).toBe(JSON.stringify({ type: "object" }));
+    expect(desc?.outputSchema).toBe(JSON.stringify({ type: "string" }));
   });
 
   test("invoke handler that returns Uint8Array", async () => {

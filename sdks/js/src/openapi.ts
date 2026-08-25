@@ -152,10 +152,10 @@ function operationToDescriptor(
     permission: extractExtension(operation, "x-permission") || undefined,
   };
 
-  descriptor.input_schema = jsonContentSchema(operation.requestBody);
+  descriptor.inputSchema = jsonContentSchema(operation.requestBody);
   const responses = operation.responses;
   if (isRecord(responses) && isRecord(responses["200"])) {
-    descriptor.output_schema = jsonContentSchema(responses["200"]);
+    descriptor.outputSchema = jsonContentSchema(responses["200"]);
   }
 
   const risk = extractExtension(operation, "x-risk");

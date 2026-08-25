@@ -113,7 +113,7 @@ describe("openapi schema conversion guards", () => {
       () => makeHandler(),
     );
     for (const id of ["a", "b", "c"]) {
-      expect(descriptorsOf(client).get(id).input_schema).toBeUndefined();
+      expect(descriptorsOf(client).get(id).inputSchema).toBeUndefined();
     }
   });
 
@@ -147,7 +147,7 @@ describe("openapi schema conversion guards", () => {
       undefined,
       () => makeHandler(),
     );
-    const schema = descriptorsOf(client).get("d").input_schema;
+    const schema = descriptorsOf(client).get("d").inputSchema;
     expect(schema.description).toBe("request shape");
     expect(schema.properties.typed).toEqual({
       type: "integer",
@@ -181,7 +181,7 @@ describe("openapi schema conversion guards", () => {
       undefined,
       () => makeHandler(),
     );
-    const schema = descriptorsOf(client).get("e").input_schema;
+    const schema = descriptorsOf(client).get("e").inputSchema;
     expect(schema.type).toBe("object");
     expect(schema.description).toBeUndefined();
     expect(schema.required).toBeUndefined();

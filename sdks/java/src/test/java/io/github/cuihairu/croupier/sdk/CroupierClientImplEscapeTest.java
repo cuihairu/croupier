@@ -174,9 +174,9 @@ class CroupierClientImplEscapeTest {
 
         assertTrue(json.contains("\"summary\":\"Summary\""));
         assertTrue(json.contains("\"description\":\"Description\""));
-        assertTrue(json.contains("\"operation_id\":\"opId\""));
-        assertTrue(json.contains("\"input_schema\":"));
-        assertTrue(json.contains("\"output_schema\":"));
+        assertTrue(json.contains("\"operationId\":\"opId\""));
+        assertTrue(json.contains("\"inputSchema\":"));
+        assertTrue(json.contains("\"outputSchema\":"));
         assertTrue(json.contains("\"resource\":\"player\""));
         assertTrue(json.contains("\"risk\":\"low\""));
         assertTrue(json.contains("\"operation\":\"ban\""));

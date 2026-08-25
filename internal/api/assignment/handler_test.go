@@ -34,7 +34,7 @@ func TestHandler_List_Success(t *testing.T) {
 	router := gin.New()
 	router.GET("/assignments", handler.List)
 
-	req, _ := http.NewRequest("GET", "/assignments?game_id=game1", nil)
+	req, _ := http.NewRequest("GET", "/assignments?gameId=game1", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -102,7 +102,7 @@ func TestHandler_History_Success(t *testing.T) {
 	router := gin.New()
 	router.GET("/assignments/history", handler.History)
 
-	req, _ := http.NewRequest("GET", "/assignments/history?game_id=game1", nil)
+	req, _ := http.NewRequest("GET", "/assignments/history?gameId=game1", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

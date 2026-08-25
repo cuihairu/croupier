@@ -390,3 +390,34 @@ rg -n '^\s+[A-Z][A-Za-z0-9]*:' configs/*.yaml configs/**/*.yaml
 ```
 
 If a change introduces new uppercase YAML keys, it is a review failure unless the file is explicitly a legacy compatibility fixture.
+
+## Contract Field Naming (Mandatory)
+
+FunctionContract 及所有对外暴露的 JSON/SDK 契约字段名必须统一 `lowerCamelCase`。此仓库此前因 proto 字段名（snake_case）被直接透传为 SDK/JSON 键名而产生漂移（如 `input_schema`），该做法已废弃。
+
+规范来源：`docs/architecture/openapi-sdk-descriptor-v2.md` 的「命名约定」小节。
+
+### 1) Canonical Rules
+
+- 契约字段（`inputSchema`、`outputSchema`、`approvalRequired`、`policyKey` 等）在所有文档、示例、REST payload、SDK 表层一律 `lowerCamelCase`。
+- proto 字段名的 snake_case 仅允许出现在 `.proto` 文件内部（protobuf 官方风格）；其生成 `json_name` 必须为 `lowerCamelCase`，文档引用时禁止把 proto 字段名当作契约键名（允许显式的「对应 proto 字段名 X」对照注释）。
+- 序列化边界必须输出 lowerCamelCase 契约键：REST payload、SDK 产出的 JSON/manifest、proto `json_name`。语言原生标识符遵循各自惯例（Go 导出字段 PascalCase 配 lowerCamelCase json tag；Python dataclass/kwargs 按 PEP8 snake_case；C++ 成员 snake_case；TS/JS 与 Java/C# 属性即契约键本身，用 lowerCamelCase），不得把语言的内部命名直接透传为契约键。
+- 业务 payload 内部（JSON Schema properties、游戏业务数据）不属于平台契约，命名由游戏方自行决定。
+- 枚举字符串值（如 `input_schema_stale`）是机器标识符，不属于本规则范围。
+
+### 2) Implementation Rules
+
+- 新增 REST DTO、SDK descriptor 字段时禁止 `json:"snake_case"` 形式的契约键。
+- **禁止兼容旧键**：发现漂移时直接改名为 canonical 键，并在同一变更内更新全部调用方（含 web 子模块、SDK 示例与测试）；不得为旧键保留兼容解析、双读或别名映射。兼容层只会让错误命名永久化。
+- 更新 SDK 字段名时，同 PR 内必须同步更新对应 `docs/sdks/<lang>/` 指南，保持文档与代码一致。
+
+### 3) Review Checklist
+
+Before merge, scan for snake_case contract keys leaking to JSON/SDK surfaces or docs:
+
+```bash
+rg -n 'json:"[a-z]+_[a-zA-Z]+"' internal sdks --glob '!**/*_test.go' --glob '!**/generated/**' --glob '!**/_pb2*' --glob '!gen/**' --glob '!**/pkg/pb/**'
+rg -n '`input_schema`|`output_schema`|`approval_required`|`approval_policy_key`' docs --glob '!docs/archive/**' --glob '!docs/sdks/**'
+```
+
+New occurrences are review failures unless they are explicit legacy compatibility code or annotated proto-name references.

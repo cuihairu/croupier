@@ -681,10 +681,10 @@ public class CroupierClientImpl implements CroupierClient {
         function.put("tags", descriptor.getTags() == null ? List.of() : List.copyOf(descriptor.getTags()));
         function.put("summary", defaultValue(descriptor.getSummary(), ""));
         function.put("description", defaultValue(descriptor.getDescription(), ""));
-        function.put("operation_id", defaultValue(descriptor.getOperationId(), descriptor.getId()));
+        function.put("operationId", defaultValue(descriptor.getOperationId(), descriptor.getId()));
         function.put("deprecated", descriptor.isDeprecated());
-        function.put("input_schema", defaultValue(descriptor.getInputSchema(), ""));
-        function.put("output_schema", defaultValue(descriptor.getOutputSchema(), ""));
+        function.put("inputSchema", defaultValue(descriptor.getInputSchema(), ""));
+        function.put("outputSchema", defaultValue(descriptor.getOutputSchema(), ""));
         function.put("resource", defaultValue(descriptor.getResource(), ""));
         function.put("operation", defaultValue(descriptor.getOperation(), ""));
         function.put("capability", defaultValue(descriptor.getCapability(), ""));
@@ -739,16 +739,16 @@ public class CroupierClientImpl implements CroupierClient {
                 functionsBuilder.append(",\"description\":\"").append(escapeJson(descriptor.getDescription())).append("\"");
             }
             if (!isNullOrEmpty(descriptor.getOperationId())) {
-                functionsBuilder.append(",\"operation_id\":\"").append(escapeJson(descriptor.getOperationId())).append("\"");
+                functionsBuilder.append(",\"operationId\":\"").append(escapeJson(descriptor.getOperationId())).append("\"");
             }
             if (descriptor.isDeprecated()) {
                 functionsBuilder.append(",\"deprecated\":true");
             }
             if (!isNullOrEmpty(descriptor.getInputSchema())) {
-                functionsBuilder.append(",\"input_schema\":\"").append(escapeJson(descriptor.getInputSchema())).append("\"");
+                functionsBuilder.append(",\"inputSchema\":\"").append(escapeJson(descriptor.getInputSchema())).append("\"");
             }
             if (!isNullOrEmpty(descriptor.getOutputSchema())) {
-                functionsBuilder.append(",\"output_schema\":\"").append(escapeJson(descriptor.getOutputSchema())).append("\"");
+                functionsBuilder.append(",\"outputSchema\":\"").append(escapeJson(descriptor.getOutputSchema())).append("\"");
             }
             if (!isNullOrEmpty(descriptor.getResource())) {
                 functionsBuilder.append(",\"resource\":\"").append(escapeJson(descriptor.getResource())).append("\"");

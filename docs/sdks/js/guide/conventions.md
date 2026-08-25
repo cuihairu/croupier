@@ -41,8 +41,8 @@ await client.connect();
 - `summary`
 - `description`
 - `tags`
-- `input_schema`
-- `output_schema`
+- `inputSchema`
+- `outputSchema`
 
 建议补齐业务与治理信息：
 

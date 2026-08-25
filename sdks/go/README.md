@@ -100,10 +100,10 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 **L2 Provider 扩展（可选）**
 
-- 🔐 **TLS** - `ca_file` / `cert_file` / `key_file` / `server_name`
-- 📋 **控制面 manifest 上传** - 配置 `control_addr` 后自动推送
-- 🔍 **JSON Schema 校验** - 描述符 `input_schema` / `output_schema`
-- 📦 **文件传输** - `enable_file_transfer=true` 启用，受白名单与上限约束
+- 🔐 **TLS** - `caFile` / `certFile` / `keyFile` / `serverName`
+- 📋 **控制面 manifest 上传** - 配置 `controlAddr` 后自动推送
+- 🔍 **JSON Schema 校验** - 描述符 `inputSchema` / `outputSchema`
+- 📦 **文件传输** - `enableFileTransfer=true` 启用，受白名单与上限约束
 
 **L3 Invoker（独立调用方）**
 
@@ -247,8 +247,8 @@ type FunctionDescriptor struct {
 type ProviderFunctionDescriptor struct {
     ID      string // 函数 ID
     Version string // 函数版本
-    // 扩展字段：tags / summary / description / operation_id / deprecated /
-    // input_schema / output_schema / resource / operation / risk / enabled / permission
+    // 扩展字段：tags / summary / description / operationId / deprecated /
+    // inputSchema / outputSchema / resource / operation / risk / enabled / permission
 }
 ```
 

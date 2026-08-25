@@ -109,14 +109,14 @@ func (s *Service) Update(ctx context.Context, req *AssignmentsUpdateRequest) (*A
 
 	gameID := svc.ResolveGameID(ctx, req.GameId)
 	if gameID == "" {
-		return nil, errorx.NewBadRequest("game_id不能为空")
+		return nil, errorx.NewBadRequest("gameId不能为空")
 	}
 	env := svc.ResolveEnv(ctx, req.Env)
 	action := strings.TrimSpace(req.Action)
 	if action == "clone" {
 		targetEnv := strings.TrimSpace(req.TargetEnv)
 		if targetEnv == "" {
-			return nil, errorx.NewBadRequest("target_env不能为空")
+			return nil, errorx.NewBadRequest("targetEnv不能为空")
 		}
 		if err := s.authorizeCloneTarget(ctx, gameID, targetEnv, roles); err != nil {
 			return nil, err
@@ -177,7 +177,7 @@ func (s *Service) Update(ctx context.Context, req *AssignmentsUpdateRequest) (*A
 }
 
 // authorizeCloneTarget validates the explicitly requested destination scope.
-// Unlike game_id/env, target_env is an operation parameter and is never used
+// Unlike gameId/env, targetEnv is an operation parameter and is never used
 // as the source request scope.
 func (s *Service) authorizeCloneTarget(ctx context.Context, gameID, targetEnv string, roles []model.Role) error {
 	if s == nil || s.svcCtx == nil || s.svcCtx.GameModel == nil {

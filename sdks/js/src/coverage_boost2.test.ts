@@ -138,7 +138,7 @@ describe("BasicClient lifecycle edges", () => {
         risk: "danger",
         permission: "player.ban",
         deprecated: true,
-        input_schema: { type: "object" } as any,
+        inputSchema: { type: "object" } as any,
       },
       async () => "ok",
     );
@@ -148,9 +148,9 @@ describe("BasicClient lifecycle edges", () => {
     const full = manifest.functions.find((f: any) => f.id === "full.fn");
     const bare = manifest.functions.find((f: any) => f.id === "bare.fn");
 
-    expect(full.input_schema).toEqual({ type: "object" });
+    expect(full.inputSchema).toEqual({ type: "object" });
     expect(full.risk).toBe("danger");
-    expect(bare.input_schema).toBeUndefined();
+    expect(bare.inputSchema).toBeUndefined();
     expect(manifest.provider.lang).toBe("node");
     expect(manifest.functions).toHaveLength(2);
   });

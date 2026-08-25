@@ -313,7 +313,7 @@ func TestService_Update_EmptyGameId_Extra(t *testing.T) {
 
 	_, err := service.Update(ctx, req)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "game_id不能为空")
+	assert.Contains(t, err.Error(), "gameId不能为空")
 }
 
 func TestService_Update_RemoveAll_Extra(t *testing.T) {

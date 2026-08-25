@@ -21,16 +21,16 @@ invoke("wallet.transfer", {
 
 ## Descriptor v2 要素
 
-| 字段                             | 说明                                                      |
-| -------------------------------- | --------------------------------------------------------- |
-| `id`                             | 函数唯一标识，例如 `wallet.transfer`                      |
-| `version`                        | 函数版本                                                  |
-| `summary` / `description`        | 函数简介和详细说明                                        |
-| `input_schema` / `output_schema` | JSON payload 输入输出契约                                 |
-| `resource`                       | 业务资源或能力域 key                                      |
-| `operation`                      | 业务操作 key                                              |
-| `capability`                     | 受控资源语义，例如 `collection_query`、`update`、`action` |
-| `risk`                           | 治理风险等级                                              |
+| 字段                             | 说明                                                                       |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `id`                             | 函数唯一标识，例如 `wallet.transfer`                                       |
+| `version`                        | 函数版本                                                                   |
+| `summary` / `description`        | 函数简介和详细说明                                                         |
+| `input_schema` / `output_schema` | JSON payload 输入输出契约（成员名；契约键 `inputSchema` / `outputSchema`） |
+| `resource`                       | 业务资源或能力域 key                                                       |
+| `operation`                      | 业务操作 key                                                               |
+| `capability`                     | 受控资源语义，例如 `collection_query`、`update`、`action`                  |
+| `risk`                           | 治理风险等级                                                               |
 
 ## 建议
 

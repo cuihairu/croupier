@@ -414,13 +414,13 @@ class CroupierClient:
             if descriptor.description:
                 entry["description"] = descriptor.description
             if descriptor.operation_id:
-                entry["operation_id"] = descriptor.operation_id
+                entry["operationId"] = descriptor.operation_id
             if descriptor.deprecated:
                 entry["deprecated"] = True  # type: ignore[assignment]
             if descriptor.input_schema:
-                entry["input_schema"] = descriptor.input_schema
+                entry["inputSchema"] = descriptor.input_schema
             if descriptor.output_schema:
-                entry["output_schema"] = descriptor.output_schema
+                entry["outputSchema"] = descriptor.output_schema
             if descriptor.resource:
                 entry["resource"] = descriptor.resource
             if descriptor.risk:

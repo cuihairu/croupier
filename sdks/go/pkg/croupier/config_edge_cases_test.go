@@ -481,7 +481,7 @@ func TestReconnectConfig_Validation(t *testing.T) {
 				BackoffMultiplier: 2.0,
 			},
 			wantErr:     true,
-			errContains: "delay",
+			errContains: "Delay",
 		},
 		{
 			name: "invalid - backoff multiplier less than 1",
@@ -493,7 +493,7 @@ func TestReconnectConfig_Validation(t *testing.T) {
 				BackoffMultiplier: 0.5,
 			},
 			wantErr:     true,
-			errContains: "multiplier",
+			errContains: "backoffMultiplier",
 		},
 		{
 			name: "invalid - jitter factor out of range",
@@ -589,7 +589,7 @@ func TestRetryConfig_Validation(t *testing.T) {
 				BackoffMultiplier: 2.0,
 			},
 			wantErr:     true,
-			errContains: "max_attempts",
+			errContains: "maxAttempts",
 		},
 		{
 			name: "invalid - zero max attempts with retry enabled",
@@ -601,7 +601,7 @@ func TestRetryConfig_Validation(t *testing.T) {
 				BackoffMultiplier: 2.0,
 			},
 			wantErr:     true,
-			errContains: "max_attempts",
+			errContains: "maxAttempts",
 		},
 		{
 			name: "invalid - negative initial delay",
@@ -613,7 +613,7 @@ func TestRetryConfig_Validation(t *testing.T) {
 				BackoffMultiplier: 2.0,
 			},
 			wantErr:     true,
-			errContains: "delay",
+			errContains: "Delay",
 		},
 	}
 
@@ -1027,21 +1027,21 @@ func TestClientConfig_FileTransferValidation(t *testing.T) {
 			enabled:     true,
 			maxSize:     0,
 			wantErr:     true,
-			errContains: "file_size",
+			errContains: "maxfilesize",
 		},
 		{
 			name:        "file transfer enabled with negative size",
 			enabled:     true,
 			maxSize:     -100,
 			wantErr:     true,
-			errContains: "file_size",
+			errContains: "maxfilesize",
 		},
 		{
 			name:        "file transfer enabled with excessive size",
 			enabled:     true,
 			maxSize:     1024 * 1024 * 1024,
 			wantErr:     true,
-			errContains: "file_size",
+			errContains: "maxfilesize",
 		},
 	}
 

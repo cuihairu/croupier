@@ -54,7 +54,7 @@ export async function fetchAssignments(params?: {
 
 export async function setAssignments(params: {
   action?: 'assign' | 'clone' | 'remove' | string;
-  target_env?: string;
+  targetEnv?: string;
   functions: string[];
 }): Promise<AssignmentsUpdatePayload> {
   const resp = await request<AssignmentsUpdatePayload>('/api/v1/assignments', {

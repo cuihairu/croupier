@@ -12,7 +12,7 @@ import { createClient, FunctionDescriptor, FunctionHandler, CroupierClient } fro
 interface PlayerRecord {
   id: string; name: string; level: number; vip: number; gold: number;
   status: string; server: string; createdAt: string; updatedAt: string;
-  last_login_at: string; profile?: Record<string, unknown>;
+  lastLoginAt: string; profile?: Record<string, unknown>;
 }
 
 interface OrderRecord {
@@ -53,12 +53,12 @@ class DemoStore {
     this.players.set("player_1001", {
       id: "player_1001", name: "Alice", level: 35, vip: 3, gold: 128800,
       status: "active", server: "s1", createdAt: now, updatedAt: now,
-      last_login_at: now, profile: { guild: "星海旅团", country: "CN", platform: "ios" },
+      lastLoginAt: now, profile: { guild: "星海旅团", country: "CN", platform: "ios" },
     });
     this.players.set("player_1002", {
       id: "player_1002", name: "Bob", level: 42, vip: 5, gold: 256000,
       status: "active", server: "s2", createdAt: now, updatedAt: now,
-      last_login_at: now, profile: { guild: "苍穹守卫", country: "US", platform: "android" },
+      lastLoginAt: now, profile: { guild: "苍穹守卫", country: "US", platform: "android" },
     });
 
     this.orders.set("order_3001", {
@@ -127,6 +127,14 @@ function nonEmpty(...vals: string[]): string {
   return "";
 }
 
+function paginate<T>(items: T[], body: Record<string, unknown>): Record<string, unknown> {
+  const total = items.length;
+  const page = Math.max(1, num(body, 1, "page"));
+  const pageSize = Math.max(1, num(body, 20, "pageSize"));
+  const start = (page - 1) * pageSize;
+  return { items: items.slice(start, start + pageSize), total, page, pageSize };
+}
+
 // ==================== Handler Factories ====================
 
 function playerCreate(store: DemoStore): FunctionHandler {
@@ -139,11 +147,11 @@ function playerCreate(store: DemoStore): FunctionHandler {
       level: num(body, 1, "level"), vip: num(body, 0, "vip"),
       gold: num(body, 0, "gold"), status: nonEmpty(str(body, "status"), "active"),
       server: nonEmpty(str(body, "server"), "s1"),
-      createdAt: now, updatedAt: now, last_login_at: now,
+      createdAt: now, updatedAt: now, lastLoginAt: now,
       profile: body.profile as Record<string, unknown> | undefined,
     };
     store.players.set(id, rec);
-    return resp({ status: "success", action: "player.create", player: rec });
+    return resp({ ...rec });
   };
 }
 
@@ -152,7 +160,7 @@ function playerGet(store: DemoStore): FunctionHandler {
     const body = parsePayload(payload);
     const r = store.players.get(str(body, "playerId", "id"));
     if (!r) return resp({ status: "not_found", message: "player not found" });
-    return resp({ status: "success", action: "player.get", player: r });
+    return resp({ ...r });
   };
 }
 
@@ -169,7 +177,7 @@ function playerUpdate(store: DemoStore): FunctionHandler {
     const server = str(body, "server"); if (server) r.server = server;
     if (body.profile && typeof body.profile === "object") r.profile = body.profile as Record<string, unknown>;
     r.updatedAt = store.now();
-    return resp({ status: "success", action: "player.update", player: r });
+    return resp({ ...r });
   };
 }
 
@@ -179,14 +187,15 @@ function playerDelete(store: DemoStore): FunctionHandler {
     const id = str(body, "playerId", "id");
     store.players.delete(id); store.inventories.delete(id);
     store.mails.delete(id); store.leaderboard.delete(id);
-    return resp({ status: "success", action: "player.delete", playerId: id });
+    return resp({ id, deleted: true });
   };
 }
 
 function playerList(store: DemoStore): FunctionHandler {
-  return async () => {
+  return async (_ctx, payload) => {
+    const body = parsePayload(payload);
     const items = [...store.players.values()].sort((a, b) => a.id.localeCompare(b.id));
-    return resp({ status: "success", action: "player.list", items, total: items.length });
+    return resp(paginate(items, body));
   };
 }
 
@@ -205,7 +214,7 @@ function orderCreate(store: DemoStore): FunctionHandler {
       attributes: body.attributes as Record<string, unknown> | undefined,
     };
     store.orders.set(id, rec);
-    return resp({ status: "success", action: "order.create", order: rec });
+    return resp({ ...rec });
   };
 }
 
@@ -214,7 +223,7 @@ function orderGet(store: DemoStore): FunctionHandler {
     const body = parsePayload(payload);
     const r = store.orders.get(str(body, "orderId", "id"));
     if (!r) return resp({ status: "not_found", message: "order not found" });
-    return resp({ status: "success", action: "order.get", order: r });
+    return resp({ ...r });
   };
 }
 
@@ -228,7 +237,7 @@ function orderUpdate(store: DemoStore): FunctionHandler {
     if ("amount" in body) r.amount = num(body, r.amount, "amount");
     if (body.attributes && typeof body.attributes === "object") r.attributes = body.attributes as Record<string, unknown>;
     r.updatedAt = store.now();
-    return resp({ status: "success", action: "order.update", order: r });
+    return resp({ ...r });
   };
 }
 
@@ -237,7 +246,7 @@ function orderDelete(store: DemoStore): FunctionHandler {
     const body = parsePayload(payload);
     const id = str(body, "orderId", "id");
     store.orders.delete(id);
-    return resp({ status: "success", action: "order.delete", orderId: id });
+    return resp({ id, deleted: true });
   };
 }
 
@@ -248,15 +257,16 @@ function orderList(store: DemoStore): FunctionHandler {
     const items = [...store.orders.values()]
       .filter(o => !pid || o.playerId === pid)
       .sort((a, b) => a.id.localeCompare(b.id));
-    return resp({ status: "success", action: "order.list", items, total: items.length });
+    return resp(paginate(items, body));
   };
 }
 
 function leaderboardList(store: DemoStore): FunctionHandler {
-  return async () => {
+  return async (_ctx, payload) => {
+    const body = parsePayload(payload);
     const sorted = [...store.leaderboard.values()].sort((a, b) => b.score - a.score);
     sorted.forEach((e, i) => { e.rank = i + 1; });
-    return resp({ status: "success", action: "leaderboard.list", items: sorted, total: sorted.length });
+    return resp(paginate(sorted, body));
   };
 }
 
@@ -271,14 +281,14 @@ function leaderboardUpsert(store: DemoStore): FunctionHandler {
       score: num(body, 0, "score"), rank: 0, updatedAt: store.now(),
     };
     store.leaderboard.set(pid, entry);
-    return resp({ status: "success", action: "leaderboard.upsert", entry });
+    return resp({ ...entry });
   };
 }
 
 function leaderboardReset(store: DemoStore): FunctionHandler {
   return async () => {
     store.leaderboard.clear();
-    return resp({ status: "success", action: "leaderboard.reset" });
+    return resp({ reset: true });
   };
 }
 
@@ -289,7 +299,7 @@ function inventoryList(store: DemoStore): FunctionHandler {
     if (!pid) throw new Error("playerId is required");
     const inv = store.inventories.get(pid) || new Map();
     const items = [...inv.values()].sort((a, b) => a.templateId.localeCompare(b.templateId));
-    return resp({ status: "success", action: "inventory.list", playerId: pid, items });
+    return resp({ playerId: pid, ...paginate(items, body) });
   };
 }
 
@@ -309,7 +319,7 @@ function inventoryGrant(store: DemoStore): FunctionHandler {
     }
     r.quantity += num(body, 1, "quantity");
     r.updatedAt = store.now();
-    return resp({ status: "success", action: "inventory.grant", playerId: pid, item: r });
+    return resp({ ...r });
   };
 }
 
@@ -326,7 +336,7 @@ function inventoryConsume(store: DemoStore): FunctionHandler {
     if (r.quantity < qty) return resp({ status: "failed", message: "insufficient quantity", item: r });
     r.quantity -= qty;
     r.updatedAt = store.now();
-    return resp({ status: "success", action: "inventory.consume", playerId: pid, item: r });
+    return resp({ ...r });
   };
 }
 
@@ -345,7 +355,7 @@ function mailSend(store: DemoStore): FunctionHandler {
     };
     if (!store.mails.has(pid)) store.mails.set(pid, []);
     store.mails.get(pid)!.push(rec);
-    return resp({ status: "success", action: "mail.send", mail: rec });
+    return resp({ ...rec });
   };
 }
 
@@ -355,7 +365,7 @@ function mailList(store: DemoStore): FunctionHandler {
     const pid = str(body, "playerId");
     if (!pid) throw new Error("playerId is required");
     const items = store.mails.get(pid) || [];
-    return resp({ status: "success", action: "mail.list", playerId: pid, items, total: items.length });
+    return resp({ playerId: pid, ...paginate(items, body) });
   };
 }
 
@@ -369,7 +379,7 @@ function mailClaim(store: DemoStore): FunctionHandler {
     const m = list.find(x => x.id === mid);
     if (!m) return resp({ status: "not_found", message: "mail not found" });
     m.status = "claimed"; m.updatedAt = store.now();
-    return resp({ status: "success", action: "mail.claim", mail: m });
+    return resp({ ...m });
   };
 }
 
@@ -382,9 +392,9 @@ function enrichDescriptor(desc: FunctionDescriptor): FunctionDescriptor {
     description:
       desc.description ||
       `Demo function ${desc.id} for ${desc.resource || "unscoped"} ${desc.operation || "invoke"} operations.`,
-    operation_id: desc.operation_id || desc.id,
-    input_schema: desc.input_schema || schemasFor(desc.id).input,
-    output_schema: desc.output_schema || schemasFor(desc.id).output,
+    operationId: desc.operationId || desc.id,
+    inputSchema: desc.inputSchema || schemasFor(desc.id).input,
+    outputSchema: desc.outputSchema || schemasFor(desc.id).output,
   };
 }
 
@@ -402,51 +412,80 @@ const ORDER_FIELDS: Record<string, unknown> = {
   currency: s(), status: s(), channel: s(), attributes: { type: "object" },
 };
 const PAGINATION: Record<string, unknown> = { page: i(), pageSize: i() };
-const LIST_OUTPUT: Record<string, unknown> = {
-  type: "object",
-  properties: { items: { type: "array", items: { type: "object" } }, total: i() },
-};
+
+// Record output schemas: flat objects matching the handlers' real wire shape
+// (identical to the Go SDK demo contract).
+const dt = (): Record<string, unknown> => ({ type: "string", format: "date-time" });
+const PLAYER_OBJECT: Record<string, unknown> = obj({
+  ...PLAYER_FIELDS, createdAt: dt(), updatedAt: dt(), lastLoginAt: dt(),
+});
+const ORDER_OBJECT: Record<string, unknown> = obj({
+  ...ORDER_FIELDS, createdAt: dt(), updatedAt: dt(),
+});
+const LEADERBOARD_OBJECT: Record<string, unknown> = obj({
+  id: s(), playerId: s(), playerName: s(), score: i(), rank: i(), updatedAt: dt(),
+});
+const ITEM_OBJECT: Record<string, unknown> = obj({
+  id: s(), templateId: s(), name: s(), quantity: i(), rarity: s(), updatedAt: dt(),
+});
+const MAIL_OBJECT: Record<string, unknown> = obj({
+  id: s(), playerId: s(), title: s(), content: s(), status: s(),
+  reward: { type: "object" }, sentAt: dt(), updatedAt: dt(), expireAt: s(),
+});
+const DELETE_OUTPUT: Record<string, unknown> = obj({ id: s(), deleted: { type: "boolean" } }, ["id", "deleted"]);
+
+function listOutput(item?: Record<string, unknown>): Record<string, unknown> {
+  return {
+    type: "object",
+    properties: {
+      items: { type: "array", items: item || { type: "object" } },
+      total: i(), page: i(), pageSize: i(),
+    },
+  };
+}
+
+const LIST_OUTPUT: Record<string, unknown> = listOutput();
 
 const SCHEMAS: Record<string, { input: Record<string, unknown>; output: Record<string, unknown> }> = {
-  "player.create": { input: obj({ ...PLAYER_FIELDS }), output: obj({ player: { type: "object" } }) },
-  "player.get": { input: obj({ id: s() }, ["id"]), output: obj({ player: { type: "object" } }) },
-  "player.update": { input: obj({ ...PLAYER_FIELDS }, ["id"]), output: obj({ player: { type: "object" } }) },
-  "player.delete": { input: obj({ id: s() }, ["id"]), output: obj({ playerId: s() }) },
-  "player.list": { input: obj({ ...PAGINATION }), output: LIST_OUTPUT },
-  "order.create": { input: obj({ ...ORDER_FIELDS }), output: obj({ order: { type: "object" } }) },
-  "order.get": { input: obj({ id: s() }, ["id"]), output: obj({ order: { type: "object" } }) },
+  "player.create": { input: obj({ ...PLAYER_FIELDS }), output: PLAYER_OBJECT },
+  "player.get": { input: obj({ id: s() }, ["id"]), output: PLAYER_OBJECT },
+  "player.update": { input: obj({ ...PLAYER_FIELDS }, ["id"]), output: PLAYER_OBJECT },
+  "player.delete": { input: obj({ id: s() }, ["id"]), output: DELETE_OUTPUT },
+  "player.list": { input: obj({ ...PAGINATION }), output: listOutput(PLAYER_OBJECT) },
+  "order.create": { input: obj({ ...ORDER_FIELDS }), output: ORDER_OBJECT },
+  "order.get": { input: obj({ id: s() }, ["id"]), output: ORDER_OBJECT },
   "order.update": {
     input: obj(pick(ORDER_FIELDS, ["id", "status", "channel", "amount", "attributes"]), ["id"]),
-    output: obj({ order: { type: "object" } }),
+    output: ORDER_OBJECT,
   },
-  "order.delete": { input: obj({ id: s() }, ["id"]), output: obj({ orderId: s() }) },
-  "order.list": { input: obj({ playerId: s(), ...PAGINATION }), output: LIST_OUTPUT },
-  "leaderboard.list": { input: obj({ ...PAGINATION }), output: LIST_OUTPUT },
+  "order.delete": { input: obj({ id: s() }, ["id"]), output: DELETE_OUTPUT },
+  "order.list": { input: obj({ playerId: s(), ...PAGINATION }), output: listOutput(ORDER_OBJECT) },
+  "leaderboard.list": { input: obj({ ...PAGINATION }), output: listOutput(LEADERBOARD_OBJECT) },
   "leaderboard.upsert": {
     input: obj({ playerId: s(), score: i() }, ["playerId"]),
-    output: obj({ entry: { type: "object" } }),
+    output: LEADERBOARD_OBJECT,
   },
-  "leaderboard.reset": { input: obj({}), output: obj({}) },
+  "leaderboard.reset": { input: obj({}), output: obj({ reset: { type: "boolean" } }) },
   "inventory.list": {
     input: obj({ playerId: s() }, ["playerId"]),
-    output: obj({ items: { type: "array", items: { type: "object" } } }),
+    output: listOutput(ITEM_OBJECT),
   },
   "inventory.grant": {
     input: obj({ playerId: s(), templateId: s(), quantity: i() }, ["playerId", "templateId"]),
-    output: obj({ item: { type: "object" } }),
+    output: ITEM_OBJECT,
   },
   "inventory.consume": {
     input: obj({ playerId: s(), templateId: s(), quantity: i() }, ["playerId", "templateId"]),
-    output: obj({ item: { type: "object" } }),
+    output: ITEM_OBJECT,
   },
   "mail.send": {
     input: obj({ playerId: s(), title: s(), content: s(), reward: { type: "object" }, expireAt: s() }, ["playerId"]),
-    output: obj({ mail: { type: "object" } }),
+    output: MAIL_OBJECT,
   },
-  "mail.list": { input: obj({ playerId: s() }, ["playerId"]), output: LIST_OUTPUT },
+  "mail.list": { input: obj({ playerId: s() }, ["playerId"]), output: listOutput(MAIL_OBJECT) },
   "mail.claim": {
     input: obj({ playerId: s(), mailId: s() }, ["playerId", "mailId"]),
-    output: obj({ mail: { type: "object" } }),
+    output: MAIL_OBJECT,
   },
 };
 

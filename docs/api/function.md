@@ -11,7 +11,7 @@ type OpenAPIOperation = json.RawMessage
 
 说明：
 
-- `JSONValue` 仅表示业务 payload 或函数返回值，结构必须由函数 `input_schema` / `output_schema` 约束。
+- `JSONValue` 仅表示业务 payload 或函数返回值，结构必须由函数 `inputSchema` / `outputSchema` 约束。
 - `JSONSchema` 仅表示 JSON Schema / OpenAPI Schema。
 - `FormPresentationSpec` 表示 JSON Schema 表单的受控展示配置，不能承载页面布局、菜单或任意组件 props。
 - `OpenAPIOperation` 只用于契约查看，不用于运行控制台直接生成页面。

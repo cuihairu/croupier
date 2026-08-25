@@ -29,29 +29,32 @@ FunctionContract
 
 ## 注册信息
 
-| 字段 | 作用 | 是否页面 UI |
-| --- | --- | --- |
-| `id`、`version` | 稳定函数身份与变更追踪 | 否 |
-| `summary`、`description`、`tags` | 函数目录、搜索、诊断 | 否 |
-| `input_schema`、`output_schema` | 表单字段、验证、候选列和详情字段 | 否 |
-| `resource`、`operation` | 业务资源与动作归属 | 否 |
-| `capability` | `collection_query/item_query/create/update/delete/action/task/report` | 否 |
-| `execution`、`approval`、`risk`、`permission` | 调度、审批与治理；审批可与同步/异步组合 | 否 |
-| 分类、标题、列、动作位置、mapping、页面类型 | PageProposal/PageSpec | 是，不能注册 |
+| 字段                                          | 作用                                                                  | 是否页面 UI  |
+| --------------------------------------------- | --------------------------------------------------------------------- | ------------ |
+| `id`、`version`                               | 稳定函数身份与变更追踪                                                | 否           |
+| `summary`、`description`、`tags`              | 函数目录、搜索、诊断                                                  | 否           |
+| `inputSchema`、`outputSchema`                 | 表单字段、验证、候选列和详情字段                                      | 否           |
+| `resource`、`operation`                       | 业务资源与动作归属                                                    | 否           |
+| `capability`                                  | `collection_query/item_query/create/update/delete/action/task/report` | 否           |
+| `execution`、`approval`、`risk`、`permission` | 调度、审批与治理；审批可与同步/异步组合                               | 否           |
+| 分类、标题、列、动作位置、mapping、页面类型   | PageProposal/PageSpec                                                 | 是，不能注册 |
 
 示例：
 
 ```ts
-client.registerFunction({
-  id: 'player.update',
-  version: '1.0.0',
-  resource: 'player',
-  operation: 'update',
-  capability: 'update',
-  risk: 'warning',
-  input_schema: PlayerUpdateSchema,
-  output_schema: PlayerSchema,
-}, updatePlayer);
+client.registerFunction(
+  {
+    id: "player.update",
+    version: "1.0.0",
+    resource: "player",
+    operation: "update",
+    capability: "update",
+    risk: "warning",
+    inputSchema: PlayerUpdateSchema,
+    outputSchema: PlayerSchema,
+  },
+  updatePlayer,
+);
 ```
 
 `capability` 是能力语义，不是 UI：它只说明 `player.update` 可以参与玩家资源的更新生命周期，不说明它显示为行按钮、详情弹窗还是独立页。这些由 PageProposal 生成，随后由 Page Studio 确定。
@@ -60,12 +63,12 @@ client.registerFunction({
 
 JSON Schema 是自动界面的基础，但不是完整页面定义：
 
-| JSON Schema 信息 | 平台可自动生成 |
-| --- | --- |
+| JSON Schema 信息                         | 平台可自动生成                                         |
+| ---------------------------------------- | ------------------------------------------------------ |
 | 输入字段、required、enum、format、默认值 | SchemaFormRenderer 字段与校验；Modal/Drawer 仅作为容器 |
-| 输出对象字段 | 详情字段、结果字段候选 |
-| 输出 collection item schema | ProTable 列候选 |
-| REST path + method + path parameter | CRUD capability 与 identity 高置信度建议 |
+| 输出对象字段                             | 详情字段、结果字段候选                                 |
+| 输出 collection item schema              | ProTable 列候选                                        |
+| REST path + method + path parameter      | CRUD capability 与 identity 高置信度建议               |
 
 JSON Schema 不能自行判断：
 
@@ -95,12 +98,12 @@ POST /players/{playerId}/ban    -> action           -> 行操作候选
 
 ### 非 CRUD 函数
 
-| 函数 | 默认 Proposal | 直接发布条件 |
-| --- | --- | --- |
-| `mail.send` | OperationPage | 有可执行 binding、输入表单、风险/权限与导航默认值 |
-| `player.ban` | Resource action 或 OperationPage | identity/context 明确时为资源动作，否则独立操作页 |
-| `reward.batchGrant` | TaskPage | 真实 task 状态、事件和结果语义完整 |
-| `analytics.retention` | ReportPage | dataset、维度、指标和图表/表格语义完整 |
+| 函数                  | 默认 Proposal                    | 直接发布条件                                      |
+| --------------------- | -------------------------------- | ------------------------------------------------- |
+| `mail.send`           | OperationPage                    | 有可执行 binding、输入表单、风险/权限与导航默认值 |
+| `player.ban`          | Resource action 或 OperationPage | identity/context 明确时为资源动作，否则独立操作页 |
+| `reward.batchGrant`   | TaskPage                         | 真实 task 状态、事件和结果语义完整                |
+| `analytics.retention` | ReportPage                       | dataset、维度、指标和图表/表格语义完整            |
 
 页面质量：
 

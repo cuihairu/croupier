@@ -25,17 +25,17 @@ func TestValidateClientConfig2_AllBranches(t *testing.T) {
 		mutate  func(*ClientConfig)
 		message string
 	}{
-		{func(c *ClientConfig) { c.ServiceID = "" }, "service_id is required"},
-		{func(c *ClientConfig) { c.GameID = "" }, "game_id is required"},
-		{func(c *ClientConfig) { c.AgentAddr = "" }, "agent_addr is required"},
+		{func(c *ClientConfig) { c.ServiceID = "" }, "serviceId is required"},
+		{func(c *ClientConfig) { c.GameID = "" }, "gameId is required"},
+		{func(c *ClientConfig) { c.AgentAddr = "" }, "agentAddr is required"},
 		{func(c *ClientConfig) { c.Env = "" }, "env is required"},
-		{func(c *ClientConfig) { c.TimeoutSeconds = 0 }, "timeout_seconds must be positive"},
-		{func(c *ClientConfig) { c.TimeoutSeconds = 10; c.HeartbeatInterval = 5 }, "must be >= timeout_seconds"},
-		{func(c *ClientConfig) { c.HeartbeatInterval = -1 }, "heartbeat_interval must be positive"},
+		{func(c *ClientConfig) { c.TimeoutSeconds = 0 }, "timeoutSeconds must be positive"},
+		{func(c *ClientConfig) { c.TimeoutSeconds = 10; c.HeartbeatInterval = 5 }, "must be >= timeoutSeconds"},
+		{func(c *ClientConfig) { c.HeartbeatInterval = -1 }, "heartbeatInterval must be positive"},
 		{func(c *ClientConfig) { c.Insecure = false; c.CAFile = "" }, "CA file is required"},
-		{func(c *ClientConfig) { c.CertFile = "cert.pem" }, "key_file is required"},
-		{func(c *ClientConfig) { c.KeyFile = "key.pem" }, "cert_file is required"},
-		{func(c *ClientConfig) { c.LogLevel = "VERBOSE" }, "invalid log_level"},
+		{func(c *ClientConfig) { c.CertFile = "cert.pem" }, "keyFile is required"},
+		{func(c *ClientConfig) { c.KeyFile = "key.pem" }, "certFile is required"},
+		{func(c *ClientConfig) { c.LogLevel = "VERBOSE" }, "invalid logLevel"},
 	}
 	for _, tc := range required {
 		config := validClientConfig2()

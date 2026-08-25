@@ -475,10 +475,10 @@ class TestManifestOptionalFields:
         assert fn["tags"] == ["ops", "beta"]
         assert fn["summary"] == "Short summary"
         assert fn["description"] == "Long description"
-        assert fn["operation_id"] == "fullFn"
+        assert fn["operationId"] == "fullFn"
         assert fn["deprecated"] is True
-        assert fn["input_schema"] == {"type": "object"}
-        assert fn["output_schema"] == {"type": "string"}
+        assert fn["inputSchema"] == {"type": "object"}
+        assert fn["outputSchema"] == {"type": "string"}
         assert fn["resource"] == "player"
         assert fn["operation"] == "ban"
         assert fn["capability"] == " moderation"

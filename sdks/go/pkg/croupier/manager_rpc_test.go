@@ -351,7 +351,7 @@ func TestCancelTaskHandler_CancelRunningTask(t *testing.T) {
 	_ = proto.Unmarshal(cancelResp, resp)
 
 	// Verify cancellation response
-	expectedPayload := fmt.Sprintf(`{"task_id":"%s","cancelled":true}`, startRespMsg.TaskId)
+	expectedPayload := fmt.Sprintf(`{"taskId":"%s","cancelled":true}`, startRespMsg.TaskId)
 	if string(resp.Payload) != expectedPayload {
 		t.Errorf("unexpected payload: %s", string(resp.Payload))
 	}

@@ -165,9 +165,9 @@ class CroupierClientImplTest {
         String json = new String(client.buildManifest(), StandardCharsets.UTF_8);
 
         assertTrue(json.contains("\"summary\":\"Summary\""));
-        assertTrue(json.contains("\"operation_id\":\"playerBan\""));
+        assertTrue(json.contains("\"operationId\":\"playerBan\""));
         assertTrue(json.contains("\"deprecated\":true"));
-        assertTrue(json.contains("\"input_schema\":\"{\\\"type\\\":\\\"object\\\"}\""));
+        assertTrue(json.contains("\"inputSchema\":\"{\\\"type\\\":\\\"object\\\"}\""));
         assertTrue(json.contains("\"resource\":\"player\""));
         assertTrue(json.contains("\"operation\":\"ban\""));
         assertTrue(json.contains("\"permission\":\"player.ban\""));

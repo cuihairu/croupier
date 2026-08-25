@@ -133,7 +133,7 @@ const playerBanDescriptor: FunctionDescriptor = {
   version: "1.0.0",
   name: "Ban Player",
   description: "Ban a player from the game for a specified period",
-  input_schema: {
+  inputSchema: {
     type: "object",
     properties: {
       playerId: { type: "string" },
@@ -149,7 +149,7 @@ const walletTransferDescriptor: FunctionDescriptor = {
   version: "1.0.0",
   name: "Wallet Transfer",
   description: "Transfer currency between player wallets",
-  input_schema: {
+  inputSchema: {
     type: "object",
     properties: {
       fromPlayerId: { type: "string" },
@@ -166,7 +166,7 @@ const shopBuyDescriptor: FunctionDescriptor = {
   version: "1.0.0",
   name: "Shop Purchase",
   description: "Purchase items from the game shop",
-  input_schema: {
+  inputSchema: {
     type: "object",
     properties: {
       playerId: { type: "string" },

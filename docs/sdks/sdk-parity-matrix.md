@@ -23,7 +23,7 @@
 | 默认 transport 为独立 `tcp session`                  | `Required`  |
 | `tls` 作为 `tcp` 的可选安全配置                      | `Required`  |
 | `InvokeRequest/Response/TaskEvent` 默认 JSON payload | `Required`  |
-| `input_schema/output_schema` 描述 JSON Schema        | `Required`  |
+| `inputSchema/outputSchema` 描述 JSON Schema          | `Required`  |
 | 自动重连 + 指数退避 + 上限后廉价周期重试             | `Required`  |
 | drain / overload / backpressure 语义                 | `Required`  |
 | JSON payload 自动编解码                              | `Required`  |

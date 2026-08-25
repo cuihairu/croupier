@@ -10,21 +10,21 @@ import (
 
 // FunctionDescriptor defines the executable function capability contract.
 type FunctionDescriptor struct {
-	ID                string   `json:"id"`            // function id, e.g. "player.ban"
-	Version           string   `json:"version"`       // semver, e.g. "1.2.0"
-	Tags              []string `json:"tags"`          // tags for grouping and search
-	Summary           string   `json:"summary"`       // short summary for catalogs and search
-	Description       string   `json:"description"`   // detailed description, supports Markdown
-	OperationID       string   `json:"operation_id"`  // stable operation identifier
-	Deprecated        bool     `json:"deprecated"`    // whether this function is deprecated
-	InputSchema       string   `json:"input_schema"`  // JSON Schema for request body validation
-	OutputSchema      string   `json:"output_schema"` // JSON Schema for response body validation
-	Resource          string   `json:"resource"`      // business resource/capability key
-	Operation         string   `json:"operation"`     // business action key, e.g. "ban", "send", "list"
-	Capability        string   `json:"capability"`    // collection_query|item_query|create|update|delete|action|task|report
-	Execution         string   `json:"execution"`     // sync|task
-	ApprovalRequired  bool     `json:"approval_required"`
-	ApprovalPolicyKey string   `json:"approval_policy_key"`
+	ID                string   `json:"id"`           // function id, e.g. "player.ban"
+	Version           string   `json:"version"`      // semver, e.g. "1.2.0"
+	Tags              []string `json:"tags"`         // tags for grouping and search
+	Summary           string   `json:"summary"`      // short summary for catalogs and search
+	Description       string   `json:"description"`  // detailed description, supports Markdown
+	OperationID       string   `json:"operationId"`  // stable operation identifier
+	Deprecated        bool     `json:"deprecated"`   // whether this function is deprecated
+	InputSchema       string   `json:"inputSchema"`  // JSON Schema for request body validation
+	OutputSchema      string   `json:"outputSchema"` // JSON Schema for response body validation
+	Resource          string   `json:"resource"`     // business resource/capability key
+	Operation         string   `json:"operation"`    // business action key, e.g. "ban", "send", "list"
+	Capability        string   `json:"capability"`   // collection_query|item_query|create|update|delete|action|task|report
+	Execution         string   `json:"execution"`    // sync|task
+	ApprovalRequired  bool     `json:"approvalRequired"`
+	ApprovalPolicyKey string   `json:"approvalPolicyKey"`
 	Risk              string   `json:"risk"`       // "safe"|"warning"|"high"|"danger"
 	Permission        string   `json:"permission"` // optional permission identifier
 	Enabled           bool     `json:"enabled"`    // whether this function is currently enabled
@@ -39,26 +39,26 @@ type ProviderFunctionDescriptor struct {
 	Version string `json:"version"` // Function version (semver, e.g., "1.0.0")
 
 	// OpenAPI 3.0.3 Operation Object fields
-	Tags        []string `json:"tags"`         // Tags for grouping operations
-	Summary     string   `json:"summary"`      // Short summary (1-2 sentences)
-	Description string   `json:"description"`  // Detailed description (supports markdown)
-	OperationID string   `json:"operation_id"` // Unique operation ID for OpenAPI docs
-	Deprecated  bool     `json:"deprecated"`   // Whether this function is deprecated
+	Tags        []string `json:"tags"`        // Tags for grouping operations
+	Summary     string   `json:"summary"`     // Short summary (1-2 sentences)
+	Description string   `json:"description"` // Detailed description (supports markdown)
+	OperationID string   `json:"operationId"` // Unique operation ID for OpenAPI docs
+	Deprecated  bool     `json:"deprecated"`  // Whether this function is deprecated
 
 	// OpenAPI 3.0.3 Schema fields (JSON Schema format)
-	InputSchema  string `json:"input_schema"`  // JSON Schema for request body validation
-	OutputSchema string `json:"output_schema"` // JSON Schema for response body validation
+	InputSchema  string `json:"inputSchema"`  // JSON Schema for request body validation
+	OutputSchema string `json:"outputSchema"` // JSON Schema for response body validation
 
 	// Croupier capability fields.
-	Resource          string `json:"resource"`            // x-resource: business resource/capability key
-	Operation         string `json:"operation"`           // x-operation: business action key
-	Capability        string `json:"capability"`          // x-capability: collection_query|item_query|create|update|delete|action|task|report
-	Execution         string `json:"execution"`           // x-execution: sync|task
-	ApprovalRequired  bool   `json:"approval_required"`   // approval is independent of execution mode
-	ApprovalPolicyKey string `json:"approval_policy_key"` // optional approval workflow key
-	Risk              string `json:"risk"`                // x-risk: risk level ("safe", "warning", "high", "danger")
-	Enabled           bool   `json:"enabled"`             // x-enabled: whether this function is enabled
-	Permission        string `json:"permission"`          // x-permission: optional permission identifier
+	Resource          string `json:"resource"`          // x-resource: business resource/capability key
+	Operation         string `json:"operation"`         // x-operation: business action key
+	Capability        string `json:"capability"`        // x-capability: collection_query|item_query|create|update|delete|action|task|report
+	Execution         string `json:"execution"`         // x-execution: sync|task
+	ApprovalRequired  bool   `json:"approvalRequired"`  // approval is independent of execution mode
+	ApprovalPolicyKey string `json:"approvalPolicyKey"` // optional approval workflow key
+	Risk              string `json:"risk"`              // x-risk: risk level ("safe", "warning", "high", "danger")
+	Enabled           bool   `json:"enabled"`           // x-enabled: whether this function is enabled
+	Permission        string `json:"permission"`        // x-permission: optional permission identifier
 }
 
 // FunctionHandler defines the signature for game function handlers
@@ -92,51 +92,51 @@ func (hwd *HandlerWithDescriptor) GetDescriptor() *ProviderFunctionDescriptor {
 // ClientConfig holds configuration for the Croupier client
 type ClientConfig struct {
 	// Agent connection settings
-	AgentAddr    string `json:"agent_addr"`     // Agent local SDK gateway, e.g. "localhost:19091" or "ipc://croupier-agent,localhost:19091"
-	AgentIPCAddr string `json:"agent_ipc_addr"` // IPC address for local high-performance connection (e.g., "ipc://croupier-agent")
+	AgentAddr    string `json:"agentAddr"`    // Agent local SDK gateway, e.g. "localhost:19091" or "ipc://croupier-agent,localhost:19091"
+	AgentIPCAddr string `json:"agentIpcAddr"` // IPC address for local high-performance connection (e.g., "ipc://croupier-agent")
 
 	// Service identification (single-company, multi-game scope)
-	GameID         string `json:"game_id"`         // game identifier for business scope isolation
-	Env            string `json:"env"`             // logical environment: "development"|"staging"|"production"
-	ServiceID      string `json:"service_id"`      // unique service identifier
-	ServiceVersion string `json:"service_version"` // service version for compatibility
-	AgentID        string `json:"agent_id"`        // agent identifier for load balancing
-	ProviderLang   string `json:"provider_lang"`   // language reported via ProviderMeta
-	ProviderSDK    string `json:"provider_sdk"`    // sdk identifier reported via ProviderMeta
+	GameID         string `json:"gameId"`         // game identifier for business scope isolation
+	Env            string `json:"env"`            // logical environment: "development"|"staging"|"production"
+	ServiceID      string `json:"serviceId"`      // unique service identifier
+	ServiceVersion string `json:"serviceVersion"` // service version for compatibility
+	AgentID        string `json:"agentId"`        // agent identifier for load balancing
+	ProviderLang   string `json:"providerLang"`   // language reported via ProviderMeta
+	ProviderSDK    string `json:"providerSdk"`    // sdk identifier reported via ProviderMeta
 
 	// Control plane settings
-	ControlAddr string `json:"control_addr"` // optional control-plane address for manifest upload
+	ControlAddr string `json:"controlAddr"` // optional control-plane address for manifest upload
 
 	// Connection settings
-	TimeoutSeconds    int  `json:"timeout_seconds"`    // connection timeout in seconds
-	HeartbeatInterval int  `json:"heartbeat_interval"` // heartbeat interval in seconds
-	Insecure          bool `json:"insecure"`           // use insecure connection (for development)
+	TimeoutSeconds    int  `json:"timeoutSeconds"`    // connection timeout in seconds
+	HeartbeatInterval int  `json:"heartbeatInterval"` // heartbeat interval in seconds
+	Insecure          bool `json:"insecure"`          // use insecure connection (for development)
 
 	// TLS settings (when not insecure)
-	CAFile     string `json:"ca_file"`     // CA certificate file path
-	CertFile   string `json:"cert_file"`   // client certificate file path
-	KeyFile    string `json:"key_file"`    // client private key file path
-	ServerName string `json:"server_name"` // override TLS server name verification
+	CAFile     string `json:"caFile"`     // CA certificate file path
+	CertFile   string `json:"certFile"`   // client certificate file path
+	KeyFile    string `json:"keyFile"`    // client private key file path
+	ServerName string `json:"serverName"` // override TLS server name verification
 
 	// TLS verification settings (when not insecure)
-	InsecureSkipVerify bool `json:"insecure_skip_verify"` // skip TLS verification (not recommended)
+	InsecureSkipVerify bool `json:"insecureSkipVerify"` // skip TLS verification (not recommended)
 
 	// Authentication settings
-	AuthToken string            `json:"auth_token"` // Bearer token for authentication
-	Headers   map[string]string `json:"headers"`    // additional headers
+	AuthToken string            `json:"authToken"` // Bearer token for authentication
+	Headers   map[string]string `json:"headers"`   // additional headers
 
 	// Logging settings
-	DisableLogging bool   `json:"disable_logging"` // Disable all logging output
-	DebugLogging   bool   `json:"debug_logging"`   // Enable debug logging
-	LogLevel       string `json:"log_level"`       // Log level: "DEBUG", "INFO", "WARN", "ERROR", "OFF"
+	DisableLogging bool   `json:"disableLogging"` // Disable all logging output
+	DebugLogging   bool   `json:"debugLogging"`   // Enable debug logging
+	LogLevel       string `json:"logLevel"`       // Log level: "DEBUG", "INFO", "WARN", "ERROR", "OFF"
 
 	// Resiliency settings
 	Reconnect *ReconnectConfig `json:"reconnect"` // reconnection configuration
 	Retry     *RetryConfig     `json:"retry"`     // retry configuration
 
 	// File transfer settings
-	EnableFileTransfer bool `json:"enable_file_transfer"` // enable file transfer
-	MaxFileSize        int  `json:"max_file_size"`        // max file size in bytes
+	EnableFileTransfer bool `json:"enableFileTransfer"` // enable file transfer
+	MaxFileSize        int  `json:"maxFileSize"`        // max file size in bytes
 }
 
 // generateUUID generates a random UUID-like string using crypto/rand
@@ -169,12 +169,12 @@ func DefaultClientConfig() *ClientConfig {
 
 // ReconnectConfig holds configuration for automatic reconnection with exponential backoff
 type ReconnectConfig struct {
-	Enabled           bool    `json:"enabled"`            // enable automatic reconnection
-	MaxAttempts       int     `json:"max_attempts"`       // max reconnection attempts (0 = infinite)
-	InitialDelayMs    int     `json:"initial_delay_ms"`   // initial reconnection delay in milliseconds
-	MaxDelayMs        int     `json:"max_delay_ms"`       // maximum reconnection delay in milliseconds
-	BackoffMultiplier float64 `json:"backoff_multiplier"` // exponential backoff multiplier
-	JitterFactor      float64 `json:"jitter_factor"`      // jitter factor (0-1) to add randomness
+	Enabled           bool    `json:"enabled"`           // enable automatic reconnection
+	MaxAttempts       int     `json:"maxAttempts"`       // max reconnection attempts (0 = infinite)
+	InitialDelayMs    int     `json:"initialDelayMs"`    // initial reconnection delay in milliseconds
+	MaxDelayMs        int     `json:"maxDelayMs"`        // maximum reconnection delay in milliseconds
+	BackoffMultiplier float64 `json:"backoffMultiplier"` // exponential backoff multiplier
+	JitterFactor      float64 `json:"jitterFactor"`      // jitter factor (0-1) to add randomness
 }
 
 // DefaultReconnectConfig returns a default reconnection configuration
@@ -191,13 +191,13 @@ func DefaultReconnectConfig() *ReconnectConfig {
 
 // RetryConfig holds configuration for retrying failed invocations with exponential backoff
 type RetryConfig struct {
-	Enabled              bool    `json:"enabled"`                // enable retry on failure
-	MaxAttempts          int     `json:"max_attempts"`           // max retry attempts
-	InitialDelayMs       int     `json:"initial_delay_ms"`       // initial retry delay in milliseconds
-	MaxDelayMs           int     `json:"max_delay_ms"`           // maximum retry delay in milliseconds
-	BackoffMultiplier    float64 `json:"backoff_multiplier"`     // exponential backoff multiplier
-	JitterFactor         float64 `json:"jitter_factor"`          // jitter factor (0-1) to add randomness
-	RetryableStatusCodes []int32 `json:"retryable_status_codes"` // HTTP status codes that trigger retry
+	Enabled              bool    `json:"enabled"`              // enable retry on failure
+	MaxAttempts          int     `json:"maxAttempts"`          // max retry attempts
+	InitialDelayMs       int     `json:"initialDelayMs"`       // initial retry delay in milliseconds
+	MaxDelayMs           int     `json:"maxDelayMs"`           // maximum retry delay in milliseconds
+	BackoffMultiplier    float64 `json:"backoffMultiplier"`    // exponential backoff multiplier
+	JitterFactor         float64 `json:"jitterFactor"`         // jitter factor (0-1) to add randomness
+	RetryableStatusCodes []int32 `json:"retryableStatusCodes"` // HTTP status codes that trigger retry
 }
 
 // DefaultRetryConfig returns a default retry configuration
@@ -221,36 +221,36 @@ func DefaultRetryConfig() *RetryConfig {
 
 // InvokerConfig holds configuration for the independent Server HTTP invoker.
 type InvokerConfig struct {
-	Address          string           `json:"address"`            // Server HTTP API URL, e.g. https://server.example/api/v1
-	AuthToken        string           `json:"auth_token"`         // optional Bearer token for Server API authentication
-	GameID           string           `json:"game_id"`            // optional default Server game scope
-	Env              string           `json:"env"`                // optional default Server environment scope
-	TaskPollInterval time.Duration    `json:"task_poll_interval"` // interval for polling Server task events
-	TimeoutSeconds   int              `json:"timeout_seconds"`    // request timeout in seconds
-	Insecure         bool             `json:"insecure"`           // use insecure connection (skip TLS verification)
-	CAFile           string           `json:"ca_file"`            // CA certificate file
-	CertFile         string           `json:"cert_file"`          // client certificate file
-	KeyFile          string           `json:"key_file"`           // client private key file
-	DefaultTimeout   time.Duration    `json:"-"`                  // computed timeout duration
-	Reconnect        *ReconnectConfig `json:"reconnect"`          // reconnection configuration
-	Retry            *RetryConfig     `json:"retry"`              // retry configuration
+	Address          string           `json:"address"`          // Server HTTP API URL, e.g. https://server.example/api/v1
+	AuthToken        string           `json:"authToken"`        // optional Bearer token for Server API authentication
+	GameID           string           `json:"gameId"`           // optional default Server game scope
+	Env              string           `json:"env"`              // optional default Server environment scope
+	TaskPollInterval time.Duration    `json:"taskPollInterval"` // interval for polling Server task events
+	TimeoutSeconds   int              `json:"timeoutSeconds"`   // request timeout in seconds
+	Insecure         bool             `json:"insecure"`         // use insecure connection (skip TLS verification)
+	CAFile           string           `json:"caFile"`           // CA certificate file
+	CertFile         string           `json:"certFile"`         // client certificate file
+	KeyFile          string           `json:"keyFile"`          // client private key file
+	DefaultTimeout   time.Duration    `json:"-"`                // computed timeout duration
+	Reconnect        *ReconnectConfig `json:"reconnect"`        // reconnection configuration
+	Retry            *RetryConfig     `json:"retry"`            // retry configuration
 }
 
 // InvokeOptions provides options for function invocation
 type InvokeOptions struct {
-	IdempotencyKey string            `json:"idempotency_key"` // idempotency key to prevent duplicate execution
-	Timeout        time.Duration     `json:"timeout"`         // request timeout
-	Headers        map[string]string `json:"headers"`         // custom headers
-	Retry          *RetryConfig      `json:"retry"`           // retry configuration override
+	IdempotencyKey string            `json:"idempotencyKey"` // idempotency key to prevent duplicate execution
+	Timeout        time.Duration     `json:"timeout"`        // request timeout
+	Headers        map[string]string `json:"headers"`        // custom headers
+	Retry          *RetryConfig      `json:"retry"`          // retry configuration override
 }
 
 // TaskEvent represents a task execution event
 type TaskEvent struct {
-	EventType string `json:"event_type"` // "started"|"progress"|"completed"|"error"
-	TaskID    string `json:"task_id"`    // task identifier
-	Payload   string `json:"payload"`    // event payload (JSON)
-	Error     string `json:"error"`      // error message (if any)
-	Done      bool   `json:"done"`       // whether the task is complete
+	EventType string `json:"eventType"` // "started"|"progress"|"completed"|"error"
+	TaskID    string `json:"taskId"`    // task identifier
+	Payload   string `json:"payload"`   // event payload (JSON)
+	Error     string `json:"error"`     // error message (if any)
+	Done      bool   `json:"done"`      // whether the task is complete
 }
 
 // TaskStatus is the Server-persisted state returned by GET /api/v1/tasks/:id.

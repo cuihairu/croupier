@@ -32,8 +32,8 @@ OpenAPI
 | `id`                      | `operationId`                    | 稳定函数 ID                                          |
 | `version`                 | `x-version`                      | 契约版本                                             |
 | `summary` / `description` | 标准字段                         | 目录和诊断说明                                       |
-| `input_schema`            | request body schema              | 输入 JSON Schema                                     |
-| `output_schema`           | response schema                  | 输出 JSON Schema                                     |
+| `inputSchema`             | request body schema              | 输入 JSON Schema                                     |
+| `outputSchema`            | response schema                  | 输出 JSON Schema                                     |
 | `resource`                | REST path 推导或 `x-resource`    | 资源 key                                             |
 | `operation`               | method/path 推导或 `x-operation` | 动作 key                                             |
 | `capability`              | REST 推导或 `x-capability`       | 受控能力语义                                         |

@@ -20,15 +20,15 @@ func ValidateClientConfig(config *ClientConfig) error {
 
 	// Required fields
 	if config.ServiceID == "" {
-		return fmt.Errorf("service_id is required")
+		return fmt.Errorf("serviceId is required")
 	}
 
 	if config.GameID == "" {
-		return fmt.Errorf("game_id is required")
+		return fmt.Errorf("gameId is required")
 	}
 
 	if config.AgentAddr == "" {
-		return fmt.Errorf("agent_addr is required")
+		return fmt.Errorf("agentAddr is required")
 	}
 
 	if config.Env == "" {
@@ -37,19 +37,19 @@ func ValidateClientConfig(config *ClientConfig) error {
 
 	// Timeout validation
 	if config.TimeoutSeconds <= 0 {
-		return fmt.Errorf("timeout_seconds must be positive")
+		return fmt.Errorf("timeoutSeconds must be positive")
 	}
 
 	// Heartbeat validation
 	if config.HeartbeatInterval > 0 && config.TimeoutSeconds > 0 {
 		if config.HeartbeatInterval < config.TimeoutSeconds {
-			return fmt.Errorf("heartbeat_interval (%d) must be >= timeout_seconds (%d)",
+			return fmt.Errorf("heartbeatInterval (%d) must be >= timeoutSeconds (%d)",
 				config.HeartbeatInterval, config.TimeoutSeconds)
 		}
 	}
 
 	if config.HeartbeatInterval <= 0 {
-		return fmt.Errorf("heartbeat_interval must be positive")
+		return fmt.Errorf("heartbeatInterval must be positive")
 	}
 
 	// TLS validation
@@ -59,10 +59,10 @@ func ValidateClientConfig(config *ClientConfig) error {
 
 	// TLS cert/key pair validation
 	if config.CertFile != "" && config.KeyFile == "" {
-		return fmt.Errorf("key_file is required when cert_file is provided")
+		return fmt.Errorf("keyFile is required when certFile is provided")
 	}
 	if config.KeyFile != "" && config.CertFile == "" {
-		return fmt.Errorf("cert_file is required when key_file is provided")
+		return fmt.Errorf("certFile is required when keyFile is provided")
 	}
 
 	// Log level validation
@@ -74,17 +74,17 @@ func ValidateClientConfig(config *ClientConfig) error {
 			"error": true, "off": true,
 		}
 		if !validLevels[config.LogLevel] {
-			return fmt.Errorf("invalid log_level: %s", config.LogLevel)
+			return fmt.Errorf("invalid logLevel: %s", config.LogLevel)
 		}
 	}
 
 	// File transfer validation
 	if config.EnableFileTransfer {
 		if config.MaxFileSize <= 0 {
-			return fmt.Errorf("max_file_size must be positive when file transfer is enabled")
+			return fmt.Errorf("maxFileSize must be positive when file transfer is enabled")
 		}
 		if config.MaxFileSize > 100*1024*1024 {
-			return fmt.Errorf("max_file_size exceeds maximum allowed (100MB)")
+			return fmt.Errorf("maxFileSize exceeds maximum allowed (100MB)")
 		}
 	}
 
@@ -111,11 +111,11 @@ func ValidateReconnectConfig(config *ReconnectConfig) error {
 	}
 
 	if config.InitialDelayMs < 0 {
-		return fmt.Errorf("initial_delay_ms cannot be negative")
+		return fmt.Errorf("initialDelayMs cannot be negative")
 	}
 
 	if config.MaxDelayMs < 0 {
-		return fmt.Errorf("max_delay_ms cannot be negative")
+		return fmt.Errorf("maxDelayMs cannot be negative")
 	}
 
 	if config.InitialDelayMs > config.MaxDelayMs {
@@ -124,11 +124,11 @@ func ValidateReconnectConfig(config *ReconnectConfig) error {
 	}
 
 	if config.BackoffMultiplier < 1.0 {
-		return fmt.Errorf("backoff_multiplier must be >= 1.0, got %f", config.BackoffMultiplier)
+		return fmt.Errorf("backoffMultiplier must be >= 1.0, got %f", config.BackoffMultiplier)
 	}
 
 	if config.JitterFactor < 0 || config.JitterFactor > 1.0 {
-		return fmt.Errorf("jitter_factor must be between 0 and 1, got %f", config.JitterFactor)
+		return fmt.Errorf("jitterFactor must be between 0 and 1, got %f", config.JitterFactor)
 	}
 
 	return nil
@@ -141,27 +141,27 @@ func ValidateRetryConfig(config *RetryConfig) error {
 	}
 
 	if config.InitialDelayMs < 0 {
-		return fmt.Errorf("initial_delay_ms cannot be negative")
+		return fmt.Errorf("initialDelayMs cannot be negative")
 	}
 
 	if config.MaxDelayMs < 0 {
-		return fmt.Errorf("max_delay_ms cannot be negative")
+		return fmt.Errorf("maxDelayMs cannot be negative")
 	}
 
 	if config.BackoffMultiplier < 1.0 {
-		return fmt.Errorf("backoff_multiplier must be >= 1.0, got %f", config.BackoffMultiplier)
+		return fmt.Errorf("backoffMultiplier must be >= 1.0, got %f", config.BackoffMultiplier)
 	}
 
 	if config.JitterFactor < 0 || config.JitterFactor > 1.0 {
-		return fmt.Errorf("jitter_factor must be between 0 and 1, got %f", config.JitterFactor)
+		return fmt.Errorf("jitterFactor must be between 0 and 1, got %f", config.JitterFactor)
 	}
 
 	if config.Enabled {
 		if config.MaxAttempts <= 0 {
-			return fmt.Errorf("max_attempts must be positive when retry is enabled")
+			return fmt.Errorf("maxAttempts must be positive when retry is enabled")
 		}
 		if config.MaxAttempts > 10 {
-			return fmt.Errorf("max_attempts cannot exceed 10")
+			return fmt.Errorf("maxAttempts cannot exceed 10")
 		}
 	}
 
@@ -179,7 +179,7 @@ func ValidateInvokerConfig(config *InvokerConfig) error {
 	}
 
 	if config.TimeoutSeconds <= 0 {
-		return fmt.Errorf("timeout_seconds must be positive")
+		return fmt.Errorf("timeoutSeconds must be positive")
 	}
 
 	// TLS validation
@@ -241,7 +241,7 @@ func ValidateTaskEvent(event *TaskEvent) error {
 	}
 
 	if event.TaskID == "" {
-		return fmt.Errorf("task_id is required")
+		return fmt.Errorf("taskId is required")
 	}
 
 	validTypes := map[string]bool{
@@ -252,7 +252,7 @@ func ValidateTaskEvent(event *TaskEvent) error {
 	}
 
 	if !validTypes[event.EventType] {
-		return fmt.Errorf("invalid event_type: %s", event.EventType)
+		return fmt.Errorf("invalid eventType: %s", event.EventType)
 	}
 
 	// Set Done flag based on event type

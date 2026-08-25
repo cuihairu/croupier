@@ -31,8 +31,8 @@ client.connect()
 - `summary`
 - `description`
 - `tags`
-- `input_schema`
-- `output_schema`
+- `input_schema`（Python 字段名；对应契约键 `inputSchema`）
+- `output_schema`（Python 字段名；对应契约键 `outputSchema`）
 
 建议补齐业务与治理信息：
 

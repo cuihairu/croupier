@@ -23,8 +23,8 @@ Croupier 的核心模型仍然是“函数注册驱动”，但注册与调用�
 - 资源 `resource`
 - 业务动作 `operation`
 - 风险等级 `risk`
-- 输入 `input_schema`
-- 输出 `output_schema`
+- 输入 `inputSchema`
+- 输出 `outputSchema`
 - 能力语义 `capability`
 
 ## 当前注册模型
@@ -70,7 +70,7 @@ sequenceDiagram
   "tags": ["player", "moderation"],
   "summary": "封禁玩家",
   "description": "封禁指定玩家账号",
-  "input_schema": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "player_id": { "type": "string" },
@@ -79,7 +79,7 @@ sequenceDiagram
     },
     "required": ["player_id", "duration"]
   },
-  "output_schema": {
+  "outputSchema": {
     "type": "object",
     "properties": {
       "success": { "type": "boolean" },
@@ -91,12 +91,12 @@ sequenceDiagram
 
 **风险等级 (`risk`)：**
 
-| 等级 | 说明 | 审批要求 | 允许角色 |
-|------|------|----------|----------|
-| `low` | 低风险操作 | 无需审批 | user, operator |
-| `medium` | 中风险操作 | 无需审批，需审计 | operator |
-| `high` | 高风险操作 | 单管理员审批 + 审计 | admin |
-| `danger` | 危险操作 | 双人审批 + 审计 | super_admin |
+| 等级     | 说明       | 审批要求            | 允许角色       |
+| -------- | ---------- | ------------------- | -------------- |
+| `low`    | 低风险操作 | 无需审批            | user, operator |
+| `medium` | 中风险操作 | 无需审批，需审计    | operator       |
+| `high`   | 高风险操作 | 单管理员审批 + 审计 | admin          |
+| `danger` | 危险操作   | 双人审批 + 审计     | super_admin    |
 
 函数注册时会根据风险等级自动创建对应的默认政策，也可以通过 API 覆盖。详见[权限控制](./permissions.md)文档。
 
@@ -111,7 +111,7 @@ sequenceDiagram
 
 这意味着 SDK 用户不需要先定义自己的 `.proto` 才能接入。
 
-Server 根据 `input_schema` 或 OpenAPI request schema 为 PageProposal 生成表单展示候选。Dashboard 表单 renderer 使用 JSON Schema validation 和 FormPresentationSpec，不在运行时猜测页面业务语义。
+Server 根据 `inputSchema` 或 OpenAPI request schema 为 PageProposal 生成表单展示候选。Dashboard 表单 renderer 使用 JSON Schema validation 和 FormPresentationSpec，不在运行时猜测页面业务语义。
 
 完整业务页面由 Resource Catalog 与 Page Studio 管理。Server 会先把函数归一化为 FunctionContract / ResourceCapability / CapabilitySemantics，再生成 PageProposal。PageSpec 是强类型页面 DSL，负责分页、表格、详情、弹窗、任务状态和图表等页面级能力，由 ProComponents renderer 显示。
 
@@ -162,8 +162,8 @@ stateDiagram-v2
 ## 最佳实践
 
 1. 函数 ID 应稳定且可读，例如 `player.ban`
-2. `summary`、`description`、`input_schema`、`output_schema` 建议补齐
-3. 需要自动加入 CRUD Resource 时补齐 `resource`、`capability`、`input_schema`、`output_schema`；SDK 没有 REST 语义时由 Resource Catalog 审核 identity/collection 能力
+2. `summary`、`description`、`inputSchema`、`outputSchema` 建议补齐
+3. 需要自动加入 CRUD Resource 时补齐 `resource`、`capability`、`inputSchema`、`outputSchema`；SDK 没有 REST 语义时由 Resource Catalog 审核 identity/collection 能力
 4. 动态菜单多语言、页面标题和按钮文案只能在 Page Studio / PageSpec 中配置
 5. 需要平台理解的字段必须放在协议层
 6. 只属于具体业务的参数放到 JSON payload

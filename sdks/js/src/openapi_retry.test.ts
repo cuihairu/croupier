@@ -138,7 +138,7 @@ describe("registerFromOpenAPI", () => {
     registerFromOpenAPI(client, SPEC, undefined, undefined, handlers);
     const descriptor = registeredDescriptors(client).get("player_ban")!;
 
-    expect(descriptor.input_schema).toEqual({
+    expect(descriptor.inputSchema).toEqual({
       type: "object",
       required: ["playerId", "reason"],
       properties: {
@@ -146,7 +146,7 @@ describe("registerFromOpenAPI", () => {
         reason: { type: "string" },
       },
     });
-    expect(descriptor.output_schema).toEqual({
+    expect(descriptor.outputSchema).toEqual({
       type: "object",
       properties: { ok: { type: "boolean" } },
     });

@@ -16,8 +16,8 @@
 - `operation`
 - `capability`
 - `risk`
-- `input_schema`
-- `output_schema`
+- `input_schema`（成员名；契约键 `inputSchema`）
+- `output_schema`（成员名；契约键 `outputSchema`）
 
 SDK descriptor 不提供页面 schema、组件树、页面 mapping、菜单、分类显示名、页面标题、按钮文案或页面位置。
 

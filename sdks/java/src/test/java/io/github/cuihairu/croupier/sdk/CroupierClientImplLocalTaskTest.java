@@ -325,7 +325,7 @@ class CroupierClientImplLocalTaskTest {
         List<Map<String, Object>> functions = (List<Map<String, Object>>) request.get("functions");
         assertEquals(1, functions.size());
         assertEquals(List.of(), functions.get(0).get("tags"));
-        assertEquals("f1", functions.get(0).get("operation_id"));
+        assertEquals("f1", functions.get(0).get("operationId"));
     }
 
     @Test

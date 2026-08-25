@@ -47,7 +47,7 @@ title: 仓库规范
 
 游戏方在 function spec / OpenAPI 里定义的枚举（哪怕字段也叫 status）是**用户数据**，不是平台状态：
 
-- 平台只做三件事：透传（schema 原文存 `input_schema`/`output_schema`，无损）、渲染（property 带 `enum` → 表单生成 Select）、校验（运行时按 schema 拒绝非法值）。
+- 平台只做三件事：透传（schema 原文存 `inputSchema`/`outputSchema`，无损）、渲染（property 带 `enum` → 表单生成 Select）、校验（运行时按 schema 拒绝非法值）。
 - 词表随用户 spec 版本漂移，平台代码不得预知、不得转换为 Go 枚举、不得在 DB 层加 CHECK 约束。
 - 用户改 enum 不需要平台发版。
 

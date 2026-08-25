@@ -267,7 +267,7 @@ v1 默认规则：
 
 ## Schema 规则
 
-`input_schema` / `output_schema` 在默认路径下描述的是 JSON payload 的 JSON Schema。
+`inputSchema` / `outputSchema`（对应 proto 字段名 `input_schema` / `output_schema`）在默认路径下描述的是 JSON payload 的 JSON Schema。
 
 规则：
 

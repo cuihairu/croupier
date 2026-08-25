@@ -173,9 +173,9 @@ describe("BasicClient register request serialization", () => {
     client.registerFunction({ id: "plain.fn", version: "1.0.0" }, async () => "ok");
     const req = (client as any).getRegisterRequest();
     expect(req.functions).toHaveLength(1);
-    expect(req.functions[0].input_schema).toBe("");
-    expect(req.functions[0].output_schema).toBe("");
-    expect(req.functions[0].operation_id).toBe("plain.fn");
+    expect(req.functions[0].inputSchema).toBe("");
+    expect(req.functions[0].outputSchema).toBe("");
+    expect(req.functions[0].operationId).toBe("plain.fn");
   });
 
   it("getRegisterRequest serializes provided schemas to JSON", () => {
@@ -184,14 +184,14 @@ describe("BasicClient register request serialization", () => {
       {
         id: "schema.fn",
         version: "1.0.0",
-        input_schema: { type: "object" } as any,
-        output_schema: { type: "string" } as any,
+        inputSchema: { type: "object" } as any,
+        outputSchema: { type: "string" } as any,
       },
       async () => "ok",
     );
     const req = (client as any).getRegisterRequest();
-    expect(req.functions[0].input_schema).toBe('{"type":"object"}');
-    expect(req.functions[0].output_schema).toBe('{"type":"string"}');
+    expect(req.functions[0].inputSchema).toBe('{"type":"object"}');
+    expect(req.functions[0].outputSchema).toBe('{"type":"string"}');
   });
 
   it("protobuf serialization round-trips schema and metadata fields", () => {
@@ -200,8 +200,8 @@ describe("BasicClient register request serialization", () => {
       {
         id: "pb.fn",
         version: "1.0.0",
-        input_schema: { type: "object" } as any,
-        output_schema: { type: "array" } as any,
+        inputSchema: { type: "object" } as any,
+        outputSchema: { type: "array" } as any,
       },
       async () => "ok",
     );

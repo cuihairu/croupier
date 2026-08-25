@@ -50,7 +50,7 @@ C++ SDK 的目标定位很明确：
 
 - 平台协议：protobuf
 - 业务 payload：UTF-8 JSON
-- `input_schema` / `output_schema`：JSON Schema，可选
+- `input_schema` / `output_schema`（C++ 成员名；对应契约键 `inputSchema` / `outputSchema`）：JSON Schema，可选
 
 ## C++ SDK 应向接入方暴露的核心能力
 
