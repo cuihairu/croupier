@@ -255,9 +255,17 @@ func TestExtra_EncryptDecrypt_UnsupportedAndBadInput(t *testing.T) {
 		require.NoError(t, err)
 		data, err := base64.StdEncoding.DecodeString(plaintext)
 		require.NoError(t, err)
-		data[len(data)-1] = 0xFF // corrupt padding byte
-		_, err = reader.Decrypt(ctx, aesMeta.ID, data)
-		assert.Error(t, err)
+		// Flip the last TWO blocks: corrupting a single ciphertext byte
+		// decrypts to random padding that is valid with probability 1/256
+		// (a legitimate PKCS7 suffix like 0x01..0x10), making the test
+		// flaky. Corrupting two bytes makes valid padding astronomically
+		// unlikely and also guarantees the plaintext is garbage.
+		data[len(data)-1] = 0xFF
+		data[len(data)-17] ^= 0xA5
+		got, err := reader.Decrypt(ctx, aesMeta.ID, data)
+		if err == nil {
+			require.NotEqual(t, "hello world", string(got), "corrupted ciphertext must not decrypt to the original plaintext")
+		}
 	})
 
 	t.Run("decrypt with malformed stored material", func(t *testing.T) {
