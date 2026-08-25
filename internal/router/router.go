@@ -32,6 +32,7 @@ import (
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/db"
 	"github.com/cuihairu/croupier/internal/middleware"
+	"github.com/cuihairu/croupier/internal/middleware/reqinfo"
 	"github.com/cuihairu/croupier/internal/model"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -53,6 +54,9 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+
+	// 客户端身份（IP/UA）注入 request context，供审计等非 handler 层读取。
+	r.Use(reqinfo.Middleware())
 
 	// 创建 API 路由组
 	api := r.Group("/api/v1")

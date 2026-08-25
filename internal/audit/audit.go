@@ -6,8 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/cuihairu/croupier/internal/ipgeo"
+	"github.com/cuihairu/croupier/internal/middleware/reqinfo"
 )
 
 // Audit related errors
@@ -310,6 +314,28 @@ func (s *AuditService) Log(ctx context.Context, eventType AuditEventType, opts .
 	// Apply options
 	for _, opt := range opts {
 		opt(record)
+	}
+
+	// Fill client identity from the request context when the caller did not
+	// pass it explicitly (WithIPAddress), so every HTTP-originated event
+	// carries ip/userAgent without each call site repeating the plumbing.
+	if record.Actor.IPAddress == "" && ctx != nil {
+		if info, ok := reqinfo.FromContext(ctx); ok && info.IP != "" {
+			record.Actor.IPAddress = strings.TrimSpace(info.IP)
+			if record.Actor.UserAgent == "" {
+				record.Actor.UserAgent = strings.TrimSpace(info.UserAgent)
+			}
+		}
+	}
+	// Resolve the IP region once at write time (needs the IP2Location LITE
+	// BIN database; empty when absent). Stored in Details so queries and the
+	// UI show 属地 without re-resolving on every read.
+	if ip := strings.TrimSpace(record.Actor.IPAddress); ip != "" && record.Details != nil {
+		if _, exists := record.Details["ipRegion"]; !exists {
+			if region := ipgeo.Region(ip); region != "" {
+				record.Details["ipRegion"] = region
+			}
+		}
 	}
 
 	// Set defaults based on event type

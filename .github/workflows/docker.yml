@@ -50,6 +50,11 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # IP 属地数据源（可选）：在仓库 secrets 配置 IP2LOCATION_BIN_URL
+          # （从 https://lite.ip2location.com 账号下载页复制的完整链接），
+          # 镜像内置 BIN 后审计日志即可展示 IP 属地；未配置则跳过下载。
+          build-args: |
+            IP2LOCATION_BIN_URL=${{ secrets.IP2LOCATION_BIN_URL }}
       - name: Make GHCR package public (server)
         if: github.event_name != 'pull_request'
         timeout-minutes: 3

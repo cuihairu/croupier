@@ -3,6 +3,12 @@ ARG GO_IMAGE=golang:1.26.6
 ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
 ARG GOPROXY_URL=https://goproxy.cn,direct
 ARG BUILD_TAGS="pg ip2location"
+# IP 属地查询（审计日志 ipRegion）需要 IP2Location LITE BIN 数据库。
+# 注册 https://lite.ip2location.com 获取下载 token 后，把完整下载 URL 传入：
+#   --build-arg IP2LOCATION_BIN_URL="https://download.ip2location.com/lite/?token=XXX&file=IP2LOCATION-LITE-DB3.BIN.ZIP"
+# 未传入时镜像不含 BIN，属地查询优雅降级为空（可运行时挂载 configs/IP2LOCATION-LITE-DB3.BIN 补充）。
+# 注意：IP2Location LITE 遵循 CC BY-SA 4.0，分发镜像需保留署名（见 docker/README.md）。
+ARG IP2LOCATION_BIN_URL=
 
 FROM ${GO_IMAGE} AS build
 WORKDIR /src
@@ -19,6 +25,19 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "${BUILD_TAGS}" -o /out/croupier-server ./cmd/server
 RUN mkdir -p /out/logs /out/data/uploads /out/data/components/staging
 
+# 可选：下载 IP2Location LITE BIN（IP 属地查询数据源）
+FROM busybox:1.37-uclibc AS ip2location
+ARG IP2LOCATION_BIN_URL
+WORKDIR /ipdb
+RUN if [ -n "${IP2LOCATION_BIN_URL}" ]; then \
+        wget -q -O db3.zip "${IP2LOCATION_BIN_URL}" \
+        && mkdir -p tmp && unzip -q db3.zip -d tmp \
+        && find tmp -name '*.BIN' -exec mv {} /ipdb/ \; \
+        && rm -rf db3.zip tmp; \
+    else \
+        echo "IP2LOCATION_BIN_URL not set; image ships without ip region data"; \
+    fi
+
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 # busybox-static 提供最小 shell/网络工具（sh/cat/netstat/ps），便于容器运维排查；
@@ -32,6 +51,7 @@ RUN ["/bin/busybox", "--install", "/bin"]
 USER nonroot:nonroot
 COPY --from=build /out/croupier-server /app/
 COPY --from=build --chown=nonroot:nonroot /src/configs /app/configs
+COPY --from=ip2location --chown=nonroot:nonroot /ipdb/ /app/configs/
 COPY --from=build --chown=nonroot:nonroot /out/data /app/data
 COPY --from=build --chown=nonroot:nonroot /out/logs /app/logs
 

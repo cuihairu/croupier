@@ -44,6 +44,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/ticket"
 	functionapi "github.com/cuihairu/croupier/internal/function/api"
 	"github.com/cuihairu/croupier/internal/function/registry"
+	"github.com/cuihairu/croupier/internal/middleware/reqinfo"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
@@ -55,6 +56,9 @@ import (
 )
 
 func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
+	// 客户端身份（IP/UA）注入 request context，供审计等非 handler 层读取
+	// （audit.AuditService.Log 自动补 WithIPAddress）。
+	r.Use(reqinfo.Middleware())
 	v1 := r.Group("/api/v1")
 
 	// 公开路由（无认证）
