@@ -537,7 +537,9 @@ public class GameDemo {
     private static final String OBJ = "{\"type\":\"object\"}";
     private static final String STR = "{\"type\":\"string\"}";
     private static final String INT = "{\"type\":\"integer\"}";
-    private static final String PLAYER_FIELDS = "{\"id\":\" + STR + \",\"name\":\" + STR + \",\"level\":\" + INT + \",\"vip\":\" + INT + \",\"gold\":\" + INT + \",\"status\":\" + STR + \",\"server\":\" + STR + \",\"profile\":\"\" + OBJ + "\"}";
+    private static final String PLAYER_FIELDS =
+        "{\"id\":" + STR + ",\"name\":" + STR + ",\"level\":" + INT + ",\"vip\":" + INT
+            + ",\"gold\":" + INT + ",\"status\":" + STR + ",\"server\":" + STR + ",\"profile\":" + OBJ + "}";
 
     private static final Map<String, String[]> SCHEMAS = Map.ofEntries(
         Map.entry("player.create", new String[]{
