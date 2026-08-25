@@ -45,7 +45,7 @@ func GenerateResourcePageProposal(
 	resourceKey := strings.TrimSpace(semantics.ResourceKey)
 	pageKey := "resource--" + sanitizeSourceKey(resourceKey)
 	locale := opts.DefaultLocale
-	title := spec.LocalizedText{locale: humanizeKey(resourceKey)}
+	title := spec.LocalizedText{locale: fallbackLabel(resourceKey)}
 	if term, ok := opts.Terms.Lookup("resource", resourceKey); ok && len(term) > 0 {
 		title = term
 	}
@@ -402,7 +402,7 @@ func buildListViewFromContract(contract *model.FunctionContract, semantics *mode
 	columns := make([]spec.ColumnSpec, 0, len(keys))
 	for _, key := range keys {
 		prop := properties[key]
-		humanTitle := humanizeKey(key)
+		humanTitle := fallbackLabel(key)
 		if humanTitle == "" {
 			humanTitle = key
 		}
@@ -627,7 +627,7 @@ func buildDetailViewFromContracts(
 	sort.Strings(keys)
 	fields := make([]spec.DetailFieldSpec, 0, len(keys))
 	for _, key := range keys {
-		humanTitle := humanizeKey(key)
+		humanTitle := fallbackLabel(key)
 		if humanTitle == "" {
 			humanTitle = key
 		}
@@ -835,7 +835,7 @@ func inlineActionTitle(contract *model.FunctionContract, locale string) spec.Loc
 	if summary != "" {
 		return spec.LocalizedText{locale: summary}
 	}
-	return spec.LocalizedText{locale: humanizeKey(firstNonEmpty(contract.OperationKey, contract.FunctionID))}
+	return spec.LocalizedText{locale: fallbackLabel(firstNonEmpty(contract.OperationKey, contract.FunctionID))}
 }
 
 func inlineActionType(contract *model.FunctionContract) string {
@@ -886,7 +886,7 @@ func buildFiltersFromContract(contract *model.FunctionContract, semantics *model
 	filters := make([]spec.FilterSpec, 0, len(keys))
 	for _, key := range keys {
 		prop := properties[key]
-		humanTitle := humanizeKey(key)
+		humanTitle := fallbackLabel(key)
 		if humanTitle == "" {
 			humanTitle = key
 		}
