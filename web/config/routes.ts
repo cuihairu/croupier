@@ -291,7 +291,7 @@ export default [
         path: '/ops/backups',
         name: 'Backups',
         access: 'canOpsManage',
-        component: './Extensions/DomainEntry',
+        component: './Ops/Backups',
       },
       {
         path: '/ops/certificates',
@@ -303,7 +303,7 @@ export default [
         path: '/ops/notifications',
         name: 'Notifications',
         access: 'canOpsManage',
-        component: './Extensions/DomainEntry',
+        component: './Ops/Notifications',
       },
       {
         path: '/ops/analytics-filters',
