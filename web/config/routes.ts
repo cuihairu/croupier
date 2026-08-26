@@ -91,6 +91,16 @@ const functionManagementRoutes = [
 ];
 
 export default [
+  // ==================== 审批中心 ====================
+  // 高频待办入口：函数调用/页面发布的双人规则审批（与静态配置分离）。
+  {
+    path: '/approvals',
+    name: 'Approvals',
+    icon: 'audit',
+    access: 'canAuditRead',
+    component: './Approvals',
+  },
+
   // ==================== 平台配置 ====================
   {
     path: '/system',
@@ -125,19 +135,6 @@ export default [
             name: 'SiteSettings',
             access: 'canSystemConfigRead',
             component: './System/SiteSettings',
-          },
-          {
-            path: '/system/foundation/excel',
-            name: 'ExcelConfig',
-            access: 'canSystemConfigRead',
-            component: './System/ExcelConfig',
-          },
-          {
-            // 平台审批队列：函数调用/页面发布审批的处理入口。
-            path: '/system/foundation/approvals',
-            name: 'Approvals',
-            access: 'canSystemConfigRead',
-            component: './Approvals',
           },
         ],
       },
@@ -348,6 +345,14 @@ export default [
         name: 'Configs',
         access: 'canOpsManage',
         component: './Operations/Configs',
+      },
+      {
+        // Excel 在线配置编辑器：编译为 ConfigVersion 的创作入口，
+        // 与配置版本管理（Configs）同域。
+        path: '/ops/excel-config',
+        name: 'ExcelConfig',
+        access: 'canOpsManage',
+        component: './System/ExcelConfig',
       },
       {
         path: '/ops/alerts',

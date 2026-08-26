@@ -16,6 +16,7 @@ export default {
   'menu.Security.Users': '用户管理',
   'menu.Security.Config': '权限配置',
 
+  'menu.Approvals': '审批中心',
   'menu.SystemConfig': '系统管理',
   'menu.SystemConfig.SystemFoundation': '基础配置',
   'menu.SystemConfig.SystemFoundation.GameEnvironments': '游戏环境',
@@ -52,7 +53,7 @@ export default {
   'menu.Ops.Alerts': '告警中心',
   'menu.Ops.RateLimits': '限速管理',
   'menu.SystemConfig.SystemFoundation.SiteSettings': '网站配置',
-  'menu.SystemConfig.SystemFoundation.ExcelConfig': '表格配置',
+  'menu.Ops.ExcelConfig': '表格配置',
   'menu.SystemConfig.SystemFoundation.Terms': '术语字典',
   'menu.Ops.Certificates': '证书监控',
   'menu.Ops.Notifications': '事件通知',
