@@ -323,6 +323,13 @@ export default [
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
       { path: '/ops/jobs', name: 'Jobs', access: 'canOpsRead', component: './Ops/Jobs' },
       {
+        // 游戏业务配置（ConfigVersion 版本化）管理：schema/diff/版本历史
+        path: '/ops/configs',
+        name: 'Configs',
+        access: 'canOpsManage',
+        component: './Operations/Configs',
+      },
+      {
         path: '/ops/alerts',
         name: 'Alerts',
         access: 'canOpsRead',
