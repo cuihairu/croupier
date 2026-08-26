@@ -729,3 +729,59 @@ export async function getAgentMetricsHistory(
   );
   return response?.entries || [];
 }
+
+// ---- 告警规则（阈值评估，/alerts/rules） ----
+
+export type AlertRuleItem = {
+  id: number;
+  name: string;
+  description?: string;
+  metric: string;
+  operator: 'gt' | 'gte' | 'lt' | 'lte';
+  threshold: number;
+  forCount: number;
+  cooldownSeconds: number;
+  level: 'info' | 'warning' | 'critical';
+  enabled: boolean;
+  agentFilter?: string;
+  hitCount: number;
+  lastFiredAt?: string;
+  createdBy?: string;
+};
+
+export type AlertRuleCreatePayload = {
+  name: string;
+  metric: string;
+  operator: string;
+  threshold: number;
+  description?: string;
+  forCount?: number;
+  cooldownSeconds?: number;
+  level?: string;
+  agentFilter?: string;
+  enabled?: boolean;
+};
+
+export async function listAlertRules(params?: {
+  metric?: string;
+  enabled?: string;
+}): Promise<{ items: AlertRuleItem[] }> {
+  return request('/api/v1/alerts/rules', { params });
+}
+
+export async function createAlertRule(
+  data: AlertRuleCreatePayload,
+): Promise<{ item: AlertRuleItem }> {
+  return request('/api/v1/alerts/rules', { method: 'POST', data });
+}
+
+export async function updateAlertRule(
+  id: number,
+  data: Partial<AlertRuleCreatePayload>,
+): Promise<{ item: AlertRuleItem }> {
+  return request(`/api/v1/alerts/rules/${id}`, { method: 'PUT', data });
+}
+
+export async function deleteAlertRule(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/v1/alerts/rules/${id}`, { method: 'DELETE' });
+}

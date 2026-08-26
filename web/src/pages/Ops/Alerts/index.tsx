@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Table, Space, Tag, Button, Select, Input, App, Modal, Drawer } from 'antd';
+import { Card, Table, Space, Tag, Button, Select, Input, App, Modal, Drawer, Tabs } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -12,6 +12,7 @@ import {
   type OpsConfig,
   type OpsSilence,
 } from '@/services/api/ops';
+import AlertRulesTab from './AlertRulesTab';
 
 export default function OpsAlertsPage() {
   const { message } = App.useApp();
@@ -173,159 +174,176 @@ export default function OpsAlertsPage() {
 
   return (
     <PageContainer>
-      <Card
-        title="告警中心"
-        extra={
-          <Space>
-            <Select
-              placeholder="严重度"
-              allowClear
-              style={{ width: 140 }}
-              value={sev || undefined}
-              onChange={(v) => setSev(v || '')}
-              options={[
-                { label: 'critical', value: 'critical' },
-                { label: 'warning', value: 'warning' },
-                { label: 'info', value: 'info' },
-              ]}
-            />
-            <Select
-              placeholder="服务"
-              allowClear
-              style={{ width: 200 }}
-              value={svc || undefined}
-              onChange={(v) => setSvc(v || '')}
-              options={serviceOptions}
-            />
-            <Input
-              placeholder="关键词"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              style={{ width: 220 }}
-            />
-            <Input
-              placeholder="标签键"
-              value={lk}
-              onChange={(e) => setLk(e.target.value)}
-              style={{ width: 160 }}
-            />
-            <Input
-              placeholder="标签值(可选)"
-              value={lv}
-              onChange={(e) => setLv(e.target.value)}
-              style={{ width: 160 }}
-            />
-            {cfg?.grafanaExploreUrl && (
-              <Button onClick={() => window.open(cfg.grafanaExploreUrl, '_blank')}>
-                打开 Grafana
-              </Button>
-            )}
-            {cfg?.alertmanagerUrl && (
-              <Button onClick={() => window.open(cfg.alertmanagerUrl + '/#/alerts', '_blank')}>
-                打开 AM
-              </Button>
-            )}
-            <Button
-              onClick={() => {
-                load();
-                (async () => {
-                  try {
-                    const s = await listSilences();
-                    setSilences(s.silences || []);
-                  } catch {}
-                })();
-              }}
-            >
-              刷新
-            </Button>
-          </Space>
-        }
-      >
-        <Table
-          scroll={{ x: 1000 }}
-          rowKey={(r) =>
-            `${r.service || ''}|${r.instance || ''}|${r.summary || ''}|${r.startsAt || ''}`
-          }
-          loading={loading}
-          dataSource={data}
-          columns={columns}
-          pagination={{ pageSize: 10 }}
-          onRow={(rec) => ({ onClick: () => setDetail(rec) })}
-        />
-      </Card>
-      <Card
-        title="静默列表"
-        style={{ marginTop: 16 }}
-        extra={
-          <Button
-            onClick={async () => {
-              try {
-                const s = await listSilences();
-                setSilences(s.silences || []);
-              } catch {}
-            }}
-          >
-            刷新
-          </Button>
-        }
-      >
-        <Table
-          rowKey={(r) => String(r.id)}
-          dataSource={silences}
-          columns={[
-            { title: 'ID', dataIndex: 'id', width: 220 },
-            { title: '创建者', dataIndex: 'createdBy', width: 140 },
-            {
-              title: '时间',
-              render: (_: unknown, r: OpsSilence) => `${r.startAt || ''} -> ${r.endAt || ''}`,
-            },
-            {
-              title: '操作',
-              width: 160,
-              render: (_: unknown, r: OpsSilence) => (
-                <Space>
-                  <Button
-                    size="small"
-                    onClick={() =>
-                      window.open(
-                        (cfg?.alertmanagerUrl || '').replace(/\/$/, '') +
-                          `/#/silences/${encodeURIComponent(r.id)}`,
-                        '_blank',
-                      )
+      <Tabs
+        defaultActiveKey="alerts"
+        items={[
+          {
+            key: 'alerts',
+            label: '告警列表',
+            children: (
+              <>
+                <Card
+                  title="告警中心"
+                  extra={
+                    <Space>
+                      <Select
+                        placeholder="严重度"
+                        allowClear
+                        style={{ width: 140 }}
+                        value={sev || undefined}
+                        onChange={(v) => setSev(v || '')}
+                        options={[
+                          { label: 'critical', value: 'critical' },
+                          { label: 'warning', value: 'warning' },
+                          { label: 'info', value: 'info' },
+                        ]}
+                      />
+                      <Select
+                        placeholder="服务"
+                        allowClear
+                        style={{ width: 200 }}
+                        value={svc || undefined}
+                        onChange={(v) => setSvc(v || '')}
+                        options={serviceOptions}
+                      />
+                      <Input
+                        placeholder="关键词"
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        style={{ width: 220 }}
+                      />
+                      <Input
+                        placeholder="标签键"
+                        value={lk}
+                        onChange={(e) => setLk(e.target.value)}
+                        style={{ width: 160 }}
+                      />
+                      <Input
+                        placeholder="标签值(可选)"
+                        value={lv}
+                        onChange={(e) => setLv(e.target.value)}
+                        style={{ width: 160 }}
+                      />
+                      {cfg?.grafanaExploreUrl && (
+                        <Button onClick={() => window.open(cfg.grafanaExploreUrl, '_blank')}>
+                          打开 Grafana
+                        </Button>
+                      )}
+                      {cfg?.alertmanagerUrl && (
+                        <Button
+                          onClick={() => window.open(cfg.alertmanagerUrl + '/#/alerts', '_blank')}
+                        >
+                          打开 AM
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => {
+                          load();
+                          (async () => {
+                            try {
+                              const s = await listSilences();
+                              setSilences(s.silences || []);
+                            } catch {}
+                          })();
+                        }}
+                      >
+                        刷新
+                      </Button>
+                    </Space>
+                  }
+                >
+                  <Table
+                    scroll={{ x: 1000 }}
+                    rowKey={(r) =>
+                      `${r.service || ''}|${r.instance || ''}|${r.summary || ''}|${r.startsAt || ''}`
                     }
-                  >
-                    查看
-                  </Button>
-                  <Button
-                    size="small"
-                    danger
-                    onClick={() =>
-                      Modal.confirm({
-                        title: '解除静默',
-                        content: `确定解除静默 ${r.id}?`,
-                        onOk: async () => {
-                          try {
-                            await deleteSilence(String(r.id));
-                            message.success('已解除');
-                            const s = await listSilences();
-                            setSilences(s.silences || []);
-                          } catch (e) {
-                            const errMsg = e instanceof Error ? e.message : '操作失败';
-                            message.error(errMsg || '操作失败');
-                          }
-                        },
-                      })
-                    }
-                  >
-                    解除
-                  </Button>
-                </Space>
-              ),
-            },
-          ]}
-          pagination={{ pageSize: 10 }}
-        />
-      </Card>
+                    loading={loading}
+                    dataSource={data}
+                    columns={columns}
+                    pagination={{ pageSize: 10 }}
+                    onRow={(rec) => ({ onClick: () => setDetail(rec) })}
+                  />
+                </Card>
+                <Card
+                  title="静默列表"
+                  style={{ marginTop: 16 }}
+                  extra={
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const s = await listSilences();
+                          setSilences(s.silences || []);
+                        } catch {}
+                      }}
+                    >
+                      刷新
+                    </Button>
+                  }
+                >
+                  <Table
+                    rowKey={(r) => String(r.id)}
+                    dataSource={silences}
+                    columns={[
+                      { title: 'ID', dataIndex: 'id', width: 220 },
+                      { title: '创建者', dataIndex: 'createdBy', width: 140 },
+                      {
+                        title: '时间',
+                        render: (_: unknown, r: OpsSilence) =>
+                          `${r.startAt || ''} -> ${r.endAt || ''}`,
+                      },
+                      {
+                        title: '操作',
+                        width: 160,
+                        render: (_: unknown, r: OpsSilence) => (
+                          <Space>
+                            <Button
+                              size="small"
+                              onClick={() =>
+                                window.open(
+                                  (cfg?.alertmanagerUrl || '').replace(/\/$/, '') +
+                                    `/#/silences/${encodeURIComponent(r.id)}`,
+                                  '_blank',
+                                )
+                              }
+                            >
+                              查看
+                            </Button>
+                            <Button
+                              size="small"
+                              danger
+                              onClick={() =>
+                                Modal.confirm({
+                                  title: '解除静默',
+                                  content: `确定解除静默 ${r.id}?`,
+                                  onOk: async () => {
+                                    try {
+                                      await deleteSilence(String(r.id));
+                                      message.success('已解除');
+                                      const s = await listSilences();
+                                      setSilences(s.silences || []);
+                                    } catch (e) {
+                                      const errMsg = e instanceof Error ? e.message : '操作失败';
+                                      message.error(errMsg || '操作失败');
+                                    }
+                                  },
+                                })
+                              }
+                            >
+                              解除
+                            </Button>
+                          </Space>
+                        ),
+                      },
+                    ]}
+                    pagination={{ pageSize: 10 }}
+                  />
+                </Card>
+              </>
+            ),
+          },
+          { key: 'rules', label: '告警规则', children: <AlertRulesTab /> },
+        ]}
+      />
       <Drawer title="告警详情" width={720} open={!!detail} onClose={() => setDetail(null)}>
         {detail && (
           <Space direction="vertical" style={{ width: '100%' }}>

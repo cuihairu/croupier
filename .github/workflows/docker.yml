@@ -226,3 +226,93 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=analytics-worker
           cache-to: type=gha,scope=analytics-worker,mode=max
+
+  # 供应链安全：镜像漏洞扫描（trivy）+ SBOM 归档 + cosign keyless 签名。
+  # 仅在镜像实际推送后执行（PR 构建不 push）。
+  supply-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [build-server, build-agent, build-ingest, build-analytics-worker]
+    if: github.event_name != 'pull_request'
+    strategy:
+      matrix:
+        image:
+          [
+            croupier-server,
+            croupier-agent,
+            croupier-ingest,
+            croupier-analytics-worker,
+          ]
+    permissions:
+      contents: read
+      packages: read
+      # cosign keyless 签名需要 id-token。
+      id-token: write
+      # 扫描结果上传 SARIF。
+      security-events: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+    steps:
+      - name: Login to GHCR
+        timeout-minutes: 3
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve pushed tag
+        id: tag
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          # tag 触发 → 用版本 tag；否则 main 推送用 sha-<short>（metadata-action 默认）。
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT" 2>/dev/null || \
+            echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trivy vulnerability scan
+        timeout-minutes: 10
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "0" # 发现不阻断（先观察基线）；收紧为 1 可做门禁
+          ignore-unfixed: true
+
+      - name: Upload Trivy results to GitHub Security
+        timeout-minutes: 3
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}
+
+      - name: Generate SBOM (SPDX)
+        timeout-minutes: 10
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+          format: spdx-json
+          output: sbom-${{ matrix.image }}.spdx.json
+
+      - name: Upload SBOM artifact
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.image }}-${{ steps.tag.outputs.tag }}
+          path: sbom-${{ matrix.image }}.spdx.json
+          retention-days: 90
+
+      - name: Sign image with cosign (keyless OIDC)
+        timeout-minutes: 5
+        uses: sigstore/cosign-installer@v4
+      - name: cosign sign
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          cosign sign --yes "${IMAGE}:${{ steps.tag.outputs.tag }}@$(docker buildx imagetools inspect "${IMAGE}:${{ steps.tag.outputs.tag }}" --format '{{ json .Manifest.Digest }}' | tr -d '"')"
