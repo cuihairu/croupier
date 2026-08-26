@@ -29,7 +29,12 @@ type TicketQueryOptions struct {
 	Assignee string
 	GameID   string
 	Env      string
+	// PlayerID filters by the reporting player (player-facing lists).
+	PlayerID string
 }
+
+// DB exposes the underlying connection (test/diagnostic helpers).
+func (m *TicketModel) DB() *gorm.DB { return m.db }
 
 // Create inserts a ticket.
 func (m *TicketModel) Create(ctx context.Context, ticket *Ticket) error {
@@ -81,6 +86,9 @@ func (m *TicketModel) List(ctx context.Context, opts TicketQueryOptions) ([]Tick
 	}
 	if opts.Env != "" {
 		query = query.Where("env = ?", opts.Env)
+	}
+	if opts.PlayerID != "" {
+		query = query.Where("player_id = ?", opts.PlayerID)
 	}
 	if opts.Query != "" {
 		like := "%" + opts.Query + "%"

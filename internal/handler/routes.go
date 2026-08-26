@@ -41,6 +41,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/routes"
 	"github.com/cuihairu/croupier/internal/api/schema"
 	"github.com/cuihairu/croupier/internal/api/storage"
+	supportapi "github.com/cuihairu/croupier/internal/api/support"
 	"github.com/cuihairu/croupier/internal/api/task"
 	"github.com/cuihairu/croupier/internal/api/terms"
 	"github.com/cuihairu/croupier/internal/api/ticket"
@@ -72,7 +73,10 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
 	registerOpenAPIReadRoutes(v1, serverCtx)
 	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)
-	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)                 // OpenAPI 只保留契约查看公开路由
+	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)
+	if serverCtx.Config.FeatureFlags.Enabled(configpkg.FlagSupport) {
+		registerPlayerSupportRoutes(v1, serverCtx) // 玩家侧客服(游戏内 SDK)
+	} // OpenAPI 只保留契约查看公开路由
 
 	// 需要认证的路由（使用 Authority 中间件）
 	protected := v1.Group("/")
@@ -912,6 +916,10 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/convert-bug", ticketHandler.ConvertToBug)
 	g.GET("/:id/comments", ticketHandler.GetComments)
 	g.POST("/:id/comments", ticketHandler.CreateComment)
+}
+
+func registerPlayerSupportRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	supportapi.RegisterPlayerRoutes(g, ctx)
 }
 
 func registerPublicConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
