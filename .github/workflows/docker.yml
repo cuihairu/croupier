@@ -316,23 +316,11 @@ jobs:
         uses: sigstore/cosign-installer@v4.1.2
       - name: cosign sign
         timeout-minutes: 5
-        env:
-          # 组织包签名需要写权限：job permissions 已声明 packages:write；
-          # 若仓库 Actions 对组织包的访问策略仍拒绝，可配 GHCR_TOKEN（PAT，
-          # write:packages）显式登录。keyless 身份来自 id-token: write。
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
           set -euo pipefail
-          # PAT 只覆盖部分包时会 403 并污染 docker/cosign 凭据环境，
-          # 登录失败立即 logout 恢复匿名/GITHUB_TOKEN 态再走 keyless。
-          if [ -n "${GHCR_TOKEN}" ]; then
-            if ! echo "${GHCR_TOKEN}" | cosign login ghcr.io -u "${{ github.actor }}" --password-stdin; then
-              echo "::warn::PAT 登录失败，清除凭据并回退 keyless"
-              cosign logout ghcr.io || true
-              docker logout ghcr.io || true
-            fi
-          fi
-          # 解析镜像 digest（inspect 失败立即报错，绝不拼出空引用）。
+          # 凭据沿用本 job 第一步的 docker login（GITHUB_TOKEN + job 声明的
+          # packages:write）。禁止再用 PAT 二次 login 覆盖——历史 GHCR_TOKEN
+          # secret 无效时会把好凭据换坏（403）。keyless 身份来自 id-token。
           DIGEST="$(docker buildx imagetools inspect "${IMAGE}:${{ steps.tag.outputs.tag }}" --format '{{.Manifest.Digest}}')"
           if [ -z "${DIGEST}" ]; then
             echo "::error::empty digest for ${IMAGE}:${{ steps.tag.outputs.tag }}"
