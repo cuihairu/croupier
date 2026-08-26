@@ -185,6 +185,9 @@ func runServer() error {
 		ObsGrafanaExploreURL: os.Getenv("CROUPIER_GRAFANA_EXPLORE_URL"),
 		ObsJaegerURL:         os.Getenv("CROUPIER_JAEGER_URL"),
 	}, svcCtx.PlatformSettingModel)
+	// cron 定时任务调度循环（Dispatcher 就绪后启动）。
+	svcCtx.StartScheduler()
+	defer svcCtx.StopScheduler()
 	if telemetrySvc, err := svc.NewTelemetryService(c, "croupier-server", slog.Default()); err != nil {
 		return fmt.Errorf("初始化遥测服务失败: %w", err)
 	} else if telemetrySvc != nil {

@@ -185,6 +185,8 @@ func GameModels() []interface{} {
 		&ProductTrend{},
 		&RetentionCohort{},
 		&TaskRun{},
+		&TaskSchedule{},
+		&TaskScheduleRunLog{},
 		&TaskEvent{},
 		&Feedback{},
 		&SupportTicket{},

@@ -47,6 +47,11 @@ type Bug struct {
 	// External links (GitHub issue/PR, wiki, monitor dashboards...)
 	Links datatypes.JSON `gorm:"type:json"`
 
+	// CrashFingerprint is the aggregation key for auto-filed crash bugs
+	// (bug-tracking P2): same normalized stack → same bug with a counter.
+	// Indexed for the report hot path; empty for manually filed bugs.
+	CrashFingerprint string `gorm:"size:32;index"`
+
 	// Free-form payload (crash report ids, dashboard params...)
 	Extra datatypes.JSONMap `gorm:"type:json"`
 
@@ -224,6 +229,22 @@ func (m *BugModel) Create(ctx context.Context, bug *Bug) error {
 // Update applies a partial update map.
 func (m *BugModel) Update(ctx context.Context, id uint, updates map[string]interface{}) error {
 	return m.db.WithContext(ctx).Model(&Bug{}).Where("id = ?", id).Updates(updates).Error
+}
+
+// FindOpenByCrashFingerprint returns the open (non-terminal) bug holding a
+// crash fingerprint, if any. Terminal statuses no longer aggregate.
+func (m *BugModel) FindOpenByCrashFingerprint(ctx context.Context, gameID, env, fingerprint string) (*Bug, error) {
+	var bug Bug
+	err := m.db.WithContext(ctx).
+		Where("game_id = ? AND (env = ? OR ? = '') AND crash_fingerprint = ? AND status NOT IN ?",
+			gameID, env, env, fingerprint,
+			[]string{BugStatusReleased, BugStatusWontfix, BugStatusRejected}).
+		Order("updated_at DESC").
+		First(&bug).Error
+	if err != nil {
+		return nil, err
+	}
+	return &bug, nil
 }
 
 // Delete removes a bug.

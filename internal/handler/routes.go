@@ -41,6 +41,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/resourcecatalog"
 	"github.com/cuihairu/croupier/internal/api/role"
 	"github.com/cuihairu/croupier/internal/api/routes"
+	"github.com/cuihairu/croupier/internal/api/schedule"
 	"github.com/cuihairu/croupier/internal/api/schema"
 	settingsapi "github.com/cuihairu/croupier/internal/api/sitesettings"
 	"github.com/cuihairu/croupier/internal/api/storage"
@@ -181,6 +182,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		}
 		registerPlayerRoutes(scoped.Group("/players"), serverCtx)
 		registerTaskRoutes(scoped.Group("/tasks"), serverCtx)
+		registerScheduleRoutes(scoped.Group("/schedules"), serverCtx)
 		registerOpenAPISourceRoutes(scoped.Group("/openapi"), serverCtx)
 	}
 }
@@ -396,6 +398,19 @@ func registerTaskRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/cancel", taskHandler.Cancel)
 	g.GET("/:id", taskHandler.Detail)
 	g.GET("/:id/events", taskHandler.Events)
+}
+
+func registerScheduleRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	scheduleSvc := schedule.NewService(ctx)
+	h := schedule.NewHandler(scheduleSvc)
+	g.GET("", h.List)
+	g.GET("/", h.List)
+	g.POST("", h.Create)
+	g.POST("/", h.Create)
+	g.GET("/:id/runs", h.RunLogs)
+	g.PUT("/:id/status", h.SetStatus)
+	g.POST("/:id/trigger", h.TriggerNow)
+	g.DELETE("/:id", h.Delete)
 }
 
 // ============================================================================
@@ -1022,6 +1037,8 @@ func registerBugRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/", bugHandler.List)
 	g.POST("", bugHandler.Create)
 	g.POST("/", bugHandler.Create)
+	// 崩溃聚合上报：同指纹堆栈聚合计数，首个报告开 triage 缺陷
+	g.POST("/crash", bugHandler.ReportCrash)
 	g.GET("/:id", bugHandler.Get)
 	g.PUT("/:id", bugHandler.Update)
 	g.DELETE("/:id", bugHandler.Delete)

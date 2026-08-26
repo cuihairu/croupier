@@ -36,6 +36,7 @@ import (
 	jwtutil "github.com/cuihairu/croupier/internal/security/jwtutil"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
 	"github.com/cuihairu/croupier/internal/service/permission"
+	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
@@ -100,9 +101,12 @@ type ServiceContext struct {
 	MessageModel         *model.MessageModel
 	// NotifyService 分发审批/告警事件到已配置渠道（站内信/钉钉/webhook/邮件）。
 	// 在 handler 装配时注入（依赖 settings.Layered 单例）。
-	NotifyService      *notify.Service
+	NotifyService *notify.Service
+	// Scheduler 是 cron 定时任务调度循环（StartScheduler 启动）。
+	Scheduler          *scheduler.Manager
 	CertificateModel   *model.CertificateModel
 	ConfigVersionModel *model.ConfigVersionModel
+	TaskScheduleModel  *model.TaskScheduleModel
 
 	// Page Spec models
 	PageSpecModel             *model.PageSpecModel
@@ -196,6 +200,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	messageModel := model.NewMessageModel(db)
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
+	taskScheduleModel := model.NewTaskScheduleModel(db)
 
 	// game_envs is the authoritative scope and routing registry. Older
 	// deployments stored environments only in games.envs JSON, so backfill
@@ -324,6 +329,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		NotifyService:             nil, // handler 装配时注入（依赖 Layered）
 		CertificateModel:          certificateModel,
 		ConfigVersionModel:        configVersionModel,
+		TaskScheduleModel:         taskScheduleModel,
 		PageSpecModel:             pageSpecModel,
 		PublishedPageSpecModel:    publishedPageSpecModel,
 		PageVersionModel:          pageVersionModel,

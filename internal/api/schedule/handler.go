@@ -1,6 +1,8 @@
-package bug
+package schedule
 
 import (
+	"strconv"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -9,14 +11,12 @@ type Handler struct {
 	service *Service
 }
 
-// NewHandler creates a bug handler.
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-// List handles GET /bugs.
 func (h *Handler) List(c *gin.Context) {
-	var req BugListRequest
+	var req ListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -29,9 +29,8 @@ func (h *Handler) List(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Create handles POST /bugs.
 func (h *Handler) Create(c *gin.Context) {
-	var req BugCreateRequest
+	var req CreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -44,33 +43,32 @@ func (h *Handler) Create(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Get handles GET /bugs/:id.
-func (h *Handler) Get(c *gin.Context) {
-	var req BugGetRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
-	resp, err := h.service.Get(c.Request.Context(), &req)
+func (h *Handler) SetStatus(c *gin.Context) {
+	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	response.Success(c, resp)
-}
-
-// Update handles PUT /bugs/:id.
-func (h *Handler) Update(c *gin.Context) {
-	var req BugUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	var req UpdateStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
 	}
-	resp, err := h.service.Update(c.Request.Context(), &req)
+	item, err := h.service.SetStatus(c.Request.Context(), id, req.Status)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"item": item})
+}
+
+func (h *Handler) TriggerNow(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.TriggerNow(c.Request.Context(), id)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -78,14 +76,15 @@ func (h *Handler) Update(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// ReportCrash handles POST /bugs/crash (crash aggregation entry).
-func (h *Handler) ReportCrash(c *gin.Context) {
-	var req ReportCrashRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+func (h *Handler) RunLogs(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	resp, err := h.service.ReportCrash(c.Request.Context(), &req)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	resp, err := h.service.RunLogs(c.Request.Context(), id, page, pageSize)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -93,16 +92,23 @@ func (h *Handler) ReportCrash(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Delete handles DELETE /bugs/:id.
 func (h *Handler) Delete(c *gin.Context) {
-	var req BugDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
+	id, err := parseID(c)
+	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
+	if err := h.service.Delete(c.Request.Context(), id); err != nil {
 		response.Error(c, err)
 		return
 	}
-	response.Success(c, gin.H{"message": "删除成功"})
+	response.Success(c, gin.H{"ok": true})
+}
+
+func parseID(c *gin.Context) (uint, error) {
+	v, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || v == 0 {
+		return 0, errBadRequest("无效的调度 ID")
+	}
+	return uint(v), nil
 }
