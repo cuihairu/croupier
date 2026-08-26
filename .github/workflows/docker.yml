@@ -266,14 +266,14 @@ jobs:
         timeout-minutes: 2
         run: |
           set -euo pipefail
-          # tag 触发 → 用版本 tag；否则 main 推送用 sha-<short>（metadata-action 默认）。
+          # 与 metadata-action 的 tag 策略对齐：tag 触发 → 版本 tag；
+          # 分支推送（main）→ 分支名 tag（metadata-action 默认仅生成分支 tag）。
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF" == refs/heads/* ]]; then
+            echo "tag=${GITHUB_REF#refs/heads/}" >> "$GITHUB_OUTPUT"
           else
-            # GITHUB_SHA 直接截短（不依赖 git 历史与 bash 子串展开）。
-            short="${GITHUB_SHA:0:7}"
-            echo "short=${short}" >&2
-            echo "tag=sha-${short}" >> "$GITHUB_OUTPUT"
+            echo "tag=main" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Trivy vulnerability scan
