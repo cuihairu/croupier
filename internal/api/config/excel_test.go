@@ -25,7 +25,7 @@ var excelSeq uint64
 func newExcelFixture(t *testing.T) (*Handler, *gorm.DB) {
 	t.Helper()
 	name := fmt.Sprintf("excel_%d", atomic.AddUint64(&excelSeq, 1))
-	db, err := gorm.Open(gsqlite.Open(name+"?mode=memory&cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file:"+name+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 	svcCtx := &svc.ServiceContext{ConfigVersionModel: model.NewConfigVersionModel(db)}

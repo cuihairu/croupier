@@ -44,11 +44,21 @@ graph TB
     UI[Dashboard<br/>React + Ant Design Pro + ProComponents]
   end
 
-  subgraph "控制层"
-    Server[Server<br/>Registry / Dispatch / RBAC / Audit]
+  subgraph "负载均衡"
+    LB[L4 LB<br/>Agent 连接打散 / HTTP 轮询]
   end
 
-  subgraph "代理层"
+  subgraph "控制层（可多实例 HA）"
+    ServerA[Server A<br/>Registry / Dispatch / RBAC / Audit]
+    ServerB[Server B<br/>Registry / Dispatch / RBAC / Audit]
+    ServerA <-.->|实例互联<br/>转发 + fencing| ServerB
+  end
+
+  subgraph "共享状态"
+    Shared[(共享目录<br/>成员表 / 注册表 / DB / Redis)]
+  end
+
+  subgraph "代理层（游戏 VPC，只出不进）"
     Agent1[Agent 1<br/>Session Client + Local Gateway]
     Agent2[Agent 2<br/>Session Client + Local Gateway]
   end
@@ -59,13 +69,22 @@ graph TB
     GS3[Game Server C<br/>SDK / Third-party App]
   end
 
-  UI -->|HTTP REST| Server
-  Agent1 -->|TCP Session + TLS| Server
-  Agent2 -->|TCP Session + TLS| Server
+  UI -->|HTTP REST| LB
+  LB --> ServerA
+  LB --> ServerB
+  Agent1 -->|TCP Session + TLS| LB
+  Agent2 -->|TCP Session + TLS| LB
+  ServerA --- Shared
+  ServerB --- Shared
   GS1 -->|TCP Session| Agent1
   GS2 -->|TCP Session| Agent2
   GS3 -->|TCP Session| Agent1
 ```
+
+> Server 支持多实例高可用部署（`cluster.enabled`）：成员发现走共享存储（无
+> seed、无静态 peers），请求落到非 owner 实例时经实例互联转发（一跳限制 +
+> epoch fencing）。单实例部署默认关闭集群，零开销。详见
+> [Server 多实例高可用设计](/architecture/server-ha-multi-instance.md)。
 
 关键边界说明：
 
