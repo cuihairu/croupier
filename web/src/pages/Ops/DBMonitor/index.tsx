@@ -29,6 +29,7 @@ import {
 } from '@ant-design/icons';
 import { useAccess } from '@umijs/max';
 import {
+  type DBSourceKind,
   createDBSource,
   dbKindLabels,
   deleteDBSource,
@@ -200,7 +201,7 @@ export default function DBMonitorPage() {
                     <Space direction="vertical" size={4} style={{ width: '100%' }}>
                       <Space wrap size={4}>
                         <Tag color="blue">{src.driver}</Tag>
-                        <Tag>{dbKindLabels[src.kind] || src.kind}</Tag>
+                        <Tag>{dbKindLabels[src.kind as DBSourceKind] || src.kind}</Tag>
                         {src.gameId ? (
                           <Tag color="geekblue">
                             {src.gameId}/{src.env}
@@ -322,7 +323,10 @@ export default function DBMonitorPage() {
             <Form.Item name="kind" label="部署类型" initialValue="self">
               <Select
                 style={{ width: 130 }}
-                options={Object.entries(dbKindLabels).map(([value, label]) => ({ label, value }))}
+                options={Object.entries(dbKindLabels).map(([value, label]) => ({
+                  label,
+                  value,
+                }))}
               />
             </Form.Item>
             <Form.Item name="enabled" label="启用" valuePropName="checked" initialValue={true}>

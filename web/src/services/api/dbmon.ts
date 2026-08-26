@@ -86,9 +86,31 @@ export function probeAll(): Promise<{ results: ProbeResult[] }> {
   return request('/api/v1/dbmon/probe', { method: 'POST' });
 }
 
-export const dbKindLabels: Record<string, string> = {
+export type DBSourceKind =
+  | 'self'
+  | 'aliyun'
+  | 'tencent'
+  | 'huawei'
+  | 'baidu'
+  | 'volc'
+  | 'jdcloud'
+  | 'ucloud'
+  | 'qingcloud'
+  | 'tidb'
+  | 'oceanbase'
+  | 'other';
+
+export const dbKindLabels: Record<DBSourceKind, string> = {
   self: '自建',
   aliyun: '阿里云',
-  huawei: '华为云',
   tencent: '腾讯云',
+  huawei: '华为云',
+  baidu: '百度智能云',
+  volc: '火山引擎',
+  jdcloud: '京东云',
+  ucloud: 'UCloud',
+  qingcloud: '青云',
+  tidb: 'TiDB',
+  oceanbase: 'OceanBase',
+  other: '其他',
 };
