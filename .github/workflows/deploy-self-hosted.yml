@@ -118,10 +118,26 @@ jobs:
         run: |
           COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
           if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
-            docker compose "${COMPOSE_ARGS[@]}" --profile sdk-examples pull
+            PULL_ARGS=(--profile sdk-examples)
           else
-            docker compose "${COMPOSE_ARGS[@]}" pull
+            PULL_ARGS=()
           fi
+          # 镜像源/外网抖动重试（3 次，间隔递增）；观测栈等非关键镜像
+          # 拉取失败时降级为 warning——本地已有镜像即可继续部署，
+          # 主服务（server/agent/dashboard）拉取失败才是硬失败。
+          for i in 1 2 3; do
+            if docker compose "${COMPOSE_ARGS[@]}" "${PULL_ARGS[@]}" pull; then
+              break
+            fi
+            if [ "$i" = "3" ]; then
+              echo "::warn::全量 pull 失败，尝试只拉核心镜像（观测栈沿用本地已有版本）"
+              docker compose "${COMPOSE_ARGS[@]}" pull server agent dashboard || {
+                echo "::error::核心镜像（server/agent/dashboard）拉取失败"
+                exit 1
+              }
+            fi
+            sleep $((i * 15))
+          done
 
       - name: Validate compose ownership
         timeout-minutes: 1

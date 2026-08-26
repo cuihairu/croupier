@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: ${POSTGRES_IMAGE:-postgres:15-alpine}
+    image: ${POSTGRES_IMAGE:-public.ecr.aws/docker/library/postgres:15-alpine}
     container_name: croupier-postgres
     restart: unless-stopped
     environment:
@@ -25,7 +25,7 @@ services:
       retries: 5
 
   redis:
-    image: ${REDIS_IMAGE:-redis:7-alpine}
+    image: ${REDIS_IMAGE:-public.ecr.aws/docker/library/redis:7-alpine}
     container_name: croupier-redis
     restart: unless-stopped
     ports:
@@ -74,7 +74,7 @@ services:
   # OTel 追踪栈：server/agent 的 span 经 collector 入 Jaeger。
   # 未部署此栈时 server 不应开启 OTEL_ENABLED（invoke traceId 将为空）。
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.91.0
+    image: ${OTEL_IMAGE:-otel/opentelemetry-collector-contrib:0.91.0}
     container_name: croupier-otel-collector
     restart: unless-stopped
     command: ["--config=/etc/otel-collector.yaml"]
@@ -87,7 +87,8 @@ services:
       - croupier-network
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    # 锁定版本：latest 每次部署都强制走外网拉取，镜像源抖动会阻塞整个部署。
+    image: ${JAEGER_IMAGE:-jaegertracing/all-in-one:1.62.0}
     container_name: croupier-jaeger
     restart: unless-stopped
     environment:
