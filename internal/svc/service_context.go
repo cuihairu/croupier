@@ -1220,6 +1220,9 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 		},
 		publicReadPrefixes: []string{
 			"/api/v1/registry", // 公开访问：注册中心（agents、functions）
+			// 客户端公开端点（游戏内 SDK / 玩家侧，无管理台 token）
+			"/api/v1/public/", // 配置拉取 + 玩家客服
+			"/api/v1/releases/check",
 		},
 	}
 }
