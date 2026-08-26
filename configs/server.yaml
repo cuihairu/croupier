@@ -90,3 +90,14 @@ log:
 metrics:
   perFunction: true
   perGameDenies: false
+
+# 多实例 HA（默认关闭，单实例零开销；详见 docs/architecture/server-ha-multi-instance.md）
+# 成员发现走共享存储（无 seed、无静态 peers），唯一必填 advertiseAddr。
+# cluster:
+#   enabled: true
+#   advertiseAddr: "10.0.1.11:8444"   # 告诉对端怎么连我（互联端口）
+#   instanceId: ""                     # 空则自动生成
+#   heartbeatInterval: 5s              # 成员租约续期
+#   leaseTtl: 15s                      # 租约 TTL（3 倍心跳）
+#   ownerTtl: 3m                       # agent 归属记录存活窗口
+#   peerPollInterval: 10s              # 对端发现轮询

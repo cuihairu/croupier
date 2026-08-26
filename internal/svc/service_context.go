@@ -105,7 +105,9 @@ type ServiceContext struct {
 	// 在 handler 装配时注入（依赖 settings.Layered 单例）。
 	NotifyService *notify.Service
 	// Scheduler 是 cron 定时任务调度循环（StartScheduler 启动）。
-	Scheduler          *scheduler.Manager
+	Scheduler *scheduler.Manager
+	// Cluster 是多实例 HA 运行时（未启用时 nil）。
+	Cluster            *ClusterRuntime
 	CertificateModel   *model.CertificateModel
 	ConfigVersionModel *model.ConfigVersionModel
 	TaskScheduleModel  *model.TaskScheduleModel

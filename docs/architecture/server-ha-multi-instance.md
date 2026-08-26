@@ -199,9 +199,49 @@ Agent 部署在游戏 VPC/内网，安全策略为"只出不进"，隧道方向�
 
 ## 5. 实例互联设计
 
-### 5.1 实例身份与发现
+### 5.0 Interconnect 抽象（实现基座）
 
-不引入独立服务发现组件（etcd/Consul），复用共享目录：
+互联层抽象为 `internal/cluster.Interconnect` 接口——转发逻辑（owner 发现、
+建连/复用、一跳限制、fencing）全部封装在实现内，dispatch 层只依赖接口：
+
+```go
+type Interconnect interface {
+    // Forward 把调用请求转给持有目标 Agent 连接的实例。
+    Forward(ctx context.Context, agentID string, req *ForwardedInvoke) (*ForwardedResult, error)
+    // Peers 返回当前已知存活对端（诊断/测试）。
+    Peers() []PeerInfo
+}
+```
+
+这不是引入真 broker 组件（NATS 类总线是模式①的终态演进）；转发本身就是
+"掮客"，接口化的价值：调用方零感知、实现可替换（模式③→①升级不动调用方）、
+测试可用替身验证转发语义。
+
+### 5.1 实例身份与发现：共享目录，无 seed、无静态 peers
+
+**结论：不引入 seed 节点，不配置静态 peers 列表。**
+
+理由：seed/gossip 是"没有外部共享存储时集群自组织"的方案（Cassandra 没有
+成员表存放处才用 gossip）；本设计多实例模式**强制共享目录**（RegistryStore
+的 DB/Redis），成员表 `instances` 直接放那里——单一事实来源，零新增依赖：
+
+```
+启动 → 写 instances 记录（advertiseAddr + 租约 + epoch）→ 轮询表发现对端 → 懒建连
+```
+
+- 扩容第 5 台实例：自注册即被其他实例发现，不改任何配置
+- 每实例唯一必填配置是自己的对外地址；共享存储地址在 `registry.store`
+  （本来就存在），不是新增"种子"
+- 不维护第二份静态成员表（会与 instances 漂移）
+
+```yaml
+cluster:
+  enabled: true
+  instanceId: "" # 空则自动生成 UUID
+  advertiseAddr: "10.0.1.11:8444" # 唯一必填：告诉对端怎么连我
+  heartbeatInterval: 5s
+  leaseTtl: 15s # 3 个心跳周期
+```
 
 每台 Server 启动时写入 `instances` 记录并周期续租：
 
@@ -219,16 +259,12 @@ Agent 部署在游戏 VPC/内网，安全策略为"只出不进"，隧道方向�
 - `epoch`：每次启动递增的任期号，充当 **fencing token**
 - 租约 TTL 过期（建议 3 个心跳周期）即判定实例死亡
 
-配置：
+**边界情况**：
 
-```yaml
-cluster:
-  enabled: true
-  instanceId: ""
-  advertiseAddr: "10.0.1.11:8444"
-  heartbeatInterval: 5s
-  leaseTtl: 15s
-```
+- 共享存储抖动：本地缓存 last-known peers 继续转发；降级只影响新成员发现
+- 存储 vs 现实不一致：以租约 TTL + epoch 裁决
+- advertiseAddr 误配（如 127.0.0.1）：注册后自检（从对端视角 dial 验证可达），
+  不可达启动告警
 
 ### 5.2 拓扑与传输
 

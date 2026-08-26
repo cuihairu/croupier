@@ -241,6 +241,20 @@ func runServer() error {
 	// 数据管道健康监控：ClickHouse 断连/事件断流/骤降/死信与 MQ 积压 → 告警中心
 	startPipelineMonitor(rootCtx, svcCtx)
 
+	// Server 多实例 HA：成员注册 + 互联端口 + 发现循环
+	// （docs/architecture/server-ha-multi-instance.md；未启用时零开销单实例）。
+	clusterLifecycle, interconnectSrv := startCluster(rootCtx, &c, svcCtx)
+	if clusterLifecycle != nil {
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			clusterLifecycle.Stop(stopCtx)
+			if interconnectSrv != nil {
+				_ = interconnectSrv.Close()
+			}
+		}()
+	}
+
 	// 启动控制服务器（TCP），返回可关闭的资源句柄用于优雅停机。
 	controlResources := startControlServer(rootCtx, &c, svcCtx, sessionStore)
 

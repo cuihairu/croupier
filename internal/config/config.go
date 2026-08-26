@@ -10,6 +10,7 @@ type Config struct {
 	Database      DatabaseConfig           `json:"database" yaml:"database"`
 	Control       ControlConfig            `json:"control" yaml:"control"`
 	Registry      RegistryConfig           `json:"registry" yaml:"registry"`
+	Cluster       ClusterConfig            `json:"cluster" yaml:"cluster"`
 	AgentDispatch AgentDispatchConfig      `json:"agentDispatch" yaml:"agentDispatch"`
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
 	BootstrapData BootstrapDataConfig      `json:"bootstrapData" yaml:"bootstrapData"`
@@ -279,6 +280,28 @@ type RegistryConfig struct {
 	AssignmentsPath      string `json:"assignmentsPath,omitempty" yaml:"assignmentsPath,omitempty"`
 	AnalyticsFiltersPath string `json:"analyticsFiltersPath,omitempty" yaml:"analyticsFiltersPath,omitempty"`
 	RateLimitsPath       string `json:"rateLimitsPath,omitempty" yaml:"rateLimitsPath,omitempty"`
+}
+
+// ClusterConfig 配置 Server 多实例 HA（docs/architecture/server-ha-multi-instance.md）。
+// enabled=false（默认）时完全单实例行为，互联与成员表不启用。
+// 成员发现走共享存储（database/cache），无 seed、无静态 peers；
+// 唯一必填是 advertiseAddr（告诉对端怎么连我）。
+type ClusterConfig struct {
+	Enabled       bool   `json:"enabled" yaml:"enabled"`
+	InstanceID    string `json:"instanceId,omitempty" yaml:"instanceId,omitempty"`
+	AdvertiseAddr string `json:"advertiseAddr,omitempty" yaml:"advertiseAddr,omitempty"`
+	// InterconnectAddr 是互联监听地址（默认 advertiseAddr）。
+	InterconnectAddr string `json:"interconnectAddr,omitempty" yaml:"interconnectAddr,omitempty"`
+	// HeartbeatInterval 成员租约续期间隔（默认 5s）。
+	HeartbeatInterval string `json:"heartbeatInterval,omitempty" yaml:"heartbeatInterval,omitempty"`
+	// LeaseTTL 成员租约 TTL（默认 15s，建议 3 倍心跳）。
+	LeaseTTL string `json:"leaseTtl,omitempty" yaml:"leaseTtl,omitempty"`
+	// OwnerTTL agent 归属记录存活窗口（默认 3m，Agent 心跳续期）。
+	OwnerTTL string `json:"ownerTtl,omitempty" yaml:"ownerTtl,omitempty"`
+	// PeerPollInterval 对端发现轮询间隔（默认 10s）。
+	PeerPollInterval string `json:"peerPollInterval,omitempty" yaml:"peerPollInterval,omitempty"`
+	// InsecureSkipTLS 互联 TLS 校验跳过（仅开发联调）。
+	InsecureSkipTLS bool `json:"insecureSkipTls,omitempty" yaml:"insecureSkipTls,omitempty"`
 }
 
 func (c *RegistryConfig) UnmarshalYAML(value *yaml.Node) error {
