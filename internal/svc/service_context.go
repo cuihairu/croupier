@@ -93,6 +93,7 @@ type ServiceContext struct {
 	BugModel           *model.BugModel
 	ToolModel          *model.ToolLinkModel
 	ReleaseModel       *model.GameReleaseModel
+	HotpatchModel      *model.HotpatchModel
 	MessageModel       *model.MessageModel
 	CertificateModel   *model.CertificateModel
 	ConfigVersionModel *model.ConfigVersionModel
@@ -183,6 +184,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	bugModel := model.NewBugModel(db)
 	toolModel := model.NewToolLinkModel(db)
 	releaseModel := model.NewGameReleaseModel(db)
+	hotpatchModel := model.NewHotpatchModel(db)
 	messageModel := model.NewMessageModel(db)
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
@@ -307,6 +309,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		BugModel:                  bugModel,
 		ToolModel:                 toolModel,
 		ReleaseModel:              releaseModel,
+		HotpatchModel:             hotpatchModel,
 		MessageModel:              messageModel,
 		CertificateModel:          certificateModel,
 		ConfigVersionModel:        configVersionModel,

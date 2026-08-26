@@ -20,6 +20,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/function"
 	"github.com/cuihairu/croupier/internal/api/functioncall"
 	"github.com/cuihairu/croupier/internal/api/game"
+	"github.com/cuihairu/croupier/internal/api/hotpatch"
 	"github.com/cuihairu/croupier/internal/api/message"
 	"github.com/cuihairu/croupier/internal/api/meta"
 	"github.com/cuihairu/croupier/internal/api/monitoring"
@@ -125,6 +126,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			registerBugRoutes(protected.Group("/bugs"), serverCtx)
 			registerToolRoutes(protected.Group("/tools"), serverCtx)
 			registerReleaseRoutes(protected.Group("/releases"), serverCtx)
+			registerHotpatchRoutes(protected.Group("/hotpatches"), serverCtx)
 		}
 		registerRegistryShortcutRoutes(protected, serverCtx)
 		registerAuditRoutes(protected, serverCtx)
@@ -925,6 +927,18 @@ func registerPlayerSupportRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerPublicConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	pub := config.NewPublicHandler(config.NewPublicService(ctx))
 	g.GET("/public/configs", pub.List)
+}
+
+func registerHotpatchRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	hpSvc := hotpatch.NewService(ctx)
+	hpHandler := hotpatch.NewHandler(hpSvc)
+	g.GET("", hpHandler.List)
+	g.GET("/", hpHandler.List)
+	g.POST("", hpHandler.Create)
+	g.POST("/", hpHandler.Create)
+	g.POST("/:id/package", hpHandler.UploadPackage)
+	g.POST("/:id/transition", hpHandler.Transition)
+	g.POST("/:id/results", hpHandler.ReportResult)
 }
 
 func registerReleaseRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

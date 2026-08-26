@@ -30,6 +30,7 @@ import (
 //   0008 (Go)   game release baseline table (docs/research/release-management-design.md)
 //   0009 (Go)   config namespace column (docs/research/config-hot-reload-design.md)
 //   0010 (Go)   ticket CSAT columns (docs/research/game-support-systems.md P2)
+//   0011 (Go)   hotpatch baseline table (docs/research/hot-patch-design.md)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -42,6 +43,7 @@ func init() {
 		releaseMigration(),
 		configNamespaceMigration(),
 		ticketCSATMigration(),
+		hotpatchMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -147,6 +149,25 @@ func bugTrackerMigration() *goose.Migration {
 			if !db.Migrator().HasTable(&model.Bug{}) {
 				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
 					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// hotpatchMigration creates the hotpatches table (0011).
+func hotpatchMigration() *goose.Migration {
+	return goose.NewGoMigration(11,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			if !db.Migrator().HasTable(&model.Hotpatch{}) {
+				if err := db.Migrator().CreateTable(&model.Hotpatch{}); err != nil {
+					return fmt.Errorf("migrate: 0011 create hotpatches: %w", err)
 				}
 			}
 			return nil

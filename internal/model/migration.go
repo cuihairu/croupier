@@ -187,6 +187,7 @@ func GameModels() []interface{} {
 		&Bug{},
 		&ToolLink{},
 		&GameRelease{},
+		&Hotpatch{},
 		&ConfigVersion{},
 	}
 }
