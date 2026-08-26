@@ -112,6 +112,9 @@ const config = defineConfig({
           items: [
             { text: '传输层决策(不使用 gRPC)', link: '/architecture/transport-no-grpc' },
             { text: '数据库迁移策略', link: '/architecture/database-migration-strategy' },
+            { text: '配置分层（文件/数据库）', link: '/architecture/config-layering' },
+            { text: '功能开关', link: '/architecture/feature-flags' },
+            { text: '本地化文本契约', link: '/architecture/localized-text-contract' },
             { text: '扩展安装模型', link: '/architecture/extension-installation-model' },
             { text: '核心扩展映射', link: '/architecture/core-extension-mapping' },
             { text: '扩展 API 契约基线', link: '/architecture/extensions-api-contract-baseline' },
@@ -126,6 +129,7 @@ const config = defineConfig({
             { text: 'Agent-Server Session', link: '/architecture/agent-server-session-transport-redesign' },
             { text: '扩展统一模式', link: '/architecture/official-extension-unified-pattern' },
             { text: '双布局设计（待决策）', link: '/architecture/dual-layout-design' },
+            { text: 'Server 多实例 HA', link: '/architecture/server-ha-multi-instance' },
           ],
         },
         {
@@ -134,6 +138,21 @@ const config = defineConfig({
           items: [
             { text: 'Session 运行时调研', link: '/architecture/session-runtime-landscape' },
             { text: '前端 Adapter 模板', link: '/architecture/frontend-adapter-layer-template' },
+          ],
+        },
+        {
+          text: '调研与专项设计',
+          collapsed: true,
+          items: [
+            { text: '游戏客服系统', link: '/research/game-support-systems' },
+            { text: '缺陷追踪', link: '/research/bug-tracking-design' },
+            { text: '版本发布管理', link: '/research/release-management-design' },
+            { text: '服务端热更新', link: '/research/hot-patch-design' },
+            { text: '配置热更新', link: '/research/config-hot-reload-design' },
+            { text: 'Excel 在线配置', link: '/research/excel-online-design' },
+            { text: '数据库监控', link: '/research/db-monitoring-design' },
+            { text: '内部工具集成', link: '/research/tool-registry-design' },
+            { text: '网站配置中心', link: '/research/site-settings-design' },
           ],
         },
       ],
