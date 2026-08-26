@@ -170,3 +170,22 @@ func (h *Handler) Rate(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// ConvertToBug handles POST /tickets/:id/convert-bug (escalate to defect).
+func (h *Handler) ConvertToBug(c *gin.Context) {
+	var req ConvertToBugRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil && c.Request.ContentLength > 0 {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.ConvertToBug(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

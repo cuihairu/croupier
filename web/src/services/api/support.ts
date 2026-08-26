@@ -451,6 +451,17 @@ export async function convertFeedbackToTicket(
   });
 }
 
+// 工单升级为缺陷（bug-tracking P2：携带玩家上下文，source=ticket）
+export async function convertTicketToBug(
+  id: number,
+  payload?: { severity?: string; platform?: string; steps?: string; fixVersion?: string },
+): Promise<{ bugId: string }> {
+  return request(`/api/v1/tickets/${encodeURIComponent(id)}/convert-bug`, {
+    method: 'POST',
+    data: payload ?? {},
+  });
+}
+
 // 工单满意度评价（CSAT；服务端仅接受已解决/已关闭工单）
 export async function rateTicket(id: number, rating: number): Promise<void> {
   await request(`/api/v1/tickets/${encodeURIComponent(id)}/rate`, {

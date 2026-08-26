@@ -24,6 +24,7 @@ import {
   getTicket,
   listTicketComments,
   addTicketComment,
+  convertTicketToBug,
   rateTicket,
   transitionTicket,
   type Ticket,
@@ -241,6 +242,22 @@ export default function TicketDetailPage() {
               删除工单
             </Button>
             <Button onClick={() => setTransOpen(true)}>流转</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  const res = await convertTicketToBug(Number(mid), {
+                    steps: ticket?.content || undefined,
+                  });
+                  getMessage()?.success(`已升级为缺陷 #${res.bugId}（研发 → 缺陷追踪）`);
+                  load();
+                } catch (e) {
+                  const errMsg = e instanceof Error ? e.message : '升级失败';
+                  getMessage()?.error(errMsg);
+                }
+              }}
+            >
+              升级为缺陷
+            </Button>
           </Space>
         }
       >

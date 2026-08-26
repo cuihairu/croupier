@@ -908,6 +908,8 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/transition", ticketHandler.Transition)
 	// 满意度评价（CSAT，仅已解决/已关闭工单；重开自动清分）
 	g.POST("/:id/rate", ticketHandler.Rate)
+	// 升级为缺陷（bug-tracking P2：携带玩家上下文，source=ticket 反查来源）
+	g.POST("/:id/convert-bug", ticketHandler.ConvertToBug)
 	g.GET("/:id/comments", ticketHandler.GetComments)
 	g.POST("/:id/comments", ticketHandler.CreateComment)
 }
