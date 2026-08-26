@@ -16,6 +16,7 @@ import { getConsoleMenu } from './services/console';
 import type { ProfilePermission } from '@/services/api/me';
 import { loadAuthedInitialState, type InitialCurrentUser } from './services/initialState';
 import type { ServerFeatures } from './services/api/features';
+import { fetchSiteConfig, type SiteConfig } from './services/api/sites';
 import { getScope, subscribeScope, type Scope } from './stores/scope';
 import {
   buildMenuFromConsoleSpec,
@@ -39,6 +40,7 @@ type InitialState = {
   scope?: Scope;
   consoleMenuRevision?: number;
   features?: ServerFeatures;
+  siteConfig?: SiteConfig;
 };
 
 function normalizePermissionIDs(perms: PermissionResponse | undefined): string[] {
@@ -91,12 +93,23 @@ export async function getInitialState(): Promise<InitialState> {
   const { location } = history;
   if (location.pathname !== loginPath) {
     const authedState = await loadAuthedInitialState(fetchUserInfo);
+    // 站点配置（公开端点，fail-open 到构建期默认）
+    let siteConfig: SiteConfig | undefined;
+    try {
+      siteConfig = await fetchSiteConfig();
+    } catch {
+      siteConfig = undefined;
+    }
 
     return {
       fetchUserInfo,
       ...authedState,
       scope: getScope(),
-      settings: defaultSettings as Partial<LayoutSettings>,
+      settings: {
+        ...(defaultSettings as Partial<LayoutSettings>),
+        ...(siteConfig?.siteName ? { title: siteConfig.siteName } : {}),
+      },
+      siteConfig,
     };
   }
   return {
@@ -172,6 +185,8 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
   };
 
   return {
+    // 站点配置覆盖（logo/title），未配置回退构建期默认
+    ...(initialState?.siteConfig?.logoUrl ? { logo: initialState.siteConfig.logoUrl } : {}),
     actionsRender: () => [<HeaderActions key="header-actions" />],
     splitMenus: false,
     suppressSiderWhenMenuEmpty: true,

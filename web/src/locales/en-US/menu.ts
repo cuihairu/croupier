@@ -19,6 +19,7 @@ export default {
   'menu.SystemConfig': 'System Management',
   'menu.SystemConfig.SystemFoundation': 'Foundation',
   'menu.SystemConfig.SystemFoundation.GameEnvironments': 'Game Environments',
+  'menu.SystemConfig.SystemFoundation.SiteSettings': 'Site Settings',
   'menu.SystemConfig.SystemFoundation.Terms': 'Terminology',
   'menu.SystemConfig.GameEnvironments': 'Game Environments',
   'menu.FunctionsAndPages': 'Functions & Pages',

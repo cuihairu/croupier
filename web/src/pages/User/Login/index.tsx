@@ -77,9 +77,11 @@ const LoginMessage: React.FC<{
 };
 
 const Login: React.FC = () => {
+  // siteCfg 在下方 useModel 声明后取用
   const [userLoginState] = useState<{ status?: string; type?: string }>({});
   // Only account/password login is supported
   const { initialState, setInitialState } = useModel('@@initialState');
+  const siteCfg = initialState?.siteConfig;
   const [forgotOpen, setForgotOpen] = useState(false);
   const { styles } = useStyles();
   const intl = useIntl();
@@ -163,9 +165,13 @@ const Login: React.FC = () => {
             width: 'min(420px, calc(100vw - 32px))',
             maxWidth: 'calc(100vw - 32px)',
           }}
-          logo={<img alt="logo" src={BRAND.logo || '/logo.svg'} />}
-          title={BRAND.title || 'Croupier'}
-          subTitle={BRAND.subTitle || intl.formatMessage({ id: 'pages.layouts.userLayout.title' })}
+          logo={<img alt="logo" src={siteCfg?.logoUrl || BRAND.logo || '/logo.svg'} />}
+          title={siteCfg?.siteName || BRAND.title || 'Croupier'}
+          subTitle={
+            siteCfg?.description ||
+            BRAND.subTitle ||
+            intl.formatMessage({ id: 'pages.layouts.userLayout.title' })
+          }
           initialValues={{
             autoLogin: true,
           }}

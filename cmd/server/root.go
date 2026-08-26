@@ -19,6 +19,7 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
+	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/runtime"
 	"github.com/cuihairu/croupier/internal/server"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -175,6 +176,11 @@ func runServer() error {
 	// 创建服务上下文
 	svcCtx := svc.NewServiceContext(c)
 	wireDashboardRegistrationPipeline(svcCtx)
+	// 平台配置分层读取入口（L1←L2←L3，docs/architecture/config-layering.md）
+	settings.InitLayered(context.Background(), &settings.ConfigInput{
+		SiteName:      "Croupier",
+		DefaultLocale: "zh-CN",
+	}, svcCtx.PlatformSettingModel)
 	if telemetrySvc, err := svc.NewTelemetryService(c, "croupier-server", slog.Default()); err != nil {
 		return fmt.Errorf("初始化遥测服务失败: %w", err)
 	} else if telemetrySvc != nil {

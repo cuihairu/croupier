@@ -32,6 +32,7 @@ import (
 //   0010 (Go)   ticket CSAT columns (docs/research/game-support-systems.md P2)
 //   0011 (Go)   hotpatch baseline table (docs/research/hot-patch-design.md)
 //   0012 (Go)   db source registry table (docs/research/db-monitoring-design.md)
+//   0013 (Go)   platform settings table (docs/architecture/config-layering.md)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -46,6 +47,7 @@ func init() {
 		ticketCSATMigration(),
 		hotpatchMigration(),
 		dbSourceMigration(),
+		platformSettingsMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -151,6 +153,25 @@ func bugTrackerMigration() *goose.Migration {
 			if !db.Migrator().HasTable(&model.Bug{}) {
 				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
 					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// platformSettingsMigration creates the platform_settings L3 table (0013).
+func platformSettingsMigration() *goose.Migration {
+	return goose.NewGoMigration(13,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			if !db.Migrator().HasTable(&model.PlatformSetting{}) {
+				if err := db.Migrator().CreateTable(&model.PlatformSetting{}); err != nil {
+					return fmt.Errorf("migrate: 0013 create platform_settings: %w", err)
 				}
 			}
 			return nil

@@ -120,6 +120,12 @@ export default [
             access: 'canSystemConfigRead',
             component: './Ops/Terms',
           },
+          {
+            path: '/system/foundation/site',
+            name: 'SiteSettings',
+            access: 'canSystemConfigRead',
+            component: './System/SiteSettings',
+          },
         ],
       },
       {

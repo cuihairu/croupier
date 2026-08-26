@@ -42,6 +42,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/role"
 	"github.com/cuihairu/croupier/internal/api/routes"
 	"github.com/cuihairu/croupier/internal/api/schema"
+	settingsapi "github.com/cuihairu/croupier/internal/api/sitesettings"
 	"github.com/cuihairu/croupier/internal/api/storage"
 	supportapi "github.com/cuihairu/croupier/internal/api/support"
 	"github.com/cuihairu/croupier/internal/api/task"
@@ -53,6 +54,7 @@ import (
 	"github.com/cuihairu/croupier/internal/function/registry"
 	"github.com/cuihairu/croupier/internal/middleware/reqinfo"
 	"github.com/cuihairu/croupier/internal/model"
+	settings "github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
@@ -79,11 +81,15 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)
 	if serverCtx.Config.FeatureFlags.Enabled(configpkg.FlagSupport) {
 		registerPlayerSupportRoutes(v1, serverCtx) // 玩家侧客服(游戏内 SDK)
-	} // OpenAPI 只保留契约查看公开路由
-
+	}
 	// 需要认证的路由（使用 Authority 中间件）
 	protected := v1.Group("/")
 	protected.Use(serverCtx.Authority)
+
+	// 网站配置：公开快照 + admin 写入（L3 覆盖层）
+	siteSettingsHandler := settingsapi.NewHandler(settings.Current(), serverCtx.PlatformSettingModel)
+	settingsapi.RegisterPublic(v1.Group("/public"), siteSettingsHandler)
+	siteSettingsHandler.RegisterAdmin(protected.Group("/site"))
 
 	// Scope-dependent 路由：需要 X-Game-ID/X-Env 的接口。
 	// GameDBMiddleware 仅挂在此组，解析 scope 并注入 context。

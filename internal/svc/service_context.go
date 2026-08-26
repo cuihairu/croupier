@@ -71,33 +71,34 @@ type ServiceContext struct {
 	SystemInfoCache      *reg.SystemInfoCache
 	AgentSessionResolver dispatch.AgentSessionResolver
 
-	AdminModel         *model.AdminModel
-	AlertModel         *model.AlertModel
-	BehaviorModel      *model.BehaviorModel
-	RetentionModel     *model.RetentionModel
-	PaymentsModel      *model.PaymentsModel
-	BackupModel        *model.BackupModel
-	FAQModel           *model.FAQModel
-	FeedbackModel      *model.FeedbackModel
-	GameModel          *model.GameModel
-	PlayerModel        *model.PlayerModel
-	ProfileModel       *model.ProfileModel
-	FunctionModel      *model.FunctionModel
-	TermDictModel      *model.TermDictionaryModel
-	RoleModel          *model.RoleModel
-	NodeModel          *model.NodeModel
-	PermissionModel    *model.PermissionModel
-	RateLimitModel     *model.RateLimitModel
-	SupportModel       *model.SupportModel
-	TicketModel        *model.TicketModel
-	BugModel           *model.BugModel
-	ToolModel          *model.ToolLinkModel
-	ReleaseModel       *model.GameReleaseModel
-	HotpatchModel      *model.HotpatchModel
-	DBSourceModel      *model.DBSourceModel
-	MessageModel       *model.MessageModel
-	CertificateModel   *model.CertificateModel
-	ConfigVersionModel *model.ConfigVersionModel
+	AdminModel           *model.AdminModel
+	AlertModel           *model.AlertModel
+	BehaviorModel        *model.BehaviorModel
+	RetentionModel       *model.RetentionModel
+	PaymentsModel        *model.PaymentsModel
+	BackupModel          *model.BackupModel
+	FAQModel             *model.FAQModel
+	FeedbackModel        *model.FeedbackModel
+	GameModel            *model.GameModel
+	PlayerModel          *model.PlayerModel
+	ProfileModel         *model.ProfileModel
+	FunctionModel        *model.FunctionModel
+	TermDictModel        *model.TermDictionaryModel
+	RoleModel            *model.RoleModel
+	NodeModel            *model.NodeModel
+	PermissionModel      *model.PermissionModel
+	RateLimitModel       *model.RateLimitModel
+	SupportModel         *model.SupportModel
+	TicketModel          *model.TicketModel
+	BugModel             *model.BugModel
+	ToolModel            *model.ToolLinkModel
+	ReleaseModel         *model.GameReleaseModel
+	HotpatchModel        *model.HotpatchModel
+	DBSourceModel        *model.DBSourceModel
+	PlatformSettingModel *model.PlatformSettingModel
+	MessageModel         *model.MessageModel
+	CertificateModel     *model.CertificateModel
+	ConfigVersionModel   *model.ConfigVersionModel
 
 	// Page Spec models
 	PageSpecModel             *model.PageSpecModel
@@ -187,6 +188,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	releaseModel := model.NewGameReleaseModel(db)
 	hotpatchModel := model.NewHotpatchModel(db)
 	dbSourceModel := model.NewDBSourceModel(db)
+	platformSettingModel := model.NewPlatformSettingModel(db)
 	messageModel := model.NewMessageModel(db)
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
@@ -313,6 +315,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		ReleaseModel:              releaseModel,
 		HotpatchModel:             hotpatchModel,
 		DBSourceModel:             dbSourceModel,
+		PlatformSettingModel:      platformSettingModel,
 		MessageModel:              messageModel,
 		CertificateModel:          certificateModel,
 		ConfigVersionModel:        configVersionModel,
