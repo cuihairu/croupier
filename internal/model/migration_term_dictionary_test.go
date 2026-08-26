@@ -95,13 +95,14 @@ func TestNormalizeTermDisplay(t *testing.T) {
 	assert.Nil(t, NormalizeTermDisplay(map[string]string{"zh-CN": "  "}))
 
 	// "bad" 是合法的单段 BCP47 主语言标签，保留；仅空 key/空值被丢弃。
+	// 注意 "zh" 与 "zh-CN " 归一后同键——map 迭代顺序随机、后者覆盖前者
+	// 不确定，因此同键冲突单独验证，主断言不包含重复键。
 	got := NormalizeTermDisplay(map[string]string{
-		"zh":     "玩家",
-		"en":     "Player",
-		"ja-jp":  "プレイヤー",
-		"":       "dropped",
-		"zh-CN ": " trimmed ",
-		"bad":    "x",
+		"zh":    "玩家",
+		"en":    "Player",
+		"ja-jp": "プレイヤー",
+		"":      "dropped",
+		"bad":   "x",
 	})
 	assert.Equal(t, map[string]string{
 		"zh-CN": "玩家",

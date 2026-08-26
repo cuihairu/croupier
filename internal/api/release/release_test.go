@@ -17,6 +17,7 @@ import (
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -208,3 +209,47 @@ func deviceSees(ctx context.Context, t *testing.T, f *releaseFixture, device str
 }
 
 var _ = time.Minute
+
+// TestCheckUpdate_DeltaDownloads verifies the P2 manifest diff: changed and
+// added files are listed, unchanged ones are not.
+func TestCheckUpdate_DeltaDownloads(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	m := model.NewGameReleaseModel(f.db)
+
+	// v1.0.0 (archived full) with manifest {a,b,c}.
+	v1 := f.seedRelease(t, model.ReleaseStatusDraft, "1.0.0", 0)
+	v1.Manifest = datatypes.JSON(`{"a.lua":{"hash":"h1","size":10},"b.lua":{"hash":"h2","size":20},"c.lua":{"hash":"h3","size":30}}`)
+	require.NoError(t, f.db.Save(v1).Error)
+	v2 := f.seedRelease(t, model.ReleaseStatusDraft, "2.0.0", 0)
+	// a unchanged, b changed, c removed, d added.
+	v2.Manifest = datatypes.JSON(`{"a.lua":{"hash":"h1","size":10},"b.lua":{"hash":"h2x","size":25},"d.lua":{"hash":"h4","size":40}}`)
+	require.NoError(t, f.db.Save(v2).Error)
+
+	for _, rel := range []*model.GameRelease{v1, v2} {
+		_, err := f.svc.UploadArtifact(ctx, &UploadArtifactRequest{
+			ID: fmt.Sprint(rel.ID), Data: strings.NewReader("pkg"), Size: 3,
+			ContentType: "application/octet-stream",
+		})
+		require.NoError(t, err)
+		_, err = m.Transition(ctx, rel.ID, model.ReleaseStatusTesting, nil)
+		require.NoError(t, err)
+		pct := 100
+		_, err = m.Transition(ctx, rel.ID, model.ReleaseStatusGray, &pct)
+		require.NoError(t, err)
+		_, err = m.Transition(ctx, rel.ID, model.ReleaseStatusFull, nil)
+		require.NoError(t, err)
+	}
+
+	resp, err := f.svc.CheckUpdate(ctx, &CheckUpdateRequest{
+		GameID: "demo", Env: "prod", Channel: "official", Platform: "android",
+		DeviceID: "d-delta", CurrentVersion: "1.0.0",
+	})
+	require.NoError(t, err)
+	require.True(t, resp.Update)
+	assert.Equal(t, "2.0.0", resp.Version)
+	// Changed + added only; c.lua removal is client-side cleanup.
+	require.Len(t, resp.DeltaFiles, 2)
+	assert.Equal(t, []string{"b.lua", "d.lua"}, resp.DeltaFiles)
+	assert.Equal(t, int64(65), resp.DeltaSize)
+}

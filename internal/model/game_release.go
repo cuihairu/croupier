@@ -273,6 +273,22 @@ func (m *GameReleaseModel) FindCandidates(ctx context.Context, q CheckUpdateQuer
 	return items, err
 }
 
+// FindByVersion returns the release record for an exact version in the
+// scope regardless of status (delta-diff needs the client's current version
+// manifest even after it was archived by a newer full).
+func (m *GameReleaseModel) FindByVersion(ctx context.Context, gameID, env, channel, platform, version string) (*GameRelease, error) {
+	var rel GameRelease
+	err := m.db.WithContext(ctx).
+		Where("game_id = ? AND env = ? AND channel = ? AND platform = ? AND version = ?",
+			gameID, env, channel, platform, version).
+		Order("updated_at DESC").
+		First(&rel).Error
+	if err != nil {
+		return nil, err
+	}
+	return &rel, nil
+}
+
 // RandomSeedHex generates a fresh gray bucket seed.
 func RandomSeedHex() string {
 	b := make([]byte, 8)

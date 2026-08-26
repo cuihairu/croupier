@@ -109,6 +109,11 @@ type CheckUpdateResponse struct {
 	Checksum string                 `json:"checksum,omitempty"`
 	Notes    map[string]interface{} `json:"notes,omitempty"`
 	Forced   bool                   `json:"forced,omitempty"`
+	// Delta 增量下载（P2）：与客户端当前版本 manifest 比对后的变更文件清单。
+	// 仅当两端 manifest 都存在时返回；全量客户端应忽略此字段直接下载整包。
+	DeltaFiles   []string        `json:"deltaFiles,omitempty"`
+	DeltaSize    int64           `json:"deltaSize,omitempty"`
+	FullManifest json.RawMessage `json:"manifest,omitempty"`
 }
 
 func buildReleaseDTO(r *model.GameRelease) Release {

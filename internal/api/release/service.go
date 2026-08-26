@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 
@@ -229,13 +230,67 @@ func (s *Service) CheckUpdate(ctx context.Context, req *CheckUpdateRequest) (*Ch
 		Notes:    matched.Notes,
 		Forced:   matched.Type == model.ReleaseTypeForced,
 	}
+	if len(matched.Manifest) > 0 {
+		resp.FullManifest = json.RawMessage(matched.Manifest)
+	}
 	// Download URL: signed objstore URL when available.
 	if s.svcCtx.ObjectStore != nil && matched.ObjectKey != "" {
 		if url, err := s.svcCtx.ObjectStore.SignedURL(ctx, matched.ObjectKey, "GET", 30*time.Minute); err == nil {
 			resp.URL = url
 		}
 	}
+	// Delta（P2 增量下发）：客户端当前版本与新版本的 manifest 都存在时，
+	// 计算变更文件清单（新增+变更；删除由客户端对差集自行清理）。
+	if current := strings.TrimSpace(req.CurrentVersion); current != "" {
+		if delta, size := computeDelta(ctx, s.svcCtx.ReleaseModel, model.CheckUpdateQuery{
+			GameID: matched.GameID, Env: matched.Env, Channel: matched.Channel, Platform: matched.Platform,
+		}, current, matched); delta != nil {
+			resp.DeltaFiles = delta
+			resp.DeltaSize = size
+		}
+	}
 	return resp, nil
+}
+
+// manifestEntry is one file record in the manifest JSON: {path: {hash, size}}.
+type manifestEntry struct {
+	Hash string `json:"hash"`
+	Size int64  `json:"size"`
+}
+
+// computeDelta diffs the current-version manifest against the matched
+// release manifest. The current version may already be archived (demoted by
+// the newer full), so it is looked up by version regardless of status.
+// Returns nil when either manifest is missing (client falls back to full
+// download).
+func computeDelta(ctx context.Context, m *model.GameReleaseModel, scope model.CheckUpdateQuery, currentVersion string, matched *model.GameRelease) ([]string, int64) {
+	var currentManifest map[string]manifestEntry
+	if prev, err := m.FindByVersion(ctx, scope.GameID, scope.Env, scope.Channel, scope.Platform, currentVersion); err == nil && len(prev.Manifest) > 0 {
+		if err := json.Unmarshal(prev.Manifest, &currentManifest); err != nil {
+			currentManifest = nil
+		}
+	}
+	if currentManifest == nil || len(matched.Manifest) == 0 {
+		return nil, 0
+	}
+	var nextManifest map[string]manifestEntry
+	if err := json.Unmarshal(matched.Manifest, &nextManifest); err != nil {
+		return nil, 0
+	}
+	var files []string
+	var size int64
+	for path, entry := range nextManifest {
+		old, ok := currentManifest[path]
+		if !ok || old.Hash != entry.Hash {
+			files = append(files, path)
+			size += entry.Size
+		}
+	}
+	if len(files) == 0 {
+		return []string{}, 0 // 空差集：manifest 有但内容一致（罕见）
+	}
+	sort.Strings(files)
+	return files, size
 }
 
 // ---- helpers ----
