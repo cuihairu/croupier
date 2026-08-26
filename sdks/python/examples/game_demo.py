@@ -242,6 +242,19 @@ def _non_empty(*vals: str) -> str:
     return ""
 
 
+def _paginate(items: list, body: dict) -> dict[str, Any]:
+    """Slice items by page/pageSize and return the demo collection envelope."""
+    total = len(items)
+    page = _int(body, 1, "page")
+    if page < 1:
+        page = 1
+    page_size = _int(body, 20, "pageSize")
+    if page_size < 1:
+        page_size = 20
+    start = (page - 1) * page_size
+    return {"items": items[start:start + page_size], "total": total, "page": page, "pageSize": page_size}
+
+
 # ==================== Handler Factories ====================
 
 def make_player_create(store: DemoStore) -> Callable:
@@ -259,7 +272,7 @@ def make_player_create(store: DemoStore) -> Callable:
                 profile=_map(body, "profile"),
             )
             store.players[pid] = r
-        return _resp({"status": "success", "action": "player.create", "player": r.to_dict()})
+        return _resp(r.to_dict())
     return handler
 
 
@@ -271,7 +284,7 @@ def make_player_get(store: DemoStore) -> Callable:
             r = store.players.get(pid)
         if not r:
             return _resp({"status": "not_found", "message": "player not found"})
-        return _resp({"status": "success", "action": "player.get", "player": r.to_dict()})
+        return _resp(r.to_dict())
     return handler
 
 
@@ -302,7 +315,7 @@ def make_player_update(store: DemoStore) -> Callable:
             if profile:
                 r.profile = profile
             r.updatedAt = store._now()
-        return _resp({"status": "success", "action": "player.update", "player": r.to_dict()})
+        return _resp(r.to_dict())
     return handler
 
 
@@ -315,15 +328,16 @@ def make_player_delete(store: DemoStore) -> Callable:
             store.inventories.pop(pid, None)
             store.mails.pop(pid, None)
             store.leaderboard.pop(pid, None)
-        return _resp({"status": "success", "action": "player.delete", "playerId": pid})
+        return _resp({"id": pid, "deleted": True})
     return handler
 
 
 def make_player_list(store: DemoStore) -> Callable:
-    def handler(_ctx: str, _payload: bytes) -> str:
+    def handler(_ctx: str, payload: bytes) -> str:
+        body = _parse(payload)
         with store._lock:
             items = [r.to_dict() for r in sorted(store.players.values(), key=lambda p: p.id)]
-        return _resp({"status": "success", "action": "player.list", "items": items, "total": len(items)})
+        return _resp(_paginate(items, body))
     return handler
 
 
@@ -342,7 +356,7 @@ def make_order_create(store: DemoStore) -> Callable:
                 createdAt=now, updatedAt=now, attributes=_map(body, "attributes"),
             )
             store.orders[oid] = r
-        return _resp({"status": "success", "action": "order.create", "order": r.to_dict()})
+        return _resp(r.to_dict())
     return handler
 
 
@@ -354,7 +368,7 @@ def make_order_get(store: DemoStore) -> Callable:
             r = store.orders.get(oid)
         if not r:
             return _resp({"status": "not_found", "message": "order not found"})
-        return _resp({"status": "success", "action": "order.get", "order": r.to_dict()})
+        return _resp(r.to_dict())
     return handler
 
 
@@ -378,7 +392,7 @@ def make_order_update(store: DemoStore) -> Callable:
             if attrs:
                 r.attributes = attrs
             r.updatedAt = store._now()
-        return _resp({"status": "success", "action": "order.update", "order": r.to_dict()})
+        return _resp(r.to_dict())
     return handler
 
 
@@ -388,7 +402,7 @@ def make_order_delete(store: DemoStore) -> Callable:
         oid = _str(body, "orderId", "id")
         with store._lock:
             store.orders.pop(oid, None)
-        return _resp({"status": "success", "action": "order.delete", "orderId": oid})
+        return _resp({"id": oid, "deleted": True})
     return handler
 
 
@@ -401,19 +415,20 @@ def make_order_list(store: DemoStore) -> Callable:
                 r.to_dict() for r in sorted(store.orders.values(), key=lambda o: o.id)
                 if not playerId or r.playerId == playerId
             ]
-        return _resp({"status": "success", "action": "order.list", "items": items, "total": len(items)})
+        return _resp(_paginate(items, body))
     return handler
 
 
 def make_leaderboard_list(store: DemoStore) -> Callable:
-    def handler(_ctx: str, _payload: bytes) -> str:
+    def handler(_ctx: str, payload: bytes) -> str:
+        body = _parse(payload)
         with store._lock:
             entries = sorted(store.leaderboard.values(), key=lambda e: -e.score)
             items = []
             for i, e in enumerate(entries):
                 e.rank = i + 1
                 items.append(e.to_dict())
-        return _resp({"status": "success", "action": "leaderboard.list", "items": items, "total": len(items)})
+        return _resp(_paginate(items, body))
     return handler
 
 
@@ -431,7 +446,7 @@ def make_leaderboard_upsert(store: DemoStore) -> Callable:
             e = LeaderboardEntry(playerId=pid, playerName=playerName,
                                  score=_int(body, 0, "score"), updatedAt=store._now())
             store.leaderboard[pid] = e
-        return _resp({"status": "success", "action": "leaderboard.upsert", "entry": e.to_dict()})
+        return _resp(e.to_dict())
     return handler
 
 
@@ -439,7 +454,7 @@ def make_leaderboard_reset(store: DemoStore) -> Callable:
     def handler(_ctx: str, _payload: bytes) -> str:
         with store._lock:
             store.leaderboard.clear()
-        return _resp({"status": "success", "action": "leaderboard.reset"})
+        return _resp({"reset": True})
     return handler
 
 
@@ -452,7 +467,7 @@ def make_inventory_list(store: DemoStore) -> Callable:
         with store._lock:
             inv = store.inventories.get(pid, {})
             items = [r.to_dict() for r in sorted(inv.values(), key=lambda i: i.templateId)]
-        return _resp({"status": "success", "action": "inventory.list", "playerId": pid, "items": items})
+        return _resp({"playerId": pid, **_paginate(items, body)})
     return handler
 
 
@@ -475,7 +490,7 @@ def make_inventory_grant(store: DemoStore) -> Callable:
                 inv[tid] = r
             r.quantity += _int(body, 1, "quantity")
             r.updatedAt = store._now()
-        return _resp({"status": "success", "action": "inventory.grant", "playerId": pid, "item": r.to_dict()})
+        return _resp(r.to_dict())
     return handler
 
 
@@ -496,7 +511,7 @@ def make_inventory_consume(store: DemoStore) -> Callable:
                 return _resp({"status": "failed", "message": "insufficient quantity", "item": r.to_dict()})
             r.quantity -= qty
             r.updatedAt = store._now()
-        return _resp({"status": "success", "action": "inventory.consume", "playerId": pid, "item": r.to_dict()})
+        return _resp(r.to_dict())
     return handler
 
 
@@ -516,7 +531,7 @@ def make_mail_send(store: DemoStore) -> Callable:
                 sentAt=now, updatedAt=now, expireAt=_str(body, "expireAt"),
             )
             store.mails.setdefault(pid, []).append(r)
-        return _resp({"status": "success", "action": "mail.send", "mail": r.to_dict()})
+        return _resp(r.to_dict())
     return handler
 
 
@@ -528,7 +543,7 @@ def make_mail_list(store: DemoStore) -> Callable:
             raise ValueError("playerId is required")
         with store._lock:
             items = [m.to_dict() for m in store.mails.get(pid, [])]
-        return _resp({"status": "success", "action": "mail.list", "playerId": pid, "items": items, "total": len(items)})
+        return _resp({"playerId": pid, **_paginate(items, body)})
     return handler
 
 
@@ -544,7 +559,7 @@ def make_mail_claim(store: DemoStore) -> Callable:
                 if m.id == mid:
                     m.status = "claimed"
                     m.updatedAt = store._now()
-                    return _resp({"status": "success", "action": "mail.claim", "mail": m.to_dict()})
+                    return _resp(m.to_dict())
         return _resp({"status": "not_found", "message": "mail not found"})
     return handler
 
@@ -575,78 +590,105 @@ ORDER_FIELDS: dict[str, Any] = {
     "currency": _s(), "status": _s(), "channel": _s(), "attributes": {"type": "object"},
 }
 PAGINATION: dict[str, Any] = {"page": _i(), "pageSize": _i()}
-LIST_OUTPUT: dict[str, Any] = _obj({
-    "items": {"type": "array", "items": {"type": "object"}},
-    "total": _i(),
+
+# Record output schemas: flat objects matching the handlers' real wire shape
+# (identical to the Go SDK demo contract).
+_dt: dict[str, Any] = {"type": "string", "format": "date-time"}
+PLAYER_OBJECT: dict[str, Any] = _obj({
+    **PLAYER_FIELDS, "createdAt": _dt, "updatedAt": _dt, "lastLoginAt": _dt,
 })
+ORDER_OBJECT: dict[str, Any] = _obj({
+    **ORDER_FIELDS, "createdAt": _dt, "updatedAt": _dt,
+})
+LEADERBOARD_OBJECT: dict[str, Any] = _obj({
+    "id": _s(), "playerId": _s(), "playerName": _s(), "score": _i(), "rank": _i(), "updatedAt": _dt,
+})
+ITEM_OBJECT: dict[str, Any] = _obj({
+    "id": _s(), "templateId": _s(), "name": _s(), "quantity": _i(), "rarity": _s(), "updatedAt": _dt,
+})
+MAIL_OBJECT: dict[str, Any] = _obj({
+    "id": _s(), "playerId": _s(), "title": _s(), "content": _s(), "status": _s(),
+    "reward": {"type": "object"}, "sentAt": _dt, "updatedAt": _dt, "expireAt": _s(),
+})
+DELETE_OUTPUT: dict[str, Any] = _obj({"id": _s(), "deleted": {"type": "boolean"}}, ["id", "deleted"])
+
+
+def _list_output(item: dict[str, Any] | None = None) -> dict[str, Any]:
+    return _obj({
+        "items": {"type": "array", "items": item or {"type": "object"}},
+        "total": _i(), "page": _i(), "pageSize": _i(),
+    })
+
+
+LIST_OUTPUT: dict[str, Any] = _list_output()
 
 SCHEMAS: dict[str, dict[str, dict[str, Any]]] = {
     "player.create": {
         "input": _obj(dict(PLAYER_FIELDS)),
-        "output": _obj({"player": {"type": "object"}}),
+        "output": PLAYER_OBJECT,
     },
     "player.get": {
         "input": _obj({"id": _s()}, ["id"]),
-        "output": _obj({"player": {"type": "object"}}),
+        "output": PLAYER_OBJECT,
     },
     "player.update": {
         "input": _obj(dict(PLAYER_FIELDS), ["id"]),
-        "output": _obj({"player": {"type": "object"}}),
+        "output": PLAYER_OBJECT,
     },
     "player.delete": {
         "input": _obj({"id": _s()}, ["id"]),
-        "output": _obj({"playerId": _s()}),
+        "output": DELETE_OUTPUT,
     },
-    "player.list": {"input": _obj(dict(PAGINATION)), "output": LIST_OUTPUT},
+    "player.list": {"input": _obj(dict(PAGINATION)), "output": _list_output(PLAYER_OBJECT)},
     "order.create": {
         "input": _obj(dict(ORDER_FIELDS)),
-        "output": _obj({"order": {"type": "object"}}),
+        "output": ORDER_OBJECT,
     },
     "order.get": {
         "input": _obj({"id": _s()}, ["id"]),
-        "output": _obj({"order": {"type": "object"}}),
+        "output": ORDER_OBJECT,
     },
     "order.update": {
         "input": _obj({k: ORDER_FIELDS[k] for k in ("id", "status", "channel", "amount", "attributes")}, ["id"]),
-        "output": _obj({"order": {"type": "object"}}),
+        "output": ORDER_OBJECT,
     },
     "order.delete": {
         "input": _obj({"id": _s()}, ["id"]),
-        "output": _obj({"orderId": _s()}),
+        "output": DELETE_OUTPUT,
     },
     "order.list": {
         "input": _obj({"playerId": _s(), **PAGINATION}),
-        "output": LIST_OUTPUT,
+        "output": _list_output(ORDER_OBJECT),
     },
-    "leaderboard.list": {"input": _obj(dict(PAGINATION)), "output": LIST_OUTPUT},
+    "leaderboard.list": {"input": _obj(dict(PAGINATION)), "output": _list_output(LEADERBOARD_OBJECT)},
     "leaderboard.upsert": {
         "input": _obj({"playerId": _s(), "score": _i()}, ["playerId"]),
-        "output": _obj({"entry": {"type": "object"}}),
+        "output": LEADERBOARD_OBJECT,
     },
-    "leaderboard.reset": {"input": _obj({}), "output": _obj({})},
+    "leaderboard.reset": {"input": _obj({}), "output": _obj({"reset": {"type": "boolean"}})},
     "inventory.list": {
         "input": _obj({"playerId": _s()}, ["playerId"]),
-        "output": _obj({"items": {"type": "array", "items": {"type": "object"}}}),
+        "output": _list_output(ITEM_OBJECT),
     },
     "inventory.grant": {
         "input": _obj({"playerId": _s(), "templateId": _s(), "quantity": _i()}, ["playerId", "templateId"]),
-        "output": _obj({"item": {"type": "object"}}),
+        "output": ITEM_OBJECT,
     },
     "inventory.consume": {
         "input": _obj({"playerId": _s(), "templateId": _s(), "quantity": _i()}, ["playerId", "templateId"]),
-        "output": _obj({"item": {"type": "object"}}),
+        "output": ITEM_OBJECT,
     },
     "mail.send": {
         "input": _obj({"playerId": _s(), "title": _s(), "content": _s(), "reward": {"type": "object"}, "expireAt": _s()}, ["playerId"]),
-        "output": _obj({"mail": {"type": "object"}}),
+        "output": MAIL_OBJECT,
     },
     "mail.list": {
         "input": _obj({"playerId": _s()}, ["playerId"]),
-        "output": LIST_OUTPUT,
+        "output": _list_output(MAIL_OBJECT),
     },
     "mail.claim": {
         "input": _obj({"playerId": _s(), "mailId": _s()}, ["playerId", "mailId"]),
-        "output": _obj({"mail": {"type": "object"}}),
+        "output": MAIL_OBJECT,
     },
 }
 

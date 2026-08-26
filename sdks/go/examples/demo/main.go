@@ -1001,7 +1001,7 @@ type demoFunctionDefinition struct {
 }
 
 const (
-	playerSchema      = `{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"last_login_at":{"type":"string","format":"date-time"},"profile":{"type":"object"}}}`
+	playerSchema      = `{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"lastLoginAt":{"type":"string","format":"date-time"},"profile":{"type":"object"}}}`
 	orderSchema       = `{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"attributes":{"type":"object"}}}`
 	leaderboardSchema = `{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"playerName":{"type":"string"},"score":{"type":"integer"},"rank":{"type":"integer"},"updatedAt":{"type":"string","format":"date-time"}}}`
 	inventorySchema   = `{"type":"object","properties":{"id":{"type":"string"},"templateId":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"},"rarity":{"type":"string"},"updatedAt":{"type":"string","format":"date-time"}}}`

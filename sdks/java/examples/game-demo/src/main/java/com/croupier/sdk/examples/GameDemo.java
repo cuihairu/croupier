@@ -33,7 +33,7 @@ public class GameDemo {
             m.put("id", id); m.put("name", name); m.put("level", level);
             m.put("vip", vip); m.put("gold", gold); m.put("status", status);
             m.put("server", server); m.put("createdAt", createdAt);
-            m.put("updatedAt", updatedAt); m.put("last_login_at", lastLoginAt);
+            m.put("updatedAt", updatedAt); m.put("lastLoginAt", lastLoginAt);
             if (profile != null) m.put("profile", profile);
             return m;
         }
@@ -211,6 +211,19 @@ public class GameDemo {
         return v instanceof Map ? (Map<String, Object>) v : null;
     }
 
+    static Map<String, Object> paginate(List<Map<String, Object>> items, Map<String, Object> body) {
+        int total = items.size();
+        int page = Math.max(1, integer(body, 1, "page"));
+        int pageSize = Math.max(1, integer(body, 20, "pageSize"));
+        int start = Math.min((page - 1) * pageSize, total);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("items", items.subList(start, Math.min(start + pageSize, total)));
+        out.put("total", total);
+        out.put("page", page);
+        out.put("pageSize", pageSize);
+        return out;
+    }
+
     // ==================== Function Handlers ====================
 
     static FunctionHandler playerCreate(DemoStore store) {
@@ -227,7 +240,7 @@ public class GameDemo {
             r.createdAt = now; r.updatedAt = now; r.lastLoginAt = now;
             r.profile = mapVal(body, "profile");
             store.players.put(id, r);
-            return toJson(Map.of("status", "success", "action", "player.create", "player", r.toMap()));
+            return toJson(r.toMap());
         };
     }
 
@@ -237,7 +250,7 @@ public class GameDemo {
             String id = str(body, "playerId", "id");
             PlayerRecord r = store.players.get(id);
             if (r == null) return toJson(Map.of("status", "not_found", "message", "player not found"));
-            return toJson(Map.of("status", "success", "action", "player.get", "player", r.toMap()));
+            return toJson(r.toMap());
         };
     }
 
@@ -255,7 +268,7 @@ public class GameDemo {
             String server = str(body, "server"); if (!server.isEmpty()) r.server = server;
             Map<String, Object> profile = mapVal(body, "profile"); if (profile != null) r.profile = profile;
             r.updatedAt = Instant.now().toString();
-            return toJson(Map.of("status", "success", "action", "player.update", "player", r.toMap()));
+            return toJson(r.toMap());
         };
     }
 
@@ -267,16 +280,17 @@ public class GameDemo {
             store.inventories.remove(id);
             store.mails.remove(id);
             store.leaderboard.remove(id);
-            return toJson(Map.of("status", "success", "action", "player.delete", "playerId", id));
+            return toJson(Map.of("id", id, "deleted", true));
         };
     }
 
     static FunctionHandler playerList(DemoStore store) {
         return (ctx, payload) -> {
+            Map<String, Object> body = parseJson(payload);
             List<Map<String, Object>> items = store.players.values().stream()
                 .sorted(Comparator.comparing(p -> p.id))
                 .map(PlayerRecord::toMap).toList();
-            return toJson(Map.of("status", "success", "action", "player.list", "items", items, "total", items.size()));
+            return toJson(paginate(items, body));
         };
     }
 
@@ -294,7 +308,7 @@ public class GameDemo {
             r.channel = nonEmpty(str(body, "channel"), "gm");
             r.createdAt = now; r.updatedAt = now; r.attributes = mapVal(body, "attributes");
             store.orders.put(id, r);
-            return toJson(Map.of("status", "success", "action", "order.create", "order", r.toMap()));
+            return toJson(r.toMap());
         };
     }
 
@@ -304,7 +318,7 @@ public class GameDemo {
             String id = str(body, "order_id", "id");
             OrderRecord r = store.orders.get(id);
             if (r == null) return toJson(Map.of("status", "not_found", "message", "order not found"));
-            return toJson(Map.of("status", "success", "action", "order.get", "order", r.toMap()));
+            return toJson(r.toMap());
         };
     }
 
@@ -319,7 +333,7 @@ public class GameDemo {
             if (body.containsKey("amount")) r.amount = lng(body, r.amount, "amount");
             Map<String, Object> attrs = mapVal(body, "attributes"); if (attrs != null) r.attributes = attrs;
             r.updatedAt = Instant.now().toString();
-            return toJson(Map.of("status", "success", "action", "order.update", "order", r.toMap()));
+            return toJson(r.toMap());
         };
     }
 
@@ -328,7 +342,7 @@ public class GameDemo {
             Map<String, Object> body = parseJson(payload);
             String id = str(body, "order_id", "id");
             store.orders.remove(id);
-            return toJson(Map.of("status", "success", "action", "order.delete", "order_id", id));
+            return toJson(Map.of("id", id, "deleted", true));
         };
     }
 
@@ -340,18 +354,19 @@ public class GameDemo {
                 .filter(o -> playerId.isEmpty() || o.playerId.equals(playerId))
                 .sorted(Comparator.comparing(o -> o.id))
                 .map(OrderRecord::toMap).toList();
-            return toJson(Map.of("status", "success", "action", "order.list", "items", items, "total", items.size()));
+            return toJson(paginate(items, body));
         };
     }
 
     static FunctionHandler leaderboardList(DemoStore store) {
         return (ctx, payload) -> {
+            Map<String, Object> body = parseJson(payload);
             List<Map<String, Object>> items = store.leaderboard.values().stream()
                 .sorted((a, b) -> Long.compare(b.score, a.score))
                 .map(LeaderboardEntry::toMap).toList();
             // Re-rank
             for (int i = 0; i < items.size(); i++) items.get(i).put("rank", i + 1);
-            return toJson(Map.of("status", "success", "action", "leaderboard.list", "items", items, "total", items.size()));
+            return toJson(paginate(items, body));
         };
     }
 
@@ -367,14 +382,14 @@ public class GameDemo {
             e.playerId = playerId; e.playerName = playerName;
             e.score = lng(body, 0, "score"); e.updatedAt = Instant.now().toString();
             store.leaderboard.put(playerId, e);
-            return toJson(Map.of("status", "success", "action", "leaderboard.upsert", "entry", e.toMap()));
+            return toJson(e.toMap());
         };
     }
 
     static FunctionHandler leaderboardReset(DemoStore store) {
         return (ctx, payload) -> {
             store.leaderboard.clear();
-            return toJson(Map.of("status", "success", "action", "leaderboard.reset"));
+            return toJson(Map.of("reset", true));
         };
     }
 
@@ -387,7 +402,9 @@ public class GameDemo {
             List<Map<String, Object>> items = inv.values().stream()
                 .sorted(Comparator.comparing(i -> i.templateId))
                 .map(ItemRecord::toMap).toList();
-            return toJson(Map.of("status", "success", "action", "inventory.list", "playerId", playerId, "items", items));
+            Map<String, Object> out = paginate(items, body);
+            out.put("playerId", playerId);
+            return toJson(out);
         };
     }
 
@@ -409,7 +426,7 @@ public class GameDemo {
             }
             r.quantity += lng(body, 1, "quantity");
             r.updatedAt = Instant.now().toString();
-            return toJson(Map.of("status", "success", "action", "inventory.grant", "playerId", playerId, "item", r.toMap()));
+            return toJson(r.toMap());
         };
     }
 
@@ -428,7 +445,7 @@ public class GameDemo {
                 return toJson(Map.of("status", "failed", "message", "insufficient quantity", "item", r.toMap()));
             r.quantity -= quantity;
             r.updatedAt = Instant.now().toString();
-            return toJson(Map.of("status", "success", "action", "inventory.consume", "playerId", playerId, "item", r.toMap()));
+            return toJson(r.toMap());
         };
     }
 
@@ -445,7 +462,7 @@ public class GameDemo {
             r.status = "unread"; r.reward = mapVal(body, "reward");
             r.sentAt = now; r.updatedAt = now; r.expireAt = str(body, "expireAt");
             store.mails.computeIfAbsent(playerId, k -> new CopyOnWriteArrayList<>()).add(r);
-            return toJson(Map.of("status", "success", "action", "mail.send", "mail", r.toMap()));
+            return toJson(r.toMap());
         };
     }
 
@@ -456,7 +473,9 @@ public class GameDemo {
             if (playerId.isEmpty()) throw new IllegalArgumentException("player_id is required");
             List<Map<String, Object>> items = store.mails.getOrDefault(playerId, new CopyOnWriteArrayList<>())
                 .stream().map(MailRecord::toMap).toList();
-            return toJson(Map.of("status", "success", "action", "mail.list", "playerId", playerId, "items", items, "total", items.size()));
+            Map<String, Object> out = paginate(items, body);
+            out.put("playerId", playerId);
+            return toJson(out);
         };
     }
 
@@ -471,7 +490,7 @@ public class GameDemo {
                 for (MailRecord m : list) {
                     if (m.id.equals(mailId)) {
                         m.status = "claimed"; m.updatedAt = Instant.now().toString();
-                        return toJson(Map.of("status", "success", "action", "mail.claim", "mail", m.toMap()));
+                        return toJson(m.toMap());
                     }
                 }
             }
@@ -537,66 +556,96 @@ public class GameDemo {
     private static final String OBJ = "{\"type\":\"object\"}";
     private static final String STR = "{\"type\":\"string\"}";
     private static final String INT = "{\"type\":\"integer\"}";
+    private static final String BOOL = "{\"type\":\"boolean\"}";
+    private static final String DT = "{\"type\":\"string\",\"format\":\"date-time\"}";
     private static final String PLAYER_FIELDS =
         "{\"id\":" + STR + ",\"name\":" + STR + ",\"level\":" + INT + ",\"vip\":" + INT
             + ",\"gold\":" + INT + ",\"status\":" + STR + ",\"server\":" + STR + ",\"profile\":" + OBJ + "}";
 
+    // Record output schemas: flat objects matching the handlers' real wire
+    // shape (identical to the Go SDK demo contract).
+    private static final String PLAYER_OBJECT =
+        "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"name\":" + STR + ",\"level\":" + INT
+            + ",\"vip\":" + INT + ",\"gold\":" + INT + ",\"status\":" + STR + ",\"server\":" + STR
+            + ",\"createdAt\":" + DT + ",\"updatedAt\":" + DT + ",\"lastLoginAt\":" + DT + ",\"profile\":" + OBJ + "}}";
+    private static final String ORDER_OBJECT =
+        "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"playerId\":" + STR + ",\"productId\":" + STR
+            + ",\"amount\":" + INT + ",\"currency\":" + STR + ",\"status\":" + STR + ",\"channel\":" + STR
+            + ",\"createdAt\":" + DT + ",\"updatedAt\":" + DT + ",\"attributes\":" + OBJ + "}}";
+    private static final String LEADERBOARD_OBJECT =
+        "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"playerId\":" + STR + ",\"playerName\":" + STR
+            + ",\"score\":" + INT + ",\"rank\":" + INT + ",\"updatedAt\":" + DT + "}}";
+    private static final String ITEM_OBJECT =
+        "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"templateId\":" + STR + ",\"name\":" + STR
+            + ",\"quantity\":" + INT + ",\"rarity\":" + STR + ",\"updatedAt\":" + DT + "}}";
+    private static final String MAIL_OBJECT =
+        "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"playerId\":" + STR + ",\"title\":" + STR
+            + ",\"content\":" + STR + ",\"status\":" + STR + ",\"reward\":" + OBJ + ",\"sentAt\":" + DT
+            + ",\"updatedAt\":" + DT + ",\"expireAt\":" + STR + "}}";
+    private static final String DELETE_OUTPUT =
+        "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"deleted\":" + BOOL + "},\"required\":[\"id\",\"deleted\"]}";
+
+    private static String listOutput(String item) {
+        return "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + item
+            + "},\"total\":" + INT + ",\"page\":" + INT + ",\"pageSize\":" + INT + "}}";
+    }
+
     private static final Map<String, String[]> SCHEMAS = Map.ofEntries(
         Map.entry("player.create", new String[]{
             "{\"type\":\"object\",\"properties\":" + PLAYER_FIELDS + "}",
-            "{\"type\":\"object\",\"properties\":{\"player\":" + OBJ + "}}"}),
+            PLAYER_OBJECT}),
         Map.entry("player.get", new String[]{
             "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
-            "{\"type\":\"object\",\"properties\":{\"player\":" + OBJ + "}}"}),
+            PLAYER_OBJECT}),
         Map.entry("player.update", new String[]{
             "{\"type\":\"object\",\"properties\":" + PLAYER_FIELDS + ",\"required\":[\"id\"]}",
-            "{\"type\":\"object\",\"properties\":{\"player\":" + OBJ + "}}"}),
+            PLAYER_OBJECT}),
         Map.entry("player.delete", new String[]{
             "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
-            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + "}}"}),
+            DELETE_OUTPUT}),
         Map.entry("player.list", new String[]{
             "{\"type\":\"object\",\"properties\":{\"page\":" + INT + ",\"pageSize\":" + INT + "}}",
-            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "},\"total\":" + INT + "}}"}),
+            listOutput(PLAYER_OBJECT)}),
         Map.entry("order.create", new String[]{
             "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"playerId\":" + STR + ",\"productId\":" + STR + ",\"amount\":" + INT + ",\"currency\":" + STR + ",\"status\":" + STR + ",\"channel\":" + STR + ",\"attributes\":" + OBJ + "}}",
-            "{\"type\":\"object\",\"properties\":{\"order\":" + OBJ + "}}"}),
+            ORDER_OBJECT}),
         Map.entry("order.get", new String[]{
             "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
-            "{\"type\":\"object\",\"properties\":{\"order\":" + OBJ + "}}"}),
+            ORDER_OBJECT}),
         Map.entry("order.update", new String[]{
             "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"status\":" + STR + ",\"channel\":" + STR + ",\"amount\":" + INT + ",\"attributes\":" + OBJ + "},\"required\":[\"id\"]}",
-            "{\"type\":\"object\",\"properties\":{\"order\":" + OBJ + "}}"}),
+            ORDER_OBJECT}),
         Map.entry("order.delete", new String[]{
             "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
-            "{\"type\":\"object\",\"properties\":{\"orderId\":" + STR + "}}"}),
+            DELETE_OUTPUT}),
         Map.entry("order.list", new String[]{
             "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"page\":" + INT + ",\"pageSize\":" + INT + "}}",
-            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "},\"total\":" + INT + "}}"}),
+            listOutput(ORDER_OBJECT)}),
         Map.entry("leaderboard.list", new String[]{
             "{\"type\":\"object\",\"properties\":{\"page\":" + INT + ",\"pageSize\":" + INT + "}}",
-            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "},\"total\":" + INT + "}}"}),
+            listOutput(LEADERBOARD_OBJECT)}),
         Map.entry("leaderboard.upsert", new String[]{
             "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"score\":" + INT + "},\"required\":[\"playerId\"]}",
-            "{\"type\":\"object\",\"properties\":{\"entry\":" + OBJ + "}}"}),
-        Map.entry("leaderboard.reset", new String[]{"{\"type\":\"object\",\"properties\":{}}", "{\"type\":\"object\",\"properties\":{}}"}),
+            LEADERBOARD_OBJECT}),
+        Map.entry("leaderboard.reset", new String[]{"{\"type\":\"object\",\"properties\":{}}", "{\"type\":\"object\",\"properties\":{\"reset\":" + BOOL + "}}"}),
         Map.entry("inventory.list", new String[]{
             "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + "},\"required\":[\"playerId\"]}",
-            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "}}}"}),
+            listOutput(ITEM_OBJECT)}),
         Map.entry("inventory.grant", new String[]{
             "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"templateId\":" + STR + ",\"quantity\":" + INT + "},\"required\":[\"playerId\",\"templateId\"]}",
-            "{\"type\":\"object\",\"properties\":{\"item\":" + OBJ + "}}"}),
+            ITEM_OBJECT}),
         Map.entry("inventory.consume", new String[]{
             "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"templateId\":" + STR + ",\"quantity\":" + INT + "},\"required\":[\"playerId\",\"templateId\"]}",
-            "{\"type\":\"object\",\"properties\":{\"item\":" + OBJ + "}}"}),
+            ITEM_OBJECT}),
         Map.entry("mail.send", new String[]{
             "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"title\":" + STR + ",\"content\":" + STR + ",\"reward\":" + OBJ + ",\"expireAt\":" + STR + "},\"required\":[\"playerId\"]}",
-            "{\"type\":\"object\",\"properties\":{\"mail\":" + OBJ + "}}"}),
+            MAIL_OBJECT}),
         Map.entry("mail.list", new String[]{
             "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + "},\"required\":[\"playerId\"]}",
-            "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + OBJ + "},\"total\":" + INT + "}}"}),
+            listOutput(MAIL_OBJECT)}),
         Map.entry("mail.claim", new String[]{
             "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"mailId\":" + STR + "},\"required\":[\"playerId\",\"mailId\"]}",
-            "{\"type\":\"object\",\"properties\":{\"mail\":" + OBJ + "}}"})
+            MAIL_OBJECT})
     );
 
     // ==================== Main ====================
