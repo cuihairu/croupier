@@ -275,7 +275,7 @@ cluster:
 握手消息: { role: "server", instanceId: "server-b", epoch: 17 }
 ```
 
-- 不引入 gRPC（与 [传输层决策](./transport-no-grpc.md) 一致）
+- 不引入 RPC 框架（与 [传输层决策](./transport-no-grpc.md) 一致）
 - 双向多路复用天然支持转发的任务事件流（progress/log 事件需穿过转发层回传给 SSE 调用方）
 - **独立监听端口**（如 8444），与 Agent-facing 端口分离，防火墙只放行集群内网段
 
