@@ -10,6 +10,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -34,7 +35,7 @@ func (s *Service) Root(ctx context.Context) (*RootResponse, error) {
 		Version:     currentAPIVersion(),
 		Environment: s.svcCtx.Config.Server.Mode,
 		Timestamp:   utils.FormatTimestamp(time.Now()),
-		Features:    enabledFeatures(s.svcCtx.Config.FeatureFlags),
+		Features:    enabledFeatures(s.svcCtx.Config.FeatureFlags, settings.Current()),
 		Profiles:    profiles,
 		Links: map[string]string{
 			"docs":   "https://github.com/cuihairu/croupier",
@@ -44,9 +45,11 @@ func (s *Service) Root(ctx context.Context) (*RootResponse, error) {
 	}, nil
 }
 
-// enabledFeatures reports the product domains enabled by featureFlags.
-// Always-on platform capabilities (functions/registry) are always listed.
-func enabledFeatures(flags config.FeatureFlagsConfig) []string {
+// enabledFeatures reports the product domains enabled by the composed
+// feature flags: L2 (config featureFlags, deployment trim) AND L3
+// (platform_settings features.*, runtime soft switch). Always-on platform
+// capabilities (functions/registry) are always listed.
+func enabledFeatures(flags config.FeatureFlagsConfig, layered *settings.Layered) []string {
 	features := []string{"alerts", "functions", "registry"}
 	for _, domain := range []string{
 		config.FlagDev,
@@ -55,7 +58,8 @@ func enabledFeatures(flags config.FeatureFlagsConfig) []string {
 		config.FlagOps,
 		config.FlagExtensions,
 	} {
-		if flags.Enabled(domain) {
+		// L2 未裁剪的前提下读合成值（L3 可运行时关闭）。
+		if flags.Enabled(domain) && layered.FeatureEnabled(domain) {
 			features = append(features, domain)
 		}
 	}

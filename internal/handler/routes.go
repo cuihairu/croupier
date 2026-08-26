@@ -80,7 +80,8 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)
 	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)
 	if serverCtx.Config.FeatureFlags.Enabled(configpkg.FlagSupport) {
-		registerPlayerSupportRoutes(v1, serverCtx) // 玩家侧客服(游戏内 SDK)
+		playerSupport := v1.Group("/", newSoftFeatureGuard(settings.Current()).guard(configpkg.FlagSupport))
+		registerPlayerSupportRoutes(playerSupport, serverCtx) // 玩家侧客服(游戏内 SDK)
 	}
 	// 需要认证的路由（使用 Authority 中间件）
 	protected := v1.Group("/")
@@ -96,9 +97,14 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	scoped := protected.Group("/")
 	scoped.Use(svc.GameDBMiddleware(serverCtx))
 
-	// 功能开关（featureFlags）：显式 false 的域不注册 API 路由（404），
-	// 前端菜单/路由由 GET /api/v1 的 features 同步隐藏。未设置默认开启。
+	// 功能开关两层语义（docs/architecture/config-layering.md §4）：
+	//   L2（featureFlags yaml）= 部署级物理裁剪，显式 false 的域不注册
+	//     API 路由（404），重启生效；
+	//   L3（platform_settings features.*）= 运营级软开关，路由照常注册，
+	//     middleware 运行时拦截（403 feature_disabled），保存即生效，
+	//     且只能关闭 L2 已启用的域（合成 L2 ∧ L3）。
 	flags := serverCtx.Config.FeatureFlags
+	softFlags := newSoftFeatureGuard(settings.Current())
 
 	// Scope-independent 路由：不需要 game/env scope。
 	{
@@ -108,19 +114,22 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerStorageRoutes(protected.Group("/storage"), serverCtx)
 		registerAgentRoutes(protected.Group("/agent"), serverCtx)
 		if flags.Enabled(configpkg.FlagOps) {
-			registerDBMonRoutes(protected.Group("/dbmon"), serverCtx)
-			registerAlertRoutes(protected.Group("/alerts"), serverCtx)
-			registerBackupRoutes(protected.Group("/backups"), serverCtx)
-			registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
+			opsSoft := protected.Group("/", softFlags.guard(configpkg.FlagOps))
+			registerDBMonRoutes(opsSoft.Group("/dbmon"), serverCtx)
+			registerAlertRoutes(opsSoft.Group("/alerts"), serverCtx)
+			registerBackupRoutes(opsSoft.Group("/backups"), serverCtx)
+			registerCertificateRoutes(opsSoft.Group("/certificates"), serverCtx)
 		}
 		if flags.Enabled(configpkg.FlagExtensions) {
-			registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
-			registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
-			registerPlatformRoutes(protected.Group("/platforms"), serverCtx)
+			extSoft := protected.Group("/", softFlags.guard(configpkg.FlagExtensions))
+			registerExtensionRoutes(extSoft.Group("/extensions"), serverCtx)
+			registerAgentExtensionCompatRoutes(extSoft.Group("/agents"), serverCtx)
+			registerPlatformRoutes(extSoft.Group("/platforms"), serverCtx)
 		}
 		if flags.Enabled(configpkg.FlagSupport) {
-			registerFAQRoutes(protected.Group("/faqs"), serverCtx)
-			registerTicketRoutes(protected.Group("/tickets"), serverCtx)
+			supportSoft := protected.Group("/", softFlags.guard(configpkg.FlagSupport))
+			registerFAQRoutes(supportSoft.Group("/faqs"), serverCtx)
+			registerTicketRoutes(supportSoft.Group("/tickets"), serverCtx)
 		}
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
 		registerMonitoringProtectedRoutes(protected.Group("/monitoring"), serverCtx)
@@ -132,10 +141,11 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerSchemaRoutes(protected.Group("/schemas"), serverCtx)
 		registerTermsRoutes(protected.Group("/terms"), serverCtx)
 		if flags.Enabled(configpkg.FlagDev) {
-			registerBugRoutes(protected.Group("/bugs"), serverCtx)
-			registerToolRoutes(protected.Group("/tools"), serverCtx)
-			registerReleaseRoutes(protected.Group("/releases"), serverCtx)
-			registerHotpatchRoutes(protected.Group("/hotpatches"), serverCtx)
+			devSoft := protected.Group("/", softFlags.guard(configpkg.FlagDev))
+			registerBugRoutes(devSoft.Group("/bugs"), serverCtx)
+			registerToolRoutes(devSoft.Group("/tools"), serverCtx)
+			registerReleaseRoutes(devSoft.Group("/releases"), serverCtx)
+			registerHotpatchRoutes(devSoft.Group("/hotpatches"), serverCtx)
 		}
 		registerRegistryShortcutRoutes(protected, serverCtx)
 		registerAuditRoutes(protected, serverCtx)
@@ -151,11 +161,11 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerFunctionCallRoutes(scoped.Group("/function-calls"), serverCtx)
 		registerFunctionMetadataRoutes(scoped.Group("/metadata"), serverCtx)
 		if flags.Enabled(configpkg.FlagOps) {
-			registerOpsRoutes(scoped.Group("/ops"), serverCtx)
+			registerOpsRoutes(scoped.Group("/ops", softFlags.guard(configpkg.FlagOps)), serverCtx)
 		}
 		registerPageRoutes(scoped.Group("/pages"), serverCtx)
 		if flags.Enabled(configpkg.FlagAnalytics) {
-			registerAnalyticsRoutes(scoped.Group("/analytics"), serverCtx)
+			registerAnalyticsRoutes(scoped.Group("/analytics", softFlags.guard(configpkg.FlagAnalytics)), serverCtx)
 		}
 		registerApprovalRoutes(scoped.Group("/approvals"), serverCtx)
 		registerAssignmentRoutes(scoped.Group("/assignments"), serverCtx)

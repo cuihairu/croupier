@@ -178,8 +178,12 @@ func runServer() error {
 	wireDashboardRegistrationPipeline(svcCtx)
 	// 平台配置分层读取入口（L1←L2←L3，docs/architecture/config-layering.md）
 	settings.InitLayered(context.Background(), &settings.ConfigInput{
-		SiteName:      "Croupier",
-		DefaultLocale: "zh-CN",
+		SiteName:             "Croupier",
+		DefaultLocale:        "zh-CN",
+		FeatureFlags:         c.FeatureFlags,
+		ObsAlertmanagerURL:   os.Getenv("CROUPIER_ALERTMANAGER_URL"),
+		ObsGrafanaExploreURL: os.Getenv("CROUPIER_GRAFANA_EXPLORE_URL"),
+		ObsJaegerURL:         os.Getenv("CROUPIER_JAEGER_URL"),
 	}, svcCtx.PlatformSettingModel)
 	if telemetrySvc, err := svc.NewTelemetryService(c, "croupier-server", slog.Default()); err != nil {
 		return fmt.Errorf("初始化遥测服务失败: %w", err)

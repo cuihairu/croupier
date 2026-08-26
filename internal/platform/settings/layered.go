@@ -29,6 +29,19 @@ const (
 	KeyFooterICP       = "footer.icp"
 	KeyFooterLinks     = "footer.links" // JSON array [{key,title,url}]
 	KeyDefaultLocale   = "site.defaultLocale"
+
+	// features.* 是五域功能开关的 L3 运行时覆盖（P2）：只能关闭 L2 已启用
+	// 的域，不能开启 L2 裁剪掉的域（合成语义 L2 ∧ L3，见 FeatureEnabled）。
+	KeyFeatureDev        = "features.dev"
+	KeyFeatureSupport    = "features.support"
+	KeyFeatureAnalytics  = "features.analytics"
+	KeyFeatureOps        = "features.ops"
+	KeyFeatureExtensions = "features.extensions"
+
+	// obs.* 是观测集成 URL（从 OpsStateStore 内存态迁入，重启不再丢失）。
+	KeyObsAlertmanagerURL   = "obs.alertmanagerUrl"
+	KeyObsGrafanaExploreURL = "obs.grafanaExploreUrl"
+	KeyObsJaegerURL         = "obs.jaegerUrl"
 )
 
 // ValidKeys is the L3 whitelist.
@@ -36,6 +49,23 @@ var ValidKeys = map[string]struct{}{
 	KeySiteName: {}, KeySiteLogoURL: {}, KeySiteFaviconURL: {},
 	KeySiteDescription: {}, KeyFooterCopyright: {}, KeyFooterICP: {},
 	KeyFooterLinks: {}, KeyDefaultLocale: {},
+
+	KeyFeatureDev: {}, KeyFeatureSupport: {}, KeyFeatureAnalytics: {},
+	KeyFeatureOps: {}, KeyFeatureExtensions: {},
+
+	KeyObsAlertmanagerURL: {}, KeyObsGrafanaExploreURL: {}, KeyObsJaegerURL: {},
+}
+
+// boolKeys 是布尔语义的 key（PutKey 校验 + GetBool 读取）。
+var boolKeys = map[string]struct{}{
+	KeyFeatureDev: {}, KeyFeatureSupport: {}, KeyFeatureAnalytics: {},
+	KeyFeatureOps: {}, KeyFeatureExtensions: {},
+}
+
+// IsBoolKey reports whether the key carries a JSON boolean value.
+func IsBoolKey(key string) bool {
+	_, ok := boolKeys[key]
+	return ok
 }
 
 // IsValidKey reports whether key may be overridden at L3.
@@ -92,6 +122,13 @@ func Current() *Layered { return layered }
 type ConfigInput struct {
 	SiteName      string
 	DefaultLocale string
+
+	// FeatureFlags 是 L2 的五域开关（config.FeatureFlagsConfig）。
+	FeatureFlags map[string]bool
+	// ObsURLs 是 L2 的观测集成兜底值（env var 解析结果），可空。
+	ObsAlertmanagerURL   string
+	ObsGrafanaExploreURL string
+	ObsJaegerURL         string
 }
 
 func resolveL2(cfg *ConfigInput) map[string]json.RawMessage {
@@ -105,8 +142,29 @@ func resolveL2(cfg *ConfigInput) map[string]json.RawMessage {
 	if cfg.DefaultLocale != "" {
 		out[KeyDefaultLocale], _ = marshalString(cfg.DefaultLocale)
 	}
+	// 五域开关：L2 显式 false 时写入 false；未设置（默认启用）不写，
+	// FeatureEnabled 对缺失值 fail-open 到 true。
+	for _, name := range featureFlagNames {
+		if v, ok := cfg.FeatureFlags[name]; ok {
+			out[featureKey(name)], _ = json.Marshal(v)
+		}
+	}
+	if cfg.ObsAlertmanagerURL != "" {
+		out[KeyObsAlertmanagerURL], _ = marshalString(cfg.ObsAlertmanagerURL)
+	}
+	if cfg.ObsGrafanaExploreURL != "" {
+		out[KeyObsGrafanaExploreURL], _ = marshalString(cfg.ObsGrafanaExploreURL)
+	}
+	if cfg.ObsJaegerURL != "" {
+		out[KeyObsJaegerURL], _ = marshalString(cfg.ObsJaegerURL)
+	}
 	return out
 }
+
+// featureFlagNames 与 config.Flag* / web access.ts 保持同步。
+var featureFlagNames = []string{"dev", "support", "analytics", "ops", "extensions"}
+
+func featureKey(name string) string { return "features." + name }
 
 func marshalString(s string) ([]byte, bool) {
 	b, err := json.Marshal(s)
@@ -137,6 +195,137 @@ func (l *Layered) GetString(ctx context.Context, key string) (string, string, bo
 		}
 	}
 	return "", "default", false
+}
+
+// GetBool resolves a boolean setting through the layers.
+// 未找到时返回 def（fail-open 由调用方决定）。
+func (l *Layered) GetBool(key string, def bool) bool {
+	if !IsValidKey(key) {
+		return def
+	}
+	if l == nil {
+		return def
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	read := func(raw json.RawMessage) (bool, bool) {
+		var v bool
+		if err := json.Unmarshal(raw, &v); err == nil {
+			return v, true
+		}
+		return false, false
+	}
+	if raw, ok := l.l3[key]; ok && l.l3Loaded {
+		if v, ok := read(raw); ok {
+			return v
+		}
+	}
+	if raw, ok := l.l2Values[key]; ok {
+		if v, ok := read(raw); ok {
+			return v
+		}
+	}
+	return def
+}
+
+// FeatureEnabled 合成五域开关：L2（部署级物理裁剪）∧ L3（运营级软开关）。
+//
+//   - L2 显式 false → 恒 false（L3 无法开启被部署裁剪的域）
+//   - L2 未设置（默认启用）→ 跟随 L3；L3 也未设置 → true（fail-open）
+//
+// name 取 config.Flag* 常量值。
+func (l *Layered) FeatureEnabled(name string) bool {
+	l2 := true
+	if l != nil {
+		l.mu.RLock()
+		if raw, ok := l.l2Values[featureKey(name)]; ok {
+			var v bool
+			if err := json.Unmarshal(raw, &v); err == nil {
+				l2 = v
+			}
+		}
+		l.mu.RUnlock()
+	}
+	if !l2 {
+		return false
+	}
+	return l.GetBool(featureKey(name), true)
+}
+
+// ObsSnapshot 是观测集成 URL 的解析结果（含来源诊断）。
+type ObsSnapshot struct {
+	AlertmanagerURL   string
+	GrafanaExploreURL string
+	JaegerURL         string
+	Sources           map[string]string
+}
+
+// ObsSnapshot resolves the observability integration URLs.
+func (l *Layered) ObsSnapshot() ObsSnapshot {
+	snap := ObsSnapshot{Sources: map[string]string{}}
+	for key, dst := range map[string]*string{
+		KeyObsAlertmanagerURL:   &snap.AlertmanagerURL,
+		KeyObsGrafanaExploreURL: &snap.GrafanaExploreURL,
+		KeyObsJaegerURL:         &snap.JaegerURL,
+	} {
+		v, src, ok := l.GetString(context.Background(), key)
+		if ok {
+			*dst = v
+			snap.Sources[key] = src
+		} else {
+			snap.Sources[key] = "default"
+		}
+	}
+	return snap
+}
+
+// FeatureDomainState 是单个功能域的开关诊断信息。
+type FeatureDomainState struct {
+	// Enabled 是合成值（L2 ∧ L3）。
+	Enabled bool `json:"enabled"`
+	// TrimmedByConfig 表示部署配置（L2）物理裁剪了该域：路由未注册，
+	// L3 覆盖无法开启。
+	TrimmedByConfig bool `json:"trimmedByConfig"`
+	// Overridden 表示存在 L3 数据库覆盖。
+	Overridden bool `json:"overridden"`
+}
+
+// FeatureSnapshot 是五域开关的管理视图（GET /api/v1/site/features）。
+type FeatureSnapshot struct {
+	Domains map[string]FeatureDomainState `json:"domains"`
+}
+
+// FeatureSnapshot builds the admin feature overview.
+func (l *Layered) FeatureSnapshot() FeatureSnapshot {
+	out := FeatureSnapshot{Domains: map[string]FeatureDomainState{}}
+	for _, name := range featureFlagNames {
+		key := featureKey(name)
+		l2 := true
+		if l != nil {
+			l.mu.RLock()
+			if raw, ok := l.l2Values[key]; ok {
+				var v bool
+				if err := json.Unmarshal(raw, &v); err == nil {
+					l2 = v
+				}
+			}
+			l.mu.RUnlock()
+		}
+		out.Domains[name] = FeatureDomainState{
+			Enabled:         l.FeatureEnabled(name),
+			TrimmedByConfig: !l2,
+			Overridden:      l != nil && l.l3Loaded && l.hasL3(key),
+		}
+	}
+	return out
+}
+
+func (l *Layered) hasL3(key string) bool {
+	if l == nil {
+		return false
+	}
+	_, ok := l.l3[key]
+	return ok
 }
 
 // Reload re-reads L3 after a Set/Clear so consumers converge without restart.
@@ -226,6 +415,12 @@ func (l *Layered) SiteSnapshot() SiteSnapshot {
 		snap.Sources[KeyDefaultLocale] = src
 	}
 	return snap
+}
+
+// ResetForTest clears the singleton (test-only hook, exported for
+// cross-package handler tests).
+func ResetForTest() {
+	resetForTest()
 }
 
 // resetForTest clears the singleton (test-only).

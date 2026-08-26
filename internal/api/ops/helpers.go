@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
@@ -867,7 +868,43 @@ func opsFunctions(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsFunct
 
 // Config and notifications implementations
 
+// opsConfig resolves observability integration URLs. L3 (platform_settings
+// obs.*) is authoritative; the legacy in-memory OpsStateStore is consulted
+// as a fallback so pre-migration values keep working until re-saved, and
+// env vars remain the bootstrap default.
 func opsConfig(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsConfigRequest) (*OpsConfigResponse, error) {
+	if l := settings.Current(); l != nil {
+		snap := l.ObsSnapshot()
+		resp := &OpsConfigResponse{
+			AlertmanagerURL:   snap.AlertmanagerURL,
+			GrafanaExploreURL: snap.GrafanaExploreURL,
+			JaegerURL:         snap.JaegerURL,
+		}
+		// 兼容期：L3 未配置时回落旧内存 store（重启丢失）再回落 env。
+		if svcCtx != nil && svcCtx.OpsStateStore != nil {
+			state := svcCtx.OpsStateStore.Snapshot()
+			if resp.AlertmanagerURL == "" {
+				resp.AlertmanagerURL = state.Config.AlertmanagerURL
+			}
+			if resp.GrafanaExploreURL == "" {
+				resp.GrafanaExploreURL = state.Config.GrafanaExploreURL
+			}
+			if resp.JaegerURL == "" {
+				resp.JaegerURL = state.Config.JaegerURL
+			}
+		}
+		if resp.AlertmanagerURL == "" {
+			resp.AlertmanagerURL = os.Getenv("CROUPIER_ALERTMANAGER_URL")
+		}
+		if resp.GrafanaExploreURL == "" {
+			resp.GrafanaExploreURL = os.Getenv("CROUPIER_GRAFANA_EXPLORE_URL")
+		}
+		if resp.JaegerURL == "" {
+			resp.JaegerURL = os.Getenv("CROUPIER_JAEGER_URL")
+		}
+		return resp, nil
+	}
+
 	if svcCtx == nil || svcCtx.OpsStateStore == nil {
 		return &OpsConfigResponse{
 			AlertmanagerURL:   os.Getenv("CROUPIER_ALERTMANAGER_URL"),

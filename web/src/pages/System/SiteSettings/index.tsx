@@ -1,14 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { App, Button, Card, Form, Input, Space, Tag, Tooltip, Typography } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { App, Button, Card, Form, Input, Space, Tabs, Tag, Tooltip, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
-import { useIntl } from '@umijs/max';
 import {
   clearSiteSetting,
   fetchSiteConfig,
   setSiteSetting,
-  type SiteConfig,
+  type SettingSource,
 } from '@/services/api/sites';
 import { extractErrorMessage } from '@/utils/errors';
+import FeatureFlagsTab from './FeatureFlagsTab';
+import ObservabilityTab from './ObservabilityTab';
 
 const { Text } = Typography;
 
@@ -32,18 +33,17 @@ const FIELD_KEYS: Record<string, FieldKey> = {
 
 export default function SiteSettingsPage() {
   const { message } = App.useApp();
-  const intl = useIntl();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [sources, setSources] = useState<Record<string, string>>({});
+  const [sources, setSources] = useState<Record<string, SettingSource>>({});
   // 记录每个字段的 L3 是否被覆盖（决定显示「恢复跟随配置文件」）
   const [overridden, setOverridden] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const cfg: SiteConfig & { sources?: Record<string, string> } = await fetchSiteConfig();
+      const cfg = await fetchSiteConfig();
       form.setFieldsValue({
         siteName: cfg.siteName,
         logoUrl: cfg.logoUrl,
@@ -52,7 +52,16 @@ export default function SiteSettingsPage() {
         copyright: cfg.footerCopyright,
         icp: cfg.footerIcp,
       });
-      setSources(cfg.sources || {});
+      const src = (cfg as { sources?: Record<string, SettingSource> }).sources || {};
+      setSources(src);
+      setOverridden({
+        siteName: src['site.name'] === 'database',
+        logoUrl: src['site.logoUrl'] === 'database',
+        faviconUrl: src['site.faviconUrl'] === 'database',
+        description: src['site.description'] === 'database',
+        copyright: src['footer.copyright'] === 'database',
+        icp: src['footer.icp'] === 'database',
+      });
     } catch (error) {
       message.error(extractErrorMessage(error, '加载站点配置失败'));
     } finally {
@@ -72,8 +81,6 @@ export default function SiteSettingsPage() {
     setSavingKey(field);
     try {
       await setSiteSetting(key, value);
-      setSources((prev) => ({ ...prev, [key]: 'database' }));
-      setOverridden((prev) => ({ ...prev, [field]: true }));
       message.success('已保存并即时生效');
       load();
     } catch (error) {
@@ -89,7 +96,6 @@ export default function SiteSettingsPage() {
     setSavingKey(field);
     try {
       await clearSiteSetting(key);
-      setOverridden((prev) => ({ ...prev, [field]: false }));
       message.success('已恢复跟随配置文件');
       load();
     } catch (error) {
@@ -153,9 +159,9 @@ export default function SiteSettingsPage() {
     );
   };
 
-  return (
-    <PageContainer>
-      <Card title="网站配置" loading={loading}>
+  const siteTab = useMemo(
+    () => (
+      <Card loading={loading}>
         <Text type="secondary">
           配置分层：代码默认 ← 配置文件 ← 此处覆盖（最高）。「恢复」按钮会删除覆盖、回到配置文件值。
           修改即时生效，无需重启。
@@ -168,11 +174,22 @@ export default function SiteSettingsPage() {
           {fieldWithActions('copyright', '页脚版权', '© 2026 Your Company')}
           {fieldWithActions('icp', 'ICP 备案号', '京ICP备XXXXXXXX号')}
         </Form>
-        <Text type="secondary">
-          功能开关（featureFlags）在 server.yaml 中管理，见
-          docs/architecture/feature-flags.md；游戏业务配置在「运行控制台」按 game 管理。
-        </Text>
       </Card>
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loading, form, sources, overridden, savingKey],
+  );
+
+  return (
+    <PageContainer>
+      <Tabs
+        defaultActiveKey="site"
+        items={[
+          { key: 'site', label: '站点信息', children: siteTab },
+          { key: 'features', label: '功能开关', children: <FeatureFlagsTab /> },
+          { key: 'observability', label: '观测集成', children: <ObservabilityTab /> },
+        ]}
+      />
     </PageContainer>
   );
 }

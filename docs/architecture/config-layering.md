@@ -57,18 +57,20 @@ L3 白名单制（§4 表格标注）。准入标准：**纯运行时行为/展�
 
 ## 4. 全量配置归类表
 
-| 配置                      | 层                       | 说明                                      |
-| ------------------------- | ------------------------ | ----------------------------------------- |
-| database DSN / multiGame  | **L2 only**              | bootstrap                                 |
-| server host/port/TLS      | **L2 only**              | bootstrap                                 |
-| auth JWT secret           | **L2 only**              | 安全 + bootstrap                          |
-| storage driver/bucket     | **L2 only**              | bootstrap                                 |
-| telemetry/collector       | **L2 only**              | 启动期接线                                |
-| featureFlags 五域开关     | **L2 + L3 可覆盖（P2）** | 关闭域是控制面动作，热切有价值            |
-| 站点品牌/logo/页脚/登录页 | **L3 主战场**            | site-settings-design.md                   |
-| 默认语言                  | L2 缺省 + L3 覆盖        |                                           |
-| 告警阈值默认（dbmon 等）  | L1 内置 + 未来 L3        |                                           |
-| 游戏业务数值/活动/IAP     | 不属于平台配置           | 走 ConfigVersion（game-scoped，另有一套） |
+| 配置                                        | 层                         | 说明                                                                                        |
+| ------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| database DSN / multiGame                    | **L2 only**                | bootstrap                                                                                   |
+| server host/port/TLS                        | **L2 only**                | bootstrap                                                                                   |
+| auth JWT secret                             | **L2 only**                | 安全 + bootstrap                                                                            |
+| storage driver/bucket                       | **L2 only**                | bootstrap                                                                                   |
+| telemetry/collector                         | **L2 only**                | 启动期接线                                                                                  |
+| featureFlags 五域开关                       | **L2 + L3 覆盖（已落地）** | L2=物理裁剪（路由注册）；L3=运行时软开关（middleware 403），合成 L2∧L3，key 为 `features.*` |
+| 观测集成 URL（alertmanager/grafana/jaeger） | **L3 主战场（已落地）**    | key 为 `obs.*`，自 OpsStateStore 内存态迁入，重启不丢；env var 为 L2 兜底                   |
+| 站点品牌/logo/页脚/登录页                   | **L3 主战场**              | site-settings-design.md                                                                     |
+| 默认语言                                    | L2 缺省 + L3 覆盖          |                                                                                             |
+| 告警阈值默认（dbmon 等）                    | L1 内置 + 未来 L3          |                                                                                             |
+| SMTP/通知渠道（P2 待迁）                    | 未来 L3                    | 审批/告警通知的配置来源                                                                     |
+| 游戏业务数值/活动/IAP                       | 不属于平台配置             | 走 ConfigVersion（game-scoped，另有一套）                                                   |
 
 ## 5. 实现要点
 
@@ -89,11 +91,11 @@ DELETE /api/v1/site/:key      → 清 L3 = 「恢复跟随配置文件」
 
 ## 6. 分阶段
 
-| 阶段                            | 内容                                                                                     |
-| ------------------------------- | ---------------------------------------------------------------------------------------- |
-| **P1（随 site-settings 落地）** | platform_settings 表 + Layered 读取 + 站点品牌/页脚/登录页三类 key + 来源徽标 + 恢复按钮 |
-| P2                              | featureFlags 迁入 L3（运行时热开关，替代重启）；SMTP 等运维向设置迁入                    |
-| P3                              | 按 key 权限细分；变更历史对比视图                                                        |
+| 阶段             | 内容                                                                                                                             |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **P1（已落地）** | platform_settings 表 + Layered 读取 + 站点品牌/页脚/登录页三类 key + 来源徽标 + 恢复按钮                                         |
+| **P2（已落地）** | features.* 五域运行时软开关（L2∧L3 合成 + middleware 拦截 + 设置中心 UI）；obs.* 观测 URL 迁入 L3（旧 OpsStateStore 值兼容读取） |
+| P3               | SMTP/通知渠道迁入 L3（审批/告警通知配置来源）；按 key 权限细分；变更历史对比视图                                                 |
 
 ## 7. Review Checklist
 
