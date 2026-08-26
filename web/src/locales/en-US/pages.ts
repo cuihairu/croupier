@@ -197,6 +197,7 @@ export default {
   'profile.info.email': 'Email',
   'profile.info.joined': 'Joined',
   'profile.info.last.login': 'Last Login',
+  'profile.info.notSet': 'Not set',
   'profile.info.phone': 'Phone',
   'profile.info.title': 'Profile Information',
   'profile.info.username': 'Username',

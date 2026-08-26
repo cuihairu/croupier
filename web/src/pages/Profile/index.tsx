@@ -477,8 +477,8 @@ export default function Profile() {
 
   const latestLoginIP = useMemo(() => {
     const first = loginSessionRows.find((row) => row.ip);
-    return first?.ip || 'N/A';
-  }, [loginSessionRows]);
+    return first?.ip || formatMessage('profile.info.notSet');
+  }, [formatMessage, loginSessionRows]);
 
   const handleOpenApplyPermission = (item: PermissionApplyItem) => {
     setSelectedApplyPermission(item);
@@ -534,35 +534,36 @@ export default function Profile() {
     }
   };
 
+  const notSet = formatMessage('profile.info.notSet');
   const infoItems = [
     {
       title: formatMessage('profile.info.user.id'),
-      value: profile?.id ?? 'N/A',
+      value: profile?.id ?? notSet,
       icon: <UserOutlined />,
     },
     {
       title: formatMessage('profile.info.username'),
-      value: profile?.username,
+      value: profile?.username ?? notSet,
       icon: <UserOutlined />,
     },
     {
       title: formatMessage('profile.info.email'),
-      value: profile?.email,
+      value: profile?.email ?? notSet,
       icon: <MailOutlined />,
     },
     {
       title: formatMessage('profile.info.phone'),
-      value: profile?.phone || 'N/A',
+      value: profile?.phone || notSet,
       icon: <PhoneOutlined />,
     },
     {
       title: formatMessage('profile.info.joined'),
-      value: profile?.createdAt ? new Date(String(profile.createdAt)).toLocaleString() : 'N/A',
+      value: profile?.createdAt ? new Date(String(profile.createdAt)).toLocaleString() : notSet,
       icon: <RocketOutlined />,
     },
     {
       title: formatMessage('profile.info.last.login'),
-      value: profile?.lastLoginAt ? new Date(String(profile.lastLoginAt)).toLocaleString() : 'N/A',
+      value: profile?.lastLoginAt ? new Date(String(profile.lastLoginAt)).toLocaleString() : notSet,
       icon: <HistoryOutlined />,
     },
     {
@@ -1062,20 +1063,32 @@ export default function Profile() {
                         <Text strong>{profile?.username}</Text>
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.email')}>
-                        {profile?.email || 'N/A'}
+                        {profile?.email ? (
+                          <Text>{profile.email}</Text>
+                        ) : (
+                          <Text type="secondary">{formatMessage('profile.info.notSet')}</Text>
+                        )}
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.phone')}>
-                        {profile?.phone || 'N/A'}
+                        {profile?.phone ? (
+                          <Text>{profile.phone}</Text>
+                        ) : (
+                          <Text type="secondary">{formatMessage('profile.info.notSet')}</Text>
+                        )}
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.joined')}>
-                        {profile?.createdAt
-                          ? new Date(String(profile.createdAt)).toLocaleString()
-                          : 'N/A'}
+                        {profile?.createdAt ? (
+                          <Text>{new Date(String(profile.createdAt)).toLocaleString()}</Text>
+                        ) : (
+                          <Text type="secondary">{formatMessage('profile.info.notSet')}</Text>
+                        )}
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.last.login')}>
-                        {profile?.lastLoginAt
-                          ? new Date(String(profile.lastLoginAt)).toLocaleString()
-                          : 'N/A'}
+                        {profile?.lastLoginAt ? (
+                          <Text>{new Date(String(profile.lastLoginAt)).toLocaleString()}</Text>
+                        ) : (
+                          <Text type="secondary">{formatMessage('profile.info.notSet')}</Text>
+                        )}
                       </Descriptions.Item>
                     </Descriptions>
                     <Space style={{ marginTop: 12 }}>
@@ -1187,7 +1200,7 @@ export default function Profile() {
                               <Descriptions.Item key={item.title} label={item.title}>
                                 <Space>
                                   {item.icon}
-                                  <span>{item.value || 'N/A'}</span>
+                                  <span>{item.value || formatMessage('profile.info.notSet')}</span>
                                 </Space>
                               </Descriptions.Item>
                             ))}
@@ -1253,7 +1266,7 @@ export default function Profile() {
                 ),
                 children: (
                   <Row gutter={[24, 24]}>
-                    <Col xs={24} lg={12}>
+                    <Col xs={24}>
                       <Card title={formatMessage('profile.security.center')}>
                         <Space direction="vertical" size="large" style={{ width: '100%' }}>
                           <div className="security-item">

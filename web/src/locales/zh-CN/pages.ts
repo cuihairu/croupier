@@ -192,6 +192,7 @@ export default {
   'profile.info.email': '邮箱',
   'profile.info.joined': '加入时间',
   'profile.info.last.login': '最后登录',
+  'profile.info.notSet': '未设置',
   'profile.info.phone': '手机号',
   'profile.info.title': '个人信息',
   'profile.info.username': '用户名',
