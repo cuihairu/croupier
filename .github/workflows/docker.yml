@@ -323,8 +323,14 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
           set -euo pipefail
+          # PAT 只覆盖部分包时会 403 并污染 docker/cosign 凭据环境，
+          # 登录失败立即 logout 恢复匿名/GITHUB_TOKEN 态再走 keyless。
           if [ -n "${GHCR_TOKEN}" ]; then
-            echo "${GHCR_TOKEN}" | cosign login ghcr.io -u "${{ github.actor }}" --password-stdin
+            if ! echo "${GHCR_TOKEN}" | cosign login ghcr.io -u "${{ github.actor }}" --password-stdin; then
+              echo "::warn::PAT 登录失败，清除凭据并回退 keyless"
+              cosign logout ghcr.io || true
+              docker logout ghcr.io || true
+            fi
           fi
           # 解析镜像 digest（inspect 失败立即报错，绝不拼出空引用）。
           DIGEST="$(docker buildx imagetools inspect "${IMAGE}:${{ steps.tag.outputs.tag }}" --format '{{.Manifest.Digest}}')"
