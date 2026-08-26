@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
@@ -147,6 +148,7 @@ type ConfigVersionPayload struct {
 	Env         string
 	Message     string
 	BaseVersion int
+	Namespace   string
 }
 
 // CreateWithMeta inserts a new config version with metadata and optimistic locking support.
@@ -179,6 +181,10 @@ func (m *ConfigVersionModel) CreateWithMeta(ctx context.Context, payload ConfigV
 		return nil, err
 	}
 
+	ns, nsOK := NormalizeConfigNamespace(payload.Namespace)
+	if !nsOK {
+		return nil, fmt.Errorf("invalid config namespace %q", payload.Namespace)
+	}
 	record := &ConfigVersion{
 		Key:       key,
 		Version:   version,
@@ -186,6 +192,7 @@ func (m *ConfigVersionModel) CreateWithMeta(ctx context.Context, payload ConfigV
 		Format:    strings.TrimSpace(payload.Format),
 		GameID:    strings.TrimSpace(payload.GameID),
 		Env:       strings.TrimSpace(payload.Env),
+		Namespace: ns,
 		Message:   strings.TrimSpace(payload.Message),
 		CreatedBy: createdBy,
 	}

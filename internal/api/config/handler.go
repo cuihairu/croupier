@@ -3,8 +3,10 @@ package config
 import (
 	"strconv"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,10 +19,15 @@ func bindConfigRequest(c *gin.Context, req interface{}) error {
 
 type Handler struct {
 	service *Service
+	svcCtx  *svc.ServiceContext
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, svcCtx ...*svc.ServiceContext) *Handler {
+	h := &Handler{service: service}
+	if len(svcCtx) > 0 {
+		h.svcCtx = svcCtx[0]
+	}
+	return h
 }
 
 func configIDFromPath(c *gin.Context) string {
@@ -153,6 +160,53 @@ func (h *Handler) GetVersionByID(c *gin.Context) {
 	})
 	if err != nil {
 		response.InternalServerError(c, err.Error())
+		return
+	}
+	response.Success(c, resp)
+}
+
+// ImportExcel handles POST /configs/excel/import (multipart .xlsx).
+func (h *Handler) ImportExcel(c *gin.Context) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		response.Error(c, errorx.NewBadRequest("缺少 file 字段"))
+		return
+	}
+	defer file.Close()
+	if header.Size > 4*1024*1024 {
+		response.Error(c, errorx.NewBadRequest("文件超过 4MB 上限"))
+		return
+	}
+	data := make([]byte, header.Size)
+	if _, err := file.Read(data); err != nil {
+		response.Error(c, errorx.NewBadRequest("读取文件失败"))
+		return
+	}
+	svc := NewExcelService(h.svcCtx)
+	resp, err := svc.ImportXLSX(c.Request.Context(), &ImportXLSXRequest{
+		Data:    data,
+		GameID:  c.PostForm("gameId"),
+		Env:     c.PostForm("env"),
+		Message: c.PostForm("message"),
+	})
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// CompileExcelSnapshot handles POST /configs/excel/compile (Univer JSON).
+func (h *Handler) CompileExcelSnapshot(c *gin.Context) {
+	var req CompileSnapshotRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	svc := NewExcelService(h.svcCtx)
+	resp, err := svc.CompileSnapshot(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
 		return
 	}
 	response.Success(c, resp)
