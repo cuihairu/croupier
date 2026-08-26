@@ -76,6 +76,7 @@ export default {
   'menu.Dev.DevTools': 'Toolbox',
   'menu.Dev.Hotpatches': 'Hot Patch',
   'menu.Dev.Releases': 'Releases',
+  'menu.Dev.Traces': '链路追踪',
   'menu.Dev.Bugs': 'Bug Tracker',
   'menu.Support': 'Support',
   'menu.Support.Tickets': 'Tickets',

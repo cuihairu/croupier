@@ -292,6 +292,12 @@ export default [
         access: 'canDevManage',
         component: './Dev/Hotpatches',
       },
+      {
+        path: '/dev/traces',
+        name: 'Traces',
+        access: 'canDevRead',
+        component: './Telemetry/Traces',
+      },
     ],
   },
   // Ops (运维)
@@ -311,9 +317,8 @@ export default [
       { path: '/ops/jobs', name: 'Jobs', access: 'canOpsRead', component: './Ops/Jobs' },
       {
         path: '/ops/traces',
-        name: 'Traces',
-        access: 'canOpsRead',
-        component: './Telemetry/Traces',
+        redirect: '/dev/traces',
+        hideInMenu: true,
       },
       {
         path: '/ops/alerts',
