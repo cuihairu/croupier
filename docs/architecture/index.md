@@ -214,6 +214,7 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
 - [扩展统一模式](./official-extension-unified-pattern.md)
 - [双布局设计（设计态/运行态导航隔离）](./dual-layout-design.md) — 已评审待决策
+- [Server 多实例高可用设计](./server-ha-multi-instance.md) — 共享目录 + 实例互联转发的 HA 提案，待其他功能完善后实施
 
 ### 参考资料
 
