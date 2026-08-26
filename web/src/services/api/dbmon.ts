@@ -90,4 +90,5 @@ export const dbKindLabels: Record<string, string> = {
   self: '自建',
   aliyun: '阿里云',
   huawei: '华为云',
+  tencent: '腾讯云',
 };
