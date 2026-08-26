@@ -4,9 +4,10 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,14 +21,14 @@ const exportRowLimit = 50000
 func (h *Handler) Export(c *gin.Context) {
 	var req AuditRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "message": err.Error()})
+		response.Error(c, err)
 		return
 	}
 	format := normalizeExportFormat(c.Query("format"))
 
 	svcItems, truncated, err := h.service.ExportRows(c.Request.Context(), &req, exportRowLimit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "export_failed", "message": err.Error()})
+		response.Error(c, errorx.NewInternalError("导出失败: "+err.Error()))
 		return
 	}
 
@@ -59,10 +60,10 @@ func (h *Handler) Export(c *gin.Context) {
 func (h *Handler) VerifyChain(c *gin.Context) {
 	result, err := h.service.VerifyChain(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "verify_failed", "message": err.Error()})
+		response.Error(c, errorx.NewInternalError("校验失败: "+err.Error()))
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	response.Success(c, result)
 }
 
 func normalizeExportFormat(v string) string {
