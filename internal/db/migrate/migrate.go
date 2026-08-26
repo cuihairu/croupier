@@ -49,9 +49,9 @@ const VersionTableName = "goose_db_version"
 // Bump it together with new migration files once the baseline era ends.
 //
 // 0001 baseline marker; 0002 openapi backfill; 0003 legacy cleanup;
-// 0004 enum columns; 0005 game-support context columns; 0006 bug tracker; 0007 tool registry; 0008 game release
+// 0004 enum columns; 0005 game-support context columns; 0006 bug tracker; 0007 tool registry; 0008 game release; 0009 config namespace
 // (Go migrations registered in internal/svc/migrations.go).
-const MinimumRequiredVersion int64 = 8
+const MinimumRequiredVersion int64 = 9
 
 func dialectOf(gormDialect string) string {
 	switch strings.ToLower(strings.TrimSpace(gormDialect)) {

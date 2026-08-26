@@ -12,17 +12,48 @@ import (
 // ConfigVersion stores versioned configuration values for arbitrary keys.
 type ConfigVersion struct {
 	gorm.Model
-	Key       string `gorm:"size:128;index:idx_config_key_version,priority:1"`
-	Version   int    `gorm:"index:idx_config_key_version,priority:2"`
-	Value     string `gorm:"type:text"`
-	Format    string `gorm:"size:16"`
-	GameID    string `gorm:"size:64"`
-	Env       string `gorm:"size:64"`
+	Key     string `gorm:"size:128;index:idx_config_key_version,priority:1"`
+	Version int    `gorm:"index:idx_config_key_version,priority:2"`
+	Value   string `gorm:"type:text"`
+	Format  string `gorm:"size:16"`
+	GameID  string `gorm:"size:64"`
+	Env     string `gorm:"size:64"`
+	// Namespace 分层（config-hot-reload-design.md §3.2）：
+	// gameplay(数值) | runtime(开关) | activity(活动) | iap | ops
+	Namespace string `gorm:"size:32;index"`
 	Message   string `gorm:"size:255"`
 	CreatedBy string `gorm:"size:64"`
 }
 
 func (ConfigVersion) TableName() string { return "config_versions" }
+
+// Config namespaces (closed set; frontend grouping and watch filters depend
+// on it). See docs/research/config-hot-reload-design.md.
+const (
+	ConfigNamespaceGameplay = "gameplay"
+	ConfigNamespaceRuntime  = "runtime"
+	ConfigNamespaceActivity = "activity"
+	ConfigNamespaceIAP      = "iap"
+	ConfigNamespaceOps      = "ops"
+	ConfigNamespaceDefault  = ConfigNamespaceRuntime
+)
+
+// ValidConfigNamespaces is the closed set of namespaces.
+var ValidConfigNamespaces = map[string]struct{}{
+	ConfigNamespaceGameplay: {}, ConfigNamespaceRuntime: {}, ConfigNamespaceActivity: {},
+	ConfigNamespaceIAP: {}, ConfigNamespaceOps: {},
+}
+
+// NormalizeConfigNamespace defaults empty to runtime and validates.
+func NormalizeConfigNamespace(ns string) (string, bool) {
+	if ns == "" {
+		return ConfigNamespaceDefault, true
+	}
+	if _, ok := ValidConfigNamespaces[ns]; ok {
+		return ns, true
+	}
+	return "", false
+}
 
 // ConfigVersionModel provides helpers for managing configuration history.
 type ConfigVersionModel struct {
@@ -32,6 +63,9 @@ type ConfigVersionModel struct {
 func NewConfigVersionModel(db *gorm.DB) *ConfigVersionModel {
 	return &ConfigVersionModel{db: db}
 }
+
+// DB exposes the underlying connection for read-side helpers in api/config.
+func (m *ConfigVersionModel) DB() *gorm.DB { return m.db }
 
 // Create inserts a new config version, automatically incrementing the version number.
 func (m *ConfigVersionModel) Create(ctx context.Context, key, value, createdBy string) (*ConfigVersion, error) {

@@ -28,6 +28,7 @@ import (
 //   0006 (Go)   bug tracker baseline table (docs/research/bug-tracking-design.md)
 //   0007 (Go)   tool registry baseline table (docs/research/tool-registry-design.md)
 //   0008 (Go)   game release baseline table (docs/research/release-management-design.md)
+//   0009 (Go)   config namespace column (docs/research/config-hot-reload-design.md)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -38,6 +39,7 @@ func init() {
 		bugTrackerMigration(),
 		toolRegistryMigration(),
 		releaseMigration(),
+		configNamespaceMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -143,6 +145,32 @@ func bugTrackerMigration() *goose.Migration {
 			if !db.Migrator().HasTable(&model.Bug{}) {
 				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
 					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// configNamespaceMigration adds the namespace column to config_versions
+// (0009) and backfills existing rows to the runtime default.
+func configNamespaceMigration() *goose.Migration {
+	return goose.NewGoMigration(9,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			migrator := db.Migrator()
+			if migrator.HasTable(&model.ConfigVersion{}) && !migrator.HasColumn(&model.ConfigVersion{}, "namespace") {
+				if err := migrator.AddColumn(&model.ConfigVersion{}, "namespace"); err != nil {
+					return fmt.Errorf("migrate: 0009 add config_versions.namespace: %w", err)
+				}
+				if err := db.Model(&model.ConfigVersion{}).
+					Where("namespace IS NULL OR namespace = ''").
+					Update("namespace", model.ConfigNamespaceDefault).Error; err != nil {
+					return fmt.Errorf("migrate: 0009 backfill namespace: %w", err)
 				}
 			}
 			return nil

@@ -71,7 +71,8 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerMonitoringPublicRoutes(r, v1.Group("/monitoring"), serverCtx)
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
 	registerOpenAPIReadRoutes(v1, serverCtx)
-	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)                 // OpenAPI 只保留契约查看公开路由
+	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)
+	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)                 // OpenAPI 只保留契约查看公开路由
 
 	// 需要认证的路由（使用 Authority 中间件）
 	protected := v1.Group("/")
@@ -639,6 +640,8 @@ func registerConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/validate", configHandler.Validate)
 	g.GET("/:id/versions", configHandler.ListVersionsByID)
 	g.GET("/:id/versions/:version", configHandler.GetVersionByID)
+	// SSE 配置变更订阅（通知只带版本号，数据走拉取）
+	g.GET("/watch", config.NewWatchHandler(config.NewWatchService(ctx)).Watch)
 }
 
 // ============================================================================
@@ -903,6 +906,11 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/transition", ticketHandler.Transition)
 	g.GET("/:id/comments", ticketHandler.GetComments)
 	g.POST("/:id/comments", ticketHandler.CreateComment)
+}
+
+func registerPublicConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	pub := config.NewPublicHandler(config.NewPublicService(ctx))
+	g.GET("/public/configs", pub.List)
 }
 
 func registerReleaseRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
