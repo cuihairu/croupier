@@ -65,6 +65,16 @@ type MetricsStore struct {
 	entries []MetricsEntry
 	byAgent map[string][]int
 	head    int
+	// onReport 是上报后回调（告警规则评估等）。异步执行且有 recover
+	// 防护，评估异常不影响存储链路。
+	onReport func(ctx context.Context, agentID string, report *opsv1.MetricsReport)
+}
+
+// SetOnReport sets the post-report callback (e.g. alert rule evaluation).
+func (s *MetricsStore) SetOnReport(fn func(ctx context.Context, agentID string, report *opsv1.MetricsReport)) {
+	s.mu.Lock()
+	s.onReport = fn
+	s.mu.Unlock()
 }
 
 // NewMetricsStore creates a new metrics store with default config.
@@ -123,10 +133,23 @@ func (s *MetricsStore) Add(agentID string, report *opsv1.MetricsReport) {
 		Received: time.Now(),
 	}
 	s.head = (s.head + 1) % s.config.MaxTotalEntries
+	onReport := s.onReport
 	s.mu.Unlock()
 
 	// Persist to database asynchronously
 	go s.persistToDB(agentID, report)
+
+	// 上报回调（异步，评估失败不影响存储）。
+	if onReport != nil {
+		go func() {
+			defer func() {
+				_ = recover() // 回调异常绝不拖垮上报链路
+			}()
+			evalCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			onReport(evalCtx, agentID, report)
+		}()
+	}
 }
 
 // persistToDB saves metrics to database.

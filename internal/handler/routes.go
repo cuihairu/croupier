@@ -565,6 +565,11 @@ func registerAlertRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/silence", alertHandler.Silence)
 	g.GET("/silences", alertHandler.SilencesList)
 	g.DELETE("/silences/:id", alertHandler.SilenceDelete)
+	// 阈值告警规则（指标上报即评估）
+	g.GET("/rules", alertHandler.RulesList)
+	g.POST("/rules", alertHandler.RulesCreate)
+	g.PUT("/rules/:id", alertHandler.RulesUpdate)
+	g.DELETE("/rules/:id", alertHandler.RulesDelete)
 }
 
 // ============================================================================

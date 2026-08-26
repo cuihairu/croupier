@@ -25,6 +25,7 @@ import (
 	"github.com/cuihairu/croupier/internal/db/migrate"
 	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
+	alertrule "github.com/cuihairu/croupier/internal/platform/alertrule"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
@@ -79,6 +80,7 @@ type ServiceContext struct {
 	RetentionModel       *model.RetentionModel
 	PaymentsModel        *model.PaymentsModel
 	BackupModel          *model.BackupModel
+	AlertRuleModel       *model.AlertRuleModel
 	FAQModel             *model.FAQModel
 	FeedbackModel        *model.FeedbackModel
 	GameModel            *model.GameModel
@@ -178,6 +180,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	retentionModel := model.NewRetentionModel(db)
 	paymentsModel := model.NewPaymentsModel(db)
 	backupModel := model.NewBackupModel(db)
+	alertRuleModel := model.NewAlertRuleModel(db)
 	faqModel := model.NewFAQModel(db)
 	feedbackModel := model.NewFeedbackModel(db)
 	gameModel := model.NewGameModel(db)
@@ -306,6 +309,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		RetentionModel:            retentionModel,
 		PaymentsModel:             paymentsModel,
 		BackupModel:               backupModel,
+		AlertRuleModel:            alertRuleModel,
 		FAQModel:                  faqModel,
 		FeedbackModel:             feedbackModel,
 		GameModel:                 gameModel,
@@ -433,6 +437,11 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// Initialize agent ops stores
 	if ctx.MetricsStore == nil {
 		ctx.MetricsStore = reg.NewMetricsStore()
+	}
+	// 指标告警规则评估：上报即评估（阈值命中→Alert+通知）。
+	if ctx.AlertRuleModel != nil {
+		evaluator := alertrule.New(ctx.AlertRuleModel, ctx.AlertModel, nil)
+		ctx.MetricsStore.SetOnReport(evaluator.EvaluateAgent)
 	}
 	if ctx.SystemInfoCache == nil {
 		ctx.SystemInfoCache = reg.NewSystemInfoCache()
