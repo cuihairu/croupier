@@ -563,7 +563,7 @@ func TestService_Check_WithEmptyAction(t *testing.T) {
 func TestRecordLoginAudit_NilService(t *testing.T) {
 	var service *Service = nil
 	// This should not panic - the method handles nil receiver
-	service.recordLoginAudit("testuser", "auth.login", "success", nil, "")
+	service.recordLoginAudit("testuser", "auth.login", "success", nil, "", "")
 	// If we got here without panic, the test passed
 	assert.True(t, true)
 }
@@ -576,7 +576,7 @@ func TestRecordLoginAudit_NilOpsStore(t *testing.T) {
 	assert.Nil(t, service.opsStore)
 
 	// This should not panic and should return early
-	service.recordLoginAudit("testuser", "auth.login", "success", nil, "")
+	service.recordLoginAudit("testuser", "auth.login", "success", nil, "", "")
 	// If we got here without panic, the test passed
 	assert.True(t, true)
 }
@@ -623,8 +623,7 @@ func TestRecordLoginAudit_WithAuditTable(t *testing.T) {
 		UserAgent: "test-agent",
 	}
 
-	service.recordLoginAudit("admin", "auth.login", "success", req, "")
-
+	service.recordLoginAudit("admin", "auth.login", "success", req, "", "")
 	row := lastAuditRow(t, db)
 	assert.Equal(t, "auth.login", row["event_type"])
 	assert.Equal(t, "admin", row["actor_id"])
@@ -644,8 +643,7 @@ func TestRecordLoginAudit_WithReason(t *testing.T) {
 		UserAgent: "Mozilla/5.0",
 	}
 
-	service.recordLoginAudit("user", "auth.login_failed", "failed", req, "invalid_credentials")
-
+	service.recordLoginAudit("user", "auth.login_failed", "failed", req, "invalid_credentials", "")
 	row := lastAuditRow(t, db)
 	assert.Equal(t, "auth.login_failed", row["event_type"])
 	assert.Equal(t, "failure", row["outcome"])
@@ -658,8 +656,7 @@ func TestRecordLoginAudit_WithNilRequest(t *testing.T) {
 	db.Exec("DELETE FROM audit_records")
 	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
 
-	service.recordLoginAudit("user", "auth.login", "success", nil, "")
-
+	service.recordLoginAudit("user", "auth.login", "success", nil, "", "")
 	row := lastAuditRow(t, db)
 	assert.Equal(t, "auth.login", row["event_type"])
 	assert.NotContains(t, row["details_json"], "userAgent")
@@ -676,8 +673,7 @@ func TestRecordLoginAudit_WithWhitespaceInRequest(t *testing.T) {
 		UserAgent: "  ",
 	}
 
-	service.recordLoginAudit("user", "auth.login", "success", req, "")
-
+	service.recordLoginAudit("user", "auth.login", "success", req, "", "")
 	row := lastAuditRow(t, db)
 	assert.Equal(t, "", row["ip"])
 	assert.NotContains(t, row["details_json"], "userAgent")
@@ -689,8 +685,7 @@ func TestRecordLoginAudit_TrimmedUsername(t *testing.T) {
 	db.Exec("DELETE FROM audit_records")
 	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
 
-	service.recordLoginAudit("  admin  ", "auth.login", "success", nil, "")
-
+	service.recordLoginAudit("  admin  ", "auth.login", "success", nil, "", "")
 	row := lastAuditRow(t, db)
 	assert.Equal(t, "admin", row["actor_id"])
 }

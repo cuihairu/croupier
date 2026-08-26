@@ -52,6 +52,7 @@ import (
 	functionapi "github.com/cuihairu/croupier/internal/function/api"
 	"github.com/cuihairu/croupier/internal/function/registry"
 	"github.com/cuihairu/croupier/internal/middleware/reqinfo"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
@@ -177,10 +178,20 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	}
 	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), jwtSecret, ctx.OpsStateStore).
 		WithGameModel(ctx.GameModel).
-		WithAuditService(ctx.AuditService)
+		WithAuditService(ctx.AuditService).
+		WithRoleModel(model.NewRoleModel(ctx.DB))
+	providers, err := auth.BuildIdentityProvidersFromConfig(ctx.Config)
+	if err != nil {
+		slog.Default().Error("identity providers config invalid", "error", err)
+	} else {
+		providers.Attach(authSvc)
+	}
 	authHandler := auth.NewHandler(authSvc)
 	g.POST("/login", authHandler.Login)
 	g.POST("/logout", authHandler.Logout)
+	g.GET("/providers", authHandler.Providers)
+	g.GET("/oidc/login", authHandler.OIDCLogin)
+	g.GET("/oidc/callback", authHandler.OIDCCallback)
 	g.POST("/check", ctx.Authority, authHandler.Check)
 	g.POST("/check/batch", ctx.Authority, authHandler.BatchCheck)
 }

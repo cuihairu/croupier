@@ -1,0 +1,40 @@
+# 外部身份源配置示例（LDAP / OIDC）
+#
+# 说明：
+# - 默认全部关闭，仅本地账号（admins 表）登录；本文件仅作配置参考。
+# - 外部身份源登录的用户在首次登录时自动创建本地影子账号（JIT 建号），
+#   并按 defaultRoles 赋予本地角色；角色与权限仍由本地 RBAC 裁决。
+# - 影子账号的本地密码为随机值，不能用于本地密码登录。
+# - 登录页可通过 GET /api/auth/providers 获取已启用的登录方式。
+
+auth:
+  jwtSecret: "localdevsecret-change-me"
+
+  providers:
+    # ---------- LDAP（用户名/密码直接在原登录框输入，自动级联） ----------
+    ldap:
+      enabled: false
+      addr: "ldap://ldap.example.com:389" # 或 ldaps://host:636
+      baseDn: "dc=example,dc=com"
+      # 推荐配置服务账号：先搜索用户 DN，再用用户 DN 绑定校验
+      bindDn: "uid=svc-croupier,ou=system,dc=example,dc=com"
+      bindPassword: "change-me"
+      userFilter: "(uid=%s)" # %s 替换为转义后的用户名
+      # 目录禁止匿名/服务搜索时，可改用 DN 模板直连绑定（与 bindDn 二选一）
+      # userDnTemplate: "uid=%s,ou=people,dc=example,dc=com"
+      startTls: true # 非 ldaps 连接升级 TLS
+      insecureSkipVerify: false # 自签名目录的开发环境才允许 true
+      defaultRoles: ["viewer"] # JIT 建号时赋予的本地角色名
+
+    # ---------- OIDC（登录页出现"SSO 登录"入口，跳转身份源） ----------
+    oidc:
+      enabled: false
+      issuer: "https://keycloak.example.com/realms/main"
+      clientId: "croupier"
+      clientSecret: "change-me"
+      redirectUrl: "https://croupier.example.com/api/auth/oidc/callback"
+      scopes: ["openid", "profile", "email"]
+      usernameClaim: "preferred_username" # 回退顺序：sub → email
+      defaultRoles: ["viewer"]
+      # 回调成功后携带 ?token=xxx 跳转的前端地址；留空则回调返回 JSON
+      loginSuccessUrl: "https://croupier.example.com/login"

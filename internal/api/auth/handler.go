@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"net/http"
+	"net/url"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -62,6 +65,52 @@ func (h *Handler) Check(c *gin.Context) {
 	resp, err := h.service.Check(c.Request.Context(), username.(string), &req)
 	if err != nil {
 		response.InternalServerError(c, err.Error())
+		return
+	}
+	response.Success(c, resp)
+}
+
+// Providers 返回已启用的登录方式，供登录页渲染入口。
+func (h *Handler) Providers(c *gin.Context) {
+	response.Success(c, gin.H{
+		"local": true,
+		"ldap":  h.service.LDAPEnabled(),
+		"oidc":  h.service.OIDCEnabled(),
+	})
+}
+
+// OIDCLogin 生成跳转到身份源的授权 URL 并 302 重定向。
+func (h *Handler) OIDCLogin(c *gin.Context) {
+	url, err := h.service.OIDCAuthCodeURL()
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	c.Redirect(http.StatusFound, url)
+}
+
+// OIDCCallback 处理身份源回调：换取身份并签发平台 token。
+// 配置了 loginSuccessUrl 时携带 token 跳转前端；否则返回 JSON。
+func (h *Handler) OIDCCallback(c *gin.Context) {
+	req := &LoginRequest{
+		ClientIP:  c.ClientIP(),
+		UserAgent: c.GetHeader("User-Agent"),
+	}
+	resp, err := h.service.OIDCLoginCallback(c.Request.Context(), c.Query("code"), c.Query("state"), req)
+	if err != nil {
+		response.Unauthorized(c, err.Error())
+		return
+	}
+	if target := h.service.OIDCSuccessURL(); target != "" {
+		u, parseErr := url.Parse(target)
+		if parseErr != nil {
+			response.InternalServerError(c, "loginSuccessUrl 配置无效")
+			return
+		}
+		q := u.Query()
+		q.Set("token", resp.Token)
+		u.RawQuery = q.Encode()
+		c.Redirect(http.StatusFound, u.String())
 		return
 	}
 	response.Success(c, resp)

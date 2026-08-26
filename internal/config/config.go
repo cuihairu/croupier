@@ -543,6 +543,45 @@ type AuthConfig struct {
 	RBACConfig  string `json:"rbacConfig,omitempty" yaml:"rbacConfig,omitempty"`
 	UsersConfig string `json:"usersConfig,omitempty" yaml:"usersConfig,omitempty"`
 	GamesConfig string `json:"gamesConfig,omitempty" yaml:"gamesConfig,omitempty"`
+	// Providers 配置外部身份源（LDAP/OIDC）。默认全部关闭，仅本地账号登录。
+	Providers AuthProvidersConfig `json:"providers,omitempty" yaml:"providers,omitempty"`
+}
+
+// AuthProvidersConfig 汇总外部身份提供方配置。
+type AuthProvidersConfig struct {
+	LDAP LDAPProviderConfig `json:"ldap,omitempty" yaml:"ldap,omitempty"`
+	OIDC OIDCProviderConfig `json:"oidc,omitempty" yaml:"oidc,omitempty"`
+}
+
+// LDAPProviderConfig 描述如何连接并校验 LDAP 目录。
+type LDAPProviderConfig struct {
+	Enabled            bool   `json:"enabled" yaml:"enabled"`
+	Addr               string `json:"addr" yaml:"addr"`
+	BaseDN             string `json:"baseDn" yaml:"baseDn"`
+	BindDN             string `json:"bindDn,omitempty" yaml:"bindDn,omitempty"`
+	BindPassword       string `json:"bindPassword,omitempty" yaml:"bindPassword,omitempty"`
+	UserFilter         string `json:"userFilter,omitempty" yaml:"userFilter,omitempty"`
+	UserDNTemplate     string `json:"userDnTemplate,omitempty" yaml:"userDnTemplate,omitempty"`
+	StartTLS           bool   `json:"startTls,omitempty" yaml:"startTls,omitempty"`
+	InsecureSkipVerify bool   `json:"insecureSkipVerify,omitempty" yaml:"insecureSkipVerify,omitempty"`
+	// DefaultRoles 是 JIT 建号时赋予的本地角色名列表。
+	DefaultRoles []string `json:"defaultRoles,omitempty" yaml:"defaultRoles,omitempty"`
+}
+
+// OIDCProviderConfig 描述 OIDC 客户端与用户映射。
+type OIDCProviderConfig struct {
+	Enabled       bool     `json:"enabled" yaml:"enabled"`
+	Issuer        string   `json:"issuer" yaml:"issuer"`
+	ClientID      string   `json:"clientId" yaml:"clientId"`
+	ClientSecret  string   `json:"clientSecret" yaml:"clientSecret"`
+	RedirectURL   string   `json:"redirectUrl" yaml:"redirectUrl"`
+	Scopes        []string `json:"scopes,omitempty" yaml:"scopes,omitempty"`
+	UsernameClaim string   `json:"usernameClaim,omitempty" yaml:"usernameClaim,omitempty"`
+	// DefaultRoles 是 JIT 建号时赋予的本地角色名列表。
+	DefaultRoles []string `json:"defaultRoles,omitempty" yaml:"defaultRoles,omitempty"`
+	// LoginSuccessURL 是回调成功后携带 token 跳转的前端地址；
+	// 留空则回调直接返回 JSON（供脚本/API 场景使用）。
+	LoginSuccessURL string `json:"loginSuccessUrl,omitempty" yaml:"loginSuccessUrl,omitempty"`
 }
 
 func (c *AuthConfig) UnmarshalYAML(value *yaml.Node) error {

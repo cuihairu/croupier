@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type LoginRequest struct {
 	Username string `json:"username"` // 用户名
@@ -20,10 +18,7 @@ type LoginRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type LoginResponse struct {
@@ -51,17 +46,12 @@ type UserInfo struct {
 
 2. request definition
 
-
-
 ```go
 type LogoutRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type LogoutResponse struct {
@@ -129,3 +119,36 @@ type BatchCheckResponse struct {
 - 校验基于当前登录用户在数据库中的角色和权限，不依赖前端缓存。
 - `gameId` 与 `env` 字段当前保留用于兼容前端请求结构，现阶段权限判断主要按资源和动作执行。
 
+---
+
+## 外部身份源端点
+
+以下端点在启用 `auth.providers` 后可用，未启用时 `providers` 返回全 `local`，OIDC 端点返回 400。
+
+### 查询已启用登录方式
+
+- Url: /api/v1/auth/providers
+- Method: GET
+- Auth: 无
+
+```json
+{
+  "local": true,
+  "ldap": true,
+  "oidc": false
+}
+```
+
+### 发起 OIDC 登录
+
+- Url: /api/v1/auth/oidc/login
+- Method: GET
+- Auth: 无
+- 行为: 302 重定向到身份源授权页，state 含 HMAC 签名与 10 分钟有效期
+
+### OIDC 回调
+
+- Url: /api/v1/auth/oidc/callback?code=xxx&state=xxx
+- Method: GET
+- Auth: 无
+- Response: `LoginResponse`（与密码登录一致）；配置 `loginSuccessUrl` 时改为 302 携带 `?token=xxx` 跳转前端

@@ -82,16 +82,25 @@ func registerPublicRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.Config)
 			jwtSecret = jwtutil.DevSecret()
 		}
 	}
-	authHandler := auth.NewHandler(auth.NewService(
+	authSvc := auth.NewService(
 		model.NewAdminModel(db),
 		permissionservice.NewPermissionService(db),
 		jwtSecret,
-	))
+	).WithRoleModel(model.NewRoleModel(db))
+	if providers, provErr := auth.BuildIdentityProvidersFromConfig(*cfg); provErr != nil {
+		slog.Default().Error("identity providers config invalid", "error", provErr)
+	} else {
+		providers.Attach(authSvc)
+	}
+	authHandler := auth.NewHandler(authSvc)
 	jwtutil.InitGlobalSecret(jwtSecret)
 	authGroup := api.Group("/auth")
 	{
 		authGroup.POST("/login", authHandler.Login)
 		authGroup.POST("/logout", authHandler.Logout)
+		authGroup.GET("/providers", authHandler.Providers)
+		authGroup.GET("/oidc/login", authHandler.OIDCLogin)
+		authGroup.GET("/oidc/callback", authHandler.OIDCCallback)
 	}
 
 	// Health check

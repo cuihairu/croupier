@@ -407,8 +407,7 @@ func TestRecordLoginAudit_EmptyReason_V4(t *testing.T) {
 	service.recordLoginAudit("testuser", "auth.login", "success", &LoginRequest{
 		ClientIP:  "127.0.0.1",
 		UserAgent: "TestAgent",
-	}, "")
-
+	}, "", "")
 	var row struct {
 		EventType   string
 		DetailsJSON string
@@ -429,7 +428,7 @@ func TestRecordLoginAudit_NilOpsStore_V4(t *testing.T) {
 	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret")
 
 	// Should not panic
-	service.recordLoginAudit("testuser", "auth.login", "success", nil, "")
+	service.recordLoginAudit("testuser", "auth.login", "success", nil, "", "")
 }
 
 // --- recordLoginAudit with nil service ---
@@ -438,7 +437,7 @@ func TestRecordLoginAudit_NilService_V4(t *testing.T) {
 	t.Parallel()
 	var s *Service
 	// Should not panic
-	s.recordLoginAudit("testuser", "auth.login", "success", nil, "")
+	s.recordLoginAudit("testuser", "auth.login", "success", nil, "", "")
 }
 
 // --- Login with empty username after trim ---
@@ -492,8 +491,7 @@ func TestRecordLoginAudit_WhitespaceFields_V4(t *testing.T) {
 		UserAgent: "  ",
 	}
 
-	service.recordLoginAudit("user", "auth.login", "success", req, "")
-
+	service.recordLoginAudit("user", "auth.login", "success", req, "", "")
 	var row struct {
 		IP          string
 		DetailsJSON string
@@ -515,8 +513,7 @@ func TestRecordLoginAudit_AuditTrimming_V4(t *testing.T) {
 	require.NoError(t, err)
 	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithAuditService(audit.NewAuditService(auditStore, nil))
 
-	service.recordLoginAudit("newuser", "auth.login", "success", nil, "")
-
+	service.recordLoginAudit("newuser", "auth.login", "success", nil, "", "")
 	var row struct {
 		ActorID string
 	}

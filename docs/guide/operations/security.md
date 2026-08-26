@@ -129,6 +129,40 @@ ufw allow 19091/tcp
 
 TLS 只解决“谁在和谁通信”，不替代平台级权限控制。
 
+## 外部身份源（LDAP / OIDC）
+
+平台默认仅使用本地账号（`admins` 表 + bcrypt + TOTP）。如有企业身份源，可在 `auth.providers` 中按需开启，默认全部关闭：
+
+```yaml
+auth:
+  providers:
+    ldap:
+      enabled: true
+      addr: "ldap://ldap.example.com:389"
+      baseDn: "dc=example,dc=com"
+      bindDn: "uid=svc-croupier,ou=system,dc=example,dc=com"
+      bindPassword: "${LDAP_BIND_PASSWORD}"
+      userFilter: "(uid=%s)"
+      startTls: true
+      defaultRoles: ["viewer"]
+    oidc:
+      enabled: true
+      issuer: "https://keycloak.example.com/realms/main"
+      clientId: "croupier"
+      clientSecret: "${OIDC_CLIENT_SECRET}"
+      redirectUrl: "https://croupier.example.com/api/auth/oidc/callback"
+      defaultRoles: ["viewer"]
+      loginSuccessUrl: "https://croupier.example.com/login"
+```
+
+完整字段说明见 `configs/auth-providers.example.yaml`。行为约定：
+
+- **登录级联**：密码登录按 `local → ldap` 顺序尝试；本地失败且 LDAP 启用时自动回落到 LDAP，登录框无需区分。
+- **JIT 建号**：外部身份首次登录自动创建本地影子账号（密码为随机值，不能本地登录），并按 `defaultRoles` 赋予本地角色；角色与权限始终由本地 RBAC 裁决，外部身份只负责"证明你是谁"。
+- **OIDC 流程**：登录页通过 `GET /api/v1/auth/providers` 获取已启用方式；`GET /api/v1/auth/oidc/login` 跳转身份源，回调 `GET /api/v1/auth/oidc/callback` 换取身份并签发平台 JWT（与密码登录同一 token 体系，后续请求无差别）。
+- **失效降级**：OIDC 身份源在 Server 启动时不可达只会禁用 OIDC 登录（告警日志），不影响本地与 LDAP 登录；LDAP 拨号发生在认证时，目录故障表现为"认证服务暂时不可用"。
+- **审计**：登录审计记录携带 `provider` 字段，可区分 `local` / `ldap` / `oidc` 来源。
+
 ## 最佳实践
 
 1. 生产环境的 `Agent <-> Server` 默认启用 mTLS
