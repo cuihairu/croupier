@@ -2,10 +2,8 @@ package audit
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -106,57 +104,9 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 		addAlias(item)
 	}
 
-	query := s.svcCtx.DB.WithContext(ctx).Table("audit_records")
-	// Scope authorization: non-admin viewers only see records within their
-	// game/env scopes. SQL-side so counts and pagination stay correct.
-	if !unrestricted {
-		if len(visibleScopes) == 0 {
-			return &AuditListResponse{Items: []AuditItem{}, Total: 0, Page: page, PageSize: size}, nil
-		}
-		orParts := []string{}
-		orArgs := []interface{}{}
-		for gameID, envs := range visibleScopes {
-			for env := range envs {
-				orParts = append(orParts, "(game_id = ? AND env = ?)")
-				orArgs = append(orArgs, gameID, env)
-			}
-		}
-		query = query.Where(strings.Join(orParts, " OR "), orArgs...)
-	}
-	if len(actionSet) > 0 {
-		types := make([]string, 0, len(actionSet))
-		for t := range actionSet {
-			types = append(types, t)
-		}
-		query = query.Where("event_type IN ?", types)
-	}
-	if actor := strings.TrimSpace(req.Actor); actor != "" {
-		query = query.Where("actor_id = ?", actor)
-	}
-	if userID := strings.TrimSpace(req.UserID); userID != "" {
-		query = query.Where("actor_id = ?", userID)
-	}
-	if ip := strings.TrimSpace(req.IP); ip != "" {
-		query = query.Where("ip = ?", ip)
-	}
-	if gameID := strings.TrimSpace(req.GameID); gameID != "" {
-		query = query.Where("game_id = ?", gameID)
-	}
-	if env := strings.TrimSpace(req.Env); env != "" {
-		query = query.Where("env = ?", env)
-	}
-	var startAt, endAt time.Time
-	if trimmed := strings.TrimSpace(req.Start); trimmed != "" {
-		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
-			startAt = parsed
-			query = query.Where("timestamp >= ?", startAt)
-		}
-	}
-	if trimmed := strings.TrimSpace(req.End); trimmed != "" {
-		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
-			endAt = parsed
-			query = query.Where("timestamp <= ?", endAt)
-		}
+	query, err := s.buildAuditQuery(ctx, req, visibleScopes, unrestricted)
+	if err != nil {
+		return nil, err
 	}
 
 	var total int64
@@ -164,77 +114,20 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 		return nil, err
 	}
 
-	type rawRow struct {
-		AuditID      string
-		Timestamp    time.Time
-		EventType    string
-		Outcome      string
-		ActorJSON    []byte
-		ResourceJSON []byte
-		DetailsJSON  []byte
-		ErrorMessage string
-		GameID       string
-		Env          string
-		IP           string
-		ActorID      string
+	if query == nil {
+		return &AuditListResponse{Items: []AuditItem{}, Total: 0, Page: page, PageSize: size}, nil
 	}
-	rows := []rawRow{}
+	rows := []auditRawRow{}
 	if err := query.
-		Select("audit_id, timestamp, event_type, outcome, actor_json, resource_json, details_json, error_message, game_id, env, ip, actor_id").
+		Select(exportSelectColumns).
 		Order("timestamp DESC").
 		Offset((page - 1) * size).Limit(size).
 		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-
 	items := make([]AuditItem, 0, len(rows))
-	for _, r := range rows {
-		var actor, resource, details map[string]interface{}
-		if len(r.ActorJSON) > 0 {
-			_ = json.Unmarshal(r.ActorJSON, &actor)
-		}
-		if len(r.ResourceJSON) > 0 {
-			_ = json.Unmarshal(r.ResourceJSON, &resource)
-		}
-		if len(r.DetailsJSON) > 0 {
-			_ = json.Unmarshal(r.DetailsJSON, &details)
-		}
-		metadata := map[string]interface{}{}
-		for k, v := range details {
-			metadata[k] = v
-		}
-		if r.IP != "" {
-			metadata["ip"] = r.IP
-		}
-		if ua, ok := actor["userAgent"].(string); ok && ua != "" {
-			metadata["userAgent"] = ua
-		}
-		item := AuditItem{
-			ID:        r.AuditID,
-			CreatedAt: r.Timestamp.UTC().Format(time.RFC3339),
-			Action:    r.EventType,
-			Result:    r.Outcome,
-			Metadata:  metadata,
-			UserID:    r.ActorID,
-		}
-		if id, ok := resource["id"].(string); ok {
-			item.Target = id
-		}
-		if tid, ok := details["traceId"].(string); ok && tid != "" {
-			item.TraceID = tid
-		} else if tid, ok := details["trace_id"].(string); ok {
-			item.TraceID = tid
-		}
-		if r.GameID != "" {
-			item.GameID = r.GameID
-		}
-		if r.Env != "" {
-			item.Env = r.Env
-		}
-		if r.ErrorMessage != "" {
-			metadata["error"] = r.ErrorMessage
-		}
-		items = append(items, item)
+	for i := range rows {
+		items = append(items, buildAuditItem(&rows[i]))
 	}
 
 	return &AuditListResponse{

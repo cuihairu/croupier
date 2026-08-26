@@ -517,6 +517,8 @@ func registerAuditRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	auditHandler := audit.NewHandler(auditSvc)
 	g.GET("/audit", auditHandler.GetAuditLogs)  // 支持 GET（前端兼容）
 	g.POST("/audit", auditHandler.GetAuditLogs) // 支持 POST（原接口）
+	g.GET("/audit/export", auditHandler.Export) // SIEM/归档导出（json/csv）
+	g.GET("/audit/chain/verify", auditHandler.VerifyChain)
 }
 
 // ============================================================================

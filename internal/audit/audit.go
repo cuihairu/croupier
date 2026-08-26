@@ -295,6 +295,14 @@ func NewAuditService(store AuditStore, signer AuditSigner) *AuditService {
 }
 
 // SetNotifier sets the audit notifier
+// Store 暴露底层存储（链校验等管理场景使用）。
+func (s *AuditService) Store() AuditStore {
+	if s == nil {
+		return nil
+	}
+	return s.store
+}
+
 func (s *AuditService) SetNotifier(notifier AuditNotifier) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

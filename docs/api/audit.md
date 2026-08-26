@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type AuditRequest struct {
 	Page int `form:"page,optional"` // 页码
@@ -22,10 +20,7 @@ type AuditRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type AuditResponse struct {
@@ -35,3 +30,22 @@ type AuditResponse struct {
 }
 ```
 
+---
+
+## 审计导出与链校验
+
+### 导出审计（SIEM/归档）
+
+- Url: /api/v1/audit/export
+- Method: GET
+- Auth: Bearer Token（audit:read；作用域限制与列表接口一致）
+- 参数: 与 GET /api/v1/audit 相同（actor/kind/gameId/env/ip/start/end），外加 `format=json|csv`
+- 行为: 附件下载；上限 50000 行，截断时响应头 `X-Truncated: true`；CSV 带 UTF-8 BOM
+
+### 校验审计链完整性
+
+- Url: /api/v1/audit/chain/verify
+- Method: GET
+- Response: `{ "valid": bool, "checked": n, "firstBreakSeq": n, "message": "..." }`
+
+建议接入定时任务（如每日）执行导出归档到对象存储，并在合规检查前执行链校验。
