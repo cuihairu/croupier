@@ -245,7 +245,8 @@ jobs:
           ]
     permissions:
       contents: read
-      packages: read
+      # cosign 签名是向包仓库写签名层（ attest/blobs upload），需要 write。
+      packages: write
       # cosign keyless 签名需要 id-token。
       id-token: write
       # 扫描结果上传 SARIF。
