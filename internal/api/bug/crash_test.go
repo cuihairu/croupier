@@ -72,10 +72,13 @@ func TestReportCrash_Aggregation(t *testing.T) {
 	db.Model(&model.Bug{}).Count(&count)
 	assert.Equal(t, int64(1), count)
 
-	// Extra carries aggregation metadata.
+	// Extra carries aggregation metadata (numeric shape depends on the
+	// driver's json decoding: float64 or json.Number).
 	var stored model.Bug
 	require.NoError(t, db.First(&stored).Error)
-	assert.Equal(t, float64(3), stored.Extra[crashCountKey])
+	countVal, cerr := toInt64(stored.Extra[crashCountKey])
+	require.NoError(t, cerr)
+	assert.Equal(t, int64(3), countVal)
 	assert.Equal(t, "p-2", stored.Extra[crashLastPlayerKey])
 	assert.Equal(t, model.BugStatusTriage, stored.Status)
 	assert.Equal(t, model.BugSeverityCritical, stored.Severity)

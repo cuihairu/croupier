@@ -6,8 +6,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -179,6 +181,13 @@ func toInt64(v interface{}) (int64, error) {
 		return int64(t), nil
 	case float64:
 		return int64(t), nil
+	case json.Number:
+		return t.Int64()
+	case string:
+		if n, err := strconv.ParseInt(t, 10, 64); err == nil {
+			return n, nil
+		}
+		return 0, errors.New("not a number string")
 	default:
 		return 0, errors.New("not a number")
 	}
