@@ -46,6 +46,7 @@ export default {
   'menu.SystemConfig.ExtensionsAgentSync': 'Extension Sync Debug',
 
   'menu.Ops': 'Operations & SRE',
+  'menu.Ops.OpsStatus': 'Service Status',
   'menu.Ops.Nodes': 'Node Maintenance',
   'menu.Ops.Jobs': 'Jobs',
   'menu.Ops.Traces': 'Traces',
