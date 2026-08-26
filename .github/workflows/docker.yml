@@ -270,8 +270,10 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT" 2>/dev/null || \
-            echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            # GITHUB_SHA 直接截短（不依赖 git 历史与 bash 子串展开）。
+            short="${GITHUB_SHA:0:7}"
+            echo "short=${short}" >&2
+            echo "tag=sha-${short}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Trivy vulnerability scan
