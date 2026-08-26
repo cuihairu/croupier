@@ -72,6 +72,7 @@ export default {
   // Support
   'menu.Dev': 'Development',
   'menu.Dev.DevTools': 'Toolbox',
+  'menu.Dev.Hotpatches': 'Hot Patch',
   'menu.Dev.Releases': 'Releases',
   'menu.Dev.Bugs': 'Bug Tracker',
   'menu.Support': 'Support',

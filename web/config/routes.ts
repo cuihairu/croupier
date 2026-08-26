@@ -280,6 +280,12 @@ export default [
         access: 'canDevRead',
         component: './Dev/Releases',
       },
+      {
+        path: '/dev/hotpatches',
+        name: 'Hotpatches',
+        access: 'canDevManage',
+        component: './Dev/Hotpatches',
+      },
     ],
   },
   // Ops (运维)

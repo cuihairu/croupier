@@ -70,6 +70,7 @@ export default {
   // 客服系统
   'menu.Dev': '研发',
   'menu.Dev.DevTools': '工具箱',
+  'menu.Dev.Hotpatches': '热更新',
   'menu.Dev.Releases': '版本发布',
   'menu.Dev.Bugs': '缺陷追踪',
   'menu.Support': '客服系统',
