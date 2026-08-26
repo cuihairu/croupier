@@ -276,7 +276,7 @@ jobs:
 
       - name: Trivy vulnerability scan
         timeout-minutes: 10
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
           format: sarif
@@ -294,7 +294,7 @@ jobs:
 
       - name: Generate SBOM (SPDX)
         timeout-minutes: 10
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
           format: spdx-json
@@ -310,7 +310,7 @@ jobs:
 
       - name: Sign image with cosign (keyless OIDC)
         timeout-minutes: 5
-        uses: sigstore/cosign-installer@v4
+        uses: sigstore/cosign-installer@v4.1.2
       - name: cosign sign
         timeout-minutes: 5
         run: |
