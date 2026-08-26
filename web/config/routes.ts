@@ -323,6 +323,13 @@ export default [
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
       { path: '/ops/jobs', name: 'Jobs', access: 'canOpsRead', component: './Ops/Jobs' },
       {
+        // cron 定时调度管理（/api/v1/schedules）
+        path: '/ops/schedules',
+        name: 'Schedules',
+        access: 'canOpsManage',
+        component: './Ops/Schedules',
+      },
+      {
         // 游戏业务配置（ConfigVersion 版本化）管理：schema/diff/版本历史
         path: '/ops/configs',
         name: 'Configs',
