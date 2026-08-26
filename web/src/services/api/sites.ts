@@ -81,3 +81,29 @@ export async function fetchObservabilitySettings(): Promise<ObservabilitySetting
     skipErrorHandler: true,
   });
 }
+
+// ---- 通知渠道（notification.*，审批/告警事件分发） ----
+
+export type NotificationSettings = {
+  emailEnabled: boolean;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpFrom: string;
+  smtpPasswordSet: boolean;
+  smtpPasswordMasked?: string;
+  dingtalkUrl: string;
+  dingtalkSecretSet: boolean;
+  dingtalkSecretMasked?: string;
+  webhookUrl: string;
+  webhookSecretSet: boolean;
+  webhookSecretMasked?: string;
+  inAppEnabled: boolean;
+};
+
+// Admin: notification channel config (secrets masked to "set + last-4").
+export async function fetchNotificationSettings(): Promise<NotificationSettings> {
+  return request<NotificationSettings>('/api/v1/site/notification', {
+    skipErrorHandler: true,
+  });
+}

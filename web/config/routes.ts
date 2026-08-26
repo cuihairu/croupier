@@ -126,6 +126,13 @@ export default [
             access: 'canSystemConfigRead',
             component: './System/SiteSettings',
           },
+          {
+            // 平台审批队列：函数调用/页面发布审批的处理入口。
+            path: '/system/foundation/approvals',
+            name: 'Approvals',
+            access: 'canSystemConfigRead',
+            component: './Approvals',
+          },
         ],
       },
       {

@@ -3,12 +3,19 @@ package approvals
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime"
 	"net"
+	"net/http"
 	"net/smtp"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -519,34 +526,49 @@ func htmlEscape(s string) string {
 	return r.Replace(s)
 }
 
-// DingTalkSender sends DingTalk notifications
+// DingTalkSender sends DingTalk group-bot notifications.
+//
+// When webhookURL is empty the sender is treated as not-configured and Send is
+// a no-op (returns nil) — same philosophy as EmailSender. With secret set the
+// official HMAC-SHA256 timestamp signature is appended to the webhook URL.
 type DingTalkSender struct {
 	webhookURL string
 	secret     string
+
+	// postJSON is an injection point for tests in the same package. When nil,
+	// the default net/http implementation is used.
+	postJSON func(ctx context.Context, url string, payload []byte) error
 }
 
-// NewDingTalkSender creates a new DingTalk sender
+// NewDingTalkSender creates a new DingTalk sender. webhookURL is the group
+// robot webhook (https://oapi.dingtalk.com/robot/send?access_token=…);
+// secret is the optional 加签 key (SEC…).
 func NewDingTalkSender(webhookURL, secret string) *DingTalkSender {
-	return &DingTalkSender{
-		webhookURL: webhookURL,
-		secret:     secret,
-	}
+	return &DingTalkSender{webhookURL: webhookURL, secret: secret}
 }
 
-// Send sends a DingTalk notification
+// Send posts a markdown message to the group bot.
+// recipient is unused (group bots address the whole group).
 func (d *DingTalkSender) Send(ctx context.Context, recipient string, event NotificationEvent) error {
-	// DingTalk webhook message format
-	message := map[string]interface{}{
+	if d.webhookURL == "" {
+		return nil
+	}
+	payload := map[string]interface{}{
 		"msgtype": "markdown",
 		"markdown": map[string]string{
 			"title": event.Title,
 			"text":  fmt.Sprintf("### %s\n\n%s", event.Title, event.Message),
 		},
 	}
-
-	// Would make HTTP POST to webhook URL
-	_ = message
-	return nil
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	postJSON := d.postJSON
+	if postJSON == nil {
+		postJSON = defaultPostJSON
+	}
+	return postJSON(ctx, d.signedURL(), body)
 }
 
 // Channel returns the channel type
@@ -554,38 +576,105 @@ func (d *DingTalkSender) Channel() NotificationChannel {
 	return ChannelDingTalk
 }
 
-// WebhookSender sends webhook notifications
+// signedURL appends the official &timestamp=…&sign=… query when a secret is
+// configured; otherwise the raw webhook URL is returned.
+func (d *DingTalkSender) signedURL() string {
+	if d.secret == "" {
+		return d.webhookURL
+	}
+	ts := time.Now().UnixMilli()
+	mac := hmac.New(sha256.New, []byte(d.secret))
+	mac.Write([]byte(fmt.Sprintf("%d", ts)))
+	sign := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	sep := "&"
+	if !strings.Contains(d.webhookURL, "?") {
+		sep = "?"
+	}
+	return fmt.Sprintf("%s%stimestamp=%d&sign=%s", d.webhookURL, sep, ts, url.QueryEscape(sign))
+}
+
+// WebhookSender sends generic signed webhook notifications.
+//
+// When url is empty the sender is treated as not-configured and Send is a
+// no-op. When secret is set the request carries an HMAC-SHA256 signature
+// header (X-Croupier-Signature) so receivers can verify authenticity.
 type WebhookSender struct {
 	url      string
 	secret   string
 	audience string
+
+	// postJSON is an injection point for tests in the same package. When nil,
+	// the default net/http implementation is used.
+	postJSON func(ctx context.Context, u string, payload []byte, headers map[string]string) error
 }
 
-// NewWebhookSender creates a new webhook sender
+// NewWebhookSender creates a new generic webhook sender.
 func NewWebhookSender(url, secret, audience string) *WebhookSender {
-	return &WebhookSender{
-		url:      url,
-		secret:   secret,
-		audience: audience,
-	}
+	return &WebhookSender{url: url, secret: secret, audience: audience}
 }
 
-// Send sends a webhook notification
+// Send posts a JSON envelope to the configured endpoint.
+// recipient is carried in the payload for receiver-side routing.
 func (w *WebhookSender) Send(ctx context.Context, recipient string, event NotificationEvent) error {
+	if w.url == "" {
+		return nil
+	}
 	payload := map[string]interface{}{
 		"recipient": recipient,
+		"audience":  w.audience,
 		"event":     event,
 		"timestamp": time.Now().Unix(),
 	}
-
-	// Would make HTTP POST with signature
-	_ = payload
-	return nil
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	headers := map[string]string{}
+	if w.secret != "" {
+		mac := hmac.New(sha256.New, []byte(w.secret))
+		mac.Write(body)
+		headers["X-Croupier-Signature"] = "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	}
+	postJSON := w.postJSON
+	if postJSON == nil {
+		postJSON = func(ctx context.Context, u string, payload []byte, hdrs map[string]string) error {
+			return defaultPostJSONWithHeaders(ctx, u, payload, hdrs)
+		}
+	}
+	return postJSON(ctx, w.url, body, headers)
 }
 
 // Channel returns the channel type
 func (w *WebhookSender) Channel() NotificationChannel {
 	return ChannelWebhook
+}
+
+// defaultPostJSON posts a JSON body with a 10s timeout.
+func defaultPostJSON(ctx context.Context, u string, payload []byte) error {
+	return defaultPostJSONWithHeaders(ctx, u, payload, nil)
+}
+
+func defaultPostJSONWithHeaders(ctx context.Context, u string, payload []byte, headers map[string]string) error {
+	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, u, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("webhook responded %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
 }
 
 // NotificationTemplate represents a notification template

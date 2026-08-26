@@ -39,6 +39,13 @@ func (h *Handler) RegisterAdmin(g *gin.RouterGroup) {
 	// 因此读端点必须在参数路由之前注册。
 	g.GET("/site/features", h.GetFeatures)
 	g.GET("/site/observability", h.GetObservability)
+	g.GET("/site/notification", h.GetNotification)
+}
+
+// GetNotification serves GET /api/v1/site/notification: channel config with
+// secrets masked (only "set" state + last-4 echo).
+func (h *Handler) GetNotification(c *gin.Context) {
+	response.Success(c, h.layered.NotificationSnapshot())
 }
 
 // GetFeatures serves GET /api/v1/site/features: per-domain composed state
@@ -102,6 +109,16 @@ func validateValue(key string, raw json.RawMessage) error {
 		}
 		return nil
 	}
+	if settings.IsIntKey(key) {
+		var v int
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return fmt.Errorf("%s 需要 JSON 整数", key)
+		}
+		if v < 0 || v > 65535 {
+			return fmt.Errorf("%s 超出端口范围", key)
+		}
+		return nil
+	}
 	var v string
 	if err := json.Unmarshal(raw, &v); err != nil {
 		// footer.links 例外：JSON 数组。
@@ -114,6 +131,11 @@ func validateValue(key string, raw json.RawMessage) error {
 		return fmt.Errorf("%s 需要 JSON 字符串", key)
 	}
 	if strings.HasPrefix(key, "obs.") {
+		if v != "" && !isHTTPLikeURL(v) {
+			return fmt.Errorf("%s 需要是 http(s) URL", key)
+		}
+	}
+	if key == settings.KeyNotifyDingtalkURL || key == settings.KeyNotifyWebhookURL {
 		if v != "" && !isHTTPLikeURL(v) {
 			return fmt.Errorf("%s 需要是 http(s) URL", key)
 		}

@@ -11,6 +11,8 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -42,6 +44,20 @@ const (
 	KeyObsAlertmanagerURL   = "obs.alertmanagerUrl"
 	KeyObsGrafanaExploreURL = "obs.grafanaExploreUrl"
 	KeyObsJaegerURL         = "obs.jaegerUrl"
+
+	// notification.* 是审批/告警通知渠道配置（设置中心通知 Tab）。
+	// SMTP 为未配置时邮件渠道静默跳过（与 EmailSender no-op 语义一致）。
+	KeyNotifyEmailEnabled   = "notification.emailEnabled"   // bool
+	KeyNotifySMTPHost       = "notification.smtpHost"       // string
+	KeyNotifySMTPPort       = "notification.smtpPort"       // int
+	KeyNotifySMTPUser       = "notification.smtpUser"       // string
+	KeyNotifySMTPPassword   = "notification.smtpPassword"   // string（写入后读取接口脱敏）
+	KeyNotifySMTPFrom       = "notification.smtpFrom"       // string
+	KeyNotifyDingtalkURL    = "notification.dingtalkUrl"    // string
+	KeyNotifyDingtalkSecret = "notification.dingtalkSecret" // string
+	KeyNotifyWebhookURL     = "notification.webhookUrl"     // string
+	KeyNotifyWebhookSecret  = "notification.webhookSecret"  // string
+	KeyNotifyInAppEnabled   = "notification.inAppEnabled"   // bool
 )
 
 // ValidKeys is the L3 whitelist.
@@ -54,12 +70,43 @@ var ValidKeys = map[string]struct{}{
 	KeyFeatureOps: {}, KeyFeatureExtensions: {},
 
 	KeyObsAlertmanagerURL: {}, KeyObsGrafanaExploreURL: {}, KeyObsJaegerURL: {},
+
+	KeyNotifyEmailEnabled: {}, KeyNotifySMTPHost: {}, KeyNotifySMTPPort: {},
+	KeyNotifySMTPUser: {}, KeyNotifySMTPPassword: {}, KeyNotifySMTPFrom: {},
+	KeyNotifyDingtalkURL: {}, KeyNotifyDingtalkSecret: {},
+	KeyNotifyWebhookURL: {}, KeyNotifyWebhookSecret: {}, KeyNotifyInAppEnabled: {},
+}
+
+// secretKeys 是读取时必须脱敏的 key（读取接口只回显尾 4 位）。
+var secretKeys = map[string]struct{}{
+	KeyNotifySMTPPassword:   {},
+	KeyNotifyDingtalkSecret: {},
+	KeyNotifyWebhookSecret:  {},
+}
+
+// IsSecretKey reports whether the key holds a credential that must be masked
+// on read.
+func IsSecretKey(key string) bool {
+	_, ok := secretKeys[key]
+	return ok
+}
+
+// intKeys 是整数语义的 key。
+var intKeys = map[string]struct{}{
+	KeyNotifySMTPPort: {},
+}
+
+// IsIntKey reports whether the key carries a JSON number value.
+func IsIntKey(key string) bool {
+	_, ok := intKeys[key]
+	return ok
 }
 
 // boolKeys 是布尔语义的 key（PutKey 校验 + GetBool 读取）。
 var boolKeys = map[string]struct{}{
 	KeyFeatureDev: {}, KeyFeatureSupport: {}, KeyFeatureAnalytics: {},
 	KeyFeatureOps: {}, KeyFeatureExtensions: {},
+	KeyNotifyEmailEnabled: {}, KeyNotifyInAppEnabled: {},
 }
 
 // IsBoolKey reports whether the key carries a JSON boolean value.
@@ -228,6 +275,43 @@ func (l *Layered) GetBool(key string, def bool) bool {
 	return def
 }
 
+// GetInt resolves an integer setting through the layers.
+func (l *Layered) GetInt(key string, def int) int {
+	if !IsValidKey(key) {
+		return def
+	}
+	if l == nil {
+		return def
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	read := func(raw json.RawMessage) (int, bool) {
+		var v int
+		if err := json.Unmarshal(raw, &v); err == nil {
+			return v, true
+		}
+		// 容错：数值被存成字符串。
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil {
+			if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				return n, true
+			}
+		}
+		return 0, false
+	}
+	if raw, ok := l.l3[key]; ok && l.l3Loaded {
+		if v, ok := read(raw); ok {
+			return v
+		}
+	}
+	if raw, ok := l.l2Values[key]; ok {
+		if v, ok := read(raw); ok {
+			return v
+		}
+	}
+	return def
+}
+
 // FeatureEnabled 合成五域开关：L2（部署级物理裁剪）∧ L3（运营级软开关）。
 //
 //   - L2 显式 false → 恒 false（L3 无法开启被部署裁剪的域）
@@ -278,6 +362,105 @@ func (l *Layered) ObsSnapshot() ObsSnapshot {
 	}
 	return snap
 }
+
+// NotificationSnapshot 是通知渠道配置的读取视图。
+// 密钥字段已脱敏（secretMasked），仅用于回显"已配置"状态。
+type NotificationSnapshot struct {
+	EmailEnabled         bool              `json:"emailEnabled"`
+	SMTPHost             string            `json:"smtpHost"`
+	SMTPPort             int               `json:"smtpPort"`
+	SMTPUser             string            `json:"smtpUser"`
+	SMTPFrom             string            `json:"smtpFrom"`
+	SMTPPasswordSet      bool              `json:"smtpPasswordSet"`
+	SMTPPasswordMasked   string            `json:"smtpPasswordMasked,omitempty"`
+	DingtalkURL          string            `json:"dingtalkUrl"`
+	DingtalkSecretSet    bool              `json:"dingtalkSecretSet"`
+	DingtalkSecretMasked string            `json:"dingtalkSecretMasked,omitempty"`
+	WebhookURL           string            `json:"webhookUrl"`
+	WebhookSecretSet     bool              `json:"webhookSecretSet"`
+	WebhookSecretMasked  string            `json:"webhookSecretMasked,omitempty"`
+	InAppEnabled         bool              `json:"inAppEnabled"`
+	Sources              map[string]string `json:"sources"`
+}
+
+// NotificationSnapshot builds the notification channel view (masked).
+func (l *Layered) NotificationSnapshot() NotificationSnapshot {
+	snap := NotificationSnapshot{
+		EmailEnabled: l.GetBool(KeyNotifyEmailEnabled, false),
+		SMTPHost:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPHost)),
+		SMTPPort:     l.GetInt(KeyNotifySMTPPort, 0),
+		SMTPUser:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPUser)),
+		SMTPFrom:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPFrom)),
+		DingtalkURL:  stringOrEmpty(l.GetString(context.Background(), KeyNotifyDingtalkURL)),
+		WebhookURL:   stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookURL)),
+		InAppEnabled: l.GetBool(KeyNotifyInAppEnabled, true),
+		Sources:      map[string]string{},
+	}
+	mask := func(key string) (set bool, masked string) {
+		v, src, ok := l.GetString(context.Background(), key)
+		if !ok || v == "" {
+			return false, ""
+		}
+		snap.Sources[key] = src
+		if len(v) <= 4 {
+			return true, "****"
+		}
+		return true, "****" + v[len(v)-4:]
+	}
+	snap.SMTPPasswordSet, snap.SMTPPasswordMasked = mask(KeyNotifySMTPPassword)
+	snap.DingtalkSecretSet, snap.DingtalkSecretMasked = mask(KeyNotifyDingtalkSecret)
+	snap.WebhookSecretSet, snap.WebhookSecretMasked = mask(KeyNotifyWebhookSecret)
+	return snap
+}
+
+// NotifySMTPConfig 供通知服务构建 EmailSender 的原始配置（未脱敏）。
+type NotifySMTPConfig struct {
+	Enabled  bool
+	Host     string
+	Port     int
+	User     string
+	Password string
+	From     string
+}
+
+// NotifySMTP resolves the raw SMTP configuration (unmasked, internal use).
+func (l *Layered) NotifySMTP() NotifySMTPConfig {
+	return NotifySMTPConfig{
+		Enabled:  l.GetBool(KeyNotifyEmailEnabled, false),
+		Host:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPHost)),
+		Port:     l.GetInt(KeyNotifySMTPPort, 0),
+		User:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPUser)),
+		Password: stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPPassword)),
+		From:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPFrom)),
+	}
+}
+
+// NotifyChannelsResolved 是外部渠道的解析结果（未脱敏，内部使用）。
+type NotifyChannelsResolved struct {
+	DingtalkURL    string
+	DingtalkSecret string
+	WebhookURL     string
+	WebhookSecret  string
+	InAppEnabled   bool
+	EmailEnabled   bool
+}
+
+// NotifyChannels resolves the external channel endpoints (unmasked).
+func (l *Layered) NotifyChannels() NotifyChannelsResolved {
+	return NotifyChannelsResolved{
+		DingtalkURL:    stringOrEmpty(l.GetString(context.Background(), KeyNotifyDingtalkURL)),
+		DingtalkSecret: stringOrEmpty(l.GetString(context.Background(), KeyNotifyDingtalkSecret)),
+		WebhookURL:     stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookURL)),
+		WebhookSecret:  stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookSecret)),
+		InAppEnabled:   l.GetBool(KeyNotifyInAppEnabled, true),
+		EmailEnabled:   l.GetBool(KeyNotifyEmailEnabled, false),
+	}
+}
+
+// stringOrEmpty 丢弃 GetString 的 found 标志，便于快照组装。
+//
+//nolint:revive // 参数名 _ 保持调用点可读
+func stringOrEmpty(v string, _ string, _ bool) string { return v }
 
 // FeatureDomainState 是单个功能域的开关诊断信息。
 type FeatureDomainState struct {

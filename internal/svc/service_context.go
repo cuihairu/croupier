@@ -34,6 +34,7 @@ import (
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/runtime"
 	jwtutil "github.com/cuihairu/croupier/internal/security/jwtutil"
+	notify "github.com/cuihairu/croupier/internal/service/notify"
 	"github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/gin-gonic/gin"
@@ -97,8 +98,11 @@ type ServiceContext struct {
 	DBSourceModel        *model.DBSourceModel
 	PlatformSettingModel *model.PlatformSettingModel
 	MessageModel         *model.MessageModel
-	CertificateModel     *model.CertificateModel
-	ConfigVersionModel   *model.ConfigVersionModel
+	// NotifyService 分发审批/告警事件到已配置渠道（站内信/钉钉/webhook/邮件）。
+	// 在 handler 装配时注入（依赖 settings.Layered 单例）。
+	NotifyService      *notify.Service
+	CertificateModel   *model.CertificateModel
+	ConfigVersionModel *model.ConfigVersionModel
 
 	// Page Spec models
 	PageSpecModel             *model.PageSpecModel
@@ -317,6 +321,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		DBSourceModel:             dbSourceModel,
 		PlatformSettingModel:      platformSettingModel,
 		MessageModel:              messageModel,
+		NotifyService:             nil, // handler 装配时注入（依赖 Layered）
 		CertificateModel:          certificateModel,
 		ConfigVersionModel:        configVersionModel,
 		PageSpecModel:             pageSpecModel,

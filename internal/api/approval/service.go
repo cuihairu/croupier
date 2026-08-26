@@ -167,6 +167,9 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	_ = s.recordApprovalEvent(ctx, "approvals_approve", "approval approved",
 		fmt.Sprintf(`{"approval_id":"%s"}`, record.ID),
 	)
+	s.notifyApprovalEvent(ctx, "approval.approved", record,
+		"审批已通过: "+record.FunctionID,
+		"审批 "+record.ID+"（"+record.FunctionID+"）已由 "+record.Actor+" 通过。")
 
 	return &ApprovalApproveResponse{
 		ID:           record.ID,
@@ -206,6 +209,9 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 	_ = s.recordApprovalEvent(ctx, "approvals_reject", "approval rejected",
 		fmt.Sprintf(`{"approval_id":"%s"}`, record.ID),
 	)
+	s.notifyApprovalEvent(ctx, "approval.rejected", record,
+		"审批已拒绝: "+record.FunctionID,
+		"审批 "+record.ID+"（"+record.FunctionID+"）已被拒绝："+record.Reason)
 
 	return &ApprovalRejectResponse{
 		ID:     record.ID,

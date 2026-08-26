@@ -3,6 +3,9 @@ package approvals
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -281,13 +284,58 @@ func TestTemplateRenderer_Substitution(t *testing.T) {
 }
 
 func TestWebhookAndDingTalkSenders(t *testing.T) {
-	webhook := NewWebhookSender("http://example.com/hook", "secret", "aud")
-	require.NoError(t, webhook.Send(context.Background(), "u", NotificationEvent{}))
-	assert.Equal(t, ChannelWebhook, webhook.Channel())
+	var gotPath, gotBody string
+	var gotHeaders http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotHeaders = r.Header.Clone()
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
 
-	dingtalk := NewDingTalkSender("http://example.com/ding", "secret")
-	require.NoError(t, dingtalk.Send(context.Background(), "u", NotificationEvent{}))
+	webhook := NewWebhookSender(srv.URL+"/hook", "secret", "aud")
+	require.NoError(t, webhook.Send(context.Background(), "u", NotificationEvent{Title: "t"}))
+	assert.Equal(t, ChannelWebhook, webhook.Channel())
+	assert.Equal(t, "/hook", gotPath)
+	assert.Contains(t, gotBody, `"recipient":"u"`)
+	assert.Equal(t, "sha256=", gotHeaders.Get("X-Croupier-Signature")[:7])
+
+	dingtalk := NewDingTalkSender(srv.URL+"/ding?access_token=x", "secret")
+	require.NoError(t, dingtalk.Send(context.Background(), "u", NotificationEvent{Title: "t", Message: "m"}))
 	assert.Equal(t, ChannelDingTalk, dingtalk.Channel())
+	assert.Equal(t, "/ding", gotPath)
+	assert.Contains(t, gotBody, `"msgtype":"markdown"`)
+
+	// 未配置（空 URL）：no-op。
+	assert.NoError(t, NewWebhookSender("", "s", "").Send(context.Background(), "u", NotificationEvent{}))
+	assert.NoError(t, NewDingTalkSender("", "s").Send(context.Background(), "u", NotificationEvent{}))
+
+	// 目标 5xx：报错。
+	srv5xx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv5xx.Close()
+	err := NewWebhookSender(srv5xx.URL, "", "").Send(context.Background(), "u", NotificationEvent{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "500")
+}
+
+func TestDingTalkSender_SignedURL(t *testing.T) {
+	// 无 secret：原样返回。
+	d := NewDingTalkSender("https://oapi.dingtalk.com/robot/send?access_token=t", "")
+	assert.Equal(t, "https://oapi.dingtalk.com/robot/send?access_token=t", d.signedURL())
+
+	// 有 secret：追加 timestamp 与 sign。
+	d = NewDingTalkSender("https://oapi.dingtalk.com/robot/send?access_token=t", "SECx")
+	u := d.signedURL()
+	assert.Contains(t, u, "&timestamp=")
+	assert.Contains(t, u, "&sign=")
+
+	// URL 无 query 时用 ? 分隔。
+	d = NewDingTalkSender("https://oapi.dingtalk.com/robot/send", "SECx")
+	assert.Contains(t, d.signedURL(), "?timestamp=")
 }
 
 func TestReplaceAll_MultiOccurrence(t *testing.T) {

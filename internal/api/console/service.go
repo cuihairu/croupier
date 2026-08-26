@@ -21,6 +21,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	contractsvc "github.com/cuihairu/croupier/internal/service"
+	notify "github.com/cuihairu/croupier/internal/service/notify"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/cuihairu/croupier/internal/validation"
@@ -291,7 +292,42 @@ func (s *Service) createPageApproval(
 	if _, err := s.svcCtx.ApprovalsStore.Create(approval); err != nil {
 		return "", fmt.Errorf("failed to create page approval: %w", err)
 	}
+	// 通知有审批权限的管理员（渠道未配置时静默跳过）。
+	if s.svcCtx.NotifyService != nil {
+		recipients := approvalRecipients(ctx, s.svcCtx)
+		s.svcCtx.NotifyService.Dispatch(ctx, notify.Event{
+			Type:       "approval.created",
+			Title:      "新的页面发布审批",
+			Message:    "用户 " + approval.Actor + " 提交了页面发布审批，等待处理。",
+			Recipients: recipients,
+			Priority:   "normal",
+			Data: map[string]interface{}{
+				"approvalId": approval.ID,
+				"gameId":     approval.GameID,
+				"env":        approval.Env,
+			},
+		})
+	}
 	return approvalID, nil
+}
+
+// approvalRecipients 列出审批通知接收人（admin 角色用户名）。
+func approvalRecipients(ctx context.Context, svcCtx *svc.ServiceContext) []string {
+	if svcCtx.AdminModel == nil {
+		return nil
+	}
+	active := 1
+	admins, _, err := svcCtx.AdminModel.List(ctx, model.ListAdminsOptions{Role: "admin", Status: &active, Page: 1, PageSize: 200})
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(admins))
+	for i := range admins {
+		if admins[i].Username != "" {
+			out = append(out, admins[i].Username)
+		}
+	}
+	return out
 }
 
 func validateBindingExecutePayload(payload json.RawMessage, binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec) error {

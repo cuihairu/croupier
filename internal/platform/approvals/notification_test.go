@@ -205,10 +205,10 @@ func TestNewWebhookSender(t *testing.T) {
 }
 
 func TestWebhookSender_Send(t *testing.T) {
-	s := NewWebhookSender("https://example.com/hook", "secret", "audience")
-	err := s.Send(context.Background(), "user1", NotificationEvent{Title: "Test", Message: "Body"})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	// 空配置 no-op（未配置即安全跳过）。
+	s := NewWebhookSender("", "secret", "audience")
+	if err := s.Send(context.Background(), "user1", NotificationEvent{Title: "Test"}); err != nil {
+		t.Errorf("unexpected error for unconfigured sender: %v", err)
 	}
 }
 

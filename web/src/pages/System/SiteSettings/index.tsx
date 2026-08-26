@@ -10,6 +10,7 @@ import {
 import { extractErrorMessage } from '@/utils/errors';
 import FeatureFlagsTab from './FeatureFlagsTab';
 import ObservabilityTab from './ObservabilityTab';
+import NotificationTab from './NotificationTab';
 
 const { Text } = Typography;
 
@@ -187,6 +188,7 @@ export default function SiteSettingsPage() {
         items={[
           { key: 'site', label: '站点信息', children: siteTab },
           { key: 'features', label: '功能开关', children: <FeatureFlagsTab /> },
+          { key: 'notification', label: '通知设置', children: <NotificationTab /> },
           { key: 'observability', label: '观测集成', children: <ObservabilityTab /> },
         ]}
       />

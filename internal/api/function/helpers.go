@@ -19,6 +19,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/policy"
+	notify "github.com/cuihairu/croupier/internal/service/notify"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
@@ -551,7 +552,47 @@ func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, req
 		return "", fmt.Errorf("failed to create approval: %w", err)
 	}
 
+	// 通知有审批权限的管理员（站内信/钉钉/webhook，未配置渠道静默跳过）。
+	if svcCtx.NotifyService != nil {
+		recipients, rErr := approvalNotifyRecipients(ctx, svcCtx)
+		if rErr != nil {
+			recipients = nil
+		}
+		svcCtx.NotifyService.Dispatch(ctx, notify.Event{
+			Type:       "approval.created",
+			Title:      "新的审批请求: " + approval.FunctionID,
+			Message:    "用户 " + approval.Actor + " 发起了 " + approval.FunctionID + " 调用审批，等待处理。",
+			Recipients: recipients,
+			Priority:   "high",
+			Data: map[string]interface{}{
+				"approvalId": approvalID,
+				"functionId": approval.FunctionID,
+				"gameId":     approval.GameID,
+				"env":        approval.Env,
+			},
+		})
+	}
+
 	return approvalID, nil
+}
+
+// approvalNotifyRecipients 列出审批通知接收人（admin 角色用户名）。
+func approvalNotifyRecipients(ctx context.Context, svcCtx *svc.ServiceContext) ([]string, error) {
+	if svcCtx.AdminModel == nil {
+		return nil, nil
+	}
+	active := 1
+	admins, _, err := svcCtx.AdminModel.List(ctx, model.ListAdminsOptions{Role: "admin", Status: &active, Page: 1, PageSize: 200})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(admins))
+	for i := range admins {
+		if admins[i].Username != "" {
+			out = append(out, admins[i].Username)
+		}
+	}
+	return out, nil
 }
 
 // auditApprovalCreated logs approval creation to audit service

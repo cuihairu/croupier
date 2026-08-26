@@ -57,6 +57,7 @@ import (
 	settings "github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service"
+	notify "github.com/cuihairu/croupier/internal/service/notify"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	versioningservice "github.com/cuihairu/croupier/internal/service/versioning"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -89,6 +90,8 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 
 	// 网站配置：公开快照 + admin 写入（L3 覆盖层）
 	siteSettingsHandler := settingsapi.NewHandler(settings.Current(), serverCtx.PlatformSettingModel)
+	// 通知服务：依赖 Layered（渠道配置）与消息模型（站内信）。
+	serverCtx.NotifyService = notify.New(settings.Current(), serverCtx.MessageModel)
 	settingsapi.RegisterPublic(v1.Group("/public"), siteSettingsHandler)
 	siteSettingsHandler.RegisterAdmin(protected.Group("/site"))
 
