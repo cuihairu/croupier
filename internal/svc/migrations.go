@@ -31,6 +31,7 @@ import (
 //   0009 (Go)   config namespace column (docs/research/config-hot-reload-design.md)
 //   0010 (Go)   ticket CSAT columns (docs/research/game-support-systems.md P2)
 //   0011 (Go)   hotpatch baseline table (docs/research/hot-patch-design.md)
+//   0012 (Go)   db source registry table (docs/research/db-monitoring-design.md)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -44,6 +45,7 @@ func init() {
 		configNamespaceMigration(),
 		ticketCSATMigration(),
 		hotpatchMigration(),
+		dbSourceMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -149,6 +151,25 @@ func bugTrackerMigration() *goose.Migration {
 			if !db.Migrator().HasTable(&model.Bug{}) {
 				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
 					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// dbSourceMigration creates the db_sources registry table (0012).
+func dbSourceMigration() *goose.Migration {
+	return goose.NewGoMigration(12,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			if !db.Migrator().HasTable(&model.DBSource{}) {
+				if err := db.Migrator().CreateTable(&model.DBSource{}); err != nil {
+					return fmt.Errorf("migrate: 0012 create db_sources: %w", err)
 				}
 			}
 			return nil

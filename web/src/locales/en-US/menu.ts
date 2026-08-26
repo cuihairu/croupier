@@ -47,6 +47,7 @@ export default {
 
   'menu.Ops': 'Operations & SRE',
   'menu.Ops.OpsStatus': 'Service Status',
+  'menu.Ops.DBMonitor': 'DB Monitor',
   'menu.Ops.Nodes': 'Node Maintenance',
   'menu.Ops.Jobs': 'Jobs',
   'menu.Ops.Traces': 'Traces',

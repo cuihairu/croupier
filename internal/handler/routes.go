@@ -14,6 +14,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/certificate"
 	"github.com/cuihairu/croupier/internal/api/config"
 	"github.com/cuihairu/croupier/internal/api/console"
+	dbmon "github.com/cuihairu/croupier/internal/api/dbmon"
 	"github.com/cuihairu/croupier/internal/api/extension"
 	"github.com/cuihairu/croupier/internal/api/faq"
 	"github.com/cuihairu/croupier/internal/api/feedback"
@@ -100,6 +101,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerStorageRoutes(protected.Group("/storage"), serverCtx)
 		registerAgentRoutes(protected.Group("/agent"), serverCtx)
 		if flags.Enabled(configpkg.FlagOps) {
+			registerDBMonRoutes(protected.Group("/dbmon"), serverCtx)
 			registerAlertRoutes(protected.Group("/alerts"), serverCtx)
 			registerBackupRoutes(protected.Group("/backups"), serverCtx)
 			registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
@@ -957,6 +959,16 @@ func registerPublicReleaseRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	releaseSvc := releaseapi.NewService(ctx)
 	releaseHandler := releaseapi.NewHandler(releaseSvc)
 	g.POST("/releases/check", releaseHandler.CheckUpdate)
+}
+
+func registerDBMonRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	dbmonSvc := dbmon.NewService(ctx)
+	dbmonHandler := dbmon.NewHandler(dbmonSvc)
+	g.GET("/sources", dbmonHandler.ListSources)
+	g.POST("/sources", dbmonHandler.CreateSource)
+	g.PUT("/sources/:id", dbmonHandler.UpdateSource)
+	g.DELETE("/sources/:id", dbmonHandler.DeleteSource)
+	g.POST("/probe", dbmonHandler.ProbeAll)
 }
 
 func registerToolRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

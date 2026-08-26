@@ -46,6 +46,7 @@ export default {
 
   'menu.Ops': '运维中心',
   'menu.Ops.OpsStatus': '服务状态',
+  'menu.Ops.DBMonitor': '数据库监控',
   'menu.Ops.Nodes': '节点维护',
   'menu.Ops.Jobs': '任务监控',
   'menu.Ops.Traces': '链路追踪',
