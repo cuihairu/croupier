@@ -177,3 +177,38 @@ auth:
 - 把 `19090` 写成 `控制链路` 固定语义
 - 让 SDK 开本地端口给 Agent 回拨
 - 使用 `rpc_addr` 作为长期运行时依赖
+
+## 数据库备份与恢复
+
+### 备份（自动执行）
+
+`POST /api/v1/backups` 创建备份记录后会**真实执行**导出（异步）：
+
+1. 按当前 `database.driver` 选择工具：mysql → `mysqldump`、postgres → `pg_dump`、sqlite → 文件复制
+2. 导出到临时文件 → 计算 sha256 → 上传对象存储（`storage.*` 配置；file driver 即本地 `backups/` 目录）
+3. 更新记录为 `succeeded`（含 location/size/checksum）或 `failed`（含错误信息）
+
+要求：Server 运行环境内需安装 `mysqldump`/`pg_dump`（容器镜像可加 `default-mysql-client`/`postgresql-client`）。密码通过 `MYSQL_PWD`/`PGPASSWORD` 环境变量传递，不出现在命令行与进程列表。
+
+建议配合定时任务（`/api/v1/schedules`）每日触发备份，并对高价值备份将 `location` 归档到外部存储。
+
+### 恢复（runbook）
+
+```bash
+# 1. 从对象存储/本地目录取回备份文件
+ls data/uploads/backups/           # file driver
+# 或从 S3/OSS/COS 按记录中的 location 下载
+
+# 2. 校验完整性（与记录中 checksum 比对）
+sha256sum <backup-file>
+
+# 3. 恢复（在目标库执行；生产恢复前先在影子库演练）
+mysql -h <host> -u <user> -p <db> < backup.sql          # mysql
+psql -h <host> -U <user> -d <db> -f backup.sql          # postgres
+# sqlite：停服后替换文件
+cp <backup-file> /path/to/croupier.db
+
+# 4. 重启 Server 并抽查关键表（admins/audit_records/task_runs 行数与时间戳）
+```
+
+注意：恢复属高危操作，必须走两人规则审批并全程留存操作记录。

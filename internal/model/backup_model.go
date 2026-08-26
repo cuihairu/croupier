@@ -54,6 +54,14 @@ func (m *BackupModel) FindByBackupID(ctx context.Context, backupID string) (*Bac
 	return &backup, nil
 }
 
+// UpdateByBackupID updates fields by backup_id.
+func (m *BackupModel) UpdateByBackupID(ctx context.Context, backupID string, updates map[string]interface{}) error {
+	return m.db.WithContext(ctx).
+		Model(&Backup{}).
+		Where("backup_id = ?", strings.TrimSpace(backupID)).
+		Updates(updates).Error
+}
+
 // Delete removes a backup.
 func (m *BackupModel) Delete(ctx context.Context, id uint) error {
 	return m.db.WithContext(ctx).Delete(&Backup{}, id).Error

@@ -16,6 +16,7 @@ import (
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/backupexec"
 	"github.com/cuihairu/croupier/internal/svc"
 
 	"gorm.io/gorm"
@@ -100,9 +101,48 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 		fmt.Sprintf(`{"backup_id":"%s","type":"%s"}`, backup.BackupID, backup.Type),
 	)
 
+	// 真实执行（异步）：导出 → 校验 → 上传对象存储 → 更新记录。
+	// 失败置 failed 并保留错误信息；立即响应 pending 状态给调用方。
+	if exec := s.executor(); exec != nil {
+		backupID, name, backupType := backup.BackupID, backup.Name, backup.Type
+		go func() {
+			bg, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer cancel()
+			if err := exec.RunBackup(bg, backupID, name, backupType); err != nil {
+				_ = s.recordBackupEvent(context.Background(), "backups_run_failed",
+					"backup execution failed",
+					fmt.Sprintf(`{"backup_id":"%s","error":%q}`, backupID, err.Error()))
+			} else {
+				_ = s.recordBackupEvent(context.Background(), "backups_run_succeeded",
+					"backup execution succeeded",
+					fmt.Sprintf(`{"backup_id":"%s"}`, backupID))
+			}
+		}()
+	}
+
 	return &BackupCreateResponse{
 		Backup: buildBackupDTO(backup),
 	}, nil
+}
+
+// executor 构造真实备份执行器（driver 不支持或存储未就绪时返回 nil，
+// Create 退化为纯记录模式，与旧行为兼容）。
+func (s *Service) executor() *backupexec.Executor {
+	if s == nil || s.svcCtx == nil || s.svcCtx.BackupModel == nil || s.svcCtx.ObjectStore == nil {
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(s.svcCtx.Config.Database.Driver)) {
+	case "mysql", "postgres", "pg", "sqlite":
+		return backupexec.New(
+			s.svcCtx.Config.Database.Driver,
+			s.svcCtx.Config.Database.DataSource,
+			s.svcCtx.BackupModel,
+			s.svcCtx.ObjectStore,
+			"backups",
+		)
+	default:
+		return nil
+	}
 }
 
 // Delete deletes a backup
