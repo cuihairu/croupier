@@ -24,8 +24,8 @@ import (
 //   0002 (Go)   functions openapi column backfill
 //   0003 (Go)   legacy table/index/column cleanup
 //   0004 (Go)   varchar→int enum column conversion
-//   0005 (Go)   game-support context columns (faqs vote/slug/summary,
-//               tickets player context; docs/research/game-support-systems.md)
+//   0005 (Go)   game-support context columns (docs/research/game-support-systems.md)
+//   0006 (Go)   bug tracker baseline table (docs/research/bug-tracking-design.md)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -33,6 +33,7 @@ func init() {
 		legacyCleanupMigration(),
 		enumColumnsMigration(),
 		supportContextMigration(),
+		bugTrackerMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -117,6 +118,27 @@ func supportContextMigration() *goose.Migration {
 					if err := migrator.AddColumn(mdl, col.column); err != nil {
 						return fmt.Errorf("migrate: 0005 add %s.%s: %w", table, col.column, err)
 					}
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// bugTrackerMigration creates the bugs table for the defect tracker
+// (0006). HasTable keeps it idempotent; fresh databases already get the
+// table from the AutoMigrate baseline.
+func bugTrackerMigration() *goose.Migration {
+	return goose.NewGoMigration(6,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			if !db.Migrator().HasTable(&model.Bug{}) {
+				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
+					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
 				}
 			}
 			return nil

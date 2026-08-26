@@ -109,6 +109,9 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
     // Support (客服系统)
     canSupportRead: hasAny('support:read'),
     canSupportManage: hasAny('support:manage'),
+    // 研发协作（缺陷追踪/任务安排）
+    canDevRead: hasAny('dev:read', 'bugs:read', 'bugs:manage', 'support:read'),
+    canDevManage: hasAny('dev:manage', 'bugs:manage'),
     // 数据分析
     canAnalyticsRead: hasAny('analytics:read'),
     canAnalyticsManage: hasAny('analytics:manage'),

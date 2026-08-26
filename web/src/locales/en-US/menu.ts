@@ -69,12 +69,13 @@ export default {
   'menu.Analytics.Warehouse': 'Warehouse',
 
   // Support
+  'menu.Dev': 'Development',
+  'menu.Dev.Bugs': 'Bug Tracker',
   'menu.Support': 'Support',
   'menu.Support.Tickets': 'Tickets',
   'menu.Support.TicketDetail': 'Ticket Detail',
   'menu.Support.FAQ': 'FAQ',
   'menu.Support.Feedback': 'Player Feedback',
-  'menu.Support.Bugs': 'Bugs',
 
   'menu.welcome': 'Welcome',
   'menu.login': 'Login',

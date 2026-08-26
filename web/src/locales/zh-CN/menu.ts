@@ -67,12 +67,13 @@ export default {
   'menu.Analytics.Warehouse': '数据仓库',
 
   // 客服系统
+  'menu.Dev': '研发',
+  'menu.Dev.Bugs': '缺陷追踪',
   'menu.Support': '客服系统',
   'menu.Support.Tickets': '工单系统',
   'menu.Support.TicketDetail': '工单详情',
   'menu.Support.FAQ': '常见问题',
   'menu.Support.Feedback': '玩家反馈',
-  'menu.Support.Bugs': '缺陷列表',
 
   'menu.welcome': '欢迎',
   'menu.login': '登录',

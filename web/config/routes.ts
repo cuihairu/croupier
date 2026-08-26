@@ -254,6 +254,22 @@ export default [
       },
     ],
   },
+  // Dev (研发协作: 缺陷追踪/任务安排)
+  {
+    path: '/dev',
+    name: 'Dev',
+    icon: 'project',
+    access: 'canDevRead',
+    routes: [
+      { path: '/dev', redirect: '/dev/bugs' },
+      {
+        path: '/dev/bugs',
+        name: 'Bugs',
+        access: 'canDevRead',
+        component: './Dev/Bugs',
+      },
+    ],
+  },
   // Ops (运维)
   {
     path: '/ops',
@@ -419,10 +435,10 @@ export default [
         component: './Support/FAQ',
       },
       {
+        // 缺陷追踪已迁移至「研发」域（/dev/bugs）；旧路径保留重定向
         path: '/support/bugs',
-        name: 'Bugs',
-        access: 'canSupportRead',
-        component: './Support/Bugs',
+        redirect: '/dev/bugs',
+        hideInMenu: true,
       },
       {
         path: '/support/feedback',

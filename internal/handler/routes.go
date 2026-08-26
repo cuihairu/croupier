@@ -10,6 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/audit"
 	"github.com/cuihairu/croupier/internal/api/auth"
 	"github.com/cuihairu/croupier/internal/api/backup"
+	"github.com/cuihairu/croupier/internal/api/bug"
 	"github.com/cuihairu/croupier/internal/api/certificate"
 	"github.com/cuihairu/croupier/internal/api/config"
 	"github.com/cuihairu/croupier/internal/api/console"
@@ -101,6 +102,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerSchemaRoutes(protected.Group("/schemas"), serverCtx)
 		registerTermsRoutes(protected.Group("/terms"), serverCtx)
 		registerTicketRoutes(protected.Group("/tickets"), serverCtx)
+		registerBugRoutes(protected.Group("/bugs"), serverCtx)
 		registerRegistryShortcutRoutes(protected, serverCtx)
 		registerAuditRoutes(protected, serverCtx)
 	}
@@ -877,6 +879,21 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/transition", ticketHandler.Transition)
 	g.GET("/:id/comments", ticketHandler.GetComments)
 	g.POST("/:id/comments", ticketHandler.CreateComment)
+}
+
+// ============================================================================
+// 缺陷追踪（Bug Tracker）路由注册
+// ============================================================================
+func registerBugRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	bugSvc := bug.NewService(ctx)
+	bugHandler := bug.NewHandler(bugSvc)
+	g.GET("", bugHandler.List)
+	g.GET("/", bugHandler.List)
+	g.POST("", bugHandler.Create)
+	g.POST("/", bugHandler.Create)
+	g.GET("/:id", bugHandler.Get)
+	g.PUT("/:id", bugHandler.Update)
+	g.DELETE("/:id", bugHandler.Delete)
 }
 
 // ============================================================================

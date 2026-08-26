@@ -51,19 +51,20 @@ func TestEnsureUpToDate_FreshDatabaseRunsBaselineAndMigrations(t *testing.T) {
 		"0003_add_probe3.sql": "-- +goose Up\nCREATE TABLE probe3 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe3;\n",
 		"0004_add_probe4.sql": "-- +goose Up\nCREATE TABLE probe4 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe4;\n",
 		"0005_add_probe5.sql": "-- +goose Up\nCREATE TABLE probe5 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe5;\n",
+		"0006_add_probe6.sql": "-- +goose Up\nCREATE TABLE probe6 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe6;\n",
 	})
 
 	version, err := ensureUpToDate(context.Background(), db, fsys, ScopeMeta, baselineProbe)
 	if err != nil {
 		t.Fatalf("ensureUpToDate: %v", err)
 	}
-	if version < 5 {
-		t.Fatalf("version = %d, want >= 5", version)
+	if version < 6 {
+		t.Fatalf("version = %d, want >= 6", version)
 	}
 	if !probeExists(t, db) {
 		t.Fatal("baseline did not run")
 	}
-	for _, table := range []string{"probe2", "probe3", "probe4", "probe5"} {
+	for _, table := range []string{"probe2", "probe3", "probe4", "probe5", "probe6"} {
 		if !tableExists(t, db, table) {
 			t.Fatalf("migration table %s missing", table)
 		}
@@ -86,6 +87,7 @@ func TestEnsureUpToDate_LegacyDatabaseBridgesOnceThenCatchesUp(t *testing.T) {
 		"0003_add_probe3.sql": "-- +goose Up\nCREATE TABLE probe3 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe3;\n",
 		"0004_add_probe4.sql": "-- +goose Up\nCREATE TABLE probe4 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe4;\n",
 		"0005_add_probe5.sql": "-- +goose Up\nCREATE TABLE probe5 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe5;\n",
+		"0006_add_probe6.sql": "-- +goose Up\nCREATE TABLE probe6 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe6;\n",
 	})
 	if _, err := ensureUpToDate(context.Background(), db, fsys, ScopeGame, baselineProbe); err != nil {
 		t.Fatalf("ensureUpToDate: %v", err)
@@ -101,13 +103,14 @@ func TestEnsureUpToDate_LegacyDatabaseBridgesOnceThenCatchesUp(t *testing.T) {
 		"0003_add_probe3.sql": "-- +goose Up\nCREATE TABLE probe3 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe3;\n",
 		"0004_add_probe4.sql": "-- +goose Up\nCREATE TABLE probe4 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe4;\n",
 		"0005_add_probe5.sql": "-- +goose Up\nCREATE TABLE probe5 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe5;\n",
+		"0006_add_probe6.sql": "-- +goose Up\nCREATE TABLE probe6 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe6;\n",
 	})
 	version, err := ensureUpToDate(context.Background(), db, fsys2, ScopeGame, nil)
 	if err != nil {
 		t.Fatalf("second ensureUpToDate: %v", err)
 	}
-	if version != 5 {
-		t.Fatalf("version = %d, want 5", version)
+	if version != 6 {
+		t.Fatalf("version = %d, want 6", version)
 	}
 }
 
@@ -119,6 +122,7 @@ func TestEnsureUpToDate_UpToDateDatabaseSkipsBaseline(t *testing.T) {
 		"0003_add_probe3.sql": "-- +goose Up\nCREATE TABLE probe3 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe3;\n",
 		"0004_add_probe4.sql": "-- +goose Up\nCREATE TABLE probe4 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe4;\n",
 		"0005_add_probe5.sql": "-- +goose Up\nCREATE TABLE probe5 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe5;\n",
+		"0006_add_probe6.sql": "-- +goose Up\nCREATE TABLE probe6 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe6;\n",
 	})
 	if _, err := ensureUpToDate(context.Background(), db, fsys, ScopeMeta, baselineProbe); err != nil {
 		t.Fatalf("first ensureUpToDate: %v", err)
