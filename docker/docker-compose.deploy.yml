@@ -118,7 +118,10 @@ services:
       OTEL_ENABLED: "true"
       OTEL_ENABLE_TRACING: "true"
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
-      CROUPIER_JAEGER_URL: ${CROUPIER_JAEGER_URL:-}
+      # 同一 compose 网络内的 Jaeger UI（all-in-one 容器名直连）；
+      # 外部 Jaeger 时在 .env 覆盖 CROUPIER_JAEGER_URL
+      CROUPIER_JAEGER_URL: ${CROUPIER_JAEGER_URL:-http://croupier-jaeger:16686}
+      CROUPIER_GRAFANA_EXPLORE_URL: ${CROUPIER_GRAFANA_EXPLORE_URL:-}
     command: ["server", "--config", "/app/configs/server.yaml"]
     ports:
       - "${SERVER_TLS_PORT:-8443}:8443"
