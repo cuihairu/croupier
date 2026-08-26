@@ -316,6 +316,14 @@ jobs:
         uses: sigstore/cosign-installer@v4.1.2
       - name: cosign sign
         timeout-minutes: 5
+        env:
+          # GITHUB_TOKEN 对组织包默认无 write（包设置的 Actions 访问策略限制，
+          # 报 DENIED: installation not allowed to Write organization package）；
+          # 优先用 PAT 登录后签名，无 PAT 时回退 keyless（token 权限足够时仍可成功）。
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
           set -euo pipefail
+          if [ -n "${GHCR_TOKEN}" ]; then
+            echo "${GHCR_TOKEN}" | cosign login ghcr.io -u "${{ github.actor }}" --password-stdin
+          fi
           cosign sign --yes "${IMAGE}:${{ steps.tag.outputs.tag }}@$(docker buildx imagetools inspect "${IMAGE}:${{ steps.tag.outputs.tag }}" --format '{{ json .Manifest.Digest }}' | tr -d '"')"
