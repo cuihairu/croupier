@@ -548,10 +548,10 @@ func TestTermDictionaryModel_Branches(t *testing.T) {
 	m := NewTermDictionaryModel(db)
 	ctx := context.Background()
 
-	item := &TermDictionary{Domain: "resource", TermKey: "Player", Alias: "User", DisplayZh: "玩家", DisplayEn: "player", SortOrder: 1}
+	item := &TermDictionary{Domain: "resource", TermKey: "Player", Alias: "User", Display: map[string]string{"zh-CN": "玩家", "en-US": "player"}, SortOrder: 1}
 	require.NoError(t, m.Upsert(ctx, item))
 	// Upserting the same alias updates the existing row.
-	item.DisplayZh = "用户"
+	item.Display = map[string]string{"zh-CN": "用户"}
 	require.NoError(t, m.Upsert(ctx, item))
 
 	// Missing fields are ignored silently.

@@ -11,25 +11,26 @@ type TermDeleteResponse struct {
 	Ok bool `json:"ok"`
 }
 
-// TermItem represents a single term dictionary item
+// TermItem represents a single term dictionary item.
+// Display 是本地化显示文本，key 必须是 BCP47 locale（"zh-CN"/"en-US"），
+// 与 spec.LocalizedText 契约一致。
 type TermItem struct {
-	Id        int64  `json:"id"`
-	Domain    string `json:"domain"`    // resource | operation
-	TermKey   string `json:"termKey"`   // 原始术语键
-	Alias     string `json:"alias"`     // 别名
-	DisplayZh string `json:"displayZh"` // 中文显示
-	DisplayEn string `json:"displayEn"` // 英文显示
-	Order     int64  `json:"order"`     // 排序
+	Id      int64             `json:"id"`
+	Domain  string            `json:"domain"`  // resource | operation
+	TermKey string            `json:"termKey"` // 原始术语键
+	Alias   string            `json:"alias"`   // 别名
+	Display map[string]string `json:"display"` // BCP47 locale -> 显示文本
+	Order   int64             `json:"order"`   // 排序
 }
 
-// TermUpsertRequest represents the request to create or update a term
+// TermUpsertRequest represents the request to create or update a term.
+// Display 的 key 统一归一为 BCP47；非法/空 key 会被丢弃。
 type TermUpsertRequest struct {
-	Domain    string `json:"domain"`    // resource | operation
-	TermKey   string `json:"termKey"`   // 原始术语键
-	Alias     string `json:"alias"`     // 别名
-	DisplayZh string `json:"displayZh"` // 中文显示
-	DisplayEn string `json:"displayEn"` // 英文显示
-	Order     int64  `json:"order"`     // 排序
+	Domain  string            `json:"domain"`  // resource | operation
+	TermKey string            `json:"termKey"` // 原始术语键
+	Alias   string            `json:"alias"`   // 别名
+	Display map[string]string `json:"display"` // BCP47 locale -> 显示文本
+	Order   int64             `json:"order"`   // 排序
 }
 
 // TermUpsertResponse represents the response for term upsert

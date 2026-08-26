@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
-import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Tag } from 'antd';
+import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Tag } from 'antd';
+import { useIntl } from '@umijs/max';
 import { deleteTerm, listTerms, type TermItem, upsertTerm } from '@/services/api/terms';
+import LocalizedTextEditor from '@/components/LocalizedTextEditor';
+import { localizedText } from '@/utils/localizedText';
 
 type DomainType = TermItem['domain'];
 
@@ -15,6 +18,7 @@ const getErrorMessage = (error: unknown) =>
 
 export default function TermsPage() {
   const { message } = App.useApp();
+  const { locale } = useIntl();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<TermItem[]>([]);
   const [domain, setDomain] = useState<DomainType>('resource');
@@ -25,8 +29,7 @@ export default function TermsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listTerms(domain);
-      const items = Array.isArray(res) ? res : res?.items || [];
+      const items = await listTerms(domain);
       setRows(items);
     } catch (error: unknown) {
       message.error(getErrorMessage(error));
@@ -44,15 +47,28 @@ export default function TermsPage() {
       {
         title: 'Domain',
         dataIndex: 'domain',
-        width: 120,
+        width: 110,
         render: (_, row) => (
           <Tag color={row.domain === 'resource' ? 'blue' : 'purple'}>{row.domain}</Tag>
         ),
       },
-      { title: 'Key', dataIndex: 'termKey', width: 140 },
-      { title: 'Alias', dataIndex: 'alias', width: 160 },
-      { title: '中文', dataIndex: 'displayZh', width: 160 },
-      { title: 'English', dataIndex: 'displayEn', width: 180 },
+      { title: 'Key', dataIndex: 'termKey', width: 130 },
+      { title: 'Alias', dataIndex: 'alias', width: 150 },
+      {
+        title: '显示文本',
+        dataIndex: 'display',
+        width: 220,
+        render: (_, row) => localizedText(row.display, locale, row.termKey),
+      },
+      {
+        title: '语言',
+        dataIndex: 'display',
+        width: 110,
+        render: (_, row) => {
+          const locales = Object.keys(row.display || {}).filter((k) => (row.display || {})[k]);
+          return locales.length ? locales.join(' / ') : '-';
+        },
+      },
       { title: 'Order', dataIndex: 'order', width: 80 },
       {
         title: '操作',
@@ -67,8 +83,7 @@ export default function TermsPage() {
                 domain: row.domain,
                 termKey: row.termKey,
                 alias: row.alias,
-                displayZh: row.displayZh,
-                displayEn: row.displayEn,
+                display: row.display,
                 order: row.order ?? 100,
               });
               setOpen(true);
@@ -90,13 +105,13 @@ export default function TermsPage() {
         ],
       },
     ],
-    [form, load, message],
+    [form, load, locale, message],
   );
 
   return (
     <PageContainer
       title="术语字典"
-      subTitle="维护资源/操作术语别名与展示提示；运行控制台菜单只来自已发布 PageSpec"
+      subTitle="维护资源/操作术语别名与多语言显示文本；运行控制台菜单只来自已发布 PageSpec"
       extra={[
         <Select
           key="domain"
@@ -150,14 +165,9 @@ export default function TermsPage() {
           <Form.Item name="alias" label="Alias" rules={[{ required: true }]}>
             <Input placeholder="players / list" />
           </Form.Item>
-          <Space style={{ width: '100%' }} size="middle">
-            <Form.Item name="displayZh" label="中文">
-              <Input placeholder="玩家 / 查询" />
-            </Form.Item>
-            <Form.Item name="displayEn" label="English">
-              <Input placeholder="Player / Query" />
-            </Form.Item>
-          </Space>
+          <Form.Item name="display" label="显示文本（多语言，key 为 BCP47 locale）">
+            <LocalizedTextEditor />
+          </Form.Item>
           <Form.Item name="order" label="排序">
             <InputNumber min={1} max={999} style={{ width: '100%' }} />
           </Form.Item>

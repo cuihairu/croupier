@@ -213,7 +213,7 @@ func TestSeedBootstrapTermDictionary_Variants(t *testing.T) {
 	require.NoError(t, err)
 	found := false
 	for _, item := range items {
-		if item.Alias == "vip" && item.DisplayZh == "会员" {
+		if item.Alias == "vip" && item.Display["zh-CN"] == "会员" {
 			found = true
 		}
 	}

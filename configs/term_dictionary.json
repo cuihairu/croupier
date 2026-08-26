@@ -9,8 +9,10 @@
         "users",
         "role"
       ],
-      "displayZh": "玩家",
-      "displayEn": "Player",
+      "display": {
+        "zh-CN": "玩家",
+        "en-US": "Player"
+      },
       "order": 10
     },
     {
@@ -20,8 +22,10 @@
         "add",
         "new"
       ],
-      "displayZh": "创建",
-      "displayEn": "Create",
+      "display": {
+        "zh-CN": "创建",
+        "en-US": "Create"
+      },
       "order": 10
     },
     {
@@ -31,8 +35,10 @@
         "clan",
         "alliance"
       ],
-      "displayZh": "公会",
-      "displayEn": "Guild",
+      "display": {
+        "zh-CN": "公会",
+        "en-US": "Guild"
+      },
       "order": 20
     },
     {
@@ -45,16 +51,20 @@
         "search",
         "detail"
       ],
-      "displayZh": "查询",
-      "displayEn": "Query",
+      "display": {
+        "zh-CN": "查询",
+        "en-US": "Query"
+      },
       "order": 20
     },
     {
       "domain": "resource",
       "key": "item",
       "aliases": [],
-      "displayZh": "道具",
-      "displayEn": "Item",
+      "display": {
+        "zh-CN": "道具",
+        "en-US": "Item"
+      },
       "order": 30
     },
     {
@@ -65,8 +75,10 @@
         "patch",
         "modify"
       ],
-      "displayZh": "更新",
-      "displayEn": "Update",
+      "display": {
+        "zh-CN": "更新",
+        "en-US": "Update"
+      },
       "order": 30
     },
     {
@@ -75,8 +87,10 @@
       "aliases": [
         "bag"
       ],
-      "displayZh": "背包",
-      "displayEn": "Inventory",
+      "display": {
+        "zh-CN": "背包",
+        "en-US": "Inventory"
+      },
       "order": 31
     },
     {
@@ -86,8 +100,10 @@
         "message",
         "messages"
       ],
-      "displayZh": "邮件",
-      "displayEn": "Mail",
+      "display": {
+        "zh-CN": "邮件",
+        "en-US": "Mail"
+      },
       "order": 40
     },
     {
@@ -96,8 +112,10 @@
       "aliases": [
         "remove"
       ],
-      "displayZh": "删除",
-      "displayEn": "Delete",
+      "display": {
+        "zh-CN": "删除",
+        "en-US": "Delete"
+      },
       "order": 40
     },
     {
@@ -108,8 +126,10 @@
         "payments",
         "transaction"
       ],
-      "displayZh": "订单",
-      "displayEn": "Order",
+      "display": {
+        "zh-CN": "订单",
+        "en-US": "Order"
+      },
       "order": 50
     },
     {
@@ -120,8 +140,10 @@
         "unban",
         "unmute"
       ],
-      "displayZh": "风控",
-      "displayEn": "Risk Control",
+      "display": {
+        "zh-CN": "风控",
+        "en-US": "Risk Control"
+      },
       "order": 50
     },
     {
@@ -131,8 +153,10 @@
         "battle",
         "arena"
       ],
-      "displayZh": "对局",
-      "displayEn": "Match",
+      "display": {
+        "zh-CN": "对局",
+        "en-US": "Match"
+      },
       "order": 60
     },
     {
@@ -142,8 +166,10 @@
         "invoke",
         "run"
       ],
-      "displayZh": "执行",
-      "displayEn": "Execute",
+      "display": {
+        "zh-CN": "执行",
+        "en-US": "Execute"
+      },
       "order": 60
     }
   ]

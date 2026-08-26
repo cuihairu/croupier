@@ -4879,9 +4879,9 @@ func TestTermDictionaryModel_List(t *testing.T) {
 	ctx := context.Background()
 
 	terms := []*TermDictionary{
-		{Domain: "resource", TermKey: "player", Alias: "玩家", DisplayZh: "玩家", DisplayEn: "Player", SortOrder: 1},
-		{Domain: "resource", TermKey: "game", Alias: "游戏", DisplayZh: "游戏", DisplayEn: "Game", SortOrder: 2},
-		{Domain: "operation", TermKey: "create", Alias: "创建", DisplayZh: "创建", DisplayEn: "Create", SortOrder: 1},
+		{Domain: "resource", TermKey: "player", Alias: "玩家", Display: map[string]string{"zh-CN": "玩家", "en-US": "Player"}, SortOrder: 1},
+		{Domain: "resource", TermKey: "game", Alias: "游戏", Display: map[string]string{"zh-CN": "游戏", "en-US": "Game"}, SortOrder: 2},
+		{Domain: "operation", TermKey: "create", Alias: "创建", Display: map[string]string{"zh-CN": "创建", "en-US": "Create"}, SortOrder: 1},
 	}
 	for _, term := range terms {
 		err := db.Create(term).Error
@@ -4909,8 +4909,7 @@ func TestTermDictionaryModel_Upsert(t *testing.T) {
 		Domain:    "resource",
 		TermKey:   "item",
 		Alias:     "道具",
-		DisplayZh: "道具",
-		DisplayEn: "Item",
+		Display:   map[string]string{"zh-CN": "道具", "en-US": "Item"},
 		SortOrder: 3,
 	}
 	err := model.Upsert(ctx, term)
@@ -4918,7 +4917,7 @@ func TestTermDictionaryModel_Upsert(t *testing.T) {
 	assert.NotZero(t, term.ID)
 
 	// Update existing
-	term.DisplayZh = "游戏道具"
+	term.Display = map[string]string{"zh-CN": "游戏道具"}
 	term.SortOrder = 10
 	err = model.Upsert(ctx, term)
 	require.NoError(t, err)
@@ -4928,7 +4927,7 @@ func TestTermDictionaryModel_Upsert(t *testing.T) {
 	require.NoError(t, err)
 	for _, term := range list {
 		if term.Alias == "道具" {
-			assert.Equal(t, "游戏道具", term.DisplayZh)
+			assert.Equal(t, "游戏道具", term.Display["zh-CN"])
 			assert.Equal(t, 10, term.SortOrder)
 		}
 	}
@@ -4958,9 +4957,9 @@ func TestTermDictionaryModel_AliasMap(t *testing.T) {
 	ctx := context.Background()
 
 	terms := []*TermDictionary{
-		{Domain: "resource", TermKey: "player", Alias: "玩家2", DisplayZh: "玩家", DisplayEn: "Player"},
-		{Domain: "resource", TermKey: "game", Alias: "游戏2", DisplayZh: "游戏", DisplayEn: "Game"},
-		{Domain: "operation", TermKey: "create", Alias: "创建2", DisplayZh: "创建", DisplayEn: "Create"},
+		{Domain: "resource", TermKey: "player", Alias: "玩家2", Display: map[string]string{"zh-CN": "玩家", "en-US": "Player"}},
+		{Domain: "resource", TermKey: "game", Alias: "游戏2", Display: map[string]string{"zh-CN": "游戏", "en-US": "Game"}},
+		{Domain: "operation", TermKey: "create", Alias: "创建2", Display: map[string]string{"zh-CN": "创建", "en-US": "Create"}},
 	}
 	for _, term := range terms {
 		err := db.Create(term).Error
@@ -4983,11 +4982,10 @@ func TestTermDictionaryModel_DeleteByAlias(t *testing.T) {
 	ctx := context.Background()
 
 	term := &TermDictionary{
-		Domain:    "resource",
-		TermKey:   "test_del",
-		Alias:     "测试_del",
-		DisplayZh: "测试",
-		DisplayEn: "Test",
+		Domain:  "resource",
+		TermKey: "test_del",
+		Alias:   "测试_del",
+		Display: map[string]string{"zh-CN": "测试", "en-US": "Test"},
 	}
 	err := db.Create(term).Error
 	require.NoError(t, err)

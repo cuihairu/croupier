@@ -64,21 +64,30 @@ func (m *TermDictionaryModel) Upsert(ctx context.Context, item *TermDictionary) 
 		return nil
 	}
 	var existing TermDictionary
-	err = m.db.WithContext(ctx).
+	findErr := m.db.WithContext(ctx).
 		Where("domain = ? AND alias = ?", item.Domain, item.Alias).
 		First(&existing).Error
-	if err == nil {
+	if findErr == nil {
+		// map 形式的 Updates 不经过 serializer，需手动序列化。
 		updates := map[string]any{
 			"term_key":   item.TermKey,
-			"display_zh": item.DisplayZh,
-			"display_en": item.DisplayEn,
 			"sort_order": item.SortOrder,
+		}
+		display, err := marshalTermDisplay(NormalizeTermDisplay(item.Display))
+		if err != nil {
+			return err
+		}
+		if display != nil {
+			updates["display"] = display
+		} else {
+			updates["display"] = nil
 		}
 		return m.db.WithContext(ctx).Model(&existing).Updates(updates).Error
 	}
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
+	if findErr != nil && !errors.Is(findErr, gorm.ErrRecordNotFound) {
+		return findErr
 	}
+	item.Display = NormalizeTermDisplay(item.Display)
 	return m.db.WithContext(ctx).Create(item).Error
 }
 

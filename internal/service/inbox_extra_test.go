@@ -242,7 +242,7 @@ func TestLoadTermDictionary_Variants(t *testing.T) {
 
 	db := setupTestDB(t)
 	svc := NewContractService(db)
-	require.NoError(t, db.Create(&model.TermDictionary{Domain: "resource", TermKey: "player", Alias: "user", DisplayZh: "玩家", DisplayEn: "Player", SortOrder: 1}).Error)
+	require.NoError(t, db.Create(&model.TermDictionary{Domain: "resource", TermKey: "player", Alias: "user", Display: map[string]string{"zh-CN": "玩家", "en-US": "Player"}, SortOrder: 1}).Error)
 	require.NoError(t, db.Create(&model.TermDictionary{Domain: "operation", TermKey: "query", Alias: "list"}).Error)
 
 	terms := svc.loadTermDictionary(ctx)

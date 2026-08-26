@@ -314,11 +314,10 @@ func TestHandler_RegenerateProposal_StandaloneSuccess(t *testing.T) {
 	seedHandlerChainFixture(t, db)
 
 	require.NoError(t, model.NewTermDictionaryModel(db).Upsert(context.Background(), &model.TermDictionary{
-		Domain:    "resource",
-		TermKey:   "player",
-		Alias:     "player",
-		DisplayZh: "玩家",
-		DisplayEn: "Player",
+		Domain:  "resource",
+		TermKey: "player",
+		Alias:   "player",
+		Display: map[string]string{"zh-CN": "玩家", "en-US": "Player"},
 	}))
 
 	rec := doVersioningRequest(router, http.MethodPost, "/api/versioning/pages/operation--player.ban/regenerate", `{}`)
@@ -458,10 +457,10 @@ func TestLoadTermDictionary_WithEntries(t *testing.T) {
 
 	termModel := model.NewTermDictionaryModel(db)
 	require.NoError(t, termModel.Upsert(context.Background(), &model.TermDictionary{
-		Domain: "resource", TermKey: "player", Alias: "Player", DisplayZh: "玩家", DisplayEn: "Player",
+		Domain: "resource", TermKey: "player", Alias: "Player", Display: map[string]string{"zh-CN": "玩家", "en-US": "Player"},
 	}))
 	require.NoError(t, termModel.Upsert(context.Background(), &model.TermDictionary{
-		Domain: "resource", TermKey: "guild", Alias: "Guild", DisplayZh: "", DisplayEn: "",
+		Domain: "resource", TermKey: "guild", Alias: "Guild", Display: map[string]string{"zh-CN": "", "en-US": ""},
 	}))
 
 	dict := service.loadTermDictionary(context.Background())

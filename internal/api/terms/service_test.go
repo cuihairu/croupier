@@ -78,12 +78,11 @@ func TestService_Upsert_Success(t *testing.T) {
 	svc := newTermsService(db)
 
 	resp, err := svc.Upsert(context.Background(), &TermUpsertRequest{
-		Domain:    "resource",
-		TermKey:   "player",
-		Alias:     "玩家",
-		DisplayZh: "玩家",
-		DisplayEn: "Player",
-		Order:     1,
+		Domain:  "resource",
+		TermKey: "player",
+		Alias:   "玩家",
+		Display: map[string]string{"zh-CN": "玩家", "en-US": "Player"},
+		Order:   1,
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Ok)
@@ -140,11 +139,10 @@ func TestService_Upsert_UpdateExisting(t *testing.T) {
 
 	// Update
 	resp, err := svc.Upsert(context.Background(), &TermUpsertRequest{
-		Domain:    "resource",
-		TermKey:   "player",
-		Alias:     "玩家",
-		DisplayZh: "游戏玩家",
-		DisplayEn: "Game Player",
+		Domain:  "resource",
+		TermKey: "player",
+		Alias:   "玩家",
+		Display: map[string]string{"zh-CN": "游戏玩家", "en-US": "Game Player"},
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Ok)
@@ -153,6 +151,6 @@ func TestService_Upsert_UpdateExisting(t *testing.T) {
 	listResp, err := svc.List(context.Background(), &TermsListRequest{Domain: "resource"})
 	require.NoError(t, err)
 	require.Len(t, listResp.Items, 1)
-	assert.Equal(t, "游戏玩家", listResp.Items[0].DisplayZh)
-	assert.Equal(t, "Game Player", listResp.Items[0].DisplayEn)
+	assert.Equal(t, "游戏玩家", listResp.Items[0].Display["zh-CN"])
+	assert.Equal(t, "Game Player", listResp.Items[0].Display["en-US"])
 }

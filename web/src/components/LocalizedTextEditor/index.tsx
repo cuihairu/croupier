@@ -27,8 +27,9 @@ const { Text } = Typography;
 const BCP47_PATTERN = /^[a-z]{2,3}(-[A-Za-z]{4})?(-[A-Z]{2}|[0-9]{3})$/i;
 
 export interface LocalizedTextEditorProps {
-  value: LocalizedText | undefined;
-  onChange: (value: LocalizedText) => void;
+  /** 缺省时由 antd Form.Item 注入（受控模式） */
+  value?: LocalizedText;
+  onChange?: (value: LocalizedText) => void;
   /** 输入框占位（默认取主 locale 文案做翻译对照） */
   placeholder?: string;
   size?: 'small' | 'middle';
@@ -70,12 +71,12 @@ export default function LocalizedTextEditor({
   }, [present]);
 
   const setText = (locale: string, text: string) => {
-    onChange({ ...(value || {}), [locale]: text });
+    onChange?.({ ...(value || {}), [locale]: text });
   };
 
   const addCustomLocale = (locale: string) => {
     if (!locale || (value || {})[locale] !== undefined) return;
-    onChange({ ...(value || {}), [locale]: '' });
+    onChange?.({ ...(value || {}), [locale]: '' });
     setActiveLocale(locale);
   };
 

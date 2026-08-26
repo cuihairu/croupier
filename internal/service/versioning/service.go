@@ -650,13 +650,7 @@ func (s *Service) loadTermDictionary(ctx context.Context) generator.TermDictiona
 	}
 	out := make(generator.TermDictionary, len(items))
 	for _, item := range items {
-		text := spec.LocalizedText{}
-		if zh := strings.TrimSpace(item.DisplayZh); zh != "" {
-			text["zh-CN"] = zh
-		}
-		if en := strings.TrimSpace(item.DisplayEn); en != "" {
-			text["en-US"] = en
-		}
+		text := spec.LocalizedText(model.NormalizeTermDisplay(item.Display))
 		if len(text) == 0 {
 			continue
 		}

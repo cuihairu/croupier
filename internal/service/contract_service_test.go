@@ -1498,11 +1498,11 @@ func TestContractService_GeneratedProposalUsesTermDictionary(t *testing.T) {
 
 	require.NoError(t, db.Create(&model.TermDictionary{
 		Domain: "resource", TermKey: "item", Alias: "inventory",
-		DisplayZh: "道具", DisplayEn: "Item", SortOrder: 30,
+		Display: map[string]string{"zh-CN": "道具", "en-US": "Item"}, SortOrder: 30,
 	}).Error)
 	require.NoError(t, db.Create(&model.TermDictionary{
 		Domain: "operation", TermKey: "consume", Alias: "consume",
-		DisplayZh: "消耗", DisplayEn: "Consume", SortOrder: 100,
+		Display: map[string]string{"zh-CN": "消耗", "en-US": "Consume"}, SortOrder: 100,
 	}).Error)
 
 	meta := FunctionMetaInput{

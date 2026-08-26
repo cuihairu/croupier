@@ -36,6 +36,9 @@ func AutoMigrate(db *gorm.DB) error {
 				if err := migrateFunctionOpenAPIColumns(db); err != nil {
 					return err
 				}
+				if err := MigrateTermDictionaryDisplay(db); err != nil {
+					return err
+				}
 				return CleanupAllLegacy(db)
 			} else if tryFixPostgresMissingConstraint(db, err) {
 				lastErr = err
@@ -53,6 +56,9 @@ func AutoMigrate(db *gorm.DB) error {
 		if err := migrateFunctionOpenAPIColumns(db); err != nil {
 			return err
 		}
+		if err := MigrateTermDictionaryDisplay(db); err != nil {
+			return err
+		}
 		return CleanupAllLegacy(db)
 	}
 
@@ -60,6 +66,9 @@ func AutoMigrate(db *gorm.DB) error {
 		return err
 	}
 	if err := migrateFunctionOpenAPIColumns(db); err != nil {
+		return err
+	}
+	if err := MigrateTermDictionaryDisplay(db); err != nil {
 		return err
 	}
 	return CleanupAllLegacy(db)

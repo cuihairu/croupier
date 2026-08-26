@@ -36,13 +36,12 @@ func (s *Service) List(ctx context.Context, req *TermsListRequest) (*TermsListRe
 	items := make([]TermItem, 0, len(terms))
 	for _, term := range terms {
 		items = append(items, TermItem{
-			Id:        int64(term.ID),
-			Domain:    term.Domain,
-			TermKey:   term.TermKey,
-			Alias:     term.Alias,
-			DisplayZh: term.DisplayZh,
-			DisplayEn: term.DisplayEn,
-			Order:     int64(term.SortOrder),
+			Id:      int64(term.ID),
+			Domain:  term.Domain,
+			TermKey: term.TermKey,
+			Alias:   term.Alias,
+			Display: model.NormalizeTermDisplay(term.Display),
+			Order:   int64(term.SortOrder),
 		})
 	}
 
@@ -66,8 +65,7 @@ func (s *Service) Upsert(ctx context.Context, req *TermUpsertRequest) (*TermUpse
 		Domain:    req.Domain,
 		TermKey:   req.TermKey,
 		Alias:     req.Alias,
-		DisplayZh: req.DisplayZh,
-		DisplayEn: req.DisplayEn,
+		Display:   model.NormalizeTermDisplay(req.Display),
 		SortOrder: int(req.Order),
 	}
 

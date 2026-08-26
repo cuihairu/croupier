@@ -63,11 +63,10 @@ func TestService_Upsert_Valid_V7(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 	_, err := s.Upsert(context.Background(), &TermUpsertRequest{
-		Domain:    "function",
-		TermKey:   "key",
-		Alias:     "alias",
-		DisplayZh: "中文",
-		DisplayEn: "English",
+		Domain:  "function",
+		TermKey: "key",
+		Alias:   "alias",
+		Display: map[string]string{"zh-CN": "中文", "en-US": "English"},
 	})
 	_ = err // may error with nil model
 }
