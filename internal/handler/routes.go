@@ -34,6 +34,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/provider"
 	"github.com/cuihairu/croupier/internal/api/rate_limit"
 	apiregistry "github.com/cuihairu/croupier/internal/api/registry"
+	releaseapi "github.com/cuihairu/croupier/internal/api/release"
 	"github.com/cuihairu/croupier/internal/api/resource"
 	"github.com/cuihairu/croupier/internal/api/resourcecatalog"
 	"github.com/cuihairu/croupier/internal/api/role"
@@ -69,7 +70,8 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerMetaRoutes(v1, serverCtx)
 	registerMonitoringPublicRoutes(r, v1.Group("/monitoring"), serverCtx)
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
-	registerOpenAPIReadRoutes(v1, serverCtx)                 // OpenAPI 只保留契约查看公开路由
+	registerOpenAPIReadRoutes(v1, serverCtx)
+	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)                 // OpenAPI 只保留契约查看公开路由
 
 	// 需要认证的路由（使用 Authority 中间件）
 	protected := v1.Group("/")
@@ -117,6 +119,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		if flags.Enabled(configpkg.FlagDev) {
 			registerBugRoutes(protected.Group("/bugs"), serverCtx)
 			registerToolRoutes(protected.Group("/tools"), serverCtx)
+			registerReleaseRoutes(protected.Group("/releases"), serverCtx)
 		}
 		registerRegistryShortcutRoutes(protected, serverCtx)
 		registerAuditRoutes(protected, serverCtx)
@@ -900,6 +903,24 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/transition", ticketHandler.Transition)
 	g.GET("/:id/comments", ticketHandler.GetComments)
 	g.POST("/:id/comments", ticketHandler.CreateComment)
+}
+
+func registerReleaseRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	releaseSvc := releaseapi.NewService(ctx)
+	releaseHandler := releaseapi.NewHandler(releaseSvc)
+	g.GET("", releaseHandler.List)
+	g.GET("/", releaseHandler.List)
+	g.POST("", releaseHandler.Create)
+	g.POST("/", releaseHandler.Create)
+	g.POST("/:id/transition", releaseHandler.Transition)
+	g.POST("/:id/artifact", releaseHandler.UploadArtifact)
+}
+
+// 客户端检查更新是公开端点（游戏内 SDK 调用，无管理台 token）。
+func registerPublicReleaseRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	releaseSvc := releaseapi.NewService(ctx)
+	releaseHandler := releaseapi.NewHandler(releaseSvc)
+	g.POST("/releases/check", releaseHandler.CheckUpdate)
 }
 
 func registerToolRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

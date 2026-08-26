@@ -274,6 +274,12 @@ export default [
         access: 'canDevRead',
         component: './Dev/Tools',
       },
+      {
+        path: '/dev/releases',
+        name: 'Releases',
+        access: 'canDevRead',
+        component: './Dev/Releases',
+      },
     ],
   },
   // Ops (运维)

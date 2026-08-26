@@ -27,6 +27,7 @@ import (
 //   0005 (Go)   game-support context columns (docs/research/game-support-systems.md)
 //   0006 (Go)   bug tracker baseline table (docs/research/bug-tracking-design.md)
 //   0007 (Go)   tool registry baseline table (docs/research/tool-registry-design.md)
+//   0008 (Go)   game release baseline table (docs/research/release-management-design.md)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -36,6 +37,7 @@ func init() {
 		supportContextMigration(),
 		bugTrackerMigration(),
 		toolRegistryMigration(),
+		releaseMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -141,6 +143,25 @@ func bugTrackerMigration() *goose.Migration {
 			if !db.Migrator().HasTable(&model.Bug{}) {
 				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
 					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// releaseMigration creates the game_releases table (0008).
+func releaseMigration() *goose.Migration {
+	return goose.NewGoMigration(8,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			if !db.Migrator().HasTable(&model.GameRelease{}) {
+				if err := db.Migrator().CreateTable(&model.GameRelease{}); err != nil {
+					return fmt.Errorf("migrate: 0008 create game_releases: %w", err)
 				}
 			}
 			return nil
