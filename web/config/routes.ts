@@ -127,6 +127,12 @@ export default [
             component: './System/SiteSettings',
           },
           {
+            path: '/system/foundation/excel',
+            name: 'ExcelConfig',
+            access: 'canSystemConfigRead',
+            component: './System/ExcelConfig',
+          },
+          {
             // 平台审批队列：函数调用/页面发布审批的处理入口。
             path: '/system/foundation/approvals',
             name: 'Approvals',
@@ -321,6 +327,13 @@ export default [
         hideInMenu: true,
       },
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
+      {
+        // Server 多实例成员拓扑（在线/离线/agent 分布）
+        path: '/ops/cluster',
+        name: 'Cluster',
+        access: 'canOpsRead',
+        component: './Ops/Cluster',
+      },
       { path: '/ops/jobs', name: 'Jobs', access: 'canOpsRead', component: './Ops/Jobs' },
       {
         // cron 定时调度管理（/api/v1/schedules）

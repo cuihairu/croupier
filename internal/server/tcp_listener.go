@@ -47,8 +47,12 @@ type TCPListener struct {
 	config       *TCPListenerConfig
 	listener     net.Listener
 	sessionStore *AgentSessionStore
-	registry     *reg.Store
-	handler      *ControlService // control-plane service
+	// clusterHooks 集群归属钩子（断连释放归属；nil = 未启用）。
+	clusterHooks interface {
+		OnAgentDisconnected(ctx context.Context, agentID string)
+	}
+	registry *reg.Store
+	handler  *ControlService // control-plane service
 
 	wg      sync.WaitGroup
 	closing chan struct{}
@@ -167,12 +171,22 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 			l.logger.Info("Agent session removed on disconnect",
 				"agent_id", handler.agentID,
 				"session_id", handler.sessionID)
+			if l.clusterHooks != nil {
+				l.clusterHooks.OnAgentDisconnected(context.Background(), handler.agentID)
+			}
 		} else {
 			l.logger.Debug("Agent session already replaced, skipping removal",
 				"agent_id", handler.agentID,
 				"session_id", handler.sessionID)
 		}
 	}
+}
+
+// SetClusterHooks 注入集群归属钩子（装配期调用）。
+func (l *TCPListener) SetClusterHooks(h interface {
+	OnAgentDisconnected(ctx context.Context, agentID string)
+}) {
+	l.clusterHooks = h
 }
 
 // Addr returns the bound listener address.

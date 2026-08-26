@@ -257,6 +257,8 @@ func runServer() error {
 
 	// 启动控制服务器（TCP），返回可关闭的资源句柄用于优雅停机。
 	controlResources := startControlServer(rootCtx, &c, svcCtx, sessionStore)
+	// 集群归属钩子注入：Agent 注册/心跳/断连写共享归属表（多实例 HA）。
+	wireClusterHooks(svcCtx, controlResources)
 
 	// 启动 Registry 清理任务（定期删除过期的 AgentSession）
 	go startRegistryCleanup(rootCtx, svcCtx)

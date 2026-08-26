@@ -112,6 +112,13 @@ type ControlService struct {
 
 	upstream Handler
 
+	// clusterHooks 集群归属钩子（多实例 HA；nil = 未启用，no-op）。
+	clusterHooks interface {
+		OnAgentRegistered(ctx context.Context, agentID, gameID, env string)
+		OnAgentHeartbeat(ctx context.Context, agentID string)
+		OnAgentDisconnected(ctx context.Context, agentID string)
+	}
+
 	mu     sync.RWMutex
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -190,6 +197,17 @@ func (s *ControlService) TransportHandler() transportcore.Handler {
 }
 
 // StartBackgroundTasks starts background maintenance loops (DB loading, metrics pruning, etc.).
+// SetClusterHooks 注入集群归属钩子（幂等，可在装配期任意时刻调用）。
+func (s *ControlService) SetClusterHooks(h interface {
+	OnAgentRegistered(ctx context.Context, agentID, gameID, env string)
+	OnAgentHeartbeat(ctx context.Context, agentID string)
+	OnAgentDisconnected(ctx context.Context, agentID string)
+}) {
+	s.mu.Lock()
+	s.clusterHooks = h
+	s.mu.Unlock()
+}
+
 func (s *ControlService) StartBackgroundTasks() {
 	s.backgroundOnce.Do(func() {
 		if err := s.LoadAgentSessions(); err != nil {
@@ -489,6 +507,14 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		return nil, fmt.Errorf("register agent dashboard contract rebuild failed: %w", err)
 	}
 
+	// 集群归属：本实例持有该 Agent 连接（多实例 HA 转发路由依据）。
+	s.mu.RLock()
+	hooks := s.clusterHooks
+	s.mu.RUnlock()
+	if hooks != nil {
+		hooks.OnAgentRegistered(ctx, req.AgentId, req.GameId, req.Env)
+	}
+
 	// NewStoreWithDB persists the session only after contract/proposal
 	// materialization succeeds. Do not duplicate that write through the loader;
 	// the loader remains the persistence path for memory-only registries and is
@@ -520,6 +546,14 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 	if agent != nil {
 		agent.ExpireAt = time.Now().Add(s.defaultSessionTTL)
 		agent.LastSeen = time.Now()
+		s.registry.Mu().Unlock()
+		s.mu.RLock()
+		hooks := s.clusterHooks
+		s.mu.RUnlock()
+		if hooks != nil {
+			hooks.OnAgentHeartbeat(ctx, req.AgentId)
+		}
+		s.registry.Mu().Lock()
 		if s.agentSessionLoader != nil {
 			agentToUpdate := agent
 			go func() {

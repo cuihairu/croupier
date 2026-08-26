@@ -785,3 +785,27 @@ export async function updateAlertRule(
 export async function deleteAlertRule(id: number): Promise<{ ok: boolean }> {
   return request(`/api/v1/alerts/rules/${id}`, { method: 'DELETE' });
 }
+
+// ---- 集群拓扑（/ops/cluster） ----
+
+export type ClusterInstanceItem = {
+  instanceId: string;
+  advertiseAddr: string;
+  epoch: number;
+  startedAt?: string;
+  self: boolean;
+  alive: boolean;
+  agentCount: number;
+};
+
+export type ClusterInfo = {
+  enabled: boolean;
+  self?: string;
+  items: ClusterInstanceItem[];
+  total: number;
+  aliveCount: number;
+};
+
+export async function fetchClusterInfo(): Promise<ClusterInfo> {
+  return request('/api/v1/ops/cluster');
+}

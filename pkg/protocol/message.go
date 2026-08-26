@@ -88,6 +88,12 @@ const (
 	MsgProviderHeartbeatResponse = 0x050104
 	MsgProviderDrainRequest      = 0x050105
 	MsgProviderDrainResponse     = 0x050106
+
+	// ClusterService (0x06xx) - server <-> server interconnect（HA 多实例）
+	MsgServerHelloRequest  = 0x060101 // server 互联握手（角色声明 + epoch）
+	MsgServerHelloResponse = 0x060102
+	MsgForwardInvokeReq    = 0x060103 // 转发调用（一跳限制 + fencing）
+	MsgForwardInvokeResp   = 0x060104
 )
 
 // PutMsgID encodes a 24-bit MsgID into buf in big-endian order.

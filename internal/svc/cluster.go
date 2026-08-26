@@ -1,10 +1,20 @@
 package svc
 
-import "github.com/cuihairu/croupier/internal/cluster"
+import (
+	"context"
 
-// ClusterRuntime 暴露多实例 HA 的运行句柄（诊断/转发接线用）。
+	"github.com/cuihairu/croupier/internal/cluster"
+)
+
+// ClusterRuntime 暴露多实例 HA 的运行句柄（诊断/ops 视图/转发接线用）。
 type ClusterRuntime struct {
 	InstanceID string
 	Epoch      uint64
 	Mesh       *cluster.MeshInterconnect
+	// OwnerHooks 是 Agent 会话归属钩子（control/tcp listener 注入）。
+	OwnerHooks *cluster.OwnerHooks
+	// Membership 成员表（ops 集群视图读取在线实例）。
+	Membership cluster.Membership
+	// OwnerStats 返回 instance -> 持有 agent 数（共享归属表聚合）。
+	OwnerStats func(ctx context.Context) map[string]int64
 }

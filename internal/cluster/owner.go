@@ -134,3 +134,26 @@ func (r *DBOwnerResolver) ResolveOwner(ctx context.Context, agentID string) (*Pe
 	}
 	return &PeerInfo{InstanceID: rec.InstanceID, Epoch: rec.OwnerEpoch}, nil
 }
+
+// CountAgentsByOwner 聚合每个实例持有的活跃 agent 数（ops 集群视图）。
+func (r *DBOwnerResolver) CountAgentsByOwner(ctx context.Context) (map[string]int64, error) {
+	type row struct {
+		InstanceID string
+		N          int64
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).
+		Model(&AgentOwnerRecord{}).
+		Select("instance_id, COUNT(*) as n").
+		Where("last_seen_at > ?", time.Now().UTC().Add(-r.ownerTTL)).
+		Group("instance_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]int64, len(rows))
+	for _, rw := range rows {
+		out[rw.InstanceID] = rw.N
+	}
+	return out, nil
+}

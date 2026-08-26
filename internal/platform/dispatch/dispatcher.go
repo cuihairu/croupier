@@ -1074,3 +1074,33 @@ func (d *Dispatcher) Close() error {
 
 	return d.taskStore.Close()
 }
+
+// InvokeRequestOnAgent 定向调用指定 Agent（集群转发 owner 路径使用）。
+//
+// 与 InvokeRequest 的差异：跳过 agent 选择（转发请求已指定目标——
+// 发起方按共享目录解析的 owner 就是我们），直接走本地连接。
+// 返回原始响应字节（转发协议原样回传）。
+func (d *Dispatcher) InvokeRequestOnAgent(ctx context.Context, agentID string, req *sdkv1.InvokeRequest) ([]byte, error) {
+	if req == nil || strings.TrimSpace(agentID) == "" {
+		return nil, fmt.Errorf("agent id is required")
+	}
+	reqBytes, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+	if d.healthTracker != nil {
+		d.healthTracker.IncrementConnections(agentID)
+		defer d.healthTracker.DecrementConnections(agentID)
+	}
+	respBytes, err := d.callAgent(ctx, agentID, protocol.MsgInvokeRequest, reqBytes)
+	if err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agentID)
+		}
+		return nil, err
+	}
+	if d.healthTracker != nil {
+		d.healthTracker.RecordSuccess(agentID)
+	}
+	return respBytes, nil
+}

@@ -448,6 +448,7 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 
 	// 核心 Ops
 	g.PUT("/agent-meta", opsHandler.AgentMeta)
+	g.GET("/cluster", opsHandler.ClusterInfo)
 	g.GET("/alerts", opsHandler.Alerts)
 	g.POST("/alerts/silence", opsHandler.AlertSilence)
 	g.DELETE("/silences/:id", opsHandler.SilenceDelete)
@@ -691,6 +692,9 @@ func registerConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	configHandler := config.NewHandler(configSvc)
 	g.GET("", configHandler.List)
 	g.GET("/", configHandler.List)
+	// Excel 在线配置：上传 .xlsx / Univer 快照编译 → ConfigVersion(ns=gameplay)
+	g.POST("/excel/import", configHandler.ImportExcel)
+	g.POST("/excel/compile", configHandler.CompileExcelSnapshot)
 	g.POST("", configHandler.Upsert)
 	g.POST("/", configHandler.Upsert)
 	g.GET("/version", configHandler.GetVersion)

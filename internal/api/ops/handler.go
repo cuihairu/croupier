@@ -720,3 +720,13 @@ func (h *Handler) Functions(c *gin.Context) {
 func (h *Handler) Config(c *gin.Context) {
 	h.OpsConfig(c)
 }
+
+// ClusterInfo handles GET /ops/cluster: server 实例拓扑（在线/离线/agent 分布）。
+func (h *Handler) ClusterInfo(c *gin.Context) {
+	resp, err := h.service.GetClusterInfo(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

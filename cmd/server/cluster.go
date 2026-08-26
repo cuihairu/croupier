@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/transport/tcp"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
@@ -78,12 +80,29 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		Mesh:       lifecycle.Mesh(),
 	}
 
+	// 归属钩子：Agent 注册/心跳/断连 → 共享归属表
+	//（需要在 control/tcp listener 装配后注入，见 wiringClusterHooks）。
+	ownerHooks := cluster.NewOwnerHooks(resolver, lcCfg.InstanceID, lifecycle.Epoch())
+	svcCtx.Cluster.OwnerHooks = ownerHooks
+	svcCtx.Cluster.Membership = member
+	svcCtx.Cluster.OwnerStats = func(ctx context.Context) map[string]int64 {
+		counts, err := resolver.CountAgentsByOwner(ctx)
+		if err != nil {
+			return map[string]int64{}
+		}
+		return counts
+	}
+
 	// 互联端口（默认与 advertiseAddr 同地址；独立监听，Agent-facing 端口外）。
 	icAddr := cfg.InterconnectAddr
 	if icAddr == "" {
 		icAddr = cfg.AdvertiseAddr
 	}
-	handler := newInterconnectHandler(lifecycle)
+	var invoker cluster.LocalInvoker
+	if svcCtx.Dispatcher != nil {
+		invoker = localInvoker{dispatcher: svcCtx.Dispatcher}
+	}
+	handler := newInterconnectHandler(lifecycle, invoker)
 	icCfg := &tcp.Config{
 		Address:     icAddr,
 		RecvTimeout: 90 * time.Second,
@@ -113,12 +132,13 @@ type interconnectHandler struct {
 	hello     func(ctx context.Context, body []byte) []byte
 }
 
-func newInterconnectHandler(lc *cluster.Lifecycle) *interconnectHandler {
+func newInterconnectHandler(lc *cluster.Lifecycle, invoker cluster.LocalInvoker) *interconnectHandler {
 	h := &interconnectHandler{lifecycle: lc}
-	// owner 侧本地执行接线：当前阶段返回明确错误（执行接线未启用），
-	// 防止静默假成功。随 RegistryStore 共享化完成后接入 dispatch。
 	h.forward = cluster.ServeForwardHandler(lc.Epoch(), func(ctx context.Context, req *cluster.ForwardedInvoke) (*cluster.ForwardedResult, error) {
-		return nil, fmt.Errorf("local invoke wiring pending (see HA doc §7)")
+		if invoker == nil {
+			return nil, fmt.Errorf("local invoker unavailable")
+		}
+		return invoker.InvokeLocal(ctx, req)
 	})
 	h.hello = cluster.ServeHelloHandler(lc.Mesh().SelfInfo(), lc.Epoch())
 	return h
@@ -134,4 +154,53 @@ func (h *interconnectHandler) Handle(ctx context.Context, msgID uint32, reqID ui
 	default:
 		return nil, fmt.Errorf("cluster: unexpected msg 0x%06x", msgID)
 	}
+}
+
+// wireClusterHooks 把归属钩子注入 control service 与 TCP listener。
+// controlResources 在 startControlServer 之后调用（cluster.Start 已先行）。
+func wireClusterHooks(svcCtx *svc.ServiceContext, resources *controlRuntime) {
+	if svcCtx == nil || svcCtx.Cluster == nil || svcCtx.Cluster.OwnerHooks == nil {
+		return
+	}
+	if resources != nil && resources.controlService != nil {
+		resources.controlService.SetClusterHooks(svcCtx.Cluster.OwnerHooks)
+	}
+	if resources != nil && resources.tcpListener != nil {
+		resources.tcpListener.SetClusterHooks(svcCtx.Cluster.OwnerHooks)
+	}
+}
+
+// localInvoker 适配 dispatcher 为集群本地执行器：转发请求 → 本地 Agent 连接。
+type localInvoker struct {
+	dispatcher interface {
+		InvokeRequestOnAgent(ctx context.Context, agentID string, req *sdkv1.InvokeRequest) ([]byte, error)
+	}
+}
+
+func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedInvoke) (*cluster.ForwardedResult, error) {
+	if li.dispatcher == nil {
+		return nil, fmt.Errorf("dispatcher unavailable")
+	}
+	invokeReq := &sdkv1.InvokeRequest{
+		FunctionId:     req.FunctionID,
+		Payload:        req.Payload,
+		Metadata:       req.Metadata,
+		IdempotencyKey: req.IdempotencyKey,
+	}
+	if invokeReq.Metadata == nil {
+		invokeReq.Metadata = map[string]string{}
+	}
+	// 转发标记不透传 Agent；调用者信息进 metadata 供审计。
+	invokeReq.Metadata["forwarded_by"] = req.Caller.Username
+	if req.Caller.GameID != "" {
+		invokeReq.Metadata["game_id"] = req.Caller.GameID
+	}
+	if req.Caller.Env != "" {
+		invokeReq.Metadata["env"] = req.Caller.Env
+	}
+	respBytes, err := li.dispatcher.InvokeRequestOnAgent(ctx, req.AgentID, invokeReq)
+	if err != nil {
+		return &cluster.ForwardedResult{OK: false, Error: err.Error()}, nil
+	}
+	return &cluster.ForwardedResult{OK: true, Payload: json.RawMessage(respBytes)}, nil
 }
