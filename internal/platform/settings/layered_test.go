@@ -3,8 +3,6 @@ package settings
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -16,7 +14,11 @@ import (
 
 func newStore(t *testing.T) *model.PlatformSettingModel {
 	t.Helper()
-	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:settings_%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))), &gorm.Config{})
+	// File-backed (not shared-memory): a shared-cache memory DB vanishes when
+	// its last pooled connection closes, which made tests order-dependent
+	// under CI load.
+	dsn := t.TempDir() + "/settings.db"
+	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 	return model.NewPlatformSettingModel(db)
