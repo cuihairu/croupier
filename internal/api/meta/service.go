@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -33,21 +34,33 @@ func (s *Service) Root(ctx context.Context) (*RootResponse, error) {
 		Version:     currentAPIVersion(),
 		Environment: s.svcCtx.Config.Server.Mode,
 		Timestamp:   utils.FormatTimestamp(time.Now()),
-		Features: []string{
-			"alerts",
-			"analytics",
-			"functions",
-			"registry",
-			"ops",
-			"feedback",
-		},
-		Profiles: profiles,
+		Features:    enabledFeatures(s.svcCtx.Config.FeatureFlags),
+		Profiles:    profiles,
 		Links: map[string]string{
 			"docs":   "https://github.com/cuihairu/croupier",
 			"status": "/api/v1/ops/config",
 			"health": "/api/v1/ops/health",
 		},
 	}, nil
+}
+
+// enabledFeatures reports the product domains enabled by featureFlags.
+// Always-on platform capabilities (functions/registry) are always listed.
+func enabledFeatures(flags config.FeatureFlagsConfig) []string {
+	features := []string{"alerts", "functions", "registry"}
+	for _, domain := range []string{
+		config.FlagDev,
+		config.FlagSupport,
+		config.FlagAnalytics,
+		config.FlagOps,
+		config.FlagExtensions,
+	} {
+		if flags.Enabled(domain) {
+			features = append(features, domain)
+		}
+	}
+	sort.Strings(features)
+	return features
 }
 
 var (

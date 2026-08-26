@@ -1,4 +1,5 @@
 import { hydrateScope } from '@/stores/scope';
+import { fetchServerFeatures, type ServerFeatures } from '@/services/api/features';
 
 export type InitialCurrentUser = {
   name?: string;
@@ -10,6 +11,7 @@ export type InitialCurrentUser = {
 
 export type RuntimeInitialState = {
   currentUser?: InitialCurrentUser;
+  features?: ServerFeatures;
 };
 
 export async function loadAuthedInitialState(
@@ -22,7 +24,10 @@ export async function loadAuthedInitialState(
     };
   }
   hydrateScope();
+  // Feature flags come from the public meta endpoint; fail-open inside.
+  const features = await fetchServerFeatures();
   return {
     currentUser,
+    features,
   };
 }

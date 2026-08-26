@@ -22,10 +22,40 @@ type Config struct {
 	Telemetry     TelemetryConfig          `json:"telemetry" yaml:"telemetry"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
 	SSE           SSEConfig                `json:"sse" yaml:"sse"`
+	// FeatureFlags switches optional product domains on/off at the control
+	// plane (API routes + dashboard menus). Unset flags default to enabled;
+	// only explicit `false` disables a domain. Data-plane components (agent,
+	// analytics worker, ingest) are not governed by these flags.
+	FeatureFlags FeatureFlagsConfig `json:"featureFlags,omitempty" yaml:"featureFlags,omitempty"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+}
+
+// Feature flag names. Keep in sync with web/src/access.ts.
+const (
+	FlagDev        = "dev"        // 研发域（缺陷追踪/任务安排）
+	FlagSupport    = "support"    // 客服域（工单/FAQ/反馈）
+	FlagAnalytics  = "analytics"  // 数据分析域
+	FlagOps        = "ops"        // 运维中心域
+	FlagExtensions = "extensions" // 扩展中心域
+)
+
+// FeatureFlagsConfig maps flag names to enabled state. Absent = enabled.
+type FeatureFlagsConfig map[string]bool
+
+// Enabled reports whether the named feature is enabled. Unknown and unset
+// flags are enabled (fail-open): a typo in config must not silently lock an
+// entire domain, and new flags ship on until explicitly disabled.
+func (f FeatureFlagsConfig) Enabled(name string) bool {
+	if f == nil {
+		return true
+	}
+	if v, ok := f[name]; ok {
+		return v
+	}
+	return true
 }
 
 type TelemetryConfig struct {

@@ -5,6 +5,15 @@ server:
   timeout: 600000
   mode: dev
 
+# 功能开关（控制面：API 路由 + 前端菜单；未列出的域默认开启）。
+# 数据面组件（agent/analytics worker/ingest）不受此配置影响。
+# featureFlags:
+#   dev: false        # 研发域（缺陷追踪/任务安排）
+#   support: false    # 客服域（工单/FAQ/反馈）
+#   analytics: false  # 数据分析域
+#   ops: false        # 运维中心域（告警/备份/证书/ops API）
+#   extensions: false # 扩展中心域
+
 database:
   driver: mysql
   dataSource: "root:root@tcp(localhost:3306)/croupier_meta?charset=utf8mb4&parseTime=True&loc=Local"

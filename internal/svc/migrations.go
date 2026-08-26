@@ -26,6 +26,7 @@ import (
 //   0004 (Go)   varchar→int enum column conversion
 //   0005 (Go)   game-support context columns (docs/research/game-support-systems.md)
 //   0006 (Go)   bug tracker baseline table (docs/research/bug-tracking-design.md)
+//   0007 (Go)   tool registry baseline table (docs/research/tool-registry-design.md)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -34,6 +35,7 @@ func init() {
 		enumColumnsMigration(),
 		supportContextMigration(),
 		bugTrackerMigration(),
+		toolRegistryMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -139,6 +141,25 @@ func bugTrackerMigration() *goose.Migration {
 			if !db.Migrator().HasTable(&model.Bug{}) {
 				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
 					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// toolRegistryMigration creates the tool_links table (0007, toolbox).
+func toolRegistryMigration() *goose.Migration {
+	return goose.NewGoMigration(7,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			if !db.Migrator().HasTable(&model.ToolLink{}) {
+				if err := db.Migrator().CreateTable(&model.ToolLink{}); err != nil {
+					return fmt.Errorf("migrate: 0007 create tool_links: %w", err)
 				}
 			}
 			return nil

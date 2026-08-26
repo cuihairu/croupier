@@ -185,6 +185,7 @@ func GameModels() []interface{} {
 		&Ticket{},
 		&TicketComment{},
 		&Bug{},
+		&ToolLink{},
 		&ConfigVersion{},
 	}
 }

@@ -6,7 +6,17 @@ type AccessCurrentUser = {
   roles?: string[];
 };
 
-export default function access(initialState: { currentUser?: AccessCurrentUser } | undefined) {
+type AccessFeatures = {
+  dev?: boolean;
+  support?: boolean;
+  analytics?: boolean;
+  ops?: boolean;
+  extensions?: boolean;
+};
+
+export default function access(
+  initialState: { currentUser?: AccessCurrentUser; features?: AccessFeatures } | undefined,
+) {
   const currentUser = initialState?.currentUser;
   const acc = currentUser?.access || '';
   const perms = new Set(
@@ -30,6 +40,13 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
   };
   const isAdmin = has('admin') || has('admin:all') || has('super_admin');
   const hasAny = (...keys: string[]) => keys.some((key) => has(key)) || isAdmin;
+
+  // Feature flags (server featureFlags via GET /api/v1): a disabled domain is
+  // hidden from menus AND blocked on routes regardless of permissions.
+  // Absent/undefined flags fail open (meta fetch degraded) — backend routes
+  // are the authoritative gate.
+  const features = initialState?.features;
+  const featureOn = (key: keyof AccessFeatures) => features?.[key] !== false;
 
   const canPageRead = hasAny('pages:read', 'pages:edit', 'pages:publish', 'pages:rollback');
   const canPageEdit = hasAny('pages:edit');
@@ -97,40 +114,41 @@ export default function access(initialState: { currentUser?: AccessCurrentUser }
     canOpenAPISourcesRead,
     canOpenAPISourcesWrite,
     // 运维管理（Ops）
-    canOpsRead: hasAny(
-      'ops:read',
-      'registry:read',
-      'extension:read',
-      'extensions:read',
-      'extension:manage',
-      'extensions:manage',
-    ),
-    canOpsManage: hasAny('ops:manage'),
+    canOpsRead:
+      featureOn('ops') &&
+      hasAny(
+        'ops:read',
+        'registry:read',
+        'extension:read',
+        'extensions:read',
+        'extension:manage',
+        'extensions:manage',
+      ),
+    canOpsManage: featureOn('ops') && hasAny('ops:manage'),
     // Support (客服系统)
-    canSupportRead: hasAny('support:read'),
-    canSupportManage: hasAny('support:manage'),
+    canSupportRead: featureOn('support') && hasAny('support:read'),
+    canSupportManage: featureOn('support') && hasAny('support:manage'),
     // 研发协作（缺陷追踪/任务安排）
-    canDevRead: hasAny('dev:read', 'bugs:read', 'bugs:manage', 'support:read'),
-    canDevManage: hasAny('dev:manage', 'bugs:manage'),
+    canDevRead: featureOn('dev') && hasAny('dev:read', 'bugs:read', 'bugs:manage', 'support:read'),
+    canDevManage: featureOn('dev') && hasAny('dev:manage', 'bugs:manage'),
     // 数据分析
-    canAnalyticsRead: hasAny('analytics:read'),
-    canAnalyticsManage: hasAny('analytics:manage'),
-    canAnalyticsExport: hasAny('analytics:export'),
+    canAnalyticsRead: featureOn('analytics') && hasAny('analytics:read'),
+    canAnalyticsManage: featureOn('analytics') && hasAny('analytics:manage'),
+    canAnalyticsExport: featureOn('analytics') && hasAny('analytics:export'),
     // 扩展商店与安装管理
-    canExtensionsRead: hasAny(
-      'extension:read',
-      'extensions:read',
-      'extension:manage',
-      'extensions:manage',
-      'ops:read',
-      'ops:manage',
-    ),
-    canExtensionsManage: hasAny(
-      'extension:write',
-      'extensions:write',
-      'extension:manage',
-      'extensions:manage',
-    ),
+    canExtensionsRead:
+      featureOn('extensions') &&
+      hasAny(
+        'extension:read',
+        'extensions:read',
+        'extension:manage',
+        'extensions:manage',
+        'ops:read',
+        'ops:manage',
+      ),
+    canExtensionsManage:
+      featureOn('extensions') &&
+      hasAny('extension:write', 'extensions:write', 'extension:manage', 'extensions:manage'),
     // 权限管理相关权限（与后端的 RBAC key 对齐）
     canPermissionManage: hasAny('roles:read', 'roles:manage', 'users:read', 'users:manage'),
     canRoleManage: hasAny('roles:read', 'roles:manage'),

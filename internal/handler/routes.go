@@ -43,6 +43,8 @@ import (
 	"github.com/cuihairu/croupier/internal/api/task"
 	"github.com/cuihairu/croupier/internal/api/terms"
 	"github.com/cuihairu/croupier/internal/api/ticket"
+	"github.com/cuihairu/croupier/internal/api/tool"
+	configpkg "github.com/cuihairu/croupier/internal/config"
 	functionapi "github.com/cuihairu/croupier/internal/function/api"
 	"github.com/cuihairu/croupier/internal/function/registry"
 	"github.com/cuihairu/croupier/internal/middleware/reqinfo"
@@ -78,6 +80,10 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	scoped := protected.Group("/")
 	scoped.Use(svc.GameDBMiddleware(serverCtx))
 
+	// 功能开关（featureFlags）：显式 false 的域不注册 API 路由（404），
+	// 前端菜单/路由由 GET /api/v1 的 features 同步隐藏。未设置默认开启。
+	flags := serverCtx.Config.FeatureFlags
+
 	// Scope-independent 路由：不需要 game/env scope。
 	{
 		registerAdminRoutes(protected.Group("/admin"), serverCtx)
@@ -85,24 +91,33 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerNodeRoutes(protected.Group("/nodes"), serverCtx)
 		registerStorageRoutes(protected.Group("/storage"), serverCtx)
 		registerAgentRoutes(protected.Group("/agent"), serverCtx)
-		registerAlertRoutes(protected.Group("/alerts"), serverCtx)
-		registerBackupRoutes(protected.Group("/backups"), serverCtx)
-		registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
-		registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
-		registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
-		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
+		if flags.Enabled(configpkg.FlagOps) {
+			registerAlertRoutes(protected.Group("/alerts"), serverCtx)
+			registerBackupRoutes(protected.Group("/backups"), serverCtx)
+			registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
+		}
+		if flags.Enabled(configpkg.FlagExtensions) {
+			registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
+			registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
+			registerPlatformRoutes(protected.Group("/platforms"), serverCtx)
+		}
+		if flags.Enabled(configpkg.FlagSupport) {
+			registerFAQRoutes(protected.Group("/faqs"), serverCtx)
+			registerTicketRoutes(protected.Group("/tickets"), serverCtx)
+		}
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
 		registerMonitoringProtectedRoutes(protected.Group("/monitoring"), serverCtx)
 		registerPermissionRoutes(protected.Group("/permissions"), serverCtx)
-		registerPlatformRoutes(protected.Group("/platforms"), serverCtx)
 		registerProfileRoutes(protected.Group("/profile"), serverCtx)
 		registerProviderRoutes(protected.Group("/providers"), serverCtx)
 		registerRateLimitRoutes(protected.Group("/rate-limits"), serverCtx)
 		registerRoleRoutes(protected.Group("/roles"), serverCtx)
 		registerSchemaRoutes(protected.Group("/schemas"), serverCtx)
 		registerTermsRoutes(protected.Group("/terms"), serverCtx)
-		registerTicketRoutes(protected.Group("/tickets"), serverCtx)
-		registerBugRoutes(protected.Group("/bugs"), serverCtx)
+		if flags.Enabled(configpkg.FlagDev) {
+			registerBugRoutes(protected.Group("/bugs"), serverCtx)
+			registerToolRoutes(protected.Group("/tools"), serverCtx)
+		}
 		registerRegistryShortcutRoutes(protected, serverCtx)
 		registerAuditRoutes(protected, serverCtx)
 	}
@@ -116,16 +131,22 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerFunctionRoutes(scoped.Group("/functions"), serverCtx)
 		registerFunctionCallRoutes(scoped.Group("/function-calls"), serverCtx)
 		registerFunctionMetadataRoutes(scoped.Group("/metadata"), serverCtx)
-		registerOpsRoutes(scoped.Group("/ops"), serverCtx)
+		if flags.Enabled(configpkg.FlagOps) {
+			registerOpsRoutes(scoped.Group("/ops"), serverCtx)
+		}
 		registerPageRoutes(scoped.Group("/pages"), serverCtx)
-		registerAnalyticsRoutes(scoped.Group("/analytics"), serverCtx)
+		if flags.Enabled(configpkg.FlagAnalytics) {
+			registerAnalyticsRoutes(scoped.Group("/analytics"), serverCtx)
+		}
 		registerApprovalRoutes(scoped.Group("/approvals"), serverCtx)
 		registerAssignmentRoutes(scoped.Group("/assignments"), serverCtx)
 		registerConfigRoutes(scoped.Group("/configs"), serverCtx)
 		registerResourceRoutes(scoped.Group("/resources"), serverCtx)
 		registerResourceCatalogRoutes(scoped.Group("/resource-catalog"), serverCtx)
 		registerVersioningRoutes(scoped.Group("/versioning"), serverCtx)
-		registerFeedbackRoutes(scoped.Group("/feedback"), serverCtx)
+		if flags.Enabled(configpkg.FlagSupport) {
+			registerFeedbackRoutes(scoped.Group("/feedback"), serverCtx)
+		}
 		registerPlayerRoutes(scoped.Group("/players"), serverCtx)
 		registerTaskRoutes(scoped.Group("/tasks"), serverCtx)
 		registerOpenAPISourceRoutes(scoped.Group("/openapi"), serverCtx)
@@ -879,6 +900,17 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/transition", ticketHandler.Transition)
 	g.GET("/:id/comments", ticketHandler.GetComments)
 	g.POST("/:id/comments", ticketHandler.CreateComment)
+}
+
+func registerToolRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	toolSvc := tool.NewService(ctx)
+	toolHandler := tool.NewHandler(toolSvc)
+	g.GET("", toolHandler.List)
+	g.GET("/", toolHandler.List)
+	g.POST("", toolHandler.Create)
+	g.POST("/", toolHandler.Create)
+	g.PUT("/:id", toolHandler.Update)
+	g.DELETE("/:id", toolHandler.Delete)
 }
 
 // ============================================================================

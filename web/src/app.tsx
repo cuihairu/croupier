@@ -15,6 +15,7 @@ import { setAppApi } from './utils/antdApp';
 import { getConsoleMenu } from './services/console';
 import type { ProfilePermission } from '@/services/api/me';
 import { loadAuthedInitialState, type InitialCurrentUser } from './services/initialState';
+import type { ServerFeatures } from './services/api/features';
 import { getScope, subscribeScope, type Scope } from './stores/scope';
 import {
   buildMenuFromConsoleSpec,
@@ -37,6 +38,7 @@ type InitialState = {
   fetchUserInfo?: () => Promise<InitialCurrentUser | undefined>;
   scope?: Scope;
   consoleMenuRevision?: number;
+  features?: ServerFeatures;
 };
 
 function normalizePermissionIDs(perms: PermissionResponse | undefined): string[] {

@@ -268,6 +268,12 @@ export default [
         access: 'canDevRead',
         component: './Dev/Bugs',
       },
+      {
+        path: '/dev/tools',
+        name: 'DevTools',
+        access: 'canDevRead',
+        component: './Dev/Tools',
+      },
     ],
   },
   // Ops (运维)
