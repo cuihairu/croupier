@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
 
@@ -189,16 +188,16 @@ func NewPublicService(svcCtx *svc.ServiceContext) *PublicService {
 func (h *PublicHandler) List(c *gin.Context) {
 	namespaces, err := parseNamespaces(c.Query("ns"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_ns", "message": err.Error()})
+		response.Error(c, err)
 		return
 	}
 	keys := splitCSV(c.Query("keys"))
 	items, err := h.service.latest(c.Request.Context(), namespaces, keys)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_error", "message": "读取配置失败"})
+		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	response.Success(c, gin.H{"items": items})
 }
 
 func (s *PublicService) latest(ctx context.Context, namespaces, keys []string) ([]gin.H, error) {
