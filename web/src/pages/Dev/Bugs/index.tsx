@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   Col,
-  Drawer,
   Empty,
   Form,
   Input,
@@ -423,12 +422,12 @@ export default function DevBugsPage() {
         />
       </Card>
 
-      <Drawer
+      <Modal
         title={editing ? `编辑缺陷 #${editing.id}` : '提交缺陷'}
-        width={640}
+        width={720}
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        extra={
+        onCancel={() => setDrawerOpen(false)}
+        footer={
           <Space>
             <Button onClick={() => setDrawerOpen(false)}>取消</Button>
             <Button type="primary" loading={saving} onClick={submit}>
@@ -564,7 +563,7 @@ export default function DevBugsPage() {
             )}
           </Form.Item>
         </Form>
-      </Drawer>
+      </Modal>
 
       <Modal
         title={detail ? `#${detail.id} ${detail.title}` : ''}
