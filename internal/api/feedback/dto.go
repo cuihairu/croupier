@@ -104,3 +104,19 @@ type FeatureAdoption struct {
 	AdoptionRate float64 `json:"adoptionRate"`
 	Frequency    float64 `json:"frequency"`
 }
+
+// ConvertRequest converts one feedback entry into a support ticket
+// (game-support P2). All fields optional: defaults derive from the feedback.
+type ConvertRequest struct {
+	ID       string `uri:"id"`
+	Title    string `json:"title,optional"`
+	Category string `json:"category,optional"`
+	Priority string `json:"priority,optional"`
+	Note     string `json:"note,optional"`
+}
+
+// ConvertResponse returns the created (or existing) ticket id.
+type ConvertResponse struct {
+	TicketID         string `json:"ticketId"`
+	AlreadyConverted bool   `json:"alreadyConverted,omitempty"`
+}

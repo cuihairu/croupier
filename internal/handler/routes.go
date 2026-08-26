@@ -674,6 +674,8 @@ func registerFeedbackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/:id", feedbackHandler.Update)
 	g.DELETE("/:id", feedbackHandler.Delete)
 	g.GET("/stats", feedbackHandler.Stats)
+	// 反馈一键升级为工单（携带玩家上下文，幂等：重复转化返回原工单）
+	g.POST("/:id/convert", feedbackHandler.ConvertToTicket)
 }
 
 // ============================================================================
@@ -904,6 +906,8 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/:id", ticketHandler.Update)
 	g.DELETE("/:id", ticketHandler.Delete)
 	g.POST("/:id/transition", ticketHandler.Transition)
+	// 满意度评价（CSAT，仅已解决/已关闭工单；重开自动清分）
+	g.POST("/:id/rate", ticketHandler.Rate)
 	g.GET("/:id/comments", ticketHandler.GetComments)
 	g.POST("/:id/comments", ticketHandler.CreateComment)
 }

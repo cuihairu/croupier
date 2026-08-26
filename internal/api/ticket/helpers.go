@@ -57,6 +57,8 @@ func buildTicketDTO(ticket *model.Ticket) Ticket {
 		DeviceModel: ticket.DeviceModel,
 		Language:    ticket.Language,
 		Extra:       decodeTicketExtra(ticket.Extra),
+		Rating:      ticket.Rating,
+		RatedBy:     ticket.RatedBy,
 		CreatedAt:   utils.FormatTimestamp(ticket.CreatedAt),
 		UpdatedAt:   utils.FormatTimestamp(ticket.UpdatedAt),
 	}

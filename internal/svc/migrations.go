@@ -29,6 +29,7 @@ import (
 //   0007 (Go)   tool registry baseline table (docs/research/tool-registry-design.md)
 //   0008 (Go)   game release baseline table (docs/research/release-management-design.md)
 //   0009 (Go)   config namespace column (docs/research/config-hot-reload-design.md)
+//   0010 (Go)   ticket CSAT columns (docs/research/game-support-systems.md P2)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -40,6 +41,7 @@ func init() {
 		toolRegistryMigration(),
 		releaseMigration(),
 		configNamespaceMigration(),
+		ticketCSATMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -145,6 +147,28 @@ func bugTrackerMigration() *goose.Migration {
 			if !db.Migrator().HasTable(&model.Bug{}) {
 				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
 					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// ticketCSATMigration adds the CSAT columns to tickets (0010).
+func ticketCSATMigration() *goose.Migration {
+	return goose.NewGoMigration(10,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			migrator := db.Migrator()
+			for _, col := range []string{"rating", "rated_by", "rated_at"} {
+				if migrator.HasTable(&model.Ticket{}) && !migrator.HasColumn(&model.Ticket{}, col) {
+					if err := migrator.AddColumn(&model.Ticket{}, col); err != nil {
+						return fmt.Errorf("migrate: 0010 add tickets.%s: %w", col, err)
+					}
 				}
 			}
 			return nil

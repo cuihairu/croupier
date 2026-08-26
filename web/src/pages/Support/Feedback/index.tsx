@@ -4,9 +4,9 @@ import { PageContainer } from '@ant-design/pro-components';
 import {
   listFeedback,
   createFeedback,
+  convertFeedbackToTicket,
   updateFeedback,
   deleteFeedback,
-  createTicket,
 } from '@/services/api/support';
 import { getMessage } from '@/utils/antdApp';
 import { useAccess } from '@umijs/max';
@@ -176,29 +176,25 @@ export default function SupportFeedbackPage() {
                 <Space>
                   <Button
                     size="small"
+                    disabled={r.status === 'triaged'}
                     onClick={async () => {
                       try {
-                        const title = `玩家反馈-${r.playerId || ''}`.trim();
-                        const data = {
-                          title,
-                          content: r.content || '',
-                          category: 'feedback',
-                          priority: r.priority || 'normal',
-                          gameId: r.gameId || '',
-                          env: r.env || '',
-                          contact: r.contact || '',
-                          source: 'feedback',
-                        };
-                        const res = await createTicket(data);
-                        await updateFeedback(r.id, { status: 'triaged' });
-                        getMessage()?.success(`已转工单 #${res.id}`);
+                        const res = await convertFeedbackToTicket(r.id, {
+                          note: `来源反馈#${r.id} 玩家:${r.playerId || '未知'}`,
+                        });
+                        getMessage()?.success(
+                          res.alreadyConverted
+                            ? `该反馈已转过工单 #${res.ticketId}`
+                            : `已转工单 #${res.ticketId}`,
+                        );
+                        load();
                       } catch (e) {
                         const errMsg = e instanceof Error ? e.message : '操作失败';
                         getMessage()?.error(errMsg || '转工单失败');
                       }
                     }}
                   >
-                    转工单
+                    {r.status === 'triaged' ? '已转工单' : '转工单'}
                   </Button>
                   {access.canSupportManage && (
                     <Button size="small" onClick={() => openEdit(r)}>

@@ -95,3 +95,22 @@ func (h *Handler) Stats(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// ConvertToTicket handles POST /feedback/:id/convert.
+func (h *Handler) ConvertToTicket(c *gin.Context) {
+	var req ConvertRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.ConvertToTicket(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

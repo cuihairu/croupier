@@ -12,6 +12,7 @@ import {
   Modal,
   Select,
   Form,
+  Rate,
 } from 'antd';
 import type { UploadFile as AntUploadFile } from 'antd/es/upload/interface';
 import { useParams, history, useModel } from '@umijs/max';
@@ -23,6 +24,7 @@ import {
   getTicket,
   listTicketComments,
   addTicketComment,
+  rateTicket,
   transitionTicket,
   type Ticket,
   type TicketComment,
@@ -268,6 +270,25 @@ export default function TicketDetailPage() {
               </Descriptions.Item>
               <Descriptions.Item label="内容" span={2}>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{ticket.content || '-'}</div>
+              </Descriptions.Item>
+              <Descriptions.Item label="满意度" span={2}>
+                {['resolved', 'closed'].includes(ticket.status) ? (
+                  <Rate
+                    value={ticket.rating || 0}
+                    onChange={async (v) => {
+                      try {
+                        await rateTicket(Number(mid), v);
+                        getMessage()?.success('已记录评价');
+                        load();
+                      } catch (e) {
+                        const errMsg = e instanceof Error ? e.message : '评价失败';
+                        getMessage()?.error(errMsg);
+                      }
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: '#999' }}>工单解决/关闭后可评价</span>
+                )}
               </Descriptions.Item>
             </Descriptions>
 

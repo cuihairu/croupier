@@ -151,3 +151,22 @@ func (h *Handler) CreateComment(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// Rate handles POST /tickets/:id/rate (CSAT after close).
+func (h *Handler) Rate(c *gin.Context) {
+	var req RateRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.Rate(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

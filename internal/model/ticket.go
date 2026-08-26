@@ -34,6 +34,12 @@ type Ticket struct {
 	DeviceModel string         `gorm:"size:128"`
 	Language    string         `gorm:"size:16"`
 	Extra       datatypes.JSON `gorm:"type:json"`
+
+	// CSAT: satisfaction rating submitted when the ticket closes (1-5,
+	// 0 = unrated). game-support P2.
+	Rating  int    `gorm:"default:0;index"`
+	RatedBy string `gorm:"size:64"`
+	RatedAt *time.Time
 }
 
 // TicketComment stores comments under /tickets module.

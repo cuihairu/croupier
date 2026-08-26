@@ -180,6 +180,16 @@ func (s *Service) Transition(ctx context.Context, req *TransitionRequest) (*Tran
 	updates := map[string]interface{}{
 		"status": status,
 	}
+	// Reopening clears the CSAT rating: a stale score from the previous
+	// resolution must not leak into satisfaction reports.
+	if status == dbenum.TicketStatusOpen {
+		current, findErr := s.svcCtx.TicketModel.FindOne(ctx, id)
+		if findErr == nil && current.Status != dbenum.TicketStatusOpen {
+			updates["rating"] = 0
+			updates["rated_by"] = ""
+			updates["rated_at"] = nil
+		}
+	}
 	if note := strings.TrimSpace(req.Note); note != "" {
 		comment := addComment(commentAuthor(ctx), fmt.Sprintf("[状态变更] %s", note), id)
 		if err := s.svcCtx.TicketModel.CreateComment(ctx, comment); err != nil {

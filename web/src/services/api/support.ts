@@ -20,6 +20,9 @@ export interface Ticket {
   priority?: string;
   assignee?: string;
   tags: string[];
+  // CSAT 满意度（1-5，0=未评；仅 resolved/closed 后可提交，重开清零）
+  rating?: number;
+  ratedBy?: string;
   createdAt: string;
   updatedAt: string;
   comments?: TicketComment[];
@@ -435,6 +438,25 @@ export async function createFeedback(data: FeedbackPayload) {
     data: buildFeedbackPayload(data),
   });
   return normalizeFeedback(resp);
+}
+
+// 反馈一键转化工单（服务端携带玩家上下文；幂等：重复调用返回原工单）
+export async function convertFeedbackToTicket(
+  id: number,
+  payload?: { title?: string; category?: string; priority?: string; note?: string },
+): Promise<{ ticketId: string; alreadyConverted?: boolean }> {
+  return request(`/api/v1/feedback/${encodeURIComponent(id)}/convert`, {
+    method: 'POST',
+    data: payload ?? {},
+  });
+}
+
+// 工单满意度评价（CSAT；服务端仅接受已解决/已关闭工单）
+export async function rateTicket(id: number, rating: number): Promise<void> {
+  await request(`/api/v1/tickets/${encodeURIComponent(id)}/rate`, {
+    method: 'POST',
+    data: { rating },
+  });
 }
 
 export async function updateFeedback(id: number, data: FeedbackPayload) {

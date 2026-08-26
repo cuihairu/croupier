@@ -124,7 +124,15 @@ FAQ
 
 知识库治理必须与工单/反馈同库闭环（差评→缺口→补内容→AI 生效的飞轮），外挂平台会让知识出现第二事实源。P3 的 AI 层以**自建薄检索 API + 可替换的 LLM provider**实现，知识库本体始终在 croupier。
 
-## 5. 已落地（P1）
+## 5. 已落地
+
+### P2（本轮）
+
+- `POST /api/v1/feedback/:id/convert`：反馈一键转工单（携带玩家上下文与原文，幂等——重复转化返回原工单）；反馈标记 triaged
+- `POST /api/v1/tickets/:id/rate`：CSAT 满意度（1-5，仅 resolved/closed 可评，重开自动清分）；迁移 0010（rating/rated_by/rated_at）
+- 前端：反馈列表「转工单」直连新端点（已转化置灰），工单详情满意度星级
+
+### P1
 
 - 迁移 `0005_support_context.sql`：`faqs` 增加 `slug`/`summary`/`helpful_count`/`unhelpful_count`；`tickets` 增加 `server_id`/`player_level`/`device_os`/`device_model`/`language`/`extra`（JSON）；
 - FAQ API：`POST /api/v1/faqs/{id}/vote`、列表支持 `search`/`tag` 过滤与投票排序；

@@ -28,8 +28,11 @@ type Ticket struct {
 	DeviceModel string                 `json:"deviceModel,omitempty"`
 	Language    string                 `json:"language,omitempty"`
 	Extra       map[string]interface{} `json:"extra,omitempty"`
-	CreatedAt   string                 `json:"createdAt"`
-	UpdatedAt   string                 `json:"updatedAt"`
+	// CSAT 满意度评分（1-5，0=未评；仅已解决/已关闭后可提交）
+	Rating    int    `json:"rating,omitempty"`
+	RatedBy   string `json:"ratedBy,omitempty"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type TicketCommentCreateRequest struct {
@@ -130,3 +133,16 @@ type GetCommentsRequest = TicketCommentsRequest
 type GetCommentsResponse = TicketCommentsResponse
 type CreateCommentRequest = TicketCommentCreateRequest
 type CreateCommentResponse = TicketCommentsResponse
+
+// RateRequest submits the satisfaction rating after a ticket closes
+// (game-support P2 CSAT).
+type RateRequest struct {
+	ID     string `uri:"id"`
+	Rating int    `json:"rating"` // 1-5
+}
+
+// RateResponse confirms the stored rating.
+type RateResponse struct {
+	TicketID int64 `json:"ticketId"`
+	Rating   int   `json:"rating"`
+}
