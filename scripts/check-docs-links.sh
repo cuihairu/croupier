@@ -35,7 +35,9 @@ mapfile -t FILES < <(
       -not -path "*/.vitepress/dist/*" \
       -not -path "*/archive/*" 2>/dev/null
     [ -f README.md ] && echo "README.md"
-    find sdks -name "README.md" -not -path "*/node_modules/*" 2>/dev/null
+    find sdks -name "README.md" \
+      -not -path "*/node_modules/*" \
+      -not -path "*/vcpkg/*" 2>/dev/null
   }
 )
 
@@ -46,9 +48,16 @@ for f in "${FILES[@]}"; do
   [ -f "$f" ] || continue
   dir="$(dirname "$f")"
   # Extract link targets from [text](target) / ![alt](target).
+  # - fenced code blocks are stripped first: C++ lambdas like
+  #   `[](const std::string&, ...)` otherwise parse as links with empty text
+  # - link text must be non-empty, so `[](...)` (never valid markdown) is
+  #   skipped as a second line of defence
   while IFS= read -r target; do
     [ -z "$target" ] && continue
-    # Skip external / anchor-only / mailto / tel.
+    # Skip external / anchor-only / mailto / tel (angle-bracket destinations
+    # like [text](<https://...>) are stripped of <> first).
+    target="${target#<}"
+    target="${target%>}"
     case "$target" in
       http://*|https://*|mailto:*|tel:*) continue ;;
       \#*) continue ;;
@@ -72,7 +81,11 @@ for f in "${FILES[@]}"; do
       echo "DEAD LINK: $f -> $target"
       broken=$((broken + 1))
     fi
-  done < <(grep -hoE '\]\([^)]+\)' "$f" 2>/dev/null | sed -E 's/^\]\(//; s/\)$//')
+  done < <(
+    awk '/^```/ { fence = !fence; next } !fence' "$f" 2>/dev/null \
+      | grep -hoE '\[[^]]+\]\([^)]+\)' \
+      | sed -E 's/^\[[^]]*\]\(//; s/\)$//'
+  )
 done
 
 echo "Checked $checked internal link(s) across ${#FILES[@]} file(s)."
