@@ -172,9 +172,13 @@ SELECT
   count(*) FILTER (WHERE state = 'active'),
   current_setting('max_connections')::int
 FROM pg_stat_activity`).Scan(&cur, &active, &maxc)
-	if err == nil {
-		res.Connections = &ConnectionsInfo{Current: cur, Active: active, Max: maxc}
+	if err != nil {
+		// 与 MySQL 路径对齐：核心状态查询失败（不可达/权限不足）必须置
+		// Error，否则不可达的 postgres 源会被报成 OK=true。
+		res.Error = "status query: " + err.Error()
+		return
 	}
+	res.Connections = &ConnectionsInfo{Current: cur, Active: active, Max: maxc}
 
 	var deadlocks int64
 	if err := db.QueryRowContext(ctx,

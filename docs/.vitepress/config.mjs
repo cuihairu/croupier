@@ -177,12 +177,16 @@ const config = defineConfig({
           collapsed: false,
           items: [
             { text: '监控', link: '/operations/monitoring' },
+            { text: '告警管理', link: '/operations/alerts' },
+            { text: '数据库监控', link: '/operations/db-monitoring' },
+            { text: '通知渠道', link: '/operations/notifications' },
           ],
         },
         {
           text: '可靠性',
           collapsed: false,
           items: [
+            { text: '集群拓扑与 HA 运维', link: '/operations/cluster-ops' },
             { text: '备份与恢复', link: '/operations/backup-restore' },
             { text: '故障排除', link: '/operations/troubleshooting' },
             { text: '数据库迁移策略', link: '/architecture/database-migration-strategy' },
@@ -193,6 +197,8 @@ const config = defineConfig({
           collapsed: true,
           items: [
             { text: '安全基线', link: '/operations/security' },
+            { text: '证书监控', link: '/operations/certificates' },
+            { text: '限速管理', link: '/operations/rate-limits' },
           ],
         },
       ],

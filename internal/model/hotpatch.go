@@ -240,7 +240,11 @@ func (m *HotpatchModel) AppendResult(ctx context.Context, id uint, r HotpatchRes
 		}
 		var results []HotpatchResult
 		if len(hp.Results) > 0 {
-
+			// 反序列化存量结果：AppendResult 语义是 per-agent last-wins 的
+			// 跨 agent 累积，漏掉这句会把其他 agent 已上报的结果静默丢掉。
+			if err := json.Unmarshal(hp.Results, &results); err != nil {
+				return fmt.Errorf("unmarshal existing results: %w", err)
+			}
 		}
 		replaced := false
 		for i := range results {
