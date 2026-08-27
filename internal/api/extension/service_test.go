@@ -21,7 +21,6 @@ import (
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -84,8 +83,8 @@ func TestIsJSONNumberType(t *testing.T) {
 
 func TestFirstManifest(t *testing.T) {
 	items := []model.ExtensionRelease{
-		{ManifestJSON: datatypes.JSON([]byte(`{"version":"1.0.0"}`))},
-		{ManifestJSON: datatypes.JSON([]byte(`{"version":"2.0.0"}`))},
+		{ManifestJSON: model.JSON([]byte(`{"version":"1.0.0"}`))},
+		{ManifestJSON: model.JSON([]byte(`{"version":"2.0.0"}`))},
 	}
 	got := firstManifest(items)
 	if got != `{"version":"1.0.0"}` {
@@ -220,7 +219,7 @@ func TestToEventItems(t *testing.T) {
 			EventType:   "install.started",
 			Level:       "info",
 			Message:     "Starting installation",
-			PayloadJSON: datatypes.JSON([]byte(`{"step":"download"}`)),
+			PayloadJSON: model.JSON([]byte(`{"step":"download"}`)),
 			CreatedBy:   "admin",
 		},
 		{
@@ -747,12 +746,12 @@ func TestExtractCapabilityDetailsFromBindings(t *testing.T) {
 		{
 			BindingType: "capability",
 			BindingKey:  "notifications.management",
-			SpecJSON:    datatypes.JSON([]byte(`{"operations":["get","update"],"permissions":{"get":"notifications.read","update":"notifications.operate"},"config_keys":["enabled","channels"]}`)),
+			SpecJSON:    model.JSON([]byte(`{"operations":["get","update"],"permissions":{"get":"notifications.read","update":"notifications.operate"},"config_keys":["enabled","channels"]}`)),
 		},
 		{
 			BindingType: "provider",
 			BindingKey:  "onepanel",
-			SpecJSON:    datatypes.JSON([]byte(`{"provider":"onepanel","operations":["list_apps","install_app"]}`)),
+			SpecJSON:    model.JSON([]byte(`{"provider":"onepanel","operations":["list_apps","install_app"]}`)),
 		},
 		{
 			BindingType: "function",
@@ -809,17 +808,17 @@ func TestExtractPageDetailsFromBindings(t *testing.T) {
 		{
 			BindingType: "page",
 			BindingKey:  "analytics.realtime",
-			SpecJSON:    datatypes.JSON([]byte(`{"title":"Realtime","route":"/analytics/realtime","order":20}`)),
+			SpecJSON:    model.JSON([]byte(`{"title":"Realtime","route":"/analytics/realtime","order":20}`)),
 		},
 		{
 			BindingType: "page",
 			BindingKey:  "analytics.overview",
-			SpecJSON:    datatypes.JSON([]byte(`{"title":"Overview","route":"/analytics/overview","order":10,"required_permission":"analytics.read"}`)),
+			SpecJSON:    model.JSON([]byte(`{"title":"Overview","route":"/analytics/overview","order":10,"required_permission":"analytics.read"}`)),
 		},
 		{
 			BindingType: "navigation",
 			BindingKey:  "analytics.behavior",
-			SpecJSON:    datatypes.JSON([]byte(`{"title":"Behavior","route":"/analytics/behavior","order":30}`)),
+			SpecJSON:    model.JSON([]byte(`{"title":"Behavior","route":"/analytics/behavior","order":30}`)),
 		},
 	})
 	if len(pages) != 3 {
@@ -2200,7 +2199,7 @@ func createTestCatalogData(t *testing.T, svcCtx *svc.ServiceContext) {
 		MinCoreVersion:  "1.0.0",
 		Changelog:       "Initial release",
 		PublishedAtUnix: time.Now().Unix(),
-		ManifestJSON:    datatypes.JSON([]byte(`{"id":"test.analytics","version":"2.0.0","capabilities":["analytics.read","analytics.write"],"config_schema":{"type":"object","properties":{"enabled":{"type":"boolean"},"interval":{"type":"number"}},"required":["enabled"]},"default_install":true,"tags":["analytics","reporting"]}`)),
+		ManifestJSON:    model.JSON([]byte(`{"id":"test.analytics","version":"2.0.0","capabilities":["analytics.read","analytics.write"],"config_schema":{"type":"object","properties":{"enabled":{"type":"boolean"},"interval":{"type":"number"}},"required":["enabled"]},"default_install":true,"tags":["analytics","reporting"]}`)),
 	}
 	err = db.WithContext(bg).Create(release1).Error
 	if err != nil {
@@ -2214,7 +2213,7 @@ func createTestCatalogData(t *testing.T, svcCtx *svc.ServiceContext) {
 		MinCoreVersion:  "1.0.0",
 		Changelog:       "First version",
 		PublishedAtUnix: time.Now().Unix(),
-		ManifestJSON:    datatypes.JSON([]byte(`{"id":"test.analytics","version":"1.0.0","capabilities":["analytics.read"]}`)),
+		ManifestJSON:    model.JSON([]byte(`{"id":"test.analytics","version":"1.0.0","capabilities":["analytics.read"]}`)),
 	}
 	err = db.WithContext(bg).Create(release2).Error
 	if err != nil {
@@ -2229,7 +2228,7 @@ func createTestCatalogData(t *testing.T, svcCtx *svc.ServiceContext) {
 		MinCoreVersion:  "1.0.0",
 		Changelog:       "Notification extension",
 		PublishedAtUnix: time.Now().Unix(),
-		ManifestJSON:    datatypes.JSON([]byte(`{"id":"test.notifications","version":"1.5.0","capabilities":["notifications.send"]}`)),
+		ManifestJSON:    model.JSON([]byte(`{"id":"test.notifications","version":"1.5.0","capabilities":["notifications.send"]}`)),
 	}
 	err = db.WithContext(bg).Create(release3).Error
 	if err != nil {
@@ -2259,7 +2258,7 @@ func createTestCatalogData(t *testing.T, svcCtx *svc.ServiceContext) {
 		MinCoreVersion:  "1.0.0",
 		Changelog:       "Dependent extension",
 		PublishedAtUnix: time.Now().Unix(),
-		ManifestJSON:    datatypes.JSON([]byte(`{"id":"test.dependent","version":"1.0.0","dependencies":["test.analytics"]}`)),
+		ManifestJSON:    model.JSON([]byte(`{"id":"test.dependent","version":"1.0.0","dependencies":["test.analytics"]}`)),
 	}
 	err = db.WithContext(bg).Create(releaseWithDeps).Error
 	if err != nil {

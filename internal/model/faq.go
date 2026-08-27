@@ -1,7 +1,6 @@
 package model
 
 import (
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -10,13 +9,13 @@ import (
 // docs/research/game-support-systems.md for the AI+human friendly design.
 type FAQ struct {
 	gorm.Model
-	Question string         `gorm:"type:text"`
-	Answer   string         `gorm:"type:text"`
-	Category string         `gorm:"size:64;index"`
-	Tags     datatypes.JSON `gorm:"type:json"`
-	Visible  bool           `gorm:"default:true"`
-	Sort     int            `gorm:"default:0"`
-	Views    int            `gorm:"default:0"`
+	Question string `gorm:"type:text"`
+	Answer   string `gorm:"type:text"`
+	Category string `gorm:"size:64;index"`
+	Tags     JSON   `gorm:"type:json"`
+	Visible  bool   `gorm:"default:true"`
+	Sort     int    `gorm:"default:0"`
+	Views    int    `gorm:"default:0"`
 	// Slug is the stable public reference used by deep links and AI
 	// citations. Empty means the entry predates slugs. Uniqueness among
 	// non-empty slugs is enforced by the service layer (a DB unique index

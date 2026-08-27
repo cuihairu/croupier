@@ -12,7 +12,6 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	"gorm.io/datatypes"
 )
 
 // Service implements the defect tracker API
@@ -227,7 +226,7 @@ func currentUsername(ctx context.Context) string {
 // parseBugLinks validates, marshals link payloads and derives display titles
 // for recognizable URLs (github owner/repo#number) so every consumer sees the
 // same title.
-func parseBugLinks(raw json.RawMessage) (datatypes.JSON, error) {
+func parseBugLinks(raw json.RawMessage) (model.JSON, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil, nil
 	}

@@ -32,10 +32,10 @@ type PageProposal struct {
 	Title       datatypes.JSONMap `gorm:"type:json"` // LocalizedText
 	Description datatypes.JSONMap `gorm:"type:json"` // LocalizedText
 	CategoryKey string            `gorm:"size:64"`
-	PageSpec    datatypes.JSON    `gorm:"type:json"` // PageSpec JSON
+	PageSpec    JSON              `gorm:"type:json"` // PageSpec JSON
 
 	// Diagnostics
-	Diagnostics datatypes.JSON `gorm:"type:json"` // Diagnostic array
+	Diagnostics JSON `gorm:"type:json"` // Diagnostic array
 
 	// Status (int-backed enum; wire strings pending|accepted|rejected)
 	Status dbenum.ProposalStatus
@@ -49,11 +49,11 @@ type PageProposalVersion struct {
 	gorm.Model
 	ProposalID      uint `gorm:"index"`
 	Version         int
-	Proposal        datatypes.JSON `gorm:"type:json"` // Snapshot of PageProposal
-	FunctionDigest  string         `gorm:"size:64"`
-	SemanticsDigest string         `gorm:"size:64"`
-	ChangeReason    string         `gorm:"size:256"`
-	CreatedBy       string         `gorm:"size:64"`
+	Proposal        JSON   `gorm:"type:json"` // Snapshot of PageProposal
+	FunctionDigest  string `gorm:"size:64"`
+	SemanticsDigest string `gorm:"size:64"`
+	ChangeReason    string `gorm:"size:256"`
+	CreatedBy       string `gorm:"size:64"`
 }
 
 // BlockedProposalIssue represents a proposal that cannot be materialized.
@@ -66,10 +66,10 @@ type BlockedProposalIssue struct {
 	FunctionID  string `gorm:"size:128;index"`
 
 	// Source tracking
-	SourceDigests datatypes.JSON `gorm:"type:json"` // SourceDigest array
+	SourceDigests JSON `gorm:"type:json"` // SourceDigest array
 
 	// Diagnostics explains why the proposal cannot be materialized
-	Diagnostics datatypes.JSON `gorm:"type:json"` // Diagnostic array
+	Diagnostics JSON `gorm:"type:json"` // Diagnostic array
 
 	// RepairHint provides guidance on how to resolve the issue
 	RepairHint datatypes.JSONMap `gorm:"type:json"` // LocalizedText

@@ -31,15 +31,15 @@ type GameRelease struct {
 	// Artifact stored in objstore; set by the artifact upload endpoint.
 	ObjectKey string `gorm:"size:512"`
 	Size      int64
-	Checksum  string         `gorm:"size:64"`   // sha256 hex
-	Manifest  datatypes.JSON `gorm:"type:json"` // file -> hash map for delta downloads
+	Checksum  string `gorm:"size:64"`   // sha256 hex
+	Manifest  JSON   `gorm:"type:json"` // file -> hash map for delta downloads
 
 	Notes datatypes.JSONMap `gorm:"type:json"` // LocalizedText
 
 	// Gray rollout.
-	GrayPercent int            `gorm:"default:0"` // 0-100
-	Whitelist   datatypes.JSON `gorm:"type:json"` // device/server/player ids
-	GraySeed    string         `gorm:"size:32"`   // bucket seed (stable per release)
+	GrayPercent int    `gorm:"default:0"` // 0-100
+	Whitelist   JSON   `gorm:"type:json"` // device/server/player ids
+	GraySeed    string `gorm:"size:32"`   // bucket seed (stable per release)
 
 	CreatedBy string     `gorm:"size:64"`
 	DueAt     *time.Time `gorm:"index"`

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
-	"gorm.io/datatypes"
 )
 
 func TestSanitizeGameName(t *testing.T) {
@@ -454,7 +453,7 @@ func TestBuildGameInfo(t *testing.T) {
 		GameType:    "mmo",
 		GenreCode:   "rpg",
 		Color:       "blue",
-		Envs:        datatypes.JSON(envsData),
+		Envs:        model.JSON(envsData),
 	}
 	// Set gorm.Model fields directly
 	game.ID = 123

@@ -45,11 +45,11 @@ func TestParseTimeAndRetentionValues(t *testing.T) {
 		t.Fatal("expected parse error for invalid time")
 	}
 
-	values := parseRetentionValues(datatypes.JSON([]byte(`[1,0.5,0.25]`)))
+	values := parseRetentionValues(model.JSON([]byte(`[1,0.5,0.25]`)))
 	if len(values) != 3 || values[1] != 0.5 {
 		t.Fatalf("unexpected retention values: %#v", values)
 	}
-	if got := parseRetentionValues(datatypes.JSON([]byte(`bad`))); len(got) != 0 {
+	if got := parseRetentionValues(model.JSON([]byte(`bad`))); len(got) != 0 {
 		t.Fatalf("expected empty values on invalid json, got %#v", got)
 	}
 }
@@ -575,19 +575,19 @@ func TestParseRetentionValues_AdditionalCases(t *testing.T) {
 	t.Parallel()
 
 	// Empty
-	values := parseRetentionValues(datatypes.JSON([]byte{}))
+	values := parseRetentionValues(model.JSON([]byte{}))
 	if len(values) != 0 {
 		t.Fatalf("expected empty values, got %#v", values)
 	}
 
 	// Single value
-	values = parseRetentionValues(datatypes.JSON([]byte(`[0.5]`)))
+	values = parseRetentionValues(model.JSON([]byte(`[0.5]`)))
 	if len(values) != 1 || values[0] != 0.5 {
 		t.Fatalf("unexpected values: %#v", values)
 	}
 
 	// Multiple values
-	values = parseRetentionValues(datatypes.JSON([]byte(`[1.0,0.8,0.6,0.5,0.4,0.3,0.2]`)))
+	values = parseRetentionValues(model.JSON([]byte(`[1.0,0.8,0.6,0.5,0.4,0.3,0.2]`)))
 	if len(values) != 7 {
 		t.Fatalf("expected 7 values, got %d", len(values))
 	}
@@ -694,13 +694,13 @@ func TestParseRetentionValues_EdgeCases(t *testing.T) {
 	t.Parallel()
 
 	// Empty JSON array
-	values := parseRetentionValues(datatypes.JSON([]byte(`[]`)))
+	values := parseRetentionValues(model.JSON([]byte(`[]`)))
 	if len(values) != 0 {
 		t.Fatalf("expected empty values for empty array, got %#v", values)
 	}
 
 	// All zeros
-	values = parseRetentionValues(datatypes.JSON([]byte(`[0,0.0,0]`)))
+	values = parseRetentionValues(model.JSON([]byte(`[0,0.0,0]`)))
 	if len(values) != 3 {
 		t.Fatalf("expected 3 values, got %d", len(values))
 	}
@@ -711,7 +711,7 @@ func TestParseRetentionValues_EdgeCases(t *testing.T) {
 	}
 
 	// Very small values
-	values = parseRetentionValues(datatypes.JSON([]byte(`[0.001,0.0001]`)))
+	values = parseRetentionValues(model.JSON([]byte(`[0.001,0.0001]`)))
 	if len(values) != 2 {
 		t.Fatalf("expected 2 values, got %d", len(values))
 	}

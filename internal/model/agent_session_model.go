@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/platform/registry"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -14,17 +13,17 @@ import (
 // AgentSessionDB represents the database model for agent sessions.
 // RPCAddr is retained as a legacy compatibility column until storage is migrated.
 type AgentSessionDB struct {
-	ID        uint           `gorm:"primaryKey"`
-	AgentID   string         `gorm:"size:64;uniqueIndex;not null"`
-	GameID    string         `gorm:"size:64;index"`
-	Env       string         `gorm:"size:32;index"`
-	Version   string         `gorm:"size:32"`
-	Region    string         `gorm:"size:64;index"`
-	Zone      string         `gorm:"size:64;index"`
-	Labels    datatypes.JSON `gorm:"type:json"`
-	Providers datatypes.JSON `gorm:"type:json"`
-	ExpireAt  time.Time      `gorm:"index;not null"`
-	LastSeen  time.Time      `gorm:"index;not null"`
+	ID        uint      `gorm:"primaryKey"`
+	AgentID   string    `gorm:"size:64;uniqueIndex;not null"`
+	GameID    string    `gorm:"size:64;index"`
+	Env       string    `gorm:"size:32;index"`
+	Version   string    `gorm:"size:32"`
+	Region    string    `gorm:"size:64;index"`
+	Zone      string    `gorm:"size:64;index"`
+	Labels    JSON      `gorm:"type:json"`
+	Providers JSON      `gorm:"type:json"`
+	ExpireAt  time.Time `gorm:"index;not null"`
+	LastSeen  time.Time `gorm:"index;not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
@@ -147,7 +146,7 @@ func toDBSession(sess *registry.AgentSession) (*AgentSessionDB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbSess.Labels = datatypes.JSON(labelsJSON)
+		dbSess.Labels = JSON(labelsJSON)
 	}
 
 	// Marshal Providers to JSON
@@ -156,7 +155,7 @@ func toDBSession(sess *registry.AgentSession) (*AgentSessionDB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbSess.Providers = datatypes.JSON(providersJSON)
+		dbSess.Providers = JSON(providersJSON)
 	}
 
 	return dbSess, nil

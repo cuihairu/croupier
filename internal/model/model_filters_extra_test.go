@@ -11,7 +11,6 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -126,11 +125,11 @@ func TestGameModel_ListFiltersAndBindings(t *testing.T) {
 
 	// UpdateEnvsAndBindings rejects bindings without a database name.
 	game.SetEnvs([]GameEnv{{Env: "prod"}})
-	err = m.UpdateEnvsAndBindings(ctx, "demo", game.ID, datatypes.JSON(`[{"env":"prod"}]`), nil,
+	err = m.UpdateEnvsAndBindings(ctx, "demo", game.ID, JSON(`[{"env":"prod"}]`), nil,
 		[]GameEnvBinding{{Env: "", DatabaseName: "x"}})
 	assert.Error(t, err)
 
-	err = m.UpdateEnvsAndBindings(ctx, "demo", game.ID, datatypes.JSON(`[{"env":"prod"}]`), []string{"", "old"},
+	err = m.UpdateEnvsAndBindings(ctx, "demo", game.ID, JSON(`[{"env":"prod"}]`), []string{"", "old"},
 		[]GameEnvBinding{{Env: "prod", DatabaseName: "game_demo_prod"}})
 	assert.NoError(t, err)
 }
@@ -147,7 +146,7 @@ func TestGameModel_BackfillEnvBindings_Branches(t *testing.T) {
 	// Empty database names are rejected.
 	require.NoError(t, m.Create(ctx, &Game{Name: "G", GameID: "g1", AliasName: "g1"}))
 	game, _ := m.FindByGameIDString(ctx, "g1")
-	game.Envs = datatypes.JSON(`[{"env":"prod","description":"d","color":"c"}]`)
+	game.Envs = JSON(`[{"env":"prod","description":"d","color":"c"}]`)
 	require.NoError(t, db.Save(game).Error)
 	_, err = m.BackfillEnvBindings(ctx, func(gameID, env string) string { return "" })
 	assert.Error(t, err)
@@ -164,7 +163,7 @@ func TestGameModel_BackfillEnvBindings_Branches(t *testing.T) {
 	// Invalid envs JSON surfaces an error.
 	require.NoError(t, m.Create(ctx, &Game{Name: "Bad", GameID: "bad", AliasName: "bad"}))
 	badGame, _ := m.FindByGameIDString(ctx, "bad")
-	badGame.Envs = datatypes.JSON(`not-json`)
+	badGame.Envs = JSON(`not-json`)
 	require.NoError(t, db.Save(badGame).Error)
 	_, err = m.BackfillEnvBindings(ctx, resolver)
 	assert.Error(t, err)
@@ -283,7 +282,7 @@ func TestMessageModel_FiltersAndEncodeData(t *testing.T) {
 
 	nullPayload, err := EncodeData(nil)
 	require.NoError(t, err)
-	assert.Equal(t, datatypes.JSON([]byte("null")), nullPayload)
+	assert.Equal(t, JSON([]byte("null")), nullPayload)
 
 	_, err = EncodeData(make(chan int))
 	assert.Error(t, err)
@@ -412,7 +411,7 @@ func TestFunctionModel_ListFiltersAndBatchOps(t *testing.T) {
 	assert.Equal(t, int64(1), total)
 	require.Len(t, functions, 1)
 
-	require.NoError(t, m.ReplacePermissions(ctx, "f1", []FunctionPermission{{Resource: "player", Actions: datatypes.JSON(`["ban"]`)}}))
+	require.NoError(t, m.ReplacePermissions(ctx, "f1", []FunctionPermission{{Resource: "player", Actions: JSON(`["ban"]`)}}))
 	perms, err := m.ListPermissions(ctx, "f1")
 	require.NoError(t, err)
 	assert.Len(t, perms, 1)
@@ -740,7 +739,7 @@ func TestProfileModel_ReplaceMethods(t *testing.T) {
 	ctx := context.Background()
 
 	require.NoError(t, m.ReplacePermissions(ctx, 1, []ProfilePermission{
-		{Resource: "player", Actions: datatypes.JSON(`["view","edit"]`)},
+		{Resource: "player", Actions: JSON(`["view","edit"]`)},
 	}))
 	perms, err := m.ListPermissions(ctx, 1)
 	require.NoError(t, err)

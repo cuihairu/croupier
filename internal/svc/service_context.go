@@ -41,7 +41,6 @@ import (
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/gin-gonic/gin"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"log/slog"
 )
@@ -1123,7 +1122,7 @@ func seedBootstrapExtensionCatalog(ctx *ServiceContext) error {
 					ExtensionID:     extID,
 					Version:         version,
 					ReleaseChannel:  strings.TrimSpace(release.ReleaseChannel),
-					ManifestJSON:    datatypes.JSON(manifestJSON),
+					ManifestJSON:    model.JSON(manifestJSON),
 					PackageRef:      strings.TrimSpace(release.PackageRef),
 					Checksum:        strings.TrimSpace(release.Checksum),
 					MinCoreVersion:  strings.TrimSpace(release.MinCoreVersion),

@@ -14,7 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 )
 
 func init() {
@@ -279,7 +278,7 @@ func TestBuildItemV2(t *testing.T) {
 		GameID:       "g1",
 		Env:          "prod",
 		AgentID:      "agent1",
-		InputPayload: datatypes.JSON([]byte("{}")),
+		InputPayload: model.JSON([]byte("{}")),
 	}
 	item3 := buildItem(run3)
 	assert.Equal(t, "something broke", item3.Error)
@@ -306,8 +305,8 @@ func TestBuildDetailV2(t *testing.T) {
 		Actor:         "admin",
 		Addr:          "10.0.0.1:9090",
 		TraceID:       "trace-1",
-		ResultPayload: datatypes.JSON([]byte(`{"result":"ok"}`)),
-		InputPayload:  datatypes.JSON([]byte("{}")),
+		ResultPayload: model.JSON([]byte(`{"result":"ok"}`)),
+		InputPayload:  model.JSON([]byte("{}")),
 	}
 	detail := buildDetail(run)
 	assert.Equal(t, "t-detail-no-times", detail.ID)

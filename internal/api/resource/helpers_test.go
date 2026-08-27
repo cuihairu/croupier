@@ -2,12 +2,12 @@ package resource
 
 import (
 	"context"
+	"github.com/cuihairu/croupier/internal/model"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/datatypes"
 )
 
 func TestMatchesResourceQuery(t *testing.T) {
@@ -84,7 +84,7 @@ func TestMatchesResourceQuery(t *testing.T) {
 func TestParseTagsFromJSON(t *testing.T) {
 	tests := []struct {
 		name string
-		raw  datatypes.JSON
+		raw  model.JSON
 		want []string
 	}{
 		{
@@ -94,37 +94,37 @@ func TestParseTagsFromJSON(t *testing.T) {
 		},
 		{
 			name: "empty input",
-			raw:  datatypes.JSON(""),
+			raw:  model.JSON(""),
 			want: nil,
 		},
 		{
 			name: "valid tags",
-			raw:  datatypes.JSON(`["player", "moderation"]`),
+			raw:  model.JSON(`["player", "moderation"]`),
 			want: []string{"player", "moderation"},
 		},
 		{
 			name: "tags with duplicates",
-			raw:  datatypes.JSON(`["player", "player", "moderation"]`),
+			raw:  model.JSON(`["player", "player", "moderation"]`),
 			want: []string{"player", "moderation"},
 		},
 		{
 			name: "tags with empty strings",
-			raw:  datatypes.JSON(`["player", "", "moderation"]`),
+			raw:  model.JSON(`["player", "", "moderation"]`),
 			want: []string{"player", "moderation"},
 		},
 		{
 			name: "tags with whitespace",
-			raw:  datatypes.JSON(`["  player  ", "moderation"]`),
+			raw:  model.JSON(`["  player  ", "moderation"]`),
 			want: []string{"player", "moderation"},
 		},
 		{
 			name: "invalid JSON",
-			raw:  datatypes.JSON(`not json`),
+			raw:  model.JSON(`not json`),
 			want: nil,
 		},
 		{
 			name: "all empty tags",
-			raw:  datatypes.JSON(`["", "  ", ""]`),
+			raw:  model.JSON(`["", "  ", ""]`),
 			want: nil,
 		},
 	}

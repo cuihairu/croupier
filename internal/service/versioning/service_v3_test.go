@@ -11,7 +11,6 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 )
 
 // ---------------------------------------------------------------------------
@@ -398,7 +397,7 @@ func TestVersioningService_GetChangeChain_WithSemanticsAndProposal(t *testing.T)
 		GameID: "demo-game", Env: "development",
 		ProposalKey: "operation:player.list", PageKey: "resource--player",
 		PageType: "resource", ResourceKey: "player", Quality: "good",
-		PageSpec: datatypes.JSON(pageJSON), Status: dbenum.ProposalStatusPending,
+		PageSpec: model.JSON(pageJSON), Status: dbenum.ProposalStatusPending,
 		UpdatedAt: time.Now(), UpdatedBy: "admin",
 	}))
 
@@ -503,8 +502,8 @@ func TestVersioningService_BindingContractChanges_WithPublished(t *testing.T) {
 	require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, &model.FunctionContract{
 		GameID: testGame, Env: "development", FunctionID: "player.list",
 		Version: "1.0.0", Enabled: true,
-		InputSchema:  datatypes.JSON(`{"type":"object"}`),
-		OutputSchema: datatypes.JSON(`{"type":"object"}`),
+		InputSchema:  model.JSON(`{"type":"object"}`),
+		OutputSchema: model.JSON(`{"type":"object"}`),
 		Risk:         dbenum.RiskSafe, Permission: "admin:all", UpdatedAt: time.Now(),
 	}))
 
@@ -695,7 +694,7 @@ func TestVersioningService_ProposalForPage_WithBaseProposalKey(t *testing.T) {
 	require.NoError(t, model.NewPageProposalModel(db).UpsertProposal(ctx, &model.PageProposal{
 		GameID: "demo-game", Env: "development",
 		ProposalKey: "operation:player.list", PageKey: "resource--player",
-		PageSpec: datatypes.JSON(`{"pageKey":"test"}`),
+		PageSpec: model.JSON(`{"pageKey":"test"}`),
 		Status:   dbenum.ProposalStatusPending, UpdatedAt: time.Now(),
 	}))
 	proposal, err := service.proposalForPage(ctx, "demo-game", "development", &model.PageSpec{

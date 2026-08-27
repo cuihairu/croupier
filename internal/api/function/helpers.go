@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/datatypes"
-
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
@@ -976,7 +974,7 @@ func getIntFromMetadata(metadata map[string]interface{}, key string) int {
 }
 
 // parseRolesFromJSON parses roles from JSON array or comma-separated string
-func parseRolesFromJSON(data datatypes.JSON) []string {
+func parseRolesFromJSON(data model.JSON) []string {
 	if len(data) == 0 {
 		return []string{}
 	}
@@ -996,7 +994,7 @@ func parseRolesFromJSON(data datatypes.JSON) []string {
 }
 
 // parseActionsFromJSON parses actions from JSON array
-func parseActionsFromJSON(data datatypes.JSON) []string {
+func parseActionsFromJSON(data model.JSON) []string {
 	if len(data) == 0 {
 		return []string{}
 	}

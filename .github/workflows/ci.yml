@@ -339,11 +339,7 @@ jobs:
     env:
       TEST_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/"
       TEST_POSTGRES_DSN: "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
-      # SQL Server 阻塞于模型层 json 列类型映射（datatypes.JSON 对 sqlserver
-      # 无 DB 类型，驱动回落字面量 `json` → Cannot find data type json）。
-      # 迁移执行器侧（方言映射/sp_getapplock 会话锁/sys.objects 探测/DSN）
-      # 已就绪，待模型 JSON 类型方言化后取消注释即接入矩阵：
-      # TEST_SQLSERVER_DSN: "sqlserver://sa:YourStr0ngPassw0rd@127.0.0.1:1433"
+      TEST_SQLSERVER_DSN: "sqlserver://sa:YourStr0ngPassw0rd@127.0.0.1:1433"
     steps:
       - timeout-minutes: 3
         uses: actions/checkout@v7

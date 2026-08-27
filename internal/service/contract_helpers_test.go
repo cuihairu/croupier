@@ -9,7 +9,6 @@ import (
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/datatypes"
 )
 
 func TestComputeDigest(t *testing.T) {
@@ -652,7 +651,7 @@ func TestInferCollectionFields(t *testing.T) {
 	// Test with nil semantics
 	sem := &model.CapabilitySemantics{}
 	contract := &model.FunctionContract{
-		OutputSchema: datatypes.JSON(`{"type": "object", "properties": {"items": {"type": "array"}}}`),
+		OutputSchema: model.JSON(`{"type": "object", "properties": {"items": {"type": "array"}}}`),
 	}
 
 	// Should not panic
@@ -664,7 +663,7 @@ func TestInferIdentityField(t *testing.T) {
 	contracts := []*model.FunctionContract{
 		{
 			FunctionID:   "func1",
-			OutputSchema: datatypes.JSON(`{"type": "object", "properties": {"id": {"type": "integer"}}}`),
+			OutputSchema: model.JSON(`{"type": "object", "properties": {"id": {"type": "integer"}}}`),
 		},
 	}
 
@@ -680,7 +679,7 @@ func TestCollectionItemSchema(t *testing.T) {
 	}
 	contract := &model.FunctionContract{
 		FunctionID:   "func1",
-		OutputSchema: datatypes.JSON(`{"type": "array", "items": {"type": "object"}}`),
+		OutputSchema: model.JSON(`{"type": "array", "items": {"type": "object"}}`),
 	}
 	contract.ID = 1
 	contracts := []*model.FunctionContract{contract}
@@ -693,7 +692,7 @@ func TestCollectionItemSchema(t *testing.T) {
 func TestInferCollectionFields_WithArrayItems(t *testing.T) {
 	sem := &model.CapabilitySemantics{}
 	contract := &model.FunctionContract{
-		OutputSchema: datatypes.JSON(`{"type": "object", "properties": {"data": {"type": "array", "items": {"type": "object"}}}}`),
+		OutputSchema: model.JSON(`{"type": "object", "properties": {"data": {"type": "array", "items": {"type": "object"}}}}`),
 	}
 
 	inferCollectionFields(sem, contract)
@@ -742,12 +741,12 @@ func TestInferActionSemanticsOnlyInlinesVerifiedResourceIdentity(t *testing.T) {
 		{
 			FunctionID:  "mail.claim",
 			Capability:  dbenum.CapabilityAction,
-			InputSchema: datatypes.JSON(`{"type":"object","properties":{"player_id":{"type":"string"}},"required":["player_id"]}`),
+			InputSchema: model.JSON(`{"type":"object","properties":{"player_id":{"type":"string"}},"required":["player_id"]}`),
 		},
 		{
 			FunctionID:  "mail.retry",
 			Capability:  dbenum.CapabilityAction,
-			InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
+			InputSchema: model.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
 		},
 	}
 
@@ -773,13 +772,13 @@ func TestNormalizeSchemaToJSONString(t *testing.T) {
 	// JSON string wrapping a schema
 	input := json.RawMessage(`"{\"type\":\"object\"}"`)
 	result := normalizeSchemaToJSON(input)
-	assert.Equal(t, datatypes.JSON(`{"type":"object"}`), result)
+	assert.Equal(t, model.JSON(`{"type":"object"}`), result)
 }
 
 func TestNormalizeSchemaToJSONObject(t *testing.T) {
 	input := json.RawMessage(`{"type":"object","properties":{"name":{"type":"string"}}}`)
 	result := normalizeSchemaToJSON(input)
-	assert.Equal(t, datatypes.JSON(`{"type":"object","properties":{"name":{"type":"string"}}}`), result)
+	assert.Equal(t, model.JSON(`{"type":"object","properties":{"name":{"type":"string"}}}`), result)
 }
 
 func TestNormalizeSchemaToJSONInvalidString(t *testing.T) {
@@ -787,7 +786,7 @@ func TestNormalizeSchemaToJSONInvalidString(t *testing.T) {
 	input := json.RawMessage(`"not closed`)
 	result := normalizeSchemaToJSON(input)
 	// Falls through to returning raw bytes
-	assert.Equal(t, datatypes.JSON(`"not closed`), result)
+	assert.Equal(t, model.JSON(`"not closed`), result)
 }
 
 // ---------------------------------------------------------------------------
@@ -799,7 +798,7 @@ func TestInferIdentityFieldAlreadySet(t *testing.T) {
 	contracts := []*model.FunctionContract{
 		{
 			FunctionID:   "func1",
-			OutputSchema: datatypes.JSON(`{"type":"object", "properties": {"id": {"type": "integer"}}}`),
+			OutputSchema: model.JSON(`{"type":"object", "properties": {"id": {"type": "integer"}}}`),
 		},
 	}
 	inferIdentityField(sem, contracts)

@@ -6,8 +6,6 @@ import (
 	"errors"
 	"strings"
 
-	"gorm.io/datatypes"
-
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -57,7 +55,7 @@ func LoadCurrentAdmin(ctx context.Context, svcCtx *svc.ServiceContext) (*model.A
 }
 
 // DecodeStringSlice decodes a JSON array into a slice of strings.
-func DecodeStringSlice(data datatypes.JSON) []string {
+func DecodeStringSlice(data model.JSON) []string {
 	if len(data) == 0 {
 		return nil
 	}
@@ -69,9 +67,9 @@ func DecodeStringSlice(data datatypes.JSON) []string {
 }
 
 // EncodeStringSlice encodes a string slice into JSON for persistence.
-func EncodeStringSlice(values []string) datatypes.JSON {
+func EncodeStringSlice(values []string) model.JSON {
 	bytes, _ := json.Marshal(values)
-	return datatypes.JSON(bytes)
+	return model.JSON(bytes)
 }
 
 // HasAdminRole reports whether the provided role names contain an admin-level role.

@@ -20,7 +20,6 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -434,7 +433,7 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		if err != nil {
 			return nil, fmt.Errorf("marshal actions: %w", err)
 		}
-		semantics.Actions = datatypes.JSON(raw)
+		semantics.Actions = model.JSON(raw)
 		changedFields = append(changedFields, "actions")
 		provenance["actions"] = provenanceRecord("actions", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
 	}
@@ -447,7 +446,7 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		if err != nil {
 			return nil, fmt.Errorf("marshal tasks: %w", err)
 		}
-		semantics.Tasks = datatypes.JSON(raw)
+		semantics.Tasks = model.JSON(raw)
 		changedFields = append(changedFields, "tasks")
 		provenance["tasks"] = provenanceRecord("tasks", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
 	}
@@ -460,7 +459,7 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		if err != nil {
 			return nil, fmt.Errorf("marshal reports: %w", err)
 		}
-		semantics.Reports = datatypes.JSON(raw)
+		semantics.Reports = model.JSON(raw)
 		changedFields = append(changedFields, "reports")
 		provenance["reports"] = provenanceRecord("reports", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
 	}
@@ -1813,11 +1812,11 @@ func applySemanticFieldValue(semantics *model.CapabilitySemantics, field string,
 	case "deleteID", "deleteId":
 		return assignUint(raw, &semantics.DeleteID)
 	case "actions":
-		semantics.Actions = datatypes.JSON(raw)
+		semantics.Actions = model.JSON(raw)
 	case "tasks":
-		semantics.Tasks = datatypes.JSON(raw)
+		semantics.Tasks = model.JSON(raw)
 	case "reports":
-		semantics.Reports = datatypes.JSON(raw)
+		semantics.Reports = model.JSON(raw)
 	default:
 		return fmt.Errorf("unsupported semantic conflict field %s", field)
 	}
@@ -1863,12 +1862,12 @@ func (s *Service) createSemanticVersion(ctx context.Context, semantics *model.Ca
 	return nil
 }
 
-func capabilitySemanticsJSON(value *model.CapabilitySemantics) datatypes.JSON {
+func capabilitySemanticsJSON(value *model.CapabilitySemantics) model.JSON {
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return nil
 	}
-	return datatypes.JSON(raw)
+	return model.JSON(raw)
 }
 
 func (s *Service) rebuildProposals(ctx context.Context, gameID string, env string, resourceKey string) error {

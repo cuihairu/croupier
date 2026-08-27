@@ -9,7 +9,6 @@ import (
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
-	"gorm.io/datatypes"
 )
 
 var allowedTicketStatuses = map[string]struct{}{
@@ -66,7 +65,7 @@ func buildTicketDTO(ticket *model.Ticket) Ticket {
 
 // decodeTicketExtra unmarshals the free-form context payload for the API
 // response; nil when absent.
-func decodeTicketExtra(data datatypes.JSON) map[string]interface{} {
+func decodeTicketExtra(data model.JSON) map[string]interface{} {
 	if len(data) == 0 {
 		return nil
 	}
@@ -103,7 +102,7 @@ func decodeTicketTags(data interface{}) []string {
 	return nil
 }
 
-func encodeTicketTags(tags []string) datatypes.JSON {
+func encodeTicketTags(tags []string) model.JSON {
 	if len(tags) == 0 {
 		return nil
 	}
@@ -125,7 +124,7 @@ func encodeTicketTags(tags []string) datatypes.JSON {
 		return nil
 	}
 	bytes, _ := json.Marshal(unique)
-	return datatypes.JSON(bytes)
+	return model.JSON(bytes)
 }
 
 func sanitizePriority(priority string) string {
@@ -204,7 +203,7 @@ func sanitizePlayerLevel(level int) int {
 }
 
 // encodeTicketExtra marshals the free-form context payload; nil when empty.
-func encodeTicketExtra(extra map[string]interface{}) datatypes.JSON {
+func encodeTicketExtra(extra map[string]interface{}) model.JSON {
 	if len(extra) == 0 {
 		return nil
 	}
@@ -212,7 +211,7 @@ func encodeTicketExtra(extra map[string]interface{}) datatypes.JSON {
 	if err != nil {
 		return nil
 	}
-	return datatypes.JSON(bytes)
+	return model.JSON(bytes)
 }
 
 func addComment(author, content string, ticketID uint) *model.TicketComment {

@@ -55,7 +55,7 @@ func createTestFunction(t *testing.T, db *gorm.DB, functionID, name string) *mod
 		Version:     "1.0.0",
 		Enabled:     true,
 		Summary:     datatypes.JSONMap{"default": name},
-		InputSchema: datatypes.JSON([]byte(`{"type":"object"}`)),
+		InputSchema: model.JSON([]byte(`{"type":"object"}`)),
 	}
 	require.NoError(t, db.Create(fn).Error)
 	return fn
@@ -79,7 +79,7 @@ func seedTaskRun(t *testing.T, db *gorm.DB, taskID, functionID, status string) *
 		TaskID:       taskID,
 		FunctionID:   functionID,
 		Status:       status,
-		InputPayload: datatypes.JSON([]byte("{}")),
+		InputPayload: model.JSON([]byte("{}")),
 	}
 	require.NoError(t, db.Create(run).Error)
 	return run
@@ -416,7 +416,7 @@ func TestList_ReturnsActorAndAddr(t *testing.T) {
 		Actor:        "testuser",
 		Addr:         "192.168.1.200:9090",
 		TraceID:      "trace-789",
-		InputPayload: datatypes.JSON([]byte("{}")),
+		InputPayload: model.JSON([]byte("{}")),
 		StartedAt:    &startedAt,
 		FinishedAt:   &finishedAt,
 	}
@@ -446,7 +446,7 @@ func TestDetail_ReturnsActorAndAddr(t *testing.T) {
 		Actor:        "admin",
 		Addr:         "10.0.0.50:19090",
 		TraceID:      "trace-abc",
-		InputPayload: datatypes.JSON([]byte("{}")),
+		InputPayload: model.JSON([]byte("{}")),
 	}
 	require.NoError(t, svcCtx.DB.Create(run).Error)
 

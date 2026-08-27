@@ -7,10 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cuihairu/croupier/internal/dbenum"
-	"time"
-
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"time"
 )
 
 // MessageModel exposes CRUD helpers for messages.
@@ -128,14 +126,14 @@ func (m *MessageModel) Recent(ctx context.Context, limit int, to string) ([]Mess
 	return messages, nil
 }
 
-// EncodeData converts arbitrary payload into datatypes.JSON.
-func EncodeData(data interface{}) (datatypes.JSON, error) {
+// EncodeData converts arbitrary payload into JSON.
+func EncodeData(data interface{}) (JSON, error) {
 	if data == nil {
-		return datatypes.JSON([]byte("null")), nil
+		return JSON([]byte("null")), nil
 	}
 	bytes, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	return datatypes.JSON(bytes), nil
+	return JSON(bytes), nil
 }

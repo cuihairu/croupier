@@ -9,7 +9,6 @@ import (
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -305,6 +304,6 @@ func TestAppendPermissionIDsEdgeCases(t *testing.T) {
 	})
 }
 
-func mustEncodeJSON(s string) datatypes.JSON {
-	return datatypes.JSON([]byte(s))
+func mustEncodeJSON(s string) model.JSON {
+	return model.JSON([]byte(s))
 }

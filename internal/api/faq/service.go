@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"gorm.io/datatypes"
-
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
@@ -219,7 +217,7 @@ func slugify(explicit string) string {
 	return strings.TrimSpace(explicit)
 }
 
-func decodeTags(data datatypes.JSON) []string {
+func decodeTags(data model.JSON) []string {
 	if len(data) == 0 {
 		return nil
 	}
@@ -230,13 +228,13 @@ func decodeTags(data datatypes.JSON) []string {
 	return tags
 }
 
-func encodeTags(tags []string) datatypes.JSON {
+func encodeTags(tags []string) model.JSON {
 	if len(tags) == 0 {
-		return datatypes.JSON{}
+		return model.JSON{}
 	}
 	norm := normalizeTags(tags)
 	bytes, _ := json.Marshal(norm)
-	return datatypes.JSON(bytes)
+	return model.JSON(bytes)
 }
 
 func normalizeTags(tags []string) []string {

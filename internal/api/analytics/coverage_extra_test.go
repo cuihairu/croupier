@@ -626,7 +626,7 @@ func TestRetentionFiltersCohortsByWindowAndName(t *testing.T) {
 
 	inWindow := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
 	beforeWindow := inWindow.Add(-72 * time.Hour)
-	retentionJSON := datatypes.JSON(`[40,20]`)
+	retentionJSON := model.JSON(`[40,20]`)
 	for _, cohort := range []model.RetentionCohort{
 		{GameID: "g", Env: "prod", Cohort: "2026-08-10", Users: 50, Retention: retentionJSON, WindowStart: inWindow, WindowEnd: inWindow.Add(24 * time.Hour)},
 		{GameID: "g", Env: "prod", Cohort: "too-early", Users: 10, Retention: retentionJSON, WindowStart: beforeWindow, WindowEnd: beforeWindow.Add(24 * time.Hour)},
@@ -1030,8 +1030,8 @@ func TestAnalyticsHandlersReturnSuccessPayloads(t *testing.T) {
 	}
 }
 
-func datatypesJSON(raw string) datatypes.JSON {
-	return datatypes.JSON([]byte(raw))
+func datatypesJSON(raw string) model.JSON {
+	return model.JSON([]byte(raw))
 }
 
 func TestBreakdownByTimeFallbackAndSwapBranches(t *testing.T) {

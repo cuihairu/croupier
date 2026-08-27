@@ -14,7 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 )
 
 // ---------------------------------------------------------------------------
@@ -1576,7 +1575,7 @@ func TestDraftRevisionConflict(t *testing.T) {
 
 func TestPageSpecFromProposalSnapshotValid(t *testing.T) {
 	pageSpec := spec.PageSpec{PageKey: "test", Type: spec.PageTypeResource}
-	proposal := model.PageProposal{PageSpec: datatypes.JSON(mustMarshal(t, pageSpec))}
+	proposal := model.PageProposal{PageSpec: model.JSON(mustMarshal(t, pageSpec))}
 	raw := mustMarshal(t, proposal)
 	result, err := pageSpecFromProposalSnapshot(raw)
 	require.NoError(t, err)
@@ -1727,7 +1726,7 @@ func TestMarshalPageSpec(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestPageSpecFromProposalModelInvalidJSON(t *testing.T) {
-	proposal := &model.PageProposal{PageSpec: datatypes.JSON(`invalid`)}
+	proposal := &model.PageProposal{PageSpec: model.JSON(`invalid`)}
 	_, err := pageSpecFromProposalModel(proposal)
 	assert.Error(t, err)
 }

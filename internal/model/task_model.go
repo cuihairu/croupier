@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -149,17 +148,17 @@ func (m *TaskEventModel) NextSeq(ctx context.Context, taskID string) (int64, err
 	}
 }
 
-func EncodeTaskPayload(v interface{}) datatypes.JSON {
+func EncodeTaskPayload(v interface{}) JSON {
 	if v == nil {
-		return datatypes.JSON([]byte("null"))
+		return JSON([]byte("null"))
 	}
 	switch value := v.(type) {
 	case []byte:
-		return datatypes.JSON(value)
+		return JSON(value)
 	case string:
-		return datatypes.JSON([]byte(value))
+		return JSON([]byte(value))
 	default:
-		return datatypes.JSON(MustJSON(v))
+		return JSON(MustJSON(v))
 	}
 }
 

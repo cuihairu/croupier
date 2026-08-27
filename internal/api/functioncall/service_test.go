@@ -15,7 +15,6 @@ import (
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	taskapi "github.com/cuihairu/croupier/internal/api/task"
@@ -41,7 +40,7 @@ func seedTaskRun(t *testing.T, db *gorm.DB, taskID, functionID, status string) *
 		TaskID:       taskID,
 		FunctionID:   functionID,
 		Status:       status,
-		InputPayload: datatypes.JSON([]byte("{}")),
+		InputPayload: model.JSON([]byte("{}")),
 	}
 	require.NoError(t, db.Create(run).Error)
 	return run

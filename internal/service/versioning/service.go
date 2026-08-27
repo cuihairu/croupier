@@ -732,7 +732,7 @@ func (s *Service) upsertGeneratedProposal(ctx context.Context, gameID, env, prop
 		Title:            localizedTextToJSONMap(generated.Title),
 		Description:      localizedTextToJSONMap(generated.Description),
 		CategoryKey:      generated.Category.Key,
-		PageSpec:         datatypes.JSON(pageJSON),
+		PageSpec:         model.JSON(pageJSON),
 		Diagnostics:      jsonValue(generated.Diagnostics),
 		Status:           dbenum.ProposalStatusPending,
 		UpdatedBy:        actorFromContext(ctx),
@@ -2083,7 +2083,7 @@ func (s *Service) withTransaction(ctx context.Context, fn func(context.Context) 
 	})
 }
 
-func digestRaw(raw datatypes.JSON) string {
+func digestRaw(raw model.JSON) string {
 	if len(raw) == 0 {
 		return ""
 	}
@@ -2119,12 +2119,12 @@ func proposalKeyForPage(pageType spec.PageType, functionID string) string {
 	}
 }
 
-func jsonValue(v interface{}) datatypes.JSON {
+func jsonValue(v interface{}) model.JSON {
 	raw, err := json.Marshal(v)
 	if err != nil {
-		return datatypes.JSON([]byte("null"))
+		return model.JSON([]byte("null"))
 	}
-	return datatypes.JSON(raw)
+	return model.JSON(raw)
 }
 
 func computeDigest(v interface{}) string {

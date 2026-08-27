@@ -11,7 +11,6 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 )
 
 // --- ExportAllPages / ExportToJSON ---
@@ -206,7 +205,7 @@ func TestProposalService_Inbox(t *testing.T) {
 		GameID: "g1", Env: "dev", ProposalKey: "o:p2", PageKey: "pk2",
 		PageType: "operation", Quality: "basic", Status: dbenum.ProposalStatusPending,
 		PageSpec:    []byte(`{"pageKey":"pk2","type":"operation"}`),
-		Diagnostics: datatypes.JSON(`[{"code":"x","severity":"error","message":"err"}]`),
+		Diagnostics: model.JSON(`[{"code":"x","severity":"error","message":"err"}]`),
 	}))
 
 	// Create rejected proposal (should not appear in any queue)
@@ -424,7 +423,7 @@ func TestProposalService_AcceptAndPublishProposal_HasBlockingDiagnostics(t *test
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "pk1",
 		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusPending,
 		PageSpec:    []byte(`{"pageKey":"pk1","type":"resource"}`),
-		Diagnostics: datatypes.JSON(`[{"severity":"error","message":"err"}]`),
+		Diagnostics: model.JSON(`[{"severity":"error","message":"err"}]`),
 	}))
 
 	_, err := svc.AcceptAndPublishProposal(ctx, "g1", "dev", "r:p1")
@@ -455,7 +454,7 @@ func TestProposalService_AcceptProposal_HasBlockingDiagnostics(t *testing.T) {
 		GameID: "g1", Env: "dev", ProposalKey: "r:p1", PageKey: "resource--player",
 		PageType: "resource", Quality: "ready", Status: dbenum.ProposalStatusPending,
 		PageSpec:    pageJSON,
-		Diagnostics: datatypes.JSON(`[{"severity":"error","message":"blocking"}]`),
+		Diagnostics: model.JSON(`[{"severity":"error","message":"blocking"}]`),
 	}))
 
 	err = svc.AcceptProposal(ctx, "g1", "dev", "r:p1")
@@ -704,8 +703,8 @@ func TestDigestJSONV2(t *testing.T) {
 	t.Parallel()
 
 	assert.Empty(t, digestJSON(nil))
-	assert.Empty(t, digestJSON(datatypes.JSON{}))
-	assert.NotEmpty(t, digestJSON(datatypes.JSON(`{"key":"value"}`)))
+	assert.Empty(t, digestJSON(model.JSON{}))
+	assert.NotEmpty(t, digestJSON(model.JSON(`{"key":"value"}`)))
 }
 
 func TestParsePublishedSnapshotV2(t *testing.T) {

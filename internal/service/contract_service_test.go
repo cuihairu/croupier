@@ -11,7 +11,6 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -446,7 +445,7 @@ func TestContractService_RebuildProposalsForResourceKeepsUnsafeActionStandalone(
 
 	semantics, err := model.NewCapabilitySemanticsModel(db).FindByScopeAndResourceKey(ctx, "demo-game", "development", "player")
 	require.NoError(t, err)
-	semantics.Actions = datatypes.JSON(`[{"functionId":"player.ban","subject":"resource_item","identityInput":"/id"}]`)
+	semantics.Actions = model.JSON(`[{"functionId":"player.ban","subject":"resource_item","identityInput":"/id"}]`)
 	require.NoError(t, model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, semantics))
 	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "player"))
 

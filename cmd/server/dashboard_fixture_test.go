@@ -12,7 +12,6 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 )
 
 // TestRealDashboardFixtureHealth verifies the named real-dashboard fixture:
@@ -113,7 +112,7 @@ func TestRealDashboardFixtureHealth(t *testing.T) {
 		FunctionID:  "canary.fn",
 		Version:     "1.0.0",
 		Enabled:     true,
-		InputSchema: datatypes.JSON(`{"type":"object"}`),
+		InputSchema: model.JSON(`{"type":"object"}`),
 	}
 	require.NoError(t, db.Create(&canary).Error)
 

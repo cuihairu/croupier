@@ -46,7 +46,7 @@ func TestRebuildAllProposals_RegeneratesStaleGeneratorVersion(t *testing.T) {
 	require.NoError(t, err)
 	stale.GeneratorVersion = "page-generator:1"
 	stale.Title = gormDatatypes.JSONMap{"zh-CN": "Player", "en-US": "Player"}
-	stale.PageSpec = gormDatatypes.JSON(specJSON)
+	stale.PageSpec = model.JSON(specJSON)
 	require.NoError(t, proposalModel.UpsertProposal(ctx, stale))
 
 	resp, err := service.RebuildAllProposals(ctx)

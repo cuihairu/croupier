@@ -11,7 +11,6 @@ import (
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -29,7 +28,7 @@ func TestTaskEventQueryAdapterGetRunMapsTaskRunState(t *testing.T) {
 		Status:        "succeeded",
 		Progress:      100,
 		Message:       "task finished",
-		ResultPayload: datatypes.JSON([]byte(`{"ok":true}`)),
+		ResultPayload: model.JSON([]byte(`{"ok":true}`)),
 	})
 	require.NoError(t, err)
 
@@ -120,7 +119,7 @@ func TestDispatcherStreamTaskUsesPersistedRunState(t *testing.T) {
 		"status":         "succeeded",
 		"progress":       int32(100),
 		"message":        "complete",
-		"result_payload": datatypes.JSON([]byte(`{"answer":42}`)),
+		"result_payload": model.JSON([]byte(`{"answer":42}`)),
 	})
 	require.NoError(t, err)
 	err = events.Append(ctx, &model.TaskEvent{
@@ -129,7 +128,7 @@ func TestDispatcherStreamTaskUsesPersistedRunState(t *testing.T) {
 		Type:     "completed",
 		Progress: 100,
 		Message:  "complete",
-		Payload:  datatypes.JSON([]byte(`{"answer":42}`)),
+		Payload:  model.JSON([]byte(`{"answer":42}`)),
 	})
 	require.NoError(t, err)
 

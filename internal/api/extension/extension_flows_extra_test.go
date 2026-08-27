@@ -21,7 +21,6 @@ import (
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -159,7 +158,7 @@ func (e *extensionTestEnv) seedCatalog(t *testing.T, extID, version string, mani
 	release := model.ExtensionRelease{
 		ExtensionID:     extID,
 		Version:         version,
-		ManifestJSON:    datatypes.JSON(raw),
+		ManifestJSON:    model.JSON(raw),
 		PublishedAtUnix: 1700000000,
 	}
 	require.NoError(t, e.db.Create(&release).Error)
@@ -486,13 +485,13 @@ func TestExtensionFlow_CapabilitiesAndPages(t *testing.T) {
 		InstallationID: id,
 		BindingType:    "capability",
 		BindingKey:     "ticket.manage",
-		SpecJSON:       datatypes.JSON([]byte(`{"operations":["create","close"]}`)),
+		SpecJSON:       model.JSON([]byte(`{"operations":["create","close"]}`)),
 	}).Error)
 	require.NoError(t, env.db.Create(&model.ExtensionRuntimeBinding{
 		InstallationID: id,
 		BindingType:    "page",
 		BindingKey:     "binding/page",
-		SpecJSON:       datatypes.JSON([]byte(`{"title":"Binding Page","order":5}`)),
+		SpecJSON:       model.JSON([]byte(`{"title":"Binding Page","order":5}`)),
 	}).Error)
 
 	caps, err = env.service.Capabilities(env.ctx, id)
@@ -567,7 +566,7 @@ func (e *extensionTestEnv) seedCatalogReleaseRow(t *testing.T, extID, version st
 	require.NoError(t, e.db.Create(&model.ExtensionRelease{
 		ExtensionID:     extID,
 		Version:         version,
-		ManifestJSON:    datatypes.JSON(raw),
+		ManifestJSON:    model.JSON(raw),
 		PublishedAtUnix: 1700000001,
 	}).Error)
 }

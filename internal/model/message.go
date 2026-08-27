@@ -4,8 +4,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dbenum"
-
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -16,7 +14,7 @@ type Message struct {
 	Type    string               `gorm:"size:64;not null;index"`
 	Title   string               `gorm:"size:255"`
 	Content string               `gorm:"type:text"`
-	Data    datatypes.JSON       `gorm:"type:json"`
+	Data    JSON                 `gorm:"type:json"`
 	Status  dbenum.MessageStatus `gorm:"index:idx_messages_to_status,priority:2;index:idx_messages_status_created"`
 	ReadAt  *time.Time           `gorm:"index"`
 }

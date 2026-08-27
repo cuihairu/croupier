@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dbenum"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +16,7 @@ type Ticket struct {
 	Priority string              `gorm:"size:16;index"`
 	Status   dbenum.TicketStatus `gorm:"index:idx_ticket_status;index:idx_ticket_category_status"`
 	Assignee string              `gorm:"size:64;index"`
-	Tags     datatypes.JSON      `gorm:"type:json"`
+	Tags     JSON                `gorm:"type:json"`
 	PlayerID string              `gorm:"size:64;index"`
 	Contact  string              `gorm:"size:128"`
 	GameID   string              `gorm:"size:64;index:idx_ticket_game_env,priority:1"`
@@ -28,12 +27,12 @@ type Ticket struct {
 	// Player context attached at creation (game-support P1; see
 	// docs/research/game-support-systems.md). Structured columns cover the
 	// common GM triage dimensions; anything else goes into Extra.
-	ServerID    string         `gorm:"size:64;index"`
-	PlayerLevel int            `gorm:"default:0"`
-	DeviceOS    string         `gorm:"size:32"`
-	DeviceModel string         `gorm:"size:128"`
-	Language    string         `gorm:"size:16"`
-	Extra       datatypes.JSON `gorm:"type:json"`
+	ServerID    string `gorm:"size:64;index"`
+	PlayerLevel int    `gorm:"default:0"`
+	DeviceOS    string `gorm:"size:32"`
+	DeviceModel string `gorm:"size:128"`
+	Language    string `gorm:"size:16"`
+	Extra       JSON   `gorm:"type:json"`
 
 	// CSAT: satisfaction rating submitted when the ticket closes (1-5,
 	// 0 = unrated). game-support P2.

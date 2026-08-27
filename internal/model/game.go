@@ -2,10 +2,8 @@ package model
 
 import (
 	"encoding/json"
-	"strings"
-
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"strings"
 )
 
 // Game 游戏结构体
@@ -28,7 +26,7 @@ type Game struct {
 	Color       string `gorm:"size:32" json:"color"`
 	// Envs is kept for backward-compatible UI metadata. The authoritative
 	// per-env routing data (including database_name) lives in GameEnvBinding.
-	Envs datatypes.JSON `gorm:"type:json" json:"envs"`
+	Envs JSON `gorm:"type:json" json:"envs"`
 }
 
 // TableName 实现 GORM 的表名接口

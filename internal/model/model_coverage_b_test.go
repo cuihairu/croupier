@@ -10,7 +10,6 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -359,8 +358,8 @@ func TestBlockedProposalIssueModel_Upsert(t *testing.T) {
 
 	issue := &BlockedProposalIssue{
 		GameID: "demo", Env: "prod", ResourceKey: "player", FunctionID: "",
-		SourceDigests: datatypes.JSON(`["d1"]`),
-		Diagnostics:   datatypes.JSON(`[]`),
+		SourceDigests: JSON(`["d1"]`),
+		Diagnostics:   JSON(`[]`),
 		RepairHint:    map[string]interface{}{"zh-CN": "修复"},
 		Status:        "open", UpdatedBy: "system",
 	}
@@ -368,8 +367,8 @@ func TestBlockedProposalIssueModel_Upsert(t *testing.T) {
 
 	issue2 := &BlockedProposalIssue{
 		GameID: "demo", Env: "prod", ResourceKey: "player", FunctionID: "",
-		SourceDigests: datatypes.JSON(`["d2"]`),
-		Diagnostics:   datatypes.JSON(`[{"code":"x"}]`),
+		SourceDigests: JSON(`["d2"]`),
+		Diagnostics:   JSON(`[{"code":"x"}]`),
 		RepairHint:    map[string]interface{}{"en-US": "fix"},
 		Status:        "open", UpdatedBy: "system",
 	}
@@ -432,7 +431,7 @@ func TestCapabilitySemanticVersionModel_ListBySemanticsIDPaged(t *testing.T) {
 
 	for v := 1; v <= 3; v++ {
 		require.NoError(t, db.WithContext(ctx).Create(&CapabilitySemanticVersion{
-			SemanticsID: 7, Version: v, Semantics: datatypes.JSON(`{}`),
+			SemanticsID: 7, Version: v, Semantics: JSON(`{}`),
 			SourceDigest: "d", ChangeReason: "r", CreatedBy: "op",
 		}).Error)
 	}

@@ -10,7 +10,6 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -363,7 +362,7 @@ func TestCapabilitySemanticsModel_UpsertSemantics_RestoresHistoryAfterDelete(t *
 	require.NoError(t, semModel.UpsertSemantics(ctx, sem))
 	originalID := sem.ID
 	require.NoError(t, versionModel.CreateVersion(ctx, &CapabilitySemanticVersion{
-		SemanticsID: originalID, Version: sem.Version, Semantics: datatypes.JSON(`{}`),
+		SemanticsID: originalID, Version: sem.Version, Semantics: JSON(`{}`),
 	}))
 	require.NoError(t, semModel.DeleteByScopeAndResourceKey(ctx, "game1", "prod", "player"))
 
@@ -372,7 +371,7 @@ func TestCapabilitySemanticsModel_UpsertSemantics_RestoresHistoryAfterDelete(t *
 	assert.Equal(t, originalID, rebuilt.ID)
 	assert.Equal(t, 2, rebuilt.Version)
 	require.NoError(t, versionModel.CreateVersion(ctx, &CapabilitySemanticVersion{
-		SemanticsID: rebuilt.ID, Version: rebuilt.Version, Semantics: datatypes.JSON(`{}`),
+		SemanticsID: rebuilt.ID, Version: rebuilt.Version, Semantics: JSON(`{}`),
 	}))
 
 	versions, err := versionModel.ListBySemanticsID(ctx, rebuilt.ID)
@@ -405,7 +404,7 @@ func TestCapabilitySemanticVersionModel_CreateVersion(t *testing.T) {
 	ver := &CapabilitySemanticVersion{
 		SemanticsID: sem.ID,
 		Version:     1,
-		Semantics:   datatypes.JSON(`{"identityField":"player_id"}`),
+		Semantics:   JSON(`{"identityField":"player_id"}`),
 	}
 	err := m.CreateVersion(ctx, ver)
 	require.NoError(t, err)
@@ -425,10 +424,10 @@ func TestCapabilitySemanticVersionModel_ListBySemanticsID(t *testing.T) {
 	sem, _ := semModel.FindByScopeAndResourceKey(ctx, "game1", "prod", "player_vlist")
 
 	require.NoError(t, m.CreateVersion(ctx, &CapabilitySemanticVersion{
-		SemanticsID: sem.ID, Version: 1, Semantics: datatypes.JSON(`{}`),
+		SemanticsID: sem.ID, Version: 1, Semantics: JSON(`{}`),
 	}))
 	require.NoError(t, m.CreateVersion(ctx, &CapabilitySemanticVersion{
-		SemanticsID: sem.ID, Version: 2, Semantics: datatypes.JSON(`{}`),
+		SemanticsID: sem.ID, Version: 2, Semantics: JSON(`{}`),
 	}))
 
 	vers, err := m.ListBySemanticsID(ctx, sem.ID)

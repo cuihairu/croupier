@@ -9,14 +9,13 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 )
 
 func extraCollectionContract() *model.FunctionContract {
 	return &model.FunctionContract{
 		FunctionID: "player.list",
 		Capability: dbenum.CapabilityCollectionQuery,
-		InputSchema: datatypes.JSON(`{
+		InputSchema: model.JSON(`{
 			"type":"object",
 			"properties":{
 				"page":{"type":"integer"},
@@ -24,7 +23,7 @@ func extraCollectionContract() *model.FunctionContract {
 				"status":{"type":"string"}
 			}
 		}`),
-		OutputSchema: datatypes.JSON(`{
+		OutputSchema: model.JSON(`{
 			"type":"object",
 			"properties":{
 				"items":{"type":"array","items":{"type":"object","properties":{
@@ -67,7 +66,7 @@ func TestExtraResourceOutputAssignments(t *testing.T) {
 	assert.Equal(t, "/total", query[1].Source)
 
 	// Output without any array yields nothing for query usage.
-	bare := &model.FunctionContract{OutputSchema: datatypes.JSON(`{"type":"object","properties":{}}`)}
+	bare := &model.FunctionContract{OutputSchema: model.JSON(`{"type":"object","properties":{}}`)}
 	assert.Nil(t, resourceOutputAssignments(bare, spec.BindingUsageQuery, nil))
 }
 
@@ -138,27 +137,27 @@ func TestExtraBuildListViewFromContract(t *testing.T) {
 func TestExtraBuildInlineResourceActionSelector(t *testing.T) {
 	singleField := &model.FunctionContract{
 		FunctionID: "player.ban",
-		InputSchema: datatypes.JSON(`{
+		InputSchema: model.JSON(`{
 			"type":"object","required":["player_id"],
 			"properties":{"player_id":{"type":"string"}}
 		}`),
 	}
 	identityPlus := &model.FunctionContract{
 		FunctionID: "player.warn",
-		InputSchema: datatypes.JSON(`{
+		InputSchema: model.JSON(`{
 			"type":"object","required":["player_id","reason"],
 			"properties":{"player_id":{"type":"string"},"reason":{"type":"string"}}
 		}`)}
 	arrayInput := &model.FunctionContract{
 		FunctionID: "player.bulkBan",
-		InputSchema: datatypes.JSON(`{
+		InputSchema: model.JSON(`{
 			"type":"object","required":["ids"],
 			"properties":{"ids":{"type":"array"}}
 		}`)}
 	noRequired := &model.FunctionContract{
 		FunctionID:   "player.refresh",
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{}}`),
-		OutputSchema: datatypes.JSON(`{"type":"object"}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{}}`),
+		OutputSchema: model.JSON(`{"type":"object"}`),
 	}
 	semantics := &model.CapabilitySemantics{IdentityField: "player_id"}
 
@@ -215,7 +214,7 @@ func TestExtraBuildInlineResourceActionSelector(t *testing.T) {
 func TestExtraBuildInlineResourceActions(t *testing.T) {
 	semantics := &model.CapabilitySemantics{
 		IdentityField: "player_id",
-		Actions: datatypes.JSON(`[
+		Actions: model.JSON(`[
 			{"functionId":"player.ban","subject":"resource_item","identityInput":"/player_id"},
 			{"functionId":"player.missing","subject":"none"},
 			{"functionId":"player.warn","subject":"resource_item","identityInput":"/player_id"},
@@ -227,7 +226,7 @@ func TestExtraBuildInlineResourceActions(t *testing.T) {
 		{
 			FunctionID: "player.ban",
 			Risk:       dbenum.RiskHigh,
-			InputSchema: datatypes.JSON(`{
+			InputSchema: model.JSON(`{
 				"type":"object","required":["player_id"],
 				"properties":{"player_id":{"type":"string"}}
 			}`),
@@ -235,22 +234,22 @@ func TestExtraBuildInlineResourceActions(t *testing.T) {
 		{
 			FunctionID: "player.warn",
 			Summary:    map[string]interface{}{"zh-CN": "警告玩家"},
-			InputSchema: datatypes.JSON(`{
+			InputSchema: model.JSON(`{
 				"type":"object","required":["player_id","reason"],
 				"properties":{"player_id":{"type":"string"},"reason":{"type":"string"}}
 			}`),
 		},
 		{
 			FunctionID: "player.bulkBan",
-			InputSchema: datatypes.JSON(`{
+			InputSchema: model.JSON(`{
 				"type":"object","required":["ids"],
 				"properties":{"ids":{"type":"array"}}
 			}`),
 		},
 		{
 			FunctionID:   "player.refresh",
-			InputSchema:  datatypes.JSON(`{"type":"object","properties":{}}`),
-			OutputSchema: datatypes.JSON(`{"type":"object","properties":{"ok":{"type":"boolean"}}}`),
+			InputSchema:  model.JSON(`{"type":"object","properties":{}}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"ok":{"type":"boolean"}}}`),
 		},
 	}
 

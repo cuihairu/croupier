@@ -45,7 +45,7 @@ type Bug struct {
 	PlayerID       string `gorm:"size:64;index"`
 
 	// External links (GitHub issue/PR, wiki, monitor dashboards...)
-	Links datatypes.JSON `gorm:"type:json"`
+	Links JSON `gorm:"type:json"`
 
 	// CrashFingerprint is the aggregation key for auto-filed crash bugs
 	// (bug-tracking P2): same normalized stack → same bug with a counter.

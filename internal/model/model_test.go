@@ -3065,7 +3065,7 @@ func TestEncodeData(t *testing.T) {
 	// Test encoding nil
 	data, err := EncodeData(nil)
 	require.NoError(t, err)
-	assert.Equal(t, datatypes.JSON([]byte("null")), data)
+	assert.Equal(t, JSON([]byte("null")), data)
 
 	// Test encoding map
 	input := map[string]interface{}{"key": "value", "number": 123}
@@ -3879,8 +3879,8 @@ func TestProfileModel_ReplacePermissions(t *testing.T) {
 	ctx := context.Background()
 
 	perms := []ProfilePermission{
-		{Resource: "resource1", GameID: "game1", Env: "prod", Actions: datatypes.JSON([]byte(`["read","write"]`))},
-		{Resource: "resource2", GameID: "game1", Env: "prod", Actions: datatypes.JSON([]byte(`["read"]`))},
+		{Resource: "resource1", GameID: "game1", Env: "prod", Actions: JSON([]byte(`["read","write"]`))},
+		{Resource: "resource2", GameID: "game1", Env: "prod", Actions: JSON([]byte(`["read"]`))},
 	}
 
 	err := model.ReplacePermissions(ctx, 1, perms)
@@ -3893,7 +3893,7 @@ func TestProfileModel_ReplacePermissions(t *testing.T) {
 
 	// Replace with different set
 	newPerms := []ProfilePermission{
-		{Resource: "resource3", GameID: "game2", Env: "test", Actions: datatypes.JSON([]byte(`["admin"]`))},
+		{Resource: "resource3", GameID: "game2", Env: "test", Actions: JSON([]byte(`["admin"]`))},
 	}
 	err = model.ReplacePermissions(ctx, 1, newPerms)
 	require.NoError(t, err)
@@ -3910,8 +3910,8 @@ func TestProfileModel_ListPermissions(t *testing.T) {
 	ctx := context.Background()
 
 	perms := []ProfilePermission{
-		{Resource: "res1", GameID: "game1", Actions: datatypes.JSON([]byte(`["read"]`))},
-		{Resource: "res2", GameID: "game1", Actions: datatypes.JSON([]byte(`["write"]`))},
+		{Resource: "res1", GameID: "game1", Actions: JSON([]byte(`["read"]`))},
+		{Resource: "res2", GameID: "game1", Actions: JSON([]byte(`["write"]`))},
 	}
 	err := model.ReplacePermissions(ctx, 1, perms)
 	require.NoError(t, err)
@@ -3933,8 +3933,8 @@ func TestProfileModel_ReplaceGames(t *testing.T) {
 	ctx := context.Background()
 
 	games := []ProfileGame{
-		{GameID: "game1", GameName: "Game 1", Color: "red", Envs: datatypes.JSON([]byte(`["prod","test"]`))},
-		{GameID: "game2", GameName: "Game 2", Color: "blue", Envs: datatypes.JSON([]byte(`["dev"]`))},
+		{GameID: "game1", GameName: "Game 1", Color: "red", Envs: JSON([]byte(`["prod","test"]`))},
+		{GameID: "game2", GameName: "Game 2", Color: "blue", Envs: JSON([]byte(`["dev"]`))},
 	}
 
 	err := model.ReplaceGames(ctx, 1, games)
@@ -5130,8 +5130,8 @@ func TestAgentSessionModel_DeleteExpired(t *testing.T) {
 }
 
 func TestToDomainSession(t *testing.T) {
-	labelsJSON := datatypes.JSON([]byte(`{"rack":"r1","zone":"z1"}`))
-	providersJSON := datatypes.JSON([]byte(`[{"ProviderID":"provider1","GameID":"game001","Env":"prod","Addr":"192.168.1.10:8080"},{"ProviderID":"provider2","GameID":"game001","Env":"prod","Addr":"192.168.1.11:8080"}]`))
+	labelsJSON := JSON([]byte(`{"rack":"r1","zone":"z1"}`))
+	providersJSON := JSON([]byte(`[{"ProviderID":"provider1","GameID":"game001","Env":"prod","Addr":"192.168.1.10:8080"},{"ProviderID":"provider2","GameID":"game001","Env":"prod","Addr":"192.168.1.11:8080"}]`))
 
 	dbSess := &AgentSessionDB{
 		ID:        1,
@@ -5162,7 +5162,7 @@ func TestToDomainSession(t *testing.T) {
 	}
 
 	// Test invalid JSON
-	dbSess.Labels = datatypes.JSON([]byte(`invalid json`))
+	dbSess.Labels = JSON([]byte(`invalid json`))
 	_, err = toDomainSession(dbSess)
 	assert.Error(t, err)
 }
@@ -5892,7 +5892,7 @@ func TestPageProposalVersionModel(t *testing.T) {
 	ver := &PageProposalVersion{
 		ProposalID: proposal.ID,
 		Version:    1,
-		Proposal:   datatypes.JSON(`{"type":"resource"}`),
+		Proposal:   JSON(`{"type":"resource"}`),
 	}
 	err = versionModel.CreateVersion(ctx, ver)
 	require.NoError(t, err)

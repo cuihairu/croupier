@@ -12,7 +12,6 @@ import (
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -242,7 +241,7 @@ func localizedFromJSONMap(values map[string]interface{}, fallback string) spec.L
 	return out
 }
 
-func parseTagsFromJSON(raw datatypes.JSON) []string {
+func parseTagsFromJSON(raw model.JSON) []string {
 	if len(raw) == 0 {
 		return nil
 	}

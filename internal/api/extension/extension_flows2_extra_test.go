@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 )
 
 // ---------------------------------------------------------------------------
@@ -22,12 +21,12 @@ import (
 func TestExtractCapabilityDetails_EdgeBindings(t *testing.T) {
 	bindings := []model.ExtensionRuntimeBinding{
 		// capability binding merging into an existing detail
-		{BindingType: "capability", BindingKey: "pay", SpecJSON: datatypes.JSON([]byte(`{"operations":["charge","refund","charge"],"permissions":{"charge":"pay:charge"},"config_keys":["endpoint"]}`))},
-		{BindingType: "capability", BindingKey: "pay", SpecJSON: datatypes.JSON([]byte(`{"operations":[" void ","charge"],"permissions":{"":"x","p":"q"},"config_keys":["  "]}`))},
+		{BindingType: "capability", BindingKey: "pay", SpecJSON: model.JSON([]byte(`{"operations":["charge","refund","charge"],"permissions":{"charge":"pay:charge"},"config_keys":["endpoint"]}`))},
+		{BindingType: "capability", BindingKey: "pay", SpecJSON: model.JSON([]byte(`{"operations":[" void ","charge"],"permissions":{"":"x","p":"q"},"config_keys":["  "]}`))},
 		// provider/openapi binding without a parseable provider
-		{BindingType: "openapi", BindingKey: "", SpecJSON: datatypes.JSON([]byte(`{}`))},
+		{BindingType: "openapi", BindingKey: "", SpecJSON: model.JSON([]byte(`{}`))},
 		// provider binding with a real provider name
-		{BindingType: "provider", BindingKey: "stripe", SpecJSON: datatypes.JSON([]byte(`{"operations":["charge"]}`))},
+		{BindingType: "provider", BindingKey: "stripe", SpecJSON: model.JSON([]byte(`{"operations":["charge"]}`))},
 		// function binding with external function id
 		{BindingType: "function", BindingKey: "external.stripe.charge"},
 		// function binding that is not an external id
@@ -66,11 +65,11 @@ func TestExtractCapabilityDetails_EdgeBindings(t *testing.T) {
 
 func TestExtractPageDetails_EdgeBindings(t *testing.T) {
 	bindings := []model.ExtensionRuntimeBinding{
-		{BindingType: "page", BindingKey: "a.b", SpecJSON: datatypes.JSON(`{"title":"A","order":2,"icon":"i","group":"g","required_permission":"p:read","extra":true}`)},
-		{BindingType: "ui", SpecJSON: datatypes.JSON(`{"id":"from-spec","order":"not-number"}`)},
+		{BindingType: "page", BindingKey: "a.b", SpecJSON: model.JSON(`{"title":"A","order":2,"icon":"i","group":"g","required_permission":"p:read","extra":true}`)},
+		{BindingType: "ui", SpecJSON: model.JSON(`{"id":"from-spec","order":"not-number"}`)},
 		{BindingType: "navigation", BindingKey: "a.b"}, // duplicate key skipped
 		{BindingType: "other", BindingKey: "ignored"},
-		{BindingType: "page", SpecJSON: datatypes.JSON(`{}`)}, // no key -> skipped
+		{BindingType: "page", SpecJSON: model.JSON(`{}`)}, // no key -> skipped
 	}
 
 	items := extractPageDetailsFromBindings(bindings)

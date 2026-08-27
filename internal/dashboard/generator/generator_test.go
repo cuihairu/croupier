@@ -782,8 +782,8 @@ func TestContractToFunctionSpec(t *testing.T) {
 			Version:      "1.0.0",
 			Enabled:      true,
 			Deprecated:   false,
-			InputSchema:  datatypes.JSON(`{"type":"object"}`),
-			OutputSchema: datatypes.JSON(`{"type":"object"}`),
+			InputSchema:  model.JSON(`{"type":"object"}`),
+			OutputSchema: model.JSON(`{"type":"object"}`),
 			Summary:      datatypes.JSONMap{"zh-CN": "封禁玩家"},
 			Description:  datatypes.JSONMap{"zh-CN": "封禁指定玩家"},
 			ResourceKey:  "player",
@@ -1202,7 +1202,7 @@ func TestResourcePageProposalUsesResourceTerm(t *testing.T) {
 		ResourceKey:  "inventory",
 		Capability:   dbenum.CapabilityCollectionQuery,
 		Enabled:      true,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id"]}},"total":{"type":"integer"}},"required":["items","total"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id"]}},"total":{"type":"integer"}},"required":["items","total"]}`),
 	}
 	semantics := &model.CapabilitySemantics{
 		ResourceKey:       "inventory",

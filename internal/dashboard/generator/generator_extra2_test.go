@@ -9,7 +9,6 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -304,7 +303,7 @@ func TestExtraAssessResourceSemantics(t *testing.T) {
 	diags = assessResourceSemantics(&model.CapabilitySemantics{
 		IdentityField:     "id",
 		CollectionQueryID: 3,
-		Conflicts:         datatypes.JSON(`[{`),
+		Conflicts:         model.JSON(`[{`),
 	})
 	require.Len(t, diags, 1)
 	assert.Equal(t, "semantic_conflicts_invalid", diags[0].Code)
@@ -312,7 +311,7 @@ func TestExtraAssessResourceSemantics(t *testing.T) {
 	diags = assessResourceSemantics(&model.CapabilitySemantics{
 		IdentityField:     "id",
 		CollectionQueryID: 3,
-		Conflicts:         datatypes.JSON(`[{"field":"risk","resolution":""}]`),
+		Conflicts:         model.JSON(`[{"field":"risk","resolution":""}]`),
 	})
 	require.Len(t, diags, 1)
 	assert.Equal(t, "semantic_conflict_unresolved", diags[0].Code)
@@ -361,11 +360,11 @@ func TestExtraParseResourceActionSemantics(t *testing.T) {
 	assert.Nil(t, parseResourceActionSemantics(nil))
 	assert.Nil(t, parseResourceActionSemantics(&model.CapabilitySemantics{}))
 	assert.Nil(t, parseResourceActionSemantics(&model.CapabilitySemantics{
-		Actions: datatypes.JSON(`{broken`),
+		Actions: model.JSON(`{broken`),
 	}))
 
 	actions := parseResourceActionSemantics(&model.CapabilitySemantics{
-		Actions: datatypes.JSON(`[
+		Actions: model.JSON(`[
 			{"functionId":" a.fn ","subject":" resource_item ","identityInput":" /id "},
 			{"functionId":"","subject":"none"},
 			{"functionId":"b.fn","subject":""},

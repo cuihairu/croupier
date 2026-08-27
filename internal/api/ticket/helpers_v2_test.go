@@ -522,7 +522,7 @@ func TestService_Create_WithTags(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// Verify the ticket was created successfully; tags round-trip through
-	// datatypes.JSON/SQLite may not preserve the exact slice type.
+	// model.JSON/SQLite may not preserve the exact slice type.
 	assert.NotZero(t, resp.Ticket.Id)
 }
 

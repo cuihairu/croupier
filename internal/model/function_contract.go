@@ -27,14 +27,14 @@ type FunctionContract struct {
 	Approval     datatypes.JSONMap `gorm:"type:json"` // ApprovalPolicy
 	Risk         dbenum.Risk       // safe|warning|high|danger (int-backed)
 	Permission   string            `gorm:"size:128"`
-	InputSchema  datatypes.JSON    `gorm:"type:json"`
-	OutputSchema datatypes.JSON    `gorm:"type:json"`
+	InputSchema  JSON              `gorm:"type:json"`
+	OutputSchema JSON              `gorm:"type:json"`
 	Summary      datatypes.JSONMap `gorm:"type:json"` // LocalizedText map
 	Description  datatypes.JSONMap `gorm:"type:json"` // LocalizedText map
-	Tags         datatypes.JSON    `gorm:"type:json"` // string array
+	Tags         JSON              `gorm:"type:json"` // string array
 	Source       string            `gorm:"size:32"`   // sdk|openapi|catalog
 	SourceDigest string            `gorm:"size:64"`   // SHA256 of source descriptor
-	Diagnostics  datatypes.JSON    `gorm:"type:json"` // Diagnostic array
+	Diagnostics  JSON              `gorm:"type:json"` // Diagnostic array
 	UpdatedAt    time.Time
 	UpdatedBy    string `gorm:"size:64"` // user or system
 }
@@ -49,7 +49,7 @@ type ResourceCapability struct {
 	Labels      datatypes.JSONMap `gorm:"type:json"` // LocalizedText map
 	Description datatypes.JSONMap `gorm:"type:json"` // LocalizedText map
 	CategoryKey string            `gorm:"size:64;index"`
-	Tags        datatypes.JSON    `gorm:"type:json"` // string array
+	Tags        JSON              `gorm:"type:json"` // string array
 	SemanticsID uint              `gorm:"index"`     // FK to CapabilitySemantics
 	UpdatedAt   time.Time
 	UpdatedBy   string `gorm:"size:64"`
@@ -88,25 +88,25 @@ type CapabilitySemantics struct {
 	DeleteID uint `gorm:"index"` // FK to FunctionContract for delete
 
 	// Action semantics
-	Actions datatypes.JSON `gorm:"type:json"` // ActionSemantic array
+	Actions JSON `gorm:"type:json"` // ActionSemantic array
 
 	// Task semantics
-	Tasks datatypes.JSON `gorm:"type:json"` // TaskSemantic array
+	Tasks JSON `gorm:"type:json"` // TaskSemantic array
 
 	// Report semantics
-	Reports datatypes.JSON `gorm:"type:json"` // ReportSemantic array
+	Reports JSON `gorm:"type:json"` // ReportSemantic array
 
 	// Source and diagnostics
-	Source       string         `gorm:"size:32"`   // openapi_rest|sdk_explicit|platform_review
-	SourceDigest string         `gorm:"size:64"`   // SHA256 of source
-	Diagnostics  datatypes.JSON `gorm:"type:json"` // Diagnostic array
+	Source       string `gorm:"size:32"`   // openapi_rest|sdk_explicit|platform_review
+	SourceDigest string `gorm:"size:64"`   // SHA256 of source
+	Diagnostics  JSON   `gorm:"type:json"` // Diagnostic array
 
 	// Field-level provenance tracking
 	// Each semantic field can have its own provenance record
-	Provenance datatypes.JSON `gorm:"type:json"` // map[string]SemanticProvenance
+	Provenance JSON `gorm:"type:json"` // map[string]SemanticProvenance
 
 	// Unresolved conflicts
-	Conflicts datatypes.JSON `gorm:"type:json"` // []SemanticConflict
+	Conflicts JSON `gorm:"type:json"` // []SemanticConflict
 
 	UpdatedAt time.Time
 	UpdatedBy string `gorm:"size:64"`
@@ -118,8 +118,8 @@ type CapabilitySemanticVersion struct {
 	gorm.Model
 	SemanticsID  uint `gorm:"index"`
 	Version      int
-	Semantics    datatypes.JSON `gorm:"type:json"` // Snapshot of CapabilitySemantics
-	SourceDigest string         `gorm:"size:64"`
-	ChangeReason string         `gorm:"size:256"`
-	CreatedBy    string         `gorm:"size:64"`
+	Semantics    JSON   `gorm:"type:json"` // Snapshot of CapabilitySemantics
+	SourceDigest string `gorm:"size:64"`
+	ChangeReason string `gorm:"size:256"`
+	CreatedBy    string `gorm:"size:64"`
 }

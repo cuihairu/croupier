@@ -29,7 +29,7 @@ const PageProposalGeneratorVersion = "page-generator:2"
 // normalizeSchemaToJSON ensures schema is stored as a native JSON object,
 // not as a JSON string value. This prevents the API from returning schemas
 // as strings instead of objects.
-func normalizeSchemaToJSON(raw json.RawMessage) datatypes.JSON {
+func normalizeSchemaToJSON(raw json.RawMessage) model.JSON {
 	if len(raw) == 0 {
 		return nil
 	}
@@ -37,10 +37,10 @@ func normalizeSchemaToJSON(raw json.RawMessage) datatypes.JSON {
 	if raw[0] == '"' {
 		var s string
 		if err := json.Unmarshal(raw, &s); err == nil {
-			return datatypes.JSON(s)
+			return model.JSON(s)
 		}
 	}
-	return datatypes.JSON(raw)
+	return model.JSON(raw)
 }
 
 // ContractService manages FunctionContract persistence and semantic rebuilding.
@@ -679,9 +679,9 @@ func computeDigest(v interface{}) string {
 	return fmt.Sprintf("%x", h[:])
 }
 
-func toJSON(v interface{}) datatypes.JSON {
+func toJSON(v interface{}) model.JSON {
 	b, _ := json.Marshal(v)
-	return datatypes.JSON(b)
+	return model.JSON(b)
 }
 
 func toJSONMap(m spec.LocalizedText) datatypes.JSONMap {
@@ -1111,7 +1111,7 @@ func (s *ContractService) upsertGeneratedProposal(
 		Title:            toJSONMap(generated.Title),
 		Description:      toJSONMap(generated.Description),
 		CategoryKey:      generated.Category.Key,
-		PageSpec:         datatypes.JSON(pageJSON),
+		PageSpec:         model.JSON(pageJSON),
 		Diagnostics:      toJSON(generated.Diagnostics),
 		Status:           dbenum.ProposalStatusPending,
 		UpdatedBy:        "system",
@@ -1162,8 +1162,8 @@ func proposalComparableDigest(proposal *model.PageProposal) string {
 		Title            datatypes.JSONMap
 		Description      datatypes.JSONMap
 		CategoryKey      string
-		PageSpec         datatypes.JSON
-		Diagnostics      datatypes.JSON
+		PageSpec         model.JSON
+		Diagnostics      model.JSON
 	}{
 		ProposalKey:      proposal.ProposalKey,
 		PageKey:          proposal.PageKey,

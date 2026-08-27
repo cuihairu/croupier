@@ -148,7 +148,7 @@ func TestBuildBindingContracts_Branches(t *testing.T) {
 
 	require.NoError(t, db.Create(&model.FunctionContract{
 		GameID: "demo-game", Env: "development", FunctionID: "fn.ok", Enabled: true, Version: "1.0.0",
-		InputSchema: datatypes.JSON(`{"type":"object"}`),
+		InputSchema: model.JSON(`{"type":"object"}`),
 	}).Error)
 	require.NoError(t, db.Create(&model.FunctionContract{
 		GameID: "demo-game", Env: "development", FunctionID: "fn.off", Enabled: false, Version: "1.0.0",
@@ -214,7 +214,7 @@ func TestPreserveReviewedCapability_AndIdentityDiagnostics(t *testing.T) {
 		Labels:      datatypes.JSONMap{"zh-CN": "玩家"},
 		Description: datatypes.JSONMap{"zh-CN": "管理玩家"},
 		CategoryKey: "players",
-		Tags:        datatypes.JSON(`["ops"]`),
+		Tags:        model.JSON(`["ops"]`),
 		UpdatedBy:   "reviewer",
 	}
 	preserveReviewedCapability(next, existing)

@@ -9,7 +9,6 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -99,7 +98,7 @@ func TestErrorPaths_GameModel(t *testing.T) {
 	assert.Error(t, err)
 	_, err = m.BackfillEnvBindings(ctx, func(string, string) string { return "db" })
 	assert.Error(t, err)
-	assert.Error(t, m.UpdateEnvsAndBindings(ctx, "demo", 1, datatypes.JSON(`[]`), nil, nil))
+	assert.Error(t, m.UpdateEnvsAndBindings(ctx, "demo", 1, JSON(`[]`), nil, nil))
 	assert.Error(t, m.DeleteWithEnvBindings(ctx, 1, "demo"))
 	_, err = m.ListEnvBindings(ctx, "demo")
 	assert.Error(t, err)

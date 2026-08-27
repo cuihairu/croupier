@@ -18,7 +18,6 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	"gorm.io/datatypes"
 )
 
 type Service struct {
@@ -75,7 +74,7 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	}
 	if len(req.Targets) > 0 {
 		bytes, _ := json.Marshal(req.Targets)
-		hp.TargetSelector = datatypes.JSON(bytes)
+		hp.TargetSelector = model.JSON(bytes)
 	}
 	if len(req.EntrySpec) > 0 {
 		hp.EntrySpec = req.EntrySpec

@@ -12,7 +12,6 @@ import (
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
-	"gorm.io/datatypes"
 )
 
 // ConvertToTicket moves one feedback entry into a support ticket, carrying
@@ -98,7 +97,7 @@ func buildConvertedContent(fb *model.Feedback, note string) string {
 }
 
 // convertExtra copies structured context the ticket UI understands.
-func convertExtra(fb *model.Feedback) datatypes.JSON {
+func convertExtra(fb *model.Feedback) model.JSON {
 	extra := map[string]interface{}{}
 	if fb.PlayerID != "" {
 		extra["playerId"] = fb.PlayerID

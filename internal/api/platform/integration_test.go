@@ -13,7 +13,6 @@ import (
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -62,7 +61,7 @@ func TestDiscoverExternalPlatforms_WithInstallationDB(t *testing.T) {
 		{
 			BindingType: "provider",
 			BindingKey:  "steam",
-			SpecJSON:    datatypes.JSON([]byte(`{"provider":"steam","operations":["get_player","ban_player"]}`)),
+			SpecJSON:    model.JSON([]byte(`{"provider":"steam","operations":["get_player","ban_player"]}`)),
 			Status:      "active",
 		},
 		{
@@ -165,7 +164,7 @@ func TestDiscoverExternalPlatforms_SkipsUninstalledWithDB(t *testing.T) {
 		{
 			BindingType: "provider",
 			BindingKey:  "test",
-			SpecJSON:    datatypes.JSON([]byte(`{"provider":"test","operations":["method1"]}`)),
+			SpecJSON:    model.JSON([]byte(`{"provider":"test","operations":["method1"]}`)),
 			Status:      "active",
 		},
 	}

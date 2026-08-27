@@ -11,7 +11,6 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -1350,7 +1349,7 @@ func TestUpdateSemanticsWithTasksV2(t *testing.T) {
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
 		Execution: "sync", Risk: dbenum.RiskSafe,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	require.NoError(t, err)
 
@@ -1383,13 +1382,13 @@ func TestValidateTaskSemanticsInvalidTaskIDResultPathV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 
 	// Invalid taskId.resultPath (not a JSON Pointer)
@@ -1425,7 +1424,7 @@ func TestValidateTaskSemanticsInvalidValueTypeV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 
 	// Invalid valueType
@@ -1461,7 +1460,7 @@ func TestValidateTaskSemanticsResultPathNotFoundV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 
 	// resultPath not found in output schema
@@ -1497,13 +1496,13 @@ func TestValidateTaskSemanticsInvalidStatePathV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 
 	// Invalid statePath (not a JSON Pointer)
@@ -1539,13 +1538,13 @@ func TestValidateTaskSemanticsStatePathNotFoundV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 
 	// statePath not found in status output schema
@@ -1581,19 +1580,19 @@ func TestValidateTaskSemanticsWithEventsV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskEvents",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"events":{"type":"array"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"events":{"type":"array"}}}`),
 	})
 
 	// With events - invalid eventsPath
@@ -1634,19 +1633,19 @@ func TestValidateTaskSemanticsWithResultV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskResult",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"result":{"type":"object"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"result":{"type":"object"}}}`),
 	})
 
 	// With result - invalid resultPath
@@ -1687,19 +1686,19 @@ func TestValidateTaskSemanticsWithCancelV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.cancelTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object"}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object"}`),
 	})
 
 	// With cancel
@@ -1739,13 +1738,13 @@ func TestValidateTaskSemanticsRetryNotAllowedV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.taskStatus",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}},"required":["taskId"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"state":{"type":"string"}}}`),
 	})
 
 	// Retry is not allowed
@@ -1793,7 +1792,7 @@ func TestUpdateSemanticsWithReportsV2(t *testing.T) {
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
 		Execution: "sync", Risk: dbenum.RiskSafe,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"count":{"type":"integer"}}}}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"count":{"type":"integer"}}}}}}`),
 	})
 	require.NoError(t, err)
 
@@ -1826,7 +1825,7 @@ func TestValidateReportSemanticsInvalidDatasetPathV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
 	// Invalid datasetPath (not a JSON Pointer)
@@ -1854,7 +1853,7 @@ func TestValidateReportSemanticsDatasetPathNotArrayV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"name":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"name":{"type":"string"}}}`),
 	})
 
 	// datasetPath points to non-array field
@@ -1882,7 +1881,7 @@ func TestValidateReportSemanticsNoDimensionsV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
 	// No dimensions
@@ -1910,7 +1909,7 @@ func TestValidateReportSemanticsNoMetricsV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
 	// No metrics
@@ -1938,7 +1937,7 @@ func TestValidateReportSemanticsDimensionPointerNotFoundV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
 	// Dimension pointer not found in dataset item schema
@@ -1966,7 +1965,7 @@ func TestValidateReportSemanticsMetricPointerNotFoundV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"}}}}}}`),
 	})
 
 	// Metric pointer not found in dataset item schema
@@ -1994,7 +1993,7 @@ func TestValidateReportSemanticsSuccessV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.report",
 		Enabled: true, ResourceKey: "player", Capability: dbenum.CapabilityReport,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"count":{"type":"integer"}}}}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"count":{"type":"integer"}}}}}}`),
 	})
 
 	// Success case
@@ -2073,7 +2072,7 @@ func TestValidateSemanticFunctionRefDisabledFunctionV2(t *testing.T) {
 	_ = contractModel.UpsertContract(ctx, &model.FunctionContract{
 		GameID: "g1", Env: "e1", FunctionID: "player.startTask",
 		Enabled: false, ResourceKey: "player", Capability: dbenum.CapabilityTask,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"taskId":{"type":"string"}}}`),
 	})
 
 	// Function is disabled - use task semantic to trigger validateSemanticFunctionRef

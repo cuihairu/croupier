@@ -17,7 +17,6 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
-	"gorm.io/datatypes"
 )
 
 // TestValidateFunctionID tests function ID validation
@@ -144,8 +143,8 @@ func TestBuildFunctionPermissions(t *testing.T) {
 	perms := []model.FunctionPermission{
 		{
 			Resource: "prom.query",
-			Actions:  datatypes.JSON([]byte(`["read", "execute"]`)),
-			Roles:    datatypes.JSON([]byte(`["admin", "user"]`)),
+			Actions:  model.JSON([]byte(`["read", "execute"]`)),
+			Roles:    model.JSON([]byte(`["admin", "user"]`)),
 		},
 	}
 
@@ -252,32 +251,32 @@ func TestConvertFunctionPermissions_WhitespaceResource(t *testing.T) {
 func TestDecodeStringSlice(t *testing.T) {
 	tests := []struct {
 		name string
-		data datatypes.JSON
+		data model.JSON
 		want []string
 	}{
 		{
 			name: "valid JSON array",
-			data: datatypes.JSON([]byte(`["read", "write", "execute"]`)),
+			data: model.JSON([]byte(`["read", "write", "execute"]`)),
 			want: []string{"read", "write", "execute"},
 		},
 		{
 			name: "empty JSON array",
-			data: datatypes.JSON([]byte(`[]`)),
+			data: model.JSON([]byte(`[]`)),
 			want: []string{},
 		},
 		{
 			name: "nil data",
-			data: datatypes.JSON(nil),
+			data: model.JSON(nil),
 			want: nil,
 		},
 		{
 			name: "empty data",
-			data: datatypes.JSON([]byte{}),
+			data: model.JSON([]byte{}),
 			want: nil,
 		},
 		{
 			name: "invalid JSON",
-			data: datatypes.JSON([]byte(`not valid json`)),
+			data: model.JSON([]byte(`not valid json`)),
 			want: nil,
 		},
 	}

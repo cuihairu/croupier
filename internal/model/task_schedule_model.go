@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"strings"
 	"time"
-
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 // TaskScheduleModel 提供 cron 调度定义的 CRUD 与到期扫描。
@@ -43,8 +41,8 @@ type CreateScheduleInput struct {
 	GameID     string
 	Env        string
 	FunctionID string
-	Payload    datatypes.JSON
-	Metadata   datatypes.JSON
+	Payload    JSON
+	Metadata   JSON
 	MaxFailed  int
 	Actor      string
 }

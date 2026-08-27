@@ -17,7 +17,6 @@ import (
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -219,11 +218,11 @@ func TestCheckUpdate_DeltaDownloads(t *testing.T) {
 
 	// v1.0.0 (archived full) with manifest {a,b,c}.
 	v1 := f.seedRelease(t, model.ReleaseStatusDraft, "1.0.0", 0)
-	v1.Manifest = datatypes.JSON(`{"a.lua":{"hash":"h1","size":10},"b.lua":{"hash":"h2","size":20},"c.lua":{"hash":"h3","size":30}}`)
+	v1.Manifest = model.JSON(`{"a.lua":{"hash":"h1","size":10},"b.lua":{"hash":"h2","size":20},"c.lua":{"hash":"h3","size":30}}`)
 	require.NoError(t, f.db.Save(v1).Error)
 	v2 := f.seedRelease(t, model.ReleaseStatusDraft, "2.0.0", 0)
 	// a unchanged, b changed, c removed, d added.
-	v2.Manifest = datatypes.JSON(`{"a.lua":{"hash":"h1","size":10},"b.lua":{"hash":"h2x","size":25},"d.lua":{"hash":"h4","size":40}}`)
+	v2.Manifest = model.JSON(`{"a.lua":{"hash":"h1","size":10},"b.lua":{"hash":"h2x","size":25},"d.lua":{"hash":"h4","size":40}}`)
 	require.NoError(t, f.db.Save(v2).Error)
 
 	for _, rel := range []*model.GameRelease{v1, v2} {

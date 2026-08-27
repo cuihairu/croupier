@@ -6,7 +6,6 @@ import (
 
 	"github.com/cuihairu/croupier/internal/model"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -270,6 +269,6 @@ func buildRuntimeBindings(item *model.ExtensionInstallation) []model.ExtensionRu
 	}
 }
 
-func jsonValue(v string) datatypes.JSON {
-	return datatypes.JSON([]byte(v))
+func jsonValue(v string) model.JSON {
+	return model.JSON([]byte(v))
 }

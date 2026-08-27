@@ -27,7 +27,7 @@ type Hotpatch struct {
 	// Framework: skynet | kbengine | jvm | nodejs | custom
 	Framework string `gorm:"size:32;index"`
 	// TargetSelector: server-id / node-label list (JSON array). Empty = all.
-	TargetSelector datatypes.JSON `gorm:"type:json"`
+	TargetSelector JSON `gorm:"type:json"`
 	// EntrySpec carries adapter parameters (e.g. skynet entry lua file,
 	// jvm classFilter). Framework-white-listed by the adapter; the platform
 	// only stores it.
@@ -50,7 +50,7 @@ type Hotpatch struct {
 	BugID uint `gorm:"index"`
 
 	// Per-agent results recorded as they come back.
-	Results datatypes.JSON `gorm:"type:json"` // [{agentId,node,status,log,at}]
+	Results JSON `gorm:"type:json"` // [{agentId,node,status,log,at}]
 
 	ApprovalID string     `gorm:"size:64"` // two-person rule reference
 	CreatedBy  string     `gorm:"size:64"`

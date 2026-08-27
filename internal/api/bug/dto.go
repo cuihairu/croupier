@@ -6,7 +6,6 @@ import (
 
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
-	"gorm.io/datatypes"
 )
 
 // Bug is the API DTO for one defect.
@@ -151,7 +150,7 @@ func buildBugDTO(bug *model.Bug) Bug {
 	}
 }
 
-func decodeBugLinks(data datatypes.JSON) []model.BugLink {
+func decodeBugLinks(data model.JSON) []model.BugLink {
 	if len(data) == 0 {
 		return nil
 	}

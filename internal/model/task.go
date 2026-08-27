@@ -1,10 +1,8 @@
 package model
 
 import (
-	"time"
-
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"time"
 )
 
 type TaskRun struct {
@@ -17,12 +15,12 @@ type TaskRun struct {
 	Env               string `gorm:"size:64;index"`
 	Status            string `gorm:"size:32;index"`
 	Progress          int32
-	Message           string         `gorm:"size:255"`
-	InputPayload      datatypes.JSON `gorm:"type:json"`
-	ResultPayload     datatypes.JSON `gorm:"type:json"`
-	ErrorMessage      string         `gorm:"type:text"`
-	Actor             string         `gorm:"size:128;index"` // 操作者（admin username）
-	Addr              string         `gorm:"size:255"`       // Agent 服务地址
+	Message           string `gorm:"size:255"`
+	InputPayload      JSON   `gorm:"type:json"`
+	ResultPayload     JSON   `gorm:"type:json"`
+	ErrorMessage      string `gorm:"type:text"`
+	Actor             string `gorm:"size:128;index"` // 操作者（admin username）
+	Addr              string `gorm:"size:255"`       // Agent 服务地址
 	StartedAt         *time.Time
 	FinishedAt        *time.Time
 	CancelRequestedAt *time.Time
@@ -40,9 +38,9 @@ type TaskEvent struct {
 	Seq       int64  `gorm:"index:idx_task_events_task_seq,priority:2"`
 	Type      string `gorm:"size:32;index"`
 	Progress  int32
-	Message   string         `gorm:"size:255"`
-	Payload   datatypes.JSON `gorm:"type:json"`
-	CreatedAt time.Time      `gorm:"index"`
+	Message   string    `gorm:"size:255"`
+	Payload   JSON      `gorm:"type:json"`
+	CreatedAt time.Time `gorm:"index"`
 }
 
 func (TaskEvent) TableName() string {

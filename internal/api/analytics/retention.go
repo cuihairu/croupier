@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/datatypes"
-
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -383,7 +381,7 @@ func parseTime(value string) (time.Time, error) {
 	return time.Time{}, lastErr
 }
 
-func parseRetentionValues(raw datatypes.JSON) []float64 {
+func parseRetentionValues(raw model.JSON) []float64 {
 	if len(raw) == 0 {
 		return []float64{}
 	}

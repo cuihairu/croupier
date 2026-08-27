@@ -132,8 +132,8 @@ func TestProposalService_AcceptAndPublishFreezesBindingContractSnapshot(t *testi
 		Risk:         dbenum.RiskHigh,
 		Permission:   "mail:send",
 		Approval:     datatypes.JSONMap{"required": true, "policyKey": "two_person"},
-		InputSchema:  datatypes.JSON(`{"type":"object"}`),
-		OutputSchema: datatypes.JSON(`{"type":"object"}`),
+		InputSchema:  model.JSON(`{"type":"object"}`),
+		OutputSchema: model.JSON(`{"type":"object"}`),
 	}
 	require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, contract))
 
@@ -266,7 +266,7 @@ func TestProposalService_AcceptProposalRejectsErrorDiagnostics(t *testing.T) {
 		Quality:     "needs_review",
 		Status:      dbenum.ProposalStatusPending,
 		PageSpec:    pageJSON,
-		Diagnostics: datatypes.JSON(`[{"code":"function_disabled","severity":"error","message":"function is disabled"}]`),
+		Diagnostics: model.JSON(`[{"code":"function_disabled","severity":"error","message":"function is disabled"}]`),
 	}
 	err = service.proposalModel.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)

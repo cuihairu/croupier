@@ -8,7 +8,6 @@ import (
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/datatypes"
 )
 
 func TestNormalizeLocalizedText(t *testing.T) {
@@ -136,12 +135,12 @@ func TestSchemaHasFields(t *testing.T) {
 func TestDigestJSON(t *testing.T) {
 	tests := []struct {
 		name  string
-		raw   datatypes.JSON
+		raw   model.JSON
 		empty bool
 	}{
 		{"nil", nil, true},
-		{"empty", datatypes.JSON{}, true},
-		{"valid", datatypes.JSON(`{"key":"value"}`), false},
+		{"empty", model.JSON{}, true},
+		{"valid", model.JSON(`{"key":"value"}`), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

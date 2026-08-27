@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
-
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"strings"
 )
 
 // GameModel 提供游戏数据访问方法
@@ -242,7 +240,7 @@ func (m *GameModel) UpdateEnvsAndBindings(
 	ctx context.Context,
 	gameID string,
 	id uint,
-	envs datatypes.JSON,
+	envs JSON,
 	removeEnvs []string,
 	upsertBindings []GameEnvBinding,
 ) error {

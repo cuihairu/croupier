@@ -13,7 +13,6 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
-	"gorm.io/datatypes"
 )
 
 type Service struct {
@@ -151,7 +150,7 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 		GameID:     scope.GameID,
 		Env:        scope.Env,
 		FunctionID: req.FunctionID,
-		Payload:    datatypes.JSON(req.Payload),
+		Payload:    model.JSON(req.Payload),
 		MaxFailed:  req.MaxFailedRuns,
 		Actor:      actor,
 	})

@@ -17,7 +17,6 @@ import (
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -204,8 +203,8 @@ func TestFunctionDetail_WithPermissions(t *testing.T) {
 	perm := &model.FunctionPermission{
 		FunctionID: "func1",
 		Resource:   "function",
-		Actions:    datatypes.JSON([]byte(`["invoke","read"]`)),
-		Roles:      datatypes.JSON([]byte(`["admin","viewer"]`)),
+		Actions:    model.JSON([]byte(`["invoke","read"]`)),
+		Roles:      model.JSON([]byte(`["admin","viewer"]`)),
 	}
 	require.NoError(t, svcCtx.DB.Create(perm).Error)
 
@@ -526,14 +525,14 @@ func TestFunctionPermissions(t *testing.T) {
 	perm1 := &model.FunctionPermission{
 		FunctionID: "func1",
 		Resource:   "function",
-		Actions:    datatypes.JSON([]byte(`["invoke"]`)),
-		Roles:      datatypes.JSON([]byte(`["admin"]`)),
+		Actions:    model.JSON([]byte(`["invoke"]`)),
+		Roles:      model.JSON([]byte(`["admin"]`)),
 	}
 	perm2 := &model.FunctionPermission{
 		FunctionID: "func1",
 		Resource:   "function_form",
-		Actions:    datatypes.JSON([]byte(`["read","write"]`)),
-		Roles:      datatypes.JSON([]byte(`["viewer","editor"]`)),
+		Actions:    model.JSON([]byte(`["read","write"]`)),
+		Roles:      model.JSON([]byte(`["viewer","editor"]`)),
 	}
 	require.NoError(t, svcCtx.DB.Create(perm1).Error)
 	require.NoError(t, svcCtx.DB.Create(perm2).Error)
@@ -853,8 +852,8 @@ func TestService_FunctionPermissions(t *testing.T) {
 	perm := &model.FunctionPermission{
 		FunctionID: "func1",
 		Resource:   "function",
-		Actions:    datatypes.JSON([]byte(`["invoke"]`)),
-		Roles:      datatypes.JSON([]byte(`["admin"]`)),
+		Actions:    model.JSON([]byte(`["invoke"]`)),
+		Roles:      model.JSON([]byte(`["admin"]`)),
 	}
 	require.NoError(t, svcCtx.DB.Create(perm).Error)
 
@@ -1244,17 +1243,17 @@ func TestParseRolesFromJSON_Additional(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		data     datatypes.JSON
+		data     model.JSON
 		expected []string
 	}{
-		{"empty JSON", datatypes.JSON([]byte{}), []string{}},
-		{"null JSON", datatypes.JSON([]byte("null")), nil},
-		{"empty array", datatypes.JSON([]byte(`[]`)), []string{}},
-		{"single string array", datatypes.JSON([]byte(`["admin"]`)), []string{"admin"}},
-		{"multiple string array", datatypes.JSON([]byte(`["admin","viewer"]`)), []string{"admin", "viewer"}},
-		{"comma-separated string", datatypes.JSON([]byte(`"admin,viewer"`)), []string{"admin", "viewer"}},
-		{"single role string", datatypes.JSON([]byte(`"admin"`)), []string{"admin"}},
-		{"invalid JSON", datatypes.JSON([]byte(`{invalid}`)), []string{}},
+		{"empty JSON", model.JSON([]byte{}), []string{}},
+		{"null JSON", model.JSON([]byte("null")), nil},
+		{"empty array", model.JSON([]byte(`[]`)), []string{}},
+		{"single string array", model.JSON([]byte(`["admin"]`)), []string{"admin"}},
+		{"multiple string array", model.JSON([]byte(`["admin","viewer"]`)), []string{"admin", "viewer"}},
+		{"comma-separated string", model.JSON([]byte(`"admin,viewer"`)), []string{"admin", "viewer"}},
+		{"single role string", model.JSON([]byte(`"admin"`)), []string{"admin"}},
+		{"invalid JSON", model.JSON([]byte(`{invalid}`)), []string{}},
 	}
 
 	for _, tt := range tests {
@@ -1270,16 +1269,16 @@ func TestParseActionsFromJSON_Additional(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		data     datatypes.JSON
+		data     model.JSON
 		expected []string
 	}{
-		{"empty JSON", datatypes.JSON([]byte{}), []string{}},
-		{"null JSON", datatypes.JSON([]byte("null")), nil},
-		{"empty array", datatypes.JSON([]byte(`[]`)), []string{}},
-		{"single action array", datatypes.JSON([]byte(`["read"]`)), []string{"read"}},
-		{"multiple actions array", datatypes.JSON([]byte(`["read","write","execute"]`)), []string{"read", "write", "execute"}},
-		{"comma-separated string", datatypes.JSON([]byte(`"read,write"`)), []string{"read", "write"}},
-		{"invalid JSON", datatypes.JSON([]byte(`{invalid}`)), []string{}},
+		{"empty JSON", model.JSON([]byte{}), []string{}},
+		{"null JSON", model.JSON([]byte("null")), nil},
+		{"empty array", model.JSON([]byte(`[]`)), []string{}},
+		{"single action array", model.JSON([]byte(`["read"]`)), []string{"read"}},
+		{"multiple actions array", model.JSON([]byte(`["read","write","execute"]`)), []string{"read", "write", "execute"}},
+		{"comma-separated string", model.JSON([]byte(`"read,write"`)), []string{"read", "write"}},
+		{"invalid JSON", model.JSON([]byte(`{invalid}`)), []string{}},
 	}
 
 	for _, tt := range tests {
@@ -1472,8 +1471,8 @@ func TestFunctionPermissions_EmptyArrays(t *testing.T) {
 	perm := &model.FunctionPermission{
 		FunctionID: "func1",
 		Resource:   "function",
-		Actions:    datatypes.JSON([]byte(`[]`)),
-		Roles:      datatypes.JSON([]byte(`[]`)),
+		Actions:    model.JSON([]byte(`[]`)),
+		Roles:      model.JSON([]byte(`[]`)),
 	}
 	require.NoError(t, svcCtx.DB.Create(perm).Error)
 
@@ -1530,8 +1529,8 @@ func TestEnforceInvokePermission_AdditionalScenarios(t *testing.T) {
 		GameID:     "game1",
 		Env:        "prod",
 		Resource:   "function",
-		Actions:    datatypes.JSON([]byte(`["invoke"]`)),
-		Roles:      datatypes.JSON([]byte(`["viewer"]`)),
+		Actions:    model.JSON([]byte(`["invoke"]`)),
+		Roles:      model.JSON([]byte(`["viewer"]`)),
 	}).Error)
 
 	svcCtx := &svc.ServiceContext{FunctionModel: functionModel}
@@ -1742,8 +1741,8 @@ func TestFunctionPermissions_MalformedJSON(t *testing.T) {
 	perm := &model.FunctionPermission{
 		FunctionID: "func1",
 		Resource:   "function",
-		Actions:    datatypes.JSON([]byte(`invalid`)),
-		Roles:      datatypes.JSON([]byte(`invalid`)),
+		Actions:    model.JSON([]byte(`invalid`)),
+		Roles:      model.JSON([]byte(`invalid`)),
 	}
 	require.NoError(t, svcCtx.DB.Create(perm).Error)
 
@@ -2026,8 +2025,8 @@ func TestHandlers_AdditionalCoverage(t *testing.T) {
 		perm := &model.FunctionPermission{
 			FunctionID: "func1",
 			Resource:   "function",
-			Actions:    datatypes.JSON([]byte(`["invoke"]`)),
-			Roles:      datatypes.JSON([]byte(`["admin"]`)),
+			Actions:    model.JSON([]byte(`["invoke"]`)),
+			Roles:      model.JSON([]byte(`["admin"]`)),
 		}
 		require.NoError(t, svcCtx.DB.Create(perm).Error)
 

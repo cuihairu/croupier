@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -558,8 +557,8 @@ func TestFunctionPermissions_ListAndReplace(t *testing.T) {
 	require.NoError(t, f.db.WithContext(ctx).Create(&model.FunctionPermission{
 		FunctionID: "perm.fn",
 		Resource:   "function",
-		Roles:      datatypes.JSON(`["viewer"]`),
-		Actions:    datatypes.JSON(`["invoke"]`),
+		Roles:      model.JSON(`["viewer"]`),
+		Actions:    model.JSON(`["invoke"]`),
 	}).Error)
 
 	resp, err := NewService(f.svcCtx).FunctionPermissions(ctx, &FunctionPermissionsRequest{ID: "perm.fn"})

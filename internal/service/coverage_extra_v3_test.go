@@ -109,7 +109,7 @@ func TestInferIdentityFieldV3_WithResourceID(t *testing.T) {
 	contracts := []*model.FunctionContract{
 		{
 			FunctionID: "func1", Capability: dbenum.CapabilityCollectionQuery,
-			OutputSchema: datatypes.JSON(
+			OutputSchema: model.JSON(
 				`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"player_id":{"type":"integer"}}}}}}`),
 		},
 	}
@@ -124,7 +124,7 @@ func TestInferIdentityFieldV3_WithResourceId(t *testing.T) {
 	contracts := []*model.FunctionContract{
 		{
 			FunctionID: "func1", Capability: dbenum.CapabilityCollectionQuery,
-			OutputSchema: datatypes.JSON(
+			OutputSchema: model.JSON(
 				`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"orderId":{"type":"string"}}}}}}`),
 		},
 	}
@@ -138,7 +138,7 @@ func TestInferIdentityFieldV3_NoIDFieldDoesNotGuess(t *testing.T) {
 	contracts := []*model.FunctionContract{
 		{
 			FunctionID: "func1", Capability: dbenum.CapabilityCollectionQuery,
-			OutputSchema: datatypes.JSON(
+			OutputSchema: model.JSON(
 				`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"alpha":{"type":"string"},"beta":{"type":"integer"}}}}}}`),
 		},
 	}
@@ -151,7 +151,7 @@ func TestInferIdentityFieldV3_NoIDFieldDoesNotGuess(t *testing.T) {
 func TestInferIdentityFieldV3_NoCollectionQuery(t *testing.T) {
 	sem := &model.CapabilitySemantics{ResourceKey: "player"}
 	contracts := []*model.FunctionContract{
-		{FunctionID: "func1", OutputSchema: datatypes.JSON(`{"type":"object"}`)},
+		{FunctionID: "func1", OutputSchema: model.JSON(`{"type":"object"}`)},
 	}
 	inferIdentityField(sem, contracts)
 	assert.Empty(t, sem.IdentityField)
@@ -357,8 +357,8 @@ func TestListBlockedIssueDTOsV3_WithIssues(t *testing.T) {
 		ResourceKey:   "player",
 		FunctionID:    "player.ban",
 		Status:        "open",
-		Diagnostics:   datatypes.JSON(`[{"code":"test","severity":"error","message":"test"}]`),
-		SourceDigests: datatypes.JSON(`["digest1"]`),
+		Diagnostics:   model.JSON(`[{"code":"test","severity":"error","message":"test"}]`),
+		SourceDigests: model.JSON(`["digest1"]`),
 		RepairHint:    datatypes.JSONMap{"zh-CN": "请修复"},
 		UpdatedBy:     "system",
 	}))
@@ -495,7 +495,7 @@ func TestInboxV3_WithBlockedIssues(t *testing.T) {
 		ResourceKey: "player",
 		FunctionID:  "player.ban",
 		Status:      "open",
-		Diagnostics: datatypes.JSON(`[{"code":"test","severity":"error","message":"blocked"}]`),
+		Diagnostics: model.JSON(`[{"code":"test","severity":"error","message":"blocked"}]`),
 		UpdatedBy:   "system",
 	}))
 
@@ -618,8 +618,8 @@ func TestBuildBindingContractsV3_WithBindings(t *testing.T) {
 		ResourceKey:  "player",
 		Capability:   dbenum.CapabilityCollectionQuery,
 		Execution:    "sync",
-		InputSchema:  datatypes.JSON(`{"type":"object"}`),
-		OutputSchema: datatypes.JSON(`{"type":"object"}`),
+		InputSchema:  model.JSON(`{"type":"object"}`),
+		OutputSchema: model.JSON(`{"type":"object"}`),
 	}))
 
 	snapshots, err := p.buildBindingContracts(ctx, "g1", "dev", []spec.PageFunctionBinding{
@@ -877,8 +877,8 @@ func TestBlockedIssueDTOFromModelV3(t *testing.T) {
 		ResourceKey:   "player",
 		FunctionID:    "player.ban",
 		Status:        "open",
-		Diagnostics:   datatypes.JSON(`[{"code":"test","severity":"error","message":"blocked"}]`),
-		SourceDigests: datatypes.JSON(`["digest1"]`),
+		Diagnostics:   model.JSON(`[{"code":"test","severity":"error","message":"blocked"}]`),
+		SourceDigests: model.JSON(`["digest1"]`),
 		RepairHint:    datatypes.JSONMap{"zh-CN": "请修复"},
 		UpdatedBy:     "system",
 	}))

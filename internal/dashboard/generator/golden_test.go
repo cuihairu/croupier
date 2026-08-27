@@ -115,8 +115,8 @@ func TestGenerateResourcePageGolden(t *testing.T) {
 		Capability:   dbenum.CapabilityCollectionQuery,
 		Execution:    string(spec.FunctionExecutionSync),
 		Enabled:      true,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"page":{"type":"integer"},"page_size":{"type":"integer"}}}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}},"total":{"type":"integer"}}}`),
+		InputSchema:  model.JSON(`{"type":"object","properties":{"page":{"type":"integer"},"page_size":{"type":"integer"}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}},"total":{"type":"integer"}}}`),
 	}
 	semantics := &model.CapabilitySemantics{
 		ResourceKey:       "player",
@@ -152,13 +152,13 @@ func TestGenerateResourcePageGolden(t *testing.T) {
 
 func TestGenerateResourcePageCRUDGovernance(t *testing.T) {
 	collection := &model.FunctionContract{Model: gormModelWithID(201), FunctionID: "player.list", ResourceKey: "player", Capability: dbenum.CapabilityCollectionQuery, Enabled: true,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`)}
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`)}
 	create := &model.FunctionContract{Model: gormModelWithID(202), FunctionID: "player.create", ResourceKey: "player", Capability: dbenum.CapabilityCreate, Enabled: true,
-		InputSchema: datatypes.JSON(`{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`)}
+		InputSchema: model.JSON(`{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`)}
 	update := &model.FunctionContract{Model: gormModelWithID(203), FunctionID: "player.update", ResourceKey: "player", Capability: dbenum.CapabilityUpdate, Enabled: true,
-		InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id","name"]}`)}
+		InputSchema: model.JSON(`{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id","name"]}`)}
 	deleteContract := &model.FunctionContract{Model: gormModelWithID(204), FunctionID: "player.delete", ResourceKey: "player", Capability: dbenum.CapabilityDelete, Enabled: true, Risk: dbenum.RiskDanger, Permission: "player:delete",
-		Approval: datatypes.JSONMap{"required": true}, InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`)}
+		Approval: datatypes.JSONMap{"required": true}, InputSchema: model.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`)}
 	semantics := &model.CapabilitySemantics{ResourceKey: "player", CollectionQueryID: collection.ID, CreateID: create.ID, UpdateID: update.ID, DeleteID: deleteContract.ID, IdentityField: "id", ItemsFieldName: "items"}
 
 	generated, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection, create, update, deleteContract}, DefaultGenerateOptions())
@@ -183,10 +183,10 @@ func TestGenerateResourcePageCRUDGovernance(t *testing.T) {
 
 func TestGenerateResourcePageDetailSources(t *testing.T) {
 	collection := &model.FunctionContract{Model: gormModelWithID(301), FunctionID: "player.list", ResourceKey: "player", Capability: dbenum.CapabilityCollectionQuery, Enabled: true,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}}}}`)}
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}}}}`)}
 	item := &model.FunctionContract{Model: gormModelWithID(302), FunctionID: "player.get", ResourceKey: "player", Capability: dbenum.CapabilityItemQuery, Enabled: true,
-		InputSchema:  datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"}}}`)}
+		InputSchema:  model.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"}}}`)}
 	semantics := &model.CapabilitySemantics{ResourceKey: "player", CollectionQueryID: collection.ID, ItemQueryID: item.ID, IdentityField: "id", ItemsFieldName: "items"}
 
 	generated, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection, item}, DefaultGenerateOptions())
@@ -207,23 +207,23 @@ func TestGenerateResourcePageDetailSources(t *testing.T) {
 func TestGenerateResourcePageInlineActions(t *testing.T) {
 	collection := &model.FunctionContract{
 		Model: gormModelWithID(401), FunctionID: "player.list", ResourceKey: "player", Capability: dbenum.CapabilityCollectionQuery, Enabled: true,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}}}}}}`),
 	}
 	itemAction := &model.FunctionContract{
 		Model: gormModelWithID(402), FunctionID: "player.ban", ResourceKey: "player", OperationKey: "ban", Capability: dbenum.CapabilityAction, Enabled: true,
-		InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
+		InputSchema: model.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
 	}
 	selectionAction := &model.FunctionContract{
 		Model: gormModelWithID(403), FunctionID: "player.notice", ResourceKey: "player", OperationKey: "notice", Capability: dbenum.CapabilityAction, Enabled: true,
-		InputSchema: datatypes.JSON(`{"type":"object","properties":{"ids":{"type":"array","items":{"type":"string"}}},"required":["ids"]}`),
+		InputSchema: model.JSON(`{"type":"object","properties":{"ids":{"type":"array","items":{"type":"string"}}},"required":["ids"]}`),
 	}
 	toolbarAction := &model.FunctionContract{
 		Model: gormModelWithID(404), FunctionID: "player.refresh", ResourceKey: "player", OperationKey: "refresh", Capability: dbenum.CapabilityAction, Enabled: true,
-		InputSchema: datatypes.JSON(`{"type":"object","properties":{"force":{"type":"boolean"}}}`),
+		InputSchema: model.JSON(`{"type":"object","properties":{"force":{"type":"boolean"}}}`),
 	}
 	semantics := &model.CapabilitySemantics{
 		ResourceKey: "player", CollectionQueryID: collection.ID, IdentityField: "id", ItemsFieldName: "items",
-		Actions: datatypes.JSON(`[
+		Actions: model.JSON(`[
 			{"functionId":"player.ban","subject":"resource_item","identityInput":"/id"},
 			{"functionId":"player.notice","subject":"resource_selection","identityInput":"/ids"},
 			{"functionId":"player.refresh","subject":"none"}
@@ -257,15 +257,15 @@ func TestGenerateResourcePageInlineActions(t *testing.T) {
 func TestGenerateResourcePageUnsafeActionStaysStandalone(t *testing.T) {
 	collection := &model.FunctionContract{
 		Model: gormModelWithID(411), FunctionID: "player.list", ResourceKey: "player", Capability: dbenum.CapabilityCollectionQuery, Enabled: true,
-		OutputSchema: datatypes.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`),
 	}
 	unsafeAction := &model.FunctionContract{
 		Model: gormModelWithID(412), FunctionID: "player.ban", ResourceKey: "player", OperationKey: "ban", Capability: dbenum.CapabilityAction, Enabled: true,
-		InputSchema: datatypes.JSON(`{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string"}},"required":["id","reason"]}`),
+		InputSchema: model.JSON(`{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string"}},"required":["id","reason"]}`),
 	}
 	semantics := &model.CapabilitySemantics{
 		ResourceKey: "player", CollectionQueryID: collection.ID, IdentityField: "id", ItemsFieldName: "items",
-		Actions: datatypes.JSON(`[{"functionId":"player.ban","subject":"resource_item","identityInput":"/id"}]`),
+		Actions: model.JSON(`[{"functionId":"player.ban","subject":"resource_item","identityInput":"/id"}]`),
 	}
 
 	generated, ok := GenerateResourcePageProposal(semantics, []*model.FunctionContract{collection, unsafeAction}, DefaultGenerateOptions())

@@ -10,7 +10,6 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -47,16 +46,16 @@ func TestMetadataHelpers(t *testing.T) {
 func TestParseRolesAndActionsFromJSON(t *testing.T) {
 	t.Parallel()
 
-	if got := parseRolesFromJSON(datatypes.JSON([]byte(`["admin","viewer"]`))); len(got) != 2 {
+	if got := parseRolesFromJSON(model.JSON([]byte(`["admin","viewer"]`))); len(got) != 2 {
 		t.Fatalf("unexpected roles array parse: %#v", got)
 	}
-	if got := parseRolesFromJSON(datatypes.JSON([]byte(`"admin,viewer"`))); len(got) != 2 {
+	if got := parseRolesFromJSON(model.JSON([]byte(`"admin,viewer"`))); len(got) != 2 {
 		t.Fatalf("unexpected roles string parse: %#v", got)
 	}
-	if got := parseActionsFromJSON(datatypes.JSON([]byte(`["read","write"]`))); len(got) != 2 {
+	if got := parseActionsFromJSON(model.JSON([]byte(`["read","write"]`))); len(got) != 2 {
 		t.Fatalf("unexpected actions array parse: %#v", got)
 	}
-	if got := parseActionsFromJSON(datatypes.JSON([]byte(`"read,write"`))); len(got) != 2 {
+	if got := parseActionsFromJSON(model.JSON([]byte(`"read,write"`))); len(got) != 2 {
 		t.Fatalf("unexpected actions string parse: %#v", got)
 	}
 }
@@ -81,8 +80,8 @@ func TestEnforceInvokePermission(t *testing.T) {
 	if err := db.WithContext(ctx).Create(&model.FunctionPermission{
 		FunctionID: "f1",
 		Resource:   "function",
-		Actions:    datatypes.JSON([]byte(`["invoke"]`)),
-		Roles:      datatypes.JSON([]byte(`["viewer"]`)),
+		Actions:    model.JSON([]byte(`["invoke"]`)),
+		Roles:      model.JSON([]byte(`["viewer"]`)),
 	}).Error; err != nil {
 		t.Fatalf("create permission failed: %v", err)
 	}
@@ -570,37 +569,37 @@ func TestRawJSONFromAny(t *testing.T) {
 func TestParseRolesFromJSON(t *testing.T) {
 	tests := []struct {
 		name     string
-		data     datatypes.JSON
+		data     model.JSON
 		expected []string
 	}{
 		{
 			name:     "empty",
-			data:     datatypes.JSON{},
+			data:     model.JSON{},
 			expected: []string{},
 		},
 		{
 			name:     "json array",
-			data:     datatypes.JSON(`["admin","viewer"]`),
+			data:     model.JSON(`["admin","viewer"]`),
 			expected: []string{"admin", "viewer"},
 		},
 		{
 			name:     "comma separated string",
-			data:     datatypes.JSON(`"admin,viewer"`),
+			data:     model.JSON(`"admin,viewer"`),
 			expected: []string{"admin", "viewer"},
 		},
 		{
 			name:     "single string",
-			data:     datatypes.JSON(`"admin"`),
+			data:     model.JSON(`"admin"`),
 			expected: []string{"admin"},
 		},
 		{
 			name:     "empty string",
-			data:     datatypes.JSON(`""`),
+			data:     model.JSON(`""`),
 			expected: []string{},
 		},
 		{
 			name:     "invalid json",
-			data:     datatypes.JSON(`{invalid}`),
+			data:     model.JSON(`{invalid}`),
 			expected: []string{},
 		},
 	}
@@ -616,22 +615,22 @@ func TestParseRolesFromJSON(t *testing.T) {
 func TestParseActionsFromJSON(t *testing.T) {
 	tests := []struct {
 		name     string
-		data     datatypes.JSON
+		data     model.JSON
 		expected []string
 	}{
 		{
 			name:     "empty",
-			data:     datatypes.JSON{},
+			data:     model.JSON{},
 			expected: []string{},
 		},
 		{
 			name:     "json array",
-			data:     datatypes.JSON(`["read","write"]`),
+			data:     model.JSON(`["read","write"]`),
 			expected: []string{"read", "write"},
 		},
 		{
 			name:     "comma separated string",
-			data:     datatypes.JSON(`"read,write"`),
+			data:     model.JSON(`"read,write"`),
 			expected: []string{"read", "write"},
 		},
 	}

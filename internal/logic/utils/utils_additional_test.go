@@ -419,7 +419,7 @@ func TestBuildMessageDTO(t *testing.T) {
 		Type:    "notification",
 		Title:   "Test Message",
 		Content: "This is a test",
-		Data:    datatypes.JSON(`{"key": "value"}`),
+		Data:    model.JSON(`{"key": "value"}`),
 		Status:  dbenum.MessageStatusUnread,
 	}
 
@@ -454,7 +454,7 @@ func TestBuildMessageDTOInvalidData(t *testing.T) {
 		Type:    "notification",
 		Title:   "Test Message",
 		Content: "This is a test",
-		Data:    datatypes.JSON(`invalid json`),
+		Data:    model.JSON(`invalid json`),
 		Status:  dbenum.MessageStatusUnread,
 	}
 

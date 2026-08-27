@@ -17,7 +17,6 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	"gorm.io/datatypes"
 )
 
 type Service struct {
@@ -130,7 +129,7 @@ func (s *Service) UploadArtifact(ctx context.Context, req *UploadArtifactRequest
 		if err := json.Unmarshal(req.Manifest, &probe); err != nil {
 			return nil, errorx.NewBadRequest("manifest 必须是 JSON 对象")
 		}
-		updates["manifest"] = datatypes.JSON(req.Manifest)
+		updates["manifest"] = model.JSON(req.Manifest)
 	}
 	if err := s.svcCtx.ReleaseModel.Update(ctx, rel.ID, updates); err != nil {
 		return nil, err
@@ -295,7 +294,7 @@ func computeDelta(ctx context.Context, m *model.GameReleaseModel, scope model.Ch
 
 // ---- helpers ----
 
-func whitelistHit(data datatypes.JSON, deviceID string) bool {
+func whitelistHit(data model.JSON, deviceID string) bool {
 	if len(data) == 0 {
 		return false
 	}

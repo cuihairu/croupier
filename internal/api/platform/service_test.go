@@ -17,7 +17,6 @@ import (
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -81,12 +80,12 @@ func TestExtractPlatformMethodsFromBindings(t *testing.T) {
 		{
 			BindingType: "provider",
 			BindingKey:  "onepanel",
-			SpecJSON:    datatypes.JSON([]byte(`{"provider":"onepanel","operations":["install_app","list_apps"]}`)),
+			SpecJSON:    model.JSON([]byte(`{"provider":"onepanel","operations":["install_app","list_apps"]}`)),
 		},
 		{
 			BindingType: "openapi",
 			BindingKey:  "helm",
-			SpecJSON:    datatypes.JSON([]byte(`{"name":"helm","operation":"install_chart"}`)),
+			SpecJSON:    model.JSON([]byte(`{"name":"helm","operation":"install_chart"}`)),
 		},
 		{
 			BindingType: "function",
@@ -110,7 +109,7 @@ func TestExtractPlatformMethodsFromBindings_NewProviderNoCoreChange(t *testing.T
 		{
 			BindingType: "provider",
 			BindingKey:  "newvendor",
-			SpecJSON:    datatypes.JSON([]byte(`{"provider":"newvendor","operations":["install","upgrade","uninstall"]}`)),
+			SpecJSON:    model.JSON([]byte(`{"provider":"newvendor","operations":["install","upgrade","uninstall"]}`)),
 		},
 	}
 	got := extractPlatformMethodsFromBindings(bindings)
@@ -373,7 +372,7 @@ func TestExtractPlatformMethodsFromBindings_InvalidJSON(t *testing.T) {
 		{
 			BindingType: "provider",
 			BindingKey:  "test",
-			SpecJSON:    datatypes.JSON([]byte(`{invalid json`)),
+			SpecJSON:    model.JSON([]byte(`{invalid json`)),
 		},
 	}
 	got := extractPlatformMethodsFromBindings(bindings)
@@ -724,7 +723,7 @@ func TestExtractPlatformMethodsFromBindings_EmptySpecJSON(t *testing.T) {
 		{
 			BindingType: "provider",
 			BindingKey:  "test",
-			SpecJSON:    datatypes.JSON([]byte{}),
+			SpecJSON:    model.JSON([]byte{}),
 		},
 	}
 	got := extractPlatformMethodsFromBindings(bindings)
@@ -6167,7 +6166,7 @@ func TestDiscoverExternalPlatforms_WithInstallationDB(t *testing.T) {
 		{
 			BindingType: "provider",
 			BindingKey:  "steam",
-			SpecJSON:    datatypes.JSON([]byte(`{"provider":"steam","operations":["get_player","ban_player"]}`)),
+			SpecJSON:    model.JSON([]byte(`{"provider":"steam","operations":["get_player","ban_player"]}`)),
 			Status:      "active",
 		},
 		{

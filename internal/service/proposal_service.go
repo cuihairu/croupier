@@ -17,7 +17,6 @@ import (
 	"github.com/cuihairu/croupier/internal/dbenum"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -1251,7 +1250,7 @@ func (s *ProposalService) buildBindingContracts(ctx context.Context, gameID, env
 	return out, nil
 }
 
-func digestJSON(raw datatypes.JSON) string {
+func digestJSON(raw model.JSON) string {
 	if len(raw) == 0 {
 		return ""
 	}

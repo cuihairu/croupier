@@ -60,24 +60,24 @@ type FunctionInstance struct {
 // FunctionPermission stores per-function permission mapping.
 type FunctionPermission struct {
 	gorm.Model
-	FunctionID string         `gorm:"size:64;index"`
-	GameID     string         `gorm:"size:64;index"`
-	Env        string         `gorm:"size:64;index"`
-	Resource   string         `gorm:"size:64"`
-	Actions    datatypes.JSON `gorm:"type:json"`
-	Roles      datatypes.JSON `gorm:"type:json"`
+	FunctionID string `gorm:"size:64;index"`
+	GameID     string `gorm:"size:64;index"`
+	Env        string `gorm:"size:64;index"`
+	Resource   string `gorm:"size:64"`
+	Actions    JSON   `gorm:"type:json"`
+	Roles      JSON   `gorm:"type:json"`
 }
 
 // FunctionPolicy stores per-function security policy (can override default risk-based policy).
 // Source: 'default' = auto-generated from risk level, 'manual' = manually configured.
 type FunctionPolicy struct {
 	gorm.Model
-	FunctionID       string         `gorm:"size:64;uniqueIndex"`
-	RequireApproval  bool           `gorm:"default:false"`
-	ApprovalWorkflow string         `gorm:"size:100"`
-	RequireAudit     bool           `gorm:"default:false"`
-	AllowedRoles     datatypes.JSON `gorm:"type:json"`                // JSON array of role names
-	Source           string         `gorm:"size:50;default:'manual'"` // 'default' or 'manual'
+	FunctionID       string `gorm:"size:64;uniqueIndex"`
+	RequireApproval  bool   `gorm:"default:false"`
+	ApprovalWorkflow string `gorm:"size:100"`
+	RequireAudit     bool   `gorm:"default:false"`
+	AllowedRoles     JSON   `gorm:"type:json"`                // JSON array of role names
+	Source           string `gorm:"size:50;default:'manual'"` // 'default' or 'manual'
 }
 
 // PendingFunction stores functions awaiting approval.
