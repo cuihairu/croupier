@@ -344,8 +344,12 @@ func TestReplaceAll_MultiOccurrence(t *testing.T) {
 
 func TestValidateEmailAddress_Injection(t *testing.T) {
 	// 合法地址。
-	require.NoError(t, validateEmailAddress("user@example.com"))
-	require.NoError(t, validateEmailAddress("a.b+c@sub.example.com"))
+	got, err := validateEmailAddress("user@example.com")
+	require.NoError(t, err)
+	assert.Equal(t, "user@example.com", got)
+	got, err = validateEmailAddress("a.b+c@sub.example.com")
+	require.NoError(t, err)
+	assert.Equal(t, "a.b+c@sub.example.com", got)
 
 	// SMTP 命令注入尝试：CR/LF/空格/列表分隔符一律拒绝。
 	for _, bad := range []string{
@@ -357,7 +361,8 @@ func TestValidateEmailAddress_Injection(t *testing.T) {
 		"@example.com",
 		"user@",
 	} {
-		require.Error(t, validateEmailAddress(bad), bad)
+		_, err := validateEmailAddress(bad)
+		require.Error(t, err, bad)
 	}
 }
 

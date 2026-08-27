@@ -373,13 +373,17 @@ func (e *EmailSender) Send(ctx context.Context, recipient string, event Notifica
 	if e.smtpHost == "" {
 		return nil
 	}
-	if err := validateEmailAddress(recipient); err != nil {
+	// 使用解析后的规范地址作为收件人：validate 返回的是
+	// mail.ParseAddress 产出的新字符串，原始请求输入不再直接
+	// 进入 SMTP 命令（注入防线 + 污点截断）。
+	canonical, err := validateEmailAddress(recipient)
+	if err != nil {
 		return err
 	}
 
 	msg := &emailMessage{
 		From:    e.fromAddress,
-		To:      recipient,
+		To:      canonical,
 		Subject: event.Title,
 		Body:    buildEmailBody(event),
 	}
@@ -446,10 +450,11 @@ func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) er
 	}
 	// 邮件注入防线：RCPT 前校验收件人不含 CR/LF 等控制字符，
 	// 防止恶意收件人字符串操纵 SMTP 命令序列。
-	if err := validateEmailAddress(msg.To); err != nil {
+	rcpt, err := validateEmailAddress(msg.To)
+	if err != nil {
 		return err
 	}
-	if err := client.Rcpt(msg.To); err != nil {
+	if err := client.Rcpt(rcpt); err != nil {
 		return fmt.Errorf("smtp RCPT TO: %w", err)
 	}
 
@@ -760,25 +765,26 @@ func findSubstring(s, substr string) int {
 	return -1
 }
 
-// validateEmailAddress 阻止 SMTP 命令注入：地址不得含 CR/LF/空格等
-// 控制字符与分隔符（email-injection 防线），并要求 user@domain 基本形态。
-func validateEmailAddress(addr string) error {
+// validateEmailAddress 阻止 SMTP 命令注入：返回 mail.ParseAddress 解析
+// 出的规范地址（拒绝 Display Name 形态与控制字符），调用方必须使用该
+// 返回值而非原始输入。
+func validateEmailAddress(addr string) (string, error) {
 	if addr == "" {
-		return fmt.Errorf("email recipient is required")
+		return "", fmt.Errorf("email recipient is required")
 	}
-	// net/mail.ParseAddress 是 CodeQL email-injection 认可的 sanitizer：
-	// 拒绝含 CR/LF 等控制字符的地址，阻断 SMTP 命令注入。
+	// net/mail.ParseAddress 拒绝含 CR/LF 等控制字符的地址，阻断 SMTP
+	// 命令注入；其解析输出是独立的规范字符串。
 	parsed, err := mail.ParseAddress(addr)
 	if err != nil {
-		return fmt.Errorf("invalid email recipient: %w", err)
+		return "", fmt.Errorf("invalid email recipient: %w", err)
 	}
 	// 只接受裸地址，不允许 "Display Name <addr>" 形态——
 	// 显示名可能含注入载荷（如 Name <real@x>\r\nRCPT TO:<evil>）。
 	if parsed.Address != addr {
-		return fmt.Errorf("invalid email recipient: display name not allowed")
+		return "", fmt.Errorf("invalid email recipient: display name not allowed")
 	}
 	if strings.ContainsAny(addr, "\r\n \t;,") {
-		return fmt.Errorf("invalid email recipient: control characters rejected")
+		return "", fmt.Errorf("invalid email recipient: control characters rejected")
 	}
-	return nil
+	return parsed.Address, nil
 }
