@@ -119,10 +119,12 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 			// sp_getapplock: session-scoped exclusive application lock on
 			// the bound connection. Return codes: 0 = granted, 1 = granted
 			// after wait; <0 = timeout/cancel/error. LockTimeout 0 →
-			// immediate, -1 when held elsewhere.
+			// immediate, -1 when held elsewhere. The resource name is a
+			// compile-time constant — inlined because go-mssqldb does not
+			// rewrite '?' placeholders inside multi-statement batches.
 			var code sql.NullInt32
-			query := "DECLARE @r int; EXEC @r = sp_getapplock @Resource = ?, @LockMode = 'Exclusive', @LockOwner = 'Session', @LockTimeout = 0; SELECT @r"
-			if err := conn.QueryRowContext(ctx, query, sqlServerMigrationLockName).Scan(&code); err != nil {
+			query := fmt.Sprintf("DECLARE @r int; EXEC @r = sp_getapplock @Resource = N'%s', @LockMode = 'Exclusive', @LockOwner = 'Session', @LockTimeout = 0; SELECT @r", sqlServerMigrationLockName)
+			if err := conn.QueryRowContext(ctx, query).Scan(&code); err != nil {
 				return false, err
 			}
 			return code.Valid && code.Int32 >= 0, nil
@@ -160,7 +162,8 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 			query := fmt.Sprintf("SELECT pg_advisory_unlock(%d, %d)", pgAdvisoryLockKey1, pgAdvisoryLockKey2)
 			_, _ = conn.ExecContext(context.Background(), query)
 		case "sqlserver":
-			_, _ = conn.ExecContext(context.Background(), "EXEC sp_releaseapplock @Resource = ?, @LockOwner = 'Session'", sqlServerMigrationLockName)
+			query := fmt.Sprintf("EXEC sp_releaseapplock @Resource = N'%s', @LockOwner = 'Session'", sqlServerMigrationLockName)
+			_, _ = conn.ExecContext(context.Background(), query)
 		}
 		conn.Close()
 	}

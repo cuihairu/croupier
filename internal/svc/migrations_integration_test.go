@@ -92,13 +92,22 @@ func runMigrationMatrixCase(t *testing.T, dialect, adminDSN string) {
 		t.Fatalf("create throwaway database: %v", err)
 	}
 	t.Cleanup(func() {
-		drop := map[string]string{
-			"mysql":     fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName),
-			"postgres":  fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName),
-			"sqlserver": fmt.Sprintf("IF DB_ID('%s') IS NOT NULL ALTER DATABASE [%s] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE IF EXISTS [%s]", dbName, dbName, dbName),
-		}[dialect]
-		if err := admin.Exec(drop).Error; err != nil {
-			t.Logf("cleanup drop database: %v", err)
+		switch dialect {
+		case "mysql":
+			if err := admin.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName)).Error; err != nil {
+				t.Logf("cleanup drop database: %v", err)
+			}
+		case "postgres":
+			if err := admin.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName)).Error; err != nil {
+				t.Logf("cleanup drop database: %v", err)
+			}
+		case "sqlserver":
+			// 先踢掉目标库上的残留连接（SINGLE_USER + ROLLBACK IMMEDIATE），
+			// 再删库；两步分开执行，中间不留批次语义歧义。
+			_ = admin.Exec(fmt.Sprintf("IF DB_ID('%s') IS NOT NULL ALTER DATABASE [%s] SET SINGLE_USER WITH ROLLBACK IMMEDIATE", dbName, dbName)).Error
+			if err := admin.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS [%s]", dbName)).Error; err != nil {
+				t.Logf("cleanup drop database: %v", err)
+			}
 		}
 	})
 
