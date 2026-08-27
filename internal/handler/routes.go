@@ -94,7 +94,9 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	// 通知服务：依赖 Layered（渠道配置）与消息模型（站内信）。
 	serverCtx.NotifyService = notify.New(settings.Current(), serverCtx.MessageModel)
 	settingsapi.RegisterPublic(v1.Group("/public"), siteSettingsHandler)
-	siteSettingsHandler.RegisterAdmin(protected.Group("/site"))
+	// RegisterAdmin 路径已带 /site 前缀（PUT/DELETE /site/:key、GET /site/features 等），
+	// 这里必须挂根组；挂 "/site" 会变成 /api/v1/site/site/... 全线 404。
+	siteSettingsHandler.RegisterAdmin(protected.Group("/"))
 
 	// Scope-dependent 路由：需要 X-Game-ID/X-Env 的接口。
 	// GameDBMiddleware 仅挂在此组，解析 scope 并注入 context。
