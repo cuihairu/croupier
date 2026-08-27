@@ -213,10 +213,10 @@ func mergeMaskedConfig(oldJSON, newJSON string) string {
 			}
 		}
 	}
-	// DSN 内嵌密码脱敏占位同样沿用
+	// DSN 内嵌密码脱敏占位：用旧 DSN 的凭据段（user:pass@）替换新 DSN 同段
 	if s, ok := newCfg["dsn"].(string); ok && strings.Contains(s, ":******@") {
 		if oldDSN, exists := oldCfg["dsn"].(string); exists {
-			newCfg["dsn"] = oldDSN
+			newCfg["dsn"] = restoreDSNPassword(oldDSN, s)
 		}
 	}
 	out, err := json.Marshal(newCfg)
@@ -224,6 +224,21 @@ func mergeMaskedConfig(oldJSON, newJSON string) string {
 		return oldJSON
 	}
 	return string(out)
+}
+
+// restoreDSNPassword 把 newDSN 中 "user:******@" 的密码段替换回 oldDSN
+// 的凭据段（user:pass@）。任一 DSN 形态不符则回退 oldDSN。
+func restoreDSNPassword(oldDSN, newDSN string) string {
+	oldAt := strings.Index(oldDSN, "@")
+	newAt := strings.Index(newDSN, "@")
+	if oldAt < 0 || newAt < 0 {
+		return oldDSN
+	}
+	oldCred := oldDSN[:oldAt+1]
+	if !strings.Contains(oldCred, ":") {
+		return oldDSN
+	}
+	return oldCred + newDSN[newAt+1:]
 }
 
 func toBindingDTO(b *model.ConfigSourceBinding) BindingDTO {

@@ -84,9 +84,11 @@ const (
 	EventOpenAPISourceBindingDelete AuditEventType = "openapi_source.binding_delete"
 
 	// Configuration events
-	EventConfigCreate AuditEventType = "config.create"
-	EventConfigUpdate AuditEventType = "config.update"
-	EventConfigDelete AuditEventType = "config.delete"
+	EventConfigCreate        AuditEventType = "config.create"
+	EventConfigUpdate        AuditEventType = "config.update"
+	EventConfigDelete        AuditEventType = "config.delete"
+	EventConfigEmergencyEdit AuditEventType = "config.emergency_edit"
+	EventConfigSourceChange  AuditEventType = "config.source_change"
 
 	// Data events
 	EventDataAccess AuditEventType = "data.access"
@@ -503,7 +505,8 @@ func (s *AuditService) inferCategory(eventType AuditEventType) AuditCategory {
 		eventType == EventPageUnpublish || eventType == EventPageRollback || eventType == EventPageExecute ||
 		eventType == EventOpenAPISourceCreate || eventType == EventOpenAPISourceBindingCreate ||
 		eventType == EventOpenAPISourceUpdate || eventType == EventOpenAPISourceBindingDelete ||
-		eventType == EventConfigUpdate:
+		eventType == EventConfigUpdate || eventType == EventConfigEmergencyEdit ||
+		eventType == EventConfigSourceChange:
 		return CategoryOperational
 	case eventType == EventDataAccess || eventType == EventDataExport || eventType == EventDataDelete:
 		return CategoryData

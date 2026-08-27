@@ -57,6 +57,7 @@ export default {
   'menu.SystemConfig.SystemFoundation.SiteSettings': '网站配置',
   'menu.Dev.ExcelConfig': '表格配置',
   'menu.Dev.Configs': '业务配置',
+  'menu.Dev.ConfigExplorer': '配置浏览',
   'menu.SystemConfig.SystemFoundation.Terms': '术语字典',
   'menu.Ops.Certificates': '证书监控',
   'menu.Ops.Notifications': '事件通知',

@@ -313,6 +313,14 @@ export default [
         component: './Operations/Configs',
       },
       {
+        // 在线配置浏览器：只读浏览各配置中心（git/redis/nacos/db/croupier）
+        // + 可写源应急编辑。平台不参与各项目配置流程。
+        path: '/dev/config-explorer',
+        name: 'ConfigExplorer',
+        access: 'canDevRead',
+        component: './Dev/ConfigExplorer',
+      },
+      {
         path: '/dev/hotpatches',
         name: 'Hotpatches',
         access: 'canDevManage',

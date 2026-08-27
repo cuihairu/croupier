@@ -23,6 +23,7 @@ export default {
   'menu.SystemConfig.SystemFoundation.SiteSettings': 'Site Settings',
   'menu.Dev.ExcelConfig': 'Excel Config',
   'menu.Dev.Configs': 'Game Configs',
+  'menu.Dev.ConfigExplorer': 'Config Explorer',
   'menu.SystemConfig.SystemFoundation.Terms': 'Terminology',
   'menu.SystemConfig.GameEnvironments': 'Game Environments',
   'menu.FunctionsAndPages': 'Functions & Pages',

@@ -203,6 +203,7 @@ func GameModels() []interface{} {
 		&DBSource{},
 		&PlatformSetting{},
 		&ConfigVersion{},
+		&ConfigSourceBinding{},
 	}
 }
 

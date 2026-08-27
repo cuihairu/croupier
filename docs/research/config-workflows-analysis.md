@@ -8,6 +8,13 @@ title: 配置工作流全景分析——项目组流程分类与平台适配模�
 
 Proposed（分析稿）。前置文档：[配置热更新](./config-hot-reload-design.md)（通道与下发）、[Excel 在线配置](./excel-online-design.md)（双源版本模型）。
 
+> **落地注记（2026-08）**：本文 §5 的「在线查看」侧已实现为 `/dev/config-explorer` 配置浏览器
+> （`internal/platform/configsource` + `internal/api/configexplorer`）：
+> 五种数据源适配器（git 只读 / redis 可写 / nacos 可写 / db 只读 / croupier 可写），
+> 目录树懒加载 + 按格式渲染（xlsx 表格 / json·yaml·lua·python Monaco 高亮 / csv 表格），
+> 可写源应急编辑（reason 必填 + 审计 `config.emergency_edit`，写回配置中心本身）。
+> 平台不参与各项目配置流程；source/delivery 全量适配器与 `configWorkflow` 绑定模型仍按 §7 阶段推进。
+
 ## 1. 问题与立场
 
 **平台不定义项目组的配置流程。** 不同项目组的既有工作流不同：

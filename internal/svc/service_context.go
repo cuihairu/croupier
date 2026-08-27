@@ -27,6 +27,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	alertrule "github.com/cuihairu/croupier/internal/platform/alertrule"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
+	"github.com/cuihairu/croupier/internal/platform/configsource"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -107,10 +108,11 @@ type ServiceContext struct {
 	// Scheduler 是 cron 定时任务调度循环（StartScheduler 启动）。
 	Scheduler *scheduler.Manager
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
-	Cluster            *ClusterRuntime
-	CertificateModel   *model.CertificateModel
-	ConfigVersionModel *model.ConfigVersionModel
-	TaskScheduleModel  *model.TaskScheduleModel
+	Cluster                  *ClusterRuntime
+	CertificateModel         *model.CertificateModel
+	ConfigVersionModel       *model.ConfigVersionModel
+	ConfigSourceBindingModel *model.ConfigSourceBindingModel
+	TaskScheduleModel        *model.TaskScheduleModel
 
 	// Page Spec models
 	PageSpecModel             *model.PageSpecModel
@@ -205,6 +207,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	messageModel := model.NewMessageModel(db)
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
+	configSourceBindingModel := model.NewConfigSourceBindingModel(db)
+	// 配置浏览器的 croupier 数据源适配器复用共享 ConfigVersionModel
+	configsource.SetCroupierVersionModel(configVersionModel)
 	taskScheduleModel := model.NewTaskScheduleModel(db)
 
 	// game_envs is the authoritative scope and routing registry. Older
@@ -335,6 +340,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		NotifyService:             nil, // handler 装配时注入（依赖 Layered）
 		CertificateModel:          certificateModel,
 		ConfigVersionModel:        configVersionModel,
+		ConfigSourceBindingModel:  configSourceBindingModel,
 		TaskScheduleModel:         taskScheduleModel,
 		PageSpecModel:             pageSpecModel,
 		PublishedPageSpecModel:    publishedPageSpecModel,
