@@ -98,16 +98,19 @@ services:
     networks:
       - croupier-network
 
-  server:
+  # HA 双实例：server/server2 共享配置（cluster 成员表 + owner 转发，
+  # 见 docs/architecture/server-ha-multi-instance.md）。agent 的 mTLS 出站
+  # 连接单实例断线重连即可漂移；dashboard nginx 按请求分流两实例。
+  # server_data named volume 双实例共享（assignments/上传文件跨实例可见）。
+  x-server-common: &server-common
     image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-server:${CROUPIER_SERVER_TAG:-main}
-    container_name: croupier-server
     restart: unless-stopped
     volumes:
       - ./configs/server.yaml:/app/configs/server.yaml:ro
       # assignments.json / 历史与上传文件落在容器可写层，up -d 重建即丢；
-      # 挂 named volume 使启用状态跨部署持久化。
+      # 挂 named volume 使启用状态跨部署持久化（双实例共享同一卷）。
       - server_data:/app/data
-    environment:
+    environment: &server-env
       DATABASE_URL: ${DATABASE_URL:-postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://clickhouse:9000/analytics?dial_timeout=5s&compress=true}
@@ -124,9 +127,6 @@ services:
       CROUPIER_JAEGER_URL: ${CROUPIER_JAEGER_URL:-http://croupier-jaeger:16686}
       CROUPIER_GRAFANA_EXPLORE_URL: ${CROUPIER_GRAFANA_EXPLORE_URL:-}
     command: ["server", "--config", "/app/configs/server.yaml"]
-    ports:
-      - "${SERVER_TLS_PORT:-8443}:8443"
-      - "${SERVER_HTTP_PORT:-18780}:18780"
     depends_on:
       postgres:
         condition: service_healthy
@@ -134,7 +134,7 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
-    healthcheck:
+    healthcheck: &server-healthcheck
       test:
         [
           "CMD-SHELL",
@@ -147,20 +147,31 @@ services:
     networks:
       - croupier-network
 
-  agent:
-    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-agent:${CROUPIER_AGENT_TAG:-main}
-    container_name: croupier-agent
-    restart: unless-stopped
-    volumes:
-      - ./configs/agent.yaml:/app/configs/agent.yaml:ro
-    command: ["agent", "--config", "/app/configs/agent.yaml"]
+  server:
+    <<: *server-common
+    container_name: croupier-server
+    # 宿主端口只由 server-1 发布（双实例不能绑同一宿主端口）；
+    # 集群内互联走容器名，宿主直连（调试）走 server-1。
     ports:
-      - "${AGENT_GRPC_PORT:-19090}:19090"
-      - "${AGENT_HTTP_PORT:-19091}:19091"
+      - "${SERVER_TLS_PORT:-8443}:8443"
+      - "${SERVER_HTTP_PORT:-18780}:18780"
+
+  server2:
+    <<: *server-common
+    container_name: croupier-server2
+
+  # HA 双实例 agent：agent → server、agent2 → server2（configs/agent*.yaml
+  # 分别指定上游地址与 Agent ID）。宿主端口只由实例 1 发布。
+  x-agent-common: &agent-common
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-agent:${CROUPIER_AGENT_TAG:-main}
+    restart: unless-stopped
+    command: ["agent", "--config", "/app/configs/agent.yaml"]
     depends_on:
       server:
         condition: service_healthy
-    healthcheck:
+      server2:
+        condition: service_healthy
+    healthcheck: &agent-healthcheck
       # busybox applets 在 agent 镜像中位于 /usr/local/bin（distroless 的
       # /bin 对 nonroot 不可写）；TCP listener 绑定 0.0.0.0 后 localhost 可达。
       test: ["CMD", "/usr/local/bin/busybox", "nc", "-z", "127.0.0.1", "19091"]
@@ -171,6 +182,21 @@ services:
     networks:
       - croupier-network
 
+  agent:
+    <<: *agent-common
+    container_name: croupier-agent
+    volumes:
+      - ./configs/agent.yaml:/app/configs/agent.yaml:ro
+    ports:
+      - "${AGENT_GRPC_PORT:-19090}:19090"
+      - "${AGENT_HTTP_PORT:-19091}:19091"
+
+  agent2:
+    <<: *agent-common
+    container_name: croupier-agent-2
+    volumes:
+      - ./configs/agent2.yaml:/app/configs/agent.yaml:ro
+
   dashboard:
     image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-dashboard:${CROUPIER_DASHBOARD_TAG:-main}
     container_name: croupier-dashboard
@@ -179,6 +205,8 @@ services:
       - "${DASHBOARD_PORT:-8000}:80"
     depends_on:
       server:
+        condition: service_healthy
+      server2:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1"]

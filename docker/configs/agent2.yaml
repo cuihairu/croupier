@@ -1,0 +1,49 @@
+# Docker deployment override for croupier-agent (instance 2).
+# HA 双实例部署：agent → server、agent2 → server2，分别归属不同
+# Server 实例；实例故障断连后重连漂移由部署层处理（重启对端容器）。
+# Agent ID 与 httpAddr 必须与实例 1 区分（注册与回调寻址冲突）。
+name: croupier-agent-2
+host: 0.0.0.0
+port: 19091
+
+server:
+  addr: "server2:19090"
+  insecure: true
+  serverName: ""
+  insecureSkipVerify: false
+
+agent:
+  id: "croupier-docker-agent-2"
+  gameId: "default"
+  env: "dev"
+  localAddr: "0.0.0.0:19091"
+  httpAddr: "agent2:19091"
+  labels: {}
+
+upstream:
+  heartbeatInterval: 30
+  retryInterval: 5
+  maxRetries: 3
+  timeout: 10000
+
+tls:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  insecureSkipVerify: false
+
+outboundTLS:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: false
+
+# Ops module configuration
+# Controls system metrics collection and reporting
+ops:
+  enabled: true
+  metrics_interval: 30s
+  metrics_enabled: true

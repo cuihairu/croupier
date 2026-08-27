@@ -109,6 +109,15 @@ docker-compose up -d server
 docker-compose build [service_name]
 ```
 
+## HA 双实例拓扑（docker-compose.deploy.yml）
+
+deploy 编排按 HA 多实例架构（`docs/architecture/server-ha-multi-instance.md`）部署：
+
+- **server / server2**：双 Server 实例（YAML anchor 共享配置，`server_data` 卷共享）；集群成员表 + owner 转发自动协同，任一实例故障另一实例接管调用
+- **agent / agent2**：双 Agent 实例分别固定连 server / server2（`configs/agent.yaml` 与 `configs/agent2.yaml` 指定不同上游地址与 Agent ID）
+- **dashboard nginx**：API 按请求哈希分流到 `croupier-server` / `croupier-server2:18780`（resolver 运行时解析，实例重建换 IP 不会 502；SSE 已关缓冲）
+- 宿主端口只由每组的实例 1 发布（server: 8443/18780，agent: 19090/19091）；实例 2 仅集群内可达
+
 ## 开发建议
 
 - 只需要数据库时，可先单独拉起 `postgres`、`redis`、`clickhouse`
